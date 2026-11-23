@@ -1,0 +1,135 @@
+/* Templates round 23: one journal post, more posts, then the free planting calendar. */
+{
+  "sections": {
+    "main": {
+      "type": "main-article",
+      "settings": {
+        "padding_top": 48,
+        "section_width": "container",
+        "padding_bottom": 30,
+        "author_margin_left": -140,
+        "author_margin_right": 0,
+        "content_width_desktop": 1100
+      },
+      "name": "Main Blog Article",
+      "blocks": {
+        "category_8bHVa7": {
+          "type": "category",
+          "settings": {
+            "enable_custom_style": false,
+            "category_border_radius": 36
+          }
+        },
+        "title_8UcLB3": {
+          "type": "title",
+          "settings": {
+            "blog_title_font_size": 38
+          }
+        },
+        "featured_image_ne7Ufj": {
+          "type": "featured_image",
+          "settings": {
+            "image_height": "medium",
+            "featured_image_top_padding": 12,
+            "featured_image_border_radius": 7,
+            "featured_image_bottom_padding": 10
+          }
+        },
+        "blog_meta_Gdcegm": {
+          "type": "blog_meta",
+          "settings": {
+            "enable_custom_style": false,
+            "blog_meta_border_radius": 29
+          }
+        },
+        "content_article_nGLPt4": {
+          "type": "content_article",
+          "settings": {}
+        },
+        "author_highlight_n4CqbT": {
+          "type": "author_highlight",
+          "settings": {
+            "author_text": "Liked this? The Small Space Food Garden goes through the whole season, one week at a time.",
+            "author_image_size": 65
+          }
+        }
+      },
+      "block_order": [
+        "category_8bHVa7",
+        "title_8UcLB3",
+        "featured_image_ne7Ufj",
+        "blog_meta_Gdcegm",
+        "content_article_nGLPt4",
+        "author_highlight_n4CqbT"
+      ]
+    },
+    "posts": {
+      "type": "blog-posts",
+      "settings": {
+        "reveal": false,
+        "heading": "More articles",
+        "autoplay": false,
+        "infinite": false,
+        "show_date": true,
+        "column_gap": 30,
+        "description": "",
+        "image_ratio": "custom",
+        "padding_top": 24,
+        "show_author": true,
+        "color_scheme": "",
+        "custom_ratio": "16:9",
+        "vertical_gap": 30,
+        "items_per_row": 3,
+        "items_to_show": 3,
+        "section_width": "fluid_container",
+        "show_view_all": true,
+        "padding_bottom": 56,
+        "autorotate_speed": 5,
+        "content_alignment": "left",
+        "heading_font_size": 24,
+        "carousel_pagination": "disable",
+        "enable_custom_style": false,
+        "items_per_row_mobile": 1
+      }
+    },
+    "chapter": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "image": "shopify://shop_images/vslfunnel-seedlings.webp",
+        "image_alt": "Seedlings coming up in a tray of soil blocks",
+        "image_position": "left",
+        "image_ratio": "landscape",
+        "image_width": 50,
+        "form_layout": "horizontal",
+        "btn_text": "Send me the calendar",
+        "email_placeholder": "Your email",
+        "note": "One email a month at most. Leave whenever you like.",
+        "success_text": "Done. The calendar is on its way to your inbox."
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Get the planting calendar free"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>The calendar from module one as a PDF: what to sow and plant each week, worked out from your last frost date.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    }
+  },
+  "order": [
+    "main",
+    "posts",
+    "chapter"
+  ]
+}

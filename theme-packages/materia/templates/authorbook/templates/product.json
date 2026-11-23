@@ -1,6 +1,25 @@
-/* Templates round 22: a money book for your twenties by Maya Okafor, built from the theme's own sections (product hero, quote, image with text, text columns, product grid, testimonial wall, newsletter with image, FAQ, banner); Libre Baskerville and Helvetica. */
+/* Templates round 23: the Hold the Room ebook page: rating, title, price, editions, instant download and refund rows, buy buttons, a free sample chapter, what you get, questions and payment marks, then a look inside, reader quotes and the other products. */
 {
   "sections": {
+    "breadcrumb": {
+      "type": "breadcrumb",
+      "settings": {
+        "alignment": "left",
+        "font_size": 14,
+        "next_prev": true,
+        "separator": "dot",
+        "uppercase": false,
+        "color_scheme": "default",
+        "reset_spacing": true,
+        "section_width": "container",
+        "next_prev_icon": "chevron",
+        "padding_top_mobile": 9,
+        "padding_top_desktop": 26,
+        "enable_custom_padding": true,
+        "padding_bottom_mobile": 9,
+        "padding_bottom_desktop": 20
+      }
+    },
     "main": {
       "type": "main-product",
       "settings": {
@@ -40,26 +59,43 @@
         "enable_sticky_content_on_desktop": true
       },
       "blocks": {
-        "title_1": {
+        "product_reviews_1": {
+          "type": "product_reviews",
+          "settings": {
+            "review_source": "product",
+            "review_label": "reviews",
+            "padding_top": 0,
+            "padding_bottom": 10,
+            "enable_counter_custom": false
+          }
+        },
+        "title_2": {
           "type": "title",
           "settings": {
             "show_vendor": false,
-            "title_font_size_desktop": 40,
-            "title_font_size_mobile": 30
+            "title_font_size_desktop": 44,
+            "title_font_size_mobile": 32
           }
         },
-        "price_1": {
+        "text_3": {
+          "type": "text",
+          "settings": {
+            "heading": "",
+            "content": "<p>A practical playbook for talks, pitches and presentations, by Owen Kessler.</p>"
+          }
+        },
+        "price_4": {
           "type": "price",
           "settings": {
             "price_font_size_desktop": 28,
             "price_font_size_mobile": 24,
             "price_font_weight": "700",
             "compare_font_size_desktop": 18,
-            "compare_font_size_mobile": 14,
+            "compare_font_size_mobile": 15,
             "compare_font_weight": "400"
           }
         },
-        "variant_picker_1": {
+        "variant_picker_5": {
           "type": "variant_picker",
           "settings": {
             "variant_type": "swatches",
@@ -67,12 +103,57 @@
             "picker_swatch_style": "theme"
           }
         },
-        "buy_buttons_1": {
+        "infotables_6": {
+          "type": "infotables",
+          "settings": {
+            "max_width": 760,
+            "center_card": false,
+            "section_pt_d": 6,
+            "section_pb_d": 18,
+            "section_pt_m": 6,
+            "section_pb_m": 16,
+            "pt_d": 14,
+            "pb_d": 14,
+            "pl_d": 18,
+            "pr_d": 18,
+            "pt_m": 12,
+            "pb_m": 12,
+            "pl_m": 14,
+            "pr_m": 14,
+            "font_size_d": 15,
+            "font_size_m": 14,
+            "line_height": 150,
+            "font_weight": 400,
+            "icon_gap": 14,
+            "icon_size": 20,
+            "border_style": "solid",
+            "divider_style": "solid",
+            "enable_custom_style": false,
+            "row1_enable": true,
+            "row2_enable": false,
+            "row3_enable": true,
+            "row1_highlight_weight": 600,
+            "row3_highlight_weight": 600,
+            "row1_custom_icon": true,
+            "row1_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 4v11m0 0-4-4m4 4 4-4M5 19h14\"/></svg>",
+            "row2_custom_icon": false,
+            "row3_custom_icon": true,
+            "row3_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 12a8 8 0 1 0 2.4-5.7L4 8.5M4 4v4.5h4.5\"/></svg>",
+            "row1_lead": "Instant download:",
+            "row1_strong": "PDF and EPUB by email right after you pay.",
+            "row2_lead": "",
+            "row2_code": "",
+            "row2_tail": "",
+            "row3_lead": "30 day refund:",
+            "row3_strong": "email us and get your money back."
+          }
+        },
+        "buy_buttons_7": {
           "type": "buy_buttons",
           "settings": {
             "show_add_to_cart": true,
             "show_dynamic_checkout": true,
-            "show_quantity": true,
+            "show_quantity": false,
             "buttons_full_width": true,
             "quantity_right_of_atc": false,
             "show_wishlist_button": false,
@@ -84,41 +165,28 @@
             "show_gift_card_recipient": false
           }
         },
-        "vertical_benefits_1": {
-          "type": "vertical_benefits",
+        "link_button_8": {
+          "type": "link_button",
           "settings": {
-            "vb_pt": 14,
-            "vb_pb": 18,
-            "vb_mt": 0,
-            "vb_mb": 0,
-            "vb_item_space": 10,
-            "vb_maxw": 100,
-            "vb_pl": 0,
-            "vb_pr": 0,
-            "vb_text_size_d": 14,
-            "vb_text_size_m": 14,
-            "vb_icon_gap": 12,
-            "vb_icon_gap_m": 10,
-            "vb_icon_size": 26,
-            "vb_icon_size_m": 26,
-            "vb_text_color": "",
-            "vb_bg": "",
-            "vb_icon_color": "#f0643a",
-            "item1_title": "Download straight after paying",
-            "item1_icon_library": "check",
-            "item1_use_image": false,
-            "item1_image_size": 50,
-            "item2_title": "PDF and EPUB, any device",
-            "item2_icon_library": "check",
-            "item2_use_image": false,
-            "item2_image_size": 50,
-            "item3_title": "30 day refund",
-            "item3_icon_library": "check",
-            "item3_use_image": false,
-            "item3_image_size": 50
+            "label": "Download a free sample chapter",
+            "link": "/pages/newsletter",
+            "style": "text",
+            "icon": "none",
+            "full_width": false,
+            "spacing_top": 4,
+            "spacing_bottom": 12
           }
         },
-        "collapsible_row_1": {
+        "whats_included_9": {
+          "type": "whats_included",
+          "settings": {
+            "heading": "What you get",
+            "items": "Fourteen chapters, 212 pages, PDF and EPUB\n31 exercises to try on real talks\nSix talk outlines to copy\nNotes for video calls in every chapter",
+            "two_columns": false,
+            "boxed": true
+          }
+        },
+        "collapsible_row_10": {
           "type": "collapsible_row",
           "settings": {
             "heading": "About the book",
@@ -127,25 +195,34 @@
             "open": true
           }
         },
-        "collapsible_row_2": {
+        "collapsible_row_11": {
           "type": "collapsible_row",
           "settings": {
-            "heading": "Formats",
-            "content": "<p>Paperback, ebook as PDF and EPUB, or the audiobook: seven hours of MP3 files read by Maya, chapter by chapter.</p>",
+            "heading": "Editions",
+            "content": "<p><strong>Ebook:</strong> PDF and EPUB. <strong>Ebook and audiobook:</strong> adds five and a half hours of MP3 files read by Owen. <strong>Complete set:</strong> adds the printable talk planner workbook.</p>",
             "use_product_description": false,
             "open": false
           }
         },
-        "collapsible_row_3": {
-          "type": "collapsible_row",
+        "faq_accordion_12": {
+          "type": "faq_accordion",
           "settings": {
-            "heading": "Delivery and refunds",
-            "content": "<p>Paperbacks ship within two working days. Ebooks and audiobooks arrive by email straight after payment. Return or refund within 30 days.</p>",
-            "use_product_description": false,
-            "open": false
+            "heading": "Questions",
+            "use_product_faqs": false,
+            "first_open": false,
+            "q_1": "Is this an ebook or a printed book?",
+            "a_1": "<p>An ebook. You get a PDF and an EPUB file by email straight after you pay, and you can read them on any phone, tablet, computer or e-reader.</p>",
+            "q_2": "I have a talk next week. Will this help in time?",
+            "a_2": "<p>Yes. Start with chapters two and five. They take about an hour together and give you an outline and a plan for your nerves.</p>",
+            "q_3": "Does it cover video calls and online talks?",
+            "a_3": "<p>Yes. Every chapter has notes for presenting on a call, and chapter eleven is about online talks and webinars.</p>",
+            "q_4": "What if it is not for me?",
+            "a_4": "<p>Email within 30 days and you get your money back. No questions asked.</p>",
+            "spacing_top": 12,
+            "spacing_bottom": 12
           }
         },
-        "payment_badges_1": {
+        "payment_badges_13": {
           "type": "payment_badges",
           "settings": {
             "h_main": "",
@@ -177,7 +254,7 @@
             "sub_newtab": false,
             "text_align": "left",
             "h_main_size": 16,
-            "show_paypal": false,
+            "show_paypal": true,
             "sub_uline_w": 1,
             "badges_align": "auto",
             "h_main_color": "#2c2c2c",
@@ -189,200 +266,153 @@
             "show_google_pay": true,
             "show_mastercard": true
           }
-        },
-        "collapsible_row_4": {
-          "type": "collapsible_row",
-          "settings": {
-            "heading": "Questions",
-            "content": "<p>Buying for a team, a class or a book club? <a href=\"/pages/contact\">Write to me</a> for a group price.</p>",
-            "use_product_description": false,
-            "open": false
-          }
-        },
-        "short_1": {
-          "type": "short_description",
-          "settings": {
-            "custom_text": "",
-            "excerpt_length": 180
-          }
-        },
-        "guarantee_1": {
-          "type": "guarantee_row",
-          "settings": {
-            "style": "boxed",
-            "columns_mobile": "3",
-            "icon_1": "download",
-            "title_1": "Ships in two days",
-            "text_1": "Ebook by email at once",
-            "icon_2": "lock",
-            "title_2": "Secure checkout",
-            "text_2": "Card or wallet",
-            "icon_3": "heart",
-            "title_3": "30 day returns",
-            "text_3": "On every edition",
-            "title_4": "",
-            "text_4": ""
-          }
-        },
-        "included_1": {
-          "type": "whats_included",
-          "settings": {
-            "heading": "In the book",
-            "items": "Twelve short chapters, 256 pages\nThe one page money map\nA debt plan and a savings ladder\nNotes for the UK, Canada and Australia",
-            "two_columns": false,
-            "boxed": true
-          }
         }
       },
       "block_order": [
-        "title_1",
-        "price_1",
-        "short_1",
-        "variant_picker_1",
-        "buy_buttons_1",
-        "guarantee_1",
-        "included_1",
-        "collapsible_row_1",
-        "collapsible_row_2",
-        "collapsible_row_3",
-        "collapsible_row_4",
-        "payment_badges_1"
+        "product_reviews_1",
+        "title_2",
+        "text_3",
+        "price_4",
+        "variant_picker_5",
+        "infotables_6",
+        "buy_buttons_7",
+        "link_button_8",
+        "whats_included_9",
+        "collapsible_row_10",
+        "collapsible_row_11",
+        "faq_accordion_12",
+        "payment_badges_13"
       ]
     },
     "inside": {
-      "type": "text-columns",
-      "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "columns_desktop": 3,
-        "show_dividers": true,
-        "content_alignment": "left"
-      },
-      "blocks": {
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "text": "What is inside"
-          }
-        },
-        "subheading_2": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p>Twelve short chapters. Each ends with one thing to do that week, so you finish the book with a plan you are already using.</p>"
-          }
-        },
-        "column_3": {
-          "type": "column",
-          "settings": {
-            "label": "Chapter 1",
-            "heading": "Where it all goes",
-            "text": "<p>One month of tracking, without judging a single coffee.</p>"
-          }
-        },
-        "column_4": {
-          "type": "column",
-          "settings": {
-            "label": "Chapter 2",
-            "heading": "The money map",
-            "text": "<p>One page with your pay, your bills and what is left. You will use it every month.</p>"
-          }
-        },
-        "column_5": {
-          "type": "column",
-          "settings": {
-            "label": "Chapter 3",
-            "heading": "A budget with fun in it",
-            "text": "<p>Spending money you do not have to feel bad about, set on purpose.</p>"
-          }
-        },
-        "column_6": {
-          "type": "column",
-          "settings": {
-            "label": "Chapter 5",
-            "heading": "Out of the overdraft",
-            "text": "<p>A plan for cards, buy now pay later and student loans, smallest first.</p>"
-          }
-        },
-        "column_7": {
-          "type": "column",
-          "settings": {
-            "label": "Chapter 7",
-            "heading": "One month in the bank",
-            "text": "<p>A first emergency fund, built in small automatic steps.</p>"
-          }
-        },
-        "column_8": {
-          "type": "column",
-          "settings": {
-            "label": "Chapter 9",
-            "heading": "Investing, the boring way",
-            "text": "<p>Index funds, retirement accounts and why boring wins.</p>"
-          }
-        }
-      },
-      "block_order": [
-        "heading_1",
-        "subheading_2",
-        "column_3",
-        "column_4",
-        "column_5",
-        "column_6",
-        "column_7",
-        "column_8"
-      ]
-    },
-    "reviews": {
-      "type": "testimonial-wall",
+      "type": "Image-and-video-text",
       "settings": {
         "color_scheme": "default",
-        "columns": 3,
-        "card_style": "plain",
-        "text_align": "left",
-        "collapse": "mobile"
+        "section_width": "container",
+        "image_position": "left",
+        "text_column_width": 46,
+        "image": "shopify://shop_images/authorbook-spread-slides.webp",
+        "image_alt": "Two open pages from chapter seven, Slides that help",
+        "aspect_w": 16,
+        "aspect_h": 11,
+        "image_fit": "cover",
+        "image_radius": 0,
+        "gap_desktop": 72,
+        "padding_top_desktop": 88,
+        "padding_bottom_desktop": 88
       },
       "blocks": {
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
+            "text": "Look inside"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Short chapters, one method each"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Every chapter is a method you can use on your next talk, with an exercise at the end. Read it in a weekend, or one chapter the night before you present.</p>"
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "Read chapter two free",
+            "link": "/pages/newsletter",
+            "button_style": "secondary"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
+    },
+    "reviews": {
+      "type": "testimonials",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "enable_custom_colors": true,
+        "card_bg": "#ffffff",
+        "card_border_color": "#e6dccb",
+        "section_width": "container",
+        "display_mode": "grid",
+        "show_quote_mark": false,
+        "show_rating": true,
+        "columns": 3,
+        "column_gap": 24,
+        "header_alignment": "left",
+        "card_style": "outline",
+        "card_align": "left",
+        "card_padding": 28,
+        "card_radius": 0,
+        "avatar_shape": "circle",
+        "avatar_size": 48,
+        "show_arrow": false,
+        "carousel_pagination": "disable",
+        "columns_mobile": 1
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "enabled": false,
             "text": "Readers"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "What readers say"
+            "enabled": true,
+            "text": "What early readers say",
+            "enable_custom_typography": true,
+            "font_size_desktop": 36,
+            "font_weight": "700"
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Sample reviews to show the layout. Replace them with real reader reviews.</p>"
+            "enabled": true,
+            "text": "<p>Sample reviews to show the layout. Replace them with your own readers' words.</p>"
           }
         },
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "body": "The first money book I finished. Chapter two took an hour and I still use the map every payday.",
-            "name": "Sample reader",
-            "role": "Nurse, 26",
-            "rating": 5
+            "quote": "<p>I read chapter two on the train and rewrote my quarterly update before I got to the office. It was the first one where nobody checked their phone.</p>",
+            "rating": 5,
+            "name": "Priya N.",
+            "role": "Product manager",
+            "avatar": "shopify://shop_images/authorbook-reader-1.webp"
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "body": "No shame, no lectures, just what to do on Monday. I paid off my card in seven months.",
-            "name": "Sample reader",
-            "role": "Barista and student, 23",
-            "rating": 5
+            "quote": "<p>Short, practical and honest. The ninety second reset is now the thing I do before every client pitch.</p>",
+            "rating": 5,
+            "name": "Daniel A.",
+            "role": "Founder, design studio",
+            "avatar": "shopify://shop_images/authorbook-reader-2.webp"
           }
         },
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "body": "I bought it for my sister and read it first. The fun money chapter changed how we both budget.",
-            "name": "Sample reader",
-            "role": "Teacher, 29",
-            "rating": 5
+            "quote": "<p>I teach for a living and still picked up a lot. The chapter on questions made me stop dreading the end of a talk.</p>",
+            "rating": 5,
+            "name": "Lena M.",
+            "role": "Secondary school teacher",
+            "avatar": "shopify://shop_images/authorbook-reader-3.webp"
           }
         }
       },
@@ -395,80 +425,13 @@
         "testimonial_6"
       ]
     },
-    "faq": {
-      "type": "faq-pro",
-      "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "first_item_open": true,
-        "content_alignment": "left",
-        "max_content_width": 820
-      },
-      "blocks": {
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "text": "Questions"
-          }
-        },
-        "subheading_2": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p>Something else? <a href=\"/pages/contact\">Write to me</a>.</p>"
-          }
-        },
-        "faq_item_3": {
-          "type": "faq_item",
-          "settings": {
-            "question": "Is this book for me if I am already in debt?",
-            "answer": "<p>Yes. Chapter five is a plan for cards, buy now pay later and student loans, and it starts wherever you are.</p>"
-          }
-        },
-        "faq_item_4": {
-          "type": "faq_item",
-          "settings": {
-            "question": "Is this financial advice?",
-            "answer": "<p>It is general teaching from my own experience and training, not personal financial advice. For your exact situation, talk to a licensed adviser.</p>"
-          }
-        },
-        "faq_item_5": {
-          "type": "faq_item",
-          "settings": {
-            "question": "Does it work outside the US?",
-            "answer": "<p>The habits work anywhere. The account names in chapter nine are American, with notes for the UK, Canada and Australia.</p>"
-          }
-        },
-        "faq_item_6": {
-          "type": "faq_item",
-          "settings": {
-            "question": "Which edition should I get?",
-            "answer": "<p>The paperback if you like writing in margins, the audiobook for commutes, and the set if you want the workbook too.</p>"
-          }
-        },
-        "faq_item_7": {
-          "type": "faq_item",
-          "settings": {
-            "question": "When will my paperback arrive?",
-            "answer": "<p>It ships within two working days. The ebook and audiobook arrive by email straight after checkout.</p>"
-          }
-        }
-      },
-      "block_order": [
-        "heading_1",
-        "subheading_2",
-        "faq_item_3",
-        "faq_item_4",
-        "faq_item_5",
-        "faq_item_6",
-        "faq_item_7"
-      ]
-    },
     "related": {
       "type": "related-products",
       "settings": {
         "color_scheme": "default",
         "section_width": "container",
         "reset_spacing": true,
-        "heading": "Other editions",
+        "heading": "Also from Owen",
         "description": "",
         "header_size": "small",
         "header_alignment": "left",
@@ -491,10 +454,10 @@
     }
   },
   "order": [
+    "breadcrumb",
     "main",
     "inside",
     "reviews",
-    "faq",
     "related"
   ]
 }

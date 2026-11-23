@@ -1,0 +1,141 @@
+/* Templates round 23: Smallplot contact page: a form, how to reach us, and the questions people ask most. */
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "height": "adapt",
+        "alignment": "left",
+        "padding_top": 72,
+        "padding_bottom": 24,
+        "color_scheme": "default",
+        "reset_spacing": true,
+        "section_width": "container",
+        "overlay_opacity": 0
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "",
+            "header_size": "medium",
+            "heading_font_size": 44
+          }
+        }
+      },
+      "block_order": [
+        "heading_1"
+      ]
+    },
+    "form": {
+      "type": "contactformsimple2",
+      "settings": {
+        "color_scheme": "default",
+        "btn_text": "Send message",
+        "ph_website": "A question about the course, your space or a group class",
+        "label_website": "Subject",
+        "success_text": "Thank you. Maren or Tom reads every message and replies within two working days."
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Write to us"
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "text": "<p>Questions about the course, your space, a refund or a class for your community garden. Every message is read by a person.</p>"
+          }
+        },
+        "info_3": {
+          "type": "info",
+          "settings": {
+            "icon": "mail",
+            "line1": "hello@example.com",
+            "line2": "Replies within two working days"
+          }
+        },
+        "info_4": {
+          "type": "info",
+          "settings": {
+            "icon": "map",
+            "line1": "Rather talk it through?",
+            "line2": "Book a free 15 minute call"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_2",
+        "info_3",
+        "info_4"
+      ]
+    },
+    "faq": {
+      "type": "faq-pro",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "first_item_open": true,
+        "content_alignment": "left",
+        "max_content_width": 820
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Before you write"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>The answer may already be here.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How much space do I need?",
+            "answer": "<p>A spot with four or more hours of direct sun. A balcony of two square metres is enough for the whole course.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "When does the next class start?",
+            "answer": "<p>The spring class starts 2 March. You can join before then and start with module one straight away.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if I miss a live call?",
+            "answer": "<p>Every call is recorded and added to the course the same day.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if it is not for me?",
+            "answer": "<p>Email us within 30 days of joining and you get a full refund.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6"
+      ]
+    }
+  },
+  "order": [
+    "heading",
+    "form",
+    "faq"
+  ]
+}

@@ -1,0 +1,167 @@
+/* Templates round 23: Smallplot book a call: a short line, the booking form, what happens on the call and a way to write instead. */
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "height": "adapt",
+        "alignment": "center",
+        "padding_top": 72,
+        "padding_bottom": 8,
+        "color_scheme": "default",
+        "reset_spacing": true,
+        "section_width": "container",
+        "overlay_opacity": 0
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "Book a 15 minute call",
+            "header_size": "medium",
+            "heading_font_size": 44
+          }
+        }
+      },
+      "block_order": [
+        "heading_1"
+      ]
+    },
+    "form": {
+      "type": "journey-storelib-form",
+      "settings": {
+        "form": "",
+        "heading": "",
+        "text": "<p>Tell Maren about your space and what you want to grow, and she tells you whether the course fits. Pick a time and you get the video link by email.</p>",
+        "text_align": "center",
+        "color_scheme": "default",
+        "max_width": 760,
+        "padding_top_desktop": 0,
+        "padding_bottom_desktop": 48,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 32
+      }
+    },
+    "on-the-call": {
+      "type": "image-with-text-steps",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "image_position": "left",
+        "column_valign": "center",
+        "image_width_pct": 44,
+        "gap_desktop": 72,
+        "text_gap": 18,
+        "image": "shopify://shop_images/vslfunnel-balcony.webp",
+        "image_alt": "A small balcony with a table, pots of herbs and a trough of salad",
+        "image_aspect_desktop": "1 / 1",
+        "image_radius": 12,
+        "step_style": "numbered",
+        "marker_size": 36,
+        "custom_colors": true,
+        "marker_color": "#1f5130",
+        "marker_text_color": "#ffffff",
+        "line_color": "#cfd8c9",
+        "step_title_color": "#16211a",
+        "step_desc_color": "#4b5249",
+        "step_title_size": 19,
+        "step_desc_size": 16,
+        "padding_top": 88,
+        "padding_bottom": 88,
+        "image_aspect": "1 / 1",
+        "gap_mobile": 28
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "On the call"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Fifteen minutes, no pitch",
+            "tag": "h2",
+            "weight": "700",
+            "size_desktop": 36,
+            "size_mobile": 28
+          }
+        },
+        "step_3": {
+          "type": "step",
+          "settings": {
+            "title": "Show your space",
+            "description": "<p>Hold your phone up to the balcony, patio or yard, or send two photos before the call.</p>"
+          }
+        },
+        "step_4": {
+          "type": "step",
+          "settings": {
+            "title": "Talk about the first year",
+            "description": "<p>What gets the sun, what you want to eat, and the three or four crops to start with.</p>"
+          }
+        },
+        "step_5": {
+          "type": "step",
+          "settings": {
+            "title": "Decide",
+            "description": "<p>If the course fits, Maren says so. If it does not, she tells you what would help instead.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "step_3",
+        "step_4",
+        "step_5"
+      ]
+    },
+    "write": {
+      "type": "banner3",
+      "settings": {
+        "color_scheme": "default",
+        "banner_surface": "section",
+        "max_width": 640,
+        "pad_top_desktop": 80,
+        "pad_bottom_desktop": 88,
+        "reveal": false
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Rather write to us?",
+            "transform": "none",
+            "lineheight": "1.25"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "Questions about the course reach the same inbox, and we reply within two working days."
+          }
+        },
+        "button_3": {
+          "type": "button",
+          "settings": {
+            "label": "Send a message",
+            "link": "/pages/contact"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "button_3"
+      ]
+    }
+  },
+  "order": [
+    "heading",
+    "form",
+    "on-the-call",
+    "write"
+  ]
+}

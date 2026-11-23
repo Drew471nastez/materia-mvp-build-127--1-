@@ -1,0 +1,188 @@
+/* Templates round 23: Northpaper's contact page: a form that a person reads, and the common questions under it. */
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "height": "adapt",
+        "alignment": "left",
+        "padding_top": 72,
+        "padding_bottom": 24,
+        "color_scheme": "default",
+        "reset_spacing": true,
+        "section_width": "container",
+        "overlay_opacity": 0
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "",
+            "header_size": "medium",
+            "heading_font_size": 44
+          }
+        }
+      },
+      "block_order": [
+        "heading_1"
+      ]
+    },
+    "form": {
+      "type": "contactformsimple2",
+      "settings": {
+        "color_scheme": "default",
+        "btn_text": "Send message",
+        "ph_website": "A question about Offer Board, a refund or a student discount",
+        "label_website": "Subject",
+        "success_text": "Thank you. We read every message and reply within two working days."
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Write to us"
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "text": "<p>Questions about Offer Board, a refund, a student discount or a template you wish existed. A person reads every message.</p>"
+          }
+        },
+        "info_3": {
+          "type": "info",
+          "settings": {
+            "icon": "mail",
+            "line1": "hello@example.com",
+            "line2": "Replies within two working days"
+          }
+        },
+        "info_4": {
+          "type": "info",
+          "settings": {
+            "icon": "map",
+            "line1": "Looking for an answer now?",
+            "line2": "Most questions are on the questions page"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_2",
+        "info_3",
+        "info_4"
+      ]
+    },
+    "faq": {
+      "type": "faq-tabs",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "full_width",
+        "structured_data": true,
+        "open_first": false,
+        "allow_multiple_open": false,
+        "header_align": "center",
+        "section_max_width_desktop": 760,
+        "section_max_width_tablet": 700,
+        "section_max_width_mobile": 560,
+        "item_padding_y": 20,
+        "enable_custom_style": true,
+        "tabs_track_bg": "#ecebe8",
+        "tab_active_bg": "#ffffff",
+        "tab_active_color": "#191918",
+        "tab_inactive_color": "#6f6e69",
+        "divider_color": "#e0dfda",
+        "q_color": "#191918",
+        "plus_color": "#9b9a96",
+        "a_color": "#55534e",
+        "tab_size": 14,
+        "tab_weight": "600",
+        "q_size": 17,
+        "q_weight": "600",
+        "a_size": 15,
+        "padding_top_desktop": 72,
+        "padding_bottom_desktop": 80,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 32,
+        "tab_1_label": "",
+        "tab_2_label": "",
+        "tab_3_label": "",
+        "tab_4_label": "",
+        "tab_5_label": ""
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Before you write",
+            "tag": "h2",
+            "size_enable": true,
+            "size_desktop": 40,
+            "size_mobile": 28
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>The answer may already be here.</p>",
+            "max_width": 560
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "What is Offer Board?",
+            "answer": "<p>A Notion template for running a job search. It keeps the roles you save, the companies, the people you talk to, your interview stories and any offers in one workspace, linked to each other.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "Do I need a paid Notion plan?",
+            "answer": "<p>No. Offer Board works on Notion's free plan, on the web, the desktop app and the phone app.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "How do I get it after I pay?",
+            "answer": "<p>The receipt page and the email both have a link. Open it while signed in to Notion and press Duplicate, and the whole template is copied into your workspace.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "I have never used Notion. Will I manage?",
+            "answer": "<p>Yes. The Instructions page has a 12 minute walkthrough and five steps to follow. Most people are adding roles within the first half hour.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "Can I change it?",
+            "answer": "<p>Every page, property and view is yours to edit. Rename the stages, add a column for visa sponsorship, delete the pages you do not need.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7"
+      ]
+    }
+  },
+  "order": [
+    "heading",
+    "form",
+    "faq"
+  ]
+}

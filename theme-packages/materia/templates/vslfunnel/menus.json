@@ -1,0 +1,61 @@
+{
+  "main-menu": {
+    "title": "Main menu",
+    "links": [
+      {
+        "title": "The course",
+        "url": "/#curriculum"
+      },
+      {
+        "title": "Teacher",
+        "url": "/pages/about"
+      },
+      {
+        "title": "Book a call",
+        "url": "/pages/book-a-call"
+      },
+      {
+        "title": "Journal",
+        "url": "/blogs/news"
+      },
+      {
+        "title": "Questions",
+        "url": "/pages/faqs"
+      }
+    ]
+  },
+  "footer-course": {
+    "title": "The course",
+    "links": [
+      {
+        "title": "Join the spring class",
+        "url": "/collections/all"
+      },
+      {
+        "title": "Book a call",
+        "url": "/pages/book-a-call"
+      },
+      {
+        "title": "Questions",
+        "url": "/pages/faqs"
+      }
+    ]
+  },
+  "footer": {
+    "title": "Smallplot",
+    "links": [
+      {
+        "title": "About Maren",
+        "url": "/pages/about"
+      },
+      {
+        "title": "Journal",
+        "url": "/blogs/news"
+      },
+      {
+        "title": "Contact",
+        "url": "/pages/contact"
+      }
+    ]
+  }
+}

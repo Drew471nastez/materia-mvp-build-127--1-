@@ -96,6 +96,26 @@ export function auditSite(imported: ImportedTemplate, template: string, empty: b
   }
   built.site.blog = blog
   built.site.shop = { ...built.site.shop, email: "hello@example.com", policies: SAMPLE_POLICIES }
+  /*
+    A shop that sells abroad, as Settings › Markets and languages makes one:
+    a few countries with their currencies and a few languages, so a
+    template's country and language selectors are drawn in the previews and
+    the audits (they show only when there is more than one to choose from).
+  */
+  built.site.i18n = {
+    locale: "en",
+    defaultLanguage: "en",
+    languages: ["en", "fr", "de", "es"],
+    country: { code: "US", name: "United States", currency: "USD" },
+    countries: [
+      { code: "US", name: "United States", currency: "USD" },
+      { code: "GB", name: "United Kingdom", currency: "GBP" },
+      { code: "CA", name: "Canada", currency: "CAD" },
+      { code: "AU", name: "Australia", currency: "AUD" },
+      { code: "DE", name: "Germany", currency: "EUR" },
+      { code: "FR", name: "France", currency: "EUR" },
+    ],
+  }
   return built
 }
 

@@ -50,6 +50,14 @@ export interface HubOverview {
     /** False for an older Express account, where Stripe's own form still adds the bank. */
     inStorelib: boolean
   } | null
+  /**
+   * The account already there, for setup's country step (lib/payments/stripe/account-country):
+   * its country, whether it can still change (nothing sent on it), and whether
+   * the seller chose it (null when only the cached row was read).
+   */
+  setupCountry?: { country: string | null; changeable: boolean; chosen: boolean | null }
+  /** Only on POST start with `session: true`: the Account Session for Stripe's form, made beside the overview. */
+  session?: { purpose: "stripe_onboarding"; clientSecret: string; publishableKey: string; stripeSignIn: boolean; expiresAt: number | null }
   /** The Stripe platform's country (ISO), when known: setup uses it to say which countries can be paid out before anything is opened. */
   platformCountry?: string | null
   /** Storelib's payments status, read from the Stripe account. Absent on other providers. */

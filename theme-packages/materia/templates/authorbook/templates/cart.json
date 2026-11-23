@@ -1,3 +1,4 @@
+/* Templates round 23: Hold the Room cart. */
 {
   "sections": {
     "heading": {
@@ -56,22 +57,22 @@
         "faq_1": {
           "type": "faq",
           "settings": {
-            "question": "When does my book arrive?",
-            "answer": "<p>Paperbacks ship within two working days. Ebooks and audiobooks arrive by email at once.</p>"
+            "question": "When do I get the ebook?",
+            "answer": "<p>Straight after you pay. The PDF and EPUB arrive by email, and the download link works for a year.</p>"
           }
         },
         "faq_2": {
           "type": "faq",
           "settings": {
-            "question": "Can I return it?",
+            "question": "Can I get a refund?",
             "answer": "<p>Yes, within 30 days, for any edition.</p>"
           }
         },
         "faq_3": {
           "type": "faq",
           "settings": {
-            "question": "Buying for a group?",
-            "answer": "<p>Write to me from the contact page for a group price.</p>"
+            "question": "Buying for a team?",
+            "answer": "<p>The team licence covers up to ten people. For more, write to us from the contact page.</p>"
           }
         },
         "payment_badges_67Mgyc": {
@@ -81,7 +82,7 @@
             "show_visa": true,
             "show_amazon": false,
             "show_klarna": false,
-            "show_paypal": false,
+            "show_paypal": true,
             "show_discover": false,
             "show_apple_pay": true,
             "show_google_pay": true,

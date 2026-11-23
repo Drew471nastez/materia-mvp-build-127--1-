@@ -1,4 +1,4 @@
-/* Templates round 22: a money book for your twenties by Maya Okafor, built from the theme's own sections (product hero, quote, image with text, text columns, product grid, testimonial wall, newsletter with image, FAQ, banner); Libre Baskerville and Helvetica. */
+/* Templates round 23: questions about the ebook, its editions and refunds, the editions and a last call to buy. */
 {
   "sections": {
     "faq": {
@@ -19,42 +19,49 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Something else? <a href=\"/pages/contact\">Write to me</a>.</p>"
+            "text": "<p>Something else? <a href=\"/pages/contact\">Write to us</a>.</p>"
           }
         },
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
-            "question": "Is this book for me if I am already in debt?",
-            "answer": "<p>Yes. Chapter five is a plan for cards, buy now pay later and student loans, and it starts wherever you are.</p>"
+            "question": "Is this an ebook or a printed book?",
+            "answer": "<p>An ebook. You get a PDF and an EPUB file by email straight after you pay, and you can read them on any phone, tablet, computer or e-reader.</p>"
           }
         },
         "faq_item_4": {
           "type": "faq_item",
           "settings": {
-            "question": "Is this financial advice?",
-            "answer": "<p>It is general teaching from my own experience and training, not personal financial advice. For your exact situation, talk to a licensed adviser.</p>"
+            "question": "What is the difference between the editions?",
+            "answer": "<p>The ebook is the book. Ebook and audiobook adds the full audio, read by Owen. The complete set adds the printable talk planner workbook as well.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "Does it work outside the US?",
-            "answer": "<p>The habits work anywhere. The account names in chapter nine are American, with notes for the UK, Canada and Australia.</p>"
+            "question": "I have a talk next week. Will this help in time?",
+            "answer": "<p>Yes. Start with chapters two and five. They take about an hour together and give you an outline and a plan for your nerves.</p>"
           }
         },
         "faq_item_6": {
           "type": "faq_item",
           "settings": {
-            "question": "Which edition should I get?",
-            "answer": "<p>The paperback if you like writing in margins, the audiobook for commutes, and the set if you want the workbook too.</p>"
+            "question": "Does it cover video calls and online talks?",
+            "answer": "<p>Yes. Every chapter has notes for presenting on a call, and chapter eleven is about online talks and webinars.</p>"
           }
         },
         "faq_item_7": {
           "type": "faq_item",
           "settings": {
-            "question": "When will my paperback arrive?",
-            "answer": "<p>It ships within two working days. The ebook and audiobook arrive by email straight after checkout.</p>"
+            "question": "Can I buy copies for my team?",
+            "answer": "<p>Yes. The team licence covers up to ten people with one invoice. For a bigger group, <a href=\"/pages/contact\">write to us</a>.</p>"
+          }
+        },
+        "faq_item_8": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if it is not for me?",
+            "answer": "<p>Email within 30 days and you get your money back. No questions asked.</p>"
           }
         }
       },
@@ -65,15 +72,16 @@
         "faq_item_4",
         "faq_item_5",
         "faq_item_6",
-        "faq_item_7"
+        "faq_item_7",
+        "faq_item_8"
       ]
     },
     "editions": {
       "type": "products-grid",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca",
         "heading": "Get the book",
-        "text": "<p>Paperback, ebook or audiobook, and a workbook to go with it.</p>",
+        "text": "<p>The ebook, the audiobook, the workbook and a licence for your team.</p>",
         "items_to_show": 4,
         "items_per_row": 4,
         "show_add_to_cart": true,
@@ -85,7 +93,7 @@
     "cta": {
       "type": "banner3",
       "settings": {
-        "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636",
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
         "banner_surface": "section",
         "max_width": 720,
         "pad_top_desktop": 88,
@@ -95,28 +103,28 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "Not Broke Anymore",
+            "text": "Hold the Room",
             "transform": "uppercase"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Next payday, have a plan",
+            "text": "Your next talk can be your best one",
             "transform": "none",
-            "lineheight": "1.35"
+            "lineheight": "1.25"
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "Twelve short chapters and one page you will use every month."
+            "text": "Fourteen short chapters, PDF and EPUB, in your inbox in a minute."
           }
         },
         "button_4": {
           "type": "button",
           "settings": {
-            "label": "Buy the book",
+            "label": "Buy the ebook",
             "link": "/collections/all"
           }
         }

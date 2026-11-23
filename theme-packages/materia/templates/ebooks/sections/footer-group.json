@@ -72,7 +72,7 @@
             "enable_amex": true,
             "enable_apple_pay": true,
             "enable_google_pay": true,
-            "enable_paypal": false,
+            "enable_paypal": true,
             "enable_klarna": false,
             "content_width": "100%"
           }

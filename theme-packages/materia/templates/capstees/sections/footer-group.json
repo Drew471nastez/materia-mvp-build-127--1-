@@ -27,7 +27,7 @@
         "enable_custom_text_big": false,
         "enable_country_selector": true,
         "custom_image_size_mobile": 168,
-        "enable_language_selector": false,
+        "enable_language_selector": true,
         "custom_image_size_desktop": 144,
         "custom_text_font_size_mobile": 94,
         "custom_text_font_size_desktop": 264,
@@ -71,7 +71,7 @@
             "enable_amex": true,
             "enable_apple_pay": true,
             "enable_google_pay": true,
-            "enable_paypal": false,
+            "enable_paypal": true,
             "enable_klarna": false,
             "content_width": "100%"
           }

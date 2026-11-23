@@ -34,8 +34,8 @@ They are not part of a template and are never added to a creator's website.
 | default (cover only) | scripts/theme-templates/products/default/default-bottle.webp | https://images.unsplash.com/photo-1664714628878-9d2aa898b9e3, background evened out | Unsplash License |
 | default (cover only) | scripts/theme-templates/products/default/default-tote.webp | https://images.unsplash.com/photo-1574365569389-a10d488ca3fb, background evened out and a printed mark removed | Unsplash License |
 | default (cover only) | scripts/theme-templates/products/default/default-planner.webp | Drawn for this template | Storelib |
-| clothing | assets/clothing-hero-studio.webp | https://images.unsplash.com/photo-1743751747067-49d618650353 | Unsplash License |
-| clothing | assets/clothing-hero-studio-phone.webp | https://images.unsplash.com/photo-1743751747067-49d618650353 | Unsplash License |
+| clothing | assets/clothing-hero-field.webp | https://images.unsplash.com/photo-1580837303653-5112afbac20d | Unsplash License |
+| clothing | assets/clothing-hero-field-phone.webp | https://images.unsplash.com/photo-1580837303653-5112afbac20d | Unsplash License |
 | clothing | assets/clothing-hero-knit.webp | https://images.unsplash.com/photo-1759229874914-c1ffdb3ebd0c | Unsplash License |
 | clothing | assets/clothing-hero-knit-phone.webp | https://images.unsplash.com/photo-1759229874914-c1ffdb3ebd0c | Unsplash License |
 | clothing | assets/clothing-hero-stairwell.webp | https://images.unsplash.com/photo-1704918968076-cc20b900508f | Unsplash License |
@@ -371,18 +371,30 @@ Retro desktop (round 20): the garments are Unsplash photographs cut out, recolou
 | retro (cover only) | scripts/theme-templates/products/retro/retro-smiley-beanie.webp | https://images.unsplash.com/photo-1576529598261-96e376f6aabb (cut out, label drawn on) | Unsplash License |
 | retro (cover only) | scripts/theme-templates/products/retro/retro-sticker-pack.webp | Drawn for this template | Storelib |
 
-Author (round 22): the author, Maya Okafor, is two photographs from one session by one photographer (Vitaly Gariev). The book, its audiobook, the workbook and the set are drawn for the template. The other photographs are Unsplash photographs by different photographers.
+Ebook (round 23, after the owner's ebook reference): Hold the Room, a public speaking book by Owen Kessler, a sample author. The author portrait and the lecture hall are Unsplash photographs turned black and white; the speaker in the hall is seen from behind, with an open spread of the book drawn over the corner. The cover, the book, its open pages, the devices and the reader initials are drawn for the template. The blog pictures are Unsplash photographs by different photographers.
 
-| authorbook | assets/authorbook-maya-wall.webp | https://images.unsplash.com/photo-1758600435880-d7c0546a69d0 | Unsplash License |
-| authorbook | assets/authorbook-maya-portrait.webp | https://images.unsplash.com/photo-1758600435036-0c958b8b9704 | Unsplash License |
-| authorbook | assets/authorbook-notes.webp | https://images.unsplash.com/photo-1652170228217-eeccbe82bcf4 | Unsplash License |
-| authorbook | assets/authorbook-cash.webp | https://images.unsplash.com/photo-1518458028785-8fbcd101ebb9 | Unsplash License |
-| authorbook | assets/authorbook-paperwork.webp | https://images.unsplash.com/photo-1772588627373-729b0f47e5bb | Unsplash License |
-| authorbook | assets/authorbook-ed-book.webp | Drawn for this template | Storelib |
-| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-cover.webp | Drawn for this template | Storelib |
+| authorbook | assets/authorbook-owen.webp | https://images.unsplash.com/photo-1560250097-0b93528c311a | Unsplash License |
+| authorbook | assets/authorbook-stage.webp | https://images.unsplash.com/photo-1544531586-fde5298cdd40 | Unsplash License |
+| authorbook | assets/authorbook-book.webp | Drawn for this template | Storelib |
+| authorbook | assets/authorbook-spread-outline.webp | Drawn for this template | Storelib |
+| authorbook | assets/authorbook-spread-nerves.webp | Drawn for this template | Storelib |
+| authorbook | assets/authorbook-spread-slides.webp | Drawn for this template | Storelib |
+| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-ebook.webp | Drawn for this template | Storelib |
+| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-ed-ebook.webp | Drawn for this template | Storelib |
 | authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-ed-audio.webp | Drawn for this template | Storelib |
-| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-ed-set.webp | Drawn for this template | Storelib |
+| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-ed-complete.webp | Drawn for this template | Storelib |
+| authorbook | assets/authorbook-reader-1.webp | Drawn for this template | Storelib |
+| authorbook | assets/authorbook-reader-2.webp | Drawn for this template | Storelib |
+| authorbook | assets/authorbook-reader-3.webp | Drawn for this template | Storelib |
+| authorbook | assets/authorbook-reader-4.webp | Drawn for this template | Storelib |
+| authorbook | assets/authorbook-reader-5.webp | Drawn for this template | Storelib |
+| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-cover.webp | Drawn for this template | Storelib |
+| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-audiobook.webp | Drawn for this template | Storelib |
 | authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-workbook.webp | Drawn for this template | Storelib |
+| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-team.webp | Drawn for this template | Storelib |
+| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-post-mic.webp | https://images.unsplash.com/photo-1475721027785-f74eccf877e2 | Unsplash License |
+| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-post-audience.webp | https://images.unsplash.com/photo-1540575467063-178a50c2df87 | Unsplash License |
+| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-post-meeting.webp | https://images.unsplash.com/photo-1552664730-d307ca884978 | Unsplash License |
 
 Content creator (round 21, rebuilt round 22): the creator, Nina Brooks, is one session by one photographer (Videodeck): the same woman in her studio. A small logo on her hoodie, the maker's names on the microphone and the light and a logo on the laptop are painted out. The course pictures are those photographs without titles; the Notion style workspace is drawn for the template. The student faces are the Online course template's photographs.
 
@@ -430,7 +442,7 @@ Digital Renaissance (round 22): the instructor, Karim Nassar, is two photographs
 
 | renaissance | assets/renaissance-instructor.webp | https://images.unsplash.com/photo-1764545973653-94c40d993495 | Unsplash License |
 | renaissance | assets/renaissance-instructor-about.webp | https://images.unsplash.com/photo-1764546373114-2d7a87221733 | Unsplash License |
-| renaissance | assets/renaissance-hero.webp | https://images.unsplash.com/photo-1764096534686-68091ce5ab45 | Unsplash License |
+| renaissance | assets/renaissance-hero.webp | https://images.unsplash.com/photo-1719937206140-c4b208c78aa7 | Unsplash License |
 | renaissance | assets/renaissance-calls.webp | https://images.unsplash.com/photo-1616587226960-4a03badbe8bf | Unsplash License |
 | renaissance | assets/renaissance-workshop.webp | https://images.unsplash.com/photo-1591115765373-5207764f72e7 | Unsplash License |
 | renaissance | assets/renaissance-shop.webp | https://images.unsplash.com/photo-1753161618037-e6a8f740fd47 | Unsplash License |
@@ -563,3 +575,98 @@ Running coach (coach folder, round 22): the coach, Amara Wells, is three photogr
 | coach (cover only) | scripts/theme-templates/products/coach/coach-plan-marathon.webp | https://images.unsplash.com/photo-1452626038306-9aae5e071dd3, black and white | Unsplash License |
 | coach (cover only) | scripts/theme-templates/products/coach/coach-monthly.webp | https://images.unsplash.com/photo-1726195221342-8676de2c5b86, black and white, logo painted out | Unsplash License |
 | coach (cover only) | scripts/theme-templates/products/coach/coach-form-review.webp | https://images.unsplash.com/photo-1695918425283-eb385c012b7a, black and white | Unsplash License |
+
+## VSL funnel (vslfunnel, Smallplot)
+
+VSL funnel (round 23): Smallplot, an eight week course in growing vegetables in small spaces, taught by Maren Holt, a sample teacher. The teacher pictures are one photographer's session of the same woman in her garden. The other pictures are Unsplash photographs of balconies, raised beds, seedlings and a harvest. The poster is cropped to 16:9. The student initials are drawn for the template; the reviews are marked as samples on the page.
+
+| vslfunnel | assets/vslfunnel-poster.webp | https://images.unsplash.com/photo-1728706613008-8ae756b372cf | Unsplash License |
+| vslfunnel | assets/vslfunnel-maren.webp | https://images.unsplash.com/photo-1728881652468-d445a6c23333 | Unsplash License |
+| vslfunnel | assets/vslfunnel-balcony.webp | https://images.unsplash.com/photo-1486484290742-0ce4eb743a34 | Unsplash License |
+| vslfunnel | assets/vslfunnel-bed.webp | https://images.unsplash.com/photo-1591857177580-dc82b9ac4e1e | Unsplash License |
+| vslfunnel | assets/vslfunnel-harvest.webp | https://images.unsplash.com/photo-1624668430039-0175a0fbf006 | Unsplash License |
+| vslfunnel | assets/vslfunnel-tomatoes.webp | https://images.unsplash.com/photo-1632770464350-e73ae4aaa11c | Unsplash License |
+| vslfunnel | assets/vslfunnel-planting.webp | https://images.unsplash.com/photo-1621460248083-6271cc4437a8 | Unsplash License |
+| vslfunnel | assets/vslfunnel-seedlings.webp | https://images.unsplash.com/photo-1466692476868-aef1dfb1e735 | Unsplash License |
+| vslfunnel | assets/vslfunnel-student-1.webp | Drawn for this template | Storelib |
+| vslfunnel | assets/vslfunnel-student-2.webp | Drawn for this template | Storelib |
+| vslfunnel | assets/vslfunnel-student-3.webp | Drawn for this template | Storelib |
+| vslfunnel | assets/vslfunnel-student-4.webp | Drawn for this template | Storelib |
+| vslfunnel | assets/vslfunnel-student-5.webp | Drawn for this template | Storelib |
+| vslfunnel (cover only) | scripts/theme-templates/products/vslfunnel/vslfunnel-course.webp | https://images.unsplash.com/photo-1728706613022-55c1d7559f21 | Unsplash License |
+| vslfunnel (cover only) | scripts/theme-templates/products/vslfunnel/vslfunnel-planner.webp | https://images.unsplash.com/photo-1523348837708-15d4a09cfac2 | Unsplash License |
+| vslfunnel (cover only) | scripts/theme-templates/products/vslfunnel/vslfunnel-call.webp | https://images.unsplash.com/photo-1629282980228-46b85d221086 | Unsplash License |
+| vslfunnel (cover only) | scripts/theme-templates/products/vslfunnel/vslfunnel-post-soil.webp | https://images.unsplash.com/photo-1611843467160-25afb8df1074 | Unsplash License |
+| vslfunnel (cover only) | scripts/theme-templates/products/vslfunnel/vslfunnel-post-pots.webp | https://images.unsplash.com/photo-1510478946814-7229b607bfe0 | Unsplash License |
+| vslfunnel (cover only) | scripts/theme-templates/products/vslfunnel/vslfunnel-post-harvest.webp | https://images.unsplash.com/photo-1624668430039-0175a0fbf006 | Unsplash License |
+
+## Outerwear label (outerwear, Strata)
+
+Templates round 23, after the owner's streetwear reference. The lifestyle photographs are Unsplash photographs, cropped. The product pictures are Unsplash studio photographs cut out and set on one light grey, with team and maker badges on caps and labels painted out; the collection list pictures are the same product pictures set smaller.
+
+| Template | File | Source | Licence |
+| --- | --- | --- | --- |
+| outerwear | assets/outerwear-hero-street.webp | https://images.unsplash.com/photo-1611025504703-8c143abe6996 | Unsplash License |
+| outerwear | assets/outerwear-hero-shell.webp | https://images.unsplash.com/photo-1655972670403-243839675e06 | Unsplash License |
+| outerwear | assets/outerwear-tile-jackets.webp | https://images.unsplash.com/photo-1561778233-89714b6f2033 | Unsplash License |
+| outerwear | assets/outerwear-tile-puffers.webp | https://images.unsplash.com/photo-1614031679232-0dae776a72ee | Unsplash License |
+| outerwear | assets/outerwear-wet-weeks.webp | https://images.unsplash.com/photo-1548883354-94bcfe321cbb | Unsplash License |
+| outerwear | assets/outerwear-night-layers.webp | https://images.unsplash.com/photo-1776466335986-6101cadb9c8c | Unsplash License |
+| outerwear | assets/outerwear-look-platform.webp | https://images.unsplash.com/photo-1535732278552-5a8a57552b63 | Unsplash License |
+| outerwear | assets/outerwear-look-station.webp | https://images.unsplash.com/photo-1612029938221-a01e8c947edb | Unsplash License |
+| outerwear | assets/outerwear-about-zip.webp | https://images.unsplash.com/photo-1548883354-d056ab7b441f | Unsplash License |
+| outerwear | assets/outerwear-review-doorway.webp | https://images.unsplash.com/photo-1763618252006-cd7f54dc603b | Unsplash License |
+| outerwear | assets/outerwear-ig-1.webp | https://images.unsplash.com/photo-1557479613-9f88c8450c5d | Unsplash License |
+| outerwear | assets/outerwear-ig-2.webp | https://images.unsplash.com/photo-1567955465154-078c60ff5c9e | Unsplash License |
+| outerwear | assets/outerwear-ig-3.webp | https://images.unsplash.com/photo-1778837705487-685ffd6d392d | Unsplash License |
+| outerwear | assets/outerwear-ig-4.webp | https://images.unsplash.com/photo-1767978270589-c63d3f931359 | Unsplash License |
+| outerwear | assets/outerwear-ig-5.webp | https://images.unsplash.com/photo-1700148575422-5bfa0bc0c069 | Unsplash License |
+| outerwear | assets/outerwear-ig-6.webp | https://images.unsplash.com/photo-1776721894966-6c7cc17ee3fd | Unsplash License |
+| outerwear | assets/outerwear-ig-7.webp | https://images.unsplash.com/photo-1775663067430-eb57f3eb1bee | Unsplash License |
+| outerwear | assets/outerwear-ig-8.webp | https://images.unsplash.com/photo-1535732176766-a9a9513547e5 | Unsplash License |
+| outerwear | assets/outerwear-col-puffers.webp | https://images.unsplash.com/photo-1769689387681-42b8a41fa2de | Unsplash License |
+| outerwear | assets/outerwear-col-parkas.webp | https://images.unsplash.com/photo-1624548140150-108c3287f551 | Unsplash License |
+| outerwear | assets/outerwear-col-vests.webp | https://images.unsplash.com/photo-1636529109797-0749811c4916 | Unsplash License |
+| outerwear | assets/outerwear-col-knitwear.webp | https://images.unsplash.com/photo-1771092358890-0db24db44e56 | Unsplash License |
+| outerwear | assets/outerwear-col-hats.webp | https://images.unsplash.com/photo-1618354691792-d1d42acfd860 | Unsplash License |
+| outerwear (sample products) | scripts/theme-templates/products/outerwear/outerwear-gloss-puffer-black.webp | https://images.unsplash.com/photo-1769689387681-42b8a41fa2de (cut out, cap badge painted out) | Unsplash License |
+| outerwear (sample products) | scripts/theme-templates/products/outerwear/outerwear-cocoon-puffer-bone.webp | https://images.unsplash.com/photo-1678884399113-0a2b079a31f5 (cut out) | Unsplash License |
+| outerwear (sample products) | scripts/theme-templates/products/outerwear/outerwear-quilted-vest-black.webp | https://images.unsplash.com/photo-1636529109797-0749811c4916 (cut out) | Unsplash License |
+| outerwear (sample products) | scripts/theme-templates/products/outerwear/outerwear-work-parka-rust.webp | https://images.unsplash.com/photo-1624548140150-108c3287f551 (cut out) | Unsplash License |
+| outerwear (sample products) | scripts/theme-templates/products/outerwear/outerwear-faux-fur-jacket-honey.webp | https://images.unsplash.com/photo-1771012265579-eef6d075777f (cut out) | Unsplash License |
+| outerwear (sample products) | scripts/theme-templates/products/outerwear/outerwear-merino-crew-black.webp | https://images.unsplash.com/photo-1771092358890-0db24db44e56 (cut out) | Unsplash License |
+| outerwear (sample products) | scripts/theme-templates/products/outerwear/outerwear-washed-tee-clay.webp | https://images.unsplash.com/photo-1780566759999-4dbaa4218959 (cut out) | Unsplash License |
+| outerwear (sample products) | scripts/theme-templates/products/outerwear/outerwear-rib-beanie-charcoal.webp | https://images.unsplash.com/photo-1618354691792-d1d42acfd860 (cut out, label print painted out) | Unsplash License |
+<!-- notionpage (templates round 23): every picture is a Notion page drawn as HTML for this template (Offer Board, its sample data and names invented) and photographed in a tablet, phone or window frame; the avatars are initials, not people. -->
+| notionpage | assets/notionpage-applications.webp | Drawn for this template | Storelib |
+| notionpage | assets/notionpage-avatar-1.webp | Drawn for this template | Storelib |
+| notionpage | assets/notionpage-avatar-10.webp | Drawn for this template | Storelib |
+| notionpage | assets/notionpage-avatar-2.webp | Drawn for this template | Storelib |
+| notionpage | assets/notionpage-avatar-3.webp | Drawn for this template | Storelib |
+| notionpage | assets/notionpage-avatar-4.webp | Drawn for this template | Storelib |
+| notionpage | assets/notionpage-avatar-5.webp | Drawn for this template | Storelib |
+| notionpage | assets/notionpage-avatar-6.webp | Drawn for this template | Storelib |
+| notionpage | assets/notionpage-avatar-7.webp | Drawn for this template | Storelib |
+| notionpage | assets/notionpage-avatar-8.webp | Drawn for this template | Storelib |
+| notionpage | assets/notionpage-avatar-9.webp | Drawn for this template | Storelib |
+| notionpage | assets/notionpage-avatar-11.webp | Drawn for this template | Storelib |
+| notionpage | assets/notionpage-avatar-12.webp | Drawn for this template | Storelib |
+| notionpage | assets/notionpage-avatar-13.webp | Drawn for this template | Storelib |
+| notionpage | assets/notionpage-calendar.webp | Drawn for this template | Storelib |
+| notionpage | assets/notionpage-companies.webp | Drawn for this template | Storelib |
+| notionpage | assets/notionpage-contacts.webp | Drawn for this template | Storelib |
+| notionpage | assets/notionpage-dashboard.webp | Drawn for this template | Storelib |
+| notionpage | assets/notionpage-devices.webp | Drawn for this template | Storelib |
+| notionpage | assets/notionpage-hero.webp | Drawn for this template | Storelib |
+| notionpage | assets/notionpage-instructions.webp | Drawn for this template | Storelib |
+| notionpage | assets/notionpage-interview.webp | Drawn for this template | Storelib |
+| notionpage | assets/notionpage-lightdark.webp | Drawn for this template | Storelib |
+| notionpage | assets/notionpage-logo.webp | Drawn for this template | Storelib |
+| notionpage | assets/notionpage-offers.webp | Drawn for this template | Storelib |
+| notionpage | assets/notionpage-review.webp | Drawn for this template | Storelib |
+| notionpage (sample products) | scripts/theme-templates/products/notionpage/notionpage-bundle.webp | Drawn for this template | Storelib |
+| notionpage (sample products) | scripts/theme-templates/products/notionpage/notionpage-interview-kit.webp | Drawn for this template | Storelib |
+| notionpage (sample products) | scripts/theme-templates/products/notionpage/notionpage-offer-board.webp | Drawn for this template | Storelib |
+| notionpage (sample products) | scripts/theme-templates/products/notionpage/notionpage-post-follow-ups.webp | Drawn for this template | Storelib |
+| notionpage (sample products) | scripts/theme-templates/products/notionpage/notionpage-post-offers.webp | Drawn for this template | Storelib |
+| notionpage (sample products) | scripts/theme-templates/products/notionpage/notionpage-post-weekly-review.webp | Drawn for this template | Storelib |

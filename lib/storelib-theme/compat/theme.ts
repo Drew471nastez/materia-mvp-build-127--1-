@@ -969,7 +969,7 @@ export class CompatTheme {
       content_for_additional_checkout_buttons: "",
       recommendations: page.recommendations
         ? { performed: true, products: page.recommendations.products.map((p) => productObject(p)), products_count: page.recommendations.products.length, intent: page.recommendations.intent ?? "related" }
-        : { performed: false, products: [], products_count: 0, intent: "related" },
+        : { performed: false, products: [], products_count: 0, intent: "related", prerendered_products: page.template === "product" && page.product ? productsBeside(page.product, page.products, page.collections).map((p) => productObject(p)) : [] },
       predictive_search: page.predictive
         ? {
             performed: true,
@@ -2185,3 +2185,33 @@ function formAppBlock(ctx: Ctx, b: { id: string; settings?: unknown }): string {
   const html = siteFormEmbedHtml({ formId: formIdOf(settings.form), title: typeof settings.title === "string" ? settings.title : "", inEditor: formInEditor(ctx) })
   return html ? `<div class="shopify-app-block" ${blockAttributes(b.id)}>${html}</div>` : ""
 }
+
+/*
+  WHAT A PRODUCT PAGE RECOMMENDS, WITH THE PAGE. A theme asks for its
+  "You may also like" / "Wear it with" row after the page has loaded
+  (/recommendations/products), and drew grey cards until then. Where nothing
+  answered that request (the marketplace's static previews, a frame whose
+  requests went elsewhere) the grey cards stayed for good. The same products
+  that request returns are now on the page itself as
+  recommendations.prerendered_products, for the section to draw at once
+  (base sections/related-products.liquid); `performed` stays false, so
+  every other reader of `recommendations` sees the page as Shopify draws it.
+  Products sharing a collection with this one come first, then the rest of
+  the shop from just after this product, so neighbouring pages differ.
+*/
+export function productsBeside(current: CardLike, products: CardLike[] | undefined, collections: CollectionLike[] | undefined, limit = 10): CardLike[] {
+  const all = products ?? []
+  const ok = (p: CardLike) => p.id !== current.id && p.settings?.available !== false
+  const out: CardLike[] = []
+  const seen = new Set<string>()
+  const add = (p: CardLike | undefined) => { if (p && ok(p) && !seen.has(p.id) && out.length < limit) { seen.add(p.id); out.push(p) } }
+  for (const c of collections ?? []) {
+    if (c.handle === "all" || !c.products?.some((p) => p.id === current.id)) continue
+    for (const p of c.products) add(all.find((x) => x.id === p.id) ?? p)
+    break
+  }
+  const at = all.findIndex((p) => p.id === current.id)
+  for (let i = 1; i <= all.length; i++) add(all[(Math.max(0, at) + i) % all.length])
+  return out
+}
+

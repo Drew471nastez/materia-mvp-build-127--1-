@@ -1,0 +1,159 @@
+{%- comment -%}
+  Notion sales page (templates round 23): a grid of soft filled cards, each
+  a screenshot with a short title and a line under it, after the owner's
+  reference for selling one Notion template. Two, three or four across on a
+  computer; the screenshot sits above or below the words. A "more" card
+  holds a title, a line and a button instead of a picture. Colours come from
+  the colour scheme; the cards' fill and corners are settings.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
+  assign cols = st.columns | default: 4
+  assign cols_m = st.columns_mobile | default: 1
+  assign cols_t = cols | at_most: 2
+-%}
+<style>
+  #shopify-section-{{ sid }} .npc { padding: {{ st.padding_top_mobile | default: 48 }}px 0 {{ st.padding_bottom_mobile | default: 48 }}px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .npc { padding: {{ st.padding_top | default: 80 }}px 0 {{ st.padding_bottom | default: 80 }}px; } }
+  #shopify-section-{{ sid }} .npc__inner { max-width: {{ st.max_width | default: 1200 }}px; margin: 0 auto; padding: 0 16px; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .npc__inner { padding: 0 24px; } }
+  #shopify-section-{{ sid }} .npc__head { max-width: 720px; margin: 0 auto {{ st.head_gap | default: 48 }}px; text-align: center; }
+  #shopify-section-{{ sid }} .npc__head[data-align="left"] { margin-left: 0; text-align: left; }
+  #shopify-section-{{ sid }} .npc__heading { margin: 0; font-size: {{ st.heading_size_mobile | default: 28 }}px; line-height: 1.15; letter-spacing: -0.01em; color: var(--color-heading); text-wrap: balance; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .npc__heading { font-size: {{ st.heading_size | default: 40 }}px; } }
+  #shopify-section-{{ sid }} .npc__text { margin-top: 14px; font-size: 16px; line-height: 1.55; color: var(--color-text); text-wrap: pretty; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .npc__text { font-size: 17px; } }
+  #shopify-section-{{ sid }} .npc__text p { margin: 0; }
+  #shopify-section-{{ sid }} .npc__grid { display: grid; grid-template-columns: repeat({{ cols_m }}, minmax(0, 1fr)); gap: {{ st.gap_mobile | default: 12 }}px; margin: 0; padding: 0; list-style: none; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .npc__grid { grid-template-columns: repeat({{ cols_t }}, minmax(0, 1fr)); gap: {{ st.gap | default: 20 }}px; } }
+  @media (min-width: 1100px) { #shopify-section-{{ sid }} .npc__grid { grid-template-columns: repeat({{ cols }}, minmax(0, 1fr)); } }
+  #shopify-section-{{ sid }} .npc__card { display: flex; flex-direction: column; gap: 18px; padding: {{ st.card_padding_mobile | default: 20 }}px; background: {{ st.card_bg | default: '#f0efec' }}; border-radius: {{ st.card_radius | default: 16 }}px; color: var(--color-text); min-width: 0; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .npc__card { padding: {{ st.card_padding | default: 26 }}px; } }
+  #shopify-section-{{ sid }} .npc__card[data-media="bottom"] .npc__media { order: 2; margin-top: auto; }
+  #shopify-section-{{ sid }} .npc__media { display: block; border-radius: {{ st.image_radius | default: 10 }}px; overflow: hidden; aspect-ratio: {{ st.image_ratio | default: '1.385' }}; background: rgba(0,0,0,.03); }
+  #shopify-section-{{ sid }} .npc__media img, #shopify-section-{{ sid }} .npc__media svg { width: 100%; height: 100%; object-fit: cover; display: block; }
+  #shopify-section-{{ sid }} .npc__title { margin: 0 0 6px; font-size: {{ st.title_size_mobile | default: 19 }}px; line-height: 1.25; font-weight: 600; color: var(--color-heading); }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .npc__title { font-size: {{ st.title_size | default: 20 }}px; } }
+  #shopify-section-{{ sid }} .npc__body { font-size: 15px; line-height: 1.55; }
+  #shopify-section-{{ sid }} .npc__body p { margin: 0; }
+  #shopify-section-{{ sid }} .npc__body p + p { margin-top: 8px; }
+  #shopify-section-{{ sid }} .npc__card--more { justify-content: center; }
+  #shopify-section-{{ sid }} .npc__card--more .npc__btn { align-self: stretch; margin-top: 8px; text-align: center; justify-content: center; }
+  #shopify-section-{{ sid }} .npc__link { align-self: flex-start; margin-top: 2px; }
+</style>
+<div class="npc section color-{{ color_scheme }} gradient" data-section-type="notionpage-cards" data-section-id="{{ sid }}">
+  <div class="npc__inner">
+    {%- if st.heading != blank or st.text != blank -%}
+      <div class="npc__head" data-align="{{ st.heading_align | default: 'center' }}">
+        {%- if st.heading != blank -%}<h2 class="npc__heading h2">{{ st.heading | escape }}</h2>{%- endif -%}
+        {%- if st.text != blank -%}<div class="npc__text">{{ st.text }}</div>{%- endif -%}
+      </div>
+    {%- endif -%}
+    <ul class="npc__grid" role="list">
+      {%- for block in section.blocks -%}
+        {%- assign b = block.settings -%}
+        {%- if block.type == 'more' -%}
+          <li class="npc__card npc__card--more" {{ block.shopify_attributes }}>
+            <div>
+              {%- if b.title != blank -%}<h3 class="npc__title">{{ b.title | escape }}</h3>{%- endif -%}
+              {%- if b.text != blank -%}<div class="npc__body">{{ b.text }}</div>{%- endif -%}
+            </div>
+            {%- if b.button_label != blank -%}
+              <a class="btn btn-primary npc__btn" href="{{ b.button_link | default: '#' }}" data-theme-button="primary" data-sl-button>{{ b.button_label | escape }}</a>
+            {%- endif -%}
+          </li>
+        {%- else -%}
+          <li class="npc__card" data-media="{{ st.image_position | default: 'top' }}" {{ block.shopify_attributes }}>
+            <span class="npc__media">
+              {%- if b.image != blank -%}
+                {%- assign alt = b.image.alt | default: b.title -%}
+                {{ b.image | image_url: width: 1400 | image_tag: loading: 'lazy', alt: alt, widths: '400, 600, 900, 1200, 1400', sizes: '(min-width: 1100px) 40vw, (min-width: 750px) 50vw, 100vw' }}
+              {%- else -%}
+                {{ 'image' | placeholder_svg_tag }}
+              {%- endif -%}
+            </span>
+            <div>
+              {%- if b.title != blank -%}<h3 class="npc__title">{{ b.title | escape }}</h3>{%- endif -%}
+              {%- if b.text != blank -%}<div class="npc__body">{{ b.text }}</div>{%- endif -%}
+              {%- if b.link_label != blank and b.link != blank -%}<a class="npc__link link" href="{{ b.link }}">{{ b.link_label | escape }}</a>{%- endif -%}
+            </div>
+          </li>
+        {%- endif -%}
+      {%- endfor -%}
+    </ul>
+  </div>
+</div>
+{% schema %}
+{
+  "name": "Screenshot cards",
+  "tag": "section",
+  "class": "section",
+  "max_blocks": 16,
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "What is inside" },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Each page of the template, with what it is for.</p>" },
+    { "type": "select", "id": "heading_align", "label": "Heading alignment", "default": "center", "options": [ { "value": "center", "label": "Centre" }, { "value": "left", "label": "Left" } ] },
+    { "type": "header", "content": "Cards" },
+    { "type": "select", "id": "columns", "label": "Cards across on a computer", "default": "4", "options": [ { "value": "2", "label": "Two" }, { "value": "3", "label": "Three" }, { "value": "4", "label": "Four" } ] },
+    { "type": "select", "id": "columns_mobile", "label": "Cards across on phones", "default": "1", "options": [ { "value": "1", "label": "One" }, { "value": "2", "label": "Two" } ] },
+    { "type": "select", "id": "image_position", "label": "Screenshot", "default": "top", "options": [ { "value": "top", "label": "Above the words" }, { "value": "bottom", "label": "Below the words" } ] },
+    { "type": "select", "id": "image_ratio", "label": "Screenshot shape", "default": "1.385", "options": [ { "value": "1.385", "label": "Tablet, landscape" }, { "value": "1.333", "label": "Four by three" }, { "value": "1", "label": "Square" }, { "value": "1.778", "label": "Wide" } ] },
+    { "type": "color", "id": "card_bg", "label": "Card colour", "default": "#f0efec" },
+    { "type": "range", "id": "card_radius", "label": "Card corners", "min": 0, "max": 32, "step": 2, "unit": "px", "default": 16 },
+    { "type": "range", "id": "image_radius", "label": "Screenshot corners", "min": 0, "max": 24, "step": 2, "unit": "px", "default": 10 },
+    { "type": "range", "id": "card_padding", "label": "Space inside a card", "min": 12, "max": 48, "step": 2, "unit": "px", "default": 26 },
+    { "type": "range", "id": "card_padding_mobile", "label": "Space inside a card on phones", "min": 12, "max": 40, "step": 2, "unit": "px", "default": 20 },
+    { "type": "range", "id": "gap", "label": "Space between cards", "min": 8, "max": 40, "step": 2, "unit": "px", "default": 20 },
+    { "type": "range", "id": "gap_mobile", "label": "Space between cards on phones", "min": 6, "max": 32, "step": 2, "unit": "px", "default": 12 },
+    { "type": "header", "content": "Sizes" },
+    { "type": "range", "id": "heading_size", "label": "Heading size", "min": 24, "max": 64, "step": 2, "unit": "px", "default": 40 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size on phones", "min": 20, "max": 44, "step": 2, "unit": "px", "default": 28 },
+    { "type": "range", "id": "title_size", "label": "Card title size", "min": 14, "max": 32, "step": 1, "unit": "px", "default": 20 },
+    { "type": "range", "id": "title_size_mobile", "label": "Card title size on phones", "min": 14, "max": 28, "step": 1, "unit": "px", "default": 19 },
+    { "type": "range", "id": "head_gap", "label": "Space under the heading", "min": 16, "max": 80, "step": 4, "unit": "px", "default": 48 },
+    { "type": "range", "id": "max_width", "label": "Width", "min": 800, "max": 1400, "step": 20, "unit": "px", "default": 1200 },
+    { "type": "header", "content": "Colours and spacing" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "default" },
+    { "type": "range", "id": "padding_top", "label": "Space above", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 80 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 80 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above on phones", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 48 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below on phones", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 48 }
+  ],
+  "blocks": [
+    {
+      "type": "card",
+      "name": "Card",
+      "settings": [
+        { "type": "image_picker", "id": "image", "label": "Screenshot" },
+        { "type": "text", "id": "title", "label": "Title", "default": "Dashboard" },
+        { "type": "richtext", "id": "text", "label": "Text", "default": "<p>One line on what this page does.</p>" },
+        { "type": "text", "id": "link_label", "label": "Link text" },
+        { "type": "url", "id": "link", "label": "Link" }
+      ]
+    },
+    {
+      "type": "more",
+      "name": "More card",
+      "settings": [
+        { "type": "text", "id": "title", "label": "Title", "default": "And more" },
+        { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Say what else is in the template.</p>" },
+        { "type": "text", "id": "button_label", "label": "Button text", "default": "Get the template" },
+        { "type": "url", "id": "button_link", "label": "Button link" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Screenshot cards",
+      "blocks": [
+        { "type": "card", "settings": { "title": "Dashboard" } },
+        { "type": "card", "settings": { "title": "Tasks" } },
+        { "type": "card", "settings": { "title": "Notes" } },
+        { "type": "more" }
+      ]
+    }
+  ]
+}
+{% endschema %}

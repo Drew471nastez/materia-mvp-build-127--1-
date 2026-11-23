@@ -40,7 +40,8 @@ const TEXT = /\.(html|css|js|json|svg)$/
 
 const MB = 1048576
 /* Changed on purpose (templates round 21): 25 templates now, each still within its own 10 MB. */
-const BUDGET_TOTAL = 160 * MB
+/* Changed on purpose (templates round 23): 30 and more templates, and each picture also as the smaller copies its srcset asks for (scripts/build-template-previews.ts sizedPicture, about 7 MB in all), so a phone downloads a card's file, not a 1600 pixel one. */
+const BUDGET_TOTAL = 220 * MB
 const BUDGET_TEMPLATE = 10 * MB
 
 function main() {

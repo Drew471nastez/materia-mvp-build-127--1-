@@ -7,7 +7,7 @@ import { publishedListings } from "@/lib/themes/marketplace-server"
 import { MARKETPLACE_PATH, builtinListings } from "@/lib/themes/marketplace-shared"
 import { THEME_SEO_CATEGORIES, listingsInCategory, marketplaceCard, marketplaceCategoryCopy, seoCategory, themeCategoryPath, themeImages, themeAlt } from "@/lib/themes/theme-seo"
 import { categoryJsonLd } from "@/lib/themes/theme-seo-jsonld"
-import { CategoryLinks, FaqList, MARKET_CONTAINER, MarketplaceBar, MarketplaceHeading } from "@/components/themes/marketplace-shell"
+import { CategorySummary, FaqList, MARKET_CONTAINER, MarketplaceHeading } from "@/components/themes/marketplace-shell"
 import { ThemesMarketplace } from "../../themes-marketplace"
 
 /**
@@ -49,15 +49,15 @@ export default async function CategoryPage({ params }: { params: Promise<{ categ
   const all = listings.map(marketplaceCard)
   const categories = THEME_SEO_CATEGORIES.map(marketplaceCategoryCopy)
   return (
-    <div className="bg-white" data-themes-page={cat.slug}>
+    <div data-themes-page={cat.slug}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(categoryJsonLd(cat, inIt)) }} />
-      <MarketplaceBar />
       <div className={`${MARKET_CONTAINER} pb-24`}>
-        <MarketplaceHeading h1={cat.h1} intro={cat.intro} trail={[{ name: "Themes", href: MARKETPLACE_PATH }, { name: cat.name }]} />
+        <MarketplaceHeading h1={cat.h1} trail={[{ name: "Themes", href: MARKETPLACE_PATH }, { name: cat.name }]} />
         <ThemesMarketplace cards={inIt.map(marketplaceCard)} allCards={all} categories={categories} active={cat.slug} />
-        <div className="mt-20 space-y-14 border-t border-[#eceef1] pt-12">
+        {/* Round 23: the category's summary is for search and for whoever reads on; under the grid, not under the heading. */}
+        <div className="mt-20 space-y-10 border-t border-[#eceef1] pt-12">
+          <CategorySummary text={cat.intro} />
           <FaqList faqs={cat.faqs} />
-          <CategoryLinks categories={categories} current={cat.slug} />
         </div>
       </div>
     </div>

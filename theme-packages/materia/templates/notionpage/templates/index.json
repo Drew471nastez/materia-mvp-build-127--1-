@@ -1,0 +1,968 @@
+/* Templates round 23: Northpaper's sales page for one Notion template, Offer Board, after the owner's reference: a centred hero over the workspace, the pages inside as screenshot cards, who it is for, three extras, two plans on a grey band with a note from the maker and a short letter, a wall of buyer notes, questions and a last call. Built from the theme's own sections around one card grid (notionpage-cards). */
+{
+  "sections": {
+    "hero": {
+      "type": "hero-image1",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "full_width",
+        "reset_spacing": true,
+        "content_align": "center",
+        "vertical_align": "center",
+        "content_max_width": 780,
+        "content_gap": 18,
+        "use_background_color": true,
+        "enable_overlay": false,
+        "animation": "none",
+        "min_height_desktop": 240,
+        "padding_top_desktop": 88,
+        "padding_bottom_desktop": 48,
+        "min_height_mobile": 240,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 28,
+        "side_padding_mobile": 20,
+        "buttons_margin_top": 10
+      },
+      "blocks": {
+        "badge_1": {
+          "type": "badge",
+          "settings": {
+            "text": "Notion template, updated for 2026",
+            "icon": "",
+            "enable_custom_style": true,
+            "bg": "#ffffff",
+            "color": "#191918",
+            "font_weight": "500",
+            "size_desktop": 14,
+            "size_mobile": 13,
+            "radius": 8
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Run your whole job search from one Notion page",
+            "size_desktop": 60,
+            "size_mobile": 36,
+            "font_weight": "700",
+            "letter_spacing": -1,
+            "line_height": 1.08,
+            "tag": "h1"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Offer Board keeps the roles you apply for, the people you talk to, your interview stories and your offers in one linked system, so every follow up happens on time.</p>",
+            "size": 19,
+            "size_mobile": 16,
+            "line_height": 1.5
+          }
+        },
+        "primary_button_4": {
+          "type": "primary_button",
+          "settings": {
+            "label": "Get the template",
+            "link": "/collections/all",
+            "font_size": 16,
+            "radius": 10,
+            "padding_x": 34,
+            "padding_y": 15
+          }
+        },
+        "eyebrow_5": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Pay once. Works on Notion's free plan.",
+            "enable_custom_style": true,
+            "color": "#787774",
+            "size_desktop": 14,
+            "size_mobile": 13,
+            "text_case": "none",
+            "font_weight": "400"
+          }
+        },
+        "happy_customers_6": {
+          "type": "happy_customers",
+          "settings": {
+            "show_avatars": true,
+            "show_stars": true,
+            "show_rating_text": true,
+            "avatar_1": "shopify://shop_images/notionpage-avatar-1.webp",
+            "avatar_2": "shopify://shop_images/notionpage-avatar-2.webp",
+            "avatar_3": "shopify://shop_images/notionpage-avatar-3.webp",
+            "avatar_4": "shopify://shop_images/notionpage-avatar-4.webp",
+            "avatar_count": 4,
+            "rating_text": "Read what buyers say below",
+            "total_stars": 5,
+            "filled_stars": 5,
+            "enable_custom_style": true,
+            "text_color": "#55534e",
+            "font_weight": "400",
+            "font_size_desktop": 14,
+            "font_size_mobile": 13,
+            "filled_color": "#f2b01e",
+            "unfilled_color": "#e4e3df",
+            "padding_top": 14,
+            "padding_bottom": 0,
+            "avatar_size": 34,
+            "avatar_overlap": 30,
+            "star_size": 15
+          }
+        }
+      },
+      "block_order": [
+        "badge_1",
+        "heading_2",
+        "subheading_3",
+        "primary_button_4",
+        "eyebrow_5",
+        "happy_customers_6"
+      ]
+    },
+    "screen": {
+      "type": "image-2",
+      "settings": {
+        "color_scheme": "default",
+        "reset_spacing": true,
+        "image": "shopify://shop_images/notionpage-hero.webp",
+        "image_alt": "The Offer Board dashboard in Notion: this week's numbers, the pipeline by stage and quick capture",
+        "full_bleed": false,
+        "aspect_w": 23,
+        "aspect_h": 15,
+        "radius": 24,
+        "fit": "cover",
+        "focal": "center",
+        "padding_top_desktop": 24,
+        "padding_bottom_desktop": 16,
+        "side_padding_desktop": 40,
+        "padding_top_mobile": 12,
+        "padding_bottom_mobile": 8,
+        "side_padding_mobile": 12
+      }
+    },
+    "inside": {
+      "type": "notionpage-cards",
+      "settings": {
+        "heading": "Everything a job search needs, in one Notion workspace",
+        "text": "<p>Offer Board links the roles you apply for to the companies, the people and the stories behind them, so nothing sits in a separate list.</p>",
+        "heading_align": "center",
+        "columns": "4",
+        "columns_mobile": "1",
+        "image_position": "top",
+        "image_ratio": "1.385",
+        "card_bg": "#ecebe8",
+        "card_radius": 18,
+        "image_radius": 10,
+        "card_padding": 26,
+        "card_padding_mobile": 20,
+        "gap": 20,
+        "gap_mobile": 12,
+        "heading_size": 40,
+        "heading_size_mobile": 28,
+        "title_size": 20,
+        "title_size_mobile": 19,
+        "head_gap": 48,
+        "max_width": 1240,
+        "color_scheme": "default",
+        "padding_top": 104,
+        "padding_bottom": 40,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 24
+      },
+      "blocks": {
+        "card_1": {
+          "type": "card",
+          "settings": {
+            "image": "shopify://shop_images/notionpage-dashboard.webp",
+            "title": "Dashboard",
+            "text": "<p>This week's numbers, the pipeline and quick capture.</p>"
+          }
+        },
+        "card_2": {
+          "type": "card",
+          "settings": {
+            "image": "shopify://shop_images/notionpage-applications.webp",
+            "title": "Applications",
+            "text": "<p>Every role on a board, moved along by stage.</p>"
+          }
+        },
+        "card_3": {
+          "type": "card",
+          "settings": {
+            "image": "shopify://shop_images/notionpage-companies.webp",
+            "title": "Companies",
+            "text": "<p>Where you want to work and what you know.</p>"
+          }
+        },
+        "card_4": {
+          "type": "card",
+          "settings": {
+            "image": "shopify://shop_images/notionpage-contacts.webp",
+            "title": "Contacts",
+            "text": "<p>Recruiters and referrals, with the next date to write.</p>"
+          }
+        },
+        "card_5": {
+          "type": "card",
+          "settings": {
+            "image": "shopify://shop_images/notionpage-interview.webp",
+            "title": "Interview prep",
+            "text": "<p>A story bank and the questions you expect.</p>"
+          }
+        },
+        "card_6": {
+          "type": "card",
+          "settings": {
+            "image": "shopify://shop_images/notionpage-offers.webp",
+            "title": "Offers",
+            "text": "<p>Two offers in one table, line by line.</p>"
+          }
+        },
+        "card_7": {
+          "type": "card",
+          "settings": {
+            "image": "shopify://shop_images/notionpage-review.webp",
+            "title": "Weekly review",
+            "text": "<p>A Friday checklist that keeps the search moving.</p>"
+          }
+        },
+        "more_8": {
+          "type": "more",
+          "settings": {
+            "title": "And a few more pages",
+            "text": "<p>A follow up calendar, deadlines view, a reading list for each company and the instructions page with the walkthrough.</p>",
+            "button_label": "Get the template",
+            "button_link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "card_1",
+        "card_2",
+        "card_3",
+        "card_4",
+        "card_5",
+        "card_6",
+        "card_7",
+        "more_8"
+      ]
+    },
+    "for": {
+      "type": "notionpage-cards",
+      "settings": {
+        "heading": "Made for anyone looking for their next role",
+        "text": "<p>A first job, a career change or a move up. Offer Board keeps every lead, conversation and decision in one place, so a busy month never turns into a lost one.</p>",
+        "heading_align": "center",
+        "columns": "2",
+        "columns_mobile": "1",
+        "image_position": "bottom",
+        "image_ratio": "1.385",
+        "card_bg": "#ecebe8",
+        "card_radius": 18,
+        "image_radius": 10,
+        "card_padding": 34,
+        "card_padding_mobile": 20,
+        "gap": 20,
+        "gap_mobile": 12,
+        "heading_size": 40,
+        "heading_size_mobile": 28,
+        "title_size": 23,
+        "title_size_mobile": 19,
+        "head_gap": 48,
+        "max_width": 1240,
+        "color_scheme": "default",
+        "padding_top": 88,
+        "padding_bottom": 40,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 24
+      },
+      "blocks": {
+        "card_1": {
+          "type": "card",
+          "settings": {
+            "image": "shopify://shop_images/notionpage-applications.webp",
+            "title": "See every application at a glance",
+            "text": "<p>Saved, applied, interviewing, offer, closed. Drag a card when something changes and the dashboard counts it for you. No more searching your inbox to remember where you applied.</p>"
+          }
+        },
+        "card_2": {
+          "type": "card",
+          "settings": {
+            "image": "shopify://shop_images/notionpage-calendar.webp",
+            "title": "Never miss a follow up",
+            "text": "<p>Every contact and application has a next date. The calendar shows who to write to today and what closes this week, and the phone app reminds you.</p>"
+          }
+        },
+        "card_3": {
+          "type": "card",
+          "settings": {
+            "image": "shopify://shop_images/notionpage-interview.webp",
+            "title": "Prepare once, use it in every interview",
+            "text": "<p>Write your stories in the situation, task, action and result shape once. Tag them by skill and pull the right one up the night before any interview.</p>"
+          }
+        },
+        "card_4": {
+          "type": "card",
+          "settings": {
+            "image": "shopify://shop_images/notionpage-contacts.webp",
+            "title": "Keep your network warm",
+            "text": "<p>Recruiters, hiring managers and the friend who offered a referral, each linked to the company and the role. You see the last time you spoke and when to speak next.</p>"
+          }
+        },
+        "card_5": {
+          "type": "card",
+          "settings": {
+            "image": "shopify://shop_images/notionpage-offers.webp",
+            "title": "Compare offers on what matters",
+            "text": "<p>Salary is one line of eight. Put bonus, equity, remote days, holiday and how the team felt side by side before you decide.</p>"
+          }
+        },
+        "card_6": {
+          "type": "card",
+          "settings": {
+            "image": "shopify://shop_images/notionpage-review.webp",
+            "title": "Twenty minutes every Friday",
+            "text": "<p>Clear, plan and count. The weekly review moves stale roles, plans next week's applications and shows whether your numbers are going the right way.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "card_1",
+        "card_2",
+        "card_3",
+        "card_4",
+        "card_5",
+        "card_6"
+      ]
+    },
+    "extras": {
+      "type": "notionpage-cards",
+      "settings": {
+        "heading": "A few extras",
+        "text": "<p>Small things that make the template easier to live with.</p>",
+        "heading_align": "center",
+        "columns": "3",
+        "columns_mobile": "1",
+        "image_position": "bottom",
+        "image_ratio": "1.385",
+        "card_bg": "#ecebe8",
+        "card_radius": 18,
+        "image_radius": 10,
+        "card_padding": 26,
+        "card_padding_mobile": 20,
+        "gap": 20,
+        "gap_mobile": 12,
+        "heading_size": 40,
+        "heading_size_mobile": 28,
+        "title_size": 21,
+        "title_size_mobile": 19,
+        "head_gap": 48,
+        "max_width": 1240,
+        "color_scheme": "default",
+        "padding_top": 96,
+        "padding_bottom": 96,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 24
+      },
+      "blocks": {
+        "card_1": {
+          "type": "card",
+          "settings": {
+            "image": "shopify://shop_images/notionpage-instructions.webp",
+            "title": "Instructions and a walkthrough",
+            "text": "<p>A 12 minute video and five steps on the Instructions page, so you are set up on the first evening.</p>"
+          }
+        },
+        "card_2": {
+          "type": "card",
+          "settings": {
+            "image": "shopify://shop_images/notionpage-lightdark.webp",
+            "title": "Light and dark mode",
+            "text": "<p>Colours and icons chosen to read well in both of Notion's themes.</p>"
+          }
+        },
+        "card_3": {
+          "type": "card",
+          "settings": {
+            "image": "shopify://shop_images/notionpage-devices.webp",
+            "title": "On your phone too",
+            "text": "<p>Log a role the moment you see it in the Notion app on iPhone or Android.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "card_1",
+        "card_2",
+        "card_3"
+      ]
+    },
+    "pricing": {
+      "type": "pricing-cards",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "eyebrow": "",
+        "heading": "Skip the weekend of building it yourself",
+        "intro": "<p>Duplicate the finished system in one click and start adding roles tonight. Pay once and keep every update.</p>",
+        "heading_size": "h2",
+        "heading_align": "center",
+        "footnote": "<p>Prices in US dollars. Taxes worked out at checkout. Refund within 14 days if it is not for you.</p>",
+        "card_style": "outline",
+        "use_theme_corners": false,
+        "card_radius": 18,
+        "card_gap": 20,
+        "price_size": 44,
+        "mobile_layout": "stack",
+        "section_width": "container",
+        "use_theme_spacing": false,
+        "padding_top": 104,
+        "padding_bottom": 48,
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 32
+      },
+      "blocks": {
+        "plan_1": {
+          "type": "plan",
+          "settings": {
+            "name": "Offer Board",
+            "description": "<p>The job search template.</p>",
+            "badge": "",
+            "featured": false,
+            "plan_product": "offer-board",
+            "price": "$29",
+            "compare_price": "$39",
+            "note": "One payment",
+            "features": "Offer Board for Notion\nDashboard, applications, companies and contacts\nOffer comparison and weekly review\nVideo walkthrough\nEvery future update\n- Interview Prep Kit\n- 60 interview questions with notes",
+            "button_label": "Get Offer Board",
+            "button_link": "/collections/all",
+            "button_style": "primary"
+          }
+        },
+        "plan_2": {
+          "type": "plan",
+          "settings": {
+            "name": "The Job Search Bundle",
+            "description": "<p>Offer Board with the Interview Prep Kit.</p>",
+            "badge": "Most chosen",
+            "featured": true,
+            "plan_product": "the-job-search-bundle",
+            "price": "$39",
+            "compare_price": "$48",
+            "note": "One payment",
+            "features": "Offer Board for Notion\nDashboard, applications, companies and contacts\nOffer comparison and weekly review\nVideo walkthrough\nEvery future update\nInterview Prep Kit\n60 interview questions with notes",
+            "button_label": "Get the bundle",
+            "button_link": "/collections/all",
+            "button_style": "secondary"
+          }
+        }
+      },
+      "block_order": [
+        "plan_1",
+        "plan_2"
+      ]
+    },
+    "maker": {
+      "type": "quotebanner",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "full_width",
+        "text_align_desktop": "left",
+        "max_width": "custom",
+        "custom_max_width": 780,
+        "text_max_width": 780,
+        "gap_top": 18,
+        "enable_custom_style": true,
+        "bg_color": "#f7f7f5",
+        "radius": 16,
+        "enable_shadow": false,
+        "reveal": false,
+        "top_padding_desktop": 28,
+        "bottom_padding_desktop": 28,
+        "pad_x_desktop": 32,
+        "text_align_mobile": "left",
+        "top_padding_mobile": 22,
+        "bottom_padding_mobile": 22,
+        "pad_x_mobile": 20,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0
+      },
+      "blocks": {
+        "quote_1": {
+          "type": "quote",
+          "settings": {
+            "quote_text": "I built Offer Board during my own search in 2024, after losing track of a recruiter who had asked me to follow up. Northpaper is me and one other designer. We use it, we update it, and we answer every email.",
+            "use_curly_quotes": false,
+            "quote_size": 17,
+            "quote_size_mobile": 16,
+            "enable_custom_style": true,
+            "quote_weight": "400",
+            "quote_color": "#37352f"
+          }
+        },
+        "author_2": {
+          "type": "author",
+          "settings": {
+            "author_name": "Jonas Weir",
+            "author_role": "Made Offer Board",
+            "avatar": "shopify://shop_images/notionpage-avatar-13.webp",
+            "author_size": 16,
+            "author_size_mobile": 15,
+            "enable_custom_style": true,
+            "author_color": "#191918",
+            "avatar_size": 40
+          }
+        }
+      },
+      "block_order": [
+        "quote_1",
+        "author_2"
+      ]
+    },
+    "letter": {
+      "type": "richtext2",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "full_width",
+        "reset_spacing": true,
+        "reveal": false,
+        "show_on_mobile": true,
+        "enable_badge": false,
+        "show_accent_bar": false,
+        "elements_alignment": "left",
+        "padding_top": 40,
+        "padding_bottom": 64
+      },
+      "blocks": {
+        "description_1": {
+          "type": "description",
+          "settings": {
+            "description_text": "<p>A job search is a small project with a lot of moving parts. Twenty roles, a dozen people, three interview loops and a deadline nobody wrote down.</p><p>Most of us run it from memory, a spreadsheet and an inbox. That works for the first week. Then a recruiter asks you to follow up on Tuesday and Tuesday passes.</p><p>Offer Board is the system we wished we had:</p><ul><li>every role on one board, with where it stands</li><li>every person with the next date to write to them</li><li>your best stories ready before each interview</li><li>offers compared on more than the salary</li></ul><p>It is plain on purpose. Six pages you will open every day and a review that takes twenty minutes on a Friday.</p><p>New to Notion? The walkthrough video covers everything you need.</p>",
+            "description_text_size": 16,
+            "description_mobile_size": 15,
+            "description_left_padding_desktop": 330,
+            "description_right_padding_desktop": 330,
+            "description_left_padding_mobile": 4,
+            "description_right_padding_mobile": 4,
+            "enable_custom_style": true,
+            "description_color": "#37352f"
+          }
+        }
+      },
+      "block_order": [
+        "description_1"
+      ]
+    },
+    "reviews": {
+      "type": "testimonial-wall",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "text_align": "left",
+        "columns": 3,
+        "card_gap": 16,
+        "card_style": "filled",
+        "collapse": "always",
+        "collapsed_part": 55,
+        "more_label": "Show more reviews",
+        "less_label": "Show fewer",
+        "enable_custom_style": true,
+        "card_bg": "#efeeeb",
+        "quote_color": "#37352f",
+        "name_color": "#191918",
+        "star_color": "#191918",
+        "card_radius": 14,
+        "quote_size": 15,
+        "quote_size_mobile": 15,
+        "padding_top": 96,
+        "padding_bottom": 40,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 24
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "What buyers say",
+            "size": 40,
+            "size_mobile": 28
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "A few notes from people who used Offer Board in their search."
+          }
+        },
+        "testimonial_3": {
+          "type": "testimonial",
+          "settings": {
+            "body": "I had applications in three spreadsheets and my email. Two evenings in, everything was on one board and I could finally see which ones had gone quiet.",
+            "name": "Priya R.",
+            "role": "Product designer",
+            "rating": 0,
+            "avatar": "shopify://shop_images/notionpage-avatar-1.webp"
+          }
+        },
+        "testimonial_4": {
+          "type": "testimonial",
+          "settings": {
+            "body": "The follow up dates are the part I use most. Notion tells me who to write to that day, so I stopped losing people after the first call.",
+            "name": "Tom A.",
+            "role": "Data analyst",
+            "rating": 0,
+            "avatar": "shopify://shop_images/notionpage-avatar-2.webp"
+          }
+        },
+        "testimonial_5": {
+          "type": "testimonial",
+          "settings": {
+            "body": "I am new to Notion and was worried. The walkthrough video got me set up in about 20 minutes.",
+            "name": "Grace L.",
+            "role": "Graduate, first job search",
+            "rating": 0,
+            "avatar": "shopify://shop_images/notionpage-avatar-3.webp"
+          }
+        },
+        "testimonial_6": {
+          "type": "testimonial",
+          "settings": {
+            "body": "The story bank saved me before every interview. I wrote six stories once and reused them for every company.",
+            "name": "Sam O.",
+            "role": "Engineering manager",
+            "rating": 0,
+            "avatar": "shopify://shop_images/notionpage-avatar-4.webp"
+          }
+        },
+        "testimonial_7": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Having two offers side by side in a table made the decision calmer. I asked for a week to decide and got it.",
+            "name": "Lena B.",
+            "role": "Marketing lead",
+            "rating": 0,
+            "avatar": "shopify://shop_images/notionpage-avatar-5.webp"
+          }
+        },
+        "testimonial_8": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Simple enough that I actually kept using it after week two, which never happened with anything else I tried.",
+            "name": "Marco R.",
+            "role": "Account executive",
+            "rating": 0,
+            "avatar": "shopify://shop_images/notionpage-avatar-6.webp"
+          }
+        },
+        "testimonial_9": {
+          "type": "testimonial",
+          "settings": {
+            "body": "My coach and I share the workspace. She leaves comments on my applications before I send them.",
+            "name": "Hannah C.",
+            "role": "Career changer",
+            "rating": 0,
+            "avatar": "shopify://shop_images/notionpage-avatar-7.webp"
+          }
+        },
+        "testimonial_10": {
+          "type": "testimonial",
+          "settings": {
+            "body": "The weekly review is twenty minutes on a Friday and it keeps the whole thing from piling up.",
+            "name": "Jonah K.",
+            "role": "Software engineer",
+            "rating": 0,
+            "avatar": "shopify://shop_images/notionpage-avatar-8.webp"
+          }
+        },
+        "testimonial_11": {
+          "type": "testimonial",
+          "settings": {
+            "body": "I changed the stages to fit how hiring works in academia and nothing broke. Good sign for a template.",
+            "name": "Dana E.",
+            "role": "Research scientist",
+            "rating": 0,
+            "avatar": "shopify://shop_images/notionpage-avatar-9.webp"
+          }
+        },
+        "testimonial_12": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Clean, quiet and it works on my phone, so I log a role the moment I see it.",
+            "name": "Ade W.",
+            "role": "UX researcher",
+            "rating": 0,
+            "avatar": "shopify://shop_images/notionpage-avatar-10.webp"
+          }
+        },
+        "testimonial_13": {
+          "type": "testimonial",
+          "settings": {
+            "body": "I liked that it does not try to be everything. Roles, people, stories, offers. That is the job search.",
+            "name": "Ines M.",
+            "role": "Operations",
+            "rating": 0,
+            "avatar": "shopify://shop_images/notionpage-avatar-11.webp"
+          }
+        },
+        "testimonial_14": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Worth it for the contacts page alone. Every referral I got came from someone in there.",
+            "name": "Ravi P.",
+            "role": "Product manager",
+            "rating": 0,
+            "avatar": "shopify://shop_images/notionpage-avatar-12.webp"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "testimonial_3",
+        "testimonial_4",
+        "testimonial_5",
+        "testimonial_6",
+        "testimonial_7",
+        "testimonial_8",
+        "testimonial_9",
+        "testimonial_10",
+        "testimonial_11",
+        "testimonial_12",
+        "testimonial_13",
+        "testimonial_14"
+      ]
+    },
+    "faq": {
+      "type": "faq-tabs",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "full_width",
+        "structured_data": true,
+        "open_first": false,
+        "allow_multiple_open": false,
+        "header_align": "center",
+        "section_max_width_desktop": 760,
+        "section_max_width_tablet": 700,
+        "section_max_width_mobile": 560,
+        "item_padding_y": 20,
+        "enable_custom_style": true,
+        "tabs_track_bg": "#ecebe8",
+        "tab_active_bg": "#ffffff",
+        "tab_active_color": "#191918",
+        "tab_inactive_color": "#6f6e69",
+        "divider_color": "#e0dfda",
+        "q_color": "#191918",
+        "plus_color": "#9b9a96",
+        "a_color": "#55534e",
+        "tab_size": 14,
+        "tab_weight": "600",
+        "q_size": 17,
+        "q_weight": "600",
+        "a_size": 15,
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 56,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 32,
+        "tab_1_label": "The template",
+        "tab_2_label": "Buying",
+        "tab_3_label": "Using it",
+        "tab_4_label": "",
+        "tab_5_label": ""
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Questions, answered",
+            "tag": "h2",
+            "size_enable": true,
+            "size_desktop": 40,
+            "size_mobile": 28
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Still deciding? These are the things people ask most before buying.</p>",
+            "max_width": 560
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "What is Offer Board?",
+            "answer": "<p>A Notion template for running a job search. It keeps the roles you save, the companies, the people you talk to, your interview stories and any offers in one workspace, linked to each other.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "Do I need a paid Notion plan?",
+            "answer": "<p>No. Offer Board works on Notion's free plan, on the web, the desktop app and the phone app.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "2",
+            "question": "How do I get it after I pay?",
+            "answer": "<p>The receipt page and the email both have a link. Open it while signed in to Notion and press Duplicate, and the whole template is copied into your workspace.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "I have never used Notion. Will I manage?",
+            "answer": "<p>Yes. The Instructions page has a 12 minute walkthrough and five steps to follow. Most people are adding roles within the first half hour.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "Can I change it?",
+            "answer": "<p>Every page, property and view is yours to edit. Rename the stages, add a column for visa sponsorship, delete the pages you do not need.</p>"
+          }
+        },
+        "faq_item_8": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "Can I use it with a career coach or a friend?",
+            "answer": "<p>Yes. Share the workspace or a single page with them from Notion, and they can comment on your applications and stories.</p>"
+          }
+        },
+        "faq_item_9": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "2",
+            "question": "Do you offer a student discount?",
+            "answer": "<p>Yes. Write to us from your university email and we send a code for half off.</p>"
+          }
+        },
+        "faq_item_10": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "2",
+            "question": "What is your refund policy?",
+            "answer": "<p>If Offer Board is not for you, email us within 14 days and we refund you. No form to fill in.</p>"
+          }
+        },
+        "faq_item_11": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "What if I still have a question?",
+            "answer": "<p>Write to us from the contact page. A person reads every message and replies within two working days.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7",
+        "faq_item_8",
+        "faq_item_9",
+        "faq_item_10",
+        "faq_item_11"
+      ]
+    },
+    "cta": {
+      "type": "banner3",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "text_align": "center",
+        "max_width": 720,
+        "heading_tag": "h2",
+        "banner_surface": "soft",
+        "banner_tint": 4,
+        "use_custom_bg": true,
+        "bg_color": "#ecebe8",
+        "use_theme_radius": false,
+        "section_border_radius": 20,
+        "banner_shadow": "none",
+        "reveal": false,
+        "stack_gap": 12,
+        "sub_btn_gap": 24,
+        "pad_top_desktop": 56,
+        "pad_bottom_desktop": 56,
+        "pad_top_mobile": 40,
+        "pad_bottom_mobile": 40,
+        "section_padding_top": 24,
+        "section_padding_bottom": 110,
+        "section_padding_top_mobile": 16,
+        "section_padding_bottom_mobile": 64
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Notion template",
+            "enable_custom_style": true,
+            "transform": "none",
+            "letterspace": 0,
+            "size_d": 14,
+            "size_m": 13,
+            "opacity": 70
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Offer Board",
+            "enable_custom_style": true,
+            "size_d": 34,
+            "size_m": 28,
+            "weight": "700"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "Run your whole job search from one Notion page. Pay once, keep every update."
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "Get the template",
+            "link": "/collections/all",
+            "enable_custom_style": true,
+            "use_theme_button": true,
+            "radius": 10,
+            "pad_h": 28,
+            "pad_v": 13,
+            "size_d": 15,
+            "size_m": 15
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
+    }
+  },
+  "order": [
+    "hero",
+    "screen",
+    "inside",
+    "for",
+    "extras",
+    "pricing",
+    "maker",
+    "letter",
+    "reviews",
+    "faq",
+    "cta"
+  ]
+}

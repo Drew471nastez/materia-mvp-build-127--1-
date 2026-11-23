@@ -1,4 +1,4 @@
-/* Templates round 22: a money book for your twenties by Maya Okafor, built from the theme's own sections (product hero, quote, image with text, text columns, product grid, testimonial wall, newsletter with image, FAQ, banner); Libre Baskerville and Helvetica. */
+/* Templates round 23: a missing page, back to the book. */
 {
   "sections": {
     "main": {
@@ -10,11 +10,11 @@
         "padding_bottom": 56
       },
       "blocks": {
-        "image_VQTRFT": {
+        "image_1": {
           "type": "image",
           "settings": {}
         },
-        "heading_6nj4md": {
+        "heading_2": {
           "type": "heading",
           "settings": {
             "heading": "This page is missing",
@@ -24,7 +24,7 @@
             "spacing_bottom": 20
           }
         },
-        "subheading_yFdKEQ": {
+        "subheading_3": {
           "type": "subheading",
           "settings": {
             "font_size": 15,
@@ -34,7 +34,7 @@
             "spacing_bottom": 40
           }
         },
-        "button_4yrfiE": {
+        "button_4": {
           "type": "button",
           "settings": {
             "open_link": false,
@@ -46,16 +46,16 @@
         }
       },
       "block_order": [
-        "image_VQTRFT",
-        "heading_6nj4md",
-        "subheading_yFdKEQ",
-        "button_4yrfiE"
+        "image_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
       ]
     },
     "cta": {
       "type": "banner3",
       "settings": {
-        "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636",
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
         "banner_surface": "section",
         "max_width": 720,
         "pad_top_desktop": 88,
@@ -65,28 +65,28 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "Not Broke Anymore",
+            "text": "Hold the Room",
             "transform": "uppercase"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Next payday, have a plan",
+            "text": "Your next talk can be your best one",
             "transform": "none",
-            "lineheight": "1.35"
+            "lineheight": "1.25"
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "Twelve short chapters and one page you will use every month."
+            "text": "Fourteen short chapters, PDF and EPUB, in your inbox in a minute."
           }
         },
         "button_4": {
           "type": "button",
           "settings": {
-            "label": "Buy the book",
+            "label": "Buy the ebook",
             "link": "/collections/all"
           }
         }

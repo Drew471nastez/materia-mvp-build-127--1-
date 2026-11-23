@@ -852,8 +852,10 @@ function videoTag(v: unknown, kw: Record<string, unknown>): string {
   const src = sources.length ? str((sources[0] as Record<string, unknown>).url) : str(o.src ?? o.url ?? v)
   if (!src) return ""
   const flags = ["autoplay", "loop", "muted", "controls", "playsinline"].filter((k) => kw[k] === true).join(" ")
-  const poster = imageSrc(o.preview_image)
-  const extra = Object.entries(kw).filter(([k, val]) => !["autoplay", "loop", "muted", "controls", "playsinline", "image_size"].includes(k) && val !== null && val !== undefined && val !== false && /^[a-z][a-z0-9_-]*$/i.test(k) && !/^on/i.test(k)).map(([k, val]) => (val === true ? k.replace(/_/g, "-") : `${k.replace(/_/g, "-")}="${attr(val)}"`)).join(" ")
+  /* A poster the theme names (a section's Poster image) is shown instead of the video's own first frame. */
+  const named = kw.poster !== undefined && kw.poster !== null && kw.poster !== false ? str(kw.poster) : ""
+  const poster = named || imageSrc(o.preview_image)
+  const extra = Object.entries(kw).filter(([k, val]) => !["autoplay", "loop", "muted", "controls", "playsinline", "image_size", "poster"].includes(k) && val !== null && val !== undefined && val !== false && /^[a-z][a-z0-9_-]*$/i.test(k) && !/^on/i.test(k)).map(([k, val]) => (val === true ? k.replace(/_/g, "-") : `${k.replace(/_/g, "-")}="${attr(val)}"`)).join(" ")
   /* Each source with its own type: a WebM or a MOV announced as MP4 is skipped by a browser that cannot play MP4 of that kind. */
   const list = sources.length ? sources.map((x) => x as Record<string, unknown>).filter((x) => str(x.url)) : [{ url: src, mime_type: "video/mp4" }]
   const tags = list.map((x) => `<source src="${attr(x.url)}" type="${attr(str(x.mime_type) || "video/mp4")}">`).join("")

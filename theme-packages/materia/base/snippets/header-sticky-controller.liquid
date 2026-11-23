@@ -100,6 +100,10 @@
     const wide = matchMedia('(min-width: 1025px)');
     const legacy = ['animate', 'scr-pass-header', 'sl-hdr-hidden', 'sl-header-snap'];
     const findHeader = () => document.querySelector('header.header[data-sticky]');
+    {%- comment %}The show slide's length, the same as header-sticky.css.{% endcomment %}
+    const SHOW_MS = 380;
+    const still = matchMedia('(prefers-reduced-motion: reduce)');
+    const currentY = el => { const t = getComputedStyle(el).transform; return t && t !== 'none' ? new DOMMatrixReadOnly(t).m42 : 0; };
     const setVar = (el, name, value) => { if (el.style.getPropertyValue(name) !== value) el.style.setProperty(name, value); };
     const teardown = () => {
       state?.resize?.disconnect();
@@ -186,13 +190,15 @@
          bar. Crossing the desktop / phone width starts afresh.{% endcomment %}
       if (s.fresh) { s.fresh = false; s.lastY = s.turnY = y; s.dir = 0; s.hidden = false; }
       {
-        if (mode === 'on-scroll-up' && !pill) {
+        if (mode === 'on-scroll-up') {
           {%- comment %}Hides once its place has scrolled away, on a real change of
-             direction (12px down hides, 8px up shows).{% endcomment %}
+             direction (12px down hides, 8px up shows). The pill floats over the
+             page below its own zero tall place, so its own offset counts.{% endcomment %}
           const delta = y - s.lastY;
           const dir = delta > 0 ? 1 : delta < 0 ? -1 : s.dir;
           if (dir !== s.dir) { s.dir = dir; s.turnY = s.lastY; }
-          const away = slot + height <= top + 1;
+          if (pill && s.pillTop == null) s.pillTop = parseFloat(getComputedStyle(header).top) || 0;
+          const away = slot + (pill ? s.pillTop || 0 : 0) + height <= top + 1;
           {%- comment %}Over an open dropdown it stays. Focus never holds it: closing the
              phone menu focuses the hamburger, which froze the bar.{% endcomment %}
           const held = header.matches(':hover') && !!header.querySelector('.menu-parent.visible');
@@ -207,12 +213,41 @@
       }
       const overlay = (header.classList.contains('transparent') && wide.matches) ||
         (header.classList.contains('transparent-mobile') && !wide.matches);
-      {%- comment %}Writes.{% endcomment %}
+      {%- comment %}The bar coming back never leaves its own place empty. It slides
+         back in with a transform (CSS, on the compositor), and while its place
+         in the page is partly on screen it is never drawn above that place:
+         a fast scroll up used to catch it mid slide, the page background
+         showed as a white band under the announcement bar, and the bar then
+         snapped. Only then, and only until the slide ends, it is held there
+         here, frame by frame, from where the slide actually is.{% endcomment %}
       if (mode !== s.mode) {
         s.mode = mode;
         section.classList.remove(...legacy);
         s.hidden = false;
+        s.slide = null;
       }
+      const now = performance.now();
+      if (s.wasHidden && !s.hidden && !still.matches) s.slide = {t0: now, dur: SHOW_MS};
+      else if (s.hidden) s.slide = null;
+      s.wasHidden = s.hidden;
+      let hold = '';
+      if (s.slide) {
+        const floor = Math.min(0, slot - top);
+        if (!s.slide.held && now - s.slide.t0 < s.slide.dur) {
+          const at = currentY(section);
+          if (floor > at + 0.5) s.slide = {held: true, t0: now, dur: Math.max(120, s.slide.dur - (now - s.slide.t0)), from: at};
+        }
+        const p = Math.min(1, (now - s.slide.t0) / s.slide.dur);
+        if (s.slide.held && p < 1) hold = 'translate3d(0,' + Math.max(s.slide.from * Math.pow(1 - p, 3), floor).toFixed(2) + 'px,0)';
+        if (p >= 1) s.slide = null;
+        else schedule();
+      }
+      if (s.hold !== hold) {
+        s.hold = hold;
+        if (hold) { section.style.setProperty('transform', hold, 'important'); section.style.setProperty('transition', 'none', 'important'); }
+        else { section.style.removeProperty('transform'); section.style.removeProperty('transition'); }
+      }
+      {%- comment %}Writes.{% endcomment %}
       if (section.dataset.storelibSticky !== mode) section.dataset.storelibSticky = mode;
       section.toggleAttribute('data-sticky-always', mode === 'always');
       section.classList.toggle('scroll-up', mode === 'on-scroll-up');
@@ -240,8 +275,18 @@
       {%- comment %}--sticky-top: bottom edge of what is pinned now; sticky columns sit under it.{% endcomment %}
       const pinned = mode !== 'none' && !s.hidden ? height : 0;
       const stickyTop = Math.round(top + pinned) + 'px';
-      setVar(html, '--sticky-top', stickyTop);
-      setVar(html, '--product-sticky-top', stickyTop);
+      {%- comment %}Every element on the page inherits these, so changing them restyles the
+         whole page (40ms and more on a long one, measured). Written in the same
+         frame as the slide, that work delayed the slide's first frames and it
+         lurched; so a change that comes with a slide waits until the slide is
+         over. The first value is written at once.{% endcomment %}
+      if (s.stickyTop !== stickyTop) {
+        s.stickyTop = stickyTop;
+        clearTimeout(s.stickyTimer);
+        const write = () => { setVar(html, '--sticky-top', s.stickyTop); setVar(html, '--product-sticky-top', s.stickyTop); };
+        if (s.stickyWritten) s.stickyTimer = setTimeout(write, SHOW_MS + 60);
+        else { s.stickyWritten = true; write(); }
+      }
     };
     function schedule() { if (frame == null) frame = requestAnimationFrame(update); }
     {%- comment %}A header drawn again (a builder redraw) or added later.{% endcomment %}

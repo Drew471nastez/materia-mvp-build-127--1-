@@ -66,6 +66,8 @@ export function PayoutsSheet() {
             purpose={link.form === "bank" ? "stripe_management" : "stripe_onboarding"}
             collection={link.form === "bank" ? BANK_COLLECTION : SETUP_COLLECTION}
             session={session}
+            /* Stripe's script starts loading beside the signed session, not after it (components/app/settings/stripe-connect-warm). */
+            publishableKey={process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? null}
             failedTitle="Couldn't load the form"
             onExit={() => setFinished(true)}
           />

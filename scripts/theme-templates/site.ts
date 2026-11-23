@@ -65,6 +65,21 @@ export interface SampleProduct {
   pictures?: Record<string, string>
   /** Variants that are sold out, by name ("XL", "XL / Sand") or by one of their values. */
   soldOut?: string[]
+  /** The sample's star rating and review count, [4.8, 36]; left out, one is made from its place in the list (sampleProof). */
+  rating?: [number, number]
+  /** Units the sample has sold, as a store's paid orders count them; left out, made like the rating. */
+  sold?: number
+}
+
+/*
+  Product page round 23: the sample shop's products carry a rating and a sold
+  count, so a product page's Reviews and Sold counter blocks (which read the
+  product's own numbers, never typed ones) have something to draw in the
+  previews and covers. A live store draws its own reviews and paid orders.
+*/
+function sampleProof(p: SampleProduct, i: number): { rating: { value: number; count: number }; sold: number } {
+  const [value, count] = p.rating ?? [[4.9, 4.8, 4.7, 4.9, 4.8, 4.6][i % 6], 14 + ((i * 23) % 71)]
+  return { rating: { value, count }, sold: p.sold ?? 6 + ((i * 11) % 37) }
 }
 
 const money = (n: number) => `$${n.toFixed(2)}`
@@ -97,12 +112,15 @@ function card(p: SampleProduct, i: number, imageUrl: (name: string) => string, c
   const image = p.image ? imageUrl(p.image) : ""
   const variants = variantsOf(p, i, imageUrl)
   const images = [...new Set([image, ...variants.map((v) => v.image)].filter(Boolean))]
+  const proof = sampleProof(p, i)
   return {
     id: `00000000-0000-4000-8000-0000000000${String(i + 10)}`,
+    rating: proof.rating,
     settings: {
       title: p.title, slug, url: `/products/${slug}`, price: p.price, compare_price: p.compare ?? "", currency, free: false, pay_what_you_want: false,
       image, images, kind: p.kind ?? "physical", available: true, tag: "", checkout_url: `/checkout/${slug}`,
       description: p.description ?? "", description_html: p.description ? `<p>${p.description}</p>` : "", variants, options: (p.options ?? []).slice(0, 3), category: "",
+      sold_count: proof.sold,
     },
   }
 }

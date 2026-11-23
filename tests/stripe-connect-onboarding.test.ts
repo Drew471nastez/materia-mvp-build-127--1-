@@ -20,6 +20,18 @@
  *      what to do, carries a code the page acts on, and is logged with
  *      Stripe's own type, code, param and request id.
  *
+ *   4  "Why does it say all the time 'are you a citizen of Romania'?" (the
+ *      owner, the same day). Accounts opened before the country step were
+ *      in Romania, setup reused them without asking, and Stripe's form asks
+ *      about citizenship of the account's country. Now an untouched account
+ *      whose country the seller never chose opens no form until the country
+ *      is asked, and choosing another country replaces it (section 9).
+ *   5  The form was slow: a line of waits after the press. Section 10 holds
+ *      the session made beside the overview on Continue, one read of the
+ *      row per session, and the browser's single-use session cache;
+ *      scripts/check-payouts-connect.mjs measures the time to Stripe's
+ *      first frame in Chromium.
+ *
  * The country matrix runs from a Romanian platform: US, GB, DE, FR, RO, ES,
  * IT, NL, PL, CA open an account; AU, BR, MX, IN, JP, SG, AE and NG are told
  * plainly that Stripe cannot pay out there from Storelib, before any account
@@ -71,6 +83,15 @@ function matches(row: Row, q: URLSearchParams): boolean {
     if (v === "is.null" && have !== null && have !== undefined) return false
   }
   return true
+}
+
+function metadataOf(body: URLSearchParams): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const [k, v] of body) {
+    const m = /^metadata\[(.+)\]$/.exec(k)
+    if (m) out[m[1]] = v
+  }
+  return out
 }
 
 function stripeError(res: http.ServerResponse, status: number, type: string, message: string, extra: Record<string, unknown> = {}) {
@@ -126,6 +147,8 @@ const server = http.createServer(async (req, res) => {
       id,
       object: "account",
       country,
+      business_type: body.get("business_type"),
+      metadata: metadataOf(body),
       details_submitted: false,
       charges_enabled: false,
       payouts_enabled: false,
@@ -146,7 +169,18 @@ const server = http.createServer(async (req, res) => {
       return send({ id: one[1], deleted: true })
     }
     if (req.method === "POST" && body.get("settings[payouts][schedule][interval]")) (a.settings as { payouts: { schedule: { interval: string } } }).payouts.schedule.interval = "manual"
+    if (req.method === "POST") {
+      a.metadata = { ...((a.metadata as Record<string, string> | undefined) ?? {}), ...metadataOf(body) }
+      if (body.get("business_type")) a.business_type = body.get("business_type")
+    }
     return send(a)
+  }
+  if (/^accounts\/acct_\w+\/external_accounts$/.test(path)) return send({ object: "list", data: [] })
+  if (path === "payouts") return send({ object: "list", data: [] })
+  if (path === "account_sessions" && req.method === "POST") {
+    const account = body.get("account") ?? ""
+    if (!accounts[account]) return stripeError(res, 400, "invalid_request_error", "No such account", { param: "account" })
+    return send({ object: "account_session", account, client_secret: `accs_secret_${++reqs}`, expires_at: Math.floor(Date.now() / 1000) + 1800, components: {} })
   }
   stripeError(res, 404, "invalid_request_error", `no stub for ${req.method} ${path}`)
 })
@@ -157,6 +191,7 @@ async function main() {
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()))
   const port = (server.address() as { port: number }).port
   process.env.STRIPE_SECRET_KEY = "sk_test_double"
+  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = "pk_test_double"
   process.env.STRIPE_API_BASE = `http://127.0.0.1:${port}`
   process.env.NEXT_PUBLIC_SUPABASE_URL = `http://127.0.0.1:${port}`
   process.env.SUPABASE_SERVICE_ROLE_KEY = "service_role_double"
@@ -178,6 +213,10 @@ async function main() {
   const { readsLikeStripe } = await import("../lib/payments/verify-id")
   const { accountAttempts } = await import("../lib/payments/stripe/account-attempts")
   const { cannotPayOutLine, payoutRoute } = await import("../lib/payments/stripe/payout-regions")
+  const { stripeAccountSession, stripeStartOnboarding } = await import("../lib/payments/stripe/overview")
+  const { prepareStorelibAccount } = await import("../lib/payments/stripe/verification")
+  const { COUNTRY_CHOSEN_KEY, countryNeedsChoice, setupCountryOf } = await import("../lib/payments/stripe/account-country")
+  const warm = await import("../components/app/settings/stripe-connect-warm")
 
   let n = 0
   const seller = () => {
@@ -332,13 +371,14 @@ async function main() {
       const sheet = read("app/(storelib)/payouts-sheet/payouts-sheet.tsx")
       const embed = read("components/app/settings/stripe-connect-embedded.tsx")
       check("the apps' sheet no longer drops any sentence that names Stripe", !/!\/stripe\|acct_\|accs_\/i\.test/.test(sheet) && /readsLikeStripe/.test(sheet))
-      check("the embedded form no longer drops any sentence that names Stripe", !/\|stripe\/i\.test\(message\)/.test(embed) && /readsLikeStripe\(message\)/.test(embed))
+      const warmSrc = read("components/app/settings/stripe-connect-warm.ts")
+      check("the embedded form no longer drops any sentence that names Stripe", !/\|stripe\/i\.test\(message\)/.test(embed + warmSrc) && /readsLikeStripe\(message\)/.test(warmSrc) && /shownError\(/.test(embed))
       check("  and a frame that will not load says why, and is reported to the server log", /loadErrorLine\(error\?\.type/.test(embed) && /\/api\/client-errors/.test(embed))
       const flow = read("components/app/settings/payments-setup-flow.tsx")
       check("setup asks the country before opening anything, on the web and in the apps", /function CountryStep/.test(flow) && (flow.match(/<CountryStep /g) ?? []).length === 2 && !/country: current\.prefill\?\.country \|\| current\.payoutHint\?\.country/.test(flow) && !/country: data\.prefill\?\.country \|\| data\.payoutHint\?\.country/.test(flow))
       check("  a country Stripe cannot pay out to is said before Continue", /payoutRoute\(platform, code\) === "unsupported"/.test(flow) && /disabled=\{blocked\}/.test(flow))
       check("  Try again is offered only where trying again can work", /const retry = code === "retry" \|\| code === null/.test(flow))
-      check("  an existing account resumes on Stripe's form, the country is not asked again", /if \(!existed\.current && !country\)/.test(flow))
+      check("  an account with something sent on it resumes on Stripe's form; only one nothing was sent on asks the country again", /const asks = React\.useRef\(!bankOnly && \(!hasAccount \|\| sc\?\.changeable === true\)\)/.test(flow) && /if \(asks\.current && !country\)/.test(flow))
       const route = read("app/api/payments/[action]/route.ts")
       check("every refused action is a JSON log line with what the seller saw, and the code goes to the page", /evt: "payments_api_problem"/.test(route) && /\{ error: e\.userMessage, code: e\.code \}/.test(route))
     }
@@ -352,6 +392,136 @@ async function main() {
         const ok = route === "unsupported" ? tries.length === 0 : tries.length > 0 && tries.every((t) => t.capabilities?.transfers?.requested === true) && tries.some((t) => !!t.capabilities?.card_payments) && tries.some((t) => !t.capabilities?.card_payments)
         check(`${c} from Romania: ${route}, ${tries.length} shapes`, ok)
       }
+    }
+    section("9. 'Are you a citizen of Romania?': an account nobody chose the country of")
+    {
+      /* A seller from before the country step: their account was opened in the platform's country, Romania, with nothing sent on it. */
+      const legacy = (country: string, extra: Record<string, unknown> = {}) => {
+        const who = seller()
+        const id = `acct_legacy${++made}`
+        accounts[id] = { id, object: "account", country, business_type: "individual", metadata: {}, details_submitted: false, charges_enabled: false, payouts_enabled: false, controller: { requirement_collection: "application" }, capabilities: { transfers: "inactive" }, tos_acceptance: { service_agreement: "full" }, business_profile: { url: "https://storelib.com/x", mcc: "5818", product_description: "Digital products" }, settings: { payouts: { schedule: { interval: "manual" } } }, ...extra }
+        row(who.id).stripe_account_id = id
+        return { who, id }
+      }
+      const sessionFor = async (who: { id: string; userId: string; email: string }) => {
+        const before = calls.length
+        try {
+          const got = await stripeAccountSession(who, "onboarding")
+          return { got, code: null as string | null, sessions: calls.slice(before).filter((c) => c.path === "account_sessions").length, creates: calls.slice(before).filter((c) => c.method === "POST" && c.path === "accounts") }
+        } catch (e) {
+          return { got: null, code: (e as InstanceType<typeof PaymentsProblem>).code ?? String(e), sessions: calls.slice(before).filter((c) => c.path === "account_sessions").length, creates: calls.slice(before).filter((c) => c.method === "POST" && c.path === "accounts") }
+        }
+      }
+
+      const ro = legacy("RO")
+      const blocked = await sessionFor(ro.who)
+      check("the cause: an untouched Romanian account from before the country step no longer opens Stripe's form", blocked.code === "country_required" && blocked.sessions === 0, blocked)
+      check("  and it is not swapped for another Romanian one behind the seller's back", blocked.creates.length === 0)
+      check("  pure: that account needs the country asked; one the seller chose does not", countryNeedsChoice(accounts[ro.id] as never) && !countryNeedsChoice({ ...accounts[ro.id], metadata: { [COUNTRY_CHOSEN_KEY]: "1" } } as never))
+
+      const before = calls.length
+      const swapped = await ensureStripeAccount(ro.who, { kind: "individual", country: "DE" })
+      const creates = calls.slice(before).filter((c) => c.method === "POST" && c.path === "accounts")
+      check("the seller says Germany: the Romanian account is replaced by a German one", swapped !== ro.id && accounts[swapped]?.country === "DE" && !accounts[ro.id] && row(ro.who.id).stripe_account_id === swapped)
+      check("  marked as the seller's choice, as a person", (accounts[swapped]?.metadata as Record<string, string>)?.[COUNTRY_CHOSEN_KEY] === "1" && accounts[swapped]?.business_type === "individual")
+      check("  and nothing Romanian, or personal, is sent with it (no nationality, address, ID or name)", creates.length > 0 && creates.every((c) => ![...c.body.keys()].some((k) => /^individual\[|nationality|address/.test(k)) && ![...c.body.values()].includes("RO")), creates.map((c) => c.body.toString()))
+      const opened = await sessionFor(ro.who)
+      check("  then Stripe's form opens, on the German account", opened.got?.clientSecret.startsWith("accs_") === true && opened.sessions === 1 && calls.filter((c) => c.path === "account_sessions").pop()?.body.get("account") === swapped, opened)
+
+      const home = legacy("RO")
+      const kept = await ensureStripeAccount(home.who, { kind: "individual", country: "RO" })
+      check("a seller really in Romania keeps the same account, now marked as chosen", kept === home.id && (accounts[home.id].metadata as Record<string, string>)[COUNTRY_CHOSEN_KEY] === "1" && calls.some((c) => c.method === "POST" && c.path === `accounts/${home.id}` && c.body.get(`metadata[${COUNTRY_CHOSEN_KEY}]`) === "1"))
+      check("  and the form opens for them", (await sessionFor(home.who)).got?.clientSecret.startsWith("accs_") === true)
+
+      const started = legacy("RO", { details_submitted: true })
+      const resumed = await sessionFor(started.who)
+      check("an account with details already sent resumes on Stripe's form (its country can no longer change)", resumed.got?.clientSecret.startsWith("accs_") === true)
+
+      const express = legacy("RO", { controller: { requirement_collection: "stripe" } })
+      let code: string | null = null
+      const n0 = calls.length
+      try {
+        await prepareStorelibAccount(express.who)
+      } catch (e) {
+        code = (e as InstanceType<typeof PaymentsProblem>).code
+      }
+      check("an old Express account nobody chose the country of is not rebuilt in Romania either: the country is asked", code === "country_required" && !calls.slice(n0).some((c) => c.method === "POST" && c.path === "accounts"))
+
+      const company = legacy("FR", { business_type: "company" })
+      await ensureStripeAccount(company.who, { kind: "business", country: "FR" })
+      check("a business account confirmed as a business stays a company", accounts[company.id].business_type === "company" && (accounts[company.id].metadata as Record<string, string>)[COUNTRY_CHOSEN_KEY] === "1")
+
+      const fresh = await start("ES")
+      check("every new account carries the mark, so its form opens without asking twice", (accounts[fresh.account!]?.metadata as Record<string, string>)?.[COUNTRY_CHOSEN_KEY] === "1")
+      check("setupCountryOf: the page is told the country, that it can change, and who chose it", JSON.stringify(setupCountryOf(accounts[swapped] as never)) === JSON.stringify({ country: "DE", changeable: true, chosen: true }))
+
+      const connectSrc = read("lib/payments/stripe/connect.ts")
+      check("the old fallback to the platform's country is gone", !/platformCountry\(\)\.catch\(\(\) => "RO"\)/.test(connectSrc) && /NO COUNTRY, NO GUESS/.test(connectSrc))
+      const flow = read("components/app/settings/payments-setup-flow.tsx")
+      check("the page never starts the field on a country nobody chose", /sc\?\.chosen === false \? null/.test(flow) && /if \(sc\?\.country && sc\.chosen === true\) return countryLabel\(sc\.country\)/.test(flow))
+      check("  says a change of country starts setup again, before Continue", /data-setup-restarts/.test(flow))
+      check("  goes back to the country when the server says it was never chosen", /code !== "country_required"/.test(flow) && /mustStart\.current = true/.test(flow))
+      check("  and the apps' sheet asks it for an account nothing was sent on too", /\(data\.beat \?\? "personal"\) === "personal" \|\| data\.setupCountry\?\.changeable === true/.test(flow))
+    }
+
+    section("10. Faster to Stripe's first frame")
+    {
+      const who = seller()
+      const n0 = calls.length
+      const view = (await stripeStartOnboarding(who, { kind: "individual", country: "NL", session: true })) as { session?: { clientSecret: string; publishableKey: string } }
+      check("Continue makes the account and the form's session in one request (no second round trip for the frame)", view.session?.clientSecret.startsWith("accs_") === true && calls.slice(n0).filter((c) => c.path === "account_sessions").length === 1, view.session)
+    }
+    {
+      const who = seller()
+      await ensureStripeAccount(who, { kind: "individual", country: "IT" })
+      let reads = 0
+      const realFetch = globalThis.fetch
+      const count = (u: string) => /\/rest\/v1\/creators/.test(u)
+      globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+        const u = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
+        if (count(u) && (!init?.method || init.method === "GET")) reads++
+        return realFetch(input, init)
+      }) as typeof fetch
+      try {
+        await stripeAccountSession(who, "onboarding")
+      } finally {
+        globalThis.fetch = realFetch
+      }
+      check("a form session reads the creator row once (it was read twice, one after the other)", reads === 1, reads)
+    }
+    {
+      const s1 = { clientSecret: "accs_one", publishableKey: "pk_test_x", expiresAt: Math.floor(Date.now() / 1000) + 1800 }
+      warm.primeAccountSession("stripe_onboarding", s1)
+      const got = await warm.takeAccountSession("stripe_onboarding")
+      const again = warm.takeAccountSession("stripe_onboarding")
+      check("a held session is handed out once (a client secret is single use)", got?.clientSecret === "accs_one" && again === null)
+      warm.primeAccountSession("stripe_onboarding", s1, Date.now() - warm.SESSION_FRESH_MS - 1)
+      check("  never after its short window", warm.takeAccountSession("stripe_onboarding") === null)
+      warm.primeAccountSession("stripe_onboarding", { ...s1, expiresAt: Math.floor(Date.now() / 1000) + 10 })
+      check("  nor when Stripe's own expiry is near", (await warm.takeAccountSession("stripe_onboarding")) === null)
+      warm.primeAccountSession("stripe_management", s1)
+      check("  and only for the form it was made for", warm.takeAccountSession("stripe_onboarding") === null)
+      let asked = 0
+      const fetcher = async () => {
+        asked++
+        return s1
+      }
+      warm.prefetchAccountSession("stripe_onboarding", fetcher)
+      warm.prefetchAccountSession("stripe_onboarding", fetcher)
+      check("hovering twice makes one session, not two", asked === 1 && (await warm.takeAccountSession("stripe_onboarding"))?.clientSecret === "accs_one")
+      warm.prefetchAccountSession("stripe_onboarding", async () => {
+        throw new Error("no")
+      })
+      await new Promise((r) => setTimeout(r, 0))
+      check("  a prefetch that failed is forgotten, so the form asks again and shows that answer", warm.takeAccountSession("stripe_onboarding") === null)
+
+      const embed = read("components/app/settings/stripe-connect-embedded.tsx")
+      const loader = read("node_modules/@stripe/connect-js/dist/pure.esm.js")
+      check("the preload is the very script connect-js injects, so it is reused, not fetched twice", loader.includes(`const V1_URL = "${warm.CONNECT_JS_URL}"`))
+      check("with the key known, Stripe's script loads while the session is made, not after it", /import\("@stripe\/connect-js\/pure"\), knownKey \? Promise\.resolve\(null\) : first\]/.test(embed))
+      check("a skeleton of the form shows while it loads, never a lone spinner", /<StripeFormSkeleton \/>/.test(embed) && !/WaitingArea/.test(embed))
+      const settingsSrc = read("components/app/settings/storelib-payments-settings.tsx")
+      check("Set up payouts warms Stripe on hover, focus and press", /onPointerEnter: intent, onFocus: intent, onPointerDown: intent/.test(settingsSrc) && (settingsSrc.match(/\{\.\.\.intentProps\}/g) ?? []).length === 2)
     }
   } finally {
     console.error = realError

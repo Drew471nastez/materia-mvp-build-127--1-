@@ -32,6 +32,8 @@
   if (window.__materiaMouseDrag) return;
   window.__materiaMouseDrag = true;
   let drag = null, suppressClick = null;
+  /* A row still gliding after a release keeps its own styles here, so a new drag on it restores them, not the drag's. */
+  const gliding = new WeakMap();
   const blocked = 'button, input, textarea, select, label, summary, [contenteditable="true"]';
   const rowOf = (node) => {
     let el = node instanceof Element ? node : null;
@@ -45,32 +47,49 @@
     }
     return null;
   };
+  /* Released: the row glides to the card it was thrown towards with snapping
+     still off, and snapping comes back once it is there. Snapping restored
+     first pulled the row to the nearest card in one frame (about 110px on a
+     testimonial row) before the glide began. */
   const finish = event => {
     if (!drag || (event?.pointerId != null && event.pointerId !== drag.id)) return;
     const current=drag;drag=null;
     if(current.moved)suppressClick={row:current.row,until:performance.now()+400};
     current.row.classList.toggle('is-dragging',current.wasDragging);
-    for(const [property,value,priority] of current.styles){if(value)current.row.style.setProperty(property,value,priority);else current.row.style.removeProperty(property);}
     try{if(current.row.hasPointerCapture(current.id))current.row.releasePointerCapture(current.id);}catch(_){}
-    if(event?.type==='pointerup' && current.moved && current.row.hasAttribute('data-testimonial-row')){
-      const card=current.row.firstElementChild,step=(card?.getBoundingClientRect().width||0)+(parseFloat(getComputedStyle(current.row).columnGap)||0);
-      const velocity=performance.now()-current.lastTime<90?current.velocity:0;
-      const distance=current.position-current.start;
-      if(step>0 && Math.abs(distance)>24 && (Math.abs(velocity)>.25 || Math.abs(distance)>=step*.15)){
-        const range=current.row.scrollWidth-current.row.clientWidth;
+    const row=current.row;
+    const restore=()=>{for(const [property,value,priority] of current.styles){if(value)row.style.setProperty(property,value,priority);else row.style.removeProperty(property);}};
+    let target=null;
+    if(event?.type==='pointerup' && current.moved && !current.rtl && row.isConnected){
+      const range=Math.max(0,row.scrollWidth-row.clientWidth),box=row.getBoundingClientRect(),pad=parseFloat(getComputedStyle(row).scrollPaddingLeft)||0;
+      const stops=[...new Set([...row.children].filter(c=>c.getClientRects().length).map(c=>Math.round(Math.max(0,Math.min(range,c.getBoundingClientRect().left-box.left+row.scrollLeft-pad)))))].sort((x,y)=>x-y);
+      if(!stops.includes(range))stops.push(range);
+      const nearest=x=>stops.reduce((best,v)=>Math.abs(v-x)<Math.abs(best-x)?v:best,stops[0]);
+      if(stops.length>1){
+        const step=Math.max(1,(stops[stops.length-1]-stops[0])/(stops.length-1));
+        const velocity=performance.now()-current.lastTime<90?current.velocity:0;
+        const distance=current.position-current.start;
         const projected=current.position+Math.max(-step*.75,Math.min(step*.75,velocity*140));
-        let snap=Math.round(projected/step);
-        if(snap===Math.round(current.start/step))snap+=Math.sign(distance);
-        const target=Math.max(current.rtl?-range:0,Math.min(current.rtl?0:range,snap*step));
-        current.row.scrollTo({left:target,behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'instant':'smooth'});
+        target=nearest(projected);
+        if(row.hasAttribute('data-testimonial-row') && target===nearest(current.start) && Math.abs(distance)>24 && (Math.abs(velocity)>.25 || Math.abs(distance)>=step*.15)){
+          const i=stops.indexOf(target)+Math.sign(distance);
+          if(i>=0 && i<stops.length)target=stops[i];
+        }
       }
     }
+    if(target==null || Math.abs(target-row.scrollLeft)<1){restore();return;}
+    let done=false,timer=0;
+    const settle=()=>{if(done)return;done=true;clearTimeout(timer);row.removeEventListener('scrollend',settle);if(gliding.get(row)===current.styles)gliding.delete(row);if(drag?.row!==row)restore();};
+    gliding.set(row,current.styles);
+    row.addEventListener('scrollend',settle);
+    timer=setTimeout(settle,900);
+    row.scrollTo({left:target,behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'instant':'smooth'});
   };
   document.addEventListener('pointerdown', event => {
     if (drag || event.pointerType !== 'mouse' || event.button !== 0) return;
     const row=rowOf(event.target);if(!row)return;
     suppressClick=null;
-    drag={row,id:event.pointerId,x:event.clientX,lastX:event.clientX,position:row.scrollLeft,start:row.scrollLeft,lastTime:performance.now(),velocity:0,rtl:getComputedStyle(row).direction==='rtl',moved:false,wasDragging:row.classList.contains('is-dragging'),styles:['scroll-snap-type','scroll-behavior','user-select'].map(p=>[p,row.style.getPropertyValue(p),row.style.getPropertyPriority(p)])};
+    drag={row,id:event.pointerId,x:event.clientX,lastX:event.clientX,position:row.scrollLeft,start:row.scrollLeft,lastTime:performance.now(),velocity:0,rtl:getComputedStyle(row).direction==='rtl',moved:false,wasDragging:row.classList.contains('is-dragging'),styles:gliding.get(row)||['scroll-snap-type','scroll-behavior','user-select'].map(p=>[p,row.style.getPropertyValue(p),row.style.getPropertyPriority(p)])};
     row.style.setProperty('scroll-snap-type','none','important');
     row.style.setProperty('scroll-behavior','auto','important');
     row.style.setProperty('user-select','none','important');

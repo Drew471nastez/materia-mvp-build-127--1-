@@ -234,9 +234,13 @@
     border-bottom: solid var(--wd-border) var(--wd-bw);
     margin-top: calc(var(--wd-mt) * 0.75px);
     margin-bottom: calc(var(--wd-mb) * 0.75px);
-    background-color: var(--wd-bg) !important;
+    background-color: var(--wd-match-bg, var(--wd-bg)) !important;
     background-image: var(--wd-gradient);
   }
+  #waves-divider-{{ section.id }}[data-wd-matched] { background-image: none; }
+  #shopify-section-{{ section.id }}[data-wd-matched] { background-color: var(--wd-match-bg) !important; }
+  {%- comment %}The wave and the band behind it overlap their neighbours by a pixel, so no hairline of anything else shows at a fractional edge.{% endcomment %}
+  #waves-divider-{{ section.id }}[data-wd-matched] .wave-item-{{ section.id }} svg { margin-block: -1px; position: relative; }
   #waves-divider-{{ section.id }} .section-{{ section.id }}-settings {
     margin: 0 auto;
     max-width: var(--wd-maxw);
@@ -244,7 +248,7 @@
   }
   #waves-divider-{{ section.id }} .wave-item-{{ section.id }} { transform: var(--wd-rotate); }
   #waves-divider-{{ section.id }} .wave-item-{{ section.id }} svg {
-    color: var(--wd-wave) !important;
+    color: var(--wd-match-wave, var(--wd-wave)) !important;
     display: block;
     width: 100%;
     height: auto;
@@ -265,22 +269,90 @@
     #waves-divider-{{ section.id }} .wave-item-{{ section.id }} svg { max-height: var(--wd-h-d); }
   }
 </style>
-<div id="waves-divider-{{ section.id }}" class="waves-divider-wrapper section-{{ section.id }} wave-{{ section.id }}" data-sd-waves style="{{ wd_vars | strip_newlines }}">
+<div id="waves-divider-{{ section.id }}" class="waves-divider-wrapper section-{{ section.id }} wave-{{ section.id }}" data-sd-waves data-wd-match="{% if s.match_neighbours == false %}false{% else %}true{% endif %}" data-wd-flip="{{ s.wave_rotate | default: false }}" data-wd-second="{{ s.enable_second_color | default: false }}" style="{{ wd_vars | strip_newlines }}">
   <div class="section-{{ section.id }}-settings">
     <div class="wave-item-{{ section.id }}">
       <svg class="waves-animated-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">
         <defs>
           <path id="modern-wave-{{ section.id }}" d="{{ wave_path }}" data-sd-wave-path></path>
         </defs>
-        <g class="wave-parallax1-{{ section.id }}"><use xlink:href="#modern-wave-{{ section.id }}" x="0" y="0" style="fill: var(--wd-wave)"></use></g>
-        <g class="wave-parallax2-{{ section.id }}"><use xlink:href="#modern-wave-{{ section.id }}" x="0" y="5" style="fill: var(--wd-wave-2)"></use></g>
-        <g class="wave-parallax3-{{ section.id }}"><use xlink:href="#modern-wave-{{ section.id }}" x="0" y="10" style="fill: var(--wd-wave)"></use></g>
-        <g class="wave-parallax4-{{ section.id }}"><use xlink:href="#modern-wave-{{ section.id }}" x="0" y="15" style="fill: var(--wd-wave-2)"></use></g>
+        <g class="wave-parallax1-{{ section.id }}"><use xlink:href="#modern-wave-{{ section.id }}" x="0" y="0" style="fill: var(--wd-match-wave, var(--wd-wave))"></use></g>
+        <g class="wave-parallax2-{{ section.id }}"><use xlink:href="#modern-wave-{{ section.id }}" x="0" y="5" style="fill: var(--wd-match-wave-2, var(--wd-wave-2))"></use></g>
+        <g class="wave-parallax3-{{ section.id }}"><use xlink:href="#modern-wave-{{ section.id }}" x="0" y="10" style="fill: var(--wd-match-wave, var(--wd-wave))"></use></g>
+        <g class="wave-parallax4-{{ section.id }}"><use xlink:href="#modern-wave-{{ section.id }}" x="0" y="15" style="fill: var(--wd-match-wave-2, var(--wd-wave-2))"></use></g>
       </svg>
     </div>
   </div>
 </div>
 </div>
+{%- comment -%}
+  MATCH THE SECTIONS AROUND IT (on unless turned off). A divider stands
+  between two sections, and its colours were typed in by hand: change either
+  neighbour, or flip the wave, and the wave no longer met the colour above or
+  below it (Cookbook: a cream wave on a dark band under a cream section). Its
+  background is now the colour at the bottom edge of the section above, and
+  the wave the colour at the top edge of the section below (the other way
+  round when the wave is flipped). A neighbour that ends in a picture keeps
+  the colour set here. Read once the page is laid out, and again when the
+  editor draws a section.
+{%- endcomment -%}
+<script>
+(function () {
+  if (window.StorelibWaveMatch) { window.StorelibWaveMatch.run(); return; }
+  var alpha = function (c) { var m = /rgba?\(([^)]+)\)/.exec(c || ''); if (!m) return 0; var p = m[1].split(/[ ,\/]+/).filter(Boolean); return p.length > 3 ? parseFloat(p[3]) : 1; };
+  var shown = function (el) { if (!el || el.nodeType !== 1) return false; var cs = getComputedStyle(el); return cs.display !== 'none' && el.getBoundingClientRect().height > 0; };
+  var pageColor = function () { var b = getComputedStyle(document.body).backgroundColor; return alpha(b) > 0.98 ? b : getComputedStyle(document.documentElement).backgroundColor; };
+  {%- comment %}The colour drawn along one edge of a section: the last full width box touching that edge with a solid background, or null when a picture is drawn there.{% endcomment %}
+  var edge = function (sec, bottom) {
+    var R = sec.getBoundingClientRect(), color = pageColor(), image = false;
+    var walk = function (el, depth) {
+      var r = el.getBoundingClientRect();
+      if (r.height < 1 || r.width < R.width * 0.9) return;
+      if (bottom ? Math.abs(r.bottom - R.bottom) > 2 : Math.abs(r.top - R.top) > 2) return;
+      var cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden') return;
+      if (/^(IMG|VIDEO|PICTURE|CANVAS|IFRAME)$/.test(el.tagName)) { image = true; return; }
+      if (cs.backgroundImage && cs.backgroundImage !== 'none' && !/gradient/.test(cs.backgroundImage)) image = true;
+      else if (alpha(cs.backgroundColor) > 0.98) { color = cs.backgroundColor; image = false; }
+      if (depth < 8) for (var i = 0; i < el.children.length; i++) walk(el.children[i], depth + 1);
+    };
+    walk(sec, 0);
+    return image ? null : color;
+  };
+  var near = function (sec, dir) {
+    var el = sec;
+    do { el = dir < 0 ? el.previousElementSibling : el.nextElementSibling; } while (el && (!shown(el) || el.tagName === 'SCRIPT' || el.tagName === 'STYLE'));
+    return el;
+  };
+  var match = function (wrap) {
+    var sec = wrap.closest('.shopify-section, [id^="shopify-section-"]');
+    var set = function (name, value) { if (value) wrap.style.setProperty(name, value); else wrap.style.removeProperty(name); };
+    if (!sec || wrap.getAttribute('data-wd-match') === 'false') {
+      set('--wd-match-wave', ''); set('--wd-match-wave-2', ''); set('--wd-match-bg', '');
+      wrap.removeAttribute('data-wd-matched'); if (sec) { sec.removeAttribute('data-wd-matched'); sec.style.removeProperty('--wd-match-bg'); }
+      return;
+    }
+    var above = near(sec, -1), below = near(sec, 1);
+    var top = above ? edge(above, true) : pageColor();
+    var bottom = below ? edge(below, false) : pageColor();
+    var flip = wrap.getAttribute('data-wd-flip') === 'true';
+    var wave = flip ? top : bottom, bg = flip ? bottom : top;
+    set('--wd-match-wave', wave);
+    set('--wd-match-wave-2', wrap.getAttribute('data-wd-second') === 'true' ? '' : wave);
+    set('--wd-match-bg', bg);
+    wrap.toggleAttribute('data-wd-matched', !!bg);
+    sec.toggleAttribute('data-wd-matched', !!bg);
+    if (bg) sec.style.setProperty('--wd-match-bg', bg); else sec.style.removeProperty('--wd-match-bg');
+  };
+  var run = function () { document.querySelectorAll('[data-sd-waves][data-wd-match]').forEach(match); };
+  var frame = 0;
+  var soon = function () { if (!frame) frame = requestAnimationFrame(function () { frame = 0; run(); }); };
+  window.StorelibWaveMatch = {run: soon, match: match};
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run, {once: true}); else soon();
+  addEventListener('load', soon, {once: true});
+  ['shopify:section:load', 'shopify:section:unload', 'shopify:section:reorder', 'storelib:section-load', 'storelib:settings-change'].forEach(function (n) { document.addEventListener(n, function () { setTimeout(soon, 60); }); });
+})();
+</script>
 <!-- ti-theme:end -->
 
 {% schema %}
@@ -446,6 +518,13 @@
       "id": "wave_rotate",
       "label": "Flip wave",
       "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "match_neighbours",
+      "label": "Match the sections around it",
+      "default": true,
+      "info": "The background takes the colour of the section above and the wave the colour of the section below (the other way round when flipped). Turn off to set the colours yourself."
     },
     {
       "type": "checkbox",

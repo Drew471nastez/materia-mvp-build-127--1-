@@ -357,7 +357,8 @@ async function main() {
       for (const [k, v] of Object.entries(sec.settings ?? {})) if (/^(end_iso|countdown_date|end_date|deadline)$/.test(k) && typeof v === "string" && v.trim() !== "") promises.push(`${f}: ${sec.type} counts down to ${v}`)
       for (const b of Object.values(sec.blocks ?? {})) {
         if (b.type === "in_stock") promises.push(`${f}: an "In stock, receive it by" line that reads no stock and promises a date`)
-        if (/^(stock_counter|visitors?|viewers?|sold_count|fake_order|urgency)/.test(b.type)) promises.push(`${f}: ${b.type}`)
+        /* Changed on purpose (product page round 23): a Sold counter that reads the product's own count, verified from paid orders (lib/products/sold-counts-server.ts), is real proof; one with a typed number is still made up. */
+        if (/^(stock_counter|visitors?|viewers?|sold_count|fake_order|urgency)/.test(b.type) && !(b.type === "sold_counter" && b.settings?.sold_source === "product")) promises.push(`${f}: ${b.type}`)
         for (const [k, v] of Object.entries(b.settings ?? {})) if (/^(end_iso|countdown_date|end_date|deadline)$/.test(k) && typeof v === "string" && v.trim() !== "") promises.push(`${f}: ${sec.type} ${b.type} counts down to ${v}`)
       }
     }

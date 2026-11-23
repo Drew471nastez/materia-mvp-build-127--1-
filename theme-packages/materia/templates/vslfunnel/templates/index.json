@@ -1,0 +1,1019 @@
+/* Templates round 23: Smallplot, a VSL funnel for an eight week small space vegetable growing course, on a light page: the free lesson in a large player with its own cover picture and the buttons under it, what the course is made of, who it is for, how a week goes, the eight modules, what you get, the teacher, student quotes, the offer with a refund, questions, a free calendar and a last call to join. Built from the theme's own sections around one custom video opening (vslfunnel-video). */
+{
+  "sections": {
+    "hero": {
+      "type": "vslfunnel-video",
+      "settings": {
+        "color_scheme": "default",
+        "eyebrow": "Watch the free lesson first. It is 14 minutes.",
+        "heading": "Grow your own vegetables on a balcony, patio or small yard",
+        "heading_size": 54,
+        "heading_size_mobile": 32,
+        "text": "<p>An eight week online course for people with little space and no experience. The lesson shows what you can grow by July and how many hours it takes each week.</p>",
+        "show_video": true,
+        "poster": "shopify://shop_images/vslfunnel-poster.webp",
+        "poster_alt": "Maren Holt, the teacher, in a straw hat on her terrace, about to start the lesson",
+        "shade": 6,
+        "length_label": "14:02",
+        "video_title": "Free lesson: five crops that pay back in a small space",
+        "play_label": "Play the free lesson",
+        "caption": "In the lesson: five crops that pay back in a small space, and a one bed plan you can copy this weekend.",
+        "empty_text": "The lesson plays here once the video is added in the editor.",
+        "video_width": 1040,
+        "radius": 14,
+        "video_gap": 40,
+        "button_label": "Join the spring class for $189",
+        "button_link": "/#shopify-section-offer",
+        "button2_label": "Book a 15 minute call",
+        "button2_link": "/pages/book-a-call",
+        "note": "Class starts 2 March, Lessons are yours to keep, 30 day refund",
+        "padding_top": 64,
+        "padding_bottom": 72,
+        "padding_top_mobile": 28,
+        "padding_bottom_mobile": 48
+      }
+    },
+    "facts": {
+      "type": "number-stats",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "full_width",
+        "enable_plus_sign": false,
+        "container_max_width": 1040,
+        "headline_spacing": 28,
+        "enable_custom_style": true,
+        "count_color": "#1f5130",
+        "description_text_color": "#4b5249",
+        "count_size": 52,
+        "count_font_weight": "bold",
+        "description_size": 15,
+        "section_padding_top": 56,
+        "section_padding_bottom": 56,
+        "mobile_count_size": 40,
+        "mobile_section_padding_top": 40,
+        "mobile_section_padding_bottom": 40
+      },
+      "blocks": {
+        "headline_1": {
+          "type": "headline",
+          "settings": {
+            "content": "What the course is made of",
+            "enable_custom_style": true,
+            "color": "#16211a",
+            "size": 15,
+            "mobile_size": 14,
+            "font_weight": "600"
+          }
+        },
+        "count_box_2": {
+          "type": "count_box",
+          "settings": {
+            "number": 8,
+            "text": "weekly modules"
+          }
+        },
+        "count_box_3": {
+          "type": "count_box",
+          "settings": {
+            "number": 46,
+            "text": "short video lessons"
+          }
+        },
+        "count_box_4": {
+          "type": "count_box",
+          "settings": {
+            "number": 6,
+            "text": "live Q and A calls"
+          }
+        }
+      },
+      "block_order": [
+        "headline_1",
+        "count_box_2",
+        "count_box_3",
+        "count_box_4"
+      ]
+    },
+    "fit": {
+      "type": "image-with-text-benefits",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "media_position": "left",
+        "media_column_width": 46,
+        "content_align": "left",
+        "content_gap": 20,
+        "text_max_width": 620,
+        "per_row": "1",
+        "media_aspect_w": 1,
+        "media_aspect_h": 1,
+        "media_radius": 12,
+        "benefits_per_row_desktop": "2",
+        "benefit_layout": "horizontal",
+        "benefit_inner_gap": 14,
+        "benefit_padding": 0,
+        "benefit_radius": 0,
+        "benefit_border_width": 0,
+        "benefit_heading_gap": 4,
+        "icon_size": 40,
+        "icon_padding": 0,
+        "enable_custom_style": true,
+        "icon_color": "#2b6a3c",
+        "icon_bg": "rgba(0,0,0,0)",
+        "benefit_bg": "#ffffff",
+        "benefit_border_color": "rgba(0,0,0,0)",
+        "benefit_heading_size": 18,
+        "benefit_text_size": 16,
+        "gap_desktop": 72,
+        "benefit_gap_desktop": 28,
+        "padding_top_desktop": 104,
+        "padding_bottom_desktop": 96,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "benefits_per_row_mobile": "1",
+        "mobile_order": "media_first"
+      },
+      "blocks": {
+        "media_1": {
+          "type": "media",
+          "settings": {
+            "media_type": "image",
+            "image": "shopify://shop_images/vslfunnel-balcony.webp",
+            "alt": "A small city balcony with a table, pots of herbs and a trough of salad"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Made for the space you already have",
+            "tag": "h2",
+            "enable_custom_style": true,
+            "uppercase": false,
+            "size_desktop": 36,
+            "size_mobile": 28
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>You do not need a garden. You need four hours of sun and somewhere to stand a pot. The course is for you if you have:</p>",
+            "enable_custom_style": true,
+            "size_desktop": 17,
+            "size_mobile": 16
+          }
+        },
+        "benefits_group_4": {
+          "type": "benefits_group",
+          "settings": {}
+        },
+        "benefit_5": {
+          "type": "benefit",
+          "settings": {
+            "heading": "A balcony or a flat roof",
+            "text": "<p>Pots, troughs and a grow bag. Tomatoes, salad, herbs and climbing beans.</p>",
+            "icon_source": "svg",
+            "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 20h16M6 20v-6M18 20v-6M4 14h16M8 14V9a4 4 0 0 1 8 0v5\"/></svg>"
+          }
+        },
+        "benefit_6": {
+          "type": "benefit",
+          "settings": {
+            "heading": "A patio or a small yard",
+            "text": "<p>One or two raised beds, planned so nothing sits empty from March to October.</p>",
+            "icon_source": "svg",
+            "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3.5\" y=\"11\" width=\"17\" height=\"7\" rx=\"1\"/><path d=\"M7 11V8M12 11V6M17 11V8\"/></svg>"
+          }
+        },
+        "benefit_7": {
+          "type": "benefit",
+          "settings": {
+            "heading": "A sunny windowsill",
+            "text": "<p>Sow seeds indoors in spring and keep herbs and salad leaves going all year.</p>",
+            "icon_source": "svg",
+            "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"4\" y=\"3.5\" width=\"16\" height=\"13\" rx=\"1\"/><path d=\"M12 3.5v13M4 10h16M2.5 20.5h19\"/></svg>"
+          }
+        },
+        "benefit_8": {
+          "type": "benefit",
+          "settings": {
+            "heading": "No experience at all",
+            "text": "<p>Every lesson starts from zero. If your basil always dies, start here.</p>",
+            "icon_source": "svg",
+            "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 20v-7M12 13c0-4 3-6 7-6 0 4-3 6-7 6zM12 15c0-3-2.5-5-6-5 0 3 2.5 5 6 5z\"/></svg>"
+          }
+        },
+        "footnote_9": {
+          "type": "footnote",
+          "settings": {
+            "text": "<a href=\"/pages/book-a-call\">Not sure it fits your space? Book a free 15 minute call</a>",
+            "enable_custom_style": true,
+            "size": 16
+          }
+        }
+      },
+      "block_order": [
+        "media_1",
+        "heading_2",
+        "subheading_3",
+        "benefits_group_4",
+        "benefit_5",
+        "benefit_6",
+        "benefit_7",
+        "benefit_8",
+        "footnote_9"
+      ]
+    },
+    "weeks": {
+      "type": "image-with-text-steps",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "image_position": "right",
+        "column_valign": "center",
+        "image_width_pct": 46,
+        "gap_desktop": 72,
+        "text_gap": 18,
+        "image": "shopify://shop_images/vslfunnel-planting.webp",
+        "image_alt": "Hands in garden gloves planting seedlings into a wooden raised bed",
+        "image_aspect_desktop": "4 / 5",
+        "image_radius": 12,
+        "step_style": "numbered",
+        "marker_size": 36,
+        "line_style": "solid",
+        "line_thickness": 2,
+        "step_gap_inline": 18,
+        "step_gap_below": 26,
+        "custom_colors": true,
+        "marker_color": "#1f5130",
+        "marker_text_color": "#ffffff",
+        "line_color": "#cfd8c9",
+        "step_title_color": "#16211a",
+        "step_desc_color": "#4b5249",
+        "step_title_size": 19,
+        "step_desc_size": 16,
+        "use_theme_button": true,
+        "button_size": 16,
+        "button_pad_x": 28,
+        "button_pad_y": 15,
+        "button_radius": 8,
+        "padding_top": 96,
+        "padding_bottom": 96,
+        "image_aspect": "4 / 5",
+        "gap_mobile": 32
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "How a week goes"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "One short lesson, one job outside",
+            "tag": "h2",
+            "weight": "700",
+            "size_desktop": 38,
+            "size_mobile": 28
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>About two hours a week in spring, less in summer. The class moves at the speed of the season, not faster.</p>",
+            "max_width": 520,
+            "size": 17
+          }
+        },
+        "step_4": {
+          "type": "step",
+          "settings": {
+            "title": "Watch on Monday",
+            "description": "<p>Five or six lessons of ten to twenty minutes each. Watch them on your phone, in any order.</p>"
+          }
+        },
+        "step_5": {
+          "type": "step",
+          "settings": {
+            "title": "Do the week's job",
+            "description": "<p>Sow, plant, feed or net. One task, written on a single page, that takes an hour or so.</p>"
+          }
+        },
+        "step_6": {
+          "type": "step",
+          "settings": {
+            "title": "Bring questions on Thursday",
+            "description": "<p>Every other Thursday Maren answers questions live. Send a photo of your plants and she looks at them on the call.</p>"
+          }
+        },
+        "button_7": {
+          "type": "button",
+          "settings": {
+            "label": "See the eight modules",
+            "url": "/#curriculum"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "step_4",
+        "step_5",
+        "step_6",
+        "button_7"
+      ]
+    },
+    "curriculum": {
+      "type": "course2-curriculum",
+      "settings": {
+        "tag": "Curriculum",
+        "heading": "Eight modules, one a week",
+        "heading_accent": "",
+        "text": "<p>The class runs from the first sowings in March to the first harvests at the end of April. After that the lessons stay open, and the last two modules carry you through summer and into autumn.</p>",
+        "totals": "8 modules, 46 lessons, about 9 hours of video",
+        "first_open": true,
+        "anchor": "curriculum",
+        "heading_size": 40,
+        "background": "#ffffff",
+        "accent": "#2b6a3c",
+        "heading_color": "#16211a",
+        "text_color": "#4b5249",
+        "line_color": "#e2e6df",
+        "padding_top": 104,
+        "padding_bottom": 96,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 48
+      },
+      "blocks": {
+        "module_1": {
+          "type": "module",
+          "settings": {
+            "title": "Read your space",
+            "meta": "5 lessons, 48 min",
+            "lessons": "Count your hours of sun\nWind, walls and weight on a balcony\nPots, beds or both\nWhat to grow in your first year\nYour one page plan"
+          }
+        },
+        "module_2": {
+          "type": "module",
+          "settings": {
+            "title": "Soil and containers",
+            "meta": "6 lessons, 62 min",
+            "lessons": "Potting mix that lasts the season\nBuild a raised bed in an afternoon\nDrainage and why pots drown\nFeeding, kept simple\nCompost in a small space\nReusing last year's soil"
+          }
+        },
+        "module_3": {
+          "type": "module",
+          "settings": {
+            "title": "Seeds and seedlings",
+            "meta": "6 lessons, 70 min",
+            "lessons": "Sowing indoors in March\nLight on a windowsill\nPricking out\nHardening off\nWhen to buy plants instead\nLabels and a sowing record"
+          }
+        },
+        "module_4": {
+          "type": "module",
+          "settings": {
+            "title": "Planting out",
+            "meta": "5 lessons, 55 min",
+            "lessons": "Spacing in a small bed\nCanes, strings and supports\nPlanting tomatoes deep\nSowing little and often\nWatering by the week, not the day"
+          }
+        },
+        "module_5": {
+          "type": "module",
+          "settings": {
+            "title": "Salad and herbs all season",
+            "meta": "6 lessons, 64 min",
+            "lessons": "Cut and come again leaves\nSalad in shade\nHerbs that come back every year\nBasil that survives\nSowing for autumn salads\nPicking without stripping a plant"
+          }
+        },
+        "module_6": {
+          "type": "module",
+          "settings": {
+            "title": "Tomatoes, beans and courgettes",
+            "meta": "6 lessons, 78 min",
+            "lessons": "Which tomatoes for pots\nPinching out side shoots\nClimbing beans up a railing\nOne courgette is enough\nFeeding fruiting plants\nWhen a plant is finished"
+          }
+        },
+        "module_7": {
+          "type": "module",
+          "settings": {
+            "title": "Pests without sprays",
+            "meta": "6 lessons, 66 min",
+            "lessons": "Slugs and snails\nAphids and what eats them\nNetting against birds and butterflies\nFlowers that help\nWhat to ignore\nA ten minute weekly check"
+          }
+        },
+        "module_8": {
+          "type": "module",
+          "settings": {
+            "title": "Harvest and the next season",
+            "meta": "6 lessons, 60 min",
+            "lessons": "Picking at the right time\nKeeping what you cannot eat\nGarlic and broad beans in autumn\nPutting beds to rest\nSaving seed from three easy crops\nPlanning next spring"
+          }
+        }
+      },
+      "block_order": [
+        "module_1",
+        "module_2",
+        "module_3",
+        "module_4",
+        "module_5",
+        "module_6",
+        "module_7",
+        "module_8"
+      ]
+    },
+    "included": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "content_alignment": "left",
+        "columns_desktop": 4,
+        "columns_tablet": 2,
+        "column_gap": 40,
+        "header_gap": 44,
+        "show_dividers": true,
+        "item_heading_size": 20,
+        "padding_top": 88,
+        "padding_bottom": 88,
+        "mobile_layout": "stack",
+        "item_heading_size_mobile": 19,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "What you get when you join",
+            "size_enable": true,
+            "size_desktop": 36,
+            "size_mobile": 28
+          }
+        },
+        "column_2": {
+          "type": "column",
+          "settings": {
+            "label": "Lessons",
+            "heading": "46 video lessons",
+            "text": "<p>Ten to twenty minutes each, with captions. Watch on your phone while you work.</p>"
+          }
+        },
+        "column_3": {
+          "type": "column",
+          "settings": {
+            "label": "Live",
+            "heading": "Six live calls",
+            "text": "<p>Every other Thursday during the class. Each call is recorded and added to the course.</p>"
+          }
+        },
+        "column_4": {
+          "type": "column",
+          "settings": {
+            "label": "Printables",
+            "heading": "Plans to print",
+            "text": "<p>A planting calendar, three bed and balcony layouts and a sowing record.</p>"
+          }
+        },
+        "column_5": {
+          "type": "column",
+          "settings": {
+            "label": "Access",
+            "heading": "Yours to keep",
+            "text": "<p>The lessons stay in your account after the class, ready for next spring.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "column_2",
+        "column_3",
+        "column_4",
+        "column_5"
+      ]
+    },
+    "teacher": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "image_position": "left",
+        "text_column_width": 50,
+        "content_align": "left",
+        "content_gap": 18,
+        "media_type": "image",
+        "image": "shopify://shop_images/vslfunnel-maren.webp",
+        "image_alt": "Maren Holt sitting on her porch step with a bowl of tomatoes and peppers at her feet",
+        "aspect_w": 4,
+        "aspect_h": 5,
+        "image_fit": "cover",
+        "image_radius": 12,
+        "enable_overlay": false,
+        "gap_desktop": 80,
+        "padding_top_desktop": 104,
+        "padding_bottom_desktop": 104,
+        "side_padding_desktop": 32,
+        "content_align_mobile": "left",
+        "mobile_order": "media_first",
+        "gap_mobile": 28,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "side_padding_mobile": 16
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Your teacher"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Maren Holt",
+            "tag": "h2",
+            "enable_custom_style": true,
+            "size_desktop": 40,
+            "size_mobile": 30
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Maren grows most of the vegetables her family eats on a rented terrace and one shared raised bed. For eight years she has run the beginners' growing class at her local community garden.</p><p>This course is that class, filmed over a full season, with the questions people asked most answered on screen. She still runs every live call herself.</p>",
+            "enable_custom_style": true,
+            "size_desktop": 17,
+            "size_mobile": 16
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "Read Maren's story",
+            "link": "/pages/about",
+            "button_style": "secondary",
+            "use_theme_button": true
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
+    },
+    "reviews": {
+      "type": "testimonials",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "fluid_container",
+        "display_mode": "carousel",
+        "show_quote_mark": false,
+        "show_rating": false,
+        "columns": 3,
+        "column_gap": 24,
+        "header_alignment": "center",
+        "card_style": "boxed",
+        "card_align": "left",
+        "card_padding": 32,
+        "card_content_gap": 18,
+        "card_radius": 12,
+        "avatar_shape": "circle",
+        "avatar_size": 52,
+        "show_arrow": false,
+        "carousel_pagination": "show",
+        "pagination_style": "dot",
+        "pagination_position": "center",
+        "pagination_spacing": 32,
+        "enable_custom_colors": true,
+        "card_bg": "#ffffff",
+        "card_border_color": "#dfe4da",
+        "enable_custom_typography": true,
+        "quote_size": 17,
+        "autoplay": false,
+        "infinite": true,
+        "padding_top": 88,
+        "padding_bottom": 88,
+        "header_spacing_desktop": 44,
+        "columns_mobile": 1.15,
+        "header_spacing_mobile": 28
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "enabled": false,
+            "text": "Students"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "enabled": true,
+            "text": "What students say",
+            "enable_custom_typography": true,
+            "font_size_desktop": 38,
+            "font_size_mobile": 28,
+            "font_weight": "700"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "enabled": true,
+            "text": "<p>Sample reviews to show the layout. Replace them with your own students' words.</p>"
+          }
+        },
+        "testimonial_4": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>My balcony was a row of dead herbs. This summer it held tomatoes, two kinds of beans and more salad than we could eat. The one page plan from week one did most of the work.</p>",
+            "rating": 0,
+            "name": "Amira R.",
+            "role": "Balcony, third floor",
+            "avatar": "shopify://shop_images/vslfunnel-student-1.webp"
+          }
+        },
+        "testimonial_5": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>The raised bed lesson was the push I needed. One Saturday afternoon, two beds, and the planting calendar told me what went in each week.</p>",
+            "rating": 0,
+            "name": "Jonas T.",
+            "role": "Small back yard",
+            "avatar": "shopify://shop_images/vslfunnel-student-2.webp"
+          }
+        },
+        "testimonial_6": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Every week has one job, so I never felt behind. The live calls answered the questions I was too shy to post anywhere.</p>",
+            "rating": 0,
+            "name": "Sofia K.",
+            "role": "Windowsill and a shared yard",
+            "avatar": "shopify://shop_images/vslfunnel-student-3.webp"
+          }
+        },
+        "testimonial_7": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Slugs ate everything I planted the year before. Module seven sorted that out without a single pellet.</p>",
+            "rating": 0,
+            "name": "David M.",
+            "role": "Allotment, first year",
+            "avatar": "shopify://shop_images/vslfunnel-student-4.webp"
+          }
+        },
+        "testimonial_8": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Short, calm lessons. I watched most of them on my phone, standing next to the pots I was working on.</p>",
+            "rating": 0,
+            "name": "Lena P.",
+            "role": "Patio of pots",
+            "avatar": "shopify://shop_images/vslfunnel-student-5.webp"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "testimonial_4",
+        "testimonial_5",
+        "testimonial_6",
+        "testimonial_7",
+        "testimonial_8"
+      ]
+    },
+    "offer": {
+      "type": "pricing-cards",
+      "settings": {
+        "color_scheme": "default",
+        "eyebrow": "Spring class",
+        "heading": "Join the class that starts 2 March",
+        "intro": "<p>Join any time before then and start module one the day you join. Places are not limited.</p>",
+        "heading_size": "h2",
+        "heading_align": "center",
+        "footnote": "<p>Prices include tax. Pay in full, or in three monthly parts at checkout.</p>",
+        "card_style": "outline",
+        "use_theme_corners": false,
+        "card_radius": 14,
+        "card_gap": 24,
+        "price_size": 46,
+        "mobile_layout": "stack",
+        "section_width": "container",
+        "use_theme_spacing": false,
+        "padding_top": 104,
+        "padding_bottom": 56,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 32
+      },
+      "blocks": {
+        "plan_1": {
+          "type": "plan",
+          "settings": {
+            "name": "Course",
+            "description": "<p>The full class with the live calls.</p>",
+            "badge": "",
+            "featured": false,
+            "price": "$189",
+            "compare_price": "",
+            "note": "One payment",
+            "features": "46 video lessons\nSix live Q and A calls\nPlanting calendar and bed plans\nLessons yours to keep\n- A call about your own space",
+            "button_label": "Join the class",
+            "button_link": "/collections/all",
+            "button_style": "auto"
+          }
+        },
+        "plan_2": {
+          "type": "plan",
+          "settings": {
+            "name": "Course and a garden plan",
+            "description": "<p>For a first year, with a plan made for your space.</p>",
+            "badge": "With a call",
+            "featured": true,
+            "price": "$259",
+            "compare_price": "",
+            "note": "One payment",
+            "features": "Everything in Course\nA 45 minute video call with Maren\nA planting plan drawn for your space\nA second look at your plan in May",
+            "button_label": "Join with a garden plan",
+            "button_link": "/collections/all",
+            "button_style": "auto"
+          }
+        }
+      },
+      "block_order": [
+        "plan_1",
+        "plan_2"
+      ]
+    },
+    "guarantee": {
+      "type": "guarantee-banner",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "layout": "split",
+        "frame": "box",
+        "content_max_width": 1000,
+        "icon": "refresh",
+        "icon_size": 52,
+        "point_style": "check",
+        "enable_custom_style": true,
+        "icon_color": "#2b6a3c",
+        "border_color": "#dfe4da",
+        "point_color": "#16211a",
+        "marker_color": "#2b6a3c",
+        "padding_top_desktop": 8,
+        "padding_bottom_desktop": 104,
+        "padding_top_mobile": 8,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Thirty days to decide"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Watch the first two modules and come to a live call. If the course is not for you, email us within 30 days of joining and we refund you in full.</p>"
+          }
+        },
+        "point_3": {
+          "type": "point",
+          "settings": {
+            "text": "One email, no form"
+          }
+        },
+        "point_4": {
+          "type": "point",
+          "settings": {
+            "text": "Refund within five working days"
+          }
+        },
+        "point_5": {
+          "type": "point",
+          "settings": {
+            "text": "Keep the printable plans"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "point_3",
+        "point_4",
+        "point_5"
+      ]
+    },
+    "faq": {
+      "type": "faq",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "structured_data": true,
+        "heading": "Questions before you join",
+        "subheading": "",
+        "first_item_open": true,
+        "allow_multiple_open": false,
+        "open_icon": "plus",
+        "content_alignment": "center",
+        "max_content_width": 820,
+        "gap_header_to_items": 36,
+        "gap_between_items": 10,
+        "item_padding_y": 20,
+        "item_padding_x": 24,
+        "item_radius": 10,
+        "show_dividers": false,
+        "enable_custom_style": true,
+        "card_bg": "#ffffff",
+        "card_border_color": "#dfe4da",
+        "question_size_desktop": 18,
+        "question_size_mobile": 16,
+        "answer_size_desktop": 16,
+        "answer_size_mobile": 15,
+        "padding_top": 96,
+        "padding_bottom": 96
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Questions before you join",
+            "tag": "h2"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Something else? <a href=\"/pages/contact\">Write to us</a> or <a href=\"/pages/book-a-call\">book a call</a>.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How much space do I need?",
+            "answer": "<p>A spot that gets four or more hours of direct sun. A balcony of two square metres is enough for the whole course. If you have less sun, module five covers what grows in shade.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How much will the garden itself cost?",
+            "answer": "<p>Most students spend between $60 and $150 on pots or a bed, compost and seeds in the first year. The first module lists exactly what to buy for your space, and what to skip.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Where I live has a different season. Does it still work?",
+            "answer": "<p>Yes. The planting calendar works from your last frost date, which you look up in lesson one. The class dates follow a northern spring; if yours is later, start the modules when your calendar says.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if I miss a live call?",
+            "answer": "<p>Every call is recorded and added to the course the same day. You can send your question beforehand and Maren answers it on the recording.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How long do I keep the lessons?",
+            "answer": "<p>For as long as the course exists. Lessons, recordings and printables stay in your account, and updates are free.</p>"
+          }
+        },
+        "faq_item_8": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I pay in parts?",
+            "answer": "<p>Yes. At checkout choose three monthly payments instead of one.</p>"
+          }
+        },
+        "faq_item_9": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if it is not for me?",
+            "answer": "<p>Email us within 30 days of joining and you get a full refund.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7",
+        "faq_item_8",
+        "faq_item_9"
+      ]
+    },
+    "signup": {
+      "type": "newsletter",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "heading": "Not ready this spring?",
+        "description": "<p>Get the planting calendar from module one by email, free, and a short note when the next class opens.</p>",
+        "email_label": "Email address",
+        "email_placeholder": "Your email",
+        "btn_text": "Send me the calendar",
+        "note": "One email a month at most. Leave whenever you like.",
+        "subscribed_button_text": "Sent",
+        "success_text": "Done. The calendar is on its way to your inbox.",
+        "header_alignment": "center",
+        "form_layout": "vertical",
+        "show_icon": false,
+        "padding_top": 88,
+        "padding_bottom": 88
+      }
+    },
+    "final": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "scheme-b0fae5fa-c388-4a42-acd3-92cf8fe0b1fb",
+        "section_width": "full_width",
+        "image_position": "right",
+        "text_column_width": 50,
+        "content_align": "left",
+        "content_gap": 18,
+        "media_type": "image",
+        "image": "shopify://shop_images/vslfunnel-harvest.webp",
+        "image_alt": "A wooden crate of just picked tomatoes, peppers, beans and herbs",
+        "aspect_w": 3,
+        "aspect_h": 2,
+        "image_fit": "cover",
+        "image_radius": 12,
+        "enable_overlay": false,
+        "gap_desktop": 72,
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 96,
+        "side_padding_desktop": 64,
+        "content_align_mobile": "left",
+        "mobile_order": "media_first",
+        "gap_mobile": 28,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 56,
+        "side_padding_mobile": 16
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Sow in March, pick in June",
+            "tag": "h2",
+            "enable_custom_style": true,
+            "size_desktop": 44,
+            "size_mobile": 32
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>The spring class starts 2 March. Eight modules, six live calls and a 30 day refund if it is not for you.</p>",
+            "enable_custom_style": true,
+            "size_desktop": 18,
+            "size_mobile": 16
+          }
+        },
+        "button_3": {
+          "type": "button",
+          "settings": {
+            "label": "Join the spring class",
+            "link": "/#shopify-section-offer",
+            "button_style": "primary",
+            "use_theme_button": true
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "button_3"
+      ]
+    }
+  },
+  "order": [
+    "hero",
+    "facts",
+    "fit",
+    "weeks",
+    "curriculum",
+    "included",
+    "teacher",
+    "reviews",
+    "offer",
+    "guarantee",
+    "faq",
+    "signup",
+    "final"
+  ]
+}

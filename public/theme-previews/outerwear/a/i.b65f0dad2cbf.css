@@ -1,0 +1,11 @@
+
+  #shopify-section-benefits,#shopify-section-benefits>.section,#shopify-section-benefits>section,#shopify-section-benefits>div,#shopify-section-benefits>div>.section{margin-top:0!important;margin-bottom:0!important}
+  #shopify-section-benefits>.section,#shopify-section-benefits>section,#shopify-section-benefits>div>.section{padding-top:0!important;padding-bottom:0!important}
+  #shopify-section-benefits+.shopify-section,#shopify-section-benefits+section{margin-top:0!important}
+  .shopify-section:has(+ #shopify-section-benefits){margin-bottom:0!important}
+  @supports not selector(:has(*)){#shopify-section-benefits{margin-top:0!important}}
+  #shopify-section-benefits{isolation:isolate;font-weight:var(--body-weight,inherit);max-width:none!important;width:100%!important;margin-left:0!important;margin-right:0!important;padding-left:0!important;padding-right:0!important;position:relative!important;box-sizing:border-box!important}
+  :where(#shopify-section-benefits){font-family:var(--body-font,inherit)}
+  :where(#shopify-section-benefits) :where(button,input,textarea,select,optgroup){font-family:inherit}
+  :where(#shopify-section-benefits) :is(h1,h2,h3,h4,h5,h6){font-weight:var(--heading-weight,inherit);font-family:var(--heading-font,inherit)}
+  #shopify-section-benefits>:where(div,section,header,footer,aside,main,article):first-child{max-width:none!important;width:100%!important;margin-left:0!important;margin-right:0!important;box-sizing:border-box!important}

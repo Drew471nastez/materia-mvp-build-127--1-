@@ -78,7 +78,18 @@ function HeaderPlaceholder({ buyerHeaderLight = false, concave = false }: { buye
  * drawn above it on any domain.
  */
 function isOwnScreen(p: string): boolean {
-  return p === "/creator-page" || p.startsWith("/creator-page/") || p.startsWith("/community/") || isProfilePath(p)
+  return p === "/creator-page" || p.startsWith("/creator-page/") || isThemeStore(p) || p.startsWith("/community/") || isProfilePath(p)
+}
+
+/*
+  THE THEME STORE DRAWS ITS OWN BAR (marketplace round 23, the owner: "no
+  double header, keep one: the Storelib theme marketplace header"). Every
+  page under /themes carries components/themes/marketplace-header.tsx, with
+  the logo, Dashboard, the bell and the photo for somebody signed in, so
+  this header above it was a second bar.
+*/
+function isThemeStore(p: string): boolean {
+  return p === "/themes" || p.startsWith("/themes/")
 }
 
 /** Paths that are always platform pages (never custom-domain seller pages). */
@@ -86,7 +97,7 @@ function isKnownPlatformPath(p: string): boolean {
   return (
     p.startsWith("/feed") ||
     p.startsWith("/explore") ||
-    /* The theme store and each theme's page: Storelib's own, with Storelib's header (it drew none). */
+    /* The theme store and each theme's page: Storelib's own pages, drawn with their own bar (isOwnScreen, isThemeStore). */
     p === "/themes" ||
     p.startsWith("/themes/") ||
     p.startsWith("/features") ||

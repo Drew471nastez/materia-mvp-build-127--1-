@@ -78,6 +78,9 @@ const luminance = (c: number[]) => 0.2126 * linear(c[0]) + 0.7152 * linear(c[1])
 const ratio = (a: number, b: number) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)
 const css = (f: string) => readFileSync(join(ROOT, "base", "assets", f), "utf8")
 
+/* Product page round 23: the shops that open the coupon newsletter popup. */
+const PROMO_POPUP = new Set(["default", "clothing", "merch", "capstees", "podshop", "samples", "outerwear"])
+
 async function main() {
   /* ── The Overlay group ──────────────────────────────────────────────── */
   console.log("\nThe Overlay group, whole\n")
@@ -92,8 +95,14 @@ async function main() {
     const files = composeTemplateFiles(`${CODE_THEME_PACKAGE}/${template}`)
     const group = JSON.parse(files.get("sections/overlay-group.json")!.toString("utf8")) as O
     const missing = OVERLAY.filter(([id, type]) => group.sections?.[id]?.type !== type || !group.order?.includes(id)).map(([id]) => id)
-    const popupsOn = OVERLAY.filter(([id]) => !ALWAYS_ON.has(id) && group.sections?.[id] && group.sections[id].disabled !== true).map(([id]) => id)
-    check(`${template}: keeps all ten in its Overlay group and its order (${missing.length} missing), every popup switched off`, missing.length === 0 && popupsOn.length === 0, { missing, popupsOn })
+    /* Changed on purpose (product page round 23): six shops open the theme's coupon newsletter popup (a picture, an offer, a sign up), after a delay and once a week at most; every other popup stays off. */
+    const allowed = PROMO_POPUP.has(template) ? new Set(["coupon_promotion_newsletter_popup"]) : new Set<string>()
+    const popupsOn = OVERLAY.filter(([id]) => !ALWAYS_ON.has(id) && !allowed.has(id) && group.sections?.[id] && group.sections[id].disabled !== true).map(([id]) => id)
+    check(`${template}: keeps all ten in its Overlay group and its order (${missing.length} missing), every popup switched off${allowed.size ? " but its sign up offer" : ""}`, missing.length === 0 && popupsOn.length === 0, { missing, popupsOn })
+    if (allowed.size) {
+      const pop = group.sections.coupon_promotion_newsletter_popup as { disabled?: boolean; settings: Record<string, unknown>; blocks: Record<string, { settings: Record<string, unknown> }> }
+      check(`  ${template}: the offer opens after a delay, never in the first paint, at most once a week, with a picture and a code shown after sign up`, pop.disabled !== true && pop.settings.open_mode === "delay" && Number(pop.settings.delay_s) >= 8 && pop.settings.after_dismiss === "after_days" && Number(pop.settings.hide_days) >= 7 && pop.settings.gate_coupon === true && pop.settings.editor_mode === false && /^shopify:\/\/shop_images\/.+\.webp$/.test(String(pop.blocks.image?.settings.image ?? "")) && !!pop.blocks.coupon?.settings.code, pop.settings)
+    }
   }
 
   /* The import keeps what is switched off, as hidden sections, and the builder offers each section in the Overlay group. */

@@ -91,18 +91,18 @@
           "type": "title",
           "settings": {
             "show_vendor": false,
-            "title_font_size_desktop": 30,
-            "title_font_size_mobile": 26
+            "title_font_size_desktop": 36,
+            "title_font_size_mobile": 28
           }
         },
         "price_1": {
           "type": "price",
           "settings": {
-            "price_font_size_desktop": 24,
-            "price_font_size_mobile": 22,
+            "price_font_size_desktop": 28,
+            "price_font_size_mobile": 24,
             "price_font_weight": "600",
-            "compare_font_size_desktop": 16,
-            "compare_font_size_mobile": 14,
+            "compare_font_size_desktop": 18,
+            "compare_font_size_mobile": 15,
             "compare_font_weight": "400"
           }
         },
@@ -170,10 +170,10 @@
             "vb_bg": "",
             "vb_icon_color": "#ffffff",
             "item1_title": "New drop the last Friday of the month",
-            "item1_icon_library": "sparkle",
+            "item1_icon_library": "clock",
             "item1_use_image": false,
             "item1_image_size": 50,
-            "item2_title": "Free returns within 30 days",
+            "item2_title": "Washed once, so it keeps its size",
             "item2_icon_library": "check",
             "item2_use_image": false,
             "item2_image_size": 50,
@@ -245,15 +245,81 @@
             "show_google_pay": true,
             "show_mastercard": true
           }
+        },
+        "pp23_rating": {
+          "type": "product_reviews",
+          "settings": {
+            "review_source": "product",
+            "review_label": "reviews",
+            "padding_top": 0,
+            "padding_bottom": 10,
+            "enable_counter_custom": false
+          }
+        },
+        "pp23_sold": {
+          "type": "sold_counter",
+          "settings": {
+            "sold_source": "product",
+            "refresh_sold_count": true,
+            "sold_label": "sold",
+            "show_live_dot": true,
+            "padding_top": 2,
+            "padding_bottom": 16,
+            "enable_counter_custom": false
+          }
+        },
+        "pp23_info": {
+          "type": "infotables",
+          "settings": {
+            "max_width": 760,
+            "center_card": false,
+            "section_pt_d": 6,
+            "section_pb_d": 22,
+            "section_pt_m": 6,
+            "section_pb_m": 18,
+            "pt_d": 16,
+            "pb_d": 16,
+            "pl_d": 20,
+            "pr_d": 20,
+            "pt_m": 14,
+            "pb_m": 14,
+            "pl_m": 16,
+            "pr_m": 16,
+            "font_size_d": 15,
+            "font_size_m": 14,
+            "line_height": 150,
+            "font_weight": 400,
+            "icon_gap": 16,
+            "icon_size": 22,
+            "border_style": "solid",
+            "divider_style": "solid",
+            "enable_custom_style": false,
+            "row1_enable": true,
+            "row2_enable": false,
+            "row3_enable": true,
+            "row1_highlight_weight": 600,
+            "row2_highlight_weight": 600,
+            "row3_highlight_weight": 600,
+            "row1_custom_icon": false,
+            "row2_custom_icon": false,
+            "row3_custom_icon": false,
+            "row1_lead": "Delivery:",
+            "row1_strong": "sent within two working days, tracked.",
+            "row3_lead": "Free returns:",
+            "row3_strong": "within 30 days, unworn."
+          }
         }
       },
       "block_order": [
+        "pp23_rating",
         "title_1",
         "price_1",
         "short_description_1",
         "variant_picker_1",
         "size_guide_1",
         "buy_buttons_1",
+        "pp23_sold",
+        "pp23_info",
         "vertical_benefits_1",
         "collapsible_row_1",
         "collapsible_row_2",

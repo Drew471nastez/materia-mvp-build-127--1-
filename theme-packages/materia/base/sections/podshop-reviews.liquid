@@ -1,0 +1,228 @@
+{%- comment -%}
+  Print on demand: customer reviews as a carousel that follows the finger
+  or the mouse. The row is moved with a transform while it is held, so it
+  stays under the pointer frame by frame; let go and it carries on with the
+  speed it was thrown at, then settles on a card with a spring. Arrows,
+  dots and the arrow keys move it a card at a time. With reduced motion it
+  moves without animating.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign per = st.cards_desktop | default: 3
+  assign per_t = per | at_most: 2
+-%}
+<style>
+  #shopify-section-{{ sid }} .pdr { padding: {{ st.padding_top_mobile | default: 48 }}px 0 {{ st.padding_bottom_mobile | default: 48 }}px; background: var(--color-background); color: var(--color-text); overflow: hidden; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .pdr { padding: {{ st.padding_top | default: 64 }}px 0 {{ st.padding_bottom | default: 64 }}px; } }
+  #shopify-section-{{ sid }} .pdr__in { max-width: {{ st.max_width | default: 1240 }}px; margin: 0 auto; padding: 0 16px; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .pdr__in { padding: 0 32px; } }
+  #shopify-section-{{ sid }} .pdr__head { display: flex; align-items: flex-end; justify-content: {% if st.heading_align == 'left' %}space-between{% else %}center{% endif %}; gap: 16px; margin-bottom: 20px; }
+  #shopify-section-{{ sid }} .pdr__title { margin: 0; color: var(--color-heading); font-family: var(--heading-font); font-weight: var(--heading-weight, 700); font-size: {{ st.heading_size_mobile | default: 24 }}px; line-height: 1.1; text-align: {{ st.heading_align | default: 'center' }}; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .pdr__title { font-size: {{ st.heading_size | default: 30 }}px; } }
+  #shopify-section-{{ sid }} .pdr__view { position: relative; overflow: hidden; padding: 14px 0 22px; margin: -14px 0 -22px; outline: none; touch-action: pan-y pinch-zoom; cursor: grab; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  @media (max-width: 749px) { #shopify-section-{{ sid }} .pdr__view { margin-inline: -16px; padding-inline: 16px; } }
+  #shopify-section-{{ sid }} .pdr__view.is-held { cursor: grabbing; }
+  #shopify-section-{{ sid }} .pdr__view:focus-visible { outline: 2px solid var(--color-heading); outline-offset: 4px; }
+  #shopify-section-{{ sid }} .pdr__track { --per: 1.18; display: flex; gap: {{ st.gap | default: 14 }}px; margin: 0; padding: 0; list-style: none; transform: translate3d(0, 0, 0); backface-visibility: hidden; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .pdr__track { --per: {{ per_t }}; } }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .pdr__track { --per: {{ per }}; } }
+  #shopify-section-{{ sid }} .pdr__view.is-moving .pdr__track { will-change: transform; }
+  #shopify-section-{{ sid }} .pdr__card { flex: 0 0 calc((100% - {{ st.gap | default: 14 }}px * (var(--per) - 1)) / var(--per)); min-width: 0; display: flex; flex-direction: column; align-items: {% if st.card_align == 'left' %}flex-start{% else %}center{% endif %}; gap: 10px; padding: 26px 24px 28px; border-radius: {{ st.card_radius | default: 2 }}px; background: var(--pdr-card, #fff); box-shadow: 0 8px 22px -12px rgba(0,0,0,.28); text-align: {{ st.card_align | default: 'center' }}; }
+  #shopify-section-{{ sid }} .pdr__stars { display: flex; gap: 3px; color: var(--pdr-star, var(--color-heading)); }
+  #shopify-section-{{ sid }} .pdr__stars svg { width: 16px; height: 16px; display: block; }
+  #shopify-section-{{ sid }} .pdr__stars .is-off { opacity: .22; }
+  #shopify-section-{{ sid }} .pdr__name { margin: 2px 0 0; color: var(--color-heading); font-family: var(--heading-font); font-weight: var(--heading-weight, 700); font-size: 14px; line-height: 1.25; text-transform: var(--heading-text-transform, none); letter-spacing: .01em; }
+  #shopify-section-{{ sid }} .pdr__text { margin: 0; font-size: 14px; line-height: 1.6; }
+  #shopify-section-{{ sid }} .pdr__text p { margin: 0; }
+  #shopify-section-{{ sid }} .pdr__meta { margin: auto 0 0; padding-top: 4px; font-size: 12px; opacity: .7; }
+  #shopify-section-{{ sid }} .pdr__nav { display: flex; align-items: center; justify-content: center; gap: 18px; margin-top: 26px; }
+  #shopify-section-{{ sid }} .pdr__arrow { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 1px solid color-mix(in srgb, var(--color-heading) 22%, transparent); border-radius: 50%; background: transparent; color: var(--color-heading); cursor: pointer; transition: background-color .2s, color .2s, opacity .2s; }
+  #shopify-section-{{ sid }} .pdr__arrow:hover:not(:disabled) { background: var(--color-heading); color: var(--color-background); }
+  #shopify-section-{{ sid }} .pdr__arrow:disabled { opacity: .3; cursor: default; }
+  #shopify-section-{{ sid }} .pdr__arrow svg { width: 16px; height: 16px; display: block; }
+  #shopify-section-{{ sid }} .pdr__dots { display: flex; gap: 4px; }
+  #shopify-section-{{ sid }} .pdr__dot { position: relative; width: 22px; height: 22px; padding: 0; border: 0; background: none; cursor: pointer; }
+  #shopify-section-{{ sid }} .pdr__dot::after { content: ""; position: absolute; left: 50%; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: var(--color-heading); opacity: .25; transition: opacity .25s, transform .25s; }
+  #shopify-section-{{ sid }} .pdr__dot[aria-current="true"]::after { opacity: 1; transform: scale(1.15); }
+  #shopify-section-{{ sid }} .pdr__nav[hidden], #shopify-section-{{ sid }} .pdr__arrow[hidden] { display: none; }
+  {%- unless st.show_arrows -%}#shopify-section-{{ sid }} .pdr__arrow { display: none; }{%- endunless -%}
+</style>
+<section class="pdr color-{{ st.color_scheme | default: 'default' }}" style="--pdr-card: {{ st.card_background | default: '#ffffff' }};{% if st.star_color != blank %} --pdr-star: {{ st.star_color }};{% endif %}" data-pdr>
+  <div class="pdr__in">
+    {%- if st.heading != blank -%}
+      <div class="pdr__head"><h2 class="pdr__title">{{ st.heading | escape }}</h2></div>
+    {%- endif -%}
+    <div class="pdr__view" data-pdr-view tabindex="0" role="region" aria-roledescription="carousel" aria-label="{{ st.heading | default: 'Reviews' | escape }}">
+      <ul class="pdr__track" data-pdr-track>
+        {%- for b in section.blocks -%}
+          {%- assign bs = b.settings -%}
+          <li class="pdr__card" data-pdr-card aria-roledescription="slide" aria-label="{{ forloop.index }} / {{ forloop.length }}" {{ b.shopify_attributes }}>
+            {%- assign stars = bs.stars | default: 5 -%}
+            {%- if stars > 0 -%}
+              <div class="pdr__stars" role="img" aria-label="{{ stars }} / 5">
+                {%- for i in (1..5) -%}<svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"{% if i > stars %} class="is-off"{% endif %}><path fill="currentColor" d="M10 1.6l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 14.9l-5.2 2.7 1-5.8L1.6 7.7l5.8-.8z"/></svg>{%- endfor -%}
+              </div>
+            {%- endif -%}
+            {%- if bs.name != blank -%}<h3 class="pdr__name">{{ bs.name | escape }}</h3>{%- endif -%}
+            {%- if bs.text != blank -%}<div class="pdr__text">{{ bs.text }}</div>{%- endif -%}
+            {%- if bs.meta != blank -%}<p class="pdr__meta">{{ bs.meta | escape }}</p>{%- endif -%}
+          </li>
+        {%- endfor -%}
+      </ul>
+    </div>
+    <div class="pdr__nav" data-pdr-nav hidden>
+      <button type="button" class="pdr__arrow" data-pdr-prev aria-label="{{ 'accessibility.previous' | t | default: 'Previous' }}"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <div class="pdr__dots" data-pdr-dots{% unless st.show_dots %} hidden{% endunless %}></div>
+      <button type="button" class="pdr__arrow" data-pdr-next aria-label="{{ 'accessibility.next' | t | default: 'Next' }}"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="m6 3 5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </div>
+  </div>
+</section>
+<script>
+(function () {
+  var root = document.querySelector('#shopify-section-{{ sid }} [data-pdr]');
+  if (!root || root.__pdr) return;
+  root.__pdr = true;
+  var view = root.querySelector('[data-pdr-view]'), track = root.querySelector('[data-pdr-track]');
+  var cards = [].slice.call(track.children), nav = root.querySelector('[data-pdr-nav]');
+  var prevB = root.querySelector('[data-pdr-prev]'), nextB = root.querySelector('[data-pdr-next]'), dotsBox = root.querySelector('[data-pdr-dots]');
+  var still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)');
+  var x = 0, v = 0, target = 0, index = 0, step = 0, maxX = 0, stops = [], raf = 0, last = 0, hold = null, dots = [], moved = false;
+  var paint = function () { track.style.transform = 'translate3d(' + x.toFixed(2) + 'px,0,0)'; };
+  function measure() {
+    if (!cards.length) return;
+    var gap = parseFloat(getComputedStyle(track).columnGap) || 0;
+    step = cards[0].getBoundingClientRect().width + gap;
+    maxX = Math.max(0, track.scrollWidth - track.clientWidth);
+    stops = [];
+    for (var i = 0; i < cards.length; i++) { var s = Math.min(i * step, maxX); stops.push(s); if (s >= maxX - 0.5) break; }
+    nav.hidden = stops.length < 2;
+    if (dots.length !== stops.length) {
+      dotsBox.innerHTML = ''; dots = stops.map(function (_, i) {
+        var d = document.createElement('button'); d.type = 'button'; d.className = 'pdr__dot'; d.setAttribute('aria-label', (i + 1) + ' / ' + stops.length);
+        d.addEventListener('click', function () { go(i); }); dotsBox.appendChild(d); return d;
+      });
+    }
+    index = Math.min(index, stops.length - 1);
+    x = target = -stops[index]; v = 0; paint(); mark();
+  }
+  function mark() {
+    dots.forEach(function (d, i) { d.setAttribute('aria-current', i === index ? 'true' : 'false'); });
+    prevB.disabled = index <= 0; nextB.disabled = index >= stops.length - 1;
+  }
+  function nearest(px) { var best = 0; for (var i = 1; i < stops.length; i++) if (Math.abs(-stops[i] - px) < Math.abs(-stops[best] - px)) best = i; return best; }
+  /* A spring with the release speed as its start: no jump between the drag and the settle. */
+  function tick(now) {
+    var dt = Math.min(48, now - last); last = now;
+    var k = 0.00042, c = 2 * Math.sqrt(k) * 0.96;
+    for (var t = 0; t < dt; t += 4) { var h = Math.min(4, dt - t); v += (-k * (x - target) - c * v) * h; x += v * h; }
+    if (Math.abs(x - target) < 0.25 && Math.abs(v) < 0.005) { x = target; v = 0; paint(); raf = 0; view.classList.remove('is-moving'); return; }
+    paint(); raf = requestAnimationFrame(tick);
+  }
+  function settle() {
+    view.classList.add('is-moving');
+    if (still && still.matches) { x = target; v = 0; paint(); view.classList.remove('is-moving'); return; }
+    if (!raf) { last = performance.now(); raf = requestAnimationFrame(tick); }
+  }
+  function go(i) { index = Math.max(0, Math.min(stops.length - 1, i)); target = -stops[index]; mark(); settle(); }
+  prevB.addEventListener('click', function () { go(index - 1); });
+  nextB.addEventListener('click', function () { go(index + 1); });
+  view.addEventListener('keydown', function (e) { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); go(index + (e.key === 'ArrowRight' ? 1 : -1)); } });
+  function band(px) { if (px > 0) return px * 0.3; if (px < -maxX) return -maxX + (px + maxX) * 0.3; return px; }
+  view.addEventListener('pointerdown', function (e) {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    if (e.target.closest('a, button, input, select, textarea')) return;
+    if (raf) { cancelAnimationFrame(raf); raf = 0; }
+    hold = { id: e.pointerId, x0: e.clientX, y0: e.clientY, from: x, on: false, samples: [[e.timeStamp, e.clientX]] };
+    v = 0; moved = false;
+  });
+  view.addEventListener('pointermove', function (e) {
+    if (!hold || e.pointerId !== hold.id) return;
+    var dx = e.clientX - hold.x0, dy = e.clientY - hold.y0;
+    if (!hold.on) {
+      if (Math.abs(dx) < 4 || Math.abs(dx) < Math.abs(dy)) { if (Math.abs(dy) > 8) hold = null; return; }
+      hold.on = true; moved = true; hold.x0 = e.clientX; hold.from = x; dx = 0;
+      try { view.setPointerCapture(e.pointerId); } catch (_) {}
+      view.classList.add('is-held', 'is-moving');
+    }
+    var list = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
+    if (!list.length) list = [e];
+    list.forEach(function (p) { hold.samples.push([p.timeStamp, p.clientX]); });
+    if (hold.samples.length > 8) hold.samples.splice(0, hold.samples.length - 8);
+    x = band(hold.from + (e.clientX - hold.x0)); paint();
+    e.preventDefault();
+  });
+  function release(e) {
+    if (!hold || (e && e.pointerId !== hold.id)) return;
+    var h = hold; hold = null; view.classList.remove('is-held');
+    if (!h.on) return;
+    var s = h.samples, n = s.length - 1, i = n;
+    while (i > 0 && s[n][0] - s[i - 1][0] < 100) i--;
+    var span = s[n][0] - s[i][0];
+    v = span > 0 && (e ? e.timeStamp : performance.now()) - s[n][0] < 80 ? (s[n][1] - s[i][1]) / span : 0;
+    /* Where the throw would carry it, at most a screen further, then the card nearest that. */
+    var reach = Math.max(-view.clientWidth, Math.min(view.clientWidth, v * 260));
+    var next = nearest(x + reach);
+    if (next === index && Math.abs(v) > 0.3) next = index + (v < 0 ? 1 : -1);
+    index = Math.max(0, Math.min(stops.length - 1, next)); target = -stops[index]; mark(); settle();
+  }
+  view.addEventListener('pointerup', release);
+  view.addEventListener('pointercancel', release);
+  view.addEventListener('lostpointercapture', function (e) { if (e.target === view && hold && hold.on) release(e); });
+  view.addEventListener('click', function (e) { if (moved) { e.preventDefault(); e.stopPropagation(); moved = false; } }, true);
+  view.addEventListener('dragstart', function (e) { e.preventDefault(); });
+  var rt = 0;
+  if (window.ResizeObserver) new ResizeObserver(function () { cancelAnimationFrame(rt); rt = requestAnimationFrame(measure); }).observe(view);
+  else window.addEventListener('resize', measure);
+  document.addEventListener('shopify:block:select', function (e) { var i = cards.indexOf(e.target); if (i < 0) return; go(nearest(-Math.min(i * step, maxX))); });
+  measure();
+})();
+</script>
+
+{% schema %}
+{
+  "name": "Reviews carousel",
+  "tag": "div",
+  "class": "podshop-reviews-section",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "settings": [
+    { "type": "paragraph", "content": "Drag or swipe the reviews. On a computer the row also moves with the arrows and the arrow keys." },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "default" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Customer reviews" },
+    { "type": "select", "id": "heading_align", "label": "Heading alignment", "default": "center", "options": [{ "value": "left", "label": "Left" }, { "value": "center", "label": "Centre" }] },
+    { "type": "range", "id": "heading_size", "label": "Heading size on a computer", "min": 18, "max": 56, "step": 1, "unit": "px", "default": 30 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size on a phone", "min": 16, "max": 40, "step": 1, "unit": "px", "default": 24 },
+    { "type": "range", "id": "cards_desktop", "label": "Reviews in view on a computer", "min": 1, "max": 4, "step": 1, "default": 3 },
+    { "type": "range", "id": "gap", "label": "Space between reviews", "min": 0, "max": 40, "step": 2, "unit": "px", "default": 14 },
+    { "type": "select", "id": "card_align", "label": "Review alignment", "default": "center", "options": [{ "value": "left", "label": "Left" }, { "value": "center", "label": "Centre" }] },
+    { "type": "range", "id": "card_radius", "label": "Corner rounding", "min": 0, "max": 24, "step": 1, "unit": "px", "default": 2 },
+    { "type": "color", "id": "card_background", "label": "Review background", "default": "#ffffff" },
+    { "type": "color", "id": "star_color", "label": "Stars", "info": "Empty: the heading colour." },
+    { "type": "checkbox", "id": "show_arrows", "label": "Show arrows", "default": true },
+    { "type": "checkbox", "id": "show_dots", "label": "Show dots", "default": true },
+    { "type": "range", "id": "max_width", "label": "Width", "min": 900, "max": 1600, "step": 20, "unit": "px", "default": 1240 },
+    { "type": "range", "id": "padding_top", "label": "Space above on a computer", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 64 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below on a computer", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 64 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above on a phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 48 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below on a phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 48 }
+  ],
+  "blocks": [
+    {
+      "type": "review",
+      "name": "Review",
+      "settings": [
+        { "type": "range", "id": "stars", "label": "Stars", "min": 0, "max": 5, "step": 1, "default": 5 },
+        { "type": "text", "id": "name", "label": "Name", "default": "Sample review, Alex P." },
+        { "type": "richtext", "id": "text", "label": "Review", "default": "<p>Replace this with a real review from a customer.</p>" },
+        { "type": "text", "id": "meta", "label": "Small line", "info": "What they bought, or where they live." }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Reviews carousel",
+      "blocks": [{ "type": "review" }, { "type": "review" }, { "type": "review" }, { "type": "review" }]
+    }
+  ]
+}
+{% endschema %}

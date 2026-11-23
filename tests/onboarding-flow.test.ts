@@ -215,7 +215,8 @@ check("  verifying is never shown while Stripe is still asking for something", /
 check("  what is still owed decides the step, so no Continue leads nowhere", /if \(detailsLeft\) return 1/.test(flow) && /if \(idLeft\) return 2/.test(flow) && /if \(needs\.bank\) return 3/.test(flow))
 check("  and a step is never sent to itself, which was an endless remount", /target !== step/.test(flow) && /outcome === "bank" && step !== 3/.test(flow))
 check("a failed load has a way on", embedded.includes("Couldn't load verification") && embedded.includes("Try again in a moment.") && embedded.includes(">\n          Try again"))
-check("one loader, then Stripe's form fades in", /setOnLoaderStart/.test(embedded) && (embedded.match(/<WaitingArea/g) ?? []).length === 1)
+/* Nov 23 2026: the one loader is a gray outline of the form (StripeFormSkeleton), not a spinner. */
+check("one loader, then Stripe's form fades in", /setOnLoaderStart/.test(embedded) && (embedded.match(/<StripeFormSkeleton \/>/g) ?? []).length === 1 && !/<WaitingArea/.test(embedded))
 /* The owner, October 2026: "3 layers of backdrop, fade, I don't like those", and the modal "should not have that much width". */
 check("setup is one page of its own: no darkened backdrop behind it", /data-payments-setup-panel=\{phone \? "subpage" : "page"\}/.test(flow) && !/bg-\[#0f1115\]\/45/.test(flow) && /h-\[100dvh\]/.test(flow))
 check("  one narrow column of 560px with one card on a computer, the whole width on a phone", /max-w-\[560px\]/.test(flow) && /data-setup-card=""/.test(flow) && !/max-w-\[min\(760px/.test(flow))

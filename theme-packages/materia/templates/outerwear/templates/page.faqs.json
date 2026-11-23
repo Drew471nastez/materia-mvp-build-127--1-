@@ -1,0 +1,155 @@
+{
+  "sections": {
+    "faq": {
+      "type": "faq-tabs",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "tab_1_label": "Sizing",
+        "tab_2_label": "Fabrics",
+        "tab_3_label": "Shipping",
+        "tab_4_label": "Returns and care",
+        "tab_5_label": "",
+        "open_first": true,
+        "allow_multiple_open": true,
+        "header_align": "left",
+        "section_max_width_desktop": 900,
+        "tabs_shadow": "none",
+        "tab_weight": "500",
+        "q_size": 17,
+        "q_weight": "700",
+        "a_size": 15,
+        "padding_top_desktop": 56,
+        "padding_bottom_desktop": 96,
+        "padding_top_mobile": 40,
+        "padding_bottom_mobile": 56,
+        "structured_data": true
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Size and care",
+            "tag": "h1",
+            "size_enable": true,
+            "size_desktop": 40,
+            "size_mobile": 32
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Fit, fabrics, shipping and looking after your pieces. Anything else, <a href=\"/pages/contact\">write to us</a>.</p>"
+          }
+        },
+        "faq_1": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "How do the puffers fit?",
+            "answer": "<p>Boxy and short on purpose, with room for a knit underneath. Between two sizes, take the smaller one for a closer fit.</p>"
+          }
+        },
+        "faq_2": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "How do parkas and vests fit?",
+            "answer": "<p>True to size. Take your usual size.</p>"
+          }
+        },
+        "faq_3": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "Where do I find measurements?",
+            "answer": "<p>Every product page has a size guide in centimetres, measured flat across the garment.</p>"
+          }
+        },
+        "faq_4": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "2",
+            "question": "What are the shells made of?",
+            "answer": "<p>Recycled nylon or washed cotton canvas, both with a water repellent finish.</p>"
+          }
+        },
+        "faq_5": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "2",
+            "question": "Where does the down come from?",
+            "answer": "<p>From certified suppliers who do not live pluck or force feed. The fill is listed on each product page.</p>"
+          }
+        },
+        "faq_6": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "2",
+            "question": "Is the merino itchy?",
+            "answer": "<p>No. It is a fine gauge yarn that sits well against the skin.</p>"
+          }
+        },
+        "faq_7": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "How long does shipping take?",
+            "answer": "<p>Orders ship in 1 to 2 working days, tracked, and arrive in 2 to 5.</p>"
+          }
+        },
+        "faq_8": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "What does shipping cost?",
+            "answer": "<p>Free over $200. Below that, the price is shown at checkout before you pay.</p>"
+          }
+        },
+        "faq_9": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "4",
+            "question": "How do returns work?",
+            "answer": "<p>Within 30 days, unworn with the tags on. Start a return from the link in your order email and we send a free label.</p>"
+          }
+        },
+        "faq_10": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "4",
+            "question": "How do I wash a down jacket?",
+            "answer": "<p>Cold, gentle cycle with a down wash, then tumble dry low with two clean tennis balls until the fill is even.</p>"
+          }
+        },
+        "faq_11": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "4",
+            "question": "Do you repair zips and seams?",
+            "answer": "<p>Yes, free for the first two winters. Write to us with a photo and your order number.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1",
+        "faq_1",
+        "faq_2",
+        "faq_3",
+        "faq_4",
+        "faq_5",
+        "faq_6",
+        "faq_7",
+        "faq_8",
+        "faq_9",
+        "faq_10",
+        "faq_11"
+      ]
+    }
+  },
+  "order": [
+    "faq"
+  ]
+}

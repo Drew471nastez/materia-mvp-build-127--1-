@@ -7,12 +7,12 @@
         "url": "/collections/all"
       },
       {
-        "title": "About Maya",
-        "url": "/pages/about"
-      },
-      {
         "title": "Free chapter",
         "url": "/pages/newsletter"
+      },
+      {
+        "title": "Author",
+        "url": "/pages/about"
       },
       {
         "title": "Articles",
@@ -32,7 +32,7 @@
         "url": "/collections/all"
       },
       {
-        "title": "Free first chapter",
+        "title": "Free chapter",
         "url": "/pages/newsletter"
       },
       {
@@ -45,7 +45,7 @@
     "title": "More",
     "links": [
       {
-        "title": "About Maya",
+        "title": "About Owen",
         "url": "/pages/about"
       },
       {

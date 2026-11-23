@@ -1,0 +1,67 @@
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "alignment": "center",
+        "height": "adapt",
+        "overlay_opacity": 0,
+        "padding_top": 56,
+        "padding_bottom": 32
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "Collections",
+            "header_size": "default",
+            "heading_font_size": 40,
+            "vertical_gap": 12,
+            "enable_heading_color": false
+          }
+        },
+        "description_1": {
+          "type": "description",
+          "settings": {
+            "description": "<p>Puffers, parkas, vests and knitwear, sorted the way you shop for them.</p>",
+            "enable_custom_style": false,
+            "description_font_size": 16
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_1"
+      ]
+    },
+    "main": {
+      "type": "main-list-collections",
+      "settings": {
+        "type": "all",
+        "design": "default",
+        "font_size": 14,
+        "column_gap": 16,
+        "pagination": "default",
+        "image_ratio": "square",
+        "padding_top": 8,
+        "color_scheme": "default",
+        "items_per_row": 4,
+        "items_to_show": 9,
+        "reset_spacing": true,
+        "section_width": "container",
+        "padding_bottom": 96,
+        "text_alignment": "left",
+        "button_show_more": "Show more",
+        "sort_collections": "alphabetical",
+        "show_product_count": true
+      }
+    }
+  },
+  "order": [
+    "heading",
+    "main"
+  ]
+}

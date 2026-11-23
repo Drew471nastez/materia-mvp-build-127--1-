@@ -57,7 +57,7 @@
       const desktopVideo=videoSource(s.bg_video)||url(s.bg_video_url),mobileVideo=videoSource(s.bg_video_mobile)||url(s.bg_video_url_mobile),videoURL=s.bg_type==='video'?(desktop?desktopVideo||mobileVideo:mobileVideo||desktopVideo):'';
       if(videoURL!==state.videoURL||(videoURL&&video.getAttribute('src')!==videoURL)){state.failedVideo='';state.videoURL=videoURL;state.wasPlaying=false;video.muted=true;if(videoURL){video.src=videoURL;video.load();}else{video.pause();video.removeAttribute('src');video.load();}}
       const failed=state.failedVideo===videoURL;video.hidden=!videoURL||failed;picture.hidden=!!videoURL&&!failed;video.controls=bool(s.video_controls)||state.reduced.matches;video.loop=bool(s.video_loop);const auto=bool(s.video_autoplay)&&!state.reduced.matches;video.autoplay=auto;
-      if(photo!==image.dataset.hp2Placeholder){if(video.getAttribute('poster')!==photo)video.poster=photo;}else video.removeAttribute('poster');
+      const posterPic=url(s.video_poster)||(photo!==image.dataset.hp2Placeholder?photo:'');if(posterPic){if(video.getAttribute('poster')!==posterPic)video.poster=posterPic;}else video.removeAttribute('poster');
       if(state.auto!==auto||state.playURL!==videoURL){if(videoURL&&!failed&&auto&&state.near&&!document.hidden){video.muted=true;video.play()?.catch(()=>{});}else video.pause();state.auto=auto;state.playURL=videoURL;}visibility();
       for(const block of root.querySelectorAll('[data-hp2-block]')){
         const id=block.dataset.hp2Block,type=block.dataset.hp2Kind;if(state.blockRaw.get(id)!==block.dataset.hp2BlockSettings){state.blockRaw.set(id,block.dataset.hp2BlockSettings);state.blocks.set(id,parse(block.dataset.hp2BlockSettings));}

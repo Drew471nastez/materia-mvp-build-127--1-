@@ -1113,6 +1113,9 @@
                           endif
                         endfor
                         assign poster = local_video.preview_image | image_url: width: 1100
+                        if block_st.video_poster != blank
+                          assign poster = block_st.video_poster | image_url: width: 1600
+                        endif
                       -%}
                       <video
                         class="slideshow"
@@ -1149,7 +1152,9 @@
                           assign vimeo_id = video_url | split: 'vimeo.com/' | last | split: '?' | first | split: '/' | last
                         endif
                         assign poster_url = ''
-                        if image != blank
+                        if block_st.video_poster != blank
+                          assign poster_url = block_st.video_poster | image_url: width: 1600
+                        elsif image != blank
                           assign poster_url = image | image_url: width: 1200
                         endif
                       -%}
@@ -2529,6 +2534,12 @@
           "id": "video_url",
           "label": "Video link",
           "info": "YouTube, Vimeo, or a direct .mp4 / .webm / .mov file URL. Used only when 'Local video' is empty. Overrides the desktop / mobile image when present."
+        },
+        {
+          "type": "image_picker",
+          "id": "video_poster",
+          "label": "Poster image",
+          "info": "Shown until the video plays."
         },
         {
           "type": "range",

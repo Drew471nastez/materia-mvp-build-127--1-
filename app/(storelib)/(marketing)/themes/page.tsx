@@ -6,7 +6,7 @@ import { publishedListings } from "@/lib/themes/marketplace-server"
 import { builtinListings } from "@/lib/themes/marketplace-shared"
 import { MARKETPLACE_SEO, THEME_SEO_CATEGORIES, marketplaceCard, marketplaceCategoryCopy } from "@/lib/themes/theme-seo"
 import { marketplaceJsonLd } from "@/lib/themes/theme-seo-jsonld"
-import { CategoryLinks, MARKET_CONTAINER, MarketplaceBar, MarketplaceHeading } from "@/components/themes/marketplace-shell"
+import { MARKET_CONTAINER, MarketplaceHeading } from "@/components/themes/marketplace-shell"
 import { ThemesMarketplace } from "./themes-marketplace"
 
 /**
@@ -36,15 +36,12 @@ export default async function ThemesPage() {
   const cards = listings.map(marketplaceCard)
   const categories = THEME_SEO_CATEGORIES.map(marketplaceCategoryCopy)
   return (
-    <div className="bg-white" data-themes-page="">
+    <div data-themes-page="">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(marketplaceJsonLd(listings)) }} />
-      <MarketplaceBar />
       <div className={`${MARKET_CONTAINER} pb-24`}>
-        <MarketplaceHeading h1={MARKETPLACE_SEO.h1} intro={MARKETPLACE_SEO.intro(listings.length)} />
+        {/* Round 23, the owner: the heading alone, no line under it; the count is beside the order. The categories are in the footer. */}
+        <MarketplaceHeading h1={MARKETPLACE_SEO.h1} />
         <ThemesMarketplace cards={cards} allCards={cards} categories={categories} active={null} />
-        <div className="mt-20 border-t border-[#eceef1] pt-12">
-          <CategoryLinks categories={categories} />
-        </div>
       </div>
     </div>
   )

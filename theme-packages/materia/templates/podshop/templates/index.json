@@ -920,86 +920,70 @@
       ]
     },
     "reviews": {
-      "type": "testimon4",
+      "type": "podshop-reviews",
       "settings": {
         "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "full_width": true,
-        "reset_spacing": true,
         "heading": "Customer reviews",
-        "rating_text": "",
-        "rating": 0,
-        "rating_text_hide": true,
-        "rating_hide": true,
-        "text": "",
-        "enable_profile_images": false,
-        "card_count_words": 40,
-        "button": "",
         "heading_align": "center",
-        "slider_width": 92,
-        "slider_view": 3,
-        "slider_gap": 12,
-        "slider_mt": 36,
-        "stars_size": 16,
-        "card_padding_vertical": 26,
-        "card_padding_horizontal": 30,
-        "card_radius": 2,
-        "card_shadow": true,
-        "card_heading_align": "center",
-        "card_heading_mt": 12,
-        "arrow_show_desktop": false,
-        "dots_show_desktop": true,
         "heading_size": 30,
-        "card_heading_size": 14,
-        "card_text_size": 13,
-        "card_author_date_text_size": 12,
+        "heading_size_mobile": 24,
+        "cards_desktop": 3,
+        "gap": 14,
+        "card_align": "center",
+        "card_radius": 2,
+        "card_background": "#ffffff",
+        "show_arrows": true,
+        "show_dots": true,
+        "max_width": 1240,
         "padding_top": 64,
         "padding_bottom": 64,
-        "heading_size_mobile": 24
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 48
       },
       "blocks": {
         "r1": {
-          "type": "testimonials",
+          "type": "review",
           "settings": {
-            "stars_count": 5,
-            "heading": "Sample review, Jamie R.",
-            "text": "Replace this with a real review. Something like: the print is still sharp after a year of weekly washing, and the fit is right.",
-            "author_date": ""
+            "stars": 5,
+            "name": "Sample review, Jamie R.",
+            "text": "<p>Replace this with a real review. Something like: the print is still sharp after a year of weekly washing, and the fit is right.</p>",
+            "meta": ""
           }
         },
         "r2": {
-          "type": "testimonials",
+          "type": "review",
           "settings": {
-            "stars_count": 5,
-            "heading": "Sample review, Priya M.",
-            "text": "Replace this with a real review. Something like: ordered four matching tees for the family and every size came out right.",
-            "author_date": ""
+            "stars": 5,
+            "name": "Sample review, Priya M.",
+            "text": "<p>Replace this with a real review. Something like: ordered four matching tees for the family and every size came out right.</p>",
+            "meta": ""
           }
         },
         "r3": {
-          "type": "testimonials",
+          "type": "review",
           "settings": {
-            "stars_count": 5,
-            "heading": "Sample review, Dana K.",
-            "text": "Replace this with a real review. Something like: quick shipping, friendly help with a size swap, and the most fun designs in town.",
-            "author_date": ""
+            "stars": 5,
+            "name": "Sample review, Dana K.",
+            "text": "<p>Replace this with a real review. Something like: quick shipping, friendly help with a size swap, and the most fun designs in town.</p>",
+            "meta": ""
           }
         },
         "r4": {
-          "type": "testimonials",
+          "type": "review",
           "settings": {
-            "stars_count": 5,
-            "heading": "Sample review, Luis T.",
-            "text": "Replace this with a real review. Something like: the crewneck is heavier than I expected, in the best way.",
-            "author_date": ""
+            "stars": 5,
+            "name": "Sample review, Luis T.",
+            "text": "<p>Replace this with a real review. Something like: the crewneck is heavier than I expected, in the best way.</p>",
+            "meta": ""
           }
         },
         "r5": {
-          "type": "testimonials",
+          "type": "review",
           "settings": {
-            "stars_count": 5,
-            "heading": "Sample review, Sam W.",
-            "text": "Replace this with a real review. Something like: bought the cap as a gift and ended up getting one for myself.",
-            "author_date": ""
+            "stars": 5,
+            "name": "Sample review, Sam W.",
+            "text": "<p>Replace this with a real review. Something like: bought the cap as a gift and ended up getting one for myself.</p>",
+            "meta": ""
           }
         }
       },

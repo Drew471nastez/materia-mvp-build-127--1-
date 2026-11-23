@@ -1,0 +1,107 @@
+/* Templates round 23: Smallplot cart, with three short answers before paying. */
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "height": "adapt",
+        "alignment": "center",
+        "padding_top": 80,
+        "color_scheme": "",
+        "reset_spacing": true,
+        "section_width": "stretch_width",
+        "padding_bottom": 0,
+        "overlay_opacity": 0
+      },
+      "blocks": {
+        "breadcrumb_fkLpBa": {
+          "type": "breadcrumb",
+          "settings": {}
+        },
+        "heading_f6yAbL": {
+          "type": "heading",
+          "settings": {
+            "page_title": "Your order",
+            "header_size": "default",
+            "vertical_gap": 8,
+            "heading_color": "",
+            "heading_font_size": 34,
+            "enable_heading_color": false
+          }
+        }
+      },
+      "block_order": [
+        "breadcrumb_fkLpBa",
+        "heading_f6yAbL"
+      ]
+    },
+    "cart-items": {
+      "type": "main-cart-items",
+      "settings": {
+        "padding_top": 40,
+        "reset_spacing": true,
+        "section_width": "fluid_container",
+        "padding_bottom": 60,
+        "enable_cart_note": false,
+        "enable_discount_code": true,
+        "show_estimate_shipping": false
+      },
+      "blocks": {
+        "faq_section_1": {
+          "type": "faq_section",
+          "settings": {
+            "show_faq": true,
+            "faq_heading": "Before you pay"
+          }
+        },
+        "faq_1": {
+          "type": "faq",
+          "settings": {
+            "question": "When can I start?",
+            "answer": "<p>Straight after you pay. Module one opens in your account and the class starts 2 March.</p>"
+          }
+        },
+        "faq_2": {
+          "type": "faq",
+          "settings": {
+            "question": "Can I get a refund?",
+            "answer": "<p>Yes, within 30 days of joining. Email us and you get your money back.</p>"
+          }
+        },
+        "faq_3": {
+          "type": "faq",
+          "settings": {
+            "question": "Buying for a community garden?",
+            "answer": "<p>Group places for five or more are cheaper. Write to us from the contact page.</p>"
+          }
+        },
+        "payment_badges_67Mgyc": {
+          "type": "payment_badges",
+          "settings": {
+            "show_amex": true,
+            "show_visa": true,
+            "show_amazon": false,
+            "show_klarna": false,
+            "show_paypal": true,
+            "show_discover": false,
+            "show_apple_pay": true,
+            "show_google_pay": true,
+            "show_mastercard": true,
+            "show_payment_badges": true
+          }
+        }
+      },
+      "block_order": [
+        "faq_section_1",
+        "faq_1",
+        "faq_2",
+        "faq_3",
+        "payment_badges_67Mgyc"
+      ]
+    }
+  },
+  "order": [
+    "heading",
+    "cart-items"
+  ]
+}

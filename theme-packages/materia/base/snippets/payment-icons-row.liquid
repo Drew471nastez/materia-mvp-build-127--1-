@@ -1,12 +1,13 @@
 {%- comment -%}
-  The ways Storelib's checkout takes money, as a small row of card marks:
-  Visa, Mastercard, American Express, Apple Pay and Google Pay. Never
-  PayPal: the checkout does not take it. For footers drawn by their own
-  section (the theme's footer has its Payment badges block).
+  The ways a shopper pays, as a small row of card marks: Visa, Mastercard,
+  American Express, PayPal, Apple Pay and Google Pay (PayPal by the owner's
+  call, templates round 23, ahead of the checkout taking it). For footers
+  drawn by their own section (the theme's footer has its Payment badges
+  block).
   Pass `class` for the list's own class.
 {%- endcomment -%}
 <ul class="pay-row{% if class != blank %} {{ class }}{% endif %}" role="list" aria-label="Payment methods" style="display:flex;flex-wrap:nowrap;align-items:center;gap:6px;margin:0;padding:0;list-style:none">
-  {%- assign pay_methods = 'visa,master,american_express,apple_pay,google_pay' | split: ',' -%}
+  {%- assign pay_methods = 'visa,master,american_express,paypal,apple_pay,google_pay' | split: ',' -%}
   {%- for pay_method in pay_methods -%}
     <li style="display:block;flex:0 0 auto;width:38px;height:24px;margin:0;padding:0;line-height:0">{% render 'payment-icon', method: pay_method, icon_class: 'pay-row__svg' %}</li>
   {%- endfor -%}

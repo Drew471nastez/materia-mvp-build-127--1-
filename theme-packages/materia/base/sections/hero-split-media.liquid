@@ -136,7 +136,7 @@
     <div class="hsm__grid">
       <div class="hsm__media">
         <img class="hsm__img" data-r7h-image{% if st.image != blank %} src="{{ st.image | image_url: width: 1600 }}" srcset="{{ st.image | image_url: width: 750 }} 750w, {{ st.image | image_url: width: 1100 }} 1100w, {{ st.image | image_url: width: 1600 }} 1600w, {{ st.image | image_url: width: 2200 }} 2200w" sizes="(min-width: 768px) {{ st.media_width_desktop | default: 50 }}vw, 100vw" width="{{ st.image.width | default: 1600 }}" height="{{ st.image.height | default: 1200 }}"{% else %} src="{{ r7_ph | escape }}" data-r7h-empty width="400" height="300"{% endif %} alt="{{ st.image_alt | default: st.image.alt | escape }}"{% if r7_eager %} loading="eager" fetchpriority="high"{% else %} loading="lazy"{% endif %} decoding="async">
-        <video class="hsm__video" data-r7h-video{% if r7_video_src != blank %} src="{{ r7_video_src | url | escape }}"{% else %} hidden{% endif %} muted loop playsinline preload="metadata" tabindex="-1" aria-hidden="true"></video>
+        <video class="hsm__video" data-r7h-video{% if r7_video_src != blank %} src="{{ r7_video_src | url | escape }}"{% else %} hidden{% endif %}{% if st.video_poster != blank %} poster="{{ st.video_poster | image_url: width: 1600 }}"{% endif %} muted loop playsinline preload="metadata" tabindex="-1" aria-hidden="true"></video>
         <button type="button" class="hsm__toggle" data-r7h-video-toggle aria-pressed="false" aria-label="{{ 'accessibility.play_pause' | t }}" hidden><svg class="hsm__icon-pause" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 2h4v12H3zM9 2h4v12H9z"/></svg><svg class="hsm__icon-play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4 2l10 6-10 6z"/></svg></button>
       </div>
       <div class="hsm__content">
@@ -343,6 +343,12 @@
       "id": "video_url",
       "label": "Video address",
       "info": "Used when no video is uploaded."
+    },
+    {
+      "type": "image_picker",
+      "id": "video_poster",
+      "label": "Poster image",
+      "info": "Shown until the video plays."
     },
     {
       "type": "header",

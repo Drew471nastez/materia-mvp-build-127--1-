@@ -1,32 +1,32 @@
-/* Templates round 22: a money book for your twenties by Maya Okafor, built from the theme's own sections (product hero, quote, image with text, text columns, product grid, testimonial wall, newsletter with image, FAQ, banner); Libre Baskerville and Helvetica. */
+/* Templates round 23: the free chapter page, sign up for chapter two, what is in the book, the talk letter and readers. */
 {
   "sections": {
     "chapter": {
       "type": "newsletter-split",
       "settings": {
         "color_scheme": "default",
-        "image": "shopify://shop_images/authorbook-ed-book.webp",
-        "image_alt": "The cover of Not Broke Anymore by Maya Okafor",
+        "image": "shopify://shop_images/authorbook-spread-outline.webp",
+        "image_alt": "Two open pages from chapter two of Hold the Room",
         "image_position": "left",
-        "image_ratio": "portrait",
-        "image_width": 40,
+        "image_ratio": "landscape",
+        "image_width": 50,
         "form_layout": "horizontal",
         "btn_text": "Send it to me",
         "email_placeholder": "Your email",
-        "note": "Plus the Sunday money letter every other week. Leave whenever you like.",
-        "success_text": "Done. The first chapter is in your inbox."
+        "note": "You also get the talk letter every other week. Leave whenever you like.",
+        "success_text": "Done. Chapter two is in your inbox."
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Read the first chapter free"
+            "text": "Read chapter two free"
           }
         },
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Chapter one and the money map, as a PDF. Twenty minutes to read, and you will know where last month's pay went.</p>"
+            "text": "<p>The one sentence talk, as a PDF: the outline from the book and the exercise that fixes most talks before you open a slide deck. Twenty minutes to read.</p>"
           }
         }
       },
@@ -47,61 +47,61 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "What is inside"
+            "text": "What is in the book"
           }
         },
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Twelve short chapters. Each ends with one thing to do that week, so you finish the book with a plan you are already using.</p>"
+            "text": "<p>Fourteen short chapters. Each ends with one exercise to try on your next real talk.</p>"
           }
         },
         "column_3": {
           "type": "column",
           "settings": {
-            "label": "Chapter 1",
-            "heading": "Where it all goes",
-            "text": "<p>One month of tracking, without judging a single coffee.</p>"
+            "label": "Chapter 2",
+            "heading": "The one sentence talk",
+            "text": "<p>Find the point before you build anything else.</p>"
           }
         },
         "column_4": {
           "type": "column",
           "settings": {
-            "label": "Chapter 2",
-            "heading": "The money map",
-            "text": "<p>One page with your pay, your bills and what is left. You will use it every month.</p>"
+            "label": "Chapter 3",
+            "heading": "An outline that travels",
+            "text": "<p>One structure for five minutes or forty five.</p>"
           }
         },
         "column_5": {
           "type": "column",
           "settings": {
-            "label": "Chapter 3",
-            "heading": "A budget with fun in it",
-            "text": "<p>Spending money you do not have to feel bad about, set on purpose.</p>"
+            "label": "Chapter 5",
+            "heading": "Nerves are fuel",
+            "text": "<p>The ninety second reset and how to open strong.</p>"
           }
         },
         "column_6": {
           "type": "column",
           "settings": {
-            "label": "Chapter 5",
-            "heading": "Out of the overdraft",
-            "text": "<p>A plan for cards, buy now pay later and student loans, smallest first.</p>"
+            "label": "Chapter 7",
+            "heading": "Slides that help",
+            "text": "<p>Headlines that make the point, and the squint test.</p>"
           }
         },
         "column_7": {
           "type": "column",
           "settings": {
-            "label": "Chapter 7",
-            "heading": "One month in the bank",
-            "text": "<p>A first emergency fund, built in small automatic steps.</p>"
+            "label": "Chapter 9",
+            "heading": "Your voice",
+            "text": "<p>Pace, pauses and sounding like yourself.</p>"
           }
         },
         "column_8": {
           "type": "column",
           "settings": {
-            "label": "Chapter 9",
-            "heading": "Investing, the boring way",
-            "text": "<p>Index funds, retirement accounts and why boring wins.</p>"
+            "label": "Chapter 12",
+            "heading": "Taking questions",
+            "text": "<p>Honest answers when you do not know.</p>"
           }
         }
       },
@@ -116,34 +116,35 @@
         "column_8"
       ]
     },
-    "paper": {
+    "letter": {
       "type": "Image-and-video-text",
       "settings": {
         "color_scheme": "default",
-        "image": "shopify://shop_images/authorbook-paperwork.webp",
-        "image_alt": "Someone working through bills with a pen and a coffee",
+        "image": "shopify://shop_images/authorbook-spread-nerves.webp",
+        "image_alt": "Two open pages from chapter five, Nerves are fuel",
         "image_position": "right",
-        "aspect_w": 1,
-        "aspect_h": 1,
+        "aspect_w": 16,
+        "aspect_h": 11,
+        "image_fit": "cover",
         "image_radius": 0
       },
       "blocks": {
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "The Sunday money letter"
+            "text": "The talk letter"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "One short letter, every other Sunday"
+            "text": "One short email, every other week"
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>A question a reader asked, my honest answer and one thing to try before payday. Free, and you can leave whenever you like.</p>"
+            "text": "<p>One method to try on your next talk, and an honest answer to a question a reader sent in. Free, and you can leave whenever you like.</p>"
           }
         }
       },
@@ -172,39 +173,39 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "What readers say"
+            "text": "What early readers say"
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Sample reviews to show the layout. Replace them with real reader reviews.</p>"
+            "text": "<p>Sample reviews to show the layout. Replace them with your own readers' words.</p>"
           }
         },
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "body": "The first money book I finished. Chapter two took an hour and I still use the map every payday.",
-            "name": "Sample reader",
-            "role": "Nurse, 26",
+            "body": "I read chapter two on the train and rewrote my quarterly update before I got to the office.",
+            "name": "Priya N.",
+            "role": "Product manager",
             "rating": 5
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "body": "No shame, no lectures, just what to do on Monday. I paid off my card in seven months.",
-            "name": "Sample reader",
-            "role": "Barista and student, 23",
+            "body": "The ninety second reset is now the thing I do before every client pitch.",
+            "name": "Daniel A.",
+            "role": "Founder, design studio",
             "rating": 5
           }
         },
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "body": "I bought it for my sister and read it first. The fun money chapter changed how we both budget.",
-            "name": "Sample reader",
-            "role": "Teacher, 29",
+            "body": "The chapter on questions made me stop dreading the end of a talk.",
+            "name": "Lena M.",
+            "role": "Secondary school teacher",
             "rating": 5
           }
         }
@@ -222,7 +223,7 @@
   "order": [
     "chapter",
     "inside",
-    "paper",
+    "letter",
     "reviews"
   ]
 }

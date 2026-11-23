@@ -1,0 +1,494 @@
+/* Templates round 23: the Offer Board product page: gallery, title, price with the compare at price, the edition picker, instant access and refund rows, buy buttons, what you get, how the duplicate link works, questions and payment marks, then the pages inside, buyer notes and the other templates. */
+{
+  "sections": {
+    "breadcrumb": {
+      "type": "breadcrumb",
+      "settings": {
+        "alignment": "left",
+        "font_size": 14,
+        "next_prev": true,
+        "separator": "dot",
+        "uppercase": false,
+        "color_scheme": "default",
+        "reset_spacing": true,
+        "section_width": "container",
+        "next_prev_icon": "chevron",
+        "padding_top_mobile": 9,
+        "padding_top_desktop": 26,
+        "enable_custom_padding": true,
+        "padding_bottom_mobile": 9,
+        "padding_bottom_desktop": 20
+      }
+    },
+    "main": {
+      "type": "main-product",
+      "settings": {
+        "image_zoom": "open_lightbox",
+        "padding_top": 32,
+        "color_scheme": "default",
+        "media_square": false,
+        "reset_spacing": true,
+        "section_width": "container",
+        "sticky_bar_bg": "",
+        "desktop_layout": "thumbnail_bottom",
+        "mobile_options": "show_thumbnails",
+        "padding_bottom": 80,
+        "sticky_top_gap": 24,
+        "enable_on_mobile": true,
+        "sticky_padding_y": 12,
+        "enable_on_desktop": true,
+        "sticky_show_image": true,
+        "sticky_show_title": true,
+        "content_gap_desktop": 56,
+        "desktop_media_width": 56,
+        "padding_left_mobile": 16,
+        "sticky_border_color": "",
+        "enable_video_looping": true,
+        "padding_left_desktop": 0,
+        "padding_right_mobile": 16,
+        "section_width_mobile": "fluid_container",
+        "sticky_button_radius": 8,
+        "sticky_show_quantity": true,
+        "enable_custom_padding": true,
+        "enable_video_autoplay": true,
+        "padding_right_desktop": 0,
+        "enable_nav_dots_mobile": false,
+        "mobile_slides_per_view": "1",
+        "enable_custom_media_gap": false,
+        "sticky_show_variant_picker": true,
+        "enable_sticky_content_on_desktop": true
+      },
+      "blocks": {
+        "title_2": {
+          "type": "title",
+          "settings": {
+            "show_vendor": false,
+            "title_font_size_desktop": 40,
+            "title_font_size_mobile": 30
+          }
+        },
+        "text_3": {
+          "type": "text",
+          "settings": {
+            "heading": "",
+            "content": "<p>A Notion template for running a job search, from the first saved role to the signed offer.</p>"
+          }
+        },
+        "price_4": {
+          "type": "price",
+          "settings": {
+            "price_font_size_desktop": 28,
+            "price_font_size_mobile": 24,
+            "price_font_weight": "700",
+            "compare_font_size_desktop": 18,
+            "compare_font_size_mobile": 15,
+            "compare_font_weight": "400"
+          }
+        },
+        "variant_picker_5": {
+          "type": "variant_picker",
+          "settings": {
+            "variant_type": "swatches",
+            "show_size_guide": false,
+            "picker_swatch_style": "theme"
+          }
+        },
+        "infotables_6": {
+          "type": "infotables",
+          "settings": {
+            "max_width": 760,
+            "center_card": false,
+            "section_pt_d": 6,
+            "section_pb_d": 18,
+            "section_pt_m": 6,
+            "section_pb_m": 16,
+            "pt_d": 14,
+            "pb_d": 14,
+            "pl_d": 18,
+            "pr_d": 18,
+            "pt_m": 12,
+            "pb_m": 12,
+            "pl_m": 14,
+            "pr_m": 14,
+            "font_size_d": 15,
+            "font_size_m": 14,
+            "line_height": 150,
+            "font_weight": 400,
+            "icon_gap": 14,
+            "icon_size": 20,
+            "border_style": "solid",
+            "divider_style": "solid",
+            "enable_custom_style": false,
+            "row1_enable": true,
+            "row2_enable": false,
+            "row3_enable": true,
+            "row1_highlight_weight": 600,
+            "row3_highlight_weight": 600,
+            "row1_custom_icon": true,
+            "row1_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 4v11m0 0-4-4m4 4 4-4M5 19h14\"/></svg>",
+            "row2_custom_icon": false,
+            "row3_custom_icon": true,
+            "row3_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 12a8 8 0 1 0 2.4-5.7L4 8.5M4 4v4.5h4.5\"/></svg>",
+            "row1_lead": "Instant access:",
+            "row1_strong": "the duplicate link is on your receipt and in your email.",
+            "row2_lead": "",
+            "row2_code": "",
+            "row2_tail": "",
+            "row3_lead": "14 day refund:",
+            "row3_strong": "email us and get your money back."
+          }
+        },
+        "buy_buttons_7": {
+          "type": "buy_buttons",
+          "settings": {
+            "show_add_to_cart": true,
+            "show_dynamic_checkout": true,
+            "show_quantity": false,
+            "buttons_full_width": true,
+            "quantity_right_of_atc": false,
+            "show_wishlist_button": false,
+            "atc_appearance": "theme",
+            "buy_appearance": "theme",
+            "atc_icon_enable": false,
+            "atc_icon": "bag",
+            "buy_icon_enable": false,
+            "show_gift_card_recipient": false
+          }
+        },
+        "link_button_8": {
+          "type": "link_button",
+          "settings": {
+            "label": "See every page inside",
+            "link": "/#shopify-section-inside",
+            "style": "text",
+            "icon": "none",
+            "full_width": false,
+            "spacing_top": 4,
+            "spacing_bottom": 12
+          }
+        },
+        "whats_included_9": {
+          "type": "whats_included",
+          "settings": {
+            "heading": "What you get",
+            "items": "The Offer Board template for Notion\nA link that duplicates it into your workspace\nA 12 minute video walkthrough\nEvery future update, free",
+            "two_columns": false,
+            "boxed": true
+          }
+        },
+        "collapsible_row_10": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "About the template",
+            "content": "",
+            "use_product_description": true,
+            "open": true
+          }
+        },
+        "collapsible_row_11": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "How you get it",
+            "content": "<p>After you pay, open the link on the receipt page or in the email while you are signed in to Notion. Press <strong>Duplicate</strong> at the top right and Offer Board is copied into your own workspace, ready to fill in. Works on Notion's free plan.</p>",
+            "use_product_description": false,
+            "open": false
+          }
+        },
+        "faq_accordion_12": {
+          "type": "faq_accordion",
+          "settings": {
+            "heading": "Questions",
+            "use_product_faqs": false,
+            "first_open": false,
+            "q_1": "Do I need a paid Notion plan?",
+            "a_1": "<p>No. Offer Board works on Notion's free plan, on the web, the desktop app and the phone app.</p>",
+            "q_2": "I have never used Notion. Will I manage?",
+            "a_2": "<p>Yes. The Instructions page has a 12 minute walkthrough and five steps to follow. Most people are adding roles within the first half hour.</p>",
+            "q_3": "Can I change it?",
+            "a_3": "<p>Every page, property and view is yours to edit. Rename the stages, add a column for visa sponsorship, delete the pages you do not need.</p>",
+            "q_4": "What is your refund policy?",
+            "a_4": "<p>If Offer Board is not for you, email us within 14 days and we refund you. No form to fill in.</p>",
+            "spacing_top": 12,
+            "spacing_bottom": 12
+          }
+        },
+        "payment_badges_13": {
+          "type": "payment_badges",
+          "settings": {
+            "h_main": "",
+            "sec_bg": "rgba(0,0,0,0)",
+            "sec_mb": 0,
+            "sec_mt": 0,
+            "sec_pb": 22,
+            "sec_pl": 0,
+            "sec_pr": 0,
+            "sec_pt": 22,
+            "badge_h": 31,
+            "badge_w": 47,
+            "sub_url": "",
+            "sec_maxw": 116,
+            "sec_pl_m": 0,
+            "sec_pr_m": 0,
+            "sub_text": "",
+            "badge_h_m": 22,
+            "badge_w_m": 68,
+            "h_main_mb": 16,
+            "h_main_mt": 0,
+            "show_amex": true,
+            "show_visa": true,
+            "sub_color": "#333333",
+            "sub_hover": "#111111",
+            "a11y_label": "Payment badges",
+            "sec_maxw_m": 150,
+            "sec_radius": 0,
+            "sub_newtab": false,
+            "text_align": "left",
+            "h_main_size": 16,
+            "show_paypal": true,
+            "sub_uline_w": 1,
+            "badges_align": "auto",
+            "h_main_color": "#2c2c2c",
+            "text_align_m": "center",
+            "toggle_icons": true,
+            "show_unionpay": false,
+            "sub_underline": false,
+            "show_apple_pay": true,
+            "show_google_pay": true,
+            "show_mastercard": true
+          }
+        }
+      },
+      "block_order": [
+        "title_2",
+        "text_3",
+        "price_4",
+        "variant_picker_5",
+        "infotables_6",
+        "buy_buttons_7",
+        "link_button_8",
+        "whats_included_9",
+        "collapsible_row_10",
+        "collapsible_row_11",
+        "faq_accordion_12",
+        "payment_badges_13"
+      ]
+    },
+    "inside": {
+      "type": "notionpage-cards",
+      "settings": {
+        "heading": "A look at the pages",
+        "text": "<p>Each one linked to the others, so a role knows its company, its people and its interview stories.</p>",
+        "heading_align": "center",
+        "columns": "4",
+        "columns_mobile": "1",
+        "image_position": "top",
+        "image_ratio": "1.385",
+        "card_bg": "#ecebe8",
+        "card_radius": 18,
+        "image_radius": 10,
+        "card_padding": 26,
+        "card_padding_mobile": 20,
+        "gap": 20,
+        "gap_mobile": 12,
+        "heading_size": 32,
+        "heading_size_mobile": 28,
+        "title_size": 20,
+        "title_size_mobile": 19,
+        "head_gap": 48,
+        "max_width": 1240,
+        "color_scheme": "default",
+        "padding_top": 72,
+        "padding_bottom": 24,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 24
+      },
+      "blocks": {
+        "card_1": {
+          "type": "card",
+          "settings": {
+            "image": "shopify://shop_images/notionpage-dashboard.webp",
+            "title": "Dashboard",
+            "text": "<p>The numbers for this week, the pipeline and quick capture.</p>"
+          }
+        },
+        "card_2": {
+          "type": "card",
+          "settings": {
+            "image": "shopify://shop_images/notionpage-applications.webp",
+            "title": "Applications",
+            "text": "<p>A board by stage, with a table and deadlines view.</p>"
+          }
+        },
+        "card_3": {
+          "type": "card",
+          "settings": {
+            "image": "shopify://shop_images/notionpage-companies.webp",
+            "title": "Companies",
+            "text": "<p>Where you want to work, with fit and open roles.</p>"
+          }
+        },
+        "card_4": {
+          "type": "card",
+          "settings": {
+            "image": "shopify://shop_images/notionpage-offers.webp",
+            "title": "Offers",
+            "text": "<p>Two offers side by side, line by line.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "card_1",
+        "card_2",
+        "card_3",
+        "card_4"
+      ]
+    },
+    "reviews": {
+      "type": "testimonial-wall",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "text_align": "left",
+        "columns": 3,
+        "card_gap": 16,
+        "card_style": "filled",
+        "collapse": "none",
+        "collapsed_part": 55,
+        "more_label": "Show more reviews",
+        "less_label": "Show fewer",
+        "enable_custom_style": true,
+        "card_bg": "#efeeeb",
+        "quote_color": "#37352f",
+        "name_color": "#191918",
+        "star_color": "#191918",
+        "card_radius": 14,
+        "quote_size": 15,
+        "quote_size_mobile": 15,
+        "padding_top": 72,
+        "padding_bottom": 40,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 24
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "From buyers",
+            "size": 40,
+            "size_mobile": 28
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "Notes from people who used Offer Board in their own search."
+          }
+        },
+        "testimonial_3": {
+          "type": "testimonial",
+          "settings": {
+            "body": "I had applications in three spreadsheets and my email. Two evenings in, everything was on one board and I could finally see which ones had gone quiet.",
+            "name": "Priya R.",
+            "role": "Product designer",
+            "rating": 0,
+            "avatar": "shopify://shop_images/notionpage-avatar-1.webp"
+          }
+        },
+        "testimonial_4": {
+          "type": "testimonial",
+          "settings": {
+            "body": "The follow up dates are the part I use most. Notion tells me who to write to that day, so I stopped losing people after the first call.",
+            "name": "Tom A.",
+            "role": "Data analyst",
+            "rating": 0,
+            "avatar": "shopify://shop_images/notionpage-avatar-2.webp"
+          }
+        },
+        "testimonial_5": {
+          "type": "testimonial",
+          "settings": {
+            "body": "I am new to Notion and was worried. The walkthrough video got me set up in about 20 minutes.",
+            "name": "Grace L.",
+            "role": "Graduate, first job search",
+            "rating": 0,
+            "avatar": "shopify://shop_images/notionpage-avatar-3.webp"
+          }
+        },
+        "testimonial_6": {
+          "type": "testimonial",
+          "settings": {
+            "body": "The story bank saved me before every interview. I wrote six stories once and reused them for every company.",
+            "name": "Sam O.",
+            "role": "Engineering manager",
+            "rating": 0,
+            "avatar": "shopify://shop_images/notionpage-avatar-4.webp"
+          }
+        },
+        "testimonial_7": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Having two offers side by side in a table made the decision calmer. I asked for a week to decide and got it.",
+            "name": "Lena B.",
+            "role": "Marketing lead",
+            "rating": 0,
+            "avatar": "shopify://shop_images/notionpage-avatar-5.webp"
+          }
+        },
+        "testimonial_8": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Simple enough that I actually kept using it after week two, which never happened with anything else I tried.",
+            "name": "Marco R.",
+            "role": "Account executive",
+            "rating": 0,
+            "avatar": "shopify://shop_images/notionpage-avatar-6.webp"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "testimonial_3",
+        "testimonial_4",
+        "testimonial_5",
+        "testimonial_6",
+        "testimonial_7",
+        "testimonial_8"
+      ]
+    },
+    "related": {
+      "type": "related-products",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "heading": "Also from Northpaper",
+        "description": "",
+        "header_size": "small",
+        "header_alignment": "left",
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 20,
+        "intent": "related",
+        "items_to_show": 4,
+        "show_badges": true,
+        "show_vendor": false,
+        "show_rating": false,
+        "show_swatches": false,
+        "show_price": true,
+        "show_add_to_cart": false,
+        "show_action": false,
+        "reveal": true,
+        "padding_top": 72,
+        "padding_bottom": 72
+      }
+    }
+  },
+  "order": [
+    "breadcrumb",
+    "main",
+    "inside",
+    "reviews",
+    "related"
+  ]
+}

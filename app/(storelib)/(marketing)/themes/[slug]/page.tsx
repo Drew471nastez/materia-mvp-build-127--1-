@@ -3,13 +3,13 @@ import { notFound } from "next/navigation"
 
 import { listingBySlug, publishedListings } from "@/lib/themes/marketplace-server"
 import { CODE_TEMPLATES, LISTING_SLUG_RE, MARKETPLACE_PATH, builtinListings, hasLivePreview, listingPath, templatePreviewPath, tierLabel, type ThemeListing } from "@/lib/themes/marketplace-shared"
-import { featureLabel, marketplaceCard, relatedListings, themeAlt, themeCategoryPath, themeImages, themePageCopy, THEME_SEO_CATEGORIES, marketplaceCategoryCopy, categoriesOf } from "@/lib/themes/theme-seo"
+import { featureLabel, marketplaceCard, relatedListings, themeAlt, themeCategoryPath, themeImages, themePageCopy, categoriesOf } from "@/lib/themes/theme-seo"
 import { themeJsonLd } from "@/lib/themes/theme-seo-jsonld"
 import { pageMetadata } from "@/lib/seo/page-metadata"
 import Link from "next/link"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import { MarketplaceCard } from "@/components/themes/marketplace-card"
-import { Breadcrumbs, CategoryLinks, FaqList, MARKET_CONTAINER, MarketplaceBar } from "@/components/themes/marketplace-shell"
+import { Breadcrumbs, FaqList, MARKET_CONTAINER } from "@/components/themes/marketplace-shell"
 import { ThemeActions } from "./theme-detail"
 
 /**
@@ -70,16 +70,15 @@ export default async function ThemePage({ params }: { params: Promise<{ slug: st
   const otherCats = categoriesOf(listing).slice(1)
 
   return (
-    <div className="bg-white" data-theme-detail={listing.slug}>
+    <div data-theme-detail={listing.slug}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(themeJsonLd(listing, copy)) }} />
-      <MarketplaceBar />
       <div className={`${MARKET_CONTAINER} pb-24 pt-6 sm:pt-8`}>
         <Breadcrumbs trail={[{ name: "Themes", href: MARKETPLACE_PATH }, ...(cat ? [{ name: cat.name, href: themeCategoryPath(cat.slug) }] : []), { name: listing.name }]} />
 
         <div className="mt-5 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-12">
           {/* ── What it is, what it costs, the button (first in the page, and beside the gallery on a computer) ── */}
           <div className="lg:col-start-2 lg:row-start-1">
-            <div className="lg:sticky lg:top-[88px]">
+            <div className="lg:sticky lg:top-6">
               <h1 className="text-[28px] font-bold leading-[1.15] tracking-[-0.02em] text-[#1a1a2e] sm:text-[34px]">{copy.h1}</h1>
               <p data-theme-intro="" className="mt-3 text-[15px] leading-[1.6] text-[#4b5563]">{copy.intro}</p>
               {listing.description && copy.intro !== listing.description ? <p data-theme-description="" className="mt-3 text-[15px] leading-[1.6] text-[#4b5563]">{listing.description}</p> : null}
@@ -200,9 +199,6 @@ export default async function ThemePage({ params }: { params: Promise<{ slug: st
             ) : null}
           </section>
         ) : null}
-        <div className="mt-16">
-          <CategoryLinks categories={THEME_SEO_CATEGORIES.map(marketplaceCategoryCopy)} current={cat?.slug ?? null} />
-        </div>
       </div>
     </div>
   )

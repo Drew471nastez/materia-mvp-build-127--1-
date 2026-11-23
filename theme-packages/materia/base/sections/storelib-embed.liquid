@@ -1,0 +1,258 @@
+{%- comment -%}
+  Materia Themes. Storelib embed.
+  One of the creator's own Storelib things, picked in the editor and shown
+  live on the page:
+    form     a form or booking page (Contacts > Forms), the same live form
+             as the Storelib form section: a booking keeps its time, a paid
+             booking goes on to checkout, every answer reaches Leads
+             (lib/storelib-theme/compat/storelib-form.ts)
+    product  a course or any product: its picture, name, price and a button
+             to its page, where it is bought
+    video    an uploaded video, a video file address, or a YouTube or Vimeo
+             link, with a poster image shown until it is played
+  Nothing picked: the section draws nothing on the website, and a line
+  saying what to pick in the editor.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign kind = st.kind | default: 'form'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign align = st.text_align | default: 'center'
+  assign item = st.product
+  assign has_form = false
+  if st.form != blank
+    assign has_form = true
+  endif
+  assign has_product = false
+  if item != blank and item.title != blank
+    assign has_product = true
+  endif
+
+  assign v_kind = 'none'
+  assign v_src = ''
+  assign v_id = ''
+  if st.video != blank and st.video.sources
+    for s in st.video.sources
+      if s.format == 'mp4' or s.mime_type == 'video/mp4'
+        assign v_src = s.url
+        break
+      endif
+    endfor
+    if v_src == ''
+      assign v_src = st.video.sources.first.url
+    endif
+    if v_src != blank
+      assign v_kind = 'file'
+    endif
+  endif
+  if v_kind == 'none' and st.video_url != blank
+    assign v_lower = st.video_url | downcase
+    if v_lower contains 'youtube.com/watch'
+      assign v_id = st.video_url | split: 'v=' | last | split: '&' | first
+      assign v_kind = 'youtube'
+    elsif v_lower contains 'youtu.be/'
+      assign v_id = st.video_url | split: 'youtu.be/' | last | split: '?' | first
+      assign v_kind = 'youtube'
+    elsif v_lower contains 'youtube.com/shorts/'
+      assign v_id = st.video_url | split: 'shorts/' | last | split: '?' | first
+      assign v_kind = 'youtube'
+    elsif v_lower contains 'vimeo.com/'
+      assign v_id = st.video_url | split: 'vimeo.com/' | last | split: '?' | first | split: '/' | last
+      assign v_kind = 'vimeo'
+    else
+      assign v_src = st.video_url
+      assign v_kind = 'file'
+    endif
+  endif
+  assign v_poster = ''
+  if st.video_poster != blank
+    assign v_poster = st.video_poster | image_url: width: 1600
+  elsif st.video != blank and st.video.preview_image != blank
+    assign v_poster = st.video.preview_image | image_url: width: 1600
+  endif
+  case v_kind
+    when 'youtube'
+      assign v_play = 'https://www.youtube-nocookie.com/embed/' | append: v_id | append: '?autoplay=1&playsinline=1&rel=0&modestbranding=1'
+    when 'vimeo'
+      assign v_play = 'https://player.vimeo.com/video/' | append: v_id | append: '?autoplay=1&playsinline=1&dnt=1'
+    else
+      assign v_play = v_src
+  endcase
+  assign ratio = st.video_ratio | default: '16 / 9'
+
+  assign nothing_picked = false
+  if kind == 'form' and has_form == false
+    assign nothing_picked = true
+  elsif kind == 'product' and has_product == false
+    assign nothing_picked = true
+  elsif kind == 'video' and v_kind == 'none'
+    assign nothing_picked = true
+  endif
+-%}
+{%- if nothing_picked and request.design_mode != true -%}
+  <style>#shopify-section-{{ sid }} { display: none !important; }</style>
+{%- else -%}
+<style>
+  #shopify-section-{{ sid }} { isolation: isolate; position: relative; }
+  :where(#shopify-section-{{ sid }}) { font-family: var(--body-font, inherit); }
+  :where(#shopify-section-{{ sid }}) :is(h2, h3) { font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, inherit); }
+  #shopify-section-{{ sid }} .sle {
+    background: var(--color-background);
+    color: var(--color-text);
+    padding: {{ st.padding_top_mobile | default: 48 }}px 20px {{ st.padding_bottom_mobile | default: 48 }}px;
+  }
+  #shopify-section-{{ sid }} .sle__inner { max-width: {{ st.max_width | default: 760 }}px; margin: 0 auto; }
+  #shopify-section-{{ sid }} .sle__head { text-align: {{ align }}; margin: 0 0 24px; }
+  #shopify-section-{{ sid }} .sle__title { margin: 0; color: var(--color-heading, inherit); font-size: clamp(26px, 4vw, 36px); line-height: 1.15; }
+  #shopify-section-{{ sid }} .sle__text { margin: 10px 0 0; opacity: .8; line-height: 1.6; }
+  #shopify-section-{{ sid }} .sle__text > :first-child { margin-top: 0; }
+  #shopify-section-{{ sid }} .sle__text > :last-child { margin-bottom: 0; }
+  #shopify-section-{{ sid }} .sle__empty { margin: 0; padding: 32px 20px; text-align: center; border: 1px dashed color-mix(in srgb, var(--color-text) 25%, transparent); border-radius: var(--rounded-radius, 8px); opacity: .75; }
+
+  #shopify-section-{{ sid }} .sle-item { display: grid; grid-template-columns: 1fr; border: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent); border-radius: var(--rounded-radius, 0px); overflow: hidden; background: var(--color-background); }
+  #shopify-section-{{ sid }} .sle-item__media { display: block; aspect-ratio: 4 / 3; background: color-mix(in srgb, var(--color-text) 6%, var(--color-background)); }
+  #shopify-section-{{ sid }} .sle-item__media img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  #shopify-section-{{ sid }} .sle-item__body { display: flex; flex-direction: column; gap: 12px; justify-content: center; padding: 24px; }
+  #shopify-section-{{ sid }} .sle-item__name { margin: 0; color: var(--color-heading, inherit); font-size: clamp(20px, 2.4vw, 26px); line-height: 1.2; }
+  #shopify-section-{{ sid }} .sle-item__price { display: flex; gap: 10px; align-items: baseline; font-weight: 600; }
+  #shopify-section-{{ sid }} .sle-item__price s { font-weight: 400; opacity: .6; }
+  #shopify-section-{{ sid }} .sle-item__about { margin: 0; line-height: 1.6; opacity: .8; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+  #shopify-section-{{ sid }} .sle-item__cta { align-self: flex-start; margin-top: 4px; }
+  @media (min-width: 768px) {
+    #shopify-section-{{ sid }} .sle-item { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); }
+    #shopify-section-{{ sid }} .sle-item__media { aspect-ratio: auto; min-height: 320px; }
+    #shopify-section-{{ sid }} .sle-item__body { padding: 40px; }
+  }
+
+  #shopify-section-{{ sid }} .sle-video { position: relative; aspect-ratio: {{ ratio }}; border-radius: var(--rounded-radius, 0px); overflow: hidden; background: #000; }
+  #shopify-section-{{ sid }} .sle-video > :is(img, video, iframe) { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; object-fit: cover; }
+  #shopify-section-{{ sid }} .sle-video > video { object-fit: contain; background: #000; }
+  #shopify-section-{{ sid }} .sle-video__play { position: absolute; inset: 0; z-index: 1; display: grid; place-items: center; width: 100%; height: 100%; padding: 0; border: 0; cursor: pointer; background: transparent; color: var(--color-heading); }
+  #shopify-section-{{ sid }} .sle-video__play span { display: grid; place-items: center; width: 76px; height: 76px; border-radius: 50%; background: color-mix(in srgb, var(--color-background) 86%, transparent); box-shadow: 0 6px 24px rgba(0, 0, 0, .18); transition: transform .25s ease; }
+  #shopify-section-{{ sid }} .sle-video__play:hover span { transform: scale(1.06); }
+  #shopify-section-{{ sid }} .sle-video__play svg { width: 28px; height: 28px; margin-left: 4px; fill: currentColor; }
+  #shopify-section-{{ sid }} .sle-video__play:focus-visible span { outline: 2px solid var(--color-heading); outline-offset: 3px; }
+  @media (prefers-reduced-motion: reduce) { #shopify-section-{{ sid }} .sle-video__play span { transition: none; } }
+  @media (min-width: 768px) {
+    #shopify-section-{{ sid }} .sle { padding-top: {{ st.padding_top_desktop | default: 80 }}px; padding-bottom: {{ st.padding_bottom_desktop | default: 80 }}px; }
+  }
+</style>
+<div class="sle color-{{ color_scheme }} gradient" data-storelib-embed="{{ kind }}">
+  <div class="sle__inner">
+    {%- if st.heading != blank or st.text != blank -%}
+      <div class="sle__head">
+        {%- if st.heading != blank -%}<h2 class="sle__title">{{ st.heading }}</h2>{%- endif -%}
+        {%- if st.text != blank -%}<div class="sle__text">{{ st.text }}</div>{%- endif -%}
+      </div>
+    {%- endif -%}
+    {%- if nothing_picked -%}
+      <p class="sle__empty">
+        {%- case kind -%}
+          {%- when 'form' -%}Pick a form or booking page in this section's settings.
+          {%- when 'product' -%}Pick a course or product in this section's settings.
+          {%- else -%}Upload a video or paste a video link in this section's settings.
+        {%- endcase -%}
+      </p>
+    {%- elsif kind == 'form' -%}
+      {{ st.form | storelib_form: st.heading }}
+    {%- elsif kind == 'product' -%}
+      <article class="sle-item">
+        <a class="sle-item__media" href="{{ item.url }}" tabindex="-1" aria-hidden="true">
+          {%- if item.featured_image != blank -%}
+            {%- assign item_alt = item.featured_image.alt | default: item.title -%}
+            {{ item.featured_image | image_url: width: 1200 | image_tag: widths: '480, 800, 1200', sizes: '(min-width: 768px) 45vw, 100vw', loading: 'lazy', alt: item_alt }}
+          {%- endif -%}
+        </a>
+        <div class="sle-item__body">
+          <h3 class="sle-item__name"><a href="{{ item.url }}" class="reset-link">{{ item.title }}</a></h3>
+          <div class="sle-item__price">
+            <span>{{ item.price | money }}</span>
+            {%- if item.compare_at_price > item.price -%}<s>{{ item.compare_at_price | money }}</s>{%- endif -%}
+          </div>
+          {%- if st.show_description and item.description != blank -%}
+            <p class="sle-item__about">{{ item.description | strip_html | truncatewords: 40 }}</p>
+          {%- endif -%}
+          <a class="btn btn-primary sle-item__cta" href="{{ item.url }}">{{ st.button_label | default: 'View course' }}</a>
+        </div>
+      </article>
+    {%- else -%}
+      <div class="sle-video" data-sle-video data-kind="{{ v_kind }}" data-src="{{ v_play | escape }}">
+        {%- if v_poster != '' -%}
+          <img src="{{ v_poster }}" alt="" loading="lazy" decoding="async">
+          <button type="button" class="sle-video__play" data-sle-play aria-label="{{ st.video_label | default: 'Play video' | escape }}"><span><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"/></svg></span></button>
+        {%- elsif v_kind == 'file' -%}
+          <video src="{{ v_src }}" controls playsinline preload="metadata"{% if st.video_label != blank %} aria-label="{{ st.video_label | escape }}"{% endif %}></video>
+        {%- else -%}
+          <iframe src="{{ v_play | replace: 'autoplay=1', 'autoplay=0' }}" title="{{ st.video_label | default: 'Video' | escape }}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen loading="lazy"></iframe>
+        {%- endif -%}
+      </div>
+    {%- endif -%}
+  </div>
+</div>
+{%- if kind == 'video' and v_poster != '' -%}
+<script>
+(function () {
+  {%- comment %}The poster stays until the visitor presses play; then the video, or the YouTube or Vimeo player, takes its place and starts.{% endcomment %}
+  if (window.StorelibEmbedPlay) return;
+  window.StorelibEmbedPlay = true;
+  document.addEventListener('click', function (e) {
+    var button = e.target.closest && e.target.closest('[data-sle-play]');
+    if (!button) return;
+    var box = button.closest('[data-sle-video]');
+    var src = box && box.getAttribute('data-src');
+    if (!src) return;
+    var el;
+    if (box.getAttribute('data-kind') === 'file') {
+      el = document.createElement('video');
+      el.src = src; el.controls = true; el.playsInline = true; el.autoplay = true;
+      var poster = box.querySelector('img');
+      if (poster) el.poster = poster.currentSrc || poster.src;
+    } else {
+      el = document.createElement('iframe');
+      el.src = src; el.title = button.getAttribute('aria-label') || 'Video';
+      el.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen'; el.allowFullscreen = true;
+    }
+    box.replaceChildren(el);
+    if (el.tagName === 'VIDEO') { var p = el.play(); if (p && p.catch) p.catch(function () {}); el.focus(); }
+  });
+})();
+</script>
+{%- endif -%}
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Storelib embed",
+  "tag": "section",
+  "class": "storelib-embed",
+  "settings": [
+    { "type": "select", "id": "kind", "label": "Show", "default": "form", "options": [ { "value": "form", "label": "Form or booking page" }, { "value": "product", "label": "Course or product" }, { "value": "video", "label": "Video" } ] },
+    { "type": "form_picker", "id": "form", "label": "Form or booking page", "visible_if": "{{ section.settings.kind == 'form' }}" },
+    { "type": "product", "id": "product", "label": "Course or product", "visible_if": "{{ section.settings.kind == 'product' }}" },
+    { "type": "text", "id": "button_label", "label": "Button label", "default": "View course", "visible_if": "{{ section.settings.kind == 'product' }}" },
+    { "type": "checkbox", "id": "show_description", "label": "Show description", "default": true, "visible_if": "{{ section.settings.kind == 'product' }}" },
+    { "type": "video", "id": "video", "label": "Video", "visible_if": "{{ section.settings.kind == 'video' }}" },
+    { "type": "url", "id": "video_url", "label": "Video address", "info": "A YouTube or Vimeo link, or a video file. Used when no video is uploaded.", "visible_if": "{{ section.settings.kind == 'video' }}" },
+    { "type": "image_picker", "id": "video_poster", "label": "Poster image", "info": "Shown until the video plays.", "visible_if": "{{ section.settings.kind == 'video' }}" },
+    { "type": "text", "id": "video_label", "label": "Video description", "info": "Read out by screen readers.", "visible_if": "{{ section.settings.kind == 'video' }}" },
+    { "type": "select", "id": "video_ratio", "label": "Video shape", "default": "16 / 9", "options": [ { "value": "16 / 9", "label": "Landscape" }, { "value": "1 / 1", "label": "Square" }, { "value": "9 / 16", "label": "Portrait" } ], "visible_if": "{{ section.settings.kind == 'video' }}" },
+    { "type": "header", "content": "Text" },
+    { "type": "text", "id": "heading", "label": "Heading" },
+    { "type": "richtext", "id": "text", "label": "Text" },
+    { "type": "select", "id": "text_align", "label": "Heading alignment", "default": "center", "options": [ { "value": "left", "label": "Left" }, { "value": "center", "label": "Center" } ] },
+    { "type": "header", "content": "Layout" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default-color-scheme" },
+    { "type": "range", "id": "max_width", "label": "Width", "min": 420, "max": 1200, "step": 20, "unit": "px", "default": 760 },
+    { "type": "range", "id": "padding_top_desktop", "label": "Top padding (desktop)", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 80 },
+    { "type": "range", "id": "padding_bottom_desktop", "label": "Bottom padding (desktop)", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 80 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Top padding (mobile)", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 48 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Bottom padding (mobile)", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 48 }
+  ],
+  "presets": [
+    { "name": "Storelib form or booking", "category": "Storelib", "settings": { "kind": "form", "heading": "Book a call" } },
+    { "name": "Storelib course or product", "category": "Storelib", "settings": { "kind": "product", "heading": "" } },
+    { "name": "Storelib video", "category": "Storelib", "settings": { "kind": "video", "heading": "" } }
+  ]
+}
+{% endschema %}

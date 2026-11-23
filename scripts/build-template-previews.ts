@@ -62,6 +62,8 @@ const OUT = join("public", TEMPLATE_PREVIEW_ROOT.replace(/^\//, ""))
 const FONT_CACHE = join("node_modules", ".cache", "template-previews-fonts")
 const MAX_PAGES = 64
 const MAX_IMAGE_WIDTH = 1800
+/** The smaller copies a srcset's widths are answered with (sizedPicture). */
+const PREVIEW_WIDTHS = [400, 800, 1200]
 /** Inline blocks this long or longer that appear on two pages or more become files. */
 const HOIST_BYTES = 1024
 /** What the old platform's name becomes in the theme's own code: the same everywhere, so its scripts still find each other. */
@@ -161,7 +163,41 @@ async function buildTemplate(t: (typeof CODE_TEMPLATES)[number]) {
   const cyclic = new Set<string>()
   const settingsCtx = () => built.theme.pageContext({ template: "index", path: "/", designMode: false, products: [], collections: [], menus: {}, shop: { name: "" } })
 
-  async function picture(bytes: Uint8Array, name: string, shared: boolean): Promise<string> {
+  /** Each picture's source, by the address that asked for it, for its smaller copies (sizedPicture). */
+  const pictureSources = new Map<string, { bytes: Uint8Array; name: string; shared: boolean }>()
+  const sizedUrls = new Map<string, string | null>()
+  /*
+    THE WIDTH A SRCSET ASKS FOR. The live site's optimizer answers each
+    "720w" with a file 720 pixels wide; written here as one file at full
+    size, every product card on a phone downloaded a 1600 pixel picture and
+    the page filled in late while scrolling. Each width asked for is now a
+    copy at the next size of PREVIEW_WIDTHS (smaller than the picture), so a
+    card gets a card's file.
+  */
+  async function sizedPicture(address: string, w: number): Promise<string | null> {
+    const clean = decodeAmp(address).split(/[?#]/)[0]
+    const full = await asset(clean)
+    const src = pictureSources.get(clean)
+    if (!full || !src || !w) return full
+    const want = PREVIEW_WIDTHS.find((x) => x >= w)
+    if (!want) return full
+    const key = `${clean} ${want}`
+    if (sizedUrls.has(key)) return sizedUrls.get(key)!
+    let out: string | null = full
+    const meta = await sharp(src.bytes).metadata().catch(() => null)
+    if (meta?.width && meta.width > want * 1.25 && !meta.pages) {
+      const body = new Uint8Array(await sharp(src.bytes).resize({ width: want }).webp({ quality: 78 }).toBuffer())
+      const stem = src.name.replace(/\.[^.]+$/, "").replace(/shopify/gi, "sl").replace(/[^A-Za-z0-9_-]+/g, "-").slice(0, 56)
+      const rel = `${src.shared ? "_base/a" : `${slug}/a`}/${stem}-${want}.${sha(body)}.webp`
+      write(rel, body)
+      out = url(rel)
+    }
+    sizedUrls.set(key, out)
+    return out
+  }
+
+  async function picture(bytes: Uint8Array, name: string, shared: boolean, from?: string): Promise<string> {
+    if (from) pictureSources.set(from, { bytes, name, shared })
     const ext = extname(name).toLowerCase()
     let out: Uint8Array = bytes
     let outExt = ext
@@ -193,11 +229,11 @@ async function buildTemplate(t: (typeof CODE_TEMPLATES)[number]) {
       const media = imported.media.get(name)
       const safe = name.replace(/[^A-Za-z0-9._-]/g, "")
       const file = [join(productsDir, safe), join(overlay, "assets", safe)].find((f) => existsSync(f))
-      if (media) out = await picture(media, name, inBase)
-      else if (file) out = await picture(readFileSync(file), name, false)
+      if (media) out = await picture(media, name, inBase, clean)
+      else if (file) out = await picture(readFileSync(file), name, false, clean)
     } else if (clean.startsWith("/__asset/")) {
       const media = imported.media.get(name)
-      if (media) out = await picture(media, name, inBase)
+      if (media) out = await picture(media, name, inBase, clean)
       else {
         const a = themeAsset(built.theme, name, settingsCtx)
         if (a) {
@@ -205,7 +241,7 @@ async function buildTemplate(t: (typeof CODE_TEMPLATES)[number]) {
           const ext = MIME_EXT[type] ?? (extname(name).slice(1) || "bin")
           const stem = name.replace(/\.(liquid|scss)$/, "").replace(/\.[^.]+$/, "").replace(/shopify/gi, "sl").replace(/[^A-Za-z0-9_-]+/g, "-").slice(0, 60)
           const dir = inBase ? "_base/a" : `${slug}/a`
-          if (/^image\/(?!svg)/.test(type) && typeof a.body !== "string") out = await picture(a.body, name, inBase)
+          if (/^image\/(?!svg)/.test(type) && typeof a.body !== "string") out = await picture(a.body, name, inBase, clean)
           else {
             let body: string | Uint8Array = a.body
             if (typeof body === "string" || /^(text\/|application\/(javascript|json)|image\/svg)/.test(type)) {
@@ -257,12 +293,13 @@ async function buildTemplate(t: (typeof CODE_TEMPLATES)[number]) {
 
   /** Every address of a picture or a theme file in a text (markup, a script, JSON in an attribute), as its static file. */
   async function assetRefs(text: string): Promise<string> {
-    /* The website's image optimizer: the picture itself, once. */
+    /* The website's image optimizer: the picture at the width asked for (sizedPicture). */
     const IMG = /\/_next\/image\?url=([^"'\s,)<>\\&]+)(?:(?:&amp;|&|\\u0026)(?:w|q)=\d+)*/g
     const imgs = new Map<string, string | null>()
     for (const m of text.matchAll(IMG)) {
       const inner = decodeURIComponent(m[1])
-      if (!imgs.has(m[0])) imgs.set(m[0], /^\/(__asset|__media|__product)\//.test(inner) ? await asset(inner) : null)
+      const w = Number(/(?:&amp;|&|\\u0026)w=(\d+)/.exec(m[0])?.[1] ?? 0)
+      if (!imgs.has(m[0])) imgs.set(m[0], /^\/(__asset|__media|__product)\//.test(inner) ? await sizedPicture(inner, w) : null)
     }
     let out = text.replace(IMG, (m) => imgs.get(m) ?? m)
     const DIRECT = /(?:\\?\/)(?:__asset|__media|__product)\\?\/[^"'\s)<>\\&?#,]+(?:\?v=\d+)?/g
