@@ -1,0 +1,331 @@
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "alignment": "left",
+        "height": "adapt",
+        "overlay_opacity": 0,
+        "padding_top": 56,
+        "padding_bottom": 40
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "About Fairweather",
+            "header_size": "default",
+            "heading_font_size": 40,
+            "vertical_gap": 12,
+            "enable_heading_color": false
+          }
+        },
+        "description_1": {
+          "type": "description",
+          "settings": {
+            "description": "<p>Fairweather makes caps, tees and crewnecks in heavy cotton, a few colours at a time. We started with one cap and a borrowed embroidery machine, and we still make every run in the same small workshop.</p>",
+            "enable_custom_style": false,
+            "description_font_size": 16
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_1"
+      ]
+    },
+    "image": {
+      "type": "image-section",
+      "settings": {
+        "color_scheme": "default",
+        "is_fullwidth": false,
+        "img_min_height": 60,
+        "img_min_height_mobile": 60,
+        "background_image": "shopify://shop_images/capstees-white-tee.webp",
+        "image_alt": "A man in a white Fairweather tee and cap in a garden",
+        "image_border_radius": 10,
+        "image_description": "",
+        "enable_image_text_background": false,
+        "background_position_y": 30,
+        "section_padding_top": 0,
+        "section_padding_bottom": 0,
+        "section_padding_top_mobile": 0,
+        "section_padding_bottom_mobile": 0,
+        "padding_lr_desktop": 20,
+        "padding_lr_mobile": 0
+      }
+    },
+    "how": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "content_alignment": "left",
+        "columns_desktop": 4,
+        "columns_tablet": 2,
+        "column_gap": 40,
+        "header_gap": 40,
+        "show_dividers": true,
+        "item_heading_size": 20,
+        "item_heading_size_mobile": 18,
+        "padding_top": 96,
+        "padding_bottom": 96,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "mobile_layout": "stack"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "How we make them"
+          }
+        },
+        "column_1": {
+          "type": "column",
+          "settings": {
+            "label": "Cotton",
+            "heading": "Heavy and soft",
+            "text": "<p>Tees are 240 gsm combed cotton and crewnecks 400 gsm brushed fleece. Both soften with washing and keep their shape.</p>",
+            "link_label": "",
+            "link": ""
+          }
+        },
+        "column_2": {
+          "type": "column",
+          "settings": {
+            "label": "Runs",
+            "heading": "Fifty at a time",
+            "text": "<p>We make each colour in runs of fifty. When a run sells out we make the next one, so there is never a pile left over.</p>",
+            "link_label": "",
+            "link": ""
+          }
+        },
+        "column_3": {
+          "type": "column",
+          "settings": {
+            "label": "Print",
+            "heading": "Ink that stays",
+            "text": "<p>Water based ink pressed into the cotton and embroidery on the caps. Nothing to crack or peel after a few washes.</p>",
+            "link_label": "",
+            "link": ""
+          }
+        },
+        "column_4": {
+          "type": "column",
+          "settings": {
+            "label": "Price",
+            "heading": "One price",
+            "text": "<p>No sales and no codes. A tee costs what it costs to make well, plus enough to make the next run.</p>",
+            "link_label": "",
+            "link": ""
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "column_1",
+        "column_2",
+        "column_3",
+        "column_4"
+      ]
+    },
+    "studio": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "image": "shopify://shop_images/capstees-cap-city.webp",
+        "image_alt": "Someone in a pale blue Fairweather cap looking out over a city park",
+        "image_position": "left",
+        "image_radius": 10,
+        "aspect_w": 4,
+        "aspect_h": 5,
+        "text_column_width": 50,
+        "gap_desktop": 80,
+        "padding_top_desktop": 0,
+        "padding_bottom_desktop": 0,
+        "side_padding_desktop": 0,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 48,
+        "side_padding_mobile": 20
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "The workshop"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Three people and two machines"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>One of us cuts, one prints and one packs. Every order is folded by hand and leaves within two working days.</p>"
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "See the shop",
+            "link": "/collections/all",
+            "button_style": "primary"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
+    },
+    "mark": {
+      "type": "brand-logo",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "header_alignment": "center",
+        "heading": "",
+        "open_link_newtab": false,
+        "items_per_row": 1,
+        "items_per_row_mobile": 1,
+        "img_width": 60,
+        "image_ratio": "adapt",
+        "framed": false,
+        "carousel_pagination": "disable",
+        "padding_top": 64,
+        "padding_bottom": 0
+      },
+      "blocks": {
+        "logo": {
+          "type": "brand_items",
+          "settings": {
+            "image": "shopify://shop_images/capstees-mark.webp",
+            "link": "/pages/about"
+          }
+        }
+      },
+      "block_order": [
+        "logo"
+      ]
+    },
+    "statement": {
+      "type": "richtext1",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reveal": false,
+        "elements_alignment": "center",
+        "padding_top": 16,
+        "padding_bottom": 4
+      },
+      "blocks": {
+        "title": {
+          "type": "title",
+          "settings": {
+            "title_text": "Plain clothes, made a few at a time.",
+            "title_text_size": 20,
+            "title_mobile_size": 18,
+            "vertical_spacing_desktop": 12,
+            "vertical_spacing_mobile": 10
+          }
+        },
+        "text": {
+          "type": "description",
+          "settings": {
+            "description_text": "Fairweather is a small label making caps, tees and crewnecks in heavy cotton. We print and stitch each run in the same small workshop, keep the colours few and the fits easy, and we make more only when a run sells out.",
+            "description_text_size": 14,
+            "description_mobile_size": 14,
+            "description_left_padding_desktop": 300,
+            "description_right_padding_desktop": 300,
+            "description_left_padding_mobile": 8,
+            "description_right_padding_mobile": 8,
+            "vertical_gap_subheading_button_desktop": 0,
+            "vertical_gap_subheading_button_mobile": 0
+          }
+        }
+      },
+      "block_order": [
+        "title",
+        "text"
+      ]
+    },
+    "social": {
+      "type": "Social-icons-pro2",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reveal": false,
+        "show_mastercard": false,
+        "show_paypal": false,
+        "show_visa": false,
+        "show_apple_pay": false,
+        "show_google_pay": false,
+        "icon_height": 16,
+        "icon_gap": 22,
+        "element_spacing": 0,
+        "headline_spacing": 0,
+        "section_padding_top_bottom": 18,
+        "section_padding_left_right": 20,
+        "mobile_icon_height": 18,
+        "mobile_icon_gap": 24,
+        "mobile_section_padding_top_bottom": 16
+      },
+      "blocks": {
+        "instagram": {
+          "type": "icon",
+          "settings": {
+            "platform": "instagram",
+            "link": "https://instagram.com"
+          }
+        },
+        "tiktok": {
+          "type": "icon",
+          "settings": {
+            "platform": "tiktok",
+            "link": "https://tiktok.com"
+          }
+        },
+        "youtube": {
+          "type": "icon",
+          "settings": {
+            "platform": "youtube",
+            "link": "https://youtube.com"
+          }
+        },
+        "x": {
+          "type": "icon",
+          "settings": {
+            "platform": "x",
+            "link": "https://x.com"
+          }
+        }
+      },
+      "block_order": [
+        "instagram",
+        "tiktok",
+        "youtube",
+        "x"
+      ]
+    }
+  },
+  "order": [
+    "heading",
+    "image",
+    "how",
+    "studio",
+    "mark",
+    "statement",
+    "social"
+  ]
+}

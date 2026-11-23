@@ -4,30 +4,30 @@
       "type": "hero-split-media",
       "settings": {
         "color_scheme": "default",
-        "section_width": "container",
+        "section_width": "full_width",
         "image_position": "right",
-        "media_width_desktop": 52,
+        "media_width_desktop": 54,
         "content_align": "left",
         "vertical_align": "center",
-        "content_max_width": 560,
+        "content_max_width": 540,
         "content_gap": 24,
-        "min_height_desktop": 680,
-        "image": "shopify://shop_images/default-hero-cream-mugs.webp",
-        "image_alt": "Two cream stoneware mugs on a white table against a plain wall",
+        "min_height_desktop": 700,
+        "image": "shopify://shop_images/default-hero-harbour-tall.webp",
+        "image_alt": "Someone in a plain canvas cap looking out over a small harbour on a summer day",
         "image_position_x": 50,
-        "image_position_y": 62,
+        "image_position_y": 40,
         "padding_top_desktop": 0,
         "padding_bottom_desktop": 0,
-        "side_padding_desktop": 0,
+        "side_padding_desktop": 72,
         "mobile_image_first": true,
-        "media_height_mobile": 420,
-        "padding_top_mobile": 24,
+        "media_height_mobile": 440,
+        "padding_top_mobile": 28,
         "padding_bottom_mobile": 48,
-        "side_padding_mobile": 0,
-        "image_radius": 16,
-        "section_margin_top_desktop": 32,
-        "section_margin_bottom_desktop": 40,
-        "section_margin_top_mobile": 12
+        "side_padding_mobile": 20,
+        "image_radius": 0,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 24,
+        "section_margin_top_mobile": 0
       },
       "blocks": {
         "heading_1": {
@@ -46,7 +46,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Mugs, bags, paper goods and a few things to download, designed and packed by a small studio.</p>",
+            "text": "<p>Caps, bags, mugs and paper goods, designed and packed by a small studio. Sent within two working days.</p>",
             "size_enable": true,
             "size": 18,
             "line_height": 1.55
@@ -62,7 +62,7 @@
         "button_4": {
           "type": "button",
           "settings": {
-            "text": "About us",
+            "text": "Our story",
             "link": "/pages/about",
             "button_style": "secondary"
           }

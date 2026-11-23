@@ -963,17 +963,29 @@
 {%- unless pill_on_mobile %}
     @media (min-width: 1025px) {
 {% endunless -%}
-    {%- comment %}.shopify-section: one class more than header-layout.css's padding reset, so the offsets reach the bar.{% endcomment %}
+    {%- comment %}.shopify-section: one class more than header-layout.css's padding reset, so the offsets reach the bar.
+       NATIVE STICKY, NO HEIGHT (templates round 22, Cutroom: the pill and the
+       announcement bar above it "are not syncing with each other"). The pill
+       was position: fixed, its top written by a script on every scroll frame
+       as the bar's bottom: the bar scrolled on the compositor and the pill
+       followed a frame or more later, so the gap between them shook. Now the
+       section is position: sticky in its place under the bar, zero tall so it
+       takes no room (the pill floats over the page as before), and the pill
+       hangs below it by the top offset. The browser moves bar and pill as one
+       until the pill reaches its offset from the top of the screen, and it
+       stays there.{% endcomment %}
     #shopify-section-{{ section.id }}.shopify-section,
     .shopify-section-header-sticky {
-      position: fixed !important;
-      top: 0; left: 0; right: 0;
+      position: sticky !important;
+      top: 0;
       z-index: 50;
       pointer-events: none;
       background: transparent !important;
       box-shadow: none !important;
-      padding-top: {{ pill_top }}px !important;
-      padding-bottom: {{ pill_bottom }}px !important;
+      height: 0 !important;
+      min-height: 0 !important;
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
       padding-left: {{ pill_side }}px !important;
       padding-right: {{ pill_side }}px !important;
       box-sizing: border-box !important;
@@ -1011,9 +1023,10 @@
     {%- comment %}Scrolled DOWN past the header -> slide the whole pill up out of view.
        Declared AFTER the resting rule so that at equal specificity it wins when
        both the sticky and hidden classes are present.{% endcomment %}
+    {%- comment %}The section is zero tall, so the slide is the pill's own height and offset, not a share of the section.{% endcomment %}
     #shopify-section-{{ section.id }}.shopify-section-header-hidden {
       top: var(--sl-header-offset, 0px) !important;
-      transform: translateY(calc(-135% - var(--sl-header-offset, 0px))) !important;
+      transform: translate3d(0, calc(-{{ section.settings.header_height | default: 80 | plus: pill_top | plus: 24 }}px - var(--sl-header-offset, 0px)), 0) !important;
       animation: none !important;
     }
     #shopify-section-{{ section.id }} .header.is-pill,
@@ -1023,6 +1036,7 @@
     #shopify-section-{{ section.id }} .header.is-pill,
     .shopify-section-header-sticky .header.is-pill {
       position: relative;
+      top: {{ pill_top }}px;
       display: block;
       box-sizing: border-box;
       width: 100%;
@@ -1143,13 +1157,17 @@
     @media (max-width: 1024.98px) {
       #shopify-section-{{ section.id }}.shopify-section,
       .shopify-section-header-sticky {
-        padding-top: {{ pill_m_top }}px !important;
-        padding-bottom: {% if pill_bottom > 0 %}{{ pill_bottom }}{% else %}{{ pill_m_top | divided_by: 2 }}{% endif %}px !important;
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
         padding-left: {{ pill_m_side }}px !important;
         padding-right: {{ pill_m_side }}px !important;
       }
+      #shopify-section-{{ section.id }}.shopify-section-header-hidden {
+        transform: translate3d(0, calc(-{{ section.settings.header_height_mobile | default: 64 | plus: pill_m_top | plus: 24 }}px - var(--sl-header-offset, 0px)), 0) !important;
+      }
       #shopify-section-{{ section.id }} .header.is-pill,
       .shopify-section-header-sticky .header.is-pill {
+        top: {{ pill_m_top }}px;
         max-width: 100% !important;
         border-radius: {{ pill_m_radius }}px !important;
       }

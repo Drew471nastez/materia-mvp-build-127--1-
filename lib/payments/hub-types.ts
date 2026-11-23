@@ -50,6 +50,8 @@ export interface HubOverview {
     /** False for an older Express account, where Stripe's own form still adds the bank. */
     inStorelib: boolean
   } | null
+  /** The Stripe platform's country (ISO), when known: setup uses it to say which countries can be paid out before anything is opened. */
+  platformCountry?: string | null
   /** Storelib's payments status, read from the Stripe account. Absent on other providers. */
   paymentsStatus?: StorelibStatusView
   /** Stripe could not be reached just now; status is from the last sync. */

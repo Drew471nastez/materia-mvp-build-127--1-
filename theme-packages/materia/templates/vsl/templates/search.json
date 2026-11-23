@@ -8,7 +8,7 @@
         "reset_spacing": true,
         "heading": "Search",
         "sorting": true,
-        "empty_text": "Nothing matched. Try a topic: gear, editing, guests, launch.",
+        "empty_text": "Nothing matched. Try a topic: hooks, editing, lighting, posting.",
         "empty_link_label": "See the course",
         "empty_link_url": "/collections/all",
         "enable_filtering": false,

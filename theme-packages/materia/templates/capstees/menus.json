@@ -1,0 +1,48 @@
+{
+  "main-menu": {
+    "title": "Shop",
+    "links": [
+      {
+        "title": "Caps",
+        "url": "/search?q=cap"
+      },
+      {
+        "title": "Tees",
+        "url": "/search?q=tee"
+      },
+      {
+        "title": "Crewnecks",
+        "url": "/search?q=crewneck"
+      },
+      {
+        "title": "Everything",
+        "url": "/collections/all"
+      },
+      {
+        "title": "About",
+        "url": "/pages/about"
+      }
+    ]
+  },
+  "footer": {
+    "title": "Help",
+    "links": [
+      {
+        "title": "Shipping and returns",
+        "url": "/pages/shipping"
+      },
+      {
+        "title": "Sizing and FAQ",
+        "url": "/pages/faqs"
+      },
+      {
+        "title": "Contact",
+        "url": "/pages/contact"
+      },
+      {
+        "title": "Journal",
+        "url": "/blogs/news"
+      }
+    ]
+  }
+}

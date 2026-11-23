@@ -62,6 +62,7 @@ Retro desktop: the footer as a status bar above the taskbar: the
   .r98-foot__links a { color: #000; text-decoration: none; }
   .r98-foot__links a:hover, .r98-foot__links a:focus-visible { text-decoration: underline; outline: none; }
   .r98-foot__note { flex: 0 0 auto; font-family: var(--r-px); }
+  .r98-foot__pay { flex: 0 0 auto; padding-block: 3px !important; }
   @media (max-width: 749px) { .r98-foot__row > * { flex: 1 1 100%; } #shopify-section-{{ sid }} .r98 { padding: 6px 6px 10px; } }
 </style>
 <footer data-own-font class="r98 r98-foot">
@@ -72,6 +73,7 @@ Retro desktop: the footer as a status bar above the taskbar: the
         <nav class="r98-foot__links r98-sunken" aria-label="{{ st.menu_label | default: 'Footer' | escape }}">{%- for link in menu.links -%}<a href="{{ link.url }}">{{ link.title | escape }}</a>{%- endfor -%}{%- if st.show_policies -%}{%- for policy in shop.policies -%}<a href="{{ policy.url }}">{{ policy.title | escape }}</a>{%- endfor -%}{%- endif -%}</nav>
       {%- endif -%}
       {%- if st.note != blank -%}<span class="r98-foot__note r98-sunken">{{ st.note | escape }}</span>{%- endif -%}
+      {%- if st.show_payment != false -%}<div class="r98-foot__pay r98-sunken">{% render 'payment-icons-row' %}</div>{%- endif -%}
     </div>
   </div>
 </footer>
@@ -107,6 +109,13 @@ Retro desktop: the footer as a status bar above the taskbar: the
       "id": "note",
       "label": "Last panel",
       "default": "Printed to order"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_payment",
+      "label": "Payment icons",
+      "default": true,
+      "info": "Visa, Mastercard, American Express, Apple Pay and Google Pay, in a panel of their own."
     },
     {
       "type": "text",

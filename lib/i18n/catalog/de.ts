@@ -13700,7 +13700,17 @@ const words: Record<string, string> = {
  "Update adds a copy with the new version and your content. Your website stays as it is until you publish the copy.": "Aktualisieren fügt eine Kopie mit der neuen Version und deinen Inhalten hinzu. Deine Website bleibt, wie sie ist, bis du die Kopie veröffentlichst.",
  "Open copy": "Kopie öffnen",
  "Could not update": "Aktualisierung fehlgeschlagen",
- "Update theme": "Theme aktualisieren"
+ "Update theme": "Theme aktualisieren",
+ "Your connection dropped. Check you are online, then try again.": "Deine Verbindung ist abgebrochen. Prüfe, ob du online bist, und versuche es dann erneut.",
+ "Where is your bank account?": "Wo ist dein Bankkonto?",
+ "Choose a country.": "Wähle ein Land.",
+ "Your payouts go to a bank in this country, in its currency. It can't be changed later.": "Deine Auszahlungen gehen an eine Bank in diesem Land, in seiner Währung. Das lässt sich später nicht ändern.",
+ "Payouts are not set up yet": "Auszahlungen sind noch nicht eingerichtet",
+ "Opening your payments account": "Dein Zahlungskonto wird eröffnet",
+ "Your browser could not reach Stripe. Check your connection, turn off any content blocker for storelib.com, then try again.": "Dein Browser hat Stripe nicht erreicht. Prüfe deine Verbindung, schalte Inhaltsblocker für storelib.com aus und versuche es dann erneut.",
+ "Stripe did not answer just now. Try again in a minute.": "Stripe hat gerade nicht geantwortet. Versuche es in einer Minute erneut.",
+ "The form's sign in ran out. Try again to open a fresh one.": "Die Anmeldung des Formulars ist abgelaufen. Versuche es erneut, um ein neues zu öffnen.",
+ "The form could not open here. Try again, and if it keeps happening write to support@storelib.com.": "Das Formular konnte hier nicht geöffnet werden. Versuche es erneut, und wenn es weiter passiert, schreib an support@storelib.com."
 }
 
 export default words

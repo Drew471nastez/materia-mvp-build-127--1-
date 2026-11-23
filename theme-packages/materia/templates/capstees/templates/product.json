@@ -1,0 +1,403 @@
+{
+  "sections": {
+    "main": {
+      "type": "main-product",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "section_width_mobile": "stretch_width",
+        "reset_spacing": true,
+        "desktop_layout": "grid_1_column",
+        "desktop_media_width": 55,
+        "enable_sticky_content_on_desktop": true,
+        "sticky_top_gap": 96,
+        "content_gap_desktop": 56,
+        "media_square": false,
+        "image_zoom": "open_lightbox",
+        "enable_on_desktop": false,
+        "enable_on_mobile": true,
+        "sticky_show_image": true,
+        "sticky_show_title": true,
+        "sticky_show_variant_picker": true,
+        "sticky_show_quantity": false,
+        "sticky_button_radius": 4,
+        "padding_top": 32,
+        "padding_bottom": 96,
+        "mobile_options": "show_thumbnails",
+        "mobile_slides_per_view": "1",
+        "enable_nav_dots_mobile": true,
+        "enable_custom_padding": true,
+        "padding_left_mobile": 16,
+        "padding_right_mobile": 16,
+        "padding_left_desktop": 24,
+        "padding_right_desktop": 24
+      },
+      "blocks": {
+        "title_1": {
+          "type": "title",
+          "settings": {
+            "show_vendor": false,
+            "title_font_size_desktop": 24,
+            "title_font_size_mobile": 22
+          }
+        },
+        "price_1": {
+          "type": "price",
+          "settings": {
+            "price_font_size_desktop": 17,
+            "price_font_size_mobile": 16,
+            "price_font_weight": "500",
+            "compare_font_size_desktop": 16,
+            "compare_font_size_mobile": 14,
+            "compare_font_weight": "400"
+          }
+        },
+        "variant_picker_1": {
+          "type": "variant_picker",
+          "settings": {
+            "variant_type": "swatches",
+            "show_size_guide": false,
+            "picker_swatch_style": "theme"
+          }
+        },
+        "size_guide_1": {
+          "type": "size_guide",
+          "settings": {
+            "use_storelib_chart": true,
+            "table_unit": "cm",
+            "size_guide_label": "Size guide",
+            "size_guide_display": "modal",
+            "size_guide_appearance": "link",
+            "table_data": "Size | Chest | Length\nXS | 48 | 66\nS | 51 | 69\nM | 54 | 72\nL | 57 | 74\nXL | 60 | 76\nXXL | 63 | 78",
+            "size_guide_content": "<p>Garment measurements in centimetres, laid flat: chest from armpit to armpit, length from the shoulder to the hem.</p>"
+          }
+        },
+        "text_1": {
+          "type": "text",
+          "settings": {
+            "heading": "",
+            "content": "<p>Easy fit with a little room through the body. Between sizes, take your usual one.</p>"
+          }
+        },
+        "buy_buttons_1": {
+          "type": "buy_buttons",
+          "settings": {
+            "show_add_to_cart": true,
+            "show_dynamic_checkout": true,
+            "show_quantity": true,
+            "buttons_full_width": true,
+            "quantity_right_of_atc": true,
+            "show_wishlist_button": false,
+            "atc_appearance": "theme",
+            "buy_appearance": "theme",
+            "atc_icon_enable": false,
+            "atc_icon": "bag",
+            "buy_icon_enable": false,
+            "show_gift_card_recipient": false
+          }
+        },
+        "collapsible_row_1": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "Description",
+            "content": "",
+            "use_product_description": true,
+            "open": true
+          }
+        },
+        "collapsible_row_2": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "Fit and size",
+            "content": "<p>Tees and crewnecks are cut with an easy fit and dropped shoulders. Caps are one size with a strap at the back that fits most heads.</p>",
+            "use_product_description": false,
+            "open": false
+          }
+        },
+        "collapsible_row_3": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "Fabric and care",
+            "content": "<p>Tees: 240 gsm combed cotton. Crewnecks: 400 gsm brushed back fleece. Caps: washed cotton twill. Wash cold inside out, dry flat, iron on the reverse.</p>",
+            "use_product_description": false,
+            "open": false
+          }
+        },
+        "collapsible_row_4": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "Shipping and returns",
+            "content": "<p>Orders leave the workshop in 1 to 2 working days and arrive in 3 to 6. Shipping is free over $75. Send anything back unworn within 30 days for a full refund. <a href=\"/pages/shipping\">Shipping and returns in full</a></p>",
+            "use_product_description": false,
+            "open": false
+          }
+        },
+        "product_addons_1": {
+          "type": "product_addons",
+          "settings": {
+            "show_ask_question": false,
+            "show_share": true,
+            "share_copy_label": "Copy link",
+            "share_copied_label": "Link copied"
+          }
+        },
+        "delivery": {
+          "type": "delivery_estimate",
+          "settings": {
+            "min_days": 3,
+            "max_days": 6,
+            "skip_weekends": true,
+            "boxed": false,
+            "hide_digital": true,
+            "spacing_top": 4,
+            "spacing_bottom": 4
+          }
+        },
+        "points": {
+          "type": "guarantee_row",
+          "settings": {
+            "style": "plain",
+            "columns_mobile": "3",
+            "icon_1": "truck",
+            "title_1": "Free shipping",
+            "text_1": "On orders over $75",
+            "icon_2": "return",
+            "title_2": "30 day returns",
+            "text_2": "Free, unworn",
+            "icon_3": "shield",
+            "title_3": "Made to last",
+            "text_3": "Heavy cotton",
+            "spacing_top": 12,
+            "spacing_bottom": 8
+          }
+        }
+      },
+      "block_order": [
+        "title_1",
+        "price_1",
+        "variant_picker_1",
+        "size_guide_1",
+        "text_1",
+        "buy_buttons_1",
+        "delivery",
+        "points",
+        "collapsible_row_1",
+        "collapsible_row_2",
+        "collapsible_row_3",
+        "collapsible_row_4",
+        "product_addons_1"
+      ]
+    },
+    "related": {
+      "type": "related-products",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "heading": "You might also like",
+        "description": "",
+        "header_size": "small",
+        "header_alignment": "left",
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 16,
+        "intent": "related",
+        "items_to_show": 4,
+        "show_badges": true,
+        "show_vendor": false,
+        "show_rating": false,
+        "show_swatches": false,
+        "show_price": true,
+        "show_add_to_cart": false,
+        "show_action": false,
+        "padding_top": 48,
+        "padding_bottom": 56
+      }
+    },
+    "image_text": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "image": "shopify://shop_images/capstees-white-tee.webp",
+        "image_alt": "A man in a white Fairweather tee and cap in a garden",
+        "image_position": "left",
+        "section_width": "container",
+        "image_radius": 10,
+        "aspect_w": 4,
+        "aspect_h": 5,
+        "text_column_width": 50,
+        "gap_desktop": 72,
+        "padding_top_desktop": 0,
+        "padding_bottom_desktop": 0,
+        "side_padding_desktop": 0,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 40,
+        "side_padding_mobile": 20
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "How it fits"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Worn in, not worn out",
+            "size_desktop": 28,
+            "size_mobile": 22
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Heavy cotton softens with every wash but keeps its shape. The neck rib is double stitched so it lies flat after a year of wearing.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3"
+      ]
+    },
+    "mark": {
+      "type": "brand-logo",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "header_alignment": "center",
+        "heading": "",
+        "open_link_newtab": false,
+        "items_per_row": 1,
+        "items_per_row_mobile": 1,
+        "img_width": 60,
+        "image_ratio": "adapt",
+        "framed": false,
+        "carousel_pagination": "disable",
+        "padding_top": 56,
+        "padding_bottom": 0
+      },
+      "blocks": {
+        "logo": {
+          "type": "brand_items",
+          "settings": {
+            "image": "shopify://shop_images/capstees-mark.webp",
+            "link": "/pages/about"
+          }
+        }
+      },
+      "block_order": [
+        "logo"
+      ]
+    },
+    "statement": {
+      "type": "richtext1",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reveal": false,
+        "elements_alignment": "center",
+        "padding_top": 16,
+        "padding_bottom": 4
+      },
+      "blocks": {
+        "title": {
+          "type": "title",
+          "settings": {
+            "title_text": "Plain clothes, made a few at a time.",
+            "title_text_size": 20,
+            "title_mobile_size": 18,
+            "vertical_spacing_desktop": 12,
+            "vertical_spacing_mobile": 10
+          }
+        },
+        "text": {
+          "type": "description",
+          "settings": {
+            "description_text": "Fairweather is a small label making caps, tees and crewnecks in heavy cotton. We print and stitch each run in the same small workshop, keep the colours few and the fits easy, and we make more only when a run sells out.",
+            "description_text_size": 14,
+            "description_mobile_size": 14,
+            "description_left_padding_desktop": 300,
+            "description_right_padding_desktop": 300,
+            "description_left_padding_mobile": 8,
+            "description_right_padding_mobile": 8,
+            "vertical_gap_subheading_button_desktop": 0,
+            "vertical_gap_subheading_button_mobile": 0
+          }
+        }
+      },
+      "block_order": [
+        "title",
+        "text"
+      ]
+    },
+    "social": {
+      "type": "Social-icons-pro2",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reveal": false,
+        "show_mastercard": false,
+        "show_paypal": false,
+        "show_visa": false,
+        "show_apple_pay": false,
+        "show_google_pay": false,
+        "icon_height": 16,
+        "icon_gap": 22,
+        "element_spacing": 0,
+        "headline_spacing": 0,
+        "section_padding_top_bottom": 18,
+        "section_padding_left_right": 20,
+        "mobile_icon_height": 18,
+        "mobile_icon_gap": 24,
+        "mobile_section_padding_top_bottom": 16
+      },
+      "blocks": {
+        "instagram": {
+          "type": "icon",
+          "settings": {
+            "platform": "instagram",
+            "link": "https://instagram.com"
+          }
+        },
+        "tiktok": {
+          "type": "icon",
+          "settings": {
+            "platform": "tiktok",
+            "link": "https://tiktok.com"
+          }
+        },
+        "youtube": {
+          "type": "icon",
+          "settings": {
+            "platform": "youtube",
+            "link": "https://youtube.com"
+          }
+        },
+        "x": {
+          "type": "icon",
+          "settings": {
+            "platform": "x",
+            "link": "https://x.com"
+          }
+        }
+      },
+      "block_order": [
+        "instagram",
+        "tiktok",
+        "youtube",
+        "x"
+      ]
+    }
+  },
+  "order": [
+    "main",
+    "related",
+    "image_text",
+    "mark",
+    "statement",
+    "social"
+  ]
+}

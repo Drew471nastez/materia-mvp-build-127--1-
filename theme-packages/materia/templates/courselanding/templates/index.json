@@ -1,295 +1,713 @@
 {
   "sections": {
     "hero": {
-      "type": "courselanding-hero",
+      "type": "hero-image1",
       "settings": {
-        "heading_first": "Evenly:",
-        "heading": "Know where your money goes, and make it go further",
-        "pills": "Any income\nNo apps to buy\n20 minutes a day",
-        "image": "shopify://shop_images/courselanding-hero-phones.webp",
-        "image_alt": "Three phones showing the course: a lesson on tracking spending, a monthly budget and a savings goal",
-        "points": "24 short video lessons\nA live Q&A every week\nThe budget spreadsheet, ready to use",
-        "button_label": "Join the course",
-        "to_checkout": true,
-        "button_link": "/collections/all",
-        "note": "One payment. Watch the first week, then decide.",
-        "accent": "#17804c",
-        "padding_top": 120,
-        "padding_top_mobile": 96
-      }
-    },
-    "letter": {
-      "type": "courselanding-letter",
-      "settings": {
-        "heading": "Why a plan,",
-        "heading_accent": "and not another app?",
-        "text": "<p>I spent nine years at a bank, talking to people about loans and savings. The ones who were doing well rarely earned the most. They had a simple plan, and they looked at it.</p><p>So this course is not another app to download. <strong>Knowing where it goes, a plan you keep and saving first</strong> matter far more than any tool, and a spreadsheet you understand beats one you do not.</p><p>Four weeks, twenty minutes a day. <em>You will know where every pound, euro or dollar went by the end of the first week.</em></p>",
-        "name": "Nina Hart",
-        "role": "Money teacher, nine years in banking. Write your own letter here.",
-        "image": "shopify://shop_images/courselanding-teacher-desk.webp",
-        "image_alt": "Nina working at a laptop at a wooden table",
-        "anchor": "teacher",
-        "accent": "#17804c"
-      }
-    },
-    "steps": {
-      "type": "courselanding-steps",
-      "settings": {
-        "heading": "How it works",
-        "anchor": "how-it-works",
-        "button_label": "Join the course",
-        "to_checkout": true,
-        "button_link": "/collections/all",
-        "note": "Lessons open as soon as you pay.",
-        "accent": "#17804c"
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "image": "shopify://shop_images/courselanding-hero.webp",
+        "image_mobile": "shopify://shop_images/courselanding-hero-phone.webp",
+        "image_alt": "A runner on an empty road at sunrise, long shadow beside him",
+        "content_align": "left",
+        "vertical_align": "bottom",
+        "content_max_width": 680,
+        "content_gap": 18,
+        "image_position_x": 50,
+        "image_position_y": 50,
+        "enable_overlay": true,
+        "overlay_color": "#000000",
+        "overlay_opacity": 34,
+        "min_height_desktop": 760,
+        "padding_top_desktop": 160,
+        "padding_bottom_desktop": 88,
+        "side_padding_desktop": 64,
+        "min_height_mobile": 640,
+        "padding_top_mobile": 120,
+        "padding_bottom_mobile": 40,
+        "side_padding_mobile": 20
       },
       "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Online running course for beginners",
+            "enable_custom_style": true,
+            "color": "#ffffff",
+            "font_weight": "600",
+            "text_case": "uppercase",
+            "letter_spacing": 2,
+            "size_desktop": 13,
+            "size_mobile": 12
+          }
+        },
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Run your first half marathon in 16 weeks",
+            "enable_custom_style": true,
+            "color": "#ffffff",
+            "size_desktop": 76,
+            "size_mobile": 44,
+            "font_weight": "700",
+            "letter_spacing": -2,
+            "line_height": 1.0
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Four runs a week, most of them slow. A plan that starts where you are, a short video for every week, and a coach who answers your questions every Sunday.</p>",
+            "enable_custom_style": true,
+            "color": "#f1f1f1",
+            "size": 18,
+            "size_mobile": 16,
+            "line_height": 1.55
+          }
+        },
+        "primary_button_1": {
+          "type": "primary_button",
+          "settings": {
+            "label": "Start the plan",
+            "link": "/#shopify-section-pricing"
+          }
+        },
+        "secondary_button_1": {
+          "type": "secondary_button",
+          "settings": {
+            "label": "See the 16 weeks",
+            "link": "/#shopify-section-weeks",
+            "enable_custom_style": true,
+            "bg": "rgba(0,0,0,0)",
+            "text_color": "#ffffff",
+            "border_color": "#ffffff",
+            "bg_hover": "#ffffff",
+            "text_color_hover": "#15171a",
+            "border_color_hover": "#ffffff"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_1",
+        "subheading_1",
+        "primary_button_1",
+        "secondary_button_1"
+      ]
+    },
+    "start": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "columns_desktop": 3,
+        "column_gap": 48,
+        "header_gap": 40,
+        "show_dividers": true,
+        "enable_custom_style": true,
+        "label_color": "#f25c05",
+        "item_heading_color": "#15171a",
+        "text_color": "#50545c",
+        "divider_color": "#e6e7ea",
+        "item_heading_size": 24,
+        "padding_top": 96,
+        "padding_bottom": 72,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 40
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Made for people who are not runners yet",
+            "size_enable": true,
+            "size_desktop": 44,
+            "size_mobile": 30,
+            "weight_enable": true,
+            "weight": "700",
+            "tracking": -1
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>If you can jog for twenty minutes without stopping, you can start this week. If you cannot yet, the first block gets you there.</p>"
+          }
+        },
+        "column_1": {
+          "type": "column",
+          "settings": {
+            "label": "Where you start",
+            "heading": "Twenty minutes of easy running",
+            "text": "<p>No race history needed. The first four weeks build the habit before they build the distance.</p>"
+          }
+        },
+        "column_2": {
+          "type": "column",
+          "settings": {
+            "label": "Time",
+            "heading": "Four runs, about four hours a week",
+            "text": "<p>Three short runs on weekdays and one long run at the weekend. Swap days when life gets in the way.</p>"
+          }
+        },
+        "column_3": {
+          "type": "column",
+          "settings": {
+            "label": "Pace",
+            "heading": "Slow is the point",
+            "text": "<p>Most of your running is at a pace where you can still talk. That is how beginners get to the start line without getting hurt.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1",
+        "column_1",
+        "column_2",
+        "column_3"
+      ]
+    },
+    "week": {
+      "type": "image-with-text-steps",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "image_position": "left",
+        "image_width_pct": 46,
+        "gap_desktop": 80,
+        "image": "shopify://shop_images/courselanding-warmup.webp",
+        "image_alt": "Three runners warming up beside a park path",
+        "image_aspect_desktop": "4 / 5",
+        "image_aspect": "4 / 5",
+        "image_radius": 6,
+        "step_style": "numbered",
+        "marker_size": 34,
+        "custom_colors": true,
+        "marker_color": "#f25c05",
+        "marker_text_color": "#ffffff",
+        "line_color": "#d9dbe0",
+        "step_title_color": "#15171a",
+        "step_desc_color": "#50545c",
+        "step_title_size": 19,
+        "step_desc_size": 15,
+        "button_radius": 6,
+        "padding_top": 104,
+        "padding_bottom": 104
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "A normal week",
+            "custom_style": true,
+            "color": "#f25c05",
+            "size": 13
+          }
+        },
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Four runs, each with a job",
+            "tag": "h2",
+            "size_desktop": 44,
+            "size_mobile": 30
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Every week opens with a three minute video: what this week is for and how each run should feel.</p>",
+            "size": 16
+          }
+        },
         "step_1": {
           "type": "step",
           "settings": {
-            "label": "Step 1",
-            "title": "Watch a short lesson",
-            "text": "Six lessons a week, most under ten minutes. Each one ends with one small task for that day.",
-            "image": "shopify://shop_images/courselanding-step-lesson.webp",
-            "image_alt": "A lesson playing beside its notes and the week’s task"
+            "title": "Tuesday: easy run",
+            "description": "<p>Thirty to forty minutes at a talking pace. It should feel too easy. That is right.</p>"
           }
         },
         "step_2": {
           "type": "step",
           "settings": {
-            "label": "Step 2",
-            "title": "Fill in your spreadsheet",
-            "text": "Put your own numbers into the budget spreadsheet. It does the sums and shows what is left.",
-            "image": "shopify://shop_images/courselanding-step-sheet.webp",
-            "image_alt": "The budget spreadsheet with income, bills and what is left this month"
+            "title": "Thursday: hills or strides",
+            "description": "<p>Short, fast pieces with full rest between them. This is where your legs get stronger.</p>"
           }
         },
         "step_3": {
           "type": "step",
           "settings": {
-            "label": "Step 3",
-            "title": "Ask on the live call",
-            "text": "Send a question by Wednesday. Every Thursday Nina answers them on a call, with real numbers.",
-            "image": "shopify://shop_images/courselanding-step-call.webp",
-            "image_alt": "The live call, with Nina on screen and the week’s questions beside her"
+            "title": "Friday: short and gentle",
+            "description": "<p>Twenty minutes, or a walk if you are tired. Skipping it is allowed.</p>"
+          }
+        },
+        "step_4": {
+          "type": "step",
+          "settings": {
+            "title": "Sunday: the long run",
+            "description": "<p>The run the whole plan is built around. It grows by ten minutes most weeks, then backs off every fourth.</p>"
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "label": "Start the plan",
+            "url": "/#shopify-section-pricing"
           }
         }
       },
       "block_order": [
+        "eyebrow_1",
+        "heading_1",
+        "subheading_1",
         "step_1",
         "step_2",
-        "step_3"
+        "step_3",
+        "step_4",
+        "button_1"
       ]
     },
-    "modules": {
-      "type": "courselanding-modules",
+    "weeks": {
+      "type": "feature-timeline",
       "settings": {
-        "heading": "Four weeks,",
-        "heading_accent": "one idea each",
-        "text": "<p>Every week builds on the one before. Do them in order, at your own pace.</p>",
-        "anchor": "curriculum",
-        "accent": "#17804c"
+        "color_scheme": "default",
+        "section_width": "container",
+        "layout": "alternate",
+        "text_align": "center",
+        "content_max_width": 960,
+        "head_gap": 56,
+        "marker_style": "number",
+        "marker_size": 34,
+        "line_thickness": 2,
+        "enable_custom_style": true,
+        "line_color": "#e6e7ea",
+        "marker_color": "#f25c05",
+        "label_color": "#f25c05",
+        "title_color": "#15171a",
+        "text_color": "#50545c",
+        "fill_on_scroll": true,
+        "padding_top_desktop": 104,
+        "padding_bottom_desktop": 104,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56
       },
       "blocks": {
-        "module_1": {
-          "type": "module",
+        "eyebrow_1": {
+          "type": "eyebrow",
           "settings": {
-            "label": "Week 1",
-            "title": "Where it goes",
-            "text": "Track a month of spending without a spreadsheet habit you will drop.",
-            "lessons": "Your money in one place\nWhat a month really costs\nFixed, flexible and forgotten\nSubscriptions you do not use\nYour first honest number\nTask: log every spend for seven days"
+            "text": "The 16 weeks",
+            "enable_custom_style": true,
+            "color": "#f25c05"
           }
         },
-        "module_2": {
-          "type": "module",
+        "heading_1": {
+          "type": "heading",
           "settings": {
-            "label": "Week 2",
-            "title": "A plan you keep",
-            "text": "Build a budget around the bills you already have, not the ones you wish you had.",
-            "lessons": "Pay yourself first\nThree pots, not thirty categories\nA budget for irregular costs\nCouples and shared bills\nWhen the month goes wrong\nTask: your first full budget"
+            "text": "Four blocks, one start line",
+            "size_enable": true,
+            "size_desktop": 44,
+            "size_mobile": 30,
+            "weight_enable": true,
+            "weight": "700"
           }
         },
-        "module_3": {
-          "type": "module",
+        "subheading_1": {
+          "type": "subheading",
           "settings": {
-            "label": "Week 3",
-            "title": "Debt and a cushion",
-            "text": "Pay down what costs you most and build a buffer for the surprises.",
-            "lessons": "What your debt really costs\nWhich one to pay first\nAn emergency fund that fits\nTalking to your bank\nCredit scores, plainly\nTask: your payoff plan"
+            "text": "<p>Each block ends with an easier week, so your body catches up with the work.</p>"
           }
         },
-        "module_4": {
-          "type": "module",
-          "settings": {
-            "label": "Week 4",
-            "title": "Saving and investing",
-            "text": "Make saving automatic and learn how index funds and pensions work.",
-            "lessons": "Saving on autopilot\nPensions and workplace schemes\nIndex funds, plainly\nFees that eat returns\nA plan for the next year\nTask: set up one automatic transfer"
-          }
-        }
-      },
-      "block_order": [
-        "module_1",
-        "module_2",
-        "module_3",
-        "module_4"
-      ]
-    },
-    "stack": {
-      "type": "courselanding-stack",
-      "settings": {
-        "heading": "The whole course.",
-        "heading_accent": "One payment.",
-        "text": "<p>Everything you need to budget, save and start investing, at your own pace.</p>",
-        "anchor": "join",
-        "card_label": "What is included",
-        "show_count": true,
-        "count_one": "item",
-        "count_many": "items",
-        "total_label": "Sold separately",
-        "total": "$190",
-        "today_label": "Your price",
-        "price_today": "$89",
-        "note": "30 day refund. Watch the first week; if it is not for you, write and get it all back.",
-        "button_label": "Join the course",
-        "to_checkout": true,
-        "button_link": "/collections/all",
-        "accent": "#17804c"
-      },
-      "blocks": {
         "item_1": {
           "type": "item",
           "settings": {
-            "icon": "play",
-            "title": "The course",
-            "text": "24 video lessons over four weeks, yours to keep.",
-            "value": "$120"
+            "label": "Weeks 1 to 4",
+            "title": "Base",
+            "text": "<p>Easy running four times a week, a long run of 40 minutes and a first go at strides. You finish the block able to run for an hour.</p>"
           }
         },
         "item_2": {
           "type": "item",
           "settings": {
-            "icon": "chat",
-            "title": "Weekly live Q&A",
-            "text": "Four Thursday calls where your questions are answered.",
-            "value": "$40"
+            "label": "Weeks 5 to 8",
+            "title": "Build",
+            "text": "<p>Hills arrive, the long run reaches 75 minutes and you learn to eat and drink on the move.</p>"
           }
         },
         "item_3": {
           "type": "item",
           "settings": {
-            "icon": "sliders",
-            "title": "Budget spreadsheet",
-            "text": "The sheet from the course, ready for your numbers.",
-            "value": "$19"
+            "label": "Weeks 9 to 12",
+            "title": "Distance",
+            "text": "<p>The long run passes 15 km. One run a week at the pace you want on race day, so it feels familiar.</p>"
           }
         },
         "item_4": {
           "type": "item",
           "settings": {
-            "icon": "cards",
-            "title": "Printable workbook",
-            "text": "A worksheet for every lesson, to print or fill in.",
-            "value": "$11"
+            "label": "Weeks 13 to 16",
+            "title": "Sharpen and race",
+            "text": "<p>Your longest run, then two weeks of doing less so you arrive fresh. Race week has its own video and checklist.</p>"
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "label": "Start the plan",
+            "link": "/#shopify-section-pricing",
+            "style": "primary",
+            "radius": 6
           }
         }
       },
       "block_order": [
+        "eyebrow_1",
+        "heading_1",
+        "subheading_1",
         "item_1",
         "item_2",
         "item_3",
-        "item_4"
+        "item_4",
+        "button_1"
       ]
     },
-    "reviews": {
-      "type": "courselanding-reviews",
+    "coach": {
+      "type": "Image-and-video-text",
       "settings": {
-        "heading": "What students say",
-        "text": "<p>Sample quotes to show the layout. Replace them with your students’ own words.</p>",
-        "sample_label": "Sample",
-        "anchor": "reviews",
-        "accent": "#17804c"
+        "color_scheme": "default",
+        "section_width": "container",
+        "image_position": "right",
+        "text_column_width": 50,
+        "content_align": "left",
+        "content_gap": 18,
+        "media_type": "image",
+        "image": "shopify://shop_images/courselanding-coach.webp",
+        "image_alt": "Lena Moritz stretching on a running track before a session",
+        "aspect_w": 4,
+        "aspect_h": 5,
+        "image_fit": "cover",
+        "image_radius": 6,
+        "gap_desktop": 80,
+        "padding_top_desktop": 104,
+        "padding_bottom_desktop": 104,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "mobile_order": "media_first"
       },
       "blocks": {
-        "quote_1": {
-          "type": "quote",
+        "eyebrow_1": {
+          "type": "eyebrow",
           "settings": {
-            "quote": "I always knew roughly what I earned. Now I know where it goes, and there is money left on the 25th.",
-            "name": "Hanna, Leipzig"
+            "text": "Your coach",
+            "enable_custom_style": true,
+            "color": "#f25c05",
+            "size": 13
           }
         },
-        "quote_2": {
-          "type": "quote",
+        "heading_1": {
+          "type": "heading",
           "settings": {
-            "quote": "The Thursday calls are the part I would pay for alone. One question about my card debt saved me more than the course cost.",
-            "name": "Marco, Turin"
+            "text": "Coached by Lena Moritz",
+            "tag": "h2",
+            "size_desktop": 44,
+            "size_mobile": 30
           }
         },
-        "quote_3": {
-          "type": "quote",
+        "subheading_1": {
+          "type": "subheading",
           "settings": {
-            "quote": "No app, no subscription. One spreadsheet and twenty minutes on a Sunday.",
-            "name": "Ada, Leeds"
+            "text": "<p>Write a few lines about yourself here: how you started running, who you coach and why you wrote this plan. People sign up because of the person behind the plan.</p><p>Lena ran her first half marathon at 34, after two false starts. She has coached beginner groups at a city running club for nine years.</p>"
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "label": "Read Lena’s story",
+            "link": "/pages/about",
+            "button_style": "secondary",
+            "radius": 6
           }
         }
       },
       "block_order": [
-        "quote_1",
-        "quote_2",
-        "quote_3"
+        "eyebrow_1",
+        "heading_1",
+        "subheading_1",
+        "button_1"
+      ]
+    },
+    "compare": {
+      "type": "comparison-cards",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "header_align": "center",
+        "card_radius": 8,
+        "enable_custom_style": true,
+        "us_card_bg": "#15171a",
+        "us_card_text": "#ffffff",
+        "us_card_shadow": "none",
+        "them_card_bg": "#ffffff",
+        "them_card_text": "#15171a",
+        "them_card_border": "#e6e7ea",
+        "check_color": "#f25c05",
+        "cross_color": "#9aa0a8",
+        "cross_color_them": "#9aa0a8",
+        "minus_color": "#9aa0a8",
+        "card_title_weight": "700",
+        "padding_top_desktop": 104,
+        "padding_bottom_desktop": 104
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Why not a free plan from the internet?",
+            "enable_custom_style": true,
+            "weight": "700",
+            "size_desktop": 44,
+            "size_mobile": 30
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>A free plan is a table of distances. That is enough for some people. This is what you get on top.</p>"
+          }
+        },
+        "card_us_1": {
+          "type": "card_us",
+          "settings": {
+            "title": "Negative Split"
+          }
+        },
+        "card_them_1": {
+          "type": "card_them",
+          "settings": {
+            "title": "A free plan"
+          }
+        },
+        "row_1": {
+          "type": "row",
+          "settings": {
+            "label_us": "Starts where you are this week",
+            "icon_us": "check",
+            "label_them": "Assumes you already run 30 km a week",
+            "icon_them": "cross"
+          }
+        },
+        "row_2": {
+          "type": "row",
+          "settings": {
+            "label_us": "A short video on what each week is for",
+            "icon_us": "check",
+            "label_them": "A table of numbers",
+            "icon_them": "cross"
+          }
+        },
+        "row_3": {
+          "type": "row",
+          "settings": {
+            "label_us": "Strength and mobility, ten minutes after runs",
+            "icon_us": "check",
+            "label_them": "Sometimes a line about stretching",
+            "icon_them": "minus"
+          }
+        },
+        "row_4": {
+          "type": "row",
+          "settings": {
+            "label_us": "What to do when you miss a week or feel a niggle",
+            "icon_us": "check",
+            "label_them": "You guess",
+            "icon_them": "cross"
+          }
+        },
+        "row_5": {
+          "type": "row",
+          "settings": {
+            "label_us": "Questions answered every Sunday",
+            "icon_us": "check",
+            "label_them": "Comment sections",
+            "icon_them": "cross"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1",
+        "card_us_1",
+        "card_them_1",
+        "row_1",
+        "row_2",
+        "row_3",
+        "row_4",
+        "row_5"
+      ]
+    },
+    "reviews": {
+      "type": "testimonials",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "display_mode": "carousel",
+        "show_quote_mark": false,
+        "show_rating": true,
+        "columns": 3,
+        "column_gap": 20,
+        "header_alignment": "left",
+        "card_style": "outline",
+        "card_align": "left",
+        "card_padding": 28,
+        "card_content_gap": 16,
+        "card_radius": 8,
+        "show_arrow": true,
+        "carousel_pagination": "show",
+        "pagination_style": "progress",
+        "pagination_position": "left",
+        "pagination_spacing": 28,
+        "enable_custom_colors": true,
+        "card_bg": "#ffffff",
+        "card_border_color": "#e6e7ea",
+        "quote_color": "#15171a",
+        "enable_custom_typography": true,
+        "quote_size": 17,
+        "autoplay": false,
+        "infinite": false,
+        "reveal": false,
+        "padding_top": 104,
+        "padding_bottom": 104,
+        "header_spacing_desktop": 36,
+        "columns_mobile": 1.15,
+        "header_spacing_mobile": 24
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "enabled": true,
+            "text": "Runners"
+          }
+        },
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "enabled": true,
+            "text": "From the start line"
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "enabled": true,
+            "text": "<p>Sample quotes to show the layout. Replace them with your runners’ own words.</p>"
+          }
+        },
+        "testimonial_1": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>I had started couch to 5K three times and quit three times. This was the first plan that told me why the slow runs mattered, so I actually did them.</p>",
+            "rating": 5,
+            "name": "Sample name",
+            "role": "First half marathon at 41"
+          }
+        },
+        "testimonial_2": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Missing week seven with a cold felt like the end. The Sunday video told me exactly how to pick it back up, and I lost nothing.</p>",
+            "rating": 5,
+            "name": "Sample name",
+            "role": "Nurse, runs before shifts"
+          }
+        },
+        "testimonial_3": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>The race week checklist is the best page in the course. I knew what to eat, what to wear and when to set off.</p>",
+            "rating": 5,
+            "name": "Sample name",
+            "role": "Finished smiling"
+          }
+        },
+        "testimonial_4": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Four runs a week sounded like a lot. Three of them are short, and the long one became my favourite hour of the week.</p>",
+            "rating": 5,
+            "name": "Sample name",
+            "role": "Father of two"
+          }
+        },
+        "testimonial_5": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>I am slow and I will stay slow. Nobody in the course minds, and the plan never made me feel like I was behind.</p>",
+            "rating": 5,
+            "name": "Sample name",
+            "role": "Started at 58"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_1",
+        "subheading_1",
+        "testimonial_1",
+        "testimonial_2",
+        "testimonial_3",
+        "testimonial_4",
+        "testimonial_5"
       ]
     },
     "pricing": {
       "type": "pricing-cards",
       "settings": {
-        "color_scheme": "default",
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
         "eyebrow": "Pricing",
-        "heading": "On your own or with a group",
-        "intro": "<p>The same course either way. Groups of five or more get their own Q&amp;A call.</p>",
+        "heading": "Pay once, run for 16 weeks",
+        "intro": "<p>The same plan either way. Coaching adds a check in on your log every week.</p>",
         "heading_size": "h2",
         "heading_align": "center",
-        "footnote": "<p>Both with the 30 day refund.</p>",
+        "footnote": "<p>Both with the two week refund. Prices in US dollars.</p>",
         "card_style": "filled",
         "use_theme_corners": true,
         "card_gap": 20,
-        "price_size": 48,
+        "price_size": 52,
         "mobile_layout": "stack",
         "section_width": "container",
         "use_theme_spacing": false,
-        "padding_top": 88,
-        "padding_bottom": 88,
-        "padding_top_mobile": 48,
-        "padding_bottom_mobile": 48
+        "padding_top": 104,
+        "padding_bottom": 104,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56
       },
       "blocks": {
         "plan_1": {
           "type": "plan",
           "settings": {
-            "name": "Evenly",
-            "description": "<p>The course for one person.</p>",
-            "badge": "Most people choose this",
+            "name": "The plan",
+            "description": "<p>Everything you need to train on your own.</p>",
             "featured": true,
-            "plan_product": "evenly",
-            "price": "$89",
-            "compare_price": "",
-            "note": "One payment",
-            "features": "All 24 lessons\nFour live Q&A calls\nBudget spreadsheet\nPrintable workbook\nLifetime access",
-            "button_label": "See the course",
-            "button_link": "/collections/all",
+            "badge": "Most runners start here",
+            "plan_product": "half-marathon-plan",
+            "price": "$129",
+            "compare_price": "$159",
+            "note": "One payment, yours to keep",
+            "features": "16 weeks of runs, day by day\nA short video for every week\nStrength and mobility routines\nSunday questions answered\nRace week checklist",
+            "button_label": "Start the plan",
+            "button_link": "/products/half-marathon-plan",
             "button_style": "primary"
           }
         },
         "plan_2": {
           "type": "plan",
           "settings": {
-            "name": "Workplace or group",
-            "description": "<p>For a workplace, a club or a school.</p>",
+            "name": "Plan with coaching",
+            "description": "<p>For runners who want someone watching their log.</p>",
             "featured": false,
-            "price": "$59",
-            "note": "Per person, five or more",
-            "features": "Everything in the course\nA private Q&A call\nOne bill for the group\nSeats added any time",
-            "button_label": "Ask for a group price",
-            "button_link": "/pages/contact",
+            "price": "$219",
+            "note": "One payment",
+            "features": "Everything in the plan\nLena reads your log every week\nPlan changes when life happens\nA race week call",
+            "button_label": "Add coaching",
+            "button_link": "/products/half-marathon-plan",
             "button_style": "secondary"
           }
         }
@@ -299,86 +717,271 @@
         "plan_2"
       ]
     },
-    "faq": {
-      "type": "courselanding-faq",
+    "guarantee": {
+      "type": "guarantee-banner",
       "settings": {
-        "heading": "Questions",
-        "anchor": "questions",
-        "accent": "#17804c"
+        "color_scheme": "default",
+        "section_width": "container",
+        "layout": "split",
+        "frame": "box",
+        "content_max_width": 1100,
+        "icon": "refresh",
+        "icon_size": 52,
+        "point_style": "check",
+        "enable_custom_style": true,
+        "icon_color": "#f25c05",
+        "border_color": "#e6e7ea",
+        "point_color": "#15171a",
+        "marker_color": "#f25c05",
+        "padding_top_desktop": 88,
+        "padding_bottom_desktop": 24,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 16
       },
       "blocks": {
-        "question_1": {
-          "type": "question",
+        "heading_1": {
+          "type": "heading",
           "settings": {
-            "question": "Do I need to be good with numbers?",
-            "answer": "<p>No. If you can add up a shopping receipt, you can do this course. The spreadsheet does the sums.</p>"
+            "text": "Run the first two weeks, then decide",
+            "weight_enable": true,
+            "weight": "700",
+            "size_enable": true,
+            "size_desktop": 32,
+            "size_mobile": 24
           }
         },
-        "question_2": {
-          "type": "question",
+        "subheading_1": {
+          "type": "subheading",
           "settings": {
-            "question": "Do I need to buy an app?",
-            "answer": "<p>No. Everything runs in a free spreadsheet app, or on the printed workbook if you prefer paper.</p>"
+            "text": "<p>If the plan is not for you, write one line within 14 days and you get every cent back.</p>"
           }
         },
-        "question_3": {
-          "type": "question",
+        "point_1": {
+          "type": "point",
           "settings": {
-            "question": "How much time does it take?",
-            "answer": "<p>About twenty minutes a day: a short lesson and one small task. You can pause and pick it up a week later.</p>"
+            "text": "No form, just an email"
           }
         },
-        "question_4": {
-          "type": "question",
+        "point_2": {
+          "type": "point",
           "settings": {
-            "question": "How do the live calls work?",
-            "answer": "<p>Send a question by Wednesday. On Thursday evening Nina answers them on a video call. Recordings stay in the course. This is teaching, not personal financial advice.</p>"
+            "text": "Money back within two working days"
           }
         },
-        "question_5": {
-          "type": "question",
+        "point_3": {
+          "type": "point",
           "settings": {
-            "question": "What if it is not for me?",
-            "answer": "<p>Write within 30 days and you get every cent back. Replace this with your own terms.</p>"
+            "text": "Keep the strength routines"
           }
         }
       },
       "block_order": [
-        "question_1",
-        "question_2",
-        "question_3",
-        "question_4",
-        "question_5"
+        "heading_1",
+        "subheading_1",
+        "point_1",
+        "point_2",
+        "point_3"
       ]
     },
-    "cta": {
-      "type": "courselanding-cta",
+    "faq": {
+      "type": "faq-contact-card",
       "settings": {
-        "promise_days": "30",
-        "promise_unit": "days",
-        "promise_title": "Watch the first week, then decide",
-        "promise_text": "If the course is not for you, write within 30 days and you get every cent back. No form to fill in.",
-        "heading": "Your first real budget is",
-        "heading_accent": "one lesson",
-        "heading_after": "away",
-        "text": "<p>Twenty four lessons, four live calls, the budget spreadsheet and the workbook.</p>",
-        "button_label": "Join the course",
-        "to_checkout": true,
-        "button_link": "/collections/all",
-        "note": "One payment. Lifetime access.",
-        "accent": "#17804c"
-      }
+        "color_scheme": "default",
+        "section_width": "container",
+        "first_item_open": true,
+        "open_icon": "plus",
+        "content_alignment": "left",
+        "card_position": "right",
+        "card_sticky": true,
+        "max_content_width": 1160,
+        "col_gap": 64,
+        "gap_header_to_items": 28,
+        "item_padding_y": 22,
+        "enable_custom_style": true,
+        "question_color": "#15171a",
+        "hover_color": "#f25c05",
+        "icon_color": "#f25c05",
+        "answer_color": "#50545c",
+        "divider_color": "#e6e7ea",
+        "card_bg": "#f3f4f6",
+        "card_border_color": "rgba(0,0,0,0)",
+        "card_heading_color": "#15171a",
+        "card_text_color": "#50545c",
+        "reveal": false,
+        "padding_top": 104,
+        "padding_bottom": 104,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Questions before you start",
+            "size_enable": true,
+            "size_desktop": 44,
+            "size_mobile": 30,
+            "weight_enable": true,
+            "weight": "700"
+          }
+        },
+        "faq_item_1": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I do this if I have never run before?",
+            "answer": "<p>If you can walk briskly for 30 minutes, yes. Start with the free run walk week in the first video, then begin week one when twenty minutes of jogging feels possible.</p>"
+          }
+        },
+        "faq_item_2": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do I need a watch?",
+            "answer": "<p>No. A phone with any free running app is enough, or a normal watch. Every run is set by time and feel, not by pace.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if I miss a week?",
+            "answer": "<p>There is a short video for exactly that. Miss a few days and you carry on. Miss a week and you repeat the last one. Miss more and the plan shows where to rejoin.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Which race should I enter?",
+            "answer": "<p>Any flat or rolling half marathon 16 to 20 weeks from now. Week one has a short guide to picking one.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Is it safe with a past injury?",
+            "answer": "<p>The plan builds slowly, but it is not medical advice. If you have an injury or a health condition, check with a doctor or physio first.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How do I get the plan?",
+            "answer": "<p>Straight after payment you get a login by email. The weeks, videos and checklists open there, on your phone or computer.</p>"
+          }
+        },
+        "card_text_1": {
+          "type": "card_text",
+          "settings": {
+            "heading": "Not sure it fits you?",
+            "text": "<p>Tell us how much you run now and when your race is. Lena answers within two days.</p>"
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "label": "Ask a question",
+            "link": "/pages/contact",
+            "style": "primary",
+            "radius": 6
+          }
+        },
+        "contact_line_1": {
+          "type": "contact_line",
+          "settings": {
+            "label": "Email",
+            "text": "Add your email address",
+            "link": "/pages/contact"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "faq_item_1",
+        "faq_item_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "card_text_1",
+        "button_1",
+        "contact_line_1"
+      ]
+    },
+    "final": {
+      "type": "banner3",
+      "settings": {
+        "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636",
+        "section_width": "full_width",
+        "text_align": "center",
+        "max_width": 820,
+        "banner_surface": "section",
+        "pad_top_desktop": 112,
+        "pad_bottom_desktop": 112,
+        "section_padding_top": 0,
+        "section_padding_bottom": 0,
+        "section_pad_left": 0,
+        "section_pad_right": 0,
+        "pad_top_mobile": 72,
+        "pad_bottom_mobile": 76,
+        "section_padding_top_mobile": 0,
+        "section_padding_bottom_mobile": 0,
+        "section_pad_left_mobile": 0,
+        "section_pad_right_mobile": 0,
+        "stack_gap": 18,
+        "sub_btn_gap": 30,
+        "reveal": false
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Your first run is this week",
+            "enable_custom_style": true,
+            "font": "heading",
+            "weight": "700",
+            "transform": "none",
+            "letterspace": 0,
+            "lineheight": "1.05",
+            "size_d": 60,
+            "size_m": 38,
+            "color": "#ffffff"
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "Sixteen weeks from now you could be at a start line. It begins with twenty easy minutes.",
+            "enable_custom_style": true,
+            "size_d": 18,
+            "size_m": 16,
+            "color": "#ffffff",
+            "opacity": 92
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "label": "Start the plan",
+            "link": "/#shopify-section-pricing"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1",
+        "button_1"
+      ]
     }
   },
   "order": [
     "hero",
-    "letter",
-    "steps",
-    "modules",
-    "stack",
+    "start",
+    "week",
+    "weeks",
+    "coach",
+    "compare",
     "reviews",
     "pricing",
+    "guarantee",
     "faq",
-    "cta"
+    "final"
   ]
 }

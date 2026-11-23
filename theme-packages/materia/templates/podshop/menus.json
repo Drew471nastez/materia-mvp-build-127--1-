@@ -1,0 +1,142 @@
+{
+  "main-menu": {
+    "title": "Main menu",
+    "links": [
+      {
+        "title": "Shop",
+        "url": "/collections/all",
+        "links": [
+          {
+            "title": "Tops",
+            "url": "/collections/all",
+            "links": [
+              {
+                "title": "Graphic tees",
+                "url": "/search?q=tee"
+              },
+              {
+                "title": "Crewnecks",
+                "url": "/search?q=crew"
+              },
+              {
+                "title": "Everything",
+                "url": "/collections/all"
+              }
+            ]
+          },
+          {
+            "title": "Accessories",
+            "url": "/search?q=cap",
+            "links": [
+              {
+                "title": "Caps",
+                "url": "/search?q=cap"
+              },
+              {
+                "title": "Beanies",
+                "url": "/search?q=beanie"
+              }
+            ]
+          },
+          {
+            "title": "Help",
+            "url": "/pages/faqs",
+            "links": [
+              {
+                "title": "Size guide",
+                "url": "/pages/faqs"
+              },
+              {
+                "title": "Shipping and returns",
+                "url": "/pages/shipping"
+              },
+              {
+                "title": "Contact",
+                "url": "/pages/contact"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Collections",
+        "url": "/collections"
+      },
+      {
+        "title": "Winter",
+        "url": "/search?q=crew"
+      },
+      {
+        "title": "Hometown",
+        "url": "/search?q=hometown"
+      },
+      {
+        "title": "Game day",
+        "url": "/search?q=game"
+      },
+      {
+        "title": "Essentials",
+        "url": "/search?q=tee"
+      },
+      {
+        "title": "Our story",
+        "url": "/pages/about"
+      }
+    ]
+  },
+  "footer": {
+    "title": "More info",
+    "links": [
+      {
+        "title": "Shipping and returns",
+        "url": "/pages/shipping"
+      },
+      {
+        "title": "Sizing and FAQ",
+        "url": "/pages/faqs"
+      },
+      {
+        "title": "Search",
+        "url": "/search"
+      }
+    ]
+  },
+  "footer-shop": {
+    "title": "Shop",
+    "links": [
+      {
+        "title": "Everything",
+        "url": "/collections/all"
+      },
+      {
+        "title": "Graphic tees",
+        "url": "/search?q=tee"
+      },
+      {
+        "title": "Crewnecks",
+        "url": "/search?q=crew"
+      },
+      {
+        "title": "Caps and beanies",
+        "url": "/search?q=cap"
+      }
+    ]
+  },
+  "footer-about": {
+    "title": "The shop",
+    "links": [
+      {
+        "title": "Our story",
+        "url": "/pages/about"
+      },
+      {
+        "title": "Journal",
+        "url": "/blogs/news"
+      },
+      {
+        "title": "Contact",
+        "url": "/pages/contact"
+      }
+    ]
+  }
+}

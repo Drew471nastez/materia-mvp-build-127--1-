@@ -1,0 +1,13 @@
+{
+  "sections": {
+    "main": {
+      "type": "page-default",
+      "settings": {
+        "section_width": "container"
+      }
+    }
+  },
+  "order": [
+    "main"
+  ]
+}

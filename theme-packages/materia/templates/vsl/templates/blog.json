@@ -26,7 +26,7 @@
         "description_YRWpkt": {
           "type": "description",
           "settings": {
-            "description": "<p>Notes on planning, recording and growing a podcast. One a week.</p>",
+            "description": "<p>Notes on planning, filming and editing short videos. One a week.</p>",
             "enable_custom_style": false,
             "description_font_size": 16
           }
@@ -80,7 +80,7 @@
       "type": "vsl-cta",
       "settings": {
         "eyebrow": "",
-        "heading": "Ready to *press record?*",
+        "heading": "Ready to hit record?",
         "text": "",
         "size": "normal",
         "button_label": "Join the course",

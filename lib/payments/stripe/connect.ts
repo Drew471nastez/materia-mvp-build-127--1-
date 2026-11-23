@@ -3,11 +3,11 @@ import "server-only"
 import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { countryCode } from "@/lib/checkout/countries"
+import { countryCode, countryName } from "@/lib/checkout/countries"
 import { ownerAddress } from "@/lib/businesses/email-alias"
 import { logStripeRefusal, stripeRefusal } from "@/lib/stripe/refusal"
-import { countryIsUnsupported, needsPlatformApproval, paymentsSetupErrorMessage, stripeErrorMessage } from "./setup-errors"
-import { payoutRoute } from "./payout-regions"
+import { countryIsUnsupported, needsPlatformApproval, paymentsSetupError, stripeErrorFacts, stripeErrorMessage } from "./setup-errors"
+import { cannotPayOutLine, payoutRoute, type PayoutRoute } from "./payout-regions"
 import { accountAttempts } from "./account-attempts"
 import { canAcceptPayments, sellerFactsOfAccount } from "./readiness"
 import { parsePersonal } from "./onboarding-steps"
@@ -303,13 +303,18 @@ export async function ensureStripeAccount(
   creator: PaymentsCreatorRef,
   input: { kind: "individual" | "business"; country: string },
 ): Promise<string> {
-  if (!process.env.STRIPE_SECRET_KEY) throw new PaymentsProblem("Payments are not switched on yet.", 503)
+  if (!process.env.STRIPE_SECRET_KEY) throw new PaymentsProblem("Payments are not switched on yet.", 503, "platform_setup")
+
+  const country = input.country.trim().toUpperCase()
+  if (!/^[A-Z]{2}$/.test(country)) throw new PaymentsProblem("Choose the country where your bank account is.", 400, "country_required")
 
   const row = await readCreatorStripe(creator.id)
   if (!row) throw new PaymentsProblem("Creator profile not found.", 404)
 
   let accountId = row.stripe_account_id
   let replacing: string | null = null
+  /* The untouched account was opened in another country than the one asked for now: replaced with every shape, never kept. */
+  let wrongCountry = false
   if (accountId) {
     try {
       const existing = await stripe.accounts.retrieve(accountId)
@@ -319,12 +324,14 @@ export async function ensureStripeAccount(
       /* An unfinished account on the recipient agreement can never be paid out
          across borders: nothing has been sent on it either, so it is swapped too. */
       const recipient = existing.tos_acceptance?.service_agreement === "recipient"
-      if ((runsInStorelib(existing) && !recipient) || !untouched) return accountId
+      /* Stripe never changes an account's country. One opened in the wrong country with nothing sent on it is swapped for the right one. */
+      wrongCountry = untouched && !!existing.country && existing.country.toUpperCase() !== country
+      if (!wrongCountry && ((runsInStorelib(existing) && !recipient) || !untouched)) return accountId
       replacing = accountId
     } catch (error) {
       if (!(await accountGoneFromPlatform(error))) {
-        console.error("[stripe connect] account check", error instanceof Error ? error.message : error)
-        throw new PaymentsProblem("We could not reach our payment partner just now. Nothing was changed. Try again in a moment.", 502)
+        console.error(JSON.stringify({ evt: "stripe_connect_account_check_failed", creator: creator.id, ...stripeErrorFacts(error) }))
+        throw new PaymentsProblem("Stripe did not answer just now. Nothing was changed. Try again in a minute.", 502, "retry")
       }
       /* Not reachable from the current platform (an account from before the move): kept on record, then replaced. */
       await noteAccountReset(creator.id, accountId, "legacy_platform")
@@ -333,9 +340,6 @@ export async function ensureStripeAccount(
   }
 
   const profile = await profileForCreator(creator.userId)
-  const country = input.country.trim().toUpperCase()
-  if (!/^[A-Z]{2}$/.test(country)) throw new PaymentsProblem("Choose your country.")
-
   const businessType = input.kind === "business" ? "company" : "individual"
   const email = ownerAddress(profile?.email || creator.email) || undefined
 
@@ -352,52 +356,72 @@ export async function ensureStripeAccount(
     let account: Stripe.Account
     if (replacing) {
       try {
-        account = await createConnectedAccount(shared, country, { storelibOnly: true, keyParts: [creator.id, replacing] })
+        account = await createConnectedAccount(shared, country, { storelibOnly: !wrongCountry, keyParts: [creator.id, replacing], creatorId: creator.id })
       } catch (error) {
+        /* An account in the wrong country is no use to keep: the seller is told why the new one could not open. */
+        if (wrongCountry) throw error
         console.error("[stripe connect] kept the existing account", stripeErrorMessage(error).replace(/\s+/g, " ").slice(0, 180))
         return replacing
       }
+    } else {
+      account = await createConnectedAccount(shared, country, { keyParts: [creator.id, "new"], creatorId: creator.id })
+    }
+    accountId = account.id
+
+    /*
+     * ONE ACCOUNT PER SELLER, WHOEVER PRESSED FIRST. The write only lands
+     * while the row still holds what this request read (nothing, or the
+     * account being replaced). Two presses in two tabs that both opened an
+     * account on Stripe: the second finds the row taken, removes its own
+     * account (nothing was ever sent on it) and carries on with the first.
+     */
+    const admin = createAdminClient()
+    const update = {
+      stripe_account_id: accountId,
+      stripe_onboarding_status: "pending",
+      stripe_connected_at: null,
+      charges_enabled: false,
+      payouts_enabled: false,
+      details_submitted: false,
+    }
+    const before = replacing ?? row.stripe_account_id
+    const guarded = before ? admin.from("creators").update(update).eq("id", creator.id).eq("stripe_account_id", before) : admin.from("creators").update(update).eq("id", creator.id).is("stripe_account_id", null)
+    const { data: saved, error: saveError } = await guarded.select("id")
+    if (saveError) {
+      console.error(JSON.stringify({ evt: "stripe_connect_save_failed", creator: creator.id, account: accountId, msg: saveError.message.slice(0, 200) }))
+      throw new PaymentsProblem("We started your payments account but could not save it. Nothing is lost. Try again in a minute.", 502, "retry")
+    }
+    if (!saved || saved.length === 0) {
+      const now = await readCreatorStripe(creator.id)
+      if (now?.stripe_account_id && now.stripe_account_id !== accountId) {
+        console.warn(JSON.stringify({ evt: "stripe_connect_duplicate_dropped", creator: creator.id, kept: now.stripe_account_id, dropped: accountId }))
+        await stripe.accounts.del(accountId).catch((error) => console.error("[stripe connect] duplicate not removed", stripeErrorMessage(error).slice(0, 160)))
+        return now.stripe_account_id
+      }
+    }
+    if (replacing) {
       await stripe.accounts.del(replacing).catch((error) => {
         console.error("[stripe connect] old account not removed", stripeErrorMessage(error).slice(0, 160))
       })
       await noteAccountReset(creator.id, replacing, "incomplete_replaced")
-    } else {
-      account = await createConnectedAccount(shared, country, { keyParts: [creator.id, "new"] })
-    }
-    accountId = account.id
-
-    const admin = createAdminClient()
-    const { error: saveError } = await admin
-      .from("creators")
-      .update({
-        stripe_account_id: accountId,
-        stripe_onboarding_status: "pending",
-        stripe_connected_at: null,
-        charges_enabled: false,
-        payouts_enabled: false,
-        details_submitted: false,
-      })
-      .eq("id", creator.id)
-    if (saveError) {
-      console.error("[stripe connect] saved account on Stripe but not on the creator row", saveError.message)
-      throw new PaymentsProblem("We started your payments account but could not save it. Try again in a moment.", 502)
     }
 
     const ledger = await admin.from("seller_ledger").upsert({ creator_id: creator.id }, { onConflict: "creator_id" })
     if (ledger.error) console.error("[stripe connect] ledger row", ledger.error.message)
 
     await enforceManualPayouts(accountId)
+    console.info(JSON.stringify({ evt: "stripe_connect_account_opened", creator: creator.id, account: accountId, country, replaced: replacing ? (wrongCountry ? "wrong_country" : "unfinished") : null }))
     return accountId
   } catch (error: unknown) {
     if (error instanceof PaymentsProblem) throw error
     const refusal = stripeRefusal(error)
     if (refusal) {
       logStripeRefusal("payments/start", refusal)
-      throw new PaymentsProblem(refusal.error, refusal.status)
+      throw new PaymentsProblem(refusal.error, refusal.status, refusal.code === "account_rejected" ? "account_closed" : "platform_setup")
     }
-    const detail = stripeErrorMessage(error).replace(/\s+/g, " ").slice(0, 240)
-    console.error("[stripe connect] create account", detail || "unknown")
-    throw new PaymentsProblem(paymentsSetupErrorMessage(error), 502)
+    const problem = paymentsSetupError(error)
+    console.error(JSON.stringify({ evt: "stripe_connect_start_failed", creator: creator.id, country, shown: problem.code, ...stripeErrorFacts(error) }))
+    throw new PaymentsProblem(problem.message, problem.code === "retry" ? 503 : 502, problem.code)
   }
 }
 
@@ -414,36 +438,76 @@ export function platformBusinessUrl(): string {
 
 let platformCountryCache: string | null = null
 
-async function platformCountry(): Promise<string> {
+/**
+ * The platform's own country: what decides domestic, cross-border or
+ * unsupported for every seller. STRIPE_PLATFORM_COUNTRY in Vercel answers it
+ * without a call; otherwise Stripe is asked once per server instance.
+ */
+export async function platformCountry(): Promise<string> {
+  const set = (process.env.STRIPE_PLATFORM_COUNTRY ?? "").trim().toUpperCase()
+  if (/^[A-Z]{2}$/.test(set)) return set
   if (platformCountryCache) return platformCountryCache
-  const account = await stripe.accounts.retrieve()
-  platformCountryCache = (account.country || "US").toUpperCase()
+  /* Bounded: a page waiting on it (the country step) gives up after 4s and lets the server decide on Continue. */
+  const account = await Promise.race([
+    stripe.accounts.retrieve(),
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error("platform account: no answer in 4000ms")), 4_000).unref?.()),
+  ])
+  if (!account.country) throw new Error("platform account has no country")
+  platformCountryCache = account.country.toUpperCase()
   return platformCountryCache
+}
+
+/** The platform's country when it is known without waiting (the env, or an earlier answer), else null. For a page that must not wait on Stripe. */
+export function platformCountryKnown(): string | null {
+  const set = (process.env.STRIPE_PLATFORM_COUNTRY ?? "").trim().toUpperCase()
+  if (/^[A-Z]{2}$/.test(set)) return set
+  return platformCountryCache
+}
+
+/** The seller-facing sentence for a country Stripe cannot pay out to from this platform. */
+export function unsupportedCountryMessage(country: string): string {
+  return cannotPayOutLine(countryName(country))
+}
+
+/* The shape of an attempt, for the log: cards or transfers only, set up in Storelib or by Stripe. */
+function shapeOf(params: Stripe.AccountCreateParams): string {
+  const caps = params.capabilities?.card_payments ? "cards+transfers" : "transfers"
+  const who = params.type ? `type:${params.type}` : params.controller?.requirement_collection === "application" ? "storelib" : "stripe"
+  return `${caps}/${who}`
 }
 
 /**
  * Destination charges only need `transfers` on the connected account.
- * A creator outside the platform country gets a FULL agreement account with
- * transfers only: Stripe makes cross-border payouts only to full agreement
- * accounts, only for destination charges without on_behalf_of (so no
- * card_payments), and only inside the US, UK, EEA, Canada and Switzerland
- * (lib/payments/stripe/payout-regions). Outside that region no account is
- * opened at all: one that can never be paid out would only hold the
- * creator's money.
+ * A creator outside the platform country gets a FULL agreement account:
+ * transfers only first, then cards and transfers when Stripe has not
+ * approved the platform for transfers only (./account-attempts explains).
+ * Stripe makes cross-border payouts only to full agreement accounts, only
+ * for destination charges without on_behalf_of, and only inside the US, UK,
+ * EEA, Canada and Switzerland (lib/payments/stripe/payout-regions). Outside
+ * that region no account is opened at all: one that can never be paid out
+ * would only hold the creator's money.
  *
  * First choice: Storelib collects the requirements and there is no Stripe
  * dashboard, so setup never leaves Storelib. If the platform is not set up
  * for that, Express accounts follow, as before.
+ *
+ * Every refused attempt is one JSON line in the Vercel log
+ * (evt stripe_connect_attempt_refused) with Stripe's type, code, param and
+ * request id, so a refusal can be looked up in the Stripe Dashboard's logs.
  */
 async function createConnectedAccount(
   shared: Stripe.AccountCreateParams,
   country: string,
-  options: { storelibOnly?: boolean; keyParts?: string[] } = {},
+  options: { storelibOnly?: boolean; keyParts?: string[]; creatorId?: string } = {},
 ): Promise<Stripe.Account> {
-  const platform = await platformCountry().catch(() => "")
-  const route = payoutRoute(platform, country)
+  const platform = await platformCountry().catch((error: unknown) => {
+    console.error(JSON.stringify({ evt: "stripe_platform_country_unknown", ...stripeErrorFacts(error) }))
+    return ""
+  })
+  const route: PayoutRoute = payoutRoute(platform, country)
   if (route === "unsupported") {
-    throw new PaymentsProblem("Payouts to that country are not available on Storelib yet. Choose another country where you have a bank account, or write to support@storelib.com.")
+    console.warn(JSON.stringify({ evt: "stripe_connect_country_unsupported", creator: options.creatorId ?? null, country, platform }))
+    throw new PaymentsProblem(unsupportedCountryMessage(country), 400, "country_unsupported")
   }
   const attempts = accountAttempts(shared, route, options)
 
@@ -461,23 +525,47 @@ async function createConnectedAccount(
   for (const params of attempts) {
     if (approvalNeeded && !params.capabilities?.card_payments) continue
     try {
-      /* Two presses of Start (two tabs, a double tap) open one account, not two with the second left orphaned on Stripe: the same params inside ten minutes are the same account. */
-      return await stripe.accounts.create(params, options.keyParts ? { idempotencyKey: stripeIdempotencyKey("connect-account", options.keyParts, params, { windowMs: 10 * 60_000 }) } : undefined)
+      return await createOnce(params, options.keyParts)
     } catch (error) {
       last = error
       const msg = stripeErrorMessage(error)
-      console.error("[stripe connect] create attempt", msg.replace(/\s+/g, " ").slice(0, 180))
+      console.error(JSON.stringify({ evt: "stripe_connect_attempt_refused", creator: options.creatorId ?? null, country, platform, route, shape: shapeOf(params), ...stripeErrorFacts(error) }))
       if (/account has been rejected|invalid email/i.test(msg)) throw error
       if (!blocker && /temporarily restricted your ability to create|suspicious activity|confirm that you intended/i.test(msg)) blocker = error
       const transfersOnlyShape = !params.capabilities?.card_payments
       if (transfersOnlyShape && countryIsUnsupported(msg)) countryBlocked = error
       if (transfersOnlyShape && !approvalNeeded && needsPlatformApproval(msg)) {
         approvalNeeded = error
-        console.error(JSON.stringify({ evt: "stripe_transfers_only_needs_platform_approval", country, platform, msg: "Stripe must approve the platform for transfers-only connected accounts (Stripe Dashboard: Connect, or support.stripe.com). Sellers in this country cannot be paid out until then." }))
+        console.error(JSON.stringify({ evt: "stripe_transfers_only_needs_platform_approval", country, platform, msg: "Stripe must approve the platform for transfers-only connected accounts (Stripe Dashboard: Connect, or support.stripe.com). Trying an account with card payments next." }))
       }
     }
   }
   throw blocker ?? countryBlocked ?? approvalNeeded ?? last
+}
+
+/*
+ * One create. Two presses of Start (two tabs, a double tap) inside two
+ * minutes are the same account, not two (the guarded save in
+ * ensureStripeAccount catches the rest). The window is short on purpose:
+ * Stripe replays a refused create for the same key, so a long one kept
+ * answering a seller with the old refusal after the cause was fixed.
+ *
+ * Stripe checks the store address it is given. One it will not take (a
+ * username that makes an odd address) costs the seller nothing: the account
+ * is opened without it, and Stripe's own form asks for a website instead.
+ */
+async function createOnce(params: Stripe.AccountCreateParams, keyParts?: string[]): Promise<Stripe.Account> {
+  const keyed = (p: Stripe.AccountCreateParams) => (keyParts ? { idempotencyKey: stripeIdempotencyKey("connect-account", keyParts, p, { windowMs: 2 * 60_000 }) } : undefined)
+  try {
+    return await stripe.accounts.create(params, keyed(params))
+  } catch (error) {
+    const param = stripeErrorFacts(error).param ?? ""
+    if (!param.startsWith("business_profile") || !params.business_profile) throw error
+    const rest: Stripe.AccountCreateParams = { ...params }
+    delete rest.business_profile
+    console.warn(JSON.stringify({ evt: "stripe_connect_store_address_refused", param, url: params.business_profile.url ?? null }))
+    return await stripe.accounts.create(rest, keyed(rest))
+  }
 }
 
 export async function syncStripeAccount(creatorId: string, actor: "webhook" | "creator" | "system"): Promise<StripeCreatorSnapshot> {
@@ -783,8 +871,7 @@ export async function createStripeAccountSession(
   }
   const storelibCollects = runsInStorelib(account)
   const components = accountSessionComponents(purpose, storelibCollects)
-  const session = await stripe.accountSessions.create({ account: row.stripe_account_id, components })
-  if (!session.client_secret) throw new PaymentsProblem("We couldn't load payments right now. Try again in a moment.", 502)
+  const session = await openAccountSession(creatorId, row.stripe_account_id, components)
   /*
    * stripeSignIn: Stripe will ask the creator to sign in to Stripe in a
    * window of its own before the form goes on. That window is opened from
@@ -793,6 +880,44 @@ export async function createStripeAccountSession(
    * in the app (stripe-connect-embedded.tsx).
    */
   return { clientSecret: session.client_secret, publishableKey, stripeSignIn: !storelibCollects }
+}
+
+/**
+ * The Account Session for Stripe's embedded form. A refusal here was a bare
+ * 500 and "Something went wrong. Try again in a moment" for every cause,
+ * including ones only the Stripe Dashboard can fix (embedded components or a
+ * feature not enabled for the platform). Now the cause is logged with
+ * Stripe's own facts, and the seller is told whether trying again can help.
+ * One retry without the features first: Stripe refuses
+ * disable_stripe_user_authentication or external_account_collection on an
+ * account it does not let the platform collect for, and the plain component
+ * still works there.
+ */
+async function openAccountSession(creatorId: string, accountId: string, components: Stripe.AccountSessionCreateParams.Components): Promise<Stripe.AccountSession> {
+  const plain = (): Stripe.AccountSessionCreateParams.Components => {
+    const out: Record<string, unknown> = {}
+    for (const [name, value] of Object.entries(components)) out[name] = { enabled: (value as { enabled?: boolean }).enabled ?? true }
+    return out as Stripe.AccountSessionCreateParams.Components
+  }
+  let session: Stripe.AccountSession
+  try {
+    try {
+      session = await stripe.accountSessions.create({ account: accountId, components })
+    } catch (error) {
+      const facts = stripeErrorFacts(error)
+      if (!/features|disable_stripe_user_authentication|external_account_collection/.test(`${facts.param ?? ""} ${facts.message}`)) throw error
+      console.warn(JSON.stringify({ evt: "stripe_account_session_features_refused", creator: creatorId, ...facts }))
+      session = await stripe.accountSessions.create({ account: accountId, components: plain() })
+    }
+  } catch (error) {
+    const facts = stripeErrorFacts(error)
+    console.error(JSON.stringify({ evt: "stripe_account_session_failed", creator: creatorId, components: Object.keys(components), ...facts }))
+    const transient = facts.type === "StripeConnectionError" || facts.type === "StripeAPIError" || facts.type === "StripeRateLimitError" || (facts.statusCode ?? 0) >= 500
+    if (transient) throw new PaymentsProblem("Stripe did not answer just now. Try again in a minute.", 503, "retry")
+    throw new PaymentsProblem("The payments form can't open right now because of a setting on our side. Nothing was changed. Write to support@storelib.com and we will tell you as soon as it works.", 502, "platform_setup")
+  }
+  if (!session.client_secret) throw new PaymentsProblem("Stripe did not answer just now. Try again in a minute.", 502, "retry")
+  return session
 }
 
 export async function beginStripeOnboarding(
@@ -966,8 +1091,14 @@ export async function resolveCountryForStart(creator: PaymentsCreatorRef, countr
   const profile = await profileForCreator(creator.userId)
   const named = countryCode(profile?.country)
   if (named) return named
-  /* A blank profile must not become a US account. The platform country is Romania. */
-  return platformCountry().catch(() => "RO")
+  /*
+   * NO COUNTRY, NO GUESS. A blank profile used to become an account in the
+   * platform's own country (Romania), which Stripe never changes: a seller in
+   * Germany or the US was then asked for a Romanian address and bank, could
+   * not finish, and had to find Disconnect. Setup asks for the country first
+   * (components/app/settings/payments-setup-flow.tsx CountryStep).
+   */
+  throw new PaymentsProblem("Choose the country where your bank account is.", 400, "country_required")
 }
 
 export { STRIPE_REQUESTED_CAPABILITIES }

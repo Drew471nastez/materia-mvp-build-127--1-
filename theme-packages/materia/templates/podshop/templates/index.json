@@ -1,0 +1,1024 @@
+{
+  "sections": {
+    "hero": {
+      "type": "slideshow",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "section_width": "full_width",
+        "reset_spacing": true,
+        "slide_height": "custom",
+        "desktop_height": 640,
+        "mobile_height": 380,
+        "show_arrow": false,
+        "arrow_show_mobile": false,
+        "carousel_pagination": "show_dots",
+        "pagination_style": "line",
+        "pagination_position": "center",
+        "slide_effect": "fade",
+        "autoplay": true,
+        "autorotate_speed": 6,
+        "slide_loop": true,
+        "reveal": false,
+        "heading_uppercase": true,
+        "subheading_font_size": 12,
+        "subheading_font_weight": "subheading_weight",
+        "subheading_spacing_bottom": 14,
+        "heading_font_size": 76,
+        "heading_font_weight": "heading_weight",
+        "heading_spacing_bottom": 18,
+        "des_font_size": 17,
+        "des_spacing_bottom": 30,
+        "subheading_font_size_mobile": 11,
+        "heading_font_size_mobile": 34,
+        "des_font_size_mobile": 14,
+        "content_below_image": true,
+        "mobile_image_text_gap": 0,
+        "padding_top": 0,
+        "padding_bottom": 0
+      },
+      "blocks": {
+        "s1": {
+          "type": "slider_item",
+          "settings": {
+            "subheading": "New this month",
+            "heading": "Wear where you're from",
+            "description": "<p>Hometown prints on soft, heavy cotton. Printed when you order.</p>",
+            "first_button_label": "Shop new prints",
+            "first_button_link": "/collections/all",
+            "first_button_style": false,
+            "second_button_label": "",
+            "second_button_link": "",
+            "image": "shopify://shop_images/podshop-hero-tees.webp",
+            "image_mobile": "shopify://shop_images/podshop-hero-tees.webp",
+            "split_images_enable": true,
+            "image_split_left": "shopify://shop_images/podshop-panel.webp",
+            "image_split_right": "shopify://shop_images/podshop-hero-tees.webp",
+            "split_gap": 0,
+            "split_mobile_use_primary": true,
+            "split_mobile_primary_image": "shopify://shop_images/podshop-hero-tees.webp",
+            "overlay_opacity": 0,
+            "content_position": "middle-left",
+            "content_alignment": "center",
+            "content_position_mobile": "bottom-center",
+            "content_alignment_mobile": "center",
+            "content_width": "full_width",
+            "content_max_width": 50,
+            "content_padding_block": 60,
+            "content_padding_inline": 40,
+            "enable_custom_colors": true,
+            "subheading_color": "#ffffff",
+            "heading_color": "#ffffff",
+            "description_color": "#ffffff",
+            "first_button_bg": "#ffffff",
+            "first_button_color": "#111111",
+            "first_button_hover_bg": "#e6e6e6",
+            "first_button_hover_color": "#111111",
+            "slider_effect": "effect_fadein"
+          }
+        },
+        "s2": {
+          "type": "slider_item",
+          "settings": {
+            "subheading": "Matching sets",
+            "heading": "Tees for the whole crew",
+            "description": "<p>Pick a print, pick the colours. We print every size you need.</p>",
+            "first_button_label": "Shop tees",
+            "first_button_link": "/search?q=tee",
+            "first_button_style": false,
+            "second_button_label": "",
+            "second_button_link": "",
+            "image": "shopify://shop_images/podshop-hero-friends.webp",
+            "image_mobile": "shopify://shop_images/podshop-hero-friends.webp",
+            "split_images_enable": true,
+            "image_split_left": "shopify://shop_images/podshop-panel.webp",
+            "image_split_right": "shopify://shop_images/podshop-hero-friends.webp",
+            "split_gap": 0,
+            "split_mobile_use_primary": true,
+            "split_mobile_primary_image": "shopify://shop_images/podshop-hero-friends.webp",
+            "overlay_opacity": 0,
+            "content_position": "middle-left",
+            "content_alignment": "center",
+            "content_position_mobile": "bottom-center",
+            "content_alignment_mobile": "center",
+            "content_width": "full_width",
+            "content_max_width": 50,
+            "content_padding_block": 60,
+            "content_padding_inline": 40,
+            "enable_custom_colors": true,
+            "subheading_color": "#ffffff",
+            "heading_color": "#ffffff",
+            "description_color": "#ffffff",
+            "first_button_bg": "#ffffff",
+            "first_button_color": "#111111",
+            "first_button_hover_bg": "#e6e6e6",
+            "first_button_hover_color": "#111111",
+            "slider_effect": "effect_fadein"
+          }
+        },
+        "s3": {
+          "type": "slider_item",
+          "settings": {
+            "subheading": "Winter crewnecks",
+            "heading": "Warm layers, bold prints",
+            "description": "<p>Brushed fleece crewnecks with the prints people ask for most.</p>",
+            "first_button_label": "Shop crewnecks",
+            "first_button_link": "/search?q=crew",
+            "first_button_style": false,
+            "second_button_label": "",
+            "second_button_link": "",
+            "image": "shopify://shop_images/podshop-hero-orange.webp",
+            "image_mobile": "shopify://shop_images/podshop-hero-orange.webp",
+            "split_images_enable": true,
+            "image_split_left": "shopify://shop_images/podshop-panel.webp",
+            "image_split_right": "shopify://shop_images/podshop-hero-orange.webp",
+            "split_gap": 0,
+            "split_mobile_use_primary": true,
+            "split_mobile_primary_image": "shopify://shop_images/podshop-hero-orange.webp",
+            "overlay_opacity": 0,
+            "content_position": "middle-left",
+            "content_alignment": "center",
+            "content_position_mobile": "bottom-center",
+            "content_alignment_mobile": "center",
+            "content_width": "full_width",
+            "content_max_width": 50,
+            "content_padding_block": 60,
+            "content_padding_inline": 40,
+            "enable_custom_colors": true,
+            "subheading_color": "#ffffff",
+            "heading_color": "#ffffff",
+            "description_color": "#ffffff",
+            "first_button_bg": "#ffffff",
+            "first_button_color": "#111111",
+            "first_button_hover_bg": "#e6e6e6",
+            "first_button_hover_color": "#111111",
+            "slider_effect": "effect_fadein"
+          }
+        }
+      },
+      "block_order": [
+        "s1",
+        "s2",
+        "s3"
+      ]
+    },
+    "gift_guide": {
+      "type": "collection-list",
+      "settings": {
+        "section_width": "container",
+        "reset_spacing": true,
+        "header_alignment": "center",
+        "header_size": "large",
+        "header_spacing": 32,
+        "display_mode": "grid",
+        "items_per_row": 4,
+        "column_gap": 12,
+        "image_ratio": "square",
+        "information_spacing": 10,
+        "collection_information_position": "below_image",
+        "font_size": 12,
+        "font_weight": "body_weight",
+        "text_alignment": "left",
+        "card_hover_effect": "zoom",
+        "items_per_row_mobile": 2,
+        "padding_top": 64,
+        "padding_bottom": 56,
+        "reveal": true,
+        "show_product_count": false,
+        "show_icon": false,
+        "show_description": false,
+        "carousel_pagination": "disable",
+        "color_scheme": "default"
+      },
+      "blocks": {
+        "h": {
+          "type": "heading",
+          "settings": {
+            "text": "The gift guide"
+          }
+        },
+        "c1": {
+          "type": "collection",
+          "settings": {
+            "collection": "all",
+            "collection_title": "Gifts for him",
+            "collection_image": "shopify://shop_images/podshop-gift-him.webp"
+          }
+        },
+        "c2": {
+          "type": "collection",
+          "settings": {
+            "collection": "all",
+            "collection_title": "Gifts for her",
+            "collection_image": "shopify://shop_images/podshop-gift-her.webp"
+          }
+        },
+        "c3": {
+          "type": "collection",
+          "settings": {
+            "collection": "all",
+            "collection_title": "Gifts for kids",
+            "collection_image": "shopify://shop_images/podshop-gift-kids.webp"
+          }
+        },
+        "c4": {
+          "type": "collection",
+          "settings": {
+            "collection": "all",
+            "collection_title": "Small extras",
+            "collection_image": "shopify://shop_images/podshop-gift-extras.webp"
+          }
+        }
+      },
+      "block_order": [
+        "h",
+        "c1",
+        "c2",
+        "c3",
+        "c4"
+      ]
+    },
+    "price_tiles": {
+      "type": "collection-banner",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "fluid_container",
+        "reset_spacing": true,
+        "desktop_content_position": "center-center",
+        "mobile_content_position": "center-center",
+        "items_gap": 10,
+        "inner_width": 100,
+        "card_border_radius": 6,
+        "use_theme_button": true,
+        "reveal": true,
+        "padding_top_desktop": 8,
+        "padding_bottom_desktop": 56,
+        "horizontal_padding_desktop": 32,
+        "padding_top_mobile": 4,
+        "padding_bottom_mobile": 40,
+        "horizontal_padding_mobile": 12
+      },
+      "blocks": {
+        "p1": {
+          "type": "collection",
+          "settings": {
+            "subheading": "The gift guide",
+            "heading": "Gifts under $30",
+            "description": "Small gifts with hometown spirit. Caps, beanies and tees.",
+            "primary_button_label": "Shop gifts",
+            "primary_button_link": "/search?q=cap",
+            "image_desktop": "shopify://shop_images/podshop-price-30.webp",
+            "card_height": "1",
+            "vertical_text_gap": 10,
+            "enable_custom_style": true,
+            "text_color": "#ffffff",
+            "overlay_color": "#000000",
+            "overlay_opacity": 38,
+            "primary_button_style": "outline",
+            "primary_text_color": "#ffffff",
+            "primary_background_color": "rgba(0,0,0,0)",
+            "primary_border_color": "#ffffff",
+            "heading_size": 40,
+            "heading_font_weight": "theme",
+            "subheading_size": 11,
+            "subheading_font_weight": "500",
+            "description_size": 13,
+            "description_font_weight": "theme",
+            "button_font_weight": "700"
+          }
+        },
+        "p2": {
+          "type": "collection",
+          "settings": {
+            "subheading": "The gift guide",
+            "heading": "Gifts $30 to $50",
+            "description": "Fan favourites and everyday tees they will reach for again.",
+            "primary_button_label": "Shop gifts",
+            "primary_button_link": "/search?q=tee",
+            "image_desktop": "shopify://shop_images/podshop-price-50.webp",
+            "card_height": "1",
+            "vertical_text_gap": 10,
+            "enable_custom_style": true,
+            "text_color": "#ffffff",
+            "overlay_color": "#000000",
+            "overlay_opacity": 34,
+            "primary_button_style": "outline",
+            "primary_text_color": "#ffffff",
+            "primary_background_color": "rgba(0,0,0,0)",
+            "primary_border_color": "#ffffff",
+            "heading_size": 40,
+            "heading_font_weight": "theme",
+            "subheading_size": 11,
+            "subheading_font_weight": "500",
+            "description_size": 13,
+            "description_font_weight": "theme",
+            "button_font_weight": "700"
+          }
+        },
+        "p3": {
+          "type": "collection",
+          "settings": {
+            "subheading": "The gift guide",
+            "heading": "Gifts $50 to $75",
+            "description": "Soft crewnecks and matching sets for everyone on your list.",
+            "primary_button_label": "Shop gifts",
+            "primary_button_link": "/search?q=crew",
+            "image_desktop": "shopify://shop_images/podshop-price-75.webp",
+            "card_height": "1",
+            "vertical_text_gap": 10,
+            "enable_custom_style": true,
+            "text_color": "#ffffff",
+            "overlay_color": "#000000",
+            "overlay_opacity": 34,
+            "primary_button_style": "outline",
+            "primary_text_color": "#ffffff",
+            "primary_background_color": "rgba(0,0,0,0)",
+            "primary_border_color": "#ffffff",
+            "heading_size": 40,
+            "heading_font_weight": "theme",
+            "subheading_size": 11,
+            "subheading_font_weight": "500",
+            "description_size": 13,
+            "description_font_weight": "theme",
+            "button_font_weight": "700"
+          }
+        },
+        "p4": {
+          "type": "collection",
+          "settings": {
+            "subheading": "The gift guide",
+            "heading": "Gifts $75 and up",
+            "description": "Go big: a crewneck, a cap and a tee in one box.",
+            "primary_button_label": "Shop gifts",
+            "primary_button_link": "/collections/all",
+            "image_desktop": "shopify://shop_images/podshop-price-100.webp",
+            "card_height": "1",
+            "vertical_text_gap": 10,
+            "enable_custom_style": true,
+            "text_color": "#ffffff",
+            "overlay_color": "#000000",
+            "overlay_opacity": 34,
+            "primary_button_style": "outline",
+            "primary_text_color": "#ffffff",
+            "primary_background_color": "rgba(0,0,0,0)",
+            "primary_border_color": "#ffffff",
+            "heading_size": 40,
+            "heading_font_weight": "theme",
+            "subheading_size": 11,
+            "subheading_font_weight": "500",
+            "description_size": 13,
+            "description_font_weight": "theme",
+            "button_font_weight": "700"
+          }
+        }
+      },
+      "block_order": [
+        "p1",
+        "p2",
+        "p3",
+        "p4"
+      ]
+    },
+    "new_arrivals": {
+      "type": "products-grid",
+      "settings": {
+        "heading": "New arrivals",
+        "text": "",
+        "items_to_show": 4,
+        "show_add_to_cart": false,
+        "button_label": "View all",
+        "button_link": "/collections/all",
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 14,
+        "header_alignment": "center",
+        "color_scheme": "default",
+        "section_width": "container",
+        "padding_top": 56,
+        "padding_bottom": 64,
+        "reset_spacing": true,
+        "reveal": true
+      }
+    },
+    "highlight": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "image_position": "left",
+        "text_column_width": 52,
+        "content_align": "left",
+        "content_gap": 14,
+        "media_type": "image",
+        "image": "shopify://shop_images/podshop-highlight.webp",
+        "image_alt": "A woman in a grey hoodie and denim jacket against a blue wall",
+        "aspect_w": 4,
+        "aspect_h": 5,
+        "image_fit": "cover",
+        "image_radius": 0,
+        "enable_overlay": false,
+        "gap_desktop": 64,
+        "padding_top_desktop": 56,
+        "padding_bottom_desktop": 72,
+        "side_padding_desktop": 120,
+        "content_align_mobile": "left",
+        "mobile_order": "media_first",
+        "gap_mobile": 24,
+        "padding_top_mobile": 32,
+        "padding_bottom_mobile": 48,
+        "side_padding_mobile": 16
+      },
+      "blocks": {
+        "e": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "The hometown hoodie",
+            "enable_custom_style": true,
+            "size": 11
+          }
+        },
+        "h": {
+          "type": "heading",
+          "settings": {
+            "text": "New product highlight",
+            "tag": "h2",
+            "enable_custom_style": true,
+            "size_desktop": 26,
+            "size_mobile": 22
+          }
+        },
+        "t": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Meet the layer you will live in this season. Heavy brushed fleece, a roomy hood and a print on the back you can see from across the stands. Cut relaxed, washed soft, ready for game day and every day after it.</p>",
+            "enable_custom_style": true,
+            "size_desktop": 14,
+            "size_mobile": 14
+          }
+        },
+        "b": {
+          "type": "button",
+          "settings": {
+            "label": "Shop now",
+            "link": "/search?q=crew",
+            "button_style": "primary",
+            "use_theme_button": true
+          }
+        }
+      },
+      "block_order": [
+        "e",
+        "h",
+        "t",
+        "b"
+      ]
+    },
+    "big_tiles": {
+      "type": "collection-banner",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "fluid_container",
+        "reset_spacing": true,
+        "desktop_content_position": "bottom-left",
+        "mobile_content_position": "bottom-left",
+        "items_gap": 16,
+        "inner_width": 100,
+        "card_border_radius": 6,
+        "use_theme_button": true,
+        "reveal": true,
+        "padding_top_desktop": 24,
+        "padding_bottom_desktop": 64,
+        "horizontal_padding_desktop": 32,
+        "padding_top_mobile": 8,
+        "padding_bottom_mobile": 40,
+        "horizontal_padding_mobile": 12
+      },
+      "blocks": {
+        "b1": {
+          "type": "collection",
+          "settings": {
+            "subheading": "",
+            "heading": "Winter",
+            "description": "",
+            "primary_button_label": "Shop now",
+            "primary_button_link": "/search?q=crew",
+            "image_desktop": "shopify://shop_images/podshop-tile-winter.webp",
+            "card_height": "2",
+            "vertical_text_gap": 10,
+            "enable_custom_style": true,
+            "text_color": "#ffffff",
+            "overlay_color": "#000000",
+            "overlay_opacity": 18,
+            "primary_button_style": "solid",
+            "primary_text_color": "#111111",
+            "primary_background_color": "#ffffff",
+            "primary_border_color": "#ffffff",
+            "heading_size": 40,
+            "heading_font_weight": "theme",
+            "subheading_size": 11,
+            "subheading_font_weight": "500",
+            "description_size": 13,
+            "description_font_weight": "theme",
+            "button_font_weight": "700"
+          }
+        },
+        "b2": {
+          "type": "collection",
+          "settings": {
+            "subheading": "",
+            "heading": "Hometown",
+            "description": "",
+            "primary_button_label": "Shop now",
+            "primary_button_link": "/search?q=hometown",
+            "image_desktop": "shopify://shop_images/podshop-tile-hometown.webp",
+            "card_height": "2",
+            "vertical_text_gap": 10,
+            "enable_custom_style": true,
+            "text_color": "#ffffff",
+            "overlay_color": "#000000",
+            "overlay_opacity": 18,
+            "primary_button_style": "solid",
+            "primary_text_color": "#111111",
+            "primary_background_color": "#ffffff",
+            "primary_border_color": "#ffffff",
+            "heading_size": 40,
+            "heading_font_weight": "theme",
+            "subheading_size": 11,
+            "subheading_font_weight": "500",
+            "description_size": 13,
+            "description_font_weight": "theme",
+            "button_font_weight": "700"
+          }
+        },
+        "b3": {
+          "type": "collection",
+          "settings": {
+            "subheading": "",
+            "heading": "Weekend",
+            "description": "",
+            "primary_button_label": "Shop now",
+            "primary_button_link": "/search?q=tee",
+            "image_desktop": "shopify://shop_images/podshop-tile-weekend.webp",
+            "card_height": "2",
+            "vertical_text_gap": 10,
+            "enable_custom_style": true,
+            "text_color": "#ffffff",
+            "overlay_color": "#000000",
+            "overlay_opacity": 18,
+            "primary_button_style": "solid",
+            "primary_text_color": "#111111",
+            "primary_background_color": "#ffffff",
+            "primary_border_color": "#ffffff",
+            "heading_size": 40,
+            "heading_font_weight": "theme",
+            "subheading_size": 11,
+            "subheading_font_weight": "500",
+            "description_size": 13,
+            "description_font_weight": "theme",
+            "button_font_weight": "700"
+          }
+        },
+        "b4": {
+          "type": "collection",
+          "settings": {
+            "subheading": "",
+            "heading": "Youth",
+            "description": "",
+            "primary_button_label": "Shop now",
+            "primary_button_link": "/collections/all",
+            "image_desktop": "shopify://shop_images/podshop-tile-youth.webp",
+            "card_height": "2",
+            "vertical_text_gap": 10,
+            "enable_custom_style": true,
+            "text_color": "#ffffff",
+            "overlay_color": "#000000",
+            "overlay_opacity": 18,
+            "primary_button_style": "solid",
+            "primary_text_color": "#111111",
+            "primary_background_color": "#ffffff",
+            "primary_border_color": "#ffffff",
+            "heading_size": 40,
+            "heading_font_weight": "theme",
+            "subheading_size": 11,
+            "subheading_font_weight": "500",
+            "description_size": 13,
+            "description_font_weight": "theme",
+            "button_font_weight": "700"
+          }
+        }
+      },
+      "block_order": [
+        "b1",
+        "b2",
+        "b3",
+        "b4"
+      ]
+    },
+    "strip": {
+      "type": "slideshow",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "full_width",
+        "reset_spacing": true,
+        "slide_height": "custom",
+        "desktop_height": 520,
+        "mobile_height": 440,
+        "show_arrow": false,
+        "carousel_pagination": "show_dots",
+        "pagination_style": "line",
+        "pagination_position": "center",
+        "slide_effect": "slide",
+        "autoplay": true,
+        "autorotate_speed": 5,
+        "slide_loop": true,
+        "reveal": true,
+        "heading_font_size": 40,
+        "heading_font_size_mobile": 28,
+        "des_spacing_bottom": 0,
+        "padding_top": 0,
+        "padding_bottom": 0
+      },
+      "blocks": {
+        "m1": {
+          "type": "slider_item",
+          "settings": {
+            "subheading": "",
+            "heading": "",
+            "description": "",
+            "first_button_label": "Shop men's tees",
+            "first_button_link": "/search?q=tee",
+            "first_button_style": false,
+            "second_button_label": "",
+            "second_button_link": "",
+            "image": "shopify://shop_images/podshop-strip-a.webp",
+            "image_mobile": "shopify://shop_images/podshop-strip-a.webp",
+            "split_images_enable": true,
+            "image_split_left": "shopify://shop_images/podshop-strip-a.webp",
+            "image_split_right": "shopify://shop_images/podshop-strip-b.webp",
+            "split_gap": 0,
+            "split_mobile_use_primary": true,
+            "split_mobile_primary_image": "shopify://shop_images/podshop-strip-a.webp",
+            "overlay_opacity": 0,
+            "content_position": "bottom-center",
+            "content_alignment": "center",
+            "content_position_mobile": "bottom-center",
+            "content_alignment_mobile": "center",
+            "content_width": "full_width",
+            "content_max_width": 100,
+            "content_padding_block": 40,
+            "content_padding_inline": 40,
+            "enable_custom_colors": true,
+            "subheading_color": "#ffffff",
+            "heading_color": "#ffffff",
+            "description_color": "#ffffff",
+            "first_button_bg": "#ffffff",
+            "first_button_color": "#111111",
+            "first_button_hover_bg": "#e6e6e6",
+            "first_button_hover_color": "#111111",
+            "slider_effect": "effect_fadein"
+          }
+        },
+        "m2": {
+          "type": "slider_item",
+          "settings": {
+            "subheading": "",
+            "heading": "",
+            "description": "",
+            "first_button_label": "Shop caps and beanies",
+            "first_button_link": "/search?q=cap",
+            "first_button_style": false,
+            "second_button_label": "",
+            "second_button_link": "",
+            "image": "shopify://shop_images/podshop-fav-beanie.webp",
+            "image_mobile": "shopify://shop_images/podshop-fav-beanie.webp",
+            "split_images_enable": true,
+            "image_split_left": "shopify://shop_images/podshop-fav-beanie.webp",
+            "image_split_right": "shopify://shop_images/podshop-gift-her.webp",
+            "split_gap": 0,
+            "split_mobile_use_primary": true,
+            "split_mobile_primary_image": "shopify://shop_images/podshop-fav-beanie.webp",
+            "overlay_opacity": 0,
+            "content_position": "bottom-center",
+            "content_alignment": "center",
+            "content_position_mobile": "bottom-center",
+            "content_alignment_mobile": "center",
+            "content_width": "full_width",
+            "content_max_width": 100,
+            "content_padding_block": 40,
+            "content_padding_inline": 40,
+            "enable_custom_colors": true,
+            "subheading_color": "#ffffff",
+            "heading_color": "#ffffff",
+            "description_color": "#ffffff",
+            "first_button_bg": "#ffffff",
+            "first_button_color": "#111111",
+            "first_button_hover_bg": "#e6e6e6",
+            "first_button_hover_color": "#111111",
+            "slider_effect": "effect_fadein"
+          }
+        }
+      },
+      "block_order": [
+        "m1",
+        "m2"
+      ]
+    },
+    "favourites": {
+      "type": "collection-list",
+      "settings": {
+        "section_width": "container",
+        "reset_spacing": true,
+        "header_alignment": "center",
+        "header_size": "large",
+        "header_spacing": 32,
+        "display_mode": "grid",
+        "items_per_row": 4,
+        "column_gap": 12,
+        "image_ratio": "square",
+        "information_spacing": 10,
+        "collection_information_position": "below_image",
+        "font_size": 12,
+        "font_weight": "body_weight",
+        "text_alignment": "left",
+        "card_hover_effect": "zoom",
+        "items_per_row_mobile": 2,
+        "padding_top": 72,
+        "padding_bottom": 72,
+        "reveal": true,
+        "show_product_count": false,
+        "show_icon": false,
+        "show_description": false,
+        "carousel_pagination": "disable",
+        "color_scheme": "default"
+      },
+      "blocks": {
+        "h": {
+          "type": "heading",
+          "settings": {
+            "text": "Fan favourites"
+          }
+        },
+        "c1": {
+          "type": "collection",
+          "settings": {
+            "collection": "all",
+            "collection_title": "Crewnecks",
+            "collection_image": "shopify://shop_images/podshop-fav-crew.webp"
+          }
+        },
+        "c2": {
+          "type": "collection",
+          "settings": {
+            "collection": "all",
+            "collection_title": "Beanies",
+            "collection_image": "shopify://shop_images/podshop-fav-beanie.webp"
+          }
+        },
+        "c3": {
+          "type": "collection",
+          "settings": {
+            "collection": "all",
+            "collection_title": "Everyday sweatshirts",
+            "collection_image": "shopify://shop_images/podshop-fav-brown.webp"
+          }
+        },
+        "c4": {
+          "type": "collection",
+          "settings": {
+            "collection": "all",
+            "collection_title": "Soft colours",
+            "collection_image": "shopify://shop_images/podshop-fav-pink.webp"
+          }
+        }
+      },
+      "block_order": [
+        "h",
+        "c1",
+        "c2",
+        "c3",
+        "c4"
+      ]
+    },
+    "store": {
+      "type": "slideshow",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "full_width",
+        "reset_spacing": true,
+        "slide_height": "custom",
+        "desktop_height": 600,
+        "mobile_height": 460,
+        "show_arrow": false,
+        "carousel_pagination": "disable",
+        "autoplay": false,
+        "slide_loop": false,
+        "reveal": true,
+        "heading_uppercase": false,
+        "heading_font_size": 56,
+        "heading_font_size_mobile": 32,
+        "des_font_size": 15,
+        "des_spacing_bottom": 24,
+        "padding_top": 0,
+        "padding_bottom": 0
+      },
+      "blocks": {
+        "st": {
+          "type": "slider_item",
+          "settings": {
+            "subheading": "",
+            "heading": "Visit the print shop",
+            "description": "<p>214 Mill Street, open Thursday to Sunday</p>",
+            "first_button_label": "Details",
+            "first_button_link": "/pages/contact",
+            "first_button_style": false,
+            "second_button_label": "",
+            "second_button_link": "",
+            "image": "shopify://shop_images/podshop-studio.webp",
+            "image_mobile": "shopify://shop_images/podshop-studio.webp",
+            "split_images_enable": false,
+            "image_split_left": "shopify://shop_images/podshop-panel.webp",
+            "image_split_right": "shopify://shop_images/podshop-studio.webp",
+            "split_gap": 0,
+            "split_mobile_use_primary": true,
+            "split_mobile_primary_image": "shopify://shop_images/podshop-studio.webp",
+            "overlay_opacity": 22,
+            "content_position": "middle-right",
+            "content_alignment": "right",
+            "content_position_mobile": "bottom-left",
+            "content_alignment_mobile": "left",
+            "content_width": "full_width",
+            "content_max_width": 45,
+            "content_padding_block": 60,
+            "content_padding_inline": 40,
+            "enable_custom_colors": true,
+            "subheading_color": "#ffffff",
+            "heading_color": "#ffffff",
+            "description_color": "#ffffff",
+            "first_button_bg": "#ffffff",
+            "first_button_color": "#111111",
+            "first_button_hover_bg": "#e6e6e6",
+            "first_button_hover_color": "#111111",
+            "slider_effect": "effect_fadein"
+          }
+        }
+      },
+      "block_order": [
+        "st"
+      ]
+    },
+    "newsletter": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca",
+        "section_width": "container",
+        "reset_spacing": true,
+        "email_label": "Email",
+        "email_placeholder": "Email",
+        "btn_text": "Submit",
+        "note": "New prints, restocks and members-only deals. One or two emails a month.",
+        "image_position": "right",
+        "content_alignment": "left",
+        "form_layout": "horizontal",
+        "image_width": 30,
+        "column_gap": 56,
+        "image": "shopify://shop_images/podshop-newsletter.webp",
+        "image_alt": "A smiling couple in plain white tees against a pale blue wall",
+        "image_ratio": "landscape",
+        "button_style": "primary",
+        "use_theme_button": true,
+        "reveal": true,
+        "padding_top": 0,
+        "padding_bottom": 0,
+        "section_margin_top_desktop": 24,
+        "section_margin_bottom_desktop": 72,
+        "show_image_mobile": true,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 0,
+        "section_margin_bottom_mobile": 40
+      },
+      "blocks": {
+        "h": {
+          "type": "heading",
+          "settings": {
+            "text": "Email signup"
+          }
+        },
+        "s": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Join the list for first look at new prints, early access to drops and members-only deals.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "h",
+        "s"
+      ]
+    },
+    "reviews": {
+      "type": "testimon4",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "full_width": true,
+        "reset_spacing": true,
+        "heading": "Customer reviews",
+        "rating_text": "",
+        "rating": 0,
+        "rating_text_hide": true,
+        "rating_hide": true,
+        "text": "",
+        "enable_profile_images": false,
+        "card_count_words": 40,
+        "button": "",
+        "heading_align": "center",
+        "slider_width": 92,
+        "slider_view": 3,
+        "slider_gap": 12,
+        "slider_mt": 36,
+        "stars_size": 16,
+        "card_padding_vertical": 26,
+        "card_padding_horizontal": 30,
+        "card_radius": 2,
+        "card_shadow": true,
+        "card_heading_align": "center",
+        "card_heading_mt": 12,
+        "arrow_show_desktop": false,
+        "dots_show_desktop": true,
+        "heading_size": 30,
+        "card_heading_size": 14,
+        "card_text_size": 13,
+        "card_author_date_text_size": 12,
+        "padding_top": 64,
+        "padding_bottom": 64,
+        "heading_size_mobile": 24
+      },
+      "blocks": {
+        "r1": {
+          "type": "testimonials",
+          "settings": {
+            "stars_count": 5,
+            "heading": "Sample review, Jamie R.",
+            "text": "Replace this with a real review. Something like: the print is still sharp after a year of weekly washing, and the fit is right.",
+            "author_date": ""
+          }
+        },
+        "r2": {
+          "type": "testimonials",
+          "settings": {
+            "stars_count": 5,
+            "heading": "Sample review, Priya M.",
+            "text": "Replace this with a real review. Something like: ordered four matching tees for the family and every size came out right.",
+            "author_date": ""
+          }
+        },
+        "r3": {
+          "type": "testimonials",
+          "settings": {
+            "stars_count": 5,
+            "heading": "Sample review, Dana K.",
+            "text": "Replace this with a real review. Something like: quick shipping, friendly help with a size swap, and the most fun designs in town.",
+            "author_date": ""
+          }
+        },
+        "r4": {
+          "type": "testimonials",
+          "settings": {
+            "stars_count": 5,
+            "heading": "Sample review, Luis T.",
+            "text": "Replace this with a real review. Something like: the crewneck is heavier than I expected, in the best way.",
+            "author_date": ""
+          }
+        },
+        "r5": {
+          "type": "testimonials",
+          "settings": {
+            "stars_count": 5,
+            "heading": "Sample review, Sam W.",
+            "text": "Replace this with a real review. Something like: bought the cap as a gift and ended up getting one for myself.",
+            "author_date": ""
+          }
+        }
+      },
+      "block_order": [
+        "r1",
+        "r2",
+        "r3",
+        "r4",
+        "r5"
+      ]
+    }
+  },
+  "order": [
+    "hero",
+    "gift_guide",
+    "price_tiles",
+    "new_arrivals",
+    "highlight",
+    "big_tiles",
+    "strip",
+    "favourites",
+    "store",
+    "newsletter",
+    "reviews"
+  ]
+}

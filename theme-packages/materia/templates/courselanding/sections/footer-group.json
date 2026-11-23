@@ -22,13 +22,13 @@
           "type": "store_info",
           "settings": {
             "show_logo": false,
-            "store_heading": "Evenly",
+            "store_heading": "Negative Split",
             "image_width": 110,
             "store_email": true,
             "store_phone": false,
             "store_address": false,
             "content_width": "50%",
-            "store_description": "<p>A four week course on budgeting, saving and investing. Write a line about your own course here.</p>"
+            "store_description": "<p>A 16 week plan for your first half marathon, with a video for every week and a coach who answers on Sundays.</p>"
           }
         },
         "link_list_2": {
@@ -38,11 +38,26 @@
             "heading": "Pages",
             "content_width": "25%"
           }
+        },
+        "payment_badges_1": {
+          "type": "payment_badges",
+          "settings": {
+            "alignment": "right",
+            "enable_amex": true,
+            "enable_visa": true,
+            "content_width": "100%",
+            "enable_klarna": false,
+            "enable_paypal": false,
+            "enable_apple_pay": true,
+            "enable_google_pay": true,
+            "enable_mastercard": true
+          }
         }
       },
       "block_order": [
         "store_info_1",
-        "link_list_2"
+        "link_list_2",
+        "payment_badges_1"
       ]
     }
   },

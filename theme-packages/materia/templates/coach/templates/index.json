@@ -1,432 +1,590 @@
+/* Templates round 22: a running coach, built from the theme's own sections (hero image, marquee, image with text, products, rows, steps, testimonials, gallery, FAQ with image, banner). */
 {
   "sections": {
     "hero": {
-      "type": "coach2-hero",
+      "type": "hero-image1",
       "settings": {
-        "background": "#ffffff",
-        "label": "Leadership coach for new managers",
-        "heading": "Lead your team <em>without</em> doing all the work",
-        "text": "<p>I coach people in their first years of managing: how to delegate, give feedback, run a good meeting and keep your own work from swallowing the week.</p>",
-        "button_label": "Book a free call",
-        "button_link": "/pages/book",
-        "button2_label": "Ways to work together",
-        "button2_link": "/collections/all",
-        "fact_1_value": "20 min",
-        "fact_1_label": "First call, free",
-        "fact_2_value": "1:1 or group",
-        "fact_2_label": "Pick what fits",
-        "fact_3_value": "Teams",
-        "fact_3_label": "Workshops in person",
-        "image": "shopify://shop_images/coach-mateo-hero.webp",
-        "image_alt": "Mateo Cruz, arms crossed, in front of a whiteboard",
-        "image_focus": "center",
-        "card_note": "Not sure where to start?",
-        "card_title": "Book a free 20 minute call",
-        "card_link": "/pages/book",
-        "heading_size": 82,
-        "heading_size_mobile": 44,
-        "padding_top": 48,
-        "padding_bottom": 96
-      }
-    },
-    "problems": {
-      "type": "coach2-list",
-      "settings": {
-        "eyebrow": "Sound familiar?",
-        "heading": "If this is your week, we should talk",
-        "text": "<p>Most people are promoted for being good at the job. Nobody shows them how to lead the people doing it.</p>",
-        "button_label": "Book a free call",
-        "button_link": "/pages/book",
-        "columns": "2",
-        "heading_size": 52
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "image": "shopify://shop_images/coach-hero.webp",
+        "image_mobile": "shopify://shop_images/coach-hero-phone.webp",
+        "image_alt": "Amara running on a floodlit track at night",
+        "content_align": "left",
+        "vertical_align": "center",
+        "content_max_width": 640,
+        "min_height_desktop": 760,
+        "min_height_mobile": 640,
+        "overlay_opacity": 30,
+        "side_padding_desktop": 72,
+        "image_position_x": 50
       },
       "blocks": {
-        "item_1": {
-          "type": "item",
+        "eyebrow_1": {
+          "type": "eyebrow",
           "settings": {
-            "title": "Every question still ends up on your desk",
-            "text": "The team waits for you, so you answer messages until late."
+            "text": "Running coach, online and in Austin"
           }
         },
-        "item_2": {
-          "type": "item",
+        "heading_2": {
+          "type": "heading",
           "settings": {
-            "title": "You still do the work you used to do",
-            "text": "It is faster to do it yourself, so you do, and your own job waits."
+            "text": "Train for your next race without getting hurt",
+            "enable_custom_style": true,
+            "size_desktop": 76,
+            "size_mobile": 44,
+            "line_height": 1.02
           }
         },
-        "item_3": {
-          "type": "item",
+        "subheading_3": {
+          "type": "subheading",
           "settings": {
-            "title": "Feedback you keep putting off",
-            "text": "One conversation you know you need to have, and it has been weeks."
+            "text": "<p>Plans from your first 5K to a marathon, written for a real week. Monthly coaching if you want someone reading every run.</p>"
           }
         },
-        "item_4": {
-          "type": "item",
+        "primary_button_4": {
+          "type": "primary_button",
           "settings": {
-            "title": "Meetings that end without a decision",
-            "text": "An hour a day in calls, and the same topics come back next week."
+            "label": "See the plans",
+            "link": "/collections/all"
           }
         },
-        "item_5": {
-          "type": "item",
+        "secondary_button_5": {
+          "type": "secondary_button",
           "settings": {
-            "title": "Managing people who were your peers",
-            "text": "Last month you were one of them. Now you are not sure how to act."
-          }
-        },
-        "item_6": {
-          "type": "item",
-          "settings": {
-            "title": "Your manager asks for a plan",
-            "text": "Goals for the team, and you are not sure where to start."
+            "label": "Monthly coaching",
+            "link": "/pages/book"
           }
         }
       },
       "block_order": [
-        "item_1",
-        "item_2",
-        "item_3",
-        "item_4",
-        "item_5",
-        "item_6"
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "primary_button_4",
+        "secondary_button_5"
       ]
     },
-    "offers": {
-      "type": "coach2-offers",
+    "distances": {
+      "type": "marquee-bar",
       "settings": {
-        "background": "#f3f4f6",
-        "eyebrow": "Work with me",
-        "heading": "Three ways to work together",
-        "text": "<p>Every client starts with the same free call. Then we pick what fits where you are now. Many companies pay for it from a training budget.</p>",
-        "note": "<p>Buying for several managers at your company? <a href=\"/pages/contact\">Ask about company rates</a></p>",
-        "padding_top": 104,
-        "padding_bottom": 104
+        "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636",
+        "duration": 36
       },
       "blocks": {
-        "offer_1": {
-          "type": "offer",
+        "marquee_1": {
+          "type": "marquee",
           "settings": {
-            "image": "shopify://shop_images/coach-offer-one.webp",
-            "image_alt": "Mateo at a meeting table",
-            "featured": false,
-            "flag": "",
-            "label": "One to one",
-            "title": "Monthly coaching",
-            "price": "$390",
-            "per": "a month",
-            "text": "Two calls a month and messages in between, for managers who want someone in their corner.",
-            "points": "Two 60 minute calls a month\nMessages answered within a working day\nA one page plan we update each month\nStop or pause any month",
-            "button_label": "See the details",
-            "button_link": "/collections/all"
+            "text": "5K"
           }
         },
-        "offer_2": {
-          "type": "offer",
+        "marquee_2": {
+          "type": "marquee",
           "settings": {
-            "image": "shopify://shop_images/coach-offer-group.webp",
-            "image_alt": "Mateo at a whiteboard, arms crossed",
-            "featured": true,
-            "flag": "Most managers start here",
-            "label": "Small group",
-            "title": "First 90 Days",
-            "price": "$990",
-            "per": "8 weeks",
-            "text": "Eight new managers, eight weeks, one topic a week: delegation, feedback, one to ones, meetings, hiring and the plan.",
-            "points": "Eight live sessions on video\nA workbook for each week\nTwo one to one calls with me\nA group of managers to stay in touch with",
-            "button_label": "Join the next group",
-            "button_link": "/collections/all"
+            "text": "10K"
           }
         },
-        "offer_3": {
-          "type": "offer",
+        "marquee_3": {
+          "type": "marquee",
           "settings": {
-            "image": "shopify://shop_images/coach-offer-day.webp",
-            "image_alt": "Mateo explaining at a whiteboard",
-            "featured": false,
-            "flag": "",
-            "label": "For your team",
-            "title": "Team day",
-            "price": "$2,400",
-            "per": "one day",
-            "text": "A full day with you and your team on how you work together: roles, meetings, decisions and the next quarter.",
-            "points": "A call with you before the day\nSix hours together, in person or online\nEverything agreed, written up within a week\nA follow up call after 30 days",
-            "button_label": "Plan a team day",
-            "button_link": "/collections/all"
+            "text": "Half marathon"
+          }
+        },
+        "marquee_4": {
+          "type": "marquee",
+          "settings": {
+            "text": "Marathon"
+          }
+        },
+        "marquee_5": {
+          "type": "marquee",
+          "settings": {
+            "text": "Trail"
+          }
+        },
+        "marquee_6": {
+          "type": "marquee",
+          "settings": {
+            "text": "Comeback"
           }
         }
       },
       "block_order": [
-        "offer_1",
-        "offer_2",
-        "offer_3"
+        "marquee_1",
+        "marquee_2",
+        "marquee_3",
+        "marquee_4",
+        "marquee_5",
+        "marquee_6"
       ]
     },
-    "steps": {
-      "type": "coach2-steps",
+    "hello": {
+      "type": "Image-and-video-text",
       "settings": {
-        "background": "#ffffff",
-        "eyebrow": "How it works",
-        "heading": "From the first call to a plan you use",
-        "text": "<p>No long questionnaire and no theory. We work on your real team and your real calendar from week one.</p>",
-        "button_label": "Book a free call",
-        "button_link": "/pages/book",
-        "heading_size": 52,
-        "padding_top": 104,
-        "padding_bottom": 104,
-        "image": "shopify://shop_images/coach-mateo-board.webp",
-        "image_alt": "Mateo at a whiteboard, explaining with both hands",
-        "image_focus": "center"
+        "color_scheme": "default",
+        "image": "shopify://shop_images/coach-amara-portrait.webp",
+        "image_alt": "Amara Wells on the track, hands on her hips",
+        "image_position": "right",
+        "aspect_w": 4,
+        "aspect_h": 5,
+        "image_radius": 2,
+        "text_column_width": 50,
+        "padding_top_desktop": 112,
+        "padding_bottom_desktop": 112
       },
       "blocks": {
-        "step_1": {
-          "type": "step",
+        "eyebrow_1": {
+          "type": "eyebrow",
           "settings": {
-            "title": "A free call",
-            "time": "20 min",
-            "text": "You tell me about your team and what is hard right now. I tell you honestly whether I can help, and how."
+            "text": "Hi, I'm Amara"
           }
         },
-        "step_2": {
-          "type": "step",
+        "heading_2": {
+          "type": "heading",
           "settings": {
-            "title": "Look at your week",
-            "time": "Week 1",
-            "text": "Where your hours go, who needs what from you and what only you can do. One page that shows it."
+            "text": "I coach people who run before work",
+            "size_desktop": 48
           }
         },
-        "step_3": {
-          "type": "step",
+        "subheading_3": {
+          "type": "subheading",
           "settings": {
-            "title": "Pick three changes",
-            "time": "Week 2",
-            "text": "Not twenty. Three habits with the most effect, each with a first step this week."
+            "text": "<p>I ran the 400 metres in college, then spent years getting injured doing too much, too fast. These days I coach nurses, teachers, parents and night shift workers who want to run a race and still feel good on Monday.</p><p>Most of my runners run less than they expect and finish stronger than they hoped.</p>"
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "My story",
+            "link": "/pages/about",
+            "button_style": "secondary"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
+    },
+    "plans": {
+      "type": "products-listing",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "items_to_show": 4,
+        "items_per_row": 4,
+        "header_alignment": "left",
+        "show_rating": false,
+        "show_swatches": false,
+        "show_vendor": false,
+        "show_short_description": false
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Training plans"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Pick a plan, start Monday"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Pay once, keep the plan. Every one comes with a printable week view and a calendar file.</p>"
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "text": "All plans",
+            "link": "/collections/all",
+            "position": "header",
+            "button_style": "secondary"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
+    },
+    "distances_rows": {
+      "type": "image-with-text-multirow",
+      "settings": {
+        "color_scheme": "default",
+        "alternate_rows": true,
+        "image_aspect_w": 1,
+        "image_aspect_h": 1,
+        "text_column_width": 50
+      },
+      "blocks": {
+        "row_1": {
+          "type": "row",
+          "settings": {
+            "image": "shopify://shop_images/coach-road.webp",
+            "caption": "8 weeks",
+            "heading": "Your first 5K",
+            "body": "<p>Three short sessions a week. Walk and run in pieces, then a little more running each week until you run 30 minutes without stopping.</p>",
+            "btn_label": "See the 5K plan",
+            "btn_link": "/collections/all"
+          }
+        },
+        "row_2": {
+          "type": "row",
+          "settings": {
+            "image": "shopify://shop_images/coach-group.webp",
+            "caption": "12 or 16 weeks",
+            "heading": "A half marathon that feels good",
+            "body": "<p>Mostly easy running, one steady session and a long run that grows slowly. Strength twice a week, 20 minutes, no gym.</p>",
+            "btn_label": "See the half plan",
+            "btn_link": "/collections/all"
+          }
+        },
+        "row_3": {
+          "type": "row",
+          "settings": {
+            "image": "shopify://shop_images/coach-race.webp",
+            "caption": "18 weeks",
+            "heading": "Marathon, start to finish line",
+            "body": "<p>Built for a first or second marathon, with fuelling practice on the long runs and a pacing plan for race day.</p>",
+            "btn_label": "See the marathon plan",
+            "btn_link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "row_1",
+        "row_2",
+        "row_3"
+      ]
+    },
+    "how": {
+      "type": "steps",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "text_align": "center",
+        "step_style": "numbered",
+        "steps_max_width": 760
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Monthly coaching"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "How coaching works"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Four weeks at a time, built around the week you actually have.</p>"
           }
         },
         "step_4": {
           "type": "step",
           "settings": {
-            "title": "Do the work, check in",
-            "time": "Every month",
-            "text": "We meet, look at what moved and what did not, and adjust. You keep the plan between calls."
+            "title": "Tell me about your running",
+            "description": "<p>A short form: your recent weeks, your race, your job and how many days you can run.</p>"
+          }
+        },
+        "step_5": {
+          "type": "step",
+          "settings": {
+            "title": "Get four weeks of runs",
+            "description": "<p>Every session with a time, an effort and a reason. Synced to your phone's calendar.</p>"
+          }
+        },
+        "step_6": {
+          "type": "step",
+          "settings": {
+            "title": "Run, log it, hear back",
+            "description": "<p>Log each run with a line on how it felt. I read them all and reply within a day.</p>"
+          }
+        },
+        "step_7": {
+          "type": "step",
+          "settings": {
+            "title": "Race week",
+            "description": "<p>A taper, a pacing plan for the course and a call two days before you run.</p>"
+          }
+        },
+        "button_8": {
+          "type": "button",
+          "settings": {
+            "label": "Start coaching",
+            "url": "/pages/book"
           }
         }
       },
       "block_order": [
-        "step_1",
-        "step_2",
-        "step_3",
-        "step_4"
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "step_4",
+        "step_5",
+        "step_6",
+        "step_7",
+        "button_8"
       ]
     },
-    "clients": {
-      "type": "coach2-reviews",
+    "runners": {
+      "type": "testimonials",
       "settings": {
-        "background": "#ffffff",
-        "eyebrow": "Clients",
-        "heading": "What changed for them",
-        "note": "<p>Sample quotes and photos, to show the layout. Replace them with your clients' words, with their permission.</p>",
-        "padding_top": 104,
-        "padding_bottom": 104
+        "color_scheme": "default",
+        "display_mode": "carousel",
+        "columns": 3,
+        "header_alignment": "left",
+        "card_style": "outline",
+        "show_rating": false,
+        "show_arrow": true,
+        "carousel_pagination": "show",
+        "pagination_style": "line",
+        "pagination_position": "left",
+        "avatar_shape": "circle"
       },
       "blocks": {
-        "quote_1": {
-          "type": "quote",
+        "eyebrow_1": {
+          "type": "eyebrow",
           "settings": {
-            "quote": "<p>Sample quote. I stopped redoing my team's work in the second month. My own projects moved for the first time since the promotion.</p>",
-            "avatar": "shopify://shop_images/coach-client-1.webp",
-            "name": "Sample client",
-            "role": "Engineering manager, team of 7",
-            "result": "Own work back on track"
+            "enabled": true,
+            "text": "Runners"
           }
         },
-        "quote_2": {
-          "type": "quote",
+        "heading_2": {
+          "type": "heading",
           "settings": {
-            "quote": "<p>Sample quote. The feedback conversation I had avoided for six weeks took fifteen minutes, and it went better than I feared.</p>",
-            "avatar": "shopify://shop_images/coach-client-2.webp",
-            "name": "Sample client",
-            "role": "Head of customer support",
-            "result": "Hard talk, done well"
+            "enabled": true,
+            "text": "From people I coach"
           }
         },
-        "quote_3": {
-          "type": "quote",
+        "subheading_3": {
+          "type": "subheading",
           "settings": {
-            "quote": "<p>Sample quote. First 90 Days gave me a group of people going through the same thing. We still have a chat going a year later.</p>",
-            "avatar": "shopify://shop_images/coach-client-3.webp",
-            "name": "Sample client",
-            "role": "New team lead, retail",
-            "result": "A group of peers"
+            "enabled": true,
+            "text": "<p>Sample words to show the layout. Replace them with quotes from your own runners, with their permission.</p>"
           }
         },
-        "quote_4": {
-          "type": "quote",
+        "testimonial_4": {
+          "type": "testimonial",
           "settings": {
-            "quote": "<p>Sample quote. One team day and our weekly meeting went from an hour and a half to forty minutes, with notes everyone reads.</p>",
-            "avatar": "shopify://shop_images/coach-client-4.webp",
-            "name": "Sample client",
-            "role": "Director, design agency",
-            "result": "Meetings cut in half"
+            "quote": "<p>I had not run since school. Eight weeks later I ran 5K without stopping and I still run three times a week.</p>",
+            "rating": 0,
+            "name": "Sample runner",
+            "role": "5K from scratch",
+            "avatar": "shopify://shop_images/coach-client-2.webp"
           }
         },
-        "quote_5": {
-          "type": "quote",
+        "testimonial_5": {
+          "type": "testimonial",
           "settings": {
-            "quote": "<p>Sample quote. I manage two people who used to be my peers. Mateo helped me find a way to lead them without pretending to be someone else.</p>",
-            "avatar": "shopify://shop_images/coach-client-5.webp",
-            "name": "Sample client",
-            "role": "Sales manager",
-            "result": "Leading former peers"
+            "quote": "<p>My first half marathon felt good at mile 12, which nobody had told me was possible.</p>",
+            "rating": 0,
+            "name": "Sample runner",
+            "role": "Half marathon plan",
+            "avatar": "shopify://shop_images/coach-client-1.webp"
+          }
+        },
+        "testimonial_6": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Amara cut my mileage, and I ran faster. The easy runs were the bit I had wrong for years.</p>",
+            "rating": 0,
+            "name": "Sample runner",
+            "role": "Monthly coaching",
+            "avatar": "shopify://shop_images/coach-client-3.webp"
+          }
+        },
+        "testimonial_7": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>The form video showed me I was overstriding. Two small changes and my shins stopped hurting.</p>",
+            "rating": 0,
+            "name": "Sample runner",
+            "role": "Form check",
+            "avatar": "shopify://shop_images/coach-client-5.webp"
+          }
+        },
+        "testimonial_8": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>I work shifts. She moved my long run every week and never made me feel bad about it.</p>",
+            "rating": 0,
+            "name": "Sample runner",
+            "role": "Monthly coaching",
+            "avatar": "shopify://shop_images/coach-client-4.webp"
           }
         }
       },
       "block_order": [
-        "quote_1",
-        "quote_2",
-        "quote_3",
-        "quote_4",
-        "quote_5"
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "testimonial_4",
+        "testimonial_5",
+        "testimonial_6",
+        "testimonial_7",
+        "testimonial_8"
       ]
     },
-    "about": {
-      "type": "coach2-about",
+    "moments": {
+      "type": "gallery-grid1",
       "settings": {
-        "background": "#f3f4f6",
-        "image": "shopify://shop_images/coach-mateo-table.webp",
-        "image_alt": "Mateo Cruz smiling at a meeting table",
-        "image_ratio": "4 / 5",
-        "image_focus": "center",
-        "image_position": "right",
-        "main_heading": false,
-        "eyebrow": "Hi, I'm Mateo",
-        "heading": "I learned to manage the hard way",
-        "text": "<p>I was promoted to lead a team of nine at twenty six, the week after I had been one of them. I made most of the mistakes my clients make now, usually twice.</p><p>Since then I have led teams for fourteen years and coached managers in software, retail, agencies and hospitals. The problems are almost always the same: doing too much yourself, feedback put off, and meetings that decide nothing.</p>",
-        "fact_1": "Based in: Austin, Texas",
-        "fact_2": "Works with: Managers in their first years",
-        "fact_3": "Sessions: On video or in person",
-        "fact_4": "Languages: English and Spanish",
-        "button_label": "Book a free call",
-        "button_link": "/pages/book",
-        "linkedin": "https://www.linkedin.com",
-        "instagram": "https://www.instagram.com",
-        "youtube": "https://www.youtube.com",
-        "heading_size": 52,
-        "padding_top": 104,
-        "padding_bottom": 104
-      }
-    },
-    "talks": {
-      "type": "coach2-banner",
-      "settings": {
-        "image": "shopify://shop_images/coach-mateo-room.webp",
-        "image_alt": "Mateo explaining something at a whiteboard",
-        "image_focus": "right center",
-        "eyebrow": "Talks and workshops",
-        "heading": "Bring it to your team or your event",
-        "text": "<p>Half day and full day workshops on delegation, feedback and meetings, for leadership teams, company offsites and conferences.</p>",
-        "item_1": "Half day",
-        "item_2": "Full day",
-        "item_3": "Keynote, 45 minutes",
-        "button_label": "Ask about dates",
-        "button_link": "/pages/contact",
-        "padding_top": 32,
-        "padding_bottom": 32
+        "color_scheme": "default",
+        "gutter": 8,
+        "background_image_1": "shopify://shop_images/coach-track.webp",
+        "alt_1": "A runner on a track at sunset",
+        "background_image_2": "shopify://shop_images/coach-stride.webp",
+        "alt_2": "A runner's legs mid stride on the road",
+        "background_image_3": "shopify://shop_images/coach-trail.webp",
+        "alt_3": "A runner on a ridge against the low sun",
+        "background_image_4": "shopify://shop_images/coach-dawn.webp",
+        "alt_4": "A runner on a wet road at dawn"
       }
     },
     "faq": {
-      "type": "coach2-faq",
+      "type": "faq-side-image",
       "settings": {
-        "background": "#ffffff",
-        "main_heading": false,
-        "eyebrow": "Questions",
-        "heading": "Before you book",
-        "text": "<p>Anything else? <a href=\"/pages/contact\">Send me a message</a> and I will answer within a working day.</p>",
-        "padding_top": 104,
-        "padding_bottom": 104
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "image": "shopify://shop_images/coach-amara-drills.webp",
+        "image_position": "left",
+        "image_aspect": "4_5",
+        "open_first": true,
+        "max_width": 1200
       },
       "blocks": {
-        "question_1": {
-          "type": "question",
+        "heading_1": {
+          "type": "heading",
           "settings": {
-            "question": "Who do you work with?",
-            "answer": "<p>People in their first few years of managing others: team leads, new heads of a function and founders hiring their first team. Most of my clients lead between three and twenty people.</p>"
+            "text": "Before you start"
           }
         },
-        "question_2": {
-          "type": "question",
+        "subheading_2": {
+          "type": "subheading",
           "settings": {
-            "question": "What happens on the free call?",
-            "answer": "<p>Twenty minutes on video. You tell me about your team and what is hard right now, I ask a few questions, and I say honestly whether I can help. There is no pitch at the end.</p>"
+            "text": "<p>Anything else? <a href=\"/pages/contact\">Write to me</a> and I answer within a day.</p>"
           }
         },
-        "question_3": {
-          "type": "question",
+        "faq_item_3": {
+          "type": "faq_item",
           "settings": {
-            "question": "Can my company pay for it?",
-            "answer": "<p>Often, yes. Many clients use a training or development budget. You get an invoice in the company's name, and I can send a short outline for your manager.</p>"
+            "question": "I have never run. Is the 5K plan for me?",
+            "answer": "<p>Yes. It starts with walking and running in short pieces, three times a week, and builds to 30 minutes of running over eight weeks.</p>"
           }
         },
-        "question_4": {
-          "type": "question",
+        "faq_item_4": {
+          "type": "faq_item",
           "settings": {
-            "question": "How long do clients usually stay?",
-            "answer": "<p>Most stay four to six months on monthly coaching. You can stop or pause any month, with no notice period.</p>"
+            "question": "How do I get my plan?",
+            "answer": "<p>Straight after checkout you get a PDF and a calendar file you can add to your phone, plus a copy by email.</p>"
           }
         },
-        "question_5": {
-          "type": "question",
+        "faq_item_5": {
+          "type": "faq_item",
           "settings": {
-            "question": "Is what I say kept private?",
-            "answer": "<p>Yes. When a company pays, I share only that we are meeting, never what we talk about.</p>"
+            "question": "What does monthly coaching add?",
+            "answer": "<p>I write your plan four weeks at a time, read every run you log, answer messages within a day and adjust when life gets in the way.</p>"
           }
         },
-        "question_6": {
-          "type": "question",
+        "faq_item_6": {
+          "type": "faq_item",
           "settings": {
-            "question": "What if it is not working?",
-            "answer": "<p>Tell me. If after the first month you feel it is not worth it, I refund that month.</p>"
+            "question": "Do I need a watch?",
+            "answer": "<p>No. Every session works by time and effort. A watch is useful later, not to start.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "question": "I am coming back from an injury.",
+            "answer": "<p>Get the all clear from a physio first, then start with monthly coaching so we can build back slowly together.</p>"
+          }
+        },
+        "faq_item_8": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I join the Saturday group run?",
+            "answer": "<p>Anyone can. It is free, we meet at 7:30 at the river trail, and there is a group for every pace.</p>"
           }
         }
       },
       "block_order": [
-        "question_1",
-        "question_2",
-        "question_3",
-        "question_4",
-        "question_5",
-        "question_6"
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7",
+        "faq_item_8"
       ]
     },
     "cta": {
-      "type": "coach2-cta",
+      "type": "banner3",
       "settings": {
-        "background": "#ffffff",
-        "eyebrow": "Free first call",
-        "heading": "Let's look at your week",
-        "text": "<p>Twenty minutes on video. You tell me about your team; I say honestly whether I can help.</p>",
-        "button_label": "Book a free call",
-        "button_link": "/pages/book",
-        "note": "No pitch. If we are not a fit, I will say so.",
-        "avatar": "shopify://shop_images/coach-mateo-avatar.webp",
-        "name": "Mateo Cruz",
-        "role": "Leadership coach",
-        "points": "Where your team is now\nWhat is taking your time\nOne next step, either way",
-        "heading_size": 64,
-        "padding_top": 32,
-        "padding_bottom": 96
-      }
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "banner_surface": "section",
+        "max_width": 720,
+        "pad_top_desktop": 96,
+        "pad_bottom_desktop": 96,
+        "text_align": "center"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Free plan check",
+            "transform": "uppercase"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Not sure which plan fits?",
+            "transform": "none"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "Send me your last few weeks of running and your race date. I will tell you where to start, free."
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "Ask Amara",
+            "link": "/pages/contact"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
     }
   },
   "order": [
     "hero",
-    "problems",
-    "offers",
-    "steps",
-    "clients",
-    "about",
-    "talks",
+    "distances",
+    "hello",
+    "plans",
+    "distances_rows",
+    "how",
+    "runners",
+    "moments",
     "faq",
     "cta"
   ]

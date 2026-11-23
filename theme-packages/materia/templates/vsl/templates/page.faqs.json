@@ -4,7 +4,7 @@
       "type": "vsl-faq",
       "settings": {
         "eyebrow": "Questions",
-        "heading": "Before you *join*",
+        "heading": "Before you join",
         "text": "<p>Anything not here, write to us and you hear back within a working day.</p>",
         "first_open": true,
         "max_width": 760,
@@ -18,36 +18,36 @@
         "question_1": {
           "type": "question",
           "settings": {
-            "question": "Do I need expensive gear?",
-            "answer": "<p>No. A USB microphone and a quiet room are enough. Week three has a shopping list at three budgets, the cheapest is about $150.</p>"
+            "question": "Do I need a camera?",
+            "answer": "<p>No. Every lesson is filmed and edited on a phone. Week two has a short kit list, a clip on microphone and a small light, all under $100.</p>"
           }
         },
         "question_2": {
           "type": "question",
           "settings": {
             "question": "How much time does it take?",
-            "answer": "<p>About three hours a week: two short lessons, recording one episode and the Thursday call if you can make it.</p>"
+            "answer": "<p>About three hours a week: two short lessons, filming and editing your videos, and the Tuesday review if you can make it.</p>"
           }
         },
         "question_3": {
           "type": "question",
           "settings": {
-            "question": "Audio only, or video too?",
-            "answer": "<p>Both are covered. The lessons start with audio, and one module shows how to film the same conversation for YouTube.</p>"
+            "question": "Which platforms does it cover?",
+            "answer": "<p>Vertical video for Reels, TikTok and Shorts. The same video works on all three, and one lesson shows what to change for each.</p>"
           }
         },
         "question_4": {
           "type": "question",
           "settings": {
-            "question": "Do I need an audience first?",
-            "answer": "<p>No. Week seven covers your first listeners: people you already know, guests who share their episode, and one place to post each week.</p>"
+            "question": "I hate being on camera. Will this work?",
+            "answer": "<p>Yes. One module is about formats where you never show your face: hands, voiceover, screen and product videos.</p>"
           }
         },
         "question_5": {
           "type": "question",
           "settings": {
-            "question": "When does the next round start?",
-            "answer": "<p>On the first Monday of each month. Change this to your own dates.</p>"
+            "question": "Is it for brands or for personal accounts?",
+            "answer": "<p>Both. The lessons work the same, and the examples include a coach, a bakery, a clothing shop and a software company.</p>"
           }
         },
         "question_6": {
@@ -60,22 +60,22 @@
         "question_7": {
           "type": "question",
           "settings": {
-            "question": "Is it live or recorded?",
-            "answer": "<p>Lessons are recorded, so you watch when it suits you. The Thursday calls are live and the recording is up the same day.</p>"
+            "question": "When does the next round start?",
+            "answer": "<p>On the first Monday of each month. Change this to your own dates.</p>"
           }
         },
         "question_8": {
           "type": "question",
           "settings": {
-            "question": "What software do I need?",
-            "answer": "<p>A free recording app and a free editor. The lessons use free tools only, and show where a paid one saves time.</p>"
+            "question": "What editing app do I need?",
+            "answer": "<p>Any free editor on your phone or laptop. The lessons show the steps in a free app and explain them so they work in any editor.</p>"
           }
         },
         "question_9": {
           "type": "question",
           "settings": {
             "question": "Can I join from any time zone?",
-            "answer": "<p>Yes. Calls are at a set time and recorded, and you can send questions in before the call.</p>"
+            "answer": "<p>Yes. The Tuesday reviews are recorded, and you can send your video in before the call.</p>"
           }
         }
       },
@@ -95,7 +95,7 @@
       "type": "vsl-cta",
       "settings": {
         "eyebrow": "",
-        "heading": "Still deciding? *Talk it through*",
+        "heading": "Still deciding? Talk it through",
         "text": "",
         "size": "normal",
         "button_label": "Book a free call",

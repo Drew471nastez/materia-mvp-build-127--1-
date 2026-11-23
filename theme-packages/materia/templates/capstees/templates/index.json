@@ -1,0 +1,355 @@
+{
+  "sections": {
+    "grid": {
+      "type": "products-grid",
+      "settings": {
+        "heading": "",
+        "text": "",
+        "items_to_show": 12,
+        "show_add_to_cart": false,
+        "button_label": "",
+        "button_link": "/collections/all",
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 16,
+        "header_alignment": "left",
+        "color_scheme": "default",
+        "section_width": "container",
+        "padding_top": 8,
+        "padding_bottom": 64,
+        "reset_spacing": true
+      }
+    },
+    "kinds": {
+      "type": "category-banners-2",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "layout": "grid_3",
+        "gap": 16,
+        "aspect_ratio_desktop": "1 / 1",
+        "header_alignment": "left",
+        "text_position": "bottom",
+        "sub_visibility": "always",
+        "corner_style": "theme",
+        "overlay_opacity": 0,
+        "overlay_opacity_hover": 6,
+        "title_style": "sm",
+        "heading_size_desktop": 18,
+        "heading_weight": 500,
+        "heading_uppercase": false,
+        "heading_letter_spacing": 0,
+        "heading_shadow": "none",
+        "enable_custom_styling": true,
+        "heading_color": "#111111",
+        "sub_color": "#3d3d3d",
+        "underline_color": "#111111",
+        "image_hover_scale": 103,
+        "padding_top": 32,
+        "padding_bottom": 64,
+        "mobile_layout": "stack",
+        "aspect_ratio_mobile": "1 / 1",
+        "heading_size_mobile": 18,
+        "side_padding_mobile": 16
+      },
+      "blocks": {
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "heading": "Shop by kind",
+            "size_style": "sm",
+            "custom_style": true,
+            "heading_font_weight": "500",
+            "heading_font_size_desktop": 20,
+            "heading_font_size_mobile": 18,
+            "space_below_desktop": 20,
+            "space_below_mobile": 16,
+            "heading_color": "#111111"
+          }
+        },
+        "caps": {
+          "type": "banner",
+          "settings": {
+            "heading": "Caps",
+            "subheading": "<p>Six panel cotton twill</p>",
+            "link": "/search?q=cap",
+            "image": "shopify://shop_images/capstees-tile-cap.webp"
+          }
+        },
+        "tees": {
+          "type": "banner",
+          "settings": {
+            "heading": "Tees",
+            "subheading": "<p>Heavy 240 gsm cotton</p>",
+            "link": "/search?q=tee",
+            "image": "shopify://shop_images/capstees-tile-tee.webp"
+          }
+        },
+        "crews": {
+          "type": "banner",
+          "settings": {
+            "heading": "Crewnecks",
+            "subheading": "<p>Brushed back fleece</p>",
+            "link": "/search?q=crewneck",
+            "image": "shopify://shop_images/capstees-tile-crew.webp"
+          }
+        }
+      },
+      "block_order": [
+        "heading",
+        "caps",
+        "tees",
+        "crews"
+      ]
+    },
+    "made": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "image_position": "left",
+        "image": "shopify://shop_images/capstees-cap-city.webp",
+        "image_alt": "Someone in a pale blue Fairweather cap looking out over a city park",
+        "aspect_w": 4,
+        "aspect_h": 5,
+        "image_radius": 10,
+        "text_column_width": 50,
+        "content_align": "left",
+        "gap_desktop": 72,
+        "padding_top_desktop": 64,
+        "padding_bottom_desktop": 64,
+        "side_padding_desktop": 48,
+        "padding_top_mobile": 20,
+        "padding_bottom_mobile": 40,
+        "side_padding_mobile": 20
+      },
+      "blocks": {
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "Made in runs of fifty",
+            "size_desktop": 30,
+            "size_mobile": 24
+          }
+        },
+        "text": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Every cap, tee and crewneck is cut, printed and stitched in one workshop, fifty at a time. When a run sells out we wait a few weeks and make the next one, so nothing ends up in a bin at the end of a season.</p><p>Heavy cotton, water based ink and embroidery that does not peel.</p>",
+            "size_desktop": 15,
+            "size_mobile": 14
+          }
+        },
+        "button": {
+          "type": "button",
+          "settings": {
+            "label": "Read how we make them",
+            "link": "/pages/about",
+            "button_style": "secondary"
+          }
+        }
+      },
+      "block_order": [
+        "heading",
+        "text",
+        "button"
+      ]
+    },
+    "promise": {
+      "type": "benefits-bar",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "bar_width": 100,
+        "icons_per_row_desktop": 4,
+        "horizontal_gap_desktop": 24,
+        "enable_circle_icons": false,
+        "icon_size": 22,
+        "icon_title_size": 14,
+        "icon_title_style": "500",
+        "reveal": false,
+        "top_padding_desktop": 48,
+        "bottom_padding_desktop": 24,
+        "icons_mobile_layout": "2",
+        "left_padding_mobile": 16,
+        "right_padding_mobile": 16,
+        "top_padding_mobile": 32,
+        "bottom_padding_mobile": 8
+      },
+      "blocks": {
+        "b1": {
+          "type": "icon",
+          "settings": {
+            "icon_title": "Free shipping over $75",
+            "icon": "truck"
+          }
+        },
+        "b2": {
+          "type": "icon",
+          "settings": {
+            "icon_title": "Free returns for 30 days",
+            "icon": "undo_alt"
+          }
+        },
+        "b3": {
+          "type": "icon",
+          "settings": {
+            "icon_title": "Sizes XS to XXL",
+            "icon": "ruler-combined"
+          }
+        },
+        "b4": {
+          "type": "icon",
+          "settings": {
+            "icon_title": "Made in small runs",
+            "icon": "seedling"
+          }
+        }
+      },
+      "block_order": [
+        "b1",
+        "b2",
+        "b3",
+        "b4"
+      ]
+    },
+    "mark": {
+      "type": "brand-logo",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "header_alignment": "center",
+        "heading": "",
+        "open_link_newtab": false,
+        "items_per_row": 1,
+        "items_per_row_mobile": 1,
+        "img_width": 60,
+        "image_ratio": "adapt",
+        "framed": false,
+        "carousel_pagination": "disable",
+        "padding_top": 72,
+        "padding_bottom": 0
+      },
+      "blocks": {
+        "logo": {
+          "type": "brand_items",
+          "settings": {
+            "image": "shopify://shop_images/capstees-mark.webp",
+            "link": "/pages/about"
+          }
+        }
+      },
+      "block_order": [
+        "logo"
+      ]
+    },
+    "statement": {
+      "type": "richtext1",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reveal": false,
+        "elements_alignment": "center",
+        "padding_top": 16,
+        "padding_bottom": 4
+      },
+      "blocks": {
+        "title": {
+          "type": "title",
+          "settings": {
+            "title_text": "Plain clothes, made a few at a time.",
+            "title_text_size": 20,
+            "title_mobile_size": 18,
+            "vertical_spacing_desktop": 12,
+            "vertical_spacing_mobile": 10
+          }
+        },
+        "text": {
+          "type": "description",
+          "settings": {
+            "description_text": "Fairweather is a small label making caps, tees and crewnecks in heavy cotton. We print and stitch each run in the same small workshop, keep the colours few and the fits easy, and we make more only when a run sells out.",
+            "description_text_size": 14,
+            "description_mobile_size": 14,
+            "description_left_padding_desktop": 300,
+            "description_right_padding_desktop": 300,
+            "description_left_padding_mobile": 8,
+            "description_right_padding_mobile": 8,
+            "vertical_gap_subheading_button_desktop": 0,
+            "vertical_gap_subheading_button_mobile": 0
+          }
+        }
+      },
+      "block_order": [
+        "title",
+        "text"
+      ]
+    },
+    "social": {
+      "type": "Social-icons-pro2",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reveal": false,
+        "show_mastercard": false,
+        "show_paypal": false,
+        "show_visa": false,
+        "show_apple_pay": false,
+        "show_google_pay": false,
+        "icon_height": 16,
+        "icon_gap": 22,
+        "element_spacing": 0,
+        "headline_spacing": 0,
+        "section_padding_top_bottom": 18,
+        "section_padding_left_right": 20,
+        "mobile_icon_height": 18,
+        "mobile_icon_gap": 24,
+        "mobile_section_padding_top_bottom": 16
+      },
+      "blocks": {
+        "instagram": {
+          "type": "icon",
+          "settings": {
+            "platform": "instagram",
+            "link": "https://instagram.com"
+          }
+        },
+        "tiktok": {
+          "type": "icon",
+          "settings": {
+            "platform": "tiktok",
+            "link": "https://tiktok.com"
+          }
+        },
+        "youtube": {
+          "type": "icon",
+          "settings": {
+            "platform": "youtube",
+            "link": "https://youtube.com"
+          }
+        },
+        "x": {
+          "type": "icon",
+          "settings": {
+            "platform": "x",
+            "link": "https://x.com"
+          }
+        }
+      },
+      "block_order": [
+        "instagram",
+        "tiktok",
+        "youtube",
+        "x"
+      ]
+    }
+  },
+  "order": [
+    "grid",
+    "kinds",
+    "made",
+    "promise",
+    "mark",
+    "statement",
+    "social"
+  ]
+}

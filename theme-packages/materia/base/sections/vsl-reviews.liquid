@@ -13,8 +13,6 @@ Video sales letter: reviews as cards, stars, the words, then who said it
     assign carousel = true
   endif
 -%}
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" data-vsl-font>
 <style>
   .vsl { position: relative; color: var(--vsl-text, #a3a3a8); font-family: var(--body-font, inherit); -webkit-font-smoothing: antialiased; }
   .vsl *, .vsl *::before, .vsl *::after { box-sizing: border-box; }
@@ -23,8 +21,8 @@ Video sales letter: reviews as cards, stars, the words, then who said it
   .vsl__eyebrow { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 0 0 18px; font-size: 11px; font-weight: 500; letter-spacing: .24em; text-transform: uppercase; color: rgba(255,255,255,.6); }
   .vsl__eyebrow::before, .vsl__eyebrow::after { content: ""; flex: 0 0 34px; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.5)); }
   .vsl__eyebrow::after { background: linear-gradient(270deg, rgba(255,255,255,0), rgba(255,255,255,.5)); }
-  .vsl__title { margin: 0; color: var(--vsl-head, #fff); font-family: var(--body-font, inherit); font-weight: 700; font-size: clamp(32px, 4.6vw, 52px); line-height: 1.06; letter-spacing: -.035em; text-wrap: balance; }
-  .vsl__title em, .vsl em.vsl-serif { font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif; font-style: italic; font-weight: 400; letter-spacing: -.01em; }
+  .vsl__title { margin: 0; color: var(--vsl-head, #fff); font-family: var(--heading-font, inherit); font-weight: 700; font-size: clamp(32px, 4.6vw, 52px); line-height: 1.06; letter-spacing: -.035em; text-wrap: balance; }
+  .vsl__title em, .vsl em.vsl-serif { font-style: normal; color: rgba(255,255,255,.6); }
   .vsl__lede { margin: 16px auto 0; max-width: 580px; font-size: 15px; line-height: 1.65; }
   .vsl__lede p { margin: 0; }
   .vsl-btn {
@@ -267,7 +265,7 @@ Video sales letter: reviews as cards, stars, the words, then who said it
       "id": "heading",
       "label": "Heading",
       "default": "What students *say*",
-      "info": "Words between asterisks are set in italic serif, like *this*. A | starts a new line."
+      "info": "Words between asterisks are set a shade lighter, like *this*. A | starts a new line."
     },
     {
       "type": "richtext",

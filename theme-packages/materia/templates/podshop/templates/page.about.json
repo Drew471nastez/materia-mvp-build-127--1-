@@ -1,0 +1,198 @@
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "fluid_container",
+        "reset_spacing": true,
+        "alignment": "left",
+        "height": "adapt",
+        "overlay_opacity": 0,
+        "padding_top": 56,
+        "padding_bottom": 40
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "Our story",
+            "header_size": "default",
+            "heading_font_size": 40,
+            "vertical_gap": 12,
+            "enable_heading_color": false
+          }
+        },
+        "description_1": {
+          "type": "description",
+          "settings": {
+            "description": "<p>Fieldhouse is a small print shop that makes shirts about the place we live: the river, the ballpark, the front porch on a summer night. Every piece is printed by hand, in our own shop, after you order it.</p>",
+            "enable_custom_style": false,
+            "description_font_size": 16
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_1"
+      ]
+    },
+    "image": {
+      "type": "image-section",
+      "settings": {
+        "color_scheme": "default",
+        "is_fullwidth": true,
+        "img_min_height": 62,
+        "img_min_height_mobile": 50,
+        "background_image": "shopify://shop_images/podshop-studio.webp",
+        "image_alt": "Red ink pulled across a screen on the print table",
+        "image_border_radius": 0,
+        "image_description": "",
+        "enable_image_text_background": false,
+        "background_position_y": 50,
+        "section_padding_top": 0,
+        "section_padding_bottom": 0,
+        "section_padding_top_mobile": 0,
+        "section_padding_bottom_mobile": 0,
+        "padding_lr_desktop": 0,
+        "padding_lr_mobile": 0
+      }
+    },
+    "how": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "content_alignment": "left",
+        "columns_desktop": 4,
+        "columns_tablet": 2,
+        "column_gap": 40,
+        "header_gap": 40,
+        "show_dividers": true,
+        "item_heading_size": 20,
+        "item_heading_size_mobile": 18,
+        "padding_top": 96,
+        "padding_bottom": 96,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "mobile_layout": "stack"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "How an order works"
+          }
+        },
+        "column_1": {
+          "type": "column",
+          "settings": {
+            "label": "Step 1",
+            "heading": "Pick a print",
+            "text": "<p>Choose the design, the colour and the size. Most prints come on tees and crewnecks, youth to adult 2XL.</p>",
+            "link_label": "",
+            "link": ""
+          }
+        },
+        "column_2": {
+          "type": "column",
+          "settings": {
+            "label": "Step 2",
+            "heading": "We print it",
+            "text": "<p>Your shirt is printed by hand the next working day with soft water based ink, then heat cured so it lasts.</p>",
+            "link_label": "",
+            "link": ""
+          }
+        },
+        "column_3": {
+          "type": "column",
+          "settings": {
+            "label": "Step 3",
+            "heading": "It ships",
+            "text": "<p>Folded, packed and on its way in 3 to 5 working days. Free shipping on orders over $75.</p>",
+            "link_label": "",
+            "link": ""
+          }
+        },
+        "column_4": {
+          "type": "column",
+          "settings": {
+            "label": "Step 4",
+            "heading": "Swap if needed",
+            "text": "<p>Wrong size? Tell us within 30 days and we print the right one at no cost.</p>",
+            "link_label": "Shipping and returns",
+            "link": "/pages/shipping"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "column_1",
+        "column_2",
+        "column_3",
+        "column_4"
+      ]
+    },
+    "studio": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "image": "shopify://shop_images/podshop-about-press.webp",
+        "image_alt": "A yellow print on the screen of the press",
+        "image_position": "left",
+        "image_radius": 0,
+        "aspect_w": 4,
+        "aspect_h": 5,
+        "text_column_width": 50,
+        "gap_desktop": 80,
+        "padding_top_desktop": 0,
+        "padding_bottom_desktop": 0,
+        "side_padding_desktop": 0,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 48,
+        "side_padding_mobile": 20
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "The print shop"
+          }
+        },
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Open Thursday to Sunday"
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Come by 214 Mill Street to see the press running, try on sizes and pick up an order on the day it is printed.</p><p>Bring a team, a school or a family reunion: we print group orders from ten shirts up.</p>"
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "label": "Get in touch",
+            "link": "/pages/contact"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_1",
+        "subheading_1",
+        "button_1"
+      ]
+    }
+  },
+  "order": [
+    "heading",
+    "image",
+    "how",
+    "studio"
+  ]
+}

@@ -56,22 +56,22 @@
         "faq_1": {
           "type": "faq",
           "settings": {
-            "question": "When do I choose my times?",
-            "answer": "<p>Straight after you pay. The confirmation email has a link to my calendar.</p>"
+            "question": "When do I get my plan?",
+            "answer": "<p>Straight after you pay, as a PDF and a calendar file, with a copy by email.</p>"
           }
         },
         "faq_2": {
           "type": "faq",
           "settings": {
-            "question": "Can I move a session?",
-            "answer": "<p>Yes, up to 24 hours before it starts.</p>"
+            "question": "Bought the wrong plan?",
+            "answer": "<p>Write within 14 days and I swap it for another one.</p>"
           }
         },
         "faq_3": {
           "type": "faq",
           "settings": {
-            "question": "Is the first call really free?",
-            "answer": "<p>Yes. Twenty minutes by video, booked from the <a href=\"/pages/book\">booking page</a>.</p>"
+            "question": "How does monthly coaching start?",
+            "answer": "<p>After you pay I send a short form, then your first four weeks within two days. <a href=\"/pages/book\">How coaching works</a></p>"
           }
         },
         "payment_badges_67Mgyc": {

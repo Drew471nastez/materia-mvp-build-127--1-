@@ -24,7 +24,7 @@
   assign pt = s.padding_top | default: 72
   assign pb = s.padding_bottom | default: 72
   assign count = section.blocks.size
-  if layout == 'feature' and count > 1
+  if layout != 'hero' and count > 1
     assign count = 1
   endif
 -%}
@@ -135,12 +135,32 @@
     #shopify-section-{{ sid }} .srh__grid { grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 64px; }
     #shopify-section-{{ sid }} .srh--feature .srh__grid { grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); }
   }
+  /* Stage: one release at the top of the page, its box large on the plain section colour, no panel behind it. */
+  #shopify-section-{{ sid }} .srh--stage .srh__art { padding: 0; background: none; border: 0; border-radius: 0; position: relative; }
+  #shopify-section-{{ sid }} .srh--stage .srh__art::after { content: ""; position: absolute; left: 18%; right: 18%; bottom: 2%; height: 7%; border-radius: 50%; background: rgba(0, 0, 0, .55); filter: blur(18px); z-index: -1; }
+  #shopify-section-{{ sid }} .srh--stage .srh__art img { max-width: 560px; filter: drop-shadow(0 30px 40px rgba(0, 0, 0, .55)); }
+  #shopify-section-{{ sid }} .srh--stage .srh__eyebrow { font-size: 12px; margin-bottom: 14px; }
+  #shopify-section-{{ sid }} .srh--stage .srh__title { line-height: 1; letter-spacing: -.01em; }
+  #shopify-section-{{ sid }} .srh--stage .srh__price { margin-top: 26px; font-size: 30px; }
+  #shopify-section-{{ sid }} .srh--stage .srh__price s { font-size: 17px; }
+  #shopify-section-{{ sid }} .srh--stage .ssp { margin-top: 18px; --ssp-btn: 48px; --ssp-wave: 48px; }
+  #shopify-section-{{ sid }} .srh--stage .srh__actions { align-items: center; gap: 22px; margin-top: 26px; }
+  #shopify-section-{{ sid }} .srh--stage .srh__go { margin-top: 0; min-height: 52px; padding: 0 30px; font-size: 16px; }
+  #shopify-section-{{ sid }} .srh__more { font-size: 15px; font-weight: 600; color: var(--color-heading); text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
+  #shopify-section-{{ sid }} .srh__more:hover { text-decoration-thickness: 2px; }
+  #shopify-section-{{ sid }} .srh__more:focus-visible { outline: 2px solid rgb(var(--color-heading-rgb)); outline-offset: 3px; }
+  @media (max-width: 989px) {
+    #shopify-section-{{ sid }} .srh--stage .srh__art img { max-width: 270px; }
+  }
+  @media (min-width: 990px) {
+    #shopify-section-{{ sid }} .srh--stage .srh__grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 72px; }
+  }
   @media (prefers-reduced-motion: reduce) {
     #shopify-section-{{ sid }} .srh__slide, #shopify-section-{{ sid }} .srh__dot::before { transition: none; }
     #shopify-section-{{ sid }} .srh:has(.ssp.is-playing) .srh__wavebg { animation: none; }
   }
 </style>
-<div class="srh srh--{{ layout }} section color-{{ color_scheme }} gradient" data-srh data-section-id="{{ sid }}"{% if s.accent != blank %} style="--srh-accent: {{ s.accent }};"{% endif %}>
+<div class="srh srh--{{ layout }}{% if layout == 'stage' %} srh--feature{% endif %} section color-{{ color_scheme }} gradient" data-srh data-section-id="{{ sid }}"{% if s.accent != blank %} style="--srh-accent: {{ s.accent }};"{% endif %}>
   {%- if s.background != blank -%}
     <div class="srh__bg" aria-hidden="true">{{ s.background | image_url: width: 1920 | image_tag: loading: 'eager', fetchpriority: 'low', widths: '750, 1200, 1920', sizes: '100vw', alt: '' }}</div>
   {%- endif -%}
@@ -268,18 +288,25 @@
   <span class="ssp__time" data-ssp-time>{% if ssp_src == blank %}{{ ssp_empty | default: 'No preview' }}{% else %}{{ ssp_clock }}{% endif %}</span>
 </div>
           {%- endcapture -%}
-          {%- if layout == 'feature' -%}
+          {%- if layout != 'hero' -%}
             <div class="srh__art" {{ block.shopify_attributes }}>
-              {%- if art != blank -%}{{ art | image_url: width: 1000 | image_tag: loading: 'lazy', widths: '500, 800, 1000', sizes: '(min-width: 990px) 40vw, 90vw', alt: name }}{%- else -%}{{ 'product-1' | placeholder_svg_tag: 'placeholder-svg' }}{%- endif -%}
+              {%- if art != blank -%}{%- if layout == 'stage' -%}{{ art | image_url: width: 1200 | image_tag: loading: 'eager', fetchpriority: 'high', widths: '600, 900, 1200', sizes: '(min-width: 990px) 46vw, 80vw', alt: name }}{%- else -%}{{ art | image_url: width: 1000 | image_tag: loading: 'lazy', widths: '500, 800, 1000', sizes: '(min-width: 990px) 40vw, 90vw', alt: name }}{%- endif -%}{%- else -%}{{ 'product-1' | placeholder_svg_tag: 'placeholder-svg' }}{%- endif -%}
             </div>
             <div class="srh__copy">
               {%- if b.eyebrow != blank -%}<p class="srh__eyebrow">{{ b.eyebrow | escape }}</p>{%- endif -%}
-              <h2 class="srh__title h2">{{ b.heading | default: name | escape }}</h2>
+              {%- if layout == 'stage' -%}<h1 class="srh__title h1">{{ b.heading | default: name | escape }}</h1>{%- else -%}<h2 class="srh__title h2">{{ b.heading | default: name | escape }}</h2>{%- endif -%}
               {%- if b.text != blank -%}<div class="srh__text rte"><p>{{ b.text | escape }}</p></div>{%- endif -%}
               {%- if b.list != blank -%}<div class="srh__list">{{ b.list }}</div>{%- endif -%}
               {{ price }}
               {{ player }}
-              <a class="srh__go" href="{{ url }}">{{ b.button_label | default: 'Get the pack' | escape }}</a>
+              {%- if layout == 'stage' -%}
+                <div class="srh__actions">
+                  <a class="srh__go" href="{{ url }}">{{ b.button_label | default: 'Get the pack' | escape }}</a>
+                  {%- if s.button_2_label != blank -%}<a class="srh__more" href="{{ s.button_2_link | default: routes.all_products_collection_url }}">{{ s.button_2_label | escape }}</a>{%- endif -%}
+                </div>
+              {%- else -%}
+                <a class="srh__go" href="{{ url }}">{{ b.button_label | default: 'Get the pack' | escape }}</a>
+              {%- endif -%}
               {%- if b.note != blank -%}<p class="srh__note">{{ b.note | escape }}</p>{%- endif -%}
             </div>
           {%- else -%}
@@ -494,7 +521,8 @@
       "default": "hero",
       "options": [
         { "value": "hero", "label": "Headline beside a release card" },
-        { "value": "feature", "label": "One release, large" }
+        { "value": "feature", "label": "One release, large" },
+        { "value": "stage", "label": "One release, top of the page" }
       ]
     },
     { "type": "header", "content": "Headline", "info": "Hero layout only." },
@@ -503,7 +531,7 @@
     { "type": "richtext", "id": "text", "label": "Text" },
     { "type": "text", "id": "button_label", "label": "First button", "default": "Shop packs" },
     { "type": "url", "id": "button_link", "label": "First button link" },
-    { "type": "text", "id": "button_2_label", "label": "Second button" },
+    { "type": "text", "id": "button_2_label", "label": "Second button", "info": "In the top of the page layout it shows as a link beside the release button." },
     { "type": "url", "id": "button_2_link", "label": "Second button link" },
     { "type": "text", "id": "note", "label": "Line under the buttons" },
     { "type": "header", "content": "Look" },

@@ -4,7 +4,7 @@
       "type": "vsl-cta",
       "settings": {
         "eyebrow": "Book a call",
-        "heading": "Thirty minutes, *no pitch*",
+        "heading": "Thirty minutes, no pitch",
         "text": "<p>Pick a time below. You get a confirmation by email with the video link.</p>",
         "size": "normal",
         "button_label": "",
@@ -39,7 +39,7 @@
       "type": "vsl-cards",
       "settings": {
         "eyebrow": "On the call",
-        "heading": "What *happens*",
+        "heading": "What happens on the call",
         "text": "",
         "columns": "3",
         "number_style": "tile",
@@ -53,15 +53,15 @@
         "card_1": {
           "type": "card",
           "settings": {
-            "title": "You tell us the idea",
-            "text": "<p>The topic, who it is for and why you want to make it. Five minutes.</p>"
+            "title": "You show us your account",
+            "text": "<p>What you post now, who it is for and what you want from it. Five minutes.</p>"
           }
         },
         "card_2": {
           "type": "card",
           "settings": {
-            "title": "We shape the show",
-            "text": "<p>Together we sketch a format you could repeat every week, and the first three episodes.</p>"
+            "title": "We sketch a month",
+            "text": "<p>Together we pick three topics and the first five videos you could film this week.</p>"
           }
         },
         "card_3": {
@@ -82,7 +82,7 @@
       "type": "vsl-cta",
       "settings": {
         "eyebrow": "",
-        "heading": "Rather *write to us?*",
+        "heading": "Rather write to us?",
         "text": "<p>Questions about the course reach the same inbox.</p>",
         "size": "normal",
         "button_label": "Send a message",

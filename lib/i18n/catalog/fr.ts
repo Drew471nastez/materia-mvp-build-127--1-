@@ -13700,7 +13700,17 @@ const words: Record<string, string> = {
  "Update adds a copy with the new version and your content. Your website stays as it is until you publish the copy.": "Mettre à jour ajoute une copie avec la nouvelle version et votre contenu. Votre site reste tel quel jusqu’à ce que vous publiiez la copie.",
  "Open copy": "Ouvrir la copie",
  "Could not update": "Mise à jour impossible",
- "Update theme": "Mettre à jour le thème"
+ "Update theme": "Mettre à jour le thème",
+ "Your connection dropped. Check you are online, then try again.": "La connexion a été coupée. Vérifie que tu es en ligne, puis réessaie.",
+ "Where is your bank account?": "Où se trouve ton compte bancaire ?",
+ "Choose a country.": "Choisis un pays.",
+ "Your payouts go to a bank in this country, in its currency. It can't be changed later.": "Tes virements vont vers une banque de ce pays, dans sa devise. Ce choix ne peut pas être modifié ensuite.",
+ "Payouts are not set up yet": "Les virements ne sont pas encore configurés",
+ "Opening your payments account": "Ouverture de ton compte de paiement",
+ "Your browser could not reach Stripe. Check your connection, turn off any content blocker for storelib.com, then try again.": "Ton navigateur n'a pas pu joindre Stripe. Vérifie ta connexion, désactive tout bloqueur de contenu pour storelib.com, puis réessaie.",
+ "Stripe did not answer just now. Try again in a minute.": "Stripe n'a pas répondu à l'instant. Réessaie dans une minute.",
+ "The form's sign in ran out. Try again to open a fresh one.": "La session du formulaire a expiré. Réessaie pour en ouvrir un nouveau.",
+ "The form could not open here. Try again, and if it keeps happening write to support@storelib.com.": "Le formulaire n'a pas pu s'ouvrir ici. Réessaie, et si cela continue, écris à support@storelib.com."
 }
 
 export default words

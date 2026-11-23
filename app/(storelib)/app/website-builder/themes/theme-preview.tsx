@@ -20,10 +20,15 @@
  * THE WEBSITE, AND NOTHING BEFORE IT (templates round 21, the owner: "it
  * first shows the picture, then swaps to the live website"). The frame is
  * asked for on the press that opens the window. Until the website says it
- * has drawn, the stage is the frame's own white on the quiet grey, with a
- * faint line along its top only if the wait passes half a second; then the
- * website fades in, once. No screenshot is drawn under it, so nothing is
- * swapped. A listing with no prerendered website (an uploaded theme), or one
+ * has drawn, the stage is the website's own ground: the colour of most of
+ * its first screen, known before it loads (lib/themes/template-preview-
+ * grounds.ts, written with the prerendered pages), so a dark shop never
+ * waits on white (round 22, the
+ * owner: "a white blank, then the website appears abruptly"). A faint line
+ * runs along its top only if the wait passes half a second. The website
+ * fades in once, out of that same colour, when its first screen's pictures
+ * and fonts are in, so nothing on it still pops in or reflows after the
+ * fade. No screenshot is drawn under it, so nothing is swapped. A listing with no prerendered website (an uploaded theme), or one
  * whose website does not answer, shows its full page screenshots instead
  * (public/themes/materia/<template>.webp and -phone.webp): the switch is a
  * crossfade between two pictures that are already there.
@@ -51,6 +56,7 @@ import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { TemplateAction, type TemplateCardState } from "@/components/website-builder/theme-template-card"
 import { templatePreviewPath, type ThemeListing } from "@/lib/themes/marketplace-shared"
+import { TEMPLATE_PREVIEW_GROUNDS } from "@/lib/themes/template-preview-grounds"
 
 /** In the address while a preview is open: &preview=slug, one history entry over the grid or the page. */
 export const PREVIEW_PARAM = "preview"
@@ -63,8 +69,8 @@ export const PREVIEW_RISE_MS = 240
 export const PREVIEW_SINK_MS = 200
 /** The switch between desktop and phone pictures, and the website settling into its new width. */
 export const PREVIEW_SWAP_MS = 240
-/** The website fading in once it has drawn. */
-export const PREVIEW_LIVE_FADE_MS = 220
+/** The website fading in, out of its own ground, once it has drawn: long enough to read as a settle, not a cut. */
+export const PREVIEW_LIVE_FADE_MS = 340
 /** Before this, a wait for the website shows nothing at all; after it, a faint line. */
 export const PREVIEW_QUIET_MS = 500
 
@@ -303,7 +309,7 @@ export function ThemePreview({ listing, state, waiting = false, viewHref = null,
             {/* ── The website, or the home page's pictures when there is none ── */}
             <div data-preview-stage="" className="relative min-h-0 flex-1 bg-[#eef0f3]">
               {shown && live ? (
-                <LiveSite key={live} src={live} device={on} name={shown.name} openedAt={openedAt} />
+                <LiveSite key={live} src={live} device={on} name={shown.name} openedAt={openedAt} ground={TEMPLATE_PREVIEW_GROUNDS[shown.slug]?.[on] ?? null} />
               ) : shown ? (
                 (["desktop", "phone"] as const).map((d) => {
                   const src = shots[d]
@@ -436,6 +442,8 @@ type FramedPage = { key: number; src: string }
 export const PREVIEW_PAGE_MS = 160
 /** A page that has not said it drew by now is shown as it is. */
 const PAGE_WAIT_MS = 4000
+/** The first page, loaded and not yet said to have drawn, is shown after this all the same. */
+const PAGE_DRAWN_GRACE_MS = 1500
 
 /** How long a website may take to say it drew before its address is checked. */
 const LIVE_CHECK_MS = 2500
@@ -454,18 +462,19 @@ const LIVE_DESKTOP_WIDTH = 1280
  * scripts/check-theme-preview-live.mjs.)
  *
  * The frame is in the page from the window's first frame, and is given its
- * address as the window lands (below). Its box is white
+ * address as the window lands (below). Its box is the website's own ground
  * at once (the whole stage for Desktop, a 390px frame on a computer for
- * Phone), so the wait is the frame's own colour and nothing else; past
+ * Phone), so the wait is the website's colour and nothing else; past
  * PREVIEW_QUIET_MS a faint line runs along its top. The website itself
  * fades in once, when its first page says it has drawn (a message from the
- * page's shim), or appears with the window when it was that quick.
+ * page's shim: the first screen's pictures and the fonts in), or appears
+ * with the window when it was that quick.
  *
  * A switch reflows the same page in place, so a visitor keeps the page they
  * had browsed to: the website dips for a moment while it lays itself out
  * at the new width and comes back, rather than being seen to jump.
  */
-function LiveSite({ src, device, name, openedAt }: { src: string; device: PreviewDevice; name: string; openedAt: React.RefObject<number> }) {
+function LiveSite({ src, device, name, openedAt, ground }: { src: string; device: PreviewDevice; name: string; openedAt: React.RefObject<number>; ground: string | null }) {
   /* The website's pages, each in its own frame: the one on show, and the next while it draws behind it (see GOING TO ANOTHER PAGE). */
   const [pages, setPages] = React.useState<FramedPage[]>(() => [{ key: 0, src }])
   const [front, setFront] = React.useState(0)
@@ -565,17 +574,23 @@ function LiveSite({ src, device, name, openedAt }: { src: string; device: Previe
         setPages((ps) => [...ps.filter((p) => p.key === frontRef.current), { key: k, src: href }])
         return
       }
+      /* Still arriving: the window's own fade shows it. Later: a fade of its own, once. */
+      const arrived = () => {
+        const early = performance.now() - (openedAt.current ?? 0) < PREVIEW_IN_MS * 0.6
+        setReady((r) => r ?? (early ? "with-window" : "fade"))
+      }
       if (data.type === "storelib:template-preview-drawn") {
         if (key > frontRef.current) show(key)
+        /* The first page is shown on this, its first screen complete, rather than on its load (every picture on it) or a guess. */
+        else arrived()
         return
       }
       if (data.type !== "storelib:template-preview") return
       tell()
       if (typeof data.path === "string") framedPage(data.path)
       if (key > frontRef.current) show(key)
-      /* Still arriving: the window's own fade shows it. Later: a fade of its own, once. */
-      const early = performance.now() - (openedAt.current ?? 0) < PREVIEW_IN_MS * 0.6
-      setReady((r) => r ?? (early ? "with-window" : "fade"))
+      /* Loaded but never said it drew: shown a moment later all the same. */
+      window.setTimeout(arrived, PAGE_DRAWN_GRACE_MS)
     }
     window.addEventListener("message", onMessage)
     return () => window.removeEventListener("message", onMessage)
@@ -630,9 +645,16 @@ function LiveSite({ src, device, name, openedAt }: { src: string; device: Previe
 
   /* Desktop on a narrow screen: the desktop layout, scaled to fit. */
   const scale = device === "desktop" && stage && stage.w > 0 && stage.w < LIVE_DESKTOP_MIN ? stage.w / LIVE_DESKTOP_WIDTH : 1
+  /*
+    The wait is on the ground its build wrote down (the colour of its first
+    screen), which the page saying its own page colour never changes: on a
+    light page under dark sections that would turn the wait light halfway.
+    A frame's own box, between two pages, is the page's colour.
+  */
+  const background = ground ?? siteBackground
   const frameStyle: React.CSSProperties = {
     ...(scale < 1 && stage ? { width: LIVE_DESKTOP_WIDTH, height: Math.ceil(stage.h / scale), transform: `scale(${scale})`, transformOrigin: "0 0" } : {}),
-    ...(siteBackground ? { backgroundColor: siteBackground } : {}),
+    ...((siteBackground ?? ground) ? { backgroundColor: siteBackground ?? ground ?? undefined } : {}),
   }
 
   return (
@@ -644,11 +666,12 @@ function LiveSite({ src, device, name, openedAt }: { src: string; device: Previe
           "relative h-full w-full overflow-hidden bg-white",
           device === "phone" && "md:max-w-[390px] md:rounded-[22px] md:shadow-[0_0_0_1px_rgba(17,24,39,0.08),0_16px_40px_-20px_rgba(17,24,39,0.35)]",
         )}
+        style={background ? { backgroundColor: background } : undefined}
       >
-        {/* The wait, said quietly and only once it is long enough to notice: a thin line along the top. */}
+        {/* The wait, said quietly and only once it is long enough to notice: a thin line along the top, light on a dark ground. */}
         {!ready || going ? (
           <div aria-hidden data-preview-live-loading="" className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-[2px] overflow-hidden">
-            <div className="h-full w-1/3 bg-[#1a1a2e]/15 [animation:wb-live-load_1.2s_cubic-bezier(0.45,0,0.55,1)_infinite] motion-reduce:[animation:none]" />
+            <div className={cn("h-full w-1/3 [animation:wb-live-load_1.2s_cubic-bezier(0.45,0,0.55,1)_infinite] motion-reduce:[animation:none]", isDark(background) ? "bg-white/20" : "bg-[#1a1a2e]/15")} />
           </div>
         ) : null}
         <div
@@ -656,7 +679,7 @@ function LiveSite({ src, device, name, openedAt }: { src: string; device: Previe
           data-preview-src={src}
           aria-hidden={!ready || undefined}
           inert={!ready}
-          className={cn("absolute inset-0", ready ? "opacity-100" : "pointer-events-none opacity-0", ready === "fade" && "transition-opacity ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none")}
+          className={cn("absolute inset-0 [will-change:opacity]", ready ? "opacity-100" : "pointer-events-none opacity-0", ready === "fade" && "transition-opacity ease-[cubic-bezier(0.25,0.1,0.25,1)] motion-reduce:transition-none")}
           style={ready === "fade" ? { transitionDuration: `${PREVIEW_LIVE_FADE_MS}ms` } : undefined}
         >
           {/* Not even an empty frame before then: making one is a document of its own, 15ms at a quarter speed. */}
@@ -694,4 +717,12 @@ function LiveSite({ src, device, name, openedAt }: { src: string; device: Previe
       </div>
     </div>
   )
+}
+
+/** A ground dark enough that a dark line on it would not show. */
+function isDark(color: string | null): boolean {
+  const hex = color && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color)?.[1]
+  const rgb = color && /^rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/i.exec(color)
+  const [r, g, b] = hex ? (hex.length === 3 ? [...hex].map((c) => parseInt(c + c, 16)) : [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16))) : rgb ? [rgb[1], rgb[2], rgb[3]].map(Number) : [255, 255, 255]
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b < 96
 }

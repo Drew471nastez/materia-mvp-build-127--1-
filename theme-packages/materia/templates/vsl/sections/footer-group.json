@@ -16,16 +16,17 @@
         "padding_top_mobile": 40,
         "padding_bottom_mobile": 28,
         "show_policies": true,
-        "mark": "wave",
+        "mark": "frame",
         "sticky_on": true,
         "sticky_pages": "home_product",
-        "sticky_product": "the-podcast-launch-course",
+        "sticky_product": "the-short-video-course",
         "sticky_text": "",
         "sticky_show_price": true,
         "sticky_button_label": "Join",
         "sticky_button_link": "#join",
         "sticky_after": 760,
-        "sticky_phone_only": false
+        "sticky_phone_only": false,
+        "show_payment": true
       }
     }
   },

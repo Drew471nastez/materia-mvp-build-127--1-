@@ -81,7 +81,7 @@
       "type": "vsl-cta",
       "settings": {
         "eyebrow": "",
-        "heading": "Which one is *for you?*",
+        "heading": "Which one is for you?",
         "text": "<p>Book a call and we point you to the right one.</p>",
         "size": "normal",
         "button_label": "Book a free call",

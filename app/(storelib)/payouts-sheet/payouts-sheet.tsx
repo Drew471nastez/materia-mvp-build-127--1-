@@ -4,6 +4,7 @@ import * as React from "react"
 import { CheckCircle2 } from "lucide-react"
 import { StripeConnectEmbedded } from "@/components/app/settings/stripe-connect-embedded"
 import { BANK_COLLECTION, SETUP_COLLECTION } from "@/lib/payments/stripe/setup-collection"
+import { readsLikeStripe } from "@/lib/payments/verify-id"
 
 type Form = "setup" | "bank"
 
@@ -41,7 +42,8 @@ export function PayoutsSheet() {
     const clientSecret = typeof data.clientSecret === "string" ? data.clientSecret : ""
     const publishableKey = typeof data.publishableKey === "string" ? data.publishableKey : ""
     if (!res.ok || !clientSecret.startsWith("accs_") || !publishableKey.startsWith("pk_")) {
-      throw new Error(typeof data.error === "string" && !/stripe|acct_|accs_/i.test(data.error) ? data.error : "Try again in a moment.")
+      /* The server's sentence says what to do; only Stripe's wire is kept out (lib/payments/verify-id). It used to drop any sentence naming Stripe. */
+      throw new Error(typeof data.error === "string" && data.error.trim() && !readsLikeStripe(data.error) ? data.error : "Try again in a moment.")
     }
     return { clientSecret, publishableKey }
   }, [link])

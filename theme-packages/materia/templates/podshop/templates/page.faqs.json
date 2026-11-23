@@ -1,0 +1,155 @@
+{
+  "sections": {
+    "faq": {
+      "type": "faq-tabs",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "tab_1_label": "Sizing",
+        "tab_2_label": "Printing",
+        "tab_3_label": "Shipping",
+        "tab_4_label": "Swaps and care",
+        "tab_5_label": "",
+        "open_first": true,
+        "allow_multiple_open": true,
+        "header_align": "left",
+        "section_max_width_desktop": 900,
+        "tabs_shadow": "none",
+        "tab_weight": "500",
+        "q_size": 17,
+        "q_weight": "700",
+        "a_size": 15,
+        "padding_top_desktop": 56,
+        "padding_bottom_desktop": 96,
+        "padding_top_mobile": 40,
+        "padding_bottom_mobile": 56,
+        "structured_data": true
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Sizing and FAQ",
+            "tag": "h1",
+            "size_enable": true,
+            "size_desktop": 40,
+            "size_mobile": 32
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Sizes, printing, shipping and care. Anything else, <a href=\"/pages/contact\">write to us</a>.</p>"
+          }
+        },
+        "faq_1": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "How do the tees fit?",
+            "answer": "<p>A regular unisex fit, true to size. Size up for a looser, boxier look.</p>"
+          }
+        },
+        "faq_2": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "How do the crewnecks fit?",
+            "answer": "<p>Roomy, cut for layering. Take your usual size, or size down for a closer fit.</p>"
+          }
+        },
+        "faq_3": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "Do you make youth sizes?",
+            "answer": "<p>Most prints come in youth XS to XL as well as adult S to 2XL. Pick Youth in the size list where it shows.</p>"
+          }
+        },
+        "faq_4": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "2",
+            "question": "How are the shirts printed?",
+            "answer": "<p>By hand on our own press, with water based ink that sinks into the cotton, then heat cured so it lasts.</p>"
+          }
+        },
+        "faq_5": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "2",
+            "question": "Can you print for my team or event?",
+            "answer": "<p>Yes, from ten shirts. Write to us with the design, the sizes and the date you need them.</p>"
+          }
+        },
+        "faq_6": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "2",
+            "question": "Why do you print to order?",
+            "answer": "<p>So nothing goes to waste and every size is always available. It adds a day or two before your order ships.</p>"
+          }
+        },
+        "faq_7": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "How long does shipping take?",
+            "answer": "<p>Orders are printed and shipped in 3 to 5 working days, with tracking.</p>"
+          }
+        },
+        "faq_8": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "What does shipping cost?",
+            "answer": "<p>Free over $75. Below that, the price is shown at checkout before you pay.</p>"
+          }
+        },
+        "faq_9": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "4",
+            "question": "What if the size is wrong?",
+            "answer": "<p>Write to us within 30 days. We print the right size and email a free label for the first one.</p>"
+          }
+        },
+        "faq_10": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "4",
+            "question": "How do I wash a printed shirt?",
+            "answer": "<p>Inside out, on cold, and tumble dry low. Do not iron over the print.</p>"
+          }
+        },
+        "faq_11": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "4",
+            "question": "What if a print is damaged?",
+            "answer": "<p>Send a photo and your order number and we reprint it at no cost.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1",
+        "faq_1",
+        "faq_2",
+        "faq_3",
+        "faq_4",
+        "faq_5",
+        "faq_6",
+        "faq_7",
+        "faq_8",
+        "faq_9",
+        "faq_10",
+        "faq_11"
+      ]
+    }
+  },
+  "order": [
+    "faq"
+  ]
+}

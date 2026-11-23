@@ -1,3 +1,4 @@
+/* Templates round 22: a running coach, built from the theme's own sections (hero image, marquee, image with text, products, rows, steps, testimonials, gallery, FAQ with image, banner). */
 {
   "sections": {
     "main": {
@@ -21,99 +22,88 @@
         "number_products_per_page": true
       }
     },
-    "offers": {
-      "type": "coach2-offers",
+    "plans": {
+      "type": "products-listing",
       "settings": {
-        "background": "#f3f4f6",
-        "eyebrow": "Work with me",
-        "heading": "Three ways to work together",
-        "text": "<p>Every client starts with the same free call. Then we pick what fits where you are now. Many companies pay for it from a training budget.</p>",
-        "note": "<p>Buying for several managers at your company? <a href=\"/pages/contact\">Ask about company rates</a></p>",
-        "padding_top": 88,
-        "padding_bottom": 88
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "items_to_show": 4,
+        "items_per_row": 4,
+        "header_alignment": "left",
+        "show_rating": false,
+        "show_swatches": false
       },
       "blocks": {
-        "offer_1": {
-          "type": "offer",
+        "heading_1": {
+          "type": "heading",
           "settings": {
-            "image": "shopify://shop_images/coach-offer-one.webp",
-            "image_alt": "Mateo at a meeting table",
-            "featured": false,
-            "flag": "",
-            "label": "One to one",
-            "title": "Monthly coaching",
-            "price": "$390",
-            "per": "a month",
-            "text": "Two calls a month and messages in between, for managers who want someone in their corner.",
-            "points": "Two 60 minute calls a month\nMessages answered within a working day\nA one page plan we update each month\nStop or pause any month",
-            "button_label": "See the details",
-            "button_link": "/collections/all"
+            "text": "Training plans"
           }
         },
-        "offer_2": {
-          "type": "offer",
+        "button_2": {
+          "type": "button",
           "settings": {
-            "image": "shopify://shop_images/coach-offer-group.webp",
-            "image_alt": "Mateo at a whiteboard, arms crossed",
-            "featured": true,
-            "flag": "Most managers start here",
-            "label": "Small group",
-            "title": "First 90 Days",
-            "price": "$990",
-            "per": "8 weeks",
-            "text": "Eight new managers, eight weeks, one topic a week: delegation, feedback, one to ones, meetings, hiring and the plan.",
-            "points": "Eight live sessions on video\nA workbook for each week\nTwo one to one calls with me\nA group of managers to stay in touch with",
-            "button_label": "Join the next group",
-            "button_link": "/collections/all"
-          }
-        },
-        "offer_3": {
-          "type": "offer",
-          "settings": {
-            "image": "shopify://shop_images/coach-offer-day.webp",
-            "image_alt": "Mateo explaining at a whiteboard",
-            "featured": false,
-            "flag": "",
-            "label": "For your team",
-            "title": "Team day",
-            "price": "$2,400",
-            "per": "one day",
-            "text": "A full day with you and your team on how you work together: roles, meetings, decisions and the next quarter.",
-            "points": "A call with you before the day\nSix hours together, in person or online\nEverything agreed, written up within a week\nA follow up call after 30 days",
-            "button_label": "Plan a team day",
-            "button_link": "/collections/all"
+            "text": "All plans",
+            "link": "/collections/all",
+            "position": "header",
+            "button_style": "secondary"
           }
         }
       },
       "block_order": [
-        "offer_1",
-        "offer_2",
-        "offer_3"
+        "heading_1",
+        "button_2"
       ]
     },
     "cta": {
-      "type": "coach2-cta",
+      "type": "banner3",
       "settings": {
-        "background": "#ffffff",
-        "eyebrow": "Free first call",
-        "heading": "Let's look at your week",
-        "text": "<p>Twenty minutes on video. You tell me about your team; I say honestly whether I can help.</p>",
-        "button_label": "Book a free call",
-        "button_link": "/pages/book",
-        "note": "No pitch. If we are not a fit, I will say so.",
-        "avatar": "shopify://shop_images/coach-mateo-avatar.webp",
-        "name": "Mateo Cruz",
-        "role": "Leadership coach",
-        "points": "Where your team is now\nWhat is taking your time\nOne next step, either way",
-        "heading_size": 64,
-        "padding_top": 8,
-        "padding_bottom": 96
-      }
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "banner_surface": "section",
+        "max_width": 720,
+        "pad_top_desktop": 96,
+        "pad_bottom_desktop": 96,
+        "text_align": "center"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Free plan check",
+            "transform": "uppercase"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Not sure which plan fits?",
+            "transform": "none"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "Send me your last few weeks of running and your race date. I will tell you where to start, free."
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "Ask Amara",
+            "link": "/pages/contact"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
     }
   },
   "order": [
     "main",
-    "offers",
+    "plans",
     "cta"
   ]
 }

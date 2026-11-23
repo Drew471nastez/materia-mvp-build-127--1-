@@ -4,18 +4,18 @@
       "type": "vsl-split",
       "settings": {
         "image": "shopify://shop_images/vsl-host.webp",
-        "image_alt": "The course host laughing at a microphone",
+        "image_alt": "The course host holding a video camera rig",
         "image_side": "left",
         "ratio": "4 / 5",
         "eyebrow": "About",
-        "heading": "I make a podcast every week. *Now I teach it.*",
+        "heading": "I post a video every week. Now I teach it.",
         "heading_tag": "h1",
-        "text": "<p>Write your story here: the show you host, how long you have made it, and the moment you started teaching it.</p><p>Keep it short and plain. People join a course because of the person running it, so say who you are.</p>",
-        "points": "Hosts a weekly interview show\nProduces shows for coaches and small studios\nRuns every Thursday call himself",
+        "text": "<p>Write your story here: what you film, who you have made videos for, and the moment you started teaching it.</p><p>Keep it short and plain. People join a course because of the person running it, so say who you are.</p>",
+        "points": "Films and edits short videos every week\nMakes video for cafés, studios and small brands\nRuns every Tuesday review himself",
         "social_instagram": "https://www.instagram.com/",
         "social_youtube": "https://www.youtube.com/",
-        "social_spotify": "https://open.spotify.com/",
-        "social_tiktok": "",
+        "social_spotify": "",
+        "social_tiktok": "https://www.tiktok.com/",
         "social_x": "",
         "social_linkedin": "",
         "social_website": "",
@@ -33,7 +33,7 @@
       "type": "vsl-cards",
       "settings": {
         "eyebrow": "How I teach",
-        "heading": "Short lessons, *real episodes*",
+        "heading": "Short lessons, real videos",
         "text": "",
         "columns": "3",
         "number_style": "tile",
@@ -48,21 +48,21 @@
           "type": "card",
           "settings": {
             "title": "One idea per lesson",
-            "text": "<p>Every lesson is under twelve minutes and ends with one thing to record or fix that week.</p>"
+            "text": "<p>Every lesson is under ten minutes and ends with one thing to film or post that week.</p>"
           }
         },
         "card_2": {
           "type": "card",
           "settings": {
-            "title": "Your own show",
-            "text": "<p>You work on your podcast from day one, not on a made up example.</p>"
+            "title": "Your own account",
+            "text": "<p>You work on your own videos from day one, not on a made up example.</p>"
           }
         },
         "card_3": {
           "type": "card",
           "settings": {
-            "title": "Live every Thursday",
-            "text": "<p>Bring an episode. We listen together and you leave with changes.</p>"
+            "title": "Live every Tuesday",
+            "text": "<p>Send a video in. We watch it together and you leave with changes.</p>"
           }
         }
       },
@@ -88,7 +88,7 @@
         "figure_1": {
           "type": "figure",
           "settings": {
-            "value": "8 weeks",
+            "value": "6 weeks",
             "label": "Course length",
             "note": "About three hours a week",
             "icon": "clock"
@@ -97,8 +97,8 @@
         "figure_2": {
           "type": "figure",
           "settings": {
-            "value": "8 calls",
-            "label": "Live on Thursdays",
+            "value": "6 reviews",
+            "label": "Live on Tuesdays",
             "note": "Recorded if you miss one",
             "icon": "calendar"
           }
@@ -125,7 +125,7 @@
         "layout": "carousel",
         "autoplay": true,
         "eyebrow": "Students",
-        "heading": "What students *say*",
+        "heading": "What students say",
         "text": "",
         "sample_note": "Sample reviews. Replace them with your students’ own words.",
         "prev_label": "Previous",
@@ -142,8 +142,8 @@
           "type": "review",
           "settings": {
             "stars": 5,
-            "headline": "Episode one out in two weeks",
-            "quote": "<p>I had been planning a show for two years. The format week made me pick one idea and record it, and the first episode was out by week two.</p>",
+            "headline": "Thirty videos in one month",
+            "quote": "<p>I used to film one video and then stall for two weeks. The planning day gave me a month of ideas, and I filmed them in two afternoons.</p>",
             "name": "Maya Ruiz",
             "role": "Career coach"
           }
@@ -152,18 +152,18 @@
           "type": "review",
           "settings": {
             "stars": 5,
-            "headline": "Editing stopped eating my weekend",
-            "quote": "<p>The one hour edit is the reason I am still publishing. Cut, level, export, done. I used to lose a whole Sunday to it.</p>",
+            "headline": "People stay past the first second now",
+            "quote": "<p>The first three seconds lesson changed everything. I stopped opening with hello and my videos stopped losing people straight away.</p>",
             "name": "Daniel Kim",
-            "role": "Founder, design studio"
+            "role": "Founder, ceramics studio"
           }
         },
         "review_3": {
           "type": "review",
           "settings": {
             "stars": 5,
-            "headline": "Guests said yes",
-            "quote": "<p>I used the guest email from the kit word for word. Four of the six people I asked said yes in the first month.</p>",
+            "headline": "Editing in forty minutes",
+            "quote": "<p>Cut, captions, music, export. I follow the same order every time and it takes me under an hour, on my phone.</p>",
             "name": "Priya Shah",
             "role": "Nutritionist"
           }
@@ -172,20 +172,20 @@
           "type": "review",
           "settings": {
             "stars": 5,
-            "headline": "Sounds like a real show",
-            "quote": "<p>I bought the cheapest microphone on the gear list and recorded in a wardrobe. Nobody can tell.</p>",
+            "headline": "Our shop account finally has a plan",
+            "quote": "<p>I run social for a small bakery. The weekly schedule means we post four times a week without it taking over my job.</p>",
             "name": "Tom Becker",
-            "role": "Secondary school teacher"
+            "role": "Social media lead, bakery"
           }
         },
         "review_5": {
           "type": "review",
           "settings": {
             "stars": 5,
-            "headline": "A reason to keep going",
-            "quote": "<p>The Thursday calls kept me going after the launch buzz wore off. Ten episodes out and I still look forward to recording.</p>",
+            "headline": "The Tuesday reviews are worth it alone",
+            "quote": "<p>Hearing someone pick apart my video for two minutes taught me more than a month of guessing.</p>",
             "name": "Ana Lima",
-            "role": "Therapist"
+            "role": "Yoga teacher"
           }
         }
       },
@@ -201,7 +201,7 @@
       "type": "vsl-cta",
       "settings": {
         "eyebrow": "",
-        "heading": "Start with a *conversation*",
+        "heading": "Start with a conversation",
         "text": "",
         "size": "big",
         "button_label": "Book a free call",

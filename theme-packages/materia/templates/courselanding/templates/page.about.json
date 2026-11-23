@@ -1,97 +1,375 @@
 {
   "sections": {
-    "letter": {
-      "type": "courselanding-letter",
+    "coach": {
+      "type": "Image-and-video-text",
       "settings": {
-        "heading": "About the course,",
-        "heading_accent": "and who teaches it",
-        "text": "<p>I spent nine years at a bank, talking to people about loans and savings. The ones who were doing well rarely earned the most. They had a simple plan, and they looked at it.</p><p>So this course is not another app to download. <strong>Knowing where it goes, a plan you keep and saving first</strong> matter far more than any tool, and a spreadsheet you understand beats one you do not.</p><p>Four weeks, twenty minutes a day. <em>You will know where every pound, euro or dollar went by the end of the first week.</em></p>",
-        "name": "Nina Hart",
-        "role": "Money teacher, nine years in banking. Write your own letter here.",
-        "image": "shopify://shop_images/courselanding-about-desk.webp",
-        "image_alt": "A woman typing at a wooden table by a bright window",
-        "anchor": "",
-        "accent": "#17804c",
-        "padding_top": 32
-      }
-    },
-    "modules": {
-      "type": "courselanding-modules",
-      "settings": {
-        "heading": "Four weeks,",
-        "heading_accent": "one idea each",
-        "text": "<p>Every week builds on the one before. Do them in order, at your own pace.</p>",
-        "anchor": "",
-        "accent": "#17804c"
+        "color_scheme": "default",
+        "section_width": "container",
+        "image_position": "right",
+        "text_column_width": 50,
+        "content_align": "left",
+        "content_gap": 18,
+        "media_type": "image",
+        "image": "shopify://shop_images/courselanding-coach.webp",
+        "image_alt": "Lena Moritz stretching on a running track before a session",
+        "aspect_w": 4,
+        "aspect_h": 5,
+        "image_fit": "cover",
+        "image_radius": 6,
+        "gap_desktop": 80,
+        "padding_top_desktop": 72,
+        "padding_bottom_desktop": 104,
+        "padding_top_mobile": 32,
+        "padding_bottom_mobile": 56,
+        "mobile_order": "media_first"
       },
       "blocks": {
-        "module_1": {
-          "type": "module",
+        "eyebrow_1": {
+          "type": "eyebrow",
           "settings": {
-            "label": "Week 1",
-            "title": "Where it goes",
-            "text": "Track a month of spending without a spreadsheet habit you will drop.",
-            "lessons": "Your money in one place\nWhat a month really costs\nFixed, flexible and forgotten\nSubscriptions you do not use\nYour first honest number\nTask: log every spend for seven days"
+            "text": "Your coach",
+            "enable_custom_style": true,
+            "color": "#f25c05",
+            "size": 13
           }
         },
-        "module_2": {
-          "type": "module",
+        "heading_1": {
+          "type": "heading",
           "settings": {
-            "label": "Week 2",
-            "title": "A plan you keep",
-            "text": "Build a budget around the bills you already have, not the ones you wish you had.",
-            "lessons": "Pay yourself first\nThree pots, not thirty categories\nA budget for irregular costs\nCouples and shared bills\nWhen the month goes wrong\nTask: your first full budget"
+            "text": "I coach people who never thought they would run",
+            "tag": "h1",
+            "size_desktop": 44,
+            "size_mobile": 30
           }
         },
-        "module_3": {
-          "type": "module",
+        "subheading_1": {
+          "type": "subheading",
           "settings": {
-            "label": "Week 3",
-            "title": "Debt and a cushion",
-            "text": "Pay down what costs you most and build a buffer for the surprises.",
-            "lessons": "What your debt really costs\nWhich one to pay first\nAn emergency fund that fits\nTalking to your bank\nCredit scores, plainly\nTask: your payoff plan"
+            "text": "<p>Write your own story here. Keep it plain: when you started, what went wrong the first time, and what you do differently with the people you coach now.</p><p>Every Sunday I read the week you logged and answer questions in a short video. That part is not automated, and it is the part runners say helps most.</p>"
           }
         },
-        "module_4": {
-          "type": "module",
+        "button_1": {
+          "type": "button",
           "settings": {
-            "label": "Week 4",
-            "title": "Saving and investing",
-            "text": "Make saving automatic and learn how index funds and pensions work.",
-            "lessons": "Saving on autopilot\nPensions and workplace schemes\nIndex funds, plainly\nFees that eat returns\nA plan for the next year\nTask: set up one automatic transfer"
+            "label": "Start the plan",
+            "link": "/#shopify-section-pricing",
+            "button_style": "primary",
+            "radius": 6
           }
         }
       },
       "block_order": [
-        "module_1",
-        "module_2",
-        "module_3",
-        "module_4"
+        "eyebrow_1",
+        "heading_1",
+        "subheading_1",
+        "button_1"
       ]
     },
-    "cta": {
-      "type": "courselanding-cta",
+    "group": {
+      "type": "Image-and-video-text",
       "settings": {
-        "promise_days": "30",
-        "promise_unit": "days",
-        "promise_title": "Watch the first week, then decide",
-        "promise_text": "If the course is not for you, write within 30 days and you get every cent back. No form to fill in.",
-        "heading": "Your first real budget is",
-        "heading_accent": "one lesson",
-        "heading_after": "away",
-        "text": "<p>Twenty four lessons, four live calls, the budget spreadsheet and the workbook.</p>",
-        "button_label": "Join the course",
-        "to_checkout": true,
-        "button_link": "/collections/all",
-        "note": "One payment. Lifetime access.",
-        "accent": "#17804c",
-        "padding_top": 24
-      }
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "image_position": "left",
+        "text_column_width": 50,
+        "content_align": "left",
+        "content_gap": 18,
+        "media_type": "image",
+        "image": "shopify://shop_images/courselanding-group.webp",
+        "image_alt": "Three runners on an easy run together along a park road",
+        "aspect_w": 1,
+        "aspect_h": 1,
+        "image_fit": "cover",
+        "image_radius": 6,
+        "gap_desktop": 80,
+        "padding_top_desktop": 104,
+        "padding_bottom_desktop": 104,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "mobile_order": "media_first"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Why this plan",
+            "enable_custom_style": true,
+            "color": "#f25c05",
+            "size": 13
+          }
+        },
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Written for the runners at the back of the group",
+            "tag": "h2",
+            "size_desktop": 40,
+            "size_mobile": 28
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Most plans are written by fast people for fast people. This one is built on what worked for beginners in nine years of Tuesday night club runs: slow running, small steps up, and a reason for every session.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_1",
+        "subheading_1"
+      ]
+    },
+    "how": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "columns_desktop": 3,
+        "column_gap": 48,
+        "header_gap": 40,
+        "show_dividers": true,
+        "enable_custom_style": true,
+        "label_color": "#f25c05",
+        "item_heading_color": "#15171a",
+        "text_color": "#50545c",
+        "divider_color": "#e6e7ea",
+        "item_heading_size": 22,
+        "padding_top": 96,
+        "padding_bottom": 96,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "How I coach",
+            "size_enable": true,
+            "size_desktop": 40,
+            "size_mobile": 28,
+            "weight_enable": true,
+            "weight": "700"
+          }
+        },
+        "column_1": {
+          "type": "column",
+          "settings": {
+            "label": "One",
+            "heading": "Time, not pace",
+            "text": "<p>Runs are set in minutes and by feel. You never chase a number on a watch.</p>"
+          }
+        },
+        "column_2": {
+          "type": "column",
+          "settings": {
+            "label": "Two",
+            "heading": "Easy weeks on purpose",
+            "text": "<p>Every fourth week is lighter. That is where the fitness from the last three settles in.</p>"
+          }
+        },
+        "column_3": {
+          "type": "column",
+          "settings": {
+            "label": "Three",
+            "heading": "Strength twice a week",
+            "text": "<p>Ten minutes after a run, no gym. It is the cheapest way to stay uninjured.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "column_1",
+        "column_2",
+        "column_3"
+      ]
+    },
+    "reviews": {
+      "type": "testimonials",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "display_mode": "carousel",
+        "show_quote_mark": false,
+        "show_rating": true,
+        "columns": 3,
+        "column_gap": 20,
+        "header_alignment": "left",
+        "card_style": "outline",
+        "card_align": "left",
+        "card_padding": 28,
+        "card_content_gap": 16,
+        "card_radius": 8,
+        "show_arrow": true,
+        "carousel_pagination": "show",
+        "pagination_style": "progress",
+        "pagination_position": "left",
+        "pagination_spacing": 28,
+        "enable_custom_colors": true,
+        "card_bg": "#ffffff",
+        "card_border_color": "#e6e7ea",
+        "quote_color": "#15171a",
+        "enable_custom_typography": true,
+        "quote_size": 17,
+        "autoplay": false,
+        "infinite": false,
+        "reveal": false,
+        "padding_top": 96,
+        "padding_bottom": 104,
+        "header_spacing_desktop": 36,
+        "columns_mobile": 1.15,
+        "header_spacing_mobile": 24
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "enabled": true,
+            "text": "Runners"
+          }
+        },
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "enabled": true,
+            "text": "From the start line"
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "enabled": true,
+            "text": "<p>Sample quotes to show the layout. Replace them with your runners’ own words.</p>"
+          }
+        },
+        "testimonial_1": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>I had started couch to 5K three times and quit three times. This was the first plan that told me why the slow runs mattered, so I actually did them.</p>",
+            "rating": 5,
+            "name": "Sample name",
+            "role": "First half marathon at 41"
+          }
+        },
+        "testimonial_2": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Missing week seven with a cold felt like the end. The Sunday video told me exactly how to pick it back up, and I lost nothing.</p>",
+            "rating": 5,
+            "name": "Sample name",
+            "role": "Nurse, runs before shifts"
+          }
+        },
+        "testimonial_3": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>The race week checklist is the best page in the course. I knew what to eat, what to wear and when to set off.</p>",
+            "rating": 5,
+            "name": "Sample name",
+            "role": "Finished smiling"
+          }
+        },
+        "testimonial_4": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Four runs a week sounded like a lot. Three of them are short, and the long one became my favourite hour of the week.</p>",
+            "rating": 5,
+            "name": "Sample name",
+            "role": "Father of two"
+          }
+        },
+        "testimonial_5": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>I am slow and I will stay slow. Nobody in the course minds, and the plan never made me feel like I was behind.</p>",
+            "rating": 5,
+            "name": "Sample name",
+            "role": "Started at 58"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_1",
+        "subheading_1",
+        "testimonial_1",
+        "testimonial_2",
+        "testimonial_3",
+        "testimonial_4",
+        "testimonial_5"
+      ]
+    },
+    "final": {
+      "type": "banner3",
+      "settings": {
+        "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636",
+        "section_width": "full_width",
+        "text_align": "center",
+        "max_width": 820,
+        "banner_surface": "section",
+        "pad_top_desktop": 112,
+        "pad_bottom_desktop": 112,
+        "section_padding_top": 0,
+        "section_padding_bottom": 0,
+        "section_pad_left": 0,
+        "section_pad_right": 0,
+        "pad_top_mobile": 72,
+        "pad_bottom_mobile": 76,
+        "section_padding_top_mobile": 0,
+        "section_padding_bottom_mobile": 0,
+        "section_pad_left_mobile": 0,
+        "section_pad_right_mobile": 0,
+        "stack_gap": 18,
+        "sub_btn_gap": 30,
+        "reveal": false
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Your first run is this week",
+            "enable_custom_style": true,
+            "font": "heading",
+            "weight": "700",
+            "transform": "none",
+            "letterspace": 0,
+            "lineheight": "1.05",
+            "size_d": 60,
+            "size_m": 38,
+            "color": "#ffffff"
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "Sixteen weeks from now you could be at a start line. It begins with twenty easy minutes.",
+            "enable_custom_style": true,
+            "size_d": 18,
+            "size_m": 16,
+            "color": "#ffffff",
+            "opacity": 92
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "label": "Start the plan",
+            "link": "/#shopify-section-pricing"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1",
+        "button_1"
+      ]
     }
   },
   "order": [
-    "letter",
-    "modules",
-    "cta"
+    "coach",
+    "group",
+    "how",
+    "reviews",
+    "final"
   ]
 }

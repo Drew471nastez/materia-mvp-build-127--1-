@@ -165,7 +165,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Pick the part of life that needs a system",
+            "text": "Pick the part of life to sort out",
             "size_desktop": 40,
             "size_mobile": 28
           }
@@ -451,13 +451,14 @@
     "newsletter": {
       "type": "newsletter",
       "settings": {
-        "form_layout": "horizontal",
+        "form_layout": "vertical",
         "email_placeholder": "you@example.com",
         "btn_text": "Sign up",
         "note": "One email per new template. Unsubscribe from any of them.",
-        "padding_top": 96,
-        "padding_bottom": 104,
-        "header_alignment": "left"
+        "padding_top": 88,
+        "padding_bottom": 96,
+        "header_alignment": "center",
+        "section_width": "container"
       },
       "blocks": {
         "heading_1": {
@@ -483,7 +484,7 @@
       "settings": {
         "background": "#fbfbfa",
         "eyebrow": "Look inside",
-        "heading": "See every template before you buy",
+        "heading": "See every template <mark>before you buy</mark>",
         "padding_top": 88,
         "padding_bottom": 104
       },

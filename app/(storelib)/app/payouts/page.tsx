@@ -5,7 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe";
 import { PayoutsClient } from "./payouts-client";
 import { StorelibPaymentsInline } from "@/components/app/settings/storelib-payments-inline";
-import { checkoutReadyForCreator } from "@/lib/payments/service";
+import { checkoutReadyForCreator, overview } from "@/lib/payments/service";
+import { StorelibPaymentsCardLoading } from "@/components/app/settings/storelib-payments-card";
 import { TryProStrip } from "@/components/app/announcement-bar-mobile";
 import { pickBalance } from "@/lib/payments/display-currency";
 import { ledgerCurrency } from "@/lib/payments/ledger-currency";
@@ -46,11 +47,11 @@ export default async function PayoutsPage() {
   if (access.kind === "none") return noStorePage("/app/payouts")
   const canManage = access.isOwner || !!access.acting?.permissions.includes("payouts_manage")
 
-  const { data: creator, error: creatorError } = await adminSupabase
-    .from("creators")
-    .select("*")
-    .eq("id", access.creatorId)
-    .single();
+  /* The row and whether checkout is open, asked together: both need only the store's id. */
+  const [{ data: creator, error: creatorError }, paymentsReady] = await Promise.all([
+    adminSupabase.from("creators").select("*").eq("id", access.creatorId).single(),
+    checkoutReadyForCreator(access.creatorId),
+  ]);
 
   /* A read that failed is not "no store" (round 51): thrown, and app/app/error.tsx asks again quietly. It sent a seller to /onboarding. */
   if (creatorError) dataOrThrow("creator", { data: creator, error: creatorError });
@@ -58,7 +59,6 @@ export default async function PayoutsPage() {
     redirect("/onboarding");
   }
 
-  const paymentsReady = await checkoutReadyForCreator(creator.id)
 
   return (
     <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter">
@@ -84,7 +84,10 @@ export default async function PayoutsPage() {
           </header>
           <div className="mt-4">
             {canManage && access.isOwner ? (
-              <StorelibPaymentsInline compact />
+              /* Drawn from what Storelib already knows (no Stripe call), then brought up to date in the browser: no spinner, and setup resumes on the step it was left on. */
+              <Suspense fallback={<SetupWaiting />}>
+                {SetupCard({ creatorId: creator.id, userId: creator.user_id })}
+              </Suspense>
             ) : (
               /* Setting up payments is the account holder's own identity: the owner's whatever is given (lib/team/money). */
               <p className="rounded-2xl border border-[#e5e7eb]/60 bg-white px-4 py-4 text-[14px] text-[#6b7280] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
@@ -158,6 +161,29 @@ function PayoutsWaiting({ label }: { label: string }) {
         <ShimmerRows rows={3} rowHeight={56} cols={["30%", "18%", "12%"]} bare />
       </div>
     </Shimmer>
+  );
+}
+
+/*
+  THE SETUP CARD, FROM THE SERVER. It used to start empty and ask for its
+  data from the browser once the page had loaded: a spinner on every visit,
+  then the card. The stored state (no Stripe call) is read here and drawn at
+  once; the browser then asks Stripe for anything newer.
+*/
+async function SetupCard({ creatorId, userId }: { creatorId: string; userId: string }) {
+  const initial = await overview({ id: creatorId, userId, email: null }, { sync: false }).catch((error: unknown) => {
+    console.error("[Payouts] setup card not read on the server:", error instanceof Error ? error.message.slice(0, 160) : "unknown");
+    return null;
+  });
+  return <StorelibPaymentsInline compact initial={initial} />;
+}
+
+/* Only on a slow read: invisible for the first 300ms, so a quick one never flashes a skeleton. */
+function SetupWaiting() {
+  return (
+    <div className="animate-in fade-in-0 duration-300 [animation-delay:300ms] [animation-fill-mode:both]">
+      <StorelibPaymentsCardLoading />
+    </div>
   );
 }
 

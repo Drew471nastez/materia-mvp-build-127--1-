@@ -8,8 +8,6 @@ Video sales letter: a row of logos or words under a small label, drifting
   assign st = section.settings
   assign sid = section.id
 -%}
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" data-vsl-font>
 <style>
   .vsl { position: relative; color: var(--vsl-text, #a3a3a8); font-family: var(--body-font, inherit); -webkit-font-smoothing: antialiased; }
   .vsl *, .vsl *::before, .vsl *::after { box-sizing: border-box; }
@@ -18,8 +16,8 @@ Video sales letter: a row of logos or words under a small label, drifting
   .vsl__eyebrow { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 0 0 18px; font-size: 11px; font-weight: 500; letter-spacing: .24em; text-transform: uppercase; color: rgba(255,255,255,.6); }
   .vsl__eyebrow::before, .vsl__eyebrow::after { content: ""; flex: 0 0 34px; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.5)); }
   .vsl__eyebrow::after { background: linear-gradient(270deg, rgba(255,255,255,0), rgba(255,255,255,.5)); }
-  .vsl__title { margin: 0; color: var(--vsl-head, #fff); font-family: var(--body-font, inherit); font-weight: 700; font-size: clamp(32px, 4.6vw, 52px); line-height: 1.06; letter-spacing: -.035em; text-wrap: balance; }
-  .vsl__title em, .vsl em.vsl-serif { font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif; font-style: italic; font-weight: 400; letter-spacing: -.01em; }
+  .vsl__title { margin: 0; color: var(--vsl-head, #fff); font-family: var(--heading-font, inherit); font-weight: 700; font-size: clamp(32px, 4.6vw, 52px); line-height: 1.06; letter-spacing: -.035em; text-wrap: balance; }
+  .vsl__title em, .vsl em.vsl-serif { font-style: normal; color: rgba(255,255,255,.6); }
   .vsl__lede { margin: 16px auto 0; max-width: 580px; font-size: 15px; line-height: 1.65; }
   .vsl__lede p { margin: 0; }
   .vsl-btn {
@@ -65,7 +63,7 @@ Video sales letter: a row of logos or words under a small label, drifting
   .vsl-logos__view:hover .vsl-logos__track { animation-play-state: paused; }
   .vsl-logos__set { display: flex; align-items: center; gap: 64px; padding-right: 64px; margin: 0; list-style: none; }
   .vsl-logos__item { flex: none; display: flex; align-items: center; color: rgba(255,255,255,.72); font-size: 22px; font-weight: 600; letter-spacing: -.02em; white-space: nowrap; }
-  .vsl-logos__item:nth-child(even) { font-family: 'Instrument Serif', Georgia, serif; font-style: italic; font-weight: 400; font-size: 26px; letter-spacing: 0; }
+  .vsl-logos__item:nth-child(even) { color: rgba(255,255,255,.42); }
   #shopify-section-{{ sid }} .vsl-logos__item img { display: block; height: {{ st.logo_height | default: 28 }}px; width: auto; opacity: .75; filter: grayscale(1) brightness(1.6); }
   .vsl-logos__sep { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,.3); flex: none; }
   @keyframes vsl-marquee { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(-50%, 0, 0); } }

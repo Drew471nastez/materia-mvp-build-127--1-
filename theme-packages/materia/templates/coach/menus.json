@@ -3,53 +3,53 @@
     "title": "Main menu",
     "links": [
       {
-        "title": "Coaching",
+        "title": "Plans",
         "url": "/collections/all"
+      },
+      {
+        "title": "Coaching",
+        "url": "/pages/book"
       },
       {
         "title": "About",
         "url": "/pages/about"
       },
       {
-        "title": "Notes",
+        "title": "Journal",
         "url": "/blogs/news"
       },
       {
         "title": "FAQ",
         "url": "/pages/faqs"
-      },
-      {
-        "title": "Contact",
-        "url": "/pages/contact"
       }
     ]
   },
   "footer": {
-    "title": "Explore",
+    "title": "Train",
     "links": [
       {
-        "title": "Coaching",
+        "title": "Training plans",
         "url": "/collections/all"
       },
       {
-        "title": "About",
-        "url": "/pages/about"
+        "title": "Monthly coaching",
+        "url": "/pages/book"
       },
       {
-        "title": "Notes",
+        "title": "Journal",
         "url": "/blogs/news"
       },
       {
-        "title": "Book a free call",
-        "url": "/pages/book"
+        "title": "About Amara",
+        "url": "/pages/about"
       }
     ]
   },
   "footer-help": {
-    "title": "Good to know",
+    "title": "Help",
     "links": [
       {
-        "title": "Questions",
+        "title": "FAQ",
         "url": "/pages/faqs"
       },
       {
@@ -63,19 +63,15 @@
     ]
   },
   "footer-hello": {
-    "title": "Get in touch",
+    "title": "Elsewhere",
     "links": [
-      {
-        "title": "Send a message",
-        "url": "/pages/contact"
-      },
-      {
-        "title": "LinkedIn",
-        "url": "https://www.linkedin.com"
-      },
       {
         "title": "Instagram",
         "url": "https://www.instagram.com"
+      },
+      {
+        "title": "YouTube",
+        "url": "https://www.youtube.com"
       }
     ]
   }

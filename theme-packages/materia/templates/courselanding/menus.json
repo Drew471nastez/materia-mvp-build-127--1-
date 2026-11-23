@@ -3,20 +3,20 @@
     "title": "Main menu",
     "links": [
       {
-        "title": "Why a plan",
-        "url": "/#teacher"
+        "title": "The 16 weeks",
+        "url": "/#shopify-section-weeks"
       },
       {
-        "title": "How it works",
-        "url": "/#how-it-works"
+        "title": "Your coach",
+        "url": "/pages/about"
       },
       {
-        "title": "Curriculum",
-        "url": "/#curriculum"
+        "title": "Pricing",
+        "url": "/#shopify-section-pricing"
       },
       {
         "title": "Questions",
-        "url": "/#questions"
+        "url": "/pages/faqs"
       }
     ]
   },
@@ -24,7 +24,7 @@
     "title": "Pages",
     "links": [
       {
-        "title": "About the course",
+        "title": "About Lena",
         "url": "/pages/about"
       },
       {
@@ -38,6 +38,10 @@
       {
         "title": "Everything for sale",
         "url": "/collections/all"
+      },
+      {
+        "title": "Running notes",
+        "url": "/blogs/news"
       }
     ]
   }

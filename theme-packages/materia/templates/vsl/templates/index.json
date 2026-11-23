@@ -3,9 +3,9 @@
     "hero": {
       "type": "vsl-hero",
       "settings": {
-        "badge": "Eight week course, live calls on Thursdays",
-        "heading": "Launch a podcast |*people actually finish*",
-        "text": "<p>For coaches, founders and teachers with something to say. Plan the show, record on a simple home setup, edit in an afternoon and publish ten episodes in eight weeks, with feedback from us every Thursday.</p>",
+        "badge": "Six week course, live reviews on Tuesdays",
+        "heading": "A month of short videos, filmed in one weekend",
+        "text": "<p>For creators, coaches and the person who runs the shop account. Plan a month of videos in one sitting, film them on your phone, edit each one in under an hour and post on a schedule you can keep.</p>",
         "button_label": "Join the course",
         "button_link": "#join",
         "button2_label": "Book a free call",
@@ -13,9 +13,9 @@
         "note": "New round every month, 30 day refund, Lessons are yours to keep",
         "show_video": true,
         "poster": "shopify://shop_images/vsl-video-poster.webp",
-        "poster_alt": "The course host talking into a microphone",
+        "poster_alt": "A creator sitting on the floor, talking to a camera on a tripod",
         "poster_grey": true,
-        "length_label": "9 min",
+        "length_label": "7 min",
         "video_title": "Watch the course introduction",
         "play_label": "Play the introduction",
         "empty_text": "The introduction plays here once it is added in the editor.",
@@ -30,7 +30,7 @@
     "for-whom": {
       "type": "vsl-logos",
       "settings": {
-        "label": "Made for people with something to say",
+        "label": "Made for people who post",
         "speed": 45,
         "logo_height": 28,
         "line_above": false,
@@ -43,49 +43,49 @@
         "logo_1": {
           "type": "logo",
           "settings": {
-            "text": "Coaches"
+            "text": "Creators"
           }
         },
         "logo_2": {
           "type": "logo",
           "settings": {
-            "text": "Founders"
+            "text": "Coaches"
           }
         },
         "logo_3": {
           "type": "logo",
           "settings": {
-            "text": "Teachers"
+            "text": "Shop owners"
           }
         },
         "logo_4": {
           "type": "logo",
           "settings": {
-            "text": "Authors"
+            "text": "Founders"
           }
         },
         "logo_5": {
           "type": "logo",
           "settings": {
-            "text": "Therapists"
+            "text": "Chefs"
           }
         },
         "logo_6": {
           "type": "logo",
           "settings": {
-            "text": "Consultants"
+            "text": "Trainers"
           }
         },
         "logo_7": {
           "type": "logo",
           "settings": {
-            "text": "Chefs"
+            "text": "Musicians"
           }
         },
         "logo_8": {
           "type": "logo",
           "settings": {
-            "text": "Musicians"
+            "text": "Social media leads"
           }
         }
       },
@@ -103,9 +103,9 @@
     "why": {
       "type": "vsl-cards",
       "settings": {
-        "eyebrow": "Why shows stall",
-        "heading": "Most podcasts stop *after a few episodes*",
-        "text": "<p>Not for lack of ideas. Recording feels slow, editing takes the weekend and nobody seems to listen. The course fixes those three.</p>",
+        "eyebrow": "Why accounts stall",
+        "heading": "Most accounts stop posting after a few weeks",
+        "text": "<p>Not for lack of ideas. Filming feels awkward, editing takes an evening and the views never come. The course fixes those three.</p>",
         "columns": "3",
         "number_style": "tile",
         "line_above": true,
@@ -118,22 +118,22 @@
         "card_1": {
           "type": "card",
           "settings": {
-            "title": "A plan before the microphone",
-            "text": "<p>A format you can repeat every week and twenty episode ideas, written before you record the first one.</p>"
+            "title": "Ideas before the camera",
+            "text": "<p>Thirty ideas written in one sitting, so you never open the camera wondering what to say.</p>"
           }
         },
         "card_2": {
           "type": "card",
           "settings": {
-            "title": "Editing in an hour",
-            "text": "<p>One simple workflow: cut, level, export. No studio software to learn, no weekend lost.</p>"
+            "title": "One way to edit",
+            "text": "<p>Hook, cut, captions, music, export. The same order every time, under an hour per video.</p>"
           }
         },
         "card_3": {
           "type": "card",
           "settings": {
-            "title": "Listeners from day one",
-            "text": "<p>Launch with a trailer and three episodes, guests who share them and one place to post each week.</p>"
+            "title": "The first three seconds",
+            "text": "<p>Most videos lose people before the point. You learn to open with the point.</p>"
           }
         }
       },
@@ -147,7 +147,7 @@
       "type": "vsl-cards",
       "settings": {
         "eyebrow": "Inside the course",
-        "heading": "Eight weeks, *ten episodes*",
+        "heading": "Six weeks, thirty videos",
         "text": "",
         "columns": "2",
         "number_style": "inline",
@@ -161,29 +161,29 @@
         "card_1": {
           "type": "card",
           "settings": {
-            "title": "The show",
-            "text": "<p>Weeks one and two. Pick a format you can repeat every week, name the show and write your first twenty episode ideas.</p>"
+            "title": "The plan",
+            "text": "<p>Week one. Pick three topics you can talk about every week, and write thirty video ideas in one sitting with our idea sheet.</p>"
           }
         },
         "card_2": {
           "type": "card",
           "settings": {
-            "title": "The setup",
-            "text": "<p>Week three. One microphone, one quiet room and the settings that make it sound good. A shopping list at three budgets.</p>"
+            "title": "The shoot",
+            "text": "<p>Week two. Light, sound and framing with a phone by a window. Film a week of videos in one afternoon.</p>"
           }
         },
         "card_3": {
           "type": "card",
           "settings": {
-            "title": "The workflow",
-            "text": "<p>Weeks four and five. Record, edit and publish an episode in one afternoon, with our outline and show notes templates.</p>"
+            "title": "The edit",
+            "text": "<p>Weeks three and four. Hooks, cuts, captions and music, in the same order every time. Under an hour per video.</p>"
           }
         },
         "card_4": {
           "type": "card",
           "settings": {
-            "title": "The launch",
-            "text": "<p>Weeks six to eight. A trailer, three episodes on day one, your first guests booked and a plan for your first listeners.</p>"
+            "title": "The habit",
+            "text": "<p>Weeks five and six. A posting schedule you can keep, reading your numbers, and turning one good video into five.</p>"
           }
         }
       },
@@ -198,18 +198,18 @@
       "type": "vsl-split",
       "settings": {
         "image": "shopify://shop_images/vsl-host.webp",
-        "image_alt": "The course host laughing at a microphone",
+        "image_alt": "The course host holding a video camera rig",
         "image_side": "left",
         "ratio": "4 / 5",
         "eyebrow": "Your host",
-        "heading": "Taught by someone *still recording every week*",
+        "heading": "Taught by someone who still posts every week",
         "heading_tag": "h2",
-        "text": "<p>Write a few lines about yourself here: what you host, how long you have made it, and why you teach it. People join a course because of the person running it.</p>",
-        "points": "Hosts a weekly interview show\nProduces shows for coaches and small studios\nRuns every Thursday call himself",
+        "text": "<p>Write a few lines about yourself here: what you make, who you have made it for, and why you teach it. People join a course because of the person running it.</p>",
+        "points": "Films and edits short videos every week\nMakes video for cafés, studios and small brands\nRuns every Tuesday review himself",
         "social_instagram": "https://www.instagram.com/",
         "social_youtube": "https://www.youtube.com/",
-        "social_spotify": "https://open.spotify.com/",
-        "social_tiktok": "",
+        "social_spotify": "",
+        "social_tiktok": "https://www.tiktok.com/",
         "social_x": "",
         "social_linkedin": "",
         "social_website": "",
@@ -227,12 +227,12 @@
       "type": "vsl-fit",
       "settings": {
         "eyebrow": "Who it is for",
-        "heading": "Is this *for you?*",
+        "heading": "Is this for you?",
         "text": "",
         "yes_title": "A fit if you",
-        "yes_list": "Have a topic you could talk about for a year\nCan give it three hours a week for eight weeks\nWant a show that supports your work",
+        "yes_list": "Have a business, a craft or a topic worth showing\nCan give it three hours a week for six weeks\nWant to post every week without dreading it",
         "no_title": "Not a fit if you",
-        "no_list": "Want to go viral next month\nWant someone to edit it for you\nHave not picked a topic at all",
+        "no_list": "Want to go viral by Friday\nWant someone else to film and edit for you\nAre looking for paid ads training",
         "line_above": true,
         "padding_top": 96,
         "padding_bottom": 16,
@@ -256,7 +256,7 @@
         "figure_1": {
           "type": "figure",
           "settings": {
-            "value": "8 weeks",
+            "value": "6 weeks",
             "label": "Course length",
             "note": "About three hours a week",
             "icon": "clock"
@@ -265,8 +265,8 @@
         "figure_2": {
           "type": "figure",
           "settings": {
-            "value": "8 calls",
-            "label": "Live on Thursdays",
+            "value": "6 reviews",
+            "label": "Live on Tuesdays",
             "note": "Recorded if you miss one",
             "icon": "calendar"
           }
@@ -291,9 +291,9 @@
       "type": "vsl-offer",
       "settings": {
         "eyebrow": "Join the course",
-        "heading": "Everything you *get*",
+        "heading": "Everything you get",
         "text": "",
-        "product": "the-podcast-launch-course",
+        "product": "the-short-video-course",
         "title_override": "",
         "card_label": "Next round starts on the first Monday",
         "price_note": "Pay in full, or in three monthly parts.",
@@ -302,7 +302,7 @@
         "to_checkout": false,
         "trust": "Secure checkout, Instant access, Lessons are yours to keep",
         "promise_title": "30 day refund",
-        "promise_text": "Watch the first lessons and record your first episode. If it is not for you, write within 30 days and get your money back.",
+        "promise_text": "Watch the first lessons and post your first three videos. If it is not for you, write within 30 days and get your money back.",
         "anchor": "join",
         "line_above": true,
         "padding_top": 96,
@@ -314,36 +314,36 @@
         "item_1": {
           "type": "item",
           "settings": {
-            "title": "24 short video lessons",
-            "text": "<p>Watch at your own pace. The longest one is twelve minutes.</p>"
+            "title": "30 short video lessons",
+            "text": "<p>Watch at your own pace. The longest one is ten minutes.</p>"
           }
         },
         "item_2": {
           "type": "item",
           "settings": {
-            "title": "Eight live calls",
-            "text": "<p>Thursdays on video. Bring an episode and leave with changes. Recorded if you miss one.</p>"
+            "title": "Six live reviews",
+            "text": "<p>Tuesdays on video. Send a video in and we go through it with you. Recorded if you miss one.</p>"
           }
         },
         "item_3": {
           "type": "item",
           "settings": {
-            "title": "Notes on your first episode",
-            "text": "<p>Send it in and get written feedback on sound, pace and structure within a week.</p>"
+            "title": "Notes on your first five videos",
+            "text": "<p>Written feedback on the hook, the pace and the captions within a week.</p>"
           }
         },
         "item_4": {
           "type": "item",
           "settings": {
-            "title": "The show starter kit",
-            "text": "<p>Episode outlines, the guest email, show notes and a launch checklist you can copy.</p>"
+            "title": "Hook and script templates",
+            "text": "<p>Fifty openings that work, five script shapes and the idea sheet you can copy.</p>"
           }
         },
         "item_5": {
           "type": "item",
           "settings": {
-            "title": "Gear and settings guide",
-            "text": "<p>What to buy at three budgets and exactly how to set it up.</p>"
+            "title": "Phone kit list",
+            "text": "<p>The light, microphone and stand we use, at two budgets, and the camera settings.</p>"
           }
         },
         "item_6": {
@@ -369,7 +369,7 @@
         "layout": "carousel",
         "autoplay": true,
         "eyebrow": "Students",
-        "heading": "What students *say*",
+        "heading": "What students say",
         "text": "",
         "sample_note": "Sample reviews. Replace them with your students’ own words.",
         "prev_label": "Previous",
@@ -386,8 +386,8 @@
           "type": "review",
           "settings": {
             "stars": 5,
-            "headline": "Episode one out in two weeks",
-            "quote": "<p>I had been planning a show for two years. The format week made me pick one idea and record it, and the first episode was out by week two.</p>",
+            "headline": "Thirty videos in one month",
+            "quote": "<p>I used to film one video and then stall for two weeks. The planning day gave me a month of ideas, and I filmed them in two afternoons.</p>",
             "name": "Maya Ruiz",
             "role": "Career coach"
           }
@@ -396,18 +396,18 @@
           "type": "review",
           "settings": {
             "stars": 5,
-            "headline": "Editing stopped eating my weekend",
-            "quote": "<p>The one hour edit is the reason I am still publishing. Cut, level, export, done. I used to lose a whole Sunday to it.</p>",
+            "headline": "People stay past the first second now",
+            "quote": "<p>The first three seconds lesson changed everything. I stopped opening with hello and my videos stopped losing people straight away.</p>",
             "name": "Daniel Kim",
-            "role": "Founder, design studio"
+            "role": "Founder, ceramics studio"
           }
         },
         "review_3": {
           "type": "review",
           "settings": {
             "stars": 5,
-            "headline": "Guests said yes",
-            "quote": "<p>I used the guest email from the kit word for word. Four of the six people I asked said yes in the first month.</p>",
+            "headline": "Editing in forty minutes",
+            "quote": "<p>Cut, captions, music, export. I follow the same order every time and it takes me under an hour, on my phone.</p>",
             "name": "Priya Shah",
             "role": "Nutritionist"
           }
@@ -416,20 +416,20 @@
           "type": "review",
           "settings": {
             "stars": 5,
-            "headline": "Sounds like a real show",
-            "quote": "<p>I bought the cheapest microphone on the gear list and recorded in a wardrobe. Nobody can tell.</p>",
+            "headline": "Our shop account finally has a plan",
+            "quote": "<p>I run social for a small bakery. The weekly schedule means we post four times a week without it taking over my job.</p>",
             "name": "Tom Becker",
-            "role": "Secondary school teacher"
+            "role": "Social media lead, bakery"
           }
         },
         "review_5": {
           "type": "review",
           "settings": {
             "stars": 5,
-            "headline": "A reason to keep going",
-            "quote": "<p>The Thursday calls kept me going after the launch buzz wore off. Ten episodes out and I still look forward to recording.</p>",
+            "headline": "The Tuesday reviews are worth it alone",
+            "quote": "<p>Hearing someone pick apart my video for two minutes taught me more than a month of guessing.</p>",
             "name": "Ana Lima",
-            "role": "Therapist"
+            "role": "Yoga teacher"
           }
         }
       },
@@ -445,7 +445,7 @@
       "type": "vsl-faq",
       "settings": {
         "eyebrow": "Questions",
-        "heading": "Frequently asked *questions*",
+        "heading": "Frequently asked questions",
         "text": "",
         "first_open": true,
         "max_width": 760,
@@ -459,36 +459,36 @@
         "question_1": {
           "type": "question",
           "settings": {
-            "question": "Do I need expensive gear?",
-            "answer": "<p>No. A USB microphone and a quiet room are enough. Week three has a shopping list at three budgets, the cheapest is about $150.</p>"
+            "question": "Do I need a camera?",
+            "answer": "<p>No. Every lesson is filmed and edited on a phone. Week two has a short kit list, a clip on microphone and a small light, all under $100.</p>"
           }
         },
         "question_2": {
           "type": "question",
           "settings": {
             "question": "How much time does it take?",
-            "answer": "<p>About three hours a week: two short lessons, recording one episode and the Thursday call if you can make it.</p>"
+            "answer": "<p>About three hours a week: two short lessons, filming and editing your videos, and the Tuesday review if you can make it.</p>"
           }
         },
         "question_3": {
           "type": "question",
           "settings": {
-            "question": "Audio only, or video too?",
-            "answer": "<p>Both are covered. The lessons start with audio, and one module shows how to film the same conversation for YouTube.</p>"
+            "question": "Which platforms does it cover?",
+            "answer": "<p>Vertical video for Reels, TikTok and Shorts. The same video works on all three, and one lesson shows what to change for each.</p>"
           }
         },
         "question_4": {
           "type": "question",
           "settings": {
-            "question": "Do I need an audience first?",
-            "answer": "<p>No. Week seven covers your first listeners: people you already know, guests who share their episode, and one place to post each week.</p>"
+            "question": "I hate being on camera. Will this work?",
+            "answer": "<p>Yes. One module is about formats where you never show your face: hands, voiceover, screen and product videos.</p>"
           }
         },
         "question_5": {
           "type": "question",
           "settings": {
-            "question": "When does the next round start?",
-            "answer": "<p>On the first Monday of each month. Change this to your own dates.</p>"
+            "question": "Is it for brands or for personal accounts?",
+            "answer": "<p>Both. The lessons work the same, and the examples include a coach, a bakery, a clothing shop and a software company.</p>"
           }
         },
         "question_6": {
@@ -512,7 +512,7 @@
       "type": "vsl-cta",
       "settings": {
         "eyebrow": "",
-        "heading": "Press record. |*We help with the rest.*",
+        "heading": "Hit record. |We help with the rest.",
         "text": "",
         "size": "big",
         "button_label": "Join the course",

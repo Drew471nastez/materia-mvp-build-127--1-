@@ -11,7 +11,7 @@
         "menu": "main-menu",
         "button_label": "Join the course",
         "button_link": "/#join",
-        "mark": "wave",
+        "mark": "frame",
         "bg_on": true,
         "bg_style": "stars",
         "bg_base_color": "#050506",

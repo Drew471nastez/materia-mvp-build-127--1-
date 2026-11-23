@@ -98,7 +98,7 @@ XP shop: the footer, a window of its own above the taskbar: the shop's
   .xpf__sign .xp-ico { width: 26px; height: 26px; }
   @media (min-width: 750px) { .xpf__sign { margin: 0 30px; } }
   @media (max-width: 749px) { .xpf__sign .xp-btn { width: 100%; } }
-  .xpf__small { display: flex; flex-wrap: wrap; gap: 6px 16px; justify-content: space-between; padding: 10px 20px; background: var(--xp-face); border-top: 1px solid #e2ddcb; color: #4a5568; font-size: 13px; }
+  .xpf__small { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; justify-content: space-between; padding: 10px 20px; background: var(--xp-face); border-top: 1px solid #e2ddcb; color: #4a5568; font-size: 13px; }
   .xpf__small a { color: inherit; }
   @media (min-width: 750px) { .xpf__small { padding: 10px 30px; } }
 </style>
@@ -196,7 +196,7 @@ XP shop: the footer, a window of its own above the taskbar: the shop's
         {%- if st.sign_text != blank -%}
           <div class="xpf__sign"><p><svg class="xp-ico" width="24" height="24" aria-hidden="true" focusable="false"><use href="#xpi-mail-{{ sid }}"/></svg><span>{{ st.sign_text | escape }}</span></p>{%- if st.sign_label != blank -%}<a class="xp-btn xp-btn--go" href="{{ st.sign_link | default: '#open-form-newsletter' }}">{{ st.sign_label | escape }}</a>{%- endif -%}</div>
         {%- endif -%}
-        <div class="xpf__small"><span>&copy; {{ 'now' | date: '%Y' }} {{ shop.name | escape }}{% if st.copyright != blank %}. {{ st.copyright | escape }}{% endif %}</span>{%- if st.note != blank -%}<span>{{ st.note | escape }}</span>{%- endif -%}</div>
+        <div class="xpf__small"><span>&copy; {{ 'now' | date: '%Y' }} {{ shop.name | escape }}{% if st.copyright != blank %}. {{ st.copyright | escape }}{% endif %}</span>{%- if st.note != blank -%}<span>{{ st.note | escape }}</span>{%- endif -%}{%- if st.show_payment != false -%}{% render 'payment-icons-row', class: 'xpf__pay' %}{%- endif -%}</div>
       </div>
     </div>
   </div>
@@ -256,7 +256,8 @@ XP shop: the footer, a window of its own above the taskbar: the shop's
     { "type": "url", "id": "pinterest", "label": "Pinterest" },
     { "type": "header", "content": "Small print" },
     { "type": "text", "id": "copyright", "label": "After the copyright" },
-    { "type": "text", "id": "note", "label": "Note on the right" }
+    { "type": "text", "id": "note", "label": "Note on the right" },
+    { "type": "checkbox", "id": "show_payment", "label": "Payment icons", "default": true, "info": "Visa, Mastercard, American Express, Apple Pay and Google Pay." }
   ],
   "presets": [
     { "name": "XP footer", "category": "XP shop" }

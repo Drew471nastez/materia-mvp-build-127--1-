@@ -367,7 +367,9 @@ async function main() {
     check("  the product page's description takes its colour from the colour scheme, and its size guide is spelled", productBlocks.filter((b) => b.type === "product_description").every((b) => !b.settings?.text_color || OWN_PAGES.has(template) === false) && !/Size guid"/.test(JSON.stringify(product ?? {})), productBlocks.filter((b) => b.type === "product_description").map((b) => b.settings?.text_color))
     const headerJson = readFileSync(join(overlay, "sections", "header-group.json"), "utf8")
     const menulessHeader = /"mega_menu": ""/.test(headerJson)
-    check("  its header button stays off a phone's header, where it crowded the shop's name (a one page website keeps its one button)", menulessHeader || !/"show_on_mobile": true/.test(headerJson))
+    /* Changed on purpose (templates round 22): the owner asked for Cutroom's (landing) phone pill to carry its button, compact, beside the hamburger and the name; it fits at 360px with room to spare. */
+    const compactPhoneButton = template === "landing" && /"mobile_size": "compact"/.test(headerJson)
+    check("  its header button stays off a phone's header, where it crowded the shop's name (a one page website keeps its one button)", menulessHeader || compactPhoneButton || !/"show_on_mobile": true/.test(headerJson))
 
     await pagesOf(template, imported)
 

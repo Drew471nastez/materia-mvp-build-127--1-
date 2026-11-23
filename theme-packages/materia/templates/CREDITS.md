@@ -20,7 +20,7 @@ They are not part of a template and are never added to a creator's website.
 
 | Template | File | Source | License |
 | --- | --- | --- | --- |
-| default | assets/default-hero-cream-mugs.webp | https://images.unsplash.com/photo-1687158179173-b9f3eac1fde9 | Unsplash License |
+| default | assets/default-hero-harbour-tall.webp | https://images.unsplash.com/photo-1789654495610-811404dbdc26 | Unsplash License |
 | default | assets/default-studio.webp | https://images.unsplash.com/photo-1631125915973-e0d155a14e4e | Unsplash License |
 | default | assets/default-packing.webp | https://images.unsplash.com/photo-1449247666642-264389f5f5b1 | Unsplash License |
 | default | assets/default-mug-still.webp | https://images.unsplash.com/photo-1514228742587-6b1558fcca3d | Unsplash License |
@@ -34,8 +34,10 @@ They are not part of a template and are never added to a creator's website.
 | default (cover only) | scripts/theme-templates/products/default/default-bottle.webp | https://images.unsplash.com/photo-1664714628878-9d2aa898b9e3, background evened out | Unsplash License |
 | default (cover only) | scripts/theme-templates/products/default/default-tote.webp | https://images.unsplash.com/photo-1574365569389-a10d488ca3fb, background evened out and a printed mark removed | Unsplash License |
 | default (cover only) | scripts/theme-templates/products/default/default-planner.webp | Drawn for this template | Storelib |
-| clothing | assets/clothing-hero-snow.webp | https://images.unsplash.com/photo-1615105690055-ee1c0b3f8c5a | Unsplash License |
-| clothing | assets/clothing-hero-snow-phone.webp | https://images.unsplash.com/photo-1615105690055-ee1c0b3f8c5a | Unsplash License |
+| clothing | assets/clothing-hero-studio.webp | https://images.unsplash.com/photo-1743751747067-49d618650353 | Unsplash License |
+| clothing | assets/clothing-hero-studio-phone.webp | https://images.unsplash.com/photo-1743751747067-49d618650353 | Unsplash License |
+| clothing | assets/clothing-hero-knit.webp | https://images.unsplash.com/photo-1759229874914-c1ffdb3ebd0c | Unsplash License |
+| clothing | assets/clothing-hero-knit-phone.webp | https://images.unsplash.com/photo-1759229874914-c1ffdb3ebd0c | Unsplash License |
 | clothing | assets/clothing-hero-stairwell.webp | https://images.unsplash.com/photo-1704918968076-cc20b900508f | Unsplash License |
 | clothing | assets/clothing-outerwear-concrete.webp | https://images.unsplash.com/photo-1764298493462-071f7e39b02c | Unsplash License |
 | clothing | assets/clothing-tailoring-studio.webp | https://images.unsplash.com/photo-1715559522419-db7face19c1c | Unsplash License |
@@ -50,6 +52,8 @@ They are not part of a template and are never added to a creator's website.
 | clothing (cover only) | scripts/theme-templates/products/clothing/clothing-long-blazer.webp | https://images.unsplash.com/photo-1779400202380-ae490bd3b995 | Unsplash License |
 | clothing (cover only) | scripts/theme-templates/products/clothing/clothing-boxy-tee.webp | https://images.unsplash.com/photo-1780566759997-6a4eabceaa10 | Unsplash License |
 | clothing (cover only) | scripts/theme-templates/products/clothing/clothing-wool-blazer.webp | https://images.unsplash.com/photo-1612275857880-57d3b7676179 | Unsplash License |
+| merch | assets/merch-hero-crew.webp | https://images.unsplash.com/photo-1559697242-a465f2578a95 | Unsplash License |
+| merch | assets/merch-hero-crew-phone.webp | https://images.unsplash.com/photo-1559697242-a465f2578a95 | Unsplash License |
 | merch | assets/merch-hero.webp | https://images.unsplash.com/photo-1529720317453-c8da503f2051 | Unsplash License |
 | merch | assets/merch-hero-phone.webp | https://images.unsplash.com/photo-1529720317453-c8da503f2051 | Unsplash License |
 | merch | assets/merch-cat-hoodies.webp | https://images.unsplash.com/photo-1590759483822-b2fee5aa6bd3 | Unsplash License |
@@ -458,3 +462,49 @@ XP shop (round 21): the wallpaper is a real photograph of a green hill under a b
 | xpshop (cover only) | scripts/theme-templates/products/xpshop/xpshop-cloud-cap-blue.webp | https://images.unsplash.com/photo-1645266729222-17cd32e06fd0 (cut out, recoloured blue, cloud drawn on) | Unsplash License |
 | xpshop (cover only) | scripts/theme-templates/products/xpshop/xpshop-meadow-beanie.webp | https://images.unsplash.com/photo-1576529598261-96e376f6aabb (cut out, recoloured green, label drawn on) | Unsplash License |
 | xpshop (cover only) | scripts/theme-templates/products/xpshop/xpshop-sticker-pack.webp | Drawn for this template | Storelib |
+
+## Print on demand (podshop, Fieldhouse)
+
+Templates round 22. Lifestyle photographs are Unsplash photographs, cropped. The logo, the footer mark and the hero's black panel are drawn for this template. The product pictures are Unsplash photographs of a plain tee, a crewneck, a cap and a beanie, cut out, recoloured and set on one light grey, with prints drawn for this template.
+
+| Template | File | Source | Licence |
+| --- | --- | --- | --- |
+| podshop | assets/podshop-hero-tees.webp | https://images.unsplash.com/photo-1522724514897-24b0eb7ba3ea | Unsplash License |
+| podshop | assets/podshop-hero-friends.webp | https://images.unsplash.com/photo-1761839257349-037aea1d94de | Unsplash License |
+| podshop | assets/podshop-hero-orange.webp | https://images.unsplash.com/photo-1578587018452-892bacefd3f2 | Unsplash License |
+| podshop | assets/podshop-gift-him.webp | https://images.unsplash.com/photo-1758214872848-7e904fc074fe | Unsplash License |
+| podshop | assets/podshop-gift-her.webp | https://images.unsplash.com/photo-1590700722775-9c8e16cb3b7e | Unsplash License |
+| podshop | assets/podshop-gift-kids.webp | https://images.unsplash.com/photo-1615863712239-becde744591a | Unsplash License |
+| podshop | assets/podshop-gift-extras.webp | https://images.unsplash.com/photo-1630381260512-e3fe55c11973 | Unsplash License |
+| podshop | assets/podshop-price-30.webp | https://images.unsplash.com/photo-1562157873-818bc0726f68 | Unsplash License |
+| podshop | assets/podshop-price-50.webp | https://images.unsplash.com/photo-1516195851888-6f1a981a862e | Unsplash License |
+| podshop | assets/podshop-price-75.webp | https://images.unsplash.com/photo-1592485641225-bdbadeaa601e | Unsplash License |
+| podshop | assets/podshop-price-100.webp | https://images.unsplash.com/photo-1594656375376-64d56e2f3ed1 | Unsplash License |
+| podshop | assets/podshop-highlight.webp | https://images.unsplash.com/photo-1517841905240-472988babdf9 | Unsplash License |
+| podshop | assets/podshop-tile-winter.webp | https://images.unsplash.com/photo-1781935673753-c2b245af6614 | Unsplash License |
+| podshop | assets/podshop-tile-hometown.webp | https://images.unsplash.com/photo-1774108435831-50679f89cb7f | Unsplash License |
+| podshop | assets/podshop-tile-weekend.webp | https://images.unsplash.com/photo-1732708872490-a1ff3a917047 | Unsplash License |
+| podshop | assets/podshop-tile-youth.webp | https://images.unsplash.com/photo-1754639488181-7eae9f6c06e0 | Unsplash License |
+| podshop | assets/podshop-strip-a.webp | https://images.unsplash.com/photo-1622445275463-afa2ab738c34 | Unsplash License |
+| podshop | assets/podshop-strip-b.webp | https://images.unsplash.com/photo-1586790170083-2f9ceadc732d | Unsplash License |
+| podshop | assets/podshop-fav-pink.webp | https://images.unsplash.com/photo-1588175996685-a40693ee1087 | Unsplash License |
+| podshop | assets/podshop-fav-beanie.webp | https://images.unsplash.com/photo-1510598969022-c4c6c5d05769 | Unsplash License |
+| podshop | assets/podshop-fav-crew.webp | https://images.unsplash.com/photo-1606081430924-b6480765d470 | Unsplash License |
+| podshop | assets/podshop-fav-brown.webp | https://images.unsplash.com/photo-1768712171213-517af9bd8f48 | Unsplash License |
+| podshop | assets/podshop-studio.webp | https://images.unsplash.com/photo-1773525912489-9e04df48f639 | Unsplash License |
+| podshop | assets/podshop-newsletter.webp | https://images.unsplash.com/photo-1758523672869-73fe82e25585 | Unsplash License |
+| podshop | assets/podshop-about-hands.webp | https://images.unsplash.com/photo-1456456496250-d5e7c0a9b44d | Unsplash License |
+| podshop | assets/podshop-about-press.webp | https://images.unsplash.com/photo-1773525912476-213bff96b8a4 | Unsplash License |
+| podshop | assets/podshop-logo.webp | Drawn for this template | Storelib |
+| podshop | assets/podshop-mark.webp | Drawn for this template | Storelib |
+| podshop | assets/podshop-panel.webp | Drawn for this template | Storelib |
+| podshop (sample products) | scripts/theme-templates/products/podshop/podshop-rivercity-tee-black.webp | https://images.unsplash.com/photo-1651761179569-4ba2aa054997 (cut out, recoloured black, print drawn on) | Unsplash License |
+| podshop (sample products) | scripts/theme-templates/products/podshop/podshop-rivercity-tee-white.webp | https://images.unsplash.com/photo-1651761179569-4ba2aa054997 (cut out, print drawn on) | Unsplash License |
+| podshop (sample products) | scripts/theme-templates/products/podshop/podshop-champions-tee-teal.webp | https://images.unsplash.com/photo-1651761179569-4ba2aa054997 (cut out, recoloured sea green, print drawn on) | Unsplash License |
+| podshop (sample products) | scripts/theme-templates/products/podshop/podshop-porch-tee-grey.webp | https://images.unsplash.com/photo-1651761179569-4ba2aa054997 (cut out, recoloured grey, print drawn on) | Unsplash License |
+| podshop (sample products) | scripts/theme-templates/products/podshop/podshop-gooddays-tee-sand.webp | https://images.unsplash.com/photo-1651761179569-4ba2aa054997 (cut out, recoloured sand, print drawn on) | Unsplash License |
+| podshop (sample products) | scripts/theme-templates/products/podshop/podshop-hometown-crew-red.webp | https://images.unsplash.com/photo-1620799140408-edc6dcb6d633 (cut out, recoloured red, print drawn on) | Unsplash License |
+| podshop (sample products) | scripts/theme-templates/products/podshop/podshop-hometown-crew-navy.webp | https://images.unsplash.com/photo-1620799140408-edc6dcb6d633 (cut out, recoloured navy, print drawn on) | Unsplash License |
+| podshop (sample products) | scripts/theme-templates/products/podshop/podshop-gameday-crew-white.webp | https://images.unsplash.com/photo-1620799140408-edc6dcb6d633 (cut out, print drawn on) | Unsplash License |
+| podshop (sample products) | scripts/theme-templates/products/podshop/podshop-rc-cap-navy.webp | https://images.unsplash.com/photo-1645266729222-17cd32e06fd0 (cut out, recoloured navy, letters drawn on) | Unsplash License |
+| podshop (sample products) | scripts/theme-templates/products/podshop/podshop-pom-beanie-red.webp | https://images.unsplash.com/photo-1576529598261-96e376f6aabb (cut out, recoloured red, label drawn on) | Unsplash License |

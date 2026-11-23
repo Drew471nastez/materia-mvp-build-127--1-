@@ -20,7 +20,9 @@
   #shopify-section-{{ sid }} .wsh__by i { font-style: normal; color: {{ st.muted }}; }
   #shopify-section-{{ sid }} .wsh__h { margin: 0; color: {{ st.ink }}; font-family: var(--heading-font, inherit); font-weight: 700; letter-spacing: -0.03em; line-height: 1.04; font-size: {{ st.heading_size_mobile }}px; text-wrap: balance; }
   @media (min-width: 750px) { #shopify-section-{{ sid }} .wsh__h { font-size: {{ st.heading_size }}px; } }
-  #shopify-section-{{ sid }} .wsh__h mark { background: linear-gradient(transparent 62%, {{ st.accent }} 62%, {{ st.accent }} 92%, transparent 92%); color: inherit; padding: 0 2px; }
+  /* A marked word gets a hand drawn underline in the accent colour: two loose pen strokes, drawn as a mask so the colour stays editable. */
+  #shopify-section-{{ sid }} .wsh__h mark { position: relative; display: inline-block; background: none; color: inherit; padding: 0 .04em; white-space: nowrap; isolation: isolate; }
+  #shopify-section-{{ sid }} .wsh__h mark::after { content: ""; position: absolute; z-index: -1; left: -.06em; right: -.06em; bottom: -.18em; height: .4em; background: {{ st.accent }}; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 24' preserveAspectRatio='none'%3E%3Cpath d='M4 15.5C38 10 92 6.5 150 7.5c30 .5 58 2.4 84 5.2M26 19.8c44-4.6 104-6 182-2.6' fill='none' stroke='%23000' stroke-width='6.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center / 100% 100%; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 24' preserveAspectRatio='none'%3E%3Cpath d='M4 15.5C38 10 92 6.5 150 7.5c30 .5 58 2.4 84 5.2M26 19.8c44-4.6 104-6 182-2.6' fill='none' stroke='%23000' stroke-width='6.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center / 100% 100%; pointer-events: none; }
   #shopify-section-{{ sid }} .wsh__t { max-width: 600px; margin: 20px auto 0; color: {{ st.muted }}; font-size: 17px; line-height: 1.6; }
   #shopify-section-{{ sid }} .wsh__t p { margin: 0; }
   #shopify-section-{{ sid }} .wsh__btns { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 30px; }
@@ -91,7 +93,7 @@
     { "type": "text", "id": "maker_note", "label": "After the name", "default": "makes these templates" },
     { "type": "url", "id": "maker_link", "label": "Link" },
     { "type": "header", "content": "Text" },
-    { "type": "inline_richtext", "id": "heading", "label": "Heading", "info": "Mark words to underline them in the accent colour.", "default": "Templates that stay <mark>tidy</mark>" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "info": "Mark a word or two to underline them by hand in the accent colour.", "default": "Templates that stay <mark>tidy</mark>" },
     { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Say what you make and who it is for, in one or two lines.</p>" },
     { "type": "text", "id": "button_label", "label": "First button", "default": "Browse the templates" },
     { "type": "url", "id": "button_link", "label": "First button link" },

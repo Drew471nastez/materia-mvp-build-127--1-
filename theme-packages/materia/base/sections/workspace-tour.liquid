@@ -18,6 +18,9 @@
   #shopify-section-{{ sid }} .wst__eyebrow { margin: 0 0 12px; color: {{ st.muted }}; font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
   #shopify-section-{{ sid }} .wst__h { margin: 0; color: {{ st.ink }}; font-family: var(--heading-font, inherit); font-weight: 700; letter-spacing: -0.025em; line-height: 1.1; font-size: 30px; text-wrap: balance; }
   @media (min-width: 750px) { #shopify-section-{{ sid }} .wst__h { font-size: 40px; } }
+  /* Marked words: the same hand drawn underline as the opening section. */
+  #shopify-section-{{ sid }} .wst__h mark { position: relative; display: inline-block; background: none; color: inherit; padding: 0 .04em; white-space: nowrap; isolation: isolate; }
+  #shopify-section-{{ sid }} .wst__h mark::after { content: ""; position: absolute; z-index: -1; left: -.06em; right: -.06em; bottom: -.18em; height: .4em; background: {{ st.accent }}; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 24' preserveAspectRatio='none'%3E%3Cpath d='M4 15.5C38 10 92 6.5 150 7.5c30 .5 58 2.4 84 5.2M26 19.8c44-4.6 104-6 182-2.6' fill='none' stroke='%23000' stroke-width='6.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center / 100% 100%; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 24' preserveAspectRatio='none'%3E%3Cpath d='M4 15.5C38 10 92 6.5 150 7.5c30 .5 58 2.4 84 5.2M26 19.8c44-4.6 104-6 182-2.6' fill='none' stroke='%23000' stroke-width='6.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center / 100% 100%; pointer-events: none; }
   #shopify-section-{{ sid }} .wst__tabs { display: flex; gap: 6px; justify-content: center; margin: 0 auto 28px; padding: 4px; width: max-content; max-width: 100%; border-radius: 12px; background: {{ st.tab_ground }}; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity; }
   #shopify-section-{{ sid }} .wst__tabs::-webkit-scrollbar { display: none; }
   @media (max-width: 749px) { #shopify-section-{{ sid }} .wst__tabs { justify-content: flex-start; width: auto; margin-left: -16px; margin-right: -16px; border-radius: 0; padding: 4px 16px; background: transparent; } }
@@ -127,7 +130,7 @@
     { "type": "color", "id": "accent", "label": "Accent", "default": "#ffd84a" },
     { "type": "color", "id": "line_color", "label": "Lines", "default": "#e6e5e0" },
     { "type": "text", "id": "eyebrow", "label": "Small label", "default": "Look inside" },
-    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "See each template before you buy" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "info": "Mark a word or two to underline them by hand in the accent colour.", "default": "See each template before you buy" },
     { "type": "range", "id": "padding_top", "label": "Space above, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
     { "type": "range", "id": "padding_bottom", "label": "Space below, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
     { "type": "range", "id": "padding_top_mobile", "label": "Space above, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 },

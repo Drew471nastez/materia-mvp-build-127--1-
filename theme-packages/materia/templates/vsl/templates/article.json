@@ -48,7 +48,7 @@
         "author_highlight_n4CqbT": {
           "type": "author_highlight",
           "settings": {
-            "author_text": "Want to work through this on your own show? Book a free call.",
+            "author_text": "Want to work through this on your own videos? Book a free call.",
             "author_image_size": 65
           }
         }
@@ -95,7 +95,7 @@
       "type": "vsl-cta",
       "settings": {
         "eyebrow": "",
-        "heading": "Ready to *press record?*",
+        "heading": "Ready to hit record?",
         "text": "",
         "size": "normal",
         "button_label": "Join the course",

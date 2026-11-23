@@ -1,0 +1,79 @@
+{
+  "sections": {
+    "contact": {
+      "type": "contactformsimple2",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "btn_text": "Send",
+        "show_website": true,
+        "show_labels": true,
+        "label_name": "Name",
+        "ph_name": "Your name",
+        "label_email": "Email",
+        "ph_email": "you@example.com",
+        "label_website": "Order number",
+        "ph_website": "Order number, if you have one",
+        "label_message": "Message",
+        "ph_message": "How can we help?",
+        "success_text": "Thanks. We reply within one working day.",
+        "radius": 4,
+        "enable_shadow": false,
+        "button_radius": 4,
+        "pad_top": 56,
+        "pad_bottom": 96
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Contact",
+            "font_size_desktop": 40,
+            "font_size_mobile": 32
+          }
+        },
+        "description_1": {
+          "type": "description",
+          "settings": {
+            "text": "<p>Questions about sizing, an order or a return. Write to us and a person in the workshop answers within a working day.</p>"
+          }
+        },
+        "info_1": {
+          "type": "info",
+          "settings": {
+            "icon": "mail",
+            "line1": "hello@example.com",
+            "line2": "Orders, sizing and repairs"
+          }
+        },
+        "info_2": {
+          "type": "info",
+          "settings": {
+            "icon": "clock",
+            "line1": "Monday to Friday, 10:00 to 18:00",
+            "line2": "Lisbon time"
+          }
+        },
+        "info_3": {
+          "type": "info",
+          "settings": {
+            "icon": "map",
+            "line1": "Rua do Exemplo 12, Lisbon",
+            "line2": "Studio visits by appointment"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_1",
+        "info_1",
+        "info_2",
+        "info_3"
+      ]
+    }
+  },
+  "order": [
+    "contact"
+  ]
+}

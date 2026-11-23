@@ -7,7 +7,7 @@
 {{ 'header-sticky.css' | asset_url | stylesheet_tag }}
 {%- if pgs.header_pill_mobile %}
 <style>
-  #shopify-section-{{ section.id }}:is([data-storelib-sticky="always"], [data-storelib-sticky="on-scroll-up"]):has(header.is-pill) { position: fixed !important; }
+  #shopify-section-{{ section.id }}:is([data-storelib-sticky="always"], [data-storelib-sticky="on-scroll-up"]):has(header.is-pill) { position: sticky !important; }
 </style>
 {%- endif %}
 <script>

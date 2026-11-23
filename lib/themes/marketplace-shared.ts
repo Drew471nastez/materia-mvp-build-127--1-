@@ -115,7 +115,8 @@ export const CODE_TEMPLATES: readonly CodeTemplate[] = [
   { slug: "digital-products", template: "digital", name: "Digital products", category: "digital" },
   /* Templates round 19: digital art books, a diptych hero, subjects and a look inside, after the owner's Echoes reference. */
   { slug: "art-books", template: "artbooks", name: "Art books", category: "ebooks" },
-  { slug: "ebooks", template: "ebooks", name: "Ebooks", category: "ebooks" },
+  /* Templates round 22: remade as a traditional foods cookbook shop, broths, offal, ferments and meal plans in print and as ebooks, built from the theme's own sections. */
+  { slug: "ebooks", template: "ebooks", name: "Cookbook", category: "ebooks" },
   { slug: "fitness", template: "fitness", name: "Fitness", category: "fitness" },
   /* Templates round 18: remade as a course school, a flagship course with smaller ones beside it. */
   { slug: "landing-page", template: "landing", name: "Course", category: "courses" },
@@ -129,8 +130,8 @@ export const CODE_TEMPLATES: readonly CodeTemplate[] = [
   { slug: "space-clothing", template: "space", name: "Night shop", category: "fashion" },
   /* Templates round 19: a pastel poster shop with wavy bands and framed prints, after the owner's reference. */
   { slug: "posters", template: "posters", name: "Poster shop", category: "design" },
-  /* Templates round 20: a life and business coach, an arched portrait, ways to work together with prices and a free first call, after the owner's reference. */
-  { slug: "coach", template: "coach", name: "Coach", category: "coaching" },
+  /* Templates round 20: a life and business coach, an arched portrait, ways to work together with prices and a free first call, after the owner's reference. Round 22: now a running coach, built from the theme's own sections. */
+  { slug: "coach", template: "coach", name: "Running coach", category: "coaching" },
   /* Templates round 20: one course sold by a video sales letter on a starry black page, then a call to book, after the owner's reference. */
   { slug: "vsl-course", template: "vsl", name: "Video sales letter", category: "courses" },
   /* Templates round 20: a one page course site, outlined labels and accent words, a curriculum that opens and a form card, after the owner's onepage reference. */
@@ -149,6 +150,10 @@ export const CODE_TEMPLATES: readonly CodeTemplate[] = [
   { slug: "digital-renaissance", template: "renaissance", name: "Digital Renaissance", category: "courses" },
   /* Templates round 21: a merch shop on a sunny XP style desktop, a hill under a blue sky, glossy blue windows, a green button of the shop's own and a taskbar, quick view and added to cart windows. */
   { slug: "xp-merch", template: "xpshop", name: "XP shop", category: "creators" },
+  /* Templates round 22: a plain white caps and tees shop, a small logo, search and cart, four across on one light grey ground, a short brand statement, built from the theme's own sections. */
+  { slug: "caps-tees", template: "capstees", name: "Caps and tees", category: "fashion" },
+  /* Templates round 22: a print on demand apparel store after the owner's reference: a split sale hero, a gift guide, price tiles, new arrivals, a product highlight, big collection tiles, a shop visit banner, email signup and reviews, built from the theme's own sections. */
+  { slug: "print-on-demand", template: "podshop", name: "Print on demand", category: "fashion" },
 ]
 
 /** Where a template's pictures live: its home page whole at 1440 wide, and at a phone's width (scripts/build-theme-template-covers.ts takes both). */

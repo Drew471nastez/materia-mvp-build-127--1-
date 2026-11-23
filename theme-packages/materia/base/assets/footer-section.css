@@ -396,10 +396,12 @@
   padding: 0;
 }
 
-/* Match cart recommendation/payment badge artwork exactly. */
+/* The cards' own artwork at its 38 by 24 ratio, small and on one line with the copyright: a row of five fits a phone. */
+.footer__payment-badges { gap: 6px; flex-wrap: nowrap; }
 .footer__payment-badges .payment-badge {
-  width:46px;
-  height:31px;
+  width:38px;
+  height:24px;
+  flex: 0 0 auto;
   background:transparent !important;
   overflow:hidden;
 }

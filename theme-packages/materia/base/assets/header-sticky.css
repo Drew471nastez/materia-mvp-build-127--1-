@@ -119,7 +119,8 @@ span[data-header-anchor] {
   transition: opacity .42s ease, background-color .42s ease;
 }
 @media (min-width: 1025px) {
-  :is(#materia-header, .shopify-section.section-header):is([data-storelib-sticky="always"], [data-storelib-sticky="on-scroll-up"]):has(header.is-pill) { position: fixed !important; }
+  /* The pill: native sticky as well, zero tall, floating over the page (sections/header.liquid). */
+  :is(#materia-header, .shopify-section.section-header):is([data-storelib-sticky="always"], [data-storelib-sticky="on-scroll-up"]):has(header.is-pill) { position: sticky !important; }
 }
 /* While the phone menu is open the bar stays put, above the page. */
 /* Phones only, and only while the open menu is still inside the bar (no

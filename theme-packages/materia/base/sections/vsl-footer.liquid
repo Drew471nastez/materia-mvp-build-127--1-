@@ -9,8 +9,6 @@ Video sales letter: a small footer. The name or logo on the left, a few
 {%- liquid
   assign menu = st.menu
 -%}
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" data-vsl-font>
 <style>
   .vsl { position: relative; color: var(--vsl-text, #a3a3a8); font-family: var(--body-font, inherit); -webkit-font-smoothing: antialiased; }
   .vsl *, .vsl *::before, .vsl *::after { box-sizing: border-box; }
@@ -19,8 +17,8 @@ Video sales letter: a small footer. The name or logo on the left, a few
   .vsl__eyebrow { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 0 0 18px; font-size: 11px; font-weight: 500; letter-spacing: .24em; text-transform: uppercase; color: rgba(255,255,255,.6); }
   .vsl__eyebrow::before, .vsl__eyebrow::after { content: ""; flex: 0 0 34px; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.5)); }
   .vsl__eyebrow::after { background: linear-gradient(270deg, rgba(255,255,255,0), rgba(255,255,255,.5)); }
-  .vsl__title { margin: 0; color: var(--vsl-head, #fff); font-family: var(--body-font, inherit); font-weight: 700; font-size: clamp(32px, 4.6vw, 52px); line-height: 1.06; letter-spacing: -.035em; text-wrap: balance; }
-  .vsl__title em, .vsl em.vsl-serif { font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif; font-style: italic; font-weight: 400; letter-spacing: -.01em; }
+  .vsl__title { margin: 0; color: var(--vsl-head, #fff); font-family: var(--heading-font, inherit); font-weight: 700; font-size: clamp(32px, 4.6vw, 52px); line-height: 1.06; letter-spacing: -.035em; text-wrap: balance; }
+  .vsl__title em, .vsl em.vsl-serif { font-style: normal; color: rgba(255,255,255,.6); }
   .vsl__lede { margin: 16px auto 0; max-width: 580px; font-size: 15px; line-height: 1.65; }
   .vsl__lede p { margin: 0; }
   .vsl-btn {
@@ -69,6 +67,8 @@ Video sales letter: a small footer. The name or logo on the left, a few
   .vsl-foot__links a:hover { color: #fff; }
   .vsl-foot__pol { justify-content: center; margin-top: 18px; }
   .vsl-foot__pol a { font-size: 12px; color: rgba(255,255,255,.5); }
+  .vsl-foot__pay { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 22px 0 0; padding: 0; list-style: none; }
+  .vsl-foot__pay svg { display: block; width: 38px; height: 24px; }
   .vsl-foot__copy { margin: 22px 0 0; text-align: center; font-size: 12px; color: rgba(255,255,255,.42); }
   @media (max-width: 749px) { .vsl-foot__row { flex-direction: column; align-items: flex-start; } }
 </style>
@@ -79,7 +79,7 @@ Video sales letter: a small footer. The name or logo on the left, a few
         {%- if st.logo != blank -%}
           {{ st.logo | image_url: width: 480 | image_tag: alt: shop.name, loading: 'lazy' }}
         {%- else -%}
-          {%- if st.show_mark -%}{%- case st.mark -%}{%- when 'wave' -%}<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M3 10v4M7.5 6.5v11M12 3.5v17M16.5 7.5v9M21 10.5v3"/></svg>{%- when 'dot' -%}<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" fill="none" stroke="#fff" stroke-width="1.6" opacity=".5"/><circle cx="12" cy="12" r="4.5" fill="#fff"/></svg>{%- else -%}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M19.5 14.2A8 8 0 1 1 9.8 4.5a6.4 6.4 0 0 0 9.7 9.7z" fill="#fff"/><circle cx="18.3" cy="5.6" r="1.1" fill="#fff"/></svg>{%- endcase -%}{%- endif -%}
+          {%- if st.show_mark -%}{%- case st.mark -%}{%- when 'frame' -%}<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M10 8.5v7l6-3.5z" fill="#fff" stroke="none"/></svg>{%- when 'wave' -%}<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M3 10v4M7.5 6.5v11M12 3.5v17M16.5 7.5v9M21 10.5v3"/></svg>{%- when 'dot' -%}<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" fill="none" stroke="#fff" stroke-width="1.6" opacity=".5"/><circle cx="12" cy="12" r="4.5" fill="#fff"/></svg>{%- else -%}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M19.5 14.2A8 8 0 1 1 9.8 4.5a6.4 6.4 0 0 0 9.7 9.7z" fill="#fff"/><circle cx="18.3" cy="5.6" r="1.1" fill="#fff"/></svg>{%- endcase -%}{%- endif -%}
           <span>{{ st.brand_text | default: shop.name | escape }}</span>
         {%- endif -%}
       </a>
@@ -91,6 +91,15 @@ Video sales letter: a small footer. The name or logo on the left, a few
     </div>
     {%- if st.show_policies and shop.policies.size > 0 -%}
       <ul class="vsl-foot__links vsl-foot__pol" role="list">{%- for policy in shop.policies -%}<li><a href="{{ policy.url }}">{{ policy.title | escape }}</a></li>{%- endfor -%}</ul>
+    {%- endif -%}
+    {%- if st.show_payment -%}
+      <ul class="vsl-foot__pay" role="list" aria-label="Payment methods">
+        <li>{% render 'payment-icon', method: 'visa', icon_class: 'icon icon--full-color' %}</li>
+        <li>{% render 'payment-icon', method: 'master', icon_class: 'icon icon--full-color' %}</li>
+        <li>{% render 'payment-icon', method: 'american_express', icon_class: 'icon icon--full-color' %}</li>
+        <li>{% render 'payment-icon', method: 'apple_pay', icon_class: 'icon icon--full-color' %}</li>
+        <li>{% render 'payment-icon', method: 'google_pay', icon_class: 'icon icon--full-color' %}</li>
+      </ul>
     {%- endif -%}
     <p class="vsl-foot__copy">&copy; {{ 'now' | date: '%Y' }} {{ st.copyright | default: shop.name | escape }}</p>
   </div>
@@ -214,7 +223,7 @@ Video sales letter: a small footer. The name or logo on the left, a few
     {
       "type": "checkbox",
       "id": "show_mark",
-      "label": "Small moon mark before the name",
+      "label": "Small mark before the name",
       "default": true
     },
     {
@@ -226,6 +235,10 @@ Video sales letter: a small footer. The name or logo on the left, a few
         {
           "value": "moon",
           "label": "Moon"
+        },
+        {
+          "value": "frame",
+          "label": "Viewfinder"
         },
         {
           "value": "wave",
@@ -249,6 +262,13 @@ Video sales letter: a small footer. The name or logo on the left, a few
       "label": "Links to the store's policies",
       "default": true,
       "info": "Each one the store has written in Website settings."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_payment",
+      "label": "Payment icons",
+      "default": true,
+      "info": "Visa, Mastercard, American Express, Apple Pay and Google Pay."
     },
     {
       "type": "text",

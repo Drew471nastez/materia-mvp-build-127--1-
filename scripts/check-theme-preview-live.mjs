@@ -13,10 +13,14 @@
  *   • a cover opens the preview straight onto the website: the frame is
  *     asked for on the press, and no picture of the template is drawn at
  *     any moment, so nothing is swapped
- *   • the wait is quiet: the frame's own white, the loading line still clear
- *     in the first moment
+ *   • the wait is quiet: the website's own ground (its page colour, from
+ *     lib/themes/template-preview-grounds.ts), never white on a dark shop,
+ *     the loading line still clear in the first moment
  *   • the website fades in once: its opacity only ever rises, from 0 to 1,
  *     one transition, and nothing else fades with it
+ *   • filmed as the screen shows it (the compositor's own frames): before
+ *     the website the stage is its ground in every frame, and the website
+ *     comes up over several frames, no step of it more than half the change
  *   • the window's arrival, the switch and the leaving are measured frame by
  *     frame on the page's clock (the longest frame and how many went over
  *     50ms), and the window moves on transform and opacity only
@@ -44,6 +48,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, wri
 import { tmpdir } from "node:os"
 import { extname, join, normalize } from "node:path"
 import puppeteer from "puppeteer-core"
+import sharp from "sharp"
 import { appCss, interFaces } from "./probe-css.mjs"
 
 const CHROMIUM = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium"
@@ -59,6 +64,11 @@ const fail = (m) => {
 if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}. Set CHROMIUM=/path/to/chromium.`)
 if (!existsSync(join(root, "public/theme-previews", SLUG, "index.html"))) fail(`No public/theme-previews/${SLUG}/index.html. Run npx tsx scripts/build-template-previews.ts first.`)
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
+/* The ground the preview waits on, as the build wrote it down. */
+const GROUND = /"([\w-]+)":\s*\{\s*desktop:\s*"(#[0-9a-f]{6})",\s*phone:\s*"(#[0-9a-f]{6})"/gi
+const grounds = Object.fromEntries([...readFileSync(join(root, "lib/themes/template-preview-grounds.ts"), "utf8").matchAll(GROUND)].map((m) => [m[1], { desktop: m[2], phone: m[3] }]))
+const hexRgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16))
+let groundRgb = [255, 255, 255]
 
 let broken = 0
 const expect = (ok, what, got = "") => {
@@ -256,6 +266,46 @@ try {
   }
   const rising = (xs) => xs.every((x, i) => i === 0 || x >= xs[i - 1] - 0.001)
 
+  /*
+    THE SCREEN AS IT WAS SHOWN. The page's clock above is the main thread's;
+    a fade on opacity runs on the compositor, so it is filmed too: every
+    frame the screen drew, as a picture, from the press until the website
+    has settled.
+  */
+  const film = async (p, W, H) => {
+    const c = await p.createCDPSession()
+    const frames = []
+    c.on("Page.screencastFrame", (f) => {
+      frames.push({ t: f.metadata.timestamp, data: f.data })
+      c.send("Page.screencastFrameAck", { sessionId: f.sessionId }).catch(() => {})
+    })
+    await c.send("Page.startScreencast", { format: "jpeg", quality: 70, maxWidth: W, maxHeight: H, everyNthFrame: 1 })
+    return async () => {
+      await c.send("Page.stopScreencast").catch(() => {})
+      await c.detach().catch(() => {})
+      return frames
+    }
+  }
+  /* Each filmed frame's stage, as the mean colour of a band across its middle and how far it is from the ground and from the settled website. */
+  const developed = async (frames, box, W, name) => {
+    const out = []
+    for (const [i, f] of frames.entries()) {
+      const img = sharp(Buffer.from(f.data, "base64"))
+      const meta = await img.metadata()
+      const k = meta.width / W
+      const left = Math.max(0, Math.round(box.x * k)), top = Math.max(0, Math.round((box.y + box.h * 0.25) * k))
+      const width = Math.min(meta.width - left, Math.round(box.w * k)), height = Math.min(meta.height - top, Math.round(box.h * 0.5 * k))
+      const { data, info } = await sharp(Buffer.from(f.data, "base64")).extract({ left, top, width, height }).resize(48, 24, { fit: "fill" }).removeAlpha().raw().toBuffer({ resolveWithObject: true })
+      out.push({ t: f.t, px: data, w: info.width })
+      if (SHOTS && name) writeFileSync(join(SHOTS, `${name}-${String(i).padStart(3, "0")}.jpg`), Buffer.from(f.data, "base64"))
+    }
+    const diff = (a, b) => { let d = 0; for (let i = 0; i < a.length; i++) d += Math.abs(a[i] - b[i]); return d / a.length }
+    const last = out[out.length - 1].px
+    const flat = Buffer.alloc(last.length)
+    for (let i = 0; i < flat.length; i++) flat[i] = groundRgb[i % 3]
+    return out.map((o) => ({ t: o.t, fromGround: diff(o.px, flat), toSite: diff(o.px, last) }))
+  }
+
   /* PROFILE=arrival|switch|leave: the page's main thread through that moment, task by task (for finding what a long frame is). */
   const traceStart = async (p) => {
     await p.tracing.start({ categories: ["devtools.timeline", "disabled-by-default-devtools.timeline", "blink", "v8.execute"] })
@@ -276,6 +326,7 @@ try {
 
   for (const [W, H] of [[1440, 900], [390, 844]]) {
     const phone = W < 768
+    groundRgb = hexRgb(grounds[SLUG]?.[phone ? "phone" : "desktop"] ?? "#ffffff")
     console.log(`\nThe live preview of ${SLUG}, ${W} x ${H}${phone ? " at 2x" : ""}, CPU at 1/${THROTTLE}\n`)
     const p = await open(W, H)
     const cover = await coverOf(p, phone)
@@ -285,6 +336,7 @@ try {
     const before = asked.length
     const entry0 = await p.evaluate(() => ({ index: navigation.currentEntry.index, search: location.search }))
     await record(p)
+    const filming = await film(p, W, H)
     const traced = process.env.PROFILE === "arrival" ? await traceStart(p) : null
     if (phone) await p.tap(cover)
     else await p.click(cover)
@@ -293,12 +345,24 @@ try {
     const early = await stage(p)
     await shot(p, `live-${W}-opening`)
     expect(!!early && early.src === `/theme-previews/${SLUG}/index.html`, "the preview is the template's own website from its first frame", JSON.stringify(early && { src: early.src }))
-    expect(!!early && early.pictures === 0 && early.loader < 0.05 && early.frameBg === "rgb(255, 255, 255)", "no picture first: the frame's own white, the loading line still clear", JSON.stringify(early && { pictures: early.pictures, loader: early.loader, frame: early.frameBg }))
+    expect(!!early && early.pictures === 0 && early.loader < 0.05 && early.frameBg === `rgb(${groundRgb.join(", ")})`, "no picture first: the website's own ground, the loading line still clear", JSON.stringify(early && { pictures: early.pictures, loader: early.loader, frame: early.frameBg, ground: groundRgb }))
     await p.waitForFunction(() => document.querySelector("[data-preview-live]")?.getAttribute("data-preview-live") === "ready", { timeout: 30_000 }).catch(() => null)
     /* The fade is 220ms on the page's clock, which runs slow while the website arrives at a quarter speed. */
     await p.waitForFunction(() => +getComputedStyle(document.querySelector("[data-preview-live]")).opacity === 1, { timeout: 5_000 }).catch(() => null)
     await sleep(600)
     const rec = await stop(p)
+    const filmed = await filming()
+    const box = await p.$eval("[data-preview-live-frame]", (el) => { const r = el.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height } })
+    /* From the first frame in which the window is fully there: before it, the window's own arrival is on screen. */
+    const reel = await developed(filmed, box, W, SHOTS ? `film-${W}` : "")
+    const landed = reel.findIndex((r, i) => i > 0 && Math.abs(r.fromGround - reel[i - 1].fromGround) < 0.5 && r.fromGround < 6)
+    const span = reel[reel.length - 1].fromGround
+    const steps = reel.slice(Math.max(0, landed)).map((r, i, a) => (i === 0 ? 0 : Math.abs(r.fromGround - a[i - 1].fromGround) / Math.max(span, 1)))
+    const waitFrames = reel.slice(Math.max(0, landed)).filter((r) => r.toSite > 0.5 * span && r.fromGround < 6).length
+    const changing = steps.filter((x) => x > 0.04).length
+    console.log(`        filmed: ${reel.length} frames; the stage at its ground for ${waitFrames}; the website came up over ${changing} frames, biggest step ${(Math.max(...steps) * 100).toFixed(0)}% of the change`)
+    expect(landed >= 0 && waitFrames >= 1, "filmed: before the website, the stage is the website's own ground (no white on a dark shop)", `ground rgb(${groundRgb.join(", ")})`)
+    expect(Math.max(...steps) <= 0.5 && changing >= 3, "filmed: the website comes up over several frames, no step more than half the change", steps.filter((x) => x > 0.04).map((x) => x.toFixed(2)).join(" "))
     const readyAt = rec.find((r) => r.live > 0)?.t ?? null
     const askedAt = rec.find((r) => r.asked)?.t ?? null
     expect(askedAt !== null && askedAt >= 150 && askedAt <= 500, "the website is asked for as the window lands (on the page's clock, whose frames are few while it is busy)", `${askedAt}ms after the press`)

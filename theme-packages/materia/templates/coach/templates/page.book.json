@@ -1,24 +1,56 @@
+/* Templates round 22: a running coach, built from the theme's own sections (hero image, marquee, image with text, products, rows, steps, testimonials, gallery, FAQ with image, banner). */
 {
   "sections": {
     "intro": {
-      "type": "coach2-intro",
+      "type": "hero-image1",
       "settings": {
-        "eyebrow": "Free first call",
-        "heading": "Pick a <em>time</em> for your free call",
-        "text": "<p>Twenty minutes on video. Choose a time below and you get a confirmation and a link by email. Nothing to prepare.</p>",
-        "avatar": "shopify://shop_images/coach-mateo-avatar.webp",
-        "name": "Mateo Cruz",
-        "role": "Leadership coach",
-        "fact_1": "20 minutes",
-        "fact_2": "On video",
-        "fact_3": "Free, no pitch"
-      }
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "image": "shopify://shop_images/coach-amara-drills.webp",
+        "image_alt": "Amara doing a knee drive drill",
+        "content_align": "left",
+        "vertical_align": "center",
+        "content_max_width": 620,
+        "min_height_desktop": 560,
+        "min_height_mobile": 520,
+        "overlay_opacity": 45,
+        "side_padding_desktop": 72,
+        "image_position_y": 30
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Monthly coaching, $149 a month"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "A coach who reads every run",
+            "enable_custom_style": true,
+            "size_desktop": 64,
+            "size_mobile": 40,
+            "line_height": 1.02
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Four weeks of runs at a time, a reply to every log within a day and a call before your race. Stop or pause any month.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3"
+      ]
     },
     "form": {
       "type": "journey-storelib-form",
       "settings": {
-        "heading": "Choose a time",
-        "text": "<p>If no times show here yet, write to me below and I will send you a few.</p>",
+        "heading": "Start monthly coaching",
+        "text": "<p>Fill this in and I reply within a day with a time for a 15 minute call. If the form does not show yet, <a href=\"/pages/contact\">write to me</a>.</p>",
         "text_align": "left",
         "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
         "max_width": 880,
@@ -28,118 +60,162 @@
         "padding_bottom_mobile": 48
       }
     },
-    "after": {
-      "type": "coach2-steps",
+    "how": {
+      "type": "steps",
       "settings": {
-        "background": "#ffffff",
-        "eyebrow": "After you book",
-        "heading": "What happens next",
-        "text": "",
-        "heading_size": 44,
-        "padding_top": 88,
-        "padding_bottom": 40
+        "color_scheme": "default",
+        "text_align": "center",
+        "step_style": "numbered",
+        "steps_max_width": 760
       },
       "blocks": {
-        "step_1": {
-          "type": "step",
+        "eyebrow_1": {
+          "type": "eyebrow",
           "settings": {
-            "title": "You get a confirmation",
-            "time": "Right away",
-            "text": "With the video link and a button to move the time if you need to."
+            "text": "After you apply"
           }
         },
-        "step_2": {
-          "type": "step",
+        "heading_2": {
+          "type": "heading",
           "settings": {
-            "title": "A short question",
-            "time": "The day before",
-            "text": "One email asking what you most want to talk about. Two lines is plenty."
+            "text": "What happens next"
           }
         },
-        "step_3": {
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Four weeks at a time, built around the week you actually have.</p>"
+          }
+        },
+        "step_4": {
           "type": "step",
           "settings": {
-            "title": "We talk",
-            "time": "20 minutes",
-            "text": "Your team, what is hard right now, and whether working together makes sense."
+            "title": "Tell me about your running",
+            "description": "<p>A short form: your recent weeks, your race, your job and how many days you can run.</p>"
+          }
+        },
+        "step_5": {
+          "type": "step",
+          "settings": {
+            "title": "Get four weeks of runs",
+            "description": "<p>Every session with a time, an effort and a reason. Synced to your phone's calendar.</p>"
+          }
+        },
+        "step_6": {
+          "type": "step",
+          "settings": {
+            "title": "Run, log it, hear back",
+            "description": "<p>Log each run with a line on how it felt. I read them all and reply within a day.</p>"
+          }
+        },
+        "step_7": {
+          "type": "step",
+          "settings": {
+            "title": "Race week",
+            "description": "<p>A taper, a pacing plan for the course and a call two days before you run.</p>"
+          }
+        },
+        "button_8": {
+          "type": "button",
+          "settings": {
+            "label": "Start coaching",
+            "url": "/pages/book"
           }
         }
       },
       "block_order": [
-        "step_1",
-        "step_2",
-        "step_3"
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "step_4",
+        "step_5",
+        "step_6",
+        "step_7",
+        "button_8"
       ]
     },
     "faq": {
-      "type": "coach2-faq",
+      "type": "faq-side-image",
       "settings": {
-        "background": "#ffffff",
-        "main_heading": false,
-        "eyebrow": "Questions",
-        "heading": "Before you book",
-        "text": "<p>Anything else? <a href=\"/pages/contact\">Send me a message</a> and I will answer within a working day.</p>",
-        "padding_top": 72,
-        "padding_bottom": 104
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "image": "shopify://shop_images/coach-amara-drills.webp",
+        "image_position": "left",
+        "image_aspect": "4_5",
+        "open_first": true,
+        "max_width": 1200
       },
       "blocks": {
-        "question_1": {
-          "type": "question",
+        "heading_1": {
+          "type": "heading",
           "settings": {
-            "question": "Who do you work with?",
-            "answer": "<p>People in their first few years of managing others: team leads, new heads of a function and founders hiring their first team. Most of my clients lead between three and twenty people.</p>"
+            "text": "Questions about coaching"
           }
         },
-        "question_2": {
-          "type": "question",
+        "subheading_2": {
+          "type": "subheading",
           "settings": {
-            "question": "What happens on the free call?",
-            "answer": "<p>Twenty minutes on video. You tell me about your team and what is hard right now, I ask a few questions, and I say honestly whether I can help. There is no pitch at the end.</p>"
+            "text": "<p>Anything else? <a href=\"/pages/contact\">Write to me</a> and I answer within a day.</p>"
           }
         },
-        "question_3": {
-          "type": "question",
+        "faq_item_3": {
+          "type": "faq_item",
           "settings": {
-            "question": "Can my company pay for it?",
-            "answer": "<p>Often, yes. Many clients use a training or development budget. You get an invoice in the company's name, and I can send a short outline for your manager.</p>"
+            "question": "I have never run. Is the 5K plan for me?",
+            "answer": "<p>Yes. It starts with walking and running in short pieces, three times a week, and builds to 30 minutes of running over eight weeks.</p>"
           }
         },
-        "question_4": {
-          "type": "question",
+        "faq_item_4": {
+          "type": "faq_item",
           "settings": {
-            "question": "How long do clients usually stay?",
-            "answer": "<p>Most stay four to six months on monthly coaching. You can stop or pause any month, with no notice period.</p>"
+            "question": "How do I get my plan?",
+            "answer": "<p>Straight after checkout you get a PDF and a calendar file you can add to your phone, plus a copy by email.</p>"
           }
         },
-        "question_5": {
-          "type": "question",
+        "faq_item_5": {
+          "type": "faq_item",
           "settings": {
-            "question": "Is what I say kept private?",
-            "answer": "<p>Yes. When a company pays, I share only that we are meeting, never what we talk about.</p>"
+            "question": "What does monthly coaching add?",
+            "answer": "<p>I write your plan four weeks at a time, read every run you log, answer messages within a day and adjust when life gets in the way.</p>"
           }
         },
-        "question_6": {
-          "type": "question",
+        "faq_item_6": {
+          "type": "faq_item",
           "settings": {
-            "question": "What if it is not working?",
-            "answer": "<p>Tell me. If after the first month you feel it is not worth it, I refund that month.</p>"
+            "question": "Do I need a watch?",
+            "answer": "<p>No. Every session works by time and effort. A watch is useful later, not to start.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "question": "I am coming back from an injury.",
+            "answer": "<p>Get the all clear from a physio first, then start with monthly coaching so we can build back slowly together.</p>"
+          }
+        },
+        "faq_item_8": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I join the Saturday group run?",
+            "answer": "<p>Anyone can. It is free, we meet at 7:30 at the river trail, and there is a group for every pace.</p>"
           }
         }
       },
       "block_order": [
-        "question_1",
-        "question_2",
-        "question_3",
-        "question_4",
-        "question_5",
-        "question_6"
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7",
+        "faq_item_8"
       ]
     }
   },
   "order": [
     "intro",
     "form",
-    "after",
+    "how",
     "faq"
   ]
 }

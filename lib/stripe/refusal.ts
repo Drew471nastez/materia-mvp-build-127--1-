@@ -48,5 +48,6 @@ export function stripeRefusal(error: unknown): StripeRefusal | null {
 
 /** The one log line for the owner, and the answer for the page. */
 export function logStripeRefusal(where: string, refusal: StripeRefusal): void {
-  console.warn(`[stripe] ${where}: ${refusal.code} (Stripe refused for an account reason; see the Stripe dashboard)`)
+  /* An error, not a warning: it is what Vercel's runtime errors list shows, and a seller is blocked until somebody acts. */
+  console.error(JSON.stringify({ evt: "stripe_refusal", where, code: refusal.code, msg: "Stripe refused for an account reason; see the Stripe Dashboard" }))
 }

@@ -1,0 +1,79 @@
+{
+  "sections": {
+    "contact": {
+      "type": "contactformsimple2",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "btn_text": "Send",
+        "show_website": true,
+        "show_labels": true,
+        "label_name": "Name",
+        "ph_name": "Your name",
+        "label_email": "Email",
+        "ph_email": "you@example.com",
+        "label_website": "Order number",
+        "ph_website": "Order number, if you have one",
+        "label_message": "Message",
+        "ph_message": "A size swap, a group order or a question about a print",
+        "success_text": "Thanks. We will reply the same working day.",
+        "radius": 4,
+        "enable_shadow": false,
+        "button_radius": 4,
+        "pad_top": 56,
+        "pad_bottom": 96
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Contact us",
+            "font_size_desktop": 40,
+            "font_size_mobile": 32
+          }
+        },
+        "description_1": {
+          "type": "description",
+          "settings": {
+            "text": "<p>Questions about a size, an order or printing for a team. We answer every message the same working day.</p>"
+          }
+        },
+        "info_1": {
+          "type": "info",
+          "settings": {
+            "icon": "mail",
+            "line1": "hello@example.com",
+            "line2": "Orders, size swaps and group orders"
+          }
+        },
+        "info_2": {
+          "type": "info",
+          "settings": {
+            "icon": "clock",
+            "line1": "Monday to Friday, 9:00 to 17:00",
+            "line2": "Print shop open Thursday to Sunday"
+          }
+        },
+        "info_3": {
+          "type": "info",
+          "settings": {
+            "icon": "map",
+            "line1": "214 Mill Street, River City",
+            "line2": "Pick up orders at the shop"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_1",
+        "info_1",
+        "info_2",
+        "info_3"
+      ]
+    }
+  },
+  "order": [
+    "contact"
+  ]
+}

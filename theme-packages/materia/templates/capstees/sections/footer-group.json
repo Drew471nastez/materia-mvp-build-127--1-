@@ -1,0 +1,91 @@
+{
+  "type": "footer",
+  "name": "t:sections.footer.name",
+  "sections": {
+    "footer": {
+      "type": "footer",
+      "settings": {
+        "custom_text": "",
+        "padding_top": 40,
+        "show_social": false,
+        "color_scheme": "default",
+        "custom_image": "",
+        "reset_spacing": true,
+        "section_width": "container",
+        "copyright_text": "© {{ 'now' | date: '%Y' }} {{ shop.name }}",
+        "heading_weight": "500",
+        "padding_bottom": 28,
+        "separator_line": "all-page",
+        "arrow_icon_size": 14,
+        "link_hover_color": "",
+        "heading_transform": "none",
+        "custom_text_italic": false,
+        "custom_elements_gap": 22,
+        "enable_custom_image": false,
+        "enable_custom_style": false,
+        "footer_heading_size": 13,
+        "enable_custom_text_big": false,
+        "enable_country_selector": true,
+        "custom_image_size_mobile": 168,
+        "enable_language_selector": false,
+        "custom_image_size_desktop": 144,
+        "custom_text_font_size_mobile": 94,
+        "custom_text_font_size_desktop": 264,
+        "show_policy_links": true
+      },
+      "blocks": {
+        "links": {
+          "type": "link_list",
+          "settings": {
+            "menu": "footer",
+            "heading": "Help",
+            "content_width": "25%"
+          }
+        },
+        "shop": {
+          "type": "link_list",
+          "settings": {
+            "menu": "main-menu",
+            "heading": "Shop",
+            "content_width": "25%"
+          }
+        },
+        "news": {
+          "type": "newsletter",
+          "settings": {
+            "heading": "New drops by email",
+            "description": "One email when a new run is ready. Nothing else.",
+            "email_placeholder": "Email address",
+            "button_label": "Sign up",
+            "note": "",
+            "success_text": "Thanks. You are on the list.",
+            "content_width": "50%"
+          }
+        },
+        "pay": {
+          "type": "payment_badges",
+          "settings": {
+            "alignment": "right",
+            "enable_visa": true,
+            "enable_mastercard": true,
+            "enable_amex": true,
+            "enable_apple_pay": true,
+            "enable_google_pay": true,
+            "enable_paypal": false,
+            "enable_klarna": false,
+            "content_width": "100%"
+          }
+        }
+      },
+      "block_order": [
+        "shop",
+        "links",
+        "news",
+        "pay"
+      ]
+    }
+  },
+  "order": [
+    "footer"
+  ]
+}

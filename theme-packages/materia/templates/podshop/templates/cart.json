@@ -1,0 +1,100 @@
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "alignment": "left",
+        "height": "adapt",
+        "overlay_opacity": 0,
+        "padding_top": 56,
+        "padding_bottom": 8
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "Your cart",
+            "header_size": "default",
+            "heading_font_size": 34,
+            "vertical_gap": 12,
+            "enable_heading_color": false
+          }
+        }
+      },
+      "block_order": [
+        "heading_1"
+      ]
+    },
+    "cart-items": {
+      "type": "main-cart-items",
+      "settings": {
+        "padding_top": 24,
+        "reset_spacing": true,
+        "section_width": "container",
+        "padding_bottom": 96,
+        "enable_cart_note": false,
+        "enable_discount_code": true,
+        "show_estimate_shipping": false
+      },
+      "blocks": {
+        "faq_section_1": {
+          "type": "faq_section",
+          "settings": {
+            "show_faq": true,
+            "faq_heading": "Before you check out"
+          }
+        },
+        "faq_1": {
+          "type": "faq",
+          "settings": {
+            "question": "What if it does not fit?",
+            "answer": "<p>Tell us within 30 days and we print the right size for free.</p>"
+          }
+        },
+        "faq_2": {
+          "type": "faq",
+          "settings": {
+            "question": "When will it arrive?",
+            "answer": "<p>Printed and shipped in 3 to 5 working days, tracked. Free shipping over $75.</p>"
+          }
+        },
+        "faq_3": {
+          "type": "faq",
+          "settings": {
+            "question": "How do I choose a size?",
+            "answer": "<p>Every product page has a size chart in inches. Tees run true to size, crewnecks run roomy.</p>"
+          }
+        },
+        "payment_badges_1": {
+          "type": "payment_badges",
+          "settings": {
+            "show_amex": true,
+            "show_visa": true,
+            "show_amazon": false,
+            "show_klarna": false,
+            "show_paypal": false,
+            "show_discover": false,
+            "show_apple_pay": true,
+            "show_google_pay": true,
+            "show_mastercard": true,
+            "show_payment_badges": true
+          }
+        }
+      },
+      "block_order": [
+        "faq_section_1",
+        "faq_1",
+        "faq_2",
+        "faq_3",
+        "payment_badges_1"
+      ]
+    }
+  },
+  "order": [
+    "heading",
+    "cart-items"
+  ]
+}

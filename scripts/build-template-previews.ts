@@ -52,7 +52,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync, readdirSync
 import { dirname, extname, join, posix } from "node:path"
 import sharp from "sharp"
 
-import { CODE_TEMPLATES, CODE_THEME_PACKAGE, TEMPLATE_PREVIEW_ROOT } from "../lib/themes/marketplace-shared"
+import { CODE_TEMPLATES, CODE_THEME_PACKAGE, TEMPLATE_PREVIEW_ROOT, templateCoverPath, templatePhonePath } from "../lib/themes/marketplace-shared"
 import { templateDirs } from "../lib/themes/template-packages"
 import { answer, themeAsset } from "../lib/storelib-theme/compat/site"
 import { importTemplate, MEDIA_PREFIX, type BuiltSite } from "./theme-templates/site"
@@ -369,7 +369,13 @@ async function buildTemplate(t: (typeof CODE_TEMPLATES)[number]) {
   }
   const size = [...walkSizes(join(OUT, slug))].reduce((a, b) => a + b, 0)
   console.log(`${t.name} (${slug}): ${pages.size} pages, ${(size / 1048576).toFixed(2)} MB${missing.size ? `, not found: ${[...missing].slice(0, 8).join(", ")}` : ""}`)
-  return { slug, pages: [...pages.keys()], size }
+  /* What the preview waits on: the colour most of the home page's first screen is, or its page colour (layout/theme.liquid writes it as html's background). */
+  const page = /<style data-page-background>html\{background-color:\s*(#[0-9a-f]{3,8})\s*\}/i.exec(html.get("/") ?? "")?.[1]?.toLowerCase() ?? "#ffffff"
+  const ground = {
+    desktop: (await screenGround(join("public", templateCoverPath(t.template)), 900 / 1440)) ?? page,
+    phone: (await screenGround(join("public", templatePhonePath(t.template)), 844 / 390)) ?? page,
+  }
+  return { slug, pages: [...pages.keys()], size, ground }
 }
 
 /** The markup's indentation, outside what keeps its spaces (pre, textarea, scripts, styles). A tenth of every page. */
@@ -496,13 +502,86 @@ function nextPage(u){try{var x=new URL(u,location.href);if(x.host!==location.hos
 function handoff(to){try{parent.postMessage({type:"storelib:template-preview-go",href:to},"*");return true}catch(e){return false}}
 W.addEventListener("click",function(e){if(!HAND||e.defaultPrevented||e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;var a=e.target&&e.target.closest&&e.target.closest("a[href]");if(!a||a.hasAttribute("download"))return;var to=nextPage(a.href);if(to&&handoff(to))e.preventDefault()});
 if(W.navigation&&navigation.addEventListener)navigation.addEventListener("navigate",function(e){if(!HAND||!e.cancelable||e.hashChange||e.downloadRequest||e.formData||e.navigationType==="traverse"||e.navigationType==="reload")return;var to=nextPage(e.destination.url);if(to&&handoff(to))e.preventDefault()});
-/* Drawn: styles applied, the first screen's pictures in (700ms at most), two frames painted. */
+/*
+  Drawn: styles applied, and every picture on the first screen loaded and
+  decoded and the page's fonts in (1500ms at most), two frames painted. The
+  marketplace shows the first page then, so nothing on it still pops in or
+  reflows under the fade. Looked for again every 50ms: a slider or a
+  section's script lays its pictures out after the markup has arrived.
+*/
 var shown=false;function drawn(){if(shown)return;shown=true;try{parent.postMessage({type:"storelib:template-preview-drawn",path:location.pathname},"*")}catch(e){}}
-function whenDrawn(){var done=false,fin=function(){if(done)return;done=true;requestAnimationFrame(function(){requestAnimationFrame(drawn)})};var wait=[],im=D.images,vh=innerHeight;
-for(var i=0;i<im.length&&wait.length<12;i++){var g=im[i];if(g.complete)continue;var r=g.getBoundingClientRect();if(r.width>0&&r.top<vh&&r.bottom>0)wait.push(g)}
-var left=wait.length;if(!left)return fin();wait.forEach(function(g){var one=function(){if(--left<=0)fin()};g.addEventListener("load",one,{once:true});g.addEventListener("error",one,{once:true})});setTimeout(fin,700)}
-D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn)});W.addEventListener("load",drawn);
+function whenDrawn(){var done=false,fin=function(){if(done)return;done=true;requestAnimationFrame(function(){requestAnimationFrame(drawn)})};
+function look(){if(done)return;var vh=innerHeight,vw=innerWidth,im=D.images,seen=[],wait=false;
+for(var i=0;i<im.length;i++){var g=im[i],r=g.getBoundingClientRect();if(r.width<2||r.height<2||r.top>=vh||r.bottom<=0||r.left>=vw||r.right<=0)continue;if(!g.complete){wait=true;break}if(g.naturalWidth)seen.push(g)}
+if(!wait&&D.fonts&&D.fonts.status==="loading")wait=true;
+if(wait)return setTimeout(look,50);
+Promise.all(seen.slice(0,24).map(function(g){return g.decode?g.decode().catch(function(){}):0})).then(fin,fin)}
+look();setTimeout(fin,1500)}
+D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn)});
 })();`
+
+/*
+  EACH WEBSITE'S GROUND, KNOWN BEFORE IT LOADS. The preview window waits on
+  the website's own background colour, not white (a dark shop flashed white,
+  then appeared), so the colour has to be in the marketplace's code when the
+  window opens: written here, beside the pages, into a small module.
+*/
+const GROUNDS_FILE = join("lib", "themes", "template-preview-grounds.ts")
+type Ground = { desktop: string; phone: string }
+function writeGrounds(made: { slug: string; ground: Ground }[]) {
+  const was = existsSync(GROUNDS_FILE) ? readFileSync(GROUNDS_FILE, "utf8") : ""
+  const all = new Map<string, Ground>()
+  for (const m of was.matchAll(/^\s*"([\w-]+)":\s*\{\s*desktop:\s*"(#[0-9a-f]{6})",\s*phone:\s*"(#[0-9a-f]{6})"\s*\},?$/gm)) all.set(m[1], { desktop: m[2], phone: m[3] })
+  for (const m of made) all.set(m.slug, m.ground)
+  for (const slug of [...all.keys()]) if (!CODE_TEMPLATES.some((t) => t.slug === slug)) all.delete(slug)
+  const rows = CODE_TEMPLATES.filter((t) => all.has(t.slug)).map((t) => `  "${t.slug}": { desktop: "${all.get(t.slug)!.desktop}", phone: "${all.get(t.slug)!.phone}" },`)
+  const body = `/**
+ * Each template's ground, by its address: the colour its live preview waits
+ * on before the website has drawn (theme-preview.tsx), at a computer's width
+ * and at a phone's: the colour that holds the most of the home page's first
+ * screen on its cover, or its page colour when no colour holds a fifth of it.
+ * Written by scripts/build-template-previews.ts; do not edit by hand.
+ */
+export const TEMPLATE_PREVIEW_GROUNDS: Readonly<Record<string, { desktop: string; phone: string }>> = {
+${rows.join("\n")}
+}
+`
+  if (body !== was) writeFileSync(GROUNDS_FILE, body)
+}
+
+/**
+ * The colour that holds at least a fifth of a cover's first screen (its top,
+ * `ratio` of its width tall), as #rrggbb, or null: a photograph has no such
+ * colour, and the page's own colour is the calmer wait then.
+ */
+async function screenGround(file: string, ratio: number): Promise<string | null> {
+  if (!existsSync(file)) return null
+  const meta = await sharp(file).metadata()
+  if (!meta.width || !meta.height) return null
+  const height = Math.min(meta.height, Math.round(meta.width * ratio))
+  const { data } = await sharp(file).extract({ left: 0, top: 0, width: meta.width, height }).resize(96, Math.max(1, Math.round((96 * height) / meta.width)), { fit: "fill" }).removeAlpha().raw().toBuffer({ resolveWithObject: true })
+  const buckets = new Map<number, { n: number; r: number; g: number; b: number }>()
+  for (let i = 0; i < data.length; i += 3) {
+    const key = ((data[i] >> 4) << 8) | ((data[i + 1] >> 4) << 4) | (data[i + 2] >> 4)
+    const k = buckets.get(key) ?? { n: 0, r: 0, g: 0, b: 0 }
+    k.n++, (k.r += data[i]), (k.g += data[i + 1]), (k.b += data[i + 2])
+    buckets.set(key, k)
+  }
+  /* A near black split over two buckets is one colour: each of the commonest is counted with every pixel close to it. */
+  const near = (c: number[]) => {
+    let n = 0
+    for (let i = 0; i < data.length; i += 3) if (Math.hypot(data[i] - c[0], data[i + 1] - c[1], data[i + 2] - c[2]) <= 20) n++
+    return n
+  }
+  const best = [...buckets.values()]
+    .sort((a, b) => b.n - a.n)
+    .slice(0, 12)
+    .map((k) => [k.r / k.n, k.g / k.n, k.b / k.n])
+    .map((c) => ({ c, n: near(c) }))
+    .sort((a, b) => b.n - a.n)[0]
+  if (!best || best.n < (data.length / 3) * 0.22) return null
+  return "#" + best.c.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("")
+}
 
 function* walkSizes(dir: string): Generator<number> {
   if (!existsSync(dir)) return
@@ -521,6 +600,7 @@ async function main() {
   mkdirSync(OUT, { recursive: true })
   const made = []
   for (const t of chosen) made.push(await buildTemplate(t))
+  writeGrounds(made)
   const baseSize = [...walkSizes(join(OUT, "_base"))].reduce((a, b) => a + b, 0)
   const all = [...walkSizes(OUT)].reduce((a, b) => a + b, 0)
   console.log(`\n_base: ${(baseSize / 1048576).toFixed(2)} MB; everything under ${OUT}: ${(all / 1048576).toFixed(2)} MB`)

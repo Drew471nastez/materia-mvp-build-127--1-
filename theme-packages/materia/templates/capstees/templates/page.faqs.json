@@ -1,0 +1,128 @@
+{
+  "sections": {
+    "faq": {
+      "type": "faq-tabs",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "tab_1_label": "Sizing",
+        "tab_2_label": "Shipping",
+        "tab_3_label": "Returns",
+        "tab_4_label": "Care",
+        "tab_5_label": "",
+        "open_first": true,
+        "allow_multiple_open": true,
+        "header_align": "left",
+        "section_max_width_desktop": 900,
+        "tabs_shadow": "none",
+        "tab_weight": "500",
+        "q_size": 17,
+        "q_weight": "500",
+        "a_size": 15,
+        "padding_top_desktop": 56,
+        "padding_bottom_desktop": 96,
+        "padding_top_mobile": 40,
+        "padding_bottom_mobile": 56,
+        "structured_data": true
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Sizing and FAQ",
+            "tag": "h1",
+            "size_enable": true,
+            "size_desktop": 40,
+            "size_mobile": 32
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Fit, shipping, returns and care. Anything else, <a href=\"/pages/contact\">write to us</a>.</p>"
+          }
+        },
+        "q10": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "How do the tees fit?",
+            "answer": "<p>An easy fit with dropped shoulders. Take your usual size; size down for a closer fit.</p>"
+          }
+        },
+        "q11": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "Do the caps fit every head?",
+            "answer": "<p>They are one size with a strap at the back and fit heads from about 54 to 61 cm.</p>"
+          }
+        },
+        "q20": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "2",
+            "question": "How long does shipping take?",
+            "answer": "<p>Orders leave in 1 to 2 working days and arrive in 3 to 6.</p>"
+          }
+        },
+        "q21": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "2",
+            "question": "What does it cost?",
+            "answer": "<p>Free over $75, otherwise $6, tracked.</p>"
+          }
+        },
+        "q30": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "Can I return something?",
+            "answer": "<p>Yes, unworn within 30 days, and returns are free.</p>"
+          }
+        },
+        "q31": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "Can I swap a size?",
+            "answer": "<p>Write to us and we send the new size as soon as yours is on its way back.</p>"
+          }
+        },
+        "q40": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "4",
+            "question": "How do I wash them?",
+            "answer": "<p>Cold, inside out, and dry them flat. Iron the print on the reverse.</p>"
+          }
+        },
+        "q41": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "4",
+            "question": "Will the print crack?",
+            "answer": "<p>No. It is water based ink pressed into the cotton, so it fades slowly like the fabric does.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1",
+        "q10",
+        "q11",
+        "q20",
+        "q21",
+        "q30",
+        "q31",
+        "q40",
+        "q41"
+      ]
+    }
+  },
+  "order": [
+    "faq"
+  ]
+}

@@ -3,77 +3,38 @@
     "hero": {
       "type": "samples-release-hero",
       "settings": {
-        "layout": "hero",
-        "pill": "Sale",
-        "heading": "<em>60% off</em> every pack",
-        "text": "<p>Tech house and deep house sample packs and Serum presets, made by Loudlib. Every sound is <strong>100% royalty free</strong> and yours to keep.</p>",
-        "button_label": "Shop the sale",
-        "button_link": "/collections/all",
-        "button_2_label": "Free downloads",
-        "button_2_link": "/pages/free",
-        "note": "Instant download after checkout.",
-        "background": "shopify://shop_images/samples-producer.webp",
-        "image_opacity": 22,
+        "layout": "stage",
+        "button_2_label": "See every pack",
+        "button_2_link": "/collections/all",
+        "decor": "none",
+        "show_wave": false,
         "color_scheme": "default",
         "section_width": "container",
-        "heading_size": 72,
-        "heading_size_mobile": 44,
-        "padding_top": 72,
-        "padding_bottom": 80,
-        "decor": "glow_grain",
-        "show_wave": true
+        "heading_size": 64,
+        "heading_size_mobile": 38,
+        "padding_top": 56,
+        "padding_bottom": 72
       },
       "blocks": {
         "r_master": {
           "type": "release",
           "settings": {
-            "eyebrow": "Master Bundle 2025",
+            "eyebrow": "Master Bundle 2025, 60% off this week",
             "heading": "Tech House Master Bundle 2025",
             "title": "Tech House Sample Pack, Master Bundle 2025",
-            "image": "shopify://shop_images/samples-box-tech-house-master-bundle.webp",
-            "text": "Over 1,000 tech house sounds in one download: drums, loops, bass, vocals, FX and Serum presets. 1.7 GB unzipped.",
-            "button_label": "Get the pack",
+            "image": "shopify://shop_images/samples-box-tech-house-master-bundle-lg.webp",
+            "text": "Over 1,000 royalty free sounds in one download: drum one shots and loops, basslines, vocals, FX and 26 Serum presets.",
+            "button_label": "Get the bundle",
             "audio": "shopify://shop_images/samples-demo-tech-house-master-bundle.mp4",
             "track_title": "Groove loop, Tech House Master Bundle 2025",
             "seconds": 12.0,
-            "peaks": "94,43,19,10,95,57,23,13,9,91,56,23,94,67,21,96,50,91,81,24,14,91,76,31,15,92,44,16,11,98,51,20,93,73,22,99,39,90,61,28,16,87,83,45,17,95,50,25,13,92,49,22,94,71,21,14,91,79,27,12,91,46,21,11,93,56,23,13,9,93,52,21,92,60,25,97,89,100,77,30,93,44,20,12,97,51,21,12,9,95,51,24,92,78,22,97,48,88,75,23,14,87,77,25,15,98,46,16,9,77,32,11,56,34,10,41,12,22,10,2"
-          }
-        },
-        "r_deep": {
-          "type": "release",
-          "settings": {
-            "eyebrow": "Deep house",
-            "heading": "Deep House Production Suite, Serenade",
-            "title": "Deep House Production Suite, Serenade",
-            "image": "shopify://shop_images/samples-box-deep-house-production-suite.webp",
-            "text": "223 sounds for deep house: drums, loops, basslines, melodies and Serum bass presets. 311 MB unzipped.",
-            "button_label": "Get the pack",
-            "audio": "shopify://shop_images/samples-demo-deep-house-production-suite.mp4",
-            "track_title": "Deep house loop, Deep House Production Suite, Serenade",
-            "seconds": 12.0,
-            "peaks": "95,59,64,31,15,99,62,33,2,6,98,56,65,32,14,96,57,29,2,3,100,56,59,45,13,99,63,36,3,5,98,57,57,54,17,98,56,34,2,11,99,56,69,52,20,98,59,68,62,13,96,57,68,53,27,96,58,77,56,30,99,55,79,48,21,96,62,71,53,27,99,55,68,59,24,97,56,73,56,34,95,50,63,56,56,99,58,80,51,50,95,52,68,47,51,95,55,65,52,68,89,53,65,57,73,87,52,59,48,53,67,31,38,30,34,37,16,14,8,2"
-          }
-        },
-        "r_unitech": {
-          "type": "release",
-          "settings": {
-            "eyebrow": "Tech house",
-            "heading": "Tech House Sample Pack, Unitech",
-            "title": "Tech House Sample Pack, Unitech",
-            "image": "shopify://shop_images/samples-box-tech-house-unitech.webp",
-            "text": "165 WAV files built around the new wave of tech house, inspired by John Summit, Fisher, Matroda and Dom Dolla.",
-            "button_label": "Get the pack",
-            "audio": "shopify://shop_images/samples-demo-tech-house-unitech.mp4",
-            "track_title": "Bass and chords loop, Tech House Sample Pack, Unitech",
-            "seconds": 11.82,
-            "peaks": "92,81,75,65,55,90,80,75,89,82,73,64,92,76,74,63,62,90,88,91,99,80,75,71,66,100,83,76,71,63,93,83,74,94,92,93,83,93,87,78,91,80,69,61,75,84,72,63,88,85,80,69,89,75,70,59,56,86,77,80,95,78,72,66,88,82,81,73,71,86,87,80,77,91,88,89,77,98,89,89,93,80,73,64,80,90,80,73,91,80,73,64,91,76,73,63,61,91,87,92,93,80,74,71,87,78,73,57,49,61,55,47,37,44,37,32,23,18,11,5"
+            "peaks": "94,43,19,10,95,57,23,13,9,91,56,23,94,67,21,96,50,91,81,24,14,91,76,31,15,92,44,16,11,98,51,20,93,73,22,99,39,90,61,28,16,87,83,45,17,95,50,25,13,92,49,22,94,71,21,14,91,79,27,12,91,46,21,11,93,56,23,13,9,93,52,21,92,60,25,97,89,100,77,30,93,44,20,12,97,51,21,12,9,95,51,24,92,78,22,97,48,88,75,23,14,87,77,25,15,98,46,16,9,77,32,11,56,34,10,41,12,22,10,2",
+            "note": "Instant download. WAV, 1.7 GB unzipped, works in every DAW."
           }
         }
       },
       "block_order": [
-        "r_master",
-        "r_deep",
-        "r_unitech"
+        "r_master"
       ]
     },
     "packs": {
@@ -234,25 +195,25 @@
         "heading_size_mobile": 32,
         "padding_top": 88,
         "padding_bottom": 88,
-        "decor": "glow",
+        "decor": "none",
         "show_wave": false
       },
       "blocks": {
         "bundle": {
           "type": "release",
           "settings": {
-            "eyebrow": "One download",
-            "heading": "Tech House Master Bundle 2025",
-            "title": "Tech House Sample Pack, Master Bundle 2025",
-            "image": "shopify://shop_images/samples-box-tech-house-master-bundle-lg.webp",
-            "text": "Every part of a tech house track in one place, from drum one shots to vocals and Serum presets. Plug and play in every major DAW.",
-            "button_label": "Get the bundle",
-            "audio": "shopify://shop_images/samples-demo-tech-house-master-bundle.mp4",
-            "track_title": "Groove loop, Tech House Master Bundle 2025",
+            "eyebrow": "Deep house",
+            "heading": "Deep House Production Suite, Serenade",
+            "title": "Deep House Production Suite, Serenade",
+            "image": "shopify://shop_images/samples-box-deep-house-production-suite.webp",
+            "text": "223 sounds for deep house: drums, loops, basslines, melodies and Serum bass presets. 311 MB unzipped.",
+            "button_label": "Get the pack",
+            "audio": "shopify://shop_images/samples-demo-deep-house-production-suite.mp4",
+            "track_title": "Deep house loop, Deep House Production Suite, Serenade",
             "seconds": 12.0,
-            "peaks": "94,43,19,10,95,57,23,13,9,91,56,23,94,67,21,96,50,91,81,24,14,91,76,31,15,92,44,16,11,98,51,20,93,73,22,99,39,90,61,28,16,87,83,45,17,95,50,25,13,92,49,22,94,71,21,14,91,79,27,12,91,46,21,11,93,56,23,13,9,93,52,21,92,60,25,97,89,100,77,30,93,44,20,12,97,51,21,12,9,95,51,24,92,78,22,97,48,88,75,23,14,87,77,25,15,98,46,16,9,77,32,11,56,34,10,41,12,22,10,2",
-            "note": "RAR 930 MB or ZIP 1 GB. Instant download, yours to keep.",
-            "list": "<ul><li>280 drum one shots and 361 drum loops</li><li>154 bass sounds, with 26 Serum bass presets</li><li>126 FX: impacts, risers, reverses and downfilters</li><li>57 vocal phrases and one shots</li><li>44 melody loops and 25 synth one shots</li></ul>"
+            "peaks": "95,59,64,31,15,99,62,33,2,6,98,56,65,32,14,96,57,29,2,3,100,56,59,45,13,99,63,36,3,5,98,57,57,54,17,98,56,34,2,11,99,56,69,52,20,98,59,68,62,13,96,57,68,53,27,96,58,77,56,30,99,55,79,48,21,96,62,71,53,27,99,55,68,59,24,97,56,73,56,34,95,50,63,56,56,99,58,80,51,50,95,52,68,47,51,95,55,65,52,68,89,53,65,57,73,87,52,59,48,53,67,31,38,30,34,37,16,14,8,2",
+            "list": "<ul><li>Drums, drum loops and percussion</li><li>Basslines and melody loops</li><li>Serum bass presets</li><li>311 MB unzipped, all WAV</li></ul>",
+            "note": "Instant download, yours to keep."
           }
         }
       },

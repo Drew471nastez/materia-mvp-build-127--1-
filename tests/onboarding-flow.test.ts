@@ -265,8 +265,8 @@ check(
 /* Changed on purpose (currency round AP): the account shapes moved to lib/payments/stripe/account-attempts.ts. */
 const attemptsSrc = readFileSync("lib/payments/stripe/account-attempts.ts", "utf8")
 check("new accounts are run by Storelib, with no Stripe dashboard", /requirement_collection: "application"/.test(attemptsSrc) && /stripe_dashboard: \{ type: "none" \}/.test(attemptsSrc) && /accountAttempts\(shared, route, options\)/.test(connect))
-check("an unfinished Express account is replaced, not duplicated", /storelibOnly: true/.test(connect) && /stripe\.accounts\.del\(replacing\)/.test(connect))
-check("sessions are made per view for the signed-in creator's own account", /stripe\.accountSessions\.create\(\{ account: row\.stripe_account_id, components \}\)/.test(connect) && !/stripe_account_id|accountId|account:/.test(embedded))
+check("an unfinished Express account is replaced, not duplicated", /storelibOnly: !wrongCountry/.test(connect) && /stripe\.accounts\.del\(replacing\)/.test(connect))
+check("sessions are made per view for the signed-in creator's own account", /openAccountSession\(creatorId, row\.stripe_account_id, components\)/.test(connect) && /stripe\.accountSessions\.create\(\{ account: accountId, components \}\)/.test(connect) && !/stripe_account_id|accountId|account:/.test(embedded))
 check("the embed uses the server key", embedded.includes("publishableKey") && !embedded.includes("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY"))
 check("session secrets are not stored or logged", !/localStorage|sessionStorage|console\./.test(embedded) && !/console\.[a-z]+\([^)]*client_secret/.test(connect))
 check("the overview reads status from Stripe", /syncStripeAccountFull\(/.test(overview) && /paymentsStatus/.test(overview))
