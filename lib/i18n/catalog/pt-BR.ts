@@ -13804,7 +13804,10 @@ const words: Record<string, string> = {
  "Your browser could not reach Stripe. Check your connection, turn off any content blocker for storelib.com, then try again.": "Seu navegador não conseguiu acessar o Stripe. Verifique sua conexão, desative bloqueadores de conteúdo para storelib.com e tente de novo.",
  "Stripe did not answer just now. Try again in a minute.": "O Stripe não respondeu agora. Tente de novo em um minuto.",
  "The form's sign in ran out. Try again to open a fresh one.": "A sessão do formulário expirou. Tente de novo para abrir um novo.",
- "The form could not open here. Try again, and if it keeps happening write to support@storelib.com.": "O formulário não abriu aqui. Tente de novo e, se continuar acontecendo, escreva para support@storelib.com."
+ "The form could not open here. Try again, and if it keeps happening write to support@storelib.com.": "O formulário não abriu aqui. Tente de novo e, se continuar acontecendo, escreva para support@storelib.com.",
+ "More apps like this": "Mais apps como este",
+ "{label}, and {n} more": "{label} e mais {n}",
+ "+ {n} more": "+ {n} mais"
 }
 
 export default words
