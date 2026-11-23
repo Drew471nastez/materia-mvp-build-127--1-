@@ -26,13 +26,13 @@ import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { Mark } from "@/components/app/settings/integration-mark"
 import { AppMediaGallery, TickList } from "@/components/app/integrations/app-media"
-import { descriptionOf, factsOf, mediaFor, requirementsOf } from "@/lib/integrations/listing"
+import { descriptionOf, factsOf, mediaFor, pricingOf, requirementsOf } from "@/lib/integrations/listing"
 import type { Integration } from "@/lib/integrations/catalog"
 
 const CARD = "rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
-const H2 = "text-[17px] font-semibold leading-6 text-[#1a1a2e] sm:text-[18px]"
+const H2 = "text-[17px] font-semibold leading-6 tracking-[-0.01em] text-[#1a1a2e] sm:text-[19px] sm:leading-[26px]"
 const H3 = "text-[15px] font-semibold text-[#1a1a2e]"
-const BODY = "text-[14px] leading-[22px] text-[#4b5563] sm:text-[14.5px] sm:leading-[23px]"
+const BODY = "text-[14px] leading-[22px] text-[#6b7280] sm:text-[15px] sm:leading-6"
 
 export interface AppListingProps {
   item: Integration
@@ -47,87 +47,133 @@ export interface AppListingProps {
   notice?: React.ReactNode
   /** Paused from /admin, or anything else the page has to say first. */
   banner?: React.ReactNode
+  /** Others in the same category (lib/integrations/listing relatedOf), and how to open one; none drawn without both. */
+  related?: Integration[]
+  onOpen?: (id: string) => void
 }
 
-export function AppListing({ item, Title, standing, color, action, notice, banner }: AppListingProps) {
+export function AppListing({ item, Title, standing, color, action, notice, banner, related = [], onOpen }: AppListingProps) {
   const facts = factsOf(item)
   const { lead, inStorelib } = descriptionOf(item)
   const needs = requirementsOf(item)
   return (
-    <div className="grid gap-4 sm:gap-5 lg:grid-cols-[300px_minmax(0,1fr)] lg:items-start lg:gap-8" data-app-listing={item.id}>
-      <aside className={cn(CARD, "app-card-x py-5 sm:px-6 sm:py-6 lg:sticky lg:top-[80px]")} data-app-listing-column="">
-        <div className="flex items-center gap-3.5 lg:block">
-          <Mark item={item} size={56} />
-          <div className="min-w-0 lg:mt-4">
-            <Title className="text-[22px] font-bold leading-7 tracking-[-0.015em] text-[#1a1a2e] sm:text-[24px] sm:leading-[30px]">{item.name}</Title>
-            <p className="mt-0.5 inline-flex items-center gap-1.5 text-[13px] font-medium text-[#4b5563]" data-integration-standing-line="">
-              <span aria-hidden className={cn("h-2 w-2 rounded-full", standing.dot)} />
-              {standing.label}
-            </p>
+    <div>
+      <div className="grid gap-4 sm:gap-5 lg:grid-cols-[300px_minmax(0,1fr)] lg:items-start lg:gap-8" data-app-listing={item.id}>
+        <aside className={cn(CARD, "app-card-x py-5 sm:px-6 sm:py-6 lg:sticky lg:top-[80px]")} data-app-listing-column="">
+          <div className="flex items-center gap-3.5 lg:block">
+            <Mark item={item} size={56} />
+            <div className="min-w-0 lg:mt-4">
+              <Title className="text-[22px] font-semibold leading-7 tracking-[-0.01em] text-[#1a1a2e] sm:text-[24px] sm:leading-[30px]">{item.name}</Title>
+              <p className="mt-0.5 inline-flex items-center gap-1.5 text-[13px] text-[#6b7280]" data-integration-standing-line="">
+                <span aria-hidden className={cn("h-2 w-2 rounded-full", standing.dot)} />
+                {standing.label}
+              </p>
+            </div>
           </div>
-        </div>
-        <div className="mt-4">{action}</div>
-        {notice ? <div className="mt-3">{notice}</div> : null}
-        <dl className="mt-5 grid grid-cols-3 gap-3 border-t border-[#f1f2f4] pt-4 lg:grid-cols-1 lg:gap-4" data-app-facts="">
-          {facts.map((f) => (
-            <div key={f.label} className="min-w-0">
-              <dt className="text-[12.5px] font-medium text-[#6b7280]">{tt(f.label)}</dt>
-              <dd className="mt-0.5 text-[13.5px] font-semibold leading-5 text-[#1a1a2e]">{tt(f.value)}</dd>
-              {f.note ? <dd className="mt-0.5 hidden text-[12.5px] leading-[18px] text-[#6b7280] sm:block">{f.note}</dd> : null}
-            </div>
-          ))}
-        </dl>
-        {item.docsUrl ? (
-          <a href={item.docsUrl} target="_blank" rel="noopener noreferrer" className="-ml-1.5 mt-4 inline-flex h-11 items-center gap-1.5 rounded-lg px-1.5 text-[13.5px] font-medium text-[#4b5563] outline-none transition-colors hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 sm:h-9" data-app-help="">
-            {tt("{name} help", { name: item.name })}
-            <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-          </a>
-        ) : null}
-      </aside>
-
-      <div className="min-w-0 space-y-4 sm:space-y-5" data-app-listing-main="">
-        {banner}
-        <AppMediaGallery item={item} media={mediaFor(item)} color={color} />
-        <section className={cn(CARD, "app-card-x py-5 sm:px-6 sm:py-6")} aria-labelledby="app-about" data-integration-about="">
-          <h2 id="app-about" className={H2}>
-            {item.summary}
-          </h2>
-          <p className={cn(BODY, "mt-2")}>{lead}</p>
-          {inStorelib.length ? (
-            <>
-              <h3 className={cn(H3, "mt-6")}>{tt("In Storelib")}</h3>
-              <div className={cn(BODY, "mt-2 space-y-3")}>
-                {inStorelib.map((p) => (
-                  <p key={p}>{p}</p>
-                ))}
+          <div className="mt-4">{action}</div>
+          {notice ? <div className="mt-3">{notice}</div> : null}
+          <dl className="mt-5 grid grid-cols-3 gap-3 border-t border-[#f1f2f4] pt-4 lg:grid-cols-1 lg:gap-4" data-app-facts="">
+            {facts.map((f) => (
+              <div key={f.label} className="min-w-0">
+                <dt className="text-[13px] font-medium text-[#1a1a2e]">{tt(f.label)}</dt>
+                <dd className="mt-0.5 text-[13.5px] leading-5 text-[#4b5563]">{tt(f.value)}</dd>
+                {f.note ? <dd className="mt-0.5 hidden text-[13px] leading-5 text-[#6b7280] sm:block">{f.note}</dd> : null}
               </div>
-            </>
+            ))}
+          </dl>
+          {item.docsUrl ? (
+            <a href={item.docsUrl} target="_blank" rel="noopener noreferrer" className="-ml-1.5 mt-4 inline-flex h-11 items-center gap-1.5 rounded-lg px-1.5 text-[13.5px] text-[#4b5563] underline decoration-[#d1d5db] underline-offset-4 outline-none transition-colors hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 sm:h-9" data-app-help="">
+              {tt("{name} help", { name: item.name })}
+              <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+            </a>
           ) : null}
-          {needs.length ? (
-            <div className="mt-6 border-t border-[#f1f2f4] pt-5" data-app-requirements="">
-              <h3 className={H3}>{tt("Requirements")}</h3>
-              <div className="mt-3">
-                <TickList rows={needs.map((n) => tt(n))} />
+        </aside>
+  
+        <div className="min-w-0 space-y-4 sm:space-y-5" data-app-listing-main="">
+          {banner}
+          <AppMediaGallery item={item} media={mediaFor(item)} color={color} />
+          <section className={cn(CARD, "app-card-x py-5 sm:px-6 sm:py-6")} aria-labelledby="app-about" data-integration-about="">
+            <h2 id="app-about" className={H2}>
+              {item.summary}
+            </h2>
+            <p className={cn(BODY, "mt-2")}>{lead}</p>
+            {inStorelib.length ? (
+              <>
+                <h3 className={cn(H3, "mt-6")}>{tt("In Storelib")}</h3>
+                <div className={cn(BODY, "mt-2 space-y-3")}>
+                  {inStorelib.map((p) => (
+                    <p key={p}>{p}</p>
+                  ))}
+                </div>
+              </>
+            ) : null}
+            {needs.length ? (
+              <div className="mt-6 border-t border-[#f1f2f4] pt-5" data-app-requirements="">
+                <h3 className={H3}>{tt("Requirements")}</h3>
+                <div className="mt-3">
+                  <TickList rows={needs.map((n) => tt(n))} />
+                </div>
               </div>
-            </div>
-          ) : null}
-        </section>
-        {item.data.length ? (
-          <section className={cn(CARD, "app-card-x py-5 sm:px-6 sm:py-6")} aria-labelledby="app-data" data-integration-data="">
-            <h3 id="app-data" className={H3}>
-              {tt("Your data")}
-            </h3>
-            <ul className={cn(BODY, "mt-2 space-y-2")}>
-              {item.data.map((d) => (
-                <li key={d} className="flex gap-2.5">
-                  <span aria-hidden className="mt-[10px] h-1 w-1 shrink-0 rounded-full bg-[#9ca3af]" />
-                  {d}
-                </li>
-              ))}
-            </ul>
+            ) : null}
           </section>
-        ) : null}
+          {item.data.length ? (
+            <section className={cn(CARD, "app-card-x py-5 sm:px-6 sm:py-6")} aria-labelledby="app-data" data-integration-data="">
+              <h3 id="app-data" className={H3}>
+                {tt("Your data")}
+              </h3>
+              <ul className={cn(BODY, "mt-2 space-y-2")}>
+                {item.data.map((d) => (
+                  <li key={d} className="flex gap-2.5">
+                    <span aria-hidden className="mt-[10px] h-1 w-1 shrink-0 rounded-full bg-[#9ca3af]" />
+                    {d}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+        </div>
       </div>
+      {related.length && onOpen ? <MoreLikeThis items={related} onOpen={onOpen} /> : null}
     </div>
+  )
+}
+
+/**
+ * MORE APPS LIKE THIS (round 60), under the listing, as an app store ends
+ * an app's page: up to three in the same category, each its mark, its name,
+ * its pricing line and what it does. On the page's grey, not in cards; three
+ * across from 768px, a list on a phone. A link, so it opens in a new tab
+ * too; a plain press opens it in place, as a card in the directory does.
+ */
+function MoreLikeThis({ items, onOpen }: { items: Integration[]; onOpen: (id: string) => void }) {
+  return (
+    <section className="mt-8 border-t border-[#e5e7eb]/70 pt-6 sm:mt-10 sm:pt-8" aria-labelledby="app-related" data-app-related={items.length}>
+      <h2 id="app-related" className={H2}>
+        {tt("More apps like this")}
+      </h2>
+      <ul className="mt-3 grid gap-1 sm:mt-4 md:grid-cols-3 md:gap-5">
+        {items.map((i) => (
+          <li key={i.id} className="min-w-0">
+            <a
+              href={`/app/integrations?integration=${encodeURIComponent(i.id)}`}
+              onClick={(e) => {
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+                e.preventDefault()
+                onOpen(i.id)
+              }}
+              className="-mx-2 flex gap-3.5 rounded-xl p-2 outline-none transition-colors hover:bg-[#f1f2f4] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 active:bg-[#eceef1] [-webkit-tap-highlight-color:transparent]"
+              data-app-related-item={i.id}
+            >
+              <Mark item={i} size={48} />
+              <span className="min-w-0">
+                <span className="block truncate text-[15px] font-medium leading-6 text-[#1a1a2e]">{i.name}</span>
+                <span className="block text-[13px] leading-5 text-[#6b7280]">{tt(pricingOf(i).line)}</span>
+                <span className="mt-0.5 line-clamp-2 text-[13.5px] leading-5 text-[#6b7280]">{i.summary}</span>
+              </span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
