@@ -1930,6 +1930,8 @@ const STRICT_SUITES = [
   "tests/journey-course-community-site.test.ts",
   /* Buyer journey follow-up: a Storelib form or booking page on a Materia website. The base section journey-storelib-form (its setting the forms picker) and the Storelib form app block draw the form framed from the website's own host (/checkout/forms/<id>, framed by that origin only), a still card in the builder, nothing without a form; that page is this website's creator's form only; slots, a submit from the website kept with the website's page as its source, the hold, Pay to confirm through Storelib's checkout back to the page, the webhook, the booking confirmed. Strict: it drives the real routes through tests/_journey. */
   "tests/journey-site-form.test.ts",
+  /* Round 58 (f3): the plans page in the app draws /pricing's own sections (PricingSection, ComparePlans with Compare all features, FaqSection), so prices and features come from one source; Billing and X in a sticky bar clear of the safe areas; a settled button keeps its plan's fill; the layer rises and drops on a phone; the Stripe, proration, trial and current plan logic unchanged. scripts/check-upgrade-r58.mjs measures it in Chromium at 360, 390, 768 and 1280. */
+  "tests/billing-upgrade-r58.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

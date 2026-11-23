@@ -86,7 +86,8 @@ console.log("\n1b. Six true lines on every card, on every surface")
   /* Changed on purpose (pricing tooltip): the rate and its info circle are one run of their own, so the text is read without the tags. */
   check("the compact cards (onboarding) draw the same six", Object.values(lines).flat().every((l) => compact.replace(/<[^>]+>/g, "").replace(/\u00a0/g, " ").includes(l.text)))
   for (const f of ["components/app/billing/billing-page-client.tsx", "components/app/billing/upgrade-page-client.tsx", "components/onepage/tabs/settings-tab.tsx", "components/marketing/pricing-section.tsx"]) {
-    check(`${f} draws the shared cards, no lines of its own`, /<PlanCards\b/.test(read(f)) && !/lines=\{/.test(read(f)))
+    /* Changed on purpose (r58): the upgrade page draws /pricing's PricingSection, which draws PlanCards. */
+    check(`${f} draws the shared cards, no lines of its own`, (/<PlanCards\b/.test(read(f)) || /<PricingSection\b/.test(read(f))) && !/lines=\{/.test(read(f)))
   }
 }
 
@@ -135,7 +136,9 @@ console.log("\n3b. Compare all features, at the top right of the cards")
   check("handed to the cards as their aside", /cardsAside=\{<CompareLink \/>\}/.test(client) && /aside=\{cardsAside\}/.test(read("components/marketing/pricing-section.tsx")))
   const withAside = renderToStaticMarkup(createElement(PlanCards, { actions, aside: createElement("a", { href: "#compare" }, "Compare all features") }))
   check("in the cards' own width, level with the pill, at the right edge", /data-plan-ground=""[^>]*><div data-plan-interval-row="" class="[^"]*sm:grid sm:grid-cols-\[1fr_auto_1fr\]/.test(withAside) && /data-plan-aside="" class="self-end sm:self-auto sm:justify-self-end"><a href="#compare">Compare all features<\/a>/.test(withAside) && (withAside.match(/data-billing-interval=/g) ?? []).length === 1)
-  check("a real link to #compare that glides there (smooth, or at once under reduced motion)", /<a href="#compare" onClick=\{go\}/.test(client) && /behavior: reduceMotion\(\) \? "auto" : "smooth"/.test(client))
+  /* Changed on purpose (r58): CompareLink lives beside the table (compare-plans.tsx), shared with the plans page in the app. */
+  const link = read(`${DIR}/compare-plans.tsx`)
+  check("a real link to #compare that glides there (smooth, or at once under reduced motion)", /<a href="#compare" onClick=\{go\}/.test(link) && /const behavior: ScrollBehavior = reduceMotion\(\) \? "auto" : "smooth"/.test(link))
 }
 
 console.log("\n3c. The order, and the bento a plain section")

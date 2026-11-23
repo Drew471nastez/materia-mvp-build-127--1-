@@ -250,7 +250,8 @@ function main() {
     "components/app/billing/billing-page-client.tsx",
   ]) {
     const code = readCode(file)
-    check(`${file} renders PlanCards`, /<PlanCards\b/.test(code))
+    /* Changed on purpose (r58): the upgrade page draws PricingSection, which renders PlanCards. */
+    check(`${file} renders PlanCards`, /<PlanCards\b/.test(code) || /<PricingSection\b/.test(code))
     check(`${file} does not map over every plan row`, !/plans\.map\(\(plan: any\)/.test(code))
   }
   const cards = readCode("components/billing/plan-cards.tsx")
