@@ -63,6 +63,13 @@
  * once and decoded with the frame, so it is there on the card's first frame:
  * no lazy wait, no grey frame, no second fade.
  *
+ * A COVER CAN BE READY BEFORE ITS CARD IS SHOWN (round 58). The marketplace
+ * keeps every card and hides the ones a category leaves out, so a card can
+ * be shown long after it was built. A card told `eager` asks for its
+ * picture when it is built, at a low priority, hidden or not, and
+ * `warmTemplateCover` decodes a cover while nothing is moving and counts it
+ * as drawn, so a card shown later has its picture on its first frame.
+ *
  * A listing with no picture draws Storelib's own theme from its definition
  * (./theme-cover.tsx), or says the theme's name on the plain frame.
  */
@@ -110,6 +117,33 @@ export const TEMPLATE_CARD_SIZES = {
   lg: "(min-width: 1280px) 356px, (min-width: 1024px) 31vw, (min-width: 768px) 46vw, 100vw",
   sm: "(min-width: 1200px) 368px, (min-width: 1024px) 31vw, (min-width: 640px) 46vw, 100vw",
 } as const
+
+/** The picture a card draws for a listing, or null when it draws the theme or the name instead. */
+const pictureOf = (listing: ThemeListing) => listing.cover ?? listing.screenshots[0] ?? null
+
+/**
+ * Fetch and decode a listing's cover at the size a card of `size` asks for
+ * (the same srcset and sizes, so the same file), and count it as drawn: a
+ * card built or shown after this draws it on its first frame, with no fade.
+ * Resolves when it is ready, or when it could not be had.
+ */
+export function warmTemplateCover(listing: ThemeListing, size: "sm" | "lg"): Promise<void> {
+  const picture = pictureOf(listing)
+  if (!picture || SEEN.has(picture) || typeof Image === "undefined") return Promise.resolve()
+  const img = new Image()
+  img.decoding = "async"
+  if (isOptimizableImage(picture)) {
+    img.sizes = TEMPLATE_CARD_SIZES[size]
+    img.srcset = optimizedSrcSet(picture, COVER_WIDTHS, SITE_PICTURE_QUALITY)
+  }
+  img.src = optimizedImageUrl(picture, 414, SITE_PICTURE_QUALITY)
+  return img.decode().then(
+    () => {
+      SEEN.add(picture)
+    },
+    () => {},
+  )
+}
 
 export type TemplateCardState = "add" | "adding" | "in-library" | "full"
 
@@ -211,6 +245,8 @@ export function ThemeTemplateCard({
   viewHref = null,
   waiting = false,
   priority = false,
+  eager = false,
+  hidden = false,
   onAdd,
   className,
 }: {
@@ -226,6 +262,10 @@ export function ThemeTemplateCard({
   waiting?: boolean
   /** On the first screen: fetched at once rather than when it scrolls near. */
   priority?: boolean
+  /** Kept in the page to be shown later: its picture is asked for now, at a low priority, hidden or not. */
+  eager?: boolean
+  /** Kept in the page but not shown (a category that leaves it out). */
+  hidden?: boolean
   onAdd: () => void
   className?: string
 }) {
@@ -236,7 +276,7 @@ export function ThemeTemplateCard({
   /** The mouse is over the cover: a blur does not take the hover away from under it. */
   const inside = React.useRef(false)
   const [broken, setBroken] = React.useState(false)
-  const picture = !broken ? (listing.cover ?? listing.screenshots[0] ?? null) : null
+  const picture = !broken ? pictureOf(listing) : null
   const def = listing.builtinThemeId ? getThemeDefinition(listing.builtinThemeId) : null
   const lg = size === "lg"
   /* Read once, when the card is first drawn: the picture's own fade is then never started again by a later render. */
@@ -316,8 +356,8 @@ export function ThemeTemplateCard({
       srcSet={isOptimizableImage(picture) ? optimizedSrcSet(picture, COVER_WIDTHS, SITE_PICTURE_QUALITY) : undefined}
       sizes={isOptimizableImage(picture) ? TEMPLATE_CARD_SIZES[size] : undefined}
       alt=""
-      loading={priority || seen ? "eager" : "lazy"}
-      fetchPriority={priority ? "high" : undefined}
+      loading={priority || seen || eager ? "eager" : "lazy"}
+      fetchPriority={priority ? "high" : eager ? "low" : undefined}
       decoding={seen ? "sync" : "async"}
       draggable={false}
       onLoad={(e) => arrived(e.currentTarget)}
@@ -335,7 +375,7 @@ export function ThemeTemplateCard({
   )
 
   return (
-    <article data-template-card={listing.slug} data-size={size} className={cn("min-w-0", className)}>
+    <article data-template-card={listing.slug} data-size={size} hidden={hidden} className={cn("min-w-0", className)}>
       {/* The box the pointer is in or not: it never moves, so nothing moving inside it can switch the hover off and on. */}
       <div
         ref={box}
