@@ -2,22 +2,23 @@
 
 /**
  * ===========================================================================
- *  AN APP'S GALLERY (round 58)
+ *  AN APP'S GALLERY (round 58, round 60)
  * ===========================================================================
- * The right column's top on an app's listing: one large frame and two small
- * ones beside it from 1024px, a row that scrolls sideways with a snap on a
- * phone. Pressing a small frame shows it in the large one.
+ * The right column's top on an app's listing: one large frame and two tiles
+ * beside it from 1024px, a row that scrolls sideways with a snap on a phone.
  *
- *   A VIDEO   only one checked against the provider's own channel
- *             (lib/integrations/listing VERIFIED_VIDEOS). Its poster is drawn
- *             here, from the mark and the title, so nothing is asked of
- *             YouTube until it is pressed; then a youtube-nocookie frame
- *             takes the poster's exact box, so nothing moves.
+ *   VIDEOS    the provider's demo and up to three more, each checked
+ *             against its own YouTube channel (lib/integrations/videos.ts).
+ *             Each is shown by its own YouTube thumbnail, from i.ytimg.com,
+ *             lazy, sized and in a box that has its shape before it comes.
+ *             Pressing the large one, or a tile, plays it: a
+ *             youtube-nocookie frame takes the poster's exact box. Nothing
+ *             is asked of youtube.com before a press. More than three, and
+ *             the second tile says "+ 2 more", as Shopify's app pages do.
  *   PICTURES  files in /public with their source noted, when there are any.
- *   SCENES    otherwise, Storelib's own UI drawn small: what the
- *             integration does here (an order sent to Printful, a label
- *             bought, a subscriber added), in the page's own type and
- *             colours. Drawn, so they need no rights and never load late.
+ *   SCENES    otherwise (and to fill the frames when there are fewer than
+ *             three videos), Storelib's own UI drawn small: what the
+ *             integration does here, in the page's own type and colours.
  *
  * Every frame has its box before anything is in it (aspect-ratio), so the
  * page never shifts.
@@ -27,7 +28,7 @@ import { Check, Play } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { Mark } from "@/components/app/settings/integration-mark"
-import { youtubeEmbedUrl, type AppMedia, type SceneKind } from "@/lib/integrations/listing"
+import { youtubeEmbedUrl, youtubeThumbUrl, type AppMedia, type SceneKind } from "@/lib/integrations/listing"
 import type { Integration } from "@/lib/integrations/catalog"
 
 type Tone = "green" | "amber" | "gray"
@@ -144,32 +145,87 @@ function SceneFrame({ item, frame, large }: { item: Pick<Integration, "id" | "na
   )
 }
 
-type Slide = { kind: "video"; id: string; title: string } | { kind: "image"; src: string; alt: string } | { kind: "scene"; frame: Frame }
+type Slide = { kind: "video"; id: string; title: string; channel: string } | { kind: "image"; src: string; alt: string } | { kind: "scene"; frame: Frame }
 
-/** The video's own poster: the mark and the title on the integration's tint, a play button. Nothing from YouTube. */
-function VideoSlide({ item, id, title, color }: { item: Pick<Integration, "id" | "name" | "logo">; id: string; title: string; color: string }) {
-  const [playing, setPlaying] = React.useState(false)
+/** The slides in order: the demo, the provider's other checked videos, pictures, then Storelib's drawn scenes to fill the frames (all of them when there is no video). */
+export function slidesOf(item: Pick<Integration, "name">, media: AppMedia): Slide[] {
+  const videos = [media.video, ...media.more].filter((v): v is NonNullable<typeof v> => !!v).map((v) => ({ kind: "video" as const, id: v.youtubeId, title: v.title, channel: v.channel }))
+  const pictures = media.screenshots.map((s) => ({ kind: "image" as const, src: s.src, alt: s.alt }))
+  const drawn = scenes(media.scene, item.name).map((frame) => ({ kind: "scene" as const, frame }))
+  const own = [...videos, ...pictures]
+  return own.length >= 3 ? own : [...own, ...drawn].slice(0, 3)
+}
+
+/* The tint behind a thumbnail that did not come, so a frame is never an empty hole. */
+const tint = (color: string) => ({ backgroundImage: `linear-gradient(160deg, color-mix(in srgb, ${color} 26%, #f6f7f9), #eef0f3 70%)` })
+
+/**
+ * A VIDEO'S THUMBNAIL, from YouTube's image host. Lazy, with its own size
+ * (1280x720) and in a box that already has its shape, so nothing moves when
+ * it arrives; it fades in over the tint on opacity alone. If it does not
+ * come, the tint and the mark stay.
+ */
+function Thumb({ item, id, title, color, small }: { item: Pick<Integration, "id" | "name" | "logo">; id: string; title: string; color: string; small?: boolean }) {
+  const src = youtubeThumbUrl(id)
+  const [state, setState] = React.useState<"loading" | "ready" | "failed">("loading")
+  const ref = React.useRef<HTMLImageElement>(null)
+  /* Already in the cache (a second visit): ready before the first paint, so it does not fade in again. */
+  React.useLayoutEffect(() => {
+    const img = ref.current
+    if (img?.complete && img.naturalWidth > 0) setState("ready")
+  }, [])
+  return (
+    <div className="absolute inset-0" style={tint(color)}>
+      {state === "failed" || !src ? (
+        <div className="flex h-full w-full items-center justify-center">
+          <Mark item={item} size={small ? 28 : 44} />
+        </div>
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          ref={ref}
+          src={src}
+          alt={title}
+          width={1280}
+          height={720}
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+          onLoad={() => setState("ready")}
+          onError={() => setState("failed")}
+          className={cn("absolute inset-0 h-full w-full object-cover transition-opacity duration-200 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none", state === "ready" ? "opacity-100" : "opacity-0")}
+          data-app-photo=""
+        />
+      )}
+    </div>
+  )
+}
+
+const PLAY = "flex items-center justify-center rounded-full bg-[#1a1a2e]/90 text-white shadow-[0_8px_24px_-8px_rgba(16,24,40,0.5)]"
+
+/**
+ * A VIDEO IN A LARGE FRAME: its thumbnail and a play button. Pressed, a
+ * youtube-nocookie frame takes the poster's exact box and plays; nothing is
+ * asked of youtube.com before that press.
+ */
+function VideoSlide({ item, id, title, color, playing, onPlay }: { item: Pick<Integration, "id" | "name" | "logo">; id: string; title: string; color: string; playing: boolean; onPlay: () => void }) {
   const src = youtubeEmbedUrl(id)
   if (!src) return null
   return (
     <div className="absolute inset-0" data-app-video={playing ? "playing" : "poster"}>
       {playing ? (
-        <iframe src={src} title={title} className="absolute inset-0 h-full w-full border-0" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen loading="lazy" referrerPolicy="strict-origin-when-cross-origin" />
+        <iframe src={src} title={title} className="absolute inset-0 h-full w-full border-0 bg-black" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" />
       ) : (
         <button
           type="button"
-          onClick={() => setPlaying(true)}
-          className="group absolute inset-0 flex flex-col items-start justify-end gap-3 p-5 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1a1a2e]/30 sm:p-6 [-webkit-tap-highlight-color:transparent]"
-          style={{ backgroundImage: `linear-gradient(160deg, color-mix(in srgb, ${color} 26%, #f6f7f9), #eef0f3 70%)` }}
+          onClick={onPlay}
+          className="group absolute inset-0 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1a1a2e]/30 [-webkit-tap-highlight-color:transparent]"
           aria-label={tt("Play {title}", { title })}
           data-app-video-poster=""
         >
-          <span className="absolute left-1/2 top-1/2 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#1a1a2e] text-white shadow-[0_8px_24px_-8px_rgba(16,24,40,0.5)] transition-transform duration-150 group-hover:scale-105 group-active:scale-95 motion-reduce:transition-none">
+          <Thumb item={item} id={id} title={title} color={color} />
+          <span className={cn(PLAY, "absolute left-1/2 top-1/2 h-14 w-14 -translate-x-1/2 -translate-y-1/2 transition-transform duration-150 group-hover:scale-105 group-active:scale-95 motion-reduce:transition-none")}>
             <Play className="ml-0.5 h-6 w-6" fill="currentColor" aria-hidden />
-          </span>
-          <span className="flex items-center gap-2.5">
-            <Mark item={item} size={32} />
-            <span className="text-[14px] font-semibold leading-5 text-[#1a1a2e]">{title}</span>
           </span>
         </button>
       )}
@@ -178,59 +234,82 @@ function VideoSlide({ item, id, title, color }: { item: Pick<Integration, "id" |
 }
 
 export function AppMediaGallery({ item, media, color }: { item: Pick<Integration, "id" | "name" | "logo">; media: AppMedia; color: string }) {
-  const slides: Slide[] = [
-    ...(media.video ? [{ kind: "video" as const, id: media.video.youtubeId, title: media.video.title }] : []),
-    ...media.screenshots.map((s) => ({ kind: "image" as const, src: s.src, alt: s.alt })),
-    ...scenes(media.scene, item.name).map((frame) => ({ kind: "scene" as const, frame })),
-  ].slice(0, 3)
+  const slides = slidesOf(item, media)
   const [at, setAt] = React.useState(0)
-  const draw = (s: Slide, large: boolean) =>
+  /* The one video playing, by its slide: only ever one, and it stops when another slide is shown. */
+  const [playing, setPlaying] = React.useState<number | null>(null)
+  const label = (s: Slide) => (s.kind === "scene" ? s.frame.title : s.kind === "video" ? tt("Play {title}", { title: s.title }) : s.alt)
+  /* A video's frame is 16:9, as its thumbnail is; Storelib's drawn scenes keep the 16:10 they were drawn for. */
+  const shape = slides[0]?.kind === "video" ? "aspect-video" : "aspect-[16/10]"
+  const large = (s: Slide, i: number) =>
     s.kind === "video" ? (
-      large ? <VideoSlide item={item} id={s.id} title={s.title} color={color} /> : <div className="flex h-full w-full items-center justify-center" style={{ backgroundImage: `linear-gradient(160deg, color-mix(in srgb, ${color} 26%, #f6f7f9), #eef0f3 70%)` }}><Play className="h-5 w-5 text-[#1a1a2e]" fill="currentColor" aria-hidden /></div>
+      <VideoSlide item={item} id={s.id} title={s.title} color={color} playing={playing === i} onPlay={() => setPlaying(i)} />
     ) : s.kind === "image" ? (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={s.src} alt={s.alt} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+      <img src={s.src} alt={s.alt} className="h-full w-full object-cover" loading="lazy" decoding="async" data-app-photo="" />
     ) : (
-      <SceneFrame item={item} frame={s.frame} large={large} />
+      <SceneFrame item={item} frame={s.frame} large />
+    )
+  const small = (s: Slide) =>
+    s.kind === "video" ? (
+      <>
+        <Thumb item={item} id={s.id} title={s.title} color={color} small />
+        <span className={cn(PLAY, "absolute left-1/2 top-1/2 h-9 w-9 -translate-x-1/2 -translate-y-1/2")} aria-hidden>
+          <Play className="ml-0.5 h-4 w-4" fill="currentColor" />
+        </span>
+      </>
+    ) : s.kind === "image" ? (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={s.src} alt={s.alt} className="h-full w-full object-cover" loading="lazy" decoding="async" data-app-photo="" />
+    ) : (
+      <SceneFrame item={item} frame={s.frame} large={false} />
     )
   const FRAME = "relative overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-[#f3f4f6]"
+  /* The two tiles beside the large frame: the first two not in it. Any past those are counted on the second ("+ 2 more"), as an app store does. */
+  const tiles = slides.map((s, i) => ({ s, i })).filter(({ i }) => i !== at).slice(0, 2)
+  const hidden = Math.max(0, slides.length - 3)
+  const choose = (i: number) => {
+    setAt(i)
+    /* A video's tile plays it: pressing a picture of a video means watch it. */
+    setPlaying(slides[i]?.kind === "video" ? i : null)
+  }
   return (
-    <div data-app-gallery="">
-      {/* From 1024px: the large frame and the two small ones beside it, all on one height. */}
+    <div data-app-gallery="" data-app-gallery-count={slides.length}>
+      {/* From 1024px: the large frame and the two tiles beside it, all on one height. */}
       <div className="hidden gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,0.36fr)]">
-        <div className={cn(FRAME, "aspect-[16/10]")} data-app-gallery-main={slides[at]?.kind}>
+        <div className={cn(FRAME, shape)} data-app-gallery-main={slides[at]?.kind}>
           {slides.map((s, i) => (
             <div key={i} className={cn("absolute inset-0 transition-opacity duration-200 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none", i === at ? "opacity-100" : "pointer-events-none opacity-0")} inert={i !== at} aria-hidden={i !== at}>
-              {draw(s, true)}
+              {/* Only the shown one can be playing: another slide stops it. */}
+              {s.kind === "video" ? <VideoSlide item={item} id={s.id} title={s.title} color={color} playing={playing === i && at === i} onPlay={() => setPlaying(i)} /> : large(s, i)}
             </div>
           ))}
         </div>
         <div className="grid grid-rows-2 gap-3">
-          {/* The two not in the large frame, in their own order. */}
-          {slides
-            .map((s, i) => ({ s, i }))
-            .filter(({ i }) => i !== at)
-            .slice(0, 2)
-            .map(({ s, i }) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => setAt(i)}
-                aria-pressed={i === at}
-                aria-label={s.kind === "scene" ? s.frame.title : s.kind === "video" ? s.title : s.alt}
-                className={cn(FRAME, "min-h-0 outline-none transition-shadow duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20", i === at ? "ring-2 ring-[#1a1a2e]/80" : "hover:ring-1 hover:ring-[#d1d5db]")}
-                data-app-gallery-thumb={i}
-              >
-                {draw(s, false)}
-              </button>
-            ))}
+          {tiles.map(({ s, i }, n) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => choose(i)}
+              aria-label={n === 1 && hidden > 0 ? tt("{label}, and {n} more", { label: label(s), n: hidden }) : label(s)}
+              className={cn(FRAME, "group min-h-0 outline-none transition-shadow duration-150 hover:ring-1 hover:ring-[#d1d5db] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 [-webkit-tap-highlight-color:transparent]")}
+              data-app-gallery-thumb={i}
+            >
+              {small(s)}
+              {n === 1 && hidden > 0 ? (
+                <span className="absolute inset-0 flex items-center justify-center bg-[#1a1a2e]/25" data-app-gallery-more={hidden}>
+                  <span className="rounded-full bg-white px-3.5 py-1.5 text-[13.5px] font-medium text-[#1a1a2e] shadow-[0_1px_3px_rgba(16,24,40,0.12)]">{tt("+ {n} more", { n: hidden })}</span>
+                </span>
+              ) : null}
+            </button>
+          ))}
         </div>
       </div>
       {/* Under 1024px: one row, each frame most of the width, snapping, the next one peeking. */}
       <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 [scrollbar-width:none] lg:hidden [&::-webkit-scrollbar]:hidden" data-app-gallery-row="">
         {slides.map((s, i) => (
-          <div key={i} className={cn(FRAME, "aspect-[16/10] w-[86%] max-w-[520px] shrink-0 snap-start")}>
-            {draw(s, true)}
+          <div key={i} className={cn(FRAME, shape, "w-[86%] max-w-[520px] shrink-0 snap-start")}>
+            {large(s, i)}
           </div>
         ))}
       </div>
@@ -241,10 +320,10 @@ export function AppMediaGallery({ item, media, color }: { item: Pick<Integration
 /** A tick list (In Storelib, Requirements). */
 export function TickList({ rows }: { rows: string[] }) {
   return (
-    <ul className="space-y-2.5 text-[14px] leading-[21px] text-[#374151]">
+    <ul className="space-y-2.5 text-[14px] leading-[22px] text-[#6b7280] sm:text-[15px] sm:leading-6">
       {rows.map((r) => (
         <li key={r} className="flex gap-2.5">
-          <Check className="mt-[3px] h-4 w-4 shrink-0 text-[#1a1a2e]" aria-hidden />
+          <Check className="mt-[3px] h-4 w-4 shrink-0 text-[#4b5563] sm:mt-1" aria-hidden />
           <span className="min-w-0">{r}</span>
         </li>
       ))}

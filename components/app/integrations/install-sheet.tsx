@@ -42,10 +42,10 @@ export function InstallSteps({ steps }: { steps: string[] }) {
     <ol className="space-y-3" data-install-steps="">
       {steps.map((s, i) => (
         <li key={s} className="flex gap-3" data-install-step={i + 1}>
-          <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#f3f4f6] text-[12px] font-semibold tabular-nums text-[#1a1a2e]">
+          <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#f3f4f6] text-[12px] font-medium tabular-nums text-[#1a1a2e]">
             {i + 1}
           </span>
-          <p className="min-w-0 pt-[2px] text-[14px] leading-[21px] text-[#1a1a2e]">
+          <p className="min-w-0 pt-[1px] text-[14px] leading-[22px] text-[#4b5563]">
             <span className="sr-only">{tt("Step {n}:", { n: i + 1 })} </span>
             {s}
           </p>
@@ -91,7 +91,7 @@ export function InstallSheet({ open, onClose, item, title, steps, panel, install
       <p className="mt-3 text-[16px] font-semibold text-[#1a1a2e]" role="status">
         {tt("{name} is connected", { name: item.name })}
       </p>
-      <p className="mt-1 max-w-[340px] text-[14px] leading-[21px] text-[#6b7280]">{tt("Its page now shows what it keeps in step, its activity and its settings.")}</p>
+      <p className="mt-1 max-w-[340px] text-[14px] leading-[22px] text-[#6b7280]">{tt("Its page now shows what it keeps in step, its activity and its settings.")}</p>
     </div>
   ) : (
     <div className="space-y-5" data-install-sheet-body="">

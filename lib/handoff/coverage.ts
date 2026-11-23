@@ -69,6 +69,7 @@ export const RECORD_TABLES: Readonly<Record<string, string>> = {
   plan_cancellations: "Why the founder once cancelled a plan. Storelib's record of the founder's billing, kept as written and never shown to the new owner.",
   invoices: "The founder's plan invoices. Billing reads them through the business's billing customer, which the handoff detaches, so the new owner never sees them; the rows are kept for the founder's records.",
   business_handoffs: "The handoff itself. The function marks it accepted, with who took it and what was detached, and it stays as the record.",
+  business_limits: "How many businesses a login can have, set by Storelib on a login's first account (SQL part 446). The function reads the recipient's through business_limit_of and changes nothing; a business handed over is never a login's first account, so no row of it is read or moved.",
 }
 
 /** Rows the transfer function changes or removes, and why. Each is named in business_handoff_accept. */

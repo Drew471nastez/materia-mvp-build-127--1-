@@ -19,7 +19,6 @@ import {
 } from "lucide-react"
 import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
-import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { DateRangePicker } from "@/components/app/date-range-picker"
 import { presetRange, rangeLabel, type RangeValue } from "@/lib/date-range/range"
 import {
@@ -784,7 +783,6 @@ function EmptyState({
 }) {
   /* Say which of the three it is: nothing sold yet, nothing in these dates,
      or nothing through these filters. Each has its own way out. */
-  const physical = usePhysicalCommerceEnabled()
   const title = !hasOrders ? tt("No orders yet") : filtering ? tt("No orders match") : tt("No orders in this period")
   const body = !hasOrders
     ? tt("Orders from your Storelib page and your website show up here as soon as someone buys.")
@@ -795,12 +793,6 @@ function EmptyState({
     <div className="flex flex-col items-center px-6 py-14 text-center">
       <p className="text-[15px] font-semibold text-[#1a1a2e]">{title}</p>
       <p className="mt-1 max-w-[340px] text-[13px] text-[#6b7280]">{body}</p>
-      {!hasOrders && physical ? (
-        /* A store about to sell things that ship: what will happen to its first order, step by step. */
-        <a href="/help/physical-products/playbook" target="_blank" rel="noreferrer" className="mt-3 text-[13px] font-medium text-[#1a1a2e] underline underline-offset-2" data-orders-playbook="">
-          {tt("What happens when someone orders")}
-        </a>
-      ) : null}
       {hasOrders ? (
         <div className="mt-4 flex flex-wrap justify-center gap-2">
           {filtering ? (

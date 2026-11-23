@@ -10,7 +10,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: tt("Upsells and bundles") }
 }
 
-/** Products › Upsells and bundles (lib/offers): the list, read on the server (./offers-screen.tsx); an offer opens in a modal over it. */
-export default async function OffersPage() {
-  return OffersScreen({ from: "/app/offers" })
+/** Products › Upsells and bundles (lib/offers): the list, read on the server (./offers-screen.tsx). `?choose=1` lands with New offer's kind chooser open. */
+export default async function OffersPage({ searchParams }: { searchParams: Promise<{ choose?: string }> }) {
+  const { choose } = await searchParams
+  return OffersScreen({ from: "/app/offers", choose: choose === "1" })
 }

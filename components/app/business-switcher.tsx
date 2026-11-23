@@ -6,7 +6,7 @@ import { AppAvatar, preloadAvatar } from "@/components/app/app-avatar"
 import { SwitchingScreen, type SwitchingHandle } from "@/components/app/business-switch-screen"
 import { STILL_AVATAR } from "@/components/app/shell-header-still"
 import { iconDepth } from "@/components/ui/depth-button"
-import { canAddBusiness, LIMIT_REACHED } from "@/lib/businesses/rules"
+import { canAddBusiness, limitReached, MAX_BUSINESSES, type BusinessLimit } from "@/lib/businesses/rules"
 import { createBusiness, openAgain, SWITCH_FAILED, SwitchFailed, SwitchStalled, switchBusiness, type SwitchSteps } from "@/lib/businesses/switch-client"
 import { cn } from "@/lib/utils"
 import { accessSummary, homeFor, type TeamPermission } from "@/lib/team/permissions"
@@ -119,6 +119,8 @@ export interface BusinessRow {
   ready: boolean
   current: boolean
   role: "owner" | "member"
+  /** The login's limit, the same on every row (lib/businesses/server listBusinesses): that many, or null for no limit. Missing reads as MAX_BUSINESSES. */
+  limit?: BusinessLimit
 }
 
 /**
@@ -209,8 +211,9 @@ export function BusinessSwitcher({
   const current = businesses.find((b) => b.current) ?? businesses[0] ?? null
   const others = actingIn ? businesses : businesses.filter((b) => b !== current)
   const otherTeams = teamStores.filter((t) => !t.current)
-  /* Room for another business on this login, whichever of its businesses this is (lib/businesses/rules MAX_BUSINESSES). */
-  const canAdd = canAddBusiness(businesses.length)
+  /* Room for another business on this login, whichever of its businesses this is: MAX_BUSINESSES, or the login's own number Storelib set (business_limits, SQL part 446; null is no limit). */
+  const limit: BusinessLimit = businesses.length > 0 && businesses[0].limit !== undefined ? businesses[0].limit : MAX_BUSINESSES
+  const canAdd = canAddBusiness(businesses.length, limit)
 
   /*
     THE NEW PAGE NEVER CAME (lib/businesses/switch-flow). The browser holds
@@ -285,7 +288,7 @@ export function BusinessSwitcher({
       refusal lands on this very line with these very words.
     */
     if (!canAdd) {
-      setError(LIMIT_REACHED)
+      setError(limitReached(limit))
       return
     }
     setError(null)

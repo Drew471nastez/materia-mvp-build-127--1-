@@ -14,10 +14,9 @@ export async function generateMetadata(): Promise<Metadata> {
 const KINDS: readonly OfferKind[] = ["bundle", "checkout", "quantity_break"]
 
 /**
- * Round 58: /app/offers/new is the list with the New offer modal open over
- * it, so every link that points here still works. `?kind=bundle`,
- * `checkout` (an upsell) or `quantity_break` starts on that kind's form;
- * with no kind the modal asks which first.
+ * Round 60: a new offer's own page. `?kind=bundle`, `checkout` (an upsell)
+ * or `quantity_break` is that kind's form (../offer-editor.tsx); with no
+ * kind the list opens with New offer's kind chooser (../offers-screen.tsx).
  */
 export default async function NewOfferPage({ searchParams }: { searchParams: Promise<{ kind?: string }> }) {
   const { kind } = await searchParams

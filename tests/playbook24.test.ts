@@ -199,7 +199,8 @@ check("Zero to 100 and How selling works point to it", JSON.stringify(helpArticl
 check("Settings › Shipping and delivery links it, beside the step by step guide", /href="\/help\/physical-products\/playbook"/.test(read("components/physical/shipping-settings.tsx")) && /href="\/help\/physical-products\/zero-to-100"/.test(read("components/physical/shipping-settings.tsx")))
 check("  and its How it works (who ships your orders) opens it", EXPLAINERS.fulfilment.guide === "/help/physical-products/playbook")
 const orders = read("app/(storelib)/app/orders/orders-list.tsx")
-check("the empty Orders page links it while physical commerce is on", /!hasOrders && physical \?/.test(orders) && /href="\/help\/physical-products\/playbook"/.test(orders) && /usePhysicalCommerceEnabled\(\)/.test(orders))
+/* Changed on purpose (r60): the owner asked for the empty Orders page without "What happens when someone orders"; it is reached from Help and Settings above. */
+check("the empty Orders page no longer links it", !/href="\/help\/physical-products\/playbook"/.test(orders) && !/data-orders-playbook/.test(orders) && !/What happens when someone orders/.test(orders))
 check("it is in the sitemap's list while physical commerce is on, and gone while it is off", helpArticlesFor(true).some((x) => x.slug === "playbook") && !helpArticlesFor(false).some((x) => x.slug === "playbook"))
 check("searching for it finds it", helpArticlesIn("physical-products").includes(a))
 

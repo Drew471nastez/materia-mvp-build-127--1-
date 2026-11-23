@@ -1372,6 +1372,7 @@ const words: Record<string, string> = {
  "Back to collections": "Torna alle collezioni",
  "Back to contacts": "Torna ai contatti",
  "Back to coupons": "Torna ai coupon",
+ "Back to offers": "Torna alle offerte",
  "Back to courses": "Torna ai corsi",
  "Back to dashboard": "Torna alla dashboard",
  "Back to editor": "Torna all'editor",
@@ -4063,6 +4064,7 @@ const words: Record<string, string> = {
  "Going back": "Ritorno",
  "Going back to collections": "Torno alle collezioni",
  "Going back to coupons": "Ritorno ai coupon",
+ "Going back to offers": "Ritorno alle offerte",
  "Going back to products": "Ritorno ai prodotti",
  "Going back to programs": "Ritorno ai programmi",
  "Going back to size charts": "Ritorno alle tabelle taglie",
@@ -11227,7 +11229,6 @@ const words: Record<string, string> = {
  "What happens if somebody cannot come": "Cosa succede se qualcuno non può venire",
  "What happens to it": "Cosa succede",
  "What happens when I move back to Free?": "Cosa succede se torno a Free?",
- "What happens when someone orders": "Cosa succede quando qualcuno ordina",
  "What is in the email now is replaced with the layout. A subject or preview text you typed yourself stays.": "Il contenuto attuale viene sostituito dal layout. Oggetto o testo di anteprima scritti da te restano.",
  "What is inside": "Cosa contiene",
  "What is installed on your store and running on this website. Each one opens in a new tab to change its settings.": "Ciò che è installato nel tuo negozio e attivo su questo sito. Ognuna si apre in una nuova scheda per cambiarne le impostazioni.",
@@ -13806,7 +13807,10 @@ const words: Record<string, string> = {
  "Your browser could not reach Stripe. Check your connection, turn off any content blocker for storelib.com, then try again.": "Il tuo browser non è riuscito a raggiungere Stripe. Controlla la connessione, disattiva eventuali blocchi dei contenuti per storelib.com, poi riprova.",
  "Stripe did not answer just now. Try again in a minute.": "Stripe non ha risposto. Riprova tra un minuto.",
  "The form's sign in ran out. Try again to open a fresh one.": "L'accesso al modulo è scaduto. Riprova per aprirne uno nuovo.",
- "The form could not open here. Try again, and if it keeps happening write to support@storelib.com.": "Il modulo non si è aperto qui. Riprova e, se continua a succedere, scrivi a support@storelib.com."
+ "The form could not open here. Try again, and if it keeps happening write to support@storelib.com.": "Il modulo non si è aperto qui. Riprova e, se continua a succedere, scrivi a support@storelib.com.",
+ "More apps like this": "Altre app simili",
+ "{label}, and {n} more": "{label} e altri {n}",
+ "+ {n} more": "+ altri {n}"
 }
 
 export default words

@@ -257,9 +257,12 @@ function PlanCard({
   interval,
   nameLevel = 3,
   onFilm = false,
+  fit,
 }: {
   /** On the onboarding's dark film: every card level, with a little more depth under it. */
   onFilm?: boolean
+  /** Laid out by the row's own width (PlanCards' `fit`): the featured card rises only where the three sit side by side. */
+  fit?: PlanFit
   plan: OfferedPlan
   action: PlanCardAction
   label?: string
@@ -299,7 +302,7 @@ function PlanCard({
             ? "relative z-[1] shadow-[0_32px_60px_-24px_rgba(0,0,0,0.7),0_12px_24px_-12px_rgba(0,0,0,0.45)]"
             : "shadow-[0_24px_48px_-24px_rgba(0,0,0,0.6),0_8px_16px_-10px_rgba(0,0,0,0.35)]"
           : featured
-            ? "relative z-[1] shadow-[0_22px_44px_-22px_rgba(24,24,27,0.30),0_4px_12px_-6px_rgba(24,24,27,0.10)] md:-translate-y-2"
+            ? `relative z-[1] shadow-[0_22px_44px_-22px_rgba(24,24,27,0.30),0_4px_12px_-6px_rgba(24,24,27,0.10)] ${fit ? FIT[fit].raise : "md:-translate-y-2"}`
             : "shadow-[0_1px_2px_rgba(24,24,27,0.04)]"
       } ${pick ? "cursor-pointer" : ""}`}
     >
@@ -396,6 +399,42 @@ function ContactSalesBar({ compact }: { compact?: boolean }) {
   )
 }
 
+/**
+ * ROUND 60, THE OWNER: Settings > Plan must draw /pricing's cards "exactly as
+ * /pricing does ... never squash the cards. No truncated button labels."
+ *
+ * /pricing lays its row out by the window (three across from 768px). Inside
+ * Settings the row is a column beside the section list, far narrower than the
+ * window, so the window's rule squeezed three cards into it (232px at 1280,
+ * 149px at 768, "Downgrade to Fr..."). With `fit` the row is laid out by its
+ * own width (a container query on the ground):
+ *
+ *   sheet   three across only where each gets /pricing's computer card,
+ *           380px (1180px of row, /pricing's own); under that, /pricing's
+ *           phone row: sideways, snapping, each card /pricing's phone card
+ *           (82% of the window less /pricing's 16px sides), at most 380px.
+ *   page    the plans page in the app: /pricing's layout, except where three
+ *           across would cut an app label ("Downgrade to Free" wants a card
+ *           of about 245px): under 780px of row it is the sideways row.
+ *
+ * The cards, lines, prices and buttons are the same component either way.
+ */
+export type PlanFit = "sheet" | "page"
+const FIT: Record<PlanFit, { row: string; slot: string; lead: string; raise: string }> = {
+  sheet: {
+    row: "flex snap-x snap-mandatory overflow-x-auto -mt-2 pb-7 -mb-6 @min-[1180px]:grid @min-[1180px]:grid-cols-3 @min-[1180px]:overflow-visible @min-[1180px]:mt-0 @min-[1180px]:pb-0 @min-[1180px]:mb-0 @min-[1180px]:mx-0 @min-[1180px]:px-0",
+    slot: "shrink-0 snap-start w-[min(calc((100vw-32px)*0.82),380px)] @min-[1180px]:w-auto",
+    lead: "order-first @min-[1180px]:order-none",
+    raise: "@min-[1180px]:-translate-y-2",
+  },
+  page: {
+    row: "flex snap-x snap-mandatory overflow-x-auto -mt-2 pb-7 -mb-6 @min-[780px]:grid @min-[780px]:grid-cols-3 @min-[780px]:overflow-visible @min-[780px]:mt-0 @min-[780px]:pb-0 @min-[780px]:mb-0 @min-[780px]:mx-0 @min-[780px]:px-0",
+    slot: "shrink-0 snap-start w-[min(calc((100vw-32px)*0.82),380px)] @min-[780px]:w-auto",
+    lead: "order-first @min-[780px]:order-none",
+    raise: "@min-[780px]:-translate-y-2",
+  },
+}
+
 export function PlanCards({
   actions,
   labels,
@@ -410,7 +449,10 @@ export function PlanCards({
   contactSales = false,
   aside,
   split,
+  fit,
 }: {
+  /** Lay the row out by its own width, not the window's (see FIT): Settings > Plan ("sheet"), the plans page in the app ("page"). */
+  fit?: PlanFit
   /**
    * A heading for the row the cards sit under (the onboarding's plan step):
    * it takes the left and Monthly / Yearly the right from 768px, both on the
@@ -458,7 +500,7 @@ export function PlanCards({
         </div>
       )}
       {/* What the three cards (and the contact bar) sit in. Landing round 12, the owner: no light grey ground behind them any more (it was #efeff0, padded); the row keeps its width, so the cards take the room the ground had. */}
-      <div data-plan-ground="" className={`mx-auto w-full ${compact ? (split != null ? "max-w-[1056px]" : "max-w-[980px]") : "max-w-[1180px]"} ${className}`}>
+      <div data-plan-ground="" data-plan-fit={fit} className={`mx-auto w-full ${fit ? "@container" : ""} ${compact ? (split != null ? "max-w-[1056px]" : "max-w-[980px]") : "max-w-[1180px]"} ${className}`}>
         {/*
           WITH SOMETHING AT THE TOP RIGHT (landing round 14, /pricing's
           "Compare all features"): the row sits inside the cards' own width,
@@ -490,10 +532,14 @@ export function PlanCards({
           it) and pads its top and foot so the rings and the raised card's
           shadow are not clipped. From 768px it is the three columns again.
         */}
-        <div data-plan-cards className={`flex w-full items-stretch max-md:-mx-[var(--plan-bleed,0px)] max-md:w-auto max-md:snap-x max-md:snap-mandatory max-md:overflow-x-auto max-md:overscroll-x-contain max-md:scroll-px-[var(--plan-bleed,0px)] max-md:px-[var(--plan-bleed,0px)] max-md:-mt-2 max-md:pt-2 max-md:pb-7 max-md:-mb-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:grid md:grid-cols-3 ${compact ? "gap-2.5 sm:gap-3" : "gap-3 lg:gap-5"} md:pt-2`}>
+        <div data-plan-cards className={fit
+          ? `${FIT[fit].row} items-stretch -mx-[var(--plan-bleed,0px)] overscroll-x-contain scroll-px-[var(--plan-bleed,0px)] px-[var(--plan-bleed,0px)] pt-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${compact ? "gap-2.5 sm:gap-3" : "gap-3 lg:gap-5"}`
+          : `flex w-full items-stretch max-md:-mx-[var(--plan-bleed,0px)] max-md:w-auto max-md:snap-x max-md:snap-mandatory max-md:overflow-x-auto max-md:overscroll-x-contain max-md:scroll-px-[var(--plan-bleed,0px)] max-md:px-[var(--plan-bleed,0px)] max-md:-mt-2 max-md:pt-2 max-md:pb-7 max-md:-mb-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:grid md:grid-cols-3 ${compact ? "gap-2.5 sm:gap-3" : "gap-3 lg:gap-5"} md:pt-2`}>
           {OFFERED_PLANS.map((plan) => (
-            <div key={plan.id} data-plan-slot={plan.id} className={`flex max-md:w-[82%] max-md:shrink-0 max-md:snap-start ${lead === plan.id ? "order-first md:order-none" : ""}`}>
-              <PlanCard plan={plan} action={actions[plan.id]} label={labels?.[plan.id]} compact={compact} interval={interval} nameLevel={nameLevel} onFilm={split != null} />
+            <div key={plan.id} data-plan-slot={plan.id} className={fit
+              ? `flex ${FIT[fit].slot} ${lead === plan.id ? FIT[fit].lead : ""}`
+              : `flex max-md:w-[82%] max-md:shrink-0 max-md:snap-start ${lead === plan.id ? "order-first md:order-none" : ""}`}>
+              <PlanCard plan={plan} action={actions[plan.id]} label={labels?.[plan.id]} compact={compact} interval={interval} nameLevel={nameLevel} onFilm={split != null} fit={fit} />
             </div>
           ))}
         </div>
@@ -541,6 +587,9 @@ const PLAN_BUTTON_CSS = `
   .plan-grow:hover .plan-disc::after{opacity:1;scale:1}
 }
 @media (prefers-reduced-motion:reduce){.plan-grow .plan-disc::after{scale:none;transition:opacity .15s linear}}
+@media (hover:hover) and (pointer:fine){
+  [data-plan-fit] [data-plan-cards]{scrollbar-width:thin;scrollbar-color:#d4d4d8 transparent}
+}
 `
 
 /**

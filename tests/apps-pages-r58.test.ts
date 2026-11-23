@@ -72,14 +72,17 @@ console.log("\nEvery integration has a listing\n")
 console.log("\nMedia: a checked video or nothing from YouTube\n")
 {
   check("every verified video is a well formed ID with its channel and the day it was checked", Object.values(VERIFIED_VIDEOS).every((v) => !!v && YOUTUBE_ID.test(v.youtubeId) && v.channel.length > 0 && /^\d{4}-\d{2}-\d{2}$/.test(v.checked)))
-  check("  none is guessed: the list is empty until one is checked on youtube.com (round 58 could not reach it)", Object.keys(VERIFIED_VIDEOS).length === 0)
+  /* Changed on purpose (r60): YouTube was reachable in round 60 and every video was checked with oEmbed against the provider's own channel (lib/integrations/videos.ts, tests/apps-media-r60.test.ts). */
+  check("  none is guessed: each one names the channel it was checked on and the day", Object.values(VERIFIED_VIDEOS).every((v) => !!v && v.channelUrl.startsWith("https://www.youtube.com/@")))
   check("  no screenshot without its source; none shipped this round", Object.values(SCREENSHOTS).every((list) => (list ?? []).every((s) => s.src.startsWith("/") && s.source.length > 0)) && Object.keys(SCREENSHOTS).length === 0)
   check("the embed is youtube-nocookie, only for an 11 character ID", youtubeEmbedUrl("abcdefghijk")!.startsWith("https://www.youtube-nocookie.com/embed/abcdefghijk?") && youtubeEmbedUrl("abc") === null && youtubeEmbedUrl("abcdefghij\"") === null && youtubeEmbedUrl("../../x?a=1") === null)
   check("every integration draws a scene of what it does in Storelib", INTEGRATIONS.every((i) => !!sceneFor(i)) && sceneFor(integrationById("printful")!) === "orders" && sceneFor(integrationById("shippo")!) === "labels" && sceneFor(integrationById("shipstation")!) === "shipments" && sceneFor(integrationById("klaviyo")!) === "subscribers" && sceneFor(integrationById("sendcloud")!) === "soon")
   const item = integrationById("printful")!
-  const withVideo = renderToStaticMarkup(React.createElement(AppMediaGallery, { item, media: { video: { youtubeId: "abcdefghijk", title: "A video", channel: "Printful", checked: "2026-11-23" }, screenshots: [], scene: "orders" }, color: "#2c2c2c" }))
-  check("  a video draws its own poster: no frame, no YouTube address, no thumbnail from ytimg until pressed", /data-app-video-poster=""/.test(withVideo) && !/<iframe/.test(withVideo) && !/youtube|ytimg/.test(withVideo))
-  const scenes = renderToStaticMarkup(React.createElement(AppMediaGallery, { item, media: mediaFor(item), color: "#2c2c2c" }))
+  const withVideo = renderToStaticMarkup(React.createElement(AppMediaGallery, { item, media: { video: { youtubeId: "abcdefghijk", title: "A video", channel: "Printful", channelUrl: "https://www.youtube.com/@PrintfulCustomPrinting", checked: "2026-11-23" }, more: [], screenshots: [], scene: "orders" }, color: "#2c2c2c" }))
+  /* Changed on purpose (r60): the poster is the video's own YouTube thumbnail, from i.ytimg.com, as the owner asked; still no frame and no youtube.com address until pressed. */
+  check("  a video draws its poster: no frame and no youtube.com address until pressed; its thumbnail from i.ytimg.com", /data-app-video-poster=""/.test(withVideo) && !/<iframe/.test(withVideo) && !/youtube(-nocookie)?\.com/.test(withVideo) && /https:\/\/i\.ytimg\.com\/vi\/abcdefghijk\/maxresdefault\.jpg/.test(withVideo))
+  /* Changed on purpose (r60): Printful has checked videos now; Telegram, with none, is the one drawn. */
+  const scenes = renderToStaticMarkup(React.createElement(AppMediaGallery, { item: integrationById("telegram")!, media: mediaFor(integrationById("telegram")!), color: "#2c2c2c" }))
   check("  without one, three drawn frames, each in a box with its own aspect ratio (no shift)", (scenes.match(/data-app-scene=""/g) ?? []).length >= 3 && /aspect-\[16\/10\]/.test(scenes) && !/<img[^>]+(press|screenshot)/.test(scenes))
 }
 

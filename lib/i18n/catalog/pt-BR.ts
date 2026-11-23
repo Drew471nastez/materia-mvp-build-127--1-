@@ -1372,6 +1372,7 @@ const words: Record<string, string> = {
  "Back to collections": "Voltar para coleções",
  "Back to contacts": "Voltar aos contatos",
  "Back to coupons": "Voltar para cupons",
+ "Back to offers": "Voltar para ofertas",
  "Back to courses": "Voltar para cursos",
  "Back to dashboard": "Voltar ao painel",
  "Back to editor": "Voltar ao editor",
@@ -4063,6 +4064,7 @@ const words: Record<string, string> = {
  "Going back": "Voltando",
  "Going back to collections": "Voltando para coleções",
  "Going back to coupons": "Voltando para cupons",
+ "Going back to offers": "Voltando para ofertas",
  "Going back to products": "Voltando para produtos",
  "Going back to programs": "Voltando para programas",
  "Going back to size charts": "Voltando às tabelas de medidas",
@@ -11227,7 +11229,6 @@ const words: Record<string, string> = {
  "What happens if somebody cannot come": "O que acontece se alguém não puder ir",
  "What happens to it": "O que acontece",
  "What happens when I move back to Free?": "O que acontece se eu voltar para o Grátis?",
- "What happens when someone orders": "O que acontece quando alguém faz um pedido",
  "What is in the email now is replaced with the layout. A subject or preview text you typed yourself stays.": "O que está no e-mail agora é substituído pelo layout. Um assunto ou texto de prévia que você digitou continua.",
  "What is inside": "O que tem dentro",
  "What is installed on your store and running on this website. Each one opens in a new tab to change its settings.": "O que está instalado na sua loja e funcionando neste site. Cada um abre em uma nova aba para mudar as configurações.",
@@ -13806,7 +13807,10 @@ const words: Record<string, string> = {
  "Your browser could not reach Stripe. Check your connection, turn off any content blocker for storelib.com, then try again.": "Seu navegador não conseguiu acessar o Stripe. Verifique sua conexão, desative bloqueadores de conteúdo para storelib.com e tente de novo.",
  "Stripe did not answer just now. Try again in a minute.": "O Stripe não respondeu agora. Tente de novo em um minuto.",
  "The form's sign in ran out. Try again to open a fresh one.": "A sessão do formulário expirou. Tente de novo para abrir um novo.",
- "The form could not open here. Try again, and if it keeps happening write to support@storelib.com.": "O formulário não abriu aqui. Tente de novo e, se continuar acontecendo, escreva para support@storelib.com."
+ "The form could not open here. Try again, and if it keeps happening write to support@storelib.com.": "O formulário não abriu aqui. Tente de novo e, se continuar acontecendo, escreva para support@storelib.com.",
+ "More apps like this": "Mais apps como este",
+ "{label}, and {n} more": "{label} e mais {n}",
+ "+ {n} more": "+ {n} mais"
 }
 
 export default words

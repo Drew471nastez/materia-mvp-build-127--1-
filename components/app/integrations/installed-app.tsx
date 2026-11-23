@@ -46,11 +46,11 @@ export function SyncedCard({ rows }: { rows: string[] }) {
             <li key={r} className="flex min-h-11 flex-col justify-center gap-0.5 py-2 sm:min-h-0">
               {at > 0 ? (
                 <>
-                  <span className="text-[12.5px] text-[#6b7280]">{tt(r.slice(0, at))}</span>
-                  <span className="text-[13.5px] font-medium leading-5 text-[#1a1a2e]">{r.slice(at + 2)}</span>
+                  <span className="text-[13px] font-medium text-[#1a1a2e]">{tt(r.slice(0, at))}</span>
+                  <span className="text-[13.5px] leading-5 text-[#4b5563]">{r.slice(at + 2)}</span>
                 </>
               ) : (
-                <span className="text-[13.5px] font-medium leading-5 text-[#1a1a2e]">{r}</span>
+                <span className="text-[13.5px] leading-5 text-[#4b5563]">{r}</span>
               )}
             </li>
           )
@@ -72,7 +72,7 @@ export function ActivityCard({ rows }: { rows: ActivityRow[] }) {
             <li key={`${r.text}-${i}`} className="flex gap-2.5 py-2.5">
               <span aria-hidden className={cn("mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full", DOT[r.tone])} />
               <div className="min-w-0">
-                <p className={cn("text-[13.5px] leading-5", r.tone === "red" ? "font-medium text-[#b42318]" : "text-[#1a1a2e]")}>{r.text}</p>
+                <p className={cn("text-[13.5px] leading-5", r.tone === "red" ? "font-medium text-[#b42318]" : "text-[#4b5563]")}>{r.text}</p>
                 {r.at ? <p className="text-[12.5px] tabular-nums text-[#6b7280]">{dateTime(r.at)}</p> : null}
               </div>
             </li>

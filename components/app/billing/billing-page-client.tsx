@@ -401,12 +401,18 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
 
         {/* Notification is now a fixed toast at top of screen - rendered at end of component */}
 
-        {/* Three sections, the same distance apart, in one column (PLAN_COLUMN). 40px on a phone, 48 from 640: room for the plan cards' shadow before the next heading. */}
-        <div data-billing-column="" className={cn(PLAN_COLUMN, "space-y-10 sm:space-y-12")}>
+        {/* Three sections, the same distance apart. 40px on a phone, 48 from 640: room for the plan cards' shadow before the next heading. */}
+        {/*
+          ROUND 60, THE OWNER: the plan cards were "cramped in the sheet's
+          content column". The overview and the history keep the centred 720px
+          column (PLAN_COLUMN); the plans take the panel's whole width, centred
+          on the same axis, so /pricing's cards get /pricing's own width.
+        */}
+        <div data-billing-column="" className="w-full space-y-10 sm:space-y-12">
 
           {/* ---- FIRST: the plans, the same cards the plans page shows. What you could be on comes before what you are on (the owner's order: plans, then the overview, the card and the history). ---- */}
           {readOnly ? (
-            <p data-billing-read-only="" className="rounded-xl border border-[#e5e7eb]/60 bg-white px-4 py-3 text-[13px] leading-5 text-[#6b7280]">
+            <p data-billing-read-only="" className="mx-auto w-full max-w-[720px] rounded-xl border border-[#e5e7eb]/60 bg-white px-4 py-3 text-[13px] leading-5 text-[#6b7280]">
               {tt("You can see this store's plan. Changing it is for the owner, or someone they give Change billing.")}
             </p>
           ) : null}
@@ -432,7 +438,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
             forward and white for the rest. No uppercase labels, no badge
             for a plan that is simply on.
           */}
-          <div data-billing-overview="">
+          <div data-billing-overview="" className={PLAN_COLUMN}>
             {/* Centred on a phone, under the centred plans (round 22); on the left beside the cards from 640. */}
             <h2 className="mb-4 text-center text-[17px] font-bold text-[#1a1a2e] sm:text-left">{tt("Subscription Overview")}</h2>
             {/* Stripe did not answer: the plan below is the last one known and nothing about it changed. A line, not an error: the creator has nothing to do. */}
@@ -583,7 +589,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
             the amount, its status, and a download at the end on a computer.
             A row opens the invoice.
           */}
-          <div data-billing-history="" className={cn(CARD, "overflow-hidden")}>
+          <div data-billing-history="" className={cn(PLAN_COLUMN, CARD, "overflow-hidden")}>
             <div className="flex items-center justify-between gap-3 app-card-x pb-2 pt-5">
               <h2 className="text-[17px] font-bold text-[#1a1a2e]">{tt("Billing History")}</h2>
               {liveInvoices.length > 0 && !readOnly && (
@@ -1059,14 +1065,24 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
   }
 
   return (
-    <div data-billing-plans="">
+    <div data-billing-plans="" className="[--plan-bleed:var(--app-gutter)] lg:[--plan-bleed:0px]">
       {/*
         A CENTRED HEADER OVER THE PLANS (round R1). "The left aligned Plans
         heading goes." It now reads like the plans page (upgrade-page-client
         "Choose a plan"), a step smaller inside Settings: centred over the
         Monthly and Yearly pill and the two cards, with one line under it.
       */}
+      {/*
+        ROUND 60, THE OWNER: "render /pricing's cards exactly as /pricing
+        does". /pricing's own cards (not the onboarding's compact ones), laid
+        out by the room they have here (fit="sheet", FIT in
+        components/billing/plan-cards): each card /pricing's width, a sideways
+        row where three of those do not fit, never three squeezed in. On a
+        phone the row runs to the screen's edges, as /pricing's does
+        (--plan-bleed is the gutter). The buttons' actions are unchanged.
+      */}
       <PlanCards
+        fit="sheet"
         heading={
           <div className="mx-auto max-w-[560px] pt-1 text-center sm:pt-2" data-plans-header="">
             <h2 className="text-[22px] font-bold leading-[1.15] tracking-[-0.02em] text-[#1a1a2e] sm:text-[24px]">{tt("Plans and pricing")}</h2>
@@ -1075,8 +1091,6 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
         }
         actions={{ free: actionFor("free"), growth: actionFor("growth"), pro: actionFor("pro") }}
         lead={currentPlan.id === "free" ? "growth" : undefined}
-        /* Inside Settings the cards are the onboarding's compact size: the page-size cards overflowed the panel (the owner: "look how bad it looks"). */
-        compact
       />
     </div>
   )

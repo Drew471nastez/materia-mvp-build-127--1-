@@ -63,7 +63,7 @@ import { isPageIntegration } from "@/lib/onepage/integrations/catalog"
 import { AppListing } from "@/components/app/integrations/app-listing"
 import { InstallSheet } from "@/components/app/integrations/install-sheet"
 import { ActivityCard, InstalledApp, SyncedCard } from "@/components/app/integrations/installed-app"
-import { activityOf, installLabel, installMode, installSteps, syncedOf } from "@/lib/integrations/listing"
+import { activityOf, installLabel, installMode, installSteps, relatedOf, syncedOf } from "@/lib/integrations/listing"
 
 /*
   A CARD, AS EVERY /app CARD ON A PHONE (the mobile pass, the owner: "more
@@ -192,6 +192,9 @@ export interface IntegrationDetailProps {
   onBack?: () => void
   /** The page scrolls on its own (/app/integrations, /app/reviews): its action follows in a bar at the top once the header's is scrolled away. */
   pin?: boolean
+  /** Round 60: the directory's integrations and how to open one, for More apps like this under the listing. */
+  others?: readonly Integration[]
+  onOpen?: (id: string) => void
 }
 
 function Layout({ main, aside }: { main: React.ReactNode; aside?: React.ReactNode }) {
@@ -203,7 +206,7 @@ function Layout({ main, aside }: { main: React.ReactNode; aside?: React.ReactNod
   )
 }
 
-export function IntegrationDetail({ item, status, installed, tracking, trackingReady, states, marketing, onTracking, onStates, onApp, onMarketing, onBack, pin = false }: IntegrationDetailProps) {
+export function IntegrationDetail({ item, status, installed, tracking, trackingReady, states, marketing, onTracking, onStates, onApp, onMarketing, onBack, pin = false, others, onOpen }: IntegrationDetailProps) {
   const setupRef = React.useRef<HTMLElement>(null)
   const standing = STANDING[status]
   const params = useSearchParams()
@@ -730,11 +733,21 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
           scroller, which already starts below the app's header and its safe
           area (app/app/layout.tsx, the settings sheet), so it is never under
           a notch and the inset is never counted twice.
+
+          STUCK FROM THE FIRST PIXEL (round 60). The box used to sit 16 or
+          24px down the scroller (the page's own room over Back) and only
+          stuck once that much was scrolled, so a bar fading out near the top
+          slid down that far with the page as it went (24px at 1280, measured
+          frame by frame). Now its sticky top is one number, --pin-lift, more
+          than that room, so it is stuck from scroll 0, and the bar is lifted
+          by the same number: it is drawn at one place under the top in every
+          frame, and only its opacity and its 6px slide change. The box has
+          no height, so the lift moves nothing else.
         */
-        <div className="sticky top-0 z-20 h-0" data-integration-pin-box="">
+        <div className="sticky top-[var(--pin-lift)] z-20 h-0 [--pin-lift:40px]" data-integration-pin-box="">
           <div
             className={cn(
-              "absolute inset-x-0 top-0 pt-2 transition-[opacity,translate] duration-200 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none sm:pt-3",
+              "absolute inset-x-0 top-[calc(var(--pin-lift)*-1)] pt-2 transition-[opacity,translate] duration-200 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none sm:pt-3",
               pinned ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-1.5 opacity-0",
             )}
             inert={!pinned}
@@ -807,6 +820,8 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
             standing={{ label: standing.label, dot: DOT[standing.tone] }}
             color={bannerColor(item)}
             action={listingAction}
+            related={others ? relatedOf(item, others) : []}
+            onOpen={onOpen}
             notice={
               notice ? (
                 <Notice tone={notice.tone}>
@@ -839,8 +854,8 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
             <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between lg:gap-8">
               <div className="min-w-0 max-w-[680px]">
                 {/* The page's title where it is a page of its own (no Integrations title above it any more). */}
-                <Title className="text-[24px] font-bold leading-[30px] tracking-[-0.02em] text-[#1a1a2e] sm:text-[30px] sm:leading-tight">{item.name}</Title>
-                <p className="mt-1 text-[14.5px] leading-[21px] text-[#4b5563] sm:mt-1.5 sm:leading-[22px]">{item.summary}</p>
+                <Title className="text-[24px] font-semibold leading-[30px] tracking-[-0.015em] text-[#1a1a2e] sm:text-[28px] sm:leading-[34px]">{item.name}</Title>
+                <p className="mt-1 text-[14.5px] leading-[22px] text-[#6b7280] sm:mt-1.5 sm:leading-6">{item.summary}</p>
                 {/*
                   ONE LINE (round 27, the owner: "Reviews, Made by Storelib, Connected, Working on your store" was too much
                   text): the category, who made it and where it stands. The sentence under it only when it says something

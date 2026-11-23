@@ -1704,6 +1704,7 @@ const SUITES = [
 const STRICT_SUITES = [
   /* Round 58 (f5): every kind of offer (bundle, upsell and order bump, Buy X get Y, volume tiers, download bundle, free shipping) saved through /api/store/offers as the new modal sends it, then on GET /api/offers, a Materia product page and cart, the website's checkout and Stripe's charge, the download basket and /app's Sold; numbers a browser sends change nothing. */
   "tests/offers-r58.test.ts",
+  "tests/offers-flow-r60.test.ts",
   /* Wave 7: /app/emails never falls over on an answer of another shape ("eN.find is not a function" from the live build): every loader fed objects, { error }, junk lists, HTML and empty bodies answers with lists or an Error to retry; the shapers (lib/emails/shapes.ts) never throw; each part of the page in its own net (components/app/emails/part-boundary). Strict: it draws the panels that read through components/physical/ui, which only narrow strict. */
   "tests/emails-shapes-w7.test.ts",
   /* Round 51: Contacts, one person per creator (an account first, an address only when verified or given here, never a name), Customers or Marketing opens it, another store's row refused through /app/contacts/open, exports of the store's own only, deleting never touches an order or a membership, an import never resubscribes, the legacy addresses redirected (SQL 378; its parity with lib/contacts/identity.ts on Postgres: scripts/check-contacts-sql.mjs). */
@@ -1936,6 +1937,8 @@ const STRICT_SUITES = [
   "tests/commerce-e2e-r57.test.ts",
   /* Round 58 (f4): the integrations area as an app store: every integration's listing (pricing, category, developer, Install, the gallery, in Storelib, requirements), no key field until the install sheet, numbered steps over the provider's own fields, Discord straight to its sign in, a video only once checked (none yet) and only from youtube-nocookie on a press, the one installed page template (status, what is synced, activity, settings, disconnect) and Reviews' Settings on it (scripts/check-apps-r58.mjs measures them in Chromium at 360, 390, 768 and 1280). */
   "tests/apps-pages-r58.test.ts",
+  /* Round 60 (h2): every installable integration's demo video checked with oEmbed on its provider's own YouTube channel (ID, title, channel, the day checked; none for Telegram and Storelib's own apps), 2 to 4 per provider as gallery tiles by their own i.ytimg.com thumbnails (lazy, sized, alt text, "+ 1 more"), the sticky bar stuck from scroll 0, lighter type, More apps like this (scripts/check-apps-media-r60.mjs measures them in Chromium). */
+  "tests/apps-media-r60.test.ts",
   /* Round 58 (f2): Add block on a phone is the sheet wherever it is pressed (scripts/check-block-picker-phone.mjs), used blocks say Added; Materia's benefit icons one crisp set with no flash before their styles; Check DNS is the settings primary button; Read more folds on a real line (story, community summary, membership description); the payment row shows only what checkout takes. */
   "tests/builder-polish-r58.test.ts",
   /* Round 58 (f1): the theme marketplace as a bottom sheet on a phone, its order as Storelib's action menu, its categories as the builder's chips over kept cards decoded ahead; Add a section's All in the order a page is built (lib/website-builder/all-sections-order.ts). scripts/check-builder-modals-r58.mjs measures both in Chromium at 360, 390, 768 and 1280. */
@@ -1946,8 +1949,12 @@ const STRICT_SUITES = [
   "tests/journey-site-form.test.ts",
   /* Round 58 (f3): the plans page in the app draws /pricing's own sections (PricingSection, ComparePlans with Compare all features, FaqSection), so prices and features come from one source; Billing and X in a sticky bar clear of the safe areas; a settled button keeps its plan's fill; the layer rises and drops on a phone; the Stripe, proration, trial and current plan logic unchanged. scripts/check-upgrade-r58.mjs measures it in Chromium at 360, 390, 768 and 1280. */
   "tests/billing-upgrade-r58.test.ts",
+  /* Round 60 (h1): Settings > Plan draws /pricing's full cards laid out by their own row (fit="sheet": /pricing's card width, a sideways row where three do not fit, never squashed, no label cut off), the billing actions unchanged; the plans page's logo at the left of its bar on the cards' edge, then Billing, X at the right. scripts/check-billing-plan-r60.mjs measures it in Chromium at 360, 390, 768 and 1280. */
+  "tests/billing-plan-r60.test.ts",
   /* Round 59 (g1): creator activity in /admin (SQL part 430): paths with ids as :id, pages and named actions only, one request a minute while visible and none while hidden, one database call per batch and a presence write at most every 55 s, country and coarse device from the request, admin only, soft and asked once per period before the part runs, 30 day cleanup in batches. scripts/check-activity-beacon-r59.mjs measures the requests in Chromium; scripts/check-creator-activity-r59.mjs the admin at 390 and 1280. */
   "tests/creator-activity-r59.test.ts",
+  /* Round 60 (h3): a login's business limit set per account by Storelib (SQL part 446, business_limits: NULL the rule of three, -1 no limit, or a number). The real /api/businesses route with the admin client stood in: three and no more without a row, a sixth with -1 and never told three, four at 4, a failed read is the rule; a claim link at -1 is not "limit"; the part's table is server only and nothing in the app writes it. scripts/check-business-limit-sql.sh runs the part on Postgres 16 (who can write it, the trigger and the handoff). */
+  "tests/business-limit-r60.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

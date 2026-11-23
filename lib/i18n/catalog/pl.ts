@@ -1372,6 +1372,7 @@ const words: Record<string, string> = {
  "Back to collections": "Wróć do kolekcji",
  "Back to contacts": "Wróć do kontaktów",
  "Back to coupons": "Wróć do kuponów",
+ "Back to offers": "Wróć do ofert",
  "Back to courses": "Wróć do kursów",
  "Back to dashboard": "Wróć do panelu",
  "Back to editor": "Wróć do edytora",
@@ -4063,6 +4064,7 @@ const words: Record<string, string> = {
  "Going back": "Powrót",
  "Going back to collections": "Powrót do kolekcji",
  "Going back to coupons": "Powrót do kuponów",
+ "Going back to offers": "Powrót do ofert",
  "Going back to products": "Powrót do produktów",
  "Going back to programs": "Powrót do programów",
  "Going back to size charts": "Powrót do tabel rozmiarów",
@@ -11227,7 +11229,6 @@ const words: Record<string, string> = {
  "What happens if somebody cannot come": "Co, jeśli ktoś nie może przyjść",
  "What happens to it": "Co się z tym dzieje",
  "What happens when I move back to Free?": "Co się stanie po powrocie do Free?",
- "What happens when someone orders": "Co się dzieje, gdy ktoś zamawia",
  "What is in the email now is replaced with the layout. A subject or preview text you typed yourself stays.": "Obecna treść zostanie zastąpiona układem. Temat lub tekst podglądu wpisany przez Ciebie zostaje.",
  "What is inside": "Co zawiera",
  "What is installed on your store and running on this website. Each one opens in a new tab to change its settings.": "To, co jest zainstalowane w Twoim sklepie i działa na tej stronie. Każda otwiera się w nowej karcie, aby zmienić jej ustawienia.",
@@ -13806,7 +13807,10 @@ const words: Record<string, string> = {
  "Your browser could not reach Stripe. Check your connection, turn off any content blocker for storelib.com, then try again.": "Twoja przeglądarka nie połączyła się ze Stripe. Sprawdź połączenie, wyłącz blokowanie treści dla storelib.com i spróbuj ponownie.",
  "Stripe did not answer just now. Try again in a minute.": "Stripe przed chwilą nie odpowiedział. Spróbuj ponownie za minutę.",
  "The form's sign in ran out. Try again to open a fresh one.": "Sesja formularza wygasła. Spróbuj ponownie, aby otworzyć nowy.",
- "The form could not open here. Try again, and if it keeps happening write to support@storelib.com.": "Nie udało się otworzyć formularza. Spróbuj ponownie, a jeśli problem się powtarza, napisz na support@storelib.com."
+ "The form could not open here. Try again, and if it keeps happening write to support@storelib.com.": "Nie udało się otworzyć formularza. Spróbuj ponownie, a jeśli problem się powtarza, napisz na support@storelib.com.",
+ "More apps like this": "Podobne aplikacje",
+ "{label}, and {n} more": "{label} i jeszcze {n}",
+ "+ {n} more": "+ jeszcze {n}"
 }
 
 export default words
