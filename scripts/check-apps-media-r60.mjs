@@ -203,10 +203,16 @@ export const isNativePlatform = () => false
       /* G: the gallery's pictures. Every <img> in it that is drawn has loaded, has its box from the first frame (width and height or an aspect box), is lazy and has alt text. */
       const gallery = await p.evaluate(() => {
         const imgs = [...document.querySelectorAll("[data-app-gallery] img[data-app-photo]")].filter((i) => i.getClientRects().length > 0)
+        /* Lazy on purpose: one past the screen's right edge (the phone's row) is not asked for until it nears it, so "drawn" is what is on the screen. */
+        const on = imgs.filter((i) => { const r = i.getBoundingClientRect(); return r.right > 0 && r.left < innerWidth && r.bottom > 0 && r.top < innerHeight })
         return {
-          drawn: imgs.length,
-          loaded: imgs.filter((i) => i.complete && i.naturalWidth > 0).length,
+          gallery: !!document.querySelector("[data-app-gallery]"),
+          all: imgs.length,
+          drawn: on.length,
+          loaded: on.filter((i) => i.complete && i.naturalWidth > 0).length,
+          loadedAll: imgs.filter((i) => i.complete && i.naturalWidth > 0).length,
           lazy: imgs.filter((i) => i.loading === "lazy").length,
+          sized: imgs.filter((i) => i.getAttribute("width") === "1280" && i.getAttribute("height") === "720").length,
           alt: imgs.filter((i) => (i.getAttribute("alt") ?? "").trim().length > 0).length,
           ytimg: imgs.filter((i) => i.src.startsWith("https://i.ytimg.com/vi/")).length,
           more: document.querySelector("[data-app-gallery-more]")?.textContent?.trim() ?? null,
@@ -215,9 +221,11 @@ export const isNativePlatform = () => false
       })
       row.gallery = gallery
       console.log("  gallery", JSON.stringify(gallery))
-      expect(gallery.loaded === gallery.drawn, "G every drawn gallery picture loaded", gallery)
-      expect(gallery.lazy === gallery.drawn && gallery.alt === gallery.drawn, "G every gallery picture is lazy and has alt text", gallery)
-      expect(gallery.drawn > 0 || gallery.scenes > 0, "G the gallery shows pictures or Storelib's drawn scenes", gallery)
+      if (gallery.gallery) {
+        expect(gallery.loaded === gallery.drawn, "G every gallery picture on the screen has loaded", gallery)
+        expect(gallery.lazy === gallery.all && gallery.alt === gallery.all && gallery.sized === gallery.all, "G every gallery picture is lazy, sized and has alt text", gallery)
+        expect(gallery.drawn > 0 || gallery.scenes > 0, "G the gallery shows pictures or Storelib's drawn scenes", gallery)
+      }
 
       /* CLS from the first paint, through the reads and the late thumbnails. */
       const shift = await p.evaluate(() => window.__shifts)
@@ -267,6 +275,7 @@ export const isNativePlatform = () => false
                   tf: pcs ? `${pcs.transform}|${pcs.translate}` : null,
                   asideTop: a ? Math.round((a.top - top) * 10) / 10 : null,
                   asidePos: aside ? getComputedStyle(aside).position : null,
+                  asideCss: aside ? parseFloat(getComputedStyle(aside).top) : null,
                   backOp: back ? Number(getComputedStyle(back).opacity) : null,
                 })
                 i++
@@ -284,7 +293,8 @@ export const isNativePlatform = () => false
         for (let k = 1; k < f.length; k++) if (f[k].shown !== f[k - 1].shown) toggles++
         /* Where the bar is drawn at full opacity it sits at one place under the top; its height never changes. */
         const cls = trace.shifts.reduce((s, e) => s + e.v, 0)
-        const stuck = f.filter((x) => x.asidePos === "sticky" && x.y > 400)
+        /* Stuck: held at its sticky top. Past the end of the listing it scrolls away with it, as sticky does, at exactly the scroll's speed (the jump check). */
+        const stuck = f.filter((x) => x.asidePos === "sticky" && x.y > 400 && Math.abs(x.asideTop - x.asideCss) < 0.5)
         const asideTops = new Set(stuck.map((x) => x.asideTop))
         const barBottom = shownFrames.length ? Math.max(...shownFrames.map((x) => x.barTop + x.barH)) : 0
         const overlap = stuck.filter((x) => x.shown === "shown" && x.asideTop < barBottom - 0.5).length
@@ -316,6 +326,10 @@ export const isNativePlatform = () => false
         expect(drift <= 0.5, "T the bar never moves with the page while it can be seen (it fades and slides 6px, nothing else)", row.trace.barDriftPx)
         expect(overlap === 0, "T the sticky column is never under the bar", { overlap, barBottom })
 
+        /* The foot of the listing (More apps like this), with the bar over the top. */
+        await p.evaluate(() => { const b = document.querySelector("[data-integrations-scroll]"); b.scrollTop = b.scrollHeight })
+        await sleep(500)
+        await p.screenshot({ path: join(shots, `${LABEL}-${pg.name}-foot-${vp.width}.png`) })
         /* Z: the sheet covers the bar. Scrolled so the bar shows, Install is pressed from the bar; at the bar's place the topmost thing is the sheet or its scrim. */
         await p.evaluate(() => { document.querySelector("[data-integrations-scroll]").scrollTop = 900 })
         await sleep(400)
