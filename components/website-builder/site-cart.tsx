@@ -30,6 +30,7 @@ import { createContext, startTransition, useCallback, useContext, useEffect, use
 import { CLEAR_CART_PARAM } from "@/lib/checkout/basket-link"
 import { cartExtrasKey } from "@/lib/website-builder/cart-extras"
 import { trackFunnelStep } from "@/lib/analytics-utils"
+import { noteLive } from "@/lib/live/live-client"
 import {
   addAllLines,
   addLine,
@@ -209,6 +210,8 @@ export function SiteCartProvider({ shopId, cartType = "drawer", currency, childr
       server). Not in the editor, where there is no shop id.
     */
     if (shopId && line.productId) void trackFunnelStep("buy_click", shopId, line.productId)
+    /* And for /admin's Live view (round 62): that something went into a bag, nothing about what. Not in the editor. */
+    if (shopId) noteLive("cart.add")
     if (cartType === "page" && shopId) goToCart.current = true
     else if (cartType === "notification") setNotice(line)
     else setOpen(true)

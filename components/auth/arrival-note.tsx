@@ -6,6 +6,7 @@ import { Check } from "lucide-react"
 import { ARRIVAL_COOKIE, ARRIVAL_MOVE_MS, arrivalBottom, arrivalFromCookieString, arrivalWaitsOn, type Arrival, type ArrivalSurface } from "@/lib/auth/arrival"
 import { tt } from "@/lib/i18n/text"
 import { recordSignupTouches } from "@/lib/attribution/signup-browser"
+import { noteLive } from "@/lib/live/live-client"
 
 /** On screen this long, then it fades. */
 const SHOWN_MS = 3000
@@ -71,6 +72,8 @@ export function ArrivalNote() {
     if (!note) return
     /* A new account: where its visit came from, written once by the server (app/api/auth/signup-attribution). */
     if (note.arrival === "new") recordSignupTouches()
+    /* For /admin's Live view (round 62): only which of the two it was. */
+    noteLive(note.arrival === "new" ? "auth.signup" : "auth.signin")
     const left = note.at + SHOWN_MS - Date.now()
     if (left <= 0) return
     setSurface(surfaceNow())

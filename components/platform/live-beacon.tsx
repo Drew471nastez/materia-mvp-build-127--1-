@@ -127,9 +127,13 @@ export function LiveBeacon({ host = "storelib" }: { host?: HostKind }) {
     }
   }, [host, ready])
 
-  /* A route change inside the page. The first page is noted as the queue starts. */
+  /*
+    A route change inside the page. The first page is noted as the queue
+    starts. The address bar's own path, not the router's: on a creator's
+    website the router may know the page by its internal /w/<name>/ path.
+  */
   React.useEffect(() => {
-    if (pathname) queueRef.current?.page(pathname)
+    if (pathname) queueRef.current?.page(window.location.pathname)
   }, [pathname, host])
 
   return null

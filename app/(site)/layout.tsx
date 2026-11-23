@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import "../site.css"
 import { CookieConsentBanner } from "@/components/cookie-consent-banner"
+import { LiveBeacon } from "@/components/platform/live-beacon"
 import { MissingImageGuard } from "@/components/media/missing-image"
 import { StuckLayerGuard } from "@/components/platform/stuck-layer-guard"
 import { ViewportVars } from "@/components/viewport-vars"
@@ -147,6 +148,8 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
         <SiteNativeShell />
         {/* The cookie card, and the preferences a website's footer opens. */}
         <CookieConsentBanner />
+        {/* Who is on Storelib now, for /admin's Live view: a tab's pages and named actions, a request a minute while shown, no cookie (round 62). */}
+        <LiveBeacon host="site" />
       </body>
     </html>
   )

@@ -78,6 +78,7 @@ import { STORELIB_OG_IMAGE, storelibAssetUrl } from "@/lib/brand/logo"
 import { siteVerification } from "@/lib/seo/site-verification"
 import { STORELIB_PAGE_LANG } from "@/lib/seo/page-language"
 import { CapturePlatformTouch } from "@/components/attribution/capture-platform-touch"
+import { LiveBeacon } from "@/components/platform/live-beacon"
 
 // Primary font — loaded eagerly with display swap for fast text rendering
 const inter = Inter({
@@ -312,6 +313,8 @@ export default function RootLayout({
               <ArrivalNote />
               {/* Where a visit to storelib.com came from, kept for a Storelib account made later (lib/attribution/browser notePlatformVisit). */}
               <CapturePlatformTouch />
+              {/* Who is on Storelib now, for /admin's Live view: one small request a minute while the tab is shown, none in /app or /admin (components/platform/live-beacon, round 62). */}
+              <LiveBeacon />
             </> })}
           </LocaleProvider>
         </SWRProvider>
