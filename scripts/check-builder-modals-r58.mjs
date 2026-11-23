@@ -365,9 +365,11 @@ async function sections() {
   const image = stub("image.jsx", "import React from 'react';export default function Image({src,alt,fill,priority,unoptimized,sizes,quality,placeholder,blurDataURL,loader,...r}){return React.createElement('img',{src:typeof src==='string'?src:src&&src.src,alt,...r})}")
   const supa = stub("supabase.js", "const chain=()=>new Proxy(function(){},{get:(_,k)=>k==='then'?undefined:chain,apply:()=>chain()});export function createClient(){return{auth:{getUser:async()=>({data:{user:null}}),getSession:async()=>({data:{session:null}}),onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}})},from:()=>chain(),channel:()=>({on(){return this},subscribe(){return this},unsubscribe(){}}),removeChannel(){}}}")
   const js = join(out, "sections.js")
-  execFileSync(esbuild, [join(root, "scripts/render-section-preview-stress.tsx"), "--bundle", "--format=iife", "--platform=browser", "--jsx=automatic", "--minify", "--log-level=error", `--outfile=${js}`, BANNER,
+  execFileSync(esbuild, [join(root, "scripts/render-section-preview-stress.tsx"), "--bundle", "--format=iife", "--platform=browser", "--jsx=automatic", ...(process.env.TRACE ? [] : ["--minify"]), "--log-level=error", `--outfile=${js}`, BANNER,
     '--define:process.env.NODE_ENV="production"', '--define:process.env.NEXT_PUBLIC_SUPABASE_URL="https://placeholder.supabase.co"', '--define:process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY="placeholder"', '--define:process.env.NEXT_PUBLIC_APP_URL="https://storelib.com"',
     "--loader:.css=empty", "--loader:.svg=dataurl", "--loader:.png=dataurl",
+    /* LIBRARY_MODULE=path: measure another copy of section-library.tsx (an older one, for a before) in its place. */
+    ...(process.env.LIBRARY_MODULE ? [`--alias:@/components/website-builder/editor/section-library=${process.env.LIBRARY_MODULE}`] : []),
     `--alias:next/navigation=${nav}`, `--alias:next/link=${link}`, `--alias:next/image=${image}`, `--alias:@/lib/supabase/client=${supa}`, `--alias:node:crypto=${crypto}`, `--alias:crypto=${crypto}`, `--alias:node:fs=${empty}`, `--alias:fs=${empty}`, `--alias:node:path=${empty}`, `--alias:path=${empty}`, `--alias:@=${root}`], { stdio: ["ignore", "ignore", "inherit"], cwd: root, env: { ...process.env, NODE_PATH: join(root, "node_modules") } })
   const bundle = readFileSync(js)
   const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${css}</style><script>${OBSERVE}</script></head><body><div id="app"></div>
@@ -414,19 +416,43 @@ async function sections() {
     /* The cards on the first screen: drawn or not, and how much of each box is painted. */
     r.firstScreen = await paintedCards(p, lib)
     console.log("  first screen", JSON.stringify(r.firstScreen.map((c) => `${c.type} ${c.state} ${c.h}px ink ${c.ink}%`)))
-    /* Down the list a half screen at a time, slowed four times. */
-    const s = await throttle(p, 4)
-    const t0 = await p.evaluate(() => performance.now())
+    /*
+      Down the list a half screen at a time, slowed four times. Only the
+      scroll and the 700ms after it are slowed and counted: reading the
+      screenshot (paintedCards) is this script's own work, done at full speed
+      between the windows and left out of them.
+    */
+    const s = await throttle(p, 1)
     const states = []
+    const windows = []
     for (let i = 0; i < 6; i++) {
-      await p.evaluate((lib) => { const l = document.querySelector(`${lib} [data-library-scroll]`); l.scrollTop += Math.round(l.clientHeight / 2) }, lib)
+      await s.send("Emulation.setCPUThrottlingRate", { rate: 4 })
+      const a = await p.evaluate((lib) => { const l = document.querySelector(`${lib} [data-library-scroll]`); const t = performance.now(); l.scrollTop += Math.round(l.clientHeight / 2); return t }, lib)
+      if (process.env.TRACE && i === 2) await p.tracing.start({ categories: ["devtools.timeline", "disabled-by-default-devtools.timeline", "v8.execute", "blink.user_timing"] })
       await sleep(700)
-      const cards = await paintedCards(p, lib)
-      states.push(...cards)
+      if (process.env.TRACE && i === 2) {
+        const events = JSON.parse(Buffer.from(await p.tracing.stop()).toString("utf8")).traceEvents
+        for (const t of events.filter((e) => e.name === "RunTask" && e.dur > 50_000)) {
+          const inside = events.filter((e) => e.tid === t.tid && e.ts >= t.ts && e.ts + (e.dur ?? 0) <= t.ts + t.dur && e.dur && e !== t && e.ph === "X")
+          const by = new Map()
+          for (const e of inside) {
+            const k = e.name === "FunctionCall" ? `FunctionCall ${(e.args?.data?.functionName || "") + "@" + String(e.args?.data?.url || "").split("/").pop()}` : e.name
+            by.set(k, (by.get(k) ?? 0) + e.dur)
+          }
+          console.log(`    task ${Math.round(t.dur / 1000)}ms:`, [...by].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([n, d]) => `${n} ${Math.round(d / 1000)}`).join(", "))
+        }
+      }
+      const b = await p.evaluate(() => performance.now())
+      await s.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+      windows.push([a, b])
+      states.push(...(await paintedCards(p, lib)))
       if (i === 1) await shot(p, `sections-${W}-scrolled`)
     }
-    await s.send("Emulation.setCPUThrottlingRate", { rate: 1 })
-    const perf = await p.evaluate((t0) => ({ shift: +window.__shifts.filter((x) => x.t >= t0).reduce((a, x) => a + x.v, 0).toFixed(4), long: window.__long.filter((x) => x.t >= t0).map((x) => Math.round(x.d)) }), t0)
+    const perf = await p.evaluate((windows) => {
+      const inside = (t) => windows.some(([a, b]) => t >= a && t < b)
+      const long = window.__long.filter((x) => inside(x.t)).map((x) => Math.round(x.d))
+      return { shift: +window.__shifts.filter((x) => inside(x.t)).reduce((a, x) => a + x.v, 0).toFixed(4), longTasks: long.length, longest: Math.max(0, ...long), longSum: long.reduce((a, x) => a + x, 0), window: Math.round(windows.reduce((a, [x, y]) => a + y - x, 0)) }
+    }, windows)
     r.scroll = { cardsSeen: states.length, shown: states.filter((c) => c.state === "shown").length, notShown: states.filter((c) => c.state !== "shown").map((c) => `${c.type}:${c.state}`), emptyLooking: states.filter((c) => c.ink < 0.5).map((c) => c.type), ...perf }
     console.log("  scrolling", JSON.stringify({ ...r.scroll, notShown: r.scroll.notShown.slice(0, 8) }))
     await p.close()

@@ -10,7 +10,7 @@
  *   fetched and decoded ahead.
  *
  *   ADD A SECTION (components/website-builder/editor/section-library.tsx):
- *   All in the order a page is built (lib/website-builder/section-order.ts),
+ *   All in the order a page is built (lib/website-builder/all-sections-order.ts),
  *   heroes first and announcement bars, dividers and pop ups last.
  *
  * scripts/check-builder-modals-r58.mjs measures both in Chromium at 360,
@@ -18,7 +18,7 @@
  */
 import { readdirSync } from "node:fs"
 import { readCode, readSource } from "./_source"
-import { ALL_SECTIONS_ORDER, familyPrefixes, orderForAll, sectionKind } from "../lib/website-builder/section-order"
+import { ALL_SECTIONS_ORDER, familyPrefixes, orderForAll, sectionKind } from "../lib/website-builder/all-sections-order"
 import { classifyImportedSection } from "../lib/website-builder/section-categories"
 
 let passed = 0
