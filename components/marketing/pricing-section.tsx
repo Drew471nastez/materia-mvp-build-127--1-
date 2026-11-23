@@ -5,7 +5,7 @@ import { StoryHeading } from "./story-heading"
 import Link from "next/link"
 import type { ReactNode } from "react"
 import { AnimateOnScroll } from "./animate-on-scroll"
-import { PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
+import { PlanCards, type PlanCardAction, type PlanFit } from "@/components/billing/plan-cards"
 import { PRO_CHECKOUT_PLAN_ID, SCALE_CHECKOUT_PLAN_ID, type OfferedPlanId } from "@/lib/billing/plans"
 
 /** The paid plans a checkout can be started for: Grow (`growth`, $14) and Pro (`pro`, $99). */
@@ -42,7 +42,10 @@ export function PricingSection({
   compactHeading,
   actions: actionsGiven,
   lead,
+  fit,
 }: {
+  /** Round 60: the cards laid out by the row's own width (components/billing/plan-cards FIT); the plans page in the app passes "page". /pricing passes nothing. */
+  fit?: PlanFit
   /**
    * Round 58: every button's action, for a page that decides them itself (the
    * plans page in the app: checkout, a plan change, the current plan). The
@@ -200,7 +203,7 @@ export function PricingSection({
             them. The lines are the same on every surface
             (./pricing-lines, six since landing round 14), so they are not handed in here.
           */}
-          <PlanCards actions={actions} lead={lead} nameLevel={headingLevel === 1 ? 2 : 3} hideInterval={editorial} contactSales aside={cardsAside} />
+          <PlanCards actions={actions} lead={lead} nameLevel={headingLevel === 1 ? 2 : 3} hideInterval={editorial} contactSales aside={cardsAside} fit={fit} />
         </AnimateOnScroll>
 
         {!hideDetailsLink && (

@@ -221,6 +221,8 @@ export function UpgradePageClient({
           subtitleOverride={tt("Grow is {price} a month. Cancel at any time from Billing.", { price: formatPlanPrice(PRO_PRICE_CENTS) })}
           actions={{ free: actionFor("free"), growth: actionFor("growth"), pro: actionFor("pro") }}
           lead={currentPlanId === "free" ? "growth" : undefined}
+          /* Round 60: where /pricing's three across would cut "Downgrade to Free" (768px), the sideways row at /pricing's card width (components/billing/plan-cards FIT). */
+          fit="page"
           cardsAside={<CompareLink />}
         />
         <ComparePlans actions={{ free: compareActionFor("free"), growth: compareActionFor("growth"), pro: compareActionFor("pro") }} />
@@ -297,31 +299,39 @@ function UpgradeBar() {
 
   /*
     THE BAR (round 58, the owner: "an X button, and a back link to
-    Billing"). Billing at the left, the mark in the middle, X at the
-    right; both go to the same place (goBack). It sticks to the top of
+    Billing"). Both go to the same place (goBack). It sticks to the top of
     the layer's scroller, so the X is always within reach, and its sides
     clear a phone's rounded corners and notch in landscape. The status
     bar's strip above it is the layer's (components/app/page-layer.tsx).
+
+    ROUND 60, THE OWNER: the logo "from the centre to the left, aligned with
+    the page content". The bar is laid out on the page's own width (the
+    plans section's 1240px with 16 and 24px sides, then the cards' 1180px),
+    so the mark's left edge is the first card's and the X's right edge the
+    last card's. The mark, a hairline, then Billing, as the app's other
+    full page layer, Payments setup (components/app/settings/
+    payments-setup-flow), reads: mark, rule, where you are.
   */
   return (
-      <div data-upgrade-bar="" className="sticky top-0 z-20 border-b border-[#ececef] bg-white">
-        <div
-          className="relative flex h-[var(--upgrade-bar)] items-center justify-between"
-          style={{ paddingLeft: "max(16px, env(safe-area-inset-left, 0px))", paddingRight: "max(16px, env(safe-area-inset-right, 0px))" }}
-        >
+      <div data-upgrade-bar="" className="sticky top-0 z-20 border-b border-[#ececef] bg-white" style={{ paddingLeft: "env(safe-area-inset-left, 0px)", paddingRight: "env(safe-area-inset-right, 0px)" }}>
+        <div className="mx-auto max-w-[1240px] px-4 sm:px-6">
+        <div className="mx-auto flex h-[var(--upgrade-bar)] max-w-[1180px] items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+          {/* The mark, 28 by 28 and never squeezed (both sides set from one size). */}
+          <StorelibLogo size={28} priority data-upgrade-logo="" className="pointer-events-none shrink-0" />
+          <span aria-hidden className="h-5 w-px shrink-0 bg-[#e5e7eb]" />
           <Link
             href={BILLING_HREF}
             onClick={goBack}
             data-upgrade-back=""
             data-leaving={leaving ? "" : undefined}
             aria-busy={leaving || undefined}
-            className="-ml-2 inline-flex h-11 items-center gap-1.5 rounded-lg px-2 text-[14px] font-medium text-[#1a1a2e] transition-[background-color,scale] duration-150 hover:bg-[#f3f4f6] active:scale-[0.97] active:bg-[#eceef1] data-[leaving]:bg-[#f3f4f6] [-webkit-tap-highlight-color:transparent]"
+            className="-ml-1 inline-flex h-11 items-center gap-1.5 rounded-lg px-2 text-[14px] font-medium text-[#1a1a2e] transition-[background-color,scale] duration-150 hover:bg-[#f3f4f6] active:scale-[0.97] active:bg-[#eceef1] data-[leaving]:bg-[#f3f4f6] [-webkit-tap-highlight-color:transparent]"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden />
             {tt("Billing")}
           </Link>
-          {/* The mark, 28 by 28 and never squeezed (both sides set from one size). */}
-          <StorelibLogo size={28} priority data-upgrade-logo="" className="pointer-events-none absolute left-1/2 -translate-x-1/2" />
+          </div>
           <Link
             href={BILLING_HREF}
             onClick={goBack}
@@ -334,6 +344,7 @@ function UpgradeBar() {
             {/* Pressed: a small spinner in its place at once, however long Billing takes. */}
             {leaving ? <Loader2 className="h-[18px] w-[18px] animate-spin text-[#4b5563]" aria-hidden /> : <X className="h-5 w-5" strokeWidth={2} aria-hidden />}
           </Link>
+        </div>
         </div>
       </div>
   )
