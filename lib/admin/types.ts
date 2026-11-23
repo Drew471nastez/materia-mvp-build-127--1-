@@ -324,3 +324,57 @@ export type ViewId =
   | "people"
   | "audit"
   | "system"
+
+/* ── Creator activity (round 59, SQL part 430) ────────────────────────── */
+
+export type ActivityPlace = { country: string | null; device: string | null; os: string | null; browser: string | null; shell: string | null }
+
+export type ActivitySummary = {
+  /** Something arrived from them in the last two minutes. */
+  onlineNow: Figure
+  /** Seen since midnight UTC. */
+  activeToday: Figure
+  /** Have a live_since on their presence row. */
+  live: Figure
+}
+
+export type PresenceRow = ActivityPlace & {
+  userId: string
+  creator: { id: string; handle: string; name: string } | null
+  lastSeen: string | null
+  sessionStarted: string | null
+  lastPath: string | null
+  lastAction: string | null
+  lastActionAt: string | null
+}
+
+export type ActivityFeedRow = {
+  id: number
+  at: string
+  kind: "page" | "action"
+  name: string
+  label: string
+  creator: { id: string; handle: string; name: string } | null
+}
+
+export type ActivityPayload = Base & {
+  /** Part 430 has not run: nothing is recorded yet. */
+  missing: boolean
+  summary: ActivitySummary | null
+  online: PresenceRow[] | null
+  feed: { rows: ActivityFeedRow[]; next: string | null } | null
+}
+
+export type TimelineRow = { id: string; at: string; kind: "page" | "action" | "saved"; name: string; label: string; sessionStart: boolean }
+
+export type CreatorActivityPayload = Base & {
+  missing: boolean
+  presence: (ActivityPlace & { firstSeen: string | null; lastSeen: string | null; sessionStarted: string | null; lastPath: string | null; lastAction: string | null; lastActionAt: string | null }) | null
+  liveSince: string | null
+  sessions7: Figure
+  sessions30: Figure
+  /** Where and on what they started their recent sessions, newest first, each once. */
+  places: (ActivityPlace & { at: string })[]
+  timeline: TimelineRow[]
+  next: string | null
+}

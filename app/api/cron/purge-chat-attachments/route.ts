@@ -3,6 +3,8 @@ import { NextResponse } from "next/server"
 import { purgeExpiredAttachments } from "@/lib/website-builder/agent/attachment-store"
 import { requireBearerSecret } from "@/lib/api/require-secret"
 import { recordCronRun } from "@/lib/observability/report"
+import { purgeOldActivity } from "@/lib/activity/creator-activity-server"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 /**
  * GET /api/cron/purge-chat-attachments
@@ -16,6 +18,11 @@ import { recordCronRun } from "@/lib/observability/report"
  * several runs instead of one request timing out and collecting nothing at
  * all. Nothing here is urgent: a picture that lives to thirty-one days has
  * harmed nobody.
+ *
+ * Round 59: the same night, creator activity past 30 days (SQL part 430,
+ * lib/activity/creator-activity-server purgeOldActivity), oldest first in
+ * batches of 5,000, at most 100,000 a run. A database without part 430 is
+ * skipped quietly.
  *
  * Protected by CRON_SECRET, like every other job here.
  * Schedule: daily at 03:20 UTC (vercel.json).
@@ -36,7 +43,9 @@ async function runJob(request: Request) {
   if (denied) return denied
   try {
     const { removed, failed } = await purgeExpiredAttachments()
-    return NextResponse.json({ removed, failed })
+    /* Its own try: a failure here never hides the attachments' answer. */
+    const activity = await purgeOldActivity(createAdminClient()).catch(() => ({ removed: 0, missing: false, failed: true }))
+    return NextResponse.json({ removed, failed, activity }, { status: activity.failed ? 500 : 200 })
   } catch (error) {
     console.error("[purge-chat-attachments]", error)
     return NextResponse.json({ error: "Purge failed" }, { status: 500 })

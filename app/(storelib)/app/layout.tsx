@@ -22,6 +22,7 @@ import { profileAvatar } from "@/lib/account/avatar"
 import { accountTimeZone, timeZoneScript } from "@/lib/account/time-zone"
 import { TimeZoneSync } from "@/components/app/time-zone-sync"
 import { PlanWatch } from "@/components/app/plan-watch"
+import { ActivityBeacon } from "@/components/app/activity-beacon"
 import { factsFromRows, homeProgress, WEBSITE_LIVE_STATUS } from "@/lib/home/progress"
 import { listBusinesses } from "@/lib/businesses/server"
 import { handedHomeFor } from "@/lib/handoff/home"
@@ -379,6 +380,8 @@ export default async function AppLayout({
     <TimeZoneSync accountZone={accountZone} />
     {/* A plan set from /admin redraws what is open (components/app/plan-watch.tsx). */}
     <PlanWatch creatorId={(creator as { id?: string } | null)?.id ?? null} />
+    {/* Pages and named actions for /admin's creator activity: one small request a minute while visible, none while hidden (components/app/activity-beacon). */}
+    <ActivityBeacon />
     {/* Drawn from a kept copy or the session alone: asked again quietly, in place (components/app/shell-refill). */}
     {refill ? <ShellRefill /> : null}
     <AppLayoutWrapper>

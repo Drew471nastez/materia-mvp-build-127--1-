@@ -51,6 +51,7 @@ import { readsLikeStripe, verifyLine } from "@/lib/payments/verify-id"
 import { playAskSound } from "@/lib/website-builder/ask-sounds"
 import { cn } from "@/lib/utils"
 import { tt, msg } from "@/lib/i18n/text"
+import { noteActivity } from "@/lib/activity/creator-activity-client"
 import { appLocale, zoned } from "@/lib/i18n/format"
 
 export type SetupMode = "setup" | "bank" | "details"
@@ -128,7 +129,11 @@ async function post<T>(path: string, body: unknown = {}): Promise<T> {
     /* No answer at all: the connection, not Storelib or Stripe. */
     throw new SetupError(tt("Your connection dropped. Check you are online, then try again."), "retry")
   }
-  return read<T>(res)
+  const data = await read<T>(res)
+  /* Noted for /admin's creator activity once Storelib said yes: the step's name only, nothing that was typed (lib/activity/creator-activity-client). */
+  if (path === "start" || path === "begin") noteActivity("stripe.start")
+  else if (path === "app-sheet" || path === "details-form") noteActivity("stripe.continue")
+  return data
 }
 
 
