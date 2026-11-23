@@ -960,8 +960,6 @@ const SUITES = [
   "tests/offers-parity.test.ts",
   /* Storelib's own Featured products and Product spotlight show the featured product's offers, with the product page block's pieces and figures (components/offers/featured-offers.tsx). */
   "tests/offers-featured.test.ts",
-  /* Round 58 (f5): every kind of offer (bundle, upsell and order bump, Buy X get Y, volume tiers, download bundle, free shipping) saved through /api/store/offers as the new modal sends it, then on GET /api/offers, a Materia product page and cart, the website's checkout and Stripe's charge, the download basket and /app's Sold; numbers a browser sends change nothing. */
-  "tests/offers-r58.test.ts",
   /* Round AG3: a buyer's words and pictures on a cart line: uploads checked by their bytes, drawn again without EXIF, kept privately per store and browser, refused on another store or cart, copied to the order when paid, shown in emails, slips, exports and the order page, sent to print partners, swept after 14 days; the Storelib theme's Personalization block; SQL part 308. */
   "tests/cart-uploads.test.ts",
   "tests/round-v.test.ts",
@@ -1702,6 +1700,8 @@ const SUITES = [
  * directory, run after the list above.
  */
 const STRICT_SUITES = [
+  /* Round 58 (f5): every kind of offer (bundle, upsell and order bump, Buy X get Y, volume tiers, download bundle, free shipping) saved through /api/store/offers as the new modal sends it, then on GET /api/offers, a Materia product page and cart, the website's checkout and Stripe's charge, the download basket and /app's Sold; numbers a browser sends change nothing. */
+  "tests/offers-r58.test.ts",
   /* Wave 7: /app/emails never falls over on an answer of another shape ("eN.find is not a function" from the live build): every loader fed objects, { error }, junk lists, HTML and empty bodies answers with lists or an Error to retry; the shapers (lib/emails/shapes.ts) never throw; each part of the page in its own net (components/app/emails/part-boundary). Strict: it draws the panels that read through components/physical/ui, which only narrow strict. */
   "tests/emails-shapes-w7.test.ts",
   /* Round 51: Contacts, one person per creator (an account first, an address only when verified or given here, never a name), Customers or Marketing opens it, another store's row refused through /app/contacts/open, exports of the store's own only, deleting never touches an order or a membership, an import never resubscribes, the legacy addresses redirected (SQL 378; its parity with lib/contacts/identity.ts on Postgres: scripts/check-contacts-sql.mjs). */
