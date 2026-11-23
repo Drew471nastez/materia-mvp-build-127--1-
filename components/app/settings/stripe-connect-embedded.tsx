@@ -2,27 +2,16 @@
 
 import * as React from "react"
 import type { CollectionOptions } from "@stripe/connect-js"
-import { WaitingArea } from "@/components/ui/activity-spinner"
+import { Shimmer, ShimmerBlock } from "@/components/ui/shimmer"
+import { fetchAccountSession, SessionProblem, shownError, takeAccountSession, warmStripeConnect, type AccountSession, type EmbeddedPurpose } from "@/components/app/settings/stripe-connect-warm"
 import { keepStripeFramesInApp } from "@/lib/payments/stripe-frames-in-app"
 import { appHoldsStripeWindows, isNativeApp } from "@/lib/native-bridge"
-import { readsLikeStripe } from "@/lib/payments/verify-id"
 import { cn } from "@/lib/utils"
 import { tt, msg } from "@/lib/i18n/text"
 
-export type EmbeddedPurpose = "stripe_onboarding" | "stripe_management" | "stripe_payouts"
+export type { EmbeddedPurpose } from "@/components/app/settings/stripe-connect-warm"
 
 const LOAD_FAILED = msg("Try again in a moment.")
-
-/*
- * The server's own sentence is shown as it is: it says what to do (lib/payments/stripe/setup-errors).
- * Only Stripe's wire (ids, keys, codes) is kept out (lib/payments/verify-id readsLikeStripe). This
- * used to drop every sentence with the word "Stripe" in it, so "Payouts to your country are not open
- * yet, write to support" reached the seller as "Try again in a moment".
- */
-function shownError(message: string): string {
-  if (!message || readsLikeStripe(message)) return tt(LOAD_FAILED)
-  return message
-}
 
 /*
  * When Stripe's frame itself cannot load, what it says decides what the
@@ -51,27 +40,35 @@ function reportLoadError(purpose: EmbeddedPurpose, type: string, message: string
   }
 }
 
+/** The held session (stripe-connect-warm), else a fresh one. */
+async function openSession(purpose: EmbeddedPurpose): Promise<AccountSession> {
+  const held = takeAccountSession(purpose)
+  const got = held ? await held : null
+  return got ?? fetchAccountSession(purpose)
+}
+
 /**
- * A fresh Account Session for the signed-in creator's own account. The
- * server resolves the account from the session cookie; nothing here names it.
- * The secret lives only in this closure until Stripe.js takes it.
+ * WHAT STRIPE'S FORM WILL LOOK LIKE, while it is on its way: a heading, a
+ * line, three fields and the button, in Storelib's light gray (components/ui/shimmer),
+ * the height of Stripe's first screen so nothing jumps when it lands. It
+ * replaced a lone spinner in a blank card.
  */
-async function openSession(purpose: EmbeddedPurpose): Promise<{ clientSecret: string; publishableKey: string; stripeSignIn: boolean }> {
-  const res = await fetch("/api/payments/component", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ purpose }),
-    cache: "no-store",
-  }).catch(() => {
-    throw new Error(tt("Your connection dropped. Check you are online, then try again."))
-  })
-  const data = (await res.json().catch(() => ({}))) as { clientSecret?: unknown; publishableKey?: unknown; stripeSignIn?: unknown; error?: unknown }
-  const clientSecret = typeof data.clientSecret === "string" ? data.clientSecret.trim() : ""
-  const publishableKey = typeof data.publishableKey === "string" ? data.publishableKey.trim() : ""
-  if (!res.ok || !clientSecret.startsWith("accs_") || !publishableKey.startsWith("pk_")) {
-    throw new Error(shownError(typeof data.error === "string" ? data.error : ""))
-  }
-  return { clientSecret, publishableKey, stripeSignIn: data.stripeSignIn === true }
+export function StripeFormSkeleton({ label = tt("Loading"), className }: { label?: string; className?: string }) {
+  return (
+    <Shimmer label={label} className={cn("w-full space-y-5 px-1 pb-6 pt-1", className)}>
+      <div data-stripe-skeleton="" className="space-y-2">
+        <ShimmerBlock className="h-5 w-[58%] rounded-md" />
+        <ShimmerBlock className="h-3 w-[82%] rounded-full" />
+      </div>
+      {[0.34, 0.42, 0.28].map((w, i) => (
+        <div key={i} className="space-y-2">
+          <ShimmerBlock className="h-3 rounded-full" style={{ width: `${w * 100}%` }} />
+          <ShimmerBlock className="h-11 w-full rounded-[10px] sm:h-10" />
+        </div>
+      ))}
+      <ShimmerBlock className="h-11 w-full rounded-[10px] sm:h-10" />
+    </Shimmer>
+  )
 }
 
 /*
@@ -144,6 +141,8 @@ export function StripeConnectEmbedded({
   fallback,
   className,
   session,
+  publishableKey,
+  onSessionProblem,
 }: {
   purpose: EmbeddedPurpose
   /**
@@ -163,18 +162,37 @@ export function StripeConnectEmbedded({
    */
   fallback?: React.ReactNode
   className?: string
+  /**
+   * The platform's publishable key, when the page already has it (the
+   * overview carries it). With it Stripe's script loads and starts at once,
+   * while the Account Session is still being made, instead of after it.
+   */
+  publishableKey?: string | null
+  /** The server refused the session with a code the page can act on (country_required: back to the country). True when handled. */
+  onSessionProblem?: (code: string, message: string) => boolean
 }) {
   const host = React.useRef<HTMLDivElement>(null)
   const [ready, setReady] = React.useState(false)
   const [failed, setFailed] = React.useState<string | null>(null)
   const [attempt, setAttempt] = React.useState(0)
-  const handlers = React.useRef({ onExit, onStep, session })
-  handlers.current = { onExit, onStep, session }
+  const handlers = React.useRef({ onExit, onStep, session, onSessionProblem })
+  handlers.current = { onExit, onStep, session, onSessionProblem }
+  /* Only a publishable key, and only the one the server handed the page. */
+  const knownKey = typeof publishableKey === "string" && publishableKey.startsWith("pk_") ? publishableKey : null
   const collectionKey = JSON.stringify(collection ?? null)
 
   React.useEffect(() => {
     let gone = false
     let el: HTMLElement | null = null
+    let sessionRefused = false
+    /* A refusal the page can act on goes to it; anything else is said here, in the server's words. */
+    const refusedOutside = (e: unknown) => {
+      if (gone) return
+      const message = shownError(e instanceof Error ? e.message : "")
+      const code = e instanceof SessionProblem ? e.code : null
+      if (code && handlers.current.onSessionProblem?.(code, message)) return
+      setFailed(message)
+    }
     setReady(false)
     setFailed(null)
     ;(async () => {
@@ -185,26 +203,51 @@ export function StripeConnectEmbedded({
           and its controller frame navigated the web view out to the browser.
         */
         if (sealsStripeFrames()) keepStripeFramesInApp()
-        const open = () => handlers.current.session?.() ?? openSession(purpose)
-        const [first, { loadConnectAndInitialize }] = await Promise.all([open(), import("@stripe/connect-js/pure")])
+        else warmStripeConnect()
+        try {
+          performance.mark("stripe-embed:start")
+        } catch {
+          /* timing marks are best effort */
+        }
+        const open = (): Promise<AccountSession> => handlers.current.session?.() ?? openSession(purpose)
+        /*
+         * IN PARALLEL, NOT IN A LINE. With the publishable key known, Stripe's
+         * script starts loading now and the session is made at the same
+         * time (connect-js asks fetchClientSecret straight away). Without it
+         * (the apps' sheet) the session comes first, because the key is in it.
+         */
+        let first: Promise<AccountSession> | null = open()
+        /* The server's refusal is what the seller reads; the frame's own load error that follows it is not. */
+        if (knownKey) {
+          first.catch((e: unknown) => {
+            sessionRefused = true
+            refusedOutside(e)
+          })
+        }
+        const [{ loadConnectAndInitialize }, early] = await Promise.all([import("@stripe/connect-js/pure"), knownKey ? Promise.resolve(null) : first])
         if (gone) return
-        let pending: string | null = first.clientSecret
+        const usedKey = knownKey ?? early!.publishableKey
         const connect = loadConnectAndInitialize({
-          publishableKey: first.publishableKey,
+          publishableKey: usedKey,
           fetchClientSecret: async () => {
-            if (pending) {
-              const secret = pending
-              pending = null
-              return secret
-            }
-            const next = await open()
-            if (next.publishableKey !== first.publishableKey) throw new Error(tt(LOAD_FAILED))
+            const pending = first
+            first = null
+            const next = await (pending ?? open())
+            if (next.publishableKey !== usedKey) throw new Error(tt(LOAD_FAILED))
             return next.clientSecret
           },
           appearance: APPEARANCE,
           fonts: FONTS,
         })
         if (gone || !host.current) return
+        const shown = () => {
+          try {
+            performance.mark("stripe-embed:loader")
+          } catch {
+            /* best effort */
+          }
+          setReady(true)
+        }
         const options: CollectionOptions = collection ?? { fields: "currently_due", futureRequirements: "omit" }
         let component: HTMLElement
         if (purpose === "stripe_onboarding") {
@@ -212,34 +255,34 @@ export function StripeConnectEmbedded({
           onboarding.setCollectionOptions(options)
           onboarding.setOnExit(() => void handlers.current.onExit?.())
           onboarding.setOnStepChange(({ step }) => handlers.current.onStep?.(step))
-          onboarding.setOnLoaderStart(() => !gone && setReady(true))
+          onboarding.setOnLoaderStart(() => !gone && shown())
           onboarding.setOnLoadError(({ error }) => {
             reportLoadError(purpose, error?.type ?? "unknown", error?.message)
-            if (!gone) setFailed(loadErrorLine(error?.type ?? ""))
+            if (!gone && !sessionRefused) setFailed(loadErrorLine(error?.type ?? ""))
           })
           component = onboarding
         } else if (purpose === "stripe_management") {
           const management = connect.create("account-management")
           management.setCollectionOptions(options)
-          management.setOnLoaderStart(() => !gone && setReady(true))
+          management.setOnLoaderStart(() => !gone && shown())
           management.setOnLoadError(({ error }) => {
             reportLoadError(purpose, error?.type ?? "unknown", error?.message)
-            if (!gone) setFailed(loadErrorLine(error?.type ?? ""))
+            if (!gone && !sessionRefused) setFailed(loadErrorLine(error?.type ?? ""))
           })
           component = management
         } else {
           const payouts = connect.create("payouts")
-          payouts.setOnLoaderStart(() => !gone && setReady(true))
+          payouts.setOnLoaderStart(() => !gone && shown())
           payouts.setOnLoadError(({ error }) => {
             reportLoadError(purpose, error?.type ?? "unknown", error?.message)
-            if (!gone) setFailed(loadErrorLine(error?.type ?? ""))
+            if (!gone && !sessionRefused) setFailed(loadErrorLine(error?.type ?? ""))
           })
           component = payouts
         }
         host.current.replaceChildren(component)
         el = component
       } catch (e) {
-        if (!gone) setFailed(shownError(e instanceof Error ? e.message : ""))
+        refusedOutside(e)
       }
     })()
     return () => {
@@ -247,7 +290,7 @@ export function StripeConnectEmbedded({
       el?.remove()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [purpose, collectionKey, attempt])
+  }, [purpose, collectionKey, attempt, knownKey])
 
   if (failed) {
     return (
@@ -268,11 +311,7 @@ export function StripeConnectEmbedded({
 
   return (
     <div className={cn("relative w-full", className)}>
-      {!ready ? (
-        <div className="flex min-h-[220px] items-center justify-center" aria-live="polite">
-          <WaitingArea className="h-16" size={18} label={tt("Loading")} />
-        </div>
-      ) : null}
+      {!ready ? <StripeFormSkeleton /> : null}
       <div
         ref={host}
         className={cn(

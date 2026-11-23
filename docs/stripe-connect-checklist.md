@@ -18,7 +18,7 @@ Project → Settings → Environment Variables.
 | `ORDER_LINK_SECRET` | any long random string | any long random string |
 
 - The secret and publishable key must be the same mode. A live secret with a test publishable key opens nothing.
-- `STRIPE_PLATFORM_COUNTRY` is optional. Without it Storelib asks Stripe once per server.
+- `STRIPE_PLATFORM_COUNTRY` is optional, but set it: without it Storelib asks Stripe once per server, and the first seller to open setup on a cold server waits for that answer.
 - `ORDER_LINK_SECRET` signs the link the iOS and Android apps open setup with.
 - Leave `NEXT_PUBLIC_SELLER_STATEMENT_NAME` unset. It makes sales `on_behalf_of` the seller, and Stripe does not pay that out across a border.
 - Never set `STRIPE_API_BASE` in Vercel. It is for tests, and it is ignored with a live key.
@@ -45,6 +45,17 @@ Turn on all of these. Stripe can pay them out from a Romanian platform:
 - Austria, Belgium, Bulgaria, Croatia, Cyprus, Czech Republic, Denmark, Estonia, Finland, France, Germany, Greece, Hungary, Ireland, Italy, Latvia, Liechtenstein, Lithuania, Luxembourg, Malta, Netherlands, Norway, Poland, Portugal, Romania, Slovakia, Slovenia, Spain, Sweden, Iceland
 
 Everywhere else (Australia, Japan, Singapore, Brazil, Mexico, India, the UAE and others) Stripe has no self-serve payouts from a European platform. Storelib tells those sellers so before anything is opened, and asks them to choose a country where they also have a bank, or to write to support. To open them, talk to Stripe sales (Global Payouts is for US and UK platforms).
+
+## 3a. Each account is in the seller's country
+
+Stripe never changes a connected account's country, and its form asks its questions for that country (citizenship, ID, address, bank format). So:
+
+- Setup asks "Where is your bank account?" before any account is opened. The answer is the account's `country`. Storelib sends nothing else about the person when it opens the account: no name, address, nationality or ID. Stripe's form asks those.
+- Accounts are opened as a person (`business_type: individual`). An account that was made as a company keeps that type.
+- Every account opened from the seller's answer carries `metadata.storelib_country_chosen = 1`.
+- An account with nothing sent on it and no such mark (every account opened before Nov 23 2026, most of them in Romania because setup used to fall back to the platform's country) never opens Stripe's form. The seller is asked the country first. The same country marks it and the form opens; another country deletes it on Stripe and opens one in the right country. An account with details already sent keeps its country: Disconnect on Payouts, then set up again.
+
+Nothing to do in the Dashboard for this. To see it happen, search the Vercel logs for `stripe_connect_account_opened` with `"replaced":"wrong_country"`.
 
 ## 4. Capabilities and approval
 
@@ -81,14 +92,41 @@ Workbench (Developers) → Webhooks → Add destination. Two destinations, both 
 
 Do the same in the sandbox with the sandbox secrets in Preview.
 
+## 6a. Payouts schedule
+
+Nothing to set. Storelib keeps every connected account on a manual payout schedule (it writes `settings.payouts.schedule.interval = manual` when an account is opened and whenever a sync finds it changed), and money moves when the seller presses Cash out. Stripe's own payout buttons are turned off inside the embedded forms. Leave Settings → Connect → Payouts schedule at Stripe's default: the per-account setting wins.
+
 ## 7. Redirects
 
 Nothing to register. Storelib does not use Connect OAuth, so there is no client id and no redirect URI list. Stripe's own pages send sellers back to `https://storelib.com/app/payouts?setup=1` (browser) or `https://storelib.com/stripe-done` (the apps), which Account Links accept without an allowlist.
 
 ## 8. Check it works
 
-1. With test keys, sign up a test seller, open Payouts, Set up payouts, choose Germany, and finish Stripe's form with Stripe's test data (address line `address_full_match`, ID number `000000000`, IBAN `DE89370400440532013000`).
+1. With test keys, sign up a test seller, open Payouts, Set up payouts, choose Germany, and finish Stripe's form with Stripe's test data (address line `address_full_match`, ID number `000000000`, IBAN `DE89370400440532013000`). The form should never ask about Romania.
 2. Payouts should read "Payments active".
 3. Repeat with the United States (routing `110000000`, account `000123456789`) and Brazil. Brazil should be refused in words before anything opens.
+4. Leave setup half way (close it after Stripe's first screen), open Payouts again and press Continue setup. If nothing was sent yet, the country is asked again with your answer already in it; Continue goes straight back to Stripe's form. If details were sent, Stripe's form opens where you left it.
+5. Do steps 1 and 4 on a phone browser (390px wide), where setup is a full screen sheet, and in the iOS app, where it opens in the browser sheet over the app.
 
-If a seller is still stuck, search the Vercel logs for `payments_api_problem` (what the seller was shown), `stripe_connect_attempt_refused` (Stripe's exact answer, with its `req_` id to look up in Workbench → Logs), `stripe_account_session_failed`, and `[stripe embed]` (the form failing in a browser).
+If a seller is still stuck, search the Vercel logs for:
+
+| Log line | What it is |
+| --- | --- |
+| `payments_api_problem` | what the seller was shown, and its code |
+| `stripe_connect_attempt_refused` | Stripe's exact answer to opening an account, with its `req_` id for Workbench → Logs |
+| `stripe_connect_account_opened` | an account opened, its country, and whether it replaced one |
+| `stripe_connect_country_mark_failed` | the seller's country could not be saved on the account; setup asked them to try again |
+| `stripe_account_session_failed` | Stripe refused the embedded form's session |
+| `stripe_start_session_skipped` | Continue could not make the form's session beside the account; the form asked for its own |
+| `[stripe embed]` | the form failing in a browser |
+
+## 9. How setup loads
+
+For the record, so a later change does not undo it:
+
+- Stripe's `connect.js` is preloaded when a seller points at, focuses or presses Set up payouts, and while the country question is on screen.
+- Continue on the country step opens the account and makes the form's Account Session in the same request.
+- For an account already under way, the session is made on that same hover or press, held in the browser for at most 90 seconds and used once.
+- The form starts loading Stripe's script while its session is still being made, and shows a gray outline of the form, not a spinner, until Stripe draws.
+
+`node scripts/check-payouts-connect.mjs` measures the time from the press to Stripe's first frame against a stubbed Stripe, the old way and the new.

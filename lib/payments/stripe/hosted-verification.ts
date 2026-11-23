@@ -25,7 +25,9 @@ import "server-only"
  */
 import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
-import { readCreatorStripe, syncStripeAccount, type PaymentsCreatorRef } from "./connect"
+import { CHOOSE_COUNTRY_FIRST, readCreatorStripe, syncStripeAccount, type PaymentsCreatorRef } from "./connect"
+import { countryNeedsChoice } from "./account-country"
+import { PaymentsProblem } from "../errors"
 import { documentDue, identityOnForPlatform, identityStatus, startIdentity, type IdentityStatus } from "./identity"
 import { stripeErrorMessage } from "./setup-errors"
 import { idOutstanding } from "./status"
@@ -154,6 +156,8 @@ export async function startVerification(creator: PaymentsCreatorRef, where: Veri
 export async function startHostedSetup(creator: PaymentsCreatorRef, where: VerifyReturn): Promise<{ ok: true; url: string } | VerifyStop> {
   const account = await accountOf(creator)
   if ("ok" in account) return account
+  /* Stripe's page, like its embedded form, never opens on a country nobody chose (./account-country). */
+  if (countryNeedsChoice(account)) throw new PaymentsProblem(CHOOSE_COUNTRY_FIRST, 409, "country_required")
   /* Setup never asks "individual or company": an account with no type yet is a person, as the embedded form opens it (connect.ts createStripeAccountSession). */
   if (!account.business_type) {
     await stripe.accounts.update(account.id, { business_type: "individual" }).catch((error) => console.error("[hosted setup] business type", quiet(error)))

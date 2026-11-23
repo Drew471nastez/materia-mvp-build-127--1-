@@ -100,6 +100,8 @@ export { PaymentsProblem } from "./errors"
 export interface StartInput {
   kind: "individual" | "business"
   country: string
+  /** Make the Account Session for Stripe's form beside the overview, and hand it back with it. */
+  session?: boolean
 }
 
 /** The Account step: creates or reuses their Stripe account. */
@@ -125,17 +127,17 @@ export async function disconnectPayoutAccount(creator: CreatorRef, options: { co
 
 export async function startOnboarding(creator: CreatorRef, input: StartInput) {
   if (!creator.email) throw new PaymentsProblem("Add an email address to your account first.")
-  return stripeStartOnboarding(creator, { kind: input.kind, country: input.country })
+  return stripeStartOnboarding(creator, { kind: input.kind, country: input.country, session: input.session === true })
 }
 
 /** A fresh, single use session for one of Stripe's embedded components, for THIS creator's account only. */
 export async function componentAuth(
   creator: CreatorRef,
   purpose: "stripe_onboarding" | "stripe_management" | "stripe_payouts",
-): Promise<{ clientSecret: string; publishableKey: string; stripeSignIn: boolean }> {
+): Promise<{ clientSecret: string; publishableKey: string; stripeSignIn: boolean; expiresAt: number | null }> {
   const stripePurpose = purpose === "stripe_onboarding" ? "onboarding" : purpose === "stripe_management" ? "management" : "payouts"
   const session = await stripeAccountSession(creator, stripePurpose)
-  return { clientSecret: session.clientSecret, publishableKey: session.publishableKey, stripeSignIn: session.stripeSignIn }
+  return { clientSecret: session.clientSecret, publishableKey: session.publishableKey, stripeSignIn: session.stripeSignIn, expiresAt: session.expiresAt }
 }
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */

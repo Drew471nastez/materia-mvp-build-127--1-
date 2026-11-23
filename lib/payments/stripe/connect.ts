@@ -18,6 +18,7 @@ import { accountSessionComponents } from "./session-components"
 import { creatorBusinessProfile } from "./business-profile"
 import { PaymentsProblem } from "../errors"
 import { forgetPaymentsReadiness } from "./readiness-cache"
+import { accountUntouched, COUNTRY_CHOSEN_KEY, countryChosen, countryNeedsChoice } from "./account-country"
 
 export interface PaymentsCreatorRef {
   id: string
@@ -34,7 +35,7 @@ const CREATOR_STRIPE_COLUMNS =
   "id, user_id, username, display_name, bio, stripe_account_id, stripe_onboarding_status, charges_enabled, payouts_enabled, details_submitted, stripe_requirements, stripe_requirements_updated_at, stripe_connected_at"
 /* What the last sync worked out (supabase/sql/run-now/84_seller_payment_state.sql). Read when the columns are there. */
 const SELLER_STATE_COLUMNS =
-  "can_accept_payments, stripe_transfers_status, stripe_disabled_reason, stripe_pending_verification, stripe_eventually_due, payout_destination, payments_status, last_stripe_sync_at, stripe_requirements_cleared_at"
+  "can_accept_payments, stripe_account_country, stripe_transfers_status, stripe_disabled_reason, stripe_pending_verification, stripe_eventually_due, payout_destination, payments_status, last_stripe_sync_at, stripe_requirements_cleared_at"
 /* Learnt once per server instance: before the SQL part runs, every read would otherwise fail first and retry. */
 let sellerStateColumns: boolean | null = null
 
@@ -53,6 +54,7 @@ export interface CreatorStripeRow {
   stripe_requirements_updated_at: string | null
   stripe_connected_at: string | null
   can_accept_payments?: boolean | null
+  stripe_account_country?: string | null
   stripe_transfers_status?: string | null
   stripe_disabled_reason?: string | null
   stripe_pending_verification?: string[] | null
@@ -299,14 +301,22 @@ export function runsInStorelib(account: Pick<Stripe.Account, "controller"> | nul
   return account?.controller?.requirement_collection === "application"
 }
 
+/**
+ * The seller's account, in the country they chose. `chosen` (default true)
+ * says the country came from the seller just now: a new account carries the
+ * mark (./account-country), and an untouched account already in that country
+ * is marked and given the business type asked for. Only Storelib's own swap
+ * of an older Express account passes false, carrying over what it had.
+ */
 export async function ensureStripeAccount(
   creator: PaymentsCreatorRef,
-  input: { kind: "individual" | "business"; country: string },
+  input: { kind: "individual" | "business"; country: string; chosen?: boolean },
 ): Promise<string> {
   if (!process.env.STRIPE_SECRET_KEY) throw new PaymentsProblem("Payments are not switched on yet.", 503, "platform_setup")
 
   const country = input.country.trim().toUpperCase()
   if (!/^[A-Z]{2}$/.test(country)) throw new PaymentsProblem("Choose the country where your bank account is.", 400, "country_required")
+  const chosen = input.chosen !== false
 
   const row = await readCreatorStripe(creator.id)
   if (!row) throw new PaymentsProblem("Creator profile not found.", 404)
@@ -320,12 +330,14 @@ export async function ensureStripeAccount(
       const existing = await stripe.accounts.retrieve(accountId)
       /* An unfinished Express account would make Stripe open its sign-in window.
          Nothing has been sent on it, so it is swapped for one that stays in Storelib. */
-      const untouched = !existing.details_submitted && !existing.charges_enabled && !existing.payouts_enabled
+      const untouched = accountUntouched(existing)
       /* An unfinished account on the recipient agreement can never be paid out
          across borders: nothing has been sent on it either, so it is swapped too. */
       const recipient = existing.tos_acceptance?.service_agreement === "recipient"
       /* Stripe never changes an account's country. One opened in the wrong country with nothing sent on it is swapped for the right one. */
       wrongCountry = untouched && !!existing.country && existing.country.toUpperCase() !== country
+      /* Kept, untouched, and the seller has just said this is their country: the account is marked, so Stripe's form may open on it. */
+      if (!wrongCountry && untouched && chosen && runsInStorelib(existing) && !recipient) await confirmCountryChoice(creator.id, existing, input.kind === "business" ? "company" : "individual")
       if (!wrongCountry && ((runsInStorelib(existing) && !recipient) || !untouched)) return accountId
       replacing = accountId
     } catch (error) {
@@ -349,7 +361,7 @@ export async function ensureStripeAccount(
     business_type: businessType,
     /* The creator's own page and what really happens there, not storelib.com and their bio (lib/payments/stripe/business-profile). */
     business_profile: creatorBusinessProfile({ username: row.username, displayName: row.display_name, platformUrl: platformBusinessUrl() }),
-    metadata: { storelib_creator_id: creator.id, storelib_username: row.username ?? "" },
+    metadata: { storelib_creator_id: creator.id, storelib_username: row.username ?? "", ...(chosen ? { [COUNTRY_CHOSEN_KEY]: "1" } : {}) },
   }
 
   try {
@@ -422,6 +434,34 @@ export async function ensureStripeAccount(
     const problem = paymentsSetupError(error)
     console.error(JSON.stringify({ evt: "stripe_connect_start_failed", creator: creator.id, country, shown: problem.code, ...stripeErrorFacts(error) }))
     throw new PaymentsProblem(problem.message, problem.code === "retry" ? 503 : 502, problem.code)
+  }
+}
+
+/**
+ * The seller confirmed the country of an account nothing was sent on yet:
+ * it is marked as theirs (./account-country), and its business type follows
+ * what they picked. The mark is what lets Stripe's form open, so a write
+ * that fails is said, not skipped; a business type Stripe will not change is
+ * left as it was.
+ */
+async function confirmCountryChoice(creatorId: string, account: Stripe.Account, businessType: "individual" | "company"): Promise<void> {
+  const typeDiffers = !!account.business_type && account.business_type !== businessType
+  if (countryChosen(account) && !typeDiffers) return
+  const mark = { metadata: { [COUNTRY_CHOSEN_KEY]: "1" } }
+  try {
+    await stripe.accounts.update(account.id, typeDiffers ? { ...mark, business_type: businessType } : mark)
+  } catch (error) {
+    if (typeDiffers) {
+      console.warn(JSON.stringify({ evt: "stripe_connect_business_type_kept", creator: creatorId, ...stripeErrorFacts(error) }))
+      try {
+        await stripe.accounts.update(account.id, mark)
+        return
+      } catch (again) {
+        error = again
+      }
+    }
+    console.error(JSON.stringify({ evt: "stripe_connect_country_mark_failed", creator: creatorId, ...stripeErrorFacts(error) }))
+    throw new PaymentsProblem("Stripe did not answer just now. Nothing was changed. Try again in a minute.", 503, "retry")
   }
 }
 
@@ -813,13 +853,18 @@ export function publishableKeyForSession(): string {
   return pk
 }
 
+/** What setup says when Stripe's form would open on an account whose country the seller never chose. */
+export const CHOOSE_COUNTRY_FIRST = "Choose the country where your bank account is, then setup opens."
+
 export async function createStripeAccountSession(
   creatorId: string,
   purpose: StripeAccountSessionPurpose,
   known?: Stripe.Account | null,
-): Promise<{ clientSecret: string; publishableKey: string; stripeSignIn: boolean }> {
+  /* The row the caller has just read: one database round fewer before Stripe is asked. */
+  knownRow?: CreatorStripeRow | null,
+): Promise<{ clientSecret: string; publishableKey: string; stripeSignIn: boolean; expiresAt: number | null }> {
   const publishableKey = publishableKeyForSession()
-  const row = await readCreatorStripe(creatorId)
+  const row = knownRow?.stripe_account_id ? knownRow : await readCreatorStripe(creatorId)
   if (!row?.stripe_account_id) throw new PaymentsProblem("Start setup first.")
 
   let account: Stripe.Account
@@ -836,6 +881,15 @@ export async function createStripeAccountSession(
       await releaseConnectedAccount(creatorId, row.stripe_account_id, "legacy_platform")
       throw new PaymentsProblem("Your payments need to be set up again. Close this and choose Reconnect payments. Your orders and payout history are safe.", 409)
     }
+  }
+  /*
+   * NEVER STRIPE'S FORM ON A COUNTRY NOBODY CHOSE (./account-country). An
+   * untouched account from before the country picker is in Romania for most
+   * sellers, and Stripe's form asks whether they are a citizen of it. The
+   * page answers country_required with the country step.
+   */
+  if ((purpose === "onboarding" || purpose === "management") && countryNeedsChoice(account)) {
+    throw new PaymentsProblem(CHOOSE_COUNTRY_FIRST, 409, "country_required")
   }
   /*
    * The embedded ID check must not open on "individual or company". Setup
@@ -879,7 +933,7 @@ export async function createStripeAccountSession(
    * phone app sends it to Safari. The form uses this to choose another way
    * in the app (stripe-connect-embedded.tsx).
    */
-  return { clientSecret: session.client_secret, publishableKey, stripeSignIn: !storelibCollects }
+  return { clientSecret: session.client_secret, publishableKey, stripeSignIn: !storelibCollects, expiresAt: typeof session.expires_at === "number" ? session.expires_at : null }
 }
 
 /**

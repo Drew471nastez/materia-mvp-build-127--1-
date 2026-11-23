@@ -13,6 +13,7 @@ import { StorelibPaymentsCard, StorelibPaymentsCardLoading } from "@/components/
 import { PaymentsPanelWaiting, PaymentsSetupFlow, type SetupMode } from "@/components/app/settings/payments-setup-flow"
 import { money, type Overview } from "@/components/app/settings/payments-hub-shared"
 import { readsLikeStripe } from "@/lib/payments/verify-id"
+import { prefetchAccountSession, warmStripeConnect } from "@/components/app/settings/stripe-connect-warm"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
@@ -179,6 +180,19 @@ export function StorelibPaymentsSettings({
   }, [confirmDisconnect])
 
   const openPanel = (mode: SetupMode) => setPanel({ open: true, mode })
+  /*
+   * THE FORM STARTS LOADING ON INTENT (components/app/settings/stripe-connect-warm).
+   * A pointer over Set up payouts, a focus or the press itself: Stripe's
+   * script is fetched, and when the press goes straight to Stripe's form (an
+   * account already started, its country settled) the form's session is
+   * made too, so it is ready by the time the panel has slid in.
+   */
+  const intent = () => {
+    warmStripeConnect()
+    if (!data || beat === "personal" || beat === "done" || data.setupCountry?.changeable) return
+    prefetchAccountSession("stripe_onboarding")
+  }
+  const intentProps = { onPointerEnter: intent, onFocus: intent, onPointerDown: intent }
   const closePanel = React.useCallback(() => setPanel((p) => ({ ...p, open: false })), [])
 
   const flow = data?.configured ? (
@@ -304,6 +318,7 @@ export function StorelibPaymentsSettings({
                 action={view.actionLabel}
                 href={view.action === "support" ? "mailto:support@storelib.com" : undefined}
                 onClick={() => openPanel(modeFor(view.action))}
+                intentProps={intentProps}
               />
             ) : null}
             <Row
@@ -325,6 +340,7 @@ export function StorelibPaymentsSettings({
             line={view && view.status !== "NOT_STARTED" ? view.line : tt("Receive earnings directly to your bank account.")}
             action={view?.actionLabel ?? (hasAccount ? "Continue setup" : "Set up payouts")}
             onClick={() => openPanel(modeFor(view?.action))}
+            intentProps={intentProps}
           />
         )}
       </StorelibPaymentsCard>
@@ -360,7 +376,9 @@ function maskedBank(b: { country?: string | null; last4?: string | null; currenc
   return `${lead}${b.last4}${b.currency ? ` · ${b.currency.toUpperCase()}` : ""}`
 }
 
-function Empty({ icon, title, line, action, onClick, href }: { icon?: React.ReactNode; title: string; line: string; action?: string; onClick?: () => void; href?: string }) {
+type IntentProps = { onPointerEnter?: () => void; onFocus?: () => void; onPointerDown?: () => void }
+
+function Empty({ icon, title, line, action, onClick, href, intentProps }: { icon?: React.ReactNode; title: string; line: string; action?: string; onClick?: () => void; href?: string; intentProps?: IntentProps }) {
   return (
     <div className="border-t border-[#f1f2f4] px-4 py-8 text-center sm:px-10 sm:py-12">
       {icon ? <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#f4f3ff] text-[#635bff]">{icon}</span> : null}
@@ -371,7 +389,7 @@ function Empty({ icon, title, line, action, onClick, href }: { icon?: React.Reac
           {action}
         </a>
       ) : action ? (
-        <button type="button" onClick={onClick} className={cn(primaryDepth, "mt-6 h-11 rounded-xl px-6 text-[14px] sm:min-w-[200px] max-sm:w-full")}>
+        <button type="button" onClick={onClick} {...intentProps} className={cn(primaryDepth, "mt-6 h-11 rounded-xl px-6 text-[14px] sm:min-w-[200px] max-sm:w-full")}>
           {action}
         </button>
       ) : null}
@@ -400,7 +418,7 @@ function Row({ icon, title, line, action, onClick }: { icon: React.ReactNode; ti
 }
 
 /** Payments are on, and Stripe wants something: one line, one action, and the date if there is one. */
-function Notice({ title, line, deadline, action, href, onClick }: { title: string; line: string; deadline: string | null; action: string | null; href?: string; onClick: () => void }) {
+function Notice({ title, line, deadline, action, href, onClick, intentProps }: { title: string; line: string; deadline: string | null; action: string | null; href?: string; onClick: () => void; intentProps?: IntentProps }) {
   const by = deadline ? new Date(deadline).toLocaleDateString(appLocale(), zoned({ day: "numeric", month: "short", year: "numeric" })) : null
   const cls = cn(primaryDepth, "inline-flex h-10 w-full items-center justify-center rounded-lg px-3 text-[13px] sm:h-8 sm:w-auto sm:shrink-0")
   return (
@@ -418,7 +436,7 @@ function Notice({ title, line, deadline, action, href, onClick }: { title: strin
       {action && href ? (
         <a href={href} className={cls}>{action}</a>
       ) : action ? (
-        <button type="button" onClick={onClick} className={cls}>{action}</button>
+        <button type="button" onClick={onClick} {...intentProps} className={cls}>{action}</button>
       ) : null}
     </div>
   )

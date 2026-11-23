@@ -32,6 +32,7 @@ import {
   stripeStageOf,
 } from "./facts"
 import { prepareStorelibAccount } from "./verification"
+import { setupCountryOf, type SetupCountry } from "./account-country"
 
 function mergeSnapshotFromRow(
   row: Awaited<ReturnType<typeof readCreatorStripe>>,
@@ -103,6 +104,22 @@ export async function stripeOverview(creator: CreatorRef, options?: { sync?: boo
         { everActive: !!row?.stripe_connected_at, reconnect },
       ),
     )
+
+  /*
+   * What the country step needs (./account-country): the account's country,
+   * whether it can still change, and whether the seller chose it. Read from
+   * the live account when this overview synced, else from the cached row,
+   * where "chosen" is not known.
+   */
+  const setupCountry: SetupCountry = live
+    ? setupCountryOf(live)
+    : row?.stripe_account_id
+      ? {
+          country: (row.stripe_account_country ?? "").toUpperCase() || null,
+          changeable: !row.details_submitted && !row.charges_enabled && !row.payouts_enabled,
+          chosen: null,
+        }
+      : { country: null, changeable: false, chosen: null }
 
   /* The ID check is still ahead in setup: Stripe lists the document (now or eventually) and none is on file or being looked at. */
   const req = live?.requirements
@@ -190,6 +207,7 @@ export async function stripeOverview(creator: CreatorRef, options?: { sync?: boo
       country: countryCode(person?.country),
     },
     payoutHint: facts,
+    setupCountry,
     platformCountry: platform,
     paymentsStatus,
     stripeUnreachable: unreachable,
@@ -200,13 +218,41 @@ export async function stripeOverview(creator: CreatorRef, options?: { sync?: boo
   }
 }
 
-export async function stripeStartOnboarding(creator: CreatorRef, input: { kind: "individual" | "business"; country: string }) {
+/**
+ * The country step's Continue. With `session`, the Account Session for
+ * Stripe's form is made beside the overview and comes back with it: the
+ * form's frame then needs no request of its own after Continue, one round
+ * trip less between the press and Stripe's first screen. A session that
+ * cannot be made (Stripe slow, a platform setting) is left out, and the form
+ * asks for its own as before.
+ */
+export async function stripeStartOnboarding(creator: CreatorRef, input: { kind: "individual" | "business"; country: string; session?: boolean }) {
   const country = await resolveCountryForStart(creator, input.country)
   await ensureStripeAccount(creator, { kind: input.kind, country })
-  return stripeOverview(creator)
+  if (!input.session) return stripeOverview(creator)
+  const [view, session] = await Promise.all([
+    stripeOverview(creator),
+    stripeAccountSession(creator, "onboarding").catch((error: unknown) => {
+      console.warn(JSON.stringify({ evt: "stripe_start_session_skipped", creator: creator.id, msg: error instanceof Error ? error.message.slice(0, 160) : "unknown" }))
+      return null
+    }),
+  ])
+  return session ? { ...view, session: { purpose: "stripe_onboarding" as const, ...session } } : view
 }
 
+/**
+ * ONE READ OF THE ROW, AND THE SYNC BESIDE THE SESSION. This read the
+ * creator row twice and waited for a full sync (three Stripe calls) before
+ * asking Stripe for the session, all in a line in front of the form's first
+ * frame. The row is read once now, and anything that only brings Storelib's
+ * cached copy up to date runs beside the session.
+ */
 export async function stripeAccountSession(creator: CreatorRef, purpose: "onboarding" | "management" | "payouts" | "balances") {
-  const prepared = purpose === "onboarding" || purpose === "management" ? await prepareStorelibAccount(creator) : null
-  return createStripeAccountSession(creator.id, purpose, prepared)
+  const row = await readCreatorStripe(creator.id)
+  const background: Promise<unknown>[] = []
+  const prepared = purpose === "onboarding" || purpose === "management" ? await prepareStorelibAccount(creator, { row, background }) : null
+  /* A swap during prepare put another account on the row: read it again rather than hand Stripe the old id. */
+  const sameRow = !prepared || prepared.id === row?.stripe_account_id ? row : null
+  const [session] = await Promise.all([createStripeAccountSession(creator.id, purpose, prepared, sameRow), ...background])
+  return session as Awaited<ReturnType<typeof createStripeAccountSession>>
 }

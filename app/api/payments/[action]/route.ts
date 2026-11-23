@@ -6,7 +6,9 @@
  * signed-in creator only; connected account ids never come from the body.
  *
  *   GET  overview        what the hub draws (lib/payments/service overview)
- *   POST start           { kind, country, agree: true } creates their Stripe account
+ *   POST start           { kind, country, agree: true, session? } creates their Stripe account in
+ *                        that country (or replaces an untouched one in another, or marks it as
+ *                        chosen); with session, Stripe's form session comes back with the overview
  *   POST component       { purpose }  a fresh, single-use session for an embedded form:
  *                        "stripe_onboarding" | "stripe_management" | "stripe_payouts"
  *   POST refresh         asks Stripe again, now
@@ -133,6 +135,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
         const started = await startOnboarding(creator, {
           kind,
           country: typeof body.country === "string" ? body.country : "",
+          /* The form's Account Session made beside the overview: Stripe's first frame needs no request of its own after Continue. */
+          session: body.session === true,
         })
         return NextResponse.json(started, { headers: NO_STORE })
       }

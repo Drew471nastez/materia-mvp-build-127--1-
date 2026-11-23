@@ -46,7 +46,8 @@ import { isNativeApp, openInApp } from "@/lib/native-bridge"
 import "@/lib/stripe-nav-guard"
 import { armCameraSounds, IdCamera, sendIdPhoto, shrinkPhoto, type IdSide } from "@/components/app/settings/id-camera"
 import { mediaOffSheet, showAccessSheet } from "@/lib/native-permissions"
-import { StripeConnectEmbedded } from "@/components/app/settings/stripe-connect-embedded"
+import { StripeConnectEmbedded, StripeFormSkeleton } from "@/components/app/settings/stripe-connect-embedded"
+import { dropAccountSession, prefetchAccountSession, primeAccountSession, warmStripeConnect } from "@/components/app/settings/stripe-connect-warm"
 import { readsLikeStripe, verifyLine } from "@/lib/payments/verify-id"
 import { playAskSound } from "@/lib/website-builder/ask-sounds"
 import { cn } from "@/lib/utils"
@@ -984,8 +985,8 @@ function AppBrowserSetup({
   const [attempt, setAttempt] = React.useState(0)
   /* The small "opening" mark shows only until the sheet is up. */
   const [launched, setLaunched] = React.useState(false)
-  /* No account yet: the country is asked here first, in the app, like on the web (CountryStep). */
-  const needsCountry = mode !== "bank" && (data.beat ?? "personal") === "personal"
+  /* No account yet, or one nothing was sent on: the country is asked here first, in the app, like on the web (CountryStep). */
+  const needsCountry = mode !== "bank" && ((data.beat ?? "personal") === "personal" || data.setupCountry?.changeable === true)
   const [country, setCountry] = React.useState<string | null>(null)
   const [countryProblem, setCountryProblem] = React.useState<string | null>(null)
   const latest = React.useRef({ data, onData, onClose, onFinished })
@@ -1028,8 +1029,9 @@ function AppBrowserSetup({
     void (async () => {
       try {
         const current = latest.current.data
-        if (form === "setup" && (current.beat ?? "personal") === "personal") {
-          latest.current.onData(await post<Overview>("start", { agree: true, kind: "individual", country: country ?? "" }))
+        /* The country just chosen opens the account there, replaces one in another country, or marks it as the seller's. */
+        if (form === "setup" && country) {
+          latest.current.onData(await post<Overview>("start", { agree: true, kind: current.kind === "business" ? "business" : "individual", country }))
         }
         const { url } = await post<{ url: string }>("app-sheet", { form })
         if (gone) return
@@ -1144,16 +1146,28 @@ const OWN_STEPS_IN_APP = false
  * that decides everything after it, prefilled from the profile or the
  * browser, and a country Stripe cannot pay out to is said before Continue.
  */
-function guessCountry(data: Overview): string {
-  const known = data.prefill?.country || data.payoutHint?.country
-  if (known) return countryLabel(known)
+function browserCountry(): string | null {
   try {
     const region = new Intl.Locale(navigator.language || "").maximize().region
-    if (region && countryOf(region)) return countryLabel(region)
+    return region && countryOf(region) ? region : null
   } catch {
-    /* an old browser: the field starts empty */
+    /* an old browser: no guess */
+    return null
   }
-  return ""
+}
+
+/*
+ * WHICH COUNTRY THE FIELD STARTS ON. An account the seller chose the country
+ * of starts on that country. An account nobody chose (most of them opened in
+ * Romania before this step existed, lib/payments/stripe/account-country) never
+ * does: it starts on the profile's country or the browser's, so a seller in
+ * Germany is not one Continue away from Stripe's Romanian form again.
+ */
+function guessCountry(data: Overview): string {
+  const sc = data.setupCountry
+  if (sc?.country && sc.chosen === true) return countryLabel(sc.country)
+  const known = data.prefill?.country || browserCountry() || (sc?.chosen === false ? null : sc?.country || data.payoutHint?.country)
+  return known ? countryLabel(known) : ""
 }
 
 function CountryStep({ data, problem, onChoose, onCancel }: { data: Overview; problem: string | null; onChoose: (code: string) => void; onCancel: () => void }) {
@@ -1162,6 +1176,11 @@ function CountryStep({ data, problem, onChoose, onCancel }: { data: Overview; pr
   const code = countryOf(countryName)
   const platform = data.platformCountry ?? null
   const blocked = !!code && !!platform && payoutRoute(platform, code) === "unsupported"
+  /* The account already there, while nothing has been sent on it: choosing another country replaces it. */
+  const startedIn = data.setupCountry?.changeable ? data.setupCountry.country : null
+  const restarts = !!startedIn && !!code && code !== startedIn
+  /* Stripe's script starts downloading while the seller reads the question. */
+  React.useEffect(() => warmStripeConnect(), [])
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
     setTried(true)
@@ -1169,7 +1188,7 @@ function CountryStep({ data, problem, onChoose, onCancel }: { data: Overview; pr
     onChoose(code)
   }
   return (
-    <form onSubmit={submit} noValidate data-setup-country="" className="flex min-h-full flex-1 flex-col">
+    <form onSubmit={submit} noValidate data-setup-country="" data-started-in={startedIn ?? undefined} className="flex min-h-full flex-1 flex-col">
       <div className="flex-1 space-y-4 px-5 sm:px-7">
         <div>
           <label htmlFor="payout-country" className="mb-1.5 block text-[13px] font-medium text-[#1a1a2e]">{tt("Where is your bank account?")}</label>
@@ -1182,8 +1201,12 @@ function CountryStep({ data, problem, onChoose, onCancel }: { data: Overview; pr
           />
           {tried && !code ? (
             <span className="mt-1.5 block text-[12px] text-[#c4290c]">{tt("Choose a country.")}</span>
+          ) : restarts && startedIn && code ? (
+            <span data-setup-restarts="" className="mt-1.5 block text-[12px] leading-[17px] text-[#6b7280]">
+              {tt("Your setup was started for {from}. Continuing with {to} starts it again there.", { from: countryLabel(startedIn), to: countryLabel(code) })}
+            </span>
           ) : (
-            <span className="mt-1.5 block text-[12px] leading-[17px] text-[#6b7280]">{tt("Your payouts go to a bank in this country, in its currency. It can't be changed later.")}</span>
+            <span className="mt-1.5 block text-[12px] leading-[17px] text-[#6b7280]">{tt("Your payouts go to a bank in this country, in its currency. It can't be changed once setup is sent.")}</span>
           )}
         </div>
         {blocked && code ? <ErrorLine message={cannotPayOutLine(countryLabel(code))} /> : problem ? <ErrorLine message={problem} /> : null}
@@ -1220,22 +1243,54 @@ function SetupProblemView({ message, code, onRetry, onClose }: { message: string
   )
 }
 
+/*
+ * THE COUNTRY, EVERY TIME IT CAN STILL CHANGE. An account with something
+ * sent on it resumes on Stripe's form where it was left. An account nothing
+ * was sent on asks the country first, prefilled, because that is the account
+ * a seller from before the country step has (in Romania, lib/payments/stripe/account-country)
+ * and the only time a wrong country can still be put right. While the
+ * question is on screen Stripe's script downloads, and for an account whose
+ * country the seller already chose, its form's session is made too: Continue
+ * on the same country opens the form with nothing left to wait for.
+ */
 function SetupEmbed({ data, onData, onExit, onCancel, bankOnly = false }: { data: Overview; onData: (next: Overview) => void; onExit: () => void | Promise<void>; onCancel: () => void; bankOnly?: boolean }) {
-  /* An account already exists: resume on Stripe's form where it was left, never ask the country again. */
-  const existed = React.useRef((data.beat ?? "personal") !== "personal")
-  const [ready, setReady] = React.useState(existed.current)
+  const hasAccount = (data.beat ?? "personal") !== "personal"
+  const sc = data.setupCountry
+  /* Decided once per open: the overview that comes back from start must not take the question away mid-step. */
+  const asks = React.useRef(!bankOnly && (!hasAccount || sc?.changeable === true))
+  /* The server said the account's country was never chosen: Continue must go through start, even on the same country. */
+  const mustStart = React.useRef(false)
+  /* An account made as a business keeps that type: Stripe cannot change it once anything is sent. */
+  const kind = data.kind === "business" ? "business" : "individual"
+  const [ready, setReady] = React.useState(!asks.current)
   const [country, setCountry] = React.useState<string | null>(null)
   const [countryProblem, setCountryProblem] = React.useState<string | null>(null)
   const [error, setError] = React.useState<{ message: string; code: string | null } | null>(null)
   const [attempt, setAttempt] = React.useState(0)
   React.useEffect(() => {
-    if (existed.current || !country) return
+    if (!asks.current || !hasAccount || sc?.chosen !== true) return
+    prefetchAccountSession("stripe_onboarding")
+    // Once per open, while the country is asked.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  React.useEffect(() => {
+    if (!asks.current || !country) return
+    /* The seller's own country, already on the account: nothing to change. */
+    if (hasAccount && sc?.chosen === true && sc.country === country && !mustStart.current) {
+      setReady(true)
+      return
+    }
+    /* Another country replaces the account: a session made for the old one is no use. */
+    if (sc?.country && sc.country !== country) dropAccountSession()
     let gone = false
     void (async () => {
       try {
-        const next = await post<Overview>("start", { agree: true, kind: "individual", country })
+        const next = await post<Overview>("start", { agree: true, kind, country, session: true })
         if (gone) return
-        onData(next)
+        const { session, ...view } = next
+        if (session) primeAccountSession("stripe_onboarding", session)
+        mustStart.current = false
+        onData(view)
         setReady(true)
       } catch (err) {
         if (gone) return
@@ -1260,14 +1315,13 @@ function SetupEmbed({ data, onData, onExit, onCancel, bankOnly = false }: { data
   if (error) {
     return <SetupProblemView message={error.message} code={error.code} onClose={onCancel} onRetry={() => { setError(null); setAttempt((n) => n + 1) }} />
   }
-  if (!existed.current && !country) {
+  if (asks.current && !country) {
     return <CountryStep data={data} problem={countryProblem} onCancel={onCancel} onChoose={(code) => { setCountryProblem(null); setCountry(code) }} />
   }
   if (!ready) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 py-16" aria-live="polite">
-        <span aria-hidden className="h-5 w-5 animate-spin rounded-full border-2 border-[#1a1a2e]/10 border-t-[#1a1a2e]/60" />
-        <span className="text-[13px] text-[#6b7280]">{tt("Opening your payments account")}</span>
+      <div className="flex w-full flex-1 flex-col px-5 sm:px-7" aria-live="polite">
+        <StripeFormSkeleton label={tt("Opening your payments account")} />
       </div>
     )
   }
@@ -1277,6 +1331,16 @@ function SetupEmbed({ data, onData, onExit, onCancel, bankOnly = false }: { data
         className="w-full px-3 sm:px-5"
         purpose={bankOnly ? "stripe_management" : "stripe_onboarding"}
         collection={bankOnly ? BANK_COLLECTION : SETUP_COLLECTION}
+        publishableKey={data.stripe?.publishableKey ?? null}
+        onSessionProblem={(code) => {
+          if (code !== "country_required" || bankOnly) return false
+          /* An account whose country nobody chose: the question, not Stripe's form. */
+          asks.current = true
+          mustStart.current = true
+          setReady(false)
+          setCountry(null)
+          return true
+        }}
         onExit={() => void onExit()}
       />
     </div>
