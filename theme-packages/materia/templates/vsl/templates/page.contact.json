@@ -19,7 +19,7 @@
         "description_2": {
           "type": "description",
           "settings": {
-            "text": "<p>A question about the course, the calls or a payment. It all reaches the same inbox.</p>"
+            "text": "<p>A question about the course, the calls, gear or a payment. It all reaches the same inbox.</p>"
           }
         },
         "info_3": {

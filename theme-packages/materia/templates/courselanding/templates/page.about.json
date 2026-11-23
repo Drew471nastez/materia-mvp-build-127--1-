@@ -5,13 +5,13 @@
       "settings": {
         "heading": "About the course,",
         "heading_accent": "and who teaches it",
-        "text": "<p>I taught camera courses for eight years. Every time, people went home with a heavy bag and took their best pictures on their phone anyway.</p><p>So this course starts with the camera you carry. <strong>Light, framing and timing</strong> matter far more than the lens, and a phone is the one you have with you when the light is good.</p><p>Four weeks, twenty minutes a day. <em>You will look at light differently by the end of the first week.</em></p>",
-        "name": "Teo Varga",
-        "role": "Photographer and teacher. Write your own letter here.",
-        "image": "shopify://shop_images/courselanding-indoor-shot.webp",
-        "image_alt": "Hands holding a phone sideways to photograph a bright room",
+        "text": "<p>I spent nine years at a bank, talking to people about loans and savings. The ones who were doing well rarely earned the most. They had a simple plan, and they looked at it.</p><p>So this course is not another app to download. <strong>Knowing where it goes, a plan you keep and saving first</strong> matter far more than any tool, and a spreadsheet you understand beats one you do not.</p><p>Four weeks, twenty minutes a day. <em>You will know where every pound, euro or dollar went by the end of the first week.</em></p>",
+        "name": "Nina Hart",
+        "role": "Money teacher, nine years in banking. Write your own letter here.",
+        "image": "shopify://shop_images/courselanding-about-desk.webp",
+        "image_alt": "A woman typing at a wooden table by a bright window",
         "anchor": "",
-        "accent": "#2f5bea",
+        "accent": "#17804c",
         "padding_top": 32
       }
     },
@@ -22,43 +22,43 @@
         "heading_accent": "one idea each",
         "text": "<p>Every week builds on the one before. Do them in order, at your own pace.</p>",
         "anchor": "",
-        "accent": "#2f5bea"
+        "accent": "#17804c"
       },
       "blocks": {
         "module_1": {
           "type": "module",
           "settings": {
             "label": "Week 1",
-            "title": "Light",
-            "text": "Where to stand, when to shoot, and how to expose for the part that matters.",
-            "lessons": "Find the light first\nExpose for the bright part\nWindow light at home\nGolden hour, briefly\nShade and overcast days\nBrief: one object, three times a day"
+            "title": "Where it goes",
+            "text": "Track a month of spending without a spreadsheet habit you will drop.",
+            "lessons": "Your money in one place\nWhat a month really costs\nFixed, flexible and forgotten\nSubscriptions you do not use\nYour first honest number\nTask: log every spend for seven days"
           }
         },
         "module_2": {
           "type": "module",
           "settings": {
             "label": "Week 2",
-            "title": "Framing",
-            "text": "Simple rules for where things go, and when to break them.",
-            "lessons": "Fill the frame\nEdges and corners\nLines that lead\nHeight: crouch or climb\nSpace around a subject\nBrief: one street, ten frames"
+            "title": "A plan you keep",
+            "text": "Build a budget around the bills you already have, not the ones you wish you had.",
+            "lessons": "Pay yourself first\nThree pots, not thirty categories\nA budget for irregular costs\nCouples and shared bills\nWhen the month goes wrong\nTask: your first full budget"
           }
         },
         "module_3": {
           "type": "module",
           "settings": {
             "label": "Week 3",
-            "title": "People and places",
-            "text": "Photographing people kindly and places honestly.",
-            "lessons": "Asking, and not asking\nHands and details\nWaiting for the moment\nPortrait mode, carefully\nRooms and interiors\nBrief: a day in one place"
+            "title": "Debt and a cushion",
+            "text": "Pay down what costs you most and build a buffer for the surprises.",
+            "lessons": "What your debt really costs\nWhich one to pay first\nAn emergency fund that fits\nTalking to your bank\nCredit scores, plainly\nTask: your payoff plan"
           }
         },
         "module_4": {
           "type": "module",
           "settings": {
             "label": "Week 4",
-            "title": "Editing and choosing",
-            "text": "Finish the pictures, then pick the few worth sharing.",
-            "lessons": "A light first edit\nWarmth and colour\nCropping for a reason\nThe presets, explained\nPicking your best five\nBrief: a set of five"
+            "title": "Saving and investing",
+            "text": "Make saving automatic and learn how index funds and pensions work.",
+            "lessons": "Saving on autopilot\nPensions and workplace schemes\nIndex funds, plainly\nFees that eat returns\nA plan for the next year\nTask: set up one automatic transfer"
           }
         }
       },
@@ -76,15 +76,15 @@
         "promise_unit": "days",
         "promise_title": "Watch the first week, then decide",
         "promise_text": "If the course is not for you, write within 30 days and you get every cent back. No form to fill in.",
-        "heading": "Your next good photo is",
+        "heading": "Your first real budget is",
         "heading_accent": "one lesson",
         "heading_after": "away",
-        "text": "<p>Twenty four lessons, four live critiques, the presets and the shot list cards.</p>",
+        "text": "<p>Twenty four lessons, four live calls, the budget spreadsheet and the workbook.</p>",
         "button_label": "Join the course",
         "to_checkout": true,
         "button_link": "/collections/all",
         "note": "One payment. Lifetime access.",
-        "accent": "#2f5bea",
+        "accent": "#17804c",
         "padding_top": 24
       }
     }

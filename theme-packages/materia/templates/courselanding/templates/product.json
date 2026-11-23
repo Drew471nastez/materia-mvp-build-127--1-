@@ -102,12 +102,12 @@
             "vb_icon_size_m": 26,
             "vb_text_color": "",
             "vb_bg": "",
-            "vb_icon_color": "#2f5bea",
+            "vb_icon_color": "#17804c",
             "item1_title": "Lessons open as soon as you pay",
             "item1_icon_library": "check",
             "item1_use_image": false,
             "item1_image_size": 50,
-            "item2_title": "Live critique every Thursday",
+            "item2_title": "Live Q&A every Thursday",
             "item2_icon_library": "check",
             "item2_use_image": false,
             "item2_image_size": 50,
@@ -130,7 +130,7 @@
           "type": "collapsible_row",
           "settings": {
             "heading": "Editions and seats",
-            "content": "<p>The course is all 24 lessons and the presets. With critiques adds a private review of five of your photos at the end. Two people gives a second login, for a friend or a partner.</p>",
+            "content": "<p>The course is all 24 lessons, the spreadsheet and the workbook. With a money review adds a private 30 minute call at the end to go through your plan. Two people gives a second login, for a partner or a friend.</p>",
             "use_product_description": false,
             "open": false
           }
@@ -193,7 +193,7 @@
           "type": "collapsible_row",
           "settings": {
             "heading": "Questions",
-            "content": "<p>Any phone from the last five years works, and the editing lessons use free apps. About twenty minutes a day.</p>",
+            "content": "<p>Works with any income and any currency, in a free spreadsheet app or on paper. About twenty minutes a day.</p>",
             "use_product_description": false,
             "open": false
           }
@@ -219,7 +219,7 @@
         "heading_accent": "one idea each",
         "text": "<p>Every week builds on the one before. Do them in order, at your own pace.</p>",
         "anchor": "",
-        "accent": "#2f5bea",
+        "accent": "#17804c",
         "padding_top": 56
       },
       "blocks": {
@@ -227,36 +227,36 @@
           "type": "module",
           "settings": {
             "label": "Week 1",
-            "title": "Light",
-            "text": "Where to stand, when to shoot, and how to expose for the part that matters.",
-            "lessons": "Find the light first\nExpose for the bright part\nWindow light at home\nGolden hour, briefly\nShade and overcast days\nBrief: one object, three times a day"
+            "title": "Where it goes",
+            "text": "Track a month of spending without a spreadsheet habit you will drop.",
+            "lessons": "Your money in one place\nWhat a month really costs\nFixed, flexible and forgotten\nSubscriptions you do not use\nYour first honest number\nTask: log every spend for seven days"
           }
         },
         "module_2": {
           "type": "module",
           "settings": {
             "label": "Week 2",
-            "title": "Framing",
-            "text": "Simple rules for where things go, and when to break them.",
-            "lessons": "Fill the frame\nEdges and corners\nLines that lead\nHeight: crouch or climb\nSpace around a subject\nBrief: one street, ten frames"
+            "title": "A plan you keep",
+            "text": "Build a budget around the bills you already have, not the ones you wish you had.",
+            "lessons": "Pay yourself first\nThree pots, not thirty categories\nA budget for irregular costs\nCouples and shared bills\nWhen the month goes wrong\nTask: your first full budget"
           }
         },
         "module_3": {
           "type": "module",
           "settings": {
             "label": "Week 3",
-            "title": "People and places",
-            "text": "Photographing people kindly and places honestly.",
-            "lessons": "Asking, and not asking\nHands and details\nWaiting for the moment\nPortrait mode, carefully\nRooms and interiors\nBrief: a day in one place"
+            "title": "Debt and a cushion",
+            "text": "Pay down what costs you most and build a buffer for the surprises.",
+            "lessons": "What your debt really costs\nWhich one to pay first\nAn emergency fund that fits\nTalking to your bank\nCredit scores, plainly\nTask: your payoff plan"
           }
         },
         "module_4": {
           "type": "module",
           "settings": {
             "label": "Week 4",
-            "title": "Editing and choosing",
-            "text": "Finish the pictures, then pick the few worth sharing.",
-            "lessons": "A light first edit\nWarmth and colour\nCropping for a reason\nThe presets, explained\nPicking your best five\nBrief: a set of five"
+            "title": "Saving and investing",
+            "text": "Make saving automatic and learn how index funds and pensions work.",
+            "lessons": "Saving on autopilot\nPensions and workplace schemes\nIndex funds, plainly\nFees that eat returns\nA plan for the next year\nTask: set up one automatic transfer"
           }
         }
       },
@@ -274,27 +274,27 @@
         "text": "<p>Sample quotes to show the layout. Replace them with your students’ own words.</p>",
         "sample_label": "Sample",
         "anchor": "",
-        "accent": "#2f5bea"
+        "accent": "#17804c"
       },
       "blocks": {
         "quote_1": {
           "type": "quote",
           "settings": {
-            "quote": "I stopped taking forty pictures of everything. I wait for the light now, take three, and one of them is good.",
+            "quote": "I always knew roughly what I earned. Now I know where it goes, and there is money left on the 25th.",
             "name": "Hanna, Leipzig"
           }
         },
         "quote_2": {
           "type": "quote",
           "settings": {
-            "quote": "The Thursday calls are the part I would pay for alone. One comment about my horizon fixed half my pictures.",
+            "quote": "The Thursday calls are the part I would pay for alone. One question about my card debt saved me more than the course cost.",
             "name": "Marco, Turin"
           }
         },
         "quote_3": {
           "type": "quote",
           "settings": {
-            "quote": "My phone is three years old. The course never once told me to buy a new one.",
+            "quote": "No app, no subscription. One spreadsheet and twenty minutes on a Sunday.",
             "name": "Ada, Leeds"
           }
         }
@@ -310,35 +310,35 @@
       "settings": {
         "heading": "Questions",
         "anchor": "",
-        "accent": "#2f5bea"
+        "accent": "#17804c"
       },
       "blocks": {
         "question_1": {
           "type": "question",
           "settings": {
-            "question": "Which phone do I need?",
-            "answer": "<p>Any phone from the last five years. Every lesson works on both kinds of phone, and nothing needs the newest model.</p>"
+            "question": "Do I need to be good with numbers?",
+            "answer": "<p>No. If you can add up a shopping receipt, you can do this course. The spreadsheet does the sums.</p>"
           }
         },
         "question_2": {
           "type": "question",
           "settings": {
-            "question": "Do I need to buy an editing app?",
-            "answer": "<p>No. The editing lessons and presets use free apps that come with your phone or cost nothing.</p>"
+            "question": "Do I need to buy an app?",
+            "answer": "<p>No. Everything runs in a free spreadsheet app, or on the printed workbook if you prefer paper.</p>"
           }
         },
         "question_3": {
           "type": "question",
           "settings": {
             "question": "How much time does it take?",
-            "answer": "<p>About twenty minutes a day: a short lesson and a few pictures. You can pause and pick it up a week later.</p>"
+            "answer": "<p>About twenty minutes a day: a short lesson and one small task. You can pause and pick it up a week later.</p>"
           }
         },
         "question_4": {
           "type": "question",
           "settings": {
-            "question": "How do the live critiques work?",
-            "answer": "<p>Post your best picture of the week by Wednesday. On Thursday evening Teo looks at them on a video call. Recordings stay in the course.</p>"
+            "question": "How do the live calls work?",
+            "answer": "<p>Send a question by Wednesday. On Thursday evening Nina answers them on a video call. Recordings stay in the course. This is teaching, not personal financial advice.</p>"
           }
         },
         "question_5": {

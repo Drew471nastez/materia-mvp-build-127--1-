@@ -53,12 +53,13 @@
     style="--animation-order: {{ indexFor }};"
   {% endif %}
 >
-  {% assign blog_name = article.handle | split: '/' | first %}
+  {%- comment -%} The card's pill: the article's first tag, never its handle (round 21); none without a tag. {%- endcomment -%}
+  {% assign blog_name = article.tags | first %}
   <div class="blog-posts-image hover-effect{% if layout == 'list' %} w-full col-sm-w-custom{% endif %}">
     <a
       class="rounded overflow-hidden block"
       href="{{ article.url }}"
-      arial-label="{{ blog_name | capitalize }}"
+      aria-label="{{ article.title | escape }}"
       style="{{ style_ratio | strip | strip_newlines }}"
     >
       {%- if article.image != blank -%}
@@ -83,11 +84,10 @@
       {% if blog_name != blank %}
         <div class="blog-posts-category fs-13 subheading_weight mb-15 text-{{ content_alignment }}">
           <a
-            href="{{ blog.url }}"
-            aria-label="{{ blog_name | capitalize }}"
+            href="{{ blog.url | default: article.url }}"
             class="inline-flex btn-rounded border py-8 px-20 lh-normal no-underline heading-color"
           >
-            <span>{{ blog_name | capitalize }}</span>
+            <span>{{ blog_name | escape }}</span>
           </a>
         </div>
       {% endif %}

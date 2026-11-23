@@ -1,0 +1,127 @@
+{%- comment -%}
+  Materia Themes. Journal (Sample packs template): the newest posts of the
+  store's blog as three cards, the first one larger on wide screens. The
+  blog is named by its handle ("news" unless changed). With no posts yet
+  the section draws nothing on the website, and a note in the editor.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default'
+  assign handle = s.blog_handle | default: 'news' | strip
+  assign the_blog = blogs[handle]
+  if the_blog == blank and blog != blank
+    assign the_blog = blog
+  endif
+  assign shown = 0
+  if the_blog != blank
+    for post in the_blog.articles limit: 3
+      assign shown = shown | plus: 1
+    endfor
+  endif
+  assign pt = s.padding_top | default: 88
+  assign pb = s.padding_bottom | default: 88
+-%}
+{%- if shown > 0 -%}
+<style>
+  #shopify-section-{{ sid }} .sjr { padding-block: {{ pt | times: 0.65 | round }}px {{ pb | times: 0.65 | round }}px; }
+  #shopify-section-{{ sid }} .sjr__head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 32px; margin-bottom: 26px; }
+  #shopify-section-{{ sid }} .sjr__eyebrow { margin: 0 0 10px; font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--btn-primary-bg-color); }
+  #shopify-section-{{ sid }} .sjr__heading { margin: 0; font-size: {{ s.heading_size_mobile | default: 30 }}px; line-height: 1.08; }
+  #shopify-section-{{ sid }} .sjr__text { margin: 10px 0 0; max-width: 54ch; font-size: 15px; color: var(--color-text); }
+  #shopify-section-{{ sid }} .sjr__text > * { margin: 0; }
+  #shopify-section-{{ sid }} .sjr__more { font-size: 15px; font-weight: 600; color: var(--color-heading); text-decoration: underline; text-underline-offset: 4px; text-decoration-color: rgba(var(--color-heading-rgb), .35); white-space: nowrap; }
+  #shopify-section-{{ sid }} .sjr__more:hover { text-decoration-color: currentColor; }
+  #shopify-section-{{ sid }} .sjr__grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; }
+  #shopify-section-{{ sid }} .sjr__card { position: relative; display: flex; flex-direction: column; min-width: 0; }
+  #shopify-section-{{ sid }} .sjr__media { display: block; position: relative; aspect-ratio: 3 / 2; border-radius: 16px; overflow: hidden; background: rgba(var(--color-heading-rgb), .05); }
+  #shopify-section-{{ sid }} .sjr__media img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .6s cubic-bezier(.2,.7,.2,1); }
+  #shopify-section-{{ sid }} .sjr__tag { position: absolute; left: 12px; top: 12px; padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; background: rgba(0,0,0,.6); color: #fff; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  #shopify-section-{{ sid }} .sjr__meta { margin: 16px 0 6px; font-size: 13px; color: var(--color-text); font-variant-numeric: tabular-nums; }
+  #shopify-section-{{ sid }} .sjr__title { margin: 0; font-size: 21px; line-height: 1.22; letter-spacing: -.01em; }
+  #shopify-section-{{ sid }} .sjr__title a { color: var(--color-heading); text-decoration: none; }
+  #shopify-section-{{ sid }} .sjr__title a::after { content: ""; position: absolute; inset: 0; }
+  #shopify-section-{{ sid }} .sjr__excerpt { margin: 8px 0 0; font-size: 15px; line-height: 1.55; color: var(--color-text); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  #shopify-section-{{ sid }} .sjr__card:focus-within { outline: 2px solid rgb(var(--color-heading-rgb)); outline-offset: 6px; border-radius: 16px; }
+  #shopify-section-{{ sid }} .sjr__title a:focus-visible { outline: none; }
+  @media (hover: hover) {
+    #shopify-section-{{ sid }} .sjr__card:hover .sjr__media img { transform: scale(1.04); }
+    #shopify-section-{{ sid }} .sjr__card:hover .sjr__title a { text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 2px; }
+  }
+  @media (min-width: 750px) {
+    #shopify-section-{{ sid }} .sjr { padding-block: {{ pt }}px {{ pb }}px; }
+    #shopify-section-{{ sid }} .sjr__heading { font-size: {{ s.heading_size | default: 44 }}px; }
+    #shopify-section-{{ sid }} .sjr__head { margin-bottom: 34px; }
+    #shopify-section-{{ sid }} .sjr__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (min-width: 990px) {
+    #shopify-section-{{ sid }} .sjr__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-{{ sid }} .sjr__media img { transition: none; }
+  }
+</style>
+<div class="sjr section color-{{ color_scheme }} gradient">
+  <div class="{{ s.section_width | default: 'container' }}">
+    <div class="sjr__head">
+      <div>
+        {%- if s.eyebrow != blank -%}<p class="sjr__eyebrow">{{ s.eyebrow | escape }}</p>{%- endif -%}
+        {%- if s.heading != blank -%}<h2 class="sjr__heading h2">{{ s.heading }}</h2>{%- endif -%}
+        {%- if s.text != blank -%}<div class="sjr__text rte">{{ s.text }}</div>{%- endif -%}
+      </div>
+      {%- if s.link_label != blank -%}<a class="sjr__more" href="{{ the_blog.url }}">{{ s.link_label | escape }}</a>{%- endif -%}
+    </div>
+    <ul class="sjr__grid" role="list">
+      {%- for post in the_blog.articles limit: 3 -%}
+        <li class="sjr__card">
+          <span class="sjr__media" aria-hidden="true">
+            {%- if post.image != blank -%}
+              {{ post.image | image_url: width: 900 | image_tag: loading: 'lazy', widths: '450, 700, 900', sizes: '(min-width: 990px) 33vw, (min-width: 750px) 50vw, 100vw', alt: '' }}
+            {%- else -%}
+              {{ 'blog-apparel-1' | placeholder_svg_tag: 'placeholder-svg' }}
+            {%- endif -%}
+            {%- if post.tags.size > 0 -%}<span class="sjr__tag">{{ post.tags | first | escape }}</span>{%- endif -%}
+          </span>
+          <p class="sjr__meta">{{ post.published_at | time_tag: format: 'date' }}</p>
+          <h3 class="sjr__title"><a href="{{ post.url }}">{{ post.title | escape }}</a></h3>
+          {%- if s.show_excerpt and post.excerpt_or_content != blank -%}<p class="sjr__excerpt">{{ post.excerpt_or_content | strip_html | truncatewords: 30 }}</p>{%- endif -%}
+        </li>
+      {%- endfor -%}
+    </ul>
+  </div>
+</div>
+{%- elsif request.design_mode -%}
+<div class="sjr section" style="padding: 32px 16px; text-align: center;"><p>The newest blog posts show here once the blog has some.</p></div>
+{%- endif -%}
+{% schema %}
+{
+  "name": "Journal",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Blog" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "From the blog" },
+    { "type": "richtext", "id": "text", "label": "Text" },
+    { "type": "text", "id": "link_label", "label": "Link to the blog", "default": "All posts" },
+    { "type": "text", "id": "blog_handle", "label": "Blog", "default": "news", "info": "The blog's handle, as in its address /blogs/news." },
+    { "type": "checkbox", "id": "show_excerpt", "label": "Show a line from each post", "default": true },
+    { "type": "range", "id": "heading_size", "label": "Heading size", "min": 20, "max": 72, "step": 2, "unit": "px", "default": 44 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size on phones", "min": 18, "max": 48, "step": 2, "unit": "px", "default": 30 },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default" },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "container",
+      "options": [
+        { "value": "container", "label": "Default" },
+        { "value": "fluid_container", "label": "Fluid container" },
+        { "value": "stretch_width", "label": "Stretched" }
+      ]
+    },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 88 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 88 }
+  ],
+  "presets": [{ "name": "Journal" }]
+}
+{% endschema %}

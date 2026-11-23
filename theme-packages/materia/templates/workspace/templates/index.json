@@ -1,94 +1,27 @@
 {
   "sections": {
     "hero": {
-      "type": "banner3",
+      "type": "workspace-hero",
       "settings": {
-        "section_width": "stretch_width",
-        "banner_surface": "section",
-        "max_width": 820,
-        "text_align": "center",
-        "heading_tag": "h1",
-        "stack_gap": 18,
-        "sub_btn_gap": 30,
-        "pad_top_desktop": 96,
-        "pad_bottom_desktop": 8,
-        "pad_top_mobile": 56,
-        "pad_bottom_mobile": 4,
-        "section_padding_top": 0,
-        "section_padding_bottom": 0,
-        "section_padding_top_mobile": 0,
-        "section_padding_bottom_mobile": 0,
-        "section_pad_left": 20,
-        "section_pad_right": 20,
-        "reveal": false
-      },
-      "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
-          "settings": {
-            "text": "Notion templates by Ada Lind"
-          }
-        },
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "text": "Notion templates that stay tidy after the first week",
-            "enable_custom_style": true,
-            "font": "heading",
-            "weight": "700",
-            "transform": "none",
-            "letterspace": -0.025,
-            "lineheight": "1.08",
-            "size_d": 60,
-            "size_m": 36,
-            "max_width": 760
-          }
-        },
-        "subheading_1": {
-          "type": "subheading",
-          "settings": {
-            "text": "A freelance desk, a meal planner, a budget and three more. Each one is a page you duplicate into your own workspace, and all of them work on Notion's free plan.",
-            "enable_custom_style": true,
-            "font": "body",
-            "weight": "theme",
-            "transform": "none",
-            "lineheight": "1.6",
-            "size_d": 18,
-            "size_m": 16,
-            "max_width": 600,
-            "opacity": 100
-          }
-        },
-        "button_1": {
-          "type": "button",
-          "settings": {
-            "label": "Browse the templates",
-            "link": "/collections/all"
-          }
-        }
-      },
-      "block_order": [
-        "eyebrow_1",
-        "heading_1",
-        "subheading_1",
-        "button_1"
-      ]
-    },
-    "hero_screen": {
-      "type": "image-2",
-      "settings": {
+        "avatar": "shopify://shop_images/workspace-adda-avatar.webp",
+        "maker_name": "Adda Lind",
+        "maker_note": "makes every template here",
+        "maker_link": "/pages/about",
+        "heading": "Notion templates that stay <mark>tidy</mark> after the first week",
+        "text": "<p>A freelance desk, a meal planner, a budget and three more. Each one is a page you duplicate into your own workspace, and all of them work on Notion's free plan.</p>",
+        "button_label": "Browse the templates",
+        "button_link": "/collections/all",
+        "button2_label": "How they work",
+        "button2_link": "/pages/how-it-works",
+        "fact_1": "Works on the free plan",
+        "fact_2": "Duplicate in one click",
+        "fact_3": "Free updates by email",
         "image": "shopify://shop_images/workspace-hero.webp",
-        "image_alt": "The Freelance desk template open in Notion on a laptop: three totals for the month and a board of this week's projects",
-        "aspect_w": 50,
-        "aspect_h": 31,
-        "radius": 0,
-        "fit": "cover",
-        "padding_top_desktop": 8,
-        "padding_bottom_desktop": 40,
-        "side_padding_desktop": 32,
-        "padding_top_mobile": 4,
-        "padding_bottom_mobile": 24,
-        "side_padding_mobile": 8
+        "image_alt": "The Freelance desk template in Notion: three totals for the month, a board of this week's projects and a list of invoices",
+        "heading_size": 66,
+        "heading_size_mobile": 38,
+        "padding_top": 72,
+        "padding_bottom": 40
       }
     },
     "features": {
@@ -261,167 +194,114 @@
       ]
     },
     "buyers": {
-      "type": "testimonial-wall",
+      "type": "workspace-reviews",
       "settings": {
-        "text_align": "center",
-        "columns": 3,
-        "card_gap": 16,
-        "card_style": "filled",
-        "collapse": "mobile",
-        "card_radius": 16,
-        "quote_size": 16,
+        "background": "#fbfbfa",
+        "card_background": "#ffffff",
+        "eyebrow": "From buyers",
+        "heading": "What people say after a month",
+        "text": "<p>Sample quotes and photos, to show the layout. Replace them with what your buyers write back.</p>",
         "padding_top": 96,
         "padding_bottom": 96
       },
       "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
+        "review_1": {
+          "type": "review",
           "settings": {
-            "text": "From buyers"
-          }
-        },
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "text": "What people say after a month",
-            "size": 40,
-            "size_mobile": 28
-          }
-        },
-        "subheading_1": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p>Sample quotes. Replace them with what your buyers write back.</p>",
-            "size": 15
-          }
-        },
-        "testimonial_1": {
-          "type": "testimonial",
-          "settings": {
-            "body": "I used to keep invoices in a spreadsheet and projects in my head. Now Friday admin is one page and a cup of tea.",
-            "name": "Sample quote",
+            "quote": "<p>I used to keep invoices in a spreadsheet and projects in my head. Now Friday admin is one page and a cup of tea.</p>",
+            "rating": 5,
+            "name": "Sample name",
             "role": "Freelance designer",
-            "rating": 0
+            "avatar": "shopify://shop_images/workspace-buyer-1.webp"
           }
         },
-        "testimonial_2": {
-          "type": "testimonial",
+        "review_2": {
+          "type": "review",
           "settings": {
-            "body": "The shopping list fills itself from the week's meals. That alone was worth it.",
-            "name": "Sample quote",
-            "role": "Meal planner buyer",
-            "rating": 0
+            "quote": "<p>The shopping list fills itself from the week's meals. That alone was worth it.</p>",
+            "rating": 5,
+            "name": "Sample name",
+            "role": "Bought Meal planner",
+            "avatar": "shopify://shop_images/workspace-buyer-2.webp"
           }
         },
-        "testimonial_3": {
-          "type": "testimonial",
+        "review_3": {
+          "type": "review",
           "settings": {
-            "body": "Clean enough that I actually open it. Every other template I bought was too clever.",
-            "name": "Sample quote",
+            "quote": "<p>Clean enough that I actually open it. Every other template I bought was too clever.</p>",
+            "rating": 5,
+            "name": "Sample name",
             "role": "Freelance writer",
-            "rating": 0
+            "avatar": "shopify://shop_images/workspace-buyer-3.webp"
           }
         },
-        "testimonial_4": {
-          "type": "testimonial",
+        "review_4": {
+          "type": "review",
           "settings": {
-            "body": "I changed half the columns in the first hour and nothing broke.",
-            "name": "Sample quote",
-            "role": "Home budget buyer",
-            "rating": 0
+            "quote": "<p>I changed half the columns in the first hour and nothing broke.</p>",
+            "rating": 5,
+            "name": "Sample name",
+            "role": "Bought Home budget",
+            "avatar": "shopify://shop_images/workspace-buyer-4.webp"
           }
         },
-        "testimonial_5": {
-          "type": "testimonial",
+        "review_5": {
+          "type": "review",
           "settings": {
-            "body": "The start page is the bit I did not know I needed.",
-            "name": "Sample quote",
-            "role": "Study planner buyer",
-            "rating": 0
+            "quote": "<p>The start page is the bit I did not know I needed. It told me what to fill in first.</p>",
+            "rating": 5,
+            "name": "Sample name",
+            "role": "Bought Study planner",
+            "avatar": "shopify://shop_images/workspace-buyer-5.webp"
           }
         },
-        "testimonial_6": {
-          "type": "testimonial",
+        "review_6": {
+          "type": "review",
           "settings": {
-            "body": "Bought one, came back for two more.",
-            "name": "Sample quote",
-            "role": "Reading log buyer",
-            "rating": 0
+            "quote": "<p>Bought one, came back for two more. They look like they belong together.</p>",
+            "rating": 5,
+            "name": "Sample name",
+            "role": "Bought Reading log",
+            "avatar": "shopify://shop_images/workspace-buyer-6.webp"
           }
         }
       },
       "block_order": [
-        "eyebrow_1",
-        "heading_1",
-        "subheading_1",
-        "testimonial_1",
-        "testimonial_2",
-        "testimonial_3",
-        "testimonial_4",
-        "testimonial_5",
-        "testimonial_6"
+        "review_1",
+        "review_2",
+        "review_3",
+        "review_4",
+        "review_5",
+        "review_6"
       ]
     },
     "maker": {
-      "type": "brand-info",
+      "type": "workspace-creator",
       "settings": {
-        "left_column_width": 44,
-        "column_gap": 80,
-        "vertical_align": "start",
+        "background": "#f2f1ee",
+        "image": "shopify://shop_images/workspace-adda-desk.webp",
+        "image_alt": "Adda Lind at her desk with a laptop and a notebook",
+        "image_ratio": "4 / 3",
+        "image_focus": "center",
+        "image_position": "left",
+        "avatar": "shopify://shop_images/workspace-adda-avatar.webp",
+        "name": "Adda Lind",
+        "role": "Designer, makes the Wellkept templates",
+        "heading": "I'm Adda. I build each template for my own week first.",
+        "text": "<p>I have run a small design studio from my kitchen table for six years. Freelance desk started as the page I used to stop losing track of invoices. Friends asked for copies, then friends of friends.</p><p>Every template here is one I use, or one I built with someone who does. I post the way I set them up, week by week.</p>",
+        "button_label": "More about me",
+        "button_link": "/pages/about",
+        "instagram": "https://instagram.com",
+        "tiktok": "https://tiktok.com",
+        "youtube": "https://youtube.com",
+        "pinterest": "https://pinterest.com",
+        "heading_size": 40,
+        "heading_size_mobile": 30,
         "padding_top": 96,
         "padding_bottom": 96,
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
-      },
-      "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
-          "settings": {
-            "text": "Who makes them",
-            "column": "left"
-          }
-        },
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "text": "I'm Ada. I build each template for my own week first.",
-            "column": "left",
-            "size": 40,
-            "size_mobile": 28
-          }
-        },
-        "paragraph_1": {
-          "type": "paragraph",
-          "settings": {
-            "text": "<p>I have run a small design studio from my kitchen table for six years. Freelance desk started as the page I used to stop losing track of invoices. Friends asked for copies, then friends of friends.</p>",
-            "column": "right"
-          }
-        },
-        "paragraph_2": {
-          "type": "paragraph",
-          "settings": {
-            "text": "<p>Every template here is one I use, or one I built with someone who does. If a column is there, it earns its place.</p>",
-            "column": "right"
-          }
-        },
-        "link_1": {
-          "type": "link",
-          "settings": {
-            "text": "More about me",
-            "url": "/pages/about",
-            "column": "right",
-            "text_transform": "none",
-            "letter_spacing": 0,
-            "size": 15
-          }
-        }
-      },
-      "block_order": [
-        "eyebrow_1",
-        "heading_1",
-        "paragraph_1",
-        "paragraph_2",
-        "link_1"
-      ]
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56
+      }
     },
     "faq": {
       "type": "faq-search",
@@ -597,12 +477,122 @@
         "heading_1",
         "subheading_1"
       ]
+    },
+    "tour": {
+      "type": "workspace-tour",
+      "settings": {
+        "background": "#fbfbfa",
+        "eyebrow": "Look inside",
+        "heading": "See every template before you buy",
+        "padding_top": 88,
+        "padding_bottom": 104
+      },
+      "blocks": {
+        "tab_1": {
+          "type": "tab",
+          "settings": {
+            "label": "Freelance desk",
+            "image": "shopify://shop_images/workspace-tour-freelance-desk.webp",
+            "image_alt": "The Freelance desk template in Notion",
+            "title": "Freelance desk",
+            "text": "<p>Clients, projects, invoices and hours, linked to each other. A board for the week and a list of who still owes you.</p>",
+            "row_1": "Price: $29",
+            "row_2": "Pages: 6 linked databases",
+            "row_3": "Best for: freelancers and studios of one",
+            "link_label": "See all templates",
+            "link": "/collections/all"
+          }
+        },
+        "tab_2": {
+          "type": "tab",
+          "settings": {
+            "label": "Meal planner",
+            "image": "shopify://shop_images/workspace-tour-meal-planner.webp",
+            "image_alt": "The Meal planner template in Notion",
+            "title": "Meal planner",
+            "text": "<p>Plan the week by day, keep your recipes in one place and get a shopping list that fills itself from what you planned.</p>",
+            "row_1": "Price: $12",
+            "row_2": "Pages: week, recipes, shopping list",
+            "row_3": "Best for: households of one to five",
+            "link_label": "See all templates",
+            "link": "/collections/all"
+          }
+        },
+        "tab_3": {
+          "type": "tab",
+          "settings": {
+            "label": "Reading log",
+            "image": "shopify://shop_images/workspace-tour-reading-log.webp",
+            "image_alt": "The Reading log template in Notion",
+            "title": "Reading log",
+            "text": "<p>A shelf of what you are reading, what you finished and what is next, with a page for each book's notes and quotes.</p>",
+            "row_1": "Price: $9",
+            "row_2": "Pages: shelf, quotes, want to read",
+            "row_3": "Best for: anyone with a pile by the bed",
+            "link_label": "See all templates",
+            "link": "/collections/all"
+          }
+        },
+        "tab_4": {
+          "type": "tab",
+          "settings": {
+            "label": "Home budget",
+            "image": "shopify://shop_images/workspace-tour-home-budget.webp",
+            "image_alt": "The Home budget template in Notion",
+            "title": "Home budget",
+            "text": "<p>One page a month: money in, money out and what is left, with a bar for each category so you see it before it runs out.</p>",
+            "row_1": "Price: $15",
+            "row_2": "Pages: months, bills, savings goals",
+            "row_3": "Best for: couples and flatmates",
+            "link_label": "See all templates",
+            "link": "/collections/all"
+          }
+        },
+        "tab_5": {
+          "type": "tab",
+          "settings": {
+            "label": "Habit tracker",
+            "image": "shopify://shop_images/workspace-tour-habit-tracker.webp",
+            "image_alt": "The Habit tracker template in Notion",
+            "title": "Habit tracker",
+            "text": "<p>Six habits, seven days, one tick each. A week page that copies itself and a month view to see your streaks.</p>",
+            "row_1": "Price: $9",
+            "row_2": "Pages: week, month, streaks",
+            "row_3": "Best for: starting small",
+            "link_label": "See all templates",
+            "link": "/collections/all"
+          }
+        },
+        "tab_6": {
+          "type": "tab",
+          "settings": {
+            "label": "Study planner",
+            "image": "shopify://shop_images/workspace-tour-study-planner.webp",
+            "image_alt": "The Study planner template in Notion",
+            "title": "Study planner",
+            "text": "<p>Every assignment with its course and due date, a timetable and a page per lecture, sorted by what is due soonest.</p>",
+            "row_1": "Price: $12",
+            "row_2": "Pages: assignments, timetable, notes",
+            "row_3": "Best for: students and evening courses",
+            "link_label": "See all templates",
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "tab_1",
+        "tab_2",
+        "tab_3",
+        "tab_4",
+        "tab_5",
+        "tab_6"
+      ]
     }
   },
   "order": [
     "hero",
-    "hero_screen",
     "features",
+    "tour",
     "included",
     "templates",
     "buyers",

@@ -1,0 +1,183 @@
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "height": "adapt",
+        "alignment": "center",
+        "padding_top": 66,
+        "color_scheme": "",
+        "reset_spacing": true,
+        "section_width": "container",
+        "padding_bottom": 55,
+        "overlay_opacity": 0
+      },
+      "blocks": {
+        "heading_xwFKKa": {
+          "type": "heading",
+          "settings": {
+            "page_title": "",
+            "header_size": "medium",
+            "vertical_gap": 14,
+            "heading_font_size": 36,
+            "enable_heading_color": false
+          }
+        },
+        "description_YRWpkt": {
+          "type": "description",
+          "settings": {
+            "description": "<p>Short, practical articles on audiences, offers, video and simple systems for a business of one.</p>",
+            "enable_custom_style": false,
+            "description_font_size": 16
+          }
+        }
+      },
+      "block_order": [
+        "heading_xwFKKa",
+        "description_YRWpkt"
+      ]
+    },
+    "main": {
+      "type": "main-blog",
+      "settings": {
+        "layout": "grid",
+        "row_gap": 64,
+        "show_date": true,
+        "column_gap": 40,
+        "margin_top": 32,
+        "title_size": 22,
+        "badge_width": 70,
+        "image_ratio": "adapt",
+        "title_hover": "underline",
+        "badge_height": 30,
+        "custom_ratio": "16:10",
+        "hover_effect": "lift",
+        "image_radius": 14,
+        "show_excerpt": true,
+        "excerpt_lines": 2,
+        "items_per_row": 3,
+        "items_to_show": 12,
+        "margin_bottom": 0,
+        "readmore_line": "style",
+        "readmore_text": "Read it",
+        "readmore_type": "underline",
+        "reset_spacing": true,
+        "section_width": "fluid_container",
+        "show_category": true,
+        "show_readmore": true,
+        "button_show_more": "Load more",
+        "content_alignment": "left",
+        "badge_border_radius": 19,
+        "enable_custom_style": true,
+        "badge_text_font_size": 14,
+        "items_per_row_mobile": 1,
+        "badge_vertical_position": 16,
+        "badge_horizontal_position": 16
+      },
+      "name": "Main blog"
+    },
+    "cta": {
+      "type": "authorbook-cta",
+      "settings": {
+        "band_color": "#101114",
+        "text_color": "#c9cbd1",
+        "image": "shopify://shop_images/creatorpro-podcast.webp",
+        "image_alt": "Nina Brooks at her microphone",
+        "radius": 28,
+        "heading": "Start with the free workshop",
+        "text": "<p>45 minutes on choosing the first thing to sell and pricing it. Watch it tonight.</p>",
+        "button_label": "Watch it free",
+        "button_link": "#open-form-workshop",
+        "button_color": "#ff5a36",
+        "button_text_color": "#101114",
+        "button_radius": 12,
+        "button2_label": "See the courses",
+        "button2_link": "/collections/all",
+        "button2_color": "#ffffff",
+        "button2_text_color": "#101114"
+      }
+    },
+    "workshop_form": {
+      "type": "form-modal",
+      "settings": {
+        "form_key": "workshop",
+        "sends_to": "subscribe",
+        "accent_color": "#e8401c",
+        "text_align": "left",
+        "width": 500,
+        "corners": "theme",
+        "success_heading": "The workshop is on its way",
+        "success_text": "<p>Check your inbox in a minute for the link. If nothing arrives, look in spam.</p>"
+      },
+      "blocks": {
+        "image_1": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/creatorpro-video-2.webp",
+            "fit": "cover",
+            "max_height": 200
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "eyebrow": "Free workshop",
+            "heading": "The First Offer *Workshop*",
+            "size": 30
+          }
+        },
+        "text_3": {
+          "type": "text",
+          "settings": {
+            "text": "<p>45 minutes on choosing what to sell first and how to price it, with the worksheet.</p>"
+          }
+        },
+        "field_4": {
+          "type": "field",
+          "settings": {
+            "kind": "name",
+            "label": "First name",
+            "required": false
+          }
+        },
+        "field_5": {
+          "type": "field",
+          "settings": {
+            "kind": "email",
+            "label": "Email address"
+          }
+        },
+        "button_6": {
+          "type": "button",
+          "settings": {
+            "label": "Send me the workshop",
+            "arrow": true
+          }
+        },
+        "note_7": {
+          "type": "note",
+          "settings": {
+            "icon": "lock",
+            "text": "Your email stays private.",
+            "small": "<p>You also get the Tuesday Letter. Leave whenever you like.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "image_1",
+        "heading_2",
+        "text_3",
+        "field_4",
+        "field_5",
+        "button_6",
+        "note_7"
+      ]
+    }
+  },
+  "order": [
+    "heading",
+    "main",
+    "cta",
+    "workshop_form"
+  ]
+}

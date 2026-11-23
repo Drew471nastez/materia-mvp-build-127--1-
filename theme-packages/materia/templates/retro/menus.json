@@ -3,7 +3,7 @@
     "title": "Main menu",
     "links": [
       {
-        "title": "All products",
+        "title": "Shop",
         "url": "/collections/all"
       },
       {
@@ -11,12 +11,16 @@
         "url": "/collections"
       },
       {
-        "title": "Journal",
-        "url": "/blogs/news"
-      },
-      {
         "title": "About",
         "url": "/pages/about"
+      },
+      {
+        "title": "Help",
+        "url": "/pages/faqs"
+      },
+      {
+        "title": "Journal",
+        "url": "/blogs/news"
       }
     ]
   },

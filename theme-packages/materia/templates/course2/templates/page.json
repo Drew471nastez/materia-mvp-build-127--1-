@@ -12,15 +12,21 @@
     "cta": {
       "type": "course2-cta",
       "settings": {
-        "heading": "Tomorrow morning, make the good one",
-        "text": "<p>46 lessons, the recipe cards and a 30 day refund, for one payment.</p>",
-        "button_label": "Buy the course",
+        "heading": "Pick up the guitar tonight",
+        "text": "<p>The first lesson takes eight minutes. Sixty four lessons, twenty songs and a 30 day refund, for one payment.</p>",
+        "button_label": "Start learning",
         "to_checkout": true,
         "button_link": "/collections/all",
-        "note": "Lifetime access. Watch on any device.",
-        "panel_color": "#12704f",
-        "button_text_color": "#12704f",
-        "padding_bottom": 72
+        "note": "30 day refund. Lifetime access.",
+        "heading_size": 52,
+        "background": "#ffffff",
+        "panel_color": "#0d0d0f",
+        "heading_color": "#ffffff",
+        "text_color": "#c9cbd1",
+        "button_color": "#e5372a",
+        "button_text_color": "#ffffff",
+        "padding_top": 24,
+        "padding_bottom": 96
       }
     }
   },

@@ -29,38 +29,41 @@
   endif
 -%}
 <style>
-  .ssp { --ssp-p: 0%; --ssp-h: 0%; --ssp-sw: 1.6px; --ssp-btn: 36px; --ssp-wave: 36px; --ssp-base: rgba(var(--color-heading-rgb), .24); --ssp-done: rgb(var(--color-heading-rgb)); display: flex; align-items: center; gap: 12px; min-width: 0; }
-  .ssp__btn { position: relative; flex: none; width: var(--ssp-btn); height: var(--ssp-btn); margin: 0; padding: 0; border-radius: 50%; border: 1.5px solid rgba(var(--color-heading-rgb), .5); background: transparent; color: var(--color-heading); display: grid; place-items: center; cursor: pointer; transition: background-color .2s ease, border-color .2s ease, color .2s ease, transform .2s ease; -webkit-tap-highlight-color: transparent; }
-  .ssp__btn:hover { border-color: rgb(var(--color-heading-rgb)); }
-  .ssp__btn:active { transform: scale(.94); }
+  .ssp { --ssp-p: 0%; --ssp-h: 0%; --ssp-sw: 2px; --ssp-btn: 36px; --ssp-wave: 36px; --ssp-accent: var(--btn-primary-bg-color, rgb(var(--color-heading-rgb))); --ssp-base: rgba(var(--color-heading-rgb), .22); --ssp-done: rgb(var(--color-heading-rgb)); --ssp-done: color-mix(in srgb, var(--ssp-accent) 62%, #fff); display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .ssp__btn { position: relative; flex: none; box-sizing: border-box; width: var(--ssp-btn); height: var(--ssp-btn); margin: 0; padding: 0; border-radius: 50%; border: 0; background: rgb(var(--color-heading-rgb)); color: var(--color-background); display: grid; place-items: center; cursor: pointer; transition: background-color .2s ease, color .2s ease, box-shadow .2s ease; -webkit-tap-highlight-color: transparent; }
   .ssp__btn:focus-visible, .ssp__wave:focus-visible { outline: 2px solid var(--ssp-done); outline-offset: 3px; }
-  .ssp__btn[disabled] { cursor: default; opacity: .35; transform: none; }
-  .ssp__i { grid-area: 1 / 1; width: 42%; height: 42%; display: block; transition: opacity .15s ease, transform .2s ease; }
-  .ssp__i--pause { opacity: 0; transform: scale(.6); }
-  .ssp.is-playing .ssp__i--play { opacity: 0; transform: scale(.6); }
-  .ssp.is-playing .ssp__i--pause { opacity: 1; transform: none; }
-  .ssp.is-playing .ssp__btn { background: rgb(var(--color-heading-rgb)); border-color: transparent; color: var(--color-background); }
-  .ssp__btn::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 1.5px solid transparent; border-top-color: rgb(var(--color-heading-rgb)); opacity: 0; transition: opacity .2s ease; }
+  .ssp__btn[disabled] { cursor: default; background: rgba(var(--color-heading-rgb), .14); color: rgba(var(--color-heading-rgb), .5); }
+  .ssp__i { grid-area: 1 / 1; width: 40%; height: 40%; display: block; transition: opacity .18s ease; }
+  .ssp__i--play { margin-left: 6%; }
+  .ssp__i--pause { opacity: 0; }
+  .ssp.is-playing .ssp__i--play { opacity: 0; }
+  .ssp.is-playing .ssp__i--pause { opacity: 1; }
+  .ssp.is-playing .ssp__btn { background: var(--ssp-accent); color: #fff; box-shadow: 0 0 0 4px color-mix(in srgb, var(--ssp-accent) 22%, transparent); }
+  .ssp__btn::after { content: ""; position: absolute; inset: -3px; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--ssp-done); opacity: 0; transition: opacity .2s ease; pointer-events: none; }
   .ssp.is-loading .ssp__btn::after { opacity: 1; animation: ssp-spin .8s linear infinite; }
-  .ssp__wave { position: relative; flex: 1 1 auto; min-width: 0; height: var(--ssp-wave); cursor: pointer; touch-action: pan-y; -webkit-tap-highlight-color: transparent; border-radius: 2px; }
+  .ssp__wave { position: relative; flex: 1 1 auto; min-width: 0; height: var(--ssp-wave); cursor: pointer; touch-action: pan-y; -webkit-tap-highlight-color: transparent; }
   .ssp--off .ssp__wave { cursor: default; }
   .ssp__svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; fill: none; stroke: var(--ssp-base); stroke-width: var(--ssp-sw); stroke-linecap: round; pointer-events: none; transform-origin: 50% 50%; }
-  .ssp__svg--hover { stroke: rgba(var(--color-heading-rgb), .5); clip-path: inset(0 calc(100% - var(--ssp-h)) 0 0); opacity: 0; transition: opacity .15s ease; }
-  .ssp__svg--done { stroke: var(--ssp-done); clip-path: inset(0 calc(100% - var(--ssp-p)) 0 0); }
+  .ssp__svg--hover { stroke: rgba(var(--color-heading-rgb), .5); clip-path: inset(-2px calc(100% - var(--ssp-h)) -2px 0); opacity: 0; transition: opacity .2s ease; }
+  .ssp__svg--done { stroke: var(--ssp-done); clip-path: inset(-2px calc(100% - var(--ssp-p)) -2px 0); }
   .ssp:not(.is-started) .ssp__svg--done { visibility: hidden; }
+  .ssp__head { position: absolute; top: 8%; bottom: 8%; left: var(--ssp-p); width: 2px; margin-left: -1px; border-radius: 2px; background: rgb(var(--color-heading-rgb)); opacity: 0; transition: opacity .2s ease; pointer-events: none; }
+  .ssp.is-started .ssp__head { opacity: .9; }
+  .ssp__tip { position: absolute; bottom: calc(100% + 6px); left: var(--ssp-h); transform: translateX(-50%); padding: 3px 7px; border-radius: 6px; background: rgb(var(--color-heading-rgb)); color: var(--color-background); font-size: 11px; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; white-space: nowrap; opacity: 0; transition: opacity .15s ease; pointer-events: none; z-index: 2; }
   .ssp--flat .ssp__svg { stroke: rgba(var(--color-heading-rgb), .18); }
   .ssp--off .ssp__svg { stroke: rgba(var(--color-heading-rgb), .1); }
   .ssp--drawn .ssp__svg { animation: ssp-grow .5s cubic-bezier(.2,.7,.2,1) both; }
-  .ssp__time { flex: none; min-width: 4.2em; text-align: right; font-size: 13px; line-height: 1; color: var(--color-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ssp__time { flex: none; box-sizing: content-box; min-width: 2.6em; text-align: right; font-size: 13px; line-height: 1; color: var(--color-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ssp--off .ssp__time { min-width: 0; }
   .ssp.is-started .ssp__time { color: var(--color-heading); }
   @media (hover: hover) and (pointer: fine) {
-    .ssp:not(.ssp--off) .ssp__wave:hover .ssp__svg--hover { opacity: 1; }
-    .ssp__btn:hover { transform: scale(1.05); }
+    .ssp:not(.ssp--off) .ssp__wave:hover .ssp__svg--hover, .ssp.has-len:not(.ssp--off) .ssp__wave:hover .ssp__tip { opacity: 1; }
+    .ssp__btn:not([disabled]):hover { background: var(--ssp-accent); color: #fff; }
   }
   @keyframes ssp-spin { to { transform: rotate(360deg); } }
   @keyframes ssp-grow { from { transform: scaleY(.08); } to { transform: none; } }
   @media (prefers-reduced-motion: reduce) {
-    .ssp__btn, .ssp__i, .ssp__svg--hover { transition: none; }
+    .ssp__btn, .ssp__i, .ssp__svg--hover, .ssp__head, .ssp__tip { transition: none; }
     .ssp--drawn .ssp__svg { animation: none; }
     .ssp.is-loading .ssp__btn::after { animation-duration: 2s; }
   }
@@ -68,6 +71,15 @@
   #shopify-section-{{ sid }} .srh__bg { position: absolute; inset: 0; z-index: -1; }
   #shopify-section-{{ sid }} .srh__bg img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: {{ s.image_opacity | default: 30 | divided_by: 100.0 }}; filter: grayscale(.35); }
   #shopify-section-{{ sid }} .srh__bg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0) 40%, var(--color-background) 100%); }
+  #shopify-section-{{ sid }} .srh__decor { position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+  #shopify-section-{{ sid }} .srh__glow { position: absolute; border-radius: 50%; filter: blur(70px); opacity: .55; background: radial-gradient(closest-side, color-mix(in srgb, var(--srh-accent, var(--btn-primary-bg-color)) 70%, transparent), transparent); }
+  #shopify-section-{{ sid }} .srh__glow--a { width: 62vw; max-width: 820px; aspect-ratio: 1; right: -12%; top: -24%; }
+  #shopify-section-{{ sid }} .srh__glow--b { width: 46vw; max-width: 600px; aspect-ratio: 1; left: -14%; bottom: -34%; opacity: .32; }
+  #shopify-section-{{ sid }} .srh--feature .srh__glow--a { right: auto; left: -10%; top: 8%; opacity: .4; }
+  #shopify-section-{{ sid }} .srh__grain { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .14; mix-blend-mode: overlay; }
+  #shopify-section-{{ sid }} .srh__wavebg { position: absolute; left: 0; right: 0; bottom: 0; height: 34%; max-height: 220px; width: 100%; fill: none; stroke: rgba(var(--color-heading-rgb), .07); stroke-width: 2.2px; stroke-linecap: round; -webkit-mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent); mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent); transform-origin: 50% 100%; transition: stroke .6s ease; }
+  #shopify-section-{{ sid }} .srh:has(.ssp.is-playing) .srh__wavebg { stroke: color-mix(in srgb, var(--srh-accent, var(--btn-primary-bg-color)) 30%, transparent); animation: srh-breathe 1.9s ease-in-out infinite; }
+  @keyframes srh-breathe { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(.86); } }
   #shopify-section-{{ sid }} .srh__grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 36px; align-items: center; }
   #shopify-section-{{ sid }} .srh__pill { display: inline-block; margin: 0 0 18px; padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; background: var(--btn-primary-bg-color); color: var(--btn-primary-color); }
   #shopify-section-{{ sid }} .srh__title { margin: 0; font-size: {{ s.heading_size_mobile | default: 40 }}px; line-height: 1.02; overflow-wrap: anywhere; }
@@ -125,11 +137,20 @@
   }
   @media (prefers-reduced-motion: reduce) {
     #shopify-section-{{ sid }} .srh__slide, #shopify-section-{{ sid }} .srh__dot::before { transition: none; }
+    #shopify-section-{{ sid }} .srh:has(.ssp.is-playing) .srh__wavebg { animation: none; }
   }
 </style>
 <div class="srh srh--{{ layout }} section color-{{ color_scheme }} gradient" data-srh data-section-id="{{ sid }}"{% if s.accent != blank %} style="--srh-accent: {{ s.accent }};"{% endif %}>
   {%- if s.background != blank -%}
     <div class="srh__bg" aria-hidden="true">{{ s.background | image_url: width: 1920 | image_tag: loading: 'eager', fetchpriority: 'low', widths: '750, 1200, 1920', sizes: '100vw', alt: '' }}</div>
+  {%- endif -%}
+  {%- assign decor = s.decor | default: 'glow_grain' -%}
+  {%- if decor != 'none' or s.show_wave -%}
+    <div class="srh__decor" aria-hidden="true">
+      {%- if decor != 'none' -%}<span class="srh__glow srh__glow--a"></span><span class="srh__glow srh__glow--b"></span>{%- endif -%}
+      {%- if decor == 'glow_grain' -%}<svg class="srh__grain" focusable="false"><filter id="srh-n-{{ sid }}"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .9 0"/></filter><rect width="100%" height="100%" filter="url(#srh-n-{{ sid }})"/></svg>{%- endif -%}
+      {%- if s.show_wave -%}<svg class="srh__wavebg" viewBox="0 0 160 100" preserveAspectRatio="none" focusable="false"><path d="M0.5 32V68M1.5 30V70M2.5 20V80M3.5 32V68M4.5 25V75M5.5 22V78M6.5 29V71M7.5 25V75M8.5 28V72M9.5 18V82M10.5 30V70M11.5 29V71M12.5 17V83M13.5 12V88M14.5 29V71M15.5 23V77M16.5 12V88M17.5 15V85M18.5 20V80M19.5 17V83M20.5 11V89M21.5 31V69M22.5 13V87M23.5 22V78M24.5 30V70M25.5 30V70M26.5 23V77M27.5 18V82M28.5 32V68M29.5 23V77M30.5 22V78M31.5 31V69M32.5 29V71M33.5 33V67M34.5 35V65M35.5 36V64M36.5 30V70M37.5 33V67M38.5 37V63M39.5 35V65M40.5 37V63M41.5 38V62M42.5 34V66M43.5 32V68M44.5 35V65M45.5 33V67M46.5 32V68M47.5 24V76M48.5 26V74M49.5 33V67M50.5 19V81M51.5 30V70M52.5 29V71M53.5 22V78M54.5 26V74M55.5 23V77M56.5 32V68M57.5 17V83M58.5 13V87M59.5 23V77M60.5 16V84M61.5 19V81M62.5 16V84M63.5 22V78M64.5 15V85M65.5 17V83M66.5 18V82M67.5 13V87M68.5 15V85M69.5 17V83M70.5 31V69M71.5 14V86M72.5 15V85M73.5 17V83M74.5 18V82M75.5 22V78M76.5 25V75M77.5 25V75M78.5 30V70M79.5 24V76M80.5 33V67M81.5 33V67M82.5 32V68M83.5 26V74M84.5 36V64M85.5 33V67M86.5 33V67M87.5 31V69M88.5 39V61M89.5 36V64M90.5 37V63M91.5 34V66M92.5 33V67M93.5 31V69M94.5 36V64M95.5 33V67M96.5 31V69M97.5 26V74M98.5 26V74M99.5 31V69M100.5 30V70M101.5 32V68M102.5 30V70M103.5 21V79M104.5 23V77M105.5 29V71M106.5 28V72M107.5 21V79M108.5 27V73M109.5 20V80M110.5 7V93M111.5 18V82M112.5 23V77M113.5 14V86M114.5 13V87M115.5 30V70M116.5 12V88M117.5 9V91M118.5 14V86M119.5 19V81M120.5 19V81M121.5 20V80M122.5 30V70M123.5 19V81M124.5 26V74M125.5 30V70M126.5 30V70M127.5 27V73M128.5 25V75M129.5 34V66M130.5 33V67M131.5 30V70M132.5 34V66M133.5 32V68M134.5 35V65M135.5 26V74M136.5 33V67M137.5 37V63M138.5 36V64M139.5 37V63M140.5 38V62M141.5 40V60M142.5 33V67M143.5 31V69M144.5 34V66M145.5 31V69M146.5 36V64M147.5 36V64M148.5 29V71M149.5 30V70M150.5 26V74M151.5 31V69M152.5 30V70M153.5 20V80M154.5 26V74M155.5 26V74M156.5 20V80M157.5 32V68M158.5 20V80M159.5 7V93" vector-effect="non-scaling-stroke"/></svg>{%- endif -%}
+    </div>
   {%- endif -%}
   <div class="{{ s.section_width | default: 'container' }}">
     <div class="srh__grid">
@@ -233,15 +254,16 @@
     assign ssp_clock = ssp_m | append: ':' | append: ssp_s
   endif
 -%}
-<div class="ssp{% if ssp_src == blank %} ssp--off{% endif %}{% if ssp_flat %} ssp--flat{% endif %}" data-ssp{% if ssp_src != blank %} data-src="{{ ssp_src }}"{% endif %} data-title="{{ ssp_label }}">
+<div class="ssp{% if ssp_src == blank %} ssp--off{% endif %}{% if ssp_flat %} ssp--flat{% endif %}{% if ssp_secs > 0 %} has-len{% endif %}" data-ssp{% if ssp_src != blank %} data-src="{{ ssp_src }}"{% endif %} data-title="{{ ssp_label }}"{% if ssp_secs > 0 %} data-len="{{ ssp_len | plus: 0 }}"{% endif %}{% unless ssp_flat %} data-peaks="{{ ssp_pk | join: ',' | strip | escape }}"{% endunless %}>
   <button class="ssp__btn" type="button" data-ssp-btn aria-label="Play {{ ssp_label }}"{% if ssp_src == blank %} disabled{% endif %}>
-    <svg class="ssp__i ssp__i--play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M5.2 3.1v9.8c0 .5.5.8.9.5l7.5-4.9c.4-.2.4-.8 0-1L6.1 2.6c-.4-.3-.9 0-.9.5Z" fill="currentColor"/></svg>
-    <svg class="ssp__i ssp__i--pause" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="4" y="3" width="2.7" height="10" rx=".8" fill="currentColor"/><rect x="9.3" y="3" width="2.7" height="10" rx=".8" fill="currentColor"/></svg>
+    <svg class="ssp__i ssp__i--play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.6 2.9v10.2c0 .6.6.9 1.1.6l7.9-5.1c.5-.3.5-1 0-1.3L5.7 2.3c-.5-.3-1.1 0-1.1.6Z" fill="currentColor"/></svg>
+    <svg class="ssp__i ssp__i--pause" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="3.8" y="2.8" width="3" height="10.4" rx="1" fill="currentColor"/><rect x="9.2" y="2.8" width="3" height="10.4" rx="1" fill="currentColor"/></svg>
   </button>
   <div class="ssp__wave" data-ssp-wave{% if ssp_src != blank %} role="slider" tabindex="0" aria-label="Seek in {{ ssp_label }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="0:00"{% endif %}>
     <svg class="ssp__svg" viewBox="0 0 {{ ssp_n }} 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path id="{{ ssp_id }}" d="{{ ssp_d }}" vector-effect="non-scaling-stroke"/></svg>
     <svg class="ssp__svg ssp__svg--hover" viewBox="0 0 {{ ssp_n }} 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#{{ ssp_id }}"/></svg>
     <svg class="ssp__svg ssp__svg--done" viewBox="0 0 {{ ssp_n }} 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#{{ ssp_id }}"/></svg>
+    {%- if ssp_src != blank -%}<span class="ssp__head" aria-hidden="true"></span><span class="ssp__tip" aria-hidden="true" data-ssp-tip>0:00</span>{%- endif -%}
   </div>
   <span class="ssp__time" data-ssp-time>{% if ssp_src == blank %}{{ ssp_empty | default: 'No preview' }}{% else %}{{ ssp_clock }}{% endif %}</span>
 </div>
@@ -297,18 +319,35 @@
 <script>
   /* The sample players (samples-audio-tracks, samples-pack-cards, samples-release-hero): one copy runs, whichever section loads first. */
   (function () {
-    var V = 4;
+    var V = 5;
     if (window.__ssp && window.__ssp.v >= V) { window.__ssp.scan(); return; }
-    var current = null, N = 120, KEY = 'ssp-peaks:', reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var current = null, N = 120, PITCH = 4, KEY = 'ssp-peaks:', reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
     function fmt(t) { if (!isFinite(t) || t < 0) t = 0; var m = Math.floor(t / 60), s = Math.floor(t % 60); return m + ':' + (s < 10 ? '0' : '') + s; }
     function remember(k, v) { try { localStorage.setItem(KEY + k, v); } catch (e) {} }
     function recall(k) { try { return localStorage.getItem(KEY + k); } catch (e) { return null; } }
     function pathOf(list) { var d = ''; for (var i = 0; i < list.length; i++) { var h = Math.max(1.4, list[i] * 0.46); d += 'M' + (i + 0.5) + ' ' + (50 - h).toFixed(1) + 'V' + (50 + h).toFixed(1); } return d; }
+    /* As many bars as the width holds at an even pitch, each the loudest of the peaks it covers: a narrow card draws fewer, clearer bars. */
+    function fit(list, count) {
+      if (count >= list.length) return list;
+      var out = [], step = list.length / count;
+      for (var i = 0; i < count; i++) { var a = Math.floor(i * step), b = Math.max(a + 1, Math.floor((i + 1) * step)), m = 0; for (var j = a; j < b; j++) if (list[j] > m) m = list[j]; out.push(m); }
+      return out;
+    }
+    function shape(el) {
+      var wave = el.querySelector('[data-ssp-wave]'), path = el.querySelector('.ssp__svg path'), list = el.__peaks;
+      if (!wave || !path) return;
+      var w = wave.clientWidth; if (!w) return;
+      var bars = list && list.length ? fit(list, Math.max(16, Math.floor(w / PITCH))) : null, n = bars ? bars.length : N;
+      if (bars && n !== el.__bars) {
+        el.__bars = n; path.setAttribute('d', pathOf(bars));
+        el.querySelectorAll('.ssp__svg').forEach(function (s) { s.setAttribute('viewBox', '0 0 ' + n + ' 100'); });
+      }
+      el.style.setProperty('--ssp-sw', Math.max(1, Math.min(3.2, (w / n) * 0.58)).toFixed(2) + 'px');
+    }
     function draw(el, list) {
-      var path = el.querySelector('.ssp__svg path'); if (!path || !list.length) return;
-      path.setAttribute('d', pathOf(list));
-      el.querySelectorAll('.ssp__svg').forEach(function (s) { s.setAttribute('viewBox', '0 0 ' + list.length + ' 100'); });
-      el.classList.remove('ssp--flat'); if (!reduce) el.classList.add('ssp--drawn');
+      if (!list.length) return;
+      el.__peaks = list; el.__bars = 0; el.classList.remove('ssp--flat'); shape(el);
+      if (!reduce) el.classList.add('ssp--drawn');
     }
     /* A track saved without its peaks: read them from the file after it starts playing, when the browser has it anyway, and keep them for the next visit. */
     function measure(el) {
@@ -330,20 +369,22 @@
     }
     function setup(el) {
       if (el.__ssp) return; el.__ssp = true;
-      var src = el.getAttribute('data-src'), btn = el.querySelector('[data-ssp-btn]'), wave = el.querySelector('[data-ssp-wave]'), time = el.querySelector('[data-ssp-time]');
-      var path = el.querySelector('.ssp__svg path'), n = path ? (el.querySelector('.ssp__svg').getAttribute('viewBox') || '0 0 120').split(' ')[2] * 1 : N;
-      if (wave && window.ResizeObserver) new ResizeObserver(function () { var w = wave.clientWidth; if (w) el.style.setProperty('--ssp-sw', Math.max(1, Math.min(3, (w / n) * 0.52)).toFixed(2) + 'px'); }).observe(wave);
+      var src = el.getAttribute('data-src'), btn = el.querySelector('[data-ssp-btn]'), wave = el.querySelector('[data-ssp-wave]'), time = el.querySelector('[data-ssp-time]'), tip = el.querySelector('[data-ssp-tip]');
+      var given = (el.getAttribute('data-peaks') || '').split(',').map(Number).filter(function (v) { return isFinite(v); });
+      if (given.length >= 16) el.__peaks = given;
+      if (wave && window.ResizeObserver) new ResizeObserver(function () { shape(el); }).observe(wave); else shape(el);
       if (!src || !btn || !wave) return;
       if (el.classList.contains('ssp--flat')) { var kept = recall(src); if (kept) draw(el, kept.split(',').map(Number)); }
-      var audio = null, raf = 0, shown = -1, dragging = false, pending = -1, title = el.getAttribute('data-title') || '';
+      var audio = null, raf = 0, shown = -1, dragging = false, pending = -1, title = el.getAttribute('data-title') || '', len = parseFloat(el.getAttribute('data-len')) || 0;
+      function total() { return audio && audio.duration > 0 && isFinite(audio.duration) ? audio.duration : len; }
       function pct() { return audio && audio.duration > 0 ? Math.min(100, (audio.currentTime / audio.duration) * 100) : 0; }
       function paint(force) {
-        var d = audio ? audio.duration : 0, t = audio ? audio.currentTime : 0;
-        el.style.setProperty('--ssp-p', pct().toFixed(2) + '%');
-        var sec = Math.floor(t);
+        var d = total(), t = audio ? audio.currentTime : 0, started = el.classList.contains('is-started');
+        el.style.setProperty('--ssp-p', pct().toFixed(3) + '%');
+        var sec = started ? Math.floor(t) : -2;
         if (force || sec !== shown) {
           shown = sec;
-          if (d > 0) time.textContent = fmt(t) + ' / ' + fmt(d);
+          time.textContent = started ? fmt(t) : fmt(d);
           wave.setAttribute('aria-valuenow', Math.round(pct()));
           wave.setAttribute('aria-valuetext', fmt(t) + (d > 0 ? ' of ' + fmt(d) : ''));
         }
@@ -362,13 +403,13 @@
         audio.addEventListener('playing', function () { el.classList.remove('is-loading'); measure(el); });
         audio.addEventListener('pause', function () { el.classList.remove('is-playing', 'is-loading'); btn.setAttribute('aria-label', 'Play ' + title); cancelAnimationFrame(raf); paint(true); });
         audio.addEventListener('ended', function () { el.classList.remove('is-started'); audio.currentTime = 0; paint(true); });
-        audio.addEventListener('loadedmetadata', function () { if (pending >= 0) { audio.currentTime = pending * audio.duration; pending = -1; } paint(true); });
+        audio.addEventListener('loadedmetadata', function () { if (pending >= 0) { audio.currentTime = pending * audio.duration; pending = -1; } el.classList.add('has-len'); paint(true); });
         audio.addEventListener('error', function () { el.classList.remove('is-playing', 'is-loading', 'is-started'); el.classList.add('ssp--off'); time.textContent = 'Could not play'; btn.disabled = true; });
         return audio;
       }
       function play(at) {
         make(); el.classList.add('is-loading');
-        if (at >= 0) { if (audio.readyState >= 1 && audio.duration) audio.currentTime = at * audio.duration; else pending = at; }
+        if (at >= 0) { el.classList.add('is-started'); el.style.setProperty('--ssp-p', (at * 100).toFixed(3) + '%'); if (audio.readyState >= 1 && audio.duration) audio.currentTime = at * audio.duration; else pending = at; }
         var p = audio.play(); if (p && p.catch) p.catch(function () { el.classList.remove('is-loading'); });
       }
       btn.addEventListener('click', function () { if (!audio || audio.paused) play(-1); else audio.pause(); });
@@ -376,7 +417,7 @@
       function seekable() { var r = audio.seekable; return r && r.length > 0 && r.end(r.length - 1) > 0; }
       /* A server that does not answer range requests gives a file the browser cannot seek in: fetch it whole once (a preview is small) and play it from memory. */
       function rescue(f) {
-        pending = f; el.style.setProperty('--ssp-p', (f * 100).toFixed(2) + '%');
+        pending = f; el.style.setProperty('--ssp-p', (f * 100).toFixed(3) + '%');
         if (el.__rescued || !window.fetch || !window.URL) return; el.__rescued = true;
         var going = !audio.paused; el.classList.add('is-loading');
         fetch(src, { credentials: 'same-origin' }).then(function (r) { if (!r.ok) throw new Error('fetch'); return r.blob(); }).then(function (blob) {
@@ -392,7 +433,7 @@
       wave.addEventListener('pointerdown', function (e) { if (e.button > 0) return; dragging = true; try { wave.setPointerCapture(e.pointerId); } catch (x) {} seek(at(e.clientX)); });
       wave.addEventListener('pointermove', function (e) {
         var f = at(e.clientX);
-        if (e.pointerType === 'mouse') el.style.setProperty('--ssp-h', (f * 100).toFixed(2) + '%');
+        if (e.pointerType === 'mouse') { el.style.setProperty('--ssp-h', (f * 100).toFixed(2) + '%'); if (tip) { var d = total(); if (d > 0) tip.textContent = fmt(f * d); } }
         if (dragging && audio && audio.duration) { if (seekable()) { audio.currentTime = f * audio.duration; paint(); } else rescue(f); }
       });
       function stop() { dragging = false; }
@@ -468,6 +509,18 @@
     { "type": "header", "content": "Look" },
     { "type": "image_picker", "id": "background", "label": "Background picture" },
     { "type": "range", "id": "image_opacity", "label": "Background picture strength", "min": 5, "max": 100, "step": 5, "unit": "%", "default": 30 },
+    {
+      "type": "select",
+      "id": "decor",
+      "label": "Background light",
+      "default": "glow_grain",
+      "options": [
+        { "value": "none", "label": "None" },
+        { "value": "glow", "label": "Soft glow in the accent colour" },
+        { "value": "glow_grain", "label": "Glow with film grain" }
+      ]
+    },
+    { "type": "checkbox", "id": "show_wave", "label": "Waveform along the bottom", "default": true, "info": "It moves gently while a preview plays." },
     { "type": "color", "id": "accent", "label": "Accent colour", "info": "Left empty, the button colour." },
     { "type": "text", "id": "free_label", "label": "Price shown for a free pack", "default": "Free" },
     { "type": "range", "id": "heading_size", "label": "Headline size", "min": 28, "max": 96, "step": 2, "unit": "px", "default": 60 },

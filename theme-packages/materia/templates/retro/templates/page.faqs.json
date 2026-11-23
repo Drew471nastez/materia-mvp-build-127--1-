@@ -10,12 +10,12 @@
         "text": "<p>Anything not here, write to us and we answer within two working days.</p>",
         "first_open": true,
         "draggable": false,
-        "width": 900,
+        "width": 1120,
         "offset": "center",
-        "padding_top": 28,
-        "padding_bottom": 40,
-        "padding_top_mobile": 10,
-        "padding_bottom_mobile": 24
+        "padding_top": 0,
+        "padding_bottom": 24,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 14
       },
       "blocks": {
         "question_1": {
@@ -69,9 +69,69 @@
         "question_5",
         "question_6"
       ]
+    },
+    "facts": {
+      "type": "retro-tiles",
+      "settings": {
+        "note": "",
+        "columns": "3",
+        "look": "window",
+        "phone_two": false,
+        "padding_top": 0,
+        "padding_bottom": 24,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 14
+      },
+      "blocks": {
+        "tile_1": {
+          "type": "tile",
+          "settings": {
+            "icon": "disk",
+            "bar_title": "Printing",
+            "title": "Printed to order",
+            "stars": 0,
+            "text": "<p>Heavy 240 gsm cotton and water based ink. Nothing sits in a warehouse.</p>",
+            "who": "",
+            "button_label": "",
+            "button_link": ""
+          }
+        },
+        "tile_2": {
+          "type": "tile",
+          "settings": {
+            "icon": "mail",
+            "bar_title": "Shipping",
+            "title": "Sent in three days",
+            "stars": 0,
+            "text": "<p>Printed and posted within three working days, tracked to your door.</p>",
+            "who": "",
+            "button_label": "Shipping details",
+            "button_link": "/pages/shipping"
+          }
+        },
+        "tile_3": {
+          "type": "tile",
+          "settings": {
+            "icon": "help",
+            "bar_title": "Returns",
+            "title": "Free returns",
+            "stars": 0,
+            "text": "<p>Unworn and within 30 days? Write to us and we send a label.</p>",
+            "who": "",
+            "button_label": "Questions",
+            "button_link": "/pages/faqs"
+          }
+        }
+      },
+      "block_order": [
+        "tile_1",
+        "tile_2",
+        "tile_3"
+      ]
     }
   },
   "order": [
-    "faq"
+    "faq",
+    "facts"
   ]
 }

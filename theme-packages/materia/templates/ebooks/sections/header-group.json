@@ -11,9 +11,9 @@
         "show_close": false,
         "show_separator_line": false,
         "enable_custom_style": true,
-        "background_color": "#1f3b33",
+        "background_color": "#0d3b2e",
         "text_color": "#e6ece4",
-        "accent_color": "#d9b27a",
+        "accent_color": "#f2a07a",
         "uppercase": false,
         "font_size": 13,
         "change_every": 5

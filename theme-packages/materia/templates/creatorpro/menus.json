@@ -1,0 +1,73 @@
+{
+  "main-menu": {
+    "title": "Main menu",
+    "links": [
+      {
+        "title": "Videos",
+        "url": "/#videos"
+      },
+      {
+        "title": "Courses",
+        "url": "/collections/all"
+      },
+      {
+        "title": "Podcast",
+        "url": "/#podcast"
+      },
+      {
+        "title": "Newsletter",
+        "url": "/pages/newsletter"
+      },
+      {
+        "title": "About",
+        "url": "/pages/about"
+      }
+    ]
+  },
+  "footer-learn": {
+    "title": "Learn",
+    "links": [
+      {
+        "title": "Courses and tools",
+        "url": "/collections/all"
+      },
+      {
+        "title": "Free workshop",
+        "url": "/#start"
+      },
+      {
+        "title": "Videos",
+        "url": "/#videos"
+      },
+      {
+        "title": "Podcast",
+        "url": "/#podcast"
+      },
+      {
+        "title": "Articles",
+        "url": "/blogs/news"
+      }
+    ]
+  },
+  "footer": {
+    "title": "More",
+    "links": [
+      {
+        "title": "About Nina",
+        "url": "/pages/about"
+      },
+      {
+        "title": "The Tuesday Letter",
+        "url": "/pages/newsletter"
+      },
+      {
+        "title": "Questions",
+        "url": "/pages/faqs"
+      },
+      {
+        "title": "Contact",
+        "url": "/pages/contact"
+      }
+    ]
+  }
+}

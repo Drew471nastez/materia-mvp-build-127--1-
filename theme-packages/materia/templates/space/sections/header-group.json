@@ -139,7 +139,10 @@
         "menu_font_size": 13,
         "menu_font_weight": "600",
         "menu_mobile_background": "#000000",
-        "menu_mobile_dividers": true
+        "menu_mobile_dividers": true,
+        "icon_color": "#e0201b",
+        "icon_hover_color": "#ff4b45",
+        "icon_color_menu_button": true
       },
       "blocks": {
         "pill_glass_1": {

@@ -1,0 +1,22 @@
+
+  #shopify-section-cta .c2c { background: #ffffff; padding: 16px 16px 56px; }
+  @media (min-width: 750px) { #shopify-section-cta .c2c { padding: 32px 32px 96px; } }
+  #shopify-section-cta .c2c__box { max-width: var(--page-width, 1310px); margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; align-items: center; padding: 36px 22px; border-radius: 10px; background: #2b44ff; color: #e3e7ff; }
+  @media (min-width: 990px) { #shopify-section-cta .c2c__box { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 64px; padding: 72px; } }
+  #shopify-section-cta .c2c__eyebrow { margin: 0 0 14px; font-size: 13px; font-weight: 600; letter-spacing: .04em; opacity: .85; }
+  #shopify-section-cta .c2c__h { margin: 0; color: #ffffff; font-family: var(--heading-font, inherit); font-weight: 700; letter-spacing: -0.04em; line-height: 1; font-size: 38px; text-wrap: balance; }
+  @media (min-width: 750px) { #shopify-section-cta .c2c__h { font-size: 64px; } }
+  #shopify-section-cta .c2c__t { margin: 18px 0 0; font-size: 17px; line-height: 1.6; max-width: 48ch; }
+  #shopify-section-cta .c2c__t p { margin: 0; }
+  #shopify-section-cta .c2c__btn { display: inline-flex; align-items: center; gap: 10px; min-height: 56px; margin-top: 30px; padding: 0 28px; border-radius: 6px; background: #ffffff; color: #0f1115; font-size: 16px; font-weight: 600; text-decoration: none; transition: transform .2s ease, box-shadow .2s ease; }
+  #shopify-section-cta .c2c__btn:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+  #shopify-section-cta .c2c__btn svg { width: 18px; height: 18px; }
+  #shopify-section-cta .c2c__note { margin: 14px 0 0; font-size: 13.5px; opacity: .8; }
+  #shopify-section-cta .c2c__side { display: flex; flex-direction: column; gap: 18px; }
+  #shopify-section-cta .c2c__who { display: flex; align-items: center; gap: 14px; }
+  #shopify-section-cta .c2c__who img { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; margin: 0; box-shadow: 0 0 0 3px rgba(255,255,255,.25); }
+  #shopify-section-cta .c2c__who b { display: block; color: #ffffff; font-size: 16px; }
+  #shopify-section-cta .c2c__who span { display: block; font-size: 14px; opacity: .85; }
+  #shopify-section-cta .c2c__list { margin: 0; padding: 0; list-style: none; border-top: 1px solid rgba(255,255,255,.22); }
+  #shopify-section-cta .c2c__list li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; padding: 13px 0; border-bottom: 1px solid rgba(255,255,255,.22); font-size: 15px; line-height: 1.45; }
+  #shopify-section-cta .c2c__list svg { width: 18px; height: 18px; margin-top: 1px; color: #ffffff; }

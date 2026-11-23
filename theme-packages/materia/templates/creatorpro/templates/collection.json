@@ -1,0 +1,184 @@
+{
+  "sections": {
+    "main-collection-heading": {
+      "type": "main-collection-heading",
+      "settings": {
+        "height": "adapt",
+        "alignment": "left",
+        "padding_top": 48,
+        "color_scheme": "default",
+        "reset_spacing": true,
+        "section_width": "fluid_container",
+        "padding_bottom": 24,
+        "show_collection_image": false
+      },
+      "name": "main-collection-heading",
+      "blocks": {
+        "breadcrumb": {
+          "type": "breadcrumb",
+          "settings": {}
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "header_size": "default"
+          }
+        },
+        "description": {
+          "type": "description",
+          "settings": {}
+        }
+      },
+      "block_order": [
+        "breadcrumb",
+        "heading",
+        "description"
+      ]
+    },
+    "main-collection-product": {
+      "type": "main-collection-product",
+      "settings": {
+        "sorting": true,
+        "column_gap": 30,
+        "pagination": "default",
+        "padding_top": 0,
+        "color_scheme": "default",
+        "filter_layout": "horizontal",
+        "items_per_row": 4,
+        "items_to_show": 12,
+        "reset_spacing": true,
+        "section_width": "fluid_container",
+        "default_filter": "open_all",
+        "empty_link_url": "/collections/all",
+        "padding_bottom": 60,
+        "vertical_posion": "left",
+        "button_show_more": "Show more",
+        "enable_filtering": false,
+        "show_filter_counts": true,
+        "items_per_row_mobile": "1",
+        "toolbar_button_style": "minimal",
+        "number_products_per_page": true
+      },
+      "name": "main-collection-product",
+      "blocks": {
+        "block-mvmkffsh-1-pcnzc": {
+          "type": "categories",
+          "settings": {
+            "title": "Category"
+          }
+        },
+        "block-mvmkfj68-2-iqqos": {
+          "type": "filter",
+          "settings": {}
+        }
+      },
+      "block_order": [
+        "block-mvmkffsh-1-pcnzc",
+        "block-mvmkfj68-2-iqqos"
+      ]
+    },
+    "cta": {
+      "type": "authorbook-cta",
+      "settings": {
+        "band_color": "#101114",
+        "text_color": "#c9cbd1",
+        "image": "shopify://shop_images/creatorpro-podcast.webp",
+        "image_alt": "Nina Brooks at her microphone",
+        "radius": 28,
+        "heading": "Start with the free workshop",
+        "text": "<p>45 minutes on choosing the first thing to sell and pricing it. Watch it tonight.</p>",
+        "button_label": "Watch it free",
+        "button_link": "#open-form-workshop",
+        "button_color": "#ff5a36",
+        "button_text_color": "#101114",
+        "button_radius": 12,
+        "button2_label": "See the courses",
+        "button2_link": "/collections/all",
+        "button2_color": "#ffffff",
+        "button2_text_color": "#101114"
+      }
+    },
+    "workshop_form": {
+      "type": "form-modal",
+      "settings": {
+        "form_key": "workshop",
+        "sends_to": "subscribe",
+        "accent_color": "#e8401c",
+        "text_align": "left",
+        "width": 500,
+        "corners": "theme",
+        "success_heading": "The workshop is on its way",
+        "success_text": "<p>Check your inbox in a minute for the link. If nothing arrives, look in spam.</p>"
+      },
+      "blocks": {
+        "image_1": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/creatorpro-video-2.webp",
+            "fit": "cover",
+            "max_height": 200
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "eyebrow": "Free workshop",
+            "heading": "The First Offer *Workshop*",
+            "size": 30
+          }
+        },
+        "text_3": {
+          "type": "text",
+          "settings": {
+            "text": "<p>45 minutes on choosing what to sell first and how to price it, with the worksheet.</p>"
+          }
+        },
+        "field_4": {
+          "type": "field",
+          "settings": {
+            "kind": "name",
+            "label": "First name",
+            "required": false
+          }
+        },
+        "field_5": {
+          "type": "field",
+          "settings": {
+            "kind": "email",
+            "label": "Email address"
+          }
+        },
+        "button_6": {
+          "type": "button",
+          "settings": {
+            "label": "Send me the workshop",
+            "arrow": true
+          }
+        },
+        "note_7": {
+          "type": "note",
+          "settings": {
+            "icon": "lock",
+            "text": "Your email stays private.",
+            "small": "<p>You also get the Tuesday Letter. Leave whenever you like.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "image_1",
+        "heading_2",
+        "text_3",
+        "field_4",
+        "field_5",
+        "button_6",
+        "note_7"
+      ]
+    }
+  },
+  "order": [
+    "main-collection-heading",
+    "main-collection-product",
+    "cta",
+    "workshop_form"
+  ]
+}

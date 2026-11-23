@@ -20,7 +20,7 @@ They are not part of a template and are never added to a creator's website.
 
 | Template | File | Source | License |
 | --- | --- | --- | --- |
-| default | assets/default-hero-mugs.webp | https://images.unsplash.com/photo-1570951993722-70be21d0b78b | Unsplash License |
+| default | assets/default-hero-cream-mugs.webp | https://images.unsplash.com/photo-1687158179173-b9f3eac1fde9 | Unsplash License |
 | default | assets/default-studio.webp | https://images.unsplash.com/photo-1631125915973-e0d155a14e4e | Unsplash License |
 | default | assets/default-packing.webp | https://images.unsplash.com/photo-1449247666642-264389f5f5b1 | Unsplash License |
 | default | assets/default-mug-still.webp | https://images.unsplash.com/photo-1514228742587-6b1558fcca3d | Unsplash License |
@@ -34,6 +34,8 @@ They are not part of a template and are never added to a creator's website.
 | default (cover only) | scripts/theme-templates/products/default/default-bottle.webp | https://images.unsplash.com/photo-1664714628878-9d2aa898b9e3, background evened out | Unsplash License |
 | default (cover only) | scripts/theme-templates/products/default/default-tote.webp | https://images.unsplash.com/photo-1574365569389-a10d488ca3fb, background evened out and a printed mark removed | Unsplash License |
 | default (cover only) | scripts/theme-templates/products/default/default-planner.webp | Drawn for this template | Storelib |
+| clothing | assets/clothing-hero-snow.webp | https://images.unsplash.com/photo-1615105690055-ee1c0b3f8c5a | Unsplash License |
+| clothing | assets/clothing-hero-snow-phone.webp | https://images.unsplash.com/photo-1615105690055-ee1c0b3f8c5a | Unsplash License |
 | clothing | assets/clothing-hero-stairwell.webp | https://images.unsplash.com/photo-1704918968076-cc20b900508f | Unsplash License |
 | clothing | assets/clothing-outerwear-concrete.webp | https://images.unsplash.com/photo-1764298493462-071f7e39b02c | Unsplash License |
 | clothing | assets/clothing-tailoring-studio.webp | https://images.unsplash.com/photo-1715559522419-db7face19c1c | Unsplash License |
@@ -48,8 +50,8 @@ They are not part of a template and are never added to a creator's website.
 | clothing (cover only) | scripts/theme-templates/products/clothing/clothing-long-blazer.webp | https://images.unsplash.com/photo-1779400202380-ae490bd3b995 | Unsplash License |
 | clothing (cover only) | scripts/theme-templates/products/clothing/clothing-boxy-tee.webp | https://images.unsplash.com/photo-1780566759997-6a4eabceaa10 | Unsplash License |
 | clothing (cover only) | scripts/theme-templates/products/clothing/clothing-wool-blazer.webp | https://images.unsplash.com/photo-1612275857880-57d3b7676179 | Unsplash License |
-| merch | assets/merch-hero-fog.webp | https://images.unsplash.com/photo-1631437699383-a9cfb4685e9e | Unsplash License |
-| merch | assets/merch-hero-fog-phone.webp | https://images.unsplash.com/photo-1631437699383-a9cfb4685e9e | Unsplash License |
+| merch | assets/merch-hero.webp | https://images.unsplash.com/photo-1529720317453-c8da503f2051 | Unsplash License |
+| merch | assets/merch-hero-phone.webp | https://images.unsplash.com/photo-1529720317453-c8da503f2051 | Unsplash License |
 | merch | assets/merch-cat-hoodies.webp | https://images.unsplash.com/photo-1590759483822-b2fee5aa6bd3 | Unsplash License |
 | merch | assets/merch-cat-trackpants.webp | https://images.unsplash.com/photo-1789110519766-117eb0e35bea | Unsplash License |
 | merch | assets/merch-cat-tees.webp | https://images.unsplash.com/photo-1590750093844-bc3ae9e48f9c | Unsplash License |
@@ -70,7 +72,8 @@ They are not part of a template and are never added to a creator's website.
 | merch (cover only) | scripts/theme-templates/products/merch/merch-tee-fitted-black.webp | https://images.unsplash.com/photo-1590750093844-bc3ae9e48f9c (cropped, background evened to one grey) | Unsplash License |
 | merch (cover only) | scripts/theme-templates/products/merch/merch-tank-white.webp | https://images.unsplash.com/photo-1789110853802-905f3d5c654c (cropped, background evened to one grey) | Unsplash License |
 | merch (cover only) | scripts/theme-templates/products/merch/merch-short-black.webp | https://images.unsplash.com/photo-1789110519705-a4b8e6d69a9f (cropped, background evened to one grey) | Unsplash License |
-| digital | assets/digital-hero-guide.webp | https://images.unsplash.com/photo-1625864667451-bd05ac7e633a | Unsplash License |
+| digital | assets/digital-hero-studio.webp | https://images.unsplash.com/photo-1744686909434-fd158fca1c35 | Unsplash License |
+| digital | assets/digital-pricing-guide.webp | https://images.unsplash.com/photo-1625864667451-bd05ac7e633a | Unsplash License |
 | digital | assets/digital-hero-laptop.webp | https://images.unsplash.com/photo-1484788984921-03950022c9ef | Unsplash License |
 | digital | assets/digital-hero-icons.webp | https://images.unsplash.com/photo-1589739900266-43b2843f4c12 | Unsplash License |
 | digital | assets/digital-bundle.webp | https://images.unsplash.com/photo-1654124803058-c814dc42f60c | Unsplash License |
@@ -191,8 +194,7 @@ They are not part of a template and are never added to a creator's website.
 | streetwear | assets/streetwear-deck.webp | https://images.unsplash.com/photo-1778500409607-333a0914576e | Unsplash License |
 | streetwear | assets/streetwear-fortress.webp | https://images.unsplash.com/photo-1783853851787-0341b8753815 | Unsplash License |
 | streetwear | assets/streetwear-hero-dusk.webp | https://images.unsplash.com/photo-1752330094889-2b1b31d61485 | Unsplash License |
-| streetwear | assets/streetwear-hero-promenade.webp | https://images.unsplash.com/photo-1655959627626-a51ad677cfdf | Unsplash License |
-| streetwear | assets/streetwear-hero-promenade-phone.webp | https://images.unsplash.com/photo-1655959627626-a51ad677cfdf | Unsplash License |
+| streetwear | assets/streetwear-hero-dusk-phone.webp | https://images.unsplash.com/photo-1753638949322-7135abb71c24 | Unsplash License |
 | streetwear | assets/streetwear-hill-palms.webp | https://images.unsplash.com/photo-1769084783547-9b3da5adefe8 | Unsplash License |
 | streetwear | assets/streetwear-sea-dusk.webp | https://images.unsplash.com/photo-1772352037989-4c5dcabe88e6 | Unsplash License |
 | streetwear | assets/streetwear-street-sun.webp | https://images.unsplash.com/photo-1641071059359-fa5907ae440c | Unsplash License |
@@ -216,12 +218,19 @@ They are not part of a template and are never added to a creator's website.
 | samples | assets/samples-free-pair.webp | Loudlib's own pack box, owner's artwork from its Payhip store (pe56d.s3.amazonaws.com): Ambience Kit Vol I and Drums One Shots Vol I side by side | Loudlib (the owner) |
 | samples | assets/samples-thumb-ambience-kit.webp | Loudlib's own pack box, owner's artwork from its Payhip store (pe56d.s3.amazonaws.com): Ambience Kit Vol I, small | Loudlib (the owner) |
 | samples | assets/samples-thumb-drum-kit.webp | Loudlib's own pack box, owner's artwork from its Payhip store (pe56d.s3.amazonaws.com): Drums One Shots Vol I (Tech House Drum Kit Vol I), small | Loudlib (the owner) |
-| samples | assets/samples-demo-tech-house-master-bundle.mp4 | Synthesised for this template (sound, no samples used), a stand in until Loudlib's own demos are uploaded | Storelib |
-| samples | assets/samples-demo-serum-presets.mp4 | Synthesised for this template (sound, no samples used), a stand in until Loudlib's own demos are uploaded | Storelib |
-| samples | assets/samples-demo-drums-one-shots.mp4 | Synthesised for this template (sound, no samples used), a stand in until Loudlib's own demos are uploaded | Storelib |
-| samples | assets/samples-demo-ambience-kit.mp4 | Synthesised for this template (sound, no samples used), a stand in until Loudlib's own demos are uploaded | Storelib |
-| samples | assets/samples-demo-deep-house-production-suite.mp4 | Synthesised for this template (sound, no samples used), a stand in until Loudlib's own demos are uploaded | Storelib |
-| samples | assets/samples-demo-tech-house-unitech.mp4 | Synthesised for this template (sound, no samples used), a stand in until Loudlib's own demos are uploaded | Storelib |
+| samples | assets/samples-demo-tech-house-master-bundle.mp4 | https://freesound.org/people/Johnnie_Holiday/sounds/586848/ : "Deep house loop.wav" by Johnnie_Holiday, first 12 s; trimmed, faded out, levelled to -14 LUFS, AAC mono. A stand in until Loudlib's own demos are uploaded | CC0 1.0 (public domain) |
+| samples | assets/samples-demo-deep-house-production-suite.mp4 | https://freesound.org/people/LogicMoon/sounds/175829/ : "deep house loop 120.aif" by LogicMoon, first 12 s; trimmed, faded out, levelled to -14 LUFS, AAC mono. A stand in until Loudlib's own demos are uploaded | CC0 1.0 (public domain) |
+| samples | assets/samples-demo-tech-house-unitech.mp4 | https://freesound.org/people/Teacoma/sounds/342355/ : "Cliche House Chords Bassline.wav" by Teacoma, its 4 bar loop played one and a half times; trimmed, faded out, levelled to -14 LUFS, AAC mono. A stand in until Loudlib's own demos are uploaded | CC0 1.0 (public domain) |
+| samples | assets/samples-demo-serum-presets.mp4 | https://freesound.org/people/EvapOfficial/sounds/661122/ : "Synth Bass Loop 9.wav" by EvapOfficial, its 4 bar loop played one and a half times; trimmed, faded out, levelled to -14 LUFS, AAC mono. A stand in until Loudlib's own demos are uploaded | CC0 1.0 (public domain) |
+| samples | assets/samples-demo-drums-one-shots.mp4 | https://freesound.org/people/sumsun/sounds/152670/ : "House Beat 124bpm" by sumsun, first 6 bars; trimmed, faded out, levelled to -14 LUFS, AAC mono. A stand in until Loudlib's own demos are uploaded | CC0 1.0 (public domain) |
+| samples | assets/samples-demo-ambience-kit.mp4 | https://freesound.org/people/Stereo%20Surgeon/sounds/261321/ : "Find Me In The Sky Synth Loop.wav" by Stereo Surgeon, first 12.5 s; trimmed, faded out, levelled to -14 LUFS, AAC mono. A stand in until Loudlib's own demos are uploaded | CC0 1.0 (public domain) |
+| samples | assets/samples-demo-drums-collection.mp4 | https://freesound.org/people/Teacoma/sounds/360375/ : "Minimal Tech House Beat" by Teacoma, its 4 bar loop played one and a half times; trimmed, faded out, levelled to -14 LUFS, AAC mono. A stand in until Loudlib's own demos are uploaded | CC0 1.0 (public domain) |
+| samples | assets/samples-demo-bass-collection.mp4 | https://freesound.org/people/Johnnie_Holiday/sounds/688234/ : "Tech House 808 Bass Loop.wav" by Johnnie_Holiday, first 6 bars; trimmed, faded out, levelled to -14 LUFS, AAC mono. A stand in until Loudlib's own demos are uploaded | CC0 1.0 (public domain) |
+| samples | assets/samples-dj-hands.webp | https://images.unsplash.com/photo-1470225620780-dba8ba36b745 | Unsplash License |
+| samples | assets/samples-studio.webp | https://images.unsplash.com/photo-1598488035139-bdbb2231ce04 | Unsplash License |
+| samples (blog only) | scripts/theme-templates/products/samples/samples-post-kick.webp | https://images.unsplash.com/photo-1563330232-57114bb0823c | Unsplash License |
+| samples (blog only) | scripts/theme-templates/products/samples/samples-post-sidechain.webp | https://images.unsplash.com/photo-1617994452722-4145e196248b | Unsplash License |
+| samples (blog only) | scripts/theme-templates/products/samples/samples-post-vocal-chops.webp | https://images.unsplash.com/photo-1516280440614-37939bbacd81 | Unsplash License |
 | samples (cover only) | scripts/theme-templates/products/samples/samples-pack-serum-presets.webp | Loudlib's own pack box, owner's artwork from its Payhip store (pe56d.s3.amazonaws.com): Serum Presets Vol 1 on a plain dark background | Loudlib (the owner) |
 | samples (cover only) | scripts/theme-templates/products/samples/samples-pack-tech-house-master-bundle.webp | Loudlib's own pack box, owner's artwork from its Payhip store (pe56d.s3.amazonaws.com): Tech House Master Bundle on a plain dark background | Loudlib (the owner) |
 | samples (cover only) | scripts/theme-templates/products/samples/samples-pack-drum-kit.webp | Loudlib's own pack box, owner's artwork from its Payhip store (pe56d.s3.amazonaws.com): Drums One Shots Vol I (Tech House Drum Kit Vol I) on a plain dark background | Loudlib (the owner) |
@@ -230,18 +239,33 @@ They are not part of a template and are never added to a creator's website.
 | samples (cover only) | scripts/theme-templates/products/samples/samples-pack-tech-house-unitech.webp | Loudlib's own pack box, owner's artwork from its Payhip store (pe56d.s3.amazonaws.com): Tech House Unitech Vol I on a plain dark background | Loudlib (the owner) |
 | samples (cover only) | scripts/theme-templates/products/samples/samples-pack-drums-collection.webp | Loudlib's own pack box, owner's artwork from its Payhip store (pe56d.s3.amazonaws.com): Drums Collection (Tech House Drums Collection Vol I) on a plain dark background | Loudlib (the owner) |
 | samples (cover only) | scripts/theme-templates/products/samples/samples-pack-bass-collection.webp | Loudlib's own pack box, owner's artwork from its Payhip store (pe56d.s3.amazonaws.com): Bass Collection (Tech House Bass Collection Vol I) on a plain dark background | Loudlib (the owner) |
-| workspace | assets/workspace-hero.webp | https://images.unsplash.com/photo-1597672996375-4d21cad0cbb9 | Unsplash License |
-| workspace | assets/workspace-feature-projects.webp | https://images.unsplash.com/photo-1597673030062-0a0f1a801a31 | Unsplash License |
-| workspace | assets/workspace-feature-invoices.webp | https://images.unsplash.com/photo-1559163499-413811fb2344 | Unsplash License |
-| workspace | assets/workspace-cta.webp | https://images.unsplash.com/photo-1618826908215-bf5c44ca24af | Unsplash License |
-| workspace | assets/workspace-step-receipt.webp | https://images.unsplash.com/photo-1663524789649-c7abbb378561 | Unsplash License |
-| workspace | assets/workspace-step-duplicate.webp | https://images.unsplash.com/photo-1618344880247-3969cea5b81e | Unsplash License |
-| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-freelance-desk.webp | https://images.unsplash.com/photo-1618344880247-3969cea5b81e, keyboard lettering and mouse logo painted out, screen drawn for this template | Unsplash License |
-| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-meal-planner.webp | https://images.unsplash.com/photo-1618344880247-3969cea5b81e, keyboard lettering and mouse logo painted out, screen drawn for this template | Unsplash License |
-| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-reading-log.webp | https://images.unsplash.com/photo-1618344880247-3969cea5b81e, keyboard lettering and mouse logo painted out, screen drawn for this template | Unsplash License |
-| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-home-budget.webp | https://images.unsplash.com/photo-1618344880247-3969cea5b81e, keyboard lettering and mouse logo painted out, screen drawn for this template | Unsplash License |
-| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-habit-tracker.webp | https://images.unsplash.com/photo-1618344880247-3969cea5b81e, keyboard lettering and mouse logo painted out, screen drawn for this template | Unsplash License |
-| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-study-planner.webp | https://images.unsplash.com/photo-1618344880247-3969cea5b81e, keyboard lettering and mouse logo painted out, screen drawn for this template | Unsplash License |
+| workspace | assets/workspace-hero.webp | Drawn for this template | Storelib |
+| workspace | assets/workspace-feature-projects.webp | Drawn for this template | Storelib |
+| workspace | assets/workspace-feature-invoices.webp | Drawn for this template | Storelib |
+| workspace | assets/workspace-cta.webp | Drawn for this template | Storelib |
+| workspace | assets/workspace-step-receipt.webp | Drawn for this template | Storelib |
+| workspace | assets/workspace-step-duplicate.webp | Drawn for this template | Storelib |
+| workspace | assets/workspace-tour-freelance-desk.webp | Drawn for this template | Storelib |
+| workspace | assets/workspace-tour-meal-planner.webp | Drawn for this template | Storelib |
+| workspace | assets/workspace-tour-reading-log.webp | Drawn for this template | Storelib |
+| workspace | assets/workspace-tour-home-budget.webp | Drawn for this template | Storelib |
+| workspace | assets/workspace-tour-habit-tracker.webp | Drawn for this template | Storelib |
+| workspace | assets/workspace-tour-study-planner.webp | Drawn for this template | Storelib |
+| workspace | assets/workspace-adda-avatar.webp | https://images.unsplash.com/photo-1758874384556-cc2b9dcbb6e0 | Unsplash License |
+| workspace | assets/workspace-adda-hello.webp | https://images.unsplash.com/photo-1758874384556-cc2b9dcbb6e0 | Unsplash License |
+| workspace | assets/workspace-adda-desk.webp | https://images.unsplash.com/photo-1758874384232-cfa79a5babf1 | Unsplash License |
+| workspace | assets/workspace-buyer-1.webp | https://images.unsplash.com/photo-1580489944761-15a19d654956 | Unsplash License |
+| workspace | assets/workspace-buyer-2.webp | https://images.unsplash.com/photo-1662850886700-4ec19bd30d11 | Unsplash License |
+| workspace | assets/workspace-buyer-3.webp | https://images.unsplash.com/photo-1611695434369-a8f5d76ceb7b | Unsplash License |
+| workspace | assets/workspace-buyer-4.webp | https://images.unsplash.com/photo-1745434159123-4908d0b9df94 | Unsplash License |
+| workspace | assets/workspace-buyer-5.webp | https://images.unsplash.com/photo-1749700332031-cf99864959ea | Unsplash License |
+| workspace | assets/workspace-buyer-6.webp | https://images.unsplash.com/photo-1706951413911-a4477e18ccd5 | Unsplash License |
+| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-freelance-desk.webp | Drawn for this template, the Notion screen in a plain window on a flat colour | Storelib |
+| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-meal-planner.webp | Drawn for this template, the Notion screen in a plain window on a flat colour | Storelib |
+| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-reading-log.webp | Drawn for this template, the Notion screen in a plain window on a flat colour | Storelib |
+| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-home-budget.webp | Drawn for this template, the Notion screen in a plain window on a flat colour | Storelib |
+| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-habit-tracker.webp | Drawn for this template, the Notion screen in a plain window on a flat colour | Storelib |
+| workspace (cover only) | scripts/theme-templates/products/workspace/workspace-study-planner.webp | Drawn for this template, the Notion screen in a plain window on a flat colour | Storelib |
 | space | assets/space-moon.webp | Drawn for this template | Storelib |
 | space | assets/space-look-red-jacket.webp | https://images.unsplash.com/photo-1770192988725-2ddf1b4d6ee4 | Unsplash License |
 | space | assets/space-look-puffer.webp | https://images.unsplash.com/photo-1793383828034-7cc59606dc6f | Unsplash License |
@@ -283,44 +307,47 @@ Video sales letter (round 20): the host photographs are one session, used in bla
 | vsl (cover only) | scripts/theme-templates/products/vsl/vsl-course.webp | https://images.unsplash.com/photo-1478737270239-2f02b77fc618 (black and white) | Unsplash License |
 | vsl (cover only) | scripts/theme-templates/products/vsl/vsl-templates.webp | https://images.unsplash.com/photo-1789922129938-f02af2785d19 (black and white) | Unsplash License |
 | vsl (cover only) | scripts/theme-templates/products/vsl/vsl-review-call.webp | https://images.unsplash.com/photo-1694881227503-ddc502d4b4cc (black and white) | Unsplash License |
-| coach | assets/coach-hero.webp | https://images.unsplash.com/photo-1783094268551-536a988e10ee | Unsplash License |
-| coach | assets/coach-about.webp | https://images.unsplash.com/photo-1768875848964-63e9073adc53 | Unsplash License |
-| coach | assets/coach-desk.webp | https://images.unsplash.com/photo-1783094268538-c824d8882890 | Unsplash License |
-| coach | assets/coach-grid-1.webp | https://images.unsplash.com/photo-1783094269388-0a7a2efbd4cf | Unsplash License |
-| coach | assets/coach-grid-5.webp | https://images.unsplash.com/photo-1783094268538-c824d8882890 | Unsplash License |
-| coach | assets/coach-offer-online.webp | https://images.unsplash.com/photo-1783094269325-4ba186e8e01b | Unsplash License |
-| coach | assets/coach-offer-one.webp | https://images.unsplash.com/photo-1776313756922-3252475a6c27 | Unsplash License |
-| coach | assets/coach-offer-group.webp | https://images.unsplash.com/photo-1590650046871-92c887180603 | Unsplash License |
-| coach | assets/coach-journal-1.webp | https://images.unsplash.com/photo-1611850748727-fa3a69ddbdc1 | Unsplash License |
-| coach | assets/coach-journal-2.webp | https://images.unsplash.com/photo-1654785428400-952d7aceceae | Unsplash License |
-| coach | assets/coach-journal-3.webp | https://images.unsplash.com/photo-1586380951230-e6703d9f6833 | Unsplash License |
-| coach | assets/coach-grid-2.webp | https://images.unsplash.com/photo-1600818797017-d6e5027210bb | Unsplash License |
-| coach | assets/coach-grid-3.webp | https://images.unsplash.com/photo-1637689113621-73951984fcc1 | Unsplash License |
-| coach | assets/coach-grid-4.webp | https://images.unsplash.com/photo-1601617956235-c97e358d054f | Unsplash License |
-| coach | assets/coach-guide.webp | https://images.unsplash.com/photo-1555083589-1f063f35718a | Unsplash License |
-| course2 | assets/course2-hero-espresso.webp | https://images.unsplash.com/photo-1790884490386-76c5c17521ba | Unsplash License |
-| course2 | assets/course2-pour-copper.webp | https://images.unsplash.com/photo-1565845120211-ec64763a0dea | Unsplash License |
-| course2 | assets/course2-espresso-drip.webp | https://images.unsplash.com/photo-1616388761741-a5936c6f61f6 | Unsplash License |
-| course2 | assets/course2-teacher-bar.webp | https://images.unsplash.com/photo-1507914372368-b2b085b925a1 | Unsplash License |
-| course2 | assets/course2-cup-window.webp | https://images.unsplash.com/photo-1771736385651-c071580a9d78 | Unsplash License |
-| course2 | assets/course2-pour-over-scale.webp | https://images.unsplash.com/photo-1747852222501-e03aeccd2093 | Unsplash License |
-| course2 | assets/course2-chemex-home.webp | https://images.unsplash.com/photo-1522825180917-a355ef45e880 | Unsplash License |
-| course2 (cover only) | scripts/theme-templates/products/course2/course2-home-barista.webp | Drawn for this template, a lesson screen holding https://images.unsplash.com/photo-1790884490386-76c5c17521ba | Storelib, photograph Unsplash License |
-| course2 (cover only) | scripts/theme-templates/products/course2/course2-home-barista-feedback.webp | Drawn for this template, a call screen holding https://images.unsplash.com/photo-1507914372368-b2b085b925a1 | Storelib, photograph Unsplash License |
-| course2 (cover only) | scripts/theme-templates/products/course2/course2-latte-art.webp | Drawn for this template, a lesson screen holding https://images.unsplash.com/photo-1541167760496-1628856ab772 | Storelib, photograph Unsplash License |
-| course2 (cover only) | scripts/theme-templates/products/course2/course2-pour-over.webp | Drawn for this template, a lesson screen holding https://images.unsplash.com/photo-1747852222501-e03aeccd2093 | Storelib, photograph Unsplash License |
-| course2 (cover only) | scripts/theme-templates/products/course2/course2-one-to-one.webp | Drawn for this template, a call screen holding https://images.unsplash.com/photo-1565845120211-ec64763a0dea | Storelib, photograph Unsplash License |
-| courselanding | assets/courselanding-teacher-field.webp | https://images.unsplash.com/photo-1625669981647-dc396c990a6d | Unsplash License |
-| courselanding | assets/courselanding-indoor-shot.webp | https://images.unsplash.com/photo-1543525469-65b61cc2bc06 | Unsplash License |
+| coach | assets/coach-mateo-hero.webp | https://images.unsplash.com/photo-1789757112859-7a907ef6719c | Unsplash License |
+| coach | assets/coach-mateo-table.webp | https://images.unsplash.com/photo-1789757287443-59c4df41e6e5 | Unsplash License |
+| coach | assets/coach-mateo-avatar.webp | https://images.unsplash.com/photo-1789757287443-59c4df41e6e5 | Unsplash License |
+| coach | assets/coach-mateo-board.webp | https://images.unsplash.com/photo-1789757125300-db26cf8520a4 | Unsplash License |
+| coach | assets/coach-mateo-room.webp | https://images.unsplash.com/photo-1789757125300-db26cf8520a4 | Unsplash License |
+| coach | assets/coach-offer-one.webp | https://images.unsplash.com/photo-1789757305077-7bb5b4f54742 | Unsplash License |
+| coach | assets/coach-offer-group.webp | https://images.unsplash.com/photo-1789757099501-2b221a98f9ea | Unsplash License |
+| coach | assets/coach-offer-day.webp | https://images.unsplash.com/photo-1789757125300-db26cf8520a4 | Unsplash License |
+| coach (cover only) | scripts/theme-templates/products/coach/coach-offer-team.webp | https://images.unsplash.com/photo-1789757112859-7a907ef6719c | Unsplash License |
+| coach (cover only) | scripts/theme-templates/products/coach/coach-offer-gift.webp | https://images.unsplash.com/photo-1789757165446-daec9334f72e | Unsplash License |
+| coach | assets/coach-client-1.webp | https://images.unsplash.com/photo-1531750026848-8ada78f641c2 | Unsplash License |
+| coach | assets/coach-client-2.webp | https://images.unsplash.com/photo-1609371497456-3a55a205d5eb | Unsplash License |
+| coach | assets/coach-client-3.webp | https://images.unsplash.com/photo-1592234789031-94bf65f630ed | Unsplash License |
+| coach | assets/coach-client-4.webp | https://images.unsplash.com/photo-1757744705465-ea08b0ddc38a | Unsplash License |
+| coach | assets/coach-client-5.webp | https://images.unsplash.com/photo-1564564244660-5d73c057f2d2 | Unsplash License |
+| course2 | assets/course2-jonas-hero.webp | https://images.unsplash.com/photo-1671776616696-18c8f211918b | Unsplash License |
+| course2 | assets/course2-jonas-sofa.webp | https://images.unsplash.com/photo-1671776616723-364883405546 | Unsplash License |
+| course2 | assets/course2-hands.webp | https://images.unsplash.com/photo-1671776616821-0bf074346c9c | Unsplash License |
+| course2 | assets/course2-overhead.webp | https://images.unsplash.com/photo-1671776616715-993aa9265ae1 | Unsplash License |
+| course2 | assets/course2-student-laptop.webp | https://images.unsplash.com/photo-1758612215006-66e5e5583c05 | Unsplash License |
+| course2 | assets/course2-student-1.webp | https://images.unsplash.com/photo-1583264277168-58ceba4b84e7 | Unsplash License |
+| course2 | assets/course2-student-2.webp | https://images.unsplash.com/photo-1625241152315-4a698f74ceb7 | Unsplash License |
+| course2 | assets/course2-student-3.webp | https://images.unsplash.com/photo-1602896441343-ed0dc62ed65e | Unsplash License |
+| course2 | assets/course2-student-4.webp | https://images.unsplash.com/photo-1779212508632-673f06f27210 | Unsplash License |
+| course2 | assets/course2-student-5.webp | https://images.unsplash.com/photo-1780322195200-64e71db074c2 | Unsplash License |
+| course2 | assets/course2-student-6.webp | https://images.unsplash.com/photo-1714750977930-e7a7f4611257 | Unsplash License |
+| course2 (cover only) | scripts/theme-templates/products/course2/course2-guitar-from-zero.webp | https://images.unsplash.com/photo-1671776616821-0bf074346c9c | Unsplash License |
+| course2 (cover only) | scripts/theme-templates/products/course2/course2-barre-chords.webp | https://images.unsplash.com/photo-1671776616809-225e4639d252 | Unsplash License |
+| course2 (cover only) | scripts/theme-templates/products/course2/course2-song-library.webp | https://images.unsplash.com/photo-1671776616715-993aa9265ae1 | Unsplash License |
+| course2 (cover only) | scripts/theme-templates/products/course2/course2-video-feedback.webp | https://images.unsplash.com/photo-1758612215010-7d792b85488b | Unsplash License |
+| course2 (cover only) | scripts/theme-templates/products/course2/course2-private-lesson.webp | https://images.unsplash.com/photo-1671776616696-18c8f211918b | Unsplash License |
+| courselanding | assets/courselanding-teacher-desk.webp | https://images.unsplash.com/photo-1770947147650-fab067b8d33b | Unsplash License |
+| courselanding | assets/courselanding-about-desk.webp | https://images.unsplash.com/photo-1663524789647-090d8cbd834b | Unsplash License |
 | courselanding | assets/courselanding-hero-phones.webp | Drawn for this template | Storelib |
 | courselanding | assets/courselanding-step-lesson.webp | Drawn for this template | Storelib |
-| courselanding | assets/courselanding-step-edit.webp | Drawn for this template | Storelib |
-| courselanding | assets/courselanding-step-critique.webp | Drawn for this template | Storelib |
-| courselanding (photos in the drawn screens) | assets/courselanding-hero-phones.webp | https://images.unsplash.com/photo-1584347280431-2dc34362a138, https://images.unsplash.com/photo-1596037016966-3dc477581798, https://images.unsplash.com/photo-1719041375731-305a409a22de | Unsplash License |
-| courselanding (photos in the drawn screens) | assets/courselanding-step-lesson.webp | https://images.unsplash.com/photo-1542897478-7ce007264e56 | Unsplash License |
-| courselanding (photos in the drawn screens) | assets/courselanding-step-edit.webp | https://images.unsplash.com/photo-1719041401422-9e170bc4b9ed | Unsplash License |
-| courselanding (photos in the drawn screens) | assets/courselanding-step-critique.webp | https://images.unsplash.com/photo-1704368705120-9d76163ecc40, https://images.unsplash.com/photo-1529047033375-f402d3da24ca, https://images.unsplash.com/photo-1621590327536-ec88ab47e95f, https://images.unsplash.com/photo-1729695489572-81c3594fa10a, https://images.unsplash.com/photo-1638303322580-5e6aacd59c0d, https://images.unsplash.com/photo-1518882095374-cf178783cdc2 | Unsplash License |
-| courselanding (cover only) | scripts/theme-templates/products/courselanding/*.webp | Drawn for this template, phone screens holding https://images.unsplash.com/photo-1584347280431-2dc34362a138, https://images.unsplash.com/photo-1638303322580-5e6aacd59c0d, https://images.unsplash.com/photo-1719041375731-305a409a22de, https://images.unsplash.com/photo-1543525469-65b61cc2bc06 | Storelib, photographs Unsplash License |
+| courselanding | assets/courselanding-step-sheet.webp | Drawn for this template | Storelib |
+| courselanding | assets/courselanding-step-call.webp | Drawn for this template | Storelib |
+| courselanding (photos in the drawn screens) | assets/courselanding-hero-phones.webp | https://images.unsplash.com/photo-1707902665498-a202981fb5ac | Unsplash License |
+| courselanding (photos in the drawn screens) | assets/courselanding-step-lesson.webp | https://images.unsplash.com/photo-1513128034602-7814ccaddd4e | Unsplash License |
+| courselanding (photos in the drawn screens) | assets/courselanding-step-call.webp | https://images.unsplash.com/photo-1770947147650-fab067b8d33b | Unsplash License |
+| courselanding (cover only) | scripts/theme-templates/products/courselanding/*.webp | Drawn for this template, phone screens holding https://images.unsplash.com/photo-1707902665498-a202981fb5ac, https://images.unsplash.com/photo-1770947147650-fab067b8d33b | Storelib, photographs Unsplash License |
 
 Retro desktop (round 20): the garments are Unsplash photographs cut out, recoloured where a row says so, set on one even grey, with pixel prints drawn for the template laid on the cloth. The hoodie's hood opening is filled with its own fabric. The home picture lays two tees cut from https://images.unsplash.com/photo-1651761179569-4ba2aa054997 (one recoloured sky blue) and the cap from https://images.unsplash.com/photo-1645266729222-17cd32e06fd0 (recoloured black) together; the about picture is the tee recoloured black beside the drawn sticker sheet. The sticker sheet, the wallpaper and every icon are drawn for the template.
 
@@ -333,3 +360,101 @@ Retro desktop (round 20): the garments are Unsplash photographs cut out, recolou
 | retro (cover only) | scripts/theme-templates/products/retro/retro-cursor-cap.webp | https://images.unsplash.com/photo-1645266729222-17cd32e06fd0 (cut out, recoloured black, cursor drawn on) | Unsplash License |
 | retro (cover only) | scripts/theme-templates/products/retro/retro-smiley-beanie.webp | https://images.unsplash.com/photo-1576529598261-96e376f6aabb (cut out, label drawn on) | Unsplash License |
 | retro (cover only) | scripts/theme-templates/products/retro/retro-sticker-pack.webp | Drawn for this template | Storelib |
+
+Author (round 21): the author, Theo Marlow, is two photographs from one session by one photographer (Les Taylor); his round portrait is a crop of the first. The book cover, its pages, the open spread, the phone, the journal pages and the edition pictures are drawn for the template.
+
+| authorbook | assets/authorbook-theo-sofa.webp | https://images.unsplash.com/photo-1761957355207-ebca5793f4c5 | Unsplash License |
+| authorbook | assets/authorbook-theo-face.webp | https://images.unsplash.com/photo-1761957355207-ebca5793f4c5 | Unsplash License |
+| authorbook | assets/authorbook-theo-reading.webp | https://images.unsplash.com/photo-1761957355215-a57f71aaa28a | Unsplash License |
+| authorbook | assets/authorbook-course.webp | https://images.unsplash.com/photo-1588243291559-c4a0c36bc2dc | Unsplash License |
+| authorbook | assets/authorbook-shelf-letter.webp | https://images.unsplash.com/photo-1725582204163-46d1f246ecd6 | Unsplash License |
+| authorbook | assets/authorbook-table.webp | https://images.unsplash.com/photo-1576506542790-51244b486a6b | Unsplash License |
+| authorbook | assets/authorbook-cover.webp | Drawn for this template | Storelib |
+| authorbook | assets/authorbook-page-chapter.webp | Drawn for this template | Storelib |
+| authorbook | assets/authorbook-page-figure.webp | Drawn for this template | Storelib |
+| authorbook | assets/authorbook-spread.webp | Drawn for this template | Storelib |
+| authorbook | assets/authorbook-ed-ebook.webp | Drawn for this template | Storelib |
+| authorbook | assets/authorbook-ed-set.webp | Drawn for this template | Storelib |
+| authorbook | assets/authorbook-ed-audio.webp | Drawn for this template | Storelib |
+| authorbook | assets/authorbook-shelf-book.webp | Drawn for this template | Storelib |
+| authorbook | assets/authorbook-shelf-audio.webp | Drawn for this template | Storelib |
+| authorbook | assets/authorbook-shelf-journal.webp | Drawn for this template | Storelib |
+| authorbook (cover only) | scripts/theme-templates/products/authorbook/authorbook-journal.webp | Drawn for this template | Storelib |
+
+Content creator (round 21): the creator, Nina Brooks, is one session by one photographer (Videodeck): the same woman in her studio. A small logo on her hoodie, the maker's name on the microphone and a logo on the laptop are painted out. The video thumbnails and course covers are those photographs (two of them mirrored) with titles set on them; the Notion style workspace is drawn for the template.
+
+| creatorpro | assets/creatorpro-hero.webp | https://images.unsplash.com/photo-1676380367878-c79a5f40edb6 | Unsplash License |
+| creatorpro | assets/creatorpro-face.webp | https://images.unsplash.com/photo-1676380367878-c79a5f40edb6 | Unsplash License |
+| creatorpro | assets/creatorpro-podcast.webp | https://images.unsplash.com/photo-1676380363734-f2f932ff5981 | Unsplash License |
+| creatorpro | assets/creatorpro-studio.webp | https://images.unsplash.com/photo-1664277497087-51787d2b9d15 | Unsplash License |
+| creatorpro | assets/creatorpro-wide.webp | https://images.unsplash.com/photo-1673767298275-769b08b4f675 | Unsplash License |
+| creatorpro | assets/creatorpro-video-1.webp | https://images.unsplash.com/photo-1664277497087-51787d2b9d15 | Unsplash License |
+| creatorpro | assets/creatorpro-video-2.webp | https://images.unsplash.com/photo-1676380363734-f2f932ff5981 | Unsplash License |
+| creatorpro | assets/creatorpro-video-3.webp | https://images.unsplash.com/photo-1673767298275-769b08b4f675 | Unsplash License |
+| creatorpro | assets/creatorpro-video-4.webp | https://images.unsplash.com/photo-1676380367878-c79a5f40edb6 | Unsplash License |
+| creatorpro | assets/creatorpro-course-launch.webp | https://images.unsplash.com/photo-1664277497087-51787d2b9d15 | Unsplash License |
+| creatorpro | assets/creatorpro-course-youtube.webp | https://images.unsplash.com/photo-1673767298275-769b08b4f675 | Unsplash License |
+| creatorpro | assets/creatorpro-course-os.webp | Drawn for this template | Storelib |
+| creatorpro (cover only) | scripts/theme-templates/products/creatorpro/creatorpro-p-launch.webp | https://images.unsplash.com/photo-1664277497087-51787d2b9d15 (title set under it) | Unsplash License |
+| creatorpro (cover only) | scripts/theme-templates/products/creatorpro/creatorpro-p-youtube.webp | https://images.unsplash.com/photo-1673767298275-769b08b4f675 (title set under it) | Unsplash License |
+| creatorpro (cover only) | scripts/theme-templates/products/creatorpro/creatorpro-p-os.webp | Drawn for this template | Storelib |
+| creatorpro (cover only) | scripts/theme-templates/products/creatorpro/creatorpro-p-call.webp | https://images.unsplash.com/photo-1676380363734-f2f932ff5981 (title set under it) | Unsplash License |
+
+Coach creator (round 21): the coach, Camila Duarte, is one session by one photographer (Jonathan Borba): the same woman in her studio, used for every portrait and behind the scenes picture. The client faces on the sample stories are other Unsplash portraits, cropped round and marked as samples on the page.
+
+| coachpro | assets/coachpro-hero.webp | https://images.unsplash.com/photo-1781888681811-332968760c2a | Unsplash License |
+| coachpro | assets/coachpro-hello.webp | https://images.unsplash.com/photo-1781888684129-cafe12c620d6 | Unsplash License |
+| coachpro | assets/coachpro-foundations.webp | https://images.unsplash.com/photo-1781888695918-815572e954d7 | Unsplash License |
+| coachpro | assets/coachpro-pricing.webp | https://images.unsplash.com/photo-1781888683081-3ac4b43f21db | Unsplash License |
+| coachpro | assets/coachpro-mentoring.webp | https://images.unsplash.com/photo-1781888683045-d8912c04671b | Unsplash License |
+| coachpro | assets/coachpro-show.webp | https://images.unsplash.com/photo-1781888682938-f19d725a223d | Unsplash License |
+| coachpro | assets/coachpro-guide.webp | https://images.unsplash.com/photo-1781888677296-90df0d568cad | Unsplash License |
+| coachpro | assets/coachpro-moment-sofa.webp | https://images.unsplash.com/photo-1781888691534-0ccaad251fbb | Unsplash License |
+| coachpro | assets/coachpro-moment-plans.webp | https://images.unsplash.com/photo-1781888676849-13ed30c58f9a | Unsplash License |
+| coachpro | assets/coachpro-moment-studio.webp | https://images.unsplash.com/photo-1781888684428-bc7320e7df6c | Unsplash License |
+| coachpro | assets/coachpro-moment-floor.webp | https://images.unsplash.com/photo-1781888696823-b858d8dc50dc | Unsplash License |
+| coachpro | assets/coachpro-moment-reading.webp | https://images.unsplash.com/photo-1781888698628-4ad7bd799185 | Unsplash License |
+| coachpro | assets/coachpro-moment-desk.webp | https://images.unsplash.com/photo-1781888695510-5ef62123bbf6 | Unsplash License |
+| coachpro | assets/coachpro-about.webp | https://images.unsplash.com/photo-1781888695843-c3ed78ec8a46 | Unsplash License |
+| coachpro | assets/coachpro-client-1.webp | https://images.unsplash.com/photo-1765046300927-6c1827612c42 | Unsplash License |
+| coachpro | assets/coachpro-client-2.webp | https://images.unsplash.com/photo-1761046543296-5c3c6abe0db1 | Unsplash License |
+| coachpro | assets/coachpro-client-3.webp | https://images.unsplash.com/photo-1790575187751-bb1f1e01a894 | Unsplash License |
+| coachpro | assets/coachpro-client-4.webp | https://images.unsplash.com/photo-1790574318882-572fa08ee6e6 | Unsplash License |
+| coachpro | assets/coachpro-client-5.webp | https://images.unsplash.com/photo-1608174390996-130c25265b8b | Unsplash License |
+
+Digital Renaissance (round 21): the instructor, Karim Nassar, is two photographs from one session by one photographer (Khaled Elshamy). The student faces on the sample results are other Unsplash studio portraits, cropped round and marked as samples. The logo, its mark and the edition covers are drawn for the template.
+
+| renaissance | assets/renaissance-instructor.webp | https://images.unsplash.com/photo-1764545973653-94c40d993495 | Unsplash License |
+| renaissance | assets/renaissance-instructor-about.webp | https://images.unsplash.com/photo-1764546373114-2d7a87221733 | Unsplash License |
+| renaissance | assets/renaissance-student-1.webp | https://images.unsplash.com/photo-1543075270-17e1257ec612 | Unsplash License |
+| renaissance | assets/renaissance-student-2.webp | https://images.unsplash.com/photo-1790574319098-e77deb163ec9 | Unsplash License |
+| renaissance | assets/renaissance-student-3.webp | https://images.unsplash.com/photo-1683539820365-0714bd628fb1 | Unsplash License |
+| renaissance | assets/renaissance-student-4.webp | https://images.unsplash.com/photo-1765046300927-6c1827612c42 | Unsplash License |
+| renaissance | assets/renaissance-student-5.webp | https://images.unsplash.com/photo-1678282352407-4db11e962159 | Unsplash License |
+| renaissance | assets/renaissance-student-6.webp | https://images.unsplash.com/photo-1630955249686-ebfada69d9ac | Unsplash License |
+| renaissance | assets/renaissance-logo.webp | Drawn for this template | Storelib |
+| renaissance (cover only) | scripts/theme-templates/products/renaissance/renaissance-course.webp | Drawn for this template | Storelib |
+| renaissance (cover only) | scripts/theme-templates/products/renaissance/renaissance-cohort.webp | Drawn for this template | Storelib |
+| renaissance (cover only) | scripts/theme-templates/products/renaissance/renaissance-prompts.webp | Drawn for this template | Storelib |
+| renaissance (cover only) | scripts/theme-templates/products/renaissance/renaissance-audit.webp | Drawn for this template | Storelib |
+
+XP shop (round 21): the wallpaper is a real photograph of a green hill under a blue sky with clouds (not the operating system's own picture). The garments are Unsplash photographs cut out, recoloured where a row says so, and set on one even pale ground with a soft shadow; the hill window, balloon, green hilltop button and cloud prints are drawn for the template and laid on the cloth so its folds show through. The home picture lays the crewneck (https://images.unsplash.com/photo-1620799140408-edc6dcb6d633, recoloured green), the tee (https://images.unsplash.com/photo-1651761179569-4ba2aa054997) and the cap (https://images.unsplash.com/photo-1645266729222-17cd32e06fd0, recoloured blue) together. The user pictures beside the sample reviews are object photographs (a daisy, a rubber duck, a goldfish, a guitar, a fish), never faces. The sticker sheet, every icon, the window frames and the taskbar are drawn for the template.
+
+| xpshop | assets/xpshop-wallpaper.webp | https://images.unsplash.com/photo-1762766040661-46fe35939255 | Unsplash License |
+| xpshop | assets/xpshop-hero.webp | https://images.unsplash.com/photo-1620799140408-edc6dcb6d633 | Unsplash License |
+| xpshop | assets/xpshop-about.webp | https://images.unsplash.com/photo-1651761179569-4ba2aa054997 | Unsplash License |
+| xpshop | assets/xpshop-stickers.webp | Drawn for this template | Storelib |
+| xpshop | assets/xpshop-user-1.webp | https://images.unsplash.com/photo-1592339078319-1f8cc9d67888 | Unsplash License |
+| xpshop | assets/xpshop-user-2.webp | https://images.unsplash.com/photo-1720117386029-2e30f1959e78 | Unsplash License |
+| xpshop | assets/xpshop-user-3.webp | https://images.unsplash.com/photo-1668862347626-70a980820f06 | Unsplash License |
+| xpshop | assets/xpshop-user-4.webp | https://images.unsplash.com/photo-1568193755668-aae18714a9f1 | Unsplash License |
+| xpshop | assets/xpshop-user-5.webp | https://images.unsplash.com/photo-1544943910-4c1dc44aab44 | Unsplash License |
+| xpshop (cover only) | scripts/theme-templates/products/xpshop/xpshop-hillside-tee-white.webp | https://images.unsplash.com/photo-1651761179569-4ba2aa054997 (cut out, print drawn on) | Unsplash License |
+| xpshop (sample variants) | scripts/theme-templates/products/xpshop/xpshop-hillside-tee-sky.webp | https://images.unsplash.com/photo-1651761179569-4ba2aa054997 (cut out, recoloured sky blue, print drawn on) | Unsplash License |
+| xpshop (cover only) | scripts/theme-templates/products/xpshop/xpshop-balloon-tee-black.webp | https://images.unsplash.com/photo-1651761179569-4ba2aa054997 (cut out, recoloured black, print drawn on) | Unsplash License |
+| xpshop (sample variants) | scripts/theme-templates/products/xpshop/xpshop-balloon-tee-white.webp | https://images.unsplash.com/photo-1651761179569-4ba2aa054997 (cut out, print drawn on) | Unsplash License |
+| xpshop (cover only) | scripts/theme-templates/products/xpshop/xpshop-start-crew-green.webp | https://images.unsplash.com/photo-1620799140408-edc6dcb6d633 (cut out, recoloured green, print drawn on) | Unsplash License |
+| xpshop (sample variants) | scripts/theme-templates/products/xpshop/xpshop-start-crew-white.webp | https://images.unsplash.com/photo-1620799140408-edc6dcb6d633 (cut out, print drawn on) | Unsplash License |
+| xpshop (cover only) | scripts/theme-templates/products/xpshop/xpshop-cloud-cap-blue.webp | https://images.unsplash.com/photo-1645266729222-17cd32e06fd0 (cut out, recoloured blue, cloud drawn on) | Unsplash License |
+| xpshop (cover only) | scripts/theme-templates/products/xpshop/xpshop-meadow-beanie.webp | https://images.unsplash.com/photo-1576529598261-96e376f6aabb (cut out, recoloured green, label drawn on) | Unsplash License |
+| xpshop (cover only) | scripts/theme-templates/products/xpshop/xpshop-sticker-pack.webp | Drawn for this template | Storelib |

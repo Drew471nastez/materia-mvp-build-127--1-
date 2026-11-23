@@ -141,10 +141,14 @@
     endif
     assign pt_out = pt_ms | divided_by: 2
     comment
-      The new page starts as the old one has gone (no overlap: two pages
-      half seen at once read as a ghost).
+      The new page starts just before the old one has gone: a fifth of the
+      way from the end of its fade. Two pages half seen at once read as a
+      ghost, so the overlap stays that small; but starting only once the
+      old one had gone left a frame of bare background between every two
+      pages (templates round 21, measured: one such frame per page change
+      at a quarter speed on most templates).
     endcomment
-    assign pt_gap = pt_out
+    assign pt_gap = pt_out | times: 4 | divided_by: 5
   -%}
   <style id="speed-page-landing">
     /* The old page stays painted until the new one is ready (Storelib holds it), then a short

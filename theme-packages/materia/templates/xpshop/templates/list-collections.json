@@ -1,0 +1,103 @@
+{
+  "sections": {
+    "main": {
+      "type": "main-list-collections",
+      "settings": {
+        "type": "all",
+        "design": "default",
+        "font_size": 16,
+        "column_gap": 30,
+        "pagination": "default",
+        "image_ratio": "adapt",
+        "padding_top": 24,
+        "color_scheme": "default",
+        "items_per_row": 3,
+        "items_to_show": 8,
+        "reset_spacing": true,
+        "section_width": "full_width",
+        "padding_bottom": 28,
+        "text_alignment": "center",
+        "button_show_more": "Load more",
+        "sort_collections": "alphabetical",
+        "show_product_count": false
+      },
+      "blocks": {},
+      "block_order": []
+    },
+    "promises": {
+      "type": "xpshop-tiles",
+      "settings": {
+        "title": "Good to know",
+        "icon": "info",
+        "heading": "",
+        "subheading": "",
+        "columns": "4",
+        "layout": "side",
+        "numbers": false,
+        "phone_two": false,
+        "status_left": "",
+        "status_right": "",
+        "padding_top": 0,
+        "padding_bottom": 28,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 16
+      },
+      "blocks": {
+        "tile_1": {
+          "type": "tile",
+          "settings": {
+            "icon": "leaf",
+            "picture": "",
+            "title": "Printed to order",
+            "text": "Heavy 240 gsm cotton and water based ink. Nothing sits in a warehouse.",
+            "link": "",
+            "link_label": ""
+          }
+        },
+        "tile_2": {
+          "type": "tile",
+          "settings": {
+            "icon": "truck",
+            "picture": "",
+            "title": "Sent in 2 days",
+            "text": "Tracked, with the number in your inbox the day it leaves.",
+            "link": "/pages/shipping",
+            "link_label": "Delivery times"
+          }
+        },
+        "tile_3": {
+          "type": "tile",
+          "settings": {
+            "icon": "refresh",
+            "picture": "",
+            "title": "30 days to return",
+            "text": "Unworn and unwashed, we refund it. The label is on us.",
+            "link": "/pages/shipping",
+            "link_label": "Returns"
+          }
+        },
+        "tile_4": {
+          "type": "tile",
+          "settings": {
+            "icon": "shield",
+            "picture": "",
+            "title": "Safe checkout",
+            "text": "Cards, Apple Pay and Google Pay. We never see your card.",
+            "link": "",
+            "link_label": ""
+          }
+        }
+      },
+      "block_order": [
+        "tile_1",
+        "tile_2",
+        "tile_3",
+        "tile_4"
+      ]
+    }
+  },
+  "order": [
+    "main",
+    "promises"
+  ]
+}

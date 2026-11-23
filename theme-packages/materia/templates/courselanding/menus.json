@@ -3,7 +3,7 @@
     "title": "Main menu",
     "links": [
       {
-        "title": "Why phones",
+        "title": "Why a plan",
         "url": "/#teacher"
       },
       {
@@ -13,10 +13,6 @@
       {
         "title": "Curriculum",
         "url": "/#curriculum"
-      },
-      {
-        "title": "Reviews",
-        "url": "/#reviews"
       },
       {
         "title": "Questions",

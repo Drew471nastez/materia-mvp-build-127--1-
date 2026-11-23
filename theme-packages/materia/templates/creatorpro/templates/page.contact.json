@@ -1,0 +1,105 @@
+{
+  "sections": {
+    "contact": {
+      "type": "course2-contact",
+      "settings": {
+        "tag": "Contact",
+        "heading": "Send me a message",
+        "accent": "#e8401c",
+        "text": "<p>Questions about a course, a team price, speaking or a brand partnership. I read everything and reply within two working days.</p>",
+        "email_label": "Or email",
+        "email": "hello@ninabrooks.co",
+        "card_tag": "Get in touch",
+        "card_heading": "How can I help?",
+        "card_text": "Tell me a little about your business and what you are working on.",
+        "ph_first": "First name",
+        "ph_last": "Last name",
+        "ph_email": "Email",
+        "ph_message": "Your message",
+        "agree_text": "",
+        "button_label": "Send message",
+        "thanks": "Thank you. I will reply within two working days.",
+        "error": "Please check the form.",
+        "padding_top": 56
+      }
+    },
+    "follow": {
+      "type": "creatorpro-social",
+      "settings": {
+        "accent_color": "#ff5a36",
+        "eyebrow": "Follow along",
+        "heading": "Find me <em>online</em>"
+      },
+      "blocks": {
+        "place_1": {
+          "type": "place",
+          "settings": {
+            "platform": "youtube",
+            "handle": "@ninabrooks",
+            "line": "Long videos every Tuesday",
+            "link": "https://www.youtube.com"
+          }
+        },
+        "place_2": {
+          "type": "place",
+          "settings": {
+            "platform": "instagram",
+            "handle": "@ninabrooks",
+            "line": "Behind the scenes and quick tips",
+            "link": "https://www.instagram.com"
+          }
+        },
+        "place_3": {
+          "type": "place",
+          "settings": {
+            "platform": "tiktok",
+            "handle": "@ninabrooks",
+            "line": "One minute lessons",
+            "link": "https://www.tiktok.com"
+          }
+        },
+        "place_4": {
+          "type": "place",
+          "settings": {
+            "platform": "linkedin",
+            "handle": "Nina Brooks",
+            "line": "Notes on running a business of one",
+            "link": "https://www.linkedin.com"
+          }
+        },
+        "place_5": {
+          "type": "place",
+          "settings": {
+            "platform": "podcast",
+            "name": "Open Tabs",
+            "handle": "Every other Thursday",
+            "line": "Conversations and listener questions",
+            "link": "/#podcast"
+          }
+        },
+        "place_6": {
+          "type": "place",
+          "settings": {
+            "platform": "newsletter",
+            "name": "The Tuesday Letter",
+            "handle": "Free, weekly",
+            "line": "One practical idea a week",
+            "link": "/pages/newsletter"
+          }
+        }
+      },
+      "block_order": [
+        "place_1",
+        "place_2",
+        "place_3",
+        "place_4",
+        "place_5",
+        "place_6"
+      ]
+    }
+  },
+  "order": [
+    "contact",
+    "follow"
+  ]
+}

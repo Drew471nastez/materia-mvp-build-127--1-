@@ -12,18 +12,18 @@
         "custom_image": "",
         "reset_spacing": true,
         "section_width": "fluid_container",
-        "copyright_text": "\u00a9 {{ 'now' | date: '%Y' }} {{ shop.name }}. All rights reserved.",
-        "heading_weight": "500",
+        "copyright_text": "© {{ 'now' | date: '%Y' }} {{ shop.name }}. All rights reserved.",
+        "heading_weight": "600",
         "padding_bottom": 28,
         "separator_line": "all-page",
         "arrow_icon_size": 14,
         "link_hover_color": "",
-        "heading_transform": "uppercase",
+        "heading_transform": "none",
         "custom_text_italic": false,
         "custom_elements_gap": 22,
         "enable_custom_image": false,
         "enable_custom_style": false,
-        "footer_heading_size": 13,
+        "footer_heading_size": 15,
         "enable_custom_text_big": false,
         "enable_country_selector": false,
         "custom_image_size_mobile": 168,
@@ -43,8 +43,8 @@
             "store_phone": false,
             "store_address": false,
             "content_width": "40%",
-            "store_heading": "Leah Morgan Coaching",
-            "store_description": "<p>Life and business coaching for women changing course: a new role, a business of their own, a calmer week.</p>"
+            "store_heading": "Mateo Cruz",
+            "store_description": "<p>Leadership coaching for new managers: one to one, in a small group, or a day with your whole team.</p>"
           }
         },
         "link_list_1": {
@@ -67,7 +67,7 @@
           "type": "link_list",
           "settings": {
             "menu": "footer-hello",
-            "heading": "Say hello",
+            "heading": "Get in touch",
             "content_width": "18%"
           }
         }

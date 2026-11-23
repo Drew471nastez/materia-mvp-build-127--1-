@@ -11,71 +11,71 @@
         "line_above": false,
         "padding_top": 64,
         "padding_bottom": 96,
-        "padding_top_mobile": 64,
+        "padding_top_mobile": 48,
         "padding_bottom_mobile": 56
       },
       "blocks": {
         "question_1": {
           "type": "question",
           "settings": {
-            "question": "Do I need an audience first?",
-            "answer": "<p>No. A list of past clients is enough for a first round of five to ten people. Week four covers where else to find them.</p>"
+            "question": "Do I need expensive gear?",
+            "answer": "<p>No. A USB microphone and a quiet room are enough. Week three has a shopping list at three budgets, the cheapest is about $150.</p>"
           }
         },
         "question_2": {
           "type": "question",
           "settings": {
             "question": "How much time does it take?",
-            "answer": "<p>About two hours a week: one short lesson, one exercise and the Thursday call.</p>"
+            "answer": "<p>About three hours a week: two short lessons, recording one episode and the Thursday call if you can make it.</p>"
           }
         },
         "question_3": {
           "type": "question",
           "settings": {
-            "question": "What exactly do I get?",
-            "answer": "<p>Twelve short lessons, templates for the outline, the sales page and the emails, six live calls and their recordings.</p>"
+            "question": "Audio only, or video too?",
+            "answer": "<p>Both are covered. The lessons start with audio, and one module shows how to film the same conversation for YouTube.</p>"
           }
         },
         "question_4": {
           "type": "question",
           "settings": {
-            "question": "What happens on the free call?",
-            "answer": "<p>You tell us what you do and who for. We tell you honestly whether the course fits. If it does not, there is no pitch.</p>"
+            "question": "Do I need an audience first?",
+            "answer": "<p>No. Week seven covers your first listeners: people you already know, guests who share their episode, and one place to post each week.</p>"
           }
         },
         "question_5": {
           "type": "question",
           "settings": {
             "question": "When does the next round start?",
-            "answer": "<p>On the first Monday of the month. Change this to your own dates.</p>"
+            "answer": "<p>On the first Monday of each month. Change this to your own dates.</p>"
           }
         },
         "question_6": {
           "type": "question",
           "settings": {
             "question": "Can I get a refund?",
-            "answer": "<p>Yes. Within 30 days of joining, for any reason, write to us and you get your money back.</p>"
+            "answer": "<p>Yes. Write within 30 days of joining, for any reason, and you get your money back.</p>"
           }
         },
         "question_7": {
           "type": "question",
           "settings": {
             "question": "Is it live or recorded?",
-            "answer": "<p>Both. Lessons are recorded so you watch when it suits you. The Thursday calls are live and recorded.</p>"
+            "answer": "<p>Lessons are recorded, so you watch when it suits you. The Thursday calls are live and the recording is up the same day.</p>"
           }
         },
         "question_8": {
           "type": "question",
           "settings": {
-            "question": "Do I need special software?",
-            "answer": "<p>No. A video call app and a document editor are enough. The templates open in any of them.</p>"
+            "question": "What software do I need?",
+            "answer": "<p>A free recording app and a free editor. The lessons use free tools only, and show where a paid one saves time.</p>"
           }
         },
         "question_9": {
           "type": "question",
           "settings": {
             "question": "Can I join from any time zone?",
-            "answer": "<p>Yes. Calls are at a set time, and the recording is up the same day.</p>"
+            "answer": "<p>Yes. Calls are at a set time and recorded, and you can send questions in before the call.</p>"
           }
         }
       },
@@ -100,8 +100,8 @@
         "size": "normal",
         "button_label": "Book a free call",
         "button_link": "/pages/book-a-call",
-        "button2_label": "",
-        "button2_link": "",
+        "button2_label": "See the course",
+        "button2_link": "/#join",
         "note": "",
         "glow": true,
         "line_above": true,

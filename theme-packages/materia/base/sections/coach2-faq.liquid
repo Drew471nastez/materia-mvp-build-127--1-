@@ -1,0 +1,93 @@
+{%- comment -%}
+  Coach, second look: questions. A heading, a line and a link on the
+  left; the questions on the right, each opening in place. Built on
+  details and summary, so it opens without a script and is read in order.
+  The height change is eased where the browser can.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign items = section.blocks | where: 'type', 'question'
+  assign tag = 'h2'
+  if st.main_heading
+    assign tag = 'h1'
+  endif
+-%}
+<style>
+  #shopify-section-{{ sid }} .c2f { --ink: {{ st.ink }}; --muted: {{ st.muted }}; --accent: {{ st.accent }}; --line: {{ st.line_color }}; background: {{ st.background }}; padding: {{ st.padding_top_mobile }}px 16px {{ st.padding_bottom_mobile }}px; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .c2f { padding: {{ st.padding_top }}px 32px {{ st.padding_bottom }}px; } }
+  #shopify-section-{{ sid }} .c2f__inner { max-width: var(--page-width, 1310px); margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2f__inner { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.6fr); gap: 72px; align-items: start; } #shopify-section-{{ sid }} .c2f__side { position: sticky; top: 100px; } }
+  #shopify-section-{{ sid }} .c2f__eyebrow { margin: 0 0 12px; color: var(--accent); font-size: 13px; font-weight: 600; letter-spacing: .04em; }
+  #shopify-section-{{ sid }} .c2f__h { margin: 0; color: var(--ink); font-family: var(--heading-font, inherit); font-weight: 700; letter-spacing: -0.035em; line-height: 1.04; font-size: 34px; text-wrap: balance; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .c2f__h { font-size: 48px; } }
+  #shopify-section-{{ sid }} .c2f__t { margin: 16px 0 0; color: var(--muted); font-size: 16px; line-height: 1.6; }
+  #shopify-section-{{ sid }} .c2f__t p { margin: 0; }
+  #shopify-section-{{ sid }} .c2f__t a { color: var(--ink); font-weight: 600; text-underline-offset: 3px; }
+  #shopify-section-{{ sid }} .c2f__list { border-top: 1px solid var(--line); }
+  #shopify-section-{{ sid }} .c2f__item { border-bottom: 1px solid var(--line); interpolate-size: allow-keywords; }
+  #shopify-section-{{ sid }} .c2f__item::details-content { height: 0; overflow: clip; transition: height .3s ease, content-visibility .3s allow-discrete; }
+  #shopify-section-{{ sid }} .c2f__item[open]::details-content { height: auto; }
+  #shopify-section-{{ sid }} .c2f__q { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 22px 0; color: var(--ink); font-size: 18px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.35; cursor: pointer; list-style: none; }
+  #shopify-section-{{ sid }} .c2f__q::-webkit-details-marker { display: none; }
+  #shopify-section-{{ sid }} .c2f__icon { position: relative; width: 32px; height: 32px; flex: none; border-radius: 50%; background: color-mix(in srgb, var(--ink) 6%, transparent); transition: background-color .2s ease; }
+  #shopify-section-{{ sid }} .c2f__icon::before, #shopify-section-{{ sid }} .c2f__icon::after { content: ""; position: absolute; top: 50%; left: 50%; width: 12px; height: 2px; margin: -1px 0 0 -6px; border-radius: 2px; background: var(--ink); transition: transform .25s ease, background-color .2s ease; }
+  #shopify-section-{{ sid }} .c2f__icon::after { transform: rotate(90deg); }
+  #shopify-section-{{ sid }} .c2f__item[open] .c2f__icon { background: var(--accent); }
+  #shopify-section-{{ sid }} .c2f__item[open] .c2f__icon::before, #shopify-section-{{ sid }} .c2f__item[open] .c2f__icon::after { background: #fff; }
+  #shopify-section-{{ sid }} .c2f__item[open] .c2f__icon::after { transform: rotate(0deg); }
+  #shopify-section-{{ sid }} .c2f__a { padding: 0 52px 24px 0; color: var(--muted); font-size: 16px; line-height: 1.65; }
+  #shopify-section-{{ sid }} .c2f__a p { margin: 0 0 10px; }
+  @media (prefers-reduced-motion: reduce) { #shopify-section-{{ sid }} .c2f__item::details-content { transition: none; } }
+</style>
+
+<div class="c2f color-{{ color_scheme }}">
+  <div class="c2f__inner">
+    <div class="c2f__side">
+      {%- if st.eyebrow != blank -%}<p class="c2f__eyebrow">{{ st.eyebrow | escape }}</p>{%- endif -%}
+      {%- if st.heading != blank -%}<{{ tag }} class="c2f__h">{{ st.heading }}</{{ tag }}>{%- endif -%}
+      {%- if st.text != blank -%}<div class="c2f__t">{{ st.text }}</div>{%- endif -%}
+    </div>
+    <div class="c2f__list">
+      {%- for b in items -%}
+        <details class="c2f__item"{% if forloop.first and st.open_first %} open{% endif %} {{ b.shopify_attributes }}>
+          <summary class="c2f__q">{{ b.settings.question | escape }}<span class="c2f__icon" aria-hidden="true"></span></summary>
+          <div class="c2f__a">{{ b.settings.answer }}</div>
+        </details>
+      {%- endfor -%}
+    </div>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Coach questions",
+  "tag": "section",
+  "class": "section sec__coach2-faq",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default-color-scheme" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#ffffff" },
+    { "type": "color", "id": "ink", "label": "Heading colour", "default": "#0f1115" },
+    { "type": "color", "id": "muted", "label": "Text colour", "default": "#4b5160" },
+    { "type": "color", "id": "accent", "label": "Accent", "default": "#2b44ff" },
+    { "type": "color", "id": "line_color", "label": "Lines", "default": "#e4e6ea" },
+    { "type": "checkbox", "id": "main_heading", "label": "This is the page's main heading", "default": false },
+    { "type": "checkbox", "id": "open_first", "label": "First question open", "default": true },
+    { "type": "text", "id": "eyebrow", "label": "Small label", "default": "Questions" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "Before you book" },
+    { "type": "richtext", "id": "text", "label": "Text" },
+    { "type": "range", "id": "padding_top", "label": "Space above, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 104 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 104 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 64 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 64 }
+  ],
+  "blocks": [
+    { "type": "question", "name": "Question", "settings": [
+      { "type": "text", "id": "question", "label": "Question", "default": "A question people ask" },
+      { "type": "richtext", "id": "answer", "label": "Answer", "default": "<p>A short, straight answer.</p>" }
+    ] }
+  ],
+  "presets": [ { "name": "Coach questions", "blocks": [ { "type": "question" }, { "type": "question" }, { "type": "question" } ] } ]
+}
+{% endschema %}

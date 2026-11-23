@@ -1,0 +1,453 @@
+{%- comment -%}
+  Materia Themes. More product information blocks, for Main product and
+  Featured product alike (included from snippets/product-info-blocks):
+
+    delivery_estimate  "Get it Thu 28 Nov to Tue 3 Dec", worked out in the
+                       shopper's browser from the working days you set,
+                       with an optional order-by time. Hidden for products
+                       that do not ship.
+    stock_level        In stock, Only 3 left or Sold out, from the variant's
+                       real stock only (never a number typed in a setting),
+                       following the variant picked.
+    offer_timer        A countdown to the end date you set. No date, or a
+                       date gone by: nothing shows.
+    guarantee_row      Up to four short promises with icons.
+    whats_included     A list of what comes in the box or the download.
+    comparison_table   A small table: this product against the usual kind.
+    faq_accordion      Questions and answers, or the product's own questions
+                       from the product editor.
+    quote_card         One customer's words, with a photo and stars.
+    link_button        A button to any page, or to a Form popup
+                       (#open-form-<name>) for "Ask a question".
+
+  Colours come from the section's colour scheme (--color-text, --color-heading,
+  --color-border, the primary button colour as the accent), corners from Theme
+  settings > Cards (--card-radius), type from Theme settings > Typography.
+  Scripts move only transform and opacity, and the timers stop under reduced
+  motion's rules only where they animate (the numbers still count).
+
+  Inputs: block, product, section, product_form_id.
+{%- endcomment -%}
+{%- liquid
+  assign pxb = block.settings
+  assign px_bid = block.id
+  assign px_design = request.design_mode
+  assign px_pt = pxb.spacing_top | default: 12
+  assign px_pb = pxb.spacing_bottom | default: 12
+-%}
+{%- unless pix_css_once -%}
+<style data-pix-css>
+  .pix { --pix-accent: var(--btn-primary-bg-color, var(--color-primary)); --pix-line: color-mix(in srgb, var(--color-text) 14%, transparent); --pix-soft: color-mix(in srgb, var(--color-text) 4%, transparent); --pix-muted: color-mix(in srgb, var(--color-text) 70%, transparent); --pix-radius: max(8px, min(var(--card-radius, 8px), 18px)); margin: var(--pix-mt, 12px) 0 var(--pix-mb, 12px); color: var(--color-text); font-size: 15px; line-height: 1.5; }
+  .pix svg { display: block; flex: none; }
+  .pix__h { margin: 0 0 12px; font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 600); font-size: 17px; line-height: 1.3; color: var(--color-heading, var(--color-text)); }
+  .pix__box { border: 1px solid var(--pix-line); border-radius: var(--pix-radius); padding: 16px 18px; }
+  .pix__row { display: flex; align-items: flex-start; gap: 12px; }
+  .pix__ico { width: 22px; height: 22px; color: var(--pix-accent); }
+  .pix__muted { color: var(--pix-muted); }
+  .pix strong { font-weight: 600; color: var(--color-heading, var(--color-text)); }
+  /* Delivery estimate */
+  .pix-del__line + .pix-del__line { margin-top: 2px; }
+  .pix-del [data-pix-when] { white-space: nowrap; }
+  /* Stock level */
+  .pix-stock { display: inline-flex; align-items: center; gap: 9px; font-weight: 500; }
+  .pix-stock__dot { position: relative; width: 9px; height: 9px; border-radius: 50%; background: #1f9d55; flex: none; }
+  .pix-stock[data-level="low"] .pix-stock__dot { background: #d97706; }
+  .pix-stock[data-level="out"] .pix-stock__dot { background: color-mix(in srgb, var(--color-text) 35%, transparent); }
+  .pix-stock__dot::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: inherit; opacity: .45; animation: pix-pulse 2s ease-out infinite; }
+  .pix-stock[data-level="out"] .pix-stock__dot::after { display: none; }
+  @keyframes pix-pulse { from { transform: scale(1); opacity: .45; } to { transform: scale(2.6); opacity: 0; } }
+  .pix-stock__bar { display: block; height: 4px; margin-top: 8px; border-radius: 2px; background: var(--pix-line); overflow: hidden; max-width: 320px; }
+  .pix-stock__bar[hidden] { display: none; }
+  .pix-stock__bar > i { display: block; height: 100%; width: 100%; background: #d97706; transform-origin: left; transform: scaleX(var(--pix-fill, .2)); transition: transform .4s ease; }
+  /* Offer timer */
+  .pix-timer { display: flex; align-items: center; justify-content: space-between; gap: 12px 16px; flex-wrap: wrap; }
+  .pix-timer__label { font-weight: 600; color: var(--color-heading, var(--color-text)); }
+  .pix-timer__units { display: flex; gap: 6px; }
+  .pix-timer__u { min-width: 50px; padding: 6px 4px 5px; border-radius: calc(var(--pix-radius) * .6); background: var(--pix-soft); text-align: center; }
+  .pix-timer__n { display: block; font-size: 20px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--color-heading, var(--color-text)); }
+  .pix-timer__t { display: block; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--pix-muted); }
+  .pix-timer--accent { background: color-mix(in srgb, var(--pix-accent) 8%, transparent); border-color: color-mix(in srgb, var(--pix-accent) 30%, transparent); }
+  /* Guarantee row */
+  .pix-gr { display: grid; grid-template-columns: repeat(var(--pix-cols, 3), minmax(0, 1fr)); gap: 10px; }
+  .pix-gr__i { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; padding: 14px 8px; }
+  .pix-gr--boxed .pix-gr__i { border: 1px solid var(--pix-line); border-radius: var(--pix-radius); }
+  .pix-gr--left .pix-gr__i { flex-direction: row; text-align: left; align-items: center; gap: 10px; padding: 10px 4px; }
+  .pix-gr__ico { width: 26px; height: 26px; color: var(--pix-accent); }
+  .pix-gr__t, .pix-gr__s, .pix-q__name, .pix-q__meta { display: block; }
+  .pix-gr__t { font-weight: 600; font-size: 14px; line-height: 1.3; color: var(--color-heading, var(--color-text)); }
+  .pix-gr__s { font-size: 13px; line-height: 1.35; color: var(--pix-muted); }
+  @media (max-width: 749px) { .pix-gr { grid-template-columns: repeat(min(var(--pix-cols, 3), var(--pix-cols-m, 3)), minmax(0, 1fr)); } }
+  /* What's included */
+  .pix-inc { display: flex; gap: 16px; align-items: flex-start; }
+  .pix-inc__img { width: 96px; flex: none; border-radius: calc(var(--pix-radius) * .7); overflow: hidden; background: var(--pix-soft); }
+  .pix-inc__img img { display: block; width: 100%; height: auto; }
+  .pix-inc ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .pix-inc li { display: flex; gap: 10px; align-items: flex-start; }
+  .pix-inc li svg { width: 18px; height: 18px; margin-top: 2px; color: var(--pix-accent); }
+  .pix-inc--two ul { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 18px; }
+  @media (max-width: 480px) { .pix-inc--two ul { grid-template-columns: 1fr; } .pix-inc__img { width: 72px; } }
+  /* Comparison */
+  .pix-cmp { width: 100%; border-collapse: separate; border-spacing: 0; border: 1px solid var(--pix-line); border-radius: var(--pix-radius); overflow: hidden; font-size: 14px; }
+  .pix-cmp th, .pix-cmp td { padding: 11px 14px; text-align: center; border-top: 1px solid var(--pix-line); }
+  .pix .pix-cmp th, .pix .pix-cmp td { border-left: 0; border-right: 0; border-bottom: 0; background-clip: padding-box; }
+  .pix .pix-cmp thead th { border-top: 0; }
+  .pix-cmp thead th { border-top: 0; font-weight: 600; font-size: 13px; color: var(--color-heading, var(--color-text)); }
+  .pix-cmp th:first-child, .pix-cmp td:first-child { text-align: left; }
+  .pix-cmp .pix-cmp__us { background: color-mix(in srgb, var(--pix-accent) 7%, transparent); }
+  .pix-cmp thead .pix-cmp__us { color: var(--pix-accent); }
+  .pix-cmp__y, .pix-cmp__n { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; vertical-align: middle; }
+  .pix-cmp__y { background: var(--pix-accent); color: var(--btn-primary-color, #fff); }
+  .pix-cmp__n { background: var(--pix-soft); color: var(--pix-muted); }
+  .pix-cmp__y svg, .pix-cmp__n svg { width: 13px; height: 13px; }
+  /* FAQ */
+  .pix-faq__i { border-top: 1px solid var(--pix-line); }
+  .pix-faq__i:last-child { border-bottom: 1px solid var(--pix-line); }
+  .pix-faq summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 15px 0; cursor: pointer; list-style: none; font-weight: 600; color: var(--color-heading, var(--color-text)); }
+  .pix-faq summary::-webkit-details-marker { display: none; }
+  .pix-faq summary:focus-visible { outline: 2px solid var(--pix-accent); outline-offset: 2px; }
+  .pix-faq__x { position: relative; width: 14px; height: 14px; flex: none; }
+  .pix-faq__x::before, .pix-faq__x::after { content: ""; position: absolute; left: 0; top: 6px; width: 14px; height: 2px; border-radius: 1px; background: currentColor; transition: transform .25s ease; }
+  .pix-faq__x::after { transform: rotate(90deg); }
+  .pix-faq details[open] .pix-faq__x::after { transform: rotate(0deg); }
+  .pix-faq__a { padding: 0 0 16px; color: var(--pix-muted); }
+  .pix-faq__a > :first-child { margin-top: 0; } .pix-faq__a > :last-child { margin-bottom: 0; }
+  .pix-faq details[open] .pix-faq__a { animation: pix-in .25s ease; }
+  @keyframes pix-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+  /* Quote */
+  .pix-q { display: grid; gap: 12px; padding: 18px 20px; background: var(--pix-soft); border-radius: var(--pix-radius); }
+  .pix-q__stars { display: flex; gap: 2px; color: var(--pix-stars, #f5a623); }
+  .pix-q__stars svg { width: 16px; height: 16px; }
+  .pix .pix-q__text { margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; font-style: normal; quotes: none; }
+  .pix .pix-q__text::before, .pix .pix-q__text::after { content: none; }
+  .pix-q__text { margin: 0; font-size: 16px; line-height: 1.55; color: var(--color-heading, var(--color-text)); }
+  .pix-q__text p { margin: 0; }
+  .pix-q__who { display: flex; align-items: center; gap: 12px; }
+  .pix-q__av { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex: none; }
+  .pix-q__name { font-weight: 600; font-size: 14px; color: var(--color-heading, var(--color-text)); }
+  .pix-q__meta { font-size: 13px; color: var(--pix-muted); }
+  /* Link button */
+  .pix-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; cursor: pointer; }
+  .pix-btn--full { display: flex; width: 100%; }
+  .pix-btn svg { width: 18px; height: 18px; }
+  .pix-btn--text { padding: 0; border: 0; background: none; color: var(--color-heading, var(--color-text)); font-weight: 500; text-decoration: underline; text-underline-offset: 3px; }
+  .pix-hint { padding: 12px 14px; border: 1px dashed var(--pix-line); border-radius: var(--pix-radius); font-size: 13px; color: var(--pix-muted); }
+  @media (prefers-reduced-motion: reduce) { .pix-stock__dot::after { animation: none; } .pix-stock__bar > i { transition: none; } .pix-faq details[open] .pix-faq__a { animation: none; } .pix-faq__x::before, .pix-faq__x::after { transition: none; } }
+</style>
+<script>
+  (function () {
+    if (window.__pixReady) { window.__pixScan && window.__pixScan(); return; }
+    window.__pixReady = true;
+    var lang = document.documentElement.lang || undefined;
+    var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+    function addDays(d, n, skip) {
+      var x = new Date(d.getTime());
+      while (n > 0) { x.setDate(x.getDate() + 1); if (!skip || (x.getDay() !== 0 && x.getDay() !== 6)) n--; }
+      return x;
+    }
+    function fmt(d) {
+      try { return new Intl.DateTimeFormat(lang, { weekday: 'short', day: 'numeric', month: 'short' }).format(d); } catch (e) { return d.toDateString().slice(0, 10); }
+    }
+    function delivery(el) {
+      var c = JSON.parse(el.getAttribute('data-pix-delivery') || '{}');
+      var now = new Date(), start = now, skip = !!c.skip;
+      var cut = +c.cutoff || 0;
+      if (skip && (now.getDay() === 0 || now.getDay() === 6)) cut = 0;
+      var past = cut && now.getHours() >= cut;
+      if (past || (skip && (now.getDay() === 0 || now.getDay() === 6))) start = addDays(now, 1, skip);
+      var a = addDays(start, Math.max(0, +c.min || 0), skip), z = addDays(start, Math.max(+c.min || 0, +c.max || 0), skip);
+      var when = a.toDateString() === z.toDateString() ? fmt(a) : (c.between || '[start] to [end]').replace('[start]', fmt(a)).replace('[end]', fmt(z));
+      var w = el.querySelector('[data-pix-when]');
+      if (w) w.textContent = when;
+      var line = el.querySelector('[data-pix-cutoff]');
+      if (!line) return;
+      var tick = function () {
+        var n = new Date(), end = new Date(n); end.setHours(cut, 0, 0, 0);
+        var ms = end - n;
+        if (!cut || ms <= 0 || (skip && (n.getDay() === 0 || n.getDay() === 6))) { line.hidden = true; return; }
+        var h = Math.floor(ms / 36e5), m = Math.floor(ms % 36e5 / 6e4);
+        var t = line.querySelector('[data-pix-left]');
+        if (t) t.textContent = (h ? h + 'h ' : '') + m + 'm';
+        line.hidden = false;
+      };
+      tick();
+      setInterval(tick, 30000);
+    }
+    function timer(el) {
+      var end = Date.parse(el.getAttribute('data-pix-timer'));
+      if (isNaN(end)) return;
+      var units = el.querySelectorAll('[data-pix-u]');
+      var tick = function () {
+        var ms = end - Date.now();
+        if (ms <= 0) { el.hidden = true; clearInterval(iv); return; }
+        var v = { d: Math.floor(ms / 864e5), h: Math.floor(ms % 864e5 / 36e5), m: Math.floor(ms % 36e5 / 6e4), s: Math.floor(ms % 6e4 / 1e3) };
+        for (var i = 0; i < units.length; i++) { var k = units[i].getAttribute('data-pix-u'); var t = k === 'd' ? String(v.d) : pad(v[k]); if (units[i].textContent !== t) units[i].textContent = t; }
+        el.hidden = false;
+      };
+      var iv = setInterval(tick, 1000);
+      tick();
+    }
+    function stock(el) {
+      var map = {};
+      try { map = JSON.parse(el.querySelector('script[type="application/json"]').textContent); } catch (e) { return; }
+      var form = document.getElementById(el.getAttribute('data-pix-form'));
+      var show = function (id) {
+        var v = map[id];
+        if (!v) return;
+        var level = !v[0] ? 'out' : (v[1] && v[2] <= +el.getAttribute('data-pix-at') ? 'low' : 'in');
+        var words = el.getAttribute('data-pix-' + level) || '';
+        if (level === 'in' && el.hasAttribute('data-pix-hide-in')) { el.hidden = true; return; }
+        el.hidden = false;
+        el.setAttribute('data-level', level);
+        var pill = el.querySelector('.pix-stock');
+        if (pill) pill.setAttribute('data-level', level);
+        var t = el.querySelector('[data-pix-text]');
+        if (t) t.textContent = words.replace('[count]', v[2]);
+        var bar = el.querySelector('.pix-stock__bar');
+        if (bar) { bar.hidden = level !== 'low'; bar.style.setProperty('--pix-fill', Math.max(.08, Math.min(1, v[2] / Math.max(1, +el.getAttribute('data-pix-at') * 2)))); }
+      };
+      var read = function () { var i = form && form.querySelector('[name="id"]'); if (i && i.value) show(i.value); };
+      document.addEventListener('change', function () { setTimeout(read, 0); });
+      document.addEventListener('variant:change', function (e) { if (e.detail && e.detail.variant) show(String(e.detail.variant.id)); });
+      if (typeof window.subscribe === 'function' && window.PUB_SUB_EVENTS && window.PUB_SUB_EVENTS.variantChange) {
+        window.subscribe(window.PUB_SUB_EVENTS.variantChange, function (e) { var v = e && e.data && e.data.variant; if (v) show(String(v.id)); });
+      }
+      if (form && window.MutationObserver) { var i = form.querySelector('[name="id"]'); if (i) new MutationObserver(read).observe(i, { attributes: true, attributeFilter: ['value'] }); }
+    }
+    function scan() {
+      var all = document.querySelectorAll('[data-pix-delivery]:not([data-pix-on]), [data-pix-timer]:not([data-pix-on]), [data-pix-stock]:not([data-pix-on])');
+      for (var i = 0; i < all.length; i++) {
+        var el = all[i];
+        el.setAttribute('data-pix-on', '');
+        try {
+          if (el.hasAttribute('data-pix-delivery')) delivery(el);
+          else if (el.hasAttribute('data-pix-timer')) timer(el);
+          else stock(el);
+        } catch (e) {}
+      }
+    }
+    window.__pixScan = scan;
+    document.addEventListener('shopify:section:load', scan);
+    document.addEventListener('shopify:block:select', scan);
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', scan); else scan();
+  })();
+</script>
+{%- endunless -%}
+{%- capture pix_check -%}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>{%- endcapture -%}
+{%- capture pix_cross -%}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>{%- endcapture -%}
+{%- case block.type -%}
+
+{%- when 'delivery_estimate' -%}
+  {%- liquid
+    assign px_ships = true
+    if product.requires_shipping == false and pxb.hide_digital
+      assign px_ships = false
+    endif
+    assign px_between = pxb.between_text | default: '[start] to [end]'
+    assign px_arrive = pxb.arrive_text | default: 'Get it [dates]'
+    assign arrive_parts = px_arrive | escape | split: '[dates]'
+    assign cutoff_parts = pxb.cutoff_text | default: 'Order in the next [time] to send today' | escape | split: '[time]'
+  -%}
+  {%- if px_ships or px_design -%}
+    <div class="pix pix-del{% if pxb.boxed %} pix__box{% endif %}" style="--pix-mt: {{ px_pt }}px; --pix-mb: {{ px_pb }}px" data-pix-delivery="{&quot;min&quot;:{{ pxb.min_days | default: 2 }},&quot;max&quot;:{{ pxb.max_days | default: 5 }},&quot;skip&quot;:{% if pxb.skip_weekends %}true{% else %}false{% endif %},&quot;cutoff&quot;:{{ pxb.cutoff_hour | default: 0 }},&quot;between&quot;:{{ px_between | json | escape }}}" {{ block.shopify_attributes }}>
+      <div class="pix__row">
+        <span class="pix__ico"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="2.5" y="6.5" width="11.5" height="9.5" rx="1.5" stroke="currentColor" stroke-width="1.6"/><path d="M14 9.5h4.2c.4 0 .7.2.9.5l2.2 3c.2.2.2.5.2.8v1.7a.5.5 0 0 1-.5.5H19.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="7.5" cy="17.5" r="1.8" stroke="currentColor" stroke-width="1.6"/><circle cx="17.5" cy="17.5" r="1.8" stroke="currentColor" stroke-width="1.6"/></svg></span>
+        <div>
+          <div class="pix-del__line">{{ arrive_parts[0] }}<strong data-pix-when>{{ pxb.min_days | default: 2 }} to {{ pxb.max_days | default: 5 }} {% if pxb.skip_weekends %}working {% endif %}days</strong>{{ arrive_parts[1] }}</div>
+          {%- if pxb.cutoff_hour > 0 -%}
+            <div class="pix-del__line pix__muted" data-pix-cutoff hidden>{{ cutoff_parts[0] }}<strong data-pix-left></strong>{{ cutoff_parts[1] }}</div>
+          {%- endif -%}
+          {%- if pxb.note != blank -%}<div class="pix-del__line pix__muted">{{ pxb.note | escape }}</div>{%- endif -%}
+        </div>
+      </div>
+    </div>
+  {%- endif -%}
+
+{%- when 'stock_level' -%}
+  {%- liquid
+    assign pxv = product.selected_or_first_available_variant
+    assign low_at = pxb.low_at | default: 5
+    assign pxlevel = 'in'
+    if pxv.available == false
+      assign pxlevel = 'out'
+    elsif pxv.inventory_management != blank and pxv.inventory_quantity <= low_at
+      assign pxlevel = 'low'
+    endif
+    assign w_in = pxb.in_text | default: 'In stock, ready to send'
+    assign w_low = pxb.low_text | default: 'Only [count] left'
+    assign w_out = pxb.out_text | default: 'Sold out'
+    case pxlevel
+      when 'low'
+        assign pxwords = w_low | replace: '[count]', pxv.inventory_quantity
+      when 'out'
+        assign pxwords = w_out
+      else
+        assign pxwords = w_in
+    endcase
+    assign hide_now = false
+    if pxlevel == 'in' and pxb.show_in_stock == false
+      assign hide_now = true
+    endif
+  -%}
+  {%- unless product == empty -%}
+    <div class="pix" style="--pix-mt: {{ px_pt }}px; --pix-mb: {{ px_pb }}px" data-pix-stock data-pix-form="{{ product_form_id }}" data-pix-at="{{ low_at }}" data-pix-in="{{ w_in | escape }}" data-pix-low="{{ w_low | escape }}" data-pix-out="{{ w_out | escape }}"{% unless pxb.show_in_stock %} data-pix-hide-in{% endunless %} data-level="{{ pxlevel }}"{% if hide_now %} hidden{% endif %} {{ block.shopify_attributes }}>
+      <span class="pix-stock" data-level="{{ pxlevel }}"><span class="pix-stock__dot" aria-hidden="true"></span><span data-pix-text>{{ pxwords | escape }}</span></span>
+      {%- if pxb.show_bar -%}<span class="pix-stock__bar" aria-hidden="true"{% unless pxlevel == 'low' %} hidden{% endunless %}><i></i></span>{%- endif -%}
+      <script type="application/json">{ {%- for pxx in product.variants -%}{{ pxx.id | json }}:[{% if pxx.available %}1{% else %}0{% endif %},{% if pxx.inventory_management != blank %}1{% else %}0{% endif %},{{ pxx.inventory_quantity | default: 0 }}]{%- unless forloop.last -%},{%- endunless -%}{%- endfor -%} }</script>
+    </div>
+  {%- endunless -%}
+
+{%- when 'offer_timer' -%}
+  {%- liquid
+    assign px_end = ''
+    if pxb.end_date != blank
+      assign px_hh = pxb.end_hour | default: 23 | plus: 0
+      assign px_hh_s = px_hh | prepend: '0' | slice: -2, 2
+      assign px_end = pxb.end_date | strip | append: 'T' | append: px_hh_s | append: ':00:00'
+    endif
+  -%}
+  {%- if px_end != blank -%}
+    <div class="pix pix__box pix-timer{% if pxb.style == 'accent' %} pix-timer--accent{% endif %}" style="--pix-mt: {{ px_pt }}px; --pix-mb: {{ px_pb }}px" data-pix-timer="{{ px_end }}" hidden role="timer" {{ block.shopify_attributes }}>
+      <span class="pix-timer__label">{{ pxb.label | default: 'Offer ends in' | escape }}</span>
+      <span class="pix-timer__units" aria-live="off">
+        <span class="pix-timer__u"><span class="pix-timer__n" data-pix-u="d">0</span><span class="pix-timer__t">{{ pxb.days_word | default: 'Days' | escape }}</span></span>
+        <span class="pix-timer__u"><span class="pix-timer__n" data-pix-u="h">00</span><span class="pix-timer__t">{{ pxb.hours_word | default: 'Hrs' | escape }}</span></span>
+        <span class="pix-timer__u"><span class="pix-timer__n" data-pix-u="m">00</span><span class="pix-timer__t">{{ pxb.minutes_word | default: 'Min' | escape }}</span></span>
+        <span class="pix-timer__u"><span class="pix-timer__n" data-pix-u="s">00</span><span class="pix-timer__t">{{ pxb.seconds_word | default: 'Sec' | escape }}</span></span>
+      </span>
+    </div>
+  {%- elsif px_design -%}
+    <div class="pix pix-hint" style="--pix-mt: {{ px_pt }}px; --pix-mb: {{ px_pb }}px" {{ block.shopify_attributes }}>Offer timer: set an end date in this block. It shows until then, and never without a date.</div>
+  {%- endif -%}
+
+{%- when 'guarantee_row' -%}
+  {%- assign gr_count = 0 -%}
+  {%- for i in (1..4) -%}
+    {%- assign gk = 'title_' | append: i -%}
+    {%- if pxb[gk] != blank -%}{%- assign gr_count = gr_count | plus: 1 -%}{%- endif -%}
+  {%- endfor -%}
+  {%- if gr_count > 0 -%}
+    <div class="pix pix-gr pix-gr--{{ pxb.style | default: 'boxed' }}" style="--pix-mt: {{ px_pt }}px; --pix-mb: {{ px_pb }}px; --pix-cols: {{ gr_count }}; --pix-cols-m: {{ pxb.columns_mobile | default: 3 }}" {{ block.shopify_attributes }}>
+      {%- for i in (1..4) -%}
+        {%- assign gk = 'title_' | append: i -%}
+        {%- assign gs = 'text_' | append: i -%}
+        {%- assign gi = 'icon_' | append: i -%}
+        {%- if pxb[gk] != blank -%}
+          <div class="pix-gr__i">
+            <span class="pix-gr__ico">{%- render 'product-info-extras-icon', name: pxb[gi] -%}</span>
+            <span><span class="pix-gr__t">{{ pxb[gk] | escape }}</span>{%- if pxb[gs] != blank -%}<span class="pix-gr__s">{{ pxb[gs] | escape }}</span>{%- endif -%}</span>
+          </div>
+        {%- endif -%}
+      {%- endfor -%}
+    </div>
+  {%- endif -%}
+
+{%- when 'whats_included' -%}
+  {%- assign inc_lines = pxb.items | newline_to_br | split: '<br />' -%}
+  <div class="pix{% if pxb.boxed %} pix__box{% endif %}" style="--pix-mt: {{ px_pt }}px; --pix-mb: {{ px_pb }}px" {{ block.shopify_attributes }}>
+    {%- if pxb.heading != blank -%}<p class="pix__h">{{ pxb.heading | escape }}</p>{%- endif -%}
+    <div class="pix-inc{% if pxb.two_columns %} pix-inc--two{% endif %}">
+      {%- if pxb.image != blank -%}<span class="pix-inc__img"><img src="{{ pxb.image | image_url: width: 240 }}" alt="{{ pxb.image.alt | escape }}" width="{{ pxb.image.width }}" height="{{ pxb.image.height }}" loading="lazy"></span>{%- endif -%}
+      <ul>
+        {%- for pxline in inc_lines -%}
+          {%- assign pxt = pxline | strip_newlines | strip -%}
+          {%- if pxt != blank -%}<li>{{ pix_check }}<span>{{ pxt | escape }}</span></li>{%- endif -%}
+        {%- endfor -%}
+      </ul>
+    </div>
+  </div>
+
+{%- when 'comparison_table' -%}
+  {%- assign cmp_lines = pxb.rows | newline_to_br | split: '<br />' -%}
+  <div class="pix" style="--pix-mt: {{ px_pt }}px; --pix-mb: {{ px_pb }}px" {{ block.shopify_attributes }}>
+    {%- if pxb.heading != blank -%}<p class="pix__h">{{ pxb.heading | escape }}</p>{%- endif -%}
+    <table class="pix-cmp">
+      <thead><tr><th scope="col"><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">{{ pxb.feature_word | default: 'Feature' | escape }}</span></th><th scope="col" class="pix-cmp__us">{{ pxb.us_label | default: 'Ours' | escape }}</th><th scope="col">{{ pxb.them_label | default: 'Others' | escape }}</th></tr></thead>
+      <tbody>
+        {%- for pxline in cmp_lines -%}
+          {%- assign pxcells = pxline | strip_newlines | split: '|' -%}
+          {%- assign pxlabel = pxcells[0] | strip -%}
+          {%- if pxlabel != blank -%}
+            <tr>
+              <th scope="row" style="font-weight:500">{{ pxlabel | escape }}</th>
+              {%- for ci in (1..2) -%}
+                {%- assign pxc = pxcells[ci] | strip -%}
+                {%- assign pxcl = pxc | downcase -%}
+                <td{% if ci == 1 %} class="pix-cmp__us"{% endif %}>
+                  {%- if pxcl == 'yes' or pxcl == 'y' or pxcl == 'true' -%}<span class="pix-cmp__y" role="img" aria-label="{{ pxb.yes_word | default: 'Yes' | escape }}">{{ pix_check }}</span>
+                  {%- elsif pxcl == 'no' or pxcl == 'n' or pxcl == 'false' or pxc == blank -%}<span class="pix-cmp__n" role="img" aria-label="{{ pxb.no_word | default: 'No' | escape }}">{{ pix_cross }}</span>
+                  {%- else -%}{{ pxc | escape }}{%- endif -%}
+                </td>
+              {%- endfor -%}
+            </tr>
+          {%- endif -%}
+        {%- endfor -%}
+      </tbody>
+    </table>
+  </div>
+
+{%- when 'faq_accordion' -%}
+  {%- liquid
+    assign own_faqs = product.metafields.storelib.faqs.value
+    assign use_own = false
+    if pxb.use_product_faqs and own_faqs != blank and own_faqs.size > 0
+      assign use_own = true
+    endif
+    assign faq_any = use_own
+    for i in (1..5)
+      assign qk = 'q_' | append: i
+      if pxb[qk] != blank
+        assign faq_any = true
+      endif
+    endfor
+  -%}
+  {%- if faq_any -%}
+    <div class="pix pix-faq" style="--pix-mt: {{ px_pt }}px; --pix-mb: {{ px_pb }}px" {{ block.shopify_attributes }}>
+      {%- if pxb.heading != blank -%}<p class="pix__h">{{ pxb.heading | escape }}</p>{%- endif -%}
+      {%- if use_own -%}
+        {%- for f in own_faqs -%}
+          <div class="pix-faq__i"><details{% if forloop.first and pxb.first_open %} open{% endif %}><summary><span>{{ f.question | escape }}</span><span class="pix-faq__x" aria-hidden="true"></span></summary><div class="pix-faq__a">{{ f.answer_html | default: f.answer }}</div></details></div>
+        {%- endfor -%}
+      {%- else -%}
+        {%- for i in (1..5) -%}
+          {%- assign qk = 'q_' | append: i -%}
+          {%- assign ak = 'a_' | append: i -%}
+          {%- if pxb[qk] != blank -%}
+            <div class="pix-faq__i"><details{% if forloop.first and pxb.first_open %} open{% endif %}><summary><span>{{ pxb[qk] | escape }}</span><span class="pix-faq__x" aria-hidden="true"></span></summary><div class="pix-faq__a">{{ pxb[ak] }}</div></details></div>
+          {%- endif -%}
+        {%- endfor -%}
+      {%- endif -%}
+    </div>
+  {%- endif -%}
+
+{%- when 'quote_card' -%}
+  {%- if pxb.quote != blank -%}
+    <figure class="pix pix-q" style="--pix-mt: {{ px_pt }}px; --pix-mb: {{ px_pb }}px;{% if pxb.star_color != blank %} --pix-pxstars: {{ pxb.star_color }};{% endif %}" {{ block.shopify_attributes }}>
+      {%- assign pxstars = pxb.stars | default: 0 -%}
+      {%- if pxstars > 0 -%}
+        <span class="pix-q__stars" role="img" aria-label="{{ pxstars }} / 5">
+          {%- for i in (1..pxstars) -%}<svg viewBox="0 0 20 20" aria-hidden="true"><path fill="currentColor" d="M10 1.8l2.5 5.1 5.6.8-4.1 4 1 5.6L10 14.6l-5 2.7 1-5.6-4.1-4 5.6-.8z"/></svg>{%- endfor -%}
+        </span>
+      {%- endif -%}
+      <blockquote class="pix-q__text">{{ pxb.quote }}</blockquote>
+      {%- if pxb.author != blank or pxb.avatar != blank -%}
+        <figcaption class="pix-q__who">
+          {%- if pxb.avatar != blank -%}<img class="pix-q__av" src="{{ pxb.avatar | image_url: width: 96 }}" alt="" width="40" height="40" loading="lazy">{%- endif -%}
+          <span><span class="pix-q__name">{{ pxb.author | escape }}</span>{%- if pxb.detail != blank -%}<span class="pix-q__meta">{{ pxb.detail | escape }}</span>{%- endif -%}</span>
+        </figcaption>
+      {%- endif -%}
+    </figure>
+  {%- endif -%}
+
+{%- when 'link_button' -%}
+  {%- if pxb.label != blank -%}
+    {%- assign lb_style = pxb.style | default: 'secondary' -%}
+    <div class="pix" style="--pix-mt: {{ px_pt }}px; --pix-mb: {{ px_pb }}px" {{ block.shopify_attributes }}>
+      <a class="pix-btn{% if pxb.full_width %} pix-btn--full{% endif %}{% case lb_style %}{% when 'primary' %} btn btn-primary{% when 'secondary' %} btn btn-outline{% when 'text' %} pix-btn--text{% endcase %}"{% if lb_style == 'primary' %} data-theme-button="primary" data-sl-button{% elsif lb_style == 'secondary' %} data-theme-button="secondary"{% endif %} href="{{ pxb.link | default: '#open-form-contact' }}">
+        {%- if pxb.icon != 'none' and pxb.icon != blank -%}<span class="pix__ico" style="width:18px;height:18px;color:currentColor">{%- render 'product-info-extras-icon', name: pxb.icon -%}</span>{%- endif -%}
+        <span>{{ pxb.label | escape }}</span>
+      </a>
+    </div>
+  {%- endif -%}
+
+{%- endcase -%}
+{%- assign pix_css_once = true -%}

@@ -1,0 +1,180 @@
+{
+  "sections": {
+    "faq": {
+      "type": "authorbook-faq",
+      "settings": {
+        "eyebrow": "Questions",
+        "heading": "Questions, <em>answered</em>",
+        "accent_color": "#c4471f",
+        "icon_bg": "#f5f2ec",
+        "text": "<p>The questions readers ask most. Anything else, <a href=\"/pages/contact\">write to me</a>.</p>",
+        "padding_top": 72
+      },
+      "blocks": {
+        "question_1": {
+          "type": "question",
+          "settings": {
+            "question": "Is this a paper book?",
+            "answer": "<p>It is an ebook and an audiobook. The ebook comes as PDF and EPUB, so it opens on a phone, a tablet, a Kindle, a Kobo or a laptop. Replace this with your own formats.</p>"
+          }
+        },
+        "question_2": {
+          "type": "question",
+          "settings": {
+            "question": "How do I get it after paying?",
+            "answer": "<p>A download link arrives by email straight away, and the files stay in your account so you can download them again.</p>"
+          }
+        },
+        "question_3": {
+          "type": "question",
+          "settings": {
+            "question": "I do not read much now. Is it for me?",
+            "answer": "<p>Yes. The book is written for people who used to read and stopped. Chapter one asks for twenty pages a day, nothing more.</p>"
+          }
+        },
+        "question_4": {
+          "type": "question",
+          "settings": {
+            "question": "What is the free chapter?",
+            "answer": "<p>The whole of chapter one, The Twenty Page Day, as a PDF. Leave your email at the top of the page and it arrives in a minute.</p>"
+          }
+        },
+        "question_5": {
+          "type": "question",
+          "settings": {
+            "question": "What if it is not for me?",
+            "answer": "<p>Write within 30 days and you get every cent back. Replace this with your own terms.</p>"
+          }
+        },
+        "question_6": {
+          "type": "question",
+          "settings": {
+            "question": "Can I buy it for someone else?",
+            "answer": "<p>Yes. Put their email at checkout, or forward the download email. Write to me if you want a gift note added.</p>"
+          }
+        },
+        "question_7": {
+          "type": "question",
+          "settings": {
+            "question": "Do you offer copies for book clubs or teams?",
+            "answer": "<p>Yes, at a lower price per copy. <a href=\"/pages/contact\">Write to me</a> with how many you need.</p>"
+          }
+        },
+        "question_8": {
+          "type": "question",
+          "settings": {
+            "question": "Is there a paperback?",
+            "answer": "<p>Not yet. Join Marginalia and you will hear first when there is.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "question_1",
+        "question_2",
+        "question_3",
+        "question_4",
+        "question_5",
+        "question_6",
+        "question_7",
+        "question_8"
+      ]
+    },
+    "cta": {
+      "type": "authorbook-cta",
+      "settings": {
+        "band_color": "#c4471f",
+        "image": "shopify://shop_images/authorbook-cover.webp",
+        "image_alt": "Read More, Keep More",
+        "heading": "Start with chapter one tonight",
+        "text": "<p>Twenty five minutes of reading and the first habit of the book, free.</p>",
+        "button_label": "Send me chapter one",
+        "button_link": "#open-form-chapter",
+        "button_color": "#1d2b4f",
+        "button2_label": "Buy the book",
+        "button2_link": "/#buy",
+        "button2_text_color": "#1d2b4f"
+      }
+    },
+    "chapter_form": {
+      "type": "form-modal",
+      "settings": {
+        "form_key": "chapter",
+        "sends_to": "subscribe",
+        "accent_color": "#c4471f",
+        "text_align": "center",
+        "width": 480,
+        "corners": "theme",
+        "success_heading": "Chapter one is on its way",
+        "success_text": "<p>Check your inbox in a minute. If nothing arrives, look in spam.</p>"
+      },
+      "blocks": {
+        "image_1": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/authorbook-cover.webp",
+            "fit": "contain",
+            "max_height": 190
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "eyebrow": "Free chapter",
+            "heading": "Read chapter one *free*",
+            "size": 30
+          }
+        },
+        "text_3": {
+          "type": "text",
+          "settings": {
+            "text": "<p>The Twenty Page Day, as a PDF. Plus Marginalia on Sundays.</p>"
+          }
+        },
+        "field_4": {
+          "type": "field",
+          "settings": {
+            "kind": "name",
+            "label": "First name",
+            "required": false
+          }
+        },
+        "field_5": {
+          "type": "field",
+          "settings": {
+            "kind": "email",
+            "label": "Email address"
+          }
+        },
+        "button_6": {
+          "type": "button",
+          "settings": {
+            "label": "Send me chapter one",
+            "arrow": true
+          }
+        },
+        "note_7": {
+          "type": "note",
+          "settings": {
+            "icon": "lock",
+            "text": "Your email stays private.",
+            "small": "<p>Leave whenever you like.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "image_1",
+        "heading_2",
+        "text_3",
+        "field_4",
+        "field_5",
+        "button_6",
+        "note_7"
+      ]
+    }
+  },
+  "order": [
+    "faq",
+    "cta",
+    "chapter_form"
+  ]
+}

@@ -1,0 +1,156 @@
+{%- comment -%}
+  Notion templates: a look inside each template. A row of tabs, one per
+  template; the picked one shows its picture beside a few lines, its price
+  and a link. The pictures sit on top of each other and cross fade, so
+  the section never changes height. On a phone the tabs scroll sideways.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign tabs = section.blocks | where: 'type', 'tab'
+-%}
+<style>
+  #shopify-section-{{ sid }} .wst { padding: {{ st.padding_top_mobile }}px 16px {{ st.padding_bottom_mobile }}px; background: {{ st.background }}; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .wst { padding: {{ st.padding_top }}px 32px {{ st.padding_bottom }}px; } }
+  #shopify-section-{{ sid }} .wst__inner { max-width: var(--page-width, 1310px); margin: 0 auto; }
+  #shopify-section-{{ sid }} .wst__head { max-width: 680px; margin: 0 auto 32px; text-align: center; }
+  #shopify-section-{{ sid }} .wst__eyebrow { margin: 0 0 12px; color: {{ st.muted }}; font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
+  #shopify-section-{{ sid }} .wst__h { margin: 0; color: {{ st.ink }}; font-family: var(--heading-font, inherit); font-weight: 700; letter-spacing: -0.025em; line-height: 1.1; font-size: 30px; text-wrap: balance; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .wst__h { font-size: 40px; } }
+  #shopify-section-{{ sid }} .wst__tabs { display: flex; gap: 6px; justify-content: center; margin: 0 auto 28px; padding: 4px; width: max-content; max-width: 100%; border-radius: 12px; background: {{ st.tab_ground }}; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity; }
+  #shopify-section-{{ sid }} .wst__tabs::-webkit-scrollbar { display: none; }
+  @media (max-width: 749px) { #shopify-section-{{ sid }} .wst__tabs { justify-content: flex-start; width: auto; margin-left: -16px; margin-right: -16px; border-radius: 0; padding: 4px 16px; background: transparent; } }
+  #shopify-section-{{ sid }} .wst__tab { flex: none; scroll-snap-align: start; appearance: none; border: 0; margin: 0; padding: 9px 16px; border-radius: 9px; background: transparent; color: {{ st.muted }}; font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; white-space: nowrap; transition: background-color .2s ease, color .2s ease, box-shadow .2s ease; }
+  @media (max-width: 749px) { #shopify-section-{{ sid }} .wst__tab { background: {{ st.tab_ground }}; } }
+  #shopify-section-{{ sid }} .wst__tab[aria-selected="true"] { background: #fff; color: {{ st.ink }}; box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04); }
+  #shopify-section-{{ sid }} .wst__tab:focus-visible { outline: 2px solid {{ st.ink }}; outline-offset: 2px; }
+  #shopify-section-{{ sid }} .wst__stage { display: grid; }
+  #shopify-section-{{ sid }} .wst__panel { grid-area: 1 / 1; display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-items: center; opacity: 0; visibility: hidden; transition: opacity .35s ease, visibility 0s linear .35s; }
+  #shopify-section-{{ sid }} .wst__panel.is-on { opacity: 1; visibility: visible; transition: opacity .35s ease, visibility 0s; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .wst__panel { grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 56px; } }
+  #shopify-section-{{ sid }} .wst__pic { position: relative; margin: 0; aspect-ratio: 4 / 3; border-radius: 18px; overflow: hidden; background: {{ st.tab_ground }}; }
+  #shopify-section-{{ sid }} .wst__pic img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; margin: 0; }
+  #shopify-section-{{ sid }} .wst__title { margin: 0 0 10px; color: {{ st.ink }}; font-family: var(--heading-font, inherit); font-size: 26px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
+  #shopify-section-{{ sid }} .wst__text { color: {{ st.muted }}; font-size: 16px; line-height: 1.65; }
+  #shopify-section-{{ sid }} .wst__text p { margin: 0 0 12px; }
+  #shopify-section-{{ sid }} .wst__list { margin: 16px 0 0; padding: 0; list-style: none; border-top: 1px solid {{ st.line_color }}; }
+  #shopify-section-{{ sid }} .wst__list li { display: flex; justify-content: space-between; gap: 16px; padding: 11px 0; border-bottom: 1px solid {{ st.line_color }}; color: {{ st.muted }}; font-size: 14px; }
+  #shopify-section-{{ sid }} .wst__list li b { color: {{ st.ink }}; font-weight: 600; }
+  #shopify-section-{{ sid }} .wst__link { display: inline-flex; align-items: center; gap: 8px; margin-top: 22px; color: {{ st.ink }}; font-size: 15px; font-weight: 600; text-decoration: none; border-bottom: 2px solid {{ st.accent }}; padding-bottom: 2px; }
+  #shopify-section-{{ sid }} .wst__link span { transition: transform .2s ease; }
+  #shopify-section-{{ sid }} .wst__link:hover span { transform: translateX(3px); }
+  @media (prefers-reduced-motion: reduce) { #shopify-section-{{ sid }} .wst__panel, #shopify-section-{{ sid }} .wst__tab { transition: none; } }
+</style>
+
+<div class="wst color-{{ color_scheme }}" data-wst>
+  <div class="wst__inner">
+    {%- if st.heading != blank or st.eyebrow != blank -%}
+      <div class="wst__head">
+        {%- if st.eyebrow != blank -%}<p class="wst__eyebrow">{{ st.eyebrow | escape }}</p>{%- endif -%}
+        {%- if st.heading != blank -%}<h2 class="wst__h">{{ st.heading }}</h2>{%- endif -%}
+      </div>
+    {%- endif -%}
+    {%- if tabs.size > 0 -%}
+      <div class="wst__tabs" role="tablist" aria-label="{{ st.heading | strip_html | escape }}">
+        {%- for b in tabs -%}
+          <button class="wst__tab" type="button" role="tab" id="wst-{{ sid }}-t{{ forloop.index }}" aria-controls="wst-{{ sid }}-p{{ forloop.index }}" aria-selected="{% if forloop.first %}true{% else %}false{% endif %}" tabindex="{% if forloop.first %}0{% else %}-1{% endif %}" {{ b.shopify_attributes }}>{{ b.settings.label | escape }}</button>
+        {%- endfor -%}
+      </div>
+      <div class="wst__stage">
+        {%- for b in tabs -%}
+          {%- assign bs = b.settings -%}
+          <div class="wst__panel{% if forloop.first %} is-on{% endif %}" role="tabpanel" id="wst-{{ sid }}-p{{ forloop.index }}" aria-labelledby="wst-{{ sid }}-t{{ forloop.index }}"{% unless forloop.first %} aria-hidden="true"{% endunless %}>
+            <figure class="wst__pic">
+              {%- if bs.image != blank -%}
+                <img src="{{ bs.image | image_url: width: 1100 }}" srcset="{{ bs.image | image_url: width: 600 }} 600w, {{ bs.image | image_url: width: 1100 }} 1100w" sizes="(min-width: 990px) 680px, 94vw" width="{{ bs.image.width | default: 1200 }}" height="{{ bs.image.height | default: 900 }}" alt="{{ bs.image_alt | default: bs.label | escape }}" loading="lazy" decoding="async">
+              {%- endif -%}
+            </figure>
+            <div>
+              {%- if bs.title != blank -%}<h3 class="wst__title">{{ bs.title | escape }}</h3>{%- endif -%}
+              {%- if bs.text != blank -%}<div class="wst__text">{{ bs.text }}</div>{%- endif -%}
+              {%- if bs.row_1 != blank or bs.row_2 != blank or bs.row_3 != blank -%}
+                <ul class="wst__list">
+                  {%- for r in (1..3) -%}
+                    {%- assign k = 'row_' | append: r -%}
+                    {%- if bs[k] != blank -%}
+                      {%- assign parts = bs[k] | split: ':' -%}
+                      <li><span>{{ parts[0] | strip | escape }}</span>{% if parts.size > 1 %}<b>{{ parts[1] | strip | escape }}</b>{% endif %}</li>
+                    {%- endif -%}
+                  {%- endfor -%}
+                </ul>
+              {%- endif -%}
+              {%- if bs.link_label != blank -%}<a class="wst__link" href="{{ bs.link | default: '/collections/all' }}">{{ bs.link_label | escape }} <span aria-hidden="true">&rarr;</span></a>{%- endif -%}
+            </div>
+          </div>
+        {%- endfor -%}
+      </div>
+    {%- endif -%}
+  </div>
+</div>
+
+<script>
+  (function () {
+    var root = document.querySelector('#shopify-section-{{ sid }} [data-wst]');
+    if (!root || root.dataset.ready) return;
+    root.dataset.ready = '1';
+    var tabs = Array.prototype.slice.call(root.querySelectorAll('.wst__tab'));
+    var panels = Array.prototype.slice.call(root.querySelectorAll('.wst__panel'));
+    function pick(i, focus) {
+      tabs.forEach(function (t, j) { t.setAttribute('aria-selected', j === i ? 'true' : 'false'); t.tabIndex = j === i ? 0 : -1; });
+      panels.forEach(function (p, j) { p.classList.toggle('is-on', j === i); if (j === i) p.removeAttribute('aria-hidden'); else p.setAttribute('aria-hidden', 'true'); });
+      if (focus) tabs[i].focus();
+      var bar = tabs[i].parentNode;
+      if (bar.scrollWidth > bar.clientWidth) bar.scrollTo({ left: tabs[i].offsetLeft - 16, behavior: 'smooth' });
+    }
+    tabs.forEach(function (t, i) {
+      t.addEventListener('click', function () { pick(i, false); });
+      t.addEventListener('keydown', function (e) {
+        if (e.key === 'ArrowRight') { e.preventDefault(); pick((i + 1) % tabs.length, true); }
+        if (e.key === 'ArrowLeft') { e.preventDefault(); pick((i - 1 + tabs.length) % tabs.length, true); }
+      });
+    });
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Look inside",
+  "tag": "section",
+  "class": "section sec__workspace-tour",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default-color-scheme" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#fbfbfa" },
+    { "type": "color", "id": "tab_ground", "label": "Tab row", "default": "#f0efea" },
+    { "type": "color", "id": "ink", "label": "Heading colour", "default": "#1f1f1d" },
+    { "type": "color", "id": "muted", "label": "Text colour", "default": "#5b5a55" },
+    { "type": "color", "id": "accent", "label": "Accent", "default": "#ffd84a" },
+    { "type": "color", "id": "line_color", "label": "Lines", "default": "#e6e5e0" },
+    { "type": "text", "id": "eyebrow", "label": "Small label", "default": "Look inside" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "See each template before you buy" },
+    { "type": "range", "id": "padding_top", "label": "Space above, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 }
+  ],
+  "blocks": [
+    {
+      "type": "tab",
+      "name": "Template",
+      "settings": [
+        { "type": "text", "id": "label", "label": "Tab", "default": "Template" },
+        { "type": "image_picker", "id": "image", "label": "Picture" },
+        { "type": "text", "id": "image_alt", "label": "Alt text" },
+        { "type": "text", "id": "title", "label": "Title", "default": "Template name" },
+        { "type": "richtext", "id": "text", "label": "Text", "default": "<p>What it keeps track of, in two or three lines.</p>" },
+        { "type": "text", "id": "row_1", "label": "Line 1", "info": "Write a label and a value with a colon between, like Price: $12.", "default": "Price: $12" },
+        { "type": "text", "id": "row_2", "label": "Line 2", "default": "Pages: 4" },
+        { "type": "text", "id": "row_3", "label": "Line 3" },
+        { "type": "text", "id": "link_label", "label": "Link", "default": "See the template" },
+        { "type": "url", "id": "link", "label": "Link to" }
+      ]
+    }
+  ],
+  "presets": [ { "name": "Look inside", "blocks": [ { "type": "tab", "settings": { "label": "First" } }, { "type": "tab", "settings": { "label": "Second" } } ] } ]
+}
+{% endschema %}

@@ -1,0 +1,19 @@
+
+  #shopify-section-intro .c2i { background: #ffffff; padding: 40px 16px 24px; }
+  @media (min-width: 750px) { #shopify-section-intro .c2i { padding: 72px 32px 40px; } }
+  #shopify-section-intro .c2i__inner { max-width: var(--page-width, 1310px); margin: 0 auto; }
+  #shopify-section-intro .c2i__eyebrow { display: inline-flex; align-items: center; gap: 10px; margin: 0 0 18px; color: #0f1115; font-size: 13px; font-weight: 600; }
+  #shopify-section-intro .c2i__eyebrow::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #2b44ff; }
+  #shopify-section-intro .c2i__h { margin: 0; max-width: 18ch; color: #0f1115; font-family: var(--heading-font, inherit); font-weight: 700; letter-spacing: -0.045em; line-height: 1; font-size: 40px; text-wrap: balance; }
+  @media (min-width: 750px) { #shopify-section-intro .c2i__h { font-size: 72px; } }
+  #shopify-section-intro .c2i__h em { font-style: normal; color: #2b44ff; }
+  #shopify-section-intro .c2i__t { margin: 20px 0 0; max-width: 58ch; color: #4b5160; font-size: 18px; line-height: 1.6; }
+  #shopify-section-intro .c2i__t p { margin: 0; }
+  #shopify-section-intro .c2i__row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 28px; margin-top: 32px; padding-top: 22px; border-top: 1px solid #e4e6ea; }
+  #shopify-section-intro .c2i__who { display: flex; align-items: center; gap: 12px; }
+  #shopify-section-intro .c2i__who img { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; margin: 0; }
+  #shopify-section-intro .c2i__who b { display: block; color: #0f1115; font-size: 15px; }
+  #shopify-section-intro .c2i__who span { display: block; color: #4b5160; font-size: 13.5px; }
+  #shopify-section-intro .c2i__facts { display: flex; flex-wrap: wrap; gap: 10px 24px; margin: 0; padding: 0; list-style: none; color: #0f1115; font-size: 15px; font-weight: 500; }
+  #shopify-section-intro .c2i__facts li { display: inline-flex; align-items: center; gap: 8px; }
+  #shopify-section-intro .c2i__facts svg { width: 18px; height: 18px; color: #2b44ff; }

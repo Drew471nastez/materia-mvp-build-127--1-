@@ -1,0 +1,151 @@
+
+  #shopify-section-newsletter_popup { position: static; }
+  #shopify-section-newsletter_popup .fm {
+    --fm-radius: min(28px, max(10px, calc(var(--card-radius, 6px) * 2)));
+    --fm-field-radius: var(--input-border-radius, min(14px, max(6px, var(--card-radius, 6px))));
+    --fm-w: 460px;
+    --fm-accent: #2c7a22;
+    --fm-scrim: rgba(12, 12, 16, 0.45);
+    --fm-line: color-mix(in srgb, var(--color-text) 16%, transparent);
+    --fm-field-bg: color-mix(in srgb, var(--color-text) 3.5%, var(--color-background));
+    --fm-muted: color-mix(in srgb, var(--color-text) 68%, transparent);
+    --fm-ease: cubic-bezier(.2, .8, .2, 1);
+  }
+  /* The dialog is the whole screen and transparent; the dimmed page and the panel are drawn inside it, so both can move. */
+  #shopify-section-newsletter_popup dialog.fm {
+    position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none;
+    margin: 0; padding: 0; border: 0; background: transparent; color: inherit; overflow: hidden;
+  }
+  #shopify-section-newsletter_popup dialog.fm::backdrop { background: transparent; }
+  #shopify-section-newsletter_popup dialog.fm[open] { display: flex; align-items: center; justify-content: center; }
+  #shopify-section-newsletter_popup .fm__scrim {
+    position: absolute; inset: 0; background: var(--fm-scrim);
+    opacity: 0; transition: opacity .28s ease;
+  }
+  #shopify-section-newsletter_popup .fm__panel {
+    position: relative; box-sizing: border-box; width: min(var(--fm-w), calc(100vw - 32px));
+    max-height: calc(100dvh - 48px); overflow: auto; overscroll-behavior: contain;
+    padding: 44px 44px 32px; border-radius: var(--fm-radius);
+    background: var(--color-background); color: var(--color-text);
+    box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 24px 64px -12px rgba(0,0,0,.28);
+    font-family: var(--body-font, inherit);
+    opacity: 0; transform: translateY(12px) scale(.97);
+    transition: opacity .26s ease, transform .34s var(--fm-ease);
+  }
+  #shopify-section-newsletter_popup .fm[data-state="open"] .fm__scrim { opacity: 1; }
+  #shopify-section-newsletter_popup .fm[data-state="open"] .fm__panel { opacity: 1; transform: none; }
+  #shopify-section-newsletter_popup .fm__panel:focus { outline: none; }
+  #shopify-section-newsletter_popup .fm__handle { display: none; }
+  #shopify-section-newsletter_popup .fm__close {
+    position: absolute; top: 16px; right: 16px; z-index: 1; display: grid; place-items: center;
+    width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%; cursor: pointer;
+    background: color-mix(in srgb, var(--color-text) 7%, transparent); color: var(--color-heading, var(--color-text));
+    transition: background-color .2s ease;
+  }
+  #shopify-section-newsletter_popup .fm__close:hover { background: color-mix(in srgb, var(--color-text) 13%, transparent); }
+  #shopify-section-newsletter_popup .fm__close:focus-visible { outline: 2px solid var(--fm-accent); outline-offset: 2px; }
+  #shopify-section-newsletter_popup .fm__close svg { width: 18px; height: 18px; }
+  #shopify-section-newsletter_popup .fm__body { text-align: left; }
+  #shopify-section-newsletter_popup .fm__body > * + * { margin-top: 16px; }
+  #shopify-section-newsletter_popup .fm__img { display: block; width: 100%; height: auto; max-height: var(--fm-img-h, 180px); object-fit: contain; border-radius: calc(var(--fm-radius) * .5); }
+  #shopify-section-newsletter_popup .fm__img--cover { object-fit: cover; }
+  #shopify-section-newsletter_popup .fm__eyebrow { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--fm-accent); }
+  #shopify-section-newsletter_popup .fm__title {
+    margin: 0; padding-right: 36px; font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 700);
+    font-size: var(--fm-title, 30px); line-height: 1.15; letter-spacing: -.01em; color: var(--color-heading, var(--color-text));
+    text-wrap: balance;
+  }
+  #shopify-section-newsletter_popup .fm--center .fm__body .fm__title { padding-inline: 36px; }
+  #shopify-section-newsletter_popup .fm__title em { font-style: normal; color: var(--fm-accent); }
+  #shopify-section-newsletter_popup .fm__text { color: var(--fm-muted); font-size: 15px; line-height: 1.55; }
+  #shopify-section-newsletter_popup .fm__text p { margin: 0; }
+  #shopify-section-newsletter_popup .fm__text p + p { margin-top: 8px; }
+  #shopify-section-newsletter_popup .fm__form { margin: 24px 0 0; display: grid; gap: 14px; text-align: left; }
+  #shopify-section-newsletter_popup .fm__field { position: relative; display: block; }
+  #shopify-section-newsletter_popup .fm__icon {
+    position: absolute; left: 18px; top: 50%; width: 20px; height: 20px; transform: translateY(-50%);
+    color: var(--fm-muted); pointer-events: none; transition: color .2s ease;
+  }
+  #shopify-section-newsletter_popup .fm__field--area .fm__icon { top: 18px; transform: none; }
+  #shopify-section-newsletter_popup .fm__icon svg { width: 100%; height: 100%; display: block; }
+  /* The fields keep Theme settings > Forms and fields (theme-button-contract.css): their colours, border and focus
+     ring. Only the variables that contract reads are set here, for the taller field, the room for the icon and
+     the filled or outline surface. */
+  #shopify-section-newsletter_popup .fm__input {
+    --input-padding: 0 18px;
+    --input-height: 56px;
+    --input-bg: var(--fm-field-bg);
+    box-sizing: border-box; display: block; width: 100%; min-height: 56px; margin: 0;
+    font: inherit; font-size: 16px; color: var(--color-text);
+    background: var(--fm-field-bg); border: 1px solid var(--fm-line); border-radius: var(--fm-field-radius);
+    padding: var(--input-padding);
+    -webkit-appearance: none; appearance: none; box-shadow: none;
+  }
+  #shopify-section-newsletter_popup .fm--icons .fm__input { --input-padding: 0 18px 0 50px; }
+  #shopify-section-newsletter_popup textarea.fm__input { --input-padding: 16px 18px; min-height: 120px; resize: vertical; line-height: 1.5; }
+  #shopify-section-newsletter_popup .fm--icons textarea.fm__input { --input-padding: 16px 18px 16px 50px; }
+  #shopify-section-newsletter_popup .fm__input::placeholder { color: var(--fm-muted); opacity: 1; }
+  #shopify-section-newsletter_popup .fm__field:focus-within .fm__icon { color: var(--fm-accent); }
+  #shopify-section-newsletter_popup .fm--outline .fm__input { --input-bg: transparent; background: transparent; }
+  #shopify-section-newsletter_popup .fm__submit {
+    position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; min-height: 56px; margin-top: 10px; font-size: 17px !important; cursor: pointer;
+  }
+  #shopify-section-newsletter_popup .fm__submit[aria-busy="true"] { opacity: .7; cursor: progress; }
+  #shopify-section-newsletter_popup .fm__arrow { width: 18px; height: 18px; flex: none; transition: transform .25s var(--fm-ease); }
+  #shopify-section-newsletter_popup .fm__submit:hover .fm__arrow { transform: translateX(3px); }
+  #shopify-section-newsletter_popup .fm__note { margin: 6px 0 0; text-align: center; font-size: 15px; color: var(--color-text); display: flex; align-items: center; justify-content: center; gap: 8px; }
+  #shopify-section-newsletter_popup .fm__note svg { width: 19px; height: 19px; flex: none; color: var(--fm-accent); }
+  #shopify-section-newsletter_popup .fm__small { margin: 2px 0 0; text-align: center; font-size: 13px; line-height: 1.5; color: var(--fm-muted); }
+  #shopify-section-newsletter_popup .fm__small p { margin: 0; }
+  #shopify-section-newsletter_popup .fm__small a, #shopify-section-newsletter_popup .fm__text a { color: var(--fm-accent); text-decoration: underline; text-underline-offset: 2px; }
+  #shopify-section-newsletter_popup .fm__error { margin: 0; font-size: 14px; color: #b42318; }
+  #shopify-section-newsletter_popup .fm__error:empty { display: none; }
+  #shopify-section-newsletter_popup .fm__done { display: none; text-align: center; padding: 12px 0 4px; }
+  #shopify-section-newsletter_popup .fm[data-sent] .fm__done { display: block; }
+  #shopify-section-newsletter_popup .fm[data-sent] .fm__body { display: none; }
+  #shopify-section-newsletter_popup .fm__tick {
+    display: grid; place-items: center; width: 56px; height: 56px; margin: 0 auto 18px; border-radius: 50%;
+    background: color-mix(in srgb, var(--fm-accent) 14%, transparent); color: var(--fm-accent);
+  }
+  #shopify-section-newsletter_popup .fm__tick svg { width: 26px; height: 26px; }
+  #shopify-section-newsletter_popup .fm__done .fm__title { padding: 0; }
+  #shopify-section-newsletter_popup .fm__done .fm__text { margin-top: 10px; }
+  #shopify-section-newsletter_popup .fm__done .fm__submit { margin-top: 24px; text-decoration: none; }
+  #shopify-section-newsletter_popup .fm__sl { margin-top: 20px; }
+
+  /* A phone: a sheet from the bottom, the width of the screen. */
+  @media (max-width: 640px) {
+    #shopify-section-newsletter_popup dialog.fm[open] { align-items: flex-end; }
+    #shopify-section-newsletter_popup .fm__panel {
+      width: 100%; max-height: calc(100dvh - 24px); border-radius: var(--fm-radius) var(--fm-radius) 0 0;
+      padding: 30px 20px calc(24px + env(safe-area-inset-bottom, 0px));
+      transform: translateY(100%); transition: transform .38s var(--fm-ease), opacity .2s ease; opacity: 1;
+    }
+    #shopify-section-newsletter_popup .fm[data-state="open"] .fm__panel { transform: translateY(var(--fm-drag, 0px)); }
+    #shopify-section-newsletter_popup .fm__panel[data-dragging] { transition: none; }
+    #shopify-section-newsletter_popup .fm__handle {
+      display: block; position: absolute; top: 0; left: 50%; width: 96px; height: 24px; margin-left: -48px; touch-action: none; cursor: grab;
+    }
+    #shopify-section-newsletter_popup .fm__handle::before { content: ""; position: absolute; left: 50%; top: 9px; width: 40px; height: 5px; margin-left: -20px; border-radius: 3px; background: color-mix(in srgb, var(--color-text) 22%, transparent); }
+    #shopify-section-newsletter_popup .fm__close { top: 12px; right: 12px; width: 36px; height: 36px; }
+    #shopify-section-newsletter_popup .fm__title { font-size: min(var(--fm-title, 30px), 26px); }
+    #shopify-section-newsletter_popup .fm__form { margin-top: 20px; gap: 12px; }
+    #shopify-section-newsletter_popup .fm__input { --input-height: 52px; min-height: 52px; }
+    #shopify-section-newsletter_popup .fm__submit { min-height: 52px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-newsletter_popup .fm__scrim, #shopify-section-newsletter_popup .fm__panel, #shopify-section-newsletter_popup .fm__arrow { transition: none !important; }
+    #shopify-section-newsletter_popup .fm__panel { transform: none !important; }
+  }
+
+  /* The builder: drawn in the page, open, so it can be edited. */
+  #shopify-section-newsletter_popup .fm--canvas { position: relative; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 40px 16px; background: var(--fm-scrim); }
+  #shopify-section-newsletter_popup .fm--canvas .fm__panel { opacity: 1; transform: none; max-height: none; overflow: visible; }
+  #shopify-section-newsletter_popup .fm--canvas .fm__scrim, #shopify-section-newsletter_popup .fm--canvas .fm__handle { display: none; }
+  #shopify-section-newsletter_popup .fm__hint { margin: 0; max-width: var(--fm-w); font: 500 13px/1.45 var(--body-font, inherit); color: #fff; text-align: center; opacity: .9; }
+  #shopify-section-newsletter_popup .fm__hint code { font: inherit; font-weight: 700; white-space: nowrap; }
+  @media (max-width: 640px) {
+    #shopify-section-newsletter_popup .fm--canvas { padding: 24px 0 0; justify-content: flex-end; }
+    #shopify-section-newsletter_popup .fm--canvas .fm__hint { padding: 0 16px; }
+  }

@@ -4,15 +4,15 @@
       "type": "main-product",
       "settings": {
         "image_zoom": "open_lightbox",
-        "padding_top": 0,
+        "padding_top": 24,
         "color_scheme": "default",
         "media_square": true,
         "reset_spacing": true,
-        "section_width": "container",
+        "section_width": "full_width",
         "sticky_bar_bg": "",
         "desktop_layout": "thumbnail_bottom",
         "mobile_options": "show_thumbnails",
-        "padding_bottom": 100,
+        "padding_bottom": 28,
         "sticky_top_gap": 24,
         "enable_on_mobile": true,
         "sticky_padding_y": 12,
@@ -21,17 +21,17 @@
         "sticky_show_title": true,
         "content_gap_desktop": 40,
         "desktop_media_width": 50,
-        "padding_left_mobile": 0,
+        "padding_left_mobile": 12,
         "sticky_border_color": "",
         "enable_video_looping": true,
-        "padding_left_desktop": 0,
-        "padding_right_mobile": 0,
-        "section_width_mobile": "fluid_container",
+        "padding_left_desktop": 24,
+        "padding_right_mobile": 12,
+        "section_width_mobile": "full_width",
         "sticky_button_radius": 8,
         "sticky_show_quantity": true,
-        "enable_custom_padding": false,
+        "enable_custom_padding": true,
         "enable_video_autoplay": true,
-        "padding_right_desktop": 0,
+        "padding_right_desktop": 24,
         "enable_nav_dots_mobile": false,
         "mobile_slides_per_view": "1",
         "enable_custom_media_gap": false,
@@ -241,12 +241,12 @@
         "object_label": "object",
         "objects_label": "objects",
         "empty_name": "Your product",
-        "width": 1180,
+        "width": 1120,
         "offset": "center",
         "padding_top": 0,
-        "padding_bottom": 18,
+        "padding_bottom": 24,
         "padding_top_mobile": 0,
-        "padding_bottom_mobile": 8
+        "padding_bottom_mobile": 14
       }
     },
     "faq": {
@@ -257,14 +257,14 @@
         "heading": "Before you order",
         "heading_tag": "h2",
         "text": "",
-        "first_open": false,
+        "first_open": true,
         "draggable": false,
-        "width": 1180,
+        "width": 1120,
         "offset": "center",
         "padding_top": 0,
-        "padding_bottom": 18,
+        "padding_bottom": 24,
         "padding_top_mobile": 0,
-        "padding_bottom_mobile": 8
+        "padding_bottom_mobile": 14
       },
       "blocks": {
         "question_1": {
@@ -302,10 +302,70 @@
         "question_3",
         "question_4"
       ]
+    },
+    "facts": {
+      "type": "retro-tiles",
+      "settings": {
+        "note": "",
+        "columns": "3",
+        "look": "window",
+        "phone_two": false,
+        "padding_top": 0,
+        "padding_bottom": 24,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 14
+      },
+      "blocks": {
+        "tile_1": {
+          "type": "tile",
+          "settings": {
+            "icon": "disk",
+            "bar_title": "Printing",
+            "title": "Printed to order",
+            "stars": 0,
+            "text": "<p>Heavy 240 gsm cotton and water based ink. Nothing sits in a warehouse.</p>",
+            "who": "",
+            "button_label": "",
+            "button_link": ""
+          }
+        },
+        "tile_2": {
+          "type": "tile",
+          "settings": {
+            "icon": "mail",
+            "bar_title": "Shipping",
+            "title": "Sent in three days",
+            "stars": 0,
+            "text": "<p>Printed and posted within three working days, tracked to your door.</p>",
+            "who": "",
+            "button_label": "Shipping details",
+            "button_link": "/pages/shipping"
+          }
+        },
+        "tile_3": {
+          "type": "tile",
+          "settings": {
+            "icon": "help",
+            "bar_title": "Returns",
+            "title": "Free returns",
+            "stars": 0,
+            "text": "<p>Unworn and within 30 days? Write to us and we send a label.</p>",
+            "who": "",
+            "button_label": "Questions",
+            "button_link": "/pages/faqs"
+          }
+        }
+      },
+      "block_order": [
+        "tile_1",
+        "tile_2",
+        "tile_3"
+      ]
     }
   },
   "order": [
     "main",
+    "facts",
     "more",
     "faq"
   ]

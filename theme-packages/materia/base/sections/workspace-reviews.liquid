@@ -1,0 +1,159 @@
+{%- comment -%}
+  Notion templates: what buyers say, as a carousel. A heading on the left
+  with two round arrows on the right; below, a row of cards that swipes
+  on a phone and snaps to each card. Each card has stars, the words, a
+  round photo, a name and a line under it. Native scrolling, so it moves
+  with the finger and needs no library.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign cards = section.blocks | where: 'type', 'review'
+-%}
+<style>
+  #shopify-section-{{ sid }} .wsr { padding: {{ st.padding_top_mobile }}px 0 {{ st.padding_bottom_mobile }}px; background: {{ st.background }}; overflow: hidden; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .wsr { padding: {{ st.padding_top }}px 0 {{ st.padding_bottom }}px; } }
+  #shopify-section-{{ sid }} .wsr__inner { max-width: var(--page-width, 1310px); margin: 0 auto; padding: 0 16px; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .wsr__inner { padding: 0 32px; box-sizing: content-box; } }
+  #shopify-section-{{ sid }} .wsr__head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 32px; }
+  #shopify-section-{{ sid }} .wsr__eyebrow { margin: 0 0 10px; color: {{ st.muted }}; font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
+  #shopify-section-{{ sid }} .wsr__h { margin: 0; color: {{ st.ink }}; font-family: var(--heading-font, inherit); font-weight: 700; letter-spacing: -0.025em; line-height: 1.1; font-size: 30px; text-wrap: balance; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .wsr__h { font-size: 40px; } }
+  #shopify-section-{{ sid }} .wsr__sub { margin: 10px 0 0; color: {{ st.muted }}; font-size: 15px; line-height: 1.6; max-width: 56ch; }
+  #shopify-section-{{ sid }} .wsr__sub p { margin: 0; }
+  #shopify-section-{{ sid }} .wsr__nav { display: none; gap: 8px; flex: none; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .wsr__nav { display: flex; } }
+  #shopify-section-{{ sid }} .wsr__arrow { display: grid; place-items: center; width: 46px; height: 46px; padding: 0; border: 1px solid {{ st.line_color }}; border-radius: 50%; background: {{ st.card_background }}; color: {{ st.ink }}; cursor: pointer; transition: border-color .2s ease, opacity .2s ease, background-color .2s ease; }
+  #shopify-section-{{ sid }} .wsr__arrow:hover:not(:disabled) { border-color: {{ st.ink }}; }
+  #shopify-section-{{ sid }} .wsr__arrow:disabled { opacity: .35; cursor: default; }
+  #shopify-section-{{ sid }} .wsr__arrow svg { width: 18px; height: 18px; }
+  #shopify-section-{{ sid }} .wsr__track { display: flex; gap: 16px; margin: 0; padding: 2px 16px 6px; list-style: none; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-left: 16px; scrollbar-width: none; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+  #shopify-section-{{ sid }} .wsr__track::-webkit-scrollbar { display: none; }
+  @media (min-width: 750px) {
+    #shopify-section-{{ sid }} .wsr__track { gap: 20px; padding-left: max(32px, calc((100% - var(--page-width, 1310px)) / 2)); padding-right: max(32px, calc((100% - var(--page-width, 1310px)) / 2)); scroll-padding-left: max(32px, calc((100% - var(--page-width, 1310px)) / 2)); }
+  }
+  #shopify-section-{{ sid }} .wsr__card { flex: 0 0 86%; scroll-snap-align: start; display: flex; flex-direction: column; gap: 18px; box-sizing: border-box; padding: 26px; border: 1px solid {{ st.line_color }}; border-radius: 18px; background: {{ st.card_background }}; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .wsr__card { flex-basis: calc((100% - 40px) / 3); padding: 30px; } }
+  #shopify-section-{{ sid }} .wsr__stars { display: flex; gap: 3px; color: {{ st.star_color }}; }
+  #shopify-section-{{ sid }} .wsr__stars svg { width: 16px; height: 16px; }
+  #shopify-section-{{ sid }} .wsr__q { flex: 1; margin: 0; color: {{ st.ink }}; font-size: 17px; line-height: 1.6; }
+  #shopify-section-{{ sid }} .wsr__q p { margin: 0; }
+  #shopify-section-{{ sid }} .wsr__who { display: flex; align-items: center; gap: 12px; padding-top: 18px; border-top: 1px solid {{ st.line_color }}; }
+  #shopify-section-{{ sid }} .wsr__who img, #shopify-section-{{ sid }} .wsr__who .wsr__ph { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; margin: 0; flex: none; background: {{ st.line_color }}; }
+  #shopify-section-{{ sid }} .wsr__name { margin: 0; color: {{ st.ink }}; font-size: 15px; font-weight: 600; }
+  #shopify-section-{{ sid }} .wsr__role { margin: 2px 0 0; color: {{ st.muted }}; font-size: 13.5px; }
+  #shopify-section-{{ sid }} .wsr__bar { position: relative; height: 3px; margin: 28px auto 0; max-width: var(--page-width, 1310px); border-radius: 3px; background: {{ st.line_color }}; overflow: hidden; }
+  #shopify-section-{{ sid }} .wsr__bar span { position: absolute; top: 0; bottom: 0; left: 0; width: 30%; border-radius: 3px; background: {{ st.ink }}; transition: transform .25s ease; will-change: transform; }
+  @media (max-width: 749px) { #shopify-section-{{ sid }} .wsr__bar { margin-left: 16px; margin-right: 16px; } }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .wsr__bar { margin-left: max(32px, calc((100% - var(--page-width, 1310px)) / 2)); margin-right: max(32px, calc((100% - var(--page-width, 1310px)) / 2)); } }
+  @media (prefers-reduced-motion: reduce) { #shopify-section-{{ sid }} .wsr__bar span { transition: none; } }
+</style>
+
+<div class="wsr color-{{ color_scheme }}" data-wsr>
+  <div class="wsr__inner">
+    <div class="wsr__head">
+      <div>
+        {%- if st.eyebrow != blank -%}<p class="wsr__eyebrow">{{ st.eyebrow | escape }}</p>{%- endif -%}
+        {%- if st.heading != blank -%}<h2 class="wsr__h">{{ st.heading }}</h2>{%- endif -%}
+        {%- if st.text != blank -%}<div class="wsr__sub">{{ st.text }}</div>{%- endif -%}
+      </div>
+      {%- if cards.size > 1 -%}
+        <div class="wsr__nav">
+          <button class="wsr__arrow" type="button" data-dir="-1" aria-label="Previous" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+          <button class="wsr__arrow" type="button" data-dir="1" aria-label="Next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+        </div>
+      {%- endif -%}
+    </div>
+  </div>
+  <ul class="wsr__track" tabindex="0" aria-label="{{ st.heading | strip_html | escape }}">
+    {%- for b in cards -%}
+      {%- assign bs = b.settings -%}
+      <li class="wsr__card" {{ b.shopify_attributes }}>
+        {%- if bs.rating > 0 -%}
+          <div class="wsr__stars" aria-label="{{ bs.rating }} out of 5">
+            {%- for i in (1..bs.rating) -%}<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.8l2.5 5.3 5.8.7-4.3 4 1.1 5.7L10 14.7l-5.1 2.8 1.1-5.7-4.3-4 5.8-.7z"/></svg>{%- endfor -%}
+          </div>
+        {%- endif -%}
+        <div class="wsr__q">{{ bs.quote }}</div>
+        <div class="wsr__who">
+          {%- if bs.avatar != blank -%}<img src="{{ bs.avatar | image_url: width: 120 }}" width="44" height="44" alt="" loading="lazy">{%- else -%}<span class="wsr__ph"></span>{%- endif -%}
+          <div><p class="wsr__name">{{ bs.name | escape }}</p>{%- if bs.role != blank -%}<p class="wsr__role">{{ bs.role | escape }}</p>{%- endif -%}</div>
+        </div>
+      </li>
+    {%- endfor -%}
+  </ul>
+  {%- if cards.size > 1 -%}<div class="wsr__bar" aria-hidden="true"><span></span></div>{%- endif -%}
+</div>
+
+<script>
+  (function () {
+    var root = document.querySelector('#shopify-section-{{ sid }} [data-wsr]');
+    if (!root || root.dataset.ready) return;
+    root.dataset.ready = '1';
+    var track = root.querySelector('.wsr__track');
+    var bar = root.querySelector('.wsr__bar span');
+    var prev = root.querySelector('[data-dir="-1"]');
+    var next = root.querySelector('[data-dir="1"]');
+    if (!track) return;
+    function step() { var c = track.querySelector('.wsr__card'); if (!c) return track.clientWidth; return c.getBoundingClientRect().width + parseFloat(getComputedStyle(track).columnGap || 16); }
+    var raf = 0;
+    function update() {
+      raf = 0;
+      var max = track.scrollWidth - track.clientWidth;
+      var at = track.scrollLeft;
+      if (prev) prev.disabled = at <= 2;
+      if (next) next.disabled = at >= max - 2;
+      if (bar) {
+        var share = max > 0 ? track.clientWidth / track.scrollWidth : 1;
+        bar.style.width = (share * 100) + '%';
+        bar.style.transform = 'translateX(' + (max > 0 ? (at / max) * ((1 - share) / share) * 100 : 0) + '%)';
+      }
+    }
+    track.addEventListener('scroll', function () { if (!raf) raf = requestAnimationFrame(update); }, { passive: true });
+    window.addEventListener('resize', function () { if (!raf) raf = requestAnimationFrame(update); });
+    [prev, next].forEach(function (btn) {
+      if (!btn) return;
+      btn.addEventListener('click', function () { track.scrollBy({ left: step() * Number(btn.dataset.dir), behavior: 'smooth' }); });
+    });
+    update();
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Reviews carousel",
+  "tag": "section",
+  "class": "section sec__workspace-reviews",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default-color-scheme" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#fbfbfa" },
+    { "type": "color", "id": "card_background", "label": "Cards", "default": "#ffffff" },
+    { "type": "color", "id": "ink", "label": "Heading colour", "default": "#1f1f1d" },
+    { "type": "color", "id": "muted", "label": "Text colour", "default": "#5b5a55" },
+    { "type": "color", "id": "star_color", "label": "Stars", "default": "#1f1f1d" },
+    { "type": "color", "id": "line_color", "label": "Lines", "default": "#e6e5e0" },
+    { "type": "text", "id": "eyebrow", "label": "Small label", "default": "Reviews" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "What buyers say" },
+    { "type": "richtext", "id": "text", "label": "Text" },
+    { "type": "range", "id": "padding_top", "label": "Space above, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 }
+  ],
+  "blocks": [
+    {
+      "type": "review",
+      "name": "Review",
+      "settings": [
+        { "type": "richtext", "id": "quote", "label": "Words", "default": "<p>What they said, in their words.</p>" },
+        { "type": "range", "id": "rating", "label": "Stars", "min": 0, "max": 5, "step": 1, "default": 5 },
+        { "type": "image_picker", "id": "avatar", "label": "Photo" },
+        { "type": "text", "id": "name", "label": "Name", "default": "Name" },
+        { "type": "text", "id": "role", "label": "Under the name" }
+      ]
+    }
+  ],
+  "presets": [ { "name": "Reviews carousel", "blocks": [ { "type": "review" }, { "type": "review" }, { "type": "review" }, { "type": "review" } ] } ]
+}
+{% endschema %}

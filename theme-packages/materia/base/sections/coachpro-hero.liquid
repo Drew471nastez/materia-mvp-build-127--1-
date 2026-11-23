@@ -1,0 +1,119 @@
+{%- comment -%}
+  Coach creator: the opening. A dark band with the person on one side and a
+  big serif headline on the other, one or two words of it in italics in the
+  accent colour, a line, a main button and a quieter link with a play mark.
+  On a phone the picture comes first and the words sit under it. The
+  picture's own dark ground runs into the band, so a portrait taken against
+  a dark wall works best.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign hf = settings.font_heading_google_family
+  assign side = st.image_side | default: 'right'
+-%}
+{%- if hf != blank and hf != 'none' -%}<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family={{ hf | replace: ' ', '+' }}:ital@0;1&display=swap">{%- endif -%}
+<style>
+  #shopify-section-{{ sid }} .cph {
+    --cph-bg: {{ st.background | default: '#16120f' }};
+    --cph-accent: {{ st.accent_color | default: '#ff6a3d' }};
+    position: relative; overflow: hidden; background: var(--cph-bg); color: {{ st.text_color | default: '#cfc6bc' }};
+  }
+  #shopify-section-{{ sid }} .cph__grid { display: grid; grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 990px) {
+    #shopify-section-{{ sid }} .cph__grid { grid-template-columns: minmax(0, 1.08fr) minmax(0, .92fr); min-height: min(88vh, {{ st.height | default: 780 }}px); }
+    #shopify-section-{{ sid }} .cph--left .cph__media { order: -1; }
+  }
+  #shopify-section-{{ sid }} .cph__media { position: relative; order: -1; margin: 0; aspect-ratio: 4 / 4.4; overflow: hidden; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cph__media { order: 0; aspect-ratio: auto; } }
+  #shopify-section-{{ sid }} .cph__media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% {{ st.focus_y | default: 18 }}%; }
+  #shopify-section-{{ sid }} .cph__media::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to bottom, transparent 55%, var(--cph-bg) 99%); }
+  @media (min-width: 990px) {
+    #shopify-section-{{ sid }} .cph__media::after { background: linear-gradient(to right, var(--cph-bg) 0%, transparent 28%), linear-gradient(to bottom, transparent 75%, var(--cph-bg) 100%); }
+    #shopify-section-{{ sid }} .cph--left .cph__media::after { background: linear-gradient(to left, var(--cph-bg) 0%, transparent 28%), linear-gradient(to bottom, transparent 75%, var(--cph-bg) 100%); }
+  }
+  #shopify-section-{{ sid }} .cph__body { position: relative; z-index: 1; display: flex; flex-direction: column; justify-content: center; padding: 0 20px 56px; margin-top: -72px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cph__body { margin: 0; padding: 96px 24px 96px max(40px, calc((100vw - 1240px) / 2 + 40px)); } #shopify-section-{{ sid }} .cph--left .cph__body { padding: 96px max(40px, calc((100vw - 1240px) / 2 + 40px)) 96px 24px; } }
+  #shopify-section-{{ sid }} .cph__eyebrow { display: inline-flex; align-items: center; gap: 10px; margin: 0 0 22px; color: {{ st.eyebrow_color | default: '#f3ece4' }}; font-size: 12px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; }
+  #shopify-section-{{ sid }} .cph__eyebrow::before { content: ""; width: 28px; height: 1px; background: var(--cph-accent); }
+  #shopify-section-{{ sid }} .cph__title { margin: 0; max-width: 11.5em; color: {{ st.heading_color | default: '#ffffff' }}; font-family: var(--heading-font, serif); font-weight: 400; font-size: {{ st.heading_size_mobile | default: 50 }}px; line-height: .98; letter-spacing: -.02em; text-wrap: balance; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cph__title { font-size: clamp(64px, 6.4vw, {{ st.heading_size | default: 96 }}px); } }
+  #shopify-section-{{ sid }} .cph__title em { font-style: italic; color: var(--cph-accent); }
+  #shopify-section-{{ sid }} .cph__text { max-width: 30em; margin: 24px 0 0; font-size: 17px; line-height: 1.6; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cph__text { font-size: 18.5px; } }
+  #shopify-section-{{ sid }} .cph__text p { margin: 0; }
+  #shopify-section-{{ sid }} .cph__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 28px; margin-top: 34px; }
+  #shopify-section-{{ sid }} .cph__btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 56px; padding: 0 30px; border-radius: 999px; background: var(--cph-accent); color: {{ st.button_text_color | default: '#16120f' }}; font-size: 16px; font-weight: 600; text-decoration: none; transition: transform .25s ease, box-shadow .25s ease; box-shadow: 0 12px 30px -14px color-mix(in srgb, var(--cph-accent) 80%, transparent); }
+  #shopify-section-{{ sid }} .cph__btn:hover { transform: translateY(-2px); }
+  #shopify-section-{{ sid }} .cph__btn svg { width: 16px; height: 16px; }
+  @media (max-width: 599px) { #shopify-section-{{ sid }} .cph__btn { width: 100%; } }
+  #shopify-section-{{ sid }} .cph__link { display: inline-flex; align-items: center; gap: 12px; color: #fff; font-size: 15.5px; font-weight: 500; text-decoration: none; }
+  #shopify-section-{{ sid }} .cph__play { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgba(255,255,255,.35); transition: background-color .25s ease, border-color .25s ease; }
+  #shopify-section-{{ sid }} .cph__play svg { width: 13px; height: 13px; margin-left: 2px; }
+  #shopify-section-{{ sid }} .cph__link:hover .cph__play { background: #fff; border-color: #fff; color: var(--cph-bg); }
+  #shopify-section-{{ sid }} .cph__note { margin: 40px 0 0; padding-top: 22px; border-top: 1px solid rgba(255,255,255,.14); max-width: 30em; font-size: 14px; line-height: 1.55; }
+  #shopify-section-{{ sid }} .cph__note strong { color: #fff; font-weight: 600; }
+  #shopify-section-{{ sid }} [data-cpr].cpr-wait { opacity: 0; transform: translate3d(0, 18px, 0); }
+  #shopify-section-{{ sid }} [data-cpr].cpr-in { opacity: 1; transform: none; transition: opacity .9s cubic-bezier(.2,.65,.25,1) var(--d, 0ms), transform .9s cubic-bezier(.2,.65,.25,1) var(--d, 0ms); }
+  @media (prefers-reduced-motion: reduce) { #shopify-section-{{ sid }} .cph__btn { transition: none; } }
+</style>
+<section data-own-size class="cph cph--{{ side }}">
+  <div class="cph__grid">
+    <div class="cph__body">
+      {%- if st.eyebrow != blank -%}<p class="cph__eyebrow" data-cpr>{{ st.eyebrow | escape }}</p>{%- endif -%}
+      <h1 class="cph__title" data-cpr style="--d: 80ms">{{ st.heading }}</h1>
+      {%- if st.text != blank -%}<div class="cph__text" data-cpr style="--d: 160ms">{{ st.text }}</div>{%- endif -%}
+      {%- if st.button_label != blank or st.link_label != blank -%}
+        <div class="cph__actions" data-cpr style="--d: 240ms">
+          {%- if st.button_label != blank -%}<a class="cph__btn" href="{{ st.button_link | default: '#' }}">{{ st.button_label | escape }}<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 8h10M9 4l4 4-4 4"/></svg></a>{%- endif -%}
+          {%- if st.link_label != blank -%}<a class="cph__link" href="{{ st.link_url | default: '#' }}"><span class="cph__play" aria-hidden="true"><svg viewBox="0 0 12 14" fill="currentColor"><path d="M0 0l12 7-12 7z"/></svg></span>{{ st.link_label | escape }}</a>{%- endif -%}
+        </div>
+      {%- endif -%}
+      {%- if st.note != blank -%}<p class="cph__note" data-cpr style="--d: 320ms">{{ st.note }}</p>{%- endif -%}
+    </div>
+    <figure class="cph__media">
+      {%- if st.image != blank -%}
+        <img src="{{ st.image | image_url: width: 1100 }}" srcset="{{ st.image | image_url: width: 600 }} 600w, {{ st.image | image_url: width: 900 }} 900w, {{ st.image | image_url: width: 1100 }} 1100w" sizes="(min-width: 990px) 46vw, 100vw" width="{{ st.image.width | default: 1100 }}" height="{{ st.image.height | default: 1375 }}" alt="{{ st.image_alt | default: st.image.alt | escape }}" fetchpriority="high">
+      {%- else -%}
+        {{ 'image' | placeholder_svg_tag: 'cph__ph' }}
+      {%- endif -%}
+    </figure>
+  </div>
+</section>
+{%- unless request.design_mode -%}
+<script>(function(){var r=document.getElementById('shopify-section-{{ sid }}');if(!r||!('IntersectionObserver' in window)||matchMedia('(prefers-reduced-motion: reduce)').matches)return;var h=innerHeight,io=new IntersectionObserver(function(es){es.forEach(function(e){if(!e.isIntersecting)return;var t=e.target;io.unobserve(t);requestAnimationFrame(function(){t.classList.add('cpr-in')})})},{rootMargin:'0px 0px -6% 0px'});r.querySelectorAll('[data-cpr]').forEach(function(el){if(el.getBoundingClientRect().top<h*.92)return;el.classList.add('cpr-wait');io.observe(el)})})();</script>
+{%- endunless -%}
+
+{% schema %}
+{
+  "name": "Coach creator hero",
+  "tag": "section",
+  "class": "coachpro-hero-section",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "settings": [
+    { "type": "image_picker", "id": "image", "label": "Portrait", "info": "Taken against a dark wall works best." },
+    { "type": "text", "id": "image_alt", "label": "Alt text" },
+    { "type": "range", "id": "focus_y", "label": "Keep this height of the picture in view", "min": 0, "max": 100, "step": 2, "unit": "%", "default": 18 },
+    { "type": "select", "id": "image_side", "label": "Portrait on a computer", "default": "right", "options": [ { "value": "right", "label": "Right" }, { "value": "left", "label": "Left" } ] },
+    { "type": "text", "id": "eyebrow", "label": "Small line above", "default": "Coach, writer, podcast host" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "Build work you <em>love</em> and a life that fits around it", "info": "Put words in italics to show them in the accent colour." },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Say who you help and what changes for them, in one or two lines.</p>" },
+    { "type": "text", "id": "button_label", "label": "Button", "default": "Get the free guide" },
+    { "type": "url", "id": "button_link", "label": "Button link" },
+    { "type": "text", "id": "link_label", "label": "Second link", "default": "Watch the show" },
+    { "type": "url", "id": "link_url", "label": "Second link goes to" },
+    { "type": "inline_richtext", "id": "note", "label": "Line under the buttons" },
+    { "type": "header", "content": "Look" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#16120f" },
+    { "type": "color", "id": "accent_color", "label": "Accent", "default": "#ff6a3d" },
+    { "type": "color", "id": "heading_color", "label": "Heading", "default": "#ffffff" },
+    { "type": "color", "id": "text_color", "label": "Text", "default": "#cfc6bc" },
+    { "type": "color", "id": "eyebrow_color", "label": "Small line", "default": "#f3ece4" },
+    { "type": "color", "id": "button_text_color", "label": "Button text", "default": "#16120f" },
+    { "type": "range", "id": "heading_size", "label": "Heading size on a computer", "min": 56, "max": 120, "step": 2, "unit": "px", "default": 96 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size on a phone", "min": 34, "max": 64, "step": 2, "unit": "px", "default": 50 },
+    { "type": "range", "id": "height", "label": "Height on a computer", "min": 560, "max": 960, "step": 20, "unit": "px", "default": 780 }
+  ],
+  "presets": [ { "name": "Coach creator hero", "category": "Coach creator" } ]
+}
+{% endschema %}

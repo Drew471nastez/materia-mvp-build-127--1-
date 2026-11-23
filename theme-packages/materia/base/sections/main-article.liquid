@@ -195,20 +195,31 @@
             </div>
 
           {%- when 'category' -%}
+            {%- comment -%}
+              The article's first tag, or else its blog's name; no pill at all
+              when it has neither (round 21: it printed the article's handle,
+              "Layering-a-tech-house-kick").
+            {%- endcomment -%}
+            {%- liquid
+              assign ma_category = article.tags | first
+              if ma_category == blank
+                assign ma_category = blog.title
+              endif
+            -%}
+            {%- if ma_category != blank or ma_has_article == false -%}
             <div class="lh-normal flex flex-wrap gap-10 justify-content-center mt-30 container-min" data-lcp-block="{{ block.id }}" data-lcp-block-type="category"{% if request.design_mode %} data-lcp-block-settings="{{ block.settings | json | escape }}"{% endif %} {{ block.shopify_attributes }} style="--ma-pill-bg: {% if block_st.enable_custom_style %}{% render 'scheme-color', color: block_st.category_background_color, fallback: 'rgba(var(--color-text-rgb), 0.06)' %}{% else %}rgba(var(--color-text-rgb), 0.06){% endif %}; --ma-pill-radius: {{ block_st.category_border_radius }}px;">
-              {% assign blog_name = article.handle | split: '/' | first %}
-              {% if blog_name != blank %}
+              {% if ma_category != blank %}
                 <a
                   href="{{ blog.url }}"
-                  aria-label="{{ blog_name | capitalize }}"
                   class="article-category-pill inline-flex fs-13 btn-rounded py-8 px-20 lh-normal no-underline heading-color"
                 >
-                  <span>{{ blog_name | capitalize }}</span>
+                  <span>{{ ma_category | escape }}</span>
                 </a>
-              {% elsif ma_has_article == false %}
+              {% else %}
                 <span class="article-category-pill ma-skeleton ma-skeleton--pill" aria-hidden="true"></span>
               {% endif %}
             </div>
+            {%- endif -%}
 
           {%- when 'blog_meta' -%}
             <div

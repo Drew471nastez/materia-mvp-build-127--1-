@@ -1,0 +1,86 @@
+{%- comment -%}
+  Coach creator: start here. A large serif heading and a line on one side;
+  on the other, the two to four first steps someone can take as big rows
+  with a number, a title, a short line and an arrow that moves on hover.
+  Rows are blocks.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign hf = settings.font_heading_google_family
+-%}
+{%- if hf != blank and hf != 'none' -%}<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family={{ hf | replace: ' ', '+' }}:ital@0;1&display=swap">{%- endif -%}
+<style>
+  #shopify-section-{{ sid }} .cpx { --cpx-accent: {{ st.accent_color | default: '#ff6a3d' }}; background: {{ st.background | default: '#16120f' }}; color: {{ st.text_color | default: '#cfc6bc' }}; padding: {{ st.padding_top_mobile | default: 64 }}px 20px {{ st.padding_bottom_mobile | default: 64 }}px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cpx { padding: {{ st.padding_top | default: 112 }}px 40px {{ st.padding_bottom | default: 112 }}px; } }
+  #shopify-section-{{ sid }} .cpx__in { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 36px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cpx__in { grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 96px; align-items: center; } }
+  #shopify-section-{{ sid }} .cpx__eyebrow { margin: 0 0 14px; color: var(--cpx-accent); font-size: 12px; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; }
+  #shopify-section-{{ sid }} .cpx__title { margin: 0 0 18px; color: {{ st.heading_color | default: '#ffffff' }}; font-family: var(--heading-font, serif); font-weight: 400; font-size: 48px; line-height: .98; letter-spacing: -.02em; text-wrap: balance; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cpx__title { font-size: 80px; } }
+  #shopify-section-{{ sid }} .cpx__title em { font-style: italic; color: var(--cpx-accent); }
+  #shopify-section-{{ sid }} .cpx__text { max-width: 28em; font-size: 17px; line-height: 1.65; }
+  #shopify-section-{{ sid }} .cpx__text p { margin: 0; }
+  #shopify-section-{{ sid }} .cpx__list { margin: 0; padding: 0; list-style: none; border-top: 1px solid rgba(255,255,255,.16); }
+  #shopify-section-{{ sid }} .cpx__row a { display: grid; grid-template-columns: 40px minmax(0, 1fr) 44px; gap: 14px; align-items: center; padding: 24px 0; border-bottom: 1px solid rgba(255,255,255,.16); color: inherit; text-decoration: none; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cpx__row a { grid-template-columns: 56px minmax(0, 1fr) 52px; padding: 30px 0; } }
+  #shopify-section-{{ sid }} .cpx__n { color: var(--cpx-accent); font-size: 13px; font-weight: 600; }
+  #shopify-section-{{ sid }} .cpx__t { display: block; color: #fff; font-family: var(--heading-font, serif); font-size: 28px; line-height: 1.1; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cpx__t { font-size: 36px; } }
+  #shopify-section-{{ sid }} .cpx__d { display: block; margin-top: 6px; font-size: 15px; }
+  #shopify-section-{{ sid }} .cpx__go { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgba(255,255,255,.3); color: #fff; transition: background-color .25s ease, color .25s ease, transform .3s ease, border-color .25s ease; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cpx__go { width: 52px; height: 52px; } }
+  #shopify-section-{{ sid }} .cpx__go svg { width: 18px; height: 18px; }
+  #shopify-section-{{ sid }} .cpx__row a:hover .cpx__go { background: var(--cpx-accent); border-color: var(--cpx-accent); color: #16120f; transform: translateX(4px); }
+  @media (prefers-reduced-motion: reduce) { #shopify-section-{{ sid }} .cpx__go { transition: none; } }
+</style>
+<section data-own-size class="cpx">
+  <div class="cpx__in">
+    <div>
+      {%- if st.eyebrow != blank -%}<p class="cpx__eyebrow">{{ st.eyebrow | escape }}</p>{%- endif -%}
+      {%- if st.heading != blank -%}<h2 class="cpx__title">{{ st.heading }}</h2>{%- endif -%}
+      {%- if st.text != blank -%}<div class="cpx__text">{{ st.text }}</div>{%- endif -%}
+    </div>
+    <ol class="cpx__list">
+      {%- for block in section.blocks -%}
+        <li class="cpx__row" {{ block.shopify_attributes }}>
+          <a href="{{ block.settings.url | default: '#' }}">
+            <span class="cpx__n">{{ forloop.index | prepend: '0' }}</span>
+            <span><span class="cpx__t">{{ block.settings.title | escape }}</span>{%- if block.settings.text != blank -%}<span class="cpx__d">{{ block.settings.text | escape }}</span>{%- endif -%}</span>
+            <span class="cpx__go" aria-hidden="true"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 9h11M10 4.5 14.5 9 10 13.5"/></svg></span>
+          </a>
+        </li>
+      {%- endfor -%}
+    </ol>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Coach creator start here",
+  "tag": "section",
+  "class": "coachpro-start-section",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Small line above", "default": "New here?" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "Start <em>here</em>" },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Point people to the first thing worth their time.</p>" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#16120f" },
+    { "type": "color", "id": "accent_color", "label": "Accent", "default": "#ff6a3d" },
+    { "type": "color", "id": "heading_color", "label": "Heading", "default": "#ffffff" },
+    { "type": "color", "id": "text_color", "label": "Text", "default": "#cfc6bc" },
+    { "type": "range", "id": "padding_top", "label": "Space above on a computer", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 112 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below on a computer", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 112 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above on a phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 64 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below on a phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 64 }
+  ],
+  "blocks": [
+    { "type": "step", "name": "Step", "limit": 4, "settings": [
+      { "type": "text", "id": "title", "label": "Title", "default": "Listen to the show" },
+      { "type": "text", "id": "text", "label": "Line", "default": "Short line on what they get." },
+      { "type": "url", "id": "url", "label": "Link" }
+    ] }
+  ],
+  "presets": [ { "name": "Coach creator start here", "category": "Coach creator", "blocks": [ { "type": "step" }, { "type": "step", "settings": { "title": "Get the free guide" } }, { "type": "step", "settings": { "title": "Work with me" } } ] } ]
+}
+{% endschema %}

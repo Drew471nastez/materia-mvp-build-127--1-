@@ -1,0 +1,30 @@
+
+  #shopify-section-inside .abc { background: #f5f2ec; padding: 56px 20px 56px; scroll-margin-top: 80px; }
+  @media (min-width: 990px) { #shopify-section-inside .abc { padding: 80px 40px 80px; } }
+  #shopify-section-inside .abc__inner { max-width: 1140px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 36px; }
+  @media (min-width: 990px) { #shopify-section-inside .abc__inner { grid-template-columns: minmax(0, 0.85fr) minmax(0, 1fr); gap: 88px; align-items: start; } }
+  @media (min-width: 990px) { #shopify-section-inside .abc__intro { position: sticky; top: 110px; } }
+  #shopify-section-inside .abc__eyebrow { margin: 0 0 14px; font-size: 13px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #c4471f; }
+  #shopify-section-inside .abc__heading { margin: 0; color: var(--color-heading); font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 400); font-size: 38px; line-height: 1.06; letter-spacing: -0.01em; }
+  @media (min-width: 990px) { #shopify-section-inside .abc__heading { font-size: 52px; } }
+  #shopify-section-inside .abc__heading em { font-style: italic; color: #c4471f; }
+  #shopify-section-inside .abc__text { margin-top: 18px; color: var(--color-text); font-size: 17px; line-height: 1.65; max-width: 42ch; }
+  #shopify-section-inside .abc__text p { margin: 0; }
+  #shopify-section-inside .abc__media { margin: 30px 0 0; }
+  #shopify-section-inside .abc__media img { display: block; width: 100%; height: auto; margin: 0; border-radius: 8px; }
+  #shopify-section-inside .abc__list { list-style: none; margin: 0; padding: 0; counter-reset: abc; }
+  #shopify-section-inside .abc__item {
+    display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 6px 16px; padding: 22px 0;
+    border-top: 1px solid #ddd6c8;
+  }
+  #shopify-section-inside .abc__item:last-child { border-bottom: 1px solid #ddd6c8; }
+  @media (min-width: 990px) { #shopify-section-inside .abc__item { grid-template-columns: 76px minmax(0, 1fr); padding: 26px 0; } }
+  #shopify-section-inside .abc__num { grid-row: span 2; color: #c4471f; font-family: var(--heading-font, inherit); font-size: 34px; line-height: 1; }
+  @media (min-width: 990px) { #shopify-section-inside .abc__num { font-size: 44px; } }
+  #shopify-section-inside .abc__title { margin: 0; color: var(--color-heading); font-size: 19px; font-weight: 700; line-height: 1.3; }
+  #shopify-section-inside .abc__line { margin: 0; color: var(--color-text); font-size: 16px; line-height: 1.55; }
+  #shopify-section-inside .abc__btn {
+    display: inline-flex; align-items: center; justify-content: center; min-height: 50px; margin-top: 28px; padding: 0 24px; border-radius: 6px;
+    background: #1d2b4f; color: #ffffff; font-size: 15px; font-weight: 700; text-decoration: none; transition: filter 0.2s ease;
+  }
+  #shopify-section-inside .abc__btn:hover { filter: brightness(1.15); }

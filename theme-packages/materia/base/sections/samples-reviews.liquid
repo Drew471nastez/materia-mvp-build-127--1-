@@ -1,0 +1,254 @@
+{%- comment -%}
+  Materia Themes. Reviews (Sample packs template): a picture on one side
+  and the buyers' words on the other, one review at a time in a carousel
+  moved by arrows, dots, a swipe or the keyboard. Each review shows the
+  buyer's picture (or their initials on a tinted circle), their name, what
+  they bought with its small cover, and stars when a rating is given.
+  Nothing turns on its own.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default'
+  assign pt = s.padding_top | default: 88
+  assign pb = s.padding_bottom | default: 88
+  assign count = section.blocks.size
+  assign iw = s.image_width | default: 42
+  assign tw = 100 | minus: iw
+-%}
+<style>
+  #shopify-section-{{ sid }} .srv { padding-block: {{ pt | times: 0.65 | round }}px {{ pb | times: 0.65 | round }}px; }
+  #shopify-section-{{ sid }} .srv__grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; align-items: stretch; }
+  #shopify-section-{{ sid }} .srv__media { position: relative; margin: 0; border-radius: 20px; overflow: hidden; min-height: 240px; background: rgba(var(--color-heading-rgb), .05); isolation: isolate; }
+  #shopify-section-{{ sid }} .srv__media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+  #shopify-section-{{ sid }} .srv__media::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,.72) 100%); z-index: 1; }
+  #shopify-section-{{ sid }} .srv__caption { position: absolute; left: 22px; right: 22px; bottom: 20px; z-index: 2; margin: 0; color: #fff; }
+  #shopify-section-{{ sid }} .srv__caption b { display: block; font-size: 20px; line-height: 1.2; font-weight: 700; }
+  #shopify-section-{{ sid }} .srv__caption span { display: block; margin-top: 6px; font-size: 14px; color: rgba(255,255,255,.78); }
+  #shopify-section-{{ sid }} .srv__panel { display: flex; flex-direction: column; min-width: 0; border-radius: 20px; padding: 26px 22px 22px; background: rgba(var(--color-heading-rgb), .04); border: 1px solid rgba(var(--color-heading-rgb), .08); }
+  #shopify-section-{{ sid }} .srv__eyebrow { margin: 0 0 10px; font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--srv-accent, var(--btn-primary-bg-color)); }
+  #shopify-section-{{ sid }} .srv__heading { margin: 0; font-size: {{ s.heading_size_mobile | default: 30 }}px; line-height: 1.08; }
+  #shopify-section-{{ sid }} .srv__text { margin: 10px 0 0; font-size: 15px; color: var(--color-text); max-width: 52ch; }
+  #shopify-section-{{ sid }} .srv__text > * { margin: 0; }
+  #shopify-section-{{ sid }} .srv__track { display: flex; margin: 26px -22px 0; padding: 0 22px; gap: 22px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline: 22px; scroll-behavior: smooth; scrollbar-width: none; overscroll-behavior-x: contain; flex: 1 1 auto; outline: none; }
+  #shopify-section-{{ sid }} .srv__track::-webkit-scrollbar { display: none; }
+  #shopify-section-{{ sid }} .srv__track:focus-visible { box-shadow: inset 0 0 0 2px rgba(var(--color-heading-rgb), .4); border-radius: 12px; }
+  #shopify-section-{{ sid }} .srv__slide { flex: 0 0 100%; scroll-snap-align: start; display: flex; flex-direction: column; min-width: 0; transition: opacity .35s ease; }
+  #shopify-section-{{ sid }} .srv__slide:not(.is-on) { opacity: .25; }
+  #shopify-section-{{ sid }} .srv__mark { display: block; width: 34px; height: 26px; color: var(--srv-accent, var(--btn-primary-bg-color)); margin-bottom: 14px; }
+  #shopify-section-{{ sid }} .srv__stars { display: flex; gap: 3px; margin-bottom: 12px; color: #fbbf24; }
+  #shopify-section-{{ sid }} .srv__stars svg { width: 16px; height: 16px; }
+  #shopify-section-{{ sid }} .srv__stars .is-off { color: rgba(var(--color-heading-rgb), .18); }
+  #shopify-section-{{ sid }} .srv__quote { margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; font-style: normal; quotes: none; font-size: {{ s.quote_size_mobile | default: 21 }}px; line-height: 1.38; font-weight: 600; letter-spacing: -.01em; color: var(--color-heading); }
+  #shopify-section-{{ sid }} .srv__quote::before, #shopify-section-{{ sid }} .srv__quote::after { content: none; display: none; }
+  #shopify-section-{{ sid }} .srv__quote p { margin: 0; font: inherit; color: inherit; }
+  #shopify-section-{{ sid }} .srv__who { display: flex; align-items: center; gap: 12px; margin-top: auto; padding-top: 24px; }
+  #shopify-section-{{ sid }} .srv__avatar { flex: none; width: 46px; height: 46px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; font-size: 16px; font-weight: 700; color: #fff; background: var(--srv-tint); box-shadow: 0 0 0 2px var(--color-background), 0 0 0 3px rgba(var(--color-heading-rgb), .14); }
+  #shopify-section-{{ sid }} .srv__avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  #shopify-section-{{ sid }} .srv__name { margin: 0; font-size: 15px; font-weight: 700; color: var(--color-heading); line-height: 1.3; }
+  #shopify-section-{{ sid }} .srv__role { margin: 2px 0 0; font-size: 13px; line-height: 1.35; color: var(--color-text); }
+  #shopify-section-{{ sid }} .srv__role a { color: inherit; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(var(--color-heading-rgb), .3); }
+  #shopify-section-{{ sid }} .srv__pack { flex: none; width: 46px; height: 46px; margin-left: auto; display: block; }
+  #shopify-section-{{ sid }} .srv__pack img { width: 100%; height: 100%; object-fit: contain; display: block; filter: drop-shadow(0 6px 10px rgba(0,0,0,.45)); }
+  #shopify-section-{{ sid }} .srv__nav { display: flex; align-items: center; gap: 10px; margin-top: 22px; padding-top: 18px; border-top: 1px solid rgba(var(--color-heading-rgb), .08); }
+  #shopify-section-{{ sid }} .srv__dots { display: flex; gap: 4px; margin-right: auto; }
+  #shopify-section-{{ sid }} .srv__dot { width: 24px; height: 24px; padding: 0; border: 0; background: transparent; cursor: pointer; display: grid; place-items: center; }
+  #shopify-section-{{ sid }} .srv__dot::before { content: ""; width: 7px; height: 7px; border-radius: 999px; background: rgba(var(--color-heading-rgb), .25); transition: width .3s ease, background-color .3s ease; }
+  #shopify-section-{{ sid }} .srv__dot[aria-current="true"]::before { width: 22px; background: var(--srv-accent, var(--btn-primary-bg-color)); }
+  #shopify-section-{{ sid }} .srv__count { font-size: 13px; color: var(--color-text); font-variant-numeric: tabular-nums; margin-right: 6px; }
+  #shopify-section-{{ sid }} .srv__arrow { flex: none; width: 42px; height: 42px; padding: 0; border-radius: 50%; border: 1px solid rgba(var(--color-heading-rgb), .18); background: transparent; color: var(--color-heading); display: grid; place-items: center; cursor: pointer; transition: background-color .2s ease, border-color .2s ease, color .2s ease, opacity .2s ease; }
+  #shopify-section-{{ sid }} .srv__arrow svg { width: 16px; height: 16px; }
+  #shopify-section-{{ sid }} .srv__arrow:hover { background: rgb(var(--color-heading-rgb)); border-color: transparent; color: var(--color-background); }
+  #shopify-section-{{ sid }} .srv__arrow[disabled] { opacity: .3; cursor: default; background: transparent; color: var(--color-heading); border-color: rgba(var(--color-heading-rgb), .18); }
+  #shopify-section-{{ sid }} .srv__arrow:focus-visible, #shopify-section-{{ sid }} .srv__dot:focus-visible { outline: 2px solid rgb(var(--color-heading-rgb)); outline-offset: 2px; }
+  @media (min-width: 750px) {
+    #shopify-section-{{ sid }} .srv { padding-block: {{ pt }}px {{ pb }}px; }
+    #shopify-section-{{ sid }} .srv__heading { font-size: {{ s.heading_size | default: 44 }}px; }
+    #shopify-section-{{ sid }} .srv__panel { padding: 40px 40px 28px; }
+    #shopify-section-{{ sid }} .srv__track { margin-inline: -40px; padding-inline: 40px; scroll-padding-inline: 40px; gap: 40px; }
+    #shopify-section-{{ sid }} .srv__quote { font-size: {{ s.quote_size | default: 28 }}px; }
+    #shopify-section-{{ sid }} .srv__media { min-height: 360px; }
+  }
+  @media (min-width: 990px) {
+    #shopify-section-{{ sid }} .srv__grid { grid-template-columns: minmax(0, {{ iw }}fr) minmax(0, {{ tw }}fr); gap: 24px; }
+    #shopify-section-{{ sid }} .srv__grid--right .srv__media { order: 2; }
+    #shopify-section-{{ sid }} .srv__media { min-height: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-{{ sid }} .srv__track { scroll-behavior: auto; }
+    #shopify-section-{{ sid }} .srv__slide, #shopify-section-{{ sid }} .srv__dot::before { transition: none; }
+  }
+</style>
+<div class="srv section color-{{ color_scheme }} gradient" data-srv{% if s.accent != blank %} style="--srv-accent: {{ s.accent }};"{% endif %}>
+  <div class="{{ s.section_width | default: 'container' }}">
+    <div class="srv__grid{% if s.image_position == 'right' %} srv__grid--right{% endif %}">
+      {%- if s.image != blank -%}
+        <figure class="srv__media">
+          {{ s.image | image_url: width: 1200 | image_tag: loading: 'lazy', widths: '600, 900, 1200', sizes: '(min-width: 990px) 42vw, 100vw', alt: s.image_alt | default: '' }}
+          {%- if s.caption != blank or s.caption_sub != blank -%}
+            <figcaption class="srv__caption">{% if s.caption != blank %}<b>{{ s.caption | escape }}</b>{% endif %}{% if s.caption_sub != blank %}<span>{{ s.caption_sub | escape }}</span>{% endif %}</figcaption>
+          {%- endif -%}
+        </figure>
+      {%- endif -%}
+      <div class="srv__panel">
+        {%- if s.eyebrow != blank -%}<p class="srv__eyebrow">{{ s.eyebrow | escape }}</p>{%- endif -%}
+        {%- if s.heading != blank -%}<h2 class="srv__heading h2">{{ s.heading }}</h2>{%- endif -%}
+        {%- if s.text != blank -%}<div class="srv__text rte">{{ s.text }}</div>{%- endif -%}
+        {%- if count > 0 -%}
+          <div class="srv__track" data-srv-track tabindex="0" role="region" aria-roledescription="carousel" aria-label="{{ s.heading | strip_html | default: 'Reviews' | escape }}">
+            {%- for block in section.blocks -%}
+              {%- liquid
+                assign b = block.settings
+                assign initials = ''
+                assign words = b.name | strip | split: ' '
+                for w in words limit: 2
+                  assign ch = w | slice: 0
+                  assign initials = initials | append: ch
+                endfor
+                assign initials = initials | upcase
+                assign hue_i = forloop.index0 | modulo: 4
+                case hue_i
+                  when 0
+                    assign tint = 'linear-gradient(135deg, #7c3aed, #4f46e5)'
+                  when 1
+                    assign tint = 'linear-gradient(135deg, #db2777, #7c3aed)'
+                  when 2
+                    assign tint = 'linear-gradient(135deg, #0891b2, #4f46e5)'
+                  else
+                    assign tint = 'linear-gradient(135deg, #ea580c, #db2777)'
+                endcase
+                assign rating = b.rating | plus: 0
+              -%}
+              <figure class="srv__slide{% if forloop.first %} is-on{% endif %}" data-srv-slide role="group" aria-roledescription="slide" aria-label="{{ forloop.index }} / {{ count }}" style="margin: 0;" {{ block.shopify_attributes }}>
+                {%- if rating > 0 -%}
+                  <div class="srv__stars" role="img" aria-label="{{ rating }} / 5">
+                    {%- for i in (1..5) -%}<svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"{% if i > rating %} class="is-off"{% endif %}><path fill="currentColor" d="M10 1.6l2.5 5.3 5.8.7-4.3 4 1.1 5.7L10 14.5l-5.1 2.8 1.1-5.7-4.3-4 5.8-.7z"/></svg>{%- endfor -%}
+                  </div>
+                {%- else -%}
+                  <svg class="srv__mark" viewBox="0 0 34 26" aria-hidden="true" focusable="false"><path fill="currentColor" d="M0 26V15.6C0 6.9 4.6 1.7 12.6 0l1.5 3.6C9.5 5 7.3 8 7.1 12.2H13V26H0Zm20.6 0V15.6C20.6 6.9 25.2 1.7 33.2 0l1.5 3.6c-4.6 1.4-6.8 4.4-7 8.6h5.9V26h-13Z"/></svg>
+                {%- endif -%}
+                <blockquote class="srv__quote">{{ b.quote }}</blockquote>
+                <figcaption class="srv__who">
+                  <span class="srv__avatar" style="--srv-tint: {{ tint }};" aria-hidden="true">
+                    {%- if b.avatar != blank -%}{{ b.avatar | image_url: width: 120 | image_tag: loading: 'lazy', width: 46, height: 46, alt: '' }}{%- else -%}{{ initials | default: '?' }}{%- endif -%}
+                  </span>
+                  <span style="min-width: 0; display: block;">
+                    <span class="srv__name" style="display: block;">{{ b.name | escape }}</span>
+                    {%- if b.role != blank -%}<span class="srv__role" style="display: block;">{% if b.link != blank %}<a href="{{ b.link }}">{{ b.role | escape }}</a>{% else %}{{ b.role | escape }}{% endif %}</span>{%- endif -%}
+                  </span>
+                  {%- if b.pack_image != blank -%}
+                    {%- if b.link != blank -%}<a class="srv__pack" href="{{ b.link }}" tabindex="-1" aria-hidden="true">{%- else -%}<span class="srv__pack" aria-hidden="true">{%- endif -%}
+                    {{ b.pack_image | image_url: width: 140 | image_tag: loading: 'lazy', width: 46, height: 46, alt: '' }}
+                    {%- if b.link != blank -%}</a>{%- else -%}</span>{%- endif -%}
+                  {%- endif -%}
+                </figcaption>
+              </figure>
+            {%- endfor -%}
+          </div>
+          {%- if count > 1 -%}
+            <div class="srv__nav">
+              <div class="srv__dots">
+                {%- for block in section.blocks -%}<button class="srv__dot" type="button" data-srv-dot="{{ forloop.index0 }}" aria-label="Review {{ forloop.index }} of {{ count }}"{% if forloop.first %} aria-current="true"{% endif %}></button>{%- endfor -%}
+              </div>
+              <span class="srv__count" data-srv-count aria-hidden="true">1 / {{ count }}</span>
+              <button class="srv__arrow" type="button" data-srv-prev aria-label="Previous review" disabled><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+              <button class="srv__arrow" type="button" data-srv-next aria-label="Next review"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="m6 3 5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            </div>
+          {%- endif -%}
+        {%- elsif request.design_mode -%}
+          <p class="srv__text">Add a review to this section.</p>
+        {%- endif -%}
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  (function () {
+    function setup(root) {
+      if (!root || root.__srv) return; root.__srv = true;
+      var track = root.querySelector('[data-srv-track]'); if (!track) return;
+      var slides = [].slice.call(root.querySelectorAll('[data-srv-slide]')), dots = [].slice.call(root.querySelectorAll('[data-srv-dot]'));
+      var prev = root.querySelector('[data-srv-prev]'), next = root.querySelector('[data-srv-next]'), count = root.querySelector('[data-srv-count]'), at = 0;
+      function mark(i) {
+        at = i;
+        slides.forEach(function (s, k) { s.classList.toggle('is-on', k === i); });
+        dots.forEach(function (d, k) { if (k === i) d.setAttribute('aria-current', 'true'); else d.removeAttribute('aria-current'); });
+        if (prev) prev.disabled = i <= 0; if (next) next.disabled = i >= slides.length - 1;
+        if (count) count.textContent = (i + 1) + ' / ' + slides.length;
+      }
+      function go(i) { i = Math.max(0, Math.min(slides.length - 1, i)); var s = slides[i]; if (!s) return; track.scrollTo({ left: s.offsetLeft - slides[0].offsetLeft, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); mark(i); }
+      if (prev) prev.addEventListener('click', function () { go(at - 1); });
+      if (next) next.addEventListener('click', function () { go(at + 1); });
+      dots.forEach(function (d, k) { d.addEventListener('click', function () { go(k); }); });
+      track.addEventListener('keydown', function (e) { if (e.key === 'ArrowRight') { e.preventDefault(); go(at + 1); } else if (e.key === 'ArrowLeft') { e.preventDefault(); go(at - 1); } });
+      var t = 0; track.addEventListener('scroll', function () { clearTimeout(t); t = setTimeout(function () { var w = slides[0] ? slides[0].offsetWidth : 1, gap = slides[1] ? slides[1].offsetLeft - slides[0].offsetLeft : w; var i = Math.round(track.scrollLeft / (gap || 1)); if (i !== at) mark(Math.max(0, Math.min(slides.length - 1, i))); }, 90); }, { passive: true });
+    }
+    function scan(r) { (r || document).querySelectorAll('[data-srv]').forEach(setup); }
+    scan(); document.addEventListener('shopify:section:load', function (e) { scan(e.target); });
+    document.addEventListener('shopify:block:select', function (e) { var root = e.target.closest && e.target.closest('[data-srv]'); if (root) { var slides = [].slice.call(root.querySelectorAll('[data-srv-slide]')); var i = slides.indexOf(e.target.closest('[data-srv-slide]')); var dot = root.querySelectorAll('[data-srv-dot]')[i]; if (dot) dot.click(); } });
+  })();
+</script>
+{% schema %}
+{
+  "name": "Reviews carousel",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Reviews" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "What buyers wrote" },
+    { "type": "richtext", "id": "text", "label": "Text" },
+    { "type": "header", "content": "Picture" },
+    { "type": "image_picker", "id": "image", "label": "Picture" },
+    { "type": "text", "id": "image_alt", "label": "Picture description" },
+    { "type": "text", "id": "caption", "label": "Line on the picture" },
+    { "type": "text", "id": "caption_sub", "label": "Smaller line on the picture" },
+    { "type": "select", "id": "image_position", "label": "Picture side", "default": "left", "options": [{ "value": "left", "label": "Left" }, { "value": "right", "label": "Right" }] },
+    { "type": "range", "id": "image_width", "label": "Picture width", "min": 30, "max": 60, "step": 2, "unit": "%", "default": 42 },
+    { "type": "header", "content": "Look" },
+    { "type": "range", "id": "heading_size", "label": "Heading size", "min": 20, "max": 72, "step": 2, "unit": "px", "default": 44 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size on phones", "min": 18, "max": 48, "step": 2, "unit": "px", "default": 30 },
+    { "type": "range", "id": "quote_size", "label": "Review text size", "min": 16, "max": 40, "step": 1, "unit": "px", "default": 28 },
+    { "type": "range", "id": "quote_size_mobile", "label": "Review text size on phones", "min": 14, "max": 30, "step": 1, "unit": "px", "default": 21 },
+    { "type": "color", "id": "accent", "label": "Accent colour", "info": "Left empty, the button colour." },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default" },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "container",
+      "options": [
+        { "value": "container", "label": "Default" },
+        { "value": "fluid_container", "label": "Fluid container" },
+        { "value": "stretch_width", "label": "Stretched" }
+      ]
+    },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 88 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 88 }
+  ],
+  "blocks": [
+    {
+      "type": "review",
+      "name": "Review",
+      "settings": [
+        { "type": "richtext", "id": "quote", "label": "Review", "default": "<p>Write what the buyer said, in their words.</p>" },
+        { "type": "text", "id": "name", "label": "Name", "default": "Buyer's name" },
+        { "type": "text", "id": "role", "label": "What they bought", "default": "On the pack they bought" },
+        { "type": "url", "id": "link", "label": "Link to it" },
+        { "type": "image_picker", "id": "avatar", "label": "Buyer's picture", "info": "Left empty, their initials on a tinted circle." },
+        { "type": "image_picker", "id": "pack_image", "label": "Small cover of what they bought" },
+        { "type": "range", "id": "rating", "label": "Stars", "min": 0, "max": 5, "step": 1, "default": 0, "info": "0 hides the stars and shows a quote mark." }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Reviews carousel",
+      "blocks": [
+        { "type": "review" },
+        { "type": "review" },
+        { "type": "review" }
+      ]
+    }
+  ]
+}
+{% endschema %}

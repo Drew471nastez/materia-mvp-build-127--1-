@@ -1,0 +1,140 @@
+{%- comment -%}
+  Coach creator: ways to work together. Each programme (a block) is a wide
+  rounded panel: a small coloured label, a serif heading, a few lines, a
+  filled button in the programme's own colour and an outline button, and a
+  picture with a short note pinned to its corner (when the next round
+  starts, how long it runs). Panels can alternate sides.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign hf = settings.font_heading_google_family
+-%}
+{%- if hf != blank and hf != 'none' -%}<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family={{ hf | replace: ' ', '+' }}:ital@0;1&display=swap">{%- endif -%}
+<style>
+  #shopify-section-{{ sid }} .cpg { background: {{ st.background | default: '#fbf8f4' }}; padding: {{ st.padding_top_mobile | default: 56 }}px 16px {{ st.padding_bottom_mobile | default: 56 }}px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cpg { padding: {{ st.padding_top | default: 96 }}px 40px {{ st.padding_bottom | default: 96 }}px; } }
+  #shopify-section-{{ sid }} .cpg__head { max-width: 760px; margin: 0 auto 36px; text-align: center; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cpg__head { margin-bottom: 56px; } }
+  #shopify-section-{{ sid }} .cpg__eyebrow { margin: 0 0 12px; color: {{ st.eyebrow_color | default: '#c2421f' }}; font-size: 12px; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; }
+  #shopify-section-{{ sid }} .cpg__title { margin: 0; color: {{ st.heading_color | default: '#16120f' }}; font-family: var(--heading-font, serif); font-weight: 400; font-size: 40px; line-height: 1.04; letter-spacing: -.01em; text-wrap: balance; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cpg__title { font-size: 60px; } }
+  #shopify-section-{{ sid }} .cpg__title em { font-style: italic; }
+  #shopify-section-{{ sid }} .cpg__list { display: grid; gap: 20px; max-width: 1180px; margin: 0 auto; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cpg__list { gap: 28px; } }
+  #shopify-section-{{ sid }} .cpg__card { --c: #16120f; display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; align-items: center; padding: 14px 14px 30px; border-radius: 24px; background: {{ st.card_color | default: '#f2ebe2' }}; }
+  @media (min-width: 990px) {
+    #shopify-section-{{ sid }} .cpg__card { grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: 64px; padding: 20px 20px 20px 64px; border-radius: 28px; }
+    #shopify-section-{{ sid }} .cpg--alt .cpg__card:nth-child(even) { grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); padding: 20px 64px 20px 20px; }
+    #shopify-section-{{ sid }} .cpg--alt .cpg__card:nth-child(even) .cpg__media { order: -1; }
+  }
+  #shopify-section-{{ sid }} .cpg__body { padding: 0 10px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cpg__body { padding: 40px 0; } }
+  #shopify-section-{{ sid }} .cpg__label { display: inline-block; margin: 0 0 16px; color: var(--c); font-size: 12px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; }
+  #shopify-section-{{ sid }} .cpg__name { margin: 0 0 16px; color: {{ st.heading_color | default: '#16120f' }}; font-family: var(--heading-font, serif); font-weight: 400; font-size: 34px; line-height: 1.06; letter-spacing: -.01em; text-wrap: balance; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cpg__name { font-size: 46px; } }
+  #shopify-section-{{ sid }} .cpg__name em { font-style: italic; color: var(--c); }
+  #shopify-section-{{ sid }} .cpg__text { max-width: 34em; color: {{ st.text_color | default: '#4a4038' }}; font-size: 16.5px; line-height: 1.65; }
+  #shopify-section-{{ sid }} .cpg__text p { margin: 0 0 10px; }
+  #shopify-section-{{ sid }} .cpg__facts { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 0; padding: 0; list-style: none; }
+  #shopify-section-{{ sid }} .cpg__facts li { padding: 7px 12px; border-radius: 999px; background: rgba(255,255,255,.7); color: {{ st.heading_color | default: '#16120f' }}; font-size: 13px; font-weight: 500; }
+  #shopify-section-{{ sid }} .cpg__actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }
+  #shopify-section-{{ sid }} .cpg__btn { display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding: 0 26px; border-radius: 999px; border: 1.5px solid var(--c); font-size: 15.5px; font-weight: 600; text-decoration: none; transition: transform .25s ease, background-color .25s ease, color .25s ease; }
+  #shopify-section-{{ sid }} .cpg__btn--fill { background: var(--c); color: #fff; }
+  #shopify-section-{{ sid }} .cpg__btn--line { background: transparent; color: var(--c); }
+  #shopify-section-{{ sid }} .cpg__btn--line:hover { background: var(--c); color: #fff; }
+  #shopify-section-{{ sid }} .cpg__btn--fill:hover { transform: translateY(-2px); }
+  @media (max-width: 599px) { #shopify-section-{{ sid }} .cpg__btn { flex: 1 1 100%; } }
+  #shopify-section-{{ sid }} .cpg__media { position: relative; margin: 0; aspect-ratio: 5 / 4; border-radius: 16px; overflow: hidden; background: #e3d7c8; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cpg__media { aspect-ratio: 22 / 25; border-radius: 18px; } }
+  #shopify-section-{{ sid }} .cpg__media > img, #shopify-section-{{ sid }} .cpg__media > svg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 1.2s cubic-bezier(.2,.65,.25,1); }
+  #shopify-section-{{ sid }} .cpg__card:hover .cpg__media img { transform: scale(1.03); }
+  #shopify-section-{{ sid }} .cpg__pin { position: absolute; left: 14px; bottom: 14px; right: 14px; display: flex; align-items: center; gap: 12px; max-width: 300px; padding: 12px 14px; border-radius: 14px; background: rgba(255,255,255,.94); box-shadow: 0 10px 30px -12px rgba(0,0,0,.35); }
+  #shopify-section-{{ sid }} .cpg__dot { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 50%; background: var(--c); display: grid; place-items: center; color: #fff; }
+  #shopify-section-{{ sid }} .cpg__dot svg { position: static; display: block; width: 16px; height: 16px; }
+  #shopify-section-{{ sid }} .cpg__pin b { display: block; color: #16120f; font-size: 14px; font-weight: 600; line-height: 1.25; }
+  #shopify-section-{{ sid }} .cpg__pin span { display: block; color: #6a5f55; font-size: 12.5px; line-height: 1.3; }
+  #shopify-section-{{ sid }} [data-cpr].cpr-wait { opacity: 0; transform: translate3d(0, 24px, 0); }
+  #shopify-section-{{ sid }} [data-cpr].cpr-in { opacity: 1; transform: none; transition: opacity .9s cubic-bezier(.2,.65,.25,1), transform .9s cubic-bezier(.2,.65,.25,1); }
+  @media (prefers-reduced-motion: reduce) { #shopify-section-{{ sid }} .cpg__media img, #shopify-section-{{ sid }} .cpg__btn { transition: none; } }
+</style>
+<section data-own-size class="cpg{% if st.alternate %} cpg--alt{% endif %}">
+  {%- if st.heading != blank or st.eyebrow != blank -%}
+    <div class="cpg__head">
+      {%- if st.eyebrow != blank -%}<p class="cpg__eyebrow">{{ st.eyebrow | escape }}</p>{%- endif -%}
+      {%- if st.heading != blank -%}<h2 class="cpg__title">{{ st.heading }}</h2>{%- endif -%}
+    </div>
+  {%- endif -%}
+  <div class="cpg__list">
+    {%- for block in section.blocks -%}
+      {%- assign b = block.settings -%}
+      {%- assign facts = b.facts | split: '|' -%}
+      <article class="cpg__card" style="--c: {{ b.color | default: '#16120f' }}" data-cpr {{ block.shopify_attributes }}>
+        <div class="cpg__body">
+          {%- if b.label != blank -%}<p class="cpg__label">{{ b.label | escape }}</p>{%- endif -%}
+          <h3 class="cpg__name">{{ b.heading }}</h3>
+          {%- if b.text != blank -%}<div class="cpg__text">{{ b.text }}</div>{%- endif -%}
+          {%- if b.facts != blank -%}<ul class="cpg__facts">{%- for f in facts -%}{%- assign ff = f | strip -%}{%- if ff != blank -%}<li>{{ ff | escape }}</li>{%- endif -%}{%- endfor -%}</ul>{%- endif -%}
+          <div class="cpg__actions">
+            {%- if b.button_label != blank -%}<a class="cpg__btn cpg__btn--fill" href="{{ b.button_link | default: '#' }}">{{ b.button_label | escape }}</a>{%- endif -%}
+            {%- if b.link_label != blank -%}<a class="cpg__btn cpg__btn--line" href="{{ b.link_url | default: '#' }}">{{ b.link_label | escape }}</a>{%- endif -%}
+          </div>
+        </div>
+        <figure class="cpg__media">
+          {%- if b.image != blank -%}
+            <img src="{{ b.image | image_url: width: 880 }}" srcset="{{ b.image | image_url: width: 520 }} 520w, {{ b.image | image_url: width: 880 }} 880w" sizes="(min-width: 990px) 480px, 92vw" width="{{ b.image.width | default: 880 }}" height="{{ b.image.height | default: 1000 }}" alt="{{ b.image_alt | default: b.image.alt | escape }}" loading="lazy" decoding="async">
+          {%- else -%}
+            {{ 'image' | placeholder_svg_tag }}
+          {%- endif -%}
+          {%- if b.pin_title != blank -%}
+            <figcaption class="cpg__pin"><span class="cpg__dot" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="2.5" y="3.5" width="11" height="10" rx="2"/><path d="M2.5 7h11M5.5 2v3M10.5 2v3"/></svg></span><span><b>{{ b.pin_title | escape }}</b>{%- if b.pin_text != blank -%}<span>{{ b.pin_text | escape }}</span>{%- endif -%}</span></figcaption>
+          {%- endif -%}
+        </figure>
+      </article>
+    {%- endfor -%}
+  </div>
+</section>
+{%- unless request.design_mode -%}
+<script>(function(){var r=document.getElementById('shopify-section-{{ sid }}');if(!r||!('IntersectionObserver' in window)||matchMedia('(prefers-reduced-motion: reduce)').matches)return;var h=innerHeight,io=new IntersectionObserver(function(es){es.forEach(function(e){if(!e.isIntersecting)return;var t=e.target;io.unobserve(t);requestAnimationFrame(function(){t.classList.add('cpr-in')})})},{rootMargin:'0px 0px -6% 0px'});r.querySelectorAll('[data-cpr]').forEach(function(el){if(el.getBoundingClientRect().top<h*.92)return;el.classList.add('cpr-wait');io.observe(el)})})();</script>
+{%- endunless -%}
+
+{% schema %}
+{
+  "name": "Coach creator programmes",
+  "tag": "section",
+  "class": "coachpro-programmes-section",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Small line above", "default": "Work with me" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "Three ways to <em>start</em>" },
+    { "type": "checkbox", "id": "alternate", "label": "Alternate the picture's side", "default": false },
+    { "type": "color", "id": "background", "label": "Background", "default": "#fbf8f4" },
+    { "type": "color", "id": "card_color", "label": "Panels", "default": "#f2ebe2" },
+    { "type": "color", "id": "eyebrow_color", "label": "Small line", "default": "#c2421f" },
+    { "type": "color", "id": "heading_color", "label": "Headings", "default": "#16120f" },
+    { "type": "color", "id": "text_color", "label": "Text", "default": "#4a4038" },
+    { "type": "range", "id": "padding_top", "label": "Space above on a computer", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below on a computer", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above on a phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below on a phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 }
+  ],
+  "blocks": [
+    { "type": "programme", "name": "Programme", "limit": 6, "settings": [
+      { "type": "text", "id": "label", "label": "Small label", "default": "Programme" },
+      { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "Name the result, not the format" },
+      { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Who it is for, what they do each week and where they end up.</p>" },
+      { "type": "text", "id": "facts", "label": "Short facts", "info": "Separate them with a | sign.", "default": "12 weeks | Online | Small group" },
+      { "type": "color", "id": "color", "label": "Colour", "default": "#16120f" },
+      { "type": "text", "id": "button_label", "label": "Button", "default": "See the programme" },
+      { "type": "url", "id": "button_link", "label": "Button link" },
+      { "type": "text", "id": "link_label", "label": "Second button", "default": "Stories" },
+      { "type": "url", "id": "link_url", "label": "Second button link" },
+      { "type": "image_picker", "id": "image", "label": "Picture" },
+      { "type": "text", "id": "image_alt", "label": "Alt text" },
+      { "type": "text", "id": "pin_title", "label": "Note on the picture", "default": "Next round opens in spring" },
+      { "type": "text", "id": "pin_text", "label": "Second line of the note", "default": "Join the list to hear first" }
+    ] }
+  ],
+  "presets": [ { "name": "Coach creator programmes", "category": "Coach creator", "blocks": [ { "type": "programme" }, { "type": "programme" } ] } ]
+}
+{% endschema %}

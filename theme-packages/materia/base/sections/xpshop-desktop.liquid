@@ -1,0 +1,587 @@
+{%- comment -%}
+XP shop: the desktop the whole website sits on. Placed in the header group,
+  so every page has it:
+
+  the wallpaper, a photograph fixed behind the page;
+
+  a light bar along the top with the shop's name, the main menu, search,
+  account and the cart, so the way round is always plain;
+
+  the taskbar along the bottom: the shop's own green button (it opens a
+  menu with both menus, search, account and the cart), the page you are on,
+  and a tray with the cart, its count and a clock;
+
+  desktop icons (blocks) down the left of a wide screen on the home page;
+
+  a notification balloon from the tray, once a visit, when it has words;
+
+  and, with "Draw the theme's sections as windows", the theme's own
+  sections (product, cart, search, collection, blog, pages) in a window
+  with a blue title bar that names the page.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign menu = st.menu
+  assign menu2 = st.menu_2
+  assign show_icons = true
+  if st.icons_home_only and request.page_type != 'index'
+    assign show_icons = false
+  endif
+  assign start = st.start_label | default: shop.name
+-%}
+{%- capture xp_title -%}
+  {%- case request.page_type -%}
+    {%- when 'index' -%}{{ st.home_title | default: shop.name }}
+    {%- when 'product' -%}{{ product.title }}
+    {%- when 'collection' -%}{{ collection.title | default: 'Shop' }}
+    {%- when 'list-collections' -%}{{ st.collections_title | default: 'Collections' }}
+    {%- when 'cart' -%}{{ st.cart_label | default: 'Cart' }}
+    {%- when 'search' -%}{{ st.search_label | default: 'Search' }}
+    {%- when 'page' -%}{{ page.title }}
+    {%- when 'blog' -%}{{ blog.title | default: 'Journal' }}
+    {%- when 'article' -%}{{ article.title }}
+    {%- when '404' -%}{{ st.missing_title | default: 'Not found' }}
+    {%- else -%}{{ page_title | default: shop.name }}
+  {%- endcase -%}
+{%- endcapture -%}
+{%- assign xp_title = xp_title | strip | strip_newlines | replace: '\', '' | replace: '"', "'" | replace: '<', '' | replace: '>', '' -%}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,800;1,900&display=swap" data-xp-font>
+<style>
+  .xp { --xp-ink: #14213d; --xp-muted: #4a5568; --xp-navy: #0f2f75; --xp-blue: #1f5fd8; --xp-link: #1a55c9; --xp-face: #f4f2ea; --xp-line: #c9c3b0; --xp-pane: #d9e4f8;
+    --xp-font: 'Nunito', Tahoma, 'Trebuchet MS', system-ui, sans-serif;
+    color: var(--xp-ink); font-family: var(--xp-font); font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  .xp *, .xp *::before, .xp *::after { box-sizing: border-box; }
+  .xp :where(h1, h2, h3, h4, p, ul, ol, figure) { margin: 0; }
+  .xp .xp-ico { width: 24px; height: 24px; flex: none; display: block; }
+  /* A window: a blue frame, a glossy title bar with rounded top corners, and a white inside. */
+  .xp-win { position: relative; display: flex; flex-direction: column; min-width: 0; background: var(--xp-blue); padding: 0 3px 3px; border-radius: 10px 10px 6px 6px;
+    box-shadow: 0 1px 0 rgba(255,255,255,.35) inset, 0 22px 48px -12px rgba(8, 28, 80, .45), 0 3px 10px rgba(8, 28, 80, .18); }
+  .xp-bar { display: flex; align-items: center; gap: 8px; min-height: 34px; margin: 0 -3px; padding: 4px 6px 4px 10px; border-radius: 9px 9px 0 0; color: #fff;
+    background: linear-gradient(180deg, #5da0fa 0%, #2f74ea 10%, #2263df 30%, #1d5ad6 60%, #1c57d0 86%, #1748b4 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.5), inset 0 -1px 0 rgba(0,20,90,.35); user-select: none; -webkit-user-select: none; }
+  .xp-bar .xp-ico { width: 20px; height: 20px; filter: drop-shadow(0 1px 0 rgba(0,0,40,.3)); }
+  .xp-bar__title { flex: 1; min-width: 0; margin: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font: 700 15px/1.2 var(--xp-font); letter-spacing: .01em; color: #fff; text-shadow: 1px 1px 0 rgba(0, 18, 80, .45); }
+  .xp-ctls { display: flex; gap: 3px; flex: none; }
+  .xp-ctl { display: grid; place-items: center; width: 24px; height: 24px; margin: 0; padding: 0; border: 1px solid #fff; border-radius: 4px; color: #fff; cursor: pointer;
+    background: linear-gradient(180deg, #78aef8 0%, #3c7ff0 45%, #2563da 55%, #3a7bea 100%); box-shadow: inset 0 0 0 1px rgba(0,30,120,.18), 0 1px 1px rgba(0,0,40,.25); }
+  .xp-ctl svg { width: 11px; height: 11px; }
+  .xp-ctl--close { background: linear-gradient(180deg, #f3a184 0%, #e5683f 40%, #d24a1f 60%, #e0653b 100%); }
+  .xp-ctl:hover { filter: brightness(1.1); }
+  .xp-ctl:active { filter: brightness(.92); }
+  .xp-ctl:focus-visible, .xp-btn:focus-visible, .xp a:focus-visible { outline: 2px solid #f5a623; outline-offset: 2px; }
+  .xp-body { position: relative; flex: 1; min-width: 0; background: #fff; border-radius: 0 0 4px 4px; overflow: hidden; }
+  .xp-menubar { display: flex; gap: 2px; padding: 3px 8px; background: var(--xp-face); border-bottom: 1px solid #e2ddcb; font-size: 13.5px; color: #222; }
+  .xp-menubar span { padding: 2px 8px; border-radius: 3px; }
+  .xp-status { display: flex; gap: 4px; padding: 4px 6px; background: var(--xp-face); border-top: 1px solid #e2ddcb; font-size: 12.5px; color: #333; }
+  .xp-status span { flex: 1; min-width: 0; padding: 2px 8px; border-left: 1px solid #fff; box-shadow: -1px 0 0 #d6d0bd; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .xp-status span:first-child { border: 0; box-shadow: none; }
+  /* Buttons: the soft grey XP button, a green one like the brand's start button, and a blue one. */
+  .xp-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; margin: 0; padding: 0 20px; border: 1px solid #1f3f7a; border-radius: 5px; cursor: pointer;
+    background: linear-gradient(180deg, #ffffff 0%, #f6f5f0 45%, #ebe8dd 90%, #dcd7c7 100%); color: #14213d; font: 700 15px/1 var(--xp-font); text-decoration: none; white-space: nowrap;
+    box-shadow: 0 1px 2px rgba(10,30,80,.12); transition: box-shadow .15s, filter .15s, transform .15s; }
+  .xp-btn:hover { box-shadow: inset 0 2px 0 #ffe3a3, inset 0 -2px 0 #f5a623, inset 2px 0 0 #fbd27f, inset -2px 0 0 #fbd27f, 0 1px 2px rgba(10,30,80,.12); color: #14213d; }
+  .xp-btn:active { transform: translateY(1px); filter: brightness(.97); }
+  .xp-btn[disabled] { opacity: .55; cursor: default; box-shadow: none; }
+  .xp-btn--go { border-color: #1d6a1d; color: #fff; text-shadow: 0 1px 0 rgba(0,50,0,.45);
+    background: linear-gradient(180deg, #7ad36c 0%, #45b041 42%, #2f962f 58%, #3aa73a 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 2px 6px rgba(20,90,20,.25); }
+  .xp-btn--go:hover { color: #fff; filter: brightness(1.06); box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 3px 10px rgba(20,90,20,.3); }
+  .xp-btn--blue { border-color: #143f9a; color: #fff; text-shadow: 0 1px 0 rgba(0,20,80,.45);
+    background: linear-gradient(180deg, #7fb2fa 0%, #3f80ee 42%, #2563da 58%, #3474e6 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 2px 6px rgba(20,50,140,.25); }
+  .xp-btn--blue:hover { color: #fff; filter: brightness(1.06); box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 3px 10px rgba(20,50,140,.3); }
+  .xp-btn .xp-ico { width: 20px; height: 20px; }
+  .xp input.xp-field, .xp-field { --input-bg: #fff; --input-border-color: #7f9db9; --input-border-radius: 3px; --input-padding: 0 12px; --field-text: #14213d; --input-height: 44px; width: 100%; height: 42px; padding: 0 12px; border: 1px solid #7f9db9 !important; border-radius: 3px !important; background: #fff !important; color: #14213d !important; font: 500 15px var(--xp-font); }
+  .xp input.xp-field:focus, .xp-field:focus { outline: none; border-color: #316ac5; box-shadow: 0 0 0 3px rgba(49,106,197,.2); }
+  .xp-h { margin: 0; color: var(--xp-navy); font-family: var(--xp-font); font-weight: 800; line-height: 1.12; letter-spacing: -.01em; }
+  .xp-eyebrow { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 12px; color: #2c7a22; font-size: 13px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+  .xp-rte { color: #2d3748; font-size: 16px; line-height: 1.65; }
+  .xp-rte p + p { margin-top: .8em; }
+  .xp-rte a { color: var(--xp-link); }
+  .xp-place { width: 100%; max-width: var(--xp-col, 1180px); margin: 0 auto; }
+  .xp-sec { padding: var(--xp-pt-m, 0) 10px var(--xp-pb-m, 16px); }
+  @media (min-width: 750px) { .xp-sec { padding: var(--xp-pt, 0) 24px var(--xp-pb, 28px); } }
+  html.xp-js .xp [data-motion] { opacity: 0; transform: translate3d(0, 18px, 0) scale(.985); transition: opacity .6s cubic-bezier(.2,.7,.2,1), transform .6s cubic-bezier(.2,.7,.2,1); transition-delay: var(--d, 0ms); }
+  html.xp-js .xp [data-motion].is-in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) { html.xp-js .xp [data-motion] { opacity: 1; transform: none; transition: none; } .xp-btn { transition: none; } }
+  @media (max-width: 749px) {
+    .xp-win { border-radius: 9px 9px 5px 5px; padding: 0 2px 2px; }
+    .xp-bar { margin: 0 -2px; min-height: 32px; }
+    .xp-bar__title { font-size: 14px; }
+    .xp-ctls .xp-ctl--opt { display: none; }
+  }
+  .xp-win.is-min > .xp-body, .xp-win.is-min > .xp-hide-min { display: none; }
+  .xp-win.is-min { padding-bottom: 0; border-radius: 10px 10px 9px 9px; }
+  .xp-win.is-min .xp-bar { border-radius: 9px; }
+  .xp-win[data-xp-window] { transition: opacity .2s, transform .2s; }
+  .xp-win.is-closing { opacity: 0; transform: scale(.97); }
+  .xp-place.is-max, .xp-win.is-max { max-width: none; }
+  @media (min-width: 750px) { .xp-win.is-max { margin-left: calc(-1 * max(0px, (100vw - var(--xp-col, 1180px)) / 2 - 24px)); margin-right: calc(-1 * max(0px, (100vw - var(--xp-col, 1180px)) / 2 - 24px)); } }
+
+  html { background: #6fa3e3{% if st.wallpaper != blank %} url("{{ st.wallpaper | image_url: width: 2000 }}") {{ st.focal | default: '50% 70%' }} / cover no-repeat fixed{% endif %} !important; scroll-behavior: auto; }
+  body { background: transparent !important; padding-bottom: calc(52px + env(safe-area-inset-bottom, 0px)); }
+  #shopify-section-{{ sid }} { position: static !important; margin: 0 !important; padding: 0 !important; }
+  .xp-wall { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; background: linear-gradient(180deg, #4d8ee0 0%, #8fbdf0 58%, #6aa646 58.2%, #4b8a2c 100%); }
+  .xp-wall img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: {{ st.focal | default: '50% 70%' }}; }
+  .xp-wall::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(255,255,255,0) 60%, rgba(10,40,10,{{ st.wall_shade | default: 0 | divided_by: 100.0 }}) 100%); }
+
+  /* The bar along the top. */
+  .xp-top { position: fixed; left: 0; right: 0; top: 0; z-index: 59; font-family: var(--xp-font); }
+  .xp-top-space { height: 58px; }
+  @media (max-width: 749px) { .xp-top-space { height: 54px; } }
+  .xp-top__in { display: flex; align-items: center; gap: 18px; height: 58px; padding: 0 24px; max-width: calc(var(--xp-col, 1180px) + 48px); margin: 0 auto; }
+  .xp-top__glass { position: absolute; inset: 0; z-index: -1; background: rgba(255,255,255,.82); -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3); box-shadow: 0 1px 0 rgba(255,255,255,.7) inset, 0 6px 20px -10px rgba(8,28,80,.35); border-bottom: 1px solid rgba(31,95,216,.18); }
+  .xp-brand { display: inline-flex; align-items: center; gap: 10px; color: var(--xp-navy); font-weight: 900; font-size: 19px; letter-spacing: -.01em; text-decoration: none; white-space: nowrap; }
+  .xp-brand img { display: block; height: 34px; width: auto; }
+  .xp-mark { width: 30px; height: 30px; flex: none; border-radius: 50%; box-shadow: 0 1px 2px rgba(0,30,80,.3); }
+  .xp-nav { display: flex; align-items: center; gap: 2px; min-width: 0; margin: 0; padding: 0; list-style: none; }
+  .xp-nav a { display: inline-flex; align-items: center; height: 36px; padding: 0 12px; border-radius: 6px; color: #1d2b4f; font-size: 15px; font-weight: 700; text-decoration: none; white-space: nowrap; transition: background-color .15s, color .15s; }
+  .xp-nav a:hover { background: rgba(31,95,216,.1); color: var(--xp-blue); }
+  .xp-nav a[aria-current] { background: rgba(31,95,216,.12); color: var(--xp-blue); }
+  .xp-top__right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+  .xp-search { position: relative; display: flex; align-items: center; width: 230px; }
+  .xp-search input { --input-bg: #fff; --input-border-color: #7f9db9; --input-border-radius: 22px; --input-padding: 0 42px 0 16px; --field-text: #14213d; --input-height: 42px; --mt-field-font-size: 14px; width: 100%; height: 42px; padding: 0 40px 0 14px; border: 1px solid #7f9db9; border-radius: 19px; background: #fff; color: #14213d; font: 500 14px var(--xp-font); }
+  .xp-search input:focus { outline: none; border-color: #316ac5; box-shadow: 0 0 0 3px rgba(49,106,197,.22); }
+  .xp-search button { min-height: 0 !important; position: absolute; right: 6px; top: 50%; margin-top: -16px; display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%; background: transparent; cursor: pointer; }
+  .xp-search .xp-ico { width: 20px; height: 20px; }
+  .xp-iconlink { position: relative; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 8px; color: #14213d; }
+  .xp-iconlink:hover { background: rgba(31,95,216,.1); }
+  .xp-iconlink .xp-ico { width: 24px; height: 24px; }
+  .xp-top .xp-btn { min-height: 40px; padding: 0 16px; }
+  .xp-count { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: #e5532a; color: #fff; font: 800 12px/1 var(--xp-font); box-shadow: 0 0 0 2px #fff; }
+  .xp-count[hidden] { display: none !important; }
+  .xp-iconlink .xp-count { position: absolute; top: 0; right: -2px; }
+  .xp-top__phone { display: none; }
+  @media (max-width: 989px) { .xp-nav a { padding: 0 9px; font-size: 14px; } .xp-search { width: 170px; } }
+  @media (max-width: 749px) {
+    .xp-top__in { height: 54px; padding: 0 8px 0 14px; gap: 6px; }
+    .xp-nav, .xp-search, .xp-top .xp-btn, .xp-top .xp-acc { display: none; }
+    .xp-top__phone { display: grid; }
+    .xp-brand { font-size: 18px; }
+  }
+
+  /* Desktop icons, on the home page of a wide screen. */
+  .xp-icons { display: none; }
+  .xp-icons.xp-icons--off { display: none !important; }
+  @media (min-width: 1480px) {
+    .xp-icons { position: absolute; left: 18px; top: 84px; z-index: 2; display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 0; list-style: none; }
+    .xp-icon { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 92px; padding: 6px 4px; border-radius: 4px; color: #fff; text-decoration: none; text-align: center; }
+    .xp-icon .xp-ico { width: 44px; height: 44px; filter: drop-shadow(0 2px 3px rgba(0,0,0,.35)); transition: transform .2s; }
+    .xp-icon span { padding: 1px 4px; border-radius: 2px; font-size: 13.5px; font-weight: 700; line-height: 1.25; text-shadow: 0 1px 2px rgba(0,0,0,.75), 0 0 8px rgba(0,0,0,.35); }
+    .xp-icon:hover .xp-ico, .xp-icon:focus-visible .xp-ico { transform: translateY(-2px); }
+    .xp-icon:hover span, .xp-icon:focus-visible span { background: #316ac5; text-shadow: none; }
+  }
+
+  /* The taskbar. */
+  .xp-task { position: fixed; left: 0; right: 0; bottom: 0; z-index: 60; padding-bottom: env(safe-area-inset-bottom, 0px); font-family: var(--xp-font);
+    background: linear-gradient(180deg, #3b7cf0 0%, #2a63dc 8%, #245ad6 40%, #2156d3 75%, #1c4bbf 100%); box-shadow: inset 0 1px 0 #6fa1f7, inset 0 2px 0 #3a73e6, 0 -2px 10px rgba(0,20,70,.2); }
+  .xp-task__in { display: flex; align-items: stretch; height: 46px; }
+  .xp-start { position: relative; display: inline-flex; align-items: center; gap: 8px; height: 46px; margin: 0; padding: 0 26px 0 12px; border: 0; border-radius: 0 16px 16px 0; cursor: pointer; color: #fff;
+    background: linear-gradient(180deg, #6ccf5f 0%, #3fae3c 18%, #339f33 50%, #2c8f2c 80%, #2d8a2d 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,.5), inset -2px 0 3px rgba(0,60,0,.35), 2px 0 6px rgba(0,30,0,.3); }
+  .xp-start span { font: italic 900 21px/1 var(--xp-font); letter-spacing: .01em; text-shadow: 1px 1px 2px rgba(0,40,0,.55); }
+  .xp-start .xp-mark { width: 26px; height: 26px; }
+  .xp-start:hover, .xp-start[aria-expanded="true"] { filter: brightness(1.08); }
+  .xp-start[aria-expanded="true"] { box-shadow: inset 0 2px 6px rgba(0,50,0,.5); }
+  .xp-task__wins { flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; padding: 0 10px; overflow: hidden; }
+  .xp-tw { display: inline-flex; align-items: center; gap: 8px; flex: 0 1 220px; min-width: 0; height: 34px; margin: 0; padding: 0 12px; border: 0; border-radius: 4px; color: #fff; font: 600 14px var(--xp-font); text-decoration: none;
+    background: linear-gradient(180deg, #5b98f4 0%, #3c7ff0 50%, #3373e4 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,.35), inset 0 0 0 1px rgba(0,30,120,.35); }
+  .xp-tw.is-current { background: linear-gradient(180deg, #1c4bbf 0%, #1e50c6 100%); box-shadow: inset 1px 1px 3px rgba(0,10,60,.55), inset 0 0 0 1px rgba(0,20,90,.5); }
+  button.xp-tw { cursor: pointer; }
+  .xp-tw span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .xp-tw .xp-ico { width: 18px; height: 18px; }
+  .xp-tray { display: flex; align-items: center; gap: 4px; padding: 0 14px 0 12px; color: #fff;
+    background: linear-gradient(180deg, #1690f0 0%, #0f84e8 12%, #0b77df 50%, #0d70d8 100%); box-shadow: inset 1px 0 0 #0b4fb5, inset 2px 0 0 #3aa2ff; }
+  .xp-tray a { position: relative; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 4px; color: #fff; }
+  .xp-tray a:hover { background: rgba(255,255,255,.15); }
+  .xp-tray .xp-ico { width: 20px; height: 20px; }
+  .xp-tray .xp-count { position: absolute; top: -2px; right: -4px; min-width: 18px; height: 18px; font-size: 11px; box-shadow: 0 0 0 1.5px #0d70d8; }
+  .xp-clock { min-width: 64px; padding-left: 8px; text-align: right; font: 600 14px var(--xp-font); font-variant-numeric: tabular-nums; white-space: nowrap; text-shadow: 0 1px 0 rgba(0,20,80,.4); }
+  @media (max-width: 749px) {
+    .xp-task__wins .xp-tw:not(.is-current) { display: none; }
+    .xp-tw { flex-basis: auto; }
+    .xp-tray .xp-acc, .xp-tray .xp-tray__search { display: none; }
+    .xp-start { padding: 0 20px 0 10px; }
+    .xp-start span { font-size: 19px; }
+    .xp-clock { min-width: 0; }
+  }
+
+  /* The menu the green button opens. */
+  .xp-menu { position: fixed; left: 0; bottom: calc(46px + env(safe-area-inset-bottom, 0px)); z-index: 61; width: min(460px, 100vw); max-height: calc(100dvh - 120px); display: flex; flex-direction: column;
+    border-radius: 10px 10px 0 0; overflow: hidden; background: #1f5fd8; padding: 0 3px; box-shadow: 4px -4px 24px rgba(0,20,70,.4); transform-origin: 0 100%; transition: transform .22s cubic-bezier(.2,.8,.2,1), opacity .18s; }
+  .xp-menu[hidden] { display: none; }
+  .xp-menu.is-opening { transform: translateY(14px) scale(.98); opacity: 0; }
+  .xp-menu__head { display: flex; align-items: center; gap: 12px; margin: 0 -3px; padding: 12px 14px; color: #fff; font-weight: 800; font-size: 17px; text-shadow: 1px 1px 1px rgba(0,20,80,.5);
+    background: linear-gradient(180deg, #4f95f6 0%, #2a6be3 15%, #1e5bd6 70%, #1a50c4 100%); }
+  .xp-menu__tile { width: 46px; height: 46px; flex: none; border: 2px solid rgba(255,255,255,.85); border-radius: 6px; overflow: hidden; background: #fff; box-shadow: 0 2px 4px rgba(0,0,40,.3); }
+  .xp-menu__tile img, .xp-menu__tile svg { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .xp-menu__cols { display: grid; grid-template-columns: 1fr 1fr; min-height: 0; overflow: auto; border-top: 2px solid #f39c35; }
+  .xp-menu__col { margin: 0; padding: 6px; list-style: none; }
+  .xp-menu__col--l { background: #fff; }
+  .xp-menu__col--r { background: #d3e5fa; border-left: 1px solid #a9c3ea; }
+  .xp-menu__col a { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 4px 8px; border-radius: 3px; color: #14213d; font-size: 15px; font-weight: 700; text-decoration: none; }
+  .xp-menu__col--r a { color: #0f2f75; font-weight: 600; }
+  .xp-menu__col a:hover, .xp-menu__col a:focus-visible { background: #316ac5; color: #fff; outline: none; }
+  .xp-menu__col .xp-ico { width: 30px; height: 30px; }
+  .xp-menu__col--r .xp-ico { width: 24px; height: 24px; }
+  .xp-menu__rule { height: 1px; margin: 4px 6px; background: linear-gradient(90deg, transparent, #c9d6ea, transparent); }
+  .xp-menu__foot { display: flex; justify-content: flex-end; gap: 6px; margin: 0 -3px; padding: 8px 10px; background: linear-gradient(180deg, #3b7cf0 0%, #2156d3 100%); }
+  .xp-menu__foot a { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 4px; color: #fff; font-size: 14px; font-weight: 700; text-decoration: none; }
+  .xp-menu__foot a:hover { background: rgba(255,255,255,.16); }
+  .xp-menu__foot .xp-ico { width: 22px; height: 22px; }
+  @media (max-width: 749px) {
+    .xp-menu { width: 100vw; border-radius: 14px 14px 0 0; }
+    .xp-menu__cols { grid-template-columns: 1fr; }
+    .xp-menu__col--r { border-left: 0; border-top: 1px solid #a9c3ea; }
+  }
+  @media (prefers-reduced-motion: reduce) { .xp-menu { transition: none; } }
+
+  /* A balloon from the tray. */
+  .xp-balloon { position: fixed; right: 12px; bottom: calc(58px + env(safe-area-inset-bottom, 0px)); z-index: 58; width: min(330px, calc(100vw - 24px)); padding: 12px 36px 12px 14px; border: 1px solid #2b2b2b; border-radius: 10px;
+    background: #ffffe1; color: #1b1b1b; font-family: var(--xp-font); font-size: 14px; line-height: 1.45; box-shadow: 0 10px 24px rgba(0,20,60,.3); transition: opacity .3s, transform .3s cubic-bezier(.2,.8,.2,1); }
+  .xp-balloon::after { content: ""; position: absolute; right: 54px; bottom: -11px; width: 18px; height: 18px; background: #ffffe1; border-right: 1px solid #2b2b2b; border-bottom: 1px solid #2b2b2b; transform: skewX(-30deg) rotate(45deg); }
+  .xp-balloon[hidden] { display: none; }
+  @media (max-width: 749px) { .xp-balloon { display: none !important; } }
+  .xp-balloon.is-hiding { opacity: 0; transform: translateY(8px); }
+  .xp-balloon__head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-weight: 800; font-size: 15px; }
+  .xp-balloon__head .xp-ico { width: 20px; height: 20px; }
+  .xp-balloon a { color: #1a55c9; font-weight: 700; }
+  .xp-balloon__x { position: absolute; top: 8px; right: 8px; display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 1px solid #b9b9a0; border-radius: 4px; background: #fff; color: #333; cursor: pointer; }
+  .xp-balloon__x svg { width: 9px; height: 9px; }
+  @media (prefers-reduced-motion: reduce) { .xp-balloon { transition: none; } }
+
+  /* One column for every window, the same gap below each. */
+  :root { --xp-col: {{ st.column_width | default: 1180 }}px; --xp-gap: {{ st.window_gap | default: 28 }}px; }
+  main#MainContent { padding: 26px 24px 10px; font-family: 'Nunito', Tahoma, sans-serif; }
+  main#MainContent > .shopify-section { position: relative; }
+  @media (max-width: 749px) { :root { --xp-gap: 16px; } main#MainContent { padding: 14px 8px 6px; } }
+
+  {%- if st.skin %}
+  /* The theme's own sections, each in a window with the page's name on its title bar. */
+  main#MainContent > .shopify-section:not([class*="xpshop-"]):not(.form-modal-section) {
+    width: auto; max-width: var(--xp-col); margin: 0 auto var(--xp-gap); padding: 34px 3px 3px; border-radius: 10px 10px 6px 6px; background: #1f5fd8;
+    box-shadow: 0 22px 48px -12px rgba(8, 28, 80, .45), 0 3px 10px rgba(8, 28, 80, .18); --xp-t: "{{ xp_title }}";
+  }
+  main#MainContent > .shopify-section:not([class*="xpshop-"]):not(.form-modal-section)::before {
+    content: var(--xp-t); position: absolute; z-index: 2; left: 0; right: 0; top: 0; height: 34px; padding: 0 100px 0 40px; border-radius: 9px 9px 0 0;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'%3E%3Cpath d='M2 5.5A1.5 1.5 0 0 1 3.5 4h5l2 2h9A1.5 1.5 0 0 1 21 7.5V18a1.5 1.5 0 0 1-1.5 1.5h-16A1.5 1.5 0 0 1 2 18z' fill='%23f7c64a' stroke='%23c08a14' stroke-width='.8'/%3E%3Cpath d='M2.6 9.2A1.2 1.2 0 0 1 3.8 8h16.8a1.1 1.1 0 0 1 1.1 1.3l-1.6 9.1a1.3 1.3 0 0 1-1.3 1.1H3.5A1.2 1.2 0 0 1 2.3 18.3z' fill='%23ffe08a' stroke='%23c08a14' stroke-width='.8'/%3E%3C/svg%3E") 12px 50% / 20px 20px no-repeat,
+      linear-gradient(180deg, #5da0fa 0%, #2f74ea 10%, #2263df 30%, #1d5ad6 60%, #1c57d0 86%, #1748b4 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.5); color: #fff; font: 700 15px/34px 'Nunito', Tahoma, sans-serif; text-shadow: 1px 1px 0 rgba(0,18,80,.45); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  main#MainContent > .shopify-section:not([class*="xpshop-"]):not(.form-modal-section)::after {
+    content: ""; position: absolute; z-index: 3; top: 5px; right: 7px; width: 81px; height: 24px; pointer-events: none;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='81' height='24'%3E%3Crect x='.5' y='.5' width='23' height='23' rx='4' fill='%233576e8' stroke='%23fff'/%3E%3Crect x='6' y='15' width='8' height='3' fill='%23fff'/%3E%3Crect x='28.5' y='.5' width='23' height='23' rx='4' fill='%233576e8' stroke='%23fff'/%3E%3Crect x='34' y='6' width='12' height='11' fill='none' stroke='%23fff' stroke-width='2'/%3E%3Crect x='34' y='6' width='12' height='3' fill='%23fff'/%3E%3Crect x='56.5' y='.5' width='23' height='23' rx='4' fill='%23de5a2f' stroke='%23fff'/%3E%3Cpath d='m63 7 10 10M73 7 63 17' stroke='%23fff' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat;
+  }
+  main#MainContent > .shopify-section:not([class*="xpshop-"]):not(.form-modal-section) > * { background-color: #fff; border-radius: 0 0 4px 4px; }
+  main#MainContent > [data-section-type="related-products"], main#MainContent > [data-section-type="products-carousel"], main#MainContent > [data-section-type="recently-viewed"] { --xp-t: "{{ st.related_title | default: 'You may also like' | replace: '"', "'" }}"; }
+  main#MainContent > [data-section-type="main-cart-items"] { --xp-t: "{{ st.cart_label | default: 'Cart' | replace: '"', "'" }}"; }
+  main#MainContent > [data-section-type="main-search"] { --xp-t: "{{ st.search_label | default: 'Search' | replace: '"', "'" }}"; }
+  main#MainContent > :is([data-section-type="contactformsimple2"], [data-section-type="page-contact"], [data-section-type="contact-form-simple"]) { --xp-t: "{{ st.message_title | default: 'New message' | replace: '"', "'" }}"; }
+  main#MainContent > [data-section-type="blog-posts"] { --xp-t: "{{ st.more_posts_title | default: 'More from the journal' | replace: '"', "'" }}"; }
+  main#MainContent > :is([data-section-type="main-collection-heading"], [data-section-type="page-heading"]) { padding-top: 34px !important; }
+  main#MainContent > :is([data-section-type="main-collection-heading"], [data-section-type="page-heading"]) > :not(style):not(script) { padding-top: 24px !important; }
+  @media (max-width: 749px) { main#MainContent > :is([data-section-type="main-collection-heading"], [data-section-type="page-heading"]) { padding-top: 32px !important; } }
+  /* A heading section and the section under it are one window. */
+  main#MainContent > :is([data-section-type="main-collection-heading"], [data-section-type="page-heading"]):has(+ .shopify-section:not([class*="xpshop-"])) { margin-bottom: 0; padding-bottom: 0; border-radius: 10px 10px 0 0; box-shadow: none; }
+  main#MainContent > :is([data-section-type="main-collection-heading"], [data-section-type="page-heading"]):has(+ .shopify-section:not([class*="xpshop-"])) > * { border-radius: 0; }
+  main#MainContent > :is([data-section-type="main-collection-heading"], [data-section-type="page-heading"]) + .shopify-section:not([class*="xpshop-"]) { margin-top: 0; padding-top: 0; border-radius: 0 0 6px 6px; }
+  main#MainContent > :is([data-section-type="main-collection-heading"], [data-section-type="page-heading"]) + .shopify-section:not([class*="xpshop-"])::before,
+  main#MainContent > :is([data-section-type="main-collection-heading"], [data-section-type="page-heading"]) + .shopify-section:not([class*="xpshop-"])::after { display: none; }
+  @media (max-width: 749px) {
+    main#MainContent > .shopify-section:not([class*="xpshop-"]):not(.form-modal-section) { padding: 32px 2px 2px; border-radius: 9px 9px 5px 5px; }
+    main#MainContent > .shopify-section:not([class*="xpshop-"]):not(.form-modal-section)::before { height: 32px; line-height: 32px; font-size: 14px; padding-right: 40px; }
+    main#MainContent > .shopify-section:not([class*="xpshop-"]):not(.form-modal-section)::after { width: 24px; height: 24px; top: 4px; right: 5px; background-position: -56px 0; }
+  }
+  /* Buttons, fields and choices across the theme, in the same XP look. */
+  main#MainContent :is(h1, h2, h3, .h1, .h2, .h3, .product__title, .heading-style) { font-family: 'Nunito', Tahoma, sans-serif !important; color: #0f2f75; letter-spacing: -.01em !important; }
+  main#MainContent :is(.btn, .btn-primary, .btn-secondary, .btn-outline, .shopify-payment-button__button, [data-theme-button], [data-sl-button]):not(.xp-btn):not(.xp-ctl) {
+    --mb-bg: linear-gradient(180deg, #ffffff 0%, #f6f5f0 45%, #ebe8dd 90%, #dcd7c7 100%); --mb-ink: #14213d; --mb-text: #14213d; --mb-line: #1f3f7a; --mb-border: #1f3f7a; --mb-border-width: 1px; --mb-radius: 5px; --mb-hover-bg: linear-gradient(180deg, #ffffff 0%, #fbfaf5 60%, #efece2 100%); --mb-hover-text: #14213d; --mb-hover-border: #1f3f7a;
+    --mb-font: 'Nunito', Tahoma, sans-serif; border-radius: 5px !important; font-family: 'Nunito', Tahoma, sans-serif !important; font-weight: 800 !important; letter-spacing: 0 !important; text-transform: none !important; min-height: 46px;
+    background: linear-gradient(180deg, #ffffff 0%, #f6f5f0 45%, #ebe8dd 90%, #dcd7c7 100%); color: #14213d; border: 1px solid #1f3f7a;
+  }
+  main#MainContent :is(.btn, .btn-secondary, .btn-outline):not(.xp-btn):hover { box-shadow: inset 0 2px 0 #ffe3a3, inset 0 -2px 0 #f5a623; }
+  main#MainContent :is(.product-form__submit, .btn-checkout, [name="checkout"], .btn-primary):not(.xp-btn):not(.xp-ctl):not(.shopify-payment-button__button) {
+    --mb-bg: linear-gradient(180deg, #7ad36c 0%, #45b041 42%, #2f962f 58%, #3aa73a 100%); --mb-text: #fff; --mb-ink: #fff; --mb-line: #1d6a1d; --mb-border: #1d6a1d;
+    --mb-hover-bg: linear-gradient(180deg, #8bdc7d 0%, #52bd4c 42%, #379f36 58%, #45b041 100%); --mb-hover-text: #fff; --mb-hover-border: #1d6a1d;
+    background: linear-gradient(180deg, #7ad36c 0%, #45b041 42%, #2f962f 58%, #3aa73a 100%); color: #fff; border-color: #1d6a1d; text-shadow: 0 1px 0 rgba(0,50,0,.45);
+  }
+  main#MainContent .shopify-payment-button__button--unbranded:not(.xp-btn):not(.xp-ctl) {
+    --mb-bg: linear-gradient(180deg, #7fb2fa 0%, #3f80ee 42%, #2563da 58%, #3474e6 100%); --mb-text: #fff; --mb-ink: #fff; --mb-line: #143f9a; --mb-border: #143f9a;
+    --mb-hover-bg: linear-gradient(180deg, #8fbcfb 0%, #4c8af0 42%, #2f6de0 58%, #3f7eea 100%); --mb-hover-text: #fff; --mb-hover-border: #143f9a;
+    background: linear-gradient(180deg, #7fb2fa 0%, #3f80ee 42%, #2563da 58%, #3474e6 100%) !important; color: #fff !important; border-color: #143f9a !important; text-shadow: 0 1px 0 rgba(0,20,80,.45); opacity: 1 !important;
+  }
+  main#MainContent .product__item-option { border-radius: 5px !important; border: 1px solid #7f9db9 !important; background: #fff !important; color: #14213d !important; font-family: 'Nunito', Tahoma, sans-serif; font-weight: 700; }
+  main#MainContent input:checked + .product__item-option { background: linear-gradient(180deg, #e3eeff, #c9dcfb) !important; border-color: #316ac5 !important; color: #0f2f75 !important; box-shadow: inset 0 0 0 1px #316ac5 !important; }
+  main#MainContent .quantity { border: 1px solid #7f9db9 !important; border-radius: 5px !important; background: #fff !important; }
+  main#MainContent :is(input[type="text"], input[type="email"], input[type="search"], input[type="number"], input[type="tel"], textarea, select) { border-radius: 4px !important; border-color: #7f9db9 !important; font-family: 'Nunito', Tahoma, sans-serif; }
+  main#MainContent :is(.product__media, .media-gallery__image, .product-media, .card__media, .card-product__media) { border-radius: 6px; }
+  main#MainContent details summary { font-family: 'Nunito', Tahoma, sans-serif; }
+  {%- endif %}
+
+  /* The form popup, as an XP dialog. */
+  .form-modal-section .fm__panel { border-radius: 10px 10px 6px 6px !important; border: 3px solid #1f5fd8 !important; border-top-width: 38px !important; position: relative; font-family: 'Nunito', Tahoma, sans-serif; }
+  .form-modal-section .fm__panel::before { content: "{{ st.form_title | default: 'Sign up' | replace: '"', "'" }}"; position: absolute; left: -3px; right: -3px; top: -38px; height: 38px; padding: 0 44px 0 14px; border-radius: 9px 9px 0 0; color: #fff; font: 700 15px/38px 'Nunito', Tahoma, sans-serif; text-shadow: 1px 1px 0 rgba(0,18,80,.45);
+    background: linear-gradient(180deg, #5da0fa 0%, #2f74ea 10%, #2263df 30%, #1d5ad6 60%, #1c57d0 86%, #1748b4 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,.5); }
+  .form-modal-section .fm__close { top: -33px !important; right: 4px !important; width: 26px !important; height: 26px !important; border: 1px solid #fff !important; border-radius: 4px !important; color: #fff !important;
+    background: linear-gradient(180deg, #f3a184 0%, #e5683f 40%, #d24a1f 60%, #e0653b 100%) !important; z-index: 3; }
+  .form-modal-section .fm__handle { display: none !important; }
+  .form-modal-section .fm__submit { border-radius: 5px !important; border: 1px solid #1d6a1d !important; background: linear-gradient(180deg, #7ad36c 0%, #45b041 42%, #2f962f 58%, #3aa73a 100%) !important; color: #fff !important; text-shadow: 0 1px 0 rgba(0,50,0,.45); font-family: 'Nunito', Tahoma, sans-serif !important; font-weight: 800 !important; }
+  .form-modal-section .fm__input { border-radius: 4px !important; }
+  .form-modal-section .fm__title { font-family: 'Nunito', Tahoma, sans-serif !important; color: #0f2f75 !important; font-weight: 900 !important; }
+</style>
+{%- capture mark -%}<svg class="xp-mark" viewBox="0 0 30 30" aria-hidden="true" focusable="false"><defs><linearGradient id="XpSky-{{ sid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3f83e8"/><stop offset="1" stop-color="#a9d2fb"/></linearGradient><linearGradient id="XpHill-{{ sid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7ccb4a"/><stop offset="1" stop-color="#3c8f25"/></linearGradient><clipPath id="XpClip-{{ sid }}"><circle cx="15" cy="15" r="14"/></clipPath></defs><g clip-path="url(#XpClip-{{ sid }})"><rect width="30" height="30" fill="url(#XpSky-{{ sid }})"/><ellipse cx="10" cy="10" rx="4.5" ry="2.6" fill="#fff"/><ellipse cx="13" cy="9" rx="3.4" ry="2.6" fill="#fff"/><ellipse cx="17" cy="34" rx="22" ry="16" fill="url(#XpHill-{{ sid }})"/></g><circle cx="15" cy="15" r="14" fill="none" stroke="#fff" stroke-width="2"/></svg>{%- endcapture -%}
+<svg class="xp-sprite" width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden"><defs>
+<symbol id="xpi-folder-{{ sid }}" viewBox="0 0 24 24"><linearGradient id="xg1-{{ sid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe9a3"/><stop offset="1" stop-color="#f0b429"/></linearGradient><linearGradient id="xg2-{{ sid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff4c9"/><stop offset="1" stop-color="#f7c64a"/></linearGradient>
+<path d="M2 5.5A1.5 1.5 0 0 1 3.5 4h5l2 2h9A1.5 1.5 0 0 1 21 7.5V18a1.5 1.5 0 0 1-1.5 1.5h-16A1.5 1.5 0 0 1 2 18z" fill="url(#xg1-{{ sid }})" stroke="#c08a14" stroke-width=".8"/>
+<path d="M2.6 9.2A1.2 1.2 0 0 1 3.8 8h16.8a1.1 1.1 0 0 1 1.1 1.3l-1.6 9.1a1.3 1.3 0 0 1-1.3 1.1H3.5A1.2 1.2 0 0 1 2.3 18.3z" fill="url(#xg2-{{ sid }})" stroke="#c08a14" stroke-width=".8"/></symbol>
+<symbol id="xpi-tee-{{ sid }}" viewBox="0 0 24 24"><linearGradient id="xt1-{{ sid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#cfe0f7"/></linearGradient>
+<path d="M8.5 3 4 5.2 1.8 10l3.4 1.6L6.5 9v11.5h11V9l1.3 2.6 3.4-1.6L20 5.2 15.5 3c-.6 1.4-1.9 2.2-3.5 2.2S9.1 4.4 8.5 3z" fill="url(#xt1-{{ sid }})" stroke="#2a5bc0" stroke-width=".9" stroke-linejoin="round"/>
+<rect x="9" y="10" width="6" height="4.4" rx="1.1" fill="#4a9a35"/><path d="M9 13c1.4-1.6 4.6-1.6 6 0v.3A1.1 1.1 0 0 1 13.9 14.4h-3.8A1.1 1.1 0 0 1 9 13.3z" fill="#7cc24f"/></symbol>
+<symbol id="xpi-cap-{{ sid }}" viewBox="0 0 24 24"><linearGradient id="xc1-{{ sid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6c9cf0"/><stop offset="1" stop-color="#2a5bc0"/></linearGradient>
+<path d="M3.5 14.5C3.5 8.9 7.4 5 12 5s8 3.6 8 8.6v1.2H3.5z" fill="url(#xc1-{{ sid }})" stroke="#1b3f94" stroke-width=".8"/>
+<path d="M11.5 14.4c3.6-.4 7.6.2 10.6 2 .5.3.2 1.1-.4 1.1H8.8c-.5 0-.6-.7-.2-.9 1-.8 1.9-1.9 2.9-2.2z" fill="#1d4aa8" stroke="#163a86" stroke-width=".7"/>
+<circle cx="12" cy="5.4" r="1" fill="#1b3f94"/><path d="M8 9.5c.6-.9 1.7-1.4 2.8-1.1" stroke="#fff" stroke-opacity=".7" stroke-width="1" fill="none" stroke-linecap="round"/></symbol>
+<symbol id="xpi-help-{{ sid }}" viewBox="0 0 24 24"><radialGradient id="xh1-{{ sid }}" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#8fc0ff"/><stop offset=".6" stop-color="#2f6fdc"/><stop offset="1" stop-color="#1b4bb0"/></radialGradient>
+<circle cx="12" cy="12" r="9.5" fill="url(#xh1-{{ sid }})" stroke="#173f99" stroke-width=".8"/>
+<path d="M9.2 9.4a2.9 2.9 0 0 1 5.6.9c0 1.9-2.8 2.1-2.8 4" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17.3" r="1.25" fill="#fff"/></symbol>
+<symbol id="xpi-mail-{{ sid }}" viewBox="0 0 24 24"><linearGradient id="xm1-{{ sid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e3ecf8"/></linearGradient>
+<rect x="2.5" y="5.5" width="19" height="13.5" rx="1.6" fill="url(#xm1-{{ sid }})" stroke="#5d7fb8" stroke-width=".9"/>
+<path d="m3 6.5 9 7 9-7" fill="none" stroke="#5d7fb8" stroke-width="1"/><path d="m3 18.3 6.6-6M21 18.3l-6.6-6" stroke="#a9bddb" stroke-width=".8"/></symbol>
+<symbol id="xpi-cart-{{ sid }}" viewBox="0 0 24 24"><linearGradient id="xk1-{{ sid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9dc7ff"/><stop offset="1" stop-color="#3f7fe0"/></linearGradient>
+<path d="M2 3.5h2.6l2.3 11h11.4l2.2-7.8H6" fill="none" stroke="#2b4f93" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M6.3 7.4h13.4l-1.8 6.3H7.6z" fill="url(#xk1-{{ sid }})"/><circle cx="8.8" cy="18.8" r="1.7" fill="#2b4f93"/><circle cx="16.8" cy="18.8" r="1.7" fill="#2b4f93"/></symbol>
+<symbol id="xpi-search-{{ sid }}" viewBox="0 0 24 24"><radialGradient id="xs1-{{ sid }}" cx=".35" cy=".35" r=".75"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#a9cdf7"/></radialGradient>
+<circle cx="10" cy="10" r="6.3" fill="url(#xs1-{{ sid }})" stroke="#3a64ae" stroke-width="1.8"/><path d="m14.6 14.6 6 6" stroke="#8a5a2b" stroke-width="3" stroke-linecap="round"/></symbol>
+<symbol id="xpi-user-{{ sid }}" viewBox="0 0 24 24"><radialGradient id="xu1-{{ sid }}" cx=".4" cy=".35" r=".7"><stop offset="0" stop-color="#ffe2c4"/><stop offset="1" stop-color="#e9a974"/></radialGradient><linearGradient id="xu2-{{ sid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7cc24f"/><stop offset="1" stop-color="#3a8a26"/></linearGradient>
+<path d="M4 21c.4-4.4 3.8-6.6 8-6.6s7.6 2.2 8 6.6z" fill="url(#xu2-{{ sid }})" stroke="#2c6e1c" stroke-width=".8"/><circle cx="12" cy="8.5" r="4.4" fill="url(#xu1-{{ sid }})" stroke="#b87443" stroke-width=".8"/></symbol>
+<symbol id="xpi-note-{{ sid }}" viewBox="0 0 24 24"><linearGradient id="xn1-{{ sid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e6edf7"/></linearGradient>
+<path d="M5 2.5h10l4 4v15H5z" fill="url(#xn1-{{ sid }})" stroke="#5d7fb8" stroke-width=".9" stroke-linejoin="round"/><path d="M15 2.5v4h4" fill="#d6e2f3" stroke="#5d7fb8" stroke-width=".9" stroke-linejoin="round"/>
+<path d="M8 10h8M8 13h8M8 16h5.5" stroke="#3d72d6" stroke-width="1.2" stroke-linecap="round"/></symbol>
+<symbol id="xpi-home-{{ sid }}" viewBox="0 0 24 24"><linearGradient id="xo1-{{ sid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1e7cf"/></linearGradient>
+<path d="M4.5 11v9.5h15V11" fill="url(#xo1-{{ sid }})" stroke="#8a6a3a" stroke-width=".9"/><path d="M2.5 12 12 3.5l9.5 8.5" fill="none" stroke="#c4441d" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="10" y="14" width="4" height="6.5" fill="#3d72d6"/></symbol>
+<symbol id="xpi-star-{{ sid }}" viewBox="0 0 24 24"><linearGradient id="xr1-{{ sid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe680"/><stop offset="1" stop-color="#f2a900"/></linearGradient>
+<path d="m12 2.8 2.8 5.8 6.3.8-4.6 4.4 1.2 6.3L12 17l-5.7 3.1 1.2-6.3L2.9 9.4l6.3-.8z" fill="url(#xr1-{{ sid }})" stroke="#b77d00" stroke-width=".8" stroke-linejoin="round"/></symbol>
+<symbol id="xpi-truck-{{ sid }}" viewBox="0 0 24 24"><linearGradient id="xv1-{{ sid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9dc7ff"/><stop offset="1" stop-color="#3f7fe0"/></linearGradient>
+<rect x="1.8" y="6" width="12.2" height="10" rx="1" fill="url(#xv1-{{ sid }})" stroke="#2b4f93" stroke-width=".9"/><path d="M14 9h4l3.2 3.6V16H14z" fill="#e8eef8" stroke="#2b4f93" stroke-width=".9" stroke-linejoin="round"/>
+<circle cx="6.3" cy="17.3" r="2" fill="#2b2f3a" stroke="#fff" stroke-width=".8"/><circle cx="17" cy="17.3" r="2" fill="#2b2f3a" stroke="#fff" stroke-width=".8"/></symbol>
+<symbol id="xpi-shield-{{ sid }}" viewBox="0 0 24 24"><linearGradient id="xd1-{{ sid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fd36a"/><stop offset="1" stop-color="#3a8a26"/></linearGradient>
+<path d="M12 2.5 20 5.5v6c0 5-3.4 8.6-8 10-4.6-1.4-8-5-8-10v-6z" fill="url(#xd1-{{ sid }})" stroke="#2c6e1c" stroke-width=".9" stroke-linejoin="round"/><path d="m8.3 12 2.6 2.6 5-5.2" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="xpi-refresh-{{ sid }}" viewBox="0 0 24 24"><linearGradient id="xf1-{{ sid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fd36a"/><stop offset="1" stop-color="#3a8a26"/></linearGradient>
+<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" fill="none" stroke="url(#xf1-{{ sid }})" stroke-width="3" stroke-linecap="round"/><path d="M14.5 3.3h5.2v5.2z" fill="#3a8a26"/></symbol>
+<symbol id="xpi-leaf-{{ sid }}" viewBox="0 0 24 24"><linearGradient id="xl1-{{ sid }}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a6e07f"/><stop offset="1" stop-color="#3a8a26"/></linearGradient>
+<path d="M4 20c0-9 5-15 16-16 0 11-6 16-14 16" fill="url(#xl1-{{ sid }})" stroke="#2c6e1c" stroke-width=".9" stroke-linejoin="round"/><path d="M4 20c3-5 6-8 11-11" fill="none" stroke="#e9f7dd" stroke-width="1.1" stroke-linecap="round"/></symbol>
+<symbol id="xpi-sticker-{{ sid }}" viewBox="0 0 24 24"><radialGradient id="xi1-{{ sid }}" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#ffd27a"/><stop offset="1" stop-color="#f08a24"/></radialGradient>
+<path d="M21 12a9 9 0 1 1-9-9c.3 0 .5 0 .8.1A9 9 0 0 1 21 11.2z" fill="url(#xi1-{{ sid }})" stroke="#b85a10" stroke-width=".8"/><path d="M21 11.2 12.8 3.1c-.3 3 .2 5.4 1.6 6.7 1.4 1.3 3.6 1.7 6.6 1.4z" fill="#fff3dc" stroke="#b85a10" stroke-width=".8" stroke-linejoin="round"/>
+<circle cx="9" cy="11" r="1.1" fill="#7a3a06"/><circle cx="13" cy="14.6" r="0" fill="none"/><path d="M8 15.2c1.6 1.4 4 1.4 5.6 0" fill="none" stroke="#7a3a06" stroke-width="1.2" stroke-linecap="round"/></symbol>
+<symbol id="xpi-heart-{{ sid }}" viewBox="0 0 24 24"><linearGradient id="xe1-{{ sid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff8a8a"/><stop offset="1" stop-color="#d42a2a"/></linearGradient>
+<path d="M12 20.5S3 15 3 9.2A4.7 4.7 0 0 1 12 7a4.7 4.7 0 0 1 9 2.2C21 15 12 20.5 12 20.5z" fill="url(#xe1-{{ sid }})" stroke="#9e1b1b" stroke-width=".8"/></symbol>
+<symbol id="xpi-clock-{{ sid }}" viewBox="0 0 24 24"><radialGradient id="xq1-{{ sid }}" cx=".4" cy=".35" r=".75"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#dfe8f6"/></radialGradient>
+<circle cx="12" cy="12" r="9.3" fill="url(#xq1-{{ sid }})" stroke="#2f6fdc" stroke-width="1.8"/><path d="M12 6.8V12l3.6 2.2" fill="none" stroke="#223" stroke-width="1.6" stroke-linecap="round"/></symbol>
+<symbol id="xpi-info-{{ sid }}" viewBox="0 0 24 24"><radialGradient id="xa1-{{ sid }}" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#8fc0ff"/><stop offset=".6" stop-color="#2f6fdc"/><stop offset="1" stop-color="#1b4bb0"/></radialGradient>
+<circle cx="12" cy="12" r="9.5" fill="url(#xa1-{{ sid }})" stroke="#173f99" stroke-width=".8"/><circle cx="12" cy="7.4" r="1.4" fill="#fff"/><path d="M12 11v6.3" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></symbol>
+<symbol id="xpi-camera-{{ sid }}" viewBox="0 0 24 24"><linearGradient id="xp1-{{ sid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8a8f9c"/><stop offset="1" stop-color="#3e4350"/></linearGradient>
+<rect x="2.5" y="6.5" width="19" height="13" rx="2.5" fill="url(#xp1-{{ sid }})" stroke="#262a33" stroke-width=".8"/><path d="M8 6.5 9.4 4h5.2L16 6.5" fill="#5a5f6b" stroke="#262a33" stroke-width=".8"/><circle cx="12" cy="13" r="4" fill="#9cc8ff" stroke="#e8eef8" stroke-width="1.4"/></symbol>
+<symbol id="xpi-music-{{ sid }}" viewBox="0 0 24 24"><linearGradient id="xz1-{{ sid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b48cff"/><stop offset="1" stop-color="#5b33c8"/></linearGradient>
+<path d="M9 17.5V5.5l11-2v12" fill="none" stroke="url(#xz1-{{ sid }})" stroke-width="2.2" stroke-linejoin="round"/><ellipse cx="6.6" cy="17.6" rx="3" ry="2.4" fill="#5b33c8"/><ellipse cx="17.6" cy="15.6" rx="3" ry="2.4" fill="#5b33c8"/></symbol>
+<symbol id="xpi-play-{{ sid }}" viewBox="0 0 24 24"><radialGradient id="xy1-{{ sid }}" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#ff8f7a"/><stop offset="1" stop-color="#d0321a"/></radialGradient>
+<rect x="2" y="5" width="20" height="14" rx="4" fill="url(#xy1-{{ sid }})" stroke="#9e2412" stroke-width=".8"/><path d="m10 8.8 5.4 3.2-5.4 3.2z" fill="#fff"/></symbol>
+<symbol id="xpi-globe-{{ sid }}" viewBox="0 0 24 24"><radialGradient id="xw1-{{ sid }}" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#9fd0ff"/><stop offset="1" stop-color="#2468d8"/></radialGradient>
+<circle cx="12" cy="12" r="9.3" fill="url(#xw1-{{ sid }})" stroke="#1b4bb0" stroke-width=".8"/><path d="M6 8.5c2 .4 2.6 2 2 3.6-.5 1.3.5 2.5 1.8 2.6 1.5.1 1.4 2.4.6 4.2M14 3.5c-.6 1.6.2 2.7 1.7 2.8 1.6.2 2.4 1.4 2 2.9-.4 1.3.6 2.3 2.4 2.1" fill="none" stroke="#7cc24f" stroke-width="2" stroke-linecap="round"/></symbol>
+</defs></svg>
+<div class="xp-wall" aria-hidden="true">
+  {%- if st.wallpaper != blank -%}
+    <img src="{{ st.wallpaper | image_url: width: 1600 }}" srcset="{{ st.wallpaper | image_url: width: 900 }} 900w, {{ st.wallpaper | image_url: width: 1400 }} 1400w, {{ st.wallpaper | image_url: width: 2000 }} 2000w" sizes="100vw" alt="" width="2000" height="1330" fetchpriority="high" decoding="async">
+  {%- endif -%}
+</div>
+<div class="xp-top-space" aria-hidden="true"></div>
+<header data-own-font class="xp xp-top" data-xp-top>
+  <div class="xp-top__glass" aria-hidden="true"></div>
+  <div class="xp-top__in">
+    <a class="xp-brand" href="{{ routes.root_url }}">
+      {%- if st.logo != blank -%}{{ st.logo | image_url: width: 300 | image_tag: alt: shop.name, height: 34, loading: 'eager' }}{%- else -%}{{ mark }}<span>{{ shop.name | escape }}</span>{%- endif -%}
+    </a>
+    {%- if menu != blank -%}
+      <nav aria-label="{{ st.top_label | default: 'Main menu' | escape }}"><ul class="xp-nav" role="list">{%- for link in menu.links -%}<li><a href="{{ link.url }}"{% if link.current %} aria-current="page"{% endif %}>{{ link.title | escape }}</a></li>{%- endfor -%}</ul></nav>
+    {%- endif -%}
+    <div class="xp-top__right">
+      <form class="xp-search" action="{{ routes.search_url }}" method="get" role="search">
+        <label class="visually-hidden" for="XpSearch-{{ sid }}">{{ st.search_label | default: 'Search' | escape }}</label>
+        <input id="XpSearch-{{ sid }}" type="search" name="q" placeholder="{{ st.search_placeholder | default: 'Search the shop' | escape }}" autocomplete="off">
+        <button type="submit" aria-label="{{ st.search_label | default: 'Search' | escape }}"><svg class="xp-ico" width="24" height="24" aria-hidden="true" focusable="false"><use href="#xpi-search-{{ sid }}"/></svg></button>
+      </form>
+      <a class="xp-iconlink xp-top__phone" href="{{ routes.search_url }}" aria-label="{{ st.search_label | default: 'Search' | escape }}"><svg class="xp-ico" width="24" height="24" aria-hidden="true" focusable="false"><use href="#xpi-search-{{ sid }}"/></svg></a>
+      {%- if shop.customer_accounts_enabled -%}<a class="xp-iconlink xp-acc" href="{{ routes.account_url }}" aria-label="{{ st.account_label | default: 'Account' | escape }}"><svg class="xp-ico" width="24" height="24" aria-hidden="true" focusable="false"><use href="#xpi-user-{{ sid }}"/></svg></a>{%- endif -%}
+      <a class="xp-btn xp-btn--blue" href="{{ routes.cart_url }}"><svg class="xp-ico" width="24" height="24" aria-hidden="true" focusable="false"><use href="#xpi-cart-{{ sid }}"/></svg><span>{{ st.cart_label | default: 'Cart' | escape }}</span><span class="xp-count" data-xp-count{% if cart.item_count == 0 %} hidden{% endif %}>{{ cart.item_count }}</span></a>
+      <a class="xp-iconlink xp-top__phone" href="{{ routes.cart_url }}" aria-label="{{ st.cart_label | default: 'Cart' | escape }}"><svg class="xp-ico" width="24" height="24" aria-hidden="true" focusable="false"><use href="#xpi-cart-{{ sid }}"/></svg><span class="xp-count" data-xp-count{% if cart.item_count == 0 %} hidden{% endif %}>{{ cart.item_count }}</span></a>
+    </div>
+  </div>
+</header>
+{%- if section.blocks.size > 0 -%}
+  <ul data-own-font class="xp xp-icons{% unless show_icons %} xp-icons--off{% endunless %}" role="list">
+    {%- for block in section.blocks -%}
+      <li {{ block.shopify_attributes }}><a class="xp-icon" href="{{ block.settings.link | default: '/' }}"><svg class="xp-ico" aria-hidden="true" focusable="false"><use href="#xpi-{{ block.settings.icon | default: 'folder' }}-{{ sid }}"/></svg><span>{{ block.settings.label | escape }}</span></a></li>
+    {%- endfor -%}
+  </ul>
+{%- endif -%}
+<nav data-own-font class="xp xp-task" aria-label="{{ st.taskbar_label | default: 'Taskbar' | escape }}" data-xp-task>
+  <div class="xp-menu" id="XpMenu-{{ sid }}" hidden data-xp-menu>
+    <div class="xp-menu__head"><span class="xp-menu__tile">{%- if st.menu_picture != blank -%}{{ st.menu_picture | image_url: width: 120 | image_tag: alt: '', loading: 'lazy' }}{%- else -%}{{ mark }}{%- endif -%}</span><span>{{ st.menu_title | default: shop.name | escape }}</span></div>
+    <div class="xp-menu__cols">
+      <ul class="xp-menu__col xp-menu__col--l" role="list">
+        <li><a href="{{ routes.root_url }}"><svg class="xp-ico" width="30" height="30" aria-hidden="true" focusable="false"><use href="#xpi-home-{{ sid }}"/></svg><span>{{ st.home_label | default: 'Home' | escape }}</span></a></li>
+        {%- if menu != blank -%}{%- for link in menu.links -%}
+          {%- assign u = link.url | downcase -%}
+          {%- assign ic = 'folder' -%}
+          {%- if u contains 'about' -%}{%- assign ic = 'note' -%}{%- elsif u contains 'faq' or u contains 'help' -%}{%- assign ic = 'help' -%}{%- elsif u contains 'blog' -%}{%- assign ic = 'note' -%}{%- elsif u contains 'contact' -%}{%- assign ic = 'mail' -%}{%- elsif u contains 'tee' or u contains 'shirt' -%}{%- assign ic = 'tee' -%}{%- elsif u contains 'cap' or u contains 'hat' -%}{%- assign ic = 'cap' -%}{%- endif -%}
+          <li><a href="{{ link.url }}"><svg class="xp-ico" width="30" height="30" aria-hidden="true" focusable="false"><use href="#xpi-{{ ic }}-{{ sid }}"/></svg><span>{{ link.title | escape }}</span></a></li>
+        {%- endfor -%}{%- endif -%}
+      </ul>
+      <ul class="xp-menu__col xp-menu__col--r" role="list">
+        {%- if menu2 != blank -%}{%- for link in menu2.links -%}
+          {%- assign u = link.url | downcase -%}
+          {%- assign ic = 'note' -%}
+          {%- if u contains 'faq' or u contains 'help' -%}{%- assign ic = 'help' -%}{%- elsif u contains 'contact' -%}{%- assign ic = 'mail' -%}{%- elsif u contains 'ship' or u contains 'deliver' -%}{%- assign ic = 'truck' -%}{%- elsif u contains 'refund' or u contains 'return' -%}{%- assign ic = 'refresh' -%}{%- elsif u contains 'privacy' or u contains 'terms' -%}{%- assign ic = 'shield' -%}{%- endif -%}
+          <li><a href="{{ link.url }}"><svg class="xp-ico" width="24" height="24" aria-hidden="true" focusable="false"><use href="#xpi-{{ ic }}-{{ sid }}"/></svg><span>{{ link.title | escape }}</span></a></li>
+        {%- endfor -%}<li class="xp-menu__rule" aria-hidden="true"></li>{%- endif -%}
+        <li><a href="{{ routes.search_url }}"><svg class="xp-ico" width="24" height="24" aria-hidden="true" focusable="false"><use href="#xpi-search-{{ sid }}"/></svg><span>{{ st.search_label | default: 'Search' | escape }}</span></a></li>
+        {%- if shop.customer_accounts_enabled -%}<li><a href="{{ routes.account_url }}"><svg class="xp-ico" width="24" height="24" aria-hidden="true" focusable="false"><use href="#xpi-user-{{ sid }}"/></svg><span>{{ st.account_label | default: 'Account' | escape }}</span></a></li>{%- endif -%}
+      </ul>
+    </div>
+    <div class="xp-menu__foot">
+      <a href="{{ routes.cart_url }}"><svg class="xp-ico" width="24" height="24" aria-hidden="true" focusable="false"><use href="#xpi-cart-{{ sid }}"/></svg><span>{{ st.cart_label | default: 'Cart' | escape }}</span></a>
+    </div>
+  </div>
+  <div class="xp-task__in">
+    <button class="xp-start" type="button" aria-expanded="false" aria-controls="XpMenu-{{ sid }}" data-xp-start>{{ mark }}<span>{{ start | escape }}</span></button>
+    <div class="xp-task__wins" data-xp-wins>
+      <span class="xp-tw is-current" aria-current="page"><svg class="xp-ico" width="24" height="24" aria-hidden="true" focusable="false"><use href="#xpi-folder-{{ sid }}"/></svg><span>{{ xp_title }}</span></span>
+    </div>
+    <div class="xp-tray">
+      <a class="xp-tray__search" href="{{ routes.search_url }}" aria-label="{{ st.search_label | default: 'Search' | escape }}"><svg class="xp-ico" width="24" height="24" aria-hidden="true" focusable="false"><use href="#xpi-search-{{ sid }}"/></svg></a>
+      {%- if shop.customer_accounts_enabled -%}<a class="xp-acc" href="{{ routes.account_url }}" aria-label="{{ st.account_label | default: 'Account' | escape }}"><svg class="xp-ico" width="24" height="24" aria-hidden="true" focusable="false"><use href="#xpi-user-{{ sid }}"/></svg></a>{%- endif -%}
+      <a href="{{ routes.cart_url }}" aria-label="{{ st.cart_label | default: 'Cart' | escape }}"><svg class="xp-ico" width="24" height="24" aria-hidden="true" focusable="false"><use href="#xpi-cart-{{ sid }}"/></svg><span class="xp-count" data-xp-count{% if cart.item_count == 0 %} hidden{% endif %}>{{ cart.item_count }}</span></a>
+      <span class="xp-clock" data-xp-clock aria-hidden="true"></span>
+    </div>
+  </div>
+</nav>
+{%- if st.balloon_title != blank and request.page_type == 'index' and request.design_mode != true -%}
+  <div data-own-font class="xp xp-balloon" role="status" hidden data-xp-balloon>
+    <button class="xp-balloon__x" type="button" aria-label="{{ st.close_label | default: 'Close' | escape }}" data-xp-balloon-x><svg viewBox="0 0 10 10" aria-hidden="true" focusable="false"><path d="m1 1 8 8M9 1 1 9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+    <p class="xp-balloon__head"><svg class="xp-ico" width="24" height="24" aria-hidden="true" focusable="false"><use href="#xpi-info-{{ sid }}"/></svg><span>{{ st.balloon_title | escape }}</span></p>
+    {%- if st.balloon_text != blank -%}<p>{{ st.balloon_text | escape }}{% if st.balloon_link_label != blank %} <a href="{{ st.balloon_link | default: '/collections/all' }}">{{ st.balloon_link_label | escape }}</a>{% endif %}</p>{%- endif -%}
+  </div>
+{%- endif -%}
+
+<script>
+  (function () {
+    var root = document.getElementById('shopify-section-{{ section.id }}');
+    if (!root) return;
+    var task = root.querySelector('[data-xp-task]'), wall = root.querySelector('.xp-wall'), balloon = root.querySelector('[data-xp-balloon]');
+    /* The taskbar and the wallpaper live at the page's own level, outside the header's layer. */
+    [[task, 'append'], [wall, 'prepend'], [balloon, 'append']].forEach(function (p) {
+      var el = p[0]; if (!el || el.parentNode === document.body) return;
+      document.querySelectorAll('body > .' + el.classList[el.classList.length - 1]).forEach(function (old) { if (old !== el) old.remove(); });
+      document.body[p[1]](el);
+    });
+    if (!task) return;
+    var start = task.querySelector('[data-xp-start]'), menu = task.querySelector('[data-xp-menu]');
+    var still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    function open(on) {
+      start.setAttribute('aria-expanded', on ? 'true' : 'false');
+      if (on) { menu.hidden = false; if (!still) { menu.classList.add('is-opening'); requestAnimationFrame(function () { requestAnimationFrame(function () { menu.classList.remove('is-opening'); }); }); } var f = menu.querySelector('a'); if (f) f.focus({ preventScroll: true }); }
+      else menu.hidden = true;
+    }
+    start.addEventListener('click', function (e) { e.stopPropagation(); open(menu.hidden); });
+    document.addEventListener('click', function (e) { if (!menu.hidden && !menu.contains(e.target)) open(false); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !menu.hidden) { open(false); start.focus(); } });
+    var clock = task.querySelector('[data-xp-clock]');
+    function tick() { if (clock) clock.textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
+    tick(); clearInterval(window.__xpClock); window.__xpClock = setInterval(tick, 15000);
+    function recount() { fetch('/cart.js', { headers: { Accept: 'application/json' } }).then(function (r) { return r.json(); }).then(function (c) { document.querySelectorAll('[data-xp-count]').forEach(function (n) { n.textContent = c.item_count; n.hidden = !c.item_count; }); }).catch(function () {}); }
+    document.addEventListener('xp:cart', recount); document.addEventListener('cart:refresh', recount);
+    /* A window minimised or closed waits on the taskbar, as a button that brings it back. */
+    var wins = task.querySelector('[data-xp-wins]');
+    window.__xpPark = function (win) {
+      var title = (win.querySelector('.xp-bar__title') || {}).textContent || 'Window';
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'xp-tw';
+      b.innerHTML = '<span></span>'; b.firstChild.textContent = title.trim();
+      b.addEventListener('click', function () { win.hidden = false; win.classList.remove('is-min'); b.remove(); win.scrollIntoView({ block: 'nearest', behavior: still ? 'auto' : 'smooth' }); });
+      wins.appendChild(b);
+    };
+    if (balloon) {
+      var seen = false; try { seen = sessionStorage.getItem('xp-balloon') === '1'; } catch (e) {}
+      if (!seen) {
+        var hide = function () { balloon.classList.add('is-hiding'); setTimeout(function () { balloon.hidden = true; }, still ? 0 : 300); try { sessionStorage.setItem('xp-balloon', '1'); } catch (e) {} };
+        setTimeout(function () { balloon.hidden = false; if (!still) { balloon.classList.add('is-hiding'); requestAnimationFrame(function () { requestAnimationFrame(function () { balloon.classList.remove('is-hiding'); }); }); } }, 1800);
+        balloon.querySelector('[data-xp-balloon-x]').addEventListener('click', hide);
+        var a = balloon.querySelector('a'); if (a) a.addEventListener('click', function () { try { sessionStorage.setItem('xp-balloon', '1'); } catch (e) {} });
+        setTimeout(function () { if (!balloon.hidden) hide(); }, 14000);
+      }
+    }
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "XP desktop and taskbar",
+  "tag": "section",
+  "class": "xpshop-desktop-section",
+  "limit": 1,
+  "settings": [
+    { "type": "paragraph", "content": "The wallpaper, the top bar, the taskbar with the shop's own green button, the tray with the cart and a clock, and the desktop icons. Add icons as blocks." },
+    { "type": "image_picker", "id": "wallpaper", "label": "Wallpaper", "info": "A wide landscape photograph works best." },
+    { "type": "text", "id": "focal", "label": "Wallpaper focus", "default": "50% 70%", "info": "Which part stays in view on a phone, as left and top percentages." },
+    { "type": "range", "id": "wall_shade", "label": "Darken the bottom of the wallpaper", "min": 0, "max": 60, "step": 5, "unit": "%", "default": 0 },
+    { "type": "image_picker", "id": "logo", "label": "Logo", "info": "Empty: a small hill and the shop's name." },
+    { "type": "link_list", "id": "menu", "label": "Main menu", "default": "main-menu" },
+    { "type": "link_list", "id": "menu_2", "label": "Second menu", "default": "footer", "info": "In the right column of the menu." },
+    { "type": "text", "id": "start_label", "label": "Green button", "default": "start", "info": "Give it your own word, your shop's name works well." },
+    { "type": "text", "id": "menu_title", "label": "Menu heading", "info": "Empty: the shop's name." },
+    { "type": "image_picker", "id": "menu_picture", "label": "Menu picture" },
+    { "type": "checkbox", "id": "icons_home_only", "label": "Desktop icons on the home page only", "default": true },
+    { "type": "checkbox", "id": "skin", "label": "Draw the theme's sections as windows", "default": true, "info": "The product, cart, search, collection, blog and pages get a title bar." },
+    { "type": "range", "id": "column_width", "label": "Window width", "min": 900, "max": 1400, "step": 20, "unit": "px", "default": 1180 },
+    { "type": "range", "id": "window_gap", "label": "Space between windows", "min": 12, "max": 60, "step": 2, "unit": "px", "default": 28 },
+    { "type": "header", "content": "Balloon" },
+    { "type": "paragraph", "content": "A note from the tray on the home page, once a visit. Empty title: no balloon." },
+    { "type": "text", "id": "balloon_title", "label": "Title" },
+    { "type": "text", "id": "balloon_text", "label": "Text" },
+    { "type": "text", "id": "balloon_link_label", "label": "Link words" },
+    { "type": "url", "id": "balloon_link", "label": "Link" },
+    { "type": "header", "content": "Words" },
+    { "type": "text", "id": "home_title", "label": "Home page title bar", "info": "Empty: the shop's name." },
+    { "type": "text", "id": "home_label", "label": "Home", "default": "Home" },
+    { "type": "text", "id": "search_label", "label": "Search", "default": "Search" },
+    { "type": "text", "id": "search_placeholder", "label": "Search field", "default": "Search the shop" },
+    { "type": "text", "id": "account_label", "label": "Account", "default": "Account" },
+    { "type": "text", "id": "cart_label", "label": "Cart", "default": "Cart" },
+    { "type": "text", "id": "collections_title", "label": "Collections page title bar", "default": "Collections" },
+    { "type": "text", "id": "missing_title", "label": "Missing page title bar", "default": "Not found" },
+    { "type": "text", "id": "related_title", "label": "Related products title bar", "default": "You may also like" },
+    { "type": "text", "id": "message_title", "label": "Contact form title bar", "default": "New message" },
+    { "type": "text", "id": "more_posts_title", "label": "More posts title bar", "default": "More from the journal" },
+    { "type": "text", "id": "form_title", "label": "Form popup title bar", "default": "Sign up" },
+    { "type": "text", "id": "top_label", "label": "Main menu name for screen readers", "default": "Main menu" },
+    { "type": "text", "id": "taskbar_label", "label": "Taskbar name for screen readers", "default": "Taskbar" },
+    { "type": "text", "id": "close_label", "label": "Close button name for screen readers", "default": "Close" }
+  ],
+  "blocks": [
+    {
+      "type": "icon",
+      "name": "Desktop icon",
+      "settings": [
+        { "type": "select", "id": "icon", "label": "Icon", "default": "folder", "options": [{"value": "folder", "label": "Folder"}, {"value": "tee", "label": "Tee"}, {"value": "cap", "label": "Cap"}, {"value": "help", "label": "Help"}, {"value": "mail", "label": "Letter"}, {"value": "cart", "label": "Cart"}, {"value": "search", "label": "Search"}, {"value": "user", "label": "Person"}, {"value": "note", "label": "Note"}, {"value": "home", "label": "Home"}, {"value": "star", "label": "Star"}, {"value": "truck", "label": "Delivery van"}, {"value": "shield", "label": "Shield"}, {"value": "refresh", "label": "Returns arrow"}, {"value": "leaf", "label": "Leaf"}, {"value": "sticker", "label": "Sticker"}, {"value": "heart", "label": "Heart"}, {"value": "clock", "label": "Clock"}, {"value": "info", "label": "Information"}, {"value": "camera", "label": "Camera"}, {"value": "music", "label": "Music"}, {"value": "play", "label": "Video"}, {"value": "globe", "label": "Globe"}] },
+        { "type": "text", "id": "label", "label": "Label", "default": "My folder" },
+        { "type": "url", "id": "link", "label": "Link" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "XP desktop and taskbar",
+      "category": "XP shop"
+    }
+  ]
+}
+{% endschema %}

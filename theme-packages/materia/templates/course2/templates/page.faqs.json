@@ -1,101 +1,205 @@
 {
   "sections": {
     "faq": {
-      "type": "course2-faq",
+      "type": "faq-pro",
       "settings": {
-        "tag": "Questions",
-        "heading": "Questions,",
-        "heading_accent": "answered",
-        "text": "<p>The questions people ask most. Anything else, <a href=\"/pages/contact\">write to us</a>.</p>",
-        "accent": "#12704f",
-        "padding_top": 64
+        "color_scheme": "default",
+        "section_width": "container",
+        "first_item_open": true,
+        "open_icon": "plus",
+        "content_alignment": "left",
+        "max_content_width": 1180,
+        "col_gap": 72,
+        "gap_header_to_items": 32,
+        "gap_between_items": 10,
+        "item_padding_y": 20,
+        "item_padding_x": 22,
+        "item_radius": 12,
+        "show_dividers": false,
+        "enable_custom_style": true,
+        "card_bg": "#f2f3f5",
+        "card_border_color": "rgba(0,0,0,0)",
+        "question_color": "#0d0d0f",
+        "icon_color": "#e5372a",
+        "answer_color": "#4a4d55",
+        "heading_color": "#0d0d0f",
+        "question_size_desktop": 17,
+        "answer_size_desktop": 16,
+        "reveal": false,
+        "padding_top": 64,
+        "padding_bottom": 96
       },
       "blocks": {
-        "question_1": {
-          "type": "question",
+        "heading_1": {
+          "type": "heading",
           "settings": {
-            "question": "What machine do I need?",
-            "answer": "<p>Any home espresso machine with a steam wand, and a grinder. The lessons use a single boiler machine and a hand grinder, and every step works the same on bigger ones.</p>"
+            "text": "Questions and answers",
+            "tag": "h2",
+            "size_enable": true,
+            "size_desktop": 44,
+            "size_mobile": 30,
+            "weight_enable": true,
+            "weight": "700"
           }
         },
-        "question_2": {
-          "type": "question",
+        "subheading_1": {
+          "type": "subheading",
           "settings": {
-            "question": "Do I need a scale?",
-            "answer": "<p>Yes, any kitchen scale that reads to a tenth of a gram. It is the cheapest thing that makes the biggest difference.</p>"
+            "text": "<p>Anything else? <a href=\"/pages/contact\">Write to us</a> and we answer within a day.</p>"
           }
         },
-        "question_3": {
-          "type": "question",
+        "faq_item_1": {
+          "type": "faq_item",
           "settings": {
-            "question": "I only drink filter coffee. Is it for me?",
-            "answer": "<p>The last module and the recipe cards cover pour over and cafetiere. The grinding lessons apply to both.</p>"
+            "question": "Do I need to read music?",
+            "answer": "<p>No. Everything is shown on video and in chord boxes and simple tab. You will pick up what you need as you go.</p>"
           }
         },
-        "question_4": {
-          "type": "question",
+        "faq_item_2": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Acoustic or electric?",
+            "answer": "<p>Either. Every lesson works on both. The riffs module has a short part on electric sounds you can skip on acoustic.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How long until I can play a song?",
+            "answer": "<p>Most students play their first two chord song in the second week, and a full song by the end of the first month with twenty minutes a day.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "I am left handed. Will it work?",
+            "answer": "<p>Yes. Every chord sheet comes in a left handed version, and the videos show which hand does what.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What do I need?",
+            "answer": "<p>A guitar, a phone or laptop, and a tuner app, which is free. A capo helps from module four.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
           "settings": {
             "question": "How long do I have access?",
-            "answer": "<p>For good. Watch on a phone, a tablet or a computer, and come back to any lesson whenever you like.</p>"
+            "answer": "<p>For good. You also get the new songs added each month.</p>"
           }
         },
-        "question_5": {
-          "type": "question",
+        "faq_item_7": {
+          "type": "faq_item",
           "settings": {
             "question": "What if it is not for me?",
-            "answer": "<p>Write within 30 days and we refund you in full. Replace this with your own terms.</p>"
-          }
-        },
-        "question_6": {
-          "type": "question",
-          "settings": {
-            "question": "Can my café team share one account?",
-            "answer": "<p>Team seats give each person their own login on one bill. Write to us and we set them up.</p>"
-          }
-        },
-        "question_7": {
-          "type": "question",
-          "settings": {
-            "question": "Are new lessons included?",
-            "answer": "<p>Yes. Lessons added later appear in your account at no extra cost.</p>"
-          }
-        },
-        "question_8": {
-          "type": "question",
-          "settings": {
-            "question": "Can I pay in instalments?",
-            "answer": "<p>Write to us before you buy and we will split the payment in three.</p>"
+            "answer": "<p>Write within 30 days and you get a full refund.</p>"
           }
         }
       },
       "block_order": [
-        "question_1",
-        "question_2",
-        "question_3",
-        "question_4",
-        "question_5",
-        "question_6",
-        "question_7",
-        "question_8"
+        "heading_1",
+        "subheading_1",
+        "faq_item_1",
+        "faq_item_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7"
+      ]
+    },
+    "guarantee": {
+      "type": "guarantee-banner",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "layout": "split",
+        "frame": "box",
+        "content_max_width": 1180,
+        "icon": "shield_check",
+        "icon_size": 56,
+        "point_style": "check",
+        "enable_custom_style": true,
+        "icon_color": "#e5372a",
+        "border_color": "#e3e4e8",
+        "point_color": "#0d0d0f",
+        "marker_color": "#e5372a",
+        "padding_top_desktop": 24,
+        "padding_bottom_desktop": 96,
+        "padding_top_mobile": 16,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Try it for 30 days",
+            "weight_enable": true,
+            "weight": "700",
+            "size_enable": true,
+            "size_desktop": 34,
+            "size_mobile": 26
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Work through the first two modules. If guitar is not for you, write one line and get every cent back.</p>"
+          }
+        },
+        "point_1": {
+          "type": "point",
+          "settings": {
+            "text": "No forms, just an email"
+          }
+        },
+        "point_2": {
+          "type": "point",
+          "settings": {
+            "text": "Refund within two working days"
+          }
+        },
+        "point_3": {
+          "type": "point",
+          "settings": {
+            "text": "Keep the chord sheets"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1",
+        "point_1",
+        "point_2",
+        "point_3"
       ]
     },
     "cta": {
       "type": "course2-cta",
       "settings": {
-        "heading": "Tomorrow morning, make the good one",
-        "text": "<p>46 lessons, the recipe cards and a 30 day refund, for one payment.</p>",
-        "button_label": "Buy the course",
+        "heading": "Pick up the guitar tonight",
+        "text": "<p>The first lesson takes eight minutes. Sixty four lessons, twenty songs and a 30 day refund, for one payment.</p>",
+        "button_label": "Start learning",
         "to_checkout": true,
         "button_link": "/collections/all",
-        "note": "Lifetime access. Watch on any device.",
-        "panel_color": "#12704f",
-        "button_text_color": "#12704f",
-        "padding_bottom": 72
+        "note": "30 day refund. Lifetime access.",
+        "heading_size": 52,
+        "background": "#ffffff",
+        "panel_color": "#0d0d0f",
+        "heading_color": "#ffffff",
+        "text_color": "#c9cbd1",
+        "button_color": "#e5372a",
+        "button_text_color": "#ffffff",
+        "padding_top": 0,
+        "padding_bottom": 96
       }
     }
   },
   "order": [
     "faq",
+    "guarantee",
     "cta"
   ]
 }

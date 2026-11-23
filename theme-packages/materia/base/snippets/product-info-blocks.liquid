@@ -3595,5 +3595,8 @@ Pick the source:
   </style>
 </details>
 
+{%- when 'delivery_estimate', 'stock_level', 'offer_timer', 'guarantee_row', 'whats_included', 'comparison_table', 'faq_accordion', 'quote_card', 'link_button' -%}
+  {%- comment -%} The extras: snippets/product-info-extras, included so its stylesheet is written once per section. {%- endcomment -%}
+  {%- include 'product-info-extras' -%}
 {%- endcase -%}
 </div>

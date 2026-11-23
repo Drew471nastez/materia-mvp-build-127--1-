@@ -1,0 +1,541 @@
+{
+  "sections": {
+    "welcome": {
+      "type": "xpshop-window",
+      "settings": {
+        "title": "Welcome to the shop",
+        "icon": "home",
+        "look": "plain",
+        "show_menubar": false,
+        "image": "shopify://shop_images/xpshop-hero.webp",
+        "image_alt": "A green crew with a hilltop button on the chest, a white tee with a hill and sky print, and a blue cap with a cloud",
+        "show_placeholder": false,
+        "image_side": "right",
+        "image_fit": "cover",
+        "image_ratio": "4 / 3",
+        "image_ratio_wide": "21 / 9",
+        "image_share": 52,
+        "image_loading": "eager",
+        "eyebrow": "New drop is out",
+        "heading": "Clothes for a sunny desktop.",
+        "heading_tag": "h1",
+        "heading_size": 50,
+        "text": "<p>Tees, crews, caps and stickers with prints from the friendliest computer screen there was. Printed to order on heavy cotton, sent in two days.</p>",
+        "center": false,
+        "button_label": "Shop the drop",
+        "button_link": "/collections/all",
+        "button_style": "go",
+        "button2_label": "How it is made",
+        "button2_link": "/pages/about",
+        "social_label": "",
+        "instagram": "",
+        "tiktok": "",
+        "youtube": "",
+        "pinterest": "",
+        "status_left": "Ready",
+        "status_right": "8 pieces in this drop",
+        "width": 1180,
+        "padding_top": 0,
+        "padding_bottom": 28,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 16
+      },
+      "blocks": {
+        "point_1": {
+          "type": "point",
+          "settings": {
+            "icon": "leaf",
+            "title": "Printed to order.",
+            "text": "Nothing made that nobody wants."
+          }
+        },
+        "point_2": {
+          "type": "point",
+          "settings": {
+            "icon": "truck",
+            "title": "Sent in 2 days,",
+            "text": "tracked to your door."
+          }
+        }
+      },
+      "block_order": [
+        "point_1",
+        "point_2"
+      ]
+    },
+    "promises": {
+      "type": "xpshop-tiles",
+      "settings": {
+        "title": "Good to know",
+        "icon": "info",
+        "heading": "",
+        "subheading": "",
+        "columns": "4",
+        "layout": "side",
+        "numbers": false,
+        "phone_two": false,
+        "status_left": "",
+        "status_right": "",
+        "padding_top": 0,
+        "padding_bottom": 28,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 16
+      },
+      "blocks": {
+        "tile_1": {
+          "type": "tile",
+          "settings": {
+            "icon": "leaf",
+            "picture": "",
+            "title": "Printed to order",
+            "text": "Heavy 240 gsm cotton and water based ink. Nothing sits in a warehouse.",
+            "link": "",
+            "link_label": ""
+          }
+        },
+        "tile_2": {
+          "type": "tile",
+          "settings": {
+            "icon": "truck",
+            "picture": "",
+            "title": "Sent in 2 days",
+            "text": "Tracked, with the number in your inbox the day it leaves.",
+            "link": "/pages/shipping",
+            "link_label": "Delivery times"
+          }
+        },
+        "tile_3": {
+          "type": "tile",
+          "settings": {
+            "icon": "refresh",
+            "picture": "",
+            "title": "30 days to return",
+            "text": "Unworn and unwashed, we refund it. The label is on us.",
+            "link": "/pages/shipping",
+            "link_label": "Returns"
+          }
+        },
+        "tile_4": {
+          "type": "tile",
+          "settings": {
+            "icon": "shield",
+            "picture": "",
+            "title": "Safe checkout",
+            "text": "Cards, Apple Pay and Google Pay. We never see your card.",
+            "link": "",
+            "link_label": ""
+          }
+        }
+      },
+      "block_order": [
+        "tile_1",
+        "tile_2",
+        "tile_3",
+        "tile_4"
+      ]
+    },
+    "shop": {
+      "type": "xpshop-shop",
+      "settings": {
+        "title": "Shop",
+        "icon": "folder",
+        "heading": "The new drop",
+        "subheading": "Eight pieces, each printed when you order it.",
+        "collection": "",
+        "products_to_show": 8,
+        "columns": "4",
+        "skip_current": true,
+        "address": "Shop > New drop",
+        "address_label": "Address",
+        "view_all_label": "Go",
+        "view_all_link": "",
+        "more_label": "See everything",
+        "status_right": "Printed to order, sent in 2 days",
+        "show_pane": true,
+        "pane_title": "Shop tasks",
+        "pane_note_title": "Details",
+        "pane_note_bold": "Printed to order",
+        "pane_note": "Most orders leave the studio within two working days.",
+        "quick_label": "Quick view",
+        "add_label": "Add",
+        "add_cart_label": "Add to cart",
+        "qty_label": "Quantity",
+        "details_label": "See every detail",
+        "added_title": "Added to cart",
+        "added_text": "[product] is in your cart.",
+        "view_cart_label": "View cart",
+        "keep_label": "Keep shopping",
+        "sold_out_label": "Sold out",
+        "sale_label": "Sale",
+        "unavailable_label": "That one is sold out.",
+        "error_label": "That did not work. Try again.",
+        "error_title": "Not added",
+        "object_label": "item",
+        "objects_label": "items",
+        "empty_name": "Your product",
+        "close_label": "Close",
+        "padding_top": 0,
+        "padding_bottom": 28,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 16
+      },
+      "blocks": {
+        "link_1": {
+          "type": "link",
+          "settings": {
+            "icon": "folder",
+            "label": "Everything",
+            "link": "/collections/all"
+          }
+        },
+        "link_2": {
+          "type": "link",
+          "settings": {
+            "icon": "tee",
+            "label": "Tees",
+            "link": "/search?q=tee"
+          }
+        },
+        "link_3": {
+          "type": "link",
+          "settings": {
+            "icon": "user",
+            "label": "Crews and hoodies",
+            "link": "/search?q=crew"
+          }
+        },
+        "link_4": {
+          "type": "link",
+          "settings": {
+            "icon": "cap",
+            "label": "Caps and beanies",
+            "link": "/search?q=cap"
+          }
+        },
+        "link_5": {
+          "type": "link",
+          "settings": {
+            "icon": "sticker",
+            "label": "Stickers",
+            "link": "/search?q=sticker"
+          }
+        },
+        "link_6": {
+          "type": "link",
+          "settings": {
+            "icon": "note",
+            "label": "All collections",
+            "link": "/collections"
+          }
+        }
+      },
+      "block_order": [
+        "link_1",
+        "link_2",
+        "link_3",
+        "link_4",
+        "link_5",
+        "link_6"
+      ]
+    },
+    "stickers": {
+      "type": "xpshop-window",
+      "settings": {
+        "title": "stickers.png",
+        "icon": "sticker",
+        "look": "soft",
+        "show_menubar": false,
+        "image": "shopify://shop_images/xpshop-stickers.webp",
+        "image_alt": "A sheet of seven die cut stickers: a hill and sky, a small window, a balloon, a green hilltop button, a clock, a cursor and a cloud",
+        "show_placeholder": false,
+        "image_side": "left",
+        "image_fit": "cover",
+        "image_ratio": "1 / 1",
+        "image_ratio_wide": "21 / 9",
+        "image_share": 46,
+        "image_loading": "lazy",
+        "eyebrow": "Under $10",
+        "heading": "Seven stickers for your laptop lid.",
+        "heading_tag": "h2",
+        "heading_size": 38,
+        "text": "<p>A hill and sky, a window, the green button, a clock, a cursor, a cloud and a balloon that says the new drop is ready. Matte vinyl, cut to shape, waterproof.</p>",
+        "center": false,
+        "button_label": "Get the sticker sheet",
+        "button_link": "/search?q=sticker",
+        "button_style": "blue",
+        "button2_label": "",
+        "button2_link": "",
+        "social_label": "",
+        "instagram": "",
+        "tiktok": "",
+        "youtube": "",
+        "pinterest": "",
+        "status_left": "",
+        "status_right": "",
+        "width": 1180,
+        "padding_top": 0,
+        "padding_bottom": 28,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 16
+      },
+      "blocks": {
+        "point_1": {
+          "type": "point",
+          "settings": {
+            "icon": "sticker",
+            "title": "",
+            "text": "Seven stickers on one A6 sheet"
+          }
+        },
+        "point_2": {
+          "type": "point",
+          "settings": {
+            "icon": "shield",
+            "title": "",
+            "text": "Waterproof, fine on a bottle"
+          }
+        },
+        "point_3": {
+          "type": "point",
+          "settings": {
+            "icon": "heart",
+            "title": "",
+            "text": "Peels off clean, no marks"
+          }
+        }
+      },
+      "block_order": [
+        "point_1",
+        "point_2",
+        "point_3"
+      ]
+    },
+    "reviews": {
+      "type": "xpshop-reviews",
+      "settings": {
+        "title": "Guestbook",
+        "icon": "star",
+        "heading": "What people say",
+        "subheading": "From people who bought a piece from the last drop.",
+        "per_view": 3,
+        "status_left": "Sample reviews: replace them with your customers' words",
+        "status_right": "",
+        "prev_label": "Previous",
+        "next_label": "Next",
+        "padding_top": 0,
+        "padding_bottom": 28,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 16
+      },
+      "blocks": {
+        "review_1": {
+          "type": "review",
+          "settings": {
+            "picture": "shopify://shop_images/xpshop-user-1.webp",
+            "name": "Maya R.",
+            "bought": "Hillside tee, white",
+            "stars": 5,
+            "text": "The print is soft and the colours are exactly the sky and grass I remember. Fits a little roomy, which I wanted."
+          }
+        },
+        "review_2": {
+          "type": "review",
+          "settings": {
+            "picture": "shopify://shop_images/xpshop-user-2.webp",
+            "name": "Jonas K.",
+            "bought": "Start crew, green",
+            "stars": 5,
+            "text": "Heavy, warm and the green button on the chest gets a comment every time I wear it. Arrived in four days."
+          }
+        },
+        "review_3": {
+          "type": "review",
+          "settings": {
+            "picture": "shopify://shop_images/xpshop-user-3.webp",
+            "name": "Priya S.",
+            "bought": "Sticker sheet",
+            "stars": 5,
+            "text": "Clean cuts, thick vinyl, and the balloon one on my laptop makes me smile every morning."
+          }
+        },
+        "review_4": {
+          "type": "review",
+          "settings": {
+            "picture": "shopify://shop_images/xpshop-user-4.webp",
+            "name": "Tom W.",
+            "bought": "Cloud cap, blue",
+            "stars": 4,
+            "text": "Good shape, the strap adjusts well. The cloud is stitched, not printed, which I did not expect at this price."
+          }
+        },
+        "review_5": {
+          "type": "review",
+          "settings": {
+            "picture": "shopify://shop_images/xpshop-user-5.webp",
+            "name": "Lena B.",
+            "bought": "Balloon tee, black",
+            "stars": 5,
+            "text": "Bought it as a gift for my brother who still talks about his first computer. He wears it all the time."
+          }
+        }
+      },
+      "block_order": [
+        "review_1",
+        "review_2",
+        "review_3",
+        "review_4",
+        "review_5"
+      ]
+    },
+    "readme": {
+      "type": "xpshop-window",
+      "settings": {
+        "title": "readme.txt",
+        "icon": "note",
+        "look": "plain",
+        "show_menubar": true,
+        "image": "shopify://shop_images/xpshop-about.webp",
+        "image_alt": "A black tee with a yellow balloon print that says New drop is ready",
+        "show_placeholder": false,
+        "image_side": "right",
+        "image_fit": "cover",
+        "image_ratio": "1 / 1",
+        "image_ratio_wide": "21 / 9",
+        "image_share": 44,
+        "image_loading": "lazy",
+        "eyebrow": "About us",
+        "heading": "Two friends, one old wallpaper.",
+        "heading_tag": "h2",
+        "heading_size": 36,
+        "text": "<p>We grew up on a blue taskbar and a green hill. Hilltop Supply is the clothes we wanted to wear about it: soft, a little funny, and made well enough to keep.</p><p>Every print is drawn by us and printed to order by a small studio, so nothing sits in a warehouse and nothing is thrown away.</p>",
+        "center": false,
+        "button_label": "Read our story",
+        "button_link": "/pages/about",
+        "button_style": "plain",
+        "button2_label": "",
+        "button2_link": "",
+        "social_label": "Follow along",
+        "instagram": "https://instagram.com",
+        "tiktok": "https://tiktok.com",
+        "youtube": "",
+        "pinterest": "",
+        "status_left": "2 paragraphs",
+        "status_right": "Ln 1, Col 1",
+        "width": 1180,
+        "padding_top": 0,
+        "padding_bottom": 28,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 16
+      }
+    },
+    "help": {
+      "type": "xpshop-help",
+      "settings": {
+        "title": "Help and questions",
+        "icon": "help",
+        "heading": "Questions people ask",
+        "heading_tag": "h2",
+        "subheading": "Sizes, delivery, returns and the prints.",
+        "show_find": true,
+        "find_label": "Search the questions",
+        "none_label": "No question matches that. Write to us instead.",
+        "open_first": true,
+        "end_text": "Still wondering about something?",
+        "end_label": "Write to us",
+        "end_link": "/pages/contact",
+        "width": 1180,
+        "padding_top": 0,
+        "padding_bottom": 28,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 16
+      },
+      "blocks": {
+        "q_1": {
+          "type": "question",
+          "settings": {
+            "question": "Which size should I take?",
+            "answer": "<p>Tees and crews are cut a little boxy with a dropped shoulder. If you are between two sizes, take the smaller one for a closer fit. Every product page has the measurements.</p>"
+          }
+        },
+        "q_2": {
+          "type": "question",
+          "settings": {
+            "question": "When will my order arrive?",
+            "answer": "<p>Each piece is printed when you order it and leaves within two working days, tracked. Add your own delivery times on the <a href=\"/pages/shipping\">shipping page</a>.</p>"
+          }
+        },
+        "q_3": {
+          "type": "question",
+          "settings": {
+            "question": "Can I send something back?",
+            "answer": "<p>Yes, within 30 days if it is unworn and unwashed. Write to us with your order number and we send a return label. See <a href=\"/pages/shipping\">shipping and returns</a>.</p>"
+          }
+        },
+        "q_4": {
+          "type": "question",
+          "settings": {
+            "question": "Will the print crack or fade?",
+            "answer": "<p>The prints are water based ink pressed into the cotton, so they stay soft. Wash cold and inside out, hang to dry, and they last as long as the tee.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "q_1",
+        "q_2",
+        "q_3",
+        "q_4"
+      ]
+    },
+    "newsletter": {
+      "type": "xpshop-window",
+      "settings": {
+        "title": "Mailing list",
+        "icon": "mail",
+        "look": "soft",
+        "show_menubar": false,
+        "image": "",
+        "image_alt": "",
+        "show_placeholder": false,
+        "image_side": "right",
+        "image_fit": "cover",
+        "image_ratio": "4 / 3",
+        "image_ratio_wide": "21 / 9",
+        "image_share": 50,
+        "image_loading": "lazy",
+        "eyebrow": "",
+        "heading": "Get the next drop first.",
+        "heading_tag": "h2",
+        "heading_size": 36,
+        "text": "<p>One email when new prints are ready, a day before everyone else. Nothing more.</p>",
+        "center": true,
+        "button_label": "Sign me up",
+        "button_link": "#open-form-newsletter",
+        "button_style": "go",
+        "button2_label": "",
+        "button2_link": "",
+        "social_label": "",
+        "instagram": "",
+        "tiktok": "",
+        "youtube": "",
+        "pinterest": "",
+        "status_left": "Leave with one click",
+        "status_right": "",
+        "width": 760,
+        "padding_top": 0,
+        "padding_bottom": 28,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 16
+      }
+    }
+  },
+  "order": [
+    "welcome",
+    "promises",
+    "shop",
+    "stickers",
+    "reviews",
+    "readme",
+    "help",
+    "newsletter"
+  ]
+}

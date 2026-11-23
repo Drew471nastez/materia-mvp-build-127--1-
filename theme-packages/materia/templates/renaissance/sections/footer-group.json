@@ -1,0 +1,63 @@
+{
+  "type": "footer",
+  "name": "t:sections.footer.name",
+  "sections": {
+    "footer": {
+      "type": "footer",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "padding_top": 40,
+        "padding_bottom": 28,
+        "reset_spacing": true,
+        "copyright_text": "© {{ 'now' | date: '%Y' }} {{ shop.name }}",
+        "show_social": true,
+        "show_policy_links": true,
+        "separator_line": "all-page",
+        "heading_weight": "700",
+        "footer_heading_size": 15,
+        "enable_custom_text_big": false
+      },
+      "blocks": {
+        "store_info_1": {
+          "type": "store_info",
+          "settings": {
+            "show_logo": true,
+            "image": "shopify://shop_images/renaissance-logo.webp",
+            "image_width": 190,
+            "store_email": false,
+            "store_phone": false,
+            "store_address": false,
+            "content_width": "40%",
+            "store_heading": "",
+            "store_description": "<p>A practical course on using AI in a small business: writing, service, research and automations, taught by Karim Nassar.</p>"
+          }
+        },
+        "link_list_1": {
+          "type": "link_list",
+          "settings": {
+            "menu": "footer",
+            "heading": "The course",
+            "content_width": "20%"
+          }
+        },
+        "link_list_2": {
+          "type": "link_list",
+          "settings": {
+            "menu": "footer-help",
+            "heading": "Help",
+            "content_width": "20%"
+          }
+        }
+      },
+      "block_order": [
+        "store_info_1",
+        "link_list_1",
+        "link_list_2"
+      ]
+    }
+  },
+  "order": [
+    "footer"
+  ]
+}

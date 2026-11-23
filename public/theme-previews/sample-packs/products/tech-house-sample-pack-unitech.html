@@ -15,7 +15,7 @@ function path(u){try{return new URL(u,location.href).pathname}catch(e){return""}
 var CART={token:"preview",note:"",attributes:{},original_total_price:0,total_price:0,total_discount:0,total_weight:0,item_count:0,items:[],requires_shipping:false,currency:"USD",items_subtotal_price:0,cart_level_discount_applications:[]};
 var NO={status:422,message:"Preview",description:"This is a preview of the template. Add it to your library to sell from it."};
 function reply(u){var p=path(u);
-if(/\/cart\/add(\.js)?$/.test(p))return[422,"application/json",JSON.stringify(NO)];
+if(/\/cart\/add(\.js)?$/.test(p)){showNote(pressed);return[422,"application/json",JSON.stringify(NO)]}
 if(/\/cart(\.js|\.json|\/(change|update|clear)(\.js)?)$/.test(p))return[200,"application/json",JSON.stringify(CART)];
 if(/\.(js|json)$/.test(p)||/\/search\/suggest/.test(p))return[200,"application/json","{}"];
 return[200,"text/html","<!doctype html><html><body></body></html>"]}
@@ -25,15 +25,48 @@ if(navigator.sendBeacon)navigator.sendBeacon=function(){return true};
 W.open=function(){return null};
 var FP=W.HTMLFormElement&&HTMLFormElement.prototype;if(FP){FP.submit=function(){};FP.requestSubmit=function(){this.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true}))}}
 W.addEventListener("submit",function(e){e.preventDefault()},true);
+/* Add to cart, Buy now and Check out: nothing is sent; a small note by the button says why, then goes. Fixed, so nothing on the page moves. */
+var NOTE="Preview only: add this template to your library to sell from it.",note=null,noteT=0;
+function hideNote(){if(!note)return;var n=note;note=null;clearTimeout(noteT);n.style.opacity="0";n.style.transform="translate3d(0,4px,0)";setTimeout(function(){if(n.parentNode)n.parentNode.removeChild(n)},200)}
+function showNote(b){hideNote();var r=b&&b.getBoundingClientRect?b.getBoundingClientRect():null;if(r&&!r.width)r=null;var n=D.createElement("div");n.setAttribute("role","status");n.setAttribute("data-preview-note","");n.textContent=NOTE;
+n.style.cssText="position:fixed;z-index:2147483647;left:0;top:0;width:max-content;max-width:min(300px,calc(100vw - 24px));box-sizing:border-box;margin:0;padding:9px 12px;border-radius:10px;background:#1f2328;color:#fff;font:500 13px/1.4 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;letter-spacing:0;text-transform:none;text-align:left;box-shadow:0 0 0 1px rgba(255,255,255,.1),0 8px 24px -6px rgba(0,0,0,.28);pointer-events:none;opacity:0;transform:translate3d(0,4px,0);transition:opacity .16s ease,transform .16s ease";
+D.documentElement.appendChild(n);var w=n.offsetWidth,h=n.offsetHeight,vw=D.documentElement.clientWidth||innerWidth,vh=innerHeight;
+var x=r?r.left+r.width/2-w/2:(vw-w)/2;x=Math.max(12,Math.min(vw-w-12,x));var y=r?r.top-h-8:vh-h-24;if(r&&y<12)y=r.bottom+8;y=Math.max(12,Math.min(vh-h-12,y));
+n.style.left=Math.round(x)+"px";n.style.top=Math.round(y)+"px";note=n;
+requestAnimationFrame(function(){requestAnimationFrame(function(){n.style.opacity="1";n.style.transform="none"})});noteT=setTimeout(hideNote,3200)}
+W.addEventListener("scroll",hideNote,{passive:true});
+function productForm(f){return !!(f&&f.querySelector&&f.querySelector("input[name=id],select[name=id]"))}
+var BUY=".product-form__submit,.shopify-payment-button__button,.product_buy_now_button,.button_buy-now,.product-group-buy-now,[data-add-to-cart],[data-buy-now]";
+function buying(b){if(!b||!b.getAttribute)return false;var n=(b.getAttribute("name")||"").toLowerCase();if(n==="add"||n==="checkout")return true;if(b.matches&&b.matches(BUY))return true;var t=(b.getAttribute("type")||(b.tagName==="BUTTON"?"submit":"")).toLowerCase();return (t==="submit"||t==="image")&&productForm(b.form||b.closest("form"))}
+var pressed=null;D.addEventListener("pointerdown",function(e){pressed=e.target&&e.target.closest?e.target.closest("button,a,input"):null},true);
+W.addEventListener("click",function(e){var b=e.target&&e.target.closest&&e.target.closest("button,input[type=submit],input[type=image],a");if(!buying(b))return;e.preventDefault();e.stopImmediatePropagation();showNote(b)},true);
 function submit(f,b){setTimeout(function(){var ev;try{ev=new SubmitEvent("submit",{bubbles:true,cancelable:true,submitter:b||null})}catch(_){ev=new Event("submit",{bubbles:true,cancelable:true})}f.dispatchEvent(ev)},0)}
 D.addEventListener("click",function(e){var b=e.target&&e.target.closest&&e.target.closest("button,input[type=submit],input[type=image]");if(!b||!b.form)return;var t=(b.getAttribute("type")||"submit").toLowerCase();if(t!=="submit"&&t!=="image")return;e.preventDefault();submit(b.form,b)},true);
-D.addEventListener("keydown",function(e){var i=e.target;if(e.key!=="Enter"||!i||i.tagName!=="INPUT"||!i.form)return;e.preventDefault();submit(i.form,null)},true);
+D.addEventListener("keydown",function(e){var i=e.target;if(e.key!=="Enter"||!i||i.tagName!=="INPUT"||!i.form)return;e.preventDefault();if(productForm(i.form)){showNote(i.form.querySelector("[name=add],button[type=submit],button:not([type])")||i);return}submit(i.form,null)},true);
 D.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[data-preview-inert]");if(a)e.preventDefault()},true);
 var told=false;function tell(){if(told)return;told=true;try{parent.postMessage({type:"storelib:template-preview",ready:true,path:location.pathname},"*")}catch(e){}}
 W.addEventListener("load",tell);D.addEventListener("DOMContentLoaded",function(){setTimeout(tell,1200)});
 /* The page's own background, as soon as it is known: the frame shows it between two pages instead of its own white (a white flash on a dark shop). */
 function paint(){try{var c=getComputedStyle(D.documentElement).backgroundColor;if(!c||/rgba(0, 0, 0, 0)|transparent/.test(c))c=getComputedStyle(D.body).backgroundColor;if(c&&!/rgba(0, 0, 0, 0)|transparent/.test(c))parent.postMessage({type:"storelib:template-preview-background",background:c},"*")}catch(e){}}
 D.addEventListener("DOMContentLoaded",paint);
+/*
+  THE NEXT PAGE, WITH NO BLANK BETWEEN. A frame that goes to another page
+  shows nothing of either for a moment (Night shop: its starry ground, then
+  its header alone). Once the marketplace says it takes pages over, a link
+  to another of this website's pages is handed to it instead: it draws that
+  page in a second frame behind this one and shows it once it has drawn.
+*/
+var HAND=false;W.addEventListener("message",function(e){if(e.source===parent&&e.data&&e.data.type==="storelib:template-preview-handoff")HAND=true});
+function nextPage(u){try{var x=new URL(u,location.href);if(x.host!==location.host||x.pathname.indexOf(ROOT)!==0||x.pathname.split("/")[2]!==location.pathname.split("/")[2]||!/[.]html$/.test(x.pathname)||x.pathname===location.pathname)return null;return x.pathname+x.search+x.hash}catch(e){return null}}
+function handoff(to){try{parent.postMessage({type:"storelib:template-preview-go",href:to},"*");return true}catch(e){return false}}
+W.addEventListener("click",function(e){if(!HAND||e.defaultPrevented||e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;var a=e.target&&e.target.closest&&e.target.closest("a[href]");if(!a||a.hasAttribute("download"))return;var to=nextPage(a.href);if(to&&handoff(to))e.preventDefault()});
+if(W.navigation&&navigation.addEventListener)navigation.addEventListener("navigate",function(e){if(!HAND||!e.cancelable||e.hashChange||e.downloadRequest||e.formData||e.navigationType==="traverse"||e.navigationType==="reload")return;var to=nextPage(e.destination.url);if(to&&handoff(to))e.preventDefault()});
+/* Drawn: styles applied, the first screen's pictures in (700ms at most), two frames painted. */
+var shown=false;function drawn(){if(shown)return;shown=true;try{parent.postMessage({type:"storelib:template-preview-drawn",path:location.pathname},"*")}catch(e){}}
+function whenDrawn(){var done=false,fin=function(){if(done)return;done=true;requestAnimationFrame(function(){requestAnimationFrame(drawn)})};var wait=[],im=D.images,vh=innerHeight;
+for(var i=0;i<im.length&&wait.length<12;i++){var g=im[i];if(g.complete)continue;var r=g.getBoundingClientRect();if(r.width>0&&r.top<vh&&r.bottom>0)wait.push(g)}
+var left=wait.length;if(!left)return fin();wait.forEach(function(g){var one=function(){if(--left<=0)fin()};g.addEventListener("load",one,{once:true});g.addEventListener("error",one,{once:true})});setTimeout(fin,700)}
+D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn)});W.addEventListener("load",drawn);
 })();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><style data-page-background>html{background-color:#0b0b0e}</style><script src="/theme-previews/sample-packs/a/i.63b4697a1622.js"></script>
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -81,7 +114,7 @@ D.addEventListener("DOMContentLoaded",paint);
   .shopify-section[data-perf-offscreen] *,
   .shopify-section[data-perf-offscreen] *::before,
   .shopify-section[data-perf-offscreen] *::after { animation-play-state: paused !important; }
-</style><link rel="stylesheet" href="/theme-previews/sample-packs/a/i.262074ef9310.css" id="speed-page-landing"><script src="/theme-previews/sample-packs/a/i.0bd6d5139503.js"></script><script id="speed-optimization-js" src="/theme-previews/sample-packs/a/i.679dcd5ab7c8.js"></script>
+</style><link rel="stylesheet" href="/theme-previews/sample-packs/a/i.012d2c72efea.css" id="speed-page-landing"><script src="/theme-previews/sample-packs/a/i.0bd6d5139503.js"></script><script id="speed-optimization-js" src="/theme-previews/sample-packs/a/i.679dcd5ab7c8.js"></script>
 <script>
       (function () {
         try {
@@ -93,7 +126,7 @@ D.addEventListener("DOMContentLoaded",paint);
         } catch (e) {}
       })();
     </script>
-<link href="/theme-previews/_base/a/critical.b21499996008.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/critical.7f3f35898a25.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
 <link href="/theme-previews/_base/a/animation.d0494c87fafa.css" rel="stylesheet" type="text/css" media="all">
 <link href="/theme-previews/_base/a/product-card.9a3739dc0c4c.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":true,"card_atc_button":"primary","product_size":16,"price_size":15,"product_name_text_transform":"unset","card_atc_bg":"#7c3aed","card_atc_color":"#ffffff","card_atc_hover_bg":"#8b5cf6","card_atc_hover_color":"#ffffff","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
 <style>html:not([data-card-custom='true']) .product-item .product-item__name { font-size:var(--body-font-size, 16px); text-transform:var(--heading-text-transform, none) !important; } html:not([data-card-custom='true']) .product-item .product-item__price { font-size:var(--body-font-size, 16px); }</style>
@@ -104,7 +137,7 @@ D.addEventListener("DOMContentLoaded",paint);
     document.addEventListener('DOMContentLoaded',function(){setTimeout(go,4000)},{once:true})}
     ['pointerdown','click','keydown','scroll','touchstart'].forEach(function(n){addEventListener(n,go,{once:true,passive:true,capture:true})})})(["/theme-previews/_base/a/popup.18cdf2513c31.css","/theme-previews/_base/a/tingle-min.ed947d9dd1c7.css"]);</script><link rel="stylesheet" href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" media="print" onload="this.media='all'">
 <noscript><link href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" rel="stylesheet" type="text/css" media="all"></noscript>
-<link rel="stylesheet" href="/theme-previews/_base/a/fonts.dbb52a67bef5.css" data-materia-fonts>
+<link rel="stylesheet" href="/theme-previews/_base/a/fonts.e9d790c782b0.css" data-materia-fonts>
 <style data-materia-font-fallbacks>@font-face{font-family:"Figtree Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:100.9%;ascent-override:94.1%;descent-override:24.8%;line-gap-override:0%}@font-face{font-family:"Figtree Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:100.9%;ascent-override:94.1%;descent-override:24.8%;line-gap-override:0%}@font-face{font-family:"Archivo Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:98%;ascent-override:89.6%;descent-override:21.4%;line-gap-override:0%}@font-face{font-family:"Archivo Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:98%;ascent-override:89.6%;descent-override:21.4%;line-gap-override:0%}</style><style data-shopify>
   :root {
     --body-font: "Figtree", "Figtree Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -113,11 +146,11 @@ D.addEventListener("DOMContentLoaded",paint);
     --btn-font: var(--body-font);
   }
 </style>
-<link rel="stylesheet" href="/theme-previews/sample-packs/a/i.e5c86864cdb9.css" data-shopify>
+<link rel="stylesheet" href="/theme-previews/sample-packs/a/i.cf68c690b75e.css" data-shopify>
 <link href="/theme-previews/_base/a/theme.d71f5b96fec8.css" rel="stylesheet" type="text/css" media="all"><noscript><link href="/theme-previews/_base/a/popup.18cdf2513c31.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.9c20c549e3cf.css">
 <link rel="preload" as="style" href="/theme-previews/_base/a/minicart.ac0014483417.css" fetchpriority="low">
 <link rel="preload" as="style" href="/theme-previews/_base/a/materia-experience.b68d6d8152a8.css" fetchpriority="low">
-<link rel="stylesheet" href="/theme-previews/sample-packs/a/i.28cfcd9bf59c.css"><link rel="stylesheet" href="/theme-previews/sample-packs/a/i.0f64d724d341.css"><link href="/theme-previews/_base/a/theme-button-contract.7d286d7eee9b.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/localization-controls.9494a0c83131.css" rel="stylesheet" type="text/css" media="all"><link rel="modulepreload" href="/theme-previews/_base/a/theme.7a7dd8f80f89.js" fetchpriority="low"><link rel="preload" as="style" href="/theme-previews/_base/a/main-product.f6cc6e1c565b.css">
+<link rel="stylesheet" href="/theme-previews/sample-packs/a/i.28cfcd9bf59c.css"><link rel="stylesheet" href="/theme-previews/sample-packs/a/i.82e20d1f8890.css"><link href="/theme-previews/_base/a/theme-button-contract.7d286d7eee9b.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/localization-controls.9494a0c83131.css" rel="stylesheet" type="text/css" media="all"><link rel="modulepreload" href="/theme-previews/_base/a/theme.7a7dd8f80f89.js" fetchpriority="low"><link rel="preload" as="style" href="/theme-previews/_base/a/main-product.f6cc6e1c565b.css">
 <link rel="preload" as="style" href="/theme-previews/_base/a/product-page-ui.b247d1d435f0.css"><script data-storelib-head src="/theme-previews/sample-packs/a/i.24fee116adb1.js"></script>
 <script src="/theme-previews/_base/a/swiper-bundle-min.31d164f7367d.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/motion-min.d1f8eb312b47.js" type="module" defer="defer" fetchpriority="low"></script>
@@ -845,32 +878,45 @@ data-pane-container
 <div class="loading_image skeleton">
 </div>
 </a>
-</div><div
-class="swiper-actions flex block-md content-center gap-10 mb-30 mb-md-0 main-slide__navigation "
->
-<div
-class="swiper-arrow swiper-arrow--prev main-slide__navigation transition swiper-button-prev bg-white btn-hover inline-flex content-center border  rounded-50 overflow-hidden"
->
-<svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-<use href="#icon-slider-prev" />
-</svg>
-</div>
-<div
-class="swiper-arrow swiper-arrow--next main-slide__navigation transition swiper-button-next bg-white btn-hover inline-flex content-center border  rounded-50 overflow-hidden"
->
-<svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-<use href="#icon-slider-next" />
-</svg>
-</div>
-</div>
-</div>
+</div></div>
 </div>
 </slide-with-thumbs>
 </zoom-action>
 </media-gallery>
 </div>
 <motion-element  class="product-detail__information col-md-remaining w-full  opacity-0 " data-motion="fade-up-sm">
-<div class="sticky top-30"><div class="pib-own" data-pib-block="title_1" data-pib-type="title" style="display: contents">
+<div class="sticky top-30"><div class="pib-own" data-pib-block="specs_1" data-pib-type="specs_badge" style="display: contents"><style>
+  #specs-badge-specs_1 {
+    padding-top: 0px;
+    padding-bottom: 10px;
+    text-align: left;
+  }
+  #specs-badge-specs_1 .specs-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    border-radius: 100px;
+    border: 1px solid rgba(124, 58, 237, 0.4);
+    background: rgba(124, 58, 237, 0.14);
+    color: #c4b5fd;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.3;
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  @media (max-width: 749px) {
+    #specs-badge-specs_1 .specs-badge {
+      font-size: 12px;
+    }
+  }
+</style>
+<div id="specs-badge-specs_1" class="specs-badge-block" data-block-id="specs_1">
+<span class="specs-badge">Instant download · WAV · Royalty free</span>
+</div>
+</div><div class="pib-own" data-pib-block="title_1" data-pib-type="title" style="display: contents">
 <motion-element
 data-motion="fade-up"
 data-motion-delay="50"
@@ -879,13 +925,13 @@ class="block opacity-0"
 <h1
 class="product-detail__title heading-letter-spacing fs-26 mt-0 mb-10"
 data-block-id="title_1"
-style="font-size: 26px;"
+style="font-size: 28px;"
 >Tech House Sample Pack, Unitech
 </h1>
 <style>
                 @media (min-width: 1024px) {
                   #shopify-section-main .product-detail__title {
-                    font-size: 32px !important;
+                    font-size: 38px !important;
                   }
                 }
               </style>
@@ -894,7 +940,7 @@ style="font-size: 26px;"
 id="price-main"
 class="product-detail__price mb-10"
 data-block-id="price_1"
-style="font-size: 24px; font-weight: 600;"
+style="font-size: 26px; font-weight: 700;"
 ><div class="card-product-price price-large flex align-center flex-wrap gap-5 relative"><div class="price-regular">
 <span class="visually-hidden">Regular price</span>
 <span class="price price-same-style heading-style">
@@ -903,7 +949,74 @@ style="font-size: 24px; font-weight: 600;"
 </div>
 </div>
 </div>
-<link rel="stylesheet" href="/theme-previews/sample-packs/a/i.4a219998c104.css"></div><div class="pib-own" data-pib-block="variant_picker_1" data-pib-type="variant_picker" style="display: contents"><div
+<link rel="stylesheet" href="/theme-previews/sample-packs/a/i.d6b9ef6480a0.css"></div><div class="pib-own" data-pib-block="badges_1" data-pib-type="badges" style="display: contents"><style>
+/* Minimal, non-destructive: turn the price wrapper into an inline-flex row
+   so the badge sits next to the price text. No padding/margin resets on
+   the badge itself — those would deform the badge pill. Just align-items
+   center on the wrapper does the heavy lifting; baseline alignment of
+   text + badge is handled by the natural flex centering. */
+:is(#MainProduct-main, #shopify-section-main) .product-detail__information #price-main.has-inline-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  flex-wrap: wrap;
+  gap: 12px;
+  width: auto;
+  max-width: 100%;
+}
+:is(#MainProduct-main, #shopify-section-main) .product-detail__information #price-main.has-inline-badge .sale_badge--next-to-price {
+  flex: 0 0 auto;
+  margin: 0 !important;
+  align-self: center;
+}
+</style>
+<script>
+(function() {
+  var move = function() {
+    var badge = document.querySelector('#shopify-section-main .product-detail__information .sale_badge[data-block-id="badges_1"]');
+    var priceWrap = document.querySelector('#shopify-section-main .product-detail__information #price-main');
+    if (!badge || !priceWrap) return;
+    if (priceWrap.contains(badge)) return;
+    priceWrap.classList.add('has-inline-badge');
+    priceWrap.appendChild(badge);
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', move);
+  else move();
+  document.addEventListener('variant:change', move);
+  var n = 0; var i = setInterval(function(){ move(); if (++n >= 20) clearInterval(i); }, 150);
+})();
+</script><div
+class="sale_badge sale_badge--next-to-price"
+data-block-id="badges_1"
+data-block-id="badges_1"
+data-sale-color="#ffffff"
+data-sold-out-color="#ffffff"
+data-pre-order-color="#ffffff"
+data-sale-bg="#353535"
+data-sold-out-bg="#666666"
+data-pre-order-bg="#6a33d8"
+>
+<div
+class="product__badges fs-small flex flex-column flex-wrap "
+data-max="4"
+data-sale-color="#ffffff"
+data-sold-out-color="#ffffff"
+data-pre-order-color="#ffffff"
+data-sale-bg="#353535"
+data-sold-out-bg="#666666"
+data-pre-order-bg="#6a33d8"
+data-show-sale="true"
+data-show-sold-out="true"
+data-show-preorder="true"
+data-sale-badge-type="percent"
+>
+</div>
+</div></div><div class="pib-own" data-pib-block="short_1" data-pib-type="short_description" style="display: contents"><div
+data-block-id="short_1"
+class="product_detail-des rte mb-22"
+data-product-short-description
+><p>165 WAV files for the new wave of tech house, inspired by John Summit, Fisher, Matroda and Dom Dolla: kicks, top loops, full drum loops, hats, claps, percs, 20 Serum bass presets, FX and buildups. One RAR, about 104 MB.</p></div></div><div class="pib-own" data-pib-block="hearlink_1" data-pib-type="text" style="display: contents">
+<div class="mb-25" data-block-id="hearlink_1"><div class="product-detail__text-content rich__text-m0"><p><a href="#hear">Play the preview</a> before you buy. Only one sound plays at a time.</p></div></div></div><div class="pib-own" data-pib-block="variant_picker_1" data-pib-type="variant_picker" style="display: contents"><div
 id="variant-picker-variant_picker_1"
 class="product-detail__variant-picker mb-25"
 data-block-id="variant_picker_1"
@@ -996,15 +1109,7 @@ style="
 <span class="vb__icon" aria-hidden="true"><span class="vb__svg svg-colorize" style="--icon-color: var(--vb-icon-color);"><svg viewBox="0 0 24 24" fill="none"><rect x="5" y="11" width="14" height="9" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span></span><span class="vb__text">Instant download, yours to keep</span></li></ul>
 </div>
 <link rel="stylesheet" href="/theme-previews/sample-packs/a/i.126031abf356.css">
-</div></div><div class="pib-own" data-pib-block="collapsible_row_1" data-pib-type="collapsible_row" style="display: contents"><details class="mt-acc product-detail__collapsible" data-mt-acc-key="collapsible_row_1" data-block-id="collapsible_row_1" open>
-<summary>
-<h3 class="mt-acc__title">About this pack</h3>
-<svg class="mt-acc__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-</summary>
-<div class="mt-acc__body">
-<div class="mt-acc__inner rte product_description"><p>165 WAV files for the new wave of tech house, inspired by John Summit, Fisher, Matroda and Dom Dolla: kicks, top loops, full drum loops, hats, claps, percs, 20 Serum bass presets, FX and buildups. One RAR, about 104 MB.</p></div>
-</div>
-</details></div><div class="pib-own" data-pib-block="collapsible_row_2" data-pib-type="collapsible_row" style="display: contents"><details class="mt-acc product-detail__collapsible" data-mt-acc-key="collapsible_row_2" data-block-id="collapsible_row_2">
+</div></div><div class="pib-own" data-pib-block="collapsible_row_2" data-pib-type="collapsible_row" style="display: contents"><details class="mt-acc product-detail__collapsible" data-mt-acc-key="collapsible_row_2" data-block-id="collapsible_row_2">
 <summary>
 <h3 class="mt-acc__title">Format and download</h3>
 <svg class="mt-acc__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
@@ -1019,6 +1124,14 @@ style="
 </summary>
 <div class="mt-acc__body">
 <div class="mt-acc__inner rte"><p>100% royalty free, commercial releases included. You cannot share or resell the pack, or render a project file and release that exact song as your own. <a href="/theme-previews/sample-packs/pages/licence.html">Read the licence</a>.</p></div>
+</div>
+</details></div><div class="pib-own" data-pib-block="collapsible_row_5" data-pib-type="collapsible_row" style="display: contents"><details class="mt-acc product-detail__collapsible" data-mt-acc-key="collapsible_row_5" data-block-id="collapsible_row_5">
+<summary>
+<h3 class="mt-acc__title">Which DAWs and plugins?</h3>
+<svg class="mt-acc__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+</summary>
+<div class="mt-acc__body">
+<div class="mt-acc__inner rte"><p>The loops and one shots are WAV files, so they open in Ableton Live, FL Studio, Logic Pro, Bitwig, Cubase and every other DAW. Presets need Xfer Serum 1.368 or later, which is not included.</p></div>
 </div>
 </details></div><div class="pib-own" data-pib-block="collapsible_row_4" data-pib-type="collapsible_row" style="display: contents"><details class="mt-acc product-detail__collapsible" data-mt-acc-key="collapsible_row_4" data-block-id="collapsible_row_4">
 <summary>
@@ -1345,30 +1458,29 @@ style="--btn-padding-x: 2.5rem;"
   </script>
 </div>
 </div>
-</section><section id="shopify-section-hear" class="shopify-section section" data-section-id="hear" data-section-type="samples-audio-tracks"><link rel="stylesheet" href="/theme-previews/sample-packs/a/i.9b989dafaaf6.css">
-<div class="sat sat--feature section color-default gradient" data-section-id="hear">
+</section><section id="shopify-section-hear" class="shopify-section section" data-section-id="hear" data-section-type="samples-audio-tracks"><link rel="stylesheet" href="/theme-previews/sample-packs/a/i.2568a4423059.css">
+<div class="sat sat--feature section color-default gradient" data-section-id="hear" id="hear" style="scroll-margin-top: 96px;">
 <div class="container">
 <div class="sat__inner"><div class="sat__head sat__head--center">
-<div><h2 class="sat__heading h2">Hear the pack</h2></div></div><div class="sat__feature"><div class="sat__fitem" data-block-id="t_tech_house_unitech"><div class="sat__fbody">
+<div><h2 class="sat__heading h2">Hear the pack</h2></div></div><div class="sat__feature"><div class="sat__fitem sat__fitem--cover" data-block-id="t_tech_house_unitech"><span class="sat__fcover"><img src="/theme-previews/sample-packs/a/samples-box-tech-house-unitech.3c3865610cef.webp" srcset="/theme-previews/sample-packs/a/samples-box-tech-house-unitech.3c3865610cef.webp 352w, /theme-previews/sample-packs/a/samples-box-tech-house-unitech.3c3865610cef.webp 832w, /theme-previews/sample-packs/a/samples-box-tech-house-unitech.3c3865610cef.webp 1200w, /theme-previews/sample-packs/a/samples-box-tech-house-unitech.3c3865610cef.webp 1600w, /theme-previews/sample-packs/a/samples-box-tech-house-unitech.3c3865610cef.webp 2400w" alt="" width="96" height="120" loading="lazy"></span><div class="sat__fbody">
 <div class="sat__ftop">
-<p class="sat__title">Bass loop</p><p class="sat__sub">127 BPM, G minor</p></div>
-<div class="ssp" data-ssp data-src="/theme-previews/sample-packs/a/samples-demo-tech-house-unitech.357544e0b33b.mp4" data-title="Bass loop">
-<button class="ssp__btn" type="button" data-ssp-btn aria-label="Play Bass loop">
-<svg class="ssp__i ssp__i--play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M5.2 3.1v9.8c0 .5.5.8.9.5l7.5-4.9c.4-.2.4-.8 0-1L6.1 2.6c-.4-.3-.9 0-.9.5Z" fill="currentColor"/></svg>
-<svg class="ssp__i ssp__i--pause" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="4" y="3" width="2.7" height="10" rx=".8" fill="currentColor"/><rect x="9.3" y="3" width="2.7" height="10" rx=".8" fill="currentColor"/></svg>
+<p class="sat__title">Bass and chords loop</p><p class="sat__sub">122 BPM</p></div>
+<div class="ssp has-len" data-ssp data-src="/theme-previews/sample-packs/a/samples-demo-tech-house-unitech.2557bef00a5e.mp4" data-title="Bass and chords loop" data-len="11.82" data-peaks="92,81,75,65,55,90,80,75,89,82,73,64,92,76,74,63,62,90,88,91,99,80,75,71,66,100,83,76,71,63,93,83,74,94,92,93,83,93,87,78,91,80,69,61,75,84,72,63,88,85,80,69,89,75,70,59,56,86,77,80,95,78,72,66,88,82,81,73,71,86,87,80,77,91,88,89,77,98,89,89,93,80,73,64,80,90,80,73,91,80,73,64,91,76,73,63,61,91,87,92,93,80,74,71,87,78,73,57,49,61,55,47,37,44,37,32,23,18,11,5">
+<button class="ssp__btn" type="button" data-ssp-btn aria-label="Play Bass and chords loop">
+<svg class="ssp__i ssp__i--play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.6 2.9v10.2c0 .6.6.9 1.1.6l7.9-5.1c.5-.3.5-1 0-1.3L5.7 2.3c-.5-.3-1.1 0-1.1.6Z" fill="currentColor"/></svg>
+<svg class="ssp__i ssp__i--pause" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="3.8" y="2.8" width="3" height="10.4" rx="1" fill="currentColor"/><rect x="9.2" y="2.8" width="3" height="10.4" rx="1" fill="currentColor"/></svg>
 </button>
-<div class="ssp__wave" data-ssp-wave role="slider" tabindex="0" aria-label="Seek in Bass loop" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="0:00">
-<svg class="ssp__svg" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path id="ssp-hear-t_tech_house_unitech" d="M0.5 4V96M1.5 10V90M2.5 10.4V89.6M3.5 9.5V90.5M4.5 16.4V83.6M5.5 11.4V88.6M6.5 13.7V86.3M7.5 11.4V88.6M8.5 13.2V86.8M9.5 10.9V89.1M10.5 7.7V92.3M11.5 10.4V89.6M12.5 10.9V89.1M13.5 19.2V80.8M14.5 19.2V80.8M15.5 8.1V91.9M16.5 12.7V87.3M17.5 8.6V91.4M18.5 21V79M19.5 13.7V86.3M20.5 13.7V86.3M21.5 6.8V93.2M22.5 8.6V91.4M23.5 13.7V86.3M24.5 10.9V89.1M25.5 21.5V78.5M26.5 9.1V90.9M27.5 17.8V82.2M28.5 16.9V83.1M29.5 9.1V90.9M30.5 13.7V86.3M31.5 9.1V90.9M32.5 15.5V84.5M33.5 10.9V89.1M34.5 12.7V87.3M35.5 7.7V92.3M36.5 11.4V88.6M37.5 15.5V84.5M38.5 9.1V90.9M39.5 16.4V83.6M40.5 10.9V89.1M41.5 19.2V80.8M42.5 20.6V79.4M43.5 6.3V93.7M44.5 15.5V84.5M45.5 7.7V92.3M46.5 12.7V87.3M47.5 14.1V85.9M48.5 8.1V91.9M49.5 11.4V88.6M50.5 8.6V91.4M51.5 17.8V82.2M52.5 13.2V86.8M53.5 9.5V90.5M54.5 10.4V89.6M55.5 19.2V80.8M56.5 21V79M57.5 9.5V90.5M58.5 18.7V81.3M59.5 10V90M60.5 10.9V89.1M61.5 12.3V87.7M62.5 10V90M63.5 15.5V84.5M64.5 11.8V88.2M65.5 14.1V85.9M66.5 9.5V90.5M67.5 10.4V89.6M68.5 13.2V86.8M69.5 19.2V80.8M70.5 21V79M71.5 6.3V93.7M72.5 18.3V81.7M73.5 8.6V91.4M74.5 13.7V86.3M75.5 21.5V78.5M76.5 8.6V91.4M77.5 15V85M78.5 7.7V92.3M79.5 19.6V80.4M80.5 11.4V88.6M81.5 9.1V90.9M82.5 21V79M83.5 19.2V80.8M84.5 21V79M85.5 9.5V90.5M86.5 9.1V90.9M87.5 9.1V90.9M88.5 10V90M89.5 19.2V80.8M90.5 10.4V89.6M91.5 15.5V84.5M92.5 11.8V88.2M93.5 7.7V92.3M94.5 15.5V84.5M95.5 11.4V88.6M96.5 22.4V77.6M97.5 18.3V81.7M98.5 7.2V92.8M99.5 7.7V92.3M100.5 8.6V91.4M101.5 14.6V85.4M102.5 13.7V86.3M103.5 21.5V78.5M104.5 11.8V88.2M105.5 8.1V91.9M106.5 7.7V92.3M107.5 9.5V90.5M108.5 13.2V86.8M109.5 9.1V90.9M110.5 22.9V77.1M111.5 47.7V52.3M112.5 48.6V51.4M113.5 48.6V51.4M114.5 48.6V51.4M115.5 48.6V51.4M116.5 48.6V51.4M117.5 48.6V51.4M118.5 48.6V51.4M119.5 48.6V51.4" vector-effect="non-scaling-stroke"/></svg>
+<div class="ssp__wave" data-ssp-wave role="slider" tabindex="0" aria-label="Seek in Bass and chords loop" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="0:00">
+<svg class="ssp__svg" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path id="ssp-hear-t_tech_house_unitech" d="M0.5 7.7V92.3M1.5 12.7V87.3M2.5 15.5V84.5M3.5 20.1V79.9M4.5 24.7V75.3M5.5 8.6V91.4M6.5 13.2V86.8M7.5 15.5V84.5M8.5 9.1V90.9M9.5 12.3V87.7M10.5 16.4V83.6M11.5 20.6V79.4M12.5 7.7V92.3M13.5 15V85M14.5 16V84M15.5 21V79M16.5 21.5V78.5M17.5 8.6V91.4M18.5 9.5V90.5M19.5 8.1V91.9M20.5 4.5V95.5M21.5 13.2V86.8M22.5 15.5V84.5M23.5 17.3V82.7M24.5 19.6V80.4M25.5 4V96M26.5 11.8V88.2M27.5 15V85M28.5 17.3V82.7M29.5 21V79M30.5 7.2V92.8M31.5 11.8V88.2M32.5 16V84M33.5 6.8V93.2M34.5 7.7V92.3M35.5 7.2V92.8M36.5 11.8V88.2M37.5 7.2V92.8M38.5 10V90M39.5 14.1V85.9M40.5 8.1V91.9M41.5 13.2V86.8M42.5 18.3V81.7M43.5 21.9V78.1M44.5 15.5V84.5M45.5 11.4V88.6M46.5 16.9V83.1M47.5 21V79M48.5 9.5V90.5M49.5 10.9V89.1M50.5 13.2V86.8M51.5 18.3V81.7M52.5 9.1V90.9M53.5 15.5V84.5M54.5 17.8V82.2M55.5 22.9V77.1M56.5 24.2V75.8M57.5 10.4V89.6M58.5 14.6V85.4M59.5 13.2V86.8M60.5 6.3V93.7M61.5 14.1V85.9M62.5 16.9V83.1M63.5 19.6V80.4M64.5 9.5V90.5M65.5 12.3V87.7M66.5 12.7V87.3M67.5 16.4V83.6M68.5 17.3V82.7M69.5 10.4V89.6M70.5 10V90M71.5 13.2V86.8M72.5 14.6V85.4M73.5 8.1V91.9M74.5 9.5V90.5M75.5 9.1V90.9M76.5 14.6V85.4M77.5 4.9V95.1M78.5 9.1V90.9M79.5 9.1V90.9M80.5 7.2V92.8M81.5 13.2V86.8M82.5 16.4V83.6M83.5 20.6V79.4M84.5 13.2V86.8M85.5 8.6V91.4M86.5 13.2V86.8M87.5 16.4V83.6M88.5 8.1V91.9M89.5 13.2V86.8M90.5 16.4V83.6M91.5 20.6V79.4M92.5 8.1V91.9M93.5 15V85M94.5 16.4V83.6M95.5 21V79M96.5 21.9V78.1M97.5 8.1V91.9M98.5 10V90M99.5 7.7V92.3M100.5 7.2V92.8M101.5 13.2V86.8M102.5 16V84M103.5 17.3V82.7M104.5 10V90M105.5 14.1V85.9M106.5 16.4V83.6M107.5 23.8V76.2M108.5 27.5V72.5M109.5 21.9V78.1M110.5 24.7V75.3M111.5 28.4V71.6M112.5 33V67M113.5 29.8V70.2M114.5 33V67M115.5 35.3V64.7M116.5 39.4V60.6M117.5 41.7V58.3M118.5 44.9V55.1M119.5 47.7V52.3" vector-effect="non-scaling-stroke"/></svg>
 <svg class="ssp__svg ssp__svg--hover" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#ssp-hear-t_tech_house_unitech"/></svg>
-<svg class="ssp__svg ssp__svg--done" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#ssp-hear-t_tech_house_unitech"/></svg>
-</div>
-<span class="ssp__time" data-ssp-time>0:08</span>
+<svg class="ssp__svg ssp__svg--done" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#ssp-hear-t_tech_house_unitech"/></svg><span class="ssp__head" aria-hidden="true"></span><span class="ssp__tip" aria-hidden="true" data-ssp-tip>0:00</span></div>
+<span class="ssp__time" data-ssp-time>0:12</span>
 </div>
 </div>
 </div></div></div>
 </div>
 </div>
-<script src="/theme-previews/sample-packs/a/i.803c3962f093.js"></script></section><section id="shopify-section-contents" class="shopify-section section" data-section-id="contents" data-section-type="samples-pack-contents"><link rel="stylesheet" href="/theme-previews/sample-packs/a/i.4e39d0b0352a.css">
+<script src="/theme-previews/sample-packs/a/i.77a823549770.js"></script></section><section id="shopify-section-contents" class="shopify-section section" data-section-id="contents" data-section-type="samples-pack-contents"><link rel="stylesheet" href="/theme-previews/sample-packs/a/i.4e39d0b0352a.css">
 <div class="spk section color-default gradient" data-section-id="contents">
 <div class="container">
 <div class="spk__inner"><div class="spk__head"><h2 class="spk__heading h2">What is inside</h2></div><ul class="spk__stats" role="list"><li class="spk__stat" data-block-id="b20"><span class="spk__value">165</span><span class="spk__label">WAV files</span></li><li class="spk__stat" data-block-id="b21"><span class="spk__value">104 MB</span><span class="spk__label">RAR download</span></li><li class="spk__stat" data-block-id="b22"><span class="spk__value">20</span><span class="spk__label">Serum bass presets</span></li><li class="spk__stat" data-block-id="b23"><span class="spk__value">100%</span><span class="spk__label">Royalty free</span></li></ul><ul class="spk__parts" role="list"><li class="spk__part" data-block-id="b24">
@@ -1381,98 +1493,147 @@ style="--btn-padding-x: 2.5rem;"
 <div class="spk__ptop">
 <h3 class="spk__name">FX</h3><span class="spk__count">14</span></div><div class="spk__list rte"><ul><li>10 FX</li><li>4 buildups</li></ul></div></li></ul></div>
 </div>
-</div></section><section id="shopify-section-grid" class="shopify-section section" data-section-id="grid" data-section-type="samples-audio-tracks"><link rel="stylesheet" href="/theme-previews/sample-packs/a/i.77cc664c7f7f.css">
-<div class="sat sat--grid section color-default gradient" data-section-id="grid">
+</div></section><section id="shopify-section-grid" class="shopify-section section" data-section-id="grid" data-section-type="samples-audio-tracks"><link rel="stylesheet" href="/theme-previews/sample-packs/a/i.cafe6c13e261.css">
+<div class="sat sat--grid section color-default gradient" data-section-id="grid" style="scroll-margin-top: 96px;">
 <div class="container">
 <div class="sat__inner"><div class="sat__panel"><div class="sat__head sat__head--center">
 <div><h2 class="sat__heading h2">Hear every pack</h2><div class="sat__text rte"><p>One preview from each Loudlib pack. Only one plays at a time.</p></div></div></div><ul class="sat__grid" role="list"><li class="sat__cell" data-block-id="g_serum_presets">
-<div class="ssp" data-ssp data-src="/theme-previews/sample-packs/a/samples-demo-serum-presets.edf8f5445df0.mp4" data-title="Serum Presets Vol 1">
+<div class="ssp has-len" data-ssp data-src="/theme-previews/sample-packs/a/samples-demo-serum-presets.3b03108fd9ea.mp4" data-title="Serum Presets Vol 1" data-len="11.49" data-peaks="88,97,92,83,2,2,89,69,2,71,89,98,70,81,80,46,95,55,2,77,89,92,91,66,2,75,87,10,2,82,97,90,4,97,67,87,80,4,2,92,100,99,91,4,2,87,75,2,29,92,91,72,78,91,7,99,67,2,74,91,99,99,81,2,70,89,48,2,79,90,89,7,87,74,76,91,9,2,2,79,91,89,89,65,2,77,85,8,2,83,93,87,3,95,57,84,83,4,2,90,90,89,86,3,2,77,62,2,45,62,55,42,38,39,3,30,17,2,7,5">
 <button class="ssp__btn" type="button" data-ssp-btn aria-label="Play Serum Presets Vol 1">
-<svg class="ssp__i ssp__i--play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M5.2 3.1v9.8c0 .5.5.8.9.5l7.5-4.9c.4-.2.4-.8 0-1L6.1 2.6c-.4-.3-.9 0-.9.5Z" fill="currentColor"/></svg>
-<svg class="ssp__i ssp__i--pause" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="4" y="3" width="2.7" height="10" rx=".8" fill="currentColor"/><rect x="9.3" y="3" width="2.7" height="10" rx=".8" fill="currentColor"/></svg>
+<svg class="ssp__i ssp__i--play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.6 2.9v10.2c0 .6.6.9 1.1.6l7.9-5.1c.5-.3.5-1 0-1.3L5.7 2.3c-.5-.3-1.1 0-1.1.6Z" fill="currentColor"/></svg>
+<svg class="ssp__i ssp__i--pause" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="3.8" y="2.8" width="3" height="10.4" rx="1" fill="currentColor"/><rect x="9.2" y="2.8" width="3" height="10.4" rx="1" fill="currentColor"/></svg>
 </button>
 <div class="ssp__wave" data-ssp-wave role="slider" tabindex="0" aria-label="Seek in Serum Presets Vol 1" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="0:00">
-<svg class="ssp__svg" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path id="ssp-grid-g_serum_presets" d="M0.5 4V96M1.5 10.4V89.6M2.5 12.3V87.7M3.5 11.4V88.6M4.5 18.7V81.3M5.5 13.7V86.3M6.5 9.1V90.9M7.5 9.5V90.5M8.5 9.5V90.5M9.5 17.3V82.7M10.5 14.1V85.9M11.5 12.7V87.3M12.5 16.9V83.1M13.5 8.6V91.4M14.5 9.5V90.5M15.5 9.1V90.9M16.5 14.6V85.4M17.5 10V90M18.5 14.6V85.4M19.5 21.5V78.5M20.5 8.6V91.4M21.5 10.9V89.1M22.5 10.4V89.6M23.5 13.2V86.8M24.5 14.6V85.4M25.5 13.7V86.3M26.5 24.2V75.8M27.5 9.1V90.9M28.5 10V90M29.5 10V90M30.5 10.9V89.1M31.5 18.3V81.7M32.5 14.6V85.4M33.5 14.6V85.4M34.5 9.5V90.5M35.5 9.1V90.9M36.5 13.7V86.3M37.5 12.7V87.3M38.5 19.6V80.4M39.5 16V84M40.5 10V90M41.5 11.4V88.6M42.5 12.7V87.3M43.5 13.7V86.3M44.5 15.5V84.5M45.5 17.8V82.2M46.5 18.3V81.7M47.5 7.7V92.3M48.5 11.4V88.6M49.5 11.4V88.6M50.5 16.9V83.1M51.5 11.4V88.6M52.5 15.5V84.5M53.5 21V79M54.5 10.4V89.6M55.5 12.3V87.7M56.5 9.1V90.9M57.5 13.2V86.8M58.5 16.9V83.1M59.5 14.1V85.9M60.5 25.6V74.4M61.5 9.1V90.9M62.5 10.9V89.1M63.5 11.4V88.6M64.5 14.6V85.4M65.5 19.2V80.8M66.5 16.4V83.6M67.5 16.4V83.6M68.5 8.1V91.9M69.5 10V90M70.5 11.8V88.2M71.5 11.8V88.2M72.5 21.5V78.5M73.5 16V84M74.5 8.6V91.4M75.5 11.8V88.2M76.5 9.1V90.9M77.5 16V84M78.5 12.7V87.3M79.5 14.1V85.9M80.5 16.4V83.6M81.5 10.4V89.6M82.5 10V90M83.5 7.7V92.3M84.5 16.9V83.1M85.5 12.3V87.7M86.5 13.2V86.8M87.5 21V79M88.5 8.6V91.4M89.5 12.3V87.7M90.5 10.9V89.1M91.5 13.2V86.8M92.5 14.6V85.4M93.5 16.9V83.1M94.5 23.3V76.7M95.5 8.6V91.4M96.5 9.5V90.5M97.5 8.6V91.4M98.5 10.9V89.1M99.5 16V84M100.5 14.6V85.4M101.5 10.9V89.1M102.5 8.6V91.4M103.5 10.9V89.1M104.5 14.1V85.9M105.5 13.7V86.3M106.5 15V85M107.5 13.2V86.8M108.5 28.8V71.2M109.5 39.9V60.1M110.5 45.9V54.1M111.5 47.2V52.8M112.5 48.6V51.4M113.5 48.6V51.4M114.5 48.6V51.4M115.5 48.6V51.4M116.5 48.6V51.4M117.5 48.6V51.4M118.5 48.6V51.4M119.5 48.6V51.4" vector-effect="non-scaling-stroke"/></svg>
+<svg class="ssp__svg" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path id="ssp-grid-g_serum_presets" d="M0.5 9.5V90.5M1.5 5.4V94.6M2.5 7.7V92.3M3.5 11.8V88.2M4.5 48.6V51.4M5.5 48.6V51.4M6.5 9.1V90.9M7.5 18.3V81.7M8.5 48.6V51.4M9.5 17.3V82.7M10.5 9.1V90.9M11.5 4.9V95.1M12.5 17.8V82.2M13.5 12.7V87.3M14.5 13.2V86.8M15.5 28.8V71.2M16.5 6.3V93.7M17.5 24.7V75.3M18.5 48.6V51.4M19.5 14.6V85.4M20.5 9.1V90.9M21.5 7.7V92.3M22.5 8.1V91.9M23.5 19.6V80.4M24.5 48.6V51.4M25.5 15.5V84.5M26.5 10V90M27.5 45.4V54.6M28.5 48.6V51.4M29.5 12.3V87.7M30.5 5.4V94.6M31.5 8.6V91.4M32.5 48.2V51.8M33.5 5.4V94.6M34.5 19.2V80.8M35.5 10V90M36.5 13.2V86.8M37.5 48.2V51.8M38.5 48.6V51.4M39.5 7.7V92.3M40.5 4V96M41.5 4.5V95.5M42.5 8.1V91.9M43.5 48.2V51.8M44.5 48.6V51.4M45.5 10V90M46.5 15.5V84.5M47.5 48.6V51.4M48.5 36.7V63.3M49.5 7.7V92.3M50.5 8.1V91.9M51.5 16.9V83.1M52.5 14.1V85.9M53.5 8.1V91.9M54.5 46.8V53.2M55.5 4.5V95.5M56.5 19.2V80.8M57.5 48.6V51.4M58.5 16V84M59.5 8.1V91.9M60.5 4.5V95.5M61.5 4.5V95.5M62.5 12.7V87.3M63.5 48.6V51.4M64.5 17.8V82.2M65.5 9.1V90.9M66.5 27.9V72.1M67.5 48.6V51.4M68.5 13.7V86.3M69.5 8.6V91.4M70.5 9.1V90.9M71.5 46.8V53.2M72.5 10V90M73.5 16V84M74.5 15V85M75.5 8.1V91.9M76.5 45.9V54.1M77.5 48.6V51.4M78.5 48.6V51.4M79.5 13.7V86.3M80.5 8.1V91.9M81.5 9.1V90.9M82.5 9.1V90.9M83.5 20.1V79.9M84.5 48.6V51.4M85.5 14.6V85.4M86.5 10.9V89.1M87.5 46.3V53.7M88.5 48.6V51.4M89.5 11.8V88.2M90.5 7.2V92.8M91.5 10V90M92.5 48.6V51.4M93.5 6.3V93.7M94.5 23.8V76.2M95.5 11.4V88.6M96.5 11.8V88.2M97.5 48.2V51.8M98.5 48.6V51.4M99.5 8.6V91.4M100.5 8.6V91.4M101.5 9.1V90.9M102.5 10.4V89.6M103.5 48.6V51.4M104.5 48.6V51.4M105.5 14.6V85.4M106.5 21.5V78.5M107.5 48.6V51.4M108.5 29.3V70.7M109.5 21.5V78.5M110.5 24.7V75.3M111.5 30.7V69.3M112.5 32.5V67.5M113.5 32.1V67.9M114.5 48.6V51.4M115.5 36.2V63.8M116.5 42.2V57.8M117.5 48.6V51.4M118.5 46.8V53.2M119.5 47.7V52.3" vector-effect="non-scaling-stroke"/></svg>
 <svg class="ssp__svg ssp__svg--hover" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#ssp-grid-g_serum_presets"/></svg>
-<svg class="ssp__svg ssp__svg--done" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#ssp-grid-g_serum_presets"/></svg>
+<svg class="ssp__svg ssp__svg--done" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#ssp-grid-g_serum_presets"/></svg><span class="ssp__head" aria-hidden="true"></span><span class="ssp__tip" aria-hidden="true" data-ssp-tip>0:00</span></div>
+<span class="ssp__time" data-ssp-time>0:11</span>
 </div>
-<span class="ssp__time" data-ssp-time>0:09</span>
-</div>
-<p class="sat__cap"><b>Serum Presets Vol 1</b><span>Pluck preset, 124 BPM, C minor</span></p>
+<p class="sat__cap"><b>Serum Presets Vol 1</b><span>Synth bass loop, 125 BPM</span></p>
 </li><li class="sat__cell" data-block-id="g_tech_house_master_bundle">
-<div class="ssp" data-ssp data-src="/theme-previews/sample-packs/a/samples-demo-tech-house-master-bundle.33a6ee5d79a8.mp4" data-title="Tech House Master Bundle 2025">
+<div class="ssp has-len" data-ssp data-src="/theme-previews/sample-packs/a/samples-demo-tech-house-master-bundle.cdb213322fa7.mp4" data-title="Tech House Master Bundle 2025" data-len="12" data-peaks="94,43,19,10,95,57,23,13,9,91,56,23,94,67,21,96,50,91,81,24,14,91,76,31,15,92,44,16,11,98,51,20,93,73,22,99,39,90,61,28,16,87,83,45,17,95,50,25,13,92,49,22,94,71,21,14,91,79,27,12,91,46,21,11,93,56,23,13,9,93,52,21,92,60,25,97,89,100,77,30,93,44,20,12,97,51,21,12,9,95,51,24,92,78,22,97,48,88,75,23,14,87,77,25,15,98,46,16,9,77,32,11,56,34,10,41,12,22,10,2">
 <button class="ssp__btn" type="button" data-ssp-btn aria-label="Play Tech House Master Bundle 2025">
-<svg class="ssp__i ssp__i--play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M5.2 3.1v9.8c0 .5.5.8.9.5l7.5-4.9c.4-.2.4-.8 0-1L6.1 2.6c-.4-.3-.9 0-.9.5Z" fill="currentColor"/></svg>
-<svg class="ssp__i ssp__i--pause" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="4" y="3" width="2.7" height="10" rx=".8" fill="currentColor"/><rect x="9.3" y="3" width="2.7" height="10" rx=".8" fill="currentColor"/></svg>
+<svg class="ssp__i ssp__i--play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.6 2.9v10.2c0 .6.6.9 1.1.6l7.9-5.1c.5-.3.5-1 0-1.3L5.7 2.3c-.5-.3-1.1 0-1.1.6Z" fill="currentColor"/></svg>
+<svg class="ssp__i ssp__i--pause" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="3.8" y="2.8" width="3" height="10.4" rx="1" fill="currentColor"/><rect x="9.2" y="2.8" width="3" height="10.4" rx="1" fill="currentColor"/></svg>
 </button>
 <div class="ssp__wave" data-ssp-wave role="slider" tabindex="0" aria-label="Seek in Tech House Master Bundle 2025" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="0:00">
-<svg class="ssp__svg" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path id="ssp-grid-g_tech_house_master_bundle" d="M0.5 4.5V95.5M1.5 22.4V77.6M2.5 27V73M3.5 8.6V91.4M4.5 14.6V85.4M5.5 24.7V75.3M6.5 14.1V85.9M7.5 10V90M8.5 17.8V82.2M9.5 25.6V74.4M10.5 7.7V92.3M11.5 15V85M12.5 19.6V80.4M13.5 17.3V82.7M14.5 17.3V82.7M15.5 22.4V77.6M16.5 26.1V73.9M17.5 9.1V90.9M18.5 17.8V82.2M19.5 13.7V86.3M20.5 14.1V85.9M21.5 10.9V89.1M22.5 16.4V83.6M23.5 21V79M24.5 11.4V88.6M25.5 15V85M26.5 26.5V73.5M27.5 18.7V81.3M28.5 18.7V81.3M29.5 21.9V78.1M30.5 27.5V72.5M31.5 7.7V92.3M32.5 16.9V83.1M33.5 25.6V74.4M34.5 11.8V88.2M35.5 8.6V91.4M36.5 19.2V80.8M37.5 26.1V73.9M38.5 11.4V88.6M39.5 16.9V83.1M40.5 18.7V81.3M41.5 17.8V82.2M42.5 18.7V81.3M43.5 23.3V76.7M44.5 28.8V71.2M45.5 4V96M46.5 22.9V77.1M47.5 13.2V86.8M48.5 11.4V88.6M49.5 11.4V88.6M50.5 15.5V84.5M51.5 21.9V78.1M52.5 11.4V88.6M53.5 14.6V85.4M54.5 26.5V73.5M55.5 18.3V81.7M56.5 19.6V80.4M57.5 24.2V75.8M58.5 28.8V71.2M59.5 9.5V90.5M60.5 18.7V81.3M61.5 30.7V69.3M62.5 9.1V90.9M63.5 11.4V88.6M64.5 21.5V78.5M65.5 27.5V72.5M66.5 6.8V93.2M67.5 19.2V80.8M68.5 21V79M69.5 17.3V82.7M70.5 20.1V79.9M71.5 24.2V75.8M72.5 29.8V70.2M73.5 9.1V90.9M74.5 14.6V85.4M75.5 14.1V85.9M76.5 10.9V89.1M77.5 12.7V87.3M78.5 15V85M79.5 23.3V76.7M80.5 10.9V89.1M81.5 22.4V77.6M82.5 30.7V69.3M83.5 18.7V81.3M84.5 20.6V79.4M85.5 24.7V75.3M86.5 20.6V79.4M87.5 9.1V90.9M88.5 20.1V79.9M89.5 30.2V69.8M90.5 9.5V90.5M91.5 11.4V88.6M92.5 22.4V77.6M93.5 21.9V78.1M94.5 8.6V91.4M95.5 19.6V80.4M96.5 21.5V78.5M97.5 17.3V82.7M98.5 20.1V79.9M99.5 24.7V75.3M100.5 8.6V91.4M101.5 8.6V91.4M102.5 13.2V86.8M103.5 21.5V78.5M104.5 11.4V88.6M105.5 14.1V85.9M106.5 17.3V82.7M107.5 11.8V88.2M108.5 11.4V88.6M109.5 21.9V78.1M110.5 30.7V69.3M111.5 48.6V51.4M112.5 48.6V51.4M113.5 48.6V51.4M114.5 48.6V51.4M115.5 48.6V51.4M116.5 48.6V51.4M117.5 48.6V51.4M118.5 48.6V51.4M119.5 48.6V51.4" vector-effect="non-scaling-stroke"/></svg>
+<svg class="ssp__svg" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path id="ssp-grid-g_tech_house_master_bundle" d="M0.5 6.8V93.2M1.5 30.2V69.8M2.5 41.3V58.7M3.5 45.4V54.6M4.5 6.3V93.7M5.5 23.8V76.2M6.5 39.4V60.6M7.5 44V56M8.5 45.9V54.1M9.5 8.1V91.9M10.5 24.2V75.8M11.5 39.4V60.6M12.5 6.8V93.2M13.5 19.2V80.8M14.5 40.3V59.7M15.5 5.8V94.2M16.5 27V73M17.5 8.1V91.9M18.5 12.7V87.3M19.5 39V61M20.5 43.6V56.4M21.5 8.1V91.9M22.5 15V85M23.5 35.7V64.3M24.5 43.1V56.9M25.5 7.7V92.3M26.5 29.8V70.2M27.5 42.6V57.4M28.5 44.9V55.1M29.5 4.9V95.1M30.5 26.5V73.5M31.5 40.8V59.2M32.5 7.2V92.8M33.5 16.4V83.6M34.5 39.9V60.1M35.5 4.5V95.5M36.5 32.1V67.9M37.5 8.6V91.4M38.5 21.9V78.1M39.5 37.1V62.9M40.5 42.6V57.4M41.5 10V90M42.5 11.8V88.2M43.5 29.3V70.7M44.5 42.2V57.8M45.5 6.3V93.7M46.5 27V73M47.5 38.5V61.5M48.5 44V56M49.5 7.7V92.3M50.5 27.5V72.5M51.5 39.9V60.1M52.5 6.8V93.2M53.5 17.3V82.7M54.5 40.3V59.7M55.5 43.6V56.4M56.5 8.1V91.9M57.5 13.7V86.3M58.5 37.6V62.4M59.5 44.5V55.5M60.5 8.1V91.9M61.5 28.8V71.2M62.5 40.3V59.7M63.5 44.9V55.1M64.5 7.2V92.8M65.5 24.2V75.8M66.5 39.4V60.6M67.5 44V56M68.5 45.9V54.1M69.5 7.2V92.8M70.5 26.1V73.9M71.5 40.3V59.7M72.5 7.7V92.3M73.5 22.4V77.6M74.5 38.5V61.5M75.5 5.4V94.6M76.5 9.1V90.9M77.5 4V96M78.5 14.6V85.4M79.5 36.2V63.8M80.5 7.2V92.8M81.5 29.8V70.2M82.5 40.8V59.2M83.5 44.5V55.5M84.5 5.4V94.6M85.5 26.5V73.5M86.5 40.3V59.7M87.5 44.5V55.5M88.5 45.9V54.1M89.5 6.3V93.7M90.5 26.5V73.5M91.5 39V61M92.5 7.7V92.3M93.5 14.1V85.9M94.5 39.9V60.1M95.5 5.4V94.6M96.5 27.9V72.1M97.5 9.5V90.5M98.5 15.5V84.5M99.5 39.4V60.6M100.5 43.6V56.4M101.5 10V90M102.5 14.6V85.4M103.5 38.5V61.5M104.5 43.1V56.9M105.5 4.9V95.1M106.5 28.8V71.2M107.5 42.6V57.4M108.5 45.9V54.1M109.5 14.6V85.4M110.5 35.3V64.7M111.5 44.9V55.1M112.5 24.2V75.8M113.5 34.4V65.6M114.5 45.4V54.6M115.5 31.1V68.9M116.5 44.5V55.5M117.5 39.9V60.1M118.5 45.4V54.6M119.5 48.6V51.4" vector-effect="non-scaling-stroke"/></svg>
 <svg class="ssp__svg ssp__svg--hover" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#ssp-grid-g_tech_house_master_bundle"/></svg>
-<svg class="ssp__svg ssp__svg--done" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#ssp-grid-g_tech_house_master_bundle"/></svg>
+<svg class="ssp__svg ssp__svg--done" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#ssp-grid-g_tech_house_master_bundle"/></svg><span class="ssp__head" aria-hidden="true"></span><span class="ssp__tip" aria-hidden="true" data-ssp-tip>0:00</span></div>
+<span class="ssp__time" data-ssp-time>0:12</span>
 </div>
-<span class="ssp__time" data-ssp-time>0:08</span>
-</div>
-<p class="sat__cap"><b>Tech House Master Bundle 2025</b><span>Groove loop, 126 BPM, F minor</span></p>
+<p class="sat__cap"><b>Tech House Master Bundle 2025</b><span>Groove loop, 120 BPM, E minor</span></p>
 </li><li class="sat__cell" data-block-id="g_drum_kit">
-<div class="ssp" data-ssp data-src="/theme-previews/sample-packs/a/samples-demo-drums-one-shots.287029a8fe06.mp4" data-title="Tech House Drum Kit Vol I">
+<div class="ssp has-len" data-ssp data-src="/theme-previews/sample-packs/a/samples-demo-drums-one-shots.50e48afb514c.mp4" data-title="Tech House Drum Kit Vol I" data-len="11.63" data-peaks="95,64,33,18,38,94,66,35,8,22,94,66,31,7,35,93,76,48,9,43,96,65,37,9,55,95,64,48,7,39,100,60,36,8,52,91,62,37,9,45,95,59,35,6,46,96,67,34,7,55,100,56,35,18,56,95,73,38,9,52,99,67,32,24,59,96,63,38,6,48,96,67,42,5,69,95,61,36,10,54,96,55,34,5,65,96,59,33,5,56,98,56,37,5,65,94,62,36,9,59,98,56,33,6,62,93,52,23,4,41,60,31,17,3,28,36,17,7,2,2">
 <button class="ssp__btn" type="button" data-ssp-btn aria-label="Play Tech House Drum Kit Vol I">
-<svg class="ssp__i ssp__i--play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M5.2 3.1v9.8c0 .5.5.8.9.5l7.5-4.9c.4-.2.4-.8 0-1L6.1 2.6c-.4-.3-.9 0-.9.5Z" fill="currentColor"/></svg>
-<svg class="ssp__i ssp__i--pause" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="4" y="3" width="2.7" height="10" rx=".8" fill="currentColor"/><rect x="9.3" y="3" width="2.7" height="10" rx=".8" fill="currentColor"/></svg>
+<svg class="ssp__i ssp__i--play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.6 2.9v10.2c0 .6.6.9 1.1.6l7.9-5.1c.5-.3.5-1 0-1.3L5.7 2.3c-.5-.3-1.1 0-1.1.6Z" fill="currentColor"/></svg>
+<svg class="ssp__i ssp__i--pause" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="3.8" y="2.8" width="3" height="10.4" rx="1" fill="currentColor"/><rect x="9.2" y="2.8" width="3" height="10.4" rx="1" fill="currentColor"/></svg>
 </button>
 <div class="ssp__wave" data-ssp-wave role="slider" tabindex="0" aria-label="Seek in Tech House Drum Kit Vol I" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="0:00">
-<svg class="ssp__svg" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path id="ssp-grid-g_drum_kit" d="M0.5 4.5V95.5M1.5 21.5V78.5M2.5 27.5V72.5M3.5 33V67M4.5 37.1V62.9M5.5 16V84M6.5 20.1V79.9M7.5 27.5V72.5M8.5 31.6V68.4M9.5 37.1V62.9M10.5 20.1V79.9M11.5 26.5V73.5M12.5 38.5V61.5M13.5 43.6V56.4M14.5 46.3V53.7M15.5 23.8V76.2M16.5 21.5V78.5M17.5 39V61M18.5 42.2V57.8M19.5 46.8V53.2M20.5 38.5V61.5M21.5 40.3V59.7M22.5 45.9V54.1M23.5 48.6V51.4M24.5 48.6V51.4M25.5 48.6V51.4M26.5 40.3V59.7M27.5 48.6V51.4M28.5 48.6V51.4M29.5 48.6V51.4M30.5 48.6V51.4M31.5 48.6V51.4M32.5 48.6V51.4M33.5 48.6V51.4M34.5 48.6V51.4M35.5 48.6V51.4M36.5 48.6V51.4M37.5 48.6V51.4M38.5 48.6V51.4M39.5 48.6V51.4M40.5 48.6V51.4M41.5 48.6V51.4M42.5 48.6V51.4M43.5 48.6V51.4M44.5 48.6V51.4M45.5 48.6V51.4M46.5 48.6V51.4M47.5 48.6V51.4M48.5 48.6V51.4M49.5 48.6V51.4M50.5 48.6V51.4M51.5 48.6V51.4M52.5 48.6V51.4M53.5 48.6V51.4M54.5 48.6V51.4M55.5 19.6V80.4M56.5 20.6V79.4M57.5 25.6V74.4M58.5 29.8V70.2M59.5 32.5V67.5M60.5 38.5V61.5M61.5 40.8V59.2M62.5 8.1V91.9M63.5 10V90M64.5 23.3V76.7M65.5 28.4V71.6M66.5 32.5V67.5M67.5 38.5V61.5M68.5 41.3V58.7M69.5 19.2V80.8M70.5 20.6V79.4M71.5 27V73M72.5 30.2V69.8M73.5 32.1V67.9M74.5 39V61M75.5 41.7V58.3M76.5 4V96M77.5 12.3V87.7M78.5 22.9V77.1M79.5 29.3V70.7M80.5 31.6V68.4M81.5 38.5V61.5M82.5 41.7V58.3M83.5 20.1V79.9M84.5 20.6V79.4M85.5 27V73M86.5 31.1V68.9M87.5 33.9V66.1M88.5 39.4V60.6M89.5 41.7V58.3M90.5 6.3V93.7M91.5 13.7V86.3M92.5 23.8V76.2M93.5 29.8V70.2M94.5 34.8V65.2M95.5 38.5V61.5M96.5 41.7V58.3M97.5 19.6V80.4M98.5 22.4V77.6M99.5 27V73M100.5 32.1V67.9M101.5 35.3V64.7M102.5 39.4V60.6M103.5 42.2V57.8M104.5 4V96M105.5 14.6V85.4M106.5 21.5V78.5M107.5 28.4V71.6M108.5 35.7V64.3M109.5 38.5V61.5M110.5 42.6V57.4M111.5 48.6V51.4M112.5 48.6V51.4M113.5 48.6V51.4M114.5 48.6V51.4M115.5 48.6V51.4M116.5 48.6V51.4M117.5 48.6V51.4M118.5 48.6V51.4M119.5 48.6V51.4" vector-effect="non-scaling-stroke"/></svg>
+<svg class="ssp__svg" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path id="ssp-grid-g_drum_kit" d="M0.5 6.3V93.7M1.5 20.6V79.4M2.5 34.8V65.2M3.5 41.7V58.3M4.5 32.5V67.5M5.5 6.8V93.2M6.5 19.6V80.4M7.5 33.9V66.1M8.5 46.3V53.7M9.5 39.9V60.1M10.5 6.8V93.2M11.5 19.6V80.4M12.5 35.7V64.3M13.5 46.8V53.2M14.5 33.9V66.1M15.5 7.2V92.8M16.5 15V85M17.5 27.9V72.1M18.5 45.9V54.1M19.5 30.2V69.8M20.5 5.8V94.2M21.5 20.1V79.9M22.5 33V67M23.5 45.9V54.1M24.5 24.7V75.3M25.5 6.3V93.7M26.5 20.6V79.4M27.5 27.9V72.1M28.5 46.8V53.2M29.5 32.1V67.9M30.5 4V96M31.5 22.4V77.6M32.5 33.4V66.6M33.5 46.3V53.7M34.5 26.1V73.9M35.5 8.1V91.9M36.5 21.5V78.5M37.5 33V67M38.5 45.9V54.1M39.5 29.3V70.7M40.5 6.3V93.7M41.5 22.9V77.1M42.5 33.9V66.1M43.5 47.2V52.8M44.5 28.8V71.2M45.5 5.8V94.2M46.5 19.2V80.8M47.5 34.4V65.6M48.5 46.8V53.2M49.5 24.7V75.3M50.5 4V96M51.5 24.2V75.8M52.5 33.9V66.1M53.5 41.7V58.3M54.5 24.2V75.8M55.5 6.3V93.7M56.5 16.4V83.6M57.5 32.5V67.5M58.5 45.9V54.1M59.5 26.1V73.9M60.5 4.5V95.5M61.5 19.2V80.8M62.5 35.3V64.7M63.5 39V61M64.5 22.9V77.1M65.5 5.8V94.2M66.5 21V79M67.5 32.5V67.5M68.5 47.2V52.8M69.5 27.9V72.1M70.5 5.8V94.2M71.5 19.2V80.8M72.5 30.7V69.3M73.5 47.7V52.3M74.5 18.3V81.7M75.5 6.3V93.7M76.5 21.9V78.1M77.5 33.4V66.6M78.5 45.4V54.6M79.5 25.2V74.8M80.5 5.8V94.2M81.5 24.7V75.3M82.5 34.4V65.6M83.5 47.7V52.3M84.5 20.1V79.9M85.5 5.8V94.2M86.5 22.9V77.1M87.5 34.8V65.2M88.5 47.7V52.3M89.5 24.2V75.8M90.5 4.9V95.1M91.5 24.2V75.8M92.5 33V67M93.5 47.7V52.3M94.5 20.1V79.9M95.5 6.8V93.2M96.5 21.5V78.5M97.5 33.4V66.6M98.5 45.9V54.1M99.5 22.9V77.1M100.5 4.9V95.1M101.5 24.2V75.8M102.5 34.8V65.2M103.5 47.2V52.8M104.5 21.5V78.5M105.5 7.2V92.8M106.5 26.1V73.9M107.5 39.4V60.6M108.5 48.2V51.8M109.5 31.1V68.9M110.5 22.4V77.6M111.5 35.7V64.3M112.5 42.2V57.8M113.5 48.6V51.4M114.5 37.1V62.9M115.5 33.4V66.6M116.5 42.2V57.8M117.5 46.8V53.2M118.5 48.6V51.4M119.5 48.6V51.4" vector-effect="non-scaling-stroke"/></svg>
 <svg class="ssp__svg ssp__svg--hover" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#ssp-grid-g_drum_kit"/></svg>
-<svg class="ssp__svg ssp__svg--done" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#ssp-grid-g_drum_kit"/></svg>
+<svg class="ssp__svg ssp__svg--done" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#ssp-grid-g_drum_kit"/></svg><span class="ssp__head" aria-hidden="true"></span><span class="ssp__tip" aria-hidden="true" data-ssp-tip>0:00</span></div>
+<span class="ssp__time" data-ssp-time>0:12</span>
 </div>
-<span class="ssp__time" data-ssp-time>0:08</span>
-</div>
-<p class="sat__cap"><b>Tech House Drum Kit Vol I</b><span>One shots, then a beat, 125 BPM</span></p>
+<p class="sat__cap"><b>Tech House Drum Kit Vol I</b><span>Drum loop, 124 BPM</span></p>
 </li><li class="sat__cell" data-block-id="g_ambience_kit">
-<div class="ssp" data-ssp data-src="/theme-previews/sample-packs/a/samples-demo-ambience-kit.a0c8ae6846fc.mp4" data-title="Free Ambience Sample Pack Vol I">
+<div class="ssp has-len" data-ssp data-src="/theme-previews/sample-packs/a/samples-demo-ambience-kit.1004fc0739fd.mp4" data-title="Free Ambience Sample Pack Vol I" data-len="12.52" data-peaks="76,42,79,59,71,65,52,72,63,73,62,67,65,51,77,60,81,68,77,69,56,73,69,77,68,67,66,66,88,60,75,61,81,67,55,91,62,78,63,71,69,69,77,64,65,52,76,78,60,87,67,90,71,72,76,55,80,64,75,58,82,69,55,69,51,79,72,70,74,50,90,68,78,67,68,72,58,86,74,81,62,89,81,67,100,70,79,68,83,79,76,77,73,76,63,90,86,76,88,68,82,72,81,78,83,77,62,65,53,57,56,43,51,34,32,25,19,16,9,5">
 <button class="ssp__btn" type="button" data-ssp-btn aria-label="Play Free Ambience Sample Pack Vol I">
-<svg class="ssp__i ssp__i--play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M5.2 3.1v9.8c0 .5.5.8.9.5l7.5-4.9c.4-.2.4-.8 0-1L6.1 2.6c-.4-.3-.9 0-.9.5Z" fill="currentColor"/></svg>
-<svg class="ssp__i ssp__i--pause" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="4" y="3" width="2.7" height="10" rx=".8" fill="currentColor"/><rect x="9.3" y="3" width="2.7" height="10" rx=".8" fill="currentColor"/></svg>
+<svg class="ssp__i ssp__i--play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.6 2.9v10.2c0 .6.6.9 1.1.6l7.9-5.1c.5-.3.5-1 0-1.3L5.7 2.3c-.5-.3-1.1 0-1.1.6Z" fill="currentColor"/></svg>
+<svg class="ssp__i ssp__i--pause" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="3.8" y="2.8" width="3" height="10.4" rx="1" fill="currentColor"/><rect x="9.2" y="2.8" width="3" height="10.4" rx="1" fill="currentColor"/></svg>
 </button>
 <div class="ssp__wave" data-ssp-wave role="slider" tabindex="0" aria-label="Seek in Free Ambience Sample Pack Vol I" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="0:00">
-<svg class="ssp__svg" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path id="ssp-grid-g_ambience_kit" d="M0.5 46.3V53.7M1.5 44.9V55.1M2.5 44V56M3.5 42.6V57.4M4.5 41.3V58.7M5.5 39.4V60.6M6.5 37.6V62.4M7.5 35.7V64.3M8.5 31.1V68.9M9.5 29.8V70.2M10.5 27.9V72.1M11.5 27V73M12.5 24.7V75.3M13.5 27V73M14.5 21.9V78.1M15.5 20.1V79.9M16.5 21.9V78.1M17.5 18.7V81.3M18.5 16.4V83.6M19.5 10.9V89.1M20.5 9.1V90.9M21.5 13.2V86.8M22.5 11.4V88.6M23.5 9.1V90.9M24.5 8.6V91.4M25.5 7.7V92.3M26.5 10.9V89.1M27.5 13.7V86.3M28.5 11.8V88.2M29.5 8.1V91.9M30.5 6.3V93.7M31.5 11.8V88.2M32.5 20.6V79.4M33.5 13.7V86.3M34.5 14.6V85.4M35.5 12.7V87.3M36.5 15.5V84.5M37.5 16V84M38.5 19.6V80.4M39.5 18.7V81.3M40.5 20.1V79.9M41.5 21V79M42.5 22.9V77.1M43.5 24.2V75.8M44.5 17.8V82.2M45.5 13.2V86.8M46.5 12.3V87.7M47.5 17.3V82.7M48.5 22.9V77.1M49.5 24.7V75.3M50.5 23.8V76.2M51.5 25.2V74.8M52.5 23.3V76.7M53.5 20.1V79.9M54.5 21V79M55.5 22.4V77.6M56.5 24.7V75.3M57.5 27.5V72.5M58.5 27.5V72.5M59.5 22.4V77.6M60.5 19.6V80.4M61.5 20.6V79.4M62.5 27V73M63.5 23.3V76.7M64.5 23.8V76.2M65.5 23.3V76.7M66.5 19.2V80.8M67.5 19.2V80.8M68.5 21.9V78.1M69.5 18.7V81.3M70.5 14.1V85.9M71.5 12.3V87.7M72.5 14.1V85.9M73.5 14.1V85.9M74.5 12.7V87.3M75.5 14.6V85.4M76.5 15.5V84.5M77.5 18.7V81.3M78.5 19.6V80.4M79.5 14.6V85.4M80.5 10.4V89.6M81.5 12.3V87.7M82.5 14.6V85.4M83.5 11.8V88.2M84.5 8.6V91.4M85.5 10.9V89.1M86.5 18.7V81.3M87.5 12.7V87.3M88.5 7.7V92.3M89.5 8.1V91.9M90.5 7.2V92.8M91.5 4V96M92.5 4.9V95.1M93.5 7.2V92.8M94.5 16.9V83.1M95.5 18.7V81.3M96.5 20.1V79.9M97.5 22.4V77.6M98.5 22.9V77.1M99.5 23.3V76.7M100.5 21V79M101.5 22.4V77.6M102.5 27.5V72.5M103.5 33V67M104.5 31.6V68.4M105.5 31.1V68.9M106.5 31.6V68.4M107.5 33V67M108.5 35.3V64.7M109.5 38.5V61.5M110.5 39V61M111.5 39.9V60.1M112.5 42.6V57.4M113.5 43.6V56.4M114.5 44.5V55.5M115.5 45.4V54.6M116.5 47.2V52.8M117.5 48.2V51.8M118.5 48.6V51.4M119.5 48.6V51.4" vector-effect="non-scaling-stroke"/></svg>
+<svg class="ssp__svg" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path id="ssp-grid-g_ambience_kit" d="M0.5 15V85M1.5 30.7V69.3M2.5 13.7V86.3M3.5 22.9V77.1M4.5 17.3V82.7M5.5 20.1V79.9M6.5 26.1V73.9M7.5 16.9V83.1M8.5 21V79M9.5 16.4V83.6M10.5 21.5V78.5M11.5 19.2V80.8M12.5 20.1V79.9M13.5 26.5V73.5M14.5 14.6V85.4M15.5 22.4V77.6M16.5 12.7V87.3M17.5 18.7V81.3M18.5 14.6V85.4M19.5 18.3V81.7M20.5 24.2V75.8M21.5 16.4V83.6M22.5 18.3V81.7M23.5 14.6V85.4M24.5 18.7V81.3M25.5 19.2V80.8M26.5 19.6V80.4M27.5 19.6V80.4M28.5 9.5V90.5M29.5 22.4V77.6M30.5 15.5V84.5M31.5 21.9V78.1M32.5 12.7V87.3M33.5 19.2V80.8M34.5 24.7V75.3M35.5 8.1V91.9M36.5 21.5V78.5M37.5 14.1V85.9M38.5 21V79M39.5 17.3V82.7M40.5 18.3V81.7M41.5 18.3V81.7M42.5 14.6V85.4M43.5 20.6V79.4M44.5 20.1V79.9M45.5 26.1V73.9M46.5 15V85M47.5 14.1V85.9M48.5 22.4V77.6M49.5 10V90M50.5 19.2V80.8M51.5 8.6V91.4M52.5 17.3V82.7M53.5 16.9V83.1M54.5 15V85M55.5 24.7V75.3M56.5 13.2V86.8M57.5 20.6V79.4M58.5 15.5V84.5M59.5 23.3V76.7M60.5 12.3V87.7M61.5 18.3V81.7M62.5 24.7V75.3M63.5 18.3V81.7M64.5 26.5V73.5M65.5 13.7V86.3M66.5 16.9V83.1M67.5 17.8V82.2M68.5 16V84M69.5 27V73M70.5 8.6V91.4M71.5 18.7V81.3M72.5 14.1V85.9M73.5 19.2V80.8M74.5 18.7V81.3M75.5 16.9V83.1M76.5 23.3V76.7M77.5 10.4V89.6M78.5 16V84M79.5 12.7V87.3M80.5 21.5V78.5M81.5 9.1V90.9M82.5 12.7V87.3M83.5 19.2V80.8M84.5 4V96M85.5 17.8V82.2M86.5 13.7V86.3M87.5 18.7V81.3M88.5 11.8V88.2M89.5 13.7V86.3M90.5 15V85M91.5 14.6V85.4M92.5 16.4V83.6M93.5 15V85M94.5 21V79M95.5 8.6V91.4M96.5 10.4V89.6M97.5 15V85M98.5 9.5V90.5M99.5 18.7V81.3M100.5 12.3V87.7M101.5 16.9V83.1M102.5 12.7V87.3M103.5 14.1V85.9M104.5 11.8V88.2M105.5 14.6V85.4M106.5 21.5V78.5M107.5 20.1V79.9M108.5 25.6V74.4M109.5 23.8V76.2M110.5 24.2V75.8M111.5 30.2V69.8M112.5 26.5V73.5M113.5 34.4V65.6M114.5 35.3V64.7M115.5 38.5V61.5M116.5 41.3V58.7M117.5 42.6V57.4M118.5 45.9V54.1M119.5 47.7V52.3" vector-effect="non-scaling-stroke"/></svg>
 <svg class="ssp__svg ssp__svg--hover" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#ssp-grid-g_ambience_kit"/></svg>
-<svg class="ssp__svg ssp__svg--done" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#ssp-grid-g_ambience_kit"/></svg>
+<svg class="ssp__svg ssp__svg--done" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#ssp-grid-g_ambience_kit"/></svg><span class="ssp__head" aria-hidden="true"></span><span class="ssp__tip" aria-hidden="true" data-ssp-tip>0:00</span></div>
+<span class="ssp__time" data-ssp-time>0:13</span>
 </div>
-<span class="ssp__time" data-ssp-time>0:09</span>
-</div>
-<p class="sat__cap"><b>Free Ambience Sample Pack Vol I</b><span>Pad texture, D minor</span></p>
+<p class="sat__cap"><b>Free Ambience Sample Pack Vol I</b><span>Pluck loop with delay, Minor key</span></p>
 </li><li class="sat__cell" data-block-id="g_deep_house_production_suite">
-<div class="ssp" data-ssp data-src="/theme-previews/sample-packs/a/samples-demo-deep-house-production-suite.57a964f65da6.mp4" data-title="Deep House Production Suite, Serenade">
+<div class="ssp has-len" data-ssp data-src="/theme-previews/sample-packs/a/samples-demo-deep-house-production-suite.e6b6a6d81c50.mp4" data-title="Deep House Production Suite, Serenade" data-len="12" data-peaks="95,59,64,31,15,99,62,33,2,6,98,56,65,32,14,96,57,29,2,3,100,56,59,45,13,99,63,36,3,5,98,57,57,54,17,98,56,34,2,11,99,56,69,52,20,98,59,68,62,13,96,57,68,53,27,96,58,77,56,30,99,55,79,48,21,96,62,71,53,27,99,55,68,59,24,97,56,73,56,34,95,50,63,56,56,99,58,80,51,50,95,52,68,47,51,95,55,65,52,68,89,53,65,57,73,87,52,59,48,53,67,31,38,30,34,37,16,14,8,2">
 <button class="ssp__btn" type="button" data-ssp-btn aria-label="Play Deep House Production Suite, Serenade">
-<svg class="ssp__i ssp__i--play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M5.2 3.1v9.8c0 .5.5.8.9.5l7.5-4.9c.4-.2.4-.8 0-1L6.1 2.6c-.4-.3-.9 0-.9.5Z" fill="currentColor"/></svg>
-<svg class="ssp__i ssp__i--pause" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="4" y="3" width="2.7" height="10" rx=".8" fill="currentColor"/><rect x="9.3" y="3" width="2.7" height="10" rx=".8" fill="currentColor"/></svg>
+<svg class="ssp__i ssp__i--play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.6 2.9v10.2c0 .6.6.9 1.1.6l7.9-5.1c.5-.3.5-1 0-1.3L5.7 2.3c-.5-.3-1.1 0-1.1.6Z" fill="currentColor"/></svg>
+<svg class="ssp__i ssp__i--pause" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="3.8" y="2.8" width="3" height="10.4" rx="1" fill="currentColor"/><rect x="9.2" y="2.8" width="3" height="10.4" rx="1" fill="currentColor"/></svg>
 </button>
 <div class="ssp__wave" data-ssp-wave role="slider" tabindex="0" aria-label="Seek in Deep House Production Suite, Serenade" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="0:00">
-<svg class="ssp__svg" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path id="ssp-grid-g_deep_house_production_suite" d="M0.5 16V84M1.5 21V79M2.5 21.5V78.5M3.5 8.1V91.9M4.5 13.7V86.3M5.5 25.2V74.8M6.5 14.6V85.4M7.5 13.7V86.3M8.5 22.9V77.1M9.5 27V73M10.5 7.7V92.3M11.5 15.5V84.5M12.5 26.5V73.5M13.5 22.9V77.1M14.5 21V79M15.5 23.8V76.2M16.5 27V73M17.5 7.2V92.8M18.5 10V90M19.5 24.2V75.8M20.5 19.2V80.8M21.5 13.7V86.3M22.5 21.5V78.5M23.5 26.1V73.9M24.5 4.5V95.5M25.5 14.6V85.4M26.5 28.4V71.6M27.5 21V79M28.5 7.7V92.3M29.5 21.9V78.1M30.5 25.2V74.8M31.5 8.6V91.4M32.5 13.7V86.3M33.5 25.6V74.4M34.5 15V85M35.5 10.9V89.1M36.5 23.3V76.7M37.5 28.4V71.6M38.5 7.7V92.3M39.5 15.5V84.5M40.5 29.3V70.7M41.5 20.6V79.4M42.5 20.6V79.4M43.5 27V73M44.5 28.4V71.6M45.5 4.5V95.5M46.5 12.7V87.3M47.5 22.4V77.6M48.5 15.5V84.5M49.5 14.1V85.9M50.5 23.8V76.2M51.5 27.9V72.1M52.5 7.7V92.3M53.5 13.7V86.3M54.5 28.8V71.2M55.5 17.3V82.7M56.5 17.3V82.7M57.5 20.6V79.4M58.5 24.2V75.8M59.5 9.1V90.9M60.5 15V85M61.5 26.5V73.5M62.5 16V84M63.5 11.4V88.6M64.5 23.8V76.2M65.5 29.8V70.2M66.5 4V96M67.5 16.9V83.1M68.5 26.5V73.5M69.5 21V79M70.5 21.5V78.5M71.5 25.6V74.4M72.5 29.3V70.7M73.5 4V96M74.5 14.6V85.4M75.5 24.2V75.8M76.5 11.4V88.6M77.5 16.4V83.6M78.5 23.8V76.2M79.5 29.3V70.7M80.5 7.2V92.8M81.5 21.9V78.1M82.5 28.8V71.2M83.5 19.6V80.4M84.5 14.6V85.4M85.5 20.6V79.4M86.5 24.7V75.3M87.5 8.6V91.4M88.5 13.7V86.3M89.5 26.5V73.5M90.5 14.1V85.9M91.5 16.4V83.6M92.5 24.7V75.3M93.5 31.1V68.9M94.5 8.1V91.9M95.5 21V79M96.5 30.7V69.3M97.5 21V79M98.5 23.3V76.7M99.5 27V73M100.5 32.5V67.5M101.5 4V96M102.5 17.8V82.2M103.5 28.4V71.6M104.5 11.4V88.6M105.5 16.4V83.6M106.5 26.1V73.9M107.5 13.7V86.3M108.5 6.8V93.2M109.5 20.6V79.4M110.5 32.1V67.9M111.5 48.6V51.4M112.5 48.6V51.4M113.5 48.6V51.4M114.5 48.6V51.4M115.5 48.6V51.4M116.5 48.6V51.4M117.5 48.6V51.4M118.5 48.6V51.4M119.5 48.6V51.4" vector-effect="non-scaling-stroke"/></svg>
+<svg class="ssp__svg" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path id="ssp-grid-g_deep_house_production_suite" d="M0.5 6.3V93.7M1.5 22.9V77.1M2.5 20.6V79.4M3.5 35.7V64.3M4.5 43.1V56.9M5.5 4.5V95.5M6.5 21.5V78.5M7.5 34.8V65.2M8.5 48.6V51.4M9.5 47.2V52.8M10.5 4.9V95.1M11.5 24.2V75.8M12.5 20.1V79.9M13.5 35.3V64.7M14.5 43.6V56.4M15.5 5.8V94.2M16.5 23.8V76.2M17.5 36.7V63.3M18.5 48.6V51.4M19.5 48.6V51.4M20.5 4V96M21.5 24.2V75.8M22.5 22.9V77.1M23.5 29.3V70.7M24.5 44V56M25.5 4.5V95.5M26.5 21V79M27.5 33.4V66.6M28.5 48.6V51.4M29.5 47.7V52.3M30.5 4.9V95.1M31.5 23.8V76.2M32.5 23.8V76.2M33.5 25.2V74.8M34.5 42.2V57.8M35.5 4.9V95.1M36.5 24.2V75.8M37.5 34.4V65.6M38.5 48.6V51.4M39.5 44.9V55.1M40.5 4.5V95.5M41.5 24.2V75.8M42.5 18.3V81.7M43.5 26.1V73.9M44.5 40.8V59.2M45.5 4.9V95.1M46.5 22.9V77.1M47.5 18.7V81.3M48.5 21.5V78.5M49.5 44V56M50.5 5.8V94.2M51.5 23.8V76.2M52.5 18.7V81.3M53.5 25.6V74.4M54.5 37.6V62.4M55.5 5.8V94.2M56.5 23.3V76.7M57.5 14.6V85.4M58.5 24.2V75.8M59.5 36.2V63.8M60.5 4.5V95.5M61.5 24.7V75.3M62.5 13.7V86.3M63.5 27.9V72.1M64.5 40.3V59.7M65.5 5.8V94.2M66.5 21.5V78.5M67.5 17.3V82.7M68.5 25.6V74.4M69.5 37.6V62.4M70.5 4.5V95.5M71.5 24.7V75.3M72.5 18.7V81.3M73.5 22.9V77.1M74.5 39V61M75.5 5.4V94.6M76.5 24.2V75.8M77.5 16.4V83.6M78.5 24.2V75.8M79.5 34.4V65.6M80.5 6.3V93.7M81.5 27V73M82.5 21V79M83.5 24.2V75.8M84.5 24.2V75.8M85.5 4.5V95.5M86.5 23.3V76.7M87.5 13.2V86.8M88.5 26.5V73.5M89.5 27V73M90.5 6.3V93.7M91.5 26.1V73.9M92.5 18.7V81.3M93.5 28.4V71.6M94.5 26.5V73.5M95.5 6.3V93.7M96.5 24.7V75.3M97.5 20.1V79.9M98.5 26.1V73.9M99.5 18.7V81.3M100.5 9.1V90.9M101.5 25.6V74.4M102.5 20.1V79.9M103.5 23.8V76.2M104.5 16.4V83.6M105.5 10V90M106.5 26.1V73.9M107.5 22.9V77.1M108.5 27.9V72.1M109.5 25.6V74.4M110.5 19.2V80.8M111.5 35.7V64.3M112.5 32.5V67.5M113.5 36.2V63.8M114.5 34.4V65.6M115.5 33V67M116.5 42.6V57.4M117.5 43.6V56.4M118.5 46.3V53.7M119.5 48.6V51.4" vector-effect="non-scaling-stroke"/></svg>
 <svg class="ssp__svg ssp__svg--hover" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#ssp-grid-g_deep_house_production_suite"/></svg>
-<svg class="ssp__svg ssp__svg--done" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#ssp-grid-g_deep_house_production_suite"/></svg>
+<svg class="ssp__svg ssp__svg--done" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#ssp-grid-g_deep_house_production_suite"/></svg><span class="ssp__head" aria-hidden="true"></span><span class="ssp__tip" aria-hidden="true" data-ssp-tip>0:00</span></div>
+<span class="ssp__time" data-ssp-time>0:12</span>
 </div>
-<span class="ssp__time" data-ssp-time>0:08</span>
-</div>
-<p class="sat__cap"><b>Deep House Production Suite, Serenade</b><span>Chord loop, 122 BPM, A minor</span></p>
+<p class="sat__cap"><b>Deep House Production Suite, Serenade</b><span>Deep house loop, 120 BPM</span></p>
 </li><li class="sat__cell" data-block-id="g_tech_house_unitech">
-<div class="ssp" data-ssp data-src="/theme-previews/sample-packs/a/samples-demo-tech-house-unitech.357544e0b33b.mp4" data-title="Tech House Sample Pack, Unitech">
+<div class="ssp has-len" data-ssp data-src="/theme-previews/sample-packs/a/samples-demo-tech-house-unitech.2557bef00a5e.mp4" data-title="Tech House Sample Pack, Unitech" data-len="11.82" data-peaks="92,81,75,65,55,90,80,75,89,82,73,64,92,76,74,63,62,90,88,91,99,80,75,71,66,100,83,76,71,63,93,83,74,94,92,93,83,93,87,78,91,80,69,61,75,84,72,63,88,85,80,69,89,75,70,59,56,86,77,80,95,78,72,66,88,82,81,73,71,86,87,80,77,91,88,89,77,98,89,89,93,80,73,64,80,90,80,73,91,80,73,64,91,76,73,63,61,91,87,92,93,80,74,71,87,78,73,57,49,61,55,47,37,44,37,32,23,18,11,5">
 <button class="ssp__btn" type="button" data-ssp-btn aria-label="Play Tech House Sample Pack, Unitech">
-<svg class="ssp__i ssp__i--play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M5.2 3.1v9.8c0 .5.5.8.9.5l7.5-4.9c.4-.2.4-.8 0-1L6.1 2.6c-.4-.3-.9 0-.9.5Z" fill="currentColor"/></svg>
-<svg class="ssp__i ssp__i--pause" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="4" y="3" width="2.7" height="10" rx=".8" fill="currentColor"/><rect x="9.3" y="3" width="2.7" height="10" rx=".8" fill="currentColor"/></svg>
+<svg class="ssp__i ssp__i--play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.6 2.9v10.2c0 .6.6.9 1.1.6l7.9-5.1c.5-.3.5-1 0-1.3L5.7 2.3c-.5-.3-1.1 0-1.1.6Z" fill="currentColor"/></svg>
+<svg class="ssp__i ssp__i--pause" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="3.8" y="2.8" width="3" height="10.4" rx="1" fill="currentColor"/><rect x="9.2" y="2.8" width="3" height="10.4" rx="1" fill="currentColor"/></svg>
 </button>
 <div class="ssp__wave" data-ssp-wave role="slider" tabindex="0" aria-label="Seek in Tech House Sample Pack, Unitech" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="0:00">
-<svg class="ssp__svg" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path id="ssp-grid-g_tech_house_unitech" d="M0.5 4V96M1.5 10V90M2.5 10.4V89.6M3.5 9.5V90.5M4.5 16.4V83.6M5.5 11.4V88.6M6.5 13.7V86.3M7.5 11.4V88.6M8.5 13.2V86.8M9.5 10.9V89.1M10.5 7.7V92.3M11.5 10.4V89.6M12.5 10.9V89.1M13.5 19.2V80.8M14.5 19.2V80.8M15.5 8.1V91.9M16.5 12.7V87.3M17.5 8.6V91.4M18.5 21V79M19.5 13.7V86.3M20.5 13.7V86.3M21.5 6.8V93.2M22.5 8.6V91.4M23.5 13.7V86.3M24.5 10.9V89.1M25.5 21.5V78.5M26.5 9.1V90.9M27.5 17.8V82.2M28.5 16.9V83.1M29.5 9.1V90.9M30.5 13.7V86.3M31.5 9.1V90.9M32.5 15.5V84.5M33.5 10.9V89.1M34.5 12.7V87.3M35.5 7.7V92.3M36.5 11.4V88.6M37.5 15.5V84.5M38.5 9.1V90.9M39.5 16.4V83.6M40.5 10.9V89.1M41.5 19.2V80.8M42.5 20.6V79.4M43.5 6.3V93.7M44.5 15.5V84.5M45.5 7.7V92.3M46.5 12.7V87.3M47.5 14.1V85.9M48.5 8.1V91.9M49.5 11.4V88.6M50.5 8.6V91.4M51.5 17.8V82.2M52.5 13.2V86.8M53.5 9.5V90.5M54.5 10.4V89.6M55.5 19.2V80.8M56.5 21V79M57.5 9.5V90.5M58.5 18.7V81.3M59.5 10V90M60.5 10.9V89.1M61.5 12.3V87.7M62.5 10V90M63.5 15.5V84.5M64.5 11.8V88.2M65.5 14.1V85.9M66.5 9.5V90.5M67.5 10.4V89.6M68.5 13.2V86.8M69.5 19.2V80.8M70.5 21V79M71.5 6.3V93.7M72.5 18.3V81.7M73.5 8.6V91.4M74.5 13.7V86.3M75.5 21.5V78.5M76.5 8.6V91.4M77.5 15V85M78.5 7.7V92.3M79.5 19.6V80.4M80.5 11.4V88.6M81.5 9.1V90.9M82.5 21V79M83.5 19.2V80.8M84.5 21V79M85.5 9.5V90.5M86.5 9.1V90.9M87.5 9.1V90.9M88.5 10V90M89.5 19.2V80.8M90.5 10.4V89.6M91.5 15.5V84.5M92.5 11.8V88.2M93.5 7.7V92.3M94.5 15.5V84.5M95.5 11.4V88.6M96.5 22.4V77.6M97.5 18.3V81.7M98.5 7.2V92.8M99.5 7.7V92.3M100.5 8.6V91.4M101.5 14.6V85.4M102.5 13.7V86.3M103.5 21.5V78.5M104.5 11.8V88.2M105.5 8.1V91.9M106.5 7.7V92.3M107.5 9.5V90.5M108.5 13.2V86.8M109.5 9.1V90.9M110.5 22.9V77.1M111.5 47.7V52.3M112.5 48.6V51.4M113.5 48.6V51.4M114.5 48.6V51.4M115.5 48.6V51.4M116.5 48.6V51.4M117.5 48.6V51.4M118.5 48.6V51.4M119.5 48.6V51.4" vector-effect="non-scaling-stroke"/></svg>
+<svg class="ssp__svg" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path id="ssp-grid-g_tech_house_unitech" d="M0.5 7.7V92.3M1.5 12.7V87.3M2.5 15.5V84.5M3.5 20.1V79.9M4.5 24.7V75.3M5.5 8.6V91.4M6.5 13.2V86.8M7.5 15.5V84.5M8.5 9.1V90.9M9.5 12.3V87.7M10.5 16.4V83.6M11.5 20.6V79.4M12.5 7.7V92.3M13.5 15V85M14.5 16V84M15.5 21V79M16.5 21.5V78.5M17.5 8.6V91.4M18.5 9.5V90.5M19.5 8.1V91.9M20.5 4.5V95.5M21.5 13.2V86.8M22.5 15.5V84.5M23.5 17.3V82.7M24.5 19.6V80.4M25.5 4V96M26.5 11.8V88.2M27.5 15V85M28.5 17.3V82.7M29.5 21V79M30.5 7.2V92.8M31.5 11.8V88.2M32.5 16V84M33.5 6.8V93.2M34.5 7.7V92.3M35.5 7.2V92.8M36.5 11.8V88.2M37.5 7.2V92.8M38.5 10V90M39.5 14.1V85.9M40.5 8.1V91.9M41.5 13.2V86.8M42.5 18.3V81.7M43.5 21.9V78.1M44.5 15.5V84.5M45.5 11.4V88.6M46.5 16.9V83.1M47.5 21V79M48.5 9.5V90.5M49.5 10.9V89.1M50.5 13.2V86.8M51.5 18.3V81.7M52.5 9.1V90.9M53.5 15.5V84.5M54.5 17.8V82.2M55.5 22.9V77.1M56.5 24.2V75.8M57.5 10.4V89.6M58.5 14.6V85.4M59.5 13.2V86.8M60.5 6.3V93.7M61.5 14.1V85.9M62.5 16.9V83.1M63.5 19.6V80.4M64.5 9.5V90.5M65.5 12.3V87.7M66.5 12.7V87.3M67.5 16.4V83.6M68.5 17.3V82.7M69.5 10.4V89.6M70.5 10V90M71.5 13.2V86.8M72.5 14.6V85.4M73.5 8.1V91.9M74.5 9.5V90.5M75.5 9.1V90.9M76.5 14.6V85.4M77.5 4.9V95.1M78.5 9.1V90.9M79.5 9.1V90.9M80.5 7.2V92.8M81.5 13.2V86.8M82.5 16.4V83.6M83.5 20.6V79.4M84.5 13.2V86.8M85.5 8.6V91.4M86.5 13.2V86.8M87.5 16.4V83.6M88.5 8.1V91.9M89.5 13.2V86.8M90.5 16.4V83.6M91.5 20.6V79.4M92.5 8.1V91.9M93.5 15V85M94.5 16.4V83.6M95.5 21V79M96.5 21.9V78.1M97.5 8.1V91.9M98.5 10V90M99.5 7.7V92.3M100.5 7.2V92.8M101.5 13.2V86.8M102.5 16V84M103.5 17.3V82.7M104.5 10V90M105.5 14.1V85.9M106.5 16.4V83.6M107.5 23.8V76.2M108.5 27.5V72.5M109.5 21.9V78.1M110.5 24.7V75.3M111.5 28.4V71.6M112.5 33V67M113.5 29.8V70.2M114.5 33V67M115.5 35.3V64.7M116.5 39.4V60.6M117.5 41.7V58.3M118.5 44.9V55.1M119.5 47.7V52.3" vector-effect="non-scaling-stroke"/></svg>
 <svg class="ssp__svg ssp__svg--hover" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#ssp-grid-g_tech_house_unitech"/></svg>
-<svg class="ssp__svg ssp__svg--done" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#ssp-grid-g_tech_house_unitech"/></svg>
+<svg class="ssp__svg ssp__svg--done" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#ssp-grid-g_tech_house_unitech"/></svg><span class="ssp__head" aria-hidden="true"></span><span class="ssp__tip" aria-hidden="true" data-ssp-tip>0:00</span></div>
+<span class="ssp__time" data-ssp-time>0:12</span>
 </div>
-<span class="ssp__time" data-ssp-time>0:08</span>
+<p class="sat__cap"><b>Tech House Sample Pack, Unitech</b><span>Bass and chords loop, 122 BPM</span></p>
+</li><li class="sat__cell" data-block-id="g_drums_collection">
+<div class="ssp has-len" data-ssp data-src="/theme-previews/sample-packs/a/samples-demo-drums-collection.91e7020d0de7.mp4" data-title="Tech House Drums Collection Vol I" data-len="11.7" data-peaks="2,2,44,20,31,40,3,60,18,6,2,2,58,17,41,41,3,48,19,66,94,46,47,14,72,89,45,44,16,79,98,45,56,14,78,86,43,57,13,80,93,42,48,86,94,84,40,87,88,95,79,81,67,87,95,75,38,52,90,100,80,31,55,89,94,83,37,93,87,93,87,95,65,92,94,64,41,49,11,3,2,38,42,11,45,10,42,41,10,3,2,45,42,10,45,6,63,41,8,96,69,49,36,8,89,59,39,24,6,73,40,25,14,4,39,21,13,5,2,5">
+<button class="ssp__btn" type="button" data-ssp-btn aria-label="Play Tech House Drums Collection Vol I">
+<svg class="ssp__i ssp__i--play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.6 2.9v10.2c0 .6.6.9 1.1.6l7.9-5.1c.5-.3.5-1 0-1.3L5.7 2.3c-.5-.3-1.1 0-1.1.6Z" fill="currentColor"/></svg>
+<svg class="ssp__i ssp__i--pause" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="3.8" y="2.8" width="3" height="10.4" rx="1" fill="currentColor"/><rect x="9.2" y="2.8" width="3" height="10.4" rx="1" fill="currentColor"/></svg>
+</button>
+<div class="ssp__wave" data-ssp-wave role="slider" tabindex="0" aria-label="Seek in Tech House Drums Collection Vol I" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="0:00">
+<svg class="ssp__svg" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path id="ssp-grid-g_drums_collection" d="M0.5 48.6V51.4M1.5 48.6V51.4M2.5 29.8V70.2M3.5 40.8V59.2M4.5 35.7V64.3M5.5 31.6V68.4M6.5 48.6V51.4M7.5 22.4V77.6M8.5 41.7V58.3M9.5 47.2V52.8M10.5 48.6V51.4M11.5 48.6V51.4M12.5 23.3V76.7M13.5 42.2V57.8M14.5 31.1V68.9M15.5 31.1V68.9M16.5 48.6V51.4M17.5 27.9V72.1M18.5 41.3V58.7M19.5 19.6V80.4M20.5 6.8V93.2M21.5 28.8V71.2M22.5 28.4V71.6M23.5 43.6V56.4M24.5 16.9V83.1M25.5 9.1V90.9M26.5 29.3V70.7M27.5 29.8V70.2M28.5 42.6V57.4M29.5 13.7V86.3M30.5 4.9V95.1M31.5 29.3V70.7M32.5 24.2V75.8M33.5 43.6V56.4M34.5 14.1V85.9M35.5 10.4V89.6M36.5 30.2V69.8M37.5 23.8V76.2M38.5 44V56M39.5 13.2V86.8M40.5 7.2V92.8M41.5 30.7V69.3M42.5 27.9V72.1M43.5 10.4V89.6M44.5 6.8V93.2M45.5 11.4V88.6M46.5 31.6V68.4M47.5 10V90M48.5 9.5V90.5M49.5 6.3V93.7M50.5 13.7V86.3M51.5 12.7V87.3M52.5 19.2V80.8M53.5 10V90M54.5 6.3V93.7M55.5 15.5V84.5M56.5 32.5V67.5M57.5 26.1V73.9M58.5 8.6V91.4M59.5 4V96M60.5 13.2V86.8M61.5 35.7V64.3M62.5 24.7V75.3M63.5 9.1V90.9M64.5 6.8V93.2M65.5 11.8V88.2M66.5 33V67M67.5 7.2V92.8M68.5 10V90M69.5 7.2V92.8M70.5 10V90M71.5 6.3V93.7M72.5 20.1V79.9M73.5 7.7V92.3M74.5 6.8V93.2M75.5 20.6V79.4M76.5 31.1V68.9M77.5 27.5V72.5M78.5 44.9V55.1M79.5 48.6V51.4M80.5 48.6V51.4M81.5 32.5V67.5M82.5 30.7V69.3M83.5 44.9V55.1M84.5 29.3V70.7M85.5 45.4V54.6M86.5 30.7V69.3M87.5 31.1V68.9M88.5 45.4V54.6M89.5 48.6V51.4M90.5 48.6V51.4M91.5 29.3V70.7M92.5 30.7V69.3M93.5 45.4V54.6M94.5 29.3V70.7M95.5 47.2V52.8M96.5 21V79M97.5 31.1V68.9M98.5 46.3V53.7M99.5 5.8V94.2M100.5 18.3V81.7M101.5 27.5V72.5M102.5 33.4V66.6M103.5 46.3V53.7M104.5 9.1V90.9M105.5 22.9V77.1M106.5 32.1V67.9M107.5 39V61M108.5 47.2V52.8M109.5 16.4V83.6M110.5 31.6V68.4M111.5 38.5V61.5M112.5 43.6V56.4M113.5 48.2V51.8M114.5 32.1V67.9M115.5 40.3V59.7M116.5 44V56M117.5 47.7V52.3M118.5 48.6V51.4M119.5 47.7V52.3" vector-effect="non-scaling-stroke"/></svg>
+<svg class="ssp__svg ssp__svg--hover" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#ssp-grid-g_drums_collection"/></svg>
+<svg class="ssp__svg ssp__svg--done" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#ssp-grid-g_drums_collection"/></svg><span class="ssp__head" aria-hidden="true"></span><span class="ssp__tip" aria-hidden="true" data-ssp-tip>0:00</span></div>
+<span class="ssp__time" data-ssp-time>0:12</span>
 </div>
-<p class="sat__cap"><b>Tech House Sample Pack, Unitech</b><span>Bass loop, 127 BPM, G minor</span></p>
+<p class="sat__cap"><b>Tech House Drums Collection Vol I</b><span>Minimal drum loop, 123 BPM</span></p>
+</li><li class="sat__cell" data-block-id="g_bass_collection">
+<div class="ssp has-len" data-ssp data-src="/theme-previews/sample-packs/a/samples-demo-bass-collection.7a17688bf929.mp4" data-title="Tech House Bass Collection Vol I" data-len="11.35" data-peaks="100,38,27,61,69,36,22,70,48,15,72,37,71,48,32,73,37,28,19,48,86,69,35,62,69,84,64,72,68,62,84,71,75,46,57,82,80,77,46,59,84,67,37,63,70,85,64,79,58,53,82,61,74,44,61,81,67,80,71,63,85,66,38,65,73,86,63,80,66,64,84,72,74,40,58,84,77,83,44,60,81,62,38,66,69,84,66,76,52,57,83,63,75,45,65,82,79,67,83,63,83,73,61,70,78,80,51,61,61,49,50,42,38,35,28,28,21,16,10,4">
+<button class="ssp__btn" type="button" data-ssp-btn aria-label="Play Tech House Bass Collection Vol I">
+<svg class="ssp__i ssp__i--play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.6 2.9v10.2c0 .6.6.9 1.1.6l7.9-5.1c.5-.3.5-1 0-1.3L5.7 2.3c-.5-.3-1.1 0-1.1.6Z" fill="currentColor"/></svg>
+<svg class="ssp__i ssp__i--pause" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="3.8" y="2.8" width="3" height="10.4" rx="1" fill="currentColor"/><rect x="9.2" y="2.8" width="3" height="10.4" rx="1" fill="currentColor"/></svg>
+</button>
+<div class="ssp__wave" data-ssp-wave role="slider" tabindex="0" aria-label="Seek in Tech House Bass Collection Vol I" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="0:00">
+<svg class="ssp__svg" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path id="ssp-grid-g_bass_collection" d="M0.5 4V96M1.5 32.5V67.5M2.5 37.6V62.4M3.5 21.9V78.1M4.5 18.3V81.7M5.5 33.4V66.6M6.5 39.9V60.1M7.5 17.8V82.2M8.5 27.9V72.1M9.5 43.1V56.9M10.5 16.9V83.1M11.5 33V67M12.5 17.3V82.7M13.5 27.9V72.1M14.5 35.3V64.7M15.5 16.4V83.6M16.5 33V67M17.5 37.1V62.9M18.5 41.3V58.7M19.5 27.9V72.1M20.5 10.4V89.6M21.5 18.3V81.7M22.5 33.9V66.1M23.5 21.5V78.5M24.5 18.3V81.7M25.5 11.4V88.6M26.5 20.6V79.4M27.5 16.9V83.1M28.5 18.7V81.3M29.5 21.5V78.5M30.5 11.4V88.6M31.5 17.3V82.7M32.5 15.5V84.5M33.5 28.8V71.2M34.5 23.8V76.2M35.5 12.3V87.7M36.5 13.2V86.8M37.5 14.6V85.4M38.5 28.8V71.2M39.5 22.9V77.1M40.5 11.4V88.6M41.5 19.2V80.8M42.5 33V67M43.5 21V79M44.5 17.8V82.2M45.5 10.9V89.1M46.5 20.6V79.4M47.5 13.7V86.3M48.5 23.3V76.7M49.5 25.6V74.4M50.5 12.3V87.7M51.5 21.9V78.1M52.5 16V84M53.5 29.8V70.2M54.5 21.9V78.1M55.5 12.7V87.3M56.5 19.2V80.8M57.5 13.2V86.8M58.5 17.3V82.7M59.5 21V79M60.5 10.9V89.1M61.5 19.6V80.4M62.5 32.5V67.5M63.5 20.1V79.9M64.5 16.4V83.6M65.5 10.4V89.6M66.5 21V79M67.5 13.2V86.8M68.5 19.6V80.4M69.5 20.6V79.4M70.5 11.4V88.6M71.5 16.9V83.1M72.5 16V84M73.5 31.6V68.4M74.5 23.3V76.7M75.5 11.4V88.6M76.5 14.6V85.4M77.5 11.8V88.2M78.5 29.8V70.2M79.5 22.4V77.6M80.5 12.7V87.3M81.5 21.5V78.5M82.5 32.5V67.5M83.5 19.6V80.4M84.5 18.3V81.7M85.5 11.4V88.6M86.5 19.6V80.4M87.5 15V85M88.5 26.1V73.9M89.5 23.8V76.2M90.5 11.8V88.2M91.5 21V79M92.5 15.5V84.5M93.5 29.3V70.7M94.5 20.1V79.9M95.5 12.3V87.7M96.5 13.7V86.3M97.5 19.2V80.8M98.5 11.8V88.2M99.5 21V79M100.5 11.8V88.2M101.5 16.4V83.6M102.5 21.9V78.1M103.5 17.8V82.2M104.5 14.1V85.9M105.5 13.2V86.8M106.5 26.5V73.5M107.5 21.9V78.1M108.5 21.9V78.1M109.5 27.5V72.5M110.5 27V73M111.5 30.7V69.3M112.5 32.5V67.5M113.5 33.9V66.1M114.5 37.1V62.9M115.5 37.1V62.9M116.5 40.3V59.7M117.5 42.6V57.4M118.5 45.4V54.6M119.5 48.2V51.8" vector-effect="non-scaling-stroke"/></svg>
+<svg class="ssp__svg ssp__svg--hover" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#ssp-grid-g_bass_collection"/></svg>
+<svg class="ssp__svg ssp__svg--done" viewBox="0 0 120 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#ssp-grid-g_bass_collection"/></svg><span class="ssp__head" aria-hidden="true"></span><span class="ssp__tip" aria-hidden="true" data-ssp-tip>0:00</span></div>
+<span class="ssp__time" data-ssp-time>0:11</span>
+</div>
+<p class="sat__cap"><b>Tech House Bass Collection Vol I</b><span>808 bass loop, 127 BPM</span></p>
 </li></ul></div></div>
 </div>
 </div>
-<script src="/theme-previews/sample-packs/a/i.803c3962f093.js"></script></section><div id="shopify-section-licence" class="shopify-section" data-section-id="licence" data-section-type="comparison-cards"><script src="/theme-previews/_base/a/live-features-b.33a5739bc77d.js" defer="defer"></script>
+<script src="/theme-previews/sample-packs/a/i.77a823549770.js"></script></section><section id="shopify-section-reviews" class="shopify-section section" data-section-id="reviews" data-section-type="samples-reviews"><link rel="stylesheet" href="/theme-previews/sample-packs/a/i.6dae945eae8b.css">
+<div class="srv section color-default gradient" data-srv>
+<div class="container">
+<div class="srv__grid"><figure class="srv__media">
+<img src="/theme-previews/sample-packs/a/samples-dj-hands.a9690480e195.webp" srcset="/theme-previews/sample-packs/a/samples-dj-hands.a9690480e195.webp 600w, /theme-previews/sample-packs/a/samples-dj-hands.a9690480e195.webp 900w, /theme-previews/sample-packs/a/samples-dj-hands.a9690480e195.webp 1200w" alt="A hand over a lit DJ controller in purple light" loading="lazy" sizes="(min-width: 990px) 42vw, 100vw"><figcaption class="srv__caption"><b>Tested on a dance floor first</b><span>Every loop is played out in a real set before it ships.</span></figcaption></figure><div class="srv__panel"><p class="srv__eyebrow">Reviews</p><h2 class="srv__heading h2">What producers wrote</h2><div class="srv__text rte"><p>Left by buyers on the Loudlib store, word for word.</p></div><div class="srv__track" data-srv-track tabindex="0" role="region" aria-roledescription="carousel" aria-label="What producers wrote"><figure class="srv__slide is-on" data-srv-slide role="group" aria-roledescription="slide" aria-label="1 / 3" style="margin: 0;" data-block-id="testimonial_4"><svg class="srv__mark" viewBox="0 0 34 26" aria-hidden="true" focusable="false"><path fill="currentColor" d="M0 26V15.6C0 6.9 4.6 1.7 12.6 0l1.5 3.6C9.5 5 7.3 8 7.1 12.2H13V26H0Zm20.6 0V15.6C20.6 6.9 25.2 1.7 33.2 0l1.5 3.6c-4.6 1.4-6.8 4.4-7 8.6h5.9V26h-13Z"/></svg><blockquote class="srv__quote"><p>crisp sounds, good packaging, love this pack</p></blockquote>
+<figcaption class="srv__who">
+<span class="srv__avatar" style="--srv-tint: linear-gradient(135deg, #7c3aed, #4f46e5);" aria-hidden="true">T</span>
+<span style="min-width: 0; display: block;">
+<span class="srv__name" style="display: block;">Tasha.Detroit</span><span class="srv__role" style="display: block;">On Tech House Sample Pack, Unitech</span></span><span class="srv__pack" aria-hidden="true"><img src="/theme-previews/sample-packs/a/samples-box-tech-house-unitech.3c3865610cef.webp" srcset="/theme-previews/sample-packs/a/samples-box-tech-house-unitech.3c3865610cef.webp 352w, /theme-previews/sample-packs/a/samples-box-tech-house-unitech.3c3865610cef.webp 832w, /theme-previews/sample-packs/a/samples-box-tech-house-unitech.3c3865610cef.webp 1200w, /theme-previews/sample-packs/a/samples-box-tech-house-unitech.3c3865610cef.webp 1600w, /theme-previews/sample-packs/a/samples-box-tech-house-unitech.3c3865610cef.webp 2400w" alt="" width="46" height="46" loading="lazy"></span></figcaption>
+</figure><figure class="srv__slide" data-srv-slide role="group" aria-roledescription="slide" aria-label="2 / 3" style="margin: 0;" data-block-id="testimonial_5"><svg class="srv__mark" viewBox="0 0 34 26" aria-hidden="true" focusable="false"><path fill="currentColor" d="M0 26V15.6C0 6.9 4.6 1.7 12.6 0l1.5 3.6C9.5 5 7.3 8 7.1 12.2H13V26H0Zm20.6 0V15.6C20.6 6.9 25.2 1.7 33.2 0l1.5 3.6c-4.6 1.4-6.8 4.4-7 8.6h5.9V26h-13Z"/></svg><blockquote class="srv__quote"><p>Great pack, but the demo pack is too small, i bought the full pack after all and its super nice</p></blockquote>
+<figcaption class="srv__who">
+<span class="srv__avatar" style="--srv-tint: linear-gradient(135deg, #db2777, #7c3aed);" aria-hidden="true">TV</span>
+<span style="min-width: 0; display: block;">
+<span class="srv__name" style="display: block;">Tony Vicc</span><span class="srv__role" style="display: block;">On Deep House Production Suite, Serenade</span></span><span class="srv__pack" aria-hidden="true"><img src="/theme-previews/sample-packs/a/samples-box-deep-house-production-suite.45fb62b6dd29.webp" srcset="/theme-previews/sample-packs/a/samples-box-deep-house-production-suite.45fb62b6dd29.webp 352w, /theme-previews/sample-packs/a/samples-box-deep-house-production-suite.45fb62b6dd29.webp 832w, /theme-previews/sample-packs/a/samples-box-deep-house-production-suite.45fb62b6dd29.webp 1200w, /theme-previews/sample-packs/a/samples-box-deep-house-production-suite.45fb62b6dd29.webp 1600w, /theme-previews/sample-packs/a/samples-box-deep-house-production-suite.45fb62b6dd29.webp 2400w" alt="" width="46" height="46" loading="lazy"></span></figcaption>
+</figure><figure class="srv__slide" data-srv-slide role="group" aria-roledescription="slide" aria-label="3 / 3" style="margin: 0;" data-block-id="testimonial_6"><svg class="srv__mark" viewBox="0 0 34 26" aria-hidden="true" focusable="false"><path fill="currentColor" d="M0 26V15.6C0 6.9 4.6 1.7 12.6 0l1.5 3.6C9.5 5 7.3 8 7.1 12.2H13V26H0Zm20.6 0V15.6C20.6 6.9 25.2 1.7 33.2 0l1.5 3.6c-4.6 1.4-6.8 4.4-7 8.6h5.9V26h-13Z"/></svg><blockquote class="srv__quote"><p>Love the suite, waiting for the update</p></blockquote>
+<figcaption class="srv__who">
+<span class="srv__avatar" style="--srv-tint: linear-gradient(135deg, #0891b2, #4f46e5);" aria-hidden="true">SN</span>
+<span style="min-width: 0; display: block;">
+<span class="srv__name" style="display: block;">Sasha N</span><span class="srv__role" style="display: block;">On Deep House Production Suite</span></span><span class="srv__pack" aria-hidden="true"><img src="/theme-previews/sample-packs/a/samples-box-deep-house-production-suite.45fb62b6dd29.webp" srcset="/theme-previews/sample-packs/a/samples-box-deep-house-production-suite.45fb62b6dd29.webp 352w, /theme-previews/sample-packs/a/samples-box-deep-house-production-suite.45fb62b6dd29.webp 832w, /theme-previews/sample-packs/a/samples-box-deep-house-production-suite.45fb62b6dd29.webp 1200w, /theme-previews/sample-packs/a/samples-box-deep-house-production-suite.45fb62b6dd29.webp 1600w, /theme-previews/sample-packs/a/samples-box-deep-house-production-suite.45fb62b6dd29.webp 2400w" alt="" width="46" height="46" loading="lazy"></span></figcaption>
+</figure></div><div class="srv__nav">
+<div class="srv__dots"><button class="srv__dot" type="button" data-srv-dot="0" aria-label="Review 1 of 3" aria-current="true"></button><button class="srv__dot" type="button" data-srv-dot="1" aria-label="Review 2 of 3"></button><button class="srv__dot" type="button" data-srv-dot="2" aria-label="Review 3 of 3"></button></div>
+<span class="srv__count" data-srv-count aria-hidden="true">1 / 3</span>
+<button class="srv__arrow" type="button" data-srv-prev aria-label="Previous review" disabled><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+<button class="srv__arrow" type="button" data-srv-next aria-label="Next review"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="m6 3 5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+</div></div>
+</div>
+</div>
+</div>
+<script src="/theme-previews/sample-packs/a/i.6cc7db57096d.js"></script>
+</section><div id="shopify-section-licence" class="shopify-section" data-section-id="licence" data-section-type="comparison-cards"><script src="/theme-previews/_base/a/live-features-b.33a5739bc77d.js" defer="defer"></script>
 <style>
   #shopify-section-licence {
     font-family: var(--body-font, inherit);
@@ -2282,7 +2443,7 @@ Contact
 <div class="footer__bottom"><div class="fluid_container">
 <div class="footer_bottom-inner justify-center justify-md-end flex flex-wrap flex-md-nowrap align-center border-top gap-20 gap-xl-30 py-30"><div class="flex flex-wrap gap-10 gap-xl-30 justify-center justify-md-start">
 <div class="footer__copyright" data-ft-copyright>© 2026 Loudlib. team@loudlib.net</div>
-<ul class="footer__policies list-unstyled flex flex-wrap" data-ft-policies><li><a href="/theme-previews/sample-packs/policies/refund-policy.html">Refund policy</a></li><li><a href="/theme-previews/sample-packs/policies/privacy-policy.html">Privacy policy</a></li><li><a href="/theme-previews/sample-packs/policies/terms-of-service.html">Terms of service</a></li></ul><div class="footer__powered" data-ft-powered><a href="#" data-preview-inert data-storelib-badge="">Powered by Storelib</a></div></div>
+<ul class="footer__policies list-unstyled flex flex-wrap" data-ft-policies><li><a href="/theme-previews/sample-packs/policies/refund-policy.html">Refund policy</a></li><li><a href="/theme-previews/sample-packs/policies/privacy-policy.html">Privacy policy</a></li><li><a href="/theme-previews/sample-packs/policies/terms-of-service.html">Terms of service</a></li></ul><div class="footer__powered" data-ft-powered><a href="#" data-preview-inert data-storelib-badge="" style="display:inline-flex;align-items:center;gap:.45em;white-space:nowrap;vertical-align:middle"><svg data-storelib-badge-mark="" aria-hidden="true" focusable="false" viewBox="0 0 200 200" width="14" height="14" style="display:block;flex:none;width:1.2em;height:1.2em;overflow:visible"><mask id="sl-pb-s" maskUnits="userSpaceOnUse" x="0" y="0" width="200" height="200"><rect width="200" height="200" fill="#fff"/><path transform="translate(48.97 38.44) scale(1.08) translate(-54 -43) translate(134.125,52.875)" d="M0 0 C0.99749268 0.36665771 0.99749268 0.36665771 2.01513672 0.74072266 C6.62777473 2.59663113 6.62777473 2.59663113 7.68823242 4.86303711 C7.94652165 7.99120666 7.02705902 10.04467511 5.85546875 12.94921875 C5.41009766 14.05974609 4.96472656 15.17027344 4.50585938 16.31445312 C4.02955078 17.46880859 3.55324219 18.62316406 3.0625 19.8125 C2.59779297 20.97845703 2.13308594 22.14441406 1.65429688 23.34570312 C-1.85471661 31.98985831 -1.85471661 31.98985831 -4.125 33.125 C-6.02961204 32.43054915 -7.90085447 31.64344514 -9.75 30.8125 C-19.66422998 26.58368153 -27.26609106 25.85047702 -38.125 26.125 C-38.455 27.115 -38.785 28.105 -39.125 29.125 C-38.14402344 29.36734375 -37.16304687 29.6096875 -36.15234375 29.859375 C-33.31305776 30.56236873 -30.47635159 31.27497918 -27.640625 31.9921875 C-24.80213536 32.70970135 -21.95989766 33.40235421 -19.109375 34.0703125 C-6.69949938 37.1089446 3.02755655 40.84926977 9.875 52.125 C13.29151905 58.95803811 12.61307566 67.23479967 10.625 74.4375 C7.53029491 83.45189328 1.37513276 90.18616729 -7.02734375 94.67578125 C-26.20884362 103.04454374 -49.04415352 101.90170642 -68.5 94.625 C-72.25964144 93.07749587 -75.67848864 91.2806362 -79.125 89.125 C-78.55593823 84.90468545 -77.56543969 81.39586411 -75.83984375 77.5078125 C-75.39189453 76.48945313 -74.94394531 75.47109375 -74.48242188 74.421875 C-73.77956055 72.85179688 -73.77956055 72.85179688 -73.0625 71.25 C-72.59005859 70.18007812 -72.11761719 69.11015625 -71.63085938 68.0078125 C-70.46832699 65.3774362 -69.29955398 62.75002483 -68.125 60.125 C-63.80181734 61.13483216 -60.07150265 62.96083682 -56.07421875 64.87109375 C-49.32009515 67.74271451 -43.48344492 68.41757298 -36.25 68.3125 C-35.38375 68.31185547 -34.5175 68.31121094 -33.625 68.31054688 C-29.55080641 68.64235092 -29.55080641 68.64235092 -26.125 67.125 C-32.43853708 64.84703882 -38.66045093 62.93279428 -45.25 61.625 C-56.73505022 59.25968679 -67.31315991 55.21661495 -74.125 45.125 C-77.1608836 40.09281577 -77.67121961 36.10082917 -77.625 30.375 C-77.62072998 29.57876221 -77.61645996 28.78252441 -77.61206055 27.9621582 C-77.37730644 19.82208022 -74.95520496 14.3797357 -69.625 8.25 C-68.8 7.54875 -67.975 6.8475 -67.125 6.125 C-66.403125 5.465 -65.68125 4.805 -64.9375 4.125 C-46.69751714 -8.84565448 -20.22397968 -7.61423584 0 0 Z" fill="#000"/></mask><rect width="200" height="200" rx="48" fill="currentColor" mask="url(#sl-pb-s)"/></svg><span>Powered by Storelib</span></a></div></div>
 <div class="footer__payment flex grow-1 align-center max-w-100" style="justify-content: flex-end; --pb-width: 100%; margin-left: auto;" data-ft-block="payment_badges_1" data-ft-type="payment_badges" data-block-id="payment_badges_1">
 <ul class="footer__payment-badges"><li class="payment-badge" aria-label="Visa"><svg class="icon icon--full-color" viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Visa">
 <title>Visa</title>

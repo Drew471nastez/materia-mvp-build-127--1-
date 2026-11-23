@@ -64,10 +64,26 @@ export function ThemeVersionFact({ state, onOpen }: { state: VersionState; onOpe
           data-theme-version-open=""
           className="rounded font-medium text-[#1a1a2e] underline decoration-[#1a1a2e]/25 underline-offset-[3px] outline-none transition-colors duration-150 hover:decoration-[#1a1a2e]/70 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20"
         >
+          {update ? <span aria-hidden className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-[#8b5cf6] align-middle" /> : null}
           {update ? tt("Update available") : tt("Release notes")}
         </button>
       </dd>
     </div>
+  )
+}
+
+/**
+ * A library row's own line under its name when its theme has a newer
+ * version: on a line of its own, so a phone's narrow row never cuts it off
+ * the end of the line above.
+ */
+export function UpdateAvailableLine() {
+  return (
+    <span data-row-update="" className="mt-1 flex min-w-0 items-center gap-1.5 whitespace-nowrap text-[12.5px] font-medium text-[#1a1a2e]">
+      {/* The dot from 360px: on the narrowest phones the words keep the room. */}
+      <span aria-hidden className="hidden h-1.5 w-1.5 shrink-0 rounded-full bg-[#8b5cf6] min-[360px]:block" />
+      {tt("Update available")}
+    </span>
   )
 }
 
@@ -187,7 +203,7 @@ export function ThemeVersionDialog({
       <AlertDialogContent
         data-theme-version-dialog=""
         data-surface="modal"
-        className="block max-w-[calc(100%-2rem)] gap-0 overflow-hidden rounded-2xl border-[#e5e7eb] p-0 shadow-[0_20px_48px_-16px_rgba(17,24,39,0.28),0_2px_6px_rgba(17,24,39,0.06)] sm:max-w-[480px]"
+        className="block max-w-[calc(100%-2rem)] gap-0 overflow-hidden rounded-2xl border-[#e5e7eb] bg-white p-0 shadow-[0_20px_48px_-16px_rgba(17,24,39,0.28),0_2px_6px_rgba(17,24,39,0.06)] sm:max-w-[480px]"
       >
         <div className="px-5 pb-4 pt-5">
           <AlertDialogTitle className="text-[16px] font-semibold text-[#1a1a2e]">{title}</AlertDialogTitle>

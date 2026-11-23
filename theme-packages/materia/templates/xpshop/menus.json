@@ -1,0 +1,48 @@
+{
+  "main-menu": {
+    "title": "Main menu",
+    "links": [
+      {
+        "title": "Shop",
+        "url": "/collections/all"
+      },
+      {
+        "title": "Collections",
+        "url": "/collections"
+      },
+      {
+        "title": "About",
+        "url": "/pages/about"
+      },
+      {
+        "title": "Help",
+        "url": "/pages/faqs"
+      },
+      {
+        "title": "Journal",
+        "url": "/blogs/news"
+      }
+    ]
+  },
+  "footer": {
+    "title": "Help",
+    "links": [
+      {
+        "title": "Shipping",
+        "url": "/pages/shipping"
+      },
+      {
+        "title": "Questions",
+        "url": "/pages/faqs"
+      },
+      {
+        "title": "Contact",
+        "url": "/pages/contact"
+      },
+      {
+        "title": "Journal",
+        "url": "/blogs/news"
+      }
+    ]
+  }
+}

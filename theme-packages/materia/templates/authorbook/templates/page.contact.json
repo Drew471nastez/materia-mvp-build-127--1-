@@ -1,0 +1,85 @@
+{
+  "sections": {
+    "contact": {
+      "type": "course2-contact",
+      "settings": {
+        "tag": "Contact",
+        "heading": "Write to me",
+        "accent": "#c4471f",
+        "text": "<p>Questions about the book, a group order for a book club, or a talk at your library. I read everything and reply within a few days.</p>",
+        "email_label": "Or email",
+        "email": "hello@theomarlow.com",
+        "card_tag": "Send a message",
+        "card_heading": "What is on your mind?",
+        "card_text": "A question, a book you think I should read, or a note on the book.",
+        "ph_first": "First name",
+        "ph_last": "Last name",
+        "ph_email": "Email",
+        "ph_message": "Your message",
+        "agree_text": "",
+        "button_label": "Send message",
+        "thanks": "Thank you. I will write back within a few days.",
+        "error": "Please check the form.",
+        "padding_top": 56
+      }
+    },
+    "faq": {
+      "type": "authorbook-faq",
+      "settings": {
+        "eyebrow": "Questions",
+        "heading": "Before you <em>buy</em>",
+        "accent_color": "#c4471f",
+        "icon_bg": "#f5f2ec",
+        "text": "<p>The questions readers ask most. Anything else, <a href=\"/pages/contact\">write to me</a>.</p>"
+      },
+      "blocks": {
+        "question_1": {
+          "type": "question",
+          "settings": {
+            "question": "Is this a paper book?",
+            "answer": "<p>It is an ebook and an audiobook. The ebook comes as PDF and EPUB, so it opens on a phone, a tablet, a Kindle, a Kobo or a laptop. Replace this with your own formats.</p>"
+          }
+        },
+        "question_2": {
+          "type": "question",
+          "settings": {
+            "question": "How do I get it after paying?",
+            "answer": "<p>A download link arrives by email straight away, and the files stay in your account so you can download them again.</p>"
+          }
+        },
+        "question_3": {
+          "type": "question",
+          "settings": {
+            "question": "I do not read much now. Is it for me?",
+            "answer": "<p>Yes. The book is written for people who used to read and stopped. Chapter one asks for twenty pages a day, nothing more.</p>"
+          }
+        },
+        "question_4": {
+          "type": "question",
+          "settings": {
+            "question": "What is the free chapter?",
+            "answer": "<p>The whole of chapter one, The Twenty Page Day, as a PDF. Leave your email at the top of the page and it arrives in a minute.</p>"
+          }
+        },
+        "question_5": {
+          "type": "question",
+          "settings": {
+            "question": "What if it is not for me?",
+            "answer": "<p>Write within 30 days and you get every cent back. Replace this with your own terms.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "question_1",
+        "question_2",
+        "question_3",
+        "question_4",
+        "question_5"
+      ]
+    }
+  },
+  "order": [
+    "contact",
+    "faq"
+  ]
+}

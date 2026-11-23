@@ -450,7 +450,7 @@ function path(u){try{return new URL(u,location.href).pathname}catch(e){return""}
 var CART={token:"preview",note:"",attributes:{},original_total_price:0,total_price:0,total_discount:0,total_weight:0,item_count:0,items:[],requires_shipping:false,currency:"USD",items_subtotal_price:0,cart_level_discount_applications:[]};
 var NO={status:422,message:"Preview",description:"This is a preview of the template. Add it to your library to sell from it."};
 function reply(u){var p=path(u);
-if(/\\/cart\\/add(\\.js)?$/.test(p))return[422,"application/json",JSON.stringify(NO)];
+if(/\\/cart\\/add(\\.js)?$/.test(p)){showNote(pressed);return[422,"application/json",JSON.stringify(NO)]}
 if(/\\/cart(\\.js|\\.json|\\/(change|update|clear)(\\.js)?)$/.test(p))return[200,"application/json",JSON.stringify(CART)];
 if(/\\.(js|json)$/.test(p)||/\\/search\\/suggest/.test(p))return[200,"application/json","{}"];
 return[200,"text/html","<!doctype html><html><body></body></html>"]}
@@ -460,15 +460,48 @@ if(navigator.sendBeacon)navigator.sendBeacon=function(){return true};
 W.open=function(){return null};
 var FP=W.HTMLFormElement&&HTMLFormElement.prototype;if(FP){FP.submit=function(){};FP.requestSubmit=function(){this.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true}))}}
 W.addEventListener("submit",function(e){e.preventDefault()},true);
+/* Add to cart, Buy now and Check out: nothing is sent; a small note by the button says why, then goes. Fixed, so nothing on the page moves. */
+var NOTE="Preview only: add this template to your library to sell from it.",note=null,noteT=0;
+function hideNote(){if(!note)return;var n=note;note=null;clearTimeout(noteT);n.style.opacity="0";n.style.transform="translate3d(0,4px,0)";setTimeout(function(){if(n.parentNode)n.parentNode.removeChild(n)},200)}
+function showNote(b){hideNote();var r=b&&b.getBoundingClientRect?b.getBoundingClientRect():null;if(r&&!r.width)r=null;var n=D.createElement("div");n.setAttribute("role","status");n.setAttribute("data-preview-note","");n.textContent=NOTE;
+n.style.cssText="position:fixed;z-index:2147483647;left:0;top:0;width:max-content;max-width:min(300px,calc(100vw - 24px));box-sizing:border-box;margin:0;padding:9px 12px;border-radius:10px;background:#1f2328;color:#fff;font:500 13px/1.4 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;letter-spacing:0;text-transform:none;text-align:left;box-shadow:0 0 0 1px rgba(255,255,255,.1),0 8px 24px -6px rgba(0,0,0,.28);pointer-events:none;opacity:0;transform:translate3d(0,4px,0);transition:opacity .16s ease,transform .16s ease";
+D.documentElement.appendChild(n);var w=n.offsetWidth,h=n.offsetHeight,vw=D.documentElement.clientWidth||innerWidth,vh=innerHeight;
+var x=r?r.left+r.width/2-w/2:(vw-w)/2;x=Math.max(12,Math.min(vw-w-12,x));var y=r?r.top-h-8:vh-h-24;if(r&&y<12)y=r.bottom+8;y=Math.max(12,Math.min(vh-h-12,y));
+n.style.left=Math.round(x)+"px";n.style.top=Math.round(y)+"px";note=n;
+requestAnimationFrame(function(){requestAnimationFrame(function(){n.style.opacity="1";n.style.transform="none"})});noteT=setTimeout(hideNote,3200)}
+W.addEventListener("scroll",hideNote,{passive:true});
+function productForm(f){return !!(f&&f.querySelector&&f.querySelector("input[name=id],select[name=id]"))}
+var BUY=".product-form__submit,.shopify-payment-button__button,.product_buy_now_button,.button_buy-now,.product-group-buy-now,[data-add-to-cart],[data-buy-now]";
+function buying(b){if(!b||!b.getAttribute)return false;var n=(b.getAttribute("name")||"").toLowerCase();if(n==="add"||n==="checkout")return true;if(b.matches&&b.matches(BUY))return true;var t=(b.getAttribute("type")||(b.tagName==="BUTTON"?"submit":"")).toLowerCase();return (t==="submit"||t==="image")&&productForm(b.form||b.closest("form"))}
+var pressed=null;D.addEventListener("pointerdown",function(e){pressed=e.target&&e.target.closest?e.target.closest("button,a,input"):null},true);
+W.addEventListener("click",function(e){var b=e.target&&e.target.closest&&e.target.closest("button,input[type=submit],input[type=image],a");if(!buying(b))return;e.preventDefault();e.stopImmediatePropagation();showNote(b)},true);
 function submit(f,b){setTimeout(function(){var ev;try{ev=new SubmitEvent("submit",{bubbles:true,cancelable:true,submitter:b||null})}catch(_){ev=new Event("submit",{bubbles:true,cancelable:true})}f.dispatchEvent(ev)},0)}
 D.addEventListener("click",function(e){var b=e.target&&e.target.closest&&e.target.closest("button,input[type=submit],input[type=image]");if(!b||!b.form)return;var t=(b.getAttribute("type")||"submit").toLowerCase();if(t!=="submit"&&t!=="image")return;e.preventDefault();submit(b.form,b)},true);
-D.addEventListener("keydown",function(e){var i=e.target;if(e.key!=="Enter"||!i||i.tagName!=="INPUT"||!i.form)return;e.preventDefault();submit(i.form,null)},true);
+D.addEventListener("keydown",function(e){var i=e.target;if(e.key!=="Enter"||!i||i.tagName!=="INPUT"||!i.form)return;e.preventDefault();if(productForm(i.form)){showNote(i.form.querySelector("[name=add],button[type=submit],button:not([type])")||i);return}submit(i.form,null)},true);
 D.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[data-preview-inert]");if(a)e.preventDefault()},true);
 var told=false;function tell(){if(told)return;told=true;try{parent.postMessage({type:"storelib:template-preview",ready:true,path:location.pathname},"*")}catch(e){}}
 W.addEventListener("load",tell);D.addEventListener("DOMContentLoaded",function(){setTimeout(tell,1200)});
 /* The page's own background, as soon as it is known: the frame shows it between two pages instead of its own white (a white flash on a dark shop). */
 function paint(){try{var c=getComputedStyle(D.documentElement).backgroundColor;if(!c||/rgba\(0, 0, 0, 0\)|transparent/.test(c))c=getComputedStyle(D.body).backgroundColor;if(c&&!/rgba\(0, 0, 0, 0\)|transparent/.test(c))parent.postMessage({type:"storelib:template-preview-background",background:c},"*")}catch(e){}}
 D.addEventListener("DOMContentLoaded",paint);
+/*
+  THE NEXT PAGE, WITH NO BLANK BETWEEN. A frame that goes to another page
+  shows nothing of either for a moment (Night shop: its starry ground, then
+  its header alone). Once the marketplace says it takes pages over, a link
+  to another of this website's pages is handed to it instead: it draws that
+  page in a second frame behind this one and shows it once it has drawn.
+*/
+var HAND=false;W.addEventListener("message",function(e){if(e.source===parent&&e.data&&e.data.type==="storelib:template-preview-handoff")HAND=true});
+function nextPage(u){try{var x=new URL(u,location.href);if(x.host!==location.host||x.pathname.indexOf(ROOT)!==0||x.pathname.split("/")[2]!==location.pathname.split("/")[2]||!/[.]html$/.test(x.pathname)||x.pathname===location.pathname)return null;return x.pathname+x.search+x.hash}catch(e){return null}}
+function handoff(to){try{parent.postMessage({type:"storelib:template-preview-go",href:to},"*");return true}catch(e){return false}}
+W.addEventListener("click",function(e){if(!HAND||e.defaultPrevented||e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;var a=e.target&&e.target.closest&&e.target.closest("a[href]");if(!a||a.hasAttribute("download"))return;var to=nextPage(a.href);if(to&&handoff(to))e.preventDefault()});
+if(W.navigation&&navigation.addEventListener)navigation.addEventListener("navigate",function(e){if(!HAND||!e.cancelable||e.hashChange||e.downloadRequest||e.formData||e.navigationType==="traverse"||e.navigationType==="reload")return;var to=nextPage(e.destination.url);if(to&&handoff(to))e.preventDefault()});
+/* Drawn: styles applied, the first screen's pictures in (700ms at most), two frames painted. */
+var shown=false;function drawn(){if(shown)return;shown=true;try{parent.postMessage({type:"storelib:template-preview-drawn",path:location.pathname},"*")}catch(e){}}
+function whenDrawn(){var done=false,fin=function(){if(done)return;done=true;requestAnimationFrame(function(){requestAnimationFrame(drawn)})};var wait=[],im=D.images,vh=innerHeight;
+for(var i=0;i<im.length&&wait.length<12;i++){var g=im[i];if(g.complete)continue;var r=g.getBoundingClientRect();if(r.width>0&&r.top<vh&&r.bottom>0)wait.push(g)}
+var left=wait.length;if(!left)return fin();wait.forEach(function(g){var one=function(){if(--left<=0)fin()};g.addEventListener("load",one,{once:true});g.addEventListener("error",one,{once:true})});setTimeout(fin,700)}
+D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn)});W.addEventListener("load",drawn);
 })();`
 
 function* walkSizes(dir: string): Generator<number> {

@@ -3,17 +3,17 @@
     "hero": {
       "type": "courselanding-hero",
       "settings": {
-        "heading_first": "Pocket Light:",
-        "heading": "Take photos you want to keep, with the phone you already have",
-        "pills": "Any phone\nNo apps to buy\n20 minutes a day",
+        "heading_first": "Evenly:",
+        "heading": "Know where your money goes, and make it go further",
+        "pills": "Any income\nNo apps to buy\n20 minutes a day",
         "image": "shopify://shop_images/courselanding-hero-phones.webp",
-        "image_alt": "Three phones showing the course: a lesson on window light, a sunlit street and a vase of flowers",
-        "points": "24 short video lessons\nA live critique every week\nEditing presets for free apps",
+        "image_alt": "Three phones showing the course: a lesson on tracking spending, a monthly budget and a savings goal",
+        "points": "24 short video lessons\nA live Q&A every week\nThe budget spreadsheet, ready to use",
         "button_label": "Join the course",
         "to_checkout": true,
         "button_link": "/collections/all",
         "note": "One payment. Watch the first week, then decide.",
-        "accent": "#2f5bea",
+        "accent": "#17804c",
         "padding_top": 120,
         "padding_top_mobile": 96
       }
@@ -21,15 +21,15 @@
     "letter": {
       "type": "courselanding-letter",
       "settings": {
-        "heading": "Why a phone,",
-        "heading_accent": "and not a camera?",
-        "text": "<p>I taught camera courses for eight years. Every time, people went home with a heavy bag and took their best pictures on their phone anyway.</p><p>So this course starts with the camera you carry. <strong>Light, framing and timing</strong> matter far more than the lens, and a phone is the one you have with you when the light is good.</p><p>Four weeks, twenty minutes a day. <em>You will look at light differently by the end of the first week.</em></p>",
-        "name": "Teo Varga",
-        "role": "Photographer and teacher. Write your own letter here.",
-        "image": "shopify://shop_images/courselanding-teacher-field.webp",
-        "image_alt": "A man photographing a green field with his phone under a cloudy sky",
+        "heading": "Why a plan,",
+        "heading_accent": "and not another app?",
+        "text": "<p>I spent nine years at a bank, talking to people about loans and savings. The ones who were doing well rarely earned the most. They had a simple plan, and they looked at it.</p><p>So this course is not another app to download. <strong>Knowing where it goes, a plan you keep and saving first</strong> matter far more than any tool, and a spreadsheet you understand beats one you do not.</p><p>Four weeks, twenty minutes a day. <em>You will know where every pound, euro or dollar went by the end of the first week.</em></p>",
+        "name": "Nina Hart",
+        "role": "Money teacher, nine years in banking. Write your own letter here.",
+        "image": "shopify://shop_images/courselanding-teacher-desk.webp",
+        "image_alt": "Nina working at a laptop at a wooden table",
         "anchor": "teacher",
-        "accent": "#2f5bea"
+        "accent": "#17804c"
       }
     },
     "steps": {
@@ -41,7 +41,7 @@
         "to_checkout": true,
         "button_link": "/collections/all",
         "note": "Lessons open as soon as you pay.",
-        "accent": "#2f5bea"
+        "accent": "#17804c"
       },
       "blocks": {
         "step_1": {
@@ -49,29 +49,29 @@
           "settings": {
             "label": "Step 1",
             "title": "Watch a short lesson",
-            "text": "Six lessons a week, most under ten minutes. Each one ends with something to try that day.",
+            "text": "Six lessons a week, most under ten minutes. Each one ends with one small task for that day.",
             "image": "shopify://shop_images/courselanding-step-lesson.webp",
-            "image_alt": "A lesson playing beside its notes and the week’s brief"
+            "image_alt": "A lesson playing beside its notes and the week’s task"
           }
         },
         "step_2": {
           "type": "step",
           "settings": {
             "label": "Step 2",
-            "title": "Shoot and edit the brief",
-            "text": "Go out with your phone, then edit in a free app with the presets from the course.",
-            "image": "shopify://shop_images/courselanding-step-edit.webp",
-            "image_alt": "A street photo being edited, with exposure, warmth and crop controls"
+            "title": "Fill in your spreadsheet",
+            "text": "Put your own numbers into the budget spreadsheet. It does the sums and shows what is left.",
+            "image": "shopify://shop_images/courselanding-step-sheet.webp",
+            "image_alt": "The budget spreadsheet with income, bills and what is left this month"
           }
         },
         "step_3": {
           "type": "step",
           "settings": {
             "label": "Step 3",
-            "title": "Get it critiqued live",
-            "text": "Post your best picture. Every Thursday Teo looks at them on a call and says what to change.",
-            "image": "shopify://shop_images/courselanding-step-critique.webp",
-            "image_alt": "Six student photos with a comment from the teacher on one of them"
+            "title": "Ask on the live call",
+            "text": "Send a question by Wednesday. Every Thursday Nina answers them on a call, with real numbers.",
+            "image": "shopify://shop_images/courselanding-step-call.webp",
+            "image_alt": "The live call, with Nina on screen and the week’s questions beside her"
           }
         }
       },
@@ -88,43 +88,43 @@
         "heading_accent": "one idea each",
         "text": "<p>Every week builds on the one before. Do them in order, at your own pace.</p>",
         "anchor": "curriculum",
-        "accent": "#2f5bea"
+        "accent": "#17804c"
       },
       "blocks": {
         "module_1": {
           "type": "module",
           "settings": {
             "label": "Week 1",
-            "title": "Light",
-            "text": "Where to stand, when to shoot, and how to expose for the part that matters.",
-            "lessons": "Find the light first\nExpose for the bright part\nWindow light at home\nGolden hour, briefly\nShade and overcast days\nBrief: one object, three times a day"
+            "title": "Where it goes",
+            "text": "Track a month of spending without a spreadsheet habit you will drop.",
+            "lessons": "Your money in one place\nWhat a month really costs\nFixed, flexible and forgotten\nSubscriptions you do not use\nYour first honest number\nTask: log every spend for seven days"
           }
         },
         "module_2": {
           "type": "module",
           "settings": {
             "label": "Week 2",
-            "title": "Framing",
-            "text": "Simple rules for where things go, and when to break them.",
-            "lessons": "Fill the frame\nEdges and corners\nLines that lead\nHeight: crouch or climb\nSpace around a subject\nBrief: one street, ten frames"
+            "title": "A plan you keep",
+            "text": "Build a budget around the bills you already have, not the ones you wish you had.",
+            "lessons": "Pay yourself first\nThree pots, not thirty categories\nA budget for irregular costs\nCouples and shared bills\nWhen the month goes wrong\nTask: your first full budget"
           }
         },
         "module_3": {
           "type": "module",
           "settings": {
             "label": "Week 3",
-            "title": "People and places",
-            "text": "Photographing people kindly and places honestly.",
-            "lessons": "Asking, and not asking\nHands and details\nWaiting for the moment\nPortrait mode, carefully\nRooms and interiors\nBrief: a day in one place"
+            "title": "Debt and a cushion",
+            "text": "Pay down what costs you most and build a buffer for the surprises.",
+            "lessons": "What your debt really costs\nWhich one to pay first\nAn emergency fund that fits\nTalking to your bank\nCredit scores, plainly\nTask: your payoff plan"
           }
         },
         "module_4": {
           "type": "module",
           "settings": {
             "label": "Week 4",
-            "title": "Editing and choosing",
-            "text": "Finish the pictures, then pick the few worth sharing.",
-            "lessons": "A light first edit\nWarmth and colour\nCropping for a reason\nThe presets, explained\nPicking your best five\nBrief: a set of five"
+            "title": "Saving and investing",
+            "text": "Make saving automatic and learn how index funds and pensions work.",
+            "lessons": "Saving on autopilot\nPensions and workplace schemes\nIndex funds, plainly\nFees that eat returns\nA plan for the next year\nTask: set up one automatic transfer"
           }
         }
       },
@@ -140,7 +140,7 @@
       "settings": {
         "heading": "The whole course.",
         "heading_accent": "One payment.",
-        "text": "<p>Everything you need to shoot and edit better photos on your phone.</p>",
+        "text": "<p>Everything you need to budget, save and start investing, at your own pace.</p>",
         "anchor": "join",
         "card_label": "What is included",
         "show_count": true,
@@ -154,7 +154,7 @@
         "button_label": "Join the course",
         "to_checkout": true,
         "button_link": "/collections/all",
-        "accent": "#2f5bea"
+        "accent": "#17804c"
       },
       "blocks": {
         "item_1": {
@@ -170,8 +170,8 @@
           "type": "item",
           "settings": {
             "icon": "chat",
-            "title": "Weekly live critiques",
-            "text": "Four Thursday calls where your photos are looked at.",
+            "title": "Weekly live Q&A",
+            "text": "Four Thursday calls where your questions are answered.",
             "value": "$40"
           }
         },
@@ -179,8 +179,8 @@
           "type": "item",
           "settings": {
             "icon": "sliders",
-            "title": "Editing presets",
-            "text": "Twelve looks for the free editing apps.",
+            "title": "Budget spreadsheet",
+            "text": "The sheet from the course, ready for your numbers.",
             "value": "$19"
           }
         },
@@ -188,8 +188,8 @@
           "type": "item",
           "settings": {
             "icon": "cards",
-            "title": "Shot list cards",
-            "text": "A printable brief for every day of the course.",
+            "title": "Printable workbook",
+            "text": "A worksheet for every lesson, to print or fill in.",
             "value": "$11"
           }
         }
@@ -208,27 +208,27 @@
         "text": "<p>Sample quotes to show the layout. Replace them with your students’ own words.</p>",
         "sample_label": "Sample",
         "anchor": "reviews",
-        "accent": "#2f5bea"
+        "accent": "#17804c"
       },
       "blocks": {
         "quote_1": {
           "type": "quote",
           "settings": {
-            "quote": "I stopped taking forty pictures of everything. I wait for the light now, take three, and one of them is good.",
+            "quote": "I always knew roughly what I earned. Now I know where it goes, and there is money left on the 25th.",
             "name": "Hanna, Leipzig"
           }
         },
         "quote_2": {
           "type": "quote",
           "settings": {
-            "quote": "The Thursday calls are the part I would pay for alone. One comment about my horizon fixed half my pictures.",
+            "quote": "The Thursday calls are the part I would pay for alone. One question about my card debt saved me more than the course cost.",
             "name": "Marco, Turin"
           }
         },
         "quote_3": {
           "type": "quote",
           "settings": {
-            "quote": "My phone is three years old. The course never once told me to buy a new one.",
+            "quote": "No app, no subscription. One spreadsheet and twenty minutes on a Sunday.",
             "name": "Ada, Leeds"
           }
         }
@@ -245,7 +245,7 @@
         "color_scheme": "default",
         "eyebrow": "Pricing",
         "heading": "On your own or with a group",
-        "intro": "<p>The same course either way. Groups of five or more get their own critique call.</p>",
+        "intro": "<p>The same course either way. Groups of five or more get their own Q&amp;A call.</p>",
         "heading_size": "h2",
         "heading_align": "center",
         "footnote": "<p>Both with the 30 day refund.</p>",
@@ -265,15 +265,15 @@
         "plan_1": {
           "type": "plan",
           "settings": {
-            "name": "Pocket Light",
+            "name": "Evenly",
             "description": "<p>The course for one person.</p>",
             "badge": "Most people choose this",
             "featured": true,
-            "plan_product": "pocket-light",
+            "plan_product": "evenly",
             "price": "$89",
             "compare_price": "",
             "note": "One payment",
-            "features": "All 24 lessons\nFour live critiques\nEditing presets\nShot list cards\nLifetime access",
+            "features": "All 24 lessons\nFour live Q&A calls\nBudget spreadsheet\nPrintable workbook\nLifetime access",
             "button_label": "See the course",
             "button_link": "/collections/all",
             "button_style": "primary"
@@ -282,12 +282,12 @@
         "plan_2": {
           "type": "plan",
           "settings": {
-            "name": "Group or class",
-            "description": "<p>For a club, a school or a team.</p>",
+            "name": "Workplace or group",
+            "description": "<p>For a workplace, a club or a school.</p>",
             "featured": false,
             "price": "$59",
             "note": "Per person, five or more",
-            "features": "Everything in the course\nA private critique call\nOne bill for the group\nSeats added any time",
+            "features": "Everything in the course\nA private Q&A call\nOne bill for the group\nSeats added any time",
             "button_label": "Ask for a group price",
             "button_link": "/pages/contact",
             "button_style": "secondary"
@@ -304,35 +304,35 @@
       "settings": {
         "heading": "Questions",
         "anchor": "questions",
-        "accent": "#2f5bea"
+        "accent": "#17804c"
       },
       "blocks": {
         "question_1": {
           "type": "question",
           "settings": {
-            "question": "Which phone do I need?",
-            "answer": "<p>Any phone from the last five years. Every lesson works on both kinds of phone, and nothing needs the newest model.</p>"
+            "question": "Do I need to be good with numbers?",
+            "answer": "<p>No. If you can add up a shopping receipt, you can do this course. The spreadsheet does the sums.</p>"
           }
         },
         "question_2": {
           "type": "question",
           "settings": {
-            "question": "Do I need to buy an editing app?",
-            "answer": "<p>No. The editing lessons and presets use free apps that come with your phone or cost nothing.</p>"
+            "question": "Do I need to buy an app?",
+            "answer": "<p>No. Everything runs in a free spreadsheet app, or on the printed workbook if you prefer paper.</p>"
           }
         },
         "question_3": {
           "type": "question",
           "settings": {
             "question": "How much time does it take?",
-            "answer": "<p>About twenty minutes a day: a short lesson and a few pictures. You can pause and pick it up a week later.</p>"
+            "answer": "<p>About twenty minutes a day: a short lesson and one small task. You can pause and pick it up a week later.</p>"
           }
         },
         "question_4": {
           "type": "question",
           "settings": {
-            "question": "How do the live critiques work?",
-            "answer": "<p>Post your best picture of the week by Wednesday. On Thursday evening Teo looks at them on a video call. Recordings stay in the course.</p>"
+            "question": "How do the live calls work?",
+            "answer": "<p>Send a question by Wednesday. On Thursday evening Nina answers them on a video call. Recordings stay in the course. This is teaching, not personal financial advice.</p>"
           }
         },
         "question_5": {
@@ -358,15 +358,15 @@
         "promise_unit": "days",
         "promise_title": "Watch the first week, then decide",
         "promise_text": "If the course is not for you, write within 30 days and you get every cent back. No form to fill in.",
-        "heading": "Your next good photo is",
+        "heading": "Your first real budget is",
         "heading_accent": "one lesson",
         "heading_after": "away",
-        "text": "<p>Twenty four lessons, four live critiques, the presets and the shot list cards.</p>",
+        "text": "<p>Twenty four lessons, four live calls, the budget spreadsheet and the workbook.</p>",
         "button_label": "Join the course",
         "to_checkout": true,
         "button_link": "/collections/all",
         "note": "One payment. Lifetime access.",
-        "accent": "#2f5bea"
+        "accent": "#17804c"
       }
     }
   },

@@ -6,10 +6,11 @@
  *   result     the dialog after Update, with the files kept
  *   current    the dialog when the theme is up to date
  *   admin      the admin's releases panel for a template
+ *   row        a library row as the page draws it, with Update available
  */
 import * as React from "react"
 import { createRoot } from "react-dom/client"
-import { ThemeVersionDialog, ThemeVersionFact } from "@/app/(storelib)/app/website-builder/theme-version"
+import { ThemeVersionDialog, ThemeVersionFact, UpdateAvailableLine } from "@/app/(storelib)/app/website-builder/theme-version"
 import { ReleasesPanel, type AdminRelease } from "@/app/(storelib)/admin/themes/releases-admin"
 import type { ThemeRelease, VersionState } from "@/lib/themes/releases-shared"
 
@@ -31,6 +32,23 @@ function App() {
       <div className="min-h-screen bg-[#0b0b0f] p-4 text-[#ededf0] [font-family:Inter,system-ui,sans-serif]">
         <div className="mx-auto max-w-[560px]">
           <ReleasesPanel target="clothing" title="Clothing releases" releases={releases} notice={null} onChanged={() => undefined} />
+        </div>
+      </div>
+    )
+  }
+  if (view === "row") {
+    return (
+      <div className="mx-auto max-w-[1200px] p-4">
+        <div className="overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white">
+          <div data-row="" className="flex w-full min-w-0 items-center gap-3 p-3 sm:gap-4 sm:px-4">
+            <span className="block aspect-[16/10] w-24 shrink-0 rounded-lg border border-[#e5e7eb] bg-[#f3f4f6] sm:w-28" />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[14px] font-semibold text-[#1a1a2e]">Spring collection with a long name</span>
+              <span className="mt-0.5 block truncate text-[12.5px] text-[#6b7280]">Draft · Edited 3 hours ago</span>
+              <UpdateAvailableLine />
+            </span>
+            <span className="h-11 w-11 shrink-0 rounded-lg border border-[#e5e7eb]" />
+          </div>
         </div>
       </div>
     )

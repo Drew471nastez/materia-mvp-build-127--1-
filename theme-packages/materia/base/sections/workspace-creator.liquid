@@ -1,0 +1,116 @@
+{%- comment -%}
+  Notion templates: the maker. A photograph beside her name with a small
+  round portrait, a heading, a few lines, the places she posts and a
+  button. The photograph can sit on either side.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign has_social = false
+  if st.instagram != blank or st.tiktok != blank or st.youtube != blank or st.pinterest != blank or st.threads != blank or st.x != blank
+    assign has_social = true
+  endif
+-%}
+<style>
+  #shopify-section-{{ sid }} .wsc { padding: {{ st.padding_top_mobile }}px 16px {{ st.padding_bottom_mobile }}px; background: {{ st.background }}; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .wsc { padding: {{ st.padding_top }}px 32px {{ st.padding_bottom }}px; } }
+  #shopify-section-{{ sid }} .wsc__inner { max-width: var(--page-width, 1310px); margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; align-items: center; }
+  @media (min-width: 990px) {
+    #shopify-section-{{ sid }} .wsc__inner { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 72px; }
+    #shopify-section-{{ sid }} .wsc--right .wsc__media { order: 2; }
+  }
+  #shopify-section-{{ sid }} .wsc__media { position: relative; margin: 0; aspect-ratio: {{ st.image_ratio }}; border-radius: 20px; overflow: hidden; background: #ebe9e3; }
+  #shopify-section-{{ sid }} .wsc__media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: {{ st.image_focus }}; margin: 0; }
+  #shopify-section-{{ sid }} .wsc__who { display: flex; align-items: center; gap: 14px; margin: 0 0 22px; }
+  #shopify-section-{{ sid }} .wsc__avatar { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; margin: 0; flex: none; background: #e9e7e1; box-shadow: 0 0 0 3px #fff, 0 0 0 4px {{ st.line_color }}; }
+  #shopify-section-{{ sid }} .wsc__name { margin: 0; color: {{ st.ink }}; font-size: 16px; font-weight: 600; line-height: 1.3; }
+  #shopify-section-{{ sid }} .wsc__role { margin: 2px 0 0; color: {{ st.muted }}; font-size: 14px; }
+  #shopify-section-{{ sid }} .wsc__h { margin: 0 0 18px; color: {{ st.ink }}; font-family: var(--heading-font, inherit); font-weight: 700; letter-spacing: -0.025em; line-height: 1.1; font-size: {{ st.heading_size_mobile }}px; text-wrap: balance; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .wsc__h { font-size: {{ st.heading_size }}px; } }
+  #shopify-section-{{ sid }} .wsc__t { color: {{ st.muted }}; font-size: 16.5px; line-height: 1.7; max-width: 56ch; }
+  #shopify-section-{{ sid }} .wsc__t p { margin: 0 0 14px; }
+  #shopify-section-{{ sid }} .wsc__t a { color: {{ st.ink }}; text-underline-offset: 3px; }
+  #shopify-section-{{ sid }} .wsc__social { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0 0; padding: 0; list-style: none; }
+  #shopify-section-{{ sid }} .wsc__social a { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px 0 12px; border: 1px solid {{ st.line_color }}; border-radius: 999px; background: #fff; color: {{ st.ink }}; font-size: 14px; font-weight: 500; text-decoration: none; transition: border-color .2s ease, transform .2s ease; }
+  #shopify-section-{{ sid }} .wsc__social a:hover { border-color: {{ st.ink }}; }
+  #shopify-section-{{ sid }} .wsc__social svg { width: 17px; height: 17px; flex: none; }
+  #shopify-section-{{ sid }} .wsc__btn { display: inline-flex; align-items: center; min-height: 48px; margin-top: 26px; padding: 0 22px; border-radius: 10px; background: {{ st.ink }}; color: #fff; font-size: 15px; font-weight: 600; text-decoration: none; transition: opacity .2s ease; }
+  #shopify-section-{{ sid }} .wsc__btn:hover { opacity: .86; }
+</style>
+
+<div class="wsc color-{{ color_scheme }}{% if st.image_position == 'right' %} wsc--right{% endif %}">
+  <div class="wsc__inner">
+    <figure class="wsc__media">
+      {%- if st.image != blank -%}
+        <img src="{{ st.image | image_url: width: 1100 }}" srcset="{{ st.image | image_url: width: 600 }} 600w, {{ st.image | image_url: width: 1100 }} 1100w" sizes="(min-width: 990px) 600px, 94vw" width="{{ st.image.width | default: 1200 }}" height="{{ st.image.height | default: 900 }}" alt="{{ st.image_alt | default: st.image.alt | escape }}" loading="lazy" decoding="async">
+      {%- endif -%}
+    </figure>
+    <div>
+      {%- if st.name != blank -%}
+        <div class="wsc__who">
+          {%- if st.avatar != blank -%}<img class="wsc__avatar" src="{{ st.avatar | image_url: width: 160 }}" width="56" height="56" alt="" loading="lazy">{%- endif -%}
+          <div><p class="wsc__name">{{ st.name | escape }}</p>{%- if st.role != blank -%}<p class="wsc__role">{{ st.role | escape }}</p>{%- endif -%}</div>
+        </div>
+      {%- endif -%}
+      {%- if st.heading != blank -%}<h2 class="wsc__h">{{ st.heading }}</h2>{%- endif -%}
+      {%- if st.text != blank -%}<div class="wsc__t">{{ st.text }}</div>{%- endif -%}
+      {%- if has_social -%}
+        <ul class="wsc__social">
+          {%- if st.instagram != blank -%}<li><a href="{{ st.instagram }}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>Instagram</a></li>{%- endif -%}
+          {%- if st.tiktok != blank -%}<li><a href="{{ st.tiktok }}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.6 3c.3 2.2 1.6 3.6 3.9 3.8v3.2c-1.4.1-2.6-.3-3.9-1.1v5.9c0 3.6-2.6 6.2-6 6.2S4.6 18.4 4.6 15c0-3.5 2.9-6 6.4-5.7v3.3c-1.6-.3-3.1.7-3.1 2.4 0 1.5 1.2 2.6 2.7 2.6 1.6 0 2.7-1 2.7-3V3h3.3z"/></svg>TikTok</a></li>{%- endif -%}
+          {%- if st.youtube != blank -%}<li><a href="{{ st.youtube }}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21.6 7.2c-.2-.9-.9-1.6-1.8-1.8C18.2 5 12 5 12 5s-6.2 0-7.8.4c-.9.2-1.6.9-1.8 1.8C2 8.8 2 12 2 12s0 3.2.4 4.8c.2.9.9 1.6 1.8 1.8 1.6.4 7.8.4 7.8.4s6.2 0 7.8-.4c.9-.2 1.6-.9 1.8-1.8.4-1.6.4-4.8.4-4.8s0-3.2-.4-4.8zM10 15V9l5.2 3L10 15z"/></svg>YouTube</a></li>{%- endif -%}
+          {%- if st.pinterest != blank -%}<li><a href="{{ st.pinterest }}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.6 19.3c-.1-.8-.2-2 0-2.9l1.2-5s-.3-.6-.3-1.5c0-1.4.8-2.5 1.8-2.5.9 0 1.3.7 1.3 1.4 0 .9-.6 2.2-.9 3.4-.2 1 .5 1.9 1.6 1.9 1.9 0 3.3-2 3.3-4.9 0-2.6-1.8-4.4-4.5-4.4-3 0-4.8 2.3-4.8 4.6 0 .9.4 1.9.8 2.4l.1.4-.3 1.2c0 .2-.2.3-.4.2-1.4-.7-2.3-2.7-2.3-4.3 0-3.5 2.6-6.8 7.4-6.8 3.9 0 6.9 2.8 6.9 6.5 0 3.9-2.4 7-5.8 7-1.1 0-2.2-.6-2.6-1.3l-.7 2.7c-.3 1-1 2.2-1.4 2.9A10 10 0 1 0 12 2z"/></svg>Pinterest</a></li>{%- endif -%}
+          {%- if st.threads != blank -%}<li><a href="{{ st.threads }}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M17.5 8.2C16.6 5.6 14.6 4 12 4 7.6 4 5 7.4 5 12s2.6 8 7 8c3.3 0 5.6-1.9 5.6-4.7 0-2.6-2.2-4-5-4-2.3 0-3.8 1.1-3.8 2.7 0 1.4 1.2 2.3 2.8 2.3 2.4 0 3.6-1.8 3.6-5.2 0-2.3-1-3.6-3-3.6-1.2 0-2.1.5-2.6 1.3"/></svg>Threads</a></li>{%- endif -%}
+          {%- if st.x != blank -%}<li><a href="{{ st.x }}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.8 3h3.1l-6.8 7.7 8 10.3h-6.2l-4.9-6.3L5.4 21H2.3l7.2-8.3L1.8 3h6.4l4.4 5.8L17.8 3zm-1.1 16.2h1.7L7.4 4.7H5.6l11.1 14.5z"/></svg>X</a></li>{%- endif -%}
+        </ul>
+      {%- endif -%}
+      {%- if st.button_label != blank -%}<a class="wsc__btn" href="{{ st.button_link | default: '/pages/about' }}">{{ st.button_label | escape }}</a>{%- endif -%}
+    </div>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Maker with socials",
+  "tag": "section",
+  "class": "section sec__workspace-creator",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default-color-scheme" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#f2f1ee" },
+    { "type": "color", "id": "ink", "label": "Heading colour", "default": "#1f1f1d" },
+    { "type": "color", "id": "muted", "label": "Text colour", "default": "#5b5a55" },
+    { "type": "color", "id": "line_color", "label": "Lines", "default": "#dedcd5" },
+    { "type": "header", "content": "Picture" },
+    { "type": "image_picker", "id": "image", "label": "Photograph" },
+    { "type": "text", "id": "image_alt", "label": "Alt text" },
+    { "type": "select", "id": "image_ratio", "label": "Proportions", "options": [ { "value": "4 / 3", "label": "Landscape" }, { "value": "1 / 1", "label": "Square" }, { "value": "4 / 5", "label": "Portrait" } ], "default": "4 / 3" },
+    { "type": "select", "id": "image_focus", "label": "Keep in view", "options": [ { "value": "center", "label": "Middle" }, { "value": "left center", "label": "Left" }, { "value": "right center", "label": "Right" } ], "default": "center" },
+    { "type": "select", "id": "image_position", "label": "Picture side, desktop", "options": [ { "value": "left", "label": "Left" }, { "value": "right", "label": "Right" } ], "default": "left" },
+    { "type": "header", "content": "Who" },
+    { "type": "image_picker", "id": "avatar", "label": "Round portrait" },
+    { "type": "text", "id": "name", "label": "Name", "default": "Your name" },
+    { "type": "text", "id": "role", "label": "Under the name", "default": "What you make" },
+    { "type": "header", "content": "Text" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "A heading in your own words" },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Who you are and why you make these, in a few lines.</p>" },
+    { "type": "text", "id": "button_label", "label": "Button" },
+    { "type": "url", "id": "button_link", "label": "Button link" },
+    { "type": "header", "content": "Where you post", "info": "Leave a place empty to hide it." },
+    { "type": "url", "id": "instagram", "label": "Instagram" },
+    { "type": "url", "id": "tiktok", "label": "TikTok" },
+    { "type": "url", "id": "youtube", "label": "YouTube" },
+    { "type": "url", "id": "pinterest", "label": "Pinterest" },
+    { "type": "url", "id": "threads", "label": "Threads" },
+    { "type": "url", "id": "x", "label": "X" },
+    { "type": "header", "content": "Size and space" },
+    { "type": "range", "id": "heading_size", "label": "Heading size, desktop", "min": 24, "max": 64, "step": 2, "unit": "px", "default": 40 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size, phone", "min": 22, "max": 44, "step": 2, "unit": "px", "default": 30 },
+    { "type": "range", "id": "padding_top", "label": "Space above, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 }
+  ],
+  "presets": [ { "name": "Maker with socials" } ]
+}
+{% endschema %}

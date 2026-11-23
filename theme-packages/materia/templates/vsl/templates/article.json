@@ -48,7 +48,7 @@
         "author_highlight_n4CqbT": {
           "type": "author_highlight",
           "settings": {
-            "author_text": "Want to work through this with us? Book a free call.",
+            "author_text": "Want to work through this on your own show? Book a free call.",
             "author_image_size": 65
           }
         }
@@ -95,13 +95,13 @@
       "type": "vsl-cta",
       "settings": {
         "eyebrow": "",
-        "heading": "Ready for the *next step?*",
+        "heading": "Ready to *press record?*",
         "text": "",
         "size": "normal",
-        "button_label": "Book a free call",
-        "button_link": "/pages/book-a-call",
-        "button2_label": "",
-        "button2_link": "",
+        "button_label": "Join the course",
+        "button_link": "/#join",
+        "button2_label": "Book a free call",
+        "button2_link": "/pages/book-a-call",
         "note": "",
         "glow": true,
         "line_above": true,

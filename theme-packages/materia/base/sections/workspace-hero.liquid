@@ -1,0 +1,116 @@
+{%- comment -%}
+  Notion templates: the opening of the page. The maker's face and name over
+  a large heading, a line on what the templates are, two buttons, three
+  short facts, then a wide picture of a template. Centred, no motion on
+  arrival, so nothing moves while the page is still loading.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+-%}
+<style>
+  #shopify-section-{{ sid }} .wsh { padding: {{ st.padding_top_mobile }}px 16px {{ st.padding_bottom_mobile }}px; background: {{ st.background }}; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .wsh { padding: {{ st.padding_top }}px 32px {{ st.padding_bottom }}px; } }
+  #shopify-section-{{ sid }} .wsh__inner { max-width: var(--page-width, 1310px); margin: 0 auto; }
+  #shopify-section-{{ sid }} .wsh__copy { max-width: 780px; margin: 0 auto; text-align: center; }
+  #shopify-section-{{ sid }} .wsh__by { display: inline-flex; align-items: center; gap: 10px; margin: 0 0 22px; padding: 5px 14px 5px 5px; border: 1px solid {{ st.line_color }}; border-radius: 999px; background: #fff; color: {{ st.ink }}; font-size: 14px; line-height: 1.2; text-decoration: none; }
+  #shopify-section-{{ sid }} .wsh__by img, #shopify-section-{{ sid }} .wsh__by span.wsh__ph { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; margin: 0; flex: none; background: #e9e7e1; }
+  #shopify-section-{{ sid }} .wsh__by b { font-weight: 600; }
+  #shopify-section-{{ sid }} .wsh__by i { font-style: normal; color: {{ st.muted }}; }
+  #shopify-section-{{ sid }} .wsh__h { margin: 0; color: {{ st.ink }}; font-family: var(--heading-font, inherit); font-weight: 700; letter-spacing: -0.03em; line-height: 1.04; font-size: {{ st.heading_size_mobile }}px; text-wrap: balance; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .wsh__h { font-size: {{ st.heading_size }}px; } }
+  #shopify-section-{{ sid }} .wsh__h mark { background: linear-gradient(transparent 62%, {{ st.accent }} 62%, {{ st.accent }} 92%, transparent 92%); color: inherit; padding: 0 2px; }
+  #shopify-section-{{ sid }} .wsh__t { max-width: 600px; margin: 20px auto 0; color: {{ st.muted }}; font-size: 17px; line-height: 1.6; }
+  #shopify-section-{{ sid }} .wsh__t p { margin: 0; }
+  #shopify-section-{{ sid }} .wsh__btns { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 30px; }
+  #shopify-section-{{ sid }} .wsh__btn { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 24px; border-radius: 10px; font-size: 15px; font-weight: 600; text-decoration: none; transition: background-color .2s ease, border-color .2s ease, transform .2s ease; }
+  #shopify-section-{{ sid }} .wsh__btn--a { background: {{ st.accent }}; color: {{ st.ink }}; }
+  #shopify-section-{{ sid }} .wsh__btn--a:hover { background: {{ st.accent_hover }}; }
+  #shopify-section-{{ sid }} .wsh__btn--b { background: #fff; color: {{ st.ink }}; border: 1px solid {{ st.line_color }}; }
+  #shopify-section-{{ sid }} .wsh__btn--b:hover { border-color: {{ st.ink }}; }
+  @media (max-width: 749px) { #shopify-section-{{ sid }} .wsh__btn { flex: 1 1 100%; } }
+  #shopify-section-{{ sid }} .wsh__facts { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 22px; margin: 22px 0 0; padding: 0; list-style: none; color: {{ st.muted }}; font-size: 13.5px; }
+  #shopify-section-{{ sid }} .wsh__facts li { display: inline-flex; align-items: center; gap: 7px; }
+  #shopify-section-{{ sid }} .wsh__facts svg { width: 15px; height: 15px; flex: none; color: {{ st.ink }}; }
+  #shopify-section-{{ sid }} .wsh__media { position: relative; margin: 48px auto 0; overflow: hidden; aspect-ratio: 50 / 31; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .wsh__media { margin-top: 64px; } }
+  #shopify-section-{{ sid }} .wsh__media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; margin: 0; }
+</style>
+
+<div class="wsh color-{{ color_scheme }}">
+  <div class="wsh__inner">
+    <div class="wsh__copy">
+      {%- if st.maker_name != blank -%}
+        <a class="wsh__by" href="{{ st.maker_link | default: '/pages/about' }}">
+          {%- if st.avatar != blank -%}
+            <img src="{{ st.avatar | image_url: width: 96 }}" width="30" height="30" alt="{{ st.maker_name | escape }}" fetchpriority="high">
+          {%- else -%}<span class="wsh__ph"></span>{%- endif -%}
+          <span><b>{{ st.maker_name | escape }}</b>{% if st.maker_note != blank %} <i>{{ st.maker_note | escape }}</i>{% endif %}</span>
+        </a>
+      {%- endif -%}
+      {%- if st.heading != blank -%}<h1 class="wsh__h">{{ st.heading }}</h1>{%- endif -%}
+      {%- if st.text != blank -%}<div class="wsh__t">{{ st.text }}</div>{%- endif -%}
+      <div class="wsh__btns">
+        {%- if st.button_label != blank -%}<a class="wsh__btn wsh__btn--a" href="{{ st.button_link | default: '/collections/all' }}">{{ st.button_label | escape }}</a>{%- endif -%}
+        {%- if st.button2_label != blank -%}<a class="wsh__btn wsh__btn--b" href="{{ st.button2_link | default: '/pages/about' }}">{{ st.button2_label | escape }}</a>{%- endif -%}
+      </div>
+      {%- if st.fact_1 != blank or st.fact_2 != blank or st.fact_3 != blank -%}
+        <ul class="wsh__facts">
+          {%- for f in (1..3) -%}
+            {%- assign k = 'fact_' | append: f -%}
+            {%- if st[k] != blank -%}<li><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>{{ st[k] | escape }}</li>{%- endif -%}
+          {%- endfor -%}
+        </ul>
+      {%- endif -%}
+    </div>
+    <div class="wsh__media">
+      {%- if st.image != blank -%}
+        <img src="{{ st.image | image_url: width: 1600 }}" srcset="{{ st.image | image_url: width: 800 }} 800w, {{ st.image | image_url: width: 1200 }} 1200w, {{ st.image | image_url: width: 1600 }} 1600w, {{ st.image | image_url: width: 2000 }} 2000w" sizes="(min-width: 1400px) 1310px, 94vw" width="{{ st.image.width | default: 2000 }}" height="{{ st.image.height | default: 1240 }}" alt="{{ st.image_alt | default: st.image.alt | escape }}" fetchpriority="high" decoding="async">
+      {%- endif -%}
+    </div>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Templates opening",
+  "tag": "section",
+  "class": "section sec__workspace-hero",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default-color-scheme" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#fbfbfa" },
+    { "type": "color", "id": "ink", "label": "Heading colour", "default": "#1f1f1d" },
+    { "type": "color", "id": "muted", "label": "Text colour", "default": "#5b5a55" },
+    { "type": "color", "id": "accent", "label": "Accent", "default": "#ffd84a" },
+    { "type": "color", "id": "accent_hover", "label": "Accent on hover", "default": "#f5c919" },
+    { "type": "color", "id": "line_color", "label": "Lines", "default": "#e2e0da" },
+    { "type": "header", "content": "Maker" },
+    { "type": "image_picker", "id": "avatar", "label": "Your photo", "info": "Shown in a small circle. A square photo of your face works best." },
+    { "type": "text", "id": "maker_name", "label": "Name", "default": "Your name" },
+    { "type": "text", "id": "maker_note", "label": "After the name", "default": "makes these templates" },
+    { "type": "url", "id": "maker_link", "label": "Link" },
+    { "type": "header", "content": "Text" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "info": "Mark words to underline them in the accent colour.", "default": "Templates that stay <mark>tidy</mark>" },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Say what you make and who it is for, in one or two lines.</p>" },
+    { "type": "text", "id": "button_label", "label": "First button", "default": "Browse the templates" },
+    { "type": "url", "id": "button_link", "label": "First button link" },
+    { "type": "text", "id": "button2_label", "label": "Second button", "default": "How they work" },
+    { "type": "url", "id": "button2_link", "label": "Second button link" },
+    { "type": "text", "id": "fact_1", "label": "Fact 1", "default": "Works on the free plan" },
+    { "type": "text", "id": "fact_2", "label": "Fact 2", "default": "Yours to change" },
+    { "type": "text", "id": "fact_3", "label": "Fact 3", "default": "Free updates" },
+    { "type": "header", "content": "Picture" },
+    { "type": "image_picker", "id": "image", "label": "Picture", "info": "Wide, about 50 by 31." },
+    { "type": "text", "id": "image_alt", "label": "Alt text" },
+    { "type": "header", "content": "Size and space" },
+    { "type": "range", "id": "heading_size", "label": "Heading size, desktop", "min": 32, "max": 88, "step": 2, "unit": "px", "default": 64 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size, phone", "min": 26, "max": 52, "step": 2, "unit": "px", "default": 38 },
+    { "type": "range", "id": "padding_top", "label": "Space above, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 80 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 48 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 44 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 32 }
+  ],
+  "presets": [ { "name": "Templates opening" } ]
+}
+{% endschema %}

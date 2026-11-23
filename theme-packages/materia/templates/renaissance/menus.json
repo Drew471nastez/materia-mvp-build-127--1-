@@ -1,0 +1,69 @@
+{
+  "main-menu": {
+    "title": "Main menu",
+    "links": [
+      {
+        "title": "Curriculum",
+        "url": "/#curriculum"
+      },
+      {
+        "title": "Bonuses",
+        "url": "/#bonuses"
+      },
+      {
+        "title": "Instructor",
+        "url": "/#instructor"
+      },
+      {
+        "title": "Pricing",
+        "url": "/#pricing"
+      },
+      {
+        "title": "Questions",
+        "url": "/#faq"
+      }
+    ]
+  },
+  "footer": {
+    "title": "The course",
+    "links": [
+      {
+        "title": "Curriculum",
+        "url": "/#curriculum"
+      },
+      {
+        "title": "Pricing",
+        "url": "/#pricing"
+      },
+      {
+        "title": "About Karim",
+        "url": "/pages/about"
+      },
+      {
+        "title": "All editions",
+        "url": "/collections/all"
+      }
+    ]
+  },
+  "footer-help": {
+    "title": "Help",
+    "links": [
+      {
+        "title": "Questions",
+        "url": "/pages/faqs"
+      },
+      {
+        "title": "Contact",
+        "url": "/pages/contact"
+      },
+      {
+        "title": "Journal",
+        "url": "/blogs/news"
+      },
+      {
+        "title": "Your basket",
+        "url": "/cart"
+      }
+    ]
+  }
+}

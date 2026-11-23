@@ -1,0 +1,215 @@
+{%- comment -%}
+  Author: the first screen of an author's site, after a book landing page.
+  A centred heading on a tinted band, then the book: its cover standing in
+  front of two open pages, a round badge on its corner and a soft dotted
+  halo behind. Under it a line on what the reader gets, the email field and
+  its button on one line (stacked on a phone), a small note, and a byline
+  with the author's round portrait. The tint stops halfway down the book.
+  The book rises in once on load; nothing moves with reduced motion.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign cover_ph = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 600 900%22%3E%3Crect width=%22600%22 height=%22900%22 fill=%22%231d2b4f%22/%3E%3Crect x=%2260%22 y=%22120%22 width=%22480%22 height=%2230%22 fill=%22%23f5f2ec%22/%3E%3Crect x=%2260%22 y=%22180%22 width=%22320%22 height=%2230%22 fill=%22%23f5f2ec%22/%3E%3C/svg%3E'
+-%}
+{%- assign ab_hf = settings.font_heading_google_family -%}
+{%- if ab_hf != blank and ab_hf != 'none' -%}<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family={{ ab_hf | replace: ' ', '+' }}:ital@1&display=swap">{%- endif -%}
+<style>
+  #shopify-section-{{ sid }} .abh {
+    --abh-band: {{ st.band_color | default: '#f5f2ec' }};
+    --abh-bg: {{ st.background | default: '#ffffff' }};
+    --abh-accent: {{ st.accent_color | default: '#f0643a' }};
+    --abh-btn: {{ st.button_color | default: '#1d2b4f' }};
+    --abh-btn-text: {{ st.button_text_color | default: '#ffffff' }};
+    --abh-dot: {{ st.dot_color | default: '#c9c3b6' }};
+    position: relative; overflow: hidden; text-align: center;
+    background: linear-gradient(to bottom, var(--abh-band) 0, var(--abh-band) {{ st.band_mobile | default: 430 }}px, var(--abh-bg) {{ st.band_mobile | default: 430 }}px);
+    padding: {{ st.padding_top_mobile | default: 40 }}px 20px {{ st.padding_bottom_mobile | default: 56 }}px;
+  }
+  @media (min-width: 750px) {
+    #shopify-section-{{ sid }} .abh {
+      background: linear-gradient(to bottom, var(--abh-band) 0, var(--abh-band) {{ st.band_desktop | default: 520 }}px, var(--abh-bg) {{ st.band_desktop | default: 520 }}px);
+      padding: {{ st.padding_top | default: 72 }}px 32px {{ st.padding_bottom | default: 96 }}px;
+    }
+  }
+  #shopify-section-{{ sid }} .abh__eyebrow { margin: 0 0 16px; color: var(--color-heading); font-size: 13px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
+  #shopify-section-{{ sid }} .abh__eyebrow span { display: inline-block; width: 22px; height: 2px; margin: 0 10px 4px; background: var(--abh-accent); vertical-align: middle; }
+  #shopify-section-{{ sid }} .abh__heading {
+    margin: 0 auto; max-width: 17ch; color: var(--color-heading);
+    font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 400);
+    font-size: {{ st.heading_size_mobile | default: 38 }}px; line-height: 1.06; letter-spacing: -0.01em; text-wrap: balance;
+  }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .abh__heading { font-size: {{ st.heading_size | default: 62 }}px; } }
+  #shopify-section-{{ sid }} .abh__heading em { font-style: italic; color: var(--abh-accent); }
+  #shopify-section-{{ sid }} .abh__stage { position: relative; width: min(100%, 560px); margin: 36px auto 0; height: 330px; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .abh__stage { width: 640px; height: 440px; margin-top: 48px; } }
+  #shopify-section-{{ sid }} .abh__halo {
+    position: absolute; left: 50%; top: 55%; width: 140%; height: 80%; transform: translate(-50%, -50%);
+    background-image: radial-gradient(var(--abh-dot) 1.4px, transparent 1.6px); background-size: 14px 14px;
+    -webkit-mask-image: radial-gradient(closest-side, #000 30%, transparent 100%); mask-image: radial-gradient(closest-side, #000 30%, transparent 100%);
+    opacity: 0.9; pointer-events: none;
+  }
+  #shopify-section-{{ sid }} .abh__page {
+    position: absolute; top: 30px; width: 40%; aspect-ratio: 5 / 7; margin: 0; background: #fff;
+    border-radius: 3px; box-shadow: 0 1px 2px rgba(20,22,28,0.08), 0 18px 40px -18px rgba(20,22,28,0.28); overflow: hidden;
+  }
+  #shopify-section-{{ sid }} .abh__page img { display: block; width: 100%; height: 100%; object-fit: cover; margin: 0; }
+  #shopify-section-{{ sid }} .abh__page--l { left: 4%; transform: rotate(-4deg); }
+  #shopify-section-{{ sid }} .abh__page--r { right: 4%; transform: rotate(4deg); }
+  #shopify-section-{{ sid }} .abh__book {
+    position: absolute; left: 50%; top: 0; width: 46%; aspect-ratio: 2 / 3; margin: 0; transform: translateX(-50%);
+    animation: abh-rise-{{ sid }} 0.9s 0.1s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .abh__book { width: 40%; } }
+  #shopify-section-{{ sid }} .abh__cover {
+    position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: 2px 6px 6px 2px; background: #1d2b4f;
+    box-shadow: 0 2px 4px rgba(20,22,28,0.12), 0 30px 60px -20px rgba(20,22,28,0.45), 0 14px 22px -12px rgba(20,22,28,0.3);
+  }
+  #shopify-section-{{ sid }} .abh__cover img { display: block; width: 100%; height: 100%; object-fit: cover; margin: 0; }
+  #shopify-section-{{ sid }} .abh__cover::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(90deg, rgba(0,0,0,0.28) 0, rgba(255,255,255,0.18) 2.2%, rgba(0,0,0,0.06) 4.5%, rgba(0,0,0,0) 9%, rgba(255,255,255,0.06) 60%, rgba(0,0,0,0.06) 100%);
+  }
+  #shopify-section-{{ sid }} .abh__badge {
+    position: absolute; z-index: 2; right: -14%; top: -5%; width: 88px; height: 88px; border-radius: 50%;
+    display: grid; place-items: center; padding: 10px; background: var(--abh-accent); color: {{ st.badge_text_color | default: '#ffffff' }};
+    font-size: 11.5px; font-weight: 700; line-height: 1.15; letter-spacing: 0.04em; text-transform: uppercase;
+    box-shadow: 0 10px 24px -10px rgba(20,22,28,0.45); transform: rotate(8deg);
+  }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .abh__badge { width: 104px; height: 104px; font-size: 12.5px; } }
+  #shopify-section-{{ sid }} .abh__lead { margin: 30px auto 0; max-width: 34ch; color: var(--color-heading); font-size: 18px; line-height: 1.45; font-weight: 600; text-wrap: balance; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .abh__lead { margin-top: 40px; font-size: 20px; } }
+  #shopify-section-{{ sid }} .abh__lead em { font-family: var(--heading-font, inherit); font-weight: 400; }
+  #shopify-section-{{ sid }} .abh__form { margin: 22px auto 0; max-width: 520px; }
+  #shopify-section-{{ sid }} .abh__row { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
+  @media (min-width: 600px) { #shopify-section-{{ sid }} .abh__row { flex-direction: row; gap: 0; } }
+  #shopify-section-{{ sid }} .abh__input { --input-height: 56px; height: 56px !important; min-height: 56px !important;
+    flex: 1 1 auto; min-width: 0; box-sizing: border-box; height: 56px !important; min-height: 56px; margin: 0; padding: 0 20px; font: inherit; font-size: 16px; color: var(--color-heading);
+    background: #fff; border: 1.5px solid {{ st.field_border | default: '#d9d4c8' }}; border-radius: {{ st.radius | default: 6 }}px;
+  }
+  @media (min-width: 600px) { #shopify-section-{{ sid }} .abh__input { border-right: 0; border-radius: {{ st.radius | default: 6 }}px 0 0 {{ st.radius | default: 6 }}px; } }
+  #shopify-section-{{ sid }} .abh__input:focus-visible { outline: 2px solid var(--abh-btn); outline-offset: 1px; }
+  #shopify-section-{{ sid }} .abh__submit {
+    flex: 0 0 auto; height: 56px; margin: 0; padding: 0 26px; border: 0; cursor: pointer; white-space: nowrap;
+    border-radius: {{ st.radius | default: 6 }}px; background: var(--abh-btn); color: var(--abh-btn-text);
+    font: inherit; font-size: 15.5px; font-weight: 700; transition: background-color 0.2s ease;
+  }
+  @media (min-width: 600px) { #shopify-section-{{ sid }} .abh__submit { border-radius: 0 {{ st.radius | default: 6 }}px {{ st.radius | default: 6 }}px 0; } }
+  #shopify-section-{{ sid }} .abh__submit:hover { background: color-mix(in srgb, var(--abh-btn) 84%, #000); }
+  #shopify-section-{{ sid }} .abh__note { margin: 12px 0 0; font-size: 13.5px; color: var(--color-text); }
+  #shopify-section-{{ sid }} .abh__msg { margin: 12px 0 0; font-size: 14px; color: var(--color-heading); }
+  #shopify-section-{{ sid }} .abh__hp, #shopify-section-{{ sid }} .abh__vh { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  #shopify-section-{{ sid }} .abh__by { display: inline-flex; align-items: center; gap: 12px; margin-top: 30px; text-align: left; }
+  #shopify-section-{{ sid }} .abh__avatar { width: 48px; height: 48px; flex: 0 0 48px; border-radius: 50%; overflow: hidden; background: #ddd; }
+  #shopify-section-{{ sid }} .abh__avatar img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: {{ st.avatar_focus | default: '50% 25%' }}; margin: 0; }
+  #shopify-section-{{ sid }} .abh__by-name { margin: 0; font-size: 15px; font-weight: 700; color: var(--color-heading); }
+  #shopify-section-{{ sid }} .abh__by-line { margin: 2px 0 0; font-size: 13.5px; color: var(--color-text); }
+  #shopify-section-{{ sid }} .abh__by-line a { color: inherit; text-underline-offset: 3px; }
+  @keyframes abh-rise-{{ sid }} { from { opacity: 0; transform: translate(-50%, 18px); } to { opacity: 1; transform: translate(-50%, 0); } }
+  @media (prefers-reduced-motion: reduce) { #shopify-section-{{ sid }} .abh__book { animation: none; } }
+</style>
+
+<div class="abh color-{{ color_scheme }}" data-section-id="{{ sid }}">
+  {%- if st.eyebrow != blank -%}<p class="abh__eyebrow"><span aria-hidden="true"></span>{{ st.eyebrow | escape }}<span aria-hidden="true"></span></p>{%- endif -%}
+  {%- if st.heading != blank -%}<h1 class="abh__heading">{{ st.heading }}</h1>{%- endif -%}
+
+  <div class="abh__stage">
+    <div class="abh__halo" aria-hidden="true"></div>
+    {%- if st.page_left != blank -%}<figure class="abh__page abh__page--l"><img src="{{ st.page_left | image_url: width: 520 }}" width="520" height="728" alt="" loading="eager" decoding="async"></figure>{%- endif -%}
+    {%- if st.page_right != blank -%}<figure class="abh__page abh__page--r"><img src="{{ st.page_right | image_url: width: 520 }}" width="520" height="728" alt="" loading="eager" decoding="async"></figure>{%- endif -%}
+    <figure class="abh__book">
+      <div class="abh__cover">
+        {%- if st.cover != blank -%}
+          <img src="{{ st.cover | image_url: width: 700 }}" srcset="{{ st.cover | image_url: width: 400 }} 400w, {{ st.cover | image_url: width: 700 }} 700w" sizes="(min-width: 750px) 260px, 46vw" width="700" height="1050" alt="{{ st.cover_alt | default: st.cover.alt | escape }}" loading="eager" fetchpriority="high" decoding="async">
+        {%- else -%}
+          <img src="{{ cover_ph }}" width="600" height="900" alt="">
+        {%- endif -%}
+      </div>
+      {%- if st.badge != blank -%}<span class="abh__badge">{{ st.badge | escape }}</span>{%- endif -%}
+    </figure>
+  </div>
+
+  {%- if st.lead != blank -%}<p class="abh__lead">{{ st.lead }}</p>{%- endif -%}
+  {%- if st.show_form -%}
+    {%- form 'customer', id: 'AuthorHeroForm-' | append: sid, class: 'abh__form', data-storelib-form: 'subscribe' -%}
+      <input type="hidden" name="contact[tags]" value="{{ st.tag | default: 'free-chapter' | escape }}">
+      <span hidden data-mt-words data-success-message="{{ st.success_text | default: 'Thank you. Chapter one is on its way.' | escape }}" data-invalid-message="{{ st.invalid_text | default: 'Enter a valid email address.' | escape }}"></span>
+      <div class="abh__hp" aria-hidden="true" data-mt-trap>
+        <label for="AuthorHeroHp-{{ sid }}">Leave this field empty</label>
+        <input id="AuthorHeroHp-{{ sid }}" type="text" name="company" tabindex="-1" autocomplete="off" pattern="^$" maxlength="0" value="">
+      </div>
+      <div class="abh__row">
+        <label class="abh__vh" for="AuthorHeroEmail-{{ sid }}">{{ st.email_placeholder | default: 'Email address' | escape }}</label>
+        <input class="abh__input" id="AuthorHeroEmail-{{ sid }}" type="email" name="contact[email]" required inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" maxlength="254" placeholder="{{ st.email_placeholder | default: 'Email address' | escape }}">
+        <button type="submit" class="abh__submit">{{ st.button_label | default: 'Send me chapter one' | escape }}</button>
+      </div>
+      {%- if form.posted_successfully? -%}<p class="abh__msg form-status--success">{{ st.success_text | default: 'Thank you. Chapter one is on its way.' | escape }}</p>{%- endif -%}
+      {%- if form.errors -%}<p class="abh__msg" role="alert">{{ st.invalid_text | default: 'Enter a valid email address.' | escape }}</p>{%- endif -%}
+    {%- endform -%}
+    {%- if st.note != blank -%}<p class="abh__note">{{ st.note | escape }}</p>{%- endif -%}
+  {%- endif -%}
+
+  {%- if st.by_name != blank -%}
+    <div class="abh__by">
+      {%- if st.avatar != blank -%}<span class="abh__avatar"><img src="{{ st.avatar | image_url: width: 160 }}" width="160" height="160" alt="" loading="lazy" decoding="async"></span>{%- endif -%}
+      <div>
+        <p class="abh__by-name">{{ st.by_name | escape }}</p>
+        {%- if st.by_line != blank -%}<p class="abh__by-line">{{ st.by_line }}</p>{%- endif -%}
+      </div>
+    </div>
+  {%- endif -%}
+</div>
+
+{% schema %}
+{
+  "name": "Author hero",
+  "tag": "section",
+  "class": "section sec__authorbook-hero",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default-color-scheme" },
+    { "type": "color", "id": "band_color", "label": "Top band colour", "default": "#f5f2ec" },
+    { "type": "color", "id": "background", "label": "Background under the band", "default": "#ffffff" },
+    { "type": "color", "id": "accent_color", "label": "Accent (italic words, badge)", "default": "#f0643a" },
+    { "type": "color", "id": "badge_text_color", "label": "Badge text", "default": "#ffffff" },
+    { "type": "color", "id": "dot_color", "label": "Dots behind the book", "default": "#c9c3b6" },
+    { "type": "header", "content": "Text" },
+    { "type": "text", "id": "eyebrow", "label": "Small label", "default": "The new book" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "info": "Words in italics take the accent colour.", "default": "Read more books and <em>remember</em> what is in them" },
+    { "type": "header", "content": "The book" },
+    { "type": "image_picker", "id": "cover", "label": "Cover", "info": "Portrait, 2 by 3." },
+    { "type": "text", "id": "cover_alt", "label": "Cover alt text" },
+    { "type": "image_picker", "id": "page_left", "label": "Page on the left", "info": "A page of the book, 5 by 7." },
+    { "type": "image_picker", "id": "page_right", "label": "Page on the right" },
+    { "type": "text", "id": "badge", "label": "Badge", "default": "First chapter free" },
+    { "type": "header", "content": "Email" },
+    { "type": "inline_richtext", "id": "lead", "label": "Line above the field", "default": "Read the first chapter free, sent to your inbox." },
+    { "type": "checkbox", "id": "show_form", "label": "Show the email field", "default": true },
+    { "type": "text", "id": "email_placeholder", "label": "Email field", "default": "Email address" },
+    { "type": "text", "id": "button_label", "label": "Button", "default": "Send me chapter one" },
+    { "type": "color", "id": "button_color", "label": "Button colour", "default": "#1d2b4f" },
+    { "type": "color", "id": "button_text_color", "label": "Button text colour", "default": "#ffffff" },
+    { "type": "color", "id": "field_border", "label": "Field border", "default": "#d9d4c8" },
+    { "type": "range", "id": "radius", "label": "Corners", "min": 0, "max": 28, "step": 1, "unit": "px", "default": 6 },
+    { "type": "text", "id": "tag", "label": "Tag for the people who sign up", "default": "free-chapter" },
+    { "type": "text", "id": "note", "label": "Small note", "default": "One email a week after that. Leave whenever you like." },
+    { "type": "text", "id": "success_text", "label": "Message after signing up", "default": "Thank you. Chapter one is on its way." },
+    { "type": "text", "id": "invalid_text", "label": "Message for an address that will not work", "default": "Enter a valid email address." },
+    { "type": "header", "content": "Byline" },
+    { "type": "image_picker", "id": "avatar", "label": "Author portrait" },
+    { "type": "text", "id": "avatar_focus", "label": "Portrait focus point (x% y%)", "default": "50% 25%" },
+    { "type": "text", "id": "by_name", "label": "Name", "default": "By the author" },
+    { "type": "inline_richtext", "id": "by_line", "label": "Line under the name", "default": "Writer of a weekly letter on reading" },
+    { "type": "header", "content": "Size and space" },
+    { "type": "range", "id": "heading_size", "label": "Heading size, desktop", "min": 36, "max": 96, "step": 2, "unit": "px", "default": 62 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size, phone", "min": 28, "max": 56, "step": 2, "unit": "px", "default": 38 },
+    { "type": "range", "id": "band_desktop", "label": "Band height, desktop", "min": 200, "max": 900, "step": 10, "unit": "px", "default": 520 },
+    { "type": "range", "id": "band_mobile", "label": "Band height, phone", "min": 160, "max": 700, "step": 10, "unit": "px", "default": 430 },
+    { "type": "range", "id": "padding_top", "label": "Space above, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 72 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 40 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 }
+  ],
+  "presets": [ { "name": "Author hero" } ]
+}
+{% endschema %}

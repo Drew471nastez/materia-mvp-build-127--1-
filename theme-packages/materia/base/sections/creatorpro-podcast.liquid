@@ -1,0 +1,114 @@
+{%- comment -%}
+  Content creator: the podcast. The show's square cover with its name and
+  the places to listen as small buttons on one side; on the other a
+  heading, a line and the latest episodes, each a play circle, a number, a
+  title and its length, every row a link. Stacked on a phone. The play
+  circle fills on hover.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+-%}
+<style>
+  #shopify-section-{{ sid }} .cpp { --cpp-accent: {{ st.accent_color | default: '#ff5a36' }}; background: {{ st.background | default: '#f5f4f0' }}; padding: {{ st.padding_top_mobile | default: 56 }}px 20px {{ st.padding_bottom_mobile | default: 56 }}px; scroll-margin-top: 80px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cpp { padding: {{ st.padding_top | default: 96 }}px 40px {{ st.padding_bottom | default: 96 }}px; } }
+  #shopify-section-{{ sid }} .cpp__inner { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 36px; align-items: center; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cpp__inner { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 80px; } }
+  #shopify-section-{{ sid }} .cpp__cover { position: relative; overflow: hidden; aspect-ratio: 1 / 1; border-radius: {{ st.radius | default: 24 }}px; background: #222; }
+  #shopify-section-{{ sid }} .cpp__cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: {{ st.image_focus | default: '50% 30%' }}; margin: 0; }
+    #shopify-section-{{ sid }} .cpp__show { position: absolute; z-index: 1; left: 16px; bottom: 16px; max-width: calc(100% - 32px); padding: 14px 18px 16px; border-radius: 14px; background: rgba(16,17,20,0.88); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); color: #fff; }
+  #shopify-section-{{ sid }} .cpp__show small { display: block; color: var(--cpp-accent); font-size: 12.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+  #shopify-section-{{ sid }} .cpp__show strong { color: #fff; display: block; margin-top: 4px; font-family: var(--heading-font, inherit); font-size: 28px; line-height: 1; letter-spacing: -0.03em; }
+  #shopify-section-{{ sid }} .cpp__where { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 0; padding: 0; list-style: none; }
+  #shopify-section-{{ sid }} .cpp__where a { display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; border-radius: 999px; background: #fff; color: var(--color-heading); font-size: 14px; font-weight: 600; text-decoration: none; border: 1px solid {{ st.line_color | default: '#e3e1da' }}; transition: border-color 0.2s ease; }
+  #shopify-section-{{ sid }} .cpp__where a:hover { border-color: var(--color-heading); }
+  #shopify-section-{{ sid }} .cpp__eyebrow { margin: 0 0 12px; color: var(--cpp-accent); font-size: 14px; font-weight: 700; }
+  #shopify-section-{{ sid }} .cpp__heading { margin: 0; color: var(--color-heading); font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 700); font-size: {{ st.heading_size_mobile | default: 34 }}px; line-height: 1.05; letter-spacing: -0.03em; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cpp__heading { font-size: {{ st.heading_size | default: 52 }}px; } }
+  #shopify-section-{{ sid }} .cpp__heading em { font-style: normal; color: var(--cpp-accent); }
+  #shopify-section-{{ sid }} .cpp__text { margin-top: 14px; max-width: 50ch; color: var(--color-text); font-size: 17px; line-height: 1.6; }
+  #shopify-section-{{ sid }} .cpp__text p { margin: 0; }
+  #shopify-section-{{ sid }} .cpp__list { list-style: none; margin: 28px 0 0; padding: 0; }
+  #shopify-section-{{ sid }} .cpp__ep { display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 16px 0; border-top: 1px solid {{ st.line_color | default: '#e3e1da' }}; color: inherit; text-decoration: none; }
+  #shopify-section-{{ sid }} li:last-child .cpp__ep { border-bottom: 1px solid {{ st.line_color | default: '#e3e1da' }}; }
+  #shopify-section-{{ sid }} .cpp__play { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; border: 1.5px solid var(--color-heading); color: var(--color-heading); transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease; }
+  #shopify-section-{{ sid }} .cpp__play svg { width: 16px; height: 16px; margin-left: 2px; }
+  #shopify-section-{{ sid }} .cpp__ep:hover .cpp__play { background: var(--cpp-accent); border-color: var(--cpp-accent); color: #fff; }
+  #shopify-section-{{ sid }} .cpp__num { display: block; color: var(--color-text); font-size: 13px; font-weight: 600; }
+  #shopify-section-{{ sid }} .cpp__title { display: block; margin-top: 2px; color: var(--color-heading); font-size: 17px; font-weight: 700; line-height: 1.3; }
+  #shopify-section-{{ sid }} .cpp__len { color: var(--color-text); font-size: 14px; white-space: nowrap; }
+</style>
+<div class="cpp color-{{ color_scheme }}" id="{{ st.anchor | default: 'podcast' | handleize }}" data-section-id="{{ sid }}">
+  <div class="cpp__inner">
+    <div>
+      <div class="cpp__cover">
+        {%- if st.image != blank -%}<img src="{{ st.image | image_url: width: 900 }}" srcset="{{ st.image | image_url: width: 500 }} 500w, {{ st.image | image_url: width: 900 }} 900w" sizes="(min-width: 990px) 440px, 92vw" width="900" height="900" alt="{{ st.image_alt | default: st.image.alt | escape }}" loading="lazy" decoding="async">{%- endif -%}
+        <div class="cpp__show">{%- if st.show_label != blank -%}<small>{{ st.show_label | escape }}</small>{%- endif -%}<strong>{{ st.show_name | escape }}</strong></div>
+      </div>
+      <ul class="cpp__where" role="list">
+        {%- if st.spotify != blank -%}<li><a href="{{ st.spotify }}" target="_blank" rel="noopener">Spotify</a></li>{%- endif -%}
+        {%- if st.apple != blank -%}<li><a href="{{ st.apple }}" target="_blank" rel="noopener">Apple Podcasts</a></li>{%- endif -%}
+        {%- if st.youtube != blank -%}<li><a href="{{ st.youtube }}" target="_blank" rel="noopener">YouTube</a></li>{%- endif -%}
+      </ul>
+    </div>
+    <div>
+      {%- if st.eyebrow != blank -%}<p class="cpp__eyebrow">{{ st.eyebrow | escape }}</p>{%- endif -%}
+      {%- if st.heading != blank -%}<h2 class="cpp__heading">{{ st.heading }}</h2>{%- endif -%}
+      {%- if st.text != blank -%}<div class="cpp__text">{{ st.text }}</div>{%- endif -%}
+      <ol class="cpp__list" role="list">
+        {%- for block in section.blocks -%}
+          <li {{ block.shopify_attributes }}>
+            <a class="cpp__ep" href="{{ block.settings.link | default: st.spotify | default: '/' }}"{% if block.settings.link contains 'http' or st.spotify contains 'http' %} target="_blank" rel="noopener"{% endif %}>
+              <span class="cpp__play" aria-hidden="true"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 2.5v11l9-5.5z"/></svg></span>
+              <span><span class="cpp__num">{{ block.settings.number | escape }}</span><span class="cpp__title">{{ block.settings.title | escape }}</span></span>
+              <span class="cpp__len">{{ block.settings.length | escape }}</span>
+            </a>
+          </li>
+        {%- endfor -%}
+      </ol>
+    </div>
+  </div>
+</div>
+{% schema %}
+{
+  "name": "Creator podcast",
+  "tag": "section",
+  "class": "section sec__creatorpro-podcast",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default-color-scheme" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#f5f4f0" },
+    { "type": "color", "id": "accent_color", "label": "Accent", "default": "#ff5a36" },
+    { "type": "color", "id": "line_color", "label": "Lines", "default": "#e3e1da" },
+    { "type": "range", "id": "radius", "label": "Cover corners", "min": 0, "max": 40, "step": 2, "unit": "px", "default": 24 },
+    { "type": "text", "id": "anchor", "label": "Name for links to this section", "default": "podcast" },
+    { "type": "image_picker", "id": "image", "label": "Cover picture" },
+    { "type": "text", "id": "image_alt", "label": "Alt text" },
+    { "type": "text", "id": "image_focus", "label": "Focus point (x% y%)", "default": "50% 30%" },
+    { "type": "text", "id": "show_label", "label": "Small line on the cover", "default": "The podcast" },
+    { "type": "text", "id": "show_name", "label": "Show name", "default": "Show name" },
+    { "type": "url", "id": "spotify", "label": "Spotify" },
+    { "type": "url", "id": "apple", "label": "Apple Podcasts" },
+    { "type": "url", "id": "youtube", "label": "YouTube" },
+    { "type": "text", "id": "eyebrow", "label": "Small label", "default": "Podcast" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "Listen on a <em>walk</em>" },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Say what the show is about and when new episodes come out.</p>" },
+    { "type": "range", "id": "heading_size", "label": "Heading size, desktop", "min": 28, "max": 80, "step": 2, "unit": "px", "default": 52 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size, phone", "min": 24, "max": 52, "step": 2, "unit": "px", "default": 34 },
+    { "type": "range", "id": "padding_top", "label": "Space above, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 }
+  ],
+  "blocks": [
+    { "type": "episode", "name": "Episode", "settings": [
+      { "type": "text", "id": "number", "label": "Number", "default": "Episode 1" },
+      { "type": "text", "id": "title", "label": "Title", "default": "Episode title" },
+      { "type": "text", "id": "length", "label": "Length", "default": "42 min" },
+      { "type": "url", "id": "link", "label": "Link" }
+    ] }
+  ],
+  "max_blocks": 8,
+  "presets": [ { "name": "Creator podcast", "blocks": [ { "type": "episode" }, { "type": "episode" }, { "type": "episode" } ] } ]
+}
+{% endschema %}

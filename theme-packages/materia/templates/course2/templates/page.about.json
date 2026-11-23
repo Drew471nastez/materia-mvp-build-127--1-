@@ -1,153 +1,468 @@
 {
   "sections": {
     "teacher": {
-      "type": "course2-split",
+      "type": "course2-teacher",
       "settings": {
-        "tag": "Your teacher",
-        "heading": "Mara Lind,",
-        "heading_accent": "head barista",
-        "text": "<p>Nine years behind the bar in two cafés, the last three training every new barista they hired. This course is what she shows them, filmed at a home machine instead of a café one.</p>",
-        "image": "shopify://shop_images/course2-teacher-bar.webp",
-        "image_alt": "A smiling barista in a mustard beanie holding a portafilter behind a café counter",
-        "image_side": "left",
-        "image_ratio": "9 / 10",
-        "image_focus": "right",
-        "anchor": "teacher",
-        "accent": "#12704f",
-        "padding_top": 48
+        "background": "#ffffff",
+        "accent": "#e5372a",
+        "ink": "#0d0d0f",
+        "muted": "#4a4d55",
+        "line_color": "#e3e4e8",
+        "anchor": "",
+        "image": "shopify://shop_images/course2-jonas-sofa.webp",
+        "image_alt": "Jonas Wilde playing on a grey sofa by the window",
+        "name": "Jonas Wilde",
+        "role": "Guitar teacher",
+        "main_heading": true,
+        "eyebrow": "Your teacher",
+        "heading": "Hi, I'm Jonas. I teach the way I wish I had been <em>taught</em>",
+        "text": "<p>I gave up guitar twice as a teenager: too much theory, too little music. The third time I learned songs first and the rest followed.</p><p>I have taught beginners for twelve years, in a music school and then one to one. This course is the order I teach in, filmed so you can see every finger.</p>",
+        "fact_1_value": "12 years",
+        "fact_1_label": "Teaching beginners",
+        "fact_2_value": "1:1",
+        "fact_2_label": "Feedback on your videos",
+        "fact_3_value": "Every week",
+        "fact_3_label": "New play along tracks",
+        "button_label": "Start learning",
+        "button_link": "/#buy",
+        "youtube": "https://www.youtube.com",
+        "instagram": "https://www.instagram.com",
+        "tiktok": "https://www.tiktok.com",
+        "heading_size": 54,
+        "padding_top": 56,
+        "padding_bottom": 96
+      }
+    },
+    "skills": {
+      "type": "scrolling-text",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "section_width": "full_width",
+        "separator": "dot",
+        "item_gap": 40,
+        "repeat_count": 3,
+        "base_font": "heading",
+        "text_size": 34,
+        "font_weight": "600",
+        "letter_spacing": -1,
+        "separator_size": 50,
+        "duration": 50,
+        "padding_top": 22,
+        "padding_bottom": 22,
+        "text_size_mobile": 22,
+        "item_gap_mobile": 22,
+        "padding_top_mobile": 14,
+        "padding_bottom_mobile": 14,
+        "use_custom_text_color": true,
+        "text_color": "#ffffff",
+        "separator_color": "#ff6a5c"
       },
       "blocks": {
-        "row_1": {
-          "type": "row",
+        "word_1": {
+          "type": "word",
           "settings": {
-            "icon": "pin",
-            "title": "Where she learned",
-            "text": "<p>Two busy cafés, a roastery training bar and thousands of flat whites. Write your own story here.</p>"
+            "text": "First chords"
           }
         },
-        "row_2": {
-          "type": "row",
+        "word_2": {
+          "type": "word",
           "settings": {
-            "icon": "chat",
-            "title": "How she teaches",
-            "text": "<p>One idea per lesson, shown at full speed, then slowly. Every number is on screen.</p>"
+            "text": "Strumming"
           }
         },
-        "row_3": {
-          "type": "row",
+        "word_3": {
+          "type": "word",
           "settings": {
-            "icon": "home",
-            "title": "What she uses at home",
-            "text": "<p>A single boiler machine, a hand grinder and a scale. Nothing you need to buy to start.</p>"
+            "text": "Riffs"
+          }
+        },
+        "word_4": {
+          "type": "word",
+          "settings": {
+            "text": "Power chords"
+          }
+        },
+        "word_5": {
+          "type": "word",
+          "settings": {
+            "text": "Barre chords"
+          }
+        },
+        "word_6": {
+          "type": "word",
+          "settings": {
+            "text": "Fingerpicking"
+          }
+        },
+        "word_7": {
+          "type": "word",
+          "settings": {
+            "text": "Rhythm"
+          }
+        },
+        "word_8": {
+          "type": "word",
+          "settings": {
+            "text": "Whole songs"
           }
         }
       },
       "block_order": [
-        "row_1",
-        "row_2",
-        "row_3"
+        "word_1",
+        "word_2",
+        "word_3",
+        "word_4",
+        "word_5",
+        "word_6",
+        "word_7",
+        "word_8"
       ]
     },
-    "filmed": {
-      "type": "course2-split",
+    "how": {
+      "type": "image-with-text-steps",
       "settings": {
-        "tag": "How it was filmed",
-        "heading": "At a home machine,",
-        "heading_accent": "not a café one",
-        "text": "<p>Every lesson was shot in a kitchen, on the kind of machine and grinder most people own. What you see is what you will get at home.</p>",
-        "image": "shopify://shop_images/course2-chemex-home.webp",
-        "image_alt": "Ground coffee poured from a jar into a glass brewer on a scale, plants behind",
-        "image_side": "right",
-        "accent": "#12704f"
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "image_position": "left",
+        "image_width_pct": 48,
+        "gap_desktop": 72,
+        "image": "shopify://shop_images/course2-student-laptop.webp",
+        "image_alt": "A student learning a chord from a lesson on her laptop, sitting on the floor with an acoustic guitar",
+        "image_aspect_desktop": "4 / 5",
+        "image_aspect": "4 / 5",
+        "image_radius": 16,
+        "step_style": "numbered",
+        "marker_size": 36,
+        "custom_colors": true,
+        "marker_color": "#e5372a",
+        "marker_text_color": "#ffffff",
+        "line_color": "#d7d9de",
+        "step_title_color": "#0d0d0f",
+        "step_desc_color": "#4a4d55",
+        "step_title_size": 19,
+        "step_desc_size": 15,
+        "button_radius": 8,
+        "padding_top": 96,
+        "padding_bottom": 96
       },
       "blocks": {
-        "row_1": {
-          "type": "row",
+        "eyebrow_1": {
+          "type": "eyebrow",
           "settings": {
-            "icon": "clock",
-            "title": "Short on purpose",
-            "text": "<p>Most lessons are under ten minutes, so one fits before work.</p>"
+            "text": "How it works",
+            "custom_style": true,
+            "color": "#e5372a",
+            "size": 13
           }
         },
-        "row_2": {
-          "type": "row",
+        "heading_1": {
+          "type": "heading",
           "settings": {
-            "icon": "book",
-            "title": "Notes for every lesson",
-            "text": "<p>The numbers from each lesson on one printable card.</p>"
+            "text": "Twenty minutes a day, in the right order",
+            "tag": "h2",
+            "size_desktop": 46,
+            "size_mobile": 32
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Most beginners stop because they do not know what to practise next. Each day in the course tells you.</p>",
+            "size": 16
+          }
+        },
+        "step_1": {
+          "type": "step",
+          "settings": {
+            "title": "Watch a short lesson",
+            "description": "<p>Five to eight minutes, filmed close up so you can see both hands. Slow it down or loop a part.</p>"
+          }
+        },
+        "step_2": {
+          "type": "step",
+          "settings": {
+            "title": "Play along",
+            "description": "<p>A track at three speeds for every lesson. Start slow, move up when it feels easy.</p>"
+          }
+        },
+        "step_3": {
+          "type": "step",
+          "settings": {
+            "title": "Tick it off",
+            "description": "<p>Your plan moves on by itself. Miss a day and it picks up where you left off.</p>"
+          }
+        },
+        "step_4": {
+          "type": "step",
+          "settings": {
+            "title": "Send a video, get feedback",
+            "description": "<p>With feedback, record yourself and Jonas replies with a short video on what to change.</p>"
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "label": "Start learning",
+            "url": "/#buy"
           }
         }
       },
       "block_order": [
-        "row_1",
-        "row_2"
+        "eyebrow_1",
+        "heading_1",
+        "subheading_1",
+        "step_1",
+        "step_2",
+        "step_3",
+        "step_4",
+        "button_1"
       ]
     },
-    "facts": {
-      "type": "course2-facts",
+    "students": {
+      "type": "testimonials",
       "settings": {
-        "accent": "#12704f"
+        "color_scheme": "default",
+        "section_width": "container",
+        "display_mode": "carousel",
+        "show_quote_mark": false,
+        "show_rating": true,
+        "columns": 3,
+        "column_gap": 20,
+        "header_alignment": "left",
+        "card_style": "boxed",
+        "card_align": "left",
+        "card_padding": 28,
+        "card_content_gap": 16,
+        "card_radius": 14,
+        "avatar_shape": "circle",
+        "avatar_size": 48,
+        "show_arrow": false,
+        "carousel_pagination": "show",
+        "pagination_style": "progress",
+        "pagination_position": "left",
+        "pagination_spacing": 28,
+        "enable_custom_colors": true,
+        "card_bg": "#f2f3f5",
+        "card_border_color": "rgba(0,0,0,0)",
+        "quote_color": "#0d0d0f",
+        "enable_custom_typography": true,
+        "quote_size": 17,
+        "infinite": false,
+        "reveal": false,
+        "padding_top": 96,
+        "padding_bottom": 96,
+        "header_spacing_desktop": 36,
+        "columns_mobile": 1.15,
+        "header_spacing_mobile": 24
       },
       "blocks": {
-        "fact_1": {
-          "type": "fact",
+        "eyebrow_1": {
+          "type": "eyebrow",
           "settings": {
-            "icon": "list",
-            "figure": "7",
-            "label": "modules, bean to cup"
+            "enabled": true,
+            "text": "Students"
           }
         },
-        "fact_2": {
-          "type": "fact",
+        "heading_1": {
+          "type": "heading",
           "settings": {
-            "icon": "play",
-            "figure": "46",
-            "label": "video lessons"
+            "enabled": true,
+            "text": "What students play after a month"
           }
         },
-        "fact_3": {
-          "type": "fact",
+        "subheading_1": {
+          "type": "subheading",
           "settings": {
-            "icon": "clock",
-            "figure": "6h",
-            "label": "of video, in short parts"
+            "enabled": true,
+            "text": "<p>Sample quotes and photos, to show the layout. Replace them with your students' words.</p>"
           }
         },
-        "fact_4": {
-          "type": "fact",
+        "testimonial_1": {
+          "type": "testimonial",
           "settings": {
-            "icon": "shield",
-            "figure": "30",
-            "label": "days to ask for a refund"
+            "quote": "<p>I bought a guitar at forty and it sat in the corner for a year. Two months in, I played a whole song for my kids.</p>",
+            "rating": 5,
+            "name": "Sample name",
+            "role": "Started at 40",
+            "avatar": "shopify://shop_images/course2-student-1.webp"
+          }
+        },
+        "testimonial_2": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>The play along tracks are the trick. Slow, medium, real speed. I never felt stuck.</p>",
+            "rating": 5,
+            "name": "Sample name",
+            "role": "Electric, beginner",
+            "avatar": "shopify://shop_images/course2-student-2.webp"
+          }
+        },
+        "testimonial_3": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>I finally got the F chord to ring. The barre module explains it like nobody else did.</p>",
+            "rating": 5,
+            "name": "Sample name",
+            "role": "Self taught, came back",
+            "avatar": "shopify://shop_images/course2-student-3.webp"
+          }
+        },
+        "testimonial_4": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Twenty minutes before work. The plan tells me what to do, so I just do it.</p>",
+            "rating": 5,
+            "name": "Sample name",
+            "role": "Acoustic, 3 months in",
+            "avatar": "shopify://shop_images/course2-student-4.webp"
+          }
+        },
+        "testimonial_5": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>The video feedback was worth it. Jonas spotted my thumb in the first reply.</p>",
+            "rating": 5,
+            "name": "Sample name",
+            "role": "With feedback",
+            "avatar": "shopify://shop_images/course2-student-5.webp"
+          }
+        },
+        "testimonial_6": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>I play at our Sunday barbecues now. Badly, but happily.</p>",
+            "rating": 5,
+            "name": "Sample name",
+            "role": "Finished the course",
+            "avatar": "shopify://shop_images/course2-student-6.webp"
           }
         }
       },
       "block_order": [
-        "fact_1",
-        "fact_2",
-        "fact_3",
-        "fact_4"
+        "eyebrow_1",
+        "heading_1",
+        "subheading_1",
+        "testimonial_1",
+        "testimonial_2",
+        "testimonial_3",
+        "testimonial_4",
+        "testimonial_5",
+        "testimonial_6"
+      ]
+    },
+    "faq": {
+      "type": "faq-pro",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "first_item_open": true,
+        "open_icon": "plus",
+        "content_alignment": "left",
+        "max_content_width": 1180,
+        "col_gap": 72,
+        "gap_header_to_items": 32,
+        "gap_between_items": 10,
+        "item_padding_y": 20,
+        "item_padding_x": 22,
+        "item_radius": 12,
+        "show_dividers": false,
+        "enable_custom_style": true,
+        "card_bg": "#f2f3f5",
+        "card_border_color": "rgba(0,0,0,0)",
+        "question_color": "#0d0d0f",
+        "icon_color": "#e5372a",
+        "answer_color": "#4a4d55",
+        "heading_color": "#0d0d0f",
+        "question_size_desktop": 17,
+        "answer_size_desktop": 16,
+        "reveal": false,
+        "padding_top": 96,
+        "padding_bottom": 96
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Questions before you start",
+            "tag": "h2",
+            "size_enable": true,
+            "size_desktop": 44,
+            "size_mobile": 30,
+            "weight_enable": true,
+            "weight": "700"
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Anything else? <a href=\"/pages/contact\">Write to us</a> and we answer within a day.</p>"
+          }
+        },
+        "faq_item_1": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do I need to read music?",
+            "answer": "<p>No. Everything is shown on video and in chord boxes and simple tab. You will pick up what you need as you go.</p>"
+          }
+        },
+        "faq_item_2": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Acoustic or electric?",
+            "answer": "<p>Either. Every lesson works on both. The riffs module has a short part on electric sounds you can skip on acoustic.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How long until I can play a song?",
+            "answer": "<p>Most students play their first two chord song in the second week, and a full song by the end of the first month with twenty minutes a day.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "I am left handed. Will it work?",
+            "answer": "<p>Yes. Every chord sheet comes in a left handed version, and the videos show which hand does what.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1",
+        "faq_item_1",
+        "faq_item_2",
+        "faq_item_3",
+        "faq_item_4"
       ]
     },
     "cta": {
       "type": "course2-cta",
       "settings": {
-        "heading": "Tomorrow morning, make the good one",
-        "text": "<p>46 lessons, the recipe cards and a 30 day refund, for one payment.</p>",
-        "button_label": "Buy the course",
+        "heading": "Pick up the guitar tonight",
+        "text": "<p>The first lesson takes eight minutes. Sixty four lessons, twenty songs and a 30 day refund, for one payment.</p>",
+        "button_label": "Start learning",
         "to_checkout": true,
         "button_link": "/collections/all",
-        "note": "Lifetime access. Watch on any device.",
-        "panel_color": "#12704f",
-        "button_text_color": "#12704f",
-        "padding_bottom": 72
+        "note": "30 day refund. Lifetime access.",
+        "heading_size": 52,
+        "background": "#ffffff",
+        "panel_color": "#0d0d0f",
+        "heading_color": "#ffffff",
+        "text_color": "#c9cbd1",
+        "button_color": "#e5372a",
+        "button_text_color": "#ffffff",
+        "padding_top": 24,
+        "padding_bottom": 96
       }
     }
   },
   "order": [
     "teacher",
-    "filmed",
-    "facts",
+    "skills",
+    "how",
+    "students",
+    "faq",
     "cta"
   ]
 }

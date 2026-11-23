@@ -391,6 +391,116 @@
         "padding_top": 80,
         "padding_bottom": 96
       }
+    },
+    "buyers": {
+      "type": "workspace-reviews",
+      "settings": {
+        "background": "#fbfbfa",
+        "card_background": "#ffffff",
+        "eyebrow": "From buyers",
+        "heading": "What buyers say",
+        "text": "<p>Sample quotes and photos, to show the layout. Replace them with what your buyers write back.</p>",
+        "padding_top": 96,
+        "padding_bottom": 96
+      },
+      "blocks": {
+        "review_1": {
+          "type": "review",
+          "settings": {
+            "quote": "<p>I used to keep invoices in a spreadsheet and projects in my head. Now Friday admin is one page and a cup of tea.</p>",
+            "rating": 5,
+            "name": "Sample name",
+            "role": "Freelance designer",
+            "avatar": "shopify://shop_images/workspace-buyer-1.webp"
+          }
+        },
+        "review_2": {
+          "type": "review",
+          "settings": {
+            "quote": "<p>The shopping list fills itself from the week's meals. That alone was worth it.</p>",
+            "rating": 5,
+            "name": "Sample name",
+            "role": "Bought Meal planner",
+            "avatar": "shopify://shop_images/workspace-buyer-2.webp"
+          }
+        },
+        "review_3": {
+          "type": "review",
+          "settings": {
+            "quote": "<p>Clean enough that I actually open it. Every other template I bought was too clever.</p>",
+            "rating": 5,
+            "name": "Sample name",
+            "role": "Freelance writer",
+            "avatar": "shopify://shop_images/workspace-buyer-3.webp"
+          }
+        },
+        "review_4": {
+          "type": "review",
+          "settings": {
+            "quote": "<p>I changed half the columns in the first hour and nothing broke.</p>",
+            "rating": 5,
+            "name": "Sample name",
+            "role": "Bought Home budget",
+            "avatar": "shopify://shop_images/workspace-buyer-4.webp"
+          }
+        },
+        "review_5": {
+          "type": "review",
+          "settings": {
+            "quote": "<p>The start page is the bit I did not know I needed. It told me what to fill in first.</p>",
+            "rating": 5,
+            "name": "Sample name",
+            "role": "Bought Study planner",
+            "avatar": "shopify://shop_images/workspace-buyer-5.webp"
+          }
+        },
+        "review_6": {
+          "type": "review",
+          "settings": {
+            "quote": "<p>Bought one, came back for two more. They look like they belong together.</p>",
+            "rating": 5,
+            "name": "Sample name",
+            "role": "Bought Reading log",
+            "avatar": "shopify://shop_images/workspace-buyer-6.webp"
+          }
+        }
+      },
+      "block_order": [
+        "review_1",
+        "review_2",
+        "review_3",
+        "review_4",
+        "review_5",
+        "review_6"
+      ]
+    },
+    "maker": {
+      "type": "workspace-creator",
+      "settings": {
+        "background": "#f2f1ee",
+        "image": "shopify://shop_images/workspace-adda-desk.webp",
+        "image_alt": "Adda Lind at her desk with a laptop and a notebook",
+        "image_ratio": "4 / 3",
+        "image_focus": "center",
+        "image_position": "left",
+        "avatar": "shopify://shop_images/workspace-adda-avatar.webp",
+        "name": "Adda Lind",
+        "role": "Designer, makes the Wellkept templates",
+        "heading": "Made and used by Adda Lind",
+        "text": "<p>Every template here started as a page for my own week. I keep using them, so I keep improving them, and you get each new version by email.</p>",
+        "button_label": "More about me",
+        "button_link": "/pages/about",
+        "instagram": "https://instagram.com",
+        "tiktok": "https://tiktok.com",
+        "youtube": "https://youtube.com",
+        "pinterest": "https://pinterest.com",
+        "heading_size": 40,
+        "heading_size_mobile": 30,
+        "padding_top": 88,
+        "padding_bottom": 88,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56
+      }
     }
   },
   "order": [
@@ -398,6 +508,8 @@
     "main",
     "how_to_use_1",
     "licence",
+    "buyers",
+    "maker",
     "related"
   ]
 }

@@ -1,0 +1,77 @@
+{%- comment -%}
+  Coach creator: where people have seen you. A serif heading over a row of
+  names set as wordmarks, each in one of six type styles, so a row of press
+  reads like a row of logos without needing logo files. A block can carry a
+  logo picture instead. On a phone the row wraps into a tidy grid.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+-%}
+<style>
+  #shopify-section-{{ sid }} .cpp { background: {{ st.background | default: '#16120f' }}; color: {{ st.logo_color | default: '#f3ece4' }}; padding: {{ st.padding_mobile | default: 48 }}px 20px; text-align: center; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cpp { padding: {{ st.padding | default: 64 }}px 40px; } }
+  #shopify-section-{{ sid }} .cpp__title { margin: 0 0 30px; color: {{ st.heading_color | default: '#ffffff' }}; font-family: var(--heading-font, serif); font-weight: 400; font-size: 30px; line-height: 1.1; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cpp__title { font-size: 40px; margin-bottom: 38px; } }
+  #shopify-section-{{ sid }} .cpp__row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 26px 16px; align-items: center; max-width: 1160px; margin: 0 auto; padding: 0; list-style: none; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .cpp__row { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cpp__row { display: flex; flex-wrap: wrap; justify-content: center; gap: 22px 56px; } }
+  #shopify-section-{{ sid }} .cpp__item { display: flex; justify-content: center; align-items: center; min-height: 40px; opacity: .86; transition: opacity .25s ease; }
+  #shopify-section-{{ sid }} .cpp__item:hover { opacity: 1; }
+  #shopify-section-{{ sid }} .cpp__item img { max-height: 34px; width: auto; max-width: 150px; }
+  #shopify-section-{{ sid }} .cpp__w { white-space: nowrap; line-height: 1; }
+  #shopify-section-{{ sid }} .cpp__w--serif { font-family: 'Times New Roman', Georgia, serif; font-weight: 700; font-size: 26px; letter-spacing: -.02em; }
+  #shopify-section-{{ sid }} .cpp__w--italic { font-family: var(--heading-font, serif); font-style: italic; font-size: 30px; }
+  #shopify-section-{{ sid }} .cpp__w--caps { font-family: var(--body-font, sans-serif); font-weight: 800; font-size: 19px; letter-spacing: .02em; text-transform: uppercase; }
+  #shopify-section-{{ sid }} .cpp__w--wide { font-family: var(--body-font, sans-serif); font-weight: 500; font-size: 14px; letter-spacing: .38em; text-transform: uppercase; }
+  #shopify-section-{{ sid }} .cpp__w--box { font-family: var(--body-font, sans-serif); font-weight: 800; font-size: 14px; letter-spacing: .08em; text-transform: uppercase; padding: 6px 8px 5px; border: 2px solid currentColor; }
+  #shopify-section-{{ sid }} .cpp__w--round { font-family: var(--body-font, sans-serif); font-weight: 700; font-size: 22px; letter-spacing: -.03em; text-transform: lowercase; }
+  #shopify-section-{{ sid }} .cpp__note { margin: 26px 0 0; color: {{ st.note_color | default: '#a39a90' }}; font-size: 13px; }
+</style>
+<section data-own-size class="cpp">
+  {%- if st.heading != blank -%}<h2 class="cpp__title">{{ st.heading | escape }}</h2>{%- endif -%}
+  <ul class="cpp__row">
+    {%- for block in section.blocks -%}
+      <li class="cpp__item" {{ block.shopify_attributes }}>
+        {%- if block.settings.logo != blank -%}
+          <img src="{{ block.settings.logo | image_url: width: 300 }}" alt="{{ block.settings.name | escape }}" width="{{ block.settings.logo.width | default: 150 }}" height="{{ block.settings.logo.height | default: 34 }}" loading="lazy">
+        {%- else -%}
+          <span class="cpp__w cpp__w--{{ block.settings.style }}">{{ block.settings.name | escape }}</span>
+        {%- endif -%}
+      </li>
+    {%- endfor -%}
+  </ul>
+  {%- if st.note != blank -%}<p class="cpp__note">{{ st.note | escape }}</p>{%- endif -%}
+</section>
+
+{% schema %}
+{
+  "name": "Coach creator press row",
+  "tag": "section",
+  "class": "coachpro-press-section",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "You might have seen me on" },
+    { "type": "text", "id": "note", "label": "Small line under the row", "default": "Placeholder names. Put the shows and papers that featured you here." },
+    { "type": "color", "id": "background", "label": "Background", "default": "#16120f" },
+    { "type": "color", "id": "heading_color", "label": "Heading", "default": "#ffffff" },
+    { "type": "color", "id": "logo_color", "label": "Names", "default": "#f3ece4" },
+    { "type": "color", "id": "note_color", "label": "Small line", "default": "#a39a90" },
+    { "type": "range", "id": "padding", "label": "Space above and below on a computer", "min": 24, "max": 120, "step": 4, "unit": "px", "default": 64 },
+    { "type": "range", "id": "padding_mobile", "label": "Space above and below on a phone", "min": 16, "max": 96, "step": 4, "unit": "px", "default": 48 }
+  ],
+  "blocks": [
+    { "type": "outlet", "name": "Name", "limit": 9, "settings": [
+      { "type": "text", "id": "name", "label": "Name", "default": "Magazine" },
+      { "type": "select", "id": "style", "label": "Set as", "default": "serif", "options": [ { "value": "serif", "label": "Newspaper serif" }, { "value": "italic", "label": "Italic" }, { "value": "caps", "label": "Bold capitals" }, { "value": "wide", "label": "Spaced capitals" }, { "value": "box", "label": "Boxed" }, { "value": "round", "label": "Lower case" } ] },
+      { "type": "image_picker", "id": "logo", "label": "Logo", "info": "Optional. Shown instead of the name, in its own colours." }
+    ] }
+  ],
+  "presets": [ { "name": "Coach creator press row", "category": "Coach creator", "blocks": [
+    { "type": "outlet", "settings": { "name": "The Journal", "style": "serif" } },
+    { "type": "outlet", "settings": { "name": "Podcast", "style": "caps" } },
+    { "type": "outlet", "settings": { "name": "Magazine", "style": "italic" } },
+    { "type": "outlet", "settings": { "name": "Radio", "style": "box" } }
+  ] } ]
+}
+{% endschema %}

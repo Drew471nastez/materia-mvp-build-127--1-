@@ -2,19 +2,47 @@
   "main-menu": {
     "title": "Main menu",
     "links": [
-      { "title": "The course", "url": "/collections/all" },
-      { "title": "About", "url": "/pages/about" },
-      { "title": "Questions", "url": "/pages/faqs" }
+      {
+        "title": "The course",
+        "url": "/#join"
+      },
+      {
+        "title": "About",
+        "url": "/pages/about"
+      },
+      {
+        "title": "Questions",
+        "url": "/pages/faqs"
+      },
+      {
+        "title": "Book a call",
+        "url": "/pages/book-a-call"
+      }
     ]
   },
   "footer": {
     "title": "Footer",
     "links": [
-      { "title": "About", "url": "/pages/about" },
-      { "title": "Questions", "url": "/pages/faqs" },
-      { "title": "Book a call", "url": "/pages/book-a-call" },
-      { "title": "Contact", "url": "/pages/contact" },
-      { "title": "Journal", "url": "/blogs/news" }
+      {
+        "title": "About",
+        "url": "/pages/about"
+      },
+      {
+        "title": "Questions",
+        "url": "/pages/faqs"
+      },
+      {
+        "title": "Book a call",
+        "url": "/pages/book-a-call"
+      },
+      {
+        "title": "Contact",
+        "url": "/pages/contact"
+      },
+      {
+        "title": "Journal",
+        "url": "/blogs/news"
+      }
     ]
   }
 }

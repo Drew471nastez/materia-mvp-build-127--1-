@@ -1,0 +1,67 @@
+{%- comment -%}
+  Author: the book in a few plain facts. A thin row between two hairlines,
+  each fact a large figure over a short label, divided by vertical lines on
+  a computer and two by two on a phone. Nothing moves.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+-%}
+<style>
+  #shopify-section-{{ sid }} .abf { background: {{ st.background | default: '#ffffff' }}; padding: {{ st.padding_top_mobile | default: 8 }}px 20px {{ st.padding_bottom_mobile | default: 40 }}px; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .abf { padding: {{ st.padding_top | default: 8 }}px 32px {{ st.padding_bottom | default: 72 }}px; } }
+  #shopify-section-{{ sid }} .abf__list {
+    list-style: none; margin: 0 auto; padding: 0; max-width: 1080px;
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-top: 1px solid {{ st.line_color | default: '#e6e1d6' }}; border-bottom: 1px solid {{ st.line_color | default: '#e6e1d6' }};
+  }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .abf__list { grid-template-columns: repeat({{ section.blocks.size | at_least: 1 | at_most: 5 }}, minmax(0, 1fr)); } }
+  #shopify-section-{{ sid }} .abf__item { padding: 22px 12px; text-align: center; }
+  #shopify-section-{{ sid }} .abf__item:nth-child(2n) { border-left: 1px solid {{ st.line_color | default: '#e6e1d6' }}; }
+  #shopify-section-{{ sid }} .abf__item:nth-child(n+3) { border-top: 1px solid {{ st.line_color | default: '#e6e1d6' }}; }
+  @media (min-width: 750px) {
+    #shopify-section-{{ sid }} .abf__item { padding: 30px 16px; }
+    #shopify-section-{{ sid }} .abf__item:nth-child(n) { border-top: 0; border-left: 1px solid {{ st.line_color | default: '#e6e1d6' }}; }
+    #shopify-section-{{ sid }} .abf__item:first-child { border-left: 0; }
+  }
+  #shopify-section-{{ sid }} .abf__figure { display: block; color: var(--color-heading); font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 400); font-size: 34px; line-height: 1; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .abf__figure { font-size: 44px; } }
+  #shopify-section-{{ sid }} .abf__label { display: block; margin-top: 8px; color: var(--color-text); font-size: 14px; line-height: 1.35; }
+</style>
+<div class="abf color-{{ color_scheme }}" data-section-id="{{ sid }}">
+  {%- if section.blocks.size > 0 -%}
+    <ul class="abf__list" role="list">
+      {%- for block in section.blocks -%}
+        <li class="abf__item" {{ block.shopify_attributes }}>
+          <span class="abf__figure">{{ block.settings.figure | escape }}</span>
+          <span class="abf__label">{{ block.settings.label | escape }}</span>
+        </li>
+      {%- endfor -%}
+    </ul>
+  {%- endif -%}
+</div>
+{% schema %}
+{
+  "name": "Author book facts",
+  "tag": "section",
+  "class": "section sec__authorbook-facts",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default-color-scheme" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#ffffff" },
+    { "type": "color", "id": "line_color", "label": "Lines", "default": "#e6e1d6" },
+    { "type": "range", "id": "padding_top", "label": "Space above, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 8 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 72 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 8 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 40 }
+  ],
+  "blocks": [
+    { "type": "fact", "name": "Fact", "settings": [
+      { "type": "text", "id": "figure", "label": "Figure", "default": "12" },
+      { "type": "text", "id": "label", "label": "Label", "default": "short chapters" }
+    ] }
+  ],
+  "max_blocks": 5,
+  "presets": [ { "name": "Author book facts", "blocks": [ { "type": "fact" }, { "type": "fact", "settings": { "figure": "240", "label": "pages" } }, { "type": "fact", "settings": { "figure": "6 h", "label": "audiobook" } }, { "type": "fact", "settings": { "figure": "3", "label": "formats" } } ] } ]
+}
+{% endschema %}

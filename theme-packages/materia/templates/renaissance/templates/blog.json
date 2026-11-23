@@ -1,0 +1,180 @@
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "height": "adapt",
+        "alignment": "center",
+        "padding_top": 66,
+        "color_scheme": "",
+        "reset_spacing": true,
+        "section_width": "container",
+        "padding_bottom": 55,
+        "overlay_opacity": 0
+      },
+      "blocks": {
+        "heading_xwFKKa": {
+          "type": "heading",
+          "settings": {
+            "page_title": "",
+            "header_size": "medium",
+            "vertical_gap": 14,
+            "heading_font_size": 36,
+            "enable_heading_color": false
+          }
+        },
+        "description_YRWpkt": {
+          "type": "description",
+          "settings": {
+            "description": "<p>Short notes on using AI in a small business, one idea each, to try this week.</p>",
+            "enable_custom_style": false,
+            "description_font_size": 16
+          }
+        }
+      },
+      "block_order": [
+        "heading_xwFKKa",
+        "description_YRWpkt"
+      ]
+    },
+    "main": {
+      "type": "main-blog",
+      "settings": {
+        "layout": "grid",
+        "row_gap": 64,
+        "show_date": true,
+        "column_gap": 40,
+        "margin_top": 32,
+        "title_size": 22,
+        "badge_width": 70,
+        "image_ratio": "adapt",
+        "title_hover": "underline",
+        "badge_height": 30,
+        "custom_ratio": "16:10",
+        "hover_effect": "lift",
+        "image_radius": 14,
+        "show_excerpt": true,
+        "excerpt_lines": 2,
+        "items_per_row": 3,
+        "items_to_show": 12,
+        "margin_bottom": 0,
+        "readmore_line": "style",
+        "readmore_text": "Read the note",
+        "readmore_type": "underline",
+        "reset_spacing": true,
+        "section_width": "fluid_container",
+        "show_category": true,
+        "show_readmore": true,
+        "button_show_more": "Load more",
+        "content_alignment": "left",
+        "badge_border_radius": 19,
+        "enable_custom_style": true,
+        "badge_text_font_size": 14,
+        "items_per_row_mobile": 1,
+        "badge_vertical_position": 16,
+        "badge_horizontal_position": 16
+      },
+      "name": "Main blog"
+    },
+    "cta": {
+      "type": "renaissance-cta",
+      "settings": {
+        "background": "#07080d",
+        "accent": "#3d5afe",
+        "gold": "#f2bd4f",
+        "text_color": "#a7adbf",
+        "anchor": "join",
+        "show_mark": true,
+        "heading": "Make this the year AI <em>works for you</em>",
+        "text": "<p>Join today and start module one tonight. Six weeks from now the busywork runs itself and you know exactly what to hand over next.</p>",
+        "button_label": "Join Digital Renaissance",
+        "button_link": "/#pricing",
+        "link_label": "Watch module one free",
+        "link_url": "#open-form-access",
+        "note": "30 day refund. Lifetime access and updates.",
+        "padding_top": 96
+      }
+    },
+    "access_popup": {
+      "type": "form-modal",
+      "settings": {
+        "form_key": "access",
+        "sends_to": "subscribe",
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "accent_color": "#f2bd4f",
+        "text_align": "left",
+        "width": 480,
+        "corners": "round",
+        "field_style": "outline",
+        "show_icons": true,
+        "overlay_opacity": 70,
+        "success_heading": "Check your inbox",
+        "success_text": "<p>Module one is on its way. If nothing arrives in a few minutes, look in spam.</p>",
+        "error_text": "That did not send. Check your email address and try again.",
+        "editor_view": "form",
+        "close_label": "Close"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "eyebrow": "Free preview",
+            "heading": "Watch module one *free*",
+            "size": 30
+          }
+        },
+        "text_1": {
+          "type": "text",
+          "settings": {
+            "text": "<p>Six short lessons on choosing your tools and writing prompts that work. The link arrives by email.</p>"
+          }
+        },
+        "field_1": {
+          "type": "field",
+          "settings": {
+            "kind": "name",
+            "label": "First name",
+            "required": false
+          }
+        },
+        "field_2": {
+          "type": "field",
+          "settings": {
+            "kind": "email",
+            "label": "Email address",
+            "required": true
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "label": "Send me module one",
+            "arrow": true
+          }
+        },
+        "note_1": {
+          "type": "note",
+          "settings": {
+            "icon": "lock",
+            "text": "Your email stays private.",
+            "small": "<p>One email with the link, then the occasional useful one. Unsubscribe any time.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "text_1",
+        "field_1",
+        "field_2",
+        "button_1",
+        "note_1"
+      ]
+    }
+  },
+  "order": [
+    "heading",
+    "main",
+    "cta",
+    "access_popup"
+  ]
+}

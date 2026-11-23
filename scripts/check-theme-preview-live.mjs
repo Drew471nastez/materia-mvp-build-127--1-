@@ -168,7 +168,11 @@ try {
     const c = await p.createCDPSession()
     await c.send("Emulation.setCPUThrottlingRate", { rate })
   }
-  const frameOf = (p) => p.frames().find((f) => f.url().includes("/theme-previews/"))
+  /* The page on show: each of the website's pages has a frame of its own (theme-preview.tsx, GOING TO ANOTHER PAGE), and the one in front is the one that counts. */
+  const frameOf = (p) => {
+    const all = p.frames().filter((f) => f.url().includes("/theme-previews/") && !f.detached)
+    return all[all.length - 1]
+  }
   const stage = (p) =>
     p.evaluate(() => {
       const live = document.querySelector("[data-preview-live]")
@@ -291,6 +295,8 @@ try {
     expect(!!early && early.src === `/theme-previews/${SLUG}/index.html`, "the preview is the template's own website from its first frame", JSON.stringify(early && { src: early.src }))
     expect(!!early && early.pictures === 0 && early.loader < 0.05 && early.frameBg === "rgb(255, 255, 255)", "no picture first: the frame's own white, the loading line still clear", JSON.stringify(early && { pictures: early.pictures, loader: early.loader, frame: early.frameBg }))
     await p.waitForFunction(() => document.querySelector("[data-preview-live]")?.getAttribute("data-preview-live") === "ready", { timeout: 30_000 }).catch(() => null)
+    /* The fade is 220ms on the page's clock, which runs slow while the website arrives at a quarter speed. */
+    await p.waitForFunction(() => +getComputedStyle(document.querySelector("[data-preview-live]")).opacity === 1, { timeout: 5_000 }).catch(() => null)
     await sleep(600)
     const rec = await stop(p)
     const readyAt = rec.find((r) => r.live > 0)?.t ?? null
@@ -320,7 +326,9 @@ try {
       const linkTo = (frame, part) => frame.evaluate((q) => [...document.querySelectorAll(`a[href*='${q}']`)].find((a) => a.getBoundingClientRect().width > 0)?.getAttribute("href") ?? [...document.querySelectorAll(`a[href*='${q}']`)][0]?.getAttribute("href") ?? null, part)
       const follow = async (href) => {
         await f.evaluate((h) => [...document.querySelectorAll("a")].find((a) => a.getAttribute("href") === h).click(), href)
-        await sleep(2500)
+        /* The next page is drawn behind this one and comes up once it has drawn; then it is the only frame. */
+        await p.waitForFunction((h) => { const fs = document.querySelectorAll("[data-preview-live-site]"); return fs.length === 1 && fs[0].getAttribute("src") === h }, { timeout: 15_000 }, href).catch(() => null)
+        await sleep(300)
         f = frameOf(p)
       }
       if (!(await linkTo(f, "/products/"))) await follow(await linkTo(f, "/collections/"))

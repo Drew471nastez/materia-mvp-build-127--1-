@@ -1,0 +1,164 @@
+{%- comment -%}
+  Materia Themes. Creator (Sample packs template): who makes the sounds. A
+  picture with a soft grain and the accent colour bleeding in from one
+  corner, beside a heading, a few lines, short facts (a number and what it
+  counts) and the store's social links from Theme settings › Social media.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default'
+  assign pt = s.padding_top | default: 88
+  assign pb = s.padding_bottom | default: 88
+  assign socials = ''
+  if s.show_social
+    if settings.instagram != blank
+      assign socials = socials | append: 'Instagram|' | append: settings.instagram | append: '~'
+    endif
+    if settings.youtube != blank
+      assign socials = socials | append: 'YouTube|' | append: settings.youtube | append: '~'
+    endif
+    if settings.tiktok != blank
+      assign socials = socials | append: 'TikTok|' | append: settings.tiktok | append: '~'
+    endif
+    if settings.spotify != blank
+      assign socials = socials | append: 'Spotify|' | append: settings.spotify | append: '~'
+    endif
+    if settings.soundcloud != blank
+      assign socials = socials | append: 'SoundCloud|' | append: settings.soundcloud | append: '~'
+    endif
+  endif
+  assign social_list = socials | split: '~'
+-%}
+<style>
+  #shopify-section-{{ sid }} .scr { padding-block: {{ pt | times: 0.65 | round }}px {{ pb | times: 0.65 | round }}px; }
+  #shopify-section-{{ sid }} .scr__grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; align-items: center; }
+  #shopify-section-{{ sid }} .scr__media { position: relative; margin: 0; border-radius: 20px; overflow: hidden; aspect-ratio: 4 / 3; background: rgba(var(--color-heading-rgb), .05); isolation: isolate; }
+  #shopify-section-{{ sid }} .scr__media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  #shopify-section-{{ sid }} .scr__media::before { content: ""; position: absolute; inset: 0; z-index: 1; background: radial-gradient(120% 90% at 100% 100%, color-mix(in srgb, var(--scr-accent, var(--btn-primary-bg-color)) 45%, transparent), transparent 60%), linear-gradient(180deg, transparent 55%, rgba(0,0,0,.35)); mix-blend-mode: screen; pointer-events: none; }
+  #shopify-section-{{ sid }} .scr__grain { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 2; opacity: .16; mix-blend-mode: overlay; pointer-events: none; }
+  #shopify-section-{{ sid }} .scr__badge { position: absolute; left: 16px; bottom: 16px; z-index: 3; display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 999px; background: rgba(0,0,0,.6); color: #fff; font-size: 13px; font-weight: 600; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+  #shopify-section-{{ sid }} .scr__badge svg { width: 18px; height: 12px; fill: none; stroke: var(--scr-accent, var(--btn-primary-bg-color)); stroke-width: 2.2; stroke-linecap: round; }
+  #shopify-section-{{ sid }} .scr__eyebrow { margin: 0 0 12px; font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--scr-accent, var(--btn-primary-bg-color)); }
+  #shopify-section-{{ sid }} .scr__heading { margin: 0; font-size: {{ s.heading_size_mobile | default: 32 }}px; line-height: 1.06; }
+  #shopify-section-{{ sid }} .scr__text { margin: 16px 0 0; font-size: 16px; line-height: 1.6; color: var(--color-text); max-width: 54ch; }
+  #shopify-section-{{ sid }} .scr__text > :first-child { margin-top: 0; }
+  #shopify-section-{{ sid }} .scr__text > :last-child { margin-bottom: 0; }
+  #shopify-section-{{ sid }} .scr__text strong { color: var(--color-heading); }
+  #shopify-section-{{ sid }} .scr__facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; margin: 26px 0 0; padding: 0; list-style: none; border-top: 1px solid rgba(var(--color-heading-rgb), .1); }
+  #shopify-section-{{ sid }} .scr__fact { padding: 16px 12px 16px 0; border-bottom: 1px solid rgba(var(--color-heading-rgb), .1); }
+  #shopify-section-{{ sid }} .scr__fact b { display: block; font-size: 26px; line-height: 1.1; font-weight: 800; letter-spacing: -.02em; color: var(--color-heading); font-family: var(--font-heading-family, inherit); }
+  #shopify-section-{{ sid }} .scr__fact span { display: block; margin-top: 4px; font-size: 13px; color: var(--color-text); }
+  #shopify-section-{{ sid }} .scr__foot { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 22px; margin-top: 26px; }
+  #shopify-section-{{ sid }} .scr__social { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  #shopify-section-{{ sid }} .scr__social a { display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid rgba(var(--color-heading-rgb), .16); color: var(--color-heading); font-size: 14px; font-weight: 600; text-decoration: none; transition: background-color .2s ease, border-color .2s ease, color .2s ease; }
+  #shopify-section-{{ sid }} .scr__social a:hover { background: rgb(var(--color-heading-rgb)); color: var(--color-background); border-color: transparent; }
+  #shopify-section-{{ sid }} .scr__social svg { width: 10px; height: 10px; }
+  @media (min-width: 750px) {
+    #shopify-section-{{ sid }} .scr { padding-block: {{ pt }}px {{ pb }}px; }
+    #shopify-section-{{ sid }} .scr__heading { font-size: {{ s.heading_size | default: 48 }}px; }
+    #shopify-section-{{ sid }} .scr__facts { grid-template-columns: repeat({{ section.blocks.size | at_most: 4 | at_least: 1 }}, minmax(0, 1fr)); }
+  }
+  @media (min-width: 990px) {
+    #shopify-section-{{ sid }} .scr__grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 72px; }
+    #shopify-section-{{ sid }} .scr__grid--right .scr__media { order: 2; }
+    #shopify-section-{{ sid }} .scr__media { aspect-ratio: 5 / 4; }
+  }
+</style>
+<div class="scr section color-{{ color_scheme }} gradient"{% if s.accent != blank %} style="--scr-accent: {{ s.accent }};"{% endif %}>
+  <div class="{{ s.section_width | default: 'container' }}">
+    <div class="scr__grid{% if s.image_position == 'right' %} scr__grid--right{% endif %}">
+      <figure class="scr__media">
+        {%- if s.image != blank -%}
+          {{ s.image | image_url: width: 1400 | image_tag: loading: 'lazy', widths: '600, 900, 1200, 1400', sizes: '(min-width: 990px) 50vw, 100vw', alt: s.image_alt | default: '' }}
+        {%- else -%}
+          {{ 'lifestyle-1' | placeholder_svg_tag: 'placeholder-svg' }}
+        {%- endif -%}
+        <svg class="scr__grain" aria-hidden="true" focusable="false"><filter id="scr-n-{{ sid }}"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .9 0"/></filter><rect width="100%" height="100%" filter="url(#scr-n-{{ sid }})"/></svg>
+        {%- if s.badge != blank -%}<figcaption class="scr__badge"><svg viewBox="0 0 18 12" aria-hidden="true" focusable="false"><path d="M1.5 5v2M5 2v8M8.5 4v4M12 1v10M15.5 3.5v5"/></svg>{{ s.badge | escape }}</figcaption>{%- endif -%}
+      </figure>
+      <div class="scr__copy">
+        {%- if s.eyebrow != blank -%}<p class="scr__eyebrow">{{ s.eyebrow | escape }}</p>{%- endif -%}
+        {%- if s.heading != blank -%}<h2 class="scr__heading h2">{{ s.heading }}</h2>{%- endif -%}
+        {%- if s.text != blank -%}<div class="scr__text rte">{{ s.text }}</div>{%- endif -%}
+        {%- if section.blocks.size > 0 -%}
+          <ul class="scr__facts" role="list">
+            {%- for block in section.blocks -%}
+              <li class="scr__fact" {{ block.shopify_attributes }}><b>{{ block.settings.value | escape }}</b><span>{{ block.settings.label | escape }}</span></li>
+            {%- endfor -%}
+          </ul>
+        {%- endif -%}
+        {%- if s.button_label != blank or social_list.size > 0 -%}
+          <div class="scr__foot">
+            {%- if s.button_label != blank -%}<a class="button inline-block btn-primary" data-theme-button="primary" href="{{ s.button_link | default: routes.all_products_collection_url }}">{{ s.button_label | escape }}</a>{%- endif -%}
+            {%- if social_list.size > 0 -%}
+              <ul class="scr__social" role="list">
+                {%- for item in social_list -%}
+                  {%- assign parts = item | split: '|' -%}
+                  {%- if parts.size == 2 -%}<li><a href="{{ parts[1] }}" target="_blank" rel="noopener">{{ parts[0] }}<svg viewBox="0 0 10 10" aria-hidden="true" focusable="false"><path d="M2.5 7.5l5-5M3.5 2.5h4v4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></a></li>{%- endif -%}
+                {%- endfor -%}
+              </ul>
+            {%- endif -%}
+          </div>
+        {%- endif -%}
+      </div>
+    </div>
+  </div>
+</div>
+{% schema %}
+{
+  "name": "Creator",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    { "type": "image_picker", "id": "image", "label": "Picture" },
+    { "type": "text", "id": "image_alt", "label": "Picture description" },
+    { "type": "text", "id": "badge", "label": "Label on the picture" },
+    { "type": "select", "id": "image_position", "label": "Picture side", "default": "left", "options": [{ "value": "left", "label": "Left" }, { "value": "right", "label": "Right" }] },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "Who makes the sounds" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "Made in our own studio" },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Say who you are, what you make and why.</p>" },
+    { "type": "text", "id": "button_label", "label": "Button" },
+    { "type": "url", "id": "button_link", "label": "Button link" },
+    { "type": "checkbox", "id": "show_social", "label": "Show social links", "default": true, "info": "From Theme settings › Social media." },
+    { "type": "header", "content": "Look" },
+    { "type": "range", "id": "heading_size", "label": "Heading size", "min": 20, "max": 72, "step": 2, "unit": "px", "default": 48 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size on phones", "min": 18, "max": 48, "step": 2, "unit": "px", "default": 32 },
+    { "type": "color", "id": "accent", "label": "Accent colour", "info": "Left empty, the button colour." },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default" },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "default": "container",
+      "options": [
+        { "value": "container", "label": "Default" },
+        { "value": "fluid_container", "label": "Fluid container" },
+        { "value": "stretch_width", "label": "Stretched" }
+      ]
+    },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 88 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 88 }
+  ],
+  "blocks": [
+    {
+      "type": "fact",
+      "name": "Fact",
+      "limit": 4,
+      "settings": [
+        { "type": "text", "id": "value", "label": "Number or short word", "default": "24 bit" },
+        { "type": "text", "id": "label", "label": "What it counts", "default": "WAV files" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Creator",
+      "blocks": [
+        { "type": "fact", "settings": { "value": "24 bit", "label": "WAV files" } },
+        { "type": "fact", "settings": { "value": "100%", "label": "Royalty free" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,255 @@
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "height": "adapt",
+        "alignment": "center",
+        "padding_top": 88,
+        "padding_bottom": 40,
+        "color_scheme": "default",
+        "reset_spacing": true,
+        "section_width": "fluid_container",
+        "overlay_opacity": 0
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "Questions",
+            "header_size": "default",
+            "vertical_gap": 12,
+            "heading_font_size": 52,
+            "enable_heading_color": false
+          }
+        },
+        "description_1": {
+          "type": "description",
+          "settings": {
+            "description": "<p>About the course, the live calls, payment and refunds.</p>",
+            "enable_custom_style": false,
+            "description_font_size": 17
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_1"
+      ]
+    },
+    "faq": {
+      "type": "renaissance-faq",
+      "settings": {
+        "background": "#07080d",
+        "accent": "#3d5afe",
+        "gold": "#f2bd4f",
+        "text_color": "#a7adbf",
+        "anchor": "faq",
+        "eyebrow": "Questions",
+        "heading": "Get your questions <em>answered</em>",
+        "more": "<p>Something else? <a href=\"/pages/contact\">Write to us</a>, a person answers within a day.</p>"
+      },
+      "blocks": {
+        "question_1": {
+          "type": "question",
+          "settings": {
+            "group": "General",
+            "question": "Do I need to be technical?",
+            "answer": "<p>No. If you can write an email and use a spreadsheet, you can do everything in the course. The automation lessons are click by click.</p>"
+          }
+        },
+        "question_2": {
+          "type": "question",
+          "settings": {
+            "group": "General",
+            "question": "Which AI tools do I need?",
+            "answer": "<p>One general AI assistant on a paid plan, and the email, calendar and invoicing tools you already use. Module one helps you choose, and nothing in the course depends on a single app.</p>"
+          }
+        },
+        "question_3": {
+          "type": "question",
+          "settings": {
+            "group": "General",
+            "question": "How long do I have access?",
+            "answer": "<p>For as long as the course exists, including every update.</p>"
+          }
+        },
+        "question_4": {
+          "type": "question",
+          "settings": {
+            "group": "Pricing",
+            "question": "Can I pay in parts?",
+            "answer": "<p>Yes. Choose three monthly payments at checkout. The total is a little higher than paying once.</p>"
+          }
+        },
+        "question_5": {
+          "type": "question",
+          "settings": {
+            "group": "Pricing",
+            "question": "What is the refund policy?",
+            "answer": "<p>Email us within 30 days of joining and we refund you in full. You keep the prompt library.</p>"
+          }
+        },
+        "question_6": {
+          "type": "question",
+          "settings": {
+            "group": "Pricing",
+            "question": "Can my team join?",
+            "answer": "<p>Yes. The Team edition covers up to five people. For more, <a href=\"/pages/contact\">write to us</a>.</p>"
+          }
+        },
+        "question_7": {
+          "type": "question",
+          "settings": {
+            "group": "Program",
+            "question": "How much time does it take each week?",
+            "answer": "<p>About two hours: roughly an hour of lessons and an hour setting things up in your own business. The live calls are optional.</p>"
+          }
+        },
+        "question_8": {
+          "type": "question",
+          "settings": {
+            "group": "Program",
+            "question": "When are the live calls?",
+            "answer": "<p>Thursdays at 6 pm London time for six weeks, recorded for anyone who cannot make it.</p>"
+          }
+        },
+        "question_9": {
+          "type": "question",
+          "settings": {
+            "group": "Program",
+            "question": "Will this work for my kind of business?",
+            "answer": "<p>If your business sends emails, answers customers and keeps records, yes. Students run shops, studios, clinics, agencies and practices.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "question_1",
+        "question_2",
+        "question_3",
+        "question_4",
+        "question_5",
+        "question_6",
+        "question_7",
+        "question_8",
+        "question_9"
+      ]
+    },
+    "guarantee": {
+      "type": "renaissance-guarantee",
+      "settings": {
+        "background": "#07080d",
+        "accent": "#3d5afe",
+        "gold": "#f2bd4f",
+        "text_color": "#a7adbf",
+        "anchor": "guarantee",
+        "days": "30",
+        "unit": "days",
+        "ring_text": "Money back guarantee",
+        "heading": "Try it for <em>30 days</em>, risk free",
+        "text": "<p>Do the first two modules. If the course is not saving you time, email us within 30 days of joining and we refund every cent. No forms and no questions. You keep the prompt library.</p>"
+      }
+    },
+    "join": {
+      "type": "renaissance-cta",
+      "settings": {
+        "background": "#07080d",
+        "accent": "#3d5afe",
+        "gold": "#f2bd4f",
+        "text_color": "#a7adbf",
+        "anchor": "join",
+        "show_mark": true,
+        "heading": "Make this the year AI <em>works for you</em>",
+        "text": "<p>Join today and start module one tonight. Six weeks from now the busywork runs itself and you know exactly what to hand over next.</p>",
+        "button_label": "Join Digital Renaissance",
+        "button_link": "/#pricing",
+        "link_label": "Watch module one free",
+        "link_url": "#open-form-access",
+        "note": "30 day refund. Lifetime access and updates.",
+        "padding_top": 96
+      }
+    },
+    "access_popup": {
+      "type": "form-modal",
+      "settings": {
+        "form_key": "access",
+        "sends_to": "subscribe",
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "accent_color": "#f2bd4f",
+        "text_align": "left",
+        "width": 480,
+        "corners": "round",
+        "field_style": "outline",
+        "show_icons": true,
+        "overlay_opacity": 70,
+        "success_heading": "Check your inbox",
+        "success_text": "<p>Module one is on its way. If nothing arrives in a few minutes, look in spam.</p>",
+        "error_text": "That did not send. Check your email address and try again.",
+        "editor_view": "form",
+        "close_label": "Close"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "eyebrow": "Free preview",
+            "heading": "Watch module one *free*",
+            "size": 30
+          }
+        },
+        "text_1": {
+          "type": "text",
+          "settings": {
+            "text": "<p>Six short lessons on choosing your tools and writing prompts that work. The link arrives by email.</p>"
+          }
+        },
+        "field_1": {
+          "type": "field",
+          "settings": {
+            "kind": "name",
+            "label": "First name",
+            "required": false
+          }
+        },
+        "field_2": {
+          "type": "field",
+          "settings": {
+            "kind": "email",
+            "label": "Email address",
+            "required": true
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "label": "Send me module one",
+            "arrow": true
+          }
+        },
+        "note_1": {
+          "type": "note",
+          "settings": {
+            "icon": "lock",
+            "text": "Your email stays private.",
+            "small": "<p>One email with the link, then the occasional useful one. Unsubscribe any time.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "text_1",
+        "field_1",
+        "field_2",
+        "button_1",
+        "note_1"
+      ]
+    }
+  },
+  "order": [
+    "heading",
+    "faq",
+    "guarantee",
+    "join",
+    "access_popup"
+  ]
+}

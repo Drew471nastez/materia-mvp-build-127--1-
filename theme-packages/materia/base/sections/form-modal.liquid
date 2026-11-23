@@ -1,0 +1,763 @@
+{%- comment -%}
+  Materia Themes. Form popup.
+  A sign up, a contact form, a free download or a "get access" form that
+  waits, hidden, until a button or link opens it: a window in the middle of
+  the screen on a computer, a sheet from the bottom on a phone.
+
+  How it opens. Any link on the page whose address is #open-form-<form
+  name> (the "Form name" setting, "contact" unless changed), a link picked
+  as this section under "Sections on this page" (#section-<id>), or any
+  element with data-open-form="<form name>". A page opened at
+  /any-page#open-form-<form name> opens it on arrival.
+
+  Where it sends. "Sign up" goes to Emails > Subscribers with the name;
+  "Message" goes to Emails > Messages, with the phone and any extra fields
+  written into the message. Both are the theme's own {% form %} posted to
+  the website's /contact, the same route and checks as the newsletter and
+  contact sections; the script sends it in the background and shows the
+  thank you in the window. A Storelib form chosen in "Storelib form" is
+  shown instead of the fields (lib/storelib-theme/compat/storelib-form.ts).
+
+  The window is a native <dialog> opened with showModal(), so the rest of
+  the page is inert; Tab stays inside, Escape, the dimmed page and the close
+  button close it, the page does not scroll behind it, and the focus goes
+  back to what opened it. It moves with transform and opacity only, and not
+  at all with reduced motion. In the builder it is drawn in the page, open,
+  so every block can be clicked and edited; nothing is sent from there.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign design = request.design_mode
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign key = st.form_key | default: 'contact' | strip | downcase | handleize
+  if key == blank
+    assign key = 'contact'
+  endif
+  assign kind = st.sends_to | default: 'subscribe'
+  assign form_type = 'customer'
+  if kind == 'contact'
+    assign form_type = 'contact'
+  endif
+  assign align = st.text_align | default: 'left'
+  assign has_email = false
+  assign has_button = false
+  assign topic = ''
+  for block in section.blocks
+    if block.type == 'field' and block.settings.kind == 'email'
+      assign has_email = true
+    endif
+    if block.type == 'button'
+      assign has_button = true
+    endif
+    if block.type == 'heading' and topic == blank
+      assign topic = block.settings.heading | remove: '*' | strip
+    endif
+  endfor
+  assign use_storelib = false
+  if st.storelib_form != blank
+    assign use_storelib = true
+  endif
+  case st.corners
+    when 'square'
+      assign radius = '0px'
+      assign field_radius = '0px'
+    when 'soft'
+      assign radius = '14px'
+      assign field_radius = '10px'
+    when 'round'
+      assign radius = '28px'
+      assign field_radius = '16px'
+    else
+      assign radius = 'min(28px, max(10px, calc(var(--card-radius, 6px) * 2)))'
+      assign field_radius = 'var(--input-border-radius, min(14px, max(6px, var(--card-radius, 6px))))'
+  endcase
+  assign form_id = 'FormModal-' | append: sid
+  assign error_words = st.error_text | default: 'That did not send. Check your email address and try again.'
+  assign title_id = 'FormModalTitle-' | append: sid
+-%}
+{%- capture fm_icon_name -%}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="3.6" stroke="currentColor" stroke-width="1.6"/><path d="M4.8 20c.9-3.6 3.7-5.6 7.2-5.6s6.3 2 7.2 5.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>{%- endcapture -%}
+{%- capture fm_icon_email -%}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="5.5" width="18" height="13" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M3.8 7l8.2 6 8.2-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>{%- endcapture -%}
+{%- capture fm_icon_phone -%}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8.2 3.8l1.9 4.3-2.2 1.6a11 11 0 0 0 6.4 6.4l1.6-2.2 4.3 1.9-.7 3.3c-.1.6-.7 1-1.3 1A16.5 16.5 0 0 1 3.9 5.8c0-.6.4-1.2 1-1.3l3.3-.7z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>{%- endcapture -%}
+{%- capture fm_icon_message -%}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5.5h16v10.5H9l-5 4V5.5z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>{%- endcapture -%}
+{%- capture fm_icon_text -%}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>{%- endcapture -%}
+{%- capture fm_icon_lock -%}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>{%- endcapture -%}
+{%- capture fm_icon_shield -%}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3l7.5 2.8v5.6c0 4.6-3.2 8-7.5 9.6-4.3-1.6-7.5-5-7.5-9.6V5.8L12 3z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8.8 12l2.3 2.3 4.2-4.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>{%- endcapture -%}
+{%- capture fm_icon_check -%}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>{%- endcapture -%}
+{%- capture fm_arrow -%}<svg class="fm__arrow" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 10h11m-4.5-4.5L15 10l-4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>{%- endcapture -%}
+<style>
+  #shopify-section-{{ sid }} { position: static; }
+  #shopify-section-{{ sid }} .fm {
+    --fm-radius: {{ radius }};
+    --fm-field-radius: {{ field_radius }};
+    --fm-w: {{ st.width | default: 500 }}px;
+    --fm-accent: {% render 'scheme-color', color: st.accent_color, fallback: 'var(--btn-primary-bg-color, var(--color-primary))' %};
+    --fm-scrim: rgba(12, 12, 16, {{ st.overlay_opacity | default: 55 | divided_by: 100.0 }});
+    --fm-line: color-mix(in srgb, var(--color-text) 16%, transparent);
+    --fm-field-bg: color-mix(in srgb, var(--color-text) 3.5%, var(--color-background));
+    --fm-muted: color-mix(in srgb, var(--color-text) 68%, transparent);
+    --fm-ease: cubic-bezier(.2, .8, .2, 1);
+  }
+  /* The dialog is the whole screen and transparent; the dimmed page and the panel are drawn inside it, so both can move. */
+  #shopify-section-{{ sid }} dialog.fm {
+    position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none;
+    margin: 0; padding: 0; border: 0; background: transparent; color: inherit; overflow: hidden;
+  }
+  #shopify-section-{{ sid }} dialog.fm::backdrop { background: transparent; }
+  #shopify-section-{{ sid }} dialog.fm[open] { display: flex; align-items: center; justify-content: center; }
+  #shopify-section-{{ sid }} .fm__scrim {
+    position: absolute; inset: 0; background: var(--fm-scrim);
+    opacity: 0; transition: opacity .28s ease;
+  }
+  #shopify-section-{{ sid }} .fm__panel {
+    position: relative; box-sizing: border-box; width: min(var(--fm-w), calc(100vw - 32px));
+    max-height: calc(100dvh - 48px); overflow: auto; overscroll-behavior: contain;
+    padding: 44px 44px 32px; border-radius: var(--fm-radius);
+    background: var(--color-background); color: var(--color-text);
+    box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 24px 64px -12px rgba(0,0,0,.28);
+    font-family: var(--body-font, inherit);
+    opacity: 0; transform: translateY(12px) scale(.97);
+    transition: opacity .26s ease, transform .34s var(--fm-ease);
+  }
+  #shopify-section-{{ sid }} .fm[data-state="open"] .fm__scrim { opacity: 1; }
+  #shopify-section-{{ sid }} .fm[data-state="open"] .fm__panel { opacity: 1; transform: none; }
+  #shopify-section-{{ sid }} .fm__panel:focus { outline: none; }
+  #shopify-section-{{ sid }} .fm__handle { display: none; }
+  #shopify-section-{{ sid }} .fm__close {
+    position: absolute; top: 16px; right: 16px; z-index: 1; display: grid; place-items: center;
+    width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%; cursor: pointer;
+    background: color-mix(in srgb, var(--color-text) 7%, transparent); color: var(--color-heading, var(--color-text));
+    transition: background-color .2s ease;
+  }
+  #shopify-section-{{ sid }} .fm__close:hover { background: color-mix(in srgb, var(--color-text) 13%, transparent); }
+  #shopify-section-{{ sid }} .fm__close:focus-visible { outline: 2px solid var(--fm-accent); outline-offset: 2px; }
+  #shopify-section-{{ sid }} .fm__close svg { width: 18px; height: 18px; }
+  #shopify-section-{{ sid }} .fm__body { text-align: {{ align }}; }
+  #shopify-section-{{ sid }} .fm__body > * + * { margin-top: 16px; }
+  #shopify-section-{{ sid }} .fm__img { display: block; width: 100%; height: auto; max-height: var(--fm-img-h, 180px); object-fit: contain; border-radius: calc(var(--fm-radius) * .5); }
+  #shopify-section-{{ sid }} .fm__img--cover { object-fit: cover; }
+  #shopify-section-{{ sid }} .fm__eyebrow { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--fm-accent); }
+  #shopify-section-{{ sid }} .fm__title {
+    margin: 0; padding-right: 36px; font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 700);
+    font-size: var(--fm-title, 30px); line-height: 1.15; letter-spacing: -.01em; color: var(--color-heading, var(--color-text));
+    text-wrap: balance;
+  }
+  #shopify-section-{{ sid }} .fm--center .fm__body .fm__title { padding-inline: 36px; }
+  #shopify-section-{{ sid }} .fm__title em { font-style: normal; color: var(--fm-accent); }
+  #shopify-section-{{ sid }} .fm__text { color: var(--fm-muted); font-size: 15px; line-height: 1.55; }
+  #shopify-section-{{ sid }} .fm__text p { margin: 0; }
+  #shopify-section-{{ sid }} .fm__text p + p { margin-top: 8px; }
+  #shopify-section-{{ sid }} .fm__form { margin: 24px 0 0; display: grid; gap: 14px; text-align: left; }
+  #shopify-section-{{ sid }} .fm__field { position: relative; display: block; }
+  #shopify-section-{{ sid }} .fm__icon {
+    position: absolute; left: 18px; top: 50%; width: 20px; height: 20px; transform: translateY(-50%);
+    color: var(--fm-muted); pointer-events: none; transition: color .2s ease;
+  }
+  #shopify-section-{{ sid }} .fm__field--area .fm__icon { top: 18px; transform: none; }
+  #shopify-section-{{ sid }} .fm__icon svg { width: 100%; height: 100%; display: block; }
+  /* The fields keep Theme settings > Forms and fields (theme-button-contract.css): their colours, border and focus
+     ring. Only the variables that contract reads are set here, for the taller field, the room for the icon and
+     the filled or outline surface. */
+  #shopify-section-{{ sid }} .fm__input {
+    --input-padding: 0 18px;
+    --input-height: 56px;
+    --input-bg: var(--fm-field-bg);
+    {%- if st.corners != 'theme' %} --input-border-radius: {{ field_radius }};{% endif %}
+    box-sizing: border-box; display: block; width: 100%; min-height: 56px; margin: 0;
+    font: inherit; font-size: 16px; color: var(--color-text);
+    background: var(--fm-field-bg); border: 1px solid var(--fm-line); border-radius: var(--fm-field-radius);
+    padding: var(--input-padding);
+    -webkit-appearance: none; appearance: none; box-shadow: none;
+  }
+  #shopify-section-{{ sid }} .fm--icons .fm__input { --input-padding: 0 18px 0 50px; }
+  #shopify-section-{{ sid }} textarea.fm__input { --input-padding: 16px 18px; min-height: 120px; resize: vertical; line-height: 1.5; }
+  #shopify-section-{{ sid }} .fm--icons textarea.fm__input { --input-padding: 16px 18px 16px 50px; }
+  #shopify-section-{{ sid }} .fm__input::placeholder { color: var(--fm-muted); opacity: 1; }
+  #shopify-section-{{ sid }} .fm__field:focus-within .fm__icon { color: var(--fm-accent); }
+  #shopify-section-{{ sid }} .fm--outline .fm__input { --input-bg: transparent; background: transparent; }
+  #shopify-section-{{ sid }} .fm__submit {
+    position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; min-height: 56px; margin-top: 10px; font-size: 17px !important; cursor: pointer;
+  }
+  #shopify-section-{{ sid }} .fm__submit[aria-busy="true"] { opacity: .7; cursor: progress; }
+  #shopify-section-{{ sid }} .fm__arrow { width: 18px; height: 18px; flex: none; transition: transform .25s var(--fm-ease); }
+  #shopify-section-{{ sid }} .fm__submit:hover .fm__arrow { transform: translateX(3px); }
+  #shopify-section-{{ sid }} .fm__note { margin: 6px 0 0; text-align: center; font-size: 15px; color: var(--color-text); display: flex; align-items: center; justify-content: center; gap: 8px; }
+  #shopify-section-{{ sid }} .fm__note svg { width: 19px; height: 19px; flex: none; color: var(--fm-accent); }
+  #shopify-section-{{ sid }} .fm__small { margin: 2px 0 0; text-align: center; font-size: 13px; line-height: 1.5; color: var(--fm-muted); }
+  #shopify-section-{{ sid }} .fm__small p { margin: 0; }
+  #shopify-section-{{ sid }} .fm__small a, #shopify-section-{{ sid }} .fm__text a { color: var(--fm-accent); text-decoration: underline; text-underline-offset: 2px; }
+  #shopify-section-{{ sid }} .fm__error { margin: 0; font-size: 14px; color: #b42318; }
+  #shopify-section-{{ sid }} .fm__error:empty { display: none; }
+  #shopify-section-{{ sid }} .fm__done { display: none; text-align: center; padding: 12px 0 4px; }
+  #shopify-section-{{ sid }} .fm[data-sent] .fm__done { display: block; }
+  #shopify-section-{{ sid }} .fm[data-sent] .fm__body { display: none; }
+  #shopify-section-{{ sid }} .fm__tick {
+    display: grid; place-items: center; width: 56px; height: 56px; margin: 0 auto 18px; border-radius: 50%;
+    background: color-mix(in srgb, var(--fm-accent) 14%, transparent); color: var(--fm-accent);
+  }
+  #shopify-section-{{ sid }} .fm__tick svg { width: 26px; height: 26px; }
+  #shopify-section-{{ sid }} .fm__done .fm__title { padding: 0; }
+  #shopify-section-{{ sid }} .fm__done .fm__text { margin-top: 10px; }
+  #shopify-section-{{ sid }} .fm__done .fm__submit { margin-top: 24px; text-decoration: none; }
+  #shopify-section-{{ sid }} .fm__sl { margin-top: 20px; }
+
+  /* A phone: a sheet from the bottom, the width of the screen. */
+  @media (max-width: 640px) {
+    #shopify-section-{{ sid }} dialog.fm[open] { align-items: flex-end; }
+    #shopify-section-{{ sid }} .fm__panel {
+      width: 100%; max-height: calc(100dvh - 24px); border-radius: var(--fm-radius) var(--fm-radius) 0 0;
+      padding: 30px 20px calc(24px + env(safe-area-inset-bottom, 0px));
+      transform: translateY(100%); transition: transform .38s var(--fm-ease), opacity .2s ease; opacity: 1;
+    }
+    #shopify-section-{{ sid }} .fm[data-state="open"] .fm__panel { transform: translateY(var(--fm-drag, 0px)); }
+    #shopify-section-{{ sid }} .fm__panel[data-dragging] { transition: none; }
+    #shopify-section-{{ sid }} .fm__handle {
+      display: block; position: absolute; top: 0; left: 50%; width: 96px; height: 24px; margin-left: -48px; touch-action: none; cursor: grab;
+    }
+    #shopify-section-{{ sid }} .fm__handle::before { content: ""; position: absolute; left: 50%; top: 9px; width: 40px; height: 5px; margin-left: -20px; border-radius: 3px; background: color-mix(in srgb, var(--color-text) 22%, transparent); }
+    #shopify-section-{{ sid }} .fm__close { top: 12px; right: 12px; width: 36px; height: 36px; }
+    #shopify-section-{{ sid }} .fm__title { font-size: min(var(--fm-title, 30px), 26px); }
+    #shopify-section-{{ sid }} .fm__form { margin-top: 20px; gap: 12px; }
+    #shopify-section-{{ sid }} .fm__input { --input-height: 52px; min-height: 52px; }
+    #shopify-section-{{ sid }} .fm__submit { min-height: 52px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-{{ sid }} .fm__scrim, #shopify-section-{{ sid }} .fm__panel, #shopify-section-{{ sid }} .fm__arrow { transition: none !important; }
+    #shopify-section-{{ sid }} .fm__panel { transform: none !important; }
+  }
+
+  /* The builder: drawn in the page, open, so it can be edited. */
+  #shopify-section-{{ sid }} .fm--canvas { position: relative; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 40px 16px; background: var(--fm-scrim); }
+  #shopify-section-{{ sid }} .fm--canvas .fm__panel { opacity: 1; transform: none; max-height: none; overflow: visible; }
+  #shopify-section-{{ sid }} .fm--canvas .fm__scrim, #shopify-section-{{ sid }} .fm--canvas .fm__handle { display: none; }
+  #shopify-section-{{ sid }} .fm__hint { margin: 0; max-width: var(--fm-w); font: 500 13px/1.45 var(--body-font, inherit); color: #fff; text-align: center; opacity: .9; }
+  #shopify-section-{{ sid }} .fm__hint code { font: inherit; font-weight: 700; white-space: nowrap; }
+  @media (max-width: 640px) {
+    #shopify-section-{{ sid }} .fm--canvas { padding: 24px 0 0; justify-content: flex-end; }
+    #shopify-section-{{ sid }} .fm--canvas .fm__hint { padding: 0 16px; }
+  }
+</style>
+
+{%- capture fm_panel -%}
+  <div class="fm__panel color-{{ color_scheme }}" tabindex="-1" data-fm-panel>
+    <span class="fm__handle" aria-hidden="true" data-fm-handle></span>
+    <button type="button" class="fm__close" data-fm-close aria-label="{{ st.close_label | default: 'Close' | escape }}">
+      <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+    <div class="fm__body">
+      {%- for block in section.blocks -%}
+        {%- assign b = block.settings -%}
+        {%- case block.type -%}
+          {%- when 'image' -%}
+            {%- if b.image != blank -%}
+              <img class="fm__img{% if b.fit == 'cover' %} fm__img--cover{% endif %}" src="{{ b.image | image_url: width: 900 }}" alt="{{ b.image.alt | escape }}" width="{{ b.image.width }}" height="{{ b.image.height }}" loading="lazy" style="--fm-img-h: {{ b.max_height | default: 180 }}px" {{ block.shopify_attributes }}>
+            {%- elsif design -%}
+              <div class="fm__img" style="height: 120px; background: var(--fm-field-bg); border: 1px dashed var(--fm-line)" {{ block.shopify_attributes }}></div>
+            {%- endif -%}
+          {%- when 'heading' -%}
+            {%- if b.eyebrow != blank -%}<p class="fm__eyebrow" {{ block.shopify_attributes }}>{{ b.eyebrow | escape }}</p>{%- endif -%}
+            {%- if b.heading != blank -%}
+              <h2 class="fm__title" id="{{ title_id }}" style="--fm-title: {{ b.size | default: 30 }}px" {{ block.shopify_attributes }}>
+                {%- assign fm_parts = b.heading | escape | split: '*' -%}
+                {%- for fm_part in fm_parts -%}{%- assign fm_odd = forloop.index0 | modulo: 2 -%}{%- if fm_odd == 1 -%}<em>{{ fm_part }}</em>{%- else -%}{{ fm_part }}{%- endif -%}{%- endfor -%}
+              </h2>
+            {%- endif -%}
+          {%- when 'text' -%}
+            {%- if b.text != blank -%}<div class="fm__text" {{ block.shopify_attributes }}>{{ b.text }}</div>{%- endif -%}
+        {%- endcase -%}
+      {%- endfor -%}
+
+      {%- if use_storelib -%}
+        <div class="fm__sl">{{ st.storelib_form | storelib_form: topic }}</div>
+      {%- else -%}
+        {%- capture fm_top -%}
+          <div hidden aria-hidden="true" data-mt-trap style="position:absolute;left:-9999px"><label>Company<input type="text" name="company" tabindex="-1" autocomplete="off"></label></div>
+          {%- if form_type == 'customer' -%}
+            <input type="hidden" name="contact[tags]" value="newsletter">
+            <input type="hidden" name="storelib_placement" value="popup">
+          {%- else -%}
+            {%- if topic != blank -%}<input type="hidden" name="contact[subject]" value="{{ topic | escape }}">{%- endif -%}
+            <input type="hidden" name="contact[body]" value="" data-fm-body>
+            <input type="hidden" name="contact[page_url]" value="" data-fm-page>
+          {%- endif -%}
+          {%- for block in section.blocks -%}
+            {%- assign b = block.settings -%}
+            {%- case block.type -%}
+              {%- when 'field' -%}
+                {%- liquid
+                  assign f_kind = b.kind | default: 'text'
+                  assign f_label = b.label | default: 'Your answer'
+                  assign f_id = 'fm-' | append: block.id
+                  assign f_type = 'text'
+                  assign f_auto = 'off'
+                  assign f_extra = false
+                  case f_kind
+                    when 'name'
+                      assign f_name = 'contact[name]'
+                      assign f_auto = 'name'
+                    when 'email'
+                      assign f_name = 'contact[email]'
+                      assign f_type = 'email'
+                      assign f_auto = 'email'
+                    when 'phone'
+                      assign f_name = 'contact[phone]'
+                      assign f_type = 'tel'
+                      assign f_auto = 'tel'
+                      assign f_extra = true
+                    when 'message'
+                      assign f_name = 'contact[message]'
+                    else
+                      assign f_name = 'contact[' | append: f_label | append: ']'
+                      assign f_extra = true
+                  endcase
+                -%}
+                <label class="fm__field{% if f_kind == 'message' %} fm__field--area{% endif %}" for="{{ f_id }}" {{ block.shopify_attributes }}>
+                  <span class="visually-hidden" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap">{{ f_label | escape }}</span>
+                  {%- if st.show_icons -%}
+                    <span class="fm__icon">
+                      {%- case f_kind -%}
+                        {%- when 'name' -%}{{ fm_icon_name }}
+                        {%- when 'email' -%}{{ fm_icon_email }}
+                        {%- when 'phone' -%}{{ fm_icon_phone }}
+                        {%- when 'message' -%}{{ fm_icon_message }}
+                        {%- else -%}{{ fm_icon_text }}
+                      {%- endcase -%}
+                    </span>
+                  {%- endif -%}
+                  {%- if f_kind == 'message' -%}
+                    <textarea class="fm__input" id="{{ f_id }}" name="{{ f_name }}" rows="4" placeholder="{{ f_label | escape }}"{% if b.required %} required{% endif %}></textarea>
+                  {%- else -%}
+                    <input class="fm__input" id="{{ f_id }}" type="{{ f_type }}" name="{{ f_name | escape }}" autocomplete="{{ f_auto }}" placeholder="{{ f_label | escape }}"{% if b.required or f_kind == 'email' %} required{% endif %}{% if f_extra %} data-fm-extra="{{ f_label | escape }}"{% endif %}>
+                  {%- endif -%}
+                </label>
+            {%- endcase -%}
+          {%- endfor -%}
+          {%- unless has_email -%}
+            <label class="fm__field" for="fm-email-{{ sid }}">
+              <span class="visually-hidden" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap">Email address</span>
+              {%- if st.show_icons -%}<span class="fm__icon">{{ fm_icon_email }}</span>{%- endif -%}
+              <input class="fm__input" id="fm-email-{{ sid }}" type="email" name="contact[email]" autocomplete="email" placeholder="Email address" required>
+            </label>
+          {%- endunless -%}
+        {%- endcapture -%}
+        {%- capture fm_bottom -%}
+          {%- for block in section.blocks -%}
+            {%- assign b = block.settings -%}
+            {%- case block.type -%}
+              {%- when 'button' -%}
+                <button type="submit" class="btn btn-primary fm__submit" data-theme-button="primary" data-sl-button {{ block.shopify_attributes }}>
+                  <span>{{ b.label | default: 'Send' | escape }}</span>{%- if b.arrow -%}{{ fm_arrow }}{%- endif -%}
+                </button>
+              {%- when 'note' -%}
+                {%- if b.text != blank -%}
+                  <p class="fm__note" {{ block.shopify_attributes }}>
+                    {%- case b.icon -%}
+                      {%- when 'lock' -%}{{ fm_icon_lock }}
+                      {%- when 'shield' -%}{{ fm_icon_shield }}
+                      {%- when 'check' -%}{{ fm_icon_check }}
+                    {%- endcase -%}
+                    <span>{{ b.text | escape }}</span>
+                  </p>
+                {%- endif -%}
+                {%- if b.small != blank -%}<div class="fm__small"{% if b.text == blank %} {{ block.shopify_attributes }}{% endif %}>{{ b.small }}</div>{%- endif -%}
+            {%- endcase -%}
+          {%- endfor -%}
+          {%- unless has_button -%}
+            <button type="submit" class="btn btn-primary fm__submit" data-theme-button="primary" data-sl-button><span>Send</span></button>
+          {%- endunless -%}
+        {%- endcapture -%}
+        {%- if form_type == 'contact' -%}
+          {%- form 'contact', id: form_id, class: 'fm__form', data_mt_inline_contact: true, data_nl_form: true, data_error_message: error_words, data_invalid_message: error_words -%}
+            {{ fm_top }}
+            <p class="fm__error" role="alert" data-fm-error data-nl-msg="error">{%- if form.errors -%}{{ st.error_text | default: 'That did not send. Check your email address and try again.' | escape }}{%- endif -%}</p>
+            {{ fm_bottom }}
+            {%- if form.posted_successfully? -%}<span hidden data-fm-posted></span>{%- endif -%}
+          {%- endform -%}
+        {%- else -%}
+          {%- form 'customer', id: form_id, class: 'fm__form', data_mt_inline_subscribe: true, data_nl_form: true, data_error_message: error_words, data_invalid_message: error_words -%}
+            {{ fm_top }}
+            <p class="fm__error" role="alert" data-fm-error data-nl-msg="error">{%- if form.errors -%}{{ st.error_text | default: 'That did not send. Check your email address and try again.' | escape }}{%- endif -%}</p>
+            {{ fm_bottom }}
+            {%- if form.posted_successfully? -%}<span hidden data-fm-posted></span>{%- endif -%}
+          {%- endform -%}
+        {%- endif -%}
+      {%- endif -%}
+    </div>
+    <div class="fm__done" role="status" tabindex="-1" data-fm-done>
+      <span class="fm__tick">{{ fm_icon_check }}</span>
+      <h2 class="fm__title">{{ st.success_heading | default: 'Thank you' | escape }}</h2>
+      {%- if st.success_text != blank -%}<div class="fm__text">{{ st.success_text }}</div>{%- endif -%}
+      {%- if st.success_button_label != blank and st.success_button_link != blank -%}
+        <a class="btn btn-primary fm__submit" data-theme-button="primary" data-sl-button href="{{ st.success_button_link }}">{{ st.success_button_label | escape }}</a>
+      {%- endif -%}
+    </div>
+  </div>
+{%- endcapture -%}
+
+{%- if design -%}
+  <div class="fm fm--canvas fm--{{ align }}{% if st.show_icons %} fm--icons{% endif %}{% if st.field_style == 'outline' %} fm--outline{% endif %}" data-form-modal="{{ key }}" data-fm-canvas{% if st.editor_view == 'success' %} data-sent{% endif %}>
+    <p class="fm__hint">Visitors see this as a popup. Link any button to <code>#open-form-{{ key }}</code> to open it.</p>
+    {{ fm_panel }}
+  </div>
+{%- else -%}
+  <dialog class="fm fm--{{ align }}{% if st.show_icons %} fm--icons{% endif %}{% if st.field_style == 'outline' %} fm--outline{% endif %}" id="FormModalDialog-{{ sid }}" data-form-modal="{{ key }}" data-section="{{ sid }}" data-kind="{{ kind }}" data-topic="{{ topic | escape }}"{% if topic != blank %} aria-labelledby="{{ title_id }}"{% else %} aria-label="{{ st.form_key | default: 'Form' | escape }}"{% endif %}>
+    <div class="fm__scrim" data-fm-close></div>
+    {{ fm_panel }}
+  </dialog>
+  <script>
+    (function () {
+      if (window.StorelibFormModal) { window.StorelibFormModal.scan(); return; }
+      var reduce = function () { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
+      var design = !!(window.Shopify && window.Shopify.designMode);
+      var FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), iframe, [tabindex]:not([tabindex="-1"])';
+      var current = null, opener = null, lock = null;
+      function find(key) {
+        if (!key) return null;
+        key = String(key).toLowerCase();
+        var all = document.querySelectorAll('dialog[data-form-modal]');
+        for (var i = 0; i < all.length; i++) {
+          var d = all[i];
+          if (d.getAttribute('data-form-modal') === key || 'section-' + d.getAttribute('data-section') === key || 'shopify-section-' + d.getAttribute('data-section') === key) return d;
+        }
+        return null;
+      }
+      function keyOf(href) {
+        if (!href) return null;
+        var i = href.indexOf('#');
+        if (i < 0) return null;
+        var path = href.slice(0, i), hash = decodeURIComponent(href.slice(i + 1));
+        if (path) {
+          /* Another page's form opens when that page arrives (scan reads the hash), so only this page's links are caught. */
+          try { var u = new URL(path, location.href); if (u.origin !== location.origin || u.pathname.replace(/\/$/, '') !== location.pathname.replace(/\/$/, '')) return null; } catch (e) { return null; }
+        }
+        if (/^open-form-/.test(hash)) return hash.slice(10);
+        return find(hash) ? hash : null;
+      }
+      function lockScroll() {
+        var de = document.documentElement, gap = innerWidth - de.clientWidth;
+        /* A page that keeps its scrollbar's room (scrollbar-gutter: stable) does not move when the bar goes. */
+        if (/stable/.test(getComputedStyle(de).scrollbarGutter || '')) gap = 0;
+        lock = { o: de.style.overflow, p: document.body.style.paddingRight };
+        de.style.overflow = 'hidden';
+        if (gap > 0) document.body.style.paddingRight = gap + 'px';
+      }
+      function unlockScroll() {
+        if (!lock) return;
+        document.documentElement.style.overflow = lock.o;
+        document.body.style.paddingRight = lock.p;
+        lock = null;
+      }
+      function focusables(d) {
+        return [].filter.call(d.querySelectorAll(FOCUSABLE), function (n) { return n.getClientRects().length && !n.closest('[hidden]'); });
+      }
+      function open(d, from) {
+        if (!d || d.open) return;
+        if (current && current !== d) close(current, true);
+        opener = from || document.activeElement;
+        current = d;
+        d.removeAttribute('data-state');
+        try { d.showModal(); } catch (e) { d.setAttribute('open', ''); }
+        lockScroll();
+        var panel = d.querySelector('[data-fm-panel]');
+        panel.scrollTop = 0;
+        requestAnimationFrame(function () { requestAnimationFrame(function () { d.setAttribute('data-state', 'open'); }); });
+        /* A computer: straight into the first field. A phone: the sheet, so the keyboard does not cover it on arrival. */
+        var fine = innerWidth > 640;
+        var first = d.hasAttribute('data-sent') ? d.querySelector('[data-fm-done]') : d.querySelector('.fm__input');
+        (fine && first ? first : panel).focus({ preventScroll: true });
+        try { document.dispatchEvent(new CustomEvent('storelib:form-modal-open', { detail: { key: d.getAttribute('data-form-modal') } })); } catch (e) {}
+      }
+      function close(d, now) {
+        if (!d || !d.open || d.hasAttribute('data-closing')) return;
+        var finish = function () {
+          d.removeAttribute('data-closing');
+          d.style.removeProperty('--fm-drag');
+          try { d.close(); } catch (e) { d.removeAttribute('open'); }
+          if (current === d) current = null;
+          unlockScroll();
+          if (!now && opener && opener.focus && document.contains(opener)) opener.focus({ preventScroll: true });
+          opener = null;
+        };
+        d.removeAttribute('data-state');
+        if (now || reduce()) { finish(); return; }
+        d.setAttribute('data-closing', '');
+        var panel = d.querySelector('[data-fm-panel]'), done = false;
+        var end = function (e) { if (e && e.target !== panel) return; if (done) return; done = true; panel.removeEventListener('transitionend', end); finish(); };
+        panel.addEventListener('transitionend', end);
+        setTimeout(end, 420);
+      }
+      function sendBody(d, f) {
+        var body = f.querySelector('[data-fm-body]');
+        if (!body) return;
+        var parts = [], msg = f.querySelector('[name="contact[message]"]');
+        if (msg && msg.value.trim()) parts.push(msg.value.trim());
+        [].forEach.call(f.querySelectorAll('[data-fm-extra]'), function (i) { if (i.value.trim()) parts.push(i.getAttribute('data-fm-extra') + ': ' + i.value.trim()); });
+        if (!msg || !msg.value.trim()) parts.unshift('Sent from the form "' + (d.getAttribute('data-topic') || 'Form') + '".');
+        body.value = parts.join('\n\n');
+      }
+      function sent(d) {
+        var f = d.querySelector('form');
+        if (f) f.reset();
+        d.setAttribute('data-sent', '');
+        var done = d.querySelector('[data-fm-done]');
+        if (done && d.contains(document.activeElement)) done.focus({ preventScroll: true });
+        try { document.dispatchEvent(new CustomEvent('storelib:form-modal-sent', { detail: { key: d.getAttribute('data-form-modal') } })); } catch (x) {}
+      }
+      /* The theme's form script (materia-forms.js) sends a form marked data-mt-inline-* itself, from the
+         window's capture phase, and says how it went in the form's data-state; without it, this sends. */
+      function watchState(d, f) {
+        if (!window.MutationObserver) return;
+        new MutationObserver(function () {
+          var s = f.getAttribute('data-state');
+          if (s === 'done' && !d.hasAttribute('data-sent')) sent(d);
+        }).observe(f, { attributes: true, attributeFilter: ['data-state'] });
+      }
+      function submit(e) {
+        var f = e.target;
+        var d = f && f.closest && f.closest('dialog[data-form-modal]');
+        if (!d || !f.matches('form')) return;
+        if (d.getAttribute('data-kind') === 'contact') sendBody(d, f);
+        if (e.defaultPrevented) return;
+        e.preventDefault();
+        if (f.getAttribute('data-state') === 'sending') return;
+        var err = f.querySelector('[data-fm-error]');
+        if (err) err.textContent = '';
+        var trap = f.querySelector('[name="company"]');
+        if (trap && trap.value) { sent(d); return; }
+        var data = new FormData(f);
+        f.setAttribute('data-state', 'sending');
+        var bad = function (m) { f.setAttribute('data-state', 'error'); if (err) err.textContent = m || f.getAttribute('data-error-message') || 'That did not send. Try again in a moment.'; };
+        if (design) { f.setAttribute('data-state', 'done'); sent(d); return; }
+        fetch('/contact', { method: 'POST', body: data, credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' } })
+          .then(function (r) { return r.json().catch(function () { return { ok: r.ok }; }); })
+          .then(function (x) { if (x && x.ok) { f.setAttribute('data-state', 'done'); sent(d); } else bad(x && x.message); })
+          .catch(function () { bad(); });
+      }
+      function drag(d) {
+        var panel = d.querySelector('[data-fm-panel]'), handle = d.querySelector('[data-fm-handle]');
+        if (!handle || handle.__fm) return;
+        handle.__fm = 1;
+        var y0 = null, dy = 0;
+        handle.addEventListener('pointerdown', function (e) { y0 = e.clientY; dy = 0; panel.setAttribute('data-dragging', ''); try { handle.setPointerCapture(e.pointerId); } catch (x) {} });
+        handle.addEventListener('pointermove', function (e) { if (y0 === null) return; dy = Math.max(0, e.clientY - y0); d.style.setProperty('--fm-drag', dy + 'px'); });
+        var up = function () { if (y0 === null) return; y0 = null; panel.removeAttribute('data-dragging'); if (dy > Math.min(140, panel.offsetHeight * .25)) close(d); else d.style.removeProperty('--fm-drag'); };
+        handle.addEventListener('pointerup', up);
+        handle.addEventListener('pointercancel', up);
+      }
+      function wire(d) {
+        if (d.__fm) return;
+        d.__fm = 1;
+        d.addEventListener('cancel', function (e) { e.preventDefault(); close(d); });
+        d.addEventListener('click', function (e) { if (e.target.closest('[data-fm-close]')) { e.preventDefault(); close(d); } });
+        d.addEventListener('keydown', function (e) {
+          if (e.key !== 'Tab') return;
+          var list = focusables(d);
+          if (!list.length) return;
+          var a = list[0], z = list[list.length - 1];
+          if (e.shiftKey && (document.activeElement === a || !d.contains(document.activeElement))) { e.preventDefault(); z.focus(); }
+          else if (!e.shiftKey && document.activeElement === z) { e.preventDefault(); a.focus(); }
+        });
+        d.addEventListener('submit', submit);
+        var f = d.querySelector('form');
+        if (f) {
+          var pg = f.querySelector('[data-fm-page]');
+          if (pg) pg.value = location.pathname;
+          watchState(d, f);
+          /* The message is written as it is typed, and again on the button's click (Enter in a field clicks it too),
+             because the theme's script reads the form before this section's submit listener runs. */
+          if (d.getAttribute('data-kind') === 'contact') {
+            var sync = function () { sendBody(d, f); };
+            sync();
+            f.addEventListener('input', sync);
+            f.addEventListener('change', sync);
+            f.addEventListener('click', sync, true);
+          }
+        }
+        drag(d);
+        if (d.querySelector('[data-fm-posted]')) { d.setAttribute('data-sent', ''); open(d); }
+      }
+      function scan() {
+        [].forEach.call(document.querySelectorAll('dialog[data-form-modal]'), wire);
+        var k = keyOf(location.hash);
+        if (k && !current) open(find(k));
+      }
+      document.addEventListener('click', function (e) {
+        if (e.defaultPrevented || e.button) return;
+        var t = e.target && e.target.closest && e.target.closest('[data-open-form], a[href*="#"]');
+        if (!t) return;
+        var k = t.hasAttribute('data-open-form') ? t.getAttribute('data-open-form') : keyOf(t.getAttribute('href'));
+        var d = find(k);
+        if (!d) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (d.hasAttribute('data-sent') && !d.querySelector('[data-fm-posted]')) d.removeAttribute('data-sent');
+        open(d, t);
+      }, true);
+      addEventListener('hashchange', function () { var k = keyOf(location.hash); if (k) open(find(k)); });
+      document.addEventListener('shopify:section:load', scan);
+      window.StorelibFormModal = { open: function (k) { open(find(k)); }, close: function () { close(current); }, scan: scan };
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', scan); else scan();
+    })();
+  </script>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Form popup",
+  "tag": "section",
+  "class": "form-modal-section",
+  "settings": [
+    { "type": "paragraph", "content": "Hidden until a button opens it: a window on a computer, a sheet from the bottom on a phone. Link any button or menu item to #open-form- followed by the form name below, or pick this section under Sections on this page." },
+    { "type": "text", "id": "form_key", "label": "Form name", "default": "contact", "info": "Letters and dashes. With \"contact\", buttons link to #open-form-contact. Give each form on a page its own name." },
+    { "type": "select", "id": "sends_to", "label": "Sends to", "default": "subscribe", "options": [
+      { "value": "subscribe", "label": "Sign up (Emails > Subscribers)" },
+      { "value": "contact", "label": "Message (Emails > Messages)" }
+    ], "info": "A sign up keeps the name and email. A message also keeps the phone, the message and any extra fields." },
+    { "type": "form_picker", "id": "storelib_form", "label": "Storelib form", "info": "Optional. One of your forms or booking pages, shown instead of the fields below." },
+    { "type": "header", "content": "Look" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default-color-scheme" },
+    { "type": "color", "id": "accent_color", "label": "Accent", "info": "The marked heading words, icons on focus and the secure line. Empty uses the scheme's button colour." },
+    { "type": "select", "id": "text_align", "label": "Heading alignment", "default": "left", "options": [ { "value": "left", "label": "Left" }, { "value": "center", "label": "Center" } ] },
+    { "type": "range", "id": "width", "label": "Width on a computer", "min": 380, "max": 680, "step": 10, "unit": "px", "default": 500 },
+    { "type": "select", "id": "corners", "label": "Corners", "default": "theme", "options": [
+      { "value": "theme", "label": "Theme's corners" },
+      { "value": "square", "label": "Square" },
+      { "value": "soft", "label": "Soft" },
+      { "value": "round", "label": "Round" }
+    ] },
+    { "type": "select", "id": "field_style", "label": "Fields", "default": "filled", "options": [ { "value": "filled", "label": "Filled" }, { "value": "outline", "label": "Outline" } ] },
+    { "type": "checkbox", "id": "show_icons", "label": "Icons in the fields", "default": true },
+    { "type": "range", "id": "overlay_opacity", "label": "Page dimmed by", "min": 0, "max": 90, "step": 5, "unit": "%", "default": 55 },
+    { "type": "header", "content": "After sending" },
+    { "type": "text", "id": "success_heading", "label": "Heading", "default": "You're in" },
+    { "type": "richtext", "id": "success_text", "label": "Text", "default": "<p>Check your inbox in a minute. If nothing arrives, look in spam.</p>" },
+    { "type": "text", "id": "success_button_label", "label": "Button", "info": "Optional, for a free download: the button and the file or page it opens." },
+    { "type": "url", "id": "success_button_link", "label": "Button link" },
+    { "type": "text", "id": "error_text", "label": "When it does not send", "default": "That did not send. Check your email address and try again." },
+    { "type": "header", "content": "Builder" },
+    { "type": "select", "id": "editor_view", "label": "Show in the builder", "default": "form", "options": [ { "value": "form", "label": "The form" }, { "value": "success", "label": "After sending" } ] },
+    { "type": "text", "id": "close_label", "label": "Close button name for screen readers", "default": "Close" }
+  ],
+  "blocks": [
+    {
+      "type": "image",
+      "name": "Picture",
+      "limit": 1,
+      "settings": [
+        { "type": "image_picker", "id": "image", "label": "Picture", "info": "A cover of the guide or course works well." },
+        { "type": "select", "id": "fit", "label": "Fit", "default": "contain", "options": [ { "value": "contain", "label": "Whole picture" }, { "value": "cover", "label": "Fill the width" } ] },
+        { "type": "range", "id": "max_height", "label": "Height", "min": 80, "max": 320, "step": 10, "unit": "px", "default": 180 }
+      ]
+    },
+    {
+      "type": "heading",
+      "name": "Heading",
+      "limit": 1,
+      "settings": [
+        { "type": "text", "id": "eyebrow", "label": "Small line above" },
+        { "type": "text", "id": "heading", "label": "Heading", "default": "Get the free *starter guide*", "info": "Put *stars* around words to show them in the accent colour." },
+        { "type": "range", "id": "size", "label": "Size", "min": 20, "max": 44, "step": 1, "unit": "px", "default": 30 }
+      ]
+    },
+    {
+      "type": "text",
+      "name": "Text",
+      "settings": [
+        { "type": "richtext", "id": "text", "label": "Text", "default": "<p>A short line on what they get.</p>" }
+      ]
+    },
+    {
+      "type": "field",
+      "name": "Field",
+      "settings": [
+        { "type": "select", "id": "kind", "label": "Asks for", "default": "email", "options": [
+          { "value": "name", "label": "Name" },
+          { "value": "email", "label": "Email" },
+          { "value": "phone", "label": "Phone" },
+          { "value": "message", "label": "Message" },
+          { "value": "text", "label": "Something else" }
+        ] },
+        { "type": "text", "id": "label", "label": "Says", "default": "Email address" },
+        { "type": "checkbox", "id": "required", "label": "Required", "default": true, "info": "Email is always required." }
+      ]
+    },
+    {
+      "type": "button",
+      "name": "Button",
+      "limit": 1,
+      "settings": [
+        { "type": "text", "id": "label", "label": "Label", "default": "Send me the guide" },
+        { "type": "checkbox", "id": "arrow", "label": "Arrow", "default": true }
+      ]
+    },
+    {
+      "type": "note",
+      "name": "Note",
+      "settings": [
+        { "type": "select", "id": "icon", "label": "Icon", "default": "lock", "options": [
+          { "value": "lock", "label": "Lock" },
+          { "value": "shield", "label": "Shield" },
+          { "value": "check", "label": "Tick" },
+          { "value": "none", "label": "None" }
+        ] },
+        { "type": "text", "id": "text", "label": "Line", "default": "Your details stay private." },
+        { "type": "richtext", "id": "small", "label": "Small print", "default": "<p>No spam. Unsubscribe at any time.</p>" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Form popup: free download",
+      "category": "Forms",
+      "settings": { "form_key": "guide", "sends_to": "subscribe", "success_heading": "It's on its way", "success_button_label": "" },
+      "blocks": [
+        { "type": "heading", "settings": { "heading": "Get the free *starter guide*" } },
+        { "type": "text", "settings": { "text": "<p>Twelve pages you can use this week. We'll email it to you.</p>" } },
+        { "type": "field", "settings": { "kind": "name", "label": "First name", "required": false } },
+        { "type": "field", "settings": { "kind": "email", "label": "Email address" } },
+        { "type": "button", "settings": { "label": "Send me the guide", "arrow": true } },
+        { "type": "note", "settings": { "icon": "lock", "text": "Your details stay private.", "small": "<p>No spam. Unsubscribe at any time.</p>" } }
+      ]
+    },
+    {
+      "name": "Form popup: contact",
+      "category": "Forms",
+      "settings": { "form_key": "contact", "sends_to": "contact", "success_heading": "Message sent", "success_text": "<p>Thanks for writing. We reply within two working days.</p>" },
+      "blocks": [
+        { "type": "heading", "settings": { "heading": "Send us a *message*" } },
+        { "type": "field", "settings": { "kind": "name", "label": "Full name", "required": true } },
+        { "type": "field", "settings": { "kind": "email", "label": "Email address" } },
+        { "type": "field", "settings": { "kind": "message", "label": "How can we help?", "required": true } },
+        { "type": "button", "settings": { "label": "Send message", "arrow": false } },
+        { "type": "note", "settings": { "icon": "none", "text": "", "small": "<p>We only use your email to reply.</p>" } }
+      ]
+    },
+    {
+      "name": "Form popup: get access",
+      "category": "Forms",
+      "settings": { "form_key": "access", "sends_to": "contact", "text_align": "left", "success_heading": "You're on the list", "success_text": "<p>We'll email you the access details shortly.</p>" },
+      "blocks": [
+        { "type": "heading", "settings": { "heading": "Get *early access*" } },
+        { "type": "field", "settings": { "kind": "name", "label": "Full name", "required": true } },
+        { "type": "field", "settings": { "kind": "email", "label": "Email address" } },
+        { "type": "field", "settings": { "kind": "phone", "label": "Phone number", "required": false } },
+        { "type": "button", "settings": { "label": "Get access", "arrow": true } },
+        { "type": "note", "settings": { "icon": "lock", "text": "Your information is secure.", "small": "<p>We never share your details.</p>" } }
+      ]
+    },
+    {
+      "name": "Form popup: newsletter",
+      "category": "Forms",
+      "settings": { "form_key": "newsletter", "sends_to": "subscribe", "text_align": "center", "width": 460, "success_heading": "You're subscribed", "success_text": "<p>The next letter lands in your inbox.</p>" },
+      "blocks": [
+        { "type": "heading", "settings": { "heading": "Join the *newsletter*", "size": 28 } },
+        { "type": "text", "settings": { "text": "<p>New work and offers, about twice a month.</p>" } },
+        { "type": "field", "settings": { "kind": "email", "label": "Email address" } },
+        { "type": "button", "settings": { "label": "Subscribe", "arrow": false } },
+        { "type": "note", "settings": { "icon": "none", "text": "", "small": "<p>Unsubscribe at any time.</p>" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

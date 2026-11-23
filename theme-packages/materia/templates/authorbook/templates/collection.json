@@ -1,0 +1,102 @@
+{
+  "sections": {
+    "main-collection-heading": {
+      "type": "main-collection-heading",
+      "settings": {
+        "height": "adapt",
+        "alignment": "left",
+        "padding_top": 48,
+        "color_scheme": "default",
+        "reset_spacing": true,
+        "section_width": "fluid_container",
+        "padding_bottom": 24,
+        "show_collection_image": false
+      },
+      "name": "main-collection-heading",
+      "blocks": {
+        "breadcrumb": {
+          "type": "breadcrumb",
+          "settings": {}
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "header_size": "default"
+          }
+        },
+        "description": {
+          "type": "description",
+          "settings": {}
+        }
+      },
+      "block_order": [
+        "breadcrumb",
+        "heading",
+        "description"
+      ]
+    },
+    "main-collection-product": {
+      "type": "main-collection-product",
+      "settings": {
+        "sorting": true,
+        "column_gap": 30,
+        "pagination": "default",
+        "padding_top": 0,
+        "color_scheme": "default",
+        "filter_layout": "horizontal",
+        "items_per_row": 4,
+        "items_to_show": 12,
+        "reset_spacing": true,
+        "section_width": "fluid_container",
+        "default_filter": "open_all",
+        "empty_link_url": "/collections/all",
+        "padding_bottom": 60,
+        "vertical_posion": "left",
+        "button_show_more": "Show more",
+        "enable_filtering": false,
+        "show_filter_counts": true,
+        "items_per_row_mobile": "1",
+        "toolbar_button_style": "minimal",
+        "number_products_per_page": true
+      },
+      "name": "main-collection-product",
+      "blocks": {
+        "block-mvmkffsh-1-pcnzc": {
+          "type": "categories",
+          "settings": {
+            "title": "Category"
+          }
+        },
+        "block-mvmkfj68-2-iqqos": {
+          "type": "filter",
+          "settings": {}
+        }
+      },
+      "block_order": [
+        "block-mvmkffsh-1-pcnzc",
+        "block-mvmkfj68-2-iqqos"
+      ]
+    },
+    "cta": {
+      "type": "authorbook-cta",
+      "settings": {
+        "band_color": "#c4471f",
+        "image": "shopify://shop_images/authorbook-cover.webp",
+        "image_alt": "Read More, Keep More",
+        "heading": "Start with chapter one tonight",
+        "text": "<p>Twenty five minutes of reading and the first habit of the book, free.</p>",
+        "button_label": "Send me chapter one",
+        "button_link": "#open-form-chapter",
+        "button_color": "#1d2b4f",
+        "button2_label": "Buy the book",
+        "button2_link": "/#buy",
+        "button2_text_color": "#1d2b4f"
+      }
+    }
+  },
+  "order": [
+    "main-collection-heading",
+    "main-collection-product",
+    "cta"
+  ]
+}

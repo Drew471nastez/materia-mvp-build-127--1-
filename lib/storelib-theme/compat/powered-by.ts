@@ -20,15 +20,32 @@
  * has no plan, draws what the setting says.
  */
 
+import { STORELIB_S_PATH, STORELIB_S_TRANSFORM } from "@/components/storelib-mark"
+
 export const POWERED_BY_URL = "https://storelib.com"
 /** Theme settings: false asks for the line to be hidden (a paid plan's choice). */
 export const HIDE_SETTING = "storelib_show_badge"
 /** On the link, wherever it is drawn: how the server knows the page already says it. */
 export const BADGE_MARK = "data-storelib-badge"
 
-/** The link itself, as `powered_by_link` prints it. */
+/*
+  THE MARK BESIDE THE WORDS (round 21). Storelib's square with the S cut out
+  of it, drawn in the footer's own text colour (currentColor), so it reads
+  on a light footer and a dark one alike and fades with the words. Its size
+  is the text's (1.2em), it sits on the words' middle, and it is not read
+  out: the link already says Storelib. The S is the letter's own outline
+  (components/storelib-mark.tsx), placed in the square as the logo places it.
+*/
+const MARK_MASK = "sl-pb-s"
+/** The S's box in the 200 unit square: the solid mark's (components/brand/storelib-logo.tsx STORELIB_SOLID_S, the letter at 0.9). */
+const S_BOX = { x: 48.97, y: 38.44, w: 102.06, h: 123.12 }
+/** The letter's own box (54 43 94.5 x 114 in its outline's units) into S_BOX: one scale, no nested picture (a page's markup stays plain). */
+const S_SCALE = +(S_BOX.w / 94.5).toFixed(4)
+export const POWERED_BY_MARK = `<svg ${BADGE_MARK}-mark="" aria-hidden="true" focusable="false" viewBox="0 0 200 200" width="14" height="14" style="display:block;flex:none;width:1.2em;height:1.2em;overflow:visible"><mask id="${MARK_MASK}" maskUnits="userSpaceOnUse" x="0" y="0" width="200" height="200"><rect width="200" height="200" fill="#fff"/><path transform="translate(${S_BOX.x} ${S_BOX.y}) scale(${S_SCALE}) translate(-54 -43) ${STORELIB_S_TRANSFORM}" d="${STORELIB_S_PATH}" fill="#000"/></mask><rect width="200" height="200" rx="48" fill="currentColor" mask="url(#${MARK_MASK})"/></svg>`
+
+/** The link itself, as `powered_by_link` prints it: the mark, then the words, on one line. */
 export function poweredByLink(): string {
-  return `<a href="${POWERED_BY_URL}" target="_blank" rel="noopener" ${BADGE_MARK}="">Powered by Storelib</a>`
+  return `<a href="${POWERED_BY_URL}" target="_blank" rel="noopener" ${BADGE_MARK}="" style="display:inline-flex;align-items:center;gap:.45em;white-space:nowrap;vertical-align:middle">${POWERED_BY_MARK}<span>Powered by Storelib</span></a>`
 }
 
 /** Whether the creator asked for the line to go (the setting off). */
@@ -56,7 +73,7 @@ export function poweredByShown(settings: Record<string, unknown> | null | undefi
 export function withPoweredBy(html: string, shown: boolean): string {
   /* A fragment (a ?view= alternate template, a section drawn alone) has no body and gets no line: the page it lands in has one. */
   if (!shown || html.includes(BADGE_MARK) || !/<\/body>/i.test(html)) return html
-  const line = `<p data-storelib-badge-line style="margin:0;padding:12px 16px;text-align:center;font-size:12px;line-height:1.5;opacity:.62">${poweredByLink().replace("<a ", '<a style="color:inherit;text-decoration:none" ')}</p>`
+  const line = `<p data-storelib-badge-line style="margin:0;padding:12px 16px;text-align:center;font-size:12px;line-height:1.5;opacity:.62">${poweredByLink().replace('style="', 'style="color:inherit;text-decoration:none;')}</p>`
   const lower = html.toLowerCase()
   const footer = lower.lastIndexOf("</footer>")
   const at = footer >= 0 ? footer : lower.lastIndexOf("</body>")

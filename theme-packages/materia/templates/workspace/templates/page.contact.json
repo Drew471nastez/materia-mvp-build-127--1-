@@ -153,9 +153,38 @@
         "info_1",
         "info_2"
       ]
+    },
+    "maker": {
+      "type": "workspace-creator",
+      "settings": {
+        "background": "#f2f1ee",
+        "image": "shopify://shop_images/workspace-adda-hello.webp",
+        "image_alt": "Adda Lind at her desk with a laptop and a notebook",
+        "image_ratio": "4 / 3",
+        "image_focus": "center",
+        "image_position": "right",
+        "avatar": "shopify://shop_images/workspace-adda-avatar.webp",
+        "name": "Adda Lind",
+        "role": "Designer, makes the Wellkept templates",
+        "heading": "Or find me where I post",
+        "text": "<p>I share how I set up each template, what changed in the last update and the odd peek at the next one.</p>",
+        "button_label": "",
+        "button_link": "",
+        "instagram": "https://instagram.com",
+        "tiktok": "https://tiktok.com",
+        "youtube": "https://youtube.com",
+        "pinterest": "https://pinterest.com",
+        "heading_size": 40,
+        "heading_size_mobile": 30,
+        "padding_top": 88,
+        "padding_bottom": 88,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56
+      }
     }
   },
   "order": [
-    "contact_form_simple_1"
+    "contact_form_simple_1",
+    "maker"
   ]
 }

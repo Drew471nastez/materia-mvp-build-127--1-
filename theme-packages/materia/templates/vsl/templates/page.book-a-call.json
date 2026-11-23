@@ -53,15 +53,15 @@
         "card_1": {
           "type": "card",
           "settings": {
-            "title": "You say what you do",
-            "text": "<p>Who your clients are and the result they pay you for. Five minutes.</p>"
+            "title": "You tell us the idea",
+            "text": "<p>The topic, who it is for and why you want to make it. Five minutes.</p>"
           }
         },
         "card_2": {
           "type": "card",
           "settings": {
-            "title": "We shape one idea",
-            "text": "<p>Together we sketch the workshop you could run first, and what to charge.</p>"
+            "title": "We shape the show",
+            "text": "<p>Together we sketch a format you could repeat every week, and the first three episodes.</p>"
           }
         },
         "card_3": {

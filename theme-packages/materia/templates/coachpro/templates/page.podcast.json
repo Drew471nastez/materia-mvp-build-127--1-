@@ -1,0 +1,183 @@
+{
+  "sections": {
+    "show": {
+      "type": "coachpro-show",
+      "settings": {
+        "anchor": "show",
+        "image": "shopify://shop_images/coachpro-show.webp",
+        "image_alt": "Camila Duarte in profile against a dark wall",
+        "kind": "Podcast and video",
+        "show_name": "The Studio Hours",
+        "host": "with Camila Duarte",
+        "eyebrow": "Every Tuesday",
+        "heading": "The Studio <em>Hours</em>",
+        "text": "<p>Straight talk on pricing, clients and running a small creative business, with the occasional guest who has done it well. Watch on video or take it with you as a podcast.</p>",
+        "youtube_label": "Watch on YouTube",
+        "youtube_url": "https://www.youtube.com",
+        "apple_label": "Apple Podcasts",
+        "apple_url": "https://podcasts.apple.com",
+        "spotify_label": "Spotify",
+        "spotify_url": "https://open.spotify.com",
+        "list_heading": "The latest",
+        "all_label": "All episodes",
+        "all_url": "/pages/podcast",
+        "background": "#f8ddd2",
+        "accent_color": "#c2421f",
+        "heading_color": "#16120f",
+        "text_color": "#4a3a33",
+        "padding_top": 104,
+        "padding_bottom": 104,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "episode_1": {
+          "type": "episode",
+          "settings": {
+            "number": "#112",
+            "title": "Why your busiest month made the least money",
+            "meta": "Solo episode, 38 min",
+            "url": "https://www.youtube.com"
+          }
+        },
+        "episode_2": {
+          "type": "episode",
+          "settings": {
+            "number": "#111",
+            "title": "Raising prices without losing the clients you love",
+            "meta": "With a furniture maker from Porto, 44 min",
+            "url": "https://www.youtube.com"
+          }
+        },
+        "episode_3": {
+          "type": "episode",
+          "settings": {
+            "number": "#110",
+            "title": "The one page plan I write every January",
+            "meta": "Solo episode, 29 min",
+            "url": "https://www.youtube.com"
+          }
+        },
+        "episode_4": {
+          "type": "episode",
+          "settings": {
+            "number": "#109",
+            "title": "Saying no to the wrong project, kindly",
+            "meta": "With a brand designer, 33 min",
+            "url": "https://www.youtube.com"
+          }
+        },
+        "episode_5": {
+          "type": "episode",
+          "settings": {
+            "number": "#108",
+            "title": "Your first hire: freelancer, assistant or partner?",
+            "meta": "With a studio owner, 41 min",
+            "url": "https://www.youtube.com"
+          }
+        },
+        "episode_6": {
+          "type": "episode",
+          "settings": {
+            "number": "#107",
+            "title": "What to send when a client asks for a discount",
+            "meta": "Solo episode, 22 min",
+            "url": "https://www.youtube.com"
+          }
+        }
+      },
+      "block_order": [
+        "episode_1",
+        "episode_2",
+        "episode_3",
+        "episode_4",
+        "episode_5",
+        "episode_6"
+      ]
+    },
+    "guide": {
+      "type": "coachpro-optin",
+      "settings": {
+        "anchor": "free-guide",
+        "image": "shopify://shop_images/coachpro-guide.webp",
+        "image_alt": "Camila Duarte reading a large plan on the floor of her studio",
+        "focus_y": 44,
+        "label": "Free worksheet",
+        "heading": "Price your next project in <em>twenty minutes</em>",
+        "text": "<p>The same worksheet I use with every client: your real cost per hour, a day rate you can defend, and a short script for sending the number.</p>",
+        "points": "A two page worksheet to print or fill in\nA ten minute video walking through it\nThe Sunday letter, one idea a week",
+        "show_name": true,
+        "name_placeholder": "First name",
+        "email_placeholder": "Your email",
+        "button_label": "Send me the worksheet",
+        "tag": "pricing-worksheet",
+        "note": "No spam. Unsubscribe in one click.",
+        "success_text": "Thank you. The worksheet is on its way to your inbox.",
+        "invalid_text": "Enter a valid email address.",
+        "background": "#fbf8f4",
+        "panel_color": "#16120f",
+        "accent_color": "#ff6a3d",
+        "heading_color": "#ffffff",
+        "text_color": "#cfc6bc",
+        "note_color": "#a39a90",
+        "button_text_color": "#16120f",
+        "padding_top": 56,
+        "padding_bottom": 104,
+        "padding_top_mobile": 24,
+        "padding_bottom_mobile": 56
+      }
+    },
+    "start": {
+      "type": "coachpro-start",
+      "settings": {
+        "eyebrow": "New here",
+        "heading": "Not sure where to <em>start</em>?",
+        "text": "<p>Three good first steps, depending on how much time you have this week.</p>",
+        "background": "#16120f",
+        "accent_color": "#ff6a3d",
+        "heading_color": "#ffffff",
+        "text_color": "#cfc6bc",
+        "padding_top": 112,
+        "padding_bottom": 112,
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 64
+      },
+      "blocks": {
+        "step_1": {
+          "type": "step",
+          "settings": {
+            "title": "Listen to the show",
+            "text": "Start with episode #112, on the busy month that pays the least.",
+            "url": "/pages/podcast"
+          }
+        },
+        "step_2": {
+          "type": "step",
+          "settings": {
+            "title": "Get the free worksheet",
+            "text": "Price your next project in twenty minutes.",
+            "url": "/#free-guide"
+          }
+        },
+        "step_3": {
+          "type": "step",
+          "settings": {
+            "title": "Work with me",
+            "text": "A group programme, a short course or private mentoring.",
+            "url": "/pages/programmes"
+          }
+        }
+      },
+      "block_order": [
+        "step_1",
+        "step_2",
+        "step_3"
+      ]
+    }
+  },
+  "order": [
+    "show",
+    "guide",
+    "start"
+  ]
+}

@@ -39,7 +39,8 @@ const read = (p: string) => readFileSync(p, "utf8")
 const TEXT = /\.(html|css|js|json|svg)$/
 
 const MB = 1048576
-const BUDGET_TOTAL = 110 * MB
+/* Changed on purpose (templates round 21): 25 templates now, each still within its own 10 MB. */
+const BUDGET_TOTAL = 160 * MB
 const BUDGET_TEMPLATE = 10 * MB
 
 function main() {
@@ -92,6 +93,11 @@ function main() {
   const shim = /<script data-template-preview>([\s\S]*?)<\/script>/.exec(body.get(html[0]) ?? "")?.[1] ?? ""
   check("  it answers the store's requests itself and Add to cart says it is a preview", /W\.fetch=function/.test(shim) && /X\.open=function/.test(shim) && /cart\\\/add/.test(shim) && /This is a preview/.test(shim))
   check("  no beacon, no new window, no submit, and it tells the marketplace when it has drawn", /sendBeacon=function\(\)\{return true\}/.test(shim) && /W\.open=function\(\)\{return null\}/.test(shim) && /FP\.submit=function\(\)\{\}/.test(shim) && /storelib:template-preview/.test(shim))
+  /* Templates round 21: Add to cart, Buy now and Check out answer with a note by the button, and a link to another page is handed to the marketplace. */
+  check("  Add to cart and Buy now send nothing: a press is stopped first and a small note by the button says it is a preview", /W\.addEventListener\("click",function\(e\)\{var b=[^}]*if\(!buying\(b\)\)return;e\.preventDefault\(\);e\.stopImmediatePropagation\(\);showNote\(b\)\},true\)/.test(shim) && /Preview only: add this template to your library to sell from it\./.test(shim))
+  check("  the note is fixed (nothing on the page moves), says itself to screen readers and goes by itself", /position:fixed/.test(shim) && /role","status"/.test(shim) && /noteT=setTimeout\(hideNote,\d{4}\)/.test(shim) && /pointer-events:none/.test(shim))
+  check("  Enter in a product form's field gets the same note, never the theme's request", /if\(productForm\(i\.form\)\)\{showNote\(/.test(shim))
+  check("  a link to another of its pages is handed to the marketplace once it says it takes them, and each page says when it has drawn", /storelib:template-preview-handoff/.test(shim) && /storelib:template-preview-go/.test(shim) && /storelib:template-preview-drawn/.test(shim) && /navigation\.addEventListener\("navigate"/.test(shim))
   const outward = html.filter((f) => /<a\b[^>]*href="(?:https?:|mailto:|tel:)/i.test(body.get(f)!) || /<a\b[^>]*\starget=/i.test(body.get(f)!))
   check("no link leaves the preview or opens a window", outward.length === 0, outward.slice(0, 6))
   const loose = html.filter((f) => /<a\b[^>]*href="\/(?!theme-previews\/)/i.test(body.get(f)!))
@@ -120,7 +126,9 @@ function main() {
   check("no creator can take theme-previews as a handle", /"theme-previews",/.test(read("lib/routes/reserved-segments.ts")))
   const preview = read("app/(storelib)/app/website-builder/themes/theme-preview.tsx")
   check("the Preview frames it with scripts only and no referrer", /sandbox="allow-scripts"/.test(preview) && !/allow-same-origin|allow-forms|allow-popups|allow-top-navigation/.test(preview) && /referrerPolicy="no-referrer"/.test(preview) && /templatePreviewPath\(shown\)/.test(preview))
-  check("  it shows the website once the website says it has drawn, and only that frame's word counts", /e\.source !== frame\.current\.contentWindow/.test(preview) && /"storelib:template-preview"/.test(preview))
+  /* Changed on purpose (templates round 21): each page has its own frame (no blank between two pages), so a message counts when it comes from one of the preview's frames. */
+  check("  it shows the website once the website says it has drawn, and only its own frames' word counts", /el\.contentWindow === source/.test(preview) && /if \(key === null\) return/.test(preview) && /"storelib:template-preview"/.test(preview))
+  check("  the next page is drawn in a frame behind the one on show and comes up only once it has drawn", /"storelib:template-preview-go"/.test(preview) && /"storelib:template-preview-drawn"/.test(preview) && /PAGE_WAIT_MS/.test(preview) && /data-preview-page=/.test(preview))
   check("whoever rebuilds the covers is told to rebuild these", /build-template-previews\.ts/.test(read("scripts/build-theme-template-covers.ts")))
 
   console.log("\nSmall\n")

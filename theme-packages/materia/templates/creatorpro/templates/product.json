@@ -1,0 +1,403 @@
+{
+  "sections": {
+    "main": {
+      "type": "main-product",
+      "settings": {
+        "image_zoom": "open_lightbox",
+        "padding_top": 32,
+        "color_scheme": "default",
+        "media_square": false,
+        "reset_spacing": true,
+        "section_width": "container",
+        "sticky_bar_bg": "",
+        "desktop_layout": "thumbnail_bottom",
+        "mobile_options": "show_thumbnails",
+        "padding_bottom": 80,
+        "sticky_top_gap": 24,
+        "enable_on_mobile": true,
+        "sticky_padding_y": 12,
+        "enable_on_desktop": true,
+        "sticky_show_image": true,
+        "sticky_show_title": true,
+        "content_gap_desktop": 56,
+        "desktop_media_width": 50,
+        "padding_left_mobile": 0,
+        "sticky_border_color": "",
+        "enable_video_looping": true,
+        "padding_left_desktop": 0,
+        "padding_right_mobile": 0,
+        "section_width_mobile": "fluid_container",
+        "sticky_button_radius": 8,
+        "sticky_show_quantity": true,
+        "enable_custom_padding": true,
+        "enable_video_autoplay": true,
+        "padding_right_desktop": 0,
+        "enable_nav_dots_mobile": false,
+        "mobile_slides_per_view": "1",
+        "enable_custom_media_gap": false,
+        "sticky_show_variant_picker": true,
+        "enable_sticky_content_on_desktop": true
+      },
+      "blocks": {
+        "title_1": {
+          "type": "title",
+          "settings": {
+            "show_vendor": false,
+            "title_font_size_desktop": 40,
+            "title_font_size_mobile": 30
+          }
+        },
+        "price_1": {
+          "type": "price",
+          "settings": {
+            "price_font_size_desktop": 28,
+            "price_font_size_mobile": 24,
+            "price_font_weight": "700",
+            "compare_font_size_desktop": 18,
+            "compare_font_size_mobile": 14,
+            "compare_font_weight": "400"
+          }
+        },
+        "variant_picker_1": {
+          "type": "variant_picker",
+          "settings": {
+            "variant_type": "swatches",
+            "show_size_guide": false,
+            "picker_swatch_style": "theme"
+          }
+        },
+        "buy_buttons_1": {
+          "type": "buy_buttons",
+          "settings": {
+            "show_add_to_cart": true,
+            "show_dynamic_checkout": true,
+            "show_quantity": true,
+            "buttons_full_width": true,
+            "quantity_right_of_atc": false,
+            "show_wishlist_button": false,
+            "atc_appearance": "theme",
+            "buy_appearance": "theme",
+            "atc_icon_enable": false,
+            "atc_icon": "bag",
+            "buy_icon_enable": false,
+            "show_gift_card_recipient": false
+          }
+        },
+        "vertical_benefits_1": {
+          "type": "vertical_benefits",
+          "settings": {
+            "vb_pt": 14,
+            "vb_pb": 18,
+            "vb_mt": 0,
+            "vb_mb": 0,
+            "vb_item_space": 10,
+            "vb_maxw": 100,
+            "vb_pl": 0,
+            "vb_pr": 0,
+            "vb_text_size_d": 14,
+            "vb_text_size_m": 14,
+            "vb_icon_gap": 12,
+            "vb_icon_gap_m": 10,
+            "vb_icon_size": 26,
+            "vb_icon_size_m": 26,
+            "vb_text_color": "",
+            "vb_bg": "",
+            "vb_icon_color": "#ff5a36",
+            "item1_title": "Start straight after paying",
+            "item1_icon_library": "check",
+            "item1_use_image": false,
+            "item1_image_size": 50,
+            "item2_title": "Lifetime access and updates",
+            "item2_icon_library": "check",
+            "item2_use_image": false,
+            "item2_image_size": 50,
+            "item3_title": "14 day refund",
+            "item3_icon_library": "check",
+            "item3_use_image": false,
+            "item3_image_size": 50
+          }
+        },
+        "collapsible_row_1": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "About this",
+            "content": "",
+            "use_product_description": true,
+            "open": true
+          }
+        },
+        "collapsible_row_2": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "Options",
+            "content": "<p>Choose the course on its own, or add two private calls with Nina to review your offer and your page.</p>",
+            "use_product_description": false,
+            "open": false
+          }
+        },
+        "collapsible_row_3": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "Access and refunds",
+            "content": "<p>Your login arrives by email straight after payment and stays open for good. Write within 14 days for a full refund.</p>",
+            "use_product_description": false,
+            "open": false
+          }
+        },
+        "payment_badges_1": {
+          "type": "payment_badges",
+          "settings": {
+            "h_main": "",
+            "sec_bg": "rgba(0,0,0,0)",
+            "sec_mb": 0,
+            "sec_mt": 0,
+            "sec_pb": 22,
+            "sec_pl": 0,
+            "sec_pr": 0,
+            "sec_pt": 22,
+            "badge_h": 31,
+            "badge_w": 47,
+            "sub_url": "",
+            "sec_maxw": 116,
+            "sec_pl_m": 0,
+            "sec_pr_m": 0,
+            "sub_text": "",
+            "badge_h_m": 22,
+            "badge_w_m": 68,
+            "h_main_mb": 16,
+            "h_main_mt": 0,
+            "show_amex": true,
+            "show_visa": true,
+            "sub_color": "#333333",
+            "sub_hover": "#111111",
+            "a11y_label": "Payment badges",
+            "sec_maxw_m": 150,
+            "sec_radius": 0,
+            "sub_newtab": false,
+            "text_align": "left",
+            "h_main_size": 16,
+            "show_paypal": true,
+            "sub_uline_w": 1,
+            "badges_align": "auto",
+            "h_main_color": "#2c2c2c",
+            "text_align_m": "center",
+            "toggle_icons": true,
+            "show_unionpay": true,
+            "sub_underline": false,
+            "show_apple_pay": true,
+            "show_google_pay": true,
+            "show_mastercard": true
+          }
+        },
+        "collapsible_row_4": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "Questions",
+            "content": "<p>Not sure which course fits? Watch the free workshop first, or <a href=\"/pages/contact\">send me a message</a>.</p>",
+            "use_product_description": false,
+            "open": false
+          }
+        },
+        "short_1": {
+          "type": "short_description",
+          "settings": {
+            "custom_text": "",
+            "excerpt_length": 180
+          }
+        },
+        "guarantee_1": {
+          "type": "guarantee_row",
+          "settings": {
+            "style": "boxed",
+            "columns_mobile": "3",
+            "icon_1": "download",
+            "title_1": "Instant access",
+            "text_1": "Login by email",
+            "icon_2": "chat",
+            "title_2": "Questions answered",
+            "text_2": "By email",
+            "icon_3": "shield",
+            "title_3": "14 day refund",
+            "text_3": "Full refund",
+            "title_4": "",
+            "text_4": ""
+          }
+        },
+        "included_1": {
+          "type": "whats_included",
+          "settings": {
+            "heading": "What you get",
+            "items": "Short video lessons\nTemplates and worksheets\nLifetime updates\nA private community thread",
+            "two_columns": true,
+            "boxed": true
+          }
+        }
+      },
+      "block_order": [
+        "title_1",
+        "price_1",
+        "short_1",
+        "variant_picker_1",
+        "buy_buttons_1",
+        "guarantee_1",
+        "included_1",
+        "collapsible_row_1",
+        "collapsible_row_2",
+        "collapsible_row_3",
+        "collapsible_row_4",
+        "payment_badges_1"
+      ]
+    },
+    "reviews": {
+      "type": "authorbook-reviews",
+      "settings": {
+        "eyebrow": "Students",
+        "heading": "What students say",
+        "accent_color": "#e8401c",
+        "star_color": "#ff5a36",
+        "card_color": "#f5f4f0",
+        "avatar_color": "#101114",
+        "card_radius": 20,
+        "text": "These words are samples to show the layout. Replace them with what your own students write.",
+        "anchor": "",
+        "padding_top": 72,
+        "padding_bottom": 72
+      },
+      "blocks": {
+        "review_1": {
+          "type": "review",
+          "settings": {
+            "quote": "I had been planning a course for a year. Launch Lab made me sell a small workshop first, and that paid for the course before I built it.",
+            "name": "Dana Whitfield",
+            "tag": "Sample",
+            "role": "Launch Lab student"
+          }
+        },
+        "review_2": {
+          "type": "review",
+          "settings": {
+            "quote": "The filming lessons are the first ones that did not assume I owned a studio. My phone and a window were enough.",
+            "name": "Leo Martins",
+            "tag": "Sample",
+            "role": "YouTube from Zero"
+          }
+        },
+        "review_3": {
+          "type": "review",
+          "settings": {
+            "quote": "I read the Tuesday letter before anything else that morning. It is short and there is always one thing I can try.",
+            "name": "Sofia Reyes",
+            "tag": "Sample",
+            "role": "Newsletter reader"
+          }
+        },
+        "review_4": {
+          "type": "review",
+          "settings": {
+            "quote": "The Creator OS template saved me from five half finished planning apps. Everything lives in one place now.",
+            "name": "Jamal Carter",
+            "tag": "Sample",
+            "role": "The Creator OS"
+          }
+        },
+        "review_5": {
+          "type": "review",
+          "settings": {
+            "quote": "Nina is very clear about what is worth your time and what is not. I stopped posting everywhere and grew faster.",
+            "name": "Emma Novak",
+            "tag": "Sample",
+            "role": "Launch Lab student"
+          }
+        }
+      },
+      "block_order": [
+        "review_1",
+        "review_2",
+        "review_3",
+        "review_4",
+        "review_5"
+      ]
+    },
+    "faq": {
+      "type": "authorbook-faq",
+      "settings": {
+        "eyebrow": "Questions",
+        "heading": "Good questions",
+        "accent_color": "#e8401c",
+        "icon_bg": "#f5f4f0",
+        "text": "<p>Anything else? <a href=\"/pages/contact\">Send me a message</a> and I will reply within two days.</p>",
+        "anchor": "",
+        "padding_top": 40
+      },
+      "blocks": {
+        "question_1": {
+          "type": "question",
+          "settings": {
+            "question": "Which course should I start with?",
+            "answer": "<p>If you have an audience of any size and want to sell something, Launch Lab. If you are starting from nothing and want to make videos, YouTube from Zero. Not sure? Watch the free workshop first.</p>"
+          }
+        },
+        "question_2": {
+          "type": "question",
+          "settings": {
+            "question": "Do I need a big audience first?",
+            "answer": "<p>No. Launch Lab is built for people with a small list or none at all. The first offer you make is small on purpose.</p>"
+          }
+        },
+        "question_3": {
+          "type": "question",
+          "settings": {
+            "question": "How long do I keep access?",
+            "answer": "<p>For as long as the courses exist, including every update. Lessons work on a phone, a tablet or a laptop.</p>"
+          }
+        },
+        "question_4": {
+          "type": "question",
+          "settings": {
+            "question": "What if a course is not for me?",
+            "answer": "<p>Write within 14 days and you get a full refund. Replace this with your own terms.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "question_1",
+        "question_2",
+        "question_3",
+        "question_4"
+      ]
+    },
+    "related": {
+      "type": "related-products",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "heading": "More to learn from",
+        "description": "",
+        "header_size": "small",
+        "header_alignment": "left",
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 20,
+        "intent": "related",
+        "items_to_show": 4,
+        "show_badges": true,
+        "show_vendor": false,
+        "show_rating": false,
+        "show_swatches": false,
+        "show_price": true,
+        "show_add_to_cart": false,
+        "show_action": false,
+        "reveal": true,
+        "padding_top": 72,
+        "padding_bottom": 72
+      }
+    }
+  },
+  "order": [
+    "main",
+    "reviews",
+    "faq",
+    "related"
+  ]
+}

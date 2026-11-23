@@ -10,7 +10,7 @@
  */
 import type { CartEntry, CompatBlogSource, SiteData } from "../../lib/storelib-theme/compat/site"
 import type { PublicPost, PublicPostCard } from "../../lib/site-blog/types"
-import { SAMPLE_SHOPS } from "./shops"
+import { SAMPLE_SHOPS, type SamplePost } from "./shops"
 import { siteFor, type BuiltSite, type ImportedTemplate, type SampleProduct } from "./site"
 
 const DAY = 86_400_000
@@ -22,19 +22,22 @@ const FILLER: SampleProduct[] = [
   { title: "Sample product four", price: "$60.00" },
 ]
 
-function posts(image: string): { cards: PublicPostCard[]; full: Record<string, PublicPost> } {
+/* Templates round 21: a shop with its own posts (SAMPLE_SHOPS[template].posts) gets them, each with its own picture; the rest keep the shared ones. */
+function posts(image: string, own?: SamplePost[]): { cards: PublicPostCard[]; full: Record<string, PublicPost> } {
   const now = Date.now()
   const author = { id: "a1", slug: "sam", name: "Sam Rivera", role: "Owner", bio: "Runs the shop.", avatarUrl: "", links: [] }
-  const titles = ["How we pack every order", "Three questions we get every week", "What changed this season"]
+  const titles = own?.length ? own.map((p) => p.title) : ["How we pack every order", "Three questions we get every week", "What changed this season"]
   const cards = titles.map((title, i): PublicPostCard => {
     const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-")
+    const mine = own?.[i]
+    const excerpt = mine?.excerpt ?? "A short note from the shop about how things are made, packed and sent."
     return {
       id: `post-${i + 1}`, slug, path: `/blogs/news/${slug}`, title,
-      excerpt: "A short note from the shop about how things are made, packed and sent.",
-      summaryHtml: "<p>A short note from the shop about how things are made, packed and sent.</p>",
-      coverImageUrl: image, coverAlt: title,
-      category: i === 0 ? { slug: "notes", name: "Notes", path: "/blogs/news/category/notes" } : null,
-      tags: i === 1 ? ["Questions"] : ["Notes"],
+      excerpt,
+      summaryHtml: `<p>${excerpt}</p>`,
+      coverImageUrl: mine ? `/__product/${encodeURIComponent(mine.image)}` : image, coverAlt: title,
+      category: mine ? { slug: mine.tag.toLowerCase().replace(/[^a-z0-9]+/g, "-"), name: mine.tag, path: `/blogs/news/category/${mine.tag.toLowerCase().replace(/[^a-z0-9]+/g, "-")}` } : i === 0 ? { slug: "notes", name: "Notes", path: "/blogs/news/category/notes" } : null,
+      tags: mine ? [mine.tag] : i === 1 ? ["Questions"] : ["Notes"],
       author: author as never,
       publishedAt: new Date(now - (i + 1) * DAY).toISOString(), updatedAt: new Date(now - (i + 1) * DAY).toISOString(),
       readingMinutes: 3, featured: i === 0,
@@ -42,7 +45,7 @@ function posts(image: string): { cards: PublicPostCard[]; full: Record<string, P
   })
   const full = Object.fromEntries(cards.map((c) => [c.slug, {
     ...c, blocks: [], wordCount: 180,
-    html: `<p>Every order is checked by hand before it leaves. This is what happens between your payment and the parcel at your door.</p><h2 id="first">First, the check</h2><p>We look at each item, then pack it so it arrives the way it left.</p><ul><li>Checked</li><li>Packed</li><li>Sent with tracking</li></ul><blockquote>If something is wrong, write to us and we will put it right.</blockquote><h2 id="then">Then, the post</h2><p>Parcels leave on weekdays. You get an email with the tracking number the moment yours is collected.</p>`,
+    html: own?.find((p) => p.title === c.title)?.html ?? `<p>Every order is checked by hand before it leaves. This is what happens between your payment and the parcel at your door.</p><h2 id="first">First, the check</h2><p>We look at each item, then pack it so it arrives the way it left.</p><ul><li>Checked</li><li>Packed</li><li>Sent with tracking</li></ul><blockquote>If something is wrong, write to us and we will put it right.</blockquote><h2 id="then">Then, the post</h2><p>Parcels leave on weekdays. You get an email with the tracking number the moment yours is collected.</p>`,
     seo: { title: "", description: "", canonicalUrl: "", ogTitle: "", ogDescription: "", ogImageUrl: "", noindex: false },
   } satisfies PublicPost]))
   return { cards, full }
@@ -83,7 +86,7 @@ export function auditSite(imported: ImportedTemplate, template: string, empty: b
     col("new-in", "New in", products.slice(0, half), "What arrived this month."),
     col("best-sellers", "Best sellers", products.slice(half), "What people buy most."),
   ] as SiteData["collections"]
-  const { cards, full } = posts(cover)
+  const { cards, full } = posts(cover, SAMPLE_SHOPS[template]?.posts)
   const blog: CompatBlogSource = {
     settings: { handle: "news", previousHandles: [], title: "Journal", description: "Notes from the shop", postsPerPage: 6, seoTitle: "", seoDescription: "", ogImageUrl: "" },
     cards,

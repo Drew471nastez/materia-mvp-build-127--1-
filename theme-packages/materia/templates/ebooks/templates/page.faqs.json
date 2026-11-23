@@ -41,8 +41,8 @@
       "type": "ebook-faq",
       "settings": {
         "color_scheme": "default",
-        "background": "#f7f4ee",
-        "accent_color": "#9a6a32",
+        "background": "#ffffff",
+        "accent_color": "#b4441b",
         "eyebrow": "Questions",
         "heading": "Before you <em>buy</em>",
         "text": "<p>Anything else? <a href=\"/pages/contact\">Write to me</a>. I answer every message myself.</p>",
@@ -50,9 +50,9 @@
         "promise_seal": "30",
         "promise_title": "Read it for 30 days",
         "promise_text": "If it is not for you, reply to your receipt within 30 days and you get every penny back. No questions.",
-        "card_color": "#1f3b33",
-        "card_heading_color": "#f7f4ee",
-        "card_text_color": "#dfe6df",
+        "card_color": "#0d3b2e",
+        "card_heading_color": "#ffffff",
+        "card_text_color": "#e2e7e3",
         "padding_top": 56
       },
       "blocks": {
@@ -112,10 +112,10 @@
       "type": "ebook-signup",
       "settings": {
         "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
-        "background": "#1f3b33",
-        "heading_color": "#f7f4ee",
-        "text_color": "#cdd8cf",
-        "accent_color": "#d9b27a",
+        "background": "#0d3b2e",
+        "heading_color": "#ffffff",
+        "text_color": "#c8d2cb",
+        "accent_color": "#f2a07a",
         "image": "shopify://shop_images/ebooks-table.webp",
         "image_alt": "Reading on an e-reader at a wooden table with coffee",
         "eyebrow": "Free chapter",

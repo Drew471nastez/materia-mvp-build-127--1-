@@ -1,0 +1,153 @@
+{
+  "sections": {
+    "main": {
+      "type": "xpshop-window",
+      "settings": {
+        "title": "Error",
+        "icon": "info",
+        "look": "soft",
+        "show_menubar": false,
+        "image": "",
+        "image_alt": "",
+        "show_placeholder": false,
+        "image_side": "right",
+        "image_fit": "cover",
+        "image_ratio": "4 / 3",
+        "image_ratio_wide": "21 / 9",
+        "image_share": 50,
+        "image_loading": "lazy",
+        "eyebrow": "",
+        "heading": "This page cannot be found.",
+        "heading_tag": "h1",
+        "heading_size": 36,
+        "text": "<p>The address may be mistyped, or the page has moved. The shop and the search still work.</p>",
+        "center": true,
+        "button_label": "Open the shop",
+        "button_link": "/collections/all",
+        "button_style": "go",
+        "button2_label": "Go home",
+        "button2_link": "/",
+        "social_label": "",
+        "instagram": "",
+        "tiktok": "",
+        "youtube": "",
+        "pinterest": "",
+        "status_left": "Not found",
+        "status_right": "",
+        "width": 760,
+        "padding_top": 0,
+        "padding_bottom": 28,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 16
+      }
+    },
+    "shop": {
+      "type": "xpshop-shop",
+      "settings": {
+        "title": "You may like",
+        "icon": "folder",
+        "heading": "Popular right now",
+        "subheading": "",
+        "collection": "",
+        "products_to_show": 4,
+        "columns": "4",
+        "skip_current": true,
+        "address": "",
+        "address_label": "Address",
+        "view_all_label": "Go",
+        "view_all_link": "",
+        "more_label": "",
+        "status_right": "Printed to order, sent in 2 days",
+        "show_pane": false,
+        "pane_title": "Shop tasks",
+        "pane_note_title": "Details",
+        "pane_note_bold": "Printed to order",
+        "pane_note": "Most orders leave the studio within two working days.",
+        "quick_label": "Quick view",
+        "add_label": "Add",
+        "add_cart_label": "Add to cart",
+        "qty_label": "Quantity",
+        "details_label": "See every detail",
+        "added_title": "Added to cart",
+        "added_text": "[product] is in your cart.",
+        "view_cart_label": "View cart",
+        "keep_label": "Keep shopping",
+        "sold_out_label": "Sold out",
+        "sale_label": "Sale",
+        "unavailable_label": "That one is sold out.",
+        "error_label": "That did not work. Try again.",
+        "error_title": "Not added",
+        "object_label": "item",
+        "objects_label": "items",
+        "empty_name": "Your product",
+        "close_label": "Close",
+        "padding_top": 0,
+        "padding_bottom": 28,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 16
+      },
+      "blocks": {
+        "link_1": {
+          "type": "link",
+          "settings": {
+            "icon": "folder",
+            "label": "Everything",
+            "link": "/collections/all"
+          }
+        },
+        "link_2": {
+          "type": "link",
+          "settings": {
+            "icon": "tee",
+            "label": "Tees",
+            "link": "/search?q=tee"
+          }
+        },
+        "link_3": {
+          "type": "link",
+          "settings": {
+            "icon": "user",
+            "label": "Crews and hoodies",
+            "link": "/search?q=crew"
+          }
+        },
+        "link_4": {
+          "type": "link",
+          "settings": {
+            "icon": "cap",
+            "label": "Caps and beanies",
+            "link": "/search?q=cap"
+          }
+        },
+        "link_5": {
+          "type": "link",
+          "settings": {
+            "icon": "sticker",
+            "label": "Stickers",
+            "link": "/search?q=sticker"
+          }
+        },
+        "link_6": {
+          "type": "link",
+          "settings": {
+            "icon": "note",
+            "label": "All collections",
+            "link": "/collections"
+          }
+        }
+      },
+      "block_order": [
+        "link_1",
+        "link_2",
+        "link_3",
+        "link_4",
+        "link_5",
+        "link_6"
+      ]
+    }
+  },
+  "order": [
+    "main",
+    "shop"
+  ]
+}

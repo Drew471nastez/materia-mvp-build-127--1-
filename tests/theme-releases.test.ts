@@ -46,6 +46,7 @@ import { convertShopifyTheme } from "../lib/storelib-theme/shopify/convert"
 import { LIBRARY_FULL_CODE } from "../lib/website-builder/library-limit"
 import { THEME_INSTALL_LIMIT } from "../lib/website-builder/theme-registry"
 import { CODE_THEME_PACKAGE } from "../lib/themes/marketplace-shared"
+import * as composeModule from "../lib/themes/releases-compose"
 
 const root = process.cwd()
 const read = (p: string) => readFileSync(join(root, p), "utf8")
@@ -309,6 +310,70 @@ async function main() {
   const stranger = await runThemeUpdate({ db: fakeDb({ websites: 3 }).db, creatorId: "44444444-4444-4444-8444-444444444444", installId: SOURCE, releases: pub, nextTheme })
   check("another store's website is not found", stranger.ok === false && (stranger as { status: number }).status === 404)
 
+  console.log("\n4b. End to end: a base release from the code, through the server's own composing and converting (lib/themes/releases-compose.ts), to an updated copy\n")
+  try {
+    const srv = composeModule
+    const mf = manifestOf
+    const baseNow = readTemplateLayer(`${CODE_THEME_PACKAGE}/default`, "base")
+    /* What the creator added at 2.0.0: the code as it is. Then 2.1.0 changes one section of the base. */
+    const v200 = await srv.convertFiles(srv.layerOf(baseNow) === "theme" ? layerOver(baseNow, readTemplateLayer(`${CODE_THEME_PACKAGE}/default`, "overlay")) : baseNow)
+    const changedPath = [...baseNow.keys()].filter((p) => /^sections\/.+\.liquid$/.test(p)).sort()[1]
+    const base210 = new Map(baseNow)
+    base210.set(changedPath, Buffer.from(`${baseNow.get(changedPath)!.toString("utf8")}\n{% comment %}2.1.0{% endcomment %}`))
+    if (!v200.ok) throw new Error((v200 as { error: string }).error)
+    const installed = (v200 as Extract<typeof v200, { ok: true }>).theme
+    const rows = [
+      { id: "r1", target: BASE_TARGET, family: CODE_THEME_PACKAGE, version: "2.0.0", notes: "First", source: "code", published: true, published_at: null, created_at: "2026-11-01T00:00:00Z", layer: "theme", package_path: "theme-releases/base/a.zip", manifest: mf(installed.files) },
+      { id: "r2", target: BASE_TARGET, family: CODE_THEME_PACKAGE, version: "2.1.0", notes: "Second", source: "code", published: true, published_at: null, created_at: "2026-11-02T00:00:00Z", layer: "theme", package_path: "theme-releases/base/b.zip", manifest: {} },
+    ]
+    const released = await srv.releasedFiles("storelib-default", rows, async (row) => (row.package_path === "theme-releases/base/b.zip" ? base210 : baseNow))
+    check("the newest base release is the one composed, at its version", released?.version === "2.1.0" && released.files.get(changedPath)?.toString("utf8").includes("2.1.0") === true)
+    const next = await srv.convertFiles(released!.files)
+    const nextTheme = next as Extract<typeof next, { ok: true }>
+    check("it converts as an import converts it", next.ok === true)
+    const storedSection = Object.keys(installed.files).find((p) => p.startsWith("sections/") && p.endsWith(".storelib") && installed.files[p] !== nextTheme.theme.files[p])
+    const editedSection = Object.keys(installed.files).filter((p) => p.startsWith("sections/") && p.endsWith(".storelib") && p !== storedSection).sort()[0]
+    const installFiles = Object.entries(installed.files).map(([path, content]) => ({ path, content: path === editedSection ? `${content}\n{% comment %}my edit{% endcomment %}` : content }))
+    const homePage = installed.pages.find((p) => p.page_key === "home")!
+    const myHome = [...homePage.sections.map((x) => ({ ...x })), { id: "my-text", type: "rich-text", settings: { text: "My own words" } }]
+    const live = { ...installed.settings, compat: { ...installed.settings.compat, listing: "storelib-default", release: "2.0.0" }, shopify: { ...installed.settings.shopify, my_color: "#123456" } }
+    const store = { files: installFiles, pages: installed.pages.map((p) => ({ page_key: p.page_key, sections: p.page_key === "home" ? myHome : p.sections, draft_sections: null })), settings: live }
+    const ops: { table: string; op: string; payload?: unknown; filters: [string, unknown][] }[] = []
+    let count = 2
+    const db = {
+      from(table: string) {
+        const q = { table, op: "select", payload: undefined as unknown, filters: [] as [string, unknown][], head: false, columns: "" }
+        const run = async () => {
+          ops.push({ table: q.table, op: q.op, payload: q.payload, filters: [...q.filters] })
+          if (q.op === "insert") return table === "store_theme_installs" ? (count++, { data: { id: COPY }, error: null }) : { error: null }
+          if (q.op !== "select") return { error: null }
+          if (table === "store_theme_installs") return q.head ? { count, error: null } : q.columns === "sort_order" ? { data: { sort_order: 1 }, error: null } : { data: { id: SOURCE, name: "Shop", theme_id: "t", creator_id: CREATOR }, error: null }
+          if (table === "store_theme_settings") return { data: { settings: store.settings, draft_settings: null }, error: null }
+          if (table === "store_theme_pages") return { data: store.pages, error: null }
+          if (table === "store_theme_custom_files") return { data: store.files, error: null }
+          return { data: [], error: null }
+        }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const api: any = { select(c: string, o?: { head?: boolean }) { if (q.op === "select") { q.columns = c; q.head = !!o?.head } return api }, insert(p: unknown) { q.op = "insert"; q.payload = p; return api }, update(p: unknown) { q.op = "update"; q.payload = p; return api }, delete() { q.op = "delete"; return api }, eq(k: string, v: unknown) { q.filters.push([k, v]); return api }, order() { return api }, limit() { return api }, maybeSingle: run, single: run, then(a: (v: unknown) => unknown, b: (e: unknown) => unknown) { return run().then(a, b) } }
+        return api
+      },
+    }
+    const relList = rows.map(srv.rowToRelease)
+    const outcome = await runThemeUpdate({ db, creatorId: CREATOR, installId: SOURCE, releases: relList, nextTheme: async () => ({ ok: true, theme: { files: nextTheme.theme.files, pages: nextTheme.theme.pages, settings: nextTheme.theme.settings as unknown as MergeInput["next"]["settings"] }, version: released!.version, shipped: srv.shippedFor("storelib-default", rows) }) })
+    const wrote = (t: string) => ops.filter((o) => o.table === t && o.op === "insert").flatMap((o) => (Array.isArray(o.payload) ? o.payload : [o.payload])) as Record<string, unknown>[]
+    const copyFiles = new Map(wrote("store_theme_custom_files").map((r) => [r.path as string, r.content as string]))
+    check("the copy is made at 2.1.0", outcome.ok === true && (outcome as { version: string }).version === "2.1.0")
+    check("the section the release changed is the new one", !!storedSection && copyFiles.get(storedSection) === nextTheme.theme.files[storedSection])
+    check("the section the creator edited is theirs, and the only one listed", (copyFiles.get(editedSection) ?? "").includes("my edit") && outcome.ok === true && (outcome as { kept: { path: string }[] }).kept.map((k) => k.path).join() === editedSection)
+    const copySettings = wrote("store_theme_settings")[0]?.settings as { shopify?: Record<string, unknown>; compat?: Record<string, unknown> } | undefined
+    check("their theme settings and the version are on the copy", copySettings?.shopify?.my_color === "#123456" && copySettings?.compat?.release === "2.1.0" && copySettings?.compat?.listing === "storelib-default")
+    const copyHome = wrote("store_theme_pages").find((p) => p.page_key === "home")?.sections as { id: string }[] | undefined
+    check("their home page, with their own section, is on the copy", !!copyHome && copyHome.some((x) => x.id === "my-text"))
+    check("the website they pressed Update on is not written", !ops.some((o) => o.op !== "select" && (o.filters.some(([, v]) => v === SOURCE) || JSON.stringify(o.payload ?? "").includes(`"install_id":"${SOURCE}"`))))
+  } catch (e) {
+    check("the end to end run", false, e instanceof Error ? e.message : String(e))
+  }
+
   console.log("\n5. Who may\n")
   const adminRoute = code("app/api/admin/themes/releases/route.ts")
   const handlers = [...adminRoute.matchAll(/export async function (GET|POST|PUT|PATCH|DELETE)\s*\([^)]*\)[^{]*\{\s*const denied = await requireAdmin\(\)\s*\n\s*if \(denied\) return denied/g)].map((h) => h[1])
@@ -326,10 +391,12 @@ async function main() {
     const grant = migration.match(/grant select \(([^)]+)\) on public\.theme_releases/)?.[1] ?? ""
     return grant.includes("notes") && !grant.includes("package_path") && !grant.includes("manifest")
   })())
+  const all21 = read("supabase/sql/RUN_ROUND_21_ALL.sql")
+  check("RUN_ROUND_21_ALL.sql carries the releases table, the seven-website limit and profiles.email_verified", all21.includes(migration.slice(migration.indexOf("create table if not exists public.theme_releases"), migration.indexOf("notify pgrst")).trim()) && /if kept >= 7 then/.test(all21) && /add column email_verified boolean/.test(all21) && /create trigger profiles_keep_email_verified/.test(all21))
   const add = code("app/api/themes/marketplace/add/route.ts")
   check("Add uses the newest release and records its version", /releasedFiles\(listing\.slug/.test(add) && /withInstalledRelease\(marked, released\.version\)/.test(add))
   const page = code("app/(storelib)/app/website-builder/website-builder-client.tsx")
-  check("the library shows the version, Update available and the dialog", /<ThemeVersionFact/.test(page) && /<ThemeVersionDialog/.test(page) && /\/update`/.test(page) && /tt\("Update available"\)/.test(page))
+  check("the library shows the version, Update available and the dialog", /<ThemeVersionFact/.test(page) && /<ThemeVersionDialog/.test(page) && /\/update`/.test(page) && /<UpdateAvailableLine \/>/.test(page))
   check("a full library on Update opens the full library sheet", /data\?\.code === LIBRARY_FULL_CODE\) setVersionOf\(null\)/.test(page) && /setFull\("duplicate"\)/.test(page))
   const words = ["theme-version.tsx", "../../admin/themes/releases-admin.tsx"].map((f) => read(join("app/(storelib)/app/website-builder", f))).join("\n")
   check("the copy has no em dash and none of the banned words", !/—/.test(words) && !/\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform)\b/i.test(words))

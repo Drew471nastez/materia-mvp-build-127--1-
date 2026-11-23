@@ -1,0 +1,110 @@
+{
+  "type": "footer",
+  "name": "t:sections.footer.name",
+  "sections": {
+    "footer": {
+      "type": "xpshop-footer",
+      "settings": {
+        "title": "",
+        "icon": "home",
+        "line": "Tees, crews, caps and stickers with prints from the friendliest desktop there was. Printed to order on heavy cotton.",
+        "menu": "main-menu",
+        "menu_heading": "Shop",
+        "menu_2": "footer",
+        "menu_2_heading": "Help",
+        "sign_text": "One email when a new drop is out.",
+        "sign_label": "Sign up",
+        "sign_link": "#open-form-newsletter",
+        "show_policies": true,
+        "instagram": "https://instagram.com",
+        "tiktok": "https://tiktok.com",
+        "youtube": "",
+        "pinterest": "https://pinterest.com",
+        "copyright": "",
+        "note": "Printed to order, sent in 2 days"
+      }
+    },
+    "newsletter_popup": {
+      "type": "form-modal",
+      "settings": {
+        "form_key": "newsletter",
+        "sends_to": "subscribe",
+        "storelib_form": "",
+        "color_scheme": "default",
+        "accent_color": "#2c7a22",
+        "text_align": "left",
+        "width": 460,
+        "corners": "theme",
+        "field_style": "outline",
+        "show_icons": true,
+        "overlay_opacity": 45,
+        "success_heading": "You're on the list",
+        "success_text": "<p>One email when a new drop is printed. Nothing else, and never passed on.</p>",
+        "success_button_label": "",
+        "success_button_link": "",
+        "error_text": "That did not send. Check your email address and try again.",
+        "editor_view": "form",
+        "close_label": "Close"
+      },
+      "blocks": {
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "eyebrow": "Mailing list",
+            "heading": "Get the next drop *first*",
+            "size": 28
+          }
+        },
+        "text": {
+          "type": "text",
+          "settings": {
+            "text": "<p>New prints sell out in the first week. One email when the next one is ready, a day before it opens to everyone.</p>"
+          }
+        },
+        "name": {
+          "type": "field",
+          "settings": {
+            "kind": "name",
+            "label": "First name",
+            "required": false
+          }
+        },
+        "email": {
+          "type": "field",
+          "settings": {
+            "kind": "email",
+            "label": "Email address",
+            "required": true
+          }
+        },
+        "button": {
+          "type": "button",
+          "settings": {
+            "label": "Sign me up",
+            "arrow": false
+          }
+        },
+        "note": {
+          "type": "note",
+          "settings": {
+            "icon": "lock",
+            "text": "Leave with one click.",
+            "small": "<p>We never sell or share your address.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading",
+        "text",
+        "name",
+        "email",
+        "button",
+        "note"
+      ]
+    }
+  },
+  "order": [
+    "footer",
+    "newsletter_popup"
+  ]
+}

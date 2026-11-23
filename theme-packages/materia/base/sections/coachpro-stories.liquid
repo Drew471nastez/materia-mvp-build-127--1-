@@ -1,0 +1,124 @@
+{%- comment -%}
+  Coach creator: client stories as a carousel. Each story (a block) is a
+  card with the programme it came from, the words in a large serif, and
+  the person's face, name and line. Three cards show on a computer, one
+  and a bit on a phone; it swipes, scrolls with the arrows, and a thin bar
+  shows how far along you are. A small "Sample" tag marks stories that are
+  only there to show the layout until real ones replace them.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign hf = settings.font_heading_google_family
+-%}
+{%- if hf != blank and hf != 'none' -%}<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family={{ hf | replace: ' ', '+' }}:ital@0;1&display=swap">{%- endif -%}
+<style>
+  #shopify-section-{{ sid }} .cpt { --cpt-ink: {{ st.heading_color | default: '#16120f' }}; --cpt-accent: {{ st.accent_color | default: '#c2421f' }}; background: {{ st.background | default: '#ffffff' }}; color: {{ st.text_color | default: '#4a4038' }}; padding: {{ st.padding_top_mobile | default: 56 }}px 0 {{ st.padding_bottom_mobile | default: 56 }}px; overflow: hidden; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cpt { padding: {{ st.padding_top | default: 104 }}px 0 {{ st.padding_bottom | default: 104 }}px; } }
+  #shopify-section-{{ sid }} .cpt__in { max-width: 1240px; margin: 0 auto; padding: 0 20px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cpt__in { padding: 0 40px; } }
+  #shopify-section-{{ sid }} .cpt__head { text-align: center; max-width: 760px; margin: 0 auto 36px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cpt__head { margin-bottom: 52px; } }
+  #shopify-section-{{ sid }} .cpt__eyebrow { margin: 0 0 12px; color: var(--cpt-accent); font-size: 12px; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; }
+  #shopify-section-{{ sid }} .cpt__title { margin: 0; color: var(--cpt-ink); font-family: var(--heading-font, serif); font-weight: 400; font-size: 40px; line-height: 1.04; letter-spacing: -.01em; text-wrap: balance; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cpt__title { font-size: 60px; } }
+  #shopify-section-{{ sid }} .cpt__title em { font-style: italic; color: var(--cpt-accent); }
+  #shopify-section-{{ sid }} .cpt__track { display: flex; gap: 16px; margin: 0 -20px; padding: 4px 20px 8px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding: 0 20px; scrollbar-width: none; overscroll-behavior-x: contain; }
+  #shopify-section-{{ sid }} .cpt__track::-webkit-scrollbar { display: none; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cpt__track { gap: 24px; margin: 0; padding: 4px 0 8px; scroll-padding: 0; } }
+  #shopify-section-{{ sid }} .cpt__card { flex: 0 0 86%; scroll-snap-align: start; margin: 0; display: flex; flex-direction: column; min-height: 380px; padding: 28px 26px 26px; border-radius: 22px; background: {{ st.card_color | default: '#f5efe7' }}; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .cpt__card { flex-basis: calc((100% - 16px) / 2); } }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cpt__card { flex-basis: calc((100% - 48px) / 3); padding: 34px 32px 30px; min-height: 420px; } }
+  #shopify-section-{{ sid }} .cpt__top { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 22px; }
+  #shopify-section-{{ sid }} .cpt__chip { padding: 6px 11px; border-radius: 999px; background: #fff; color: var(--cpt-ink); font-size: 11.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+  #shopify-section-{{ sid }} .cpt__sample { color: #7a6e64; font-size: 12px; font-weight: 500; }
+  #shopify-section-{{ sid }} .cpt__mark { width: 30px; height: 22px; margin-bottom: 14px; color: var(--cpt-accent); }
+  #shopify-section-{{ sid }} .cpt__quote { flex: 1 1 auto; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; quotes: none; color: var(--cpt-ink); font-family: var(--heading-font, serif); font-size: 24px; line-height: 1.24; letter-spacing: -.005em; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .cpt__quote { font-size: 26px; } }
+  #shopify-section-{{ sid }} .cpt__who { display: flex; align-items: center; gap: 14px; margin-top: 26px; padding-top: 20px; border-top: 1px solid color-mix(in srgb, var(--cpt-ink) 12%, transparent); }
+  #shopify-section-{{ sid }} .cpt__av { flex: 0 0 auto; width: 52px; height: 52px; border-radius: 50%; overflow: hidden; background: #e3d7c8; display: grid; place-items: center; color: var(--cpt-ink); font-weight: 700; }
+  #shopify-section-{{ sid }} .cpt__av img { width: 100%; height: 100%; object-fit: cover; }
+  #shopify-section-{{ sid }} .cpt__name { display: block; color: var(--cpt-ink); font-size: 15.5px; font-weight: 600; }
+  #shopify-section-{{ sid }} .cpt__role { display: block; margin-top: 2px; font-size: 13.5px; }
+  #shopify-section-{{ sid }} .cpt__nav { display: flex; align-items: center; gap: 18px; margin-top: 28px; }
+  #shopify-section-{{ sid }} .cpt__bar { position: relative; flex: 1 1 auto; height: 2px; border-radius: 2px; background: color-mix(in srgb, var(--cpt-ink) 12%, transparent); overflow: hidden; }
+  #shopify-section-{{ sid }} .cpt__fill { position: absolute; left: 0; top: 0; bottom: 0; width: 34%; background: var(--cpt-ink); border-radius: 2px; transform-origin: left; transition: transform .35s ease, left .35s ease; }
+  #shopify-section-{{ sid }} .cpt__arrow { display: grid; place-items: center; width: 50px; height: 50px; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--cpt-ink) 25%, transparent); background: transparent; color: var(--cpt-ink); cursor: pointer; transition: background-color .2s ease, color .2s ease, opacity .2s ease; }
+  #shopify-section-{{ sid }} .cpt__arrow:hover:not([disabled]) { background: var(--cpt-ink); color: #fff; }
+  #shopify-section-{{ sid }} .cpt__arrow[disabled] { opacity: .35; cursor: default; }
+  #shopify-section-{{ sid }} .cpt__arrow svg { width: 18px; height: 18px; }
+  #shopify-section-{{ sid }} .cpt__foot { margin: 22px 0 0; text-align: center; font-size: 13px; color: #7a6e64; }
+</style>
+<section data-own-size class="cpt" data-cpt{% if st.anchor != blank %} id="{{ st.anchor | handleize }}"{% endif %}>
+  <div class="cpt__in">
+    <div class="cpt__head">
+      {%- if st.eyebrow != blank -%}<p class="cpt__eyebrow">{{ st.eyebrow | escape }}</p>{%- endif -%}
+      {%- if st.heading != blank -%}<h2 class="cpt__title">{{ st.heading }}</h2>{%- endif -%}
+    </div>
+    <div class="cpt__track" data-cpt-track tabindex="0" role="region" aria-label="{{ st.heading | strip_html | escape }}">
+      {%- for block in section.blocks -%}
+        {%- assign b = block.settings -%}
+        <figure class="cpt__card" {{ block.shopify_attributes }}>
+          <div class="cpt__top">
+            {%- if b.programme != blank -%}<span class="cpt__chip">{{ b.programme | escape }}</span>{%- else -%}<span></span>{%- endif -%}
+            {%- if b.sample -%}<span class="cpt__sample">{{ st.sample_label | default: 'Sample' | escape }}</span>{%- endif -%}
+          </div>
+          <svg class="cpt__mark" viewBox="0 0 30 22" fill="currentColor" aria-hidden="true"><path d="M0 22V13C0 5.5 4 1.2 11.5 0l1.2 3.2C8.5 4.5 6.5 7 6.3 11H12v11zm17 0V13c0-7.5 4-11.8 11.5-13l1.2 3.2c-4.2 1.3-6.2 3.8-6.4 7.8H29v11z"/></svg>
+          <blockquote class="cpt__quote">{{ b.quote | escape }}</blockquote>
+          <figcaption class="cpt__who">
+            <span class="cpt__av">
+              {%- if b.avatar != blank -%}<img src="{{ b.avatar | image_url: width: 120 }}" width="52" height="52" alt="" loading="lazy" decoding="async">{%- else -%}{{ b.name | slice: 0 }}{%- endif -%}
+            </span>
+            <span><span class="cpt__name">{{ b.name | escape }}</span>{%- if b.role != blank -%}<span class="cpt__role">{{ b.role | escape }}</span>{%- endif -%}</span>
+          </figcaption>
+        </figure>
+      {%- endfor -%}
+    </div>
+    <div class="cpt__nav">
+      <div class="cpt__bar" aria-hidden="true"><span class="cpt__fill" data-cpt-fill></span></div>
+      <button type="button" class="cpt__arrow" data-cpt-prev aria-label="{{ st.prev_label | default: 'Previous' | escape }}"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 9h-11M8 4.5 3.5 9 8 13.5"/></svg></button>
+      <button type="button" class="cpt__arrow" data-cpt-next aria-label="{{ st.next_label | default: 'Next' | escape }}"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 9h11M10 4.5 14.5 9 10 13.5"/></svg></button>
+    </div>
+    {%- if st.footnote != blank -%}<p class="cpt__foot">{{ st.footnote | escape }}</p>{%- endif -%}
+  </div>
+</section>
+<script>(function(){var r=document.getElementById('shopify-section-{{ sid }}');if(!r)return;var t=r.querySelector('[data-cpt-track]'),p=r.querySelector('[data-cpt-prev]'),n=r.querySelector('[data-cpt-next]'),f=r.querySelector('[data-cpt-fill]');if(!t)return;var raf=0;function step(){var c=t.querySelector('.cpt__card');return c?c.getBoundingClientRect().width+parseFloat(getComputedStyle(t).columnGap||getComputedStyle(t).gap||0):t.clientWidth}function upd(){raf=0;var m=t.scrollWidth-t.clientWidth,x=t.scrollLeft;p.disabled=x<=2;n.disabled=x>=m-2;var w=m>0?t.clientWidth/t.scrollWidth:1;f.style.width=(w*100)+'%';f.style.left=(m>0?(x/m)*(1-w)*100:0)+'%'}t.addEventListener('scroll',function(){if(!raf)raf=requestAnimationFrame(upd)},{passive:true});addEventListener('resize',function(){if(!raf)raf=requestAnimationFrame(upd)});var sm=matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth';p.addEventListener('click',function(){t.scrollBy({left:-step(),behavior:sm})});n.addEventListener('click',function(){t.scrollBy({left:step(),behavior:sm})});upd()})();</script>
+
+{% schema %}
+{
+  "name": "Coach creator stories",
+  "tag": "section",
+  "class": "coachpro-stories-section",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "settings": [
+    { "type": "text", "id": "anchor", "label": "Name for links to this place", "default": "stories" },
+    { "type": "text", "id": "eyebrow", "label": "Small line above", "default": "Client stories" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "Will you be the next <em>story</em>?" },
+    { "type": "text", "id": "sample_label", "label": "Word on sample stories", "default": "Sample" },
+    { "type": "text", "id": "footnote", "label": "Small line under the stories", "default": "Sample stories to show the layout. Replace them with your clients' own words, with their permission." },
+    { "type": "text", "id": "prev_label", "label": "Previous button, for screen readers", "default": "Previous story" },
+    { "type": "text", "id": "next_label", "label": "Next button, for screen readers", "default": "Next story" },
+    { "type": "header", "content": "Look" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#ffffff" },
+    { "type": "color", "id": "card_color", "label": "Cards", "default": "#f5efe7" },
+    { "type": "color", "id": "accent_color", "label": "Accent", "default": "#c2421f" },
+    { "type": "color", "id": "heading_color", "label": "Headings and quotes", "default": "#16120f" },
+    { "type": "color", "id": "text_color", "label": "Text", "default": "#4a4038" },
+    { "type": "range", "id": "padding_top", "label": "Space above on a computer", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 104 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below on a computer", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 104 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above on a phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below on a phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 }
+  ],
+  "blocks": [
+    { "type": "story", "name": "Story", "limit": 12, "settings": [
+      { "type": "text", "id": "programme", "label": "Programme", "default": "Programme" },
+      { "type": "textarea", "id": "quote", "label": "Their words", "default": "What changed for them, in their own words." },
+      { "type": "image_picker", "id": "avatar", "label": "Their photo", "info": "Square works best. Without one, the first letter of the name shows." },
+      { "type": "text", "id": "name", "label": "Name", "default": "Client name" },
+      { "type": "text", "id": "role", "label": "Line under the name", "default": "What they do" },
+      { "type": "checkbox", "id": "sample", "label": "Mark as a sample", "default": true }
+    ] }
+  ],
+  "presets": [ { "name": "Coach creator stories", "category": "Coach creator", "blocks": [ { "type": "story" }, { "type": "story" }, { "type": "story" }, { "type": "story" } ] } ]
+}
+{% endschema %}
