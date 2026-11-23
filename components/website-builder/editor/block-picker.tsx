@@ -71,7 +71,7 @@ import type { CompatPage } from "@/lib/storelib-theme/compat/theme"
 import { splitStyles } from "@/lib/website-builder/preview-markup"
 import { REVEAL_EVENT } from "@/lib/website-builder/canvas-scroll"
 import { THEME_ROOT_ATTRIBUTE } from "@/lib/website-builder/theme-css"
-import { PICKER_SIZE, PREVIEW_BLOCK_ID, fitPreview, matchChoices, placePicker, previewBlock, previewStrip, sectionWith, splitChoices, type PickerPlace } from "@/lib/website-builder/block-picker"
+import { PICKER_SIZE, PREVIEW_BLOCK_ID, fitPreview, matchChoices, pickerIsPhone, placePicker, previewBlock, previewStrip, sectionWith, splitChoices, typesAt, type PickerPlace } from "@/lib/website-builder/block-picker"
 import type { BlockSchema, SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { tt } from "@/lib/i18n/text"
 import type { BlockChoice } from "./add-block-button"
@@ -728,20 +728,6 @@ function pageWithShop(base: CompatPage): CompatPage {
 /* ── The picker ────────────────────────────────────────────────────────── */
 
 const PHONE_SHEET = "[data-mobile-bottom-sheet]"
-/** The editor's phone layout starts under this width (its sections sheet, its bottom bar): the picker is a sheet there. */
-const PHONE_MAX = 767
-
-/**
- * Whether an opening is a phone's: the row pressed is in the sections sheet,
- * or the window is a phone's width. Round 58: it used to be the first alone,
- * so Add block pressed ON THE CANVAS of a phone (between two blocks, or in an
- * imported theme's frame) opened the computer's panel, 366 wide, its preview
- * a 56px sliver holding the block at a tenth of its size.
- */
-export function pickerIsPhone(inSheet: boolean, width: number): boolean {
-  return inSheet || width <= PHONE_MAX
-}
-
 /** After adding: the new block, once the canvas has drawn it, brought on screen if it is not. */
 function revealNewBlock(sectionId: string, before: Set<string>) {
   let frames = 0
@@ -1157,13 +1143,6 @@ function DesktopPanel({ open, anchor, onClose, searchRef, children }: { open: bo
     </div>,
     portal,
   )
-}
-
-/** The block types at one level of a section: its own blocks for [], else the blocks inside the block the path names. */
-export function typesAt(section: Pick<SectionInstance, "blocks">, parent: readonly string[]): Set<string> {
-  let level = section.blocks ?? []
-  for (const id of parent) level = level.find((b) => b.id === id)?.blocks ?? []
-  return new Set(level.map((b) => b.type))
 }
 
 /** The list side's natural height: its search and every row, as if nothing capped it. */
