@@ -144,7 +144,17 @@ export function ThemesMarketplace({
         {/* ── The count, the filter button on a phone, the order ─────── */}
         <div className="flex h-11 items-center justify-between gap-3">
           <p data-market-count="" aria-live="polite" className="min-w-0 truncate text-[14px] tabular-nums text-[#6b7280]">
-            {shown.length === 0 ? "No templates" : visible < shown.length ? `1 to ${visible} of ${shown.length} templates` : `${shown.length} ${shown.length === 1 ? "template" : "templates"}`}
+            {shown.length === 0 ? (
+              "No templates"
+            ) : visible < shown.length ? (
+              <>
+                {/* A phone has room for the total beside Filter and Sort; the range is for a wider window. */}
+                <span className="sm:hidden">{shown.length} templates</span>
+                <span className="hidden sm:inline">{`1 to ${visible} of ${shown.length} templates`}</span>
+              </>
+            ) : (
+              `${shown.length} ${shown.length === 1 ? "template" : "templates"}`
+            )}
           </p>
           <div className="flex shrink-0 items-center gap-2">
             <button
