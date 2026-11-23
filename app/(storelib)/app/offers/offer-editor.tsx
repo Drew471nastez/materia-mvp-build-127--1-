@@ -326,7 +326,9 @@ function OfferForm({
   const moreLine = `${placesLine}, ${datesLine}${d.combinesWithCodes ? "" : `, ${tt("no codes on top")}`}`
   const newSettingsUsed = !settingsReady && (d.condition === "collections" || d.placements.length !== PLACEMENTS_FOR[d.kind].length || !!d.startsAt || !!d.endsAt || !!d.maxPerOrder || !d.combinesWithCodes || !!d.minSubtotal || d.discountType === "free_shipping")
   const canSave = ready && !busy && step === "form" && (offer ? dirty : true)
-  const title = step === "kind" ? tt("New offer") : offer ? tt("Edit {kind}", { kind: KIND_WORD[d.kind]().toLowerCase() }) : tt("New {kind}", { kind: KIND_WORD[d.kind]().toLowerCase() })
+  /* English reads "New bundle"; the other catalogs write "New offer: {kind}", where the kind keeps its own capital (German nouns). */
+  const kindWord = tt("New offer") === "New offer" ? KIND_WORD[d.kind]().toLowerCase() : KIND_WORD[d.kind]()
+  const title = step === "kind" ? tt("New offer") : offer ? tt("Edit {kind}", { kind: kindWord }) : tt("New {kind}", { kind: kindWord })
   const price = priceLine(d, Number.isFinite(body.discountValue) ? body.discountValue : 0, byId, money)
   const problemCount = Object.keys(shown).length
 

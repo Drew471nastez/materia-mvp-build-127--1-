@@ -190,7 +190,7 @@ export function UpgradePageClient({
   const compareActionFor = (id: OfferedPlanId): PlanCardAction => {
     const card = actionFor(id)
     const name = offeredPlan(id).name
-    const label = card.current ? "Current plan" : card.settled ? "Scheduled" : /^Downgrade/.test(card.label) ? `Move to ${name}` : `Get ${name}`
+    const label = card.current ? tt("Current plan") : card.settled ? tt("Scheduled") : /^Downgrade/.test(card.label) ? tt("Move to {name}", { name }) : tt("Get {name}", { name })
     return { ...card, label }
   }
 

@@ -81,7 +81,9 @@ console.log("\nThe wiring\n")
   check("  own access is the account's own store, never the team store's", /const ownAccess = !!ownCreator && hasSellerAccess\(sellerAccessFrom\(\{ creator: ownCreator, profile: gateCheck \}\)\)/.test(layout))
   check("  Back to my account opens their own home (ownAccountHref)", /ownHome=\{ownAccountHref\(\{ ownAccess, actingIn: acting\.creatorId \}\)\}/.test(layout) && /window\.location\.href = ownHome/.test(read("components/app/team-bar.tsx")))
   const pages = ["offers", "reviews", "files", "integrations", "inventory", "support", "products/collections", "coupons", "coupons/new", "coupons/[id]"]
-  const left = pages.filter((p) => /redirect\("\/sell"\)/.test(read(`app/(storelib)/app/${p}/page.tsx`)) || !/return noStorePage\("\/app\//.test(read(`app/(storelib)/app/${p}/page.tsx`)))
+  /* Changed on purpose (r58): offers pages render OffersScreen, which asks noStorePage(from). */
+  const pageFile = (p: string) => (p === "offers" ? "app/(storelib)/app/offers/offers-screen.tsx" : `app/(storelib)/app/${p}/page.tsx`)
+  const left = pages.filter((p) => /redirect\("\/sell"\)/.test(read(pageFile(p))) || !/return noStorePage\((?:"\/app\/|from\))/.test(read(pageFile(p))))
   check("every /app page that sent a storeless account to /sell asks noStorePage instead", left.length === 0, left)
   const server = read("lib/team/server.ts")
   check("  noStorePage: in a team store, nothing (the team bar says what the role has); on a team, back into it; else /sell", /* Changed on purpose (rel2-auth): a failed read is nothing too, never /sell. */ /if \(read\.failed \|\| read\.acting\) return null/.test(server) && /if \(rows === null\) return null/.test(server) && /if \(rows\.length > 0\) redirect\(teamHomeHref\(path\)\)/.test(server))
