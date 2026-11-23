@@ -23,6 +23,16 @@
  *                  body in (./integration-apps.tsx, the API is documented
  *                  there). The tab is kept in the address (?view=).
  *
+ * ROUND 58, AN APP STORE'S PAGE. Before it is installed the page is the
+ * app's listing (../integrations/app-listing.tsx): a column with the mark,
+ * name, pricing, category, developer and Install, beside a gallery and what
+ * it does, in Storelib, and what it needs. No key field is on it: Install
+ * opens the install sheet (../integrations/install-sheet.tsx) with numbered
+ * steps over the integration's own panel; Discord goes straight to its own
+ * sign in; Reviews turns on in one press. Once installed, the header below
+ * and one shared body (../integrations/installed-app.tsx): Status, What is
+ * synced, Activity and errors, Settings and Disconnect.
+ *
  * Every action calls the same route the integration's panel does
  * (lib/integrations/detail-actions.ts), and nothing on the page needs the
  * assistant.
@@ -50,6 +60,10 @@ import { integrationAppView, tabFor } from "@/components/app/settings/integratio
 import { tt } from "@/lib/i18n/text"
 import { PageIntegrationsSection, reloadPageIntegrations } from "@/components/onepage/page-integrations"
 import { isPageIntegration } from "@/lib/onepage/integrations/catalog"
+import { AppListing } from "@/components/app/integrations/app-listing"
+import { InstallSheet } from "@/components/app/integrations/install-sheet"
+import { ActivityCard, InstalledApp, SyncedCard } from "@/components/app/integrations/installed-app"
+import { activityOf, installLabel, installMode, installSteps, syncedOf } from "@/lib/integrations/listing"
 
 /*
   A CARD, AS EVERY /app CARD ON A PHONE (the mobile pass, the owner: "more
@@ -303,6 +317,12 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
   /* Round 41: the setup steps and the details (what it does, your data, at a glance) open on top of the page, not under it. */
   const [howTo, setHowTo] = React.useState(false)
   const [details, setDetails] = React.useState(false)
+  /* Round 58: the install sheet, and how this one installs (one press, its own sign in, the sheet, or a request). */
+  const [installing, setInstalling] = React.useState(false)
+  const mode = installMode(item, notifyOnly)
+  /* Not installed and no tabs of its own: the listing. Storelib Reviews keeps its tabs on or off. */
+  const listing = !installed && !view
+  React.useEffect(() => setInstalling(false), [item.id])
   const [busy, setBusy] = React.useState(false)
   const [notice, setNotice] = React.useState<{ tone: "green" | "red"; text: string } | null>(null)
   React.useEffect(() => setNotice(null), [item.id])
@@ -585,7 +605,8 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
     </section>
   ) : null
 
-  const sections = { setup, status: statusSection, overview, data, glance, danger }
+  const synced = <SyncedCard rows={syncedOf(item).map((r) => tt(r))} />
+  const sections = { setup, status: statusSection, overview, data, glance, danger, synced }
   const tabs = view ? view.tabs() : []
   const Body = view?.Body
 
@@ -595,6 +616,14 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
   /* The one thing to do on the page, when there is one: Connect, Install, Turn on, or Tell me when it's ready. */
   const primaryLabel = notifyOnly ? tt("Tell me when it's ready") : !verb ? null : busy && oneTapInstall(item) ? tt("Turning on") : verb === "Turn on" ? tt("Turn on") : verb === "Connect" ? tt("Connect") : tt("Install")
   const pressPrimary = () => {
+    if (listing && mode.kind === "oauth") {
+      window.location.assign(mode.href)
+      return
+    }
+    if (listing && mode.kind === "sheet") {
+      setInstalling(true)
+      return
+    }
     if (notifyOnly) {
       setAskTick((n) => n + 1)
       toSetup()
@@ -614,7 +643,7 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
     observer and one transition. The bar's own action follows the header's,
     as before: shown only once the header's is out of view.
   */
-  const { bar: barShown, action: actionOut } = usePageBar(onBack ? backMark : null, actionsRef, barOn)
+  const { bar: barShown, action: actionOut } = usePageBar(onBack ? backMark : null, actionsRef, barOn, listing)
   const pinned = onBack ? barShown : actionOut
   const barAction = notifyOnly || !!verb ? "primary" : plan || installed ? "settings" : null
   const actions = (
@@ -648,6 +677,46 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
       ) : null}
     </div>
   )
+
+  /*
+    THE LISTING'S ACTION (round 58): full width in its column, the one the
+    following bar watches (actionsRef). Tell me when it's ready sends the
+    request itself; Discord's is a link to its own sign in; the rest open
+    the install sheet or turn on in one press.
+  */
+  const installWord = tt(installLabel(item, mode))
+  const listingAction =
+    mode.kind === "none" ? null : (
+      <div ref={listing ? actionsRef : undefined} data-integration-actions="">
+        {mode.kind === "notify" ? (
+          <NotifyMe item={item} askTick={askTick} compact buttonRef={primaryRef} />
+        ) : mode.kind === "oauth" ? (
+          <a href={mode.href} className={cn(BTN_PRIMARY, "h-11 w-full rounded-xl sm:h-10")} data-app-install="oauth">
+            {installWord}
+            <ArrowRight className="h-4 w-4" aria-hidden />
+          </a>
+        ) : (
+          <button ref={primaryRef} type="button" disabled={busy} onClick={pressPrimary} className={cn(BTN_PRIMARY, "h-11 w-full rounded-xl sm:h-10")} data-app-install={mode.kind} aria-haspopup={mode.kind === "sheet" ? "dialog" : undefined}>
+            {mode.kind === "one_tap" && busy ? tt("Turning on") : installWord}
+          </button>
+        )}
+      </div>
+    )
+  const closeInstall = React.useCallback(() => setInstalling(false), [])
+  /* The integration's own panel in the sheet: a provider's fields alone (no card around them), Klaviyo's and Omnisend's key with their site ID under it. */
+  const sheetPanel =
+    item.kind === "commerce" && item.providerId && providerInfo(item.providerId) ? (
+      <IntegrationCard provider={providerInfo(item.providerId)!} state={providerState} loading={states === null} onSaved={onStates} bare />
+    ) : item.kind === "tracker" && (item.trackerId === "klaviyo" || item.trackerId === "omnisend") ? (
+      <div className="space-y-5">
+        <MarketingSyncPanel provider={item.trackerId} onChanged={onMarketing} />
+        <div className="border-t border-[#f1f2f4] pt-5">{panel}</div>
+      </div>
+    ) : (
+      panel
+    )
+  /* What the installed page's Activity reads: the provider's state, or the email platform's. */
+  const factsRead = providerState ?? marketingState ?? null
 
   return (
     <>
@@ -731,6 +800,36 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
           </div>
         ) : null}
 
+        {listing ? (
+          <AppListing
+            item={item}
+            Title={Title}
+            standing={{ label: standing.label, dot: DOT[standing.tone] }}
+            color={bannerColor(item)}
+            action={listingAction}
+            notice={
+              notice ? (
+                <Notice tone={notice.tone}>
+                  <span data-integration-notice={notice.tone}>{notice.text}</span>
+                </Notice>
+              ) : null
+            }
+            banner={
+              item.paused || (notifyOnly && (isPageIntegration(item.id) || (item.kind === "commerce" && providerState && providerState.status !== "disconnected"))) ? (
+                <section className={cn(DEPTH, PAD, "space-y-4")} data-app-listing-banner="">
+                  {item.paused ? <Notice tone="gray">{tt("{name} is paused on Storelib for now. Anything already set up keeps its settings.", { name: item.name })}</Notice> : null}
+                  {notifyOnly && isPageIntegration(item.id) ? <PageIntegrationsSection only={[item.id]} /> : null}
+                  {notifyOnly && item.kind === "commerce" && item.providerId && providerInfo(item.providerId) && providerState && providerState.status !== "disconnected" ? (
+                    <ul className="[&>li]:border-0 [&>li]:bg-transparent [&>li]:p-0 [&>li]:shadow-none">
+                      <IntegrationCard provider={providerInfo(item.providerId)!} state={providerState} loading={false} onSaved={onStates} />
+                    </ul>
+                  ) : null}
+                </section>
+              ) : null
+            }
+          />
+        ) : (
+        <>
         <header className={cn(DEPTH, "overflow-hidden")} data-integration-header="">
           <div aria-hidden className="h-[84px] sm:h-[112px]" style={bannerStyle(bannerColor(item))} data-integration-banner="" />
           <div className="app-card-x pb-4 sm:px-7 sm:pb-6">
@@ -807,16 +906,13 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
             <Body tab={tab} setTab={setTab} item={item} status={status} installed={installed} sections={sections} Layout={Layout} warm={warmTab} onChanged={(on) => item.appId && onApp(item.appId, on)} />
           </div>
         ) : (
-          <Layout
-            main={
-              <>
-                {setup}
-                {statusSection}
-                {danger}
-              </>
-            }
-          />
+          /* Round 58: every installed integration's body is the one template. */
+          <InstalledApp status={statusSection} synced={synced} activity={factsRead ? <ActivityCard rows={activityOf(item, factsRead)} /> : null} settings={setup} danger={danger} />
         )}
+        </>
+        )}
+
+        <InstallSheet open={installing} onClose={closeInstall} item={item} title={tt("{verb} {name}", { verb: tt(installLabel(item, mode)), name: item.name })} steps={installSteps(item).map((s) => tt(s))} panel={sheetPanel} installed={installed} />
 
         <Modal open={howTo}
           onClose={() => setHowTo(false)}
@@ -934,7 +1030,7 @@ const PIN_ROOM = 64
  * Both are read in the same callback and set in one update, so the link and
  * the bar's arrow change in the same frame.
  */
-function usePageBar(back: React.RefObject<HTMLElement | null> | null, actions: React.RefObject<HTMLElement | null>, on: boolean): { bar: boolean; action: boolean } {
+function usePageBar(back: React.RefObject<HTMLElement | null> | null, actions: React.RefObject<HTMLElement | null>, on: boolean, /** Round 58: the listing and the installed page draw different actions; observed again when one gives way to the other. */ drawn = false): { bar: boolean; action: boolean } {
   const [state, setState] = React.useState({ bar: false, action: false })
   React.useEffect(() => {
     const act = actions.current
@@ -960,7 +1056,7 @@ function usePageBar(back: React.RefObject<HTMLElement | null> | null, actions: R
     io.observe(act)
     if (mark) io.observe(mark)
     return () => io.disconnect()
-  }, [back, actions, on])
+  }, [back, actions, on, drawn])
   return on ? state : { bar: false, action: false }
 }
 
@@ -1071,7 +1167,7 @@ function AdsLabelInstall({ value, adsId, onSaved }: { value: string | null; adsI
  * (a request in /admin, once per store). "You're on the list" only once the
  * request is really kept.
  */
-function NotifyMe({ item, askTick = 0 }: { item: Integration; askTick?: number }) {
+function NotifyMe({ item, askTick = 0, compact = false, buttonRef }: { item: Integration; askTick?: number; /** The listing's action (round 58): the button alone, full width, and the line once asked. */ compact?: boolean; buttonRef?: React.Ref<HTMLButtonElement> }) {
   const [state, setState] = React.useState<"idle" | "sending" | "sent">("idle")
   const [error, setError] = React.useState<string | null>(null)
   const ask = async () => {
@@ -1090,6 +1186,22 @@ function NotifyMe({ item, askTick = 0 }: { item: Integration; askTick?: number }
     if (askTick > 0) void ask()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [askTick])
+  if (compact)
+    return (
+      <div className="space-y-2" data-integration-notify={item.id}>
+        {state === "sent" ? (
+          <p className="inline-flex min-h-11 items-center gap-1.5 text-[13.5px] font-medium text-[#067647] sm:min-h-10" data-integration-notified="">
+            <Check className="h-4 w-4" aria-hidden />
+            {tt("You're on the list for {name}.", { name: item.name })}
+          </p>
+        ) : (
+          <button ref={buttonRef} type="button" className={cn(BTN_PRIMARY, "h-11 w-full rounded-xl sm:h-10")} disabled={state === "sending"} onClick={() => void ask()} data-app-install="notify">
+            {state === "sending" ? tt("Sending") : tt("Tell me when it's ready")}
+          </button>
+        )}
+        {error ? <Notice>{error}</Notice> : null}
+      </div>
+    )
   return (
     <div className="space-y-3" data-integration-notify={item.id}>
       <p className="text-[14px] leading-[21px] text-[#4b5563]">{tt("Not available yet. Ask for it and you'll be counted: the most asked for are built first.")}</p>

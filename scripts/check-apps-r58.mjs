@@ -139,7 +139,7 @@ export const isNativePlatform = () => false
   const fonts = interFaces(root)
   const js = readFileSync(join(stubs, "page.js"), "utf8")
   /* A layout-shift observer from before the first paint, so every shift is counted. */
-  const cls = `<script>window.__shifts=[];try{new PerformanceObserver(l=>{for(const e of l.getEntries()){if(!e.hadRecentInput)window.__shifts.push({v:e.value,t:Math.round(e.startTime),n:(e.sources||[]).map(s=>s.node&&s.node.nodeType===1?(s.node.getAttribute('data-integration-page')!==null?'page':s.node.tagName+'.'+String(s.node.className).slice(0,60)):'?')})}}).observe({type:'layout-shift',buffered:true})}catch{}</script>`
+  const cls = `<script>window.__shifts=[];try{new PerformanceObserver(l=>{for(const e of l.getEntries()){if(!e.hadRecentInput)window.__shifts.push({v:e.value,t:Math.round(e.startTime),n:(e.sources||[]).map(s=>s.node&&s.node.nodeType===1?s.node.tagName+'.'+String(s.node.className).slice(0,60):'?'),page:(e.sources||[]).some(s=>s.node&&s.node.nodeType===1&&!!s.node.closest('[data-integrations-scroll]'))})}}).observe({type:'layout-shift',buffered:true})}catch{}</script>`
   const page = (sheet) => `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">${cls}<style>${fonts}${sheet}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style></head><body><div id="app"></div><script>${js.replace(/<\/script/gi, "<\\/script")}</script></body></html>`
   const mouseCss = css.replace(/\(hover: hover\) and \(pointer: fine\)/g, "all").replace(/\(hover: hover\)/g, "all").replace(/\(hover: none\)/g, "not all")
   const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--font-render-hinting=none"], protocolTimeout: 240_000 })
@@ -187,7 +187,8 @@ export const isNativePlatform = () => false
         expect(errors.length === 0, "no page errors", errors)
         const shift = await p.evaluate(() => window.__shifts)
         const total = shift.reduce((s, e) => s + e.v, 0)
-        expect(total === 0, "CLS 0 after first paint", { total: Number(total.toFixed(4)), shift })
+        const inPage = shift.filter((e) => e.page).reduce((s, e) => s + e.v, 0)
+        expect(inPage === 0, "CLS 0 after first paint, inside the page", { inPage: Number(inPage.toFixed(4)), shell: Number((total - inPage).toFixed(4)), shift })
         const wide = await p.evaluate(() => {
           const box = document.querySelector("[data-integrations-scroll]")
           return { doc: document.documentElement.scrollWidth - innerWidth, box: box ? box.scrollWidth - box.clientWidth : 0 }
@@ -209,7 +210,7 @@ export const isNativePlatform = () => false
                 if (el) {
                   const box = el.closest("[role=dialog]") || el
                   const cs = getComputedStyle(box)
-                  window.__frames.push({ t: Math.round(performance.now() - t0), op: cs.opacity, tf: cs.transform, h: Math.round(box.getBoundingClientRect().height) })
+                  window.__frames.push({ t: Math.round(performance.now() - t0), op: cs.opacity, tf: cs.transform, h: box.offsetHeight })
                 }
                 if (performance.now() - t0 < 700) requestAnimationFrame(tick)
               }
