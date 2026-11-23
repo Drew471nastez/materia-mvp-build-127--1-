@@ -304,7 +304,7 @@ function Probe() {
   if (params.get("login") === "1") return <AdminLogin />
   return (
     <Shell current={route.view} onNavigate={() => {}} live={143} busy={false} onSignOut={() => {}}>
-      {renderView(route, (route.view === "audience" && params.get("ai") === "missing" ? { ...audience, ai: { ...audience.ai!, siteVisits: null, landings: [], rows: audience.ai!.rows.map((r) => ({ ...r, siteVisits: 0 })) } } : FIXTURES[route.view]) as never, { go: () => {}, query: "", onQuery: () => {}, act: () => setDialog(true) })}
+      {renderView(route, (route.view === "audience" && params.get("ai") === "missing" ? { ...audience, ai: { ...audience.ai!, siteVisits: null, landings: [], rows: audience.ai!.rows.map((r) => ({ ...r, siteVisits: 0 })) } } : FIXTURES[route.view]) as never, { go: () => {}, query: "", onQuery: () => {}, act: () => setDialog(true), live: 143 })}
       <ActionDialog action={dialog ? { kind: "refund", orderId: orders[0].id, label: "Brush set for Procreate" } : null} onClose={() => setDialog(false)} onDone={() => setDialog(false)} />
     </Shell>
   )
@@ -342,12 +342,98 @@ const walletAnswer = (done: boolean) => {
   })
 }
 
+/*
+  Creator activity (round 59), shaped like lib/admin/views/activity.ts: the
+  line and who is online, everyone's feed, and one creator's card with two
+  sessions and a saved change. `&activity=missing` answers as before part 430.
+*/
+const PAGES = ["/app", "/app/products", "/app/products/:id", "/app/settings/payments", "/website-builder/editor/:id", "/app/orders", "/app/analytics"]
+const ACTS = ["site.publish", "stripe.start", "editor.open", "product.new", "editor.publish"]
+const minsAgo = (m: number) => new Date(NOW - m * 60_000).toISOString()
+function activityAnswer(part: string | null, missing: boolean) {
+  if (missing) return { ...base, missing: true, summary: { onlineNow: null, activeToday: null, live: null }, online: [], feed: { rows: [], next: null }, presence: null, liveSince: null, sessions7: null, sessions30: null, places: [], timeline: [], next: null }
+  if (part === "creator") {
+    const t = (m: number, kind: "page" | "action" | "saved", name: string, label: string, start = false) => ({ id: `${kind}${m}`, at: minsAgo(m), kind, name, label, sessionStart: start })
+    return {
+      ...base,
+      missing: false,
+      presence: { firstSeen: iso(24 * 20), lastSeen: minsAgo(1), sessionStarted: minsAgo(34), lastPath: "/app/settings/payments", lastAction: "stripe.start", lastActionAt: minsAgo(3), country: "RO", device: "desktop", os: "macOS", browser: "Chrome", shell: "web" },
+      liveSince: iso(24 * 12),
+      sessions7: 6,
+      sessions30: 19,
+      places: [
+        { at: minsAgo(34), country: "RO", device: "desktop", os: "macOS", browser: "Chrome", shell: "web" },
+        { at: iso(26), country: "RO", device: "phone", os: "iOS", browser: null, shell: "ios_app" },
+        { at: iso(80), country: "DE", device: "phone", os: "Android", browser: "Chrome", shell: "web" },
+      ],
+      timeline: [
+        t(3, "action", "stripe.start", "Started Stripe setup"),
+        t(4, "page", "/app/settings/payments", "Settings, payments"),
+        t(9, "saved", "product.price", "Changed the price of Complete Lightroom Mobile and Desktop preset collection, volume two"),
+        t(12, "page", "/app/products/:id", "Products, one item"),
+        t(20, "action", "site.publish", "Published a website"),
+        t(22, "page", "/app/website-builder", "Website builder"),
+        t(34, "page", "/app", "Home", true),
+        t(26 * 60, "action", "editor.open", "Opened the website editor"),
+        t(26 * 60 + 2, "page", "/app/products", "Products"),
+        t(26 * 60 + 5, "page", "/app", "Home", true),
+      ],
+      next: "9123.1790000000000",
+    }
+  }
+  if (part === "feed") {
+    return {
+      ...base,
+      missing: false,
+      summary: null,
+      online: null,
+      feed: {
+        rows: Array.from({ length: 50 }, (_, i) => {
+          const action = i % 3 === 0
+          const name = action ? ACTS[i % ACTS.length] : PAGES[i % PAGES.length]
+          const labels: Record<string, string> = { "site.publish": "Published a website", "stripe.start": "Started Stripe setup", "editor.open": "Opened the website editor", "product.new": "Started a new product", "editor.publish": "Published from the editor" }
+          return { id: 9000 - i, at: minsAgo(i * 2 + 1), kind: action ? "action" : "page", name, label: action ? labels[name] : ["Home", "Products", "Products, one item", "Settings, payments", "Website editor", "Orders", "Analytics"][i % 7], creator: { id: id("c", i % 7), handle: handle(i), name: NAMES[i % 7] } }
+        }),
+        next: "8951.1790000000000",
+      },
+    }
+  }
+  return {
+    ...base,
+    missing: false,
+    summary: { onlineNow: 12, activeToday: 340, live: 1204 },
+    online: Array.from({ length: 12 }, (_, i) => ({
+      userId: id("u", i),
+      creator: { id: id("c", i % 7), handle: handle(i), name: NAMES[i % 7] },
+      lastSeen: minsAgo(i % 2),
+      sessionStarted: minsAgo(10 + i * 3),
+      lastPath: PAGES[i % PAGES.length],
+      lastAction: i % 4 === 3 ? null : ACTS[i % ACTS.length],
+      lastActionAt: minsAgo(i + 2),
+      country: ["RO", "US", "DE", "GB", "FR", "BR", "IN"][i % 7],
+      device: ["desktop", "phone", "desktop", "phone"][i % 4],
+      os: ["macOS", "iOS", "Windows", "Android"][i % 4],
+      browser: i % 2 ? null : "Chrome",
+      shell: ["web", "ios_app", "web", "android_app"][i % 4],
+    })),
+    feed: null,
+  }
+}
+
 /* The refund preview the dialog asks for, answered here. */
 const realFetch = window.fetch.bind(window)
 window.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input)
   if (url.includes("/api/admin/orders/refund")) {
     return new Response(JSON.stringify({ id: orders[0].id, amount: 2900, currency: "USD", product: "Brush set for Procreate", buyer: "an***@gmail.com" }), { status: 200, headers: { "Content-Type": "application/json" } })
+  }
+  if (url.includes("/api/admin/platform/activity")) {
+    const part = new URL(url, location.href).searchParams.get("part")
+    const missing = new URLSearchParams(location.search).get("activity") === "missing"
+    return new Response(JSON.stringify(activityAnswer(part, missing)), { status: 200, headers: { "Content-Type": "application/json" } })
+  }
+  if (url.includes("/api/admin/plan") || url.includes("/api/admin/creators/plan")) {
+    return new Response(JSON.stringify({ plan: "free", status: "none", override: null, available: true, plans: [{ id: "free", label: "Free" }, { id: "growth", label: "Grow, $14" }, { id: "pro", label: "Pro, $99" }] }), { status: 200, headers: { "Content-Type": "application/json" } })
   }
   if (url.includes("/api/admin/payment-domains")) {
     const done = new URLSearchParams(location.search).get("wallets") === "done"

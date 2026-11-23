@@ -33,7 +33,7 @@ import { AudienceView, AuditView, EmailView, PeopleView, SystemView, WebsitesVie
 
 type Data = Record<string, any> | null // eslint-disable-line @typescript-eslint/no-explicit-any
 
-export function renderView(route: Route, data: Data, props: { go: (r: Partial<Route>) => void; query: string; onQuery: (q: string) => void; act: (a: Action) => void }) {
+export function renderView(route: Route, data: Data, props: { go: (r: Partial<Route>) => void; query: string; onQuery: (q: string) => void; act: (a: Action) => void; live?: number | null }) {
   if (!data) return null
   const common = { route, ...props }
   switch (route.view) {
@@ -96,6 +96,7 @@ export function AdminConsole({ initial }: { initial: Route }) {
       merged.filter = next.filter ?? ""
       merged.page = next.page ?? 1
       merged.id = next.id ?? ""
+      merged.tab = next.tab ?? ""
     }
     const url = `/admin${routeQuery(merged)}`
     if (replace) window.history.replaceState(null, "", url)
@@ -229,7 +230,7 @@ export function AdminConsole({ initial }: { initial: Route }) {
         </div>
       ) : null}
       {shown ? (
-        renderView(route, shown, { go, query, onQuery: setQuery, act: setAction })
+        renderView(route, shown, { go, query, onQuery: setQuery, act: setAction, live })
       ) : error ? null : (
         <Delayed ms={300}>
           <Placeholder />

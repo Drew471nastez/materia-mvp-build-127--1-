@@ -8,12 +8,14 @@ import type { CreatorDetailPayload, CreatorRow, CreatorsPayload, OrderRow, Order
 import type { Action } from "./actions"
 import { ago, date, money, num, short, statusWord } from "./format"
 import type { Route } from "./nav-state"
+import { ActivityFeed, ActivityLine, CreatorActivityPanel, OnlineList, useOnlineActivity } from "./panel-activity"
 import { PlanPanel } from "./panel-plan"
 import { ViewHeader } from "./shell"
 import { Button, DataList, Facts, Figures, Filters, LinkText, Pager, Panel, ReadNotes, SearchField, Status, Toolbar, reasonFor, type Column } from "./ui"
 
 type Go = (r: Partial<Route>) => void
-type Common = { route: Route; go: Go; query: string; onQuery: (q: string) => void; act: (a: Action) => void }
+/** `live`: the visitors-now figure the shell already polls (console.tsx), passed down rather than read twice. */
+type Common = { route: Route; go: Go; query: string; onQuery: (q: string) => void; act: (a: Action) => void; live?: number | null }
 
 const STRIPE_WORD: Record<StripeState, string> = { ready: "Ready", restricted: "Incomplete", pending: "Started", none: "Not connected" }
 
@@ -23,8 +25,11 @@ function Unread({ reason }: { reason: string | null }) {
 
 /* ── Creators ─────────────────────────────────────────────────────────── */
 
-export function CreatorsView({ data, route, go, query, onQuery }: Common & { data: CreatorsPayload }) {
+export function CreatorsView({ data, route, go, query, onQuery, live }: Common & { data: CreatorsPayload }) {
   const list = data.list
+  /* Who is online and the line's counts, every 30 seconds while visible (panel-activity). */
+  const online = useOnlineActivity()
+  const onlineCount = online.data?.summary?.onlineNow
   const columns: Column<CreatorRow>[] = [
     { key: "name", label: "Creator", width: "minmax(0,1.6fr)", phone: "primary", render: (c) => c.name },
     { key: "handle", label: "Handle", width: "minmax(0,1.2fr)", render: (c) => (c.handle ? `@${c.handle}` : "No handle") },
@@ -38,6 +43,23 @@ export function CreatorsView({ data, route, go, query, onQuery }: Common & { dat
   return (
     <div className="space-y-4">
       <ViewHeader title="Creators" meta={list ? `${num(list.total)} ${route.filter && route.filter !== "all" ? "match" : "in all"}` : undefined} />
+      <ActivityLine data={online.data} live={live} />
+      <Filters
+        label="Creators view"
+        value={route.tab || "list"}
+        onChange={(t) => go({ tab: t === "list" ? "" : t })}
+        options={[
+          { id: "list", label: "All creators" },
+          { id: "online", label: typeof onlineCount === "number" ? `Online now, ${num(onlineCount)}` : "Online now" },
+          { id: "activity", label: "Activity" },
+        ]}
+      />
+      {route.tab === "online" ? (
+        <OnlineList data={online.data} error={online.error} go={go} />
+      ) : route.tab === "activity" ? (
+        <ActivityFeed go={go} />
+      ) : (
+      <>
       <ReadNotes problems={data.problems} notices={data.notices} />
       <Toolbar>
         <SearchField label="Search creators" value={query} onChange={onQuery} placeholder="Handle, name or id" />
@@ -64,6 +86,8 @@ export function CreatorsView({ data, route, go, query, onQuery }: Common & { dat
           <Unread reason={reasonFor(data.problems, "creators")} />
         )}
       </Panel>
+      </>
+      )}
     </div>
   )
 }
@@ -151,6 +175,8 @@ export function CreatorView({ data, go, act }: Common & { data: CreatorDetailPay
           />
         </Panel>
       </div>
+
+      <CreatorActivityPanel creatorId={c.id} />
 
       <PlanPanel creatorId={c.id} />
 

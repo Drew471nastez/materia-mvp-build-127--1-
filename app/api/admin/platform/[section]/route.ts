@@ -8,6 +8,7 @@ import { orders, payouts, products } from "@/lib/admin/views/commerce"
 import { audience, audit, email, people, websites } from "@/lib/admin/views/platform"
 import { system } from "@/lib/admin/views/system"
 import { ops } from "@/lib/admin/views/ops"
+import { activity } from "@/lib/admin/views/activity"
 
 /** `node:crypto` behind the cookie check, and never a cached answer. */
 export const runtime = "nodejs"
@@ -48,6 +49,8 @@ const VIEWS = [
   "system",
   "ops",
   "live",
+  /* Creator activity (round 59, part 430): ?part=online|summary|feed|creator. */
+  "activity",
 ] as const
 type View = (typeof VIEWS)[number]
 
@@ -106,6 +109,8 @@ async function build(view: View, r: Reader, params: URLSearchParams): Promise<Re
       return system(r)
     case "ops":
       return ops(r) as unknown as Promise<Record<string, unknown>>
+    case "activity":
+      return activity(r, params)
     case "live": {
       /* The one figure the console polls on its own, so it is the cheapest. */
       const a = await liveCount(r)
