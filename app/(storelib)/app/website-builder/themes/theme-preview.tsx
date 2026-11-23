@@ -399,7 +399,7 @@ function PreviewNote() {
       <p
         data-preview-note={phase}
         className={cn(
-          "rounded-full bg-[#111114]/90 px-4 py-2 text-[13.5px] font-medium text-white shadow-[0_1px_2px_rgba(0,0,0,0.2),0_10px_28px_-10px_rgba(0,0,0,0.45)] transition-[opacity,transform] duration-[280ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+          "rounded-full bg-[#111114]/90 px-4 py-2 text-[13.5px] font-medium text-white shadow-[0_1px_2px_rgba(0,0,0,0.2),0_10px_28px_-10px_rgba(0,0,0,0.45)] transition-[opacity,translate] duration-[280ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
           phase === "shown" ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0",
         )}
       >
