@@ -74,7 +74,7 @@ async function main() {
     const seal = await sealSite(USERNAME, HOST)
     const headers: Record<string, string> = { [SITE_SEAL_HEADER]: seal ?? "", "x-forwarded-for": v.ip, "x-vercel-ip-country": "US", [SITE_COUNTRY_HEADER]: "US", origin: `https://${HOST}`, referer: `https://${HOST}/`, ...extra }
     const raw = typeof body === "string" ? body : undefined
-    if (raw) headers["content-type"] = "application/x-www-form-urlencoded"
+    if (raw) headers["content-type"] = headers["content-type"] ?? "application/x-www-form-urlencoded"
     const r = await j.call(`${method} /api/site-theme/site/${USERNAME}${path}`, { host: HOST, headers, cookies: Object.fromEntries(v.jar), body: raw ? undefined : body, raw })
     for (const c of ((r.headers as unknown as { getSetCookie?: () => string[] }).getSetCookie?.() ?? []) as string[]) {
       const [pair] = c.split(";")
@@ -199,7 +199,12 @@ async function main() {
   const pdpHtml = String(pdp.json ?? "")
   if (process.env.R58_DUMP) (await import("node:fs")).writeFileSync(`${process.env.R58_DUMP}/pdp.html`, pdpHtml)
   check("the tee's page answers on the website", pdp.status === 200 && /Bee Tee/.test(pdpHtml), pdp.status)
-  check("  and carries its offers for the theme (the tiers' words and prices)", /Buy 2 get 1 free/.test(pdpHtml), words(pdpHtml).match(/.{0,120}(Buy 2|offers).{0,120}/i)?.[0])
+  const flatPdp = pdpHtml.replace(/\s+/g, " ")
+  check("  draws the tiers on the first paint: Buy 2 get 1 free, $60.00 instead of $90.00", /po-tier__label">Buy 2 get 1 free</.test(flatPdp) && /po-tier__total">\$60\.00</.test(flatPdp) && /po-tier__compare">\$90\.00</.test(flatPdp), flatPdp.match(/.{0,200}po-tier__label.{0,300}/)?.[0])
+  /* Round 58: the Clothing template's product section has no Upsell block; the buttons' snippet draws the store's upsell under them (theme-packages/materia/base/snippets/buy-buttons.liquid). */
+  check("  and the upsell made in /app/offers, with no Upsell block in the section (it showed nowhere before round 58)", /<storelib-product-offers[^>]*data-kind="upsell_pro"/.test(flatPdp) && /Bee Socks · \$3\.00 off/.test(words(flatPdp)), flatPdp.match(/data-kind="upsell_pro".{0,200}/)?.[0])
+  const mugPage = String((await site(ana, "GET", "/products/honey-mug")).json ?? "").replace(/\s+/g, " ")
+  check("  the mug's page: its two bundles, with no Bundle block in the section", /<storelib-product-offers[^>]*data-kind="bundle"/.test(mugPage) && /Mug and cap/.test(mugPage), mugPage.match(/data-kind="bundle".{0,300}/)?.[0])
 
   const add = (v: Visitor, id: string, quantity: number, properties?: Record<string, string>) => site(v, "POST", "/cart/add.js", { id, quantity, ...(properties ? { properties } : {}) }, ajax)
   await add(ana, tee.variant, 3)
@@ -287,6 +292,8 @@ async function main() {
   check("  the bundle set to not combine: the buyer keeps whichever saves more (the bundle's $7.00), and is told why the code was refused", better.json?.totals?.discountCents === 700 && /can't be used with Mug and cap/.test(String(better.json?.couponError)), [better.status, better.json?.totals, better.json?.couponError])
   await j.call("PUT /api/store/offers", { as: seller, body: { ...bundle.json.offer, formCurrency: "USD" } })
 
+  if (process.env.OFFERS_R58_SERVE) await serve(j, site, { tee: tee.id, teeVariant: tee.variant, mug: mug.id, cap: cap.id, socks: socks.id, socksVariant: socks.variant })
+
   section("11. Delete: it stops applying at once")
   const del = await j.call("DELETE /api/store/offers", { as: seller, body: { id: bogoId, title: "Buy more tees" } })
   const after = await checkout({ jar: new Map(), ip: "198.51.100.61" }, { action: "quote", items: [{ productId: tee.id, variantId: tee.variant, quantity: 3 }], ...where })
@@ -298,6 +305,60 @@ async function main() {
     process.exit(1)
   }
   process.exit(0)
+}
+
+/**
+ * THE STORE OVER HTTP, for scripts/check-offers-r58.mjs: every request a
+ * browser makes to http://localhost:<port> goes to the website through the
+ * real site route (the same `site` call the suite uses) with the browser's
+ * own cookies, as tests/commerce-e2e-r57.test.ts serves its store.
+ */
+async function serve(j: Journey, site: (v: Visitor, method: string, path: string, body?: Record<string, unknown> | string, extra?: Record<string, string>) => Promise<Answer>, facts: Record<string, string>) {
+  const { createServer } = await import("node:http")
+  const server = createServer(async (req, res) => {
+    try {
+      const url = req.url ?? "/"
+      const chunks: Buffer[] = []
+      for await (const c of req) chunks.push(c as Buffer)
+      const raw = Buffer.concat(chunks).toString("utf8")
+      if (url.startsWith("/__facts")) {
+        res.writeHead(200, { "content-type": "application/json" })
+        return res.end(JSON.stringify(facts))
+      }
+      if (url.startsWith("/checkout")) {
+        res.writeHead(200, { "content-type": "text/html; charset=utf-8" })
+        return res.end(`<!doctype html><title>Checkout</title><pre id="asked">${url.replace(/</g, "&lt;")}</pre>`)
+      }
+      if (/^\/(?:__media|_next|cdn)\//.test(url)) {
+        res.writeHead(404)
+        return res.end()
+      }
+      const v: Visitor = { jar: new Map(), ip: String(req.headers["x-forwarded-for"] ?? "198.51.100.200") }
+      for (const part of String(req.headers.cookie ?? "").split(/;\s*/)) {
+        const at = part.indexOf("=")
+        if (at > 0) v.jar.set(part.slice(0, at), part.slice(at + 1))
+      }
+      const extra: Record<string, string> = {}
+      for (const h of ["x-requested-with", "accept", "content-type"]) if (req.headers[h]) extra[h] = String(req.headers[h])
+      const answer = url.startsWith("/api/site-theme/assets/") ? await j.call(`GET ${url}`, { host: HOST }) : await site(v, String(req.method), url, raw ? raw : undefined, extra)
+      const headers: Record<string, string | string[]> = {}
+      answer.headers.forEach((value, key) => {
+        if (key !== "set-cookie" && key !== "content-length" && key !== "content-encoding") headers[key] = value
+      })
+      const cookies = (answer.headers as unknown as { getSetCookie?: () => string[] }).getSetCookie?.() ?? []
+      if (cookies.length) headers["set-cookie"] = cookies.map((c) => c.replace(/;\s*Domain=[^;]*/i, ""))
+      const body = typeof answer.json === "string" ? answer.json : answer.json === null ? "" : JSON.stringify(answer.json)
+      res.writeHead(answer.status, headers)
+      res.end(body)
+    } catch (e) {
+      res.writeHead(500, { "content-type": "text/plain" })
+      res.end(String(e instanceof Error ? e.stack : e))
+    }
+  })
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
+  const address = server.address()
+  console.log(`SERVING ${typeof address === "object" && address ? address.port : 0}`)
+  await new Promise(() => {})
 }
 
 main().catch((e) => {
