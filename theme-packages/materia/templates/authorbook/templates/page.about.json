@@ -1,50 +1,59 @@
-/* Templates round 22: a money book for your twenties by Maya Okafor, built from the theme's own sections (product hero, quote, image with text, text columns, product grid, testimonial wall, newsletter with image, FAQ, banner); Libre Baskerville and Helvetica. */
+/* Templates round 23: about the author of Hold the Room, his story, why he wrote it, three ideas the book is built on, readers and the free chapter. */
 {
   "sections": {
     "story": {
       "type": "Image-and-video-text",
       "settings": {
         "color_scheme": "default",
-        "image": "shopify://shop_images/authorbook-maya-portrait.webp",
-        "image_alt": "Maya Okafor",
+        "image": "shopify://shop_images/authorbook-owen.webp",
+        "image_alt": "Owen Kessler",
         "image_position": "left",
-        "aspect_w": 1,
-        "aspect_h": 1,
-        "image_radius": 0
+        "aspect_w": 4,
+        "aspect_h": 5,
+        "image_radius": 0,
+        "text_column_width": 50
       },
       "blocks": {
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "About"
+            "text": "About the author"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Maya Okafor",
+            "text": "Owen Kessler",
             "tag": "h1"
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>I grew up in Houston, studied accounting at night and spent my early twenties working two jobs and still running out before payday.</p><p>The fix was not more money. It was knowing where it went, deciding in advance and making saving automatic. I wrote it down for friends, then for a few thousand strangers, and then for this book.</p>"
+            "text": "<p>For ten years Owen was the person who volunteered to make the slides so someone else would have to present them. Then a job made him speak every week, and he started writing down what actually helped.</p><p>He now runs small speaking workshops for teams and first time conference speakers, and writes a short letter about talks every other week. This is sample text. Replace it with your own story.</p>"
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "Get the book",
+            "link": "/collections/all"
           }
         }
       },
       "block_order": [
         "eyebrow_1",
         "heading_2",
-        "subheading_3"
+        "subheading_3",
+        "button_4"
       ]
     },
-    "cash": {
+    "why": {
       "type": "Image-and-video-text",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "image": "shopify://shop_images/authorbook-cash.webp",
-        "image_alt": "Hands counting dollar bills",
+        "color_scheme": "default",
+        "image": "shopify://shop_images/authorbook-stage.webp",
+        "image_alt": "A speaker in front of a full lecture hall, and the book open at chapter two",
         "image_position": "right",
         "aspect_w": 1,
         "aspect_h": 1,
@@ -54,19 +63,19 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "Why I wrote it"
+            "text": "Why he wrote it"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Nobody teaches this, so I did"
+            "text": "The book he wanted before his first talk"
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Most of us learn money from our parents, our friends and whatever the internet shows us that day. I wanted one calm, short book that covers the basics in the right order.</p>"
+            "text": "<p>Most speaking advice is either about posture or about being yourself. Neither tells you what to do on Tuesday night with a talk on Thursday. Hold the Room does, chapter by chapter, in the order you need it.</p>"
           }
         }
       },
@@ -79,7 +88,7 @@
     "rules": {
       "type": "text-columns",
       "settings": {
-        "color_scheme": "default",
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
         "columns_desktop": 3,
         "show_dividers": true
       },
@@ -94,24 +103,24 @@
           "type": "column",
           "settings": {
             "label": "01",
-            "heading": "Know, then decide",
-            "text": "<p>A month of tracking first. Nobody budgets well without seeing where it goes.</p>"
+            "heading": "One point per talk",
+            "text": "<p>If you cannot say it in a sentence, the room cannot repeat it.</p>"
           }
         },
         "column_3": {
           "type": "column",
           "settings": {
             "label": "02",
-            "heading": "Fun money is allowed",
-            "text": "<p>A budget with nothing to enjoy lasts two weeks. Plan the fun in.</p>"
+            "heading": "Nerves are normal",
+            "text": "<p>You do not need to feel calm. You need a plan for the first minute.</p>"
           }
         },
         "column_4": {
           "type": "column",
           "settings": {
             "label": "03",
-            "heading": "Automatic beats willpower",
-            "text": "<p>Savings and investing that happen on payday, before you can spend it.</p>"
+            "heading": "Practice beats talent",
+            "text": "<p>Every method in the book is something you try on a real talk, then again.</p>"
           }
         }
       },
@@ -125,7 +134,7 @@
     "reviews": {
       "type": "testimonial-wall",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "color_scheme": "default",
         "columns": 3,
         "card_style": "plain",
         "text_align": "left",
@@ -141,39 +150,39 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "What readers say"
+            "text": "What early readers say"
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Sample reviews to show the layout. Replace them with real reader reviews.</p>"
+            "text": "<p>Sample reviews to show the layout. Replace them with your own readers' words.</p>"
           }
         },
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "body": "The first money book I finished. Chapter two took an hour and I still use the map every payday.",
-            "name": "Sample reader",
-            "role": "Nurse, 26",
+            "body": "I read chapter two on the train and rewrote my quarterly update before I got to the office.",
+            "name": "Priya N.",
+            "role": "Product manager",
             "rating": 5
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "body": "No shame, no lectures, just what to do on Monday. I paid off my card in seven months.",
-            "name": "Sample reader",
-            "role": "Barista and student, 23",
+            "body": "The ninety second reset is now the thing I do before every client pitch.",
+            "name": "Daniel A.",
+            "role": "Founder, design studio",
             "rating": 5
           }
         },
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "body": "I bought it for my sister and read it first. The fun money chapter changed how we both budget.",
-            "name": "Sample reader",
-            "role": "Teacher, 29",
+            "body": "The chapter on questions made me stop dreading the end of a talk.",
+            "name": "Lena M.",
+            "role": "Secondary school teacher",
             "rating": 5
           }
         }
@@ -191,28 +200,28 @@
       "type": "newsletter-split",
       "settings": {
         "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
-        "image": "shopify://shop_images/authorbook-ed-book.webp",
-        "image_alt": "The cover of Not Broke Anymore by Maya Okafor",
+        "image": "shopify://shop_images/authorbook-spread-outline.webp",
+        "image_alt": "Two open pages from chapter two of Hold the Room",
         "image_position": "left",
-        "image_ratio": "portrait",
-        "image_width": 40,
+        "image_ratio": "landscape",
+        "image_width": 50,
         "form_layout": "horizontal",
         "btn_text": "Send it to me",
         "email_placeholder": "Your email",
-        "note": "Plus the Sunday money letter every other week. Leave whenever you like.",
-        "success_text": "Done. The first chapter is in your inbox."
+        "note": "You also get the talk letter every other week. Leave whenever you like.",
+        "success_text": "Done. Chapter two is in your inbox."
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Read the first chapter free"
+            "text": "Read chapter two free"
           }
         },
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Chapter one and the money map, as a PDF. Twenty minutes to read, and you will know where last month's pay went.</p>"
+            "text": "<p>The one sentence talk, as a PDF: the outline from the book and the exercise that fixes most talks before you open a slide deck.</p>"
           }
         }
       },
@@ -224,7 +233,7 @@
   },
   "order": [
     "story",
-    "cash",
+    "why",
     "rules",
     "reviews",
     "chapter"

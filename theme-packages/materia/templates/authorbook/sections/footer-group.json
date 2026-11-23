@@ -5,7 +5,7 @@
     "footer": {
       "type": "footer",
       "settings": {
-        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636",
         "section_width": "container",
         "padding_top": 64,
         "padding_bottom": 32,
@@ -22,13 +22,13 @@
           "type": "store_info",
           "settings": {
             "show_logo": false,
-            "store_heading": "Maya Okafor",
+            "store_heading": "Hold the Room",
             "image_width": 110,
             "store_email": true,
             "store_phone": false,
             "store_address": false,
             "content_width": "33%",
-            "store_description": "<p>Author of Not Broke Anymore, a money book for your twenties. Writes a short letter about money every other Sunday.</p>"
+            "store_description": "<p>A practical playbook for talks, pitches and presentations, by Owen Kessler. Ebook in PDF and EPUB, with an audiobook and a printable workbook.</p>"
           }
         },
         "link_list_2": {
@@ -51,8 +51,8 @@
           "type": "newsletter",
           "settings": {
             "note": "",
-            "heading": "Sunday money letter",
-            "description": "One short letter every other Sunday. Free.",
+            "heading": "The talk letter",
+            "description": "One short email every other week with a method to try on your next talk. Free.",
             "button_label": "Sign up",
             "content_width": "33%",
             "email_placeholder": "Your email"
@@ -66,7 +66,7 @@
             "enable_visa": true,
             "content_width": "100%",
             "enable_klarna": false,
-            "enable_paypal": false,
+            "enable_paypal": true,
             "enable_apple_pay": true,
             "enable_google_pay": true,
             "enable_mastercard": true

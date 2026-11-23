@@ -1,4 +1,4 @@
-/* Templates round 22: a money book for your twenties by Maya Okafor, built from the theme's own sections (product hero, quote, image with text, text columns, product grid, testimonial wall, newsletter with image, FAQ, banner); Libre Baskerville and Helvetica. */
+/* Templates round 23: write to the author, with the common questions under the form. */
 {
   "sections": {
     "heading": {
@@ -32,21 +32,21 @@
       "settings": {
         "color_scheme": "default",
         "btn_text": "Send message",
-        "ph_website": "Press, events or a reader question",
+        "ph_website": "A reader question, a workshop or a podcast",
         "label_website": "Subject",
-        "success_text": "Thank you. I read every message and reply within a week."
+        "success_text": "Thank you. Owen reads every message and replies within a week."
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Write to me"
+            "text": "Write to Owen"
           }
         },
         "description_2": {
           "type": "description",
           "settings": {
-            "text": "<p>Reader questions, press, podcasts and school or workplace talks. I read everything myself.</p>"
+            "text": "<p>Reader questions, team workshops, podcasts and conference talks. Every message is read by a person.</p>"
           }
         },
         "info_3": {
@@ -61,8 +61,8 @@
           "type": "info",
           "settings": {
             "icon": "map",
-            "line1": "Houston and online",
-            "line2": "Talks for schools and workplaces"
+            "line1": "Workshops in person and online",
+            "line2": "For teams of four to twenty"
           }
         }
       },
@@ -91,42 +91,35 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Something else? <a href=\"/pages/contact\">Write to me</a>.</p>"
+            "text": "<p>The answer may already be here.</p>"
           }
         },
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
-            "question": "Is this book for me if I am already in debt?",
-            "answer": "<p>Yes. Chapter five is a plan for cards, buy now pay later and student loans, and it starts wherever you are.</p>"
+            "question": "Is this an ebook or a printed book?",
+            "answer": "<p>An ebook. You get a PDF and an EPUB file by email straight after you pay, and you can read them on any phone, tablet, computer or e-reader.</p>"
           }
         },
         "faq_item_4": {
           "type": "faq_item",
           "settings": {
-            "question": "Is this financial advice?",
-            "answer": "<p>It is general teaching from my own experience and training, not personal financial advice. For your exact situation, talk to a licensed adviser.</p>"
+            "question": "What is the difference between the editions?",
+            "answer": "<p>The ebook is the book. Ebook and audiobook adds the full audio, read by Owen. The complete set adds the printable talk planner workbook as well.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "Does it work outside the US?",
-            "answer": "<p>The habits work anywhere. The account names in chapter nine are American, with notes for the UK, Canada and Australia.</p>"
+            "question": "I have a talk next week. Will this help in time?",
+            "answer": "<p>Yes. Start with chapters two and five. They take about an hour together and give you an outline and a plan for your nerves.</p>"
           }
         },
         "faq_item_6": {
           "type": "faq_item",
           "settings": {
-            "question": "Which edition should I get?",
-            "answer": "<p>The paperback if you like writing in margins, the audiobook for commutes, and the set if you want the workbook too.</p>"
-          }
-        },
-        "faq_item_7": {
-          "type": "faq_item",
-          "settings": {
-            "question": "When will my paperback arrive?",
-            "answer": "<p>It ships within two working days. The ebook and audiobook arrive by email straight after checkout.</p>"
+            "question": "Does it cover video calls and online talks?",
+            "answer": "<p>Yes. Every chapter has notes for presenting on a call, and chapter eleven is about online talks and webinars.</p>"
           }
         }
       },
@@ -136,8 +129,7 @@
         "faq_item_3",
         "faq_item_4",
         "faq_item_5",
-        "faq_item_6",
-        "faq_item_7"
+        "faq_item_6"
       ]
     }
   },

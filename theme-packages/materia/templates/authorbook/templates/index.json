@@ -1,121 +1,399 @@
-/* Templates round 22: a money book for your twenties by Maya Okafor, built from the theme's own sections (product hero, quote, image with text, text columns, product grid, testimonial wall, newsletter with image, FAQ, banner); Libre Baskerville and Helvetica. */
+/* Templates round 23: Hold the Room, a public speaking ebook, after the owner's ebook reference: dark hero with the book, a promise, three open spreads, reader quotes on orange, the six parts of a talk, who it is for, the author, what is in the book and questions. Built from the theme's own sections. */
 {
   "sections": {
     "hero": {
       "type": "hero-product2",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "section_width": "full_width",
         "image_position": "left",
-        "media_width": 46,
-        "media_height": 640,
-        "media_fit": "cover",
-        "body_bg_image": "shopify://shop_images/authorbook-ed-book.webp",
-        "image_alt": "The paperback of Not Broke Anymore",
-        "check_box": true
+        "media_width": 44,
+        "media_height": 600,
+        "media_fit": "contain",
+        "media_radius": 0,
+        "media_radius_mobile": 0,
+        "body_bg_image": "shopify://shop_images/authorbook-book.webp",
+        "image_alt": "Hold the Room by Owen Kessler, the book",
+        "content_align_desktop": "left",
+        "content_align_mobile": "left",
+        "content_gap": 26,
+        "padding_top": 72,
+        "padding_bottom": 40,
+        "section_padding_x": 64,
+        "section_gap": 56,
+        "image_position_mobile": "top",
+        "media_height_mobile": 380,
+        "padding_top_mobile": 28,
+        "padding_bottom_mobile": 24,
+        "section_padding_x_mobile": 20,
+        "section_gap_mobile": 20,
+        "animation": "fade"
       },
       "blocks": {
         "section_heading_1": {
           "type": "section_heading",
           "settings": {
-            "heading_text": "Not Broke Anymore"
+            "heading_text": "Give a talk people remember, <em>without</em> reading your slides",
+            "enable_custom_style": true,
+            "heading_font_size": 60,
+            "heading_font_size_mobile": 38,
+            "heading_weight": "700",
+            "text_case": "uppercase",
+            "line_height": 1.05,
+            "letter_spacing": 0
           }
         },
         "section_para_2": {
           "type": "section_para",
           "settings": {
-            "p_text": "Money for your twenties, without the guilt. A short, practical book by Maya Okafor on spending, debt, saving and investing, with one thing to do at the end of every chapter."
+            "p_text": "A practical playbook for presentations, pitches and the meetings in between. Fourteen short chapters you can use on your very next talk.",
+            "enable_custom_style": true,
+            "p_font_size": 19,
+            "p_font_size_mobile": 17,
+            "line_height": 1.6
           }
         },
-        "benefits_3": {
-          "type": "benefits",
-          "settings": {
-            "benefit_text_1": "Twelve chapters you can read on the bus",
-            "benefit_icon_1": "check",
-            "benefit_text_2": "A one page money map you use every month",
-            "benefit_icon_2": "check",
-            "benefit_text_3": "Paperback, ebook and audiobook",
-            "benefit_icon_3": "check"
-          }
-        },
-        "button_4": {
+        "button_3": {
           "type": "button",
           "settings": {
-            "button_text": "Buy the book",
-            "button_link": "/collections/all"
+            "button_text": "Buy the ebook",
+            "button_link": "/collections/all",
+            "use_theme_button": true,
+            "padding_top": 8
           }
         }
       },
       "block_order": [
         "section_heading_1",
         "section_para_2",
-        "benefits_3",
-        "button_4"
+        "button_3"
       ]
     },
-    "praise": {
-      "type": "quotebanner",
+    "hero_edge": {
+      "type": "waves-divider",
       "settings": {
-        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
-        "text_align_desktop": "center",
-        "text_max_width": 900
+        "color_scheme": "default",
+        "section_width": "full_width",
+        "wave_variant": "clouds",
+        "wave_rotate": true,
+        "wave_height": 90,
+        "wave_height_mobile": 40,
+        "enable_custom_style": true,
+        "wave_color": "#1c1c1e",
+        "background_color": "#ffffff",
+        "full_width": true
+      }
+    },
+    "promise": {
+      "type": "titleandsubtitle",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "content_alignment": "center",
+        "text_max_width": 860,
+        "subheading_text": "<p>Most people who speak well were nervous, rambling beginners once. They learned a handful of specific things. This book is those things, in the order you need them.</p>",
+        "title_font_size_desktop": 46,
+        "subtitle_font_size_desktop": 46,
+        "subheading_font_size_desktop": 18,
+        "title_font_weight": "700",
+        "subtitle_font_weight": "700",
+        "enable_custom_style": true,
+        "subtitle_text_color": "#e8571f",
+        "title_subheading_gap_desktop": 24,
+        "title_subtitle_gap_desktop": 2,
+        "padding_top_desktop": 56,
+        "padding_bottom_desktop": 24,
+        "title_mobile_font_size": 32,
+        "subtitle_mobile_font_size": 32,
+        "padding_top_mobile": 36,
+        "padding_bottom_mobile": 8
       },
       "blocks": {
-        "quote_1": {
-          "type": "quote",
+        "title_1": {
+          "type": "title",
           "settings": {
-            "quote_text": "The money book I wish someone had handed me with my first paycheck. Clear, kind and actually useful.",
-            "use_curly_quotes": true
+            "text": "Nobody is born good at this."
           }
         },
-        "author_2": {
-          "type": "author",
+        "subtitle_2": {
+          "type": "subtitle",
           "settings": {
-            "author_name": "Sample review",
-            "author_role": "Replace with a real quote from a reader or a review"
+            "text": "It is a skill, and you can learn it."
           }
         }
       },
       "block_order": [
-        "quote_1",
-        "author_2"
+        "title_1",
+        "subtitle_2"
       ]
     },
-    "for_you": {
+    "who": {
       "type": "Image-and-video-text",
       "settings": {
         "color_scheme": "default",
-        "image": "shopify://shop_images/authorbook-notes.webp",
-        "image_alt": "A young woman writing a plan in a notebook with her phone in hand",
+        "section_width": "container",
+        "image_position": "left",
+        "text_column_width": 46,
+        "content_align": "left",
+        "content_gap": 18,
+        "image": "shopify://shop_images/authorbook-spread-outline.webp",
+        "image_alt": "Two open pages from chapter two, The one sentence talk",
+        "aspect_w": 16,
+        "aspect_h": 11,
+        "image_fit": "cover",
+        "image_radius": 0,
+        "gap_desktop": 72,
+        "padding_top_desktop": 48,
+        "padding_bottom_desktop": 40,
+        "padding_top_mobile": 28,
+        "padding_bottom_mobile": 28,
+        "mobile_order": "media_first"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Who is this book for?",
+            "tag": "h2",
+            "enable_custom_style": true,
+            "size_desktop": 30,
+            "size_mobile": 26
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Anyone who has to stand up and say something that matters: a team update, a client pitch, a conference talk, a best man speech. Whether you present every week or dread the one time a year, the methods are the same and they work in a room or on a video call.</p>",
+            "enable_custom_style": true,
+            "size_desktop": 18,
+            "size_mobile": 16
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    },
+    "why": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
         "image_position": "right",
-        "aspect_w": 1,
-        "aspect_h": 1,
-        "image_radius": 0
+        "text_column_width": 46,
+        "content_align": "left",
+        "content_gap": 18,
+        "image": "shopify://shop_images/authorbook-spread-slides.webp",
+        "image_alt": "Two open pages from chapter seven, Slides that help",
+        "aspect_w": 16,
+        "aspect_h": 11,
+        "image_fit": "cover",
+        "image_radius": 0,
+        "gap_desktop": 72,
+        "padding_top_desktop": 40,
+        "padding_bottom_desktop": 40,
+        "padding_top_mobile": 28,
+        "padding_bottom_mobile": 28,
+        "mobile_order": "media_first"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Why read it now?",
+            "tag": "h2",
+            "enable_custom_style": true,
+            "size_desktop": 30,
+            "size_mobile": 26
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Most of us present more than ever, on calls, at all hands meetings and in interviews, and nobody taught us how. <strong>Hold the Room</strong> shows you how to find the point of a talk, build it, make slides that help, handle nerves and questions, and sound like yourself while you do it.</p>",
+            "enable_custom_style": true,
+            "size_desktop": 18,
+            "size_mobile": 16
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    },
+    "not_for": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "image_position": "left",
+        "text_column_width": 46,
+        "content_align": "left",
+        "content_gap": 18,
+        "image": "shopify://shop_images/authorbook-spread-nerves.webp",
+        "image_alt": "Two open pages from chapter five, Nerves are fuel",
+        "aspect_w": 16,
+        "aspect_h": 11,
+        "image_fit": "cover",
+        "image_radius": 0,
+        "gap_desktop": 72,
+        "padding_top_desktop": 40,
+        "padding_bottom_desktop": 72,
+        "padding_top_mobile": 28,
+        "padding_bottom_mobile": 28,
+        "mobile_order": "media_first"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Who is it not for?",
+            "tag": "h2",
+            "enable_custom_style": true,
+            "size_desktop": 30,
+            "size_mobile": 26
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>People looking for tricks to fake confidence, or one script that works in every room. There is no shortcut here. Just methods you try on your next real talk until they feel normal.</p>",
+            "enable_custom_style": true,
+            "size_desktop": 18,
+            "size_mobile": 16
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    },
+    "reviews_edge": {
+      "type": "waves-divider",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "full_width",
+        "wave_variant": "clouds",
+        "wave_rotate": false,
+        "wave_height": 80,
+        "wave_height_mobile": 36,
+        "enable_custom_style": true,
+        "wave_color": "#ff6b35",
+        "background_color": "#ffffff",
+        "full_width": true
+      }
+    },
+    "reviews": {
+      "type": "testimonials",
+      "settings": {
+        "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636",
+        "section_width": "fluid_container",
+        "display_mode": "carousel",
+        "show_quote_mark": false,
+        "show_rating": false,
+        "columns": 3,
+        "column_gap": 24,
+        "header_alignment": "center",
+        "card_style": "boxed",
+        "card_align": "left",
+        "card_padding": 32,
+        "card_content_gap": 16,
+        "card_radius": 0,
+        "avatar_shape": "circle",
+        "avatar_size": 64,
+        "show_arrow": false,
+        "carousel_pagination": "show",
+        "pagination_style": "dot",
+        "pagination_position": "center",
+        "pagination_spacing": 32,
+        "enable_custom_colors": true,
+        "card_bg": "#ffffff",
+        "card_border_color": "#ffffff",
+        "enable_custom_typography": true,
+        "quote_size": 17,
+        "autoplay": false,
+        "infinite": true,
+        "header_spacing_desktop": 40,
+        "space_below_cards_desktop": 0,
+        "columns_mobile": 1.15,
+        "space_below_cards_mobile": 0
       },
       "blocks": {
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "Who it is for"
+            "enabled": false,
+            "text": "Readers"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "You earn money. It just never seems to stay."
+            "enabled": true,
+            "text": "What early readers say",
+            "enable_custom_typography": true,
+            "font_size_desktop": 40,
+            "font_weight": "700"
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>This book is for your first jobs, first rent and first credit card. No spreadsheets with forty tabs and no lectures about avocado toast.</p><p>Just a way to see where your money goes, spend it on what you care about and start saving without noticing.</p>"
+            "enabled": true,
+            "text": "<p>Sample reviews to show the layout. Replace them with your own readers' words.</p>"
           }
         },
-        "button_4": {
-          "type": "button",
+        "testimonial_4": {
+          "type": "testimonial",
           "settings": {
-            "label": "Read the first chapter free",
-            "link": "/pages/newsletter",
-            "button_style": "secondary"
+            "quote": "<p>I read chapter two on the train and rewrote my quarterly update before I got to the office. It was the first one where nobody checked their phone.</p>",
+            "rating": 0,
+            "name": "Priya N.",
+            "role": "Product manager",
+            "avatar": "shopify://shop_images/authorbook-reader-1.webp"
+          }
+        },
+        "testimonial_5": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Short, practical and honest. The ninety second reset is now the thing I do before every client pitch.</p>",
+            "rating": 0,
+            "name": "Daniel A.",
+            "role": "Founder, design studio",
+            "avatar": "shopify://shop_images/authorbook-reader-2.webp"
+          }
+        },
+        "testimonial_6": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>I teach for a living and still picked up a lot. The chapter on questions made me stop dreading the end of a talk.</p>",
+            "rating": 0,
+            "name": "Lena M.",
+            "role": "Secondary school teacher",
+            "avatar": "shopify://shop_images/authorbook-reader-3.webp"
+          }
+        },
+        "testimonial_7": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>I used the one sentence outline for a job interview presentation. I got the job, and I was not shaking this time.</p>",
+            "rating": 0,
+            "name": "Sam K.",
+            "role": "Data analyst",
+            "avatar": "shopify://shop_images/authorbook-reader-4.webp"
+          }
+        },
+        "testimonial_8": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Finally a speaking book that does not tell me to picture the audience in their underwear. Real methods, clearly written.</p>",
+            "rating": 0,
+            "name": "Jo R.",
+            "role": "Engineering lead",
+            "avatar": "shopify://shop_images/authorbook-reader-5.webp"
           }
         }
       },
@@ -123,125 +401,348 @@
         "eyebrow_1",
         "heading_2",
         "subheading_3",
-        "button_4"
+        "testimonial_4",
+        "testimonial_5",
+        "testimonial_6",
+        "testimonial_7",
+        "testimonial_8"
       ]
     },
     "inside": {
-      "type": "text-columns",
-      "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "columns_desktop": 3,
-        "show_dividers": true,
-        "content_alignment": "left"
-      },
-      "blocks": {
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "text": "What is inside"
-          }
-        },
-        "subheading_2": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p>Twelve short chapters. Each ends with one thing to do that week, so you finish the book with a plan you are already using.</p>"
-          }
-        },
-        "column_3": {
-          "type": "column",
-          "settings": {
-            "label": "Chapter 1",
-            "heading": "Where it all goes",
-            "text": "<p>One month of tracking, without judging a single coffee.</p>"
-          }
-        },
-        "column_4": {
-          "type": "column",
-          "settings": {
-            "label": "Chapter 2",
-            "heading": "The money map",
-            "text": "<p>One page with your pay, your bills and what is left. You will use it every month.</p>"
-          }
-        },
-        "column_5": {
-          "type": "column",
-          "settings": {
-            "label": "Chapter 3",
-            "heading": "A budget with fun in it",
-            "text": "<p>Spending money you do not have to feel bad about, set on purpose.</p>"
-          }
-        },
-        "column_6": {
-          "type": "column",
-          "settings": {
-            "label": "Chapter 5",
-            "heading": "Out of the overdraft",
-            "text": "<p>A plan for cards, buy now pay later and student loans, smallest first.</p>"
-          }
-        },
-        "column_7": {
-          "type": "column",
-          "settings": {
-            "label": "Chapter 7",
-            "heading": "One month in the bank",
-            "text": "<p>A first emergency fund, built in small automatic steps.</p>"
-          }
-        },
-        "column_8": {
-          "type": "column",
-          "settings": {
-            "label": "Chapter 9",
-            "heading": "Investing, the boring way",
-            "text": "<p>Index funds, retirement accounts and why boring wins.</p>"
-          }
-        }
-      },
-      "block_order": [
-        "heading_1",
-        "subheading_2",
-        "column_3",
-        "column_4",
-        "column_5",
-        "column_6",
-        "column_7",
-        "column_8"
-      ]
-    },
-    "author": {
-      "type": "Image-and-video-text",
+      "type": "image-with-text-benefits",
       "settings": {
         "color_scheme": "default",
-        "image": "shopify://shop_images/authorbook-maya-wall.webp",
-        "image_alt": "Maya Okafor smiling in front of a painted wall",
-        "image_position": "left",
-        "aspect_w": 3,
-        "aspect_h": 2,
-        "image_radius": 0,
-        "text_column_width": 45
+        "section_width": "container",
+        "media_position": "left",
+        "media_column_width": 46,
+        "content_align": "left",
+        "content_gap": 20,
+        "text_max_width": 620,
+        "per_row": "1",
+        "media_aspect_w": 1,
+        "media_aspect_h": 1,
+        "media_radius": 0,
+        "benefits_per_row_desktop": "2",
+        "benefit_layout": "horizontal",
+        "benefit_inner_gap": 14,
+        "benefit_padding": 0,
+        "benefit_radius": 0,
+        "benefit_border_width": 0,
+        "benefit_heading_gap": 4,
+        "icon_size": 40,
+        "icon_padding": 0,
+        "enable_custom_style": true,
+        "icon_color": "#e8571f",
+        "icon_bg": "rgba(0,0,0,0)",
+        "benefit_bg": "#ffffff",
+        "benefit_border_color": "rgba(0,0,0,0)",
+        "benefit_heading_size": 18,
+        "benefit_text_size": 16,
+        "gap_desktop": 72,
+        "benefit_gap_desktop": 26,
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 96,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "benefits_per_row_mobile": "1",
+        "mobile_order": "media_first"
       },
       "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
+        "media_1": {
+          "type": "media",
           "settings": {
-            "text": "About the author"
+            "media_type": "image",
+            "image": "shopify://shop_images/authorbook-stage.webp",
+            "alt": "A speaker with a microphone in front of a full lecture hall, and the book open at chapter two"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Hi, I'm Maya"
+            "text": "In Hold the Room, Owen Kessler shares the methods he teaches in his speaking workshops",
+            "tag": "h2",
+            "enable_custom_style": true,
+            "uppercase": false,
+            "size_desktop": 32,
+            "size_mobile": 26
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>At 24 I had two jobs, a maxed out card and no idea where my pay went. I fixed it slowly, then started writing about it for friends.</p><p>That letter became this book. I write the way I would explain it to a friend over dinner, because that is how I learned it.</p>"
+            "text": "<p><strong>Practical methods for the six parts of every talk:</strong></p>",
+            "enable_custom_style": true,
+            "size_desktop": 17,
+            "size_mobile": 15
+          }
+        },
+        "benefits_group_4": {
+          "type": "benefits_group",
+          "settings": {}
+        },
+        "benefit_5": {
+          "type": "benefit",
+          "settings": {
+            "heading": "The point",
+            "text": "<p>Find the one sentence your whole talk is about.</p>",
+            "icon_source": "svg",
+            "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"8.5\"/><circle cx=\"12\" cy=\"12\" r=\"4.5\"/><circle cx=\"12\" cy=\"12\" r=\"0.8\" fill=\"currentColor\"/></svg>"
+          }
+        },
+        "benefit_6": {
+          "type": "benefit",
+          "settings": {
+            "heading": "Structure",
+            "text": "<p>An outline that works for five minutes or forty five.</p>",
+            "icon_source": "svg",
+            "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3.5\" y=\"4\" width=\"17\" height=\"4\" rx=\"1\"/><rect x=\"6\" y=\"10\" width=\"14.5\" height=\"4\" rx=\"1\"/><rect x=\"8.5\" y=\"16\" width=\"12\" height=\"4\" rx=\"1\"/></svg>"
+          }
+        },
+        "benefit_7": {
+          "type": "benefit",
+          "settings": {
+            "heading": "Slides",
+            "text": "<p>Fewer words, bigger headlines, one idea each.</p>",
+            "icon_source": "svg",
+            "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"4\" width=\"18\" height=\"12\" rx=\"1.5\"/><path d=\"M12 16v4M8.5 20h7M7 9h6\"/></svg>"
+          }
+        },
+        "benefit_8": {
+          "type": "benefit",
+          "settings": {
+            "heading": "Nerves",
+            "text": "<p>What to do in the ninety seconds before you start.</p>",
+            "icon_source": "svg",
+            "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 12h4l2-5 3 10 2.5-7 1.5 2H21\"/></svg>"
+          }
+        },
+        "benefit_9": {
+          "type": "benefit",
+          "settings": {
+            "heading": "Voice",
+            "text": "<p>Pace, pauses and sounding like yourself.</p>",
+            "icon_source": "svg",
+            "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"9\" y=\"3\" width=\"6\" height=\"11\" rx=\"3\"/><path d=\"M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21\"/></svg>"
+          }
+        },
+        "benefit_10": {
+          "type": "benefit",
+          "settings": {
+            "heading": "Questions",
+            "text": "<p>Answer the hard ones without getting defensive.</p>",
+            "icon_source": "svg",
+            "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 5.5h16v10H10l-4 3.5v-3.5H4z\"/><path d=\"M10 9a2 2 0 1 1 2.6 1.9c-.4.2-.6.5-.6.9v.3M12 13.6v.1\"/></svg>"
+          }
+        },
+        "footnote_11": {
+          "type": "footnote",
+          "settings": {
+            "text": "<a href=\"/pages/newsletter\">Read chapter two free</a>",
+            "enable_custom_style": true,
+            "size": 16
+          }
+        }
+      },
+      "block_order": [
+        "media_1",
+        "heading_2",
+        "subheading_3",
+        "benefits_group_4",
+        "benefit_5",
+        "benefit_6",
+        "benefit_7",
+        "benefit_8",
+        "benefit_9",
+        "benefit_10",
+        "footnote_11"
+      ]
+    },
+    "fit_edge": {
+      "type": "waves-divider",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "full_width",
+        "wave_variant": "wave-slope",
+        "wave_rotate": false,
+        "wave_height": 80,
+        "wave_height_mobile": 36,
+        "enable_custom_style": true,
+        "wave_color": "#f5eee3",
+        "background_color": "#ffffff",
+        "full_width": true
+      }
+    },
+    "fit": {
+      "type": "benefits-icons2",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "full_width",
+        "inner_width": 80,
+        "icons_per_row_desktop": 3,
+        "space_between_icons": 40,
+        "enable_custom_style": true,
+        "icon_color": "#e8571f",
+        "icon_description_color": "#18181a",
+        "make_icons_circle": false,
+        "icon_size": 44,
+        "icon_title_size": 18,
+        "icon_description_size": 18,
+        "padding_top_desktop": 48,
+        "padding_bottom_desktop": 0,
+        "icons_mobile_layout": "1",
+        "icon_size_mobile": 38,
+        "icon_description_size_mobile": 16,
+        "padding_top_mobile": 32,
+        "padding_bottom_mobile": 8
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "This book is for you if...",
+            "heading_alignment": "center",
+            "heading_size": 46,
+            "heading_size_mobile": 32,
+            "heading_style": "bold",
+            "space_below": 48
+          }
+        },
+        "icon_2": {
+          "type": "icon",
+          "settings": {
+            "icon_type": "icon",
+            "icon": "check_circle",
+            "icon_title": "",
+            "icon_description": "You present at work and want people to remember what you said."
+          }
+        },
+        "icon_3": {
+          "type": "icon",
+          "settings": {
+            "icon_type": "icon",
+            "icon": "check_circle",
+            "icon_title": "",
+            "icon_description": "You have a big talk, pitch or interview coming up and want a plan for it."
+          }
+        },
+        "icon_4": {
+          "type": "icon",
+          "settings": {
+            "icon_type": "icon",
+            "icon": "check_circle",
+            "icon_title": "",
+            "icon_description": "You freeze, ramble or read your slides, and you are ready to stop."
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "icon_2",
+        "icon_3",
+        "icon_4"
+      ]
+    },
+    "fit_cta": {
+      "type": "wavyrichtextbanner",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "full_width",
+        "content_alignment": "center",
+        "wave_type": "type5",
+        "enable_wave_animation": false,
+        "enable_custom_style": true,
+        "section_bg": "#f5eee3",
+        "wave_color": "#f5eee3",
+        "outer_background": "#f5eee3",
+        "top_padding_desktop": 0,
+        "bottom_padding_desktop": 56,
+        "top_padding_mobile": 0,
+        "bottom_padding_mobile": 56,
+        "vertical_gap_desktop": 14
+      },
+      "blocks": {
+        "caption_1": {
+          "type": "caption",
+          "settings": {
+            "caption": "PDF and EPUB, read on any phone, tablet or e-reader",
+            "caption_size": 15
+          }
+        },
+        "buttons_2": {
+          "type": "buttons",
+          "settings": {
+            "primary_button_label": "Buy the ebook",
+            "primary_button_link": "/collections/all",
+            "primary_button_style": "solid",
+            "primary_button_corner": 40,
+            "secondary_button_label": "Read a free chapter",
+            "secondary_button_link": "/pages/newsletter",
+            "secondary_button_style": "outline",
+            "secondary_button_corner": 40
+          }
+        }
+      },
+      "block_order": [
+        "caption_1",
+        "buttons_2"
+      ]
+    },
+    "author": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "section_width": "full_width",
+        "image_position": "left",
+        "text_column_width": 44,
+        "content_align": "left",
+        "content_gap": 18,
+        "image": "shopify://shop_images/authorbook-owen.webp",
+        "image_alt": "Owen Kessler",
+        "aspect_w": 4,
+        "aspect_h": 5,
+        "image_fit": "cover",
+        "image_radius": 0,
+        "gap_desktop": 80,
+        "padding_top_desktop": 0,
+        "padding_bottom_desktop": 72,
+        "side_padding_desktop": 0,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 48,
+        "mobile_order": "media_first"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "About the author",
+            "enable_custom_style": true,
+            "color": "#ff6b35",
+            "size": 13
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Owen Kessler spent ten years as the person who hated presenting. Now he teaches it.",
+            "tag": "h2",
+            "enable_custom_style": true,
+            "size_desktop": 34,
+            "size_mobile": 26
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>He runs small speaking workshops for teams and first time conference speakers, and writes a short letter about talks every other week. <strong>Hold the Room</strong> is the book he wanted when he gave his first talk and forgot the second half of it.</p><p>This is sample text. Replace it with your own story.</p>",
+            "enable_custom_style": true,
+            "size_desktop": 17,
+            "size_mobile": 16
           }
         },
         "button_4": {
           "type": "button",
           "settings": {
-            "label": "More about Maya",
+            "label": "More about Owen",
             "link": "/pages/about",
             "button_style": "secondary"
           }
@@ -254,147 +755,65 @@
         "button_4"
       ]
     },
-    "editions": {
-      "type": "products-grid",
-      "settings": {
-        "color_scheme": "default",
-        "heading": "Get the book",
-        "text": "<p>Paperback, ebook or audiobook, and a workbook to go with it.</p>",
-        "items_to_show": 4,
-        "items_per_row": 4,
-        "show_add_to_cart": true,
-        "button_label": "All editions",
-        "button_link": "/collections/all",
-        "header_alignment": "left"
-      }
-    },
-    "reviews": {
-      "type": "testimonial-wall",
-      "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "columns": 3,
-        "card_style": "plain",
-        "text_align": "left",
-        "collapse": "mobile"
-      },
-      "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
-          "settings": {
-            "text": "Readers"
-          }
-        },
-        "heading_2": {
-          "type": "heading",
-          "settings": {
-            "text": "What readers say"
-          }
-        },
-        "subheading_3": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p>Sample reviews to show the layout. Replace them with real reader reviews.</p>"
-          }
-        },
-        "testimonial_4": {
-          "type": "testimonial",
-          "settings": {
-            "body": "The first money book I finished. Chapter two took an hour and I still use the map every payday.",
-            "name": "Sample reader",
-            "role": "Nurse, 26",
-            "rating": 5
-          }
-        },
-        "testimonial_5": {
-          "type": "testimonial",
-          "settings": {
-            "body": "No shame, no lectures, just what to do on Monday. I paid off my card in seven months.",
-            "name": "Sample reader",
-            "role": "Barista and student, 23",
-            "rating": 5
-          }
-        },
-        "testimonial_6": {
-          "type": "testimonial",
-          "settings": {
-            "body": "I bought it for my sister and read it first. The fun money chapter changed how we both budget.",
-            "name": "Sample reader",
-            "role": "Teacher, 29",
-            "rating": 5
-          }
-        },
-        "testimonial_7": {
-          "type": "testimonial",
-          "settings": {
-            "body": "Finally someone explains investing without making me feel stupid for not knowing.",
-            "name": "Sample reader",
-            "role": "Junior designer, 25",
-            "rating": 5
-          }
-        },
-        "testimonial_8": {
-          "type": "testimonial",
-          "settings": {
-            "body": "Short chapters I could read on the bus. The overdraft plan worked exactly as written.",
-            "name": "Sample reader",
-            "role": "Warehouse supervisor, 27",
-            "rating": 5
-          }
-        },
-        "testimonial_9": {
-          "type": "testimonial",
-          "settings": {
-            "body": "I read it in a weekend and opened my first retirement account on Monday.",
-            "name": "Sample reader",
-            "role": "Software tester, 24",
-            "rating": 5
-          }
-        }
-      },
-      "block_order": [
-        "eyebrow_1",
-        "heading_2",
-        "subheading_3",
-        "testimonial_4",
-        "testimonial_5",
-        "testimonial_6",
-        "testimonial_7",
-        "testimonial_8",
-        "testimonial_9"
-      ]
-    },
-    "chapter": {
-      "type": "newsletter-split",
+    "facts": {
+      "type": "number-stats",
       "settings": {
         "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
-        "image": "shopify://shop_images/authorbook-ed-book.webp",
-        "image_alt": "The cover of Not Broke Anymore by Maya Okafor",
-        "image_position": "left",
-        "image_ratio": "portrait",
-        "image_width": 40,
-        "form_layout": "horizontal",
-        "btn_text": "Send it to me",
-        "email_placeholder": "Your email",
-        "note": "Plus the Sunday money letter every other week. Leave whenever you like.",
-        "success_text": "Done. The first chapter is in your inbox."
+        "section_width": "full_width",
+        "enable_plus_sign": false,
+        "container_max_width": 1000,
+        "headline_spacing": 30,
+        "enable_custom_style": true,
+        "count_color": "#ff6b35",
+        "description_text_color": "#c8c8cc",
+        "count_size": 56,
+        "count_font_weight": "bold",
+        "description_size": 15,
+        "section_padding_top": 24,
+        "section_padding_bottom": 80,
+        "mobile_count_size": 44,
+        "mobile_section_padding_top": 8,
+        "mobile_section_padding_bottom": 56
       },
       "blocks": {
-        "heading_1": {
-          "type": "heading",
+        "headline_1": {
+          "type": "headline",
           "settings": {
-            "text": "Read the first chapter free"
+            "content": "WHAT IS IN THE BOOK",
+            "enable_custom_style": true,
+            "color": "#ffffff",
+            "size": 14,
+            "mobile_size": 13,
+            "font_weight": "700"
           }
         },
-        "subheading_2": {
-          "type": "subheading",
+        "count_box_2": {
+          "type": "count_box",
           "settings": {
-            "text": "<p>Chapter one and the money map, as a PDF. Twenty minutes to read, and you will know where last month's pay went.</p>"
+            "number": 14,
+            "text": "short chapters"
+          }
+        },
+        "count_box_3": {
+          "type": "count_box",
+          "settings": {
+            "number": 212,
+            "text": "pages, PDF and EPUB"
+          }
+        },
+        "count_box_4": {
+          "type": "count_box",
+          "settings": {
+            "number": 31,
+            "text": "exercises to try"
           }
         }
       },
       "block_order": [
-        "heading_1",
-        "subheading_2"
+        "headline_1",
+        "count_box_2",
+        "count_box_3",
+        "count_box_4"
       ]
     },
     "faq": {
@@ -415,42 +834,35 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Something else? <a href=\"/pages/contact\">Write to me</a>.</p>"
+            "text": "<p>Something else? <a href=\"/pages/contact\">Write to us</a>.</p>"
           }
         },
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
-            "question": "Is this book for me if I am already in debt?",
-            "answer": "<p>Yes. Chapter five is a plan for cards, buy now pay later and student loans, and it starts wherever you are.</p>"
+            "question": "Is this an ebook or a printed book?",
+            "answer": "<p>An ebook. You get a PDF and an EPUB file by email straight after you pay, and you can read them on any phone, tablet, computer or e-reader.</p>"
           }
         },
         "faq_item_4": {
           "type": "faq_item",
           "settings": {
-            "question": "Is this financial advice?",
-            "answer": "<p>It is general teaching from my own experience and training, not personal financial advice. For your exact situation, talk to a licensed adviser.</p>"
+            "question": "What is the difference between the editions?",
+            "answer": "<p>The ebook is the book. Ebook and audiobook adds the full audio, read by Owen. The complete set adds the printable talk planner workbook as well.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "Does it work outside the US?",
-            "answer": "<p>The habits work anywhere. The account names in chapter nine are American, with notes for the UK, Canada and Australia.</p>"
+            "question": "I have a talk next week. Will this help in time?",
+            "answer": "<p>Yes. Start with chapters two and five. They take about an hour together and give you an outline and a plan for your nerves.</p>"
           }
         },
         "faq_item_6": {
           "type": "faq_item",
           "settings": {
-            "question": "Which edition should I get?",
-            "answer": "<p>The paperback if you like writing in margins, the audiobook for commutes, and the set if you want the workbook too.</p>"
-          }
-        },
-        "faq_item_7": {
-          "type": "faq_item",
-          "settings": {
-            "question": "When will my paperback arrive?",
-            "answer": "<p>It ships within two working days. The ebook and audiobook arrive by email straight after checkout.</p>"
+            "question": "What if it is not for me?",
+            "answer": "<p>Email within 30 days and you get your money back. No questions asked.</p>"
           }
         }
       },
@@ -460,67 +872,25 @@
         "faq_item_3",
         "faq_item_4",
         "faq_item_5",
-        "faq_item_6",
-        "faq_item_7"
-      ]
-    },
-    "cta": {
-      "type": "banner3",
-      "settings": {
-        "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636",
-        "banner_surface": "section",
-        "max_width": 720,
-        "pad_top_desktop": 88,
-        "pad_bottom_desktop": 88
-      },
-      "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
-          "settings": {
-            "text": "Not Broke Anymore",
-            "transform": "uppercase"
-          }
-        },
-        "heading_2": {
-          "type": "heading",
-          "settings": {
-            "text": "Next payday, have a plan",
-            "transform": "none",
-            "lineheight": "1.35"
-          }
-        },
-        "subheading_3": {
-          "type": "subheading",
-          "settings": {
-            "text": "Twelve short chapters and one page you will use every month."
-          }
-        },
-        "button_4": {
-          "type": "button",
-          "settings": {
-            "label": "Buy the book",
-            "link": "/collections/all"
-          }
-        }
-      },
-      "block_order": [
-        "eyebrow_1",
-        "heading_2",
-        "subheading_3",
-        "button_4"
+        "faq_item_6"
       ]
     }
   },
   "order": [
     "hero",
-    "praise",
-    "for_you",
-    "inside",
-    "author",
-    "editions",
+    "hero_edge",
+    "promise",
+    "who",
+    "why",
+    "not_for",
+    "reviews_edge",
     "reviews",
-    "chapter",
-    "faq",
-    "cta"
+    "inside",
+    "fit_edge",
+    "fit",
+    "fit_cta",
+    "author",
+    "facts",
+    "faq"
   ]
 }

@@ -1,4 +1,4 @@
-/* Templates round 22: a money book for your twenties by Maya Okafor, built from the theme's own sections (product hero, quote, image with text, text columns, product grid, testimonial wall, newsletter with image, FAQ, banner); Libre Baskerville and Helvetica. */
+/* Templates round 23: Hold the Room, page page, with the free chapter sign up. */
 {
   "sections": {
     "main": {
@@ -14,28 +14,28 @@
       "type": "newsletter-split",
       "settings": {
         "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
-        "image": "shopify://shop_images/authorbook-ed-book.webp",
-        "image_alt": "The cover of Not Broke Anymore by Maya Okafor",
+        "image": "shopify://shop_images/authorbook-spread-outline.webp",
+        "image_alt": "Two open pages from chapter two of Hold the Room",
         "image_position": "left",
-        "image_ratio": "portrait",
-        "image_width": 40,
+        "image_ratio": "landscape",
+        "image_width": 50,
         "form_layout": "horizontal",
         "btn_text": "Send it to me",
         "email_placeholder": "Your email",
-        "note": "Plus the Sunday money letter every other week. Leave whenever you like.",
-        "success_text": "Done. The first chapter is in your inbox."
+        "note": "You also get the talk letter every other week. Leave whenever you like.",
+        "success_text": "Done. Chapter two is in your inbox."
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Read the first chapter free"
+            "text": "Read chapter two free"
           }
         },
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Chapter one and the money map, as a PDF. Twenty minutes to read, and you will know where last month's pay went.</p>"
+            "text": "<p>The one sentence talk, as a PDF: the outline from the book and the exercise that fixes most talks before you open a slide deck.</p>"
           }
         }
       },
