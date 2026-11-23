@@ -4,14 +4,14 @@
     "links": [
       {
         "title": "The book",
-        "url": "/#inside"
+        "url": "/collections/all"
       },
       {
-        "title": "About",
+        "title": "About Maya",
         "url": "/pages/about"
       },
       {
-        "title": "Marginalia",
+        "title": "Free chapter",
         "url": "/pages/newsletter"
       },
       {
@@ -19,8 +19,8 @@
         "url": "/blogs/news"
       },
       {
-        "title": "Shop",
-        "url": "/collections/all"
+        "title": "Questions",
+        "url": "/pages/faqs"
       }
     ]
   },
@@ -28,20 +28,16 @@
     "title": "The book",
     "links": [
       {
-        "title": "What is inside",
-        "url": "/#inside"
-      },
-      {
         "title": "Editions",
-        "url": "/#buy"
-      },
-      {
-        "title": "Free email course",
-        "url": "/#course"
-      },
-      {
-        "title": "Everything for sale",
         "url": "/collections/all"
+      },
+      {
+        "title": "Free first chapter",
+        "url": "/pages/newsletter"
+      },
+      {
+        "title": "Questions",
+        "url": "/pages/faqs"
       }
     ]
   },
@@ -49,16 +45,12 @@
     "title": "More",
     "links": [
       {
-        "title": "About Theo",
+        "title": "About Maya",
         "url": "/pages/about"
       },
       {
-        "title": "Marginalia",
-        "url": "/pages/newsletter"
-      },
-      {
-        "title": "Questions",
-        "url": "/pages/faqs"
+        "title": "Articles",
+        "url": "/blogs/news"
       },
       {
         "title": "Contact",

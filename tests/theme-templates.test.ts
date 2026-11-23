@@ -122,7 +122,8 @@ async function main() {
   check("Storelib Default is first, at the default address", listings[0]?.slug === DEFAULT_LISTING_SLUG && listings[0]?.name === "Storelib Default" && mergeListings([])[0]?.slug === DEFAULT_LISTING_SLUG)
   /* Changed on purpose (templates round 18): Landing page is now called Course (same slug, landing-page). */
   /* Changed on purpose (templates round 19): Art books sits right after Digital products. */
-  check("then Clothing, Merch, Digital products, Art books, Ebooks, Fitness and Course", listings.slice(0, 8).map((l) => l.name).join("|") === "Storelib Default|Clothing|Merch|Digital products|Art books|Ebooks|Fitness|Course")
+  /* Changed on purpose (templates round 22): Ebooks is now a cookbook shop called Cookbook (same slug, ebooks). */
+  check("then Clothing, Merch, Digital products, Art books, Cookbook, Fitness and Course", listings.slice(0, 8).map((l) => l.name).join("|") === "Storelib Default|Clothing|Merch|Digital products|Art books|Cookbook|Fitness|Course")
   /* Changed on purpose (templates round 18): Skincare was removed and Templates shop is now called Notion templates. */
   /* Changed on purpose (templates round 18): Streetwear drop is now the Lifestyle label template (same slug). */
   /* Changed on purpose (templates round 18): Creator Landing sits right after Landing page. */

@@ -12,15 +12,15 @@
       },
       {
         "title": "Instructor",
-        "url": "/#instructor"
+        "url": "/pages/about"
       },
       {
         "title": "Pricing",
-        "url": "/#pricing"
+        "url": "/#shopify-section-pricing"
       },
       {
         "title": "Questions",
-        "url": "/#faq"
+        "url": "/pages/faqs"
       }
     ]
   },
@@ -33,7 +33,7 @@
       },
       {
         "title": "Pricing",
-        "url": "/#pricing"
+        "url": "/#shopify-section-pricing"
       },
       {
         "title": "About Karim",

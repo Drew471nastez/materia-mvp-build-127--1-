@@ -1,3 +1,4 @@
+/* Templates round 22: rebuilt from the theme's own sections (collage hero, image with text, rows, promo banner, testimonials, newsletter with image, gallery, FAQ, banner); Lora and Open Sans. */
 {
   "sections": {
     "heading": {
@@ -5,28 +6,26 @@
       "settings": {
         "height": "adapt",
         "alignment": "center",
-        "padding_top": 80,
-        "padding_bottom": 56,
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "padding_top": 72,
+        "padding_bottom": 40,
+        "color_scheme": "default",
         "reset_spacing": true,
-        "section_width": "fluid_container",
+        "section_width": "container",
         "overlay_opacity": 0
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "page_title": "Programmes",
-            "header_size": "default",
-            "vertical_gap": 12,
-            "heading_font_size": 52,
-            "enable_heading_color": false
+            "page_title": "",
+            "header_size": "medium",
+            "heading_font_size": 48
           }
         },
-        "description_1": {
+        "description_2": {
           "type": "description",
           "settings": {
-            "description": "<p>Three ways to work together, from an afternoon course to three months of private mentoring.</p>",
+            "description": "<p>A group programme, a short course and private mentoring. All of them start with what your studio actually earns.</p>",
             "enable_custom_style": false,
             "description_font_size": 17
           }
@@ -34,291 +33,277 @@
       },
       "block_order": [
         "heading_1",
-        "description_1"
+        "description_2"
       ]
     },
     "programmes": {
-      "type": "coachpro-programmes",
+      "type": "image-with-text-multirow",
       "settings": {
-        "eyebrow": "Work with me",
-        "heading": "Pick the one that fits <em>this year</em>",
-        "alternate": true,
-        "background": "#fbf8f4",
-        "card_color": "#f2ebe2",
-        "eyebrow_color": "#c2421f",
-        "heading_color": "#16120f",
-        "text_color": "#4a4038",
-        "padding_top": 104,
-        "padding_bottom": 64,
-        "padding_top_mobile": 56,
-        "padding_bottom_mobile": 40
+        "color_scheme": "default",
+        "alternate_rows": true,
+        "image_aspect_w": 4,
+        "image_aspect_h": 5,
+        "text_column_width": 50
       },
       "blocks": {
-        "programme_1": {
-          "type": "programme",
+        "row_1": {
+          "type": "row",
           "settings": {
-            "label": "Studio Foundations",
-            "heading": "A studio that runs on <em>purpose</em>, not on overtime",
-            "text": "<p>Twelve weeks in a small group to set prices you can say out loud, find two or three clients worth keeping, and build a week with real edges. One live call every Tuesday, short lessons in between, and me in your corner.</p>",
-            "facts": "12 weeks | Live calls on Tuesdays | 12 places",
-            "color": "#c2421f",
-            "button_label": "See the programme",
-            "button_link": "/pages/programmes",
-            "link_label": "Read the stories",
-            "link_url": "/pages/programmes#stories",
             "image": "shopify://shop_images/coachpro-foundations.webp",
-            "image_alt": "Camila Duarte, Studio Foundations",
-            "pin_title": "Next round starts 3 March",
-            "pin_text": "Twelve places, applications open"
+            "caption": "12 weeks, in a group of twelve",
+            "heading": "Studio Foundations",
+            "body": "<p>Set prices you can say out loud, find two or three clients worth keeping and build a week with real edges. A live call every Tuesday, short lessons in between, and me in your corner. Next round starts in March.</p>",
+            "btn_label": "See the programme",
+            "btn_link": "/collections/all"
           }
         },
-        "programme_2": {
-          "type": "programme",
+        "row_2": {
+          "type": "row",
           "settings": {
-            "label": "Price It Right",
-            "heading": "Price your next project <em>in an afternoon</em>",
-            "text": "<p>A short self paced course on the numbers behind a fair quote: your real hourly cost, a day rate that holds, and how to present a price without apologising for it. Comes with the calculator I still use.</p>",
-            "facts": "Self paced | About three hours | Calculator included",
-            "color": "#2f5d50",
-            "button_label": "Start the course",
-            "button_link": "/collections/all",
-            "link_label": "What is inside",
-            "link_url": "/pages/programmes",
             "image": "shopify://shop_images/coachpro-pricing.webp",
-            "image_alt": "Camila Duarte, Price It Right",
-            "pin_title": "Start today",
-            "pin_text": "Watch the first lesson free"
+            "caption": "Self paced, about three hours",
+            "heading": "Price It Right",
+            "body": "<p>The numbers behind a fair quote: your real hourly cost, a day rate that holds and how to present a price without apologising for it. Comes with the calculator I still use.</p>",
+            "btn_label": "Start the course",
+            "btn_link": "/collections/all"
           }
         },
-        "programme_3": {
-          "type": "programme",
+        "row_3": {
+          "type": "row",
           "settings": {
-            "label": "One to one",
-            "heading": "Three months of <em>private</em> mentoring",
-            "text": "<p>For studio owners making a bigger move: hiring a first person, raising every price at once, or changing what the studio does. Fortnightly calls, a shared notebook and quick answers between calls.</p>",
-            "facts": "Three months | Fortnightly calls | Two places a quarter",
-            "color": "#16120f",
-            "button_label": "Apply for a place",
-            "button_link": "/pages/contact",
-            "link_label": "Ask a question",
-            "link_url": "/pages/faqs",
             "image": "shopify://shop_images/coachpro-mentoring.webp",
-            "image_alt": "Camila Duarte, One to one",
-            "pin_title": "Two places each quarter",
-            "pin_text": "Short application, reply within a week"
+            "caption": "Three months, two places a quarter",
+            "heading": "One to one mentoring",
+            "body": "<p>For a bigger move: hiring your first person, raising every price at once or changing what the studio does. Fortnightly calls and quick answers between them.</p>",
+            "btn_label": "Apply for a place",
+            "btn_link": "/pages/contact"
           }
         }
       },
       "block_order": [
-        "programme_1",
-        "programme_2",
-        "programme_3"
+        "row_1",
+        "row_2",
+        "row_3"
       ]
     },
     "stories": {
-      "type": "coachpro-stories",
+      "type": "testimonials",
       "settings": {
-        "anchor": "stories",
-        "eyebrow": "Client stories",
-        "heading": "Will you be the next <em>success story</em>?",
-        "sample_label": "Sample",
-        "footnote": "Sample stories to show the layout. Replace them with your clients' own words and photos, with their permission.",
-        "prev_label": "Previous story",
-        "next_label": "Next story",
-        "background": "#ffffff",
-        "card_color": "#f5efe7",
-        "accent_color": "#c2421f",
-        "heading_color": "#16120f",
-        "text_color": "#4a4038",
-        "padding_top": 104,
-        "padding_bottom": 104,
-        "padding_top_mobile": 56,
-        "padding_bottom_mobile": 56
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "display_mode": "grid",
+        "columns": 3,
+        "header_alignment": "center",
+        "card_style": "clean",
+        "card_align": "left",
+        "show_rating": false,
+        "show_quote_mark": true,
+        "avatar_shape": "circle"
       },
       "blocks": {
-        "story_1": {
-          "type": "story",
+        "eyebrow_1": {
+          "type": "eyebrow",
           "settings": {
-            "programme": "Studio Foundations",
-            "quote": "I raised my day rate by a third and the clients I actually wanted stayed. The worksheet alone paid for the programme.",
-            "avatar": "shopify://shop_images/coachpro-client-1.webp",
+            "enabled": true,
+            "text": "Client stories"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "enabled": true,
+            "text": "What changed in their studios"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "enabled": true,
+            "text": "<p>Sample stories to show the layout. Replace them with your clients' own words and photos, with their permission.</p>"
+          }
+        },
+        "testimonial_4": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>I raised my day rate by a third and the clients I actually wanted stayed. The worksheet alone paid for the programme.</p>",
+            "rating": 0,
             "name": "Mei L.",
-            "role": "Ceramics studio",
-            "sample": true
+            "role": "Ceramics studio, Studio Foundations",
+            "avatar": "shopify://shop_images/coachpro-client-1.webp"
           }
         },
-        "story_2": {
-          "type": "story",
+        "testimonial_5": {
+          "type": "testimonial",
           "settings": {
-            "programme": "Price It Right",
-            "quote": "For the first time I know what a project earns before I say yes to it, not three months after.",
-            "avatar": "shopify://shop_images/coachpro-client-2.webp",
+            "quote": "<p>For the first time I know what a project earns before I say yes to it, not three months after.</p>",
+            "rating": 0,
             "name": "Hanna V.",
-            "role": "Brand designer",
-            "sample": true
+            "role": "Brand designer, Price It Right",
+            "avatar": "shopify://shop_images/coachpro-client-2.webp"
           }
         },
-        "story_3": {
-          "type": "story",
+        "testimonial_6": {
+          "type": "testimonial",
           "settings": {
-            "programme": "One to one",
-            "quote": "We went from four day weeks that ran to ten hours each to a proper Friday off, and the studio earns more.",
-            "avatar": "shopify://shop_images/coachpro-client-3.webp",
+            "quote": "<p>We went from four day weeks that ran to ten hours each to a proper Friday off, and the studio earns more.</p>",
+            "rating": 0,
             "name": "Rosa M.",
-            "role": "Interior studio owner",
-            "sample": true
+            "role": "Interior studio, one to one",
+            "avatar": "shopify://shop_images/coachpro-client-3.webp"
           }
         },
-        "story_4": {
-          "type": "story",
+        "testimonial_7": {
+          "type": "testimonial",
           "settings": {
-            "programme": "Studio Foundations",
-            "quote": "Camila asks the question you were hoping nobody would ask, then helps you answer it. Every single Tuesday.",
-            "avatar": "shopify://shop_images/coachpro-client-4.webp",
+            "quote": "<p>Camila asks the question you were hoping nobody would ask, then helps you answer it. Every single Tuesday.</p>",
+            "rating": 0,
             "name": "Joan P.",
-            "role": "Architect",
-            "sample": true
+            "role": "Architect, Studio Foundations",
+            "avatar": "shopify://shop_images/coachpro-client-4.webp"
           }
         },
-        "story_5": {
-          "type": "story",
+        "testimonial_8": {
+          "type": "testimonial",
           "settings": {
-            "programme": "Price It Right",
-            "quote": "I stopped offering a discount on the first call. That one change was worth the whole course.",
-            "avatar": "shopify://shop_images/coachpro-client-5.webp",
+            "quote": "<p>I stopped offering a discount on the first call. That one change was worth the whole course.</p>",
+            "rating": 0,
             "name": "Tom R.",
-            "role": "Furniture maker",
-            "sample": true
+            "role": "Furniture maker, Price It Right",
+            "avatar": "shopify://shop_images/coachpro-client-5.webp"
+          }
+        },
+        "testimonial_9": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>The one page plan is on my wall. I look at it every Monday and it has changed how I say yes.</p>",
+            "rating": 0,
+            "name": "Ines C.",
+            "role": "Illustrator, one to one",
+            "avatar": "shopify://shop_images/coachpro-client-1.webp"
           }
         }
       },
       "block_order": [
-        "story_1",
-        "story_2",
-        "story_3",
-        "story_4",
-        "story_5"
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "testimonial_4",
+        "testimonial_5",
+        "testimonial_6",
+        "testimonial_7",
+        "testimonial_8",
+        "testimonial_9"
       ]
     },
     "faq": {
-      "type": "faq-side-image",
+      "type": "faq-pro",
       "settings": {
         "color_scheme": "default",
-        "image": "shopify://shop_images/coachpro-moment-studio.webp",
-        "image_position": "right"
+        "first_item_open": true,
+        "content_alignment": "center",
+        "max_content_width": 820
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Before you join"
+            "text": "Before you apply"
           }
         },
-        "subheading_1": {
+        "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Something else on your mind? <a href=\"/pages/contact\">Write to me</a>, I read every message.</p>"
-          }
-        },
-        "faq_item_1": {
-          "type": "faq_item",
-          "settings": {
-            "question": "Who are the programmes for?",
-            "answer": "<p>Designers, makers, architects, photographers and small studio owners who sell their own work or time. Most clients have been in business for at least a year and are busy but not earning what they should.</p>"
-          }
-        },
-        "faq_item_2": {
-          "type": "faq_item",
-          "settings": {
-            "question": "How much time does Studio Foundations take?",
-            "answer": "<p>About three hours a week: the Tuesday call, one short lesson and one piece of homework you do on your own business. Calls are recorded if you miss one.</p>"
+            "text": "<p>Something else? <a href=\"/pages/contact\">Write to me</a>. I answer within two working days.</p>"
           }
         },
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
-            "question": "What if I am not ready for a programme?",
-            "answer": "<p>Start with the free worksheet and the show. Price It Right is a good next step: it takes an afternoon and you keep it for good.</p>"
+            "question": "Who do you work with?",
+            "answer": "<p>Designers, makers, architects and studio owners who are good at the work and tired of the business side. Most run a studio of one to ten people.</p>"
           }
         },
         "faq_item_4": {
           "type": "faq_item",
           "settings": {
-            "question": "Can I pay in instalments?",
-            "answer": "<p>Yes. Studio Foundations and mentoring can be paid in three monthly parts at checkout, with no extra cost.</p>"
+            "question": "Which programme is right for me?",
+            "answer": "<p>Price It Right if pricing is the main problem. Studio Foundations for the whole picture, in a group. One to one when you are making a bigger change and want it private.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "What if it is not working for me?",
-            "answer": "<p>Tell me within the first two weeks of any programme and I refund you in full. For Price It Right, within 30 days.</p>"
+            "question": "When does the next round start?",
+            "answer": "<p>Studio Foundations runs twice a year, in March and September, with twelve places in each round.</p>"
           }
         },
         "faq_item_6": {
           "type": "faq_item",
           "settings": {
-            "question": "Do you work with teams?",
-            "answer": "<p>Yes, for studios of up to ten people. Write to me with what is going on and I will suggest the best way in.</p>"
+            "question": "Can I pay in parts?",
+            "answer": "<p>Yes. Studio Foundations can be paid in full or in three monthly parts.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if it is not for me?",
+            "answer": "<p>Price It Right has a 14 day refund. For the group, tell me after the first two calls and I refund in full.</p>"
           }
         }
       },
       "block_order": [
         "heading_1",
-        "subheading_1",
-        "faq_item_1",
-        "faq_item_2",
+        "subheading_2",
         "faq_item_3",
         "faq_item_4",
         "faq_item_5",
-        "faq_item_6"
+        "faq_item_6",
+        "faq_item_7"
       ]
     },
-    "start": {
-      "type": "coachpro-start",
+    "cta": {
+      "type": "banner3",
       "settings": {
-        "eyebrow": "New here",
-        "heading": "Still deciding?",
-        "text": "<p>Start small. Everything here builds on the free worksheet.</p>",
-        "background": "#16120f",
-        "accent_color": "#ff6a3d",
-        "heading_color": "#ffffff",
-        "text_color": "#cfc6bc",
-        "padding_top": 112,
-        "padding_bottom": 112,
-        "padding_top_mobile": 64,
-        "padding_bottom_mobile": 64
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "banner_surface": "section",
+        "max_width": 700,
+        "pad_top_desktop": 96,
+        "pad_bottom_desktop": 96
       },
       "blocks": {
-        "step_1": {
-          "type": "step",
+        "eyebrow_1": {
+          "type": "eyebrow",
           "settings": {
-            "title": "Listen to the show",
-            "text": "Start with episode #112, on the busy month that pays the least.",
-            "url": "/pages/podcast"
+            "text": "Work with me",
+            "transform": "uppercase"
           }
         },
-        "step_2": {
-          "type": "step",
+        "heading_2": {
+          "type": "heading",
           "settings": {
-            "title": "Get the free worksheet",
-            "text": "Price your next project in twenty minutes.",
-            "url": "/#free-guide"
+            "text": "Not sure where to start?",
+            "transform": "none"
           }
         },
-        "step_3": {
-          "type": "step",
+        "subheading_3": {
+          "type": "subheading",
           "settings": {
-            "title": "Work with me",
-            "text": "A group programme, a short course or private mentoring.",
-            "url": "/pages/programmes"
+            "text": "Listen to an episode, take the free worksheet, or apply for the next round of Studio Foundations."
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "See the programmes",
+            "link": "/pages/programmes"
           }
         }
       },
       "block_order": [
-        "step_1",
-        "step_2",
-        "step_3"
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
       ]
     }
   },
@@ -327,6 +312,6 @@
     "programmes",
     "stories",
     "faq",
-    "start"
+    "cta"
   ]
 }

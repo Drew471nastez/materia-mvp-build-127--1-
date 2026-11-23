@@ -200,9 +200,9 @@ async function walk(template: string, slug: string) {
       const back = await answer(site, request(where))
       const before = visibleText(pages.get(f.page) ?? "")
       const after = typeof back.body === "string" ? back.body : ""
-      /* The form's own posted state: the theme's thank you, drawn because the page was opened with <type>_posted=true. */
+      /* The form's own posted state: the theme's thank you, drawn because the page was opened with <type>_posted=true, or the marker materia-forms.js turns into it (data-mt-posted). */
       const THANKS = /thank|you're in|you are in|on the list|subscribed|received|got it|be in touch|inbox|message (?:was |has been )?sent|we'll reply|we will reply|signed up/gi
-      const grew = (visibleText(after).match(THANKS)?.length ?? 0) > (before.match(THANKS)?.length ?? 0) || /posted_successfully|data-fm-posted|form__message--success|newsletter-form__message--success|form-status--success|data-posted="true"/i.test(after)
+      const grew = (visibleText(after).match(THANKS)?.length ?? 0) > (before.match(THANKS)?.length ?? 0) || /posted_successfully|data-mt-posted|data-fm-posted|form__message--success|newsletter-form__message--success|form-status--success|data-posted="true"/i.test(after)
       if (back.status !== 200 || !grew) noThanks.push(`${f.page} ${f.tag} (${f.type})`)
     }
     /* As a popup's script posts it: JSON, ok. */

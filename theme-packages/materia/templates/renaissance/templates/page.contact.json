@@ -47,101 +47,145 @@
       ]
     },
     "faq": {
-      "type": "renaissance-faq",
+      "type": "faq-tabs",
       "settings": {
-        "background": "#07080d",
-        "accent": "#3d5afe",
-        "gold": "#f2bd4f",
-        "text_color": "#a7adbf",
-        "anchor": "faq",
-        "eyebrow": "Questions",
-        "heading": "Get your questions <em>answered</em>",
-        "more": "<p>Something else? <a href=\"/pages/contact\">Write to us</a>, a person answers within a day.</p>"
+        "color_scheme": "default",
+        "section_width": "container",
+        "tab_1_label": "General",
+        "tab_2_label": "Pricing",
+        "tab_3_label": "Program",
+        "tab_4_label": "",
+        "tab_5_label": "",
+        "open_first": true,
+        "allow_multiple_open": false,
+        "header_align": "center",
+        "section_max_width_desktop": 860,
+        "enable_custom_style": true,
+        "tabs_track_bg": "#1c1c1f",
+        "tab_active_bg": "#e3a63a",
+        "tab_active_color": "#15130f",
+        "tab_inactive_color": "#aeaaa2",
+        "divider_color": "#2a2a2e",
+        "q_color": "#f5f2ea",
+        "plus_color": "#e3a63a",
+        "a_color": "#aeaaa2",
+        "tabs_shadow": "none",
+        "q_size": 18,
+        "q_weight": "600",
+        "padding_top_desktop": 24,
+        "padding_bottom_desktop": 112
       },
       "blocks": {
-        "question_1": {
-          "type": "question",
+        "heading_1": {
+          "type": "heading",
           "settings": {
-            "group": "General",
+            "text": "Get your questions answered",
+            "size_enable": true,
+            "size_desktop": 56,
+            "size_mobile": 36,
+            "weight": "700"
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Something else? <a href=\"/pages/contact\">Write to us</a> and a person answers within a working day.</p>"
+          }
+        },
+        "faq_item_1": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
             "question": "Do I need to be technical?",
-            "answer": "<p>No. If you can write an email and use a spreadsheet, you can do everything in the course. The automation lessons are click by click.</p>"
+            "answer": "<p>No. If you can write an email and use a spreadsheet, you can do every lesson. Module one starts from the very beginning.</p>"
           }
         },
-        "question_2": {
-          "type": "question",
+        "faq_item_2": {
+          "type": "faq_item",
           "settings": {
-            "group": "General",
+            "tab": "1",
             "question": "Which AI tools do I need?",
-            "answer": "<p>One general AI assistant on a paid plan, and the email, calendar and invoicing tools you already use. Module one helps you choose, and nothing in the course depends on a single app.</p>"
+            "answer": "<p>One general chat assistant, free or paid, and the tools you already use for email and files. Every lesson says when a paid plan is worth it.</p>"
           }
         },
-        "question_3": {
-          "type": "question",
+        "faq_item_3": {
+          "type": "faq_item",
           "settings": {
-            "group": "General",
-            "question": "How long do I have access?",
-            "answer": "<p>For as long as the course exists, including every update.</p>"
+            "tab": "1",
+            "question": "Is my customers’ data safe?",
+            "answer": "<p>Module one covers what never to paste into a chat, how to turn off training on your data and how to write a simple AI policy for your team.</p>"
           }
         },
-        "question_4": {
-          "type": "question",
+        "faq_item_4": {
+          "type": "faq_item",
           "settings": {
-            "group": "Pricing",
-            "question": "Can I pay in parts?",
-            "answer": "<p>Yes. Choose three monthly payments at checkout. The total is a little higher than paying once.</p>"
-          }
-        },
-        "question_5": {
-          "type": "question",
-          "settings": {
-            "group": "Pricing",
-            "question": "What is the refund policy?",
-            "answer": "<p>Email us within 30 days of joining and we refund you in full. You keep the prompt library.</p>"
-          }
-        },
-        "question_6": {
-          "type": "question",
-          "settings": {
-            "group": "Pricing",
-            "question": "Can my team join?",
-            "answer": "<p>Yes. The Team edition covers up to five people. For more, <a href=\"/pages/contact\">write to us</a>.</p>"
-          }
-        },
-        "question_7": {
-          "type": "question",
-          "settings": {
-            "group": "Program",
-            "question": "How much time does it take each week?",
-            "answer": "<p>About two hours: roughly an hour of lessons and an hour setting things up in your own business. The live calls are optional.</p>"
-          }
-        },
-        "question_8": {
-          "type": "question",
-          "settings": {
-            "group": "Program",
-            "question": "When are the live calls?",
-            "answer": "<p>Thursdays at 6 pm London time for six weeks, recorded for anyone who cannot make it.</p>"
-          }
-        },
-        "question_9": {
-          "type": "question",
-          "settings": {
-            "group": "Program",
+            "tab": "1",
             "question": "Will this work for my kind of business?",
-            "answer": "<p>If your business sends emails, answers customers and keeps records, yes. Students run shops, studios, clinics, agencies and practices.</p>"
+            "answer": "<p>It is built for service businesses, shops, agencies and consultants. If most of your week is writing, answering, organising or researching, it fits.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "2",
+            "question": "Can I pay in parts?",
+            "answer": "<p>Yes. Every edition can be paid in full or in three monthly parts at checkout.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "2",
+            "question": "What is the refund policy?",
+            "answer": "<p>Do the first two modules. If it is not saving you time, write within 30 days and you get your money back.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "2",
+            "question": "Do you invoice businesses?",
+            "answer": "<p>Yes. The receipt shows your business name and tax number, and the team edition comes with one invoice.</p>"
+          }
+        },
+        "faq_item_8": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "How long do I have access?",
+            "answer": "<p>For as long as the course runs, including every update and new lesson.</p>"
+          }
+        },
+        "faq_item_9": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "How much time does it take?",
+            "answer": "<p>About two hours a week for six weeks. Lessons are short, and each ends with one thing to set up in your business.</p>"
+          }
+        },
+        "faq_item_10": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "When are the live calls?",
+            "answer": "<p>Thursdays at 6pm UK time for the cohort edition, recorded and posted the same evening. Change this to your own schedule.</p>"
           }
         }
       },
       "block_order": [
-        "question_1",
-        "question_2",
-        "question_3",
-        "question_4",
-        "question_5",
-        "question_6",
-        "question_7",
-        "question_8",
-        "question_9"
+        "heading_1",
+        "subheading_1",
+        "faq_item_1",
+        "faq_item_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7",
+        "faq_item_8",
+        "faq_item_9",
+        "faq_item_10"
       ]
     },
     "access_popup": {
@@ -150,7 +194,7 @@
         "form_key": "access",
         "sends_to": "subscribe",
         "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
-        "accent_color": "#f2bd4f",
+        "accent_color": "#e3a63a",
         "text_align": "left",
         "width": 480,
         "corners": "round",
@@ -168,7 +212,7 @@
           "type": "heading",
           "settings": {
             "eyebrow": "Free preview",
-            "heading": "Watch module one *free*",
+            "heading": "Watch module one free",
             "size": 30
           }
         },

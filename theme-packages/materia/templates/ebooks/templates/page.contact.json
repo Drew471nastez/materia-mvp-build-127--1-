@@ -44,23 +44,15 @@
           "settings": {
             "icon": "mail",
             "line1": "hello@example.com",
-            "line2": "Orders, sizing and repairs"
+            "line2": "Recipes, orders and downloads"
           }
         },
         "info_2": {
           "type": "info",
           "settings": {
             "icon": "clock",
-            "line1": "Monday to Friday, 10:00 to 18:00",
-            "line2": "Lisbon time"
-          }
-        },
-        "info_3": {
-          "type": "info",
-          "settings": {
-            "icon": "map",
-            "line1": "Rua do Exemplo 12, Lisbon",
-            "line2": "Studio visits by appointment"
+            "line1": "Monday to Friday, 9:00 to 17:00",
+            "line2": "Replies within a working day"
           }
         }
       },
@@ -68,8 +60,7 @@
         "heading_1",
         "description_1",
         "info_1",
-        "info_2",
-        "info_3"
+        "info_2"
       ]
     }
   },

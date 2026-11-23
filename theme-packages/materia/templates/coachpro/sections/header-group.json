@@ -129,7 +129,7 @@
           "type": "header_button",
           "settings": {
             "button_text": "Free worksheet",
-            "button_link": "/#free-guide",
+            "button_link": "/pages/worksheet",
             "button_style": "primary",
             "show_on_mobile": false,
             "mobile_placement": "in_row",

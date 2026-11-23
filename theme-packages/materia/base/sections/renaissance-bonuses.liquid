@@ -8,7 +8,6 @@
   assign st = section.settings
   assign sid = section.id
 -%}
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap">
 <style>
   #shopify-section-{{ sid }} .rnb { --gold: {{ st.gold | default: '#f2bd4f' }}; --lapis: {{ st.accent | default: '#3d5afe' }}; background: {{ st.background | default: '#0b0c12' }}; color: {{ st.text_color | default: '#a7adbf' }}; padding: {{ st.padding_top_mobile | default: 56 }}px 16px {{ st.padding_bottom_mobile | default: 56 }}px; }
   @media (min-width: 990px) { #shopify-section-{{ sid }} .rnb { padding: {{ st.padding_top | default: 112 }}px 40px {{ st.padding_bottom | default: 112 }}px; } }
@@ -16,7 +15,7 @@
   #shopify-section-{{ sid }} .rnb__eyebrow { margin: 0 0 12px; color: var(--gold); font-size: 12px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; text-align: center; }
   #shopify-section-{{ sid }} .rnb__title { margin: 0 auto 14px; max-width: 16em; color: #fff; font-family: var(--heading-font, sans-serif); font-weight: 600; font-size: 32px; line-height: 1.08; letter-spacing: -.03em; text-align: center; text-wrap: balance; }
   @media (min-width: 990px) { #shopify-section-{{ sid }} .rnb__title { font-size: 48px; } }
-  #shopify-section-{{ sid }} .rnb__title em { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; color: var(--gold); }
+  #shopify-section-{{ sid }} .rnb__title em { font-style: normal; color: var(--gold); }
   #shopify-section-{{ sid }} .rnb__intro { max-width: 34em; margin: 0 auto 36px; text-align: center; font-size: 16.5px; line-height: 1.6; }
   #shopify-section-{{ sid }} .rnb__intro p { margin: 0; }
   #shopify-section-{{ sid }} .rnb__list { margin: 0; padding: 0; list-style: none; border-radius: 18px; border: 1px solid rgba(255,255,255,.08); overflow: hidden; background: rgba(255,255,255,.015); }
@@ -35,6 +34,7 @@
   #shopify-section-{{ sid }} .rnb__medal svg { width: 12px; height: 12px; }
   @media (min-width: 750px) { #shopify-section-{{ sid }} .rnb__medal svg { width: 24px; height: 24px; } }
   #shopify-section-{{ sid }} .rnb__value { display: block; color: #8a90a3; font-size: 11.5px; font-weight: 500; }
+  {%- if st.caps -%}#shopify-section-{{ sid }} .rnb__title, #shopify-section-{{ sid }} .rnb__name { text-transform: uppercase; letter-spacing: .01em; } #shopify-section-{{ sid }} .rnb__title { font-weight: 700; line-height: 1.02; }{%- endif -%}
 </style>
 <section data-own-size class="rnb"{% if st.anchor != blank %} id="{{ st.anchor | handleize }}"{% endif %}>
   <div class="rnb__in">
@@ -67,6 +67,8 @@
     { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "Bonuses along the <em>way</em>" },
     { "type": "richtext", "id": "intro", "label": "Text", "default": "<p>Say when and how each bonus becomes available.</p>" },
     { "type": "color", "id": "background", "label": "Background", "default": "#0b0c12" },
+    { "type": "checkbox", "id": "caps", "label": "Headings in capitals", "default": false },
+    { "type": "color", "id": "button_text", "label": "Button text", "default": "#ffffff" },
     { "type": "color", "id": "accent", "label": "Accent", "default": "#3d5afe" },
     { "type": "color", "id": "gold", "label": "Highlight", "default": "#f2bd4f" },
     { "type": "color", "id": "text_color", "label": "Text", "default": "#a7adbf" },

@@ -1,3 +1,4 @@
+/* Templates round 22: rebuilt from the theme's own sections (collage hero, image with text, rows, promo banner, testimonials, newsletter with image, gallery, FAQ, banner); Lora and Open Sans. */
 {
   "sections": {
     "main-collection-heading": {
@@ -76,10 +77,56 @@
         "block-mvmkffsh-1-pcnzc",
         "block-mvmkfj68-2-iqqos"
       ]
+    },
+    "cta": {
+      "type": "banner3",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "banner_surface": "section",
+        "max_width": 700,
+        "pad_top_desktop": 96,
+        "pad_bottom_desktop": 96
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Work with me",
+            "transform": "uppercase"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Not sure where to start?",
+            "transform": "none"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "Listen to an episode, take the free worksheet, or apply for the next round of Studio Foundations."
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "See the programmes",
+            "link": "/pages/programmes"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
     }
   },
   "order": [
     "main-collection-heading",
-    "main-collection-product"
+    "main-collection-product",
+    "cta"
   ]
 }

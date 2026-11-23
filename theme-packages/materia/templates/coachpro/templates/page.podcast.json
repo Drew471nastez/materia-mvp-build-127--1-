@@ -1,183 +1,228 @@
+/* Templates round 22: rebuilt from the theme's own sections (collage hero, image with text, rows, promo banner, testimonials, newsletter with image, gallery, FAQ, banner); Lora and Open Sans. */
 {
   "sections": {
     "show": {
-      "type": "coachpro-show",
+      "type": "promo-banner-4",
       "settings": {
-        "anchor": "show",
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
         "image": "shopify://shop_images/coachpro-show.webp",
-        "image_alt": "Camila Duarte in profile against a dark wall",
-        "kind": "Podcast and video",
-        "show_name": "The Studio Hours",
-        "host": "with Camila Duarte",
-        "eyebrow": "Every Tuesday",
-        "heading": "The Studio <em>Hours</em>",
-        "text": "<p>Straight talk on pricing, clients and running a small creative business, with the occasional guest who has done it well. Watch on video or take it with you as a podcast.</p>",
-        "youtube_label": "Watch on YouTube",
-        "youtube_url": "https://www.youtube.com",
-        "apple_label": "Apple Podcasts",
-        "apple_url": "https://podcasts.apple.com",
-        "spotify_label": "Spotify",
-        "spotify_url": "https://open.spotify.com",
-        "list_heading": "The latest",
-        "all_label": "All episodes",
-        "all_url": "/pages/podcast",
-        "background": "#f8ddd2",
-        "accent_color": "#c2421f",
-        "heading_color": "#16120f",
-        "text_color": "#4a3a33",
-        "padding_top": 104,
-        "padding_bottom": 104,
-        "padding_top_mobile": 56,
-        "padding_bottom_mobile": 56
+        "layout": "image_left",
+        "card_style": "flat",
+        "image_aspect_ratio": "4-3",
+        "enable_badge_pulse": false
       },
       "blocks": {
-        "episode_1": {
-          "type": "episode",
+        "eyebrow_1": {
+          "type": "eyebrow",
           "settings": {
-            "number": "#112",
-            "title": "Why your busiest month made the least money",
-            "meta": "Solo episode, 38 min",
-            "url": "https://www.youtube.com"
+            "text": "Podcast and video, every Tuesday"
           }
         },
-        "episode_2": {
-          "type": "episode",
+        "heading_2": {
+          "type": "heading",
           "settings": {
-            "number": "#111",
-            "title": "Raising prices without losing the clients you love",
-            "meta": "With a furniture maker from Porto, 44 min",
-            "url": "https://www.youtube.com"
+            "text": "The Studio Hours"
           }
         },
-        "episode_3": {
-          "type": "episode",
+        "description_3": {
+          "type": "description",
           "settings": {
-            "number": "#110",
-            "title": "The one page plan I write every January",
-            "meta": "Solo episode, 29 min",
-            "url": "https://www.youtube.com"
+            "text": "<p>Straight talk on pricing, clients and running a small creative business, with the occasional guest who has done it well. This week: why your busiest month made the least money.</p>"
           }
         },
-        "episode_4": {
-          "type": "episode",
+        "buttons_4": {
+          "type": "buttons",
           "settings": {
-            "number": "#109",
-            "title": "Saying no to the wrong project, kindly",
-            "meta": "With a brand designer, 33 min",
-            "url": "https://www.youtube.com"
-          }
-        },
-        "episode_5": {
-          "type": "episode",
-          "settings": {
-            "number": "#108",
-            "title": "Your first hire: freelancer, assistant or partner?",
-            "meta": "With a studio owner, 41 min",
-            "url": "https://www.youtube.com"
-          }
-        },
-        "episode_6": {
-          "type": "episode",
-          "settings": {
-            "number": "#107",
-            "title": "What to send when a client asks for a discount",
-            "meta": "Solo episode, 22 min",
-            "url": "https://www.youtube.com"
+            "primary_label": "Listen to the show",
+            "primary_link": "/pages/podcast",
+            "secondary_label": "Watch on YouTube",
+            "secondary_link": "https://www.youtube.com"
           }
         }
       },
       "block_order": [
-        "episode_1",
-        "episode_2",
-        "episode_3",
-        "episode_4",
-        "episode_5",
-        "episode_6"
+        "eyebrow_1",
+        "heading_2",
+        "description_3",
+        "buttons_4"
+      ]
+    },
+    "episodes": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "default",
+        "columns_desktop": 3,
+        "show_dividers": true
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Recent episodes"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>New every Tuesday, on video and wherever you listen.</p>"
+          }
+        },
+        "column_3": {
+          "type": "column",
+          "settings": {
+            "label": "Solo, 38 min",
+            "heading": "Why your busiest month made the least money",
+            "text": "<p>How to see what a month really earned, and the one number to check before you say yes.</p>",
+            "link_label": "Watch",
+            "link": "https://www.youtube.com"
+          }
+        },
+        "column_4": {
+          "type": "column",
+          "settings": {
+            "label": "With a furniture maker, 44 min",
+            "heading": "Raising prices without losing the clients you love",
+            "text": "<p>What to send, when to send it and what happened to her client list.</p>",
+            "link_label": "Watch",
+            "link": "https://www.youtube.com"
+          }
+        },
+        "column_5": {
+          "type": "column",
+          "settings": {
+            "label": "Solo, 29 min",
+            "heading": "The one page plan I write every January",
+            "text": "<p>Revenue, clients, holidays and one thing to stop doing, on a single page.</p>",
+            "link_label": "Watch",
+            "link": "https://www.youtube.com"
+          }
+        },
+        "column_6": {
+          "type": "column",
+          "settings": {
+            "label": "With a brand designer, 33 min",
+            "heading": "Saying no to the wrong project, kindly",
+            "text": "<p>Three emails she uses, word for word.</p>",
+            "link_label": "Watch",
+            "link": "https://www.youtube.com"
+          }
+        },
+        "column_7": {
+          "type": "column",
+          "settings": {
+            "label": "With a studio owner, 41 min",
+            "heading": "Your first hire: freelancer, assistant or partner?",
+            "text": "<p>What each costs, and the signs you are ready.</p>",
+            "link_label": "Watch",
+            "link": "https://www.youtube.com"
+          }
+        },
+        "column_8": {
+          "type": "column",
+          "settings": {
+            "label": "Solo, 22 min",
+            "heading": "What to send when a client asks for a discount",
+            "text": "<p>A short script, and why the answer is rarely a lower price.</p>",
+            "link_label": "Watch",
+            "link": "https://www.youtube.com"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "column_3",
+        "column_4",
+        "column_5",
+        "column_6",
+        "column_7",
+        "column_8"
       ]
     },
     "guide": {
-      "type": "coachpro-optin",
+      "type": "newsletter-split",
       "settings": {
-        "anchor": "free-guide",
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
         "image": "shopify://shop_images/coachpro-guide.webp",
-        "image_alt": "Camila Duarte reading a large plan on the floor of her studio",
-        "focus_y": 44,
-        "label": "Free worksheet",
-        "heading": "Price your next project in <em>twenty minutes</em>",
-        "text": "<p>The same worksheet I use with every client: your real cost per hour, a day rate you can defend, and a short script for sending the number.</p>",
-        "points": "A two page worksheet to print or fill in\nA ten minute video walking through it\nThe Sunday letter, one idea a week",
-        "show_name": true,
-        "name_placeholder": "First name",
+        "image_alt": "Camila reading a large plan on the floor of her studio",
+        "image_position": "left",
+        "image_ratio": "portrait",
+        "image_width": 45,
+        "form_layout": "horizontal",
+        "btn_text": "Send me the worksheet",
         "email_placeholder": "Your email",
-        "button_label": "Send me the worksheet",
-        "tag": "pricing-worksheet",
-        "note": "No spam. Unsubscribe in one click.",
-        "success_text": "Thank you. The worksheet is on its way to your inbox.",
-        "invalid_text": "Enter a valid email address.",
-        "background": "#fbf8f4",
-        "panel_color": "#16120f",
-        "accent_color": "#ff6a3d",
-        "heading_color": "#ffffff",
-        "text_color": "#cfc6bc",
-        "note_color": "#a39a90",
-        "button_text_color": "#16120f",
-        "padding_top": 56,
-        "padding_bottom": 104,
-        "padding_top_mobile": 24,
-        "padding_bottom_mobile": 56
-      }
-    },
-    "start": {
-      "type": "coachpro-start",
-      "settings": {
-        "eyebrow": "New here",
-        "heading": "Not sure where to <em>start</em>?",
-        "text": "<p>Three good first steps, depending on how much time you have this week.</p>",
-        "background": "#16120f",
-        "accent_color": "#ff6a3d",
-        "heading_color": "#ffffff",
-        "text_color": "#cfc6bc",
-        "padding_top": 112,
-        "padding_bottom": 112,
-        "padding_top_mobile": 64,
-        "padding_bottom_mobile": 64
+        "note": "One email on Sundays after that. Unsubscribe in one click.",
+        "success_text": "Thank you. The worksheet is on its way to your inbox."
       },
       "blocks": {
-        "step_1": {
-          "type": "step",
+        "heading_1": {
+          "type": "heading",
           "settings": {
-            "title": "Listen to the show",
-            "text": "Start with episode #112, on the busy month that pays the least.",
-            "url": "/pages/podcast"
+            "text": "Price your next project in twenty minutes"
           }
         },
-        "step_2": {
-          "type": "step",
+        "subheading_2": {
+          "type": "subheading",
           "settings": {
-            "title": "Get the free worksheet",
-            "text": "Price your next project in twenty minutes.",
-            "url": "/#free-guide"
-          }
-        },
-        "step_3": {
-          "type": "step",
-          "settings": {
-            "title": "Work with me",
-            "text": "A group programme, a short course or private mentoring.",
-            "url": "/pages/programmes"
+            "text": "<p>The worksheet I use with every client: your real cost per hour, a day rate you can defend and a short script for sending the number. Free, with a ten minute video.</p>"
           }
         }
       },
       "block_order": [
-        "step_1",
-        "step_2",
-        "step_3"
+        "heading_1",
+        "subheading_2"
+      ]
+    },
+    "cta": {
+      "type": "banner3",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "banner_surface": "section",
+        "max_width": 700,
+        "pad_top_desktop": 96,
+        "pad_bottom_desktop": 96
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Work with me",
+            "transform": "uppercase"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Not sure where to start?",
+            "transform": "none"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "Listen to an episode, take the free worksheet, or apply for the next round of Studio Foundations."
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "See the programmes",
+            "link": "/pages/programmes"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
       ]
     }
   },
   "order": [
     "show",
+    "episodes",
     "guide",
-    "start"
+    "cta"
   ]
 }

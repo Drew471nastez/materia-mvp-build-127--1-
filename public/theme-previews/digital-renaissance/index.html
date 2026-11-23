@@ -270,14 +270,16 @@ data-menu-hover="none"
   }</style><style>
     #shopify-section-header.shopify-section,
     .shopify-section-header-sticky {
-      position: fixed !important;
-      top: 0; left: 0; right: 0;
+      position: sticky !important;
+      top: 0;
       z-index: 50;
       pointer-events: none;
       background: transparent !important;
       box-shadow: none !important;
-      padding-top: 14px !important;
-      padding-bottom: 6px !important;
+      height: 0 !important;
+      min-height: 0 !important;
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
       padding-left: 16px !important;
       padding-right: 16px !important;
       box-sizing: border-box !important;
@@ -296,7 +298,7 @@ data-menu-hover="none"
     }
     #shopify-section-header.shopify-section-header-hidden {
       top: var(--sl-header-offset, 0px) !important;
-      transform: translateY(calc(-135% - var(--sl-header-offset, 0px))) !important;
+      transform: translate3d(0, calc(-110px - var(--sl-header-offset, 0px)), 0) !important;
       animation: none !important;
     }
     #shopify-section-header .header.is-pill,
@@ -306,6 +308,7 @@ data-menu-hover="none"
     #shopify-section-header .header.is-pill,
     .shopify-section-header-sticky .header.is-pill {
       position: relative;
+      top: 14px;
       display: block;
       box-sizing: border-box;
       width: 100%;
@@ -345,13 +348,17 @@ data-menu-hover="none"
     @media (max-width: 1024.98px) {
       #shopify-section-header.shopify-section,
       .shopify-section-header-sticky {
-        padding-top: 10px !important;
-        padding-bottom: 6px !important;
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
         padding-left: 12px !important;
         padding-right: 12px !important;
       }
+      #shopify-section-header.shopify-section-header-hidden {
+        transform: translate3d(0, calc(-94px - var(--sl-header-offset, 0px)), 0) !important;
+      }
       #shopify-section-header .header.is-pill,
       .shopify-section-header-sticky .header.is-pill {
+        top: 10px;
         max-width: 100% !important;
         border-radius: 16px !important;
       }
@@ -442,9 +449,9 @@ aria-label="Digital Renaissance"
 class="header__logo inline-flex align-center"
 style="--header-logo-width: 208px; --header-logo-width-mobile: 78px;"
 ><img
-srcset="/theme-previews/digital-renaissance/a/renaissance-logo.bd1726aff187.webp 165w,/theme-previews/digital-renaissance/a/renaissance-logo.bd1726aff187.webp 330w,/theme-previews/digital-renaissance/a/renaissance-logo.bd1726aff187.webp 535w,/theme-previews/digital-renaissance/a/renaissance-logo.bd1726aff187.webp 750w,/theme-previews/digital-renaissance/a/renaissance-logo.bd1726aff187.webp 1600w
+srcset="/theme-previews/digital-renaissance/a/renaissance-logo.60590ef7e855.webp 165w,/theme-previews/digital-renaissance/a/renaissance-logo.60590ef7e855.webp 330w,/theme-previews/digital-renaissance/a/renaissance-logo.60590ef7e855.webp 535w,/theme-previews/digital-renaissance/a/renaissance-logo.60590ef7e855.webp 750w,/theme-previews/digital-renaissance/a/renaissance-logo.60590ef7e855.webp 1600w
 "
-src="/theme-previews/digital-renaissance/a/renaissance-logo.bd1726aff187.webp"
+src="/theme-previews/digital-renaissance/a/renaissance-logo.60590ef7e855.webp"
 sizes="(max-width: 1024.98px) 156px, 196px"
 loading="eager"
 decoding="sync"
@@ -659,9 +666,9 @@ href="/theme-previews/digital-renaissance/index.html#faq"
 </header-inner>
 </div>
 </div></header>
-<link href="/theme-previews/_base/a/header-sticky.b824661f5721.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/header-sticky.fdbbc022cbc0.css" rel="stylesheet" type="text/css" media="all">
 <style>
-  #shopify-section-header:is([data-storelib-sticky="always"], [data-storelib-sticky="on-scroll-up"]):has(header.is-pill) { position: fixed !important; }
+  #shopify-section-header:is([data-storelib-sticky="always"], [data-storelib-sticky="on-scroll-up"]):has(header.is-pill) { position: sticky !important; }
 </style>
 <script src="/theme-previews/digital-renaissance/a/i.7cb61de4030e.js"></script><script src="/theme-previews/_base/a/header-sticky-extras.78e1fb4f310f.js" defer="defer"></script></div><script src="/theme-previews/digital-renaissance/a/i.0d9f91566ff2.js"></script>
 <main id="MainContent" class="content-for-layout focus-none" role="main" tabindex="-1"><section id="shopify-section-hero" class="shopify-section renaissance-hero-section" data-section-id="hero" data-section-type="renaissance-hero"><link rel="stylesheet" href="/theme-previews/_base/a/fonts.e8dfec640840.css">
@@ -891,8 +898,7 @@ href="/theme-previews/digital-renaissance/index.html#faq"
 <div><h3 class="rnf__name">Lifetime updates</h3><p class="rnf__desc">Tools change. When they do, the lessons do too, at no extra cost.</p></div><span class="rnf__tag">Free</span></li></ol>
 </div>
 </section>
-</section><section id="shopify-section-curriculum" class="shopify-section renaissance-curriculum-section" data-section-id="curriculum" data-section-type="renaissance-curriculum"><link rel="stylesheet" href="/theme-previews/_base/a/fonts.e8dfec640840.css">
-<link rel="stylesheet" href="/theme-previews/digital-renaissance/a/i.2b04dc28585b.css">
+</section><section id="shopify-section-curriculum" class="shopify-section renaissance-curriculum-section" data-section-id="curriculum" data-section-type="renaissance-curriculum"><link rel="stylesheet" href="/theme-previews/digital-renaissance/a/i.013fb42f86f9.css">
 <section data-own-size class="rnc" id="curriculum">
 <div class="rnc__in"><p class="rnc__eyebrow">Curriculum</p><h2 class="rnc__title">Six modules, <em>one plan</em></h2><div class="rnc__intro"><p>Each module ends with one thing set up and working in your own business.</p></div><div class="rnc__list"><details class="rnc__mod" open data-block-id="module_1">
 <summary class="rnc__sum">
@@ -1001,57 +1007,56 @@ href="/theme-previews/digital-renaissance/index.html#faq"
 <div class="rnr__top">
 <span class="rnr__stars" aria-hidden="true"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.2l2 4.3 4.7.5-3.5 3.2 1 4.6L8 11.5l-4.2 2.3 1-4.6L1.3 6l4.7-.5z"/></svg><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.2l2 4.3 4.7.5-3.5 3.2 1 4.6L8 11.5l-4.2 2.3 1-4.6L1.3 6l4.7-.5z"/></svg><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.2l2 4.3 4.7.5-3.5 3.2 1 4.6L8 11.5l-4.2 2.3 1-4.6L1.3 6l4.7-.5z"/></svg><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.2l2 4.3 4.7.5-3.5 3.2 1 4.6L8 11.5l-4.2 2.3 1-4.6L1.3 6l4.7-.5z"/></svg><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.2l2 4.3 4.7.5-3.5 3.2 1 4.6L8 11.5l-4.2 2.3 1-4.6L1.3 6l4.7-.5z"/></svg></span><span class="rnr__sample">Sample</span></div><p class="rnr__result">Proposals in 20 minutes, not two hours</p><blockquote class="rnr__quote">I built the proposal assistant from module two on a Tuesday and used it with a real client on Thursday.</blockquote>
 <figcaption class="rnr__who">
-<span class="rnr__av"><img src="/theme-previews/digital-renaissance/a/renaissance-student-1.ecf1efeff8c4.webp" width="46" height="46" alt="" loading="lazy" decoding="async"></span>
+<span class="rnr__av">D</span>
 <span><span class="rnr__name">Daniel O.</span><span class="rnr__role">Landscape design studio</span></span>
 </figcaption>
 </figure><figure class="rnr__card" data-block-id="result_2">
 <div class="rnr__top">
 <span class="rnr__stars" aria-hidden="true"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.2l2 4.3 4.7.5-3.5 3.2 1 4.6L8 11.5l-4.2 2.3 1-4.6L1.3 6l4.7-.5z"/></svg><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.2l2 4.3 4.7.5-3.5 3.2 1 4.6L8 11.5l-4.2 2.3 1-4.6L1.3 6l4.7-.5z"/></svg><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.2l2 4.3 4.7.5-3.5 3.2 1 4.6L8 11.5l-4.2 2.3 1-4.6L1.3 6l4.7-.5z"/></svg><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.2l2 4.3 4.7.5-3.5 3.2 1 4.6L8 11.5l-4.2 2.3 1-4.6L1.3 6l4.7-.5z"/></svg><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.2l2 4.3 4.7.5-3.5 3.2 1 4.6L8 11.5l-4.2 2.3 1-4.6L1.3 6l4.7-.5z"/></svg></span><span class="rnr__sample">Sample</span></div><p class="rnr__result">Customer emails answered before lunch</p><blockquote class="rnr__quote">Our inbox used to eat the whole morning. Now the drafts are waiting when we open it and we just edit.</blockquote>
 <figcaption class="rnr__who">
-<span class="rnr__av"><img src="/theme-previews/digital-renaissance/a/renaissance-student-2.c7b553010c9b.webp" width="46" height="46" alt="" loading="lazy" decoding="async"></span>
+<span class="rnr__av">Y</span>
 <span><span class="rnr__name">Yuna P.</span><span class="rnr__role">Skincare shop</span></span>
 </figcaption>
 </figure><figure class="rnr__card" data-block-id="result_3">
 <div class="rnr__top">
 <span class="rnr__stars" aria-hidden="true"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.2l2 4.3 4.7.5-3.5 3.2 1 4.6L8 11.5l-4.2 2.3 1-4.6L1.3 6l4.7-.5z"/></svg><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.2l2 4.3 4.7.5-3.5 3.2 1 4.6L8 11.5l-4.2 2.3 1-4.6L1.3 6l4.7-.5z"/></svg><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.2l2 4.3 4.7.5-3.5 3.2 1 4.6L8 11.5l-4.2 2.3 1-4.6L1.3 6l4.7-.5z"/></svg><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.2l2 4.3 4.7.5-3.5 3.2 1 4.6L8 11.5l-4.2 2.3 1-4.6L1.3 6l4.7-.5z"/></svg><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.2l2 4.3 4.7.5-3.5 3.2 1 4.6L8 11.5l-4.2 2.3 1-4.6L1.3 6l4.7-.5z"/></svg></span><span class="rnr__sample">Sample</span></div><p class="rnr__result">A month of posts in one afternoon</p><blockquote class="rnr__quote">The voice guide was the turning point. Everything finally sounds like us, not like a machine.</blockquote>
 <figcaption class="rnr__who">
-<span class="rnr__av"><img src="/theme-previews/digital-renaissance/a/renaissance-student-3.1a534c051cdc.webp" width="46" height="46" alt="" loading="lazy" decoding="async"></span>
+<span class="rnr__av">M</span>
 <span><span class="rnr__name">Marco D.</span><span class="rnr__role">Coffee roaster</span></span>
 </figcaption>
 </figure><figure class="rnr__card" data-block-id="result_4">
 <div class="rnr__top">
 <span class="rnr__stars" aria-hidden="true"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.2l2 4.3 4.7.5-3.5 3.2 1 4.6L8 11.5l-4.2 2.3 1-4.6L1.3 6l4.7-.5z"/></svg><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.2l2 4.3 4.7.5-3.5 3.2 1 4.6L8 11.5l-4.2 2.3 1-4.6L1.3 6l4.7-.5z"/></svg><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.2l2 4.3 4.7.5-3.5 3.2 1 4.6L8 11.5l-4.2 2.3 1-4.6L1.3 6l4.7-.5z"/></svg><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.2l2 4.3 4.7.5-3.5 3.2 1 4.6L8 11.5l-4.2 2.3 1-4.6L1.3 6l4.7-.5z"/></svg><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.2l2 4.3 4.7.5-3.5 3.2 1 4.6L8 11.5l-4.2 2.3 1-4.6L1.3 6l4.7-.5z"/></svg></span><span class="rnr__sample">Sample</span></div><p class="rnr__result">Invoices that chase themselves</p><blockquote class="rnr__quote">I set up two of the automation recipes in one evening. I have not sent a reminder by hand since.</blockquote>
 <figcaption class="rnr__who">
-<span class="rnr__av"><img src="/theme-previews/digital-renaissance/a/renaissance-student-4.cea68fef3347.webp" width="46" height="46" alt="" loading="lazy" decoding="async"></span>
+<span class="rnr__av">L</span>
 <span><span class="rnr__name">Lin C.</span><span class="rnr__role">Bookkeeping practice</span></span>
 </figcaption>
 </figure><figure class="rnr__card" data-block-id="result_5">
 <div class="rnr__top">
 <span class="rnr__stars" aria-hidden="true"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.2l2 4.3 4.7.5-3.5 3.2 1 4.6L8 11.5l-4.2 2.3 1-4.6L1.3 6l4.7-.5z"/></svg><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.2l2 4.3 4.7.5-3.5 3.2 1 4.6L8 11.5l-4.2 2.3 1-4.6L1.3 6l4.7-.5z"/></svg><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.2l2 4.3 4.7.5-3.5 3.2 1 4.6L8 11.5l-4.2 2.3 1-4.6L1.3 6l4.7-.5z"/></svg><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.2l2 4.3 4.7.5-3.5 3.2 1 4.6L8 11.5l-4.2 2.3 1-4.6L1.3 6l4.7-.5z"/></svg><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.2l2 4.3 4.7.5-3.5 3.2 1 4.6L8 11.5l-4.2 2.3 1-4.6L1.3 6l4.7-.5z"/></svg></span><span class="rnr__sample">Sample</span></div><p class="rnr__result">A weekly report in ten minutes</p><blockquote class="rnr__quote">Clients get a clearer report than before and it takes me a coffee to check it.</blockquote>
 <figcaption class="rnr__who">
-<span class="rnr__av"><img src="/theme-previews/digital-renaissance/a/renaissance-student-5.9791a27dba8e.webp" width="46" height="46" alt="" loading="lazy" decoding="async"></span>
+<span class="rnr__av">F</span>
 <span><span class="rnr__name">Femi A.</span><span class="rnr__role">Marketing agency</span></span>
 </figcaption>
 </figure><figure class="rnr__card" data-block-id="result_6">
 <div class="rnr__top">
 <span class="rnr__stars" aria-hidden="true"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.2l2 4.3 4.7.5-3.5 3.2 1 4.6L8 11.5l-4.2 2.3 1-4.6L1.3 6l4.7-.5z"/></svg><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.2l2 4.3 4.7.5-3.5 3.2 1 4.6L8 11.5l-4.2 2.3 1-4.6L1.3 6l4.7-.5z"/></svg><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.2l2 4.3 4.7.5-3.5 3.2 1 4.6L8 11.5l-4.2 2.3 1-4.6L1.3 6l4.7-.5z"/></svg><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.2l2 4.3 4.7.5-3.5 3.2 1 4.6L8 11.5l-4.2 2.3 1-4.6L1.3 6l4.7-.5z"/></svg><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.2l2 4.3 4.7.5-3.5 3.2 1 4.6L8 11.5l-4.2 2.3 1-4.6L1.3 6l4.7-.5z"/></svg></span><span class="rnr__sample">Sample</span></div><p class="rnr__result">Confident with the tools at last</p><blockquote class="rnr__quote">I am not technical at all. The pace and the live calls made it click.</blockquote>
 <figcaption class="rnr__who">
-<span class="rnr__av"><img src="/theme-previews/digital-renaissance/a/renaissance-student-6.f95fd2343052.webp" width="46" height="46" alt="" loading="lazy" decoding="async"></span>
+<span class="rnr__av">H</span>
 <span><span class="rnr__name">Hans W.</span><span class="rnr__role">Physiotherapy clinic</span></span>
 </figcaption>
 </figure></div>
 <div class="rnr__bar" aria-hidden="true"><span class="rnr__fill" data-rnr-fill></span></div><p class="rnr__foot">Sample results to show the layout. Replace them with your students&#39; own words and photos, with their permission. Results vary with effort and circumstances.</p></div>
 </section>
 <script src="/theme-previews/digital-renaissance/a/i.3fcb43059c29.js"></script>
-</section><section id="shopify-section-bonuses" class="shopify-section renaissance-bonuses-section" data-section-id="bonuses" data-section-type="renaissance-bonuses"><link rel="stylesheet" href="/theme-previews/_base/a/fonts.e8dfec640840.css">
-<style>
+</section><section id="shopify-section-bonuses" class="shopify-section renaissance-bonuses-section" data-section-id="bonuses" data-section-type="renaissance-bonuses"><style>
   #shopify-section-bonuses .rnb { --gold: #f2bd4f; --lapis: #3d5afe; background: #0b0c12; color: #a7adbf; padding: 56px 16px 56px; }
   @media (min-width: 990px) { #shopify-section-bonuses .rnb { padding: 112px 40px 112px; } }
   #shopify-section-bonuses .rnb__in { max-width: 1040px; margin: 0 auto; }
   #shopify-section-bonuses .rnb__eyebrow { margin: 0 0 12px; color: var(--gold); font-size: 12px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; text-align: center; }
   #shopify-section-bonuses .rnb__title { margin: 0 auto 14px; max-width: 16em; color: #fff; font-family: var(--heading-font, sans-serif); font-weight: 600; font-size: 32px; line-height: 1.08; letter-spacing: -.03em; text-align: center; text-wrap: balance; }
   @media (min-width: 990px) { #shopify-section-bonuses .rnb__title { font-size: 48px; } }
-  #shopify-section-bonuses .rnb__title em { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; color: var(--gold); }
+  #shopify-section-bonuses .rnb__title em { font-style: normal; color: var(--gold); }
   #shopify-section-bonuses .rnb__intro { max-width: 34em; margin: 0 auto 36px; text-align: center; font-size: 16.5px; line-height: 1.6; }
   #shopify-section-bonuses .rnb__intro p { margin: 0; }
   #shopify-section-bonuses .rnb__list { margin: 0; padding: 0; list-style: none; border-radius: 18px; border: 1px solid rgba(255,255,255,.08); overflow: hidden; background: rgba(255,255,255,.015); }
@@ -1069,8 +1074,7 @@ href="/theme-previews/digital-renaissance/index.html#faq"
   @media (min-width: 750px) { #shopify-section-bonuses .rnb__medal { width: 58px; height: 58px; border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent); background: radial-gradient(circle at 30% 25%, color-mix(in srgb, var(--gold) 30%, transparent), transparent 70%); } }
   #shopify-section-bonuses .rnb__medal svg { width: 12px; height: 12px; }
   @media (min-width: 750px) { #shopify-section-bonuses .rnb__medal svg { width: 24px; height: 24px; } }
-  #shopify-section-bonuses .rnb__value { display: block; color: #8a90a3; font-size: 11.5px; font-weight: 500; }
-</style>
+  #shopify-section-bonuses .rnb__value { display: block; color: #8a90a3; font-size: 11.5px; font-weight: 500; }</style>
 <section data-own-size class="rnb" id="bonuses">
 <div class="rnb__in"><p class="rnb__eyebrow">Included</p><h2 class="rnb__title">Bonuses along the <em>way</em></h2><div class="rnb__intro"><p>They arrive as you go, so each one turns up when it is most useful.</p></div><ol class="rnb__list"><li class="rnb__row" data-block-id="bonus_1">
 <span class="rnb__num" aria-hidden="true">01</span>
@@ -1310,7 +1314,7 @@ data-block-id="store_info_1"
 <div
 class="store-info-content"
 >
-<img src="/theme-previews/digital-renaissance/a/renaissance-logo.bd1726aff187.webp" srcset="/theme-previews/digital-renaissance/a/renaissance-logo.bd1726aff187.webp 720w, /theme-previews/digital-renaissance/a/renaissance-logo.bd1726aff187.webp 660w, /theme-previews/digital-renaissance/a/renaissance-logo.bd1726aff187.webp 550w, /theme-previews/digital-renaissance/a/renaissance-logo.bd1726aff187.webp 480w, /theme-previews/digital-renaissance/a/renaissance-logo.bd1726aff187.webp 360w, /theme-previews/digital-renaissance/a/renaissance-logo.bd1726aff187.webp 240w, /theme-previews/digital-renaissance/a/renaissance-logo.bd1726aff187.webp 185w, /theme-previews/digital-renaissance/a/renaissance-logo.bd1726aff187.webp 120w, /theme-previews/digital-renaissance/a/renaissance-logo.bd1726aff187.webp 60w" alt="Digital Renaissance" width="190" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="190px">
+<img src="/theme-previews/digital-renaissance/a/renaissance-logo.60590ef7e855.webp" srcset="/theme-previews/digital-renaissance/a/renaissance-logo.60590ef7e855.webp 720w, /theme-previews/digital-renaissance/a/renaissance-logo.60590ef7e855.webp 660w, /theme-previews/digital-renaissance/a/renaissance-logo.60590ef7e855.webp 550w, /theme-previews/digital-renaissance/a/renaissance-logo.60590ef7e855.webp 480w, /theme-previews/digital-renaissance/a/renaissance-logo.60590ef7e855.webp 360w, /theme-previews/digital-renaissance/a/renaissance-logo.60590ef7e855.webp 240w, /theme-previews/digital-renaissance/a/renaissance-logo.60590ef7e855.webp 185w, /theme-previews/digital-renaissance/a/renaissance-logo.60590ef7e855.webp 120w, /theme-previews/digital-renaissance/a/renaissance-logo.60590ef7e855.webp 60w" alt="Digital Renaissance" width="190" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="190px">
 <div class="footer__block-info rich__text-mt-0 mb-20" data-ft-desc>
 <p>A practical course on using AI in a small business: writing, service, research and automations, taught by Karim Nassar.</p>
 </div>

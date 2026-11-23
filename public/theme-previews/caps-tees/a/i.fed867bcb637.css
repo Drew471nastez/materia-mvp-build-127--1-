@@ -1,0 +1,16 @@
+
+    /* The old page stays painted until the new one is ready (Storelib holds it), then a short
+       fade-through: the old page fades away first and the new one comes in as it goes, so the
+       two pages are never seen on top of each other (which read as the page loading twice) and
+       there is never a frame of bare background. The header stays where it is. Page change:
+       None is an instant swap. Off for visitors who ask for less motion. */
+    html:root::view-transition { background: var(--color-background, Canvas); }
+    html:root::view-transition-group(root) { animation: none; mix-blend-mode: normal; }
+    html:root::view-transition-old(root),
+    html:root::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+    html:root::view-transition-old(root) { opacity: 1; }
+    /* Held, the page being left still on screen, while the arriving page's first pictures come in (below). */
+    html[data-mt-wait-pictures]::view-transition-group(*),
+    html[data-mt-wait-pictures]::view-transition-old(*),
+    html[data-mt-wait-pictures]::view-transition-new(*) { animation-play-state: paused !important; }
+  

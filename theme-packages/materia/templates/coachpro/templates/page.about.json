@@ -1,339 +1,277 @@
+/* Templates round 22: rebuilt from the theme's own sections (collage hero, image with text, rows, promo banner, testimonials, newsletter with image, gallery, FAQ, banner); Lora and Open Sans. */
 {
   "sections": {
     "story": {
-      "type": "coachpro-hello",
+      "type": "Image-and-video-text",
       "settings": {
-        "eyebrow": "About",
-        "name": "Hi, I am",
-        "name_second": "<em>Camila.</em>",
-        "text": "<p>I trained as an interior designer and opened my own studio at 27. Within three years it was busy, admired and barely paying me. I worked weekends, discounted on instinct and said yes to anyone who asked.</p><p>The fix was not more talent. It was a price I believed, a clear idea of who the studio was for, and a calendar with edges. Since 2019 I have taught that to other creative founders, first one at a time and now through the show and the programmes.</p>",
-        "button_label": "Work with me",
-        "button_link": "/pages/programmes",
-        "handle": "@camiladuarte.studio",
+        "color_scheme": "default",
         "image": "shopify://shop_images/coachpro-about.webp",
-        "image_alt": "Camila Duarte at her desk in the studio",
-        "tag": "Ten years in practice, six as a coach",
-        "background": "#efe6da",
-        "accent_color": "#c2421f",
-        "heading_color": "#16120f",
-        "text_color": "#4a4038",
-        "name_size": 140,
-        "name_size_mobile": 78,
-        "padding_top": 96,
-        "padding_top_mobile": 64
+        "image_alt": "Camila Duarte in her studio",
+        "image_position": "right",
+        "aspect_w": 4,
+        "aspect_h": 5,
+        "image_radius": 2
       },
       "blocks": {
-        "social_1": {
-          "type": "social",
+        "eyebrow_1": {
+          "type": "eyebrow",
           "settings": {
-            "platform": "instagram",
-            "url": "https://www.instagram.com"
+            "text": "About"
           }
         },
-        "social_2": {
-          "type": "social",
+        "heading_2": {
+          "type": "heading",
           "settings": {
-            "platform": "youtube",
-            "url": "https://www.youtube.com"
+            "text": "Camila Duarte",
+            "tag": "h1"
           }
         },
-        "social_3": {
-          "type": "social",
+        "subheading_3": {
+          "type": "subheading",
           "settings": {
-            "platform": "linkedin",
-            "url": "https://www.linkedin.com"
-          }
-        },
-        "social_4": {
-          "type": "social",
-          "settings": {
-            "platform": "podcast",
-            "url": "/pages/podcast"
+            "text": "<p>I opened my interior studio at twenty eight with one client and no idea what to charge. For years I said yes to everything, priced by feel and worked most evenings.</p><p>What changed it was boring: knowing my real costs, writing a one page plan each January and saying no kindly. I have taught that to more than two hundred studio owners since.</p>"
           }
         }
       },
       "block_order": [
-        "social_1",
-        "social_2",
-        "social_3",
-        "social_4"
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3"
       ]
     },
-    "press": {
-      "type": "coachpro-press",
+    "rules": {
+      "type": "text-columns",
       "settings": {
-        "heading": "You might have heard me on",
-        "note": "Placeholder names. Put the shows and papers that featured you here.",
-        "background": "#16120f",
-        "heading_color": "#ffffff",
-        "logo_color": "#f3ece4",
-        "note_color": "#a39a90",
-        "padding": 60,
-        "padding_mobile": 48
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "columns_desktop": 3,
+        "show_dividers": true
       },
       "blocks": {
-        "outlet_1": {
-          "type": "outlet",
+        "heading_1": {
+          "type": "heading",
           "settings": {
-            "name": "The Journal",
-            "style": "serif"
+            "text": "What I believe about small studios"
           }
         },
-        "outlet_2": {
-          "type": "outlet",
+        "column_2": {
+          "type": "column",
           "settings": {
-            "name": "Podcast",
-            "style": "caps"
+            "label": "Pricing",
+            "heading": "Know your number",
+            "text": "<p>Your real cost per hour, written down, before you send any quote.</p>"
           }
         },
-        "outlet_3": {
-          "type": "outlet",
+        "column_3": {
+          "type": "column",
           "settings": {
-            "name": "Magazine",
-            "style": "italic"
+            "label": "Clients",
+            "heading": "Fewer, better",
+            "text": "<p>Two or three clients worth keeping beat ten who want a discount.</p>"
           }
         },
-        "outlet_4": {
-          "type": "outlet",
+        "column_4": {
+          "type": "column",
           "settings": {
-            "name": "Radio",
-            "style": "box"
-          }
-        },
-        "outlet_5": {
-          "type": "outlet",
-          "settings": {
-            "name": "Design Weekly",
-            "style": "wide"
-          }
-        },
-        "outlet_6": {
-          "type": "outlet",
-          "settings": {
-            "name": "newsletter",
-            "style": "round"
+            "label": "Time",
+            "heading": "A week with edges",
+            "text": "<p>A studio that needs your evenings is not finished being built yet.</p>"
           }
         }
       },
       "block_order": [
-        "outlet_1",
-        "outlet_2",
-        "outlet_3",
-        "outlet_4",
-        "outlet_5",
-        "outlet_6"
+        "heading_1",
+        "column_2",
+        "column_3",
+        "column_4"
+      ]
+    },
+    "hello": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "default",
+        "image": "shopify://shop_images/coachpro-hello.webp",
+        "image_alt": "Camila at her desk",
+        "image_position": "left",
+        "aspect_w": 4,
+        "aspect_h": 5,
+        "image_radius": 2
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Lisbon studio, clients everywhere"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Where I work"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>I record the show and run the calls from my old design studio in Lisbon. Clients join from all over Europe and the Americas, on video, at times that work for both of us.</p>"
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "Write to me",
+            "link": "/pages/contact"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
       ]
     },
     "moments": {
-      "type": "coachpro-moments",
+      "type": "gallery-grid1",
       "settings": {
-        "heading": "Behind the scenes",
-        "link_label": "Follow along on Instagram",
-        "link_url": "https://www.instagram.com",
-        "background": "#fbf8f4",
-        "heading_color": "#16120f",
-        "padding_top": 88,
-        "padding_bottom": 88,
-        "padding_top_mobile": 48,
-        "padding_bottom_mobile": 48
-      },
-      "blocks": {
-        "photo_1": {
-          "type": "photo",
-          "settings": {
-            "image": "shopify://shop_images/coachpro-moment-sofa.webp",
-            "alt": "Camila on a white sofa in the studio",
-            "caption": "The studio, Lisbon"
-          }
-        },
-        "photo_2": {
-          "type": "photo",
-          "settings": {
-            "image": "shopify://shop_images/coachpro-moment-plans.webp",
-            "alt": "Camila holding rolled plans",
-            "caption": "Ten years of floor plans"
-          }
-        },
-        "photo_3": {
-          "type": "photo",
-          "settings": {
-            "image": "shopify://shop_images/coachpro-moment-studio.webp",
-            "alt": "Camila sitting in the studio in the evening",
-            "caption": "Recording day"
-          }
-        },
-        "photo_4": {
-          "type": "photo",
-          "settings": {
-            "image": "shopify://shop_images/coachpro-moment-floor.webp",
-            "alt": "Camila on the floor with plans and drawings",
-            "caption": "Planning the next round"
-          }
-        },
-        "photo_5": {
-          "type": "photo",
-          "settings": {
-            "image": "shopify://shop_images/coachpro-moment-desk.webp",
-            "alt": "Camila writing at her desk",
-            "caption": "Writing the Sunday letter"
-          }
-        },
-        "photo_6": {
-          "type": "photo",
-          "settings": {
-            "image": "shopify://shop_images/coachpro-moment-reading.webp",
-            "alt": "Camila reading on the sofa",
-            "caption": "Saturday reading"
-          }
-        }
-      },
-      "block_order": [
-        "photo_1",
-        "photo_2",
-        "photo_3",
-        "photo_4",
-        "photo_5",
-        "photo_6"
-      ]
+        "color_scheme": "default",
+        "gutter": 10,
+        "background_image_1": "shopify://shop_images/coachpro-moment-sofa.webp",
+        "alt_1": "Camila on a white sofa in the studio",
+        "background_image_2": "shopify://shop_images/coachpro-moment-plans.webp",
+        "alt_2": "Camila holding rolled plans",
+        "background_image_3": "shopify://shop_images/coachpro-moment-desk.webp",
+        "alt_3": "Camila writing at her desk",
+        "background_image_4": "shopify://shop_images/coachpro-moment-reading.webp",
+        "alt_4": "Camila reading on the sofa"
+      }
     },
     "stories": {
-      "type": "coachpro-stories",
+      "type": "testimonials",
       "settings": {
-        "anchor": "stories",
-        "eyebrow": "Client stories",
-        "heading": "What clients <em>say</em>",
-        "sample_label": "Sample",
-        "footnote": "Sample stories to show the layout. Replace them with your clients' own words and photos, with their permission.",
-        "prev_label": "Previous story",
-        "next_label": "Next story",
-        "background": "#ffffff",
-        "card_color": "#f5efe7",
-        "accent_color": "#c2421f",
-        "heading_color": "#16120f",
-        "text_color": "#4a4038",
-        "padding_top": 104,
-        "padding_bottom": 104,
-        "padding_top_mobile": 56,
-        "padding_bottom_mobile": 56
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "display_mode": "grid",
+        "columns": 3,
+        "header_alignment": "center",
+        "card_style": "clean",
+        "card_align": "left",
+        "show_rating": false,
+        "show_quote_mark": true,
+        "avatar_shape": "circle"
       },
       "blocks": {
-        "story_1": {
-          "type": "story",
+        "eyebrow_1": {
+          "type": "eyebrow",
           "settings": {
-            "programme": "Studio Foundations",
-            "quote": "I raised my day rate by a third and the clients I actually wanted stayed. The worksheet alone paid for the programme.",
-            "avatar": "shopify://shop_images/coachpro-client-1.webp",
+            "enabled": true,
+            "text": "Client stories"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "enabled": true,
+            "text": "What changed in their studios"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "enabled": true,
+            "text": "<p>Sample stories to show the layout. Replace them with your clients' own words and photos, with their permission.</p>"
+          }
+        },
+        "testimonial_4": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>I raised my day rate by a third and the clients I actually wanted stayed. The worksheet alone paid for the programme.</p>",
+            "rating": 0,
             "name": "Mei L.",
-            "role": "Ceramics studio",
-            "sample": true
+            "role": "Ceramics studio, Studio Foundations",
+            "avatar": "shopify://shop_images/coachpro-client-1.webp"
           }
         },
-        "story_2": {
-          "type": "story",
+        "testimonial_5": {
+          "type": "testimonial",
           "settings": {
-            "programme": "Price It Right",
-            "quote": "For the first time I know what a project earns before I say yes to it, not three months after.",
-            "avatar": "shopify://shop_images/coachpro-client-2.webp",
+            "quote": "<p>For the first time I know what a project earns before I say yes to it, not three months after.</p>",
+            "rating": 0,
             "name": "Hanna V.",
-            "role": "Brand designer",
-            "sample": true
+            "role": "Brand designer, Price It Right",
+            "avatar": "shopify://shop_images/coachpro-client-2.webp"
           }
         },
-        "story_3": {
-          "type": "story",
+        "testimonial_6": {
+          "type": "testimonial",
           "settings": {
-            "programme": "One to one",
-            "quote": "We went from four day weeks that ran to ten hours each to a proper Friday off, and the studio earns more.",
-            "avatar": "shopify://shop_images/coachpro-client-3.webp",
+            "quote": "<p>We went from four day weeks that ran to ten hours each to a proper Friday off, and the studio earns more.</p>",
+            "rating": 0,
             "name": "Rosa M.",
-            "role": "Interior studio owner",
-            "sample": true
-          }
-        },
-        "story_4": {
-          "type": "story",
-          "settings": {
-            "programme": "Studio Foundations",
-            "quote": "Camila asks the question you were hoping nobody would ask, then helps you answer it. Every single Tuesday.",
-            "avatar": "shopify://shop_images/coachpro-client-4.webp",
-            "name": "Joan P.",
-            "role": "Architect",
-            "sample": true
-          }
-        },
-        "story_5": {
-          "type": "story",
-          "settings": {
-            "programme": "Price It Right",
-            "quote": "I stopped offering a discount on the first call. That one change was worth the whole course.",
-            "avatar": "shopify://shop_images/coachpro-client-5.webp",
-            "name": "Tom R.",
-            "role": "Furniture maker",
-            "sample": true
+            "role": "Interior studio, one to one",
+            "avatar": "shopify://shop_images/coachpro-client-3.webp"
           }
         }
       },
       "block_order": [
-        "story_1",
-        "story_2",
-        "story_3",
-        "story_4",
-        "story_5"
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "testimonial_4",
+        "testimonial_5",
+        "testimonial_6"
       ]
     },
-    "start": {
-      "type": "coachpro-start",
+    "cta": {
+      "type": "banner3",
       "settings": {
-        "eyebrow": "New here",
-        "heading": "Not sure where to <em>start</em>?",
-        "text": "<p>Three good first steps, depending on how much time you have this week.</p>",
-        "background": "#16120f",
-        "accent_color": "#ff6a3d",
-        "heading_color": "#ffffff",
-        "text_color": "#cfc6bc",
-        "padding_top": 112,
-        "padding_bottom": 112,
-        "padding_top_mobile": 64,
-        "padding_bottom_mobile": 64
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "banner_surface": "section",
+        "max_width": 700,
+        "pad_top_desktop": 96,
+        "pad_bottom_desktop": 96
       },
       "blocks": {
-        "step_1": {
-          "type": "step",
+        "eyebrow_1": {
+          "type": "eyebrow",
           "settings": {
-            "title": "Listen to the show",
-            "text": "Start with episode #112, on the busy month that pays the least.",
-            "url": "/pages/podcast"
+            "text": "Work with me",
+            "transform": "uppercase"
           }
         },
-        "step_2": {
-          "type": "step",
+        "heading_2": {
+          "type": "heading",
           "settings": {
-            "title": "Get the free worksheet",
-            "text": "Price your next project in twenty minutes.",
-            "url": "/#free-guide"
+            "text": "Not sure where to start?",
+            "transform": "none"
           }
         },
-        "step_3": {
-          "type": "step",
+        "subheading_3": {
+          "type": "subheading",
           "settings": {
-            "title": "Work with me",
-            "text": "A group programme, a short course or private mentoring.",
-            "url": "/pages/programmes"
+            "text": "Listen to an episode, take the free worksheet, or apply for the next round of Studio Foundations."
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "See the programmes",
+            "link": "/pages/programmes"
           }
         }
       },
       "block_order": [
-        "step_1",
-        "step_2",
-        "step_3"
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
       ]
     }
   },
   "order": [
     "story",
-    "press",
+    "rules",
+    "hello",
     "moments",
     "stories",
-    "start"
+    "cta"
   ]
 }

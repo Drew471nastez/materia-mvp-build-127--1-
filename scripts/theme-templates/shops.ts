@@ -251,14 +251,14 @@ export const SAMPLE_SHOPS: Record<string, { name: string; products: SampleProduc
       { title: "Smiley beanie", price: "$26.00", image: "retro-smiley-beanie.webp", description: "Cable knit with a pom and a woven smiley label." },
     ],
   },
-  /* Templates round 21: an author's book in three editions and a printable journal; the cover, phone and pages are drawn for the template. */
+  /* Templates round 22: an author's money book for people in their twenties (Maya Okafor), in paperback, ebook and audiobook, with a printable workbook; the book, audiobook and workbook are drawn for the template. */
   authorbook: {
-    name: "Theo Marlow",
+    name: "Maya Okafor",
     products: [
-      { title: "Read More, Keep More", price: "$16.00", compare: "$20.00", image: "authorbook-ed-ebook.webp", kind: "digital", description: "A simple way to read more books and remember what is in them. Twelve short chapters, each ending with one small thing to try the same day. 240 pages as PDF and EPUB.", options: [{ name: "Format", values: ["Ebook", "Ebook and audiobook"] }], add: { "Ebook and audiobook": 9 }, pictures: { Ebook: "authorbook-ed-ebook.webp", "Ebook and audiobook": "authorbook-ed-audio.webp" } },
-      { title: "The complete reading set", price: "$34.00", compare: "$46.00", image: "authorbook-ed-set.webp", kind: "digital", description: "The ebook, the audiobook read by Theo and the printable Reading Journal, with notes templates for fifty books." },
-      { title: "Read More, Keep More, audiobook", price: "$14.00", image: "authorbook-ed-audio.webp", kind: "digital", description: "Six hours, read by the author, as MP3 files chapter by chapter." },
-      { title: "The Reading Journal", price: "$9.00", image: "authorbook-journal.webp", kind: "digital", description: "A printable reading log and a one page notes sheet for every book you finish." },
+      { title: "Not Broke Anymore", price: "$18.00", compare: "$22.00", image: "authorbook-ed-book.webp", description: "Money for your twenties, without the guilt. Twelve short chapters on where your money goes, a budget with fun money in it, getting out of the overdraft, a first emergency fund and investing the boring way. 256 pages.", options: [{ name: "Format", values: ["Paperback", "Ebook", "Audiobook"] }], pictures: { Paperback: "authorbook-ed-book.webp", Ebook: "authorbook-cover.webp", Audiobook: "authorbook-ed-audio.webp" } },
+      { title: "Book and workbook set", price: "$29.00", compare: "$36.00", image: "authorbook-ed-set.webp", description: "The paperback and the printed workbook: 52 pages of plans, trackers and the one page money map from chapter two." },
+      { title: "Not Broke Anymore, audiobook", price: "$15.00", image: "authorbook-ed-audio.webp", kind: "digital", description: "Seven hours, read by the author, as MP3 files chapter by chapter." },
+      { title: "The money workbook", price: "$12.00", image: "authorbook-workbook.webp", description: "52 pages to fill in: a month of tracking, the money map, a debt plan and a savings ladder." },
     ],
   },
   /* Templates round 21: a business coach for creative founders; a group programme, a short course, private mentoring and a pricing calculator, pictured with the coach's own photographs. */
@@ -286,7 +286,7 @@ export const SAMPLE_SHOPS: Record<string, { name: string; products: SampleProduc
       { title: "A newsletter you can keep up", tag: "Audience", image: "creatorpro-podcast.webp", excerpt: "One idea, five minutes, every Tuesday. The rules that kept my letter going for five years.", html: `<p>The best newsletter is the one you still send in a year. Mine is short on purpose, goes out on the same day every week, and always has one thing to try.</p><h2 id="rules">Three rules</h2><ul><li>Same day, every week</li><li>One idea per letter</li><li>Write it in under an hour</li></ul>` },
     ],
   },
-  /* Templates round 21: Digital Renaissance, an AI course for business owners in two editions, a team plan, a prompt library and an audit call; the covers are drawn. */
+  /* Templates round 21: Digital Renaissance, an AI course for business owners in two editions, a prompt library and an audit call. Round 22: real photographs instead of drawn covers. */
   renaissance: {
     name: "Digital Renaissance",
     products: [

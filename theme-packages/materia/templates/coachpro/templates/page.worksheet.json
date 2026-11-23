@@ -1,0 +1,211 @@
+/* Templates round 22: rebuilt from the theme's own sections (collage hero, image with text, rows, promo banner, testimonials, newsletter with image, gallery, FAQ, banner); Lora and Open Sans. */
+{
+  "sections": {
+    "guide": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "default",
+        "image": "shopify://shop_images/coachpro-guide.webp",
+        "image_alt": "Camila reading a large plan on the floor of her studio",
+        "image_position": "left",
+        "image_ratio": "portrait",
+        "image_width": 45,
+        "form_layout": "horizontal",
+        "btn_text": "Send me the worksheet",
+        "email_placeholder": "Your email",
+        "note": "One email on Sundays after that. Unsubscribe in one click.",
+        "success_text": "Thank you. The worksheet is on its way to your inbox."
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Price your next project in twenty minutes"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>The worksheet I use with every client: your real cost per hour, a day rate you can defend and a short script for sending the number. Free, with a ten minute video.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    },
+    "inside": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "columns_desktop": 3,
+        "show_dividers": true
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "What you get"
+          }
+        },
+        "column_2": {
+          "type": "column",
+          "settings": {
+            "label": "Two pages",
+            "heading": "The worksheet",
+            "text": "<p>Print it or fill it in on screen. Costs, hours, day rate and a quote check.</p>"
+          }
+        },
+        "column_3": {
+          "type": "column",
+          "settings": {
+            "label": "Ten minutes",
+            "heading": "A short video",
+            "text": "<p>I fill it in with numbers from a real studio, line by line.</p>"
+          }
+        },
+        "column_4": {
+          "type": "column",
+          "settings": {
+            "label": "Sundays",
+            "heading": "The Sunday letter",
+            "text": "<p>One idea a week on pricing, clients or time. Leave whenever you like.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "column_2",
+        "column_3",
+        "column_4"
+      ]
+    },
+    "stories": {
+      "type": "testimonials",
+      "settings": {
+        "color_scheme": "default",
+        "display_mode": "grid",
+        "columns": 3,
+        "header_alignment": "center",
+        "card_style": "clean",
+        "card_align": "left",
+        "show_rating": false,
+        "show_quote_mark": true,
+        "avatar_shape": "circle"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "enabled": true,
+            "text": "Client stories"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "enabled": true,
+            "text": "What changed in their studios"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "enabled": true,
+            "text": "<p>Sample stories to show the layout. Replace them with your clients' own words and photos, with their permission.</p>"
+          }
+        },
+        "testimonial_4": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>I raised my day rate by a third and the clients I actually wanted stayed. The worksheet alone paid for the programme.</p>",
+            "rating": 0,
+            "name": "Mei L.",
+            "role": "Ceramics studio, Studio Foundations",
+            "avatar": "shopify://shop_images/coachpro-client-1.webp"
+          }
+        },
+        "testimonial_5": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>For the first time I know what a project earns before I say yes to it, not three months after.</p>",
+            "rating": 0,
+            "name": "Hanna V.",
+            "role": "Brand designer, Price It Right",
+            "avatar": "shopify://shop_images/coachpro-client-2.webp"
+          }
+        },
+        "testimonial_6": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>We went from four day weeks that ran to ten hours each to a proper Friday off, and the studio earns more.</p>",
+            "rating": 0,
+            "name": "Rosa M.",
+            "role": "Interior studio, one to one",
+            "avatar": "shopify://shop_images/coachpro-client-3.webp"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "testimonial_4",
+        "testimonial_5",
+        "testimonial_6"
+      ]
+    },
+    "cta": {
+      "type": "banner3",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "banner_surface": "section",
+        "max_width": 700,
+        "pad_top_desktop": 96,
+        "pad_bottom_desktop": 96
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Work with me",
+            "transform": "uppercase"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Not sure where to start?",
+            "transform": "none"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "Listen to an episode, take the free worksheet, or apply for the next round of Studio Foundations."
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "See the programmes",
+            "link": "/pages/programmes"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
+    }
+  },
+  "order": [
+    "guide",
+    "inside",
+    "stories",
+    "cta"
+  ]
+}

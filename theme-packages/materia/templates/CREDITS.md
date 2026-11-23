@@ -13,7 +13,7 @@ The Art books template's book covers, open book spreads and tablet are drawn aro
 
 The Notion templates' and the Digital products shop's device pictures are Unsplash photographs of laptops, tablets and a phone with a screen drawn for the template set into the display in perspective; their rows name the photograph. The Digital products bundle screen shows a small crop of https://images.unsplash.com/photo-1693328787539-1477754c01b7 (Unsplash License).
 The Creator Landing's photographs are one session by one photographer (Jonathan Borba): the same artist at her desk, used as the creator, Ines Hart.
-The Coach template's portraits are one session by one photographer (Cabri Caldwell): the same woman in her home office, used as the coach, Leah Morgan. The Ebooks template's covers, book and bundle pictures are drawn for it; its reading scenes and author portrait are Unsplash photographs.
+The Coach template's portraits are one session by one photographer (Cabri Caldwell): the same woman in her home office, used as the coach, Leah Morgan. The Cookbook template's (ebooks folder, round 22) book covers and hardback pictures are drawn for it around Unsplash food photographs, which their rows name; its kitchen, table and pasture pictures are Unsplash photographs.
 
 Rows marked "cover only" are sample product pictures for the listing covers (scripts/theme-templates/shops.ts).
 They are not part of a template and are never added to a creator's website.
@@ -124,15 +124,37 @@ They are not part of a template and are never added to a creator's website.
 | artbooks (drawn around) | scripts/theme-templates/products/artbooks/artbooks-birds.webp | https://images.unsplash.com/photo-1787487283513-626fbeacd854 | Unsplash License |
 | artbooks (cover only) | scripts/theme-templates/products/artbooks/artbooks-cross.webp | Drawn for this template | Storelib |
 | artbooks (drawn around) | scripts/theme-templates/products/artbooks/artbooks-cross.webp | https://images.unsplash.com/photo-1784109920491-14f584c4de39 | Unsplash License |
-| ebooks | assets/ebooks-reading-nook.webp | https://images.unsplash.com/photo-1728931710024-c015ea8f4414 | Unsplash License |
-| ebooks | assets/ebooks-author.webp | https://images.unsplash.com/photo-1734365294772-2f59212083d3 | Unsplash License |
-| ebooks | assets/ebooks-table.webp | https://images.unsplash.com/photo-1676107779674-f77343861e81 | Unsplash License |
-| ebooks | assets/ebooks-hero-book.webp | Drawn for this template | Storelib |
-| ebooks | assets/ebooks-bundle.webp | Drawn for this template | Storelib |
-| ebooks (cover only) | scripts/theme-templates/products/ebooks/ebooks-product-book.webp | Drawn for this template | Storelib |
-| ebooks (cover only) | scripts/theme-templates/products/ebooks/ebooks-product-bundle.webp | Drawn for this template | Storelib |
-| ebooks (cover only) | scripts/theme-templates/products/ebooks/ebooks-product-workbook.webp | Drawn for this template | Storelib |
-| ebooks (cover only) | scripts/theme-templates/products/ebooks/ebooks-product-mornings.webp | Drawn for this template | Storelib |
+| ebooks | assets/ebooks-roast-table.webp | https://images.unsplash.com/photo-1577308873518-7fd772788ec6 | Unsplash License |
+| ebooks | assets/ebooks-roast-table-phone.webp | https://images.unsplash.com/photo-1577308873518-7fd772788ec6 | Unsplash License |
+| ebooks | assets/ebooks-stirring-pot.webp | https://images.unsplash.com/photo-1636647511603-f46efb36c327 | Unsplash License |
+| ebooks | assets/ebooks-pasture-fog.webp | https://images.unsplash.com/photo-1527928407206-c0a98085a5ec | Unsplash License |
+| ebooks | assets/ebooks-eggs.webp | https://images.unsplash.com/photo-1498654077810-12c21d4d6dc3 | Unsplash License |
+| ebooks | assets/ebooks-stockpot.webp | https://images.unsplash.com/photo-1572171579626-e79450374587 | Unsplash License |
+| ebooks | assets/ebooks-sourdough.webp | https://images.unsplash.com/photo-1767065888377-e5ffb4e39645 | Unsplash License |
+| ebooks | assets/ebooks-library.webp | Drawn for this template | Storelib |
+| ebooks (drawn around) | assets/ebooks-library.webp | the four cover photographs below | Unsplash License |
+| ebooks (cover only) | scripts/theme-templates/products/ebooks/ebooks-book-broth.webp | Drawn for this template | Storelib |
+| ebooks (drawn around) | scripts/theme-templates/products/ebooks/ebooks-book-broth.webp | https://images.unsplash.com/photo-1652088054132-9371e0c9eb11 | Unsplash License |
+| ebooks (cover only) | scripts/theme-templates/products/ebooks/ebooks-cover-broth.webp | Drawn for this template | Storelib |
+| ebooks (drawn around) | scripts/theme-templates/products/ebooks/ebooks-cover-broth.webp | https://images.unsplash.com/photo-1652088054132-9371e0c9eb11 | Unsplash License |
+| ebooks (cover only) | scripts/theme-templates/products/ebooks/ebooks-book-nose.webp | Drawn for this template | Storelib |
+| ebooks (drawn around) | scripts/theme-templates/products/ebooks/ebooks-book-nose.webp | https://images.unsplash.com/photo-1690983330536-3b0089d07cf9 | Unsplash License |
+| ebooks (cover only) | scripts/theme-templates/products/ebooks/ebooks-cover-nose.webp | Drawn for this template | Storelib |
+| ebooks (drawn around) | scripts/theme-templates/products/ebooks/ebooks-cover-nose.webp | https://images.unsplash.com/photo-1690983330536-3b0089d07cf9 | Unsplash License |
+| ebooks (cover only) | scripts/theme-templates/products/ebooks/ebooks-book-ferments.webp | Drawn for this template | Storelib |
+| ebooks (drawn around) | scripts/theme-templates/products/ebooks/ebooks-book-ferments.webp | https://images.unsplash.com/photo-1693212454137-0d2909d79b27 | Unsplash License |
+| ebooks (cover only) | scripts/theme-templates/products/ebooks/ebooks-cover-ferments.webp | Drawn for this template | Storelib |
+| ebooks (drawn around) | scripts/theme-templates/products/ebooks/ebooks-cover-ferments.webp | https://images.unsplash.com/photo-1693212454137-0d2909d79b27 | Unsplash License |
+| ebooks (cover only) | scripts/theme-templates/products/ebooks/ebooks-book-bread.webp | Drawn for this template | Storelib |
+| ebooks (drawn around) | scripts/theme-templates/products/ebooks/ebooks-book-bread.webp | https://images.unsplash.com/photo-1767065888377-e5ffb4e39645 | Unsplash License |
+| ebooks (cover only) | scripts/theme-templates/products/ebooks/ebooks-cover-bread.webp | Drawn for this template | Storelib |
+| ebooks (drawn around) | scripts/theme-templates/products/ebooks/ebooks-cover-bread.webp | https://images.unsplash.com/photo-1767065888377-e5ffb4e39645 | Unsplash License |
+| ebooks (cover only) | scripts/theme-templates/products/ebooks/ebooks-book-plan.webp | Drawn for this template | Storelib |
+| ebooks (drawn around) | scripts/theme-templates/products/ebooks/ebooks-book-plan.webp | https://images.unsplash.com/photo-1788141554554-206bd5510910 | Unsplash License |
+| ebooks (cover only) | scripts/theme-templates/products/ebooks/ebooks-cover-plan.webp | Drawn for this template | Storelib |
+| ebooks (drawn around) | scripts/theme-templates/products/ebooks/ebooks-cover-plan.webp | https://images.unsplash.com/photo-1788141554554-206bd5510910 | Unsplash License |
+| ebooks (cover only) | scripts/theme-templates/products/ebooks/ebooks-book-library.webp | Drawn for this template | Storelib |
+| ebooks (drawn around) | scripts/theme-templates/products/ebooks/ebooks-book-library.webp | the four cover photographs above | Unsplash License |
 | fitness | assets/fitness-hero-barbell.webp | https://images.unsplash.com/photo-1574680096145-d05b474e2155 | Unsplash License |
 | fitness | assets/fitness-pull-up.webp | https://images.unsplash.com/photo-1526506118085-60ce8714f8c5 | Unsplash License |
 | fitness | assets/fitness-deadlift.webp | https://images.unsplash.com/photo-1517963879433-6ad2b056d712 | Unsplash License |
@@ -508,3 +530,29 @@ Templates round 22. Lifestyle photographs are Unsplash photographs, cropped. The
 | podshop (sample products) | scripts/theme-templates/products/podshop/podshop-gameday-crew-white.webp | https://images.unsplash.com/photo-1620799140408-edc6dcb6d633 (cut out, print drawn on) | Unsplash License |
 | podshop (sample products) | scripts/theme-templates/products/podshop/podshop-rc-cap-navy.webp | https://images.unsplash.com/photo-1645266729222-17cd32e06fd0 (cut out, recoloured navy, letters drawn on) | Unsplash License |
 | podshop (sample products) | scripts/theme-templates/products/podshop/podshop-pom-beanie-red.webp | https://images.unsplash.com/photo-1576529598261-96e376f6aabb (cut out, recoloured red, label drawn on) | Unsplash License |
+
+## Caps and tees (capstees, Fairweather)
+
+Templates round 22. The two lifestyle photographs are Unsplash photographs, cropped. The logo and the F mark are drawn for this template. Every product picture is one of three Unsplash photographs (a plain tee, a crewneck, a cap) cut out, recoloured and set on one light grey ground, with the Fairweather print drawn on; the Shop by kind tiles are the same pictures set smaller.
+
+| Template | File | Source | Licence |
+| --- | --- | --- | --- |
+| capstees | assets/capstees-cap-city.webp | https://images.unsplash.com/photo-1534215754734-18e55d13e346 | Unsplash License |
+| capstees | assets/capstees-white-tee.webp | https://images.unsplash.com/photo-1521572163474-6864f9cf17ab | Unsplash License |
+| capstees | assets/capstees-logo.webp | Drawn for this template | Storelib |
+| capstees | assets/capstees-mark.webp | Drawn for this template | Storelib |
+| capstees | assets/capstees-tile-cap.webp | https://images.unsplash.com/photo-1645266729222-17cd32e06fd0 | Unsplash License |
+| capstees | assets/capstees-tile-tee.webp | https://images.unsplash.com/photo-1651761179569-4ba2aa054997 | Unsplash License |
+| capstees | assets/capstees-tile-crew.webp | https://images.unsplash.com/photo-1620799140408-edc6dcb6d633 | Unsplash License |
+| capstees (cover only) | scripts/theme-templates/products/capstees/capstees-cap-mustard.webp | https://images.unsplash.com/photo-1645266729222-17cd32e06fd0 (cut out) | Unsplash License |
+| capstees (cover only) | scripts/theme-templates/products/capstees/capstees-cap-rose.webp | https://images.unsplash.com/photo-1645266729222-17cd32e06fd0 (cut out, recoloured rose) | Unsplash License |
+| capstees (cover only) | scripts/theme-templates/products/capstees/capstees-cap-rust.webp | https://images.unsplash.com/photo-1645266729222-17cd32e06fd0 (cut out, recoloured rust) | Unsplash License |
+| capstees (cover only) | scripts/theme-templates/products/capstees/capstees-cap-black.webp | https://images.unsplash.com/photo-1645266729222-17cd32e06fd0 (cut out, recoloured black) | Unsplash License |
+| capstees (cover only) | scripts/theme-templates/products/capstees/capstees-tee-white.webp | https://images.unsplash.com/photo-1651761179569-4ba2aa054997 (cut out, recoloured white, print drawn on) | Unsplash License |
+| capstees (cover only) | scripts/theme-templates/products/capstees/capstees-tee-black.webp | https://images.unsplash.com/photo-1651761179569-4ba2aa054997 (cut out, recoloured black, print drawn on) | Unsplash License |
+| capstees (cover only) | scripts/theme-templates/products/capstees/capstees-tee-bottle.webp | https://images.unsplash.com/photo-1651761179569-4ba2aa054997 (cut out, recoloured bottle, print drawn on) | Unsplash License |
+| capstees (cover only) | scripts/theme-templates/products/capstees/capstees-tee-sand.webp | https://images.unsplash.com/photo-1651761179569-4ba2aa054997 (cut out, recoloured sand, print drawn on) | Unsplash License |
+| capstees (cover only) | scripts/theme-templates/products/capstees/capstees-crew-ash.webp | https://images.unsplash.com/photo-1620799140408-edc6dcb6d633 (cut out, recoloured ash, print drawn on) | Unsplash License |
+| capstees (cover only) | scripts/theme-templates/products/capstees/capstees-crew-black.webp | https://images.unsplash.com/photo-1620799140408-edc6dcb6d633 (cut out, recoloured black, print drawn on) | Unsplash License |
+| capstees (cover only) | scripts/theme-templates/products/capstees/capstees-crew-forest.webp | https://images.unsplash.com/photo-1620799140408-edc6dcb6d633 (cut out, recoloured forest, print drawn on) | Unsplash License |
+| capstees (cover only) | scripts/theme-templates/products/capstees/capstees-crew-brown.webp | https://images.unsplash.com/photo-1620799140408-edc6dcb6d633 (cut out, recoloured brown, print drawn on) | Unsplash License |

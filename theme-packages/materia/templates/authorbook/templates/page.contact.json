@@ -1,85 +1,149 @@
+/* Templates round 22: a money book for your twenties by Maya Okafor, built from the theme's own sections (product hero, quote, image with text, text columns, product grid, testimonial wall, newsletter with image, FAQ, banner); Libre Baskerville and Helvetica. */
 {
   "sections": {
-    "contact": {
-      "type": "course2-contact",
+    "heading": {
+      "type": "page-heading",
       "settings": {
-        "tag": "Contact",
-        "heading": "Write to me",
-        "accent": "#c4471f",
-        "text": "<p>Questions about the book, a group order for a book club, or a talk at your library. I read everything and reply within a few days.</p>",
-        "email_label": "Or email",
-        "email": "hello@theomarlow.com",
-        "card_tag": "Send a message",
-        "card_heading": "What is on your mind?",
-        "card_text": "A question, a book you think I should read, or a note on the book.",
-        "ph_first": "First name",
-        "ph_last": "Last name",
-        "ph_email": "Email",
-        "ph_message": "Your message",
-        "agree_text": "",
-        "button_label": "Send message",
-        "thanks": "Thank you. I will write back within a few days.",
-        "error": "Please check the form.",
-        "padding_top": 56
-      }
-    },
-    "faq": {
-      "type": "authorbook-faq",
-      "settings": {
-        "eyebrow": "Questions",
-        "heading": "Before you <em>buy</em>",
-        "accent_color": "#c4471f",
-        "icon_bg": "#f5f2ec",
-        "text": "<p>The questions readers ask most. Anything else, <a href=\"/pages/contact\">write to me</a>.</p>"
+        "height": "adapt",
+        "alignment": "left",
+        "padding_top": 72,
+        "padding_bottom": 24,
+        "color_scheme": "default",
+        "reset_spacing": true,
+        "section_width": "container",
+        "overlay_opacity": 0
       },
       "blocks": {
-        "question_1": {
-          "type": "question",
+        "heading_1": {
+          "type": "heading",
           "settings": {
-            "question": "Is this a paper book?",
-            "answer": "<p>It is an ebook and an audiobook. The ebook comes as PDF and EPUB, so it opens on a phone, a tablet, a Kindle, a Kobo or a laptop. Replace this with your own formats.</p>"
-          }
-        },
-        "question_2": {
-          "type": "question",
-          "settings": {
-            "question": "How do I get it after paying?",
-            "answer": "<p>A download link arrives by email straight away, and the files stay in your account so you can download them again.</p>"
-          }
-        },
-        "question_3": {
-          "type": "question",
-          "settings": {
-            "question": "I do not read much now. Is it for me?",
-            "answer": "<p>Yes. The book is written for people who used to read and stopped. Chapter one asks for twenty pages a day, nothing more.</p>"
-          }
-        },
-        "question_4": {
-          "type": "question",
-          "settings": {
-            "question": "What is the free chapter?",
-            "answer": "<p>The whole of chapter one, The Twenty Page Day, as a PDF. Leave your email at the top of the page and it arrives in a minute.</p>"
-          }
-        },
-        "question_5": {
-          "type": "question",
-          "settings": {
-            "question": "What if it is not for me?",
-            "answer": "<p>Write within 30 days and you get every cent back. Replace this with your own terms.</p>"
+            "page_title": "",
+            "header_size": "medium",
+            "heading_font_size": 44
           }
         }
       },
       "block_order": [
-        "question_1",
-        "question_2",
-        "question_3",
-        "question_4",
-        "question_5"
+        "heading_1"
+      ]
+    },
+    "form": {
+      "type": "contactformsimple2",
+      "settings": {
+        "color_scheme": "default",
+        "btn_text": "Send message",
+        "ph_website": "Press, events or a reader question",
+        "label_website": "Subject",
+        "success_text": "Thank you. I read every message and reply within a week."
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Write to me"
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "text": "<p>Reader questions, press, podcasts and school or workplace talks. I read everything myself.</p>"
+          }
+        },
+        "info_3": {
+          "type": "info",
+          "settings": {
+            "icon": "mail",
+            "line1": "hello@example.com",
+            "line2": "Replies within a week"
+          }
+        },
+        "info_4": {
+          "type": "info",
+          "settings": {
+            "icon": "map",
+            "line1": "Houston and online",
+            "line2": "Talks for schools and workplaces"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_2",
+        "info_3",
+        "info_4"
+      ]
+    },
+    "faq": {
+      "type": "faq-pro",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "first_item_open": true,
+        "content_alignment": "left",
+        "max_content_width": 820
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Before you write"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Something else? <a href=\"/pages/contact\">Write to me</a>.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Is this book for me if I am already in debt?",
+            "answer": "<p>Yes. Chapter five is a plan for cards, buy now pay later and student loans, and it starts wherever you are.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Is this financial advice?",
+            "answer": "<p>It is general teaching from my own experience and training, not personal financial advice. For your exact situation, talk to a licensed adviser.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Does it work outside the US?",
+            "answer": "<p>The habits work anywhere. The account names in chapter nine are American, with notes for the UK, Canada and Australia.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Which edition should I get?",
+            "answer": "<p>The paperback if you like writing in margins, the audiobook for commutes, and the set if you want the workbook too.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "question": "When will my paperback arrive?",
+            "answer": "<p>It ships within two working days. The ebook and audiobook arrive by email straight after checkout.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7"
       ]
     }
   },
   "order": [
-    "contact",
+    "heading",
+    "form",
     "faq"
   ]
 }

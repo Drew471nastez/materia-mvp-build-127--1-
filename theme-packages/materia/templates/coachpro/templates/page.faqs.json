@@ -1,167 +1,156 @@
+/* Templates round 22: rebuilt from the theme's own sections (collage hero, image with text, rows, promo banner, testimonials, newsletter with image, gallery, FAQ, banner); Lora and Open Sans. */
 {
   "sections": {
-    "heading": {
-      "type": "page-heading",
-      "settings": {
-        "height": "adapt",
-        "alignment": "center",
-        "padding_top": 80,
-        "padding_bottom": 56,
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "reset_spacing": true,
-        "section_width": "fluid_container",
-        "overlay_opacity": 0
-      },
-      "blocks": {
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "page_title": "Questions",
-            "header_size": "default",
-            "vertical_gap": 12,
-            "heading_font_size": 52,
-            "enable_heading_color": false
-          }
-        },
-        "description_1": {
-          "type": "description",
-          "settings": {
-            "description": "<p>About the programmes, payment and how the work goes.</p>",
-            "enable_custom_style": false,
-            "description_font_size": 17
-          }
-        }
-      },
-      "block_order": [
-        "heading_1",
-        "description_1"
-      ]
-    },
     "faq": {
-      "type": "faq-side-image",
+      "type": "faq-pro",
       "settings": {
         "color_scheme": "default",
-        "image": "shopify://shop_images/coachpro-moment-plans.webp",
-        "image_position": "right"
+        "first_item_open": true,
+        "content_alignment": "center",
+        "max_content_width": 820
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Good to know"
+            "text": "Questions"
           }
         },
-        "subheading_1": {
+        "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Something else on your mind? <a href=\"/pages/contact\">Write to me</a>, I read every message.</p>"
-          }
-        },
-        "faq_item_1": {
-          "type": "faq_item",
-          "settings": {
-            "question": "Who are the programmes for?",
-            "answer": "<p>Designers, makers, architects, photographers and small studio owners who sell their own work or time. Most clients have been in business for at least a year and are busy but not earning what they should.</p>"
-          }
-        },
-        "faq_item_2": {
-          "type": "faq_item",
-          "settings": {
-            "question": "How much time does Studio Foundations take?",
-            "answer": "<p>About three hours a week: the Tuesday call, one short lesson and one piece of homework you do on your own business. Calls are recorded if you miss one.</p>"
+            "text": "<p>Something else? <a href=\"/pages/contact\">Write to me</a>. I answer within two working days.</p>"
           }
         },
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
-            "question": "What if I am not ready for a programme?",
-            "answer": "<p>Start with the free worksheet and the show. Price It Right is a good next step: it takes an afternoon and you keep it for good.</p>"
+            "question": "Who do you work with?",
+            "answer": "<p>Designers, makers, architects and studio owners who are good at the work and tired of the business side. Most run a studio of one to ten people.</p>"
           }
         },
         "faq_item_4": {
           "type": "faq_item",
           "settings": {
-            "question": "Can I pay in instalments?",
-            "answer": "<p>Yes. Studio Foundations and mentoring can be paid in three monthly parts at checkout, with no extra cost.</p>"
+            "question": "Which programme is right for me?",
+            "answer": "<p>Price It Right if pricing is the main problem. Studio Foundations for the whole picture, in a group. One to one when you are making a bigger change and want it private.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "What if it is not working for me?",
-            "answer": "<p>Tell me within the first two weeks of any programme and I refund you in full. For Price It Right, within 30 days.</p>"
+            "question": "When does the next round start?",
+            "answer": "<p>Studio Foundations runs twice a year, in March and September, with twelve places in each round.</p>"
           }
         },
         "faq_item_6": {
           "type": "faq_item",
           "settings": {
-            "question": "Do you work with teams?",
-            "answer": "<p>Yes, for studios of up to ten people. Write to me with what is going on and I will suggest the best way in.</p>"
+            "question": "Can I pay in parts?",
+            "answer": "<p>Yes. Studio Foundations can be paid in full or in three monthly parts.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if it is not for me?",
+            "answer": "<p>Price It Right has a 14 day refund. For the group, tell me after the first two calls and I refund in full.</p>"
           }
         }
       },
       "block_order": [
         "heading_1",
-        "subheading_1",
-        "faq_item_1",
-        "faq_item_2",
+        "subheading_2",
         "faq_item_3",
         "faq_item_4",
         "faq_item_5",
-        "faq_item_6"
+        "faq_item_6",
+        "faq_item_7"
       ]
     },
-    "start": {
-      "type": "coachpro-start",
+    "guide": {
+      "type": "newsletter-split",
       "settings": {
-        "eyebrow": "New here",
-        "heading": "Not sure where to <em>start</em>?",
-        "text": "<p>Three good first steps, depending on how much time you have this week.</p>",
-        "background": "#16120f",
-        "accent_color": "#ff6a3d",
-        "heading_color": "#ffffff",
-        "text_color": "#cfc6bc",
-        "padding_top": 112,
-        "padding_bottom": 112,
-        "padding_top_mobile": 64,
-        "padding_bottom_mobile": 64
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "image": "shopify://shop_images/coachpro-guide.webp",
+        "image_alt": "Camila reading a large plan on the floor of her studio",
+        "image_position": "left",
+        "image_ratio": "portrait",
+        "image_width": 45,
+        "form_layout": "horizontal",
+        "btn_text": "Send me the worksheet",
+        "email_placeholder": "Your email",
+        "note": "One email on Sundays after that. Unsubscribe in one click.",
+        "success_text": "Thank you. The worksheet is on its way to your inbox."
       },
       "blocks": {
-        "step_1": {
-          "type": "step",
+        "heading_1": {
+          "type": "heading",
           "settings": {
-            "title": "Listen to the show",
-            "text": "Start with episode #112, on the busy month that pays the least.",
-            "url": "/pages/podcast"
+            "text": "Price your next project in twenty minutes"
           }
         },
-        "step_2": {
-          "type": "step",
+        "subheading_2": {
+          "type": "subheading",
           "settings": {
-            "title": "Get the free worksheet",
-            "text": "Price your next project in twenty minutes.",
-            "url": "/#free-guide"
-          }
-        },
-        "step_3": {
-          "type": "step",
-          "settings": {
-            "title": "Work with me",
-            "text": "A group programme, a short course or private mentoring.",
-            "url": "/pages/programmes"
+            "text": "<p>The worksheet I use with every client: your real cost per hour, a day rate you can defend and a short script for sending the number. Free, with a ten minute video.</p>"
           }
         }
       },
       "block_order": [
-        "step_1",
-        "step_2",
-        "step_3"
+        "heading_1",
+        "subheading_2"
+      ]
+    },
+    "cta": {
+      "type": "banner3",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "banner_surface": "section",
+        "max_width": 700,
+        "pad_top_desktop": 96,
+        "pad_bottom_desktop": 96
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Work with me",
+            "transform": "uppercase"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Not sure where to start?",
+            "transform": "none"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "Listen to an episode, take the free worksheet, or apply for the next round of Studio Foundations."
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "See the programmes",
+            "link": "/pages/programmes"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
       ]
     }
   },
   "order": [
-    "heading",
     "faq",
-    "start"
+    "guide",
+    "cta"
   ]
 }

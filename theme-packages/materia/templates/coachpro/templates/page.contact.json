@@ -1,6 +1,33 @@
+/* Templates round 22: rebuilt from the theme's own sections (collage hero, image with text, rows, promo banner, testimonials, newsletter with image, gallery, FAQ, banner); Lora and Open Sans. */
 {
   "sections": {
-    "contact": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "height": "adapt",
+        "alignment": "left",
+        "padding_top": 72,
+        "padding_bottom": 24,
+        "color_scheme": "default",
+        "reset_spacing": true,
+        "section_width": "container",
+        "overlay_opacity": 0
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "",
+            "header_size": "medium",
+            "heading_font_size": 44
+          }
+        }
+      },
+      "block_order": [
+        "heading_1"
+      ]
+    },
+    "form": {
       "type": "contactformsimple2",
       "settings": {
         "color_scheme": "default",
@@ -46,56 +73,77 @@
         "info_4"
       ]
     },
-    "start": {
-      "type": "coachpro-start",
+    "faq": {
+      "type": "faq-pro",
       "settings": {
-        "eyebrow": "New here",
-        "heading": "Not sure where to <em>start</em>?",
-        "text": "<p>Three good first steps, depending on how much time you have this week.</p>",
-        "background": "#16120f",
-        "accent_color": "#ff6a3d",
-        "heading_color": "#ffffff",
-        "text_color": "#cfc6bc",
-        "padding_top": 112,
-        "padding_bottom": 112,
-        "padding_top_mobile": 64,
-        "padding_bottom_mobile": 64
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "first_item_open": true,
+        "content_alignment": "center",
+        "max_content_width": 820
       },
       "blocks": {
-        "step_1": {
-          "type": "step",
+        "heading_1": {
+          "type": "heading",
           "settings": {
-            "title": "Listen to the show",
-            "text": "Start with episode #112, on the busy month that pays the least.",
-            "url": "/pages/podcast"
+            "text": "Quick answers"
           }
         },
-        "step_2": {
-          "type": "step",
+        "subheading_2": {
+          "type": "subheading",
           "settings": {
-            "title": "Get the free worksheet",
-            "text": "Price your next project in twenty minutes.",
-            "url": "/#free-guide"
+            "text": "<p>Something else? <a href=\"/pages/contact\">Write to me</a>. I answer within two working days.</p>"
           }
         },
-        "step_3": {
-          "type": "step",
+        "faq_item_3": {
+          "type": "faq_item",
           "settings": {
-            "title": "Work with me",
-            "text": "A group programme, a short course or private mentoring.",
-            "url": "/pages/programmes"
+            "question": "Who do you work with?",
+            "answer": "<p>Designers, makers, architects and studio owners who are good at the work and tired of the business side. Most run a studio of one to ten people.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Which programme is right for me?",
+            "answer": "<p>Price It Right if pricing is the main problem. Studio Foundations for the whole picture, in a group. One to one when you are making a bigger change and want it private.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "When does the next round start?",
+            "answer": "<p>Studio Foundations runs twice a year, in March and September, with twelve places in each round.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I pay in parts?",
+            "answer": "<p>Yes. Studio Foundations can be paid in full or in three monthly parts.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if it is not for me?",
+            "answer": "<p>Price It Right has a 14 day refund. For the group, tell me after the first two calls and I refund in full.</p>"
           }
         }
       },
       "block_order": [
-        "step_1",
-        "step_2",
-        "step_3"
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7"
       ]
     }
   },
   "order": [
-    "contact",
-    "start"
+    "heading",
+    "form",
+    "faq"
   ]
 }

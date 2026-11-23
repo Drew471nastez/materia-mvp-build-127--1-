@@ -157,33 +157,11 @@
         "testimonial_6",
         "testimonial_7"
       ]
-    },
-    "articles": {
-      "type": "blog-posts",
-      "settings": {
-        "color_scheme": "default",
-        "items_to_show": 3,
-        "items_per_row": 3,
-        "image_ratio": "landscape",
-        "show_author": false
-      },
-      "blocks": {
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "heading": "Recent articles"
-          }
-        }
-      },
-      "block_order": [
-        "heading_1"
-      ]
     }
   },
   "order": [
     "letter",
     "inside",
-    "students",
-    "articles"
+    "students"
   ]
 }

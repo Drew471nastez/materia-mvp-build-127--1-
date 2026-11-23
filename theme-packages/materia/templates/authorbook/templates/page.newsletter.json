@@ -1,171 +1,228 @@
+/* Templates round 22: a money book for your twenties by Maya Okafor, built from the theme's own sections (product hero, quote, image with text, text columns, product grid, testimonial wall, newsletter with image, FAQ, banner); Libre Baskerville and Helvetica. */
 {
   "sections": {
-    "letter": {
-      "type": "authorbook-course",
+    "chapter": {
+      "type": "newsletter-split",
       "settings": {
-        "eyebrow": "Marginalia",
-        "heading": "A short letter on reading, <em>every Sunday</em>",
-        "image": "shopify://shop_images/authorbook-shelf-letter.webp",
-        "image_alt": "A cup of coffee beside an open book on a wooden table",
-        "card_title": "Get the next letter on Sunday morning",
-        "button_label": "Join Marginalia",
-        "button_color": "#1d2b4f",
-        "tag": "marginalia",
-        "note": "One email a week. No ads, no sponsors. Leave whenever you like.",
-        "accent_color": "#c4471f",
-        "tick_color": "#f0643a",
-        "anchor": "letter",
-        "padding_top": 72
+        "color_scheme": "default",
+        "image": "shopify://shop_images/authorbook-cover.webp",
+        "image_alt": "The cover of Not Broke Anymore by Maya Okafor",
+        "image_position": "left",
+        "image_ratio": "portrait",
+        "image_width": 40,
+        "form_layout": "horizontal",
+        "btn_text": "Send it to me",
+        "email_placeholder": "Your email",
+        "note": "Plus the Sunday money letter every other week. Leave whenever you like.",
+        "success_text": "Done. The first chapter is in your inbox."
       },
       "blocks": {
-        "point_1": {
-          "type": "point",
+        "heading_1": {
+          "type": "heading",
           "settings": {
-            "title": "One idea from a book I am reading.",
-            "text": "Quoted, with the page number, and what I did with it."
+            "text": "Read the first chapter free"
           }
         },
-        "point_2": {
-          "type": "point",
+        "subheading_2": {
+          "type": "subheading",
           "settings": {
-            "title": "One question from a reader.",
-            "text": "Answered in a few paragraphs, about reading, notes or finding time."
-          }
-        },
-        "point_3": {
-          "type": "point",
-          "settings": {
-            "title": "Three books worth your time.",
-            "text": "Short and honest, including the ones I quit."
+            "text": "<p>Chapter one and the money map, as a PDF. Twenty minutes to read, and you will know where last month's pay went.</p>"
           }
         }
       },
       "block_order": [
-        "point_1",
-        "point_2",
-        "point_3"
+        "heading_1",
+        "subheading_2"
       ]
     },
-    "hello": {
-      "type": "authorbook-hello",
+    "inside": {
+      "type": "text-columns",
       "settings": {
-        "eyebrow": "About the author",
-        "heading": "Hi, I'm <em>Theo Marlow</em>",
-        "text": "<p>I used to buy books faster than I read them. Ten years ago I started reading twenty pages a day and keeping one page of notes for every book. I have kept both habits since.</p><p>I write <a href=\"/pages/newsletter\">Marginalia</a>, a short letter every Sunday on what I am reading and how to make it stick. <em>Read More, Keep More</em> is everything I have learned, in one book.</p>",
-        "image": "shopify://shop_images/authorbook-theo-sofa.webp",
-        "image_alt": "Theo Marlow on a dark sofa with books and records beside him",
-        "image_focus": "50% 30%",
-        "frame_color": "#f0643a",
-        "accent_color": "#c4471f",
-        "button_label": "More about me",
-        "button_link": "/pages/about",
-        "button_color": "#1d2b4f",
-        "instagram": "https://www.instagram.com",
-        "youtube": "https://www.youtube.com",
-        "x": "https://x.com",
-        "linkedin": "",
-        "letters_title": "Recent letters",
-        "padding_top": 40
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "columns_desktop": 3,
+        "show_dividers": true,
+        "content_alignment": "left"
       },
       "blocks": {
-        "letter_1": {
-          "type": "letter",
+        "heading_1": {
+          "type": "heading",
           "settings": {
-            "title": "The case for quitting books halfway",
-            "link": "/blogs/news"
+            "text": "What is inside"
           }
         },
-        "letter_2": {
-          "type": "letter",
+        "subheading_2": {
+          "type": "subheading",
           "settings": {
-            "title": "One page of notes for every book",
-            "link": "/blogs/news"
+            "text": "<p>Twelve short chapters. Each ends with one thing to do that week, so you finish the book with a plan you are already using.</p>"
           }
         },
-        "letter_3": {
-          "type": "letter",
+        "column_3": {
+          "type": "column",
           "settings": {
-            "title": "Reading on your phone without the phone",
-            "link": "/blogs/news"
+            "label": "Chapter 1",
+            "heading": "Where it all goes",
+            "text": "<p>One month of tracking, without judging a single coffee.</p>"
+          }
+        },
+        "column_4": {
+          "type": "column",
+          "settings": {
+            "label": "Chapter 2",
+            "heading": "The money map",
+            "text": "<p>One page with your pay, your bills and what is left. You will use it every month.</p>"
+          }
+        },
+        "column_5": {
+          "type": "column",
+          "settings": {
+            "label": "Chapter 3",
+            "heading": "A budget with fun in it",
+            "text": "<p>Spending money you do not have to feel bad about, set on purpose.</p>"
+          }
+        },
+        "column_6": {
+          "type": "column",
+          "settings": {
+            "label": "Chapter 5",
+            "heading": "Out of the overdraft",
+            "text": "<p>A plan for cards, buy now pay later and student loans, smallest first.</p>"
+          }
+        },
+        "column_7": {
+          "type": "column",
+          "settings": {
+            "label": "Chapter 7",
+            "heading": "One month in the bank",
+            "text": "<p>A first emergency fund, built in small automatic steps.</p>"
+          }
+        },
+        "column_8": {
+          "type": "column",
+          "settings": {
+            "label": "Chapter 9",
+            "heading": "Investing, the boring way",
+            "text": "<p>Index funds, retirement accounts and why boring wins.</p>"
           }
         }
       },
       "block_order": [
-        "letter_1",
-        "letter_2",
-        "letter_3"
+        "heading_1",
+        "subheading_2",
+        "column_3",
+        "column_4",
+        "column_5",
+        "column_6",
+        "column_7",
+        "column_8"
+      ]
+    },
+    "paper": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "default",
+        "image": "shopify://shop_images/authorbook-paperwork.webp",
+        "image_alt": "Someone working through bills with a pen and a coffee",
+        "image_position": "right",
+        "aspect_w": 1,
+        "aspect_h": 1,
+        "image_radius": 0
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "The Sunday money letter"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "One short letter, every other Sunday"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>A question a reader asked, my honest answer and one thing to try before payday. Free, and you can leave whenever you like.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3"
       ]
     },
     "reviews": {
-      "type": "authorbook-reviews",
+      "type": "testimonial-wall",
       "settings": {
-        "eyebrow": "Readers",
-        "heading": "What readers <em>say</em>",
-        "accent_color": "#c4471f",
-        "card_color": "#f5f2ec",
-        "avatar_color": "#1d2b4f",
-        "text": "These words are samples to show the layout. Replace them with what your own readers write.",
-        "anchor": ""
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "columns": 3,
+        "card_style": "plain",
+        "text_align": "left",
+        "collapse": "mobile"
       },
       "blocks": {
-        "review_1": {
-          "type": "review",
+        "eyebrow_1": {
+          "type": "eyebrow",
           "settings": {
-            "quote": "I finished more books in the three months after reading this than in the whole year before it. The twenty page rule is so simple it feels like cheating.",
-            "name": "Hannah Keller",
-            "tag": "Sample",
-            "role": "Read the ebook"
+            "text": "Readers"
           }
         },
-        "review_2": {
-          "type": "review",
+        "heading_2": {
+          "type": "heading",
           "settings": {
-            "quote": "The chapter on notes changed how I read. One page per book, and I can tell you what every one of them was about.",
-            "name": "Omar Siddiqui",
-            "tag": "Sample",
-            "role": "Listened to the audiobook"
+            "text": "What readers say"
           }
         },
-        "review_3": {
-          "type": "review",
+        "subheading_3": {
+          "type": "subheading",
           "settings": {
-            "quote": "Short, practical and kind. No reading challenge guilt, just a habit that fits in a lunch break.",
-            "name": "Julia Brandt",
-            "tag": "Sample",
-            "role": "Bought the complete set"
+            "text": "<p>Sample reviews to show the layout. Replace them with real reader reviews.</p>"
           }
         },
-        "review_4": {
-          "type": "review",
+        "testimonial_4": {
+          "type": "testimonial",
           "settings": {
-            "quote": "I gave it to my book club and now we all keep the same notes page. Our meetings are better for it.",
-            "name": "Marcus Lee",
-            "tag": "Sample",
-            "role": "Read the ebook"
+            "body": "The first money book I finished. Chapter two took an hour and I still use the map every payday.",
+            "name": "Sample reader",
+            "role": "Nurse, 26",
+            "rating": 5
           }
         },
-        "review_5": {
-          "type": "review",
+        "testimonial_5": {
+          "type": "testimonial",
           "settings": {
-            "quote": "I quit three books I was dragging through and read five I loved instead. Permission to stop was the best part.",
-            "name": "Priya Nair",
-            "tag": "Sample",
-            "role": "Read the ebook"
+            "body": "No shame, no lectures, just what to do on Monday. I paid off my card in seven months.",
+            "name": "Sample reader",
+            "role": "Barista and student, 23",
+            "rating": 5
+          }
+        },
+        "testimonial_6": {
+          "type": "testimonial",
+          "settings": {
+            "body": "I bought it for my sister and read it first. The fun money chapter changed how we both budget.",
+            "name": "Sample reader",
+            "role": "Teacher, 29",
+            "rating": 5
           }
         }
       },
       "block_order": [
-        "review_1",
-        "review_2",
-        "review_3",
-        "review_4",
-        "review_5"
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "testimonial_4",
+        "testimonial_5",
+        "testimonial_6"
       ]
     }
   },
   "order": [
-    "letter",
-    "hello",
+    "chapter",
+    "inside",
+    "paper",
     "reviews"
   ]
 }

@@ -77,7 +77,7 @@ if(wait)return setTimeout(look,50);
 Promise.all(seen.slice(0,24).map(function(g){return g.decode?g.decode().catch(function(){}):0})).then(fin,fin)}
 look();setTimeout(fin,1500)}
 D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn)});
-})();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><style data-page-background>html{background-color:#fbf8f4}</style><script src="/theme-previews/coach-creator/a/i.63b4697a1622.js"></script>
+})();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><style data-page-background>html{background-color:#ffffff}</style><script src="/theme-previews/coach-creator/a/i.63b4697a1622.js"></script>
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -144,16 +144,16 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
     document.addEventListener('DOMContentLoaded',function(){setTimeout(go,4000)},{once:true})}
     ['pointerdown','click','keydown','scroll','touchstart'].forEach(function(n){addEventListener(n,go,{once:true,passive:true,capture:true})})})(["/theme-previews/_base/a/popup.18cdf2513c31.css","/theme-previews/_base/a/tingle-min.ed947d9dd1c7.css"]);</script><link rel="stylesheet" href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" media="print" onload="this.media='all'">
 <noscript><link href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" rel="stylesheet" type="text/css" media="all"></noscript>
-<link rel="stylesheet" href="/theme-previews/_base/a/fonts.4ffa7308385f.css" data-materia-fonts>
-<style data-materia-font-fallbacks>@font-face{font-family:"Albert Sans Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:104.4%;ascent-override:91%;descent-override:23.9%;line-gap-override:0%}@font-face{font-family:"Albert Sans Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:104.4%;ascent-override:91%;descent-override:23.9%;line-gap-override:0%}@font-face{font-family:"Instrument Serif Fallback";src:local("Times New Roman"), local("TimesNewRomanPSMT"), local("Liberation Serif");font-weight:100 549;size-adjust:83%;ascent-override:119.3%;descent-override:37.4%;line-gap-override:0%}@font-face{font-family:"Instrument Serif Fallback";src:local("Times New Roman Bold"), local("TimesNewRomanPS-BoldMT"), local("Liberation Serif Bold");font-weight:550 1000;size-adjust:83%;ascent-override:119.3%;descent-override:37.4%;line-gap-override:0%}</style><style data-shopify>
+<link rel="stylesheet" href="/theme-previews/_base/a/fonts.458c22463eca.css" data-materia-fonts>
+<style data-materia-font-fallbacks>@font-face{font-family:"Open Sans Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:104.9%;ascent-override:101.9%;descent-override:27.9%;line-gap-override:0%}@font-face{font-family:"Open Sans Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:104.9%;ascent-override:101.9%;descent-override:27.9%;line-gap-override:0%}@font-face{font-family:"Lora Fallback";src:local("Times New Roman"), local("TimesNewRomanPSMT"), local("Liberation Serif");font-weight:100 549;size-adjust:113.2%;ascent-override:88.9%;descent-override:24.2%;line-gap-override:0%}@font-face{font-family:"Lora Fallback";src:local("Times New Roman Bold"), local("TimesNewRomanPS-BoldMT"), local("Liberation Serif Bold");font-weight:550 1000;size-adjust:113.2%;ascent-override:88.9%;descent-override:24.2%;line-gap-override:0%}</style><style data-shopify>
   :root {
-    --body-font: "Albert Sans", "Albert Sans Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    --heading-font: "Instrument Serif", "Instrument Serif Fallback", Georgia, "Times New Roman", serif, sans-serif;
+    --body-font: "Open Sans", "Open Sans Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --heading-font: "Lora", "Lora Fallback", Georgia, "Times New Roman", serif, sans-serif;
     --menu-font: var(--body-font);
     --btn-font: var(--body-font);
   }
 </style>
-<link rel="stylesheet" href="/theme-previews/coach-creator/a/i.b588958abc0d.css" data-shopify>
+<link rel="stylesheet" href="/theme-previews/coach-creator/a/i.d2c225e4b77d.css" data-shopify>
 <link href="/theme-previews/_base/a/theme.d71f5b96fec8.css" rel="stylesheet" type="text/css" media="all"><noscript><link href="/theme-previews/_base/a/popup.18cdf2513c31.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.9c20c549e3cf.css">
 <link rel="preload" as="style" href="/theme-previews/_base/a/minicart.ac0014483417.css" fetchpriority="low">
 <link rel="preload" as="style" href="/theme-previews/_base/a/materia-experience.b68d6d8152a8.css" fetchpriority="low">
@@ -245,9 +245,9 @@ data-menu-hover="none"
     --count-bubble-animation: mt-count-pop;
   }
 </style><style data-shopify>#shopify-section-header {
-    --hs-mnav-bg: #fbf8f4;
-    --hs-mnav-heading: #16120f;
-    --hs-mnav-text: #4a4038;
+    --hs-mnav-bg: #ffffff;
+    --hs-mnav-heading: #1f1c1a;
+    --hs-mnav-text: #4d4844;
     --hs-hover-fill: #ffffff;
     --hs-logo-width: 150px;
     --hs-logo-width-mobile: 120px;
@@ -487,127 +487,496 @@ href="/theme-previews/coach-creator/pages/contact.html"
 <symbol id="icon-bag">
 <path d="M12.7518 2.91374L11.6276 1.44835H3.37237L2.24824 2.91374H12.7518ZM14.8419 3.18637V3.20341C14.8419 3.20341 14.8478 3.20341 14.8595 3.20341C14.8946 3.27157 14.9239 3.33972 14.9473 3.40788C14.9824 3.47604 15 3.54988 15 3.62939V13.819C15 14.1143 14.9356 14.3983 14.8068 14.6709C14.6897 14.9322 14.5316 15.1594 14.3326 15.3525C14.1335 15.557 13.8934 15.716 13.6124 15.8296C13.3431 15.9432 13.0562 16 12.7518 16H2.24824C1.94379 16 1.65105 15.9375 1.37002 15.8126C1.1007 15.699 0.866511 15.5456 0.667447 15.3525C0.456674 15.1594 0.29274 14.9322 0.175644 14.6709C0.058548 14.3983 0 14.1143 0 13.819V3.62939C0 3.58395 0.0058548 3.53852 0.0175644 3.49308C0.029274 3.43628 0.0468384 3.37948 0.0702576 3.32268C0.0819672 3.29996 0.0936768 3.27725 0.105386 3.25453C0.128806 3.23181 0.14637 3.20909 0.15808 3.18637L2.40632 0.28967C2.47658 0.198793 2.5644 0.130635 2.66979 0.085197C2.77518 0.028399 2.88642 0 3.00351 0H11.9965C12.1136 0 12.2248 0.028399 12.3302 0.085197C12.4356 0.130635 12.5234 0.198793 12.5937 0.28967L14.8419 3.18637ZM1.51054 4.36209V13.819C1.51054 13.9098 1.5281 14.0007 1.56323 14.0916C1.59836 14.1825 1.65105 14.262 1.72131 14.3301C1.79157 14.3983 1.87354 14.4494 1.96721 14.4835C2.06089 14.5176 2.15457 14.5346 2.24824 14.5346H12.7518C12.8571 14.5346 12.9508 14.5176 13.0328 14.4835C13.1265 14.4494 13.2084 14.3983 13.2787 14.3301C13.3489 14.262 13.4016 14.1825 13.4368 14.0916C13.4719 14.0007 13.4895 13.9098 13.4895 13.819V4.36209H1.51054ZM9.74824 6.54313C9.74824 6.33866 9.8185 6.16826 9.95902 6.03195C10.1112 5.88427 10.2927 5.81044 10.5035 5.81044C10.7026 5.81044 10.8724 5.88427 11.0129 6.03195C11.1651 6.16826 11.2412 6.33866 11.2412 6.54313C11.2412 7.04295 11.1417 7.51438 10.9426 7.9574C10.7553 8.40043 10.4918 8.78665 10.1522 9.11608C9.81265 9.44551 9.41452 9.70678 8.95785 9.89989C8.50117 10.0816 8.01522 10.1725 7.5 10.1725C6.98478 10.1725 6.49883 10.0816 6.04215 9.89989C5.58548 9.70678 5.18735 9.44551 4.84777 9.11608C4.5082 8.78665 4.23888 8.40043 4.03981 7.9574C3.85246 7.51438 3.75878 7.04295 3.75878 6.54313C3.75878 6.33866 3.82904 6.16826 3.96956 6.03195C4.12178 5.88427 4.29742 5.81044 4.49649 5.81044C4.70726 5.81044 4.8829 5.88427 5.02342 6.03195C5.17564 6.16826 5.25176 6.33866 5.25176 6.54313C5.25176 6.84984 5.3103 7.13383 5.4274 7.3951C5.5445 7.65637 5.70843 7.88356 5.9192 8.07668C6.11827 8.28115 6.35246 8.44018 6.62178 8.55378C6.8911 8.66738 7.18384 8.72417 7.5 8.72417C7.81616 8.72417 8.1089 8.66738 8.37822 8.55378C8.64754 8.44018 8.88173 8.28115 9.0808 8.07668C9.29157 7.88356 9.4555 7.65637 9.5726 7.3951C9.6897 7.13383 9.74824 6.84984 9.74824 6.54313Z" fill="currentColor"/>
 </symbol>
-</svg><a class="hs-cta hs-cta--pos-after_icons hs-cta--m-in_row hs-cta--primary hs-cta--theme hs-cta--desktop hs-cta--ms-small hs-cta--font-body" href="/theme-previews/coach-creator/index.html#free-guide" data-theme-button="primary" data-sl-button style="--mb-bg: var(--btn-primary-bg-color); --mb-text: var(--btn-primary-color); --mb-hover-bg: var(--btn-primary-hover-bg-color); --mb-hover-text: var(--btn-primary-hover-color); --hs-cta-gap: 24px; --hs-cta-gap-mobile: 12px; --hs-cta-x: 0px; --hs-cta-y: 0px; --hs-cta-bg: #16120f; --hs-cta-fg: #ffffff; --hs-cta-bd: #16120f; --hs-cta-bw: 0px; --hs-cta-radius: 999px; --hs-cta-fs: 16px; --hs-cta-fw: 600; --hs-cta-tt: none; --hs-cta-ls: 0px; --hs-cta-py: 14px; --hs-cta-px: 26px; --hs-cta-deco: none; --hs-cta-shadow: none; --hs-cta-dur: 225ms; --hs-cta-ease: cubic-bezier(0.2, 0.7, 0.2, 1); --hs-cta-hbg: #c2421f; --hs-cta-hfg: #ffffff; --hs-cta-hbd: #c2421f; --hs-cta-htransform: none; --hs-cta-hshadow: none; --hs-cta-hfilter: none; --hs-cta-hdeco: none;" data-lh-block="header_button_1" data-block-id="header_button_1">Free worksheet</a></div>
+</svg><a class="hs-cta hs-cta--pos-after_icons hs-cta--m-in_row hs-cta--primary hs-cta--theme hs-cta--desktop hs-cta--ms-small hs-cta--font-body" href="/theme-previews/coach-creator/pages/worksheet.html" data-theme-button="primary" data-sl-button style="--mb-bg: var(--btn-primary-bg-color); --mb-text: var(--btn-primary-color); --mb-hover-bg: var(--btn-primary-hover-bg-color); --mb-hover-text: var(--btn-primary-hover-color); --hs-cta-gap: 24px; --hs-cta-gap-mobile: 12px; --hs-cta-x: 0px; --hs-cta-y: 0px; --hs-cta-bg: #1f1c1a; --hs-cta-fg: #ffffff; --hs-cta-bd: #1f1c1a; --hs-cta-bw: 0px; --hs-cta-radius: 999px; --hs-cta-fs: 16px; --hs-cta-fw: 600; --hs-cta-tt: none; --hs-cta-ls: 0px; --hs-cta-py: 14px; --hs-cta-px: 26px; --hs-cta-deco: none; --hs-cta-shadow: none; --hs-cta-dur: 225ms; --hs-cta-ease: cubic-bezier(0.2, 0.7, 0.2, 1); --hs-cta-hbg: #a8482a; --hs-cta-hfg: #ffffff; --hs-cta-hbd: #a8482a; --hs-cta-htransform: none; --hs-cta-hshadow: none; --hs-cta-hfilter: none; --hs-cta-hdeco: none;" data-lh-block="header_button_1" data-block-id="header_button_1">Free worksheet</a></div>
 </header-inner>
 </div>
 </div></header>
-<link href="/theme-previews/_base/a/header-sticky.b824661f5721.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/header-sticky.fdbbc022cbc0.css" rel="stylesheet" type="text/css" media="all">
 <script src="/theme-previews/coach-creator/a/i.7cb61de4030e.js"></script><script src="/theme-previews/_base/a/header-sticky-extras.78e1fb4f310f.js" defer="defer"></script></div><script src="/theme-previews/coach-creator/a/i.0d9f91566ff2.js"></script>
-<main id="MainContent" class="content-for-layout focus-none" role="main" tabindex="-1"><section id="shopify-section-show" class="shopify-section coachpro-show-section" data-section-id="show" data-section-type="coachpro-show"><link rel="stylesheet" href="/theme-previews/_base/a/fonts.e8dfec640840.css"><link rel="stylesheet" href="/theme-previews/coach-creator/a/i.6b823fb4448d.css">
-<section data-own-size class="cps" id="show">
-<div class="cps__in">
-<div class="cps__side">
-<figure class="cps__cover"><img src="/theme-previews/coach-creator/a/coachpro-show.9187bd7c40d3.webp" srcset="/theme-previews/coach-creator/a/coachpro-show.9187bd7c40d3.webp 480w, /theme-previews/coach-creator/a/coachpro-show.9187bd7c40d3.webp 800w" sizes="(min-width: 990px) 460px, 92vw" width="1600" height="1600" alt="Camila Duarte in profile against a dark wall" loading="lazy" decoding="async"><figcaption class="cps__mast"><span class="cps__kind">Podcast and video</span><span class="cps__show">The Studio Hours</span><span class="cps__host">with Camila Duarte</span></figcaption>
-</figure><p class="cps__eyebrow">Every Tuesday</p><h2 class="cps__title">The Studio <em>Hours</em></h2><div class="cps__text"><p>Straight talk on pricing, clients and running a small creative business, with the occasional guest who has done it well. Watch on video or take it with you as a podcast.</p></div><div class="cps__on"><a href="#" data-preview-inert><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21.6 7.2a2.6 2.6 0 0 0-1.8-1.8C18.2 5 12 5 12 5s-6.2 0-7.8.4A2.6 2.6 0 0 0 2.4 7.2 27 27 0 0 0 2 12a27 27 0 0 0 .4 4.8 2.6 2.6 0 0 0 1.8 1.8C5.8 19 12 19 12 19s6.2 0 7.8-.4a2.6 2.6 0 0 0 1.8-1.8A27 27 0 0 0 22 12a27 27 0 0 0-.4-4.8zM10 15V9l5.2 3z"/></svg>Watch on YouTube</a><a href="#" data-preview-inert><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="10" r="2.6"/><path d="M12 14.5v6M7.2 15.6a7 7 0 1 1 9.6 0"/></svg>Apple Podcasts</a><a href="#" data-preview-inert><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M7.5 9.6c3-1 6.6-.7 9.2.8M8 12.7c2.5-.7 5.3-.4 7.4.8M8.6 15.6c2-.5 4-.3 5.6.6"/></svg>Spotify</a></div>
-</div>
-<div class="cps__main"><h3 class="cps__latest">The latest</h3><ol class="cps__list"><li class="cps__ep" data-block-id="episode_1">
-<a href="#" data-preview-inert>
-<span class="cps__no">#112</span>
-<span><span class="cps__ept">Why your busiest month made the least money</span><span class="cps__meta">Solo episode, 38 min</span></span>
-<span class="cps__play" aria-hidden="true"><svg viewBox="0 0 12 14" fill="currentColor"><path d="M0 0l12 7-12 7z"/></svg></span>
-</a>
-</li><li class="cps__ep" data-block-id="episode_2">
-<a href="#" data-preview-inert>
-<span class="cps__no">#111</span>
-<span><span class="cps__ept">Raising prices without losing the clients you love</span><span class="cps__meta">With a furniture maker from Porto, 44 min</span></span>
-<span class="cps__play" aria-hidden="true"><svg viewBox="0 0 12 14" fill="currentColor"><path d="M0 0l12 7-12 7z"/></svg></span>
-</a>
-</li><li class="cps__ep" data-block-id="episode_3">
-<a href="#" data-preview-inert>
-<span class="cps__no">#110</span>
-<span><span class="cps__ept">The one page plan I write every January</span><span class="cps__meta">Solo episode, 29 min</span></span>
-<span class="cps__play" aria-hidden="true"><svg viewBox="0 0 12 14" fill="currentColor"><path d="M0 0l12 7-12 7z"/></svg></span>
-</a>
-</li><li class="cps__ep" data-block-id="episode_4">
-<a href="#" data-preview-inert>
-<span class="cps__no">#109</span>
-<span><span class="cps__ept">Saying no to the wrong project, kindly</span><span class="cps__meta">With a brand designer, 33 min</span></span>
-<span class="cps__play" aria-hidden="true"><svg viewBox="0 0 12 14" fill="currentColor"><path d="M0 0l12 7-12 7z"/></svg></span>
-</a>
-</li><li class="cps__ep" data-block-id="episode_5">
-<a href="#" data-preview-inert>
-<span class="cps__no">#108</span>
-<span><span class="cps__ept">Your first hire: freelancer, assistant or partner?</span><span class="cps__meta">With a studio owner, 41 min</span></span>
-<span class="cps__play" aria-hidden="true"><svg viewBox="0 0 12 14" fill="currentColor"><path d="M0 0l12 7-12 7z"/></svg></span>
-</a>
-</li><li class="cps__ep" data-block-id="episode_6">
-<a href="#" data-preview-inert>
-<span class="cps__no">#107</span>
-<span><span class="cps__ept">What to send when a client asks for a discount</span><span class="cps__meta">Solo episode, 22 min</span></span>
-<span class="cps__play" aria-hidden="true"><svg viewBox="0 0 12 14" fill="currentColor"><path d="M0 0l12 7-12 7z"/></svg></span>
-</a>
-</li></ol><a class="cps__all" href="/theme-previews/coach-creator/pages/podcast.html">All episodes</a></div>
-</div>
-</section>
-</section><section id="shopify-section-guide" class="shopify-section coachpro-optin-section" data-section-id="guide" data-section-type="coachpro-optin"><link rel="stylesheet" href="/theme-previews/_base/a/fonts.e8dfec640840.css"><style>
-  #shopify-section-guide .cpf { --cpf-accent: #ff6a3d; background: #fbf8f4; padding: 24px 12px 56px; }
-  @media (min-width: 990px) { #shopify-section-guide .cpf { padding: 56px 40px 104px; } }
-  #shopify-section-guide .cpf__panel { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); overflow: hidden; border-radius: 26px; background: #16120f; color: #cfc6bc; }
-  @media (min-width: 990px) { #shopify-section-guide .cpf__panel { grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); border-radius: 30px; } }
-  #shopify-section-guide .cpf__media { position: relative; margin: 0; min-height: 300px; aspect-ratio: 16 / 11; background: #2a231e; }
-  @media (min-width: 990px) { #shopify-section-guide .cpf__media { aspect-ratio: auto; min-height: 560px; } }
-  #shopify-section-guide .cpf__media img, #shopify-section-guide .cpf__media svg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 44%; }
-  #shopify-section-guide .cpf__body { padding: 32px 22px 36px; }
-  @media (min-width: 990px) { #shopify-section-guide .cpf__body { padding: 72px 72px 72px 64px; align-self: center; } }
-  #shopify-section-guide .cpf__label { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 18px; padding: 7px 12px; border-radius: 999px; background: color-mix(in srgb, var(--cpf-accent) 18%, transparent); color: var(--cpf-accent); font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
-  #shopify-section-guide .cpf__title { margin: 0 0 14px; color: #ffffff; font-family: var(--heading-font, serif); font-weight: 400; font-size: 38px; line-height: 1.02; letter-spacing: -.01em; text-wrap: balance; }
-  @media (min-width: 990px) { #shopify-section-guide .cpf__title { font-size: 56px; } }
-  #shopify-section-guide .cpf__title em { font-style: italic; color: var(--cpf-accent); }
-  #shopify-section-guide .cpf__text { font-size: 16.5px; line-height: 1.65; max-width: 34em; }
-  #shopify-section-guide .cpf__text p { margin: 0; }
-  #shopify-section-guide .cpf__points { display: grid; gap: 10px; margin: 22px 0 28px; padding: 0; list-style: none; }
-  #shopify-section-guide .cpf__points li { display: flex; gap: 12px; align-items: flex-start; color: #ffffff; font-size: 15.5px; line-height: 1.45; }
-  #shopify-section-guide .cpf__points svg { flex: 0 0 auto; width: 20px; height: 20px; margin-top: 1px; color: var(--cpf-accent); }
-  #shopify-section-guide .cpf__row { display: flex; flex-direction: column; gap: 10px; max-width: 620px; }
-  @media (min-width: 750px) { #shopify-section-guide .cpf__row { flex-direction: row; gap: 8px; } }
-  #shopify-section-guide .cpf__input { --mt-select-bg: rgba(255,255,255,.06); --mt-select-radius: 999px; --mt-select-text: #fff; --mt-select-border: rgba(255,255,255,.18); --input-padding: 0 18px; --input-height: 54px; flex: 1 1 0; min-width: 0; height: 54px; margin: 0; padding: 0 18px; border: 1px solid rgba(255,255,255,.16); border-radius: 999px; background: rgba(255,255,255,.06); color: #fff; font: inherit; font-size: 15px; }
-  #shopify-section-guide .cpf__input::placeholder { color: rgba(255,255,255,.55); }
-  #shopify-section-guide .cpf__input:focus-visible { outline: 2px solid var(--cpf-accent); outline-offset: 1px; }
-  #shopify-section-guide .cpf__submit { flex: 0 0 auto; height: 54px; margin: 0; padding: 0 26px; border: 0; border-radius: 999px; background: var(--cpf-accent); color: #16120f; font: inherit; font-size: 15.5px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: transform .25s ease; }
-  #shopify-section-guide .cpf__submit:hover { transform: translateY(-1px); }
-  #shopify-section-guide .cpf__note { margin: 14px 0 0; font-size: 13px; color: #a39a90; }
-  #shopify-section-guide .cpf__msg { margin: 12px 0 0; color: #fff; font-size: 14px; }
-  #shopify-section-guide .cpf__hp, #shopify-section-guide .cpf__vh { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+<main id="MainContent" class="content-for-layout focus-none" role="main" tabindex="-1"><div id="shopify-section-show" class="shopify-section" data-section-id="show" data-section-type="promo-banner-4"><script src="/theme-previews/_base/a/hero-product-two.0194ee576a0e.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/marketing-sections.6fc41beabceb.js" defer="defer"></script><style>
+  #shopify-section-show {
+    font-family: var(--body-font, inherit);
+    font-size: var(--body-font-size, inherit);
+    font-weight: var(--body-weight, inherit);
+    line-height: var(--body-line-height, inherit);
+    color: var(--color-text);
+  }
+  #shopify-section-show :is(h1, h2, h3, h4, h5, h6) {
+    font-family: var(--heading-font, inherit);
+    font-weight: var(--heading-weight, inherit);
+    letter-spacing: var(--heading-letter-spacing, normal);
+    line-height: var(--heading-line-height, 1.2);
+    text-transform: var(--heading-text-transform, none);
+  }
+  :where(html:not([data-font-priority='off'])) #shopify-section-show :where(.subheading, .sub-heading, [class*='__subheading']) {
+    font-weight: var(--subheading-weight, 500);
+  }
 </style>
-<section data-own-size class="cpf" id="free-guide">
-<div class="cpf__panel">
-<figure class="cpf__media"><img src="/theme-previews/coach-creator/a/coachpro-guide.07d857f5ad17.webp" srcset="/theme-previews/coach-creator/a/coachpro-guide.07d857f5ad17.webp 520w, /theme-previews/coach-creator/a/coachpro-guide.07d857f5ad17.webp 880w" sizes="(min-width: 990px) 500px, 96vw" width="1600" height="1600" alt="Camila Duarte reading a large plan on the floor of her studio" loading="lazy" decoding="async"></figure>
-<div class="cpf__body"><p class="cpf__label">Free worksheet</p><h2 class="cpf__title">Price your next project in <em>twenty minutes</em></h2><div class="cpf__text"><p>The same worksheet I use with every client: your real cost per hour, a day rate you can defend, and a short script for sending the number.</p></div><ul class="cpf__points"><li><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="8.5"/><path d="M6.5 10.2l2.4 2.4 4.6-5"/></svg>A two page worksheet to print or fill in</li><li><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="8.5"/><path d="M6.5 10.2l2.4 2.4 4.6-5"/></svg>A ten minute video walking through it</li><li><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="8.5"/><path d="M6.5 10.2l2.4 2.4 4.6-5"/></svg>The Sunday letter, one idea a week</li></ul><form id="CoachproOptin-guide" accept-charset="UTF-8" data-storelib-form="subscribe" class="contact-form" data-storelib-form="subscribe" data-preview-form><input type="hidden" name="form_type" value="customer"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="storelib_placement" value="newsletter"><input type="hidden" name="contact[tags]" value="pricing-worksheet">
-<span hidden data-mt-words data-success-message="Thank you. The worksheet is on its way to your inbox." data-invalid-message="Enter a valid email address."></span>
-<div class="cpf__hp" aria-hidden="true" data-mt-trap>
-<label for="CoachproOptinHp-guide">Leave this field empty</label>
-<input id="CoachproOptinHp-guide" type="text" name="company" tabindex="-1" autocomplete="off" pattern="^$" maxlength="0" value="">
+<section id="mk-show" class="mk-shell color-scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9" data-marketing-section="show" data-mk-kind="card" data-mk-settings="{&quot;color_scheme&quot;:{&quot;id&quot;:&quot;scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9&quot;,&quot;settings&quot;:{&quot;page_colors&quot;:null,&quot;background&quot;:{&quot;red&quot;:36,&quot;green&quot;:56,&quot;blue&quot;:47,&quot;alpha&quot;:1,&quot;hue&quot;:153,&quot;saturation&quot;:22,&quot;lightness&quot;:18,&quot;rgb&quot;:&quot;36 56 47&quot;,&quot;rgba&quot;:&quot;36 56 47 / 1&quot;,&quot;hex&quot;:&quot;#24382f&quot;},&quot;text_color&quot;:{&quot;red&quot;:201,&quot;green&quot;:209,&quot;blue&quot;:204,&quot;alpha&quot;:1,&quot;hue&quot;:143,&quot;saturation&quot;:8,&quot;lightness&quot;:80,&quot;rgb&quot;:&quot;201 209 204&quot;,&quot;rgba&quot;:&quot;201 209 204 / 1&quot;,&quot;hex&quot;:&quot;#c9d1cc&quot;},&quot;heading_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;primary_color&quot;:{&quot;red&quot;:233,&quot;green&quot;:180,&quot;blue&quot;:155,&quot;alpha&quot;:1,&quot;hue&quot;:19,&quot;saturation&quot;:64,&quot;lightness&quot;:76,&quot;rgb&quot;:&quot;233 180 155&quot;,&quot;rgba&quot;:&quot;233 180 155 / 1&quot;,&quot;hex&quot;:&quot;#e9b49b&quot;},&quot;border_color&quot;:{&quot;red&quot;:58,&quot;green&quot;:77,&quot;blue&quot;:68,&quot;alpha&quot;:1,&quot;hue&quot;:152,&quot;saturation&quot;:14,&quot;lightness&quot;:26,&quot;rgb&quot;:&quot;58 77 68&quot;,&quot;rgba&quot;:&quot;58 77 68 / 1&quot;,&quot;hex&quot;:&quot;#3a4d44&quot;},&quot;badge_background&quot;:null,&quot;badge_text&quot;:null,&quot;primary_button_colors&quot;:null,&quot;btn_primary_background&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_primary_color&quot;:{&quot;red&quot;:36,&quot;green&quot;:56,&quot;blue&quot;:47,&quot;alpha&quot;:1,&quot;hue&quot;:153,&quot;saturation&quot;:22,&quot;lightness&quot;:18,&quot;rgb&quot;:&quot;36 56 47&quot;,&quot;rgba&quot;:&quot;36 56 47 / 1&quot;,&quot;hex&quot;:&quot;#24382f&quot;},&quot;btn_primary_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_primary_hover_background&quot;:{&quot;red&quot;:233,&quot;green&quot;:180,&quot;blue&quot;:155,&quot;alpha&quot;:1,&quot;hue&quot;:19,&quot;saturation&quot;:64,&quot;lightness&quot;:76,&quot;rgb&quot;:&quot;233 180 155&quot;,&quot;rgba&quot;:&quot;233 180 155 / 1&quot;,&quot;hex&quot;:&quot;#e9b49b&quot;},&quot;btn_primary_hover_color&quot;:{&quot;red&quot;:31,&quot;green&quot;:28,&quot;blue&quot;:26,&quot;alpha&quot;:1,&quot;hue&quot;:24,&quot;saturation&quot;:9,&quot;lightness&quot;:11,&quot;rgb&quot;:&quot;31 28 26&quot;,&quot;rgba&quot;:&quot;31 28 26 / 1&quot;,&quot;hex&quot;:&quot;#1f1c1a&quot;},&quot;btn_primary_hover_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;secondary_button_colors&quot;:null,&quot;btn_secondary_background&quot;:{&quot;red&quot;:36,&quot;green&quot;:56,&quot;blue&quot;:47,&quot;alpha&quot;:1,&quot;hue&quot;:153,&quot;saturation&quot;:22,&quot;lightness&quot;:18,&quot;rgb&quot;:&quot;36 56 47&quot;,&quot;rgba&quot;:&quot;36 56 47 / 1&quot;,&quot;hex&quot;:&quot;#24382f&quot;},&quot;btn_secondary_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_border&quot;:{&quot;red&quot;:107,&quot;green&quot;:125,&quot;blue&quot;:116,&quot;alpha&quot;:1,&quot;hue&quot;:150,&quot;saturation&quot;:8,&quot;lightness&quot;:45,&quot;rgb&quot;:&quot;107 125 116&quot;,&quot;rgba&quot;:&quot;107 125 116 / 1&quot;,&quot;hex&quot;:&quot;#6b7d74&quot;},&quot;btn_secondary_hover_background&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_hover_color&quot;:{&quot;red&quot;:36,&quot;green&quot;:56,&quot;blue&quot;:47,&quot;alpha&quot;:1,&quot;hue&quot;:153,&quot;saturation&quot;:22,&quot;lightness&quot;:18,&quot;rgb&quot;:&quot;36 56 47&quot;,&quot;rgba&quot;:&quot;36 56 47 / 1&quot;,&quot;hex&quot;:&quot;#24382f&quot;},&quot;btn_secondary_hover_border_color&quot;:null,&quot;background_gradient&quot;:&quot;&quot;,&quot;btn_primary_gradient&quot;:&quot;&quot;,&quot;btn_primary_hover_background_gradient&quot;:&quot;&quot;,&quot;btn_secondary_hover_border&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_outline_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_outline_border_color&quot;:{&quot;red&quot;:107,&quot;green&quot;:125,&quot;blue&quot;:116,&quot;alpha&quot;:1,&quot;hue&quot;:150,&quot;saturation&quot;:8,&quot;lightness&quot;:45,&quot;rgb&quot;:&quot;107 125 116&quot;,&quot;rgba&quot;:&quot;107 125 116 / 1&quot;,&quot;hex&quot;:&quot;#6b7d74&quot;},&quot;button_link_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;button_link_hover_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;}}},&quot;section_width&quot;:&quot;container&quot;,&quot;reset_spacing&quot;:true,&quot;layout&quot;:&quot;image_left&quot;,&quot;text_align&quot;:&quot;left&quot;,&quot;vertical_alignment&quot;:&quot;center&quot;,&quot;card_style&quot;:&quot;flat&quot;,&quot;image_bg&quot;:null,&quot;overlay_color&quot;:null,&quot;section_bg&quot;:null,&quot;card_bg&quot;:null,&quot;card_border_color&quot;:null,&quot;card_border_width&quot;:0,&quot;card_radius&quot;:16,&quot;enable_custom_style&quot;:false,&quot;enable_custom_fonts&quot;:false,&quot;heading_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;body_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;image&quot;:{&quot;id&quot;:1718330133,&quot;src&quot;:&quot;/theme-previews/coach-creator/a/coachpro-show.9187bd7c40d3.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach-creator/a/coachpro-show.9187bd7c40d3.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1718330133,&quot;src&quot;:&quot;/theme-previews/coach-creator/a/coachpro-show.9187bd7c40d3.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach-creator/a/coachpro-show.9187bd7c40d3.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1718330133,&quot;src&quot;:&quot;/theme-previews/coach-creator/a/coachpro-show.9187bd7c40d3.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach-creator/a/coachpro-show.9187bd7c40d3.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1718330133,&quot;src&quot;:&quot;/theme-previews/coach-creator/a/coachpro-show.9187bd7c40d3.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach-creator/a/coachpro-show.9187bd7c40d3.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1718330133,&quot;src&quot;:&quot;/theme-previews/coach-creator/a/coachpro-show.9187bd7c40d3.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach-creator/a/coachpro-show.9187bd7c40d3.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1718330133,&quot;src&quot;:&quot;/theme-previews/coach-creator/a/coachpro-show.9187bd7c40d3.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach-creator/a/coachpro-show.9187bd7c40d3.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:null,&quot;y&quot;:null}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1718330133,&quot;src&quot;:&quot;/theme-previews/coach-creator/a/coachpro-show.9187bd7c40d3.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach-creator/a/coachpro-show.9187bd7c40d3.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:null},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:null},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:null,&quot;src&quot;:null,&quot;url&quot;:null,&quot;alt&quot;:null,&quot;width&quot;:null,&quot;height&quot;:null,&quot;aspect_ratio&quot;:null,&quot;media_type&quot;:null,&quot;position&quot;:null,&quot;presentation&quot;:null,&quot;attached_to_variant&quot;:null,&quot;variants&quot;:null,&quot;preview_image&quot;:null}}}}}}}},&quot;enable_image_zoom&quot;:true,&quot;reveal&quot;:true,&quot;enable_badge_pulse&quot;:false,&quot;animation&quot;:&quot;theme&quot;,&quot;image_aspect_ratio&quot;:&quot;4-3&quot;,&quot;enable_overlay&quot;:false,&quot;overlay_opacity&quot;:30,&quot;card_gap&quot;:24,&quot;card_padding&quot;:32,&quot;content_gap&quot;:16,&quot;padding_top_desktop&quot;:80,&quot;padding_bottom_desktop&quot;:80,&quot;section_margin_top_desktop&quot;:0,&quot;section_margin_bottom_desktop&quot;:0,&quot;content_alignment_mobile&quot;:&quot;inherit&quot;,&quot;mobile_image_first&quot;:true,&quot;padding_top_mobile&quot;:40,&quot;padding_bottom_mobile&quot;:40,&quot;section_margin_top_mobile&quot;:0,&quot;section_margin_bottom_mobile&quot;:0}" data-mk-defaults='{"section_width":"container","color_scheme":"default-color-scheme","reset_spacing":true,"layout":"image_left","text_align":"left","vertical_alignment":"center","card_style":"shadow","card_border_width":0,"card_radius":16,"enable_custom_style":false,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","enable_image_zoom":true,"reveal":true,"enable_badge_pulse":true,"animation":"theme","mobile_image_first":true,"padding_top_mobile":40,"padding_bottom_mobile":40,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0,"image_aspect_ratio":"4-3","enable_overlay":false,"overlay_opacity":30,"card_gap":24,"card_padding":32,"content_gap":16,"padding_top_desktop":80,"padding_bottom_desktop":80,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0}' data-mk-block-defaults='{"eyebrow":{"text":"Limited time","enable_custom_style":false,"font_source":"body","text_case":"theme","letter_spacing":0,"line_height":1.5,"size":13,"font_weight":"theme"},"heading":{"text":"Spotlight on this season&#39;s bestseller","enable_custom_style":false,"tag":"h2","weight":"theme","font_source":"heading","text_case":"theme","letter_spacing":0,"line_height":1.2,"size_desktop":42,"size_mobile":28},"description":{"text":"&lt;p&gt;A handpicked highlight that pairs beautifully with everything in your collection. Discover what everyone is talking about.&lt;/p&gt;","enable_custom_style":false,"font_source":"body","text_case":"theme","letter_spacing":0,"line_height":1.5,"size_desktop":17,"size_mobile":15,"font_weight":"theme"},"buttons":{"primary_label":"Shop now","enable_custom_style":false,"primary_border_width":0,"secondary_border_width":1,"btn_radius":8,"use_theme_button":true,"btn_size":14,"btn_pad_x":26,"btn_pad_y":13,"gap_top":8},"badge":{"text":"NEW","enable_custom_style":false,"font_source":"body","text_case":"theme","letter_spacing":0,"line_height":1.5,"position":"top-left","font_weight":"theme"}}' data-mk-editor="false" data-mk-button-font="body_font" data-mk-motion="none" data-mk-duration="950" data-mk-delay="80">
+<div class="mk-inner"><div class="mk-row"><div class="mk-media"><picture><img src="/theme-previews/coach-creator/a/coachpro-show.9187bd7c40d3.webp" data-mk-placeholder="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Crect width=%22400%22 height=%22300%22 fill=%22%23efefef%22/%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22 fill=%22%23cfcfcf%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22 fill=%22%23cfcfcf%22/%3E%3C/svg%3E" alt="" width="1920" height="1080" loading="eager" fetchpriority="high" decoding="async"></picture><video muted playsinline hidden></video><div class="mk-split" hidden><img alt="" width="960" height="1080"><img alt="" width="960" height="1080"></div><span class="mk-overlay" aria-hidden="true"></span></div>
+<div class="mk-content"><div class="mk-block" data-mk-block="eyebrow_1" data-mk-type="eyebrow" data-mk-block-settings="{&quot;text&quot;:&quot;Podcast and video, every Tuesday&quot;,&quot;enable_custom_style&quot;:false,&quot;color&quot;:null,&quot;font_source&quot;:&quot;body&quot;,&quot;text_case&quot;:&quot;theme&quot;,&quot;letter_spacing&quot;:0,&quot;line_height&quot;:1.5,&quot;size&quot;:13,&quot;font_weight&quot;:&quot;theme&quot;}" data-block-id="eyebrow_1">
+<div class="mk-type" data-mk-text="text">Podcast and video, every Tuesday</div>
+</div><div class="mk-block" data-mk-block="heading_2" data-mk-type="heading" data-mk-block-settings="{&quot;text&quot;:&quot;The Studio Hours&quot;,&quot;enable_custom_style&quot;:false,&quot;color&quot;:null,&quot;weight&quot;:&quot;theme&quot;,&quot;font_source&quot;:&quot;heading&quot;,&quot;text_case&quot;:&quot;theme&quot;,&quot;letter_spacing&quot;:0,&quot;line_height&quot;:1.2,&quot;size_desktop&quot;:42,&quot;size_mobile&quot;:28,&quot;tag&quot;:&quot;h2&quot;}" data-block-id="heading_2">
+<h2 class="mk-type mk-heading" data-mk-text="text" data-mk-rich style="font-family:var(--mk-font,var(--heading-font))!important;font-size:var(--mk-size,var(--h2-size,32px))!important;font-weight:var(--mk-weight,var(--heading-weight,600))!important;line-height:var(--mk-line,var(--heading-line-height,1.2))!important;letter-spacing:var(--mk-letter,var(--heading-letter-spacing,normal))!important;text-transform:var(--mk-case,var(--heading-text-transform,none))!important;">The Studio Hours</h2>
+</div><div class="mk-block" data-mk-block="description_3" data-mk-type="description" data-mk-block-settings="{&quot;text&quot;:&quot;&lt;p&gt;Straight talk on pricing, clients and running a small creative business, with the occasional guest who has done it well. This week: why your busiest month made the least money.&lt;\/p&gt;&quot;,&quot;enable_custom_style&quot;:false,&quot;color&quot;:null,&quot;font_source&quot;:&quot;body&quot;,&quot;text_case&quot;:&quot;theme&quot;,&quot;letter_spacing&quot;:0,&quot;line_height&quot;:1.5,&quot;size_desktop&quot;:17,&quot;size_mobile&quot;:15,&quot;font_weight&quot;:&quot;theme&quot;}" data-block-id="description_3">
+<div class="mk-type" data-mk-text="text" data-mk-rich><p>Straight talk on pricing, clients and running a small creative business, with the occasional guest who has done it well. This week: why your busiest month made the least money.</p></div>
+</div><div class="mk-block" data-mk-block="buttons_4" data-mk-type="buttons" data-mk-block-settings="{&quot;primary_label&quot;:&quot;Listen to the show&quot;,&quot;primary_link&quot;:&quot;/theme-previews/coach-creator/pages/podcast.html&quot;,&quot;secondary_label&quot;:&quot;Watch on YouTube&quot;,&quot;secondary_link&quot;:&quot;https://www.youtube.com&quot;,&quot;enable_custom_style&quot;:false,&quot;primary_bg&quot;:null,&quot;primary_text&quot;:null,&quot;primary_border_color&quot;:null,&quot;primary_border_width&quot;:0,&quot;secondary_bg&quot;:null,&quot;secondary_text&quot;:null,&quot;secondary_border_color&quot;:null,&quot;secondary_border_width&quot;:1,&quot;btn_radius&quot;:8,&quot;primary_hover_bg&quot;:null,&quot;primary_hover_text&quot;:null,&quot;primary_hover_border&quot;:null,&quot;secondary_hover_bg&quot;:null,&quot;secondary_hover_text&quot;:null,&quot;secondary_hover_border&quot;:null,&quot;use_theme_button&quot;:true,&quot;btn_size&quot;:14,&quot;btn_pad_x&quot;:26,&quot;btn_pad_y&quot;:13,&quot;gap_top&quot;:8}" data-block-id="buttons_4">
+<div class="mk-buttons"><a class="mk-button" data-mk-role="primary" data-theme-button="primary" data-sl-button href="/theme-previews/coach-creator/pages/podcast.html"><span data-mk-label>Listen to the show</span></a><a class="mk-button" data-mk-role="secondary" data-theme-button="secondary" data-sl-button href="#" data-preview-inert><span data-mk-label>Watch on YouTube</span></a></div>
+</div></div></div><button class="mk-close" type="button" aria-label="Dismiss" data-mk-close hidden>×</button></div>
+<template data-mk-icon="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></template><template data-mk-icon="star"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"/></svg></template><template data-mk-icon="heart"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z"/></svg></template><template data-mk-icon="gift"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/></svg></template><template data-mk-icon="truck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg></template><template data-mk-icon="shield"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg></template><template data-mk-icon="shield_check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg></template><template data-mk-icon="lightning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg></template><template data-mk-icon="package"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12"/><path d="m3.3 7 7.703 4.734a2 2 0 0 0 1.994 0L20.7 7"/><path d="m7.5 4.27 9 5.15"/></svg></template><template data-mk-icon="leaf"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19.2 2.96c.4 2.5.6 5.5.5 8.5A10 10 0 0 1 11 20z"/><path d="M2 21c0-3 1.85-5.36 5.08-6"/></svg></template><template data-mk-icon="lock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></template><template data-mk-icon="award"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15.477 12.89 1.515 8.526a.5.5 0 0 1-.81.47l-3.58-2.687a1 1 0 0 0-1.197 0l-3.586 2.686a.5.5 0 0 1-.81-.469l1.514-8.526"/><circle cx="12" cy="8" r="6"/></svg></template><template data-mk-icon="clock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></template><template data-mk-icon="return"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7V3h4"/><path d="M3 7a9 9 0 0 1 14.85-2.85L21 8"/><path d="M21 17v4h-4"/><path d="M21 17a9 9 0 0 1-14.85 2.85L3 16"/></svg></template><template data-mk-icon="chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></template><template data-mk-icon="globe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></template><template data-mk-icon="credit_card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg></template><template data-mk-icon="tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/></svg></template>
+</section></div><section id="shopify-section-episodes" class="shopify-section section-text-columns" data-section-id="episodes" data-section-type="text-columns"><script src="/theme-previews/_base/a/live-r7-text.e581a8267cbb.js" defer="defer"></script>
+<style>
+  #shopify-section-episodes {
+    font-family: var(--body-font, inherit);
+    font-size: var(--body-font-size, inherit);
+    font-weight: var(--body-weight, inherit);
+    line-height: var(--body-line-height, inherit);
+    color: var(--color-text);
+  }
+  #shopify-section-episodes :is(h1, h2, h3, h4, h5, h6) {
+    font-family: var(--heading-font, inherit);
+    font-weight: var(--heading-weight, inherit);
+    letter-spacing: var(--heading-letter-spacing, normal);
+    line-height: var(--heading-line-height, 1.2);
+    text-transform: var(--heading-text-transform, none);
+  }
+  :where(html:not([data-font-priority='off'])) #shopify-section-episodes :where(.subheading, .sub-heading, [class*='__subheading']) {
+    font-weight: var(--subheading-weight, 500);
+  }
+</style><style data-rs-bulletproof>
+  #shopify-section-episodes + .shopify-section { margin-top: 0 !important; }
+</style><style>
+  #shopify-section-episodes {
+    isolation: isolate;
+    position: relative;
+    max-width: none !important;
+    width: 100% !important;
+    margin-inline: 0 !important;
+    padding-inline: 0 !important;
+    box-sizing: border-box !important;
+    margin-top: var(--r7t-mt-m, 0px) !important;
+    margin-bottom: var(--r7t-mb-m, 0px) !important;
+    --r7t-mt-m: 0px;
+    --r7t-mb-m: 0px;
+    --r7t-mt-d: 0px;
+    --r7t-mb-d: 0px;
+    --r7t-mobile-display: block;
+  }
+  @media (min-width: 768px) {
+    #shopify-section-episodes { margin-top: var(--r7t-mt-d, 0px) !important; margin-bottom: var(--r7t-mb-d, 0px) !important; }
+  }
+  @media (max-width: 767.98px) {
+    #shopify-section-episodes { display: var(--r7t-mobile-display, block) !important; }
+  }
+  #shopify-section-episodes .txc {
+    box-sizing: border-box;
+    width: 100%;
+    background: var(--r7t-bg);
+    color: var(--color-text);
+    font-family: var(--r7t-body-font);
+    padding-block: var(--r7t-pt-m) var(--r7t-pb-m);
+  }
+  #shopify-section-episodes .txc *,
+  #shopify-section-episodes .txc *::before,
+  #shopify-section-episodes .txc *::after { box-sizing: border-box; }
+  #shopify-section-episodes .txc [hidden] { display: none !important; }
+  #shopify-section-episodes .txc__inner {
+    max-width: var(--r7t-max);
+    margin-inline: auto;
+    padding-inline: 20px;
+  }
+  @media (min-width: 768px) {
+    #shopify-section-episodes .txc { padding-block: var(--r7t-pt-d) var(--r7t-pb-d); }
+    #shopify-section-episodes .txc__inner { padding-inline: var(--r7t-pad-wide); }
+  }
+
+  /* Header blocks */
+  #shopify-section-episodes .txc__header {
+    display: flex;
+    flex-direction: column;
+    align-items: var(--r7t-items, flex-start);
+    text-align: var(--r7t-align, start);
+    gap: 14px;
+    min-width: 0;
+  }
+  #shopify-section-episodes .txc__eyebrow {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.4;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: var(--subheading-weight, 500);
+    color: var(--hb-c, var(--color-text));
+  }
+  #shopify-section-episodes .txc .txc__heading {
+    margin: 0;
+    max-width: min(100%, 28em);
+    font-family: var(--hb-ff, var(--r7t-heading-font));
+    font-weight: var(--hb-fw, var(--heading-weight, 700));
+    font-size: var(--hb-fs-m, calc(var(--heading-font-scale, 1) * var(--size, 3.2rem)));
+    line-height: var(--hb-lh, var(--heading-line-height, 1.2));
+    letter-spacing: var(--hb-ls, var(--heading-letter-spacing, normal));
+    color: var(--hb-c, var(--color-heading));
+    text-wrap: balance;
+    overflow-wrap: anywhere;
+  }
+  @media (min-width: 768px) {
+    #shopify-section-episodes .txc .txc__heading { font-size: var(--hb-fs-d, calc(var(--heading-font-scale, 1) * var(--size, 3.6rem))); }
+  }
+  #shopify-section-episodes .txc__subheading {
+    max-width: 60ch;
+    font-family: var(--hb-ff, var(--r7t-body-font));
+    font-weight: var(--hb-fw, var(--body-weight, 400));
+    font-size: var(--hb-fs, var(--body-font-size, 16px));
+    line-height: var(--hb-lh, var(--body-line-height, 1.6));
+    color: var(--hb-c, var(--color-text));
+    overflow-wrap: anywhere;
+  }
+  #shopify-section-episodes .txc__subheading :is(p, li) { font-size: inherit; line-height: inherit; font-weight: inherit; color: inherit; }
+  /* Bold words keep the theme's heading colour until the block or the section has a colour of its own. */
+  #shopify-section-episodes .txc__subheading :is(strong, b) { color: var(--hb-c, var(--color-heading)); }
+  #shopify-section-episodes .txc__text :is(strong, b) { color: var(--r7t-text-ink, var(--color-heading)); }
+  #shopify-section-episodes .txc__action { max-width: 100%; margin-top: 6px; }
+
+  /* Rich text and the text link under it */
+  #shopify-section-episodes .txc__text {
+    max-width: 68ch;
+    font-size: var(--body-font-size, 16px);
+    line-height: var(--body-line-height, 1.6);
+    color: var(--r7t-text-ink, var(--color-text));
+    overflow-wrap: anywhere;
+  }
+  #shopify-section-episodes .txc__text :is(p, li) { font-size: inherit; line-height: inherit; color: inherit; }
+  #shopify-section-episodes .txc :is(.txc__text, .txc__subheading) > * { margin-block: 0; }
+  #shopify-section-episodes .txc :is(.txc__text, .txc__subheading) > * + * { margin-top: 0.75em; }
+  #shopify-section-episodes .txc :is(.txc__text, .txc__subheading) :is(ul, ol) { padding-inline-start: 1.25em; }
+  #shopify-section-episodes .txc :is(.txc__text, .txc__subheading) a { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+  #shopify-section-episodes .txc__link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    max-width: 100%;
+    font-weight: var(--subheading-weight, 500);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 5px;
+    overflow-wrap: anywhere;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #shopify-section-episodes .txc__link:not(:hover) { color: var(--r7t-link-ink, var(--color-link, var(--color-heading))); }
+  #shopify-section-episodes .txc__link[href]:hover { text-decoration-thickness: 2px; }
+  #shopify-section-episodes .txc__link[href]:active { opacity: 0.6; }
+  #shopify-section-episodes .txc__link:not([href]) { cursor: default; }
+  #shopify-section-episodes .txc a:focus-visible { outline: 2px solid var(--color-heading, currentColor); outline-offset: 3px; border-radius: 2px; }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-episodes .txc, #shopify-section-episodes .txc * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  }
+</style><style>
+  #shopify-section-episodes .txc { --txc-row-gap: 36px; --txc-gap-t: min(var(--txc-gap), 40px); --txc-gap-now: 32px; --txc-per-row: 1; --txc-card: min(80vw, 320px); }
+  #shopify-section-episodes .txc[data-dividers="true"] { --txc-row-gap: 48px; }
+  #shopify-section-episodes .txc__header { margin-bottom: calc(var(--txc-header-gap) * 0.75); }
+  #shopify-section-episodes .txc__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--txc-row-gap);
+  }
+  #shopify-section-episodes .txc__col {
+    position: relative;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: var(--r7t-items, flex-start);
+    text-align: var(--r7t-align, start);
+    gap: 10px;
+  }
+  /* The lines. ::before stands between two columns of a row. ::after lies above a row, drawn across
+     the whole row by its first column. --txc-per-row and --txc-gap-now are the row's columns and gap. */
+  #shopify-section-episodes .txc__col::before,
+  #shopify-section-episodes .txc__col::after {
+    content: '';
+    position: absolute;
+    display: none;
+    background: var(--txc-divider);
+    pointer-events: none;
+  }
+  #shopify-section-episodes .txc__col::before { top: 0; bottom: 0; inset-inline-start: calc(var(--txc-gap-now) / -2); width: 1px; }
+  #shopify-section-episodes .txc__col::after {
+    inset-inline-start: 0;
+    top: calc(var(--txc-row-gap) / -2);
+    height: 1px;
+    width: calc(100% * var(--txc-per-row) + var(--txc-gap-now) * (var(--txc-per-row) - 1));
+  }
+  #shopify-section-episodes .txc__label {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.4;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: var(--subheading-weight, 500);
+    color: var(--txc-label-ink);
+  }
+  #shopify-section-episodes .txc .txc__title {
+    margin: 0;
+    max-width: 100%;
+    font-family: var(--r7t-heading-font);
+    font-size: var(--txc-title-m);
+    color: var(--txc-title-ink);
+    text-wrap: balance;
+    overflow-wrap: anywhere;
+  }
+  #shopify-section-episodes .txc__nav { display: none; }
+  #shopify-section-episodes .txc__arrow {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 1px solid var(--txc-divider);
+    border-radius: 50%;
+    background: transparent;
+    color: var(--color-heading);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.15s ease, opacity 0.15s ease;
+  }
+  #shopify-section-episodes .txc__arrow svg { display: block; width: 18px; height: 18px; }
+  #shopify-section-episodes .txc__arrow:active:not(:disabled) { transform: scale(0.92); }
+  #shopify-section-episodes .txc__arrow:disabled { opacity: 0.35; cursor: default; }
+  #shopify-section-episodes .txc__arrow:focus-visible,
+  #shopify-section-episodes .txc__grid:focus-visible { outline: 2px solid var(--color-heading, currentColor); outline-offset: 3px; }
+  html[dir='rtl'] #shopify-section-episodes .txc__arrow svg { transform: scaleX(-1); }
+
+  @media (max-width: 767.98px) {
+    #shopify-section-episodes .txc[data-dividers="true"]:not([data-mobile="swipe"]) .txc__col + .txc__col::after { display: block; }
+    /* Swipe: one row the finger moves, each column snapping to the page's side space
+       (or to the middle of the screen when the section is centred). */
+    #shopify-section-episodes .txc[data-mobile="swipe"] .txc__grid {
+      display: flex;
+      align-items: stretch;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-x: contain;
+      scrollbar-width: none;
+      touch-action: pan-x pan-y;
+      margin: -6px -20px;
+      padding-block: 6px;
+      padding-inline: 20px 0;
+      scroll-padding-inline: 20px;
+    }
+    #shopify-section-episodes .txc[data-mobile="swipe"] .txc__grid::-webkit-scrollbar { display: none; }
+    #shopify-section-episodes .txc[data-mobile="swipe"] .txc__grid::after { content: ''; flex: 0 0 20px; }
+    #shopify-section-episodes .txc[data-mobile="swipe"] .txc__col { flex: 0 0 var(--txc-card); scroll-snap-align: start; }
+    #shopify-section-episodes .txc[data-mobile="swipe"] .txc__col + .txc__col { margin-inline-start: var(--txc-gap-now); }
+    #shopify-section-episodes .txc[data-mobile="swipe"][data-dividers="true"] .txc__col + .txc__col::before { display: block; }
+    #shopify-section-episodes .txc[data-mobile="swipe"][data-align="center"] .txc__grid { padding-inline-start: calc((100vw - var(--txc-card)) / 2); scroll-padding-inline: 0; }
+    #shopify-section-episodes .txc[data-mobile="swipe"][data-align="center"] .txc__grid::after { flex-basis: calc((100vw - var(--txc-card)) / 2); }
+    #shopify-section-episodes .txc[data-mobile="swipe"][data-align="center"] .txc__col { scroll-snap-align: center; }
+    #shopify-section-episodes .txc[data-mobile="swipe"][data-arrows="true"] .txc__nav {
+      display: flex;
+      gap: 8px;
+      justify-content: var(--r7t-items, flex-start);
+      margin-top: 20px;
+    }
+  }
+  @media (min-width: 768px) {
+    #shopify-section-episodes .txc__header { margin-bottom: var(--txc-header-gap); }
+    #shopify-section-episodes .txc .txc__title { font-size: var(--txc-title-d); }
+    #shopify-section-episodes .txc[data-dividers="true"] .txc__col::before { display: block; }
+  }
+  @media (min-width: 768px) and (max-width: 989.98px) {
+    #shopify-section-episodes .txc { --txc-gap-now: var(--txc-gap-t); --txc-per-row: var(--txc-cols-t); }
+    #shopify-section-episodes .txc__grid { grid-template-columns: repeat(var(--txc-cols-t), minmax(0, 1fr)); column-gap: var(--txc-gap-t); }
+    #shopify-section-episodes .txc[data-cols-t="1"] .txc__grid .txc__col::before,
+    #shopify-section-episodes .txc[data-cols-t="2"] .txc__grid .txc__col:nth-child(2n + 1)::before,
+    #shopify-section-episodes .txc[data-cols-t="3"] .txc__grid .txc__col:nth-child(3n + 1)::before { display: none; }
+    #shopify-section-episodes .txc[data-dividers="true"][data-cols-t="1"] .txc__col:nth-child(n + 2)::after,
+    #shopify-section-episodes .txc[data-dividers="true"][data-cols-t="2"] .txc__col:nth-child(2n + 1):nth-child(n + 3)::after,
+    #shopify-section-episodes .txc[data-dividers="true"][data-cols-t="3"] .txc__col:nth-child(3n + 1):nth-child(n + 4)::after { display: block; }
+  }
+  @media (min-width: 990px) {
+    #shopify-section-episodes .txc { --txc-gap-now: var(--txc-gap); --txc-per-row: var(--txc-cols-d); }
+    #shopify-section-episodes .txc__grid { grid-template-columns: repeat(var(--txc-cols-d), minmax(0, 1fr)); column-gap: var(--txc-gap); }
+    #shopify-section-episodes .txc[data-cols-d="2"] .txc__grid .txc__col:nth-child(2n + 1)::before,
+    #shopify-section-episodes .txc[data-cols-d="3"] .txc__grid .txc__col:nth-child(3n + 1)::before,
+    #shopify-section-episodes .txc[data-cols-d="4"] .txc__grid .txc__col:nth-child(4n + 1)::before { display: none; }
+    #shopify-section-episodes .txc[data-dividers="true"][data-cols-d="2"] .txc__col:nth-child(2n + 1):nth-child(n + 3)::after,
+    #shopify-section-episodes .txc[data-dividers="true"][data-cols-d="3"] .txc__col:nth-child(3n + 1):nth-child(n + 4)::after,
+    #shopify-section-episodes .txc[data-dividers="true"][data-cols-d="4"] .txc__col:nth-child(4n + 1):nth-child(n + 5)::after { display: block; }
+  }
+</style><div
+class="txc color-default gradient"
+data-r7t="text-columns"
+data-r7t-section="episodes"
+data-cols-d="3"
+data-cols-t="2"
+data-dividers="true"
+data-mobile="stack"
+data-align="left"
+data-arrows="true"
+style="--r7t-bg: var(--color-background); --r7t-link-ink: var(--color-link, var(--color-heading)); --txc-label-ink: var(--color-text); --txc-title-ink: var(--color-heading); --txc-divider: var(--color-border); --r7t-heading-font: var(--heading-font); --r7t-body-font: var(--body-font); --r7t-align: left; --r7t-items: flex-start; --r7t-max: calc(var(--fluid-container-width, 1500px) + 48px); --r7t-pad-wide: 24px; --txc-cols-d: 3; --txc-cols-t: 2; --txc-gap: 48px; --txc-header-gap: 48px; --txc-title-d: 22px; --txc-title-m: 20px; --r7t-pt-d: 80px; --r7t-pb-d: 80px; --r7t-pt-m: 56px; --r7t-pb-m: 56px;"
+>
+<div class="txc__inner"><div class="txc__header" data-r7t-header><h2 class="txc__heading" data-r7t-block="heading_1" data-r7t-type="heading" data-block-id="heading_1">Recent episodes</h2><div class="txc__subheading" data-r7t-block="subheading_2" data-r7t-type="subheading" data-block-id="subheading_2"><p>New every Tuesday, on video and wherever you listen.</p></div></div><div class="txc__grid" data-r7t-track><div class="txc__col" data-r7t-block="column_3" data-r7t-type="column" data-block-id="column_3">
+<p class="txc__label" data-r7t-label>Solo, 38 min</p>
+<h3 class="txc__title" data-r7t-title>Why your busiest month made the least money</h3>
+<div class="txc__text" data-r7t-text><p>How to see what a month really earned, and the one number to check before you say yes.</p></div>
+<a class="txc__link" data-r7t-link href="#" data-preview-inert>Watch</a>
+</div><div class="txc__col" data-r7t-block="column_4" data-r7t-type="column" data-block-id="column_4">
+<p class="txc__label" data-r7t-label>With a furniture maker, 44 min</p>
+<h3 class="txc__title" data-r7t-title>Raising prices without losing the clients you love</h3>
+<div class="txc__text" data-r7t-text><p>What to send, when to send it and what happened to her client list.</p></div>
+<a class="txc__link" data-r7t-link href="#" data-preview-inert>Watch</a>
+</div><div class="txc__col" data-r7t-block="column_5" data-r7t-type="column" data-block-id="column_5">
+<p class="txc__label" data-r7t-label>Solo, 29 min</p>
+<h3 class="txc__title" data-r7t-title>The one page plan I write every January</h3>
+<div class="txc__text" data-r7t-text><p>Revenue, clients, holidays and one thing to stop doing, on a single page.</p></div>
+<a class="txc__link" data-r7t-link href="#" data-preview-inert>Watch</a>
+</div><div class="txc__col" data-r7t-block="column_6" data-r7t-type="column" data-block-id="column_6">
+<p class="txc__label" data-r7t-label>With a brand designer, 33 min</p>
+<h3 class="txc__title" data-r7t-title>Saying no to the wrong project, kindly</h3>
+<div class="txc__text" data-r7t-text><p>Three emails she uses, word for word.</p></div>
+<a class="txc__link" data-r7t-link href="#" data-preview-inert>Watch</a>
+</div><div class="txc__col" data-r7t-block="column_7" data-r7t-type="column" data-block-id="column_7">
+<p class="txc__label" data-r7t-label>With a studio owner, 41 min</p>
+<h3 class="txc__title" data-r7t-title>Your first hire: freelancer, assistant or partner?</h3>
+<div class="txc__text" data-r7t-text><p>What each costs, and the signs you are ready.</p></div>
+<a class="txc__link" data-r7t-link href="#" data-preview-inert>Watch</a>
+</div><div class="txc__col" data-r7t-block="column_8" data-r7t-type="column" data-block-id="column_8">
+<p class="txc__label" data-r7t-label>Solo, 22 min</p>
+<h3 class="txc__title" data-r7t-title>What to send when a client asks for a discount</h3>
+<div class="txc__text" data-r7t-text><p>A short script, and why the answer is rarely a lower price.</p></div>
+<a class="txc__link" data-r7t-link href="#" data-preview-inert>Watch</a>
+</div></div><div class="txc__nav" data-r7t-nav>
+<button type="button" class="txc__arrow" data-r7t-prev aria-label="Previous" disabled>
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 5l-7 7 7 7"/></svg>
+</button>
+<button type="button" class="txc__arrow" data-r7t-next aria-label="Next">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 5l7 7-7 7"/></svg>
+</button>
+</div></div>
+</div></section><div id="shopify-section-guide" class="shopify-section section-r7n" data-section-id="guide" data-section-type="newsletter-split"><script src="/theme-previews/_base/a/live-r7-connect.e9b5b4145e05.js" defer="defer"></script>
+<style>
+  #shopify-section-guide {
+    font-family: var(--body-font, inherit);
+    font-size: var(--body-font-size, inherit);
+    font-weight: var(--body-weight, inherit);
+    line-height: var(--body-line-height, inherit);
+    color: var(--color-text);
+  }
+  #shopify-section-guide :is(h1, h2, h3, h4, h5, h6) {
+    font-family: var(--heading-font, inherit);
+    font-weight: var(--heading-weight, inherit);
+    letter-spacing: var(--heading-letter-spacing, normal);
+    line-height: var(--heading-line-height, 1.2);
+    text-transform: var(--heading-text-transform, none);
+  }
+  :where(html:not([data-font-priority='off'])) #shopify-section-guide :where(.subheading, .sub-heading, [class*='__subheading']) {
+    font-weight: var(--subheading-weight, 500);
+  }
+</style><style>
+  #shopify-section-guide,#shopify-section-guide>.section,#shopify-section-guide>section,#shopify-section-guide>div,#shopify-section-guide>div>.section{margin-top:0!important;margin-bottom:0!important}
+  #shopify-section-guide+.shopify-section,#shopify-section-guide+section,.shopify-section+#shopify-section-guide{margin-top:0!important}
+  #shopify-section-guide{isolation:isolate;position:relative;margin-top:0px;margin-bottom:0px}
+  @media (min-width:768px){#shopify-section-guide{margin-top:0px;margin-bottom:0px}}
+</style>
+<link href="/theme-previews/_base/a/r7-connect.07543aba5958.css" rel="stylesheet" type="text/css" media="all"><div class="r7n r7n--split color-scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976 gradient" data-r7n="newsletter-split" data-r7n-section="guide" data-r7n-width="fluid_container" data-r7n-show="all" data-r7n-align="left" data-r7n-side="left" data-r7n-ratio="portrait" data-r7n-mimg="true" data-r7n-form-layout="horizontal" style="--r7n-bg:var(--color-background);--r7n-pt-m:40px;--r7n-pb-m:40px;--r7n-pt-d:60px;--r7n-pb-d:60px;--r7n-media-w:45%;--r7n-gap:64px;--r7n-done:5s;--r7n-text:var(--color-text);">
+<div class="r7n__inner">
+<div class="r7n__split">
+<div class="r7n__media" data-r7n-media><img class="r7n__img" data-r7n-img src="/theme-previews/coach-creator/a/coachpro-guide.07d857f5ad17.webp" srcset="/theme-previews/coach-creator/a/coachpro-guide.07d857f5ad17.webp 600w, /theme-previews/coach-creator/a/coachpro-guide.07d857f5ad17.webp 900w, /theme-previews/coach-creator/a/coachpro-guide.07d857f5ad17.webp 1200w, /theme-previews/coach-creator/a/coachpro-guide.07d857f5ad17.webp 1800w" sizes="(min-width: 768px) 50vw, 100vw" width="1600" height="1600" alt="Camila reading a large plan on the floor of her studio" loading="lazy" decoding="async" style="object-position: 50.0% 50.0%"></div>
+<div class="r7n__body"><div class="r7n__header"><h2 class="r7n__heading" data-r7n-block="heading_1" data-r7n-type="heading" data-block-id="heading_1">Price your next project in twenty minutes</h2><div class="r7n__subheading" data-r7n-block="subheading_2" data-r7n-type="subheading" data-block-id="subheading_2"><p>The worksheet I use with every client: your real cost per hour, a day rate you can defend and a short script for sending the number. Free, with a ten minute video.</p></div></div><div class="r7n__signup" data-r7n-signup><form id="NewsletterSplitForm-guide" accept-charset="UTF-8" class="r7n__form" data-nl-form="" data-mt-inline-subscribe="true" data-storelib-form="subscribe" data-storelib-form="subscribe" data-preview-form><input type="hidden" name="form_type" value="customer"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="storelib_placement" value="newsletter"><input type="hidden" name="contact[tags]" value="newsletter">
+<span hidden data-mt-words data-r7n-words data-success-message="Thank you. The worksheet is on its way to your inbox." data-already-message="You&#39;re already on the list." data-invalid-message="Enter a valid email address." data-error-message="That did not go through. Check your connection and try again." data-success-ms="5000"></span>
+<div class="r7n__hp" aria-hidden="true" data-mt-trap>
+<label for="NewsletterSplitHp-guide">Leave this field empty</label>
+<input id="NewsletterSplitHp-guide" type="text" name="company" tabindex="-1" autocomplete="off" pattern="^$" maxlength="0" value="">
 </div>
-<div class="cpf__row"><label class="cpf__vh" for="CoachproOptinName-guide">First name</label>
-<input class="cpf__input" id="CoachproOptinName-guide" type="text" name="contact[first_name]" autocomplete="given-name" maxlength="80" placeholder="First name"><label class="cpf__vh" for="CoachproOptinEmail-guide">Your email</label>
-<input class="cpf__input" id="CoachproOptinEmail-guide" type="email" name="contact[email]" required inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" maxlength="254" placeholder="Your email">
-<button type="submit" class="cpf__submit">Send me the worksheet</button>
-</div></form><p class="cpf__note">No spam. Unsubscribe in one click.</p></div>
+<div class="r7n__fields">
+<label class="r7n__vh" for="NewsletterSplitEmail-guide" data-r7n-email-label>Email address</label>
+<input class="r7n__input" id="NewsletterSplitEmail-guide" type="email" name="contact[email]" required inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" maxlength="254" placeholder="Your email" aria-describedby="NewsletterSplitHint-guide" value="" data-r7n-input>
+<button type="submit" class="r7n__submit btn-primary" data-r7n-submit data-theme-button="primary" data-sl-button>
+<span class="r7n__submit-stack">
+<span class="r7n__submit-state" data-r7n-label data-inline-label>Send me the worksheet</span>
+<span class="r7n__submit-state r7n__spinner" aria-hidden="true"></span>
+<span class="r7n__submit-state r7n__submit-done" data-r7n-subscribed data-subscribed-label aria-hidden="true">Subscribed</span>
+</span>
+</button>
 </div>
-</section>
-</section><section id="shopify-section-start" class="shopify-section coachpro-start-section" data-section-id="start" data-section-type="coachpro-start"><link rel="stylesheet" href="/theme-previews/_base/a/fonts.e8dfec640840.css"><link rel="stylesheet" href="/theme-previews/coach-creator/a/i.5bd68124ddd3.css">
-<section data-own-size class="cpx">
-<div class="cpx__in">
-<div><p class="cpx__eyebrow">New here</p><h2 class="cpx__title">Not sure where to <em>start</em>?</h2><div class="cpx__text"><p>Three good first steps, depending on how much time you have this week.</p></div></div>
-<ol class="cpx__list"><li class="cpx__row" data-block-id="step_1">
-<a href="/theme-previews/coach-creator/pages/podcast.html">
-<span class="cpx__n">01</span>
-<span><span class="cpx__t">Listen to the show</span><span class="cpx__d">Start with episode #112, on the busy month that pays the least.</span></span>
-<span class="cpx__go" aria-hidden="true"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 9h11M10 4.5 14.5 9 10 13.5"/></svg></span>
-</a>
-</li><li class="cpx__row" data-block-id="step_2">
-<a href="/theme-previews/coach-creator/index.html#free-guide">
-<span class="cpx__n">02</span>
-<span><span class="cpx__t">Get the free worksheet</span><span class="cpx__d">Price your next project in twenty minutes.</span></span>
-<span class="cpx__go" aria-hidden="true"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 9h11M10 4.5 14.5 9 10 13.5"/></svg></span>
-</a>
-</li><li class="cpx__row" data-block-id="step_3">
-<a href="/theme-previews/coach-creator/pages/programmes.html">
-<span class="cpx__n">03</span>
-<span><span class="cpx__t">Work with me</span><span class="cpx__d">A group programme, a short course or private mentoring.</span></span>
-<span class="cpx__go" aria-hidden="true"><svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 9h11M10 4.5 14.5 9 10 13.5"/></svg></span>
-</a>
-</li></ol>
+<p class="r7n__msg r7n__hint" id="NewsletterSplitHint-guide" data-nl-hint data-r7n-hint>Enter a valid email address.</p>
+<div class="r7n__result" data-nl-result role="status" aria-live="polite">
+<p class="r7n__msg r7n__msg--error" data-nl-msg="error" data-r7n-msg="error">That did not go through. Check your connection and try again.</p>
+<p class="r7n__msg r7n__msg--done" data-nl-msg="done" data-r7n-msg="done">Thank you. The worksheet is on its way to your inbox.</p></div></form><div class="r7n__note" data-r7n-note>One email on Sundays after that. Unsubscribe in one click.</div>
+</div>
+</div>
+</div>
+</div>
+</div></div><section id="shopify-section-cta" class="shopify-section section section-edge-bleed" data-section-id="cta" data-section-type="banner3"><style>
+  #shopify-section-cta {
+    font-family: var(--body-font, inherit);
+    font-size: var(--body-font-size, inherit);
+    font-weight: var(--body-weight, inherit);
+    line-height: var(--body-line-height, inherit);
+    color: var(--color-text);
+  }
+  #shopify-section-cta :is(h1, h2, h3, h4, h5, h6) {
+    font-family: var(--heading-font, inherit);
+    font-weight: var(--heading-weight, inherit);
+    letter-spacing: var(--heading-letter-spacing, normal);
+    line-height: var(--heading-line-height, 1.2);
+    text-transform: var(--heading-text-transform, none);
+  }
+  :where(html:not([data-font-priority='off'])) #shopify-section-cta :where(.subheading, .sub-heading, [class*='__subheading']) {
+    font-weight: var(--subheading-weight, 500);
+  }
+</style><style>
+  #shopify-section-cta {
+    --rm3-mt-m: 0px;
+    --rm3-mb-m: 0px;
+    --rm3-mt-d: 0px;
+    --rm3-mb-d: 0px;
+    isolation: isolate;
+    position: relative;
+    font-weight: var(--body-weight, inherit);
+    font-family: var(--body-font, var(--theme-font-body, inherit));
+    margin-top: var(--rm3-mt-m) !important;
+    margin-bottom: var(--rm3-mb-m) !important;
+  }
+  @media (min-width: 750px) {
+    #shopify-section-cta {
+      margin-top: var(--rm3-mt-d) !important;
+      margin-bottom: var(--rm3-mb-d) !important;
+    }
+  }
+  #shopify-section-cta:has(#rm3-cta[data-reset-spacing]) > :is(.section, section, div) { margin-top: 0 !important; margin-bottom: 0 !important; }
+  @media (max-width: 749px) { #shopify-section-cta:has(#rm3-cta[data-hide-mobile]) { display: none !important; } }
+  @media (min-width: 750px) { #shopify-section-cta:has(#rm3-cta[data-hide-desktop]) { display: none !important; } }
+  :where(#shopify-section-cta) :where(button, input, textarea, select, optgroup) { font-family: inherit; }
+</style>
+<!-- ti-theme:start -->
+<section
+class="rm3 color-scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9 gradient"
+id="rm3-cta"
+data-section-id="cta"
+data-hg="banner3"
+data-hg-section="cta"
+data-reset-spacing
+style="--rm-heading-c: var(--color-heading, currentColor); --rm-text-c: var(--color-text, currentColor); --rm3-bg: var(--color-background, transparent); --rm3-pt-m: 40px; --rm3-pb-m: 40px; --rm3-pt-d: 60px; --rm3-pb-d: 60px;"
+>
+<link rel="stylesheet" href="/theme-previews/coach-creator/a/i.72db6a41194b.css">
+<div class="rm3__container rm3__container--stretch_width">
+<div
+class="rm-hero"
+id="rm-hero-cta"
+data-reveal="fade_up"
+style="--rm-bg: var(--color-background, transparent); --rm-gradient: none; --rm-overlay: #000000; --rm-overlay-opacity: 0; --rm-content-max: 700px; --rm-align: center; --rm-flex: center; --rm-align-m: center; --rm-flex-m: center; --rm-gap: 18px; --rm-pt: 96px; --rm-pb: 96px; --rm-pt-m: 50px; --rm-pb-m: 56px; --rm-section-pad-left: 20px; --rm-section-pad-right: 20px; --rm-section-pad-left-m: 20px; --rm-section-pad-right-m: 20px; --rm-section-radius: 0px; --rm-border-w: 0px; --rm-border-c: var(--color-border, rgba(0,0,0,0.12)); --rm-shadow: none; --rm-sub-btn-gap: 30px; --rm-inner-pad: 16px; --rm-reveal-range: 60%;"
+>
+<div class="rm-hero__inner">
+<p class="rm-hero__eyebrow" data-promo-block="eyebrow_1" data-hg-block="eyebrow_1" data-hg-type="eyebrow" data-block-id="eyebrow_1">Work with me</p>
+<h2 class="rm-hero__heading" data-promo-block="heading_2" data-hg-block="heading_2" data-hg-type="heading" style="" data-block-id="heading_2">Not sure where to start?</h2>
+<p class="rm-hero__sub" data-promo-block="subheading_3" data-hg-block="subheading_3" data-hg-type="subheading" style="" data-block-id="subheading_3">Listen to an episode, take the free worksheet, or apply for the next round of Studio Foundations.</p>
+<a class="rm-hero__btn" data-promo-block="button_4" data-hg-block="button_4" data-hg-type="button" data-theme-button="primary" data-sl-button data-button-role="primary" href="/theme-previews/coach-creator/pages/programmes.html" data-block-id="button_4">See the programmes</a>
+</div>
+</div>
 </div>
 </section>
 </section>
@@ -851,7 +1220,7 @@ style="--font-size: 24"
 <div class="footer-block collapsible-content mb-12 mb-md-0">
 <ul class="list-unstyled"><li class="pb-8">
 <a
-href="/theme-previews/coach-creator/index.html#free-guide"
+href="/theme-previews/coach-creator/pages/worksheet.html"
 aria-label="Free worksheet"
 class="no-underline word-break reversed-links relative"
 >
@@ -893,20 +1262,20 @@ Your basket
 <div class="footer_bottom-inner justify-center justify-md-end flex flex-wrap flex-md-nowrap align-center border-top gap-20 gap-xl-30 py-30"><div class="flex flex-wrap gap-10 gap-xl-30 justify-center justify-md-start">
 <div class="footer__copyright" data-ft-copyright>© 2026 Camila Duarte. All rights reserved.</div>
 <ul class="footer__policies list-unstyled flex flex-wrap" data-ft-policies><li><a href="/theme-previews/coach-creator/policies/refund-policy.html">Refund policy</a></li><li><a href="/theme-previews/coach-creator/policies/privacy-policy.html">Privacy policy</a></li><li><a href="/theme-previews/coach-creator/policies/terms-of-service.html">Terms of service</a></li></ul><div class="footer__powered" data-ft-powered><a href="#" data-preview-inert data-storelib-badge="" style="display:inline-flex;align-items:center;gap:.45em;white-space:nowrap;vertical-align:middle"><svg data-storelib-badge-mark="" aria-hidden="true" focusable="false" viewBox="0 0 200 200" width="14" height="14" style="display:block;flex:none;width:1.2em;height:1.2em;overflow:visible"><mask id="sl-pb-s" maskUnits="userSpaceOnUse" x="0" y="0" width="200" height="200"><rect width="200" height="200" fill="#fff"/><path transform="translate(48.97 38.44) scale(1.08) translate(-54 -43) translate(134.125,52.875)" d="M0 0 C0.99749268 0.36665771 0.99749268 0.36665771 2.01513672 0.74072266 C6.62777473 2.59663113 6.62777473 2.59663113 7.68823242 4.86303711 C7.94652165 7.99120666 7.02705902 10.04467511 5.85546875 12.94921875 C5.41009766 14.05974609 4.96472656 15.17027344 4.50585938 16.31445312 C4.02955078 17.46880859 3.55324219 18.62316406 3.0625 19.8125 C2.59779297 20.97845703 2.13308594 22.14441406 1.65429688 23.34570312 C-1.85471661 31.98985831 -1.85471661 31.98985831 -4.125 33.125 C-6.02961204 32.43054915 -7.90085447 31.64344514 -9.75 30.8125 C-19.66422998 26.58368153 -27.26609106 25.85047702 -38.125 26.125 C-38.455 27.115 -38.785 28.105 -39.125 29.125 C-38.14402344 29.36734375 -37.16304687 29.6096875 -36.15234375 29.859375 C-33.31305776 30.56236873 -30.47635159 31.27497918 -27.640625 31.9921875 C-24.80213536 32.70970135 -21.95989766 33.40235421 -19.109375 34.0703125 C-6.69949938 37.1089446 3.02755655 40.84926977 9.875 52.125 C13.29151905 58.95803811 12.61307566 67.23479967 10.625 74.4375 C7.53029491 83.45189328 1.37513276 90.18616729 -7.02734375 94.67578125 C-26.20884362 103.04454374 -49.04415352 101.90170642 -68.5 94.625 C-72.25964144 93.07749587 -75.67848864 91.2806362 -79.125 89.125 C-78.55593823 84.90468545 -77.56543969 81.39586411 -75.83984375 77.5078125 C-75.39189453 76.48945313 -74.94394531 75.47109375 -74.48242188 74.421875 C-73.77956055 72.85179688 -73.77956055 72.85179688 -73.0625 71.25 C-72.59005859 70.18007812 -72.11761719 69.11015625 -71.63085938 68.0078125 C-70.46832699 65.3774362 -69.29955398 62.75002483 -68.125 60.125 C-63.80181734 61.13483216 -60.07150265 62.96083682 -56.07421875 64.87109375 C-49.32009515 67.74271451 -43.48344492 68.41757298 -36.25 68.3125 C-35.38375 68.31185547 -34.5175 68.31121094 -33.625 68.31054688 C-29.55080641 68.64235092 -29.55080641 68.64235092 -26.125 67.125 C-32.43853708 64.84703882 -38.66045093 62.93279428 -45.25 61.625 C-56.73505022 59.25968679 -67.31315991 55.21661495 -74.125 45.125 C-77.1608836 40.09281577 -77.67121961 36.10082917 -77.625 30.375 C-77.62072998 29.57876221 -77.61645996 28.78252441 -77.61206055 27.9621582 C-77.37730644 19.82208022 -74.95520496 14.3797357 -69.625 8.25 C-68.8 7.54875 -67.975 6.8475 -67.125 6.125 C-66.403125 5.465 -65.68125 4.805 -64.9375 4.125 C-46.69751714 -8.84565448 -20.22397968 -7.61423584 0 0 Z" fill="#000"/></mask><rect width="200" height="200" rx="48" fill="currentColor" mask="url(#sl-pb-s)"/></svg><span>Powered by Storelib</span></a></div></div>
-<div class="footer__payment flex grow-1 align-center max-w-100" style="justify-content: flex-end; margin-left: auto;" data-ft-type="payment_badges">
-<ul class="footer__payment-badges"><li class="payment-badge"><svg class="icon icon--full-color" viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Visa">
+<div class="footer__payment flex grow-1 align-center max-w-100" style="justify-content: flex-end; --pb-width: 100%; margin-left: auto;" data-ft-block="payment_badges_1" data-ft-type="payment_badges" data-block-id="payment_badges_1">
+<ul class="footer__payment-badges"><li class="payment-badge" aria-label="Visa"><svg class="icon icon--full-color" viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Visa">
 <title>Visa</title>
 <path opacity=".07" d="M35 0H3C1.3 0 0 1.3 0 3v18c0 1.7 1.4 3 3 3h32c1.7 0 3-1.3 3-3V3c0-1.7-1.4-3-3-3z"></path>
 <path fill="#fff" d="M35 1c1.1 0 2 .9 2 2v18c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V3c0-1.1.9-2 2-2h32"></path>
 <path d="M28.3 10.1H28c-.4 1-.7 1.5-1 3h1.9c-.3-1.5-.3-2.2-.6-3zm2.9 5.9h-1.7c-.1 0-.1 0-.2-.1l-.2-.9-.1-.2h-2.4c-.1 0-.2 0-.2.2l-.3.9c0 .1-.1.1-.1.1h-2.1l.2-.5L27 8.7c0-.5.3-.7.8-.7h1.5c.1 0 .2 0 .2.2l1.4 6.5c.1.4.2.7.2 1.1.1.1.1.1.1.2zm-13.4-.3l.4-1.8c.1 0 .2.1.2.1.7.3 1.4.5 2.1.4.2 0 .5-.1.7-.2.5-.2.5-.7.1-1.1-.2-.2-.5-.3-.8-.5-.4-.2-.8-.4-1.1-.7-1.2-1-.8-2.4-.1-3.1.6-.4.9-.8 1.7-.8 1.2 0 2.5 0 3.1.2h.1c-.1.6-.2 1.1-.4 1.7-.5-.2-1-.4-1.5-.4-.3 0-.6 0-.9.1-.2 0-.3.1-.4.2-.2.2-.2.5 0 .7l.5.4c.4.2.8.4 1.1.6.5.3 1 .8 1.1 1.4.2.9-.1 1.7-.9 2.3-.5.4-.7.6-1.4.6-1.4 0-2.5.1-3.4-.2-.1.2-.1.2-.2.1zm-3.5.3c.1-.7.1-.7.2-1 .5-2.2 1-4.5 1.4-6.7.1-.2.1-.3.3-.3H18c-.2 1.2-.4 2.1-.7 3.2-.3 1.5-.6 3-1 4.5 0 .2-.1.2-.3.2M5 8.2c0-.1.2-.2.3-.2h3.4c.5 0 .9.3 1 .8l.9 4.4c0 .1 0 .1.1.2 0-.1.1-.1.1-.1l2.1-5.1c-.1-.1 0-.2.1-.2h2.1c0 .1 0 .1-.1.2l-3.1 7.3c-.1.2-.1.3-.2.4-.1.1-.3 0-.5 0H9.7c-.1 0-.2 0-.2-.2L7.9 9.5c-.2-.2-.5-.5-.9-.6-.6-.3-1.7-.5-1.9-.5L5 8.2z" fill="#142688"></path>
-</svg></li><li class="payment-badge"><svg class="icon icon--full-color" viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Mastercard">
+</svg></li><li class="payment-badge" aria-label="Mastercard"><svg class="icon icon--full-color" viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Mastercard">
 <title>Mastercard</title>
 <path opacity=".07" d="M35 0H3C1.3 0 0 1.3 0 3v18c0 1.7 1.4 3 3 3h32c1.7 0 3-1.3 3-3V3c0-1.7-1.4-3-3-3z"></path>
 <path fill="#fff" d="M35 1c1.1 0 2 .9 2 2v18c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V3c0-1.1.9-2 2-2h32"></path>
 <circle fill="#EB001B" cx="15" cy="12" r="7"></circle>
 <circle fill="#F79E1B" cx="23" cy="12" r="7"></circle>
 <path fill="#FF5F00" d="M22 12c0-2.4-1.2-4.5-3-5.7-1.8 1.3-3 3.4-3 5.7s1.2 4.5 3 5.7c1.8-1.2 3-3.3 3-5.7z"></path>
-</svg></li><li class="payment-badge"><svg class="icon icon--full-color" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="American Express" viewBox="0 0 38 24">
+</svg></li><li class="payment-badge" aria-label="American Express"><svg class="icon icon--full-color" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="American Express" viewBox="0 0 38 24">
 <title>American Express</title>
 <path fill="#000" d="M35 0H3C1.3 0 0 1.3 0 3v18c0 1.7 1.4 3 3 3h32c1.7 0 3-1.3 3-3V3c0-1.7-1.4-3-3-3Z" opacity=".07"></path>
 <path fill="#006FCF" d="M35 1c1.1 0 2 .9 2 2v18c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V3c0-1.1.9-2 2-2h32Z"></path>
@@ -916,7 +1285,7 @@ Your basket
 <path fill="#FFF" d="M22.71 4.04h3.614l1.269 2.881V4.04h4.46l.77 2.159.771-2.159H37v8.421H19l3.71-8.421Z"></path>
 <path fill="#006FCF" d="m23.395 4.955-2.916 6.566h2l.55-1.315h2.98l.55 1.315h2.05l-2.904-6.566h-2.31Zm.25 3.777.875-2.09.873 2.09h-1.748Z"></path>
 <path fill="#006FCF" d="M28.581 11.52V4.953l2.811.01L32.84 9l1.456-4.046H37v6.565l-1.74.016v-4.51l-1.644 4.494h-1.59L30.35 7.01v4.51h-1.768Z"></path>
-</svg></li><li class="payment-badge"><svg
+</svg></li><li class="payment-badge" aria-label="Apple Pay"><svg
 class="icon icon--full-color"
 version="1.1"
 xmlns="http://www.w3.org/2000/svg"
@@ -938,7 +1307,7 @@ viewBox="0 0 165.521 105.965">
 <path fill="#000" d="M120.975 79.652v-4.496c.364.051 1.247.103 1.715.103 2.573 0 4.029-1.09 4.913-3.899l.52-1.663-9.852-27.293h6.082l6.863 22.146h.13l6.862-22.146h5.927l-10.216 28.67c-2.34 6.577-5.017 8.735-10.683 8.735-.442 0-1.872-.052-2.261-.157z"></path>
 </g>
 </g>
-</svg></li><li class="payment-badge"><svg class="icon icon--full-color" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Google Pay" viewBox="0 0 38 24">
+</svg></li><li class="payment-badge" aria-label="Google Pay"><svg class="icon icon--full-color" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Google Pay" viewBox="0 0 38 24">
 <title>Google Pay</title>
 <path d="M35 0H3C1.3 0 0 1.3 0 3v18c0 1.7 1.4 3 3 3h32c1.7 0 3-1.3 3-3V3c0-1.7-1.4-3-3-3z" fill="#000" opacity=".07"></path>
 <path d="M35 1c1.1 0 2 .9 2 2v18c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V3c0-1.1.9-2 2-2h32" fill="#FFF"></path>
@@ -995,11 +1364,11 @@ aria-modal="true"
 aria-label="Search"
 data-search-mode="popup"
 class="search-overlay search-overlay--popup search__type-popup search__popup-anim--fade color-default"
-style="--color-background: #fbf8f4;          --color-text: #4a4038;          --color-heading: #16120f;          --color-primary: #16120f;          --color-border: #e8dfd4;          --gradient-background: #fbf8f4;          background-color: #fbf8f4;          color: #4a4038;"
+style="--color-background: #ffffff;          --color-text: #4d4844;          --color-heading: #1f1c1a;          --color-primary: #a8482a;          --color-border: #e7e4e1;          --gradient-background: #ffffff;          background-color: #ffffff;          color: #4d4844;"
 ><div
 class="search__type-popup search__popup-anim--fade color-default h-full overflow-auto px-15 custom-scrollbar"
 data-search-popup-anim="fade"
-style="--color-background: #fbf8f4;    --color-text: #4a4038;    --color-heading: #16120f;    --color-primary: #16120f;    --color-border: #e8dfd4;    --gradient-background: #fbf8f4;    background-color: #fbf8f4;    color: #4a4038;"
+style="--color-background: #ffffff;    --color-text: #4d4844;    --color-heading: #1f1c1a;    --color-primary: #a8482a;    --color-border: #e7e4e1;    --gradient-background: #ffffff;    background-color: #ffffff;    color: #4d4844;"
 >
 <div class="fluid_container">
 <h3 class="search-title search-title--animated text-center h4 m-0 hidden block-sm" aria-label="Search"><span class="search-title__char" style="--char-i: 0;" aria-hidden="true">S</span><span class="search-title__char" style="--char-i: 1;" aria-hidden="true">e</span><span class="search-title__char" style="--char-i: 2;" aria-hidden="true">a</span><span class="search-title__char" style="--char-i: 3;" aria-hidden="true">r</span><span class="search-title__char" style="--char-i: 4;" aria-hidden="true">c</span><span class="search-title__char" style="--char-i: 5;" aria-hidden="true">h</span></h3>
@@ -1130,13 +1499,13 @@ style=" ;--col-number: 1;--col-tablet: 1;--col-desktop-small:3;--col-desktop: 5;
     --materia-cart-control: 40px;
     --materia-cart-recommend-gap: 12px;
   }
-</style><link href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" rel="stylesheet" type="text/css" media="all"><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/coach-creator/a/i.e4e3db889642.css" data-cart-drawer-style="paint">
+</style><link href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" rel="stylesheet" type="text/css" media="all"><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/coach-creator/a/i.a1004ee14b5b.css" data-cart-drawer-style="paint">
 <cart-notification data-cart-drawer-version="20261021-2"
 data-show-quantity="true"
 data-show-shipping-estimator="false"
 data-show-free-shipping="false"
-id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #fbf8f4;    --color-text: #4a4038;    --color-heading: #16120f;    --color-primary: #16120f;    --color-border: #e8dfd4;    --gradient-background: #fbf8f4;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #16120f;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #c2421f;    --btn-secondary-color: #16120f;    --btn-secondary-bg-color: #fbf8f4;    --btn-secondary-border-color: #16120f;    --btn-secondary-hover-color: #fbf8f4;    --btn-secondary-hover-bg-color: #16120f;    --btn-outline-color: #16120f;    --btn-outline-border-color: #16120f;    background-color: #fbf8f4 !important;    color: #4a4038 !important;">
-<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #fbf8f4;    --color-text: #4a4038;    --color-heading: #16120f;    --color-primary: #16120f;    --color-border: #e8dfd4;    --gradient-background: #fbf8f4;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #16120f;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #c2421f;    --btn-secondary-color: #16120f;    --btn-secondary-bg-color: #fbf8f4;    --btn-secondary-border-color: #16120f;    --btn-secondary-hover-color: #fbf8f4;    --btn-secondary-hover-bg-color: #16120f;    --btn-outline-color: #16120f;    --btn-outline-border-color: #16120f;    background-color: #fbf8f4 !important;    color: #4a4038 !important;">
+id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #4d4844;    --color-heading: #1f1c1a;    --color-primary: #a8482a;    --color-border: #e7e4e1;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #1f1c1a;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #a8482a;    --btn-secondary-color: #1f1c1a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cdc8c3;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #1f1c1a;    --btn-outline-color: #1f1c1a;    --btn-outline-border-color: #cdc8c3;    background-color: #ffffff !important;    color: #4d4844 !important;">
+<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #4d4844;    --color-heading: #1f1c1a;    --color-primary: #a8482a;    --color-border: #e7e4e1;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #1f1c1a;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #a8482a;    --btn-secondary-color: #1f1c1a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cdc8c3;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #1f1c1a;    --btn-outline-color: #1f1c1a;    --btn-outline-border-color: #cdc8c3;    background-color: #ffffff !important;    color: #4d4844 !important;">
 <button type="button" class="cart-drawer-sheet-scrim" aria-label="Cancel"></button>
 <div class="minicart__header flex gap-10 align-center justify-between px-30 py-18 color-default">
 <div class="h5 minicart-heading my-0">
@@ -1272,13 +1641,13 @@ Skip to content
     --materia-cart-control: 40px;
     --materia-cart-recommend-gap: 12px;
   }
-</style><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/coach-creator/a/i.e4e3db889642.css" data-cart-drawer-style="paint">
+</style><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/coach-creator/a/i.a1004ee14b5b.css" data-cart-drawer-style="paint">
 <cart-notification data-cart-drawer-version="20261021-2"
 data-show-quantity="true"
 data-show-shipping-estimator="false"
 data-show-free-shipping="false"
-id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #fbf8f4;    --color-text: #4a4038;    --color-heading: #16120f;    --color-primary: #16120f;    --color-border: #e8dfd4;    --gradient-background: #fbf8f4;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #16120f;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #c2421f;    --btn-secondary-color: #16120f;    --btn-secondary-bg-color: #fbf8f4;    --btn-secondary-border-color: #16120f;    --btn-secondary-hover-color: #fbf8f4;    --btn-secondary-hover-bg-color: #16120f;    --btn-outline-color: #16120f;    --btn-outline-border-color: #16120f;    background-color: #fbf8f4 !important;    color: #4a4038 !important;">
-<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #fbf8f4;    --color-text: #4a4038;    --color-heading: #16120f;    --color-primary: #16120f;    --color-border: #e8dfd4;    --gradient-background: #fbf8f4;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #16120f;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #c2421f;    --btn-secondary-color: #16120f;    --btn-secondary-bg-color: #fbf8f4;    --btn-secondary-border-color: #16120f;    --btn-secondary-hover-color: #fbf8f4;    --btn-secondary-hover-bg-color: #16120f;    --btn-outline-color: #16120f;    --btn-outline-border-color: #16120f;    background-color: #fbf8f4 !important;    color: #4a4038 !important;">
+id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #4d4844;    --color-heading: #1f1c1a;    --color-primary: #a8482a;    --color-border: #e7e4e1;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #1f1c1a;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #a8482a;    --btn-secondary-color: #1f1c1a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cdc8c3;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #1f1c1a;    --btn-outline-color: #1f1c1a;    --btn-outline-border-color: #cdc8c3;    background-color: #ffffff !important;    color: #4d4844 !important;">
+<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #4d4844;    --color-heading: #1f1c1a;    --color-primary: #a8482a;    --color-border: #e7e4e1;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #1f1c1a;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #a8482a;    --btn-secondary-color: #1f1c1a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cdc8c3;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #1f1c1a;    --btn-outline-color: #1f1c1a;    --btn-outline-border-color: #cdc8c3;    background-color: #ffffff !important;    color: #4d4844 !important;">
 <button type="button" class="cart-drawer-sheet-scrim" aria-label="Cancel"></button>
 <div class="minicart__header flex gap-10 align-center justify-between px-30 py-18 color-default">
 <div class="h5 minicart-heading my-0">

@@ -145,11 +145,11 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
     document.addEventListener('DOMContentLoaded',function(){setTimeout(go,4000)},{once:true})}
     ['pointerdown','click','keydown','scroll','touchstart'].forEach(function(n){addEventListener(n,go,{once:true,passive:true,capture:true})})})(["/theme-previews/_base/a/popup.18cdf2513c31.css","/theme-previews/_base/a/tingle-min.ed947d9dd1c7.css"]);</script><link rel="stylesheet" href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" media="print" onload="this.media='all'">
 <noscript><link href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" rel="stylesheet" type="text/css" media="all"></noscript>
-<link rel="stylesheet" href="/theme-previews/_base/a/fonts.63409238a72d.css" data-materia-fonts>
-<style data-materia-font-fallbacks>@font-face{font-family:"Geist Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:105.3%;ascent-override:95.5%;descent-override:28%;line-gap-override:0%}@font-face{font-family:"Geist Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:105.3%;ascent-override:95.5%;descent-override:28%;line-gap-override:0%}@font-face{font-family:"Inter Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:107.9%;ascent-override:89.8%;descent-override:22.3%;line-gap-override:0%}@font-face{font-family:"Inter Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:107.9%;ascent-override:89.8%;descent-override:22.3%;line-gap-override:0%}</style><style data-shopify>
+<link rel="stylesheet" href="/theme-previews/_base/a/fonts.0abe1fc5c1cd.css" data-materia-fonts>
+<style data-materia-font-fallbacks>@font-face{font-family:"Work Sans Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:112.5%;ascent-override:82.7%;descent-override:21.6%;line-gap-override:0%}@font-face{font-family:"Work Sans Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:112.5%;ascent-override:82.7%;descent-override:21.6%;line-gap-override:0%}</style><style data-shopify>
   :root {
-    --body-font: "Geist", "Geist Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    --heading-font: "Inter", "Inter Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --body-font: "Work Sans", "Work Sans Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --heading-font: "Work Sans", "Work Sans Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     --menu-font: var(--body-font);
     --btn-font: var(--body-font);
   }
@@ -501,7 +501,7 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
 </header-inner>
 </div>
 </div></header>
-<link href="/theme-previews/_base/a/header-sticky.b824661f5721.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/header-sticky.fdbbc022cbc0.css" rel="stylesheet" type="text/css" media="all">
 <script src="/theme-previews/templates-shop/a/i.7cb61de4030e.js"></script><script src="/theme-previews/_base/a/header-sticky-extras.78e1fb4f310f.js" defer="defer"></script></div><script src="/theme-previews/templates-shop/a/i.0d9f91566ff2.js"></script>
 <main id="MainContent" class="content-for-layout focus-none" role="main" tabindex="-1"><section id="shopify-section-hero" class="shopify-section section sec__workspace-hero" data-section-id="hero" data-section-type="workspace-hero"><style>
   #shopify-section-hero .wsh { padding: 44px 16px 32px; background: #fbfbfa; }
@@ -514,7 +514,9 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
   #shopify-section-hero .wsh__by i { font-style: normal; color: #5b5a55; }
   #shopify-section-hero .wsh__h { margin: 0; color: #1f1f1d; font-family: var(--heading-font, inherit); font-weight: 700; letter-spacing: -0.03em; line-height: 1.04; font-size: 38px; text-wrap: balance; }
   @media (min-width: 750px) { #shopify-section-hero .wsh__h { font-size: 66px; } }
-  #shopify-section-hero .wsh__h mark { background: linear-gradient(transparent 62%, #ffd84a 62%, #ffd84a 92%, transparent 92%); color: inherit; padding: 0 2px; }
+  /* A marked word gets a hand drawn underline in the accent colour: two loose pen strokes, drawn as a mask so the colour stays editable. */
+  #shopify-section-hero .wsh__h mark { position: relative; display: inline-block; background: none; color: inherit; padding: 0 .04em; white-space: nowrap; isolation: isolate; }
+  #shopify-section-hero .wsh__h mark::after { content: ""; position: absolute; z-index: -1; left: -.06em; right: -.06em; bottom: -.18em; height: .4em; background: #ffd84a; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 24' preserveAspectRatio='none'%3E%3Cpath d='M4 15.5C38 10 92 6.5 150 7.5c30 .5 58 2.4 84 5.2M26 19.8c44-4.6 104-6 182-2.6' fill='none' stroke='%23000' stroke-width='6.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center / 100% 100%; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 24' preserveAspectRatio='none'%3E%3Cpath d='M4 15.5C38 10 92 6.5 150 7.5c30 .5 58 2.4 84 5.2M26 19.8c44-4.6 104-6 182-2.6' fill='none' stroke='%23000' stroke-width='6.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center / 100% 100%; pointer-events: none; }
   #shopify-section-hero .wsh__t { max-width: 600px; margin: 20px auto 0; color: #5b5a55; font-size: 17px; line-height: 1.6; }
   #shopify-section-hero .wsh__t p { margin: 0; }
   #shopify-section-hero .wsh__btns { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 30px; }
@@ -759,6 +761,9 @@ alt="Know who still owes you" loading="lazy" decoding="async"></div>
   #shopify-section-tour .wst__eyebrow { margin: 0 0 12px; color: #5b5a55; font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
   #shopify-section-tour .wst__h { margin: 0; color: #1f1f1d; font-family: var(--heading-font, inherit); font-weight: 700; letter-spacing: -0.025em; line-height: 1.1; font-size: 30px; text-wrap: balance; }
   @media (min-width: 750px) { #shopify-section-tour .wst__h { font-size: 40px; } }
+  /* Marked words: the same hand drawn underline as the opening section. */
+  #shopify-section-tour .wst__h mark { position: relative; display: inline-block; background: none; color: inherit; padding: 0 .04em; white-space: nowrap; isolation: isolate; }
+  #shopify-section-tour .wst__h mark::after { content: ""; position: absolute; z-index: -1; left: -.06em; right: -.06em; bottom: -.18em; height: .4em; background: #ffd84a; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 24' preserveAspectRatio='none'%3E%3Cpath d='M4 15.5C38 10 92 6.5 150 7.5c30 .5 58 2.4 84 5.2M26 19.8c44-4.6 104-6 182-2.6' fill='none' stroke='%23000' stroke-width='6.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center / 100% 100%; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 24' preserveAspectRatio='none'%3E%3Cpath d='M4 15.5C38 10 92 6.5 150 7.5c30 .5 58 2.4 84 5.2M26 19.8c44-4.6 104-6 182-2.6' fill='none' stroke='%23000' stroke-width='6.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center / 100% 100%; pointer-events: none; }
   #shopify-section-tour .wst__tabs { display: flex; gap: 6px; justify-content: center; margin: 0 auto 28px; padding: 4px; width: max-content; max-width: 100%; border-radius: 12px; background: #f0efea; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity; }
   #shopify-section-tour .wst__tabs::-webkit-scrollbar { display: none; }
   @media (max-width: 749px) { #shopify-section-tour .wst__tabs { justify-content: flex-start; width: auto; margin-left: -16px; margin-right: -16px; border-radius: 0; padding: 4px 16px; background: transparent; } }
@@ -784,7 +789,7 @@ alt="Know who still owes you" loading="lazy" decoding="async"></div>
   @media (prefers-reduced-motion: reduce) { #shopify-section-tour .wst__panel, #shopify-section-tour .wst__tab { transition: none; } }
 </style>
 <div class="wst color-default" data-wst>
-<div class="wst__inner"><div class="wst__head"><p class="wst__eyebrow">Look inside</p><h2 class="wst__h">See every template before you buy</h2></div><div class="wst__tabs" role="tablist" aria-label="See every template before you buy"><button class="wst__tab" type="button" role="tab" id="wst-tour-t1" aria-controls="wst-tour-p1" aria-selected="true" tabindex="0" data-block-id="tab_1">Freelance desk</button><button class="wst__tab" type="button" role="tab" id="wst-tour-t2" aria-controls="wst-tour-p2" aria-selected="false" tabindex="-1" data-block-id="tab_2">Meal planner</button><button class="wst__tab" type="button" role="tab" id="wst-tour-t3" aria-controls="wst-tour-p3" aria-selected="false" tabindex="-1" data-block-id="tab_3">Reading log</button><button class="wst__tab" type="button" role="tab" id="wst-tour-t4" aria-controls="wst-tour-p4" aria-selected="false" tabindex="-1" data-block-id="tab_4">Home budget</button><button class="wst__tab" type="button" role="tab" id="wst-tour-t5" aria-controls="wst-tour-p5" aria-selected="false" tabindex="-1" data-block-id="tab_5">Habit tracker</button><button class="wst__tab" type="button" role="tab" id="wst-tour-t6" aria-controls="wst-tour-p6" aria-selected="false" tabindex="-1" data-block-id="tab_6">Study planner</button></div>
+<div class="wst__inner"><div class="wst__head"><p class="wst__eyebrow">Look inside</p><h2 class="wst__h">See every template <mark>before you buy</mark></h2></div><div class="wst__tabs" role="tablist" aria-label="See every template before you buy"><button class="wst__tab" type="button" role="tab" id="wst-tour-t1" aria-controls="wst-tour-p1" aria-selected="true" tabindex="0" data-block-id="tab_1">Freelance desk</button><button class="wst__tab" type="button" role="tab" id="wst-tour-t2" aria-controls="wst-tour-p2" aria-selected="false" tabindex="-1" data-block-id="tab_2">Meal planner</button><button class="wst__tab" type="button" role="tab" id="wst-tour-t3" aria-controls="wst-tour-p3" aria-selected="false" tabindex="-1" data-block-id="tab_3">Reading log</button><button class="wst__tab" type="button" role="tab" id="wst-tour-t4" aria-controls="wst-tour-p4" aria-selected="false" tabindex="-1" data-block-id="tab_4">Home budget</button><button class="wst__tab" type="button" role="tab" id="wst-tour-t5" aria-controls="wst-tour-p5" aria-selected="false" tabindex="-1" data-block-id="tab_5">Habit tracker</button><button class="wst__tab" type="button" role="tab" id="wst-tour-t6" aria-controls="wst-tour-p6" aria-selected="false" tabindex="-1" data-block-id="tab_6">Study planner</button></div>
 <div class="wst__stage"><div class="wst__panel is-on" role="tabpanel" id="wst-tour-p1" aria-labelledby="wst-tour-t1">
 <figure class="wst__pic"><img src="/theme-previews/templates-shop/a/workspace-tour-freelance-desk.a0e4f889decc.webp" srcset="/theme-previews/templates-shop/a/workspace-tour-freelance-desk.a0e4f889decc.webp 600w, /theme-previews/templates-shop/a/workspace-tour-freelance-desk.a0e4f889decc.webp 1100w" sizes="(min-width: 990px) 680px, 94vw" width="1600" height="1600" alt="The Freelance desk template in Notion" loading="lazy" decoding="async"></figure>
 <div><h3 class="wst__title">Freelance desk</h3><div class="wst__text"><p>Clients, projects, invoices and hours, linked to each other. A board for the week and a list of who still owes you.</p></div><ul class="wst__list"><li><span>Price</span><b>$29</b></li><li><span>Pages</span><b>6 linked databases</b></li><li><span>Best for</span><b>freelancers and studios of one</b></li></ul><a class="wst__link" href="/theme-previews/templates-shop/collections/all.html">See all templates <span aria-hidden="true">&rarr;</span></a></div>
@@ -991,7 +996,7 @@ style="--section-pt: 96;--section-pb: 96;--pl-cols: 3;--pl-cols-mb: 2;--pl-col-g
 <div class="pb-inner fluid_container" data-pb-width>
 <div class="pl-header" data-pb-header>
 <div class="pl-header__row">
-<div class="pl-header__text"><p class="pb-eyebrow " data-pb-block="eyebrow_1" data-pb-type="eyebrow" data-pb-settings="{&quot;text&quot;:&quot;The templates&quot;,&quot;enable_custom_style&quot;:false,&quot;color&quot;:&quot;&quot;,&quot;size&quot;:13}" style="--pb-fs: 13px;" data-block-id="eyebrow_1">The templates</p><h2 class="pb-heading heading-letter-spacing " data-pb-block="heading_1" data-pb-type="heading" data-pb-settings="{&quot;text&quot;:&quot;Pick the part of life that needs a system&quot;,&quot;enable_custom_style&quot;:false,&quot;color&quot;:&quot;&quot;,&quot;size_desktop&quot;:40,&quot;size_mobile&quot;:28}" style="--pb-fs-d: 40px;--pb-fs-m: 28px;" data-block-id="heading_1">Pick the part of life that needs a system</h2><div class="pb-sub rich__text-m0 " data-pb-block="subheading_1" data-pb-type="subheading" data-pb-settings="{&quot;text&quot;:&quot;&lt;p&gt;Each one is a single Notion page with its databases already set up.&lt;\/p&gt;&quot;,&quot;enable_custom_style&quot;:false,&quot;color&quot;:&quot;&quot;,&quot;size&quot;:16}" style="--pb-fs: 16px;" data-block-id="subheading_1"><p>Each one is a single Notion page with its databases already set up.</p></div></div>
+<div class="pl-header__text"><p class="pb-eyebrow " data-pb-block="eyebrow_1" data-pb-type="eyebrow" data-pb-settings="{&quot;text&quot;:&quot;The templates&quot;,&quot;enable_custom_style&quot;:false,&quot;color&quot;:&quot;&quot;,&quot;size&quot;:13}" style="--pb-fs: 13px;" data-block-id="eyebrow_1">The templates</p><h2 class="pb-heading heading-letter-spacing " data-pb-block="heading_1" data-pb-type="heading" data-pb-settings="{&quot;text&quot;:&quot;Pick the part of life to sort out&quot;,&quot;enable_custom_style&quot;:false,&quot;color&quot;:&quot;&quot;,&quot;size_desktop&quot;:40,&quot;size_mobile&quot;:28}" style="--pb-fs-d: 40px;--pb-fs-m: 28px;" data-block-id="heading_1">Pick the part of life to sort out</h2><div class="pb-sub rich__text-m0 " data-pb-block="subheading_1" data-pb-type="subheading" data-pb-settings="{&quot;text&quot;:&quot;&lt;p&gt;Each one is a single Notion page with its databases already set up.&lt;\/p&gt;&quot;,&quot;enable_custom_style&quot;:false,&quot;color&quot;:&quot;&quot;,&quot;size&quot;:16}" style="--pb-fs: 16px;" data-block-id="subheading_1"><p>Each one is a single Notion page with its databases already set up.</p></div></div>
 <div class="pl-header__actions" data-pb-slot="header"></div>
 </div>
 </div>
@@ -1602,23 +1607,23 @@ decoding="async"
     }</style><link rel="stylesheet" href="/theme-previews/templates-shop/a/i.4b2e03dfcbd1.css">
 <!-- ti-theme:start -->
 <link rel="stylesheet" href="/theme-previews/templates-shop/a/i.33f29448964b.css"><link href="/theme-previews/_base/a/banner.e046324199cf.css" rel="stylesheet" type="text/css" media="all"><link rel="stylesheet" href="/theme-previews/templates-shop/a/i.f386b2ce90a7.css">
-<div class="fluid_container" data-ct-root="newsletter" data-ct-section="newsletter" data-ct-w="fluid_container" data-ct-width data-nl-layout="horizontal">
+<div class="container" data-ct-root="newsletter" data-ct-section="newsletter" data-ct-w="container" data-ct-width data-nl-layout="vertical">
 <div
 class="section sec__newsletter color-default gradient remove_spacing"
 data-ct-scheme
-style="--section-pt: 96; --section-pb: 104;--max-width: 60rem;"
+style="--section-pt: 88; --section-pb: 96;--max-width: 60rem;"
 >
 <div class="sec__inner flex justify-content-center px-30">
 <div
-class="flex flex-wrap justify-content-center flex-md-nowrap gap-30"
+class="flex flex-wrap justify-content-center flex-column"
 data-nl-box
 style="--content-bg: var(--color-background); --opacity:100%;"
 >
-<div class="section__header ct-header text-left" data-ct-header><motion-element
+<div class="section__header ct-header text-center mb-30" data-ct-header><motion-element
 data-motion="fade-up-lg"
 data-motion-delay="0"
 hold
-class="newsletter-icon mb-15 flex justify-content-left scroll-trigger subtle_rise"
+class="newsletter-icon mb-15 flex justify-content-center scroll-trigger subtle_rise"
 data-nl-icon
 style="--animation-order: 0;--nl-icon: 40px;"
 hidden
@@ -1630,7 +1635,7 @@ hidden
 data-motion="fade-up-lg"
 data-motion-delay="150"
 hold
-class="nl-submit  scroll-trigger subtle_rise   flex-grow flex flex-column text-left justify-content-left"
+class="nl-submit  scroll-trigger subtle_rise   max-w-custom mx-auto flex flex-column text-center justify-content-center"
 data-nl-submit
 style="--animation-order: 1
 "
@@ -1647,7 +1652,7 @@ data-success-ms="5000"
 <label for="NewsletterHp-newsletter">Leave this field empty</label>
 <input id="NewsletterHp-newsletter" type="text" name="company" tabindex="-1" autocomplete="off" pattern="^$" maxlength="0" value="">
 </div>
-<div class="newsletter-inner flex flex-wrap gap-10 w-full justify-content-left" data-nl-fields style="">
+<div class="newsletter-inner flex flex-wrap gap-10 w-full justify-content-center" data-nl-fields style="">
 <label class="visually-hidden" for="NewsletterEmail-newsletter">Email address</label>
 <input
 id="NewsletterEmail-newsletter"
@@ -1665,7 +1670,7 @@ placeholder="you@example.com"
 autocomplete="email"
 autocapitalize="off"
 spellcheck="false"
-class="nl-input subcribe-input btn-radius col"
+class="nl-input subcribe-input btn-radius input-vertical"
 >
 <button
 type="submit"

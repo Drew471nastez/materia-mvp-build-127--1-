@@ -1,0 +1,45 @@
+
+  /* Section isolation — prevent CSS/JS bleed between sections */
+  #shopify-section-runners {
+    isolation: isolate;
+    position: relative;
+  }
+  /* Theme typography (fonts and weights) comes from snippets/theme-type, printed first. */
+  /* Section margin sliders (mobile-first) */
+  #shopify-section-runners {
+    margin-top: 0px;
+    margin-bottom: 0px;
+  }
+  @media (min-width: 768px) {
+    #shopify-section-runners {
+      margin-top: 0px;
+      margin-bottom: 0px;
+    }
+  }
+  /* Section wrapper spans its parent's full width without breaking out of
+     the editor preview. */
+  #shopify-section-runners {
+    max-width: none !important;
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    position: relative !important;
+    box-sizing: border-box !important;
+  }
+  #shopify-section-runners > :where(div, section, header, footer, aside, main, article):first-child {
+    max-width: none !important;
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Section width */#shopify-section-runners .fluid_container,
+      #shopify-section-runners:not(.no-section-width-wrap) > :is(div, section, header, footer, aside, main, article):first-child {
+        max-width: calc(var(--fluid-container-width, 1500px) + 3rem) !important;
+        margin-inline: auto !important;
+        box-sizing: border-box !important;
+      }/* Reset spacing */#shopify-section-runners { margin-bottom: 0 !important; margin-top: 0 !important; }
+    #shopify-section-runners + .shopify-section { margin-top: 0 !important; }

@@ -27,7 +27,7 @@
         "description_tLPCVn": {
           "type": "description",
           "settings": {
-            "description": "<p>The book in every edition, and the Reading Journal that goes with it.</p>",
+            "description": "<p>The book in every edition, and the workbook that goes with it.</p>",
             "description_color": "#57575e",
             "enable_custom_style": true,
             "description_font_size": 15

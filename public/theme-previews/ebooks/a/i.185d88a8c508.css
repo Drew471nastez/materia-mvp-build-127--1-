@@ -1,0 +1,56 @@
+
+  #simple-rating-rating {
+    padding-top: 0px;
+    padding-bottom: 4px;
+    text-align: left;
+  }
+  #simple-rating-rating .sr-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  #simple-rating-rating .sr-stars {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+  }
+  #simple-rating-rating .sr-star {
+    width: 16px;
+    height: 16px;
+    display: inline-block;
+    color: #e5e7eb;
+    flex: 0 0 auto;
+    position: relative;
+  }
+  #simple-rating-rating .sr-star.is-filled { color: #c8643c; }
+  #simple-rating-rating .sr-star svg { width: 100%; height: 100%; display: block; }
+  /* Half-filled star: layer the filled half over the unfilled background. */
+  #simple-rating-rating .sr-star.is-half {
+    color: #e5e7eb;
+  }
+  #simple-rating-rating .sr-star.is-half::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    width: 50%;
+    overflow: hidden;
+    background: #c8643c;
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><polygon points='12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2'/></svg>");
+            mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><polygon points='12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2'/></svg>");
+    -webkit-mask-size: 16px 16px;
+            mask-size: 16px 16px;
+    -webkit-mask-repeat: no-repeat;
+            mask-repeat: no-repeat;
+    -webkit-mask-position: left center;
+            mask-position: left center;
+    pointer-events: none;
+  }
+  #simple-rating-rating .sr-text {
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1;
+    
+  }
+  @media (min-width: 750px) {
+    #simple-rating-rating .sr-text { font-size: 14px; }
+  }

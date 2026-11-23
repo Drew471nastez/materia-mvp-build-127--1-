@@ -1,3 +1,4 @@
+/* Templates round 22: a money book for your twenties by Maya Okafor, built from the theme's own sections (product hero, quote, image with text, text columns, product grid, testimonial wall, newsletter with image, FAQ, banner); Libre Baskerville and Helvetica. */
 {
   "sections": {
     "main-collection-heading": {
@@ -77,26 +78,44 @@
         "block-mvmkfj68-2-iqqos"
       ]
     },
-    "cta": {
-      "type": "authorbook-cta",
+    "chapter": {
+      "type": "newsletter-split",
       "settings": {
-        "band_color": "#c4471f",
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
         "image": "shopify://shop_images/authorbook-cover.webp",
-        "image_alt": "Read More, Keep More",
-        "heading": "Start with chapter one tonight",
-        "text": "<p>Twenty five minutes of reading and the first habit of the book, free.</p>",
-        "button_label": "Send me chapter one",
-        "button_link": "#open-form-chapter",
-        "button_color": "#1d2b4f",
-        "button2_label": "Buy the book",
-        "button2_link": "/#buy",
-        "button2_text_color": "#1d2b4f"
-      }
+        "image_alt": "The cover of Not Broke Anymore by Maya Okafor",
+        "image_position": "left",
+        "image_ratio": "portrait",
+        "image_width": 40,
+        "form_layout": "horizontal",
+        "btn_text": "Send it to me",
+        "email_placeholder": "Your email",
+        "note": "Plus the Sunday money letter every other week. Leave whenever you like.",
+        "success_text": "Done. The first chapter is in your inbox."
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Read the first chapter free"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Chapter one and the money map, as a PDF. Twenty minutes to read, and you will know where last month's pay went.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
     }
   },
   "order": [
     "main-collection-heading",
     "main-collection-product",
-    "cta"
+    "chapter"
   ]
 }

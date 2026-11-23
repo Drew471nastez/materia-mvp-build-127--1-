@@ -106,8 +106,8 @@
           "settings": {
             "new_tab": false,
             "button_gap": 20,
-            "button_link": "/#buy",
-            "button_text": "Get the book",
+            "button_link": "/collections/all",
+            "button_text": "Buy the book",
             "custom_text": "#111111",
             "mobile_size": "small",
             "button_style": "primary",

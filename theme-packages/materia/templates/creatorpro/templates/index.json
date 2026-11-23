@@ -472,37 +472,6 @@
         "image_6"
       ]
     },
-    "articles": {
-      "type": "blog-posts",
-      "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "items_to_show": 3,
-        "items_per_row": 3,
-        "image_ratio": "landscape",
-        "show_author": false,
-        "show_view_all": true,
-        "view_all_label": "All articles",
-        "view_all_link": "/blogs/news"
-      },
-      "blocks": {
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "heading": "Articles"
-          }
-        },
-        "text_2": {
-          "type": "text",
-          "settings": {
-            "text": "<p>Longer notes on audiences, offers and video.</p>"
-          }
-        }
-      },
-      "block_order": [
-        "heading_1",
-        "text_2"
-      ]
-    },
     "faq": {
       "type": "faq-pro",
       "settings": {
@@ -581,7 +550,6 @@
     "students",
     "letter",
     "follow",
-    "articles",
     "faq"
   ]
 }

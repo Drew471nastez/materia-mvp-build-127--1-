@@ -78,23 +78,64 @@
       ]
     },
     "cta": {
-      "type": "renaissance-cta",
+      "type": "banner3",
       "settings": {
-        "background": "#07080d",
-        "accent": "#3d5afe",
-        "gold": "#f2bd4f",
-        "text_color": "#a7adbf",
-        "anchor": "join",
-        "show_mark": true,
-        "heading": "Make this the year AI <em>works for you</em>",
-        "text": "<p>Join today and start module one tonight. Six weeks from now the busywork runs itself and you know exactly what to hand over next.</p>",
-        "button_label": "Join Digital Renaissance",
-        "button_link": "/#pricing",
-        "link_label": "Watch module one free",
-        "link_url": "#open-form-access",
-        "note": "30 day refund. Lifetime access and updates.",
-        "padding_top": 96
-      }
+        "color_scheme": "default",
+        "section_width": "container",
+        "text_align": "center",
+        "max_width": 860,
+        "banner_surface": "section",
+        "pad_top_desktop": 120,
+        "pad_bottom_desktop": 120,
+        "section_padding_top": 0,
+        "section_padding_bottom": 0,
+        "pad_top_mobile": 72,
+        "pad_bottom_mobile": 72,
+        "section_padding_top_mobile": 0,
+        "section_padding_bottom_mobile": 0,
+        "stack_gap": 20,
+        "sub_btn_gap": 32,
+        "reveal": false
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Start this week. Feel the difference by Friday.",
+            "enable_custom_style": true,
+            "font": "heading",
+            "weight": "700",
+            "transform": "uppercase",
+            "letterspace": 0,
+            "lineheight": "1.02",
+            "size_d": 64,
+            "size_m": 38,
+            "color": "#f5f2ea"
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "Join today and start module one tonight. Six weeks from now the busywork runs without you, and you know exactly what to hand over next.",
+            "enable_custom_style": true,
+            "size_d": 18,
+            "size_m": 16,
+            "color": "#aeaaa2"
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "label": "Join Digital Renaissance",
+            "link": "/#shopify-section-pricing"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1",
+        "button_1"
+      ]
     },
     "access_popup": {
       "type": "form-modal",
@@ -102,7 +143,7 @@
         "form_key": "access",
         "sends_to": "subscribe",
         "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
-        "accent_color": "#f2bd4f",
+        "accent_color": "#e3a63a",
         "text_align": "left",
         "width": 480,
         "corners": "round",
@@ -120,7 +161,7 @@
           "type": "heading",
           "settings": {
             "eyebrow": "Free preview",
-            "heading": "Watch module one *free*",
+            "heading": "Watch module one free",
             "size": 30
           }
         },

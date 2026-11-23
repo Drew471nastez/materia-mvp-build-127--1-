@@ -1,589 +1,525 @@
+/* Templates round 22: a money book for your twenties by Maya Okafor, built from the theme's own sections (product hero, quote, image with text, text columns, product grid, testimonial wall, newsletter with image, FAQ, banner); Libre Baskerville and Helvetica. */
 {
   "sections": {
     "hero": {
-      "type": "authorbook-hero",
+      "type": "hero-product2",
       "settings": {
-        "band_color": "#f5f2ec",
-        "accent_color": "#f0643a",
-        "eyebrow": "The new book by Theo Marlow",
-        "heading": "Read more books and <em>remember</em> what is in them",
-        "cover": "shopify://shop_images/authorbook-cover.webp",
-        "cover_alt": "The cover of Read More, Keep More by Theo Marlow",
-        "page_left": "shopify://shop_images/authorbook-page-chapter.webp",
-        "page_right": "shopify://shop_images/authorbook-page-figure.webp",
-        "badge": "First chapter free",
-        "lead": "Read the first chapter of <em>Read More, Keep More</em> free, sent straight to your inbox.",
-        "button_label": "Send me chapter one",
-        "button_color": "#1d2b4f",
-        "tag": "free-chapter",
-        "note": "Plus Marginalia on Sundays. Leave whenever you like.",
-        "avatar": "shopify://shop_images/authorbook-theo-face.webp",
-        "avatar_focus": "50% 40%",
-        "by_name": "Theo Marlow",
-        "by_line": "Writes <a href=\"/pages/newsletter\">Marginalia</a>, a weekly letter on reading"
-      }
-    },
-    "facts": {
-      "type": "authorbook-facts",
-      "settings": {},
-      "blocks": {
-        "fact_1": {
-          "type": "fact",
-          "settings": {
-            "figure": "12",
-            "label": "short chapters"
-          }
-        },
-        "fact_2": {
-          "type": "fact",
-          "settings": {
-            "figure": "240",
-            "label": "pages"
-          }
-        },
-        "fact_3": {
-          "type": "fact",
-          "settings": {
-            "figure": "6 h",
-            "label": "audiobook, read by Theo"
-          }
-        },
-        "fact_4": {
-          "type": "fact",
-          "settings": {
-            "figure": "20",
-            "label": "pages a day is all it asks"
-          }
-        }
-      },
-      "block_order": [
-        "fact_1",
-        "fact_2",
-        "fact_3",
-        "fact_4"
-      ]
-    },
-    "hello": {
-      "type": "authorbook-hello",
-      "settings": {
-        "eyebrow": "About the author",
-        "heading": "Hi, I'm <em>Theo Marlow</em>",
-        "text": "<p>I used to buy books faster than I read them. Ten years ago I started reading twenty pages a day and keeping one page of notes for every book. I have kept both habits since.</p><p>I write <a href=\"/pages/newsletter\">Marginalia</a>, a short letter every Sunday on what I am reading and how to make it stick. <em>Read More, Keep More</em> is everything I have learned, in one book.</p>",
-        "image": "shopify://shop_images/authorbook-theo-sofa.webp",
-        "image_alt": "Theo Marlow on a dark sofa with books and records beside him",
-        "image_focus": "50% 30%",
-        "frame_color": "#f0643a",
-        "accent_color": "#c4471f",
-        "button_label": "More about me",
-        "button_link": "/pages/about",
-        "button_color": "#1d2b4f",
-        "instagram": "https://www.instagram.com",
-        "youtube": "https://www.youtube.com",
-        "x": "https://x.com",
-        "linkedin": "",
-        "letters_title": "Recent letters"
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "image_position": "left",
+        "media_width": 46,
+        "media_height": 640,
+        "media_fit": "cover",
+        "body_bg_image": "shopify://shop_images/authorbook-ed-book.webp",
+        "image_alt": "The paperback of Not Broke Anymore",
+        "check_box": true
       },
       "blocks": {
-        "letter_1": {
-          "type": "letter",
+        "section_heading_1": {
+          "type": "section_heading",
           "settings": {
-            "title": "The case for quitting books halfway",
-            "link": "/blogs/news"
+            "heading_text": "Not Broke Anymore"
           }
         },
-        "letter_2": {
-          "type": "letter",
+        "section_para_2": {
+          "type": "section_para",
           "settings": {
-            "title": "One page of notes for every book",
-            "link": "/blogs/news"
+            "p_text": "Money for your twenties, without the guilt. A short, practical book by Maya Okafor on spending, debt, saving and investing, with one thing to do at the end of every chapter."
           }
         },
-        "letter_3": {
-          "type": "letter",
+        "benefits_3": {
+          "type": "benefits",
           "settings": {
-            "title": "Reading on your phone without the phone",
-            "link": "/blogs/news"
-          }
-        }
-      },
-      "block_order": [
-        "letter_1",
-        "letter_2",
-        "letter_3"
-      ]
-    },
-    "inside": {
-      "type": "authorbook-chapters",
-      "settings": {
-        "eyebrow": "What is inside",
-        "heading": "Twelve short chapters, <em>one habit</em> each",
-        "text": "<p>Each chapter ends with one small thing to try that day. Read one on a train and use it the same evening.</p>",
-        "image": "shopify://shop_images/authorbook-spread.webp",
-        "image_alt": "The book open at the contents page and chapter one, The Twenty Page Day",
-        "accent_color": "#c4471f",
-        "button_label": "Get the book",
-        "button_link": "/#buy",
-        "button_color": "#1d2b4f"
-      },
-      "blocks": {
-        "chapter_1": {
-          "type": "chapter",
-          "settings": {
-            "title": "The Twenty Page Day",
-            "line": "Why a small daily number beats a free hour that never comes."
+            "benefit_text_1": "Twelve chapters you can read on the bus",
+            "benefit_icon_1": "check",
+            "benefit_text_2": "A one page money map you use every month",
+            "benefit_icon_2": "check",
+            "benefit_text_3": "Paperback, ebook and audiobook",
+            "benefit_icon_3": "check"
           }
         },
-        "chapter_2": {
-          "type": "chapter",
+        "button_4": {
+          "type": "button",
           "settings": {
-            "title": "Choosing the Next Book",
-            "line": "A five minute way to pick books you will finish."
-          }
-        },
-        "chapter_3": {
-          "type": "chapter",
-          "settings": {
-            "title": "Reading With a Pencil",
-            "line": "Three marks in the margin that make notes easy later."
-          }
-        },
-        "chapter_4": {
-          "type": "chapter",
-          "settings": {
-            "title": "Notes That Last",
-            "line": "One page per book, written the day you finish it."
-          }
-        },
-        "chapter_5": {
-          "type": "chapter",
-          "settings": {
-            "title": "Quitting Books Well",
-            "line": "When to stop, and how to keep what was good."
-          }
-        },
-        "chapter_6": {
-          "type": "chapter",
-          "settings": {
-            "title": "Reading Out Loud",
-            "line": "Audiobooks, slow reading and remembering more."
-          }
-        },
-        "chapter_7": {
-          "type": "chapter",
-          "settings": {
-            "title": "The Yearly Shelf",
-            "line": "Look back on a year of reading in one evening."
-          }
-        }
-      },
-      "block_order": [
-        "chapter_1",
-        "chapter_2",
-        "chapter_3",
-        "chapter_4",
-        "chapter_5",
-        "chapter_6",
-        "chapter_7"
-      ]
-    },
-    "quote": {
-      "type": "authorbook-quote",
-      "settings": {
-        "image": "shopify://shop_images/authorbook-cover.webp",
-        "image_alt": "Read More, Keep More",
-        "quote": "Twenty pages is small enough to start tonight and <em>large enough</em> to finish twenty books by next winter.",
-        "source": "From chapter one, The Twenty Page Day"
-      }
-    },
-    "reviews": {
-      "type": "authorbook-reviews",
-      "settings": {
-        "eyebrow": "Readers",
-        "heading": "What readers <em>say</em>",
-        "accent_color": "#c4471f",
-        "card_color": "#f5f2ec",
-        "avatar_color": "#1d2b4f",
-        "text": "These words are samples to show the layout. Replace them with what your own readers write."
-      },
-      "blocks": {
-        "review_1": {
-          "type": "review",
-          "settings": {
-            "quote": "I finished more books in the three months after reading this than in the whole year before it. The twenty page rule is so simple it feels like cheating.",
-            "name": "Hannah Keller",
-            "tag": "Sample",
-            "role": "Read the ebook"
-          }
-        },
-        "review_2": {
-          "type": "review",
-          "settings": {
-            "quote": "The chapter on notes changed how I read. One page per book, and I can tell you what every one of them was about.",
-            "name": "Omar Siddiqui",
-            "tag": "Sample",
-            "role": "Listened to the audiobook"
-          }
-        },
-        "review_3": {
-          "type": "review",
-          "settings": {
-            "quote": "Short, practical and kind. No reading challenge guilt, just a habit that fits in a lunch break.",
-            "name": "Julia Brandt",
-            "tag": "Sample",
-            "role": "Bought the complete set"
-          }
-        },
-        "review_4": {
-          "type": "review",
-          "settings": {
-            "quote": "I gave it to my book club and now we all keep the same notes page. Our meetings are better for it.",
-            "name": "Marcus Lee",
-            "tag": "Sample",
-            "role": "Read the ebook"
-          }
-        },
-        "review_5": {
-          "type": "review",
-          "settings": {
-            "quote": "I quit three books I was dragging through and read five I loved instead. Permission to stop was the best part.",
-            "name": "Priya Nair",
-            "tag": "Sample",
-            "role": "Read the ebook"
-          }
-        }
-      },
-      "block_order": [
-        "review_1",
-        "review_2",
-        "review_3",
-        "review_4",
-        "review_5"
-      ]
-    },
-    "course": {
-      "type": "authorbook-course",
-      "settings": {
-        "eyebrow": "Free email course",
-        "heading": "The 7 Day Reading Reset: a reading habit <em>that sticks</em>",
-        "image": "shopify://shop_images/authorbook-course.webp",
-        "image_alt": "Hands holding an open paperback over a green blanket",
-        "card_title": "Join the free course and get day one today",
-        "button_label": "Send me day one",
-        "button_color": "#1d2b4f",
-        "tag": "reading-reset",
-        "note": "One short email a day for a week, then Marginalia on Sundays. Leave whenever you like.",
-        "accent_color": "#c4471f",
-        "tick_color": "#f0643a"
-      },
-      "blocks": {
-        "point_1": {
-          "type": "point",
-          "settings": {
-            "title": "Start tonight with twenty pages.",
-            "text": "Day one sets the time and the place, so reading happens without deciding."
-          }
-        },
-        "point_2": {
-          "type": "point",
-          "settings": {
-            "title": "Pick books you will finish.",
-            "text": "A short list method that takes five minutes and saves weeks."
-          }
-        },
-        "point_3": {
-          "type": "point",
-          "settings": {
-            "title": "Keep what you read.",
-            "text": "A one page notes template, with an example from a real book."
-          }
-        },
-        "point_4": {
-          "type": "point",
-          "settings": {
-            "title": "Works with any kind of book.",
-            "text": "Novels, history, business or poetry. Paper, ebook or audio."
-          }
-        }
-      },
-      "block_order": [
-        "point_1",
-        "point_2",
-        "point_3",
-        "point_4"
-      ]
-    },
-    "editions": {
-      "type": "authorbook-editions",
-      "settings": {
-        "eyebrow": "Get the book",
-        "heading": "Pick your <em>edition</em>",
-        "accent_color": "#c4471f",
-        "badge_color": "#f0643a",
-        "featured_color": "#1d2b4f",
-        "button_color": "#1d2b4f",
-        "text": "<p>Every edition arrives by email the moment you pay. Read on any phone, tablet, laptop or e reader.</p>",
-        "footnote": "Secure checkout. 30 day refund if the book is not for you."
-      },
-      "blocks": {
-        "edition_1": {
-          "type": "edition",
-          "settings": {
-            "product": "read-more-keep-more",
-            "image": "shopify://shop_images/authorbook-ed-ebook.webp",
-            "name": "Ebook",
-            "line": "PDF and EPUB, for any device.",
-            "price": "$16",
-            "compare_price": "$20",
-            "points": "All twelve chapters\nWorks on Kindle and Kobo\nFree updates",
-            "button_label": "Buy the ebook",
-            "button_link": "/collections/all"
-          }
-        },
-        "edition_2": {
-          "type": "edition",
-          "settings": {
-            "product": "the-complete-reading-set",
-            "image": "shopify://shop_images/authorbook-ed-set.webp",
-            "name": "Complete set",
-            "line": "The ebook, the audiobook and the Reading Journal.",
-            "price": "$34",
-            "compare_price": "$46",
-            "points": "Ebook and audiobook\nPrintable Reading Journal\nNotes templates for 50 books",
-            "label": "Most readers pick this",
-            "featured": true,
-            "button_label": "Buy the set",
-            "button_link": "/collections/all"
-          }
-        },
-        "edition_3": {
-          "type": "edition",
-          "settings": {
-            "product": "read-more-keep-more-audiobook",
-            "image": "shopify://shop_images/authorbook-ed-audio.webp",
-            "name": "Audiobook",
-            "line": "Six hours, read by Theo.",
-            "price": "$14",
-            "points": "MP3 files, no app needed\nChapter by chapter\nListen at any speed",
-            "button_label": "Buy the audiobook",
+            "button_text": "Buy the book",
             "button_link": "/collections/all"
           }
         }
       },
       "block_order": [
-        "edition_1",
-        "edition_2",
-        "edition_3"
+        "section_heading_1",
+        "section_para_2",
+        "benefits_3",
+        "button_4"
       ]
     },
-    "faq": {
-      "type": "authorbook-faq",
+    "praise": {
+      "type": "quotebanner",
       "settings": {
-        "eyebrow": "Questions",
-        "heading": "Before you <em>buy</em>",
-        "accent_color": "#c4471f",
-        "icon_bg": "#f5f2ec",
-        "text": "<p>The questions readers ask most. Anything else, <a href=\"/pages/contact\">write to me</a>.</p>"
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "text_align_desktop": "center",
+        "text_max_width": 900
       },
       "blocks": {
-        "question_1": {
-          "type": "question",
+        "quote_1": {
+          "type": "quote",
           "settings": {
-            "question": "Is this a paper book?",
-            "answer": "<p>It is an ebook and an audiobook. The ebook comes as PDF and EPUB, so it opens on a phone, a tablet, a Kindle, a Kobo or a laptop. Replace this with your own formats.</p>"
+            "quote_text": "The money book I wish someone had handed me with my first paycheck. Clear, kind and actually useful.",
+            "use_curly_quotes": true
           }
         },
-        "question_2": {
-          "type": "question",
+        "author_2": {
+          "type": "author",
           "settings": {
-            "question": "How do I get it after paying?",
-            "answer": "<p>A download link arrives by email straight away, and the files stay in your account so you can download them again.</p>"
-          }
-        },
-        "question_3": {
-          "type": "question",
-          "settings": {
-            "question": "I do not read much now. Is it for me?",
-            "answer": "<p>Yes. The book is written for people who used to read and stopped. Chapter one asks for twenty pages a day, nothing more.</p>"
-          }
-        },
-        "question_4": {
-          "type": "question",
-          "settings": {
-            "question": "What is the free chapter?",
-            "answer": "<p>The whole of chapter one, The Twenty Page Day, as a PDF. Leave your email at the top of the page and it arrives in a minute.</p>"
-          }
-        },
-        "question_5": {
-          "type": "question",
-          "settings": {
-            "question": "What if it is not for me?",
-            "answer": "<p>Write within 30 days and you get every cent back. Replace this with your own terms.</p>"
+            "author_name": "Sample review",
+            "author_role": "Replace with a real quote from a reader or a review"
           }
         }
       },
       "block_order": [
-        "question_1",
-        "question_2",
-        "question_3",
-        "question_4",
-        "question_5"
+        "quote_1",
+        "author_2"
       ]
     },
-    "cta": {
-      "type": "authorbook-cta",
+    "for_you": {
+      "type": "Image-and-video-text",
       "settings": {
-        "band_color": "#c4471f",
-        "image": "shopify://shop_images/authorbook-cover.webp",
-        "image_alt": "Read More, Keep More",
-        "heading": "Start with chapter one tonight",
-        "text": "<p>Twenty five minutes of reading and the first habit of the book, free.</p>",
-        "button_label": "Send me chapter one",
-        "button_link": "#open-form-chapter",
-        "button_color": "#1d2b4f",
-        "button2_label": "Buy the book",
-        "button2_link": "/#buy",
-        "button2_text_color": "#1d2b4f"
-      }
-    },
-    "shelf": {
-      "type": "authorbook-shelf",
-      "settings": {
-        "heading": "More from Theo"
+        "color_scheme": "default",
+        "image": "shopify://shop_images/authorbook-notes.webp",
+        "image_alt": "A young woman writing a plan in a notebook with her phone in hand",
+        "image_position": "right",
+        "aspect_w": 1,
+        "aspect_h": 1,
+        "image_radius": 0
       },
       "blocks": {
-        "item_1": {
-          "type": "item",
+        "eyebrow_1": {
+          "type": "eyebrow",
           "settings": {
-            "image": "shopify://shop_images/authorbook-shelf-book.webp",
-            "title": "Read More, Keep More",
-            "line": "The book",
-            "link": "/#buy"
-          }
-        },
-        "item_2": {
-          "type": "item",
-          "settings": {
-            "image": "shopify://shop_images/authorbook-shelf-audio.webp",
-            "title": "The audiobook",
-            "line": "Read by Theo",
-            "link": "/collections/all"
-          }
-        },
-        "item_3": {
-          "type": "item",
-          "settings": {
-            "image": "shopify://shop_images/authorbook-shelf-journal.webp",
-            "title": "The Reading Journal",
-            "line": "Printable",
-            "link": "/collections/all"
-          }
-        },
-        "item_4": {
-          "type": "item",
-          "settings": {
-            "image": "shopify://shop_images/authorbook-shelf-letter.webp",
-            "title": "Marginalia",
-            "line": "Free, every Sunday",
-            "link": "/pages/newsletter"
-          }
-        }
-      },
-      "block_order": [
-        "item_1",
-        "item_2",
-        "item_3",
-        "item_4"
-      ]
-    },
-    "chapter_form": {
-      "type": "form-modal",
-      "settings": {
-        "form_key": "chapter",
-        "sends_to": "subscribe",
-        "accent_color": "#c4471f",
-        "text_align": "center",
-        "width": 480,
-        "corners": "theme",
-        "success_heading": "Chapter one is on its way",
-        "success_text": "<p>Check your inbox in a minute. If nothing arrives, look in spam.</p>"
-      },
-      "blocks": {
-        "image_1": {
-          "type": "image",
-          "settings": {
-            "image": "shopify://shop_images/authorbook-cover.webp",
-            "fit": "contain",
-            "max_height": 190
+            "text": "Who it is for"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "eyebrow": "Free chapter",
-            "heading": "Read chapter one *free*",
-            "size": 30
+            "text": "You earn money. It just never seems to stay."
           }
         },
-        "text_3": {
-          "type": "text",
+        "subheading_3": {
+          "type": "subheading",
           "settings": {
-            "text": "<p>The Twenty Page Day, as a PDF. Plus Marginalia on Sundays.</p>"
+            "text": "<p>This book is for your first jobs, first rent and first credit card. No spreadsheets with forty tabs and no lectures about avocado toast.</p><p>Just a way to see where your money goes, spend it on what you care about and start saving without noticing.</p>"
           }
         },
-        "field_4": {
-          "type": "field",
-          "settings": {
-            "kind": "name",
-            "label": "First name",
-            "required": false
-          }
-        },
-        "field_5": {
-          "type": "field",
-          "settings": {
-            "kind": "email",
-            "label": "Email address"
-          }
-        },
-        "button_6": {
+        "button_4": {
           "type": "button",
           "settings": {
-            "label": "Send me chapter one",
-            "arrow": true
-          }
-        },
-        "note_7": {
-          "type": "note",
-          "settings": {
-            "icon": "lock",
-            "text": "Your email stays private.",
-            "small": "<p>Leave whenever you like.</p>"
+            "label": "Read the first chapter free",
+            "link": "/pages/newsletter",
+            "button_style": "secondary"
           }
         }
       },
       "block_order": [
-        "image_1",
+        "eyebrow_1",
         "heading_2",
-        "text_3",
-        "field_4",
-        "field_5",
-        "button_6",
-        "note_7"
+        "subheading_3",
+        "button_4"
+      ]
+    },
+    "inside": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "columns_desktop": 3,
+        "show_dividers": true,
+        "content_alignment": "left"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "What is inside"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Twelve short chapters. Each ends with one thing to do that week, so you finish the book with a plan you are already using.</p>"
+          }
+        },
+        "column_3": {
+          "type": "column",
+          "settings": {
+            "label": "Chapter 1",
+            "heading": "Where it all goes",
+            "text": "<p>One month of tracking, without judging a single coffee.</p>"
+          }
+        },
+        "column_4": {
+          "type": "column",
+          "settings": {
+            "label": "Chapter 2",
+            "heading": "The money map",
+            "text": "<p>One page with your pay, your bills and what is left. You will use it every month.</p>"
+          }
+        },
+        "column_5": {
+          "type": "column",
+          "settings": {
+            "label": "Chapter 3",
+            "heading": "A budget with fun in it",
+            "text": "<p>Spending money you do not have to feel bad about, set on purpose.</p>"
+          }
+        },
+        "column_6": {
+          "type": "column",
+          "settings": {
+            "label": "Chapter 5",
+            "heading": "Out of the overdraft",
+            "text": "<p>A plan for cards, buy now pay later and student loans, smallest first.</p>"
+          }
+        },
+        "column_7": {
+          "type": "column",
+          "settings": {
+            "label": "Chapter 7",
+            "heading": "One month in the bank",
+            "text": "<p>A first emergency fund, built in small automatic steps.</p>"
+          }
+        },
+        "column_8": {
+          "type": "column",
+          "settings": {
+            "label": "Chapter 9",
+            "heading": "Investing, the boring way",
+            "text": "<p>Index funds, retirement accounts and why boring wins.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "column_3",
+        "column_4",
+        "column_5",
+        "column_6",
+        "column_7",
+        "column_8"
+      ]
+    },
+    "author": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "default",
+        "image": "shopify://shop_images/authorbook-maya-wall.webp",
+        "image_alt": "Maya Okafor smiling in front of a painted wall",
+        "image_position": "left",
+        "aspect_w": 3,
+        "aspect_h": 2,
+        "image_radius": 0,
+        "text_column_width": 45
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "About the author"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Hi, I'm Maya"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>At 24 I had two jobs, a maxed out card and no idea where my pay went. I fixed it slowly, then started writing about it for friends.</p><p>That letter became this book. I write the way I would explain it to a friend over dinner, because that is how I learned it.</p>"
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "More about Maya",
+            "link": "/pages/about",
+            "button_style": "secondary"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
+    },
+    "editions": {
+      "type": "products-grid",
+      "settings": {
+        "color_scheme": "default",
+        "heading": "Get the book",
+        "text": "<p>Paperback, ebook or audiobook, and a workbook to go with it.</p>",
+        "items_to_show": 4,
+        "items_per_row": 4,
+        "show_add_to_cart": true,
+        "button_label": "All editions",
+        "button_link": "/collections/all",
+        "header_alignment": "left"
+      }
+    },
+    "reviews": {
+      "type": "testimonial-wall",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "columns": 3,
+        "card_style": "plain",
+        "text_align": "left",
+        "collapse": "mobile"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Readers"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "What readers say"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Sample reviews to show the layout. Replace them with real reader reviews.</p>"
+          }
+        },
+        "testimonial_4": {
+          "type": "testimonial",
+          "settings": {
+            "body": "The first money book I finished. Chapter two took an hour and I still use the map every payday.",
+            "name": "Sample reader",
+            "role": "Nurse, 26",
+            "rating": 5
+          }
+        },
+        "testimonial_5": {
+          "type": "testimonial",
+          "settings": {
+            "body": "No shame, no lectures, just what to do on Monday. I paid off my card in seven months.",
+            "name": "Sample reader",
+            "role": "Barista and student, 23",
+            "rating": 5
+          }
+        },
+        "testimonial_6": {
+          "type": "testimonial",
+          "settings": {
+            "body": "I bought it for my sister and read it first. The fun money chapter changed how we both budget.",
+            "name": "Sample reader",
+            "role": "Teacher, 29",
+            "rating": 5
+          }
+        },
+        "testimonial_7": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Finally someone explains investing without making me feel stupid for not knowing.",
+            "name": "Sample reader",
+            "role": "Junior designer, 25",
+            "rating": 5
+          }
+        },
+        "testimonial_8": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Short chapters I could read on the bus. The overdraft plan worked exactly as written.",
+            "name": "Sample reader",
+            "role": "Warehouse supervisor, 27",
+            "rating": 5
+          }
+        },
+        "testimonial_9": {
+          "type": "testimonial",
+          "settings": {
+            "body": "I read it in a weekend and opened my first retirement account on Monday.",
+            "name": "Sample reader",
+            "role": "Software tester, 24",
+            "rating": 5
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "testimonial_4",
+        "testimonial_5",
+        "testimonial_6",
+        "testimonial_7",
+        "testimonial_8",
+        "testimonial_9"
+      ]
+    },
+    "chapter": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "image": "shopify://shop_images/authorbook-cover.webp",
+        "image_alt": "The cover of Not Broke Anymore by Maya Okafor",
+        "image_position": "left",
+        "image_ratio": "portrait",
+        "image_width": 40,
+        "form_layout": "horizontal",
+        "btn_text": "Send it to me",
+        "email_placeholder": "Your email",
+        "note": "Plus the Sunday money letter every other week. Leave whenever you like.",
+        "success_text": "Done. The first chapter is in your inbox."
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Read the first chapter free"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Chapter one and the money map, as a PDF. Twenty minutes to read, and you will know where last month's pay went.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    },
+    "faq": {
+      "type": "faq-pro",
+      "settings": {
+        "color_scheme": "default",
+        "first_item_open": true,
+        "content_alignment": "left",
+        "max_content_width": 820
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Questions"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Something else? <a href=\"/pages/contact\">Write to me</a>.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Is this book for me if I am already in debt?",
+            "answer": "<p>Yes. Chapter five is a plan for cards, buy now pay later and student loans, and it starts wherever you are.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Is this financial advice?",
+            "answer": "<p>It is general teaching from my own experience and training, not personal financial advice. For your exact situation, talk to a licensed adviser.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Does it work outside the US?",
+            "answer": "<p>The habits work anywhere. The account names in chapter nine are American, with notes for the UK, Canada and Australia.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Which edition should I get?",
+            "answer": "<p>The paperback if you like writing in margins, the audiobook for commutes, and the set if you want the workbook too.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "question": "When will my paperback arrive?",
+            "answer": "<p>It ships within two working days. The ebook and audiobook arrive by email straight after checkout.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7"
+      ]
+    },
+    "cta": {
+      "type": "banner3",
+      "settings": {
+        "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636",
+        "banner_surface": "section",
+        "max_width": 720,
+        "pad_top_desktop": 88,
+        "pad_bottom_desktop": 88
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Not Broke Anymore",
+            "transform": "uppercase"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Next payday, have a plan",
+            "transform": "none"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "Twelve short chapters and one page you will use every month."
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "Buy the book",
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
       ]
     }
   },
   "order": [
     "hero",
-    "facts",
-    "hello",
+    "praise",
+    "for_you",
     "inside",
-    "quote",
-    "reviews",
-    "course",
+    "author",
     "editions",
+    "reviews",
+    "chapter",
     "faq",
-    "cta",
-    "shelf",
-    "chapter_form"
+    "cta"
   ]
 }

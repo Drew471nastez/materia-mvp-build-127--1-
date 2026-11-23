@@ -146,12 +146,11 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
     document.addEventListener('DOMContentLoaded',function(){setTimeout(go,4000)},{once:true})}
     ['pointerdown','click','keydown','scroll','touchstart'].forEach(function(n){addEventListener(n,go,{once:true,passive:true,capture:true})})})(["/theme-previews/_base/a/popup.18cdf2513c31.css","/theme-previews/_base/a/tingle-min.ed947d9dd1c7.css"]);</script><link rel="stylesheet" href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" media="print" onload="this.media='all'">
 <noscript><link href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" rel="stylesheet" type="text/css" media="all"></noscript>
-<style data-shopify></style>
-<style data-shopify></style>
-<style data-materia-font-fallbacks>@font-face{font-family:"Open Sans Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:104.9%;ascent-override:101.9%;descent-override:27.9%;line-gap-override:0%}@font-face{font-family:"Open Sans Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:104.9%;ascent-override:101.9%;descent-override:27.9%;line-gap-override:0%}@font-face{font-family:"Poppins Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:111%;ascent-override:94.6%;descent-override:31.5%;line-gap-override:9%}@font-face{font-family:"Poppins Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:111%;ascent-override:94.6%;descent-override:31.5%;line-gap-override:9%}</style><style data-shopify>
+<link rel="stylesheet" href="/theme-previews/_base/a/fonts.c30a6df7ce35.css" data-materia-fonts>
+<style data-materia-font-fallbacks>@font-face{font-family:"Open Sans Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:104.9%;ascent-override:101.9%;descent-override:27.9%;line-gap-override:0%}@font-face{font-family:"Open Sans Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:104.9%;ascent-override:101.9%;descent-override:27.9%;line-gap-override:0%}</style><style data-shopify>
   :root {
-    --body-font: Open Sans, "Open Sans Fallback", sans-serif, sans-serif;
-    --heading-font: Poppins, "Poppins Fallback", sans-serif, sans-serif;
+    --body-font: "Open Sans", "Open Sans Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --heading-font: "Open Sans", "Open Sans Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     --menu-font: var(--body-font);
     --btn-font: var(--body-font);
   }
@@ -230,11 +229,11 @@ data-menu-hover="underline"
           later = setTimeout(release, 120);
         });
       })();
-    </script><section id="shopify-section-header" class="shopify-section shopify-section-group-header-group xpshop-desktop-section" data-section-id="header" data-section-type="xpshop-desktop">
-<link rel="stylesheet" href="/theme-previews/_base/a/fonts.9d2ecd2acb54.css" data-xp-font>
-<style>
+    </script><section id="shopify-section-header" class="shopify-section shopify-section-group-header-group xpshop-desktop-section" data-section-id="header" data-section-type="xpshop-desktop"><style>
+  /* The type is the theme's own body font (Theme settings, Typography), so a creator's font choice reaches every window. */
+  :root { --xp-font: var(--body-font, Tahoma, 'Trebuchet MS', system-ui, sans-serif); }
   .xp { --xp-ink: #14213d; --xp-muted: #4a5568; --xp-navy: #0f2f75; --xp-blue: #1f5fd8; --xp-link: #1a55c9; --xp-face: #f4f2ea; --xp-line: #c9c3b0; --xp-pane: #d9e4f8;
-    --xp-font: 'Nunito', Tahoma, 'Trebuchet MS', system-ui, sans-serif;
+    --xp-font: var(--body-font, Tahoma, 'Trebuchet MS', system-ui, sans-serif);
     color: var(--xp-ink); font-family: var(--xp-font); font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
   .xp *, .xp *::before, .xp *::after { box-sizing: border-box; }
   .xp :where(h1, h2, h3, h4, p, ul, ol, figure) { margin: 0; }
@@ -315,9 +314,12 @@ data-menu-hover="underline"
   @media (max-width: 749px) { .xp-top-space { height: 54px; } }
   .xp-top__in { display: flex; align-items: center; gap: 18px; height: 58px; padding: 0 24px; max-width: calc(var(--xp-col, 1180px) + 48px); margin: 0 auto; }
   .xp-top__glass { position: absolute; inset: 0; z-index: -1; background: rgba(255,255,255,.82); -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3); box-shadow: 0 1px 0 rgba(255,255,255,.7) inset, 0 6px 20px -10px rgba(8,28,80,.35); border-bottom: 1px solid rgba(31,95,216,.18); }
-  .xp-brand { display: inline-flex; align-items: center; gap: 10px; color: var(--xp-navy); font-weight: 900; font-size: 19px; letter-spacing: -.01em; text-decoration: none; white-space: nowrap; }
+  .xp-brand { display: inline-flex; align-items: center; gap: 10px; color: var(--xp-navy); font-size: 19px; line-height: 1; letter-spacing: -.02em; text-decoration: none; white-space: nowrap; }
+  .xp-brand__name { display: inline-flex; align-items: baseline; gap: .28em; }
+  .xp-brand__name b { font-weight: 800; }
+  .xp-brand__name span { font-weight: 500; color: #3a5fae; }
   .xp-brand img { display: block; height: 34px; width: auto; }
-  .xp-mark { width: 30px; height: 30px; flex: none; border-radius: 50%; box-shadow: 0 1px 2px rgba(0,30,80,.3); }
+  .xp-mark { width: 32px; height: 32px; flex: none; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,30,80,.25), 0 4px 10px -4px rgba(0,30,80,.35); }
   .xp-nav { display: flex; align-items: center; gap: 2px; min-width: 0; margin: 0; padding: 0; list-style: none; }
   .xp-nav a { display: inline-flex; align-items: center; height: 36px; padding: 0 12px; border-radius: 6px; color: #1d2b4f; font-size: 15px; font-weight: 700; text-decoration: none; white-space: nowrap; transition: background-color .15s, color .15s; }
   .xp-nav a:hover { background: rgba(31,95,216,.1); color: var(--xp-blue); }
@@ -435,7 +437,7 @@ data-menu-hover="underline"
 
   /* One column for every window, the same gap below each. */
   :root { --xp-col: 1180px; --xp-gap: 28px; }
-  main#MainContent { padding: 26px 24px 10px; font-family: 'Nunito', Tahoma, sans-serif; }
+  main#MainContent { padding: 26px 24px 10px; font-family: var(--xp-font); }
   main#MainContent > .shopify-section { position: relative; }
   @media (max-width: 749px) { :root { --xp-gap: 16px; } main#MainContent { padding: 14px 8px 6px; } }
   /* The theme's own sections, each in a window with the page's name on its title bar. */
@@ -447,7 +449,7 @@ data-menu-hover="underline"
     content: var(--xp-t); position: absolute; z-index: 2; left: 0; right: 0; top: 0; height: 34px; padding: 0 100px 0 40px; border-radius: 9px 9px 0 0;
     background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20'%3E%3Cpath d='M2 5.5A1.5 1.5 0 0 1 3.5 4h5l2 2h9A1.5 1.5 0 0 1 21 7.5V18a1.5 1.5 0 0 1-1.5 1.5h-16A1.5 1.5 0 0 1 2 18z' fill='%23f7c64a' stroke='%23c08a14' stroke-width='.8'/%3E%3Cpath d='M2.6 9.2A1.2 1.2 0 0 1 3.8 8h16.8a1.1 1.1 0 0 1 1.1 1.3l-1.6 9.1a1.3 1.3 0 0 1-1.3 1.1H3.5A1.2 1.2 0 0 1 2.3 18.3z' fill='%23ffe08a' stroke='%23c08a14' stroke-width='.8'/%3E%3C/svg%3E") 12px 50% / 20px 20px no-repeat,
       linear-gradient(180deg, #5da0fa 0%, #2f74ea 10%, #2263df 30%, #1d5ad6 60%, #1c57d0 86%, #1748b4 100%);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.5); color: #fff; font: 700 15px/34px 'Nunito', Tahoma, sans-serif; text-shadow: 1px 1px 0 rgba(0,18,80,.45); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.5); color: #fff; font: 700 15px/34px var(--xp-font); text-shadow: 1px 1px 0 rgba(0,18,80,.45); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   main#MainContent > .shopify-section:not([class*="xpshop-"]):not(.form-modal-section)::after {
     content: ""; position: absolute; z-index: 3; top: 5px; right: 7px; width: 81px; height: 24px; pointer-events: none;
@@ -474,10 +476,10 @@ data-menu-hover="underline"
     main#MainContent > .shopify-section:not([class*="xpshop-"]):not(.form-modal-section)::after { width: 24px; height: 24px; top: 4px; right: 5px; background-position: -56px 0; }
   }
   /* Buttons, fields and choices across the theme, in the same XP look. */
-  main#MainContent :is(h1, h2, h3, .h1, .h2, .h3, .product__title, .heading-style) { font-family: 'Nunito', Tahoma, sans-serif !important; color: #0f2f75; letter-spacing: -.01em !important; }
+  main#MainContent :is(h1, h2, h3, .h1, .h2, .h3, .product__title, .heading-style) { font-family: var(--xp-font) !important; color: #0f2f75; letter-spacing: -.01em !important; }
   main#MainContent :is(.btn, .btn-primary, .btn-secondary, .btn-outline, .shopify-payment-button__button, [data-theme-button], [data-sl-button]):not(.xp-btn):not(.xp-ctl) {
     --mb-bg: linear-gradient(180deg, #ffffff 0%, #f6f5f0 45%, #ebe8dd 90%, #dcd7c7 100%); --mb-ink: #14213d; --mb-text: #14213d; --mb-line: #1f3f7a; --mb-border: #1f3f7a; --mb-border-width: 1px; --mb-radius: 5px; --mb-hover-bg: linear-gradient(180deg, #ffffff 0%, #fbfaf5 60%, #efece2 100%); --mb-hover-text: #14213d; --mb-hover-border: #1f3f7a;
-    --mb-font: 'Nunito', Tahoma, sans-serif; border-radius: 5px !important; font-family: 'Nunito', Tahoma, sans-serif !important; font-weight: 800 !important; letter-spacing: 0 !important; text-transform: none !important; min-height: 46px;
+    --mb-font: var(--xp-font); border-radius: 5px !important; font-family: var(--xp-font) !important; font-weight: 800 !important; letter-spacing: 0 !important; text-transform: none !important; min-height: 46px;
     background: linear-gradient(180deg, #ffffff 0%, #f6f5f0 45%, #ebe8dd 90%, #dcd7c7 100%); color: #14213d; border: 1px solid #1f3f7a;
   }
   main#MainContent :is(.btn, .btn-secondary, .btn-outline):not(.xp-btn):hover { box-shadow: inset 0 2px 0 #ffe3a3, inset 0 -2px 0 #f5a623; }
@@ -491,23 +493,23 @@ data-menu-hover="underline"
     --mb-hover-bg: linear-gradient(180deg, #8fbcfb 0%, #4c8af0 42%, #2f6de0 58%, #3f7eea 100%); --mb-hover-text: #fff; --mb-hover-border: #143f9a;
     background: linear-gradient(180deg, #7fb2fa 0%, #3f80ee 42%, #2563da 58%, #3474e6 100%) !important; color: #fff !important; border-color: #143f9a !important; text-shadow: 0 1px 0 rgba(0,20,80,.45); opacity: 1 !important;
   }
-  main#MainContent .product__item-option { border-radius: 5px !important; border: 1px solid #7f9db9 !important; background: #fff !important; color: #14213d !important; font-family: 'Nunito', Tahoma, sans-serif; font-weight: 700; }
+  main#MainContent .product__item-option { border-radius: 5px !important; border: 1px solid #7f9db9 !important; background: #fff !important; color: #14213d !important; font-family: var(--xp-font); font-weight: 700; }
   main#MainContent input:checked + .product__item-option { background: linear-gradient(180deg, #e3eeff, #c9dcfb) !important; border-color: #316ac5 !important; color: #0f2f75 !important; box-shadow: inset 0 0 0 1px #316ac5 !important; }
   main#MainContent .quantity { border: 1px solid #7f9db9 !important; border-radius: 5px !important; background: #fff !important; }
-  main#MainContent :is(input[type="text"], input[type="email"], input[type="search"], input[type="number"], input[type="tel"], textarea, select) { border-radius: 4px !important; border-color: #7f9db9 !important; font-family: 'Nunito', Tahoma, sans-serif; }
+  main#MainContent :is(input[type="text"], input[type="email"], input[type="search"], input[type="number"], input[type="tel"], textarea, select) { border-radius: 4px !important; border-color: #7f9db9 !important; font-family: var(--xp-font); }
   main#MainContent :is(.product__media, .media-gallery__image, .product-media, .card__media, .card-product__media) { border-radius: 6px; }
-  main#MainContent details summary { font-family: 'Nunito', Tahoma, sans-serif; }
+  main#MainContent details summary { font-family: var(--xp-font); }
 
   /* The form popup, as an XP dialog. */
-  .form-modal-section .fm__panel { border-radius: 10px 10px 6px 6px !important; border: 3px solid #1f5fd8 !important; border-top-width: 38px !important; position: relative; font-family: 'Nunito', Tahoma, sans-serif; }
-  .form-modal-section .fm__panel::before { content: "Sign up"; position: absolute; left: -3px; right: -3px; top: -38px; height: 38px; padding: 0 44px 0 14px; border-radius: 9px 9px 0 0; color: #fff; font: 700 15px/38px 'Nunito', Tahoma, sans-serif; text-shadow: 1px 1px 0 rgba(0,18,80,.45);
+  .form-modal-section .fm__panel { border-radius: 10px 10px 6px 6px !important; border: 3px solid #1f5fd8 !important; border-top-width: 38px !important; position: relative; font-family: var(--xp-font); }
+  .form-modal-section .fm__panel::before { content: "Sign up"; position: absolute; left: -3px; right: -3px; top: -38px; height: 38px; padding: 0 44px 0 14px; border-radius: 9px 9px 0 0; color: #fff; font: 700 15px/38px var(--xp-font); text-shadow: 1px 1px 0 rgba(0,18,80,.45);
     background: linear-gradient(180deg, #5da0fa 0%, #2f74ea 10%, #2263df 30%, #1d5ad6 60%, #1c57d0 86%, #1748b4 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,.5); }
   .form-modal-section .fm__close { top: -33px !important; right: 4px !important; width: 26px !important; height: 26px !important; border: 1px solid #fff !important; border-radius: 4px !important; color: #fff !important;
     background: linear-gradient(180deg, #f3a184 0%, #e5683f 40%, #d24a1f 60%, #e0653b 100%) !important; z-index: 3; }
   .form-modal-section .fm__handle { display: none !important; }
-  .form-modal-section .fm__submit { border-radius: 5px !important; border: 1px solid #1d6a1d !important; background: linear-gradient(180deg, #7ad36c 0%, #45b041 42%, #2f962f 58%, #3aa73a 100%) !important; color: #fff !important; text-shadow: 0 1px 0 rgba(0,50,0,.45); font-family: 'Nunito', Tahoma, sans-serif !important; font-weight: 800 !important; }
+  .form-modal-section .fm__submit { border-radius: 5px !important; border: 1px solid #1d6a1d !important; background: linear-gradient(180deg, #7ad36c 0%, #45b041 42%, #2f962f 58%, #3aa73a 100%) !important; color: #fff !important; text-shadow: 0 1px 0 rgba(0,50,0,.45); font-family: var(--xp-font) !important; font-weight: 800 !important; }
   .form-modal-section .fm__input { border-radius: 4px !important; }
-  .form-modal-section .fm__title { font-family: 'Nunito', Tahoma, sans-serif !important; color: #0f2f75 !important; font-weight: 900 !important; }
+  .form-modal-section .fm__title { font-family: var(--xp-font) !important; color: #0f2f75 !important; font-weight: 900 !important; }
 </style><svg class="xp-sprite" width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden"><defs>
 <symbol id="xpi-folder-header" viewBox="0 0 24 24"><linearGradient id="xg1-header" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe9a3"/><stop offset="1" stop-color="#f0b429"/></linearGradient><linearGradient id="xg2-header" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff4c9"/><stop offset="1" stop-color="#f7c64a"/></linearGradient>
 <path d="M2 5.5A1.5 1.5 0 0 1 3.5 4h5l2 2h9A1.5 1.5 0 0 1 21 7.5V18a1.5 1.5 0 0 1-1.5 1.5h-16A1.5 1.5 0 0 1 2 18z" fill="url(#xg1-header)" stroke="#c08a14" stroke-width=".8"/>
@@ -572,7 +574,7 @@ data-menu-hover="underline"
 <header data-own-font class="xp xp-top" data-xp-top>
 <div class="xp-top__glass" aria-hidden="true"></div>
 <div class="xp-top__in">
-<a class="xp-brand" href="/theme-previews/xp-merch/index.html"><svg class="xp-mark" viewBox="0 0 30 30" aria-hidden="true" focusable="false"><defs><linearGradient id="XpSky-header" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3f83e8"/><stop offset="1" stop-color="#a9d2fb"/></linearGradient><linearGradient id="XpHill-header" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7ccb4a"/><stop offset="1" stop-color="#3c8f25"/></linearGradient><clipPath id="XpClip-header"><circle cx="15" cy="15" r="14"/></clipPath></defs><g clip-path="url(#XpClip-header)"><rect width="30" height="30" fill="url(#XpSky-header)"/><ellipse cx="10" cy="10" rx="4.5" ry="2.6" fill="#fff"/><ellipse cx="13" cy="9" rx="3.4" ry="2.6" fill="#fff"/><ellipse cx="17" cy="34" rx="22" ry="16" fill="url(#XpHill-header)"/></g><circle cx="15" cy="15" r="14" fill="none" stroke="#fff" stroke-width="2"/></svg><span>Hilltop Supply</span></a><nav aria-label="Main menu"><ul class="xp-nav" role="list"><li><a href="/theme-previews/xp-merch/collections/all.html">Shop</a></li><li><a href="/theme-previews/xp-merch/collections.html">Collections</a></li><li><a href="/theme-previews/xp-merch/pages/about.html">About</a></li><li><a href="/theme-previews/xp-merch/pages/faqs.html">Help</a></li><li><a href="/theme-previews/xp-merch/blogs/news.html">Journal</a></li></ul></nav><div class="xp-top__right">
+<a class="xp-brand" href="/theme-previews/xp-merch/index.html"><svg class="xp-mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><defs><linearGradient id="XpSky-header" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f7be6"/><stop offset="1" stop-color="#9fcdfa"/></linearGradient><linearGradient id="XpHill-header" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5cc23d"/><stop offset="1" stop-color="#2e8a22"/></linearGradient><linearGradient id="XpGloss-header" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".45"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient><clipPath id="XpClip-header"><rect width="32" height="32" rx="8"/></clipPath></defs><g clip-path="url(#XpClip-header)"><rect width="32" height="32" fill="url(#XpSky-header)"/><circle cx="22.5" cy="10" r="3.6" fill="#fff4c9"/><path d="M-2 25C5 18.5 12 17.5 19 20.5c4 1.7 8.5 2 15-.5V34H-2Z" fill="#8fd16a"/><path d="M-2 22.5C6 16 15 15.2 23 19.6c4 2.2 7.5 2.4 11 1.4V34H-2Z" fill="url(#XpHill-header)"/><path d="M-2 22.5C6 16 15 15.2 23 19.6" fill="none" stroke="#b8ec95" stroke-width="1.2" stroke-linecap="round" opacity=".9"/><rect width="32" height="15" fill="url(#XpGloss-header)"/></g><rect x=".5" y=".5" width="31" height="31" rx="7.5" fill="none" stroke="#0f2f75" stroke-opacity=".28"/></svg><span class="xp-brand__name"><b>Hilltop</b><span>Supply</span></span></a><nav aria-label="Main menu"><ul class="xp-nav" role="list"><li><a href="/theme-previews/xp-merch/collections/all.html">Shop</a></li><li><a href="/theme-previews/xp-merch/collections.html">Collections</a></li><li><a href="/theme-previews/xp-merch/pages/about.html">About</a></li><li><a href="/theme-previews/xp-merch/pages/faqs.html">Help</a></li><li><a href="/theme-previews/xp-merch/blogs/news.html">Journal</a></li></ul></nav><div class="xp-top__right">
 <form class="xp-search" role="search" data-preview-form>
 <label class="visually-hidden" for="XpSearch-header">Search</label>
 <input id="XpSearch-header" type="search" name="q" placeholder="Search the shop" autocomplete="off">
@@ -584,7 +586,7 @@ data-menu-hover="underline"
 </div>
 </header><ul data-own-font class="xp xp-icons xp-icons--off" role="list"><li data-block-id="icon_1"><a class="xp-icon" href="/theme-previews/xp-merch/collections/all.html"><svg class="xp-ico" aria-hidden="true" focusable="false"><use href="#xpi-folder-header"/></svg><span>New drop</span></a></li><li data-block-id="icon_2"><a class="xp-icon" href="/theme-previews/xp-merch/pages/about.html"><svg class="xp-ico" aria-hidden="true" focusable="false"><use href="#xpi-note-header"/></svg><span>readme.txt</span></a></li><li data-block-id="icon_3"><a class="xp-icon" href="/theme-previews/xp-merch/pages/faqs.html"><svg class="xp-ico" aria-hidden="true" focusable="false"><use href="#xpi-help-header"/></svg><span>Questions?</span></a></li><li data-block-id="icon_4"><a class="xp-icon" href="/theme-previews/xp-merch/pages/shipping.html"><svg class="xp-ico" aria-hidden="true" focusable="false"><use href="#xpi-truck-header"/></svg><span>Delivery</span></a></li><li data-block-id="icon_5"><a class="xp-icon" href="/theme-previews/xp-merch/pages/contact.html"><svg class="xp-ico" aria-hidden="true" focusable="false"><use href="#xpi-mail-header"/></svg><span>Mail us</span></a></li><li data-block-id="icon_6"><a class="xp-icon" href="/theme-previews/xp-merch/cart.html"><svg class="xp-ico" aria-hidden="true" focusable="false"><use href="#xpi-cart-header"/></svg><span>My cart</span></a></li></ul><nav data-own-font class="xp xp-task" aria-label="Taskbar" data-xp-task>
 <div class="xp-menu" id="XpMenu-header" hidden data-xp-menu>
-<div class="xp-menu__head"><span class="xp-menu__tile"><svg class="xp-mark" viewBox="0 0 30 30" aria-hidden="true" focusable="false"><defs><linearGradient id="XpSky-header" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3f83e8"/><stop offset="1" stop-color="#a9d2fb"/></linearGradient><linearGradient id="XpHill-header" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7ccb4a"/><stop offset="1" stop-color="#3c8f25"/></linearGradient><clipPath id="XpClip-header"><circle cx="15" cy="15" r="14"/></clipPath></defs><g clip-path="url(#XpClip-header)"><rect width="30" height="30" fill="url(#XpSky-header)"/><ellipse cx="10" cy="10" rx="4.5" ry="2.6" fill="#fff"/><ellipse cx="13" cy="9" rx="3.4" ry="2.6" fill="#fff"/><ellipse cx="17" cy="34" rx="22" ry="16" fill="url(#XpHill-header)"/></g><circle cx="15" cy="15" r="14" fill="none" stroke="#fff" stroke-width="2"/></svg></span><span>Hilltop Supply</span></div>
+<div class="xp-menu__head"><span class="xp-menu__tile"><svg class="xp-mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><defs><linearGradient id="XpSky-header" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f7be6"/><stop offset="1" stop-color="#9fcdfa"/></linearGradient><linearGradient id="XpHill-header" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5cc23d"/><stop offset="1" stop-color="#2e8a22"/></linearGradient><linearGradient id="XpGloss-header" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".45"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient><clipPath id="XpClip-header"><rect width="32" height="32" rx="8"/></clipPath></defs><g clip-path="url(#XpClip-header)"><rect width="32" height="32" fill="url(#XpSky-header)"/><circle cx="22.5" cy="10" r="3.6" fill="#fff4c9"/><path d="M-2 25C5 18.5 12 17.5 19 20.5c4 1.7 8.5 2 15-.5V34H-2Z" fill="#8fd16a"/><path d="M-2 22.5C6 16 15 15.2 23 19.6c4 2.2 7.5 2.4 11 1.4V34H-2Z" fill="url(#XpHill-header)"/><path d="M-2 22.5C6 16 15 15.2 23 19.6" fill="none" stroke="#b8ec95" stroke-width="1.2" stroke-linecap="round" opacity=".9"/><rect width="32" height="15" fill="url(#XpGloss-header)"/></g><rect x=".5" y=".5" width="31" height="31" rx="7.5" fill="none" stroke="#0f2f75" stroke-opacity=".28"/></svg></span><span>Hilltop Supply</span></div>
 <div class="xp-menu__cols">
 <ul class="xp-menu__col xp-menu__col--l" role="list">
 <li><a href="/theme-previews/xp-merch/index.html"><svg class="xp-ico" width="30" height="30" aria-hidden="true" focusable="false"><use href="#xpi-home-header"/></svg><span>Home</span></a></li><li><a href="/theme-previews/xp-merch/collections/all.html"><svg class="xp-ico" width="30" height="30" aria-hidden="true" focusable="false"><use href="#xpi-folder-header"/></svg><span>Shop</span></a></li><li><a href="/theme-previews/xp-merch/collections.html"><svg class="xp-ico" width="30" height="30" aria-hidden="true" focusable="false"><use href="#xpi-folder-header"/></svg><span>Collections</span></a></li><li><a href="/theme-previews/xp-merch/pages/about.html"><svg class="xp-ico" width="30" height="30" aria-hidden="true" focusable="false"><use href="#xpi-note-header"/></svg><span>About</span></a></li><li><a href="/theme-previews/xp-merch/pages/faqs.html"><svg class="xp-ico" width="30" height="30" aria-hidden="true" focusable="false"><use href="#xpi-help-header"/></svg><span>Help</span></a></li><li><a href="/theme-previews/xp-merch/blogs/news.html"><svg class="xp-ico" width="30" height="30" aria-hidden="true" focusable="false"><use href="#xpi-note-header"/></svg><span>Journal</span></a></li></ul>
@@ -595,7 +597,7 @@ data-menu-hover="underline"
 </div>
 </div>
 <div class="xp-task__in">
-<button class="xp-start" type="button" aria-expanded="false" aria-controls="XpMenu-header" data-xp-start><svg class="xp-mark" viewBox="0 0 30 30" aria-hidden="true" focusable="false"><defs><linearGradient id="XpSky-header" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3f83e8"/><stop offset="1" stop-color="#a9d2fb"/></linearGradient><linearGradient id="XpHill-header" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7ccb4a"/><stop offset="1" stop-color="#3c8f25"/></linearGradient><clipPath id="XpClip-header"><circle cx="15" cy="15" r="14"/></clipPath></defs><g clip-path="url(#XpClip-header)"><rect width="30" height="30" fill="url(#XpSky-header)"/><ellipse cx="10" cy="10" rx="4.5" ry="2.6" fill="#fff"/><ellipse cx="13" cy="9" rx="3.4" ry="2.6" fill="#fff"/><ellipse cx="17" cy="34" rx="22" ry="16" fill="url(#XpHill-header)"/></g><circle cx="15" cy="15" r="14" fill="none" stroke="#fff" stroke-width="2"/></svg><span>hilltop</span></button>
+<button class="xp-start" type="button" aria-expanded="false" aria-controls="XpMenu-header" data-xp-start><svg class="xp-mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><defs><linearGradient id="XpSky-header" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f7be6"/><stop offset="1" stop-color="#9fcdfa"/></linearGradient><linearGradient id="XpHill-header" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5cc23d"/><stop offset="1" stop-color="#2e8a22"/></linearGradient><linearGradient id="XpGloss-header" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".45"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient><clipPath id="XpClip-header"><rect width="32" height="32" rx="8"/></clipPath></defs><g clip-path="url(#XpClip-header)"><rect width="32" height="32" fill="url(#XpSky-header)"/><circle cx="22.5" cy="10" r="3.6" fill="#fff4c9"/><path d="M-2 25C5 18.5 12 17.5 19 20.5c4 1.7 8.5 2 15-.5V34H-2Z" fill="#8fd16a"/><path d="M-2 22.5C6 16 15 15.2 23 19.6c4 2.2 7.5 2.4 11 1.4V34H-2Z" fill="url(#XpHill-header)"/><path d="M-2 22.5C6 16 15 15.2 23 19.6" fill="none" stroke="#b8ec95" stroke-width="1.2" stroke-linecap="round" opacity=".9"/><rect width="32" height="15" fill="url(#XpGloss-header)"/></g><rect x=".5" y=".5" width="31" height="31" rx="7.5" fill="none" stroke="#0f2f75" stroke-opacity=".28"/></svg><span>hilltop</span></button>
 <div class="xp-task__wins" data-xp-wins>
 <span class="xp-tw is-current" aria-current="page"><svg class="xp-ico" width="24" height="24" aria-hidden="true" focusable="false"><use href="#xpi-folder-header"/></svg><span>Meadow beanie</span></span>
 </div>
@@ -1320,7 +1322,7 @@ style="--btn-padding-x: 2.5rem;"
   </script>
 </div>
 </div>
-</section><section id="shopify-section-promises" class="shopify-section xpshop-tiles-section" data-section-id="promises" data-section-type="xpshop-tiles"><link rel="stylesheet" href="/theme-previews/xp-merch/a/i.3ffc96e5cf39.css">
+</section><section id="shopify-section-promises" class="shopify-section xpshop-tiles-section" data-section-id="promises" data-section-type="xpshop-tiles"><link rel="stylesheet" href="/theme-previews/xp-merch/a/i.7c68754f61b7.css">
 <svg class="xp-sprite" width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden"><defs>
 <symbol id="xpi-folder-promises" viewBox="0 0 24 24"><linearGradient id="xg1-promises" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe9a3"/><stop offset="1" stop-color="#f0b429"/></linearGradient><linearGradient id="xg2-promises" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff4c9"/><stop offset="1" stop-color="#f7c64a"/></linearGradient>
 <path d="M2 5.5A1.5 1.5 0 0 1 3.5 4h5l2 2h9A1.5 1.5 0 0 1 21 7.5V18a1.5 1.5 0 0 1-1.5 1.5h-16A1.5 1.5 0 0 1 2 18z" fill="url(#xg1-promises)" stroke="#c08a14" stroke-width=".8"/>
@@ -1413,7 +1415,7 @@ style="--btn-padding-x: 2.5rem;"
 </div>
 </div>
 <script src="/theme-previews/xp-merch/a/i.d56470834047.js"></script>
-</section><section id="shopify-section-more" class="shopify-section xpshop-shop-section" data-section-id="more" data-section-type="xpshop-shop"><link rel="stylesheet" href="/theme-previews/xp-merch/a/i.3f32bbffbf98.css">
+</section><section id="shopify-section-more" class="shopify-section xpshop-shop-section" data-section-id="more" data-section-type="xpshop-shop"><link rel="stylesheet" href="/theme-previews/xp-merch/a/i.e0dddaf302bf.css">
 <svg class="xp-sprite" width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden"><defs>
 <symbol id="xpi-folder-more" viewBox="0 0 24 24"><linearGradient id="xg1-more" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe9a3"/><stop offset="1" stop-color="#f0b429"/></linearGradient><linearGradient id="xg2-more" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff4c9"/><stop offset="1" stop-color="#f7c64a"/></linearGradient>
 <path d="M2 5.5A1.5 1.5 0 0 1 3.5 4h5l2 2h9A1.5 1.5 0 0 1 21 7.5V18a1.5 1.5 0 0 1-1.5 1.5h-16A1.5 1.5 0 0 1 2 18z" fill="url(#xg1-more)" stroke="#c08a14" stroke-width=".8"/>
@@ -1574,7 +1576,7 @@ style="--btn-padding-x: 2.5rem;"
 </div>
 <script src="/theme-previews/xp-merch/a/i.0a9423335290.js"></script>
 <script src="/theme-previews/xp-merch/a/i.2f601c5e9470.js"></script>
-</section><section id="shopify-section-faq" class="shopify-section xpshop-help-section" data-section-id="faq" data-section-type="xpshop-help"><link rel="stylesheet" href="/theme-previews/xp-merch/a/i.d1cee6b56658.css">
+</section><section id="shopify-section-faq" class="shopify-section xpshop-help-section" data-section-id="faq" data-section-type="xpshop-help"><link rel="stylesheet" href="/theme-previews/xp-merch/a/i.b3e5acd46b89.css">
 <svg class="xp-sprite" width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden"><defs>
 <symbol id="xpi-folder-faq" viewBox="0 0 24 24"><linearGradient id="xg1-faq" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe9a3"/><stop offset="1" stop-color="#f0b429"/></linearGradient><linearGradient id="xg2-faq" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff4c9"/><stop offset="1" stop-color="#f7c64a"/></linearGradient>
 <path d="M2 5.5A1.5 1.5 0 0 1 3.5 4h5l2 2h9A1.5 1.5 0 0 1 21 7.5V18a1.5 1.5 0 0 1-1.5 1.5h-16A1.5 1.5 0 0 1 2 18z" fill="url(#xg1-faq)" stroke="#c08a14" stroke-width=".8"/>
@@ -1691,7 +1693,7 @@ style="--btn-padding-x: 2.5rem;"
 </script>
 </section>
 </main><script src="/theme-previews/xp-merch/a/i.3221b11617b1.js"></script>
-<section id="shopify-section-footer" class="shopify-section shopify-section-group-footer-group xpshop-footer-section" data-section-id="footer" data-section-type="xpshop-footer"><link rel="stylesheet" href="/theme-previews/xp-merch/a/i.fb6a00059253.css">
+<section id="shopify-section-footer" class="shopify-section shopify-section-group-footer-group xpshop-footer-section" data-section-id="footer" data-section-type="xpshop-footer"><link rel="stylesheet" href="/theme-previews/xp-merch/a/i.b8a09e7c89f4.css">
 <svg class="xp-sprite" width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden"><defs>
 <symbol id="xpi-folder-footer" viewBox="0 0 24 24"><linearGradient id="xg1-footer" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe9a3"/><stop offset="1" stop-color="#f0b429"/></linearGradient><linearGradient id="xg2-footer" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff4c9"/><stop offset="1" stop-color="#f7c64a"/></linearGradient>
 <path d="M2 5.5A1.5 1.5 0 0 1 3.5 4h5l2 2h9A1.5 1.5 0 0 1 21 7.5V18a1.5 1.5 0 0 1-1.5 1.5h-16A1.5 1.5 0 0 1 2 18z" fill="url(#xg1-footer)" stroke="#c08a14" stroke-width=".8"/>

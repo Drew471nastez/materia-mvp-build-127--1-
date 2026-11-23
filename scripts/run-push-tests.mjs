@@ -314,6 +314,8 @@ const SUITES = [
   "tests/theme-powered-by.test.ts",
   /* The live template preview: every template's website prerendered to public/theme-previews (scripts/build-template-previews.ts), each page there with the pages it links to and every file it names, no form that posts, no "Shopify", only rendered output, served sandboxed with a year's caching and left alone by the proxy; scripts/check-theme-preview-live.mjs opens it in the marketplace in Chromium. */
   "tests/theme-template-previews.test.ts",
+  /* Templates round 22: each template walked from its home page through the real engine: every link to the site opens a page, every #open-form link finds its popup, every contact form, newsletter box and form popup is sent to Storelib as what it is and comes back with its thank you, and the footer shows Visa, Mastercard, American Express, Apple Pay and Google Pay and no PayPal. */
+  "tests/theme-templates-links-forms.test.ts",
   /* The production build folds each app/api area into one entry, so it fits Vercel's Standard build machine (scripts/fold-api-routes.mjs). */
   "tests/fold-api-routes.test.ts",
   /* Landing round 15: the builder demo plays a real edit (heading, publish, scroll, product section top padding, publish) on transform and opacity only, sharp loudlib boxes, and three true stats that count up. */

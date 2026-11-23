@@ -22,13 +22,13 @@
           "type": "store_info",
           "settings": {
             "show_logo": false,
-            "store_heading": "Theo Marlow",
+            "store_heading": "Maya Okafor",
             "image_width": 110,
             "store_email": true,
             "store_phone": false,
             "store_address": false,
-            "content_width": "40%",
-            "store_description": "<p>Author of Read More, Keep More and writer of Marginalia, a letter on reading that goes out every Sunday. Put your own short line here.</p>"
+            "content_width": "33%",
+            "store_description": "<p>Author of Not Broke Anymore, a money book for your twenties. Writes a short letter about money every other Sunday.</p>"
           }
         },
         "link_list_2": {
@@ -36,7 +36,7 @@
           "settings": {
             "menu": "footer-book",
             "heading": "The book",
-            "content_width": "20%"
+            "content_width": "17%"
           }
         },
         "link_list_3": {
@@ -44,14 +44,41 @@
           "settings": {
             "menu": "footer",
             "heading": "More",
-            "content_width": "20%"
+            "content_width": "17%"
+          }
+        },
+        "newsletter_1": {
+          "type": "newsletter",
+          "settings": {
+            "note": "",
+            "heading": "Sunday money letter",
+            "description": "One short letter every other Sunday. Free.",
+            "button_label": "Sign up",
+            "content_width": "33%",
+            "email_placeholder": "Your email"
+          }
+        },
+        "payment_badges_1": {
+          "type": "payment_badges",
+          "settings": {
+            "alignment": "right",
+            "enable_amex": true,
+            "enable_visa": true,
+            "content_width": "100%",
+            "enable_klarna": false,
+            "enable_paypal": false,
+            "enable_apple_pay": true,
+            "enable_google_pay": true,
+            "enable_mastercard": true
           }
         }
       },
       "block_order": [
         "store_info_1",
         "link_list_2",
-        "link_list_3"
+        "link_list_3",
+        "newsletter_1",
+        "payment_badges_1"
       ]
     }
   },

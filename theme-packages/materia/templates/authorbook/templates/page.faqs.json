@@ -1,180 +1,136 @@
+/* Templates round 22: a money book for your twenties by Maya Okafor, built from the theme's own sections (product hero, quote, image with text, text columns, product grid, testimonial wall, newsletter with image, FAQ, banner); Libre Baskerville and Helvetica. */
 {
   "sections": {
     "faq": {
-      "type": "authorbook-faq",
+      "type": "faq-pro",
       "settings": {
-        "eyebrow": "Questions",
-        "heading": "Questions, <em>answered</em>",
-        "accent_color": "#c4471f",
-        "icon_bg": "#f5f2ec",
-        "text": "<p>The questions readers ask most. Anything else, <a href=\"/pages/contact\">write to me</a>.</p>",
-        "padding_top": 72
+        "color_scheme": "default",
+        "first_item_open": true,
+        "content_alignment": "left",
+        "max_content_width": 820
       },
       "blocks": {
-        "question_1": {
-          "type": "question",
+        "heading_1": {
+          "type": "heading",
           "settings": {
-            "question": "Is this a paper book?",
-            "answer": "<p>It is an ebook and an audiobook. The ebook comes as PDF and EPUB, so it opens on a phone, a tablet, a Kindle, a Kobo or a laptop. Replace this with your own formats.</p>"
+            "text": "Questions"
           }
         },
-        "question_2": {
-          "type": "question",
+        "subheading_2": {
+          "type": "subheading",
           "settings": {
-            "question": "How do I get it after paying?",
-            "answer": "<p>A download link arrives by email straight away, and the files stay in your account so you can download them again.</p>"
+            "text": "<p>Something else? <a href=\"/pages/contact\">Write to me</a>.</p>"
           }
         },
-        "question_3": {
-          "type": "question",
+        "faq_item_3": {
+          "type": "faq_item",
           "settings": {
-            "question": "I do not read much now. Is it for me?",
-            "answer": "<p>Yes. The book is written for people who used to read and stopped. Chapter one asks for twenty pages a day, nothing more.</p>"
+            "question": "Is this book for me if I am already in debt?",
+            "answer": "<p>Yes. Chapter five is a plan for cards, buy now pay later and student loans, and it starts wherever you are.</p>"
           }
         },
-        "question_4": {
-          "type": "question",
+        "faq_item_4": {
+          "type": "faq_item",
           "settings": {
-            "question": "What is the free chapter?",
-            "answer": "<p>The whole of chapter one, The Twenty Page Day, as a PDF. Leave your email at the top of the page and it arrives in a minute.</p>"
+            "question": "Is this financial advice?",
+            "answer": "<p>It is general teaching from my own experience and training, not personal financial advice. For your exact situation, talk to a licensed adviser.</p>"
           }
         },
-        "question_5": {
-          "type": "question",
+        "faq_item_5": {
+          "type": "faq_item",
           "settings": {
-            "question": "What if it is not for me?",
-            "answer": "<p>Write within 30 days and you get every cent back. Replace this with your own terms.</p>"
+            "question": "Does it work outside the US?",
+            "answer": "<p>The habits work anywhere. The account names in chapter nine are American, with notes for the UK, Canada and Australia.</p>"
           }
         },
-        "question_6": {
-          "type": "question",
+        "faq_item_6": {
+          "type": "faq_item",
           "settings": {
-            "question": "Can I buy it for someone else?",
-            "answer": "<p>Yes. Put their email at checkout, or forward the download email. Write to me if you want a gift note added.</p>"
+            "question": "Which edition should I get?",
+            "answer": "<p>The paperback if you like writing in margins, the audiobook for commutes, and the set if you want the workbook too.</p>"
           }
         },
-        "question_7": {
-          "type": "question",
+        "faq_item_7": {
+          "type": "faq_item",
           "settings": {
-            "question": "Do you offer copies for book clubs or teams?",
-            "answer": "<p>Yes, at a lower price per copy. <a href=\"/pages/contact\">Write to me</a> with how many you need.</p>"
-          }
-        },
-        "question_8": {
-          "type": "question",
-          "settings": {
-            "question": "Is there a paperback?",
-            "answer": "<p>Not yet. Join Marginalia and you will hear first when there is.</p>"
+            "question": "When will my paperback arrive?",
+            "answer": "<p>It ships within two working days. The ebook and audiobook arrive by email straight after checkout.</p>"
           }
         }
       },
       "block_order": [
-        "question_1",
-        "question_2",
-        "question_3",
-        "question_4",
-        "question_5",
-        "question_6",
-        "question_7",
-        "question_8"
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7"
       ]
     },
-    "cta": {
-      "type": "authorbook-cta",
+    "editions": {
+      "type": "products-grid",
       "settings": {
-        "band_color": "#c4471f",
-        "image": "shopify://shop_images/authorbook-cover.webp",
-        "image_alt": "Read More, Keep More",
-        "heading": "Start with chapter one tonight",
-        "text": "<p>Twenty five minutes of reading and the first habit of the book, free.</p>",
-        "button_label": "Send me chapter one",
-        "button_link": "#open-form-chapter",
-        "button_color": "#1d2b4f",
-        "button2_label": "Buy the book",
-        "button2_link": "/#buy",
-        "button2_text_color": "#1d2b4f"
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "heading": "Get the book",
+        "text": "<p>Paperback, ebook or audiobook, and a workbook to go with it.</p>",
+        "items_to_show": 4,
+        "items_per_row": 4,
+        "show_add_to_cart": true,
+        "button_label": "All editions",
+        "button_link": "/collections/all",
+        "header_alignment": "left"
       }
     },
-    "chapter_form": {
-      "type": "form-modal",
+    "cta": {
+      "type": "banner3",
       "settings": {
-        "form_key": "chapter",
-        "sends_to": "subscribe",
-        "accent_color": "#c4471f",
-        "text_align": "center",
-        "width": 480,
-        "corners": "theme",
-        "success_heading": "Chapter one is on its way",
-        "success_text": "<p>Check your inbox in a minute. If nothing arrives, look in spam.</p>"
+        "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636",
+        "banner_surface": "section",
+        "max_width": 720,
+        "pad_top_desktop": 88,
+        "pad_bottom_desktop": 88
       },
       "blocks": {
-        "image_1": {
-          "type": "image",
+        "eyebrow_1": {
+          "type": "eyebrow",
           "settings": {
-            "image": "shopify://shop_images/authorbook-cover.webp",
-            "fit": "contain",
-            "max_height": 190
+            "text": "Not Broke Anymore",
+            "transform": "uppercase"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "eyebrow": "Free chapter",
-            "heading": "Read chapter one *free*",
-            "size": 30
+            "text": "Next payday, have a plan",
+            "transform": "none"
           }
         },
-        "text_3": {
-          "type": "text",
+        "subheading_3": {
+          "type": "subheading",
           "settings": {
-            "text": "<p>The Twenty Page Day, as a PDF. Plus Marginalia on Sundays.</p>"
+            "text": "Twelve short chapters and one page you will use every month."
           }
         },
-        "field_4": {
-          "type": "field",
-          "settings": {
-            "kind": "name",
-            "label": "First name",
-            "required": false
-          }
-        },
-        "field_5": {
-          "type": "field",
-          "settings": {
-            "kind": "email",
-            "label": "Email address"
-          }
-        },
-        "button_6": {
+        "button_4": {
           "type": "button",
           "settings": {
-            "label": "Send me chapter one",
-            "arrow": true
-          }
-        },
-        "note_7": {
-          "type": "note",
-          "settings": {
-            "icon": "lock",
-            "text": "Your email stays private.",
-            "small": "<p>Leave whenever you like.</p>"
+            "label": "Buy the book",
+            "link": "/collections/all"
           }
         }
       },
       "block_order": [
-        "image_1",
+        "eyebrow_1",
         "heading_2",
-        "text_3",
-        "field_4",
-        "field_5",
-        "button_6",
-        "note_7"
+        "subheading_3",
+        "button_4"
       ]
     }
   },
   "order": [
     "faq",
-    "cta",
-    "chapter_form"
+    "editions",
+    "cta"
   ]
 }

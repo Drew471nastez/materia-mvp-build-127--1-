@@ -104,7 +104,7 @@
         "form_key": "access",
         "sends_to": "subscribe",
         "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
-        "accent_color": "#f2bd4f",
+        "accent_color": "#e3a63a",
         "text_align": "left",
         "width": 480,
         "corners": "round",
@@ -122,7 +122,7 @@
           "type": "heading",
           "settings": {
             "eyebrow": "Free preview",
-            "heading": "Watch module one *free*",
+            "heading": "Watch module one free",
             "size": 30
           }
         },
