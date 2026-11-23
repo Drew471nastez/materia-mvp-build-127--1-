@@ -73,7 +73,8 @@
           "type": "heading",
           "settings": {
             "text": "Next payday, have a plan",
-            "transform": "none"
+            "transform": "none",
+            "lineheight": "1.35"
           }
         },
         "subheading_3": {

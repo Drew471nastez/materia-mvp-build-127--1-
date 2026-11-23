@@ -41,9 +41,9 @@
         "heading_letter_spacing": 0,
         "heading_shadow": "none",
         "enable_custom_styling": true,
-        "heading_color": "#111111",
+        "heading_color": "#141414",
         "sub_color": "#3d3d3d",
-        "underline_color": "#111111",
+        "underline_color": "#141414",
         "image_hover_scale": 103,
         "padding_top": 32,
         "padding_bottom": 64,
@@ -64,7 +64,7 @@
             "heading_font_size_mobile": 18,
             "space_below_desktop": 20,
             "space_below_mobile": 16,
-            "heading_color": "#111111"
+            "heading_color": "#141414"
           }
         },
         "caps": {

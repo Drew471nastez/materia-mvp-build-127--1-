@@ -22,16 +22,16 @@
   cart-notification.minicart .minicart-form {
     --color-background: #ffffff !important;
     --color-text: #3d3d3d !important;
-    --color-heading: #111111 !important;
-    --color-primary: #111111 !important;
+    --color-heading: #141414 !important;
+    --color-primary: #141414 !important;
     --color-border: #e6e6e4 !important;
     --gradient-background: #ffffff !important;
     --btn-primary-color: #ffffff !important;
-    --btn-primary-bg-color: #111111 !important;
+    --btn-primary-bg-color: #141414 !important;
     --btn-primary-hover-color: #ffffff !important;
     --btn-primary-hover-bg-color: #3a3a3a !important;
-    --btn-outline-color: #111111 !important;
-    --btn-outline-border-color: #111111 !important;
+    --btn-outline-color: #141414 !important;
+    --btn-outline-border-color: #141414 !important;
     --grey-color: color-mix(in srgb, #ffffff 93%, #3d3d3d 7%) !important;
   }
   /* All `grey-bg` regions (header sit-on, free-shipping bar, drawer
@@ -60,12 +60,12 @@
   }
   /* Checkout button — cart scheme's primary. */
   cart-notification.minicart .btn-checkout{
-    background-color: #111111 !important;
+    background-color: #141414 !important;
     color: #ffffff !important;
-    border-color: #111111 !important;
+    border-color: #141414 !important;
   }cart-notification.minicart .btn-checkout *{background-color:transparent !important;
     color: #ffffff !important;
-    border-color: #111111 !important;
+    border-color: #141414 !important;
   }
   cart-notification.minicart .btn-checkout:hover {
     background-color: #3a3a3a !important;
@@ -73,12 +73,12 @@
   }
   /* View Cart — outline. */
   cart-notification.minicart .btn-outline.viewcart{
-    color: #111111 !important;
-    border-color: #111111 !important;
+    color: #141414 !important;
+    border-color: #141414 !important;
     background: transparent !important;
   }cart-notification.minicart .btn-outline.viewcart *{
-    color: #111111 !important;
-    border-color: #111111 !important;background:transparent !important;
+    color: #141414 !important;
+    border-color: #141414 !important;background:transparent !important;
   }
   /* Cart drawer header — "Your Cart (X)", count bubble, and close
      icon. Pins them to the cart scheme so the title text + close
@@ -88,7 +88,7 @@
   cart-notification.minicart .minicart-heading *,
   cart-notification.minicart .cart-count,
   cart-notification.minicart .cart-count-drawer {
-    color: #111111 !important;
+    color: #141414 !important;
   }
   cart-notification.minicart .button-close,
   cart-notification.minicart .button-close svg,
@@ -124,7 +124,7 @@
     color: #3d3d3d !important;
   }
   cart-notification.minicart .cart-empty :is(h1, h2, h3, h4, h5, h6, .h6) {
-    color: #111111 !important;
+    color: #141414 !important;
   }
   /* The empty-cart icon SVG had hardcoded stroke="#C9CCD1" — pin to
      scheme text so it reads on every scheme. */
@@ -136,10 +136,10 @@
      ensure the cart scheme's button-primary customiser drives the
      colours, not the page-default scheme. */
   cart-notification.minicart .minicart-action.btn-primary{
-    background-color: #111111 !important;
+    background-color: #141414 !important;
     color: #ffffff !important;
-    border-color: #111111 !important;
+    border-color: #141414 !important;
   }cart-notification.minicart .minicart-action.btn-primary *{background-color:transparent !important;
     color: #ffffff !important;
-    border-color: #111111 !important;
+    border-color: #141414 !important;
   }

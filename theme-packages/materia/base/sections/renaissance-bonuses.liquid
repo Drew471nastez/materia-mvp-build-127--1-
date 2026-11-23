@@ -9,7 +9,7 @@
   assign sid = section.id
 -%}
 <style>
-  #shopify-section-{{ sid }} .rnb { --gold: {{ st.gold | default: '#f2bd4f' }}; --lapis: {{ st.accent | default: '#3d5afe' }}; background: {{ st.background | default: '#0b0c12' }}; color: {{ st.text_color | default: '#a7adbf' }}; padding: {{ st.padding_top_mobile | default: 56 }}px 16px {{ st.padding_bottom_mobile | default: 56 }}px; }
+  #shopify-section-{{ sid }} .rnb { --gold: {{ st.gold | default: '#e3a63a' }}; --lapis: {{ st.accent | default: '#e3a63a' }}; background: {{ st.background | default: '#0b0c12' }}; color: {{ st.text_color | default: '#a7adbf' }}; padding: {{ st.padding_top_mobile | default: 56 }}px 16px {{ st.padding_bottom_mobile | default: 56 }}px; }
   @media (min-width: 990px) { #shopify-section-{{ sid }} .rnb { padding: {{ st.padding_top | default: 112 }}px 40px {{ st.padding_bottom | default: 112 }}px; } }
   #shopify-section-{{ sid }} .rnb__in { max-width: 1040px; margin: 0 auto; }
   #shopify-section-{{ sid }} .rnb__eyebrow { margin: 0 0 12px; color: var(--gold); font-size: 12px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; text-align: center; }
@@ -64,13 +64,13 @@
   "settings": [
     { "type": "text", "id": "anchor", "label": "Name for links to this place", "default": "bonuses" },
     { "type": "text", "id": "eyebrow", "label": "Small line above", "default": "Along the way" },
-    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "Bonuses along the <em>way</em>" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "Bonuses along the way" },
     { "type": "richtext", "id": "intro", "label": "Text", "default": "<p>Say when and how each bonus becomes available.</p>" },
     { "type": "color", "id": "background", "label": "Background", "default": "#0b0c12" },
     { "type": "checkbox", "id": "caps", "label": "Headings in capitals", "default": false },
     { "type": "color", "id": "button_text", "label": "Button text", "default": "#ffffff" },
-    { "type": "color", "id": "accent", "label": "Accent", "default": "#3d5afe" },
-    { "type": "color", "id": "gold", "label": "Highlight", "default": "#f2bd4f" },
+    { "type": "color", "id": "accent", "label": "Accent", "default": "#e3a63a" },
+    { "type": "color", "id": "gold", "label": "Highlight", "default": "#e3a63a" },
     { "type": "color", "id": "text_color", "label": "Text", "default": "#a7adbf" },
     { "type": "range", "id": "padding_top", "label": "Space above on a computer", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 112 },
     { "type": "range", "id": "padding_bottom", "label": "Space below on a computer", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 112 },
