@@ -3,97 +3,125 @@
     "main": {
       "type": "main-article",
       "settings": {
-        "padding_top": 48,
+        "padding_top": 56,
         "section_width": "container",
-        "padding_bottom": 30,
+        "padding_bottom": 40,
         "author_margin_left": -140,
         "author_margin_right": 0,
-        "content_width_desktop": 1100
+        "content_width_desktop": 760
       },
-      "name": "Main Blog Article",
       "blocks": {
-        "category_8bHVa7": {
-          "type": "category",
-          "settings": {
-            "enable_custom_style": false,
-            "category_border_radius": 36
-          }
-        },
-        "title_8UcLB3": {
+        "title": {
           "type": "title",
           "settings": {
-            "blog_title_font_size": 38
+            "blog_title_font_size": 44
           }
         },
-        "featured_image_ne7Ufj": {
-          "type": "featured_image",
-          "settings": {
-            "image_height": "medium",
-            "featured_image_top_padding": 12,
-            "featured_image_border_radius": 7,
-            "featured_image_bottom_padding": 10
-          }
-        },
-        "blog_meta_Gdcegm": {
+        "meta": {
           "type": "blog_meta",
           "settings": {
             "enable_custom_style": false,
-            "blog_meta_border_radius": 29
+            "blog_meta_border_radius": 0
           }
         },
-        "content_article_nGLPt4": {
+        "image": {
+          "type": "featured_image",
+          "settings": {
+            "image_height": "large",
+            "featured_image_top_padding": 16,
+            "featured_image_border_radius": 0,
+            "featured_image_bottom_padding": 24
+          }
+        },
+        "content": {
           "type": "content_article",
           "settings": {}
-        },
-        "author_highlight_n4CqbT": {
-          "type": "author_highlight",
-          "settings": {
-            "author_text": "Thank you for reading. The first chapter of The Quiet Hour is free on the sample page.",
-            "author_image_size": 65
-          }
         }
       },
       "block_order": [
-        "category_8bHVa7",
-        "title_8UcLB3",
-        "featured_image_ne7Ufj",
-        "blog_meta_Gdcegm",
-        "content_article_nGLPt4",
-        "author_highlight_n4CqbT"
+        "title",
+        "meta",
+        "image",
+        "content"
       ]
     },
-    "blog_posts_bRcpan": {
+    "more": {
       "type": "blog-posts",
       "settings": {
         "reveal": false,
-        "heading": "Keep reading",
+        "heading": "More recipes",
         "autoplay": false,
         "infinite": false,
         "show_date": true,
-        "column_gap": 30,
+        "column_gap": 16,
         "description": "",
         "image_ratio": "custom",
-        "padding_top": 24,
-        "show_author": true,
+        "padding_top": 40,
+        "show_author": false,
         "color_scheme": "",
-        "custom_ratio": "16:9",
-        "vertical_gap": 30,
+        "custom_ratio": "4:3",
+        "vertical_gap": 24,
         "items_per_row": 3,
         "items_to_show": 3,
-        "section_width": "fluid_container",
+        "section_width": "container",
         "show_view_all": true,
-        "padding_bottom": 56,
+        "padding_bottom": 96,
         "autorotate_speed": 5,
         "content_alignment": "left",
-        "heading_font_size": 24,
+        "heading_font_size": 28,
         "carousel_pagination": "disable",
         "enable_custom_style": false,
         "items_per_row_mobile": 1
       }
+    },
+    "letter": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "image": "shopify://shop_images/ebooks-eggs.webp",
+        "image_alt": "Brown eggs in a carton",
+        "image_position": "left",
+        "image_ratio": "square",
+        "image_width": 42,
+        "column_gap": 64,
+        "form_layout": "horizontal",
+        "email_placeholder": "Email address",
+        "btn_text": "Sign up",
+        "button_radius": 6,
+        "note": "One email a week. Leave whenever you like.",
+        "success_text": "Thank you. The first letter comes this Sunday.",
+        "padding_top": 80,
+        "padding_bottom": 80,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 52
+      },
+      "blocks": {
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "The Sunday letter",
+            "size_enable": true,
+            "size_desktop": 40,
+            "size_mobile": 30
+          }
+        },
+        "subheading": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>One recipe from the books every Sunday morning, with the shopping list and what to do with the leftovers. Free.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading",
+        "subheading"
+      ]
     }
   },
   "order": [
     "main",
-    "blog_posts_bRcpan"
+    "more",
+    "letter"
   ]
 }

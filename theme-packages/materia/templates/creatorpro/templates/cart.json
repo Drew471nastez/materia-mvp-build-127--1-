@@ -1,3 +1,4 @@
+/* Templates round 22: rebuilt from the theme's own sections (split hero, scrolling words, image with steps, featured product, product grid, image with text, testimonials, newsletter with image, follow block, blog posts, FAQ). */
 {
   "sections": {
     "heading": {
@@ -63,15 +64,15 @@
         "faq_2": {
           "type": "faq",
           "settings": {
-            "question": "When do I get access?",
-            "answer": "<p>Straight after payment. Your login arrives by email.</p>"
+            "question": "Can I pay in parts?",
+            "answer": "<p>Launch Lab can be paid in three monthly parts. Pick it on the course page.</p>"
           }
         },
         "faq_3": {
           "type": "faq",
           "settings": {
-            "question": "When do I get access?",
-            "answer": "<p>Straight after payment. Your login arrives by email.</p>"
+            "question": "What if it is not for me?",
+            "answer": "<p>Write within 14 days and you get a full refund.</p>"
           }
         },
         "payment_badges_67Mgyc": {

@@ -1,3 +1,4 @@
+/* Templates round 22: rebuilt from the theme's own sections (split hero, scrolling words, image with steps, featured product, product grid, image with text, testimonials, newsletter with image, follow block, blog posts, FAQ). */
 {
   "sections": {
     "main": {
@@ -248,122 +249,149 @@
         "payment_badges_1"
       ]
     },
-    "reviews": {
-      "type": "authorbook-reviews",
+    "students": {
+      "type": "testimonials4",
       "settings": {
-        "eyebrow": "Students",
-        "heading": "What students say",
-        "accent_color": "#e8401c",
-        "star_color": "#ff5a36",
-        "card_color": "#f5f4f0",
-        "avatar_color": "#101114",
-        "card_radius": 20,
-        "text": "These words are samples to show the layout. Replace them with what your own students write.",
-        "anchor": "",
-        "padding_top": 72,
-        "padding_bottom": 72
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "text_align": "center",
+        "max_width": 820,
+        "autoplay_s": 7
       },
       "blocks": {
-        "review_1": {
-          "type": "review",
+        "eyebrow_1": {
+          "type": "eyebrow",
           "settings": {
-            "quote": "I had been planning a course for a year. Launch Lab made me sell a small workshop first, and that paid for the course before I built it.",
-            "name": "Dana Whitfield",
-            "tag": "Sample",
-            "role": "Launch Lab student"
+            "text": "Students"
           }
         },
-        "review_2": {
-          "type": "review",
+        "heading_2": {
+          "type": "heading",
           "settings": {
-            "quote": "The filming lessons are the first ones that did not assume I owned a studio. My phone and a window were enough.",
-            "name": "Leo Martins",
-            "tag": "Sample",
-            "role": "YouTube from Zero"
+            "text": "What changed for them"
           }
         },
-        "review_3": {
-          "type": "review",
+        "subheading_3": {
+          "type": "subheading",
           "settings": {
-            "quote": "I read the Tuesday letter before anything else that morning. It is short and there is always one thing I can try.",
-            "name": "Sofia Reyes",
-            "tag": "Sample",
-            "role": "Newsletter reader"
+            "text": "<p>Sample quotes to show the layout. Replace them with your students' words, with their permission.</p>"
           }
         },
-        "review_4": {
-          "type": "review",
+        "testimonial_4": {
+          "type": "testimonial",
           "settings": {
-            "quote": "The Creator OS template saved me from five half finished planning apps. Everything lives in one place now.",
-            "name": "Jamal Carter",
-            "tag": "Sample",
-            "role": "The Creator OS"
+            "rating": 0,
+            "body": "I had been planning a course for a year. Launch Lab made me sell a small workshop first, and that paid for the course before I built it.",
+            "name": "Sample student",
+            "role": "Launch Lab",
+            "avatar": "shopify://shop_images/creatorpro-student-1.webp"
           }
         },
-        "review_5": {
-          "type": "review",
+        "testimonial_5": {
+          "type": "testimonial",
           "settings": {
-            "quote": "Nina is very clear about what is worth your time and what is not. I stopped posting everywhere and grew faster.",
-            "name": "Emma Novak",
-            "tag": "Sample",
-            "role": "Launch Lab student"
+            "rating": 0,
+            "body": "The filming lessons are the first ones that did not assume I owned a studio. My phone and a window were enough.",
+            "name": "Sample student",
+            "role": "YouTube from Zero",
+            "avatar": "shopify://shop_images/creatorpro-student-2.webp"
+          }
+        },
+        "testimonial_6": {
+          "type": "testimonial",
+          "settings": {
+            "rating": 0,
+            "body": "I read the Tuesday letter before anything else that morning. It is short and there is always one thing I can try.",
+            "name": "Sample reader",
+            "role": "The Tuesday Letter",
+            "avatar": "shopify://shop_images/creatorpro-student-3.webp"
+          }
+        },
+        "testimonial_7": {
+          "type": "testimonial",
+          "settings": {
+            "rating": 0,
+            "body": "Nina is clear about what is worth your time and what is not. I stopped posting everywhere and grew faster.",
+            "name": "Sample student",
+            "role": "Launch Lab",
+            "avatar": "shopify://shop_images/creatorpro-student-4.webp"
           }
         }
       },
       "block_order": [
-        "review_1",
-        "review_2",
-        "review_3",
-        "review_4",
-        "review_5"
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "testimonial_4",
+        "testimonial_5",
+        "testimonial_6",
+        "testimonial_7"
       ]
     },
     "faq": {
-      "type": "authorbook-faq",
+      "type": "faq-pro",
       "settings": {
-        "eyebrow": "Questions",
-        "heading": "Good questions",
-        "accent_color": "#e8401c",
-        "icon_bg": "#f5f4f0",
-        "text": "<p>Anything else? <a href=\"/pages/contact\">Send me a message</a> and I will reply within two days.</p>",
-        "anchor": "",
-        "padding_top": 40
+        "color_scheme": "default",
+        "first_item_open": true,
+        "content_alignment": "left",
+        "max_content_width": 820
       },
       "blocks": {
-        "question_1": {
-          "type": "question",
+        "heading_1": {
+          "type": "heading",
           "settings": {
-            "question": "Which course should I start with?",
-            "answer": "<p>If you have an audience of any size and want to sell something, Launch Lab. If you are starting from nothing and want to make videos, YouTube from Zero. Not sure? Watch the free workshop first.</p>"
+            "text": "Questions"
           }
         },
-        "question_2": {
-          "type": "question",
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Anything else? <a href=\"/pages/contact\">Send me a message</a>. I reply within two days.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Which course should I start with?",
+            "answer": "<p>If you have an audience of any size and want to sell something, Launch Lab. If you are starting from nothing and want to make videos, YouTube from Zero.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
           "settings": {
             "question": "Do I need a big audience first?",
             "answer": "<p>No. Launch Lab is built for people with a small list or none at all. The first offer you make is small on purpose.</p>"
           }
         },
-        "question_3": {
-          "type": "question",
+        "faq_item_5": {
+          "type": "faq_item",
           "settings": {
             "question": "How long do I keep access?",
             "answer": "<p>For as long as the courses exist, including every update. Lessons work on a phone, a tablet or a laptop.</p>"
           }
         },
-        "question_4": {
-          "type": "question",
+        "faq_item_6": {
+          "type": "faq_item",
           "settings": {
             "question": "What if a course is not for me?",
-            "answer": "<p>Write within 14 days and you get a full refund. Replace this with your own terms.</p>"
+            "answer": "<p>Write within 14 days and you get a full refund.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do you do sponsorships?",
+            "answer": "<p>Sometimes, for tools I already use. <a href=\"/pages/contact\">Write to me</a> with the details.</p>"
           }
         }
       },
       "block_order": [
-        "question_1",
-        "question_2",
-        "question_3",
-        "question_4"
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7"
       ]
     },
     "related": {
@@ -396,7 +424,7 @@
   },
   "order": [
     "main",
-    "reviews",
+    "students",
     "faq",
     "related"
   ]

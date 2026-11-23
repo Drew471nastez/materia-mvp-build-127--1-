@@ -27,8 +27,8 @@
             "store_email": true,
             "store_phone": false,
             "store_address": false,
-            "content_width": "40%",
-            "store_description": "<p>Videos, a weekly letter, a podcast and courses on building a small online business you enjoy running. Put your own short line here.</p>"
+            "content_width": "33%",
+            "store_description": "<p>Videos, a weekly letter and courses on building a small online business you enjoy running.</p>"
           }
         },
         "link_list_2": {
@@ -36,7 +36,7 @@
           "settings": {
             "menu": "footer-learn",
             "heading": "Learn",
-            "content_width": "20%"
+            "content_width": "17%"
           }
         },
         "link_list_3": {
@@ -44,14 +44,41 @@
           "settings": {
             "menu": "footer",
             "heading": "More",
-            "content_width": "20%"
+            "content_width": "17%"
+          }
+        },
+        "newsletter_1": {
+          "type": "newsletter",
+          "settings": {
+            "note": "",
+            "heading": "The Tuesday Letter",
+            "description": "One practical idea every Tuesday. Free.",
+            "button_label": "Join",
+            "content_width": "33%",
+            "email_placeholder": "Your email"
+          }
+        },
+        "payment_badges_1": {
+          "type": "payment_badges",
+          "settings": {
+            "alignment": "right",
+            "enable_amex": true,
+            "enable_visa": true,
+            "content_width": "100%",
+            "enable_klarna": false,
+            "enable_paypal": false,
+            "enable_apple_pay": true,
+            "enable_google_pay": true,
+            "enable_mastercard": true
           }
         }
       },
       "block_order": [
         "store_info_1",
         "link_list_2",
-        "link_list_3"
+        "link_list_3",
+        "newsletter_1",
+        "payment_badges_1"
       ]
     }
   },

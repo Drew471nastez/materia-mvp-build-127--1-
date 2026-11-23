@@ -1,221 +1,189 @@
+/* Templates round 22: rebuilt from the theme's own sections (split hero, scrolling words, image with steps, featured product, product grid, image with text, testimonials, newsletter with image, follow block, blog posts, FAQ). */
 {
   "sections": {
     "letter": {
-      "type": "creatorpro-letter",
+      "type": "newsletter-split",
       "settings": {
-        "accent_color": "#ff5a36",
-        "eyebrow": "The Tuesday Letter",
-        "heading": "One useful email, <em>every Tuesday</em>",
-        "text": "<p>Short and practical. What I tried that week in my own business, what worked, and what I would do differently.</p>",
-        "points": "One idea you can use the same week\nThe numbers behind what I try\nNo fluff, no selling every issue",
-        "button_label": "Subscribe free",
-        "tag": "tuesday-letter",
-        "note": "Free. Leave whenever you like.",
-        "avatar": "shopify://shop_images/creatorpro-face.webp",
-        "mail_from": "Nina Brooks",
-        "mail_when": "Tuesday, 7:00",
-        "mail_subject": "The offer I almost did not launch",
-        "mail_image": "shopify://shop_images/creatorpro-studio.webp",
-        "mail_body": "Last month I nearly scrapped a workshop because three people had signed up. Here is what I changed in the last week, and why it ended up full.",
-        "padding_top": 24,
-        "anchor": "letter"
-      }
-    },
-    "start": {
-      "type": "creatorpro-start",
-      "settings": {
-        "accent_color": "#d63b14",
-        "eyebrow": "New here?",
-        "heading": "Start with <em>these three</em>",
-        "text": "The things people tell me helped most in their first month.",
-        "background": "#ffffff"
+        "color_scheme": "default",
+        "image": "shopify://shop_images/creatorpro-ig-4.webp",
+        "image_alt": "Nina recording at her desk with headphones on",
+        "image_position": "left",
+        "image_ratio": "square",
+        "form_layout": "horizontal",
+        "btn_text": "Join free",
+        "email_placeholder": "Your email",
+        "note": "Every Tuesday. Leave whenever you like.",
+        "success_text": "You are in. The next letter arrives on Tuesday."
       },
       "blocks": {
-        "step_1": {
-          "type": "step",
+        "heading_1": {
+          "type": "heading",
           "settings": {
-            "kind": "Free workshop",
-            "title": "The First Offer Workshop",
-            "line": "A 45 minute video on choosing the first thing to sell, and pricing it.",
-            "link_label": "Watch it free",
-            "link": "#open-form-workshop"
+            "text": "The Tuesday Letter"
           }
         },
-        "step_2": {
-          "type": "step",
+        "subheading_2": {
+          "type": "subheading",
           "settings": {
-            "kind": "Videos",
-            "title": "The five videos to watch first",
-            "line": "Newsletters, filming on a phone, pricing and the first launch.",
-            "link_label": "Start watching",
-            "link": "/#videos"
-          }
-        },
-        "step_3": {
-          "type": "step",
-          "settings": {
-            "kind": "Articles",
-            "title": "The letters people save",
-            "line": "Short, practical posts you can use the same day.",
-            "link_label": "Read them",
-            "link": "/blogs/news"
+            "text": "<p>One useful email a week: what I tried in my own business, what worked and what I would do differently. Short, and you can use it the same day.</p>"
           }
         }
       },
       "block_order": [
-        "step_1",
-        "step_2",
-        "step_3"
+        "heading_1",
+        "subheading_2"
       ]
     },
-    "reviews": {
-      "type": "authorbook-reviews",
+    "inside": {
+      "type": "text-columns",
       "settings": {
-        "eyebrow": "Students",
-        "heading": "What students say",
-        "accent_color": "#e8401c",
-        "star_color": "#ff5a36",
-        "card_color": "#f5f4f0",
-        "avatar_color": "#101114",
-        "card_radius": 20,
-        "text": "These words are samples to show the layout. Replace them with what your own students write."
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "columns_desktop": 3,
+        "show_dividers": true
       },
       "blocks": {
-        "review_1": {
-          "type": "review",
+        "heading_1": {
+          "type": "heading",
           "settings": {
-            "quote": "I had been planning a course for a year. Launch Lab made me sell a small workshop first, and that paid for the course before I built it.",
-            "name": "Dana Whitfield",
-            "tag": "Sample",
-            "role": "Launch Lab student"
+            "text": "What a letter looks like"
           }
         },
-        "review_2": {
-          "type": "review",
+        "column_2": {
+          "type": "column",
           "settings": {
-            "quote": "The filming lessons are the first ones that did not assume I owned a studio. My phone and a window were enough.",
-            "name": "Leo Martins",
-            "tag": "Sample",
-            "role": "YouTube from Zero"
+            "label": "Every Tuesday",
+            "heading": "One idea",
+            "text": "<p>Something I tried that week, with the numbers when I have them.</p>"
           }
         },
-        "review_3": {
-          "type": "review",
+        "column_3": {
+          "type": "column",
           "settings": {
-            "quote": "I read the Tuesday letter before anything else that morning. It is short and there is always one thing I can try.",
-            "name": "Sofia Reyes",
-            "tag": "Sample",
-            "role": "Newsletter reader"
+            "label": "Five minutes",
+            "heading": "Short on purpose",
+            "text": "<p>Written to read with a coffee and use the same afternoon.</p>"
           }
         },
-        "review_4": {
-          "type": "review",
+        "column_4": {
+          "type": "column",
           "settings": {
-            "quote": "The Creator OS template saved me from five half finished planning apps. Everything lives in one place now.",
-            "name": "Jamal Carter",
-            "tag": "Sample",
-            "role": "The Creator OS"
-          }
-        },
-        "review_5": {
-          "type": "review",
-          "settings": {
-            "quote": "Nina is very clear about what is worth your time and what is not. I stopped posting everywhere and grew faster.",
-            "name": "Emma Novak",
-            "tag": "Sample",
-            "role": "Launch Lab student"
+            "label": "Always free",
+            "heading": "No sales every week",
+            "text": "<p>I mention a course when one opens, a few times a year.</p>"
           }
         }
       },
       "block_order": [
-        "review_1",
-        "review_2",
-        "review_3",
-        "review_4",
-        "review_5"
+        "heading_1",
+        "column_2",
+        "column_3",
+        "column_4"
       ]
     },
-    "workshop_form": {
-      "type": "form-modal",
+    "students": {
+      "type": "testimonials4",
       "settings": {
-        "form_key": "workshop",
-        "sends_to": "subscribe",
-        "accent_color": "#e8401c",
-        "text_align": "left",
-        "width": 500,
-        "corners": "theme",
-        "success_heading": "The workshop is on its way",
-        "success_text": "<p>Check your inbox in a minute for the link. If nothing arrives, look in spam.</p>"
+        "color_scheme": "default",
+        "text_align": "center",
+        "max_width": 820,
+        "autoplay_s": 7
       },
       "blocks": {
-        "image_1": {
-          "type": "image",
+        "eyebrow_1": {
+          "type": "eyebrow",
           "settings": {
-            "image": "shopify://shop_images/creatorpro-video-2.webp",
-            "fit": "cover",
-            "max_height": 200
+            "text": "Students"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "eyebrow": "Free workshop",
-            "heading": "The First Offer *Workshop*",
-            "size": 30
+            "text": "What changed for them"
           }
         },
-        "text_3": {
-          "type": "text",
+        "subheading_3": {
+          "type": "subheading",
           "settings": {
-            "text": "<p>45 minutes on choosing what to sell first and how to price it, with the worksheet.</p>"
+            "text": "<p>Sample quotes to show the layout. Replace them with your students' words, with their permission.</p>"
           }
         },
-        "field_4": {
-          "type": "field",
+        "testimonial_4": {
+          "type": "testimonial",
           "settings": {
-            "kind": "name",
-            "label": "First name",
-            "required": false
+            "rating": 0,
+            "body": "I had been planning a course for a year. Launch Lab made me sell a small workshop first, and that paid for the course before I built it.",
+            "name": "Sample student",
+            "role": "Launch Lab",
+            "avatar": "shopify://shop_images/creatorpro-student-1.webp"
           }
         },
-        "field_5": {
-          "type": "field",
+        "testimonial_5": {
+          "type": "testimonial",
           "settings": {
-            "kind": "email",
-            "label": "Email address"
+            "rating": 0,
+            "body": "The filming lessons are the first ones that did not assume I owned a studio. My phone and a window were enough.",
+            "name": "Sample student",
+            "role": "YouTube from Zero",
+            "avatar": "shopify://shop_images/creatorpro-student-2.webp"
           }
         },
-        "button_6": {
-          "type": "button",
+        "testimonial_6": {
+          "type": "testimonial",
           "settings": {
-            "label": "Send me the workshop",
-            "arrow": true
+            "rating": 0,
+            "body": "I read the Tuesday letter before anything else that morning. It is short and there is always one thing I can try.",
+            "name": "Sample reader",
+            "role": "The Tuesday Letter",
+            "avatar": "shopify://shop_images/creatorpro-student-3.webp"
           }
         },
-        "note_7": {
-          "type": "note",
+        "testimonial_7": {
+          "type": "testimonial",
           "settings": {
-            "icon": "lock",
-            "text": "Your email stays private.",
-            "small": "<p>You also get the Tuesday Letter. Leave whenever you like.</p>"
+            "rating": 0,
+            "body": "Nina is clear about what is worth your time and what is not. I stopped posting everywhere and grew faster.",
+            "name": "Sample student",
+            "role": "Launch Lab",
+            "avatar": "shopify://shop_images/creatorpro-student-4.webp"
           }
         }
       },
       "block_order": [
-        "image_1",
+        "eyebrow_1",
         "heading_2",
-        "text_3",
-        "field_4",
-        "field_5",
-        "button_6",
-        "note_7"
+        "subheading_3",
+        "testimonial_4",
+        "testimonial_5",
+        "testimonial_6",
+        "testimonial_7"
+      ]
+    },
+    "articles": {
+      "type": "blog-posts",
+      "settings": {
+        "color_scheme": "default",
+        "items_to_show": 3,
+        "items_per_row": 3,
+        "image_ratio": "landscape",
+        "show_author": false
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "heading": "Recent articles"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1"
       ]
     }
   },
   "order": [
     "letter",
-    "start",
-    "reviews",
-    "workshop_form"
+    "inside",
+    "students",
+    "articles"
   ]
 }

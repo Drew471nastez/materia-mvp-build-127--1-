@@ -2,39 +2,57 @@
   "type": "header",
   "name": "t:sections.header.name",
   "sections": {
-    "offer_bar": {
-      "type": "announcement-bar",
+    "top_bar": {
+      "type": "top-bar",
       "settings": {
-        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
-        "homepage_only": false,
-        "announcement_actions": "slide",
-        "show_close": false,
-        "show_separator_line": false,
-        "enable_custom_style": true,
-        "background_color": "#0d3b2e",
-        "text_color": "#e6ece4",
-        "accent_color": "#f2a07a",
-        "uppercase": false,
+        "reveal": true,
         "font_size": 13,
-        "change_every": 5
+        "uppercase": false,
+        "sticky_top": false,
+        "text_align": "center",
+        "font_weight": "body_weight",
+        "padding_top": 8,
+        "show_arrows": false,
+        "show_mobile": true,
+        "border_color": "#e5e5e5",
+        "border_width": 0,
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "reset_spacing": true,
+        "section_width": "full_width",
+        "letter_spacing": 0,
+        "padding_bottom": 8,
+        "border_position": "bottom",
+        "custom_bg_color": "",
+        "transition_speed": 700,
+        "custom_link_color": "",
+        "custom_text_color": "",
+        "custom_arrow_color": "",
+        "show_arrows_mobile": false,
+        "enable_custom_position": false,
+        "desktop_horizontal_offset": 0,
+        "section_margin_top_mobile": 0,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_mobile": 0,
+        "section_margin_bottom_desktop": 0
       },
+      "name": "Announcement bar",
       "blocks": {
-        "announcement_1": {
-          "type": "announcement",
+        "text_slider_1": {
+          "type": "text_slider",
           "settings": {
-            "text": "The first chapter is free. <a href=\"/pages/sample\">Read it now</a>"
-          }
-        },
-        "announcement_2": {
-          "type": "announcement",
-          "settings": {
-            "text": "Read it for 30 days, or get your money back"
+            "text1": "Free shipping on printed books over $50",
+            "text2": "Ebooks arrive by email the moment you order",
+            "text3": "Every hardback comes with the ebook",
+            "change_every": 5,
+            "text1_mobile": "",
+            "text2_mobile": "",
+            "text3_mobile": "",
+            "hidden_on_mobile": false
           }
         }
       },
       "block_order": [
-        "announcement_1",
-        "announcement_2"
+        "text_slider_1"
       ]
     },
     "header": {
@@ -43,13 +61,13 @@
         "reveal": true,
         "menu_tab": "unset",
         "mega_menu": "main-menu",
-        "show_search": false,
+        "show_search": true,
         "color_scheme": "default",
         "icon_spacing": 10,
-        "header_height": 76,
-        "header_layout": "stretch_width",
+        "header_height": 84,
+        "header_layout": "fluid_container",
         "logo_offset_x": 0,
-        "logo_position": "left",
+        "logo_position": "center",
         "reset_spacing": true,
         "section_width": "fluid_container",
         "show_currency": false,
@@ -61,27 +79,27 @@
         "mega_column_gap": 32,
         "uppercase_first": false,
         "action_text_size": 16,
-        "menu_custom_font": "poppins_n5",
-        "menu_hover_style": "inherit",
+        "menu_custom_font": "assistant_n4",
+        "menu_hover_style": "underline",
         "redirect_to_link": true,
         "logo_width_mobile": 78,
-        "menu_link_spacing": 28,
-        "menu_mobile_color": "#ffffff",
-        "show_account_icon": false,
+        "menu_link_spacing": 26,
+        "menu_mobile_color": "#111111",
+        "show_account_icon": true,
         "action_text_weight": "400",
         "logo_width_desktop": 78,
         "show_shopping_cart": true,
         "show_wishlist_icon": false,
-        "sticky_header_type": "always",
+        "sticky_header_type": "on-scroll-up",
         "transparent_header": false,
         "transparent_mobile": false,
         "dropdowns_animation": "down-to-up",
         "enable_custom_fonts": false,
         "icon_spacing_mobile": 6,
-        "header_height_mobile": 62,
+        "header_height_mobile": 60,
         "logo_custom_position": false,
         "logo_offset_x_mobile": 0,
-        "logo_position_mobile": "left",
+        "logo_position_mobile": "center",
         "menu_mobile_chevrons": false,
         "sticky_header_mobile": true,
         "dropdown_link_spacing": 3,
@@ -93,12 +111,19 @@
         "transparent_bottom_border": false,
         "section_margin_top_desktop": 0,
         "disable_white_fill_on_hover": false,
-        "transparent_text_icon_color": "#1a1a1a",
+        "transparent_text_icon_color": "#111111",
         "section_margin_bottom_mobile": 0,
         "transparent_hover_fill_color": "#ffffff",
-        "transparent_text_hover_color": "#1a1a1a",
+        "transparent_text_hover_color": "#111111",
         "section_margin_bottom_desktop": 0,
-        "transparent_bottom_border_color": "#020202"
+        "transparent_bottom_border_color": "#020202",
+        "menu_font_size": 15,
+        "menu_font_weight": "500",
+        "count_bubble_bg": "#a8482a",
+        "count_bubble_color": "#ffffff",
+        "menu_mobile_background": "#ffffff",
+        "dropdown_radius": 0,
+        "dropdown_shadow": "none"
       },
       "blocks": {
         "pill_glass_1": {
@@ -158,30 +183,16 @@
             "label_background_custom_1": "#143274",
             "label_background_custom_2": "#8b5cf6"
           }
-        },
-        "header_button_1": {
-          "type": "header_button",
-          "settings": {
-            "button_text": "Get the book",
-            "button_link": "/collections/all",
-            "button_style": "primary",
-            "show_on_mobile": false,
-            "mobile_placement": "in_row",
-            "mobile_size": "small",
-            "button_position": "after_icons",
-            "button_gap": 20
-          }
         }
       },
       "block_order": [
         "pill_glass_1",
-        "menu_badges_1",
-        "header_button_1"
+        "menu_badges_1"
       ]
     }
   },
   "order": [
-    "offer_bar",
+    "top_bar",
     "header"
   ]
 }

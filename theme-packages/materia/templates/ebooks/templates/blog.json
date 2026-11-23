@@ -3,82 +3,120 @@
     "heading": {
       "type": "page-heading",
       "settings": {
-        "height": "adapt",
-        "alignment": "center",
-        "padding_top": 66,
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "reset_spacing": true,
+        "color_scheme": "default",
         "section_width": "container",
-        "padding_bottom": 55,
-        "overlay_opacity": 0
+        "reset_spacing": true,
+        "alignment": "left",
+        "height": "adapt",
+        "overlay_opacity": 0,
+        "padding_top": 56,
+        "padding_bottom": 32
       },
       "blocks": {
-        "heading_xwFKKa": {
+        "heading_1": {
           "type": "heading",
           "settings": {
-            "page_title": "",
-            "header_size": "medium",
-            "vertical_gap": 14,
-            "heading_font_size": 36,
+            "page_title": "Recipes",
+            "header_size": "default",
+            "heading_font_size": 40,
+            "vertical_gap": 12,
             "enable_heading_color": false
           }
         },
-        "description_YRWpkt": {
+        "description_1": {
           "type": "description",
           "settings": {
-            "description": "<p>Short notes on reading, writing and keeping an hour for the work that matters.</p>",
+            "description": "<p>A recipe from the books every week, and notes on cooking with what the season gives you.</p>",
             "enable_custom_style": false,
             "description_font_size": 16
           }
         }
       },
       "block_order": [
-        "heading_xwFKKa",
-        "description_YRWpkt"
+        "heading_1",
+        "description_1"
       ]
     },
     "main": {
       "type": "main-blog",
       "settings": {
         "layout": "grid",
-        "row_gap": 64,
+        "row_gap": 56,
         "show_date": true,
-        "column_gap": 40,
-        "margin_top": 32,
-        "title_size": 22,
-        "badge_width": 70,
+        "column_gap": 16,
+        "margin_top": 8,
+        "title_size": 20,
         "image_ratio": "custom",
+        "custom_ratio": "4:3",
         "title_hover": "underline",
-        "badge_height": 30,
-        "custom_ratio": "3:2",
-        "hover_effect": "lift",
-        "image_radius": 3,
+        "hover_effect": "none",
+        "image_radius": 6,
         "show_excerpt": true,
         "excerpt_lines": 2,
         "items_per_row": 3,
         "items_to_show": 12,
         "margin_bottom": 0,
         "readmore_line": "style",
-        "readmore_text": "Read more",
+        "readmore_text": "Read",
         "readmore_type": "underline",
         "reset_spacing": true,
-        "section_width": "fluid_container",
+        "section_width": "container",
         "show_category": true,
-        "show_readmore": true,
-        "button_show_more": "Load more",
+        "show_readmore": false,
+        "button_show_more": "Show more",
         "content_alignment": "left",
-        "badge_border_radius": 19,
-        "enable_custom_style": true,
-        "badge_text_font_size": 14,
-        "items_per_row_mobile": 1,
-        "badge_vertical_position": 16,
-        "badge_horizontal_position": 16
+        "enable_custom_style": false,
+        "items_per_row_mobile": 1
+      }
+    },
+    "letter": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "image": "shopify://shop_images/ebooks-eggs.webp",
+        "image_alt": "Brown eggs in a carton",
+        "image_position": "left",
+        "image_ratio": "square",
+        "image_width": 42,
+        "column_gap": 64,
+        "form_layout": "horizontal",
+        "email_placeholder": "Email address",
+        "btn_text": "Sign up",
+        "button_radius": 6,
+        "note": "One email a week. Leave whenever you like.",
+        "success_text": "Thank you. The first letter comes this Sunday.",
+        "padding_top": 80,
+        "padding_bottom": 80,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 52
       },
-      "name": "Main blog"
+      "blocks": {
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "The Sunday letter",
+            "size_enable": true,
+            "size_desktop": 40,
+            "size_mobile": 30
+          }
+        },
+        "subheading": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>One recipe from the books every Sunday morning, with the shopping list and what to do with the leftovers. Free.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading",
+        "subheading"
+      ]
     }
   },
   "order": [
     "heading",
-    "main"
+    "main",
+    "letter"
   ]
 }

@@ -3,24 +3,24 @@
     "title": "Main menu",
     "links": [
       {
-        "title": "Videos",
-        "url": "/#videos"
-      },
-      {
         "title": "Courses",
         "url": "/collections/all"
-      },
-      {
-        "title": "Podcast",
-        "url": "/#podcast"
       },
       {
         "title": "Newsletter",
         "url": "/pages/newsletter"
       },
       {
+        "title": "Articles",
+        "url": "/blogs/news"
+      },
+      {
         "title": "About",
         "url": "/pages/about"
+      },
+      {
+        "title": "Contact",
+        "url": "/pages/contact"
       }
     ]
   },
@@ -32,16 +32,8 @@
         "url": "/collections/all"
       },
       {
-        "title": "Free workshop",
-        "url": "/#start"
-      },
-      {
-        "title": "Videos",
-        "url": "/#videos"
-      },
-      {
-        "title": "Podcast",
-        "url": "/#podcast"
+        "title": "The Tuesday Letter",
+        "url": "/pages/newsletter"
       },
       {
         "title": "Articles",
@@ -55,10 +47,6 @@
       {
         "title": "About Nina",
         "url": "/pages/about"
-      },
-      {
-        "title": "The Tuesday Letter",
-        "url": "/pages/newsletter"
       },
       {
         "title": "Questions",

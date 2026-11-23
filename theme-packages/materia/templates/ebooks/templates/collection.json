@@ -1,27 +1,23 @@
 {
   "sections": {
-    "main-collection-heading": {
+    "heading": {
       "type": "main-collection-heading",
       "settings": {
-        "height": "adapt",
-        "alignment": "center",
-        "padding_top": 56,
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "color_scheme": "default",
+        "section_width": "container",
         "reset_spacing": true,
-        "section_width": "fluid_container",
-        "padding_bottom": 40,
-        "show_collection_image": false
+        "alignment": "left",
+        "height": "adapt",
+        "show_collection_image": false,
+        "padding_top": 56,
+        "padding_bottom": 24
       },
-      "name": "main-collection-heading",
       "blocks": {
-        "breadcrumb": {
-          "type": "breadcrumb",
-          "settings": {}
-        },
         "heading": {
           "type": "heading",
           "settings": {
-            "header_size": "default"
+            "header_size": "default",
+            "heading_font_size": 40
           }
         },
         "description": {
@@ -30,56 +26,92 @@
         }
       },
       "block_order": [
-        "breadcrumb",
         "heading",
         "description"
       ]
     },
-    "main-collection-product": {
+    "products": {
       "type": "main-collection-product",
       "settings": {
         "sorting": true,
-        "column_gap": 30,
-        "pagination": "default",
-        "padding_top": 40,
+        "column_gap": 16,
+        "pagination": "load_more_button",
+        "padding_top": 0,
         "color_scheme": "default",
-        "filter_layout": "horizontal",
+        "filter_layout": "drawer",
         "items_per_row": 3,
         "items_to_show": 12,
         "reset_spacing": true,
-        "section_width": "fluid_container",
+        "section_width": "container",
         "default_filter": "open_all",
         "empty_link_url": "/collections/all",
-        "padding_bottom": 60,
+        "padding_bottom": 96,
         "vertical_posion": "left",
         "button_show_more": "Show more",
-        "enable_filtering": false,
+        "enable_filtering": true,
         "show_filter_counts": true,
         "items_per_row_mobile": "2",
         "toolbar_button_style": "minimal",
         "number_products_per_page": true
       },
-      "name": "main-collection-product",
       "blocks": {
-        "block-mvmkffsh-1-pcnzc": {
-          "type": "categories",
-          "settings": {
-            "title": "Category"
-          }
-        },
-        "block-mvmkfj68-2-iqqos": {
+        "filter": {
           "type": "filter",
           "settings": {}
         }
       },
       "block_order": [
-        "block-mvmkffsh-1-pcnzc",
-        "block-mvmkfj68-2-iqqos"
+        "filter"
+      ]
+    },
+    "letter": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "image": "shopify://shop_images/ebooks-eggs.webp",
+        "image_alt": "Brown eggs in a carton",
+        "image_position": "left",
+        "image_ratio": "square",
+        "image_width": 42,
+        "column_gap": 64,
+        "form_layout": "horizontal",
+        "email_placeholder": "Email address",
+        "btn_text": "Sign up",
+        "button_radius": 6,
+        "note": "One email a week. Leave whenever you like.",
+        "success_text": "Thank you. The first letter comes this Sunday.",
+        "padding_top": 80,
+        "padding_bottom": 80,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 52
+      },
+      "blocks": {
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "The Sunday letter",
+            "size_enable": true,
+            "size_desktop": 40,
+            "size_mobile": 30
+          }
+        },
+        "subheading": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>One recipe from the books every Sunday morning, with the shopping list and what to do with the leftovers. Free.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading",
+        "subheading"
       ]
     }
   },
   "order": [
-    "main-collection-heading",
-    "main-collection-product"
+    "heading",
+    "products",
+    "letter"
   ]
 }

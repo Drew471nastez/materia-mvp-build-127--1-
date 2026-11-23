@@ -16,12 +16,12 @@
         "enable_overlay": true,
         "overlay_color": "#000000",
         "overlay_opacity": 34,
-        "min_height_desktop": 760,
-        "padding_top_desktop": 160,
+        "min_height_desktop": 700,
+        "padding_top_desktop": 120,
         "padding_bottom_desktop": 88,
         "side_padding_desktop": 64,
-        "min_height_mobile": 640,
-        "padding_top_mobile": 120,
+        "min_height_mobile": 600,
+        "padding_top_mobile": 96,
         "padding_bottom_mobile": 40,
         "side_padding_mobile": 20
       },
@@ -69,28 +69,13 @@
             "label": "Start the plan",
             "link": "/#shopify-section-pricing"
           }
-        },
-        "secondary_button_1": {
-          "type": "secondary_button",
-          "settings": {
-            "label": "See the 16 weeks",
-            "link": "/#shopify-section-weeks",
-            "enable_custom_style": true,
-            "bg": "rgba(0,0,0,0)",
-            "text_color": "#ffffff",
-            "border_color": "#ffffff",
-            "bg_hover": "#ffffff",
-            "text_color_hover": "#15171a",
-            "border_color_hover": "#ffffff"
-          }
         }
       },
       "block_order": [
         "eyebrow_1",
         "heading_1",
         "subheading_1",
-        "primary_button_1",
-        "secondary_button_1"
+        "primary_button_1"
       ]
     },
     "start": {
@@ -437,7 +422,7 @@
       "type": "comparison-cards",
       "settings": {
         "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "section_width": "container",
+        "section_width": "full_width",
         "header_align": "center",
         "card_radius": 8,
         "enable_custom_style": true,
@@ -558,7 +543,7 @@
         "card_padding": 28,
         "card_content_gap": 16,
         "card_radius": 8,
-        "show_arrow": true,
+        "show_arrow": false,
         "carousel_pagination": "show",
         "pagination_style": "progress",
         "pagination_position": "left",

@@ -1,105 +1,149 @@
+/* Templates round 22: rebuilt from the theme's own sections (split hero, scrolling words, image with steps, featured product, product grid, image with text, testimonials, newsletter with image, follow block, blog posts, FAQ). */
 {
   "sections": {
-    "contact": {
-      "type": "course2-contact",
+    "heading": {
+      "type": "page-heading",
       "settings": {
-        "tag": "Contact",
-        "heading": "Send me a message",
-        "accent": "#e8401c",
-        "text": "<p>Questions about a course, a team price, speaking or a brand partnership. I read everything and reply within two working days.</p>",
-        "email_label": "Or email",
-        "email": "hello@ninabrooks.co",
-        "card_tag": "Get in touch",
-        "card_heading": "How can I help?",
-        "card_text": "Tell me a little about your business and what you are working on.",
-        "ph_first": "First name",
-        "ph_last": "Last name",
-        "ph_email": "Email",
-        "ph_message": "Your message",
-        "agree_text": "",
-        "button_label": "Send message",
-        "thanks": "Thank you. I will reply within two working days.",
-        "error": "Please check the form.",
-        "padding_top": 56
-      }
-    },
-    "follow": {
-      "type": "creatorpro-social",
-      "settings": {
-        "accent_color": "#ff5a36",
-        "eyebrow": "Follow along",
-        "heading": "Find me <em>online</em>"
+        "height": "adapt",
+        "alignment": "left",
+        "padding_top": 72,
+        "padding_bottom": 24,
+        "color_scheme": "default",
+        "reset_spacing": true,
+        "section_width": "container",
+        "overlay_opacity": 0
       },
       "blocks": {
-        "place_1": {
-          "type": "place",
+        "heading_1": {
+          "type": "heading",
           "settings": {
-            "platform": "youtube",
-            "handle": "@ninabrooks",
-            "line": "Long videos every Tuesday",
-            "link": "https://www.youtube.com"
-          }
-        },
-        "place_2": {
-          "type": "place",
-          "settings": {
-            "platform": "instagram",
-            "handle": "@ninabrooks",
-            "line": "Behind the scenes and quick tips",
-            "link": "https://www.instagram.com"
-          }
-        },
-        "place_3": {
-          "type": "place",
-          "settings": {
-            "platform": "tiktok",
-            "handle": "@ninabrooks",
-            "line": "One minute lessons",
-            "link": "https://www.tiktok.com"
-          }
-        },
-        "place_4": {
-          "type": "place",
-          "settings": {
-            "platform": "linkedin",
-            "handle": "Nina Brooks",
-            "line": "Notes on running a business of one",
-            "link": "https://www.linkedin.com"
-          }
-        },
-        "place_5": {
-          "type": "place",
-          "settings": {
-            "platform": "podcast",
-            "name": "Open Tabs",
-            "handle": "Every other Thursday",
-            "line": "Conversations and listener questions",
-            "link": "/#podcast"
-          }
-        },
-        "place_6": {
-          "type": "place",
-          "settings": {
-            "platform": "newsletter",
-            "name": "The Tuesday Letter",
-            "handle": "Free, weekly",
-            "line": "One practical idea a week",
-            "link": "/pages/newsletter"
+            "page_title": "",
+            "header_size": "medium",
+            "heading_font_size": 44
           }
         }
       },
       "block_order": [
-        "place_1",
-        "place_2",
-        "place_3",
-        "place_4",
-        "place_5",
-        "place_6"
+        "heading_1"
+      ]
+    },
+    "form": {
+      "type": "contactformsimple2",
+      "settings": {
+        "color_scheme": "default",
+        "btn_text": "Send message",
+        "ph_website": "Course, sponsorship or something else",
+        "label_website": "Subject",
+        "success_text": "Thank you. I reply within two days."
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Send me a message"
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "text": "<p>Questions about a course, a sponsorship or a podcast guest idea. I read everything myself.</p>"
+          }
+        },
+        "info_3": {
+          "type": "info",
+          "settings": {
+            "icon": "mail",
+            "line1": "hello@example.com",
+            "line2": "I reply within two days"
+          }
+        },
+        "info_4": {
+          "type": "info",
+          "settings": {
+            "icon": "map",
+            "line1": "Bristol and online",
+            "line2": "Podcast guests by video"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_2",
+        "info_3",
+        "info_4"
+      ]
+    },
+    "faq": {
+      "type": "faq-pro",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "first_item_open": true,
+        "content_alignment": "left",
+        "max_content_width": 820
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Before you write"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Anything else? <a href=\"/pages/contact\">Send me a message</a>. I reply within two days.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Which course should I start with?",
+            "answer": "<p>If you have an audience of any size and want to sell something, Launch Lab. If you are starting from nothing and want to make videos, YouTube from Zero.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do I need a big audience first?",
+            "answer": "<p>No. Launch Lab is built for people with a small list or none at all. The first offer you make is small on purpose.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How long do I keep access?",
+            "answer": "<p>For as long as the courses exist, including every update. Lessons work on a phone, a tablet or a laptop.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if a course is not for me?",
+            "answer": "<p>Write within 14 days and you get a full refund.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do you do sponsorships?",
+            "answer": "<p>Sometimes, for tools I already use. <a href=\"/pages/contact\">Write to me</a> with the details.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7"
       ]
     }
   },
   "order": [
-    "contact",
-    "follow"
+    "heading",
+    "form",
+    "faq"
   ]
 }

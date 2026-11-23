@@ -1,3 +1,4 @@
+/* Templates round 22: rebuilt from the theme's own sections (split hero, scrolling words, image with steps, featured product, product grid, image with text, testimonials, newsletter with image, follow block, blog posts, FAQ). */
 {
   "sections": {
     "main": {
@@ -24,9 +25,58 @@
         "number_products_per_page": true,
         "show_filter_counts": false
       }
+    },
+    "courses": {
+      "type": "products-grid",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "heading": "Courses and tools",
+        "text": "<p>Short lessons and templates for building a business of one.</p>",
+        "items_to_show": 4,
+        "items_per_row": 4,
+        "show_add_to_cart": false,
+        "button_label": "See all",
+        "button_link": "/collections/all",
+        "header_alignment": "left"
+      }
+    },
+    "letter": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "image": "shopify://shop_images/creatorpro-podcast.webp",
+        "image_alt": "Nina recording at her desk with headphones on",
+        "image_position": "left",
+        "image_ratio": "square",
+        "form_layout": "horizontal",
+        "btn_text": "Join free",
+        "email_placeholder": "Your email",
+        "note": "Every Tuesday. Leave whenever you like.",
+        "success_text": "You are in. The next letter arrives on Tuesday."
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "The Tuesday Letter"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>One useful email a week: what I tried in my own business, what worked and what I would do differently. Short, and you can use it the same day.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
     }
   },
   "order": [
-    "main"
+    "main",
+    "courses",
+    "letter"
   ]
 }

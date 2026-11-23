@@ -1,136 +1,173 @@
 {
   "sections": {
-    "heading": {
-      "type": "page-heading",
+    "faq": {
+      "type": "faq-tabs",
       "settings": {
-        "height": "adapt",
-        "alignment": "center",
-        "padding_top": 72,
-        "padding_bottom": 56,
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "color_scheme": "default",
+        "section_width": "container",
         "reset_spacing": true,
-        "section_width": "fluid_container",
-        "overlay_opacity": 0
+        "tab_1_label": "The books",
+        "tab_2_label": "Cooking",
+        "tab_3_label": "Shipping",
+        "tab_4_label": "Returns",
+        "tab_5_label": "",
+        "open_first": true,
+        "allow_multiple_open": true,
+        "header_align": "left",
+        "section_max_width_desktop": 900,
+        "tabs_shadow": "none",
+        "tab_weight": "500",
+        "q_size": 17,
+        "q_weight": "500",
+        "a_size": 15,
+        "padding_top_desktop": 56,
+        "padding_bottom_desktop": 96,
+        "padding_top_mobile": 40,
+        "padding_bottom_mobile": 56,
+        "structured_data": true
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "page_title": "Questions",
-            "header_size": "default",
-            "vertical_gap": 10,
-            "heading_font_size": 46,
-            "enable_heading_color": false
+            "text": "Questions",
+            "tag": "h1",
+            "size_enable": true,
+            "size_desktop": 40,
+            "size_mobile": 32
           }
         },
-        "description_1": {
-          "type": "description",
+        "subheading_1": {
+          "type": "subheading",
           "settings": {
-            "description": "<p>About formats, downloads, gifts and refunds.</p>",
-            "enable_custom_style": false,
-            "description_font_size": 16
+            "text": "<p>About the books, the recipes and your order. Anything else, <a href=\"/pages/contact\">write to us</a>.</p>"
+          }
+        },
+        "q10": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "Is the ebook the same as the hardback?",
+            "answer": "<p>Yes, every page and photograph, as a PDF and an EPUB.</p>"
+          }
+        },
+        "q11": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "Do I get the ebook with the hardback?",
+            "answer": "<p>Yes, the link is in your receipt as soon as you order.</p>"
+          }
+        },
+        "q20": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "2",
+            "question": "Do I need special equipment?",
+            "answer": "<p>A big pot, a sharp knife, a few glass jars and a baking tray cover almost every recipe.</p>"
+          }
+        },
+        "q21": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "2",
+            "question": "Where do I buy organ meats?",
+            "answer": "<p>From a butcher or a farm stall. Most will set liver, heart and marrow bones aside if you ask a day ahead.</p>"
+          }
+        },
+        "q30": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "How long does a hardback take?",
+            "answer": "<p>It leaves within two working days and arrives in 3 to 7.</p>"
+          }
+        },
+        "q31": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "What does shipping cost?",
+            "answer": "<p>Free over $50, otherwise $6, tracked.</p>"
+          }
+        },
+        "q40": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "4",
+            "question": "Can I return a printed book?",
+            "answer": "<p>Yes, within 30 days, for a full refund.</p>"
+          }
+        },
+        "q41": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "4",
+            "question": "Can I return an ebook?",
+            "answer": "<p>Within 14 days, if it has not been downloaded.</p>"
           }
         }
       },
       "block_order": [
         "heading_1",
-        "description_1"
+        "subheading_1",
+        "q10",
+        "q11",
+        "q20",
+        "q21",
+        "q30",
+        "q31",
+        "q40",
+        "q41"
       ]
     },
-    "faq": {
-      "type": "ebook-faq",
+    "letter": {
+      "type": "newsletter-split",
       "settings": {
-        "color_scheme": "default",
-        "background": "#ffffff",
-        "accent_color": "#b4441b",
-        "eyebrow": "Questions",
-        "heading": "Before you <em>buy</em>",
-        "text": "<p>Anything else? <a href=\"/pages/contact\">Write to me</a>. I answer every message myself.</p>",
-        "first_open": true,
-        "promise_seal": "30",
-        "promise_title": "Read it for 30 days",
-        "promise_text": "If it is not for you, reply to your receipt within 30 days and you get every penny back. No questions.",
-        "card_color": "#0d3b2e",
-        "card_heading_color": "#ffffff",
-        "card_text_color": "#e2e7e3",
-        "padding_top": 56
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "image": "shopify://shop_images/ebooks-eggs.webp",
+        "image_alt": "Brown eggs in a carton",
+        "image_position": "left",
+        "image_ratio": "square",
+        "image_width": 42,
+        "column_gap": 64,
+        "form_layout": "horizontal",
+        "email_placeholder": "Email address",
+        "btn_text": "Sign up",
+        "button_radius": 6,
+        "note": "One email a week. Leave whenever you like.",
+        "success_text": "Thank you. The first letter comes this Sunday.",
+        "padding_top": 80,
+        "padding_bottom": 80,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 52
       },
       "blocks": {
-        "question_1": {
-          "type": "question",
+        "heading": {
+          "type": "heading",
           "settings": {
-            "question": "Which formats do I get?",
-            "answer": "<p>PDF and EPUB, so it reads well on phones, tablets, laptops and most e-readers. The complete set adds an MP3 audiobook.</p>"
+            "text": "The Sunday letter",
+            "size_enable": true,
+            "size_desktop": 40,
+            "size_mobile": 30
           }
         },
-        "question_2": {
-          "type": "question",
+        "subheading": {
+          "type": "subheading",
           "settings": {
-            "question": "How do I get the book after paying?",
-            "answer": "<p>The download links are on the confirmation page and in your receipt email straight away. They also stay in your account.</p>"
-          }
-        },
-        "question_3": {
-          "type": "question",
-          "settings": {
-            "question": "Can I read it on a Kindle?",
-            "answer": "<p>Yes. Send the EPUB to your Kindle with Send to Kindle, or open the PDF on any Kindle app.</p>"
-          }
-        },
-        "question_4": {
-          "type": "question",
-          "settings": {
-            "question": "Is there a printed copy?",
-            "answer": "<p>Not yet. The PDF prints well at A5 if you like paper.</p>"
-          }
-        },
-        "question_5": {
-          "type": "question",
-          "settings": {
-            "question": "Can I buy it as a gift?",
-            "answer": "<p>Yes. Choose more than one copy, or forward the receipt email to the person it is for.</p>"
-          }
-        },
-        "question_6": {
-          "type": "question",
-          "settings": {
-            "question": "Do you offer copies for teams?",
-            "answer": "<p>Yes, for groups of five or more. <a href=\"/pages/contact\">Write to me</a> and I will send a price.</p>"
+            "text": "<p>One recipe from the books every Sunday morning, with the shopping list and what to do with the leftovers. Free.</p>"
           }
         }
       },
       "block_order": [
-        "question_1",
-        "question_2",
-        "question_3",
-        "question_4",
-        "question_5",
-        "question_6"
+        "heading",
+        "subheading"
       ]
-    },
-    "signup": {
-      "type": "ebook-signup",
-      "settings": {
-        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
-        "background": "#0d3b2e",
-        "heading_color": "#ffffff",
-        "text_color": "#c8d2cb",
-        "accent_color": "#f2a07a",
-        "image": "shopify://shop_images/ebooks-table.webp",
-        "image_alt": "Reading on an e-reader at a wooden table with coffee",
-        "eyebrow": "Free chapter",
-        "heading": "Read the first chapter <em>free</em>",
-        "text": "<p>The whole of chapter one as a PDF, then a short letter about reading and work every other Sunday.</p>",
-        "email_placeholder": "Your email",
-        "button_label": "Send it to me",
-        "tag": "free-chapter",
-        "note": "No spam. Leave whenever you like."
-      }
     }
   },
   "order": [
-    "heading",
     "faq",
-    "signup"
+    "letter"
   ]
 }

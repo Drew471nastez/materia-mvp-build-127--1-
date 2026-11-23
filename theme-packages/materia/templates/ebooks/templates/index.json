@@ -1,397 +1,752 @@
 {
   "sections": {
     "hero": {
-      "type": "ebook-hero",
-      "settings": {
-        "color_scheme": "default",
-        "background": "#ffffff",
-        "panel_color": "#eef1ee",
-        "accent_color": "#b4441b",
-        "eyebrow": "A short book by Clara Wynn",
-        "title": "The Quiet <em>Hour</em>",
-        "text": "<p>A calm, practical guide to doing your best work in a busy life: one protected hour a day, and what to do with it.</p>",
-        "facts": "196 pages\n9 chapters\nPDF, EPUB and audio",
-        "price": "$18",
-        "compare_price": "",
-        "button_label": "Buy the ebook",
-        "button_link": "/collections/all",
-        "link_label": "Read the first chapter",
-        "link_url": "/pages/sample",
-        "button_color": "#0d3b2e",
-        "button_text_color": "#ffffff",
-        "button_radius": 6,
-        "note": "Instant download. Read it for 30 days, or get your money back.",
-        "image": "shopify://shop_images/ebooks-hero-book.webp",
-        "image_alt": "The Quiet Hour by Clara Wynn, a dark green cover with a low sun",
-        "cover_width": 94,
-        "tag": "",
-        "panel_radius": 8,
-        "heading_size": 92,
-        "heading_size_mobile": 56
-      }
-    },
-    "for": {
-      "type": "ebook-author",
-      "settings": {
-        "color_scheme": "scheme-b0fae5fa-c388-4a42-acd3-92cf8fe0b1fb",
-        "background": "#ffffff",
-        "accent_color": "#b4441b",
-        "image": "shopify://shop_images/ebooks-reading-nook.webp",
-        "image_alt": "A woman reading by a window in the morning",
-        "image_position": "left",
-        "image_ratio": "4 / 3",
-        "image_radius": 6,
-        "eyebrow": "Who it is for",
-        "name": "For full days and <em>busy heads</em>",
-        "bio": "<p>You are good at your work, but the work that matters most keeps sliding to tomorrow. Meetings, messages and other people's plans fill the day before you start.</p><p>This book is a short, kind plan for getting one quiet hour back, and using it well.</p>",
-        "facts": "Read in an evening, use for years\nNo apps, no new system to learn\nWritten for people with families and jobs",
-        "link_label": "",
-        "padding_top": 88,
-        "padding_bottom": 88
-      }
-    },
-    "contents": {
-      "type": "ebook-contents",
-      "settings": {
-        "color_scheme": "default",
-        "background": "#ffffff",
-        "accent_color": "#b4441b",
-        "eyebrow": "What is inside",
-        "heading": "Nine short <em>chapters</em>",
-        "text": "<p>Each chapter ends with one small thing to try the next day. Most readers finish in two evenings and keep it open on the desk after that.</p>",
-        "button_label": "Get the book",
-        "button_link": "/collections/all"
-      },
-      "blocks": {
-        "chapter_1": {
-          "type": "chapter",
-          "settings": {
-            "title": "The hour you already have",
-            "note": "Finding the time that is hiding in a full week.",
-            "page": "1"
-          }
-        },
-        "chapter_2": {
-          "type": "chapter",
-          "settings": {
-            "title": "Clearing the desk",
-            "note": "What to put away before you start, on the desk and in your head.",
-            "page": "19"
-          }
-        },
-        "chapter_3": {
-          "type": "chapter",
-          "settings": {
-            "title": "One thing, then the next",
-            "note": "Why long lists fail, and the short list that works.",
-            "page": "37"
-          }
-        },
-        "chapter_4": {
-          "type": "chapter",
-          "settings": {
-            "title": "Notifications off",
-            "note": "A plain plan for your phone that you will actually keep.",
-            "page": "58"
-          }
-        },
-        "chapter_5": {
-          "type": "chapter",
-          "settings": {
-            "title": "Working with your energy",
-            "note": "Mornings, evenings and the slump after lunch.",
-            "page": "79"
-          }
-        },
-        "chapter_6": {
-          "type": "chapter",
-          "settings": {
-            "title": "When it goes wrong",
-            "note": "Interruptions, bad days and how to start again.",
-            "page": "101"
-          }
-        },
-        "chapter_7": {
-          "type": "chapter",
-          "settings": {
-            "title": "Saying no without guilt",
-            "note": "Words that protect your hour, with examples.",
-            "page": "124"
-          }
-        },
-        "chapter_8": {
-          "type": "chapter",
-          "settings": {
-            "title": "The weekly reset",
-            "note": "Thirty minutes on Friday that make Monday easier.",
-            "page": "147"
-          }
-        },
-        "chapter_9": {
-          "type": "chapter",
-          "settings": {
-            "title": "A year of quiet hours",
-            "note": "Turning a habit into the way you work.",
-            "page": "171"
-          }
-        }
-      },
-      "block_order": [
-        "chapter_1",
-        "chapter_2",
-        "chapter_3",
-        "chapter_4",
-        "chapter_5",
-        "chapter_6",
-        "chapter_7",
-        "chapter_8",
-        "chapter_9"
-      ]
-    },
-    "sample": {
-      "type": "ebook-excerpt",
-      "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "background": "#eef1ee",
-        "paper_color": "#ffffff",
-        "accent_color": "#b4441b",
-        "eyebrow": "Read a sample",
-        "heading": "Start with <em>chapter one</em>",
-        "text": "<p>Read the opening pages here. The whole first chapter is free as a PDF, sent to your inbox.</p>",
-        "button_label": "Get the free chapter",
-        "button_link": "/pages/sample",
-        "button2_label": "Buy the book",
-        "button2_link": "/collections/all",
-        "chapter_label": "Chapter one",
-        "chapter_title": "The hour you already have",
-        "excerpt": "<p>Most of us do not lack time. We lack a stretch of it that nobody else has claimed. The day arrives already spoken for: a message before breakfast, a meeting that could have been a note, a small favour that takes the whole afternoon.</p><p>The quiet hour is not a productivity trick. It is a promise you make to the work that matters most to you, kept at the same time on most days, in the same place, with the door, the phone and the inbox closed.</p><p>You already have this hour. It is hiding in the edges of your week, in the half hour you lose to scrolling after lunch and the evening you spend tidying instead of starting. This chapter is about finding it, and the next eight are about keeping it.</p>"
-      }
-    },
-    "editions": {
-      "type": "ebook-editions",
-      "settings": {
-        "color_scheme": "default",
-        "background": "#ffffff",
-        "card_color": "#ffffff",
-        "feature_color": "#0d3b2e",
-        "feature_text_color": "#ffffff",
-        "accent_color": "#b4441b",
-        "eyebrow": "Formats and price",
-        "heading": "Choose your <em>edition</em>",
-        "footnote": "Secure checkout. Files arrive by email the minute you pay, and stay in your account."
-      },
-      "blocks": {
-        "edition_1": {
-          "type": "edition",
-          "settings": {
-            "title": "The ebook",
-            "text": "The book, to read on any screen.",
-            "price": "$18",
-            "compare_price": "",
-            "includes": "PDF and EPUB\nReads on phones, tablets and e-readers\nFree updates to this edition",
-            "button_label": "Buy the ebook",
-            "link": "/collections/all",
-            "featured": false,
-            "badge": ""
-          }
-        },
-        "edition_2": {
-          "type": "edition",
-          "settings": {
-            "title": "Ebook and workbook",
-            "text": "For readers who like to write it down.",
-            "price": "$26",
-            "compare_price": "$30",
-            "includes": "Everything in the ebook\nA 40 page printable workbook\nWeekly planning pages",
-            "button_label": "Buy this edition",
-            "link": "/collections/all",
-            "featured": true,
-            "badge": "Best value"
-          }
-        },
-        "edition_3": {
-          "type": "edition",
-          "settings": {
-            "title": "The complete set",
-            "text": "Everything, including the audiobook.",
-            "price": "$39",
-            "compare_price": "$50",
-            "includes": "The ebook and the workbook\nThe audiobook, read by Clara\nTen Quiet Mornings, the companion",
-            "button_label": "Buy the set",
-            "link": "/collections/all",
-            "featured": false,
-            "badge": ""
-          }
-        }
-      },
-      "block_order": [
-        "edition_1",
-        "edition_2",
-        "edition_3"
-      ]
-    },
-    "reviews": {
-      "type": "ebook-reviews",
-      "settings": {
-        "color_scheme": "scheme-b0fae5fa-c388-4a42-acd3-92cf8fe0b1fb",
-        "background": "#ffffff",
-        "card_color": "#ffffff",
-        "accent_color": "#b4441b",
-        "star_color": "#c2501f",
-        "show_stars": true,
-        "eyebrow": "Readers",
-        "heading": "What readers <em>say</em>",
-        "note": "Sample reviews. Replace them with what your readers write."
-      },
-      "blocks": {
-        "review_1": {
-          "type": "review",
-          "settings": {
-            "quote": "I read it on a Sunday and blocked my first quiet hour on Monday. Three weeks in, it is the best part of my day.",
-            "name": "Reader name",
-            "detail": "Teacher"
-          }
-        },
-        "review_2": {
-          "type": "review",
-          "settings": {
-            "quote": "Short, kind and practical. The chapter on saying no is worth the price on its own.",
-            "name": "Reader name",
-            "detail": "Runs a small studio"
-          }
-        },
-        "review_3": {
-          "type": "review",
-          "settings": {
-            "quote": "No system to learn and nothing to install. Just a better way to start the morning.",
-            "name": "Reader name",
-            "detail": "Parent of two, works from home"
-          }
-        }
-      },
-      "block_order": [
-        "review_1",
-        "review_2",
-        "review_3"
-      ]
-    },
-    "author": {
-      "type": "ebook-author",
-      "settings": {
-        "color_scheme": "default",
-        "background": "#ffffff",
-        "accent_color": "#b4441b",
-        "image": "shopify://shop_images/ebooks-author.webp",
-        "image_alt": "Clara Wynn sitting in a sunny room",
-        "image_position": "right",
-        "image_ratio": "4 / 5",
-        "eyebrow": "The author",
-        "name": "Clara Wynn",
-        "bio": "<p>Clara spent ten years as an editor at a busy newsroom, then left to write the books she kept wishing someone would hand her.</p><p>She writes in the mornings, from a small flat with a large window, and sends a short letter about reading and work every other Sunday.</p>",
-        "facts": "Lives in Edinburgh\nAlso wrote Ten Quiet Mornings",
-        "link_label": "More about Clara",
-        "link": "/pages/about"
-      }
-    },
-    "faq": {
-      "type": "ebook-faq",
-      "settings": {
-        "color_scheme": "default",
-        "background": "#ffffff",
-        "accent_color": "#b4441b",
-        "eyebrow": "Questions",
-        "heading": "Before you <em>buy</em>",
-        "text": "<p>Anything else? <a href=\"/pages/contact\">Write to me</a>. I answer every message myself.</p>",
-        "first_open": true,
-        "promise_seal": "30",
-        "promise_title": "Read it for 30 days",
-        "promise_text": "If it is not for you, reply to your receipt within 30 days and you get every penny back. No questions.",
-        "card_color": "#0d3b2e",
-        "card_heading_color": "#ffffff",
-        "card_text_color": "#e2e7e3"
-      },
-      "blocks": {
-        "question_1": {
-          "type": "question",
-          "settings": {
-            "question": "Which formats do I get?",
-            "answer": "<p>PDF and EPUB, so it reads well on phones, tablets, laptops and most e-readers. The complete set adds an MP3 audiobook.</p>"
-          }
-        },
-        "question_2": {
-          "type": "question",
-          "settings": {
-            "question": "How do I get the book after paying?",
-            "answer": "<p>The download links are on the confirmation page and in your receipt email straight away. They also stay in your account.</p>"
-          }
-        },
-        "question_3": {
-          "type": "question",
-          "settings": {
-            "question": "Can I read it on a Kindle?",
-            "answer": "<p>Yes. Send the EPUB to your Kindle with Send to Kindle, or open the PDF on any Kindle app.</p>"
-          }
-        },
-        "question_4": {
-          "type": "question",
-          "settings": {
-            "question": "Is there a printed copy?",
-            "answer": "<p>Not yet. The PDF prints well at A5 if you like paper.</p>"
-          }
-        },
-        "question_5": {
-          "type": "question",
-          "settings": {
-            "question": "Can I buy it as a gift?",
-            "answer": "<p>Yes. Choose more than one copy, or forward the receipt email to the person it is for.</p>"
-          }
-        },
-        "question_6": {
-          "type": "question",
-          "settings": {
-            "question": "Do you offer copies for teams?",
-            "answer": "<p>Yes, for groups of five or more. <a href=\"/pages/contact\">Write to me</a> and I will send a price.</p>"
-          }
-        }
-      },
-      "block_order": [
-        "question_1",
-        "question_2",
-        "question_3",
-        "question_4",
-        "question_5",
-        "question_6"
-      ]
-    },
-    "signup": {
-      "type": "ebook-signup",
+      "type": "hero-image1",
       "settings": {
         "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
-        "background": "#0d3b2e",
-        "heading_color": "#ffffff",
-        "text_color": "#c8d2cb",
-        "accent_color": "#f2a07a",
-        "image": "shopify://shop_images/ebooks-table.webp",
-        "image_alt": "Reading on an e-reader at a wooden table with coffee",
-        "eyebrow": "Free chapter",
-        "heading": "Read the first chapter <em>free</em>",
-        "text": "<p>The whole of chapter one as a PDF, then a short letter about reading and work every other Sunday.</p>",
-        "email_placeholder": "Your email",
-        "button_label": "Send it to me",
-        "tag": "free-chapter",
-        "note": "No spam. Leave whenever you like."
+        "image": "shopify://shop_images/ebooks-roast-table.webp",
+        "image_mobile": "shopify://shop_images/ebooks-roast-table-phone.webp",
+        "image_alt": "A roast, vegetables and bread on a dark wooden table",
+        "content_align": "center",
+        "vertical_align": "center",
+        "content_max_width": 820,
+        "min_height_desktop": 680,
+        "min_height_mobile": 560,
+        "enable_overlay": true,
+        "overlay_color": "#14110e",
+        "overlay_opacity": 60,
+        "animation": "fade"
+      },
+      "blocks": {
+        "eyebrow": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Cookbooks for slow, nourishing food",
+            "enable_custom_style": true,
+            "text_case": "uppercase",
+            "letter_spacing": 2,
+            "size_desktop": 14,
+            "size_mobile": 12,
+            "font_weight": "700"
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "Cook the way your grandmother did",
+            "enable_custom_style": true,
+            "size_desktop": 76,
+            "size_mobile": 42,
+            "line_height": 1.05
+          }
+        },
+        "sub": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Bone broth, the cheaper cuts, ferments and real bread. Five books in print and as ebooks, written for a weeknight kitchen.</p>",
+            "enable_custom_style": true,
+            "size": 19,
+            "size_mobile": 16
+          }
+        },
+        "btn": {
+          "type": "primary_button",
+          "settings": {
+            "label": "Shop the books",
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow",
+        "heading",
+        "sub",
+        "btn"
+      ]
+    },
+    "books": {
+      "type": "products-carousel",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "items_to_show": 8,
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 20,
+        "header_alignment": "center",
+        "show_arrow": true,
+        "carousel_pagination": "show_dots",
+        "pagination_style": "dot",
+        "padding_top": 80,
+        "padding_bottom": 80,
+        "reveal": false
+      },
+      "blocks": {
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "The books",
+            "size_desktop": 44,
+            "size_mobile": 32
+          }
+        },
+        "sub": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Every hardback comes with the ebook, so you can cook from the page and shop from your phone.</p>"
+          }
+        },
+        "all": {
+          "type": "view_all",
+          "settings": {
+            "enabled": true,
+            "label": "Shop all books",
+            "link": "/collections/all",
+            "position": "bottom"
+          }
+        }
+      },
+      "block_order": [
+        "heading",
+        "sub",
+        "all"
+      ]
+    },
+    "wave1": {
+      "type": "waves-divider",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "full_width",
+        "reveal": false,
+        "wave_variant": "mountains",
+        "wave_rotate": false,
+        "full_width": true,
+        "enable_custom_style": true,
+        "wave_color": "#f2ebe0",
+        "background_color": "#1f1b17",
+        "section_bg": "#1f1b17",
+        "wave_height": 36,
+        "wave_height_mobile": 18
       }
+    },
+    "library": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "section_width": "container",
+        "image_position": "left",
+        "image": "shopify://shop_images/ebooks-library.webp",
+        "image_alt": "Four Marrow & Hearth cookbooks fanned out on a table",
+        "aspect_w": 1,
+        "aspect_h": 1,
+        "image_radius": 0,
+        "text_column_width": 50,
+        "content_align": "left",
+        "gap_desktop": 80,
+        "padding_top_desktop": 72,
+        "padding_bottom_desktop": 88,
+        "padding_top_mobile": 40,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "eyebrow": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "The whole library"
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "All five books for $89 instead of $124",
+            "size_desktop": 42,
+            "size_mobile": 30
+          }
+        },
+        "text": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>The Broth Book, Nose to Tail at Home, Slow Ferments, Sourdough from Scratch and The 28 Day Table, in hardback with every ebook included. One parcel, shipped free.</p>"
+          }
+        },
+        "btn": {
+          "type": "button",
+          "settings": {
+            "label": "Get the library",
+            "link": "/collections/all",
+            "button_style": "primary"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow",
+        "heading",
+        "text",
+        "btn"
+      ]
+    },
+    "cook": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "image_position": "right",
+        "image": "shopify://shop_images/ebooks-stirring-pot.webp",
+        "image_alt": "A hand stirring a red pot on the stove with a wooden spoon",
+        "aspect_w": 1,
+        "aspect_h": 1,
+        "image_radius": 6,
+        "text_column_width": 50,
+        "content_align": "left",
+        "gap_desktop": 80,
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 96,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "mobile_order": "text_first"
+      },
+      "blocks": {
+        "eyebrow": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Why we write them"
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "Food that keeps you going, without the fuss",
+            "size_desktop": 42,
+            "size_mobile": 30
+          }
+        },
+        "text": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>“Our grandparents ate broth, liver, butter and slow bread, and nobody called it a diet. We wanted those recipes back on a weeknight table: tested in a home kitchen, with quantities you can shop for and steps that fit around work.”</p><p>Anna and Tom, who cook every recipe at least three times before it goes in a book.</p>"
+          }
+        },
+        "btn": {
+          "type": "button",
+          "settings": {
+            "label": "Our kitchen",
+            "link": "/pages/about",
+            "button_style": "secondary"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow",
+        "heading",
+        "text",
+        "btn"
+      ]
+    },
+    "inside": {
+      "type": "benefits-icons2",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "section_width": "full_width",
+        "inner_width": 82,
+        "icons_per_row_desktop": 4,
+        "space_between_icons": 32,
+        "enable_custom_style": true,
+        "section_background": "#1f1b17",
+        "icon_color": "#d9774c",
+        "icon_title_color": "#f2ebe0",
+        "icon_description_color": "#cfc5b6",
+        "make_icons_circle": false,
+        "icon_size": 40,
+        "icon_title_size": 20,
+        "icon_description_size": 15,
+        "reveal": false,
+        "padding_top_desktop": 88,
+        "padding_bottom_desktop": 88,
+        "icons_mobile_layout": "1",
+        "icon_size_mobile": 34,
+        "icon_title_size_mobile": 18,
+        "icon_description_size_mobile": 14,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "h": {
+          "type": "heading",
+          "settings": {
+            "text": "What you will cook",
+            "heading_alignment": "center",
+            "heading_size": 40,
+            "heading_size_mobile": 30,
+            "enable_custom_style": true,
+            "heading_color": "#f2ebe0",
+            "space_below": 48
+          }
+        },
+        "b1": {
+          "type": "icon",
+          "settings": {
+            "icon_type": "icon",
+            "icon": "clock",
+            "icon_title": "Broths and stocks",
+            "icon_description": "Beef, chicken, fish and bone broth, and forty soups and sauces that start with a pot of it."
+          }
+        },
+        "b2": {
+          "type": "icon",
+          "settings": {
+            "icon_type": "icon",
+            "icon": "hand-holding-heart",
+            "icon_title": "The whole animal",
+            "icon_description": "Liver, heart, marrow, tongue and the cheaper cuts, cooked so the whole table eats them."
+          }
+        },
+        "b3": {
+          "type": "icon",
+          "settings": {
+            "icon_type": "icon",
+            "icon": "seedling",
+            "icon_title": "Ferments",
+            "icon_description": "Kraut, kimchi, kvass, pickles, yoghurt and cultured butter, with a week by week plan."
+          }
+        },
+        "b4": {
+          "type": "icon",
+          "settings": {
+            "icon_type": "icon",
+            "icon": "calendar_check",
+            "icon_title": "Meal plans",
+            "icon_description": "Four weeks of dinners with shopping lists and one batch cooking afternoon a week."
+          }
+        }
+      },
+      "block_order": [
+        "h",
+        "b1",
+        "b2",
+        "b3",
+        "b4"
+      ]
+    },
+    "wave2": {
+      "type": "waves-divider",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "full_width",
+        "reveal": false,
+        "wave_variant": "mountains",
+        "wave_rotate": true,
+        "full_width": true,
+        "enable_custom_style": true,
+        "wave_color": "#1f1b17",
+        "background_color": "#ffffff",
+        "section_bg": "#ffffff",
+        "wave_height": 36,
+        "wave_height_mobile": 18
+      }
+    },
+    "formats": {
+      "type": "comparison-table",
+      "settings": {
+        "color_scheme": "default",
+        "heading": "Ebook, hardback or both",
+        "subheading_text": "Every book comes three ways. Most people buy the hardback, which includes the ebook.",
+        "first_heading": "Hardback",
+        "second_heading": "Ebook",
+        "third_heading": "Library",
+        "table_column_active": "1",
+        "heading_align": "center",
+        "table_radius": 6,
+        "table_border_thickness": 1,
+        "enable_active_column_gradient": false,
+        "table_icon_size": 22,
+        "enable_custom_style": true,
+        "table_column_active_bg_color": "#a8482a",
+        "table_heading_active_color": "#ffffff",
+        "table_icon_active_color": "#ffffff",
+        "table_icon_color": "#1f1b17",
+        "table_border_color": "#e7dfd3",
+        "table_bg_color": "#ffffff",
+        "table_heading_color": "#1f1b17",
+        "table_row_heading_color": "#1f1b17",
+        "heading_color": "#1f1b17",
+        "heading_size": 40,
+        "table_heading_size": 18,
+        "table_row_heading_size": 16,
+        "padding_top": 72,
+        "padding_bottom": 96,
+        "table_mt": 44,
+        "table_heading_size_mobile": 13,
+        "table_row_heading_size_mobile": 13
+      },
+      "blocks": {
+        "i0": {
+          "type": "item",
+          "settings": {
+            "row_heading": "Opens on your phone and tablet",
+            "first_icon": "check",
+            "second_icon": "check",
+            "third_icon": "check"
+          }
+        },
+        "i1": {
+          "type": "item",
+          "settings": {
+            "row_heading": "Lies flat on the counter",
+            "first_icon": "check",
+            "second_icon": "x",
+            "third_icon": "check"
+          }
+        },
+        "i2": {
+          "type": "item",
+          "settings": {
+            "row_heading": "Printable shopping lists",
+            "first_icon": "check",
+            "second_icon": "check",
+            "third_icon": "check"
+          }
+        },
+        "i3": {
+          "type": "item",
+          "settings": {
+            "row_heading": "Arrives the moment you order",
+            "first_icon": "check",
+            "second_icon": "check",
+            "third_icon": "check"
+          }
+        },
+        "i4": {
+          "type": "item",
+          "settings": {
+            "row_heading": "All five books",
+            "first_icon": "x",
+            "second_icon": "x",
+            "third_icon": "check"
+          }
+        },
+        "i5": {
+          "type": "item",
+          "settings": {
+            "row_heading": "Free shipping",
+            "first_icon": "x",
+            "second_icon": "x",
+            "third_icon": "check"
+          }
+        }
+      },
+      "block_order": [
+        "i0",
+        "i1",
+        "i2",
+        "i3",
+        "i4",
+        "i5"
+      ]
+    },
+    "story": {
+      "type": "richtext1",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "full_width",
+        "reveal": false,
+        "elements_alignment": "center",
+        "padding_top": 88,
+        "padding_bottom": 56
+      },
+      "blocks": {
+        "title": {
+          "type": "title",
+          "settings": {
+            "title_text": "Real food has not changed. The kitchen has.",
+            "title_text_size": 40,
+            "title_mobile_size": 28,
+            "vertical_spacing_desktop": 20
+          }
+        },
+        "text": {
+          "type": "description",
+          "settings": {
+            "description_text": "Most of what our great grandparents cooked took time, not skill: a pot left on low, a jar on the windowsill, a loaf that rose overnight. We test every recipe in a home kitchen, buy from farms we can drive to, and write the steps so they fit around a working week.",
+            "description_text_size": 17,
+            "description_mobile_size": 15,
+            "description_left_padding_desktop": 170,
+            "description_right_padding_desktop": 170,
+            "vertical_gap_subheading_button_desktop": 32
+          }
+        },
+        "button": {
+          "type": "button",
+          "settings": {
+            "button_text": "Read our story",
+            "button_link": "/pages/about",
+            "use_theme_button": true,
+            "button_width": 190,
+            "button_height": 50
+          }
+        }
+      },
+      "block_order": [
+        "title",
+        "text",
+        "button"
+      ]
+    },
+    "pasture": {
+      "type": "image-section",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "is_fullwidth": true,
+        "background_image": "shopify://shop_images/ebooks-pasture-fog.webp",
+        "image_alt": "Cattle grazing in a misty field at dawn",
+        "img_min_height": 62,
+        "img_min_height_mobile": 46,
+        "image_border_radius": 0,
+        "image_description": "",
+        "enable_image_text_background": false,
+        "background_position_y": 60,
+        "section_padding_top": 0,
+        "section_padding_bottom": 0,
+        "section_padding_top_mobile": 0,
+        "section_padding_bottom_mobile": 0,
+        "padding_lr_desktop": 0,
+        "padding_lr_mobile": 0
+      }
+    },
+    "reviews": {
+      "type": "testimonials",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "section_width": "container",
+        "display_mode": "carousel",
+        "show_quote_mark": true,
+        "show_rating": true,
+        "columns": 3,
+        "column_gap": 24,
+        "header_alignment": "center",
+        "card_style": "outline",
+        "card_align": "center",
+        "card_padding": 32,
+        "card_radius": 6,
+        "show_arrow": false,
+        "carousel_pagination": "show",
+        "pagination_style": "dot",
+        "infinite": false,
+        "columns_mobile": 1,
+        "enable_custom_colors": true,
+        "card_bg": "#26211c",
+        "card_border_color": "#3a332c",
+        "quote_color": "#d9774c",
+        "padding_top": 88,
+        "padding_bottom": 88,
+        "header_spacing_desktop": 44
+      },
+      "blocks": {
+        "eyebrow": {
+          "type": "eyebrow",
+          "settings": {
+            "enabled": false,
+            "text": ""
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "enabled": true,
+            "text": "From readers’ kitchens"
+          }
+        },
+        "sub": {
+          "type": "subheading",
+          "settings": {
+            "enabled": true,
+            "text": "<p>Sample reviews. Replace them with what your own readers write to you.</p>"
+          }
+        },
+        "t0": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>The broth chapter alone was worth it. I make a pot every Sunday now and it carries us to Thursday.</p>",
+            "rating": 5,
+            "name": "Reader name",
+            "role": "The Broth Book"
+          }
+        },
+        "t1": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>I had never cooked liver that anyone in the house would eat. The pan fried one with onions changed that.</p>",
+            "rating": 5,
+            "name": "Reader name",
+            "role": "Nose to Tail at Home"
+          }
+        },
+        "t2": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Clear steps, real quantities and no fuss. My first kraut worked, and so did the second.</p>",
+            "rating": 5,
+            "name": "Reader name",
+            "role": "Slow Ferments"
+          }
+        },
+        "t3": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>The shopping lists saved me an hour a week. We actually ate everything on the plan.</p>",
+            "rating": 5,
+            "name": "Reader name",
+            "role": "The 28 Day Table"
+          }
+        },
+        "t4": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>My starter is three months old and the loaves keep getting better. The timings chapter is the one to read twice.</p>",
+            "rating": 5,
+            "name": "Reader name",
+            "role": "Sourdough from Scratch"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow",
+        "heading",
+        "sub",
+        "t0",
+        "t1",
+        "t2",
+        "t3",
+        "t4"
+      ]
+    },
+    "faq": {
+      "type": "faq",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "content_alignment": "center",
+        "max_content_width": 820,
+        "first_item_open": true,
+        "open_icon": "plus",
+        "item_padding_x": 0,
+        "gap_between_items": 0,
+        "heading_size_desktop": 40,
+        "heading_size_mobile": 30,
+        "question_size_desktop": 18,
+        "question_size_mobile": 16,
+        "padding_top": 88,
+        "padding_bottom": 88
+      },
+      "blocks": {
+        "h": {
+          "type": "heading",
+          "settings": {
+            "text": "Before you cook"
+          }
+        },
+        "q0": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do I get the ebook with the hardback?",
+            "answer": "<p>Yes. The download link is on your order page and in your receipt, so you can start cooking before the parcel arrives.</p>"
+          }
+        },
+        "q1": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do I need special equipment?",
+            "answer": "<p>No. A big pot, a sharp knife, a few glass jars and a baking tray cover almost every recipe.</p>"
+          }
+        },
+        "q2": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Where do I buy organ meats?",
+            "answer": "<p>Ask a butcher or a farm stall; most will set liver, heart and marrow bones aside if you ask a day ahead. Each book lists what to ask for.</p>"
+          }
+        },
+        "q3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "When does a printed book arrive?",
+            "answer": "<p>Hardbacks leave within two working days and arrive in 3 to 7. Shipping is free over $50.</p>"
+          }
+        },
+        "q4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I return a book?",
+            "answer": "<p>Printed books can come back within 30 days. Ebooks are refunded within 14 days if they were not downloaded.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "h",
+        "q0",
+        "q1",
+        "q2",
+        "q3",
+        "q4"
+      ]
+    },
+    "letter": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "image": "shopify://shop_images/ebooks-eggs.webp",
+        "image_alt": "Brown eggs in a carton",
+        "image_position": "left",
+        "image_ratio": "square",
+        "image_width": 42,
+        "column_gap": 64,
+        "form_layout": "horizontal",
+        "email_placeholder": "Email address",
+        "btn_text": "Sign up",
+        "button_radius": 6,
+        "note": "One email a week. Leave whenever you like.",
+        "success_text": "Thank you. The first letter comes this Sunday.",
+        "padding_top": 80,
+        "padding_bottom": 80,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 52
+      },
+      "blocks": {
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "The Sunday letter",
+            "size_enable": true,
+            "size_desktop": 40,
+            "size_mobile": 30
+          }
+        },
+        "subheading": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>One recipe from the books every Sunday morning, with the shopping list and what to do with the leftovers. Free.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading",
+        "subheading"
+      ]
     }
   },
   "order": [
     "hero",
-    "for",
-    "contents",
-    "sample",
-    "editions",
+    "books",
+    "wave1",
+    "library",
+    "cook",
+    "inside",
+    "wave2",
+    "formats",
+    "story",
+    "pasture",
     "reviews",
-    "author",
     "faq",
-    "signup"
+    "letter"
   ]
 }

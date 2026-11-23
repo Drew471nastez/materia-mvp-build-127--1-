@@ -9,17 +9,17 @@
         "reveal": true,
         "icon_size": 22,
         "border_top": true,
-        "icon_color": "#a34d4d",
+        "icon_color": "",
         "radius_top": 0,
         "label_color": "",
         "show_labels": true,
         "active_color": "",
         "border_color": "",
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "color_scheme": "default",
         "reset_spacing": true,
         "section_width": "full_width",
         "shadow_enabled": false,
-        "background_color": "#a05757",
+        "background_color": "",
         "use_custom_colors": false,
         "section_margin_top_mobile": 0,
         "section_margin_top_desktop": 0,
@@ -141,7 +141,7 @@
         "body": {
           "type": "body",
           "settings": {
-            "text": "Hurry up! Get special sale for all products with coupon",
+            "text": "Use this code at checkout for 20% off every product.",
             "color": "#111111",
             "size_mobile": 16,
             "size_desktop": 16,
@@ -247,7 +247,7 @@
         "heading": {
           "type": "heading",
           "settings": {
-            "text": "Join our community!",
+            "text": "Join the newsletter",
             "color": "#111111",
             "weight": "700",
             "padding_top": 0,
@@ -259,7 +259,7 @@
         "description": {
           "type": "description",
           "settings": {
-            "text": "Get early access to our latest drops, exclusive deals, and special offers. Join the newsletter.",
+            "text": "New drops and offers, sent to your inbox before anyone else sees them.",
             "color": "#232323",
             "weight": "400",
             "padding_top": 12,
@@ -370,7 +370,7 @@
         "heading": {
           "type": "heading",
           "settings": {
-            "text": "Subscribe to get exclusive offers!",
+            "text": "Get our offers first",
             "color": "#000000",
             "weight": "700",
             "size_mobile": 24,
@@ -381,7 +381,7 @@
         "description": {
           "type": "description",
           "settings": {
-            "text": "Fill in your email and get access to all the amazing offers. Check your email.",
+            "text": "Leave your email and we will send our offers to you first.",
             "color": "#4b4d6c",
             "weight": "400",
             "size_mobile": 16,
@@ -634,20 +634,20 @@
     "back_to_top_pro": {
       "type": "Back-to-top-pro",
       "settings": {
-        "arrow_color": "#ffffff",
-        "circle_size": 44,
+        "arrow_color": "#000000",
+        "circle_size": 40,
         "hide_on_mobile": true,
-        "progress_color": "#3b3b42",
-        "circle_bg_color": "#151517",
+        "progress_color": "#e3e3e3",
+        "circle_bg_color": "#ffffff",
         "arrow_hover_color": "#ffffff",
-        "circle_size_mobile": 42,
+        "circle_size_mobile": 46,
         "progress_thickness": 2,
         "enable_custom_style": true,
         "horizontal_position": "right",
-        "vertical_dst_to_edge": 28,
-        "circle_bg_hover_color": "#e2402f",
-        "progress_active_color": "#e2402f",
-        "horizontal_dst_to_edge": 30,
+        "vertical_dst_to_edge": 32,
+        "circle_bg_hover_color": "#111111",
+        "progress_active_color": "#111111",
+        "horizontal_dst_to_edge": 24,
         "vertical_dst_to_edge_mobile": 90,
         "horizontal_dst_to_edge_mobile": 18
       }
@@ -688,7 +688,7 @@
           "type": "eyebrow",
           "settings": {
             "size": 13,
-            "text": "HURRY! TIME'S RUNNING OUT!",
+            "text": "OFFER ENDS SOON",
             "color": "#ffffff",
             "enable_custom_style": true
           }
@@ -697,7 +697,7 @@
           "type": "headline",
           "settings": {
             "size": 32,
-            "text": "LAST CHANCE TO BUY BEFORE THEY GO",
+            "text": "LAST CHANCE AT THIS PRICE",
             "color": "#ffffff",
             "enable_custom_style": true
           }
@@ -899,9 +899,7 @@
           "type": "products",
           "settings": {
             "fake_user": "Liam (USA) | Ethan (USA) | Matteo (USA) | Owen (Canada) | Lucas (Canada) | Rafael (USA) | Mason (USA) | Alex (UK) | Luca (Italy) | Hugo (France) | Elias (Germany) | Sofia (Spain) | Jakob (Sweden) | Matei (Romania) | Ivan (Russia) | Niko (Greece) | Marko (Croatia) | Erik (Norway) | Felix (Denmark) | Tomáš (Czech Republic) | Arnaud (Belgium) | Finn (Ireland)",
-            "fake_product": [
-              "red-light-therapy-wand"
-            ]
+            "fake_product": []
           }
         },
         "text": {

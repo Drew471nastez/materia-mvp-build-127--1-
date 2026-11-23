@@ -1,177 +1,124 @@
+/* Templates round 22: rebuilt from the theme's own sections (split hero, scrolling words, image with steps, featured product, product grid, image with text, testimonials, newsletter with image, follow block, blog posts, FAQ). */
 {
   "sections": {
     "faq": {
-      "type": "authorbook-faq",
+      "type": "faq-pro",
       "settings": {
-        "eyebrow": "Questions",
-        "heading": "Questions, answered",
-        "accent_color": "#e8401c",
-        "icon_bg": "#f5f4f0",
-        "text": "<p>Anything else? <a href=\"/pages/contact\">Send me a message</a> and I will reply within two days.</p>",
-        "padding_top": 72
+        "color_scheme": "default",
+        "first_item_open": true,
+        "content_alignment": "left",
+        "max_content_width": 820
       },
       "blocks": {
-        "question_1": {
-          "type": "question",
+        "heading_1": {
+          "type": "heading",
           "settings": {
-            "question": "Which course should I start with?",
-            "answer": "<p>If you have an audience of any size and want to sell something, Launch Lab. If you are starting from nothing and want to make videos, YouTube from Zero. Not sure? Watch the free workshop first.</p>"
+            "text": "Questions"
           }
         },
-        "question_2": {
-          "type": "question",
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Anything else? <a href=\"/pages/contact\">Send me a message</a>. I reply within two days.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Which course should I start with?",
+            "answer": "<p>If you have an audience of any size and want to sell something, Launch Lab. If you are starting from nothing and want to make videos, YouTube from Zero.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
           "settings": {
             "question": "Do I need a big audience first?",
             "answer": "<p>No. Launch Lab is built for people with a small list or none at all. The first offer you make is small on purpose.</p>"
           }
         },
-        "question_3": {
-          "type": "question",
+        "faq_item_5": {
+          "type": "faq_item",
           "settings": {
             "question": "How long do I keep access?",
             "answer": "<p>For as long as the courses exist, including every update. Lessons work on a phone, a tablet or a laptop.</p>"
           }
         },
-        "question_4": {
-          "type": "question",
+        "faq_item_6": {
+          "type": "faq_item",
           "settings": {
             "question": "What if a course is not for me?",
-            "answer": "<p>Write within 14 days and you get a full refund. Replace this with your own terms.</p>"
+            "answer": "<p>Write within 14 days and you get a full refund.</p>"
           }
         },
-        "question_5": {
-          "type": "question",
+        "faq_item_7": {
+          "type": "faq_item",
           "settings": {
-            "question": "Do you work with brands?",
-            "answer": "<p>A few times a year, for tools I use myself. <a href=\"/pages/contact\">Write to me</a> with the details.</p>"
-          }
-        },
-        "question_6": {
-          "type": "question",
-          "settings": {
-            "question": "Can I book you to speak?",
-            "answer": "<p>Yes, online or in person. Send the date and the audience through the <a href=\"/pages/contact\">contact page</a>.</p>"
-          }
-        },
-        "question_7": {
-          "type": "question",
-          "settings": {
-            "question": "Is there a team price?",
-            "answer": "<p>Yes, for three or more seats. Ask through the contact page.</p>"
+            "question": "Do you do sponsorships?",
+            "answer": "<p>Sometimes, for tools I already use. <a href=\"/pages/contact\">Write to me</a> with the details.</p>"
           }
         }
       },
       "block_order": [
-        "question_1",
-        "question_2",
-        "question_3",
-        "question_4",
-        "question_5",
-        "question_6",
-        "question_7"
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7"
       ]
     },
-    "cta": {
-      "type": "authorbook-cta",
+    "courses": {
+      "type": "products-grid",
       "settings": {
-        "band_color": "#101114",
-        "text_color": "#c9cbd1",
-        "image": "shopify://shop_images/creatorpro-podcast.webp",
-        "image_alt": "Nina Brooks at her microphone",
-        "radius": 28,
-        "heading": "Start with the free workshop",
-        "text": "<p>45 minutes on choosing the first thing to sell and pricing it. Watch it tonight.</p>",
-        "button_label": "Watch it free",
-        "button_link": "#open-form-workshop",
-        "button_color": "#ff5a36",
-        "button_text_color": "#101114",
-        "button_radius": 12,
-        "button2_label": "See the courses",
-        "button2_link": "/collections/all",
-        "button2_color": "#ffffff",
-        "button2_text_color": "#101114"
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "heading": "Courses and tools",
+        "text": "<p>Short lessons and templates for building a business of one.</p>",
+        "items_to_show": 4,
+        "items_per_row": 4,
+        "show_add_to_cart": false,
+        "button_label": "See all",
+        "button_link": "/collections/all",
+        "header_alignment": "left"
       }
     },
-    "workshop_form": {
-      "type": "form-modal",
+    "letter": {
+      "type": "newsletter-split",
       "settings": {
-        "form_key": "workshop",
-        "sends_to": "subscribe",
-        "accent_color": "#e8401c",
-        "text_align": "left",
-        "width": 500,
-        "corners": "theme",
-        "success_heading": "The workshop is on its way",
-        "success_text": "<p>Check your inbox in a minute for the link. If nothing arrives, look in spam.</p>"
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "image": "shopify://shop_images/creatorpro-podcast.webp",
+        "image_alt": "Nina recording at her desk with headphones on",
+        "image_position": "left",
+        "image_ratio": "square",
+        "form_layout": "horizontal",
+        "btn_text": "Join free",
+        "email_placeholder": "Your email",
+        "note": "Every Tuesday. Leave whenever you like.",
+        "success_text": "You are in. The next letter arrives on Tuesday."
       },
       "blocks": {
-        "image_1": {
-          "type": "image",
-          "settings": {
-            "image": "shopify://shop_images/creatorpro-video-2.webp",
-            "fit": "cover",
-            "max_height": 200
-          }
-        },
-        "heading_2": {
+        "heading_1": {
           "type": "heading",
           "settings": {
-            "eyebrow": "Free workshop",
-            "heading": "The First Offer *Workshop*",
-            "size": 30
+            "text": "The Tuesday Letter"
           }
         },
-        "text_3": {
-          "type": "text",
+        "subheading_2": {
+          "type": "subheading",
           "settings": {
-            "text": "<p>45 minutes on choosing what to sell first and how to price it, with the worksheet.</p>"
-          }
-        },
-        "field_4": {
-          "type": "field",
-          "settings": {
-            "kind": "name",
-            "label": "First name",
-            "required": false
-          }
-        },
-        "field_5": {
-          "type": "field",
-          "settings": {
-            "kind": "email",
-            "label": "Email address"
-          }
-        },
-        "button_6": {
-          "type": "button",
-          "settings": {
-            "label": "Send me the workshop",
-            "arrow": true
-          }
-        },
-        "note_7": {
-          "type": "note",
-          "settings": {
-            "icon": "lock",
-            "text": "Your email stays private.",
-            "small": "<p>You also get the Tuesday Letter. Leave whenever you like.</p>"
+            "text": "<p>One useful email a week: what I tried in my own business, what worked and what I would do differently. Short, and you can use it the same day.</p>"
           }
         }
       },
       "block_order": [
-        "image_1",
-        "heading_2",
-        "text_3",
-        "field_4",
-        "field_5",
-        "button_6",
-        "note_7"
+        "heading_1",
+        "subheading_2"
       ]
     }
   },
   "order": [
     "faq",
-    "cta",
-    "workshop_form"
+    "courses",
+    "letter"
   ]
 }

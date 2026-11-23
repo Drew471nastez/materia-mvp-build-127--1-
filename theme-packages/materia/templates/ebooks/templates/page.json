@@ -3,38 +3,11 @@
     "main": {
       "type": "page-default",
       "settings": {
-        "padding_top": 64,
-        "reset_spacing": true,
-        "section_width": "container",
-        "padding_bottom": 72
-      }
-    },
-    "signup": {
-      "type": "ebook-signup",
-      "settings": {
-        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
-        "background": "#0d3b2e",
-        "heading_color": "#ffffff",
-        "text_color": "#c8d2cb",
-        "accent_color": "#f2a07a",
-        "image": "",
-        "image_alt": "",
-        "eyebrow": "Free chapter",
-        "heading": "Read the first chapter <em>free</em>",
-        "text": "<p>The whole of chapter one as a PDF, then a short letter about reading and work every other Sunday.</p>",
-        "email_placeholder": "Your email",
-        "button_label": "Send it to me",
-        "tag": "free-chapter",
-        "note": "No spam. Leave whenever you like.",
-        "padding_top": 72,
-        "padding_bottom": 72,
-        "padding_top_mobile": 0,
-        "padding_bottom_mobile": 0
+        "section_width": "container"
       }
     }
   },
   "order": [
-    "main",
-    "signup"
+    "main"
   ]
 }

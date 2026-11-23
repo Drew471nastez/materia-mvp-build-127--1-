@@ -1,66 +1,352 @@
 {
   "sections": {
-    "author": {
-      "type": "ebook-author",
+    "heading": {
+      "type": "page-heading",
       "settings": {
         "color_scheme": "default",
-        "background": "#ffffff",
-        "accent_color": "#b4441b",
-        "image": "shopify://shop_images/ebooks-author.webp",
-        "image_alt": "Clara Wynn sitting in a sunny room",
-        "image_position": "left",
-        "image_ratio": "4 / 5",
-        "eyebrow": "About",
-        "name": "Hello, I'm <em>Clara</em>",
-        "bio": "<p>I spent ten years as an editor at a busy newsroom, where the most important work always happened before nine in the morning, while the building was still quiet.</p><p>When I left, I wanted to keep that hour. The Quiet Hour is what I learned from trying, failing and trying again, written for people with full days and families and too many tabs open.</p><p>I live in Edinburgh, write in the mornings and send a short letter every other Sunday.</p>",
-        "facts": "Editor for ten years\nWrites from Edinburgh\nAlso wrote Ten Quiet Mornings",
-        "link_label": "",
-        "link": "/pages/about",
-        "padding_top": 72
-      }
+        "section_width": "container",
+        "reset_spacing": true,
+        "alignment": "left",
+        "height": "adapt",
+        "overlay_opacity": 0,
+        "padding_top": 56,
+        "padding_bottom": 40
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "Our kitchen",
+            "header_size": "default",
+            "heading_font_size": 40,
+            "vertical_gap": 12,
+            "enable_heading_color": false
+          }
+        },
+        "description_1": {
+          "type": "description",
+          "settings": {
+            "description": "<p>Marrow & Hearth is two cooks, one kitchen and a lot of jars. We write cookbooks for the food our grandparents took for granted: broth on the stove, the whole animal, vegetables that keep, and bread that takes its time.</p>",
+            "enable_custom_style": false,
+            "description_font_size": 16
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_1"
+      ]
     },
-    "desk": {
-      "type": "ebook-author",
+    "image": {
+      "type": "image-section",
       "settings": {
-        "color_scheme": "scheme-b0fae5fa-c388-4a42-acd3-92cf8fe0b1fb",
-        "background": "#ffffff",
-        "accent_color": "#b4441b",
-        "image": "shopify://shop_images/ebooks-reading-nook.webp",
-        "image_alt": "A woman reading by a window in the morning",
-        "image_position": "right",
-        "image_ratio": "4 / 3",
-        "image_radius": 6,
-        "eyebrow": "How I write",
-        "name": "Small books, <em>written slowly</em>",
-        "bio": "<p>Every book starts as a letter to one reader. I test each chapter on twenty of them before it goes out, and I keep the books short on purpose: you should be able to finish one in a weekend and use it for years.</p>",
-        "facts": "",
-        "link_label": "See the books",
-        "link": "/collections/all"
+        "color_scheme": "default",
+        "is_fullwidth": true,
+        "img_min_height": 58,
+        "img_min_height_mobile": 60,
+        "background_image": "shopify://shop_images/ebooks-pasture-fog.webp",
+        "image_alt": "Cattle grazing in a misty field at dawn",
+        "image_border_radius": 0,
+        "image_description": "",
+        "enable_image_text_background": false,
+        "background_position_y": 60,
+        "section_padding_top": 0,
+        "section_padding_bottom": 0,
+        "section_padding_top_mobile": 0,
+        "section_padding_bottom_mobile": 0,
+        "padding_lr_desktop": 0,
+        "padding_lr_mobile": 0
       }
     },
-    "signup": {
-      "type": "ebook-signup",
+    "how": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "content_alignment": "left",
+        "columns_desktop": 4,
+        "columns_tablet": 2,
+        "column_gap": 40,
+        "header_gap": 40,
+        "show_dividers": true,
+        "item_heading_size": 20,
+        "item_heading_size_mobile": 18,
+        "padding_top": 96,
+        "padding_bottom": 96,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "mobile_layout": "stack"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "How a book is made"
+          }
+        },
+        "column_1": {
+          "type": "column",
+          "settings": {
+            "label": "Recipes",
+            "heading": "Cooked three times",
+            "text": "<p>Every recipe is cooked by us and by two readers in ordinary kitchens before it is printed.</p>",
+            "link_label": "",
+            "link": ""
+          }
+        },
+        "column_2": {
+          "type": "column",
+          "settings": {
+            "label": "Sourcing",
+            "heading": "Farms we can drive to",
+            "text": "<p>We buy meat, milk and eggs from small farms near us and say in each book what to ask your butcher for.</p>",
+            "link_label": "",
+            "link": ""
+          }
+        },
+        "column_3": {
+          "type": "column",
+          "settings": {
+            "label": "Photographs",
+            "heading": "Food as it comes out",
+            "text": "<p>Shot in our kitchen the day it was cooked, with nothing styled that you would not eat.</p>",
+            "link_label": "",
+            "link": ""
+          }
+        },
+        "column_4": {
+          "type": "column",
+          "settings": {
+            "label": "Print",
+            "heading": "Made to be used",
+            "text": "<p>Lay flat bindings and uncoated paper that takes a splash. Every hardback includes the ebook.</p>",
+            "link_label": "",
+            "link": ""
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "column_1",
+        "column_2",
+        "column_3",
+        "column_4"
+      ]
+    },
+    "studio": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "image": "shopify://shop_images/ebooks-sourdough.webp",
+        "image_alt": "A sourdough loaf on a cloth on a wooden board",
+        "image_position": "left",
+        "image_radius": 6,
+        "aspect_w": 4,
+        "aspect_h": 5,
+        "text_column_width": 50,
+        "gap_desktop": 80,
+        "padding_top_desktop": 0,
+        "padding_bottom_desktop": 0,
+        "side_padding_desktop": 0,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 48,
+        "side_padding_mobile": 20
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Where it started"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "One pot of broth a week"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>It began with a Sunday stock pot and a notebook of what we did with it. Friends asked for the notes, the notes became The Broth Book, and the other four followed.</p>"
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "See the books",
+            "link": "/collections/all",
+            "button_style": "primary"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
+    },
+    "reviews": {
+      "type": "testimonials",
       "settings": {
         "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
-        "background": "#0d3b2e",
-        "heading_color": "#ffffff",
-        "text_color": "#c8d2cb",
-        "accent_color": "#f2a07a",
-        "image": "shopify://shop_images/ebooks-table.webp",
-        "image_alt": "Reading on an e-reader at a wooden table with coffee",
-        "eyebrow": "Free chapter",
-        "heading": "Read the first chapter <em>free</em>",
-        "text": "<p>The whole of chapter one as a PDF, then a short letter about reading and work every other Sunday.</p>",
-        "email_placeholder": "Your email",
-        "button_label": "Send it to me",
-        "tag": "free-chapter",
-        "note": "No spam. Leave whenever you like."
-      }
+        "section_width": "container",
+        "display_mode": "carousel",
+        "show_quote_mark": true,
+        "show_rating": true,
+        "columns": 3,
+        "column_gap": 24,
+        "header_alignment": "center",
+        "card_style": "outline",
+        "card_align": "center",
+        "card_padding": 32,
+        "card_radius": 6,
+        "show_arrow": false,
+        "carousel_pagination": "show",
+        "pagination_style": "dot",
+        "infinite": false,
+        "columns_mobile": 1,
+        "enable_custom_colors": true,
+        "card_bg": "#26211c",
+        "card_border_color": "#3a332c",
+        "quote_color": "#d9774c",
+        "padding_top": 88,
+        "padding_bottom": 88,
+        "header_spacing_desktop": 44
+      },
+      "blocks": {
+        "eyebrow": {
+          "type": "eyebrow",
+          "settings": {
+            "enabled": false,
+            "text": ""
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "enabled": true,
+            "text": "From readers’ kitchens"
+          }
+        },
+        "sub": {
+          "type": "subheading",
+          "settings": {
+            "enabled": true,
+            "text": "<p>Sample reviews. Replace them with what your own readers write to you.</p>"
+          }
+        },
+        "t0": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>The broth chapter alone was worth it. I make a pot every Sunday now and it carries us to Thursday.</p>",
+            "rating": 5,
+            "name": "Reader name",
+            "role": "The Broth Book"
+          }
+        },
+        "t1": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>I had never cooked liver that anyone in the house would eat. The pan fried one with onions changed that.</p>",
+            "rating": 5,
+            "name": "Reader name",
+            "role": "Nose to Tail at Home"
+          }
+        },
+        "t2": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Clear steps, real quantities and no fuss. My first kraut worked, and so did the second.</p>",
+            "rating": 5,
+            "name": "Reader name",
+            "role": "Slow Ferments"
+          }
+        },
+        "t3": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>The shopping lists saved me an hour a week. We actually ate everything on the plan.</p>",
+            "rating": 5,
+            "name": "Reader name",
+            "role": "The 28 Day Table"
+          }
+        },
+        "t4": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>My starter is three months old and the loaves keep getting better. The timings chapter is the one to read twice.</p>",
+            "rating": 5,
+            "name": "Reader name",
+            "role": "Sourdough from Scratch"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow",
+        "heading",
+        "sub",
+        "t0",
+        "t1",
+        "t2",
+        "t3",
+        "t4"
+      ]
+    },
+    "letter": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "image": "shopify://shop_images/ebooks-eggs.webp",
+        "image_alt": "Brown eggs in a carton",
+        "image_position": "left",
+        "image_ratio": "square",
+        "image_width": 42,
+        "column_gap": 64,
+        "form_layout": "horizontal",
+        "email_placeholder": "Email address",
+        "btn_text": "Sign up",
+        "button_radius": 6,
+        "note": "One email a week. Leave whenever you like.",
+        "success_text": "Thank you. The first letter comes this Sunday.",
+        "padding_top": 80,
+        "padding_bottom": 80,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 52
+      },
+      "blocks": {
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "The Sunday letter",
+            "size_enable": true,
+            "size_desktop": 40,
+            "size_mobile": 30
+          }
+        },
+        "subheading": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>One recipe from the books every Sunday morning, with the shopping list and what to do with the leftovers. Free.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading",
+        "subheading"
+      ]
     }
   },
   "order": [
-    "author",
-    "desk",
-    "signup"
+    "heading",
+    "image",
+    "how",
+    "studio",
+    "reviews",
+    "letter"
   ]
 }

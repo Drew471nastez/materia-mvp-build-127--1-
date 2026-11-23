@@ -11,7 +11,7 @@ XP shop: the footer, a window of its own above the taskbar: the shop's
 -%}
 <style>
   .xp { --xp-ink: #14213d; --xp-muted: #4a5568; --xp-navy: #0f2f75; --xp-blue: #1f5fd8; --xp-link: #1a55c9; --xp-face: #f4f2ea; --xp-line: #c9c3b0; --xp-pane: #d9e4f8;
-    --xp-font: 'Nunito', Tahoma, 'Trebuchet MS', system-ui, sans-serif;
+    --xp-font: var(--body-font, Tahoma, 'Trebuchet MS', system-ui, sans-serif);
     color: var(--xp-ink); font-family: var(--xp-font); font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
   .xp *, .xp *::before, .xp *::after { box-sizing: border-box; }
   .xp :where(h1, h2, h3, h4, p, ul, ol, figure) { margin: 0; }

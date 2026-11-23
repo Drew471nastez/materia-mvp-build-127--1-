@@ -1,247 +1,268 @@
+/* Templates round 22: rebuilt from the theme's own sections (split hero, scrolling words, image with steps, featured product, product grid, image with text, testimonials, newsletter with image, follow block, blog posts, FAQ). */
 {
   "sections": {
-    "about": {
-      "type": "authorbook-hello",
+    "story": {
+      "type": "Image-and-video-text",
       "settings": {
-        "accent_color": "#e8401c",
-        "frame_color": "#ff5a36",
+        "color_scheme": "default",
         "image": "shopify://shop_images/creatorpro-hero.webp",
-        "image_ratio": "4 / 5",
-        "image_focus": "50% 30%",
-        "image_radius": 24,
-        "image_alt": "Nina Brooks at a long white desk in her studio, lights and a camera around her",
-        "eyebrow": "About",
-        "heading": "Hi, I'm Nina",
-        "text": "<p>For six years I wrote marketing emails for software companies. I liked the writing and disliked everything around it: the meetings, the approvals, the sense that the work belonged to someone else.</p><p>In 2019 I started a small newsletter about what I was learning. A year later I filmed my first video in a spare room, and the year after that I sold a workshop to forty readers. That was the moment it felt like a business.</p><p>Today I make videos, write the Tuesday Letter, host Open Tabs and teach a few courses. Write your own story here.</p>",
-        "button_label": "Join the Tuesday letter",
-        "button_link": "/pages/newsletter",
-        "button_color": "#101114",
-        "button_radius": 12,
-        "instagram": "https://www.instagram.com",
-        "youtube": "https://www.youtube.com",
-        "x": "",
-        "linkedin": "https://www.linkedin.com",
-        "tiktok": "https://www.tiktok.com",
-        "letters_title": "Most read letters",
-        "padding_top": 64
-      },
-      "blocks": {},
-      "block_order": []
-    },
-    "topics": {
-      "type": "creatorpro-marquee",
-      "settings": {
-        "accent_color": "#ff5a36",
-        "topics": "Audience\nNewsletters\nYouTube\nFirst offers\nPricing\nLaunches\nSimple systems"
-      }
-    },
-    "studio": {
-      "type": "authorbook-hello",
-      "settings": {
-        "accent_color": "#e8401c",
-        "frame_color": "#ff5a36",
-        "image": "shopify://shop_images/creatorpro-studio.webp",
-        "image_ratio": "4 / 3",
-        "image_focus": "35% 50%",
-        "image_radius": 24,
-        "image_alt": "Nina Brooks at a desk in her studio with a camera and microphone in front of her",
-        "eyebrow": "Where it gets made",
-        "heading": "A small studio and a simple routine",
-        "text": "<p>Tuesdays are for filming, Wednesdays for writing, Thursdays for students. Everything else fits around them. I share the full setup in <a href=\"/blogs/news\">the articles</a>.</p>",
-        "button_label": "See the courses",
-        "button_link": "/collections/all",
-        "button_color": "#101114",
-        "button_radius": 12,
-        "instagram": "",
-        "youtube": "",
-        "x": "",
-        "linkedin": "",
-        "tiktok": "",
-        "letters_title": "",
-        "image_side": "right",
-        "anchor": "studio"
-      },
-      "blocks": {},
-      "block_order": []
-    },
-    "follow": {
-      "type": "creatorpro-social",
-      "settings": {
-        "accent_color": "#ff5a36",
-        "eyebrow": "Follow along",
-        "heading": "Find me <em>online</em>"
+        "image_alt": "Nina Brooks in her studio",
+        "image_position": "left",
+        "aspect_w": 4,
+        "aspect_h": 5,
+        "image_radius": 8
       },
       "blocks": {
-        "place_1": {
-          "type": "place",
+        "eyebrow_1": {
+          "type": "eyebrow",
           "settings": {
-            "platform": "youtube",
-            "handle": "@ninabrooks",
-            "line": "Long videos every Tuesday",
-            "link": "https://www.youtube.com"
-          }
-        },
-        "place_2": {
-          "type": "place",
-          "settings": {
-            "platform": "instagram",
-            "handle": "@ninabrooks",
-            "line": "Behind the scenes and quick tips",
-            "link": "https://www.instagram.com"
-          }
-        },
-        "place_3": {
-          "type": "place",
-          "settings": {
-            "platform": "tiktok",
-            "handle": "@ninabrooks",
-            "line": "One minute lessons",
-            "link": "https://www.tiktok.com"
-          }
-        },
-        "place_4": {
-          "type": "place",
-          "settings": {
-            "platform": "linkedin",
-            "handle": "Nina Brooks",
-            "line": "Notes on running a business of one",
-            "link": "https://www.linkedin.com"
-          }
-        },
-        "place_5": {
-          "type": "place",
-          "settings": {
-            "platform": "podcast",
-            "name": "Open Tabs",
-            "handle": "Every other Thursday",
-            "line": "Conversations and listener questions",
-            "link": "/#podcast"
-          }
-        },
-        "place_6": {
-          "type": "place",
-          "settings": {
-            "platform": "newsletter",
-            "name": "The Tuesday Letter",
-            "handle": "Free, weekly",
-            "line": "One practical idea a week",
-            "link": "/pages/newsletter"
-          }
-        }
-      },
-      "block_order": [
-        "place_1",
-        "place_2",
-        "place_3",
-        "place_4",
-        "place_5",
-        "place_6"
-      ]
-    },
-    "cta": {
-      "type": "authorbook-cta",
-      "settings": {
-        "band_color": "#101114",
-        "text_color": "#c9cbd1",
-        "image": "shopify://shop_images/creatorpro-podcast.webp",
-        "image_alt": "Nina Brooks at her microphone",
-        "radius": 28,
-        "heading": "Start with the free workshop",
-        "text": "<p>45 minutes on choosing the first thing to sell and pricing it. Watch it tonight.</p>",
-        "button_label": "Watch it free",
-        "button_link": "#open-form-workshop",
-        "button_color": "#ff5a36",
-        "button_text_color": "#101114",
-        "button_radius": 12,
-        "button2_label": "See the courses",
-        "button2_link": "/collections/all",
-        "button2_color": "#ffffff",
-        "button2_text_color": "#101114"
-      }
-    },
-    "workshop_form": {
-      "type": "form-modal",
-      "settings": {
-        "form_key": "workshop",
-        "sends_to": "subscribe",
-        "accent_color": "#e8401c",
-        "text_align": "left",
-        "width": 500,
-        "corners": "theme",
-        "success_heading": "The workshop is on its way",
-        "success_text": "<p>Check your inbox in a minute for the link. If nothing arrives, look in spam.</p>"
-      },
-      "blocks": {
-        "image_1": {
-          "type": "image",
-          "settings": {
-            "image": "shopify://shop_images/creatorpro-video-2.webp",
-            "fit": "cover",
-            "max_height": 200
+            "text": "About"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "eyebrow": "Free workshop",
-            "heading": "The First Offer *Workshop*",
-            "size": 30
+            "text": "Hi, I'm Nina",
+            "tag": "h1"
           }
         },
-        "text_3": {
-          "type": "text",
+        "subheading_3": {
+          "type": "subheading",
           "settings": {
-            "text": "<p>45 minutes on choosing what to sell first and how to price it, with the worksheet.</p>"
-          }
-        },
-        "field_4": {
-          "type": "field",
-          "settings": {
-            "kind": "name",
-            "label": "First name",
-            "required": false
-          }
-        },
-        "field_5": {
-          "type": "field",
-          "settings": {
-            "kind": "email",
-            "label": "Email address"
-          }
-        },
-        "button_6": {
-          "type": "button",
-          "settings": {
-            "label": "Send me the workshop",
-            "arrow": true
-          }
-        },
-        "note_7": {
-          "type": "note",
-          "settings": {
-            "icon": "lock",
-            "text": "Your email stays private.",
-            "small": "<p>You also get the Tuesday Letter. Leave whenever you like.</p>"
+            "text": "<p>I spent six years writing other people's marketing emails. In 2019 I started a newsletter on the side, then a YouTube channel, then sold a workshop to forty readers.</p><p>Today my business is me, a part time editor and a lot of tea. I teach the parts that worked, and I am honest about the parts that did not.</p>"
           }
         }
       },
       "block_order": [
-        "image_1",
+        "eyebrow_1",
         "heading_2",
-        "text_3",
-        "field_4",
-        "field_5",
-        "button_6",
-        "note_7"
+        "subheading_3"
+      ]
+    },
+    "timeline": {
+      "type": "image-with-text-steps",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "image": "shopify://shop_images/creatorpro-studio.webp",
+        "image_alt": "Nina's desk and camera",
+        "image_position": "right",
+        "image_aspect_desktop": "4 / 5",
+        "step_style": "dot"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "How it went"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Five years, the short version"
+          }
+        },
+        "step_3": {
+          "type": "step",
+          "settings": {
+            "title": "2019: the letter",
+            "description": "<p>A weekly email to 60 friends and colleagues about what I was learning.</p>"
+          }
+        },
+        "step_4": {
+          "type": "step",
+          "settings": {
+            "title": "2020: the channel",
+            "description": "<p>Videos filmed on a phone by a window. The first one took eleven hours to edit.</p>"
+          }
+        },
+        "step_5": {
+          "type": "step",
+          "settings": {
+            "title": "2021: the first workshop",
+            "description": "<p>A two hour live session for forty readers. It paid my rent that month.</p>"
+          }
+        },
+        "step_6": {
+          "type": "step",
+          "settings": {
+            "title": "2023: full time",
+            "description": "<p>Launch Lab, YouTube from Zero and the podcast, with one part time editor.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "step_3",
+        "step_4",
+        "step_5",
+        "step_6"
+      ]
+    },
+    "teach": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "default",
+        "columns_desktop": 3,
+        "show_dividers": true
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "What I teach"
+          }
+        },
+        "column_2": {
+          "type": "column",
+          "settings": {
+            "label": "Audience",
+            "heading": "One channel, done well",
+            "text": "<p>A newsletter or a channel you can keep up every week, before anything else.</p>"
+          }
+        },
+        "column_3": {
+          "type": "column",
+          "settings": {
+            "label": "Offers",
+            "heading": "Sell small first",
+            "text": "<p>A workshop or a template before a big course, so your readers tell you what to build.</p>"
+          }
+        },
+        "column_4": {
+          "type": "column",
+          "settings": {
+            "label": "Systems",
+            "heading": "A week with edges",
+            "text": "<p>A simple plan for content, launches and rest, so the business fits your life.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "column_2",
+        "column_3",
+        "column_4"
+      ]
+    },
+    "students": {
+      "type": "testimonials4",
+      "settings": {
+        "color_scheme": "default",
+        "text_align": "center",
+        "max_width": 820,
+        "autoplay_s": 7
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Students"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "What changed for them"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Sample quotes to show the layout. Replace them with your students' words, with their permission.</p>"
+          }
+        },
+        "testimonial_4": {
+          "type": "testimonial",
+          "settings": {
+            "rating": 0,
+            "body": "I had been planning a course for a year. Launch Lab made me sell a small workshop first, and that paid for the course before I built it.",
+            "name": "Sample student",
+            "role": "Launch Lab",
+            "avatar": "shopify://shop_images/creatorpro-student-1.webp"
+          }
+        },
+        "testimonial_5": {
+          "type": "testimonial",
+          "settings": {
+            "rating": 0,
+            "body": "The filming lessons are the first ones that did not assume I owned a studio. My phone and a window were enough.",
+            "name": "Sample student",
+            "role": "YouTube from Zero",
+            "avatar": "shopify://shop_images/creatorpro-student-2.webp"
+          }
+        },
+        "testimonial_6": {
+          "type": "testimonial",
+          "settings": {
+            "rating": 0,
+            "body": "I read the Tuesday letter before anything else that morning. It is short and there is always one thing I can try.",
+            "name": "Sample reader",
+            "role": "The Tuesday Letter",
+            "avatar": "shopify://shop_images/creatorpro-student-3.webp"
+          }
+        },
+        "testimonial_7": {
+          "type": "testimonial",
+          "settings": {
+            "rating": 0,
+            "body": "Nina is clear about what is worth your time and what is not. I stopped posting everywhere and grew faster.",
+            "name": "Sample student",
+            "role": "Launch Lab",
+            "avatar": "shopify://shop_images/creatorpro-student-4.webp"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "testimonial_4",
+        "testimonial_5",
+        "testimonial_6",
+        "testimonial_7"
+      ]
+    },
+    "letter": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "image": "shopify://shop_images/creatorpro-podcast.webp",
+        "image_alt": "Nina recording at her desk with headphones on",
+        "image_position": "left",
+        "image_ratio": "square",
+        "form_layout": "horizontal",
+        "btn_text": "Join free",
+        "email_placeholder": "Your email",
+        "note": "Every Tuesday. Leave whenever you like.",
+        "success_text": "You are in. The next letter arrives on Tuesday."
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "The Tuesday Letter"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>One useful email a week: what I tried in my own business, what worked and what I would do differently. Short, and you can use it the same day.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
       ]
     }
   },
   "order": [
-    "about",
-    "topics",
-    "studio",
-    "follow",
-    "cta",
-    "workshop_form"
+    "story",
+    "timeline",
+    "teach",
+    "students",
+    "letter"
   ]
 }

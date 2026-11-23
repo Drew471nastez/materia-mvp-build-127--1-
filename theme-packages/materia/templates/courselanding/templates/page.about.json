@@ -200,7 +200,7 @@
         "card_padding": 28,
         "card_content_gap": 16,
         "card_radius": 8,
-        "show_arrow": true,
+        "show_arrow": false,
         "carousel_pagination": "show",
         "pagination_style": "progress",
         "pagination_position": "left",

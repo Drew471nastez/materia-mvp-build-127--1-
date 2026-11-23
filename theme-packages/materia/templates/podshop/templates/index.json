@@ -162,32 +162,30 @@
       ]
     },
     "gift_guide": {
-      "type": "collection-list",
+      "type": "gallery-simple3",
       "settings": {
-        "section_width": "container",
+        "color_scheme": "default",
+        "is_fullwidth": false,
         "reset_spacing": true,
-        "header_alignment": "center",
-        "header_size": "large",
-        "header_spacing": 32,
-        "display_mode": "grid",
-        "items_per_row": 4,
-        "column_gap": 12,
-        "image_ratio": "square",
-        "information_spacing": 10,
-        "collection_information_position": "below_image",
-        "font_size": 12,
-        "font_weight": "body_weight",
-        "text_alignment": "left",
-        "card_hover_effect": "zoom",
-        "items_per_row_mobile": 2,
-        "padding_top": 64,
-        "padding_bottom": 56,
-        "reveal": true,
-        "show_product_count": false,
-        "show_icon": false,
-        "show_description": false,
-        "carousel_pagination": "disable",
-        "color_scheme": "default"
+        "text_align": "center",
+        "heading_tag": "h2",
+        "container_max_width": 1180,
+        "columns_desktop": 4,
+        "gutter": 12,
+        "img_proportion": "100%",
+        "image_border_radius": 6,
+        "image_hover_animation": "smooth-zoomin",
+        "lazyload": true,
+        "use_theme_font": true,
+        "section_padding_top": 64,
+        "section_padding_bottom": 48,
+        "section_padding_left_desktop": 24,
+        "section_padding_right_desktop": 24,
+        "columns_mobile": 2,
+        "section_padding_top_mobile": 40,
+        "section_padding_bottom_mobile": 32,
+        "section_padding_left_mobile": 12,
+        "section_padding_right_mobile": 12
       },
       "blocks": {
         "h": {
@@ -197,35 +195,39 @@
           }
         },
         "c1": {
-          "type": "collection",
+          "type": "image",
           "settings": {
-            "collection": "all",
-            "collection_title": "Gifts for him",
-            "collection_image": "shopify://shop_images/podshop-gift-him.webp"
+            "background_image": "shopify://shop_images/podshop-gift-him.webp",
+            "alt": "A young man in a blue tee",
+            "gallery_link_url": "/search?q=tee",
+            "gallery_link_label": "Gifts for him"
           }
         },
         "c2": {
-          "type": "collection",
+          "type": "image",
           "settings": {
-            "collection": "all",
-            "collection_title": "Gifts for her",
-            "collection_image": "shopify://shop_images/podshop-gift-her.webp"
+            "background_image": "shopify://shop_images/podshop-gift-her.webp",
+            "alt": "A woman in an orange beanie",
+            "gallery_link_url": "/search?q=beanie",
+            "gallery_link_label": "Gifts for her"
           }
         },
         "c3": {
-          "type": "collection",
+          "type": "image",
           "settings": {
-            "collection": "all",
-            "collection_title": "Gifts for kids",
-            "collection_image": "shopify://shop_images/podshop-gift-kids.webp"
+            "background_image": "shopify://shop_images/podshop-gift-kids.webp",
+            "alt": "A smiling boy in a red check jacket",
+            "gallery_link_url": "/collections/all",
+            "gallery_link_label": "Gifts for kids"
           }
         },
         "c4": {
-          "type": "collection",
+          "type": "image",
           "settings": {
-            "collection": "all",
-            "collection_title": "Small extras",
-            "collection_image": "shopify://shop_images/podshop-gift-extras.webp"
+            "background_image": "shopify://shop_images/podshop-gift-extras.webp",
+            "alt": "Someone holding a canvas tote",
+            "gallery_link_url": "/search?q=cap",
+            "gallery_link_label": "Small extras"
           }
         }
       },
@@ -724,32 +726,30 @@
       ]
     },
     "favourites": {
-      "type": "collection-list",
+      "type": "gallery-simple3",
       "settings": {
-        "section_width": "container",
+        "color_scheme": "default",
+        "is_fullwidth": false,
         "reset_spacing": true,
-        "header_alignment": "center",
-        "header_size": "large",
-        "header_spacing": 32,
-        "display_mode": "grid",
-        "items_per_row": 4,
-        "column_gap": 12,
-        "image_ratio": "square",
-        "information_spacing": 10,
-        "collection_information_position": "below_image",
-        "font_size": 12,
-        "font_weight": "body_weight",
-        "text_alignment": "left",
-        "card_hover_effect": "zoom",
-        "items_per_row_mobile": 2,
-        "padding_top": 72,
-        "padding_bottom": 72,
-        "reveal": true,
-        "show_product_count": false,
-        "show_icon": false,
-        "show_description": false,
-        "carousel_pagination": "disable",
-        "color_scheme": "default"
+        "text_align": "center",
+        "heading_tag": "h2",
+        "container_max_width": 1180,
+        "columns_desktop": 4,
+        "gutter": 12,
+        "img_proportion": "100%",
+        "image_border_radius": 6,
+        "image_hover_animation": "smooth-zoomin",
+        "lazyload": true,
+        "use_theme_font": true,
+        "section_padding_top": 72,
+        "section_padding_bottom": 72,
+        "section_padding_left_desktop": 24,
+        "section_padding_right_desktop": 24,
+        "columns_mobile": 2,
+        "section_padding_top_mobile": 40,
+        "section_padding_bottom_mobile": 32,
+        "section_padding_left_mobile": 12,
+        "section_padding_right_mobile": 12
       },
       "blocks": {
         "h": {
@@ -759,35 +759,39 @@
           }
         },
         "c1": {
-          "type": "collection",
+          "type": "image",
           "settings": {
-            "collection": "all",
-            "collection_title": "Crewnecks",
-            "collection_image": "shopify://shop_images/podshop-fav-crew.webp"
+            "background_image": "shopify://shop_images/podshop-fav-crew.webp",
+            "alt": "A woman in a sage crewneck",
+            "gallery_link_url": "/search?q=crew",
+            "gallery_link_label": "Crewnecks"
           }
         },
         "c2": {
-          "type": "collection",
+          "type": "image",
           "settings": {
-            "collection": "all",
-            "collection_title": "Beanies",
-            "collection_image": "shopify://shop_images/podshop-fav-beanie.webp"
+            "background_image": "shopify://shop_images/podshop-fav-beanie.webp",
+            "alt": "A green knit beanie",
+            "gallery_link_url": "/search?q=beanie",
+            "gallery_link_label": "Beanies"
           }
         },
         "c3": {
-          "type": "collection",
+          "type": "image",
           "settings": {
-            "collection": "all",
-            "collection_title": "Everyday sweatshirts",
-            "collection_image": "shopify://shop_images/podshop-fav-brown.webp"
+            "background_image": "shopify://shop_images/podshop-fav-brown.webp",
+            "alt": "A man in a brown sweatshirt on a hill",
+            "gallery_link_url": "/search?q=crew",
+            "gallery_link_label": "Everyday sweatshirts"
           }
         },
         "c4": {
-          "type": "collection",
+          "type": "image",
           "settings": {
-            "collection": "all",
-            "collection_title": "Soft colours",
-            "collection_image": "shopify://shop_images/podshop-fav-pink.webp"
+            "background_image": "shopify://shop_images/podshop-fav-pink.webp",
+            "alt": "A woman in a pale pink sweatshirt",
+            "gallery_link_url": "/search?q=tee",
+            "gallery_link_label": "Soft colours"
           }
         }
       },

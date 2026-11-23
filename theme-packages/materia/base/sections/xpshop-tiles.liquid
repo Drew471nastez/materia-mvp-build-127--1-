@@ -12,7 +12,7 @@ XP shop: a window of tiles, each a big glossy icon, a title, a line and an
 -%}
 <style>
   .xp { --xp-ink: #14213d; --xp-muted: #4a5568; --xp-navy: #0f2f75; --xp-blue: #1f5fd8; --xp-link: #1a55c9; --xp-face: #f4f2ea; --xp-line: #c9c3b0; --xp-pane: #d9e4f8;
-    --xp-font: 'Nunito', Tahoma, 'Trebuchet MS', system-ui, sans-serif;
+    --xp-font: var(--body-font, Tahoma, 'Trebuchet MS', system-ui, sans-serif);
     color: var(--xp-ink); font-family: var(--xp-font); font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
   .xp *, .xp *::before, .xp *::after { box-sizing: border-box; }
   .xp :where(h1, h2, h3, h4, p, ul, ol, figure) { margin: 0; }
@@ -88,9 +88,10 @@ XP shop: a window of tiles, each a big glossy icon, a title, a line and an
   #shopify-section-{{ sid }} .xpt__grid { grid-template-columns: repeat({% if st.phone_two %}2{% else %}1{% endif %}, minmax(0, 1fr)); }
   @media (min-width: 750px) { #shopify-section-{{ sid }} .xpt__grid { grid-template-columns: repeat({% if cols > 2 %}2{% else %}{{ cols }}{% endif %}, minmax(0, 1fr)); gap: 14px; padding: 20px 24px 26px; } .xpt__head { padding: 30px 28px 2px; } }
   @media (min-width: 1100px) { #shopify-section-{{ sid }} .xpt__grid { grid-template-columns: repeat({{ cols }}, minmax(0, 1fr)); } }
-  .xpt__tile { position: relative; display: flex; gap: 14px; align-items: flex-start; min-width: 0; padding: 16px; border: 1px solid #dbe4f3; border-radius: 8px; background: linear-gradient(180deg, #ffffff 0%, #f3f7fd 100%); transition: border-color .15s, background-color .15s, box-shadow .15s; }
-  .xpt__tile:has(a):hover { border-color: #9bb5e0; box-shadow: 0 4px 14px -8px rgba(20,60,140,.45); }
-  .xpt__ic { flex: none; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 12px; background: #fff; box-shadow: 0 0 0 1px #dbe4f3; }
+  /* Tiles sit straight on the window, no box of their own, so a window never holds cards inside cards. */
+  .xpt__tile { position: relative; display: flex; gap: 14px; align-items: flex-start; min-width: 0; padding: 14px 12px; border-radius: 8px; background: transparent; transition: background-color .15s; }
+  .xpt__tile:has(a):hover { background: #f2f6fd; }
+  .xpt__ic { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 12px; background: #eaf1fc; }
   .xpt__ic .xp-ico { width: 36px; height: 36px; filter: drop-shadow(0 1px 1px rgba(0,30,80,.2)); }
   .xpt__ic img { width: 52px; height: 52px; border-radius: 12px; object-fit: cover; }
   .xpt__words { min-width: 0; }

@@ -1,3 +1,4 @@
+/* Templates round 22: rebuilt from the theme's own sections (split hero, scrolling words, image with steps, featured product, product grid, image with text, testimonials, newsletter with image, follow block, blog posts, FAQ). */
 {
   "sections": {
     "main": {
@@ -9,107 +10,42 @@
         "padding_bottom": 72
       }
     },
-    "cta": {
-      "type": "authorbook-cta",
+    "letter": {
+      "type": "newsletter-split",
       "settings": {
-        "band_color": "#101114",
-        "text_color": "#c9cbd1",
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
         "image": "shopify://shop_images/creatorpro-podcast.webp",
-        "image_alt": "Nina Brooks at her microphone",
-        "radius": 28,
-        "heading": "Start with the free workshop",
-        "text": "<p>45 minutes on choosing the first thing to sell and pricing it. Watch it tonight.</p>",
-        "button_label": "Watch it free",
-        "button_link": "#open-form-workshop",
-        "button_color": "#ff5a36",
-        "button_text_color": "#101114",
-        "button_radius": 12,
-        "button2_label": "See the courses",
-        "button2_link": "/collections/all",
-        "button2_color": "#ffffff",
-        "button2_text_color": "#101114"
-      }
-    },
-    "workshop_form": {
-      "type": "form-modal",
-      "settings": {
-        "form_key": "workshop",
-        "sends_to": "subscribe",
-        "accent_color": "#e8401c",
-        "text_align": "left",
-        "width": 500,
-        "corners": "theme",
-        "success_heading": "The workshop is on its way",
-        "success_text": "<p>Check your inbox in a minute for the link. If nothing arrives, look in spam.</p>"
+        "image_alt": "Nina recording at her desk with headphones on",
+        "image_position": "left",
+        "image_ratio": "square",
+        "form_layout": "horizontal",
+        "btn_text": "Join free",
+        "email_placeholder": "Your email",
+        "note": "Every Tuesday. Leave whenever you like.",
+        "success_text": "You are in. The next letter arrives on Tuesday."
       },
       "blocks": {
-        "image_1": {
-          "type": "image",
-          "settings": {
-            "image": "shopify://shop_images/creatorpro-video-2.webp",
-            "fit": "cover",
-            "max_height": 200
-          }
-        },
-        "heading_2": {
+        "heading_1": {
           "type": "heading",
           "settings": {
-            "eyebrow": "Free workshop",
-            "heading": "The First Offer *Workshop*",
-            "size": 30
+            "text": "The Tuesday Letter"
           }
         },
-        "text_3": {
-          "type": "text",
+        "subheading_2": {
+          "type": "subheading",
           "settings": {
-            "text": "<p>45 minutes on choosing what to sell first and how to price it, with the worksheet.</p>"
-          }
-        },
-        "field_4": {
-          "type": "field",
-          "settings": {
-            "kind": "name",
-            "label": "First name",
-            "required": false
-          }
-        },
-        "field_5": {
-          "type": "field",
-          "settings": {
-            "kind": "email",
-            "label": "Email address"
-          }
-        },
-        "button_6": {
-          "type": "button",
-          "settings": {
-            "label": "Send me the workshop",
-            "arrow": true
-          }
-        },
-        "note_7": {
-          "type": "note",
-          "settings": {
-            "icon": "lock",
-            "text": "Your email stays private.",
-            "small": "<p>You also get the Tuesday Letter. Leave whenever you like.</p>"
+            "text": "<p>One useful email a week: what I tried in my own business, what worked and what I would do differently. Short, and you can use it the same day.</p>"
           }
         }
       },
       "block_order": [
-        "image_1",
-        "heading_2",
-        "text_3",
-        "field_4",
-        "field_5",
-        "button_6",
-        "note_7"
+        "heading_1",
+        "subheading_2"
       ]
     }
   },
   "order": [
     "main",
-    "cta",
-    "workshop_form"
+    "letter"
   ]
 }

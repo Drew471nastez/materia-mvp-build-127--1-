@@ -4,44 +4,66 @@
     "links": [
       {
         "title": "The books",
-        "url": "/collections/all"
+        "url": "/collections/all",
+        "links": [
+          {
+            "title": "The Broth Book",
+            "url": "/search?q=broth"
+          },
+          {
+            "title": "Nose to Tail at Home",
+            "url": "/search?q=nose"
+          },
+          {
+            "title": "Slow Ferments",
+            "url": "/search?q=ferments"
+          },
+          {
+            "title": "Sourdough from Scratch",
+            "url": "/search?q=sourdough"
+          },
+          {
+            "title": "The 28 Day Table",
+            "url": "/search?q=table"
+          },
+          {
+            "title": "Every book",
+            "url": "/collections/all"
+          }
+        ]
       },
       {
-        "title": "Free chapter",
-        "url": "/pages/sample"
-      },
-      {
-        "title": "The author",
-        "url": "/pages/about"
-      },
-      {
-        "title": "Notes",
+        "title": "Recipes",
         "url": "/blogs/news"
       },
       {
-        "title": "FAQ",
+        "title": "Our kitchen",
+        "url": "/pages/about"
+      },
+      {
+        "title": "Questions",
         "url": "/pages/faqs"
       }
     ]
   },
-  "footer-book": {
-    "title": "The book",
+  "footer-books": {
+    "title": "The books",
     "links": [
       {
-        "title": "All editions",
+        "title": "Every book",
         "url": "/collections/all"
       },
       {
-        "title": "Free chapter",
-        "url": "/pages/sample"
+        "title": "The library",
+        "url": "/search?q=library"
       },
       {
-        "title": "The author",
-        "url": "/pages/about"
-      },
-      {
-        "title": "Notes",
+        "title": "Recipes",
         "url": "/blogs/news"
+      },
+      {
+        "title": "Our kitchen",
+        "url": "/pages/about"
       }
     ]
   },
@@ -49,16 +71,16 @@
     "title": "Help",
     "links": [
       {
-        "title": "FAQ",
+        "title": "Questions",
         "url": "/pages/faqs"
+      },
+      {
+        "title": "Shipping",
+        "url": "/pages/shipping"
       },
       {
         "title": "Contact",
         "url": "/pages/contact"
-      },
-      {
-        "title": "Your order",
-        "url": "/cart"
       },
       {
         "title": "Search",
