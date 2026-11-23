@@ -140,8 +140,8 @@ export const CODE_TEMPLATES: readonly CodeTemplate[] = [
   { slug: "course-landing", template: "courselanding", name: "Course landing", category: "courses" },
   /* Templates round 20: a merch shop on an old desktop, product windows, a taskbar with a Start menu, quick view and added to cart dialogs. */
   { slug: "retro-merch", template: "retro", name: "Retro desktop", category: "creators" },
-  /* Templates round 21: an author's book landing page, the book in front of two open pages with a free chapter by email, then "Hi, I'm ...", the chapters, editions and a free email course. */
-  { slug: "author-book", template: "authorbook", name: "Author", category: "ebooks" },
+  /* Templates round 21: an author's book landing page. Round 23: remade as one ebook's sales page after the owner's reference (Hold the Room, a public speaking playbook): a dark hero with the book, open spreads, reader quotes on an orange band, the six parts of a talk, who it is for and the author. */
+  { slug: "author-book", template: "authorbook", name: "Ebook", category: "ebooks" },
   /* Templates round 21: a content creator teaching online business, a hero with her photo and floating video and podcast cards, start here steps, videos, courses, a newsletter band, the podcast and where to follow. */
   { slug: "content-creator", template: "creatorpro", name: "Content creator", category: "creators" },
   /* Templates round 21: a coach and creator's personal brand site, a dark hero with the person, the show, programmes as wide panels, a free worksheet and client stories, after the owner's reference. */
@@ -154,6 +154,12 @@ export const CODE_TEMPLATES: readonly CodeTemplate[] = [
   { slug: "caps-tees", template: "capstees", name: "Caps and tees", category: "fashion" },
   /* Templates round 22: a print on demand apparel store after the owner's reference: a split sale hero, a gift guide, price tiles, new arrivals, a product highlight, big collection tiles, a shop visit banner, email signup and reviews, built from the theme's own sections. */
   { slug: "print-on-demand", template: "podshop", name: "Print on demand", category: "fashion" },
+  /* Templates round 23: Strata, an outerwear label after the owner's streetwear reference: a two picture hero, trending pieces under tabs, category banners, a list of collections, a highlight beside a grid, a story split, a review, an Instagram strip and a big wordmark, built from the theme's own sections. */
+  { slug: "outerwear", template: "outerwear", name: "Outerwear label", category: "fashion" },
+  /* Templates round 23: a second video sales letter, on a light page: Smallplot, an eight week course in growing vegetables on a balcony, patio or small yard. The free lesson plays in a large player with its own cover picture, then who it is for, the eight modules, the teacher, student quotes, the offer with a refund, questions and a book a call page, built from the theme's own sections. */
+  { slug: "vsl-funnel", template: "vslfunnel", name: "VSL funnel", category: "courses" },
+  /* Templates round 23: one Notion template's sales page after the owner's reference: Offer Board, a job search tracker by Northpaper. A hero with the workspace, the pages inside as screenshot cards, who it is for, the extras, two plans, a note from the maker, a wall of buyer notes, questions and a last call, built from the theme's own sections around one card grid (notionpage-cards). */
+  { slug: "notion-sales-page", template: "notionpage", name: "Notion sales page", category: "digital" },
 ]
 
 /** Where a template's pictures live: its home page whole at 1440 wide, and at a phone's width (scripts/build-theme-template-covers.ts takes both). */

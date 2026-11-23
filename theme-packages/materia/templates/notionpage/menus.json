@@ -1,0 +1,61 @@
+{
+  "main-menu": {
+    "title": "Main menu",
+    "links": [
+      {
+        "title": "Inside",
+        "url": "/#shopify-section-inside"
+      },
+      {
+        "title": "Who it is for",
+        "url": "/#shopify-section-for"
+      },
+      {
+        "title": "Pricing",
+        "url": "/#shopify-section-pricing"
+      },
+      {
+        "title": "Reviews",
+        "url": "/#shopify-section-reviews"
+      },
+      {
+        "title": "Questions",
+        "url": "/pages/faqs"
+      }
+    ]
+  },
+  "footer-template": {
+    "title": "The template",
+    "links": [
+      {
+        "title": "Offer Board and the kit",
+        "url": "/collections/all"
+      },
+      {
+        "title": "Pricing",
+        "url": "/#shopify-section-pricing"
+      },
+      {
+        "title": "Questions",
+        "url": "/pages/faqs"
+      }
+    ]
+  },
+  "footer": {
+    "title": "Northpaper",
+    "links": [
+      {
+        "title": "About",
+        "url": "/pages/about"
+      },
+      {
+        "title": "Journal",
+        "url": "/blogs/news"
+      },
+      {
+        "title": "Contact",
+        "url": "/pages/contact"
+      }
+    ]
+  }
+}

@@ -1,0 +1,179 @@
+/* Templates round 23: a journal post, more posts and the last call. */
+{
+  "sections": {
+    "main": {
+      "type": "main-article",
+      "settings": {
+        "padding_top": 48,
+        "section_width": "container",
+        "padding_bottom": 30,
+        "author_margin_left": -140,
+        "author_margin_right": 0,
+        "content_width_desktop": 1100
+      },
+      "name": "Main Blog Article",
+      "blocks": {
+        "category_8bHVa7": {
+          "type": "category",
+          "settings": {
+            "enable_custom_style": false,
+            "category_border_radius": 36
+          }
+        },
+        "title_8UcLB3": {
+          "type": "title",
+          "settings": {
+            "blog_title_font_size": 38
+          }
+        },
+        "featured_image_ne7Ufj": {
+          "type": "featured_image",
+          "settings": {
+            "image_height": "medium",
+            "featured_image_top_padding": 12,
+            "featured_image_border_radius": 7,
+            "featured_image_bottom_padding": 10
+          }
+        },
+        "blog_meta_Gdcegm": {
+          "type": "blog_meta",
+          "settings": {
+            "enable_custom_style": false,
+            "blog_meta_border_radius": 29
+          }
+        },
+        "content_article_nGLPt4": {
+          "type": "content_article",
+          "settings": {}
+        },
+        "author_highlight_n4CqbT": {
+          "type": "author_highlight",
+          "settings": {
+            "author_text": "Offer Board puts this into practice: every role, person and follow up date in one Notion workspace.",
+            "author_image_size": 65
+          }
+        }
+      },
+      "block_order": [
+        "category_8bHVa7",
+        "title_8UcLB3",
+        "featured_image_ne7Ufj",
+        "blog_meta_Gdcegm",
+        "content_article_nGLPt4",
+        "author_highlight_n4CqbT"
+      ]
+    },
+    "posts": {
+      "type": "blog-posts",
+      "settings": {
+        "reveal": false,
+        "heading": "More articles",
+        "autoplay": false,
+        "infinite": false,
+        "show_date": true,
+        "column_gap": 30,
+        "description": "",
+        "image_ratio": "custom",
+        "padding_top": 24,
+        "show_author": true,
+        "color_scheme": "",
+        "custom_ratio": "16:9",
+        "vertical_gap": 30,
+        "items_per_row": 3,
+        "items_to_show": 3,
+        "section_width": "fluid_container",
+        "show_view_all": true,
+        "padding_bottom": 56,
+        "autorotate_speed": 5,
+        "content_alignment": "left",
+        "heading_font_size": 24,
+        "carousel_pagination": "disable",
+        "enable_custom_style": false,
+        "items_per_row_mobile": 1
+      }
+    },
+    "cta": {
+      "type": "banner3",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "text_align": "center",
+        "max_width": 720,
+        "heading_tag": "h2",
+        "banner_surface": "soft",
+        "banner_tint": 4,
+        "use_custom_bg": true,
+        "bg_color": "#ecebe8",
+        "use_theme_radius": false,
+        "section_border_radius": 20,
+        "banner_shadow": "none",
+        "reveal": false,
+        "stack_gap": 12,
+        "sub_btn_gap": 24,
+        "pad_top_desktop": 56,
+        "pad_bottom_desktop": 56,
+        "pad_top_mobile": 40,
+        "pad_bottom_mobile": 40,
+        "section_padding_top": 0,
+        "section_padding_bottom": 110,
+        "section_padding_top_mobile": 16,
+        "section_padding_bottom_mobile": 64
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Notion template",
+            "enable_custom_style": true,
+            "transform": "none",
+            "letterspace": 0,
+            "size_d": 14,
+            "size_m": 13,
+            "opacity": 70
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Offer Board",
+            "enable_custom_style": true,
+            "size_d": 34,
+            "size_m": 28,
+            "weight": "700"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "Run your whole job search from one Notion page. Pay once, keep every update."
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "Get the template",
+            "link": "/collections/all",
+            "enable_custom_style": true,
+            "use_theme_button": true,
+            "radius": 10,
+            "pad_h": 28,
+            "pad_v": 13,
+            "size_d": 15,
+            "size_m": 15
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
+    }
+  },
+  "order": [
+    "main",
+    "posts",
+    "cta"
+  ]
+}

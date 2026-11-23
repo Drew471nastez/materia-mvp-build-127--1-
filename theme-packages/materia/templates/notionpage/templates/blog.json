@@ -1,0 +1,164 @@
+/* Templates round 23: the journal, with the last call under it. */
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "height": "adapt",
+        "alignment": "center",
+        "padding_top": 66,
+        "color_scheme": "",
+        "reset_spacing": true,
+        "section_width": "container",
+        "padding_bottom": 55,
+        "overlay_opacity": 0
+      },
+      "blocks": {
+        "heading_xwFKKa": {
+          "type": "heading",
+          "settings": {
+            "page_title": "",
+            "header_size": "medium",
+            "vertical_gap": 14,
+            "heading_font_size": 36,
+            "enable_heading_color": false
+          }
+        },
+        "description_YRWpkt": {
+          "type": "description",
+          "settings": {
+            "description": "<p>Short, practical notes on running a job search: follow ups, reviews, interviews and offers.</p>",
+            "enable_custom_style": false,
+            "description_font_size": 16
+          }
+        }
+      },
+      "block_order": [
+        "heading_xwFKKa",
+        "description_YRWpkt"
+      ]
+    },
+    "main": {
+      "type": "main-blog",
+      "settings": {
+        "layout": "grid",
+        "row_gap": 64,
+        "show_date": true,
+        "column_gap": 40,
+        "margin_top": 32,
+        "title_size": 22,
+        "badge_width": 70,
+        "image_ratio": "adapt",
+        "title_hover": "underline",
+        "badge_height": 30,
+        "custom_ratio": "16:10",
+        "hover_effect": "lift",
+        "image_radius": 14,
+        "show_excerpt": true,
+        "excerpt_lines": 2,
+        "items_per_row": 3,
+        "items_to_show": 12,
+        "margin_bottom": 0,
+        "readmore_line": "style",
+        "readmore_text": "Read it",
+        "readmore_type": "underline",
+        "reset_spacing": true,
+        "section_width": "fluid_container",
+        "show_category": true,
+        "show_readmore": true,
+        "button_show_more": "Load more",
+        "content_alignment": "left",
+        "badge_border_radius": 19,
+        "enable_custom_style": true,
+        "badge_text_font_size": 14,
+        "items_per_row_mobile": 1,
+        "badge_vertical_position": 16,
+        "badge_horizontal_position": 16
+      },
+      "name": "Main blog"
+    },
+    "cta": {
+      "type": "banner3",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "text_align": "center",
+        "max_width": 720,
+        "heading_tag": "h2",
+        "banner_surface": "soft",
+        "banner_tint": 4,
+        "use_custom_bg": true,
+        "bg_color": "#ecebe8",
+        "use_theme_radius": false,
+        "section_border_radius": 20,
+        "banner_shadow": "none",
+        "reveal": false,
+        "stack_gap": 12,
+        "sub_btn_gap": 24,
+        "pad_top_desktop": 56,
+        "pad_bottom_desktop": 56,
+        "pad_top_mobile": 40,
+        "pad_bottom_mobile": 40,
+        "section_padding_top": 0,
+        "section_padding_bottom": 110,
+        "section_padding_top_mobile": 16,
+        "section_padding_bottom_mobile": 64
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Notion template",
+            "enable_custom_style": true,
+            "transform": "none",
+            "letterspace": 0,
+            "size_d": 14,
+            "size_m": 13,
+            "opacity": 70
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Offer Board",
+            "enable_custom_style": true,
+            "size_d": 34,
+            "size_m": 28,
+            "weight": "700"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "Run your whole job search from one Notion page. Pay once, keep every update."
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "Get the template",
+            "link": "/collections/all",
+            "enable_custom_style": true,
+            "use_theme_button": true,
+            "radius": 10,
+            "pad_h": 28,
+            "pad_v": 13,
+            "size_d": 15,
+            "size_m": 15
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
+    }
+  },
+  "order": [
+    "heading",
+    "main",
+    "cta"
+  ]
+}

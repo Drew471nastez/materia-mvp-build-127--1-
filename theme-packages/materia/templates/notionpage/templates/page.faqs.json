@@ -1,0 +1,229 @@
+/* Templates round 23: the questions page, with the last call under it. */
+{
+  "sections": {
+    "faq": {
+      "type": "faq-tabs",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "full_width",
+        "structured_data": true,
+        "open_first": false,
+        "allow_multiple_open": false,
+        "header_align": "center",
+        "section_max_width_desktop": 760,
+        "section_max_width_tablet": 700,
+        "section_max_width_mobile": 560,
+        "item_padding_y": 20,
+        "enable_custom_style": true,
+        "tabs_track_bg": "#ecebe8",
+        "tab_active_bg": "#ffffff",
+        "tab_active_color": "#191918",
+        "tab_inactive_color": "#6f6e69",
+        "divider_color": "#e0dfda",
+        "q_color": "#191918",
+        "plus_color": "#9b9a96",
+        "a_color": "#55534e",
+        "tab_size": 14,
+        "tab_weight": "600",
+        "q_size": 17,
+        "q_weight": "600",
+        "a_size": 15,
+        "padding_top_desktop": 72,
+        "padding_bottom_desktop": 56,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 32,
+        "tab_1_label": "The template",
+        "tab_2_label": "Buying",
+        "tab_3_label": "Using it",
+        "tab_4_label": "",
+        "tab_5_label": ""
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Questions",
+            "tag": "h2",
+            "size_enable": true,
+            "size_desktop": 40,
+            "size_mobile": 28
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>About Offer Board, Notion, getting the template and refunds.</p>",
+            "max_width": 560
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "What is Offer Board?",
+            "answer": "<p>A Notion template for running a job search. It keeps the roles you save, the companies, the people you talk to, your interview stories and any offers in one workspace, linked to each other.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "Do I need a paid Notion plan?",
+            "answer": "<p>No. Offer Board works on Notion's free plan, on the web, the desktop app and the phone app.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "2",
+            "question": "How do I get it after I pay?",
+            "answer": "<p>The receipt page and the email both have a link. Open it while signed in to Notion and press Duplicate, and the whole template is copied into your workspace.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "I have never used Notion. Will I manage?",
+            "answer": "<p>Yes. The Instructions page has a 12 minute walkthrough and five steps to follow. Most people are adding roles within the first half hour.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "Can I change it?",
+            "answer": "<p>Every page, property and view is yours to edit. Rename the stages, add a column for visa sponsorship, delete the pages you do not need.</p>"
+          }
+        },
+        "faq_item_8": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "Can I use it with a career coach or a friend?",
+            "answer": "<p>Yes. Share the workspace or a single page with them from Notion, and they can comment on your applications and stories.</p>"
+          }
+        },
+        "faq_item_9": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "2",
+            "question": "Do you offer a student discount?",
+            "answer": "<p>Yes. Write to us from your university email and we send a code for half off.</p>"
+          }
+        },
+        "faq_item_10": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "2",
+            "question": "What is your refund policy?",
+            "answer": "<p>If Offer Board is not for you, email us within 14 days and we refund you. No form to fill in.</p>"
+          }
+        },
+        "faq_item_11": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "What if I still have a question?",
+            "answer": "<p>Write to us from the contact page. A person reads every message and replies within two working days.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7",
+        "faq_item_8",
+        "faq_item_9",
+        "faq_item_10",
+        "faq_item_11"
+      ]
+    },
+    "cta": {
+      "type": "banner3",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "text_align": "center",
+        "max_width": 720,
+        "heading_tag": "h2",
+        "banner_surface": "soft",
+        "banner_tint": 4,
+        "use_custom_bg": true,
+        "bg_color": "#ecebe8",
+        "use_theme_radius": false,
+        "section_border_radius": 20,
+        "banner_shadow": "none",
+        "reveal": false,
+        "stack_gap": 12,
+        "sub_btn_gap": 24,
+        "pad_top_desktop": 56,
+        "pad_bottom_desktop": 56,
+        "pad_top_mobile": 40,
+        "pad_bottom_mobile": 40,
+        "section_padding_top": 24,
+        "section_padding_bottom": 110,
+        "section_padding_top_mobile": 16,
+        "section_padding_bottom_mobile": 64
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Notion template",
+            "enable_custom_style": true,
+            "transform": "none",
+            "letterspace": 0,
+            "size_d": 14,
+            "size_m": 13,
+            "opacity": 70
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Offer Board",
+            "enable_custom_style": true,
+            "size_d": 34,
+            "size_m": 28,
+            "weight": "700"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "Run your whole job search from one Notion page. Pay once, keep every update."
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "Get the template",
+            "link": "/collections/all",
+            "enable_custom_style": true,
+            "use_theme_button": true,
+            "radius": 10,
+            "pad_h": 28,
+            "pad_v": 13,
+            "size_d": 15,
+            "size_m": 15
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
+    }
+  },
+  "order": [
+    "faq",
+    "cta"
+  ]
+}
