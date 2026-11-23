@@ -281,4 +281,5 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "474", file: "474_telegram_member_access.sql", sha256: "c55e4bd8ec60a006bc7856746ab625e77d0c887b9864dc90ef8017af1a781d8b" },
   { part: "475", file: "475_external_bookings.sql", sha256: "3efd489141136b408bddb6a0016561b8b4d2b1ed1946a084c50fcfb8f2d0603b" },
   { part: "476", file: "476_physical_card_rates.sql", sha256: "72caae16ca9b4c34683241db8e7cdde6d611218462fd4f7e3acf4153a7c1e826" },
+  { part: "477", file: "477_platform_live.sql", sha256: "b317aae0e92c51e33dc0f3cda5c8d8e1cacf3fbe23faccad983910e9e93e9194" },
 ]
