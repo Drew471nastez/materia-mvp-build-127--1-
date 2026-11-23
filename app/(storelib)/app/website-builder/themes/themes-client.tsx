@@ -193,6 +193,27 @@ export function ThemeMarketplace({ open, onClose, listings, stateOf, waiting = f
     }
   }, [open, listings])
 
+  /*
+    One pair of handlers per theme, kept for as long as the list is the same,
+    so a switch draws again only the cards whose hidden or first-screen state
+    changed (ThemeTemplateCard is memoised). They call the newest handlers the
+    page gave, which are new on every render of the page.
+  */
+  const latest = React.useRef({ onPreview, onAdd })
+  React.useLayoutEffect(() => {
+    latest.current = { onPreview, onAdd }
+  })
+  const handlers = React.useMemo(
+    () =>
+      new Map(
+        listings.map((l) => [
+          l.slug,
+          { preview: (opener: HTMLElement) => latest.current.onPreview(l, opener), add: () => latest.current.onAdd(l) },
+        ]),
+      ),
+    [listings],
+  )
+
   const view = `${category}|${sort}`
   const lastView = React.useRef(view)
   React.useLayoutEffect(() => {
@@ -250,31 +271,29 @@ export function ThemeMarketplace({ open, onClose, listings, stateOf, waiting = f
 
   const cards = (
     <div ref={grid} data-themes-grid="" className="grid grid-cols-1 gap-x-6 gap-y-8 md:grid-cols-2 md:gap-y-9 xl:grid-cols-3">
-      {(() => {
-        let shownIndex = 0
-        return sorted.map((l) => {
-          const on = inView(l)
-          const first = on && shownIndex++ < 3
-          return (
-            <ThemeTemplateCard
-              key={l.slug}
-              listing={l}
-              size="lg"
-              state={stateOf(l)}
-              hidden={!on}
-              priority={first}
-              /* Built once and kept, so a card a category shows later already has its picture. */
-              eager
-              waiting={waiting}
-              /* Its preview over this window: the home page at a computer's width and a phone's. */
-              onPreview={(opener) => onPreview(l, opener)}
-              /* A price or a plan: its page says the terms, as the Browse themes row does. */
-              viewHref={l.tier !== "free" ? listingPath(l.slug) : null}
-              onAdd={() => onAdd(l)}
-            />
-          )
-        })
-      })()}
+      {sorted.map((l, i) => (
+        /*
+          The category hides the box round the card, not the card: the card
+          (memoised) is not drawn again on a switch, only this attribute
+          changes. The first row of the whole list is asked for first.
+        */
+        <div key={l.slug} data-themes-cell="" hidden={!inView(l)} className="min-w-0">
+          <ThemeTemplateCard
+            listing={l}
+            size="lg"
+            state={stateOf(l)}
+            priority={i < 3}
+            /* Built once and kept, so a card a category shows later already has its picture. */
+            eager
+            waiting={waiting}
+            /* Its preview over this window: the home page at a computer's width and a phone's. */
+            onPreview={handlers.get(l.slug)!.preview}
+            /* A price or a plan: its page says the terms, as the Browse themes row does. */
+            viewHref={l.tier !== "free" ? listingPath(l.slug) : null}
+            onAdd={handlers.get(l.slug)!.add}
+          />
+        </div>
+      ))}
     </div>
   )
 

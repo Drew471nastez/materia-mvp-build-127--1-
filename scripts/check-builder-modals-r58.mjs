@@ -155,6 +155,8 @@ async function themes() {
     await p.click(`[data-themes-category="all"]`)
     await sleep(2500)
     await shot(p, `themes-${W}-open`)
+    /* PROBE=file.js: an expression run in the page here, for finding out why something looks wrong. */
+    if (process.env.PROBE) console.log("PROBE", JSON.stringify(await p.evaluate(readFileSync(process.env.PROBE, "utf8"))))
 
     /* ── The shell ── */
     r.shell = await p.evaluate(() => {
@@ -291,7 +293,20 @@ async function switchTo(p, category) {
     })
   })
   await sleep(40)
+  /* TRACE=1: what the long tasks of each switch were made of, from Chromium's own trace. */
+  if (process.env.TRACE) await p.tracing.start({ categories: ["devtools.timeline", "disabled-by-default-devtools.timeline", "v8.execute"] })
   await p.click(`[data-themes-category="${category}"]`)
+  if (process.env.TRACE) {
+    await sleep(650)
+    const events = JSON.parse(Buffer.from(await p.tracing.stop()).toString("utf8")).traceEvents
+    const tasks = events.filter((e) => e.name === "RunTask" && e.dur > 40_000)
+    for (const t of tasks) {
+      const inside = events.filter((e) => e.tid === t.tid && e.ts >= t.ts && e.ts + (e.dur ?? 0) <= t.ts + t.dur && e.dur && e !== t && e.ph === "X")
+      const by = new Map()
+      for (const e of inside) by.set(e.name, (by.get(e.name) ?? 0) + e.dur)
+      console.log(`    task ${Math.round(t.dur / 1000)}ms on ${category}:`, [...by].sort((a, b) => b[1] - a[1]).slice(0, 7).map(([n, d]) => `${n} ${Math.round(d / 1000)}`).join(", "))
+    }
+  }
   return p.evaluate(async () => {
     await window.__done
     const f = window.__frames

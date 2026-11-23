@@ -237,7 +237,12 @@ export function TemplateAction({
   )
 }
 
-export function ThemeTemplateCard({
+/*
+  Memoised (round 58): the marketplace keeps every card and a category
+  switch changes only which are hidden, so a card whose own props did not
+  change is not drawn again on the press.
+*/
+export const ThemeTemplateCard = React.memo(function ThemeTemplateCard({
   listing,
   size = "lg",
   state,
@@ -246,7 +251,6 @@ export function ThemeTemplateCard({
   waiting = false,
   priority = false,
   eager = false,
-  hidden = false,
   onAdd,
   className,
 }: {
@@ -264,8 +268,6 @@ export function ThemeTemplateCard({
   priority?: boolean
   /** Kept in the page to be shown later: its picture is asked for now, at a low priority, hidden or not. */
   eager?: boolean
-  /** Kept in the page but not shown (a category that leaves it out). */
-  hidden?: boolean
   onAdd: () => void
   className?: string
 }) {
@@ -375,7 +377,7 @@ export function ThemeTemplateCard({
   )
 
   return (
-    <article data-template-card={listing.slug} data-size={size} hidden={hidden} className={cn("min-w-0", className)}>
+    <article data-template-card={listing.slug} data-size={size} className={cn("min-w-0", className)}>
       {/* The box the pointer is in or not: it never moves, so nothing moving inside it can switch the hover off and on. */}
       <div
         ref={box}
@@ -467,4 +469,4 @@ export function ThemeTemplateCard({
       </div>
     </article>
   )
-}
+})
