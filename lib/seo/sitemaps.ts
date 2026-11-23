@@ -434,6 +434,24 @@ async function useCasesListed() {
 }
 
 /**
+ * Round 58: the theme marketplace's category and template pages, from the
+ * same published list /themes draws (held for five minutes under the
+ * marketplace's tag), or the templates in the code when that read fails, so
+ * the pages that are always there are always listed. Imported when asked
+ * for, so a reader of this file that never builds pages.xml does not load
+ * the marketplace's server code.
+ */
+async function themeMarketplaceEntries(): Promise<SitemapEntry[]> {
+  const [{ publishedListings }, { builtinListings }, { themeSitemapEntries }] = await Promise.all([
+    import("@/lib/themes/marketplace-server"),
+    import("@/lib/themes/marketplace-shared"),
+    import("@/lib/themes/theme-seo"),
+  ])
+  const listings = await publishedListings().catch(() => builtinListings())
+  return themeSitemapEntries(listings, BASE)
+}
+
+/**
  * The platform's own pages. They carry no lastmod: nothing records when a
  * marketing page last changed, and "today" on every request would be a lie
  * Google learns to ignore. Blog posts carry theirs.
@@ -465,6 +483,8 @@ export async function pagesSitemap(): Promise<SitemapEntry[]> {
     ...(await useCasesListed()).map((u) => ({ url: `${BASE}${useCasePath(u.slug)}`, lastModified: u.updated })),
     /* Round 44: the theme marketplace, and the two legal documents with the date each says it last changed. */
     { url: `${BASE}/themes` },
+    /* Round 58: each category of templates and each template's own page, with its pictures (lib/themes/theme-seo themeSitemapEntries). */
+    ...(await themeMarketplaceEntries()),
     ...Object.values(LEGAL_DOCS).map((d) => ({ url: `${BASE}${d.href}`, lastModified: d.updated })),
     /*
       The Storelib Developer Hub, from the same list its sidebar and

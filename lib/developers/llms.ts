@@ -11,6 +11,8 @@
 import { DEV_PAGES, FRAMEWORK_NAME, HUB_NAME, SITE_ORIGIN, devPath } from "./pages"
 import { OFFERED_PLANS } from "@/lib/billing/plans"
 import { cardRateLabel, getFeeDescription, sameRateForBothKinds } from "@/lib/billing/fee-calculator"
+import { CODE_TEMPLATES, MARKETPLACE_PATH, listingPath } from "@/lib/themes/marketplace-shared"
+import { MARKETPLACE_SEO, THEME_SEO, THEME_SEO_CATEGORIES, themeCategoryPath } from "@/lib/themes/theme-seo"
 
 export function llmsTxt(): string {
   const link = (slug: string) => `${SITE_ORIGIN}${devPath(slug)}`
@@ -93,12 +95,34 @@ export function llmsTxt(): string {
     `- [Terms of service](${SITE_ORIGIN}/terms): the agreement for using Storelib.`,
     `- [Privacy policy](${SITE_ORIGIN}/privacy): what Storelib collects and why.`,
     "",
+    /* Round 58: the theme marketplace, from the list its pages are built from (lib/themes/theme-seo). */
+    ...themeMarketplaceLines(),
     "## Optional",
     "",
     line("changelog"),
     `- [Everything in one file](${SITE_ORIGIN}/llms-full.txt): every page above as plain markdown, with every reference table filled in.`,
     "",
   ].join("\n")
+}
+
+/**
+ * The website templates: what they are as facts an answer engine can quote
+ * (how many, the price, what a template includes, where it runs), then the
+ * marketplace, each category and each of Storelib's own templates with the
+ * title its page is found by.
+ */
+export function themeMarketplaceLines(): string[] {
+  const count = CODE_TEMPLATES.length
+  return [
+    "## Website templates",
+    "",
+    `Storelib has ${count} website templates of its own in its theme marketplace. Each is free on every plan, is a whole website (home, product, collection, cart, about, contact, FAQ and blog pages, plus pages of its own such as a lookbook or a book a call page), works on phones, and sells through Storelib checkout. A template is added to a creator's website library from its page and edited in the Storelib website editor.`,
+    "",
+    `- [Theme marketplace](${SITE_ORIGIN}${MARKETPLACE_PATH}): ${MARKETPLACE_SEO.description}`,
+    ...THEME_SEO_CATEGORIES.map((c) => `- [${c.h1}](${SITE_ORIGIN}${themeCategoryPath(c.slug)}): ${c.description}`),
+    ...THEME_SEO.map((t) => `- [${t.title.replace(/ \| Storelib$/, "")}](${SITE_ORIGIN}${listingPath(t.slug)}): ${t.intro}`),
+    "",
+  ]
 }
 
 /** One line: each plan on sale, its monthly price and Storelib's fee per sale, digital and, where it differs, for a product that ships. Stripe's processing fee is on top on every plan. */
