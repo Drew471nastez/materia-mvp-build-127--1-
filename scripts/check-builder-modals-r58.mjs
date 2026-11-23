@@ -451,7 +451,7 @@ async function sections() {
     const perf = await p.evaluate((windows) => {
       const inside = (t) => windows.some(([a, b]) => t >= a && t < b)
       const long = window.__long.filter((x) => inside(x.t)).map((x) => Math.round(x.d))
-      return { shift: +window.__shifts.filter((x) => inside(x.t)).reduce((a, x) => a + x.v, 0).toFixed(4), longTasks: long.length, longest: Math.max(0, ...long), longSum: long.reduce((a, x) => a + x, 0), window: Math.round(windows.reduce((a, [x, y]) => a + y - x, 0)) }
+      return { shift: +window.__shifts.filter((x) => inside(x.t)).reduce((a, x) => a + x.v, 0).toFixed(4), longTasks: long.length, longest: Math.max(0, ...long), longSum: long.reduce((a, x) => a + x, 0), longOnPage: window.__long.length, window: Math.round(windows.reduce((a, [x, y]) => a + y - x, 0)) }
     }, windows)
     r.scroll = { cardsSeen: states.length, shown: states.filter((c) => c.state === "shown").length, notShown: states.filter((c) => c.state !== "shown").map((c) => `${c.type}:${c.state}`), emptyLooking: states.filter((c) => c.ink < 0.5).map((c) => c.type), ...perf }
     console.log("  scrolling", JSON.stringify({ ...r.scroll, notShown: r.scroll.notShown.slice(0, 8) }))
