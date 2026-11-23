@@ -326,13 +326,13 @@ They are not part of a template and are never added to a creator's website.
 | posters (cover only) | scripts/theme-templates/products/posters/posters-daisies.webp | Drawn for this template | Storelib |
 | posters (cover only) | scripts/theme-templates/products/posters/posters-wavy-checks.webp | Drawn for this template | Storelib |
 
-Video sales letter (round 20): the host photographs are one session, used in black and white with the edges darkened; a small logo on the headphones is painted out.
+Video sales letter (round 22): a short video course (Hookline). The poster is shown in black and white by the section. The host and product pictures are separate Unsplash photographs, cropped.
 
-| vsl | assets/vsl-video-poster.webp | https://images.unsplash.com/photo-1694881227503-ddc502d4b4cc | Unsplash License |
-| vsl | assets/vsl-host.webp | https://images.unsplash.com/photo-1694881227511-ca3b9f69ea91 | Unsplash License |
-| vsl (cover only) | scripts/theme-templates/products/vsl/vsl-course.webp | https://images.unsplash.com/photo-1478737270239-2f02b77fc618 (black and white) | Unsplash License |
-| vsl (cover only) | scripts/theme-templates/products/vsl/vsl-templates.webp | https://images.unsplash.com/photo-1789922129938-f02af2785d19 (black and white) | Unsplash License |
-| vsl (cover only) | scripts/theme-templates/products/vsl/vsl-review-call.webp | https://images.unsplash.com/photo-1694881227503-ddc502d4b4cc (black and white) | Unsplash License |
+| vsl | assets/vsl-video-poster.webp | https://images.unsplash.com/photo-1758874385109-90ae969c40ea | Unsplash License |
+| vsl | assets/vsl-host.webp | https://images.unsplash.com/photo-1587050265310-1a2d98ccce5f | Unsplash License |
+| vsl (cover only) | scripts/theme-templates/products/vsl/vsl-course.webp | https://images.unsplash.com/photo-1791213434342-de9e682b7bca | Unsplash License |
+| vsl (cover only) | scripts/theme-templates/products/vsl/vsl-templates.webp | https://images.unsplash.com/photo-1771642430984-182bd68a6eda | Unsplash License |
+| vsl (cover only) | scripts/theme-templates/products/vsl/vsl-review-call.webp | https://images.unsplash.com/photo-1627244714766-94dab62ed964 | Unsplash License |
 | course2 | assets/course2-jonas-hero.webp | https://images.unsplash.com/photo-1671776616696-18c8f211918b | Unsplash License |
 | course2 | assets/course2-jonas-sofa.webp | https://images.unsplash.com/photo-1671776616723-364883405546 | Unsplash License |
 | course2 | assets/course2-hands.webp | https://images.unsplash.com/photo-1671776616821-0bf074346c9c | Unsplash License |
@@ -349,16 +349,15 @@ Video sales letter (round 20): the host photographs are one session, used in bla
 | course2 (cover only) | scripts/theme-templates/products/course2/course2-song-library.webp | https://images.unsplash.com/photo-1671776616715-993aa9265ae1 | Unsplash License |
 | course2 (cover only) | scripts/theme-templates/products/course2/course2-video-feedback.webp | https://images.unsplash.com/photo-1758612215010-7d792b85488b | Unsplash License |
 | course2 (cover only) | scripts/theme-templates/products/course2/course2-private-lesson.webp | https://images.unsplash.com/photo-1671776616696-18c8f211918b | Unsplash License |
-| courselanding | assets/courselanding-teacher-desk.webp | https://images.unsplash.com/photo-1770947147650-fab067b8d33b | Unsplash License |
-| courselanding | assets/courselanding-about-desk.webp | https://images.unsplash.com/photo-1663524789647-090d8cbd834b | Unsplash License |
-| courselanding | assets/courselanding-hero-phones.webp | Drawn for this template | Storelib |
-| courselanding | assets/courselanding-step-lesson.webp | Drawn for this template | Storelib |
-| courselanding | assets/courselanding-step-sheet.webp | Drawn for this template | Storelib |
-| courselanding | assets/courselanding-step-call.webp | Drawn for this template | Storelib |
-| courselanding (photos in the drawn screens) | assets/courselanding-hero-phones.webp | https://images.unsplash.com/photo-1707902665498-a202981fb5ac | Unsplash License |
-| courselanding (photos in the drawn screens) | assets/courselanding-step-lesson.webp | https://images.unsplash.com/photo-1513128034602-7814ccaddd4e | Unsplash License |
-| courselanding (photos in the drawn screens) | assets/courselanding-step-call.webp | https://images.unsplash.com/photo-1770947147650-fab067b8d33b | Unsplash License |
-| courselanding (cover only) | scripts/theme-templates/products/courselanding/*.webp | Drawn for this template, phone screens holding https://images.unsplash.com/photo-1707902665498-a202981fb5ac, https://images.unsplash.com/photo-1770947147650-fab067b8d33b | Storelib, photographs Unsplash License |
+| courselanding | assets/courselanding-hero.webp | https://images.unsplash.com/photo-1649711786021-db7219ddc06a | Unsplash License |
+| courselanding | assets/courselanding-hero-phone.webp | https://images.unsplash.com/photo-1649711786021-db7219ddc06a | Unsplash License |
+| courselanding | assets/courselanding-cafe.webp | https://images.unsplash.com/photo-1760623681430-9224e69d9683 | Unsplash License |
+| courselanding | assets/courselanding-teacher.webp | https://images.unsplash.com/photo-1758873268223-f61976493498 | Unsplash License |
+| courselanding | assets/courselanding-group.webp | https://images.unsplash.com/photo-1590650046871-92c887180603 | Unsplash License |
+| courselanding (cover only) | scripts/theme-templates/products/courselanding/courselanding-course.webp | https://images.unsplash.com/photo-1769794371007-9bf419217727 | Unsplash License |
+| courselanding (cover only) | scripts/theme-templates/products/courselanding/courselanding-club.webp | https://images.unsplash.com/photo-1758274252296-a63b1d7d4bb8 | Unsplash License |
+| courselanding (cover only) | scripts/theme-templates/products/courselanding/courselanding-lesson.webp | https://images.unsplash.com/photo-1610484826967-09c5720778c7 | Unsplash License |
+| courselanding (cover only) | scripts/theme-templates/products/courselanding/courselanding-phrasebook.webp | https://images.unsplash.com/photo-1434030216411-0b793f4b4173 | Unsplash License |
 
 Retro desktop (round 20): the garments are Unsplash photographs cut out, recoloured where a row says so, set on one even grey, with pixel prints drawn for the template laid on the cloth. The hoodie's hood opening is filled with its own fabric. The home picture lays two tees cut from https://images.unsplash.com/photo-1651761179569-4ba2aa054997 (one recoloured sky blue) and the cap from https://images.unsplash.com/photo-1645266729222-17cd32e06fd0 (recoloured black) together; the about picture is the tee recoloured black beside the drawn sticker sheet. The sticker sheet, the wallpaper and every icon are drawn for the template.
 
@@ -427,21 +426,26 @@ Coach creator (round 21): the coach, Camila Duarte, is one session by one photog
 | coachpro | assets/coachpro-client-4.webp | https://images.unsplash.com/photo-1790574318882-572fa08ee6e6 | Unsplash License |
 | coachpro | assets/coachpro-client-5.webp | https://images.unsplash.com/photo-1608174390996-130c25265b8b | Unsplash License |
 
-Digital Renaissance (round 21): the instructor, Karim Nassar, is two photographs from one session by one photographer (Khaled Elshamy). The student faces on the sample results are other Unsplash studio portraits, cropped round and marked as samples. The logo, its mark and the edition covers are drawn for the template.
+Digital Renaissance (round 22): the instructor, Karim Nassar, is two photographs from one session by one photographer (Khaled Elshamy). The other photographs are separate Unsplash photographs, cropped; the skill cards sit under a dark overlay set in the section. The logo and its compass mark are drawn for the template.
 
 | renaissance | assets/renaissance-instructor.webp | https://images.unsplash.com/photo-1764545973653-94c40d993495 | Unsplash License |
 | renaissance | assets/renaissance-instructor-about.webp | https://images.unsplash.com/photo-1764546373114-2d7a87221733 | Unsplash License |
-| renaissance | assets/renaissance-student-1.webp | https://images.unsplash.com/photo-1543075270-17e1257ec612 | Unsplash License |
-| renaissance | assets/renaissance-student-2.webp | https://images.unsplash.com/photo-1790574319098-e77deb163ec9 | Unsplash License |
-| renaissance | assets/renaissance-student-3.webp | https://images.unsplash.com/photo-1683539820365-0714bd628fb1 | Unsplash License |
-| renaissance | assets/renaissance-student-4.webp | https://images.unsplash.com/photo-1765046300927-6c1827612c42 | Unsplash License |
-| renaissance | assets/renaissance-student-5.webp | https://images.unsplash.com/photo-1678282352407-4db11e962159 | Unsplash License |
-| renaissance | assets/renaissance-student-6.webp | https://images.unsplash.com/photo-1630955249686-ebfada69d9ac | Unsplash License |
+| renaissance | assets/renaissance-hero.webp | https://images.unsplash.com/photo-1764096534686-68091ce5ab45 | Unsplash License |
+| renaissance | assets/renaissance-calls.webp | https://images.unsplash.com/photo-1616587226960-4a03badbe8bf | Unsplash License |
+| renaissance | assets/renaissance-workshop.webp | https://images.unsplash.com/photo-1591115765373-5207764f72e7 | Unsplash License |
+| renaissance | assets/renaissance-shop.webp | https://images.unsplash.com/photo-1753161618037-e6a8f740fd47 | Unsplash License |
+| renaissance | assets/renaissance-skill-1.webp | https://images.unsplash.com/photo-1753164597612-5e71b83fda91 | Unsplash License |
+| renaissance | assets/renaissance-skill-2.webp | https://images.unsplash.com/photo-1507914372368-b2b085b925a1 | Unsplash License |
+| renaissance | assets/renaissance-skill-3.webp | https://images.unsplash.com/photo-1758876204763-5b346b174d0e | Unsplash License |
+| renaissance | assets/renaissance-skill-4.webp | https://images.unsplash.com/photo-1758874573286-c65c3d749a39 | Unsplash License |
+| renaissance | assets/renaissance-skill-5.webp | https://images.unsplash.com/photo-1753161029353-f6bb0ff2ad3c | Unsplash License |
+| renaissance | assets/renaissance-skill-6.webp | https://images.unsplash.com/photo-1753351052363-53ce102830eb | Unsplash License |
 | renaissance | assets/renaissance-logo.webp | Drawn for this template | Storelib |
-| renaissance (cover only) | scripts/theme-templates/products/renaissance/renaissance-course.webp | Drawn for this template | Storelib |
-| renaissance (cover only) | scripts/theme-templates/products/renaissance/renaissance-cohort.webp | Drawn for this template | Storelib |
-| renaissance (cover only) | scripts/theme-templates/products/renaissance/renaissance-prompts.webp | Drawn for this template | Storelib |
-| renaissance (cover only) | scripts/theme-templates/products/renaissance/renaissance-audit.webp | Drawn for this template | Storelib |
+| renaissance | assets/renaissance-mark.webp | Drawn for this template | Storelib |
+| renaissance (cover only) | scripts/theme-templates/products/renaissance/renaissance-course.webp | https://images.unsplash.com/photo-1764096534662-a194a348c4a0 | Unsplash License |
+| renaissance (cover only) | scripts/theme-templates/products/renaissance/renaissance-cohort.webp | https://images.unsplash.com/photo-1616587226960-4a03badbe8bf | Unsplash License |
+| renaissance (cover only) | scripts/theme-templates/products/renaissance/renaissance-prompts.webp | https://images.unsplash.com/photo-1779444480590-9bf6f021d5d4 | Unsplash License |
+| renaissance (cover only) | scripts/theme-templates/products/renaissance/renaissance-audit.webp | https://images.unsplash.com/photo-1758876204763-5b346b174d0e | Unsplash License |
 
 XP shop (round 21): the wallpaper is a real photograph of a green hill under a blue sky with clouds (not the operating system's own picture). The garments are Unsplash photographs cut out, recoloured where a row says so, and set on one even pale ground with a soft shadow; the hill window, balloon, green hilltop button and cloud prints are drawn for the template and laid on the cloth so its folds show through. The home picture lays the crewneck (https://images.unsplash.com/photo-1620799140408-edc6dcb6d633, recoloured green), the tee (https://images.unsplash.com/photo-1651761179569-4ba2aa054997) and the cap (https://images.unsplash.com/photo-1645266729222-17cd32e06fd0, recoloured blue) together. The user pictures beside the sample reviews are object photographs (a daisy, a rubber duck, a goldfish, a guitar, a fish), never faces. The sticker sheet, every icon, the window frames and the taskbar are drawn for the template.
 

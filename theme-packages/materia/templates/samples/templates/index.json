@@ -38,7 +38,8 @@
           "settings": {
             "title": "Tech House Sample Pack, Unitech",
             "heading": "Tech House Sample Pack, Unitech",
-            "image": "shopify://shop_images/samples-box-tech-house-unitech.webp"
+            "image": "shopify://shop_images/samples-box-tech-house-unitech.webp",
+            "eyebrow": "Tech house"
           }
         },
         "r_serum": {
@@ -46,7 +47,8 @@
           "settings": {
             "title": "Serum Presets Vol 1",
             "heading": "Serum Presets Vol 1",
-            "image": "shopify://shop_images/samples-box-serum-presets.webp"
+            "image": "shopify://shop_images/samples-box-serum-presets.webp",
+            "eyebrow": "Serum presets"
           }
         },
         "r_drums": {
@@ -54,7 +56,8 @@
           "settings": {
             "title": "Tech House Drum Kit Vol I",
             "heading": "Tech House Drum Kit Vol I",
-            "image": "shopify://shop_images/samples-box-drum-kit.webp"
+            "image": "shopify://shop_images/samples-box-drum-kit.webp",
+            "eyebrow": "Free download"
           }
         }
       },
