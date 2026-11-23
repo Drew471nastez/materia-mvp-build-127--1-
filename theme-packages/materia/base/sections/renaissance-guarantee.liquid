@@ -1,0 +1,68 @@
+{%- comment -%}
+  Digital Renaissance: the guarantee. A round seal (the number of days in
+  the middle, words set around the edge that turn slowly) beside a heading
+  and the promise in plain words, inside a thin bordered panel.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign ring = st.ring_text | default: 'Money back guarantee'
+-%}
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap">
+<style>
+  #shopify-section-{{ sid }} .rng { --gold: {{ st.gold | default: '#f2bd4f' }}; --lapis: {{ st.accent | default: '#3d5afe' }}; background: {{ st.background | default: '#07080d' }}; color: {{ st.text_color | default: '#a7adbf' }}; padding: {{ st.padding_top_mobile | default: 24 }}px 16px {{ st.padding_bottom_mobile | default: 48 }}px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .rng { padding: {{ st.padding_top | default: 24 }}px 40px {{ st.padding_bottom | default: 96 }}px; } }
+  #shopify-section-{{ sid }} .rng__panel { max-width: 920px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; justify-items: center; padding: 32px 22px; border-radius: 22px; border: 1px solid color-mix(in srgb, var(--gold) 30%, transparent); background: radial-gradient(70% 120% at 0% 50%, color-mix(in srgb, var(--gold) 10%, transparent), transparent 70%); text-align: center; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .rng__panel { grid-template-columns: 168px minmax(0, 1fr); gap: 40px; padding: 40px 48px; text-align: left; justify-items: start; align-items: center; } }
+  #shopify-section-{{ sid }} .rng__seal { position: relative; width: 150px; height: 150px; color: var(--gold); }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .rng__seal { width: 168px; height: 168px; } }
+  #shopify-section-{{ sid }} .rng__ring { position: absolute; inset: 0; width: 100%; height: 100%; animation: rng-turn 40s linear infinite; }
+  @keyframes rng-turn { to { transform: rotate(360deg); } }
+  #shopify-section-{{ sid }} .rng__core { position: absolute; inset: 24%; display: grid; place-items: center; align-content: center; border-radius: 50%; background: var(--gold); color: #0b0c12; line-height: 1; text-align: center; }
+  #shopify-section-{{ sid }} .rng__days { font-family: var(--heading-font, sans-serif); font-size: 34px; font-weight: 700; letter-spacing: -.04em; }
+  #shopify-section-{{ sid }} .rng__unit { margin-top: 3px; font-size: 10px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
+  #shopify-section-{{ sid }} .rng__title { margin: 0 0 10px; color: #fff; font-family: var(--heading-font, sans-serif); font-weight: 600; font-size: 26px; line-height: 1.12; letter-spacing: -.03em; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .rng__title { font-size: 34px; } }
+  #shopify-section-{{ sid }} .rng__title em { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; color: var(--gold); }
+  #shopify-section-{{ sid }} .rng__text { font-size: 16px; line-height: 1.65; }
+  #shopify-section-{{ sid }} .rng__text p { margin: 0; }
+  @media (prefers-reduced-motion: reduce) { #shopify-section-{{ sid }} .rng__ring { animation: none; } }
+</style>
+<section data-own-size class="rng"{% if st.anchor != blank %} id="{{ st.anchor | handleize }}"{% endif %}>
+  <div class="rng__panel">
+    <div class="rng__seal" aria-hidden="true">
+      <svg class="rng__ring" viewBox="0 0 200 200"><defs><path id="rng-path-{{ sid }}" d="M100 100m-80 0a80 80 0 1 1 160 0a80 80 0 1 1-160 0"/></defs><circle cx="100" cy="100" r="96" fill="none" stroke="currentColor" stroke-opacity=".35" stroke-width="1"/><text fill="currentColor" font-size="14" font-weight="600" style="font-family:inherit"><textPath href="#rng-path-{{ sid }}" textLength="496" lengthAdjust="spacing">{{ ring | upcase | escape }} · {{ ring | upcase | escape }} ·</textPath></text></svg>
+      <span class="rng__core"><span><span class="rng__days" style="display:block">{{ st.days | escape }}</span><span class="rng__unit" style="display:block">{{ st.unit | escape }}</span></span></span>
+    </div>
+    <div>
+      {%- if st.heading != blank -%}<h2 class="rng__title">{{ st.heading }}</h2>{%- endif -%}
+      {%- if st.text != blank -%}<div class="rng__text">{{ st.text }}</div>{%- endif -%}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Renaissance guarantee",
+  "tag": "section",
+  "class": "renaissance-guarantee-section",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "settings": [
+    { "type": "text", "id": "anchor", "label": "Name for links to this place", "default": "guarantee" },
+    { "type": "text", "id": "days", "label": "Number in the seal", "default": "30" },
+    { "type": "text", "id": "unit", "label": "Word under it", "default": "days" },
+    { "type": "text", "id": "ring_text", "label": "Words around the seal", "default": "Money back guarantee" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "Try it for <em>30 days</em>" },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Say exactly how someone gets their money back.</p>" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#07080d" },
+    { "type": "color", "id": "accent", "label": "Accent", "default": "#3d5afe" },
+    { "type": "color", "id": "gold", "label": "Highlight", "default": "#f2bd4f" },
+    { "type": "color", "id": "text_color", "label": "Text", "default": "#a7adbf" },
+    { "type": "range", "id": "padding_top", "label": "Space above on a computer", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 24 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below on a computer", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above on a phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 24 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below on a phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 48 }
+  ],
+  "presets": [ { "name": "Renaissance guarantee", "category": "Digital Renaissance" } ]
+}
+{% endschema %}

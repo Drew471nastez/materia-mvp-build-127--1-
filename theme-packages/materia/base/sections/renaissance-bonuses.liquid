@@ -1,0 +1,88 @@
+{%- comment -%}
+  Digital Renaissance: bonuses. A heading and line, then each bonus (a
+  block) as a wide row: a very large outlined number in the accent
+  colour, fading downward, a title, a line, and on the right a
+  small seal with when it unlocks and an optional value.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+-%}
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap">
+<style>
+  #shopify-section-{{ sid }} .rnb { --gold: {{ st.gold | default: '#f2bd4f' }}; --lapis: {{ st.accent | default: '#3d5afe' }}; background: {{ st.background | default: '#0b0c12' }}; color: {{ st.text_color | default: '#a7adbf' }}; padding: {{ st.padding_top_mobile | default: 56 }}px 16px {{ st.padding_bottom_mobile | default: 56 }}px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .rnb { padding: {{ st.padding_top | default: 112 }}px 40px {{ st.padding_bottom | default: 112 }}px; } }
+  #shopify-section-{{ sid }} .rnb__in { max-width: 1040px; margin: 0 auto; }
+  #shopify-section-{{ sid }} .rnb__eyebrow { margin: 0 0 12px; color: var(--gold); font-size: 12px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; text-align: center; }
+  #shopify-section-{{ sid }} .rnb__title { margin: 0 auto 14px; max-width: 16em; color: #fff; font-family: var(--heading-font, sans-serif); font-weight: 600; font-size: 32px; line-height: 1.08; letter-spacing: -.03em; text-align: center; text-wrap: balance; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .rnb__title { font-size: 48px; } }
+  #shopify-section-{{ sid }} .rnb__title em { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; color: var(--gold); }
+  #shopify-section-{{ sid }} .rnb__intro { max-width: 34em; margin: 0 auto 36px; text-align: center; font-size: 16.5px; line-height: 1.6; }
+  #shopify-section-{{ sid }} .rnb__intro p { margin: 0; }
+  #shopify-section-{{ sid }} .rnb__list { margin: 0; padding: 0; list-style: none; border-radius: 18px; border: 1px solid rgba(255,255,255,.08); overflow: hidden; background: rgba(255,255,255,.015); }
+  #shopify-section-{{ sid }} .rnb__row { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 4px 16px; align-items: center; padding: 22px 18px; border-top: 1px solid rgba(255,255,255,.07); }
+  #shopify-section-{{ sid }} .rnb__row:first-child { border-top: 0; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .rnb__row { grid-template-columns: 120px minmax(0, 1fr) 130px; gap: 24px; padding: 26px 28px; } }
+  #shopify-section-{{ sid }} .rnb__num { font-family: var(--heading-font, sans-serif); font-weight: 700; font-size: 44px; line-height: .9; letter-spacing: -.05em; white-space: nowrap; color: transparent; -webkit-text-stroke: 1.2px color-mix(in srgb, var(--lapis) 80%, #fff); background: linear-gradient(180deg, var(--lapis), color-mix(in srgb, var(--lapis) 20%, transparent)); -webkit-background-clip: text; background-clip: text; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .rnb__num { font-size: 84px; } }
+  #shopify-section-{{ sid }} .rnb__name { margin: 0 0 6px; color: #fff; font-family: var(--heading-font, sans-serif); font-size: 18px; font-weight: 600; letter-spacing: -.02em; line-height: 1.25; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .rnb__name { font-size: 21px; } }
+  #shopify-section-{{ sid }} .rnb__text { margin: 0; font-size: 15px; line-height: 1.55; }
+  #shopify-section-{{ sid }} .rnb__seal { grid-column: 2; justify-self: start; display: inline-flex; align-items: center; gap: 8px; margin-top: 10px; padding: 6px 11px 6px 7px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--gold) 40%, transparent); color: var(--gold); font-size: 12px; font-weight: 600; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .rnb__seal { grid-column: 3; justify-self: end; flex-direction: column; gap: 6px; margin: 0; padding: 0; border: 0; text-align: center; } }
+  #shopify-section-{{ sid }} .rnb__medal { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: color-mix(in srgb, var(--gold) 18%, transparent); }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .rnb__medal { width: 58px; height: 58px; border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent); background: radial-gradient(circle at 30% 25%, color-mix(in srgb, var(--gold) 30%, transparent), transparent 70%); } }
+  #shopify-section-{{ sid }} .rnb__medal svg { width: 12px; height: 12px; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .rnb__medal svg { width: 24px; height: 24px; } }
+  #shopify-section-{{ sid }} .rnb__value { display: block; color: #8a90a3; font-size: 11.5px; font-weight: 500; }
+</style>
+<section data-own-size class="rnb"{% if st.anchor != blank %} id="{{ st.anchor | handleize }}"{% endif %}>
+  <div class="rnb__in">
+    {%- if st.eyebrow != blank -%}<p class="rnb__eyebrow">{{ st.eyebrow | escape }}</p>{%- endif -%}
+    {%- if st.heading != blank -%}<h2 class="rnb__title">{{ st.heading }}</h2>{%- endif -%}
+    {%- if st.intro != blank -%}<div class="rnb__intro">{{ st.intro }}</div>{%- endif -%}
+    <ol class="rnb__list">
+      {%- for block in section.blocks -%}
+        <li class="rnb__row" {{ block.shopify_attributes }}>
+          <span class="rnb__num" aria-hidden="true">{{ forloop.index | prepend: '0' | slice: -2, 2 }}</span>
+          <div><h3 class="rnb__name">{{ block.settings.title | escape }}</h3><p class="rnb__text">{{ block.settings.text | escape }}</p></div>
+          {%- if block.settings.when != blank -%}
+            <span class="rnb__seal"><span class="rnb__medal" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5c.8 5.4 3.1 7.7 8.5 8.5-5.4.8-7.7 3.1-8.5 8.5-.8-5.4-3.1-7.7-8.5-8.5 5.4-.8 7.7-3.1 8.5-8.5z"/></svg></span><span>{{ block.settings.when | escape }}{%- if block.settings.value != blank -%}<span class="rnb__value">{{ block.settings.value | escape }}</span>{%- endif -%}</span></span>
+          {%- endif -%}
+        </li>
+      {%- endfor -%}
+    </ol>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Renaissance bonuses",
+  "tag": "section",
+  "class": "renaissance-bonuses-section",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "settings": [
+    { "type": "text", "id": "anchor", "label": "Name for links to this place", "default": "bonuses" },
+    { "type": "text", "id": "eyebrow", "label": "Small line above", "default": "Along the way" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "Bonuses you <em>unlock</em>" },
+    { "type": "richtext", "id": "intro", "label": "Text", "default": "<p>Say when and how each bonus becomes available.</p>" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#0b0c12" },
+    { "type": "color", "id": "accent", "label": "Accent", "default": "#3d5afe" },
+    { "type": "color", "id": "gold", "label": "Highlight", "default": "#f2bd4f" },
+    { "type": "color", "id": "text_color", "label": "Text", "default": "#a7adbf" },
+    { "type": "range", "id": "padding_top", "label": "Space above on a computer", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 112 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below on a computer", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 112 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above on a phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below on a phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 }
+  ],
+  "blocks": [
+    { "type": "bonus", "name": "Bonus", "limit": 8, "settings": [
+      { "type": "text", "id": "title", "label": "Title", "default": "Bonus title" },
+      { "type": "text", "id": "text", "label": "Line", "default": "What it is and why it helps." },
+      { "type": "text", "id": "when", "label": "When it unlocks", "default": "Week 1" },
+      { "type": "text", "id": "value", "label": "Small line under it" }
+    ] }
+  ],
+  "presets": [ { "name": "Renaissance bonuses", "category": "Digital Renaissance", "blocks": [ { "type": "bonus" }, { "type": "bonus", "settings": { "when": "Week 2" } }, { "type": "bonus", "settings": { "when": "Week 4" } } ] } ]
+}
+{% endschema %}

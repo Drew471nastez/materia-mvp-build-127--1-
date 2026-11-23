@@ -1,0 +1,19 @@
+
+  #shopify-section-press .cpp { background: #16120f; color: #f3ece4; padding: 48px 20px; text-align: center; }
+  @media (min-width: 990px) { #shopify-section-press .cpp { padding: 60px 40px; } }
+  #shopify-section-press .cpp__title { margin: 0 0 30px; color: #ffffff; font-family: var(--heading-font, serif); font-weight: 400; font-size: 30px; line-height: 1.1; }
+  @media (min-width: 990px) { #shopify-section-press .cpp__title { font-size: 40px; margin-bottom: 38px; } }
+  #shopify-section-press .cpp__row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 26px 16px; align-items: center; max-width: 1160px; margin: 0 auto; padding: 0; list-style: none; }
+  @media (min-width: 750px) { #shopify-section-press .cpp__row { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (min-width: 990px) { #shopify-section-press .cpp__row { display: flex; flex-wrap: wrap; justify-content: center; gap: 22px 56px; } }
+  #shopify-section-press .cpp__item { display: flex; justify-content: center; align-items: center; min-height: 40px; opacity: .86; transition: opacity .25s ease; }
+  #shopify-section-press .cpp__item:hover { opacity: 1; }
+  #shopify-section-press .cpp__item img { max-height: 34px; width: auto; max-width: 150px; }
+  #shopify-section-press .cpp__w { white-space: nowrap; line-height: 1; }
+  #shopify-section-press .cpp__w--serif { font-family: 'Times New Roman', Georgia, serif; font-weight: 700; font-size: 26px; letter-spacing: -.02em; }
+  #shopify-section-press .cpp__w--italic { font-family: var(--heading-font, serif); font-style: italic; font-size: 30px; }
+  #shopify-section-press .cpp__w--caps { font-family: var(--body-font, sans-serif); font-weight: 800; font-size: 19px; letter-spacing: .02em; text-transform: uppercase; }
+  #shopify-section-press .cpp__w--wide { font-family: var(--body-font, sans-serif); font-weight: 500; font-size: 14px; letter-spacing: .38em; text-transform: uppercase; }
+  #shopify-section-press .cpp__w--box { font-family: var(--body-font, sans-serif); font-weight: 800; font-size: 14px; letter-spacing: .08em; text-transform: uppercase; padding: 6px 8px 5px; border: 2px solid currentColor; }
+  #shopify-section-press .cpp__w--round { font-family: var(--body-font, sans-serif); font-weight: 700; font-size: 22px; letter-spacing: -.03em; text-transform: lowercase; }
+  #shopify-section-press .cpp__note { margin: 26px 0 0; color: #a39a90; font-size: 13px; }

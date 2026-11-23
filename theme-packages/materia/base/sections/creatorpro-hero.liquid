@@ -29,6 +29,7 @@
   #shopify-section-{{ sid }} .cph__row { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
   @media (min-width: 600px) { #shopify-section-{{ sid }} .cph__row { flex-direction: row; gap: 8px; } }
   #shopify-section-{{ sid }} .cph__input { --input-height: 56px; height: 56px !important; min-height: 56px !important; flex: 1 1 auto; min-width: 0; box-sizing: border-box; height: 56px !important; margin: 0; padding: 0 20px; border: 1.5px solid {{ st.field_border | default: '#dedcd5' }}; border-radius: {{ st.radius | default: 12 }}px; background: #fff; font: inherit; font-size: 16px; color: var(--color-heading); }
+  #shopify-section-{{ sid }} .cph__form input.cph__input.cph__input { background-color: #ffffff !important; }
   #shopify-section-{{ sid }} .cph__input:focus-visible { outline: 2px solid var(--cph-accent); outline-offset: 1px; }
   #shopify-section-{{ sid }} .cph__submit { flex: 0 0 auto; height: 56px; margin: 0; padding: 0 24px; border: 0; border-radius: {{ st.radius | default: 12 }}px; cursor: pointer; white-space: nowrap; background: var(--cph-btn); color: var(--cph-btn-text); font: inherit; font-size: 15.5px; font-weight: 700; transition: transform 0.2s ease, background-color 0.2s ease; }
   #shopify-section-{{ sid }} .cph__submit:hover { background: var(--cph-accent); }
@@ -67,7 +68,7 @@
           <div class="cph__hp" aria-hidden="true" data-mt-trap><label for="CreatorHeroHp-{{ sid }}">Leave this field empty</label><input id="CreatorHeroHp-{{ sid }}" type="text" name="company" tabindex="-1" autocomplete="off" pattern="^$" maxlength="0" value=""></div>
           <div class="cph__row">
             <label class="cph__vh" for="CreatorHeroEmail-{{ sid }}">{{ st.email_placeholder | default: 'Your email' | escape }}</label>
-            <input class="cph__input" id="CreatorHeroEmail-{{ sid }}" type="email" name="contact[email]" required inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" maxlength="254" placeholder="{{ st.email_placeholder | default: 'Your email' | escape }}">
+            <input class="cph__input" style="background-color: #ffffff !important;" id="CreatorHeroEmail-{{ sid }}" type="email" name="contact[email]" required inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" maxlength="254" placeholder="{{ st.email_placeholder | default: 'Your email' | escape }}">
             <button type="submit" class="cph__submit">{{ st.button_label | default: 'Join the letter' | escape }}</button>
           </div>
           {%- if form.posted_successfully? -%}<p class="cph__msg form-status--success">{{ st.success_text | default: 'You are in. Check your inbox.' | escape }}</p>{%- endif -%}

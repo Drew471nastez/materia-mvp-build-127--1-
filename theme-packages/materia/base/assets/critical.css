@@ -429,7 +429,8 @@ input[type='password'] {
 textarea {
   min-height: 15rem;
   resize: none;
-  --input-padding: 2rem;
+  /* Its text starts where an input's does (the field's own side padding), only a little lower: a message box under a name and an email lined up with them (round 21). */
+  padding-block: 1.2rem;
 }
 table {
   border-spacing: 0;

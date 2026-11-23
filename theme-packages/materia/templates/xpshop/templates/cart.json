@@ -1,0 +1,71 @@
+{
+  "sections": {
+    "cart-items": {
+      "type": "main-cart-items",
+      "settings": {
+        "padding_top": 24,
+        "reset_spacing": true,
+        "section_width": "fluid_container",
+        "padding_bottom": 28,
+        "enable_cart_note": false,
+        "enable_discount_code": true,
+        "show_estimate_shipping": false
+      },
+      "blocks": {
+        "faq_section_1": {
+          "type": "faq_section",
+          "settings": {
+            "show_faq": true,
+            "faq_heading": "Before you check out"
+          }
+        },
+        "faq_1": {
+          "type": "faq",
+          "settings": {
+            "question": "Which size should I take?",
+            "answer": "<p>Tees and hoodies are cut a little boxy. If you are between sizes, take the smaller one.</p>"
+          }
+        },
+        "faq_2": {
+          "type": "faq",
+          "settings": {
+            "question": "When will it arrive?",
+            "answer": "<p>Orders are printed and sent within two working days, tracked. Add your delivery times here.</p>"
+          }
+        },
+        "faq_3": {
+          "type": "faq",
+          "settings": {
+            "question": "Can I send it back?",
+            "answer": "<p>Yes, within 30 days, unworn and with the tags on.</p>"
+          }
+        },
+        "payment_badges_67Mgyc": {
+          "type": "payment_badges",
+          "settings": {
+            "show_amex": true,
+            "show_visa": true,
+            "show_amazon": false,
+            "show_klarna": false,
+            "show_paypal": true,
+            "show_discover": false,
+            "show_apple_pay": true,
+            "show_google_pay": true,
+            "show_mastercard": true,
+            "show_payment_badges": true
+          }
+        }
+      },
+      "block_order": [
+        "faq_section_1",
+        "faq_1",
+        "faq_2",
+        "faq_3",
+        "payment_badges_67Mgyc"
+      ]
+    }
+  },
+  "order": [
+    "cart-items"
+  ]
+}

@@ -13,13 +13,6 @@
       },
       "name": "Main Blog Article",
       "blocks": {
-        "category_8bHVa7": {
-          "type": "category",
-          "settings": {
-            "enable_custom_style": false,
-            "category_border_radius": 36
-          }
-        },
         "title_8UcLB3": {
           "type": "title",
           "settings": {
@@ -49,13 +42,12 @@
         "author_highlight_n4CqbT": {
           "type": "author_highlight",
           "settings": {
-            "author_text": "Written by Loudlib. Questions about a pack go to the contact page.",
+            "author_text": "Questions about a pack go to the contact page.",
             "author_image_size": 65
           }
         }
       },
       "block_order": [
-        "category_8bHVa7",
         "title_8UcLB3",
         "blog_meta_Gdcegm",
         "featured_image_ne7Ufj",

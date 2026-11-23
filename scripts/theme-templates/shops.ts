@@ -185,27 +185,29 @@ export const SAMPLE_SHOPS: Record<string, { name: string; products: SampleProduc
       { title: "Slow Sundays print", price: "$32.00", image: "posters-wavy-checks.webp", options: [{ name: "Size", values: ["A4", "A3", "50 x 70 cm"] }, { name: "Frame", values: ["Unframed", "Black frame", "Oak frame"] }], add: { "A3": 10, "50 x 70 cm": 26, "Black frame": 45, "Oak frame": 45 } },
     ],
   },
-  /* Templates round 20: a life and business coach; sessions and programmes sell as products. */
+  /* Templates round 21: a leadership coach for new managers; coaching, the group, a team day and a single call sell as products. */
   coach: {
-    name: "Leah Morgan Coaching",
+    name: "Mateo Cruz",
     products: [
-      { title: "One to one coaching", price: "$160.00", image: "coach-offer-one.webp", kind: "digital", description: "Private 50 minute sessions to untangle one big decision and leave with a plan you will keep. Notes after every session and a short check in between calls.", options: [{ name: "Sessions", values: ["One session", "Six sessions"] }, { name: "Where", values: ["In Bristol", "Online"] }], add: { "Six sessions": 720 } },
-      { title: "The Clear Path group", price: "$480.00", compare: "$560.00", image: "coach-offer-group.webp", kind: "digital", description: "Eight Tuesday evenings online with five other women at the same crossroads. Early places are $480." },
-      { title: "Online session", price: "$140.00", image: "coach-offer-online.webp", kind: "digital", description: "One coaching session on a video call, wherever you are.", options: [{ name: "Length", values: ["50 minutes", "80 minutes"] }], add: { "80 minutes": 70 } },
-      { title: "The clarity workbook", price: "$24.00", image: "coach-guide.webp", kind: "digital", description: "A printable workbook of the exercises I use in first sessions: forty pages to fill in at your own pace." },
-      { title: "Gift a session", price: "$160.00", image: "coach-grid-4.webp", kind: "digital", description: "One 50 minute session for someone else, with a card to print or send." },
+      { title: "Monthly coaching", price: "$390.00", image: "coach-offer-one.webp", kind: "digital", description: "Two 60 minute calls a month on video and messages in between. We work on delegation, feedback, one to ones and your plan, with a one page plan updated every month. Stop or pause any month.", options: [{ name: "Commitment", values: ["Month to month", "Three months"] }, { name: "Calls", values: ["Two a month", "Weekly"] }], add: { Weekly: 300 } },
+      { title: "First 90 Days", price: "$990.00", compare: "$1,200.00", image: "coach-offer-group.webp", kind: "digital", description: "Eight new managers, eight weeks on video: delegation, feedback, one to ones, meetings, hiring and the plan, with a workbook for each week and two one to one calls." },
+      { title: "Team day", price: "$2,400.00", image: "coach-offer-day.webp", kind: "digital", description: "A full day with you and your team on roles, meetings, decisions and the next quarter, in person or online. Everything agreed, written up within a week.", options: [{ name: "Where", values: ["Online", "In Austin", "At your office"] }], add: { "At your office": 400 } },
+      { title: "Leadership workshop", price: "$1,800.00", image: "coach-offer-team.webp", kind: "digital", description: "A half day workshop for a group of managers on delegation, feedback or meetings, with exercises on real situations from the room." },
+      { title: "Single call", price: "$180.00", image: "coach-offer-gift.webp", kind: "digital", description: "One 60 minute call on one question: a hard conversation, a first hire, a team that is stuck." },
     ],
   },
-  /* Templates round 20: one home barista course sold as a product, with two short courses and a call beside it; covers are drawn screens with real photographs in them. */
+  /* Templates round 21: an online guitar course for beginners, sold as one product with a feedback edition, two short courses and a private lesson beside it; pictures are the teacher's photo series in one grey room. */
   course2: {
-    name: "Slow Bloom",
+    name: "Fretline",
     products: [
-      { title: "Home Barista Course", price: "$149.00", compare: "$199.00", image: "course2-home-barista.webp", kind: "digital", description: "Seven modules and 46 short lessons, filmed at a home machine: beans, grinding, espresso, dialling in, milk, latte art and pour over. With printable recipe cards and grind charts.", options: [{ name: "Edition", values: ["Self paced", "With feedback"] }, { name: "Seats", values: ["Just me", "Team of 3"] }], add: { "With feedback": 80, "Team of 3": 200 }, pictures: { "Self paced": "course2-home-barista.webp", "With feedback": "course2-home-barista-feedback.webp" } },
-      { title: "Milk and Latte Art", price: "$49.00", image: "course2-latte-art.webp", kind: "digital", description: "A short course of 12 lessons on steaming milk and pouring a heart, a tulip and a rosetta." },
-      { title: "Pour Over at Home", price: "$39.00", image: "course2-pour-over.webp", kind: "digital", description: "Eight lessons and one recipe for pour over and cafetiere, by weight." },
-      { title: "One to One Dial In", price: "$60.00", image: "course2-one-to-one.webp", kind: "digital", description: "A 45 minute video call on your own machine and grinder, with a written plan after." },
+      { title: "Guitar from Zero", price: "$149.00", compare: "$199.00", image: "course2-guitar-from-zero.webp", kind: "digital", description: "Eight modules and 64 short lessons, from holding the guitar to playing whole songs: first chords, strumming, five songs, riffs, barre chords and fingerpicking. With 20 play along songs at three speeds, printable chord sheets and a daily plan.", options: [{ name: "Edition", values: ["Self paced", "With feedback"] }, { name: "Seats", values: ["Just me", "Two seats"] }], add: { "With feedback": 80, "Two seats": 60 }, pictures: { "Self paced": "course2-guitar-from-zero.webp", "With feedback": "course2-video-feedback.webp" } },
+      { title: "Barre Chords Bootcamp", price: "$49.00", image: "course2-barre-chords.webp", kind: "digital", description: "Twelve lessons over two weeks to make F, B minor and every E and A shape ring clean, with exercises that build strength without strain." },
+      { title: "Song Library: 20 Songs", price: "$39.00", image: "course2-song-library.webp", kind: "digital", description: "Twenty songs broken down slowly, each with a chord sheet and a play along at three speeds." },
+      { title: "Video Feedback", price: "$29.00", image: "course2-video-feedback.webp", kind: "digital", description: "Send a video of yourself playing and get a short video reply on what to change, within three days." },
+      { title: "Private Lesson", price: "$60.00", image: "course2-private-lesson.webp", kind: "digital", description: "A 30 minute lesson with Jonas on video, on whatever you are stuck on, with a written practice plan after." },
     ],
   },
+
   /* Templates round 21: a podcast launch course sold by a video sales letter; the course, its starter kit and a review call. */
   vsl: {
     name: "Longwave",
@@ -261,10 +263,32 @@ export const SAMPLE_SHOPS: Record<string, { name: string; products: SampleProduc
   creatorpro: {
     name: "Nina Brooks",
     products: [
-      { title: "Launch Lab", price: "$249.00", compare: "$349.00", image: "creatorpro-course-launch.webp", kind: "digital", description: "Eight weeks from an idea to your first paid digital product: the offer, the sales page, the emails and the launch. 32 short lessons, templates for every step and a live call every Thursday.", options: [{ name: "Access", values: ["Course", "Course and two private calls"] }, { name: "Payment", values: ["In full", "In three parts"] }], add: { "Course and two private calls": 300 } },
-      { title: "YouTube from Zero", price: "$129.00", image: "creatorpro-course-youtube.webp", kind: "digital", description: "Plan, film and edit your first ten videos with a phone and a lamp. 24 lessons, about five hours." },
-      { title: "The Creator OS", price: "$29.00", image: "creatorpro-course-os.webp", kind: "digital", description: "The Notion workspace Nina runs her business from: ideas, a content plan, offers and sponsors, with a video walkthrough." },
-      { title: "Strategy call", price: "$180.00", image: "creatorpro-call.webp", kind: "digital", description: "One hour on a video call about your offer, your audience or your launch plan, with written notes after." },
+      { title: "Launch Lab", price: "$249.00", compare: "$349.00", image: "creatorpro-p-launch.webp", kind: "digital", description: "Eight weeks from an idea to your first paid digital product: the offer, the sales page, the emails and the launch. 32 short lessons, templates for every step and a live call every Thursday.", options: [{ name: "Access", values: ["Course", "Course and two private calls"] }, { name: "Payment", values: ["In full", "In three parts"] }], add: { "Course and two private calls": 300 } },
+      { title: "YouTube from Zero", price: "$129.00", image: "creatorpro-p-youtube.webp", kind: "digital", description: "Plan, film and edit your first ten videos with a phone and a lamp. 24 lessons, about five hours." },
+      { title: "The Creator OS", price: "$29.00", image: "creatorpro-p-os.webp", kind: "digital", description: "The Notion workspace Nina runs her business from: ideas, a content plan, offers and sponsors, with a video walkthrough." },
+      { title: "Strategy call", price: "$180.00", image: "creatorpro-p-call.webp", kind: "digital", description: "One hour on a video call about your offer, your audience or your launch plan, with written notes after." },
+    ],
+  },
+  /* Templates round 21: Digital Renaissance, an AI course for business owners in two editions, a team plan, a prompt library and an audit call; the covers are drawn. */
+  renaissance: {
+    name: "Digital Renaissance",
+    products: [
+      { title: "Digital Renaissance", price: "$297.00", compare: "$397.00", image: "renaissance-course.webp", kind: "digital", description: "Six modules and 40 short lessons on using AI in a small business: writing in your own voice, customer service and sales, research, automations and a weekly routine. With the prompt library, the voice guide, ten automation recipes and lifetime updates.", options: [{ name: "Edition", values: ["Self paced", "Cohort edition"] }, { name: "Payment", values: ["In full", "Three monthly parts"] }], add: { "Cohort edition": 200, "Three monthly parts": 18 }, pictures: { "Self paced": "renaissance-course.webp", "Cohort edition": "renaissance-cohort.webp" } },
+      { title: "Cohort edition", price: "$497.00", compare: "$697.00", image: "renaissance-cohort.webp", kind: "digital", description: "The full course with twelve live calls on Thursdays and a private AI audit." },
+      { title: "Prompt library", price: "$49.00", image: "renaissance-prompts.webp", kind: "digital", description: "150 prompts sorted by task, updated every month." },
+      { title: "AI audit call", price: "$190.00", image: "renaissance-audit.webp", kind: "digital", description: "Sixty minutes on a video call about your own business, with a written plan after." },
+    ],
+  },
+  /* Templates round 21: a merch shop on a sunny XP style desktop; plain tees, a crew, a cap and a beanie (Unsplash photographs, recoloured, prints drawn on) on one pale ground, and a drawn sticker sheet. */
+  xpshop: {
+    name: "Hilltop Supply",
+    products: [
+      { title: "Hillside tee", price: "$36.00", image: "xpshop-hillside-tee-white.webp", description: "A hill, a sky and two clouds in a rounded window, printed on heavy 240 gsm cotton with water based ink. Cut a little boxy with a dropped shoulder.", options: [{ name: "Colour", values: ["White", "Sky"] }, { name: "Size", values: ["S", "M", "L", "XL"] }], soldOut: ["XL"], pictures: { White: "xpshop-hillside-tee-white.webp", Sky: "xpshop-hillside-tee-sky.webp" } },
+      { title: "Start crew", price: "$72.00", compare: "$88.00", image: "xpshop-start-crew-green.webp", description: "Brushed back fleece crewneck with our green hilltop button printed on the chest. Ribbed cuffs and hem.", options: [{ name: "Colour", values: ["Green", "White"] }, { name: "Size", values: ["S", "M", "L", "XL"] }], pictures: { Green: "xpshop-start-crew-green.webp", White: "xpshop-start-crew-white.webp" } },
+      { title: "Balloon tee", price: "$36.00", image: "xpshop-balloon-tee-black.webp", description: "A yellow notice balloon that says the new drop is ready. Heavy cotton, printed to order.", options: [{ name: "Colour", values: ["Black", "White"] }, { name: "Size", values: ["S", "M", "L", "XL"] }], pictures: { Black: "xpshop-balloon-tee-black.webp", White: "xpshop-balloon-tee-white.webp" } },
+      { title: "Cloud cap", price: "$30.00", image: "xpshop-cloud-cap-blue.webp", description: "Six panel cotton twill cap with a white cloud stitched on the front. One size, with a strap at the back." },
+      { title: "Desktop sticker sheet", price: "$9.00", image: "xpshop-sticker-pack.webp", description: "Seven die cut stickers on one sheet: a hill, a window, the green button, a clock, a cursor, a cloud and a balloon. Matte vinyl, waterproof." },
+      { title: "Meadow beanie", price: "$28.00", image: "xpshop-meadow-beanie.webp", description: "Chunky cable knit in grass green with a pom and a woven hilltop label." },
     ],
   },
 }

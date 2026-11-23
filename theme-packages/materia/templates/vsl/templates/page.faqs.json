@@ -101,7 +101,7 @@
         "button_label": "Book a free call",
         "button_link": "/pages/book-a-call",
         "button2_label": "See the course",
-        "button2_link": "/products/the-podcast-launch-course",
+        "button2_link": "/#join",
         "note": "",
         "glow": true,
         "line_above": true,

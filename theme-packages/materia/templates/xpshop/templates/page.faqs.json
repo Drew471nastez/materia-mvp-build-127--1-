@@ -1,0 +1,153 @@
+{
+  "sections": {
+    "faq": {
+      "type": "xpshop-help",
+      "settings": {
+        "title": "Help and questions",
+        "icon": "help",
+        "heading": "Help and questions",
+        "heading_tag": "h1",
+        "subheading": "Sizes, delivery, returns and the prints. Type a word to find a question.",
+        "show_find": true,
+        "find_label": "Search the questions",
+        "none_label": "No question matches that. Write to us instead.",
+        "open_first": true,
+        "end_text": "Still wondering about something?",
+        "end_label": "Write to us",
+        "end_link": "/pages/contact",
+        "width": 1180,
+        "padding_top": 0,
+        "padding_bottom": 28,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 16
+      },
+      "blocks": {
+        "q_1": {
+          "type": "question",
+          "settings": {
+            "question": "Which size should I take?",
+            "answer": "<p>Tees and crews are cut a little boxy with a dropped shoulder. If you are between two sizes, take the smaller one for a closer fit. Every product page has the measurements.</p>"
+          }
+        },
+        "q_2": {
+          "type": "question",
+          "settings": {
+            "question": "When will my order arrive?",
+            "answer": "<p>Each piece is printed when you order it and leaves within two working days, tracked. Add your own delivery times on the <a href=\"/pages/shipping\">shipping page</a>.</p>"
+          }
+        },
+        "q_3": {
+          "type": "question",
+          "settings": {
+            "question": "Can I send something back?",
+            "answer": "<p>Yes, within 30 days if it is unworn and unwashed. Write to us with your order number and we send a return label. See the <a href=\"/policies/refund-policy\">refund policy</a>.</p>"
+          }
+        },
+        "q_4": {
+          "type": "question",
+          "settings": {
+            "question": "Will the print crack or fade?",
+            "answer": "<p>The prints are water based ink pressed into the cotton, so they stay soft. Wash cold and inside out, hang to dry, and they last as long as the tee.</p>"
+          }
+        },
+        "q_5": {
+          "type": "question",
+          "settings": {
+            "question": "Are the stickers waterproof?",
+            "answer": "<p>Yes. They are matte vinyl, cut to shape, and fine on a water bottle or a laptop lid. They peel off cleanly too.</p>"
+          }
+        },
+        "q_6": {
+          "type": "question",
+          "settings": {
+            "question": "Do you restock sold out pieces?",
+            "answer": "<p>Most prints come back once. Sign up to the mailing list and you hear about it a day before everyone else.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "q_1",
+        "q_2",
+        "q_3",
+        "q_4",
+        "q_5",
+        "q_6"
+      ]
+    },
+    "promises": {
+      "type": "xpshop-tiles",
+      "settings": {
+        "title": "Good to know",
+        "icon": "info",
+        "heading": "",
+        "subheading": "",
+        "columns": "4",
+        "layout": "side",
+        "numbers": false,
+        "phone_two": false,
+        "status_left": "",
+        "status_right": "",
+        "padding_top": 0,
+        "padding_bottom": 28,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 16
+      },
+      "blocks": {
+        "tile_1": {
+          "type": "tile",
+          "settings": {
+            "icon": "leaf",
+            "picture": "",
+            "title": "Printed to order",
+            "text": "Heavy 240 gsm cotton and water based ink. Nothing sits in a warehouse.",
+            "link": "",
+            "link_label": ""
+          }
+        },
+        "tile_2": {
+          "type": "tile",
+          "settings": {
+            "icon": "truck",
+            "picture": "",
+            "title": "Sent in 2 days",
+            "text": "Tracked, with the number in your inbox the day it leaves.",
+            "link": "/pages/shipping",
+            "link_label": "Delivery times"
+          }
+        },
+        "tile_3": {
+          "type": "tile",
+          "settings": {
+            "icon": "refresh",
+            "picture": "",
+            "title": "30 days to return",
+            "text": "Unworn and unwashed, we refund it. The label is on us.",
+            "link": "/policies/refund-policy",
+            "link_label": "Refund policy"
+          }
+        },
+        "tile_4": {
+          "type": "tile",
+          "settings": {
+            "icon": "shield",
+            "picture": "",
+            "title": "Safe checkout",
+            "text": "Cards, Apple Pay and Google Pay. We never see your card.",
+            "link": "",
+            "link_label": ""
+          }
+        }
+      },
+      "block_order": [
+        "tile_1",
+        "tile_2",
+        "tile_3",
+        "tile_4"
+      ]
+    }
+  },
+  "order": [
+    "faq",
+    "promises"
+  ]
+}

@@ -5,10 +5,10 @@
       "settings": {
         "eyebrow": "Contact",
         "heading": "Send me a <em>message</em>",
-        "text": "<p>A question before you book, a workshop for your team or a talk for your event. I answer within a working day.</p>",
+        "text": "<p>A question before you book, a team day or a talk for your company. I answer within a working day.</p>",
         "avatar": "shopify://shop_images/coach-mateo-avatar.webp",
         "name": "Mateo Cruz",
-        "role": "Business coach",
+        "role": "Leadership coach",
         "fact_1": "Answers within a working day",
         "fact_2": "English and Spanish",
         "fact_3": ""
@@ -21,19 +21,19 @@
         "btn_text": "Send message",
         "ph_website": "What it is about (optional)",
         "label_website": "Subject",
-        "success_text": "Thank you. I reply within two working days."
+        "success_text": "Thank you. I reply within a working day."
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Say hello"
+            "text": "Write to me"
           }
         },
         "description_2": {
           "type": "description",
           "settings": {
-            "text": "<p>Questions about coaching, the group, speaking or anything else. I read every message myself.</p>"
+            "text": "<p>Tell me a little about your team and what you would like help with.</p>"
           }
         },
         "info_3": {
@@ -48,8 +48,8 @@
           "type": "info",
           "settings": {
             "icon": "map",
-            "line1": "Bristol and online",
-            "line2": "Studio sessions by appointment"
+            "line1": "Austin and online",
+            "line2": "Team days in person by appointment"
           }
         }
       },
@@ -76,35 +76,35 @@
           "type": "question",
           "settings": {
             "question": "Who do you work with?",
-            "answer": "<p>Owners of companies with roughly two to twenty people: shops, studios, agencies, trades and services. If you are just starting out, the Growth Sprint is a good first step.</p>"
+            "answer": "<p>People in their first few years of managing others: team leads, new heads of a function and founders hiring their first team. Most of my clients lead between three and twenty people.</p>"
           }
         },
         "question_2": {
           "type": "question",
           "settings": {
             "question": "What happens on the free call?",
-            "answer": "<p>Twenty minutes on video. You tell me where the business is stuck, I ask a few questions, and I say honestly whether I can help. There is no pitch at the end.</p>"
+            "answer": "<p>Twenty minutes on video. You tell me about your team and what is hard right now, I ask a few questions, and I say honestly whether I can help. There is no pitch at the end.</p>"
           }
         },
         "question_3": {
+          "type": "question",
+          "settings": {
+            "question": "Can my company pay for it?",
+            "answer": "<p>Often, yes. Many clients use a training or development budget. You get an invoice in the company's name, and I can send a short outline for your manager.</p>"
+          }
+        },
+        "question_4": {
           "type": "question",
           "settings": {
             "question": "How long do clients usually stay?",
             "answer": "<p>Most stay four to six months on monthly coaching. You can stop or pause any month, with no notice period.</p>"
           }
         },
-        "question_4": {
-          "type": "question",
-          "settings": {
-            "question": "Do you work in person?",
-            "answer": "<p>Monthly coaching and the Growth Sprint are on video. Strategy days can be in person in Austin, at your place for a travel fee, or online.</p>"
-          }
-        },
         "question_5": {
           "type": "question",
           "settings": {
-            "question": "Can my business pay for it?",
-            "answer": "<p>Yes. You get an invoice in the company's name for every payment.</p>"
+            "question": "Is what I say kept private?",
+            "answer": "<p>Yes. When a company pays, I share only that we are meeting, never what we talk about.</p>"
           }
         },
         "question_6": {
@@ -130,14 +130,14 @@
         "background": "#ffffff",
         "eyebrow": "Free first call",
         "heading": "Let's look at your week",
-        "text": "<p>Twenty minutes on video. You say where the business is stuck; I say whether I can help.</p>",
+        "text": "<p>Twenty minutes on video. You tell me about your team; I say honestly whether I can help.</p>",
         "button_label": "Book a free call",
         "button_link": "/pages/book",
         "note": "No pitch. If we are not a fit, I will say so.",
         "avatar": "shopify://shop_images/coach-mateo-avatar.webp",
         "name": "Mateo Cruz",
-        "role": "Business coach",
-        "points": "Where the business is now\nWhat is taking your time\nOne next step, either way",
+        "role": "Leadership coach",
+        "points": "Where your team is now\nWhat is taking your time\nOne next step, either way",
         "heading_size": 64,
         "padding_top": 96,
         "padding_bottom": 96

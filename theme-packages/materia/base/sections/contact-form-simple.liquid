@@ -270,10 +270,22 @@
   #shopify-section-{{ sid }} .cfs__textarea { min-height: var(--cfs-ta-h); resize: vertical; }
 
   /* Submit button: the theme button, or this section's colours and shape */
+  /* As tall as a field, never a sliver of a button; beside the contact
+     details it starts at the fields' left edge rather than floating in the
+     middle of the form; on a phone it is as wide as the fields (round 21). */
   #shopify-section-{{ sid }} .cfs__submit {
     grid-column: 1 / -1;
     justify-self: var(--cfs-flex);
+    min-height: var(--input-height, 48px);
+    min-width: 168px;
+    margin-top: 4px;
     cursor: pointer;
+  }
+  @media (min-width: 900px) {
+    #shopify-section-{{ sid }} .cfs__grid:has(> .cfs__side-col) .cfs__submit { justify-self: start; }
+  }
+  @media (max-width: 599.98px) {
+    #shopify-section-{{ sid }} .cfs__submit { justify-self: stretch; width: 100%; }
   }
   #shopify-section-{{ sid }} .cfs__submit[data-cfs-full] { justify-self: stretch; width: 100%; }
   #shopify-section-{{ sid }} .cfs__submit:focus-visible { outline: 2px solid var(--color-heading); outline-offset: 3px; }

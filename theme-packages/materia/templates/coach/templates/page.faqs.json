@@ -16,35 +16,35 @@
           "type": "question",
           "settings": {
             "question": "Who do you work with?",
-            "answer": "<p>Owners of companies with roughly two to twenty people: shops, studios, agencies, trades and services. If you are just starting out, the Growth Sprint is a good first step.</p>"
+            "answer": "<p>People in their first few years of managing others: team leads, new heads of a function and founders hiring their first team. Most of my clients lead between three and twenty people.</p>"
           }
         },
         "question_2": {
           "type": "question",
           "settings": {
             "question": "What happens on the free call?",
-            "answer": "<p>Twenty minutes on video. You tell me where the business is stuck, I ask a few questions, and I say honestly whether I can help. There is no pitch at the end.</p>"
+            "answer": "<p>Twenty minutes on video. You tell me about your team and what is hard right now, I ask a few questions, and I say honestly whether I can help. There is no pitch at the end.</p>"
           }
         },
         "question_3": {
+          "type": "question",
+          "settings": {
+            "question": "Can my company pay for it?",
+            "answer": "<p>Often, yes. Many clients use a training or development budget. You get an invoice in the company's name, and I can send a short outline for your manager.</p>"
+          }
+        },
+        "question_4": {
           "type": "question",
           "settings": {
             "question": "How long do clients usually stay?",
             "answer": "<p>Most stay four to six months on monthly coaching. You can stop or pause any month, with no notice period.</p>"
           }
         },
-        "question_4": {
-          "type": "question",
-          "settings": {
-            "question": "Do you work in person?",
-            "answer": "<p>Monthly coaching and the Growth Sprint are on video. Strategy days can be in person in Austin, at your place for a travel fee, or online.</p>"
-          }
-        },
         "question_5": {
           "type": "question",
           "settings": {
-            "question": "Can my business pay for it?",
-            "answer": "<p>Yes. You get an invoice in the company's name for every payment.</p>"
+            "question": "Is what I say kept private?",
+            "answer": "<p>Yes. When a company pays, I share only that we are meeting, never what we talk about.</p>"
           }
         },
         "question_6": {
@@ -70,7 +70,7 @@
         "background": "#f3f4f6",
         "eyebrow": "How it works",
         "heading": "From the first call to a plan you use",
-        "text": "<p>No long questionnaire and no theory. We work on your real numbers and your real calendar from week one.</p>",
+        "text": "<p>No long questionnaire and no theory. We work on your real team and your real calendar from week one.</p>",
         "button_label": "Book a free call",
         "button_link": "/pages/book",
         "heading_size": 52,
@@ -83,15 +83,15 @@
           "settings": {
             "title": "A free call",
             "time": "20 min",
-            "text": "You tell me where the business is stuck. I tell you honestly whether I can help, and how."
+            "text": "You tell me about your team and what is hard right now. I tell you honestly whether I can help, and how."
           }
         },
         "step_2": {
           "type": "step",
           "settings": {
-            "title": "Look at the numbers",
+            "title": "Look at your week",
             "time": "Week 1",
-            "text": "Sales, margins, cash and where your hours go. One page that shows what is really happening."
+            "text": "Where your hours go, who needs what from you and what only you can do. One page that shows it."
           }
         },
         "step_3": {
@@ -99,7 +99,7 @@
           "settings": {
             "title": "Pick three changes",
             "time": "Week 2",
-            "text": "Not twenty. Three changes with the most effect, each with an owner and a date."
+            "text": "Not twenty. Three habits with the most effect, each with a first step this week."
           }
         },
         "step_4": {
@@ -124,14 +124,14 @@
         "background": "#ffffff",
         "eyebrow": "Free first call",
         "heading": "Let's look at your week",
-        "text": "<p>Twenty minutes on video. You say where the business is stuck; I say whether I can help.</p>",
+        "text": "<p>Twenty minutes on video. You tell me about your team; I say honestly whether I can help.</p>",
         "button_label": "Book a free call",
         "button_link": "/pages/book",
         "note": "No pitch. If we are not a fit, I will say so.",
         "avatar": "shopify://shop_images/coach-mateo-avatar.webp",
         "name": "Mateo Cruz",
-        "role": "Business coach",
-        "points": "Where the business is now\nWhat is taking your time\nOne next step, either way",
+        "role": "Leadership coach",
+        "points": "Where your team is now\nWhat is taking your time\nOne next step, either way",
         "heading_size": 64,
         "padding_top": 96,
         "padding_bottom": 96

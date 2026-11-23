@@ -40,7 +40,7 @@
   <div class="c2s__inner">
     {%- if st.image != blank -%}
       <figure class="c2s__media">
-        <img src="{{ st.image | image_url: width: 1000 }}" srcset="{{ st.image | image_url: width: 600 }} 600w, {{ st.image | image_url: width: 1000 }} 1000w" sizes="(min-width: 990px) 600px, 94vw" width="{{ st.image.width | default: 1000 }}" height="{{ st.image.height | default: 1250 }}" alt="{{ st.image_alt | escape }}" loading="lazy" decoding="async">
+        <img src="{{ st.image | image_url: width: 1000 }}" srcset="{{ st.image | image_url: width: 600 }} 600w, {{ st.image | image_url: width: 1000 }} 1000w" sizes="(min-width: 990px) 600px, 94vw" width="{{ st.image.width | default: 1000 }}" height="{{ st.image.height | default: 1250 }}" alt="{{ st.image_alt | escape }}" decoding="async">
       </figure>
     {%- endif -%}
     <div>

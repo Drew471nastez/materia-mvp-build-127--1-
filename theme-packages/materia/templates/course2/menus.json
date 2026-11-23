@@ -7,12 +7,12 @@
         "url": "/#curriculum"
       },
       {
-        "title": "Who it is for",
-        "url": "/#who"
+        "title": "Your teacher",
+        "url": "/pages/about"
       },
       {
-        "title": "Reviews",
-        "url": "/#reviews"
+        "title": "Pricing",
+        "url": "/#buy"
       },
       {
         "title": "Questions",
@@ -28,15 +28,15 @@
         "url": "/#curriculum"
       },
       {
-        "title": "Buy the course",
+        "title": "Start learning",
         "url": "/#buy"
       },
       {
-        "title": "Everything for sale",
+        "title": "All lessons and extras",
         "url": "/collections/all"
       },
       {
-        "title": "Brewing notes",
+        "title": "Practice notes",
         "url": "/blogs/news"
       }
     ]

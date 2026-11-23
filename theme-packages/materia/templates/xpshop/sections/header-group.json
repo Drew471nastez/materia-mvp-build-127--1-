@@ -1,0 +1,102 @@
+{
+  "type": "header",
+  "name": "t:sections.header.name",
+  "sections": {
+    "header": {
+      "type": "xpshop-desktop",
+      "settings": {
+        "wallpaper": "shopify://shop_images/xpshop-wallpaper.webp",
+        "focal": "50% 72%",
+        "wall_shade": 0,
+        "menu": "main-menu",
+        "menu_2": "footer",
+        "start_label": "hilltop",
+        "menu_title": "",
+        "icons_home_only": true,
+        "skin": true,
+        "column_width": 1180,
+        "window_gap": 28,
+        "balloon_title": "New drop is out",
+        "balloon_text": "Eight new pieces, printed to order.",
+        "balloon_link_label": "Have a look",
+        "balloon_link": "/collections/all",
+        "home_title": "",
+        "home_label": "Home",
+        "search_label": "Search",
+        "search_placeholder": "Search tees, caps, stickers",
+        "account_label": "Account",
+        "cart_label": "Cart",
+        "collections_title": "Collections",
+        "missing_title": "Not found",
+        "related_title": "You may also like",
+        "message_title": "New message",
+        "more_posts_title": "More from the journal",
+        "form_title": "Sign up",
+        "top_label": "Main menu",
+        "taskbar_label": "Taskbar",
+        "close_label": "Close"
+      },
+      "blocks": {
+        "icon_1": {
+          "type": "icon",
+          "settings": {
+            "icon": "folder",
+            "label": "Shop",
+            "link": "/collections/all"
+          }
+        },
+        "icon_2": {
+          "type": "icon",
+          "settings": {
+            "icon": "note",
+            "label": "About us",
+            "link": "/pages/about"
+          }
+        },
+        "icon_3": {
+          "type": "icon",
+          "settings": {
+            "icon": "help",
+            "label": "Help",
+            "link": "/pages/faqs"
+          }
+        },
+        "icon_4": {
+          "type": "icon",
+          "settings": {
+            "icon": "truck",
+            "label": "Shipping",
+            "link": "/pages/shipping"
+          }
+        },
+        "icon_5": {
+          "type": "icon",
+          "settings": {
+            "icon": "mail",
+            "label": "Write to us",
+            "link": "/pages/contact"
+          }
+        },
+        "icon_6": {
+          "type": "icon",
+          "settings": {
+            "icon": "cart",
+            "label": "Cart",
+            "link": "/cart"
+          }
+        }
+      },
+      "block_order": [
+        "icon_1",
+        "icon_2",
+        "icon_3",
+        "icon_4",
+        "icon_5",
+        "icon_6"
+      ]
+    }
+  },
+  "order": [
+    "header"
+  ]
+}

@@ -41,6 +41,7 @@ import { withoutVendorTraces, type StoredBlock, type StoredSection } from "../li
 import { compatMenus } from "../lib/storelib-theme/compat/menus"
 import { importTemplate, type BuiltSite, type ImportedTemplate } from "../scripts/theme-templates/site"
 import { auditCart, auditPaths, auditSite } from "../scripts/theme-templates/fixtures"
+import { SAMPLE_SHOPS } from "../scripts/theme-templates/shops"
 import { ALONE_ID, SENTINEL_ID, SENTINEL_TEXT, editorSchemaOf, homeWith, sectionAsAdded, sectionMarkup, sectionTypesOf, unbalanced } from "../scripts/theme-templates/sections"
 import type { SchemaField } from "../lib/website-builder/types"
 
@@ -129,7 +130,7 @@ async function pagesOf(template: string, imported: ImportedTemplate) {
       check("  the collections page lists the shop's collections, and not every product as one of them", ["Gifts", "New in", "Best sellers"].every((t) => page("collections").main.includes(t)) && !/href="\/collections\/all"/.test(mainOf(page("collections").html)) && !/Sweaters|Activewear|Handbags/.test(page("collections").main))
       check("  search finds a product by a word of its title", page("search-results").main.includes(String(second.title)))
       check("  the cart with two lines shows both, a subtotal and the way to checkout", page("cart-full").main.includes(String(first.title)) && page("cart-full").main.includes(String(second.title)) && /Subtotal/i.test(page("cart-full").main) && /name="checkout"|href="\/checkout"/.test(page("cart-full").html))
-      check("  the blog lists its posts under the blog's own title, and a post shows its words", built.site.blog!.cards.every((c) => page("blog").main.includes(c.title)) && page("blog").main.includes("Journal") && page("article").main.includes("First, the check") && page("article").main.includes(built.site.blog!.cards[0].title))
+      check("  the blog lists its posts under the blog's own title, and a post shows its words", built.site.blog!.cards.every((c) => page("blog").main.includes(c.title)) && page("blog").main.includes("Journal") && page("article").main.includes(SAMPLE_SHOPS[template]?.posts?.[0]?.html.match(/<h2[^>]*>([^<]+)/)?.[1] ?? "First, the check") /* Changed on purpose (templates round 21): a shop with its own posts (Sample packs) shows its own first heading. */ && page("article").main.includes(built.site.blog!.cards[0].title))
       check("  each policy the store wrote is a page, and the footer links to it", (built.site.shop.policies ?? []).every((p) => page(p.handle).main.includes(p.title) && page(p.handle).main.includes("We") === /We/.test(visibleText(p.body)) && new RegExp(`href="/policies/${p.handle}"`).test(page("home").html)))
     } else {
       check("  the home page still shows where products will go, with sample cards and no empty price", page("home").main.trim().length > 400 && !/\$\s*(?:<|$)|NaN|undefined/.test(page("home").main))

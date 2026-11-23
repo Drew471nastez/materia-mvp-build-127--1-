@@ -8,7 +8,7 @@
         "text": "<p>Twenty minutes on video. Choose a time below and you get a confirmation and a link by email. Nothing to prepare.</p>",
         "avatar": "shopify://shop_images/coach-mateo-avatar.webp",
         "name": "Mateo Cruz",
-        "role": "Business coach",
+        "role": "Leadership coach",
         "fact_1": "20 minutes",
         "fact_2": "On video",
         "fact_3": "Free, no pitch"
@@ -61,7 +61,7 @@
           "settings": {
             "title": "We talk",
             "time": "20 minutes",
-            "text": "Where the business is, what is stuck, and whether working together makes sense."
+            "text": "Your team, what is hard right now, and whether working together makes sense."
           }
         }
       },
@@ -87,35 +87,35 @@
           "type": "question",
           "settings": {
             "question": "Who do you work with?",
-            "answer": "<p>Owners of companies with roughly two to twenty people: shops, studios, agencies, trades and services. If you are just starting out, the Growth Sprint is a good first step.</p>"
+            "answer": "<p>People in their first few years of managing others: team leads, new heads of a function and founders hiring their first team. Most of my clients lead between three and twenty people.</p>"
           }
         },
         "question_2": {
           "type": "question",
           "settings": {
             "question": "What happens on the free call?",
-            "answer": "<p>Twenty minutes on video. You tell me where the business is stuck, I ask a few questions, and I say honestly whether I can help. There is no pitch at the end.</p>"
+            "answer": "<p>Twenty minutes on video. You tell me about your team and what is hard right now, I ask a few questions, and I say honestly whether I can help. There is no pitch at the end.</p>"
           }
         },
         "question_3": {
+          "type": "question",
+          "settings": {
+            "question": "Can my company pay for it?",
+            "answer": "<p>Often, yes. Many clients use a training or development budget. You get an invoice in the company's name, and I can send a short outline for your manager.</p>"
+          }
+        },
+        "question_4": {
           "type": "question",
           "settings": {
             "question": "How long do clients usually stay?",
             "answer": "<p>Most stay four to six months on monthly coaching. You can stop or pause any month, with no notice period.</p>"
           }
         },
-        "question_4": {
-          "type": "question",
-          "settings": {
-            "question": "Do you work in person?",
-            "answer": "<p>Monthly coaching and the Growth Sprint are on video. Strategy days can be in person in Austin, at your place for a travel fee, or online.</p>"
-          }
-        },
         "question_5": {
           "type": "question",
           "settings": {
-            "question": "Can my business pay for it?",
-            "answer": "<p>Yes. You get an invoice in the company's name for every payment.</p>"
+            "question": "Is what I say kept private?",
+            "answer": "<p>Yes. When a company pays, I share only that we are meeting, never what we talk about.</p>"
           }
         },
         "question_6": {

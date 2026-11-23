@@ -1,0 +1,584 @@
+{%- comment -%}
+XP shop: the products in a folder window, the way a file browser showed
+  them. A blue side panel with links (blocks) and a few details, an address
+  line, then the products: picture, name, price, Quick view and Add.
+
+  Quick view opens the product in a window of its own (picture, price, each
+  option as buttons, quantity, Add to cart). Add puts a product with one
+  choice straight in the cart, then a small window says so and offers the
+  cart. Both are <dialog> windows: the keyboard stays inside them and Escape
+  closes them. On a phone the side panel's links become a row above the
+  products and the dialogs rise from the bottom.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign bar_title = st.title | default: 'Shop'
+  assign bar_icon = st.icon | default: 'folder'
+  assign coll = st.collection
+  assign count = st.products_to_show | default: 8
+  assign cols = st.columns | default: 4 | plus: 0
+  assign list = collections.all.products
+  if coll != blank and coll.products_count > 0
+    assign list = coll.products
+  endif
+  assign view_all = routes.all_products_collection_url | default: '/collections/all'
+  if coll != blank and coll.url != blank
+    assign view_all = coll.url
+  endif
+  if st.view_all_link != blank
+    assign view_all = st.view_all_link
+  endif
+  assign shown = 0
+  assign current_id = ''
+  if request.page_type == 'product' and st.skip_current
+    assign current_id = product.id
+  endif
+  assign pane = false
+  if st.show_pane and section.blocks.size > 0
+    assign pane = true
+  endif
+-%}
+<style>
+  .xp { --xp-ink: #14213d; --xp-muted: #4a5568; --xp-navy: #0f2f75; --xp-blue: #1f5fd8; --xp-link: #1a55c9; --xp-face: #f4f2ea; --xp-line: #c9c3b0; --xp-pane: #d9e4f8;
+    --xp-font: 'Nunito', Tahoma, 'Trebuchet MS', system-ui, sans-serif;
+    color: var(--xp-ink); font-family: var(--xp-font); font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  .xp *, .xp *::before, .xp *::after { box-sizing: border-box; }
+  .xp :where(h1, h2, h3, h4, p, ul, ol, figure) { margin: 0; }
+  .xp .xp-ico { width: 24px; height: 24px; flex: none; display: block; }
+  /* A window: a blue frame, a glossy title bar with rounded top corners, and a white inside. */
+  .xp-win { position: relative; display: flex; flex-direction: column; min-width: 0; background: var(--xp-blue); padding: 0 3px 3px; border-radius: 10px 10px 6px 6px;
+    box-shadow: 0 1px 0 rgba(255,255,255,.35) inset, 0 22px 48px -12px rgba(8, 28, 80, .45), 0 3px 10px rgba(8, 28, 80, .18); }
+  .xp-bar { display: flex; align-items: center; gap: 8px; min-height: 34px; margin: 0 -3px; padding: 4px 6px 4px 10px; border-radius: 9px 9px 0 0; color: #fff;
+    background: linear-gradient(180deg, #5da0fa 0%, #2f74ea 10%, #2263df 30%, #1d5ad6 60%, #1c57d0 86%, #1748b4 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.5), inset 0 -1px 0 rgba(0,20,90,.35); user-select: none; -webkit-user-select: none; }
+  .xp-bar .xp-ico { width: 20px; height: 20px; filter: drop-shadow(0 1px 0 rgba(0,0,40,.3)); }
+  .xp-bar__title { flex: 1; min-width: 0; margin: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font: 700 15px/1.2 var(--xp-font); letter-spacing: .01em; color: #fff; text-shadow: 1px 1px 0 rgba(0, 18, 80, .45); }
+  .xp-ctls { display: flex; gap: 3px; flex: none; }
+  .xp-ctl { display: grid; place-items: center; width: 24px; height: 24px; margin: 0; padding: 0; border: 1px solid #fff; border-radius: 4px; color: #fff; cursor: pointer;
+    background: linear-gradient(180deg, #78aef8 0%, #3c7ff0 45%, #2563da 55%, #3a7bea 100%); box-shadow: inset 0 0 0 1px rgba(0,30,120,.18), 0 1px 1px rgba(0,0,40,.25); }
+  .xp-ctl svg { width: 11px; height: 11px; }
+  .xp-ctl--close { background: linear-gradient(180deg, #f3a184 0%, #e5683f 40%, #d24a1f 60%, #e0653b 100%); }
+  .xp-ctl:hover { filter: brightness(1.1); }
+  .xp-ctl:active { filter: brightness(.92); }
+  .xp-ctl:focus-visible, .xp-btn:focus-visible, .xp a:focus-visible { outline: 2px solid #f5a623; outline-offset: 2px; }
+  .xp-body { position: relative; flex: 1; min-width: 0; background: #fff; border-radius: 0 0 4px 4px; overflow: hidden; }
+  .xp-menubar { display: flex; gap: 2px; padding: 3px 8px; background: var(--xp-face); border-bottom: 1px solid #e2ddcb; font-size: 13.5px; color: #222; }
+  .xp-menubar span { padding: 2px 8px; border-radius: 3px; }
+  .xp-status { display: flex; gap: 4px; padding: 4px 6px; background: var(--xp-face); border-top: 1px solid #e2ddcb; font-size: 12.5px; color: #333; }
+  .xp-status span { flex: 1; min-width: 0; padding: 2px 8px; border-left: 1px solid #fff; box-shadow: -1px 0 0 #d6d0bd; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .xp-status span:first-child { border: 0; box-shadow: none; }
+  /* Buttons: the soft grey XP button, a green one like the brand's start button, and a blue one. */
+  .xp-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; margin: 0; padding: 0 20px; border: 1px solid #1f3f7a; border-radius: 5px; cursor: pointer;
+    background: linear-gradient(180deg, #ffffff 0%, #f6f5f0 45%, #ebe8dd 90%, #dcd7c7 100%); color: #14213d; font: 700 15px/1 var(--xp-font); text-decoration: none; white-space: nowrap;
+    box-shadow: 0 1px 2px rgba(10,30,80,.12); transition: box-shadow .15s, filter .15s, transform .15s; }
+  .xp-btn:hover { box-shadow: inset 0 2px 0 #ffe3a3, inset 0 -2px 0 #f5a623, inset 2px 0 0 #fbd27f, inset -2px 0 0 #fbd27f, 0 1px 2px rgba(10,30,80,.12); color: #14213d; }
+  .xp-btn:active { transform: translateY(1px); filter: brightness(.97); }
+  .xp-btn[disabled] { opacity: .55; cursor: default; box-shadow: none; }
+  .xp-btn--go { border-color: #1d6a1d; color: #fff; text-shadow: 0 1px 0 rgba(0,50,0,.45);
+    background: linear-gradient(180deg, #7ad36c 0%, #45b041 42%, #2f962f 58%, #3aa73a 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 2px 6px rgba(20,90,20,.25); }
+  .xp-btn--go:hover { color: #fff; filter: brightness(1.06); box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 3px 10px rgba(20,90,20,.3); }
+  .xp-btn--blue { border-color: #143f9a; color: #fff; text-shadow: 0 1px 0 rgba(0,20,80,.45);
+    background: linear-gradient(180deg, #7fb2fa 0%, #3f80ee 42%, #2563da 58%, #3474e6 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 2px 6px rgba(20,50,140,.25); }
+  .xp-btn--blue:hover { color: #fff; filter: brightness(1.06); box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 3px 10px rgba(20,50,140,.3); }
+  .xp-btn .xp-ico { width: 20px; height: 20px; }
+  .xp-field { width: 100%; height: 42px; padding: 0 12px; border: 1px solid #7f9db9; border-radius: 3px; background: #fff; color: #14213d; font: 500 15px var(--xp-font); }
+  .xp-field:focus { outline: none; border-color: #316ac5; box-shadow: 0 0 0 3px rgba(49,106,197,.2); }
+  .xp-h { margin: 0; color: var(--xp-navy); font-family: var(--xp-font); font-weight: 800; line-height: 1.12; letter-spacing: -.01em; }
+  .xp-eyebrow { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 12px; color: #2c7a22; font-size: 13px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+  .xp-rte { color: #2d3748; font-size: 16px; line-height: 1.65; }
+  .xp-rte p + p { margin-top: .8em; }
+  .xp-rte a { color: var(--xp-link); }
+  .xp-place { width: 100%; max-width: var(--xp-col, 1180px); margin: 0 auto; }
+  .xp-sec { padding: var(--xp-pt-m, 0) 10px var(--xp-pb-m, 16px); }
+  @media (min-width: 750px) { .xp-sec { padding: var(--xp-pt, 0) 24px var(--xp-pb, 28px); } }
+  html.xp-js .xp [data-motion] { opacity: 0; transform: translate3d(0, 18px, 0) scale(.985); transition: opacity .6s cubic-bezier(.2,.7,.2,1), transform .6s cubic-bezier(.2,.7,.2,1); transition-delay: var(--d, 0ms); }
+  html.xp-js .xp [data-motion].is-in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) { html.xp-js .xp [data-motion] { opacity: 1; transform: none; transition: none; } .xp-btn { transition: none; } }
+  @media (max-width: 749px) {
+    .xp-win { border-radius: 9px 9px 5px 5px; padding: 0 2px 2px; }
+    .xp-bar { margin: 0 -2px; min-height: 32px; }
+    .xp-bar__title { font-size: 14px; }
+    .xp-ctls .xp-ctl--opt { display: none; }
+  }
+  .xp-win.is-min > .xp-body, .xp-win.is-min > .xp-hide-min { display: none; }
+  .xp-win.is-min { padding-bottom: 0; border-radius: 10px 10px 9px 9px; }
+  .xp-win.is-min .xp-bar { border-radius: 9px; }
+  .xp-win[data-xp-window] { transition: opacity .2s, transform .2s; }
+  .xp-win.is-closing { opacity: 0; transform: scale(.97); }
+  .xp-place.is-max, .xp-win.is-max { max-width: none; }
+  @media (min-width: 750px) { .xp-win.is-max { margin-left: calc(-1 * max(0px, (100vw - var(--xp-col, 1180px)) / 2 - 24px)); margin-right: calc(-1 * max(0px, (100vw - var(--xp-col, 1180px)) / 2 - 24px)); } }
+
+  #shopify-section-{{ sid }} .xp-sec { --xp-pt: {{ st.padding_top }}px; --xp-pb: {{ st.padding_bottom }}px; --xp-pt-m: {{ st.padding_top_mobile }}px; --xp-pb-m: {{ st.padding_bottom_mobile }}px; }
+  .xps__head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; padding: 22px 18px 4px; }
+  .xps__h { font-size: 26px; }
+  .xps__sub { margin-top: 6px; color: var(--xp-muted); font-size: 15px; }
+  .xps__addr { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--xp-face); border-bottom: 1px solid #e2ddcb; font-size: 13.5px; }
+  .xps__addr b { color: #555; font-weight: 600; }
+  .xps__addr span { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; border: 1px solid #7f9db9; border-radius: 3px; background: #fff; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #14213d; }
+  .xps__addr .xp-ico { width: 18px; height: 18px; }
+  .xps__addr a.xp-btn { min-height: 30px; padding: 0 12px; font-size: 13.5px; }
+  .xps__main { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .xps__pane { display: flex; gap: 8px; padding: 12px 12px 0; overflow-x: auto; scrollbar-width: none; }
+  .xps__pane::-webkit-scrollbar { display: none; }
+  .xps__panel { display: contents; }
+  .xps__panel h3, .xps__panel p.xps__note { display: none; }
+  .xps__links { display: contents; }
+  .xps__links a { display: inline-flex; align-items: center; gap: 8px; flex: none; padding: 7px 14px 7px 9px; border: 1px solid #c4d3ea; border-radius: 18px; background: #f2f7ff; color: var(--xp-navy); font-size: 14px; font-weight: 700; text-decoration: none; white-space: nowrap; }
+  .xps__links a:hover { background: #e2ecfd; border-color: #316ac5; }
+  .xps__links .xp-ico { width: 20px; height: 20px; }
+  @media (min-width: 990px) {
+    #shopify-section-{{ sid }} .xps__main--pane { grid-template-columns: 250px minmax(0, 1fr); }
+    .xps__pane { flex-direction: column; gap: 14px; padding: 16px 12px; overflow: visible; background: linear-gradient(180deg, #7ba2e7 0%, #6b8fdf 50%, #6375d6 100%); }
+    .xps__panel { display: block; border-radius: 6px 6px 0 0; overflow: hidden; background: #d6dff7; box-shadow: 0 1px 2px rgba(0,20,80,.18); }
+    .xps__panel h3 { display: flex; align-items: center; justify-content: space-between; margin: 0; padding: 7px 12px; background: linear-gradient(90deg, #ffffff 0%, #c6d3f7 100%); color: #215dc6; font-size: 14px; font-weight: 800; }
+    .xps__panel h3 svg { width: 18px; height: 18px; }
+    .xps__links { display: grid; gap: 2px; padding: 8px 10px 10px; }
+    .xps__links a { padding: 4px 4px; border: 0; border-radius: 3px; background: none; color: #0c2e8a; font-weight: 600; white-space: normal; }
+    .xps__links a:hover { background: none; color: #2869e0; text-decoration: underline; }
+    .xps__panel p.xps__note { display: block; padding: 10px 12px 12px; color: #14213d; font-size: 13.5px; line-height: 1.5; }
+    .xps__panel p.xps__note b { display: block; color: #0c2e8a; }
+  }
+  .xps__grid { list-style: none; margin: 0; padding: 14px 12px 18px; display: grid; gap: 14px 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .xps__grid { grid-template-columns: repeat({% if cols > 3 %}3{% else %}{{ cols }}{% endif %}, minmax(0, 1fr)); padding: 18px; gap: 20px 16px; } }
+  @media (min-width: 1200px) { #shopify-section-{{ sid }} .xps__grid { grid-template-columns: repeat({% if pane and cols > 4 %}4{% else %}{{ cols }}{% endif %}, minmax(0, 1fr)); } }
+  .xps__card { position: relative; display: flex; flex-direction: column; min-width: 0; padding: 6px 6px 10px; border: 1px solid transparent; border-radius: 6px; transition: background-color .15s, border-color .15s; }
+  .xps__card:hover, .xps__card:focus-within { background: #eef4ff; border-color: #b9cff3; }
+  .xps__pic { position: relative; display: block; aspect-ratio: 1 / 1; border-radius: 4px; background: #eef1f6; overflow: hidden; }
+  .xps__pic img, .xps__pic svg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .5s cubic-bezier(.2,.7,.2,1); }
+  .xps__pic svg { fill: #b8c4d8; }
+  .xps__card:hover .xps__pic img { transform: scale(1.035); }
+  .xps__tag { position: absolute; left: 8px; top: 8px; z-index: 1; padding: 3px 9px; border-radius: 11px; background: #fff; color: #14213d; font-size: 12px; font-weight: 800; box-shadow: 0 1px 3px rgba(0,20,60,.2); }
+  .xps__tag--sale { background: #e5532a; color: #fff; }
+  .xps__name { margin: 10px 2px 0; color: var(--xp-navy); font-size: 16px; font-weight: 800; line-height: 1.25; text-decoration: none; }
+  .xps__name:hover { color: var(--xp-link); text-decoration: underline; }
+  .xps__price { margin: 3px 2px 0; color: #14213d; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .xps__price s { margin-left: 6px; color: #8a94a6; font-weight: 500; }
+  .xps__acts { display: flex; gap: 6px; margin-top: 10px; }
+  .xps__acts .xp-btn { flex: 1 1 0; min-width: 0; min-height: 36px; padding: 0 8px; font-size: 14px; }
+  .xps__more { display: flex; justify-content: center; padding: 4px 0 20px; }
+  /* Dialogs. */
+  .xpd { padding: 0; border: 0; background: transparent; max-width: calc(100vw - 20px); max-height: calc(100dvh - 40px); overflow: visible; color: var(--xp-ink); }
+  .xpd::backdrop { background: rgba(8, 24, 70, .38); }
+  .xpd[open] .xp-win { animation: xp-pop .24s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes xp-pop { from { transform: translateY(12px) scale(.97); opacity: 0; } to { transform: none; opacity: 1; } }
+  .xpd .xp-body { max-height: calc(100dvh - 100px); overflow: auto; }
+  .xpd--qv { width: min(820px, calc(100vw - 20px)); }
+  .xpd__qv { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; padding: 14px; }
+  @media (min-width: 750px) { .xpd__qv { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 26px; padding: 20px; } }
+  .xpd__pic { position: relative; aspect-ratio: 1 / 1; border-radius: 6px; background: #eef1f6; overflow: hidden; }
+  .xpd__pic img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .xpd__info { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .xpd__title { font-size: 26px; }
+  .xpd__price { font-size: 20px; font-weight: 800; color: #14213d; }
+  .xpd__price s { margin-left: 8px; color: #8a94a6; font-size: 16px; font-weight: 500; }
+  .xpd__opts { display: grid; gap: 12px; margin: 0; padding: 0; border: 0; }
+  .xpd__opt legend { padding: 0; margin-bottom: 6px; font-size: 14px; font-weight: 800; color: var(--xp-navy); }
+  .xpd__vals { display: flex; flex-wrap: wrap; gap: 6px; }
+  .xpd__vals label { position: relative; }
+  .xpd__vals input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+  .xpd__vals span { display: inline-grid; place-items: center; min-width: 46px; height: 38px; padding: 0 12px; border: 1px solid #7f9db9; border-radius: 5px; background: #fff; color: #14213d; font-size: 14px; font-weight: 700; transition: background-color .15s, border-color .15s; }
+  .xpd__vals input:checked + span { background: linear-gradient(180deg, #e3eeff, #c9dcfb); border-color: #316ac5; box-shadow: inset 0 0 0 1px #316ac5; color: #0f2f75; }
+  .xpd__vals input:focus-visible + span { outline: 2px solid #f5a623; outline-offset: 2px; }
+  .xpd__vals input.is-out + span { color: #9aa3b2; text-decoration: line-through; }
+  .xpd__row { display: flex; gap: 8px; align-items: stretch; }
+  .xpd__qty { width: 86px; flex: none; }
+  .xpd__qty label { display: block; margin-bottom: 4px; font-size: 13px; font-weight: 700; color: var(--xp-muted); }
+  .xpd__row .xp-btn { flex: 1; align-self: flex-end; min-height: 44px; }
+  .xpd__msg { margin: 0; min-height: 1.2em; font-size: 13.5px; color: #b42318; }
+  .xpd__more { color: var(--xp-link); font-size: 14.5px; font-weight: 700; }
+  .xpd--ok { width: min(440px, calc(100vw - 20px)); }
+  .xpd__ok { display: flex; gap: 14px; padding: 18px 18px 6px; }
+  .xpd__ok .xp-ico { width: 40px; height: 40px; }
+  .xpd__ok-h { font-size: 17px; font-weight: 800; color: var(--xp-navy); }
+  .xpd__ok-t { margin-top: 4px; font-size: 15px; color: #2d3748; }
+  .xpd__ok-pic { width: 64px; height: 64px; flex: none; border-radius: 6px; overflow: hidden; background: #eef1f6; }
+  .xpd__ok-pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .xpd__acts { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; padding: 14px 18px 18px; }
+  .xpd--ok.is-error [data-xp-ok-cart], .xpd--ok.is-error .xpd__ok-pic { display: none; }
+  @media (max-width: 749px) {
+    .xpd { margin: auto 0 0; max-width: 100vw; width: 100vw !important; max-height: 92dvh; }
+    .xpd .xp-win { border-radius: 12px 12px 0 0; padding-bottom: 0; }
+    .xpd .xp-bar { border-radius: 11px 11px 0 0; }
+    .xpd .xp-body { border-radius: 0; max-height: calc(92dvh - 34px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+    .xpd[open] .xp-win { animation-name: xp-rise; }
+    @keyframes xp-rise { from { transform: translateY(40px); opacity: .4; } to { transform: none; opacity: 1; } }
+    .xpd__acts .xp-btn { flex: 1 1 100%; }
+  }
+  @media (prefers-reduced-motion: reduce) { .xpd[open] .xp-win { animation: none; } .xps__pic img { transition: none; } }
+</style>
+<svg class="xp-sprite" width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden"><defs>
+<symbol id="xpi-folder-{{ sid }}" viewBox="0 0 24 24"><linearGradient id="xg1-{{ sid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe9a3"/><stop offset="1" stop-color="#f0b429"/></linearGradient><linearGradient id="xg2-{{ sid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff4c9"/><stop offset="1" stop-color="#f7c64a"/></linearGradient>
+<path d="M2 5.5A1.5 1.5 0 0 1 3.5 4h5l2 2h9A1.5 1.5 0 0 1 21 7.5V18a1.5 1.5 0 0 1-1.5 1.5h-16A1.5 1.5 0 0 1 2 18z" fill="url(#xg1-{{ sid }})" stroke="#c08a14" stroke-width=".8"/>
+<path d="M2.6 9.2A1.2 1.2 0 0 1 3.8 8h16.8a1.1 1.1 0 0 1 1.1 1.3l-1.6 9.1a1.3 1.3 0 0 1-1.3 1.1H3.5A1.2 1.2 0 0 1 2.3 18.3z" fill="url(#xg2-{{ sid }})" stroke="#c08a14" stroke-width=".8"/></symbol>
+<symbol id="xpi-tee-{{ sid }}" viewBox="0 0 24 24"><linearGradient id="xt1-{{ sid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#cfe0f7"/></linearGradient>
+<path d="M8.5 3 4 5.2 1.8 10l3.4 1.6L6.5 9v11.5h11V9l1.3 2.6 3.4-1.6L20 5.2 15.5 3c-.6 1.4-1.9 2.2-3.5 2.2S9.1 4.4 8.5 3z" fill="url(#xt1-{{ sid }})" stroke="#2a5bc0" stroke-width=".9" stroke-linejoin="round"/>
+<rect x="9" y="10" width="6" height="4.4" rx="1.1" fill="#4a9a35"/><path d="M9 13c1.4-1.6 4.6-1.6 6 0v.3A1.1 1.1 0 0 1 13.9 14.4h-3.8A1.1 1.1 0 0 1 9 13.3z" fill="#7cc24f"/></symbol>
+<symbol id="xpi-cap-{{ sid }}" viewBox="0 0 24 24"><linearGradient id="xc1-{{ sid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6c9cf0"/><stop offset="1" stop-color="#2a5bc0"/></linearGradient>
+<path d="M3.5 14.5C3.5 8.9 7.4 5 12 5s8 3.6 8 8.6v1.2H3.5z" fill="url(#xc1-{{ sid }})" stroke="#1b3f94" stroke-width=".8"/>
+<path d="M11.5 14.4c3.6-.4 7.6.2 10.6 2 .5.3.2 1.1-.4 1.1H8.8c-.5 0-.6-.7-.2-.9 1-.8 1.9-1.9 2.9-2.2z" fill="#1d4aa8" stroke="#163a86" stroke-width=".7"/>
+<circle cx="12" cy="5.4" r="1" fill="#1b3f94"/><path d="M8 9.5c.6-.9 1.7-1.4 2.8-1.1" stroke="#fff" stroke-opacity=".7" stroke-width="1" fill="none" stroke-linecap="round"/></symbol>
+<symbol id="xpi-help-{{ sid }}" viewBox="0 0 24 24"><radialGradient id="xh1-{{ sid }}" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#8fc0ff"/><stop offset=".6" stop-color="#2f6fdc"/><stop offset="1" stop-color="#1b4bb0"/></radialGradient>
+<circle cx="12" cy="12" r="9.5" fill="url(#xh1-{{ sid }})" stroke="#173f99" stroke-width=".8"/>
+<path d="M9.2 9.4a2.9 2.9 0 0 1 5.6.9c0 1.9-2.8 2.1-2.8 4" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17.3" r="1.25" fill="#fff"/></symbol>
+<symbol id="xpi-mail-{{ sid }}" viewBox="0 0 24 24"><linearGradient id="xm1-{{ sid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e3ecf8"/></linearGradient>
+<rect x="2.5" y="5.5" width="19" height="13.5" rx="1.6" fill="url(#xm1-{{ sid }})" stroke="#5d7fb8" stroke-width=".9"/>
+<path d="m3 6.5 9 7 9-7" fill="none" stroke="#5d7fb8" stroke-width="1"/><path d="m3 18.3 6.6-6M21 18.3l-6.6-6" stroke="#a9bddb" stroke-width=".8"/></symbol>
+<symbol id="xpi-cart-{{ sid }}" viewBox="0 0 24 24"><linearGradient id="xk1-{{ sid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9dc7ff"/><stop offset="1" stop-color="#3f7fe0"/></linearGradient>
+<path d="M2 3.5h2.6l2.3 11h11.4l2.2-7.8H6" fill="none" stroke="#2b4f93" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M6.3 7.4h13.4l-1.8 6.3H7.6z" fill="url(#xk1-{{ sid }})"/><circle cx="8.8" cy="18.8" r="1.7" fill="#2b4f93"/><circle cx="16.8" cy="18.8" r="1.7" fill="#2b4f93"/></symbol>
+<symbol id="xpi-search-{{ sid }}" viewBox="0 0 24 24"><radialGradient id="xs1-{{ sid }}" cx=".35" cy=".35" r=".75"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#a9cdf7"/></radialGradient>
+<circle cx="10" cy="10" r="6.3" fill="url(#xs1-{{ sid }})" stroke="#3a64ae" stroke-width="1.8"/><path d="m14.6 14.6 6 6" stroke="#8a5a2b" stroke-width="3" stroke-linecap="round"/></symbol>
+<symbol id="xpi-user-{{ sid }}" viewBox="0 0 24 24"><radialGradient id="xu1-{{ sid }}" cx=".4" cy=".35" r=".7"><stop offset="0" stop-color="#ffe2c4"/><stop offset="1" stop-color="#e9a974"/></radialGradient><linearGradient id="xu2-{{ sid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7cc24f"/><stop offset="1" stop-color="#3a8a26"/></linearGradient>
+<path d="M4 21c.4-4.4 3.8-6.6 8-6.6s7.6 2.2 8 6.6z" fill="url(#xu2-{{ sid }})" stroke="#2c6e1c" stroke-width=".8"/><circle cx="12" cy="8.5" r="4.4" fill="url(#xu1-{{ sid }})" stroke="#b87443" stroke-width=".8"/></symbol>
+<symbol id="xpi-note-{{ sid }}" viewBox="0 0 24 24"><linearGradient id="xn1-{{ sid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e6edf7"/></linearGradient>
+<path d="M5 2.5h10l4 4v15H5z" fill="url(#xn1-{{ sid }})" stroke="#5d7fb8" stroke-width=".9" stroke-linejoin="round"/><path d="M15 2.5v4h4" fill="#d6e2f3" stroke="#5d7fb8" stroke-width=".9" stroke-linejoin="round"/>
+<path d="M8 10h8M8 13h8M8 16h5.5" stroke="#3d72d6" stroke-width="1.2" stroke-linecap="round"/></symbol>
+<symbol id="xpi-home-{{ sid }}" viewBox="0 0 24 24"><linearGradient id="xo1-{{ sid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1e7cf"/></linearGradient>
+<path d="M4.5 11v9.5h15V11" fill="url(#xo1-{{ sid }})" stroke="#8a6a3a" stroke-width=".9"/><path d="M2.5 12 12 3.5l9.5 8.5" fill="none" stroke="#c4441d" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="10" y="14" width="4" height="6.5" fill="#3d72d6"/></symbol>
+<symbol id="xpi-star-{{ sid }}" viewBox="0 0 24 24"><linearGradient id="xr1-{{ sid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe680"/><stop offset="1" stop-color="#f2a900"/></linearGradient>
+<path d="m12 2.8 2.8 5.8 6.3.8-4.6 4.4 1.2 6.3L12 17l-5.7 3.1 1.2-6.3L2.9 9.4l6.3-.8z" fill="url(#xr1-{{ sid }})" stroke="#b77d00" stroke-width=".8" stroke-linejoin="round"/></symbol>
+<symbol id="xpi-truck-{{ sid }}" viewBox="0 0 24 24"><linearGradient id="xv1-{{ sid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9dc7ff"/><stop offset="1" stop-color="#3f7fe0"/></linearGradient>
+<rect x="1.8" y="6" width="12.2" height="10" rx="1" fill="url(#xv1-{{ sid }})" stroke="#2b4f93" stroke-width=".9"/><path d="M14 9h4l3.2 3.6V16H14z" fill="#e8eef8" stroke="#2b4f93" stroke-width=".9" stroke-linejoin="round"/>
+<circle cx="6.3" cy="17.3" r="2" fill="#2b2f3a" stroke="#fff" stroke-width=".8"/><circle cx="17" cy="17.3" r="2" fill="#2b2f3a" stroke="#fff" stroke-width=".8"/></symbol>
+<symbol id="xpi-shield-{{ sid }}" viewBox="0 0 24 24"><linearGradient id="xd1-{{ sid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fd36a"/><stop offset="1" stop-color="#3a8a26"/></linearGradient>
+<path d="M12 2.5 20 5.5v6c0 5-3.4 8.6-8 10-4.6-1.4-8-5-8-10v-6z" fill="url(#xd1-{{ sid }})" stroke="#2c6e1c" stroke-width=".9" stroke-linejoin="round"/><path d="m8.3 12 2.6 2.6 5-5.2" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="xpi-refresh-{{ sid }}" viewBox="0 0 24 24"><linearGradient id="xf1-{{ sid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fd36a"/><stop offset="1" stop-color="#3a8a26"/></linearGradient>
+<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" fill="none" stroke="url(#xf1-{{ sid }})" stroke-width="3" stroke-linecap="round"/><path d="M14.5 3.3h5.2v5.2z" fill="#3a8a26"/></symbol>
+<symbol id="xpi-leaf-{{ sid }}" viewBox="0 0 24 24"><linearGradient id="xl1-{{ sid }}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a6e07f"/><stop offset="1" stop-color="#3a8a26"/></linearGradient>
+<path d="M4 20c0-9 5-15 16-16 0 11-6 16-14 16" fill="url(#xl1-{{ sid }})" stroke="#2c6e1c" stroke-width=".9" stroke-linejoin="round"/><path d="M4 20c3-5 6-8 11-11" fill="none" stroke="#e9f7dd" stroke-width="1.1" stroke-linecap="round"/></symbol>
+<symbol id="xpi-sticker-{{ sid }}" viewBox="0 0 24 24"><radialGradient id="xi1-{{ sid }}" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#ffd27a"/><stop offset="1" stop-color="#f08a24"/></radialGradient>
+<path d="M21 12a9 9 0 1 1-9-9c.3 0 .5 0 .8.1A9 9 0 0 1 21 11.2z" fill="url(#xi1-{{ sid }})" stroke="#b85a10" stroke-width=".8"/><path d="M21 11.2 12.8 3.1c-.3 3 .2 5.4 1.6 6.7 1.4 1.3 3.6 1.7 6.6 1.4z" fill="#fff3dc" stroke="#b85a10" stroke-width=".8" stroke-linejoin="round"/>
+<circle cx="9" cy="11" r="1.1" fill="#7a3a06"/><circle cx="13" cy="14.6" r="0" fill="none"/><path d="M8 15.2c1.6 1.4 4 1.4 5.6 0" fill="none" stroke="#7a3a06" stroke-width="1.2" stroke-linecap="round"/></symbol>
+<symbol id="xpi-heart-{{ sid }}" viewBox="0 0 24 24"><linearGradient id="xe1-{{ sid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff8a8a"/><stop offset="1" stop-color="#d42a2a"/></linearGradient>
+<path d="M12 20.5S3 15 3 9.2A4.7 4.7 0 0 1 12 7a4.7 4.7 0 0 1 9 2.2C21 15 12 20.5 12 20.5z" fill="url(#xe1-{{ sid }})" stroke="#9e1b1b" stroke-width=".8"/></symbol>
+<symbol id="xpi-clock-{{ sid }}" viewBox="0 0 24 24"><radialGradient id="xq1-{{ sid }}" cx=".4" cy=".35" r=".75"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#dfe8f6"/></radialGradient>
+<circle cx="12" cy="12" r="9.3" fill="url(#xq1-{{ sid }})" stroke="#2f6fdc" stroke-width="1.8"/><path d="M12 6.8V12l3.6 2.2" fill="none" stroke="#223" stroke-width="1.6" stroke-linecap="round"/></symbol>
+<symbol id="xpi-info-{{ sid }}" viewBox="0 0 24 24"><radialGradient id="xa1-{{ sid }}" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#8fc0ff"/><stop offset=".6" stop-color="#2f6fdc"/><stop offset="1" stop-color="#1b4bb0"/></radialGradient>
+<circle cx="12" cy="12" r="9.5" fill="url(#xa1-{{ sid }})" stroke="#173f99" stroke-width=".8"/><circle cx="12" cy="7.4" r="1.4" fill="#fff"/><path d="M12 11v6.3" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></symbol>
+<symbol id="xpi-camera-{{ sid }}" viewBox="0 0 24 24"><linearGradient id="xp1-{{ sid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8a8f9c"/><stop offset="1" stop-color="#3e4350"/></linearGradient>
+<rect x="2.5" y="6.5" width="19" height="13" rx="2.5" fill="url(#xp1-{{ sid }})" stroke="#262a33" stroke-width=".8"/><path d="M8 6.5 9.4 4h5.2L16 6.5" fill="#5a5f6b" stroke="#262a33" stroke-width=".8"/><circle cx="12" cy="13" r="4" fill="#9cc8ff" stroke="#e8eef8" stroke-width="1.4"/></symbol>
+<symbol id="xpi-music-{{ sid }}" viewBox="0 0 24 24"><linearGradient id="xz1-{{ sid }}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b48cff"/><stop offset="1" stop-color="#5b33c8"/></linearGradient>
+<path d="M9 17.5V5.5l11-2v12" fill="none" stroke="url(#xz1-{{ sid }})" stroke-width="2.2" stroke-linejoin="round"/><ellipse cx="6.6" cy="17.6" rx="3" ry="2.4" fill="#5b33c8"/><ellipse cx="17.6" cy="15.6" rx="3" ry="2.4" fill="#5b33c8"/></symbol>
+<symbol id="xpi-play-{{ sid }}" viewBox="0 0 24 24"><radialGradient id="xy1-{{ sid }}" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#ff8f7a"/><stop offset="1" stop-color="#d0321a"/></radialGradient>
+<rect x="2" y="5" width="20" height="14" rx="4" fill="url(#xy1-{{ sid }})" stroke="#9e2412" stroke-width=".8"/><path d="m10 8.8 5.4 3.2-5.4 3.2z" fill="#fff"/></symbol>
+<symbol id="xpi-globe-{{ sid }}" viewBox="0 0 24 24"><radialGradient id="xw1-{{ sid }}" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#9fd0ff"/><stop offset="1" stop-color="#2468d8"/></radialGradient>
+<circle cx="12" cy="12" r="9.3" fill="url(#xw1-{{ sid }})" stroke="#1b4bb0" stroke-width=".8"/><path d="M6 8.5c2 .4 2.6 2 2 3.6-.5 1.3.5 2.5 1.8 2.6 1.5.1 1.4 2.4.6 4.2M14 3.5c-.6 1.6.2 2.7 1.7 2.8 1.6.2 2.4 1.4 2 2.9-.4 1.3.6 2.3 2.4 2.1" fill="none" stroke="#7cc24f" stroke-width="2" stroke-linecap="round"/></symbol>
+</defs></svg>
+<div data-own-font class="xp xp-sec" data-xp-shop data-money="{{ shop.money_format | escape }}">
+  <div class="xp-place">
+    <section class="xp-win" data-xp-window data-motion aria-labelledby="XpsH-{{ sid }}">
+      <div class="xp-bar">
+  <svg class="xp-ico" width="20" height="20" aria-hidden="true" focusable="false"><use href="#xpi-{{ bar_icon | default: 'folder' }}-{{ sid }}"/></svg>
+  <p class="xp-bar__title">{{ bar_title | escape }}</p>
+  <span class="xp-ctls">
+    <button class="xp-ctl xp-ctl--opt" type="button" data-xp-min aria-label="Minimise" aria-expanded="true"><svg viewBox="0 0 12 12" aria-hidden="true" focusable="false"><rect x="1" y="8.5" width="7" height="2.5" fill="currentColor"/></svg></button>
+    <button class="xp-ctl xp-ctl--opt" type="button" data-xp-max aria-label="Maximise"><svg viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="M1 1h10v10H1z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M1 1h10v2.6H1z" fill="currentColor"/></svg></button>
+    <button class="xp-ctl xp-ctl--close" type="button" data-xp-close aria-label="Close"><svg viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="m2 2 8 8M10 2 2 10" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/></svg></button>
+  </span>
+</div>
+
+      <div class="xp-body">
+        {%- if st.address != blank -%}
+          <div class="xps__addr"><b aria-hidden="true">{{ st.address_label | default: 'Address' | escape }}</b><span><svg class="xp-ico" width="24" height="24" aria-hidden="true" focusable="false"><use href="#xpi-folder-{{ sid }}"/></svg>{{ st.address | escape }}</span><a class="xp-btn" href="{{ view_all }}">{{ st.view_all_label | default: 'Go' | escape }}</a></div>
+        {%- endif -%}
+        <div class="xps__main{% if pane %} xps__main--pane{% endif %}">
+          {%- if pane -%}
+            <aside class="xps__pane" aria-label="{{ st.pane_title | default: 'Shop tasks' | escape }}">
+              <div class="xps__panel">
+                <h3>{{ st.pane_title | default: 'Shop tasks' | escape }}<svg viewBox="0 0 18 18" aria-hidden="true" focusable="false"><circle cx="9" cy="9" r="8" fill="#fff" stroke="#9db2e8"/><path d="m5.5 10.5 3.5-3.5 3.5 3.5" fill="none" stroke="#215dc6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></h3>
+                <div class="xps__links">
+                  {%- for block in section.blocks -%}
+                    <a href="{{ block.settings.link | default: '/collections/all' }}" {{ block.shopify_attributes }}><svg class="xp-ico" aria-hidden="true" focusable="false"><use href="#xpi-{{ block.settings.icon | default: 'folder' }}-{{ sid }}"/></svg><span>{{ block.settings.label | escape }}</span></a>
+                  {%- endfor -%}
+                </div>
+              </div>
+              {%- if st.pane_note != blank -%}
+                <div class="xps__panel">
+                  <h3>{{ st.pane_note_title | default: 'Details' | escape }}<svg viewBox="0 0 18 18" aria-hidden="true" focusable="false"><circle cx="9" cy="9" r="8" fill="#fff" stroke="#9db2e8"/><path d="m5.5 10.5 3.5-3.5 3.5 3.5" fill="none" stroke="#215dc6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></h3>
+                  <p class="xps__note">{%- if st.pane_note_bold != blank -%}<b>{{ st.pane_note_bold | escape }}</b>{%- endif -%}{{ st.pane_note | escape }}</p>
+                </div>
+              {%- endif -%}
+            </aside>
+          {%- endif -%}
+          <div>
+            {%- if st.heading != blank -%}
+              <div class="xps__head"><div><h2 class="xp-h xps__h" id="XpsH-{{ sid }}">{{ st.heading | escape }}</h2>{%- if st.subheading != blank -%}<p class="xps__sub">{{ st.subheading | escape }}</p>{%- endif -%}</div></div>
+            {%- endif -%}
+            <ul class="xps__grid" role="list">
+              {%- for product in list limit: count -%}
+                {%- if current_id != '' and product.id == current_id -%}{%- continue -%}{%- endif -%}
+                {%- assign shown = shown | plus: 1 -%}
+                {%- assign img = product.featured_media.preview_image | default: product.featured_image -%}
+                {%- assign one = false -%}
+                {%- if product.has_only_default_variant or product.variants.size == 1 -%}{%- assign one = true -%}{%- endif -%}
+                <li class="xps__card" data-motion style="--d: {{ forloop.index0 | modulo: cols | times: 70 }}ms">
+                  <a class="xps__pic" href="{{ product.url }}" tabindex="-1" aria-hidden="true">
+                    {%- unless product.available -%}<span class="xps__tag">{{ st.sold_out_label | default: 'Sold out' | escape }}</span>{%- else -%}{%- if product.compare_at_price > product.price -%}<span class="xps__tag xps__tag--sale">{{ st.sale_label | default: 'Sale' | escape }}</span>{%- endif -%}{%- endunless -%}
+                    {%- if img != blank -%}{{ img | image_url: width: 900 | image_tag: widths: '300, 450, 600, 900', sizes: '(min-width: 1200px) 260px, (min-width: 750px) 30vw, 46vw', alt: product.title, loading: 'lazy' }}{%- else -%}{{ 'product-1' | placeholder_svg_tag }}{%- endif -%}
+                  </a>
+                  <a class="xps__name" href="{{ product.url }}">{{ product.title | escape }}</a>
+                  <p class="xps__price">{{ product.price | money }}{%- if product.compare_at_price > product.price -%}<s>{{ product.compare_at_price | money }}</s>{%- endif -%}</p>
+                  <div class="xps__acts">
+                    <button class="xp-btn" type="button" data-xp-quick>{{ st.quick_label | default: 'Quick view' | escape }}</button>
+                    <button class="xp-btn xp-btn--go" type="button" data-xp-add{% if one %} data-one{% endif %}{% unless product.available %} disabled{% endunless %}>{{ st.add_label | default: 'Add' | escape }}</button>
+                  </div>
+                  <script type="application/json" data-xp-product>{"title":{{ product.title | json }},"url":{{ product.url | json }},"image":{% if img != blank %}{{ img | image_url: width: 900 | json }}{% else %}""{% endif %},"options":{{ product.options | json }},"variants":[{%- for v in product.variants -%}{"id":{{ v.id | json }},"title":{{ v.title | json }},"available":{{ v.available | json }},"price":{{ v.price | json }},"compare":{{ v.compare_at_price | default: 0 | json }},"image":{% if v.featured_image != blank %}{{ v.featured_image | image_url: width: 900 | json }}{% else %}""{% endif %},"options":{{ v.options | json }}}{%- unless forloop.last -%},{%- endunless -%}{%- endfor -%}]}</script>
+                </li>
+              {%- endfor -%}
+              {%- if shown == 0 -%}
+                {%- for i in (1..cols) -%}
+                  {%- assign ph = i | modulo: 6 | plus: 1 -%}
+                  <li class="xps__card">
+                    <span class="xps__pic">{{ 'product-' | append: ph | placeholder_svg_tag }}</span>
+                    <span class="xps__name">{{ st.empty_name | default: 'Your product' | escape }}</span>
+                    <p class="xps__price">{{ 0 | money }}</p>
+                  </li>
+                {%- endfor -%}
+              {%- endif -%}
+            </ul>
+            {%- if st.more_label != blank -%}<div class="xps__more"><a class="xp-btn xp-btn--blue" href="{{ view_all }}">{{ st.more_label | escape }}</a></div>{%- endif -%}
+          </div>
+        </div>
+        <div class="xp-status"><span>{%- if shown == 1 -%}1 {{ st.object_label | default: 'item' | escape }}{%- else -%}{{ shown }} {{ st.objects_label | default: 'items' | escape }}{%- endif -%}</span><span>{{ st.status_right | escape }}</span></div>
+      </div>
+    </section>
+  </div>
+  {%- assign bar_title = st.quick_label | default: 'Quick view' -%}
+  {%- assign bar_icon = 'tee' -%}
+  <dialog class="xpd xpd--qv" data-xp-qv aria-labelledby="XpQvT-{{ sid }}">
+    <div class="xp-win">
+      <div class="xp-bar"><svg class="xp-ico" width="20" height="20" aria-hidden="true" focusable="false"><use href="#xpi-tee-{{ sid }}"/></svg><p class="xp-bar__title" data-xp-qv-bar>{{ bar_title | escape }}</p><span class="xp-ctls"><button class="xp-ctl xp-ctl--close" type="button" data-xp-dismiss aria-label="{{ st.close_label | default: 'Close' | escape }}"><svg viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="m2 2 8 8M10 2 2 10" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/></svg></button></span></div>
+      <div class="xp-body">
+        <div class="xpd__qv">
+          <div class="xpd__pic"><img alt="" data-xp-qv-img width="900" height="900"></div>
+          <div class="xpd__info">
+            <h2 class="xp-h xpd__title" id="XpQvT-{{ sid }}" data-xp-qv-title></h2>
+            <p class="xpd__price" data-xp-qv-price></p>
+            <div class="xpd__opts" data-xp-qv-opts></div>
+            <div class="xpd__row">
+              <div class="xpd__qty"><label for="XpQty-{{ sid }}">{{ st.qty_label | default: 'Quantity' | escape }}</label><input class="xp-field" id="XpQty-{{ sid }}" type="number" min="1" max="99" value="1" inputmode="numeric" data-xp-qv-qty></div>
+              <button class="xp-btn xp-btn--go" type="button" data-xp-qv-add>{{ st.add_cart_label | default: 'Add to cart' | escape }}</button>
+            </div>
+            <p class="xpd__msg" role="status" data-xp-qv-msg></p>
+            <a class="xpd__more" href="#" data-xp-qv-link>{{ st.details_label | default: 'See every detail' | escape }}</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </dialog>
+  <dialog class="xpd xpd--ok" data-xp-ok aria-labelledby="XpOkT-{{ sid }}">
+    <div class="xp-win">
+      <div class="xp-bar"><svg class="xp-ico" width="20" height="20" aria-hidden="true" focusable="false"><use href="#xpi-cart-{{ sid }}"/></svg><p class="xp-bar__title" data-xp-ok-bar>{{ st.added_title | default: 'Added to cart' | escape }}</p><span class="xp-ctls"><button class="xp-ctl xp-ctl--close" type="button" data-xp-dismiss aria-label="{{ st.close_label | default: 'Close' | escape }}"><svg viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="m2 2 8 8M10 2 2 10" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/></svg></button></span></div>
+      <div class="xp-body">
+        <div class="xpd__ok">
+          <span class="xpd__ok-pic"><img alt="" data-xp-ok-img width="128" height="128"></span>
+          <div><p class="xpd__ok-h" id="XpOkT-{{ sid }}" data-xp-ok-title>{{ st.added_title | default: 'Added to cart' | escape }}</p><p class="xpd__ok-t" data-xp-ok-text></p></div>
+        </div>
+        <div class="xpd__acts">
+          <button class="xp-btn" type="button" data-xp-dismiss>{{ st.keep_label | default: 'Keep shopping' | escape }}</button>
+          <a class="xp-btn xp-btn--go" href="{{ routes.cart_url }}" data-xp-ok-cart>{{ st.view_cart_label | default: 'View cart' | escape }}</a>
+        </div>
+      </div>
+    </div>
+  </dialog>
+</div>
+<script>
+  (function () {
+    var root = document.getElementById('shopify-section-{{ section.id }}');
+    if (!root) return;
+    var still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if ('IntersectionObserver' in window && !still && !(window.Shopify && window.Shopify.designMode)) {
+      document.documentElement.classList.add('xp-js');
+      if (!window.__xpSeen) window.__xpSeen = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('is-in'); window.__xpSeen.unobserve(e.target); } }); }, { rootMargin: '0px 0px -5% 0px', threshold: 0.04 });
+      root.querySelectorAll('[data-motion]:not(.is-in)').forEach(function (el) {
+        var r = el.getBoundingClientRect();
+        if (r.top < innerHeight && r.bottom > 0) { el.classList.add('is-in'); return; }
+        window.__xpSeen.observe(el);
+      });
+    }
+    root.querySelectorAll('[data-xp-window]').forEach(function (win) {
+      if (win.__xp) return; win.__xp = true;
+      var narrow = function () { return window.matchMedia('(max-width: 749px)').matches; };
+      var min = win.querySelector('[data-xp-min]'), max = win.querySelector('[data-xp-max]'), close = win.querySelector('[data-xp-close]');
+      if (min) min.addEventListener('click', function () { var on = !win.classList.contains('is-min'); win.classList.toggle('is-min', on); min.setAttribute('aria-expanded', on ? 'false' : 'true'); });
+      if (max) max.addEventListener('click', function () { win.classList.toggle('is-max'); win.classList.remove('is-min'); });
+      if (close) close.addEventListener('click', function () {
+        if (narrow() || !window.__xpPark) { win.classList.add('is-min'); return; }
+        win.classList.add('is-closing');
+        setTimeout(function () { win.classList.remove('is-closing'); win.hidden = true; window.__xpPark(win); }, still ? 0 : 200);
+      });
+    });
+  })();
+</script>
+
+<script>
+  (function () {
+    var root = document.querySelector('#shopify-section-{{ section.id }} [data-xp-shop]');
+    if (!root || root.__shop) return; root.__shop = true;
+    var qv = root.querySelector('[data-xp-qv]'), ok = root.querySelector('[data-xp-ok]');
+    var fmt = root.getAttribute('data-money') || ('$' + '{' + '{amount}' + '}');
+    var words = { added: {{ st.added_text | default: '[product] is in your cart.' | json }}, sold: {{ st.unavailable_label | default: 'That one is sold out.' | json }}, err: {{ st.error_label | default: 'That did not work. Try again.' | json }}, addedTitle: {{ st.added_title | default: 'Added to cart' | json }}, errTitle: {{ st.error_title | default: 'Not added' | json }} };
+    function money(c) { var a = (Number(c) || 0) / 100; return fmt.replace(/\{\{\s*(\w+)\s*\}\}/, function (_, k) { return /no_decimals/.test(k) ? String(Math.round(a)) : /comma/.test(k) ? a.toFixed(2).replace('.', ',') : a.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }); }
+    var opener = null;
+    function show(d) { opener = document.activeElement; if (d.showModal) { if (!d.open) d.showModal(); } else d.setAttribute('open', ''); }
+    function hide(d) { if (d.close && d.open) d.close(); else d.removeAttribute('open'); }
+    [qv, ok].forEach(function (d) {
+      d.addEventListener('click', function (e) { if (e.target === d) hide(d); });
+      d.addEventListener('close', function () { if (opener && opener.focus && !qv.open && !ok.open) opener.focus({ preventScroll: true }); });
+    });
+    root.querySelectorAll('[data-xp-dismiss]').forEach(function (b) { b.addEventListener('click', function () { hide(b.closest('dialog')); }); });
+    var current = null;
+    function chosen() { return [].map.call(qv.querySelectorAll('[data-xp-qv-opts] fieldset'), function (f) { var c = f.querySelector('input:checked'); return c ? c.value : undefined; }); }
+    function pick() {
+      if (!current) return null;
+      var sel = chosen();
+      return current.variants.find(function (v) { return !v.options || !v.options.length || v.options.every(function (o, i) { return sel[i] === undefined || o === sel[i]; }); }) || current.variants[0];
+    }
+    function paint() {
+      var v = pick(); if (!v) return;
+      var p = qv.querySelector('[data-xp-qv-price]'); p.textContent = money(v.price);
+      if (v.compare > v.price) { var s = document.createElement('s'); s.textContent = money(v.compare); p.appendChild(s); }
+      var img = qv.querySelector('[data-xp-qv-img]'); var src = v.image || current.image; if (src && img.getAttribute('src') !== src) img.src = src;
+      qv.querySelector('[data-xp-qv-add]').disabled = !v.available;
+      qv.querySelector('[data-xp-qv-msg]').textContent = v.available ? '' : words.sold;
+    }
+    function open(data) {
+      current = data;
+      qv.querySelector('[data-xp-qv-bar]').textContent = data.title;
+      qv.querySelector('[data-xp-qv-title]').textContent = data.title;
+      var img = qv.querySelector('[data-xp-qv-img]'); if (data.image) { img.src = data.image; img.alt = data.title; img.hidden = false; } else img.hidden = true;
+      qv.querySelector('[data-xp-qv-link]').href = data.url;
+      qv.querySelector('[data-xp-qv-qty]').value = 1;
+      var box = qv.querySelector('[data-xp-qv-opts]'); box.innerHTML = '';
+      var names = (data.options || []).filter(function (o) { return o && o !== 'Title'; });
+      var first = data.variants.find(function (v) { return v.available; }) || data.variants[0];
+      names.forEach(function (name, i) {
+        var vals = []; data.variants.forEach(function (v) { var x = v.options && v.options[i]; if (x && vals.indexOf(x) < 0) vals.push(x); });
+        if (vals.length < 2 && data.variants.length < 2) return;
+        var fs = document.createElement('fieldset'); fs.className = 'xpd__opts xpd__opt';
+        var lg = document.createElement('legend'); lg.textContent = name; fs.appendChild(lg);
+        var wrap = document.createElement('div'); wrap.className = 'xpd__vals';
+        vals.forEach(function (x, j) {
+          var lab = document.createElement('label'), inp = document.createElement('input'), sp = document.createElement('span');
+          inp.type = 'radio'; inp.name = 'XpOpt-{{ section.id }}-' + i; inp.value = x; inp.checked = first && first.options ? first.options[i] === x : j === 0;
+          var any = data.variants.some(function (v) { return v.available && v.options && v.options[i] === x; }); if (!any) inp.classList.add('is-out');
+          sp.textContent = x; inp.addEventListener('change', paint); lab.appendChild(inp); lab.appendChild(sp); wrap.appendChild(lab);
+        });
+        fs.appendChild(wrap); box.appendChild(fs);
+      });
+      box.hidden = !box.children.length;
+      paint(); show(qv);
+    }
+    function add(v, qty, data, btn) {
+      if (btn) btn.disabled = true;
+      return fetch('/cart/add.js', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ items: [{ id: v.id, quantity: qty }] }) })
+        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) { var e = new Error(r.status); e.say = j && (j.description || j.message); throw e; } return j; }); })
+        .then(function () {
+          hide(qv);
+          var name = data.title + (v.title && v.title !== 'Default Title' ? ' (' + v.title + ')' : '');
+          ok.classList.remove('is-error');
+          ok.querySelector('[data-xp-ok-title]').textContent = words.addedTitle;
+          ok.querySelector('[data-xp-ok-bar]').textContent = words.addedTitle;
+          ok.querySelector('[data-xp-ok-text]').textContent = words.added.replace('[product]', name);
+          var oi = ok.querySelector('[data-xp-ok-img]'); var src = v.image || data.image; if (src) { oi.src = src; oi.parentNode.hidden = false; } else oi.parentNode.hidden = true;
+          show(ok); var c = ok.querySelector('[data-xp-ok-cart]'); if (c) c.focus();
+          document.dispatchEvent(new CustomEvent('xp:cart')); document.dispatchEvent(new CustomEvent('cart:refresh', { detail: { source: 'xpshop-shop' } }));
+        })
+        .catch(function (e) {
+          var say = (e && e.say) || words.err;
+          if (qv.open) { qv.querySelector('[data-xp-qv-msg]').textContent = say; return; }
+          ok.classList.add('is-error');
+          ok.querySelector('[data-xp-ok-title]').textContent = words.errTitle;
+          ok.querySelector('[data-xp-ok-bar]').textContent = words.errTitle;
+          ok.querySelector('[data-xp-ok-text]').textContent = say;
+          show(ok);
+        })
+        .then(function () { if (btn) btn.disabled = false; });
+    }
+    root.querySelectorAll('.xps__card').forEach(function (li) {
+      var json = li.querySelector('[data-xp-product]'); if (!json) return;
+      var data; try { data = JSON.parse(json.textContent); } catch (e) { return; }
+      var q = li.querySelector('[data-xp-quick]'), a = li.querySelector('[data-xp-add]');
+      if (q) q.addEventListener('click', function () { open(data); });
+      if (a) a.addEventListener('click', function () {
+        if (a.hasAttribute('data-one')) { var v = data.variants[0]; if (v && v.available) add(v, 1, data, a); }
+        else open(data);
+      });
+    });
+    qv.querySelector('[data-xp-qv-add]').addEventListener('click', function (e) {
+      var v = pick(); if (!v || !v.available) return;
+      var n = Math.max(1, Math.min(99, parseInt(qv.querySelector('[data-xp-qv-qty]').value, 10) || 1));
+      add(v, n, current, e.currentTarget);
+    });
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "XP shop window",
+  "tag": "section",
+  "class": "xpshop-shop-section",
+  "settings": [
+    { "type": "text", "id": "title", "label": "Title bar", "default": "Shop" },
+    { "type": "select", "id": "icon", "label": "Title bar icon", "default": "folder", "options": [{"value": "folder", "label": "Folder"}, {"value": "tee", "label": "Tee"}, {"value": "cap", "label": "Cap"}, {"value": "help", "label": "Help"}, {"value": "mail", "label": "Letter"}, {"value": "cart", "label": "Cart"}, {"value": "search", "label": "Search"}, {"value": "user", "label": "Person"}, {"value": "note", "label": "Note"}, {"value": "home", "label": "Home"}, {"value": "star", "label": "Star"}, {"value": "truck", "label": "Delivery van"}, {"value": "shield", "label": "Shield"}, {"value": "refresh", "label": "Returns arrow"}, {"value": "leaf", "label": "Leaf"}, {"value": "sticker", "label": "Sticker"}, {"value": "heart", "label": "Heart"}, {"value": "clock", "label": "Clock"}, {"value": "info", "label": "Information"}, {"value": "camera", "label": "Camera"}, {"value": "music", "label": "Music"}, {"value": "play", "label": "Video"}, {"value": "globe", "label": "Globe"}] },
+    { "type": "text", "id": "heading", "label": "Heading" },
+    { "type": "text", "id": "subheading", "label": "Line under the heading" },
+    { "type": "collection", "id": "collection", "label": "Collection", "info": "Empty: every product." },
+    { "type": "range", "id": "products_to_show", "label": "Products to show", "min": 1, "max": 24, "step": 1, "default": 8 },
+    { "type": "select", "id": "columns", "label": "Products in a row", "default": "4", "options": [ { "value": "2", "label": "2" }, { "value": "3", "label": "3" }, { "value": "4", "label": "4" }, { "value": "5", "label": "5" } ] },
+    { "type": "checkbox", "id": "skip_current", "label": "Leave out the product being viewed", "default": true },
+    { "type": "text", "id": "address", "label": "Address line", "default": "Shop > New drop" },
+    { "type": "text", "id": "address_label", "label": "Address label", "default": "Address" },
+    { "type": "text", "id": "view_all_label", "label": "Address button", "default": "Go" },
+    { "type": "url", "id": "view_all_link", "label": "Address button link", "info": "Empty: the collection." },
+    { "type": "text", "id": "more_label", "label": "Button under the products" },
+    { "type": "text", "id": "status_right", "label": "Status bar, right", "default": "Ships in 2 days" },
+    { "type": "header", "content": "Side panel" },
+    { "type": "checkbox", "id": "show_pane", "label": "Show the side panel", "default": true, "info": "Its links are the blocks. On a phone they become a row above the products." },
+    { "type": "text", "id": "pane_title", "label": "Panel title", "default": "Shop tasks" },
+    { "type": "text", "id": "pane_note_title", "label": "Second panel title", "default": "Details" },
+    { "type": "text", "id": "pane_note_bold", "label": "Second panel, bold line" },
+    { "type": "text", "id": "pane_note", "label": "Second panel, text" },
+    { "type": "header", "content": "Words" },
+    { "type": "text", "id": "quick_label", "label": "Quick view", "default": "Quick view" },
+    { "type": "text", "id": "add_label", "label": "Add", "default": "Add" },
+    { "type": "text", "id": "add_cart_label", "label": "Add to cart", "default": "Add to cart" },
+    { "type": "text", "id": "qty_label", "label": "Quantity", "default": "Quantity" },
+    { "type": "text", "id": "details_label", "label": "Link to the product page", "default": "See every detail" },
+    { "type": "text", "id": "added_title", "label": "Added window title", "default": "Added to cart" },
+    { "type": "text", "id": "added_text", "label": "Added window text", "default": "[product] is in your cart.", "info": "[product] is replaced by the product's name." },
+    { "type": "text", "id": "view_cart_label", "label": "View cart", "default": "View cart" },
+    { "type": "text", "id": "keep_label", "label": "Keep shopping", "default": "Keep shopping" },
+    { "type": "text", "id": "sold_out_label", "label": "Sold out", "default": "Sold out" },
+    { "type": "text", "id": "sale_label", "label": "Sale", "default": "Sale" },
+    { "type": "text", "id": "unavailable_label", "label": "When a choice is sold out", "default": "That one is sold out." },
+    { "type": "text", "id": "error_label", "label": "When adding fails", "default": "That did not work. Try again." },
+    { "type": "text", "id": "error_title", "label": "Title when adding fails", "default": "Not added" },
+    { "type": "text", "id": "object_label", "label": "Status bar, one product", "default": "item" },
+    { "type": "text", "id": "objects_label", "label": "Status bar, several products", "default": "items" },
+    { "type": "text", "id": "empty_name", "label": "Name on empty places", "default": "Your product" },
+    { "type": "text", "id": "close_label", "label": "Close button name for screen readers", "default": "Close" },
+    { "type": "header", "content": "Spacing" },
+    { "type": "range", "id": "padding_top", "label": "Space above, desktop", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 0 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below, desktop", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 28 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above, phone", "min": 0, "max": 80, "step": 2, "unit": "px", "default": 0 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below, phone", "min": 0, "max": 80, "step": 2, "unit": "px", "default": 16 }
+  ],
+  "blocks": [
+    {
+      "type": "link",
+      "name": "Side panel link",
+      "settings": [
+        { "type": "select", "id": "icon", "label": "Icon", "default": "folder", "options": [{"value": "folder", "label": "Folder"}, {"value": "tee", "label": "Tee"}, {"value": "cap", "label": "Cap"}, {"value": "help", "label": "Help"}, {"value": "mail", "label": "Letter"}, {"value": "cart", "label": "Cart"}, {"value": "search", "label": "Search"}, {"value": "user", "label": "Person"}, {"value": "note", "label": "Note"}, {"value": "home", "label": "Home"}, {"value": "star", "label": "Star"}, {"value": "truck", "label": "Delivery van"}, {"value": "shield", "label": "Shield"}, {"value": "refresh", "label": "Returns arrow"}, {"value": "leaf", "label": "Leaf"}, {"value": "sticker", "label": "Sticker"}, {"value": "heart", "label": "Heart"}, {"value": "clock", "label": "Clock"}, {"value": "info", "label": "Information"}, {"value": "camera", "label": "Camera"}, {"value": "music", "label": "Music"}, {"value": "play", "label": "Video"}, {"value": "globe", "label": "Globe"}] },
+        { "type": "text", "id": "label", "label": "Label", "default": "All products" },
+        { "type": "url", "id": "link", "label": "Link" }
+      ]
+    }
+  ],
+  "presets": [
+    { "name": "XP shop window", "category": "XP shop" }
+  ]
+}
+{% endschema %}

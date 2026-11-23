@@ -22,57 +22,66 @@
       }
     },
     "offers": {
-      "type": "coach-offers",
+      "type": "coach2-offers",
       "settings": {
-        "color_scheme": "default",
-        "background": "#faf6f0",
-        "card_color": "#ffffff",
-        "accent_color": "#a5582a",
-        "eyebrow": "Not sure where to start?",
-        "heading": "Three ways to <em>work together</em>",
-        "columns": "3",
-        "image_ratio": "4 / 3",
-        "card_radius": 4,
-        "padding_top": 48
+        "background": "#f3f4f6",
+        "eyebrow": "Work with me",
+        "heading": "Three ways to work together",
+        "text": "<p>Every client starts with the same free call. Then we pick what fits where you are now. Many companies pay for it from a training budget.</p>",
+        "note": "<p>Buying for several managers at your company? <a href=\"/pages/contact\">Ask about company rates</a></p>",
+        "padding_top": 88,
+        "padding_bottom": 88
       },
       "blocks": {
         "offer_1": {
           "type": "offer",
           "settings": {
             "image": "shopify://shop_images/coach-offer-one.webp",
-            "alt": "Two armchairs side by side in a quiet room",
-            "label": "Six sessions",
-            "title": "One to one coaching",
-            "text": "Private sessions to untangle one big decision and leave with a plan you will actually keep.",
-            "price": "From $160",
-            "link_label": "See the details",
-            "link": "/collections/all"
+            "image_alt": "Mateo at a meeting table",
+            "featured": false,
+            "flag": "Most managers start here",
+            "label": "One to one",
+            "title": "Monthly coaching",
+            "price": "$390",
+            "per": "a month",
+            "text": "Two calls a month and messages in between, for managers who want someone in their corner.",
+            "points": "Two 60 minute calls a month\nMessages answered within a working day\nA one page plan we update each month\nStop or pause any month",
+            "button_label": "See the details",
+            "button_link": "/collections/all"
           }
         },
         "offer_2": {
           "type": "offer",
           "settings": {
             "image": "shopify://shop_images/coach-offer-group.webp",
-            "alt": "Four women talking around a café table",
-            "label": "Eight weeks",
-            "title": "The Clear Path group",
-            "text": "Eight Tuesday evenings with five other women at the same crossroads, online.",
-            "price": "$480",
-            "link_label": "See the details",
-            "link": "/collections/all"
+            "image_alt": "Mateo at a whiteboard, arms crossed",
+            "featured": true,
+            "flag": "Most managers start here",
+            "label": "Small group",
+            "title": "First 90 Days",
+            "price": "$990",
+            "per": "8 weeks",
+            "text": "Eight new managers, eight weeks, one topic a week: delegation, feedback, one to ones, meetings, hiring and the plan.",
+            "points": "Eight live sessions on video\nA workbook for each week\nTwo one to one calls with me\nA group of managers to stay in touch with",
+            "button_label": "Join the next group",
+            "button_link": "/collections/all"
           }
         },
         "offer_3": {
           "type": "offer",
           "settings": {
-            "image": "shopify://shop_images/coach-offer-online.webp",
-            "alt": "Leah on a video call at her desk",
-            "label": "Anywhere",
-            "title": "Online sessions",
-            "text": "The same focus and follow up as in person, on a video call that fits around your day.",
-            "price": "From $140",
-            "link_label": "See the details",
-            "link": "/collections/all"
+            "image": "shopify://shop_images/coach-offer-day.webp",
+            "image_alt": "Mateo explaining at a whiteboard",
+            "featured": false,
+            "flag": "Most managers start here",
+            "label": "For your team",
+            "title": "Team day",
+            "price": "$2,400",
+            "per": "one day",
+            "text": "A full day with you and your team on how you work together: roles, meetings, decisions and the next quarter.",
+            "points": "A call with you before the day\nSix hours together, in person or online\nEverything agreed, written up within a week\nA follow up call after 30 days",
+            "button_label": "Plan a team day",
+            "button_link": "/collections/all"
           }
         }
       },
@@ -81,10 +90,30 @@
         "offer_2",
         "offer_3"
       ]
+    },
+    "cta": {
+      "type": "coach2-cta",
+      "settings": {
+        "background": "#ffffff",
+        "eyebrow": "Free first call",
+        "heading": "Let's look at your week",
+        "text": "<p>Twenty minutes on video. You tell me about your team; I say honestly whether I can help.</p>",
+        "button_label": "Book a free call",
+        "button_link": "/pages/book",
+        "note": "No pitch. If we are not a fit, I will say so.",
+        "avatar": "shopify://shop_images/coach-mateo-avatar.webp",
+        "name": "Mateo Cruz",
+        "role": "Leadership coach",
+        "points": "Where your team is now\nWhat is taking your time\nOne next step, either way",
+        "heading_size": 64,
+        "padding_top": 8,
+        "padding_bottom": 96
+      }
     }
   },
   "order": [
     "main",
-    "offers"
+    "offers",
+    "cta"
   ]
 }

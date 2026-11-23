@@ -50,9 +50,29 @@
         "subheading_yFdKEQ",
         "button_4yrfiE"
       ]
+    },
+    "cta": {
+      "type": "coach2-cta",
+      "settings": {
+        "background": "#ffffff",
+        "eyebrow": "Free first call",
+        "heading": "Let's look at your week",
+        "text": "<p>Twenty minutes on video. You tell me about your team; I say honestly whether I can help.</p>",
+        "button_label": "Book a free call",
+        "button_link": "/pages/book",
+        "note": "No pitch. If we are not a fit, I will say so.",
+        "avatar": "shopify://shop_images/coach-mateo-avatar.webp",
+        "name": "Mateo Cruz",
+        "role": "Leadership coach",
+        "points": "Where your team is now\nWhat is taking your time\nOne next step, either way",
+        "heading_size": 64,
+        "padding_top": 24,
+        "padding_bottom": 96
+      }
     }
   },
   "order": [
-    "main"
+    "main",
+    "cta"
   ]
 }

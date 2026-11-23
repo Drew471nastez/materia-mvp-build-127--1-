@@ -1,0 +1,125 @@
+{%- comment -%}
+  Online course: the teacher. A tall photograph with a name tag over its
+  foot, beside a heading, a few lines, three short facts in a row, the
+  places the teacher posts and a button. Can be the page's main heading,
+  for an About page, and can carry an anchor for menu links.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign tag = 'h2'
+  if st.main_heading
+    assign tag = 'h1'
+  endif
+-%}
+<style>
+  #shopify-section-{{ sid }} .c2t { --ink: {{ st.ink }}; --muted: {{ st.muted }}; --accent: {{ st.accent }}; --line: {{ st.line_color }}; background: {{ st.background }}; padding: {{ st.padding_top_mobile }}px 16px {{ st.padding_bottom_mobile }}px; scroll-margin-top: 80px; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .c2t { padding: {{ st.padding_top }}px 32px {{ st.padding_bottom }}px; } }
+  #shopify-section-{{ sid }} .c2t__inner { max-width: var(--page-width, 1120px); margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; align-items: center; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2t__inner { grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr); gap: 72px; } #shopify-section-{{ sid }} .c2t--right .c2t__media { order: 2; } }
+  #shopify-section-{{ sid }} .c2t__media { position: relative; margin: 0; aspect-ratio: 4 / 5; border-radius: {{ st.radius }}px; overflow: hidden; background: #e7e8eb; }
+  #shopify-section-{{ sid }} .c2t__media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: {{ st.image_focus }}; margin: 0; }
+  #shopify-section-{{ sid }} .c2t__tag { position: absolute; left: 14px; bottom: 14px; padding: 10px 14px; border-radius: {{ st.radius | divided_by: 2 }}px; background: rgba(13,13,15,.82); color: #fff; font-size: 14px; line-height: 1.3; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  #shopify-section-{{ sid }} .c2t__tag b { display: block; font-size: 15px; }
+  #shopify-section-{{ sid }} .c2t__tag span { opacity: .8; font-size: 13px; }
+  #shopify-section-{{ sid }} .c2t__eyebrow { display: inline-block; margin: 0 0 16px; padding: 5px 10px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); font-size: 12.5px; font-weight: 600; letter-spacing: .02em; }
+  #shopify-section-{{ sid }} .c2t__h { margin: 0; color: var(--ink); font-family: var(--heading-font, inherit); font-weight: 700; letter-spacing: -0.035em; line-height: 1.05; font-size: {{ st.heading_size_mobile }}px; text-wrap: balance; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .c2t__h { font-size: {{ st.heading_size }}px; } }
+  #shopify-section-{{ sid }} .c2t__h em { font-style: normal; color: var(--accent); }
+  #shopify-section-{{ sid }} .c2t__t { margin: 18px 0 0; color: var(--muted); font-size: 16.5px; line-height: 1.7; max-width: 58ch; }
+  #shopify-section-{{ sid }} .c2t__t p { margin: 0 0 12px; }
+  #shopify-section-{{ sid }} .c2t__facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 24px 0 0; padding: 0; list-style: none; }
+  #shopify-section-{{ sid }} .c2t__facts li { padding: 14px; border: 1px solid var(--line); border-radius: {{ st.radius | divided_by: 2 }}px; }
+  #shopify-section-{{ sid }} .c2t__facts b { display: block; color: var(--ink); font-family: var(--heading-font, inherit); font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+  #shopify-section-{{ sid }} .c2t__facts span { display: block; margin-top: 2px; color: var(--muted); font-size: 13px; line-height: 1.35; }
+  #shopify-section-{{ sid }} .c2t__row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-top: 26px; }
+  #shopify-section-{{ sid }} .c2t__btn { display: inline-flex; align-items: center; min-height: 50px; padding: 0 22px; border-radius: {{ st.radius | divided_by: 2 }}px; background: var(--ink); color: #fff; font-size: 15px; font-weight: 600; text-decoration: none; transition: background-color .2s ease; }
+  #shopify-section-{{ sid }} .c2t__btn:hover { background: var(--accent); }
+  #shopify-section-{{ sid }} .c2t__social { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  #shopify-section-{{ sid }} .c2t__social a { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 14px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink); font-size: 14px; font-weight: 500; text-decoration: none; transition: border-color .2s ease; }
+  #shopify-section-{{ sid }} .c2t__social a:hover { border-color: var(--ink); }
+  #shopify-section-{{ sid }} .c2t__social svg { width: 17px; height: 17px; }
+  @media (max-width: 749px) { #shopify-section-{{ sid }} .c2t__facts b { font-size: 18px; } }
+</style>
+
+<div class="c2t color-{{ color_scheme }}{% if st.image_position == 'right' %} c2t--right{% endif %}"{% if st.anchor != blank %} id="{{ st.anchor | handleize }}"{% endif %}>
+  <div class="c2t__inner">
+    <figure class="c2t__media">
+      {%- if st.image != blank -%}
+        <img src="{{ st.image | image_url: width: 1000 }}" srcset="{{ st.image | image_url: width: 600 }} 600w, {{ st.image | image_url: width: 1000 }} 1000w" sizes="(min-width: 990px) 480px, 94vw" width="{{ st.image.width | default: 1000 }}" height="{{ st.image.height | default: 1250 }}" alt="{{ st.image_alt | escape }}" {% if st.main_heading %}fetchpriority="high"{% else %}loading="lazy"{% endif %} decoding="async">
+      {%- endif -%}
+      {%- if st.name != blank -%}<figcaption class="c2t__tag"><b>{{ st.name | escape }}</b>{%- if st.role != blank -%}<span>{{ st.role | escape }}</span>{%- endif -%}</figcaption>{%- endif -%}
+    </figure>
+    <div>
+      {%- if st.eyebrow != blank -%}<p class="c2t__eyebrow">{{ st.eyebrow | escape }}</p>{%- endif -%}
+      {%- if st.heading != blank -%}<{{ tag }} class="c2t__h">{{ st.heading }}</{{ tag }}>{%- endif -%}
+      {%- if st.text != blank -%}<div class="c2t__t">{{ st.text }}</div>{%- endif -%}
+      {%- if st.fact_1_value != blank -%}
+        <ul class="c2t__facts">
+          {%- for f in (1..3) -%}
+            {%- assign kv = 'fact_' | append: f | append: '_value' -%}{%- assign kl = 'fact_' | append: f | append: '_label' -%}
+            {%- if st[kv] != blank -%}<li><b>{{ st[kv] | escape }}</b><span>{{ st[kl] | escape }}</span></li>{%- endif -%}
+          {%- endfor -%}
+        </ul>
+      {%- endif -%}
+      <div class="c2t__row">
+        {%- if st.button_label != blank -%}<a class="c2t__btn" href="{{ st.button_link | default: '/pages/about' }}">{{ st.button_label | escape }}</a>{%- endif -%}
+        <ul class="c2t__social">
+          {%- if st.youtube != blank -%}<li><a href="{{ st.youtube }}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21.6 7.2c-.2-.9-.9-1.6-1.8-1.8C18.2 5 12 5 12 5s-6.2 0-7.8.4c-.9.2-1.6.9-1.8 1.8C2 8.8 2 12 2 12s0 3.2.4 4.8c.2.9.9 1.6 1.8 1.8 1.6.4 7.8.4 7.8.4s6.2 0 7.8-.4c.9-.2 1.6-.9 1.8-1.8.4-1.6.4-4.8.4-4.8s0-3.2-.4-4.8zM10 15V9l5.2 3L10 15z"/></svg>YouTube</a></li>{%- endif -%}
+          {%- if st.instagram != blank -%}<li><a href="{{ st.instagram }}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>Instagram</a></li>{%- endif -%}
+          {%- if st.tiktok != blank -%}<li><a href="{{ st.tiktok }}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.6 3c.3 2.2 1.6 3.6 3.9 3.8v3.2c-1.4.1-2.6-.3-3.9-1.1v5.9c0 3.6-2.6 6.2-6 6.2S4.6 18.4 4.6 15c0-3.5 2.9-6 6.4-5.7v3.3c-1.6-.3-3.1.7-3.1 2.4 0 1.5 1.2 2.6 2.7 2.6 1.6 0 2.7-1 2.7-3V3h3.3z"/></svg>TikTok</a></li>{%- endif -%}
+          {%- if st.spotify != blank -%}<li><a href="{{ st.spotify }}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm4.6 14.4a.6.6 0 0 1-.9.2c-2.4-1.5-5.3-1.8-8.8-1a.6.6 0 1 1-.3-1.2c3.8-.9 7.1-.5 9.8 1.1.3.2.4.6.2.9zm1.2-2.7a.8.8 0 0 1-1.1.3c-2.7-1.7-6.9-2.2-10.1-1.2a.8.8 0 0 1-.5-1.5c3.7-1.1 8.3-.6 11.4 1.3.4.2.5.7.3 1.1zm.1-2.8C14.7 9 9.4 8.8 6.3 9.7a.9.9 0 1 1-.5-1.8c3.5-1.1 9.4-.9 13.1 1.3a.9.9 0 0 1-1 1.7z"/></svg>Spotify</a></li>{%- endif -%}
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Course teacher",
+  "tag": "section",
+  "class": "section sec__course2-teacher",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default-color-scheme" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#ffffff" },
+    { "type": "color", "id": "ink", "label": "Heading colour", "default": "#0d0d0f" },
+    { "type": "color", "id": "muted", "label": "Text colour", "default": "#4a4d55" },
+    { "type": "color", "id": "accent", "label": "Accent", "default": "#e5372a" },
+    { "type": "color", "id": "line_color", "label": "Lines", "default": "#e3e4e8" },
+    { "type": "range", "id": "radius", "label": "Corners", "min": 0, "max": 24, "step": 2, "unit": "px", "default": 12 },
+    { "type": "text", "id": "anchor", "label": "Anchor", "info": "A menu link to /#this-word scrolls here." },
+    { "type": "image_picker", "id": "image", "label": "Photograph" },
+    { "type": "text", "id": "image_alt", "label": "Alt text" },
+    { "type": "select", "id": "image_focus", "label": "Keep in view", "options": [ { "value": "center", "label": "Middle" }, { "value": "center top", "label": "Top" } ], "default": "center" },
+    { "type": "select", "id": "image_position", "label": "Picture side, desktop", "options": [ { "value": "left", "label": "Left" }, { "value": "right", "label": "Right" } ], "default": "left" },
+    { "type": "text", "id": "name", "label": "Name on the picture", "default": "Your name" },
+    { "type": "text", "id": "role", "label": "Under the name", "default": "Your teacher" },
+    { "type": "checkbox", "id": "main_heading", "label": "This is the page's main heading", "default": false },
+    { "type": "text", "id": "eyebrow", "label": "Small label", "default": "Your teacher" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "info": "Words in italics show in the accent colour.", "default": "A heading about the <em>teacher</em>" },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Who teaches the course and why people learn from them.</p>" },
+    { "type": "text", "id": "fact_1_value", "label": "Fact 1", "default": "12 years" },
+    { "type": "text", "id": "fact_1_label", "label": "Fact 1, under it", "default": "Teaching" },
+    { "type": "text", "id": "fact_2_value", "label": "Fact 2" },
+    { "type": "text", "id": "fact_2_label", "label": "Fact 2, under it" },
+    { "type": "text", "id": "fact_3_value", "label": "Fact 3" },
+    { "type": "text", "id": "fact_3_label", "label": "Fact 3, under it" },
+    { "type": "text", "id": "button_label", "label": "Button" },
+    { "type": "url", "id": "button_link", "label": "Button link" },
+    { "type": "header", "content": "Where you post", "info": "Leave a place empty to hide it." },
+    { "type": "url", "id": "youtube", "label": "YouTube" },
+    { "type": "url", "id": "instagram", "label": "Instagram" },
+    { "type": "url", "id": "tiktok", "label": "TikTok" },
+    { "type": "url", "id": "spotify", "label": "Spotify" },
+    { "type": "range", "id": "heading_size", "label": "Heading size, desktop", "min": 28, "max": 72, "step": 2, "unit": "px", "default": 46 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size, phone", "min": 24, "max": 48, "step": 2, "unit": "px", "default": 32 },
+    { "type": "range", "id": "padding_top", "label": "Space above, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below, desktop", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below, phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 }
+  ],
+  "presets": [ { "name": "Course teacher" } ]
+}
+{% endschema %}

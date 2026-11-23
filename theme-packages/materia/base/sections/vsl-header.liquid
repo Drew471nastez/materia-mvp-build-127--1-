@@ -84,7 +84,7 @@ Video sales letter: the header of a one offer page, and the background
 
   /* Glow from the top of the screen, and grain over everything. */
   .vsl-bg-{{ sid }} .vsl-bg__glow { background: radial-gradient(70% 55% at 50% -8%, {{ glow | color_modify: 'alpha', glow_a }}, transparent 70%); }
-  .vsl-bg-{{ sid }} .vsl-bg__grain { opacity: {{ grain_a }}; mix-blend-mode: overlay; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1.4 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); background-size: 180px 180px; }
+  .vsl-bg-{{ sid }} .vsl-bg__grain { opacity: {{ grain_a }}; mix-blend-mode: overlay; background-size: 160px 160px; }
   .vsl-bg-{{ sid }}[data-paused] * { animation-play-state: paused !important; }
   @media (prefers-reduced-motion: reduce) {
     .vsl-bg-{{ sid }} .vsl-bg__stars.is-moving, .vsl-bg-{{ sid }} .vsl-bg__mesh, .vsl-bg-{{ sid }} .vsl-bg__tw { animation: none; }
@@ -139,6 +139,17 @@ Video sales letter: the header of a one offer page, and the background
           d.style.setProperty('--tw', (3 + rnd() * 5).toFixed(2) + 's'); d.style.setProperty('--td', (-rnd() * 6).toFixed(2) + 's');
           root.appendChild(d);
         }
+      }
+    }
+    var grain = root.querySelector('.vsl-bg__grain');
+    if (grain && !grain.style.backgroundImage) {
+      var g = document.createElement('canvas'); g.width = g.height = 160;
+      var gx = g.getContext('2d');
+      if (gx) {
+        var img = gx.createImageData(160, 160), d = img.data;
+        for (var q = 0; q < d.length; q += 4) { var n = Math.random() * 255 | 0; d[q] = d[q + 1] = d[q + 2] = n; d[q + 3] = 255; }
+        gx.putImageData(img, 0, 0);
+        grain.style.backgroundImage = 'url(' + g.toDataURL('image/png') + ')';
       }
     }
     var v = root.querySelector('video[data-src]');

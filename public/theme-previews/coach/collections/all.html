@@ -15,7 +15,7 @@ function path(u){try{return new URL(u,location.href).pathname}catch(e){return""}
 var CART={token:"preview",note:"",attributes:{},original_total_price:0,total_price:0,total_discount:0,total_weight:0,item_count:0,items:[],requires_shipping:false,currency:"USD",items_subtotal_price:0,cart_level_discount_applications:[]};
 var NO={status:422,message:"Preview",description:"This is a preview of the template. Add it to your library to sell from it."};
 function reply(u){var p=path(u);
-if(/\/cart\/add(\.js)?$/.test(p))return[422,"application/json",JSON.stringify(NO)];
+if(/\/cart\/add(\.js)?$/.test(p)){showNote(pressed);return[422,"application/json",JSON.stringify(NO)]}
 if(/\/cart(\.js|\.json|\/(change|update|clear)(\.js)?)$/.test(p))return[200,"application/json",JSON.stringify(CART)];
 if(/\.(js|json)$/.test(p)||/\/search\/suggest/.test(p))return[200,"application/json","{}"];
 return[200,"text/html","<!doctype html><html><body></body></html>"]}
@@ -25,16 +25,49 @@ if(navigator.sendBeacon)navigator.sendBeacon=function(){return true};
 W.open=function(){return null};
 var FP=W.HTMLFormElement&&HTMLFormElement.prototype;if(FP){FP.submit=function(){};FP.requestSubmit=function(){this.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true}))}}
 W.addEventListener("submit",function(e){e.preventDefault()},true);
+/* Add to cart, Buy now and Check out: nothing is sent; a small note by the button says why, then goes. Fixed, so nothing on the page moves. */
+var NOTE="Preview only: add this template to your library to sell from it.",note=null,noteT=0;
+function hideNote(){if(!note)return;var n=note;note=null;clearTimeout(noteT);n.style.opacity="0";n.style.transform="translate3d(0,4px,0)";setTimeout(function(){if(n.parentNode)n.parentNode.removeChild(n)},200)}
+function showNote(b){hideNote();var r=b&&b.getBoundingClientRect?b.getBoundingClientRect():null;if(r&&!r.width)r=null;var n=D.createElement("div");n.setAttribute("role","status");n.setAttribute("data-preview-note","");n.textContent=NOTE;
+n.style.cssText="position:fixed;z-index:2147483647;left:0;top:0;width:max-content;max-width:min(300px,calc(100vw - 24px));box-sizing:border-box;margin:0;padding:9px 12px;border-radius:10px;background:#1f2328;color:#fff;font:500 13px/1.4 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;letter-spacing:0;text-transform:none;text-align:left;box-shadow:0 0 0 1px rgba(255,255,255,.1),0 8px 24px -6px rgba(0,0,0,.28);pointer-events:none;opacity:0;transform:translate3d(0,4px,0);transition:opacity .16s ease,transform .16s ease";
+D.documentElement.appendChild(n);var w=n.offsetWidth,h=n.offsetHeight,vw=D.documentElement.clientWidth||innerWidth,vh=innerHeight;
+var x=r?r.left+r.width/2-w/2:(vw-w)/2;x=Math.max(12,Math.min(vw-w-12,x));var y=r?r.top-h-8:vh-h-24;if(r&&y<12)y=r.bottom+8;y=Math.max(12,Math.min(vh-h-12,y));
+n.style.left=Math.round(x)+"px";n.style.top=Math.round(y)+"px";note=n;
+requestAnimationFrame(function(){requestAnimationFrame(function(){n.style.opacity="1";n.style.transform="none"})});noteT=setTimeout(hideNote,3200)}
+W.addEventListener("scroll",hideNote,{passive:true});
+function productForm(f){return !!(f&&f.querySelector&&f.querySelector("input[name=id],select[name=id]"))}
+var BUY=".product-form__submit,.shopify-payment-button__button,.product_buy_now_button,.button_buy-now,.product-group-buy-now,[data-add-to-cart],[data-buy-now]";
+function buying(b){if(!b||!b.getAttribute)return false;var n=(b.getAttribute("name")||"").toLowerCase();if(n==="add"||n==="checkout")return true;if(b.matches&&b.matches(BUY))return true;var t=(b.getAttribute("type")||(b.tagName==="BUTTON"?"submit":"")).toLowerCase();return (t==="submit"||t==="image")&&productForm(b.form||b.closest("form"))}
+var pressed=null;D.addEventListener("pointerdown",function(e){pressed=e.target&&e.target.closest?e.target.closest("button,a,input"):null},true);
+W.addEventListener("click",function(e){var b=e.target&&e.target.closest&&e.target.closest("button,input[type=submit],input[type=image],a");if(!buying(b))return;e.preventDefault();e.stopImmediatePropagation();showNote(b)},true);
 function submit(f,b){setTimeout(function(){var ev;try{ev=new SubmitEvent("submit",{bubbles:true,cancelable:true,submitter:b||null})}catch(_){ev=new Event("submit",{bubbles:true,cancelable:true})}f.dispatchEvent(ev)},0)}
 D.addEventListener("click",function(e){var b=e.target&&e.target.closest&&e.target.closest("button,input[type=submit],input[type=image]");if(!b||!b.form)return;var t=(b.getAttribute("type")||"submit").toLowerCase();if(t!=="submit"&&t!=="image")return;e.preventDefault();submit(b.form,b)},true);
-D.addEventListener("keydown",function(e){var i=e.target;if(e.key!=="Enter"||!i||i.tagName!=="INPUT"||!i.form)return;e.preventDefault();submit(i.form,null)},true);
+D.addEventListener("keydown",function(e){var i=e.target;if(e.key!=="Enter"||!i||i.tagName!=="INPUT"||!i.form)return;e.preventDefault();if(productForm(i.form)){showNote(i.form.querySelector("[name=add],button[type=submit],button:not([type])")||i);return}submit(i.form,null)},true);
 D.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[data-preview-inert]");if(a)e.preventDefault()},true);
 var told=false;function tell(){if(told)return;told=true;try{parent.postMessage({type:"storelib:template-preview",ready:true,path:location.pathname},"*")}catch(e){}}
 W.addEventListener("load",tell);D.addEventListener("DOMContentLoaded",function(){setTimeout(tell,1200)});
 /* The page's own background, as soon as it is known: the frame shows it between two pages instead of its own white (a white flash on a dark shop). */
 function paint(){try{var c=getComputedStyle(D.documentElement).backgroundColor;if(!c||/rgba(0, 0, 0, 0)|transparent/.test(c))c=getComputedStyle(D.body).backgroundColor;if(c&&!/rgba(0, 0, 0, 0)|transparent/.test(c))parent.postMessage({type:"storelib:template-preview-background",background:c},"*")}catch(e){}}
 D.addEventListener("DOMContentLoaded",paint);
-})();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><style data-page-background>html{background-color:#faf6f0}</style><script src="/theme-previews/coach/a/i.63b4697a1622.js"></script>
+/*
+  THE NEXT PAGE, WITH NO BLANK BETWEEN. A frame that goes to another page
+  shows nothing of either for a moment (Night shop: its starry ground, then
+  its header alone). Once the marketplace says it takes pages over, a link
+  to another of this website's pages is handed to it instead: it draws that
+  page in a second frame behind this one and shows it once it has drawn.
+*/
+var HAND=false;W.addEventListener("message",function(e){if(e.source===parent&&e.data&&e.data.type==="storelib:template-preview-handoff")HAND=true});
+function nextPage(u){try{var x=new URL(u,location.href);if(x.host!==location.host||x.pathname.indexOf(ROOT)!==0||x.pathname.split("/")[2]!==location.pathname.split("/")[2]||!/[.]html$/.test(x.pathname)||x.pathname===location.pathname)return null;return x.pathname+x.search+x.hash}catch(e){return null}}
+function handoff(to){try{parent.postMessage({type:"storelib:template-preview-go",href:to},"*");return true}catch(e){return false}}
+W.addEventListener("click",function(e){if(!HAND||e.defaultPrevented||e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;var a=e.target&&e.target.closest&&e.target.closest("a[href]");if(!a||a.hasAttribute("download"))return;var to=nextPage(a.href);if(to&&handoff(to))e.preventDefault()});
+if(W.navigation&&navigation.addEventListener)navigation.addEventListener("navigate",function(e){if(!HAND||!e.cancelable||e.hashChange||e.downloadRequest||e.formData||e.navigationType==="traverse"||e.navigationType==="reload")return;var to=nextPage(e.destination.url);if(to&&handoff(to))e.preventDefault()});
+/* Drawn: styles applied, the first screen's pictures in (700ms at most), two frames painted. */
+var shown=false;function drawn(){if(shown)return;shown=true;try{parent.postMessage({type:"storelib:template-preview-drawn",path:location.pathname},"*")}catch(e){}}
+function whenDrawn(){var done=false,fin=function(){if(done)return;done=true;requestAnimationFrame(function(){requestAnimationFrame(drawn)})};var wait=[],im=D.images,vh=innerHeight;
+for(var i=0;i<im.length&&wait.length<12;i++){var g=im[i];if(g.complete)continue;var r=g.getBoundingClientRect();if(r.width>0&&r.top<vh&&r.bottom>0)wait.push(g)}
+var left=wait.length;if(!left)return fin();wait.forEach(function(g){var one=function(){if(--left<=0)fin()};g.addEventListener("load",one,{once:true});g.addEventListener("error",one,{once:true})});setTimeout(fin,700)}
+D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn)});W.addEventListener("load",drawn);
+})();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><style data-page-background>html{background-color:#ffffff}</style><script src="/theme-previews/coach/a/i.63b4697a1622.js"></script>
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -55,13 +88,13 @@ D.addEventListener("DOMContentLoaded",paint);
     }, true);
   });
 })();
-</script><title>Products | Leah Morgan Coaching</title>
-<meta property="og:site_name" content="Leah Morgan Coaching">
-<meta property="og:title" content="Products | Leah Morgan Coaching">
+</script><title>Products | Mateo Cruz</title>
+<meta property="og:site_name" content="Mateo Cruz">
+<meta property="og:title" content="Products | Mateo Cruz">
 <meta property="og:type" content="website">
-<meta property="og:description" content="Leah Morgan Coaching"><meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Products | Leah Morgan Coaching">
-<meta name="twitter:description" content="Leah Morgan Coaching">
+<meta property="og:description" content="Mateo Cruz"><meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Products | Mateo Cruz">
+<meta name="twitter:description" content="Mateo Cruz">
 <style id="speed-optimization-css">
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -79,7 +112,7 @@ D.addEventListener("DOMContentLoaded",paint);
   .shopify-section[data-perf-offscreen] *,
   .shopify-section[data-perf-offscreen] *::before,
   .shopify-section[data-perf-offscreen] *::after { animation-play-state: paused !important; }
-</style><link rel="stylesheet" href="/theme-previews/coach/a/i.262074ef9310.css" id="speed-page-landing"><script src="/theme-previews/coach/a/i.0bd6d5139503.js"></script><script id="speed-optimization-js" src="/theme-previews/coach/a/i.679dcd5ab7c8.js"></script>
+</style><link rel="stylesheet" href="/theme-previews/coach/a/i.012d2c72efea.css" id="speed-page-landing"><script src="/theme-previews/coach/a/i.0bd6d5139503.js"></script><script id="speed-optimization-js" src="/theme-previews/coach/a/i.679dcd5ab7c8.js"></script>
 <script>
       (function () {
         try {
@@ -91,8 +124,7 @@ D.addEventListener("DOMContentLoaded",paint);
         } catch (e) {}
       })();
     </script>
-<link href="/theme-previews/_base/a/critical.b21499996008.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/animation.d0494c87fafa.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/critical.7f3f35898a25.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
 <link href="/theme-previews/_base/a/product-card.9a3739dc0c4c.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"primary","product_size":17,"price_size":16,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
 <style>html:not([data-card-custom='true']) .product-item .product-item__name { font-size:var(--body-font-size, 16px); text-transform:var(--heading-text-transform, none) !important; } html:not([data-card-custom='true']) .product-item .product-item__price { font-size:var(--body-font-size, 16px); }</style>
 <script>document.documentElement.dataset.cardCustom = false === true ? 'true' : 'false';</script>
@@ -102,20 +134,20 @@ D.addEventListener("DOMContentLoaded",paint);
     document.addEventListener('DOMContentLoaded',function(){setTimeout(go,4000)},{once:true})}
     ['pointerdown','click','keydown','scroll','touchstart'].forEach(function(n){addEventListener(n,go,{once:true,passive:true,capture:true})})})(["/theme-previews/_base/a/popup.18cdf2513c31.css","/theme-previews/_base/a/tingle-min.ed947d9dd1c7.css"]);</script><link rel="stylesheet" href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" media="print" onload="this.media='all'">
 <noscript><link href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" rel="stylesheet" type="text/css" media="all"></noscript>
-<link rel="stylesheet" href="/theme-previews/_base/a/fonts.ca742396edd7.css" data-materia-fonts>
-<style data-materia-font-fallbacks>@font-face{font-family:"Jost Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:97.5%;ascent-override:109.8%;descent-override:38.5%;line-gap-override:0%}@font-face{font-family:"Jost Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:97.5%;ascent-override:109.8%;descent-override:38.5%;line-gap-override:0%}@font-face{font-family:"Cormorant Garamond Fallback";src:local("Times New Roman"), local("TimesNewRomanPSMT"), local("Liberation Serif");font-weight:100 549;size-adjust:95.4%;ascent-override:96.8%;descent-override:30.1%;line-gap-override:0%}@font-face{font-family:"Cormorant Garamond Fallback";src:local("Times New Roman Bold"), local("TimesNewRomanPS-BoldMT"), local("Liberation Serif Bold");font-weight:550 1000;size-adjust:95.4%;ascent-override:96.8%;descent-override:30.1%;line-gap-override:0%}</style><style data-shopify>
+<link rel="stylesheet" href="/theme-previews/_base/a/fonts.0e9238494855.css" data-materia-fonts>
+<style data-materia-font-fallbacks>@font-face{font-family:"Inter Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:107.9%;ascent-override:89.8%;descent-override:22.3%;line-gap-override:0%}@font-face{font-family:"Inter Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:107.9%;ascent-override:89.8%;descent-override:22.3%;line-gap-override:0%}@font-face{font-family:"Albert Sans Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:104.4%;ascent-override:91%;descent-override:23.9%;line-gap-override:0%}@font-face{font-family:"Albert Sans Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:104.4%;ascent-override:91%;descent-override:23.9%;line-gap-override:0%}</style><style data-shopify>
   :root {
-    --body-font: "Jost", "Jost Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    --heading-font: "Cormorant Garamond", "Cormorant Garamond Fallback", Georgia, "Times New Roman", serif, sans-serif;
+    --body-font: "Inter", "Inter Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --heading-font: "Albert Sans", "Albert Sans Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     --menu-font: var(--body-font);
     --btn-font: var(--body-font);
   }
 </style>
-<link rel="stylesheet" href="/theme-previews/coach/a/i.bfc8f1451830.css" data-shopify>
+<link rel="stylesheet" href="/theme-previews/coach/a/i.50258f5166ae.css" data-shopify>
 <link href="/theme-previews/_base/a/theme.d71f5b96fec8.css" rel="stylesheet" type="text/css" media="all"><noscript><link href="/theme-previews/_base/a/popup.18cdf2513c31.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.9c20c549e3cf.css">
 <link rel="preload" as="style" href="/theme-previews/_base/a/minicart.ac0014483417.css" fetchpriority="low">
 <link rel="preload" as="style" href="/theme-previews/_base/a/materia-experience.b68d6d8152a8.css" fetchpriority="low">
-<link rel="stylesheet" href="/theme-previews/coach/a/i.04aff117386f.css"><link rel="stylesheet" href="/theme-previews/coach/a/i.0f64d724d341.css"><link href="/theme-previews/_base/a/theme-button-contract.7d286d7eee9b.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/localization-controls.9494a0c83131.css" rel="stylesheet" type="text/css" media="all"><link rel="modulepreload" href="/theme-previews/_base/a/theme.7a7dd8f80f89.js" fetchpriority="low"><script data-storelib-head src="/theme-previews/coach/a/i.585ec254f5fd.js"></script>
+<link rel="stylesheet" href="/theme-previews/coach/a/i.4776fb16c78a.css"><link rel="stylesheet" href="/theme-previews/coach/a/i.0f64d724d341.css"><link href="/theme-previews/_base/a/theme-button-contract.7d286d7eee9b.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/localization-controls.9494a0c83131.css" rel="stylesheet" type="text/css" media="all"><link rel="modulepreload" href="/theme-previews/_base/a/theme.7a7dd8f80f89.js" fetchpriority="low"><script data-storelib-head src="/theme-previews/coach/a/i.585ec254f5fd.js"></script>
 <script src="/theme-previews/_base/a/swiper-bundle-min.31d164f7367d.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/motion-min.d1f8eb312b47.js" type="module" defer="defer" fetchpriority="low"></script>
 <script src="/theme-previews/_base/a/utils.90eeb774e439.js" defer="defer" data-cart-count="0"></script>
@@ -159,8 +191,8 @@ D.addEventListener("DOMContentLoaded",paint);
 class="gradient rounded-style  collection"
 data-btn-style="solid"
 data-btn-secondary-style="solid"
-data-scroll-animation="fade_in"
-data-btn-shape="square"
+data-scroll-animation="none"
+data-btn-shape="rounded"
 data-btn-hover="fade"
 data-sl-btn-hover="none"
 data-badge-shape="pill"
@@ -202,24 +234,12 @@ data-menu-hover="none"
   :where(html:not([data-font-priority='off'])) #shopify-section-offer_bar :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
-</style><style>
-  #shopify-section-offer_bar.scroll-trigger {
-    --animation-duration: 950ms;
-    --animation-delay: 80ms;
-  }
-</style>
-<script>
-  (function(){
-    var el = document.getElementById('shopify-section-offer_bar');
-    if (!el || el.classList.contains('scroll-trigger')) return;
-    el.classList.add('scroll-trigger', "fade_in");
-  })();
-</script><link rel="stylesheet" href="/theme-previews/coach/a/i.19de36c766d9.css"><link rel="stylesheet" href="/theme-previews/coach/a/i.cc58a5bc059a.css"><div id="announcement-bar-pro-2-offer_bar" class="ab2 announcement-bar-pro-2 color-scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9 gradient" role="region" aria-label="Announcements" data-an-root="announcement-bar" data-an-section="offer_bar" data-width="full_width" data-reset="true" data-mode="slide" data-multi="true" data-page="collection" data-home-only="false" data-show-mobile="true" data-close="false" data-icon="none" data-interval="6" data-sticky-announcement="false" style="--ab2-fs: 12px;--ab2-pt: 12px;--ab2-pb: 12px;--ab2-speed: 15s;--ab2-gap: 50px;--ab2-fw: var(--subheading-weight, 600);--ab2-tt: none;--ab2-ff: var(--body-font);--ab2-text: #efe3d5;--ab2-bg: #3a2a21;--ab2-accent: #e2a271;--ab2-line: var(--color-border);--ab2-lw: 0px;">
+</style><link rel="stylesheet" href="/theme-previews/coach/a/i.19de36c766d9.css"><link rel="stylesheet" href="/theme-previews/coach/a/i.cc58a5bc059a.css"><div id="announcement-bar-pro-2-offer_bar" class="ab2 announcement-bar-pro-2 color-scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9 gradient" role="region" aria-label="Announcements" data-an-root="announcement-bar" data-an-section="offer_bar" data-width="full_width" data-reset="true" data-mode="slide" data-multi="true" data-page="collection" data-home-only="false" data-show-mobile="true" data-close="false" data-icon="none" data-interval="6" data-sticky-announcement="false" style="--ab2-fs: 13px;--ab2-pt: 12px;--ab2-pb: 12px;--ab2-speed: 15s;--ab2-gap: 50px;--ab2-fw: var(--subheading-weight, 600);--ab2-tt: none;--ab2-ff: var(--body-font);--ab2-text: #d5d8e0;--ab2-bg: #0f1115;--ab2-accent: #8c9aff;--ab2-line: var(--color-border);--ab2-lw: 0px;">
 <div class="ab2__inner">
 <div class="ab2__slides" data-an-slides>
 <button type="button" class="ab2__arrow" data-an-prev aria-label="Previous announcement"><svg width="8" height="14" viewBox="0 0 8 14" aria-hidden="true" focusable="false"><path d="M7 1 1 7l6 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
 <div class="ab2__viewport" aria-live="off"><div class="ab2__slide" data-an-block="announcement_1" data-an-type="announcement" data-block-id="announcement_1" data-active>
-<span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Free 20 minute first call. <a href="/theme-previews/coach/pages/book.html">Book yours</a></span>
+<span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Free 20 minute first call, on video. <a href="/theme-previews/coach/pages/book.html">Pick a time</a></span>
 <span class="ab2__timer" data-an-timer data-end="" role="timer" aria-live="off" hidden>
 <span class="ab2__unit"><span class="ab2__num" data-u="d">00</span><span class="ab2__lbl" data-l="label_days">Days</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="h">00</span><span class="ab2__lbl" data-l="label_hours">Hours</span></span>
@@ -228,7 +248,7 @@ data-menu-hover="none"
 <span class="ab2__ended" data-an-ended hidden></span>
 </span></span>
 </div><div class="ab2__slide" data-an-block="announcement_2" data-an-type="announcement" data-block-id="announcement_2" aria-hidden="true">
-<span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Sessions in Bristol and online, wherever you are</span>
+<span class="ab2__msg" style=""><span class="ab2__text" data-an-text>First 90 Days, the group for new managers, starts in spring. <a href="/theme-previews/coach/collections/all.html">See the details</a></span>
 <span class="ab2__timer" data-an-timer data-end="" role="timer" aria-live="off" hidden>
 <span class="ab2__unit"><span class="ab2__num" data-u="d">00</span><span class="ab2__lbl" data-l="label_days">Days</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="h">00</span><span class="ab2__lbl" data-l="label_hours">Hours</span></span>
@@ -239,56 +259,56 @@ data-menu-hover="none"
 </div></div>
 <button type="button" class="ab2__arrow" data-an-next aria-label="Next announcement"><svg width="8" height="14" viewBox="0 0 8 14" aria-hidden="true" focusable="false"><path d="m1 1 6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
 </div>
-<div class="ab2__marquee" data-an-track><div class="ab2__group" data-an-group><span class="ab2__item" data-an-copy="announcement_1"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Free 20 minute first call. <a href="/theme-previews/coach/pages/book.html">Book yours</a></span>
+<div class="ab2__marquee" data-an-track><div class="ab2__group" data-an-group><span class="ab2__item" data-an-copy="announcement_1"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Free 20 minute first call, on video. <a href="/theme-previews/coach/pages/book.html">Pick a time</a></span>
 <span class="ab2__timer" data-an-timer data-end="" role="timer" aria-live="off" hidden>
 <span class="ab2__unit"><span class="ab2__num" data-u="d">00</span><span class="ab2__lbl" data-l="label_days">Days</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="h">00</span><span class="ab2__lbl" data-l="label_hours">Hours</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="m">00</span><span class="ab2__lbl" data-l="label_minutes">Mins</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="s">00</span><span class="ab2__lbl" data-l="label_seconds">Secs</span></span>
 <span class="ab2__ended" data-an-ended hidden></span>
-</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span><span class="ab2__item" data-an-copy="announcement_2"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Sessions in Bristol and online, wherever you are</span>
+</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span><span class="ab2__item" data-an-copy="announcement_2"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>First 90 Days, the group for new managers, starts in spring. <a href="/theme-previews/coach/collections/all.html">See the details</a></span>
 <span class="ab2__timer" data-an-timer data-end="" role="timer" aria-live="off" hidden>
 <span class="ab2__unit"><span class="ab2__num" data-u="d">00</span><span class="ab2__lbl" data-l="label_days">Days</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="h">00</span><span class="ab2__lbl" data-l="label_hours">Hours</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="m">00</span><span class="ab2__lbl" data-l="label_minutes">Mins</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="s">00</span><span class="ab2__lbl" data-l="label_seconds">Secs</span></span>
 <span class="ab2__ended" data-an-ended hidden></span>
-</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span></div><div class="ab2__group" aria-hidden="true" data-an-copies><span class="ab2__item" data-an-copy="announcement_1"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Free 20 minute first call. <a href="/theme-previews/coach/pages/book.html">Book yours</a></span>
+</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span></div><div class="ab2__group" aria-hidden="true" data-an-copies><span class="ab2__item" data-an-copy="announcement_1"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Free 20 minute first call, on video. <a href="/theme-previews/coach/pages/book.html">Pick a time</a></span>
 <span class="ab2__timer" data-an-timer data-end="" role="timer" aria-live="off" hidden>
 <span class="ab2__unit"><span class="ab2__num" data-u="d">00</span><span class="ab2__lbl" data-l="label_days">Days</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="h">00</span><span class="ab2__lbl" data-l="label_hours">Hours</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="m">00</span><span class="ab2__lbl" data-l="label_minutes">Mins</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="s">00</span><span class="ab2__lbl" data-l="label_seconds">Secs</span></span>
 <span class="ab2__ended" data-an-ended hidden></span>
-</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span><span class="ab2__item" data-an-copy="announcement_2"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Sessions in Bristol and online, wherever you are</span>
+</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span><span class="ab2__item" data-an-copy="announcement_2"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>First 90 Days, the group for new managers, starts in spring. <a href="/theme-previews/coach/collections/all.html">See the details</a></span>
 <span class="ab2__timer" data-an-timer data-end="" role="timer" aria-live="off" hidden>
 <span class="ab2__unit"><span class="ab2__num" data-u="d">00</span><span class="ab2__lbl" data-l="label_days">Days</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="h">00</span><span class="ab2__lbl" data-l="label_hours">Hours</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="m">00</span><span class="ab2__lbl" data-l="label_minutes">Mins</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="s">00</span><span class="ab2__lbl" data-l="label_seconds">Secs</span></span>
 <span class="ab2__ended" data-an-ended hidden></span>
-</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span></div><div class="ab2__group" aria-hidden="true" data-an-copies><span class="ab2__item" data-an-copy="announcement_1"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Free 20 minute first call. <a href="/theme-previews/coach/pages/book.html">Book yours</a></span>
+</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span></div><div class="ab2__group" aria-hidden="true" data-an-copies><span class="ab2__item" data-an-copy="announcement_1"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Free 20 minute first call, on video. <a href="/theme-previews/coach/pages/book.html">Pick a time</a></span>
 <span class="ab2__timer" data-an-timer data-end="" role="timer" aria-live="off" hidden>
 <span class="ab2__unit"><span class="ab2__num" data-u="d">00</span><span class="ab2__lbl" data-l="label_days">Days</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="h">00</span><span class="ab2__lbl" data-l="label_hours">Hours</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="m">00</span><span class="ab2__lbl" data-l="label_minutes">Mins</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="s">00</span><span class="ab2__lbl" data-l="label_seconds">Secs</span></span>
 <span class="ab2__ended" data-an-ended hidden></span>
-</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span><span class="ab2__item" data-an-copy="announcement_2"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Sessions in Bristol and online, wherever you are</span>
+</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span><span class="ab2__item" data-an-copy="announcement_2"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>First 90 Days, the group for new managers, starts in spring. <a href="/theme-previews/coach/collections/all.html">See the details</a></span>
 <span class="ab2__timer" data-an-timer data-end="" role="timer" aria-live="off" hidden>
 <span class="ab2__unit"><span class="ab2__num" data-u="d">00</span><span class="ab2__lbl" data-l="label_days">Days</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="h">00</span><span class="ab2__lbl" data-l="label_hours">Hours</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="m">00</span><span class="ab2__lbl" data-l="label_minutes">Mins</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="s">00</span><span class="ab2__lbl" data-l="label_seconds">Secs</span></span>
 <span class="ab2__ended" data-an-ended hidden></span>
-</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span></div><div class="ab2__group" aria-hidden="true" data-an-copies><span class="ab2__item" data-an-copy="announcement_1"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Free 20 minute first call. <a href="/theme-previews/coach/pages/book.html">Book yours</a></span>
+</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span></div><div class="ab2__group" aria-hidden="true" data-an-copies><span class="ab2__item" data-an-copy="announcement_1"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Free 20 minute first call, on video. <a href="/theme-previews/coach/pages/book.html">Pick a time</a></span>
 <span class="ab2__timer" data-an-timer data-end="" role="timer" aria-live="off" hidden>
 <span class="ab2__unit"><span class="ab2__num" data-u="d">00</span><span class="ab2__lbl" data-l="label_days">Days</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="h">00</span><span class="ab2__lbl" data-l="label_hours">Hours</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="m">00</span><span class="ab2__lbl" data-l="label_minutes">Mins</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="s">00</span><span class="ab2__lbl" data-l="label_seconds">Secs</span></span>
 <span class="ab2__ended" data-an-ended hidden></span>
-</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span><span class="ab2__item" data-an-copy="announcement_2"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>Sessions in Bristol and online, wherever you are</span>
+</span></span><span class="ab2__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><circle fill="currentColor" cx="12" cy="12" r="6"/></svg></span></span><span class="ab2__item" data-an-copy="announcement_2"><span class="ab2__msg" style=""><span class="ab2__text" data-an-text>First 90 Days, the group for new managers, starts in spring. <a href="/theme-previews/coach/collections/all.html">See the details</a></span>
 <span class="ab2__timer" data-an-timer data-end="" role="timer" aria-live="off" hidden>
 <span class="ab2__unit"><span class="ab2__num" data-u="d">00</span><span class="ab2__lbl" data-l="label_days">Days</span></span>
 <span class="ab2__unit"><span class="ab2__num" data-u="h">00</span><span class="ab2__lbl" data-l="label_hours">Hours</span></span>
@@ -318,15 +338,15 @@ data-menu-hover="none"
     --count-bubble-animation: mt-count-pop;
   }
 </style><style data-shopify>#shopify-section-header {
-    --hs-mnav-bg: #faf6f0;
-    --hs-mnav-heading: #2e221b;
-    --hs-mnav-text: #6b5b4e;
+    --hs-mnav-bg: #ffffff;
+    --hs-mnav-heading: #0f1115;
+    --hs-mnav-text: #4b5160;
     --hs-hover-fill: #ffffff;
     --hs-logo-width: 150px;
     --hs-logo-width-mobile: 120px;
-    --hs-logo-max-height: 68px;
-    --hs-logo-box-height: 84px;
-  }#shopify-section-header { --hs-menu-gap: 30px; --hs-icon-gap: 10px; --hs-icon-gap-mobile: 6px; --hs-logo-x: 0px; --hs-logo-x-mobile: 0px; }@media (max-width: 1024.98px) {
+    --hs-logo-max-height: 64px;
+    --hs-logo-box-height: 80px;
+  }#shopify-section-header { --hs-menu-gap: 28px; --hs-icon-gap: 10px; --hs-icon-gap-mobile: 6px; --hs-logo-x: 0px; --hs-logo-x-mobile: 0px; }@media (max-width: 1024.98px) {
     #shopify-section-header {
       --hs-logo-max-height: 48px;
       --hs-logo-box-height: 64px;
@@ -334,7 +354,7 @@ data-menu-hover="none"
   }:root { --hs-mnav-title-bg: #242424; --hs-mnav-title-color: #ffffff; }</style><link href="/theme-previews/_base/a/header-layout.9f68c30912e8.css" rel="stylesheet" type="text/css" media="all">
 <style>
   #shopify-section-header {
-    --header-height-desktop: 84px;
+    --header-height-desktop: 80px;
     --header-height-mobile: 64px;
   }
 </style><!-- Logo dimensions are CSS-variable driven; updating a slider never changes image URLs. -->
@@ -346,19 +366,19 @@ data-sticky-mobile="true" data-reset-spacing
 data-menu-hover="none" data-menu-hover-theme data-theme-hover="none"
 data-header-blocks="pill_glass_1:pill_glass menu_badges_1:menu_badges header_button_1:header_button " data-menu-type='{"on":false,"font":&quot;Bodoni Moda, serif&quot;,"size":15,"weight":&quot;theme&quot;}'
 data-mega-label="button" data-dd-tinted data-logo-m="left" data-hs-flush data-logo-x="0 0"
-style="--section-pt: 0;--section-pb: 0;--transparent-color: #1a1a1a;--menu-hover-color: var(--color-link-hover, currentColor);--dd-duration: 400ms;--dd-ease: cubic-bezier(0.187, 0.775, 0.435, 0.925);--dd-shadow: 0 5px 30px 0 rgba(0, 0, 0, 0.05);--dd-width: 260px;--dd-pad-y: 20px;--dd-pad-x: 30px;--dd-link-space: 3px;--dd-radius: 0px;--mega-gap: 32px;--mega-card-radius: 0px;--hs-act-size: 13px;--hs-act-weight: 400;--hs-act-case: none;--hs-logo-gap-m: 0px;"
+style="--section-pt: 0;--section-pb: 0;--transparent-color: #1a1a1a;--menu-hover-color: var(--color-link-hover, currentColor);--dd-duration: 400ms;--dd-ease: cubic-bezier(0.187, 0.775, 0.435, 0.925);--dd-shadow: 0 5px 30px 0 rgba(0, 0, 0, 0.05);--dd-width: 260px;--dd-pad-y: 20px;--dd-pad-x: 30px;--dd-link-space: 3px;--dd-radius: 0px;--mega-gap: 32px;--mega-card-radius: 0px;--hs-act-size: 15px;--hs-act-weight: 400;--hs-act-case: none;--hs-logo-gap-m: 0px;"
 ><div class="header__inner header__layout-1" id="header-sticky">
-<div class="fluid_container">
+<div class="container">
 <header-inner class="logo-position grid logo-left gap-10 gap-xl-50 header-middle align-center">
 <div class="header__logo text-center text-left-1025 inline-flex align-center"><a
 class="logo-img no-underline inline-flex align-center h1 my-0"
 href="/theme-previews/coach/index.html"
-aria-label="Leah Morgan Coaching"
+aria-label="Mateo Cruz"
 >
 <span
 class="header__logo inline-flex align-center"
 style="--header-logo-width: 208px; --header-logo-width-mobile: 78px;"
-><span class="header__logo-text" style="font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 600); font-size: clamp(20px, 2.2vw, 28px); line-height: 1; letter-spacing: -0.01em; color: inherit; white-space: nowrap;">Leah Morgan Coaching</span></span>
+><span class="header__logo-text" style="font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 600); font-size: clamp(20px, 2.2vw, 28px); line-height: 1; letter-spacing: -0.01em; color: inherit; white-space: nowrap;">Mateo Cruz</span></span>
 </a>
 </div>
 <div class="header__menu"><button
@@ -407,6 +427,14 @@ class="level0 single"
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
 <a
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
+href="/theme-previews/coach/collections/all.html"
+><span>Coaching</span></a></menu-item></li>
+<li
+class="level0 single"
+>
+<menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
+<a
+class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/coach/pages/about.html"
 ><span>About</span></a></menu-item></li>
 <li
@@ -415,16 +443,8 @@ class="level0 single"
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
 <a
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
-href="/theme-previews/coach/collections/all.html"
-><span>Work with me</span></a></menu-item></li>
-<li
-class="level0 single"
->
-<menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
-<a
-class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/coach/blogs/news.html"
-><span>Journal</span></a></menu-item></li>
+><span>Notes</span></a></menu-item></li>
 <li
 class="level0 single"
 >
@@ -506,6 +526,14 @@ class="level0 single"
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
 <a
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
+href="/theme-previews/coach/collections/all.html"
+><span>Coaching</span></a></menu-item></li>
+<li
+class="level0 single"
+>
+<menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
+<a
+class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/coach/pages/about.html"
 ><span>About</span></a></menu-item></li>
 <li
@@ -514,16 +542,8 @@ class="level0 single"
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
 <a
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
-href="/theme-previews/coach/collections/all.html"
-><span>Work with me</span></a></menu-item></li>
-<li
-class="level0 single"
->
-<menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
-<a
-class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/coach/blogs/news.html"
-><span>Journal</span></a></menu-item></li>
+><span>Notes</span></a></menu-item></li>
 <li
 class="level0 single"
 >
@@ -560,31 +580,7 @@ href="/theme-previews/coach/pages/contact.html"
 <symbol id="icon-bag">
 <path d="M12.7518 2.91374L11.6276 1.44835H3.37237L2.24824 2.91374H12.7518ZM14.8419 3.18637V3.20341C14.8419 3.20341 14.8478 3.20341 14.8595 3.20341C14.8946 3.27157 14.9239 3.33972 14.9473 3.40788C14.9824 3.47604 15 3.54988 15 3.62939V13.819C15 14.1143 14.9356 14.3983 14.8068 14.6709C14.6897 14.9322 14.5316 15.1594 14.3326 15.3525C14.1335 15.557 13.8934 15.716 13.6124 15.8296C13.3431 15.9432 13.0562 16 12.7518 16H2.24824C1.94379 16 1.65105 15.9375 1.37002 15.8126C1.1007 15.699 0.866511 15.5456 0.667447 15.3525C0.456674 15.1594 0.29274 14.9322 0.175644 14.6709C0.058548 14.3983 0 14.1143 0 13.819V3.62939C0 3.58395 0.0058548 3.53852 0.0175644 3.49308C0.029274 3.43628 0.0468384 3.37948 0.0702576 3.32268C0.0819672 3.29996 0.0936768 3.27725 0.105386 3.25453C0.128806 3.23181 0.14637 3.20909 0.15808 3.18637L2.40632 0.28967C2.47658 0.198793 2.5644 0.130635 2.66979 0.085197C2.77518 0.028399 2.88642 0 3.00351 0H11.9965C12.1136 0 12.2248 0.028399 12.3302 0.085197C12.4356 0.130635 12.5234 0.198793 12.5937 0.28967L14.8419 3.18637ZM1.51054 4.36209V13.819C1.51054 13.9098 1.5281 14.0007 1.56323 14.0916C1.59836 14.1825 1.65105 14.262 1.72131 14.3301C1.79157 14.3983 1.87354 14.4494 1.96721 14.4835C2.06089 14.5176 2.15457 14.5346 2.24824 14.5346H12.7518C12.8571 14.5346 12.9508 14.5176 13.0328 14.4835C13.1265 14.4494 13.2084 14.3983 13.2787 14.3301C13.3489 14.262 13.4016 14.1825 13.4368 14.0916C13.4719 14.0007 13.4895 13.9098 13.4895 13.819V4.36209H1.51054ZM9.74824 6.54313C9.74824 6.33866 9.8185 6.16826 9.95902 6.03195C10.1112 5.88427 10.2927 5.81044 10.5035 5.81044C10.7026 5.81044 10.8724 5.88427 11.0129 6.03195C11.1651 6.16826 11.2412 6.33866 11.2412 6.54313C11.2412 7.04295 11.1417 7.51438 10.9426 7.9574C10.7553 8.40043 10.4918 8.78665 10.1522 9.11608C9.81265 9.44551 9.41452 9.70678 8.95785 9.89989C8.50117 10.0816 8.01522 10.1725 7.5 10.1725C6.98478 10.1725 6.49883 10.0816 6.04215 9.89989C5.58548 9.70678 5.18735 9.44551 4.84777 9.11608C4.5082 8.78665 4.23888 8.40043 4.03981 7.9574C3.85246 7.51438 3.75878 7.04295 3.75878 6.54313C3.75878 6.33866 3.82904 6.16826 3.96956 6.03195C4.12178 5.88427 4.29742 5.81044 4.49649 5.81044C4.70726 5.81044 4.8829 5.88427 5.02342 6.03195C5.17564 6.16826 5.25176 6.33866 5.25176 6.54313C5.25176 6.84984 5.3103 7.13383 5.4274 7.3951C5.5445 7.65637 5.70843 7.88356 5.9192 8.07668C6.11827 8.28115 6.35246 8.44018 6.62178 8.55378C6.8911 8.66738 7.18384 8.72417 7.5 8.72417C7.81616 8.72417 8.1089 8.66738 8.37822 8.55378C8.64754 8.44018 8.88173 8.28115 9.0808 8.07668C9.29157 7.88356 9.4555 7.65637 9.5726 7.3951C9.6897 7.13383 9.74824 6.84984 9.74824 6.54313Z" fill="currentColor"/>
 </symbol>
-</svg><div class="minicart">
-<div>
-<div
-id="header__minicart"
-class="header__minicart  "
->
-<a
-id="cart-icon-bubble"
-href="/theme-previews/coach/cart.html"
-arial-label="Cart"
-class="no-underline minicart__action header-icon header-color w-44 h-44 inline-flex content-center  overlayminicart"
-><h-count class="relative lh-1 fs-0">
-<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-<path d="M5 8.5h14l-1.1 10.2a2 2 0 0 1-2 1.8H8.1a2 2 0 0 1-2-1.8L5 8.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-<path d="M8.5 11V7.5a3.5 3.5 0 1 1 7 0V11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-</svg>
-<span class="absolute lh-1 cart-count h-count inline-flex align-center justify-content-center rounded-50 overflow-hidden fs-10">0
-<span class="visually-hidden">Cart count</span>
-</span>
-</h-count>
-</a>
-</div>
-</div>
-</div>
-<a class="hs-cta hs-cta--pos-after_icons hs-cta--m-in_row hs-cta--primary hs-cta--theme hs-cta--desktop hs-cta--ms-small hs-cta--font-body" href="/theme-previews/coach/pages/book.html" data-theme-button="primary" data-sl-button style="--mb-bg: var(--btn-primary-bg-color); --mb-text: var(--btn-primary-color); --mb-hover-bg: var(--btn-primary-hover-bg-color); --mb-hover-text: var(--btn-primary-hover-color); --hs-cta-gap: 24px; --hs-cta-gap-mobile: 12px; --hs-cta-x: 0px; --hs-cta-y: 0px; --hs-cta-bg: #a5582a; --hs-cta-fg: #ffffff; --hs-cta-bd: #a5582a; --hs-cta-bw: 0px; --hs-cta-radius: 0px; --hs-cta-fs: 16px; --hs-cta-fw: 500; --hs-cta-tt: none; --hs-cta-ls: 0px; --hs-cta-py: 14px; --hs-cta-px: 26px; --hs-cta-deco: none; --hs-cta-shadow: none; --hs-cta-dur: 225ms; --hs-cta-ease: cubic-bezier(0.2, 0.7, 0.2, 1); --hs-cta-hbg: #2e221b; --hs-cta-hfg: #faf6f0; --hs-cta-hbd: #2e221b; --hs-cta-htransform: none; --hs-cta-hshadow: none; --hs-cta-hfilter: none; --hs-cta-hdeco: none;" data-lh-block="header_button_1" data-block-id="header_button_1">Book a session</a></div>
+</svg><a class="hs-cta hs-cta--pos-after_icons hs-cta--m-in_row hs-cta--primary hs-cta--theme hs-cta--ms-small hs-cta--font-body" href="/theme-previews/coach/pages/book.html" data-theme-button="primary" data-sl-button style="--mb-bg: var(--btn-primary-bg-color); --mb-text: var(--btn-primary-color); --mb-hover-bg: var(--btn-primary-hover-bg-color); --mb-hover-text: var(--btn-primary-hover-color); --hs-cta-gap: 24px; --hs-cta-gap-mobile: 12px; --hs-cta-x: 0px; --hs-cta-y: 0px; --hs-cta-bg: #2b44ff; --hs-cta-fg: #ffffff; --hs-cta-bd: #2b44ff; --hs-cta-bw: 0px; --hs-cta-radius: 6px; --hs-cta-fs: 16px; --hs-cta-fw: 600; --hs-cta-tt: none; --hs-cta-ls: 0px; --hs-cta-py: 14px; --hs-cta-px: 26px; --hs-cta-deco: none; --hs-cta-shadow: none; --hs-cta-dur: 225ms; --hs-cta-ease: cubic-bezier(0.2, 0.7, 0.2, 1); --hs-cta-hbg: #0f1115; --hs-cta-hfg: #ffffff; --hs-cta-hbd: #0f1115; --hs-cta-htransform: none; --hs-cta-hshadow: none; --hs-cta-hfilter: none; --hs-cta-hdeco: none;" data-lh-block="header_button_1" data-block-id="header_button_1">Book a free call</a></div>
 </header-inner>
 </div>
 </div></header>
@@ -608,19 +604,7 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
   :where(html:not([data-font-priority='off'])) #shopify-section-main-collection-heading :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
-</style><style>
-  #shopify-section-main-collection-heading.scroll-trigger {
-    --animation-duration: 950ms;
-    --animation-delay: 80ms;
-  }
-</style>
-<script>
-  (function(){
-    var el = document.getElementById('shopify-section-main-collection-heading');
-    if (!el || el.classList.contains('scroll-trigger')) return;
-    el.classList.add('scroll-trigger', "fade_in");
-  })();
-</script><style data-rs-bulletproof>/* reset_spacing: bulletproof override of ALL section spacing mechanisms */
+</style><style data-rs-bulletproof>/* reset_spacing: bulletproof override of ALL section spacing mechanisms */
     #shopify-section-main-collection-heading,
     #shopify-section-main-collection-heading > .section,
     #shopify-section-main-collection-heading > section,
@@ -729,7 +713,7 @@ data-block-id="heading"
 </style><link rel="stylesheet" href="/theme-previews/coach/a/i.2b02cd471b10.css">
 <script src="/theme-previews/coach/a/i.911cfed98be7.js"></script><link href="/theme-previews/_base/a/collection-page.6d4572d13768.css" rel="stylesheet" type="text/css" media="all">
 <section
-class="section sec__collection-main fade_in bls-image-js color-default gradient"
+class="section sec__collection-main none bls-image-js color-default gradient"
 data-section-id="main-collection-product"
 style="--section-pt: 40; --section-pb: 60;"
 data-lcp="main-collection-product"
@@ -855,7 +839,7 @@ class="grid__item"
 class="product-item product__item-js  style-as-standard"
 >
 <motion-element
-class="product-item__wrapper block  hover_zoom product-grid  scroll-trigger fade_in "
+class="product-item__wrapper block  hover_zoom product-grid "
 data-cascade
 data-motion="fade-up-lg"
 hold
@@ -866,12 +850,12 @@ style="--animation-order: 1;  "
 <div class="product-item__inner hover-effect overflow-hidden relative">
 <a
 draggable="false"
-href="/theme-previews/coach/products/one-to-one-coaching.html"
-aria-label="One to one coaching"
+href="/theme-previews/coach/products/monthly-coaching.html"
+aria-label="Monthly coaching"
 class="product__media product-item__media--ratio rounded block"
-style="--aspect-ratio: 3/4;"
+style="--aspect-ratio: 4/3;"
 >
-<img src="/theme-previews/coach/a/coach-offer-one.80eb021a2787.webp" srcset="/theme-previews/coach/a/coach-offer-one.80eb021a2787.webp 720w, /theme-previews/coach/a/coach-offer-one.80eb021a2787.webp 660w, /theme-previews/coach/a/coach-offer-one.80eb021a2787.webp 550w, /theme-previews/coach/a/coach-offer-one.80eb021a2787.webp 480w, /theme-previews/coach/a/coach-offer-one.80eb021a2787.webp 330w, /theme-previews/coach/a/coach-offer-one.80eb021a2787.webp 240w, /theme-previews/coach/a/coach-offer-one.80eb021a2787.webp 185w" alt="One to one coaching" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1360px -  30px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 30px * 2 ) * 0.33), calc( (100vw - 30px - 15px * 0 ) * 1)" class="product-image first-image bls-loaded-image">
+<img src="/theme-previews/coach/a/coach-offer-one.0977fdb475e4.webp" srcset="/theme-previews/coach/a/coach-offer-one.0977fdb475e4.webp 720w, /theme-previews/coach/a/coach-offer-one.0977fdb475e4.webp 660w, /theme-previews/coach/a/coach-offer-one.0977fdb475e4.webp 550w, /theme-previews/coach/a/coach-offer-one.0977fdb475e4.webp 480w, /theme-previews/coach/a/coach-offer-one.0977fdb475e4.webp 330w, /theme-previews/coach/a/coach-offer-one.0977fdb475e4.webp 240w, /theme-previews/coach/a/coach-offer-one.0977fdb475e4.webp 185w" alt="Monthly coaching" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1360px -  30px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 30px * 2 ) * 0.33), calc( (100vw - 30px - 15px * 0 ) * 1)" class="product-image first-image bls-loaded-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -923,28 +907,28 @@ Out of Stock
 </div>
 <div class="product-item__information word-break text-left mt-15">
 <a
-aria-label="One to one coaching"
+aria-label="Monthly coaching"
 class="product-item__name unset heading-style no-underline fs-custom block lh-normal"
 style="--font-size: 17;"            
-href="/theme-previews/coach/products/one-to-one-coaching.html"
->One to one coaching</a>
+href="/theme-previews/coach/products/monthly-coaching.html"
+>Monthly coaching</a>
 <div
 class="product-item__price justify-content-left fs-custom flex gap-custom lh-normal "
 style="--font-size: 16; --gap: 3px;"
 ><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular">
 <span class="visually-hidden">Regular price</span>
 <span class="price price-same-style heading-style">
-$160.00
+$390.00
 </span>
 </div>
 </div>
 </div>
 </div>
 <script type="application/json" class="product-variant__quantity">
-            [{ "option":"One session","qty":11,"available":true,"mamagement":""},{ "option":"One session","qty":11,"available":true,"mamagement":""},{ "option":"Six sessions","qty":11,"available":true,"mamagement":""},{ "option":"Six sessions","qty":11,"available":true,"mamagement":""}]
+            [{ "option":"Month to month","qty":11,"available":true,"mamagement":""},{ "option":"Month to month","qty":11,"available":true,"mamagement":""},{ "option":"Three months","qty":11,"available":true,"mamagement":""},{ "option":"Three months","qty":11,"available":true,"mamagement":""}]
           </script>
 </motion-element><script type="application/json" class="productItemVariantsQty">
-        [{ "option":"One session","qty":11,"available":true,"mamagement":""},{ "option":"One session","qty":11,"available":true,"mamagement":""},{ "option":"Six sessions","qty":11,"available":true,"mamagement":""},{ "option":"Six sessions","qty":11,"available":true,"mamagement":""}]
+        [{ "option":"Month to month","qty":11,"available":true,"mamagement":""},{ "option":"Month to month","qty":11,"available":true,"mamagement":""},{ "option":"Three months","qty":11,"available":true,"mamagement":""},{ "option":"Three months","qty":11,"available":true,"mamagement":""}]
       </script></div>
 </div><div
 class="grid__item"
@@ -953,7 +937,7 @@ class="grid__item"
 class="product-item product__item-js  style-as-standard"
 >
 <motion-element
-class="product-item__wrapper block  hover_zoom product-grid  scroll-trigger fade_in "
+class="product-item__wrapper block  hover_zoom product-grid "
 data-cascade
 data-motion="fade-up-lg"
 hold
@@ -964,12 +948,12 @@ style="--animation-order: 2;  "
 <div class="product-item__inner hover-effect overflow-hidden relative">
 <a
 draggable="false"
-href="/theme-previews/coach/products/the-clear-path-group.html"
-aria-label="The Clear Path group"
+href="/theme-previews/coach/products/first-90-days.html"
+aria-label="First 90 Days"
 class="product__media product-item__media--ratio rounded block"
-style="--aspect-ratio: 3/4;"
+style="--aspect-ratio: 4/3;"
 >
-<img src="/theme-previews/coach/a/coach-offer-group.8ba3ee0d00d5.webp" srcset="/theme-previews/coach/a/coach-offer-group.8ba3ee0d00d5.webp 720w, /theme-previews/coach/a/coach-offer-group.8ba3ee0d00d5.webp 660w, /theme-previews/coach/a/coach-offer-group.8ba3ee0d00d5.webp 550w, /theme-previews/coach/a/coach-offer-group.8ba3ee0d00d5.webp 480w, /theme-previews/coach/a/coach-offer-group.8ba3ee0d00d5.webp 330w, /theme-previews/coach/a/coach-offer-group.8ba3ee0d00d5.webp 240w, /theme-previews/coach/a/coach-offer-group.8ba3ee0d00d5.webp 185w" alt="The Clear Path group" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1360px -  30px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 30px * 2 ) * 0.33), calc( (100vw - 30px - 15px * 0 ) * 1)" class="product-image first-image bls-loaded-image">
+<img src="/theme-previews/coach/a/coach-offer-group.96aa2ddfe6d1.webp" srcset="/theme-previews/coach/a/coach-offer-group.96aa2ddfe6d1.webp 720w, /theme-previews/coach/a/coach-offer-group.96aa2ddfe6d1.webp 660w, /theme-previews/coach/a/coach-offer-group.96aa2ddfe6d1.webp 550w, /theme-previews/coach/a/coach-offer-group.96aa2ddfe6d1.webp 480w, /theme-previews/coach/a/coach-offer-group.96aa2ddfe6d1.webp 330w, /theme-previews/coach/a/coach-offer-group.96aa2ddfe6d1.webp 240w, /theme-previews/coach/a/coach-offer-group.96aa2ddfe6d1.webp 185w" alt="First 90 Days" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1360px -  30px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 30px * 2 ) * 0.33), calc( (100vw - 30px - 15px * 0 ) * 1)" class="product-image first-image bls-loaded-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -988,7 +972,7 @@ data-show-preorder="true"
 data-sale-badge-type="percent"
 ><div
 class="product__badges-sale product__badges-type-percent product__badges-inner align-self-start px-15 sale inline-flex content-center subheading_weight text-center lh-normal"
->-14%
+>-18%
 </div>
 </div>
 </div>
@@ -1024,23 +1008,23 @@ Out of Stock
 </div>
 <div class="product-item__information word-break text-left mt-15">
 <a
-aria-label="The Clear Path group"
+aria-label="First 90 Days"
 class="product-item__name unset heading-style no-underline fs-custom block lh-normal"
 style="--font-size: 17;"            
-href="/theme-previews/coach/products/the-clear-path-group.html"
->The Clear Path group</a>
+href="/theme-previews/coach/products/first-90-days.html"
+>First 90 Days</a>
 <div
 class="product-item__price justify-content-left fs-custom flex gap-custom lh-normal "
 style="--font-size: 16; --gap: 3px;"
 ><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular primary-color">
 <span class="visually-hidden">Sale price</span>
 <span class="price heading_weight primary-color price-same-style price--special">
-$480.00
+$990.00
 </span>
 </div>
 <div class="price-regular">
 <span class="visually-hidden">Regular price</span>
-<s class="price-item compare-price dark-grey">$560.00</s>
+<s class="price-item compare-price dark-grey">$1,200.00</s>
 </div>
 </div>
 </div>
@@ -1053,7 +1037,7 @@ class="grid__item"
 class="product-item product__item-js  style-as-standard"
 >
 <motion-element
-class="product-item__wrapper block  hover_zoom product-grid  scroll-trigger fade_in "
+class="product-item__wrapper block  hover_zoom product-grid "
 data-cascade
 data-motion="fade-up-lg"
 hold
@@ -1064,12 +1048,12 @@ style="--animation-order: 3;  "
 <div class="product-item__inner hover-effect overflow-hidden relative">
 <a
 draggable="false"
-href="/theme-previews/coach/products/online-session.html"
-aria-label="Online session"
+href="/theme-previews/coach/products/team-day.html"
+aria-label="Team day"
 class="product__media product-item__media--ratio rounded block"
-style="--aspect-ratio: 3/4;"
+style="--aspect-ratio: 4/3;"
 >
-<img src="/theme-previews/coach/a/coach-offer-online.4354d8dded14.webp" srcset="/theme-previews/coach/a/coach-offer-online.4354d8dded14.webp 720w, /theme-previews/coach/a/coach-offer-online.4354d8dded14.webp 660w, /theme-previews/coach/a/coach-offer-online.4354d8dded14.webp 550w, /theme-previews/coach/a/coach-offer-online.4354d8dded14.webp 480w, /theme-previews/coach/a/coach-offer-online.4354d8dded14.webp 330w, /theme-previews/coach/a/coach-offer-online.4354d8dded14.webp 240w, /theme-previews/coach/a/coach-offer-online.4354d8dded14.webp 185w" alt="Online session" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1360px -  30px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 30px * 2 ) * 0.33), calc( (100vw - 30px - 15px * 0 ) * 1)" class="product-image first-image bls-loaded-image">
+<img src="/theme-previews/coach/a/coach-offer-day.4de0d0400030.webp" srcset="/theme-previews/coach/a/coach-offer-day.4de0d0400030.webp 720w, /theme-previews/coach/a/coach-offer-day.4de0d0400030.webp 660w, /theme-previews/coach/a/coach-offer-day.4de0d0400030.webp 550w, /theme-previews/coach/a/coach-offer-day.4de0d0400030.webp 480w, /theme-previews/coach/a/coach-offer-day.4de0d0400030.webp 330w, /theme-previews/coach/a/coach-offer-day.4de0d0400030.webp 240w, /theme-previews/coach/a/coach-offer-day.4de0d0400030.webp 185w" alt="Team day" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1360px -  30px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 30px * 2 ) * 0.33), calc( (100vw - 30px - 15px * 0 ) * 1)" class="product-image first-image bls-loaded-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -1121,28 +1105,28 @@ Out of Stock
 </div>
 <div class="product-item__information word-break text-left mt-15">
 <a
-aria-label="Online session"
+aria-label="Team day"
 class="product-item__name unset heading-style no-underline fs-custom block lh-normal"
 style="--font-size: 17;"            
-href="/theme-previews/coach/products/online-session.html"
->Online session</a>
+href="/theme-previews/coach/products/team-day.html"
+>Team day</a>
 <div
 class="product-item__price justify-content-left fs-custom flex gap-custom lh-normal "
 style="--font-size: 16; --gap: 3px;"
 ><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular">
 <span class="visually-hidden">Regular price</span>
 <span class="price price-same-style heading-style">
-$140.00
+$2,400.00
 </span>
 </div>
 </div>
 </div>
 </div>
 <script type="application/json" class="product-variant__quantity">
-            [{ "option":"50 minutes","qty":11,"available":true,"mamagement":""},{ "option":"80 minutes","qty":11,"available":true,"mamagement":""}]
+            [{ "option":"Online","qty":11,"available":true,"mamagement":""},{ "option":"In Austin","qty":11,"available":true,"mamagement":""},{ "option":"At your office","qty":11,"available":true,"mamagement":""}]
           </script>
 </motion-element><script type="application/json" class="productItemVariantsQty">
-        [{ "option":"50 minutes","qty":11,"available":true,"mamagement":""},{ "option":"80 minutes","qty":11,"available":true,"mamagement":""}]
+        [{ "option":"Online","qty":11,"available":true,"mamagement":""},{ "option":"In Austin","qty":11,"available":true,"mamagement":""},{ "option":"At your office","qty":11,"available":true,"mamagement":""}]
       </script></div>
 </div><div
 class="grid__item"
@@ -1151,7 +1135,7 @@ class="grid__item"
 class="product-item product__item-js  style-as-standard"
 >
 <motion-element
-class="product-item__wrapper block  hover_zoom product-grid  scroll-trigger fade_in "
+class="product-item__wrapper block  hover_zoom product-grid "
 data-cascade
 data-motion="fade-up-lg"
 hold
@@ -1162,12 +1146,12 @@ style="--animation-order: 4;  "
 <div class="product-item__inner hover-effect overflow-hidden relative">
 <a
 draggable="false"
-href="/theme-previews/coach/products/the-clarity-workbook.html"
-aria-label="The clarity workbook"
+href="/theme-previews/coach/products/leadership-workshop.html"
+aria-label="Leadership workshop"
 class="product__media product-item__media--ratio rounded block"
-style="--aspect-ratio: 3/4;"
+style="--aspect-ratio: 4/3;"
 >
-<img src="/theme-previews/coach/a/coach-guide.cf658bfb1e30.webp" srcset="/theme-previews/coach/a/coach-guide.cf658bfb1e30.webp 720w, /theme-previews/coach/a/coach-guide.cf658bfb1e30.webp 660w, /theme-previews/coach/a/coach-guide.cf658bfb1e30.webp 550w, /theme-previews/coach/a/coach-guide.cf658bfb1e30.webp 480w, /theme-previews/coach/a/coach-guide.cf658bfb1e30.webp 330w, /theme-previews/coach/a/coach-guide.cf658bfb1e30.webp 240w, /theme-previews/coach/a/coach-guide.cf658bfb1e30.webp 185w" alt="The clarity workbook" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1360px -  30px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 30px * 2 ) * 0.33), calc( (100vw - 30px - 15px * 0 ) * 1)" class="product-image first-image bls-loaded-image">
+<img src="/theme-previews/coach/a/coach-offer-team.e9eabc4ecc19.webp" srcset="/theme-previews/coach/a/coach-offer-team.e9eabc4ecc19.webp 720w, /theme-previews/coach/a/coach-offer-team.e9eabc4ecc19.webp 660w, /theme-previews/coach/a/coach-offer-team.e9eabc4ecc19.webp 550w, /theme-previews/coach/a/coach-offer-team.e9eabc4ecc19.webp 480w, /theme-previews/coach/a/coach-offer-team.e9eabc4ecc19.webp 330w, /theme-previews/coach/a/coach-offer-team.e9eabc4ecc19.webp 240w, /theme-previews/coach/a/coach-offer-team.e9eabc4ecc19.webp 185w" alt="Leadership workshop" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1360px -  30px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 30px * 2 ) * 0.33), calc( (100vw - 30px - 15px * 0 ) * 1)" class="product-image first-image bls-loaded-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -1219,18 +1203,18 @@ Out of Stock
 </div>
 <div class="product-item__information word-break text-left mt-15">
 <a
-aria-label="The clarity workbook"
+aria-label="Leadership workshop"
 class="product-item__name unset heading-style no-underline fs-custom block lh-normal"
 style="--font-size: 17;"            
-href="/theme-previews/coach/products/the-clarity-workbook.html"
->The clarity workbook</a>
+href="/theme-previews/coach/products/leadership-workshop.html"
+>Leadership workshop</a>
 <div
 class="product-item__price justify-content-left fs-custom flex gap-custom lh-normal "
 style="--font-size: 16; --gap: 3px;"
 ><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular">
 <span class="visually-hidden">Regular price</span>
 <span class="price price-same-style heading-style">
-$24.00
+$1,800.00
 </span>
 </div>
 </div>
@@ -1244,7 +1228,7 @@ class="grid__item"
 class="product-item product__item-js  style-as-standard"
 >
 <motion-element
-class="product-item__wrapper block  hover_zoom product-grid  scroll-trigger fade_in "
+class="product-item__wrapper block  hover_zoom product-grid "
 data-cascade
 data-motion="fade-up-lg"
 hold
@@ -1255,12 +1239,12 @@ style="--animation-order: 5;  "
 <div class="product-item__inner hover-effect overflow-hidden relative">
 <a
 draggable="false"
-href="/theme-previews/coach/products/gift-a-session.html"
-aria-label="Gift a session"
+href="/theme-previews/coach/products/single-call.html"
+aria-label="Single call"
 class="product__media product-item__media--ratio rounded block"
-style="--aspect-ratio: 3/4;"
+style="--aspect-ratio: 4/3;"
 >
-<img src="/theme-previews/coach/a/coach-grid-4.e1286ff90d5c.webp" srcset="/theme-previews/coach/a/coach-grid-4.e1286ff90d5c.webp 720w, /theme-previews/coach/a/coach-grid-4.e1286ff90d5c.webp 660w, /theme-previews/coach/a/coach-grid-4.e1286ff90d5c.webp 550w, /theme-previews/coach/a/coach-grid-4.e1286ff90d5c.webp 480w, /theme-previews/coach/a/coach-grid-4.e1286ff90d5c.webp 330w, /theme-previews/coach/a/coach-grid-4.e1286ff90d5c.webp 240w, /theme-previews/coach/a/coach-grid-4.e1286ff90d5c.webp 185w" alt="Gift a session" width="1600" height="1600" loading="eager" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1360px -  30px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 30px * 2 ) * 0.33), calc( (100vw - 30px - 15px * 0 ) * 1)" class="product-image first-image bls-loaded-image">
+<img src="/theme-previews/coach/a/coach-offer-gift.8546de1ecb81.webp" srcset="/theme-previews/coach/a/coach-offer-gift.8546de1ecb81.webp 720w, /theme-previews/coach/a/coach-offer-gift.8546de1ecb81.webp 660w, /theme-previews/coach/a/coach-offer-gift.8546de1ecb81.webp 550w, /theme-previews/coach/a/coach-offer-gift.8546de1ecb81.webp 480w, /theme-previews/coach/a/coach-offer-gift.8546de1ecb81.webp 330w, /theme-previews/coach/a/coach-offer-gift.8546de1ecb81.webp 240w, /theme-previews/coach/a/coach-offer-gift.8546de1ecb81.webp 185w" alt="Single call" width="1600" height="1600" loading="eager" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1360px -  30px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 30px * 2 ) * 0.33), calc( (100vw - 30px - 15px * 0 ) * 1)" class="product-image first-image bls-loaded-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -1312,18 +1296,18 @@ Out of Stock
 </div>
 <div class="product-item__information word-break text-left mt-15">
 <a
-aria-label="Gift a session"
+aria-label="Single call"
 class="product-item__name unset heading-style no-underline fs-custom block lh-normal"
 style="--font-size: 17;"            
-href="/theme-previews/coach/products/gift-a-session.html"
->Gift a session</a>
+href="/theme-previews/coach/products/single-call.html"
+>Single call</a>
 <div
 class="product-item__price justify-content-left fs-custom flex gap-custom lh-normal "
 style="--font-size: 16; --gap: 3px;"
 ><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular">
 <span class="visually-hidden">Regular price</span>
 <span class="price price-same-style heading-style">
-$160.00
+$180.00
 </span>
 </div>
 </div>
@@ -1337,7 +1321,7 @@ class="grid__item"
 class="product-item product__item-js  style-as-standard"
 >
 <motion-element
-class="product-item__wrapper block  hover_zoom product-grid  scroll-trigger fade_in "
+class="product-item__wrapper block  hover_zoom product-grid "
 data-cascade
 data-motion="fade-up-lg"
 hold
@@ -1351,9 +1335,9 @@ draggable="false"
 href="/theme-previews/coach/products/sample-product-one.html"
 aria-label="Sample product one"
 class="product__media product-item__media--ratio rounded block"
-style="--aspect-ratio: 3/4;"
+style="--aspect-ratio: 4/3;"
 >
-<img src="/theme-previews/coach/a/coach-offer-one.80eb021a2787.webp" srcset="/theme-previews/coach/a/coach-offer-one.80eb021a2787.webp 720w, /theme-previews/coach/a/coach-offer-one.80eb021a2787.webp 660w, /theme-previews/coach/a/coach-offer-one.80eb021a2787.webp 550w, /theme-previews/coach/a/coach-offer-one.80eb021a2787.webp 480w, /theme-previews/coach/a/coach-offer-one.80eb021a2787.webp 330w, /theme-previews/coach/a/coach-offer-one.80eb021a2787.webp 240w, /theme-previews/coach/a/coach-offer-one.80eb021a2787.webp 185w" alt="Sample product one" width="1600" height="1600" loading="eager" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1360px -  30px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 30px * 2 ) * 0.33), calc( (100vw - 30px - 15px * 0 ) * 1)" class="product-image first-image bls-loaded-image">
+<img src="/theme-previews/coach/a/coach-offer-one.0977fdb475e4.webp" srcset="/theme-previews/coach/a/coach-offer-one.0977fdb475e4.webp 720w, /theme-previews/coach/a/coach-offer-one.0977fdb475e4.webp 660w, /theme-previews/coach/a/coach-offer-one.0977fdb475e4.webp 550w, /theme-previews/coach/a/coach-offer-one.0977fdb475e4.webp 480w, /theme-previews/coach/a/coach-offer-one.0977fdb475e4.webp 330w, /theme-previews/coach/a/coach-offer-one.0977fdb475e4.webp 240w, /theme-previews/coach/a/coach-offer-one.0977fdb475e4.webp 185w" alt="Sample product one" width="1600" height="1600" loading="eager" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1360px -  30px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 30px * 2 ) * 0.33), calc( (100vw - 30px - 15px * 0 ) * 1)" class="product-image first-image bls-loaded-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -1431,7 +1415,15 @@ $24.00
 </div>
 </grid-list>
 </section>
+</div><section id="shopify-section-cta" class="shopify-section section sec__coach2-cta" data-section-id="cta" data-section-type="coach2-cta"><link rel="stylesheet" href="/theme-previews/coach/a/i.78ad86876e6a.css">
+<div class="c2c color-default">
+<div class="c2c__box">
+<div><p class="c2c__eyebrow">Free first call</p><h2 class="c2c__h">Let's look at your week</h2><div class="c2c__t"><p>Twenty minutes on video. You tell me about your team; I say honestly whether I can help.</p></div><a class="c2c__btn" href="/theme-previews/coach/pages/book.html">Book a free call<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a><p class="c2c__note">No pitch. If we are not a fit, I will say so.</p></div>
+<div class="c2c__side"><div class="c2c__who"><img src="/theme-previews/coach/a/coach-mateo-avatar.9ac878feec47.webp" width="64" height="64" alt="" loading="lazy"><div><b>Mateo Cruz</b><span>Leadership coach</span></div>
+</div><ul class="c2c__list"><li><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10.5l4 4 8-9"/></svg><span>Where your team is now</span></li><li><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10.5l4 4 8-9"/></svg><span>What is taking your time</span></li><li><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10.5l4 4 8-9"/></svg><span>One next step, either way</span></li></ul></div>
 </div>
+</div>
+</section>
 </main><script src="/theme-previews/coach/a/i.3221b11617b1.js"></script>
 <div id="shopify-section-footer" class="shopify-section shopify-section-group-footer-group" data-section-id="footer" data-section-type="theme-footer"><style>
   #shopify-section-footer {
@@ -1452,22 +1444,10 @@ $24.00
     font-weight: var(--subheading-weight, 500);
   }
 </style><style>
-  #shopify-section-footer.scroll-trigger {
-    --animation-duration: 950ms;
-    --animation-delay: 80ms;
-  }
-</style>
-<script>
-  (function(){
-    var el = document.getElementById('shopify-section-footer');
-    if (!el || el.classList.contains('scroll-trigger') || document.documentElement.classList.contains('shopify-design-mode') || (window.SlTheme && window.SlTheme.designMode)) return;
-    el.classList.add('scroll-trigger', "fade_in");
-  })();
-</script><style>
   #shopify-section-footer,#shopify-section-footer>.section,#shopify-section-footer>section,#shopify-section-footer>div,#shopify-section-footer>div>.section{margin-top:0!important;margin-bottom:0!important}
   #shopify-section-footer+.shopify-section,#shopify-section-footer+section,.shopify-section+#shopify-section-footer{margin-top:0!important}
   #shopify-section-footer{font-weight:var(--body-weight,inherit);isolation:isolate;position:relative}
-  :where(#shopify-section-footer) :is(h1,h2,h3,h4,h5,h6){font-weight:var(--heading-weight,inherit)}#shopify-section-footer .footer__block-heading{font-size:calc(var(--font-size,13) * 1px)}
+  :where(#shopify-section-footer) :is(h1,h2,h3,h4,h5,h6){font-weight:var(--heading-weight,inherit)}#shopify-section-footer .footer__block-heading{font-size:calc(var(--font-size,15) * 1px)}
   #shopify-section-footer .footer__blocks a:hover,#shopify-section-footer .footer__copyright a:hover{color:var(--footer-link-hover)}
   #shopify-section-footer .arrow-toggle svg{width:var(--footer-arrow-size,14px);height:var(--footer-arrow-size,14px)}
 </style>
@@ -1477,8 +1457,8 @@ $24.00
 class="product-sticky-hide footer color-scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9 gradient border-top remove_spacing remove_spacing-on-home"
 data-theme-footer
 data-ft-section="footer"
-data-ft-page="collection" data-ft-tt
-style="--section-pt: 72;--section-pb: 28;--footer-link-hover: var(--color-heading);--footer-heading-weight: 500;--footer-heading-tt: uppercase;--footer-arrow-size: 14px;"
+data-ft-page="collection"
+style="--section-pt: 72;--section-pb: 28;--footer-link-hover: var(--color-heading);--footer-heading-weight: 600;--footer-heading-tt: none;--footer-arrow-size: 14px;"
 ><div class="footer__middle section pb-min remove_spacing">
 <div class="fluid_container"><div class="footer__blocks flex flex-col-custom flex-wrap"><div
 class="footer-block w-full col-md-w-custom-50 col-md-w-custom pb-30 border-bottom border-bottom-md-0 store_info"
@@ -1487,14 +1467,14 @@ data-ft-block="store_info_1" data-ft-type="store_info"
 data-block-id="store_info_1"
 ><h3
 class="footer__block-heading fs-custom my-0 py-20 mb-md-5"
-style="--font-size: 13"
+style="--font-size: 15"
 >
-<span data-ft-heading>Leah Morgan Coaching</span>
+<span data-ft-heading>Mateo Cruz</span>
 </h3>
 <div
 class="store-info-content"
 ><div class="footer__block-info rich__text-mt-0 mb-20" data-ft-desc>
-<p>Life and business coaching for women changing course: a new role, a business of their own, a calmer week.</p>
+<p>Leadership coaching for new managers: one to one, in a small group, or a day with your whole team.</p>
 </div>
 <social-icon class="block mt-22">
 <ul class="list-social list-social--outline list-unstyled flex align-center flex-wrap gap" style="--col-gap: 12px;"><li class="list-social__item inline-flex">
@@ -1514,12 +1494,12 @@ aria-label="Instagram"
 <a
 href="#" data-preview-inert
 class="social-icon-link inline-flex content-center tooltip relative"
-aria-label="Pinterest"
+aria-label="YouTube"
 >
 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-<path d="M12 2.5a9.5 9.5 0 0 0-3.46 18.35c-.08-.77-.15-1.96.03-2.8.17-.76 1.08-4.84 1.08-4.84s-.27-.55-.27-1.37c0-1.28.74-2.24 1.66-2.24.79 0 1.17.59 1.17 1.3 0 .79-.5 1.97-.77 3.07-.22.92.46 1.67 1.36 1.67 1.64 0 2.9-1.73 2.9-4.22 0-2.21-1.59-3.75-3.85-3.75a4 4 0 0 0-4.16 4c0 .79.31 1.64.68 2.11.07.09.08.16.06.25-.07.29-.23.92-.26 1.05-.04.17-.13.21-.3.13-1.12-.52-1.82-2.16-1.82-3.47 0-2.83 2.06-5.42 5.93-5.42 3.11 0 5.53 2.22 5.53 5.18 0 3.09-1.95 5.58-4.66 5.58-.91 0-1.77-.47-2.06-1.03l-.56 2.14c-.2.79-.76 1.78-1.13 2.38A9.5 9.5 0 1 0 12 2.5Z"/>
+<path d="M22.54 7.2a2.78 2.78 0 0 0-1.96-1.96C18.88 4.8 12 4.8 12 4.8s-6.88 0-8.58.44A2.78 2.78 0 0 0 1.46 7.2C1 8.9 1 12 1 12s0 3.1.46 4.8a2.78 2.78 0 0 0 1.96 1.96c1.7.44 8.58.44 8.58.44s6.88 0 8.58-.44a2.78 2.78 0 0 0 1.96-1.96c.46-1.7.46-4.8.46-4.8s0-3.1-.46-4.8ZM9.75 15.27V8.73L15.5 12l-5.75 3.27Z"/>
 </svg>
-<span class="tooltip-content invisible rounded-3 absolute pointer-none tooltip-bottom">Pinterest</span>
+<span class="tooltip-content invisible rounded-3 absolute pointer-none tooltip-bottom">YouTube</span>
 </a>
 </li><li class="list-social__item inline-flex">
 <a
@@ -1543,7 +1523,7 @@ data-block-id="link_list_1"
 >
 <div class="footer-acc" data-footer-acc><h3
 class="footer__block-heading collapsible-heading heading-letter-spacing relative fs-custom my-0 py-20 mb-md-5"
-style="--font-size: 13"
+style="--font-size: 15"
 ><button type="button" class="footer-acc__toggle" data-footer-acc-toggle aria-expanded="false" aria-controls="FooterAcc-link_list_1">
 <span data-ft-heading data-ft-fallback="Explore">Explore</span>
 <span class="open-children-toggle hidden-md absolute inset-0 flex flex-end">
@@ -1558,6 +1538,14 @@ style="--font-size: 13"
 <div class="footer-block collapsible-content mb-12 mb-md-0">
 <ul class="list-unstyled"><li class="pb-8">
 <a
+href="/theme-previews/coach/collections/all.html"
+aria-label="Coaching"
+class="no-underline word-break reversed-links relative"
+>
+Coaching
+</a>
+</li><li class="pb-8">
+<a
 href="/theme-previews/coach/pages/about.html"
 aria-label="About"
 class="no-underline word-break reversed-links relative"
@@ -1566,27 +1554,19 @@ About
 </a>
 </li><li class="pb-8">
 <a
-href="/theme-previews/coach/collections/all.html"
-aria-label="Work with me"
+href="/theme-previews/coach/blogs/news.html"
+aria-label="Notes"
 class="no-underline word-break reversed-links relative"
 >
-Work with me
+Notes
 </a>
 </li><li class="pb-8">
 <a
 href="/theme-previews/coach/pages/book.html"
-aria-label="Book a call"
+aria-label="Book a free call"
 class="no-underline word-break reversed-links relative"
 >
-Book a call
-</a>
-</li><li class="pb-8">
-<a
-href="/theme-previews/coach/blogs/news.html"
-aria-label="Journal"
-class="no-underline word-break reversed-links relative"
->
-Journal
+Book a free call
 </a>
 </li></ul>
 </div>
@@ -1601,7 +1581,7 @@ data-block-id="link_list_2"
 >
 <div class="footer-acc" data-footer-acc><h3
 class="footer__block-heading collapsible-heading heading-letter-spacing relative fs-custom my-0 py-20 mb-md-5"
-style="--font-size: 13"
+style="--font-size: 15"
 ><button type="button" class="footer-acc__toggle" data-footer-acc-toggle aria-expanded="false" aria-controls="FooterAcc-link_list_2">
 <span data-ft-heading data-ft-fallback="Good to know">Good to know</span>
 <span class="open-children-toggle hidden-md absolute inset-0 flex flex-end">
@@ -1632,19 +1612,11 @@ Contact
 </a>
 </li><li class="pb-8">
 <a
-href="/theme-previews/coach/pages/guide.html"
-aria-label="Free guide"
+href="/theme-previews/coach/search.html"
+aria-label="Search"
 class="no-underline word-break reversed-links relative"
 >
-Free guide
-</a>
-</li><li class="pb-8">
-<a
-href="/theme-previews/coach/cart.html"
-aria-label="Your basket"
-class="no-underline word-break reversed-links relative"
->
-Your basket
+Search
 </a>
 </li></ul>
 </div>
@@ -1659,9 +1631,9 @@ data-block-id="link_list_3"
 >
 <div class="footer-acc" data-footer-acc><h3
 class="footer__block-heading collapsible-heading heading-letter-spacing relative fs-custom my-0 py-20 mb-md-5"
-style="--font-size: 13"
+style="--font-size: 15"
 ><button type="button" class="footer-acc__toggle" data-footer-acc-toggle aria-expanded="false" aria-controls="FooterAcc-link_list_3">
-<span data-ft-heading data-ft-fallback="Say hello">Say hello</span>
+<span data-ft-heading data-ft-fallback="Get in touch">Get in touch</span>
 <span class="open-children-toggle hidden-md absolute inset-0 flex flex-end">
 <span class="arrow-toggle" aria-hidden="true">
 <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1682,11 +1654,11 @@ Send a message
 </a>
 </li><li class="pb-8">
 <a
-href="/theme-previews/coach/pages/book.html"
-aria-label="Book a free call"
+href="#" data-preview-inert
+aria-label="LinkedIn"
 class="no-underline word-break reversed-links relative"
 >
-Book a free call
+LinkedIn
 </a>
 </li><li class="pb-8">
 <a
@@ -1706,8 +1678,8 @@ Instagram
 </div>
 <div class="footer__bottom"><div class="fluid_container">
 <div class="footer_bottom-inner justify-center justify-md-end flex flex-wrap flex-md-nowrap align-center border-top gap-20 gap-xl-30 py-30"><div class="flex flex-wrap gap-10 gap-xl-30 justify-center justify-md-start">
-<div class="footer__copyright" data-ft-copyright>© 2026 Leah Morgan Coaching. All rights reserved.</div>
-<ul class="footer__policies list-unstyled flex flex-wrap" data-ft-policies><li><a href="/theme-previews/coach/policies/refund-policy.html">Refund policy</a></li><li><a href="/theme-previews/coach/policies/privacy-policy.html">Privacy policy</a></li><li><a href="/theme-previews/coach/policies/terms-of-service.html">Terms of service</a></li></ul><div class="footer__powered" data-ft-powered><a href="#" data-preview-inert data-storelib-badge="">Powered by Storelib</a></div></div>
+<div class="footer__copyright" data-ft-copyright>© 2026 Mateo Cruz. All rights reserved.</div>
+<ul class="footer__policies list-unstyled flex flex-wrap" data-ft-policies><li><a href="/theme-previews/coach/policies/refund-policy.html">Refund policy</a></li><li><a href="/theme-previews/coach/policies/privacy-policy.html">Privacy policy</a></li><li><a href="/theme-previews/coach/policies/terms-of-service.html">Terms of service</a></li></ul><div class="footer__powered" data-ft-powered><a href="#" data-preview-inert data-storelib-badge="" style="display:inline-flex;align-items:center;gap:.45em;white-space:nowrap;vertical-align:middle"><svg data-storelib-badge-mark="" aria-hidden="true" focusable="false" viewBox="0 0 200 200" width="14" height="14" style="display:block;flex:none;width:1.2em;height:1.2em;overflow:visible"><mask id="sl-pb-s" maskUnits="userSpaceOnUse" x="0" y="0" width="200" height="200"><rect width="200" height="200" fill="#fff"/><svg x="48.97" y="38.44" width="102.06" height="123.12" viewBox="54 43 94.5 114" overflow="visible"><path transform="translate(134.125,52.875)" d="M0 0 C0.99749268 0.36665771 0.99749268 0.36665771 2.01513672 0.74072266 C6.62777473 2.59663113 6.62777473 2.59663113 7.68823242 4.86303711 C7.94652165 7.99120666 7.02705902 10.04467511 5.85546875 12.94921875 C5.41009766 14.05974609 4.96472656 15.17027344 4.50585938 16.31445312 C4.02955078 17.46880859 3.55324219 18.62316406 3.0625 19.8125 C2.59779297 20.97845703 2.13308594 22.14441406 1.65429688 23.34570312 C-1.85471661 31.98985831 -1.85471661 31.98985831 -4.125 33.125 C-6.02961204 32.43054915 -7.90085447 31.64344514 -9.75 30.8125 C-19.66422998 26.58368153 -27.26609106 25.85047702 -38.125 26.125 C-38.455 27.115 -38.785 28.105 -39.125 29.125 C-38.14402344 29.36734375 -37.16304687 29.6096875 -36.15234375 29.859375 C-33.31305776 30.56236873 -30.47635159 31.27497918 -27.640625 31.9921875 C-24.80213536 32.70970135 -21.95989766 33.40235421 -19.109375 34.0703125 C-6.69949938 37.1089446 3.02755655 40.84926977 9.875 52.125 C13.29151905 58.95803811 12.61307566 67.23479967 10.625 74.4375 C7.53029491 83.45189328 1.37513276 90.18616729 -7.02734375 94.67578125 C-26.20884362 103.04454374 -49.04415352 101.90170642 -68.5 94.625 C-72.25964144 93.07749587 -75.67848864 91.2806362 -79.125 89.125 C-78.55593823 84.90468545 -77.56543969 81.39586411 -75.83984375 77.5078125 C-75.39189453 76.48945313 -74.94394531 75.47109375 -74.48242188 74.421875 C-73.77956055 72.85179688 -73.77956055 72.85179688 -73.0625 71.25 C-72.59005859 70.18007812 -72.11761719 69.11015625 -71.63085938 68.0078125 C-70.46832699 65.3774362 -69.29955398 62.75002483 -68.125 60.125 C-63.80181734 61.13483216 -60.07150265 62.96083682 -56.07421875 64.87109375 C-49.32009515 67.74271451 -43.48344492 68.41757298 -36.25 68.3125 C-35.38375 68.31185547 -34.5175 68.31121094 -33.625 68.31054688 C-29.55080641 68.64235092 -29.55080641 68.64235092 -26.125 67.125 C-32.43853708 64.84703882 -38.66045093 62.93279428 -45.25 61.625 C-56.73505022 59.25968679 -67.31315991 55.21661495 -74.125 45.125 C-77.1608836 40.09281577 -77.67121961 36.10082917 -77.625 30.375 C-77.62072998 29.57876221 -77.61645996 28.78252441 -77.61206055 27.9621582 C-77.37730644 19.82208022 -74.95520496 14.3797357 -69.625 8.25 C-68.8 7.54875 -67.975 6.8475 -67.125 6.125 C-66.403125 5.465 -65.68125 4.805 -64.9375 4.125 C-46.69751714 -8.84565448 -20.22397968 -7.61423584 0 0 Z" fill="#000"/></svg></mask><rect width="200" height="200" rx="48" fill="currentColor" mask="url(#sl-pb-s)"/></svg><span>Powered by Storelib</span></a></div></div>
 </div>
 </div>
 </div>
@@ -1755,11 +1727,11 @@ aria-modal="true"
 aria-label="Search"
 data-search-mode="popup"
 class="search-overlay search-overlay--popup search__type-popup search__popup-anim--fade color-default"
-style="--color-background: #faf6f0;          --color-text: #6b5b4e;          --color-heading: #2e221b;          --color-primary: #2e221b;          --color-border: #e6dacb;          --gradient-background: #faf6f0;          background-color: #faf6f0;          color: #6b5b4e;"
+style="--color-background: #ffffff;          --color-text: #4b5160;          --color-heading: #0f1115;          --color-primary: #2b44ff;          --color-border: #e4e6ea;          --gradient-background: #ffffff;          background-color: #ffffff;          color: #4b5160;"
 ><div
 class="search__type-popup search__popup-anim--fade color-default h-full overflow-auto px-15 custom-scrollbar"
 data-search-popup-anim="fade"
-style="--color-background: #faf6f0;    --color-text: #6b5b4e;    --color-heading: #2e221b;    --color-primary: #2e221b;    --color-border: #e6dacb;    --gradient-background: #faf6f0;    background-color: #faf6f0;    color: #6b5b4e;"
+style="--color-background: #ffffff;    --color-text: #4b5160;    --color-heading: #0f1115;    --color-primary: #2b44ff;    --color-border: #e4e6ea;    --gradient-background: #ffffff;    background-color: #ffffff;    color: #4b5160;"
 >
 <div class="fluid_container">
 <h3 class="search-title search-title--animated text-center h4 m-0 hidden block-sm" aria-label="Search"><span class="search-title__char" style="--char-i: 0;" aria-hidden="true">S</span><span class="search-title__char" style="--char-i: 1;" aria-hidden="true">e</span><span class="search-title__char" style="--char-i: 2;" aria-hidden="true">a</span><span class="search-title__char" style="--char-i: 3;" aria-hidden="true">r</span><span class="search-title__char" style="--char-i: 4;" aria-hidden="true">c</span><span class="search-title__char" style="--char-i: 5;" aria-hidden="true">h</span></h3>
@@ -1890,13 +1862,13 @@ style=" ;--col-number: 1;--col-tablet: 1;--col-desktop-small:3;--col-desktop: 5;
     --materia-cart-control: 40px;
     --materia-cart-recommend-gap: 12px;
   }
-</style><link href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" rel="stylesheet" type="text/css" media="all"><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/coach/a/i.761a40ec9f6d.css" data-cart-drawer-style="paint">
+</style><link href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" rel="stylesheet" type="text/css" media="all"><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/coach/a/i.0fa48dadcfea.css" data-cart-drawer-style="paint">
 <cart-notification data-cart-drawer-version="20261021-2"
 data-show-quantity="true"
 data-show-shipping-estimator="false"
 data-show-free-shipping="false"
-id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #faf6f0;    --color-text: #6b5b4e;    --color-heading: #2e221b;    --color-primary: #2e221b;    --color-border: #e6dacb;    --gradient-background: #faf6f0;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #a5582a;    --btn-primary-hover-color: #faf6f0;    --btn-primary-hover-bg-color: #2e221b;    --btn-secondary-color: #2e221b;    --btn-secondary-bg-color: #faf6f0;    --btn-secondary-border-color: #2e221b;    --btn-secondary-hover-color: #faf6f0;    --btn-secondary-hover-bg-color: #2e221b;    --btn-outline-color: #2e221b;    --btn-outline-border-color: #2e221b;    background-color: #faf6f0 !important;    color: #6b5b4e !important;">
-<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #faf6f0;    --color-text: #6b5b4e;    --color-heading: #2e221b;    --color-primary: #2e221b;    --color-border: #e6dacb;    --gradient-background: #faf6f0;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #a5582a;    --btn-primary-hover-color: #faf6f0;    --btn-primary-hover-bg-color: #2e221b;    --btn-secondary-color: #2e221b;    --btn-secondary-bg-color: #faf6f0;    --btn-secondary-border-color: #2e221b;    --btn-secondary-hover-color: #faf6f0;    --btn-secondary-hover-bg-color: #2e221b;    --btn-outline-color: #2e221b;    --btn-outline-border-color: #2e221b;    background-color: #faf6f0 !important;    color: #6b5b4e !important;">
+id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #4b5160;    --color-heading: #0f1115;    --color-primary: #2b44ff;    --color-border: #e4e6ea;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #2b44ff;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #0f1115;    --btn-secondary-color: #0f1115;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #c9cdd5;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #0f1115;    --btn-outline-color: #0f1115;    --btn-outline-border-color: #c9cdd5;    background-color: #ffffff !important;    color: #4b5160 !important;">
+<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #4b5160;    --color-heading: #0f1115;    --color-primary: #2b44ff;    --color-border: #e4e6ea;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #2b44ff;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #0f1115;    --btn-secondary-color: #0f1115;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #c9cdd5;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #0f1115;    --btn-outline-color: #0f1115;    --btn-outline-border-color: #c9cdd5;    background-color: #ffffff !important;    color: #4b5160 !important;">
 <button type="button" class="cart-drawer-sheet-scrim" aria-label="Cancel"></button>
 <div class="minicart__header flex gap-10 align-center justify-between px-30 py-18 color-default">
 <div class="h5 minicart-heading my-0">
@@ -1938,7 +1910,6 @@ Continue Shopping
 <div class="overlayminicart">
 </div>
 <script src="/theme-previews/coach/a/i.f50d71910c82.js"></script>
-<script src="/theme-previews/_base/a/animation.7fa50ded717b.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/tingle-min.9664ca3641cf.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/cart-discount.6748c8dd9657.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/theme.7a7dd8f80f89.js"  defer="defer" type="module"></script>
@@ -2005,21 +1976,8 @@ Skip to content
   @keyframes materiaMediaFade { from { opacity: 0; } to { opacity: 1; } }
   html.js-media-fade .media-fade-run { animation: materiaMediaFade .4s ease; }
 </style>
-<script src="/theme-previews/coach/a/i.dfcb99e2686f.js"></script>
-<style>
-        :root {
-          /* Wire the user's Animations & motion settings to the keyframe vars used by animation.css */
-          --duration-long: 665ms;
-          --duration-extra-long: 950ms;
-          --duration-extra-longer: 950ms;
-          --animation-duration: 950ms;
-          --animation-delay-base: 80ms;
-        }
-        /* Every reveal type, its timing, the first screen, the builder and
-           reduced motion are drawn by animation.css for every .scroll-trigger
-           (theme-wide sections below and cards inside sections alike). */
-      </style>
-<script src="/theme-previews/coach/a/i.1e7544fc58cb.js"></script><link rel="stylesheet" href="/theme-previews/coach/a/i.7c52d5318a5a.css">
+<script src="/theme-previews/coach/a/i.1738a28f6b3c.js"></script>
+<link rel="stylesheet" href="/theme-previews/coach/a/i.7c52d5318a5a.css">
 <script src="/theme-previews/coach/a/i.a459fa2d52ff.js"></script><script id="materia-shipping-data" type="application/json">
   {
     "rates": "",
@@ -2046,13 +2004,13 @@ Skip to content
     --materia-cart-control: 40px;
     --materia-cart-recommend-gap: 12px;
   }
-</style><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/coach/a/i.761a40ec9f6d.css" data-cart-drawer-style="paint">
+</style><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/coach/a/i.0fa48dadcfea.css" data-cart-drawer-style="paint">
 <cart-notification data-cart-drawer-version="20261021-2"
 data-show-quantity="true"
 data-show-shipping-estimator="false"
 data-show-free-shipping="false"
-id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #faf6f0;    --color-text: #6b5b4e;    --color-heading: #2e221b;    --color-primary: #2e221b;    --color-border: #e6dacb;    --gradient-background: #faf6f0;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #a5582a;    --btn-primary-hover-color: #faf6f0;    --btn-primary-hover-bg-color: #2e221b;    --btn-secondary-color: #2e221b;    --btn-secondary-bg-color: #faf6f0;    --btn-secondary-border-color: #2e221b;    --btn-secondary-hover-color: #faf6f0;    --btn-secondary-hover-bg-color: #2e221b;    --btn-outline-color: #2e221b;    --btn-outline-border-color: #2e221b;    background-color: #faf6f0 !important;    color: #6b5b4e !important;">
-<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #faf6f0;    --color-text: #6b5b4e;    --color-heading: #2e221b;    --color-primary: #2e221b;    --color-border: #e6dacb;    --gradient-background: #faf6f0;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #a5582a;    --btn-primary-hover-color: #faf6f0;    --btn-primary-hover-bg-color: #2e221b;    --btn-secondary-color: #2e221b;    --btn-secondary-bg-color: #faf6f0;    --btn-secondary-border-color: #2e221b;    --btn-secondary-hover-color: #faf6f0;    --btn-secondary-hover-bg-color: #2e221b;    --btn-outline-color: #2e221b;    --btn-outline-border-color: #2e221b;    background-color: #faf6f0 !important;    color: #6b5b4e !important;">
+id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #4b5160;    --color-heading: #0f1115;    --color-primary: #2b44ff;    --color-border: #e4e6ea;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #2b44ff;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #0f1115;    --btn-secondary-color: #0f1115;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #c9cdd5;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #0f1115;    --btn-outline-color: #0f1115;    --btn-outline-border-color: #c9cdd5;    background-color: #ffffff !important;    color: #4b5160 !important;">
+<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #4b5160;    --color-heading: #0f1115;    --color-primary: #2b44ff;    --color-border: #e4e6ea;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #2b44ff;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #0f1115;    --btn-secondary-color: #0f1115;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #c9cdd5;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #0f1115;    --btn-outline-color: #0f1115;    --btn-outline-border-color: #c9cdd5;    background-color: #ffffff !important;    color: #4b5160 !important;">
 <button type="button" class="cart-drawer-sheet-scrim" aria-label="Cancel"></button>
 <div class="minicart__header flex gap-10 align-center justify-between px-30 py-18 color-default">
 <div class="h5 minicart-heading my-0">

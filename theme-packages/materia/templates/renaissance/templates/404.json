@@ -1,0 +1,154 @@
+{
+  "sections": {
+    "main": {
+      "type": "page-404",
+      "settings": {
+        "padding_top": 58,
+        "reset_spacing": false,
+        "section_width": "fluid_container",
+        "padding_bottom": 56
+      },
+      "blocks": {
+        "image_VQTRFT": {
+          "type": "image",
+          "settings": {}
+        },
+        "heading_6nj4md": {
+          "type": "heading",
+          "settings": {
+            "heading": "This page does not add up",
+            "font_size": 36,
+            "uppercase": false,
+            "font_weight": "heading_weight",
+            "spacing_bottom": 20
+          }
+        },
+        "subheading_yFdKEQ": {
+          "type": "subheading",
+          "settings": {
+            "font_size": 15,
+            "uppercase": false,
+            "subheading": "The link may be old. The course is still here.",
+            "font_weight": "body_weight",
+            "spacing_bottom": 40
+          }
+        },
+        "button_4yrfiE": {
+          "type": "button",
+          "settings": {
+            "open_link": false,
+            "spacing_bottom": 0,
+            "first_button_link": "/",
+            "first_button_type": "primary",
+            "first_button_label": "Back to the course"
+          }
+        }
+      },
+      "block_order": [
+        "image_VQTRFT",
+        "heading_6nj4md",
+        "subheading_yFdKEQ",
+        "button_4yrfiE"
+      ]
+    },
+    "cta": {
+      "type": "renaissance-cta",
+      "settings": {
+        "background": "#07080d",
+        "accent": "#3d5afe",
+        "gold": "#f2bd4f",
+        "text_color": "#a7adbf",
+        "anchor": "join",
+        "show_mark": true,
+        "heading": "Make this the year AI <em>works for you</em>",
+        "text": "<p>Join today and start module one tonight. Six weeks from now the busywork runs itself and you know exactly what to hand over next.</p>",
+        "button_label": "Join Digital Renaissance",
+        "button_link": "/#pricing",
+        "link_label": "Watch module one free",
+        "link_url": "#open-form-access",
+        "note": "30 day refund. Lifetime access and updates.",
+        "padding_top": 96
+      }
+    },
+    "access": {
+      "type": "form-modal",
+      "settings": {
+        "form_key": "access",
+        "sends_to": "subscribe",
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "accent_color": "#f2bd4f",
+        "text_align": "left",
+        "width": 480,
+        "corners": "round",
+        "field_style": "outline",
+        "show_icons": true,
+        "overlay_opacity": 70,
+        "success_heading": "Check your inbox",
+        "success_text": "<p>Module one is on its way. If nothing arrives in a few minutes, look in spam.</p>",
+        "error_text": "That did not send. Check your email address and try again.",
+        "editor_view": "form",
+        "close_label": "Close"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "eyebrow": "Free preview",
+            "heading": "Watch module one *free*",
+            "size": 30
+          }
+        },
+        "text_1": {
+          "type": "text",
+          "settings": {
+            "text": "<p>Six short lessons on choosing your tools and writing prompts that work. We email you the link.</p>"
+          }
+        },
+        "field_1": {
+          "type": "field",
+          "settings": {
+            "kind": "name",
+            "label": "First name",
+            "required": false
+          }
+        },
+        "field_2": {
+          "type": "field",
+          "settings": {
+            "kind": "email",
+            "label": "Email address",
+            "required": true
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "label": "Send me module one",
+            "arrow": true
+          }
+        },
+        "note_1": {
+          "type": "note",
+          "settings": {
+            "icon": "lock",
+            "text": "Your email stays private.",
+            "small": "<p>One email with the link, then the occasional useful one. Unsubscribe any time.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "text_1",
+        "field_1",
+        "field_2",
+        "button_1",
+        "note_1"
+      ]
+    }
+  },
+  "order": [
+    "main",
+    "cta",
+    "access"
+  ]
+}

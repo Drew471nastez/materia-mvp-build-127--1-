@@ -107,7 +107,7 @@
             "item1_icon_library": "check",
             "item1_use_image": false,
             "item1_image_size": 50,
-            "item2_title": "Lifetime access on any device",
+            "item2_title": "Lifetime access on phone and laptop",
             "item2_icon_library": "check",
             "item2_use_image": false,
             "item2_image_size": 50,
@@ -129,8 +129,8 @@
         "collapsible_row_2": {
           "type": "collapsible_row",
           "settings": {
-            "heading": "Editions and seats",
-            "content": "<p>Self paced is the whole course. With feedback adds two video calls where Mara watches you pull a shot and steam milk. Team of three gives three logins on one bill.</p>",
+            "heading": "Editions",
+            "content": "<p>Self paced is the whole course. With feedback adds six video replies where Jonas watches you play and says what to change. Two seats gives two logins on one bill, for partners or a parent and child.</p>",
             "use_product_description": false,
             "open": false
           }
@@ -193,22 +193,55 @@
           "type": "collapsible_row",
           "settings": {
             "heading": "Questions",
-            "content": "<p>You need a home espresso machine with a steam wand, a grinder and a kitchen scale. Filter only? The last module covers pour over and cafetiere.</p>",
+            "content": "<p>You need a guitar, acoustic or electric, and a phone or laptop. No music reading. Left handed chord sheets are included.</p>",
             "use_product_description": false,
             "open": false
+          }
+        },
+        "short_description_1": {
+          "type": "short_description",
+          "settings": {
+            "excerpt_length": 220
+          }
+        },
+        "whats_included_1": {
+          "type": "whats_included",
+          "settings": {
+            "heading": "In the course",
+            "items": "64 video lessons in 8 modules\n20 play along songs at three speeds\nPrintable chord sheets, left handed too\nA daily practice plan",
+            "two_columns": false,
+            "boxed": true,
+            "spacing_top": 8,
+            "spacing_bottom": 8
+          }
+        },
+        "quote_card_1": {
+          "type": "quote_card",
+          "settings": {
+            "quote": "<p>Sample quote. The play along tracks are the trick. Slow, medium, real speed. I never felt stuck.</p>",
+            "author": "Sample name",
+            "detail": "Electric, beginner",
+            "avatar": "shopify://shop_images/course2-student-2.webp",
+            "stars": 5,
+            "star_color": "#e5372a",
+            "spacing_top": 12,
+            "spacing_bottom": 12
           }
         }
       },
       "block_order": [
         "title_1",
         "price_1",
+        "short_description_1",
         "variant_picker_1",
         "buy_buttons_1",
+        "whats_included_1",
         "vertical_benefits_1",
         "collapsible_row_1",
         "collapsible_row_2",
         "collapsible_row_3",
         "collapsible_row_4",
+        "quote_card_1",
         "payment_badges_1"
       ]
     },
@@ -216,70 +249,82 @@
       "type": "course2-curriculum",
       "settings": {
         "tag": "Curriculum",
-        "heading": "Seven modules,",
-        "heading_accent": "in the order you need them",
-        "text": "<p>Each module is a handful of short lessons. Watch one, go to the machine, come back for the next.</p>",
-        "totals": "7 modules, 46 lessons, 6 hours",
+        "heading": "Eight modules,",
+        "heading_accent": "from first chord to whole songs",
+        "text": "<p>Each module is a handful of short lessons and ends with a practice week. Do them in order; every lesson uses what the last one taught.</p>",
+        "totals": "8 modules, 64 lessons, about 8 hours",
         "first_open": true,
-        "anchor": "",
-        "accent": "#12704f",
-        "padding_top": 64
+        "anchor": "lessons",
+        "accent": "#e5372a",
+        "heading_color": "#0d0d0f",
+        "text_color": "#4a4d55",
+        "line_color": "#e3e4e8",
+        "background": "#ffffff",
+        "heading_size": 46
       },
       "blocks": {
         "module_1": {
           "type": "module",
           "settings": {
-            "title": "Beans and freshness",
-            "meta": "5 lessons, 32 min",
-            "lessons": "Reading a coffee bag\nRoast dates and resting\nStoring beans at home\nOne bag, three brews\nWhat to buy next"
+            "title": "Your guitar and your hands",
+            "meta": "6 lessons, 38 min",
+            "lessons": "Holding the guitar\nTuning by ear and with an app\nYour picking hand\nYour fretting hand\nReading a chord box\nA practice routine that sticks"
           }
         },
         "module_2": {
           "type": "module",
           "settings": {
-            "title": "Grinding and dose",
-            "meta": "6 lessons, 48 min",
-            "lessons": "Why the grinder matters most\nSetting a starting point\nWeighing the dose\nDistribution without tools\nTamping, briefly\nCleaning the burrs"
+            "title": "First chords",
+            "meta": "9 lessons, 62 min",
+            "lessons": "E minor and A minor\nC, G and D\nChanging chords in time\nThe one minute change\nYour first two chord song\nCommon buzzing fixes\nA four chord loop\nPlaying with a metronome\nPractice week"
           }
         },
         "module_3": {
           "type": "module",
           "settings": {
-            "title": "Espresso: the first shot",
-            "meta": "8 lessons, 64 min",
-            "lessons": "What a shot should taste like\nDose, yield and time\nPull your first shot\nRead the colour\nWhen it runs too fast\nWhen it chokes\nTemperature and your machine\nA shot log that helps"
+            "title": "Strumming and rhythm",
+            "meta": "8 lessons, 54 min",
+            "lessons": "Down strums in time\nAdding ups\nThe pattern in most pop songs\nMuting and accents\nStrumming in 3/4\nPlaying with a drum track\nKeeping going through mistakes\nPractice week"
           }
         },
         "module_4": {
           "type": "module",
           "settings": {
-            "title": "Dialling in",
-            "meta": "7 lessons, 55 min",
-            "lessons": "Sour or bitter?\nOne change at a time\nThree shots to a new bag\nRatios for milk drinks\nRatios for black coffee\nWhen to give up on a bag\nPractice: dial in live"
+            "title": "Your first five songs",
+            "meta": "10 lessons, 76 min",
+            "lessons": "Song one, slow then full speed\nSong two: a new chord shape\nSong three: a new strum\nSong four: a capo\nSong five: putting it together\nIntros and endings\nPlaying from a chord sheet\nSinging and playing\nRecording yourself\nPractice week"
           }
         },
         "module_5": {
           "type": "module",
           "settings": {
-            "title": "Milk and steaming",
-            "meta": "8 lessons, 60 min",
-            "lessons": "Cold milk, clean jug\nWhere the wand goes\nStretch, then spin\nMilk for a flat white\nMilk for a cappuccino\nOat and other milks\nCleaning the wand\nCommon mistakes"
+            "title": "Riffs and power chords",
+            "meta": "8 lessons, 58 min",
+            "lessons": "Single note riffs\nPalm muting\nPower chords on two strings\nMoving shapes up the neck\nThree famous style riffs\nA little distortion, electric only\nPlaying tight with a track\nPractice week"
           }
         },
         "module_6": {
           "type": "module",
           "settings": {
-            "title": "Latte art",
-            "meta": "7 lessons, 58 min",
-            "lessons": "Holding the cup\nThe pour height\nPour a heart\nPour a tulip\nPour a rosetta\nPractising with water and soap\nWhen the milk is wrong"
+            "title": "Barre chords without tears",
+            "meta": "8 lessons, 60 min",
+            "lessons": "Why barre chords are hard\nThe F that finally rings\nE shape barre chords\nA shape barre chords\nSwitching to and from barres\nStrength without strain\nSongs with barre chords\nPractice week"
           }
         },
         "module_7": {
           "type": "module",
           "settings": {
-            "title": "Filter and pour over",
-            "meta": "5 lessons, 44 min",
-            "lessons": "Grind for filter\nBloom and wait\nThe four pour recipe\nCafetiere, properly\nTaste and adjust"
+            "title": "Fingerpicking",
+            "meta": "7 lessons, 50 min",
+            "lessons": "Thumb and fingers\nA first pattern\nTravis picking, slowly\nPicking through a chord change\nA fingerpicked song\nMixing picking and strumming\nPractice week"
+          }
+        },
+        "module_8": {
+          "type": "module",
+          "settings": {
+            "title": "Playing songs by yourself",
+            "meta": "8 lessons, 66 min",
+            "lessons": "Finding chords for a song\nChoosing a key that suits you\nSimplifying hard chords\nBuilding a set of ten songs\nPlaying for friends\nWhere to go next\nYour own practice plan\nGraduation song"
           }
         }
       },
@@ -290,110 +335,242 @@
         "module_4",
         "module_5",
         "module_6",
-        "module_7"
+        "module_7",
+        "module_8"
       ]
     },
     "reviews": {
-      "type": "course2-reviews",
+      "type": "testimonials",
       "settings": {
-        "tag": "Students",
-        "heading": "What students",
-        "heading_accent": "tell us",
-        "text": "<p>These quotes are samples to show the layout. Replace them with words from your own students.</p>",
-        "sample_label": "Sample",
-        "anchor": "",
-        "image": "shopify://shop_images/course2-cup-window.webp",
-        "image_alt": "A cup of coffee steaming on a wooden sill by a window",
-        "quote": "I had the machine for a year and never liked a shot. By the fourth module I was pulling ones I would order in a café.",
-        "name": "Sample student",
-        "role": "Home espresso, single boiler machine",
-        "accent": "#12704f",
-        "padding_top": 64
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "display_mode": "carousel",
+        "show_quote_mark": false,
+        "show_rating": true,
+        "columns": 3,
+        "column_gap": 20,
+        "header_alignment": "left",
+        "card_style": "boxed",
+        "card_align": "left",
+        "card_padding": 28,
+        "card_content_gap": 16,
+        "card_radius": 14,
+        "avatar_shape": "circle",
+        "avatar_size": 48,
+        "show_arrow": false,
+        "carousel_pagination": "show",
+        "pagination_style": "progress",
+        "pagination_position": "left",
+        "pagination_spacing": 28,
+        "enable_custom_colors": true,
+        "card_bg": "#ffffff",
+        "card_border_color": "rgba(0,0,0,0)",
+        "quote_color": "#0d0d0f",
+        "enable_custom_typography": true,
+        "quote_size": 17,
+        "infinite": false,
+        "reveal": false,
+        "padding_top": 96,
+        "padding_bottom": 96,
+        "header_spacing_desktop": 36,
+        "columns_mobile": 1.15,
+        "header_spacing_mobile": 24
       },
       "blocks": {
-        "quote_1": {
-          "type": "quote",
+        "eyebrow_1": {
+          "type": "eyebrow",
           "settings": {
-            "quote": "The milk lessons alone were worth it. I finally get a flat white that looks like one.",
-            "name": "Jonas",
-            "role": "Home espresso"
+            "enabled": true,
+            "text": "Students"
           }
         },
-        "quote_2": {
-          "type": "quote",
+        "heading_1": {
+          "type": "heading",
           "settings": {
-            "quote": "Short lessons I could watch before work, then try the same morning. That is why I finished it.",
-            "name": "Priya",
-            "role": "Pour over at home"
+            "enabled": true,
+            "text": "What students play after a month"
           }
         },
-        "quote_3": {
-          "type": "quote",
+        "subheading_1": {
+          "type": "subheading",
           "settings": {
-            "quote": "We use the recipe cards for every new starter at our café. Everyone pours the same shot now.",
-            "name": "Tom",
-            "role": "Café owner"
+            "enabled": true,
+            "text": "<p>Sample quotes and photos, to show the layout. Replace them with your students' words.</p>"
+          }
+        },
+        "testimonial_1": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>I bought a guitar at forty and it sat in the corner for a year. Two months in, I played a whole song for my kids.</p>",
+            "rating": 5,
+            "name": "Sample name",
+            "role": "Started at 40",
+            "avatar": "shopify://shop_images/course2-student-1.webp"
+          }
+        },
+        "testimonial_2": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>The play along tracks are the trick. Slow, medium, real speed. I never felt stuck.</p>",
+            "rating": 5,
+            "name": "Sample name",
+            "role": "Electric, beginner",
+            "avatar": "shopify://shop_images/course2-student-2.webp"
+          }
+        },
+        "testimonial_3": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>I finally got the F chord to ring. The barre module explains it like nobody else did.</p>",
+            "rating": 5,
+            "name": "Sample name",
+            "role": "Self taught, came back",
+            "avatar": "shopify://shop_images/course2-student-3.webp"
+          }
+        },
+        "testimonial_4": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Twenty minutes before work. The plan tells me what to do, so I just do it.</p>",
+            "rating": 5,
+            "name": "Sample name",
+            "role": "Acoustic, 3 months in",
+            "avatar": "shopify://shop_images/course2-student-4.webp"
+          }
+        },
+        "testimonial_5": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>The video feedback was worth it. Jonas spotted my thumb in the first reply.</p>",
+            "rating": 5,
+            "name": "Sample name",
+            "role": "With feedback",
+            "avatar": "shopify://shop_images/course2-student-5.webp"
+          }
+        },
+        "testimonial_6": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>I play at our Sunday barbecues now. Badly, but happily.</p>",
+            "rating": 5,
+            "name": "Sample name",
+            "role": "Finished the course",
+            "avatar": "shopify://shop_images/course2-student-6.webp"
           }
         }
       },
       "block_order": [
-        "quote_1",
-        "quote_2",
-        "quote_3"
+        "eyebrow_1",
+        "heading_1",
+        "subheading_1",
+        "testimonial_1",
+        "testimonial_2",
+        "testimonial_3",
+        "testimonial_4",
+        "testimonial_5",
+        "testimonial_6"
       ]
     },
     "faq": {
-      "type": "course2-faq",
+      "type": "faq-pro",
       "settings": {
-        "tag": "Questions",
-        "heading": "Straight answers",
-        "heading_accent": "before you buy",
-        "text": "<p>The questions people ask most. Anything else, <a href=\"/pages/contact\">write to us</a>.</p>",
-        "accent": "#12704f"
+        "color_scheme": "default",
+        "section_width": "container",
+        "first_item_open": true,
+        "open_icon": "plus",
+        "content_alignment": "left",
+        "max_content_width": 1180,
+        "col_gap": 72,
+        "gap_header_to_items": 32,
+        "gap_between_items": 10,
+        "item_padding_y": 20,
+        "item_padding_x": 22,
+        "item_radius": 12,
+        "show_dividers": false,
+        "enable_custom_style": true,
+        "card_bg": "#f2f3f5",
+        "card_border_color": "rgba(0,0,0,0)",
+        "question_color": "#0d0d0f",
+        "icon_color": "#e5372a",
+        "answer_color": "#4a4d55",
+        "heading_color": "#0d0d0f",
+        "question_size_desktop": 17,
+        "answer_size_desktop": 16,
+        "reveal": false,
+        "padding_top": 96,
+        "padding_bottom": 96
       },
       "blocks": {
-        "question_1": {
-          "type": "question",
+        "heading_1": {
+          "type": "heading",
           "settings": {
-            "question": "What machine do I need?",
-            "answer": "<p>Any home espresso machine with a steam wand, and a grinder. The lessons use a single boiler machine and a hand grinder, and every step works the same on bigger ones.</p>"
+            "text": "Questions before you start",
+            "tag": "h2",
+            "size_enable": true,
+            "size_desktop": 44,
+            "size_mobile": 30,
+            "weight_enable": true,
+            "weight": "700"
           }
         },
-        "question_2": {
-          "type": "question",
+        "subheading_1": {
+          "type": "subheading",
           "settings": {
-            "question": "Do I need a scale?",
-            "answer": "<p>Yes, any kitchen scale that reads to a tenth of a gram. It is the cheapest thing that makes the biggest difference.</p>"
+            "text": "<p>Anything else? <a href=\"/pages/contact\">Write to us</a> and we answer within a day.</p>"
           }
         },
-        "question_3": {
-          "type": "question",
+        "faq_item_1": {
+          "type": "faq_item",
           "settings": {
-            "question": "I only drink filter coffee. Is it for me?",
-            "answer": "<p>The last module and the recipe cards cover pour over and cafetiere. The grinding lessons apply to both.</p>"
+            "question": "Do I need to read music?",
+            "answer": "<p>No. Everything is shown on video and in chord boxes and simple tab. You will pick up what you need as you go.</p>"
           }
         },
-        "question_4": {
-          "type": "question",
+        "faq_item_2": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Acoustic or electric?",
+            "answer": "<p>Either. Every lesson works on both. The riffs module has a short part on electric sounds you can skip on acoustic.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How long until I can play a song?",
+            "answer": "<p>Most students play their first two chord song in the second week, and a full song by the end of the first month with twenty minutes a day.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "I am left handed. Will it work?",
+            "answer": "<p>Yes. Every chord sheet comes in a left handed version, and the videos show which hand does what.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What do I need?",
+            "answer": "<p>A guitar, a phone or laptop, and a tuner app, which is free. A capo helps from module four.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
           "settings": {
             "question": "How long do I have access?",
-            "answer": "<p>For good. Watch on a phone, a tablet or a computer, and come back to any lesson whenever you like.</p>"
-          }
-        },
-        "question_5": {
-          "type": "question",
-          "settings": {
-            "question": "What if it is not for me?",
-            "answer": "<p>Write within 30 days and we refund you in full. Replace this with your own terms.</p>"
+            "answer": "<p>For good. You also get the new songs added each month.</p>"
           }
         }
       },
       "block_order": [
-        "question_1",
-        "question_2",
-        "question_3",
-        "question_4",
-        "question_5"
+        "heading_1",
+        "subheading_1",
+        "faq_item_1",
+        "faq_item_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6"
       ]
     },
     "related": {
@@ -402,7 +579,7 @@
         "color_scheme": "default",
         "section_width": "container",
         "reset_spacing": true,
-        "heading": "Add to your setup",
+        "heading": "Keep going",
         "description": "",
         "header_size": "small",
         "header_alignment": "left",
@@ -422,6 +599,72 @@
         "padding_top": 72,
         "padding_bottom": 72
       }
+    },
+    "guarantee": {
+      "type": "guarantee-banner",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "layout": "split",
+        "frame": "box",
+        "content_max_width": 1180,
+        "icon": "shield_check",
+        "icon_size": 56,
+        "point_style": "check",
+        "enable_custom_style": true,
+        "icon_color": "#e5372a",
+        "border_color": "#e3e4e8",
+        "point_color": "#0d0d0f",
+        "marker_color": "#e5372a",
+        "padding_top_desktop": 24,
+        "padding_bottom_desktop": 96,
+        "padding_top_mobile": 16,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Try it for 30 days",
+            "weight_enable": true,
+            "weight": "700",
+            "size_enable": true,
+            "size_desktop": 34,
+            "size_mobile": 26
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Work through the first two modules. If guitar is not for you, write one line and get every cent back.</p>"
+          }
+        },
+        "point_1": {
+          "type": "point",
+          "settings": {
+            "text": "No forms, just an email"
+          }
+        },
+        "point_2": {
+          "type": "point",
+          "settings": {
+            "text": "Refund within two working days"
+          }
+        },
+        "point_3": {
+          "type": "point",
+          "settings": {
+            "text": "Keep the chord sheets"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1",
+        "point_1",
+        "point_2",
+        "point_3"
+      ]
     }
   },
   "order": [
@@ -429,6 +672,7 @@
     "curriculum",
     "reviews",
     "faq",
+    "guarantee",
     "related"
   ]
 }

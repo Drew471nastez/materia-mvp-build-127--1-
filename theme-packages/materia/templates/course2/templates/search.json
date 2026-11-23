@@ -8,7 +8,7 @@
         "reset_spacing": true,
         "heading": "Search",
         "sorting": true,
-        "empty_text": "Nothing matched. Try espresso, milk, grinder or pour over.",
+        "empty_text": "Nothing matched. Try chords, strumming, barre or songs.",
         "empty_link_label": "See everything",
         "empty_link_url": "/collections/all",
         "enable_filtering": false,

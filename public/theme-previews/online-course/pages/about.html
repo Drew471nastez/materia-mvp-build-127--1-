@@ -15,7 +15,7 @@ function path(u){try{return new URL(u,location.href).pathname}catch(e){return""}
 var CART={token:"preview",note:"",attributes:{},original_total_price:0,total_price:0,total_discount:0,total_weight:0,item_count:0,items:[],requires_shipping:false,currency:"USD",items_subtotal_price:0,cart_level_discount_applications:[]};
 var NO={status:422,message:"Preview",description:"This is a preview of the template. Add it to your library to sell from it."};
 function reply(u){var p=path(u);
-if(/\/cart\/add(\.js)?$/.test(p))return[422,"application/json",JSON.stringify(NO)];
+if(/\/cart\/add(\.js)?$/.test(p)){showNote(pressed);return[422,"application/json",JSON.stringify(NO)]}
 if(/\/cart(\.js|\.json|\/(change|update|clear)(\.js)?)$/.test(p))return[200,"application/json",JSON.stringify(CART)];
 if(/\.(js|json)$/.test(p)||/\/search\/suggest/.test(p))return[200,"application/json","{}"];
 return[200,"text/html","<!doctype html><html><body></body></html>"]}
@@ -25,15 +25,48 @@ if(navigator.sendBeacon)navigator.sendBeacon=function(){return true};
 W.open=function(){return null};
 var FP=W.HTMLFormElement&&HTMLFormElement.prototype;if(FP){FP.submit=function(){};FP.requestSubmit=function(){this.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true}))}}
 W.addEventListener("submit",function(e){e.preventDefault()},true);
+/* Add to cart, Buy now and Check out: nothing is sent; a small note by the button says why, then goes. Fixed, so nothing on the page moves. */
+var NOTE="Preview only: add this template to your library to sell from it.",note=null,noteT=0;
+function hideNote(){if(!note)return;var n=note;note=null;clearTimeout(noteT);n.style.opacity="0";n.style.transform="translate3d(0,4px,0)";setTimeout(function(){if(n.parentNode)n.parentNode.removeChild(n)},200)}
+function showNote(b){hideNote();var r=b&&b.getBoundingClientRect?b.getBoundingClientRect():null;if(r&&!r.width)r=null;var n=D.createElement("div");n.setAttribute("role","status");n.setAttribute("data-preview-note","");n.textContent=NOTE;
+n.style.cssText="position:fixed;z-index:2147483647;left:0;top:0;width:max-content;max-width:min(300px,calc(100vw - 24px));box-sizing:border-box;margin:0;padding:9px 12px;border-radius:10px;background:#1f2328;color:#fff;font:500 13px/1.4 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;letter-spacing:0;text-transform:none;text-align:left;box-shadow:0 0 0 1px rgba(255,255,255,.1),0 8px 24px -6px rgba(0,0,0,.28);pointer-events:none;opacity:0;transform:translate3d(0,4px,0);transition:opacity .16s ease,transform .16s ease";
+D.documentElement.appendChild(n);var w=n.offsetWidth,h=n.offsetHeight,vw=D.documentElement.clientWidth||innerWidth,vh=innerHeight;
+var x=r?r.left+r.width/2-w/2:(vw-w)/2;x=Math.max(12,Math.min(vw-w-12,x));var y=r?r.top-h-8:vh-h-24;if(r&&y<12)y=r.bottom+8;y=Math.max(12,Math.min(vh-h-12,y));
+n.style.left=Math.round(x)+"px";n.style.top=Math.round(y)+"px";note=n;
+requestAnimationFrame(function(){requestAnimationFrame(function(){n.style.opacity="1";n.style.transform="none"})});noteT=setTimeout(hideNote,3200)}
+W.addEventListener("scroll",hideNote,{passive:true});
+function productForm(f){return !!(f&&f.querySelector&&f.querySelector("input[name=id],select[name=id]"))}
+var BUY=".product-form__submit,.shopify-payment-button__button,.product_buy_now_button,.button_buy-now,.product-group-buy-now,[data-add-to-cart],[data-buy-now]";
+function buying(b){if(!b||!b.getAttribute)return false;var n=(b.getAttribute("name")||"").toLowerCase();if(n==="add"||n==="checkout")return true;if(b.matches&&b.matches(BUY))return true;var t=(b.getAttribute("type")||(b.tagName==="BUTTON"?"submit":"")).toLowerCase();return (t==="submit"||t==="image")&&productForm(b.form||b.closest("form"))}
+var pressed=null;D.addEventListener("pointerdown",function(e){pressed=e.target&&e.target.closest?e.target.closest("button,a,input"):null},true);
+W.addEventListener("click",function(e){var b=e.target&&e.target.closest&&e.target.closest("button,input[type=submit],input[type=image],a");if(!buying(b))return;e.preventDefault();e.stopImmediatePropagation();showNote(b)},true);
 function submit(f,b){setTimeout(function(){var ev;try{ev=new SubmitEvent("submit",{bubbles:true,cancelable:true,submitter:b||null})}catch(_){ev=new Event("submit",{bubbles:true,cancelable:true})}f.dispatchEvent(ev)},0)}
 D.addEventListener("click",function(e){var b=e.target&&e.target.closest&&e.target.closest("button,input[type=submit],input[type=image]");if(!b||!b.form)return;var t=(b.getAttribute("type")||"submit").toLowerCase();if(t!=="submit"&&t!=="image")return;e.preventDefault();submit(b.form,b)},true);
-D.addEventListener("keydown",function(e){var i=e.target;if(e.key!=="Enter"||!i||i.tagName!=="INPUT"||!i.form)return;e.preventDefault();submit(i.form,null)},true);
+D.addEventListener("keydown",function(e){var i=e.target;if(e.key!=="Enter"||!i||i.tagName!=="INPUT"||!i.form)return;e.preventDefault();if(productForm(i.form)){showNote(i.form.querySelector("[name=add],button[type=submit],button:not([type])")||i);return}submit(i.form,null)},true);
 D.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[data-preview-inert]");if(a)e.preventDefault()},true);
 var told=false;function tell(){if(told)return;told=true;try{parent.postMessage({type:"storelib:template-preview",ready:true,path:location.pathname},"*")}catch(e){}}
 W.addEventListener("load",tell);D.addEventListener("DOMContentLoaded",function(){setTimeout(tell,1200)});
 /* The page's own background, as soon as it is known: the frame shows it between two pages instead of its own white (a white flash on a dark shop). */
 function paint(){try{var c=getComputedStyle(D.documentElement).backgroundColor;if(!c||/rgba(0, 0, 0, 0)|transparent/.test(c))c=getComputedStyle(D.body).backgroundColor;if(c&&!/rgba(0, 0, 0, 0)|transparent/.test(c))parent.postMessage({type:"storelib:template-preview-background",background:c},"*")}catch(e){}}
 D.addEventListener("DOMContentLoaded",paint);
+/*
+  THE NEXT PAGE, WITH NO BLANK BETWEEN. A frame that goes to another page
+  shows nothing of either for a moment (Night shop: its starry ground, then
+  its header alone). Once the marketplace says it takes pages over, a link
+  to another of this website's pages is handed to it instead: it draws that
+  page in a second frame behind this one and shows it once it has drawn.
+*/
+var HAND=false;W.addEventListener("message",function(e){if(e.source===parent&&e.data&&e.data.type==="storelib:template-preview-handoff")HAND=true});
+function nextPage(u){try{var x=new URL(u,location.href);if(x.host!==location.host||x.pathname.indexOf(ROOT)!==0||x.pathname.split("/")[2]!==location.pathname.split("/")[2]||!/[.]html$/.test(x.pathname)||x.pathname===location.pathname)return null;return x.pathname+x.search+x.hash}catch(e){return null}}
+function handoff(to){try{parent.postMessage({type:"storelib:template-preview-go",href:to},"*");return true}catch(e){return false}}
+W.addEventListener("click",function(e){if(!HAND||e.defaultPrevented||e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;var a=e.target&&e.target.closest&&e.target.closest("a[href]");if(!a||a.hasAttribute("download"))return;var to=nextPage(a.href);if(to&&handoff(to))e.preventDefault()});
+if(W.navigation&&navigation.addEventListener)navigation.addEventListener("navigate",function(e){if(!HAND||!e.cancelable||e.hashChange||e.downloadRequest||e.formData||e.navigationType==="traverse"||e.navigationType==="reload")return;var to=nextPage(e.destination.url);if(to&&handoff(to))e.preventDefault()});
+/* Drawn: styles applied, the first screen's pictures in (700ms at most), two frames painted. */
+var shown=false;function drawn(){if(shown)return;shown=true;try{parent.postMessage({type:"storelib:template-preview-drawn",path:location.pathname},"*")}catch(e){}}
+function whenDrawn(){var done=false,fin=function(){if(done)return;done=true;requestAnimationFrame(function(){requestAnimationFrame(drawn)})};var wait=[],im=D.images,vh=innerHeight;
+for(var i=0;i<im.length&&wait.length<12;i++){var g=im[i];if(g.complete)continue;var r=g.getBoundingClientRect();if(r.width>0&&r.top<vh&&r.bottom>0)wait.push(g)}
+var left=wait.length;if(!left)return fin();wait.forEach(function(g){var one=function(){if(--left<=0)fin()};g.addEventListener("load",one,{once:true});g.addEventListener("error",one,{once:true})});setTimeout(fin,700)}
+D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn)});W.addEventListener("load",drawn);
 })();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><style data-page-background>html{background-color:#ffffff}</style><script src="/theme-previews/online-course/a/i.63b4697a1622.js"></script>
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -79,7 +112,7 @@ D.addEventListener("DOMContentLoaded",paint);
   .shopify-section[data-perf-offscreen] *,
   .shopify-section[data-perf-offscreen] *::before,
   .shopify-section[data-perf-offscreen] *::after { animation-play-state: paused !important; }
-</style><link rel="stylesheet" href="/theme-previews/online-course/a/i.262074ef9310.css" id="speed-page-landing"><script src="/theme-previews/online-course/a/i.0bd6d5139503.js"></script><script id="speed-optimization-js" src="/theme-previews/online-course/a/i.679dcd5ab7c8.js"></script>
+</style><link rel="stylesheet" href="/theme-previews/online-course/a/i.012d2c72efea.css" id="speed-page-landing"><script src="/theme-previews/online-course/a/i.0bd6d5139503.js"></script><script id="speed-optimization-js" src="/theme-previews/online-course/a/i.679dcd5ab7c8.js"></script>
 <script>
       (function () {
         try {
@@ -91,8 +124,7 @@ D.addEventListener("DOMContentLoaded",paint);
         } catch (e) {}
       })();
     </script>
-<link href="/theme-previews/_base/a/critical.b21499996008.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/animation.d0494c87fafa.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/critical.7f3f35898a25.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
 <link href="/theme-previews/_base/a/product-card.9a3739dc0c4c.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"primary","product_size":17,"price_size":16,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
 <style>html:not([data-card-custom='true']) .product-item .product-item__name { font-size:var(--body-font-size, 16px); text-transform:var(--heading-text-transform, none) !important; } html:not([data-card-custom='true']) .product-item .product-item__price { font-size:var(--body-font-size, 16px); }</style>
 <script>document.documentElement.dataset.cardCustom = false === true ? 'true' : 'false';</script>
@@ -102,20 +134,20 @@ D.addEventListener("DOMContentLoaded",paint);
     document.addEventListener('DOMContentLoaded',function(){setTimeout(go,4000)},{once:true})}
     ['pointerdown','click','keydown','scroll','touchstart'].forEach(function(n){addEventListener(n,go,{once:true,passive:true,capture:true})})})(["/theme-previews/_base/a/popup.18cdf2513c31.css","/theme-previews/_base/a/tingle-min.ed947d9dd1c7.css"]);</script><link rel="stylesheet" href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" media="print" onload="this.media='all'">
 <noscript><link href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" rel="stylesheet" type="text/css" media="all"></noscript>
-<link rel="stylesheet" href="/theme-previews/_base/a/fonts.9b7c5b997eff.css" data-materia-fonts>
-<style data-materia-font-fallbacks>@font-face{font-family:"Inter Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:107.9%;ascent-override:89.8%;descent-override:22.3%;line-gap-override:0%}@font-face{font-family:"Inter Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:107.9%;ascent-override:89.8%;descent-override:22.3%;line-gap-override:0%}@font-face{font-family:"Geist Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:105.3%;ascent-override:95.5%;descent-override:28%;line-gap-override:0%}@font-face{font-family:"Geist Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:105.3%;ascent-override:95.5%;descent-override:28%;line-gap-override:0%}</style><style data-shopify>
+<link rel="stylesheet" href="/theme-previews/_base/a/fonts.c17790d59140.css" data-materia-fonts>
+<style data-materia-font-fallbacks>@font-face{font-family:"Inter Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:107.9%;ascent-override:89.8%;descent-override:22.3%;line-gap-override:0%}@font-face{font-family:"Inter Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:107.9%;ascent-override:89.8%;descent-override:22.3%;line-gap-override:0%}@font-face{font-family:"Sora Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:113%;ascent-override:85.8%;descent-override:25.7%;line-gap-override:0%}@font-face{font-family:"Sora Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:113%;ascent-override:85.8%;descent-override:25.7%;line-gap-override:0%}</style><style data-shopify>
   :root {
     --body-font: "Inter", "Inter Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    --heading-font: "Geist", "Geist Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --heading-font: "Sora", "Sora Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     --menu-font: var(--body-font);
     --btn-font: var(--body-font);
   }
 </style>
-<link rel="stylesheet" href="/theme-previews/online-course/a/i.f2fe7f7d09a8.css" data-shopify>
+<link rel="stylesheet" href="/theme-previews/online-course/a/i.fe8f34bc1336.css" data-shopify>
 <link href="/theme-previews/_base/a/theme.d71f5b96fec8.css" rel="stylesheet" type="text/css" media="all"><noscript><link href="/theme-previews/_base/a/popup.18cdf2513c31.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.9c20c549e3cf.css">
 <link rel="preload" as="style" href="/theme-previews/_base/a/minicart.ac0014483417.css" fetchpriority="low">
 <link rel="preload" as="style" href="/theme-previews/_base/a/materia-experience.b68d6d8152a8.css" fetchpriority="low">
-<link rel="stylesheet" href="/theme-previews/online-course/a/i.6a28ee692e03.css"><link rel="stylesheet" href="/theme-previews/online-course/a/i.61397a9aa7ad.css"><link href="/theme-previews/_base/a/theme-button-contract.7d286d7eee9b.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/localization-controls.9494a0c83131.css" rel="stylesheet" type="text/css" media="all"><link rel="modulepreload" href="/theme-previews/_base/a/theme.7a7dd8f80f89.js" fetchpriority="low"><script data-storelib-head src="/theme-previews/online-course/a/i.585ec254f5fd.js"></script>
+<link rel="stylesheet" href="/theme-previews/online-course/a/i.28cfcd9bf59c.css"><link rel="stylesheet" href="/theme-previews/online-course/a/i.9bafceb9201f.css"><link href="/theme-previews/_base/a/theme-button-contract.7d286d7eee9b.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/localization-controls.9494a0c83131.css" rel="stylesheet" type="text/css" media="all"><link rel="modulepreload" href="/theme-previews/_base/a/theme.7a7dd8f80f89.js" fetchpriority="low"><script data-storelib-head src="/theme-previews/online-course/a/i.585ec254f5fd.js"></script>
 <script src="/theme-previews/_base/a/swiper-bundle-min.31d164f7367d.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/motion-min.d1f8eb312b47.js" type="module" defer="defer" fetchpriority="low"></script>
 <script src="/theme-previews/_base/a/utils.90eeb774e439.js" defer="defer" data-cart-count="0"></script>
@@ -159,7 +191,7 @@ D.addEventListener("DOMContentLoaded",paint);
 class="gradient rounded-style  page"
 data-btn-style="solid"
 data-btn-secondary-style="solid"
-data-scroll-animation="fade_in"
+data-scroll-animation="none"
 data-btn-shape="rounded"
 data-btn-hover="fade"
 data-sl-btn-hover="none"
@@ -204,8 +236,8 @@ data-menu-hover="none"
   }
 </style><style data-shopify>#shopify-section-header {
     --hs-mnav-bg: #ffffff;
-    --hs-mnav-heading: #15171a;
-    --hs-mnav-text: #3f444c;
+    --hs-mnav-heading: #0d0d0f;
+    --hs-mnav-text: #4a4d55;
     --hs-hover-fill: #ffffff;
     --hs-logo-width: 78px;
     --hs-logo-width-mobile: 78px;
@@ -300,16 +332,16 @@ class="level0 single"
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
 <a
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
-href="/theme-previews/online-course/index.html#who"
-><span>Who it is for</span></a></menu-item></li>
+href="/theme-previews/online-course/pages/about.html"
+><span>Your teacher</span></a></menu-item></li>
 <li
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
 <a
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
-href="/theme-previews/online-course/index.html#reviews"
-><span>Reviews</span></a></menu-item></li>
+href="/theme-previews/online-course/index.html#buy"
+><span>Pricing</span></a></menu-item></li>
 <li
 class="level0 single"
 >
@@ -391,16 +423,16 @@ class="level0 single"
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
 <a
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
-href="/theme-previews/online-course/index.html#who"
-><span>Who it is for</span></a></menu-item></li>
+href="/theme-previews/online-course/pages/about.html"
+><span>Your teacher</span></a></menu-item></li>
 <li
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
 <a
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
-href="/theme-previews/online-course/index.html#reviews"
-><span>Reviews</span></a></menu-item></li>
+href="/theme-previews/online-course/index.html#buy"
+><span>Pricing</span></a></menu-item></li>
 <li
 class="level0 single"
 >
@@ -429,205 +461,330 @@ href="/theme-previews/online-course/pages/faqs.html"
 <symbol id="icon-bag">
 <path d="M12.7518 2.91374L11.6276 1.44835H3.37237L2.24824 2.91374H12.7518ZM14.8419 3.18637V3.20341C14.8419 3.20341 14.8478 3.20341 14.8595 3.20341C14.8946 3.27157 14.9239 3.33972 14.9473 3.40788C14.9824 3.47604 15 3.54988 15 3.62939V13.819C15 14.1143 14.9356 14.3983 14.8068 14.6709C14.6897 14.9322 14.5316 15.1594 14.3326 15.3525C14.1335 15.557 13.8934 15.716 13.6124 15.8296C13.3431 15.9432 13.0562 16 12.7518 16H2.24824C1.94379 16 1.65105 15.9375 1.37002 15.8126C1.1007 15.699 0.866511 15.5456 0.667447 15.3525C0.456674 15.1594 0.29274 14.9322 0.175644 14.6709C0.058548 14.3983 0 14.1143 0 13.819V3.62939C0 3.58395 0.0058548 3.53852 0.0175644 3.49308C0.029274 3.43628 0.0468384 3.37948 0.0702576 3.32268C0.0819672 3.29996 0.0936768 3.27725 0.105386 3.25453C0.128806 3.23181 0.14637 3.20909 0.15808 3.18637L2.40632 0.28967C2.47658 0.198793 2.5644 0.130635 2.66979 0.085197C2.77518 0.028399 2.88642 0 3.00351 0H11.9965C12.1136 0 12.2248 0.028399 12.3302 0.085197C12.4356 0.130635 12.5234 0.198793 12.5937 0.28967L14.8419 3.18637ZM1.51054 4.36209V13.819C1.51054 13.9098 1.5281 14.0007 1.56323 14.0916C1.59836 14.1825 1.65105 14.262 1.72131 14.3301C1.79157 14.3983 1.87354 14.4494 1.96721 14.4835C2.06089 14.5176 2.15457 14.5346 2.24824 14.5346H12.7518C12.8571 14.5346 12.9508 14.5176 13.0328 14.4835C13.1265 14.4494 13.2084 14.3983 13.2787 14.3301C13.3489 14.262 13.4016 14.1825 13.4368 14.0916C13.4719 14.0007 13.4895 13.9098 13.4895 13.819V4.36209H1.51054ZM9.74824 6.54313C9.74824 6.33866 9.8185 6.16826 9.95902 6.03195C10.1112 5.88427 10.2927 5.81044 10.5035 5.81044C10.7026 5.81044 10.8724 5.88427 11.0129 6.03195C11.1651 6.16826 11.2412 6.33866 11.2412 6.54313C11.2412 7.04295 11.1417 7.51438 10.9426 7.9574C10.7553 8.40043 10.4918 8.78665 10.1522 9.11608C9.81265 9.44551 9.41452 9.70678 8.95785 9.89989C8.50117 10.0816 8.01522 10.1725 7.5 10.1725C6.98478 10.1725 6.49883 10.0816 6.04215 9.89989C5.58548 9.70678 5.18735 9.44551 4.84777 9.11608C4.5082 8.78665 4.23888 8.40043 4.03981 7.9574C3.85246 7.51438 3.75878 7.04295 3.75878 6.54313C3.75878 6.33866 3.82904 6.16826 3.96956 6.03195C4.12178 5.88427 4.29742 5.81044 4.49649 5.81044C4.70726 5.81044 4.8829 5.88427 5.02342 6.03195C5.17564 6.16826 5.25176 6.33866 5.25176 6.54313C5.25176 6.84984 5.3103 7.13383 5.4274 7.3951C5.5445 7.65637 5.70843 7.88356 5.9192 8.07668C6.11827 8.28115 6.35246 8.44018 6.62178 8.55378C6.8911 8.66738 7.18384 8.72417 7.5 8.72417C7.81616 8.72417 8.1089 8.66738 8.37822 8.55378C8.64754 8.44018 8.88173 8.28115 9.0808 8.07668C9.29157 7.88356 9.4555 7.65637 9.5726 7.3951C9.6897 7.13383 9.74824 6.84984 9.74824 6.54313Z" fill="currentColor"/>
 </symbol>
-</svg><a class="hs-cta hs-cta--pos-after_icons hs-cta--m-in_row hs-cta--primary hs-cta--theme hs-cta--desktop hs-cta--ms-small hs-cta--font-body" href="/theme-previews/online-course/index.html#buy" data-theme-button="primary" data-sl-button style="--mb-bg: var(--btn-primary-bg-color); --mb-text: var(--btn-primary-color); --mb-hover-bg: var(--btn-primary-hover-bg-color); --mb-hover-text: var(--btn-primary-hover-color); --hs-cta-gap: 20px; --hs-cta-gap-mobile: 10px; --hs-cta-x: 0px; --hs-cta-y: 0px; --hs-cta-bg: #12704f; --hs-cta-fg: #ffffff; --hs-cta-bd: #12704f; --hs-cta-bw: 0px; --hs-cta-radius: 10px; --hs-cta-fs: 16px; --hs-cta-fw: 600; --hs-cta-tt: none; --hs-cta-ls: 0px; --hs-cta-py: 14px; --hs-cta-px: 26px; --hs-cta-deco: none; --hs-cta-shadow: none; --hs-cta-dur: 225ms; --hs-cta-ease: cubic-bezier(0.2, 0.7, 0.2, 1); --hs-cta-hbg: #0d5a3f; --hs-cta-hfg: #ffffff; --hs-cta-hbd: #0d5a3f; --hs-cta-htransform: none; --hs-cta-hshadow: none; --hs-cta-hfilter: none; --hs-cta-hdeco: none;" data-lh-block="header_button_1" data-block-id="header_button_1">Buy the course</a></div>
+</svg><a class="hs-cta hs-cta--pos-after_icons hs-cta--m-in_row hs-cta--primary hs-cta--theme hs-cta--desktop hs-cta--ms-small hs-cta--font-body" href="/theme-previews/online-course/index.html#buy" data-theme-button="primary" data-sl-button style="--mb-bg: var(--btn-primary-bg-color); --mb-text: var(--btn-primary-color); --mb-hover-bg: var(--btn-primary-hover-bg-color); --mb-hover-text: var(--btn-primary-hover-color); --hs-cta-gap: 20px; --hs-cta-gap-mobile: 10px; --hs-cta-x: 0px; --hs-cta-y: 0px; --hs-cta-bg: #e5372a; --hs-cta-fg: #ffffff; --hs-cta-bd: #e5372a; --hs-cta-bw: 0px; --hs-cta-radius: 8px; --hs-cta-fs: 16px; --hs-cta-fw: 600; --hs-cta-tt: none; --hs-cta-ls: 0px; --hs-cta-py: 14px; --hs-cta-px: 26px; --hs-cta-deco: none; --hs-cta-shadow: none; --hs-cta-dur: 225ms; --hs-cta-ease: cubic-bezier(0.2, 0.7, 0.2, 1); --hs-cta-hbg: #0d0d0f; --hs-cta-hfg: #ffffff; --hs-cta-hbd: #0d0d0f; --hs-cta-htransform: none; --hs-cta-hshadow: none; --hs-cta-hfilter: none; --hs-cta-hdeco: none;" data-lh-block="header_button_1" data-block-id="header_button_1">Start learning</a></div>
 </header-inner>
 </div>
 </div></header>
 <link href="/theme-previews/_base/a/header-sticky.b824661f5721.css" rel="stylesheet" type="text/css" media="all">
 <script src="/theme-previews/online-course/a/i.7cb61de4030e.js"></script><script src="/theme-previews/_base/a/header-sticky-extras.78e1fb4f310f.js" defer="defer"></script></div><script src="/theme-previews/online-course/a/i.0d9f91566ff2.js"></script>
-<main id="MainContent" class="content-for-layout focus-none" role="main" tabindex="-1"><section id="shopify-section-teacher" class="shopify-section course2-split-section" data-section-id="teacher" data-section-type="course2-split"><style>
-  #shopify-section-teacher .c2s {
-    --c2-accent: #12704f;
-    --c2-ink: #15171a;
-    --c2-text: #3f444c;
-    --c2-line: #e3e5e8;
-    background: #ffffff;
-    color: var(--c2-text);
-    padding: 48px 0 48px;
-  }
-  @media (min-width: 990px) { #shopify-section-teacher .c2s { padding: 48px 0 96px; } }
-  #shopify-section-teacher .c2s__in { max-width: 1200px; margin: 0 auto; padding: 0 20px; display: grid; gap: 36px; align-items: center; }
-  @media (min-width: 990px) {
-    #shopify-section-teacher .c2s__in { padding: 0 40px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 56px; }
-    #shopify-section-teacher .c2s[data-side='left'] .c2s__media { order: -1; }
-  }
-  #shopify-section-teacher .c2s__media { margin: 0; border-radius: 18px; overflow: hidden; background: #eef0ee; aspect-ratio: 9 / 10; }
-  @media (max-width: 989px) { #shopify-section-teacher .c2s__media { order: -1; aspect-ratio: 4 / 3; } }
-  #shopify-section-teacher .c2s__media img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: right; margin: 0; }
-  #shopify-section-teacher .c2-tag { display: inline-block; margin: 0 0 22px; padding: 8px 12px; border: 1px solid #d9dce1; border-radius: 6px; font-size: 13px; line-height: 1; letter-spacing: .05em; text-transform: uppercase; color: var(--c2-ink); }
-  #shopify-section-teacher .c2s__title { margin: 0 0 20px; color: var(--c2-ink); font-family: var(--heading-font, inherit); font-weight: 700; font-size: 34px; line-height: 1.06; letter-spacing: -.035em; text-wrap: balance; }
-  @media (min-width: 990px) { #shopify-section-teacher .c2s__title { font-size: 48px; } }
-  #shopify-section-teacher .c2s__title em { font-style: normal; color: var(--c2-accent); }
-  #shopify-section-teacher .c2s__text { max-width: 33em; font-size: 17px; line-height: 1.6; }
-  #shopify-section-teacher .c2s__text p { margin: 0 0 12px; }
-  #shopify-section-teacher .c2s__rows { margin-top: 34px; border-top: 1px solid var(--c2-line); }
-  #shopify-section-teacher .c2s__row { border-bottom: 1px solid var(--c2-line); }
-  #shopify-section-teacher .c2s__row summary { list-style: none; display: flex; align-items: center; gap: 16px; padding: 18px 0; cursor: pointer; }
-  #shopify-section-teacher .c2s__row summary::-webkit-details-marker { display: none; }
-  #shopify-section-teacher .c2s__ico { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 10px; background: var(--c2-accent); color: #fff; }
-  @media (min-width: 990px) { #shopify-section-teacher .c2s__ico { width: 56px; height: 56px; } }
-  #shopify-section-teacher .c2s__ico svg { width: 24px; height: 24px; }
-  #shopify-section-teacher .c2s__rt { flex: 1 1 auto; color: var(--c2-ink); font-family: var(--heading-font, inherit); font-weight: 700; font-size: 18px; letter-spacing: -.02em; line-height: 1.25; }
-  @media (min-width: 990px) { #shopify-section-teacher .c2s__rt { font-size: 21px; } }
-  #shopify-section-teacher .c2s__plus { flex: none; position: relative; width: 38px; height: 38px; border-radius: 6px; background: var(--c2-accent); }
-  #shopify-section-teacher .c2s__plus::before, #shopify-section-teacher .c2s__plus::after { content: ""; position: absolute; left: 50%; top: 50%; width: 16px; height: 1.5px; margin: -.75px 0 0 -8px; background: #fff; transition: transform .35s cubic-bezier(.2,.65,.25,1); }
-  #shopify-section-teacher .c2s__plus::after { transform: rotate(90deg); }
-  #shopify-section-teacher details[open] .c2s__plus::before { transform: rotate(45deg); }
-  #shopify-section-teacher details[open] .c2s__plus::after { transform: rotate(135deg); }
-  #shopify-section-teacher .c2s__ra { padding: 0 54px 20px 64px; font-size: 16px; line-height: 1.6; }
-  @media (min-width: 990px) { #shopify-section-teacher .c2s__ra { padding-left: 72px; } }
-  #shopify-section-teacher .c2s__ra p { margin: 0 0 8px; }
-  #shopify-section-teacher details[open] .c2s__ra { animation: c2s-open-teacher .45s cubic-bezier(.2,.65,.25,1); }
-  @keyframes c2s-open-teacher { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
-  #shopify-section-teacher .c2s__btn { display: inline-flex; align-items: center; min-height: 52px; margin-top: 28px; padding: 0 26px; border-radius: 10px; background: var(--c2-accent); color: #fff; font-size: 16px; font-weight: 600; text-decoration: none; transition: filter .25s ease; }
-  #shopify-section-teacher .c2s__btn:hover { filter: brightness(.92); }
-  #shopify-section-teacher [data-c2r].c2r-wait { opacity: 0; transform: translate3d(0, 22px, 0); }
-  #shopify-section-teacher [data-c2r].c2r-in { opacity: 1; transform: none; transition: opacity .8s cubic-bezier(.2,.65,.25,1) var(--d, 0ms), transform .8s cubic-bezier(.2,.65,.25,1) var(--d, 0ms); }
-  @media (prefers-reduced-motion: reduce) {
-    #shopify-section-teacher details[open] .c2s__ra { animation: none; }
-    #shopify-section-teacher .c2s__plus::before, #shopify-section-teacher .c2s__plus::after { transition: none; }
-  }
+<main id="MainContent" class="content-for-layout focus-none" role="main" tabindex="-1"><section id="shopify-section-teacher" class="shopify-section section sec__course2-teacher" data-section-id="teacher" data-section-type="course2-teacher"><style>
+  #shopify-section-teacher .c2t { --ink: #0d0d0f; --muted: #4a4d55; --accent: #e5372a; --line: #e3e4e8; background: #ffffff; padding: 56px 16px 56px; scroll-margin-top: 80px; }
+  @media (min-width: 750px) { #shopify-section-teacher .c2t { padding: 56px 32px 96px; } }
+  #shopify-section-teacher .c2t__inner { max-width: var(--page-width, 1120px); margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; align-items: center; }
+  @media (min-width: 990px) { #shopify-section-teacher .c2t__inner { grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr); gap: 72px; } #shopify-section-teacher .c2t--right .c2t__media { order: 2; } }
+  #shopify-section-teacher .c2t__media { position: relative; margin: 0; aspect-ratio: 4 / 5; border-radius: 12px; overflow: hidden; background: #e7e8eb; }
+  #shopify-section-teacher .c2t__media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; margin: 0; }
+  #shopify-section-teacher .c2t__tag { position: absolute; left: 14px; bottom: 14px; padding: 10px 14px; border-radius: 6px; background: rgba(13,13,15,.82); color: #fff; font-size: 14px; line-height: 1.3; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  #shopify-section-teacher .c2t__tag b { display: block; font-size: 15px; }
+  #shopify-section-teacher .c2t__tag span { opacity: .8; font-size: 13px; }
+  #shopify-section-teacher .c2t__eyebrow { display: inline-block; margin: 0 0 16px; padding: 5px 10px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); font-size: 12.5px; font-weight: 600; letter-spacing: .02em; }
+  #shopify-section-teacher .c2t__h { margin: 0; color: var(--ink); font-family: var(--heading-font, inherit); font-weight: 700; letter-spacing: -0.035em; line-height: 1.05; font-size: 32px; text-wrap: balance; }
+  @media (min-width: 750px) { #shopify-section-teacher .c2t__h { font-size: 54px; } }
+  #shopify-section-teacher .c2t__h em { font-style: normal; color: var(--accent); }
+  #shopify-section-teacher .c2t__t { margin: 18px 0 0; color: var(--muted); font-size: 16.5px; line-height: 1.7; max-width: 58ch; }
+  #shopify-section-teacher .c2t__t p { margin: 0 0 12px; }
+  #shopify-section-teacher .c2t__facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 24px 0 0; padding: 0; list-style: none; }
+  #shopify-section-teacher .c2t__facts li { padding: 14px; border: 1px solid var(--line); border-radius: 6px; }
+  #shopify-section-teacher .c2t__facts b { display: block; color: var(--ink); font-family: var(--heading-font, inherit); font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+  #shopify-section-teacher .c2t__facts span { display: block; margin-top: 2px; color: var(--muted); font-size: 13px; line-height: 1.35; }
+  #shopify-section-teacher .c2t__row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-top: 26px; }
+  #shopify-section-teacher .c2t__btn { display: inline-flex; align-items: center; min-height: 50px; padding: 0 22px; border-radius: 6px; background: var(--ink); color: #fff; font-size: 15px; font-weight: 600; text-decoration: none; transition: background-color .2s ease; }
+  #shopify-section-teacher .c2t__btn:hover { background: var(--accent); }
+  #shopify-section-teacher .c2t__social { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  #shopify-section-teacher .c2t__social a { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 14px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink); font-size: 14px; font-weight: 500; text-decoration: none; transition: border-color .2s ease; }
+  #shopify-section-teacher .c2t__social a:hover { border-color: var(--ink); }
+  #shopify-section-teacher .c2t__social svg { width: 17px; height: 17px; }
+  @media (max-width: 749px) { #shopify-section-teacher .c2t__facts b { font-size: 18px; } }
 </style>
-<section class="c2s" data-side="left" id="teacher">
-<div class="c2s__in">
-<div class="c2s__body"><p class="c2-tag" data-c2r>Your teacher</p><h2 class="c2s__title" data-c2r style="--d: 60ms">Mara Lind, <em>head barista</em></h2><div class="c2s__text" data-c2r style="--d: 120ms"><p>Nine years behind the bar in two cafés, the last three training every new barista they hired. This course is what she shows them, filmed at a home machine instead of a café one.</p></div><div class="c2s__rows" data-c2r style="--d: 180ms"><details class="c2s__row" data-block-id="row_1">
-<summary>
-<span class="c2s__ico" aria-hidden="true">
-<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0 1 13 0c0 5-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></svg>
-</span>
-<span class="c2s__rt">Where she learned</span>
-<span class="c2s__plus" aria-hidden="true"></span>
-</summary>
-<div class="c2s__ra"><p>Two busy cafés, a roastery training bar and thousands of flat whites. Write your own story here.</p></div>
-</details><details class="c2s__row" data-block-id="row_2">
-<summary>
-<span class="c2s__ico" aria-hidden="true">
-<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M4 5h16v11H9l-5 4z"/></svg>
-</span>
-<span class="c2s__rt">How she teaches</span>
-<span class="c2s__plus" aria-hidden="true"></span>
-</summary>
-<div class="c2s__ra"><p>One idea per lesson, shown at full speed, then slowly. Every number is on screen.</p></div>
-</details><details class="c2s__row" data-block-id="row_3">
-<summary>
-<span class="c2s__ico" aria-hidden="true">
-<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M4 11l8-6.5 8 6.5V20h-5.5v-5h-5v5H4z"/></svg>
-</span>
-<span class="c2s__rt">What she uses at home</span>
-<span class="c2s__plus" aria-hidden="true"></span>
-</summary>
-<div class="c2s__ra"><p>A single boiler machine, a hand grinder and a scale. Nothing you need to buy to start.</p></div>
-</details></div></div>
-<figure class="c2s__media" data-c2r style="--d: 120ms"><img src="/theme-previews/online-course/a/course2-teacher-bar.26cae180fe52.webp" srcset="/theme-previews/online-course/a/course2-teacher-bar.26cae180fe52.webp 700w, /theme-previews/online-course/a/course2-teacher-bar.26cae180fe52.webp 1000w, /theme-previews/online-course/a/course2-teacher-bar.26cae180fe52.webp 1400w" sizes="(min-width: 990px) 560px, 92vw" width="1600" height="1600" alt="A smiling barista in a mustard beanie holding a portafilter behind a café counter" loading="lazy" decoding="async"></figure>
+<div class="c2t color-default">
+<div class="c2t__inner">
+<figure class="c2t__media"><img src="/theme-previews/online-course/a/course2-jonas-sofa.1d3db9bb730e.webp" srcset="/theme-previews/online-course/a/course2-jonas-sofa.1d3db9bb730e.webp 600w, /theme-previews/online-course/a/course2-jonas-sofa.1d3db9bb730e.webp 1000w" sizes="(min-width: 990px) 480px, 94vw" width="1600" height="1600" alt="Jonas Wilde playing on a grey sofa by the window" fetchpriority="high" decoding="async"><figcaption class="c2t__tag"><b>Jonas Wilde</b><span>Guitar teacher</span></figcaption></figure>
+<div><p class="c2t__eyebrow">Your teacher</p><h1 class="c2t__h">Hi, I'm Jonas. I teach the way I wish I had been <em>taught</em></h1><div class="c2t__t"><p>I gave up guitar twice as a teenager: too much theory, too little music. The third time I learned songs first and the rest followed.</p><p>I have taught beginners for twelve years, in a music school and then one to one. This course is the order I teach in, filmed so you can see every finger.</p></div><ul class="c2t__facts"><li><b>12 years</b><span>Teaching beginners</span></li><li><b>1:1</b><span>Feedback on your videos</span></li><li><b>Every week</b><span>New play along tracks</span></li></ul><div class="c2t__row"><a class="c2t__btn" href="/theme-previews/online-course/index.html#buy">Start learning</a><ul class="c2t__social"><li><a href="#" data-preview-inert><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21.6 7.2c-.2-.9-.9-1.6-1.8-1.8C18.2 5 12 5 12 5s-6.2 0-7.8.4c-.9.2-1.6.9-1.8 1.8C2 8.8 2 12 2 12s0 3.2.4 4.8c.2.9.9 1.6 1.8 1.8 1.6.4 7.8.4 7.8.4s6.2 0 7.8-.4c.9-.2 1.6-.9 1.8-1.8.4-1.6.4-4.8.4-4.8s0-3.2-.4-4.8zM10 15V9l5.2 3L10 15z"/></svg>YouTube</a></li><li><a href="#" data-preview-inert><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>Instagram</a></li><li><a href="#" data-preview-inert><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.6 3c.3 2.2 1.6 3.6 3.9 3.8v3.2c-1.4.1-2.6-.3-3.9-1.1v5.9c0 3.6-2.6 6.2-6 6.2S4.6 18.4 4.6 15c0-3.5 2.9-6 6.4-5.7v3.3c-1.6-.3-3.1.7-3.1 2.4 0 1.5 1.2 2.6 2.7 2.6 1.6 0 2.7-1 2.7-3V3h3.3z"/></svg>TikTok</a></li></ul>
 </div>
-</section><script>(function(){var r=document.getElementById('shopify-section-teacher');if(!r||!('IntersectionObserver' in window)||matchMedia('(prefers-reduced-motion: reduce)').matches)return;var h=innerHeight,io=new IntersectionObserver(function(es){es.forEach(function(e){if(!e.isIntersecting)return;var t=e.target;io.unobserve(t);requestAnimationFrame(function(){t.classList.add('c2r-in')})})},{rootMargin:'0px 0px -6% 0px'});r.querySelectorAll('[data-c2r]').forEach(function(el){if(el.getBoundingClientRect().top<h*.92)return;el.classList.add('c2r-wait');io.observe(el)})})();</script></section><section id="shopify-section-filmed" class="shopify-section course2-split-section" data-section-id="filmed" data-section-type="course2-split"><style>
-  #shopify-section-filmed .c2s {
-    --c2-accent: #12704f;
-    --c2-ink: #15171a;
-    --c2-text: #3f444c;
-    --c2-line: #e3e5e8;
-    background: #ffffff;
-    color: var(--c2-text);
-    padding: 48px 0 48px;
+</div>
+</div>
+</div>
+</section><section id="shopify-section-skills" class="shopify-section section-scrolling-text" data-section-id="skills" data-section-type="scrolling-text"><script src="/theme-previews/_base/a/live-text.6de0dd9c0fb6.js" defer="defer"></script>
+<style>
+  #shopify-section-skills {
+    font-family: var(--body-font, inherit);
+    font-size: var(--body-font-size, inherit);
+    font-weight: var(--body-weight, inherit);
+    line-height: var(--body-line-height, inherit);
+    color: var(--color-text);
   }
-  @media (min-width: 990px) { #shopify-section-filmed .c2s { padding: 96px 0 96px; } }
-  #shopify-section-filmed .c2s__in { max-width: 1200px; margin: 0 auto; padding: 0 20px; display: grid; gap: 36px; align-items: center; }
-  @media (min-width: 990px) {
-    #shopify-section-filmed .c2s__in { padding: 0 40px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 56px; }
-    #shopify-section-filmed .c2s[data-side='left'] .c2s__media { order: -1; }
+  #shopify-section-skills :is(h1, h2, h3, h4, h5, h6) {
+    font-family: var(--heading-font, inherit);
+    font-weight: var(--heading-weight, inherit);
+    letter-spacing: var(--heading-letter-spacing, normal);
+    line-height: var(--heading-line-height, 1.2);
+    text-transform: var(--heading-text-transform, none);
   }
-  #shopify-section-filmed .c2s__media { margin: 0; border-radius: 18px; overflow: hidden; background: #eef0ee; aspect-ratio: 9 / 10; }
-  @media (max-width: 989px) { #shopify-section-filmed .c2s__media { order: -1; aspect-ratio: 4 / 3; } }
-  #shopify-section-filmed .c2s__media img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; margin: 0; }
-  #shopify-section-filmed .c2-tag { display: inline-block; margin: 0 0 22px; padding: 8px 12px; border: 1px solid #d9dce1; border-radius: 6px; font-size: 13px; line-height: 1; letter-spacing: .05em; text-transform: uppercase; color: var(--c2-ink); }
-  #shopify-section-filmed .c2s__title { margin: 0 0 20px; color: var(--c2-ink); font-family: var(--heading-font, inherit); font-weight: 700; font-size: 34px; line-height: 1.06; letter-spacing: -.035em; text-wrap: balance; }
-  @media (min-width: 990px) { #shopify-section-filmed .c2s__title { font-size: 48px; } }
-  #shopify-section-filmed .c2s__title em { font-style: normal; color: var(--c2-accent); }
-  #shopify-section-filmed .c2s__text { max-width: 33em; font-size: 17px; line-height: 1.6; }
-  #shopify-section-filmed .c2s__text p { margin: 0 0 12px; }
-  #shopify-section-filmed .c2s__rows { margin-top: 34px; border-top: 1px solid var(--c2-line); }
-  #shopify-section-filmed .c2s__row { border-bottom: 1px solid var(--c2-line); }
-  #shopify-section-filmed .c2s__row summary { list-style: none; display: flex; align-items: center; gap: 16px; padding: 18px 0; cursor: pointer; }
-  #shopify-section-filmed .c2s__row summary::-webkit-details-marker { display: none; }
-  #shopify-section-filmed .c2s__ico { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 10px; background: var(--c2-accent); color: #fff; }
-  @media (min-width: 990px) { #shopify-section-filmed .c2s__ico { width: 56px; height: 56px; } }
-  #shopify-section-filmed .c2s__ico svg { width: 24px; height: 24px; }
-  #shopify-section-filmed .c2s__rt { flex: 1 1 auto; color: var(--c2-ink); font-family: var(--heading-font, inherit); font-weight: 700; font-size: 18px; letter-spacing: -.02em; line-height: 1.25; }
-  @media (min-width: 990px) { #shopify-section-filmed .c2s__rt { font-size: 21px; } }
-  #shopify-section-filmed .c2s__plus { flex: none; position: relative; width: 38px; height: 38px; border-radius: 6px; background: var(--c2-accent); }
-  #shopify-section-filmed .c2s__plus::before, #shopify-section-filmed .c2s__plus::after { content: ""; position: absolute; left: 50%; top: 50%; width: 16px; height: 1.5px; margin: -.75px 0 0 -8px; background: #fff; transition: transform .35s cubic-bezier(.2,.65,.25,1); }
-  #shopify-section-filmed .c2s__plus::after { transform: rotate(90deg); }
-  #shopify-section-filmed details[open] .c2s__plus::before { transform: rotate(45deg); }
-  #shopify-section-filmed details[open] .c2s__plus::after { transform: rotate(135deg); }
-  #shopify-section-filmed .c2s__ra { padding: 0 54px 20px 64px; font-size: 16px; line-height: 1.6; }
-  @media (min-width: 990px) { #shopify-section-filmed .c2s__ra { padding-left: 72px; } }
-  #shopify-section-filmed .c2s__ra p { margin: 0 0 8px; }
-  #shopify-section-filmed details[open] .c2s__ra { animation: c2s-open-filmed .45s cubic-bezier(.2,.65,.25,1); }
-  @keyframes c2s-open-filmed { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
-  #shopify-section-filmed .c2s__btn { display: inline-flex; align-items: center; min-height: 52px; margin-top: 28px; padding: 0 26px; border-radius: 10px; background: var(--c2-accent); color: #fff; font-size: 16px; font-weight: 600; text-decoration: none; transition: filter .25s ease; }
-  #shopify-section-filmed .c2s__btn:hover { filter: brightness(.92); }
-  #shopify-section-filmed [data-c2r].c2r-wait { opacity: 0; transform: translate3d(0, 22px, 0); }
-  #shopify-section-filmed [data-c2r].c2r-in { opacity: 1; transform: none; transition: opacity .8s cubic-bezier(.2,.65,.25,1) var(--d, 0ms), transform .8s cubic-bezier(.2,.65,.25,1) var(--d, 0ms); }
-  @media (prefers-reduced-motion: reduce) {
-    #shopify-section-filmed details[open] .c2s__ra { animation: none; }
-    #shopify-section-filmed .c2s__plus::before, #shopify-section-filmed .c2s__plus::after { transition: none; }
+  :where(html:not([data-font-priority='off'])) #shopify-section-skills :where(.subheading, .sub-heading, [class*='__subheading']) {
+    font-weight: var(--subheading-weight, 500);
   }
+</style><link rel="stylesheet" href="/theme-previews/online-course/a/i.87a38a7dc833.css"><div
+class="stm section color-scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9 gradient"
+data-live-text="scrolling-text"
+data-lt-section="skills"
+data-lt-settings="{&quot;color_scheme&quot;:{&quot;id&quot;:&quot;scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9&quot;,&quot;settings&quot;:{&quot;page_colors&quot;:null,&quot;background&quot;:{&quot;red&quot;:13,&quot;green&quot;:13,&quot;blue&quot;:15,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:7,&quot;lightness&quot;:5,&quot;rgb&quot;:&quot;13 13 15&quot;,&quot;rgba&quot;:&quot;13 13 15 / 1&quot;,&quot;hex&quot;:&quot;#0d0d0f&quot;},&quot;text_color&quot;:{&quot;red&quot;:169,&quot;green&quot;:172,&quot;blue&quot;:181,&quot;alpha&quot;:1,&quot;hue&quot;:225,&quot;saturation&quot;:8,&quot;lightness&quot;:69,&quot;rgb&quot;:&quot;169 172 181&quot;,&quot;rgba&quot;:&quot;169 172 181 / 1&quot;,&quot;hex&quot;:&quot;#a9acb5&quot;},&quot;heading_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;primary_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:106,&quot;blue&quot;:92,&quot;alpha&quot;:1,&quot;hue&quot;:5,&quot;saturation&quot;:100,&quot;lightness&quot;:68,&quot;rgb&quot;:&quot;255 106 92&quot;,&quot;rgba&quot;:&quot;255 106 92 / 1&quot;,&quot;hex&quot;:&quot;#ff6a5c&quot;},&quot;border_color&quot;:{&quot;red&quot;:38,&quot;green&quot;:39,&quot;blue&quot;:44,&quot;alpha&quot;:1,&quot;hue&quot;:230,&quot;saturation&quot;:7,&quot;lightness&quot;:16,&quot;rgb&quot;:&quot;38 39 44&quot;,&quot;rgba&quot;:&quot;38 39 44 / 1&quot;,&quot;hex&quot;:&quot;#26272c&quot;},&quot;badge_background&quot;:null,&quot;badge_text&quot;:null,&quot;primary_button_colors&quot;:null,&quot;btn_primary_background&quot;:{&quot;red&quot;:229,&quot;green&quot;:55,&quot;blue&quot;:42,&quot;alpha&quot;:1,&quot;hue&quot;:4,&quot;saturation&quot;:78,&quot;lightness&quot;:53,&quot;rgb&quot;:&quot;229 55 42&quot;,&quot;rgba&quot;:&quot;229 55 42 / 1&quot;,&quot;hex&quot;:&quot;#e5372a&quot;},&quot;btn_primary_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_primary_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_primary_hover_background&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_primary_hover_color&quot;:{&quot;red&quot;:13,&quot;green&quot;:13,&quot;blue&quot;:15,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:7,&quot;lightness&quot;:5,&quot;rgb&quot;:&quot;13 13 15&quot;,&quot;rgba&quot;:&quot;13 13 15 / 1&quot;,&quot;hex&quot;:&quot;#0d0d0f&quot;},&quot;btn_primary_hover_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;secondary_button_colors&quot;:null,&quot;btn_secondary_background&quot;:{&quot;red&quot;:13,&quot;green&quot;:13,&quot;blue&quot;:15,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:7,&quot;lightness&quot;:5,&quot;rgb&quot;:&quot;13 13 15&quot;,&quot;rgba&quot;:&quot;13 13 15 / 1&quot;,&quot;hex&quot;:&quot;#0d0d0f&quot;},&quot;btn_secondary_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_border&quot;:{&quot;red&quot;:58,&quot;green&quot;:60,&quot;blue&quot;:67,&quot;alpha&quot;:1,&quot;hue&quot;:227,&quot;saturation&quot;:7,&quot;lightness&quot;:25,&quot;rgb&quot;:&quot;58 60 67&quot;,&quot;rgba&quot;:&quot;58 60 67 / 1&quot;,&quot;hex&quot;:&quot;#3a3c43&quot;},&quot;btn_secondary_hover_background&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_hover_color&quot;:{&quot;red&quot;:13,&quot;green&quot;:13,&quot;blue&quot;:15,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:7,&quot;lightness&quot;:5,&quot;rgb&quot;:&quot;13 13 15&quot;,&quot;rgba&quot;:&quot;13 13 15 / 1&quot;,&quot;hex&quot;:&quot;#0d0d0f&quot;},&quot;btn_secondary_hover_border_color&quot;:null,&quot;background_gradient&quot;:&quot;&quot;,&quot;btn_primary_gradient&quot;:&quot;&quot;,&quot;btn_primary_hover_background_gradient&quot;:&quot;&quot;,&quot;btn_secondary_hover_border&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_outline_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_outline_border_color&quot;:{&quot;red&quot;:58,&quot;green&quot;:60,&quot;blue&quot;:67,&quot;alpha&quot;:1,&quot;hue&quot;:227,&quot;saturation&quot;:7,&quot;lightness&quot;:25,&quot;rgb&quot;:&quot;58 60 67&quot;,&quot;rgba&quot;:&quot;58 60 67 / 1&quot;,&quot;hex&quot;:&quot;#3a3c43&quot;},&quot;button_link_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:106,&quot;blue&quot;:92,&quot;alpha&quot;:1,&quot;hue&quot;:5,&quot;saturation&quot;:100,&quot;lightness&quot;:68,&quot;rgb&quot;:&quot;255 106 92&quot;,&quot;rgba&quot;:&quot;255 106 92 / 1&quot;,&quot;hex&quot;:&quot;#ff6a5c&quot;},&quot;button_link_hover_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:106,&quot;blue&quot;:92,&quot;alpha&quot;:1,&quot;hue&quot;:5,&quot;saturation&quot;:100,&quot;lightness&quot;:68,&quot;rgb&quot;:&quot;255 106 92&quot;,&quot;rgba&quot;:&quot;255 106 92 / 1&quot;,&quot;hex&quot;:&quot;#ff6a5c&quot;}}},&quot;section_width&quot;:&quot;full_width&quot;,&quot;reset_spacing&quot;:false,&quot;separator&quot;:&quot;custom&quot;,&quot;separator_text&quot;:&quot;/theme-previews/online-course/index.html&quot;,&quot;item_gap&quot;:40,&quot;repeat_count&quot;:3,&quot;edge_fade&quot;:0,&quot;show_borders&quot;:false,&quot;use_custom_text_color&quot;:true,&quot;text_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;separator_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:106,&quot;blue&quot;:92,&quot;alpha&quot;:1,&quot;hue&quot;:5,&quot;saturation&quot;:100,&quot;lightness&quot;:68,&quot;rgb&quot;:&quot;255 106 92&quot;,&quot;rgba&quot;:&quot;255 106 92 / 1&quot;,&quot;hex&quot;:&quot;#ff6a5c&quot;},&quot;border_color&quot;:null,&quot;base_font&quot;:&quot;heading&quot;,&quot;use_custom_font&quot;:false,&quot;custom_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;custom_font_url&quot;:&quot;&quot;,&quot;custom_font_family&quot;:&quot;&quot;,&quot;text_size&quot;:34,&quot;font_weight&quot;:&quot;600&quot;,&quot;line_height&quot;:105,&quot;letter_spacing&quot;:-1,&quot;text_transform&quot;:&quot;none&quot;,&quot;separator_size&quot;:50,&quot;duration&quot;:50,&quot;direction&quot;:&quot;normal&quot;,&quot;pause_on_hover&quot;:true,&quot;reveal&quot;:true,&quot;padding_top&quot;:22,&quot;padding_bottom&quot;:22,&quot;section_margin_top_desktop&quot;:0,&quot;section_margin_bottom_desktop&quot;:0,&quot;show_on_mobile&quot;:true,&quot;text_size_mobile&quot;:22,&quot;item_gap_mobile&quot;:22,&quot;padding_top_mobile&quot;:14,&quot;padding_bottom_mobile&quot;:14,&quot;section_margin_top_mobile&quot;:0,&quot;section_margin_bottom_mobile&quot;:0}"
+data-lt-reveal
+style="--stm-font: var(--heading-font); --stm-weight: 600; --stm-lh: 1.05; --stm-ls: -1px; --stm-tt: none; --stm-color: #ffffff; --stm-sep-color: #ff6a5c; --stm-sep-scale: 0.5; --stm-border: 0 solid transparent; --stm-fade: 0px; --stm-size-d: 34px; --stm-size-m: 22px; --stm-gap-d: 40px; --stm-gap-m: 22px; --stm-pt-d: 22px; --stm-pb-d: 22px; --stm-pt-m: 14px; --stm-pb-m: 14px; --stm-duration: 50s; --stm-direction: normal; --stm-pause: paused; --stm-max: none; --stm-pad: 0px; --stm-pad-wide: 0px;"
+>
+<div class="stm__viewport"><div class="stm__track"><span class="stm__item" data-lt-block="word_1" data-lt-type="word" data-lt-settings="{&quot;text&quot;:&quot;First chords&quot;,&quot;use_outline_text&quot;:false,&quot;outline_width&quot;:2,&quot;enable_custom_style&quot;:false,&quot;color&quot;:null}" data-block-id="word_1" style="--stm-outline: 2px;">First chords</span><span class="stm__sep" aria-hidden="true">/</span><span class="stm__item" data-lt-block="word_2" data-lt-type="word" data-lt-settings="{&quot;text&quot;:&quot;Strumming&quot;,&quot;use_outline_text&quot;:false,&quot;outline_width&quot;:2,&quot;enable_custom_style&quot;:false,&quot;color&quot;:null}" data-block-id="word_2" style="--stm-outline: 2px;">Strumming</span><span class="stm__sep" aria-hidden="true">/</span><span class="stm__item" data-lt-block="word_3" data-lt-type="word" data-lt-settings="{&quot;text&quot;:&quot;Riffs&quot;,&quot;use_outline_text&quot;:false,&quot;outline_width&quot;:2,&quot;enable_custom_style&quot;:false,&quot;color&quot;:null}" data-block-id="word_3" style="--stm-outline: 2px;">Riffs</span><span class="stm__sep" aria-hidden="true">/</span><span class="stm__item" data-lt-block="word_4" data-lt-type="word" data-lt-settings="{&quot;text&quot;:&quot;Power chords&quot;,&quot;use_outline_text&quot;:false,&quot;outline_width&quot;:2,&quot;enable_custom_style&quot;:false,&quot;color&quot;:null}" data-block-id="word_4" style="--stm-outline: 2px;">Power chords</span><span class="stm__sep" aria-hidden="true">/</span><span class="stm__item" data-lt-block="word_5" data-lt-type="word" data-lt-settings="{&quot;text&quot;:&quot;Barre chords&quot;,&quot;use_outline_text&quot;:false,&quot;outline_width&quot;:2,&quot;enable_custom_style&quot;:false,&quot;color&quot;:null}" data-block-id="word_5" style="--stm-outline: 2px;">Barre chords</span><span class="stm__sep" aria-hidden="true">/</span><span class="stm__item" data-lt-block="word_6" data-lt-type="word" data-lt-settings="{&quot;text&quot;:&quot;Fingerpicking&quot;,&quot;use_outline_text&quot;:false,&quot;outline_width&quot;:2,&quot;enable_custom_style&quot;:false,&quot;color&quot;:null}" data-block-id="word_6" style="--stm-outline: 2px;">Fingerpicking</span><span class="stm__sep" aria-hidden="true">/</span><span class="stm__item" data-lt-block="word_7" data-lt-type="word" data-lt-settings="{&quot;text&quot;:&quot;Rhythm&quot;,&quot;use_outline_text&quot;:false,&quot;outline_width&quot;:2,&quot;enable_custom_style&quot;:false,&quot;color&quot;:null}" data-block-id="word_7" style="--stm-outline: 2px;">Rhythm</span><span class="stm__sep" aria-hidden="true">/</span><span class="stm__item" data-lt-block="word_8" data-lt-type="word" data-lt-settings="{&quot;text&quot;:&quot;Whole songs&quot;,&quot;use_outline_text&quot;:false,&quot;outline_width&quot;:2,&quot;enable_custom_style&quot;:false,&quot;color&quot;:null}" data-block-id="word_8" style="--stm-outline: 2px;">Whole songs</span><span class="stm__sep" aria-hidden="true">/</span></div><div class="stm__track" aria-hidden="true"><span class="stm__item" data-lt-block="word_1" data-lt-type="word" style="--stm-outline: 2px;">First chords</span><span class="stm__sep" aria-hidden="true">/</span><span class="stm__item" data-lt-block="word_2" data-lt-type="word" style="--stm-outline: 2px;">Strumming</span><span class="stm__sep" aria-hidden="true">/</span><span class="stm__item" data-lt-block="word_3" data-lt-type="word" style="--stm-outline: 2px;">Riffs</span><span class="stm__sep" aria-hidden="true">/</span><span class="stm__item" data-lt-block="word_4" data-lt-type="word" style="--stm-outline: 2px;">Power chords</span><span class="stm__sep" aria-hidden="true">/</span><span class="stm__item" data-lt-block="word_5" data-lt-type="word" style="--stm-outline: 2px;">Barre chords</span><span class="stm__sep" aria-hidden="true">/</span><span class="stm__item" data-lt-block="word_6" data-lt-type="word" style="--stm-outline: 2px;">Fingerpicking</span><span class="stm__sep" aria-hidden="true">/</span><span class="stm__item" data-lt-block="word_7" data-lt-type="word" style="--stm-outline: 2px;">Rhythm</span><span class="stm__sep" aria-hidden="true">/</span><span class="stm__item" data-lt-block="word_8" data-lt-type="word" style="--stm-outline: 2px;">Whole songs</span><span class="stm__sep" aria-hidden="true">/</span></div><div class="stm__track" aria-hidden="true"><span class="stm__item" data-lt-block="word_1" data-lt-type="word" style="--stm-outline: 2px;">First chords</span><span class="stm__sep" aria-hidden="true">/</span><span class="stm__item" data-lt-block="word_2" data-lt-type="word" style="--stm-outline: 2px;">Strumming</span><span class="stm__sep" aria-hidden="true">/</span><span class="stm__item" data-lt-block="word_3" data-lt-type="word" style="--stm-outline: 2px;">Riffs</span><span class="stm__sep" aria-hidden="true">/</span><span class="stm__item" data-lt-block="word_4" data-lt-type="word" style="--stm-outline: 2px;">Power chords</span><span class="stm__sep" aria-hidden="true">/</span><span class="stm__item" data-lt-block="word_5" data-lt-type="word" style="--stm-outline: 2px;">Barre chords</span><span class="stm__sep" aria-hidden="true">/</span><span class="stm__item" data-lt-block="word_6" data-lt-type="word" style="--stm-outline: 2px;">Fingerpicking</span><span class="stm__sep" aria-hidden="true">/</span><span class="stm__item" data-lt-block="word_7" data-lt-type="word" style="--stm-outline: 2px;">Rhythm</span><span class="stm__sep" aria-hidden="true">/</span><span class="stm__item" data-lt-block="word_8" data-lt-type="word" style="--stm-outline: 2px;">Whole songs</span><span class="stm__sep" aria-hidden="true">/</span></div></div>
+</div></section><section id="shopify-section-how" class="shopify-section section" data-section-id="how" data-section-type="image-with-text-steps"><script src="/theme-previews/_base/a/media-live-stats-reels.6298408d785e.js" defer="defer"></script>
+<style>
+  #shopify-section-how {
+    font-family: var(--body-font, inherit);
+    font-size: var(--body-font-size, inherit);
+    font-weight: var(--body-weight, inherit);
+    line-height: var(--body-line-height, inherit);
+    color: var(--color-text);
+  }
+  #shopify-section-how :is(h1, h2, h3, h4, h5, h6) {
+    font-family: var(--heading-font, inherit);
+    font-weight: var(--heading-weight, inherit);
+    letter-spacing: var(--heading-letter-spacing, normal);
+    line-height: var(--heading-line-height, 1.2);
+    text-transform: var(--heading-text-transform, none);
+  }
+  :where(html:not([data-font-priority='off'])) #shopify-section-how :where(.subheading, .sub-heading, [class*='__subheading']) {
+    font-weight: var(--subheading-weight, 500);
+  }
+</style><style data-rs-bulletproof>#shopify-section-how { margin-top: 0 !important; margin-bottom: 0 !important; }
+    #shopify-section-how + .shopify-section { margin-top: 0 !important; }</style><link rel="stylesheet" href="/theme-previews/online-course/a/i.2605b9b86e64.css">
+<div class="section iws-steps remove_spacing color-scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976 gradient" data-msr="steps" data-msr-section="how" data-msr-settings="{&quot;color_scheme&quot;:{&quot;id&quot;:&quot;scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976&quot;,&quot;settings&quot;:{&quot;page_colors&quot;:null,&quot;background&quot;:{&quot;red&quot;:242,&quot;green&quot;:243,&quot;blue&quot;:245,&quot;alpha&quot;:1,&quot;hue&quot;:220,&quot;saturation&quot;:13,&quot;lightness&quot;:95,&quot;rgb&quot;:&quot;242 243 245&quot;,&quot;rgba&quot;:&quot;242 243 245 / 1&quot;,&quot;hex&quot;:&quot;#f2f3f5&quot;},&quot;text_color&quot;:{&quot;red&quot;:74,&quot;green&quot;:77,&quot;blue&quot;:85,&quot;alpha&quot;:1,&quot;hue&quot;:224,&quot;saturation&quot;:7,&quot;lightness&quot;:31,&quot;rgb&quot;:&quot;74 77 85&quot;,&quot;rgba&quot;:&quot;74 77 85 / 1&quot;,&quot;hex&quot;:&quot;#4a4d55&quot;},&quot;heading_color&quot;:{&quot;red&quot;:13,&quot;green&quot;:13,&quot;blue&quot;:15,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:7,&quot;lightness&quot;:5,&quot;rgb&quot;:&quot;13 13 15&quot;,&quot;rgba&quot;:&quot;13 13 15 / 1&quot;,&quot;hex&quot;:&quot;#0d0d0f&quot;},&quot;primary_color&quot;:{&quot;red&quot;:229,&quot;green&quot;:55,&quot;blue&quot;:42,&quot;alpha&quot;:1,&quot;hue&quot;:4,&quot;saturation&quot;:78,&quot;lightness&quot;:53,&quot;rgb&quot;:&quot;229 55 42&quot;,&quot;rgba&quot;:&quot;229 55 42 / 1&quot;,&quot;hex&quot;:&quot;#e5372a&quot;},&quot;border_color&quot;:{&quot;red&quot;:227,&quot;green&quot;:228,&quot;blue&quot;:232,&quot;alpha&quot;:1,&quot;hue&quot;:228,&quot;saturation&quot;:10,&quot;lightness&quot;:90,&quot;rgb&quot;:&quot;227 228 232&quot;,&quot;rgba&quot;:&quot;227 228 232 / 1&quot;,&quot;hex&quot;:&quot;#e3e4e8&quot;},&quot;badge_background&quot;:null,&quot;badge_text&quot;:null,&quot;primary_button_colors&quot;:null,&quot;btn_primary_background&quot;:{&quot;red&quot;:229,&quot;green&quot;:55,&quot;blue&quot;:42,&quot;alpha&quot;:1,&quot;hue&quot;:4,&quot;saturation&quot;:78,&quot;lightness&quot;:53,&quot;rgb&quot;:&quot;229 55 42&quot;,&quot;rgba&quot;:&quot;229 55 42 / 1&quot;,&quot;hex&quot;:&quot;#e5372a&quot;},&quot;btn_primary_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_primary_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_primary_hover_background&quot;:{&quot;red&quot;:13,&quot;green&quot;:13,&quot;blue&quot;:15,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:7,&quot;lightness&quot;:5,&quot;rgb&quot;:&quot;13 13 15&quot;,&quot;rgba&quot;:&quot;13 13 15 / 1&quot;,&quot;hex&quot;:&quot;#0d0d0f&quot;},&quot;btn_primary_hover_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_primary_hover_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;secondary_button_colors&quot;:null,&quot;btn_secondary_background&quot;:{&quot;red&quot;:242,&quot;green&quot;:243,&quot;blue&quot;:245,&quot;alpha&quot;:1,&quot;hue&quot;:220,&quot;saturation&quot;:13,&quot;lightness&quot;:95,&quot;rgb&quot;:&quot;242 243 245&quot;,&quot;rgba&quot;:&quot;242 243 245 / 1&quot;,&quot;hex&quot;:&quot;#f2f3f5&quot;},&quot;btn_secondary_color&quot;:{&quot;red&quot;:13,&quot;green&quot;:13,&quot;blue&quot;:15,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:7,&quot;lightness&quot;:5,&quot;rgb&quot;:&quot;13 13 15&quot;,&quot;rgba&quot;:&quot;13 13 15 / 1&quot;,&quot;hex&quot;:&quot;#0d0d0f&quot;},&quot;btn_secondary_border&quot;:{&quot;red&quot;:200,&quot;green&quot;:202,&quot;blue&quot;:208,&quot;alpha&quot;:1,&quot;hue&quot;:225,&quot;saturation&quot;:8,&quot;lightness&quot;:80,&quot;rgb&quot;:&quot;200 202 208&quot;,&quot;rgba&quot;:&quot;200 202 208 / 1&quot;,&quot;hex&quot;:&quot;#c8cad0&quot;},&quot;btn_secondary_hover_background&quot;:{&quot;red&quot;:13,&quot;green&quot;:13,&quot;blue&quot;:15,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:7,&quot;lightness&quot;:5,&quot;rgb&quot;:&quot;13 13 15&quot;,&quot;rgba&quot;:&quot;13 13 15 / 1&quot;,&quot;hex&quot;:&quot;#0d0d0f&quot;},&quot;btn_secondary_hover_color&quot;:{&quot;red&quot;:242,&quot;green&quot;:243,&quot;blue&quot;:245,&quot;alpha&quot;:1,&quot;hue&quot;:220,&quot;saturation&quot;:13,&quot;lightness&quot;:95,&quot;rgb&quot;:&quot;242 243 245&quot;,&quot;rgba&quot;:&quot;242 243 245 / 1&quot;,&quot;hex&quot;:&quot;#f2f3f5&quot;},&quot;btn_secondary_hover_border_color&quot;:null,&quot;background_gradient&quot;:&quot;&quot;,&quot;btn_primary_gradient&quot;:&quot;&quot;,&quot;btn_primary_hover_background_gradient&quot;:&quot;&quot;,&quot;btn_secondary_hover_border&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_outline_color&quot;:{&quot;red&quot;:13,&quot;green&quot;:13,&quot;blue&quot;:15,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:7,&quot;lightness&quot;:5,&quot;rgb&quot;:&quot;13 13 15&quot;,&quot;rgba&quot;:&quot;13 13 15 / 1&quot;,&quot;hex&quot;:&quot;#0d0d0f&quot;},&quot;btn_outline_border_color&quot;:{&quot;red&quot;:200,&quot;green&quot;:202,&quot;blue&quot;:208,&quot;alpha&quot;:1,&quot;hue&quot;:225,&quot;saturation&quot;:8,&quot;lightness&quot;:80,&quot;rgb&quot;:&quot;200 202 208&quot;,&quot;rgba&quot;:&quot;200 202 208 / 1&quot;,&quot;hex&quot;:&quot;#c8cad0&quot;},&quot;button_link_color&quot;:{&quot;red&quot;:13,&quot;green&quot;:13,&quot;blue&quot;:15,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:7,&quot;lightness&quot;:5,&quot;rgb&quot;:&quot;13 13 15&quot;,&quot;rgba&quot;:&quot;13 13 15 / 1&quot;,&quot;hex&quot;:&quot;#0d0d0f&quot;},&quot;button_link_hover_color&quot;:{&quot;red&quot;:13,&quot;green&quot;:13,&quot;blue&quot;:15,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:7,&quot;lightness&quot;:5,&quot;rgb&quot;:&quot;13 13 15&quot;,&quot;rgba&quot;:&quot;13 13 15 / 1&quot;,&quot;hex&quot;:&quot;#0d0d0f&quot;}}},&quot;section_width&quot;:&quot;container&quot;,&quot;reset_spacing&quot;:true,&quot;image_position&quot;:&quot;left&quot;,&quot;column_valign&quot;:&quot;center&quot;,&quot;image_width_pct&quot;:48,&quot;gap_desktop&quot;:72,&quot;text_gap&quot;:18,&quot;image&quot;:{&quot;id&quot;:66901257,&quot;src&quot;:&quot;/theme-previews/online-course/a/course2-student-laptop.1de4aab3f305.webp&quot;,&quot;url&quot;:&quot;/theme-previews/online-course/a/course2-student-laptop.1de4aab3f305.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:66901257,&quot;src&quot;:&quot;/theme-previews/online-course/a/course2-student-laptop.1de4aab3f305.webp&quot;,&quot;url&quot;:&quot;/theme-previews/online-course/a/course2-student-laptop.1de4aab3f305.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:66901257,&quot;src&quot;:&quot;/theme-previews/online-course/a/course2-student-laptop.1de4aab3f305.webp&quot;,&quot;url&quot;:&quot;/theme-previews/online-course/a/course2-student-laptop.1de4aab3f305.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:66901257,&quot;src&quot;:&quot;/theme-previews/online-course/a/course2-student-laptop.1de4aab3f305.webp&quot;,&quot;url&quot;:&quot;/theme-previews/online-course/a/course2-student-laptop.1de4aab3f305.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:66901257,&quot;src&quot;:&quot;/theme-previews/online-course/a/course2-student-laptop.1de4aab3f305.webp&quot;,&quot;url&quot;:&quot;/theme-previews/online-course/a/course2-student-laptop.1de4aab3f305.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:66901257,&quot;src&quot;:&quot;/theme-previews/online-course/a/course2-student-laptop.1de4aab3f305.webp&quot;,&quot;url&quot;:&quot;/theme-previews/online-course/a/course2-student-laptop.1de4aab3f305.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:null,&quot;y&quot;:null}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:66901257,&quot;src&quot;:&quot;/theme-previews/online-course/a/course2-student-laptop.1de4aab3f305.webp&quot;,&quot;url&quot;:&quot;/theme-previews/online-course/a/course2-student-laptop.1de4aab3f305.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:null},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:null},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:null,&quot;src&quot;:null,&quot;url&quot;:null,&quot;alt&quot;:null,&quot;width&quot;:null,&quot;height&quot;:null,&quot;aspect_ratio&quot;:null,&quot;media_type&quot;:null,&quot;position&quot;:null,&quot;presentation&quot;:null,&quot;attached_to_variant&quot;:null,&quot;variants&quot;:null,&quot;preview_image&quot;:null}}}}}}}},&quot;image_alt&quot;:&quot;A student learning a chord from a lesson on her laptop, sitting on the floor with an acoustic guitar&quot;,&quot;placeholder_url&quot;:null,&quot;image_aspect_desktop&quot;:&quot;4 / 5&quot;,&quot;image_radius&quot;:16,&quot;step_style&quot;:&quot;numbered&quot;,&quot;marker_size&quot;:36,&quot;marker_font_size&quot;:14,&quot;line_style&quot;:&quot;solid&quot;,&quot;line_thickness&quot;:2,&quot;step_gap_inline&quot;:16,&quot;step_gap_below&quot;:22,&quot;steps_margin_top&quot;:12,&quot;custom_colors&quot;:true,&quot;section_bg&quot;:null,&quot;marker_color&quot;:{&quot;red&quot;:229,&quot;green&quot;:55,&quot;blue&quot;:42,&quot;alpha&quot;:1,&quot;hue&quot;:4,&quot;saturation&quot;:78,&quot;lightness&quot;:53,&quot;rgb&quot;:&quot;229 55 42&quot;,&quot;rgba&quot;:&quot;229 55 42 / 1&quot;,&quot;hex&quot;:&quot;#e5372a&quot;},&quot;marker_text_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;line_color&quot;:{&quot;red&quot;:215,&quot;green&quot;:217,&quot;blue&quot;:222,&quot;alpha&quot;:1,&quot;hue&quot;:223,&quot;saturation&quot;:10,&quot;lightness&quot;:86,&quot;rgb&quot;:&quot;215 217 222&quot;,&quot;rgba&quot;:&quot;215 217 222 / 1&quot;,&quot;hex&quot;:&quot;#d7d9de&quot;},&quot;step_title_color&quot;:{&quot;red&quot;:13,&quot;green&quot;:13,&quot;blue&quot;:15,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:7,&quot;lightness&quot;:5,&quot;rgb&quot;:&quot;13 13 15&quot;,&quot;rgba&quot;:&quot;13 13 15 / 1&quot;,&quot;hex&quot;:&quot;#0d0d0f&quot;},&quot;step_desc_color&quot;:{&quot;red&quot;:74,&quot;green&quot;:77,&quot;blue&quot;:85,&quot;alpha&quot;:1,&quot;hue&quot;:224,&quot;saturation&quot;:7,&quot;lightness&quot;:31,&quot;rgb&quot;:&quot;74 77 85&quot;,&quot;rgba&quot;:&quot;74 77 85 / 1&quot;,&quot;hex&quot;:&quot;#4a4d55&quot;},&quot;image_bg&quot;:null,&quot;step_title_size&quot;:19,&quot;step_desc_size&quot;:15,&quot;button_bg&quot;:null,&quot;button_color&quot;:null,&quot;button_bg_hover&quot;:null,&quot;use_theme_button&quot;:true,&quot;button_size&quot;:15,&quot;button_pad_x&quot;:26,&quot;button_pad_y&quot;:14,&quot;button_radius&quot;:8,&quot;button_margin_top&quot;:8,&quot;enable_custom_fonts&quot;:false,&quot;heading_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;body_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;padding_top&quot;:96,&quot;padding_bottom&quot;:96,&quot;side_padding_desktop&quot;:24,&quot;image_aspect&quot;:&quot;4 / 5&quot;,&quot;gap_mobile&quot;:32,&quot;side_padding_mobile&quot;:16}" data-msr-defaults='{"color_scheme":"default-color-scheme","section_width":"container","reset_spacing":true,"image_position":"left","column_valign":"center","image_width_pct":50,"gap_desktop":64,"text_gap":18,"image_alt":"","image_aspect_desktop":"4 / 5","image_radius":16,"step_style":"dot","marker_size":32,"marker_font_size":14,"line_style":"solid","line_thickness":2,"step_gap_inline":16,"step_gap_below":22,"steps_margin_top":12,"custom_colors":false,"step_title_size":18,"step_desc_size":14,"use_theme_button":true,"button_size":15,"button_pad_x":26,"button_pad_y":14,"button_radius":100,"button_margin_top":8,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","padding_top":60,"padding_bottom":60,"side_padding_desktop":24,"image_aspect":"4 / 5","gap_mobile":32,"side_padding_mobile":16}' data-msr-block-defaults='{"eyebrow":{"text":"Why us","custom_style":false,"size":12},"heading":{"text":"Built for results.","tag":"h2","custom_style":false,"weight":"700","size_desktop":40,"size_mobile":28},"subheading":{"text":"&lt;p>Quality you can feel, simplicity you can trust.&lt;/p>","max_width":560,"custom_style":false,"size":15},"step":{"title":"Step title","description":"&lt;p>Add a short description that explains this step.&lt;/p>","enable_custom_style":false},"button":{"label":"Shop now"}}' data-msr-placeholder="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Cg fill=%22%23000000%22 fill-opacity=%220.18%22%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22/%3E%3C/g%3E%3C/svg%3E" style="--st-max: var(--theme-page-width, var(--page-width, 1300px)); --st-pt: 96px; --st-pb: 96px;--st-px-m: 16px; --st-px-d: 24px;--st-gap-m: 32px; --st-gap-d: 72px;--st-dir: row; --st-valign: center;--st-img-w: 48%; --st-text-gap: 18px;--st-ratio-m: 4 / 5; --st-ratio-d: 4 / 5; --st-radius: 16px;--st-mk: 36px; --st-mk-font: 14px; --st-line-style: solid; --st-line-w: 2px;--st-gap-inline: 16px; --st-gap-below: 22px; --st-steps-mt: 12px; --st-btn-mt: 8px;--st-mk-color: #e5372a;--st-mk-text: #ffffff;--st-line-color: #d7d9de;--st-title-color: #0d0d0f;--st-desc-color: #4a4d55;--st-title-size: 19px; --st-desc-size: 15px;">
+<div class="iws" data-section-id="how" data-width="container">
+<div class="iws__inner">
+<div class="iws__media"><img src="/theme-previews/online-course/a/course2-student-laptop.1de4aab3f305.webp" srcset="/theme-previews/online-course/a/course2-student-laptop.1de4aab3f305.webp 480w, /theme-previews/online-course/a/course2-student-laptop.1de4aab3f305.webp 720w, /theme-previews/online-course/a/course2-student-laptop.1de4aab3f305.webp 960w, /theme-previews/online-course/a/course2-student-laptop.1de4aab3f305.webp 1200w, /theme-previews/online-course/a/course2-student-laptop.1de4aab3f305.webp 1600w" alt="A student learning a chord from a lesson on her laptop, sitting on the floor with an acoustic guitar" loading="lazy" decoding="async" sizes="(max-width: 767px) 100vw, 50vw"></div>
+<div class="iws__col"><p class="iws__eyebrow" data-msr-block="eyebrow_1" data-msr-type="eyebrow" data-msr-settings="{&quot;text&quot;:&quot;How it works&quot;,&quot;custom_style&quot;:true,&quot;color&quot;:{&quot;red&quot;:229,&quot;green&quot;:55,&quot;blue&quot;:42,&quot;alpha&quot;:1,&quot;hue&quot;:4,&quot;saturation&quot;:78,&quot;lightness&quot;:53,&quot;rgb&quot;:&quot;229 55 42&quot;,&quot;rgba&quot;:&quot;229 55 42 / 1&quot;,&quot;hex&quot;:&quot;#e5372a&quot;},&quot;size&quot;:13}"
+style="--b-size: 13px;--b-color: #e5372a;"
+data-block-id="eyebrow_1">How it works</p><h2 class="iws__heading" data-msr-block="heading_1" data-msr-type="heading" data-msr-settings="{&quot;text&quot;:&quot;Twenty minutes a day, in the right order&quot;,&quot;tag&quot;:&quot;h2&quot;,&quot;custom_style&quot;:false,&quot;color&quot;:null,&quot;weight&quot;:&quot;700&quot;,&quot;size_desktop&quot;:46,&quot;size_mobile&quot;:32}"
+style=""
+data-block-id="heading_1">Twenty minutes a day, in the right order</h2><div class="iws__sub" data-msr-block="subheading_1" data-msr-type="subheading" data-msr-settings="{&quot;text&quot;:&quot;&lt;p&gt;Most beginners stop because they do not know what to practise next. Each day in the course tells you.&lt;\/p&gt;&quot;,&quot;max_width&quot;:560,&quot;custom_style&quot;:false,&quot;color&quot;:null,&quot;size&quot;:16}"
+style="--b-max: 560px;"
+data-block-id="subheading_1"><p>Most beginners stop because they do not know what to practise next. Each day in the course tells you.</p></div><ol class="iws__steps"><li class="iws__step iws__step--numbered" data-msr-block="step_1" data-msr-type="step" data-msr-settings="{&quot;title&quot;:&quot;Watch a short lesson&quot;,&quot;description&quot;:&quot;&lt;p&gt;Five to eight minutes, filmed close up so you can see both hands. Slow it down or loop a part.&lt;\/p&gt;&quot;,&quot;icon&quot;:null,&quot;enable_custom_style&quot;:false,&quot;title_color&quot;:null,&quot;description_color&quot;:null,&quot;marker_color&quot;:null}" style="" data-block-id="step_1">
+<div class="iws__step-marker" aria-hidden="true"><span class="iws__step-num">1</span>
+</div>
+<div class="iws__step-content">
+<h3 class="iws__step-title"><span class="iws__step-prefix" aria-hidden="true">01</span><span class="iws__step-text">Watch a short lesson</span></h3>
+<div class="iws__step-desc"><p>Five to eight minutes, filmed close up so you can see both hands. Slow it down or loop a part.</p></div>
+</div>
+</li><li class="iws__step iws__step--numbered" data-msr-block="step_2" data-msr-type="step" data-msr-settings="{&quot;title&quot;:&quot;Play along&quot;,&quot;description&quot;:&quot;&lt;p&gt;A track at three speeds for every lesson. Start slow, move up when it feels easy.&lt;\/p&gt;&quot;,&quot;icon&quot;:null,&quot;enable_custom_style&quot;:false,&quot;title_color&quot;:null,&quot;description_color&quot;:null,&quot;marker_color&quot;:null}" style="" data-block-id="step_2">
+<div class="iws__step-marker" aria-hidden="true"><span class="iws__step-num">2</span>
+</div>
+<div class="iws__step-content">
+<h3 class="iws__step-title"><span class="iws__step-prefix" aria-hidden="true">02</span><span class="iws__step-text">Play along</span></h3>
+<div class="iws__step-desc"><p>A track at three speeds for every lesson. Start slow, move up when it feels easy.</p></div>
+</div>
+</li><li class="iws__step iws__step--numbered" data-msr-block="step_3" data-msr-type="step" data-msr-settings="{&quot;title&quot;:&quot;Tick it off&quot;,&quot;description&quot;:&quot;&lt;p&gt;Your plan moves on by itself. Miss a day and it picks up where you left off.&lt;\/p&gt;&quot;,&quot;icon&quot;:null,&quot;enable_custom_style&quot;:false,&quot;title_color&quot;:null,&quot;description_color&quot;:null,&quot;marker_color&quot;:null}" style="" data-block-id="step_3">
+<div class="iws__step-marker" aria-hidden="true"><span class="iws__step-num">3</span>
+</div>
+<div class="iws__step-content">
+<h3 class="iws__step-title"><span class="iws__step-prefix" aria-hidden="true">03</span><span class="iws__step-text">Tick it off</span></h3>
+<div class="iws__step-desc"><p>Your plan moves on by itself. Miss a day and it picks up where you left off.</p></div>
+</div>
+</li><li class="iws__step iws__step--numbered" data-msr-block="step_4" data-msr-type="step" data-msr-settings="{&quot;title&quot;:&quot;Send a video, get feedback&quot;,&quot;description&quot;:&quot;&lt;p&gt;With feedback, record yourself and Jonas replies with a short video on what to change.&lt;\/p&gt;&quot;,&quot;icon&quot;:null,&quot;enable_custom_style&quot;:false,&quot;title_color&quot;:null,&quot;description_color&quot;:null,&quot;marker_color&quot;:null}" style="" data-block-id="step_4">
+<div class="iws__step-marker" aria-hidden="true"><span class="iws__step-num">4</span>
+</div>
+<div class="iws__step-content">
+<h3 class="iws__step-title"><span class="iws__step-prefix" aria-hidden="true">04</span><span class="iws__step-text">Send a video, get feedback</span></h3>
+<div class="iws__step-desc"><p>With feedback, record yourself and Jonas replies with a short video on what to change.</p></div>
+</div>
+</li></ol><a class="iws__btn btn-primary inline-flex no-underline" data-sl-button data-theme-button="primary" data-button-role="primary" data-button-appearance="solid" data-msr-block="button_1" data-msr-type="button" data-msr-settings="{&quot;label&quot;:&quot;Start learning&quot;,&quot;url&quot;:&quot;/#buy&quot;}" style="" href="/theme-previews/online-course/index.html#buy" data-block-id="button_1">Start learning</a></div>
+</div>
+</div>
+</div></section><section id="shopify-section-students" class="shopify-section" data-section-id="students" data-section-type="theme-testimonials"><script src="/theme-previews/_base/a/live-testimonials.6e78f70ae7ca.js" defer="defer"></script>
+<style>
+  #shopify-section-students {
+    font-family: var(--body-font, inherit);
+    font-size: var(--body-font-size, inherit);
+    font-weight: var(--body-weight, inherit);
+    line-height: var(--body-line-height, inherit);
+    color: var(--color-text);
+  }
+  #shopify-section-students :is(h1, h2, h3, h4, h5, h6) {
+    font-family: var(--heading-font, inherit);
+    font-weight: var(--heading-weight, inherit);
+    letter-spacing: var(--heading-letter-spacing, normal);
+    line-height: var(--heading-line-height, 1.2);
+    text-transform: var(--heading-text-transform, none);
+  }
+  :where(html:not([data-font-priority='off'])) #shopify-section-students :where(.subheading, .sub-heading, [class*='__subheading']) {
+    font-weight: var(--subheading-weight, 500);
+  }
+</style><style data-rs-bulletproof>/* reset_spacing: bulletproof override of ALL section spacing mechanisms */
+    #shopify-section-students,
+    #shopify-section-students > .section,
+    #shopify-section-students > section,
+    #shopify-section-students > div,
+    #shopify-section-students > div > .section {
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
+    }
+    #shopify-section-students + .shopify-section,
+    #shopify-section-students + section,
+    .shopify-section + #shopify-section-students {
+      margin-top: 0 !important;
+    }</style><link rel="stylesheet" href="/theme-previews/online-course/a/i.a365dc6cb747.css">
+<!-- ti-theme:start --><link href="/theme-previews/_base/a/testimonials.a7b9c96d2cf7.css" rel="stylesheet" type="text/css" media="all">
+<script src="/theme-previews/_base/a/testimonials.705935e25135.js" defer="defer"></script><div
+class="section color-default gradient remove_spacing"
+data-testimonials
+data-tm-root="testimonials"
+data-tm-section="students"
+data-tm-card="boxed"
+data-tm-align="left"
+data-tm-avatar="circle"
+data-tm-pag="progress"
+style="--section-pt: 96;  --section-pb: 96;  --tm-col-gap: 20px;    --tm-card-bg: #ffffff;  --tm-card-border: #e3e4e8;  --tm-quote-color: #0d0d0f;    --tm-card-radius: 14px;  --tm-cols: 3;  --tm-cols-mb: 1;  --tm-avatar-size: 48px;  --tm-hs-m: 24px;  --tm-hs-d: 36px;  --tm-align: left;  --tm-pad: 28px;  --tm-gap: 16px;  --tm-quote-size: 17px;  --tm-below-m: 0px;  --tm-below-d: 0px;  --tm-pag-space: 28px;  --tm-pag-justify: flex-start;  --tm-pag-mi: 0 auto;"
+>
+<div class="container"><div class="tm-header section__header text-left"><p class="tm-head tm-head--eyebrow tm-head-eyebrow_1 fs-custom" data-tm-block="eyebrow_1" data-tm-type="eyebrow" data-block-id="eyebrow_1">Students</p><h2 class="tm-head tm-head--heading tm-head-heading_1 heading-letter-spacing" data-tm-block="heading_1" data-tm-type="heading" data-block-id="heading_1">What students play after a month</h2><div class="tm-head tm-head--sub tm-head-subheading_1 rich__text-m0" data-tm-block="subheading_1" data-tm-type="subheading" data-block-id="subheading_1"><p>Sample quotes and photos, to show the layout. Replace them with your students' words.</p></div></div>
+<div class="tm-cards-wrap"><slide-section
+class="swiper testimonials-slider lazy-loading-swiper-before"
+data-section-id="students"
+data-autoplay="false"
+data-effect="slide"
+data-loop="false"
+data-speed="500"
+data-autoplay-speed="5"
+data-spacing="20"
+data-mobile="1.15"
+data-desktop="3"
+data-tablet="3"
+data-pagination-progressbar="true"
+data-pagination-style="progress"
+>
+<div class="swiper-wrapper"><div class="swiper-slide" data-tm-block="testimonial_1" data-tm-type="testimonial" data-block-id="testimonial_1">
+<div class="tm-card"><div class="tm-card__rating" aria-label="Rated 5 out of 5" data-tm-stars><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.27 5.82.84-4.21 4.1.99 5.79L10 14.77l-5.2 2.73.99-5.79L1.58 7.6l5.82-.84z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.27 5.82.84-4.21 4.1.99 5.79L10 14.77l-5.2 2.73.99-5.79L1.58 7.6l5.82-.84z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.27 5.82.84-4.21 4.1.99 5.79L10 14.77l-5.2 2.73.99-5.79L1.58 7.6l5.82-.84z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.27 5.82.84-4.21 4.1.99 5.79L10 14.77l-5.2 2.73.99-5.79L1.58 7.6l5.82-.84z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.27 5.82.84-4.21 4.1.99 5.79L10 14.77l-5.2 2.73.99-5.79L1.58 7.6l5.82-.84z"/></svg></div><div class="tm-card__quote rich__text-m0"><p>I bought a guitar at forty and it sat in the corner for a year. Two months in, I played a whole song for my kids.</p></div><div class="tm-card__author"><img class="tm-card__avatar" src="/theme-previews/online-course/a/course2-student-1.129e936a1fb3.webp" alt="Sample name" loading="lazy" width="80" height="80"><div><p class="tm-card__name">Sample name</p><p class="tm-card__role">Started at 40</p></div>
+</div></div>
+</div><div class="swiper-slide" data-tm-block="testimonial_2" data-tm-type="testimonial" data-block-id="testimonial_2">
+<div class="tm-card"><div class="tm-card__rating" aria-label="Rated 5 out of 5" data-tm-stars><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.27 5.82.84-4.21 4.1.99 5.79L10 14.77l-5.2 2.73.99-5.79L1.58 7.6l5.82-.84z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.27 5.82.84-4.21 4.1.99 5.79L10 14.77l-5.2 2.73.99-5.79L1.58 7.6l5.82-.84z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.27 5.82.84-4.21 4.1.99 5.79L10 14.77l-5.2 2.73.99-5.79L1.58 7.6l5.82-.84z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.27 5.82.84-4.21 4.1.99 5.79L10 14.77l-5.2 2.73.99-5.79L1.58 7.6l5.82-.84z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.27 5.82.84-4.21 4.1.99 5.79L10 14.77l-5.2 2.73.99-5.79L1.58 7.6l5.82-.84z"/></svg></div><div class="tm-card__quote rich__text-m0"><p>The play along tracks are the trick. Slow, medium, real speed. I never felt stuck.</p></div><div class="tm-card__author"><img class="tm-card__avatar" src="/theme-previews/online-course/a/course2-student-2.f1154963e9a2.webp" alt="Sample name" loading="lazy" width="80" height="80"><div><p class="tm-card__name">Sample name</p><p class="tm-card__role">Electric, beginner</p></div>
+</div></div>
+</div><div class="swiper-slide" data-tm-block="testimonial_3" data-tm-type="testimonial" data-block-id="testimonial_3">
+<div class="tm-card"><div class="tm-card__rating" aria-label="Rated 5 out of 5" data-tm-stars><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.27 5.82.84-4.21 4.1.99 5.79L10 14.77l-5.2 2.73.99-5.79L1.58 7.6l5.82-.84z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.27 5.82.84-4.21 4.1.99 5.79L10 14.77l-5.2 2.73.99-5.79L1.58 7.6l5.82-.84z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.27 5.82.84-4.21 4.1.99 5.79L10 14.77l-5.2 2.73.99-5.79L1.58 7.6l5.82-.84z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.27 5.82.84-4.21 4.1.99 5.79L10 14.77l-5.2 2.73.99-5.79L1.58 7.6l5.82-.84z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.27 5.82.84-4.21 4.1.99 5.79L10 14.77l-5.2 2.73.99-5.79L1.58 7.6l5.82-.84z"/></svg></div><div class="tm-card__quote rich__text-m0"><p>I finally got the F chord to ring. The barre module explains it like nobody else did.</p></div><div class="tm-card__author"><img class="tm-card__avatar" src="/theme-previews/online-course/a/course2-student-3.7abd94afe2e4.webp" alt="Sample name" loading="lazy" width="80" height="80"><div><p class="tm-card__name">Sample name</p><p class="tm-card__role">Self taught, came back</p></div>
+</div></div>
+</div><div class="swiper-slide" data-tm-block="testimonial_4" data-tm-type="testimonial" data-block-id="testimonial_4">
+<div class="tm-card"><div class="tm-card__rating" aria-label="Rated 5 out of 5" data-tm-stars><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.27 5.82.84-4.21 4.1.99 5.79L10 14.77l-5.2 2.73.99-5.79L1.58 7.6l5.82-.84z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.27 5.82.84-4.21 4.1.99 5.79L10 14.77l-5.2 2.73.99-5.79L1.58 7.6l5.82-.84z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.27 5.82.84-4.21 4.1.99 5.79L10 14.77l-5.2 2.73.99-5.79L1.58 7.6l5.82-.84z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.27 5.82.84-4.21 4.1.99 5.79L10 14.77l-5.2 2.73.99-5.79L1.58 7.6l5.82-.84z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.27 5.82.84-4.21 4.1.99 5.79L10 14.77l-5.2 2.73.99-5.79L1.58 7.6l5.82-.84z"/></svg></div><div class="tm-card__quote rich__text-m0"><p>Twenty minutes before work. The plan tells me what to do, so I just do it.</p></div><div class="tm-card__author"><img class="tm-card__avatar" src="/theme-previews/online-course/a/course2-student-4.ea2d493e422b.webp" alt="Sample name" loading="lazy" width="80" height="80"><div><p class="tm-card__name">Sample name</p><p class="tm-card__role">Acoustic, 3 months in</p></div>
+</div></div>
+</div><div class="swiper-slide" data-tm-block="testimonial_5" data-tm-type="testimonial" data-block-id="testimonial_5">
+<div class="tm-card"><div class="tm-card__rating" aria-label="Rated 5 out of 5" data-tm-stars><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.27 5.82.84-4.21 4.1.99 5.79L10 14.77l-5.2 2.73.99-5.79L1.58 7.6l5.82-.84z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.27 5.82.84-4.21 4.1.99 5.79L10 14.77l-5.2 2.73.99-5.79L1.58 7.6l5.82-.84z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.27 5.82.84-4.21 4.1.99 5.79L10 14.77l-5.2 2.73.99-5.79L1.58 7.6l5.82-.84z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.27 5.82.84-4.21 4.1.99 5.79L10 14.77l-5.2 2.73.99-5.79L1.58 7.6l5.82-.84z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.27 5.82.84-4.21 4.1.99 5.79L10 14.77l-5.2 2.73.99-5.79L1.58 7.6l5.82-.84z"/></svg></div><div class="tm-card__quote rich__text-m0"><p>The video feedback was worth it. Jonas spotted my thumb in the first reply.</p></div><div class="tm-card__author"><img class="tm-card__avatar" src="/theme-previews/online-course/a/course2-student-5.0f9b0c843f70.webp" alt="Sample name" loading="lazy" width="80" height="80"><div><p class="tm-card__name">Sample name</p><p class="tm-card__role">With feedback</p></div>
+</div></div>
+</div><div class="swiper-slide" data-tm-block="testimonial_6" data-tm-type="testimonial" data-block-id="testimonial_6">
+<div class="tm-card"><div class="tm-card__rating" aria-label="Rated 5 out of 5" data-tm-stars><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.27 5.82.84-4.21 4.1.99 5.79L10 14.77l-5.2 2.73.99-5.79L1.58 7.6l5.82-.84z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.27 5.82.84-4.21 4.1.99 5.79L10 14.77l-5.2 2.73.99-5.79L1.58 7.6l5.82-.84z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.27 5.82.84-4.21 4.1.99 5.79L10 14.77l-5.2 2.73.99-5.79L1.58 7.6l5.82-.84z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.27 5.82.84-4.21 4.1.99 5.79L10 14.77l-5.2 2.73.99-5.79L1.58 7.6l5.82-.84z"/></svg><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.5l2.6 5.27 5.82.84-4.21 4.1.99 5.79L10 14.77l-5.2 2.73.99-5.79L1.58 7.6l5.82-.84z"/></svg></div><div class="tm-card__quote rich__text-m0"><p>I play at our Sunday barbecues now. Badly, but happily.</p></div><div class="tm-card__author"><img class="tm-card__avatar" src="/theme-previews/online-course/a/course2-student-6.4bc3726aef03.webp" alt="Sample name" loading="lazy" width="80" height="80"><div><p class="tm-card__name">Sample name</p><p class="tm-card__role">Finished the course</p></div>
+</div></div>
+</div></div><div
+class="swiper-pagination tm-pagination"
+style="--swiper-pagination-position: static;"
+></div></slide-section></div>
+</div>
+</div>
+</section><div id="shopify-section-faq" class="shopify-section section-faq7" data-section-id="faq" data-section-type="faq-pro"><script src="/theme-previews/_base/a/live-faq.15551f08943f.js" defer="defer"></script>
+<style>
+  #shopify-section-faq {
+    font-family: var(--body-font, inherit);
+    font-size: var(--body-font-size, inherit);
+    font-weight: var(--body-weight, inherit);
+    line-height: var(--body-line-height, inherit);
+    color: var(--color-text);
+  }
+  #shopify-section-faq :is(h1, h2, h3, h4, h5, h6) {
+    font-family: var(--heading-font, inherit);
+    font-weight: var(--heading-weight, inherit);
+    letter-spacing: var(--heading-letter-spacing, normal);
+    line-height: var(--heading-line-height, 1.2);
+    text-transform: var(--heading-text-transform, none);
+  }
+  :where(html:not([data-font-priority='off'])) #shopify-section-faq :where(.subheading, .sub-heading, [class*='__subheading']) {
+    font-weight: var(--subheading-weight, 500);
+  }
+</style><style>
+  #shopify-section-faq,#shopify-section-faq>.section,#shopify-section-faq>section,#shopify-section-faq>div,#shopify-section-faq>div>.section{margin-top:0!important;margin-bottom:0!important}
+  #shopify-section-faq+.shopify-section,#shopify-section-faq+section,.shopify-section+#shopify-section-faq{margin-top:0!important}
+  #shopify-section-faq{isolation:isolate;position:relative;margin-top:0px;margin-bottom:0px}
+  :where(#shopify-section-faq){font-family:var(--body-font,inherit)}
+  :where(#shopify-section-faq) :where(button,input,textarea,select,optgroup){font-family:inherit}
+  #shopify-section-faq *,#shopify-section-faq *:before,#shopify-section-faq *:after{box-sizing:border-box}
+  :where(#shopify-section-faq) :is(h1,h2,h3,h4,h5,h6){font-family:var(--heading-font,inherit);font-weight:var(--heading-weight,inherit)}
+  @media (min-width:768px){#shopify-section-faq{margin-top:0px;margin-bottom:0px}}
 </style>
-<section class="c2s" data-side="right">
-<div class="c2s__in">
-<div class="c2s__body"><p class="c2-tag" data-c2r>How it was filmed</p><h2 class="c2s__title" data-c2r style="--d: 60ms">At a home machine, <em>not a café one</em></h2><div class="c2s__text" data-c2r style="--d: 120ms"><p>Every lesson was shot in a kitchen, on the kind of machine and grinder most people own. What you see is what you will get at home.</p></div><div class="c2s__rows" data-c2r style="--d: 180ms"><details class="c2s__row" data-block-id="row_1">
-<summary>
-<span class="c2s__ico" aria-hidden="true">
-<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
-</span>
-<span class="c2s__rt">Short on purpose</span>
-<span class="c2s__plus" aria-hidden="true"></span>
-</summary>
-<div class="c2s__ra"><p>Most lessons are under ten minutes, so one fits before work.</p></div>
-</details><details class="c2s__row" data-block-id="row_2">
-<summary>
-<span class="c2s__ico" aria-hidden="true">
-<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 1 6.5 18H20v3H6.5"/></svg>
-</span>
-<span class="c2s__rt">Notes for every lesson</span>
-<span class="c2s__plus" aria-hidden="true"></span>
-</summary>
-<div class="c2s__ra"><p>The numbers from each lesson on one printable card.</p></div>
-</details></div></div>
-<figure class="c2s__media" data-c2r style="--d: 120ms"><img src="/theme-previews/online-course/a/course2-chemex-home.495dea08cb3e.webp" srcset="/theme-previews/online-course/a/course2-chemex-home.495dea08cb3e.webp 700w, /theme-previews/online-course/a/course2-chemex-home.495dea08cb3e.webp 1000w, /theme-previews/online-course/a/course2-chemex-home.495dea08cb3e.webp 1400w" sizes="(min-width: 990px) 560px, 92vw" width="1600" height="1600" alt="Ground coffee poured from a jar into a glass brewer on a scale, plants behind" loading="lazy" decoding="async"></figure>
+<link href="/theme-previews/_base/a/faq-pro.b7e810b1d391.css" rel="stylesheet" type="text/css" media="all"><div class="faq7 color-default gradient" data-faq7-root data-faq-root="faq-pro" data-faq-section="faq" data-faq-settings="{&quot;color_scheme&quot;:{&quot;id&quot;:&quot;default&quot;,&quot;settings&quot;:{&quot;page_colors&quot;:null,&quot;background&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;text_color&quot;:{&quot;red&quot;:74,&quot;green&quot;:77,&quot;blue&quot;:85,&quot;alpha&quot;:1,&quot;hue&quot;:224,&quot;saturation&quot;:7,&quot;lightness&quot;:31,&quot;rgb&quot;:&quot;74 77 85&quot;,&quot;rgba&quot;:&quot;74 77 85 / 1&quot;,&quot;hex&quot;:&quot;#4a4d55&quot;},&quot;heading_color&quot;:{&quot;red&quot;:13,&quot;green&quot;:13,&quot;blue&quot;:15,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:7,&quot;lightness&quot;:5,&quot;rgb&quot;:&quot;13 13 15&quot;,&quot;rgba&quot;:&quot;13 13 15 / 1&quot;,&quot;hex&quot;:&quot;#0d0d0f&quot;},&quot;primary_color&quot;:{&quot;red&quot;:229,&quot;green&quot;:55,&quot;blue&quot;:42,&quot;alpha&quot;:1,&quot;hue&quot;:4,&quot;saturation&quot;:78,&quot;lightness&quot;:53,&quot;rgb&quot;:&quot;229 55 42&quot;,&quot;rgba&quot;:&quot;229 55 42 / 1&quot;,&quot;hex&quot;:&quot;#e5372a&quot;},&quot;border_color&quot;:{&quot;red&quot;:227,&quot;green&quot;:228,&quot;blue&quot;:232,&quot;alpha&quot;:1,&quot;hue&quot;:228,&quot;saturation&quot;:10,&quot;lightness&quot;:90,&quot;rgb&quot;:&quot;227 228 232&quot;,&quot;rgba&quot;:&quot;227 228 232 / 1&quot;,&quot;hex&quot;:&quot;#e3e4e8&quot;},&quot;badge_background&quot;:null,&quot;badge_text&quot;:null,&quot;primary_button_colors&quot;:null,&quot;btn_primary_background&quot;:{&quot;red&quot;:229,&quot;green&quot;:55,&quot;blue&quot;:42,&quot;alpha&quot;:1,&quot;hue&quot;:4,&quot;saturation&quot;:78,&quot;lightness&quot;:53,&quot;rgb&quot;:&quot;229 55 42&quot;,&quot;rgba&quot;:&quot;229 55 42 / 1&quot;,&quot;hex&quot;:&quot;#e5372a&quot;},&quot;btn_primary_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_primary_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_primary_hover_background&quot;:{&quot;red&quot;:13,&quot;green&quot;:13,&quot;blue&quot;:15,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:7,&quot;lightness&quot;:5,&quot;rgb&quot;:&quot;13 13 15&quot;,&quot;rgba&quot;:&quot;13 13 15 / 1&quot;,&quot;hex&quot;:&quot;#0d0d0f&quot;},&quot;btn_primary_hover_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_primary_hover_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;secondary_button_colors&quot;:null,&quot;btn_secondary_background&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_color&quot;:{&quot;red&quot;:13,&quot;green&quot;:13,&quot;blue&quot;:15,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:7,&quot;lightness&quot;:5,&quot;rgb&quot;:&quot;13 13 15&quot;,&quot;rgba&quot;:&quot;13 13 15 / 1&quot;,&quot;hex&quot;:&quot;#0d0d0f&quot;},&quot;btn_secondary_border&quot;:{&quot;red&quot;:200,&quot;green&quot;:202,&quot;blue&quot;:208,&quot;alpha&quot;:1,&quot;hue&quot;:225,&quot;saturation&quot;:8,&quot;lightness&quot;:80,&quot;rgb&quot;:&quot;200 202 208&quot;,&quot;rgba&quot;:&quot;200 202 208 / 1&quot;,&quot;hex&quot;:&quot;#c8cad0&quot;},&quot;btn_secondary_hover_background&quot;:{&quot;red&quot;:13,&quot;green&quot;:13,&quot;blue&quot;:15,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:7,&quot;lightness&quot;:5,&quot;rgb&quot;:&quot;13 13 15&quot;,&quot;rgba&quot;:&quot;13 13 15 / 1&quot;,&quot;hex&quot;:&quot;#0d0d0f&quot;},&quot;btn_secondary_hover_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_hover_border_color&quot;:null,&quot;background_gradient&quot;:&quot;&quot;,&quot;btn_primary_gradient&quot;:&quot;&quot;,&quot;btn_primary_hover_background_gradient&quot;:&quot;&quot;,&quot;btn_secondary_hover_border&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_outline_color&quot;:{&quot;red&quot;:13,&quot;green&quot;:13,&quot;blue&quot;:15,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:7,&quot;lightness&quot;:5,&quot;rgb&quot;:&quot;13 13 15&quot;,&quot;rgba&quot;:&quot;13 13 15 / 1&quot;,&quot;hex&quot;:&quot;#0d0d0f&quot;},&quot;btn_outline_border_color&quot;:{&quot;red&quot;:200,&quot;green&quot;:202,&quot;blue&quot;:208,&quot;alpha&quot;:1,&quot;hue&quot;:225,&quot;saturation&quot;:8,&quot;lightness&quot;:80,&quot;rgb&quot;:&quot;200 202 208&quot;,&quot;rgba&quot;:&quot;200 202 208 / 1&quot;,&quot;hex&quot;:&quot;#c8cad0&quot;},&quot;button_link_color&quot;:{&quot;red&quot;:13,&quot;green&quot;:13,&quot;blue&quot;:15,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:7,&quot;lightness&quot;:5,&quot;rgb&quot;:&quot;13 13 15&quot;,&quot;rgba&quot;:&quot;13 13 15 / 1&quot;,&quot;hex&quot;:&quot;#0d0d0f&quot;},&quot;button_link_hover_color&quot;:{&quot;red&quot;:13,&quot;green&quot;:13,&quot;blue&quot;:15,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:7,&quot;lightness&quot;:5,&quot;rgb&quot;:&quot;13 13 15&quot;,&quot;rgba&quot;:&quot;13 13 15 / 1&quot;,&quot;hex&quot;:&quot;#0d0d0f&quot;}}},&quot;section_width&quot;:&quot;container&quot;,&quot;reset_spacing&quot;:true,&quot;structured_data&quot;:false,&quot;heading&quot;:&quot;Frequently asked questions&quot;,&quot;subheading&quot;:&quot;&lt;p&gt;Have a question? We&#39;re here to help.&lt;\/p&gt;&quot;,&quot;first_item_open&quot;:true,&quot;allow_multiple_open&quot;:false,&quot;open_icon&quot;:&quot;plus&quot;,&quot;content_alignment&quot;:&quot;left&quot;,&quot;max_content_width&quot;:1180,&quot;col_gap&quot;:72,&quot;gap_header_to_items&quot;:32,&quot;gap_heading_to_subheading&quot;:12,&quot;gap_between_items&quot;:10,&quot;item_padding_y&quot;:20,&quot;item_padding_x&quot;:22,&quot;item_radius&quot;:12,&quot;show_dividers&quot;:false,&quot;enable_custom_style&quot;:true,&quot;section_bg&quot;:null,&quot;card_bg&quot;:{&quot;red&quot;:242,&quot;green&quot;:243,&quot;blue&quot;:245,&quot;alpha&quot;:1,&quot;hue&quot;:220,&quot;saturation&quot;:13,&quot;lightness&quot;:95,&quot;rgb&quot;:&quot;242 243 245&quot;,&quot;rgba&quot;:&quot;242 243 245 / 1&quot;,&quot;hex&quot;:&quot;#f2f3f5&quot;},&quot;card_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;divider_color&quot;:null,&quot;question_color&quot;:{&quot;red&quot;:13,&quot;green&quot;:13,&quot;blue&quot;:15,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:7,&quot;lightness&quot;:5,&quot;rgb&quot;:&quot;13 13 15&quot;,&quot;rgba&quot;:&quot;13 13 15 / 1&quot;,&quot;hex&quot;:&quot;#0d0d0f&quot;},&quot;hover_color&quot;:null,&quot;icon_color&quot;:{&quot;red&quot;:229,&quot;green&quot;:55,&quot;blue&quot;:42,&quot;alpha&quot;:1,&quot;hue&quot;:4,&quot;saturation&quot;:78,&quot;lightness&quot;:53,&quot;rgb&quot;:&quot;229 55 42&quot;,&quot;rgba&quot;:&quot;229 55 42 / 1&quot;,&quot;hex&quot;:&quot;#e5372a&quot;},&quot;answer_color&quot;:{&quot;red&quot;:74,&quot;green&quot;:77,&quot;blue&quot;:85,&quot;alpha&quot;:1,&quot;hue&quot;:224,&quot;saturation&quot;:7,&quot;lightness&quot;:31,&quot;rgb&quot;:&quot;74 77 85&quot;,&quot;rgba&quot;:&quot;74 77 85 / 1&quot;,&quot;hex&quot;:&quot;#4a4d55&quot;},&quot;heading_color&quot;:{&quot;red&quot;:13,&quot;green&quot;:13,&quot;blue&quot;:15,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:7,&quot;lightness&quot;:5,&quot;rgb&quot;:&quot;13 13 15&quot;,&quot;rgba&quot;:&quot;13 13 15 / 1&quot;,&quot;hex&quot;:&quot;#0d0d0f&quot;},&quot;subheading_color&quot;:null,&quot;enable_custom_fonts&quot;:false,&quot;heading_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;body_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;heading_size_desktop&quot;:36,&quot;heading_size_mobile&quot;:26,&quot;enable_custom_heading_weight&quot;:false,&quot;heading_weight&quot;:&quot;600&quot;,&quot;subheading_size_desktop&quot;:16,&quot;subheading_size_mobile&quot;:14,&quot;question_size_desktop&quot;:17,&quot;question_size_mobile&quot;:15,&quot;enable_custom_question_weight&quot;:false,&quot;question_weight&quot;:&quot;600&quot;,&quot;answer_size_desktop&quot;:16,&quot;answer_size_mobile&quot;:14,&quot;reveal&quot;:false,&quot;scroll_animation&quot;:&quot;inherit&quot;,&quot;padding_top&quot;:96,&quot;padding_bottom&quot;:96,&quot;section_margin_top_desktop&quot;:0,&quot;section_margin_bottom_desktop&quot;:0,&quot;section_margin_top_mobile&quot;:0,&quot;section_margin_bottom_mobile&quot;:0}" data-faq7-anim="none" data-faq7-width="container" style="--faq7-bg:var(--color-background);--faq7-pt:96px;--faq7-pb:96px;--faq7-col-gap:72px;--faq7-align:left;--faq7-mi:0;--faq7-cta-justify:flex-start;--faq7-gap-header:32px;--faq7-maxw:1180px;--faq7-h-m:26px;--faq7-h-d:36px;--faq7-heading-color:#0d0d0f;--faq7-gap-sub:12px;--faq7-sub-m:14px;--faq7-sub-d:16px;--faq7-sub-color:var(--color-text);--faq7-gap-items:10px;--faq7-card-bg:#f2f3f5;--faq7-card-border:transparent;--faq7-radius:12px;--faq7-divider:var(--color-border);--faq7-py:20px;--faq7-px:22px;--faq7-q-color:#0d0d0f;--faq7-q-m:15px;--faq7-q-d:17px;--faq7-hover:var(--color-primary);--faq7-icon-color:#e5372a;--faq7-a-color:#4a4d55;--faq7-a-m:14px;--faq7-a-d:16px;">
+<div class="faq7__inner">
+<div class="faq7__layout"><div class="faq7__header"><h2 class="faq7__heading" id="block-heading_1" data-faq-block="heading_1" data-faq-type="heading" data-faq-settings="{&quot;text&quot;:&quot;Questions before you start&quot;,&quot;tag&quot;:&quot;h2&quot;,&quot;enable_custom_style&quot;:false,&quot;color&quot;:null,&quot;enable_custom_fonts&quot;:false,&quot;font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;weight_enable&quot;:true,&quot;weight&quot;:&quot;700&quot;,&quot;size_enable&quot;:true,&quot;size_desktop&quot;:44,&quot;size_mobile&quot;:30,&quot;line_height&quot;:1.15,&quot;tracking&quot;:0}" data-own-weight data-own-size style="--fb-fw:700;--fb-fs-d:44px;--fb-fs-m:30px;--fb-lh:1.15;--fb-ls:0px;" data-block-id="heading_1">Questions before you start</h2><div class="faq7__subheading" id="block-subheading_1" data-faq-block="subheading_1" data-faq-type="subheading" data-faq-settings="{&quot;text&quot;:&quot;&lt;p&gt;Anything else? &lt;a href=\&quot;/pages/contact\&quot;&gt;Write to us&lt;\/a&gt; and we answer within a day.&lt;\/p&gt;&quot;,&quot;enable_custom_style&quot;:false,&quot;color&quot;:null,&quot;enable_custom_fonts&quot;:false,&quot;font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;weight_enable&quot;:false,&quot;weight&quot;:&quot;400&quot;,&quot;size_enable&quot;:false,&quot;size&quot;:16,&quot;line_height&quot;:1.5}" data-block-id="subheading_1"><p>Anything else? <a href="/theme-previews/online-course/pages/contact.html">Write to us</a> and we answer within a day.</p></div></div><template data-faq-icons>
+<svg data-icon="chevron" class="faq7__icon-chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+<svg data-icon="arrow" class="faq7__icon-chevron" viewBox="0 0 24 24"><path d="M12 4v16M4 12h16" stroke-linecap="round"/></svg>
+<span data-icon="plus" class="faq7__icon-plus"><span class="v"></span><span class="h"></span></span></template><div class="faq7__list" data-faq7-list data-faq-list data-multiple="false"><div class="faq7__item" open data-faq7-item data-faq-item id="block-faq_item_1" data-faq-block="faq_item_1" data-faq-type="faq_item" data-faq-settings="{&quot;question&quot;:&quot;Do I need to read music?&quot;,&quot;answer&quot;:&quot;&lt;p&gt;No. Everything is shown on video and in chord boxes and simple tab. You will pick up what you need as you go.&lt;\/p&gt;&quot;}" data-block-id="faq_item_1">
+<button
+type="button"
+class="faq7__q"
+aria-expanded="true"
+aria-controls="faq7-a-faq-1"
+data-faq7-trigger data-faq-trigger
+>
+<span data-faq-question>Do I need to read music?</span>
+<span class="faq7__icon" aria-hidden="true" data-faq-icon="plus"><span class="faq7__icon-plus"><span class="v"></span><span class="h"></span></span></span>
+</button>
+<div class="faq7__a-wrap" id="faq7-a-faq-1" data-faq-panel>
+<div class="faq7__a-inner">
+<div class="faq7__a" data-faq-answer><p>No. Everything is shown on video and in chord boxes and simple tab. You will pick up what you need as you go.</p></div>
 </div>
-</section><script>(function(){var r=document.getElementById('shopify-section-filmed');if(!r||!('IntersectionObserver' in window)||matchMedia('(prefers-reduced-motion: reduce)').matches)return;var h=innerHeight,io=new IntersectionObserver(function(es){es.forEach(function(e){if(!e.isIntersecting)return;var t=e.target;io.unobserve(t);requestAnimationFrame(function(){t.classList.add('c2r-in')})})},{rootMargin:'0px 0px -6% 0px'});r.querySelectorAll('[data-c2r]').forEach(function(el){if(el.getBoundingClientRect().top<h*.92)return;el.classList.add('c2r-wait');io.observe(el)})})();</script></section><section id="shopify-section-facts" class="shopify-section course2-facts-section" data-section-id="facts" data-section-type="course2-facts"><link rel="stylesheet" href="/theme-previews/online-course/a/i.262d04ebd6b8.css">
-<div class="c2f">
-<ul class="c2f__grid" role="list"><li class="c2f__card" data-c2r style="--d: 0ms" data-block-id="fact_1">
-<span class="c2f__icon" aria-hidden="true">
-<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></svg>
-</span>
-<span class="c2f__figure">7</span>
-<span class="c2f__label">modules, bean to cup</span>
-</li><li class="c2f__card" data-c2r style="--d: 80ms" data-block-id="fact_2">
-<span class="c2f__icon" aria-hidden="true">
-<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" focusable="false"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M10 9l5 3-5 3z"/></svg>
-</span>
-<span class="c2f__figure">46</span>
-<span class="c2f__label">video lessons</span>
-</li><li class="c2f__card" data-c2r style="--d: 160ms" data-block-id="fact_3">
-<span class="c2f__icon" aria-hidden="true">
-<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
-</span>
-<span class="c2f__figure">6h</span>
-<span class="c2f__label">of video, in short parts</span>
-</li><li class="c2f__card" data-c2r style="--d: 240ms" data-block-id="fact_4">
-<span class="c2f__icon" aria-hidden="true">
-<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
-</span>
-<span class="c2f__figure">30</span>
-<span class="c2f__label">days to ask for a refund</span>
-</li></ul>
-</div><script>(function(){var r=document.getElementById('shopify-section-facts');if(!r||!('IntersectionObserver' in window)||matchMedia('(prefers-reduced-motion: reduce)').matches)return;var h=innerHeight,io=new IntersectionObserver(function(es){es.forEach(function(e){if(!e.isIntersecting)return;var t=e.target;io.unobserve(t);requestAnimationFrame(function(){t.classList.add('c2r-in')})})},{rootMargin:'0px 0px -6% 0px'});r.querySelectorAll('[data-c2r]').forEach(function(el){if(el.getBoundingClientRect().top<h*.92)return;el.classList.add('c2r-wait');io.observe(el)})})();</script></section><section id="shopify-section-cta" class="shopify-section course2-cta-section" data-section-id="cta" data-section-type="course2-cta"><link rel="stylesheet" href="/theme-previews/online-course/a/i.23034a8abf13.css">
+</div>
+</div><div class="faq7__item"  data-faq7-item data-faq-item id="block-faq_item_2" data-faq-block="faq_item_2" data-faq-type="faq_item" data-faq-settings="{&quot;question&quot;:&quot;Acoustic or electric?&quot;,&quot;answer&quot;:&quot;&lt;p&gt;Either. Every lesson works on both. The riffs module has a short part on electric sounds you can skip on acoustic.&lt;\/p&gt;&quot;}" data-block-id="faq_item_2">
+<button
+type="button"
+class="faq7__q"
+aria-expanded="false"
+aria-controls="faq7-a-faq-2"
+data-faq7-trigger data-faq-trigger
+>
+<span data-faq-question>Acoustic or electric?</span>
+<span class="faq7__icon" aria-hidden="true" data-faq-icon="plus"><span class="faq7__icon-plus"><span class="v"></span><span class="h"></span></span></span>
+</button>
+<div class="faq7__a-wrap" id="faq7-a-faq-2" data-faq-panel>
+<div class="faq7__a-inner">
+<div class="faq7__a" data-faq-answer><p>Either. Every lesson works on both. The riffs module has a short part on electric sounds you can skip on acoustic.</p></div>
+</div>
+</div>
+</div><div class="faq7__item"  data-faq7-item data-faq-item id="block-faq_item_3" data-faq-block="faq_item_3" data-faq-type="faq_item" data-faq-settings="{&quot;question&quot;:&quot;How long until I can play a song?&quot;,&quot;answer&quot;:&quot;&lt;p&gt;Most students play their first two chord song in the second week, and a full song by the end of the first month with twenty minutes a day.&lt;\/p&gt;&quot;}" data-block-id="faq_item_3">
+<button
+type="button"
+class="faq7__q"
+aria-expanded="false"
+aria-controls="faq7-a-faq-3"
+data-faq7-trigger data-faq-trigger
+>
+<span data-faq-question>How long until I can play a song?</span>
+<span class="faq7__icon" aria-hidden="true" data-faq-icon="plus"><span class="faq7__icon-plus"><span class="v"></span><span class="h"></span></span></span>
+</button>
+<div class="faq7__a-wrap" id="faq7-a-faq-3" data-faq-panel>
+<div class="faq7__a-inner">
+<div class="faq7__a" data-faq-answer><p>Most students play their first two chord song in the second week, and a full song by the end of the first month with twenty minutes a day.</p></div>
+</div>
+</div>
+</div><div class="faq7__item"  data-faq7-item data-faq-item id="block-faq_item_4" data-faq-block="faq_item_4" data-faq-type="faq_item" data-faq-settings="{&quot;question&quot;:&quot;I am left handed. Will it work?&quot;,&quot;answer&quot;:&quot;&lt;p&gt;Yes. Every chord sheet comes in a left handed version, and the videos show which hand does what.&lt;\/p&gt;&quot;}" data-block-id="faq_item_4">
+<button
+type="button"
+class="faq7__q"
+aria-expanded="false"
+aria-controls="faq7-a-faq-4"
+data-faq7-trigger data-faq-trigger
+>
+<span data-faq-question>I am left handed. Will it work?</span>
+<span class="faq7__icon" aria-hidden="true" data-faq-icon="plus"><span class="faq7__icon-plus"><span class="v"></span><span class="h"></span></span></span>
+</button>
+<div class="faq7__a-wrap" id="faq7-a-faq-4" data-faq-panel>
+<div class="faq7__a-inner">
+<div class="faq7__a" data-faq-answer><p>Yes. Every chord sheet comes in a left handed version, and the videos show which hand does what.</p></div>
+</div>
+</div>
+</div></div></div>
+</div>
+</div>
+<script src="/theme-previews/_base/a/faq-pro.aa0329bc0bd7.js" defer></script></div><section id="shopify-section-cta" class="shopify-section course2-cta-section" data-section-id="cta" data-section-type="course2-cta"><link rel="stylesheet" href="/theme-previews/online-course/a/i.1c79a040900e.css">
 <section class="c2x">
 <div class="c2x__in">
 <div class="c2x__panel" data-c2r>
-<h2 class="c2x__title">Tomorrow morning, make the good one</h2><div class="c2x__text"><p>46 lessons, the recipe cards and a 30 day refund, for one payment.</p></div><a class="c2x__btn" href="#" data-preview-inert>Buy the course</a><p class="c2x__note">Lifetime access. Watch on any device.</p></div>
+<h2 class="c2x__title">Pick up the guitar tonight</h2><div class="c2x__text"><p>The first lesson takes eight minutes. Sixty four lessons, twenty songs and a 30 day refund, for one payment.</p></div><a class="c2x__btn" href="#" data-preview-inert>Start learning</a><p class="c2x__note">30 day refund. Lifetime access.</p></div>
 </div>
 </section><script>(function(){var r=document.getElementById('shopify-section-cta');if(!r||!('IntersectionObserver' in window)||matchMedia('(prefers-reduced-motion: reduce)').matches)return;var h=innerHeight,io=new IntersectionObserver(function(es){es.forEach(function(e){if(!e.isIntersecting)return;var t=e.target;io.unobserve(t);requestAnimationFrame(function(){t.classList.add('c2r-in')})})},{rootMargin:'0px 0px -6% 0px'});r.querySelectorAll('[data-c2r]').forEach(function(el){if(el.getBoundingClientRect().top<h*.92)return;el.classList.add('c2r-wait');io.observe(el)})})();</script></section>
 </main><script src="/theme-previews/online-course/a/i.3221b11617b1.js"></script>
@@ -650,18 +807,6 @@ href="/theme-previews/online-course/pages/faqs.html"
     font-weight: var(--subheading-weight, 500);
   }
 </style><style>
-  #shopify-section-footer.scroll-trigger {
-    --animation-duration: 950ms;
-    --animation-delay: 80ms;
-  }
-</style>
-<script>
-  (function(){
-    var el = document.getElementById('shopify-section-footer');
-    if (!el || el.classList.contains('scroll-trigger') || document.documentElement.classList.contains('shopify-design-mode') || (window.SlTheme && window.SlTheme.designMode)) return;
-    el.classList.add('scroll-trigger', "fade_in");
-  })();
-</script><style>
   #shopify-section-footer,#shopify-section-footer>.section,#shopify-section-footer>section,#shopify-section-footer>div,#shopify-section-footer>div>.section{margin-top:0!important;margin-bottom:0!important}
   #shopify-section-footer+.shopify-section,#shopify-section-footer+section,.shopify-section+#shopify-section-footer{margin-top:0!important}
   #shopify-section-footer{font-weight:var(--body-weight,inherit);isolation:isolate;position:relative}
@@ -687,12 +832,12 @@ data-block-id="store_info_1"
 class="footer__block-heading fs-custom my-0 py-20 mb-md-5"
 style="--font-size: 15"
 >
-<span data-ft-heading>Slow Bloom</span>
+<span data-ft-heading>Fretline</span>
 </h3>
 <div
 class="store-info-content"
 ><div class="footer__block-info rich__text-mt-0 mb-20" data-ft-desc>
-<p>A home barista course by a working barista. Seven modules, from the beans to the cup, filmed at a home machine. Write a line about your own school here.</p>
+<p>Guitar lessons online, from your first chord to whole songs. Short videos, play along tracks and feedback on your own playing, taught by Jonas Wilde.</p>
 </div>
 </div>
 </div><div
@@ -727,26 +872,26 @@ Curriculum
 </li><li class="pb-8">
 <a
 href="/theme-previews/online-course/index.html#buy"
-aria-label="Buy the course"
+aria-label="Start learning"
 class="no-underline word-break reversed-links relative"
 >
-Buy the course
+Start learning
 </a>
 </li><li class="pb-8">
 <a
 href="/theme-previews/online-course/collections/all.html"
-aria-label="Everything for sale"
+aria-label="All lessons and extras"
 class="no-underline word-break reversed-links relative"
 >
-Everything for sale
+All lessons and extras
 </a>
 </li><li class="pb-8">
 <a
 href="/theme-previews/online-course/blogs/news.html"
-aria-label="Brewing notes"
+aria-label="Practice notes"
 class="no-underline word-break reversed-links relative"
 >
-Brewing notes
+Practice notes
 </a>
 </li></ul>
 </div>
@@ -817,7 +962,7 @@ Search
 <div class="footer__bottom"><div class="container">
 <div class="footer_bottom-inner justify-center justify-md-end flex flex-wrap flex-md-nowrap align-center border-top gap-20 gap-xl-30 py-30"><div class="flex flex-wrap gap-10 gap-xl-30 justify-center justify-md-start">
 <div class="footer__copyright" data-ft-copyright>© 2026 Slow Bloom</div>
-<ul class="footer__policies list-unstyled flex flex-wrap" data-ft-policies><li><a href="/theme-previews/online-course/policies/refund-policy.html">Refund policy</a></li><li><a href="/theme-previews/online-course/policies/privacy-policy.html">Privacy policy</a></li><li><a href="/theme-previews/online-course/policies/terms-of-service.html">Terms of service</a></li></ul><div class="footer__powered" data-ft-powered><a href="#" data-preview-inert data-storelib-badge="">Powered by Storelib</a></div></div>
+<ul class="footer__policies list-unstyled flex flex-wrap" data-ft-policies><li><a href="/theme-previews/online-course/policies/refund-policy.html">Refund policy</a></li><li><a href="/theme-previews/online-course/policies/privacy-policy.html">Privacy policy</a></li><li><a href="/theme-previews/online-course/policies/terms-of-service.html">Terms of service</a></li></ul><div class="footer__powered" data-ft-powered><a href="#" data-preview-inert data-storelib-badge="" style="display:inline-flex;align-items:center;gap:.45em;white-space:nowrap;vertical-align:middle"><svg data-storelib-badge-mark="" aria-hidden="true" focusable="false" viewBox="0 0 200 200" width="14" height="14" style="display:block;flex:none;width:1.2em;height:1.2em;overflow:visible"><mask id="sl-pb-s" maskUnits="userSpaceOnUse" x="0" y="0" width="200" height="200"><rect width="200" height="200" fill="#fff"/><svg x="48.97" y="38.44" width="102.06" height="123.12" viewBox="54 43 94.5 114" overflow="visible"><path transform="translate(134.125,52.875)" d="M0 0 C0.99749268 0.36665771 0.99749268 0.36665771 2.01513672 0.74072266 C6.62777473 2.59663113 6.62777473 2.59663113 7.68823242 4.86303711 C7.94652165 7.99120666 7.02705902 10.04467511 5.85546875 12.94921875 C5.41009766 14.05974609 4.96472656 15.17027344 4.50585938 16.31445312 C4.02955078 17.46880859 3.55324219 18.62316406 3.0625 19.8125 C2.59779297 20.97845703 2.13308594 22.14441406 1.65429688 23.34570312 C-1.85471661 31.98985831 -1.85471661 31.98985831 -4.125 33.125 C-6.02961204 32.43054915 -7.90085447 31.64344514 -9.75 30.8125 C-19.66422998 26.58368153 -27.26609106 25.85047702 -38.125 26.125 C-38.455 27.115 -38.785 28.105 -39.125 29.125 C-38.14402344 29.36734375 -37.16304687 29.6096875 -36.15234375 29.859375 C-33.31305776 30.56236873 -30.47635159 31.27497918 -27.640625 31.9921875 C-24.80213536 32.70970135 -21.95989766 33.40235421 -19.109375 34.0703125 C-6.69949938 37.1089446 3.02755655 40.84926977 9.875 52.125 C13.29151905 58.95803811 12.61307566 67.23479967 10.625 74.4375 C7.53029491 83.45189328 1.37513276 90.18616729 -7.02734375 94.67578125 C-26.20884362 103.04454374 -49.04415352 101.90170642 -68.5 94.625 C-72.25964144 93.07749587 -75.67848864 91.2806362 -79.125 89.125 C-78.55593823 84.90468545 -77.56543969 81.39586411 -75.83984375 77.5078125 C-75.39189453 76.48945313 -74.94394531 75.47109375 -74.48242188 74.421875 C-73.77956055 72.85179688 -73.77956055 72.85179688 -73.0625 71.25 C-72.59005859 70.18007812 -72.11761719 69.11015625 -71.63085938 68.0078125 C-70.46832699 65.3774362 -69.29955398 62.75002483 -68.125 60.125 C-63.80181734 61.13483216 -60.07150265 62.96083682 -56.07421875 64.87109375 C-49.32009515 67.74271451 -43.48344492 68.41757298 -36.25 68.3125 C-35.38375 68.31185547 -34.5175 68.31121094 -33.625 68.31054688 C-29.55080641 68.64235092 -29.55080641 68.64235092 -26.125 67.125 C-32.43853708 64.84703882 -38.66045093 62.93279428 -45.25 61.625 C-56.73505022 59.25968679 -67.31315991 55.21661495 -74.125 45.125 C-77.1608836 40.09281577 -77.67121961 36.10082917 -77.625 30.375 C-77.62072998 29.57876221 -77.61645996 28.78252441 -77.61206055 27.9621582 C-77.37730644 19.82208022 -74.95520496 14.3797357 -69.625 8.25 C-68.8 7.54875 -67.975 6.8475 -67.125 6.125 C-66.403125 5.465 -65.68125 4.805 -64.9375 4.125 C-46.69751714 -8.84565448 -20.22397968 -7.61423584 0 0 Z" fill="#000"/></svg></mask><rect width="200" height="200" rx="48" fill="currentColor" mask="url(#sl-pb-s)"/></svg><span>Powered by Storelib</span></a></div></div>
 </div>
 </div>
 </div>
@@ -865,11 +1010,11 @@ aria-modal="true"
 aria-label="Search"
 data-search-mode="popup"
 class="search-overlay search-overlay--popup search__type-popup search__popup-anim--fade color-default"
-style="--color-background: #ffffff;          --color-text: #3f444c;          --color-heading: #15171a;          --color-primary: #15171a;          --color-border: #e3e5e8;          --gradient-background: #ffffff;          background-color: #ffffff;          color: #3f444c;"
+style="--color-background: #ffffff;          --color-text: #4a4d55;          --color-heading: #0d0d0f;          --color-primary: #e5372a;          --color-border: #e3e4e8;          --gradient-background: #ffffff;          background-color: #ffffff;          color: #4a4d55;"
 ><div
 class="search__type-popup search__popup-anim--fade color-default h-full overflow-auto px-15 custom-scrollbar"
 data-search-popup-anim="fade"
-style="--color-background: #ffffff;    --color-text: #3f444c;    --color-heading: #15171a;    --color-primary: #15171a;    --color-border: #e3e5e8;    --gradient-background: #ffffff;    background-color: #ffffff;    color: #3f444c;"
+style="--color-background: #ffffff;    --color-text: #4a4d55;    --color-heading: #0d0d0f;    --color-primary: #e5372a;    --color-border: #e3e4e8;    --gradient-background: #ffffff;    background-color: #ffffff;    color: #4a4d55;"
 >
 <div class="fluid_container">
 <h3 class="search-title search-title--animated text-center h4 m-0 hidden block-sm" aria-label="Search"><span class="search-title__char" style="--char-i: 0;" aria-hidden="true">S</span><span class="search-title__char" style="--char-i: 1;" aria-hidden="true">e</span><span class="search-title__char" style="--char-i: 2;" aria-hidden="true">a</span><span class="search-title__char" style="--char-i: 3;" aria-hidden="true">r</span><span class="search-title__char" style="--char-i: 4;" aria-hidden="true">c</span><span class="search-title__char" style="--char-i: 5;" aria-hidden="true">h</span></h3>
@@ -1000,13 +1145,13 @@ style=" ;--col-number: 1;--col-tablet: 1;--col-desktop-small:3;--col-desktop: 5;
     --materia-cart-control: 40px;
     --materia-cart-recommend-gap: 12px;
   }
-</style><link href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" rel="stylesheet" type="text/css" media="all"><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/online-course/a/i.af19ab8a9126.css" data-cart-drawer-style="paint">
+</style><link href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" rel="stylesheet" type="text/css" media="all"><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/online-course/a/i.4e58b6fb57fa.css" data-cart-drawer-style="paint">
 <cart-notification data-cart-drawer-version="20261021-2"
 data-show-quantity="true"
 data-show-shipping-estimator="false"
 data-show-free-shipping="false"
-id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #3f444c;    --color-heading: #15171a;    --color-primary: #15171a;    --color-border: #e3e5e8;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #12704f;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #0d5a3f;    --btn-secondary-color: #15171a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #15171a;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #15171a;    --btn-outline-color: #15171a;    --btn-outline-border-color: #15171a;    background-color: #ffffff !important;    color: #3f444c !important;">
-<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #3f444c;    --color-heading: #15171a;    --color-primary: #15171a;    --color-border: #e3e5e8;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #12704f;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #0d5a3f;    --btn-secondary-color: #15171a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #15171a;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #15171a;    --btn-outline-color: #15171a;    --btn-outline-border-color: #15171a;    background-color: #ffffff !important;    color: #3f444c !important;">
+id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #4a4d55;    --color-heading: #0d0d0f;    --color-primary: #e5372a;    --color-border: #e3e4e8;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #e5372a;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #0d0d0f;    --btn-secondary-color: #0d0d0f;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #c8cad0;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #0d0d0f;    --btn-outline-color: #0d0d0f;    --btn-outline-border-color: #c8cad0;    background-color: #ffffff !important;    color: #4a4d55 !important;">
+<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #4a4d55;    --color-heading: #0d0d0f;    --color-primary: #e5372a;    --color-border: #e3e4e8;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #e5372a;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #0d0d0f;    --btn-secondary-color: #0d0d0f;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #c8cad0;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #0d0d0f;    --btn-outline-color: #0d0d0f;    --btn-outline-border-color: #c8cad0;    background-color: #ffffff !important;    color: #4a4d55 !important;">
 <button type="button" class="cart-drawer-sheet-scrim" aria-label="Cancel"></button>
 <div class="minicart__header flex gap-10 align-center justify-between px-30 py-18 color-default">
 <div class="h5 minicart-heading my-0">
@@ -1048,7 +1193,6 @@ Continue Shopping
 <div class="overlayminicart">
 </div>
 <script src="/theme-previews/online-course/a/i.f50d71910c82.js"></script>
-<script src="/theme-previews/_base/a/animation.7fa50ded717b.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/tingle-min.9664ca3641cf.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/cart-discount.6748c8dd9657.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/theme.7a7dd8f80f89.js"  defer="defer" type="module"></script>
@@ -1115,21 +1259,8 @@ Skip to content
   @keyframes materiaMediaFade { from { opacity: 0; } to { opacity: 1; } }
   html.js-media-fade .media-fade-run { animation: materiaMediaFade .4s ease; }
 </style>
-<script src="/theme-previews/online-course/a/i.dfcb99e2686f.js"></script>
-<style>
-        :root {
-          /* Wire the user's Animations & motion settings to the keyframe vars used by animation.css */
-          --duration-long: 665ms;
-          --duration-extra-long: 950ms;
-          --duration-extra-longer: 950ms;
-          --animation-duration: 950ms;
-          --animation-delay-base: 80ms;
-        }
-        /* Every reveal type, its timing, the first screen, the builder and
-           reduced motion are drawn by animation.css for every .scroll-trigger
-           (theme-wide sections below and cards inside sections alike). */
-      </style>
-<script src="/theme-previews/online-course/a/i.1e7544fc58cb.js"></script><link rel="stylesheet" href="/theme-previews/online-course/a/i.7c52d5318a5a.css">
+<script src="/theme-previews/online-course/a/i.1738a28f6b3c.js"></script>
+<link rel="stylesheet" href="/theme-previews/online-course/a/i.7c52d5318a5a.css">
 <script src="/theme-previews/online-course/a/i.a459fa2d52ff.js"></script><script id="materia-shipping-data" type="application/json">
   {
     "rates": "",
@@ -1156,13 +1287,13 @@ Skip to content
     --materia-cart-control: 40px;
     --materia-cart-recommend-gap: 12px;
   }
-</style><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/online-course/a/i.af19ab8a9126.css" data-cart-drawer-style="paint">
+</style><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/online-course/a/i.4e58b6fb57fa.css" data-cart-drawer-style="paint">
 <cart-notification data-cart-drawer-version="20261021-2"
 data-show-quantity="true"
 data-show-shipping-estimator="false"
 data-show-free-shipping="false"
-id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #3f444c;    --color-heading: #15171a;    --color-primary: #15171a;    --color-border: #e3e5e8;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #12704f;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #0d5a3f;    --btn-secondary-color: #15171a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #15171a;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #15171a;    --btn-outline-color: #15171a;    --btn-outline-border-color: #15171a;    background-color: #ffffff !important;    color: #3f444c !important;">
-<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #3f444c;    --color-heading: #15171a;    --color-primary: #15171a;    --color-border: #e3e5e8;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #12704f;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #0d5a3f;    --btn-secondary-color: #15171a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #15171a;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #15171a;    --btn-outline-color: #15171a;    --btn-outline-border-color: #15171a;    background-color: #ffffff !important;    color: #3f444c !important;">
+id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #4a4d55;    --color-heading: #0d0d0f;    --color-primary: #e5372a;    --color-border: #e3e4e8;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #e5372a;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #0d0d0f;    --btn-secondary-color: #0d0d0f;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #c8cad0;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #0d0d0f;    --btn-outline-color: #0d0d0f;    --btn-outline-border-color: #c8cad0;    background-color: #ffffff !important;    color: #4a4d55 !important;">
+<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #4a4d55;    --color-heading: #0d0d0f;    --color-primary: #e5372a;    --color-border: #e3e4e8;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #e5372a;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #0d0d0f;    --btn-secondary-color: #0d0d0f;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #c8cad0;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #0d0d0f;    --btn-outline-color: #0d0d0f;    --btn-outline-border-color: #c8cad0;    background-color: #ffffff !important;    color: #4a4d55 !important;">
 <button type="button" class="cart-drawer-sheet-scrim" aria-label="Cancel"></button>
 <div class="minicart__header flex gap-10 align-center justify-between px-30 py-18 color-default">
 <div class="h5 minicart-heading my-0">

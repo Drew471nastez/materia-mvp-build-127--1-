@@ -4,82 +4,146 @@
       "type": "course2-contact",
       "settings": {
         "tag": "Contact",
-        "heading": "We are here to help",
-        "text": "<p>Questions about your machine, the lessons or team seats. We answer within two working days.</p>",
+        "heading": "Write to us",
+        "text": "<p>Questions about the course, your guitar or which plan fits. We answer within a working day.</p>",
         "email_label": "Or write to",
-        "email": "hello@slowbloom.coffee",
+        "email": "hello@example.com",
         "card_tag": "Get in touch",
-        "card_heading": "Ask about your setup",
-        "card_text": "Tell us your machine and grinder and we will say which lessons to start with.",
+        "card_heading": "Ask before you start",
+        "card_text": "Tell us what you play and what you want to learn, and we will point you to the right place.",
         "ph_first": "First name",
         "ph_last": "Last name",
         "ph_email": "Email",
-        "ph_message": "Your machine, your grinder, your question",
+        "ph_message": "Your guitar, your level, your question",
         "agree_text": "",
         "button_label": "Send message",
         "thanks": "Thank you. We will write back within two working days.",
         "error": "Please check the form.",
-        "accent": "#12704f",
-        "padding_top": 56
+        "accent": "#e5372a",
+        "padding_top": 56,
+        "panel_color": "#f2f3f5",
+        "heading_color": "#0d0d0f",
+        "text_color": "#4a4d55"
       }
     },
     "faq": {
-      "type": "course2-faq",
+      "type": "faq-pro",
       "settings": {
-        "tag": "Questions",
-        "heading": "Straight answers",
-        "heading_accent": "before you buy",
-        "text": "<p>The questions people ask most. Anything else, <a href=\"/pages/contact\">write to us</a>.</p>",
-        "accent": "#12704f"
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "first_item_open": true,
+        "open_icon": "plus",
+        "content_alignment": "left",
+        "max_content_width": 1180,
+        "col_gap": 72,
+        "gap_header_to_items": 32,
+        "gap_between_items": 10,
+        "item_padding_y": 20,
+        "item_padding_x": 22,
+        "item_radius": 12,
+        "show_dividers": false,
+        "enable_custom_style": true,
+        "card_bg": "#ffffff",
+        "card_border_color": "rgba(0,0,0,0)",
+        "question_color": "#0d0d0f",
+        "icon_color": "#e5372a",
+        "answer_color": "#4a4d55",
+        "heading_color": "#0d0d0f",
+        "question_size_desktop": 17,
+        "answer_size_desktop": 16,
+        "reveal": false,
+        "padding_top": 96,
+        "padding_bottom": 96
       },
       "blocks": {
-        "question_1": {
-          "type": "question",
+        "heading_1": {
+          "type": "heading",
           "settings": {
-            "question": "What machine do I need?",
-            "answer": "<p>Any home espresso machine with a steam wand, and a grinder. The lessons use a single boiler machine and a hand grinder, and every step works the same on bigger ones.</p>"
+            "text": "Questions before you start",
+            "tag": "h2",
+            "size_enable": true,
+            "size_desktop": 44,
+            "size_mobile": 30,
+            "weight_enable": true,
+            "weight": "700"
           }
         },
-        "question_2": {
-          "type": "question",
+        "subheading_1": {
+          "type": "subheading",
           "settings": {
-            "question": "Do I need a scale?",
-            "answer": "<p>Yes, any kitchen scale that reads to a tenth of a gram. It is the cheapest thing that makes the biggest difference.</p>"
+            "text": "<p>Anything else? <a href=\"/pages/contact\">Write to us</a> and we answer within a day.</p>"
           }
         },
-        "question_3": {
-          "type": "question",
+        "faq_item_1": {
+          "type": "faq_item",
           "settings": {
-            "question": "I only drink filter coffee. Is it for me?",
-            "answer": "<p>The last module and the recipe cards cover pour over and cafetiere. The grinding lessons apply to both.</p>"
+            "question": "Do I need to read music?",
+            "answer": "<p>No. Everything is shown on video and in chord boxes and simple tab. You will pick up what you need as you go.</p>"
           }
         },
-        "question_4": {
-          "type": "question",
+        "faq_item_2": {
+          "type": "faq_item",
           "settings": {
-            "question": "How long do I have access?",
-            "answer": "<p>For good. Watch on a phone, a tablet or a computer, and come back to any lesson whenever you like.</p>"
+            "question": "Acoustic or electric?",
+            "answer": "<p>Either. Every lesson works on both. The riffs module has a short part on electric sounds you can skip on acoustic.</p>"
           }
         },
-        "question_5": {
-          "type": "question",
+        "faq_item_3": {
+          "type": "faq_item",
           "settings": {
-            "question": "What if it is not for me?",
-            "answer": "<p>Write within 30 days and we refund you in full. Replace this with your own terms.</p>"
+            "question": "How long until I can play a song?",
+            "answer": "<p>Most students play their first two chord song in the second week, and a full song by the end of the first month with twenty minutes a day.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "I am left handed. Will it work?",
+            "answer": "<p>Yes. Every chord sheet comes in a left handed version, and the videos show which hand does what.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What do I need?",
+            "answer": "<p>A guitar, a phone or laptop, and a tuner app, which is free. A capo helps from module four.</p>"
           }
         }
       },
       "block_order": [
-        "question_1",
-        "question_2",
-        "question_3",
-        "question_4",
-        "question_5"
+        "heading_1",
+        "subheading_1",
+        "faq_item_1",
+        "faq_item_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5"
       ]
+    },
+    "cta": {
+      "type": "course2-cta",
+      "settings": {
+        "heading": "Pick up the guitar tonight",
+        "text": "<p>The first lesson takes eight minutes. Sixty four lessons, twenty songs and a 30 day refund, for one payment.</p>",
+        "button_label": "Start learning",
+        "to_checkout": true,
+        "button_link": "/collections/all",
+        "note": "30 day refund. Lifetime access.",
+        "heading_size": 52,
+        "background": "#ffffff",
+        "panel_color": "#0d0d0f",
+        "heading_color": "#ffffff",
+        "text_color": "#c9cbd1",
+        "button_color": "#e5372a",
+        "button_text_color": "#ffffff",
+        "padding_top": 96,
+        "padding_bottom": 96
+      }
     }
   },
   "order": [
     "contact",
-    "faq"
+    "faq",
+    "cta"
   ]
 }

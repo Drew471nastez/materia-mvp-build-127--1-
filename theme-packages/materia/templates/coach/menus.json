@@ -7,10 +7,6 @@
         "url": "/collections/all"
       },
       {
-        "title": "How it works",
-        "url": "/pages/about#how"
-      },
-      {
         "title": "About",
         "url": "/pages/about"
       },
@@ -21,6 +17,10 @@
       {
         "title": "FAQ",
         "url": "/pages/faqs"
+      },
+      {
+        "title": "Contact",
+        "url": "/pages/contact"
       }
     ]
   },

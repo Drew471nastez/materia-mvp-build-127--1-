@@ -1,0 +1,106 @@
+{%- comment -%}
+  Digital Renaissance: questions. A heading, a row of tabs made from the
+  "Group" of each question (in the order they first appear), and the
+  questions of the chosen group as rows that open. Without script every
+  question shows; the tabs only filter. In the builder every question
+  shows so each block can be clicked.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign groups = '|'
+  for block in section.blocks
+    assign g = block.settings.group | strip
+    if g != blank
+      assign key = '|' | append: g | append: '|'
+      unless groups contains key
+        assign groups = groups | append: g | append: '|'
+      endunless
+    endif
+  endfor
+  assign group_list = groups | remove_first: '|' | split: '|'
+-%}
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap">
+<style>
+  #shopify-section-{{ sid }} .rnq { --gold: {{ st.gold | default: '#f2bd4f' }}; --lapis: {{ st.accent | default: '#3d5afe' }}; background: {{ st.background | default: '#07080d' }}; color: {{ st.text_color | default: '#a7adbf' }}; padding: {{ st.padding_top_mobile | default: 56 }}px 16px {{ st.padding_bottom_mobile | default: 56 }}px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .rnq { padding: {{ st.padding_top | default: 104 }}px 40px {{ st.padding_bottom | default: 104 }}px; } }
+  #shopify-section-{{ sid }} .rnq__in { max-width: 820px; margin: 0 auto; }
+  #shopify-section-{{ sid }} .rnq__eyebrow { margin: 0 0 12px; color: var(--gold); font-size: 12px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; text-align: center; }
+  #shopify-section-{{ sid }} .rnq__title { margin: 0 auto 28px; color: #fff; font-family: var(--heading-font, sans-serif); font-weight: 600; font-size: 32px; line-height: 1.08; letter-spacing: -.03em; text-align: center; text-wrap: balance; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .rnq__title { font-size: 48px; margin-bottom: 36px; } }
+  #shopify-section-{{ sid }} .rnq__title em { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; color: var(--gold); }
+  #shopify-section-{{ sid }} .rnq__tabs { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin: 0 0 24px; }
+  #shopify-section-{{ sid }} .rnq__tab { min-height: 42px; padding: 0 18px; border-radius: 10px; border: 1px solid rgba(255,255,255,.16); background: transparent; color: #d6d9e3; font: inherit; font-size: 14.5px; font-weight: 600; cursor: pointer; transition: background-color .2s ease, border-color .2s ease, color .2s ease; }
+  #shopify-section-{{ sid }} .rnq__tab[aria-selected="true"] { background: var(--lapis); border-color: var(--lapis); color: #fff; }
+  #shopify-section-{{ sid }} .rnq__list { border-radius: 16px; border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.02); overflow: hidden; }
+  #shopify-section-{{ sid }} .rnq__item { border-top: 1px solid rgba(255,255,255,.07); }
+  #shopify-section-{{ sid }} .rnq__item.is-first { border-top: 0; }
+  #shopify-section-{{ sid }} .rnq__item[hidden] { display: none; }
+  #shopify-section-{{ sid }} .rnq__q { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 18px 20px; color: #fff; font-size: 15.5px; font-weight: 600; line-height: 1.4; cursor: pointer; list-style: none; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .rnq__q { padding: 20px 24px; font-size: 16.5px; } }
+  #shopify-section-{{ sid }} .rnq__q::-webkit-details-marker { display: none; }
+  #shopify-section-{{ sid }} .rnq__plus { position: relative; flex: 0 0 auto; width: 14px; height: 14px; }
+  #shopify-section-{{ sid }} .rnq__plus::before, #shopify-section-{{ sid }} .rnq__plus::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1.6px; margin-top: -.8px; background: currentColor; transition: transform .3s ease; }
+  #shopify-section-{{ sid }} .rnq__plus::after { transform: rotate(90deg); }
+  #shopify-section-{{ sid }} details[open] .rnq__plus::after { transform: rotate(0deg); }
+  #shopify-section-{{ sid }} .rnq__a { padding: 0 20px 20px; font-size: 15.5px; line-height: 1.65; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .rnq__a { padding: 0 24px 22px; } }
+  #shopify-section-{{ sid }} .rnq__a p { margin: 0 0 10px; }
+  #shopify-section-{{ sid }} .rnq__a a { color: #fff; }
+  #shopify-section-{{ sid }} .rnq__more { margin: 22px 0 0; text-align: center; font-size: 15px; }
+  #shopify-section-{{ sid }} .rnq__more a { color: #fff; }
+</style>
+<section data-own-size class="rnq"{% if st.anchor != blank %} id="{{ st.anchor | handleize }}"{% endif %}>
+  <div class="rnq__in">
+    {%- if st.eyebrow != blank -%}<p class="rnq__eyebrow">{{ st.eyebrow | escape }}</p>{%- endif -%}
+    {%- if st.heading != blank -%}<h2 class="rnq__title">{{ st.heading }}</h2>{%- endif -%}
+    {%- if group_list.size > 1 -%}
+      <div class="rnq__tabs" role="tablist" data-rnq-tabs hidden>
+        {%- for g in group_list -%}{%- if g != blank -%}<button type="button" class="rnq__tab" role="tab" aria-selected="{% if forloop.first %}true{% else %}false{% endif %}" data-rnq-group="{{ g | handleize }}">{{ g | escape }}</button>{%- endif -%}{%- endfor -%}
+      </div>
+    {%- endif -%}
+    <div class="rnq__list">
+      {%- for block in section.blocks -%}
+        <details class="rnq__item{% if forloop.first %} is-first{% endif %}" data-rnq-item="{{ block.settings.group | strip | handleize }}" {{ block.shopify_attributes }}>
+          <summary class="rnq__q">{{ block.settings.question | escape }}<span class="rnq__plus" aria-hidden="true"></span></summary>
+          <div class="rnq__a">{{ block.settings.answer }}</div>
+        </details>
+      {%- endfor -%}
+    </div>
+    {%- if st.more != blank -%}<div class="rnq__more">{{ st.more }}</div>{%- endif -%}
+  </div>
+</section>
+{%- unless request.design_mode -%}
+<script>(function(){var r=document.getElementById('shopify-section-{{ sid }}');if(!r)return;var tabs=r.querySelector('[data-rnq-tabs]');if(!tabs)return;var items=[].slice.call(r.querySelectorAll('[data-rnq-item]'));function show(g){var first=true;items.forEach(function(it){var on=it.getAttribute('data-rnq-item')===g;it.hidden=!on;it.classList.toggle('is-first',on&&first);if(on)first=false});[].forEach.call(tabs.children,function(b){b.setAttribute('aria-selected',b.getAttribute('data-rnq-group')===g?'true':'false')})}tabs.hidden=false;tabs.addEventListener('click',function(e){var b=e.target.closest('[data-rnq-group]');if(b)show(b.getAttribute('data-rnq-group'))});show(tabs.children[0].getAttribute('data-rnq-group'))})();</script>
+{%- endunless -%}
+
+{% schema %}
+{
+  "name": "Renaissance questions",
+  "tag": "section",
+  "class": "renaissance-faq-section",
+  "disabled_on": { "groups": ["header", "footer"] },
+  "settings": [
+    { "type": "text", "id": "anchor", "label": "Name for links to this place", "default": "faq" },
+    { "type": "text", "id": "eyebrow", "label": "Small line above", "default": "Questions" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "Get your questions <em>answered</em>" },
+    { "type": "richtext", "id": "more", "label": "Line under the questions", "default": "<p>Something else? <a href=\"/pages/contact\">Write to us</a>.</p>" },
+    { "type": "color", "id": "background", "label": "Background", "default": "#07080d" },
+    { "type": "color", "id": "accent", "label": "Accent", "default": "#3d5afe" },
+    { "type": "color", "id": "gold", "label": "Highlight", "default": "#f2bd4f" },
+    { "type": "color", "id": "text_color", "label": "Text", "default": "#a7adbf" },
+    { "type": "range", "id": "padding_top", "label": "Space above on a computer", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 104 },
+    { "type": "range", "id": "padding_bottom", "label": "Space below on a computer", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 104 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Space above on a phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Space below on a phone", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 56 }
+  ],
+  "blocks": [
+    { "type": "question", "name": "Question", "limit": 24, "settings": [
+      { "type": "text", "id": "group", "label": "Group", "default": "General", "info": "Questions with the same group share a tab." },
+      { "type": "text", "id": "question", "label": "Question", "default": "A question people ask" },
+      { "type": "richtext", "id": "answer", "label": "Answer", "default": "<p>A short, direct answer.</p>" }
+    ] }
+  ],
+  "presets": [ { "name": "Renaissance questions", "category": "Digital Renaissance", "blocks": [ { "type": "question" }, { "type": "question" }, { "type": "question", "settings": { "group": "Pricing" } } ] } ]
+}
+{% endschema %}

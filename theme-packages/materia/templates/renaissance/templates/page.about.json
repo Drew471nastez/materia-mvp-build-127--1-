@@ -1,0 +1,294 @@
+{
+  "sections": {
+    "instructor": {
+      "type": "renaissance-instructor",
+      "settings": {
+        "background": "#07080d",
+        "accent": "#3d5afe",
+        "gold": "#f2bd4f",
+        "text_color": "#a7adbf",
+        "anchor": "instructor",
+        "next_anchor": "",
+        "image": "shopify://shop_images/renaissance-instructor-about.webp",
+        "image_alt": "Karim Nassar, arms crossed, against a dark wall",
+        "name": "Karim Nassar",
+        "role": "Your instructor",
+        "eyebrow": "Your instructor",
+        "heading": "Taught by someone who <em>does this daily</em>",
+        "text": "<p>Karim runs a small studio that sets up AI workflows for service businesses: clinics, shops, agencies and trades. Before that he spent twelve years running operations, so he cares less about clever demos and more about the hours you get back.</p><p>Everything in the course is something he uses with clients this year.</p>",
+        "credentials": "Sets up AI workflows for small businesses\nTwelve years running operations\nTeaches only what he uses with clients\nAnswers questions on every live call",
+        "quote": "Most of the value is in the boring work. That is exactly where AI is good.",
+        "social1_label": "YouTube",
+        "social1_url": "https://www.youtube.com",
+        "social2_label": "LinkedIn",
+        "social2_url": "https://www.linkedin.com"
+      }
+    },
+    "inside": {
+      "type": "renaissance-features",
+      "settings": {
+        "background": "#0b0c12",
+        "accent": "#3d5afe",
+        "gold": "#f2bd4f",
+        "text_color": "#a7adbf",
+        "anchor": "inside",
+        "eyebrow": "Inside the course",
+        "heading": "What you <em>get</em>",
+        "text": "<p>Short lessons to watch, templates to copy and calls to bring your own questions to. Everything stays yours.</p>",
+        "button_label": "See the plans",
+        "button_link": "/#pricing"
+      },
+      "blocks": {
+        "item_1": {
+          "type": "item",
+          "settings": {
+            "title": "40 short video lessons",
+            "text": "Six modules, each lesson under twelve minutes, with the exact prompts on screen.",
+            "tag": "Self paced"
+          }
+        },
+        "item_2": {
+          "type": "item",
+          "settings": {
+            "title": "A library of 150 prompts",
+            "text": "Sorted by task: writing, service, sales, research and operations.",
+            "tag": "Copy and paste"
+          }
+        },
+        "item_3": {
+          "type": "item",
+          "settings": {
+            "title": "12 live calls with Karim",
+            "text": "Bring a real task from your business and build it together on the call.",
+            "tag": "Cohort edition"
+          }
+        },
+        "item_4": {
+          "type": "item",
+          "settings": {
+            "title": "Ten automation recipes",
+            "text": "Step by step builds for invoices, bookings, reports and client onboarding.",
+            "tag": "Included"
+          }
+        },
+        "item_5": {
+          "type": "item",
+          "settings": {
+            "title": "A private community",
+            "text": "Owners at the same stage, sharing what works in their own businesses.",
+            "tag": "Members only"
+          }
+        },
+        "item_6": {
+          "type": "item",
+          "settings": {
+            "title": "Lifetime updates",
+            "text": "Tools change. When they do, the lessons do too, at no extra cost.",
+            "tag": "Free"
+          }
+        }
+      },
+      "block_order": [
+        "item_1",
+        "item_2",
+        "item_3",
+        "item_4",
+        "item_5",
+        "item_6"
+      ]
+    },
+    "results": {
+      "type": "renaissance-results",
+      "settings": {
+        "background": "#0b0c12",
+        "accent": "#3d5afe",
+        "gold": "#f2bd4f",
+        "text_color": "#a7adbf",
+        "anchor": "results",
+        "eyebrow": "Student results",
+        "heading": "What students <em>did next</em>",
+        "sample_label": "Sample",
+        "footnote": "Sample results to show the layout. Replace them with your students' own words and photos, with their permission. Results vary with effort and circumstances.",
+        "prev_label": "Previous result",
+        "next_label": "Next result"
+      },
+      "blocks": {
+        "result_1": {
+          "type": "result",
+          "settings": {
+            "result": "Proposals in 20 minutes, not two hours",
+            "quote": "I built the proposal assistant from module two on a Tuesday and used it with a real client on Thursday.",
+            "avatar": "shopify://shop_images/renaissance-student-1.webp",
+            "name": "Daniel O.",
+            "role": "Landscape design studio",
+            "sample": true
+          }
+        },
+        "result_2": {
+          "type": "result",
+          "settings": {
+            "result": "Customer emails answered before lunch",
+            "quote": "Our inbox used to eat the whole morning. Now the drafts are waiting when we open it and we just edit.",
+            "avatar": "shopify://shop_images/renaissance-student-2.webp",
+            "name": "Yuna P.",
+            "role": "Skincare shop",
+            "sample": true
+          }
+        },
+        "result_3": {
+          "type": "result",
+          "settings": {
+            "result": "A month of posts in one afternoon",
+            "quote": "The voice guide was the turning point. Everything finally sounds like us, not like a machine.",
+            "avatar": "shopify://shop_images/renaissance-student-3.webp",
+            "name": "Marco D.",
+            "role": "Coffee roaster",
+            "sample": true
+          }
+        },
+        "result_4": {
+          "type": "result",
+          "settings": {
+            "result": "Invoices that chase themselves",
+            "quote": "I set up two of the automation recipes in one evening. I have not sent a reminder by hand since.",
+            "avatar": "shopify://shop_images/renaissance-student-4.webp",
+            "name": "Lin C.",
+            "role": "Bookkeeping practice",
+            "sample": true
+          }
+        },
+        "result_5": {
+          "type": "result",
+          "settings": {
+            "result": "A weekly report in ten minutes",
+            "quote": "Clients get a clearer report than before and it takes me a coffee to check it.",
+            "avatar": "shopify://shop_images/renaissance-student-5.webp",
+            "name": "Femi A.",
+            "role": "Marketing agency",
+            "sample": true
+          }
+        },
+        "result_6": {
+          "type": "result",
+          "settings": {
+            "result": "Confident with the tools at last",
+            "quote": "I am not technical at all. The pace and the live calls made it click.",
+            "avatar": "shopify://shop_images/renaissance-student-6.webp",
+            "name": "Hans W.",
+            "role": "Physiotherapy clinic",
+            "sample": true
+          }
+        }
+      },
+      "block_order": [
+        "result_1",
+        "result_2",
+        "result_3",
+        "result_4",
+        "result_5",
+        "result_6"
+      ]
+    },
+    "join": {
+      "type": "renaissance-cta",
+      "settings": {
+        "background": "#07080d",
+        "accent": "#3d5afe",
+        "gold": "#f2bd4f",
+        "text_color": "#a7adbf",
+        "anchor": "join",
+        "show_mark": true,
+        "heading": "Make this the year AI <em>works for you</em>",
+        "text": "<p>Join today and start module one tonight. Six weeks from now the busywork runs itself and you know exactly what to hand over next.</p>",
+        "button_label": "Join Digital Renaissance",
+        "button_link": "/#pricing",
+        "link_label": "Watch module one free",
+        "link_url": "#open-form-access",
+        "note": "30 day refund. Lifetime access and updates.",
+        "padding_top": 96
+      }
+    },
+    "access": {
+      "type": "form-modal",
+      "settings": {
+        "form_key": "access",
+        "sends_to": "subscribe",
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "accent_color": "#f2bd4f",
+        "text_align": "left",
+        "width": 480,
+        "corners": "round",
+        "field_style": "outline",
+        "show_icons": true,
+        "overlay_opacity": 70,
+        "success_heading": "Check your inbox",
+        "success_text": "<p>Module one is on its way. If nothing arrives in a few minutes, look in spam.</p>",
+        "error_text": "That did not send. Check your email address and try again.",
+        "editor_view": "form",
+        "close_label": "Close"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "eyebrow": "Free preview",
+            "heading": "Watch module one *free*",
+            "size": 30
+          }
+        },
+        "text_1": {
+          "type": "text",
+          "settings": {
+            "text": "<p>Six short lessons on choosing your tools and writing prompts that work. We email you the link.</p>"
+          }
+        },
+        "field_1": {
+          "type": "field",
+          "settings": {
+            "kind": "name",
+            "label": "First name",
+            "required": false
+          }
+        },
+        "field_2": {
+          "type": "field",
+          "settings": {
+            "kind": "email",
+            "label": "Email address",
+            "required": true
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "label": "Send me module one",
+            "arrow": true
+          }
+        },
+        "note_1": {
+          "type": "note",
+          "settings": {
+            "icon": "lock",
+            "text": "Your email stays private.",
+            "small": "<p>One email with the link, then the occasional useful one. Unsubscribe any time.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "text_1",
+        "field_1",
+        "field_2",
+        "button_1",
+        "note_1"
+      ]
+    }
+  },
+  "order": [
+    "instructor",
+    "inside",
+    "results",
+    "join",
+    "access"
+  ]
+}

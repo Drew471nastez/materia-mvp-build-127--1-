@@ -1,0 +1,22 @@
+
+  #shopify-section-inside .rnf { --gold: #f2bd4f; --lapis: #3d5afe; background: #0b0c12; color: #a7adbf; padding: 56px 20px 56px; }
+  @media (min-width: 990px) { #shopify-section-inside .rnf { padding: 112px 40px 112px; } }
+  #shopify-section-inside .rnf__in { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; }
+  @media (min-width: 990px) { #shopify-section-inside .rnf__in { grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 96px; align-items: start; } #shopify-section-inside .rnf__side { position: sticky; top: 120px; } }
+  #shopify-section-inside .rnf__eyebrow { margin: 0 0 12px; color: var(--gold); font-size: 12px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; }
+  #shopify-section-inside .rnf__title { margin: 0 0 16px; color: #fff; font-family: var(--heading-font, sans-serif); font-weight: 600; font-size: 34px; line-height: 1.06; letter-spacing: -.035em; text-wrap: balance; }
+  @media (min-width: 990px) { #shopify-section-inside .rnf__title { font-size: 52px; } }
+  #shopify-section-inside .rnf__title em { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; color: var(--gold); }
+  #shopify-section-inside .rnf__text { font-size: 16.5px; line-height: 1.6; max-width: 26em; }
+  #shopify-section-inside .rnf__text p { margin: 0; }
+  #shopify-section-inside .rnf__btn { display: inline-flex; align-items: center; gap: 10px; min-height: 52px; margin-top: 26px; padding: 0 24px; border-radius: 12px; background: var(--lapis); color: #fff; font-size: 15.5px; font-weight: 600; text-decoration: none; transition: transform .25s ease; }
+  #shopify-section-inside .rnf__btn:hover { transform: translateY(-2px); }
+  #shopify-section-inside .rnf__list { margin: 0; padding: 0; list-style: none; border-top: 1px solid rgba(255,255,255,.09); }
+  #shopify-section-inside .rnf__row { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 10px 14px; padding: 24px 0; border-bottom: 1px solid rgba(255,255,255,.09); }
+  @media (min-width: 990px) { #shopify-section-inside .rnf__row { grid-template-columns: 64px minmax(0, 1fr) auto; padding: 30px 0; align-items: baseline; } }
+  #shopify-section-inside .rnf__n { color: var(--gold); font-family: 'Instrument Serif', Georgia, serif; font-style: italic; font-size: 24px; line-height: 1; }
+  #shopify-section-inside .rnf__name { margin: 0 0 6px; color: #fff; font-family: var(--heading-font, sans-serif); font-size: 20px; font-weight: 600; letter-spacing: -.02em; }
+  @media (min-width: 990px) { #shopify-section-inside .rnf__name { font-size: 23px; } }
+  #shopify-section-inside .rnf__desc { margin: 0; font-size: 15.5px; line-height: 1.55; }
+  #shopify-section-inside .rnf__tag { grid-column: 2; justify-self: start; padding: 5px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,.14); color: #d6d9e3; font-size: 12px; font-weight: 500; white-space: nowrap; }
+  @media (min-width: 990px) { #shopify-section-inside .rnf__tag { grid-column: 3; } }

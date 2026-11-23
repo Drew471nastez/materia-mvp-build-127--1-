@@ -30,7 +30,8 @@
   #shopify-section-{{ sid }} .cpl__form { margin-top: 28px; max-width: 500px; position: relative; z-index: 1; }
   #shopify-section-{{ sid }} .cpl__row { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
   @media (min-width: 600px) { #shopify-section-{{ sid }} .cpl__row { flex-direction: row; gap: 8px; } }
-  #shopify-section-{{ sid }} .cpl__input { --input-height: 56px; height: 56px !important; min-height: 56px !important; flex: 1 1 auto; min-width: 0; box-sizing: border-box; height: 56px !important; margin: 0; padding: 0 20px; border: 1.5px solid rgba(255,255,255,0.18); border-radius: {{ st.button_radius | default: 12 }}px; background: rgba(255,255,255,0.07) !important; color: #fff !important; font: inherit; font-size: 16px; }
+  #shopify-section-{{ sid }} .cpl__input { --input-height: 56px; height: 56px !important; min-height: 56px !important; flex: 1 1 auto; min-width: 0; box-sizing: border-box; height: 56px !important; margin: 0; padding: 0 20px; border: 1.5px solid rgba(255,255,255,0.18); border-radius: {{ st.button_radius | default: 12 }}px; color: #fff !important; font: inherit; font-size: 16px; }
+  #shopify-section-{{ sid }} .cpl__form input.cpl__input.cpl__input { background: #26282d !important; background-color: #26282d !important; }
   #shopify-section-{{ sid }} .cpl__input::placeholder { color: rgba(255,255,255,0.62); opacity: 1; }
   #shopify-section-{{ sid }} .cpl__input:focus-visible { outline: 2px solid var(--cpl-accent); outline-offset: 1px; }
   #shopify-section-{{ sid }} .cpl__submit { flex: 0 0 auto; height: 56px; margin: 0; padding: 0 24px; border: 0; border-radius: {{ st.button_radius | default: 12 }}px; cursor: pointer; white-space: nowrap; background: var(--cpl-accent); color: {{ st.button_text_color | default: '#101114' }}; font: inherit; font-size: 15.5px; font-weight: 700; transition: filter 0.2s ease; }
@@ -66,7 +67,7 @@
         <div class="cpl__hp" aria-hidden="true" data-mt-trap><label for="CreatorLetterHp-{{ sid }}">Leave this field empty</label><input id="CreatorLetterHp-{{ sid }}" type="text" name="company" tabindex="-1" autocomplete="off" pattern="^$" maxlength="0" value=""></div>
         <div class="cpl__row">
           <label class="cpl__vh" for="CreatorLetterEmail-{{ sid }}">{{ st.email_placeholder | default: 'Your email' | escape }}</label>
-          <input class="cpl__input" id="CreatorLetterEmail-{{ sid }}" type="email" name="contact[email]" required inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" maxlength="254" placeholder="{{ st.email_placeholder | default: 'Your email' | escape }}">
+          <input class="cpl__input" style="background-color: #26282d !important; color: #ffffff !important;" id="CreatorLetterEmail-{{ sid }}" type="email" name="contact[email]" required inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" maxlength="254" placeholder="{{ st.email_placeholder | default: 'Your email' | escape }}">
           <button type="submit" class="cpl__submit">{{ st.button_label | default: 'Subscribe' | escape }}</button>
         </div>
         {%- if form.posted_successfully? -%}<p class="cpl__msg form-status--success">{{ st.success_text | default: 'You are in. Check your inbox.' | escape }}</p>{%- endif -%}

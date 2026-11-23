@@ -147,6 +147,8 @@ export const CODE_TEMPLATES: readonly CodeTemplate[] = [
   { slug: "coach-creator", template: "coachpro", name: "Coach creator", category: "coaching" },
   /* Templates round 21: Digital Renaissance, a dark course funnel for using AI in a business: offer, problem and fix, curriculum, bonuses, instructor, pricing, guarantee and questions, with a sign up window. */
   { slug: "digital-renaissance", template: "renaissance", name: "Digital Renaissance", category: "courses" },
+  /* Templates round 21: a merch shop on a sunny XP style desktop, a hill under a blue sky, glossy blue windows, a green button of the shop's own and a taskbar, quick view and added to cart windows. */
+  { slug: "xp-merch", template: "xpshop", name: "XP shop", category: "creators" },
 ]
 
 /** Where a template's pictures live: its home page whole at 1440 wide, and at a phone's width (scripts/build-theme-template-covers.ts takes both). */

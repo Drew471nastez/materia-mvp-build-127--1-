@@ -112,7 +112,7 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
   .shopify-section[data-perf-offscreen] *,
   .shopify-section[data-perf-offscreen] *::before,
   .shopify-section[data-perf-offscreen] *::after { animation-play-state: paused !important; }
-</style><link rel="stylesheet" href="/theme-previews/sample-packs/a/i.262074ef9310.css" id="speed-page-landing"><script src="/theme-previews/sample-packs/a/i.0bd6d5139503.js"></script><script id="speed-optimization-js" src="/theme-previews/sample-packs/a/i.679dcd5ab7c8.js"></script>
+</style><link rel="stylesheet" href="/theme-previews/sample-packs/a/i.012d2c72efea.css" id="speed-page-landing"><script src="/theme-previews/sample-packs/a/i.0bd6d5139503.js"></script><script id="speed-optimization-js" src="/theme-previews/sample-packs/a/i.679dcd5ab7c8.js"></script>
 <script>
       (function () {
         try {
@@ -124,7 +124,7 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
         } catch (e) {}
       })();
     </script>
-<link href="/theme-previews/_base/a/critical.b21499996008.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/critical.7f3f35898a25.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
 <link href="/theme-previews/_base/a/animation.d0494c87fafa.css" rel="stylesheet" type="text/css" media="all">
 <link href="/theme-previews/_base/a/product-card.9a3739dc0c4c.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":true,"card_atc_button":"primary","product_size":16,"price_size":15,"product_name_text_transform":"unset","card_atc_bg":"#7c3aed","card_atc_color":"#ffffff","card_atc_hover_bg":"#8b5cf6","card_atc_hover_color":"#ffffff","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
 <style>html:not([data-card-custom='true']) .product-item .product-item__name { font-size:var(--body-font-size, 16px); text-transform:var(--heading-text-transform, none) !important; } html:not([data-card-custom='true']) .product-item .product-item__price { font-size:var(--body-font-size, 16px); }</style>
@@ -811,10 +811,22 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
   #shopify-section-contact_form_simple_1 .cfs__textarea { min-height: var(--cfs-ta-h); resize: vertical; }
 
   /* Submit button: the theme button, or this section's colours and shape */
+  /* As tall as a field, never a sliver of a button; beside the contact
+     details it starts at the fields' left edge rather than floating in the
+     middle of the form; on a phone it is as wide as the fields (round 21). */
   #shopify-section-contact_form_simple_1 .cfs__submit {
     grid-column: 1 / -1;
     justify-self: var(--cfs-flex);
+    min-height: var(--input-height, 48px);
+    min-width: 168px;
+    margin-top: 4px;
     cursor: pointer;
+  }
+  @media (min-width: 900px) {
+    #shopify-section-contact_form_simple_1 .cfs__grid:has(> .cfs__side-col) .cfs__submit { justify-self: start; }
+  }
+  @media (max-width: 599.98px) {
+    #shopify-section-contact_form_simple_1 .cfs__submit { justify-self: stretch; width: 100%; }
   }
   #shopify-section-contact_form_simple_1 .cfs__submit[data-cfs-full] { justify-self: stretch; width: 100%; }
   #shopify-section-contact_form_simple_1 .cfs__submit:focus-visible { outline: 2px solid var(--color-heading); outline-offset: 3px; }

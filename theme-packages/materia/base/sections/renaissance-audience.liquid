@@ -36,6 +36,7 @@
   @media (min-width: 990px) { #shopify-section-{{ sid }} .rna__grid { grid-template-columns: repeat({{ n }}, minmax(0, 1fr)); gap: 16px; } }
   #shopify-section-{{ sid }} .rna__card { padding: 24px 22px 26px; border-radius: 16px; border: 1px solid rgba(255,255,255,.08); background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.015)); transition: border-color .3s ease, transform .3s ease; }
   #shopify-section-{{ sid }} .rna__card:hover { border-color: color-mix(in srgb, var(--lapis) 60%, transparent); transform: translateY(-3px); }
+  @media (max-width: 599px) { #shopify-section-{{ sid }} .rna__card { display: grid; grid-template-columns: 42px minmax(0, 1fr); column-gap: 16px; padding: 20px 18px; } #shopify-section-{{ sid }} .rna__card .rna__ico { grid-row: span 2; margin-bottom: 0; } }
   #shopify-section-{{ sid }} .rna__ico { display: grid; place-items: center; width: 42px; height: 42px; margin-bottom: 18px; border-radius: 11px; background: color-mix(in srgb, var(--lapis) 22%, transparent); color: #c9d2ff; }
   #shopify-section-{{ sid }} .rna__ico svg { width: 20px; height: 20px; }
   #shopify-section-{{ sid }} .rna__name { margin: 0 0 8px; color: #fff; font-family: var(--heading-font, sans-serif); font-size: 18px; font-weight: 600; letter-spacing: -.02em; }

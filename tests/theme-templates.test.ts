@@ -116,7 +116,8 @@ async function main() {
   /* Changed on purpose (templates round 20): Coach and Video sales letter were added at the end, sixteen are listed. */
   /* Changed on purpose (templates round 20): Online course and Course landing were added at the end, eighteen are listed. */
   /* Changed on purpose (templates round 20): Retro desktop was added at the end, nineteen are listed. */
-  check("nineteen templates are listed, with no table and nothing uploaded", listings.length === 19 && CODE_TEMPLATES.length === 19, listings.map((l) => l.slug))
+  /* Changed on purpose (templates round 21): Author and Content creator were added at the end, with Coach creator and Digital Renaissance after them; twenty three are listed. */
+  check("twenty three templates are listed, with no table and nothing uploaded", listings.length === 23 && CODE_TEMPLATES.length === 23, listings.map((l) => l.slug))
   check("Storelib Default is first, at the default address", listings[0]?.slug === DEFAULT_LISTING_SLUG && listings[0]?.name === "Storelib Default" && mergeListings([])[0]?.slug === DEFAULT_LISTING_SLUG)
   /* Changed on purpose (templates round 18): Landing page is now called Course (same slug, landing-page). */
   /* Changed on purpose (templates round 19): Art books sits right after Digital products. */

@@ -1,0 +1,131 @@
+{
+  "sections": {
+    "shipping": {
+      "type": "xpshop-window",
+      "settings": {
+        "title": "Shipping",
+        "icon": "truck",
+        "look": "soft",
+        "show_menubar": false,
+        "image": "",
+        "image_alt": "",
+        "show_placeholder": false,
+        "image_side": "right",
+        "image_fit": "cover",
+        "image_ratio": "4 / 3",
+        "image_ratio_wide": "21 / 9",
+        "image_share": 50,
+        "image_loading": "lazy",
+        "eyebrow": "",
+        "heading": "Delivery and returns",
+        "heading_tag": "h1",
+        "heading_size": 40,
+        "text": "<p>Every piece is printed when you order it and leaves within two working days. You get a tracking number by email the day it ships.</p><p>Replace these lines with your own carriers, prices and times.</p>",
+        "center": false,
+        "button_label": "Read the refund policy",
+        "button_link": "/policies/refund-policy",
+        "button_style": "blue",
+        "button2_label": "Ask a question",
+        "button2_link": "/pages/contact",
+        "social_label": "",
+        "instagram": "",
+        "tiktok": "",
+        "youtube": "",
+        "pinterest": "",
+        "status_left": "Updated each season",
+        "status_right": "",
+        "width": 1180,
+        "padding_top": 0,
+        "padding_bottom": 28,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 16
+      },
+      "blocks": {
+        "point_1": {
+          "type": "point",
+          "settings": {
+            "icon": "truck",
+            "title": "Standard:",
+            "text": "3 to 5 working days, free over $60."
+          }
+        },
+        "point_2": {
+          "type": "point",
+          "settings": {
+            "icon": "clock",
+            "title": "Express:",
+            "text": "1 to 2 working days, $12."
+          }
+        },
+        "point_3": {
+          "type": "point",
+          "settings": {
+            "icon": "globe",
+            "title": "Worldwide:",
+            "text": "7 to 14 working days, from $15."
+          }
+        },
+        "point_4": {
+          "type": "point",
+          "settings": {
+            "icon": "refresh",
+            "title": "Returns:",
+            "text": "30 days, unworn and unwashed, label included."
+          }
+        }
+      },
+      "block_order": [
+        "point_1",
+        "point_2",
+        "point_3",
+        "point_4"
+      ]
+    },
+    "faq": {
+      "type": "xpshop-help",
+      "settings": {
+        "title": "Help and questions",
+        "icon": "help",
+        "heading": "About delivery",
+        "heading_tag": "h2",
+        "subheading": "Sizes, delivery, returns and the prints.",
+        "show_find": false,
+        "find_label": "Search the questions",
+        "none_label": "No question matches that. Write to us instead.",
+        "open_first": true,
+        "end_text": "Still wondering about something?",
+        "end_label": "Write to us",
+        "end_link": "/pages/contact",
+        "width": 1180,
+        "padding_top": 0,
+        "padding_bottom": 28,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 16
+      },
+      "blocks": {
+        "q_1": {
+          "type": "question",
+          "settings": {
+            "question": "When will my order arrive?",
+            "answer": "<p>Each piece is printed when you order it and leaves within two working days, tracked. Add your own delivery times on the <a href=\"/pages/shipping\">shipping page</a>.</p>"
+          }
+        },
+        "q_2": {
+          "type": "question",
+          "settings": {
+            "question": "Can I send something back?",
+            "answer": "<p>Yes, within 30 days if it is unworn and unwashed. Write to us with your order number and we send a return label. See the <a href=\"/policies/refund-policy\">refund policy</a>.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "q_1",
+        "q_2"
+      ]
+    }
+  },
+  "order": [
+    "shipping",
+    "faq"
+  ]
+}

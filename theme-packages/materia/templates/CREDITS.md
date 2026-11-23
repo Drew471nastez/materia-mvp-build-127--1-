@@ -307,33 +307,37 @@ Video sales letter (round 20): the host photographs are one session, used in bla
 | vsl (cover only) | scripts/theme-templates/products/vsl/vsl-course.webp | https://images.unsplash.com/photo-1478737270239-2f02b77fc618 (black and white) | Unsplash License |
 | vsl (cover only) | scripts/theme-templates/products/vsl/vsl-templates.webp | https://images.unsplash.com/photo-1789922129938-f02af2785d19 (black and white) | Unsplash License |
 | vsl (cover only) | scripts/theme-templates/products/vsl/vsl-review-call.webp | https://images.unsplash.com/photo-1694881227503-ddc502d4b4cc (black and white) | Unsplash License |
-| coach | assets/coach-hero.webp | https://images.unsplash.com/photo-1783094268551-536a988e10ee | Unsplash License |
-| coach | assets/coach-about.webp | https://images.unsplash.com/photo-1768875848964-63e9073adc53 | Unsplash License |
-| coach | assets/coach-desk.webp | https://images.unsplash.com/photo-1783094268538-c824d8882890 | Unsplash License |
-| coach | assets/coach-grid-1.webp | https://images.unsplash.com/photo-1783094269388-0a7a2efbd4cf | Unsplash License |
-| coach | assets/coach-grid-5.webp | https://images.unsplash.com/photo-1783094268538-c824d8882890 | Unsplash License |
-| coach | assets/coach-offer-online.webp | https://images.unsplash.com/photo-1783094269325-4ba186e8e01b | Unsplash License |
-| coach | assets/coach-offer-one.webp | https://images.unsplash.com/photo-1776313756922-3252475a6c27 | Unsplash License |
-| coach | assets/coach-offer-group.webp | https://images.unsplash.com/photo-1590650046871-92c887180603 | Unsplash License |
-| coach | assets/coach-journal-1.webp | https://images.unsplash.com/photo-1611850748727-fa3a69ddbdc1 | Unsplash License |
-| coach | assets/coach-journal-2.webp | https://images.unsplash.com/photo-1654785428400-952d7aceceae | Unsplash License |
-| coach | assets/coach-journal-3.webp | https://images.unsplash.com/photo-1586380951230-e6703d9f6833 | Unsplash License |
-| coach | assets/coach-grid-2.webp | https://images.unsplash.com/photo-1600818797017-d6e5027210bb | Unsplash License |
-| coach | assets/coach-grid-3.webp | https://images.unsplash.com/photo-1637689113621-73951984fcc1 | Unsplash License |
-| coach | assets/coach-grid-4.webp | https://images.unsplash.com/photo-1601617956235-c97e358d054f | Unsplash License |
-| coach | assets/coach-guide.webp | https://images.unsplash.com/photo-1555083589-1f063f35718a | Unsplash License |
-| course2 | assets/course2-hero-espresso.webp | https://images.unsplash.com/photo-1790884490386-76c5c17521ba | Unsplash License |
-| course2 | assets/course2-pour-copper.webp | https://images.unsplash.com/photo-1565845120211-ec64763a0dea | Unsplash License |
-| course2 | assets/course2-espresso-drip.webp | https://images.unsplash.com/photo-1616388761741-a5936c6f61f6 | Unsplash License |
-| course2 | assets/course2-teacher-bar.webp | https://images.unsplash.com/photo-1507914372368-b2b085b925a1 | Unsplash License |
-| course2 | assets/course2-cup-window.webp | https://images.unsplash.com/photo-1771736385651-c071580a9d78 | Unsplash License |
-| course2 | assets/course2-pour-over-scale.webp | https://images.unsplash.com/photo-1747852222501-e03aeccd2093 | Unsplash License |
-| course2 | assets/course2-chemex-home.webp | https://images.unsplash.com/photo-1522825180917-a355ef45e880 | Unsplash License |
-| course2 (cover only) | scripts/theme-templates/products/course2/course2-home-barista.webp | Drawn for this template, a lesson screen holding https://images.unsplash.com/photo-1790884490386-76c5c17521ba | Storelib, photograph Unsplash License |
-| course2 (cover only) | scripts/theme-templates/products/course2/course2-home-barista-feedback.webp | Drawn for this template, a call screen holding https://images.unsplash.com/photo-1507914372368-b2b085b925a1 | Storelib, photograph Unsplash License |
-| course2 (cover only) | scripts/theme-templates/products/course2/course2-latte-art.webp | Drawn for this template, a lesson screen holding https://images.unsplash.com/photo-1541167760496-1628856ab772 | Storelib, photograph Unsplash License |
-| course2 (cover only) | scripts/theme-templates/products/course2/course2-pour-over.webp | Drawn for this template, a lesson screen holding https://images.unsplash.com/photo-1747852222501-e03aeccd2093 | Storelib, photograph Unsplash License |
-| course2 (cover only) | scripts/theme-templates/products/course2/course2-one-to-one.webp | Drawn for this template, a call screen holding https://images.unsplash.com/photo-1565845120211-ec64763a0dea | Storelib, photograph Unsplash License |
+| coach | assets/coach-mateo-hero.webp | https://images.unsplash.com/photo-1789757112859-7a907ef6719c | Unsplash License |
+| coach | assets/coach-mateo-table.webp | https://images.unsplash.com/photo-1789757287443-59c4df41e6e5 | Unsplash License |
+| coach | assets/coach-mateo-avatar.webp | https://images.unsplash.com/photo-1789757287443-59c4df41e6e5 | Unsplash License |
+| coach | assets/coach-mateo-board.webp | https://images.unsplash.com/photo-1789757125300-db26cf8520a4 | Unsplash License |
+| coach | assets/coach-mateo-room.webp | https://images.unsplash.com/photo-1789757125300-db26cf8520a4 | Unsplash License |
+| coach | assets/coach-offer-one.webp | https://images.unsplash.com/photo-1789757305077-7bb5b4f54742 | Unsplash License |
+| coach | assets/coach-offer-group.webp | https://images.unsplash.com/photo-1789757099501-2b221a98f9ea | Unsplash License |
+| coach | assets/coach-offer-day.webp | https://images.unsplash.com/photo-1789757125300-db26cf8520a4 | Unsplash License |
+| coach (cover only) | scripts/theme-templates/products/coach/coach-offer-team.webp | https://images.unsplash.com/photo-1789757112859-7a907ef6719c | Unsplash License |
+| coach (cover only) | scripts/theme-templates/products/coach/coach-offer-gift.webp | https://images.unsplash.com/photo-1789757165446-daec9334f72e | Unsplash License |
+| coach | assets/coach-client-1.webp | https://images.unsplash.com/photo-1531750026848-8ada78f641c2 | Unsplash License |
+| coach | assets/coach-client-2.webp | https://images.unsplash.com/photo-1609371497456-3a55a205d5eb | Unsplash License |
+| coach | assets/coach-client-3.webp | https://images.unsplash.com/photo-1592234789031-94bf65f630ed | Unsplash License |
+| coach | assets/coach-client-4.webp | https://images.unsplash.com/photo-1757744705465-ea08b0ddc38a | Unsplash License |
+| coach | assets/coach-client-5.webp | https://images.unsplash.com/photo-1564564244660-5d73c057f2d2 | Unsplash License |
+| course2 | assets/course2-jonas-hero.webp | https://images.unsplash.com/photo-1671776616696-18c8f211918b | Unsplash License |
+| course2 | assets/course2-jonas-sofa.webp | https://images.unsplash.com/photo-1671776616723-364883405546 | Unsplash License |
+| course2 | assets/course2-hands.webp | https://images.unsplash.com/photo-1671776616821-0bf074346c9c | Unsplash License |
+| course2 | assets/course2-overhead.webp | https://images.unsplash.com/photo-1671776616715-993aa9265ae1 | Unsplash License |
+| course2 | assets/course2-student-laptop.webp | https://images.unsplash.com/photo-1758612215006-66e5e5583c05 | Unsplash License |
+| course2 | assets/course2-student-1.webp | https://images.unsplash.com/photo-1583264277168-58ceba4b84e7 | Unsplash License |
+| course2 | assets/course2-student-2.webp | https://images.unsplash.com/photo-1625241152315-4a698f74ceb7 | Unsplash License |
+| course2 | assets/course2-student-3.webp | https://images.unsplash.com/photo-1602896441343-ed0dc62ed65e | Unsplash License |
+| course2 | assets/course2-student-4.webp | https://images.unsplash.com/photo-1779212508632-673f06f27210 | Unsplash License |
+| course2 | assets/course2-student-5.webp | https://images.unsplash.com/photo-1780322195200-64e71db074c2 | Unsplash License |
+| course2 | assets/course2-student-6.webp | https://images.unsplash.com/photo-1714750977930-e7a7f4611257 | Unsplash License |
+| course2 (cover only) | scripts/theme-templates/products/course2/course2-guitar-from-zero.webp | https://images.unsplash.com/photo-1671776616821-0bf074346c9c | Unsplash License |
+| course2 (cover only) | scripts/theme-templates/products/course2/course2-barre-chords.webp | https://images.unsplash.com/photo-1671776616809-225e4639d252 | Unsplash License |
+| course2 (cover only) | scripts/theme-templates/products/course2/course2-song-library.webp | https://images.unsplash.com/photo-1671776616715-993aa9265ae1 | Unsplash License |
+| course2 (cover only) | scripts/theme-templates/products/course2/course2-video-feedback.webp | https://images.unsplash.com/photo-1758612215010-7d792b85488b | Unsplash License |
+| course2 (cover only) | scripts/theme-templates/products/course2/course2-private-lesson.webp | https://images.unsplash.com/photo-1671776616696-18c8f211918b | Unsplash License |
 | courselanding | assets/courselanding-teacher-desk.webp | https://images.unsplash.com/photo-1770947147650-fab067b8d33b | Unsplash License |
 | courselanding | assets/courselanding-about-desk.webp | https://images.unsplash.com/photo-1663524789647-090d8cbd834b | Unsplash License |
 | courselanding | assets/courselanding-hero-phones.webp | Drawn for this template | Storelib |
@@ -391,4 +395,7 @@ Content creator (round 21): the creator, Nina Brooks, is one session by one phot
 | creatorpro | assets/creatorpro-course-launch.webp | https://images.unsplash.com/photo-1664277497087-51787d2b9d15 | Unsplash License |
 | creatorpro | assets/creatorpro-course-youtube.webp | https://images.unsplash.com/photo-1673767298275-769b08b4f675 | Unsplash License |
 | creatorpro | assets/creatorpro-course-os.webp | Drawn for this template | Storelib |
-| creatorpro (cover only) | scripts/theme-templates/products/creatorpro/creatorpro-call.webp | https://images.unsplash.com/photo-1676380363734-f2f932ff5981 (title set on it) | Unsplash License |
+| creatorpro (cover only) | scripts/theme-templates/products/creatorpro/creatorpro-p-launch.webp | https://images.unsplash.com/photo-1664277497087-51787d2b9d15 (title set under it) | Unsplash License |
+| creatorpro (cover only) | scripts/theme-templates/products/creatorpro/creatorpro-p-youtube.webp | https://images.unsplash.com/photo-1673767298275-769b08b4f675 (title set under it) | Unsplash License |
+| creatorpro (cover only) | scripts/theme-templates/products/creatorpro/creatorpro-p-os.webp | Drawn for this template | Storelib |
+| creatorpro (cover only) | scripts/theme-templates/products/creatorpro/creatorpro-p-call.webp | https://images.unsplash.com/photo-1676380363734-f2f932ff5981 (title set under it) | Unsplash License |

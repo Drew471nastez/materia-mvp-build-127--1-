@@ -1,0 +1,768 @@
+{
+  "sections": {
+    "hero": {
+      "type": "renaissance-hero",
+      "settings": {
+        "background": "#07080d",
+        "accent": "#3d5afe",
+        "gold": "#f2bd4f",
+        "text_color": "#a7adbf",
+        "anchor": "top",
+        "pill_tag": "Spring cohort",
+        "pill_text": "Live calls start in March",
+        "heading": "Put AI to work in your business in <em>six weeks</em>",
+        "text": "<p>Digital Renaissance is a practical course for owners and small teams. Write faster in your own voice, answer customers in minutes and hand the busywork to automations, with tools you already pay for.</p>",
+        "button_label": "Join Digital Renaissance",
+        "button_link": "/#pricing",
+        "button2_label": "Watch module one free",
+        "button2_link": "#open-form-access",
+        "note": "30 day refund. Lifetime access and updates.",
+        "fact1_value": "6",
+        "fact1_label": "modules",
+        "fact2_value": "40",
+        "fact2_label": "short lessons",
+        "fact3_value": "12",
+        "fact3_label": "live calls",
+        "window_title": "Digital Renaissance, course",
+        "window_brand": "Digital Renaissance",
+        "modules": "Foundations\nWriting in your voice\nService and sales\nResearch and decisions\nAutomations\nYour AI system",
+        "current_module": 2,
+        "lesson_label": "Module 2, lesson 3",
+        "lesson_title": "A month of posts in an afternoon",
+        "video_text": "Write like <em>you</em>, only faster",
+        "video_time": "8:24",
+        "question": "Reply to this refund request. Friendly, firm, under 60 words.",
+        "answer_label": "Your assistant",
+        "answer": "Hi Sam, thanks for letting us know. Unopened sets can be returned within 30 days, so we will refund yours in full as soon as it arrives.",
+        "badge_title": "Lesson 2 complete",
+        "badge_text": "Next: your voice guide",
+        "heading_size": 72,
+        "heading_size_mobile": 42,
+        "padding_top": 96,
+        "padding_top_mobile": 48
+      }
+    },
+    "audience": {
+      "type": "renaissance-audience",
+      "settings": {
+        "background": "#07080d",
+        "accent": "#3d5afe",
+        "gold": "#f2bd4f",
+        "text_color": "#a7adbf",
+        "anchor": "for-you",
+        "lead": "<p>Digital Renaissance is not another list of tools. It is a <strong>step by step plan for real businesses</strong>: what to hand to AI, what to keep, and how to set it up so it <strong>saves hours every week</strong>, taught by someone who <strong>uses it with clients daily</strong>.</p>",
+        "heading": "Who it is <em>for</em>"
+      },
+      "blocks": {
+        "who_1": {
+          "type": "who",
+          "settings": {
+            "icon": "person",
+            "title": "Solo founders",
+            "text": "Do the work of a small team without hiring one, and stop writing every email from scratch."
+          }
+        },
+        "who_2": {
+          "type": "who",
+          "settings": {
+            "icon": "team",
+            "title": "Small teams",
+            "text": "Give everyone the same prompts, templates and rules, so the quality stays even."
+          }
+        },
+        "who_3": {
+          "type": "who",
+          "settings": {
+            "icon": "store",
+            "title": "Shop owners",
+            "text": "Product pages, customer replies and stock notes in minutes instead of evenings."
+          }
+        },
+        "who_4": {
+          "type": "who",
+          "settings": {
+            "icon": "chat",
+            "title": "Consultants and agencies",
+            "text": "Research, proposals and reports faster, and new services to offer your clients."
+          }
+        }
+      },
+      "block_order": [
+        "who_1",
+        "who_2",
+        "who_3",
+        "who_4"
+      ]
+    },
+    "paths": {
+      "type": "renaissance-paths",
+      "settings": {
+        "background": "#07080d",
+        "accent": "#3d5afe",
+        "gold": "#f2bd4f",
+        "text_color": "#a7adbf",
+        "anchor": "why",
+        "eyebrow": "The problem",
+        "heading": "Two ways to <em>learn AI</em>",
+        "intro": "<p>Most owners know they should be using it. Very few have the time to work out how.</p>",
+        "left_label": "On your own",
+        "left_value": "Months",
+        "left_text": "Of tabs, trials and threads that are out of date by the time you read them.",
+        "left_points": "A new tool every week and no plan\nAnswers that sound generic, not like you\nTime saved on Monday, lost fixing it on Tuesday",
+        "left_button": "Keep guessing",
+        "vs_label": "vs",
+        "right_label": "With Digital Renaissance",
+        "right_value": "Six weeks",
+        "right_text": "One plan, in order, built around the work your business already does.",
+        "right_points": "Forty short lessons, one module a week\nPrompts and templates ready to copy\nLive calls to fix your own use cases",
+        "right_button": "See the plans",
+        "right_link": "/#pricing"
+      }
+    },
+    "inside": {
+      "type": "renaissance-features",
+      "settings": {
+        "background": "#0b0c12",
+        "accent": "#3d5afe",
+        "gold": "#f2bd4f",
+        "text_color": "#a7adbf",
+        "anchor": "inside",
+        "eyebrow": "Inside the course",
+        "heading": "What you <em>get</em>",
+        "text": "<p>Short lessons to watch, templates to copy and calls to bring your own questions to. Everything stays yours.</p>",
+        "button_label": "See the plans",
+        "button_link": "/#pricing"
+      },
+      "blocks": {
+        "item_1": {
+          "type": "item",
+          "settings": {
+            "title": "40 short video lessons",
+            "text": "Six modules, each lesson under twelve minutes, with the exact prompts on screen.",
+            "tag": "Self paced"
+          }
+        },
+        "item_2": {
+          "type": "item",
+          "settings": {
+            "title": "A library of 150 prompts",
+            "text": "Sorted by task: writing, service, sales, research and operations.",
+            "tag": "Copy and paste"
+          }
+        },
+        "item_3": {
+          "type": "item",
+          "settings": {
+            "title": "12 live calls with Karim",
+            "text": "Bring a real task from your business and build it together on the call.",
+            "tag": "Cohort edition"
+          }
+        },
+        "item_4": {
+          "type": "item",
+          "settings": {
+            "title": "Ten automation recipes",
+            "text": "Step by step builds for invoices, bookings, reports and client onboarding.",
+            "tag": "Included"
+          }
+        },
+        "item_5": {
+          "type": "item",
+          "settings": {
+            "title": "A private community",
+            "text": "Owners at the same stage, sharing what works in their own businesses.",
+            "tag": "Members only"
+          }
+        },
+        "item_6": {
+          "type": "item",
+          "settings": {
+            "title": "Lifetime updates",
+            "text": "Tools change. When they do, the lessons do too, at no extra cost.",
+            "tag": "Free"
+          }
+        }
+      },
+      "block_order": [
+        "item_1",
+        "item_2",
+        "item_3",
+        "item_4",
+        "item_5",
+        "item_6"
+      ]
+    },
+    "curriculum": {
+      "type": "renaissance-curriculum",
+      "settings": {
+        "background": "#07080d",
+        "accent": "#3d5afe",
+        "gold": "#f2bd4f",
+        "text_color": "#a7adbf",
+        "anchor": "curriculum",
+        "eyebrow": "Curriculum",
+        "heading": "Six modules, <em>one plan</em>",
+        "intro": "<p>Each module ends with one thing set up and working in your own business.</p>",
+        "open_first": true,
+        "button_label": "Join Digital Renaissance",
+        "button_link": "/#pricing",
+        "note": "Start the day you join. One module a week works well."
+      },
+      "blocks": {
+        "module_1": {
+          "type": "module",
+          "settings": {
+            "title": "Foundations that hold up",
+            "topic": "Basics",
+            "text": "Know what these tools are good at, what they get wrong, and how to ask so the answer is usable the first time.",
+            "lesson_count": "6 lessons",
+            "duration": "48 min",
+            "lessons": "What AI is good at, and where it fails\nChoosing tools without the hype\nPrompts that work: role, task, context, format\nChecking answers you cannot trust yet\nClient data and privacy\nYour AI notebook"
+          }
+        },
+        "module_2": {
+          "type": "module",
+          "settings": {
+            "title": "Writing in your own voice",
+            "topic": "Content",
+            "text": "Build a voice guide once, then write emails, posts, pages and proposals that sound like you, in a fraction of the time.",
+            "lesson_count": "7 lessons",
+            "duration": "1 h 05 min",
+            "lessons": "Build your voice guide\nEmails and replies in half the time\nProduct pages and descriptions\nA month of posts in an afternoon\nEditing, not generating\nProposals that win\nYour newsletter, drafted"
+          }
+        },
+        "module_3": {
+          "type": "module",
+          "settings": {
+            "title": "Customer service and sales",
+            "topic": "Sales",
+            "text": "Answer customers faster without sounding like a robot, and follow up on every lead without a spreadsheet.",
+            "lesson_count": "7 lessons",
+            "duration": "58 min",
+            "lessons": "A reply library for the questions you get daily\nHandling refunds and complaints\nLead follow up that runs itself\nSales calls: prepare in five minutes\nTurning reviews into answers\nChat on your website, done carefully\nMeasuring what changed"
+          }
+        },
+        "module_4": {
+          "type": "module",
+          "settings": {
+            "title": "Research and decisions",
+            "topic": "Strategy",
+            "text": "Use AI as a fast research assistant: competitors, pricing, customer feedback and the numbers in your own business.",
+            "lesson_count": "6 lessons",
+            "duration": "52 min",
+            "lessons": "Competitor research in an hour\nReading customer feedback at scale\nPricing checks\nYour numbers, explained in plain words\nPlanning a launch\nA decision journal"
+          }
+        },
+        "module_5": {
+          "type": "module",
+          "settings": {
+            "title": "Automations that run while you work",
+            "topic": "Operations",
+            "text": "Connect the tools you already pay for so invoices, bookings, reports and handovers happen without you.",
+            "lesson_count": "8 lessons",
+            "duration": "1 h 20 min",
+            "lessons": "Where automation pays and where it does not\nYour first automation in 20 minutes\nInvoices that chase themselves\nBookings and reminders\nThe weekly report, written for you\nOnboarding new clients\nHandovers between people\nKeeping it all safe"
+          }
+        },
+        "module_6": {
+          "type": "module",
+          "settings": {
+            "title": "Your AI operating system",
+            "topic": "Systems",
+            "text": "Put it together: which jobs go to AI, which stay with people, and the weekly routine that keeps it working.",
+            "lesson_count": "6 lessons",
+            "duration": "44 min",
+            "lessons": "Mapping your week\nWhat to hand over first\nTraining your team\nCosts and tools, reviewed\nThe weekly routine\nYour next 90 days"
+          }
+        }
+      },
+      "block_order": [
+        "module_1",
+        "module_2",
+        "module_3",
+        "module_4",
+        "module_5",
+        "module_6"
+      ]
+    },
+    "results": {
+      "type": "renaissance-results",
+      "settings": {
+        "background": "#07080d",
+        "accent": "#3d5afe",
+        "gold": "#f2bd4f",
+        "text_color": "#a7adbf",
+        "anchor": "results",
+        "eyebrow": "Student results",
+        "heading": "What students <em>did next</em>",
+        "sample_label": "Sample",
+        "footnote": "Sample results to show the layout. Replace them with your students' own words and photos, with their permission. Results vary with effort and circumstances.",
+        "prev_label": "Previous result",
+        "next_label": "Next result"
+      },
+      "blocks": {
+        "result_1": {
+          "type": "result",
+          "settings": {
+            "result": "Proposals in 20 minutes, not two hours",
+            "quote": "I built the proposal assistant from module two on a Tuesday and used it with a real client on Thursday.",
+            "avatar": "shopify://shop_images/renaissance-student-1.webp",
+            "name": "Daniel O.",
+            "role": "Landscape design studio",
+            "sample": true
+          }
+        },
+        "result_2": {
+          "type": "result",
+          "settings": {
+            "result": "Customer emails answered before lunch",
+            "quote": "Our inbox used to eat the whole morning. Now the drafts are waiting when we open it and we just edit.",
+            "avatar": "shopify://shop_images/renaissance-student-2.webp",
+            "name": "Yuna P.",
+            "role": "Skincare shop",
+            "sample": true
+          }
+        },
+        "result_3": {
+          "type": "result",
+          "settings": {
+            "result": "A month of posts in one afternoon",
+            "quote": "The voice guide was the turning point. Everything finally sounds like us, not like a machine.",
+            "avatar": "shopify://shop_images/renaissance-student-3.webp",
+            "name": "Marco D.",
+            "role": "Coffee roaster",
+            "sample": true
+          }
+        },
+        "result_4": {
+          "type": "result",
+          "settings": {
+            "result": "Invoices that chase themselves",
+            "quote": "I set up two of the automation recipes in one evening. I have not sent a reminder by hand since.",
+            "avatar": "shopify://shop_images/renaissance-student-4.webp",
+            "name": "Lin C.",
+            "role": "Bookkeeping practice",
+            "sample": true
+          }
+        },
+        "result_5": {
+          "type": "result",
+          "settings": {
+            "result": "A weekly report in ten minutes",
+            "quote": "Clients get a clearer report than before and it takes me a coffee to check it.",
+            "avatar": "shopify://shop_images/renaissance-student-5.webp",
+            "name": "Femi A.",
+            "role": "Marketing agency",
+            "sample": true
+          }
+        },
+        "result_6": {
+          "type": "result",
+          "settings": {
+            "result": "Confident with the tools at last",
+            "quote": "I am not technical at all. The pace and the live calls made it click.",
+            "avatar": "shopify://shop_images/renaissance-student-6.webp",
+            "name": "Hans W.",
+            "role": "Physiotherapy clinic",
+            "sample": true
+          }
+        }
+      },
+      "block_order": [
+        "result_1",
+        "result_2",
+        "result_3",
+        "result_4",
+        "result_5",
+        "result_6"
+      ]
+    },
+    "bonuses": {
+      "type": "renaissance-bonuses",
+      "settings": {
+        "background": "#0b0c12",
+        "accent": "#3d5afe",
+        "gold": "#f2bd4f",
+        "text_color": "#a7adbf",
+        "anchor": "bonuses",
+        "eyebrow": "Along the way",
+        "heading": "Bonuses you <em>unlock</em>",
+        "intro": "<p>They arrive as you go, so each one turns up when it is most useful.</p>"
+      },
+      "blocks": {
+        "bonus_1": {
+          "type": "bonus",
+          "settings": {
+            "title": "The prompt library",
+            "text": "150 prompts sorted by task, each with a short note on when to use it and how to adjust it.",
+            "when": "Day one",
+            "value": "Updated monthly"
+          }
+        },
+        "bonus_2": {
+          "type": "bonus",
+          "settings": {
+            "title": "Your voice guide template",
+            "text": "The one page brief that makes every answer sound like your business. Fill it in once, use it everywhere.",
+            "when": "Week 2",
+            "value": "With a filled in example"
+          }
+        },
+        "bonus_3": {
+          "type": "bonus",
+          "settings": {
+            "title": "Ten automation recipes",
+            "text": "Invoices, bookings, reports, onboarding and more, built step by step with the tools you already have.",
+            "when": "Week 4",
+            "value": "Video and checklist"
+          }
+        },
+        "bonus_4": {
+          "type": "bonus",
+          "settings": {
+            "title": "A private AI audit",
+            "text": "Thirty minutes with Karim on your own business: where AI saves the most time, in what order.",
+            "when": "Week 6",
+            "value": "Cohort edition"
+          }
+        },
+        "bonus_5": {
+          "type": "bonus",
+          "settings": {
+            "title": "Tool picks, kept current",
+            "text": "A short page of what to use for what, reviewed every month so you never chase the latest app.",
+            "when": "Every month",
+            "value": "For life"
+          }
+        }
+      },
+      "block_order": [
+        "bonus_1",
+        "bonus_2",
+        "bonus_3",
+        "bonus_4",
+        "bonus_5"
+      ]
+    },
+    "instructor": {
+      "type": "renaissance-instructor",
+      "settings": {
+        "background": "#07080d",
+        "accent": "#3d5afe",
+        "gold": "#f2bd4f",
+        "text_color": "#a7adbf",
+        "anchor": "instructor",
+        "next_anchor": "pricing",
+        "image": "shopify://shop_images/renaissance-instructor.webp",
+        "image_alt": "Karim Nassar, arms crossed, against a dark wall",
+        "name": "Karim Nassar",
+        "role": "Your instructor",
+        "eyebrow": "Your instructor",
+        "heading": "Taught by someone who <em>does this daily</em>",
+        "text": "<p>Karim runs a small studio that sets up AI workflows for service businesses: clinics, shops, agencies and trades. Before that he spent twelve years running operations, so he cares less about clever demos and more about the hours you get back.</p><p>Everything in the course is something he uses with clients this year.</p>",
+        "credentials": "Sets up AI workflows for small businesses\nTwelve years running operations\nTeaches only what he uses with clients\nAnswers questions on every live call",
+        "quote": "Most of the value is in the boring work. That is exactly where AI is good.",
+        "social1_label": "YouTube",
+        "social1_url": "https://www.youtube.com",
+        "social2_label": "LinkedIn",
+        "social2_url": "https://www.linkedin.com"
+      }
+    },
+    "pricing": {
+      "type": "pricing-cards",
+      "settings": {
+        "color_scheme": "default",
+        "eyebrow": "Pricing",
+        "heading": "Choose your edition",
+        "intro": "<p>Every edition includes all six modules, the prompt library and lifetime updates.</p>",
+        "heading_size": "h2",
+        "heading_align": "center",
+        "footnote": "<p>Prices in US dollars. Pay in full or in three monthly parts at checkout. 30 day refund on every edition.</p>",
+        "card_style": "outline",
+        "use_theme_corners": false,
+        "card_radius": 20,
+        "card_gap": 16,
+        "price_size": 48,
+        "mobile_layout": "stack",
+        "section_width": "container",
+        "use_theme_spacing": false,
+        "padding_top": 112,
+        "padding_bottom": 48,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 32
+      },
+      "blocks": {
+        "plan_1": {
+          "type": "plan",
+          "settings": {
+            "name": "Self paced",
+            "description": "<p>The full course, at your own speed.</p>",
+            "price": "$297",
+            "compare_price": "$397",
+            "note": "One payment, or three of $105",
+            "features": "All 40 lessons\nThe prompt library\nVoice guide and automation recipes\nPrivate community\nLifetime updates\n- Live calls with Karim\n- Private AI audit",
+            "button_label": "Join self paced",
+            "button_link": "/collections/all",
+            "button_style": "auto"
+          }
+        },
+        "plan_2": {
+          "type": "plan",
+          "settings": {
+            "name": "Cohort edition",
+            "description": "<p>The course with six weeks of live help.</p>",
+            "badge": "Most chosen",
+            "featured": true,
+            "price": "$497",
+            "compare_price": "$697",
+            "note": "One payment, or three of $175",
+            "features": "All 40 lessons\nThe prompt library\nVoice guide and automation recipes\nPrivate community\nLifetime updates\n12 live calls with Karim\nPrivate AI audit",
+            "button_label": "Join the cohort",
+            "button_link": "/collections/all",
+            "button_style": "auto"
+          }
+        },
+        "plan_3": {
+          "type": "plan",
+          "settings": {
+            "name": "Team",
+            "description": "<p>The cohort edition for up to five people.</p>",
+            "price": "$1,190",
+            "note": "One payment for the team",
+            "features": "Everything in the cohort edition\nFive seats\nA team session on your workflows\nShared prompt library\nInvoice for your business",
+            "button_label": "Get team access",
+            "button_link": "/pages/contact",
+            "button_style": "auto"
+          }
+        }
+      },
+      "block_order": [
+        "plan_1",
+        "plan_2",
+        "plan_3"
+      ]
+    },
+    "guarantee": {
+      "type": "renaissance-guarantee",
+      "settings": {
+        "background": "#07080d",
+        "accent": "#3d5afe",
+        "gold": "#f2bd4f",
+        "text_color": "#a7adbf",
+        "anchor": "guarantee",
+        "days": "30",
+        "unit": "days",
+        "ring_text": "Money back guarantee",
+        "heading": "Try it for <em>30 days</em>, risk free",
+        "text": "<p>Do the first two modules. If the course is not saving you time, email us within 30 days of joining and we refund every cent. No forms and no questions. You keep the prompt library.</p>"
+      }
+    },
+    "faq": {
+      "type": "renaissance-faq",
+      "settings": {
+        "background": "#07080d",
+        "accent": "#3d5afe",
+        "gold": "#f2bd4f",
+        "text_color": "#a7adbf",
+        "anchor": "faq",
+        "eyebrow": "Questions",
+        "heading": "Get your questions <em>answered</em>",
+        "more": "<p>Something else? <a href=\"/pages/contact\">Write to us</a>, a person answers within a day.</p>"
+      },
+      "blocks": {
+        "question_1": {
+          "type": "question",
+          "settings": {
+            "group": "General",
+            "question": "Do I need to be technical?",
+            "answer": "<p>No. If you can write an email and use a spreadsheet, you can do everything in the course. The automation lessons are click by click.</p>"
+          }
+        },
+        "question_2": {
+          "type": "question",
+          "settings": {
+            "group": "General",
+            "question": "Which AI tools do I need?",
+            "answer": "<p>One general AI assistant on a paid plan, and the email, calendar and invoicing tools you already use. Module one helps you choose, and nothing in the course depends on a single app.</p>"
+          }
+        },
+        "question_3": {
+          "type": "question",
+          "settings": {
+            "group": "General",
+            "question": "How long do I have access?",
+            "answer": "<p>For as long as the course exists, including every update.</p>"
+          }
+        },
+        "question_4": {
+          "type": "question",
+          "settings": {
+            "group": "Pricing",
+            "question": "Can I pay in parts?",
+            "answer": "<p>Yes. Choose three monthly payments at checkout. The total is a little higher than paying once.</p>"
+          }
+        },
+        "question_5": {
+          "type": "question",
+          "settings": {
+            "group": "Pricing",
+            "question": "What is the refund policy?",
+            "answer": "<p>Email us within 30 days of joining and we refund you in full. You keep the prompt library.</p>"
+          }
+        },
+        "question_6": {
+          "type": "question",
+          "settings": {
+            "group": "Pricing",
+            "question": "Can my team join?",
+            "answer": "<p>Yes. The Team edition covers up to five people. For more, <a href=\"/pages/contact\">write to us</a>.</p>"
+          }
+        },
+        "question_7": {
+          "type": "question",
+          "settings": {
+            "group": "Program",
+            "question": "How much time does it take each week?",
+            "answer": "<p>About two hours: roughly an hour of lessons and an hour setting things up in your own business. The live calls are optional.</p>"
+          }
+        },
+        "question_8": {
+          "type": "question",
+          "settings": {
+            "group": "Program",
+            "question": "When are the live calls?",
+            "answer": "<p>Thursdays at 6 pm London time for six weeks, recorded for anyone who cannot make it.</p>"
+          }
+        },
+        "question_9": {
+          "type": "question",
+          "settings": {
+            "group": "Program",
+            "question": "Will this work for my kind of business?",
+            "answer": "<p>If your business sends emails, answers customers and keeps records, yes. Students run shops, studios, clinics, agencies and practices.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "question_1",
+        "question_2",
+        "question_3",
+        "question_4",
+        "question_5",
+        "question_6",
+        "question_7",
+        "question_8",
+        "question_9"
+      ]
+    },
+    "join": {
+      "type": "renaissance-cta",
+      "settings": {
+        "background": "#07080d",
+        "accent": "#3d5afe",
+        "gold": "#f2bd4f",
+        "text_color": "#a7adbf",
+        "anchor": "join",
+        "show_mark": true,
+        "heading": "Make this the year AI <em>works for you</em>",
+        "text": "<p>Join today and start module one tonight. Six weeks from now the busywork runs itself and you know exactly what to hand over next.</p>",
+        "button_label": "Join Digital Renaissance",
+        "button_link": "/#pricing",
+        "link_label": "Watch module one free",
+        "link_url": "#open-form-access",
+        "note": "30 day refund. Lifetime access and updates.",
+        "padding_top": 128
+      }
+    },
+    "access": {
+      "type": "form-modal",
+      "settings": {
+        "form_key": "access",
+        "sends_to": "subscribe",
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "accent_color": "#f2bd4f",
+        "text_align": "left",
+        "width": 480,
+        "corners": "round",
+        "field_style": "outline",
+        "show_icons": true,
+        "overlay_opacity": 70,
+        "success_heading": "Check your inbox",
+        "success_text": "<p>Module one is on its way. If nothing arrives in a few minutes, look in spam.</p>",
+        "error_text": "That did not send. Check your email address and try again.",
+        "editor_view": "form",
+        "close_label": "Close"
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "eyebrow": "Free preview",
+            "heading": "Watch module one *free*",
+            "size": 30
+          }
+        },
+        "text_1": {
+          "type": "text",
+          "settings": {
+            "text": "<p>Six short lessons on choosing your tools and writing prompts that work. We email you the link.</p>"
+          }
+        },
+        "field_1": {
+          "type": "field",
+          "settings": {
+            "kind": "name",
+            "label": "First name",
+            "required": false
+          }
+        },
+        "field_2": {
+          "type": "field",
+          "settings": {
+            "kind": "email",
+            "label": "Email address",
+            "required": true
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "label": "Send me module one",
+            "arrow": true
+          }
+        },
+        "note_1": {
+          "type": "note",
+          "settings": {
+            "icon": "lock",
+            "text": "Your email stays private.",
+            "small": "<p>One email with the link, then the occasional useful one. Unsubscribe any time.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "text_1",
+        "field_1",
+        "field_2",
+        "button_1",
+        "note_1"
+      ]
+    }
+  },
+  "order": [
+    "hero",
+    "audience",
+    "paths",
+    "inside",
+    "curriculum",
+    "results",
+    "bonuses",
+    "instructor",
+    "pricing",
+    "guarantee",
+    "faq",
+    "join",
+    "access"
+  ]
+}
