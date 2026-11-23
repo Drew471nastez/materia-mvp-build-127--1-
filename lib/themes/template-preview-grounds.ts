@@ -20,7 +20,7 @@ export const TEMPLATE_PREVIEW_GROUNDS: Readonly<Record<string, { desktop: string
   "templates-shop": { desktop: "#fbfbfb", phone: "#fcfbfb" },
   "space-clothing": { desktop: "#010101", phone: "#030303" },
   "posters": { desktop: "#d4c8f5", phone: "#d4c8f5" },
-  "coach": { desktop: "#110f09", phone: "#060605" },
+  "coach": { desktop: "#110f09", phone: "#120d09" },
   "vsl-course": { desktop: "#060606", phone: "#060606" },
   "online-course": { desktop: "#fefefe", phone: "#fefefe" },
   "course-landing": { desktop: "#ffffff", phone: "#fefefe" },
