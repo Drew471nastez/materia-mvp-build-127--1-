@@ -13793,7 +13793,17 @@ const words: Record<string, string> = {
  "What is synced": "O que é sincronizado",
  "Activity and errors": "Atividade e erros",
  "Nothing yet. Orders, syncs and problems show here as they happen.": "Nada ainda. Pedidos, sincronizações e problemas aparecem aqui assim que acontecem.",
- "{verb} {name}": "{verb} {name}"
+ "{verb} {name}": "{verb} {name}",
+ "Your connection dropped. Check you are online, then try again.": "Sua conexão caiu. Verifique se você está online e tente de novo.",
+ "Where is your bank account?": "Onde fica sua conta bancária?",
+ "Choose a country.": "Escolha um país.",
+ "Your payouts go to a bank in this country, in its currency. It can't be changed later.": "Seus repasses vão para um banco neste país, na moeda dele. Isso não pode ser alterado depois.",
+ "Payouts are not set up yet": "Os repasses ainda não estão configurados",
+ "Opening your payments account": "Abrindo sua conta de pagamentos",
+ "Your browser could not reach Stripe. Check your connection, turn off any content blocker for storelib.com, then try again.": "Seu navegador não conseguiu acessar o Stripe. Verifique sua conexão, desative bloqueadores de conteúdo para storelib.com e tente de novo.",
+ "Stripe did not answer just now. Try again in a minute.": "O Stripe não respondeu agora. Tente de novo em um minuto.",
+ "The form's sign in ran out. Try again to open a fresh one.": "A sessão do formulário expirou. Tente de novo para abrir um novo.",
+ "The form could not open here. Try again, and if it keeps happening write to support@storelib.com.": "O formulário não abriu aqui. Tente de novo e, se continuar acontecendo, escreva para support@storelib.com."
 }
 
 export default words

@@ -8,9 +8,11 @@
  *
  *   REGION     lib/payments/stripe/payout-regions: domestic, cross-border or
  *              unsupported, and the scripts' copies of the list are the same
- *   ONBOARDING never the recipient agreement, never card_payments across a
- *              border, no account at all where Stripe cannot pay out; an
- *              untouched recipient account is swapped like an unfinished one
+ *   ONBOARDING never the recipient agreement, transfers only first across a
+ *              border (cards and transfers only when Stripe has not approved
+ *              transfers-only accounts: tests/stripe-connect-onboarding), no
+ *              account at all where Stripe cannot pay out; an untouched
+ *              recipient account is swapped like an unfinished one
  *   AUDIT      the Connect audit marks those accounts affected
  *   TEST MODE  --create-account opens the account the way onboarding does,
  *              and the run ends with a real (test) payout
@@ -70,15 +72,17 @@ async function main() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const cardsIn = (xs: any[]) => xs.some((x) => !!x.capabilities?.card_payments)
   check("no shape anywhere asks for the recipient agreement", !recipientIn(all("domestic")) && !recipientIn(all("cross-border")))
-  check("across a border: transfers only, never card_payments (so never on_behalf_of)", all("cross-border").length > 0 && !cardsIn(all("cross-border")) && all("cross-border").every((x) => x.capabilities?.transfers?.requested === true))
+  /* Nov 23 2026: transfers only needs Stripe's approval, which the platform does not have; every foreign seller was refused. Cards and transfers follow it (no on_behalf_of while NEXT_PUBLIC_SELLER_STATEMENT_NAME is unset). */
+  const xb = accountAttempts(shared, "cross-border")
+  check("across a border: transfers only first, then cards and transfers on the full agreement", xb.length > 0 && !xb[0].capabilities?.card_payments && cardsIn(xb) && xb.findIndex((x) => !!x.capabilities?.card_payments) > 0 && all("cross-border").every((x) => x.capabilities?.transfers?.requested === true))
   check("  and the first try keeps setup inside Storelib", accountAttempts(shared, "cross-border")[0]?.controller?.requirement_collection === "application")
   check("at home: a full account first, then transfers only", !!accountAttempts(shared, "domestic")[0]?.capabilities?.card_payments && !accountAttempts(shared, "domestic")[1]?.capabilities?.card_payments)
   check("an unsupported country gets no attempt at all", all("unsupported").length === 0)
   const connect = read("lib/payments/stripe/connect.ts")
-  check("onboarding refuses an unsupported country before calling Stripe, in plain words", /route === "unsupported"[\s\S]{0,80}throw new PaymentsProblem\("Payouts to that country are not available/.test(connect))
+  check("onboarding refuses an unsupported country before calling Stripe, in plain words", /route === "unsupported"[\s\S]{0,240}throw new PaymentsProblem\(unsupportedCountryMessage\(country\), 400, "country_unsupported"\)/.test(connect))
   check("  and builds its tries from the shared list", /accountAttempts\(shared, route, options\)/.test(connect) && !/service_agreement: "recipient"/.test(connect))
-  check("an untouched account on the recipient agreement is swapped, like an unfinished Express one", /const recipient = existing\.tos_acceptance\?\.service_agreement === "recipient"\s*\n\s*if \(\(runsInStorelib\(existing\) && !recipient\) \|\| !untouched\) return accountId/.test(connect))
-  check("  an account with anything submitted is never swapped (money and identity stay)", /\|\| !untouched\) return accountId/.test(connect))
+  check("an untouched account on the recipient agreement is swapped, like an unfinished Express one", /const recipient = existing\.tos_acceptance\?\.service_agreement === "recipient"/.test(connect) && /if \(!wrongCountry && \(\(runsInStorelib\(existing\) && !recipient\) \|\| !untouched\)\) return accountId/.test(connect))
+  check("  an account with anything submitted is never swapped (money and identity stay)", /\|\| !untouched\)\) return accountId/.test(connect) && /wrongCountry = untouched && /.test(connect))
 
   section("3. The Connect audit")
   const v = (a: Record<string, unknown>) => audit.connectVerdict({ payouts_enabled: true, capabilities: { transfers: "active" }, requirements: { currently_due: [] }, ...a }, "RO")

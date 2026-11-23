@@ -152,7 +152,7 @@ console.log("\n3. Orders paid through Airwallex stay readable, without Refund")
 console.log("\n4. A creator who had Airwallex is told once to connect Stripe")
 {
   const service = read("lib/payments/service.ts")
-  check("the overview flags it only while Stripe cannot take money", /if \(!view\.checkoutOpen && \(await hadAirwallexAccount\(creator\.id\)\)\) return \{ \.\.\.view, airwallexBefore: true \}/.test(service))
+  check("the overview flags it only while Stripe cannot take money", /const \[view, airwallex\] = await Promise\.all\(\[stripeOverview\(creator, options\), hadAirwallexAccount\(creator\.id\)\]\)/.test(service) && /if \(!view\.checkoutOpen && airwallex\) return \{ \.\.\.view, airwallexBefore: true \}/.test(service))
   check("  from part 76's rows, read only, and a missing table is no", /\.from\("payment_accounts"\)\s*\.select\("provider_account_id"\)\s*\.eq\("provider", "airwallex"\)/.test(service) && /if \(error\) return false/.test(service) && !/payment_accounts"\)[\s\S]{0,80}\.(update|delete|insert|upsert)\(/.test(service))
   const hub = read("components/app/settings/storelib-payments-settings.tsx")
   check("Settings shows the note", /data\.airwallexBefore && !airwallexNoteClosed/.test(hub) && /tt\("Connect Stripe to keep selling"\)/.test(hub))

@@ -15,6 +15,8 @@ import {
   readCreatorStripe,
   hadConnection,
   resolveCountryForStart,
+  platformCountry,
+  platformCountryKnown,
   syncStripeAccountFull,
   type StripeSyncResult,
 } from "./connect"
@@ -51,7 +53,8 @@ const FRESH_FOR_MS = 60_000
 export async function stripeOverview(creator: CreatorRef, options?: { sync?: boolean | "stale" }): Promise<HubOverview> {
   const configured = stripeConfigured()
   const publishableKey = stripePublishableKey()
-  const rowBefore = await readCreatorStripe(creator.id)
+  /* The creator row and the owner's profile in one round, not one after the other. */
+  const [rowBefore, ownerProfile] = await Promise.all([readCreatorStripe(creator.id), profileForCreator(creator.userId).catch(() => null)])
 
   let snapshot = mergeSnapshotFromRow(rowBefore)
   let synced: StripeSyncResult | null = null
@@ -73,7 +76,13 @@ export async function stripeOverview(creator: CreatorRef, options?: { sync?: boo
   /* A sync that let an unreachable account go has changed the row: read it again, so nothing below uses the old id. */
   const row = synced && !synced.released ? rowBefore : await readCreatorStripe(creator.id)
   const reconnect = !row?.stripe_account_id && row ? await hadConnection(creator.id, row.stripe_connected_at) : false
-  const person = row ? await profileForCreator(row.user_id) : null
+  const person = row ? (row.user_id === creator.userId ? ownerProfile : await profileForCreator(row.user_id)) : null
+  /*
+   * Which countries setup can open: the platform's country decides
+   * (lib/payments/stripe/payout-regions). Only asked of Stripe when there is
+   * no account yet and the page may wait; otherwise what is already known.
+   */
+  const platform = platformCountryKnown() ?? (!row?.stripe_account_id && options?.sync !== false ? await platformCountry().catch(() => null) : null)
   const live = synced?.account ?? null
   const facts = live ? payoutFactsOf(live) : null
   /* Without a fresh read, fall back to the cached flags; never to "active" unless Stripe said so last time. */
@@ -181,6 +190,7 @@ export async function stripeOverview(creator: CreatorRef, options?: { sync?: boo
       country: countryCode(person?.country),
     },
     payoutHint: facts,
+    platformCountry: platform,
     paymentsStatus,
     stripeUnreachable: unreachable,
     beat,
