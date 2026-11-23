@@ -15,7 +15,7 @@ import { Button, DataList, Facts, Figures, Filters, LinkText, Pager, Panel, Read
 
 type Go = (r: Partial<Route>) => void
 /** `live`: the visitors-now figure the shell already polls (console.tsx), passed down rather than read twice. */
-type Common = { route: Route; go: Go; query: string; onQuery: (q: string) => void; act: (a: Action) => void; live?: number | null }
+type Common = { route: Route; go: Go; query: string; onQuery: (q: string) => void; act: (a: Action) => void; live?: number | null; liveScope?: "platform" | "creators" }
 
 const STRIPE_WORD: Record<StripeState, string> = { ready: "Ready", restricted: "Incomplete", pending: "Started", none: "Not connected" }
 
@@ -25,7 +25,7 @@ function Unread({ reason }: { reason: string | null }) {
 
 /* ── Creators ─────────────────────────────────────────────────────────── */
 
-export function CreatorsView({ data, route, go, query, onQuery, live }: Common & { data: CreatorsPayload }) {
+export function CreatorsView({ data, route, go, query, onQuery, live, liveScope }: Common & { data: CreatorsPayload }) {
   const list = data.list
   /* Who is online and the line's counts, every 30 seconds while visible (panel-activity). */
   const online = useOnlineActivity()
@@ -43,7 +43,7 @@ export function CreatorsView({ data, route, go, query, onQuery, live }: Common &
   return (
     <div className="space-y-4">
       <ViewHeader title="Creators" meta={list ? `${num(list.total)} ${route.filter && route.filter !== "all" ? "match" : "in all"}` : undefined} />
-      <ActivityLine data={online.data} live={live} />
+      <ActivityLine data={online.data} live={live} liveScope={liveScope} onLive={() => go({ view: "live" })} />
       <Filters
         label="Creators view"
         value={route.tab || "list"}

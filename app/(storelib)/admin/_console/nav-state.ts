@@ -5,12 +5,12 @@ import type { ViewId } from "@/lib/admin/types"
  * filter=failed&q=…&page=2`. The server reads the same parameters for the
  * first paint, so a link to a filtered list opens on that list.
  */
-/** `tab` is a view's own switch (Creators: "" for the list, "online", "activity"); the data route never reads it. */
+/** `tab` is a view's own switch (Creators: "" for the list, "online", "activity"; Live: "" for online now, "activity"); the data route never reads it. */
 export type Route = { view: ViewId; q: string; filter: string; page: number; id: string; tab: string }
 
 export const TABS = ["online", "activity"]
 
-export const VIEWS: ViewId[] = ["overview", "ops", "creators", "creator", "products", "orders", "payouts", "websites", "email", "audience", "people", "audit", "system"]
+export const VIEWS: ViewId[] = ["overview", "live", "ops", "creators", "creator", "products", "orders", "payouts", "websites", "email", "audience", "people", "audit", "system"]
 
 export function parseRoute(get: (k: string) => string | null | undefined): Route {
   const view = (get("view") ?? "overview") as ViewId

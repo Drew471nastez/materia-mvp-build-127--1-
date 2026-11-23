@@ -217,7 +217,7 @@ export function placePath(raw: unknown, host: HostKind = "storelib"): PlacedPath
   let area: Area | null
   if (host === "site") area = "creators"
   else if (Object.prototype.hasOwnProperty.call(ROOT_AREA, first)) area = ROOT_AREA[first]
-  else if (first.startsWith("_next") || first.includes(".")) area = null
+  else if (first.startsWith("_next") || /\.(js|mjs|css|map|png|jpe?g|gif|webp|avif|svg|ico|txt|xml|json|webmanifest|woff2?)$/.test(first)) area = null
   /* A root handle: storelib.com/<handle> and /<handle>/<product>. */
   else area = SLUG.test(first) && !idLike(first) ? "creators" : null
   if (!area) return null

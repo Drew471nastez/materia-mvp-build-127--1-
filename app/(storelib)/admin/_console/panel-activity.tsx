@@ -116,7 +116,7 @@ function timeOf(iso: string): string {
 
 /* ── The line at the top of Creators ───────────────────────────────────── */
 
-export function ActivityLine({ data, live }: { data: ActivityPayload | null; live?: number | null }) {
+export function ActivityLine({ data, live, liveScope = "creators", onLive }: { data: ActivityPayload | null; live?: number | null; liveScope?: "platform" | "creators"; onLive?: () => void }) {
   const s = data?.summary
   const parts: string[] = []
   if (data?.missing) parts.push("Activity is not recording yet")
@@ -125,7 +125,8 @@ export function ActivityLine({ data, live }: { data: ActivityPayload | null; liv
     if (s.activeToday !== null) parts.push(`${num(s.activeToday)} active today`)
     if (s.live !== null) parts.push(`${num(s.live)} live on Storelib`)
   }
-  if (typeof live === "number") parts.push(`${num(live)} visitors on creators' pages now`)
+  /* Round 62: everyone on Storelib once part 477 is in, which opens Live. */
+  const liveText = typeof live === "number" ? (liveScope === "platform" ? `${num(live)} on Storelib now` : `${num(live)} visitors on creators' pages now`) : null
   return (
     <p className="flex min-h-5 min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-[#c9c9d1] tabular-nums" data-activity-line>
       {parts.length ? (
@@ -135,9 +136,18 @@ export function ActivityLine({ data, live }: { data: ActivityPayload | null; liv
             {p}
           </span>
         ))
-      ) : (
+      ) : !liveText ? (
         <span className="text-[#6b6b76]">Reading activity</span>
-      )}
+      ) : null}
+      {liveText ? (
+        onLive ? (
+          <button type="button" onClick={onLive} className="whitespace-nowrap underline decoration-white/20 underline-offset-[3px] outline-none hover:text-[#ededf0] focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/70" data-activity-live>
+            {liveText}
+          </button>
+        ) : (
+          <span className="whitespace-nowrap">{liveText}</span>
+        )
+      ) : null}
     </p>
   )
 }
