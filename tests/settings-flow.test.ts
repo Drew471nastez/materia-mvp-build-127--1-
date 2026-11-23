@@ -267,7 +267,8 @@ section("Upgrade opens and closes")
   check(
     "it is its own page: a layer over the whole shell, with the pill stepping aside under it",
     /* The shared layer (components/app/page-layer.tsx): over the header (50), under the pill (55), which it hides. */
-    /<PageLayer inset="white">/.test(read("app/(storelib)/app/settings/billing/upgrade/layout.tsx")) &&
+    /* Changed on purpose (r58): the layer also rises and drops on a phone. */
+    /<PageLayer inset="white" moves>/.test(read("app/(storelib)/app/settings/billing/upgrade/layout.tsx")) &&
       /data-page-layer=\{pill \? "pill" : ""\}/.test(read("components/app/page-layer.tsx")) &&
       /fixed inset-0 z-\[52\]/.test(read("components/app/page-layer.tsx")) &&
       /html:has\(\[data-page-layer=""\]\) \[data-app-nav-pill\] \{\s*visibility: hidden;/.test(css),

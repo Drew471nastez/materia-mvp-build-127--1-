@@ -366,7 +366,8 @@ async function main() {
     check("  no em dash in what it says", !/—/.test(pi) && !/—/.test(read("components/onepage/settings-integrations.tsx")))
     const det = read("components/app/settings/integration-detail.tsx")
     check("/app: the steps in a modal, the long text behind Details", /<Modal open=\{howTo\}/.test(det) && /data-integration-steps-open=""/.test(det) && /<Modal open=\{details\}/.test(det) && /data-integration-details-open=""/.test(det))
-    check("  the page itself: the setup, the status and the way out", /main=\{\s*<>\s*\{setup\}\s*\{statusSection\}\s*\{danger\}\s*<\/>\s*\}/.test(det))
+    /* Changed on purpose (r58): an installed integration's page is the shared template (components/app/integrations/installed-app.tsx), still the setup, the status and the way out, with what is synced and its activity beside them. */
+    check("  the page itself: the setup, the status and the way out", /<InstalledApp status=\{statusSection\} synced=\{synced\} activity=\{[\s\S]*?: null\} settings=\{setup\} danger=\{danger\} \/>/.test(det))
     check("  Mailchimp, Brevo, Zapier and Make connect for the OnePage from their /app page too", /isPageIntegration\(item\.id\) \? <PageIntegrationsSection only=\{\[item\.id\]\} \/>/.test(det))
     const si = read("components/onepage/settings-integrations.tsx")
     check("OnePage Settings lost its explaining sentences", !/What your page is connected to/.test(si) && !/These tags load on your page/.test(si) && !/Each signup on your page goes to these/.test(pi))

@@ -21,6 +21,7 @@
  */
 import { unknownExploreCategory } from "../lib/explore/category-pages"
 import { FEATURES_DESCRIPTION, FEATURES_PATH, FEATURES_TITLE } from "../lib/marketing/features-seo"
+import { MARKETPLACE_SEO } from "../lib/themes/theme-seo"
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { stripComments } from "./_source"
@@ -200,8 +201,10 @@ console.log("\nStorelib's own structured data")
   check("a breadcrumb trail starts at Storelib and carries full addresses", crumbs["@type"] === "BreadcrumbList" && crumbs.itemListElement.length === 3 && crumbs.itemListElement[0].item === "https://storelib.com" && crumbs.itemListElement[2].item === "https://storelib.com/explore/design" && crumbs.itemListElement[2].position === 3)
   const crumbed: Record<string, RegExp> = {
     "app/(storelib)/(marketing)/faq/page.tsx": /storelibBreadcrumbJsonLd\(\[\{ name: "FAQ", path: "\/faq" \}\]\)/,
-    "app/(storelib)/(marketing)/themes/page.tsx": /storelibBreadcrumbJsonLd\(\[\{ name: "Themes", path: "\/themes" \}\]\)/,
-    "app/(storelib)/(marketing)/themes/[slug]/page.tsx": /storelibBreadcrumbJsonLd\(\[\{ name: "Themes", path: "\/themes" \}, \{ name: listing\.name/,
+    /* Changed on purpose (r58): /themes and a theme print their trail inside the marketplace's graph (lib/themes/theme-seo-jsonld): Themes, then the category, then the template. */
+    "app/(storelib)/(marketing)/themes/page.tsx": /marketplaceJsonLd\(listings\)/,
+    "app/(storelib)/(marketing)/themes/[slug]/page.tsx": /themeJsonLd\(listing, copy\)/,
+    "lib/themes/theme-seo-jsonld.ts": /^(?=[\s\S]*storelibBreadcrumbJsonLd\(\[\{ name: "Themes", path: MARKETPLACE_PATH \}\]\))(?=[\s\S]*const trail = \[\{ name: "Themes", path: MARKETPLACE_PATH \}, \.\.\.\(copy\.primaryCategory)/,
     "app/(storelib)/(marketing)/explore/[category]/page.tsx": /storelibBreadcrumbJsonLd\(\[\{ name: "Explore", path: "\/explore" \}, \{ name: categoryLabel/,
     "components/developers/hub-page.tsx": /"@type": "BreadcrumbList"/,
     "components/legal/legal-page.tsx": /legalJsonLd\(kind\)/,
@@ -224,6 +227,8 @@ console.log("\nEach public platform page names itself")
   const facts = PAGES.map((f) => {
     /* /features reads its words from lib/marketing/features-seo (round 45, content), which its structured data shares. */
     if (f === "app/(storelib)/(marketing)/features/layout.tsx") return { f, path: FEATURES_PATH, title: FEATURES_TITLE, description: FEATURES_DESCRIPTION }
+    /* Changed on purpose (r58): /themes reads its words from lib/themes/theme-seo (MARKETPLACE_SEO), which its llms.txt line shares. */
+    if (f === "app/(storelib)/(marketing)/themes/page.tsx") return { f, path: /path: "(\/themes)"/.exec(code(f))?.[1], title: /title: MARKETPLACE_SEO\.title/.test(code(f)) ? MARKETPLACE_SEO.title : undefined, description: /description: MARKETPLACE_SEO\.description/.test(code(f)) ? MARKETPLACE_SEO.description : undefined }
     const s = code(f)
     const block = /pageMetadata\(\{([\s\S]*?)\}\)/.exec(s)?.[1] ?? ""
     /* Changed on purpose (pricing: Grow $14, physical rates). */ /* /pricing writes its description from the price and fee rules, as a template. */

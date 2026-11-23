@@ -389,7 +389,7 @@ section("Pages drawn over the whole shell")
   const newLayout = code("app/(storelib)/app/products/new/layout.tsx")
   const idLayout = code("app/(storelib)/app/products/[id]/layout.tsx")
   check("the plans page and both editor addresses use the one shared layer; the editor keeps the pill, its bar clears the status bar itself, and it is a layer on a phone only",
-    /<PageLayer inset="white">/.test(upgrade) && /* Changed on purpose (round 41): the product editor's layers ask to move. */ /<PageLayer pill inset="bar" phoneOnly moves>/.test(newLayout) && /<PageLayer pill inset="bar" phoneOnly moves>/.test(idLayout))
+    /* Changed on purpose (r58): the plans page rises and drops on a phone too (the owner: "open and close smoothly"). */ /<PageLayer inset="white" moves>/.test(upgrade) && /* Changed on purpose (round 41): the product editor's layers ask to move. */ /<PageLayer pill inset="bar" phoneOnly moves>/.test(newLayout) && /<PageLayer pill inset="bar" phoneOnly moves>/.test(idLayout))
   const layer = code("components/app/page-layer.tsx")
   check("the layer is the whole window, between the header and the pill, and pads itself under the status bar",
     /"fixed inset-0 z-\[52\] flex flex-col bg-\[#f8f9fa\]"/.test(layer) && /"pt-\[env\(safe-area-inset-top,0px\)\]"/.test(layer)

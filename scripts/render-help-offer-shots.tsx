@@ -340,7 +340,7 @@ function App() {
       const kind = offer?.kind ?? ((["bundle", "checkout", "quantity_break"] as const).find((k) => k === params.get("kind")) ?? "bundle")
       return (
         <div id="shot">
-          <OfferEditor key={offer?.id ?? kind} offer={offer} kind={kind} products={area.products} collections={[]} others={OFFERS} currency="USD" physical ready settingsReady breaksReady sold={offer ? (SOLD[offer.id] ?? 0) : 0} />
+          <OfferEditor key={offer?.id ?? kind} open target={offer ? { offer } : { offer: null, kind }} onClose={() => undefined} onSaved={() => undefined} onDeleted={() => undefined} products={area.products} collections={[]} others={OFFERS} currency="USD" physical ready settingsReady breaksReady sold={SOLD} />
         </div>
       )
     }

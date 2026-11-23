@@ -159,7 +159,7 @@ async function main() {
     check("the clamp is measured from the text's line height and watched as its box changes", /parseFloat\(getComputedStyle\(el\)\.lineHeight\)/.test(about) && /new ResizeObserver\(measure\)/.test(about))
     check("opening uses the measured height, not a 2000px cap that cut long stories", !/'2000px'/.test(about) && /fullHeight \?\? 4000/.test(about))
     check("a link reached with Tab under the fade opens the story", /onFocusCapture=/.test(about) && /setIsExpanded\(true\)/.test(about))
-    check("the members' page fades its text the same way", /data-clamp-fade=\{aboutOpen \? "open" : "closed"\}/.test(code("components/memberships/member-page.tsx")) && !/from-white to-transparent/.test(code("components/memberships/member-page.tsx")))
+    check("the members' page fades its text the same way", /* Changed on purpose (r58): the fold is lib/ui/use-fold's, which sets the same attribute */ /data-clamp-fade=\{aboutFold\.fold\}/.test(code("components/memberships/member-page.tsx")) && !/from-white to-transparent/.test(code("components/memberships/member-page.tsx")))
   }
 
   section("4. The gallery")

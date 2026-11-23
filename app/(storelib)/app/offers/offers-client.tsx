@@ -25,15 +25,16 @@
  * in the last 90 days that the offer saved on or that a theme added through
  * it (lib/offers/offers-server soldThrough).
  *
- * An offer opens on a page of its own (./offer-editor.tsx, at
- * /app/offers/<id>, and /app/offers/new?kind= for a new one), as an order
- * or a coupon does: on a phone it rises over this list and drops back to
- * it, from 768px it lands as every page does. Coming back, the list says
- * what was done, tints the row and reads its rows again (./list-return).
+ * Round 58: an offer opens in a modal over this list (./offer-editor.tsx),
+ * the Add product modal's shell: a dialog from 768px, the shared bottom
+ * sheet on a phone. New offer asks the kind first, as Add product does.
+ * /app/offers/new (?kind=) and /app/offers/<id> are still addresses: they
+ * draw this list with the modal open on them (`opening`), and closing it
+ * puts the address back to /app/offers without a reload. A save or a delete
+ * changes the row in place, says so and tints it.
  */
 
 import * as React from "react"
-import { useRouter } from "next/navigation"
 import { Plus, Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
@@ -44,12 +45,10 @@ import { offerState, type Offer, type OfferKind, type OfferState } from "@/lib/o
 import { GUTTER, LIST_BAR, PaneBar, RowMenuButton, StatusBadge } from "../orders/order-parts"
 import { useConfirm } from "../products/new/confirm-sheet"
 import { Pill, usePill } from "../coupons/coupon-parts"
-import { LAYER_LEAVE_MS } from "@/components/app/page-layer"
-import { rowsWithReturn, tintReturnedRow } from "@/components/app/list-return"
-import { holdLanding, prefetchAppPage } from "@/lib/ui/app-navigation"
-import { whenIdle } from "../products/list-return"
+import { tintReturnedRow } from "@/components/app/list-return"
 import { sendOffer as send } from "./offer-api"
-import { newOfferHref, offerHref, offersReturn } from "./list-return"
+import { OFFERS_HREF } from "./list-return"
+import { OfferEditor, type OfferOpen } from "./offer-editor"
 import { KIND_WORD, OfferThumbs, STATE_TONE, STATE_WORD, contentsText, datesText, discountText, placesText, type OfferCollection, type OfferProduct } from "./offer-parts"
 
 /* The products page's own measures, as Collections takes them, so the three pages are one place. */
@@ -71,8 +70,8 @@ const VIEWS: { value: View; label: () => string }[] = [
 const viewOf = (s: OfferState): Exclude<View, "all"> => (s === "active" ? "active" : s === "scheduled" ? "scheduled" : "off")
 
 
-/** The view the list was left on, taken up again only on a way back from an offer (./list-return isReturning). */
-let leftAt: View | null = null
+/** What the address opens the modal on: /app/offers/new (with its kind) or /app/offers/<id>. */
+export type OffersOpening = { new: true; kind: OfferKind | null } | { id: string } | null
 
 export function OffersClient({
   initialOffers,
@@ -84,6 +83,7 @@ export function OffersClient({
   breaksReady,
   sold,
   physical,
+  opening = null,
 }: {
   initialOffers: Offer[]
   products: OfferProduct[]
@@ -98,9 +98,10 @@ export function OffersClient({
   /** Units each offer sold in the last 90 days, by its id. */
   sold: Record<string, number>
   physical: boolean
+  /** The modal open on this when the page lands (the address was /app/offers/new or /app/offers/<id>). */
+  opening?: OffersOpening
 }) {
-  /* A save or a delete on an offer's page, laid over the rows the router kept (./list-return). */
-  const [list, setList] = React.useState(() => rowsWithReturn(initialOffers, offersReturn.peek()))
+  const [list, setList] = React.useState(initialOffers)
   /* The server's list again (a refresh: a change of the store's currency converts fixed amounts): it is the truth from here, as Coupons does. */
   const [seen, setSeen] = React.useState(initialOffers)
   if (seen !== initialOffers) {
@@ -110,27 +111,24 @@ export function OffersClient({
   const byId = React.useMemo(() => new Map(products.map((p) => [p.id, p])), [products])
   const [notice, say] = usePill()
   const [ask, confirmSheet] = useConfirm()
-  const router = useRouter()
   const sectionRef = React.useRef<HTMLElement>(null)
-  /* Back from an offer is the list as it was, on the view it was on, with no landing (as Coupons). */
-  const [returning] = React.useState(() => offersReturn.isReturning())
-  React.useLayoutEffect(() => {
-    if (returning) holdLanding()
-  }, [returning])
-  const [view, setView] = React.useState<View>(() => (returning && leftAt ? leftAt : "all"))
-  React.useEffect(() => {
-    leftAt = view
-  }, [view])
+  const [view, setView] = React.useState<View>("all")
   const [query, setQuery] = React.useState("")
 
-  /* BACK FROM AN OFFER: say what happened, tint its row, and read the rows again. */
+  /* THE MODAL: what it is on, and whether it is open (kept apart, so its content leaves with it). */
+  const [target, setTarget] = React.useState<OfferOpen | null>(() => {
+    if (!opening) return null
+    if ("id" in opening) {
+      const o = initialOffers.find((x) => x.id === opening.id)
+      return o ? { offer: o } : null
+    }
+    return { offer: null, kind: opening.kind }
+  })
+  const [open, setOpen] = React.useState(target !== null)
+  /* An address for an offer that is not this store's (or is gone) lands on the list. */
   React.useEffect(() => {
-    const back = offersReturn.take()
-    if (!back) return
-    if (back.message) say(back.message)
-    if (back.saved || back.deleted) router.refresh()
-    if (back.id && !back.deleted) tintReturnedRow(sectionRef.current, back.id, LAYER_LEAVE_MS)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, as the list lands
+    if (opening && !target) closeAddress()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, as the page lands
   }, [])
 
   /* One clock for the render, so an offer does not change view between two rows. */
@@ -144,27 +142,24 @@ export function OffersClient({
   const words = query.trim().toLowerCase()
   const shown = rows.filter((r) => (view === "all" || viewOf(r.state) === view) && (!words || r.offer.title.toLowerCase().includes(words) || r.offer.productIds.some((id) => byId.get(id)?.title.toLowerCase().includes(words))))
 
-  /* An offer's page, fetched whole when its row is hovered or touched, so the press finds it here. */
-  const warmed = React.useRef(new Set<string>())
-  const warm = (href: string) => {
-    if (warmed.current.has(href)) return
-    warmed.current.add(href)
-    prefetchAppPage(router, href)
+  /* OPENING AN OFFER: the modal over this list. */
+  const start = (offer: Offer | null, kind?: OfferKind) => {
+    setTarget(offer ? { offer } : { offer: null, kind: kind ?? null })
+    setOpen(true)
   }
-  /* Once the list has drawn and the browser is idle, New offer and the first rows: on a phone there is no hover to start them. */
-  const firstShown = React.useRef<string[]>([])
-  firstShown.current = shown.slice(0, 3).map((r) => r.offer.id)
-  React.useEffect(
-    () =>
-      whenIdle(() => {
-        warm(newOfferHref())
-        for (const id of firstShown.current) warm(offerHref(id))
-      }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per visit
-    [],
-  )
-  /* OPENING AN OFFER: its own page, rising over the list on a phone (./list-return). */
-  const start = (offer: Offer | null, kind?: OfferKind) => offersReturn.open(router, offer ? offerHref(offer.id) : newOfferHref(kind))
+  const closeModal = () => {
+    setOpen(false)
+    closeAddress()
+  }
+  const saved = (o: Offer, created: boolean) => {
+    setList((l) => (created ? [...l, o] : l.map((x) => (x.id === o.id ? o : x))))
+    say(created ? tt("{value} created", { value: o.title }) : tt("{value} saved", { value: o.title }))
+    window.setTimeout(() => tintReturnedRow(sectionRef.current, o.id, 0), 60)
+  }
+  const deleted = (o: Offer) => {
+    setList((l) => l.filter((x) => x.id !== o.id))
+    say(tt("{title} deleted", { title: o.title }))
+  }
 
   const setActive = async (o: Offer, active: boolean) => {
     setList((l) => l.map((x) => (x.id === o.id ? { ...x, active } : x)))
@@ -291,7 +286,7 @@ export function OffersClient({
                       const i = list.indexOf(o)
                       return (
                         <li key={o.id} data-row={o.id} className="relative flex min-h-[72px] items-center gap-3 py-2.5 pl-3 pr-1.5 data-[pressed]:bg-[#eef0f2] [li+&]:before:absolute [li+&]:before:left-[64px] [li+&]:before:right-0 [li+&]:before:top-0 [li+&]:before:h-px [li+&]:before:bg-[#eceef1]">
-                          <button type="button" data-row-open="" aria-label={o.title} onClick={() => start(o)} onPointerDown={() => warm(offerHref(o.id))} {...pressMark} className="absolute inset-0 z-0 cursor-pointer outline-none [-webkit-tap-highlight-color:transparent] focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]" />
+                          <button type="button" data-row-open="" aria-label={o.title} onClick={() => start(o)} {...pressMark} className="absolute inset-0 z-0 cursor-pointer outline-none [-webkit-tap-highlight-color:transparent] focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]" />
                           <OfferThumbs offer={o} byId={byId} />
                           <span className="pointer-events-none min-w-0 flex-1">
                             <span className="flex items-center gap-2">
@@ -332,7 +327,6 @@ export function OffersClient({
                           <tr
                             key={o.id}
                             data-row={o.id}
-                            onMouseEnter={() => warm(offerHref(o.id))}
                             onClick={(e) => {
                               const target = e.target as HTMLElement
                               if (!e.currentTarget.contains(target) || target.closest("a,button,input,label")) return
@@ -379,7 +373,32 @@ export function OffersClient({
         </section>
       </div>
 
+      <OfferEditor
+        open={open}
+        target={target}
+        onClose={closeModal}
+        onSaved={saved}
+        onDeleted={deleted}
+        products={products}
+        collections={collections}
+        others={list}
+        currency={currency}
+        physical={physical}
+        ready={ready}
+        settingsReady={settingsReady}
+        breaksReady={breaksReady}
+        sold={sold}
+      />
       {confirmSheet}
     </div>
   )
+}
+
+/** The address back to the list, in place: closing a modal a link opened is not a page load. */
+function closeAddress() {
+  try {
+    if (window.location.pathname !== OFFERS_HREF) window.history.replaceState(window.history.state, "", OFFERS_HREF)
+  } catch {
+    /* The list still works on the address it had. */
+  }
 }

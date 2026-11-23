@@ -3341,15 +3341,22 @@ Pick the source:
     assign vb_text_override = bs.vb_text_color
   endif
 -%}
+{%- liquid
+  assign vb_glyph = bs.vb_icon_size | default: 48 | times: 3 | divided_by: 4
+  assign vb_glyph_m = bs.vb_icon_size_m | default: 44 | times: 3 | divided_by: 4
+-%}
+{%- capture vb_svg_open -%}<svg width="{{ vb_glyph }}" height="{{ vb_glyph }}" stroke="currentColor"{%- endcapture -%}
 <div id="VerticalBenefits-{{ block.id }}"
   class="vb"
   {{ block.shopify_attributes }}
   style="
     --vb-bg: {% if vb_bg_override != blank %}{{ vb_bg_override }}{% else %}transparent{% endif %};
-    --vb-icon-color: {% if vb_icon_override != blank %}{{ vb_icon_override }}{% else %}var(--color-text, #2A2A2A){% endif %};
+    --vb-icon-color: {% if vb_icon_override != blank %}{{ vb_icon_override }}{% else %}var(--vb-text-color){% endif %};
     --vb-text-color: {% if vb_text_override != blank %}{{ vb_text_override }}{% else %}var(--color-text, #242424){% endif %};
     --vb-icon-size: {{ bs.vb_icon_size | default: 48 }}px;
     --vb-icon-size-m: {{ bs.vb_icon_size_m | default: 44 }}px;
+    --vb-glyph: {{ vb_glyph }}px;
+    --vb-glyph-m: {{ vb_glyph_m }}px;
     --vb-gap: {{ bs.vb_icon_gap | default: 8 }}px;
     --vb-gap-m: {{ bs.vb_icon_gap_m | default: 6 }}px;
     --vb-font-d: {{ bs.vb_text_size_d | default: 16 }}px;
@@ -3362,10 +3369,63 @@ Pick the source:
     --vb-maxw: {{ bs.vb_maxw | default: 105 }}rem;
     --vb-pl: {{ bs.vb_pl | default: 0 }}px;
     --vb-pr: {{ bs.vb_pr | default: 0 }}px;
+    color: var(--vb-text-color);
   "
 >
+  {%- comment -%}
+    The styles come FIRST (round 58). Written after the list, a page that
+    moves them into a file loads them after the list has painted, and for
+    that moment every icon was drawn at the width of the column. The list
+    also carries its own size and layout inline, so it is right with no
+    stylesheet at all.
+
+    One icon set: 24 by 24, one stroke width (1.75) on the <svg> itself,
+    round caps and joins, nothing filled, every colour `currentColor`. The
+    glyph is three quarters of the icon size, in whole pixels (worked out
+    here, so it is never drawn between pixels), and sits on the first line of its text.
+  {%- endcomment -%}
+  <style>
+    #VerticalBenefits-{{ block.id }}{
+      background:var(--vb-bg);
+      padding-top:var(--vb-pt);padding-bottom:var(--vb-pb);
+      margin-top:var(--vb-mt);margin-bottom:var(--vb-mb);
+      --vb-line:calc(var(--vb-font-d) * 1.4);
+    }
+    #VerticalBenefits-{{ block.id }} .vb__list{
+      list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--vb-space);
+    }
+    #VerticalBenefits-{{ block.id }} .vb__item{
+      display:flex;align-items:flex-start;gap:var(--vb-gap);margin:0;padding:0;
+    }
+    #VerticalBenefits-{{ block.id }} .vb__icon{
+      flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;
+      width:var(--vb-glyph);height:max(var(--vb-glyph), var(--vb-line));
+      color:var(--vb-icon-color);line-height:0;
+    }
+    #VerticalBenefits-{{ block.id }} .vb__svg{display:flex;width:100%;height:100%;align-items:center;justify-content:center}
+    #VerticalBenefits-{{ block.id }} .vb__svg svg{
+      display:block;flex:none;width:var(--vb-glyph);height:var(--vb-glyph);overflow:visible;
+    }
+    #VerticalBenefits-{{ block.id }} .vb__svg--custom svg,
+    #VerticalBenefits-{{ block.id }} .vb__svg--custom svg *{stroke:currentColor}
+    #VerticalBenefits-{{ block.id }} .vb__img{
+      display:block;width:var(--vb-glyph);height:var(--vb-glyph);
+      object-fit:cover;border-radius:50% !important;
+    }
+    #VerticalBenefits-{{ block.id }} .vb__text{
+      min-width:0;color:var(--vb-text-color);font-size:var(--vb-font-d);line-height:1.4;font-weight:500;
+    }
+    @media (max-width: 768px){
+      #VerticalBenefits-{{ block.id }}{
+        --vb-glyph:var(--vb-glyph-m);
+        --vb-line:calc(var(--vb-font-m) * 1.4);
+      }
+      #VerticalBenefits-{{ block.id }} .vb__item{gap:var(--vb-gap-m)}
+      #VerticalBenefits-{{ block.id }} .vb__text{font-size:var(--vb-font-m)}
+    }
+  </style>
   <div class="vb__inner" style="max-width:var(--vb-maxw);padding-left:var(--vb-pl);padding-right:var(--vb-pr);">
-    <ul class="vb__list" role="list">
+    <ul class="vb__list" role="list" style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--vb-space);">
       {%- assign idxs = '1,2,3' | split: ',' -%}
       {%- for i in idxs -%}
         {%- capture t_key -%}item{{ i }}_title{%- endcapture -%}
@@ -3373,68 +3433,49 @@ Pick the source:
         {%- capture lib_key -%}item{{ i }}_icon_library{%- endcapture -%}
         {%- capture useimg_key -%}item{{ i }}_use_image{%- endcapture -%}
         {%- capture img_key -%}item{{ i }}_image{%- endcapture -%}
-        {%- capture imgsize_key -%}item{{ i }}_image_size{%- endcapture -%}
 
         {%- assign item_title = bs[t_key] -%}
         {%- assign use_img = bs[useimg_key] -%}
         {%- assign item_img = bs[img_key] -%}
-        {%- assign item_img_size = bs[imgsize_key] | default: bs.vb_icon_size -%}
         {%- assign item_svg = bs[svg_key] -%}
         {%- assign item_lib = bs[lib_key] | default: 'none' -%}
 
         {%- comment -%}
-          Built-in icon library — picked via the per-item `icon_library`
-          select in the schema. The merchant chooses an icon from a
-          curated list (truck, leaf, gift, shield, etc.); when set,
-          this overrides any pasted SVG. Pasted SVG still wins if the
-          merchant pastes one and leaves the library on `none`.
+          The icon library: the path data only, drawn inside one <svg> below,
+          so every icon has the same box, stroke and caps. `none` (or a name
+          not in the list) is the check, the same outline as the rest; a
+          pasted SVG wins over both.
         {%- endcomment -%}
-        {%- assign lib_svg = '' -%}
         {%- case item_lib -%}
-          {%- when 'check'    -%}{%- assign lib_svg = '<svg viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' -%}
-          {%- when 'truck'    -%}{%- assign lib_svg = '<svg viewBox="0 0 24 24" fill="none"><rect x="2.5" y="7" width="11" height="9" rx="1.5" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M13.5 10.5h4.2c.4 0 .7.18.93.49l2.3 3.05c.18.24.27.53.27.83V15.5a1 1 0 0 1-1 1h-1.7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9" cy="17.25" r="1.75" stroke="currentColor" stroke-width="1.6"/><circle cx="17.5" cy="17.25" r="1.75" stroke="currentColor" stroke-width="1.6"/></svg>' -%}
-          {%- when 'shield'   -%}{%- assign lib_svg = '<svg viewBox="0 0 24 24" fill="none"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' -%}
-          {%- when 'leaf'     -%}{%- assign lib_svg = '<svg viewBox="0 0 24 24" fill="none"><path d="M20 4c0 7-3 13-12 16 0-7 3-13 12-16z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 20c4-4 7-7 12-12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>' -%}
-          {%- when 'gift'     -%}{%- assign lib_svg = '<svg viewBox="0 0 24 24" fill="none"><rect x="3" y="8" width="18" height="13" rx="1.5" stroke="currentColor" stroke-width="1.6"/><path d="M3 13h18" stroke="currentColor" stroke-width="1.6"/><path d="M12 8v13" stroke="currentColor" stroke-width="1.6"/><path d="M12 8c-3 0-5-1.5-5-3.5S9 3 12 6c3-3 5-3 5-1.5S15 8 12 8z" stroke="currentColor" stroke-width="1.6"/></svg>' -%}
-          {%- when 'lock'     -%}{%- assign lib_svg = '<svg viewBox="0 0 24 24" fill="none"><rect x="5" y="11" width="14" height="9" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>' -%}
-          {%- when 'clock'    -%}{%- assign lib_svg = '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>' -%}
-          {%- when 'star'     -%}{%- assign lib_svg = '<svg viewBox="0 0 24 24" fill="none"><path d="M12 3l2.6 5.5 6 .9-4.3 4.2 1 6-5.3-2.8-5.3 2.8 1-6L3.4 9.4l6-.9L12 3z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>' -%}
-          {%- when 'heart'    -%}{%- assign lib_svg = '<svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.4-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6c-2.5 4.6-9.5 9-9.5 9z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>' -%}
-          {%- when 'sparkle'  -%}{%- assign lib_svg = '<svg viewBox="0 0 24 24" fill="none"><path d="M12 3v6m0 6v6M3 12h6m6 0h6M6 6l4 4m4 4l4 4M6 18l4-4m4-4l4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>' -%}
-          {%- when 'recycle'  -%}{%- assign lib_svg = '<svg viewBox="0 0 24 24" fill="none"><path d="M7 7l3-4 3 4M5 12l-2 4 4 1M19 11l3 3-4 2M9 21h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>' -%}
-          {%- when 'medal'    -%}{%- assign lib_svg = '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="14" r="6" stroke="currentColor" stroke-width="1.6"/><path d="M9 9L7 3h10l-2 6" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>' -%}
-          {%- when 'cart'     -%}{%- assign lib_svg = '<svg viewBox="0 0 24 24" fill="none"><path d="M3 4h2l3 12h11l2-8H7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9" cy="20" r="1.5" stroke="currentColor" stroke-width="1.6"/><circle cx="18" cy="20" r="1.5" stroke="currentColor" stroke-width="1.6"/></svg>' -%}
-          {%- when 'support'  -%}{%- assign lib_svg = '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><path d="M9 10a3 3 0 1 1 4.5 2.6c-.8.5-1.5 1.1-1.5 2.4M12 18.5h.01" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>' -%}
-          {%- when 'globe'    -%}{%- assign lib_svg = '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" stroke="currentColor" stroke-width="1.6"/></svg>' -%}
-          {%- when 'thumbsup' -%}{%- assign lib_svg = '<svg viewBox="0 0 24 24" fill="none"><path d="M7 11v9H4v-9h3zm0 0l4-7c.5-1 2-1 2 .5V10h6c1 0 1.7.9 1.5 1.9l-1.7 6.5c-.2.9-1 1.6-2 1.6H7V11z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>' -%}
+          {%- when 'truck'    -%}{%- assign lib_paths = '<path d="M14 17V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h1"/><path d="M14 10h3.6a1 1 0 0 1 .8.4l2.4 3.1a1 1 0 0 1 .2.6V16a1 1 0 0 1-1 1h-1"/><path d="M9 17h6"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/>' -%}
+          {%- when 'shield'   -%}{%- assign lib_paths = '<path d="M12 3 5 5.8v5.7c0 4.3 2.9 7.7 7 9.5 4.1-1.8 7-5.2 7-9.5V5.8z"/><path d="m9 12 2.2 2.2L15.5 10"/>' -%}
+          {%- when 'leaf'     -%}{%- assign lib_paths = '<path d="M5 19c0-8 5-14 15-15 0 10-5.5 15-12 15H5z"/><path d="M5 19c3-4 6-7 10-9.5"/>' -%}
+          {%- when 'gift'     -%}{%- assign lib_paths = '<rect x="3.5" y="8" width="17" height="4" rx="1"/><path d="M5 12v7a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-7"/><path d="M12 8v12"/><path d="M12 8S10.5 4 8.25 4a2 2 0 0 0 0 4"/><path d="M12 8s1.5-4 3.75-4a2 2 0 0 1 0 4"/>' -%}
+          {%- when 'lock'     -%}{%- assign lib_paths = '<rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>' -%}
+          {%- when 'clock'    -%}{%- assign lib_paths = '<circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/>' -%}
+          {%- when 'star'     -%}{%- assign lib_paths = '<path d="m12 3.5 2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"/>' -%}
+          {%- when 'heart'    -%}{%- assign lib_paths = '<path d="M12 20s-7.5-4.6-7.5-10.1A4.4 4.4 0 0 1 12 7.1a4.4 4.4 0 0 1 7.5 2.8C19.5 15.4 12 20 12 20z"/>' -%}
+          {%- when 'sparkle'  -%}{%- assign lib_paths = '<path d="M12 3.5c.6 4.6 3.4 7.4 8 8-4.6.6-7.4 3.4-8 8-.6-4.6-3.4-7.4-8-8 4.6-.6 7.4-3.4 8-8z"/>' -%}
+          {%- when 'recycle'  -%}{%- assign lib_paths = '<path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 20v-4h-4"/>' -%}
+          {%- when 'medal'    -%}{%- assign lib_paths = '<circle cx="12" cy="9" r="5.5"/><path d="M8.6 13.3 7.5 20.5 12 18l4.5 2.5-1.1-7.2"/>' -%}
+          {%- when 'cart'     -%}{%- assign lib_paths = '<path d="M3 4h2.2l2.2 10.6a1 1 0 0 0 1 .8h8.9a1 1 0 0 0 1-.8L20 8H6"/><circle cx="9.5" cy="19.5" r="1.5"/><circle cx="17" cy="19.5" r="1.5"/>' -%}
+          {%- when 'support'  -%}{%- assign lib_paths = '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5v.4"/><path d="M12 16.75h.01"/>' -%}
+          {%- when 'globe'    -%}{%- assign lib_paths = '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.4 2.5 3.6 5.5 3.6 9s-1.2 6.5-3.6 9c-2.4-2.5-3.6-5.5-3.6-9S9.6 5.5 12 3z"/>' -%}
+          {%- when 'thumbsup' -%}{%- assign lib_paths = '<path d="M7.5 10.5v9"/><path d="M7.5 10.5 11 4a1.9 1.9 0 0 1 3.5 1.3L14 9.5h4.6a1.8 1.8 0 0 1 1.8 2.2l-1.5 6.4a1.8 1.8 0 0 1-1.8 1.4H4.5a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1z"/>' -%}
+          {%- else -%}{%- assign lib_paths = '<path d="m5 12.5 4.5 4.5L19 7.5"/>' -%}
         {%- endcase -%}
 
         {%- if item_title != blank or item_svg != blank or item_img != blank -%}
-        <li class="vb__item">
-          <span class="vb__icon" aria-hidden="true">
+        <li class="vb__item" style="display:flex;align-items:flex-start;">
+          <span class="vb__icon" aria-hidden="true" style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;color:var(--vb-icon-color);">
             {%- if use_img and item_img != blank -%}
               {{ item_img
-                | image_url: width: item_img_size
-                | image_tag: width: item_img_size, height: item_img_size, alt: '', class: 'vb__img' }}
+                | image_url: width: 96
+                | image_tag: width: vb_glyph, height: vb_glyph, alt: '', class: 'vb__img' }}
+            {%- elsif item_svg != blank -%}
+              <span class="vb__svg vb__svg--custom">{{ item_svg | replace: '<svg', vb_svg_open }}</span>
             {%- else -%}
-              {%- comment -%}
-                Sanitize pasted SVG so inline fill/stroke/style can't override theme color.
-                Then wrap with `.svg-colorize` and feed --icon-color from --vb-icon-color.
-                Resolution priority: pasted SVG → library SVG → fallback check icon.
-              {%- endcomment -%}
- <span class="vb__svg svg-colorize" style="--icon-color: var(--vb-icon-color);">
-  {%- if item_svg != blank -%}
-    {%- comment -%} Color only the stroke; keep original fills (incl. fill="none"). {%- endcomment -%}
-    {%- assign svg_cc = item_svg
-      | replace: '<svg', '<svg stroke="currentColor"' -%}
-    {{ svg_cc }}
-  {%- elsif lib_svg != blank -%}
-    {{ lib_svg }}
-  {%- else -%}
-    <!-- fallback check icon -->
- <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M16.0303 10.0303C16.3232 9.73744 16.3232 9.26256 16.0303 8.96967C15.7374 8.67678 15.2626 8.67678 14.9697 8.96967L10.5 13.4393L9.03033 11.9697C8.73744 11.6768 8.26256 11.6768 7.96967 11.9697C7.67678 12.2626 7.67678 12.7374 7.96967 13.0303L9.96967 15.0303C10.2626 15.3232 10.7374 15.3232 11.0303 15.0303L16.0303 10.0303Z" fill="#1C274C"></path> <path fill-rule="evenodd" clip-rule="evenodd" d="M12 1.25C6.06294 1.25 1.25 6.06294 1.25 12C1.25 17.9371 6.06294 22.75 12 22.75C17.9371 22.75 22.75 17.9371 22.75 12C22.75 6.06294 17.9371 1.25 12 1.25ZM2.75 12C2.75 6.89137 6.89137 2.75 12 2.75C17.1086 2.75 21.25 6.89137 21.25 12C21.25 17.1086 17.1086 21.25 12 21.25C6.89137 21.25 2.75 17.1086 2.75 12Z" fill="#1C274C"></path> </g></svg>
-  {%- endif -%}
-</span>
+              <span class="vb__svg"><svg viewBox="0 0 24 24" width="{{ vb_glyph }}" height="{{ vb_glyph }}" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true" data-vb-icon="{{ item_lib }}">{{ lib_paths }}</svg></span>
             {%- endif -%}
           </span>
           {%- if item_title != blank -%}
@@ -3445,69 +3486,6 @@ Pick the source:
       {%- endfor -%}
     </ul>
   </div>
-
-  <style>
-    /* scoped styles */
-    #VerticalBenefits-{{ block.id }}{
-      background:var(--vb-bg);
-      padding-top:var(--vb-pt);padding-bottom:var(--vb-pb);
-      margin-top:var(--vb-mt);margin-bottom:var(--vb-mb);
-    }
-    #VerticalBenefits-{{ block.id }} .vb__list{
-      list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--vb-space);
-    }
-    #VerticalBenefits-{{ block.id }} .vb__item{
-      display:flex;align-items:center;gap:var(--vb-gap);
-    }
-    #VerticalBenefits-{{ block.id }} .vb__icon{
-      width:var(--vb-icon-size);height:var(--vb-icon-size);
-      min-width:var(--vb-icon-size);
-      display:inline-flex;align-items:center;justify-content:center;
-      border-radius:9999px;overflow:hidden;color:var(--vb-icon-color);
-      background: transparent;
-      /* ensure stroke never clips even if some parent sets overflow */
-      padding-left:4px;box-sizing:content-box;
-    }
-
-    #VerticalBenefits-{{ block.id }} .svg-colorize { color: var(--icon-color); }
-/* Only color the stroke — leaves fill (including fill="none") intact */
-#VerticalBenefits-{{ block.id }} .svg-colorize svg,
-#VerticalBenefits-{{ block.id }} .svg-colorize svg * {
-  stroke: currentColor !important;
-}
-
-    /* Clean scaling for outlines */
-    #VerticalBenefits-{{ block.id }} .vb__svg svg{
-      width: 100%;
-      height: 100%;
-      vector-effect: non-scaling-stroke;
-      display: block;
-    }
-    /* your original sizing preference for the inner svg */
-    #VerticalBenefits-{{ block.id }} .vb__svg svg{display:block;width:70%;height:70%}
-
-    #VerticalBenefits-{{ block.id }} .vb__img{
-      display:block;
-      width:100%;
-      height:100%;
-      aspect-ratio: 1 / 1;
-      object-fit: cover;
-      border-radius: 50% !important;
-      overflow: hidden;
-    }
-
-    #VerticalBenefits-{{ block.id }} .vb__text{
-      color:var(--vb-text-color);font-size:var(--vb-font-d);line-height:1.35;font-weight:500;
-    }
-
-    @media (max-width: 768px){
-      #VerticalBenefits-{{ block.id }} .vb__item{gap:var(--vb-gap-m)}
-      #VerticalBenefits-{{ block.id }} .vb__icon{
-        width:var(--vb-icon-size-m);height:var(--vb-icon-size-m);min-width:var(--vb-icon-size-m);
-      }
-      #VerticalBenefits-{{ block.id }} .vb__text{font-size:var(--vb-font-m)}
-    }
-  </style>
 </div>
 
 {%- when 'modern_collapsible_row' -%}

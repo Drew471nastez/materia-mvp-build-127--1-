@@ -254,13 +254,15 @@ async function main() {
     const pages: [string, string][] = [
       ["app/(storelib)/app/customers/page.tsx", "customers"],
       ["app/(storelib)/app/analytics/page.tsx", "analytics"],
-      ["app/(storelib)/app/offers/page.tsx", "marketing"],
+      /* Changed on purpose (r58): the offers list, new and edit pages all render OffersScreen, which holds the gate. */
+      ["app/(storelib)/app/offers/offers-screen.tsx", "marketing"],
       ["app/(storelib)/app/coupons/load-coupons.ts", "marketing"],
     ]
     for (const [p, area] of pages) check(`${p} asks teamPageStore("${area}")`, read(p).includes(`teamPageStore("${area}")`))
-    for (const p of ["app/(storelib)/app/customers/page.tsx", "app/(storelib)/app/analytics/page.tsx", "app/(storelib)/app/offers/page.tsx", "app/(storelib)/app/coupons/page.tsx", "app/(storelib)/app/coupons/new/page.tsx", "app/(storelib)/app/coupons/[id]/page.tsx", "app/(storelib)/app/orders/sales/page.tsx"]) {
+    for (const p of ["app/(storelib)/app/customers/page.tsx", "app/(storelib)/app/analytics/page.tsx", "app/(storelib)/app/offers/offers-screen.tsx", "app/(storelib)/app/coupons/page.tsx", "app/(storelib)/app/coupons/new/page.tsx", "app/(storelib)/app/coupons/[id]/page.tsx", "app/(storelib)/app/orders/sales/page.tsx"]) {
       check(`${p} draws "You don't have access" when refused, not the page`, /<TeamAreaClosed area="[a-z_]+" store=\{[a-z.]+acting\.name\} permissions=\{[a-z.]+acting\.permissions\} \/>/.test(read(p)))
     }
+    check("  and every offers page goes through OffersScreen", ["page.tsx", "new/page.tsx", "[id]/page.tsx"].every((f) => /return OffersScreen\(/.test(read(`app/(storelib)/app/offers/${f}`))))
     const server = read("lib/team/server.ts")
     check("the helper answers 401 signed out and 403 without the permission", /export async function requireTeamPermission\(area: TeamArea(?:, opts: \{ read\?: boolean \} = \{\})?\)/.test(server) && /status: 401/.test(server) && /error: NO_ACCESS \}, \{ status: 403/.test(server))
     check("  and the permission is read from the database on each request (actingStoreIn)", /\.from\("store_team_members"\)\.select\(cols\)\.eq\("creator_id", chosen\)\.eq\("user_id", userId\)\.eq\("status", "active"\)/.test(server))

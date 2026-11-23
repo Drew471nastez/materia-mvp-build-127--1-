@@ -33,6 +33,7 @@ import { ArrowLeft, Check, ChevronDown, MoreHorizontal } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { cn } from "@/lib/utils"
+import { useFold } from "@/lib/ui/use-fold"
 import { describeStatus, money, pricePer, shortDate } from "@/lib/memberships/state"
 import type { FeedPost, MembershipPage } from "@/lib/memberships/view-types"
 import { PostText, PostView } from "./post-view"
@@ -250,6 +251,8 @@ export function MemberPage({ page, welcome = false, cardUpdated = false, now: fi
   const [error, setError] = React.useState<string | null>(null)
   const [note, setNote] = React.useState<string | null>(welcome ? "welcome" : null)
   const [aboutOpen, setAboutOpen] = React.useState(false)
+  /* Round 58: the description folds on a real line and eases open and shut (lib/ui/use-fold); More only when something is folded away. */
+  const aboutFold = useFold(5, aboutOpen, page.product.description, (page.product.description?.length ?? 0) > 240)
   const [confirmCancel, setConfirmCancel] = React.useState(false)
   const now = fixedNow ?? Date.now()
   const unreadCount = posts.filter((p) => p.unread).length
@@ -427,17 +430,18 @@ export function MemberPage({ page, welcome = false, cardUpdated = false, now: fi
             <div className={cn(page.benefits.length > 0 && "mt-3 border-t border-[#f0f1f3] pt-3")}>
               {/* The text fades itself (data-clamp-fade, round 50): a white band laid over it is wrong on any card that is not white. */}
               <div
-                data-clamp-fade={aboutOpen ? "open" : "closed"}
-                className={cn("relative overflow-hidden", !aboutOpen && "max-h-[120px]")}
-                style={{ ["--sl-fade-to" as string]: "40px" }}
+                ref={aboutFold.ref}
+                data-clamp-fade={aboutFold.fold}
+                className="relative text-[13.5px] leading-[1.6]"
+                style={aboutFold.style}
               >
                 <PostText body={page.product.description} className="text-[13.5px] text-[#4b5563]" />
               </div>
-              <button type="button" onClick={() => setAboutOpen((o) => !o)} className="-mb-2 -mt-1 inline-flex items-center gap-1 py-2 text-[13px] font-medium text-[#6d28d9]">
+              {aboutFold.cut ? <button type="button" aria-expanded={aboutOpen} onClick={() => setAboutOpen((o) => !o)} className="-mb-2 -mt-1 inline-flex items-center gap-1 py-2 text-[13px] font-medium text-[#6d28d9]">
                 {/* 36px to press on a phone; the margins take the padding back, so it sits where it did. */}
                 {aboutOpen ? "Less" : "More"}
                 <ChevronDown aria-hidden className={cn("h-3.5 w-3.5 transition-[rotate] duration-200", aboutOpen && "rotate-180")} />
-              </button>
+              </button> : null}
             </div>
           ) : null}
         </SideCard>

@@ -288,6 +288,24 @@
       </product-form>
     </div>
   {% endif %}
+  {%- comment -%}
+    Round 58: a bundle or an upsell made in Storelib's Upsells and bundles
+    shows under the buttons even when the product section has no Bundle or
+    Upsell block, as a quantity break already does above them. A section
+    with its own block draws it there instead, with that block's settings.
+  {%- endcomment -%}
+  {%- if type != 'sticky' -%}
+    {%- assign native_bundles = product.metafields.storelib.offers.value.bundles -%}
+    {%- assign bundle_blocks = section.blocks | where: 'type', 'bundle' -%}
+    {%- if native_bundles != blank and bundle_blocks.size == 0 -%}
+      {%- render 'storelib-product-offers', product: product, section: section, kind: 'bundle', product_form_id: product_form_id -%}
+    {%- endif -%}
+    {%- assign native_upsells = product.metafields.storelib.offers.value.checkoutOffers -%}
+    {%- assign upsell_blocks = section.blocks | where: 'type', 'upsell_pro' -%}
+    {%- if native_upsells != blank and upsell_blocks.size == 0 -%}
+      {%- render 'storelib-product-offers', product: product, section: section, kind: 'upsell_pro', product_form_id: product_form_id -%}
+    {%- endif -%}
+  {%- endif -%}
 
 {%- else -%}
   {% if settings.enable_catalog_mode == false %}

@@ -53,7 +53,7 @@ const TONES = {
     copy: "text-[#6b7280] hover:bg-[#f3f4f6] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20",
     copied: "text-[#15803d]",
     button:
-      "bg-[#1a1a2e] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(15,23,42,0.18)] hover:bg-[#2a2a40] active:bg-[#111122]",
+      "bg-[#1a1a2e] text-[#ffffff] shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(15,23,42,0.18)] hover:bg-[#2a2a40] active:bg-[#111122]",
     found: "text-[#15803d]",
     conflict: "text-[#b45309]",
     fixes: "border-[#fde68a] bg-[#fffbeb] text-[#78350f]",
@@ -189,9 +189,15 @@ export interface DnsSetupProps {
   /** Beside the Check button: when it was last checked, a hide link. */
   aside?: React.ReactNode
   tone: DomainTone
+  /**
+   * The Check button's whole look, from the page it sits on (round 58). Website
+   * Settings passes its own primary button, so Check DNS is the same button as
+   * Connect beside it, in the light and the dark; elsewhere the tone's button.
+   */
+  checkClassName?: string
 }
 
-export function DnsSetup({ domain, records, checks, status, checking, onCheck, checkLabel = "Check DNS", disabled, result, fixes = [], aside, tone }: DnsSetupProps) {
+export function DnsSetup({ domain, records, checks, status, checking, onCheck, checkLabel = "Check DNS", disabled, result, fixes = [], aside, tone, checkClassName }: DnsSetupProps) {
   const t = TONES[tone]
   const [registrarId, setRegistrarId] = useRegistrar()
   const registrar = registrarById(registrarId)
@@ -354,10 +360,13 @@ export function DnsSetup({ domain, records, checks, status, checking, onCheck, c
               onClick={onCheck}
               disabled={checking || disabled}
               data-dns-check=""
-              className={cn(
-                "inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 text-[14px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 @xl:h-9 @xl:rounded-lg @xl:text-[13px]",
-                t.button,
-              )}
+              className={
+                checkClassName ??
+                cn(
+                  "inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 text-[14px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 @xl:h-9 @xl:rounded-lg @xl:text-[13px]",
+                  t.button,
+                )
+              }
             >
               {checking && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
               {checkLabel}

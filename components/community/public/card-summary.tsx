@@ -8,31 +8,22 @@
  * server's HTML and nothing moves when the page wakes up. Plain text only (about-facts.ts cardSummary made it).
  */
 import * as React from "react"
-import { cn } from "@/lib/utils"
+import { useFold } from "@/lib/ui/use-fold"
 
 /** Longer than this, three lines of the card are taken to be full before they are measured. */
 const LIKELY_CUT = 118
 
 export function CardSummary({ text, className, block }: { text: string; className?: string; /** The Page editor's marker (data-page-block), when the page is drawn in its preview. */ block?: string }) {
-  const ref = React.useRef<HTMLParagraphElement>(null)
   const [open, setOpen] = React.useState(false)
-  const [cut, setCut] = React.useState(() => text.length > LIKELY_CUT)
-  React.useLayoutEffect(() => {
-    const el = ref.current
-    if (!el || open) return
-    const measure = () => setCut(el.scrollHeight - el.clientHeight > 1)
-    measure()
-    const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure)
-    ro?.observe(el)
-    return () => ro?.disconnect()
-  }, [text, open])
+  /* Round 58: three lines that end on a real line and fade into the card (lib/ui/use-fold), opening and closing by easing the height, where line-clamp cut with an ellipsis and More moved the card by the whole text in one frame. */
+  const fold = useFold<HTMLParagraphElement>(3, open, text, text.length > LIKELY_CUT)
   const id = React.useId()
   return (
-    <div className={className} data-card-summary="" data-clamped={!open && cut ? "true" : "false"} data-page-block={block}>
-      <p id={id} ref={ref} className={cn("whitespace-pre-line break-words text-[14px] leading-[1.55] text-[#4b5563] [overflow-wrap:anywhere]", !open && "line-clamp-3")} data-card-summary-text="">
+    <div className={className} data-card-summary="" data-clamped={!open && fold.cut ? "true" : "false"} data-page-block={block}>
+      <p id={id} ref={fold.ref} data-clamp-fade={fold.fold} style={fold.style} className="whitespace-pre-line break-words text-[14px] leading-[1.55] text-[#4b5563] [overflow-wrap:anywhere]" data-card-summary-text="">
         {text}
       </p>
-      {cut || open ? (
+      {fold.cut ? (
         <button
           type="button"
           aria-expanded={open}

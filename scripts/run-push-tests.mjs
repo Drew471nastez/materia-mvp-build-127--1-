@@ -651,6 +651,8 @@ const SUITES = [
   "tests/website-builder.test.ts",
   /* Round Z5: the theme marketplace (library cards, storelib.com/themes, /admin/themes zip checks) and a plan set from /admin; scripts/check-theme-marketplace.mjs measures the cards and pages. */
   "tests/theme-marketplace.test.ts",
+  /* Round 58: the theme marketplace as a search channel: titles, features proven by the files, JSON-LD, sitemap, pictures, llms.txt. */
+  "tests/theme-seo-r58.test.ts",
   /* Theme releases from /admin/themes and Update in the library: one numbering per theme, the merge keeps the creator's content and their edited files (reported), a full library is refused, the website Update is pressed on is never written, admin only writes (RUN_THEME_RELEASES.sql). */
   "tests/theme-releases.test.ts",
   /* Round AD3: every setting in /app/settings reaches what reads it (the live website's name and photo, Store details' form, the checklist, campaign emails). */
@@ -1700,6 +1702,8 @@ const SUITES = [
  * directory, run after the list above.
  */
 const STRICT_SUITES = [
+  /* Round 58 (f5): every kind of offer (bundle, upsell and order bump, Buy X get Y, volume tiers, download bundle, free shipping) saved through /api/store/offers as the new modal sends it, then on GET /api/offers, a Materia product page and cart, the website's checkout and Stripe's charge, the download basket and /app's Sold; numbers a browser sends change nothing. */
+  "tests/offers-r58.test.ts",
   /* Wave 7: /app/emails never falls over on an answer of another shape ("eN.find is not a function" from the live build): every loader fed objects, { error }, junk lists, HTML and empty bodies answers with lists or an Error to retry; the shapers (lib/emails/shapes.ts) never throw; each part of the page in its own net (components/app/emails/part-boundary). Strict: it draws the panels that read through components/physical/ui, which only narrow strict. */
   "tests/emails-shapes-w7.test.ts",
   /* Round 51: Contacts, one person per creator (an account first, an address only when verified or given here, never a name), Customers or Marketing opens it, another store's row refused through /app/contacts/open, exports of the store's own only, deleting never touches an order or a membership, an import never resubscribes, the legacy addresses redirected (SQL 378; its parity with lib/contacts/identity.ts on Postgres: scripts/check-contacts-sql.mjs). */
@@ -1930,10 +1934,18 @@ const STRICT_SUITES = [
   "tests/auth-social-first-r57.test.ts",
   /* Round 57 (e1): a buyer on a Materia website (the Clothing template, through the real site route) from the product page to a paid order: variants, compare at, sold out, 4 per order, Continue selling, the cart cookie, Estimate shipping, two zones (flat, by weight), free over 60 EUR, the US refused, a download alone and in a mixed cart, a 10% code from the theme's cart, GBP shown and charged, CHF shown and charged in euros, the last one bought twice at once, a declined card and a lapsed hold, the seller's rate and zone edits charged at once, and no PayPal badge. scripts/check-commerce-e2e-r57.mjs drives the same pages in Chromium. Strict: tests/_journey. */
   "tests/commerce-e2e-r57.test.ts",
+  /* Round 58 (f4): the integrations area as an app store: every integration's listing (pricing, category, developer, Install, the gallery, in Storelib, requirements), no key field until the install sheet, numbered steps over the provider's own fields, Discord straight to its sign in, a video only once checked (none yet) and only from youtube-nocookie on a press, the one installed page template (status, what is synced, activity, settings, disconnect) and Reviews' Settings on it (scripts/check-apps-r58.mjs measures them in Chromium at 360, 390, 768 and 1280). */
+  "tests/apps-pages-r58.test.ts",
+  /* Round 58 (f2): Add block on a phone is the sheet wherever it is pressed (scripts/check-block-picker-phone.mjs), used blocks say Added; Materia's benefit icons one crisp set with no flash before their styles; Check DNS is the settings primary button; Read more folds on a real line (story, community summary, membership description); the payment row shows only what checkout takes. */
+  "tests/builder-polish-r58.test.ts",
+  /* Round 58 (f1): the theme marketplace as a bottom sheet on a phone, its order as Storelib's action menu, its categories as the builder's chips over kept cards decoded ahead; Add a section's All in the order a page is built (lib/website-builder/all-sections-order.ts). scripts/check-builder-modals-r58.mjs measures both in Chromium at 360, 390, 768 and 1280. */
+  "tests/builder-modals-r58.test.ts",
   /* Buyer journey audit: a course that opens a community and a download, one cart on the creator's website checkout (quote, intent, confirm, webhook): both lines on the buyer's account and in their library, the community lets the buyer in at once (a basket wrote the library row only), one receipt email whose link opens on the website, naming each line with Open course, Open community and Download straight from the email; a guest's same order joins them and the community once they sign up with that email. Strict: it drives the real routes through tests/_journey. */
   "tests/journey-course-community-site.test.ts",
   /* Buyer journey follow-up: a Storelib form or booking page on a Materia website. The base section journey-storelib-form (its setting the forms picker) and the Storelib form app block draw the form framed from the website's own host (/checkout/forms/<id>, framed by that origin only), a still card in the builder, nothing without a form; that page is this website's creator's form only; slots, a submit from the website kept with the website's page as its source, the hold, Pay to confirm through Storelib's checkout back to the page, the webhook, the booking confirmed. Strict: it drives the real routes through tests/_journey. */
   "tests/journey-site-form.test.ts",
+  /* Round 58 (f3): the plans page in the app draws /pricing's own sections (PricingSection, ComparePlans with Compare all features, FaqSection), so prices and features come from one source; Billing and X in a sticky bar clear of the safe areas; a settled button keeps its plan's fill; the layer rises and drops on a phone; the Stripe, proration, trial and current plan logic unchanged. scripts/check-upgrade-r58.mjs measures it in Chromium at 360, 390, 768 and 1280. */
+  "tests/billing-upgrade-r58.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

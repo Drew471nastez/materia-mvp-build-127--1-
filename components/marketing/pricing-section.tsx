@@ -40,7 +40,17 @@ export function PricingSection({
   editorial = false,
   cardsAside,
   compactHeading,
+  actions: actionsGiven,
+  lead,
 }: {
+  /**
+   * Round 58: every button's action, for a page that decides them itself (the
+   * plans page in the app: checkout, a plan change, the current plan). The
+   * cards, prices and lines stay this section's own.
+   */
+  actions?: Record<OfferedPlanId, PlanCardAction>
+  /** On a phone this plan's card comes first (the app: Grow, for somebody on Free). */
+  lead?: OfferedPlanId
   /** At the top right of the cards (/pricing: "Compare all features"). */
   cardsAside?: ReactNode
   /** Compact only (the onboarding): a heading at the left of the row, with Monthly and Yearly at its right. */
@@ -90,7 +100,7 @@ export function PricingSection({
     return { label: DEFAULT_CTA[id], href: "/signup" }
   }
 
-  const actions: Record<OfferedPlanId, PlanCardAction> = {
+  const actions: Record<OfferedPlanId, PlanCardAction> = actionsGiven ?? {
     free: actionFor("free"),
     [PRO_CHECKOUT_PLAN_ID]: actionFor(PRO_CHECKOUT_PLAN_ID),
     [SCALE_CHECKOUT_PLAN_ID]: actionFor(SCALE_CHECKOUT_PLAN_ID),
@@ -190,7 +200,7 @@ export function PricingSection({
             them. The lines are the same on every surface
             (./pricing-lines, six since landing round 14), so they are not handed in here.
           */}
-          <PlanCards actions={actions} nameLevel={headingLevel === 1 ? 2 : 3} hideInterval={editorial} contactSales aside={cardsAside} />
+          <PlanCards actions={actions} lead={lead} nameLevel={headingLevel === 1 ? 2 : 3} hideInterval={editorial} contactSales aside={cardsAside} />
         </AnimateOnScroll>
 
         {!hideDetailsLink && (

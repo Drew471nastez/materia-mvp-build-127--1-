@@ -66,7 +66,20 @@ function ReviewsIntegrationBody({ tab, warm, setTab, sections, Layout, onChanged
     One tree for every tab (round 27): the body was drawn bare on five tabs and inside the layout on Settings, so going
     to Settings or leaving it built the whole page again, every tab's reads and grey boxes with it.
   */
-  return <Layout main={body} aside={view === "settings" ? sections.glance : undefined} />
+  /* Round 58: the installed page template's column beside Settings, What is synced over At a glance. */
+  return (
+    <Layout
+      main={body}
+      aside={
+        view === "settings" ? (
+          <div className="min-w-0 space-y-4 sm:space-y-5" data-installed-side="">
+            {sections.synced}
+            {sections.glance}
+          </div>
+        ) : undefined
+      }
+    />
+  )
 }
 
 export const reviewsIntegrationView: IntegrationAppView = {

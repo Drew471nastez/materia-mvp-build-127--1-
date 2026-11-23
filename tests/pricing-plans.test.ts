@@ -67,8 +67,8 @@ const OFFER_SURFACES = [
   "app/(storelib)/(marketing)/pricing/loading.tsx",
   "components/app/billing/upgrade-page-client.tsx",
   "components/app/billing/billing-page-client.tsx",
-  "components/billing/compare-plans.tsx",
-  "components/billing/plan-faq.tsx",
+  /* Changed on purpose (r58): the upgrade page draws /pricing's own compare table; its separate table and questions are gone. */
+  "app/(storelib)/(marketing)/pricing/compare-plans.tsx",
 ]
 
 /**
@@ -250,7 +250,8 @@ function main() {
     "components/app/billing/billing-page-client.tsx",
   ]) {
     const code = readCode(file)
-    check(`${file} renders PlanCards`, /<PlanCards\b/.test(code))
+    /* Changed on purpose (r58): the upgrade page draws PricingSection, which renders PlanCards. */
+    check(`${file} renders PlanCards`, /<PlanCards\b/.test(code) || /<PricingSection\b/.test(code))
     check(`${file} does not map over every plan row`, !/plans\.map\(\(plan: any\)/.test(code))
   }
   const cards = readCode("components/billing/plan-cards.tsx")

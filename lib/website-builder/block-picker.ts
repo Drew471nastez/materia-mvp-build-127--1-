@@ -222,3 +222,25 @@ export function previewStrip(area: { w: number; h: number }, pad: number, inset:
   const minH = Math.min(maxH, Math.max(96, Math.round(maxH * floor)))
   return { w, minH, maxH, inset }
 }
+
+/** The editor's phone layout starts under this width (its sections sheet, its bottom bar): the picker is a sheet there. */
+const PHONE_MAX = 767
+
+/**
+ * Whether an opening is a phone's: the row pressed is in the sections sheet,
+ * or the window is a phone's width. Round 58: it used to be the first alone,
+ * so Add block pressed ON THE CANVAS of a phone (between two blocks, or in an
+ * imported theme's frame) opened the computer's panel, 366 wide, its preview
+ * a 56px sliver holding the block at a tenth of its size.
+ */
+export function pickerIsPhone(inSheet: boolean, width: number): boolean {
+  return inSheet || width <= PHONE_MAX
+}
+
+/** The block types at one level of a section: its own blocks for [], else the blocks inside the block the path names. */
+export function typesAt(section: { blocks?: { id: string; type: string; blocks?: unknown[] }[] }, parent: readonly string[]): Set<string> {
+  type Level = { id: string; type: string; blocks?: unknown[] }[]
+  let level: Level = section.blocks ?? []
+  for (const id of parent) level = (level.find((b) => b.id === id)?.blocks ?? []) as Level
+  return new Set(level.map((b) => b.type))
+}
