@@ -55,7 +55,7 @@
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { createPortal, flushSync } from "react-dom"
 import { createRoot, type Root } from "react-dom/client"
-import { Blocks, Search, X } from "lucide-react"
+import { Blocks, Check, Search, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { hapticTap } from "@/lib/native-bridge"
@@ -728,6 +728,19 @@ function pageWithShop(base: CompatPage): CompatPage {
 /* ── The picker ────────────────────────────────────────────────────────── */
 
 const PHONE_SHEET = "[data-mobile-bottom-sheet]"
+/** The editor's phone layout starts under this width (its sections sheet, its bottom bar): the picker is a sheet there. */
+const PHONE_MAX = 767
+
+/**
+ * Whether an opening is a phone's: the row pressed is in the sections sheet,
+ * or the window is a phone's width. Round 58: it used to be the first alone,
+ * so Add block pressed ON THE CANVAS of a phone (between two blocks, or in an
+ * imported theme's frame) opened the computer's panel, 366 wide, its preview
+ * a 56px sliver holding the block at a tenth of its size.
+ */
+export function pickerIsPhone(inSheet: boolean, width: number): boolean {
+  return inSheet || width <= PHONE_MAX
+}
 
 /** After adding: the new block, once the canvas has drawn it, brought on screen if it is not. */
 function revealNewBlock(sectionId: string, before: Set<string>) {
@@ -774,7 +787,7 @@ export function BlockPickerProvider({ theme, sources, compatInstallId = null, ch
     /* The first block is drawn in the press itself, so the panel's first frame has its preview. */
     const first = request.choices.find((c) => !request.reasonFor?.(c)) ?? request.choices[0]
     s.ensure(first)
-    const onPhone = !!request.anchor.closest(PHONE_SHEET)
+    const onPhone = pickerIsPhone(!!request.anchor.closest(PHONE_SHEET), window.innerWidth)
     setPhone(onPhone)
     if (env.compatInstallId) setCompatWanted(true)
     setSession(s)
@@ -946,6 +959,8 @@ function PickerBody({ session, open, phone, onClose }: { session: PreviewSession
     </div>
   )
 
+  /* The kinds already at this level of the section: a row that cannot be added and is one of them says "Added" on itself. */
+  const present = useMemo(() => typesAt(request.section, request.parent), [request.section, request.parent])
   const row = (c: BlockChoice, i: number) => {
     const reason = reasons.get(choiceKey(c))
     const on = i === activeIndex
@@ -968,10 +983,17 @@ function PickerBody({ session, open, phone, onClose }: { session: PreviewSession
         className={cn(
           "flex h-8 cursor-pointer select-none items-center rounded-lg px-2.5 text-left text-[13px] [-webkit-tap-highlight-color:transparent] max-sm:h-11 max-sm:px-3 max-sm:text-[15px]",
           on ? "bg-[#f3f4f6]" : "",
-          reason ? cn("cursor-default", groups.open.length ? "text-[#9ca3af]" : "text-[#6b7280]") : "text-[#1a1a2e]",
+          /* Round 58: #9ca3af was 2.5:1 on white, too faint to read; #6b7280 is 4.8:1 and still plainly not the rows that add. */
+          reason ? "cursor-default text-[#6b7280]" : "text-[#1a1a2e]",
         )}
       >
         <span className="min-w-0 flex-1 truncate">{c.label}</span>
+        {reason && present.has(c.type) ? (
+          <span className="ml-3 inline-flex shrink-0 items-center gap-1 text-[12px] text-[#6b7280] max-sm:text-[13px]" data-block-picker-used="">
+            <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+            {tt("Added")}
+          </span>
+        ) : null}
       </div>
     )
   }
@@ -983,7 +1005,7 @@ function PickerBody({ session, open, phone, onClose }: { session: PreviewSession
       {groups.open.map((c, i) => row(c, i))}
       {groups.closed.length ? (
         <div role="group" aria-labelledby={`${listId}-closed`} data-block-picker-closed="">
-          <p id={`${listId}-closed`} className={cn("px-2.5 pb-1 text-[12px] font-medium leading-snug text-[#9ca3af] max-sm:px-3", groups.open.length ? "pt-3" : "pt-1")} data-block-picker-heading="">
+          <p id={`${listId}-closed`} className={cn("px-2.5 pb-1 text-[12px] font-medium leading-snug text-[#6b7280] max-sm:px-3 max-sm:text-[13px]", groups.open.length ? "mt-2 border-t border-[#f0f1f3] pt-3" : "pt-1")} data-block-picker-heading="">
             {/* A label, not the reason: the reason is said once, under the preview of the block it is about. */}
             {!groups.open.length ? tt("Nothing more fits here") : groups.shared ? tt("No room here") : tt("Already used")}
           </p>
@@ -1135,6 +1157,13 @@ function DesktopPanel({ open, anchor, onClose, searchRef, children }: { open: bo
     </div>,
     portal,
   )
+}
+
+/** The block types at one level of a section: its own blocks for [], else the blocks inside the block the path names. */
+export function typesAt(section: Pick<SectionInstance, "blocks">, parent: readonly string[]): Set<string> {
+  let level = section.blocks ?? []
+  for (const id of parent) level = level.find((b) => b.id === id)?.blocks ?? []
+  return new Set(level.map((b) => b.type))
 }
 
 /** The list side's natural height: its search and every row, as if nothing capped it. */
