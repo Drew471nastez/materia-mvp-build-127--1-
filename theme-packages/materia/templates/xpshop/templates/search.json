@@ -4,7 +4,7 @@
       "type": "main-search",
       "settings": {
         "color_scheme": "default",
-        "section_width": "full_width",
+        "section_width": "fluid_container",
         "reset_spacing": true,
         "heading": "Search",
         "sorting": true,

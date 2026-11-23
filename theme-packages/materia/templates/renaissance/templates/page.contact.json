@@ -144,7 +144,7 @@
         "question_9"
       ]
     },
-    "access": {
+    "access_popup": {
       "type": "form-modal",
       "settings": {
         "form_key": "access",
@@ -223,6 +223,6 @@
   "order": [
     "contact",
     "faq",
-    "access"
+    "access_popup"
   ]
 }

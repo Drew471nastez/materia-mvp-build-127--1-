@@ -81,7 +81,7 @@
             "atc_icon": "bag",
             "buy_icon_enable": false,
             "show_gift_card_recipient": false,
-            "enable_custom_text_button": true,
+            "enable_custom_button_text": true,
             "atc_button_text": "Add to basket",
             "buy_button_text": "Join now"
           }
@@ -540,7 +540,7 @@
         "padding_bottom": 72
       }
     },
-    "access": {
+    "access_popup": {
       "type": "form-modal",
       "settings": {
         "form_key": "access",
@@ -623,6 +623,6 @@
     "guarantee",
     "faq",
     "related",
-    "access"
+    "access_popup"
   ]
 }

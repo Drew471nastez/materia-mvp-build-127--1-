@@ -29,7 +29,7 @@
           "settings": {
             "description": "<p>The course editions and the extras that go with them.</p>",
             "description_color": "#57575e",
-            "enable_custom_style": true,
+            "enable_custom_style": false,
             "description_font_size": 15
           }
         }

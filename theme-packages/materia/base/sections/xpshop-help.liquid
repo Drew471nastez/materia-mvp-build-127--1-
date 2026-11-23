@@ -52,8 +52,8 @@ XP shop: questions and answers in a help window. A blue band with a
     background: linear-gradient(180deg, #7fb2fa 0%, #3f80ee 42%, #2563da 58%, #3474e6 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 2px 6px rgba(20,50,140,.25); }
   .xp-btn--blue:hover { color: #fff; filter: brightness(1.06); box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 3px 10px rgba(20,50,140,.3); }
   .xp-btn .xp-ico { width: 20px; height: 20px; }
-  .xp-field { width: 100%; height: 42px; padding: 0 12px; border: 1px solid #7f9db9; border-radius: 3px; background: #fff; color: #14213d; font: 500 15px var(--xp-font); }
-  .xp-field:focus { outline: none; border-color: #316ac5; box-shadow: 0 0 0 3px rgba(49,106,197,.2); }
+  .xp input.xp-field, .xp-field { --input-bg: #fff; --input-border-color: #7f9db9; --input-border-radius: 3px; --input-padding: 0 12px; --field-text: #14213d; --input-height: 44px; width: 100%; height: 42px; padding: 0 12px; border: 1px solid #7f9db9 !important; border-radius: 3px !important; background: #fff !important; color: #14213d !important; font: 500 15px var(--xp-font); }
+  .xp input.xp-field:focus, .xp-field:focus { outline: none; border-color: #316ac5; box-shadow: 0 0 0 3px rgba(49,106,197,.2); }
   .xp-h { margin: 0; color: var(--xp-navy); font-family: var(--xp-font); font-weight: 800; line-height: 1.12; letter-spacing: -.01em; }
   .xp-eyebrow { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 12px; color: #2c7a22; font-size: 13px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
   .xp-rte { color: #2d3748; font-size: 16px; line-height: 1.65; }
@@ -82,11 +82,11 @@ XP shop: questions and answers in a help window. A blue band with a
   #shopify-section-{{ sid }} .xp-sec { --xp-pt: {{ st.padding_top }}px; --xp-pb: {{ st.padding_bottom }}px; --xp-pt-m: {{ st.padding_top_mobile }}px; --xp-pb-m: {{ st.padding_bottom_mobile }}px; }
   #shopify-section-{{ sid }} .xp-place { max-width: min(var(--xp-col, 1180px), {{ st.width | default: 1180 }}px); }
   .xph__band { display: grid; gap: 14px; padding: 26px 20px 22px; color: #fff; background: linear-gradient(180deg, #3c7ef0 0%, #2a65dc 60%, #2259cf 100%); box-shadow: inset 0 -3px 0 #f39c35; }
-  .xph__band .xp-h { color: #fff; font-size: 26px; text-shadow: 0 1px 2px rgba(0,20,80,.35); }
+  .xp .xph__band .xp-h { color: #fff !important; font-size: 26px; text-shadow: 0 1px 2px rgba(0,20,80,.35); }
   .xph__band p { color: #e3eeff; font-size: 15px; }
   .xph__find { position: relative; max-width: 520px; }
-  .xph__find .xp-field { padding-left: 42px; border-color: #0b3fa8; }
-  .xph__find .xp-ico { position: absolute; left: 12px; top: 11px; width: 20px; height: 20px; }
+  .xp .xph__find input.xp-field { --input-padding: 0 12px 0 42px; --input-border-color: #0b3fa8; padding-left: 42px !important; border-color: #0b3fa8 !important; background: #fff !important; color: #14213d !important; }
+  .xph__find .xp-ico { position: absolute; left: 12px; top: 12px; z-index: 1; width: 20px; height: 20px; }
   .xph__list { margin: 0; padding: 12px 12px 4px; list-style: none; }
   .xph__q { border-bottom: 1px solid #e3e9f3; }
   .xph__q:last-child { border-bottom: 0; }

@@ -116,8 +116,8 @@ async function main() {
   /* Changed on purpose (templates round 20): Coach and Video sales letter were added at the end, sixteen are listed. */
   /* Changed on purpose (templates round 20): Online course and Course landing were added at the end, eighteen are listed. */
   /* Changed on purpose (templates round 20): Retro desktop was added at the end, nineteen are listed. */
-  /* Changed on purpose (templates round 21): Author and Content creator were added at the end, with Coach creator and Digital Renaissance after them; twenty three are listed. */
-  check("twenty three templates are listed, with no table and nothing uploaded", listings.length === 23 && CODE_TEMPLATES.length === 23, listings.map((l) => l.slug))
+  /* Changed on purpose (templates round 21): Author and Content creator were added at the end, with Coach creator, Digital Renaissance and XP shop after them; twenty four are listed. */
+  check("twenty four templates are listed, with no table and nothing uploaded", listings.length === 24 && CODE_TEMPLATES.length === 24, listings.map((l) => l.slug))
   check("Storelib Default is first, at the default address", listings[0]?.slug === DEFAULT_LISTING_SLUG && listings[0]?.name === "Storelib Default" && mergeListings([])[0]?.slug === DEFAULT_LISTING_SLUG)
   /* Changed on purpose (templates round 18): Landing page is now called Course (same slug, landing-page). */
   /* Changed on purpose (templates round 19): Art books sits right after Digital products. */
@@ -136,7 +136,7 @@ async function main() {
   const perCategory = listings.reduce<Record<string, number>>((n, l) => ({ ...n, [l.category]: (n[l.category] ?? 0) + 1 }), {})
   /* Changed on purpose (templates round 19): Night shop is a third fashion store, so a category may hold three. */
   /* Changed on purpose (templates round 20): Online course and Course landing join Course, Creator Landing and Video sales letter, so courses holds five; every other category still holds at most three. */
-  check("  no category holds more than three (courses five), and both kinds of product are covered", Object.entries(perCategory).every(([c, n]) => n <= (c === "courses" ? 5 : 3)) && Object.keys(perCategory).length >= 9 && ["fashion", "creators", "music", "design", "digital"].every((c) => perCategory[c]), perCategory) /* Changed on purpose (templates round 18): no "beauty" since Skincare was removed. */
+  check("  no category holds more than three (courses six, creators four), and both kinds of product are covered", Object.entries(perCategory).every(([c, n]) => n <= (c === "courses" ? 6 : c === "creators" ? 4 : 3)) /* Changed on purpose (templates round 21): Digital Renaissance makes six courses, Content creator and XP shop make four creator templates; every other category still holds at most three. */ && Object.keys(perCategory).length >= 9 && ["fashion", "creators", "music", "design", "digital"].every((c) => perCategory[c]), perCategory) /* Changed on purpose (templates round 18): no "beauty" since Skincare was removed. */
   check("each has its cover and its phone screenshot in public/themes", listings.every((l) => !!l.cover && existsSync(join("public", l.cover)) && l.screenshots.length === 2 && l.screenshots.every((s) => existsSync(join("public", s)))), listings.filter((l) => !l.cover || !existsSync(join("public", l.cover))).map((l) => l.cover))
   check("no listing name says where the theme came from", listings.every((l) => !/shopify|materia/i.test(`${l.name} ${l.author} ${l.slug}`)))
   check("a website remembers the listing it was added from, in its settings", [...installedListingSlugs([{ settings: { compat: { kind: "shopify", listing: "clothing" } } }, { settings: { marketplace_listing: "merch" } }, { settings: { compat: { listing: "Not A Slug" } } }, { settings: null }])].join() === "clothing,merch" && compatOf({ compat: { kind: "shopify", version: 1, theme: "x", listing: "fitness" } })?.listing === "fitness")

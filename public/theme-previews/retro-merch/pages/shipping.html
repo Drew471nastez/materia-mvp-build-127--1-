@@ -332,9 +332,9 @@ data-menu-hover="underline"
   .r98-icon:hover span, .r98-icon:focus-visible span { background: var(--r-sel); border-color: #ffff80; text-shadow: none; }
   .r98-icon:hover .r98-ico, .r98-icon:focus-visible .r98-ico { filter: brightness(.7) sepia(1) hue-rotate(190deg) saturate(3); }
   /* Away from the home page the icons only sit in the empty margin of a wide screen, never above the window. */
-  .r98-icons--gutter { display: none; }
+  .r98-icons.r98-icons--gutter { display: none; }
   @media (min-width: 1400px) {
-    .r98-icons--gutter { display: flex; }
+    .r98-icons.r98-icons--gutter { display: flex; }
     .r98-icons { position: absolute; left: 14px; top: 64px; flex-direction: column; padding: 0; gap: 10px; max-width: none; }
   }
   @media (max-width: 749px) {

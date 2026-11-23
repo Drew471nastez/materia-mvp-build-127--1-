@@ -165,9 +165,69 @@
         "info_1",
         "info_2"
       ]
+    },
+    "ways": {
+      "type": "xpshop-tiles",
+      "settings": {
+        "title": "Other ways",
+        "icon": "mail",
+        "heading": "",
+        "subheading": "",
+        "columns": "3",
+        "layout": "side",
+        "numbers": false,
+        "phone_two": false,
+        "status_left": "",
+        "status_right": "",
+        "padding_top": 0,
+        "padding_bottom": 28,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 16
+      },
+      "blocks": {
+        "tile_1": {
+          "type": "tile",
+          "settings": {
+            "icon": "help",
+            "picture": "",
+            "title": "Questions",
+            "text": "Sizes, delivery and returns are answered here.",
+            "link": "/pages/faqs",
+            "link_label": "Read the answers"
+          }
+        },
+        "tile_2": {
+          "type": "tile",
+          "settings": {
+            "icon": "truck",
+            "picture": "",
+            "title": "Delivery",
+            "text": "Carriers, times and prices.",
+            "link": "/pages/shipping",
+            "link_label": "Shipping"
+          }
+        },
+        "tile_3": {
+          "type": "tile",
+          "settings": {
+            "icon": "refresh",
+            "picture": "",
+            "title": "Returns",
+            "text": "30 days, unworn and unwashed.",
+            "link": "/policies/refund-policy",
+            "link_label": "Refund policy"
+          }
+        }
+      },
+      "block_order": [
+        "tile_1",
+        "tile_2",
+        "tile_3"
+      ]
     }
   },
   "order": [
-    "contact_form_simple_1"
+    "contact_form_simple_1",
+    "ways"
   ]
 }

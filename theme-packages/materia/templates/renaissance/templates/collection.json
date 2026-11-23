@@ -96,7 +96,7 @@
         "padding_top": 96
       }
     },
-    "access": {
+    "access_popup": {
       "type": "form-modal",
       "settings": {
         "form_key": "access",
@@ -176,6 +176,6 @@
     "main-collection-heading",
     "main-collection-product",
     "cta",
-    "access"
+    "access_popup"
   ]
 }

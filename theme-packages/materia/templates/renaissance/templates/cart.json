@@ -98,7 +98,7 @@
         "payment_badges_67Mgyc"
       ]
     },
-    "access": {
+    "access_popup": {
       "type": "form-modal",
       "settings": {
         "form_key": "access",
@@ -177,6 +177,6 @@
   "order": [
     "heading",
     "cart-items",
-    "access"
+    "access_popup"
   ]
 }

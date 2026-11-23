@@ -183,7 +183,7 @@
     "body_font_size": 15,
     "body_font_weight": 400,
     "btn_style": "solid",
-    "btn_secondary_style": "outline",
+    "btn_secondary_style": "solid",
     "btn_border_width": 1,
     "btn_shape": "square",
     "btn_radius": 5,

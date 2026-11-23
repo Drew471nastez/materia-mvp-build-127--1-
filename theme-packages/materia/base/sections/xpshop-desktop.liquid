@@ -92,8 +92,8 @@ XP shop: the desktop the whole website sits on. Placed in the header group,
     background: linear-gradient(180deg, #7fb2fa 0%, #3f80ee 42%, #2563da 58%, #3474e6 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 2px 6px rgba(20,50,140,.25); }
   .xp-btn--blue:hover { color: #fff; filter: brightness(1.06); box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 3px 10px rgba(20,50,140,.3); }
   .xp-btn .xp-ico { width: 20px; height: 20px; }
-  .xp-field { width: 100%; height: 42px; padding: 0 12px; border: 1px solid #7f9db9; border-radius: 3px; background: #fff; color: #14213d; font: 500 15px var(--xp-font); }
-  .xp-field:focus { outline: none; border-color: #316ac5; box-shadow: 0 0 0 3px rgba(49,106,197,.2); }
+  .xp input.xp-field, .xp-field { --input-bg: #fff; --input-border-color: #7f9db9; --input-border-radius: 3px; --input-padding: 0 12px; --field-text: #14213d; --input-height: 44px; width: 100%; height: 42px; padding: 0 12px; border: 1px solid #7f9db9 !important; border-radius: 3px !important; background: #fff !important; color: #14213d !important; font: 500 15px var(--xp-font); }
+  .xp input.xp-field:focus, .xp-field:focus { outline: none; border-color: #316ac5; box-shadow: 0 0 0 3px rgba(49,106,197,.2); }
   .xp-h { margin: 0; color: var(--xp-navy); font-family: var(--xp-font); font-weight: 800; line-height: 1.12; letter-spacing: -.01em; }
   .xp-eyebrow { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 12px; color: #2c7a22; font-size: 13px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
   .xp-rte { color: #2d3748; font-size: 16px; line-height: 1.65; }
@@ -141,9 +141,9 @@ XP shop: the desktop the whole website sits on. Placed in the header group,
   .xp-nav a[aria-current] { background: rgba(31,95,216,.12); color: var(--xp-blue); }
   .xp-top__right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
   .xp-search { position: relative; display: flex; align-items: center; width: 230px; }
-  .xp-search input { width: 100%; height: 38px; padding: 0 40px 0 14px; border: 1px solid #7f9db9; border-radius: 19px; background: #fff; color: #14213d; font: 500 14px var(--xp-font); }
+  .xp-search input { --input-bg: #fff; --input-border-color: #7f9db9; --input-border-radius: 22px; --input-padding: 0 42px 0 16px; --field-text: #14213d; --input-height: 42px; --mt-field-font-size: 14px; width: 100%; height: 42px; padding: 0 40px 0 14px; border: 1px solid #7f9db9; border-radius: 19px; background: #fff; color: #14213d; font: 500 14px var(--xp-font); }
   .xp-search input:focus { outline: none; border-color: #316ac5; box-shadow: 0 0 0 3px rgba(49,106,197,.22); }
-  .xp-search button { position: absolute; right: 4px; top: 4px; display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%; background: transparent; cursor: pointer; }
+  .xp-search button { min-height: 0 !important; position: absolute; right: 6px; top: 50%; margin-top: -16px; display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%; background: transparent; cursor: pointer; }
   .xp-search .xp-ico { width: 20px; height: 20px; }
   .xp-iconlink { position: relative; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 8px; color: #14213d; }
   .xp-iconlink:hover { background: rgba(31,95,216,.1); }
@@ -277,6 +277,9 @@ XP shop: the desktop the whole website sits on. Placed in the header group,
   main#MainContent > [data-section-type="main-search"] { --xp-t: "{{ st.search_label | default: 'Search' | replace: '"', "'" }}"; }
   main#MainContent > :is([data-section-type="contactformsimple2"], [data-section-type="page-contact"], [data-section-type="contact-form-simple"]) { --xp-t: "{{ st.message_title | default: 'New message' | replace: '"', "'" }}"; }
   main#MainContent > [data-section-type="blog-posts"] { --xp-t: "{{ st.more_posts_title | default: 'More from the journal' | replace: '"', "'" }}"; }
+  main#MainContent > :is([data-section-type="main-collection-heading"], [data-section-type="page-heading"]) { padding-top: 34px !important; }
+  main#MainContent > :is([data-section-type="main-collection-heading"], [data-section-type="page-heading"]) > :not(style):not(script) { padding-top: 24px !important; }
+  @media (max-width: 749px) { main#MainContent > :is([data-section-type="main-collection-heading"], [data-section-type="page-heading"]) { padding-top: 32px !important; } }
   /* A heading section and the section under it are one window. */
   main#MainContent > :is([data-section-type="main-collection-heading"], [data-section-type="page-heading"]):has(+ .shopify-section:not([class*="xpshop-"])) { margin-bottom: 0; padding-bottom: 0; border-radius: 10px 10px 0 0; box-shadow: none; }
   main#MainContent > :is([data-section-type="main-collection-heading"], [data-section-type="page-heading"]):has(+ .shopify-section:not([class*="xpshop-"])) > * { border-radius: 0; }
@@ -291,18 +294,21 @@ XP shop: the desktop the whole website sits on. Placed in the header group,
   /* Buttons, fields and choices across the theme, in the same XP look. */
   main#MainContent :is(h1, h2, h3, .h1, .h2, .h3, .product__title, .heading-style) { font-family: 'Nunito', Tahoma, sans-serif !important; color: #0f2f75; letter-spacing: -.01em !important; }
   main#MainContent :is(.btn, .btn-primary, .btn-secondary, .btn-outline, .shopify-payment-button__button, [data-theme-button], [data-sl-button]):not(.xp-btn):not(.xp-ctl) {
-    --mb-bg: #f4f2ea; --mb-rest: #f4f2ea; --mb-ink: #14213d; --mb-text: #14213d; --mb-line: #1f3f7a; --mb-border: #1f3f7a; --mb-border-width: 1px; --mb-radius: 5px; --mb-hover-bg: #fff; --mb-hover-text: #14213d; --mb-hover-border: #1f3f7a;
+    --mb-bg: linear-gradient(180deg, #ffffff 0%, #f6f5f0 45%, #ebe8dd 90%, #dcd7c7 100%); --mb-ink: #14213d; --mb-text: #14213d; --mb-line: #1f3f7a; --mb-border: #1f3f7a; --mb-border-width: 1px; --mb-radius: 5px; --mb-hover-bg: linear-gradient(180deg, #ffffff 0%, #fbfaf5 60%, #efece2 100%); --mb-hover-text: #14213d; --mb-hover-border: #1f3f7a;
     --mb-font: 'Nunito', Tahoma, sans-serif; border-radius: 5px !important; font-family: 'Nunito', Tahoma, sans-serif !important; font-weight: 800 !important; letter-spacing: 0 !important; text-transform: none !important; min-height: 46px;
     background: linear-gradient(180deg, #ffffff 0%, #f6f5f0 45%, #ebe8dd 90%, #dcd7c7 100%); color: #14213d; border: 1px solid #1f3f7a;
   }
   main#MainContent :is(.btn, .btn-secondary, .btn-outline):not(.xp-btn):hover { box-shadow: inset 0 2px 0 #ffe3a3, inset 0 -2px 0 #f5a623; }
-  main#MainContent :is(.product-form__submit, .btn-checkout, [name="checkout"], .btn-primary, .shopify-payment-button__button--unbranded):not(.xp-btn) {
-    --mb-bg: #3aa73a; --mb-rest: #3aa73a; --mb-text: #fff; --mb-ink: #fff; --mb-line: #1d6a1d; --mb-border: #1d6a1d; --mb-hover-bg: #45b041; --mb-hover-text: #fff; --mb-hover-border: #1d6a1d;
-    background: linear-gradient(180deg, #7ad36c 0%, #45b041 42%, #2f962f 58%, #3aa73a 100%) !important; color: #fff !important; border: 1px solid #1d6a1d !important; text-shadow: 0 1px 0 rgba(0,50,0,.45);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 2px 6px rgba(20,90,20,.25) !important;
+  main#MainContent :is(.product-form__submit, .btn-checkout, [name="checkout"], .btn-primary):not(.xp-btn):not(.xp-ctl):not(.shopify-payment-button__button) {
+    --mb-bg: linear-gradient(180deg, #7ad36c 0%, #45b041 42%, #2f962f 58%, #3aa73a 100%); --mb-text: #fff; --mb-ink: #fff; --mb-line: #1d6a1d; --mb-border: #1d6a1d;
+    --mb-hover-bg: linear-gradient(180deg, #8bdc7d 0%, #52bd4c 42%, #379f36 58%, #45b041 100%); --mb-hover-text: #fff; --mb-hover-border: #1d6a1d;
+    background: linear-gradient(180deg, #7ad36c 0%, #45b041 42%, #2f962f 58%, #3aa73a 100%); color: #fff; border-color: #1d6a1d; text-shadow: 0 1px 0 rgba(0,50,0,.45);
   }
-  main#MainContent .shopify-payment-button__button--unbranded { background: linear-gradient(180deg, #7fb2fa 0%, #3f80ee 42%, #2563da 58%, #3474e6 100%) !important; border-color: #143f9a !important; text-shadow: 0 1px 0 rgba(0,20,80,.45); }
-  main#MainContent :is(.product-form__submit, .btn-checkout, [name="checkout"], .btn-primary, .shopify-payment-button__button--unbranded):not(.xp-btn):hover { filter: brightness(1.06); }
+  main#MainContent .shopify-payment-button__button--unbranded:not(.xp-btn):not(.xp-ctl) {
+    --mb-bg: linear-gradient(180deg, #7fb2fa 0%, #3f80ee 42%, #2563da 58%, #3474e6 100%); --mb-text: #fff; --mb-ink: #fff; --mb-line: #143f9a; --mb-border: #143f9a;
+    --mb-hover-bg: linear-gradient(180deg, #8fbcfb 0%, #4c8af0 42%, #2f6de0 58%, #3f7eea 100%); --mb-hover-text: #fff; --mb-hover-border: #143f9a;
+    background: linear-gradient(180deg, #7fb2fa 0%, #3f80ee 42%, #2563da 58%, #3474e6 100%) !important; color: #fff !important; border-color: #143f9a !important; text-shadow: 0 1px 0 rgba(0,20,80,.45); opacity: 1 !important;
+  }
   main#MainContent .product__item-option { border-radius: 5px !important; border: 1px solid #7f9db9 !important; background: #fff !important; color: #14213d !important; font-family: 'Nunito', Tahoma, sans-serif; font-weight: 700; }
   main#MainContent input:checked + .product__item-option { background: linear-gradient(180deg, #e3eeff, #c9dcfb) !important; border-color: #316ac5 !important; color: #0f2f75 !important; box-shadow: inset 0 0 0 1px #316ac5 !important; }
   main#MainContent .quantity { border: 1px solid #7f9db9 !important; border-radius: 5px !important; background: #fff !important; }

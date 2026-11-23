@@ -25,7 +25,7 @@
         "show_filter_counts": false
       }
     },
-    "access": {
+    "access_popup": {
       "type": "form-modal",
       "settings": {
         "form_key": "access",
@@ -103,6 +103,6 @@
   },
   "order": [
     "main",
-    "access"
+    "access_popup"
   ]
 }

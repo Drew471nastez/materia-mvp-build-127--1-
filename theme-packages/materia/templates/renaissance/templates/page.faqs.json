@@ -169,7 +169,7 @@
         "padding_top": 96
       }
     },
-    "access": {
+    "access_popup": {
       "type": "form-modal",
       "settings": {
         "form_key": "access",
@@ -250,6 +250,6 @@
     "faq",
     "guarantee",
     "join",
-    "access"
+    "access_popup"
   ]
 }
