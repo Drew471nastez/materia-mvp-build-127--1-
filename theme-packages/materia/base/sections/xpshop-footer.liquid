@@ -190,7 +190,7 @@ XP shop: the footer, a window of its own above the taskbar: the shop's
             <nav aria-label="{{ st.menu_heading | default: st.menu.title | escape }}"><p class="xpf__h">{{ st.menu_heading | default: st.menu.title | escape }}</p><ul class="xpf__links" role="list">{%- for link in st.menu.links -%}<li><a href="{{ link.url }}">{{ link.title | escape }}</a></li>{%- endfor -%}</ul></nav>
           {%- endif -%}
           {%- if st.menu_2 != blank -%}
-            <nav aria-label="{{ st.menu_2_heading | default: st.menu_2.title | escape }}"><p class="xpf__h">{{ st.menu_2_heading | default: st.menu_2.title | escape }}</p><ul class="xpf__links" role="list">{%- for link in st.menu_2.links -%}<li><a href="{{ link.url }}">{{ link.title | escape }}</a></li>{%- endfor -%}</ul></nav>
+            <nav aria-label="{{ st.menu_2_heading | default: st.menu_2.title | escape }}"><p class="xpf__h">{{ st.menu_2_heading | default: st.menu_2.title | escape }}</p><ul class="xpf__links" role="list">{%- for link in st.menu_2.links -%}<li><a href="{{ link.url }}">{{ link.title | escape }}</a></li>{%- endfor -%}{%- if st.show_policies -%}{%- for policy in shop.policies -%}<li><a href="{{ policy.url }}">{{ policy.title | escape }}</a></li>{%- endfor -%}{%- endif -%}</ul></nav>
           {%- endif -%}
         </div>
         {%- if st.sign_text != blank -%}
@@ -244,6 +244,7 @@ XP shop: the footer, a window of its own above the taskbar: the shop's
     { "type": "text", "id": "menu_heading", "label": "First menu heading" },
     { "type": "link_list", "id": "menu_2", "label": "Second menu", "default": "footer" },
     { "type": "text", "id": "menu_2_heading", "label": "Second menu heading" },
+    { "type": "checkbox", "id": "show_policies", "label": "Links to the store's policies", "default": true, "info": "Under the second menu, for each policy written in Website settings." },
     { "type": "header", "content": "Sign up row" },
     { "type": "text", "id": "sign_text", "label": "Words", "default": "One email when a new drop is out." },
     { "type": "text", "id": "sign_label", "label": "Button", "default": "Sign up" },

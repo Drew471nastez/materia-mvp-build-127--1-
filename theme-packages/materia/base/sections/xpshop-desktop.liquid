@@ -119,7 +119,7 @@ XP shop: the desktop the whole website sits on. Placed in the header group,
   .xp-place.is-max, .xp-win.is-max { max-width: none; }
   @media (min-width: 750px) { .xp-win.is-max { margin-left: calc(-1 * max(0px, (100vw - var(--xp-col, 1180px)) / 2 - 24px)); margin-right: calc(-1 * max(0px, (100vw - var(--xp-col, 1180px)) / 2 - 24px)); } }
 
-  html { background: #6fa3e3 !important; scroll-behavior: auto; }
+  html { background: #6fa3e3{% if st.wallpaper != blank %} url("{{ st.wallpaper | image_url: width: 2000 }}") {{ st.focal | default: '50% 70%' }} / cover no-repeat fixed{% endif %} !important; scroll-behavior: auto; }
   body { background: transparent !important; padding-bottom: calc(52px + env(safe-area-inset-bottom, 0px)); }
   #shopify-section-{{ sid }} { position: static !important; margin: 0 !important; padding: 0 !important; }
   .xp-wall { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; background: linear-gradient(180deg, #4d8ee0 0%, #8fbdf0 58%, #6aa646 58.2%, #4b8a2c 100%); }
@@ -163,6 +163,7 @@ XP shop: the desktop the whole website sits on. Placed in the header group,
 
   /* Desktop icons, on the home page of a wide screen. */
   .xp-icons { display: none; }
+  .xp-icons.xp-icons--off { display: none !important; }
   @media (min-width: 1480px) {
     .xp-icons { position: absolute; left: 18px; top: 84px; z-index: 2; display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 0; list-style: none; }
     .xp-icon { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 92px; padding: 6px 4px; border-radius: 4px; color: #fff; text-decoration: none; text-align: center; }
@@ -269,7 +270,7 @@ XP shop: the desktop the whole website sits on. Placed in the header group,
   }
   main#MainContent > .shopify-section:not([class*="xpshop-"]):not(.form-modal-section)::after {
     content: ""; position: absolute; z-index: 3; top: 5px; right: 7px; width: 81px; height: 24px; pointer-events: none;
-    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='81' height='24'%3E%3Cdefs%3E%3ClinearGradient id='b' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%2378aef8'/%3E%3Cstop offset='.5' stop-color='%233c7ff0'/%3E%3Cstop offset='.55' stop-color='%232563da'/%3E%3Cstop offset='1' stop-color='%233a7bea'/%3E%3C/linearGradient%3E%3ClinearGradient id='r' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23f3a184'/%3E%3Cstop offset='.45' stop-color='%23e5683f'/%3E%3Cstop offset='.6' stop-color='%23d24a1f'/%3E%3Cstop offset='1' stop-color='%23e0653b'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='.5' y='.5' width='23' height='23' rx='4' fill='url(%23b)' stroke='%23fff'/%3E%3Crect x='6' y='15' width='8' height='3' fill='%23fff'/%3E%3Crect x='28.5' y='.5' width='23' height='23' rx='4' fill='url(%23b)' stroke='%23fff'/%3E%3Crect x='34' y='6' width='12' height='11' fill='none' stroke='%23fff' stroke-width='2'/%3E%3Crect x='34' y='6' width='12' height='3' fill='%23fff'/%3E%3Crect x='56.5' y='.5' width='23' height='23' rx='4' fill='url(%23r)' stroke='%23fff'/%3E%3Cpath d='m63 7 10 10M73 7 63 17' stroke='%23fff' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='81' height='24'%3E%3Crect x='.5' y='.5' width='23' height='23' rx='4' fill='%233576e8' stroke='%23fff'/%3E%3Crect x='6' y='15' width='8' height='3' fill='%23fff'/%3E%3Crect x='28.5' y='.5' width='23' height='23' rx='4' fill='%233576e8' stroke='%23fff'/%3E%3Crect x='34' y='6' width='12' height='11' fill='none' stroke='%23fff' stroke-width='2'/%3E%3Crect x='34' y='6' width='12' height='3' fill='%23fff'/%3E%3Crect x='56.5' y='.5' width='23' height='23' rx='4' fill='%23de5a2f' stroke='%23fff'/%3E%3Cpath d='m63 7 10 10M73 7 63 17' stroke='%23fff' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat;
   }
   main#MainContent > .shopify-section:not([class*="xpshop-"]):not(.form-modal-section) > * { background-color: #fff; border-radius: 0 0 4px 4px; }
   main#MainContent > [data-section-type="related-products"], main#MainContent > [data-section-type="products-carousel"], main#MainContent > [data-section-type="recently-viewed"] { --xp-t: "{{ st.related_title | default: 'You may also like' | replace: '"', "'" }}"; }
@@ -416,8 +417,8 @@ XP shop: the desktop the whole website sits on. Placed in the header group,
     </div>
   </div>
 </header>
-{%- if show_icons and section.blocks.size > 0 -%}
-  <ul data-own-font class="xp xp-icons" role="list">
+{%- if section.blocks.size > 0 -%}
+  <ul data-own-font class="xp xp-icons{% unless show_icons %} xp-icons--off{% endunless %}" role="list">
     {%- for block in section.blocks -%}
       <li {{ block.shopify_attributes }}><a class="xp-icon" href="{{ block.settings.link | default: '/' }}"><svg class="xp-ico" aria-hidden="true" focusable="false"><use href="#xpi-{{ block.settings.icon | default: 'folder' }}-{{ sid }}"/></svg><span>{{ block.settings.label | escape }}</span></a></li>
     {%- endfor -%}

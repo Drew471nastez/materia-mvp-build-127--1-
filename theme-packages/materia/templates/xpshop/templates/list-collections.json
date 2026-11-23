@@ -24,113 +24,80 @@
       "blocks": {},
       "block_order": []
     },
-    "shop": {
-      "type": "xpshop-shop",
+    "promises": {
+      "type": "xpshop-tiles",
       "settings": {
-        "title": "Everything",
-        "icon": "folder",
-        "heading": "Every piece",
-        "subheading": "Tees, crews, caps, a beanie and stickers.",
-        "collection": "",
-        "products_to_show": 8,
+        "title": "Good to know",
+        "icon": "info",
+        "heading": "",
+        "subheading": "",
         "columns": "4",
-        "skip_current": true,
-        "address": "Shop > Everything",
-        "address_label": "Address",
-        "view_all_label": "Go",
-        "view_all_link": "",
-        "more_label": "",
-        "status_right": "Printed to order, sent in 2 days",
-        "show_pane": true,
-        "pane_title": "Shop tasks",
-        "pane_note_title": "Details",
-        "pane_note_bold": "Printed to order",
-        "pane_note": "Most orders leave the studio within two working days.",
-        "quick_label": "Quick view",
-        "add_label": "Add",
-        "add_cart_label": "Add to cart",
-        "qty_label": "Quantity",
-        "details_label": "See every detail",
-        "added_title": "Added to cart",
-        "added_text": "[product] is in your cart.",
-        "view_cart_label": "View cart",
-        "keep_label": "Keep shopping",
-        "sold_out_label": "Sold out",
-        "sale_label": "Sale",
-        "unavailable_label": "That one is sold out.",
-        "error_label": "That did not work. Try again.",
-        "error_title": "Not added",
-        "object_label": "item",
-        "objects_label": "items",
-        "empty_name": "Your product",
-        "close_label": "Close",
+        "layout": "side",
+        "numbers": false,
+        "phone_two": false,
+        "status_left": "",
+        "status_right": "",
         "padding_top": 0,
         "padding_bottom": 28,
         "padding_top_mobile": 0,
         "padding_bottom_mobile": 16
       },
       "blocks": {
-        "link_1": {
-          "type": "link",
+        "tile_1": {
+          "type": "tile",
           "settings": {
-            "icon": "folder",
-            "label": "Everything",
-            "link": "/collections/all"
+            "icon": "leaf",
+            "picture": "",
+            "title": "Printed to order",
+            "text": "Heavy 240 gsm cotton and water based ink. Nothing sits in a warehouse.",
+            "link": "",
+            "link_label": ""
           }
         },
-        "link_2": {
-          "type": "link",
+        "tile_2": {
+          "type": "tile",
           "settings": {
-            "icon": "tee",
-            "label": "Tees",
-            "link": "/search?q=tee"
+            "icon": "truck",
+            "picture": "",
+            "title": "Sent in 2 days",
+            "text": "Tracked, with the number in your inbox the day it leaves.",
+            "link": "/pages/shipping",
+            "link_label": "Delivery times"
           }
         },
-        "link_3": {
-          "type": "link",
+        "tile_3": {
+          "type": "tile",
           "settings": {
-            "icon": "user",
-            "label": "Crews and hoodies",
-            "link": "/search?q=crew"
+            "icon": "refresh",
+            "picture": "",
+            "title": "30 days to return",
+            "text": "Unworn and unwashed, we refund it. The label is on us.",
+            "link": "/pages/shipping",
+            "link_label": "Returns"
           }
         },
-        "link_4": {
-          "type": "link",
+        "tile_4": {
+          "type": "tile",
           "settings": {
-            "icon": "cap",
-            "label": "Caps and beanies",
-            "link": "/search?q=cap"
-          }
-        },
-        "link_5": {
-          "type": "link",
-          "settings": {
-            "icon": "sticker",
-            "label": "Stickers",
-            "link": "/search?q=sticker"
-          }
-        },
-        "link_6": {
-          "type": "link",
-          "settings": {
-            "icon": "note",
-            "label": "All collections",
-            "link": "/collections"
+            "icon": "shield",
+            "picture": "",
+            "title": "Safe checkout",
+            "text": "Cards, Apple Pay and Google Pay. We never see your card.",
+            "link": "",
+            "link_label": ""
           }
         }
       },
       "block_order": [
-        "link_1",
-        "link_2",
-        "link_3",
-        "link_4",
-        "link_5",
-        "link_6"
+        "tile_1",
+        "tile_2",
+        "tile_3",
+        "tile_4"
       ]
     }
   },
   "order": [
     "main",
-    "shop"
+    "promises"
   ]
 }

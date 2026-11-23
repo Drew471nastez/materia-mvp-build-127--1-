@@ -1,0 +1,122 @@
+
+  #shopify-section-faq { isolation: isolate; position: relative; margin-top: 0; margin-bottom: 0; }
+  :where(#shopify-section-faq) { font-family: var(--body-font, inherit); }
+  :where(#shopify-section-faq) :where(button) { font-family: inherit; }
+  :where(#shopify-section-faq) :is(h1, h2, h3, h4, h5, h6) { font-family: var(--heading-font, inherit); }
+  #shopify-section-faq *, #shopify-section-faq *:before, #shopify-section-faq *:after { box-sizing: border-box; }
+  @media (min-width: 768px) {
+    #shopify-section-faq { margin-top: 0px; margin-bottom: 0px; }
+  }#shopify-section-faq, #shopify-section-faq > section, #shopify-section-faq > div { margin-top: 0 !important; margin-bottom: 0 !important; }
+    #shopify-section-faq + .shopify-section, .shopify-section + #shopify-section-faq { margin-top: 0 !important; }#shopify-section-faq .fqt { background: var(--fqt-bg) !important; padding-top: var(--fqt-pt-m); padding-bottom: var(--fqt-pb-m); }
+  #shopify-section-faq .fqt[data-fqt-width="container"] { max-width: calc(var(--page-width, 1300px) + 3rem); margin-inline: auto; }
+  #shopify-section-faq .fqt[data-fqt-width="fluid_container"] { max-width: calc(var(--fluid-container-width, 1500px) + 3rem); margin-inline: auto; }
+  #shopify-section-faq .fqt__inner { max-width: var(--fqt-w-m); margin-inline: auto; padding-inline: 1.25rem; }
+  @media (min-width: 768px) {
+    #shopify-section-faq .fqt { padding-top: var(--fqt-pt-d); padding-bottom: var(--fqt-pb-d); }
+    #shopify-section-faq .fqt__inner { max-width: var(--fqt-w-t); padding-inline: 1.5rem; }
+  }
+  @media (min-width: 1024px) {
+    #shopify-section-faq .fqt__inner { max-width: var(--fqt-w-d); }
+  }
+
+  #shopify-section-faq .fqt__header { display: flex; flex-direction: column; align-items: var(--fqt-flex); text-align: var(--fqt-align); margin: 0 auto var(--fqt-gap-tabs-m); gap: var(--fqt-hgap-m); width: 100%; }
+  #shopify-section-faq .fqt__header:empty { display: none; }
+  #shopify-section-faq .fqt__header > [hidden] { display: none; }
+  @media (min-width: 768px) {
+    #shopify-section-faq .fqt__header { margin-bottom: var(--fqt-gap-tabs-d); gap: var(--fqt-hgap-d); }
+  }
+  #shopify-section-faq .fqt__header > *, #shopify-section-faq .fqt__header :is(h2, p) { margin-block: 0 !important; padding-block: 0 !important; }
+  #shopify-section-faq .fqt__heading {
+    margin: 0 !important; padding: 0 !important;
+    color: var(--fb-c, var(--color-heading)) !important;
+    font-family: var(--fb-ff, var(--fqt-hf, var(--heading-font, inherit)));
+    font-weight: var(--fb-fw, var(--heading-weight, 700));
+    line-height: var(--fb-lh, 1.2);
+    font-size: var(--fb-fs-m, 36px) !important;
+  }
+  #shopify-section-faq .fqt__heading[data-own-size] { letter-spacing: var(--fb-ls, normal); }
+  @media (min-width: 768px) {
+    #shopify-section-faq .fqt__heading { font-size: var(--fb-fs-d, 56px) !important; }
+  }
+  #shopify-section-faq .fqt__sub {
+    margin: 0 !important; padding: 0 !important;
+    color: var(--fb-c, var(--color-text)) !important;
+    font-family: var(--fb-ff, var(--fqt-bf, inherit));
+    font-size: var(--fb-fs, 16px);
+    line-height: 1.55;
+    max-width: var(--fb-mw, 540px);
+  }
+  #shopify-section-faq .fqt__sub > * { margin: 0 !important; padding: 0 !important; }
+  #shopify-section-faq :is(.fqt__sub, .fqt__answer) :is(p, li, strong, em) { font-family: inherit; }
+
+  /* Tab strip: hidden radios, a scroll viewport, a centred row and the pill. */
+  #shopify-section-faq .fqt__tab-radio { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; pointer-events: none; }
+  #shopify-section-faq .fqt__tabs-wrap {
+    position: relative; width: auto; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+    margin: 0 -1.25rem var(--fqt-gap-list); padding: 4px 1.25rem;
+  }
+  @media (min-width: 768px) {
+    #shopify-section-faq .fqt__tabs-wrap { margin-left: -1.5rem; margin-right: -1.5rem; padding-left: 1.5rem; padding-right: 1.5rem; }
+  }
+  #shopify-section-faq .fqt__tabs-wrap::-webkit-scrollbar { display: none; }
+  #shopify-section-faq .fqt__tabs-row { display: flex; justify-content: center; min-width: max-content; }
+  #shopify-section-faq .fqt__tabs { display: inline-flex; flex-wrap: nowrap; flex-shrink: 0; gap: 6px; background: var(--fqt-track); padding: 6px; border-radius: 999px; box-shadow: var(--fqt-shadow); }
+  #shopify-section-faq .fqt__tab {
+    position: relative;
+    cursor: pointer; user-select: none; padding: 10px 22px; border-radius: 999px;
+    font-weight: var(--fqt-tab-w); font-size: var(--fqt-tab-s); color: var(--fqt-inactive);
+    transition: background .25s ease, color .25s ease; white-space: nowrap;
+  }
+  /* a 44px tap target around each pill, without changing the pill */
+  #shopify-section-faq .fqt__tab::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
+  @media (max-width: 600px) {
+    #shopify-section-faq .fqt__tab { padding: 8px 12px; font-size: calc(var(--fqt-tab-s) * .8); }
+    #shopify-section-faq .fqt__tabs { padding: 4px; gap: 4px; }
+  }
+  #shopify-section-faq .fqt__r--1:checked ~ .fqt__shell .fqt__tab--1 { background: var(--fqt-active-bg); color: var(--fqt-active); }
+  #shopify-section-faq .fqt__r--1:focus-visible ~ .fqt__shell .fqt__tab--1 { outline: 2px solid var(--fqt-active-bg); outline-offset: 2px; }
+  #shopify-section-faq .fqt__r--1:checked ~ .fqt__shell .fqt__panel--1 { display: block; }
+  #shopify-section-faq .fqt__r--2:checked ~ .fqt__shell .fqt__tab--2 { background: var(--fqt-active-bg); color: var(--fqt-active); }
+  #shopify-section-faq .fqt__r--2:focus-visible ~ .fqt__shell .fqt__tab--2 { outline: 2px solid var(--fqt-active-bg); outline-offset: 2px; }
+  #shopify-section-faq .fqt__r--2:checked ~ .fqt__shell .fqt__panel--2 { display: block; }
+  #shopify-section-faq .fqt__r--3:checked ~ .fqt__shell .fqt__tab--3 { background: var(--fqt-active-bg); color: var(--fqt-active); }
+  #shopify-section-faq .fqt__r--3:focus-visible ~ .fqt__shell .fqt__tab--3 { outline: 2px solid var(--fqt-active-bg); outline-offset: 2px; }
+  #shopify-section-faq .fqt__r--3:checked ~ .fqt__shell .fqt__panel--3 { display: block; }
+  #shopify-section-faq .fqt__r--4:checked ~ .fqt__shell .fqt__tab--4 { background: var(--fqt-active-bg); color: var(--fqt-active); }
+  #shopify-section-faq .fqt__r--4:focus-visible ~ .fqt__shell .fqt__tab--4 { outline: 2px solid var(--fqt-active-bg); outline-offset: 2px; }
+  #shopify-section-faq .fqt__r--4:checked ~ .fqt__shell .fqt__panel--4 { display: block; }
+  #shopify-section-faq .fqt__r--5:checked ~ .fqt__shell .fqt__tab--5 { background: var(--fqt-active-bg); color: var(--fqt-active); }
+  #shopify-section-faq .fqt__r--5:focus-visible ~ .fqt__shell .fqt__tab--5 { outline: 2px solid var(--fqt-active-bg); outline-offset: 2px; }
+  #shopify-section-faq .fqt__r--5:checked ~ .fqt__shell .fqt__panel--5 { display: block; }
+  #shopify-section-faq .fqt__panel { display: none; }
+
+  #shopify-section-faq .fqt__list { display: flex; flex-direction: column; }
+  #shopify-section-faq .fqt__item { border-top: 1px solid var(--fqt-divider); padding: var(--fqt-py) 0; }
+  #shopify-section-faq .fqt__item:last-of-type { border-bottom: 1px solid var(--fqt-divider); }
+  #shopify-section-faq .fqt__summary {
+    cursor: pointer; display: grid; grid-template-columns: 1fr 24px; align-items: center; gap: 16px;
+    width: 100%; background: transparent; border: 0; text-align: start;
+    padding: 10px 0; margin: -10px 0; /* a 44px tap target inside the question's own padding */
+    font-family: var(--fqt-hf, inherit); font-weight: var(--fqt-q-w); font-size: var(--fqt-q-s); color: var(--fqt-q-color); line-height: 1.4;
+  }
+  #shopify-section-faq .fqt__summary:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
+  #shopify-section-faq .fqt__plus { width: 24px; height: 24px; position: relative; flex-shrink: 0; }
+  #shopify-section-faq .fqt__plus::before, #shopify-section-faq .fqt__plus::after { content: ''; position: absolute; left: 50%; top: 50%; background: var(--fqt-plus); transform-origin: center; transition: transform .35s cubic-bezier(0.4, 0, 0.2, 1), opacity .25s ease; }
+  #shopify-section-faq .fqt__plus::before { width: 16px; height: 2px; transform: translate(-50%, -50%); }
+  #shopify-section-faq .fqt__plus::after { width: 2px; height: 16px; transform: translate(-50%, -50%); }
+  #shopify-section-faq .fqt__item[open] .fqt__plus::after { transform: translate(-50%, -50%) rotate(90deg); opacity: 0; }
+  /* Smooth open and close: the answer's row grows from 0fr to 1fr. */
+  #shopify-section-faq .fqt__answer-wrap { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .42s cubic-bezier(.4, 0, .2, 1); }
+  #shopify-section-faq .fqt__item[open] .fqt__answer-wrap { grid-template-rows: 1fr; }
+  #shopify-section-faq .fqt__answer-inner { overflow: hidden; min-height: 0; }
+  #shopify-section-faq .fqt__answer { margin: 0; padding-top: 14px; color: var(--fqt-a-color); font-family: var(--fqt-bf, inherit); font-size: var(--fqt-a-s); line-height: 1.6; max-width: 720px; }
+  #shopify-section-faq .fqt__answer > * { margin: 0; }
+  #shopify-section-faq .fqt__answer > * + * { margin-top: 8px; }
+  #shopify-section-faq .fqt__answer a { color: inherit; text-decoration: underline; }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-faq :is(.fqt__answer-wrap, .fqt__tab), #shopify-section-faq .fqt__plus::before, #shopify-section-faq .fqt__plus::after { transition: none !important; }
+  }
+
+  #shopify-section-faq .fqt[data-fqt-show="mobile"], #shopify-section-faq .fqt[data-fqt-show="desktop"] { display: none; }
+  @media (max-width: 767px) { #shopify-section-faq .fqt[data-fqt-show="mobile"] { display: block; } }
+  @media (min-width: 768px) { #shopify-section-faq .fqt[data-fqt-show="desktop"] { display: block; } }

@@ -1,0 +1,39 @@
+
+  #shopify-section-cta .clc {
+    --cl-accent: #17804c;
+    background: #f6f6f4;
+    padding: 32px 0 48px;
+  }
+  @media (min-width: 990px) { #shopify-section-cta .clc { padding: 24px 0 72px; } }
+  #shopify-section-cta .clc__in { max-width: 1164px; margin: 0 auto; padding: 0 12px; }
+  @media (min-width: 990px) { #shopify-section-cta .clc__in { padding: 0 32px; } }
+  #shopify-section-cta .clc__promise { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 18px; align-items: center; max-width: 720px; margin: 0 auto 40px; padding: 0 8px; }
+  @media (min-width: 750px) { #shopify-section-cta .clc__promise { grid-template-columns: 104px minmax(0, 1fr); gap: 28px; margin-bottom: 64px; } }
+  #shopify-section-cta .clc__seal { position: relative; display: grid; place-items: center; width: 76px; height: 76px; border-radius: 50%; border: 2px solid var(--cl-accent); color: var(--cl-accent); text-align: center; line-height: 1; }
+  @media (min-width: 750px) { #shopify-section-cta .clc__seal { width: 104px; height: 104px; } }
+  #shopify-section-cta .clc__seal::before { content: ""; position: absolute; inset: 5px; border-radius: 50%; border: 1px dashed color-mix(in srgb, var(--cl-accent) 55%, transparent); }
+  #shopify-section-cta .clc__days { display: block; font-family: var(--heading-font, inherit); font-size: 26px; font-weight: 700; letter-spacing: -.03em; }
+  @media (min-width: 750px) { #shopify-section-cta .clc__days { font-size: 34px; } }
+  #shopify-section-cta .clc__unit { display: block; margin-top: 3px; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; font-weight: 600; }
+  #shopify-section-cta .clc__ptitle { margin: 0 0 6px; color: #141416; font-family: var(--heading-font, inherit); font-size: 20px; font-weight: 600; letter-spacing: -.02em; }
+  @media (min-width: 750px) { #shopify-section-cta .clc__ptitle { font-size: 24px; } }
+  #shopify-section-cta .clc__ptext { margin: 0; color: #5a5a62; font-size: 15px; line-height: 1.6; }
+  #shopify-section-cta .clc__panel { position: relative; overflow: hidden; padding: 52px 22px 48px; border-radius: 24px; background: #151517; color: #b4b4bb; text-align: center; }
+  @media (min-width: 990px) { #shopify-section-cta .clc__panel { padding: 80px 48px 76px; border-radius: 28px; } }
+  #shopify-section-cta .clc__panel::after { content: ""; position: absolute; left: 50%; bottom: -55%; width: 90%; height: 90%; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--cl-accent) 42%, transparent), transparent); pointer-events: none; }
+  #shopify-section-cta .clc__mark { position: relative; z-index: 1; width: 26px; height: 26px; margin: 0 auto 16px; color: var(--cl-accent); }
+  #shopify-section-cta .clc__title { position: relative; z-index: 1; margin: 0 auto 14px; max-width: 18em; color: #ffffff; font-family: var(--heading-font, inherit); font-weight: 600; font-size: 30px; line-height: 1.12; letter-spacing: -.03em; text-wrap: balance; }
+  @media (min-width: 990px) { #shopify-section-cta .clc__title { font-size: 44px; } }
+  #shopify-section-cta .clc__title span { color: color-mix(in srgb, var(--cl-accent) 70%, #ffffff); }
+  #shopify-section-cta .clc__text { position: relative; z-index: 1; max-width: 36em; margin: 0 auto; font-size: 16px; line-height: 1.6; }
+  @media (min-width: 990px) { #shopify-section-cta .clc__text { font-size: 17px; } }
+  #shopify-section-cta .clc__text p { margin: 0; }
+  #shopify-section-cta .clc__cta { position: relative; z-index: 1; margin-top: 28px; }
+  #shopify-section-cta .cl-btn { display: inline-flex; align-items: center; justify-content: center; gap: 12px; min-height: 60px; padding: 0 34px; border-radius: 14px; background: var(--cl-accent); color: #fff; font-size: 18px; font-weight: 600; text-decoration: none; box-shadow: 0 1px 0 rgba(255,255,255,.25) inset, 0 14px 34px -12px color-mix(in srgb, var(--cl-accent) 70%, transparent); transition: transform .25s ease; }
+  #shopify-section-cta .cl-btn:hover { transform: translateY(-2px); }
+  #shopify-section-cta .cl-btn svg { width: 18px; height: 18px; }
+  @media (max-width: 749px) { #shopify-section-cta .cl-btn { width: 100%; } }
+  #shopify-section-cta .clc__note { position: relative; z-index: 1; margin: 14px 0 0; font-size: 14px; }
+  #shopify-section-cta [data-clr].clr-wait { opacity: 0; transform: translate3d(0, 24px, 0); }
+  #shopify-section-cta [data-clr].clr-in { opacity: 1; transform: none; transition: opacity .85s cubic-bezier(.2,.65,.25,1) var(--d, 0ms), transform .85s cubic-bezier(.2,.65,.25,1) var(--d, 0ms); }
+  @media (prefers-reduced-motion: reduce) { #shopify-section-cta .cl-btn { transition: none; } }

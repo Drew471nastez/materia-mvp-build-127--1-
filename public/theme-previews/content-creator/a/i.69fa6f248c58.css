@@ -1,0 +1,21 @@
+
+  #shopify-section-follow .cpz { background: #ffffff; padding: 56px 20px 56px; scroll-margin-top: 80px; }
+  @media (min-width: 990px) { #shopify-section-follow .cpz { padding: 96px 40px 96px; } }
+  #shopify-section-follow .cpz__inner { max-width: 1200px; margin: 0 auto; }
+  #shopify-section-follow .cpz__eyebrow { margin: 0 0 12px; color: #ff5a36; font-size: 14px; font-weight: 700; }
+  #shopify-section-follow .cpz__heading { margin: 0; color: var(--color-heading); font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 700); font-size: 34px; line-height: 1.05; letter-spacing: -0.03em; }
+  @media (min-width: 990px) { #shopify-section-follow .cpz__heading { font-size: 52px; } }
+  #shopify-section-follow .cpz__heading em { font-style: normal; color: #ff5a36; }
+  #shopify-section-follow .cpz__grid { list-style: none; margin: 36px 0 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  @media (min-width: 750px) { #shopify-section-follow .cpz__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (min-width: 990px) { #shopify-section-follow .cpz__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 48px; } }
+  #shopify-section-follow .cpz__tile { display: grid; grid-template-columns: 52px minmax(0, 1fr) 24px; gap: 16px; align-items: center; padding: 18px 20px; border-radius: 18px; border: 1px solid #e6e4de; color: var(--color-heading); text-decoration: none; transition: border-color 0.2s ease, background-color 0.2s ease; }
+  #shopify-section-follow .cpz__tile:hover { border-color: var(--color-heading); background: #f5f4f0; }
+  #shopify-section-follow .cpz__mark { width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; color: #fff; }
+  #shopify-section-follow .cpz__mark svg { width: 24px; height: 24px; }
+  #shopify-section-follow .cpz__name { display: block; font-size: 17px; font-weight: 700; }
+  #shopify-section-follow .cpz__handle { display: block; color: var(--color-text); font-size: 14px; }
+  #shopify-section-follow .cpz__line { display: block; margin-top: 4px; color: var(--color-text); font-size: 14px; line-height: 1.45; }
+  #shopify-section-follow .cpz__arrow { width: 20px; height: 20px; transition: transform 0.25s ease; }
+  #shopify-section-follow .cpz__tile:hover .cpz__arrow { transform: rotate(-45deg); }
+  @media (prefers-reduced-motion: reduce) { #shopify-section-follow .cpz__arrow { transition: none; } }

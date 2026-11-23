@@ -1,0 +1,19 @@
+
+  #shopify-section-talks .c2b { background: #ffffff; padding: 16px 16px 16px; }
+  @media (min-width: 750px) { #shopify-section-talks .c2b { padding: 32px 32px 32px; } }
+  #shopify-section-talks .c2b__box { position: relative; max-width: var(--page-width, 1310px); margin: 0 auto; min-height: 560px; border-radius: 10px; overflow: hidden; background: #0f1115; display: flex; align-items: flex-end; }
+  @media (min-width: 750px) { #shopify-section-talks .c2b__box { min-height: 540px; align-items: center; } }
+  #shopify-section-talks .c2b__box > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: right center; margin: 0; }
+  #shopify-section-talks .c2b__box::after { content: ""; position: absolute; inset: 0; background: linear-gradient(0deg, rgba(10,12,16,.88) 0%, rgba(10,12,16,.55) 55%, rgba(10,12,16,.25) 100%); }
+  @media (min-width: 750px) { #shopify-section-talks .c2b__box::after { background: linear-gradient(90deg, rgba(10,12,16,.9) 0%, rgba(10,12,16,.7) 42%, rgba(10,12,16,.1) 78%); } }
+  #shopify-section-talks .c2b__copy { position: relative; z-index: 1; max-width: 560px; padding: 28px 22px; color: #d5d8e0; }
+  @media (min-width: 750px) { #shopify-section-talks .c2b__copy { padding: 56px; } }
+  #shopify-section-talks .c2b__eyebrow { margin: 0 0 12px; color: #8c9aff; font-size: 13px; font-weight: 600; letter-spacing: .04em; }
+  #shopify-section-talks .c2b__h { margin: 0; color: #fff; font-family: var(--heading-font, inherit); font-weight: 700; letter-spacing: -0.035em; line-height: 1.04; font-size: 32px; text-wrap: balance; }
+  @media (min-width: 750px) { #shopify-section-talks .c2b__h { font-size: 48px; } }
+  #shopify-section-talks .c2b__t { margin: 16px 0 0; font-size: 16.5px; line-height: 1.6; }
+  #shopify-section-talks .c2b__t p { margin: 0; }
+  #shopify-section-talks .c2b__items { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0 0; padding: 0; list-style: none; }
+  #shopify-section-talks .c2b__items li { padding: 7px 12px; border: 1px solid rgba(255,255,255,.22); border-radius: 6px; color: #fff; font-size: 13.5px; }
+  #shopify-section-talks .c2b__btn { display: inline-flex; align-items: center; min-height: 50px; margin-top: 26px; padding: 0 22px; border-radius: 6px; background: #fff; color: #0f1115; font-size: 15px; font-weight: 600; text-decoration: none; transition: background-color .2s ease, color .2s ease; }
+  #shopify-section-talks .c2b__btn:hover { background: #8c9aff; color: #fff; }

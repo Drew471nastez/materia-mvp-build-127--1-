@@ -437,3 +437,24 @@ Digital Renaissance (round 21): the instructor, Karim Nassar, is two photographs
 | renaissance (cover only) | scripts/theme-templates/products/renaissance/renaissance-cohort.webp | Drawn for this template | Storelib |
 | renaissance (cover only) | scripts/theme-templates/products/renaissance/renaissance-prompts.webp | Drawn for this template | Storelib |
 | renaissance (cover only) | scripts/theme-templates/products/renaissance/renaissance-audit.webp | Drawn for this template | Storelib |
+
+XP shop (round 21): the wallpaper is a real photograph of a green hill under a blue sky with clouds (not the operating system's own picture). The garments are Unsplash photographs cut out, recoloured where a row says so, and set on one even pale ground with a soft shadow; the hill window, balloon, green hilltop button and cloud prints are drawn for the template and laid on the cloth so its folds show through. The home picture lays the crewneck (https://images.unsplash.com/photo-1620799140408-edc6dcb6d633, recoloured green), the tee (https://images.unsplash.com/photo-1651761179569-4ba2aa054997) and the cap (https://images.unsplash.com/photo-1645266729222-17cd32e06fd0, recoloured blue) together. The user pictures beside the sample reviews are object photographs (a daisy, a rubber duck, a goldfish, a guitar, a fish), never faces. The sticker sheet, every icon, the window frames and the taskbar are drawn for the template.
+
+| xpshop | assets/xpshop-wallpaper.webp | https://images.unsplash.com/photo-1762766040661-46fe35939255 | Unsplash License |
+| xpshop | assets/xpshop-hero.webp | https://images.unsplash.com/photo-1620799140408-edc6dcb6d633 | Unsplash License |
+| xpshop | assets/xpshop-about.webp | https://images.unsplash.com/photo-1651761179569-4ba2aa054997 | Unsplash License |
+| xpshop | assets/xpshop-stickers.webp | Drawn for this template | Storelib |
+| xpshop | assets/xpshop-user-1.webp | https://images.unsplash.com/photo-1592339078319-1f8cc9d67888 | Unsplash License |
+| xpshop | assets/xpshop-user-2.webp | https://images.unsplash.com/photo-1720117386029-2e30f1959e78 | Unsplash License |
+| xpshop | assets/xpshop-user-3.webp | https://images.unsplash.com/photo-1668862347626-70a980820f06 | Unsplash License |
+| xpshop | assets/xpshop-user-4.webp | https://images.unsplash.com/photo-1568193755668-aae18714a9f1 | Unsplash License |
+| xpshop | assets/xpshop-user-5.webp | https://images.unsplash.com/photo-1544943910-4c1dc44aab44 | Unsplash License |
+| xpshop (cover only) | scripts/theme-templates/products/xpshop/xpshop-hillside-tee-white.webp | https://images.unsplash.com/photo-1651761179569-4ba2aa054997 (cut out, print drawn on) | Unsplash License |
+| xpshop (sample variants) | scripts/theme-templates/products/xpshop/xpshop-hillside-tee-sky.webp | https://images.unsplash.com/photo-1651761179569-4ba2aa054997 (cut out, recoloured sky blue, print drawn on) | Unsplash License |
+| xpshop (cover only) | scripts/theme-templates/products/xpshop/xpshop-balloon-tee-black.webp | https://images.unsplash.com/photo-1651761179569-4ba2aa054997 (cut out, recoloured black, print drawn on) | Unsplash License |
+| xpshop (sample variants) | scripts/theme-templates/products/xpshop/xpshop-balloon-tee-white.webp | https://images.unsplash.com/photo-1651761179569-4ba2aa054997 (cut out, print drawn on) | Unsplash License |
+| xpshop (cover only) | scripts/theme-templates/products/xpshop/xpshop-start-crew-green.webp | https://images.unsplash.com/photo-1620799140408-edc6dcb6d633 (cut out, recoloured green, print drawn on) | Unsplash License |
+| xpshop (sample variants) | scripts/theme-templates/products/xpshop/xpshop-start-crew-white.webp | https://images.unsplash.com/photo-1620799140408-edc6dcb6d633 (cut out, print drawn on) | Unsplash License |
+| xpshop (cover only) | scripts/theme-templates/products/xpshop/xpshop-cloud-cap-blue.webp | https://images.unsplash.com/photo-1645266729222-17cd32e06fd0 (cut out, recoloured blue, cloud drawn on) | Unsplash License |
+| xpshop (cover only) | scripts/theme-templates/products/xpshop/xpshop-meadow-beanie.webp | https://images.unsplash.com/photo-1576529598261-96e376f6aabb (cut out, recoloured green, label drawn on) | Unsplash License |
+| xpshop (cover only) | scripts/theme-templates/products/xpshop/xpshop-sticker-pack.webp | Drawn for this template | Storelib |
