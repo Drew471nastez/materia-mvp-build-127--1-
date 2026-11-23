@@ -2,7 +2,7 @@
 XP shop: the desktop the whole website sits on. Placed in the header group,
   so every page has it:
 
-  the wallpaper, a photograph fixed behind the page;
+  the wallpaper, a photograph that stays behind the page as it scrolls;
 
   a light bar along the top with the shop's name, the main menu, search,
   account and the cart, so the way round is always plain;
@@ -118,10 +118,15 @@ XP shop: the desktop the whole website sits on. Placed in the header group,
   .xp-place.is-max, .xp-win.is-max { max-width: none; }
   @media (min-width: 750px) { .xp-win.is-max { margin-left: calc(-1 * max(0px, (100vw - var(--xp-col, 1180px)) / 2 - 24px)); margin-right: calc(-1 * max(0px, (100vw - var(--xp-col, 1180px)) / 2 - 24px)); } }
 
-  html { background: #6fa3e3{% if st.wallpaper != blank %} url("{{ st.wallpaper | image_url: width: 2000 }}") {{ st.focal | default: '50% 70%' }} / cover no-repeat fixed{% endif %} !important; scroll-behavior: auto; }
+  {%- comment %}The wallpaper is a layer pinned to the top of the page (position: sticky), not a fixed
+     background on the page: a fixed background is painted again for every screen when a long
+     page is photographed a screen at a time (the cover and phone pictures), which showed the
+     photograph cut and repeated down the page. A sticky layer is drawn once; on a visit the two
+     look the same.{% endcomment %}
+  html { background: #6fa3e3 !important; scroll-behavior: auto; }
   body { background: transparent !important; padding-bottom: calc(52px + env(safe-area-inset-bottom, 0px)); }
   #shopify-section-{{ sid }} { position: static !important; margin: 0 !important; padding: 0 !important; }
-  .xp-wall { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; background: linear-gradient(180deg, #4d8ee0 0%, #8fbdf0 58%, #6aa646 58.2%, #4b8a2c 100%); }
+  .xp-wall { position: sticky; top: 0; z-index: -1; display: block; width: 100%; height: 100vh; height: 100lvh; margin-bottom: -100vh; margin-bottom: -100lvh; pointer-events: none; overflow: hidden; background: linear-gradient(180deg, #4d8ee0 0%, #8fbdf0 58%, #6aa646 58.2%, #4b8a2c 100%); }
   .xp-wall img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: {{ st.focal | default: '50% 70%' }}; }
   .xp-wall::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(255,255,255,0) 60%, rgba(10,40,10,{{ st.wall_shade | default: 0 | divided_by: 100.0 }}) 100%); }
 

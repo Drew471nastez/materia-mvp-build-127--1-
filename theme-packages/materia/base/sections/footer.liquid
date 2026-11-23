@@ -629,9 +629,9 @@
           {%- endif -%}
         {%- endfor -%}
         {%- comment -%}
-          A footer with no Payment badges block still shows the ways the
-          checkout takes money (cards, Apple Pay, Google Pay; never PayPal,
-          which Storelib's checkout does not take), on the copyright line,
+          A footer with no Payment badges block still shows the ways a
+          shopper pays (cards, PayPal, Apple Pay, Google Pay; PayPal by the
+          owner's call, templates round 23), on the copyright line,
           unless "Show payment icons" is off. A Payment badges block, once
           added, chooses them instead.
         {%- endcomment -%}
@@ -646,7 +646,7 @@
         {%- if pb_has_block == false and section_st.show_payment_icons != false -%}
           <div class="footer__payment flex grow-1 align-center max-w-100" style="justify-content: flex-end; margin-left: auto;" data-ft-type="payment_badges">
             <ul class="footer__payment-badges">
-              {%- assign pb_methods = 'visa,master,american_express,apple_pay,google_pay' | split: ',' -%}
+              {%- assign pb_methods = 'visa,master,american_express,paypal,apple_pay,google_pay' | split: ',' -%}
               {%- for pb_method in pb_methods -%}
                 <li class="payment-badge">{% render 'payment-icon', method: pb_method, icon_class: 'icon icon--full-color' %}</li>
               {%- endfor -%}
@@ -739,7 +739,7 @@
       "id": "show_payment_icons",
       "default": true,
       "label": "Show payment icons",
-      "info": "Visa, Mastercard, American Express, Apple Pay and Google Pay on the copyright line. Add a Payment badges block to choose which."
+      "info": "Visa, Mastercard, American Express, PayPal, Apple Pay and Google Pay on the copyright line. Add a Payment badges block to choose which."
     },
     {
       "type": "checkbox",
@@ -1350,7 +1350,7 @@
           "type": "checkbox",
           "id": "enable_paypal",
           "label": "PayPal",
-          "default": false
+          "default": true
         },
         {
           "type": "checkbox",

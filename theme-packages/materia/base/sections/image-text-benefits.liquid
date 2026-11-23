@@ -82,9 +82,10 @@
 
       <div class="ivb__media mlb__media mlb__frame" data-mlb-media data-autoplay="{% if media_type == 'video' and st.video_autoplay %}true{% else %}false{% endif %}">
         {%- if media_type == 'video' and st.video != blank -%}
-          {{ st.video | video_tag: autoplay: st.video_autoplay, muted: true, playsinline: true, loop: st.video_loop, controls: st.video_controls, image_size: '1400x' }}
+          {%- assign vposter = '' -%}{%- if st.video_poster != blank -%}{%- assign vposter = st.video_poster | image_url: width: 1600 -%}{%- endif -%}
+          {{ st.video | video_tag: autoplay: st.video_autoplay, muted: true, playsinline: true, loop: st.video_loop, controls: st.video_controls, image_size: '1400x', poster: vposter }}
         {%- elsif media_type == 'video' and st.video_url != blank -%}
-          <video src="{{ st.video_url }}" {% if st.video_autoplay %}autoplay {% endif %}muted {% if st.video_loop %}loop {% endif %}{% if st.video_controls %}controls {% endif %}playsinline preload="metadata"></video>
+          {%- assign vposter = '' -%}{%- if st.video_poster != blank -%}{%- assign vposter = st.video_poster | image_url: width: 1600 -%}{%- endif -%}<video src="{{ st.video_url }}"{% if vposter != '' %} poster="{{ vposter }}"{% endif %} {% if st.video_autoplay %}autoplay {% endif %}muted {% if st.video_loop %}loop {% endif %}{% if st.video_controls %}controls {% endif %}playsinline preload="metadata"></video>
         {%- elsif st.image != blank -%}
           <img
             src="{{ st.image | image_url: width: 1200 }}"
@@ -302,6 +303,13 @@
       "label": "Video address",
       "visible_if": "{{ section.settings.media_type == 'video' }}",
       "info": "Used when no video is uploaded."
+    },
+    {
+      "type": "image_picker",
+      "id": "video_poster",
+      "label": "Poster image",
+      "info": "Shown until the video plays.",
+      "visible_if": "{{ section.settings.media_type == 'video' }}"
     },
     {
       "type": "checkbox",

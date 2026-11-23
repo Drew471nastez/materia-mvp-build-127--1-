@@ -345,6 +345,13 @@
       "visible_if": "{{ section.settings.enable_custom_video_background and section.settings.custom_bg_video == blank }}"
     },
     {
+      "type": "image_picker",
+      "id": "video_poster",
+      "label": "Poster image",
+      "info": "Shown until the video plays.",
+      "visible_if": "{{ section.settings.enable_custom_video_background and section.settings.custom_bg_video == blank }}"
+    },
+    {
       "type": "range",
       "id": "video_brightness",
       "label": "Video brightness",

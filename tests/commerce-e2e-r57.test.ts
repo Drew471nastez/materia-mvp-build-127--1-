@@ -259,7 +259,9 @@ async function main() {
   if (process.env.R57_DUMP) (await import("node:fs")).writeFileSync(process.env.R57_DUMP + "/cart.html", String(page2.json))
   /* A PayPal mark that shows: its title or label, once the cart's badges switched off (`hidden`) are taken out. */
   const paypalShown = (h: string) => /<title>PayPal<\/title>|aria-label="PayPal"/.test(h.replace(/<span class="lcs-badge" data-lcs-badge="\w+" hidden>.*?<\/span>/g, ""))
-  check("  no PayPal badge in Materia's cart or on the product page: the checkout cannot take it", !paypalShown(cartHtml) && !paypalShown(flat), { cart: cartHtml.match(/.{0,200}paypal.{0,200}/i)?.[0], pdp: flat.match(/.{0,200}paypal.{0,200}/i)?.[0] })
+  /* Changed on purpose (templates round 23): the footer shows PayPal now, by the owner's call; the cart and the product's own badges still do not. */
+  const noFooter = (h: string) => h.replace(/<footer\b[\s\S]*?<\/footer>/gi, "").replace(/<div id="shopify-section-[^"]*footer[^"]*"[\s\S]*$/i, "")
+  check("  no PayPal badge in Materia's cart or on the product page: the checkout cannot take it", !paypalShown(noFooter(cartHtml)) && !paypalShown(noFooter(flat)), { cart: cartHtml.match(/.{0,200}paypal.{0,200}/i)?.[0], pdp: flat.match(/.{0,200}paypal.{0,200}/i)?.[0] })
   const est = await site(ada, "GET", "/cart/shipping_rates.json?shipping_address%5Bcountry%5D=Germany&shipping_address%5Bzip%5D=20095", undefined, ajax)
   const estJson = typeof est.json === "string" ? JSON.parse(est.json) : est.json
   check("  Materia's Estimate shipping for Germany: Standard at 4.90, the checkout's own rate", est.status === 200 && (estJson?.shipping_rates ?? []).map((r: any) => `${r.name}:${r.price}`).join(",") === "Standard:4.90", { status: est.status, body: estJson })

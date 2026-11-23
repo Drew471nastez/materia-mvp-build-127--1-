@@ -32,14 +32,16 @@
       loaded. They were shown by global.js, which runs only after every deferred script, so a picture
       that had already arrived could stay blank and then snap in. Each one is shown the moment it
       loads: before the first paint it is simply there; later it fades in over a quarter second,
-      unless its section is still to reveal (animation.js shows it with the section, once).
+      unless its section is still to reveal (animation.js shows it with the section, once). The fade
+      starts once the picture is decoded (200ms at most), so it never fades in half drawn.
     {%- endcomment -%}
     <script>(function(){var painted=false,rm=false;try{rm=matchMedia('(prefers-reduced-motion: reduce)').matches;requestAnimationFrame(function(){requestAnimationFrame(function(){painted=true})})}catch(e){painted=true}
 var seen={};function op(e){return parseFloat(getComputedStyle(e).opacity)}
 function show(i,fresh){if(!i||i.tagName!=='IMG'||i.__mtShown||!i.classList.contains('bls-loading-image'))return;i.__mtShown=1;var u=i.currentSrc||i.src;if(seen[u])fresh=false;seen[u]=1;
 var fade=fresh&&painted&&!rm&&i.animate&&i.naturalWidth>1&&i.style.opacity===''&&!i.hasAttribute('data-no-fade')&&!(i.closest&&i.closest('.scroll-trigger--armed'));var r;if(fade){r=i.getBoundingClientRect();fade=r.width>=48&&r.height>=48&&r.bottom>0&&r.top<innerHeight&&op(i)<0.5}
-i.classList.remove('bls-loading-image');var m=i.closest&&i.closest('motion-element.bls-loading-image');if(m)m.classList.remove('bls-loading-image');
-if(fade&&op(i)>0.5)try{i.animate([{opacity:0},{opacity:1}],{duration:280,easing:'cubic-bezier(.2,.7,.2,1)'})}catch(e){}}
+var go=function(){i.classList.remove('bls-loading-image');var m=i.closest&&i.closest('motion-element.bls-loading-image');if(m)m.classList.remove('bls-loading-image');
+if(fade&&op(i)>0.5)try{i.animate([{opacity:0},{opacity:1}],{duration:280,easing:'cubic-bezier(.2,.7,.2,1)'})}catch(e){}};
+if(fade&&i.decode){var done=0,once=function(){if(!done){done=1;go()}};setTimeout(once,200);i.decode().then(once,once)}else go()}
 document.addEventListener('load',function(e){show(e.target,true)},true);
 document.addEventListener('DOMContentLoaded',function(){var l=document.querySelectorAll('img.bls-loading-image');for(var k=0;k<l.length;k++)if(l[k].complete&&l[k].naturalWidth>0)show(l[k],false)},{once:true});})();</script>
     <meta charset="utf-8">
@@ -681,7 +683,11 @@ document.addEventListener('DOMContentLoaded',function(){var l=document.querySele
       /* The page keeps its scrollbar space while a drawer, search or popup
          locks scrolling, so nothing shifts and the fixed header is not cut.
          The old compensation (body padding, header margin) is switched off. */
-      html { scrollbar-gutter: stable; --mat-sbw: 0px !important; }
+      html { --mat-sbw: 0px !important; }
+      /* Only where a scrollbar takes room (classic scrollbars, the script below):
+         where it takes none (overlay scrollbars, a headless browser drawing the
+         covers) a stable gutter was an empty 15px strip down the right. */
+      html.sl-sb-room { scrollbar-gutter: stable; }
       body { padding-right: 0 !important; }
       /* Buttons press and release smoothly; a loading button keeps its size and
          swaps its label for the spinner with a fade instead of snapping. */
@@ -728,6 +734,7 @@ document.addEventListener('DOMContentLoaded',function(){var l=document.querySele
         body :where(.btn, .btn-primary, .btn-outline, .btn-white, .btn-secondary, [data-sl-button]):active { transform: none; }
       }
     </style>
+    <script>(function(){try{var d=document.createElement('div');d.style.cssText='position:absolute;top:-99px;width:60px;height:60px;overflow:scroll;visibility:hidden';document.documentElement.appendChild(d);if(d.offsetWidth-d.clientWidth>0)document.documentElement.classList.add('sl-sb-room');d.remove()}catch(e){}})();</script>
     {%- comment -%}
       Sticky-footer layout — page content always fills at least one
       viewport height. This stops the body's white background from

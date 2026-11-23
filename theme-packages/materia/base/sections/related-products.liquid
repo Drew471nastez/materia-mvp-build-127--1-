@@ -104,6 +104,20 @@
   endif
 
   comment
+    Storelib draws the automatic recommendations with the page
+    (recommendations.prerendered_products, lib/storelib-theme/compat/theme.ts
+    productsBeside), so the row shows real products at once, also where the
+    request after load is never answered (the marketplace previews). They
+    are drawn as the custom list is: a plain grid nothing fetches over.
+    Elsewhere the list is nil and the row loads as before.
+  endcomment
+  assign auto_cards = recommendations.prerendered_products
+  assign use_drawn = false
+  if use_custom == false and recommendations.performed != true and auto_cards != blank and auto_cards.size > 0
+    assign use_drawn = true
+  endif
+
+  comment
     Opt-in custom colours and fonts. Off: every value is the colour scheme's
     and Theme settings > Typography's. live-product-extras.js writes the same
     variables and attributes on a live edit.
@@ -212,7 +226,34 @@
       </div>
     </div>
 
-    {%- if use_custom -%}
+    {%- if use_drawn -%}
+      <div
+        data-section-id="{{ section.id }}"
+        data-rp-grid
+        data-rp-drawn
+        {% if data_free_scroll != blank %}data-free-scroll="{{ data_free_scroll }}"{% endif %}
+        style="{{ col_style | strip | strip_newlines }}"
+        class="products-grid__items flex flex-cols{% if column_gap < 31 %} row-gap-20 row-gap-md-30{% endif %} flex-wrap {% if s.items_per_row_mobile > 1 and s.items_per_row_mobile < 2 %} grid_scroll{% endif %}"
+      >
+        {%- for recommendation in auto_cards limit: items_to_show -%}
+          {% render 'product-item',
+            card_product: recommendation,
+            section_id: section.id,
+            is_compare: false,
+            template_enable_action: s.show_action,
+            template_enable_product_vendor: s.show_vendor,
+            template_enable_rate: s.show_rating,
+            template_enable_product_short_description: false,
+            template_enable_color_swatches: s.show_swatches,
+            template_enable_price: s.show_price,
+            template_enable_add_cart: s.show_add_to_cart,
+            template_enable_product_badges: s.show_badges,
+            indexFor: forloop.index,
+            scroll_animation: scroll_animation
+          %}
+        {%- endfor -%}
+      </div>
+    {%- elsif use_custom -%}
       {%- comment -%}
         Custom mode. Render the hand-picked products as a plain grid (NOT the
         <product-recommendations> element) so nothing fetches the API and

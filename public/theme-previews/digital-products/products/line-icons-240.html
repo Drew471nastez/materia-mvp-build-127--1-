@@ -77,7 +77,7 @@ if(wait)return setTimeout(look,50);
 Promise.all(seen.slice(0,24).map(function(g){return g.decode?g.decode().catch(function(){}):0})).then(fin,fin)}
 look();setTimeout(fin,1500)}
 D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn)});
-})();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><style data-page-background>html{background-color:#ffffff}</style><script src="/theme-previews/digital-products/a/i.63b4697a1622.js"></script>
+})();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><style data-page-background>html{background-color:#ffffff}</style><script src="/theme-previews/digital-products/a/i.8f16b849b94d.js"></script>
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -124,7 +124,7 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
   .shopify-section[data-perf-offscreen] *,
   .shopify-section[data-perf-offscreen] *::before,
   .shopify-section[data-perf-offscreen] *::after { animation-play-state: paused !important; }
-</style><link rel="stylesheet" href="/theme-previews/digital-products/a/i.012d2c72efea.css" id="speed-page-landing"><script src="/theme-previews/digital-products/a/i.0bd6d5139503.js"></script><script id="speed-optimization-js" src="/theme-previews/digital-products/a/i.679dcd5ab7c8.js"></script>
+</style><link rel="stylesheet" href="/theme-previews/digital-products/a/i.012d2c72efea.css" id="speed-page-landing"><script src="/theme-previews/digital-products/a/i.0bd6d5139503.js"></script><script id="speed-optimization-js" src="/theme-previews/digital-products/a/i.be4f88e0dbf9.js"></script>
 <script>
       (function () {
         try {
@@ -138,7 +138,7 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
     </script>
 <link href="/theme-previews/_base/a/critical.7f3f35898a25.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
 <link href="/theme-previews/_base/a/animation.d0494c87fafa.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/product-card.9a3739dc0c4c.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"primary","product_size":17,"price_size":15,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
+<link href="/theme-previews/_base/a/product-card.f00653542c82.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"primary","product_size":17,"price_size":15,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
 <style>html:not([data-card-custom='true']) .product-item .product-item__name { font-size:var(--body-font-size, 16px); text-transform:var(--heading-text-transform, none) !important; } html:not([data-card-custom='true']) .product-item .product-item__price { font-size:var(--body-font-size, 16px); }</style>
 <script>document.documentElement.dataset.cardCustom = false === true ? 'true' : 'false';</script>
 <script type="application/json" data-badge-style-settings>false</script>
@@ -165,7 +165,7 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
 <script src="/theme-previews/_base/a/swiper-bundle-min.31d164f7367d.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/motion-min.d1f8eb312b47.js" type="module" defer="defer" fetchpriority="low"></script>
 <script src="/theme-previews/_base/a/utils.90eeb774e439.js" defer="defer" data-cart-count="0"></script>
-<script src="/theme-previews/_base/a/global.d337ae90aed5.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/global.81b2db9b06dc.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/cart-drawer-safety.b8d627a0381e.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/section-links.0b22549c79d2.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/product-counters.9b2dc07295e6.js" defer="defer"></script>
@@ -175,15 +175,16 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
 <link href="/theme-previews/_base/a/hero-product-three.8649fa31ecc2.css" rel="stylesheet" type="text/css" media="all">
 <link href="/theme-previews/_base/a/hero-product-two.b3341fcb0b09.css" rel="stylesheet" type="text/css" media="all">
 <link href="/theme-previews/_base/a/hero-image-one.7347eaeaff3f.css" rel="stylesheet" type="text/css" media="all">
-<script src="/theme-previews/_base/a/hero-image-one.1fc574354023.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/hero-image-one.3135c3043e4f.js" defer="defer"></script>
 <link href="/theme-previews/_base/a/before-after-controls.0119d231c0b0.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/text-section-controls.f1a83e444db3.css" rel="stylesheet" type="text/css" media="all"><script src="/theme-previews/digital-products/a/i.55032103e897.js"></script>
+<link href="/theme-previews/_base/a/text-section-controls.f1a83e444db3.css" rel="stylesheet" type="text/css" media="all"><script src="/theme-previews/digital-products/a/i.b6aa80ad4fa9.js"></script>
 <link href="/theme-previews/_base/a/testimonial-quote.d74462f50435.css" rel="stylesheet" type="text/css" media="all">
 <link href="/theme-previews/_base/a/announcement-pro-4.98b829b630a8.css" rel="stylesheet" type="text/css" media="all">
 <link href="/theme-previews/_base/a/product-block-runtime.0c74f3d394a4.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" rel="stylesheet" type="text/css" media="all">
 <script src="/theme-previews/_base/a/drift.eaae124afa1e.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/photoswipe-init.7c544f9d83a1.js" type="module"></script>
-<script src="/theme-previews/digital-products/a/i.90af8640dd2d.js"></script><link rel="stylesheet" href="/theme-previews/digital-products/a/i.8e4dcd12b754.css"><style>
+<script src="/theme-previews/digital-products/a/i.90af8640dd2d.js"></script><link rel="stylesheet" href="/theme-previews/digital-products/a/i.935454524e32.css">
+<script>(function(){try{var d=document.createElement('div');d.style.cssText='position:absolute;top:-99px;width:60px;height:60px;overflow:scroll;visibility:hidden';document.documentElement.appendChild(d);if(d.offsetWidth-d.clientWidth>0)document.documentElement.classList.add('sl-sb-room');d.remove()}catch(e){}})();</script><style>
         html, body { min-height: 100%; }
         body {
           display: flex;
@@ -595,8 +596,8 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
 </header-inner>
 </div>
 </div></header>
-<link href="/theme-previews/_base/a/header-sticky.fdbbc022cbc0.css" rel="stylesheet" type="text/css" media="all">
-<script src="/theme-previews/digital-products/a/i.7cb61de4030e.js"></script><script src="/theme-previews/_base/a/header-sticky-extras.78e1fb4f310f.js" defer="defer"></script></div><script src="/theme-previews/digital-products/a/i.0d9f91566ff2.js"></script>
+<link href="/theme-previews/_base/a/header-sticky.6c34c873cb06.css" rel="stylesheet" type="text/css" media="all">
+<script src="/theme-previews/digital-products/a/i.9790def5bd53.js"></script><script src="/theme-previews/_base/a/header-sticky-extras.78e1fb4f310f.js" defer="defer"></script></div><script src="/theme-previews/digital-products/a/i.0d9f91566ff2.js"></script>
 <main id="MainContent" class="content-for-layout focus-none" role="main" tabindex="-1"><div data-size-chart-data data-product="00000000-0000-4000-8000-000000000012" hidden></div><div id="shopify-section-breadcrumb" class="shopify-section" data-section-id="breadcrumb" data-section-type="breadcrumb"><style>
   #shopify-section-breadcrumb {
     font-family: var(--body-font, inherit);
@@ -804,7 +805,7 @@ data-cropped="true"
 style="--aspect-ratio: 1/1"
 data-pane-container
 >
-<img src="/theme-previews/digital-products/a/digital-icons.30aefc9b0ce9.webp" srcset="/theme-previews/digital-products/a/digital-icons.30aefc9b0ce9.webp 720w, /theme-previews/digital-products/a/digital-icons.30aefc9b0ce9.webp 660w, /theme-previews/digital-products/a/digital-icons.30aefc9b0ce9.webp 550w, /theme-previews/digital-products/a/digital-icons.30aefc9b0ce9.webp 480w, /theme-previews/digital-products/a/digital-icons.30aefc9b0ce9.webp 330w, /theme-previews/digital-products/a/digital-icons.30aefc9b0ce9.webp 240w, /theme-previews/digital-products/a/digital-icons.30aefc9b0ce9.webp 185w" alt="Line icons, 240" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="drift-trigger bls-loaded-image">
+<img src="/theme-previews/digital-products/a/digital-icons.30aefc9b0ce9.webp" srcset="/theme-previews/digital-products/a/digital-icons-800.2f5300823ef2.webp 720w, /theme-previews/digital-products/a/digital-icons-800.2f5300823ef2.webp 660w, /theme-previews/digital-products/a/digital-icons-800.2f5300823ef2.webp 550w, /theme-previews/digital-products/a/digital-icons-800.2f5300823ef2.webp 480w, /theme-previews/digital-products/a/digital-icons-400.ea7ee1292ab0.webp 330w, /theme-previews/digital-products/a/digital-icons-400.ea7ee1292ab0.webp 240w, /theme-previews/digital-products/a/digital-icons-400.ea7ee1292ab0.webp 185w" alt="Line icons, 240" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="drift-trigger bls-loaded-image">
 <div class="loading_image skeleton">
 </div>
 </a>
@@ -846,7 +847,16 @@ data-pane-container
 <div id="specs-badge-specs_badge_1" class="specs-badge-block" data-block-id="specs_badge_1">
 <span class="specs-badge">Digital download</span>
 </div>
-</div><div class="pib-own" data-pib-block="title_1" data-pib-type="title" style="display: contents">
+</div><div class="pib-own" data-pib-block="pp23_rating" data-pib-type="product_reviews" style="display: contents"><div
+class="review_sold rs rs--stars"
+id="review-sold-pp23_rating"
+data-block-id="pp23_rating"
+style="--rs-size-m:calc(var(--body-font-size,16px) * .875); --rs-size-d:calc(var(--body-font-size,16px) * .875); --rs-pt: 0px; --rs-pb: 10px;"
+><span class="product-reviews rs__rating"><span class="rs__stars" style="--rs-fill: 94%;" aria-hidden="true"><span class="rs__stars-on">★★★★★</span>★★★★★</span><span class="visually-hidden">4.7 / 5,</span>
+<span class="rs__value" aria-hidden="true">4.7</span>
+<span class="rs__sep" aria-hidden="true"></span>
+<span class="rs__count">60 reviews</span>
+</span></div><link rel="stylesheet" href="/theme-previews/digital-products/a/i.4c3c79b57518.css"></div><div class="pib-own" data-pib-block="title_1" data-pib-type="title" style="display: contents">
 <motion-element
 data-motion="fade-up"
 data-motion-delay="50"
@@ -855,13 +865,13 @@ class="block opacity-0"
 <h1
 class="product-detail__title heading-letter-spacing fs-26 mt-0 mb-10"
 data-block-id="title_1"
-style="font-size: 26px;"
+style="font-size: 30px;"
 >Line icons, 240
 </h1>
 <style>
                 @media (min-width: 1024px) {
                   #shopify-section-main .product-detail__title {
-                    font-size: 32px !important;
+                    font-size: 38px !important;
                   }
                 }
               </style>
@@ -879,7 +889,14 @@ $19.00
 </div>
 </div>
 </div>
-<link rel="stylesheet" href="/theme-previews/digital-products/a/i.4a219998c104.css"></div><div class="pib-own" data-pib-block="variant_picker_1" data-pib-type="variant_picker" style="display: contents"><div
+<link rel="stylesheet" href="/theme-previews/digital-products/a/i.96a671c50757.css"></div><div class="pib-own" data-pib-block="pp23_sold" data-pib-type="sold_counter" style="display: contents"><div
+class="review_sold rs rs--stars"
+id="review-sold-pp23_sold"
+data-block-id="pp23_sold"
+data-live-sold-source="product" data-product-counter-id="00000000-0000-4000-8000-000000000012" data-product-counter-url="/products/line-icons-240"
+style="--rs-size-m:calc(var(--body-font-size,16px) * .875); --rs-size-d:calc(var(--body-font-size,16px) * .875); --rs-pt: 2px; --rs-pb: 16px;"
+><span class="product-sold rs__sold"><span class="product-sold__dot rs__dot" aria-hidden="true"></span><span data-verified-sold-count>28 sold</span>
+</span></div><link rel="stylesheet" href="/theme-previews/digital-products/a/i.4c3c79b57518.css"></div><div class="pib-own" data-pib-block="variant_picker_1" data-pib-type="variant_picker" style="display: contents"><div
 id="variant-picker-variant_picker_1"
 class="product-detail__variant-picker mb-25"
 data-block-id="variant_picker_1"
@@ -929,6 +946,55 @@ Commercial</span>
   {"00000000-0000-4000-8000-001200000001": { "price": "$19.00", "compare_at_price": "" },"00000000-0000-4000-8000-001200000002": { "price": "$39.00", "compare_at_price": "" }}
 </script>
 </variant-radios-detail>
+</div></div><div class="pib-own" data-pib-block="pp23_info" data-pib-type="infotables" style="display: contents"><div id="InfoTables-pp23_info" class="it-card" data-block-id="pp23_info"
+style="
+--it-bg: #ffffff;
+--it-text: #222222;
+--it-icon: #222222;
+--it-border: #e9e9e9;
+--it-divider: #eeeeee;
+--it-fs-d: 15px;
+--it-fs-m: 14px;
+--it-lh: 150;
+--it-fw: 400;
+--it-fw-1: 600;
+--it-fw-2: 600;
+--it-fw-3: 600;
+--it-icon-size: 22px;
+--it-pl-d: 20px;
+--it-pr-d: 20px;
+--it-pt-d: 16px;
+--it-pb-d: 16px;
+--it-pl-m: 16px;
+--it-pr-m: 16px;
+--it-pt-m: 14px;
+--it-pb-m: 14px;
+--it-gap: 16px;
+--it-radius: 12px;
+--it-border-style: solid;
+--it-divider-style: solid;
+/* NEW: section (outside) spacing sliders */
+--it-sec-pt-d: 6px;
+--it-sec-pb-d: 22px;
+--it-sec-pt-m: 6px;
+--it-sec-pb-m: 18px;
+">
+<div class="it-width" style="max-width: 760px; ">
+<div class="it-inner"><div class="it-row it-row-1" role="listitem">
+<div class="it-icon" aria-hidden="true"><div class="it-svgwrap"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3.5v11.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 15.5v2.5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div></div>
+<div class="it-text">
+<span class="it-lead">Download:</span>
+<span class="it-strong it-strong-1">on the order page and by email, straight after payment.</span>
+</div>
+</div><div class="it-row it-row-3" role="listitem">
+<div class="it-icon" aria-hidden="true"><div class="it-svgwrap"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 12a8 8 0 1 0 2.4-5.7L4 8.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 4v4.5h4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 8v4l2.5 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div></div>
+<div class="it-text">
+<span class="it-lead">Refunds:</span>
+<span class="it-strong it-strong-3">within 14 days if a file does not work for you.</span>
+</div>
+</div></div>
+</div>
+<link rel="stylesheet" href="/theme-previews/digital-products/a/i.2a6bb7a555f4.css">
 </div></div><div class="pib-own" data-pib-block="buy_buttons_1" data-pib-type="buy_buttons" style="display: contents"><div
 class="product-detail__buy-buttons button-trigger__sticky mb-20"
 data-atc-appearance="theme" data-buy-appearance="theme"
@@ -986,37 +1052,7 @@ data-sl-button data-button-role="secondary" data-theme-button="secondary"
 </div></div></form></product-form>
 </div>
 </div>
-</div><div class="pib-own" data-pib-block="vertical_benefits_1" data-pib-type="vertical_benefits" style="display: contents"><div id="VerticalBenefits-vertical_benefits_1"
-class="vb"
-data-block-id="vertical_benefits_1"
-style="
---vb-bg: transparent;
---vb-icon-color: var(--color-text, #2A2A2A);
---vb-text-color: var(--color-text, #242424);
---vb-icon-size: 26px;
---vb-icon-size-m: 26px;
---vb-gap: 12px;
---vb-gap-m: 10px;
---vb-font-d: 14px;
---vb-font-m: 14px;
---vb-pt: 14px;
---vb-pb: 18px;
---vb-mt: 0px;
---vb-mb: 0px;
---vb-space: 10px;
---vb-maxw: 100rem;
---vb-pl: 0px;
---vb-pr: 0px;
-"
->
-<div class="vb__inner" style="max-width:var(--vb-maxw);padding-left:var(--vb-pl);padding-right:var(--vb-pr);">
-<ul class="vb__list" role="list"><li class="vb__item">
-<span class="vb__icon" aria-hidden="true"><span class="vb__svg svg-colorize" style="--icon-color: var(--vb-icon-color);"><svg viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span><span class="vb__text">Download link on the order page and by email</span></li><li class="vb__item">
-<span class="vb__icon" aria-hidden="true"><span class="vb__svg svg-colorize" style="--icon-color: var(--vb-icon-color);"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3v6m0 6v6M3 12h6m6 0h6M6 6l4 4m4 4l4 4M6 18l4-4m4-4l4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span></span><span class="vb__text">PDF and ZIP, about 25 MB</span></li><li class="vb__item">
-<span class="vb__icon" aria-hidden="true"><span class="vb__svg svg-colorize" style="--icon-color: var(--vb-icon-color);"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span><span class="vb__text">Refund within 14 days if it is not for you</span></li></ul>
-</div>
-<link rel="stylesheet" href="/theme-previews/digital-products/a/i.126031abf356.css">
-</div></div><div class="pib-own" data-pib-block="collapsible_row_1" data-pib-type="collapsible_row" style="display: contents"><details class="mt-acc product-detail__collapsible" data-mt-acc-key="collapsible_row_1" data-block-id="collapsible_row_1" open>
+</div><div class="pib-own" data-pib-block="collapsible_row_1" data-pib-type="collapsible_row" style="display: contents"><details class="mt-acc product-detail__collapsible" data-mt-acc-key="collapsible_row_1" data-block-id="collapsible_row_1" open>
 <summary>
 <h3 class="mt-acc__title">What is included</h3>
 <svg class="mt-acc__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
@@ -1083,7 +1119,7 @@ aria-label="Line icons, 240"
 class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 1/1;"
 >
-<img src="/theme-previews/digital-products/a/digital-icons.30aefc9b0ce9.webp" srcset="/theme-previews/digital-products/a/digital-icons.30aefc9b0ce9.webp 720w, /theme-previews/digital-products/a/digital-icons.30aefc9b0ce9.webp 660w, /theme-previews/digital-products/a/digital-icons.30aefc9b0ce9.webp 550w, /theme-previews/digital-products/a/digital-icons.30aefc9b0ce9.webp 480w, /theme-previews/digital-products/a/digital-icons.30aefc9b0ce9.webp 330w, /theme-previews/digital-products/a/digital-icons.30aefc9b0ce9.webp 240w, /theme-previews/digital-products/a/digital-icons.30aefc9b0ce9.webp 185w" alt="Line icons, 240" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/digital-products/a/digital-icons.30aefc9b0ce9.webp" srcset="/theme-previews/digital-products/a/digital-icons-800.2f5300823ef2.webp 720w, /theme-previews/digital-products/a/digital-icons-800.2f5300823ef2.webp 660w, /theme-previews/digital-products/a/digital-icons-800.2f5300823ef2.webp 550w, /theme-previews/digital-products/a/digital-icons-800.2f5300823ef2.webp 480w, /theme-previews/digital-products/a/digital-icons-400.ea7ee1292ab0.webp 330w, /theme-previews/digital-products/a/digital-icons-400.ea7ee1292ab0.webp 240w, /theme-previews/digital-products/a/digital-icons-400.ea7ee1292ab0.webp 185w" alt="Line icons, 240" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -1098,8 +1134,7 @@ href="/theme-previews/digital-products/products/line-icons-240.html"
 >Line icons, 240</a>
 <div class="flex flex-wrap gap-10 product-list-action">
 </div>
-</div>
-<script type="application/json" class="product-variant__quantity">
+</div><script type="application/json" class="product-variant__quantity">
             [{ "option":"Personal","qty":11,"available":true,"mamagement":""},{ "option":"Commercial","qty":11,"available":true,"mamagement":""}]
           </script>
 </motion-element><script type="application/json" class="productItemVariantsQty">
@@ -1292,7 +1327,7 @@ style="--btn-padding-x: 2.5rem;"
 <div class="section iws-steps remove_spacing color-scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976 gradient" data-msr="steps" data-msr-section="how" data-msr-settings="{&quot;color_scheme&quot;:{&quot;id&quot;:&quot;scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976&quot;,&quot;settings&quot;:{&quot;page_colors&quot;:null,&quot;background&quot;:{&quot;red&quot;:244,&quot;green&quot;:243,&quot;blue&quot;:239,&quot;alpha&quot;:1,&quot;hue&quot;:48,&quot;saturation&quot;:19,&quot;lightness&quot;:95,&quot;rgb&quot;:&quot;244 243 239&quot;,&quot;rgba&quot;:&quot;244 243 239 / 1&quot;,&quot;hex&quot;:&quot;#f4f3ef&quot;},&quot;text_color&quot;:{&quot;red&quot;:75,&quot;green&quot;:75,&quot;blue&quot;:82,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:4,&quot;lightness&quot;:31,&quot;rgb&quot;:&quot;75 75 82&quot;,&quot;rgba&quot;:&quot;75 75 82 / 1&quot;,&quot;hex&quot;:&quot;#4b4b52&quot;},&quot;heading_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;primary_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;border_color&quot;:{&quot;red&quot;:223,&quot;green&quot;:221,&quot;blue&quot;:213,&quot;alpha&quot;:1,&quot;hue&quot;:48,&quot;saturation&quot;:14,&quot;lightness&quot;:85,&quot;rgb&quot;:&quot;223 221 213&quot;,&quot;rgba&quot;:&quot;223 221 213 / 1&quot;,&quot;hex&quot;:&quot;#dfddd5&quot;},&quot;badge_background&quot;:null,&quot;badge_text&quot;:null,&quot;primary_button_colors&quot;:null,&quot;btn_primary_background&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;btn_primary_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_primary_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_primary_hover_background&quot;:{&quot;red&quot;:36,&quot;green&quot;:64,&quot;blue&quot;:230,&quot;alpha&quot;:1,&quot;hue&quot;:231,&quot;saturation&quot;:80,&quot;lightness&quot;:52,&quot;rgb&quot;:&quot;36 64 230&quot;,&quot;rgba&quot;:&quot;36 64 230 / 1&quot;,&quot;hex&quot;:&quot;#2440e6&quot;},&quot;btn_primary_hover_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_primary_hover_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;secondary_button_colors&quot;:null,&quot;btn_secondary_background&quot;:{&quot;red&quot;:244,&quot;green&quot;:243,&quot;blue&quot;:239,&quot;alpha&quot;:1,&quot;hue&quot;:48,&quot;saturation&quot;:19,&quot;lightness&quot;:95,&quot;rgb&quot;:&quot;244 243 239&quot;,&quot;rgba&quot;:&quot;244 243 239 / 1&quot;,&quot;hex&quot;:&quot;#f4f3ef&quot;},&quot;btn_secondary_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;btn_secondary_border&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;btn_secondary_hover_background&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;btn_secondary_hover_color&quot;:{&quot;red&quot;:244,&quot;green&quot;:243,&quot;blue&quot;:239,&quot;alpha&quot;:1,&quot;hue&quot;:48,&quot;saturation&quot;:19,&quot;lightness&quot;:95,&quot;rgb&quot;:&quot;244 243 239&quot;,&quot;rgba&quot;:&quot;244 243 239 / 1&quot;,&quot;hex&quot;:&quot;#f4f3ef&quot;},&quot;btn_secondary_hover_border_color&quot;:null,&quot;background_gradient&quot;:&quot;&quot;,&quot;btn_primary_gradient&quot;:&quot;&quot;,&quot;btn_primary_hover_background_gradient&quot;:&quot;&quot;,&quot;btn_secondary_hover_border&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_outline_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;btn_outline_border_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;button_link_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;button_link_hover_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;}}},&quot;section_width&quot;:&quot;container&quot;,&quot;reset_spacing&quot;:true,&quot;image_position&quot;:&quot;right&quot;,&quot;column_valign&quot;:&quot;center&quot;,&quot;image_width_pct&quot;:50,&quot;gap_desktop&quot;:88,&quot;text_gap&quot;:18,&quot;image&quot;:{&quot;id&quot;:394662181,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-email.21574480f7bb.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-email.21574480f7bb.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:394662181,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-email.21574480f7bb.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-email.21574480f7bb.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:394662181,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-email.21574480f7bb.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-email.21574480f7bb.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:394662181,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-email.21574480f7bb.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-email.21574480f7bb.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:394662181,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-email.21574480f7bb.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-email.21574480f7bb.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:394662181,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-email.21574480f7bb.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-email.21574480f7bb.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:null,&quot;y&quot;:null}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:394662181,&quot;src&quot;:&quot;/theme-previews/digital-products/a/digital-email.21574480f7bb.webp&quot;,&quot;url&quot;:&quot;/theme-previews/digital-products/a/digital-email.21574480f7bb.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:null},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:null},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:null,&quot;src&quot;:null,&quot;url&quot;:null,&quot;alt&quot;:null,&quot;width&quot;:null,&quot;height&quot;:null,&quot;aspect_ratio&quot;:null,&quot;media_type&quot;:null,&quot;position&quot;:null,&quot;presentation&quot;:null,&quot;attached_to_variant&quot;:null,&quot;variants&quot;:null,&quot;preview_image&quot;:null}}}}}}}},&quot;image_alt&quot;:&quot;A receipt email with two files and a Download all button&quot;,&quot;placeholder_url&quot;:null,&quot;image_aspect_desktop&quot;:&quot;4 / 5&quot;,&quot;image_radius&quot;:12,&quot;step_style&quot;:&quot;numbered&quot;,&quot;marker_size&quot;:36,&quot;marker_font_size&quot;:14,&quot;line_style&quot;:&quot;solid&quot;,&quot;line_thickness&quot;:2,&quot;step_gap_inline&quot;:16,&quot;step_gap_below&quot;:22,&quot;steps_margin_top&quot;:12,&quot;custom_colors&quot;:true,&quot;section_bg&quot;:null,&quot;marker_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;marker_text_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;line_color&quot;:{&quot;red&quot;:216,&quot;green&quot;:214,&quot;blue&quot;:207,&quot;alpha&quot;:1,&quot;hue&quot;:47,&quot;saturation&quot;:10,&quot;lightness&quot;:83,&quot;rgb&quot;:&quot;216 214 207&quot;,&quot;rgba&quot;:&quot;216 214 207 / 1&quot;,&quot;hex&quot;:&quot;#d8d6cf&quot;},&quot;step_title_color&quot;:null,&quot;step_desc_color&quot;:null,&quot;image_bg&quot;:null,&quot;step_title_size&quot;:20,&quot;step_desc_size&quot;:16,&quot;button_bg&quot;:null,&quot;button_color&quot;:null,&quot;button_bg_hover&quot;:null,&quot;use_theme_button&quot;:true,&quot;button_size&quot;:15,&quot;button_pad_x&quot;:26,&quot;button_pad_y&quot;:14,&quot;button_radius&quot;:999,&quot;button_margin_top&quot;:8,&quot;enable_custom_fonts&quot;:false,&quot;heading_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;body_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;padding_top&quot;:88,&quot;padding_bottom&quot;:88,&quot;side_padding_desktop&quot;:24,&quot;image_aspect&quot;:&quot;4 / 5&quot;,&quot;gap_mobile&quot;:32,&quot;side_padding_mobile&quot;:16}" data-msr-defaults='{"color_scheme":"default-color-scheme","section_width":"container","reset_spacing":true,"image_position":"left","column_valign":"center","image_width_pct":50,"gap_desktop":64,"text_gap":18,"image_alt":"","image_aspect_desktop":"4 / 5","image_radius":16,"step_style":"dot","marker_size":32,"marker_font_size":14,"line_style":"solid","line_thickness":2,"step_gap_inline":16,"step_gap_below":22,"steps_margin_top":12,"custom_colors":false,"step_title_size":18,"step_desc_size":14,"use_theme_button":true,"button_size":15,"button_pad_x":26,"button_pad_y":14,"button_radius":100,"button_margin_top":8,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","padding_top":60,"padding_bottom":60,"side_padding_desktop":24,"image_aspect":"4 / 5","gap_mobile":32,"side_padding_mobile":16}' data-msr-block-defaults='{"eyebrow":{"text":"Why us","custom_style":false,"size":12},"heading":{"text":"Built for results.","tag":"h2","custom_style":false,"weight":"700","size_desktop":40,"size_mobile":28},"subheading":{"text":"&lt;p>Quality you can feel, simplicity you can trust.&lt;/p>","max_width":560,"custom_style":false,"size":15},"step":{"title":"Step title","description":"&lt;p>Add a short description that explains this step.&lt;/p>","enable_custom_style":false},"button":{"label":"Shop now"}}' data-msr-placeholder="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Cg fill=%22%23000000%22 fill-opacity=%220.18%22%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22/%3E%3C/g%3E%3C/svg%3E" style="--st-max: var(--theme-page-width, var(--page-width, 1300px)); --st-pt: 88px; --st-pb: 88px;--st-px-m: 16px; --st-px-d: 24px;--st-gap-m: 32px; --st-gap-d: 88px;--st-dir: row-reverse; --st-valign: center;--st-img-w: 50%; --st-text-gap: 18px;--st-ratio-m: 4 / 5; --st-ratio-d: 4 / 5; --st-radius: 12px;--st-mk: 36px; --st-mk-font: 14px; --st-line-style: solid; --st-line-w: 2px;--st-gap-inline: 16px; --st-gap-below: 22px; --st-steps-mt: 12px; --st-btn-mt: 8px;--st-mk-color: #111113;--st-mk-text: #ffffff;--st-line-color: #d8d6cf;--st-title-size: 20px; --st-desc-size: 16px;">
 <div class="iws" data-section-id="how" data-width="container">
 <div class="iws__inner">
-<div class="iws__media"><img src="/theme-previews/digital-products/a/digital-email.21574480f7bb.webp" srcset="/theme-previews/digital-products/a/digital-email.21574480f7bb.webp 480w, /theme-previews/digital-products/a/digital-email.21574480f7bb.webp 720w, /theme-previews/digital-products/a/digital-email.21574480f7bb.webp 960w, /theme-previews/digital-products/a/digital-email.21574480f7bb.webp 1200w, /theme-previews/digital-products/a/digital-email.21574480f7bb.webp 1600w" alt="A receipt email with two files and a Download all button" loading="lazy" decoding="async" sizes="(max-width: 767px) 100vw, 50vw"></div>
+<div class="iws__media"><img src="/theme-previews/digital-products/a/digital-email.21574480f7bb.webp" srcset="/theme-previews/digital-products/a/digital-email-800.55b601b6e0ae.webp 480w, /theme-previews/digital-products/a/digital-email-800.55b601b6e0ae.webp 720w, /theme-previews/digital-products/a/digital-email.21574480f7bb.webp 960w, /theme-previews/digital-products/a/digital-email.21574480f7bb.webp 1200w, /theme-previews/digital-products/a/digital-email.21574480f7bb.webp 1600w" alt="A receipt email with two files and a Download all button" loading="lazy" decoding="async" sizes="(max-width: 767px) 100vw, 50vw"></div>
 <div class="iws__col"><p class="iws__eyebrow" data-msr-block="eyebrow_1" data-msr-type="eyebrow" data-msr-settings="{&quot;text&quot;:&quot;How it works&quot;,&quot;custom_style&quot;:false,&quot;color&quot;:null,&quot;size&quot;:12}"
 style=""
 data-block-id="eyebrow_1">How it works</p><h2 class="iws__heading" data-msr-block="heading_2" data-msr-type="heading" data-msr-settings="{&quot;text&quot;:&quot;Pay, open the email, download&quot;,&quot;tag&quot;:&quot;h2&quot;,&quot;custom_style&quot;:false,&quot;color&quot;:null,&quot;weight&quot;:&quot;700&quot;,&quot;size_desktop&quot;:48,&quot;size_mobile&quot;:32}"
@@ -1385,30 +1420,283 @@ data-rp-hidden
 >
 </motion-element>
 </div>
-</div><product-recommendations
+</div><div
 data-section-id="related"
 data-rp-grid
+data-rp-drawn
 style="--col-desktop: 4;--col-number: 2;--col-tablet: 3;  --col-gap: 15px;--col-gap-desktop: 20px;--repeat: 4; --col-mobile: 2"
 class="products-grid__items flex flex-cols row-gap-20 row-gap-md-30 flex-wrap "
-data-url="#"
-data-arrow-centerimage="1"
-><div class="related-skeleton__card" aria-hidden="true">
-<div class="related-skeleton__media" style="--aspect-ratio: 1/1;"></div>
-<div class="related-skeleton__line related-skeleton__line--title"></div>
-<div class="related-skeleton__line related-skeleton__line--price"></div>
-</div><div class="related-skeleton__card" aria-hidden="true">
-<div class="related-skeleton__media" style="--aspect-ratio: 1/1;"></div>
-<div class="related-skeleton__line related-skeleton__line--title"></div>
-<div class="related-skeleton__line related-skeleton__line--price"></div>
-</div><div class="related-skeleton__card" aria-hidden="true">
-<div class="related-skeleton__media" style="--aspect-ratio: 1/1;"></div>
-<div class="related-skeleton__line related-skeleton__line--title"></div>
-<div class="related-skeleton__line related-skeleton__line--price"></div>
-</div><div class="related-skeleton__card" aria-hidden="true">
-<div class="related-skeleton__media" style="--aspect-ratio: 1/1;"></div>
-<div class="related-skeleton__line related-skeleton__line--title"></div>
-<div class="related-skeleton__line related-skeleton__line--price"></div>
-</div></product-recommendations></div>
+>
+<div
+class="product-item product__item-js  style-as-standard"
+>
+<motion-element
+class="product-item__wrapper block  hover_zoom product-grid  scroll-trigger subtle_rise "
+data-cascade
+data-motion="fade-up-lg"
+hold
+data-motion-delay="0"
+style="--animation-order: 1;  "
+>
+<div class="product-item__inner hover-effect overflow-hidden relative">
+<a
+draggable="false"
+href="/theme-previews/digital-products/products/social-post-templates.html"
+aria-label="Social post templates"
+class="product__media product-item__media--ratio rounded block"
+style="--aspect-ratio: 1/1;"
+>
+<img src="/theme-previews/digital-products/a/digital-templates.bfc3c6cf5ac3.webp" srcset="/theme-previews/digital-products/a/digital-templates-800.daef113b80d7.webp 720w, /theme-previews/digital-products/a/digital-templates-800.daef113b80d7.webp 660w, /theme-previews/digital-products/a/digital-templates-800.daef113b80d7.webp 550w, /theme-previews/digital-products/a/digital-templates-800.daef113b80d7.webp 480w, /theme-previews/digital-products/a/digital-templates-400.63561c7bd989.webp 330w, /theme-previews/digital-products/a/digital-templates-400.63561c7bd989.webp 240w, /theme-previews/digital-products/a/digital-templates-400.63561c7bd989.webp 185w" alt="Social post templates" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
+<div class="loading_image skeleton">
+</div>
+</a><div class="pc-corner" data-pc-corner>
+<div
+class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
+data-max="4"
+data-sale-color="#ffffff"
+data-sold-out-color="#ffffff"
+data-pre-order-color="#ffffff"
+data-sale-bg="#353535"
+data-sold-out-bg="#666666"
+data-pre-order-bg="#6a33d8"
+data-show-sale="true"
+data-show-sold-out="true"
+data-show-preorder="true"
+data-sale-badge-type="percent"
+><div
+class="product__badges-sale product__badges-type-percent product__badges-inner align-self-start px-15 sale inline-flex content-center subheading_weight text-center lh-normal"
+>-20%
+</div>
+</div>
+</div>
+<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
+</div>
+</div>
+<div class="product-item__information word-break text-start mt-15">
+<a
+aria-label="Social post templates"
+class="product-item__name unset heading-style no-underline fs-custom block lh-normal"
+style="--font-size: 17;"            
+href="/theme-previews/digital-products/products/social-post-templates.html"
+>Social post templates</a>
+<div
+class="product-item__price justify-content-start fs-custom flex gap-custom lh-normal "
+style="--font-size: 15; --gap: 3px;"
+><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular primary-color">
+<span class="visually-hidden">Sale price</span>
+<span class="price heading_weight primary-color price-same-style price--special">
+$29.00
+</span>
+</div>
+<div class="price-regular">
+<span class="visually-hidden">Regular price</span>
+<s class="price-item compare-price dark-grey">$36.25</s>
+</div>
+</div>
+</div>
+</div><script type="application/json" class="product-variant__quantity">
+            [{ "option":"Personal","qty":11,"available":true,"mamagement":""},{ "option":"Commercial","qty":11,"available":true,"mamagement":""}]
+          </script>
+</motion-element><script type="application/json" class="productItemVariantsQty">
+        [{ "option":"Personal","qty":11,"available":true,"mamagement":""},{ "option":"Commercial","qty":11,"available":true,"mamagement":""}]
+      </script></div>
+<div
+class="product-item product__item-js  style-as-standard"
+>
+<motion-element
+class="product-item__wrapper block  hover_zoom product-grid  scroll-trigger subtle_rise "
+data-cascade
+data-motion="fade-up-lg"
+hold
+data-motion-delay="50"
+style="--animation-order: 2;  "
+>
+<div class="product-item__inner hover-effect overflow-hidden relative">
+<a
+draggable="false"
+href="/theme-previews/digital-products/products/soft-film-presets.html"
+aria-label="Soft Film presets"
+class="product__media product-item__media--ratio rounded block"
+style="--aspect-ratio: 1/1;"
+>
+<img src="/theme-previews/digital-products/a/digital-presets.100d4af98989.webp" srcset="/theme-previews/digital-products/a/digital-presets-800.749a978f962c.webp 720w, /theme-previews/digital-products/a/digital-presets-800.749a978f962c.webp 660w, /theme-previews/digital-products/a/digital-presets-800.749a978f962c.webp 550w, /theme-previews/digital-products/a/digital-presets-800.749a978f962c.webp 480w, /theme-previews/digital-products/a/digital-presets-400.aa847fb18fde.webp 330w, /theme-previews/digital-products/a/digital-presets-400.aa847fb18fde.webp 240w, /theme-previews/digital-products/a/digital-presets-400.aa847fb18fde.webp 185w" alt="Soft Film presets" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
+<div class="loading_image skeleton">
+</div>
+</a><div class="pc-corner" data-pc-corner>
+<div
+class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
+data-max="4"
+data-sale-color="#ffffff"
+data-sold-out-color="#ffffff"
+data-pre-order-color="#ffffff"
+data-sale-bg="#353535"
+data-sold-out-bg="#666666"
+data-pre-order-bg="#6a33d8"
+data-show-sale="true"
+data-show-sold-out="true"
+data-show-preorder="true"
+data-sale-badge-type="percent"
+>
+</div>
+</div>
+<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
+</div>
+</div>
+<div class="product-item__information word-break text-start mt-15">
+<a
+aria-label="Soft Film presets"
+class="product-item__name unset heading-style no-underline fs-custom block lh-normal"
+style="--font-size: 17;"            
+href="/theme-previews/digital-products/products/soft-film-presets.html"
+>Soft Film presets</a>
+<div
+class="product-item__price justify-content-start fs-custom flex gap-custom lh-normal "
+style="--font-size: 15; --gap: 3px;"
+><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular">
+<span class="visually-hidden">Regular price</span>
+<span class="price price-same-style heading-style">
+$22.00
+</span>
+</div>
+</div>
+</div>
+</div><script type="application/json" class="product-variant__quantity">
+            [{ "option":"Default Title","qty":11,"available":true,"mamagement":""}]
+          </script>
+</motion-element></div>
+<div
+class="product-item product__item-js  style-as-standard"
+>
+<motion-element
+class="product-item__wrapper block  hover_zoom product-grid  scroll-trigger subtle_rise "
+data-cascade
+data-motion="fade-up-lg"
+hold
+data-motion-delay="100"
+style="--animation-order: 3;  "
+>
+<div class="product-item__inner hover-effect overflow-hidden relative">
+<a
+draggable="false"
+href="/theme-previews/digital-products/products/marlow-a-display-serif.html"
+aria-label="Marlow, a display serif"
+class="product__media product-item__media--ratio rounded block"
+style="--aspect-ratio: 1/1;"
+>
+<img src="/theme-previews/digital-products/a/digital-font.f6d695fbdf37.webp" srcset="/theme-previews/digital-products/a/digital-font-800.2321a1a574dc.webp 720w, /theme-previews/digital-products/a/digital-font-800.2321a1a574dc.webp 660w, /theme-previews/digital-products/a/digital-font-800.2321a1a574dc.webp 550w, /theme-previews/digital-products/a/digital-font-800.2321a1a574dc.webp 480w, /theme-previews/digital-products/a/digital-font-400.744927b65784.webp 330w, /theme-previews/digital-products/a/digital-font-400.744927b65784.webp 240w, /theme-previews/digital-products/a/digital-font-400.744927b65784.webp 185w" alt="Marlow, a display serif" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
+<div class="loading_image skeleton">
+</div>
+</a><div class="pc-corner" data-pc-corner>
+<div
+class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
+data-max="4"
+data-sale-color="#ffffff"
+data-sold-out-color="#ffffff"
+data-pre-order-color="#ffffff"
+data-sale-bg="#353535"
+data-sold-out-bg="#666666"
+data-pre-order-bg="#6a33d8"
+data-show-sale="true"
+data-show-sold-out="true"
+data-show-preorder="true"
+data-sale-badge-type="percent"
+>
+</div>
+</div>
+<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
+</div>
+</div>
+<div class="product-item__information word-break text-start mt-15">
+<a
+aria-label="Marlow, a display serif"
+class="product-item__name unset heading-style no-underline fs-custom block lh-normal"
+style="--font-size: 17;"            
+href="/theme-previews/digital-products/products/marlow-a-display-serif.html"
+>Marlow, a display serif</a>
+<div
+class="product-item__price justify-content-start fs-custom flex gap-custom lh-normal "
+style="--font-size: 15; --gap: 3px;"
+><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular">
+<span class="visually-hidden">Regular price</span>
+<span class="price price-same-style heading-style">
+$39.00
+</span>
+</div>
+</div>
+</div>
+</div><script type="application/json" class="product-variant__quantity">
+            [{ "option":"Desktop","qty":11,"available":true,"mamagement":""},{ "option":"Desktop and web","qty":11,"available":true,"mamagement":""},{ "option":"Desktop, web and app","qty":11,"available":true,"mamagement":""}]
+          </script>
+</motion-element><script type="application/json" class="productItemVariantsQty">
+        [{ "option":"Desktop","qty":11,"available":true,"mamagement":""},{ "option":"Desktop and web","qty":11,"available":true,"mamagement":""},{ "option":"Desktop, web and app","qty":11,"available":true,"mamagement":""}]
+      </script></div>
+<div
+class="product-item product__item-js  style-as-standard"
+>
+<motion-element
+class="product-item__wrapper block  hover_zoom product-grid  scroll-trigger subtle_rise "
+data-cascade
+data-motion="fade-up-lg"
+hold
+data-motion-delay="150"
+style="--animation-order: 4;  "
+>
+<div class="product-item__inner hover-effect overflow-hidden relative">
+<a
+draggable="false"
+href="/theme-previews/digital-products/products/weekly-planner-printable.html"
+aria-label="Weekly planner, printable"
+class="product__media product-item__media--ratio rounded block"
+style="--aspect-ratio: 1/1;"
+>
+<img src="/theme-previews/digital-products/a/digital-planner.3a3c4df99771.webp" srcset="/theme-previews/digital-products/a/digital-planner-800.2452ab8d911a.webp 720w, /theme-previews/digital-products/a/digital-planner-800.2452ab8d911a.webp 660w, /theme-previews/digital-products/a/digital-planner-800.2452ab8d911a.webp 550w, /theme-previews/digital-products/a/digital-planner-800.2452ab8d911a.webp 480w, /theme-previews/digital-products/a/digital-planner-400.4223bfcc1cfb.webp 330w, /theme-previews/digital-products/a/digital-planner-400.4223bfcc1cfb.webp 240w, /theme-previews/digital-products/a/digital-planner-400.4223bfcc1cfb.webp 185w" alt="Weekly planner, printable" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
+<div class="loading_image skeleton">
+</div>
+</a><div class="pc-corner" data-pc-corner>
+<div
+class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
+data-max="4"
+data-sale-color="#ffffff"
+data-sold-out-color="#ffffff"
+data-pre-order-color="#ffffff"
+data-sale-bg="#353535"
+data-sold-out-bg="#666666"
+data-pre-order-bg="#6a33d8"
+data-show-sale="true"
+data-show-sold-out="true"
+data-show-preorder="true"
+data-sale-badge-type="percent"
+>
+</div>
+</div>
+<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
+</div>
+</div>
+<div class="product-item__information word-break text-start mt-15">
+<a
+aria-label="Weekly planner, printable"
+class="product-item__name unset heading-style no-underline fs-custom block lh-normal"
+style="--font-size: 17;"            
+href="/theme-previews/digital-products/products/weekly-planner-printable.html"
+>Weekly planner, printable</a>
+<div
+class="product-item__price justify-content-start fs-custom flex gap-custom lh-normal "
+style="--font-size: 15; --gap: 3px;"
+><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular">
+<span class="visually-hidden">Regular price</span>
+<span class="price price-same-style heading-style">
+$8.00
+</span>
+</div>
+</div>
+</div>
+</div><script type="application/json" class="product-variant__quantity">
+            [{ "option":"A4","qty":11,"available":true,"mamagement":""},{ "option":"US Letter","qty":11,"available":true,"mamagement":""}]
+          </script>
+</motion-element><script type="application/json" class="productItemVariantsQty">
+        [{ "option":"A4","qty":11,"available":true,"mamagement":""},{ "option":"US Letter","qty":11,"available":true,"mamagement":""}]
+      </script></div>
+</div></div>
 </div>
 </section><div id="shopify-section-faq" class="shopify-section section-faq7" data-section-id="faq" data-section-type="faq-pro"><script src="/theme-previews/_base/a/live-faq.15551f08943f.js" defer="defer"></script>
 <style>
@@ -1712,7 +2000,8 @@ Search
 </div>
 </div>
 <div class="footer__bottom"><div class="container">
-<div class="footer_bottom-inner justify-center justify-md-end flex flex-wrap flex-md-nowrap align-center border-top gap-20 gap-xl-30 py-30"><div class="flex flex-wrap gap-10 gap-xl-30 justify-center justify-md-start">
+<div class="footer_bottom-inner justify-center justify-md-end flex flex-wrap flex-md-nowrap align-center border-top gap-20 gap-xl-30 py-30"><div class="flex flex-wrap gap-10 gap-xl-30 justify-center justify-md-start"><div class="footer__column footer__localization lang__currency-desktop flex flex-nowrap align-center gap-10">
+</div>
 <div class="footer__copyright" data-ft-copyright>© 2026 Plainfile</div>
 <ul class="footer__policies list-unstyled flex flex-wrap" data-ft-policies><li><a href="/theme-previews/digital-products/policies/refund-policy.html">Refund policy</a></li><li><a href="/theme-previews/digital-products/policies/privacy-policy.html">Privacy policy</a></li><li><a href="/theme-previews/digital-products/policies/terms-of-service.html">Terms of service</a></li></ul><div class="footer__powered" data-ft-powered><a href="#" data-preview-inert data-storelib-badge="" style="display:inline-flex;align-items:center;gap:.45em;white-space:nowrap;vertical-align:middle"><svg data-storelib-badge-mark="" aria-hidden="true" focusable="false" viewBox="0 0 200 200" width="14" height="14" style="display:block;flex:none;width:1.2em;height:1.2em;overflow:visible"><mask id="sl-pb-s" maskUnits="userSpaceOnUse" x="0" y="0" width="200" height="200"><rect width="200" height="200" fill="#fff"/><path transform="translate(48.97 38.44) scale(1.08) translate(-54 -43) translate(134.125,52.875)" d="M0 0 C0.99749268 0.36665771 0.99749268 0.36665771 2.01513672 0.74072266 C6.62777473 2.59663113 6.62777473 2.59663113 7.68823242 4.86303711 C7.94652165 7.99120666 7.02705902 10.04467511 5.85546875 12.94921875 C5.41009766 14.05974609 4.96472656 15.17027344 4.50585938 16.31445312 C4.02955078 17.46880859 3.55324219 18.62316406 3.0625 19.8125 C2.59779297 20.97845703 2.13308594 22.14441406 1.65429688 23.34570312 C-1.85471661 31.98985831 -1.85471661 31.98985831 -4.125 33.125 C-6.02961204 32.43054915 -7.90085447 31.64344514 -9.75 30.8125 C-19.66422998 26.58368153 -27.26609106 25.85047702 -38.125 26.125 C-38.455 27.115 -38.785 28.105 -39.125 29.125 C-38.14402344 29.36734375 -37.16304687 29.6096875 -36.15234375 29.859375 C-33.31305776 30.56236873 -30.47635159 31.27497918 -27.640625 31.9921875 C-24.80213536 32.70970135 -21.95989766 33.40235421 -19.109375 34.0703125 C-6.69949938 37.1089446 3.02755655 40.84926977 9.875 52.125 C13.29151905 58.95803811 12.61307566 67.23479967 10.625 74.4375 C7.53029491 83.45189328 1.37513276 90.18616729 -7.02734375 94.67578125 C-26.20884362 103.04454374 -49.04415352 101.90170642 -68.5 94.625 C-72.25964144 93.07749587 -75.67848864 91.2806362 -79.125 89.125 C-78.55593823 84.90468545 -77.56543969 81.39586411 -75.83984375 77.5078125 C-75.39189453 76.48945313 -74.94394531 75.47109375 -74.48242188 74.421875 C-73.77956055 72.85179688 -73.77956055 72.85179688 -73.0625 71.25 C-72.59005859 70.18007812 -72.11761719 69.11015625 -71.63085938 68.0078125 C-70.46832699 65.3774362 -69.29955398 62.75002483 -68.125 60.125 C-63.80181734 61.13483216 -60.07150265 62.96083682 -56.07421875 64.87109375 C-49.32009515 67.74271451 -43.48344492 68.41757298 -36.25 68.3125 C-35.38375 68.31185547 -34.5175 68.31121094 -33.625 68.31054688 C-29.55080641 68.64235092 -29.55080641 68.64235092 -26.125 67.125 C-32.43853708 64.84703882 -38.66045093 62.93279428 -45.25 61.625 C-56.73505022 59.25968679 -67.31315991 55.21661495 -74.125 45.125 C-77.1608836 40.09281577 -77.67121961 36.10082917 -77.625 30.375 C-77.62072998 29.57876221 -77.61645996 28.78252441 -77.61206055 27.9621582 C-77.37730644 19.82208022 -74.95520496 14.3797357 -69.625 8.25 C-68.8 7.54875 -67.975 6.8475 -67.125 6.125 C-66.403125 5.465 -65.68125 4.805 -64.9375 4.125 C-46.69751714 -8.84565448 -20.22397968 -7.61423584 0 0 Z" fill="#000"/></mask><rect width="200" height="200" rx="48" fill="currentColor" mask="url(#sl-pb-s)"/></svg><span>Powered by Storelib</span></a></div></div>
 <div class="footer__payment flex grow-1 align-center max-w-100" style="justify-content: flex-end; --pb-width: 100%; margin-left: auto;" data-ft-block="payment_badges_1" data-ft-type="payment_badges" data-block-id="payment_badges_1">
@@ -1738,6 +2027,13 @@ Search
 <path fill="#FFF" d="M22.71 4.04h3.614l1.269 2.881V4.04h4.46l.77 2.159.771-2.159H37v8.421H19l3.71-8.421Z"></path>
 <path fill="#006FCF" d="m23.395 4.955-2.916 6.566h2l.55-1.315h2.98l.55 1.315h2.05l-2.904-6.566h-2.31Zm.25 3.777.875-2.09.873 2.09h-1.748Z"></path>
 <path fill="#006FCF" d="M28.581 11.52V4.953l2.811.01L32.84 9l1.456-4.046H37v6.565l-1.74.016v-4.51l-1.644 4.494h-1.59L30.35 7.01v4.51h-1.768Z"></path>
+</svg></li><li class="payment-badge" aria-label="PayPal"><svg class="icon icon--full-color" viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="PayPal">
+<title>PayPal</title>
+<path opacity=".07" d="M35 0H3C1.3 0 0 1.3 0 3v18c0 1.7 1.4 3 3 3h32c1.7 0 3-1.3 3-3V3c0-1.7-1.4-3-3-3z"></path>
+<path fill="#fff" d="M35 1c1.1 0 2 .9 2 2v18c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V3c0-1.1.9-2 2-2h32"></path>
+<path fill="#003087" d="M23.9 8.3c.2-1 0-1.7-.6-2.3-.6-.7-1.7-1-3.1-1h-4.1c-.3 0-.5.2-.6.5L14 15.6c0 .2.1.4.3.4H17l.4-3.4 1.8-2.2 4.7-2.1z"></path>
+<path fill="#3086C8" d="M23.9 8.3l-.2.2c-.5 2.8-2.2 3.8-4.6 3.8H18c-.3 0-.5.2-.6.5l-.6 3.9-.2 1c0 .2.1.4.3.4H19c.3 0 .5-.2.5-.4v-.1l.4-2.4v-.1c0-.2.3-.4.5-.4h.3c2.1 0 3.7-.8 4.1-3.2.2-1 .1-1.8-.4-2.4-.1-.5-.3-.7-.5-.8z"></path>
+<path fill="#012169" d="M23.3 8.1c-.1-.1-.2-.1-.3-.1-.1 0-.2 0-.3-.1-.3-.1-.7-.1-1.1-.1h-3c-.1 0-.2 0-.2.1-.2.1-.3.2-.3.4l-.7 4.4v.1c0-.3.3-.5.6-.5h1.3c2.5 0 4.1-1 4.6-3.8v-.2c-.1-.1-.3-.2-.5-.2h-.1z"></path>
 </svg></li><li class="payment-badge" aria-label="Apple Pay"><svg
 class="icon icon--full-color"
 version="1.1"
@@ -1912,7 +2208,7 @@ style=" ;--col-number: 1;--col-tablet: 1;--col-desktop-small:3;--col-desktop: 5;
 </div>
 </div>
 </header-search>
-<div class="overlay_search" popover="manual" aria-hidden="true"></div><link rel="stylesheet" href="/theme-previews/_base/a/minicart.ac0014483417.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/minicart.ac0014483417.css" rel="stylesheet" type="text/css" media="all"></noscript><link href="/theme-previews/_base/a/materia-experience.b68d6d8152a8.css" rel="stylesheet" type="text/css" media="all"><style data-cart-drawer-style="size">
+<div class="overlay_search" popover="manual" aria-hidden="true"></div><script type="application/json" id="materia-country-options" data-current="US">[["US","United States","USD","$",""],["GB","United Kingdom","GBP","£",""],["CA","Canada","CAD","$",""],["AU","Australia","AUD","$",""],["DE","Germany","EUR","€",""],["FR","France","EUR","€",""]]</script><link rel="stylesheet" href="/theme-previews/_base/a/minicart.ac0014483417.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/minicart.ac0014483417.css" rel="stylesheet" type="text/css" media="all"></noscript><link href="/theme-previews/_base/a/materia-experience.b68d6d8152a8.css" rel="stylesheet" type="text/css" media="all"><style data-cart-drawer-style="size">
   #minicart_wrapper.open_drawer .minicart__wrapper {
     --materia-cart-width: 500px;
     --materia-cart-gap: 12px;
@@ -2034,7 +2330,7 @@ Skip to content
   @keyframes materiaMediaFade { from { opacity: 0; } to { opacity: 1; } }
   html.js-media-fade .media-fade-run { animation: materiaMediaFade .4s ease; }
 </style>
-<script src="/theme-previews/digital-products/a/i.83047f4ee031.js"></script>
+<script src="/theme-previews/digital-products/a/i.5d22d5570310.js"></script>
 <style>
         :root {
           /* Wire the user's Animations & motion settings to the keyframe vars used by animation.css */
@@ -2066,7 +2362,7 @@ Skip to content
       "atCheckout": "Shipping to {{ country }} is calculated at checkout."
     }
   }
-</script><script src="/theme-previews/digital-products/a/i.a060c6e3df4c.js"></script><template data-product-counter-source="00000000-0000-4000-8000-000000000012" data-sold=""></template><div id="shopify-section-cart-drawer-live" class="shopify-section shopify-section-group-overlay-group" data-section-id="cart-drawer-live" data-section-type="cart-drawer-live"><style>
+</script><script src="/theme-previews/digital-products/a/i.a060c6e3df4c.js"></script><template data-product-counter-source="00000000-0000-4000-8000-000000000012" data-sold="28"></template><div id="shopify-section-cart-drawer-live" class="shopify-section shopify-section-group-overlay-group" data-section-id="cart-drawer-live" data-section-type="cart-drawer-live"><style>
   #shopify-section-cart-drawer-live { display: none !important; }
 </style><div data-ti-no-reveal data-no-image-carry hidden><template data-cart-drawer-source><style data-cart-drawer-style="size">
   #minicart_wrapper.open_drawer .minicart__wrapper {

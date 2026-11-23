@@ -164,10 +164,11 @@
                 endif
               -%}
               <div class="iwb__slot mlb__frame" data-mlb-media data-autoplay="{% if mtype != 'image' and autoplay %}true{% else %}false{% endif %}" {% render 'media-benefits-block', block: blk %}>
+                {%- assign vposter = '' -%}{%- if mb.video_poster != blank -%}{%- assign vposter = mb.video_poster | image_url: width: 1600 -%}{%- endif -%}
                 {%- if mtype == 'video' and mb.video != blank -%}
-                  {{ mb.video | video_tag: autoplay: autoplay, muted: muted, playsinline: true, loop: loop_video, controls: mb.show_controls, image_size: '1200x' }}
+                  {{ mb.video | video_tag: autoplay: autoplay, muted: muted, playsinline: true, loop: loop_video, controls: mb.show_controls, image_size: '1200x', poster: vposter }}
                 {%- elsif mtype == 'video_url' and mb.video_url != blank -%}
-                  <video src="{{ mb.video_url }}" {% if autoplay %}autoplay {% endif %}{% if muted %}muted {% endif %}{% if loop_video %}loop {% endif %}{% if mb.show_controls %}controls {% endif %}playsinline preload="metadata"></video>
+                  <video src="{{ mb.video_url }}"{% if vposter != '' %} poster="{{ vposter }}"{% endif %} {% if autoplay %}autoplay {% endif %}{% if muted %}muted {% endif %}{% if loop_video %}loop {% endif %}{% if mb.show_controls %}controls {% endif %}playsinline preload="metadata"></video>
                 {%- elsif mb.image != blank -%}
                   <img
                     src="{{ mb.image | image_url: width: 1200 }}"
@@ -938,6 +939,13 @@
           "id": "video_url",
           "label": "Video address",
           "info": "External direct .mp4 URL.",
+          "visible_if": "{{ block.settings.media_type == 'video_url' }}"
+        },
+        {
+          "type": "image_picker",
+          "id": "video_poster",
+          "label": "Poster image",
+          "info": "Shown until the video plays.",
           "visible_if": "{{ block.settings.media_type == 'video_url' }}"
         },
         {

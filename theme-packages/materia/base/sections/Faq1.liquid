@@ -98,11 +98,12 @@
 
   #shopify-section-{{ sid }} .faq1__list {
     max-width: var(--faq1-maxw);
-    margin-inline: var(--faq1-mi);
     display: flex;
     flex-direction: column;
     gap: var(--faq1-gap-items);
     margin: 0;
+    {%- comment %}After the margin reset, which used to cancel it: a centred heading has its list centred under it.{% endcomment %}
+    margin-inline: var(--faq1-mi, 0);
     padding: 0;
   }
   #shopify-section-{{ sid }} .faq1__item {

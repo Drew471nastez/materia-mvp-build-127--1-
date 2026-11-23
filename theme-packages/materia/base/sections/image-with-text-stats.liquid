@@ -293,8 +293,14 @@
                   if mb.video.preview_image != blank
                     assign vid_poster = mb.video.preview_image | image_url: width: 1200
                   endif
+                  if mb.video_poster != blank
+                    assign vid_poster = mb.video_poster | image_url: width: 1600
+                  endif
                 elsif mb.media_type == 'video_url' and mb.video_url != blank
                   assign vid_src = mb.video_url
+                  if mb.video_poster != blank
+                    assign vid_poster = mb.video_poster | image_url: width: 1600
+                  endif
                 endif
               -%}
               {%- if vid_src != blank -%}
@@ -932,6 +938,13 @@
           "id": "video_url",
           "label": "Video URL (.mp4)",
           "info": "External direct .mp4 URL.",
+          "visible_if": "{{ block.settings.media_type == 'video_url' }}"
+        },
+        {
+          "type": "image_picker",
+          "id": "video_poster",
+          "label": "Poster image",
+          "info": "Shown until the video plays.",
           "visible_if": "{{ block.settings.media_type == 'video_url' }}"
         },
         {

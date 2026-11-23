@@ -464,7 +464,7 @@
               endif
             endfor
           -%}
-          <video class="rounded w-full" controls playsinline preload="none"{% if s.video_autoplay %} muted autoplay loop data-pb-autoplay{% endif %} src="{{ source_url }}" poster="{{ local_video.preview_image | image_url: width: 1100 }}"></video>
+          <video class="rounded w-full" controls playsinline preload="none"{% if s.video_autoplay %} muted autoplay loop data-pb-autoplay{% endif %} src="{{ source_url }}" poster="{% if s.video_poster != blank %}{{ s.video_poster | image_url: width: 1600 }}{% else %}{{ local_video.preview_image | image_url: width: 1100 }}{% endif %}"></video>
         {%- elsif s.banner_type == 'video' and video_url != blank -%}
           {%- if video_url.type == 'youtube' -%}
             <div style="--aspect-ratio: 16/9">
@@ -700,6 +700,13 @@
         "vimeo"
       ],
       "label": "YouTube or Vimeo link",
+      "visible_if": "{{ section.settings.show_banner and section.settings.banner_type == 'video' }}"
+    },
+    {
+      "type": "image_picker",
+      "id": "video_poster",
+      "label": "Poster image",
+      "info": "Shown until the video plays.",
       "visible_if": "{{ section.settings.show_banner and section.settings.banner_type == 'video' }}"
     },
     {

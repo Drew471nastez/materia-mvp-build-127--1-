@@ -254,13 +254,13 @@
           -%}
           {%- if has_shopify_video -%}
             <video data-pb3-video autoplay muted loop playsinline webkit-playsinline preload="metadata"
-                   {% if st.video_shopify.preview_image %}poster="{{ st.video_shopify.preview_image | image_url: width: 1200 }}"{% endif %}>
+                   {% if st.video_poster != blank %}poster="{{ st.video_poster | image_url: width: 1600 }}"{% elsif st.video_shopify.preview_image %}poster="{{ st.video_shopify.preview_image | image_url: width: 1200 }}"{% endif %}>
               {%- for source in st.video_shopify.sources -%}
                 <source src="{{ source.url }}" type="{{ source.mime_type }}">
               {%- endfor -%}
             </video>
           {%- elsif st.video != blank -%}
-            <video data-pb3-video autoplay muted loop playsinline webkit-playsinline preload="metadata">
+            <video data-pb3-video autoplay muted loop playsinline webkit-playsinline preload="metadata"{% if st.video_poster != blank %} poster="{{ st.video_poster | image_url: width: 1600 }}"{% endif %}>
               <source src="{{ st.video }}" type="video/mp4">
             </video>
           {%- elsif st.image -%}
@@ -569,6 +569,12 @@
       "id": "video",
       "label": "Video address (mp4)",
       "info": "Used when no video is uploaded."
+    },
+    {
+      "type": "image_picker",
+      "id": "video_poster",
+      "label": "Poster image",
+      "info": "Shown until the video plays."
     },
     {
       "type": "select",

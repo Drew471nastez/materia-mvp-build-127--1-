@@ -223,6 +223,10 @@
       put(el, '--wd-maxw', bool(s.full_width) ? 'none' : num(s.content_width) + 'rem');
       put(el, '--wd-rotate', bool(s.wave_rotate) ? 'rotate(180deg)' : 'none');
       put(c.q('[data-sd-wave-path]'), '@d', WAVES[s.wave_variant] || WAVES.curve);
+      put(el, '@data-wd-match', s.match_neighbours === false || s.match_neighbours === 'false' ? 'false' : 'true');
+      put(el, '@data-wd-flip', bool(s.wave_rotate) ? 'true' : 'false');
+      put(el, '@data-wd-second', bool(s.enable_second_color) ? 'true' : 'false');
+      if (!c.record && window.StorelibWaveMatch) window.StorelibWaveMatch.match(el);
     }
     const [t, b] = margins(s, c.st.mq.matches);
     wrapper(c, {top: t, bottom: b, bg: o ? color(s.section_bg, '') : ''});

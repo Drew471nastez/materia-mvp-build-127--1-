@@ -367,6 +367,47 @@
     }
   }
 
+  /* ---------- Pictures ahead of the scroll ----------
+     A lazy picture was asked for only once it was nearly on screen (Safari
+     and Firefox: a few hundred pixels, never for the slides of a carousel,
+     which sit beside it and are clipped by it), so a quick scroll met empty
+     boxes that filled in a moment later. Each section's lazy pictures are
+     asked for when the section comes within one and a half screens of view
+     (half a screen when the visitor saves data), all of them, the carousel's
+     next slides included. Hover pictures wait on phones, which have no
+     hover. Nothing changes what is drawn or where. */
+  if (s.images && 'IntersectionObserver' in window) {
+    var aheadSaving = !!(navigator.connection && navigator.connection.saveData);
+    var aheadHover = !!(window.matchMedia && matchMedia('(hover: hover)').matches);
+    var aheadSeen = 'WeakSet' in window ? new WeakSet() : null;
+    var aheadLoad = function (box) {
+      var lazy = box.querySelectorAll('img[loading="lazy"]');
+      for (var i = 0; i < lazy.length; i++) {
+        var img = lazy[i];
+        if (!aheadHover && /(^|\s)secondary-image(\s|$)/.test(img.className)) continue;
+        img.loading = 'eager';
+      }
+    };
+    var aheadIO = new IntersectionObserver(function (entries) {
+      for (var i = 0; i < entries.length; i++) {
+        if (!entries[i].isIntersecting) continue;
+        aheadIO.unobserve(entries[i].target);
+        aheadLoad(entries[i].target);
+      }
+    }, { rootMargin: aheadSaving ? '50% 0px' : '150% 0px' });
+    var aheadWatch = function (root) {
+      var boxes = (root || document).querySelectorAll('main .shopify-section, .shopify-section-group-footer-group, main > [id^="shopify-section-"]');
+      for (var i = 0; i < boxes.length; i++) {
+        var b = boxes[i];
+        if (aheadSeen) { if (aheadSeen.has(b)) continue; aheadSeen.add(b); }
+        if (b.querySelector('img[loading="lazy"]')) aheadIO.observe(b);
+      }
+    };
+    onReady(function () { aheadWatch(document); });
+    document.addEventListener('shopify:section:load', function (e) { if (e.target && e.target.querySelectorAll) { if (aheadSeen) aheadSeen.delete(e.target); aheadWatch(e.target.parentNode || document); } });
+    addEventListener('load', function () { aheadWatch(document); }, { once: true });
+  }
+
   /* ---------- Defer third-party apps & scripts ----------
      Scripts an app injects from these hosts are held until the first
      interaction or a few idle seconds after load, then added in order. */

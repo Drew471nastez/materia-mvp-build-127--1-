@@ -300,9 +300,6 @@ const KNOWN_ISSUES: Record<string, string> = {}
 const DRAWS_NOTHING_ALONE: Record<string, string> = {
   /* Changed on purpose (templates round 19): Night shop's sky is a fixed layer behind the whole page, drawn by its script; the section itself has no height. */
   "space-starfield": "the night sky is a fixed background behind every page, drawn by its script, and takes no room of its own",
-  /* Changed on purpose (templates round 23): XP shop's wallpaper is a pinned layer behind the windows, and Sample packs' play centring is a style for the players other sections draw. */
-  "xpshop-wallpaper": "the wallpaper is a photograph pinned behind every window, and with no photograph chosen there is nothing to pin",
-  "samples-play-icon": "it only sets where the play sign sits in the round players that other sections draw, and takes no room of its own",
 }
 
 async function main() {

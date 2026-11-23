@@ -31,6 +31,10 @@
   endif
 -%}
 <style>
+  /* The View all button's label sits in the middle of its height whatever the
+     theme's button padding and minimum height (a block with a minimum height
+     kept the words at the top). */
+  #shopify-section-{{ section.id }} .pg__foot > .button { display: inline-flex; align-items: center; justify-content: center; }
   #shopify-section-{{ sid }} { isolation: isolate; position: relative; }
   {%- if s.reset_spacing -%}
     #shopify-section-{{ sid }}, #shopify-section-{{ sid }} > .section { margin-top: 0 !important; margin-bottom: 0 !important; }

@@ -19,9 +19,9 @@
  *              email; posted as a page does, it comes back to the page it
  *              was on with the thank you showing; posted as a popup's
  *              script does, the answer is ok in JSON
- *   payment    the footer shows the ways the checkout takes money: Visa,
- *              Mastercard, American Express, Apple Pay and Google Pay, and
- *              never PayPal, which Storelib's checkout does not take
+ *   payment    the footer shows the ways a shopper pays: Visa,
+ *              Mastercard, American Express, PayPal, Apple Pay and Google
+ *              Pay (PayPal by the owner's call, round 23)
  *
  * For the shop with a catalogue, a blog and policies (scripts/theme-
  * templates/fixtures.ts). No database and no browser.
@@ -217,8 +217,9 @@ async function walk(template: string, slug: string) {
   /* ── The footer's payment marks ── */
   const home = pages.get("/") ?? ""
   const foot = home.slice(Math.max(0, home.search(/id="shopify-section-[^"]*footer[^"]*"|<footer\b/i)))
-  const marks = ["Visa", "Mastercard", "American Express", "Apple Pay", "Google Pay"].filter((n) => new RegExp(`aria-label="${n}"`).test(foot))
-  check("  its footer shows Visa, Mastercard, American Express, Apple Pay and Google Pay, and no PayPal", marks.length === 5 && !/aria-label="PayPal"/i.test(foot), { marks, paypal: /aria-label="PayPal"/i.test(foot) })
+  /* Changed on purpose (templates round 23): the owner wants PayPal in every footer now, ahead of the checkout taking it. */
+  const marks = ["Visa", "Mastercard", "American Express", "PayPal", "Apple Pay", "Google Pay"].filter((n) => new RegExp(`aria-label="${n}"`).test(foot))
+  check("  its footer shows Visa, Mastercard, American Express, PayPal, Apple Pay and Google Pay", marks.length === 6, { marks })
 }
 
 async function main() {

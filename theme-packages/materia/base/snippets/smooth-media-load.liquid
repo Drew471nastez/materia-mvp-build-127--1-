@@ -60,7 +60,9 @@
     var ready = el.tagName === 'IMG' ? (el.complete && el.naturalWidth > 0) : (el.readyState >= 2);
     if (ready) { return; }                          // already painted — leave it, no flash
     var ev = el.tagName === 'IMG' ? 'load' : 'loadeddata';
-    el.addEventListener(ev, function () { if (shows(el)) { el.classList.add('media-fade-run'); } }, { once: true });
+    // The fade starts once the picture is decoded, in the frame it is first drawn.
+    var run = function () { if (shows(el)) { el.classList.add('media-fade-run'); } };
+    el.addEventListener(ev, function () { if (el.decode) { el.decode().then(run, run); } else { run(); } }, { once: true });
   }
 
   function scan(ctx) {
