@@ -92,6 +92,10 @@ const ROUTES: Record<string, () => Promise<RouteModule>> = {
   "/api/coupons/validate": () => import("@/app/api/coupons/validate/route"),
   "/api/coupons/[id]": () => import("@/app/api/coupons/[id]/route"),
   "/api/store/offers": () => import("@/app/api/store/offers/route"),
+  /* Round 58 (f5): every kind of offer from the modal to the charge (tests/offers-r58.test.ts). */
+  "/api/store/offers/try": () => import("@/app/api/store/offers/try/route"),
+  "/api/offers": () => import("@/app/api/offers/route"),
+  "/api/offers/cart": () => import("@/app/api/offers/cart/route"),
   "/api/cart/prices": () => import("@/app/api/cart/prices/route"),
   "/api/tracking/webhooks/[provider]/[token]": () => import("@/app/api/tracking/webhooks/[provider]/[token]/route"),
   "/api/order-help": () => import("@/app/api/order-help/route"),
