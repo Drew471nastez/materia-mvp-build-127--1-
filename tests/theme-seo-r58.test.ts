@@ -100,14 +100,16 @@ const FEATURE_EVIDENCE: Record<ThemeFeature, (f: { files: string[]; types: strin
   video: (f) => f.types.some((t) => /video|vsl-hero/i.test(t)),
   reviews: (f) => f.types.some((t) => /review|testimonial/i.test(t)),
   faq: (f) => f.types.some((t) => /faq/i.test(t)),
-  signup: (f) => f.types.some((t) => /newsletter|signup/i.test(t)) || f.files.includes("page.newsletter.json"),
+  signup: (f) => f.types.some((t) => /newsletter|signup|optin/i.test(t)) || f.files.includes("page.newsletter.json"),
   pricing: (f) => f.types.some((t) => /pricing-cards|offers|editions/i.test(t)),
-  curriculum: (f) => f.types.some((t) => /curriculum|modules|contents/i.test(t)),
+  curriculum: (f) => f.types.some((t) => /curriculum|modules|contents|chapters/i.test(t)),
   booking: (f) => f.files.some((x) => /^page\.book(-a-call)?\.json$/.test(x)),
   lookbook: (f) => f.files.includes("page.lookbook.json"),
   shipping: (f) => f.files.includes("page.shipping.json"),
   licence: (f) => f.files.includes("page.licence.json"),
-  dark: (_f, t) => t === "space" || t === "vsl",
+  podcast: (f) => f.types.some((t) => /podcast|-show$/i.test(t)) || f.files.includes("page.podcast.json"),
+  /* A look, read from what the template was made as (marketplace-shared): a night sky, a starry black page, a dark course funnel. */
+  dark: (_f, t) => t === "space" || t === "vsl" || t === "renaissance",
 }
 
 async function main() {
@@ -139,7 +141,16 @@ async function main() {
     const f = templateFiles(t)
     const wrong = s.features.filter((x) => !FEATURE_EVIDENCE[x](f, t))
     const missingPages = s.extraPages.filter((p) => !f.files.includes(`page.${p.handle}.json`))
-    check(`  ${s.slug}: ${s.features.join(", ") || "no features claimed"}; pages ${s.extraPages.map((p) => p.label).join(", ") || "shared only"}`, wrong.length === 0 && missingPages.length === 0, { wrong, missingPages })
+    /* Both ways (r58 integration): a feature the files have is claimed too, and a page of the template's own is named, so the
+       filters and "Pages included" follow the templates when main changes them. page.json is the plain page every template has. */
+    const unclaimed = THEME_FEATURES.map((x) => x.key).filter((x) => x !== "dark" && FEATURE_EVIDENCE[x](f, t) && !s.features.includes(x))
+    const SHARED_FILES = ["page.json", "page.about.json", "page.contact.json", "page.faqs.json"]
+    const unnamedPages = f.files.filter((x) => /^page\..+\.json$/.test(x) && !SHARED_FILES.includes(x) && !s.extraPages.some((p) => x === `page.${p.handle}.json`))
+    check(
+      `  ${s.slug}: ${s.features.join(", ") || "no features claimed"}; pages ${s.extraPages.map((p) => p.label).join(", ") || "shared only"}`,
+      wrong.length === 0 && missingPages.length === 0 && unclaimed.length === 0 && unnamedPages.length === 0,
+      { wrong, missingPages, unclaimed, unnamedPages },
+    )
   }
   check("every feature is in the filter's vocabulary", THEME_SEO.every((s) => s.features.every((f) => THEME_FEATURES.some((x) => x.key === f))))
   check("the shared pages are in every template", CODE_TEMPLATES.every((c) => ["index.json", "product.json", "collection.json", "cart.json", "page.about.json", "page.contact.json", "page.faqs.json", "blog.json"].every((x) => templateFiles(c.template).files.includes(x))))
@@ -176,9 +187,22 @@ async function main() {
   const pro = themeJsonLd({ ...bySlug("coach"), tier: "pro" }, themePageCopy({ ...bySlug("coach"), tier: "pro" }))
   check("a template that comes with a plan names no price it does not have", !JSON.stringify(pro).includes('"Offer"'))
   for (const c of THEME_SEO_CATEGORIES) {
-    const d = JSON.parse(jsonLdScript(categoryJsonLd(c, listingsInCategory(listings, c.slug)))) as { "@graph": Array<Record<string, unknown>> }
-    const list = d["@graph"].find((n) => n["@type"] === "ItemList") as { numberOfItems: number; itemListElement: unknown[] }
-    check(`  /themes/category/${c.slug}: CollectionPage, ItemList of ${c.members.length}, BreadcrumbList, FAQPage`, ["CollectionPage", "ItemList", "BreadcrumbList", "FAQPage"].every((t) => d["@graph"].some((n) => n["@type"] === t)) && list.numberOfItems === c.members.length && list.itemListElement.length === c.members.length)
+    /* Changed on purpose (r58 integration): the list is what the page shows (listingsInCategory), and a Storelib template is on a
+       category page only because the category names it, never through the uploaded listings' fallback. That fallback is how
+       the five templates main added, with no words of their own yet, slipped onto category pages and made the counts disagree. */
+    const shown = listingsInCategory(listings, c.slug)
+    const d = JSON.parse(jsonLdScript(categoryJsonLd(c, shown))) as { "@graph": Array<Record<string, unknown>> }
+    const list = d["@graph"].find((n) => n["@type"] === "ItemList") as { numberOfItems: number; itemListElement: Array<{ url: string }> }
+    const strays = shown.filter((l) => CODE_TEMPLATES.some((t) => t.slug === l.slug) && !c.members.includes(l.slug)).map((l) => l.slug)
+    check(
+      `  /themes/category/${c.slug}: CollectionPage, ItemList of the ${shown.length} it shows, BreadcrumbList, FAQPage; every Storelib template on it named by it`,
+      ["CollectionPage", "ItemList", "BreadcrumbList", "FAQPage"].every((t) => d["@graph"].some((n) => n["@type"] === t)) &&
+        list.numberOfItems === shown.length &&
+        list.itemListElement.every((x, i) => x.url === `https://storelib.com${listingPath(shown[i].slug)}`) &&
+        c.members.every((m) => shown.some((l) => l.slug === m)) &&
+        strays.length === 0,
+      { strays },
+    )
   }
   const m = JSON.parse(jsonLdScript(marketplaceJsonLd(listings))) as { "@graph": Array<Record<string, unknown>> }
   check("/themes: CollectionPage and an ItemList of every template", (m["@graph"].find((n) => n["@type"] === "ItemList") as { numberOfItems: number }).numberOfItems === listings.length)
@@ -245,7 +269,8 @@ async function main() {
   const card = read("components/themes/marketplace-card.tsx")
   check("  a card: one link, the picture's box drawn at 4:5 with width and height, name, price, category", /<Link href=\{card\.href\}/.test(card) && /aspect-\[4\/5\]/.test(card) && /width=\{card\.image\.width\}/.test(card) && /height=\{card\.image\.height\}/.test(card) && /\{card\.price\}/.test(card) && /\{card\.categoryName\}/.test(card) && /motion-reduce:/.test(card))
   const builder = read("app/(storelib)/app/website-builder/website-builder-client.tsx") + read("app/(storelib)/app/website-builder/themes/themes-client.tsx")
-  check("the builder's marketplace popup still reads the same catalogue, and nothing of this round", /<ThemeMarketplace\b/.test(builder) && CODE_TEMPLATES.length === 19 && !/theme-seo|marketplace-card|marketplace-shell/.test(builder))
+  /* Changed on purpose (r58 integration): no count of templates here. Main adds templates; what matters is that the popup reads the shared catalogue and none of this round's files. */
+  check("the builder's marketplace popup still reads the same catalogue, and nothing of this round", /<ThemeMarketplace\b/.test(builder) && /from "@\/lib\/themes\/marketplace-shared"/.test(builder) && !/theme-seo|marketplace-card|marketplace-shell/.test(builder))
 
   console.log("\n  9. Copy")
   const visible = [
