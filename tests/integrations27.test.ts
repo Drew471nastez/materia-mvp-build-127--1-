@@ -110,7 +110,8 @@ console.log("\nL8  The reviews tabs\n")
   check("a tab under the pointer, a finger or the keyboard is readied in a transition", /onPointerEnter=\{\(\) => warm\(t\.id\)\}/.test(ui) && /onTouchStart=\{\(\) => warm\(t\.id\)\}/.test(ui) && /onFocus=\{\(\) => warm\(t\.id\)\}/.test(ui) && /React\.startTransition\(\(\) => setWarmTab\(id\)\)/.test(ui) && /<Body tab=\{tab\} [^>]*warm=\{warmTab\}/.test(ui))
   check("  the plug-in API says so (warm)", /warm\?: string \| null/.test(raw("components/app/settings/integration-apps.tsx")))
   const view = raw("components/reviews/manage/integration-view.tsx")
-  check("one tree for every tab: Settings no longer builds the whole page again", /return <Layout main=\{body\} aside=\{view === "settings" \? sections\.glance : undefined\} \/>/.test(view) && !/view === "settings" \? <Layout/.test(view))
+  /* Changed on purpose (r58): the aside on Settings is the installed page template's column, What is synced over At a glance; still one Layout for every tab. */
+  check("one tree for every tab: Settings no longer builds the whole page again", /<Layout\s+main=\{body\}\s+aside=\{\s*view === "settings" \? \([\s\S]*?\{sections\.synced\}\s*\{sections\.glance\}[\s\S]*?\) : undefined\s*\}\s*\/>/.test(view) && (view.match(/<Layout/g) ?? []).length === 1 && !/view === "settings" \? <Layout/.test(view))
 
   /* The body, drawn: the open view, a readied one hidden, nothing else. */
   const html = renderToStaticMarkup(React.createElement(ReviewsManageBody, { view: "overview", warm: "analytics", onGo: () => {} }))
