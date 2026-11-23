@@ -259,7 +259,7 @@ async function main() {
     check("and each column reads back into the same setting (offerOf)", fromRow.triggerCollectionIds!.join() === COLL && fromRow.placements!.join() === "cart,checkout" && fromRow.startsAt === saved.startsAt && fromRow.combinesWithCodes === false && fromRow.maxPerOrder === 3 && fromRow.minSubtotalCents === 2500)
     const editor = read("app/(storelib)/app/offers/offer-editor.tsx")
     const rules: [string, RegExp, boolean][] = [
-      ["kind: bundle or upsell", /label=\{tt\("Kind of offer"\)\}/, applyOffers([line(A, 1000), line(B, 1000)], [offer({})]).applied.length === 1 && applyOffers([line(A, 1000), line(C, 1000)], [upsell()]).applied.length === 1],
+      /* Changed on purpose (r58): the kinds are Add product's rows in the modal. */ ["kind: bundle or upsell", /data-kind=\{k\}/, applyOffers([line(A, 1000), line(B, 1000)], [offer({})]).applied.length === 1 && applyOffers([line(A, 1000), line(C, 1000)], [upsell()]).applied.length === 1],
       ["name buyers see", /id="offer-title"/, readOffer({ kind: "bundle", title: "  ", productIds: [A, B] }).ok === false],
       ["products", /name="offer-products"/, readOffer({ kind: "bundle", title: "x", productIds: [A] }).ok === false],
       ["trigger products", /name="offer-triggers"/, triggered(upsell({ triggerIds: [D] }), [line(D, 1), line(C, 1)])],
@@ -398,12 +398,12 @@ async function main() {
   {
     const page = read("app/(storelib)/app/offers/page.tsx")
     /* Changed on purpose: no route loading boundary, like every /app page (tests/page-performance.test.ts): the page you are on stays while this one loads. */
-    check("read on the server (no fetch after it lands), and no route loading boundary", /offersArea\(createAdminClient\(\), creator\.id as string\)/.test(page) && !existsSync(join(root, "app/(storelib)/app/offers/loading.tsx")) && !/requirePhysicalPage/.test(page))
+    /* Changed on purpose (r58): the read is in ./offers-screen.tsx, shared by the list and the two addresses that open its modal. */ check("read on the server (no fetch after it lands), and no route loading boundary", /OffersScreen\(/.test(page) && /offersArea\(createAdminClient\(\), access\.creatorId as string\)/.test(read("app/(storelib)/app/offers/offers-screen.tsx")) && !existsSync(join(root, "app/(storelib)/app/offers/loading.tsx")) && !/requirePhysicalPage/.test(page))
     const client = read("app/(storelib)/app/offers/offers-client.tsx")
     check("the list: views with counts, a search, phone rows, a table, a menu per row", /role="tablist"/.test(client) && /data-offer-search=""/.test(client) && /md:hidden/.test(client) && /md:table/.test(client) && /<ResponsiveActionMenu/.test(client))
     check("no made up numbers: nothing about views, accepts or revenue", !/revenue|accepts|accepted|conversion|impressions/i.test(client.replace(/\/\*[\s\S]*?\*\//g, "")))
-    /* Changed on purpose: the owner asked for an offer to open as a sub page, as an order does, not a dialog or a bottom sheet (tests/offers-subpages.test.ts). */
-    check("the editor: a page of its own, Save with Ctrl or Cmd and S or Enter", !/<SheetDialog/.test(read("app/(storelib)/app/offers/offer-editor.tsx")) && /e\.metaKey \|\| e\.ctrlKey/.test(read("app/(storelib)/app/offers/offer-editor.tsx")) && existsSync(join(root, "app/(storelib)/app/offers/[id]/page.tsx")) && existsSync(join(root, "app/(storelib)/app/offers/new/page.tsx")))
+    /* Changed on purpose (r58): the owner asked for the editor to be a modal like Add product's; the addresses stay (tests/offers-subpages.test.ts). */
+    check("the editor: a modal over the list, Save with Ctrl or Cmd and S or Enter", /<SheetDialog/.test(read("app/(storelib)/app/offers/offer-editor.tsx")) && /e\.metaKey \|\| e\.ctrlKey/.test(read("app/(storelib)/app/offers/offer-editor.tsx")) && existsSync(join(root, "app/(storelib)/app/offers/[id]/page.tsx")) && existsSync(join(root, "app/(storelib)/app/offers/new/page.tsx")))
     check("changes kept: leaving with edits asks first", /Discard changes\?/.test(read("app/(storelib)/app/offers/offer-editor.tsx")))
     check("in the menu for every store, beside Coupons", /mainNavItems\.find\(\(item\) => item\.href === "\/app\/products"\)\?\.children\?\.splice\([\s\S]{0,200}\{ href: "\/app\/offers", label: tt\("Upsells and bundles"\) \}/.test(read("components/app/sidebar.tsx")) && !/if \(physicalCommerce\) mainNavItems\.find\(\(item\) => item\.href === "\/app\/products"\)\?\.children\?\.splice\(/.test(read("components/app/sidebar.tsx")))
   }

@@ -448,7 +448,8 @@ async function main() {
     check("  an offer that is off or ended competes with nothing", offerWarnings(BREAK({ id: DRAFT_ID }), [BREAK({ active: false }), BREAK({ id: "x", endsAt: "2020-01-01T00:00:00Z" })], products, NOW).length === 0)
     const editor = read("app/(storelib)/app/offers/offer-editor.tsx")
     /* Changed on purpose (round 42 offers): the kind's line is drawn in each choice of the kind chooser (offer-fields KindChooser). */
-    check("the editor: a line under the kind picker, the warnings, Try it in a cart", /data-kind-hint/.test(read("app/(storelib)/app/offers/offer-fields.tsx")) && /KindChooser/.test(editor) && /data-offer-warnings/.test(editor) && /data-try-cart/.test(editor) && /\/api\/store\/offers\/try/.test(editor))
+    /* Changed on purpose (r58): the modal asks the kind as Add product does, each with its line; Try it in a cart left the editor to keep it simple (the route stays, tests/offers-r58.test.ts calls it). */
+    check("the editor: a line under each kind, the warnings", /data-kind-hint/.test(editor) && /KIND_ORDER\.map/.test(editor) && /data-offer-warnings/.test(editor) && /offerWarnings\(/.test(editor))
     const tryRoute = read("app/api/store/offers/try/route.ts")
     check("  the try route: the caller's own store (team roles too), products read under it, nothing saved", /const c = await shopCaller\("marketing"\)/.test(tryRoute) /* Round 40: a team member reaches offers with Marketing. */ && /\.eq\("creator_id", c\.creatorId\)/.test(tryRoute) && !/saveOffer|\.insert\(|\.update\(/.test(tryRoute))
     check("  the kind explanations name what each does, no sales words", !/unlock|elevate|seamless|powerful|effortless|supercharge|transform|—/i.test(editor.match(/const KIND_HINT[\s\S]*?\n\}/)?.[0] ?? "x"))

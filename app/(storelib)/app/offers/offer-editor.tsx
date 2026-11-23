@@ -148,7 +148,7 @@ export function OfferEditor(props: OfferEditorProps) {
       }}
       sheet={{ fill: true, aboveKeyboard: true, dismissible: !busy, maxHeight: "calc(var(--vv-h, 100dvh) - max(env(safe-area-inset-top, 0px), 16px) - 12px)" }}
       dialog={{ "aria-describedby": undefined, onInteractOutside: (e) => e.preventDefault() }}
-      className="flex max-h-[min(820px,calc(100dvh-48px))] w-[calc(100%-32px)] motion-reduce:animate-none max-w-[600px] flex-col gap-0 overflow-hidden rounded-2xl border-[#e5e7eb] bg-white p-0 shadow-[0_24px_64px_-16px_rgba(17,24,39,0.28),0_2px_6px_rgba(17,24,39,0.06)] sm:max-w-[600px]"
+      className="flex max-h-[min(820px,calc(100dvh-48px))] w-[calc(100%-32px)] motion-reduce:data-[state=open]:animate-none motion-reduce:data-[state=closed]:animate-none max-w-[600px] flex-col gap-0 overflow-hidden rounded-2xl border-[#e5e7eb] bg-white p-0 shadow-[0_24px_64px_-16px_rgba(17,24,39,0.28),0_2px_6px_rgba(17,24,39,0.06)] sm:max-w-[600px]"
     >
       {target ? <OfferForm key={session} {...props} target={target} phone={phone} guard={guard} onBusy={setBusy} onClose={() => void close()} onLeave={onClose} /> : null}
     </SheetDialog>

@@ -958,6 +958,8 @@ const SUITES = [
   "tests/offers-parity.test.ts",
   /* Storelib's own Featured products and Product spotlight show the featured product's offers, with the product page block's pieces and figures (components/offers/featured-offers.tsx). */
   "tests/offers-featured.test.ts",
+  /* Round 58 (f5): every kind of offer (bundle, upsell and order bump, Buy X get Y, volume tiers, download bundle, free shipping) saved through /api/store/offers as the new modal sends it, then on GET /api/offers, a Materia product page and cart, the website's checkout and Stripe's charge, the download basket and /app's Sold; numbers a browser sends change nothing. */
+  "tests/offers-r58.test.ts",
   /* Round AG3: a buyer's words and pictures on a cart line: uploads checked by their bytes, drawn again without EXIF, kept privately per store and browser, refused on another store or cart, copied to the order when paid, shown in emails, slips, exports and the order page, sent to print partners, swept after 14 days; the Storelib theme's Personalization block; SQL part 308. */
   "tests/cart-uploads.test.ts",
   "tests/round-v.test.ts",
