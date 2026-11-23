@@ -1,7 +1,7 @@
 import "server-only"
 
 import { createHash } from "node:crypto"
-import { businessGroup } from "@/lib/businesses/server"
+import { businessGroup, businessLimitFor } from "@/lib/businesses/server"
 import { businessAlias } from "@/lib/businesses/email-alias"
 import { groupIds, ownerOf, UUID_PATTERN } from "@/lib/businesses/rules"
 import { currentEmailIsVerified } from "@/lib/auth/verified-email"
@@ -420,7 +420,9 @@ export async function viewerOf(deps: HandoffDeps, sessionUser: { id: string; ema
   const login = await deps.authUser(loginId)
   const email = login?.email ?? (loginId === sessionUser.id ? sessionUser.email : null)
   const emailVerified = login ? await currentEmailIsVerified(deps.db, login) : false
-  return { loginId, sessionId: sessionUser.id, email: email ?? null, emailVerified, groupIds: groupIds(group, sessionUser.id) }
+  /* The login's own limit (business_limits, SQL part 446); business_handoff_accept counts to the same number. */
+  const limit = await businessLimitFor(loginId, deps.db)
+  return { loginId, sessionId: sessionUser.id, email: email ?? null, emailVerified, groupIds: groupIds(group, sessionUser.id), limit }
 }
 
 export interface ClaimRead {

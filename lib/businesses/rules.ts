@@ -40,14 +40,31 @@ export function maySwitch(group: BusinessGroup | null, from: string, to: string)
 }
 
 /**
- * Whether another business can be made: while the login has fewer than
- * MAX_BUSINESSES, from any of its businesses. "It doesn't matter which
- * business I am on." Made from a business that is not the first, the new one
- * is still linked to the first (the owner), so there are never chains:
- * `ownerOf` says which account that is.
+ * A login's own limit, from public.business_limits (SQL part 446): Storelib
+ * can give one account more than MAX_BUSINESSES, or no limit. Only the
+ * service role writes that table; nobody sets it from the app. Read here as
+ * a number (that many, the first included) or null for no limit. No row, a
+ * NULL, or anything that is not a whole number the table allows is the rule.
+ * The database's business_limit_of reads the same row the same way.
  */
-export function canAddBusiness(count: number): boolean {
-  return count < MAX_BUSINESSES
+export type BusinessLimit = number | null
+
+export function businessLimitOf(raw: unknown): BusinessLimit {
+  if (raw === -1) return null
+  if (typeof raw === "number" && Number.isInteger(raw) && raw >= 1 && raw <= 10000) return raw
+  return MAX_BUSINESSES
+}
+
+/**
+ * Whether another business can be made: while the login has fewer than its
+ * limit (MAX_BUSINESSES unless business_limits says otherwise; null is no
+ * limit), from any of its businesses. "It doesn't matter which business I am
+ * on." Made from a business that is not the first, the new one is still
+ * linked to the first (the owner), so there are never chains: `ownerOf` says
+ * which account that is.
+ */
+export function canAddBusiness(count: number, limit: BusinessLimit = MAX_BUSINESSES): boolean {
+  return limit === null || count < limit
 }
 
 /** The account a new business is linked to: the login's first, whichever business asked. */
@@ -62,8 +79,15 @@ export function countWord(n: number): string {
   return COUNT_WORDS[n] ?? String(n)
 }
 
+/** What the person reads when the login already has as many as it can: MAX_BUSINESSES, or its own number. */
+export function limitReached(limit: BusinessLimit = MAX_BUSINESSES): string {
+  return limit === null || limit === MAX_BUSINESSES
+    ? `You already have ${countWord(MAX_BUSINESSES)} businesses, the most one login can have.`
+    : `You already have ${countWord(limit)} ${limit === 1 ? "business" : "businesses"}, the most this login can have.`
+}
+
 /** What the person reads when the login already has MAX_BUSINESSES. */
-export const LIMIT_REACHED = `You already have ${countWord(MAX_BUSINESSES)} businesses, the most one login can have.`
+export const LIMIT_REACHED = limitReached(MAX_BUSINESSES)
 
 /**
  * What the person reads when the app allows another business but the
@@ -79,8 +103,8 @@ export const LIMIT_NOT_OPEN_YET = "Another business cannot be added just yet. Tr
  * a moment before. 23505 on business_links_one_per_owner is the one per
  * login rule part 38 replaces, still in place because part 38 has not run.
  */
-export function linkRefusal(error: { code?: string | null; message?: string | null }): string {
-  if (error.code === "23514") return LIMIT_REACHED
-  if (error.code === "23505") return /business_links_one_per_owner/.test(error.message ?? "") ? LIMIT_NOT_OPEN_YET : LIMIT_REACHED
+export function linkRefusal(error: { code?: string | null; message?: string | null }, limit: BusinessLimit = MAX_BUSINESSES): string {
+  if (error.code === "23514") return limitReached(limit)
+  if (error.code === "23505") return /business_links_one_per_owner/.test(error.message ?? "") ? LIMIT_NOT_OPEN_YET : limitReached(limit)
   return "The business could not be created. Try again in a moment."
 }

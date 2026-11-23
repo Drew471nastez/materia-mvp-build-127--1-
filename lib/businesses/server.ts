@@ -10,18 +10,20 @@ import type { NextResponse } from "next/server"
 import { profileAvatar } from "@/lib/account/avatar"
 import { businessAlias } from "./email-alias"
 import {
-  LIMIT_REACHED,
   MAX_BUSINESSES,
   UUID_PATTERN,
+  businessLimitOf,
   canAddBusiness,
   groupIds,
+  limitReached,
   linkRefusal,
   maySwitch,
   ownerOf,
   type BusinessGroup,
+  type BusinessLimit,
 } from "./rules"
 
-export { canAddBusiness, maySwitch, MAX_BUSINESSES, type BusinessGroup }
+export { canAddBusiness, maySwitch, MAX_BUSINESSES, type BusinessGroup, type BusinessLimit }
 
 /**
  * ===========================================================================
@@ -57,6 +59,13 @@ export interface BusinessSummary {
   ready: boolean
   current: boolean
   role: "owner" | "member"
+  /**
+   * How many businesses this login can have, the first included: the same on
+   * every row of one login (businessLimitFor its first account). null is no
+   * limit. The account menu reads it to decide whether "New business" can go
+   * ahead, so a login Storelib gave more is never told it has three.
+   */
+  limit: BusinessLimit
 }
 
 export interface MintedSession {
@@ -123,6 +132,26 @@ export function signedOutAnswer(request: Request, signedOut: NextResponse): Next
 type LinkRow = { owner_id: string; member_id: string }
 
 /**
+ * A login's limit, read by its first account from public.business_limits
+ * (SQL part 446) with the service key: that many businesses, or null for no
+ * limit. Only the service role and the SQL editor can write the table, so
+ * nobody raises their own. No row, a NULL, the table not there yet, or a
+ * read that fails is the rule (MAX_BUSINESSES): an error never gives anyone
+ * more. The database counts to the same number (business_limit_of in the
+ * business_links trigger and the handoff), so this is never the only check.
+ */
+export async function businessLimitFor(ownerId: string, db?: { from: (table: string) => any }): Promise<BusinessLimit> { // eslint-disable-line @typescript-eslint/no-explicit-any
+  if (!UUID_PATTERN.test(ownerId)) return MAX_BUSINESSES
+  try {
+    const { data, error } = await (db ?? createAdminClient()).from("business_limits").select("business_limit").eq("user_id", ownerId).maybeSingle()
+    if (error || !data) return MAX_BUSINESSES
+    return businessLimitOf((data as { business_limit: unknown }).business_limit)
+  } catch {
+    return MAX_BUSINESSES
+  }
+}
+
+/**
  * The group this account is part of, as its owner or as one of its
  * businesses, or null for an account on its own. Two reads at most: the
  * rows naming this account, and, for a business, its owner's rows.
@@ -166,9 +195,10 @@ export async function listBusinesses(userId: string): Promise<BusinessSummary[]>
   const group = await businessGroup(userId)
   const ids = groupIds(group, userId)
   const admin = createAdminClient()
-  const [{ data: profiles }, { data: creators }] = await Promise.all([
+  const [{ data: profiles }, { data: creators }, limit] = await Promise.all([
     admin.from("profiles").select("id, username, display_name, avatar_url").in("id", ids),
     admin.from("creators").select("user_id, slug, display_name, onboarding_completed").in("user_id", ids),
+    businessLimitFor(ownerOf(group, userId), admin),
   ])
   return ids.map((id) => {
     const p = (profiles ?? []).find((x: { id: string }) => x.id === id) as
@@ -187,6 +217,7 @@ export async function listBusinesses(userId: string): Promise<BusinessSummary[]>
       ready: c?.onboarding_completed === true,
       current: id === userId,
       role: group && id !== group.ownerId ? "member" : "owner",
+      limit,
     }
   })
 }
@@ -197,7 +228,8 @@ export type CreateBusinessResult = { memberId: string } | { error: string; statu
  * Another business: an account with the owner's address and a tag
  * (./email-alias), confirmed, with a password nobody holds, linked to the
  * login's first business (the owner). From any business of the login, and
- * only while it has fewer than MAX_BUSINESSES. Asked from a business that is
+ * only while it has fewer than its limit (MAX_BUSINESSES, or the login's own
+ * number in business_limits: businessLimitFor). Asked from a business that is
  * not the first, the new one is linked to the first all the same and its
  * address is made from the first's, so the group stays one owner and its
  * members, never a chain. If the link cannot be written the account is
@@ -216,8 +248,10 @@ export type CreateBusinessResult = { memberId: string } | { error: string; statu
 export async function createBusinessAccount(caller: { id: string; email: string | null }): Promise<CreateBusinessResult> {
   const admin = createAdminClient()
   const group = await businessGroup(caller.id)
-  if (!canAddBusiness(groupIds(group, caller.id).length)) return { error: LIMIT_REACHED, status: 409 }
   const ownerId = ownerOf(group, caller.id)
+  /* The login's limit is its first account's (business_limits, part 446), whichever business asked. */
+  const limit = await businessLimitFor(ownerId, admin)
+  if (!canAddBusiness(groupIds(group, caller.id).length, limit)) return { error: limitReached(limit), status: 409 }
 
   /* The table must exist: without it the new account could never be reached again. */
   const probe = await admin.from("business_links").select("member_id", { head: true, count: "exact" }).limit(1)
@@ -253,7 +287,7 @@ export async function createBusinessAccount(caller: { id: string; email: string 
   if (linkError) {
     console.error("[businesses] link failed, removing the new account:", linkError.code, linkError.message)
     await admin.auth.admin.deleteUser(memberId)
-    return { error: linkRefusal(linkError), status: linkError.code === "23505" || linkError.code === "23514" ? 409 : 500 }
+    return { error: linkRefusal(linkError, limit), status: linkError.code === "23505" || linkError.code === "23514" ? 409 : 500 }
   }
 
   /* The owner proved this address is theirs; the new business does not ask again. */
