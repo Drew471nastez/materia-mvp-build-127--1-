@@ -61,6 +61,10 @@ export const EXPECTED_SCHEMA: Record<string, { columns: string[]; later?: boolea
   error_events: { columns: ["fingerprint", "source", "location", "message", "count", "first_seen", "last_seen"], later: true },
   commerce_jobs: { columns: ["id", "status", "run_after"], later: true },
   commerce_integrations: { columns: ["id", "status"], later: true },
+  /* Creator activity (round 59, supabase/sql/run-now/430_creator_activity.sql; lib/admin/views/activity.ts). */
+  creator_activity_events: { columns: ["id", "user_id", "creator_id", "at", "kind", "name", "session_start", "country", "device", "os", "browser", "shell"], later: true },
+  creator_presence: { columns: ["user_id", "creator_id", "first_seen_at", "last_seen_at", "session_started_at", "last_path", "last_action", "last_action_at", "country", "device", "os", "browser", "shell", "live_since"], later: true },
+  store_activity_log: { columns: ["id", "created_at", "creator_id", "actor", "action", "subject_label", "meta"], later: true },
 }
 
 /** The database functions the admin calls, all from RUN_ADMIN_CONSOLE.sql. */
@@ -74,7 +78,7 @@ export const CRON_JOBS = [
   { path: "/api/cron/process-scheduled-emails", schedule: "0 * * * *", what: "Sends email flow steps that are due" },
   { path: "/api/cron/release-holds", schedule: "0 6 * * *", what: "Moves held sale money to available" },
   { path: "/api/cron/rollup-daily", schedule: "0 1 * * *", what: "Adds up yesterday's analytics" },
-  { path: "/api/cron/purge-chat-attachments", schedule: "20 3 * * *", what: "Deletes chat pictures after 30 days" },
+  { path: "/api/cron/purge-chat-attachments", schedule: "20 3 * * *", what: "Deletes chat pictures and creator activity after 30 days" },
   { path: "/api/cron/storage-cleanup", schedule: "40 3 * * *", what: "Removes files nothing refers to, checks older product files and trims the security log" },
   { path: "/api/cron/strip-image-metadata", schedule: "10 * * * *", what: "Removes location data from new public photos" },
   { path: "/api/cron/notifications", schedule: "25 * * * *", what: "Works out every creator's notifications and pushes the urgent ones" },

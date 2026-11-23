@@ -1944,6 +1944,8 @@ const STRICT_SUITES = [
   "tests/journey-site-form.test.ts",
   /* Round 58 (f3): the plans page in the app draws /pricing's own sections (PricingSection, ComparePlans with Compare all features, FaqSection), so prices and features come from one source; Billing and X in a sticky bar clear of the safe areas; a settled button keeps its plan's fill; the layer rises and drops on a phone; the Stripe, proration, trial and current plan logic unchanged. scripts/check-upgrade-r58.mjs measures it in Chromium at 360, 390, 768 and 1280. */
   "tests/billing-upgrade-r58.test.ts",
+  /* Round 59 (g1): creator activity in /admin (SQL part 430): paths with ids as :id, pages and named actions only, one request a minute while visible and none while hidden, one database call per batch and a presence write at most every 55 s, country and coarse device from the request, admin only, soft and asked once per period before the part runs, 30 day cleanup in batches. scripts/check-activity-beacon-r59.mjs measures the requests in Chromium; scripts/check-creator-activity-r59.mjs the admin at 390 and 1280. */
+  "tests/creator-activity-r59.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))
