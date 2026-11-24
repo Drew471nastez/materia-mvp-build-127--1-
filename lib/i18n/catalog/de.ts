@@ -13810,7 +13810,11 @@ const words: Record<string, string> = {
  "The form could not open here. Try again, and if it keeps happening write to support@storelib.com.": "Das Formular konnte hier nicht geöffnet werden. Versuche es erneut, und wenn es weiter passiert, schreib an support@storelib.com.",
  "More apps like this": "Ähnliche Apps",
  "{label}, and {n} more": "{label} und {n} weitere",
- "+ {n} more": "+ {n} weitere"
+ "+ {n} more": "+ {n} weitere",
+ "Noted. We'll email you when payouts open in {country}.": "Notiert. Wir schreiben dir, sobald Auszahlungen in {country} möglich sind.",
+ "That could not be saved just now. Try again, or write to support@storelib.com.": "Das konnte gerade nicht gespeichert werden. Versuch es noch einmal oder schreib an support@storelib.com.",
+ "We'll let you know": "Wir sagen dir Bescheid",
+ "Tell me when it opens": "Sag mir Bescheid, wenn es losgeht"
 }
 
 export default words
