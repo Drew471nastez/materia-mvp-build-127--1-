@@ -247,7 +247,7 @@ async function main() {
     /* Changed on purpose (round 24): the order Browse themes puts first, and that every one of them is a template the code ships. */
     const first = (client.match(/export const BROWSE_THEMES_FIRST = \[([^\]]+)\]/)?.[1] ?? "").match(/"[^"]+"/g)?.map((x) => x.slice(1, -1)) ?? []
     const names = first.map((slug) => CODE_TEMPLATES.find((t) => t.slug === slug)?.name)
-    check("  Browse themes' first nine: Storelib Default first, Notion templates, then Night shop, Poster shop and Print on demand", names.join("|") === "Storelib Default|Clothing|Merch|Digital products|Art books|Notion templates|Night shop|Poster shop|Print on demand", names)
+    check("  Browse themes' first nine: Storelib Default first, Notion templates, then Night shop, Poster shop and Print on demand", names.join("|") === "Storelib Default|Clothing|Merch|Digital products|Art books|Notion templates|Night shop|Poster shop|Print on demand", names.join(", "))
     check("  and the rest of the marketplace fills what is left, in its own order", /return \[\.\.\.first, \.\.\.listings\.filter\(\(l\) => !first\.includes\(l\)\)\]\.slice\(0, count\)/.test(client))
   }
   check("  with a Theme marketplace button beside the heading that opens the popup", /data-theme-marketplace-open="heading"[\s\S]{0,1200}\{tt\("Theme marketplace"\)\}/.test(client) && /text-\[14px\] font-semibold/.test(client) && !/MARKETPLACE_PATH/.test(client) && /<ThemeMarketplace\b/.test(client))
