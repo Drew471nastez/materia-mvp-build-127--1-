@@ -70,7 +70,9 @@ function armReveal(entries) {
     // A motion element that gave way to this reveal pinned itself visible.
     if (el.tagName === 'MOTION-ELEMENT') el.style.removeProperty('opacity');
     el.classList.add('scroll-trigger--offscreen', 'scroll-trigger--armed');
-    return false;
+    // Just under the fold but inside the observer's margin: no later report
+    // would come for it, so it plays now, from its armed state.
+    return entry.isIntersecting;
   });
 }
 
@@ -79,7 +81,8 @@ function armReveal(entries) {
 // pictures seemed to load twice. The pictures in view that are still on their
 // way are waited for, PICTURE_WAIT_MS at most, so the section fades in once,
 // pictures included; one later than that simply appears (smooth-media-load).
-const PICTURE_WAIT_MS = 450;
+// It waits in its armed state (never blank, see animation.css), and briefly.
+const PICTURE_WAIT_MS = 250;
 function picturesReady(el) {
   const loading = [...el.querySelectorAll('img')].filter(img => !(img.complete && img.naturalWidth > 0));
   if (!loading.length) return null;
@@ -125,7 +128,9 @@ const revealObserver = 'IntersectionObserver' in window ? new IntersectionObserv
     else now.push(target);
   });
   if (now.length) reveal(now);
-}, {threshold: 0, rootMargin: '0px 0px -6% 0px'}) : null;
+// It starts just before it comes into view (5% of the screen below it), so
+// what scrolls in is already on its way, never waiting in view.
+}, {threshold: 0, rootMargin: '0px 0px 5% 0px'}) : null;
 
 function initializeScrollAnimationTrigger(root = document, editorEvent = false) {
   initializeScrollZoomAnimationTrigger(root);

@@ -9,13 +9,14 @@
  *
  *   VIDEO     exactly one (r24, the owner): the provider's demo, checked
  *             against its own YouTube channel (lib/integrations/videos.ts).
- *             A lite embed: its own YouTube thumbnail, from i.ytimg.com,
- *             lazy, sized and in a box that has its shape before it comes,
- *             with a play button. Pressing it (large, or its tile) puts a
- *             youtube-nocookie frame in the poster's exact box. Nothing is
- *             asked of youtube.com before a press, and only the layout that
- *             was pressed loads the frame (the other is hidden, and a hidden
- *             frame would still load and play).
+ *             YouTube's own player (r25, the owner): a youtube-nocookie
+ *             frame with YouTube's play button and controls, loading="lazy"
+ *             so the browser fetches it only once it is near the screen,
+ *             and a layout that is not shown (display: none) never fetches
+ *             it. Its own YouTube thumbnail sits under it while it loads.
+ *             The frame is 1px larger than its box on every side and the
+ *             box has no border of its own (the border is drawn over it), so
+ *             the player's black never shows as a line at an edge.
  *   PICTURES  Storelib's own pictures of the app connected to a store
  *             (lib/integrations/shots.ts): WebP at three widths with a
  *             srcset, lazy, 16:9, their size written on the tag.
@@ -204,34 +205,22 @@ function Thumb({ item, id, title, color, small }: { item: Pick<Integration, "id"
   )
 }
 
+/* The small mark on a video's tile: it says the tile is the video. The player itself is YouTube's own. */
 const PLAY = "flex items-center justify-center rounded-full bg-[#1a1a2e]/90 text-white shadow-[0_8px_24px_-8px_rgba(16,24,40,0.5)]"
 
 /**
- * A VIDEO IN A LARGE FRAME: its thumbnail and a play button. Pressed, a
- * youtube-nocookie frame takes the poster's exact box and plays; nothing is
- * asked of youtube.com before that press.
+ * A VIDEO IN A LARGE FRAME: YouTube's own player, lazy. Its thumbnail under
+ * it holds the box while the player loads. The frame overhangs its box by
+ * 1px each side (the box clips it), so a fraction of a pixel of the player's
+ * black can never show along an edge.
  */
-function VideoSlide({ item, id, title, color, playing, onPlay }: { item: Pick<Integration, "id" | "name" | "logo">; id: string; title: string; color: string; playing: boolean; onPlay: () => void }) {
-  const src = youtubeEmbedUrl(id)
+function VideoSlide({ item, id, title, color, autoplay = false }: { item: Pick<Integration, "id" | "name" | "logo">; id: string; title: string; color: string; autoplay?: boolean }) {
+  const src = youtubeEmbedUrl(id, autoplay)
   if (!src) return null
   return (
-    <div className="absolute inset-0" data-app-video={playing ? "playing" : "poster"}>
-      {playing ? (
-        <iframe src={src} title={title} className="absolute inset-0 h-full w-full border-0 bg-black" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" />
-      ) : (
-        <button
-          type="button"
-          onClick={onPlay}
-          className="group absolute inset-0 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1a1a2e]/30 [-webkit-tap-highlight-color:transparent]"
-          aria-label={tt("Play {title}", { title })}
-          data-app-video-poster=""
-        >
-          <Thumb item={item} id={id} title={title} color={color} />
-          <span className={cn(PLAY, "absolute left-1/2 top-1/2 h-14 w-14 -translate-x-1/2 -translate-y-1/2 transition-transform duration-150 group-hover:scale-105 group-active:scale-95 motion-reduce:transition-none")}>
-            <Play className="ml-0.5 h-6 w-6" fill="currentColor" aria-hidden />
-          </span>
-        </button>
-      )}
+    <div className="absolute inset-0" data-app-video="player">
+      <Thumb item={item} id={id} title={title} color={color} />
+      <iframe src={src} title={title} loading="lazy" className="absolute -inset-px h-[calc(100%+2px)] w-[calc(100%+2px)] max-w-none border-0" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" data-app-video-player="" />
     </div>
   )
 }
@@ -247,16 +236,14 @@ function Shot({ s, sizes, tile = false }: { s: Extract<Slide, { kind: "image" }>
 export function AppMediaGallery({ item, media, color }: { item: Pick<Integration, "id" | "name" | "logo">; media: AppMedia; color: string }) {
   const slides = slidesOf(item, media)
   const [at, setAt] = React.useState(0)
-  /* The one video playing, by its slide: only ever one, and it stops when another slide is shown. */
-  const [playing, setPlaying] = React.useState<number | null>(null)
-  /* Which layout was pressed: the computer's frame or the phone's row. Only that one loads the player. */
-  const [where, setWhere] = React.useState<"grid" | "row">("grid")
+  /* The video's tile was pressed: the player that comes back plays at once. */
+  const [chosen, setChosen] = React.useState(false)
   const label = (s: Slide) => (s.kind === "scene" ? s.frame.title : s.kind === "video" ? tt("Play {title}", { title: s.title }) : s.alt)
   /* A video's frame is 16:9, as its thumbnail and Storelib's pictures are; the drawn scenes keep the 16:10 they were drawn for. */
   const shape = slides[0]?.kind === "scene" ? "aspect-[16/10]" : "aspect-video"
   const large = (s: Slide, i: number) =>
     s.kind === "video" ? (
-      <VideoSlide item={item} id={s.id} title={s.title} color={color} playing={playing === i && where === "row"} onPlay={() => { setWhere("row"); setPlaying(i) }} />
+      <VideoSlide item={item} id={s.id} title={s.title} color={color} />
     ) : s.kind === "image" ? (
       <Shot s={s} sizes="(min-width: 640px) 520px, 86vw" />
     ) : (
@@ -276,15 +263,15 @@ export function AppMediaGallery({ item, media, color }: { item: Pick<Integration
     ) : (
       <SceneFrame item={item} frame={s.frame} large={false} />
     )
-  const FRAME = "relative overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-[#f3f4f6]"
+  /* The border is drawn over the frame's content (::after), not around it: the box is exactly 16:9, so the player fills it edge to edge. */
+  const FRAME = "relative overflow-hidden rounded-2xl bg-[#f3f4f6] after:pointer-events-none after:absolute after:inset-0 after:z-[1] after:rounded-[inherit] after:border after:border-[#e5e7eb]/60"
   /* The two tiles beside the large frame: the first two not in it. Any past those are counted on the second ("+ 2 more"), as an app store does. */
   const tiles = slides.map((s, i) => ({ s, i })).filter(({ i }) => i !== at).slice(0, 2)
   const hidden = Math.max(0, slides.length - 3)
   const choose = (i: number) => {
     setAt(i)
     /* A video's tile plays it: pressing a picture of a video means watch it. */
-    setWhere("grid")
-    setPlaying(slides[i]?.kind === "video" ? i : null)
+    setChosen(slides[i]?.kind === "video")
   }
   return (
     <div data-app-gallery="" data-app-gallery-count={slides.length}>
@@ -293,9 +280,9 @@ export function AppMediaGallery({ item, media, color }: { item: Pick<Integration
         <div className={cn(FRAME, shape)} data-app-gallery-main={slides[at]?.kind}>
           {slides.map((s, i) => (
             <div key={i} className={cn("absolute inset-0 transition-opacity duration-200 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none", i === at ? "opacity-100" : "pointer-events-none opacity-0")} inert={i !== at} aria-hidden={i !== at}>
-              {/* Only the shown one can be playing: another slide stops it. */}
+              {/* The player is there only while its slide is shown: another slide stops it. */}
               {s.kind === "video" ? (
-                <VideoSlide item={item} id={s.id} title={s.title} color={color} playing={playing === i && at === i && where === "grid"} onPlay={() => { setWhere("grid"); setPlaying(i) }} />
+                i === at ? <VideoSlide item={item} id={s.id} title={s.title} color={color} autoplay={chosen} /> : null
               ) : s.kind === "image" ? (
                 <Shot s={s} sizes="(min-width: 1440px) 720px, 56vw" />
               ) : (

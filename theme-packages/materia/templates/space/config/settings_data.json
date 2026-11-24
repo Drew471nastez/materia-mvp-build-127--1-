@@ -237,6 +237,7 @@
     "bubble_bg": "#e0201b",
     "bubble_text": "#ffffff",
     "bubble_border_width": 0,
-    "cart_drawer_buttons": "both"
+    "cart_drawer_buttons": "both",
+    "show_action_on_mobile": true
   }
 }

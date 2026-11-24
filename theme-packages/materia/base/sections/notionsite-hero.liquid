@@ -1,0 +1,156 @@
+{%- comment -%}
+  Materia Themes. Creator hero (Notion creator template): the creator's round
+  photo over a short line and a large heading, a sentence, two buttons and a
+  row of buyer avatars with stars. Optionally a picture beside it on wide
+  screens. Fonts, colours and buttons follow Theme settings and the section's
+  colour scheme; the buttons are the theme's own (data-theme-button).
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default'
+  assign has_side = false
+  if s.side_image != blank
+    assign has_side = true
+  endif
+  assign avatars = 0
+  for i in (1..5)
+    assign key = 'proof_avatar_' | append: i
+    if s[key] != blank
+      assign avatars = avatars | plus: 1
+    endif
+  endfor
+-%}
+<style>
+  #shopify-section-{{ sid }} .nsh { padding-block: {{ s.padding_top_mobile }}px {{ s.padding_bottom_mobile }}px; }
+  #shopify-section-{{ sid }} .nsh__grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 40px; align-items: center; }
+  #shopify-section-{{ sid }} .nsh__copy { display: flex; flex-direction: column; align-items: {% if s.align == 'center' %}center{% else %}flex-start{% endif %}; text-align: {{ s.align }}; {% if s.align == 'center' %}margin-inline: auto;{% endif %} max-width: {{ s.content_width }}px; }
+  #shopify-section-{{ sid }} .nsh__avatar { width: {{ s.avatar_size_mobile }}px; height: {{ s.avatar_size_mobile }}px; margin: 0 0 22px; border-radius: {% if s.avatar_shape == 'circle' %}50%{% else %}var(--rounded-radius, 16px){% endif %}; overflow: hidden; background: rgba(var(--color-heading-rgb), .06); flex: none; }
+  #shopify-section-{{ sid }} .nsh__avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  #shopify-section-{{ sid }} .nsh__intro { margin: 0 0 4px; font-family: var(--font-heading-family, inherit); font-weight: {{ s.intro_weight }}; font-size: {{ s.intro_size_mobile }}px; line-height: 1.15; color: var(--color-heading); letter-spacing: -.01em; }
+  #shopify-section-{{ sid }} .nsh__heading { margin: 0; font-size: {{ s.heading_size_mobile }}px; line-height: 1.04; letter-spacing: -.025em; }
+  #shopify-section-{{ sid }} .nsh__text { margin: 18px 0 0; font-size: {{ s.text_size_mobile }}px; line-height: 1.55; color: var(--color-text); max-width: 60ch; }
+  #shopify-section-{{ sid }} .nsh__text > * { margin: 0; }
+  #shopify-section-{{ sid }} .nsh__buttons { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 26px; {% if s.align == 'center' %}justify-content: center;{% endif %} }
+  #shopify-section-{{ sid }} .nsh__buttons .button { min-width: 150px; justify-content: center; text-align: center; }
+  #shopify-section-{{ sid }} .nsh__proof { display: flex; align-items: center; gap: 12px; margin-top: 20px; color: var(--color-text); font-size: 14px; text-decoration: none; }
+  #shopify-section-{{ sid }} a.nsh__proof:hover .nsh__proof-text { text-decoration: underline; text-underline-offset: 3px; }
+  #shopify-section-{{ sid }} .nsh__faces { display: flex; padding-left: 8px; }
+  #shopify-section-{{ sid }} .nsh__faces img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; margin-left: -8px; border: 2px solid var(--color-background, #fff); background: rgba(var(--color-heading-rgb), .08); display: block; }
+  #shopify-section-{{ sid }} .nsh__stars { display: flex; gap: 2px; color: {{ s.star_color }}; }
+  #shopify-section-{{ sid }} .nsh__stars svg { width: 16px; height: 16px; display: block; }
+  #shopify-section-{{ sid }} .nsh__proof-text { display: block; line-height: 1.35; margin-top: 2px; }
+  #shopify-section-{{ sid }} .nsh__side { margin: 0; border-radius: var(--rounded-radius, 16px); overflow: hidden; }
+  #shopify-section-{{ sid }} .nsh__side img { width: 100%; height: auto; display: block; }
+  @media (min-width: 750px) {
+    #shopify-section-{{ sid }} .nsh { padding-block: {{ s.padding_top }}px {{ s.padding_bottom }}px; }
+    #shopify-section-{{ sid }} .nsh__avatar { width: {{ s.avatar_size }}px; height: {{ s.avatar_size }}px; margin-bottom: 28px; }
+    #shopify-section-{{ sid }} .nsh__intro { font-size: {{ s.intro_size }}px; }
+    #shopify-section-{{ sid }} .nsh__heading { font-size: {{ s.heading_size }}px; }
+    #shopify-section-{{ sid }} .nsh__text { font-size: {{ s.text_size }}px; }
+    #shopify-section-{{ sid }} .nsh__buttons .button { min-width: 168px; }
+  }
+  @media (min-width: 990px) {
+    #shopify-section-{{ sid }} .nsh__grid--side { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 56px; }
+  }
+  @media (max-width: 989px) {
+    #shopify-section-{{ sid }} .nsh__side { {% unless s.side_on_mobile %}display: none;{% endunless %} }
+  }
+</style>
+<div class="nsh section color-{{ color_scheme }} gradient">
+  <div class="{{ s.section_width | default: 'container' }}">
+    <div class="nsh__grid{% if has_side %} nsh__grid--side{% endif %}">
+      <div class="nsh__copy">
+        {%- if s.image != blank -%}
+          <div class="nsh__avatar">{{ s.image | image_url: width: 480 | image_tag: loading: 'eager', fetchpriority: 'high', widths: '160, 240, 320, 480', sizes: '160px', alt: s.image_alt | default: '' }}</div>
+        {%- endif -%}
+        {%- if s.intro != blank -%}<p class="nsh__intro">{{ s.intro | escape }}</p>{%- endif -%}
+        {%- if s.heading != blank -%}<h1 class="nsh__heading h1">{{ s.heading | escape }}</h1>{%- endif -%}
+        {%- if s.text != blank -%}<div class="nsh__text rte">{{ s.text }}</div>{%- endif -%}
+        {%- if s.button_label != blank or s.button_2_label != blank -%}
+          <div class="nsh__buttons">
+            {%- if s.button_2_label != blank -%}<a class="button inline-block btn-secondary" data-theme-button="secondary" href="{{ s.button_2_link | default: routes.all_products_collection_url }}">{{ s.button_2_label | escape }}</a>{%- endif -%}
+            {%- if s.button_label != blank -%}<a class="button inline-block btn-primary" data-theme-button="primary" href="{{ s.button_link | default: routes.all_products_collection_url }}">{{ s.button_label | escape }}</a>{%- endif -%}
+          </div>
+        {%- endif -%}
+        {%- if avatars > 0 or s.show_stars or s.proof_text != blank -%}
+          {%- if s.proof_link != blank -%}<a class="nsh__proof" href="{{ s.proof_link }}">{%- else -%}<div class="nsh__proof">{%- endif -%}
+            {%- if avatars > 0 -%}
+              <span class="nsh__faces">
+                {%- for i in (1..5) -%}
+                  {%- assign key = 'proof_avatar_' | append: i -%}
+                  {%- if s[key] != blank -%}{{ s[key] | image_url: width: 96 | image_tag: loading: 'eager', width: 36, height: 36, alt: '' }}{%- endif -%}
+                {%- endfor -%}
+              </span>
+            {%- endif -%}
+            <span>
+              {%- if s.show_stars -%}
+                <span class="nsh__stars" aria-label="{{ s.stars }} out of 5 stars">
+                  {%- for i in (1..s.stars) -%}<svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 1.6l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 14.9l-5.2 2.7 1-5.8L1.6 7.7l5.8-.8z"/></svg>{%- endfor -%}
+                </span>
+              {%- endif -%}
+              {%- if s.proof_text != blank -%}<span class="nsh__proof-text">{{ s.proof_text | escape }}</span>{%- endif -%}
+            </span>
+          {%- if s.proof_link != blank -%}</a>{%- else -%}</div>{%- endif -%}
+        {%- endif -%}
+      </div>
+      {%- if has_side -%}
+        <figure class="nsh__side">{{ s.side_image | image_url: width: 1400 | image_tag: loading: 'eager', widths: '600, 900, 1200, 1400', sizes: '(min-width: 990px) 50vw, 100vw', alt: s.side_image_alt | default: '' }}</figure>
+      {%- endif -%}
+    </div>
+  </div>
+</div>
+{% schema %}
+{
+  "name": "Creator hero",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    { "type": "image_picker", "id": "image", "label": "Your photo" },
+    { "type": "text", "id": "image_alt", "label": "Photo description" },
+    { "type": "select", "id": "avatar_shape", "label": "Photo shape", "default": "circle", "options": [{ "value": "circle", "label": "Circle" }, { "value": "rounded", "label": "Rounded square" }] },
+    { "type": "range", "id": "avatar_size", "label": "Photo size", "min": 56, "max": 200, "step": 4, "unit": "px", "default": 128 },
+    { "type": "range", "id": "avatar_size_mobile", "label": "Photo size on phones", "min": 48, "max": 160, "step": 4, "unit": "px", "default": 96 },
+    { "type": "text", "id": "intro", "label": "Line above the heading", "default": "Hi, I make" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Notion templates" },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Say what you make and who it is for, in one sentence.</p>" },
+    { "type": "header", "content": "Buttons" },
+    { "type": "text", "id": "button_label", "label": "Main button", "default": "Browse templates" },
+    { "type": "url", "id": "button_link", "label": "Main button link" },
+    { "type": "text", "id": "button_2_label", "label": "Second button", "info": "Shown first, in the secondary button style." },
+    { "type": "url", "id": "button_2_link", "label": "Second button link" },
+    { "type": "header", "content": "Buyers" },
+    { "type": "image_picker", "id": "proof_avatar_1", "label": "Avatar 1" },
+    { "type": "image_picker", "id": "proof_avatar_2", "label": "Avatar 2" },
+    { "type": "image_picker", "id": "proof_avatar_3", "label": "Avatar 3" },
+    { "type": "image_picker", "id": "proof_avatar_4", "label": "Avatar 4" },
+    { "type": "image_picker", "id": "proof_avatar_5", "label": "Avatar 5" },
+    { "type": "checkbox", "id": "show_stars", "label": "Show stars", "default": true },
+    { "type": "range", "id": "stars", "label": "Stars", "min": 1, "max": 5, "step": 1, "default": 5 },
+    { "type": "color", "id": "star_color", "label": "Star colour", "default": "#f5b301" },
+    { "type": "text", "id": "proof_text", "label": "Text under the stars", "default": "Read what buyers say" },
+    { "type": "url", "id": "proof_link", "label": "Link", "info": "For example your reviews section: /#reviews" },
+    { "type": "header", "content": "Picture beside it" },
+    { "type": "image_picker", "id": "side_image", "label": "Picture", "info": "Optional. Shown beside the text on wide screens." },
+    { "type": "text", "id": "side_image_alt", "label": "Picture description" },
+    { "type": "checkbox", "id": "side_on_mobile", "label": "Show the picture on phones", "default": false },
+    { "type": "header", "content": "Look" },
+    { "type": "select", "id": "align", "label": "Alignment", "default": "left", "options": [{ "value": "left", "label": "Left" }, { "value": "center", "label": "Centre" }] },
+    { "type": "range", "id": "content_width", "label": "Text width", "min": 480, "max": 1200, "step": 20, "unit": "px", "default": 860 },
+    { "type": "range", "id": "intro_size", "label": "Line above size", "min": 16, "max": 64, "step": 2, "unit": "px", "default": 40 },
+    { "type": "range", "id": "intro_size_mobile", "label": "Line above size on phones", "min": 14, "max": 44, "step": 2, "unit": "px", "default": 26 },
+    { "type": "select", "id": "intro_weight", "label": "Line above weight", "default": "500", "options": [{ "value": "400", "label": "Regular" }, { "value": "500", "label": "Medium" }, { "value": "600", "label": "Semibold" }, { "value": "700", "label": "Bold" }] },
+    { "type": "range", "id": "heading_size", "label": "Heading size", "min": 32, "max": 120, "step": 2, "unit": "px", "default": 72 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size on phones", "min": 26, "max": 64, "step": 2, "unit": "px", "default": 40 },
+    { "type": "range", "id": "text_size", "label": "Text size", "min": 14, "max": 24, "step": 1, "unit": "px", "default": 18 },
+    { "type": "range", "id": "text_size_mobile", "label": "Text size on phones", "min": 13, "max": 20, "step": 1, "unit": "px", "default": 16 },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default" },
+    { "type": "select", "id": "section_width", "label": "Section width", "default": "container", "options": [{ "value": "container", "label": "Default" }, { "value": "fluid_container", "label": "Fluid container" }, { "value": "stretch_width", "label": "Stretched" }] },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 200, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 200, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Top padding on phones", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 48 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Bottom padding on phones", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 48 }
+  ],
+  "presets": [{ "name": "Creator hero" }]
+}
+{% endschema %}

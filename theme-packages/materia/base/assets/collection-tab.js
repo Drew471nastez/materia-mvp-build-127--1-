@@ -90,14 +90,24 @@
     if (document.body.classList.contains('shopify-design-mode') || !('IntersectionObserver' in window)) {
       section.classList.add('is-revealed');
     } else if (animation && animation !== 'none') {
+      // Shown by default. The first report says where it is: in or above the
+      // screen it stays shown; below, it is armed (collection-tab.css, never
+      // at 0) and revealed as it comes in.
+      var first = true;
       var io = new IntersectionObserver(function (entries, obs) {
         entries.forEach(function (e) {
+          if (first) {
+            first = false;
+            if (e.isIntersecting || e.boundingClientRect.top < window.innerHeight) { section.classList.add('is-revealed'); obs.unobserve(section); return; }
+            section.classList.add('ct-armed');
+            return;
+          }
           if (e.isIntersecting) {
             section.classList.add('is-revealed');
             obs.unobserve(section);
           }
         });
-      }, { threshold: 0.1 });
+      }, { threshold: 0, rootMargin: '0px 0px 5% 0px' });
       io.observe(section);
     } else {
       section.classList.add('is-revealed');

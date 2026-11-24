@@ -98,7 +98,7 @@
         "action_text_weight": "400",
         "logo_width_desktop": 78,
         "show_shopping_cart": true,
-        "show_wishlist_icon": false,
+        "show_wishlist_icon": true,
         "sticky_header_type": "on-scroll-up",
         "transparent_header": false,
         "transparent_mobile": false,

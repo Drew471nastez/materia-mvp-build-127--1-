@@ -1,44 +1,47 @@
 {%- comment -%}
-  Hanging rail (templates round 24). A boutique clothing rail: a metal rail
-  across the section and the shop's garments on hangers hanging from it,
-  each with a small price tag. Each garment is a block linked to a product,
-  with two cut-out pictures of it on its hanger: a side view, shown on the
-  rail, and a front view, shown when the visitor points at it. A back view
-  can be added; it is only downloaded when someone asks to see it.
+  Hanging rail (templates round 24, reworked in round 25). A clothing rail: a
+  metal rail across the section and the shop's garments on hangers hanging
+  from it side on, each with a small price tag. Each garment is a block
+  linked to a product, with two cut-out pictures of it on its hanger: a
+  side view, shown on the rail, and a front view, shown when the visitor
+  points at it. A back view can be added; it is only downloaded when
+  someone asks to see it.
 
-  On a computer the garment under the pointer turns to face the visitor
-  while its neighbours move aside, and the hangers swing a little as the
-  pointer brushes past or the rail moves. Its name shows under the rail.
-  Clicking it lifts it into a focus view (a window on a computer, a sheet
-  from the bottom on a phone): the garment large on the left, its title,
-  price and options, the theme's own Add to cart (<product-form>, so the
-  cart drawer and the count update as from a product page), a link to the
-  product page and arrows to step along the rail. A row wider than the
-  screen scrolls: dragged with the mouse, swiped, or with the arrows. On a
-  phone the garment nearest the middle turns to the front as the row is
-  swiped, and a tap opens the sheet. With reduced motion asked for, nothing
-  swings or flies: views change in place.
+  On a computer the garment under the pointer turns from its side to face
+  the visitor while its neighbours move aside, and the hangers swing a
+  little as the pointer brushes past or the rail moves. Its name shows
+  under the rail. Clicking it lifts it off the rail into a focus view (a
+  window on a computer, a sheet from the bottom on a phone): the garment
+  flies from its hanger to the left of the window, with its title, price,
+  options, Add to cart, the pieces it is worn with, a link to the product
+  page and arrows to step along the rail. Closing it is the same movement
+  backwards: the garment flies back onto its hanger while the window fades,
+  and the page can be used again at once. Either can be interrupted.
 
-  Geometry comes from settings alone (the height and width of a garment,
-  the gap), never from a picture's size, so nothing moves while pictures
-  load. Pictures are asked for at the size they are drawn (srcset); the
-  front views wait until the page has loaded or the pointer arrives, and
-  back views until the Back tab is pressed. One script, inline, the same
-  text for every rail: it defines <hanging-rail> once, and each rail, also
-  one the editor adds or redraws, starts itself when it is put on the page.
-  Its animation loop runs only while something is still moving.
+  Colours, fonts, buttons and corners are the theme's: the section takes a
+  colour scheme, the focus view takes the same scheme, the buttons are the
+  theme's buttons and the corners follow the theme's corner radius. Each
+  colour can be set apart from the scheme.
+
+  Geometry comes from settings alone (the height of a garment, the room for
+  it, the gap), never from a picture's size, so nothing moves while
+  pictures load. One script, inline, the same text for every rail: it
+  defines <hanging-rail> once, and each rail, also one the editor adds or
+  redraws, starts itself when it is put on the page. Its animation loop
+  runs only while something is still moving.
 {%- endcomment -%}
 {%- liquid
   assign st = section.settings
   assign sid = section.id
   assign count = section.blocks.size
+  assign scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
   assign gh = st.garment_height | default: 300
   assign gh_m = st.garment_height_mobile | default: 210
   assign ratio = st.garment_width | default: 50
   assign slot = gh | times: ratio | divided_by: 100
   assign slot_m = gh_m | times: ratio | divided_by: 100
-  assign side_1x = slot | at_least: 60
-  assign side_2x = slot | times: 2
+  assign side_1x = gh | times: 45 | divided_by: 100
+  assign side_2x = side_1x | times: 2
   assign front_1x = gh | times: 8 | divided_by: 10
   assign front_2x = front_1x | times: 2
   assign fit = false
@@ -52,21 +55,28 @@
   assign shop_link = st.button_link | default: routes.all_products_collection_url
   assign add_label = 'products.product.actions.add_to_cart.default.label' | t
   assign sold_label = 'products.product.actions.add_to_cart.sold_out.label' | t
+  assign button_style = st.button_style | default: 'secondary'
 -%}
 <style>
-  .hr { --hr-gh: var(--hr-gh-m); --hr-slot-base: calc(var(--hr-gh) * var(--hr-ratio)); --hr-slot: var(--hr-slot-base); --hr-edge: 16px; position: relative; overflow: hidden; background: var(--hr-bg); color: var(--hr-fg); padding: var(--hr-pt-m) 0 var(--hr-pb-m); }
+  .hr { --hr-gh: var(--hr-gh-m); --hr-slot-base: calc(var(--hr-gh) * var(--hr-ratio)); --hr-slot: var(--hr-slot-base); --hr-edge: 16px; --hr-radius: var(--rounded-radius, 12px); position: relative; overflow: hidden; background: var(--hr-bg); color: var(--hr-fg); padding: var(--hr-pt-m) 0 var(--hr-pb-m); font-family: var(--body-font, inherit); }
   @media (min-width: 750px) { .hr { --hr-gh: var(--hr-gh-d); --hr-edge: 32px; padding: var(--hr-pt) 0 var(--hr-pb); } }
-  .hr__bg { position: absolute; inset: 0; z-index: 0; }
+  .hr__bg { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
   .hr__bg img { width: 100%; height: 100%; object-fit: cover; object-position: var(--hr-focus-x, 50%) var(--hr-focus-y, 50%); display: block; }
+  .hr--blur .hr__bg img { filter: blur(var(--hr-blur)); transform: scale(1.06); }
   .hr__bg::after { content: ""; position: absolute; inset: 0; background: var(--hr-shade); opacity: var(--hr-shade-o); }
   .hr > :not(.hr__bg) { position: relative; z-index: 1; }
   .hr__head { text-align: center; padding: 0 var(--hr-edge); margin: 0 auto var(--hr-head-gap, 0); max-width: 1100px; }
-  .hr__eyebrow { margin: 0; display: inline-flex; align-items: center; gap: 12px; font-size: 11px; line-height: 1.4; letter-spacing: .18em; text-transform: uppercase; font-weight: 600; }
-  .hr__eyebrow span + span { padding-left: 12px; border-left: 1px solid currentColor; opacity: .55; font-weight: 500; }
-  .hr__eyebrow span + span:only-child { padding: 0; border: 0; }
-  .hr__heading { margin: 14px 0 0; color: inherit; font-size: var(--hr-h-m); line-height: 1.05; letter-spacing: -.01em; }
+  .hr__eyebrow { margin: 0; display: inline-flex; align-items: center; gap: 12px; font-size: 11px; line-height: 1.4; letter-spacing: .18em; text-transform: uppercase; font-weight: 600; color: var(--hr-fg); }
+  .hr__eyebrow span + span { padding-left: 12px; border-left: 1px solid currentColor; opacity: .6; font-weight: 500; }
+  .hr__heading { margin: 14px 0 0; color: var(--hr-heading); font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 600); text-transform: var(--heading-text-transform, none); font-size: var(--hr-h-m); line-height: 1.05; letter-spacing: var(--heading-letter-spacing, -.01em); }
   @media (min-width: 750px) { .hr__heading { font-size: var(--hr-h); } }
   .hr__eyebrow:empty, .hr__heading:empty { display: none; }
+  /* Over a picture, the words sit on a pane of frosted glass in the scheme's own colours, so they read on any picture. */
+  .hr--glass .hr__head > *, .hr--glass .hr__caption { position: relative; }
+  .hr--glass .hr__head { display: flex; justify-content: center; }
+  .hr--glass .hr__pane { display: inline-flex; flex-direction: column; align-items: center; max-width: 100%; padding: 14px 26px 16px; border-radius: var(--hr-radius); background: color-mix(in srgb, var(--hr-bg-solid) var(--hr-glass-o), transparent); -webkit-backdrop-filter: blur(18px) saturate(1.2); backdrop-filter: blur(18px) saturate(1.2); box-shadow: 0 1px 0 color-mix(in srgb, #fff 35%, transparent) inset, 0 10px 30px -18px rgba(0,0,0,.35); }
+  .hr--glass .hr__caption .hr__pane { gap: 12px; padding: 14px 22px; }
+  .hr:not(.hr--glass) .hr__pane { display: contents; }
 
   /* The stage: the rail, the row that scrolls, its arrows. Every size is a setting, so nothing moves while pictures arrive. */
   hanging-rail.hr__stage { display: block; position: relative; container-type: inline-size; padding-top: var(--hr-rail-y); }
@@ -83,22 +93,25 @@
   .hr__track { list-style: none; margin: 0 auto; padding: 0 var(--hr-edge); display: flex; gap: var(--hr-gap); width: max-content; min-width: 0; }
   .hr__item { position: relative; flex: 0 0 var(--hr-slot); width: var(--hr-slot); height: calc(var(--hr-ghx) * 1.06); margin: 0; will-change: transform; }
   .hr__g { position: absolute; inset: 0; display: block; color: inherit; text-decoration: none; outline: none; -webkit-tap-highlight-color: transparent; cursor: pointer; }
-  .hr__g:focus-visible .hr__swing { outline: 2px solid currentColor; outline-offset: 4px; border-radius: 4px; }
+  /* Keyboard focus: a short bar under the garment, which stays put while the garment turns and swings. */
+  .hr__g::after { content: ""; position: absolute; left: 50%; top: calc(var(--hr-ghx) * var(--hr-k, 1) + 8px); width: 28px; height: 2px; margin-left: -14px; border-radius: 2px; background: var(--hr-heading); opacity: 0; transition: opacity .2s; }
+  .hr__g:focus-visible::after { opacity: 1; }
   .hr__swing { position: absolute; left: 0; right: 0; top: 0; height: calc(var(--hr-ghx) * var(--hr-k, 1)); transform-origin: 50% 2%; }
+  /* Lifted off the rail into the focus view: the hanger is empty until the garment flies back. */
+  .hr__item.is-lifted .hr__swing { visibility: hidden; }
   .hr__side, .hr__front, .hr__blank { position: absolute; top: 0; left: 50%; height: 100%; max-width: none; transform: translateX(-50%); transform-origin: 50% 0; pointer-events: none; -webkit-user-drag: none; user-select: none; object-fit: contain; object-position: 50% 0; }
-  .hr__side { width: var(--hr-slot); }
+  /* A side view keeps its own width at the garment's height, so it hangs at the scale of its front view: hook over hook, hem level with hem. */
+  .hr__side { width: auto; }
   .hr__front { width: calc(var(--hr-ghx) * var(--hr-k, 1)); }
-  /* No side view: the front view hangs turned a little away, as clothes on a rail do, and turns to face the visitor. */
-
   .hr__front { opacity: 0; transform: translateX(-50%) perspective(900px) rotateY(-74deg); }
+  /* No side view: the front view hangs turned a little away, and turns to face the visitor. */
   .hr__front.hr__front--rest { opacity: 1; transform: translateX(-50%) perspective(1100px) rotateY(var(--hr-rest)); }
-  /* Each picture keeps its own layer while the pointer is over the rail, so turning one repaints nothing around it. */
   hanging-rail.is-live .hr__side, hanging-rail.is-live .hr__front { will-change: transform, opacity; }
   .hr__blank { width: calc(var(--hr-ghx) * .5); color: currentColor; opacity: .5; }
   .hr__tag { position: absolute; top: calc(var(--hr-ghx) * .02 + var(--hr-rail-t)); left: calc(50% + 4px); display: block; transform-origin: 2px 0; transform: rotate(-4deg); pointer-events: none; }
   .hr__tag::before { content: ""; position: absolute; left: 2px; top: -10px; height: 12px; border-left: 1px solid rgba(0,0,0,.45); }
-  .hr__tag span { display: block; margin-top: 2px; padding: 3px 6px 3px 9px; background: #fbfaf6; color: #111; font-size: 10px; line-height: 1.2; font-weight: 700; letter-spacing: .01em; white-space: nowrap; border-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,.22); position: relative; }
-  .hr__tag span::before { content: ""; position: absolute; left: 3px; top: 50%; width: 3px; height: 3px; margin-top: -1.5px; border-radius: 50%; background: rgba(0,0,0,.35); }
+  .hr__tag span { display: block; margin-top: 2px; padding: 3px 6px 3px 9px; background: var(--hr-tag-bg); color: var(--hr-tag-fg); font-family: var(--body-font, inherit); font-size: 10px; line-height: 1.2; font-weight: 700; letter-spacing: .01em; white-space: nowrap; border-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,.22); position: relative; }
+  .hr__tag span::before { content: ""; position: absolute; left: 3px; top: 50%; width: 3px; height: 3px; margin-top: -1.5px; border-radius: 50%; background: currentColor; opacity: .35; }
   .hr--no-tags .hr__tag { display: none; }
   @media (max-width: 749px) { .hr__tag span { font-size: 9px; padding: 2px 5px 2px 8px; } }
   .hr__arrow { position: absolute; top: calc(var(--hr-rail-y) + var(--hr-ghx) * .45); z-index: 3; width: 48px; height: 48px; margin-top: -24px; border: 0; border-radius: 50%; background: transparent; color: var(--hr-fg); display: none; align-items: center; justify-content: center; cursor: pointer; opacity: 0; transition: opacity .25s, transform .25s; }
@@ -114,98 +127,134 @@
   .hr__caption { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 18px var(--hr-edge) 0; text-align: center; }
   .hr__lines { position: relative; display: grid; min-height: 1.5em; width: 100%; max-width: 640px; }
   .hr__lines > * { grid-area: 1 / 1; margin: 0; transition: opacity .25s ease, transform .25s ease; }
-  .hr__name { font-size: 14px; font-weight: 600; opacity: 0; transform: translateY(4px); }
+  .hr__name { font-size: 14px; font-weight: 600; opacity: 0; transform: translateY(4px); color: var(--hr-heading); }
   .hr__name small { font-weight: 400; opacity: .7; margin-left: 8px; font-size: inherit; }
   .hr__text { font-size: 14px; line-height: 1.5; }
   .hr__text > * { margin: 0; }
   .hr.is-showing .hr__name { opacity: 1; transform: none; }
   .hr.is-showing .hr__text { opacity: 0; transform: translateY(-4px); }
-  .hr__button { display: inline-flex; align-items: center; gap: 10px; padding: 9px 20px; border: 1px solid currentColor; border-radius: 99px; color: inherit; font-size: 13px; font-weight: 500; text-decoration: none; transition: background-color .2s, color .2s; }
-  .hr__button:hover { background: var(--hr-fg); color: var(--hr-bg-solid); }
+  .hr__button--link { display: inline-flex; align-items: center; gap: 10px; padding: 4px 0; border-bottom: 1px solid currentColor; color: inherit; font-size: 13px; font-weight: 600; text-decoration: none; transition: opacity .2s; }
+  .hr__button--link:hover { opacity: .7; }
   .hr--split .hr__caption { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 12px 32px; text-align: left; }
-  .hr--split .hr__lines { display: contents; }
+  .hr--split .hr__lines, .hr--split .hr__caption .hr__pane { display: contents; }
   .hr--split .hr__name { grid-column: 1; grid-row: 1 / span 2; align-self: end; }
   .hr--split .hr__name small { display: block; margin: 4px 0 0; }
   .hr--split .hr__name:not(:empty) { opacity: 1; transform: none; }
   .hr--split .hr__text { grid-column: 2; grid-row: 1; text-align: right; justify-self: end; max-width: 34ch; }
   .hr--split.is-showing .hr__text { opacity: 1; transform: none; }
-  .hr--split .hr__button { grid-column: 2; grid-row: 2; justify-self: end; border: 0; padding: 4px 0; border-bottom: 1px solid currentColor; border-radius: 0; }
-  .hr--split .hr__button:hover { background: none; color: inherit; opacity: .75; }
+  .hr--split .hr__button { grid-column: 2; grid-row: 2; justify-self: end; }
   @media (max-width: 749px) {
     .hr--split .hr__caption { grid-template-columns: minmax(0, 1fr); }
     .hr--split .hr__name { grid-row: 1; }
     .hr--split .hr__text { grid-column: 1; grid-row: 2; text-align: left; justify-self: start; }
     .hr--split .hr__button { grid-column: 1; grid-row: 3; justify-self: start; }
   }
+  /* Split, over a picture on glass: one pane at the right, the garment's name taking the line's place as in the centred layout. */
+  .hr--glass.hr--split .hr__caption { display: flex; justify-content: flex-end; }
+  .hr--glass.hr--split .hr__caption .hr__pane { display: inline-flex; flex-direction: column; align-items: flex-end; text-align: right; max-width: min(440px, 100%); }
+  .hr--glass.hr--split .hr__lines { display: grid; }
+  .hr--glass.hr--split .hr__name, .hr--glass.hr--split .hr__text { grid-column: 1; grid-row: 1; justify-self: end; max-width: none; }
+  .hr--glass.hr--split .hr__name { opacity: 0; transform: translateY(4px); }
+  .hr--glass.hr--split .hr__name small { display: inline; margin: 0 0 0 8px; }
+  .hr--glass.hr--split.is-showing .hr__name { opacity: 1; transform: none; }
+  .hr--glass.hr--split.is-showing .hr__text { opacity: 0; transform: translateY(-4px); }
+  @media (max-width: 749px) { .hr--glass.hr--split .hr__caption { justify-content: center; } .hr--glass.hr--split .hr__caption .hr__pane { align-items: center; text-align: center; } .hr--glass.hr--split .hr__name, .hr--glass.hr--split .hr__text { justify-self: center; } }
   .hr__empty { margin: 0 auto; padding: 40px var(--hr-edge); text-align: center; font-size: 14px; opacity: .7; }
 
-  /* The focus view: one per page, in <body>, a window on a computer and a sheet on a phone. */
-  .hr-focus { position: fixed; inset: 0; z-index: 90; color: var(--hrf-fg, #111); }
+  /* The focus view: one per page, in <body>, a window on a computer and a sheet on a phone. It wears the rail's colour scheme. */
+  .hr-focus { position: fixed; inset: 0; z-index: 90; color: var(--color-text); font-family: var(--body-font, inherit); }
+  /* The scheme's class paints its background on whatever wears it: the window's own layers paint it instead, so it can fade. */
+  .hr-focus[class] { background: none; }
   .hr-focus[hidden] { display: none; }
-  .hr-focus__backdrop { position: absolute; inset: 0; background: var(--hrf-bg, #fff); opacity: 0; transition: opacity .35s ease; }
-  .hr-focus.is-open .hr-focus__backdrop { opacity: .94; }
-  .hr-focus__panel { position: absolute; inset: 0; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(300px, 400px); align-items: center; gap: clamp(24px, 5vw, 80px); padding: 64px clamp(56px, 8vw, 140px) 48px; outline: none; }
+  .hr-focus.is-closing { pointer-events: none; }
+  .hr-focus__backdrop { position: absolute; inset: 0; background: var(--hrf-bg); opacity: 0; transition: opacity .34s cubic-bezier(.4,0,.2,1); }
+  .hr-focus--glass .hr-focus__backdrop { background: color-mix(in srgb, var(--hrf-bg) 80%, transparent); -webkit-backdrop-filter: blur(26px) saturate(1.15); backdrop-filter: blur(26px) saturate(1.15); }
+  .hr-focus.is-open .hr-focus__backdrop { opacity: 1; }
+  .hr-focus__panel { position: absolute; inset: 0; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(300px, 420px); align-items: center; gap: clamp(24px, 5vw, 80px); padding: 64px clamp(56px, 8vw, 140px) 48px; outline: none; }
   .hr-focus__media { position: relative; height: min(76vh, 760px); display: flex; align-items: center; justify-content: center; }
-  .hr-focus__img { max-height: 100%; max-width: 100%; width: auto; height: 100%; object-fit: contain; transition: opacity .3s ease; }
+  .hr-focus__img { max-height: 100%; max-width: 100%; width: auto; height: 100%; object-fit: contain; transition: opacity .25s ease; }
   .hr-focus__img.is-hidden { opacity: 0; }
-  .hr-focus__info { opacity: 0; transform: translateY(8px); transition: opacity .35s ease .08s, transform .35s ease .08s; max-height: 100%; overflow: auto; padding: 4px; }
-  .hr-focus.is-open .hr-focus__info { opacity: 1; transform: none; }
-  .hr-focus__count { margin: 0 0 10px; font-size: 11px; letter-spacing: .12em; opacity: .55; font-variant-numeric: tabular-nums; }
-  .hr-focus__title { margin: 0; font-size: clamp(22px, 2.2vw, 30px); line-height: 1.15; color: inherit; }
-  .hr-focus__price { margin: 8px 0 0; display: flex; gap: 10px; align-items: baseline; font-size: 16px; font-weight: 600; }
+  .hr-focus__img.is-flying { visibility: hidden; transition: none; }
+  .hr-focus__info { opacity: 0; transform: translateY(10px); transition: opacity .3s ease, transform .3s ease; max-height: 100%; overflow: auto; padding: 4px; scrollbar-width: thin; }
+  .hr-focus.is-open .hr-focus__info { opacity: 1; transform: none; transition-delay: .1s; }
+  .hr-focus__chrome { opacity: 0; transition: opacity .25s ease; }
+  .hr-focus.is-open .hr-focus__chrome { opacity: .75; }
+  .hr-focus.is-open .hr-focus__chrome:hover { opacity: 1; }
+  .hr-focus__count { margin: 0 0 10px; font-size: 11px; letter-spacing: .12em; opacity: .6; font-variant-numeric: tabular-nums; }
+  .hr-focus__title { margin: 0; font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 600); text-transform: var(--heading-text-transform, none); letter-spacing: var(--heading-letter-spacing, 0); font-size: clamp(22px, 2.2vw, 30px); line-height: 1.15; color: var(--color-heading); }
+  .hr-focus__price { margin: 8px 0 0; display: flex; gap: 10px; align-items: baseline; font-size: 16px; font-weight: 600; color: var(--color-heading); }
   .hr-focus__price s { font-weight: 400; opacity: .55; font-size: 14px; }
-  .hr-focus__note { margin: 10px 0 0; font-size: 14px; line-height: 1.5; opacity: .75; }
+  .hr-focus__note { margin: 10px 0 0; font-size: 14px; line-height: 1.5; opacity: .8; }
   .hr-focus__views { display: flex; gap: 18px; margin: 18px 0 0; }
-  .hr-focus__views button { border: 0; background: none; padding: 4px 0; color: inherit; font: inherit; font-size: 13px; opacity: .5; border-bottom: 1px solid transparent; cursor: pointer; }
+  .hr-focus__views button { border: 0; background: none; padding: 4px 0; color: inherit; font: inherit; font-size: 13px; opacity: .55; border-bottom: 1px solid transparent; cursor: pointer; }
   .hr-focus__views button[aria-selected="true"] { opacity: 1; border-bottom-color: currentColor; }
   .hr-focus__option { border: 0; padding: 0; margin: 20px 0 0; min-width: 0; }
-  .hr-focus__option legend { padding: 0; margin: 0 0 10px; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; opacity: .6; }
+  .hr-focus__option legend { padding: 0; margin: 0 0 10px; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; opacity: .65; }
   .hr-focus__values { display: flex; flex-wrap: wrap; gap: 8px; }
-  .hr-focus__value { min-width: 42px; height: 42px; padding: 0 12px; border: 1px solid rgba(0,0,0,.18); border-color: color-mix(in srgb, currentColor 22%, transparent); border-radius: 99px; background: none; color: inherit; font: inherit; font-size: 13px; cursor: pointer; transition: background-color .2s, color .2s, border-color .2s; }
-  .hr-focus__value:hover { border-color: currentColor; }
-  .hr-focus__value[aria-pressed="true"] { background: var(--hrf-fg, #111); border-color: var(--hrf-fg, #111); color: var(--hrf-bg, #fff); }
+  .hr-focus__value { min-width: 44px; height: 44px; padding: 0 12px; border: var(--btn-border-width, 1px) solid color-mix(in srgb, var(--color-text) 22%, transparent); border-radius: var(--btn-radius, 99px); background: none; color: var(--color-text); font: inherit; font-size: 13px; cursor: pointer; transition: background-color .2s, color .2s, border-color .2s; }
+  .hr-focus__value:hover { border-color: var(--color-text); }
+  .hr-focus__value[aria-pressed="true"] { background: var(--btn-primary-bg-color, var(--color-heading)); border-color: var(--btn-primary-bg-color, var(--color-heading)); color: var(--btn-primary-color, var(--color-background)); }
   .hr-focus__value.is-out { text-decoration: line-through; opacity: .45; }
   .hr-focus__form { display: block; margin-top: 22px; }
   .hr-focus__add { width: 100%; min-height: 50px; }
-  .hr-focus__add.is-added { pointer-events: none; }
-  .hr-focus__cart[hidden] { display: none; }
-  .hr-focus__cart { display: inline-block; margin-top: 12px; font-size: 13px; font-weight: 600; color: inherit; text-underline-offset: 4px; }
-  .hr-focus__foot { display: flex; justify-content: space-between; gap: 16px; margin-top: 26px; padding-top: 16px; border-top: 1px solid color-mix(in srgb, currentColor 14%, transparent); font-size: 13px; }
-  .hr-focus__foot a { color: inherit; font-weight: 600; text-decoration: none; }
+  .hr-focus__add .hr-focus__label { display: inline-grid; }
+  .hr-focus__add .hr-focus__label > * { grid-area: 1 / 1; transition: opacity .2s ease, transform .2s ease; }
+  .hr-focus__add .hr-focus__done { opacity: 0; transform: translateY(6px); display: inline-flex; align-items: center; gap: 8px; }
+  .hr-focus__add.is-added .hr-focus__idle { opacity: 0; transform: translateY(-6px); }
+  .hr-focus__add.is-added .hr-focus__done { opacity: 1; transform: none; }
+  .hr-focus__add.is-busy .hr-focus__label { opacity: .55; }
+  .hr-focus__add.is-busy::after { content: ""; position: absolute; right: 18px; top: 50%; width: 14px; height: 14px; margin-top: -7px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: hr-spin .7s linear infinite; }
+  @keyframes hr-spin { to { transform: rotate(360deg); } }
+  .hr-focus__cart { display: inline-block; margin-top: 12px; font-size: 13px; font-weight: 600; color: var(--color-heading); text-underline-offset: 4px; opacity: 0; visibility: hidden; transition: opacity .25s ease, visibility 0s .25s; }
+  .hr-focus__cart.is-shown { opacity: 1; visibility: visible; transition: opacity .25s ease; }
+  .hr-focus__with { margin-top: 24px; }
+  .hr-focus__with h3 { margin: 0 0 10px; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; font-weight: 600; opacity: .65; font-family: inherit; color: inherit; }
+  .hr-focus__with ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .hr-focus__pair { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 6px; border: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent); border-radius: var(--rounded-radius, 10px); }
+  .hr-focus__pair img { width: 56px; height: 64px; object-fit: contain; border-radius: calc(var(--rounded-radius, 10px) * .6); background: color-mix(in srgb, var(--color-text) 5%, var(--color-background)); display: block; }
+  .hr-focus__pair a { color: var(--color-heading); text-decoration: none; font-size: 13px; font-weight: 600; line-height: 1.3; display: block; }
+  .hr-focus__pair a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .hr-focus__pair small { display: block; margin-top: 2px; font-size: 13px; opacity: .75; }
+  .hr-focus__plus { width: 40px; height: 40px; border: var(--btn-border-width, 1px) solid color-mix(in srgb, var(--color-text) 22%, transparent); border-radius: var(--btn-radius, 99px); background: none; color: var(--color-text); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: background-color .2s, color .2s, border-color .2s; }
+  .hr-focus__plus:hover { border-color: var(--color-text); }
+  .hr-focus__plus.is-added { background: var(--btn-primary-bg-color, var(--color-heading)); border-color: var(--btn-primary-bg-color, var(--color-heading)); color: var(--btn-primary-color, var(--color-background)); }
+  .hr-focus__plus[disabled] { opacity: .4; cursor: default; }
+  .hr-focus__plus svg { width: 14px; height: 14px; }
+  .hr-focus__foot { display: flex; justify-content: space-between; gap: 16px; margin-top: 26px; padding-top: 16px; border-top: 1px solid color-mix(in srgb, var(--color-text) 14%, transparent); font-size: 13px; }
+  .hr-focus__foot a { color: var(--color-heading); font-weight: 600; text-decoration: none; }
   .hr-focus__foot a:hover { text-decoration: underline; text-underline-offset: 4px; }
-  .hr-focus__close { position: absolute; top: 18px; right: 22px; z-index: 2; display: inline-flex; align-items: center; gap: 8px; border: 0; background: none; color: inherit; font: inherit; font-size: 13px; cursor: pointer; padding: 8px; }
-  .hr-focus__nav { position: absolute; top: 50%; z-index: 2; width: 56px; height: 56px; margin-top: -28px; border: 0; background: none; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; opacity: .7; transition: opacity .2s, transform .2s; }
-  .hr-focus__nav:hover { opacity: 1; }
+  .hr-focus__close { position: absolute; top: 18px; right: 22px; z-index: 2; display: inline-flex; align-items: center; gap: 8px; border: 0; background: none; color: inherit; font: inherit; font-size: 13px; cursor: pointer; padding: 10px; }
+  .hr-focus__nav { position: absolute; top: 50%; z-index: 2; width: 56px; height: 56px; margin-top: -28px; border: 0; background: none; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: opacity .2s, transform .2s; }
   .hr-focus__nav--prev { left: 12px; } .hr-focus__nav--next { right: 12px; }
   .hr-focus__nav--prev:hover { transform: translateX(-3px); } .hr-focus__nav--next:hover { transform: translateX(3px); }
   .hr-focus__nav svg { width: 32px; height: 32px; }
   .hr-focus__nav[hidden] { display: none; }
-  .hr-focus__fly { position: fixed; z-index: 95; pointer-events: none; margin: 0; object-fit: contain; }
-  .hr-focus__error[hidden] { display: none; }
+  .hr-fly { position: fixed; left: 0; top: 0; z-index: 95; pointer-events: none; margin: 0; object-fit: contain; transform-origin: 0 0; will-change: transform; }
   .hr-focus__error { margin-top: 10px; font-size: 13px; color: #b42318; }
+  .hr-focus__error:empty { display: none; }
   html.hr-locked { overflow: hidden; }
   html.hr-locked body { padding-right: var(--hr-bar, 0); }
   @media (max-width: 749px) {
-    .hr-focus__backdrop { background: rgba(0,0,0,1); }
-    .hr-focus.is-open .hr-focus__backdrop { opacity: .4; }
-    .hr-focus__panel { inset: auto 0 0 0; max-height: 92dvh; display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 0 0 calc(16px + env(safe-area-inset-bottom)); background: var(--hrf-bg, #fff); border-radius: 16px 16px 0 0; transform: translateY(100%); transition: transform .38s cubic-bezier(.2,.8,.2,1); overflow: auto; overscroll-behavior: contain; }
+    .hr-focus--solid .hr-focus__backdrop { background: color-mix(in srgb, var(--hrf-bg) 70%, transparent); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
+    .hr-focus__panel { inset: auto 0 0 0; max-height: 92dvh; display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 0 0 calc(16px + env(safe-area-inset-bottom)); background: var(--hrf-bg); border-radius: var(--hr-sheet-r, 16px) var(--hr-sheet-r, 16px) 0 0; box-shadow: 0 -10px 40px -16px rgba(0,0,0,.35); transform: translateY(100%); transition: transform .4s cubic-bezier(.2,.8,.2,1); overflow: auto; overscroll-behavior: contain; }
     .hr-focus.is-open .hr-focus__panel { transform: none; }
+    .hr-focus.is-closing .hr-focus__panel { transition-timing-function: cubic-bezier(.4,0,.6,1); transition-duration: .34s; }
     .hr-focus__media { height: 44dvh; min-height: 260px; padding: 28px 52px 8px; flex: none; }
     .hr-focus__info { padding: 8px 20px 0; max-height: none; overflow: visible; }
-    .hr-focus__close { top: 8px; right: 8px; }
+    .hr-focus__close { top: 6px; right: 6px; }
     .hr-focus__close span { display: none; }
     .hr-focus__nav { top: calc(22dvh + 14px); width: 44px; height: 44px; margin-top: -22px; }
     .hr-focus__nav--prev { left: 4px; } .hr-focus__nav--next { right: 4px; }
     .hr-focus__nav svg { width: 24px; height: 24px; }
-    .hr-focus__form { position: sticky; bottom: 0; background: var(--hrf-bg, #fff); padding-bottom: 4px; }
+    .hr-focus__form { position: sticky; bottom: 0; z-index: 1; background: var(--hrf-bg); padding: 6px 0 4px; }
   }
   @media (prefers-reduced-motion: reduce) {
-    .hr-focus__backdrop, .hr-focus__info, .hr-focus__panel, .hr__lines > *, .hr__arrow { transition: none !important; }
+    .hr-focus__backdrop, .hr-focus__info, .hr-focus__panel, .hr-focus__chrome, .hr__lines > *, .hr__arrow, .hr-focus__add .hr-focus__label > * { transition: none !important; }
   }
 </style>
 <div
-  class="hr{% if fit %} hr--fit{% endif %}{% if st.caption_layout == 'split' %} hr--split{% endif %}{% unless st.show_tags %} hr--no-tags{% endunless %}{% unless st.rail_brackets %} hr--no-brackets{% endunless %}"
-  style="--hr-gh-d: {{ gh }}px; --hr-gh-m: {{ gh_m }}px; --hr-ratio: {{ ratio | divided_by: 100.0 }}; --hr-gap: {{ st.gap | default: 0 }}px; --hr-n: {{ count | at_least: 1 }}; --hr-rail-y: {{ st.rail_top | default: 0 }}px; --hr-rail-t: {{ st.rail_thickness | default: 6 }}px; --hr-rod: {% case st.rail_finish %}{% when 'black' %}linear-gradient(180deg, #5a5a5a 0%, #1d1d1d 45%, #0c0c0c 60%, #3a3a3a 100%){% when 'brass' %}linear-gradient(180deg, #f3dfa6 0%, #c9a24e 45%, #8f6c25 60%, #d9b867 100%){% else %}linear-gradient(180deg, #f4f4f4 0%, #c6c6c6 40%, #8b8b8b 58%, #d5d5d5 100%){% endcase %}; --hr-bg: {% if picture %}#1b1b1b{% else %}{{ st.background_colour | default: '#f7f7f5' }}{% endif %}; --hr-bg-solid: {{ st.background_colour | default: '#f7f7f5' }}; --hr-fg: {{ st.text_colour | default: '#111111' }}; --hr-shade: {{ st.overlay_colour | default: '#000000' }}; --hr-shade-o: {{ st.overlay_opacity | default: 0 | divided_by: 100.0 }}; --hr-focus-x: {{ st.image_focus_x | default: 50 }}%; --hr-focus-y: {{ st.image_focus_y | default: 50 }}%; --hr-pt: {{ st.padding_top }}px; --hr-pb: {{ st.padding_bottom }}px; --hr-pt-m: {{ st.padding_top_mobile }}px; --hr-pb-m: {{ st.padding_bottom_mobile }}px; --hr-h: {{ st.heading_size | default: 56 }}px; --hr-h-m: {{ st.heading_size_mobile | default: 34 }}px; --hr-head-gap: {{ st.head_gap | default: 24 }}px; --hr-rest: {{ st.rest_turn | default: 24 }}deg;"
+  class="hr color-{{ scheme }}{% if fit %} hr--fit{% endif %}{% if st.caption_layout == 'split' %} hr--split{% endif %}{% unless st.show_tags %} hr--no-tags{% endunless %}{% unless st.rail_brackets %} hr--no-brackets{% endunless %}{% if picture and st.text_glass %} hr--glass{% endif %}{% if picture and st.image_blur > 0 %} hr--blur{% endif %}"
+  style="--hr-gh-d: {{ gh }}px; --hr-gh-m: {{ gh_m }}px; --hr-ratio: {{ ratio | divided_by: 100.0 }}; --hr-gap: {{ st.gap | default: 0 }}px; --hr-n: {{ count | at_least: 1 }}; --hr-rail-y: {{ st.rail_top | default: 0 }}px; --hr-rail-t: {{ st.rail_thickness | default: 6 }}px; --hr-rod: {% case st.rail_finish %}{% when 'black' %}linear-gradient(180deg, #5a5a5a 0%, #1d1d1d 45%, #0c0c0c 60%, #3a3a3a 100%){% when 'brass' %}linear-gradient(180deg, #f3dfa6 0%, #c9a24e 45%, #8f6c25 60%, #d9b867 100%){% else %}linear-gradient(180deg, #f4f4f4 0%, #c6c6c6 40%, #8b8b8b 58%, #d5d5d5 100%){% endcase %}; --hr-bg-solid: {% render 'scheme-color', color: st.background_colour, fallback: 'var(--color-background)' %}; --hr-bg: {% if picture %}var(--hr-bg-solid){% else %}var(--hr-bg-solid){% endif %}; --hr-fg: {% render 'scheme-color', color: st.text_colour, fallback: 'var(--color-text)' %}; --hr-heading: {% render 'scheme-color', color: st.text_colour, fallback: 'var(--color-heading)' %}; --hr-tag-bg: {% render 'scheme-color', color: st.tag_colour, fallback: '#fbfaf6' %}; --hr-tag-fg: {% render 'scheme-color', color: st.tag_text_colour, fallback: '#111111' %}; --hr-shade: {% render 'scheme-color', color: st.overlay_colour, fallback: 'var(--hr-bg-solid)' %}; --hr-shade-o: {{ st.overlay_opacity | default: 0 | divided_by: 100.0 }}; --hr-blur: {{ st.image_blur | default: 0 }}px; --hr-glass-o: {{ st.glass_opacity | default: 60 }}%; --hr-focus-x: {{ st.image_focus_x | default: 50 }}%; --hr-focus-y: {{ st.image_focus_y | default: 50 }}%; --hr-pt: {{ st.padding_top }}px; --hr-pb: {{ st.padding_bottom }}px; --hr-pt-m: {{ st.padding_top_mobile }}px; --hr-pb-m: {{ st.padding_bottom_mobile }}px; --hr-h: {{ st.heading_size | default: 56 }}px; --hr-h-m: {{ st.heading_size_mobile | default: 34 }}px; --hr-head-gap: {{ st.head_gap | default: 24 }}px; --hr-rest: {{ st.rest_turn | default: 24 }}deg;"
   data-hr-section="{{ sid }}"
 >
   {%- if picture and st.background_image != blank -%}
@@ -216,8 +265,10 @@
 
   {%- if st.eyebrow != blank or st.eyebrow_2 != blank or st.heading != blank -%}
     <div class="hr__head">
-      <p class="hr__eyebrow">{%- if st.eyebrow != blank -%}<span>{{ st.eyebrow | escape }}</span>{%- endif -%}{%- if st.eyebrow_2 != blank -%}<span>{{ st.eyebrow_2 | escape }}</span>{%- endif -%}</p>
-      {%- if st.heading != blank -%}<h2 class="hr__heading h1">{{ st.heading | escape }}</h2>{%- endif -%}
+      <div class="hr__pane">
+        <p class="hr__eyebrow">{%- if st.eyebrow != blank -%}<span>{{ st.eyebrow | escape }}</span>{%- endif -%}{%- if st.eyebrow_2 != blank -%}<span>{{ st.eyebrow_2 | escape }}</span>{%- endif -%}</p>
+        {%- if st.heading != blank -%}<h2 class="hr__heading">{{ st.heading | escape }}</h2>{%- endif -%}
+      </div>
     </div>
   {%- endif -%}
 
@@ -229,7 +280,10 @@
       data-swing="{{ st.swing | default: 50 }}"
       data-hover-gap="{{ st.hover_gap | default: 24 }}"
       data-click="{{ st.click_action | default: 'focus' }}"
-      data-strings='{"add": {{ add_label | json | escape }}, "soldOut": {{ sold_label | json | escape }}, "unavailable": "Unavailable", "added": "Added to cart", "viewCart": "View cart", "viewShop": "View in the shop", "close": "Close", "prev": "Previous garment", "next": "Next garment", "front": "Front", "back": "Back", "cartUrl": {{ routes.cart_url | json | escape }}, "addUrl": {{ routes.cart_add_url | json | escape }}}'
+      data-scheme="{{ scheme | escape }}"
+      data-backdrop="{{ st.focus_backdrop | default: 'glass' }}"
+      data-after-add="{{ st.after_add | default: 'stay' }}"
+      data-strings='{"add": {{ add_label | json | escape }}, "soldOut": {{ sold_label | json | escape }}, "unavailable": "Unavailable", "added": "Added to cart", "viewCart": "View cart", "viewShop": "View in the shop", "close": "Close", "prev": "Previous garment", "next": "Next garment", "front": "Front", "back": "Back", "with": {{ st.with_heading | default: 'Wear it with' | json | escape }}, "addPair": "Add to cart", "error": "Could not add it. Try again.", "cartUrl": {{ routes.cart_url | json | escape }}, "addUrl": {{ routes.cart_add_url | json | escape }}}'
     >
       <div class="hr__rod" aria-hidden="true"></div>
       <div class="hr__scroller" tabindex="-1">
@@ -270,7 +324,7 @@
               <a class="hr__g" href="{{ url }}" aria-label="{{ title | escape }}{% if price != blank %}, {{ price | escape }}{% endif %}" {% if st.click_action != 'page' %}aria-haspopup="dialog" {% endif %}draggable="false">
                 <span class="hr__swing">
                   {%- if side != blank -%}
-                    <img class="hr__side" src="{{ side | image_url: width: side_2x }}" srcset="{{ side | image_url: width: side_1x }} {{ side_1x }}w, {{ side | image_url: width: side_2x }} {{ side_2x }}w" sizes="(max-width: 749px) {{ slot_m | at_least: 40 }}px, {{ side_1x }}px" alt="" width="{{ slot }}" height="{{ gh }}" decoding="async"{% if forloop.index > 12 %} loading="lazy"{% endif %} draggable="false">
+                    <img class="hr__side" src="{{ side | image_url: width: side_2x }}" srcset="{{ side | image_url: width: side_1x }} {{ side_1x }}w, {{ side | image_url: width: side_2x }} {{ side_2x }}w" sizes="(max-width: 749px) {{ gh_m | times: 45 | divided_by: 100 }}px, {{ side_1x }}px" alt="" width="{{ side_1x }}" height="{{ gh }}" decoding="async"{% if forloop.index > 12 %} loading="lazy"{% endif %} draggable="false">
                   {%- elsif front != blank -%}
                     <img class="hr__front hr__front--rest" src="{{ front | image_url: width: front_2x }}" srcset="{{ front | image_url: width: front_1x }} {{ front_1x }}w, {{ front | image_url: width: front_2x }} {{ front_2x }}w" sizes="(max-width: 749px) {{ gh_m | times: 8 | divided_by: 10 }}px, {{ front_1x }}px" alt="" width="{{ gh }}" height="{{ gh }}" decoding="async"{% if forloop.index > 12 %} loading="lazy"{% endif %} draggable="false">
                   {%- else -%}
@@ -302,6 +356,12 @@
                     {%- if has_product -%}{%- for variant in p.variants -%}
                       { "id": {{ variant.id | json }}, "options": [{%- for value in variant.options -%}{{ value | append: '' | json }}{% unless forloop.last %},{% endunless %}{%- endfor -%}], "price": {{ variant.price | money | json }}, "compare": {% if variant.compare_at_price > variant.price %}{{ variant.compare_at_price | money | json }}{% else %}""{% endif %}, "available": {% if variant.available %}true{% else %}false{% endif %} }{% unless forloop.last %},{% endunless %}
                     {%- endfor -%}{%- endif -%}
+                  ],
+                  "with": [
+                    {%- for q in bs.wear_with limit: 3 -%}
+                      {%- assign qv = q.selected_or_first_available_variant -%}
+                      { "title": {{ q.title | json }}, "url": {{ q.url | json }}, "price": {{ q.price | money | json }}, "image": {% if q.featured_image != blank %}{{ q.featured_image | image_url: width: 160 | json }}{% else %}""{% endif %}, "variant": {{ qv.id | json }}, "option": {% if q.has_only_default_variant %}""{% else %}{{ qv.title | json }}{% endif %}, "available": {% if qv.available %}true{% else %}false{% endif %} }{% unless forloop.last %},{% endunless %}
+                    {%- endfor -%}
                   ]
                 }
               </script>
@@ -317,13 +377,19 @@
   {%- endif -%}
 
   <div class="hr__caption">
-    <div class="hr__lines">
-      <p class="hr__name" aria-live="polite"></p>
-      {%- if st.text_below != blank -%}<div class="hr__text">{{ st.text_below }}</div>{%- endif -%}
+    <div class="hr__pane">
+      <div class="hr__lines">
+        <p class="hr__name" aria-live="polite"></p>
+        {%- if st.text_below != blank -%}<div class="hr__text">{{ st.text_below }}</div>{%- endif -%}
+      </div>
+      {%- if st.button_label != blank -%}
+        {%- if button_style == 'link' -%}
+          <a class="hr__button hr__button--link" href="{{ shop_link }}">{{ st.button_label | escape }}<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M1 7h11m-4-4l4 4-4 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+        {%- else -%}
+          <a class="hr__button btn btn-{{ button_style }}" href="{{ shop_link }}" data-sl-button data-button-role="{{ button_style }}" data-theme-button="{{ button_style }}"><span>{{ st.button_label | escape }}</span></a>
+        {%- endif -%}
+      {%- endif -%}
     </div>
-    {%- if st.button_label != blank -%}
-      <a class="hr__button" href="{{ shop_link }}">{{ st.button_label | escape }}{% if st.caption_layout == 'split' %}<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M1 7h11m-4-4l4 4-4 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>{% endif %}</a>
-    {%- endif -%}
   </div>
 </div>
 <script>
@@ -331,28 +397,67 @@
   if (!window.customElements || customElements.get('hanging-rail')) return;
   var RM = window.matchMedia ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
   var FINE = window.matchMedia ? matchMedia('(hover: hover) and (pointer: fine)') : { matches: true };
+  var PHONE = window.matchMedia ? matchMedia('(max-width: 749px)') : { matches: false };
   var DEG = Math.PI / 180;
   var now = function () { return (window.performance && performance.now()) || Date.now(); };
   var clamp = function (v, a, b) { return v < a ? a : v > b ? b : v; };
   var smooth = function (a, b, x) { var t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+  var outCubic = function (t) { return 1 - Math.pow(1 - t, 3); };
+  var inOutCubic = function (t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   var idle = function (fn) { if (window.requestIdleCallback) requestIdleCallback(fn, { timeout: 1500 }); else setTimeout(fn, 200); };
   var ARROW_L = '<svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M27 16H6m7-8l-8 8 8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   var ARROW_R = '<svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M5 16h21m-7-8l8 8-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  var PLUS = '<svg viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+  var TICK = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M2 7.5l3.2 3L12 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+  /* ── Flights: a copy of a garment's picture moved from one box to another, one transform a frame.
+     The target is asked for again every frame, so a box that moves (a sheet sliding up, the page
+     scrolled while it closes) is met where it is. A flight can be stopped where it is and another
+     started from there, so opening and closing can interrupt each other. ── */
+  function boxOf(r) { return r ? { left: r.left, top: r.top, width: r.width, height: r.height } : null; }
+  function lerpBox(a, b, t) { return { left: a.left + (b.left - a.left) * t, top: a.top + (b.top - a.top) * t, width: a.width + (b.width - a.width) * t, height: a.height + (b.height - a.height) * t }; }
+  function Flight(src, from, toFn, ms, ease, done) {
+    var self = this;
+    var el = document.createElement('img');
+    el.className = 'hr-fly'; el.alt = ''; el.decoding = 'sync'; el.src = src;
+    var good = function (b) { return b && b.width > 2 && b.height > 2; };
+    var base = boxOf(toFn());
+    if (!good(base)) base = from;
+    var last = base;
+    el.style.width = base.width + 'px'; el.style.height = base.height + 'px';
+    document.body.appendChild(el);
+    this.el = el; this.cur = from; this.stopped = false;
+    var t0 = now();
+    var put = function (b) { self.cur = b; el.style.transform = 'translate3d(' + b.left.toFixed(2) + 'px,' + b.top.toFixed(2) + 'px,0) scale(' + (b.width / base.width).toFixed(4) + ',' + (b.height / base.height).toFixed(4) + ')'; };
+    put(from);
+    var step = function () {
+      if (self.stopped) return;
+      var t = clamp((now() - t0) / ms, 0, 1);
+      var to = boxOf(toFn());
+      if (good(to)) last = to; else to = last;
+      put(lerpBox(from, to, ease(t)));
+      if (t < 1) self.raf = requestAnimationFrame(step);
+      else { self.stopped = true; if (done) done(self); }
+    };
+    this.raf = requestAnimationFrame(step);
+  }
+  Flight.prototype.stop = function () { this.stopped = true; cancelAnimationFrame(this.raf); var b = this.cur; return b; };
+  Flight.prototype.remove = function () { this.stop(); if (this.el.parentNode) this.el.parentNode.removeChild(this.el); };
 
   /* ── The focus view: one for the page, shared by every rail on it ── */
-  var F = { root: null, rail: null, index: -1, state: null, opener: null, view: 'front' };
+  var F = { root: null, rail: null, index: -1, state: null, opener: null, view: 'front', mode: 'closed', flight: null };
   function focusBuild() {
     var r = document.createElement('div');
     r.className = 'hr-focus';
     r.hidden = true;
     r.innerHTML = '<div class="hr-focus__backdrop" data-hr-close></div>' +
       '<div class="hr-focus__panel" role="dialog" aria-modal="true" aria-labelledby="hr-focus-title" tabindex="-1">' +
-      '<button type="button" class="hr-focus__close" data-hr-close><span></span><svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M1 1l12 12M13 1L1 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>' +
-      '<button type="button" class="hr-focus__nav hr-focus__nav--prev" data-hr-go="-1">' + ARROW_L + '</button>' +
+      '<button type="button" class="hr-focus__close hr-focus__chrome" data-hr-close><span></span><svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M1 1l12 12M13 1L1 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>' +
+      '<button type="button" class="hr-focus__nav hr-focus__nav--prev hr-focus__chrome" data-hr-go="-1">' + ARROW_L + '</button>' +
       '<div class="hr-focus__media"><img class="hr-focus__img" alt="" decoding="async"></div>' +
       '<div class="hr-focus__info"></div>' +
-      '<button type="button" class="hr-focus__nav hr-focus__nav--next" data-hr-go="1">' + ARROW_R + '</button>' +
+      '<button type="button" class="hr-focus__nav hr-focus__nav--next hr-focus__chrome" data-hr-go="1">' + ARROW_R + '</button>' +
       '</div>';
     document.body.appendChild(r);
     F.root = r;
@@ -364,7 +469,10 @@
       if (opt) { F.state.values[+opt.getAttribute('data-hr-option')] = opt.getAttribute('data-value'); focusRender(true); var again = F.root.querySelector('[data-hr-option="' + opt.getAttribute('data-hr-option') + '"][data-value="' + CSS.escape(opt.getAttribute('data-value')) + '"]'); if (again) again.focus(); return; }
       var view = e.target.closest('[data-hr-view]');
       if (view) { focusView(view.getAttribute('data-hr-view')); return; }
+      var plus = e.target.closest('[data-hr-pair]');
+      if (plus) { addPair(plus); return; }
     });
+    r.addEventListener('submit', function (e) { if (e.target.closest('.hr-focus__form')) { e.preventDefault(); focusAdd(e.target); } });
     r.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') { e.preventDefault(); focusClose(); return; }
       if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !/INPUT|SELECT|TEXTAREA/.test((e.target.tagName || ''))) { e.preventDefault(); focusStep(e.key === 'ArrowLeft' ? -1 : 1); return; }
@@ -376,19 +484,10 @@
       else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
     });
     /* A phone: a swipe across the picture steps along the rail. */
-    var sx = 0, sy = 0, st = 0;
+    var sx = 0, sy = 0, s0 = 0;
     var media = r.querySelector('.hr-focus__media');
-    media.addEventListener('touchstart', function (e) { var t = e.touches[0]; sx = t.clientX; sy = t.clientY; st = now(); }, { passive: true });
-    media.addEventListener('touchend', function (e) { var t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy; if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.4 && now() - st < 700) focusStep(dx < 0 ? 1 : -1); }, { passive: true });
-    try {
-      if (typeof subscribe === 'function' && typeof PUB_SUB_EVENTS !== 'undefined') {
-        subscribe(PUB_SUB_EVENTS.cartUpdate, function (ev) {
-          if (!F.state || !ev || ev.source !== 'product-form') return;
-          var id = F.root.querySelector('.hr-focus__form [name="id"]');
-          if (id && String(ev.productVariantId) === String(id.value)) focusAdded();
-        });
-      }
-    } catch (err) {}
+    media.addEventListener('touchstart', function (e) { var t = e.touches[0]; sx = t.clientX; sy = t.clientY; s0 = now(); }, { passive: true });
+    media.addEventListener('touchend', function (e) { var t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy; if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.4 && now() - s0 < 700) focusStep(dx < 0 ? 1 : -1); }, { passive: true });
   }
 
   function variantFor(values) {
@@ -401,7 +500,7 @@
     var s = F.state, d = s.data, S = F.rail.strings, v = variantFor(s.values);
     var opts = d.options || [];
     var single = opts.length === 1;
-    var pickers = opts.filter(function (o) { return !(o.values.length === 1 && /^(title|default title)$/i.test(o.values[0]) ); }).map(function (o) {
+    var pickers = opts.filter(function (o) { return !(o.values.length === 1 && /^(title|default title)$/i.test(o.values[0])); }).map(function (o) {
       var i = opts.indexOf(o);
       var btns = o.values.map(function (val) {
         var any = (d.variants || []).some(function (x) { return x.options[i] === val && x.available && x.options.every(function (ov, k) { return k === i || single || ov === s.values[k]; }); });
@@ -416,25 +515,29 @@
     var pad = function (x) { return (x < 10 ? '0' : '') + x; };
     var views = d.back ? '<div class="hr-focus__views" role="tablist"><button type="button" role="tab" data-hr-view="front" aria-selected="' + (F.view === 'front') + '">' + esc(S.front) + '</button><button type="button" role="tab" data-hr-view="back" aria-selected="' + (F.view === 'back') + '">' + esc(S.back) + '</button></div>' : '';
     var form = d.variants.length ?
-      '<product-form class="hr-focus__form" data-hide-errors="false"><form method="post" action="' + esc(S.addUrl || '/cart/add') + '" accept-charset="UTF-8" class="form" novalidate data-type="add-to-cart-form">' +
+      '<form method="post" action="' + esc(S.addUrl || '/cart/add') + '" accept-charset="UTF-8" class="hr-focus__form" novalidate data-type="add-to-cart-form">' +
       '<input type="hidden" name="id" value="' + esc(v ? v.id : '') + '"><input type="hidden" name="quantity" value="1">' +
-      '<button type="submit" name="add" class="btn btn-primary product-form__submit hr-focus__add" data-sl-button data-button-role="primary" data-theme-button="primary"' + (can ? '' : ' disabled') + '><span>' + esc(label) + '</span></button>' +
-      '<div class="product-form__error-message-wrapper hr-focus__error" role="alert" hidden><span class="product-form__error-message"></span></div></form></product-form>' +
-      '<a class="hr-focus__cart" href="' + esc(S.cartUrl || '/cart') + '" hidden>' + esc(S.viewCart) + ' &rarr;</a>' : '';
+      '<button type="submit" name="add" class="btn btn-primary hr-focus__add" data-sl-button data-button-role="primary" data-theme-button="primary"' + (can ? '' : ' disabled') + '><span class="hr-focus__label"><span class="hr-focus__idle">' + esc(label) + '</span><span class="hr-focus__done" aria-hidden="true">' + TICK + esc(S.added) + '</span></span></button>' +
+      '<p class="hr-focus__error" role="alert"></p></form>' +
+      '<a class="hr-focus__cart" href="' + esc(S.cartUrl || '/cart') + '" tabindex="-1">' + esc(S.viewCart) + ' &rarr;</a>' : '';
+    var pairs = (d.with || []).filter(function (q) { return q && q.title; });
+    var withHtml = pairs.length ? '<div class="hr-focus__with"><h3>' + esc(S.with) + '</h3><ul role="list">' + pairs.map(function (q, i) {
+      return '<li class="hr-focus__pair">' + (q.image ? '<img src="' + esc(q.image) + '" alt="" width="56" height="64" loading="lazy">' : '<span></span>') +
+        '<div><a href="' + esc(q.url) + '">' + esc(q.title) + '</a><small>' + esc(q.price) + (q.option ? ' &middot; ' + esc(q.option) : '') + '</small></div>' +
+        '<button type="button" class="hr-focus__plus" data-hr-pair="' + i + '" aria-label="' + esc(S.addPair + ': ' + q.title) + '"' + (q.available && q.variant ? '' : ' disabled') + '>' + PLUS + '</button></li>';
+    }).join('') + '</ul></div>' : '';
     F.root.querySelector('.hr-focus__info').innerHTML =
       '<p class="hr-focus__count">' + pad(F.index + 1) + ' / ' + pad(n) + '</p>' +
       '<h2 id="hr-focus-title" class="hr-focus__title">' + esc(d.title) + '</h2>' +
       (price ? '<p class="hr-focus__price"><span>' + esc(price) + '</span>' + (compare ? '<s>' + esc(compare) + '</s>' : '') + '</p>' : '') +
       (d.note ? '<p class="hr-focus__note">' + esc(d.note) + '</p>' : '') +
-      views + pickers + form +
+      views + pickers + form + withHtml +
       '<div class="hr-focus__foot"><span>' + esc(d.title) + '</span><a href="' + esc(d.url) + '">' + esc(S.viewShop) + '</a></div>';
     F.root.querySelector('.hr-focus__close span').textContent = S.close;
     F.root.querySelector('.hr-focus__nav--prev').setAttribute('aria-label', S.prev);
     F.root.querySelector('.hr-focus__nav--next').setAttribute('aria-label', S.next);
     F.root.querySelector('.hr-focus__nav--prev').hidden = n < 2;
     F.root.querySelector('.hr-focus__nav--next').hidden = n < 2;
-    var form2 = F.root.querySelector('.hr-focus__form form');
-    if (form2) form2.addEventListener('submit', focusFlyToCart);
     if (!keepImage) focusImage();
   }
 
@@ -473,9 +576,17 @@
     if (!start) start = (d.variants || [])[0] || null;
     F.rail = rail; F.index = index; F.view = 'front';
     F.state = { data: d, values: start ? start.options.slice() : [] };
+    /* The rail's colour scheme and backdrop: the window wears the theme's colours for that scheme. */
+    var cls = 'hr-focus hr-focus--' + (rail.dataset.backdrop === 'solid' ? 'solid' : 'glass') + ' color-' + (rail.dataset.scheme || 'default-color-scheme');
+    ['is-open', 'is-closing'].forEach(function (c) { if (F.root.classList.contains(c)) cls += ' ' + c; });
+    F.root.className = cls;
     var section = rail.closest('.hr');
     var cs = section ? getComputedStyle(section) : null;
-    if (cs) { F.root.style.setProperty('--hrf-bg', cs.getPropertyValue('--hr-bg-solid').trim() || '#fff'); F.root.style.setProperty('--hrf-fg', cs.getPropertyValue('--hr-fg').trim() || '#111'); }
+    var bg = cs ? cs.getPropertyValue('--hr-bg-solid').trim() : '';
+    F.root.style.setProperty('--hrf-bg', bg && bg.indexOf('var(') < 0 ? bg : 'var(--color-background)');
+    var rr = cs ? cs.getPropertyValue('--rounded-radius').trim() : '';
+    if (rr) F.root.style.setProperty('--hr-sheet-r', 'max(' + rr + ', 10px)');
+    rail.items.forEach(function (x, j) { x.li.classList.toggle('is-lifted', j === index && F.mode !== 'closed'); });
     focusRender(false);
   }
 
@@ -486,30 +597,6 @@
   }
   function unlock() { document.documentElement.classList.remove('hr-locked'); document.documentElement.style.removeProperty('--hr-bar'); }
 
-  /* A picture flown from one box to another, as one transform on a copy of it. */
-  function fly(src, from, to, opts) {
-    if (!src || !from || !to || !from.width || !to.width || RM.matches || !document.body.animate) return null;
-    var c = document.createElement('img');
-    c.className = 'hr-focus__fly';
-    c.src = src; c.alt = '';
-    c.style.left = to.left + 'px'; c.style.top = to.top + 'px'; c.style.width = to.width + 'px'; c.style.height = to.height + 'px';
-    document.body.appendChild(c);
-    var sx = from.width / to.width, sy = from.height / to.height;
-    var tx = from.left - to.left, ty = from.top - to.top;
-    var frames = opts && opts.arc ? [
-      { transform: 'translate(' + tx + 'px,' + ty + 'px) scale(' + sx + ',' + sy + ')', opacity: 1 },
-      { transform: 'translate(' + (tx * 0.45) + 'px,' + (ty * 0.55 - 120) + 'px) scale(' + (sx * 0.7 + 0.3) + ')', opacity: 1, offset: 0.45 },
-      { transform: 'translate(0,0) scale(1)', opacity: 0.2 }
-    ] : [
-      { transform: 'translate(' + tx + 'px,' + ty + 'px) scale(' + sx + ',' + sy + ')', transformOrigin: '0 0' },
-      { transform: 'translate(0,0) scale(1,1)', transformOrigin: '0 0' }
-    ];
-    if (!(opts && opts.arc)) c.style.transformOrigin = '0 0';
-    var a = c.animate(frames, { duration: (opts && opts.ms) || 520, easing: (opts && opts.easing) || 'cubic-bezier(.2,.8,.2,1)', fill: 'forwards' });
-    a.onfinish = a.oncancel = function () { c.remove(); };
-    return a;
-  }
-
   function imgBox(img) {
     var r = img.getBoundingClientRect();
     var w = img.naturalWidth, h = img.naturalHeight;
@@ -519,89 +606,207 @@
     return { left: r.left + (r.width - cw) / 2, top: r.top + (r.height - ch) / 2, width: cw, height: ch };
   }
 
+  /* Where a garment's front view hangs on the rail when it faces the visitor: its hanger's box, at the front view's shape. */
+  function slotBox(it) {
+    var r = it.swing.getBoundingClientRect();
+    var f = it.front, w = f && f.naturalWidth, h = f && f.naturalHeight;
+    var ar = w && h ? w / h : 0.75;
+    /* The front view is drawn a touch larger when it faces the visitor (scale 1.04 from its top centre). */
+    var bh = r.height * 1.04, bw = Math.min(bh * ar, bh);
+    return { left: r.left + r.width / 2 - bw / 2, top: r.top, width: bw, height: Math.min(bh, bw / ar) };
+  }
+  function onScreen(b) { return b && b.top + b.height > 0 && b.top < window.innerHeight && b.left + b.width > 0 && b.left < window.innerWidth; }
+
+  function stopFlight() { var b = null; if (F.flight) { b = F.flight.stop(); F.flight.remove(); F.flight = null; } return b; }
+
   function focusOpen(rail, index, opener) {
     if (!F.root) focusBuild();
-    var wasOpen = !F.root.hidden;
+    if (F.mode === 'open' || F.mode === 'opening') { if (F.rail === rail && F.index === index) return; F.opener = opener || F.opener; focusFill(rail, index); return; }
+    var from = stopFlight();
+    var wasClosing = F.mode === 'closing';
+    if (wasClosing && F.rail && F.rail !== rail) { F.rail.items.forEach(function (x) { x.li.classList.remove('is-lifted'); }); F.rail.lifted = -1; F.rail.wake(); }
     F.opener = opener || document.activeElement;
-    focusFill(rail, index);
-    if (wasOpen) return;
+    F.mode = 'opening';
     lock();
     F.root.hidden = false;
-    var img = F.root.querySelector('.hr-focus__img');
-    var it = rail.items[index];
-    var srcImg = it.rest || (it.front && it.front.complete && it.front.naturalWidth && it.p > 0.5) ? it.front : it.side;
+    focusFill(rail, index);
+    var it = rail.items[index], img = F.root.querySelector('.hr-focus__img');
+    var src = (it.front && it.front.currentSrc) || it.data.front;
+    if (!from && it.front && it.front.currentSrc) from = slotBox(it);
     F.root.querySelector('.hr-focus__panel').focus({ preventScroll: true });
-    requestAnimationFrame(function () {
-      F.root.classList.add('is-open');
-      /* Lifted off the rail: the garment's picture flies from its hanger to its place in the window. */
-      if (srcImg && srcImg.currentSrc && !RM.matches && srcImg !== it.side) {
-        var to = imgBox(img), from = srcImg.getBoundingClientRect();
-        if (to.width) {
-          img.style.visibility = 'hidden';
-          var a = fly(srcImg.currentSrc, from, to, { ms: 560 });
-          var done = function () { img.style.visibility = ''; };
-          if (a) a.addEventListener('finish', done); else done();
-          setTimeout(done, 900);
-        }
-      }
-    });
+    /* The panel and backdrop start from their closed look: one frame, then open. */
+    void F.root.offsetWidth;
+    F.root.classList.remove('is-closing');
+    F.root.classList.add('is-open');
     rail.lifted = index;
     rail.wake();
+    if (from && src && !RM.matches) {
+      img.classList.add('is-flying');
+      F.flight = new Flight(src, from, function () { return img.naturalWidth ? imgBox(img) : img.getBoundingClientRect(); }, wasClosing ? 380 : 560, outCubic, function (fl) {
+        img.classList.remove('is-flying');
+        requestAnimationFrame(function () { fl.remove(); if (F.flight === fl) F.flight = null; });
+        if (F.mode === 'opening') F.mode = 'open';
+      });
+    } else {
+      img.classList.remove('is-flying');
+      F.mode = 'open';
+    }
   }
 
-  function focusClose() {
-    if (!F.root || F.root.hidden) return;
-    var rail = F.rail;
+  function focusClose(after) {
+    if (!F.root || F.root.hidden || F.mode === 'closing') return;
+    var rail = F.rail, it = rail && rail.items[F.index], img = F.root.querySelector('.hr-focus__img');
+    var from = stopFlight() || (img.naturalWidth && !img.classList.contains('is-hidden') ? imgBox(img) : null);
+    var src = img.currentSrc || img.src || (it && it.front && it.front.currentSrc);
+    F.mode = 'closing';
+    F.root.classList.add('is-closing');
     F.root.classList.remove('is-open');
+    /* The page is the visitor's again at once: scrolling and clicking do not wait for the garment. */
+    unlock();
+    var back = it ? it.a : F.opener;
+    if (back && back.isConnected) back.focus({ preventScroll: true });
     var finish = function () {
+      if (F.mode !== 'closing') return;
+      F.mode = 'closed';
       F.root.hidden = true;
+      F.root.classList.remove('is-closing');
       F.root.querySelector('.hr-focus__info').innerHTML = '';
-      F.root.querySelector('.hr-focus__img').removeAttribute('data-src');
-      unlock();
-      if (rail) { rail.lifted = -1; rail.wake(); }
-      var back = rail && rail.items[F.index] ? rail.items[F.index].a : F.opener;
-      if (back && back.isConnected) back.focus({ preventScroll: true });
+      img.removeAttribute('data-src');
+      img.classList.remove('is-flying');
+      if (rail) { rail.items.forEach(function (x) { x.li.classList.remove('is-lifted'); }); rail.lifted = -1; rail.wake(); }
       F.state = null;
+      if (after) after();
     };
-    if (RM.matches) finish(); else setTimeout(finish, 360);
+    var target = it ? slotBox(it) : null;
+    if (from && src && it && onScreen(target) && !RM.matches) {
+      img.classList.add('is-flying');
+      /* The garment goes back to its own hanger, which stays empty until it lands. */
+      F.flight = new Flight(src, from, function () { return slotBox(it); }, 440, inOutCubic, function (fl) {
+        if (rail) { rail.items.forEach(function (x) { x.li.classList.remove('is-lifted'); }); }
+        requestAnimationFrame(function () { fl.remove(); if (F.flight === fl) F.flight = null; });
+        finish();
+      });
+      setTimeout(function () { if (F.mode === 'closing' && !F.flight) finish(); }, 900);
+    } else {
+      setTimeout(finish, RM.matches ? 0 : 340);
+    }
   }
 
   function focusStep(dir) {
-    if (!F.rail || !F.state) return;
+    if (!F.rail || !F.state || F.mode === 'closing') return;
+    stopFlight();
+    F.root.querySelector('.hr-focus__img').classList.remove('is-flying');
+    if (F.mode === 'opening') F.mode = 'open';
     var n = F.rail.items.length;
     var i = (F.index + dir + n) % n;
     var img = F.root.querySelector('.hr-focus__img');
-    if (!RM.matches && img.animate) img.animate([{ opacity: 0.25, transform: 'translateX(' + (dir * -18) + 'px)' }, { opacity: 1, transform: 'none' }], { duration: 320, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    if (!RM.matches && img.animate) img.animate([{ opacity: 0.2, transform: 'translateX(' + (dir * 24) + 'px)' }, { opacity: 1, transform: 'none' }], { duration: 340, easing: 'cubic-bezier(.2,.8,.2,1)' });
     F.rail.lifted = i;
     F.rail.reveal(i);
     focusFill(F.rail, i);
   }
 
-  function focusFlyToCart() {
-    var img = F.root.querySelector('.hr-focus__img');
-    var cart = null;
-    var cands = document.querySelectorAll('.header__minicart a, a[href$="/cart"].header-icon, [data-storelib-cart-count]');
-    for (var i = 0; i < cands.length; i++) { var r = cands[i].getBoundingClientRect(); if (r.width && r.height && r.top < window.innerHeight) { cart = r; break; } }
-    if (!cart) cart = { left: window.innerWidth - 60, top: 14, width: 28, height: 28 };
-    var from = imgBox(img);
-    var size = 36;
-    fly(img.currentSrc || img.src, from, { left: cart.left + cart.width / 2 - size / 2, top: cart.top + cart.height / 2 - size / 2, width: size, height: size * (from.height / Math.max(1, from.width)) }, { arc: true, ms: 760, easing: 'cubic-bezier(.45,0,.2,1)' });
+  /* ── Add to cart: the theme's cart, asked the way its product form asks; the drawer and the count are
+     redrawn from the answer, then the focus view says it is added (or closes and opens the drawer). ── */
+  function cartEl() { return document.querySelector('cart-notification') || document.querySelector('cart-drawer'); }
+  function addToCart(id, qty) {
+    var cart = cartEl();
+    var secs = [];
+    try { if (cart && cart.getSectionsToRender) secs = cart.getSectionsToRender().map(function (x) { return x.id; }); } catch (e) {}
+    var body = { id: id, quantity: qty || 1 };
+    if (secs.length) { body.sections = secs.join(','); body.sections_url = window.location.pathname; }
+    var url = (window.routes && window.routes.cart_add_url) || (F.rail && F.rail.strings.addUrl) || '/cart/add';
+    /* The .js address answers with JSON wherever the cart lives. */
+    if (!/\.js(on)?$/.test(url)) url += '.js';
+    return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (res && res.status && res.status !== 200 && (res.message || res.description)) throw new Error(res.description || res.message);
+        if (cart && res && res.sections) {
+          secs.forEach(function (sec) {
+            var el = document.getElementById(sec), html = res.sections[sec];
+            if (!el || !html) return;
+            var incoming = new DOMParser().parseFromString(html, 'text/html').querySelector('#minicart-form');
+            if (incoming && !(window.materiaPatchDrawerCart && window.materiaPatchDrawerCart(el, incoming))) el.innerHTML = incoming.innerHTML;
+          });
+          try { if (typeof cart.cartAction === 'function') cart.cartAction(); } catch (e) {}
+          cart.classList.remove('is-empty');
+        }
+        return fetch('/cart.json').then(function (r) { return r.json(); }).then(function (c) {
+          if (c && c.item_count != null) document.querySelectorAll('.cart-count').forEach(function (el) { el.innerHTML = el.classList.contains('cart-count-drawer') ? '(' + c.item_count + ')' : (c.item_count > 100 ? '~' : c.item_count); });
+          try { var tp = document.querySelector('header-total-price'); if (tp && tp.updateTotal) tp.updateTotal(c); } catch (e) {}
+          try { if (typeof publish === 'function' && typeof PUB_SUB_EVENTS !== 'undefined') publish(PUB_SUB_EVENTS.cartUpdate, { source: 'hanging-rail', productVariantId: id, cartData: res }); } catch (e) {}
+          return res;
+        }, function () { return res; });
+      });
   }
 
-  function focusAdded() {
-    var btn = F.root.querySelector('.hr-focus__add'), link = F.root.querySelector('.hr-focus__cart');
-    if (!btn) return;
-    var span = btn.querySelector('span'), was = span ? span.textContent : '';
-    if (span) span.textContent = F.rail.strings.added;
-    btn.classList.add('is-added');
-    if (link) link.hidden = false;
-    setTimeout(function () { if (span && span.isConnected) span.textContent = was; btn.classList.remove('is-added'); }, 2200);
+  function cartTarget() {
+    var cands = document.querySelectorAll('.header__minicart a, a[href$="/cart"].header-icon, [data-storelib-cart-count], .cart-count');
+    for (var i = 0; i < cands.length; i++) { var r = cands[i].getBoundingClientRect(); if (r.width && r.height && r.top < window.innerHeight && r.bottom > 0) return r; }
+    return { left: window.innerWidth - 60, top: 14, width: 28, height: 28 };
+  }
+
+  /* A small copy of the picture arcs to the cart in the header, the way a hand drops it into a bag. */
+  function flyToCart(src, from) {
+    if (!src || !from || !from.width || RM.matches || !document.body.animate) return;
+    var cart = cartTarget(), size = 34;
+    var to = { left: cart.left + cart.width / 2 - size / 2, top: cart.top + cart.height / 2 - size / 2, width: size, height: size * (from.height / Math.max(1, from.width)) };
+    var c = document.createElement('img');
+    c.className = 'hr-fly'; c.src = src; c.alt = '';
+    c.style.width = to.width + 'px'; c.style.height = to.height + 'px';
+    document.body.appendChild(c);
+    var sx = from.width / to.width, sy = from.height / to.height;
+    var a = c.animate([
+      { transform: 'translate(' + from.left + 'px,' + from.top + 'px) scale(' + sx + ',' + sy + ')', opacity: 1 },
+      { transform: 'translate(' + (from.left + (to.left - from.left) * 0.5) + 'px,' + (Math.min(from.top, to.top) - 60) + 'px) scale(' + (sx * 0.35 + 0.65) + ',' + (sy * 0.35 + 0.65) + ')', opacity: 1, offset: 0.5 },
+      { transform: 'translate(' + to.left + 'px,' + to.top + 'px) scale(1,1)', opacity: 0.15 }
+    ], { duration: 720, easing: 'cubic-bezier(.45,0,.25,1)', fill: 'forwards' });
+    a.onfinish = a.oncancel = function () { c.remove(); };
+  }
+
+  function focusAdd(form) {
+    var btn = form.querySelector('.hr-focus__add'), id = form.querySelector('[name=id]').value, err = form.querySelector('.hr-focus__error');
+    if (!btn || btn.disabled || btn.classList.contains('is-busy') || !id) return;
+    var rail = F.rail, idx = F.index;
+    var img = F.root.querySelector('.hr-focus__img');
+    btn.classList.add('is-busy'); btn.setAttribute('aria-busy', 'true');
+    if (err) err.textContent = '';
+    addToCart(id, 1).then(function () {
+      btn.classList.remove('is-busy'); btn.removeAttribute('aria-busy');
+      if (F.rail !== rail || F.index !== idx || F.mode === 'closed') return;
+      flyToCart(img.currentSrc || img.src, imgBox(img));
+      if (rail.dataset.afterAdd === 'drawer' && cartEl() && cartEl().open) { focusClose(function () { try { cartEl().open(); } catch (e) {} }); return; }
+      btn.classList.add('is-added');
+      var done = btn.querySelector('.hr-focus__done'); if (done) done.removeAttribute('aria-hidden');
+      var link = F.root.querySelector('.hr-focus__cart'); if (link) { link.classList.add('is-shown'); link.removeAttribute('tabindex'); }
+      clearTimeout(F.addedT);
+      F.addedT = setTimeout(function () { if (btn.isConnected) { btn.classList.remove('is-added'); if (done) done.setAttribute('aria-hidden', 'true'); } }, 2400);
+    }, function (e) {
+      btn.classList.remove('is-busy'); btn.removeAttribute('aria-busy');
+      if (err && err.isConnected) err.textContent = (e && e.message) || F.rail.strings.error;
+    });
+  }
+
+  function addPair(btn) {
+    var q = (F.state.data.with || [])[+btn.getAttribute('data-hr-pair')];
+    if (!q || !q.variant || btn.classList.contains('is-busy')) return;
+    btn.classList.add('is-busy'); btn.disabled = true;
+    var pic = btn.closest('.hr-focus__pair').querySelector('img');
+    addToCart(q.variant, 1).then(function () {
+      btn.classList.remove('is-busy'); btn.disabled = false; btn.classList.add('is-added'); btn.innerHTML = TICK;
+      if (pic) flyToCart(pic.currentSrc || pic.src, imgBox(pic));
+      var link = F.root.querySelector('.hr-focus__cart'); if (link) { link.classList.add('is-shown'); link.removeAttribute('tabindex'); }
+    }, function (e) {
+      btn.classList.remove('is-busy'); btn.disabled = false;
+      var err = F.root.querySelector('.hr-focus__error'); if (err) err.textContent = (e && e.message) || F.rail.strings.error;
+    });
   }
 
   /* ── The rail ── */
   class HangingRail extends HTMLElement {
     connectedCallback() { if (this.on) return; this.on = true; try { this.setup(); } catch (e) { this.on = false; } }
-    disconnectedCallback() { this.on = false; if (this.ac) this.ac.abort(); if (this.ro) this.ro.disconnect(); cancelAnimationFrame(this.raf); this.raf = 0; }
+    disconnectedCallback() { this.on = false; if (this.ac) this.ac.abort(); if (this.ro) this.ro.disconnect(); cancelAnimationFrame(this.raf); this.raf = 0; if (F.rail === this && F.mode !== 'closed') { stopFlight(); F.mode = 'closed'; if (F.root) { F.root.hidden = true; F.root.className = 'hr-focus'; } unlock(); } }
 
     setup() {
       var self = this;
@@ -622,7 +827,7 @@
         var side = li.querySelector('.hr__side');
         var front = li.querySelector('.hr__front');
         return { li: li, i: i, a: li.querySelector('.hr__g'), swing: li.querySelector('.hr__swing'), side: side, rest: !!(front && front.classList.contains('hr__front--rest')), front: front, data: data, h: 0,
-          at: 0, dx: 0, vx: 0, acc: 0, p: 0, vp: 0, th: 0, om: 0, tilt: 0, fw: 0, last: '' };
+          at: 0, dx: 0, vx: 0, acc: 0, p: 0, vp: 0, th: 0, om: 0, tilt: 0, fw: 0, sw: 0, last: '' };
       });
       this.active = -1; this.lifted = -1; this.pointer = null; this.hold = -1; this.fronts = false;
       this.scrollV = 0; this.scrollA = 0; this.lastScroll = 0; this.drag = null; this.glide = 0;
@@ -632,6 +837,7 @@
       this.measure();
       this.ro = new ResizeObserver(function () { self.measure(); self.wake(); });
       this.ro.observe(this);
+      this.items.forEach(function (it) { if (it.side && !it.side.complete) it.side.addEventListener('load', function () { self.frontWidth(it); self.wake(); }, { once: true }); });
 
       this.addEventListener('pointerenter', function (e) { if (e.pointerType === 'mouse' || e.pointerType === 'pen') { self.loadFronts(); self.rect = null; self.classList.add('is-live'); } }, o);
       this.addEventListener('pointermove', function (e) { if (e.pointerType === 'touch') return; self.mouse = true; self.onMove(e); }, op);
@@ -657,7 +863,10 @@
         if (e.metaKey || e.ctrlKey || e.shiftKey || e.button > 0) return;
         e.preventDefault();
         self.loadFronts();
-        focusOpen(self, it.i, it.a);
+        /* The front view is what flies: on a phone, a garment tapped while still side on turns first, then lifts. */
+        var go = function () { focusOpen(self, it.i, it.a); };
+        if (it.front && !it.front.complete && it.front.src) { var waited = false; var once = function () { if (waited) return; waited = true; go(); }; it.front.addEventListener('load', once, { once: true }); setTimeout(once, 250); }
+        else go();
       }, o);
       this.scroller.addEventListener('pointerdown', function (e) { self.downIt = self.itemOf(e.target); self.downT = now(); self.onDown(e); }, o);
       this.scroller.addEventListener('dragstart', function (e) { e.preventDefault(); }, o);
@@ -690,10 +899,12 @@
     }
 
     frontWidth(it) {
-      var f = it.front;
+      var f = it.front, s = it.side;
       var h = it.h || this.gh;
       it.fw = f && f.naturalWidth && f.naturalHeight ? Math.min(h, h * f.naturalWidth / f.naturalHeight) : h * 0.72;
-      /* What it takes on the rail before it turns: its slot, or its turned width when it hangs turned. */
+      /* A side view drawn at the garment's height: its own width, which may be wider than its room (a hood). */
+      it.sw = s && s.naturalWidth && s.naturalHeight ? h * s.naturalWidth / s.naturalHeight : this.slot;
+      /* What it takes on the rail before it turns: its room, its side view's garment, or its turned width when it hangs turned. */
       it.base = it.rest ? Math.max(this.slot, it.fw * Math.cos(this.restDeg * DEG)) : this.slot;
     }
 
@@ -852,7 +1063,8 @@
       for (i = 0; i < n; i++) {
         it = items[i];
         var goal = i === target ? 1 : 0;
-        if (reduced) { it.p = goal; it.vp = 0; }
+        /* The garment in the focus view snaps to the front at once: it is that picture that flies back onto it. */
+        if (reduced || (i === this.lifted && it.li.classList.contains('is-lifted'))) { it.p = goal; it.vp = 0; }
         else { var ap = k * (goal - it.p) - c * it.vp; it.vp += ap * dt; it.p += it.vp * dt; if (Math.abs(goal - it.p) < 0.002 && Math.abs(it.vp) < 0.01) { it.p = goal; it.vp = 0; } else moving = true; }
       }
       /* Neighbours make room for a garment turned to the front: each side moves by half of what it gained, and the gap. */
@@ -884,7 +1096,7 @@
       }
       /* The garment in front leans a little toward the pointer. */
       var tilt = 0;
-      if (p && items[target] && this.mouse && !reduced) tilt = clamp((p.x - (items[target].at + items[target].dx)) / Math.max(1, items[target].fw / 2), -1, 1) * 9;
+      if (p && items[target] && this.mouse && !reduced && this.lifted < 0) tilt = clamp((p.x - (items[target].at + items[target].dx)) / Math.max(1, items[target].fw / 2), -1, 1) * 9;
       for (i = 0; i < n; i++) {
         it = items[i];
         var tl = i === target ? tilt : 0;
@@ -900,13 +1112,14 @@
         if (it.front && it.rest) {
           it.front.style.transform = (pp || it.tilt) ? 'translateX(-50%) perspective(1100px) rotateY(' + ((1 - pp) * this.restDeg + it.tilt).toFixed(2) + 'deg) scale(' + (1 + 0.05 * pp).toFixed(4) + ')' : '';
         } else if (it.front && it.fw) {
-          var fo = reduced ? pp : smooth(0.12, 0.55, pp);
+          /* Side on to front: the side view turns away as the front view turns in, a quarter turn between them. */
+          var fo = reduced ? pp : smooth(0.18, 0.6, pp);
           it.front.style.opacity = fo ? fo.toFixed(3) : '';
-          it.front.style.transform = pp ? 'translateX(-50%) perspective(900px) rotateY(' + ((1 - pp) * -74 + it.tilt).toFixed(2) + 'deg) scale(' + (1 + 0.05 * pp).toFixed(4) + ')' : '';
+          it.front.style.transform = pp ? 'translateX(-50%) perspective(900px) rotateY(' + ((1 - pp) * -80 + it.tilt).toFixed(2) + 'deg) scale(' + (1 + 0.04 * pp).toFixed(4) + ')' : '';
           if (it.side) {
-            var so = reduced ? 1 - pp : 1 - smooth(0.05, 0.45, pp);
+            var so = reduced ? 1 - pp : 1 - smooth(0.12, 0.5, pp);
             it.side.style.opacity = pp ? so.toFixed(3) : '';
-            it.side.style.transform = pp ? 'translateX(-50%) perspective(900px) rotateY(' + (pp * 26).toFixed(2) + 'deg)' : '';
+            it.side.style.transform = pp ? 'translateX(-50%) perspective(900px) rotateY(' + (pp * 70).toFixed(2) + 'deg)' : '';
           }
         }
       }
@@ -924,6 +1137,7 @@
   "max_blocks": 24,
   "settings": [
     { "type": "paragraph", "content": "A clothing rail of your products. Each Garment block is one piece on a hanger: choose its product, then add its pictures. Pictures must be transparent PNG or WebP cut-outs of the garment on its hanger, with nothing behind it. To make them, take the product photos you already have of each garment on a hanger and remove the background with any background remover, then crop close to the garment with the hook at the top centre. Step by step guide with pictures: storelib.com/help/website-builder/hanging-rail" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "default-color-scheme", "info": "The rail, its words and its focus view use this scheme's colours, and the theme's fonts, buttons and corners." },
     { "type": "header", "content": "Text" },
     { "type": "text", "id": "eyebrow", "label": "Small heading", "default": "New collection" },
     { "type": "text", "id": "eyebrow_2", "label": "Small heading, second part", "info": "Shown after a thin line, a little lighter.", "default": "Heavyweight basics" },
@@ -934,33 +1148,44 @@
     { "type": "richtext", "id": "text_below", "label": "Text under the rail", "info": "Shown until a visitor points at a garment; then its name and price take its place.", "default": "<p>Heavyweight cotton, cut boxy, made to wear for years.</p>" },
     { "type": "text", "id": "button_label", "label": "Button label", "default": "Shop the collection" },
     { "type": "url", "id": "button_link", "label": "Button link", "info": "Left empty, it opens every product." },
+    { "type": "select", "id": "button_style", "label": "Button style", "default": "secondary", "options": [ { "value": "primary", "label": "Primary button" }, { "value": "secondary", "label": "Secondary button" }, { "value": "link", "label": "Underlined link" } ], "info": "Primary and secondary are the theme's buttons (Theme settings > Buttons)." },
     { "type": "select", "id": "caption_layout", "label": "Under the rail", "default": "center", "options": [ { "value": "center", "label": "Centred: name, then the button" }, { "value": "split", "label": "Split: name on the left, text and link on the right" } ] },
     { "type": "header", "content": "Garments" },
     { "type": "range", "id": "garment_height", "label": "Garment height", "min": 160, "max": 560, "step": 10, "unit": "px", "default": 300, "info": "How tall each garment hangs on a computer, hook to hem." },
     { "type": "range", "id": "garment_height_mobile", "label": "Garment height on phones", "min": 120, "max": 400, "step": 10, "unit": "px", "default": 210 },
-    { "type": "range", "id": "garment_width", "label": "Room for a garment on the rail", "min": 20, "max": 80, "step": 1, "unit": "%", "default": 50, "info": "As a share of its height. About 50% for front views turned a little, 30 to 40% for narrow side views. Neighbours may overlap a little, as on a real rail."  },
+    { "type": "range", "id": "garment_width", "label": "Room for a garment on the rail", "min": 20, "max": 80, "step": 1, "unit": "%", "default": 34, "info": "As a share of its height. About 30 to 40% for side views, 50% for front views turned a little. Neighbours may overlap a little, as on a real rail."  },
     { "type": "range", "id": "gap", "label": "Gap between garments", "min": 0, "max": 60, "step": 2, "unit": "px", "default": 14 },
     { "type": "range", "id": "rest_turn", "label": "Turn at rest", "min": 0, "max": 60, "step": 2, "unit": "deg", "default": 24, "info": "For garments without a side view: how far they hang turned away until a visitor points at one." },
     { "type": "range", "id": "hover_gap", "label": "Hover side gap", "min": 0, "max": 80, "step": 2, "unit": "px", "default": 24, "info": "The extra room the neighbours leave either side of a garment turned to the front." },
     { "type": "range", "id": "turn_speed", "label": "Hover turn speed", "min": 150, "max": 1200, "step": 50, "unit": "ms", "default": 450, "info": "How long a garment takes to turn to the front. Lower is quicker." },
     { "type": "range", "id": "swing", "label": "Hanger swing", "min": 0, "max": 100, "step": 5, "unit": "%", "default": 45, "info": "How much the hangers swing when the pointer brushes past or the row moves. 0 keeps them still. Visitors who ask their device for less motion never see it." },
     { "type": "checkbox", "id": "show_tags", "label": "Show price tags", "default": true },
+    { "type": "color", "id": "tag_colour", "label": "Price tag colour", "info": "Left empty, an off-white card." },
+    { "type": "color", "id": "tag_text_colour", "label": "Price tag text colour", "info": "Left empty, near black." },
     { "type": "select", "id": "overflow", "label": "When the garments are wider than the screen", "default": "scroll", "options": [ { "value": "scroll", "label": "Drop garments into the row to scroll (drag, swipe or arrows)" }, { "value": "fit", "label": "Make every garment smaller so all fit" } ], "info": "Phones always scroll." },
-    { "type": "select", "id": "click_action", "label": "Clicking a garment", "default": "focus", "options": [ { "value": "focus", "label": "Lift garment on the rail into focus view" }, { "value": "page", "label": "Open its product page" } ], "info": "The focus view shows the garment large, its options and Add to cart, as a window on a computer and a sheet on a phone." },
+    { "type": "header", "content": "Focus view" },
+    { "type": "select", "id": "click_action", "label": "Clicking a garment", "default": "focus", "options": [ { "value": "focus", "label": "Lift garment on the rail into focus view" }, { "value": "page", "label": "Open its product page" } ], "info": "The focus view shows the garment large, its options, Add to cart and what it is worn with, as a window on a computer and a sheet on a phone." },
+    { "type": "select", "id": "focus_backdrop", "label": "Behind the focus view", "default": "glass", "options": [ { "value": "glass", "label": "Frosted glass: the page blurred under the scheme's background" }, { "value": "solid", "label": "The scheme's background, solid" } ] },
+    { "type": "select", "id": "after_add", "label": "After Add to cart", "default": "stay", "options": [ { "value": "stay", "label": "Stay in the focus view, with a link to the cart" }, { "value": "drawer", "label": "Close the focus view and open the cart drawer" } ] },
+    { "type": "text", "id": "with_heading", "label": "Heading above the pieces it is worn with", "default": "Wear it with", "info": "Each garment block can list up to three products to wear with it." },
     { "type": "header", "content": "Rail" },
     { "type": "range", "id": "rail_top", "label": "Rail position from the top", "min": 0, "max": 200, "step": 4, "unit": "px", "default": 40 },
     { "type": "range", "id": "rail_thickness", "label": "Rail thickness", "min": 2, "max": 16, "step": 1, "unit": "px", "default": 6 },
     { "type": "select", "id": "rail_finish", "label": "Rail finish", "default": "steel", "options": [ { "value": "steel", "label": "Steel" }, { "value": "black", "label": "Black" }, { "value": "brass", "label": "Brass" } ] },
     { "type": "checkbox", "id": "rail_brackets", "label": "Show the wall brackets at each end", "default": true },
-    { "type": "header", "content": "Style" },
-    { "type": "select", "id": "background_style", "label": "Background", "default": "plain", "options": [ { "value": "plain", "label": "Plain colour" }, { "value": "picture", "label": "Picture with a shade over it" } ] },
-    { "type": "color", "id": "background_colour", "label": "Background colour", "default": "#f7f7f5", "info": "Also the focus view's background." },
+    { "type": "header", "content": "Background" },
+    { "type": "select", "id": "background_style", "label": "Background", "default": "plain", "options": [ { "value": "plain", "label": "The colour scheme's background" }, { "value": "picture", "label": "Picture" } ] },
+    { "type": "color", "id": "background_colour", "label": "Background colour", "info": "Left empty, the colour scheme's background. Also the focus view's background." },
+    { "type": "color", "id": "text_colour", "label": "Text colour", "info": "Left empty, the colour scheme's text and heading colours." },
     { "type": "image_picker", "id": "background_image", "label": "Background picture", "info": "A landscape or a room, at least 2000 px wide. Keep the middle quiet so the garments read." },
     { "type": "range", "id": "image_focus_x", "label": "Picture focus, across", "min": 0, "max": 100, "step": 5, "unit": "%", "default": 50 },
     { "type": "range", "id": "image_focus_y", "label": "Picture focus, down", "min": 0, "max": 100, "step": 5, "unit": "%", "default": 50 },
-    { "type": "color", "id": "overlay_colour", "label": "Shade colour", "default": "#000000" },
-    { "type": "range", "id": "overlay_opacity", "label": "Shade", "min": 0, "max": 80, "step": 5, "unit": "%", "default": 15 },
-    { "type": "color", "id": "text_colour", "label": "Text colour", "default": "#111111" },
+    { "type": "range", "id": "image_blur", "label": "Soften the picture", "min": 0, "max": 24, "step": 1, "unit": "px", "default": 0, "info": "A little blur keeps the picture as a mood and the garments sharp in front of it." },
+    { "type": "color", "id": "overlay_colour", "label": "Wash colour", "info": "Laid over the picture. Left empty, the colour scheme's background, which keeps the scheme's text readable." },
+    { "type": "range", "id": "overlay_opacity", "label": "Wash", "min": 0, "max": 90, "step": 5, "unit": "%", "default": 15 },
+    { "type": "checkbox", "id": "text_glass", "label": "Words on frosted glass", "default": true, "info": "Over a picture, the heading and the text under the rail sit on a pane of frosted glass in the scheme's background colour." },
+    { "type": "range", "id": "glass_opacity", "label": "Glass", "min": 20, "max": 95, "step": 5, "unit": "%", "default": 60, "info": "How much of the scheme's background the glass holds." },
+    { "type": "header", "content": "Spacing" },
     { "type": "range", "id": "padding_top", "label": "Space above", "min": 0, "max": 200, "step": 4, "unit": "px", "default": 48 },
     { "type": "range", "id": "padding_bottom", "label": "Space below", "min": 0, "max": 200, "step": 4, "unit": "px", "default": 56 },
     { "type": "range", "id": "padding_top_mobile", "label": "Space above on phones", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 32 },
@@ -972,13 +1197,14 @@
       "name": "Garment",
       "settings": [
         { "type": "product", "id": "product", "label": "Product", "info": "Its title, price, sizes and page come from the product." },
-        { "type": "image_picker", "id": "side_image", "label": "Side view", "info": "Shown on the rail. A transparent PNG or WebP cut-out of the garment on its hanger, seen from the side, hook at the top centre. About 400 x 1000 px. Left empty, the front view hangs turned a little away (Turn at rest)." },
+        { "type": "image_picker", "id": "side_image", "label": "Side view", "info": "Shown on the rail. A transparent PNG or WebP cut-out of the garment on its hanger, seen from the side, hook at the top centre, the same height as the front view. About 400 x 1000 px. Left empty, the front view hangs turned a little away (Turn at rest)." },
         { "type": "image_picker", "id": "front_image", "label": "Front view", "info": "Shown when a visitor points at it and in the focus view. A transparent cut-out, hook at the top centre. About 1000 x 1300 px. Left empty, the product's first picture is used." },
         { "type": "image_picker", "id": "back_image", "label": "Back view (optional)", "info": "Adds a Back tab in the focus view. Downloaded only when a visitor presses it." },
         { "type": "range", "id": "size", "label": "Size on the rail", "min": 70, "max": 115, "step": 1, "unit": "%", "default": 100, "info": "Tees hang shorter than hoodies: about 85% for a tee, 100% for a hoodie, 110% for a long jacket." },
         { "type": "text", "id": "tag_text", "label": "Price tag", "info": "Left empty, the tag shows the product's price." },
         { "type": "text", "id": "name", "label": "Name", "info": "Left empty, the product's title." },
-        { "type": "text", "id": "note", "label": "Note in the focus view", "info": "One short line, such as the fabric or the fit." }
+        { "type": "text", "id": "note", "label": "Note in the focus view", "info": "One short line, such as the fabric or the fit." },
+        { "type": "product_list", "id": "wear_with", "label": "Wear it with", "limit": 3, "info": "Up to three products shown under Add to cart in the focus view, each with its own add button: the rest of the look." }
       ]
     }
   ],

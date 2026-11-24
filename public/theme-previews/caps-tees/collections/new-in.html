@@ -1,7 +1,7 @@
 
 <!doctype html>
 <html class="no-js" lang="en" dir="ltr">
-<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/caps-tees/a/cart.8fb5178a8faf.json";
+<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/caps-tees/a/cart.8fb5178a8faf.json",WISH_DATA="/theme-previews/caps-tees/a/wishlist.35bde6638743.json";
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
@@ -86,6 +86,8 @@ if(D.readyState==="loading")D.addEventListener("DOMContentLoaded",arrive);else a
 
 if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);if(mine(u))return F.apply(this,arguments);
 /* Cards round 24: the cart answers from the template's drawn cart (./theme-templates/preview-cart.ts), as a store would. */
+/* Round 25: the wishlist page asks for its saved products' cards; every product's card is in WISH_DATA and the theme keeps the saved ones. */
+if(WISH_DATA&&/\/search$/.test(path(u))&&/[?&]section_id=/.test(u))return F(WISH_DATA).then(function(r){return r.json()}).then(function(d){return new Response(d.html,{status:200,headers:{"Content-Type":"text/html"}})});
 var p=path(u),q=/[?&]sections=/.test(u),c=/\/cart(\.js|\.json|\/(add|change|update|clear)(\.js)?)$/.test(p);if(CART_DATA&&(c||q)){var w=c?cartReply(p,o):sectionsReply(u);return w.then(function(r){return new Response(JSON.stringify(r[1]),{status:r[0],headers:{"Content-Type":"application/json"}})},function(){var r=reply(u);return new Response(r[2],{status:r[0],headers:{"Content-Type":r[1]}})})}
 var r=reply(u);return Promise.resolve(new Response(r[2],{status:r[0],headers:{"Content-Type":r[1]}}))};
 var X=W.XMLHttpRequest&&W.XMLHttpRequest.prototype;if(X){var O=X.open;X.open=function(m,u){var a=[].slice.call(arguments);if(!mine(u)){var r=reply(u);a[0]="GET";a[1]="data:"+r[1]+","+encodeURIComponent(r[2])}return O.apply(this,a)}}
@@ -207,8 +209,8 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
         } catch (e) {}
       })();
     </script>
-<link href="/theme-previews/_base/a/critical.03978b251a4f.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/product-card.9a3739dc0c4c.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"outline","product_size":13,"price_size":13,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
+<link href="/theme-previews/_base/a/critical.4539b38450ad.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/product-card.a0a3949c11b6.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"outline","product_size":13,"price_size":13,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
 <style>html:not([data-card-custom='true']) .product-item .product-item__name { font-size:var(--body-font-size, 16px); text-transform:var(--heading-text-transform, none) !important; } html:not([data-card-custom='true']) .product-item .product-item__price { font-size:var(--body-font-size, 16px); }</style>
 <script>document.documentElement.dataset.cardCustom = false === true ? 'true' : 'false';</script>
 <script type="application/json" data-badge-style-settings>false</script>
@@ -680,6 +682,18 @@ href="/theme-previews/caps-tees/pages/contact.html"
 ><span class="menu-link-text">Contact</span></a></li></ul>
 </div>
 </li>
+<li class="level0 hidden-1025">
+<a
+class="no-underline py-10 lh-normal flex border-bottom border-bottom-1025-0 min-h-55 min-h-1025-50 align-center"
+href="/theme-previews/caps-tees/pages/wishlist.html"
+aria-label="Wishlist"
+>
+<svg width="17" height="15" viewBox="0 0 19 16" class="me-10" fill="none">
+<use href="#icon-wishlist-header" />
+</svg>
+Wishlist
+</a>
+</li>
 </ul>
 </div>
 </nav>
@@ -788,7 +802,20 @@ class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 
 href="/theme-previews/caps-tees/pages/contact.html"
 ><span>Contact</span></a></menu-item></li>
 </ul>
-</div><div class="lang__currency-on-nav flex flex-wrap hidden-1025 border-top">
+</div><div class="mobile-nav-actions flex align-center gap-15 hidden-1025"><a
+href="/theme-previews/caps-tees/pages/wishlist.html"
+class="mobile-nav-actions__wishlist inline-flex align-center justify-content-center no-underline"
+aria-label="Wishlist"
+>
+<h-count class="relative lh-1 fs-0 inline-flex align-center justify-content-center">
+<svg width="19" height="16" viewBox="0 0 19 16" fill="none" aria-hidden="true">
+<use href="#icon-wishlist-header" />
+</svg>
+<span class="absolute lh-1 wishlist-count h-count inline-flex align-center justify-content-center rounded-50 overflow-hidden fs-10">
+0
+</span>
+</h-count>
+</a></div><div class="lang__currency-on-nav flex flex-wrap hidden-1025 border-top">
 <localization-form>
 <form id="localization-language-header" accept-charset="UTF-8" class="shopify-localization-form" data-preview-form><input type="hidden" name="form_type" value="localization"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="storelib_country" value="US">
 <input type="hidden" name="language_code" value="en">
@@ -907,6 +934,22 @@ aria-label="Search"
 <use href="#icon-search" />
 </svg></button>
 </div></div>
+</div>
+<div class="header__wishlist hidden block-1025">
+<a
+href="/theme-previews/caps-tees/pages/wishlist.html"
+class="header-icon header-color w-44 h-44 inline-flex content-center"
+aria-label="Wishlist"
+>
+<h-count class="relative lh-1 fs-0">
+<svg width="19" height="16" viewBox="0 0 19 16" fill="none">
+<use href="#icon-wishlist-header" />
+</svg>
+<span class="absolute lh-1 wishlist-count h-count inline-flex align-center justify-content-center rounded-50 overflow-hidden fs-10">
+0
+</span>
+</h-count>
+</a>
 </div>
 <div class="minicart">
 <div>
@@ -1389,7 +1432,7 @@ data-view-mode="4"
 class="grid__item loadmore-item"
 >
 <div
-class="product-item product__item-js  style-as-standard"
+class="product-item product__item-js  style-as-morden"
 >
 <motion-element
 class="product-item__wrapper block  hover_fade product-grid "
@@ -1411,7 +1454,7 @@ style="--aspect-ratio: 1/1;"
 <img src="/theme-previews/caps-tees/a/capstees-cap-mustard.41db84640661.webp" srcset="/theme-previews/caps-tees/a/capstees-cap-mustard-800.159f8d056525.webp 720w, /theme-previews/caps-tees/a/capstees-cap-mustard-800.159f8d056525.webp 660w, /theme-previews/caps-tees/a/capstees-cap-mustard-800.159f8d056525.webp 550w, /theme-previews/caps-tees/a/capstees-cap-mustard-800.159f8d056525.webp 480w, /theme-previews/caps-tees/a/capstees-cap-mustard-400.dfc2abebfc79.webp 330w, /theme-previews/caps-tees/a/capstees-cap-mustard-400.dfc2abebfc79.webp 240w, /theme-previews/caps-tees/a/capstees-cap-mustard-400.dfc2abebfc79.webp 185w" alt="Twill cap, mustard" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1200px -  16px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 16px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image">
 <div class="loading_image skeleton">
 </div>
-<img src="/theme-previews/caps-tees/a/capstees-cap-mustard-detail.15259098b8e9.webp" srcset="/theme-previews/caps-tees/a/capstees-cap-mustard-detail-800.aac81ad65227.webp 720w, /theme-previews/caps-tees/a/capstees-cap-mustard-detail-800.aac81ad65227.webp 660w, /theme-previews/caps-tees/a/capstees-cap-mustard-detail-800.aac81ad65227.webp 550w, /theme-previews/caps-tees/a/capstees-cap-mustard-detail-800.aac81ad65227.webp 480w, /theme-previews/caps-tees/a/capstees-cap-mustard-detail-400.1a1059acd9ad.webp 330w, /theme-previews/caps-tees/a/capstees-cap-mustard-detail-400.1a1059acd9ad.webp 240w, /theme-previews/caps-tees/a/capstees-cap-mustard-detail-400.1a1059acd9ad.webp 185w" alt="Twill cap, mustard" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 16px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/caps-tees/a/capstees-cap-mustard-worn.7fb7188e9487.webp" srcset="/theme-previews/caps-tees/a/capstees-cap-mustard-worn-800.e7d9e585e1f5.webp 720w, /theme-previews/caps-tees/a/capstees-cap-mustard-worn-800.e7d9e585e1f5.webp 660w, /theme-previews/caps-tees/a/capstees-cap-mustard-worn-800.e7d9e585e1f5.webp 550w, /theme-previews/caps-tees/a/capstees-cap-mustard-worn-800.e7d9e585e1f5.webp 480w, /theme-previews/caps-tees/a/capstees-cap-mustard-worn-400.60fb06f25165.webp 330w, /theme-previews/caps-tees/a/capstees-cap-mustard-worn-400.60fb06f25165.webp 240w, /theme-previews/caps-tees/a/capstees-cap-mustard-worn-400.60fb06f25165.webp 185w" alt="Twill cap, mustard" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 16px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
@@ -1428,35 +1471,28 @@ data-show-preorder="true"
 data-sale-badge-type="percent"
 >
 </div>
+<div class="product-item__button-action pc-heart heading-color transition flex z-5">
+<button-wishlist
+tabindex="0"
+role="button"
+aria-pressed="false"
+aria-label="Add to wishlist: Twill cap, mustard"
+class="product-item__button pointer product-item__button-wishlist tooltip relative transition rounded-50 p-0 shadow w-45 h-45 inline-flex content-center"
+data-product-id="00000000-0000-4000-8000-000000000010"
+data-product-handle="twill-cap-mustard"
+data-action="remove"
+data-tooltip-remove="Remove from wishlist"
+data-tooltip-add="Add to wishlist"
+data-tooltip-redirect="Browse wishlist"
+>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+<use href="#icon-wishlist" />
+</svg>
+<span class="tooltip-content invisible rounded-3 absolute pointer-none tooltip-left">Add to wishlist</span>
+</button-wishlist>
 </div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible">
-<product-form class="product-item__product-form pc-form--media"><form id="quick-add-products00000000-0000-4000-8000-000000000010" accept-charset="UTF-8" class="form" novalidate="novalidate" data-type="add-to-cart-form" data-type="add-to-cart-form" data-preview-form><input type="hidden" name="form_type" value="product"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="product-id" value="00000000-0000-4000-8000-000000000010"><input
-type="hidden"
-name="id"
-value="00000000-0000-4000-8000-000000000010"
-disabled
->
-<button
-id="quick-add-products00000000-0000-4000-8000-000000000010-submit"
-type="submit"
-name="add"
-class="product__add-cart product-item__button-submit pc-atc btn text-center"
-data-sl-button data-button-role="primary" data-theme-button="primary" data-button-local-appearance="theme"
-aria-haspopup="dialog"
-aria-live="polite"
-data-sold-out-message="true"
->
-<svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="pc-atc__icon hidden-on-load icon-cart" aria-hidden="true" focusable="false">
-<path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-</svg>
-<svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="spin opacity-0 icon-load" aria-hidden="true" focusable="false">
-<use href="#icon-load"></use>
-</svg>
-<span class="pc-atc__label hidden-on-load btn-action">Add to Cart</span>
-<span class="sold-out-message hidden">
-Out of Stock
-</span>
-</button></form></product-form>
+</div>
+<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
 </div>
 </div>
 <div class="product-item__information word-break text-start mt-15">
@@ -1477,13 +1513,37 @@ $38.00
 </div>
 </div>
 </div>
+<product-form class="product-item__product-form pc-form--below"><form id="quick-add-products00000000-0000-4000-8000-000000000010" accept-charset="UTF-8" class="form" novalidate="novalidate" data-type="add-to-cart-form" data-type="add-to-cart-form" data-preview-form><input type="hidden" name="form_type" value="product"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="product-id" value="00000000-0000-4000-8000-000000000010"><input
+type="hidden"
+name="id"
+value="00000000-0000-4000-8000-000000000010"
+disabled
+>
+<button
+id="quick-add-products00000000-0000-4000-8000-000000000010-submit"
+type="submit"
+name="add"
+class="w-full product__add-cart product-item__select-options pc-atc pc-atc--below btn-primary text-center relative morden-style"
+data-sl-button data-button-role="primary" data-theme-button="primary" data-button-local-appearance="theme"
+aria-haspopup="dialog"
+aria-live="polite"
+data-sold-out-message="true"
+>
+<svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="spin opacity-0 icon-load">
+<use href="#icon-load"></use>
+</svg>
+<span class="pc-atc__label hidden-on-load btn-action">Add to Cart</span>
+<span class="sold-out-message hidden">
+Out of Stock
+</span>
+</button></form></product-form>
 </div>
 </motion-element></div>
 </div><div
 class="grid__item loadmore-item"
 >
 <div
-class="product-item product__item-js  style-as-standard"
+class="product-item product__item-js  style-as-morden"
 >
 <motion-element
 class="product-item__wrapper block  hover_fade product-grid "
@@ -1505,7 +1565,7 @@ style="--aspect-ratio: 1/1;"
 <img src="/theme-previews/caps-tees/a/capstees-cap-rose.7e3fc23c1f43.webp" srcset="/theme-previews/caps-tees/a/capstees-cap-rose-800.ff2b58d43e05.webp 720w, /theme-previews/caps-tees/a/capstees-cap-rose-800.ff2b58d43e05.webp 660w, /theme-previews/caps-tees/a/capstees-cap-rose-800.ff2b58d43e05.webp 550w, /theme-previews/caps-tees/a/capstees-cap-rose-800.ff2b58d43e05.webp 480w, /theme-previews/caps-tees/a/capstees-cap-rose-400.0e95adc3ff5a.webp 330w, /theme-previews/caps-tees/a/capstees-cap-rose-400.0e95adc3ff5a.webp 240w, /theme-previews/caps-tees/a/capstees-cap-rose-400.0e95adc3ff5a.webp 185w" alt="Twill cap, rose" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1200px -  16px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 16px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image">
 <div class="loading_image skeleton">
 </div>
-<img src="/theme-previews/caps-tees/a/capstees-cap-rose-detail.6f3b7fc63f0b.webp" srcset="/theme-previews/caps-tees/a/capstees-cap-rose-detail-800.327d17c020e6.webp 720w, /theme-previews/caps-tees/a/capstees-cap-rose-detail-800.327d17c020e6.webp 660w, /theme-previews/caps-tees/a/capstees-cap-rose-detail-800.327d17c020e6.webp 550w, /theme-previews/caps-tees/a/capstees-cap-rose-detail-800.327d17c020e6.webp 480w, /theme-previews/caps-tees/a/capstees-cap-rose-detail-400.a6580d0cb15e.webp 330w, /theme-previews/caps-tees/a/capstees-cap-rose-detail-400.a6580d0cb15e.webp 240w, /theme-previews/caps-tees/a/capstees-cap-rose-detail-400.a6580d0cb15e.webp 185w" alt="Twill cap, rose" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 16px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/caps-tees/a/capstees-cap-rose-worn.b386bd729325.webp" srcset="/theme-previews/caps-tees/a/capstees-cap-rose-worn-800.8bae152e8307.webp 720w, /theme-previews/caps-tees/a/capstees-cap-rose-worn-800.8bae152e8307.webp 660w, /theme-previews/caps-tees/a/capstees-cap-rose-worn-800.8bae152e8307.webp 550w, /theme-previews/caps-tees/a/capstees-cap-rose-worn-800.8bae152e8307.webp 480w, /theme-previews/caps-tees/a/capstees-cap-rose-worn-400.d36e0122d43a.webp 330w, /theme-previews/caps-tees/a/capstees-cap-rose-worn-400.d36e0122d43a.webp 240w, /theme-previews/caps-tees/a/capstees-cap-rose-worn-400.d36e0122d43a.webp 185w" alt="Twill cap, rose" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 16px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
@@ -1522,35 +1582,28 @@ data-show-preorder="true"
 data-sale-badge-type="percent"
 >
 </div>
+<div class="product-item__button-action pc-heart heading-color transition flex z-5">
+<button-wishlist
+tabindex="0"
+role="button"
+aria-pressed="false"
+aria-label="Add to wishlist: Twill cap, rose"
+class="product-item__button pointer product-item__button-wishlist tooltip relative transition rounded-50 p-0 shadow w-45 h-45 inline-flex content-center"
+data-product-id="00000000-0000-4000-8000-000000000011"
+data-product-handle="twill-cap-rose"
+data-action="remove"
+data-tooltip-remove="Remove from wishlist"
+data-tooltip-add="Add to wishlist"
+data-tooltip-redirect="Browse wishlist"
+>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+<use href="#icon-wishlist" />
+</svg>
+<span class="tooltip-content invisible rounded-3 absolute pointer-none tooltip-left">Add to wishlist</span>
+</button-wishlist>
 </div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible">
-<product-form class="product-item__product-form pc-form--media"><form id="quick-add-products00000000-0000-4000-8000-000000000011" accept-charset="UTF-8" class="form" novalidate="novalidate" data-type="add-to-cart-form" data-type="add-to-cart-form" data-preview-form><input type="hidden" name="form_type" value="product"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="product-id" value="00000000-0000-4000-8000-000000000011"><input
-type="hidden"
-name="id"
-value="00000000-0000-4000-8000-000000000011"
-disabled
->
-<button
-id="quick-add-products00000000-0000-4000-8000-000000000011-submit"
-type="submit"
-name="add"
-class="product__add-cart product-item__button-submit pc-atc btn text-center"
-data-sl-button data-button-role="primary" data-theme-button="primary" data-button-local-appearance="theme"
-aria-haspopup="dialog"
-aria-live="polite"
-data-sold-out-message="true"
->
-<svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="pc-atc__icon hidden-on-load icon-cart" aria-hidden="true" focusable="false">
-<path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-</svg>
-<svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="spin opacity-0 icon-load" aria-hidden="true" focusable="false">
-<use href="#icon-load"></use>
-</svg>
-<span class="pc-atc__label hidden-on-load btn-action">Add to Cart</span>
-<span class="sold-out-message hidden">
-Out of Stock
-</span>
-</button></form></product-form>
+</div>
+<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
 </div>
 </div>
 <div class="product-item__information word-break text-start mt-15">
@@ -1571,13 +1624,37 @@ $38.00
 </div>
 </div>
 </div>
+<product-form class="product-item__product-form pc-form--below"><form id="quick-add-products00000000-0000-4000-8000-000000000011" accept-charset="UTF-8" class="form" novalidate="novalidate" data-type="add-to-cart-form" data-type="add-to-cart-form" data-preview-form><input type="hidden" name="form_type" value="product"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="product-id" value="00000000-0000-4000-8000-000000000011"><input
+type="hidden"
+name="id"
+value="00000000-0000-4000-8000-000000000011"
+disabled
+>
+<button
+id="quick-add-products00000000-0000-4000-8000-000000000011-submit"
+type="submit"
+name="add"
+class="w-full product__add-cart product-item__select-options pc-atc pc-atc--below btn-primary text-center relative morden-style"
+data-sl-button data-button-role="primary" data-theme-button="primary" data-button-local-appearance="theme"
+aria-haspopup="dialog"
+aria-live="polite"
+data-sold-out-message="true"
+>
+<svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="spin opacity-0 icon-load">
+<use href="#icon-load"></use>
+</svg>
+<span class="pc-atc__label hidden-on-load btn-action">Add to Cart</span>
+<span class="sold-out-message hidden">
+Out of Stock
+</span>
+</button></form></product-form>
 </div>
 </motion-element></div>
 </div><div
 class="grid__item loadmore-item"
 >
 <div
-class="product-item product__item-js  style-as-standard"
+class="product-item product__item-js  style-as-morden"
 >
 <motion-element
 class="product-item__wrapper block  hover_fade product-grid "
@@ -1599,7 +1676,7 @@ style="--aspect-ratio: 1/1;"
 <img src="/theme-previews/caps-tees/a/capstees-cap-rust.560b05387d3b.webp" srcset="/theme-previews/caps-tees/a/capstees-cap-rust-800.0dd70a923062.webp 720w, /theme-previews/caps-tees/a/capstees-cap-rust-800.0dd70a923062.webp 660w, /theme-previews/caps-tees/a/capstees-cap-rust-800.0dd70a923062.webp 550w, /theme-previews/caps-tees/a/capstees-cap-rust-800.0dd70a923062.webp 480w, /theme-previews/caps-tees/a/capstees-cap-rust-400.609f11cc1682.webp 330w, /theme-previews/caps-tees/a/capstees-cap-rust-400.609f11cc1682.webp 240w, /theme-previews/caps-tees/a/capstees-cap-rust-400.609f11cc1682.webp 185w" alt="Twill cap, rust" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1200px -  16px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 16px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image">
 <div class="loading_image skeleton">
 </div>
-<img src="/theme-previews/caps-tees/a/capstees-cap-rust-detail.1184e79aea41.webp" srcset="/theme-previews/caps-tees/a/capstees-cap-rust-detail-800.b381edd54baa.webp 720w, /theme-previews/caps-tees/a/capstees-cap-rust-detail-800.b381edd54baa.webp 660w, /theme-previews/caps-tees/a/capstees-cap-rust-detail-800.b381edd54baa.webp 550w, /theme-previews/caps-tees/a/capstees-cap-rust-detail-800.b381edd54baa.webp 480w, /theme-previews/caps-tees/a/capstees-cap-rust-detail-400.08e17f96f83f.webp 330w, /theme-previews/caps-tees/a/capstees-cap-rust-detail-400.08e17f96f83f.webp 240w, /theme-previews/caps-tees/a/capstees-cap-rust-detail-400.08e17f96f83f.webp 185w" alt="Twill cap, rust" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 16px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/caps-tees/a/capstees-cap-rust-worn.79cbada1a921.webp" srcset="/theme-previews/caps-tees/a/capstees-cap-rust-worn-800.2e3e237ac64b.webp 720w, /theme-previews/caps-tees/a/capstees-cap-rust-worn-800.2e3e237ac64b.webp 660w, /theme-previews/caps-tees/a/capstees-cap-rust-worn-800.2e3e237ac64b.webp 550w, /theme-previews/caps-tees/a/capstees-cap-rust-worn-800.2e3e237ac64b.webp 480w, /theme-previews/caps-tees/a/capstees-cap-rust-worn-400.ec8cf204da35.webp 330w, /theme-previews/caps-tees/a/capstees-cap-rust-worn-400.ec8cf204da35.webp 240w, /theme-previews/caps-tees/a/capstees-cap-rust-worn-400.ec8cf204da35.webp 185w" alt="Twill cap, rust" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 16px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
@@ -1616,35 +1693,28 @@ data-show-preorder="true"
 data-sale-badge-type="percent"
 >
 </div>
+<div class="product-item__button-action pc-heart heading-color transition flex z-5">
+<button-wishlist
+tabindex="0"
+role="button"
+aria-pressed="false"
+aria-label="Add to wishlist: Twill cap, rust"
+class="product-item__button pointer product-item__button-wishlist tooltip relative transition rounded-50 p-0 shadow w-45 h-45 inline-flex content-center"
+data-product-id="00000000-0000-4000-8000-000000000012"
+data-product-handle="twill-cap-rust"
+data-action="remove"
+data-tooltip-remove="Remove from wishlist"
+data-tooltip-add="Add to wishlist"
+data-tooltip-redirect="Browse wishlist"
+>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+<use href="#icon-wishlist" />
+</svg>
+<span class="tooltip-content invisible rounded-3 absolute pointer-none tooltip-left">Add to wishlist</span>
+</button-wishlist>
 </div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible">
-<product-form class="product-item__product-form pc-form--media"><form id="quick-add-products00000000-0000-4000-8000-000000000012" accept-charset="UTF-8" class="form" novalidate="novalidate" data-type="add-to-cart-form" data-type="add-to-cart-form" data-preview-form><input type="hidden" name="form_type" value="product"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="product-id" value="00000000-0000-4000-8000-000000000012"><input
-type="hidden"
-name="id"
-value="00000000-0000-4000-8000-000000000012"
-disabled
->
-<button
-id="quick-add-products00000000-0000-4000-8000-000000000012-submit"
-type="submit"
-name="add"
-class="product__add-cart product-item__button-submit pc-atc btn text-center"
-data-sl-button data-button-role="primary" data-theme-button="primary" data-button-local-appearance="theme"
-aria-haspopup="dialog"
-aria-live="polite"
-data-sold-out-message="true"
->
-<svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="pc-atc__icon hidden-on-load icon-cart" aria-hidden="true" focusable="false">
-<path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-</svg>
-<svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="spin opacity-0 icon-load" aria-hidden="true" focusable="false">
-<use href="#icon-load"></use>
-</svg>
-<span class="pc-atc__label hidden-on-load btn-action">Add to Cart</span>
-<span class="sold-out-message hidden">
-Out of Stock
-</span>
-</button></form></product-form>
+</div>
+<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
 </div>
 </div>
 <div class="product-item__information word-break text-start mt-15">
@@ -1665,13 +1735,37 @@ $38.00
 </div>
 </div>
 </div>
+<product-form class="product-item__product-form pc-form--below"><form id="quick-add-products00000000-0000-4000-8000-000000000012" accept-charset="UTF-8" class="form" novalidate="novalidate" data-type="add-to-cart-form" data-type="add-to-cart-form" data-preview-form><input type="hidden" name="form_type" value="product"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="product-id" value="00000000-0000-4000-8000-000000000012"><input
+type="hidden"
+name="id"
+value="00000000-0000-4000-8000-000000000012"
+disabled
+>
+<button
+id="quick-add-products00000000-0000-4000-8000-000000000012-submit"
+type="submit"
+name="add"
+class="w-full product__add-cart product-item__select-options pc-atc pc-atc--below btn-primary text-center relative morden-style"
+data-sl-button data-button-role="primary" data-theme-button="primary" data-button-local-appearance="theme"
+aria-haspopup="dialog"
+aria-live="polite"
+data-sold-out-message="true"
+>
+<svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="spin opacity-0 icon-load">
+<use href="#icon-load"></use>
+</svg>
+<span class="pc-atc__label hidden-on-load btn-action">Add to Cart</span>
+<span class="sold-out-message hidden">
+Out of Stock
+</span>
+</button></form></product-form>
 </div>
 </motion-element></div>
 </div><div
 class="grid__item loadmore-item"
 >
 <div
-class="product-item product__item-js  style-as-standard"
+class="product-item product__item-js  style-as-morden"
 >
 <motion-element
 class="product-item__wrapper block  hover_fade product-grid "
@@ -1693,7 +1787,7 @@ style="--aspect-ratio: 1/1;"
 <img src="/theme-previews/caps-tees/a/capstees-cap-black.b1243a25be0c.webp" srcset="/theme-previews/caps-tees/a/capstees-cap-black-800.0883dcba3235.webp 720w, /theme-previews/caps-tees/a/capstees-cap-black-800.0883dcba3235.webp 660w, /theme-previews/caps-tees/a/capstees-cap-black-800.0883dcba3235.webp 550w, /theme-previews/caps-tees/a/capstees-cap-black-800.0883dcba3235.webp 480w, /theme-previews/caps-tees/a/capstees-cap-black-400.e30118716250.webp 330w, /theme-previews/caps-tees/a/capstees-cap-black-400.e30118716250.webp 240w, /theme-previews/caps-tees/a/capstees-cap-black-400.e30118716250.webp 185w" alt="Twill cap, black" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1200px -  16px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 16px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image">
 <div class="loading_image skeleton">
 </div>
-<img src="/theme-previews/caps-tees/a/capstees-cap-black-detail.434ed46ad4bb.webp" srcset="/theme-previews/caps-tees/a/capstees-cap-black-detail-800.dbca808c71c0.webp 720w, /theme-previews/caps-tees/a/capstees-cap-black-detail-800.dbca808c71c0.webp 660w, /theme-previews/caps-tees/a/capstees-cap-black-detail-800.dbca808c71c0.webp 550w, /theme-previews/caps-tees/a/capstees-cap-black-detail-800.dbca808c71c0.webp 480w, /theme-previews/caps-tees/a/capstees-cap-black-detail-400.bbff25118796.webp 330w, /theme-previews/caps-tees/a/capstees-cap-black-detail-400.bbff25118796.webp 240w, /theme-previews/caps-tees/a/capstees-cap-black-detail-400.bbff25118796.webp 185w" alt="Twill cap, black" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 16px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/caps-tees/a/capstees-cap-black-worn.29c26c424da5.webp" srcset="/theme-previews/caps-tees/a/capstees-cap-black-worn-800.958fcf7fdfbc.webp 720w, /theme-previews/caps-tees/a/capstees-cap-black-worn-800.958fcf7fdfbc.webp 660w, /theme-previews/caps-tees/a/capstees-cap-black-worn-800.958fcf7fdfbc.webp 550w, /theme-previews/caps-tees/a/capstees-cap-black-worn-800.958fcf7fdfbc.webp 480w, /theme-previews/caps-tees/a/capstees-cap-black-worn-400.982a6b1ef7e5.webp 330w, /theme-previews/caps-tees/a/capstees-cap-black-worn-400.982a6b1ef7e5.webp 240w, /theme-previews/caps-tees/a/capstees-cap-black-worn-400.982a6b1ef7e5.webp 185w" alt="Twill cap, black" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 16px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
@@ -1710,35 +1804,28 @@ data-show-preorder="true"
 data-sale-badge-type="percent"
 >
 </div>
+<div class="product-item__button-action pc-heart heading-color transition flex z-5">
+<button-wishlist
+tabindex="0"
+role="button"
+aria-pressed="false"
+aria-label="Add to wishlist: Twill cap, black"
+class="product-item__button pointer product-item__button-wishlist tooltip relative transition rounded-50 p-0 shadow w-45 h-45 inline-flex content-center"
+data-product-id="00000000-0000-4000-8000-000000000013"
+data-product-handle="twill-cap-black"
+data-action="remove"
+data-tooltip-remove="Remove from wishlist"
+data-tooltip-add="Add to wishlist"
+data-tooltip-redirect="Browse wishlist"
+>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+<use href="#icon-wishlist" />
+</svg>
+<span class="tooltip-content invisible rounded-3 absolute pointer-none tooltip-left">Add to wishlist</span>
+</button-wishlist>
 </div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible">
-<product-form class="product-item__product-form pc-form--media"><form id="quick-add-products00000000-0000-4000-8000-000000000013" accept-charset="UTF-8" class="form" novalidate="novalidate" data-type="add-to-cart-form" data-type="add-to-cart-form" data-preview-form><input type="hidden" name="form_type" value="product"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="product-id" value="00000000-0000-4000-8000-000000000013"><input
-type="hidden"
-name="id"
-value="00000000-0000-4000-8000-000000000013"
-disabled
->
-<button
-id="quick-add-products00000000-0000-4000-8000-000000000013-submit"
-type="submit"
-name="add"
-class="product__add-cart product-item__button-submit pc-atc btn text-center"
-data-sl-button data-button-role="primary" data-theme-button="primary" data-button-local-appearance="theme"
-aria-haspopup="dialog"
-aria-live="polite"
-data-sold-out-message="true"
->
-<svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="pc-atc__icon hidden-on-load icon-cart" aria-hidden="true" focusable="false">
-<path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-</svg>
-<svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="spin opacity-0 icon-load" aria-hidden="true" focusable="false">
-<use href="#icon-load"></use>
-</svg>
-<span class="pc-atc__label hidden-on-load btn-action">Add to Cart</span>
-<span class="sold-out-message hidden">
-Out of Stock
-</span>
-</button></form></product-form>
+</div>
+<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
 </div>
 </div>
 <div class="product-item__information word-break text-start mt-15">
@@ -1759,13 +1846,37 @@ $38.00
 </div>
 </div>
 </div>
+<product-form class="product-item__product-form pc-form--below"><form id="quick-add-products00000000-0000-4000-8000-000000000013" accept-charset="UTF-8" class="form" novalidate="novalidate" data-type="add-to-cart-form" data-type="add-to-cart-form" data-preview-form><input type="hidden" name="form_type" value="product"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="product-id" value="00000000-0000-4000-8000-000000000013"><input
+type="hidden"
+name="id"
+value="00000000-0000-4000-8000-000000000013"
+disabled
+>
+<button
+id="quick-add-products00000000-0000-4000-8000-000000000013-submit"
+type="submit"
+name="add"
+class="w-full product__add-cart product-item__select-options pc-atc pc-atc--below btn-primary text-center relative morden-style"
+data-sl-button data-button-role="primary" data-theme-button="primary" data-button-local-appearance="theme"
+aria-haspopup="dialog"
+aria-live="polite"
+data-sold-out-message="true"
+>
+<svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="spin opacity-0 icon-load">
+<use href="#icon-load"></use>
+</svg>
+<span class="pc-atc__label hidden-on-load btn-action">Add to Cart</span>
+<span class="sold-out-message hidden">
+Out of Stock
+</span>
+</button></form></product-form>
 </div>
 </motion-element></div>
 </div><div
 class="grid__item loadmore-item"
 >
 <div
-class="product-item product__item-js  style-as-standard"
+class="product-item product__item-js  style-as-morden"
 >
 <motion-element
 class="product-item__wrapper block  hover_fade product-grid "
@@ -1787,7 +1898,7 @@ style="--aspect-ratio: 1/1;"
 <img src="/theme-previews/caps-tees/a/capstees-tee-white.4b82bf470631.webp" srcset="/theme-previews/caps-tees/a/capstees-tee-white-800.cdfbf923ae0c.webp 720w, /theme-previews/caps-tees/a/capstees-tee-white-800.cdfbf923ae0c.webp 660w, /theme-previews/caps-tees/a/capstees-tee-white-800.cdfbf923ae0c.webp 550w, /theme-previews/caps-tees/a/capstees-tee-white-800.cdfbf923ae0c.webp 480w, /theme-previews/caps-tees/a/capstees-tee-white-400.ae59d791b4fe.webp 330w, /theme-previews/caps-tees/a/capstees-tee-white-400.ae59d791b4fe.webp 240w, /theme-previews/caps-tees/a/capstees-tee-white-400.ae59d791b4fe.webp 185w" alt="Wordmark tee, white" width="1600" height="1600" loading="eager" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 16px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image">
 <div class="loading_image skeleton">
 </div>
-<img src="/theme-previews/caps-tees/a/capstees-tee-white-detail.389fe4ccad06.webp" srcset="/theme-previews/caps-tees/a/capstees-tee-white-detail-800.d97fe4020811.webp 720w, /theme-previews/caps-tees/a/capstees-tee-white-detail-800.d97fe4020811.webp 660w, /theme-previews/caps-tees/a/capstees-tee-white-detail-800.d97fe4020811.webp 550w, /theme-previews/caps-tees/a/capstees-tee-white-detail-800.d97fe4020811.webp 480w, /theme-previews/caps-tees/a/capstees-tee-white-detail-400.7cf147b0bd9f.webp 330w, /theme-previews/caps-tees/a/capstees-tee-white-detail-400.7cf147b0bd9f.webp 240w, /theme-previews/caps-tees/a/capstees-tee-white-detail-400.7cf147b0bd9f.webp 185w" alt="Wordmark tee, white" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 16px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/caps-tees/a/capstees-tee-white-worn.c8ba088cfec2.webp" srcset="/theme-previews/caps-tees/a/capstees-tee-white-worn-800.ba3091560bf5.webp 720w, /theme-previews/caps-tees/a/capstees-tee-white-worn-800.ba3091560bf5.webp 660w, /theme-previews/caps-tees/a/capstees-tee-white-worn-800.ba3091560bf5.webp 550w, /theme-previews/caps-tees/a/capstees-tee-white-worn-800.ba3091560bf5.webp 480w, /theme-previews/caps-tees/a/capstees-tee-white-worn-400.12691501aba2.webp 330w, /theme-previews/caps-tees/a/capstees-tee-white-worn-400.12691501aba2.webp 240w, /theme-previews/caps-tees/a/capstees-tee-white-worn-400.12691501aba2.webp 185w" alt="Wordmark tee, white" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 16px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
@@ -1804,35 +1915,28 @@ data-show-preorder="true"
 data-sale-badge-type="percent"
 >
 </div>
+<div class="product-item__button-action pc-heart heading-color transition flex z-5">
+<button-wishlist
+tabindex="0"
+role="button"
+aria-pressed="false"
+aria-label="Add to wishlist: Wordmark tee, white"
+class="product-item__button pointer product-item__button-wishlist tooltip relative transition rounded-50 p-0 shadow w-45 h-45 inline-flex content-center"
+data-product-id="00000000-0000-4000-8000-000000000014"
+data-product-handle="wordmark-tee-white"
+data-action="remove"
+data-tooltip-remove="Remove from wishlist"
+data-tooltip-add="Add to wishlist"
+data-tooltip-redirect="Browse wishlist"
+>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+<use href="#icon-wishlist" />
+</svg>
+<span class="tooltip-content invisible rounded-3 absolute pointer-none tooltip-left">Add to wishlist</span>
+</button-wishlist>
 </div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible">
-<product-form class="product-item__product-form pc-form--media"><form id="quick-add-products00000000-0000-4000-8000-000000000014" accept-charset="UTF-8" class="form" novalidate="novalidate" data-type="add-to-cart-form" data-type="add-to-cart-form" data-preview-form><input type="hidden" name="form_type" value="product"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="product-id" value="00000000-0000-4000-8000-000000000014"><input
-type="hidden"
-name="id"
-value="00000000-0000-4000-8000-001400000002"
-disabled
->
-<button
-id="quick-add-products00000000-0000-4000-8000-000000000014-submit"
-type="submit"
-name="add"
-class="product__add-cart product-item__button-submit pc-atc btn text-center"
-data-sl-button data-button-role="primary" data-theme-button="primary" data-button-local-appearance="theme"
-aria-haspopup="dialog"
-aria-live="polite"
-data-sold-out-message="true"
->
-<svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="pc-atc__icon hidden-on-load icon-cart" aria-hidden="true" focusable="false">
-<path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-</svg>
-<svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="spin opacity-0 icon-load" aria-hidden="true" focusable="false">
-<use href="#icon-load"></use>
-</svg>
-<span class="pc-atc__label hidden-on-load btn-action">Add to Cart</span>
-<span class="sold-out-message hidden">
-Out of Stock
-</span>
-</button></form></product-form>
+</div>
+<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
 </div>
 </div>
 <div class="product-item__information word-break text-start mt-15">
@@ -1853,6 +1957,30 @@ $36.00
 </div>
 </div>
 </div>
+<product-form class="product-item__product-form pc-form--below"><form id="quick-add-products00000000-0000-4000-8000-000000000014" accept-charset="UTF-8" class="form" novalidate="novalidate" data-type="add-to-cart-form" data-type="add-to-cart-form" data-preview-form><input type="hidden" name="form_type" value="product"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="product-id" value="00000000-0000-4000-8000-000000000014"><input
+type="hidden"
+name="id"
+value="00000000-0000-4000-8000-001400000002"
+disabled
+>
+<button
+id="quick-add-products00000000-0000-4000-8000-000000000014-submit"
+type="submit"
+name="add"
+class="w-full product__add-cart product-item__select-options pc-atc pc-atc--below btn-primary text-center relative morden-style"
+data-sl-button data-button-role="primary" data-theme-button="primary" data-button-local-appearance="theme"
+aria-haspopup="dialog"
+aria-live="polite"
+data-sold-out-message="true"
+>
+<svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="spin opacity-0 icon-load">
+<use href="#icon-load"></use>
+</svg>
+<span class="pc-atc__label hidden-on-load btn-action">Add to Cart</span>
+<span class="sold-out-message hidden">
+Out of Stock
+</span>
+</button></form></product-form>
 </div>
 <script type="application/json" class="product-variant__quantity">
             [{ "option":"XS","qty":0,"available":false,"mamagement":"shopify"},{ "option":"S","qty":11,"available":true,"mamagement":""},{ "option":"M","qty":11,"available":true,"mamagement":""},{ "option":"L","qty":11,"available":true,"mamagement":""},{ "option":"XL","qty":11,"available":true,"mamagement":""},{ "option":"XXL","qty":11,"available":true,"mamagement":""}]
@@ -1864,7 +1992,7 @@ $36.00
 class="grid__item loadmore-item"
 >
 <div
-class="product-item product__item-js  style-as-standard"
+class="product-item product__item-js  style-as-morden"
 >
 <motion-element
 class="product-item__wrapper block  hover_fade product-grid "
@@ -1886,7 +2014,7 @@ style="--aspect-ratio: 1/1;"
 <img src="/theme-previews/caps-tees/a/capstees-tee-black.3853fd1fb42d.webp" srcset="/theme-previews/caps-tees/a/capstees-tee-black-800.eca805ab12ca.webp 720w, /theme-previews/caps-tees/a/capstees-tee-black-800.eca805ab12ca.webp 660w, /theme-previews/caps-tees/a/capstees-tee-black-800.eca805ab12ca.webp 550w, /theme-previews/caps-tees/a/capstees-tee-black-800.eca805ab12ca.webp 480w, /theme-previews/caps-tees/a/capstees-tee-black-400.220ad954ea6f.webp 330w, /theme-previews/caps-tees/a/capstees-tee-black-400.220ad954ea6f.webp 240w, /theme-previews/caps-tees/a/capstees-tee-black-400.220ad954ea6f.webp 185w" alt="Wordmark tee, black" width="1600" height="1600" loading="eager" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 16px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image">
 <div class="loading_image skeleton">
 </div>
-<img src="/theme-previews/caps-tees/a/capstees-tee-black-detail.e24111772a24.webp" srcset="/theme-previews/caps-tees/a/capstees-tee-black-detail-800.6af3f4be314e.webp 720w, /theme-previews/caps-tees/a/capstees-tee-black-detail-800.6af3f4be314e.webp 660w, /theme-previews/caps-tees/a/capstees-tee-black-detail-800.6af3f4be314e.webp 550w, /theme-previews/caps-tees/a/capstees-tee-black-detail-800.6af3f4be314e.webp 480w, /theme-previews/caps-tees/a/capstees-tee-black-detail-400.f6485e313aac.webp 330w, /theme-previews/caps-tees/a/capstees-tee-black-detail-400.f6485e313aac.webp 240w, /theme-previews/caps-tees/a/capstees-tee-black-detail-400.f6485e313aac.webp 185w" alt="Wordmark tee, black" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 16px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/caps-tees/a/capstees-tee-black-worn.94c1228e7b52.webp" srcset="/theme-previews/caps-tees/a/capstees-tee-black-worn-800.7aed1ec30058.webp 720w, /theme-previews/caps-tees/a/capstees-tee-black-worn-800.7aed1ec30058.webp 660w, /theme-previews/caps-tees/a/capstees-tee-black-worn-800.7aed1ec30058.webp 550w, /theme-previews/caps-tees/a/capstees-tee-black-worn-800.7aed1ec30058.webp 480w, /theme-previews/caps-tees/a/capstees-tee-black-worn-400.2cfebfbab795.webp 330w, /theme-previews/caps-tees/a/capstees-tee-black-worn-400.2cfebfbab795.webp 240w, /theme-previews/caps-tees/a/capstees-tee-black-worn-400.2cfebfbab795.webp 185w" alt="Wordmark tee, black" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 16px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
@@ -1903,35 +2031,28 @@ data-show-preorder="true"
 data-sale-badge-type="percent"
 >
 </div>
+<div class="product-item__button-action pc-heart heading-color transition flex z-5">
+<button-wishlist
+tabindex="0"
+role="button"
+aria-pressed="false"
+aria-label="Add to wishlist: Wordmark tee, black"
+class="product-item__button pointer product-item__button-wishlist tooltip relative transition rounded-50 p-0 shadow w-45 h-45 inline-flex content-center"
+data-product-id="00000000-0000-4000-8000-000000000015"
+data-product-handle="wordmark-tee-black"
+data-action="remove"
+data-tooltip-remove="Remove from wishlist"
+data-tooltip-add="Add to wishlist"
+data-tooltip-redirect="Browse wishlist"
+>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+<use href="#icon-wishlist" />
+</svg>
+<span class="tooltip-content invisible rounded-3 absolute pointer-none tooltip-left">Add to wishlist</span>
+</button-wishlist>
 </div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible">
-<product-form class="product-item__product-form pc-form--media"><form id="quick-add-products00000000-0000-4000-8000-000000000015" accept-charset="UTF-8" class="form" novalidate="novalidate" data-type="add-to-cart-form" data-type="add-to-cart-form" data-preview-form><input type="hidden" name="form_type" value="product"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="product-id" value="00000000-0000-4000-8000-000000000015"><input
-type="hidden"
-name="id"
-value="00000000-0000-4000-8000-001500000001"
-disabled
->
-<button
-id="quick-add-products00000000-0000-4000-8000-000000000015-submit"
-type="submit"
-name="add"
-class="product__add-cart product-item__button-submit pc-atc btn text-center"
-data-sl-button data-button-role="primary" data-theme-button="primary" data-button-local-appearance="theme"
-aria-haspopup="dialog"
-aria-live="polite"
-data-sold-out-message="true"
->
-<svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="pc-atc__icon hidden-on-load icon-cart" aria-hidden="true" focusable="false">
-<path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-</svg>
-<svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="spin opacity-0 icon-load" aria-hidden="true" focusable="false">
-<use href="#icon-load"></use>
-</svg>
-<span class="pc-atc__label hidden-on-load btn-action">Add to Cart</span>
-<span class="sold-out-message hidden">
-Out of Stock
-</span>
-</button></form></product-form>
+</div>
+<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
 </div>
 </div>
 <div class="product-item__information word-break text-start mt-15">
@@ -1952,6 +2073,30 @@ $36.00
 </div>
 </div>
 </div>
+<product-form class="product-item__product-form pc-form--below"><form id="quick-add-products00000000-0000-4000-8000-000000000015" accept-charset="UTF-8" class="form" novalidate="novalidate" data-type="add-to-cart-form" data-type="add-to-cart-form" data-preview-form><input type="hidden" name="form_type" value="product"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="product-id" value="00000000-0000-4000-8000-000000000015"><input
+type="hidden"
+name="id"
+value="00000000-0000-4000-8000-001500000001"
+disabled
+>
+<button
+id="quick-add-products00000000-0000-4000-8000-000000000015-submit"
+type="submit"
+name="add"
+class="w-full product__add-cart product-item__select-options pc-atc pc-atc--below btn-primary text-center relative morden-style"
+data-sl-button data-button-role="primary" data-theme-button="primary" data-button-local-appearance="theme"
+aria-haspopup="dialog"
+aria-live="polite"
+data-sold-out-message="true"
+>
+<svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="spin opacity-0 icon-load">
+<use href="#icon-load"></use>
+</svg>
+<span class="pc-atc__label hidden-on-load btn-action">Add to Cart</span>
+<span class="sold-out-message hidden">
+Out of Stock
+</span>
+</button></form></product-form>
 </div>
 <script type="application/json" class="product-variant__quantity">
             [{ "option":"XS","qty":11,"available":true,"mamagement":""},{ "option":"S","qty":11,"available":true,"mamagement":""},{ "option":"M","qty":11,"available":true,"mamagement":""},{ "option":"L","qty":11,"available":true,"mamagement":""},{ "option":"XL","qty":11,"available":true,"mamagement":""},{ "option":"XXL","qty":11,"available":true,"mamagement":""}]

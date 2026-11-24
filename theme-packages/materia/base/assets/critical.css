@@ -924,6 +924,30 @@ picture {
 .section.pb-min {
   padding-bottom: calc(var(--section-pb) * 1px);
 }
+/* A row of product cards keeps room under it (r25). With a bottom padding
+   of 0, the cards' Add to cart bar sat on the next section (a full bleed
+   banner, the footer). The section's own padding still applies when it is
+   larger; below --product-row-space it is raised to it. Collection tabs and
+   the products grid draw their padding themselves and do the same there. */
+:root { --product-row-space: 40px; }
+@media (max-width: 767px) { :root { --product-row-space: 28px; } }
+#MainContent .section:not(.ti-tabs, .pg, .pstl):has(.product-item__wrapper.product-grid) {
+  padding-bottom: max(
+    clamp(
+      (var(--section-pb) * 0.75px),
+      calc(
+        (var(--section-pb) * 0.75px) +
+          (var(--section-pb) - (var(--section-pb) * 0.75)) *
+          var(--responsive-rate)
+      ),
+      calc(var(--section-pb) * 1px)
+    ),
+    var(--product-row-space)
+  );
+}
+#MainContent .section.pb-min:not(.ti-tabs, .pg, .pstl):has(.product-item__wrapper.product-grid) {
+  padding-bottom: max(calc(var(--section-pb) * 1px), var(--product-row-space));
+}
 #MainContent {
   flex-grow: 1;
 }

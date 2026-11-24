@@ -1,7 +1,7 @@
 
 <!doctype html>
 <html class="no-js" lang="en" dir="ltr">
-<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/caps-tees/a/cart.8fb5178a8faf.json";
+<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/caps-tees/a/cart.8fb5178a8faf.json",WISH_DATA="/theme-previews/caps-tees/a/wishlist.35bde6638743.json";
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
@@ -86,6 +86,8 @@ if(D.readyState==="loading")D.addEventListener("DOMContentLoaded",arrive);else a
 
 if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);if(mine(u))return F.apply(this,arguments);
 /* Cards round 24: the cart answers from the template's drawn cart (./theme-templates/preview-cart.ts), as a store would. */
+/* Round 25: the wishlist page asks for its saved products' cards; every product's card is in WISH_DATA and the theme keeps the saved ones. */
+if(WISH_DATA&&/\/search$/.test(path(u))&&/[?&]section_id=/.test(u))return F(WISH_DATA).then(function(r){return r.json()}).then(function(d){return new Response(d.html,{status:200,headers:{"Content-Type":"text/html"}})});
 var p=path(u),q=/[?&]sections=/.test(u),c=/\/cart(\.js|\.json|\/(add|change|update|clear)(\.js)?)$/.test(p);if(CART_DATA&&(c||q)){var w=c?cartReply(p,o):sectionsReply(u);return w.then(function(r){return new Response(JSON.stringify(r[1]),{status:r[0],headers:{"Content-Type":"application/json"}})},function(){var r=reply(u);return new Response(r[2],{status:r[0],headers:{"Content-Type":r[1]}})})}
 var r=reply(u);return Promise.resolve(new Response(r[2],{status:r[0],headers:{"Content-Type":r[1]}}))};
 var X=W.XMLHttpRequest&&W.XMLHttpRequest.prototype;if(X){var O=X.open;X.open=function(m,u){var a=[].slice.call(arguments);if(!mine(u)){var r=reply(u);a[0]="GET";a[1]="data:"+r[1]+","+encodeURIComponent(r[2])}return O.apply(this,a)}}
@@ -206,8 +208,8 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
         } catch (e) {}
       })();
     </script>
-<link href="/theme-previews/_base/a/critical.03978b251a4f.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/product-card.9a3739dc0c4c.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"outline","product_size":13,"price_size":13,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
+<link href="/theme-previews/_base/a/critical.4539b38450ad.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/product-card.a0a3949c11b6.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"outline","product_size":13,"price_size":13,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
 <style>html:not([data-card-custom='true']) .product-item .product-item__name { font-size:var(--body-font-size, 16px); text-transform:var(--heading-text-transform, none) !important; } html:not([data-card-custom='true']) .product-item .product-item__price { font-size:var(--body-font-size, 16px); }</style>
 <script>document.documentElement.dataset.cardCustom = false === true ? 'true' : 'false';</script>
 <script type="application/json" data-badge-style-settings>false</script>
@@ -680,6 +682,18 @@ href="/theme-previews/caps-tees/pages/contact.html"
 ><span class="menu-link-text">Contact</span></a></li></ul>
 </div>
 </li>
+<li class="level0 hidden-1025">
+<a
+class="no-underline py-10 lh-normal flex border-bottom border-bottom-1025-0 min-h-55 min-h-1025-50 align-center"
+href="/theme-previews/caps-tees/pages/wishlist.html"
+aria-label="Wishlist"
+>
+<svg width="17" height="15" viewBox="0 0 19 16" class="me-10" fill="none">
+<use href="#icon-wishlist-header" />
+</svg>
+Wishlist
+</a>
+</li>
 </ul>
 </div>
 </nav>
@@ -788,7 +802,20 @@ class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 
 href="/theme-previews/caps-tees/pages/contact.html"
 ><span>Contact</span></a></menu-item></li>
 </ul>
-</div><div class="lang__currency-on-nav flex flex-wrap hidden-1025 border-top">
+</div><div class="mobile-nav-actions flex align-center gap-15 hidden-1025"><a
+href="/theme-previews/caps-tees/pages/wishlist.html"
+class="mobile-nav-actions__wishlist inline-flex align-center justify-content-center no-underline"
+aria-label="Wishlist"
+>
+<h-count class="relative lh-1 fs-0 inline-flex align-center justify-content-center">
+<svg width="19" height="16" viewBox="0 0 19 16" fill="none" aria-hidden="true">
+<use href="#icon-wishlist-header" />
+</svg>
+<span class="absolute lh-1 wishlist-count h-count inline-flex align-center justify-content-center rounded-50 overflow-hidden fs-10">
+0
+</span>
+</h-count>
+</a></div><div class="lang__currency-on-nav flex flex-wrap hidden-1025 border-top">
 <localization-form>
 <form id="localization-language-header" accept-charset="UTF-8" class="shopify-localization-form" data-preview-form><input type="hidden" name="form_type" value="localization"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="storelib_country" value="US">
 <input type="hidden" name="language_code" value="en">
@@ -908,6 +935,22 @@ aria-label="Search"
 </svg></button>
 </div></div>
 </div>
+<div class="header__wishlist hidden block-1025">
+<a
+href="/theme-previews/caps-tees/pages/wishlist.html"
+class="header-icon header-color w-44 h-44 inline-flex content-center"
+aria-label="Wishlist"
+>
+<h-count class="relative lh-1 fs-0">
+<svg width="19" height="16" viewBox="0 0 19 16" fill="none">
+<use href="#icon-wishlist-header" />
+</svg>
+<span class="absolute lh-1 wishlist-count h-count inline-flex align-center justify-content-center rounded-50 overflow-hidden fs-10">
+0
+</span>
+</h-count>
+</a>
+</div>
 <div class="minicart">
 <div>
 <div
@@ -962,7 +1005,7 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
      kept the words at the top). */
   #shopify-section-grid .pg__foot > .button { display: inline-flex; align-items: center; justify-content: center; }
   #shopify-section-grid { isolation: isolate; position: relative; }#shopify-section-grid, #shopify-section-grid > .section { margin-top: 0 !important; margin-bottom: 0 !important; }
-    #shopify-section-grid + .shopify-section { margin-top: 0 !important; }#shopify-section-grid .pg { padding-block: 5px 38px; }
+    #shopify-section-grid + .shopify-section { margin-top: 0 !important; }#shopify-section-grid .pg { padding-block: 5px max(38px, var(--product-row-space, 0px)); }
   #shopify-section-grid .pg__head { display: flex; flex-direction: column; gap: 8px; margin-bottom: 28px; text-align: left; align-items: flex-start; }
   #shopify-section-grid .pg__heading { margin: 0; overflow-wrap: anywhere; }
   #shopify-section-grid .pg__text { margin: 0; max-width: 60ch; color: var(--color-text); }
@@ -972,7 +1015,7 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
   #shopify-section-grid .pg__grid > * { min-width: 0; }
   #shopify-section-grid .pg__foot { display: flex; justify-content: center; margin-top: 32px; }
   @media (min-width: 768px) {
-    #shopify-section-grid .pg { padding-block: 8px 64px; }
+    #shopify-section-grid .pg { padding-block: 8px max(64px, var(--product-row-space, 0px)); }
     #shopify-section-grid .pg__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
   }
   @media (min-width: 1025px) {
@@ -982,7 +1025,7 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
 <div class="pg section color-default gradient" data-section-type="products-grid" data-section-id="grid">
 <div class="container"><div class="pg__grid">
 <div
-class="product-item product__item-js  style-as-standard"
+class="product-item product__item-js  style-as-morden"
 >
 <motion-element
 class="product-item__wrapper block  hover_fade product-grid "
@@ -1003,7 +1046,7 @@ style="--aspect-ratio: 1/1;"
 <img src="/theme-previews/caps-tees/a/capstees-cap-mustard.41db84640661.webp" srcset="/theme-previews/caps-tees/a/capstees-cap-mustard-800.159f8d056525.webp 720w, /theme-previews/caps-tees/a/capstees-cap-mustard-800.159f8d056525.webp 660w, /theme-previews/caps-tees/a/capstees-cap-mustard-800.159f8d056525.webp 550w, /theme-previews/caps-tees/a/capstees-cap-mustard-800.159f8d056525.webp 480w, /theme-previews/caps-tees/a/capstees-cap-mustard-400.dfc2abebfc79.webp 330w, /theme-previews/caps-tees/a/capstees-cap-mustard-400.dfc2abebfc79.webp 240w, /theme-previews/caps-tees/a/capstees-cap-mustard-400.dfc2abebfc79.webp 185w" alt="Twill cap, mustard" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
-<img src="/theme-previews/caps-tees/a/capstees-cap-mustard-detail.15259098b8e9.webp" srcset="/theme-previews/caps-tees/a/capstees-cap-mustard-detail-800.aac81ad65227.webp 720w, /theme-previews/caps-tees/a/capstees-cap-mustard-detail-800.aac81ad65227.webp 660w, /theme-previews/caps-tees/a/capstees-cap-mustard-detail-800.aac81ad65227.webp 550w, /theme-previews/caps-tees/a/capstees-cap-mustard-detail-800.aac81ad65227.webp 480w, /theme-previews/caps-tees/a/capstees-cap-mustard-detail-400.1a1059acd9ad.webp 330w, /theme-previews/caps-tees/a/capstees-cap-mustard-detail-400.1a1059acd9ad.webp 240w, /theme-previews/caps-tees/a/capstees-cap-mustard-detail-400.1a1059acd9ad.webp 185w" alt="Twill cap, mustard" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/caps-tees/a/capstees-cap-mustard-worn.7fb7188e9487.webp" srcset="/theme-previews/caps-tees/a/capstees-cap-mustard-worn-800.e7d9e585e1f5.webp 720w, /theme-previews/caps-tees/a/capstees-cap-mustard-worn-800.e7d9e585e1f5.webp 660w, /theme-previews/caps-tees/a/capstees-cap-mustard-worn-800.e7d9e585e1f5.webp 550w, /theme-previews/caps-tees/a/capstees-cap-mustard-worn-800.e7d9e585e1f5.webp 480w, /theme-previews/caps-tees/a/capstees-cap-mustard-worn-400.60fb06f25165.webp 330w, /theme-previews/caps-tees/a/capstees-cap-mustard-worn-400.60fb06f25165.webp 240w, /theme-previews/caps-tees/a/capstees-cap-mustard-worn-400.60fb06f25165.webp 185w" alt="Twill cap, mustard" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
@@ -1020,8 +1063,28 @@ data-show-preorder="true"
 data-sale-badge-type="percent"
 >
 </div>
+<div class="product-item__button-action pc-heart heading-color transition flex z-5">
+<button-wishlist
+tabindex="0"
+role="button"
+aria-pressed="false"
+aria-label="Add to wishlist: Twill cap, mustard"
+class="product-item__button pointer product-item__button-wishlist tooltip relative transition rounded-50 p-0 shadow w-45 h-45 inline-flex content-center"
+data-product-id="00000000-0000-4000-8000-000000000010"
+data-product-handle="twill-cap-mustard"
+data-action="remove"
+data-tooltip-remove="Remove from wishlist"
+data-tooltip-add="Add to wishlist"
+data-tooltip-redirect="Browse wishlist"
+>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+<use href="#icon-wishlist" />
+</svg>
+<span class="tooltip-content invisible rounded-3 absolute pointer-none tooltip-left">Add to wishlist</span>
+</button-wishlist>
 </div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible">
+</div>
+<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
 </div>
 </div>
 <div class="product-item__information word-break text-start mt-15">
@@ -1048,7 +1111,7 @@ $38.00
           </script>
 </motion-element></div>
 <div
-class="product-item product__item-js  style-as-standard"
+class="product-item product__item-js  style-as-morden"
 >
 <motion-element
 class="product-item__wrapper block  hover_fade product-grid "
@@ -1069,7 +1132,7 @@ style="--aspect-ratio: 1/1;"
 <img src="/theme-previews/caps-tees/a/capstees-cap-rose.7e3fc23c1f43.webp" srcset="/theme-previews/caps-tees/a/capstees-cap-rose-800.ff2b58d43e05.webp 720w, /theme-previews/caps-tees/a/capstees-cap-rose-800.ff2b58d43e05.webp 660w, /theme-previews/caps-tees/a/capstees-cap-rose-800.ff2b58d43e05.webp 550w, /theme-previews/caps-tees/a/capstees-cap-rose-800.ff2b58d43e05.webp 480w, /theme-previews/caps-tees/a/capstees-cap-rose-400.0e95adc3ff5a.webp 330w, /theme-previews/caps-tees/a/capstees-cap-rose-400.0e95adc3ff5a.webp 240w, /theme-previews/caps-tees/a/capstees-cap-rose-400.0e95adc3ff5a.webp 185w" alt="Twill cap, rose" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
-<img src="/theme-previews/caps-tees/a/capstees-cap-rose-detail.6f3b7fc63f0b.webp" srcset="/theme-previews/caps-tees/a/capstees-cap-rose-detail-800.327d17c020e6.webp 720w, /theme-previews/caps-tees/a/capstees-cap-rose-detail-800.327d17c020e6.webp 660w, /theme-previews/caps-tees/a/capstees-cap-rose-detail-800.327d17c020e6.webp 550w, /theme-previews/caps-tees/a/capstees-cap-rose-detail-800.327d17c020e6.webp 480w, /theme-previews/caps-tees/a/capstees-cap-rose-detail-400.a6580d0cb15e.webp 330w, /theme-previews/caps-tees/a/capstees-cap-rose-detail-400.a6580d0cb15e.webp 240w, /theme-previews/caps-tees/a/capstees-cap-rose-detail-400.a6580d0cb15e.webp 185w" alt="Twill cap, rose" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/caps-tees/a/capstees-cap-rose-worn.b386bd729325.webp" srcset="/theme-previews/caps-tees/a/capstees-cap-rose-worn-800.8bae152e8307.webp 720w, /theme-previews/caps-tees/a/capstees-cap-rose-worn-800.8bae152e8307.webp 660w, /theme-previews/caps-tees/a/capstees-cap-rose-worn-800.8bae152e8307.webp 550w, /theme-previews/caps-tees/a/capstees-cap-rose-worn-800.8bae152e8307.webp 480w, /theme-previews/caps-tees/a/capstees-cap-rose-worn-400.d36e0122d43a.webp 330w, /theme-previews/caps-tees/a/capstees-cap-rose-worn-400.d36e0122d43a.webp 240w, /theme-previews/caps-tees/a/capstees-cap-rose-worn-400.d36e0122d43a.webp 185w" alt="Twill cap, rose" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
@@ -1086,8 +1149,28 @@ data-show-preorder="true"
 data-sale-badge-type="percent"
 >
 </div>
+<div class="product-item__button-action pc-heart heading-color transition flex z-5">
+<button-wishlist
+tabindex="0"
+role="button"
+aria-pressed="false"
+aria-label="Add to wishlist: Twill cap, rose"
+class="product-item__button pointer product-item__button-wishlist tooltip relative transition rounded-50 p-0 shadow w-45 h-45 inline-flex content-center"
+data-product-id="00000000-0000-4000-8000-000000000011"
+data-product-handle="twill-cap-rose"
+data-action="remove"
+data-tooltip-remove="Remove from wishlist"
+data-tooltip-add="Add to wishlist"
+data-tooltip-redirect="Browse wishlist"
+>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+<use href="#icon-wishlist" />
+</svg>
+<span class="tooltip-content invisible rounded-3 absolute pointer-none tooltip-left">Add to wishlist</span>
+</button-wishlist>
 </div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible">
+</div>
+<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
 </div>
 </div>
 <div class="product-item__information word-break text-start mt-15">
@@ -1114,7 +1197,7 @@ $38.00
           </script>
 </motion-element></div>
 <div
-class="product-item product__item-js  style-as-standard"
+class="product-item product__item-js  style-as-morden"
 >
 <motion-element
 class="product-item__wrapper block  hover_fade product-grid "
@@ -1135,7 +1218,7 @@ style="--aspect-ratio: 1/1;"
 <img src="/theme-previews/caps-tees/a/capstees-cap-rust.560b05387d3b.webp" srcset="/theme-previews/caps-tees/a/capstees-cap-rust-800.0dd70a923062.webp 720w, /theme-previews/caps-tees/a/capstees-cap-rust-800.0dd70a923062.webp 660w, /theme-previews/caps-tees/a/capstees-cap-rust-800.0dd70a923062.webp 550w, /theme-previews/caps-tees/a/capstees-cap-rust-800.0dd70a923062.webp 480w, /theme-previews/caps-tees/a/capstees-cap-rust-400.609f11cc1682.webp 330w, /theme-previews/caps-tees/a/capstees-cap-rust-400.609f11cc1682.webp 240w, /theme-previews/caps-tees/a/capstees-cap-rust-400.609f11cc1682.webp 185w" alt="Twill cap, rust" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
-<img src="/theme-previews/caps-tees/a/capstees-cap-rust-detail.1184e79aea41.webp" srcset="/theme-previews/caps-tees/a/capstees-cap-rust-detail-800.b381edd54baa.webp 720w, /theme-previews/caps-tees/a/capstees-cap-rust-detail-800.b381edd54baa.webp 660w, /theme-previews/caps-tees/a/capstees-cap-rust-detail-800.b381edd54baa.webp 550w, /theme-previews/caps-tees/a/capstees-cap-rust-detail-800.b381edd54baa.webp 480w, /theme-previews/caps-tees/a/capstees-cap-rust-detail-400.08e17f96f83f.webp 330w, /theme-previews/caps-tees/a/capstees-cap-rust-detail-400.08e17f96f83f.webp 240w, /theme-previews/caps-tees/a/capstees-cap-rust-detail-400.08e17f96f83f.webp 185w" alt="Twill cap, rust" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/caps-tees/a/capstees-cap-rust-worn.79cbada1a921.webp" srcset="/theme-previews/caps-tees/a/capstees-cap-rust-worn-800.2e3e237ac64b.webp 720w, /theme-previews/caps-tees/a/capstees-cap-rust-worn-800.2e3e237ac64b.webp 660w, /theme-previews/caps-tees/a/capstees-cap-rust-worn-800.2e3e237ac64b.webp 550w, /theme-previews/caps-tees/a/capstees-cap-rust-worn-800.2e3e237ac64b.webp 480w, /theme-previews/caps-tees/a/capstees-cap-rust-worn-400.ec8cf204da35.webp 330w, /theme-previews/caps-tees/a/capstees-cap-rust-worn-400.ec8cf204da35.webp 240w, /theme-previews/caps-tees/a/capstees-cap-rust-worn-400.ec8cf204da35.webp 185w" alt="Twill cap, rust" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
@@ -1152,8 +1235,28 @@ data-show-preorder="true"
 data-sale-badge-type="percent"
 >
 </div>
+<div class="product-item__button-action pc-heart heading-color transition flex z-5">
+<button-wishlist
+tabindex="0"
+role="button"
+aria-pressed="false"
+aria-label="Add to wishlist: Twill cap, rust"
+class="product-item__button pointer product-item__button-wishlist tooltip relative transition rounded-50 p-0 shadow w-45 h-45 inline-flex content-center"
+data-product-id="00000000-0000-4000-8000-000000000012"
+data-product-handle="twill-cap-rust"
+data-action="remove"
+data-tooltip-remove="Remove from wishlist"
+data-tooltip-add="Add to wishlist"
+data-tooltip-redirect="Browse wishlist"
+>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+<use href="#icon-wishlist" />
+</svg>
+<span class="tooltip-content invisible rounded-3 absolute pointer-none tooltip-left">Add to wishlist</span>
+</button-wishlist>
 </div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible">
+</div>
+<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
 </div>
 </div>
 <div class="product-item__information word-break text-start mt-15">
@@ -1180,7 +1283,7 @@ $38.00
           </script>
 </motion-element></div>
 <div
-class="product-item product__item-js  style-as-standard"
+class="product-item product__item-js  style-as-morden"
 >
 <motion-element
 class="product-item__wrapper block  hover_fade product-grid "
@@ -1201,7 +1304,7 @@ style="--aspect-ratio: 1/1;"
 <img src="/theme-previews/caps-tees/a/capstees-cap-black.b1243a25be0c.webp" srcset="/theme-previews/caps-tees/a/capstees-cap-black-800.0883dcba3235.webp 720w, /theme-previews/caps-tees/a/capstees-cap-black-800.0883dcba3235.webp 660w, /theme-previews/caps-tees/a/capstees-cap-black-800.0883dcba3235.webp 550w, /theme-previews/caps-tees/a/capstees-cap-black-800.0883dcba3235.webp 480w, /theme-previews/caps-tees/a/capstees-cap-black-400.e30118716250.webp 330w, /theme-previews/caps-tees/a/capstees-cap-black-400.e30118716250.webp 240w, /theme-previews/caps-tees/a/capstees-cap-black-400.e30118716250.webp 185w" alt="Twill cap, black" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
-<img src="/theme-previews/caps-tees/a/capstees-cap-black-detail.434ed46ad4bb.webp" srcset="/theme-previews/caps-tees/a/capstees-cap-black-detail-800.dbca808c71c0.webp 720w, /theme-previews/caps-tees/a/capstees-cap-black-detail-800.dbca808c71c0.webp 660w, /theme-previews/caps-tees/a/capstees-cap-black-detail-800.dbca808c71c0.webp 550w, /theme-previews/caps-tees/a/capstees-cap-black-detail-800.dbca808c71c0.webp 480w, /theme-previews/caps-tees/a/capstees-cap-black-detail-400.bbff25118796.webp 330w, /theme-previews/caps-tees/a/capstees-cap-black-detail-400.bbff25118796.webp 240w, /theme-previews/caps-tees/a/capstees-cap-black-detail-400.bbff25118796.webp 185w" alt="Twill cap, black" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/caps-tees/a/capstees-cap-black-worn.29c26c424da5.webp" srcset="/theme-previews/caps-tees/a/capstees-cap-black-worn-800.958fcf7fdfbc.webp 720w, /theme-previews/caps-tees/a/capstees-cap-black-worn-800.958fcf7fdfbc.webp 660w, /theme-previews/caps-tees/a/capstees-cap-black-worn-800.958fcf7fdfbc.webp 550w, /theme-previews/caps-tees/a/capstees-cap-black-worn-800.958fcf7fdfbc.webp 480w, /theme-previews/caps-tees/a/capstees-cap-black-worn-400.982a6b1ef7e5.webp 330w, /theme-previews/caps-tees/a/capstees-cap-black-worn-400.982a6b1ef7e5.webp 240w, /theme-previews/caps-tees/a/capstees-cap-black-worn-400.982a6b1ef7e5.webp 185w" alt="Twill cap, black" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
@@ -1218,8 +1321,28 @@ data-show-preorder="true"
 data-sale-badge-type="percent"
 >
 </div>
+<div class="product-item__button-action pc-heart heading-color transition flex z-5">
+<button-wishlist
+tabindex="0"
+role="button"
+aria-pressed="false"
+aria-label="Add to wishlist: Twill cap, black"
+class="product-item__button pointer product-item__button-wishlist tooltip relative transition rounded-50 p-0 shadow w-45 h-45 inline-flex content-center"
+data-product-id="00000000-0000-4000-8000-000000000013"
+data-product-handle="twill-cap-black"
+data-action="remove"
+data-tooltip-remove="Remove from wishlist"
+data-tooltip-add="Add to wishlist"
+data-tooltip-redirect="Browse wishlist"
+>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+<use href="#icon-wishlist" />
+</svg>
+<span class="tooltip-content invisible rounded-3 absolute pointer-none tooltip-left">Add to wishlist</span>
+</button-wishlist>
 </div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible">
+</div>
+<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
 </div>
 </div>
 <div class="product-item__information word-break text-start mt-15">
@@ -1246,7 +1369,7 @@ $38.00
           </script>
 </motion-element></div>
 <div
-class="product-item product__item-js  style-as-standard"
+class="product-item product__item-js  style-as-morden"
 >
 <motion-element
 class="product-item__wrapper block  hover_fade product-grid "
@@ -1267,7 +1390,7 @@ style="--aspect-ratio: 1/1;"
 <img src="/theme-previews/caps-tees/a/capstees-tee-white.4b82bf470631.webp" srcset="/theme-previews/caps-tees/a/capstees-tee-white-800.cdfbf923ae0c.webp 720w, /theme-previews/caps-tees/a/capstees-tee-white-800.cdfbf923ae0c.webp 660w, /theme-previews/caps-tees/a/capstees-tee-white-800.cdfbf923ae0c.webp 550w, /theme-previews/caps-tees/a/capstees-tee-white-800.cdfbf923ae0c.webp 480w, /theme-previews/caps-tees/a/capstees-tee-white-400.ae59d791b4fe.webp 330w, /theme-previews/caps-tees/a/capstees-tee-white-400.ae59d791b4fe.webp 240w, /theme-previews/caps-tees/a/capstees-tee-white-400.ae59d791b4fe.webp 185w" alt="Wordmark tee, white" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
-<img src="/theme-previews/caps-tees/a/capstees-tee-white-detail.389fe4ccad06.webp" srcset="/theme-previews/caps-tees/a/capstees-tee-white-detail-800.d97fe4020811.webp 720w, /theme-previews/caps-tees/a/capstees-tee-white-detail-800.d97fe4020811.webp 660w, /theme-previews/caps-tees/a/capstees-tee-white-detail-800.d97fe4020811.webp 550w, /theme-previews/caps-tees/a/capstees-tee-white-detail-800.d97fe4020811.webp 480w, /theme-previews/caps-tees/a/capstees-tee-white-detail-400.7cf147b0bd9f.webp 330w, /theme-previews/caps-tees/a/capstees-tee-white-detail-400.7cf147b0bd9f.webp 240w, /theme-previews/caps-tees/a/capstees-tee-white-detail-400.7cf147b0bd9f.webp 185w" alt="Wordmark tee, white" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/caps-tees/a/capstees-tee-white-worn.c8ba088cfec2.webp" srcset="/theme-previews/caps-tees/a/capstees-tee-white-worn-800.ba3091560bf5.webp 720w, /theme-previews/caps-tees/a/capstees-tee-white-worn-800.ba3091560bf5.webp 660w, /theme-previews/caps-tees/a/capstees-tee-white-worn-800.ba3091560bf5.webp 550w, /theme-previews/caps-tees/a/capstees-tee-white-worn-800.ba3091560bf5.webp 480w, /theme-previews/caps-tees/a/capstees-tee-white-worn-400.12691501aba2.webp 330w, /theme-previews/caps-tees/a/capstees-tee-white-worn-400.12691501aba2.webp 240w, /theme-previews/caps-tees/a/capstees-tee-white-worn-400.12691501aba2.webp 185w" alt="Wordmark tee, white" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
@@ -1284,8 +1407,28 @@ data-show-preorder="true"
 data-sale-badge-type="percent"
 >
 </div>
+<div class="product-item__button-action pc-heart heading-color transition flex z-5">
+<button-wishlist
+tabindex="0"
+role="button"
+aria-pressed="false"
+aria-label="Add to wishlist: Wordmark tee, white"
+class="product-item__button pointer product-item__button-wishlist tooltip relative transition rounded-50 p-0 shadow w-45 h-45 inline-flex content-center"
+data-product-id="00000000-0000-4000-8000-000000000014"
+data-product-handle="wordmark-tee-white"
+data-action="remove"
+data-tooltip-remove="Remove from wishlist"
+data-tooltip-add="Add to wishlist"
+data-tooltip-redirect="Browse wishlist"
+>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+<use href="#icon-wishlist" />
+</svg>
+<span class="tooltip-content invisible rounded-3 absolute pointer-none tooltip-left">Add to wishlist</span>
+</button-wishlist>
 </div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible">
+</div>
+<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
 </div>
 </div>
 <div class="product-item__information word-break text-start mt-15">
@@ -1314,7 +1457,7 @@ $36.00
         [{ "option":"XS","qty":0,"available":false,"mamagement":"shopify"},{ "option":"S","qty":11,"available":true,"mamagement":""},{ "option":"M","qty":11,"available":true,"mamagement":""},{ "option":"L","qty":11,"available":true,"mamagement":""},{ "option":"XL","qty":11,"available":true,"mamagement":""},{ "option":"XXL","qty":11,"available":true,"mamagement":""}]
       </script></div>
 <div
-class="product-item product__item-js  style-as-standard"
+class="product-item product__item-js  style-as-morden"
 >
 <motion-element
 class="product-item__wrapper block  hover_fade product-grid "
@@ -1335,7 +1478,7 @@ style="--aspect-ratio: 1/1;"
 <img src="/theme-previews/caps-tees/a/capstees-tee-black.3853fd1fb42d.webp" srcset="/theme-previews/caps-tees/a/capstees-tee-black-800.eca805ab12ca.webp 720w, /theme-previews/caps-tees/a/capstees-tee-black-800.eca805ab12ca.webp 660w, /theme-previews/caps-tees/a/capstees-tee-black-800.eca805ab12ca.webp 550w, /theme-previews/caps-tees/a/capstees-tee-black-800.eca805ab12ca.webp 480w, /theme-previews/caps-tees/a/capstees-tee-black-400.220ad954ea6f.webp 330w, /theme-previews/caps-tees/a/capstees-tee-black-400.220ad954ea6f.webp 240w, /theme-previews/caps-tees/a/capstees-tee-black-400.220ad954ea6f.webp 185w" alt="Wordmark tee, black" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
-<img src="/theme-previews/caps-tees/a/capstees-tee-black-detail.e24111772a24.webp" srcset="/theme-previews/caps-tees/a/capstees-tee-black-detail-800.6af3f4be314e.webp 720w, /theme-previews/caps-tees/a/capstees-tee-black-detail-800.6af3f4be314e.webp 660w, /theme-previews/caps-tees/a/capstees-tee-black-detail-800.6af3f4be314e.webp 550w, /theme-previews/caps-tees/a/capstees-tee-black-detail-800.6af3f4be314e.webp 480w, /theme-previews/caps-tees/a/capstees-tee-black-detail-400.f6485e313aac.webp 330w, /theme-previews/caps-tees/a/capstees-tee-black-detail-400.f6485e313aac.webp 240w, /theme-previews/caps-tees/a/capstees-tee-black-detail-400.f6485e313aac.webp 185w" alt="Wordmark tee, black" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/caps-tees/a/capstees-tee-black-worn.94c1228e7b52.webp" srcset="/theme-previews/caps-tees/a/capstees-tee-black-worn-800.7aed1ec30058.webp 720w, /theme-previews/caps-tees/a/capstees-tee-black-worn-800.7aed1ec30058.webp 660w, /theme-previews/caps-tees/a/capstees-tee-black-worn-800.7aed1ec30058.webp 550w, /theme-previews/caps-tees/a/capstees-tee-black-worn-800.7aed1ec30058.webp 480w, /theme-previews/caps-tees/a/capstees-tee-black-worn-400.2cfebfbab795.webp 330w, /theme-previews/caps-tees/a/capstees-tee-black-worn-400.2cfebfbab795.webp 240w, /theme-previews/caps-tees/a/capstees-tee-black-worn-400.2cfebfbab795.webp 185w" alt="Wordmark tee, black" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
@@ -1352,8 +1495,28 @@ data-show-preorder="true"
 data-sale-badge-type="percent"
 >
 </div>
+<div class="product-item__button-action pc-heart heading-color transition flex z-5">
+<button-wishlist
+tabindex="0"
+role="button"
+aria-pressed="false"
+aria-label="Add to wishlist: Wordmark tee, black"
+class="product-item__button pointer product-item__button-wishlist tooltip relative transition rounded-50 p-0 shadow w-45 h-45 inline-flex content-center"
+data-product-id="00000000-0000-4000-8000-000000000015"
+data-product-handle="wordmark-tee-black"
+data-action="remove"
+data-tooltip-remove="Remove from wishlist"
+data-tooltip-add="Add to wishlist"
+data-tooltip-redirect="Browse wishlist"
+>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+<use href="#icon-wishlist" />
+</svg>
+<span class="tooltip-content invisible rounded-3 absolute pointer-none tooltip-left">Add to wishlist</span>
+</button-wishlist>
 </div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible">
+</div>
+<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
 </div>
 </div>
 <div class="product-item__information word-break text-start mt-15">
@@ -1382,7 +1545,7 @@ $36.00
         [{ "option":"XS","qty":11,"available":true,"mamagement":""},{ "option":"S","qty":11,"available":true,"mamagement":""},{ "option":"M","qty":11,"available":true,"mamagement":""},{ "option":"L","qty":11,"available":true,"mamagement":""},{ "option":"XL","qty":11,"available":true,"mamagement":""},{ "option":"XXL","qty":11,"available":true,"mamagement":""}]
       </script></div>
 <div
-class="product-item product__item-js  style-as-standard"
+class="product-item product__item-js  style-as-morden"
 >
 <motion-element
 class="product-item__wrapper block  hover_fade product-grid "
@@ -1403,7 +1566,7 @@ style="--aspect-ratio: 1/1;"
 <img src="/theme-previews/caps-tees/a/capstees-tee-bottle.4ad11c0e4664.webp" srcset="/theme-previews/caps-tees/a/capstees-tee-bottle-800.885114516c1e.webp 720w, /theme-previews/caps-tees/a/capstees-tee-bottle-800.885114516c1e.webp 660w, /theme-previews/caps-tees/a/capstees-tee-bottle-800.885114516c1e.webp 550w, /theme-previews/caps-tees/a/capstees-tee-bottle-800.885114516c1e.webp 480w, /theme-previews/caps-tees/a/capstees-tee-bottle-400.940328eed53c.webp 330w, /theme-previews/caps-tees/a/capstees-tee-bottle-400.940328eed53c.webp 240w, /theme-previews/caps-tees/a/capstees-tee-bottle-400.940328eed53c.webp 185w" alt="Wordmark tee, bottle green" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
-<img src="/theme-previews/caps-tees/a/capstees-tee-bottle-detail.a57b23500ca6.webp" srcset="/theme-previews/caps-tees/a/capstees-tee-bottle-detail-800.f71935f56974.webp 720w, /theme-previews/caps-tees/a/capstees-tee-bottle-detail-800.f71935f56974.webp 660w, /theme-previews/caps-tees/a/capstees-tee-bottle-detail-800.f71935f56974.webp 550w, /theme-previews/caps-tees/a/capstees-tee-bottle-detail-800.f71935f56974.webp 480w, /theme-previews/caps-tees/a/capstees-tee-bottle-detail-400.eb99ab405117.webp 330w, /theme-previews/caps-tees/a/capstees-tee-bottle-detail-400.eb99ab405117.webp 240w, /theme-previews/caps-tees/a/capstees-tee-bottle-detail-400.eb99ab405117.webp 185w" alt="Wordmark tee, bottle green" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/caps-tees/a/capstees-tee-bottle-worn.a190454051dd.webp" srcset="/theme-previews/caps-tees/a/capstees-tee-bottle-worn-800.1a87ebd57794.webp 720w, /theme-previews/caps-tees/a/capstees-tee-bottle-worn-800.1a87ebd57794.webp 660w, /theme-previews/caps-tees/a/capstees-tee-bottle-worn-800.1a87ebd57794.webp 550w, /theme-previews/caps-tees/a/capstees-tee-bottle-worn-800.1a87ebd57794.webp 480w, /theme-previews/caps-tees/a/capstees-tee-bottle-worn-400.eaa5b88e14fe.webp 330w, /theme-previews/caps-tees/a/capstees-tee-bottle-worn-400.eaa5b88e14fe.webp 240w, /theme-previews/caps-tees/a/capstees-tee-bottle-worn-400.eaa5b88e14fe.webp 185w" alt="Wordmark tee, bottle green" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
@@ -1420,8 +1583,28 @@ data-show-preorder="true"
 data-sale-badge-type="percent"
 >
 </div>
+<div class="product-item__button-action pc-heart heading-color transition flex z-5">
+<button-wishlist
+tabindex="0"
+role="button"
+aria-pressed="false"
+aria-label="Add to wishlist: Wordmark tee, bottle green"
+class="product-item__button pointer product-item__button-wishlist tooltip relative transition rounded-50 p-0 shadow w-45 h-45 inline-flex content-center"
+data-product-id="00000000-0000-4000-8000-000000000016"
+data-product-handle="wordmark-tee-bottle-green"
+data-action="remove"
+data-tooltip-remove="Remove from wishlist"
+data-tooltip-add="Add to wishlist"
+data-tooltip-redirect="Browse wishlist"
+>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+<use href="#icon-wishlist" />
+</svg>
+<span class="tooltip-content invisible rounded-3 absolute pointer-none tooltip-left">Add to wishlist</span>
+</button-wishlist>
 </div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible">
+</div>
+<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
 </div>
 </div>
 <div class="product-item__information word-break text-start mt-15">
@@ -1450,7 +1633,7 @@ $36.00
         [{ "option":"XS","qty":11,"available":true,"mamagement":""},{ "option":"S","qty":11,"available":true,"mamagement":""},{ "option":"M","qty":11,"available":true,"mamagement":""},{ "option":"L","qty":11,"available":true,"mamagement":""},{ "option":"XL","qty":11,"available":true,"mamagement":""},{ "option":"XXL","qty":11,"available":true,"mamagement":""}]
       </script></div>
 <div
-class="product-item product__item-js  style-as-standard"
+class="product-item product__item-js  style-as-morden"
 >
 <motion-element
 class="product-item__wrapper block  hover_fade product-grid "
@@ -1471,7 +1654,7 @@ style="--aspect-ratio: 1/1;"
 <img src="/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp" srcset="/theme-previews/caps-tees/a/capstees-tee-sand-800.804525312f7e.webp 720w, /theme-previews/caps-tees/a/capstees-tee-sand-800.804525312f7e.webp 660w, /theme-previews/caps-tees/a/capstees-tee-sand-800.804525312f7e.webp 550w, /theme-previews/caps-tees/a/capstees-tee-sand-800.804525312f7e.webp 480w, /theme-previews/caps-tees/a/capstees-tee-sand-400.41c5c2797779.webp 330w, /theme-previews/caps-tees/a/capstees-tee-sand-400.41c5c2797779.webp 240w, /theme-previews/caps-tees/a/capstees-tee-sand-400.41c5c2797779.webp 185w" alt="Wordmark tee, sand" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
-<img src="/theme-previews/caps-tees/a/capstees-tee-sand-detail.873df26dc48f.webp" srcset="/theme-previews/caps-tees/a/capstees-tee-sand-detail-800.2078495389c5.webp 720w, /theme-previews/caps-tees/a/capstees-tee-sand-detail-800.2078495389c5.webp 660w, /theme-previews/caps-tees/a/capstees-tee-sand-detail-800.2078495389c5.webp 550w, /theme-previews/caps-tees/a/capstees-tee-sand-detail-800.2078495389c5.webp 480w, /theme-previews/caps-tees/a/capstees-tee-sand-detail-400.d530fa221d18.webp 330w, /theme-previews/caps-tees/a/capstees-tee-sand-detail-400.d530fa221d18.webp 240w, /theme-previews/caps-tees/a/capstees-tee-sand-detail-400.d530fa221d18.webp 185w" alt="Wordmark tee, sand" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/caps-tees/a/capstees-tee-sand-worn.ff00d4268bdf.webp" srcset="/theme-previews/caps-tees/a/capstees-tee-sand-worn-800.f0af6be641bd.webp 720w, /theme-previews/caps-tees/a/capstees-tee-sand-worn-800.f0af6be641bd.webp 660w, /theme-previews/caps-tees/a/capstees-tee-sand-worn-800.f0af6be641bd.webp 550w, /theme-previews/caps-tees/a/capstees-tee-sand-worn-800.f0af6be641bd.webp 480w, /theme-previews/caps-tees/a/capstees-tee-sand-worn-400.291f40629564.webp 330w, /theme-previews/caps-tees/a/capstees-tee-sand-worn-400.291f40629564.webp 240w, /theme-previews/caps-tees/a/capstees-tee-sand-worn-400.291f40629564.webp 185w" alt="Wordmark tee, sand" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
@@ -1491,8 +1674,28 @@ class="product__badges-sale product__badges-type-percent product__badges-inner a
 >-14%
 </div>
 </div>
+<div class="product-item__button-action pc-heart heading-color transition flex z-5">
+<button-wishlist
+tabindex="0"
+role="button"
+aria-pressed="false"
+aria-label="Add to wishlist: Wordmark tee, sand"
+class="product-item__button pointer product-item__button-wishlist tooltip relative transition rounded-50 p-0 shadow w-45 h-45 inline-flex content-center"
+data-product-id="00000000-0000-4000-8000-000000000017"
+data-product-handle="wordmark-tee-sand"
+data-action="remove"
+data-tooltip-remove="Remove from wishlist"
+data-tooltip-add="Add to wishlist"
+data-tooltip-redirect="Browse wishlist"
+>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+<use href="#icon-wishlist" />
+</svg>
+<span class="tooltip-content invisible rounded-3 absolute pointer-none tooltip-left">Add to wishlist</span>
+</button-wishlist>
 </div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible">
+</div>
+<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
 </div>
 </div>
 <div class="product-item__information word-break text-start mt-15">
@@ -1525,7 +1728,7 @@ $36.00
         [{ "option":"XS","qty":11,"available":true,"mamagement":""},{ "option":"S","qty":11,"available":true,"mamagement":""},{ "option":"M","qty":11,"available":true,"mamagement":""},{ "option":"L","qty":11,"available":true,"mamagement":""},{ "option":"XL","qty":11,"available":true,"mamagement":""},{ "option":"XXL","qty":11,"available":true,"mamagement":""}]
       </script></div>
 <div
-class="product-item product__item-js  style-as-standard"
+class="product-item product__item-js  style-as-morden"
 >
 <motion-element
 class="product-item__wrapper block  hover_fade product-grid "
@@ -1546,7 +1749,7 @@ style="--aspect-ratio: 1/1;"
 <img src="/theme-previews/caps-tees/a/capstees-crew-ash.b889f23b59ca.webp" srcset="/theme-previews/caps-tees/a/capstees-crew-ash-800.c67fbec7baf0.webp 720w, /theme-previews/caps-tees/a/capstees-crew-ash-800.c67fbec7baf0.webp 660w, /theme-previews/caps-tees/a/capstees-crew-ash-800.c67fbec7baf0.webp 550w, /theme-previews/caps-tees/a/capstees-crew-ash-800.c67fbec7baf0.webp 480w, /theme-previews/caps-tees/a/capstees-crew-ash-400.82bb97c69189.webp 330w, /theme-previews/caps-tees/a/capstees-crew-ash-400.82bb97c69189.webp 240w, /theme-previews/caps-tees/a/capstees-crew-ash-400.82bb97c69189.webp 185w" alt="Heavy crewneck, ash" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
-<img src="/theme-previews/caps-tees/a/capstees-crew-ash-detail.836b610add58.webp" srcset="/theme-previews/caps-tees/a/capstees-crew-ash-detail-800.5a7342e8d9bd.webp 720w, /theme-previews/caps-tees/a/capstees-crew-ash-detail-800.5a7342e8d9bd.webp 660w, /theme-previews/caps-tees/a/capstees-crew-ash-detail-800.5a7342e8d9bd.webp 550w, /theme-previews/caps-tees/a/capstees-crew-ash-detail-800.5a7342e8d9bd.webp 480w, /theme-previews/caps-tees/a/capstees-crew-ash-detail-400.4364ccbbab9c.webp 330w, /theme-previews/caps-tees/a/capstees-crew-ash-detail-400.4364ccbbab9c.webp 240w, /theme-previews/caps-tees/a/capstees-crew-ash-detail-400.4364ccbbab9c.webp 185w" alt="Heavy crewneck, ash" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/caps-tees/a/capstees-crew-ash-worn.01c4d5eded38.webp" srcset="/theme-previews/caps-tees/a/capstees-crew-ash-worn-800.bcb29b9d4332.webp 720w, /theme-previews/caps-tees/a/capstees-crew-ash-worn-800.bcb29b9d4332.webp 660w, /theme-previews/caps-tees/a/capstees-crew-ash-worn-800.bcb29b9d4332.webp 550w, /theme-previews/caps-tees/a/capstees-crew-ash-worn-800.bcb29b9d4332.webp 480w, /theme-previews/caps-tees/a/capstees-crew-ash-worn-400.3925469f3312.webp 330w, /theme-previews/caps-tees/a/capstees-crew-ash-worn-400.3925469f3312.webp 240w, /theme-previews/caps-tees/a/capstees-crew-ash-worn-400.3925469f3312.webp 185w" alt="Heavy crewneck, ash" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
@@ -1563,8 +1766,28 @@ data-show-preorder="true"
 data-sale-badge-type="percent"
 >
 </div>
+<div class="product-item__button-action pc-heart heading-color transition flex z-5">
+<button-wishlist
+tabindex="0"
+role="button"
+aria-pressed="false"
+aria-label="Add to wishlist: Heavy crewneck, ash"
+class="product-item__button pointer product-item__button-wishlist tooltip relative transition rounded-50 p-0 shadow w-45 h-45 inline-flex content-center"
+data-product-id="00000000-0000-4000-8000-000000000018"
+data-product-handle="heavy-crewneck-ash"
+data-action="remove"
+data-tooltip-remove="Remove from wishlist"
+data-tooltip-add="Add to wishlist"
+data-tooltip-redirect="Browse wishlist"
+>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+<use href="#icon-wishlist" />
+</svg>
+<span class="tooltip-content invisible rounded-3 absolute pointer-none tooltip-left">Add to wishlist</span>
+</button-wishlist>
 </div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible">
+</div>
+<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
 </div>
 </div>
 <div class="product-item__information word-break text-start mt-15">
@@ -1593,7 +1816,7 @@ $72.00
         [{ "option":"XS","qty":11,"available":true,"mamagement":""},{ "option":"S","qty":11,"available":true,"mamagement":""},{ "option":"M","qty":11,"available":true,"mamagement":""},{ "option":"L","qty":11,"available":true,"mamagement":""},{ "option":"XL","qty":11,"available":true,"mamagement":""},{ "option":"XXL","qty":11,"available":true,"mamagement":""}]
       </script></div>
 <div
-class="product-item product__item-js  style-as-standard"
+class="product-item product__item-js  style-as-morden"
 >
 <motion-element
 class="product-item__wrapper block  hover_fade product-grid "
@@ -1614,7 +1837,7 @@ style="--aspect-ratio: 1/1;"
 <img src="/theme-previews/caps-tees/a/capstees-crew-black.38eeee294270.webp" srcset="/theme-previews/caps-tees/a/capstees-crew-black-800.5a8fc50812c8.webp 720w, /theme-previews/caps-tees/a/capstees-crew-black-800.5a8fc50812c8.webp 660w, /theme-previews/caps-tees/a/capstees-crew-black-800.5a8fc50812c8.webp 550w, /theme-previews/caps-tees/a/capstees-crew-black-800.5a8fc50812c8.webp 480w, /theme-previews/caps-tees/a/capstees-crew-black-400.b23f3af1cf78.webp 330w, /theme-previews/caps-tees/a/capstees-crew-black-400.b23f3af1cf78.webp 240w, /theme-previews/caps-tees/a/capstees-crew-black-400.b23f3af1cf78.webp 185w" alt="Heavy crewneck, black" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
-<img src="/theme-previews/caps-tees/a/capstees-crew-black-detail.4a2ec23d7bea.webp" srcset="/theme-previews/caps-tees/a/capstees-crew-black-detail-800.abd9ab06624a.webp 720w, /theme-previews/caps-tees/a/capstees-crew-black-detail-800.abd9ab06624a.webp 660w, /theme-previews/caps-tees/a/capstees-crew-black-detail-800.abd9ab06624a.webp 550w, /theme-previews/caps-tees/a/capstees-crew-black-detail-800.abd9ab06624a.webp 480w, /theme-previews/caps-tees/a/capstees-crew-black-detail-400.26622e7768e3.webp 330w, /theme-previews/caps-tees/a/capstees-crew-black-detail-400.26622e7768e3.webp 240w, /theme-previews/caps-tees/a/capstees-crew-black-detail-400.26622e7768e3.webp 185w" alt="Heavy crewneck, black" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/caps-tees/a/capstees-crew-black-worn.9d7ff2c0ca90.webp" srcset="/theme-previews/caps-tees/a/capstees-crew-black-worn-800.56b8ed69b63c.webp 720w, /theme-previews/caps-tees/a/capstees-crew-black-worn-800.56b8ed69b63c.webp 660w, /theme-previews/caps-tees/a/capstees-crew-black-worn-800.56b8ed69b63c.webp 550w, /theme-previews/caps-tees/a/capstees-crew-black-worn-800.56b8ed69b63c.webp 480w, /theme-previews/caps-tees/a/capstees-crew-black-worn-400.1139e97edf8a.webp 330w, /theme-previews/caps-tees/a/capstees-crew-black-worn-400.1139e97edf8a.webp 240w, /theme-previews/caps-tees/a/capstees-crew-black-worn-400.1139e97edf8a.webp 185w" alt="Heavy crewneck, black" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
@@ -1631,8 +1854,28 @@ data-show-preorder="true"
 data-sale-badge-type="percent"
 >
 </div>
+<div class="product-item__button-action pc-heart heading-color transition flex z-5">
+<button-wishlist
+tabindex="0"
+role="button"
+aria-pressed="false"
+aria-label="Add to wishlist: Heavy crewneck, black"
+class="product-item__button pointer product-item__button-wishlist tooltip relative transition rounded-50 p-0 shadow w-45 h-45 inline-flex content-center"
+data-product-id="00000000-0000-4000-8000-000000000019"
+data-product-handle="heavy-crewneck-black"
+data-action="remove"
+data-tooltip-remove="Remove from wishlist"
+data-tooltip-add="Add to wishlist"
+data-tooltip-redirect="Browse wishlist"
+>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+<use href="#icon-wishlist" />
+</svg>
+<span class="tooltip-content invisible rounded-3 absolute pointer-none tooltip-left">Add to wishlist</span>
+</button-wishlist>
 </div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible">
+</div>
+<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
 </div>
 </div>
 <div class="product-item__information word-break text-start mt-15">
@@ -1661,7 +1904,7 @@ $72.00
         [{ "option":"XS","qty":11,"available":true,"mamagement":""},{ "option":"S","qty":11,"available":true,"mamagement":""},{ "option":"M","qty":11,"available":true,"mamagement":""},{ "option":"L","qty":11,"available":true,"mamagement":""},{ "option":"XL","qty":11,"available":true,"mamagement":""},{ "option":"XXL","qty":11,"available":true,"mamagement":""}]
       </script></div>
 <div
-class="product-item product__item-js  style-as-standard"
+class="product-item product__item-js  style-as-morden"
 >
 <motion-element
 class="product-item__wrapper block  hover_fade product-grid "
@@ -1682,7 +1925,7 @@ style="--aspect-ratio: 1/1;"
 <img src="/theme-previews/caps-tees/a/capstees-crew-forest.942288517c83.webp" srcset="/theme-previews/caps-tees/a/capstees-crew-forest-800.086ef9e4f52e.webp 720w, /theme-previews/caps-tees/a/capstees-crew-forest-800.086ef9e4f52e.webp 660w, /theme-previews/caps-tees/a/capstees-crew-forest-800.086ef9e4f52e.webp 550w, /theme-previews/caps-tees/a/capstees-crew-forest-800.086ef9e4f52e.webp 480w, /theme-previews/caps-tees/a/capstees-crew-forest-400.e5abf0897115.webp 330w, /theme-previews/caps-tees/a/capstees-crew-forest-400.e5abf0897115.webp 240w, /theme-previews/caps-tees/a/capstees-crew-forest-400.e5abf0897115.webp 185w" alt="Heavy crewneck, forest" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
-<img src="/theme-previews/caps-tees/a/capstees-crew-forest-detail.21a9077ebc28.webp" srcset="/theme-previews/caps-tees/a/capstees-crew-forest-detail-800.0c28edd103c2.webp 720w, /theme-previews/caps-tees/a/capstees-crew-forest-detail-800.0c28edd103c2.webp 660w, /theme-previews/caps-tees/a/capstees-crew-forest-detail-800.0c28edd103c2.webp 550w, /theme-previews/caps-tees/a/capstees-crew-forest-detail-800.0c28edd103c2.webp 480w, /theme-previews/caps-tees/a/capstees-crew-forest-detail-400.92e96e7e6e09.webp 330w, /theme-previews/caps-tees/a/capstees-crew-forest-detail-400.92e96e7e6e09.webp 240w, /theme-previews/caps-tees/a/capstees-crew-forest-detail-400.92e96e7e6e09.webp 185w" alt="Heavy crewneck, forest" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/caps-tees/a/capstees-crew-forest-worn.764f0beb0418.webp" srcset="/theme-previews/caps-tees/a/capstees-crew-forest-worn-800.15f7d7fa7d32.webp 720w, /theme-previews/caps-tees/a/capstees-crew-forest-worn-800.15f7d7fa7d32.webp 660w, /theme-previews/caps-tees/a/capstees-crew-forest-worn-800.15f7d7fa7d32.webp 550w, /theme-previews/caps-tees/a/capstees-crew-forest-worn-800.15f7d7fa7d32.webp 480w, /theme-previews/caps-tees/a/capstees-crew-forest-worn-400.81efe9aa42f3.webp 330w, /theme-previews/caps-tees/a/capstees-crew-forest-worn-400.81efe9aa42f3.webp 240w, /theme-previews/caps-tees/a/capstees-crew-forest-worn-400.81efe9aa42f3.webp 185w" alt="Heavy crewneck, forest" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
@@ -1699,8 +1942,28 @@ data-show-preorder="true"
 data-sale-badge-type="percent"
 >
 </div>
+<div class="product-item__button-action pc-heart heading-color transition flex z-5">
+<button-wishlist
+tabindex="0"
+role="button"
+aria-pressed="false"
+aria-label="Add to wishlist: Heavy crewneck, forest"
+class="product-item__button pointer product-item__button-wishlist tooltip relative transition rounded-50 p-0 shadow w-45 h-45 inline-flex content-center"
+data-product-id="00000000-0000-4000-8000-000000000020"
+data-product-handle="heavy-crewneck-forest"
+data-action="remove"
+data-tooltip-remove="Remove from wishlist"
+data-tooltip-add="Add to wishlist"
+data-tooltip-redirect="Browse wishlist"
+>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+<use href="#icon-wishlist" />
+</svg>
+<span class="tooltip-content invisible rounded-3 absolute pointer-none tooltip-left">Add to wishlist</span>
+</button-wishlist>
 </div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible">
+</div>
+<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
 </div>
 </div>
 <div class="product-item__information word-break text-start mt-15">
@@ -1729,7 +1992,7 @@ $72.00
         [{ "option":"XS","qty":11,"available":true,"mamagement":""},{ "option":"S","qty":11,"available":true,"mamagement":""},{ "option":"M","qty":11,"available":true,"mamagement":""},{ "option":"L","qty":11,"available":true,"mamagement":""},{ "option":"XL","qty":11,"available":true,"mamagement":""},{ "option":"XXL","qty":0,"available":false,"mamagement":"shopify"}]
       </script></div>
 <div
-class="product-item product__item-js  style-as-standard"
+class="product-item product__item-js  style-as-morden"
 >
 <motion-element
 class="product-item__wrapper block  hover_fade product-grid "
@@ -1750,7 +2013,7 @@ style="--aspect-ratio: 1/1;"
 <img src="/theme-previews/caps-tees/a/capstees-crew-brown.de05c8863c74.webp" srcset="/theme-previews/caps-tees/a/capstees-crew-brown-800.ecf27e4a51e9.webp 720w, /theme-previews/caps-tees/a/capstees-crew-brown-800.ecf27e4a51e9.webp 660w, /theme-previews/caps-tees/a/capstees-crew-brown-800.ecf27e4a51e9.webp 550w, /theme-previews/caps-tees/a/capstees-crew-brown-800.ecf27e4a51e9.webp 480w, /theme-previews/caps-tees/a/capstees-crew-brown-400.9c19d7a21346.webp 330w, /theme-previews/caps-tees/a/capstees-crew-brown-400.9c19d7a21346.webp 240w, /theme-previews/caps-tees/a/capstees-crew-brown-400.9c19d7a21346.webp 185w" alt="Heavy crewneck, brown" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
-<img src="/theme-previews/caps-tees/a/capstees-crew-brown-detail.2c9d425af660.webp" srcset="/theme-previews/caps-tees/a/capstees-crew-brown-detail-800.43e85e1c1963.webp 720w, /theme-previews/caps-tees/a/capstees-crew-brown-detail-800.43e85e1c1963.webp 660w, /theme-previews/caps-tees/a/capstees-crew-brown-detail-800.43e85e1c1963.webp 550w, /theme-previews/caps-tees/a/capstees-crew-brown-detail-800.43e85e1c1963.webp 480w, /theme-previews/caps-tees/a/capstees-crew-brown-detail-400.59b3c4ada901.webp 330w, /theme-previews/caps-tees/a/capstees-crew-brown-detail-400.59b3c4ada901.webp 240w, /theme-previews/caps-tees/a/capstees-crew-brown-detail-400.59b3c4ada901.webp 185w" alt="Heavy crewneck, brown" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/caps-tees/a/capstees-crew-brown-worn.e01e2e2fa906.webp" srcset="/theme-previews/caps-tees/a/capstees-crew-brown-worn-800.845ff84c97d5.webp 720w, /theme-previews/caps-tees/a/capstees-crew-brown-worn-800.845ff84c97d5.webp 660w, /theme-previews/caps-tees/a/capstees-crew-brown-worn-800.845ff84c97d5.webp 550w, /theme-previews/caps-tees/a/capstees-crew-brown-worn-800.845ff84c97d5.webp 480w, /theme-previews/caps-tees/a/capstees-crew-brown-worn-400.63c20afe32b0.webp 330w, /theme-previews/caps-tees/a/capstees-crew-brown-worn-400.63c20afe32b0.webp 240w, /theme-previews/caps-tees/a/capstees-crew-brown-worn-400.63c20afe32b0.webp 185w" alt="Heavy crewneck, brown" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1200px -  16px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 16px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
@@ -1767,8 +2030,28 @@ data-show-preorder="true"
 data-sale-badge-type="percent"
 >
 </div>
+<div class="product-item__button-action pc-heart heading-color transition flex z-5">
+<button-wishlist
+tabindex="0"
+role="button"
+aria-pressed="false"
+aria-label="Add to wishlist: Heavy crewneck, brown"
+class="product-item__button pointer product-item__button-wishlist tooltip relative transition rounded-50 p-0 shadow w-45 h-45 inline-flex content-center"
+data-product-id="00000000-0000-4000-8000-000000000021"
+data-product-handle="heavy-crewneck-brown"
+data-action="remove"
+data-tooltip-remove="Remove from wishlist"
+data-tooltip-add="Add to wishlist"
+data-tooltip-redirect="Browse wishlist"
+>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+<use href="#icon-wishlist" />
+</svg>
+<span class="tooltip-content invisible rounded-3 absolute pointer-none tooltip-left">Add to wishlist</span>
+</button-wishlist>
 </div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible">
+</div>
+<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
 </div>
 </div>
 <div class="product-item__information word-break text-start mt-15">

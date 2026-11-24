@@ -230,6 +230,7 @@
     "button_font": "body_font",
     "page_width": 1280,
     "fluid_container_width": 1440,
-    "cart_drawer_buttons": "both"
+    "cart_drawer_buttons": "both",
+    "show_action_on_mobile": true
   }
 }

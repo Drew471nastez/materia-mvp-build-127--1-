@@ -210,9 +210,11 @@
      wasn't being top-anchored. This block fixes both:
 
      1. All slides share the wrapper's tallest height (align-items: stretch).
-     2. All slides are forced to start at the TOP (align-self: flex-start +
-        the inner wrapper uses justify-content: flex-start so the image is
-        anchored to the top of the card, never the middle).
+     2. Every slide takes the row's height (align-self: stretch, r25) and its
+        content starts at the TOP (justify-content: flex-start), so the image
+        is anchored to the top and a card's Add to cart bar (pushed down by
+        margin-top: auto) lines up with its neighbours' even when one card
+        has a swatch row or a longer title.
      3. The image container is forced to a consistent aspect ratio so the
         first card can't render at a different height than the others.
      4. Title/price/actions get pushed to share the remaining space below
@@ -229,7 +231,7 @@
     height: auto !important;
     display: flex !important;
     flex-direction: column;
-    align-self: flex-start !important;
+    align-self: stretch !important;
     justify-content: flex-start !important;
     vertical-align: top !important;
   }

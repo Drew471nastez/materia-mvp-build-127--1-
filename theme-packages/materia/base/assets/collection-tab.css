@@ -15,22 +15,26 @@
 @media (min-width: 1200px) { :is(.sec__collection-tab[data-ct-width="stretch_width"],#__ct) .ti-tabs__inner { padding-inline: 3rem; } }
 
 .pt-section:is(.sec__collection-tab,#__ct) { padding-top: var(--ct-pt); }
-.pb-section:is(.sec__collection-tab,#__ct) { padding-bottom: var(--ct-pb); }
+/* Never under --product-row-space (critical.css): the cards' Add to cart bar keeps room below. */
+.pb-section:is(.sec__collection-tab,#__ct) { padding-bottom: max(var(--ct-pb), var(--product-row-space, 0px)); }
 
-/* Reveal on scroll (live site only: data-ct-reveal is printed outside the builder) */
-.ti-tabs:is(.sec__collection-tab[data-ct-reveal],#__ct) { opacity: 0; will-change: opacity, transform; }
-.ti-tabs.is-revealed:is(.sec__collection-tab[data-ct-reveal],#__ct) { opacity: 1; }
-.ti-tabs:is(.sec__collection-tab[data-ct-reveal="fade-in"],.sec__collection-tab[data-ct-reveal="fade"],#__ct) { transition: opacity .8s ease; }
-.ti-tabs:is(.sec__collection-tab[data-ct-reveal="slide-in"],#__ct) { transform: translateX(-20px); transition: opacity .8s ease, transform .8s ease; }
-.ti-tabs.is-revealed:is(.sec__collection-tab[data-ct-reveal="slide-in"],#__ct) { transform: none; }
-.ti-tabs:is(.sec__collection-tab[data-ct-reveal="smooth-fade-up"],#__ct) { transform: translateY(20px); transition: opacity .8s ease, transform .8s ease; }
-.ti-tabs.is-revealed:is(.sec__collection-tab[data-ct-reveal="smooth-fade-up"],#__ct) { transform: none; }
-.ti-tabs:is(.sec__collection-tab[data-ct-reveal="blur_up"],#__ct) { transform: translateY(12px); filter: blur(4px); transition: opacity .8s ease, transform .8s ease, filter .8s ease; }
-.ti-tabs.is-revealed:is(.sec__collection-tab[data-ct-reveal="blur_up"],#__ct) { transform: none; filter: none; }
-.ti-tabs:is(.sec__collection-tab[data-ct-reveal="slide_side"],#__ct) { transform: translateX(-28px); transition: opacity .8s ease, transform .8s ease; }
-.ti-tabs.is-revealed:is(.sec__collection-tab[data-ct-reveal="slide_side"],#__ct) { transform: none; }
-.ti-tabs:is(.sec__collection-tab[data-ct-reveal="mask_reveal"],#__ct) { opacity: 1; clip-path: inset(0 0 100% 0); transform: translateY(10px); transition: clip-path .8s ease, transform .8s ease; }
-.ti-tabs.is-revealed:is(.sec__collection-tab[data-ct-reveal="mask_reveal"],#__ct) { clip-path: inset(0 0 0 0); transform: none; }
+/* Reveal on scroll (live site only: data-ct-reveal is printed outside the builder).
+   Shown by default; collection-tab.js arms it (ct-armed) only when it starts
+   below the screen, and an armed one waits at --reveal-from-opacity (0.4),
+   never at 0, so it is never a blank band (r25). */
+.ti-tabs.ct-armed:is(.sec__collection-tab[data-ct-reveal],#__ct) { opacity: var(--reveal-from-opacity, 0.4); will-change: opacity, transform; }
+.ti-tabs.ct-armed.is-revealed:is(.sec__collection-tab[data-ct-reveal],#__ct) { opacity: 1; }
+.ti-tabs.ct-armed:is(.sec__collection-tab[data-ct-reveal="fade-in"],.sec__collection-tab[data-ct-reveal="fade"],#__ct) { transition: opacity .8s ease; }
+.ti-tabs.ct-armed:is(.sec__collection-tab[data-ct-reveal="slide-in"],#__ct) { transform: translateX(-20px); transition: opacity .8s ease, transform .8s ease; }
+.ti-tabs.ct-armed.is-revealed:is(.sec__collection-tab[data-ct-reveal="slide-in"],#__ct) { transform: none; }
+.ti-tabs.ct-armed:is(.sec__collection-tab[data-ct-reveal="smooth-fade-up"],#__ct) { transform: translateY(20px); transition: opacity .8s ease, transform .8s ease; }
+.ti-tabs.ct-armed.is-revealed:is(.sec__collection-tab[data-ct-reveal="smooth-fade-up"],#__ct) { transform: none; }
+.ti-tabs.ct-armed:is(.sec__collection-tab[data-ct-reveal="blur_up"],#__ct) { transform: translateY(12px); filter: blur(4px); transition: opacity .8s ease, transform .8s ease, filter .8s ease; }
+.ti-tabs.ct-armed.is-revealed:is(.sec__collection-tab[data-ct-reveal="blur_up"],#__ct) { transform: none; filter: none; }
+.ti-tabs.ct-armed:is(.sec__collection-tab[data-ct-reveal="slide_side"],#__ct) { transform: translateX(-28px); transition: opacity .8s ease, transform .8s ease; }
+.ti-tabs.ct-armed.is-revealed:is(.sec__collection-tab[data-ct-reveal="slide_side"],#__ct) { transform: none; }
+.ti-tabs.ct-armed:is(.sec__collection-tab[data-ct-reveal="mask_reveal"],#__ct) { opacity: 1; clip-path: inset(0 0 35% 0); transform: translateY(10px); transition: clip-path .8s ease, transform .8s ease; }
+.ti-tabs.ct-armed.is-revealed:is(.sec__collection-tab[data-ct-reveal="mask_reveal"],#__ct) { clip-path: inset(0 0 0 0); transform: none; }
 @media (prefers-reduced-motion: reduce) {
   .ti-tabs:is(.sec__collection-tab[data-ct-reveal],#__ct) { transition: none !important; transform: none !important; opacity: 1 !important; filter: none !important; clip-path: none !important; }
 }

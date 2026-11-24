@@ -232,6 +232,7 @@
     "fluid_container_width": 1360,
     "instagram": "https://instagram.com",
     "tiktok": "https://tiktok.com",
-    "cart_drawer_buttons": "both"
+    "cart_drawer_buttons": "both",
+    "show_action_on_mobile": true
   }
 }

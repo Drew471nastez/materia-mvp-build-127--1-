@@ -75,7 +75,8 @@ console.log("\nThe gallery: the providers' own thumbnails, loaded from YouTube's
   check("  every frame has its shape before the picture comes (16:9, as the cover and the pictures are)", /aspect-video/.test(html) && !/aspect-\[16\/10\]/.test(html))
   check("  three frames, nothing counted past them", !/data-app-gallery-more/.test(html))
   check("  a tile is a button: the pictures open in the large frame", (html.match(/data-app-gallery-thumb=/g) ?? []).length === 2)
-  check("  nothing from youtube.com and no frame until a press", !/youtube(-nocookie)?\.com/.test(html) && !/<iframe/.test(html))
+  /* Changed on purpose (r25, the owner): YouTube's own player in the page, lazy (the browser fetches it near the screen), from youtube-nocookie only. */
+  check("  YouTube's own player, lazy, from youtube-nocookie and nowhere else on youtube.com", /<iframe[^>]*youtube-nocookie\.com\/embed\/u04owj7jiM4[^>]*loading="lazy"/.test(html) && !/www\.youtube\.com/.test(html))
   const pin = integrationById("pinterest-tag")!
   const pinSlides = slidesOf(pin, mediaFor(pin))
   check("Pinterest Tag: its video and two pictures of its tag events", pinSlides.map((s) => s.kind).join() === "video,image,image")
@@ -83,8 +84,10 @@ console.log("\nThe gallery: the providers' own thumbnails, loaded from YouTube's
   const tgHtml = renderToStaticMarkup(React.createElement(AppMediaGallery, { item: tg, media: mediaFor(tg), color: "#2c2c2c" }))
   check("Telegram, with none found: Storelib's drawn scenes, no picture from YouTube", slidesOf(tg, mediaFor(tg)).every((s) => s.kind === "scene") && !/ytimg/.test(tgHtml) && /aspect-\[16\/10\]/.test(tgHtml))
   const media = read("components/app/integrations/app-media.tsx")
-  check("the embed is still youtube-nocookie, only on a press, in the poster's own box", /youtubeEmbedUrl\(id\)/.test(media) && /playing \? \(\s*<iframe src=\{src\}/.test(media) && /className="absolute inset-0 h-full w-full border-0/.test(media))
-  check("  one video plays at a time; showing another slide stops it; only the layout pressed loads the frame", /playing=\{playing === i && at === i && where === "grid"\}/.test(media) && /playing=\{playing === i && where === "row"\}/.test(media) && /setPlaying\(slides\[i\]\?\.kind === "video" \? i : null\)/.test(media))
+  /* Changed on purpose (r25, the owner): the player is in the page from the start (lazy), not after a press on a drawn button; it overhangs its box by 1px so no edge line shows. */
+  check("the embed is still youtube-nocookie, lazy, in the frame's own box", /youtubeEmbedUrl\(id, autoplay\)/.test(media) && /<iframe src=\{src\} title=\{title\} loading="lazy"/.test(media) && /className="absolute -inset-px h-\[calc\(100%\+2px\)\] w-\[calc\(100%\+2px\)\] max-w-none border-0"/.test(media) && !/data-app-video-poster/.test(media))
+  /* Changed on purpose (r25, the owner): showing another slide takes the player away (it stops); pressing the video's tile brings it back playing. */
+  check("  showing another slide stops it; its tile brings it back playing", /i === at \? <VideoSlide item=\{item\} id=\{s\.id\} title=\{s\.title\} color=\{color\} autoplay=\{chosen\} \/> : null/.test(media) && /setChosen\(slides\[i\]\?\.kind === "video"\)/.test(media))
   check("  a thumbnail that does not come leaves the tint and the mark, never a hole", /onError=\{\(\) => setState\("failed"\)\}/.test(media) && /state === "failed" \|\| !src/.test(media))
   check("  it fades in on opacity alone", /transition-opacity duration-200[^"]*", state === "ready" \? "opacity-100" : "opacity-0"/.test(media))
 }

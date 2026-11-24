@@ -1041,8 +1041,20 @@ body[data-badge-position='top_end'] .product-item__inner > .pc-corner:has(> .pro
     pointer-events: auto;
     translate: 0 0;
   }
+  /* The heart comes in with the hover too (r25), on the same curve; a saved
+     product's heart (.active) stays in view, so it still reads as saved. */
+  .product-item .product-grid .product-item__inner .pc-heart.product-item__button-action {
+    opacity: 0 !important;
+    translate: 0 -4px;
+    transition: opacity .28s ease, translate .42s var(--pc-ease);
+  }
+  .product-item .product-grid:is(:hover, :focus-within) .product-item__inner .pc-heart.product-item__button-action,
+  .product-item .product-grid .product-item__inner .pc-heart.product-item__button-action:has(button-wishlist.active) {
+    opacity: 1 !important;
+    translate: 0 0;
+  }
 }
-/* The heart is never hidden by the old hover reveal (.product__action-animation). */
+/* The heart is never hidden by the old hover reveal (.product__action-animation); on a hovering pointer it comes in with the card's hover (above). */
 .product-item .product-item__inner .product-item__button-action {
   opacity: 1 !important;
   visibility: visible !important;
@@ -1054,7 +1066,7 @@ body[data-badge-position='top_end'] .product-item__inner > .pc-corner:has(> .pro
   visibility: inherit !important;
 }
 @media (prefers-reduced-motion: reduce) {
-  .product-item .product-grid .product-item__inner .pc-form--media { translate: none !important; transition: opacity .2s ease !important; }
+  .product-item .product-grid .product-item__inner :is(.pc-form--media, .pc-heart) { translate: none !important; transition: opacity .2s ease !important; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -1116,6 +1128,10 @@ body[data-badge-position='top_end'] .product-item__inner > .pc-corner:has(> .pro
    row are the same height and their buttons line up on one baseline. */
 .grid__item > .product-item:only-child,
 .swiper-slide > .product-item:only-child { height: 100%; }
+/* A card that is itself the carousel's slide takes the row's height too (r25),
+   so a swatch row or a two line title never drops one card's button below
+   the others'. */
+.swiper-wrapper > .product-item.swiper-slide { align-self: stretch; height: auto; }
 .product-item > .product-item__wrapper.product-grid {
   display: flex;
   flex-direction: column;

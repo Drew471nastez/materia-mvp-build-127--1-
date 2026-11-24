@@ -42,7 +42,8 @@ const MB = 1048576
 /* Changed on purpose (templates round 21): 25 templates now, each still within its own 10 MB. */
 /* Changed on purpose (templates round 23): 30 and more templates, and each picture also as the smaller copies its srcset asks for (scripts/build-template-previews.ts sizedPicture, about 7 MB in all), so a phone downloads a card's file, not a 1600 pixel one. */
 const BUDGET_TOTAL = 220 * MB
-const BUDGET_TEMPLATE = 10 * MB
+/* Changed on purpose (templates round 25): sample product pictures are 1600 px from their photographs now, each with a real second shot instead of a zoomed crop; the outerwear shop's 35 pages of HTML alone are 8 MB, so its pictures take it to about 10.7 MB. The whole folder stays within its 220 MB. */
+const BUDGET_TEMPLATE = 11 * MB
 
 function main() {
   const files = walk(OUT)

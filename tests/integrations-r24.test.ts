@@ -87,9 +87,11 @@ console.log("\nThe gallery: one video, the rest pictures of the app\n")
   const html = renderToStaticMarkup(React.createElement(AppMediaGallery, { item: mc, media: mediaFor(mc), color: "#ffe01b" }))
   const shots = html.match(/<img[^>]*data-app-shot[^>]*>/g) ?? []
   check("Mailchimp: the pictures are lazy, sized 1280 by 720, with a srcset and sizes", shots.length >= 2 && shots.every((t) => /loading="lazy"/.test(t) && /width="1280"/.test(t) && /height="720"/.test(t) && /srcSet="[^"]+640w, [^"]+960w, [^"]+1280w"/i.test(t) && /sizes="/.test(t)), shots[0])
-  check("  the video is its cover and a play button: no frame and nothing from youtube.com until pressed", /data-app-video-poster=""/.test(html) && !/<iframe/.test(html) && !/youtube(-nocookie)?\.com/.test(html) && /i\.ytimg\.com\/vi\/lPxAiEvZefI\/maxresdefault\.jpg/.test(html))
+  /* Changed on purpose (r25, the owner): the video is YouTube's own player, a lazy youtube-nocookie frame, its thumbnail under it while it loads; no play button of Storelib's. */
+  check("  the video is YouTube's own player: a lazy youtube-nocookie frame, not autoplaying, over its thumbnail", /data-app-video-player=""/.test(html) && /<iframe[^>]*src="https:\/\/www\.youtube-nocookie\.com\/embed\/lPxAiEvZefI\?rel=0[^"]*"[^>]*loading="lazy"/.test(html) && !/autoplay=1/.test(html) && !/data-app-video-poster/.test(html) && !/www\.youtube\.com/.test(html) && /i\.ytimg\.com\/vi\/lPxAiEvZefI\/maxresdefault\.jpg/.test(html))
   const media = read("components/app/integrations/app-media.tsx")
-  check("  pressed, a youtube-nocookie frame, only in the layout that was pressed", /youtubeEmbedUrl\(id\)/.test(media) && /where === "grid"/.test(media) && /where === "row"/.test(media))
+  /* Changed on purpose (r25, the owner): no poster to press; the large frame holds the player only while its slide is shown, and the box has no border of its own, so no line of the player's black at an edge. */
+  check("  the player only while its slide is shown, overhanging its borderless box by 1px", /youtubeEmbedUrl\(id, autoplay\)/.test(media) && /i === at \? <VideoSlide/.test(media) && /absolute -inset-px h-\[calc\(100%\+2px\)\] w-\[calc\(100%\+2px\)\]/.test(media) && /const FRAME = "relative overflow-hidden rounded-2xl bg-\[#f3f4f6\] after:/.test(media) && !/const FRAME = "[^"]*\bborder border-/.test(media))
   const gen = read("scripts/render-integration-shots.mjs")
   check("the pictures' source is in the repository: drawn as HTML, rendered by headless Chromium, written by sharp", /puppeteer/.test(gen) && /\.webp\(\{ quality: 82/.test(gen) && /const WIDTHS = \[1280, 960, 640\]/.test(gen))
 }

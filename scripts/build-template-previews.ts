@@ -319,6 +319,28 @@ async function buildTemplate(t: (typeof CODE_TEMPLATES)[number]) {
     return out
   }
 
+  /*
+    Round 25: Materia's wishlist in the preview. On a live website the
+    wishlist is Storelib's own page (the engine frames /wishlist), which a
+    folder of static files does not have, so the preview's Wishlist page was
+    empty. Here /pages/wishlist is the theme's own page.wishlist (Materia's
+    page-wishlist section) and its one request, /search?q=id:..&section_id=,
+    is answered by the shim from a file drawn with every product's card;
+    the theme's script keeps the saved ones.
+  */
+  const wishSite = (() => {
+    const file = [join(overlay, "templates", "page.wishlist.json"), join(base, "templates", "page.wishlist.json")].find((f) => existsSync(f))
+    const frame = (built.site.pages as unknown as Record<string, { group?: string }[]>).page
+    if (!file || !frame || built.site.pages.wishlist) return null
+    const tree = JSON.parse(readFileSync(file, "utf8")) as { order?: string[]; sections: Record<string, { type: string; disabled?: boolean; settings?: Record<string, unknown>; blocks?: Record<string, { type: string; settings?: Record<string, unknown>; disabled?: boolean }>; block_order?: string[] }> }
+    const main = (tree.order ?? Object.keys(tree.sections)).map((key) => tree.sections[key] && { key, s: tree.sections[key] }).filter((x): x is { key: string; s: (typeof tree.sections)[string] } => !!x && !x.s.disabled).map(({ key, s: sec }) => ({
+      id: key, type: sec.type, settings: sec.settings ?? {},
+      blocks: (sec.block_order ?? Object.keys(sec.blocks ?? {})).map((b) => sec.blocks?.[b] && { id: b, type: sec.blocks[b].type, settings: sec.blocks[b].settings ?? {}, ...(sec.blocks[b].disabled ? { hidden: true } : {}) }).filter(Boolean),
+    }))
+    const sections = [...frame.filter((x) => x.group === "header"), ...main, ...frame.filter((x) => x.group === "footer" || x.group === "overlay")]
+    return { ...built.site, pages: { ...built.site.pages, wishlist: sections } } as unknown as typeof built.site
+  })()
+
   /* ── The pages, as the site answers them ── */
   const missing = new Set<string>()
   const pages = new Map<string, string>()
@@ -334,7 +356,9 @@ async function buildTemplate(t: (typeof CODE_TEMPLATES)[number]) {
   while (queue.length && pages.size < MAX_PAGES) {
     const path = queue.shift()!
     if (pages.has(path) || refused.has(path)) continue
-    const res = await answer(built.site, { method: "GET", path, query: new URLSearchParams(), body: null, cart: [] })
+    const res = path === "/pages/wishlist" && wishSite
+      ? await answer(wishSite, { method: "GET", path: "/wishlist", query: new URLSearchParams(), body: null, cart: [] })
+      : await answer(built.site, { method: "GET", path, query: new URLSearchParams(), body: null, cart: [] })
     if (res.status !== 200 || typeof res.body !== "string" || !/html/.test(res.type)) {
       refused.add(path)
       continue
@@ -385,6 +409,22 @@ async function buildTemplate(t: (typeof CODE_TEMPLATES)[number]) {
     cartData = url(rel)
   }
 
+  /* Round 25: every product's wishlist card, for the shim to answer the wishlist page's request with. */
+  let wishData = ""
+  const wishPage = wishSite ? pages.get("/pages/wishlist") : undefined
+  /* The section the page's script asks for (wishlist.js: its data-render-section). */
+  const wishSection = wishPage?.match(/\bdata-render-section="([^"]+)"/)?.[1]
+  if (wishSite && wishSection && built.site.products.length) {
+    const q = (built.site.products as unknown as { id: string }[]).map((p) => `id:${p.id}`).join(" OR ")
+    const res = await answer(wishSite, { method: "GET", path: "/search", query: new URLSearchParams({ q, type: "product", section_id: wishSection }), body: null, cart: [] })
+    if (res.status === 200 && typeof res.body === "string" && /data-wishlist-card/.test(res.body)) {
+      const body = JSON.stringify({ html: await finish(res.body) })
+      const rel = own(`wishlist.${sha(body)}.json`)
+      write(rel, body)
+      wishData = url(rel)
+    } else console.log(`  ${slug}: the wishlist's cards were not drawn (${res.status})`)
+  }
+
   const html = new Map<string, string>()
   for (const [path, raw] of pages) {
     let page = raw
@@ -394,7 +434,7 @@ async function buildTemplate(t: (typeof CODE_TEMPLATES)[number]) {
     /* Prefetching, and the structured data search engines read (a preview is never indexed, and it names the build's host). */
     page = page.replace(/<script\b[^>]*type=["'](?:speculationrules|application\/ld\+json)["'][^>]*>[\s\S]*?<\/script>/gi, "")
     page = await finish(page)
-    page = page.replace(/<head\b[^>]*>/i, (h) => `${h}<script data-template-preview>${shim(cartData)}</script>`)
+    page = page.replace(/<head\b[^>]*>/i, (h) => `${h}<script data-template-preview>${shim(cartData, wishData)}</script>`)
     html.set(path, page)
   }
 
@@ -499,7 +539,7 @@ function linksAndForms(page: string, pageOf: (href: string) => string | null): s
  * says it is a preview. When the page is drawn, the marketplace is told, so
  * it can take its screenshot away.
  */
-const shim = (cartData: string) => `(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA=${JSON.stringify(cartData)};
+const shim = (cartData: string, wishData = "") => `(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA=${JSON.stringify(cartData)},WISH_DATA=${JSON.stringify(wishData)};
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
@@ -520,6 +560,8 @@ return[200,"text/html","<!doctype html><html><body></body></html>"]}
 var F=W.fetch;${PREVIEW_CART_SHIM}
 if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);if(mine(u))return F.apply(this,arguments);
 /* Cards round 24: the cart answers from the template's drawn cart (./theme-templates/preview-cart.ts), as a store would. */
+/* Round 25: the wishlist page asks for its saved products' cards; every product's card is in WISH_DATA and the theme keeps the saved ones. */
+if(WISH_DATA&&/\\/search$/.test(path(u))&&/[?&]section_id=/.test(u))return F(WISH_DATA).then(function(r){return r.json()}).then(function(d){return new Response(d.html,{status:200,headers:{"Content-Type":"text/html"}})});
 var p=path(u),q=/[?&]sections=/.test(u),c=/\\/cart(\\.js|\\.json|\\/(add|change|update|clear)(\\.js)?)$/.test(p);if(CART_DATA&&(c||q)){var w=c?cartReply(p,o):sectionsReply(u);return w.then(function(r){return new Response(JSON.stringify(r[1]),{status:r[0],headers:{"Content-Type":"application/json"}})},function(){var r=reply(u);return new Response(r[2],{status:r[0],headers:{"Content-Type":r[1]}})})}
 var r=reply(u);return Promise.resolve(new Response(r[2],{status:r[0],headers:{"Content-Type":r[1]}}))};
 var X=W.XMLHttpRequest&&W.XMLHttpRequest.prototype;if(X){var O=X.open;X.open=function(m,u){var a=[].slice.call(arguments);if(!mine(u)){var r=reply(u);a[0]="GET";a[1]="data:"+r[1]+","+encodeURIComponent(r[2])}return O.apply(this,a)}}

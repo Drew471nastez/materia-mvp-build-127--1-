@@ -4,17 +4,17 @@
       "type": "hanging-rail",
       "settings": {
         "eyebrow": "New collection",
-        "eyebrow_2": "Heavyweight basics",
+        "eyebrow_2": "Fleece and jersey",
         "heading": "",
-        "text_below": "<p>Heavyweight cotton, cut boxy, made to wear for years.</p>",
+        "text_below": "<p>Heavyweight cotton, cut boxy. Take a piece off the rail to see it close.</p>",
         "button_label": "Shop the collection",
         "button_link": "/collections/all",
         "caption_layout": "center",
-        "garment_height": 290,
-        "garment_height_mobile": 200,
-        "garment_width": 50,
-        "gap": 6,
-        "hover_gap": 22,
+        "garment_height": 340,
+        "garment_height_mobile": 220,
+        "garment_width": 32,
+        "gap": 12,
+        "hover_gap": 26,
         "rest_turn": 30,
         "turn_speed": 450,
         "swing": 45,
@@ -26,137 +26,187 @@
         "rail_finish": "steel",
         "rail_brackets": true,
         "background_style": "plain",
-        "background_colour": "#f6f6f4",
-        "overlay_colour": "#000000",
+        "background_colour": "",
+        "overlay_colour": "",
         "overlay_opacity": 0,
-        "text_colour": "#141414",
+        "text_colour": "",
         "heading_size": 56,
         "heading_size_mobile": 34,
         "head_gap": 8,
         "padding_top": 44,
         "padding_bottom": 56,
         "padding_top_mobile": 28,
-        "padding_bottom_mobile": 40
+        "padding_bottom_mobile": 40,
+        "button_style": "primary",
+        "focus_backdrop": "glass",
+        "after_add": "stay",
+        "with_heading": "Wear it with",
+        "tag_colour": "",
+        "tag_text_colour": "",
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "image_blur": 0,
+        "text_glass": false,
+        "glass_opacity": 60
       },
       "blocks": {
         "g1": {
           "type": "garment",
           "settings": {
             "product": "heavyweight-hoodie-charcoal",
-            "side_image": "",
+            "side_image": "shopify://shop_images/rail-hoodie-charcoal-side.webp",
             "front_image": "shopify://shop_images/rail-hoodie-charcoal-front.webp",
             "size": 100,
             "tag_text": "",
             "name": "",
-            "note": "450 gsm brushed fleece, double layer hood"
+            "note": "450 gsm brushed fleece, double layer hood",
+            "wear_with": [
+              "boxy-tee-white",
+              "long-sleeve-tee-black"
+            ]
           }
         },
         "g2": {
           "type": "garment",
           "settings": {
             "product": "crew-sweatshirt-black",
-            "side_image": "",
+            "side_image": "shopify://shop_images/rail-crew-black-side.webp",
             "front_image": "shopify://shop_images/rail-crew-black-front.webp",
             "size": 97,
             "tag_text": "",
             "name": "",
-            "note": "Loopback cotton, a ribbed hem and cuffs"
+            "note": "Loopback cotton, a ribbed hem and cuffs",
+            "wear_with": [
+              "boxy-tee-white",
+              "heavyweight-hoodie-grey"
+            ]
           }
         },
         "g3": {
           "type": "garment",
           "settings": {
             "product": "heavyweight-hoodie-grey",
-            "side_image": "",
+            "side_image": "shopify://shop_images/rail-hoodie-grey-side.webp",
             "front_image": "shopify://shop_images/rail-hoodie-grey-front.webp",
             "size": 100,
             "tag_text": "",
             "name": "",
-            "note": "450 gsm brushed fleece, double layer hood"
+            "note": "450 gsm brushed fleece, double layer hood",
+            "wear_with": [
+              "boxy-tee-black",
+              "washed-long-sleeve-charcoal"
+            ]
           }
         },
         "g4": {
           "type": "garment",
           "settings": {
             "product": "heavyweight-hoodie-oat",
-            "side_image": "",
+            "side_image": "shopify://shop_images/rail-hoodie-oat-side.webp",
             "front_image": "shopify://shop_images/rail-hoodie-oat-front.webp",
             "size": 100,
             "tag_text": "",
             "name": "",
-            "note": "450 gsm brushed fleece, double layer hood"
+            "note": "450 gsm brushed fleece, double layer hood",
+            "wear_with": [
+              "boxy-tee-white",
+              "long-sleeve-tee-black"
+            ]
           }
         },
         "g5": {
           "type": "garment",
           "settings": {
             "product": "boxy-tee-black",
-            "side_image": "",
+            "side_image": "shopify://shop_images/rail-tee-black-side.webp",
             "front_image": "shopify://shop_images/rail-tee-black-front.webp",
             "size": 86,
             "tag_text": "",
             "name": "",
-            "note": "240 gsm jersey, dropped shoulders"
+            "note": "240 gsm jersey, dropped shoulders",
+            "wear_with": [
+              "heavyweight-hoodie-grey",
+              "washed-long-sleeve-charcoal"
+            ]
           }
         },
         "g6": {
           "type": "garment",
           "settings": {
             "product": "heavyweight-hoodie-forest",
-            "side_image": "",
+            "side_image": "shopify://shop_images/rail-hoodie-forest-side.webp",
             "front_image": "shopify://shop_images/rail-hoodie-forest-front.webp",
             "size": 100,
             "tag_text": "",
             "name": "",
-            "note": "450 gsm brushed fleece, double layer hood"
+            "note": "450 gsm brushed fleece, double layer hood",
+            "wear_with": [
+              "boxy-tee-black",
+              "crew-sweatshirt-black"
+            ]
           }
         },
         "g7": {
           "type": "garment",
           "settings": {
             "product": "long-sleeve-tee-black",
-            "side_image": "",
+            "side_image": "shopify://shop_images/rail-longsleeve-black-side.webp",
             "front_image": "shopify://shop_images/rail-longsleeve-black-front.webp",
             "size": 96,
             "tag_text": "",
             "name": "",
-            "note": "240 gsm jersey, cut long"
+            "note": "240 gsm jersey, cut long",
+            "wear_with": [
+              "heavyweight-hoodie-oat",
+              "boxy-tee-white"
+            ]
           }
         },
         "g8": {
           "type": "garment",
           "settings": {
             "product": "heavyweight-hoodie-white",
-            "side_image": "",
+            "side_image": "shopify://shop_images/rail-hoodie-white-side.webp",
             "front_image": "shopify://shop_images/rail-hoodie-white-front.webp",
             "size": 100,
             "tag_text": "",
             "name": "",
-            "note": "450 gsm brushed fleece, double layer hood"
+            "note": "450 gsm brushed fleece, double layer hood",
+            "wear_with": [
+              "boxy-tee-black",
+              "long-sleeve-tee-black"
+            ]
           }
         },
         "g9": {
           "type": "garment",
           "settings": {
             "product": "boxy-tee-white",
-            "side_image": "",
+            "side_image": "shopify://shop_images/rail-tee-white-side.webp",
             "front_image": "shopify://shop_images/rail-tee-white-front.webp",
             "size": 86,
             "tag_text": "",
             "name": "",
-            "note": "240 gsm jersey, dropped shoulders"
+            "note": "240 gsm jersey, dropped shoulders",
+            "wear_with": [
+              "heavyweight-hoodie-charcoal",
+              "crew-sweatshirt-black"
+            ]
           }
         },
         "g10": {
           "type": "garment",
           "settings": {
             "product": "washed-long-sleeve-charcoal",
-            "side_image": "",
+            "side_image": "shopify://shop_images/rail-longsleeve-charcoal-side.webp",
             "front_image": "shopify://shop_images/rail-longsleeve-charcoal-front.webp",
             "size": 96,
             "tag_text": "",
             "name": "",
-            "note": "Garment dyed and washed soft"
+            "note": "Garment dyed and washed soft",
+            "wear_with": [
+              "heavyweight-hoodie-oat",
+              "boxy-tee-black"
+            ]
           }
         }
       },
@@ -173,132 +223,302 @@
         "g10"
       ]
     },
-    "bestsellers": {
-      "type": "collection-tab",
+    "new_in": {
+      "type": "products-carousel",
       "settings": {
         "color_scheme": "default",
-        "section_width": "stretch_width",
+        "section_width": "fluid_container",
         "reset_spacing": true,
-        "items_to_show": 4,
+        "collection": "new-arrivals",
+        "items_to_show": 8,
+        "heading": "",
+        "header_alignment": "left",
+        "heading_underline": true,
+        "header_spacing": 24,
         "items_per_row": 4,
-        "rows": 1,
-        "column_gap": 2,
-        "content_alignment": "left",
-        "tab_style": "underline",
-        "tabs_alignment": "left",
-        "tab_padding_x": 0,
-        "tab_padding_y": 6,
-        "tab_gap": 22,
-        "show_nav_bottom_border": false,
-        "gap_tabs_to_products": 18,
-        "show_load_more_button": false,
-        "tab_switch_animation": "fade",
-        "reveal": true,
-        "padding_top": 40,
-        "padding_bottom": 0,
-        "vertical_gap_subheading_section_desktop": 14,
         "items_per_row_mobile": 2,
-        "rows_mobile": 2,
-        "vertical_gap_subheading_section_mobile": 12
+        "column_gap": 12,
+        "show_arrow": true,
+        "carousel_pagination": "show_progress_bar",
+        "pagination_style": "line",
+        "pagination_position": "center",
+        "infinite": false,
+        "autoplay": false,
+        "reveal": true,
+        "padding_top": 72,
+        "padding_bottom": 24
       },
       "blocks": {
-        "h": {
+        "eyebrow": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Just in",
+            "enable_custom_style": true,
+            "color": "#d2261c",
+            "size": 12
+          }
+        },
+        "heading": {
           "type": "heading",
           "settings": {
-            "heading": "Bestsellers",
-            "text_style": "small",
-            "heading_size": "h2",
-            "custom_style": true,
-            "heading_font_size_desktop": 22,
-            "heading_font_size_mobile": 18,
-            "heading_font_weight": "600"
+            "text": "New arrivals",
+            "enable_custom_style": true,
+            "size_desktop": 40,
+            "size_mobile": 28
           }
         },
-        "t_all": {
-          "type": "collection",
+        "all": {
+          "type": "view_all",
           "settings": {
-            "collection": "all",
-            "collection_title": "All"
-          }
-        },
-        "t_sweats": {
-          "type": "collection",
-          "settings": {
-            "collection": "sweats",
-            "collection_title": "Hoodies and sweats"
-          }
-        },
-        "t_tees": {
-          "type": "collection",
-          "settings": {
-            "collection": "tees",
-            "collection_title": "Tees"
+            "enabled": true,
+            "label": "Shop all",
+            "link": "/collections/new-arrivals",
+            "position": "header",
+            "use_theme_button": true
           }
         }
       },
       "block_order": [
-        "h",
-        "t_all",
-        "t_sweats",
-        "t_tees"
+        "eyebrow",
+        "heading",
+        "all"
       ]
     },
-    "categories": {
-      "type": "collection-banner",
+    "fleece": {
+      "type": "products-carousel",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "fluid_container",
+        "reset_spacing": true,
+        "collection": "sweats",
+        "items_to_show": 8,
+        "heading": "",
+        "header_alignment": "left",
+        "heading_underline": true,
+        "header_spacing": 24,
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 12,
+        "show_arrow": true,
+        "carousel_pagination": "show_progress_bar",
+        "pagination_style": "line",
+        "pagination_position": "center",
+        "infinite": false,
+        "autoplay": false,
+        "reveal": true,
+        "padding_top": 56,
+        "padding_bottom": 24
+      },
+      "blocks": {
+        "eyebrow": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "450 gsm fleece",
+            "enable_custom_style": true,
+            "color": "#d2261c",
+            "size": 12
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "The heavyweight hoodie",
+            "enable_custom_style": true,
+            "size_desktop": 40,
+            "size_mobile": 28
+          }
+        },
+        "sub": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Five colours, one boxy cut. Made to be worn every day for years.</p>",
+            "enable_custom_style": true,
+            "size": 14
+          }
+        },
+        "all": {
+          "type": "view_all",
+          "settings": {
+            "enabled": true,
+            "label": "Shop all",
+            "link": "/collections/sweats",
+            "position": "header",
+            "use_theme_button": true
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow",
+        "heading",
+        "sub",
+        "all"
+      ]
+    },
+    "wear_out": {
+      "type": "hero-image1",
       "settings": {
         "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
         "section_width": "full_width",
         "reset_spacing": true,
-        "desktop_content_position": "bottom-left",
-        "mobile_content_position": "bottom-left",
-        "items_gap": 0,
-        "inner_width": 100,
-        "card_border_radius": 0,
-        "use_theme_button": true,
-        "padding_top_desktop": 0,
-        "padding_bottom_desktop": 0,
-        "horizontal_padding_desktop": 0,
-        "padding_top_mobile": 0,
-        "padding_bottom_mobile": 0,
-        "horizontal_padding_mobile": 0
+        "content_align": "center",
+        "vertical_align": "center",
+        "content_max_width": 900,
+        "content_gap": 14,
+        "image": "shopify://shop_images/rail-sky.webp",
+        "image_fit": "cover",
+        "image_position_y": 45,
+        "enable_overlay": true,
+        "overlay_color": "#000000",
+        "overlay_opacity": 28,
+        "min_height_desktop": 640,
+        "padding_top_desktop": 72,
+        "padding_bottom_desktop": 72,
+        "min_height_mobile": 460,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "section_margin_top_desktop": 48,
+        "section_margin_top_mobile": 32
       },
       "blocks": {
-        "sweats": {
-          "type": "collection",
+        "eyebrow": {
+          "type": "eyebrow",
           "settings": {
-            "heading": "Hoodies and sweats",
-            "subheading": "",
-            "description": "",
-            "primary_button_label": "Shop",
-            "primary_button_link": "/collections/sweats",
-            "image_desktop": "shopify://shop_images/rail-tile-hoodies.webp",
-            "card_height": "1",
-            "vertical_text_gap": 16,
-            "primary_button_style": "primary",
-            "heading_size": 40,
-            "collection": "sweats"
+            "text": "Autumn drop"
           }
         },
-        "tees": {
-          "type": "collection",
+        "heading": {
+          "type": "heading",
           "settings": {
-            "heading": "Tees",
-            "subheading": "",
-            "description": "",
-            "primary_button_label": "Shop",
-            "primary_button_link": "/collections/tees",
-            "image_desktop": "shopify://shop_images/rail-tile-tees.webp",
-            "card_height": "1",
-            "vertical_text_gap": 16,
-            "primary_button_style": "primary",
-            "heading_size": 40,
-            "collection": "tees"
+            "text": "Wear it out",
+            "size_desktop": 76,
+            "size_mobile": 40,
+            "tag": "h2",
+            "enable_custom_style": true,
+            "text_case": "uppercase",
+            "line_height": 0.95
+          }
+        },
+        "primary_button": {
+          "type": "primary_button",
+          "settings": {
+            "label": "Shop fleece",
+            "link": "/collections/sweats"
           }
         }
       },
       "block_order": [
-        "sweats",
-        "tees"
+        "eyebrow",
+        "heading",
+        "primary_button"
+      ]
+    },
+    "jersey": {
+      "type": "products-carousel",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "fluid_container",
+        "reset_spacing": true,
+        "collection": "tees",
+        "items_to_show": 8,
+        "heading": "",
+        "header_alignment": "left",
+        "heading_underline": true,
+        "header_spacing": 24,
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 12,
+        "show_arrow": true,
+        "carousel_pagination": "show_progress_bar",
+        "pagination_style": "line",
+        "pagination_position": "center",
+        "infinite": false,
+        "autoplay": false,
+        "reveal": true,
+        "padding_top": 72,
+        "padding_bottom": 24
+      },
+      "blocks": {
+        "eyebrow": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "240 gsm jersey",
+            "enable_custom_style": true,
+            "color": "#d2261c",
+            "size": 12
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "Tees and long sleeves",
+            "enable_custom_style": true,
+            "size_desktop": 40,
+            "size_mobile": 28
+          }
+        },
+        "all": {
+          "type": "view_all",
+          "settings": {
+            "enabled": true,
+            "label": "Shop all",
+            "link": "/collections/tees",
+            "position": "header",
+            "use_theme_button": true
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow",
+        "heading",
+        "all"
+      ]
+    },
+    "band": {
+      "type": "scrolling-text",
+      "settings": {
+        "color_scheme": "scheme-9c1d2e3f-4a5b-4c6d-8e7f-a1b2c3d4e5f6",
+        "section_width": "full_width",
+        "reset_spacing": true,
+        "separator": "slash",
+        "item_gap": 48,
+        "repeat_count": 4,
+        "base_font": "heading",
+        "text_size": 64,
+        "font_weight": "theme",
+        "line_height": 105,
+        "letter_spacing": -2,
+        "text_transform": "none",
+        "separator_size": 50,
+        "duration": 36,
+        "direction": "normal",
+        "pause_on_hover": true,
+        "reveal": false,
+        "padding_top": 18,
+        "padding_bottom": 18,
+        "section_margin_top_desktop": 64,
+        "text_size_mobile": 34,
+        "item_gap_mobile": 24,
+        "padding_top_mobile": 12,
+        "padding_bottom_mobile": 12,
+        "section_margin_top_mobile": 40
+      },
+      "blocks": {
+        "w1": {
+          "type": "word",
+          "settings": {
+            "text": "Heavy cotton, worn daily"
+          }
+        },
+        "w2": {
+          "type": "word",
+          "settings": {
+            "text": "Sixth Ward"
+          }
+        }
+      },
+      "block_order": [
+        "w1",
+        "w2"
       ]
     },
     "look": {
@@ -310,21 +530,18 @@
         "image_position": "left",
         "column_valign": "center",
         "image_width_pct": 50,
-        "gap_desktop": 72,
-        "text_gap": 16,
+        "gap_desktop": 56,
+        "text_gap": 12,
         "image": "shopify://shop_images/rail-look-hoodie.webp",
         "image_aspect_desktop": "4 / 5",
         "image_radius": 0,
-        "card_style": "compact",
+        "card_style": "theme",
         "show_price": true,
-        "card_image_size": 96,
-        "card_image_radius": 0,
-        "card_radius": 0,
-        "card_padding": 12,
-        "card_gap": 16,
-        "padding_top": 64,
-        "padding_bottom": 64,
-        "side_padding_desktop": 48,
+        "product_gap": 12,
+        "products_margin_top": 16,
+        "padding_top": 72,
+        "padding_bottom": 24,
+        "side_padding_desktop": 0,
         "gap_mobile": 24,
         "side_padding_mobile": 16,
         "image_aspect": "4 / 5"
@@ -333,40 +550,40 @@
         "e": {
           "type": "eyebrow",
           "settings": {
-            "text": "Shop the look"
+            "text": "The look",
+            "enable_custom_style": true,
+            "color": "#d2261c",
+            "size": 12
           }
         },
         "h": {
           "type": "heading",
           "settings": {
-            "text": "Black on black",
+            "text": "Shop the look",
             "tag": "h2",
-            "size_desktop": 48,
-            "size_mobile": 34
+            "enable_custom_style": true,
+            "size_desktop": 40,
+            "size_mobile": 28
           }
         },
         "s": {
           "type": "subheading",
           "settings": {
-            "text": "<p>A crew sweatshirt over a long sleeve tee, both in 240 gsm cotton or heavier. The same black wash, so they match.</p>"
+            "text": "<p>The charcoal hoodie over a white boxy tee. Studio, a Tuesday.</p>",
+            "enable_custom_style": true,
+            "size": 14
           }
         },
         "p1": {
           "type": "product",
           "settings": {
-            "product": "crew-sweatshirt-black"
+            "product": "heavyweight-hoodie-charcoal"
           }
         },
         "p2": {
           "type": "product",
           "settings": {
-            "product": "long-sleeve-tee-black"
-          }
-        },
-        "p3": {
-          "type": "product",
-          "settings": {
-            "product": "boxy-tee-black"
+            "product": "boxy-tee-white"
           }
         }
       },
@@ -375,41 +592,88 @@
         "h",
         "s",
         "p1",
-        "p2",
-        "p3"
+        "p2"
       ]
     },
-    "philosophy": {
-      "type": "richtext1",
+    "collections": {
+      "type": "image-with-text-multirow",
       "settings": {
         "color_scheme": "default",
-        "section_width": "fluid_container",
+        "section_width": "container",
         "reset_spacing": true,
-        "padding_top": 72,
-        "padding_bottom": 72
+        "alternate_rows": false,
+        "content_align": "left",
+        "text_column_width": 42,
+        "row_gap_desktop": 40,
+        "col_gap_desktop": 32,
+        "content_gap": 10,
+        "image_aspect_w": 16,
+        "image_aspect_h": 9,
+        "image_fit": "cover",
+        "image_radius": 4,
+        "caption_size": 12,
+        "heading_size_desktop": 26,
+        "heading_weight": "theme",
+        "body_size_desktop": 14,
+        "padding_top_desktop": 72,
+        "padding_bottom_desktop": 72,
+        "side_padding_desktop": 32,
+        "row_gap_mobile": 32,
+        "col_gap_mobile": 16,
+        "heading_size_mobile": 22,
+        "body_size_mobile": 14,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 48,
+        "side_padding_mobile": 16
       },
       "blocks": {
-        "e": {
-          "type": "description",
+        "r1": {
+          "type": "row",
           "settings": {
-            "description_text": "<p>Our philosophy</p>",
-            "description_text_size": 13
+            "image": "shopify://shop_images/rail-tile-hoodies.webp",
+            "caption": "Collections",
+            "heading": "Fleece",
+            "body": "<p>The 450 gsm hoodie and the loopback crew. Thick, soft inside, cut boxy.</p>",
+            "btn_label": "Shop fleece",
+            "btn_link": "/collections/sweats",
+            "image_position": "left",
+            "use_theme_button": true
           }
         },
-        "d": {
-          "type": "description",
+        "r2": {
+          "type": "row",
           "settings": {
-            "description_text": "<p><strong>We make fewer pieces and make them heavier.</strong> Thick cotton, plain colours and a boxy cut you can wear for years, not one season.</p>",
-            "description_text_size": 34
+            "image": "shopify://shop_images/rail-tile-tees.webp",
+            "caption": "",
+            "heading": "Jersey",
+            "body": "<p>Boxy tees and long sleeves in 240 gsm cotton, short in the body and wide in the shoulder.</p>",
+            "btn_label": "Shop tees",
+            "btn_link": "/collections/tees",
+            "image_position": "left",
+            "use_theme_button": true
+          }
+        },
+        "r3": {
+          "type": "row",
+          "settings": {
+            "image": "shopify://shop_images/rail-pair.webp",
+            "caption": "",
+            "heading": "Washed black",
+            "body": "<p>Every black piece, dyed after it is sewn so the seams fade with the rest.</p>",
+            "btn_label": "Shop black",
+            "btn_link": "/collections/new-arrivals",
+            "image_position": "left",
+            "use_theme_button": true
           }
         }
       },
       "block_order": [
-        "e",
-        "d"
+        "r1",
+        "r2",
+        "r3"
       ]
     },
-    "story": {
+    "made_heavy": {
       "type": "hero-image1",
       "settings": {
         "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
@@ -417,40 +681,46 @@
         "reset_spacing": true,
         "content_align": "center",
         "vertical_align": "center",
-        "content_max_width": 760,
+        "content_max_width": 900,
+        "content_gap": 14,
         "image": "shopify://shop_images/rail-story.webp",
         "image_fit": "cover",
-        "image_position_y": 40,
+        "image_position_y": 38,
         "enable_overlay": true,
         "overlay_color": "#000000",
-        "overlay_opacity": 30,
-        "min_height_desktop": 560,
+        "overlay_opacity": 28,
+        "min_height_desktop": 600,
         "padding_top_desktop": 72,
-        "padding_bottom_desktop": 40,
+        "padding_bottom_desktop": 72,
         "min_height_mobile": 460,
         "padding_top_mobile": 56,
-        "padding_bottom_mobile": 32
+        "padding_bottom_mobile": 56,
+        "section_margin_top_desktop": 48,
+        "section_margin_top_mobile": 32
       },
       "blocks": {
         "eyebrow": {
-          "type": "subheading",
+          "type": "eyebrow",
           "settings": {
-            "text": "<p>Our story</p>"
+            "text": "Our story"
           }
         },
         "heading": {
           "type": "heading",
           "settings": {
-            "text": "Started with one hoodie",
-            "size_desktop": 60,
-            "size_mobile": 38,
-            "tag": "h2"
+            "text": "Made heavy",
+            "size_desktop": 76,
+            "size_mobile": 40,
+            "tag": "h2",
+            "enable_custom_style": true,
+            "text_case": "uppercase",
+            "line_height": 0.95
           }
         },
         "primary_button": {
           "type": "primary_button",
           "settings": {
-            "label": "Read more",
+            "label": "Read the story",
             "link": "/pages/about"
           }
         }
@@ -461,178 +731,59 @@
         "primary_button"
       ]
     },
-    "reviews": {
-      "type": "testimonial-product",
+    "journal": {
+      "type": "blog-posts",
       "settings": {
         "color_scheme": "default",
         "section_width": "fluid_container",
         "reset_spacing": true,
-        "text_align": "left",
-        "cards_desktop": 3,
-        "card_gap": 0,
-        "card_style": "outline",
-        "show_arrows": true,
-        "show_progress": true,
-        "enable_custom_style": true,
-        "card_radius": 0,
-        "quote_size": 18,
+        "items_to_show": 3,
+        "heading": "",
+        "show_view_all": true,
+        "view_all_label": "See more",
+        "view_all_link": "/blogs/news",
+        "show_author": false,
+        "show_date": true,
+        "header_alignment": "left",
+        "content_alignment": "left",
+        "items_per_row": 3,
+        "column_gap": 16,
+        "vertical_gap": 24,
+        "image_ratio": "landscape",
+        "carousel_pagination": "disable",
         "reveal": true,
         "padding_top": 72,
         "padding_bottom": 72,
-        "mobile_peek": true,
-        "quote_size_mobile": 16,
-        "padding_top_mobile": 44,
-        "padding_bottom_mobile": 44
+        "items_per_row_mobile": 1
       },
       "blocks": {
-        "e": {
-          "type": "eyebrow",
+        "sub": {
+          "type": "subheading",
           "settings": {
-            "text": "Reviews"
+            "text": "Journal",
+            "style": "caption",
+            "color": "#d2261c"
           }
         },
         "h": {
           "type": "heading",
           "settings": {
-            "text": "Still in the rotation",
-            "size": 40,
-            "size_mobile": 30
-          }
-        },
-        "t1": {
-          "type": "testimonial",
-          "settings": {
-            "product": "heavyweight-hoodie-grey",
-            "body": "Thick enough to wear as a jacket in spring and it kept its shape after a lot of washes. Sample review, replace it with one from your customers.",
-            "name": "Customer name",
-            "role": "Heavyweight hoodie, grey, L",
-            "rating": 5
-          }
-        },
-        "t2": {
-          "type": "testimonial",
-          "settings": {
-            "product": "boxy-tee-black",
-            "body": "The boxy fit is right: short in the body, wide in the shoulder. I bought a second one. Sample review, replace it with your own.",
-            "name": "Customer name",
-            "role": "Boxy tee, M",
-            "rating": 5
-          }
-        },
-        "t3": {
-          "type": "testimonial",
-          "settings": {
-            "product": "heavyweight-hoodie-forest",
-            "body": "Heavy and warm, and the green is deeper than on screen. Sample review, replace it with your own.",
-            "name": "Customer name",
-            "role": "Heavyweight hoodie, forest, M",
-            "rating": 5
+            "heading": "In the know",
+            "tag": "h2",
+            "size": "custom",
+            "custom_size": 40
           }
         }
       },
       "block_order": [
-        "e",
-        "h",
-        "t1",
-        "t2",
-        "t3"
-      ]
-    },
-    "community": {
-      "type": "Instagram-promo",
-      "settings": {
-        "color_scheme": "default",
-        "section_width": "full_width",
-        "reset_spacing": true,
-        "show_instagram_button": true,
-        "button_text": "Follow on Instagram",
-        "button_link_url": "https://www.instagram.com/",
-        "image_width_desktop": 280,
-        "image_height_desktop": 360,
-        "horizontal_gap_desktop": 2,
-        "image_border_radius": 0,
-        "image_hover_animation": "none",
-        "padding_top_desktop": 20,
-        "padding_bottom_desktop": 20,
-        "full_width_desktop": true,
-        "padding_lr_desktop": 0,
-        "image_width_mobile": 160,
-        "image_height_mobile": 200,
-        "padding_lr_mobile": 0,
-        "full_width_mobile": true
-      },
-      "blocks": {
-        "heading": {
-          "type": "heading",
-          "settings": {
-            "text": "Worn by you",
-            "size_desktop": 22,
-            "size_mobile": 18
-          }
-        },
-        "i1": {
-          "type": "image",
-          "settings": {
-            "image": "shopify://shop_images/rail-loft.webp",
-            "alt_text": "Two people in black sweats in a studio",
-            "link_url": "https://www.instagram.com/"
-          }
-        },
-        "i2": {
-          "type": "image",
-          "settings": {
-            "image": "shopify://shop_images/rail-portrait.webp",
-            "alt_text": "Portrait in a black hoodie",
-            "link_url": "https://www.instagram.com/"
-          }
-        },
-        "i3": {
-          "type": "image",
-          "settings": {
-            "image": "shopify://shop_images/rail-grey-hood.webp",
-            "alt_text": "Grey hoodie in the studio",
-            "link_url": "https://www.instagram.com/"
-          }
-        },
-        "i4": {
-          "type": "image",
-          "settings": {
-            "image": "shopify://shop_images/rail-walk.webp",
-            "alt_text": "Walking through a white room",
-            "link_url": "https://www.instagram.com/"
-          }
-        },
-        "i5": {
-          "type": "image",
-          "settings": {
-            "image": "shopify://shop_images/rail-pair.webp",
-            "alt_text": "Two friends in black, shot from below",
-            "link_url": "https://www.instagram.com/"
-          }
-        },
-        "i6": {
-          "type": "image",
-          "settings": {
-            "image": "shopify://shop_images/rail-tile-hoodies.webp",
-            "alt_text": "Grey hoodie from behind, outdoors",
-            "link_url": "https://www.instagram.com/"
-          }
-        }
-      },
-      "block_order": [
-        "heading",
-        "i1",
-        "i2",
-        "i3",
-        "i4",
-        "i5",
-        "i6"
+        "sub",
+        "h"
       ]
     },
     "benefits": {
       "type": "benefits-bar",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "color_scheme": "default",
         "section_width": "full_width",
         "reset_spacing": true,
         "bar_width": 64,
@@ -668,7 +819,7 @@
         "b3": {
           "type": "icon",
           "settings": {
-            "icon_title": "<strong>Secure payment</strong> <br>Cards, PayPal, Apple Pay",
+            "icon_title": "<strong>Secure payment</strong> <br>Cards, Apple Pay, Google Pay",
             "icon_type": "icon",
             "icon": "lock"
           }
@@ -683,13 +834,15 @@
   },
   "order": [
     "rail",
-    "bestsellers",
-    "categories",
+    "new_in",
+    "fleece",
+    "wear_out",
+    "jersey",
+    "band",
     "look",
-    "philosophy",
-    "story",
-    "reviews",
-    "community",
+    "collections",
+    "made_heavy",
+    "journal",
     "benefits"
   ]
 }

@@ -5,7 +5,7 @@
     "footer": {
       "type": "footer",
       "settings": {
-        "custom_text": "HANGER LANE",
+        "custom_text": "SIXTH WARD",
         "padding_top": 48,
         "show_social": false,
         "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636",
@@ -24,7 +24,7 @@
         "enable_custom_image": false,
         "enable_custom_style": false,
         "footer_heading_size": 13,
-        "enable_custom_text_big": true,
+        "enable_custom_text_big": false,
         "enable_country_selector": true,
         "custom_image_size_mobile": 60,
         "enable_language_selector": true,
@@ -108,9 +108,54 @@
         "contact",
         "pay"
       ]
+    },
+    "band": {
+      "type": "scrolling-text",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "full_width",
+        "reset_spacing": true,
+        "separator": "slash",
+        "item_gap": 48,
+        "repeat_count": 4,
+        "base_font": "heading",
+        "text_size": 64,
+        "font_weight": "theme",
+        "line_height": 105,
+        "letter_spacing": -2,
+        "duration": 44,
+        "direction": "reverse",
+        "pause_on_hover": true,
+        "reveal": false,
+        "padding_top": 16,
+        "padding_bottom": 16,
+        "text_size_mobile": 34,
+        "item_gap_mobile": 24,
+        "padding_top_mobile": 10,
+        "padding_bottom_mobile": 10
+      },
+      "blocks": {
+        "w1": {
+          "type": "word",
+          "settings": {
+            "text": "Sixth Ward"
+          }
+        },
+        "w2": {
+          "type": "word",
+          "settings": {
+            "text": "Made heavy"
+          }
+        }
+      },
+      "block_order": [
+        "w1",
+        "w2"
+      ]
     }
   },
   "order": [
+    "band",
     "footer"
   ]
 }

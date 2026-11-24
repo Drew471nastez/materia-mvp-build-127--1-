@@ -17,9 +17,13 @@
  *       the row without choosing a pill.
  *   B   the floating Back is hidden at the top, comes in once the page's own
  *       Back has scrolled away, and goes back to the list.
- *   G   the gallery is one YouTube cover and Storelib's pictures of the app:
- *       the pictures lazy with a srcset, nothing from youtube.com until the
- *       cover is pressed, then a youtube-nocookie frame.
+ *   G   the gallery is one YouTube video and Storelib's pictures of the app:
+ *       the pictures lazy with a srcset; the video is YouTube's own player
+ *       (r25), a lazy youtube-nocookie frame, fetched once (only the layout
+ *       that is shown), never from www.youtube.com, overhanging a box with
+ *       no border of its own so no line of the player's black shows.
+ *   V   another slide takes the player away; the video's tile brings it
+ *       back, playing.
  *
  *   SHOTS_DIR=... LABEL=after node scripts/check-integrations-r24.mjs
  */
@@ -206,7 +210,18 @@ export const isNativePlatform = () => false
       results[key].gallery = g
       expect(!!g && g.videos === 1, "G exactly one video in the gallery", g && g.videos)
       expect(!!g && g.pictures.length >= 2 && g.pictures.length <= 3 && g.pictures.every((x) => x.lazy === "lazy" && x.srcset >= 2 && x.alt > 10 && x.w && x.h), "G two or three pictures of the app, lazy, with a srcset, sized and described", g && g.pictures)
-      expect(!external.some((u) => /youtube\.com|youtube-nocookie/.test(u)), "G nothing from youtube.com before the cover is pressed", external.filter((u) => /youtube/.test(u)))
+      /* Changed on purpose (r25, the owner): YouTube's own player, lazy, in the layout that is shown only. */
+      const yt = external.filter((u) => /youtube/.test(u))
+      expect(yt.length === 1 && yt[0].startsWith("https://www.youtube-nocookie.com/embed/") && !/autoplay=1/.test(yt[0]), "G one youtube-nocookie player fetched, not autoplaying, nothing from www.youtube.com", yt)
+      const edge = await p.evaluate(() => {
+        const f = document.querySelector(innerWidth < 1024 ? "[data-app-gallery-row] [data-app-video-player]" : "[data-app-gallery-main] [data-app-video-player]")
+        if (!f) return null
+        const box = f.closest(innerWidth < 1024 ? "[data-app-gallery-row] > div" : "[data-app-gallery-main]")
+        const a = f.getBoundingClientRect(), b = box.getBoundingClientRect(), cs = getComputedStyle(box), after = getComputedStyle(box, "::after")
+        return { overL: +(b.left - a.left).toFixed(2), overR: +(a.right - b.right).toFixed(2), overT: +(b.top - a.top).toFixed(2), overB: +(a.bottom - b.bottom).toFixed(2), boxBorder: cs.borderLeftWidth, ratio: +(b.width / b.height).toFixed(4), drawnBorder: after.borderLeftWidth + " " + after.borderLeftColor, overflow: cs.overflow }
+      })
+      results[key].videoEdge = edge
+      expect(!!edge && edge.overL >= 0.9 && edge.overR >= 0.9 && edge.overT >= 0.9 && edge.overB >= 0.9 && edge.boxBorder === "0px" && edge.overflow === "hidden" && edge.drawnBorder.startsWith("1px"), "G the player overhangs a borderless 16:9 box by 1px on every side; the border is drawn over it", edge)
 
       /* ---- P: the pills, on the list ---- */
       {
@@ -333,18 +348,21 @@ export const isNativePlatform = () => false
         expect(url === "/app/integrations", "B it goes back to the list", url)
       }
 
-      /* ---- V: the video plays on a press ---- */
-      {
+      /* ---- V: another slide stops the video; its tile brings it back, playing (computer layout) ---- */
+      if (vp.width >= 1024) {
         const q = await open(`/app/integrations?integration=${id}`, vp)
-        const sel = vp.width >= 1024 ? "[data-app-gallery-main] [data-app-video-poster]" : "[data-app-gallery-row] [data-app-video-poster]"
-        const poster = await q.p.$(sel)
-        expect(!!poster, "V the video's cover is a button", sel)
-        if (poster) {
-          await poster.click()
+        await q.p.click("[data-app-gallery-thumb]")
+        await sleep(400)
+        const gone = await q.p.evaluate(() => document.querySelectorAll("[data-app-gallery-main] iframe").length)
+        expect(gone === 0, "V a picture shown in the large frame takes the player away", gone)
+        const vt = await q.p.$$eval("[data-app-gallery-thumb]", (l) => l.findIndex((b) => /^Play /.test(b.getAttribute("aria-label") || "")))
+        const tiles = await q.p.$$("[data-app-gallery-thumb]")
+        if (vt >= 0) {
+          await tiles[vt].click()
           await sleep(400)
-          const src = await q.p.evaluate(() => [...document.querySelectorAll("[data-app-video] iframe")].map((f) => f.getAttribute("src")))
-          expect(src.length === 1 && src[0].startsWith("https://www.youtube-nocookie.com/embed/"), "V a youtube-nocookie frame, only after the press", src)
-        }
+          const src = await q.p.evaluate(() => [...document.querySelectorAll("[data-app-gallery-main] iframe")].map((f) => f.getAttribute("src")))
+          expect(src.length === 1 && src[0].startsWith("https://www.youtube-nocookie.com/embed/") && /autoplay=1/.test(src[0]), "V the video's tile brings the player back, playing", src)
+        } else expect(false, "V the video has a tile once another slide is shown")
         await q.p.close()
       }
       await p.close()

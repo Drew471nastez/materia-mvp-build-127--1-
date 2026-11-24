@@ -118,10 +118,14 @@
    view". One system for every type and every element that carries
    `.scroll-trigger <type>` (a section wrapper or the cards inside it).
 
-   - Visible by default. Only animation.js hides an element, and only one that
+   - Visible by default. Only animation.js arms an element, and only one that
      starts below the first screen (`--armed` + `--offscreen`), so the first
      screen and the LCP image are never delayed, and previews, no-JS, the
      builder and reduced motion always show content.
+   - Never blank (r25): an armed element waits at --reveal-from-opacity
+     (0.4) and its type's small offset, never at 0, so a section scrolled to
+     before it has started shows its content, never a white band. Every
+     keyframe starts from that same state, so nothing jumps when it starts.
    - Plays once: animation.js marks it done and the animation is removed.
    - Compositor-friendly keyframes: opacity and transform. Blur up uses a
      4px blur on cards only (never a whole section); Mask reveal uses
@@ -142,6 +146,7 @@
   --animation-zoom-in: revealZoom var(--duration-extra-longer) var(--ease-soft) both;
   --reveal-stagger: 70ms;
   --reveal-shift: 28px;
+  --reveal-from-opacity: 0.4;
 }
 
 .scroll-trigger { --reveal-name: revealFade; --reveal-ease: cubic-bezier(0.22, 0.61, 0.36, 1); --reveal-time: 1; --reveal-dir: 1; }
@@ -158,8 +163,13 @@
 .scroll-trigger.mask_reveal { --reveal-name: revealMask; --reveal-ease: cubic-bezier(0.65, 0, 0.35, 1); }
 
 @media (prefers-reduced-motion: no-preference) {
+  /* Waiting below the screen: the first frame of its own animation, so the start is seamless. */
   .scroll-trigger.scroll-trigger--armed.scroll-trigger--offscreen:is(.fade_in, .slide_in, .zoom_in, .subtle_rise, .cinematic, .blur_up, .slide_side, .mask_reveal) {
-    opacity: 0;
+    animation-name: var(--reveal-name);
+    animation-duration: 1s;
+    animation-fill-mode: both;
+    animation-play-state: paused;
+    animation-delay: 0s;
   }
   .scroll-trigger.scroll-trigger--armed:not(.scroll-trigger--offscreen):is(.fade_in, .slide_in, .zoom_in, .subtle_rise, .cinematic, .blur_up, .slide_side, .mask_reveal) {
     animation-name: var(--reveal-name);
@@ -184,33 +194,34 @@ html.shopify-design-mode .scroll-trigger {
   .scroll-trigger, .scroll-trigger.scroll-trigger--offscreen { opacity: 1 !important; animation: none !important; }
 }
 
-@keyframes revealFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes revealFade { from { opacity: var(--reveal-from-opacity, 0.4); } to { opacity: 1; } }
 @keyframes revealSlideUp {
-  from { opacity: 0; transform: translate3d(0, 14px, 0); }
+  from { opacity: var(--reveal-from-opacity, 0.4); transform: translate3d(0, 14px, 0); }
   to { opacity: 1; transform: none; }
 }
 @keyframes revealZoom {
-  from { opacity: 0; transform: scale(0.985); }
+  from { opacity: var(--reveal-from-opacity, 0.4); transform: scale(0.985); }
   to { opacity: 1; transform: none; }
 }
 @keyframes revealRise {
-  from { opacity: 0; transform: translate3d(0, 8px, 0); }
+  from { opacity: var(--reveal-from-opacity, 0.4); transform: translate3d(0, 8px, 0); }
   to { opacity: 1; transform: none; }
 }
 @keyframes revealCinematic {
-  from { opacity: 0; transform: scale(0.992); }
+  from { opacity: var(--reveal-from-opacity, 0.4); transform: scale(0.992); }
   to { opacity: 1; transform: none; }
 }
 @keyframes revealBlurUp {
-  from { opacity: 0; transform: translate3d(0, 12px, 0); filter: blur(4px); }
+  from { opacity: var(--reveal-from-opacity, 0.4); transform: translate3d(0, 12px, 0); filter: blur(4px); }
   to { opacity: 1; transform: none; filter: none; }
 }
 @keyframes revealSlideSide {
-  from { opacity: 0; transform: translate3d(calc(var(--reveal-shift, 28px) * -1 * var(--reveal-dir, 1)), 0, 0); }
+  from { opacity: var(--reveal-from-opacity, 0.4); transform: translate3d(calc(var(--reveal-shift, 28px) * -1 * var(--reveal-dir, 1)), 0, 0); }
   to { opacity: 1; transform: none; }
 }
+/* The mask opens from a band already showing, never from nothing. */
 @keyframes revealMask {
-  from { opacity: 1; clip-path: inset(0 0 100% 0); transform: translate3d(0, 10px, 0); }
+  from { opacity: var(--reveal-from-opacity, 0.4); clip-path: inset(0 0 35% 0); transform: translate3d(0, 10px, 0); }
   to { opacity: 1; clip-path: inset(0 0 0 0); transform: none; }
 }
 
