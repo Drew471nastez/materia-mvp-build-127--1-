@@ -324,6 +324,7 @@ export type ViewId =
   | "people"
   | "audit"
   | "system"
+  | "live"
 
 /* ── Creator activity (round 59, SQL part 430) ────────────────────────── */
 
@@ -360,6 +361,8 @@ export type ActivityFeedRow = {
 export type ActivityPayload = Base & {
   /** Part 430 has not run: nothing is recorded yet. */
   missing: boolean
+  /** What Supabase answered when it could not find part 430's table or function. */
+  missingReason?: string | null
   summary: ActivitySummary | null
   online: PresenceRow[] | null
   feed: { rows: ActivityFeedRow[]; next: string | null } | null
@@ -369,6 +372,7 @@ export type TimelineRow = { id: string; at: string; kind: "page" | "action" | "s
 
 export type CreatorActivityPayload = Base & {
   missing: boolean
+  missingReason?: string | null
   presence: (ActivityPlace & { firstSeen: string | null; lastSeen: string | null; sessionStarted: string | null; lastPath: string | null; lastAction: string | null; lastActionAt: string | null }) | null
   liveSince: string | null
   sessions7: Figure
@@ -376,5 +380,77 @@ export type CreatorActivityPayload = Base & {
   /** Where and on what they started their recent sessions, newest first, each once. */
   places: (ActivityPlace & { at: string })[]
   timeline: TimelineRow[]
+  next: string | null
+}
+
+/* ── Who is on Storelib now (round 62, SQL part 477) ──────────────────── */
+
+export type LiveWho =
+  | { kind: "visitor"; label: string }
+  /** A signed in account the visitor's consent allows to be named, or a creator in /app (round 59). */
+  | { kind: "account"; label: string; userId: string; creatorId: string | null }
+
+export type LiveSessionRow = {
+  /** The tab's id, or `app:<user id>` for a creator in /app (round 59's presence). */
+  id: string
+  who: LiveWho
+  area: string
+  path: string | null
+  host: string | null
+  lastAction: string | null
+  lastActionAt: string | null
+  started: string | null
+  lastSeen: string | null
+  pages: number | null
+  country: string | null
+  device: string | null
+  os: string | null
+  browser: string | null
+  shell: string | null
+  source: string | null
+}
+
+export type LiveOverview = {
+  online: Figure
+  signedIn: Figure
+  /** Online now per area (lib/live/live AREAS), /app from round 59's presence. */
+  areas: Record<string, number>
+  countriesNow: [string, number][]
+  /** Sessions started since midnight UTC (a tab is a session: without a cookie there is no returning visitor). */
+  today: Figure
+  todaySignedIn: Figure
+  countriesToday: [string, number][]
+  /** Creators active in /app today (round 59). */
+  creatorsToday: Figure
+  /** Below 1 when anonymous tabs are sampled (LIVE_ANON_SAMPLE); the figures above are already scaled. */
+  sample: number
+}
+
+export type LivePayload = Base & {
+  missing: boolean
+  missingReason?: string | null
+  overview: LiveOverview | null
+  sessions: LiveSessionRow[] | null
+}
+
+export type LiveTrailRow = { at: string; area: string; path: string }
+export type LiveActionRow = { id: number; at: string; name: string; label: string; area: string; path: string | null; host: string | null; orderId: string | null }
+
+export type LiveSessionPayload = Base & {
+  missing: boolean
+  missingReason?: string | null
+  session: LiveSessionRow | null
+  /** Newest first. */
+  trail: LiveTrailRow[]
+  actions: LiveActionRow[]
+  orders: { id: string; at: string; amount: number | null; currency: string | null }[]
+}
+
+export type LiveFeedRow = LiveActionRow & { sid: string; who: LiveWho; country: string | null }
+
+export type LiveFeedPayload = Base & {
+  missing: boolean
+  missingReason?: string | null
+  rows: LiveFeedRow[] | null
   next: string | null
 }

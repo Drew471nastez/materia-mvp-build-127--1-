@@ -20,7 +20,7 @@ import { cx } from "./ui"
 export type NavItem = { id: ViewId; label: string } | { href: string; label: string }
 
 export const NAV: { group: string | null; items: NavItem[] }[] = [
-  { group: null, items: [{ id: "overview", label: "Overview" }, { id: "ops", label: "Operations" }] },
+  { group: null, items: [{ id: "overview", label: "Overview" }, { id: "live", label: "Live" }, { id: "ops", label: "Operations" }] },
   {
     group: "Commerce",
     items: [
@@ -121,6 +121,7 @@ export function Shell({
   current,
   onNavigate,
   live,
+  liveScope = "creators",
   busy,
   onSignOut,
   children,
@@ -128,6 +129,7 @@ export function Shell({
   current: ViewId
   onNavigate: (v: ViewId) => void
   live: number | null
+  liveScope?: "platform" | "creators"
   busy: boolean
   onSignOut: () => void
   children: React.ReactNode
@@ -151,7 +153,7 @@ export function Shell({
   const liveLine = (
     <p className="flex items-center gap-2 text-[12px] text-[#9b9ba6] tabular-nums" data-live>
       <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-[#3fb950]" />
-      {live === null ? "Visitors now not read" : `${live.toLocaleString("en-US")} on Storelib now`}
+      {live === null ? "Visitors now not read" : liveScope === "platform" ? `${live.toLocaleString("en-US")} on Storelib now` : `${live.toLocaleString("en-US")} on creators' pages now`}
     </p>
   )
 

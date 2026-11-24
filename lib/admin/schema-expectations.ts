@@ -64,6 +64,8 @@ export const EXPECTED_SCHEMA: Record<string, { columns: string[]; later?: boolea
   /* Creator activity (round 59, supabase/sql/run-now/430_creator_activity.sql; lib/admin/views/activity.ts). */
   creator_activity_events: { columns: ["id", "user_id", "creator_id", "at", "kind", "name", "session_start", "country", "device", "os", "browser", "shell"], later: true },
   creator_presence: { columns: ["user_id", "creator_id", "first_seen_at", "last_seen_at", "session_started_at", "last_path", "last_action", "last_action_at", "country", "device", "os", "browser", "shell", "live_since"], later: true },
+  platform_live_sessions: { columns: ["sid", "started_at", "last_seen_at", "area", "path", "host", "last_action", "last_action_at", "pages", "trail", "user_id", "consented", "country", "device", "os", "browser", "shell", "source"], later: true },
+  platform_live_events: { columns: ["id", "at", "sid", "user_id", "area", "name", "path", "host", "order_id", "country"], later: true },
   store_activity_log: { columns: ["id", "created_at", "creator_id", "actor", "action", "subject_label", "meta"], later: true },
 }
 

@@ -3,7 +3,6 @@ import "server-only"
 import { describeActivity } from "@/lib/activity/actions"
 import { ACTION_GROUPS, ONLINE_MS, describeEvent } from "@/lib/activity/creator-activity"
 import { isMissingActivity } from "@/lib/activity/creator-activity-server"
-import { readLadder } from "@/lib/supabase/missing-memory"
 
 import type { ActivityFeedRow, ActivityPayload, ActivityPlace, ActivitySummary, CreatorActivityPayload, PresenceRow, TimelineRow } from "../types"
 import { Reader, UUID_RE, isoDaysAgo, startOfTodayIso } from "../platform-metrics"
@@ -29,8 +28,9 @@ import { creatorRef, one } from "./common"
  *                  same window from store_activity_log (part 113).
  *
  * Before part 430 has run every read answers "missing" and the console says
- * activity starts recording once it has; the database is asked again once
- * per period (lib/supabase/missing-memory), not on every poll.
+ * activity starts recording once it has, with Supabase's own words for what
+ * it could not find. Every read asks the database again, so the console
+ * changes the moment the part has run.
  */
 
 export const FEED_PAGE = 50
@@ -43,9 +43,14 @@ const MISSING_ANSWER = (): Promise<Answer> => Promise.resolve({ data: null, erro
 type Asked = { data: unknown; count: number | null; missing: boolean; failed: boolean }
 
 async function ask(r: Reader, key: string, metric: string, table: string, run: () => PromiseLike<Answer>): Promise<Asked> {
+  /* Asked on every read, never remembered: the admin polls a few small reads, so the moment part 430 is in the database the console shows it. */
+  void key
   try {
-    const a = (await readLadder(`admin-activity:${key}`, [run, MISSING_ANSWER], isMissingActivity)) as Answer
-    if (a.missing) return { data: null, count: null, missing: true, failed: false }
+    const a = (await run()) as Answer
+    if (a.error && isMissingActivity(a.error)) {
+      lastMissing = `${table}: ${[a.error.code, a.error.message].filter(Boolean).join(" ")}`.slice(0, 300)
+      return { data: null, count: null, missing: true, failed: false }
+    }
     if (a.error) {
       r.note(metric, table, a.error)
       return { data: null, count: null, missing: false, failed: true }
@@ -55,6 +60,12 @@ async function ask(r: Reader, key: string, metric: string, table: string, run: (
     r.note(metric, table, e)
     return { data: null, count: null, missing: false, failed: true }
   }
+}
+
+/** What Supabase said the last time a read found part 430 missing, shown under the note so the reason is never a guess. */
+let lastMissing: string | null = null
+export function missingReason(): string | null {
+  return lastMissing
 }
 
 type CreatorEmbed = { id: string; slug: string | null; display_name: string | null } | { id: string; slug: string | null; display_name: string | null }[] | null
@@ -184,7 +195,7 @@ export async function creatorActivity(r: Reader, creatorId: string, before: stri
       r.db.from("creator_activity_events").select("at, country, device, os, browser, shell").eq("user_id", userId).eq("session_start", true).order("at", { ascending: false }).limit(30),
     ),
   ])
-  if (presence.missing || events.missing) return { ...empty, missing: true }
+  if (presence.missing || events.missing) return { ...empty, missing: true, missingReason: missingReason() }
 
   const p = ((presence.data ?? []) as PresenceDb[])[0] ?? null
   let liveSince = p?.live_since ?? null
@@ -236,12 +247,13 @@ export async function creatorActivity(r: Reader, creatorId: string, before: stri
 /* ── The one entry the admin route calls ────────────────────────────────── */
 
 export async function activity(r: Reader, params: URLSearchParams): Promise<Record<string, unknown>> {
+  lastMissing = null
   const part = params.get("part") ?? "online"
   if (part === "creator") return creatorActivity(r, params.get("id") ?? "", params.get("before"))
   if (part === "feed") {
     const { feed, missing } = await activityFeed(r, { filter: params.get("filter"), before: params.get("before") })
-    return { missing, summary: null, online: null, feed } satisfies Omit<ActivityPayload, "problems" | "notices">
+    return { missing, missingReason: missing ? missingReason() : null, summary: null, online: null, feed } satisfies Omit<ActivityPayload, "problems" | "notices">
   }
   const [s, o] = await Promise.all([activitySummary(r), part === "summary" ? Promise.resolve({ rows: null, missing: false }) : onlineCreators(r)])
-  return { missing: s.missing || o.missing, summary: s.summary, online: o.rows, feed: null } satisfies Omit<ActivityPayload, "problems" | "notices">
+  return { missing: s.missing || o.missing, missingReason: s.missing || o.missing ? missingReason() : null, summary: s.summary, online: o.rows, feed: null } satisfies Omit<ActivityPayload, "problems" | "notices">
 }

@@ -4,6 +4,7 @@ import { purgeExpiredAttachments } from "@/lib/website-builder/agent/attachment-
 import { requireBearerSecret } from "@/lib/api/require-secret"
 import { recordCronRun } from "@/lib/observability/report"
 import { purgeOldActivity } from "@/lib/activity/creator-activity-server"
+import { purgeOldLive } from "@/lib/live/live-server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 /**
@@ -23,6 +24,10 @@ import { createAdminClient } from "@/lib/supabase/admin"
  * lib/activity/creator-activity-server purgeOldActivity), oldest first in
  * batches of 5,000, at most 100,000 a run. A database without part 430 is
  * skipped quietly.
+ *
+ * Round 62: and who was on Storelib (SQL part 477, lib/live/live-server
+ * purgeOldLive): actions and signed in or consenting sessions past 30 days,
+ * anonymous sessions past 7, in the same batches.
  *
  * Protected by CRON_SECRET, like every other job here.
  * Schedule: daily at 03:20 UTC (vercel.json).
@@ -45,7 +50,8 @@ async function runJob(request: Request) {
     const { removed, failed } = await purgeExpiredAttachments()
     /* Its own try: a failure here never hides the attachments' answer. */
     const activity = await purgeOldActivity(createAdminClient()).catch(() => ({ removed: 0, missing: false, failed: true }))
-    return NextResponse.json({ removed, failed, activity }, { status: activity.failed ? 500 : 200 })
+    const live = await purgeOldLive(createAdminClient()).catch(() => ({ removed: 0, missing: false, failed: true }))
+    return NextResponse.json({ removed, failed, activity, live }, { status: activity.failed || live.failed ? 500 : 200 })
   } catch (error) {
     console.error("[purge-chat-attachments]", error)
     return NextResponse.json({ error: "Purge failed" }, { status: 500 })

@@ -11,6 +11,7 @@ import { Banner, Button, Delayed, Placeholder } from "./ui"
 import { CreatorView, CreatorsView, OrdersView, PayoutsView, ProductsView } from "./view-commerce"
 import { OverviewView } from "./view-overview"
 import { OpsView } from "./view-ops"
+import { LiveView } from "./panel-live"
 import { AudienceView, AuditView, EmailView, PeopleView, SystemView, WebsitesView } from "./view-platform"
 
 /**
@@ -33,7 +34,7 @@ import { AudienceView, AuditView, EmailView, PeopleView, SystemView, WebsitesVie
 
 type Data = Record<string, any> | null // eslint-disable-line @typescript-eslint/no-explicit-any
 
-export function renderView(route: Route, data: Data, props: { go: (r: Partial<Route>) => void; query: string; onQuery: (q: string) => void; act: (a: Action) => void; live?: number | null }) {
+export function renderView(route: Route, data: Data, props: { go: (r: Partial<Route>) => void; query: string; onQuery: (q: string) => void; act: (a: Action) => void; live?: number | null; liveScope?: "platform" | "creators" }) {
   if (!data) return null
   const common = { route, ...props }
   switch (route.view) {
@@ -63,6 +64,9 @@ export function renderView(route: Route, data: Data, props: { go: (r: Partial<Ro
       return <SystemView data={data as never} {...common} />
     case "ops":
       return <OpsView data={data as never} />
+    case "live":
+      /* Reads its own parts and keeps them current (panel-live); the console's read is only the line's count. */
+      return <LiveView route={route} go={props.go} />
   }
 }
 
@@ -75,6 +79,8 @@ export function AdminConsole({ initial }: { initial: Route }) {
   const [busy, setBusy] = React.useState(false)
   const [slow, setSlow] = React.useState(false)
   const [live, setLive] = React.useState<number | null>(null)
+  /* Everyone on Storelib once part 477 is in; until then visitors on creators' pages (lib/admin/views/live liveNow). */
+  const [liveScope, setLiveScope] = React.useState<"platform" | "creators">("creators")
   const [query, setQuery] = React.useState(initial.q)
   const [action, setAction] = React.useState<Action | null>(null)
   const [outcome, setOutcome] = React.useState<Outcome | null>(null)
@@ -186,7 +192,10 @@ export function AdminConsole({ initial }: { initial: Route }) {
         const res = await fetch("/api/admin/platform/live", { cache: "no-store" })
         if (res.status === 401) return window.location.reload()
         const body = await res.json()
-        if (!cancelled) setLive(typeof body.liveNow === "number" ? body.liveNow : null)
+        if (!cancelled) {
+          setLive(typeof body.liveNow === "number" ? body.liveNow : null)
+          setLiveScope(body.scope === "platform" ? "platform" : "creators")
+        }
       } catch {
         /* The count stays as it was. */
       }
@@ -208,7 +217,7 @@ export function AdminConsole({ initial }: { initial: Route }) {
   const shown = data && (data.key === key || (route.view !== "creator" && data.key.split("?")[0] === route.view)) ? data.body : null
 
   return (
-    <Shell current={route.view} onNavigate={(v) => go({ view: v })} live={live} busy={busy && slow} onSignOut={signOut}>
+    <Shell current={route.view} onNavigate={(v) => go({ view: v })} live={live} liveScope={liveScope} busy={busy && slow} onSignOut={signOut}>
       {outcome ? (
         <div className="mb-4">
           <Banner tone={outcome.tone} onClose={() => setOutcome(null)}>
@@ -230,7 +239,7 @@ export function AdminConsole({ initial }: { initial: Route }) {
         </div>
       ) : null}
       {shown ? (
-        renderView(route, shown, { go, query, onQuery: setQuery, act: setAction, live })
+        renderView(route, shown, { go, query, onQuery: setQuery, act: setAction, live, liveScope })
       ) : error ? null : (
         <Delayed ms={300}>
           <Placeholder />

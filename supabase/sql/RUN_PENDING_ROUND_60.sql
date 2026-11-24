@@ -202,7 +202,11 @@ REVOKE ALL ON FUNCTION public.creator_activity_purge(integer) FROM PUBLIC, anon,
 GRANT EXECUTE ON FUNCTION public.creator_activity_live_since(uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.creator_activity_ingest(uuid, jsonb, text, text, text, text, text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.creator_activity_purge(integer) TO service_role;
+/* The live_since backfill, in its own block: if any creator cannot be read the tables and functions above stay, and a notice says why (r61: an owner's run must never roll back to nothing). */
+DO $backfill$ BEGIN
 INSERT INTO public.creator_presence (user_id, creator_id, live_since) SELECT x.user_id, x.id, x.live_since FROM (SELECT DISTINCT ON (c.user_id) c.user_id, c.id, public.creator_activity_live_since(c.id) AS live_since FROM public.creators c WHERE c.user_id IS NOT NULL ORDER BY c.user_id, c.created_at) x WHERE x.live_since IS NOT NULL ON CONFLICT (user_id) DO UPDATE SET live_since = coalesce(public.creator_presence.live_since, EXCLUDED.live_since);
+EXCEPTION WHEN others THEN RAISE NOTICE 'creator activity: live_since backfill skipped (%), activity still records', SQLERRM;
+END $backfill$;
 notify pgrst, 'reload schema';
 
 
@@ -224,3 +228,6 @@ revoke all on function public.business_links_limit() from public, anon, authenti
 /* Part 376's handoff counted the recipient's businesses to a fixed 3: the same line now asks business_limit_of. Rewritten in place from the function as it is, so nothing else in it changes, and only while it still has the fixed 3 (a second run finds nothing to do). Its grants are kept by create or replace. */
 do $$ declare v_fn regprocedure := to_regprocedure('public.business_handoff_accept(uuid, text, uuid, text, text, text, text)'); v_def text; begin if v_fn is null then return; end if; v_def := pg_get_functiondef(v_fn); if position('if 1 + v_count >= 3 then' in v_def) = 0 then return; end if; execute replace(v_def, 'if 1 + v_count >= 3 then', 'if public.business_limit_of(p_recipient) <> -1 and 1 + v_count >= public.business_limit_of(p_recipient) then'); end $$;
 notify pgrst, 'reload schema';
+
+-- ── Check part 430: every column true ─────────────────────────────────────
+SELECT to_regclass('public.creator_activity_events') IS NOT NULL AS events_table, to_regclass('public.creator_presence') IS NOT NULL AS presence_table, to_regprocedure('public.creator_activity_ingest(uuid, jsonb, text, text, text, text, text)') IS NOT NULL AS ingest_function, to_regprocedure('public.creator_activity_purge(integer)') IS NOT NULL AS purge_function, has_table_privilege('service_role', 'public.creator_presence', 'SELECT') AS service_role_reads, NOT has_table_privilege('anon', 'public.creator_presence', 'SELECT') AS browsers_cannot_read;

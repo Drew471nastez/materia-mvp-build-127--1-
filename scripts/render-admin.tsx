@@ -291,7 +291,7 @@ const system: SystemPayload = {
   ],
 }
 
-const FIXTURES: Record<string, unknown> = { overview, creators, creator, products, orders: ordersPayload, payouts, websites, email, audience, people, audit, system }
+const FIXTURES: Record<string, unknown> = { overview, creators, creator, products, orders: ordersPayload, payouts, websites, email, audience, people, audit, system, live: { ...base, liveNow: 143, scope: "platform" } }
 
 function Probe() {
   const params = new URLSearchParams(location.search)
@@ -303,8 +303,8 @@ function Probe() {
   }, [])
   if (params.get("login") === "1") return <AdminLogin />
   return (
-    <Shell current={route.view} onNavigate={() => {}} live={143} busy={false} onSignOut={() => {}}>
-      {renderView(route, (route.view === "audience" && params.get("ai") === "missing" ? { ...audience, ai: { ...audience.ai!, siteVisits: null, landings: [], rows: audience.ai!.rows.map((r) => ({ ...r, siteVisits: 0 })) } } : FIXTURES[route.view]) as never, { go: () => {}, query: "", onQuery: () => {}, act: () => setDialog(true), live: 143 })}
+    <Shell current={route.view} onNavigate={() => {}} live={143} liveScope={params.get("scope") === "creators" ? "creators" : "platform"} busy={false} onSignOut={() => {}}>
+      {renderView(route, (route.view === "audience" && params.get("ai") === "missing" ? { ...audience, ai: { ...audience.ai!, siteVisits: null, landings: [], rows: audience.ai!.rows.map((r) => ({ ...r, siteVisits: 0 })) } } : FIXTURES[route.view]) as never, { go: () => {}, query: "", onQuery: () => {}, act: () => setDialog(true), live: 143, liveScope: params.get("scope") === "creators" ? "creators" : "platform" })}
       <ActionDialog action={dialog ? { kind: "refund", orderId: orders[0].id, label: "Brush set for Procreate" } : null} onClose={() => setDialog(false)} onDone={() => setDialog(false)} />
     </Shell>
   )
@@ -420,6 +420,130 @@ function activityAnswer(part: string | null, missing: boolean) {
   }
 }
 
+/*
+  Who is on Storelib now (round 62), shaped like lib/admin/views/live.ts:
+  the figures, who is online (visitors, a signed in buyer, creators in /app,
+  a long site host), one tab with its trail, an order and a creator link,
+  and everyone's actions. `&live=missing` answers as before part 477, with
+  Supabase's own words.
+*/
+const LIVE_SID = "k3j9a8b7c6d5e4f3"
+const MISSING_WORDS = "platform_live_overview: PGRST202 Could not find the function public.platform_live_overview(p_since, p_today) in the schema cache"
+const LIVE_PLACES: [string, string, string | null, string | null][] = [
+  ["explore", "/explore", null, "product.view"],
+  ["creators", "/mihai.ionescu.photography/complete-lightroom-mobile-and-desktop-preset-collection-volume-two", null, "product.view"],
+  ["checkout", "/checkout", null, "checkout.start"],
+  ["marketing", "/pricing", null, null],
+  ["creators", "/products/blue-brushes", "shop.mihai-ionescu-photography-and-presets.com", "cart.add"],
+  ["themes", "/themes/aurora", null, null],
+  ["buyer", "/account/library/courses/:id", null, "course.open"],
+  ["community", "/community/photo-club", null, "community.join"],
+  ["auth", "/signup", null, "auth.signup"],
+  ["marketing", "/blog/how-to-sell-presets", null, null],
+]
+function liveRow(i: number) {
+  const [area, path, host, action] = LIVE_PLACES[i % LIVE_PLACES.length]
+  const signed = i === 2 || i === 6
+  return {
+    id: i === 0 ? LIVE_SID : `s${String(i).padStart(15, "0")}`,
+    who: signed ? { kind: "account", label: i === 2 ? "Jane Doe" : "an***@gmail.com", userId: id("u", i), creatorId: null } : { kind: "visitor", label: `Visitor ${["k3j9", "m2pq", "z8x1", "a0b4", "q7rt"][i % 5]}` },
+    area,
+    path,
+    host,
+    lastAction: action,
+    lastActionAt: action ? minsAgo(i % 5) : null,
+    started: minsAgo(3 + i * 4),
+    lastSeen: minsAgo(i % 2),
+    pages: 2 + (i % 9),
+    country: ["RO", "US", "DE", "GB", "FR", "BR", "IN", "NG", "JP", "MX"][i % 10],
+    device: ["phone", "desktop", "phone", "tablet"][i % 4],
+    os: ["iOS", "macOS", "Android", "iOS"][i % 4],
+    browser: ["Safari", "Chrome", "Chrome", "Safari"][i % 4],
+    shell: i === 4 ? "ios_app" : "web",
+    source: [null, "instagram.com", "google.com", "newsletter", "tiktok.com"][i % 5],
+  }
+}
+function liveAnswer(part: string | null, area: string | null, missing: boolean) {
+  if (missing) {
+    if (part === "feed") return { ...base, missing: true, missingReason: MISSING_WORDS, rows: [], next: null }
+    if (part === "session") return { ...base, missing: true, missingReason: MISSING_WORDS, session: null, trail: [], actions: [], orders: [] }
+    const areas = { marketing: 0, themes: 0, explore: 0, creators: 0, checkout: 0, buyer: 0, community: 0, auth: 0, app: 12 }
+    return { ...base, missing: true, missingReason: MISSING_WORDS, overview: { online: null, signedIn: null, areas, countriesNow: [], today: null, todaySignedIn: null, countriesToday: [], creatorsToday: 340, sample: 1 }, sessions: [] }
+  }
+  if (part === "session") {
+    const s = liveRow(0)
+    return {
+      ...base,
+      missing: false,
+      session: { ...s, who: { kind: "account", label: "Jane Doe", userId: id("u", 1), creatorId: id("c", 1) }, area: "checkout", path: "/receipt/:id", lastAction: "order.paid", pages: 7, source: "instagram.com" },
+      trail: [
+        { at: minsAgo(1), area: "checkout", path: "/receipt/:id" },
+        { at: minsAgo(4), area: "checkout", path: "/checkout" },
+        { at: minsAgo(6), area: "creators", path: "/mihai.ionescu.photography/complete-lightroom-mobile-and-desktop-preset-collection-volume-two" },
+        { at: minsAgo(9), area: "creators", path: "/mihai.ionescu.photography" },
+        { at: minsAgo(12), area: "explore", path: "/explore/presets" },
+        { at: minsAgo(14), area: "explore", path: "/explore" },
+        { at: minsAgo(15), area: "marketing", path: "/" },
+      ],
+      actions: [
+        { id: 31, at: minsAgo(1), name: "order.paid", label: "Purchase completed", area: "checkout", path: "/receipt/:id", host: null, orderId: orders[0].id },
+        { id: 30, at: minsAgo(4), name: "checkout.start", label: "Started checkout", area: "checkout", path: "/checkout", host: null, orderId: null },
+        { id: 29, at: minsAgo(6), name: "product.view", label: "Viewed a product", area: "creators", path: "/mihai.ionescu.photography/complete-lightroom-mobile-and-desktop-preset-collection-volume-two", host: null, orderId: null },
+      ],
+      orders: [{ id: orders[0].id, at: minsAgo(1), amount: 2900, currency: "usd" }],
+    }
+  }
+  if (part === "feed") {
+    const labels: Record<string, string> = { "product.view": "Viewed a product", "cart.add": "Added to cart", "checkout.start": "Started checkout", "order.paid": "Purchase completed", "auth.signup": "Signed up", "auth.signin": "Signed in", "community.join": "Joined a community", "course.open": "Opened a course" }
+    return {
+      ...base,
+      missing: false,
+      rows: Array.from({ length: 50 }, (_, i) => {
+        const r = liveRow(i)
+        const name = r.lastAction ?? "product.view"
+        return { id: 5000 - i, at: minsAgo(i * 3 + 1), name, label: labels[name], area: r.area, path: r.path, host: r.host, orderId: name === "order.paid" ? orders[0].id : null, sid: r.id, who: r.who, country: r.country }
+      }),
+      next: "4951.1790000000000",
+    }
+  }
+  const all = Array.from({ length: 24 }, (_, i) => liveRow(i))
+  const creatorsInApp = Array.from({ length: 3 }, (_, i) => ({
+    id: `app:${id("u", 40 + i)}`,
+    who: { kind: "account", label: NAMES[i], userId: id("u", 40 + i), creatorId: id("c", i) },
+    area: "app",
+    path: PAGES[i + 1],
+    host: null,
+    lastAction: ACTS[i],
+    lastActionAt: minsAgo(i + 1),
+    started: minsAgo(20 + i * 7),
+    lastSeen: minsAgo(0),
+    pages: null,
+    country: "RO",
+    device: "desktop",
+    os: "macOS",
+    browser: "Chrome",
+    shell: "web",
+    source: null,
+  }))
+  const sessions = [...creatorsInApp, ...all].filter((r) => !area || r.area === area)
+  return {
+    ...base,
+    missing: false,
+    overview: {
+      online: 1287,
+      signedIn: 96,
+      areas: { marketing: 312, themes: 41, explore: 288, creators: 401, checkout: 23, buyer: 87, community: 52, auth: 11, app: 72 },
+      countriesNow: [["RO", 402], ["US", 311], ["DE", 98], ["GB", 77], ["BR", 61], ["IN", 40]],
+      today: 18420,
+      todaySignedIn: 1204,
+      countriesToday: [["RO", 6012], ["US", 4410], ["DE", 1300], ["GB", 990]],
+      creatorsToday: 340,
+      sample: 1,
+    },
+    sessions,
+  }
+}
+
 /* The refund preview the dialog asks for, answered here. */
 const realFetch = window.fetch.bind(window)
 window.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -431,6 +555,11 @@ window.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const part = new URL(url, location.href).searchParams.get("part")
     const missing = new URLSearchParams(location.search).get("activity") === "missing"
     return new Response(JSON.stringify(activityAnswer(part, missing)), { status: 200, headers: { "Content-Type": "application/json" } })
+  }
+  if (url.includes("/api/admin/platform/live")) {
+    const q = new URL(url, location.href).searchParams
+    const missing = new URLSearchParams(location.search).get("live") === "missing"
+    return new Response(JSON.stringify(liveAnswer(q.get("part"), q.get("area"), missing)), { status: 200, headers: { "Content-Type": "application/json" } })
   }
   if (url.includes("/api/admin/plan") || url.includes("/api/admin/creators/plan")) {
     return new Response(JSON.stringify({ plan: "free", status: "none", override: null, available: true, plans: [{ id: "free", label: "Free" }, { id: "growth", label: "Grow, $14" }, { id: "pro", label: "Pro, $99" }] }), { status: 200, headers: { "Content-Type": "application/json" } })

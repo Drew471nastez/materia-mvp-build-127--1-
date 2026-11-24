@@ -43,13 +43,13 @@ export function rememberedRung(key: string, now = Date.now()): number {
 }
 
 /** Remember that `key` answered on `rung` after the ones above it were missing. */
-export function rememberRung(key: string, rung: number, now = Date.now()): void {
+export function rememberRung(key: string, rung: number, now = Date.now(), forMs = MISSING_FOR_MS): void {
   if (rung <= 0) {
     startAt.delete(key)
     return
   }
   if (startAt.size > 500) startAt.clear()
-  startAt.set(key, { rung, until: now + MISSING_FOR_MS })
+  startAt.set(key, { rung, until: now + forMs })
 }
 
 /**

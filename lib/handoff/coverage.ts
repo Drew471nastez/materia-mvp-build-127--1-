@@ -65,7 +65,7 @@ export const PEOPLE_TABLES: Readonly<Record<string, string>> = Object.fromEntrie
 )
 
 export const RECORD_TABLES: Readonly<Record<string, string>> = {
-  ...Object.fromEntries(["account_deletions", "admin_moderation_log", "file_security_events", "payment_audit_log", "payment_connection_events", "upload_events", "discord_access_log", "telegram_access_log", "creator_activity_events", "creator_presence"].map((t) => [t, RECORDS])),
+  ...Object.fromEntries(["account_deletions", "admin_moderation_log", "file_security_events", "payment_audit_log", "payment_connection_events", "upload_events", "discord_access_log", "telegram_access_log", "creator_activity_events", "creator_presence", "platform_live_sessions", "platform_live_events"].map((t) => [t, RECORDS])),
   plan_cancellations: "Why the founder once cancelled a plan. Storelib's record of the founder's billing, kept as written and never shown to the new owner.",
   invoices: "The founder's plan invoices. Billing reads them through the business's billing customer, which the handoff detaches, so the new owner never sees them; the rows are kept for the founder's records.",
   business_handoffs: "The handoff itself. The function marks it accepted, with who took it and what was detached, and it stays as the record.",

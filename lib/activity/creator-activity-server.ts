@@ -13,14 +13,14 @@ import "server-only"
  * at all.
  *
  * FAILS SOFT, ONCE PER PERIOD. Before part 430 has run, the function is
- * missing: the first batch learns that, and for the next MISSING_FOR_MS
+ * missing: the first batch learns that, and for the next INGEST_MISSING_MS (a minute)
  * (lib/supabase/missing-memory) every batch on this server is answered
  * without asking, so a database without the part sees one failed call every
  * ten minutes per server, not one per creator per minute.
  */
 import { loggable } from "@/lib/admin/plain-reason"
 import { parseUserAgent } from "@/lib/analytics/user-agent"
-import { MISSING_FOR_MS, rememberRung, rememberedRung } from "@/lib/supabase/missing-memory"
+import { rememberRung, rememberedRung } from "@/lib/supabase/missing-memory"
 
 import { PRESENCE_EVERY_MS, countryOf, deviceOf, parseBatch, type ParsedEvent } from "./creator-activity"
 
@@ -36,6 +36,9 @@ export function isMissingActivity(error: { code?: string | null; message?: strin
   const code = String(error.code ?? "")
   return code === "PGRST202" || code === "42883" || code === "42P01" || code === "PGRST205" || /could not find the function/i.test(error.message ?? "")
 }
+
+/** After Supabase says part 430 is missing, batches are dropped for this long, then the database is asked again: short, so recording starts within a minute of the part running. */
+export const INGEST_MISSING_MS = 60_000
 
 /** Per server: who had their presence written, and when. */
 const wroteAt = new Map<string, number>()
@@ -98,8 +101,8 @@ export async function ingestBatch(db: Db, input: IngestInput): Promise<{ outcome
     })
     if (error) {
       if (isMissingActivity(error)) {
-        rememberRung(INGEST_KEY, 1, input.now)
-        console.warn(`[activity] part 430 is not in the database yet; batches are dropped for ${Math.round(MISSING_FOR_MS / 60_000)} minutes`)
+        rememberRung(INGEST_KEY, 1, input.now, INGEST_MISSING_MS)
+        console.warn("[activity] part 430 is not in the database yet; batches are dropped for a minute")
         return { outcome: "missing", events }
       }
       console.error(`[activity] batch not recorded: ${loggable(error)}`)

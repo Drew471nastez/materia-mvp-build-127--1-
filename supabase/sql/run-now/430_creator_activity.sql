@@ -21,5 +21,9 @@ REVOKE ALL ON FUNCTION public.creator_activity_purge(integer) FROM PUBLIC, anon,
 GRANT EXECUTE ON FUNCTION public.creator_activity_live_since(uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.creator_activity_ingest(uuid, jsonb, text, text, text, text, text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.creator_activity_purge(integer) TO service_role;
+/* The live_since backfill, in its own block: if any creator cannot be read the tables and functions above stay, and a notice says why (r61: an owner's run must never roll back to nothing). */
+DO $backfill$ BEGIN
 INSERT INTO public.creator_presence (user_id, creator_id, live_since) SELECT x.user_id, x.id, x.live_since FROM (SELECT DISTINCT ON (c.user_id) c.user_id, c.id, public.creator_activity_live_since(c.id) AS live_since FROM public.creators c WHERE c.user_id IS NOT NULL ORDER BY c.user_id, c.created_at) x WHERE x.live_since IS NOT NULL ON CONFLICT (user_id) DO UPDATE SET live_since = coalesce(public.creator_presence.live_since, EXCLUDED.live_since);
+EXCEPTION WHEN others THEN RAISE NOTICE 'creator activity: live_since backfill skipped (%), activity still records', SQLERRM;
+END $backfill$;
 notify pgrst, 'reload schema';

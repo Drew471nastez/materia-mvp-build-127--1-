@@ -9,6 +9,7 @@ import { audience, audit, email, people, websites } from "@/lib/admin/views/plat
 import { system } from "@/lib/admin/views/system"
 import { ops } from "@/lib/admin/views/ops"
 import { activity } from "@/lib/admin/views/activity"
+import { live, liveNow } from "@/lib/admin/views/live"
 
 /** `node:crypto` behind the cookie check, and never a cached answer. */
 export const runtime = "nodejs"
@@ -49,6 +50,7 @@ const VIEWS = [
   "system",
   "ops",
   "live",
+  /* (live) With no part, the console's "N on Storelib now"; with ?part=overview|sessions|session|feed, the Live view (round 62, part 477). */
   /* Creator activity (round 59, part 430): ?part=online|summary|feed|creator. */
   "activity",
 ] as const
@@ -111,17 +113,8 @@ async function build(view: View, r: Reader, params: URLSearchParams): Promise<Re
       return ops(r) as unknown as Promise<Record<string, unknown>>
     case "activity":
       return activity(r, params)
-    case "live": {
-      /* The one figure the console polls on its own, so it is the cheapest. */
-      const a = await liveCount(r)
-      return { liveNow: a }
-    }
+    case "live":
+      /* Without a part: the one figure the console polls on its own, so it is the cheapest (two head counts once part 477 is in). */
+      return params.get("part") ? live(r, params) : liveNow(r)
   }
-}
-
-async function liveCount(r: Reader): Promise<number | null> {
-  const since = new Date(Date.now() - 5 * 60_000).toISOString()
-  const rows = await r.rows<{ visitor_id: string | null }>("live now", "analytics_events", "visitor_id", (q) =>
-    q.eq("event_type", "view").gte("created_at", since).limit(5000))
-  return rows ? new Set(rows.map((v) => v.visitor_id).filter(Boolean)).size : null
 }

@@ -233,6 +233,7 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "analytics/own/route.ts": "the owner's hand-off on the site's own host, before any session can reach it; the service role only writes the token down as used in rate_limit_hits (lib/analytics/own-marker consumeOwnHandoff), and only for a token this server signed",
   "track-view/route.ts":"records a page view for a visitor with no session; the creator, product and property are checked against the database in lib/analytics/collect",
   "track-event/route.ts": "records an anonymous event, by the same pipeline and the same checks as a page view",
+  "live/route.ts": "records who is on Storelib now for /admin's Live view (round 62): anonymous by default, an account only from the verified session token with the visitor's own analytics consent and no GPC or DNT; same-site only, bots and prefetches dropped, six batches a minute per tab; answers 204 and returns nothing",
   "onepage/track/route.ts": "a OnePage link click from a visitor; whose OnePage it is comes from the onepages row, and the analytics copy goes through lib/analytics/collect",
   "blog/track/route.ts": "records a blog page view",
   "public/vitals/route.ts": "a published site's speed numbers from its visitors, for a published site only, validated, capped per site a day and limited per address",

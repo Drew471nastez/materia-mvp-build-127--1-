@@ -33,6 +33,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { cn } from "@/lib/utils"
+import { noteLive } from "@/lib/live/live-client"
 import { useSiteCart } from "../../site-cart"
 import { useSiteWishlist } from "../../site-wishlist"
 import { useStorefront, useWord } from "../../theme/storefront-context"
@@ -241,6 +242,7 @@ export function ProductSection({ section: raw, theme, isEditing, isSelected, onC
       try {
         const key = cartStorageKey(storefront.creatorId)
         window.localStorage.setItem(key, serializeCart(addLine(parseCart(window.localStorage.getItem(key)), line)))
+        noteLive("cart.add")
       } catch {
         /* Storage refused: Buy now still works. */
       }

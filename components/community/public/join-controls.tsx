@@ -54,6 +54,7 @@ import { LENGTHS } from "@/lib/communities/limits"
 import { LEAVE_NOTE_MAX, LEAVE_REASONS, type LeaveReason } from "@/lib/communities/leave-reasons"
 import { JOIN_TRIAL_LABEL, memberCountLabel } from "@/lib/communities/format"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
+import { noteLive } from "@/lib/live/live-client"
 import { yearlySaving } from "@/lib/memberships/state"
 import { cn } from "@/lib/utils"
 import { gaCommunityJoin } from "@/lib/communities/client/ga-events"
@@ -362,6 +363,8 @@ export function JoinProvider({ community, join, askWhy = false, preview = false,
       }
       setInvalid(null)
       setRequestOpen(false)
+      /* For /admin's Live view (round 62): a join that went through, nothing about the answers. */
+      if (r.ok) noteLive("community.join")
       answer(r)
     },
     [answer, api, interval, loadQuestions],

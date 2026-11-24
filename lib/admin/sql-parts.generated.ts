@@ -252,7 +252,7 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "406", file: "406_creator_people_alias_merge.sql", sha256: "a5909f448d5651bd696871d9c5d3542be1c7be784354c99eca2e8e29837abdae" },
   { part: "410", file: "410_bookings_calendar.sql", sha256: "f5d287eb8d98c1f4ab693029a4c4c452959dd622a0cd66e231caa147fc616fdc" },
   { part: "411", file: "411_onepage_tips_polls_phone.sql", sha256: "e2c35f03d79a702bb2df5d352ae1f82a9b3037da0429f29721d2f68051df7197" },
-  { part: "430", file: "430_creator_activity.sql", sha256: "4bf6a1796bbe24fdce7d9e378959c5eef0d71dffb30cac4ff9858fff169916bc" },
+  { part: "430", file: "430_creator_activity.sql", sha256: "a60fccc7e5965a394a704ee770b813ff51433a6ad5de031f0afefd8c8c59715c" },
   { part: "431", file: "431_design_references.sql", sha256: "d2048b2853375770713954c08b4f567d6f29ce433e3d6c41397917255f3e3298" },
   { part: "441", file: "441_ai_images.sql", sha256: "15593480c75c558f2f893b85376cdd6a8864db70a87a0218e5dcbb39d837550f" },
   { part: "442", file: "442_onepage_tip_source.sql", sha256: "5bc940af187322e0ef9d67e2e61c7d5d00a89554825bcae22d46551db3f55ca1" },
@@ -281,4 +281,5 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "474", file: "474_telegram_member_access.sql", sha256: "c55e4bd8ec60a006bc7856746ab625e77d0c887b9864dc90ef8017af1a781d8b" },
   { part: "475", file: "475_external_bookings.sql", sha256: "3efd489141136b408bddb6a0016561b8b4d2b1ed1946a084c50fcfb8f2d0603b" },
   { part: "476", file: "476_physical_card_rates.sql", sha256: "72caae16ca9b4c34683241db8e7cdde6d611218462fd4f7e3acf4153a7c1e826" },
+  { part: "477", file: "477_platform_live.sql", sha256: "b317aae0e92c51e33dc0f3cda5c8d8e1cacf3fbe23faccad983910e9e93e9194" },
 ]

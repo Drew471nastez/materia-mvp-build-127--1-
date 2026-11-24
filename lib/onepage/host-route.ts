@@ -109,6 +109,8 @@ export const ONEPAGE_HOST_API: readonly { path: RegExp; methods: readonly string
   /* The page's view in Analytics, and a step towards a sale (components/analytics/track-view, lib/analytics/page-tracker). */
   { path: /^\/api\/track-view\/?$/, methods: ["POST"] },
   { path: /^\/api\/track-event\/?$/, methods: ["POST"] },
+  /* Who is on Storelib now, for /admin's Live view (components/platform/live-beacon, round 62): a tab's pages and named actions, no cookie. */
+  { path: /^\/api\/live\/?$/, methods: ["POST"] },
   /* A lead form block. */
   { path: /^\/api\/onepage\/leads\/?$/, methods: ["POST"] },
   /* The subscribe bell. */

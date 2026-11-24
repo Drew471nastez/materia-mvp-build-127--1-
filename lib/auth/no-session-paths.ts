@@ -65,7 +65,8 @@ const PAYMENT_WEBHOOK = /^\/api\/payments\/[a-z0-9-]+\/webhook\/?$/
  * proxy renews it as before whenever the call carries a sign in. Without one
  * there is nothing to renew, and nothing to skip.
  */
-const TRACKERS = new Set(["/api/track-view", "/api/track-event"])
+/* /api/live (round 62) reads the account only with consent and a sign in, through the same renewed token. */
+const TRACKERS = new Set(["/api/track-view", "/api/track-event", "/api/live"])
 
 /** The same test own-visit.ts uses for "this request carries a sign in". */
 export function carriesSignIn(cookieNames: readonly string[]): boolean {

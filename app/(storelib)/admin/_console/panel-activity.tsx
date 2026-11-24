@@ -100,11 +100,12 @@ function Country({ code }: { code: string | null }) {
   )
 }
 
-export function MissingNote() {
+export function MissingNote({ reason }: { reason?: string | null }) {
   return (
-    <p className="px-4 py-6 text-[13px] leading-5 text-[#9b9ba6]" data-activity-missing>
-      Activity starts recording once SQL part 430 has run (supabase/sql/run-now/430_creator_activity.sql). Nothing is lost until then except the activity itself.
-    </p>
+    <div className="px-4 py-6 text-[13px] leading-5 text-[#9b9ba6]" data-activity-missing>
+      <p>Activity starts recording once SQL part 430 has run (supabase/sql/run-now/430_creator_activity.sql). Nothing is lost until then except the activity itself.</p>
+      {reason ? <p className="mt-2 break-words font-mono text-[12px] text-[#7d7d88]" data-activity-missing-reason>Supabase answered: {reason}</p> : null}
+    </div>
   )
 }
 
@@ -115,7 +116,7 @@ function timeOf(iso: string): string {
 
 /* ── The line at the top of Creators ───────────────────────────────────── */
 
-export function ActivityLine({ data, live }: { data: ActivityPayload | null; live?: number | null }) {
+export function ActivityLine({ data, live, liveScope = "creators", onLive }: { data: ActivityPayload | null; live?: number | null; liveScope?: "platform" | "creators"; onLive?: () => void }) {
   const s = data?.summary
   const parts: string[] = []
   if (data?.missing) parts.push("Activity is not recording yet")
@@ -124,7 +125,8 @@ export function ActivityLine({ data, live }: { data: ActivityPayload | null; liv
     if (s.activeToday !== null) parts.push(`${num(s.activeToday)} active today`)
     if (s.live !== null) parts.push(`${num(s.live)} live on Storelib`)
   }
-  if (typeof live === "number") parts.push(`${num(live)} visitors on creators' pages now`)
+  /* Round 62: everyone on Storelib once part 477 is in, which opens Live. */
+  const liveText = typeof live === "number" ? (liveScope === "platform" ? `${num(live)} on Storelib now` : `${num(live)} visitors on creators' pages now`) : null
   return (
     <p className="flex min-h-5 min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-[#c9c9d1] tabular-nums" data-activity-line>
       {parts.length ? (
@@ -134,9 +136,18 @@ export function ActivityLine({ data, live }: { data: ActivityPayload | null; liv
             {p}
           </span>
         ))
-      ) : (
+      ) : !liveText ? (
         <span className="text-[#6b6b76]">Reading activity</span>
-      )}
+      ) : null}
+      {liveText ? (
+        onLive ? (
+          <button type="button" onClick={onLive} className="whitespace-nowrap underline decoration-white/20 underline-offset-[3px] outline-none hover:text-[#ededf0] focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/70" data-activity-live>
+            {liveText}
+          </button>
+        ) : (
+          <span className="whitespace-nowrap">{liveText}</span>
+        )
+      ) : null}
     </p>
   )
 }
@@ -157,7 +168,7 @@ export function OnlineList({ data, error, go }: { data: ActivityPayload | null; 
     <Panel title="Online now" meta={data?.online ? `${num(data.online.length)}${data.online.length >= 100 ? ", most recent" : ""}, refreshed every 30 s` : undefined}>
       <div data-activity-online>
         {data?.missing ? (
-          <MissingNote />
+          <MissingNote reason={data.missingReason} />
         ) : data?.online ? (
           <DataList label="Creators online now" columns={columns} rows={data.online} rowKey={(r) => r.userId} empty="Nobody is online right now." onOpen={open} />
         ) : (
@@ -222,7 +233,7 @@ export function ActivityFeed({ go }: { go: Go }) {
       <Panel title="Activity" meta="Every creator, newest first">
         <div data-activity-feed>
           {state?.body.missing ? (
-            <MissingNote />
+            <MissingNote reason={state.body.missingReason} />
           ) : feed ? (
             <>
               <DataList label="Creator activity" columns={columns} rows={feed.rows} rowKey={(r) => String(r.id)} empty="Nothing recorded for this filter in the last 30 days." onOpen={(r) => (r.creator ? go({ view: "creator", id: r.creator.id, q: "", filter: "", page: 1 }) : undefined)} />
@@ -308,7 +319,7 @@ export function CreatorActivityPanel({ creatorId }: { creatorId: string }) {
         {!body ? (
           <p className="px-4 py-6 text-[13px] text-[#9b9ba6]">{error ? `Could not be read. ${error}` : "Reading activity"}</p>
         ) : body.missing ? (
-          <MissingNote />
+          <MissingNote reason={body.missingReason} />
         ) : (
           <>
             <div className="grid min-w-0 grid-cols-1 lg:grid-cols-2 lg:divide-x lg:divide-white/[0.06]">
