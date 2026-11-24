@@ -49,7 +49,7 @@
         "section_width_mobile": "fluid_container",
         "sticky_button_radius": 8,
         "sticky_show_quantity": true,
-        "enable_custom_padding": true,
+        "enable_custom_padding": false,
         "enable_video_autoplay": true,
         "padding_right_desktop": 0,
         "enable_nav_dots_mobile": false,

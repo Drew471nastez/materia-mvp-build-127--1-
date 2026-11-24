@@ -69,6 +69,7 @@
   #shopify-section-{{ sid }} .spr__more { font-size: 14px; font-weight: 600; color: var(--color-heading); text-decoration: none; white-space: nowrap; }
   #shopify-section-{{ sid }} .spr__more:hover { text-decoration: underline; text-underline-offset: 4px; }
   #shopify-section-{{ sid }} .spr__arrows { display: none; gap: 8px; }
+  #shopify-section-{{ sid }} .spr__arrows[hidden] { display: none !important; }
   #shopify-section-{{ sid }} .spr__arrow { width: 36px; height: 36px; border-radius: 50%; border: 0; padding: 0; display: grid; place-items: center; cursor: pointer; background: rgba(var(--color-heading-rgb), .1); color: var(--color-heading); transition: background-color .2s ease, opacity .2s ease; }
   #shopify-section-{{ sid }} .spr__arrow svg { width: 16px; height: 16px; }
   #shopify-section-{{ sid }} .spr__arrow:hover:not([disabled]) { background: rgba(var(--color-heading-rgb), .2); }
@@ -81,8 +82,9 @@
   #shopify-section-{{ sid }} .spr__top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; min-height: 14px; }
   #shopify-section-{{ sid }} .spr__type { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--color-text); }
   #shopify-section-{{ sid }} .spr__badge { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--spx-accent); white-space: nowrap; }
-  #shopify-section-{{ sid }} .spr__title { margin: 4px 0 0; font-size: {{ s.title_size_mobile | default: 20 }}px; line-height: 1.1; letter-spacing: -0.01em; text-transform: {% if s.title_uppercase %}uppercase{% else %}none{% endif %}; }
-  #shopify-section-{{ sid }} .spr__title a { color: var(--color-heading); text-decoration: none; }
+  #shopify-section-{{ sid }} .spr__title { margin: 4px 0 0; font-size: {{ s.title_size_mobile | default: 20 }}px; line-height: 1.1; letter-spacing: -0.01em; }
+  {%- if s.title_uppercase -%}#shopify-section-{{ sid }} .spr__title, #shopify-section-{{ sid }} .spr__title a { text-transform: uppercase !important; }{%- endif -%}
+  #shopify-section-{{ sid }} .spr__title a { color: var(--color-heading); text-decoration: none; text-transform: inherit; letter-spacing: inherit; }
   #shopify-section-{{ sid }} .spr__title a::after { content: ""; position: absolute; inset: 0; border-radius: inherit; z-index: 0; }
   #shopify-section-{{ sid }} .spr__card .ssp { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
   #shopify-section-{{ sid }} .spr__cover { position: relative; display: block; aspect-ratio: 1; margin: 0 -6px; }
@@ -281,7 +283,8 @@
     var sec = root.closest('.spr'), prev = sec.querySelector('[data-spr-prev]'), next = sec.querySelector('[data-spr-next]');
     if (!prev || !next) return;
     function step() { var c = root.querySelector('.spr__card'); return c ? c.getBoundingClientRect().width + 16 : root.clientWidth; }
-    function sync() { var max = root.scrollWidth - root.clientWidth - 2; prev.disabled = root.scrollLeft <= 2; next.disabled = root.scrollLeft >= max; }
+    var arrows = prev.parentNode;
+    function sync() { var max = root.scrollWidth - root.clientWidth - 2; prev.disabled = root.scrollLeft <= 2; next.disabled = root.scrollLeft >= max; arrows.hidden = max <= 0; }
     prev.addEventListener('click', function () { root.scrollBy({ left: -step(), behavior: 'smooth' }); });
     next.addEventListener('click', function () { root.scrollBy({ left: step(), behavior: 'smooth' }); });
     root.addEventListener('scroll', function () { requestAnimationFrame(sync); }, { passive: true });

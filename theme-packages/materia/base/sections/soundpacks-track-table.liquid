@@ -107,6 +107,7 @@
   #shopify-section-{{ sid }} .spt__file { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; line-height: 1.4; color: var(--color-text); }
   #shopify-section-{{ sid }} .spt__meta { grid-area: meta; display: flex; gap: 10px; font-size: 12px; color: var(--color-text); white-space: nowrap; font-variant-numeric: tabular-nums; }
   #shopify-section-{{ sid }} .spt__bpm, #shopify-section-{{ sid }} .spt__key { min-width: 0; }
+  #shopify-section-{{ sid }} .spt__meta .is-empty { display: none; }
   #shopify-section-{{ sid }} .spt__note { margin: 18px 16px 0; font-size: 12px; line-height: 1.5; text-align: center; color: var(--color-text); }
   #shopify-section-{{ sid }} .spt__note p { margin: 0; }
   #shopify-section-{{ sid }} .spt__empty { margin: 0; padding: 24px; font-size: 15px; }
@@ -132,6 +133,7 @@
     #shopify-section-{{ sid }} .spt__bpm { grid-area: bpm; }
     #shopify-section-{{ sid }} .spt__key { grid-area: key; }
     #shopify-section-{{ sid }} .spt__dot { display: none; }
+    #shopify-section-{{ sid }} .spt__meta .is-empty { display: block; }
   }
   @media (hover: hover) and (pointer: fine) {
     #shopify-section-{{ sid }} .spt__row:hover { background: rgba(var(--color-heading-rgb), .04); }
@@ -186,7 +188,7 @@
                   {%- endcase -%}
                 </span>
                 <span class="spt__name"><span class="spt__title">{{ b.title | escape }}</span>{%- if b.file != blank -%}<span class="spt__file">{{ b.file | escape }}</span>{%- endif -%}</span>
-                <span class="spt__meta"><span class="spt__bpm">{% if b.bpm != blank %}{{ b.bpm | escape }}{% if s.bpm_suffix %} BPM{% endif %}{% else %}-{% endif %}</span><span class="spt__dot" aria-hidden="true">·</span><span class="spt__key">{{ b.key | default: '-' | escape }}</span></span>
+                <span class="spt__meta"><span class="spt__bpm{% if b.bpm == blank %} is-empty{% endif %}">{% if b.bpm != blank %}{{ b.bpm | escape }}{% if s.bpm_suffix %} BPM{% endif %}{% else %}-{% endif %}</span>{%- if b.bpm != blank and b.key != blank -%}<span class="spt__dot" aria-hidden="true">·</span>{%- endif -%}<span class="spt__key{% if b.key == blank %} is-empty{% endif %}">{{ b.key | default: '-' | escape }}</span></span>
               {%- endcapture -%}
               <li class="spt__row" {{ block.shopify_attributes }}>
 {%- liquid

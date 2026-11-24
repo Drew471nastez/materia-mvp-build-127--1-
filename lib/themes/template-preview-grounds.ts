@@ -33,9 +33,10 @@ export const TEMPLATE_PREVIEW_GROUNDS: Readonly<Record<string, { desktop: string
   "xp-merch": { desktop: "#fcf8ee", phone: "#fbfcfc" },
   "caps-tees": { desktop: "#e2e1dd", phone: "#e2e1dd" },
   "print-on-demand": { desktop: "#0b0a0a", phone: "#0b0b0b" },
-  "outerwear": { desktop: "#060d14", phone: "#ffffff" },
+  "outerwear": { desktop: "#ffffff", phone: "#ffffff" },
   "vsl-funnel": { desktop: "#fefefe", phone: "#fefefe" },
   "notion-sales-page": { desktop: "#fefefe", phone: "#fefefe" },
   "streetwear-drop": { desktop: "#f9f9f8", phone: "#f9f9f7" },
-  "notion-creator": { desktop: "#ffffff", phone: "#ffffff" },
+  "notion-creator": { desktop: "#fefefe", phone: "#fefefe" },
+  "sound-packs": { desktop: "#120d0e", phone: "#120e0e" },
 }

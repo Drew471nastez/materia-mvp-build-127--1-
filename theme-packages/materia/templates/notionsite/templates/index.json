@@ -12,10 +12,10 @@
         "intro": "Notion templates by Nora",
         "heading": "Calm systems for a busy life",
         "text": "<p>Planners and trackers for money, work, travel and the week ahead. I build them, use them for months, then share them here.</p>",
-        "button_label": "Get the bundle",
-        "button_link": "/products/life-os-bundle",
-        "button_2_label": "Browse templates",
-        "button_2_link": "/collections/all",
+        "button_label": "Browse templates",
+        "button_link": "/collections/all",
+        "button_2_label": "Free templates",
+        "button_2_link": "/collections/free",
         "proof_avatar_1": "shopify://shop_images/notionsite-buyer-1.webp",
         "proof_avatar_2": "shopify://shop_images/notionsite-buyer-2.webp",
         "proof_avatar_3": "shopify://shop_images/notionsite-buyer-3.webp",
@@ -48,7 +48,7 @@
       "settings": {
         "color_scheme": "default",
         "section_width": "container",
-        "collection": "all",
+        "collection": "premium",
         "items_to_show": 6,
         "heading": "Popular Notion templates",
         "show_view_all": false,
@@ -108,8 +108,9 @@
         "color_scheme": "scheme-6c1d2a40-91b7-4c55-9a0e-5d3f0b8e7a11",
         "section_width": "container",
         "reset_spacing": true,
-        "product": "",
-        "show_view_link": false,
+        "product": "money-planner",
+        "show_view_link": true,
+        "view_link_label": "See every page inside",
         "desktop_layout": "hidden_thumbnail",
         "desktop_media_width": 54,
         "desktop_main_image_position": "left",
@@ -171,18 +172,6 @@
             "buy_appearance": "theme",
             "atc_icon_enable": false
           }
-        },
-        "link_button_7": {
-          "type": "link_button",
-          "settings": {
-            "label": "See every page inside",
-            "link": "/products/money-planner",
-            "style": "text",
-            "icon": "none",
-            "full_width": false,
-            "spacing_top": 4,
-            "spacing_bottom": 0
-          }
         }
       },
       "block_order": [
@@ -191,8 +180,7 @@
         "text_3",
         "price_4",
         "variant_picker_5",
-        "buy_buttons_6",
-        "link_button_7"
+        "buy_buttons_6"
       ]
     },
     "how": {
@@ -618,11 +606,11 @@
         "image_position": "right",
         "content_alignment": "left",
         "form_layout": "horizontal",
-        "image_width": 42,
+        "image_width": 44,
         "column_gap": 56,
         "image": "shopify://shop_images/notionsite-newsletter.webp",
         "image_alt": "A drawing of an envelope with a checklist coming out of it",
-        "image_ratio": "square",
+        "image_ratio": "landscape",
         "button_style": "primary",
         "use_theme_button": true,
         "reveal": false,

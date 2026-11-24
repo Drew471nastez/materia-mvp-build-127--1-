@@ -244,7 +244,7 @@
         "show_rating": false,
         "show_swatches": false,
         "show_price": true,
-        "show_add_to_cart": false,
+        "show_add_to_cart": true,
         "show_action": false,
         "padding_top": 40,
         "padding_bottom": 0

@@ -162,63 +162,9 @@
         "menu_badges_1",
         "header_button_1"
       ]
-    },
-    "top_bar": {
-      "type": "top-bar",
-      "name": "Announcement bar",
-      "settings": {
-        "reveal": true,
-        "font_size": 13,
-        "uppercase": false,
-        "sticky_top": false,
-        "text_align": "center",
-        "font_weight": "body_weight",
-        "padding_top": 8,
-        "show_arrows": false,
-        "show_mobile": true,
-        "border_color": "#e5e5e5",
-        "border_width": 0,
-        "color_scheme": "scheme-tr-violet",
-        "reset_spacing": true,
-        "section_width": "full_width",
-        "letter_spacing": 0,
-        "padding_bottom": 8,
-        "border_position": "bottom",
-        "custom_bg_color": "",
-        "transition_speed": 700,
-        "custom_link_color": "",
-        "custom_text_color": "",
-        "custom_arrow_color": "",
-        "show_arrows_mobile": false,
-        "enable_custom_position": false,
-        "desktop_horizontal_offset": 0,
-        "section_margin_top_mobile": 0,
-        "section_margin_top_desktop": 0,
-        "section_margin_bottom_mobile": 0,
-        "section_margin_bottom_desktop": 0
-      },
-      "blocks": {
-        "text_slider_1": {
-          "type": "text_slider",
-          "settings": {
-            "text1": "Sale: 60% off every pack",
-            "text2": "Every sound is 100% royalty free",
-            "text3": "",
-            "change_every": 5,
-            "text1_mobile": "Sale: 60% off every pack",
-            "text2_mobile": "100% royalty free",
-            "text3_mobile": "",
-            "hidden_on_mobile": false
-          }
-        }
-      },
-      "block_order": [
-        "text_slider_1"
-      ]
     }
   },
   "order": [
-    "top_bar",
     "header"
   ]
 }

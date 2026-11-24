@@ -836,3 +836,82 @@ Personal trainer (round 25): Mateo Ruiz, a sample strength coach in Valencia and
 | trainer (cover only) | scripts/theme-templates/products/trainer/trainer-post-own.webp | https://images.unsplash.com/photo-1738524108435-1047a1d4c194 | Unsplash License |
 | trainer (cover only) | scripts/theme-templates/products/trainer/trainer-post-talk.webp | https://images.unsplash.com/photo-1738523686619-1b3b5d2405ee | Unsplash License |
 | trainer (cover only) | scripts/theme-templates/products/trainer/trainer-post-squat.webp | https://images.unsplash.com/photo-1574680178050-55c6a6a96e0a | Unsplash License |
+
+## Notion creator (notionsite, Margin)
+
+<!-- notionsite (templates round 25): every Notion screen is a page drawn as HTML for this template (the templates, their sample data and names are invented) and photographed on a tablet; the logo, the three how it works pictures and the envelope drawing were drawn for it too. The creator and buyer pictures are Unsplash portraits, cropped; the notes beside the buyers are marked as samples to replace. -->
+
+| Template | File | Source | Licence |
+| --- | --- | --- | --- |
+| notionsite | assets/notionsite-creator.webp | https://images.unsplash.com/photo-1567532939604-b6b5b0db2604 | Unsplash License |
+| notionsite | assets/notionsite-creator-portrait.webp | https://images.unsplash.com/photo-1567532939604-b6b5b0db2604 | Unsplash License |
+| notionsite | assets/notionsite-buyer-1.webp | https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91 | Unsplash License |
+| notionsite | assets/notionsite-buyer-2.webp | https://images.unsplash.com/photo-1507591064344-4c6ce005b128 | Unsplash License |
+| notionsite | assets/notionsite-buyer-3.webp | https://images.unsplash.com/photo-1502685104226-ee32379fefbe | Unsplash License |
+| notionsite | assets/notionsite-buyer-4.webp | https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e | Unsplash License |
+| notionsite | assets/notionsite-buyer-5.webp | https://images.unsplash.com/photo-1557862921-37829c790f19 | Unsplash License |
+| notionsite | assets/notionsite-buyer-6.webp | https://images.unsplash.com/photo-1487412720507-e7ab37603c6f | Unsplash License |
+| notionsite | assets/notionsite-buyer-7.webp | https://images.unsplash.com/photo-1531427186611-ecfd6d936c79 | Unsplash License |
+| notionsite | assets/notionsite-buyer-8.webp | https://images.unsplash.com/photo-1438761681033-6461ffad8d80 | Unsplash License |
+| notionsite | assets/notionsite-buyer-9.webp | https://images.unsplash.com/photo-1564564321837-a57b7070ac4f | Unsplash License |
+| notionsite | assets/notionsite-buyer-10.webp | https://images.unsplash.com/photo-1607746882042-944635dfe10e | Unsplash License |
+| notionsite | assets/notionsite-buyer-11.webp | https://images.unsplash.com/photo-1472099645785-5658abf4ff4e | Unsplash License |
+| notionsite | assets/notionsite-buyer-12.webp | https://images.unsplash.com/photo-1548142813-c348350df52b | Unsplash License |
+| notionsite | assets/notionsite-logo.webp | Drawn for this template | Storelib |
+| notionsite | assets/notionsite-mark.webp | Drawn for this template | Storelib |
+| notionsite | assets/notionsite-step-email.webp | Drawn for this template | Storelib |
+| notionsite | assets/notionsite-step-duplicate.webp | Drawn for this template | Storelib |
+| notionsite | assets/notionsite-step-yours.webp | Drawn for this template | Storelib |
+| notionsite | assets/notionsite-newsletter.webp | Drawn for this template | Storelib |
+| notionsite (sample products) | scripts/theme-templates/products/notionsite/*.webp | Drawn for this template: Notion pages on a tablet, two or three different pages per template | Storelib |
+
+## Sound packs (soundpacks, Lowmoth)
+
+Sound packs (round 25): Lowmoth, a sample label made up for the template. Every pack cover, pack box, bundle picture, folder view and the logo is drawn for this template in Python (PIL and numpy): generative artwork with the pack name, set on a box in three quarter view. The previews are synthesised for the template, one demo loop per pack and a few one shots, so they are free of anyone else's recordings. The producer at a pad controller, the mixing desk and the studio room are Unsplash photographs; small maker names on the studio's rack and an interface are blurred out and the room is cropped to leave out a branded amplifier. The faces on the sample reviews are Unsplash portraits, cropped round and marked on the page as sample reviews to replace.
+
+| Template | File | Source | License |
+| --- | --- | --- | --- |
+| soundpacks | assets/soundpacks-avatar-1.webp | https://images.unsplash.com/photo-1614010966237-74489a16848b | Unsplash License |
+| soundpacks | assets/soundpacks-avatar-2.webp | https://images.unsplash.com/photo-1668092834733-60f7c0d567a1 | Unsplash License |
+| soundpacks | assets/soundpacks-avatar-3.webp | https://images.unsplash.com/photo-1658797508731-cf8961a3b414 | Unsplash License |
+| soundpacks | assets/soundpacks-avatar-4.webp | https://images.unsplash.com/photo-1608662868070-97b987b190ca | Unsplash License |
+| soundpacks | assets/soundpacks-box-afterglow.webp | Drawn for this template | Storelib |
+| soundpacks | assets/soundpacks-box-chrome-drums.webp | Drawn for this template | Storelib |
+| soundpacks | assets/soundpacks-box-dust-and-tape.webp | Drawn for this template | Storelib |
+| soundpacks | assets/soundpacks-box-first-light.webp | Drawn for this template | Storelib |
+| soundpacks | assets/soundpacks-box-full-shelf.webp | Drawn for this template | Storelib |
+| soundpacks | assets/soundpacks-box-heavy-water.webp | Drawn for this template | Storelib |
+| soundpacks | assets/soundpacks-box-night-bus.webp | Drawn for this template | Storelib |
+| soundpacks | assets/soundpacks-box-small-hours.webp | Drawn for this template | Storelib |
+| soundpacks | assets/soundpacks-box-soft-focus.webp | Drawn for this template | Storelib |
+| soundpacks | assets/soundpacks-demo-afterglow.mp4 | Synthesised for this template: a demo loop made in Python (numpy) from oscillators, filtered noise and envelopes, no recordings or samples, AAC mono | Storelib |
+| soundpacks | assets/soundpacks-demo-chrome-drums.mp4 | Synthesised for this template: a demo loop made in Python (numpy) from oscillators, filtered noise and envelopes, no recordings or samples, AAC mono | Storelib |
+| soundpacks | assets/soundpacks-demo-dust-and-tape.mp4 | Synthesised for this template: a demo loop made in Python (numpy) from oscillators, filtered noise and envelopes, no recordings or samples, AAC mono | Storelib |
+| soundpacks | assets/soundpacks-demo-first-light.mp4 | Synthesised for this template: a demo loop made in Python (numpy) from oscillators, filtered noise and envelopes, no recordings or samples, AAC mono | Storelib |
+| soundpacks | assets/soundpacks-demo-heavy-water.mp4 | Synthesised for this template: a demo loop made in Python (numpy) from oscillators, filtered noise and envelopes, no recordings or samples, AAC mono | Storelib |
+| soundpacks | assets/soundpacks-demo-night-bus.mp4 | Synthesised for this template: a demo loop made in Python (numpy) from oscillators, filtered noise and envelopes, no recordings or samples, AAC mono | Storelib |
+| soundpacks | assets/soundpacks-demo-small-hours.mp4 | Synthesised for this template: a demo loop made in Python (numpy) from oscillators, filtered noise and envelopes, no recordings or samples, AAC mono | Storelib |
+| soundpacks | assets/soundpacks-demo-soft-focus.mp4 | Synthesised for this template: a demo loop made in Python (numpy) from oscillators, filtered noise and envelopes, no recordings or samples, AAC mono | Storelib |
+| soundpacks | assets/soundpacks-desk.webp | https://images.unsplash.com/photo-1483000805330-4eaf0a0d82da | Unsplash License |
+| soundpacks | assets/soundpacks-logo.webp | Drawn for this template | Storelib |
+| soundpacks | assets/soundpacks-producer.webp | https://images.unsplash.com/photo-1757245684178-a0bdd25e56a5 | Unsplash License |
+| soundpacks | assets/soundpacks-shot-afterglow-pluck.mp4 | Synthesised for this template: a one shot made in Python (numpy) from oscillators, filtered noise and envelopes, no recordings or samples, AAC mono | Storelib |
+| soundpacks | assets/soundpacks-shot-afterglow-stab.mp4 | Synthesised for this template: a one shot made in Python (numpy) from oscillators, filtered noise and envelopes, no recordings or samples, AAC mono | Storelib |
+| soundpacks | assets/soundpacks-shot-chrome-drums-clap.mp4 | Synthesised for this template: a one shot made in Python (numpy) from oscillators, filtered noise and envelopes, no recordings or samples, AAC mono | Storelib |
+| soundpacks | assets/soundpacks-shot-chrome-drums-hat.mp4 | Synthesised for this template: a one shot made in Python (numpy) from oscillators, filtered noise and envelopes, no recordings or samples, AAC mono | Storelib |
+| soundpacks | assets/soundpacks-shot-chrome-drums-kick.mp4 | Synthesised for this template: a one shot made in Python (numpy) from oscillators, filtered noise and envelopes, no recordings or samples, AAC mono | Storelib |
+| soundpacks | assets/soundpacks-shot-chrome-drums-open-hat.mp4 | Synthesised for this template: a one shot made in Python (numpy) from oscillators, filtered noise and envelopes, no recordings or samples, AAC mono | Storelib |
+| soundpacks | assets/soundpacks-shot-chrome-drums-tom.mp4 | Synthesised for this template: a one shot made in Python (numpy) from oscillators, filtered noise and envelopes, no recordings or samples, AAC mono | Storelib |
+| soundpacks | assets/soundpacks-shot-first-light-kick.mp4 | Synthesised for this template: a one shot made in Python (numpy) from oscillators, filtered noise and envelopes, no recordings or samples, AAC mono | Storelib |
+| soundpacks | assets/soundpacks-shot-first-light-stab.mp4 | Synthesised for this template: a one shot made in Python (numpy) from oscillators, filtered noise and envelopes, no recordings or samples, AAC mono | Storelib |
+| soundpacks | assets/soundpacks-shot-heavy-water-808.mp4 | Synthesised for this template: a one shot made in Python (numpy) from oscillators, filtered noise and envelopes, no recordings or samples, AAC mono | Storelib |
+| soundpacks | assets/soundpacks-shot-heavy-water-reese.mp4 | Synthesised for this template: a one shot made in Python (numpy) from oscillators, filtered noise and envelopes, no recordings or samples, AAC mono | Storelib |
+| soundpacks | assets/soundpacks-shot-night-bus-clap.mp4 | Synthesised for this template: a one shot made in Python (numpy) from oscillators, filtered noise and envelopes, no recordings or samples, AAC mono | Storelib |
+| soundpacks | assets/soundpacks-shot-night-bus-kick.mp4 | Synthesised for this template: a one shot made in Python (numpy) from oscillators, filtered noise and envelopes, no recordings or samples, AAC mono | Storelib |
+| soundpacks | assets/soundpacks-shot-night-bus-rim.mp4 | Synthesised for this template: a one shot made in Python (numpy) from oscillators, filtered noise and envelopes, no recordings or samples, AAC mono | Storelib |
+| soundpacks | assets/soundpacks-shot-soft-focus-chord.mp4 | Synthesised for this template: a one shot made in Python (numpy) from oscillators, filtered noise and envelopes, no recordings or samples, AAC mono | Storelib |
+| soundpacks | assets/soundpacks-studio.webp | https://images.unsplash.com/photo-1758336717046-c475fc6f45ce | Unsplash License |
+| soundpacks (sample products) | scripts/theme-templates/products/soundpacks/soundpacks-*.webp (packs, art, folder views, bundles) | Drawn for this template | Storelib |
+| soundpacks (sample products) | scripts/theme-templates/products/soundpacks/soundpacks-post-monitors.webp | https://images.unsplash.com/photo-1632582204758-5ac65783517a | Unsplash License |
+| soundpacks (sample products) | scripts/theme-templates/products/soundpacks/soundpacks-post-desk.webp | https://images.unsplash.com/photo-1477233534935-f5e6fe7c1159, two small maker names blurred | Unsplash License |
+| soundpacks (sample products) | scripts/theme-templates/products/soundpacks/soundpacks-post-mixer.webp | https://images.unsplash.com/photo-1518972559570-7cc1309f3229 | Unsplash License |

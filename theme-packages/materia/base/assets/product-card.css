@@ -1127,7 +1127,9 @@ body[data-badge-position='top_end'] .product-item__inner > .pc-corner:has(> .pro
 /* "Modern" card: an outline button under the product details. Cards in a
    row are the same height and their buttons line up on one baseline. */
 .grid__item > .product-item:only-child,
-.swiper-slide > .product-item:only-child { height: 100%; }
+.swiper-slide > .product-item:only-child,
+.pstl__theme-card > .product-item:only-child,
+.wishlist-list > .product-item:only-child { height: 100%; }
 /* A card that is itself the carousel's slide takes the row's height too (r25),
    so a swatch row or a two line title never drops one card's button below
    the others'. */

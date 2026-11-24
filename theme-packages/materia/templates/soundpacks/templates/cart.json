@@ -58,21 +58,21 @@
           "type": "faq",
           "settings": {
             "question": "How do I get the files?",
-            "answer": "<p>Right after checkout you get an email receipt with your download page link.</p>"
+            "answer": "<p>Right after checkout: a download link on the receipt page and in your email.</p>"
           }
         },
         "faq_2": {
           "type": "faq",
           "settings": {
             "question": "Can I release music made with these?",
-            "answer": "<p>Yes. Every sound is 100% royalty free, commercial releases included.</p>"
+            "answer": "<p>Yes. Every sound is royalty free, for releases, streams and sync.</p>"
           }
         },
         "faq_3": {
           "type": "faq",
           "settings": {
-            "question": "Buying more than one tech house pack?",
-            "answer": "<p>The <a href=\"/collections/all\">Tech House Master Bundle 2025</a> holds over 1,000 sounds in one download.</p>"
+            "question": "Buying three or more packs?",
+            "answer": "<p><a href=\"/collections/bundles\">The Full Shelf</a> holds every paid pack for less than three of them.</p>"
           }
         },
         "payment_badges_67Mgyc": {
@@ -107,7 +107,7 @@
         "items_to_show": 4,
         "show_add_to_cart": false,
         "button_label": "See all packs",
-        "button_link": "/collections/all",
+        "button_link": "/collections/packs",
         "items_per_row": 4,
         "items_per_row_mobile": 2,
         "column_gap": 20,

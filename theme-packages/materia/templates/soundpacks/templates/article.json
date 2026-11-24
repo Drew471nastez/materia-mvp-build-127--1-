@@ -42,7 +42,7 @@
         "author_highlight_n4CqbT": {
           "type": "author_highlight",
           "settings": {
-            "author_text": "Questions about a pack go to the contact page.",
+            "author_text": "Questions about a pack? Write to us from the contact page.",
             "author_image_size": 65
           }
         }
@@ -59,7 +59,7 @@
       "type": "blog-posts",
       "settings": {
         "reveal": false,
-        "heading": "More from the blog",
+        "heading": "More from the journal",
         "autoplay": false,
         "infinite": false,
         "show_date": true,
@@ -68,7 +68,7 @@
         "image_ratio": "custom",
         "padding_top": 72,
         "show_author": false,
-        "color_scheme": "scheme-tr-panel",
+        "color_scheme": "default",
         "custom_ratio": "3:2",
         "vertical_gap": 30,
         "items_per_row": 3,
@@ -84,42 +84,110 @@
         "items_per_row_mobile": 1
       }
     },
-    "free": {
-      "type": "newsletter-split",
+    "hear": {
+      "type": "samples-audio-tracks",
       "settings": {
-        "color_scheme": "scheme-tr-panel",
+        "layout": "list",
+        "eyebrow": "From the packs",
+        "heading": "Try it with these loops",
+        "text": "<p>Press play, then drag along the wave to skip ahead.</p>",
+        "link_label": "Shop every pack",
+        "link_url": "/collections/packs",
+        "max_width": 1100,
+        "heading_size": 36,
+        "heading_size_mobile": 28,
+        "color_scheme": "scheme-sp-deep",
         "section_width": "container",
-        "image": "shopify://shop_images/samples-free-pair.webp",
-        "image_alt": "Free Ambience Sample Pack Vol I and Tech House Drum Kit Vol I",
-        "image_position": "left",
-        "image_ratio": "landscape",
-        "image_width": 44,
-        "column_gap": 64,
-        "form_layout": "horizontal",
-        "email_placeholder": "Your email address",
-        "btn_text": "Subscribe",
-        "button_radius": 8,
-        "note": "No spam. Unsubscribe from any email.",
-        "success_text": "Thank you for subscribing!",
-        "padding_top": 72,
+        "padding_top": 48,
         "padding_bottom": 72,
-        "padding_top_mobile": 48,
-        "padding_bottom_mobile": 52
+        "accent": "#ff8a73"
+      },
+      "blocks": {
+        "t_chrome_drums": {
+          "type": "track",
+          "settings": {
+            "title": "Chrome Drums",
+            "subtitle": "Drum samples, 126 BPM",
+            "cover": "shopify://shop_images/soundpacks-box-chrome-drums.webp",
+            "link_label": "See the pack",
+            "link": "/collections/packs",
+            "audio": "shopify://shop_images/soundpacks-demo-chrome-drums.mp4",
+            "seconds": 8.12,
+            "peaks": "86,75,68,79,59,44,33,94,87,73,76,61,42,37,87,75,73,86,61,43,33,98,91,73,93,67,51,36,87,76,69,76,71,43,37,98,88,72,81,71,43,37,89,77,79,79,67,43,39,96,87,73,94,75,49,39,87,80,68,73,72,43,35,100,91,79,77,72,48,42,88,81,78,77,74,42,42,99,91,77,96,81,52,40,92,84,73,65,78,53,38,93,96,81,65,80,46,40,89,85,73,62,81,49,38,95,95,78,65,83,64,46,27,11,8,5,2,3,2,2"
+          }
+        },
+        "t_heavy_water": {
+          "type": "track",
+          "settings": {
+            "title": "Heavy Water",
+            "subtitle": "Bass, 140 BPM",
+            "cover": "shopify://shop_images/soundpacks-box-heavy-water.webp",
+            "link_label": "See the pack",
+            "link": "/collections/packs",
+            "audio": "shopify://shop_images/soundpacks-demo-heavy-water.mp4",
+            "seconds": 7.36,
+            "peaks": "100,87,79,76,60,53,51,65,37,2,80,66,63,60,65,44,30,100,90,89,82,71,59,52,67,47,2,79,76,53,36,41,13,2,38,33,2,2,38,2,2,83,90,84,75,96,82,84,63,38,67,67,83,61,58,99,98,95,81,90,70,69,73,70,46,32,85,78,75,74,63,53,44,98,93,87,81,81,67,71,74,66,34,79,81,62,49,54,41,36,46,42,38,38,55,37,36,94,95,92,85,99,90,87,70,41,78,76,81,62,58,55,2,2,2,2,2,2,2,2"
+          }
+        },
+        "t_soft_focus": {
+          "type": "track",
+          "settings": {
+            "title": "Soft Focus",
+            "subtitle": "Lo-fi keys, 84 BPM",
+            "cover": "shopify://shop_images/soundpacks-box-soft-focus.webp",
+            "link_label": "See the pack",
+            "link": "/collections/packs",
+            "audio": "shopify://shop_images/soundpacks-demo-soft-focus.mp4",
+            "seconds": 6.91,
+            "peaks": "90,95,83,88,86,81,70,73,79,71,74,73,86,86,75,63,48,66,88,90,74,70,57,84,60,75,81,74,93,100,97,86,80,70,66,67,65,84,80,70,69,62,56,71,75,71,46,65,62,92,99,98,86,86,86,87,89,87,81,79,81,81,92,74,72,69,57,65,96,94,77,70,61,72,74,77,74,78,98,98,87,80,76,81,76,74,74,86,71,71,62,60,64,63,53,53,51,55,69,47,35,48,63,56,23,26,25,23,38,34,9,61,22,23,15,13,14,8,7,2"
+          }
+        }
+      },
+      "block_order": [
+        "t_chrome_drums",
+        "t_heavy_water",
+        "t_soft_focus"
+      ]
+    },
+    "signup": {
+      "type": "newsletter",
+      "settings": {
+        "color_scheme": "scheme-sp-panel",
+        "section_width": "container",
+        "reset_spacing": true,
+        "heading": "",
+        "email_placeholder": "Your email address",
+        "btn_text": "Send me packs",
+        "note": "One email a month, no more. Unsubscribe from any of them.",
+        "header_alignment": "center",
+        "form_layout": "horizontal",
+        "show_icon": false,
+        "button_style": "primary",
+        "use_theme_button": true,
+        "button_radius": 999,
+        "use_theme_fields": true,
+        "field_radius": 999,
+        "field_height": 50,
+        "header_size": "large",
+        "reveal": true,
+        "padding_top": 72,
+        "padding_bottom": 72
       },
       "blocks": {
         "heading": {
           "type": "heading",
           "settings": {
-            "text": "Get weekly sounds",
+            "text": "A free pack every month.",
+            "tag": "h2",
             "size_enable": true,
-            "size_desktop": 40,
+            "size_desktop": 44,
             "size_mobile": 30
           }
         },
         "subheading": {
           "type": "subheading",
           "settings": {
-            "text": "<p>New packs and sales by email. Two packs are free today: the Ambience Sample Pack Vol I and the Tech House Drum Kit Vol I.</p>"
+            "text": "<p>Subscribers get a small pack of new sounds on the first of the month, and hear about new packs before anyone else.</p>"
           }
         }
       },
@@ -127,76 +195,12 @@
         "heading",
         "subheading"
       ]
-    },
-    "hear": {
-      "type": "samples-audio-tracks",
-      "settings": {
-        "layout": "list",
-        "eyebrow": "Sounds for this",
-        "heading": "Try it with these loops",
-        "text": "<p>Press play, then drag along the wave to skip ahead.</p>",
-        "link_label": "Shop every pack",
-        "link_url": "/collections/all",
-        "max_width": 1100,
-        "heading_size": 36,
-        "heading_size_mobile": 28,
-        "color_scheme": "default",
-        "section_width": "container",
-        "padding_top": 48,
-        "padding_bottom": 72
-      },
-      "blocks": {
-        "t1": {
-          "type": "track",
-          "settings": {
-            "title": "Tech House Drum Kit Vol I",
-            "subtitle": "Drum loop, 124 BPM",
-            "audio": "shopify://shop_images/samples-demo-drums-one-shots.mp4",
-            "seconds": 11.63,
-            "peaks": "95,64,33,18,38,94,66,35,8,22,94,66,31,7,35,93,76,48,9,43,96,65,37,9,55,95,64,48,7,39,100,60,36,8,52,91,62,37,9,45,95,59,35,6,46,96,67,34,7,55,100,56,35,18,56,95,73,38,9,52,99,67,32,24,59,96,63,38,6,48,96,67,42,5,69,95,61,36,10,54,96,55,34,5,65,96,59,33,5,56,98,56,37,5,65,94,62,36,9,59,98,56,33,6,62,93,52,23,4,41,60,31,17,3,28,36,17,7,2,2",
-            "link_label": "Get the pack",
-            "cover": "shopify://shop_images/samples-box-drum-kit.webp",
-            "link": "/collections/all"
-          }
-        },
-        "t2": {
-          "type": "track",
-          "settings": {
-            "title": "Serum Presets Vol 1",
-            "subtitle": "Synth bass loop, 125 BPM",
-            "audio": "shopify://shop_images/samples-demo-serum-presets.mp4",
-            "seconds": 11.49,
-            "peaks": "88,97,92,83,2,2,89,69,2,71,89,98,70,81,80,46,95,55,2,77,89,92,91,66,2,75,87,10,2,82,97,90,4,97,67,87,80,4,2,92,100,99,91,4,2,87,75,2,29,92,91,72,78,91,7,99,67,2,74,91,99,99,81,2,70,89,48,2,79,90,89,7,87,74,76,91,9,2,2,79,91,89,89,65,2,77,85,8,2,83,93,87,3,95,57,84,83,4,2,90,90,89,86,3,2,77,62,2,45,62,55,42,38,39,3,30,17,2,7,5",
-            "link_label": "Get the pack",
-            "cover": "shopify://shop_images/samples-box-serum-presets.webp",
-            "link": "/collections/all"
-          }
-        },
-        "t3": {
-          "type": "track",
-          "settings": {
-            "title": "Deep House Production Suite, Serenade",
-            "subtitle": "Deep house loop, 120 BPM",
-            "audio": "shopify://shop_images/samples-demo-deep-house-production-suite.mp4",
-            "seconds": 12.0,
-            "peaks": "95,59,64,31,15,99,62,33,2,6,98,56,65,32,14,96,57,29,2,3,100,56,59,45,13,99,63,36,3,5,98,57,57,54,17,98,56,34,2,11,99,56,69,52,20,98,59,68,62,13,96,57,68,53,27,96,58,77,56,30,99,55,79,48,21,96,62,71,53,27,99,55,68,59,24,97,56,73,56,34,95,50,63,56,56,99,58,80,51,50,95,52,68,47,51,95,55,65,52,68,89,53,65,57,73,87,52,59,48,53,67,31,38,30,34,37,16,14,8,2",
-            "link_label": "Get the pack",
-            "cover": "shopify://shop_images/samples-box-deep-house-production-suite.webp",
-            "link": "/collections/all"
-          }
-        }
-      },
-      "block_order": [
-        "t1",
-        "t2",
-        "t3"
-      ]
     }
   },
   "order": [
     "main",
     "hear",
     "blog_posts_bRcpan",
-    "free"
+    "signup"
   ]
 }

@@ -11,7 +11,7 @@
         "reset_spacing": true,
         "message": "",
         "message_mobile": "",
-        "link": "/products/life-os-bundle",
+        "link": "/collections/bundles",
         "open_in_new_tab": false,
         "content_alignment": "center",
         "content_gap": 12,
@@ -38,7 +38,7 @@
           "settings": {
             "text": "New: the Life OS bundle, four premium templates linked in one workspace",
             "text_mobile": "New: the Life OS bundle",
-            "link": "/products/life-os-bundle",
+            "link": "/collections/bundles",
             "open_in_new_tab": false,
             "visibility": "all",
             "enable_custom_style": false
@@ -155,7 +155,7 @@
           "settings": {
             "new_tab": false,
             "button_gap": 20,
-            "button_link": "/products/life-os-bundle",
+            "button_link": "/collections/bundles",
             "button_text": "Get the bundle",
             "custom_text": "#ffffff",
             "mobile_size": "small",

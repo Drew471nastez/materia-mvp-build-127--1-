@@ -166,6 +166,8 @@ export const CODE_TEMPLATES: readonly CodeTemplate[] = [
   { slug: "streetwear-drop", template: "rail", name: "Streetwear drop", category: "fashion" },
   /* Templates round 25: Margin, a Notion template creator's website by Nora Lind, after the owner's reference: her photo over a large heading, popular templates as cards, a featured template, how buying works, free templates, the creator, a wall of buyer notes, a newsletter, questions, a templates page with Premium, Free, On sale and Bundles, and a product page for every template, built from the theme's own sections around one hero (notionsite-hero). */
   { slug: "notion-creator", template: "notionsite", name: "Notion creator", category: "digital" },
+  /* Templates round 25: Lowmoth, a sample label's dark store after the owner's sample pack reference: a centred hero with short previews floating round the heading, pack cards in rows with a play button on each cover and the preview's own waveform (soundpacks-pack-row), a table of demos with type, file name, BPM and key (soundpacks-track-table), bundles, why buy here, sample reviews with photos and a journal. Each pack page has a demo player, its sounds in the table, what is inside, the DAWs it works in and the licence. Pack art drawn for the template, demo loops synthesised for it. */
+  { slug: "sound-packs", template: "soundpacks", name: "Sound packs", category: "digital" },
 ]
 
 /** Where a template's pictures live: its home page whole at 1440 wide, and at a phone's width (scripts/build-theme-template-covers.ts takes both). */

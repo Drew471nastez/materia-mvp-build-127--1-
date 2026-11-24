@@ -650,7 +650,8 @@
         "horizontal_dst_to_edge": 24,
         "vertical_dst_to_edge_mobile": 24,
         "horizontal_dst_to_edge_mobile": 16
-      }
+      },
+      "disabled": true
     },
     "countdown_promo_popup": {
       "type": "countdown-promo-popup",
@@ -838,7 +839,7 @@
         "image": {
           "type": "image",
           "settings": {
-            "image": "shopify://shop_images/samples-studio.webp",
+            "image": "",
             "alt": "Mixing desk and synths in a studio"
           }
         },
@@ -857,7 +858,8 @@
         "form",
         "image",
         "dismiss"
-      ]
+      ],
+      "disabled": true
     },
     "order_notification_pro_1": {
       "type": "fake-order",

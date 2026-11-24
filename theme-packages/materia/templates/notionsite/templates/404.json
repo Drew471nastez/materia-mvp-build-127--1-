@@ -28,7 +28,7 @@
           "settings": {
             "font_size": 15,
             "uppercase": false,
-            "subheading": "The link may be old. Creator OS and the rest of the templates are a click away.",
+            "subheading": "The link may be old. Every template is a click away.",
             "font_weight": "body_weight",
             "spacing_bottom": 40
           }
@@ -40,7 +40,7 @@
             "spacing_bottom": 0,
             "first_button_link": "/",
             "first_button_type": "primary",
-            "first_button_label": "Back to Creator OS"
+            "first_button_label": "Back to the home page"
           }
         }
       },

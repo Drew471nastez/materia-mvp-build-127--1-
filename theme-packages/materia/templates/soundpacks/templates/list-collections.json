@@ -16,7 +16,7 @@
         "heading_B3DXTc": {
           "type": "heading",
           "settings": {
-            "page_title": "Genres",
+            "page_title": "Collections",
             "header_size": "default",
             "vertical_gap": 8,
             "heading_color": "",
@@ -27,8 +27,8 @@
         "description_tLPCVn": {
           "type": "description",
           "settings": {
-            "description": "<p>Tech house, deep house, Serum presets and free downloads.</p>",
-            "description_color": "#767676",
+            "description": "<p>Paid packs, bundles and free packs.</p>",
+            "description_color": "#a3a3ab",
             "enable_custom_style": false,
             "description_font_size": 15
           }
@@ -63,42 +63,45 @@
       "blocks": {},
       "block_order": []
     },
-    "free": {
-      "type": "newsletter-split",
+    "signup": {
+      "type": "newsletter",
       "settings": {
-        "color_scheme": "scheme-tr-panel",
+        "color_scheme": "scheme-sp-panel",
         "section_width": "container",
-        "image": "shopify://shop_images/samples-free-pair.webp",
-        "image_alt": "Free Ambience Sample Pack Vol I and Tech House Drum Kit Vol I",
-        "image_position": "left",
-        "image_ratio": "landscape",
-        "image_width": 44,
-        "column_gap": 64,
-        "form_layout": "horizontal",
+        "reset_spacing": true,
+        "heading": "",
         "email_placeholder": "Your email address",
-        "btn_text": "Subscribe",
-        "button_radius": 8,
-        "note": "No spam. Unsubscribe from any email.",
-        "success_text": "Thank you for subscribing!",
+        "btn_text": "Send me packs",
+        "note": "One email a month, no more. Unsubscribe from any of them.",
+        "header_alignment": "center",
+        "form_layout": "horizontal",
+        "show_icon": false,
+        "button_style": "primary",
+        "use_theme_button": true,
+        "button_radius": 999,
+        "use_theme_fields": true,
+        "field_radius": 999,
+        "field_height": 50,
+        "header_size": "large",
+        "reveal": true,
         "padding_top": 72,
-        "padding_bottom": 72,
-        "padding_top_mobile": 48,
-        "padding_bottom_mobile": 52
+        "padding_bottom": 72
       },
       "blocks": {
         "heading": {
           "type": "heading",
           "settings": {
-            "text": "Get weekly sounds",
+            "text": "A free pack every month.",
+            "tag": "h2",
             "size_enable": true,
-            "size_desktop": 40,
+            "size_desktop": 44,
             "size_mobile": 30
           }
         },
         "subheading": {
           "type": "subheading",
           "settings": {
-            "text": "<p>New packs and sales by email. Two packs are free today: the Ambience Sample Pack Vol I and the Tech House Drum Kit Vol I.</p>"
+            "text": "<p>Subscribers get a small pack of new sounds on the first of the month, and hear about new packs before anyone else.</p>"
           }
         }
       },
@@ -111,6 +114,6 @@
   "order": [
     "heading",
     "main",
-    "free"
+    "signup"
   ]
 }

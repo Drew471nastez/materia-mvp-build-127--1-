@@ -59,7 +59,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Work with us, or ask for help",
+            "text": "Ask us anything",
             "tag": "h1",
             "enable_custom_style": false,
             "enable_custom_fonts": false,
@@ -75,7 +75,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>A download that will not open, a licence question or a collaboration. It all lands at team@loudlib.net.</p>",
+            "text": "<p>A download that will not open, a licence question or a pack you would like us to make. We answer within a day.</p>",
             "max_width": 600,
             "enable_custom_style": false,
             "enable_custom_fonts": false,
@@ -118,7 +118,7 @@
             "placeholder": "Pick one",
             "required": false,
             "half_width": false,
-            "options": "A download\nThe licence\nWorking together\nSomething else"
+            "options": "A download\nThe licence\nA pack idea\nSomething else"
           }
         },
         "field_4": {
@@ -143,7 +143,7 @@
           "settings": {
             "icon": "mail",
             "label": "Email",
-            "value": "team@loudlib.net"
+            "value": "hello@lowmoth.example"
           }
         },
         "info_2": {
@@ -151,7 +151,7 @@
           "settings": {
             "icon": "message",
             "label": "Instagram",
-            "value": "@loudlib"
+            "value": "@lowmoth"
           }
         }
       },

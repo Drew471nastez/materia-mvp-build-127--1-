@@ -1,0 +1,98 @@
+
+  #shopify-section-sounds .spt { --spx-accent: #ff8a73; --spt-panel: #141416; padding-block: 16px 52px; }
+  #shopify-section-sounds .ssp { --ssp-p: 0%; --ssp-h: 0%; --ssp-sw: 2px; --ssp-accent: var(--spx-accent); --ssp-base: rgba(var(--color-heading-rgb), .26); --ssp-done: var(--spx-accent); min-width: 0; }
+  #shopify-section-sounds .ssp__btn { position: relative; flex: none; box-sizing: border-box; margin: 0; padding: 0; border: 0; border-radius: 50%; display: grid; place-items: center; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background-color .2s ease, color .2s ease, transform .2s ease, box-shadow .2s ease; }
+  #shopify-section-sounds .ssp__btn:focus-visible, #shopify-section-sounds .ssp__wave:focus-visible { outline: 2px solid var(--spx-accent); outline-offset: 3px; }
+  #shopify-section-sounds .ssp__btn[disabled] { cursor: default; opacity: .5; }
+  #shopify-section-sounds .ssp__i { grid-area: 1 / 1; width: 42%; height: 42%; display: block; transition: opacity .18s ease; }
+  #shopify-section-sounds .ssp__i--play { transform: translateX(4%); }
+  #shopify-section-sounds .ssp__i--pause { opacity: 0; }
+  #shopify-section-sounds .ssp.is-playing .ssp__i--play { opacity: 0; }
+  #shopify-section-sounds .ssp.is-playing .ssp__i--pause { opacity: 1; }
+  #shopify-section-sounds .ssp__btn::after { content: ""; position: absolute; inset: -3px; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--spx-accent); opacity: 0; transition: opacity .2s ease; pointer-events: none; }
+  #shopify-section-sounds .ssp.is-loading .ssp__btn::after { opacity: 1; animation: spx-spin .8s linear infinite; }
+  #shopify-section-sounds .ssp__row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  #shopify-section-sounds .ssp__wave { position: relative; flex: 1 1 auto; min-width: 0; cursor: pointer; touch-action: pan-y; -webkit-tap-highlight-color: transparent; }
+  #shopify-section-sounds .ssp--off .ssp__wave { cursor: default; }
+  #shopify-section-sounds .ssp__svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; fill: none; stroke: var(--ssp-base); stroke-width: var(--ssp-sw); stroke-linecap: round; pointer-events: none; transform-origin: 50% 50%; }
+  #shopify-section-sounds .ssp__svg--hover { stroke: rgba(var(--color-heading-rgb), .55); clip-path: inset(-2px calc(100% - var(--ssp-h)) -2px 0); opacity: 0; transition: opacity .2s ease; }
+  #shopify-section-sounds .ssp__svg--done { stroke: var(--ssp-done); clip-path: inset(-2px calc(100% - var(--ssp-p)) -2px 0); }
+  #shopify-section-sounds .ssp:not(.is-started) .ssp__svg--done { visibility: hidden; }
+  #shopify-section-sounds .ssp__head { position: absolute; top: 6%; bottom: 6%; left: var(--ssp-p); width: 2px; margin-left: -1px; border-radius: 2px; background: rgb(var(--color-heading-rgb)); opacity: 0; transition: opacity .2s ease; pointer-events: none; }
+  #shopify-section-sounds .ssp.is-started .ssp__head { opacity: .9; }
+  #shopify-section-sounds .ssp__tip { position: absolute; bottom: calc(100% + 6px); left: var(--ssp-h); transform: translateX(-50%); padding: 3px 7px; border-radius: 6px; background: rgb(var(--color-heading-rgb)); color: var(--color-background); font-size: 11px; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; white-space: nowrap; opacity: 0; transition: opacity .15s ease; pointer-events: none; z-index: 2; }
+  #shopify-section-sounds .ssp--flat .ssp__svg { stroke: rgba(var(--color-heading-rgb), .18); }
+  #shopify-section-sounds .ssp--drawn .ssp__svg { animation: spx-grow .5s cubic-bezier(.2,.7,.2,1) both; }
+  #shopify-section-sounds .ssp__time { flex: none; font-size: 12px; line-height: 1; color: var(--color-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  #shopify-section-sounds .ssp.is-started .ssp__time { color: var(--color-heading); }
+  @media (hover: hover) and (pointer: fine) {
+    #shopify-section-sounds .ssp:not(.ssp--off) .ssp__wave:hover .ssp__svg--hover, #shopify-section-sounds .ssp.has-len:not(.ssp--off) .ssp__wave:hover .ssp__tip { opacity: 1; }
+  }
+  @keyframes spx-spin { to { transform: rotate(360deg); } }
+  @keyframes spx-grow { from { transform: scaleY(.08); } to { transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-sounds .ssp__btn, #shopify-section-sounds .ssp__i, #shopify-section-sounds .ssp__svg--hover, #shopify-section-sounds .ssp__head, #shopify-section-sounds .ssp__tip { transition: none; }
+    #shopify-section-sounds .ssp--drawn .ssp__svg { animation: none; }
+  }
+  #shopify-section-sounds .spt__inner { max-width: 1200px; margin-inline: auto; }
+  #shopify-section-sounds .spt__head { max-width: 640px; margin: 0 0 28px; }
+  #shopify-section-sounds .spt__head--center { margin-inline: auto; text-align: center; }
+  #shopify-section-sounds .spt__eyebrow { margin: 0 0 8px; font-size: 15px; font-weight: 600; color: var(--spx-accent); }
+  #shopify-section-sounds .spt__heading { margin: 0; font-size: 30px; line-height: 1.05; letter-spacing: -0.02em; text-wrap: balance; }
+  #shopify-section-sounds .spt__text { margin-top: 14px; font-size: 15px; line-height: 1.6; color: var(--color-text); }
+  #shopify-section-sounds .spt__text p { margin: 0; }
+  #shopify-section-sounds .spt__text p + p { margin-top: 10px; }
+  #shopify-section-sounds .spt__text strong { color: var(--color-heading); font-weight: 600; }
+  #shopify-section-sounds .spt__panel { border-radius: 28px; background: var(--spt-panel); padding: 8px 8px 18px; }
+  #shopify-section-sounds .spt__cols { display: none; }
+  #shopify-section-sounds .spt__list { list-style: none; margin: 0; padding: 0; }
+  #shopify-section-sounds .spt__row { display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; padding: 12px 10px; border-radius: 12px; transition: background-color .2s ease; }
+  #shopify-section-sounds .spt__row + .spt__row { border-top: 1px solid rgba(var(--color-heading-rgb), .06); }
+  #shopify-section-sounds .spt__row:has(.ssp.is-started) { background: rgba(var(--color-heading-rgb), .06); border-top-color: transparent; }
+  #shopify-section-sounds .spt__row:has(.ssp.is-started) + .spt__row { border-top-color: transparent; }
+  #shopify-section-sounds .spt .ssp { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; grid-template-areas: "btn name meta" "wave wave wave"; align-items: center; column-gap: 10px; row-gap: 10px; }
+  #shopify-section-sounds .spt .ssp__btn { grid-area: btn; width: 28px; height: 28px; background: transparent; color: var(--color-heading); }
+  #shopify-section-sounds .spt .ssp__i { width: 62%; height: 62%; }
+  #shopify-section-sounds .spt .ssp.is-playing .ssp__btn { color: var(--spx-accent); }
+  #shopify-section-sounds .spt .ssp__row { grid-area: wave; }
+  #shopify-section-sounds .spt .ssp__wave { height: 30px; }
+  #shopify-section-sounds .spt .ssp__time { min-width: 2.4em; text-align: right; }
+  #shopify-section-sounds .spt__type { display: none; color: var(--color-text); }
+  #shopify-section-sounds .spt__type svg { width: 18px; height: 18px; display: block; }
+  #shopify-section-sounds .spt__name { grid-area: name; min-width: 0; }
+  #shopify-section-sounds .spt__title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 600; line-height: 1.3; color: var(--color-heading); }
+  #shopify-section-sounds .spt__file { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; line-height: 1.4; color: var(--color-text); }
+  #shopify-section-sounds .spt__meta { grid-area: meta; display: flex; gap: 10px; font-size: 12px; color: var(--color-text); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #shopify-section-sounds .spt__bpm, #shopify-section-sounds .spt__key { min-width: 0; }
+  #shopify-section-sounds .spt__meta .is-empty { display: none; }
+  #shopify-section-sounds .spt__note { margin: 18px 16px 0; font-size: 12px; line-height: 1.5; text-align: center; color: var(--color-text); }
+  #shopify-section-sounds .spt__note p { margin: 0; }
+  #shopify-section-sounds .spt__empty { margin: 0; padding: 24px; font-size: 15px; }
+  @media (min-width: 750px) {
+    #shopify-section-sounds .spt { padding-block: 24px 80px; }
+    #shopify-section-sounds .spt__heading { font-size: 44px; }
+    #shopify-section-sounds .spt__text { font-size: 16px; }
+    #shopify-section-sounds .spt__head { margin-bottom: 40px; }
+    #shopify-section-sounds .spt__panel { padding: 22px 40px 26px; }
+    #shopify-section-sounds .spt__cols, #shopify-section-sounds .spt .ssp { display: grid; grid-template-columns: 28px minmax(140px, 1.15fr) 36px 30px minmax(0, 1.3fr) 76px 60px; grid-template-areas: "btn wave wave type name bpm key"; column-gap: 16px; align-items: center; }
+    #shopify-section-sounds .spt__cols { padding: 6px 10px 14px; margin-bottom: 4px; border-bottom: 1px solid rgba(var(--color-heading-rgb), .08); font-size: 11px; color: var(--color-text); }
+    #shopify-section-sounds .spt__cols span:nth-child(1) { grid-column: 2; }
+    #shopify-section-sounds .spt__cols span:nth-child(2) { grid-column: 4; }
+    #shopify-section-sounds .spt__cols span:nth-child(3) { grid-column: 5; }
+    #shopify-section-sounds .spt__cols span:nth-child(4) { grid-column: 6; }
+    #shopify-section-sounds .spt__cols span:nth-child(5) { grid-column: 7; }
+    #shopify-section-sounds .spt__row { padding: 9px 10px; }
+    #shopify-section-sounds .spt__row + .spt__row { border-top: 0; }
+    #shopify-section-sounds .spt .ssp__row { grid-area: wave; gap: 14px; }
+    #shopify-section-sounds .spt .ssp__wave { height: 28px; }
+    #shopify-section-sounds .spt__type { display: block; grid-area: type; }
+    #shopify-section-sounds .spt__meta { display: contents; }
+    #shopify-section-sounds .spt__bpm { grid-area: bpm; }
+    #shopify-section-sounds .spt__key { grid-area: key; }
+    #shopify-section-sounds .spt__dot { display: none; }
+    #shopify-section-sounds .spt__meta .is-empty { display: block; }
+  }
+  @media (hover: hover) and (pointer: fine) {
+    #shopify-section-sounds .spt__row:hover { background: rgba(var(--color-heading-rgb), .04); }
+    #shopify-section-sounds .spt .ssp__btn:hover { color: var(--spx-accent); }
+  }
