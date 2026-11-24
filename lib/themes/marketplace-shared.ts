@@ -164,6 +164,8 @@ export const CODE_TEMPLATES: readonly CodeTemplate[] = [
   { slug: "notion-sales-page", template: "notionpage", name: "Notion sales page", category: "digital" },
   /* Templates round 24, remade in round 25: Sixth Ward, a streetwear label whose home page opens on a clothing rail (hanging-rail): garments hang side on, turn to the front under the pointer and lift into a focus view with sizes, Add to cart and the pieces they are worn with. Then new arrival rows with arrows and Shop all, editorial banners, a red text band, shop the look, collection rows, a journal and a lookbook page with the rail over a landscape, built from the theme's own sections. */
   { slug: "streetwear-drop", template: "rail", name: "Streetwear drop", category: "fashion" },
+  /* Templates round 25: Margin, a Notion template creator's website by Nora Lind, after the owner's reference: her photo over a large heading, popular templates as cards, a featured template, how buying works, free templates, the creator, a wall of buyer notes, a newsletter, questions, a templates page with Premium, Free, On sale and Bundles, and a product page for every template, built from the theme's own sections around one hero (notionsite-hero). */
+  { slug: "notion-creator", template: "notionsite", name: "Notion creator", category: "digital" },
 ]
 
 /** Where a template's pictures live: its home page whole at 1440 wide, and at a phone's width (scripts/build-theme-template-covers.ts takes both). */
