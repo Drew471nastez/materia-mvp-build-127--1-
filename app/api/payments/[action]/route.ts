@@ -30,6 +30,8 @@
  *   POST hosted-setup    { inApp } Stripe's own setup page for this account, for the
  *                        phone app when the embedded form would ask for a Stripe sign in
  *   POST disconnect      { confirm } lets the Stripe account go
+ *   POST notify-country  { country } a seller whose country is not open yet asks to be told
+ *                        when it is: kept in integration_requests, read in /admin Integrations
  *
  * Errors are one sentence for the creator. Stripe's own codes and messages
  * stay in the server log.
@@ -42,6 +44,7 @@ import { addBank, detailsForm, submitDetails, uploadDocument } from "@/lib/payme
 import { signSheetLink } from "@/lib/payments/stripe/app-sheet-link"
 import { startHostedSetup, startVerification, verificationStatus } from "@/lib/payments/stripe/hosted-verification"
 import { trustedRequestOrigin } from "@/lib/billing/return-url"
+import { askForCountry } from "@/lib/payments/stripe/country-requests"
 import {
   componentAuth,
   describe,
@@ -61,6 +64,11 @@ export const dynamic = "force-dynamic"
 export const maxDuration = 60
 
 const NO_STORE = { "cache-control": "no-store" }
+
+/* Where the request comes from (Vercel's geo header; Cloudflare's when behind it). Only a guess for the country step: never decides anything. */
+function ipCountryOf(request: NextRequest): string | null {
+  return request.headers.get("x-vercel-ip-country") || request.headers.get("cf-ipcountry") || null
+}
 
 /*
   Round 42: the owner, or a team member working in the store whose
@@ -93,7 +101,7 @@ function problem(e: unknown, action: string, creatorId: string): NextResponse {
   return NextResponse.json({ error: "Something went wrong on our side. Nothing was changed. Try again in a minute, and if it keeps happening write to support@storelib.com.", code: "retry" }, { status: 500, headers: NO_STORE })
 }
 
-export async function GET(_request: NextRequest, context: { params: Promise<{ action: string }> }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ action: string }> }) {
   const { action } = await context.params
   if (action !== "overview") return NextResponse.json({ error: "Not found." }, { status: 404 })
   const found = await paymentsCreator("overview", {})
@@ -101,7 +109,7 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ ac
   const creator = found.creator
   try {
     /* Opening Payouts: the webhook keeps the account current, so Stripe is only asked when the copy is old. */
-    return NextResponse.json(await overview(creator, { sync: "stale" }), { headers: NO_STORE })
+    return NextResponse.json(await overview(creator, { sync: "stale", ipCountry: ipCountryOf(request) }), { headers: NO_STORE })
   } catch (e) {
     return problem(e, "overview", creator.id)
   }
@@ -243,7 +251,10 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
       }
       case "refresh": {
         await refreshProviderAccount(creator.id, "creator")
-        return NextResponse.json(await overview(creator), { headers: NO_STORE })
+        return NextResponse.json(await overview(creator, { ipCountry: ipCountryOf(request) }), { headers: NO_STORE })
+      }
+      case "notify-country": {
+        return NextResponse.json(await askForCountry(creator.id, typeof body.country === "string" ? body.country : ""), { headers: NO_STORE })
       }
       default:
         return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })

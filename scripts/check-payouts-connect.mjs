@@ -17,6 +17,11 @@
  *   romania   an account opened before the country step (in Romania, with
  *             nothing sent on it) asks the country first, never starts the
  *             field on Romania, and says a change starts setup again
+ *   groups    round 25: the country the request comes from (x-vercel-ip-country)
+ *             is the first guess; each country group (the region, a country
+ *             sold on its behalf, one that needs Stripe's review, one Stripe
+ *             pays only through Global Payouts) says where the money lands or
+ *             why not, and a closed one offers "Tell me when it opens"
  *   speed     the time from the press to Stripe's first frame, with Stripe
  *             stubbed at fixed delays (start 450ms, a form session 300ms,
  *             connect.js 350ms): the way it now loads, and the old line of
@@ -66,8 +71,9 @@ const SWAPPED = ["components/app/settings/storelib-payments-settings", "componen
 const { execFileSync } = await import("node:child_process")
 const beforeDir = join(stubs, "before")
 mkdirSync(beforeDir, { recursive: true })
-let haveBefore = true
-for (const f of SWAPPED) {
+/* PAYOUTS_NO_BEFORE=1 skips the comparison (no git on the machine, or no history to compare with): the floors below still hold. */
+let haveBefore = process.env.PAYOUTS_NO_BEFORE !== "1"
+for (const f of haveBefore ? SWAPPED : []) {
   try {
     writeFileSync(join(beforeDir, `${f.split("/").pop()}.tsx`), execFileSync("git", ["show", `${process.env.PAYOUTS_BEFORE_REF || "HEAD"}:${f}.tsx`], { cwd: root, encoding: "utf8", maxBuffer: 1 << 26 }))
   } catch {
@@ -147,7 +153,8 @@ const CONNECT_STUB = `(() => {
   }
 })()`
 
-const overview = (s, country) => ({
+const SETTLEMENT = ["AU", "NZ", "JP", "HK", "SG", "AE", "GI"]
+const overview = (s, country, detected = null) => ({
   provider: "stripe",
   environment: "sandbox",
   configured: true,
@@ -172,6 +179,8 @@ const overview = (s, country) => ({
   prefill: { firstName: "Ada", lastName: "Lovelace", country },
   payoutHint: null,
   platformCountry: "RO",
+  detectedCountry: detected,
+  settlementCountries: SETTLEMENT,
 })
 
 const START = {
@@ -185,7 +194,7 @@ const START = {
  * "ok" with a session. `old` serves the page built from HEAD's three setup
  * files (the timing's "before"). `setupCountry` is the account already there.
  */
-async function open(browser, { width, s = "NOT_STARTED", country = "DE", start = "ok", component = "refuse", old = false, setupCountry = null, language = null }) {
+async function open(browser, { width, s = "NOT_STARTED", country = "DE", detected = null, start = "ok", component = "refuse", old = false, setupCountry = null, language = null }) {
   const p = await browser.newPage()
   const errors = []
   const calls = []
@@ -200,7 +209,7 @@ async function open(browser, { width, s = "NOT_STARTED", country = "DE", start =
   })
   await p.setRequestInterception(true)
   const view = (st, c) => {
-    const o = overview(st, c)
+    const o = overview(st, c, detected)
     if (setupCountry) o.setupCountry = setupCountry
     return o
   }
@@ -223,6 +232,7 @@ async function open(browser, { width, s = "NOT_STARTED", country = "DE", start =
         await wait(DELAY.start)
         const answer = START[start]
         const out = answer.body()
+        if (answer.status === 200 && body?.country) out.setupCountry = { country: body.country, changeable: true, chosen: true }
         if (answer.status === 200 && body?.session === true && component === "ok") out.session = { purpose: "stripe_onboarding", clientSecret: "accs_from_start", publishableKey: "pk_test_x", stripeSignIn: false, expiresAt: Math.floor(Date.now() / 1000) + 1800 }
         return json(out, answer.status)
       }
@@ -232,6 +242,7 @@ async function open(browser, { width, s = "NOT_STARTED", country = "DE", start =
         /* The form's session refused, which the form shows in words. */
         return json({ error: "The payments form can't open right now because of a setting on our side. Nothing was changed. Write to support@storelib.com and we will tell you as soon as it works.", code: "platform_setup" }, 502)
       }
+      if (action === "notify-country") return json({ ok: true, already: false })
       return json({})
     }
     if (u.startsWith("http://probe.test/api/client-errors")) return r.respond({ status: 204, body: "" })
@@ -291,13 +302,18 @@ try {
       await p.waitForSelector("[data-setup-country]", { timeout: 8000 })
       await settle()
       const m = await measure(p)
-      const disabled = await p.evaluate(() => [...document.querySelectorAll("[data-setup-country] button[type=submit]")].every((b) => b.disabled))
       expect(m.text.includes("Where is your bank account?") && m.text.includes("Brazil"), "it asks where the bank account is, prefilled from the profile")
-      expect(/can't send payouts from Storelib to a bank in Brazil/.test(m.text) && /choose that country/.test(m.text), "Brazil is said to be closed, with what to do, before Continue")
-      expect(disabled && !calls.some((c) => c.action === "start"), "Continue is off and nothing was sent")
+      expect(/Payouts to banks in Brazil need an approval from Stripe/.test(m.text) && /choose that country/.test(m.text), "Brazil is said to be closed, why, and what to do, before anything is sent")
+      expect(!m.text.includes("Continue") && m.text.includes("Tell me when it opens") && !calls.some((c) => c.action === "start"), "no Continue into a dead end: Tell me when it opens instead, and nothing was opened")
       expect(!/try again/i.test(m.text), "no Try again on a choice")
       expect(m.fits && errors.length === 0, "fits the width, nothing threw", { fits: m.fits, errors })
       await p.screenshot({ path: join(out, `country-closed-${width}.png`) })
+      await press(p, "Tell me when it opens")
+      await p.waitForSelector("[data-country-asked]", { timeout: 8000 })
+      const asked = calls.find((c) => c.action === "notify-country")
+      const after = await measure(p)
+      expect(asked?.body?.country === "BR" && /We'll email you when payouts open in Brazil/.test(after.text) && after.text.includes("We'll let you know"), "Tell me when it opens notes Brazil and says so", asked?.body)
+      await p.screenshot({ path: join(out, `country-asked-${width}.png`) })
       await p.close()
     }
     {
@@ -370,6 +386,43 @@ try {
       await press(p, "Continue")
       await p.waitForSelector("iframe[data-stub-stripe]", { timeout: 8000 })
       expect(!calls.some((c) => c.action === "start"), "  Continue on the same country opens the form without a new account")
+      await p.close()
+    }
+
+    console.log(`\nEach country group, starting on where the request comes from, on ${where}`)
+    for (const g of [
+      { detected: "US", name: "United States", line: /Payouts arrive in .*\(USD\) at a bank in United States\./, open: true },
+      { detected: "GB", name: "United Kingdom", line: /Payouts arrive in .*\(GBP\) at a bank in United Kingdom\./, open: true },
+      { detected: "RO", name: "Romania", line: /Payouts arrive in .*\(RON\) at a bank in Romania\./, open: true },
+      { detected: "FR", name: "France", line: /Payouts arrive in .*\(EUR\) at a bank in France\./, open: true },
+      { detected: "CA", name: "Canada", line: /Payouts arrive in .*\(CAD\) at a bank in Canada\./, open: true },
+      { detected: "AU", name: "Australia", line: /Payouts arrive in .*\(AUD\) at a bank in Australia\. Sales are made in your name/, open: true },
+      { detected: "JP", name: "Japan", line: /Payouts arrive in .*\(JPY\) at a bank in Japan\. Sales are made in your name/, open: true },
+      { detected: "MX", name: "Mexico", line: /need an approval from Stripe/, open: false },
+      { detected: "IN", name: "India", line: /need an approval from Stripe/, open: false },
+      { detected: "CO", name: "Colombia", line: /only through a service Storelib isn't on/, open: false },
+      { detected: "PK", name: "Pakistan", line: /only through a service Storelib isn't on/, open: false },
+    ]) {
+      /* The profile says Germany: the request's country comes first, as the owner asked. */
+      const { p, calls, errors } = await open(browser, { width, country: "DE", detected: g.detected, component: "ok" })
+      await p.waitForSelector("[data-payments-hub]", { timeout: 8000 })
+      await press(p, "Set up payouts")
+      await p.waitForSelector("[data-setup-country]", { timeout: 8000 })
+      await settle(250)
+      const field = await p.evaluate(() => document.querySelector("#payout-country")?.textContent ?? "")
+      const m = await measure(p)
+      expect(field.includes(g.name) && g.line.test(m.text), `${g.detected}: starts on ${g.name} and says ${g.open ? "where the money lands, in what" : "why not, and the way out"}`, { field, line: m.text.split("\n").find((l) => /Payouts|Stripe/.test(l)) })
+      if (["AU", "MX", "CO"].includes(g.detected)) await p.screenshot({ path: join(out, `group-${g.detected.toLowerCase()}-${width}.png`) })
+      if (g.open) {
+        const t0 = await p.evaluate(() => performance.now())
+        await press(p, "Continue")
+        await p.waitForSelector("iframe[data-stub-stripe]", { timeout: 10000 })
+        const ms = await p.evaluate((t) => Math.round(window.__frameAt - t), t0)
+        const start = calls.find((c) => c.action === "start")
+        expect(start?.body?.country === g.detected && ms - DELAY.start < 250 && errors.length === 0, `${g.detected}:   Continue opens the account there; Stripe's first frame in ${ms}ms (floor ${DELAY.start}ms)`, { body: start?.body, ms, errors })
+      } else {
+        expect(m.text.includes("Tell me when it opens") && !m.text.includes("Continue") && errors.length === 0, `${g.detected}:   Tell me when it opens, never a Continue into a refusal`)
+      }
       await p.close()
     }
 

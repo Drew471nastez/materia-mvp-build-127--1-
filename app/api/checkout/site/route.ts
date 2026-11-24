@@ -28,6 +28,7 @@ import { checkoutReadyForCreator } from "@/lib/payments/service"
 import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
 import { accountGoneFromPlatform, releaseConnectedAccount } from "@/lib/payments/stripe/connect"
 import { statementParams } from "@/lib/payments/platform-descriptor"
+import { sellerSettles } from "@/lib/payments/stripe/config"
 import { UnsupportedFeeCurrencyError } from "@/lib/billing/fee-calculator"
 import { calculatePlatformFeeForCheckout } from "@/lib/billing/platform-fee-server"
 import { ORIGIN_METADATA_KEY, SOURCE_METADATA_KEY, cleanHost, cleanOrigin, encodeOrigin, type OrderOrigin } from "@/lib/orders/order-source"
@@ -376,7 +377,7 @@ async function intent(request: Request, admin: Admin, site: SiteOfCheckout, body
 
   const { data: creator } = await admin
     .from("creators")
-    .select("id, display_name, stripe_account_id, charges_enabled, statement_descriptor")
+    .select("id, display_name, stripe_account_id, charges_enabled, statement_descriptor, stripe_account_country")
     .eq("id", site.creatorId)
     .maybeSingle()
   const account = String((creator as { stripe_account_id?: string | null } | null)?.stripe_account_id ?? "")
@@ -511,6 +512,7 @@ async function intent(request: Request, admin: Admin, site: SiteOfCheckout, body
       account,
       descriptor: (await sellerStatementName(admin, (creator as { id: string }).id)) || (creator as { statement_descriptor?: string | null }).statement_descriptor || (creator as { display_name?: string | null }).display_name || "",
       chargesEnabled: (creator as { charges_enabled?: boolean | null }).charges_enabled ?? null,
+      settles: sellerSettles((creator as { stripe_account_country?: string | null }).stripe_account_country),
     }),
   }
   try {

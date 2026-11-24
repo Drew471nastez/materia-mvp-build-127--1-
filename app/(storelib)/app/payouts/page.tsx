@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { headers } from "next/headers";
 import { dataOrThrow } from "@/lib/net/service-error"
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -171,7 +172,10 @@ function PayoutsWaiting({ label }: { label: string }) {
   once; the browser then asks Stripe for anything newer.
 */
 async function SetupCard({ creatorId, userId }: { creatorId: string; userId: string }) {
-  const initial = await overview({ id: creatorId, userId, email: null }, { sync: false }).catch((error: unknown) => {
+  /* Where the seller is browsing from: the country step's first guess (round 25). */
+  const h = await headers();
+  const ipCountry = h.get("x-vercel-ip-country") || h.get("cf-ipcountry") || null;
+  const initial = await overview({ id: creatorId, userId, email: null }, { sync: false, ipCountry }).catch((error: unknown) => {
     console.error("[Payouts] setup card not read on the server:", error instanceof Error ? error.message.slice(0, 160) : "unknown");
     return null;
   });

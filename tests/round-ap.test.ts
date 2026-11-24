@@ -79,7 +79,7 @@ async function main() {
   check("at home: a full account first, then transfers only", !!accountAttempts(shared, "domestic")[0]?.capabilities?.card_payments && !accountAttempts(shared, "domestic")[1]?.capabilities?.card_payments)
   check("an unsupported country gets no attempt at all", all("unsupported").length === 0)
   const connect = read("lib/payments/stripe/connect.ts")
-  check("onboarding refuses an unsupported country before calling Stripe, in plain words", /route === "unsupported"[\s\S]{0,240}throw new PaymentsProblem\(unsupportedCountryMessage\(country\), 400, "country_unsupported"\)/.test(connect))
+  check("onboarding refuses an unsupported country before calling Stripe, in plain words", /route === "unsupported"[\s\S]{0,240}throw new PaymentsProblem\(unsupportedCountryMessage\(country, platform\), 400, "country_unsupported"\)/.test(connect))
   check("  and builds its tries from the shared list", /accountAttempts\(shared, route, options\)/.test(connect) && !/service_agreement: "recipient"/.test(connect))
   check("an untouched account on the recipient agreement is swapped, like an unfinished Express one", /const recipient = existing\.tos_acceptance\?\.service_agreement === "recipient"/.test(connect) && /if \(!wrongCountry && \(\(runsInStorelib\(existing\) && !recipient\) \|\| !untouched\)\) return accountId/.test(connect))
   check("  an account with anything submitted is never swapped (money and identity stay)", /\|\| !untouched\)\) return accountId/.test(connect) && /wrongCountry = untouched && /.test(connect))

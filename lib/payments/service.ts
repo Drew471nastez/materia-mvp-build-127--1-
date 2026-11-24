@@ -85,7 +85,7 @@ export async function hadAirwallexAccount(creatorId: string): Promise<boolean> {
 export { payoutStatusOf, type PayoutStatus } from "./model"
 
 /** `sync: "stale"` (opening Payouts) asks Stripe only when the cached state is old; writes always read it fresh. */
-export async function overview(creator: CreatorRef, options?: { sync?: boolean | "stale" }): Promise<HubOverview> {
+export async function overview(creator: CreatorRef, options?: { sync?: boolean | "stale"; ipCountry?: string | null }): Promise<HubOverview> {
   /* Asked beside the overview, not after it: one round less on every open. */
   const [view, airwallex] = await Promise.all([stripeOverview(creator, options), hadAirwallexAccount(creator.id)])
   /* Only while Stripe cannot take money yet: once it can, the note has done its job. */

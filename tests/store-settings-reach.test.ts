@@ -47,7 +47,7 @@ console.log("\nCheckout\n")
   const panel = read("components/app/settings/checkout-panel.tsx")
   check("a change still waiting when the section closes is sent, not dropped", /if \(Object\.keys\(body\)\.length\) void api\("\/api\/store\/settings", \{ method: "PUT", body: \{ checkout: body \} \}\)/.test(panel))
   const phys = read("lib/physical/checkout-server.ts")
-  check("the cart checkout puts Settings › Payments' statement name on the charge", /\.\.\.statementParams\(\{\s*account: String\(creator\.stripe_account_id\)/.test(phys) && /charges_enabled, payouts_enabled, statement_descriptor"\)/.test(phys))
+  check("the cart checkout puts Settings › Payments' statement name on the charge", /\.\.\.statementParams\(\{\s*account: String\(creator\.stripe_account_id\)/.test(phys) && /charges_enabled, payouts_enabled, statement_descriptor(, stripe_account_country)?"\)/.test(phys))
   check("  and a refused statement sells on Storelib's line, under a key of its own", /delete params\.payment_intent_data\.statement_descriptor_suffix/.test(phys) && /idempotencyKey: `physical-checkout:\$\{checkoutId\}:plain`/.test(phys))
 }
 

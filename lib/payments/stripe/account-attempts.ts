@@ -23,6 +23,12 @@ import type { PayoutRoute } from "./payout-regions"
  * it unset; docs/stripe-connect-checklist.md). Transfers only stays first, so
  * once Stripe approves it every new cross-border account is that shape again.
  * An unsupported country gets no attempt at all.
+ *
+ * SETTLEMENT (round 25): a creator outside the region in a country the owner
+ * opened (Australia, Japan...). Every sale is made on_behalf_of their account,
+ * which Stripe allows only for an account that can take cards, so cards and
+ * transfers on the full agreement are the only shape: transfers only could
+ * never receive a sale there.
  */
 export function accountAttempts(
   shared: Stripe.AccountCreateParams,
@@ -31,6 +37,7 @@ export function accountAttempts(
 ): Stripe.AccountCreateParams[] {
   if (route === "unsupported") return []
   const crossBorder = route === "cross-border"
+  const settles = route === "settlement"
   const full: Stripe.AccountCreateParams.Capabilities = {
     card_payments: { requested: true },
     transfers: { requested: true },
@@ -60,6 +67,10 @@ export function accountAttempts(
      it, and refuses it within one country anyway. Cross-border tries
      transfers only on the full agreement first, then the full account with
      cards (see above). Same country tries a full account, then transfers only. */
+  if (settles) {
+    const storelib = [{ ...merchant, controller: inStorelib }]
+    return options.storelibOnly ? storelib : [...storelib, { ...merchant, controller: acknowledged }, { ...merchant, type: "express" }]
+  }
   const storelibAttempts: Stripe.AccountCreateParams[] = crossBorder
     ? [
         { ...paidOut, controller: inStorelib },

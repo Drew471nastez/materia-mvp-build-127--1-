@@ -212,7 +212,8 @@ async function main() {
   const { paymentsSetupError } = await import("../lib/payments/stripe/setup-errors")
   const { readsLikeStripe } = await import("../lib/payments/verify-id")
   const { accountAttempts } = await import("../lib/payments/stripe/account-attempts")
-  const { cannotPayOutLine, payoutRoute } = await import("../lib/payments/stripe/payout-regions")
+  const regions = await import("../lib/payments/stripe/payout-regions")
+  const { cannotPayOutLine, payoutRoute } = regions
   const { stripeAccountSession, stripeStartOnboarding } = await import("../lib/payments/stripe/overview")
   const { prepareStorelibAccount } = await import("../lib/payments/stripe/verification")
   const { COUNTRY_CHOSEN_KEY, countryNeedsChoice, setupCountryOf } = await import("../lib/payments/stripe/account-country")
@@ -237,6 +238,10 @@ async function main() {
     }
   }
   const row = (id: string) => db.creators.find((r) => r.id === id)!
+  const unsupportedLine = (c: string) => {
+    const { cannotPayOutLine: line, payoutPlan: plan } = regions
+    return line(c, plan("RO", c, []).blocker ?? "no_stripe")
+  }
 
   try {
     section("1. The country matrix, from a Romanian platform, before Stripe approves transfers-only accounts")
@@ -254,7 +259,7 @@ async function main() {
     for (const c of OUTSIDE) {
       const r = await start(c)
       check(`${c}: no account is opened, and Stripe is not asked to`, !r.account && r.creates.length === 0)
-      check(`${c}:   the seller is told why and what to do, by the country's name`, r.error?.code === "country_unsupported" && /can't send payouts from Storelib to a bank in/.test(r.error.message) && /choose that country/.test(r.error.message) && /support@storelib\.com/.test(r.error.message) && !/\b[A-Z]{2}\b yet/.test(r.error.message), r.error)
+      check(`${c}:   the seller is told why and what to do, by the country's name`, r.error?.code === "country_unsupported" && /(can't send payouts from Storelib to a bank in|aren't open on Storelib yet|need an approval from Stripe)/.test(r.error.message) && /choose that country/.test(r.error.message) && /ask to be told when/.test(r.error.message) && /support@storelib\.com/.test(r.error.message) && !/\b[A-Z]{2}\b yet/.test(r.error.message), r.error)
       check(`${c}:   never "try again"`, !/try again/i.test(r.error?.message ?? ""))
     }
     const de = calls.filter((c) => c.method === "POST" && c.path === "accounts" && c.body.get("country") === "DE")
@@ -376,7 +381,7 @@ async function main() {
       check("  and a frame that will not load says why, and is reported to the server log", /loadErrorLine\(error\?\.type/.test(embed) && /\/api\/client-errors/.test(embed))
       const flow = read("components/app/settings/payments-setup-flow.tsx")
       check("setup asks the country before opening anything, on the web and in the apps", /function CountryStep/.test(flow) && (flow.match(/<CountryStep /g) ?? []).length === 2 && !/country: current\.prefill\?\.country \|\| current\.payoutHint\?\.country/.test(flow) && !/country: data\.prefill\?\.country \|\| data\.payoutHint\?\.country/.test(flow))
-      check("  a country Stripe cannot pay out to is said before Continue", /payoutRoute\(platform, code\) === "unsupported"/.test(flow) && /disabled=\{blocked\}/.test(flow))
+      check("  a country Stripe cannot pay out to is said before Continue, with a way out instead of Continue", /payoutPlan\(platform, code, data\.settlementCountries \?\? \[\]\)/.test(flow) && /plan\.route === "unsupported"/.test(flow) && /Tell me when it opens/.test(flow) && /post\("notify-country"/.test(flow))
       check("  Try again is offered only where trying again can work", /const retry = code === "retry" \|\| code === null/.test(flow))
       check("  an account with something sent on it resumes on Stripe's form; only one nothing was sent on asks the country again", /const asks = React\.useRef\(!bankOnly && \(!hasAccount \|\| sc\?\.changeable === true\)\)/.test(flow) && /if \(asks\.current && !country\)/.test(flow))
       const route = read("app/api/payments/[action]/route.ts")
@@ -522,6 +527,110 @@ async function main() {
       check("a skeleton of the form shows while it loads, never a lone spinner", /<StripeFormSkeleton \/>/.test(embed) && !/WaitingArea/.test(embed))
       const settingsSrc = read("components/app/settings/storelib-payments-settings.tsx")
       check("Set up payouts warms Stripe on hover, focus and press", /onPointerEnter: intent, onFocus: intent, onPointerDown: intent/.test(settingsSrc) && (settingsSrc.match(/\{\.\.\.intentProps\}/g) ?? []).length === 2)
+    }
+
+    section("11. Every country group, from a Romanian platform with the settlement countries opened (round 25)")
+    {
+      const { payoutPlan, payoutPlanLine, settlementCountriesFrom, SETTLEMENT_COUNTRIES } = await import("../lib/payments/stripe/payout-regions")
+      const { statementParams } = await import("../lib/payments/platform-descriptor")
+      const { sellerSettles, settlementCountries } = await import("../lib/payments/stripe/config")
+      const { canAcceptPayments } = await import("../lib/payments/stripe/readiness")
+      const { stripeOverview } = await import("../lib/payments/stripe/overview")
+      const { askForCountry } = await import("../lib/payments/stripe/country-requests")
+
+      check("unset, no country outside the region is open (the owner opens them after the Dashboard)", settlementCountries().length === 0 && payoutPlan("RO", "AU", settlementCountries()).route === "unsupported")
+      process.env.STRIPE_SETTLEMENT_COUNTRIES = SETTLEMENT_COUNTRIES.join(",")
+      check("the env is read as codes, anything that is not a Stripe country dropped", JSON.stringify(settlementCountriesFrom("au, jp;XX,PK , nz")) === JSON.stringify(["AU", "JP", "NZ"]))
+
+      /* The groups the owner named: the region, the settlement countries, ones that need Stripe's review, ones Stripe pays only through Global Payouts, and ones with no Stripe at all. */
+      const groups: Array<{ c: string; route: string; currency: string | null; blocker: string | null; behalf: boolean }> = [
+        { c: "US", route: "cross-border", currency: "USD", blocker: null, behalf: false },
+        { c: "GB", route: "cross-border", currency: "GBP", blocker: null, behalf: false },
+        { c: "RO", route: "domestic", currency: "RON", blocker: null, behalf: false },
+        { c: "DE", route: "cross-border", currency: "EUR", blocker: null, behalf: false },
+        { c: "FR", route: "cross-border", currency: "EUR", blocker: null, behalf: false },
+        { c: "BG", route: "cross-border", currency: "EUR", blocker: null, behalf: false },
+        { c: "CA", route: "cross-border", currency: "CAD", blocker: null, behalf: false },
+        { c: "AU", route: "settlement", currency: "AUD", blocker: null, behalf: true },
+        { c: "JP", route: "settlement", currency: "JPY", blocker: null, behalf: true },
+        { c: "SG", route: "settlement", currency: "SGD", blocker: null, behalf: true },
+        { c: "BR", route: "unsupported", currency: "BRL", blocker: "needs_stripe_review", behalf: false },
+        { c: "MX", route: "unsupported", currency: "MXN", blocker: "needs_stripe_review", behalf: false },
+        { c: "IN", route: "unsupported", currency: "INR", blocker: "needs_stripe_review", behalf: false },
+        { c: "AR", route: "unsupported", currency: null, blocker: "global_payouts_only", behalf: false },
+        { c: "PH", route: "unsupported", currency: null, blocker: "global_payouts_only", behalf: false },
+        { c: "AF", route: "unsupported", currency: null, blocker: "no_stripe", behalf: false },
+      ]
+      for (const g of groups) {
+        const plan = payoutPlan("RO", g.c, settlementCountries())
+        check(`${g.c}: ${g.route}${g.blocker ? ` (${g.blocker})` : ""}, payouts in ${g.currency ?? "nothing"}${g.behalf ? ", sold on its behalf" : ""}`, plan.route === g.route && plan.currency === g.currency && plan.blocker === g.blocker && plan.onBehalfOf === g.behalf && (plan.route === "unsupported" ? plan.agreement === null : plan.agreement === "full"), plan)
+        const r = await start(g.c)
+        if (g.route === "unsupported") {
+          check(`${g.c}:   no account, Stripe not asked, and the reason for that country in words`, !r.account && r.creates.length === 0 && r.error?.code === "country_unsupported" && /choose that country/.test(r.error.message) && /ask to be told when/.test(r.error.message) && !/try again/i.test(r.error.message), r.error)
+        } else {
+          const acct = r.account ? accounts[r.account] : null
+          check(`${g.c}:   an account opens in ${g.c}, on the full agreement, inside Storelib`, !!acct && acct.country === g.c && r.creates.every((x) => !x.body.has("tos_acceptance[service_agreement]")) && (acct.controller as { requirement_collection?: string }).requirement_collection === "application", r.error)
+          if (g.route === "settlement") check(`${g.c}:   cards and transfers in one call, never transfers only (a sale on its behalf needs cards)`, r.creates.length === 1 && r.creates[0].body.get("capabilities[card_payments][requested]") === "true" && r.creates[0].body.get("capabilities[transfers][requested]") === "true", r.creates.map((x) => x.body.toString()))
+          check(`${g.c}:   the country step's line says the currency`, (payoutPlanLine(plan, g.c) ?? "").includes(`in ${g.currency} at a bank`))
+        }
+      }
+      check("the review, Global Payouts and no-Stripe sentences are each different and name the country", new Set(["BR", "AR", "AF"].map((c) => unsupportedLine(c))).size === 3)
+
+      {
+        const { countryIsUnsupported } = await import("../lib/payments/stripe/setup-errors")
+        const said = ["Connected accounts in AU cannot be created by platforms in RO.", "Platforms in RO cannot create accounts in BR.", "The country AU is not enabled for your platform.", "Enable the country in your Connect settings: https://dashboard.stripe.com/settings/connect/onboarding-options/countries"]
+        check("Stripe's ways of saying a country is not open to this platform are read as the country, not 'try again'", said.every((m) => countryIsUnsupported(m)) && !countryIsUnsupported("You cannot request the card_payments capability for accounts in country AU."))
+      }
+      section("12. A settlement country listed before Stripe turned it on")
+      world.closed.add("NZ")
+      {
+        const r = await start("NZ")
+        check("the seller reads that it is not open yet, with the same way out, not a generic error", r.error?.code === "country_unsupported" && /aren't open on Storelib yet/.test(r.error.message) && /ask to be told when New Zealand opens/.test(r.error.message), r.error)
+        check("  and the owner reads exactly what to turn on, in one log line", logged.some((l) => /"evt":"stripe_settlement_country_not_enabled"/.test(l) && /Onboarding options, Countries/.test(l)))
+      }
+      world.closed.clear()
+
+      section("13. Checkout and readiness for a seller sold on their behalf")
+      check("an Australian account: every sale is on_behalf_of it, even with the statement switch off", JSON.stringify(statementParams({ account: "acct_au", descriptor: "Ada", chargesEnabled: true, settles: sellerSettles("AU") })) === JSON.stringify({ on_behalf_of: "acct_au" }))
+      check("a German account: no on_behalf_of (cross-border payouts need none), the suffix as before", !("on_behalf_of" in statementParams({ account: "acct_de", descriptor: "Ada Store", chargesEnabled: true, settles: sellerSettles("DE") })))
+      const facts = { accountId: "acct_au", detailsSubmitted: true, chargesEnabled: false, payoutsEnabled: true, transfersStatus: "active", pastDue: [], disabledReason: null }
+      check("an account sold on its behalf is not ready until it can take cards itself", !canAcceptPayments({ ...facts, needsCharges: true }) && canAcceptPayments({ ...facts, needsCharges: true, chargesEnabled: true }) && canAcceptPayments(facts))
+      for (const f of ["app/api/checkout/cart/route.ts", "app/api/checkout/site/route.ts", "app/api/checkout/stripe-session/route.ts", "lib/physical/checkout-server.ts"]) {
+        const src = read(f)
+        check(`  ${f} reads the account's country and passes settles`, /stripe_account_country/.test(src) && /settles: sellerSettles\(/.test(src))
+      }
+
+      section("14. The country step starts on where the seller is")
+      {
+        const who = seller()
+        const view = await stripeOverview(who, { sync: false, ipCountry: "JP" })
+        check("the overview carries Vercel's country and the opened list", view.detectedCountry === "JP" && JSON.stringify(view.settlementCountries) === JSON.stringify(SETTLEMENT_COUNTRIES))
+        const odd = await stripeOverview(who, { sync: false, ipCountry: "XX" })
+        check("  an unknown header (XX, T1) is no guess", odd.detectedCountry === null)
+        const flow = read("components/app/settings/payments-setup-flow.tsx")
+        check("  the field starts on the request's country, then the profile, then the browser", /data\.detectedCountry \|\| data\.prefill\?\.country \|\| browserCountry\(\)/.test(flow))
+        check("  a refused country comes back in the field, not a fresh guess", (flow.match(/initial=\{lastChoice\}/g) ?? []).length === 2)
+        const page = read("app/(storelib)/app/payouts/page.tsx")
+        const routeSrc = read("app/api/payments/[action]/route.ts")
+        check("  the page and the API both pass x-vercel-ip-country", /x-vercel-ip-country/.test(page) && /ipCountry: ipCountryOf\(request\)/.test(routeSrc))
+      }
+
+      section("15. Tell me when it opens")
+      {
+        const who = seller()
+        const first = await askForCountry(who.id, "BR")
+        const again = await askForCountry(who.id, "Brazil")
+        const rows = (db.integration_requests ?? []).filter((r) => r.creator_id === who.id)
+        check("a seller in Brazil is noted once, in the queue /admin already reads", first.already === false && again.already === true && rows.length === 1 && rows[0].name === "Payouts in Brazil" && rows[0].note === "payouts_country:BR", rows)
+        let code: string | null = null
+        try {
+          await askForCountry(who.id, "nowhere")
+        } catch (e) {
+          code = (e as InstanceType<typeof PaymentsProblem>).code
+        }
+        check("  a country that is not one is refused before the database", code === "country_required")
+      }
+      delete process.env.STRIPE_SETTLEMENT_COUNTRIES
     }
   } finally {
     console.error = realError

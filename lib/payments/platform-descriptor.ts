@@ -76,7 +76,14 @@ export function statementParams(seller: {
   account: string
   descriptor: string | null | undefined
   chargesEnabled: boolean | null | undefined
+  /**
+   * The seller's account is outside Stripe's cross-border region (round 25,
+   * lib/payments/stripe/payout-regions settlement): Stripe moves the money
+   * there only when the sale is made on its behalf, so it always is.
+   */
+  settles?: boolean
 }): { on_behalf_of?: string; statement_descriptor_suffix?: string } {
+  if (seller.settles && seller.account.startsWith("acct_")) return { on_behalf_of: seller.account }
   if (SELLER_ONLY_STATEMENT && seller.chargesEnabled && seller.account.startsWith("acct_")) {
     return { on_behalf_of: seller.account }
   }

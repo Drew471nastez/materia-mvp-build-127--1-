@@ -7,6 +7,8 @@
 /** Stripe will not open an account in this country at all. A refused card_payments or recipient agreement is a different account shape, not this. */
 export function countryIsUnsupported(message: string): boolean {
   if (/recipient|card_payments|capability/i.test(message)) return false
+  /* Round 25: the ways Stripe says a platform abroad may not open an account in that country, or that the country is not turned on in Connect. */
+  if (/cannot be created by platforms|platforms? (located |based )?in \w+ (cannot|can't|are not able to) (create|open)|not (yet )?enabled for (your|this) platform|enable .{0,40}countr(y|ies) .{0,60}connect/i.test(message)) return true
   return /\bcountry\b.*\b(not supported|is invalid|unknown)\b|\b(not|isn't|is not) supported\b.*\bcountry\b/i.test(message)
 }
 

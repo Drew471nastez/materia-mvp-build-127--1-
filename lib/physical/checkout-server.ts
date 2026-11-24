@@ -68,6 +68,7 @@ import { queueShipStation } from "@/lib/integrations/shipping/shipstation-server
 import type { Address, PricedLine } from "./types"
 import { checkoutReadyForCreator } from "@/lib/payments/service"
 import { statementParams } from "@/lib/payments/platform-descriptor"
+import { sellerSettles } from "@/lib/payments/stripe/config"
 import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
 import { recordCheckoutStart } from "@/lib/automations/abandoned"
 import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
@@ -379,7 +380,7 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
 
   const { data: creator } = await db
     .from("creators")
-    .select("id, user_id, display_name, stripe_account_id, stripe_onboarding_status, charges_enabled, payouts_enabled, statement_descriptor")
+    .select("id, user_id, display_name, stripe_account_id, stripe_onboarding_status, charges_enabled, payouts_enabled, statement_descriptor, stripe_account_country")
     .eq("id", priced.creatorId)
     .maybeSingle()
   if (!creator) return { ok: false, status: 404, error: "Shop not found." }
@@ -707,6 +708,7 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
         account: String(creator.stripe_account_id),
         descriptor: (await sellerStatementName(db, creator.id as string)) || (creator as { statement_descriptor?: string | null }).statement_descriptor || (creator.display_name as string | null) || "",
         chargesEnabled: creator.charges_enabled as boolean | null,
+        settles: sellerSettles(creator.stripe_account_country as string | null | undefined),
       }),
       metadata: { physical_checkout_id: checkoutId, creator_id: priced.creatorId },
       ...(address
@@ -823,6 +825,7 @@ async function startPhysicalIntent(
       account,
       descriptor: (c.creator.statement_descriptor as string | null) || (c.creator.display_name as string | null) || "",
       chargesEnabled: c.creator.charges_enabled as boolean | null,
+      settles: sellerSettles(c.creator.stripe_account_country as string | null | undefined),
     }),
     metadata: {
       physical_checkout_id: c.checkoutId,

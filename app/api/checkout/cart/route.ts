@@ -1,4 +1,5 @@
 import { statementParams } from "@/lib/payments/platform-descriptor"
+import { sellerSettles } from "@/lib/payments/stripe/config"
 import { sellerStatementName } from "@/lib/payments/statement-name-server"
 import { formatStoreMoney } from "@/lib/store/currency"
 import { minimumChargeMinor } from "@/lib/store/selling-currency"
@@ -204,7 +205,7 @@ async function handlePOST(request: Request) {
   const [{ data: creator }, storeName] = await Promise.all([
     admin
       .from("creators")
-      .select("id, user_id, display_name, stripe_account_id, stripe_onboarding_status, charges_enabled, payouts_enabled, statement_descriptor")
+      .select("id, user_id, display_name, stripe_account_id, stripe_onboarding_status, charges_enabled, payouts_enabled, statement_descriptor, stripe_account_country")
       .eq("id", creatorId)
       .single(),
     ui === "embedded" ? loadStoreName(admin, creatorId) : Promise.resolve(null),
@@ -467,6 +468,7 @@ async function handlePOST(request: Request) {
           account: String(creator.stripe_account_id),
           descriptor: (await sellerStatementName(admin, creator.id)) || (creator as { statement_descriptor?: string | null }).statement_descriptor || creator.display_name || "",
           chargesEnabled: creator.charges_enabled,
+          settles: sellerSettles((creator as { stripe_account_country?: string | null }).stripe_account_country),
         }),
       },
       /* Fulfilment happens on the platform, whichever host the shop is on:

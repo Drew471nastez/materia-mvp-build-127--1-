@@ -39,6 +39,13 @@ export interface SellerAccountFacts {
   transfersStatus: string | null
   pastDue: string[]
   disabledReason: string | null
+  /**
+   * Sales for this seller are made on_behalf_of their account (a country
+   * outside Stripe's cross-border region, lib/payments/stripe/payout-regions
+   * settlement): the account must take cards itself, so charges_enabled
+   * counts too. Absent or false everywhere else.
+   */
+  needsCharges?: boolean
 }
 
 /** Stripe switched the account off for good, or paused the whole platform's access to it. */
@@ -58,6 +65,7 @@ export function canAcceptPayments(f: SellerAccountFacts): boolean {
   if (!f.accountId?.startsWith("acct_")) return false
   if (!f.detailsSubmitted || !f.payoutsEnabled) return false
   if (!canReceiveTransfers(f)) return false
+  if (f.needsCharges && !f.chargesEnabled) return false
   if (f.pastDue.length > 0) return false
   if (accountTurnedOff(f.disabledReason)) return false
   return true

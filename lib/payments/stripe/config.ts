@@ -1,4 +1,5 @@
 import "server-only"
+import { CROSS_BORDER_REGION, settlementCountriesFrom, settlesInSellerCountry } from "./payout-regions"
 
 /**
  * Storelib Payments → Stripe Connect (Express, platform-created accounts).
@@ -36,3 +37,28 @@ export function stripeConfigured(): boolean {
 
 /** Capabilities Storelib actually uses (marketplace card checkout + transfers). */
 export const STRIPE_REQUESTED_CAPABILITIES = ["card_payments", "transfers"] as const
+
+/**
+ * The countries outside Stripe's cross-border region the owner has opened
+ * (lib/payments/stripe/payout-regions, the settlement path): turned on in the
+ * Stripe Dashboard first, then listed here, e.g. "AU,NZ,JP,HK,SG,AE".
+ * Unset, none are open and setup says so before anything is opened.
+ */
+export function settlementCountries(): string[] {
+  return settlementCountriesFrom(process.env.STRIPE_SETTLEMENT_COUNTRIES)
+}
+
+/**
+ * A sale for a seller whose account is in this country must be made
+ * on_behalf_of it (the settlement path). For checkout, without a Stripe call:
+ * the platform's country from STRIPE_PLATFORM_COUNTRY, and when that is
+ * unset, any opened country outside the cross-border region.
+ */
+export function sellerSettles(accountCountry: string | null | undefined): boolean {
+  const opened = settlementCountries()
+  if (!opened.length || !accountCountry) return false
+  const platform = (process.env.STRIPE_PLATFORM_COUNTRY ?? "").trim().toUpperCase()
+  if (/^[A-Z]{2}$/.test(platform)) return settlesInSellerCountry(platform, accountCountry, opened)
+  const c = accountCountry.trim().toUpperCase()
+  return opened.includes(c) && !CROSS_BORDER_REGION.has(c)
+}

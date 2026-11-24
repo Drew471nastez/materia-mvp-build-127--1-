@@ -61,7 +61,9 @@ export function connectVerdict(a, platformCountry) {
   const agreement = a.tos_acceptance?.service_agreement ?? "full"
   const country = String(a.country ?? "").toUpperCase()
   const crossBorder = !!platformCountry && !!country && country !== platformCountry
-  const outsideRegion = crossBorder && !(CROSS_BORDER_REGION.has(platformCountry) && CROSS_BORDER_REGION.has(country))
+  /* Round 25: a country the owner opened outside the region (STRIPE_SETTLEMENT_COUNTRIES) is paid through sales made on its behalf, not cross-border payouts. */
+  const settled = String(process.env.STRIPE_SETTLEMENT_COUNTRIES ?? "").toUpperCase().split(/[^A-Z]+/).includes(country)
+  const outsideRegion = crossBorder && !settled && !(CROSS_BORDER_REGION.has(platformCountry) && CROSS_BORDER_REGION.has(country))
   const transfers = a.capabilities?.transfers ?? "inactive"
   const due = [...(a.requirements?.currently_due ?? []), ...(a.requirements?.past_due ?? [])]
   const reasons = []
@@ -76,7 +78,8 @@ export function connectVerdict(a, platformCountry) {
   }
   /* Cross-border payouts work only for destination charges WITHOUT on_behalf_of.
      The seller-statement switch (NEXT_PUBLIC_SELLER_STATEMENT_NAME) charges on_behalf_of an account that can take cards. */
-  if (crossBorder && a.capabilities?.card_payments === "active") reasons.push("cross-border account can take cards: keep NEXT_PUBLIC_SELLER_STATEMENT_NAME off, or its sales go on_behalf_of it")
+  if (settled && crossBorder && a.capabilities?.card_payments !== "active") reasons.push("sold on its behalf: card_payments must be active before it can take orders")
+  if (crossBorder && !settled && a.capabilities?.card_payments === "active") reasons.push("cross-border account can take cards: keep NEXT_PUBLIC_SELLER_STATEMENT_NAME off, or its sales go on_behalf_of it")
   if (!a.payouts_enabled) reasons.push("payouts are not enabled")
   if (transfers !== "active") reasons.push(`transfers capability is ${transfers}`)
   if (due.length) reasons.push(`${due.length} requirement(s) due`)

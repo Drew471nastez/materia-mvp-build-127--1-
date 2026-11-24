@@ -3,7 +3,7 @@ import "server-only"
 import { forgetPaymentsReadiness } from "./readiness-cache"
 import { payoutStatusOf, type PayoutStatus } from "../model"
 import type { CreatorRef, HubOverview } from "../hub-types"
-import { stripeConfigured, stripeConnectEnv, stripePublishableKey } from "./config"
+import { settlementCountries, stripeConfigured, stripeConnectEnv, stripePublishableKey } from "./config"
 import {
   createStripeAccountSession,
   ensureStripeAccount,
@@ -51,7 +51,7 @@ function mergeSnapshotFromRow(
  */
 const FRESH_FOR_MS = 60_000
 
-export async function stripeOverview(creator: CreatorRef, options?: { sync?: boolean | "stale" }): Promise<HubOverview> {
+export async function stripeOverview(creator: CreatorRef, options?: { sync?: boolean | "stale"; ipCountry?: string | null }): Promise<HubOverview> {
   const configured = stripeConfigured()
   const publishableKey = stripePublishableKey()
   /* The creator row and the owner's profile in one round, not one after the other. */
@@ -209,6 +209,9 @@ export async function stripeOverview(creator: CreatorRef, options?: { sync?: boo
     payoutHint: facts,
     setupCountry,
     platformCountry: platform,
+    /* Round 25: where the seller is browsing from (Vercel's x-vercel-ip-country), and the countries outside the region the owner opened. */
+    detectedCountry: countryCode(options?.ipCountry ?? null),
+    settlementCountries: settlementCountries(),
     paymentsStatus,
     stripeUnreachable: unreachable,
     beat,

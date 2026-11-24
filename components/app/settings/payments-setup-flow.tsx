@@ -39,7 +39,7 @@ import { PhoneField } from "@/components/app/settings/phone-field"
 import { useLightChrome } from "@/lib/ui/light-chrome"
 import { countryLabel, countryOf } from "@/lib/account/country"
 import { personalIssues } from "@/lib/payments/stripe/onboarding-steps"
-import { cannotPayOutLine, payoutRoute } from "@/lib/payments/stripe/payout-regions"
+import { cannotPayOutLine, payoutPlan, payoutPlanLine, type PayoutPlan } from "@/lib/payments/stripe/payout-regions"
 import { setupStepOf, type StorelibPaymentsStatus } from "@/lib/payments/stripe/status"
 import type { Overview } from "@/components/app/settings/payments-hub-shared"
 import { isNativeApp, openInApp } from "@/lib/native-bridge"
@@ -988,12 +988,15 @@ function AppBrowserSetup({
   /* No account yet, or one nothing was sent on: the country is asked here first, in the app, like on the web (CountryStep). */
   const needsCountry = mode !== "bank" && ((data.beat ?? "personal") === "personal" || data.setupCountry?.changeable === true)
   const [country, setCountry] = React.useState<string | null>(null)
-  const [countryProblem, setCountryProblem] = React.useState<string | null>(null)
+  /* The last country Continue was pressed on: the field comes back on it, not on a guess, when the server refuses it. */
+  const [lastChoice, setLastChoice] = React.useState<string | null>(null)
+  const [countryProblem, setCountryProblem] = React.useState<CountryProblem | null>(null)
   const latest = React.useRef({ data, onData, onClose, onFinished })
   latest.current = { data, onData, onClose, onFinished }
   React.useEffect(() => {
     if (open) return
     setCountry(null)
+    setLastChoice(null)
     setCountryProblem(null)
   }, [open])
   const asking = open && needsCountry && !country
@@ -1061,7 +1064,7 @@ function AppBrowserSetup({
         const message = safe(err instanceof Error ? err.message : tt("We could not start setup just now."))
         const code = codeOf(err)
         if (code === "country_unsupported" || code === "country_required") {
-          setCountryProblem(message)
+          setCountryProblem({ message, code })
           setCountry(null)
           return
         }
@@ -1081,7 +1084,7 @@ function AppBrowserSetup({
     <>
       <BottomSheet isOpen={asking} onClose={onClose} label={tt("Set up payouts")} hideFrom={null} zIndex={PANEL_Z} header={<SheetBar title={tt("Set up payouts")} onClose={onClose} />}>
         <div className="flex flex-col pt-2">
-          <CountryStep data={data} problem={countryProblem} onCancel={onClose} onChoose={(code) => { setCountryProblem(null); setCountry(code) }} />
+          <CountryStep data={data} initial={lastChoice} problem={countryProblem} onCancel={onClose} onChoose={(code) => { setCountryProblem(null); setLastChoice(code); setCountry(code) }} />
         </div>
       </BottomSheet>
       {open && !asking && !error && !launched ? (
@@ -1160,60 +1163,124 @@ function browserCountry(): string | null {
  * WHICH COUNTRY THE FIELD STARTS ON. An account the seller chose the country
  * of starts on that country. An account nobody chose (most of them opened in
  * Romania before this step existed, lib/payments/stripe/account-country) never
- * does: it starts on the profile's country or the browser's, so a seller in
- * Germany is not one Continue away from Stripe's Romanian form again.
+ * does. Otherwise, in this order (round 25, the owner's): where the seller is
+ * browsing from (Vercel's x-vercel-ip-country, on the overview as
+ * detectedCountry), the country on their profile, then the browser's
+ * language region. A seller in Germany is not one Continue away from
+ * Stripe's Romanian form again, and a seller who never filled in a profile
+ * still starts on their own country.
  */
 function guessCountry(data: Overview): string {
   const sc = data.setupCountry
   if (sc?.country && sc.chosen === true) return countryLabel(sc.country)
-  const known = data.prefill?.country || browserCountry() || (sc?.chosen === false ? null : sc?.country || data.payoutHint?.country)
+  const known = data.detectedCountry || data.prefill?.country || browserCountry() || (sc?.chosen === false ? null : sc?.country || data.payoutHint?.country)
   return known ? countryLabel(known) : ""
 }
 
-function CountryStep({ data, problem, onChoose, onCancel }: { data: Overview; problem: string | null; onChoose: (code: string) => void; onCancel: () => void }) {
-  const [countryName, setCountryName] = React.useState(() => guessCountry(data))
+/** What the server said about the country Continue was pressed on. */
+type CountryProblem = { message: string; code: string | null }
+
+/** "Euro" for EUR in the dashboard's language; the code alone when the browser has no name for it. */
+function payoutLine(plan: PayoutPlan, name: string): string | null {
+  const line = payoutPlanLine(plan, name)
+  if (!line || !plan.currency) return line
+  const named = currencyName(plan.currency)
+  return named && named !== plan.currency ? line.replace(`in ${plan.currency} at`, `in ${named} (${plan.currency}) at`) : line
+}
+
+function CountryStep({ data, initial = null, problem, onChoose, onCancel }: { data: Overview; initial?: string | null; problem: CountryProblem | null; onChoose: (code: string) => void; onCancel: () => void }) {
+  const [countryName, setCountryName] = React.useState(() => (initial ? countryLabel(initial) : guessCountry(data)))
   const [tried, setTried] = React.useState(false)
   const code = countryOf(countryName)
   const platform = data.platformCountry ?? null
-  const blocked = !!code && !!platform && payoutRoute(platform, code) === "unsupported"
+  /*
+   * What this country gets, decided in the browser from the same function
+   * the server uses (lib/payments/stripe/payout-regions payoutPlan): the
+   * account path, the currency, or why it is not open and what to do. When
+   * the platform's country is not known yet the server decides on Continue.
+   */
+  const plan = code && platform ? payoutPlan(platform, code, data.settlementCountries ?? []) : null
+  const blocked = !!plan && plan.route === "unsupported"
+  /* The server refused this very country (a country the owner listed before Stripe turned it on): the same way out as one known in advance. */
+  const refused = !blocked && problem?.code === "country_unsupported" && !!code && code === initial
   /* The account already there, while nothing has been sent on it: choosing another country replaces it. */
   const startedIn = data.setupCountry?.changeable ? data.setupCountry.country : null
   const restarts = !!startedIn && !!code && code !== startedIn
+  const [asked, setAsked] = React.useState<{ code: string; state: "sending" | "sent" | "failed" } | null>(null)
+  const askedHere = asked && asked.code === code ? asked.state : null
   /* Stripe's script starts downloading while the seller reads the question. */
   React.useEffect(() => warmStripeConnect(), [])
+  const notify = async () => {
+    if (!code) return
+    setAsked({ code, state: "sending" })
+    try {
+      await post("notify-country", { country: code })
+      setAsked({ code, state: "sent" })
+    } catch {
+      setAsked({ code, state: "failed" })
+    }
+  }
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
     setTried(true)
-    if (!code || blocked) return
+    if (!code) return
+    if (blocked || refused) {
+      if (askedHere !== "sent" && askedHere !== "sending") void notify()
+      return
+    }
     onChoose(code)
   }
+  const shut = blocked || refused
   return (
-    <form onSubmit={submit} noValidate data-setup-country="" data-started-in={startedIn ?? undefined} className="flex min-h-full flex-1 flex-col">
+    <form onSubmit={submit} noValidate data-setup-country="" data-started-in={startedIn ?? undefined} data-payout-route={plan?.route} className="flex min-h-full flex-1 flex-col">
       <div className="flex-1 space-y-4 px-5 sm:px-7">
         <div>
           <label htmlFor="payout-country" className="mb-1.5 block text-[13px] font-medium text-[#1a1a2e]">{tt("Where is your bank account?")}</label>
           <CountryPicker
             id="payout-country"
             value={countryName}
-            onChange={setCountryName}
+            onChange={(name) => {
+              setCountryName(name)
+              setAsked(null)
+            }}
             sheetZIndex={SHEET_Z}
             fieldClassName="rounded-[10px] border-[#e3e5e8] text-[16px] shadow-none sm:h-10 sm:rounded-lg sm:text-[14px]"
           />
           {tried && !code ? (
             <span className="mt-1.5 block text-[12px] text-[#c4290c]">{tt("Choose a country.")}</span>
-          ) : restarts && startedIn && code ? (
+          ) : restarts && startedIn && code && !shut ? (
             <span data-setup-restarts="" className="mt-1.5 block text-[12px] leading-[17px] text-[#6b7280]">
               {tt("Your setup was started for {from}. Continuing with {to} starts it again there.", { from: countryLabel(startedIn), to: countryLabel(code) })}
             </span>
-          ) : (
-            <span className="mt-1.5 block text-[12px] leading-[17px] text-[#6b7280]">{tt("Your payouts go to a bank in this country, in its currency. It can't be changed once setup is sent.")}</span>
+          ) : shut ? null : (
+            <span data-payout-plan="" className="mt-1.5 block text-[12px] leading-[17px] text-[#6b7280]">
+              {plan && code ? payoutLine(plan, countryLabel(code)) : tt("Your payouts go to a bank in this country, in its currency. It can't be changed once setup is sent.")}
+            </span>
           )}
         </div>
-        {blocked && code ? <ErrorLine message={cannotPayOutLine(countryLabel(code))} /> : problem ? <ErrorLine message={problem} /> : null}
+        {blocked && code && plan ? (
+          /* Not something the seller did wrong: a plain note, not the red of a refused field. */
+          <p data-payout-closed={plan.blocker ?? undefined} className="rounded-xl border border-[#e5e7eb] bg-[#f8f9fa] px-3 py-2.5 text-[13px] leading-5 text-[#1a1a2e]">
+            {cannotPayOutLine(countryLabel(code), plan.blocker ?? "no_stripe")}
+          </p>
+        ) : problem ? (
+          <ErrorLine message={problem.message} />
+        ) : null}
+        {shut && askedHere === "sent" ? (
+          <p data-country-asked="" className="text-[13px] leading-5 text-[#1a1a2e]">{tt("Noted. We'll email you when payouts open in {country}.", { country: countryLabel(code) })}</p>
+        ) : shut && askedHere === "failed" ? (
+          <p className="text-[13px] leading-5 text-[#c4290c]">{tt("That could not be saved just now. Try again, or write to support@storelib.com.")}</p>
+        ) : null}
       </div>
       <Footer>
-        <button type="button" className={SECONDARY} onClick={onCancel}>{tt("Cancel")}</button>
-        <button type="submit" className={PRIMARY} disabled={blocked}>{tt("Continue")}</button>
+        <button type="button" className={SECONDARY} onClick={onCancel}>{shut && askedHere === "sent" ? tt("Close") : tt("Cancel")}</button>
+        {shut ? (
+          <button type="submit" data-notify-country="" className={PRIMARY} disabled={askedHere === "sending" || askedHere === "sent"}>
+            {askedHere === "sent" ? tt("We'll let you know") : tt("Tell me when it opens")}
+          </button>
+        ) : (
+          <button type="submit" className={PRIMARY}>{tt("Continue")}</button>
+        )}
       </Footer>
     </form>
   )
@@ -1264,7 +1331,8 @@ function SetupEmbed({ data, onData, onExit, onCancel, bankOnly = false }: { data
   const kind = data.kind === "business" ? "business" : "individual"
   const [ready, setReady] = React.useState(!asks.current)
   const [country, setCountry] = React.useState<string | null>(null)
-  const [countryProblem, setCountryProblem] = React.useState<string | null>(null)
+  const [lastChoice, setLastChoice] = React.useState<string | null>(null)
+  const [countryProblem, setCountryProblem] = React.useState<CountryProblem | null>(null)
   const [error, setError] = React.useState<{ message: string; code: string | null } | null>(null)
   const [attempt, setAttempt] = React.useState(0)
   React.useEffect(() => {
@@ -1298,7 +1366,7 @@ function SetupEmbed({ data, onData, onExit, onCancel, bankOnly = false }: { data
         const code = codeOf(err)
         /* The country is the problem: back to the question, with the answer under it. */
         if (code === "country_unsupported" || code === "country_required") {
-          setCountryProblem(message)
+          setCountryProblem({ message, code })
           setCountry(null)
           return
         }
@@ -1316,7 +1384,7 @@ function SetupEmbed({ data, onData, onExit, onCancel, bankOnly = false }: { data
     return <SetupProblemView message={error.message} code={error.code} onClose={onCancel} onRetry={() => { setError(null); setAttempt((n) => n + 1) }} />
   }
   if (asks.current && !country) {
-    return <CountryStep data={data} problem={countryProblem} onCancel={onCancel} onChoose={(code) => { setCountryProblem(null); setCountry(code) }} />
+    return <CountryStep data={data} initial={lastChoice} problem={countryProblem} onCancel={onCancel} onChoose={(code) => { setCountryProblem(null); setLastChoice(code); setCountry(code) }} />
   }
   if (!ready) {
     return (

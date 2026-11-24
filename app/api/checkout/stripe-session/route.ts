@@ -13,6 +13,7 @@ import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
 import { recordCheckoutContactAndWelcome } from "@/lib/contacts/checkout-welcome"
 import { stripe } from "@/lib/stripe"
 import { getValidatedPlatformStatementDescriptor, statementParams } from "@/lib/payments/platform-descriptor"
+import { sellerSettles } from "@/lib/payments/stripe/config"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { nanoid } from "nanoid"
 import { cookies } from "next/headers"
@@ -112,7 +113,7 @@ async function handlePOST(request: Request) {
       /* Where the buyer is buying and the rate day the page showed (lib/money/marketplace): read only while the marketplace switch is on. */
       pricing: body.pricing && typeof body.pricing === "object" ? (body.pricing as { context?: unknown; fxAsOf?: unknown }) : null,
     },
-    "*, creator:creators(id, user_id, display_name, stripe_account_id, stripe_onboarding_status, charges_enabled, payouts_enabled, statement_descriptor)",
+    "*, creator:creators(id, user_id, display_name, stripe_account_id, stripe_onboarding_status, charges_enabled, payouts_enabled, statement_descriptor, stripe_account_country)",
   )
   if (priced.ok === false) return NextResponse.json({ error: priced.error, ...(priced.code ? { code: priced.code } : {}) }, { status: priced.status })
 
@@ -126,6 +127,7 @@ async function handlePOST(request: Request) {
     charges_enabled: boolean | null
     payouts_enabled: boolean | null
     statement_descriptor: string | null
+    stripe_account_country?: string | null
   } | null
   if (!creator) return NextResponse.json({ error: "This product is not available." }, { status: 404 })
   /* The store's Settings › Checkout: an account first, and a confirmed one (lib/store/checkout-config). The page asks too; this is the rule. */
@@ -359,6 +361,7 @@ async function handlePOST(request: Request) {
       account,
       descriptor: (await sellerStatementName(admin, creator.id)) || creator.statement_descriptor || creator.display_name || "",
       chargesEnabled: creator.charges_enabled,
+      settles: sellerSettles(creator.stripe_account_country),
     }))
   } catch {
     /* no platform descriptor configured: Stripe's account default is used */

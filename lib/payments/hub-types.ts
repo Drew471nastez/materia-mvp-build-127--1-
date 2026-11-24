@@ -60,6 +60,10 @@ export interface HubOverview {
   session?: { purpose: "stripe_onboarding"; clientSecret: string; publishableKey: string; stripeSignIn: boolean; expiresAt: number | null }
   /** The Stripe platform's country (ISO), when known: setup uses it to say which countries can be paid out before anything is opened. */
   platformCountry?: string | null
+  /** The seller's country from the request (Vercel's x-vercel-ip-country), when there is one: the first guess on the country step. */
+  detectedCountry?: string | null
+  /** Countries outside Stripe's cross-border region the owner opened (STRIPE_SETTLEMENT_COUNTRIES): paid through accounts charged on their behalf. */
+  settlementCountries?: string[]
   /** Storelib's payments status, read from the Stripe account. Absent on other providers. */
   paymentsStatus?: StorelibStatusView
   /** Stripe could not be reached just now; status is from the last sync. */

@@ -7,11 +7,11 @@ import { countryCode, countryName } from "@/lib/checkout/countries"
 import { ownerAddress } from "@/lib/businesses/email-alias"
 import { logStripeRefusal, stripeRefusal } from "@/lib/stripe/refusal"
 import { countryIsUnsupported, needsPlatformApproval, paymentsSetupError, stripeErrorFacts, stripeErrorMessage } from "./setup-errors"
-import { cannotPayOutLine, payoutRoute, type PayoutRoute } from "./payout-regions"
+import { cannotPayOutLine, payoutPlan, payoutRoute, settlesInSellerCountry, type PayoutRoute } from "./payout-regions"
 import { accountAttempts } from "./account-attempts"
 import { canAcceptPayments, sellerFactsOfAccount } from "./readiness"
 import { parsePersonal } from "./onboarding-steps"
-import { STRIPE_REQUESTED_CAPABILITIES } from "./config"
+import { settlementCountries, STRIPE_REQUESTED_CAPABILITIES } from "./config"
 import { mergeStripeAccount, type StripeCreatorSnapshot } from "./facts"
 import { getStorelibPaymentsStatus, statusFactsOf, type StorelibStatusView } from "./status"
 import { accountSessionComponents } from "./session-components"
@@ -504,9 +504,9 @@ export function platformCountryKnown(): string | null {
   return platformCountryCache
 }
 
-/** The seller-facing sentence for a country Stripe cannot pay out to from this platform. */
-export function unsupportedCountryMessage(country: string): string {
-  return cannotPayOutLine(countryName(country))
+/** The seller-facing sentence for a country Stripe cannot pay out to from this platform, saying why for that country. */
+export function unsupportedCountryMessage(country: string, platform?: string | null): string {
+  return cannotPayOutLine(countryName(country), payoutPlan(platform ?? platformCountryKnown(), country, settlementCountries()).blocker ?? "no_stripe")
 }
 
 /* The shape of an attempt, for the log: cards or transfers only, set up in Storelib or by Stripe. */
@@ -544,10 +544,10 @@ async function createConnectedAccount(
     console.error(JSON.stringify({ evt: "stripe_platform_country_unknown", ...stripeErrorFacts(error) }))
     return ""
   })
-  const route: PayoutRoute = payoutRoute(platform, country)
+  const route: PayoutRoute = payoutRoute(platform, country, settlementCountries())
   if (route === "unsupported") {
-    console.warn(JSON.stringify({ evt: "stripe_connect_country_unsupported", creator: options.creatorId ?? null, country, platform }))
-    throw new PaymentsProblem(unsupportedCountryMessage(country), 400, "country_unsupported")
+    console.warn(JSON.stringify({ evt: "stripe_connect_country_unsupported", creator: options.creatorId ?? null, country, platform, why: payoutPlan(platform, country, settlementCountries()).blocker }))
+    throw new PaymentsProblem(unsupportedCountryMessage(country, platform), 400, "country_unsupported")
   }
   const attempts = accountAttempts(shared, route, options)
 
@@ -573,12 +573,17 @@ async function createConnectedAccount(
       if (/account has been rejected|invalid email/i.test(msg)) throw error
       if (!blocker && /temporarily restricted your ability to create|suspicious activity|confirm that you intended/i.test(msg)) blocker = error
       const transfersOnlyShape = !params.capabilities?.card_payments
-      if (transfersOnlyShape && countryIsUnsupported(msg)) countryBlocked = error
+      /* A settlement country is only ever cards and transfers: Stripe refusing its country means the owner listed it before turning it on. */
+      if ((transfersOnlyShape || route === "settlement") && countryIsUnsupported(msg)) countryBlocked = error
       if (transfersOnlyShape && !approvalNeeded && needsPlatformApproval(msg)) {
         approvalNeeded = error
         console.error(JSON.stringify({ evt: "stripe_transfers_only_needs_platform_approval", country, platform, msg: "Stripe must approve the platform for transfers-only connected accounts (Stripe Dashboard: Connect, or support.stripe.com). Trying an account with card payments next." }))
       }
     }
+  }
+  if (!blocker && countryBlocked && route === "settlement") {
+    console.error(JSON.stringify({ evt: "stripe_settlement_country_not_enabled", creator: options.creatorId ?? null, country, platform, msg: `STRIPE_SETTLEMENT_COUNTRIES lists ${country}, but Stripe refused an account there: turn ${country} on in the Stripe Dashboard (Connect, Onboarding options, Countries) or take it off the list.` }))
+    throw new PaymentsProblem(cannotPayOutLine(countryName(country), "not_opened"), 400, "country_unsupported")
   }
   throw blocker ?? countryBlocked ?? approvalNeeded ?? last
 }
@@ -689,7 +694,9 @@ export async function syncStripeAccountFull(creatorId: string, _actor: "webhook"
    * seller in another country than the platform, transfers only) can never
    * reach: Stripe reports charges_enabled false for it for good.
    */
-  const sellerFacts = sellerFactsOfAccount(account)
+  /* A seller outside the region is charged on their own account's behalf: it must take cards, not only receive transfers (./readiness needsCharges). */
+  const platformNow = platformCountryKnown() ?? (await platformCountry().catch(() => null))
+  const sellerFacts = { ...sellerFactsOfAccount(account), needsCharges: settlesInSellerCountry(platformNow, account.country, settlementCountries()) }
   const connected = canAcceptPayments(sellerFacts)
   const requirements = (account.requirements ?? {}) as Stripe.Account.Requirements
   const due = [...new Set([...(requirements.past_due ?? []), ...(requirements.currently_due ?? [])])].sort()
