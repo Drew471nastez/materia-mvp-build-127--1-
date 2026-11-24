@@ -1,0 +1,39 @@
+
+  :root {
+    --sl-scale-desktop: 1.0;
+    --sl-scale-tablet: 1.0;
+    --sl-scale-mobile: 1.0;
+    --sl-scale-text: 0.99;
+    --sl-scale-space: 1.0;
+    --sl-scale: var(--sl-scale-mobile);
+    --sl-text-scale: calc(var(--sl-scale) * var(--sl-scale-text));
+    --sl-space-scale: calc(var(--sl-scale) * var(--sl-scale-space));
+    --body-font-size: calc(14px * var(--sl-text-scale, 1));
+    --btn-font-size: calc(13px * var(--sl-text-scale, 1));
+    --section-heading-size: calc(32px * var(--heading-font-scale, 1) * var(--sl-text-scale, 1));
+    --responsive-rate: (((100vw - 575px) / (1600 - 575)) * var(--sl-text-scale, 1));
+    --btn-padding-y: calc(13px * var(--sl-space-scale, 1));
+    --btn-padding-x: calc(24px * var(--sl-space-scale, 1));
+    --theme-button-padding-y: calc(13px * var(--sl-space-scale, 1));
+    --theme-button-padding-x: calc(24px * var(--sl-space-scale, 1));
+    --icon-btn-size: calc(44px * var(--sl-space-scale, 1));
+    --input-height: calc(48px * var(--sl-space-scale, 1));
+    --input-padding: 1rem calc(11px * var(--sl-space-scale, 1));
+    --container-gutter: calc(20px * var(--sl-space-scale, 1));
+    --page-width: calc(1440px * var(--sl-space-scale, 1));
+    --theme-page-width: var(--page-width);
+    --fluid-container-width: calc(1600px * var(--sl-space-scale, 1));
+    --section-spacing: calc(var(--sl-live-space-mobile, 50px) * var(--sl-space-scale, 1));
+    --grid-gap: calc(var(--sl-live-grid-gap-mobile, 12px) * var(--sl-space-scale, 1));
+  }
+  @media (min-width: 768px) {
+    :root {
+      --sl-scale: var(--sl-scale-tablet);
+      --section-spacing: calc(var(--sl-live-space-desktop, 112px) * var(--sl-space-scale, 1));
+      --grid-gap: calc(var(--sl-live-grid-gap-desktop, 22px) * var(--sl-space-scale, 1));
+    }
+  }
+  @media (min-width: 1025px) {
+    :root { --sl-scale: var(--sl-scale-desktop); }
+  }
+  html { font-size: calc(62.5% * var(--sl-text-scale, 1)); }

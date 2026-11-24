@@ -1,0 +1,60 @@
+{
+  "main-menu": {
+    "title": "Main menu",
+    "links": [
+      {
+        "title": "Templates",
+        "url": "/collections/all",
+        "links": [
+          { "title": "All templates", "url": "/collections/all" },
+          { "title": "Premium templates", "url": "/collections/premium" },
+          { "title": "Free templates", "url": "/collections/free" },
+          { "title": "On sale", "url": "/collections/on-sale" },
+          { "title": "Bundles", "url": "/collections/bundles" }
+        ]
+      },
+      { "title": "Blog", "url": "/blogs/news" },
+      { "title": "FAQ", "url": "/pages/faqs" },
+      { "title": "About", "url": "/pages/about" },
+      { "title": "Contact", "url": "/pages/contact" }
+    ]
+  },
+  "footer": {
+    "title": "Templates",
+    "links": [
+      { "title": "All templates", "url": "/collections/all" },
+      { "title": "Premium templates", "url": "/collections/premium" },
+      { "title": "Free templates", "url": "/collections/free" },
+      { "title": "On sale", "url": "/collections/on-sale" },
+      { "title": "Bundles", "url": "/collections/bundles" }
+    ]
+  },
+  "footer-social": {
+    "title": "Social",
+    "links": [
+      { "title": "YouTube", "url": "https://www.youtube.com" },
+      { "title": "Instagram", "url": "https://www.instagram.com" },
+      { "title": "Pinterest", "url": "https://www.pinterest.com" },
+      { "title": "Newsletter", "url": "/#newsletter" }
+    ]
+  },
+  "footer-more": {
+    "title": "More",
+    "links": [
+      { "title": "Blog", "url": "/blogs/news" },
+      { "title": "FAQ", "url": "/pages/faqs" },
+      { "title": "About", "url": "/pages/about" },
+      { "title": "Contact", "url": "/pages/contact" }
+    ]
+  },
+  "templates-filter": {
+    "title": "Browse",
+    "links": [
+      { "title": "All templates", "url": "/collections/all" },
+      { "title": "Premium", "url": "/collections/premium" },
+      { "title": "Free", "url": "/collections/free" },
+      { "title": "On sale", "url": "/collections/on-sale" },
+      { "title": "Bundles", "url": "/collections/bundles" }
+    ]
+  }
+}

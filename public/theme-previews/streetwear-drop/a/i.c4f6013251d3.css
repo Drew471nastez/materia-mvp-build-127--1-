@@ -1,0 +1,67 @@
+
+    #PaymentBadges-pay{
+      background: var(--pb-bg);
+      border-radius: var(--pb-radius);
+      padding-top: var(--pb-pt);
+      padding-bottom: var(--pb-pb);
+      margin-top: var(--pb-mt);
+      margin-bottom: var(--pb-mb);
+    }
+    #PaymentBadges-pay .pb-inner{
+      max-width: var(--pb-maxw);
+      padding-left: var(--pb-pl);
+      padding-right: var(--pb-pr);
+      margin-inline: auto;
+    }
+
+    /* TEXT */
+    #PaymentBadges-pay .pb-head{ display:flex; flex-direction:column; gap:6px; }
+    #PaymentBadges-pay .pb-label{
+      color: var(--pb-label-color) !important ;
+      font-size: var(--pb-label-size);
+      font-weight: 500;
+        font-family: inherit; /* uses the theme's font you chose in General/Typography */
+      text-decoration: none;
+      width: max-content;
+      transition: color .2s ease;
+    }
+    #PaymentBadges-pay a.pb-label:hover{ color: var(--pb-label-hover) !important; }
+    #PaymentBadges-pay .pb-title{
+      margin: var(--pb-title-mt) 0 var(--pb-title-mb) 0;
+      color: var(--pb-title-color) !important;
+      font-size: var(--pb-title-size);
+        font-family: inherit; /* uses the theme's font you chose in General/Typography */
+      line-height: 1.45;
+      font-weight: 550; /* use theme’s default weight */
+      text-align: left;
+    }
+
+    /* BADGES: single-row, no extra border, consistent height */
+    #PaymentBadges-pay .pb-list{
+      display:flex;
+      flex-wrap: nowrap;               /* force one line */
+      gap: var(--pb-gap-x);
+      margin:0; padding:0; list-style:none;
+      justify-content: var(--pb-justify-d);
+      overflow-x: auto;                /* stays one row on small screens */
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+    }
+    #PaymentBadges-pay .pb-item{ display:inline-flex; align-items:center; }
+    #PaymentBadges-pay .pb-svg{
+      display:block;
+      height: var(--pb-icon-h);
+      width: var(--pb-icon-w);
+    }
+
+    @media (max-width:768px){
+      #PaymentBadges-pay .pb-inner{
+        max-width: var(--pb-maxw-m);
+        padding-left: var(--pb-pl-m);
+        padding-right: var(--pb-pr-m);
+      }
+      #PaymentBadges-pay .pb-title{ text-align: left; }
+      #PaymentBadges-pay .pb-list{ justify-content: var(--pb-justify-m); }
+      #PaymentBadges-pay .pb-svg{ height: var(--pb-icon-h-m); width: var(--pb-icon-w-m); }
+    }
+  
