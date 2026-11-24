@@ -28,6 +28,10 @@ execFileSync(process.execPath, ["scripts/build-sql-catalog.mjs"], { stdio: "inhe
 execFileSync(process.execPath, ["scripts/check-unbound-names.mjs"], { stdio: "inherit" })
 
 const SUITES = [
+  /* Round 24: the hanging rail section (base/sections/hanging-rail.liquid): one file, no outside script, garments linked to products, back views loaded on demand, every setting labelled, the guide linked. */
+  "tests/hanging-rail.test.ts",
+  /* Round 24 integrations: the install window leaves smoothly, one scrolling row of category pills, one YouTube video per listing loaded on press, pictures of each app as connected, a floating Back. */
+  "tests/integrations-r24.test.ts",
   /* Discord roles and Telegram chats for paying members (lib/community-roles, SQL parts 473 and 474): the install state, a purchase gives the role, a cancelled or past due membership and a refund take it back, one call per signal and one try per row, the role hierarchy error in words, retries, the Telegram webhook secret, /link codes, one use invites and removal by ban then unban, and nothing at all without the keys. Discord and Telegram are a stubbed fetch. */
   "tests/community-roles.test.ts",
   /* Round AW: a label purchase with no answer (a timeout, a dropped connection, "still making it") is settled with Shippo or EasyPost before its claim is touched, so a paid label is never lost and never bought twice; a parcel for another country carries a customs declaration made from the order (value paid, weight as sold, the product's origin and HS code), with what is missing said and never filled in; Print label reads the label from the provider each time (Shippo's address expires); a carrier's price in the checkout's own minor units. */
