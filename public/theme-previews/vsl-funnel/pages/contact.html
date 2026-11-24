@@ -1,7 +1,7 @@
 
 <!doctype html>
 <html class="no-js" lang="en" dir="ltr">
-<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/vsl-funnel/a/cart.bdcc87a3da7a.json";
+<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/vsl-funnel/a/cart.088a0d069bd1.json";
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
@@ -34,7 +34,8 @@ try{if(!W.name||names()){var n=names()||{slpv:{}};n.slpv[SLUG]=s;W.name=JSON.str
 function carry(u){if(!BAG.t)return u;try{var x=new URL(u,location.href);if(x.pathname.indexOf(ROOT+SLUG+"/")!==0||!/[.]html$/.test(x.pathname))return u;x.searchParams.set("slc",enc(BAG));return x.href}catch(e){return u}}
 D.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[href]");if(a&&!a.hasAttribute("data-preview-inert")){var to=carry(a.href);if(to!==a.href)a.href=to}},true);
 var DATA=null,DP=null;function data(){return DP||(DP=F(CART_DATA).then(function(r){return r.json()}).then(function(d){DATA=d;BAG.l=BAG.l.filter(function(x){return x.e<d.e.length});return d}))}
-var made={};function sec(i,k){var id=i+":"+k;if(made[id])return made[id];var x=DATA.e[i],o=k?x.r:x.d,s=typeof o==="string"?o:patch(sec(x.b,k),o);return made[id]=s}
+var made={};function sec(i,k){var id=i+":"+k;if(made[id])return made[id];var x=DATA.e[i],o=k?x.r:x.d,s=typeof o==="string"?o:patch(x.b<0?DATA.empty[k]:sec(x.b,k),o);return made[id]=s}
+var its={};function itemOf(i){if(its[i])return its[i];var x=DATA.e[i],o=x.item;return its[i]=typeof o==="string"?o:patch(itemOf(x.b),o)}
 function patch(b,x){var ops=x.o;if(!ops.length)return b;var t=b.split(RE[x.t]);for(var k=ops.length-1;k>=0;k--)t.splice(ops[k][0],ops[k][1],ops[k][2]);return t.join("")}
 function money(c){var f=DATA.fmt||"$"+"{{amount}}",m=/\{\{\s*(\w+)\s*\}\}/.exec(f),k=m?m[1]:"amount",dp=/no_decimals/.test(k)?0:2,eu=/comma_separator/.test(k),p=(c/100).toFixed(dp).split(".");var s=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,eu?".":(/apostrophe/.test(k)?"'":","))+(p[1]?(eu?",":".")+p[1]:"");return f.replace(/\{\{\s*\w+\s*\}\}/,s)}
 function moneyRe(){var f=DATA.fmt||"$"+"{{amount}}",at=f.search(/\{\{/),end=f.indexOf("}}")+2;var esc=function(s){return s.replace(/[.*+?^$()|[\]\\{}]/g,"\\$&")};return new RegExp(esc(f.slice(0,at))+"\\d[\\d.,']*"+esc(f.slice(end)),"g")}
@@ -44,7 +45,7 @@ function times(root,q){if(q===1)return;var re=moneyRe();texts(root,function(v){r
 function set(root,c){var re=moneyRe(),done=false;texts(root,function(v){return v.replace(re,function(){if(done)return"";done=true;return money(c)})})}
 function line(el,q){el.querySelectorAll('input[name="updates[]"]').forEach(function(i){i.value=q;i.setAttribute("value",q);i.setAttribute("data-value",q)});el.querySelectorAll("[data-quantity]").forEach(function(x){x.setAttribute("data-quantity",q)});
 el.querySelectorAll(".minicart__item-prices,.cart-item__totals").forEach(function(x){times(x,q)})}
-function item(x,n){var it=JSON.parse(JSON.stringify(DATA.e[x.e].item)),q=x.q;it.quantity=q;it.key=DATA.e[x.e].k;["line_price","original_line_price","final_line_price","discounted_line_price"].forEach(function(k){if(typeof it[k]==="number")it[k]=it[k]*q});return it}
+function item(x,n){var it=JSON.parse(itemOf(x.e)),q=x.q;it.quantity=q;it.key=DATA.e[x.e].k;["line_price","original_line_price","final_line_price","discounted_line_price"].forEach(function(k){if(typeof it[k]==="number")it[k]=it[k]*q});return it}
 function cartJson(){var items=BAG.l.map(item),sum=function(k){return items.reduce(function(a,b){return a+(+b[k]||0)},0)},total=sum("final_line_price")||sum("line_price");
 return{token:"preview",note:BAG.note||"",attributes:{},original_total_price:sum("original_line_price")||total,total_price:total,total_discount:0,total_weight:0,item_count:items.reduce(function(a,b){return a+b.quantity},0),items:items,requires_shipping:items.some(function(i){return i.requires_shipping}),currency:DATA.cur,items_subtotal_price:total,cart_level_discount_applications:[]}}
 var DP2=new DOMParser();
@@ -79,7 +80,7 @@ var hold=null;if(BAG.l.length&&/\/cart\.html$/.test(location.pathname)){hold=D.c
 function arrive(){if(W.routes){try{var cu=W.routes.cart_url;Object.defineProperty(W.routes,"cart_url",{configurable:true,get:function(){return carry(ROOT+SLUG+"/cart.html")}})}catch(e){}}
 if(!CART_DATA||!BAG.l.length)return;paintCount();data().then(function(){if(!BAG.l.length){if(hold)hold.remove();return}
 var dr=D.getElementById("minicart-form");if(dr){var d=DP2.parseFromString(compose(0),"text/html").querySelector("#minicart-form");if(d){dr.innerHTML=d.innerHTML;var cd=dr.closest("cart-drawer,cart-notification,.is-empty");if(cd)cd.classList.remove("is-empty")}}
-var pg=D.getElementById("main-cart-items");if(pg){var s=pg.closest(".shopify-section")||pg.parentNode,n=DP2.parseFromString(compose(1),"text/html").querySelector(".shopify-section");if(s&&n)s.innerHTML=n.innerHTML}
+var pg=D.getElementById("main-cart-items");if(pg){var s=pg.closest(".shopify-section")||pg.parentNode,n=DP2.parseFromString(compose(1),"text/html").querySelector(".shopify-section");if(s&&n){[].slice.call(s.childNodes).forEach(function(c){if(c.nodeName!=="STYLE"&&c.nodeName!=="LINK")s.removeChild(c)});[].slice.call(n.childNodes).forEach(function(c){s.appendChild(D.importNode(c,true))})}}
 paintCount();if(hold)requestAnimationFrame(function(){hold.remove()})}).catch(function(){if(hold)hold.remove()})}
 if(D.readyState==="loading")D.addEventListener("DOMContentLoaded",arrive);else arrive();
 

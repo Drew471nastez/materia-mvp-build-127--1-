@@ -10,15 +10,16 @@
         "button_label": "Shop the collection",
         "button_link": "/collections/all",
         "caption_layout": "split",
-        "garment_height": 300,
-        "garment_height_mobile": 210,
-        "garment_width": 40,
-        "gap": 12,
-        "hover_gap": 26,
+        "garment_height": 240,
+        "garment_height_mobile": 180,
+        "garment_width": 52,
+        "gap": 4,
+        "hover_gap": 22,
+        "rest_turn": 26,
         "turn_speed": 500,
         "swing": 55,
         "show_tags": true,
-        "overflow": "scroll",
+        "overflow": "fit",
         "click_action": "focus",
         "rail_top": 36,
         "rail_thickness": 5,
@@ -44,9 +45,10 @@
         "g1": {
           "type": "garment",
           "settings": {
-            "product": "heavyweight-hoodie-white",
-            "side_image": "shopify://shop_images/rail-hoodie-white-side.webp",
-            "front_image": "shopify://shop_images/rail-hoodie-white-front.webp",
+            "product": "heavyweight-hoodie-charcoal",
+            "side_image": "",
+            "front_image": "shopify://shop_images/rail-hoodie-charcoal-front.webp",
+            "size": 100,
             "tag_text": "",
             "name": "",
             "note": "450 gsm brushed fleece, double layer hood"
@@ -56,8 +58,9 @@
           "type": "garment",
           "settings": {
             "product": "crew-sweatshirt-black",
-            "side_image": "shopify://shop_images/rail-crew-black-side.webp",
+            "side_image": "",
             "front_image": "shopify://shop_images/rail-crew-black-front.webp",
+            "size": 97,
             "tag_text": "",
             "name": "",
             "note": "Loopback cotton, a ribbed hem and cuffs"
@@ -66,89 +69,97 @@
         "g3": {
           "type": "garment",
           "settings": {
-            "product": "long-sleeve-tee-black",
-            "side_image": "shopify://shop_images/rail-longsleeve-black-side.webp",
-            "front_image": "shopify://shop_images/rail-longsleeve-black-front.webp",
+            "product": "heavyweight-hoodie-grey",
+            "side_image": "",
+            "front_image": "shopify://shop_images/rail-hoodie-grey-front.webp",
+            "size": 100,
             "tag_text": "",
             "name": "",
-            "note": "240 gsm jersey, cut long"
+            "note": "450 gsm brushed fleece, double layer hood"
           }
         },
         "g4": {
           "type": "garment",
           "settings": {
-            "product": "boxy-tee-black",
-            "side_image": "shopify://shop_images/rail-tee-black-side.webp",
-            "front_image": "shopify://shop_images/rail-tee-black-front.webp",
+            "product": "heavyweight-hoodie-oat",
+            "side_image": "",
+            "front_image": "shopify://shop_images/rail-hoodie-oat-front.webp",
+            "size": 100,
             "tag_text": "",
             "name": "",
-            "note": "240 gsm jersey, dropped shoulders"
+            "note": "450 gsm brushed fleece, double layer hood"
           }
         },
         "g5": {
           "type": "garment",
           "settings": {
-            "product": "hand-knit-crew-rust",
-            "side_image": "shopify://shop_images/rail-knit-rust-side.webp",
-            "front_image": "shopify://shop_images/rail-knit-rust-front.webp",
-            "tag_text": "",
-            "name": "",
-            "note": "Chunky wool and alpaca, knitted by hand"
-          }
-        },
-        "g6": {
-          "type": "garment",
-          "settings": {
-            "product": "nylon-bomber-clay",
-            "side_image": "shopify://shop_images/rail-bomber-clay-side.webp",
-            "front_image": "shopify://shop_images/rail-bomber-clay-front.webp",
-            "tag_text": "",
-            "name": "",
-            "note": "Washed nylon, a sleeve pocket and rib trims"
-          }
-        },
-        "g7": {
-          "type": "garment",
-          "settings": {
-            "product": "boxy-tee-white",
-            "side_image": "shopify://shop_images/rail-tee-white-side.webp",
-            "front_image": "shopify://shop_images/rail-tee-white-front.webp",
+            "product": "boxy-tee-black",
+            "side_image": "",
+            "front_image": "shopify://shop_images/rail-tee-black-front.webp",
+            "size": 86,
             "tag_text": "",
             "name": "",
             "note": "240 gsm jersey, dropped shoulders"
           }
         },
+        "g6": {
+          "type": "garment",
+          "settings": {
+            "product": "heavyweight-hoodie-forest",
+            "side_image": "",
+            "front_image": "shopify://shop_images/rail-hoodie-forest-front.webp",
+            "size": 100,
+            "tag_text": "",
+            "name": "",
+            "note": "450 gsm brushed fleece, double layer hood"
+          }
+        },
+        "g7": {
+          "type": "garment",
+          "settings": {
+            "product": "long-sleeve-tee-black",
+            "side_image": "",
+            "front_image": "shopify://shop_images/rail-longsleeve-black-front.webp",
+            "size": 96,
+            "tag_text": "",
+            "name": "",
+            "note": "240 gsm jersey, cut long"
+          }
+        },
         "g8": {
           "type": "garment",
           "settings": {
-            "product": "washed-long-sleeve-charcoal",
-            "side_image": "shopify://shop_images/rail-longsleeve-charcoal-side.webp",
-            "front_image": "shopify://shop_images/rail-longsleeve-charcoal-front.webp",
+            "product": "heavyweight-hoodie-white",
+            "side_image": "",
+            "front_image": "shopify://shop_images/rail-hoodie-white-front.webp",
+            "size": 100,
             "tag_text": "",
             "name": "",
-            "note": "Garment dyed and washed soft"
+            "note": "450 gsm brushed fleece, double layer hood"
           }
         },
         "g9": {
           "type": "garment",
           "settings": {
-            "product": "slub-tee-sky",
-            "side_image": "shopify://shop_images/rail-tee-sky-side.webp",
-            "front_image": "shopify://shop_images/rail-tee-sky-front.webp",
+            "product": "boxy-tee-white",
+            "side_image": "",
+            "front_image": "shopify://shop_images/rail-tee-white-front.webp",
+            "size": 86,
             "tag_text": "",
             "name": "",
-            "note": "Slub cotton with an uneven, heathered look"
+            "note": "240 gsm jersey, dropped shoulders"
           }
         },
         "g10": {
           "type": "garment",
           "settings": {
-            "product": "shawl-collar-blazer-navy",
-            "side_image": "shopify://shop_images/rail-blazer-navy-side.webp",
-            "front_image": "shopify://shop_images/rail-blazer-navy-front.webp",
+            "product": "washed-long-sleeve-charcoal",
+            "side_image": "",
+            "front_image": "shopify://shop_images/rail-longsleeve-charcoal-front.webp",
+            "size": 96,
             "tag_text": "",
             "name": "",
-            "note": "Textured wool blend, a satin shawl collar"
+            "note": "Garment dyed and washed soft"
           }
         }
       },
@@ -368,7 +379,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "Ten pieces, from a 240 gsm tee to a hand knitted crew.",
+            "text": "Hoodies in five colours, sweats and tees, all in heavy cotton.",
             "enable_custom_style": false,
             "font": "body",
             "weight": "theme",
