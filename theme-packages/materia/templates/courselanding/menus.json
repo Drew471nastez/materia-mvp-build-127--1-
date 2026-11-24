@@ -7,7 +7,7 @@
         "url": "/#shopify-section-weeks"
       },
       {
-        "title": "Your trainer",
+        "title": "Your teacher",
         "url": "/pages/about"
       },
       {
@@ -24,7 +24,7 @@
     "title": "Pages",
     "links": [
       {
-        "title": "About Jonah",
+        "title": "About Maya",
         "url": "/pages/about"
       },
       {
@@ -40,7 +40,7 @@
         "url": "/collections/all"
       },
       {
-        "title": "Training notes",
+        "title": "Studio notes",
         "url": "/blogs/news"
       }
     ]

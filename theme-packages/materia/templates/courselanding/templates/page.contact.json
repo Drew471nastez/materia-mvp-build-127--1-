@@ -19,14 +19,14 @@
         "description_2": {
           "type": "description",
           "settings": {
-            "text": "<p>A question before you join, a class time that does not work, or a problem that is not in the lessons. It all comes to the same inbox.</p>"
+            "text": "<p>A question before you join, a class time that does not work, or a machine that is not in the lessons. It all comes to the same inbox.</p>"
           }
         },
         "info_3": {
           "type": "info",
           "settings": {
             "icon": "mail",
-            "line1": "hello@goodlead.example",
+            "line1": "hello@archpilates.example",
             "line2": "Replace with your own address"
           }
         },
@@ -61,15 +61,15 @@
         "gap_header_to_items": 28,
         "item_padding_y": 22,
         "enable_custom_style": true,
-        "question_color": "#141a2e",
-        "hover_color": "#2f4fd1",
-        "icon_color": "#2f4fd1",
-        "answer_color": "#4b5060",
-        "divider_color": "#e4e6ee",
-        "card_bg": "#f2f4fa",
+        "question_color": "#261d18",
+        "hover_color": "#9b4a2c",
+        "icon_color": "#9b4a2c",
+        "answer_color": "#5a514b",
+        "divider_color": "#ece6e0",
+        "card_bg": "#f8f5f2",
         "card_border_color": "rgba(0,0,0,0)",
-        "card_heading_color": "#141a2e",
-        "card_text_color": "#4b5060",
+        "card_heading_color": "#261d18",
+        "card_text_color": "#5a514b",
         "reveal": false,
         "padding_top": 24,
         "padding_bottom": 104,
@@ -91,22 +91,22 @@
         "faq_item_1": {
           "type": "faq_item",
           "settings": {
-            "question": "My puppy is eight weeks old. Is that too young?",
-            "answer": "<p>No, it is a good time to start. Week one is short sessions on the floor at home, before your puppy has had its vaccinations and can go out.</p>"
+            "question": "I have never used a reformer. Is that a problem?",
+            "answer": "<p>No. Week one starts with setting up the machine and lying on it. Everything begins on light springs and builds slowly.</p>"
           }
         },
         "faq_item_2": {
           "type": "faq_item",
           "settings": {
-            "question": "Does it work for an older dog?",
-            "answer": "<p>Yes, up to about two years and often older. Start at week one; grown dogs usually move faster through the first stage.</p>"
+            "question": "Which reformers does it work with?",
+            "answer": "<p>Any studio or folding home reformer with springs, a footbar and straps. Spring colours differ by maker, so each lesson gives the load as light, medium or heavy.</p>"
           }
         },
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
             "question": "What if I miss a live class?",
-            "answer": "<p>Every class is recorded and added to the course the same day. Send your question beforehand and the trainer answers it on the recording.</p>"
+            "answer": "<p>Every class is recorded and added to the course the same day. Send your question beforehand and Maya answers it on the recording.</p>"
           }
         },
         "faq_item_4": {
@@ -120,7 +120,7 @@
           "type": "card_text",
           "settings": {
             "heading": "Not sure where to start?",
-            "text": "<p>Tell us your puppy’s age and what is hardest right now. Jonah replies within two days.</p>"
+            "text": "<p>Tell us which reformer you have and how long you have practised. Maya replies within two days.</p>"
           }
         },
         "button_1": {

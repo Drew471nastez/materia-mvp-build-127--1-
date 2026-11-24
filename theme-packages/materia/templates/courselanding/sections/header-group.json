@@ -31,7 +31,7 @@
         "redirect_to_link": true,
         "logo_width_mobile": 78,
         "menu_link_spacing": 18,
-        "menu_mobile_color": "#141a2e",
+        "menu_mobile_color": "#261d18",
         "show_account_icon": false,
         "action_text_weight": "400",
         "logo_width_desktop": 120,
@@ -107,17 +107,17 @@
             "new_tab": false,
             "button_gap": 20,
             "button_link": "/#shopify-section-offer",
-            "button_text": "Start training",
+            "button_text": "Start the course",
             "custom_text": "#ffffff",
             "mobile_size": "small",
             "button_style": "primary",
-            "custom_border": "#2f4fd1",
+            "custom_border": "#9b4a2c",
             "custom_radius": 6,
             "show_on_mobile": false,
             "button_offset_x": 0,
             "button_offset_y": 0,
             "button_position": "after_icons",
-            "custom_hover_bg": "#1f3bb0",
+            "custom_hover_bg": "#7d3a21",
             "custom_font_size": 15,
             "custom_padding_x": 20,
             "custom_padding_y": 10,
@@ -128,7 +128,7 @@
             "mobile_hide_icons": "account_wishlist_search",
             "custom_font_weight": "700",
             "custom_border_width": 2,
-            "custom_hover_border": "#1f3bb0"
+            "custom_hover_border": "#7d3a21"
           }
         }
       },

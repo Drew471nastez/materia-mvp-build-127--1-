@@ -65,14 +65,14 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "Lights Out",
+            "text": "Keep Them Alive",
             "transform": "uppercase"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Tonight can be a better night",
+            "text": "Your plants can do better than this",
             "transform": "none",
             "lineheight": "1.25"
           }
@@ -80,7 +80,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "Twelve short chapters, PDF and EPUB, in your inbox in a minute."
+            "text": "Fourteen short chapters and sixty plants, PDF and EPUB, in your inbox in a minute."
           }
         },
         "button_4": {

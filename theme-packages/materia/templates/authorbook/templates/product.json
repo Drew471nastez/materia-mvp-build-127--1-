@@ -81,7 +81,7 @@
           "type": "text",
           "settings": {
             "heading": "",
-            "content": "<p>A practical guide to falling asleep, staying asleep and waking up rested, by Owen Kessler.</p>"
+            "content": "<p>A plain guide to light, water, soil and repotting, with care notes for sixty houseplants, by Maren Holt.</p>"
           }
         },
         "price_4": {
@@ -181,7 +181,7 @@
           "type": "whats_included",
           "settings": {
             "heading": "What you get",
-            "items": "Twelve chapters, 186 pages, PDF and EPUB\n28 small changes to try one at a time\nA two week plan to follow\nNotes for shift work, travel and new parents",
+            "items": "Fourteen chapters, 212 pages, PDF and EPUB\nCare notes for sixty common plants\nA leaf problem finder with photos\nEvery plant marked pet safe or not",
             "two_columns": false,
             "boxed": true
           }
@@ -199,7 +199,7 @@
           "type": "collapsible_row",
           "settings": {
             "heading": "Editions",
-            "content": "<p><strong>Ebook:</strong> PDF and EPUB. <strong>Ebook and audiobook:</strong> adds four and a half hours of MP3 files read by Owen. <strong>Complete set:</strong> adds the printable sleep diary.</p>",
+            "content": "<p><strong>Ebook:</strong> PDF and EPUB. <strong>Ebook and audiobook:</strong> adds five hours of MP3 files read by Maren. <strong>Complete set:</strong> adds sixty printable care cards.</p>",
             "use_product_description": false,
             "open": false
           }
@@ -212,10 +212,10 @@
             "first_open": false,
             "q_1": "Is this an ebook or a printed book?",
             "a_1": "<p>An ebook. You get a PDF and an EPUB file by email straight after you pay, and you can read them on any phone, tablet, computer or e-reader.</p>",
-            "q_2": "I slept badly last night. Where do I start?",
-            "a_2": "<p>Start with chapters two and six. They take about an hour together and give you a light plan for tomorrow morning and a wind down hour for tonight.</p>",
-            "q_3": "Is this medical advice?",
-            "a_3": "<p>No. It is practical advice for ordinary bad sleep. If you snore loudly, stop breathing at night or have been sleeping badly for months, see a doctor first. Chapter one says when.</p>",
+            "q_2": "A plant is dying right now. Where do I start?",
+            "a_2": "<p>Start with chapter twelve, what the leaves are telling you, then look up your plant in the care notes. Most rescues start with moving the pot or watering less.</p>",
+            "q_3": "Are these plants safe for pets?",
+            "a_3": "<p>Every plant in the care notes is marked safe or not safe for cats and dogs. For a full list, the short pet safe guide covers forty plants. If a pet has eaten a plant, call your vet.</p>",
             "q_4": "What if it is not for me?",
             "a_4": "<p>Email within 30 days and you get your money back. No questions asked.</p>",
             "spacing_top": 12,
@@ -291,8 +291,8 @@
         "section_width": "container",
         "image_position": "left",
         "text_column_width": 46,
-        "image": "shopify://shop_images/authorbook-spread-winddown.webp",
-        "image_alt": "Two open pages from chapter six, The wind down hour",
+        "image": "shopify://shop_images/authorbook-spread-water.webp",
+        "image_alt": "Two open pages from chapter five, Water when it is dry",
         "aspect_w": 16,
         "aspect_h": 11,
         "image_fit": "cover",
@@ -311,13 +311,13 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Short chapters, one method each"
+            "text": "Short chapters, one habit each"
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Every chapter is one change you can make this week, with a short plan at the end. Read it in a weekend, or one chapter a night with the lamp on.</p>"
+            "text": "<p>Every chapter is one habit you can start this week, with a short check at the end. Read it in a weekend, then keep the care notes open on your phone.</p>"
           }
         },
         "button_4": {
@@ -342,7 +342,7 @@
         "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
         "enable_custom_colors": true,
         "card_bg": "#ffffff",
-        "card_border_color": "#e6dccb",
+        "card_border_color": "#e3ddd0",
         "section_width": "container",
         "display_mode": "grid",
         "show_quote_mark": false,
@@ -388,30 +388,30 @@
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I moved my coffee and got ten minutes of light every morning. Two weeks later I was falling asleep before midnight without trying.</p>",
+            "quote": "<p>I moved my fiddle leaf fig one metre closer to the window, as chapter two said. Three new leaves in a month.</p>",
             "rating": 5,
             "name": "Maya A.",
-            "role": "Product manager",
+            "role": "Twelve plants, one flat",
             "avatar": "shopify://shop_images/authorbook-reader-1.webp"
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Short, practical and honest. The 3am chapter alone was worth it. I stopped checking the clock and started getting back to sleep.</p>",
+            "quote": "<p>Short, practical and honest. The watering chapter alone was worth it. I stopped watering on Sundays and stopped losing plants.</p>",
             "rating": 5,
             "name": "Daniel A.",
-            "role": "Father of two",
+            "role": "First flat, first plants",
             "avatar": "shopify://shop_images/authorbook-reader-2.webp"
           }
         },
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I work nights in a hospital. Chapter ten is the first sleep advice that fit my real week instead of an ideal one.</p>",
+            "quote": "<p>My flat faces north. Chapter two told me which plants would actually be happy there, and they are.</p>",
             "rating": 5,
             "name": "Lena M.",
-            "role": "Night shift nurse",
+            "role": "North facing flat",
             "avatar": "shopify://shop_images/authorbook-reader-3.webp"
           }
         }
@@ -431,7 +431,7 @@
         "color_scheme": "default",
         "section_width": "container",
         "reset_spacing": true,
-        "heading": "Also from Owen",
+        "heading": "Also from Maren",
         "description": "",
         "header_size": "small",
         "header_alignment": "left",

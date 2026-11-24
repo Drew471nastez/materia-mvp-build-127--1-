@@ -1,4 +1,4 @@
-/* Templates round 24: write to Open Shade: the form with the email and a call link beside it, then the common questions. */
+/* Templates round 24: write to Paper Garden: the form with the email and a call link beside it, then the common questions. */
 {
   "sections": {
     "heading": {
@@ -32,9 +32,9 @@
       "settings": {
         "color_scheme": "default",
         "btn_text": "Send message",
-        "ph_website": "A question about the course, your camera or a group class",
+        "ph_website": "A question about the course, your paints or a group class",
         "label_website": "Subject",
-        "success_text": "Thank you. Ida or Sam reads every message and replies within two working days."
+        "success_text": "Thank you. Clara or Sam reads every message and replies within two working days."
       },
       "blocks": {
         "heading_1": {
@@ -46,7 +46,7 @@
         "description_2": {
           "type": "description",
           "settings": {
-            "text": "<p>Questions about the course, your camera, a refund or a class for your photo club. Every message is read by a person.</p>"
+            "text": "<p>Questions about the course, your paints, a refund or a class for your art group. Every message is read by a person.</p>"
           }
         },
         "info_3": {
@@ -97,8 +97,8 @@
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
-            "question": "Which camera do I need?",
-            "answer": "<p>Any camera with a manual mode: mirrorless, DSLR or a compact with M on the dial.</p>"
+            "question": "Which paints do I need?",
+            "answer": "<p>Six tubes of watercolour, two round brushes and 300 gsm cotton paper. The full list is in module one.</p>"
           }
         },
         "faq_item_4": {

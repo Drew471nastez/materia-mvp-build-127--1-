@@ -32,21 +32,21 @@
       "settings": {
         "color_scheme": "default",
         "btn_text": "Send message",
-        "ph_website": "A reader question, a workshop or a podcast",
+        "ph_website": "A plant question, a workshop or a podcast",
         "label_website": "Subject",
-        "success_text": "Thank you. Owen reads every message and replies within a week."
+        "success_text": "Thank you. Maren reads every message and replies within a week."
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Write to Owen"
+            "text": "Write to Maren"
           }
         },
         "description_2": {
           "type": "description",
           "settings": {
-            "text": "<p>Reader questions, workplace talks on sleep, podcasts and interviews. Every message is read by a person.</p>"
+            "text": "<p>Reader questions with a photo of the plant, workshops, podcasts and interviews. Every message is read by a person.</p>"
           }
         },
         "info_3": {
@@ -62,7 +62,7 @@
           "settings": {
             "icon": "map",
             "line1": "Workshops in person and online",
-            "line2": "For teams of ten or more"
+            "line2": "For shops, offices and groups"
           }
         }
       },
@@ -105,21 +105,21 @@
           "type": "faq_item",
           "settings": {
             "question": "What is the difference between the editions?",
-            "answer": "<p>The ebook is the book. Ebook and audiobook adds the full audio, read by Owen. The complete set adds the printable sleep diary as well.</p>"
+            "answer": "<p>The ebook is the book. Ebook and audiobook adds the full audio, read by Maren. The complete set adds sixty printable care cards as well.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "I slept badly last night. Where do I start?",
-            "answer": "<p>Start with chapters two and six. They take about an hour together and give you a light plan for tomorrow morning and a wind down hour for tonight.</p>"
+            "question": "A plant is dying right now. Where do I start?",
+            "answer": "<p>Start with chapter twelve, what the leaves are telling you, then look up your plant in the care notes. Most rescues start with moving the pot or watering less.</p>"
           }
         },
         "faq_item_6": {
           "type": "faq_item",
           "settings": {
-            "question": "Is this medical advice?",
-            "answer": "<p>No. It is practical advice for ordinary bad sleep. If you snore loudly, stop breathing at night or have been sleeping badly for months, see a doctor first. Chapter one says when.</p>"
+            "question": "Are these plants safe for pets?",
+            "answer": "<p>Every plant in the care notes is marked safe or not safe for cats and dogs. For a full list, the short pet safe guide covers forty plants. If a pet has eaten a plant, call your vet.</p>"
           }
         }
       },

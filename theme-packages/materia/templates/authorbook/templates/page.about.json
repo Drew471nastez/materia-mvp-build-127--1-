@@ -5,8 +5,8 @@
       "type": "Image-and-video-text",
       "settings": {
         "color_scheme": "default",
-        "image": "shopify://shop_images/authorbook-owen.webp",
-        "image_alt": "Owen Kessler",
+        "image": "shopify://shop_images/authorbook-maren.webp",
+        "image_alt": "Maren Holt",
         "image_position": "left",
         "aspect_w": 4,
         "aspect_h": 5,
@@ -23,14 +23,14 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Owen Kessler",
+            "text": "Maren Holt",
             "tag": "h1"
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>For ten years Owen slept five hours a night and called it normal. Then a year of shift work made it impossible to ignore, and he started writing down what actually helped.</p><p>He now gives short talks on sleep to teams that work early, late and through the night, and writes a short letter about sleep every other week. This is sample text. Replace it with your own story.</p>"
+            "text": "<p>Maren killed her first twenty plants in a dark rented flat. Then she worked weekends in a plant shop, opened her own and spent eight years answering the same questions at the counter.</p><p>She now writes a short letter about plant care every other week. This is sample text. Replace it with your own story.</p>"
           }
         },
         "button_4": {
@@ -52,8 +52,8 @@
       "type": "Image-and-video-text",
       "settings": {
         "color_scheme": "default",
-        "image": "shopify://shop_images/authorbook-bedroom.webp",
-        "image_alt": "A dark bedroom with a reading lamp, and the book open at chapter six",
+        "image": "shopify://shop_images/authorbook-room.webp",
+        "image_alt": "A sunny corner full of houseplants: a monstera on a stool, ferns and pothos on a shelf",
         "image_position": "right",
         "aspect_w": 1,
         "aspect_h": 1,
@@ -63,19 +63,19 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "Why he wrote it"
+            "text": "Why she wrote it"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "The book he wanted on the night he gave up on sleep"
+            "text": "The book she wanted when her first plants died"
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Most sleep advice is a list of forty rules. Nobody follows forty rules. Lights Out picks the handful that matter, in the order to try them, with what to do on the nights they do not work.</p>"
+            "text": "<p>Most plant advice is a list of forty rules and a different answer on every forum. Keep Them Alive picks the handful that matter, in the order to learn them, with what to do when a plant still struggles.</p>"
           }
         }
       },
@@ -103,16 +103,16 @@
           "type": "column",
           "settings": {
             "label": "01",
-            "heading": "Light sets the clock",
-            "text": "<p>Morning light and dim evenings do more than any supplement.</p>"
+            "heading": "Light comes first",
+            "text": "<p>The right window fixes more than any fertiliser or spray.</p>"
           }
         },
         "column_3": {
           "type": "column",
           "settings": {
             "label": "02",
-            "heading": "Waking is normal",
-            "text": "<p>Everyone wakes in the night. What you do next is what counts.</p>"
+            "heading": "Water by touch",
+            "text": "<p>Plants drink with the weather, not with the calendar.</p>"
           }
         },
         "column_4": {
@@ -120,7 +120,7 @@
           "settings": {
             "label": "03",
             "heading": "Small and steady wins",
-            "text": "<p>One change a week, kept for two weeks, beats a perfect plan for three days.</p>"
+            "text": "<p>One change at a time, then two weeks of watching, tells you what worked.</p>"
           }
         }
       },
@@ -162,27 +162,27 @@
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "body": "I moved my coffee and got ten minutes of light every morning. Two weeks later I was falling asleep before midnight.",
+            "body": "I moved my fiddle leaf fig one metre closer to the window. Three new leaves in a month.",
             "name": "Maya A.",
-            "role": "Product manager",
+            "role": "Twelve plants, one flat",
             "rating": 5
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "body": "The 3am chapter alone was worth it. I stopped checking the clock and started getting back to sleep.",
+            "body": "The watering chapter alone was worth it. I stopped watering on Sundays and stopped losing plants.",
             "name": "Daniel A.",
-            "role": "Father of two",
+            "role": "First flat, first plants",
             "rating": 5
           }
         },
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "body": "I work nights in a hospital. Chapter ten is the first advice that fit my real week.",
+            "body": "My flat faces north. Chapter two told me which plants would be happy there.",
             "name": "Lena M.",
-            "role": "Night shift nurse",
+            "role": "North facing flat",
             "rating": 5
           }
         }
@@ -201,14 +201,14 @@
       "settings": {
         "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
         "image": "shopify://shop_images/authorbook-spread-light.webp",
-        "image_alt": "Two open pages from chapter two of Lights Out",
+        "image_alt": "Two open pages from chapter two of Keep Them Alive",
         "image_position": "left",
         "image_ratio": "landscape",
         "image_width": 50,
         "form_layout": "horizontal",
         "btn_text": "Send it to me",
         "email_placeholder": "Your email",
-        "note": "You also get the sleep letter every other week. Leave whenever you like.",
+        "note": "You also get the plant letter every other week. Leave whenever you like.",
         "success_text": "Done. Chapter two is in your inbox."
       },
       "blocks": {
@@ -221,7 +221,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Set your body clock with light, as a PDF: the daily light plan from the book and the one habit that makes the others work.</p>"
+            "text": "<p>Read the light in your rooms, as a PDF: which window suits which plant, and the hand test that tells you in ten seconds.</p>"
           }
         }
       },

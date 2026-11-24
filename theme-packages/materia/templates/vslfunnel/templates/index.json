@@ -1,4 +1,4 @@
-/* Templates round 24: Open Shade, a VSL funnel for an eight week course in shooting in manual with the camera you already own, on a light page: the free lesson in a large player with the teacher on its cover and the buttons under it, what the course is made of, who it is for, how a week goes, the eight modules, what you get, the teacher, student quotes, the offer with a refund, questions, free settings cards and a last call on a yellow band. Built from the theme's own sections around one custom video opening (vslfunnel-video). */
+/* Templates round 25: Paper Garden, a VSL funnel for an eight week online course in loose watercolour florals taught by a sample teacher, in deep teal on white instead of black: the free lesson in a large player with the teacher painting on its cover and the buttons under it, what the course is made of, who it is for, how a week goes, the eight modules, what you get, the teacher, student quotes, the offer with a refund, questions, free colour charts and a last call on a teal band. Built from the theme's own sections around one custom video opening (vslfunnel-video). */
 {
   "sections": {
     "hero": {
@@ -6,18 +6,18 @@
       "settings": {
         "color_scheme": "default",
         "eyebrow": "Watch the free lesson first. It is 18 minutes.",
-        "heading": "Take the photos you bought your camera for",
+        "heading": "Paint loose, fresh flowers in watercolour",
         "heading_size": 54,
         "heading_size_mobile": 32,
-        "text": "<p>An eight week online course for people who own a camera and leave it on auto. The lesson shows the three settings behind every photo and how to set them in under ten seconds.</p>",
+        "text": "<p>An eight week online course for beginners and for anyone whose paintings keep turning muddy. The lesson shows how much water to use and how to paint a whole flower in five strokes.</p>",
         "show_video": true,
         "poster": "shopify://shop_images/vslfunnel-poster.webp",
-        "poster_alt": "Ida Marsh, the teacher, in her studio holding a camera, about to start the lesson",
+        "poster_alt": "Clara Voss, the teacher, painting coral flowers in watercolour at a wooden table",
         "shade": 6,
         "length_label": "18:24",
-        "video_title": "Free lesson: the three settings behind every photo",
+        "video_title": "Free lesson: water, paint and a flower in five strokes",
         "play_label": "Play the free lesson",
-        "caption": "In the lesson: aperture, shutter speed and ISO on one dial, and a ten minute exercise you can try at your kitchen table tonight.",
+        "caption": "In the lesson: the water to paint ratio, one round brush, and a ten minute flower you can paint at your kitchen table tonight.",
         "empty_text": "The lesson plays here once the video is added in the editor.",
         "video_width": 1040,
         "radius": 14,
@@ -42,8 +42,8 @@
         "container_max_width": 1040,
         "headline_spacing": 28,
         "enable_custom_style": true,
-        "count_color": "#161616",
-        "description_text_color": "#4a4a47",
+        "count_color": "#18201f",
+        "description_text_color": "#4b5452",
         "count_size": 52,
         "count_font_weight": "bold",
         "description_size": 15,
@@ -59,7 +59,7 @@
           "settings": {
             "content": "What the course is made of",
             "enable_custom_style": true,
-            "color": "#161616",
+            "color": "#18201f",
             "size": 15,
             "mobile_size": 14,
             "font_weight": "600"
@@ -83,7 +83,7 @@
           "type": "count_box",
           "settings": {
             "number": 6,
-            "text": "live photo reviews"
+            "text": "live painting reviews"
           }
         }
       },
@@ -118,8 +118,8 @@
         "icon_size": 40,
         "icon_padding": 9,
         "enable_custom_style": true,
-        "icon_color": "#161616",
-        "icon_bg": "#f5c518",
+        "icon_color": "#17625c",
+        "icon_bg": "#e8f1ef",
         "benefit_bg": "#ffffff",
         "benefit_border_color": "rgba(0,0,0,0)",
         "benefit_heading_size": 18,
@@ -138,14 +138,14 @@
           "type": "media",
           "settings": {
             "media_type": "image",
-            "image": "shopify://shop_images/vslfunnel-park.webp",
-            "alt": "A photographer in a yellow jumper framing a shot under the trees in a park"
+            "image": "shopify://shop_images/vslfunnel-outdoors.webp",
+            "alt": "A painter working on a large flower painting outdoors under a blossoming tree"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Made for the camera you already have",
+            "text": "Made for a small table and a short list of paints",
             "tag": "h2",
             "enable_custom_style": true,
             "uppercase": false,
@@ -156,7 +156,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>You do not need new gear. A camera with a manual mode and the lens it came with is enough. The course is for you if you have:</p>",
+            "text": "<p>You need six tubes of paint, two brushes and good paper, about $60 in all. The course is for you if you have:</p>",
             "enable_custom_style": true,
             "size_desktop": 17,
             "size_mobile": 16
@@ -169,8 +169,8 @@
         "benefit_5": {
           "type": "benefit",
           "settings": {
-            "heading": "A camera that lives on auto",
-            "text": "<p>Any brand, mirrorless or DSLR, bought new or secondhand.</p>",
+            "heading": "Never painted before",
+            "text": "<p>Module one starts with holding the brush and filling a page with swatches.</p>",
             "icon_source": "svg",
             "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3.5 8.5h3l1.5-2.5h8l1.5 2.5h3v10h-17z\"/><circle cx=\"12\" cy=\"13\" r=\"3.5\"/></svg>"
           }
@@ -178,8 +178,8 @@
         "benefit_6": {
           "type": "benefit",
           "settings": {
-            "heading": "Photos that look nothing like the moment",
-            "text": "<p>Dark rooms, blurred children, white skies. Each one has a fix you can learn in a week.</p>",
+            "heading": "Paintings that turn muddy",
+            "text": "<p>Too much water, too little, or too much stirring. Each has a fix you can learn in a week.</p>",
             "icon_source": "svg",
             "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3.5\" y=\"5\" width=\"17\" height=\"14\" rx=\"1\"/><path d=\"M3.5 16l5-5 4 4 3-3 5 5\"/><circle cx=\"15.5\" cy=\"9\" r=\"1.3\"/></svg>"
           }
@@ -188,7 +188,7 @@
           "type": "benefit",
           "settings": {
             "heading": "An evening a week",
-            "text": "<p>Lessons run ten to twenty minutes. The week's assignment takes an hour or two.</p>",
+            "text": "<p>Lessons run ten to twenty minutes. The week's painting takes an hour or two.</p>",
             "icon_source": "svg",
             "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"8.5\"/><path d=\"M12 7.5V12l3 2\"/></svg>"
           }
@@ -196,8 +196,8 @@
         "benefit_8": {
           "type": "benefit",
           "settings": {
-            "heading": "No experience at all",
-            "text": "<p>Every lesson starts from zero. If the menus put you off, start here.</p>",
+            "heading": "A drawer of unused paints",
+            "text": "<p>Bought a set, tried twice and put it away? Start here with what you already own.</p>",
             "icon_source": "svg",
             "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"8.5\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/><path d=\"M12 3.5v3M20.5 12h-3M12 20.5v-3M3.5 12h3\"/></svg>"
           }
@@ -205,7 +205,7 @@
         "footnote_9": {
           "type": "footnote",
           "settings": {
-            "text": "<a href=\"/pages/book-a-call\">Not sure your camera will do? Book a free 15 minute call</a>",
+            "text": "<a href=\"/pages/book-a-call\">Not sure your paints will do? Book a free 15 minute call</a>",
             "enable_custom_style": true,
             "size": 16
           }
@@ -233,8 +233,8 @@
         "image_width_pct": 46,
         "gap_desktop": 72,
         "text_gap": 18,
-        "image": "shopify://shop_images/vslfunnel-studio.webp",
-        "image_alt": "A photographer lighting a model in a white studio while the shots come up on a laptop",
+        "image": "shopify://shop_images/vslfunnel-table.webp",
+        "image_alt": "A watercolour of orange fruit and leaves being painted on a wooden table",
         "image_aspect_desktop": "4 / 5",
         "image_radius": 12,
         "step_style": "numbered",
@@ -244,11 +244,11 @@
         "step_gap_inline": 18,
         "step_gap_below": 26,
         "custom_colors": true,
-        "marker_color": "#f5c518",
-        "marker_text_color": "#161616",
-        "line_color": "#dcdcd7",
-        "step_title_color": "#161616",
-        "step_desc_color": "#4a4a47",
+        "marker_color": "#17625c",
+        "marker_text_color": "#18201f",
+        "line_color": "#d7e0de",
+        "step_title_color": "#18201f",
+        "step_desc_color": "#4b5452",
         "step_title_size": 19,
         "step_desc_size": 16,
         "use_theme_button": true,
@@ -271,7 +271,7 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "One short lesson, one photo assignment",
+            "text": "Short lessons, one painting a week",
             "tag": "h2",
             "weight": "700",
             "size_desktop": 38,
@@ -281,7 +281,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>About two hours a week. The class adds one setting at a time, so nothing piles up.</p>",
+            "text": "<p>About two hours a week. The class adds one skill at a time, so nothing piles up.</p>",
             "max_width": 520,
             "size": 17
           }
@@ -290,21 +290,21 @@
           "type": "step",
           "settings": {
             "title": "Watch on Monday",
-            "description": "<p>Five or six lessons of ten to twenty minutes. Watch them on your phone, in any order.</p>"
+            "description": "<p>Five or six lessons of ten to twenty minutes. Prop your phone beside the paper and paint along.</p>"
           }
         },
         "step_5": {
           "type": "step",
           "settings": {
-            "title": "Shoot the assignment",
-            "description": "<p>One brief on a single page: a window portrait, a passing bike, a street at dusk. Take thirty frames and keep three.</p>"
+            "title": "Paint the week’s piece",
+            "description": "<p>One brief on a single page: a page of leaves, a rose, a small wreath. Paint it three times and keep the best.</p>"
           }
         },
         "step_6": {
           "type": "step",
           "settings": {
-            "title": "Bring photos on Thursday",
-            "description": "<p>Every other Thursday Ida reviews students' photos live, with the settings on screen, and says what she would change.</p>"
+            "title": "Show your painting on Thursday",
+            "description": "<p>Every other Thursday Clara reviews students' paintings live, with the colours named on screen, and says what she would change.</p>"
           }
         },
         "button_7": {
@@ -331,16 +331,16 @@
         "tag": "Curriculum",
         "heading": "Eight modules, one a week",
         "heading_accent": "",
-        "text": "<p>The class runs from 12 January to early March. After that the lessons stay open, and you can repeat any assignment as often as you like.</p>",
-        "totals": "8 modules, 44 lessons, about 8 hours of video",
+        "text": "<p>The class runs from 12 January to early March. After that the lessons stay open, and you can repaint any piece as often as you like.</p>",
+        "totals": "8 modules, 44 lessons, about 7 hours of video",
         "first_open": true,
         "anchor": "curriculum",
         "heading_size": 40,
         "background": "#ffffff",
-        "accent": "#161616",
-        "heading_color": "#161616",
-        "text_color": "#4a4a47",
-        "line_color": "#e6e6e2",
+        "accent": "#17625c",
+        "heading_color": "#18201f",
+        "text_color": "#4b5452",
+        "line_color": "#e3e9e7",
         "padding_top": 104,
         "padding_bottom": 96,
         "padding_top_mobile": 56,
@@ -350,65 +350,65 @@
         "module_1": {
           "type": "module",
           "settings": {
-            "title": "Know your camera",
+            "title": "Paper, paint and brushes",
             "meta": "5 lessons, 44 min",
-            "lessons": "The three dials that matter\nHolding the camera steady\nFocus points and focus modes\nRAW or JPEG\nAssignment: one object, thirty frames"
+            "lessons": "The three things worth spending on\nSetting up a small table\nMixing on the palette\nHow much water is enough\nAssignment: a page of swatches"
           }
         },
         "module_2": {
           "type": "module",
           "settings": {
-            "title": "Exposure",
-            "meta": "6 lessons, 62 min",
-            "lessons": "Aperture and what goes soft\nShutter speed and what goes blurred\nISO and grain\nReading the meter\nExposure compensation\nAssignment: one scene three ways"
+            "title": "Washes",
+            "meta": "6 lessons, 58 min",
+            "lessons": "Flat and graded washes\nWet on wet, wet on dry\nWhen to stop touching it\nBlooms: fix them or keep them\nLifting colour out\nAssignment: one sky, three ways"
           }
         },
         "module_3": {
           "type": "module",
           "settings": {
-            "title": "Light",
-            "meta": "6 lessons, 66 min",
-            "lessons": "Window light at home\nOpen shade outdoors\nHard midday sun\nGolden hour and blue hour\nWhite balance\nAssignment: one face, four kinds of light"
+            "title": "Brushstrokes",
+            "meta": "6 lessons, 50 min",
+            "lessons": "Pressure and release\nPetals in one stroke\nLeaves in two strokes\nStems that do not wobble\nThe dry brush\nAssignment: a page of leaves"
           }
         },
         "module_4": {
           "type": "module",
           "settings": {
-            "title": "Composition",
+            "title": "Colour mixing",
             "meta": "5 lessons, 52 min",
-            "lessons": "Where to stand\nFilling the frame\nLines, layers and edges\nWhen to break the rule of thirds\nAssignment: your street, ten frames"
+            "lessons": "A palette of six colours\nGreens that look alive\nWarm pinks and cool pinks\nMixing on the paper\nAssignment: one flower, four palettes"
           }
         },
         "module_5": {
           "type": "module",
           "settings": {
-            "title": "Portraits",
+            "title": "Roses and peonies",
             "meta": "6 lessons, 64 min",
-            "lessons": "Talking to the person in front of you\nFocus on the near eye\nBackgrounds that stay quiet\nPortraits at home\nGroups without a tripod\nAssignment: someone you know"
+            "lessons": "Building a rose from the centre\nPeonies in layers\nLeaving white paper\nSoft and hard edges\nLight petals on dark leaves\nAssignment: three roses"
           }
         },
         "module_6": {
           "type": "module",
           "settings": {
-            "title": "Things that move",
-            "meta": "5 lessons, 50 min",
-            "lessons": "Children and pets\nContinuous focus\nPanning\nBurst mode, used sparingly\nAssignment: something fast"
+            "title": "Wild flowers",
+            "meta": "5 lessons, 48 min",
+            "lessons": "Cosmos and poppies\nLavender and grasses\nSeed heads and buds\nSplatter, used sparingly\nAssignment: a meadow strip"
           }
         },
         "module_7": {
           "type": "module",
           "settings": {
-            "title": "Low light",
-            "meta": "5 lessons, 54 min",
-            "lessons": "Indoors at night\nA steady hand and a slow shutter\nWhen a tripod is worth it\nCity lights at dusk\nAssignment: after dark"
+            "title": "Wreaths and bouquets",
+            "meta": "5 lessons, 52 min",
+            "lessons": "Arranging a bouquet\nA wreath in three passes\nWhere the eye lands\nSpace between flowers\nAssignment: a small wreath"
           }
         },
         "module_8": {
           "type": "module",
           "settings": {
-            "title": "Edit and choose",
-            "meta": "6 lessons, 70 min",
-            "lessons": "Picking the best frame\nAn editing order that stays the same\nCrop and straighten\nColour that looks like the day\nPrinting your photos\nA set of twelve to keep"
+            "title": "Finish and share",
+            "meta": "6 lessons, 66 min",
+            "lessons": "Knowing when to stop\nSigning and dating\nPhotographing a painting\nCards, gifts and prints\nA set of six to keep\nAssignment: a bouquet for someone"
           }
         }
       },
@@ -457,7 +457,7 @@
           "settings": {
             "label": "Lessons",
             "heading": "44 video lessons",
-            "text": "<p>Ten to twenty minutes each, with captions and the settings written under every example.</p>"
+            "text": "<p>Ten to twenty minutes each, filmed from above, with the colours written under every example.</p>"
           }
         },
         "column_3": {
@@ -465,15 +465,15 @@
           "settings": {
             "label": "Live",
             "heading": "Six live reviews",
-            "text": "<p>Every other Thursday during the class. Send three photos ahead. Each call is recorded.</p>"
+            "text": "<p>Every other Thursday during the class. Send a photo of your painting ahead. Each call is recorded.</p>"
           }
         },
         "column_4": {
           "type": "column",
           "settings": {
             "label": "Printables",
-            "heading": "Settings cards",
-            "text": "<p>Pocket cards for portraits, movement, low light and landscapes, to print or keep on your phone.</p>"
+            "heading": "Colour charts",
+            "text": "<p>Mixing charts and tracing sheets for every flower in the course, to print.</p>"
           }
         },
         "column_5": {
@@ -503,8 +503,8 @@
         "content_align": "left",
         "content_gap": 18,
         "media_type": "image",
-        "image": "shopify://shop_images/vslfunnel-ida.webp",
-        "image_alt": "Ida Marsh photographing in her studio",
+        "image": "shopify://shop_images/vslfunnel-clara.webp",
+        "image_alt": "Clara Voss painting fruit and leaves at her table",
         "aspect_w": 4,
         "aspect_h": 5,
         "image_fit": "cover",
@@ -531,7 +531,7 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Ida Marsh",
+            "text": "Clara Voss",
             "tag": "h2",
             "enable_custom_style": true,
             "size_desktop": 40,
@@ -541,7 +541,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Ida has worked as a portrait and events photographer for eleven years. For six of them she has taught an evening class for people who bought a good camera and never left auto.</p><p>This course is that class, filmed, with the questions people asked most answered on screen. She runs every live review herself.</p>",
+            "text": "<p>Clara has painted wedding stationery and botanical prints for ten years. For six of them she has taught an evening class for people who bought a paint set and never got past the first page.</p><p>This course is that class, filmed from above, with the questions people asked most answered on screen. She runs every live review herself.</p>",
             "enable_custom_style": true,
             "size_desktop": 17,
             "size_mobile": 16
@@ -550,7 +550,7 @@
         "button_4": {
           "type": "button",
           "settings": {
-            "label": "Read Ida's story",
+            "label": "Read Clara's story",
             "link": "/pages/about",
             "button_style": "secondary",
             "use_theme_button": true
@@ -589,7 +589,7 @@
         "pagination_spacing": 32,
         "enable_custom_colors": true,
         "card_bg": "#ffffff",
-        "card_border_color": "#e4e4e4",
+        "card_border_color": "#e1e8e6",
         "enable_custom_typography": true,
         "quote_size": 17,
         "autoplay": false,
@@ -629,47 +629,47 @@
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I had a camera for three years and used it twice. By week three I was shooting in manual without thinking about it, and my photos of the kids are finally sharp.</p>",
+            "quote": "<p>I had a paint set for three years and used it twice. By week three I was painting leaves without thinking about it, and my roses finally look like roses.</p>",
             "rating": 0,
             "name": "Naomi B.",
-            "role": "Mirrorless, bought secondhand",
+            "role": "Complete beginner",
             "avatar": "shopify://shop_images/vslfunnel-student-1.webp"
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>The window light lesson changed every photo I take at home. One chair, one window, and I stopped using the flash.</p>",
+            "quote": "<p>The water lesson changed every painting. I stopped going back into wet paint and the mud disappeared.</p>",
             "rating": 0,
             "name": "Rafael O.",
-            "role": "Photographs his family",
+            "role": "Paints after work",
             "avatar": "shopify://shop_images/vslfunnel-student-2.webp"
           }
         },
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Each week has one assignment, so I never felt behind. In the live reviews Ida looked at my photos and told me exactly what to change.</p>",
+            "quote": "<p>Each week has one painting, so I never felt behind. In the live reviews Clara looked at my work and told me exactly what to change.</p>",
             "rating": 0,
             "name": "Chloe L.",
-            "role": "First camera",
+            "role": "First paint set",
             "avatar": "shopify://shop_images/vslfunnel-student-3.webp"
           }
         },
         "testimonial_7": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I travel a lot and always came home with flat, grey pictures. Module three fixed that in an afternoon.</p>",
+            "quote": "<p>My greens were always flat and dull. Module four fixed that in an afternoon.</p>",
             "rating": 0,
             "name": "Tomas K.",
-            "role": "Travel photos",
+            "role": "Sketchbook painter",
             "avatar": "shopify://shop_images/vslfunnel-student-4.webp"
           }
         },
         "testimonial_8": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Short, clear lessons. I watched them on the train and tried the settings that evening.</p>",
+            "quote": "<p>Short, clear lessons. I watched them on the train and painted the flower that evening.</p>",
             "rating": 0,
             "name": "Elif M.",
             "role": "Learns on the commute",
@@ -722,7 +722,7 @@
             "price": "$189",
             "compare_price": "",
             "note": "One payment",
-            "features": "44 video lessons\nSix live photo reviews\nSettings cards to print\nLessons yours to keep\n- A one to one portfolio review",
+            "features": "44 video lessons\nSix live painting reviews\nColour charts to print\nLessons yours to keep\n- A one to one painting review",
             "button_label": "Join the class",
             "button_link": "/collections/all",
             "button_style": "auto"
@@ -731,14 +731,14 @@
         "plan_2": {
           "type": "plan",
           "settings": {
-            "name": "Course and a portfolio review",
-            "description": "<p>With notes on twenty of your own photos.</p>",
+            "name": "Course and a painting review",
+            "description": "<p>With notes on ten of your own paintings.</p>",
             "badge": "With a call",
             "featured": true,
             "price": "$259",
             "compare_price": "",
             "note": "One payment",
-            "features": "Everything in Course\nA 45 minute video call with Ida\nTwenty of your photos reviewed\nWritten notes after the call",
+            "features": "Everything in Course\nA 45 minute video call with Clara\nTen of your paintings reviewed\nWritten notes after the call",
             "button_label": "Join with a review",
             "button_link": "/collections/all",
             "button_style": "auto"
@@ -762,10 +762,10 @@
         "icon_size": 52,
         "point_style": "check",
         "enable_custom_style": true,
-        "icon_color": "#161616",
-        "border_color": "#e4e4e4",
-        "point_color": "#161616",
-        "marker_color": "#161616",
+        "icon_color": "#17625c",
+        "border_color": "#e1e8e6",
+        "point_color": "#17625c",
+        "marker_color": "#17625c",
         "padding_top_desktop": 8,
         "padding_bottom_desktop": 104,
         "padding_top_mobile": 8,
@@ -781,7 +781,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Watch the first two modules and send photos to a live review. If the course is not for you, email us within 30 days of joining and we refund you in full.</p>"
+            "text": "<p>Watch the first two modules and show a painting at a live review. If the course is not for you, email us within 30 days of joining and we refund you in full.</p>"
           }
         },
         "point_3": {
@@ -799,7 +799,7 @@
         "point_5": {
           "type": "point",
           "settings": {
-            "text": "Keep the settings cards"
+            "text": "Keep the colour charts"
           }
         }
       },
@@ -832,7 +832,7 @@
         "show_dividers": false,
         "enable_custom_style": true,
         "card_bg": "#ffffff",
-        "card_border_color": "#e4e4e4",
+        "card_border_color": "#e1e8e6",
         "question_size_desktop": 18,
         "question_size_mobile": 16,
         "answer_size_desktop": 16,
@@ -857,36 +857,36 @@
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
-            "question": "Which camera do I need?",
-            "answer": "<p>Any camera with a manual mode: mirrorless, DSLR or a compact with M on the dial. The lessons show the settings on the three common dial layouts, and a call can check yours.</p>"
+            "question": "Which paints do I need?",
+            "answer": "<p>Six tubes of artist or student watercolour, a size 8 and a size 4 round brush and a pad of 300 gsm cotton paper. The list names good options at three prices, and a call can check what you have.</p>"
           }
         },
         "faq_item_4": {
           "type": "faq_item",
           "settings": {
-            "question": "Do I need to buy a new lens?",
-            "answer": "<p>No. Everything in the course works with the lens the camera came with. Module five says when a second lens is worth it, and which one to look at first.</p>"
+            "question": "Can I use the set I already have?",
+            "answer": "<p>Usually yes. Paper matters most, so start there. Module one says which colours in a set are worth keeping and which to replace first.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "Can I do it with my phone?",
-            "answer": "<p>The light and composition lessons work with any phone. The settings lessons need manual control, so most of the course assumes a camera.</p>"
+            "question": "Can I paint on an iPad instead?",
+            "answer": "<p>The shapes and composition lessons work in any painting app. Water and paint behave differently on a screen, so most of the course assumes real paper.</p>"
           }
         },
         "faq_item_6": {
           "type": "faq_item",
           "settings": {
             "question": "What if I miss a live review?",
-            "answer": "<p>Every call is recorded and added to the course the same day. Send your photos beforehand and Ida reviews them on the recording.</p>"
+            "answer": "<p>Every call is recorded and added to the course the same day. Send a photo of your painting beforehand and Clara reviews it on the recording.</p>"
           }
         },
         "faq_item_7": {
           "type": "faq_item",
           "settings": {
             "question": "How long do I keep the lessons?",
-            "answer": "<p>For as long as the course exists. Lessons, recordings and the settings cards stay in your account, and updates are free.</p>"
+            "answer": "<p>For as long as the course exists. Lessons, recordings and the colour charts stay in your account, and updates are free.</p>"
           }
         },
         "faq_item_8": {
@@ -922,13 +922,13 @@
         "color_scheme": "default",
         "section_width": "container",
         "heading": "Not ready this month?",
-        "description": "<p>Get the settings cards from module one by email, free, and a short note when the next class opens.</p>",
+        "description": "<p>Get the colour charts from module four by email, free, and a short note when the next class opens.</p>",
         "email_label": "Email address",
         "email_placeholder": "Your email",
-        "btn_text": "Send me the cards",
+        "btn_text": "Send me the charts",
         "note": "One email a month at most. Leave whenever you like.",
         "subscribed_button_text": "Sent",
-        "success_text": "Done. The settings cards are on their way to your inbox.",
+        "success_text": "Done. The colour charts are on their way to your inbox.",
         "header_alignment": "left",
         "form_layout": "horizontal",
         "show_icon": false,
@@ -946,8 +946,8 @@
         "content_align": "left",
         "content_gap": 18,
         "media_type": "image",
-        "image": "shopify://shop_images/vslfunnel-dusk.webp",
-        "image_alt": "A photographer on a rooftop at dusk, framing the lit street below",
+        "image": "shopify://shop_images/vslfunnel-finished.webp",
+        "image_alt": "A finished watercolour of red flowers and green leaves beside a paint tin and brushes",
         "aspect_w": 3,
         "aspect_h": 2,
         "image_fit": "cover",
@@ -968,7 +968,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Shoot in manual by March",
+            "text": "Paint your first loose bouquet by March",
             "tag": "h2",
             "enable_custom_style": true,
             "size_desktop": 44,
@@ -978,7 +978,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>The January class starts 12 January. Eight modules, six live photo reviews and a 30 day refund if it is not for you.</p>",
+            "text": "<p>The January class starts 12 January. Eight modules, six live painting reviews and a 30 day refund if it is not for you.</p>",
             "enable_custom_style": true,
             "size_desktop": 18,
             "size_mobile": 16

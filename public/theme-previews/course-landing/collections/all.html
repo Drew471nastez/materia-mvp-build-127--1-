@@ -1,7 +1,7 @@
 
 <!doctype html>
 <html class="no-js" lang="en" dir="ltr">
-<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/course-landing/a/cart.263e98c90133.json";
+<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/course-landing/a/cart.0b83fd14718f.json",WISH_DATA="";
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
@@ -86,6 +86,8 @@ if(D.readyState==="loading")D.addEventListener("DOMContentLoaded",arrive);else a
 
 if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);if(mine(u))return F.apply(this,arguments);
 /* Cards round 24: the cart answers from the template's drawn cart (./theme-templates/preview-cart.ts), as a store would. */
+/* Round 25: the wishlist page asks for its saved products' cards; every product's card is in WISH_DATA and the theme keeps the saved ones. */
+if(WISH_DATA&&/\/search$/.test(path(u))&&/[?&]section_id=/.test(u))return F(WISH_DATA).then(function(r){return r.json()}).then(function(d){return new Response(d.html,{status:200,headers:{"Content-Type":"text/html"}})});
 var p=path(u),q=/[?&]sections=/.test(u),c=/\/cart(\.js|\.json|\/(add|change|update|clear)(\.js)?)$/.test(p);if(CART_DATA&&(c||q)){var w=c?cartReply(p,o):sectionsReply(u);return w.then(function(r){return new Response(JSON.stringify(r[1]),{status:r[0],headers:{"Content-Type":"application/json"}})},function(){var r=reply(u);return new Response(r[2],{status:r[0],headers:{"Content-Type":r[1]}})})}
 var r=reply(u);return Promise.resolve(new Response(r[2],{status:r[0],headers:{"Content-Type":r[1]}}))};
 var X=W.XMLHttpRequest&&W.XMLHttpRequest.prototype;if(X){var O=X.open;X.open=function(m,u){var a=[].slice.call(arguments);if(!mine(u)){var r=reply(u);a[0]="GET";a[1]="data:"+r[1]+","+encodeURIComponent(r[2])}return O.apply(this,a)}}
@@ -170,13 +172,13 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
     }, true);
   });
 })();
-</script><title>Products | Good Lead</title>
-<meta property="og:site_name" content="Good Lead">
-<meta property="og:title" content="Products | Good Lead">
+</script><title>Products | Arch Pilates</title>
+<meta property="og:site_name" content="Arch Pilates">
+<meta property="og:title" content="Products | Arch Pilates">
 <meta property="og:type" content="website">
-<meta property="og:description" content="Good Lead"><meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Products | Good Lead">
-<meta name="twitter:description" content="Good Lead">
+<meta property="og:description" content="Arch Pilates"><meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Products | Arch Pilates">
+<meta name="twitter:description" content="Arch Pilates">
 <style id="speed-optimization-css">
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -206,9 +208,9 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
         } catch (e) {}
       })();
     </script>
-<link href="/theme-previews/_base/a/critical.03978b251a4f.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/animation.d0494c87fafa.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/product-card.9a3739dc0c4c.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"primary","product_size":17,"price_size":16,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
+<link href="/theme-previews/_base/a/critical.4539b38450ad.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/animation.ea82f84e3656.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/product-card.57905ba3cf39.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"primary","product_size":17,"price_size":16,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
 <style>html:not([data-card-custom='true']) .product-item .product-item__name { font-size:var(--body-font-size, 16px); text-transform:var(--heading-text-transform, none) !important; } html:not([data-card-custom='true']) .product-item .product-item__price { font-size:var(--body-font-size, 16px); }</style>
 <script>document.documentElement.dataset.cardCustom = false === true ? 'true' : 'false';</script>
 <script type="application/json" data-badge-style-settings>false</script>
@@ -217,20 +219,20 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
     document.addEventListener('DOMContentLoaded',function(){setTimeout(go,4000)},{once:true})}
     ['pointerdown','click','keydown','scroll','touchstart'].forEach(function(n){addEventListener(n,go,{once:true,passive:true,capture:true})})})(["/theme-previews/_base/a/popup.18cdf2513c31.css","/theme-previews/_base/a/tingle-min.ed947d9dd1c7.css"]);</script><link rel="stylesheet" href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" media="print" onload="this.media='all'">
 <noscript><link href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" rel="stylesheet" type="text/css" media="all"></noscript>
-<link rel="stylesheet" href="/theme-previews/_base/a/fonts.fb4396f43802.css" data-materia-fonts>
-<style data-materia-font-fallbacks>@font-face{font-family:"Lato Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:97.1%;ascent-override:101.6%;descent-override:21.9%;line-gap-override:0%}@font-face{font-family:"Lato Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:97.1%;ascent-override:101.6%;descent-override:21.9%;line-gap-override:0%}@font-face{font-family:"Rubik Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:105.1%;ascent-override:88.9%;descent-override:23.8%;line-gap-override:0%}@font-face{font-family:"Rubik Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:105.1%;ascent-override:88.9%;descent-override:23.8%;line-gap-override:0%}</style><style data-shopify>
+<link rel="stylesheet" href="/theme-previews/_base/a/fonts.db938c9425b6.css" data-materia-fonts>
+<style data-materia-font-fallbacks>@font-face{font-family:"Work Sans Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:112.5%;ascent-override:82.7%;descent-override:21.6%;line-gap-override:0%}@font-face{font-family:"Work Sans Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:112.5%;ascent-override:82.7%;descent-override:21.6%;line-gap-override:0%}@font-face{font-family:"Lora Fallback";src:local("Times New Roman"), local("TimesNewRomanPSMT"), local("Liberation Serif");font-weight:100 549;size-adjust:113.2%;ascent-override:88.9%;descent-override:24.2%;line-gap-override:0%}@font-face{font-family:"Lora Fallback";src:local("Times New Roman Bold"), local("TimesNewRomanPS-BoldMT"), local("Liberation Serif Bold");font-weight:550 1000;size-adjust:113.2%;ascent-override:88.9%;descent-override:24.2%;line-gap-override:0%}</style><style data-shopify>
   :root {
-    --body-font: "Lato", "Lato Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    --heading-font: "Rubik", "Rubik Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --body-font: "Work Sans", "Work Sans Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --heading-font: "Lora", "Lora Fallback", Georgia, "Times New Roman", serif, sans-serif;
     --menu-font: var(--body-font);
     --btn-font: var(--body-font);
   }
 </style>
-<link rel="stylesheet" href="/theme-previews/course-landing/a/i.dd17bb576314.css" data-shopify>
+<link rel="stylesheet" href="/theme-previews/course-landing/a/i.374930bf822d.css" data-shopify>
 <link href="/theme-previews/_base/a/theme.d71f5b96fec8.css" rel="stylesheet" type="text/css" media="all"><noscript><link href="/theme-previews/_base/a/popup.18cdf2513c31.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.9c20c549e3cf.css">
 <link rel="preload" as="style" href="/theme-previews/_base/a/minicart.ac0014483417.css" fetchpriority="low">
 <link rel="preload" as="style" href="/theme-previews/_base/a/materia-experience.b68d6d8152a8.css" fetchpriority="low">
-<link rel="stylesheet" href="/theme-previews/course-landing/a/i.4776fb16c78a.css"><link rel="stylesheet" href="/theme-previews/course-landing/a/i.2cb48a0be8ae.css"><link href="/theme-previews/_base/a/theme-button-contract.7d286d7eee9b.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/localization-controls.9494a0c83131.css" rel="stylesheet" type="text/css" media="all"><link rel="modulepreload" href="/theme-previews/_base/a/theme.7a7dd8f80f89.js" fetchpriority="low"><script data-storelib-head src="/theme-previews/course-landing/a/i.585ec254f5fd.js"></script>
+<link rel="stylesheet" href="/theme-previews/course-landing/a/i.a780c69976f4.css"><link rel="stylesheet" href="/theme-previews/course-landing/a/i.e8e16143d752.css"><link href="/theme-previews/_base/a/theme-button-contract.7d286d7eee9b.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/localization-controls.9494a0c83131.css" rel="stylesheet" type="text/css" media="all"><link rel="modulepreload" href="/theme-previews/_base/a/theme.7a7dd8f80f89.js" fetchpriority="low"><script data-storelib-head src="/theme-previews/course-landing/a/i.585ec254f5fd.js"></script>
 <script src="/theme-previews/_base/a/swiper-bundle-min.31d164f7367d.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/motion-min.d1f8eb312b47.js" type="module" defer="defer" fetchpriority="low"></script>
 <script src="/theme-previews/_base/a/utils.90eeb774e439.js" defer="defer" data-cart-count="0"></script>
@@ -320,8 +322,8 @@ data-menu-hover="none"
   }
 </style><style data-shopify>#shopify-section-header {
     --hs-mnav-bg: #ffffff;
-    --hs-mnav-heading: #141a2e;
-    --hs-mnav-text: #4b5060;
+    --hs-mnav-heading: #261d18;
+    --hs-mnav-text: #5a514b;
     --hs-hover-fill: #ffffff;
     --hs-logo-width: 120px;
     --hs-logo-width-mobile: 78px;
@@ -332,7 +334,7 @@ data-menu-hover="none"
       --hs-logo-max-height: 42px;
       --hs-logo-box-height: 58px;
     }
-  }:root { --hs-mnav-title-bg: #ffffff; --hs-mnav-title-color: #141a2e; }</style><link href="/theme-previews/_base/a/header-layout.ed2de67e6e9c.css" rel="stylesheet" type="text/css" media="all">
+  }:root { --hs-mnav-title-bg: #ffffff; --hs-mnav-title-color: #261d18; }</style><link href="/theme-previews/_base/a/header-layout.ed2de67e6e9c.css" rel="stylesheet" type="text/css" media="all">
 <style>
   #shopify-section-header {
     --header-height-desktop: 64px;
@@ -354,12 +356,12 @@ style="--section-pt: 0;--section-pb: 0;--transparent-color: #ffffff;--menu-hover
 <div class="header__logo text-center text-left-1025 inline-flex align-center"><a
 class="logo-img no-underline inline-flex align-center h1 my-0"
 href="/theme-previews/course-landing/index.html"
-aria-label="Good Lead"
+aria-label="Arch Pilates"
 >
 <span
 class="header__logo inline-flex align-center"
 style="--header-logo-width: 208px; --header-logo-width-mobile: 78px;"
-><span class="header__logo-text" style="font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 600); font-size: clamp(20px, 2.2vw, 28px); line-height: 1; letter-spacing: -0.01em; color: inherit; white-space: nowrap;">Good Lead</span></span>
+><span class="header__logo-text" style="font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 600); font-size: clamp(20px, 2.2vw, 28px); line-height: 1; letter-spacing: -0.01em; color: inherit; white-space: nowrap;">Arch Pilates</span></span>
 </a>
 </div>
 <div class="header__menu"><button
@@ -418,7 +420,7 @@ class="level0 single"
 <a
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/course-landing/pages/about.html"
-><span>Your trainer</span></a></menu-item></li>
+><span>Your teacher</span></a></menu-item></li>
 <li data-hs-i="2"
 class="level0 single"
 >
@@ -462,7 +464,7 @@ href="/theme-previews/course-landing/index.html#shopify-section-weeks"
 <a
 class="menu_item-link no-underline py-1025-5 inline-flex align-center"
 href="/theme-previews/course-landing/pages/about.html"
-><span class="menu-link-text">Your trainer</span></a></li><li class="menu-link level-1" data-hs-more-i="2" hidden>
+><span class="menu-link-text">Your teacher</span></a></li><li class="menu-link level-1" data-hs-more-i="2" hidden>
 <a
 class="menu_item-link no-underline py-1025-5 inline-flex align-center"
 href="/theme-previews/course-landing/index.html#shopify-section-offer"
@@ -488,7 +490,7 @@ data-badge-case="style"
 data-badge-pos="above"
 data-badge-lift
 style="
---mm-title-bg: #ffffff; --mm-title-color: #141a2e;
+--mm-title-bg: #ffffff; --mm-title-color: #261d18;
 --mb-badge-size: 10px;--mb-badge-border: 1px;
 --hot-cl: ;--hot-bg-cl: ;
 --new-cl: ;--new-bg-cl: ;
@@ -505,7 +507,7 @@ height="13"
 viewBox="0 0 13 13"
 fill="none"
 class="heading-color"
-style="color: #141a2e !important; --color-heading: #141a2e;"
+style="color: #261d18 !important; --color-heading: #261d18;"
 >
 <use href="#icon-close" />
 </svg>
@@ -513,11 +515,11 @@ style="color: #141a2e !important; --color-heading: #141a2e;"
 <div class="navigation__menu-content navigation__menu-content-mobile word-break">
 <div
 class="menu-mobile-title min-h-55 min-h-1025-50 flex align-center px-30 py-5 hidden-1025 gap-30"
-style="background: #ffffff !important; color: #141a2e !important; --color-heading: #141a2e; --mm-title-bg: #ffffff; --mm-title-color: #141a2e;"
+style="background: #ffffff !important; color: #261d18 !important; --color-heading: #261d18; --mm-title-bg: #ffffff; --mm-title-color: #261d18;"
 >
 <a
 class="active no-underline heading-style py-10 inline-flex align-center gap-10"
-style="color: #141a2e !important;"
+style="color: #261d18 !important;"
 data-menu="horizontal-list"
 role="link"
 aria-disabled="true"
@@ -547,7 +549,7 @@ class="level0 single"
 <a
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/course-landing/pages/about.html"
-><span>Your trainer</span></a></menu-item></li>
+><span>Your teacher</span></a></menu-item></li>
 <li data-hs-i="2"
 class="level0 single"
 >
@@ -584,7 +586,7 @@ href="/theme-previews/course-landing/pages/faqs.html"
 <symbol id="icon-bag">
 <path d="M12.7518 2.91374L11.6276 1.44835H3.37237L2.24824 2.91374H12.7518ZM14.8419 3.18637V3.20341C14.8419 3.20341 14.8478 3.20341 14.8595 3.20341C14.8946 3.27157 14.9239 3.33972 14.9473 3.40788C14.9824 3.47604 15 3.54988 15 3.62939V13.819C15 14.1143 14.9356 14.3983 14.8068 14.6709C14.6897 14.9322 14.5316 15.1594 14.3326 15.3525C14.1335 15.557 13.8934 15.716 13.6124 15.8296C13.3431 15.9432 13.0562 16 12.7518 16H2.24824C1.94379 16 1.65105 15.9375 1.37002 15.8126C1.1007 15.699 0.866511 15.5456 0.667447 15.3525C0.456674 15.1594 0.29274 14.9322 0.175644 14.6709C0.058548 14.3983 0 14.1143 0 13.819V3.62939C0 3.58395 0.0058548 3.53852 0.0175644 3.49308C0.029274 3.43628 0.0468384 3.37948 0.0702576 3.32268C0.0819672 3.29996 0.0936768 3.27725 0.105386 3.25453C0.128806 3.23181 0.14637 3.20909 0.15808 3.18637L2.40632 0.28967C2.47658 0.198793 2.5644 0.130635 2.66979 0.085197C2.77518 0.028399 2.88642 0 3.00351 0H11.9965C12.1136 0 12.2248 0.028399 12.3302 0.085197C12.4356 0.130635 12.5234 0.198793 12.5937 0.28967L14.8419 3.18637ZM1.51054 4.36209V13.819C1.51054 13.9098 1.5281 14.0007 1.56323 14.0916C1.59836 14.1825 1.65105 14.262 1.72131 14.3301C1.79157 14.3983 1.87354 14.4494 1.96721 14.4835C2.06089 14.5176 2.15457 14.5346 2.24824 14.5346H12.7518C12.8571 14.5346 12.9508 14.5176 13.0328 14.4835C13.1265 14.4494 13.2084 14.3983 13.2787 14.3301C13.3489 14.262 13.4016 14.1825 13.4368 14.0916C13.4719 14.0007 13.4895 13.9098 13.4895 13.819V4.36209H1.51054ZM9.74824 6.54313C9.74824 6.33866 9.8185 6.16826 9.95902 6.03195C10.1112 5.88427 10.2927 5.81044 10.5035 5.81044C10.7026 5.81044 10.8724 5.88427 11.0129 6.03195C11.1651 6.16826 11.2412 6.33866 11.2412 6.54313C11.2412 7.04295 11.1417 7.51438 10.9426 7.9574C10.7553 8.40043 10.4918 8.78665 10.1522 9.11608C9.81265 9.44551 9.41452 9.70678 8.95785 9.89989C8.50117 10.0816 8.01522 10.1725 7.5 10.1725C6.98478 10.1725 6.49883 10.0816 6.04215 9.89989C5.58548 9.70678 5.18735 9.44551 4.84777 9.11608C4.5082 8.78665 4.23888 8.40043 4.03981 7.9574C3.85246 7.51438 3.75878 7.04295 3.75878 6.54313C3.75878 6.33866 3.82904 6.16826 3.96956 6.03195C4.12178 5.88427 4.29742 5.81044 4.49649 5.81044C4.70726 5.81044 4.8829 5.88427 5.02342 6.03195C5.17564 6.16826 5.25176 6.33866 5.25176 6.54313C5.25176 6.84984 5.3103 7.13383 5.4274 7.3951C5.5445 7.65637 5.70843 7.88356 5.9192 8.07668C6.11827 8.28115 6.35246 8.44018 6.62178 8.55378C6.8911 8.66738 7.18384 8.72417 7.5 8.72417C7.81616 8.72417 8.1089 8.66738 8.37822 8.55378C8.64754 8.44018 8.88173 8.28115 9.0808 8.07668C9.29157 7.88356 9.4555 7.65637 9.5726 7.3951C9.6897 7.13383 9.74824 6.84984 9.74824 6.54313Z" fill="currentColor"/>
 </symbol>
-</svg><a class="hs-cta hs-cta--pos-after_icons hs-cta--m-in_row hs-cta--primary hs-cta--theme hs-cta--desktop hs-cta--ms-small hs-cta--font-body" href="/theme-previews/course-landing/index.html#shopify-section-offer" data-theme-button="primary" data-sl-button style="--mb-bg: var(--btn-primary-bg-color); --mb-text: var(--btn-primary-color); --mb-hover-bg: var(--btn-primary-hover-bg-color); --mb-hover-text: var(--btn-primary-hover-color); --hs-cta-gap: 20px; --hs-cta-gap-mobile: 10px; --hs-cta-x: 0px; --hs-cta-y: 0px; --hs-cta-bg: #2f4fd1; --hs-cta-fg: #ffffff; --hs-cta-bd: #2f4fd1; --hs-cta-bw: 0px; --hs-cta-radius: 6px; --hs-cta-fs: 16px; --hs-cta-fw: 600; --hs-cta-tt: none; --hs-cta-ls: 0px; --hs-cta-py: 14px; --hs-cta-px: 26px; --hs-cta-deco: none; --hs-cta-shadow: none; --hs-cta-dur: 225ms; --hs-cta-ease: cubic-bezier(0.2, 0.7, 0.2, 1); --hs-cta-hbg: #1f3bb0; --hs-cta-hfg: #ffffff; --hs-cta-hbd: #1f3bb0; --hs-cta-htransform: none; --hs-cta-hshadow: none; --hs-cta-hfilter: none; --hs-cta-hdeco: none;" data-lh-block="header_button_1" data-block-id="header_button_1">Start training</a></div>
+</svg><a class="hs-cta hs-cta--pos-after_icons hs-cta--m-in_row hs-cta--primary hs-cta--theme hs-cta--desktop hs-cta--ms-small hs-cta--font-body" href="/theme-previews/course-landing/index.html#shopify-section-offer" data-theme-button="primary" data-sl-button style="--mb-bg: var(--btn-primary-bg-color); --mb-text: var(--btn-primary-color); --mb-hover-bg: var(--btn-primary-hover-bg-color); --mb-hover-text: var(--btn-primary-hover-color); --hs-cta-gap: 20px; --hs-cta-gap-mobile: 10px; --hs-cta-x: 0px; --hs-cta-y: 0px; --hs-cta-bg: #9b4a2c; --hs-cta-fg: #ffffff; --hs-cta-bd: #9b4a2c; --hs-cta-bw: 0px; --hs-cta-radius: 40px; --hs-cta-fs: 16px; --hs-cta-fw: 600; --hs-cta-tt: none; --hs-cta-ls: 0px; --hs-cta-py: 14px; --hs-cta-px: 26px; --hs-cta-deco: none; --hs-cta-shadow: none; --hs-cta-dur: 225ms; --hs-cta-ease: cubic-bezier(0.2, 0.7, 0.2, 1); --hs-cta-hbg: #7d3a21; --hs-cta-hfg: #ffffff; --hs-cta-hbd: #7d3a21; --hs-cta-htransform: none; --hs-cta-hshadow: none; --hs-cta-hfilter: none; --hs-cta-hdeco: none;" data-lh-block="header_button_1" data-block-id="header_button_1">Start the course</a></div>
 </header-inner>
 </div>
 </div></header><script src="/theme-previews/course-landing/a/i.b8ec2f2ea707.js"></script>
@@ -866,12 +868,12 @@ style="--animation-order: 1;  "
 <div class="product-item__inner hover-effect overflow-hidden relative">
 <a
 draggable="false"
-href="/theme-previews/course-landing/products/the-calm-puppy-course.html"
-aria-label="The Calm Puppy Course"
+href="/theme-previews/course-landing/products/reformer-foundations.html"
+aria-label="Reformer Foundations"
 class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 3/4;"
 >
-<img src="/theme-previews/course-landing/a/courselanding-course.346adcb3f342.webp" srcset="/theme-previews/course-landing/a/courselanding-course.346adcb3f342.webp 720w, /theme-previews/course-landing/a/courselanding-course.346adcb3f342.webp 660w, /theme-previews/course-landing/a/courselanding-course.346adcb3f342.webp 550w, /theme-previews/course-landing/a/courselanding-course.346adcb3f342.webp 480w, /theme-previews/course-landing/a/courselanding-course-400.3e533f6c0358.webp 330w, /theme-previews/course-landing/a/courselanding-course-400.3e533f6c0358.webp 240w, /theme-previews/course-landing/a/courselanding-course-400.3e533f6c0358.webp 185w" alt="The Calm Puppy Course" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1360px -  30px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 30px * 3 ) * 0.25), calc( (100vw - 30px - 15px * 0 ) * 1)" class="product-image first-image bls-loaded-image">
+<img src="/theme-previews/course-landing/a/courselanding-course.784e06b5b3c1.webp" srcset="/theme-previews/course-landing/a/courselanding-course-800.3d7cd4bf5853.webp 720w, /theme-previews/course-landing/a/courselanding-course-800.3d7cd4bf5853.webp 660w, /theme-previews/course-landing/a/courselanding-course-800.3d7cd4bf5853.webp 550w, /theme-previews/course-landing/a/courselanding-course-800.3d7cd4bf5853.webp 480w, /theme-previews/course-landing/a/courselanding-course-400.9cdb76007add.webp 330w, /theme-previews/course-landing/a/courselanding-course-400.9cdb76007add.webp 240w, /theme-previews/course-landing/a/courselanding-course-400.9cdb76007add.webp 185w" alt="Reformer Foundations" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1360px -  30px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 30px * 3 ) * 0.25), calc( (100vw - 30px - 15px * 0 ) * 1)" class="product-image first-image bls-loaded-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -923,11 +925,11 @@ Out of Stock
 </div>
 <div class="product-item__information word-break text-left mt-15">
 <a
-aria-label="The Calm Puppy Course"
+aria-label="Reformer Foundations"
 class="product-item__name unset heading-style no-underline fs-custom block lh-normal"
 style="--font-size: 17;"            
-href="/theme-previews/course-landing/products/the-calm-puppy-course.html"
->The Calm Puppy Course</a>
+href="/theme-previews/course-landing/products/reformer-foundations.html"
+>Reformer Foundations</a>
 <div
 class="product-item__price justify-content-left fs-custom flex gap-custom lh-normal "
 style="--font-size: 16; --gap: 3px;"
@@ -969,7 +971,7 @@ aria-label="Private session"
 class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 3/4;"
 >
-<img src="/theme-previews/course-landing/a/courselanding-session.38acec6a686a.webp" srcset="/theme-previews/course-landing/a/courselanding-session.38acec6a686a.webp 720w, /theme-previews/course-landing/a/courselanding-session.38acec6a686a.webp 660w, /theme-previews/course-landing/a/courselanding-session.38acec6a686a.webp 550w, /theme-previews/course-landing/a/courselanding-session.38acec6a686a.webp 480w, /theme-previews/course-landing/a/courselanding-session-400.8839a180de77.webp 330w, /theme-previews/course-landing/a/courselanding-session-400.8839a180de77.webp 240w, /theme-previews/course-landing/a/courselanding-session-400.8839a180de77.webp 185w" alt="Private session" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1360px -  30px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 30px * 3 ) * 0.25), calc( (100vw - 30px - 15px * 0 ) * 1)" class="product-image first-image bls-loaded-image">
+<img src="/theme-previews/course-landing/a/courselanding-session.fb10f8cb9cef.webp" srcset="/theme-previews/course-landing/a/courselanding-session-800.96196c79e1bf.webp 720w, /theme-previews/course-landing/a/courselanding-session-800.96196c79e1bf.webp 660w, /theme-previews/course-landing/a/courselanding-session-800.96196c79e1bf.webp 550w, /theme-previews/course-landing/a/courselanding-session-800.96196c79e1bf.webp 480w, /theme-previews/course-landing/a/courselanding-session-400.98a6f5bd4d88.webp 330w, /theme-previews/course-landing/a/courselanding-session-400.98a6f5bd4d88.webp 240w, /theme-previews/course-landing/a/courselanding-session-400.98a6f5bd4d88.webp 185w" alt="Private session" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1360px -  30px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 30px * 3 ) * 0.25), calc( (100vw - 30px - 15px * 0 ) * 1)" class="product-image first-image bls-loaded-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -1057,12 +1059,12 @@ style="--animation-order: 3;  "
 <div class="product-item__inner hover-effect overflow-hidden relative">
 <a
 draggable="false"
-href="/theme-previews/course-landing/products/recall-in-the-park-mini-course.html"
-aria-label="Recall in the park, mini course"
+href="/theme-previews/course-landing/products/stronger-back-mini-course.html"
+aria-label="Stronger back, mini course"
 class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 3/4;"
 >
-<img src="/theme-previews/course-landing/a/courselanding-recall.07553f5da4d9.webp" srcset="/theme-previews/course-landing/a/courselanding-recall.07553f5da4d9.webp 720w, /theme-previews/course-landing/a/courselanding-recall.07553f5da4d9.webp 660w, /theme-previews/course-landing/a/courselanding-recall.07553f5da4d9.webp 550w, /theme-previews/course-landing/a/courselanding-recall.07553f5da4d9.webp 480w, /theme-previews/course-landing/a/courselanding-recall-400.70b0adc65ffb.webp 330w, /theme-previews/course-landing/a/courselanding-recall-400.70b0adc65ffb.webp 240w, /theme-previews/course-landing/a/courselanding-recall-400.70b0adc65ffb.webp 185w" alt="Recall in the park, mini course" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1360px -  30px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 30px * 3 ) * 0.25), calc( (100vw - 30px - 15px * 0 ) * 1)" class="product-image first-image bls-loaded-image">
+<img src="/theme-previews/course-landing/a/courselanding-back.b061c4f7902a.webp" srcset="/theme-previews/course-landing/a/courselanding-back-800.c1430e1452f5.webp 720w, /theme-previews/course-landing/a/courselanding-back-800.c1430e1452f5.webp 660w, /theme-previews/course-landing/a/courselanding-back-800.c1430e1452f5.webp 550w, /theme-previews/course-landing/a/courselanding-back-800.c1430e1452f5.webp 480w, /theme-previews/course-landing/a/courselanding-back-400.9b0c3eb52168.webp 330w, /theme-previews/course-landing/a/courselanding-back-400.9b0c3eb52168.webp 240w, /theme-previews/course-landing/a/courselanding-back-400.9b0c3eb52168.webp 185w" alt="Stronger back, mini course" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1360px -  30px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 30px * 3 ) * 0.25), calc( (100vw - 30px - 15px * 0 ) * 1)" class="product-image first-image bls-loaded-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -1114,11 +1116,11 @@ Out of Stock
 </div>
 <div class="product-item__information word-break text-left mt-15">
 <a
-aria-label="Recall in the park, mini course"
+aria-label="Stronger back, mini course"
 class="product-item__name unset heading-style no-underline fs-custom block lh-normal"
 style="--font-size: 17;"            
-href="/theme-previews/course-landing/products/recall-in-the-park-mini-course.html"
->Recall in the park, mini course</a>
+href="/theme-previews/course-landing/products/stronger-back-mini-course.html"
+>Stronger back, mini course</a>
 <div
 class="product-item__price justify-content-left fs-custom flex gap-custom lh-normal "
 style="--font-size: 16; --gap: 3px;"
@@ -1150,12 +1152,12 @@ style="--animation-order: 4;  "
 <div class="product-item__inner hover-effect overflow-hidden relative">
 <a
 draggable="false"
-href="/theme-previews/course-landing/products/puppy-plan-printable.html"
-aria-label="Puppy plan, printable"
+href="/theme-previews/course-landing/products/springs-and-reps-sheets-printable.html"
+aria-label="Springs and reps sheets, printable"
 class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 3/4;"
 >
-<img src="/theme-previews/course-landing/a/courselanding-plan.362fe8e42225.webp" srcset="/theme-previews/course-landing/a/courselanding-plan.362fe8e42225.webp 720w, /theme-previews/course-landing/a/courselanding-plan.362fe8e42225.webp 660w, /theme-previews/course-landing/a/courselanding-plan.362fe8e42225.webp 550w, /theme-previews/course-landing/a/courselanding-plan.362fe8e42225.webp 480w, /theme-previews/course-landing/a/courselanding-plan-400.dc2cccbd06d4.webp 330w, /theme-previews/course-landing/a/courselanding-plan-400.dc2cccbd06d4.webp 240w, /theme-previews/course-landing/a/courselanding-plan-400.dc2cccbd06d4.webp 185w" alt="Puppy plan, printable" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1360px -  30px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 30px * 3 ) * 0.25), calc( (100vw - 30px - 15px * 0 ) * 1)" class="product-image first-image bls-loaded-image">
+<img src="/theme-previews/course-landing/a/courselanding-sheets.7072ba8f99f3.webp" srcset="/theme-previews/course-landing/a/courselanding-sheets-800.74584743c37d.webp 720w, /theme-previews/course-landing/a/courselanding-sheets-800.74584743c37d.webp 660w, /theme-previews/course-landing/a/courselanding-sheets-800.74584743c37d.webp 550w, /theme-previews/course-landing/a/courselanding-sheets-800.74584743c37d.webp 480w, /theme-previews/course-landing/a/courselanding-sheets-400.775cc94ab5ac.webp 330w, /theme-previews/course-landing/a/courselanding-sheets-400.775cc94ab5ac.webp 240w, /theme-previews/course-landing/a/courselanding-sheets-400.775cc94ab5ac.webp 185w" alt="Springs and reps sheets, printable" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1360px -  30px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 30px * 3 ) * 0.25), calc( (100vw - 30px - 15px * 0 ) * 1)" class="product-image first-image bls-loaded-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -1207,11 +1209,11 @@ Out of Stock
 </div>
 <div class="product-item__information word-break text-left mt-15">
 <a
-aria-label="Puppy plan, printable"
+aria-label="Springs and reps sheets, printable"
 class="product-item__name unset heading-style no-underline fs-custom block lh-normal"
 style="--font-size: 17;"            
-href="/theme-previews/course-landing/products/puppy-plan-printable.html"
->Puppy plan, printable</a>
+href="/theme-previews/course-landing/products/springs-and-reps-sheets-printable.html"
+>Springs and reps sheets, printable</a>
 <div
 class="product-item__price justify-content-left fs-custom flex gap-custom lh-normal "
 style="--font-size: 16; --gap: 3px;"
@@ -1294,8 +1296,8 @@ id="rm-hero-cta"
 style="--rm-bg: var(--color-background, transparent); --rm-gradient: none; --rm-overlay: #000000; --rm-overlay-opacity: 0; --rm-content-max: 820px; --rm-align: center; --rm-flex: center; --rm-align-m: center; --rm-flex-m: center; --rm-gap: 18px; --rm-pt: 112px; --rm-pb: 112px; --rm-pt-m: 72px; --rm-pb-m: 76px; --rm-section-pad-left: 0px; --rm-section-pad-right: 0px; --rm-section-pad-left-m: 0px; --rm-section-pad-right-m: 0px; --rm-section-radius: 0px; --rm-border-w: 0px; --rm-border-c: var(--color-border, rgba(0,0,0,0.12)); --rm-shadow: none; --rm-sub-btn-gap: 30px; --rm-inner-pad: 16px; --rm-reveal-range: 60%;"
 >
 <div class="rm-hero__inner">
-<h2 class="rm-hero__heading" data-promo-block="heading_1" data-hg-block="heading_1" data-hg-type="heading" data-custom data-own-font data-own-weight data-own-size style=" --rm-heading-color: #ffffff; --rm-heading-font: var(--rm-font-heading); --rm-heading-weight: 700; --rm-heading-transform: none; --rm-heading-lineheight: 1.05; --rm-heading-letterspace: 0em; --rm-heading-size-d: 60px; --rm-heading-size-m: 38px;" data-block-id="heading_1">Start with ten minutes tomorrow morning</h2>
-<p class="rm-hero__sub" data-promo-block="subheading_1" data-hg-block="subheading_1" data-hg-type="subheading" data-custom data-own-font data-own-weight data-own-size style=" --rm-sub-color: #ffffff; --rm-sub-font: var(--rm-font-body); --rm-sub-weight: var(--rm-weight-body); --rm-sub-transform: none; --rm-sub-letterspace: 0em; --rm-sub-lineheight: 1.5; --rm-sub-opacity: 0.92; --rm-sub-size-d: 18px; --rm-sub-size-m: 16px;" data-block-id="subheading_1">Six weeks from now you could have a puppy who walks beside you and comes when called. The first lesson takes ten minutes.</p>
+<h2 class="rm-hero__heading" data-promo-block="heading_1" data-hg-block="heading_1" data-hg-type="heading" data-custom data-own-font data-own-weight data-own-size style=" --rm-heading-color: #ffffff; --rm-heading-font: var(--rm-font-heading); --rm-heading-weight: 700; --rm-heading-transform: none; --rm-heading-lineheight: 1.05; --rm-heading-letterspace: 0em; --rm-heading-size-d: 60px; --rm-heading-size-m: 38px;" data-block-id="heading_1">Twenty minutes, three times this week</h2>
+<p class="rm-hero__sub" data-promo-block="subheading_1" data-hg-block="subheading_1" data-hg-type="subheading" data-custom data-own-font data-own-weight data-own-size style=" --rm-sub-color: #ffffff; --rm-sub-font: var(--rm-font-body); --rm-sub-weight: var(--rm-weight-body); --rm-sub-transform: none; --rm-sub-letterspace: 0em; --rm-sub-lineheight: 1.5; --rm-sub-opacity: 0.92; --rm-sub-size-d: 18px; --rm-sub-size-m: 16px;" data-block-id="subheading_1">Six weeks from now you could set up your reformer, choose your springs and run a forty minute class on your own. The first lesson takes twenty minutes.</p>
 <a class="rm-hero__btn" data-promo-block="button_1" data-hg-block="button_1" data-hg-type="button" data-theme-button="primary" data-sl-button data-button-role="primary" href="/theme-previews/course-landing/collections/all.html" data-block-id="button_1">See the course</a>
 </div>
 </div>
@@ -1359,12 +1361,12 @@ data-block-id="store_info_1"
 class="footer__block-heading fs-custom my-0 py-20 mb-md-5"
 style="--font-size: 15"
 >
-<span data-ft-heading>Good Lead</span>
+<span data-ft-heading>Arch Pilates</span>
 </h3>
 <div
 class="store-info-content"
 ><div class="footer__block-info rich__text-mt-0 mb-20" data-ft-desc>
-<p>A six week online puppy training course: short lessons every day, a live class with a trainer every week and feedback on your own clips.</p>
+<p>A six week online reformer Pilates course: short lessons filmed in the studio, a live class every week and feedback on your own clips.</p>
 </div>
 </div>
 </div><div
@@ -1391,10 +1393,10 @@ style="--font-size: 15"
 <ul class="list-unstyled"><li class="pb-8">
 <a
 href="/theme-previews/course-landing/pages/about.html"
-aria-label="About Jonah"
+aria-label="About Maya"
 class="no-underline word-break reversed-links relative"
 >
-About Jonah
+About Maya
 </a>
 </li><li class="pb-8">
 <a
@@ -1423,10 +1425,10 @@ Everything for sale
 </li><li class="pb-8">
 <a
 href="/theme-previews/course-landing/blogs/news.html"
-aria-label="Training notes"
+aria-label="Studio notes"
 class="no-underline word-break reversed-links relative"
 >
-Training notes
+Studio notes
 </a>
 </li></ul>
 </div>
@@ -1528,7 +1530,7 @@ Español
 </form>
 </localization-form>
 </div>
-<div class="footer__copyright" data-ft-copyright>© 2026 Good Lead</div>
+<div class="footer__copyright" data-ft-copyright>© 2026 Arch Pilates</div>
 <ul class="footer__policies list-unstyled flex flex-wrap" data-ft-policies><li><a href="/theme-previews/course-landing/policies/refund-policy.html">Refund policy</a></li><li><a href="/theme-previews/course-landing/policies/privacy-policy.html">Privacy policy</a></li><li><a href="/theme-previews/course-landing/policies/terms-of-service.html">Terms of service</a></li></ul><div class="footer__powered" data-ft-powered><a href="#" data-preview-inert data-storelib-badge="" style="display:inline-flex;align-items:center;gap:.45em;white-space:nowrap;vertical-align:middle"><svg data-storelib-badge-mark="" aria-hidden="true" focusable="false" viewBox="0 0 200 200" width="14" height="14" style="display:block;flex:none;width:1.2em;height:1.2em;overflow:visible"><mask id="sl-pb-s" maskUnits="userSpaceOnUse" x="0" y="0" width="200" height="200"><rect width="200" height="200" fill="#fff"/><path transform="translate(48.97 38.44) scale(1.08) translate(-54 -43) translate(134.125,52.875)" d="M0 0 C0.99749268 0.36665771 0.99749268 0.36665771 2.01513672 0.74072266 C6.62777473 2.59663113 6.62777473 2.59663113 7.68823242 4.86303711 C7.94652165 7.99120666 7.02705902 10.04467511 5.85546875 12.94921875 C5.41009766 14.05974609 4.96472656 15.17027344 4.50585938 16.31445312 C4.02955078 17.46880859 3.55324219 18.62316406 3.0625 19.8125 C2.59779297 20.97845703 2.13308594 22.14441406 1.65429688 23.34570312 C-1.85471661 31.98985831 -1.85471661 31.98985831 -4.125 33.125 C-6.02961204 32.43054915 -7.90085447 31.64344514 -9.75 30.8125 C-19.66422998 26.58368153 -27.26609106 25.85047702 -38.125 26.125 C-38.455 27.115 -38.785 28.105 -39.125 29.125 C-38.14402344 29.36734375 -37.16304687 29.6096875 -36.15234375 29.859375 C-33.31305776 30.56236873 -30.47635159 31.27497918 -27.640625 31.9921875 C-24.80213536 32.70970135 -21.95989766 33.40235421 -19.109375 34.0703125 C-6.69949938 37.1089446 3.02755655 40.84926977 9.875 52.125 C13.29151905 58.95803811 12.61307566 67.23479967 10.625 74.4375 C7.53029491 83.45189328 1.37513276 90.18616729 -7.02734375 94.67578125 C-26.20884362 103.04454374 -49.04415352 101.90170642 -68.5 94.625 C-72.25964144 93.07749587 -75.67848864 91.2806362 -79.125 89.125 C-78.55593823 84.90468545 -77.56543969 81.39586411 -75.83984375 77.5078125 C-75.39189453 76.48945313 -74.94394531 75.47109375 -74.48242188 74.421875 C-73.77956055 72.85179688 -73.77956055 72.85179688 -73.0625 71.25 C-72.59005859 70.18007812 -72.11761719 69.11015625 -71.63085938 68.0078125 C-70.46832699 65.3774362 -69.29955398 62.75002483 -68.125 60.125 C-63.80181734 61.13483216 -60.07150265 62.96083682 -56.07421875 64.87109375 C-49.32009515 67.74271451 -43.48344492 68.41757298 -36.25 68.3125 C-35.38375 68.31185547 -34.5175 68.31121094 -33.625 68.31054688 C-29.55080641 68.64235092 -29.55080641 68.64235092 -26.125 67.125 C-32.43853708 64.84703882 -38.66045093 62.93279428 -45.25 61.625 C-56.73505022 59.25968679 -67.31315991 55.21661495 -74.125 45.125 C-77.1608836 40.09281577 -77.67121961 36.10082917 -77.625 30.375 C-77.62072998 29.57876221 -77.61645996 28.78252441 -77.61206055 27.9621582 C-77.37730644 19.82208022 -74.95520496 14.3797357 -69.625 8.25 C-68.8 7.54875 -67.975 6.8475 -67.125 6.125 C-66.403125 5.465 -65.68125 4.805 -64.9375 4.125 C-46.69751714 -8.84565448 -20.22397968 -7.61423584 0 0 Z" fill="#000"/></mask><rect width="200" height="200" rx="48" fill="currentColor" mask="url(#sl-pb-s)"/></svg><span>Powered by Storelib</span></a></div></div>
 <div class="footer__payment flex grow-1 align-center max-w-100" style="justify-content: flex-end; --pb-width: 100%; margin-left: auto;" data-ft-block="payment_badges_1" data-ft-type="payment_badges" data-block-id="payment_badges_1">
 <ul class="footer__payment-badges"><li class="payment-badge" aria-label="Visa"><svg class="icon icon--full-color" viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Visa">
@@ -1639,11 +1641,11 @@ aria-modal="true"
 aria-label="Search"
 data-search-mode="popup"
 class="search-overlay search-overlay--popup search__type-popup search__popup-anim--fade color-default"
-style="--color-background: #ffffff;          --color-text: #4b5060;          --color-heading: #141a2e;          --color-primary: #2f4fd1;          --color-border: #e4e6ee;          --gradient-background: #ffffff;          background-color: #ffffff;          color: #4b5060;"
+style="--color-background: #ffffff;          --color-text: #5a514b;          --color-heading: #261d18;          --color-primary: #9b4a2c;          --color-border: #ece6e0;          --gradient-background: #ffffff;          background-color: #ffffff;          color: #5a514b;"
 ><div
 class="search__type-popup search__popup-anim--fade color-default h-full overflow-auto px-15 custom-scrollbar"
 data-search-popup-anim="fade"
-style="--color-background: #ffffff;    --color-text: #4b5060;    --color-heading: #141a2e;    --color-primary: #2f4fd1;    --color-border: #e4e6ee;    --gradient-background: #ffffff;    background-color: #ffffff;    color: #4b5060;"
+style="--color-background: #ffffff;    --color-text: #5a514b;    --color-heading: #261d18;    --color-primary: #9b4a2c;    --color-border: #ece6e0;    --gradient-background: #ffffff;    background-color: #ffffff;    color: #5a514b;"
 >
 <div class="fluid_container">
 <h3 class="search-title search-title--animated text-center h4 m-0 hidden block-sm" aria-label="Search"><span class="search-title__char" style="--char-i: 0;" aria-hidden="true">S</span><span class="search-title__char" style="--char-i: 1;" aria-hidden="true">e</span><span class="search-title__char" style="--char-i: 2;" aria-hidden="true">a</span><span class="search-title__char" style="--char-i: 3;" aria-hidden="true">r</span><span class="search-title__char" style="--char-i: 4;" aria-hidden="true">c</span><span class="search-title__char" style="--char-i: 5;" aria-hidden="true">h</span></h3>
@@ -1774,13 +1776,13 @@ style=" ;--col-number: 1;--col-tablet: 1;--col-desktop-small:3;--col-desktop: 5;
     --materia-cart-control: 40px;
     --materia-cart-recommend-gap: 12px;
   }
-</style><link href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" rel="stylesheet" type="text/css" media="all"><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/course-landing/a/i.083489fa41a7.css" data-cart-drawer-style="paint">
+</style><link href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" rel="stylesheet" type="text/css" media="all"><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/course-landing/a/i.8f9db32389fb.css" data-cart-drawer-style="paint">
 <cart-notification data-cart-drawer-version="20261021-2"
 data-show-quantity="true"
 data-show-shipping-estimator="false"
 data-show-free-shipping="false"
-id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #4b5060;    --color-heading: #141a2e;    --color-primary: #2f4fd1;    --color-border: #e4e6ee;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #2f4fd1;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #1f3bb0;    --btn-secondary-color: #141a2e;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #c9cede;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #141a2e;    --btn-outline-color: #141a2e;    --btn-outline-border-color: #e4e6ee;    background-color: #ffffff !important;    color: #4b5060 !important;">
-<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #4b5060;    --color-heading: #141a2e;    --color-primary: #2f4fd1;    --color-border: #e4e6ee;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #2f4fd1;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #1f3bb0;    --btn-secondary-color: #141a2e;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #c9cede;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #141a2e;    --btn-outline-color: #141a2e;    --btn-outline-border-color: #e4e6ee;    background-color: #ffffff !important;    color: #4b5060 !important;">
+id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #5a514b;    --color-heading: #261d18;    --color-primary: #9b4a2c;    --color-border: #ece6e0;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #9b4a2c;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #7d3a21;    --btn-secondary-color: #261d18;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #d6ccc3;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #261d18;    --btn-outline-color: #261d18;    --btn-outline-border-color: #ece6e0;    background-color: #ffffff !important;    color: #5a514b !important;">
+<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #5a514b;    --color-heading: #261d18;    --color-primary: #9b4a2c;    --color-border: #ece6e0;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #9b4a2c;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #7d3a21;    --btn-secondary-color: #261d18;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #d6ccc3;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #261d18;    --btn-outline-color: #261d18;    --btn-outline-border-color: #ece6e0;    background-color: #ffffff !important;    color: #5a514b !important;">
 <button type="button" class="cart-drawer-sheet-scrim" aria-label="Cancel"></button>
 <div class="minicart__header flex gap-10 align-center justify-between px-30 py-18 color-default">
 <div class="h5 minicart-heading my-0">
@@ -1822,7 +1824,7 @@ Continue Shopping
 <div class="overlayminicart">
 </div>
 <script src="/theme-previews/course-landing/a/i.f50d71910c82.js"></script>
-<script src="/theme-previews/_base/a/animation.7fa50ded717b.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/animation.f51a19fde607.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/tingle-min.9664ca3641cf.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/cart-discount.6748c8dd9657.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/theme.7a7dd8f80f89.js"  defer="defer" type="module"></script>
@@ -1930,13 +1932,13 @@ Skip to content
     --materia-cart-control: 40px;
     --materia-cart-recommend-gap: 12px;
   }
-</style><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/course-landing/a/i.083489fa41a7.css" data-cart-drawer-style="paint">
+</style><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/course-landing/a/i.8f9db32389fb.css" data-cart-drawer-style="paint">
 <cart-notification data-cart-drawer-version="20261021-2"
 data-show-quantity="true"
 data-show-shipping-estimator="false"
 data-show-free-shipping="false"
-id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #4b5060;    --color-heading: #141a2e;    --color-primary: #2f4fd1;    --color-border: #e4e6ee;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #2f4fd1;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #1f3bb0;    --btn-secondary-color: #141a2e;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #c9cede;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #141a2e;    --btn-outline-color: #141a2e;    --btn-outline-border-color: #e4e6ee;    background-color: #ffffff !important;    color: #4b5060 !important;">
-<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #4b5060;    --color-heading: #141a2e;    --color-primary: #2f4fd1;    --color-border: #e4e6ee;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #2f4fd1;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #1f3bb0;    --btn-secondary-color: #141a2e;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #c9cede;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #141a2e;    --btn-outline-color: #141a2e;    --btn-outline-border-color: #e4e6ee;    background-color: #ffffff !important;    color: #4b5060 !important;">
+id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #5a514b;    --color-heading: #261d18;    --color-primary: #9b4a2c;    --color-border: #ece6e0;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #9b4a2c;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #7d3a21;    --btn-secondary-color: #261d18;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #d6ccc3;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #261d18;    --btn-outline-color: #261d18;    --btn-outline-border-color: #ece6e0;    background-color: #ffffff !important;    color: #5a514b !important;">
+<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #5a514b;    --color-heading: #261d18;    --color-primary: #9b4a2c;    --color-border: #ece6e0;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #9b4a2c;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #7d3a21;    --btn-secondary-color: #261d18;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #d6ccc3;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #261d18;    --btn-outline-color: #261d18;    --btn-outline-border-color: #ece6e0;    background-color: #ffffff !important;    color: #5a514b !important;">
 <button type="button" class="cart-drawer-sheet-scrim" aria-label="Cancel"></button>
 <div class="minicart__header flex gap-10 align-center justify-between px-30 py-18 color-default">
 <div class="h5 minicart-heading my-0">

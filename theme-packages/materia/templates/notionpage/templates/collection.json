@@ -92,7 +92,7 @@
         "section_max_width_mobile": 560,
         "item_padding_y": 20,
         "enable_custom_style": true,
-        "tabs_track_bg": "#ecebe8",
+        "tabs_track_bg": "#f2f1ee",
         "tab_active_bg": "#ffffff",
         "tab_active_color": "#191918",
         "tab_inactive_color": "#6f6e69",

@@ -15,15 +15,15 @@
         "gap_header_to_items": 28,
         "item_padding_y": 22,
         "enable_custom_style": true,
-        "question_color": "#141a2e",
-        "hover_color": "#2f4fd1",
-        "icon_color": "#2f4fd1",
-        "answer_color": "#4b5060",
-        "divider_color": "#e4e6ee",
-        "card_bg": "#f2f4fa",
+        "question_color": "#261d18",
+        "hover_color": "#9b4a2c",
+        "icon_color": "#9b4a2c",
+        "answer_color": "#5a514b",
+        "divider_color": "#ece6e0",
+        "card_bg": "#f8f5f2",
         "card_border_color": "rgba(0,0,0,0)",
-        "card_heading_color": "#141a2e",
-        "card_text_color": "#4b5060",
+        "card_heading_color": "#261d18",
+        "card_text_color": "#5a514b",
         "reveal": false,
         "padding_top": 64,
         "padding_bottom": 104,
@@ -45,22 +45,22 @@
         "faq_item_1": {
           "type": "faq_item",
           "settings": {
-            "question": "My puppy is eight weeks old. Is that too young?",
-            "answer": "<p>No, it is a good time to start. Week one is short sessions on the floor at home, before your puppy has had its vaccinations and can go out.</p>"
+            "question": "I have never used a reformer. Is that a problem?",
+            "answer": "<p>No. Week one starts with setting up the machine and lying on it. Everything begins on light springs and builds slowly.</p>"
           }
         },
         "faq_item_2": {
           "type": "faq_item",
           "settings": {
-            "question": "Does it work for an older dog?",
-            "answer": "<p>Yes, up to about two years and often older. Start at week one; grown dogs usually move faster through the first stage.</p>"
+            "question": "Which reformers does it work with?",
+            "answer": "<p>Any studio or folding home reformer with springs, a footbar and straps. Spring colours differ by maker, so each lesson gives the load as light, medium or heavy.</p>"
           }
         },
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
             "question": "What if I miss a live class?",
-            "answer": "<p>Every class is recorded and added to the course the same day. Send your question beforehand and the trainer answers it on the recording.</p>"
+            "answer": "<p>Every class is recorded and added to the course the same day. Send your question beforehand and Maya answers it on the recording.</p>"
           }
         },
         "faq_item_4": {
@@ -73,15 +73,15 @@
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "What do I need to buy?",
-            "answer": "<p>A flat collar or harness, a two metre lead, a ten metre long line for week four and small soft treats. No clicker and no special collar.</p>"
+            "question": "I have a sore back or knee. Can I join?",
+            "answer": "<p>Often yes, and every exercise has an easier version. Check with your doctor or physio first and tell us before you start. The course does not replace treatment.</p>"
           }
         },
         "faq_item_6": {
           "type": "faq_item",
           "settings": {
             "question": "How do I get access?",
-            "answer": "<p>Straight after payment you get a login by email. Lessons work on your phone, and the class link arrives before each class.</p>"
+            "answer": "<p>Straight after payment you get a login by email. Lessons play on a phone or tablet beside the reformer, and the class link arrives before each class.</p>"
           }
         },
         "faq_item_7": {
@@ -95,14 +95,14 @@
           "type": "faq_item",
           "settings": {
             "question": "What comes after the six weeks?",
-            "answer": "<p>The lessons stay yours, so you can repeat any week. If a problem comes back at adolescence, a private session is the quickest fix.</p>"
+            "answer": "<p>The lessons stay yours, so you can repeat any block. Many people then book a private session to check their form before going further.</p>"
           }
         },
         "card_text_1": {
           "type": "card_text",
           "settings": {
             "heading": "Not sure where to start?",
-            "text": "<p>Tell us your puppy’s age and what is hardest right now. Jonah replies within two days.</p>"
+            "text": "<p>Tell us which reformer you have and how long you have practised. Maya replies within two days.</p>"
           }
         },
         "button_1": {
@@ -192,7 +192,7 @@
         "button_1": {
           "type": "button",
           "settings": {
-            "label": "Start training",
+            "label": "Start the course",
             "link": "/#shopify-section-offer"
           }
         }

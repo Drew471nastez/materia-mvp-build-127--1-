@@ -22,13 +22,13 @@
           "type": "store_info",
           "settings": {
             "show_logo": false,
-            "store_heading": "Good Lead",
+            "store_heading": "Arch Pilates",
             "image_width": 110,
             "store_email": true,
             "store_phone": false,
             "store_address": false,
             "content_width": "50%",
-            "store_description": "<p>A six week online puppy training course: short lessons every day, a live class with a trainer every week and feedback on your own clips.</p>"
+            "store_description": "<p>A six week online reformer Pilates course: short lessons filmed in the studio, a live class every week and feedback on your own clips.</p>"
           }
         },
         "link_list_2": {

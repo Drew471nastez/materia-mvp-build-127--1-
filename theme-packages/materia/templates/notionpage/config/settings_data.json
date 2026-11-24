@@ -3,7 +3,7 @@
     "color_schemes": {
       "default": {
         "settings": {
-          "background": "#f7f7f5",
+          "background": "#ffffff",
           "background_gradient": "",
           "text_color": "#55534e",
           "heading_color": "#191918",
@@ -31,7 +31,7 @@
       },
       "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976": {
         "settings": {
-          "background": "#efeeeb",
+          "background": "#ffffff",
           "background_gradient": "",
           "text_color": "#55534e",
           "heading_color": "#191918",
@@ -115,7 +115,7 @@
       },
       "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca": {
         "settings": {
-          "background": "#f7f7f5",
+          "background": "#ffffff",
           "background_gradient": "",
           "text_color": "#55534e",
           "heading_color": "#191918",

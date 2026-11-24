@@ -1,4 +1,4 @@
-/* Templates round 23: Lights Out, an ebook on sleeping well (a public speaking ebook until round 24), after the owner's ebook reference: dark hero with the book, a promise, three open spreads, reader quotes on orange, the six parts of a talk, who it is for, the author, what is in the book and questions. Built from the theme's own sections. */
+/* Templates round 25: Keep Them Alive, a houseplant care ebook by Maren Holt (a sample author) on the Windowsill site, in deep green, cream and terracotta: the book on a dark green hero, the promise, open spreads for who it is for and when to read it, reader quotes, what the book covers beside a room of plants, a fit check, the author, the numbers, questions and a free chapter. The cover, the book, the spreads and the logo are drawn for the template around Unsplash photographs. */
 {
   "sections": {
     "hero": {
@@ -13,7 +13,7 @@
         "media_radius": 0,
         "media_radius_mobile": 0,
         "body_bg_image": "shopify://shop_images/authorbook-book.webp",
-        "image_alt": "Lights Out by Owen Kessler, the book",
+        "image_alt": "Keep Them Alive by Maren Holt, the book, with a monstera leaf on the cover",
         "content_align_desktop": "left",
         "content_align_mobile": "left",
         "content_gap": 26,
@@ -33,7 +33,7 @@
         "section_heading_1": {
           "type": "section_heading",
           "settings": {
-            "heading_text": "Fall asleep faster and wake up rested",
+            "heading_text": "Stop killing your houseplants",
             "enable_custom_style": true,
             "heading_font_size": 58,
             "heading_font_size_mobile": 38,
@@ -46,7 +46,7 @@
         "section_para_2": {
           "type": "section_para",
           "settings": {
-            "p_text": "A practical guide to sleeping well, for busy weeks and restless nights. Twelve short chapters you can start using tonight.",
+            "p_text": "A plain guide to light, water, soil and repotting, with care notes for sixty common plants. Find yours, read two pages, fix it today.",
             "enable_custom_style": true,
             "p_font_size": 19,
             "p_font_size_mobile": 17,
@@ -79,7 +79,7 @@
         "wave_height": 90,
         "wave_height_mobile": 40,
         "enable_custom_style": true,
-        "wave_color": "#0b0f1d",
+        "wave_color": "#15302a",
         "background_color": "#ffffff",
         "full_width": true
       }
@@ -91,14 +91,14 @@
         "section_width": "container",
         "content_alignment": "center",
         "text_max_width": 860,
-        "subheading_text": "<p>Most people who sleep well are not lucky. They do a handful of specific things, mostly without noticing. This book is those things, in the order to try them.</p>",
+        "subheading_text": "<p>People with thriving plants are not lucky. They put each plant in the right light, water when it is dry and repot at the right time. This book is those habits, in the order to learn them.</p>",
         "title_font_size_desktop": 46,
         "subtitle_font_size_desktop": 46,
         "subheading_font_size_desktop": 18,
         "title_font_weight": "700",
         "subtitle_font_weight": "700",
         "enable_custom_style": true,
-        "subtitle_text_color": "#c47a32",
+        "subtitle_text_color": "#b8643c",
         "title_subheading_gap_desktop": 24,
         "title_subtitle_gap_desktop": 2,
         "padding_top_desktop": 56,
@@ -112,13 +112,13 @@
         "title_1": {
           "type": "title",
           "settings": {
-            "text": "Good sleep is not luck."
+            "text": "A green thumb is not a gift."
           }
         },
         "subtitle_2": {
           "type": "subtitle",
           "settings": {
-            "text": "It is a set of habits, and you can learn them."
+            "text": "It is a handful of habits, and you can learn them."
           }
         }
       },
@@ -137,7 +137,7 @@
         "content_align": "left",
         "content_gap": 18,
         "image": "shopify://shop_images/authorbook-spread-light.webp",
-        "image_alt": "Two open pages from chapter two, Set your body clock with light",
+        "image_alt": "Two open pages from chapter two, Read the light in your rooms",
         "aspect_w": 16,
         "aspect_h": 11,
         "image_fit": "cover",
@@ -163,7 +163,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Anyone who lies awake at midnight, wakes at three, or starts every day already tired. Busy parents, people who work early or late, students before exams. The habits are the same whether you need an extra hour or just a quieter night.</p>",
+            "text": "<p>Anyone with a windowsill of drooping leaves, a fern that went crispy or a monstera that will not split. First flats, busy households, people who bought one plant and now have twelve. The care is the same whether you have three plants or thirty.</p>",
             "enable_custom_style": true,
             "size_desktop": 18,
             "size_mobile": 16
@@ -184,8 +184,8 @@
         "text_column_width": 46,
         "content_align": "left",
         "content_gap": 18,
-        "image": "shopify://shop_images/authorbook-spread-winddown.webp",
-        "image_alt": "Two open pages from chapter six, The wind down hour",
+        "image": "shopify://shop_images/authorbook-spread-water.webp",
+        "image_alt": "Two open pages from chapter five, Water when it is dry",
         "aspect_w": 16,
         "aspect_h": 11,
         "image_fit": "cover",
@@ -211,7 +211,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Screens follow us to bed, work follows us home and most of us sleep less than we did ten years ago. <strong>Lights Out</strong> shows you how to set your body clock, build a wind down hour, make the bedroom work for you and what to do when you wake in the night.</p>",
+            "text": "<p>Spring is when plants grow fastest and when most of them want a bigger pot. <strong>Keep Them Alive</strong> shows you how to read the light in each room, water by touch instead of by calendar, choose a soil mix and repot without losing leaves.</p>",
             "enable_custom_style": true,
             "size_desktop": 18,
             "size_mobile": 16
@@ -232,8 +232,8 @@
         "text_column_width": 46,
         "content_align": "left",
         "content_gap": 18,
-        "image": "shopify://shop_images/authorbook-spread-night.webp",
-        "image_alt": "Two open pages from chapter nine, Awake at 3am",
+        "image": "shopify://shop_images/authorbook-spread-repot.webp",
+        "image_alt": "Two open pages from chapter nine, Repotting without the mess",
         "aspect_w": 16,
         "aspect_h": 11,
         "image_fit": "cover",
@@ -259,7 +259,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>People looking for a pill, a gadget or a trick that works the first night. There is no shortcut here. And if you have a medical sleep problem, see a doctor first; this book is for ordinary bad sleep.</p>",
+            "text": "<p>Collectors after rare aroids, growers with a greenhouse and anyone who wants a gadget to do the watering. This book is for ordinary plants in ordinary homes, kept well.</p>",
             "enable_custom_style": true,
             "size_desktop": 18,
             "size_mobile": 16
@@ -281,7 +281,7 @@
         "wave_height": 80,
         "wave_height_mobile": 36,
         "enable_custom_style": true,
-        "wave_color": "#e3e7f3",
+        "wave_color": "#e5ece6",
         "background_color": "#ffffff",
         "full_width": true
       }
@@ -349,37 +349,37 @@
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I moved my coffee and got ten minutes of light every morning. Two weeks later I was falling asleep before midnight without trying.</p>",
+            "quote": "<p>I moved my fiddle leaf fig one metre closer to the window, as chapter two said. Three new leaves in a month.</p>",
             "rating": 0,
             "name": "Maya A.",
-            "role": "Product manager",
+            "role": "Twelve plants, one flat",
             "avatar": "shopify://shop_images/authorbook-reader-1.webp"
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Short, practical and honest. The 3am chapter alone was worth it. I stopped checking the clock and started getting back to sleep.</p>",
+            "quote": "<p>Short, practical and honest. The watering chapter alone was worth it. I stopped watering on Sundays and stopped losing plants.</p>",
             "rating": 0,
             "name": "Daniel A.",
-            "role": "Father of two",
+            "role": "First flat, first plants",
             "avatar": "shopify://shop_images/authorbook-reader-2.webp"
           }
         },
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I work nights in a hospital. Chapter ten is the first sleep advice that fit my real week instead of an ideal one.</p>",
+            "quote": "<p>My flat faces north. Chapter two told me which plants would actually be happy there, and they are.</p>",
             "rating": 0,
             "name": "Lena M.",
-            "role": "Night shift nurse",
+            "role": "North facing flat",
             "avatar": "shopify://shop_images/authorbook-reader-3.webp"
           }
         },
         "testimonial_7": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I did the two week plan with my partner. We both fall asleep earlier and the Sunday night dread is mostly gone.</p>",
+            "quote": "<p>I repotted my monstera with the steps in chapter nine. No dropped leaves, and it put out a split leaf in June.</p>",
             "rating": 0,
             "name": "Sam K.",
             "role": "Teacher",
@@ -389,10 +389,10 @@
         "testimonial_8": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Finally a sleep book that does not hand me forty rules. Five changes, in order, clearly written.</p>",
+            "quote": "<p>Finally a plant book that does not hand me forty rules. Light, water, soil, pot, in that order.</p>",
             "rating": 0,
             "name": "Jo R.",
-            "role": "Engineering lead",
+            "role": "Thirty plants and a cat",
             "avatar": "shopify://shop_images/authorbook-reader-5.webp"
           }
         }
@@ -432,7 +432,7 @@
         "icon_size": 40,
         "icon_padding": 0,
         "enable_custom_style": true,
-        "icon_color": "#c47a32",
+        "icon_color": "#b8643c",
         "icon_bg": "rgba(0,0,0,0)",
         "benefit_bg": "#ffffff",
         "benefit_border_color": "rgba(0,0,0,0)",
@@ -452,14 +452,14 @@
           "type": "media",
           "settings": {
             "media_type": "image",
-            "image": "shopify://shop_images/authorbook-bedroom.webp",
-            "alt": "A dark bedroom with a reading lamp, and the book open at chapter six"
+            "image": "shopify://shop_images/authorbook-room.webp",
+            "alt": "A sunny corner full of houseplants: a monstera on a stool, ferns and pothos on a shelf"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "In Lights Out, Owen Kessler shares the habits that gave him back his nights",
+            "text": "In Keep Them Alive, Maren Holt shares the care that keeps sixty plants growing",
             "tag": "h2",
             "enable_custom_style": true,
             "uppercase": false,
@@ -470,7 +470,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p><strong>Practical changes for the six parts of every night:</strong></p>",
+            "text": "<p><strong>Plain answers for the six things every plant needs:</strong></p>",
             "enable_custom_style": true,
             "size_desktop": 17,
             "size_mobile": 15
@@ -484,7 +484,7 @@
           "type": "benefit",
           "settings": {
             "heading": "Light",
-            "text": "<p>Ten minutes outside in the morning, lamps in the evening.</p>",
+            "text": "<p>Which window suits which plant, and the hand test.</p>",
             "icon_source": "svg",
             "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"4\"/><path d=\"M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8\"/></svg>"
           }
@@ -492,46 +492,46 @@
         "benefit_6": {
           "type": "benefit",
           "settings": {
-            "heading": "Caffeine",
-            "text": "<p>When the last coffee should be, and why it matters.</p>",
+            "heading": "Water",
+            "text": "<p>The finger test, and why a schedule drowns plants.</p>",
             "icon_source": "svg",
-            "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 9h12v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z\"/><path d=\"M16 10h1.5a2.5 2.5 0 0 1 0 5H16M8 3.5c0 1.5 1.5 1.5 1.5 3M12 3.5c0 1.5 1.5 1.5 1.5 3\"/></svg>"
+            "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 3.5c3 3.6 5.5 6.9 5.5 10a5.5 5.5 0 0 1-11 0c0-3.1 2.5-6.4 5.5-10z\"/><path d=\"M9.5 14.5a2.5 2.5 0 0 0 2.5 2.5\"/></svg>"
           }
         },
         "benefit_7": {
           "type": "benefit",
           "settings": {
-            "heading": "Wind down",
-            "text": "<p>An hour of five small things, the same every night.</p>",
+            "heading": "Soil",
+            "text": "<p>Three mixes that cover almost every houseplant.</p>",
             "icon_source": "svg",
-            "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 3a9 9 0 1 0 9 9\"/><path d=\"M12 7v5l3 2\"/></svg>"
+            "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 9h16\"/><path d=\"M5 9l1.4 10.2a1 1 0 0 0 1 .8h9.2a1 1 0 0 0 1-.8L19 9\"/><path d=\"M7.5 13h9M8 16.5h8\"/></svg>"
           }
         },
         "benefit_8": {
           "type": "benefit",
           "settings": {
-            "heading": "The bedroom",
-            "text": "<p>Dark, cool, quiet, and the phone charging elsewhere.</p>",
+            "heading": "Repotting",
+            "text": "<p>When, how big a pot, and how to do it cleanly.</p>",
             "icon_source": "svg",
-            "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 18V8M3 14h18v4M21 18v-4a3 3 0 0 0-3-3h-7v3\"/><circle cx=\"7\" cy=\"11\" r=\"1.6\"/></svg>"
+            "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 13h14l-1.3 7H6.3z\"/><path d=\"M12 13V5\"/><path d=\"M8.5 8.5 12 5l3.5 3.5\"/></svg>"
           }
         },
         "benefit_9": {
           "type": "benefit",
           "settings": {
-            "heading": "3am",
-            "text": "<p>What to do instead of checking the clock.</p>",
+            "heading": "Problems",
+            "text": "<p>Yellow leaves, brown tips and gnats, and what each means.</p>",
             "icon_source": "svg",
-            "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z\"/></svg>"
+            "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 19c0-8 5-13.5 14-14-.5 9-6 14-14 14z\"/><path d=\"M5 19 13 11\"/><circle cx=\"14.5\" cy=\"13.5\" r=\"1.2\" fill=\"currentColor\" stroke=\"none\"/></svg>"
           }
         },
         "benefit_10": {
           "type": "benefit",
           "settings": {
-            "heading": "Mornings",
-            "text": "<p>One wake time, seven days a week, and how to keep it.</p>",
+            "heading": "Feeding",
+            "text": "<p>Food only in spring and summer, and how much.</p>",
             "icon_source": "svg",
-            "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 18h18M6 18a6 6 0 0 1 12 0M12 6v2M5.6 9.6l1.4 1.4M18.4 9.6 17 11\"/></svg>"
+            "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 21v-8\"/><path d=\"M12 13c0-4 2.6-6.6 7-7 0 4.3-2.7 7-7 7z\"/><path d=\"M12 15c0-3-2.1-5.2-6-5.5 0 3.4 2.4 5.5 6 5.5z\"/><path d=\"M7 21h10\"/></svg>"
           }
         },
         "footnote_11": {
@@ -567,7 +567,7 @@
         "wave_height": 80,
         "wave_height_mobile": 36,
         "enable_custom_style": true,
-        "wave_color": "#f5eee3",
+        "wave_color": "#f3efe6",
         "background_color": "#ffffff",
         "full_width": true
       }
@@ -581,8 +581,8 @@
         "icons_per_row_desktop": 3,
         "space_between_icons": 40,
         "enable_custom_style": true,
-        "icon_color": "#c47a32",
-        "icon_description_color": "#18181a",
+        "icon_color": "#b8643c",
+        "icon_description_color": "#17201b",
         "make_icons_circle": false,
         "icon_size": 44,
         "icon_title_size": 18,
@@ -613,7 +613,7 @@
             "icon_type": "icon",
             "icon": "check_circle",
             "icon_title": "",
-            "icon_description": "You lie awake for an hour before you fall asleep."
+            "icon_description": "Your plants droop, yellow or drop leaves and you do not know why."
           }
         },
         "icon_3": {
@@ -622,7 +622,7 @@
             "icon_type": "icon",
             "icon": "check_circle",
             "icon_title": "",
-            "icon_description": "You wake at three and cannot get back to sleep."
+            "icon_description": "You water on a schedule and still lose plants."
           }
         },
         "icon_4": {
@@ -631,7 +631,7 @@
             "icon_type": "icon",
             "icon": "check_circle",
             "icon_title": "",
-            "icon_description": "You wake up tired even after a full night in bed."
+            "icon_description": "You have a pot you have been meaning to repot for a year."
           }
         }
       },
@@ -651,9 +651,9 @@
         "wave_type": "type5",
         "enable_wave_animation": false,
         "enable_custom_style": true,
-        "section_bg": "#f5eee3",
-        "wave_color": "#f5eee3",
-        "outer_background": "#f5eee3",
+        "section_bg": "#f3efe6",
+        "wave_color": "#f3efe6",
+        "outer_background": "#f3efe6",
         "top_padding_desktop": 0,
         "bottom_padding_desktop": 56,
         "top_padding_mobile": 0,
@@ -696,8 +696,8 @@
         "text_column_width": 44,
         "content_align": "left",
         "content_gap": 18,
-        "image": "shopify://shop_images/authorbook-owen.webp",
-        "image_alt": "Owen Kessler",
+        "image": "shopify://shop_images/authorbook-maren.webp",
+        "image_alt": "Maren Holt",
         "aspect_w": 4,
         "aspect_h": 5,
         "image_fit": "cover",
@@ -716,14 +716,14 @@
           "settings": {
             "text": "About the author",
             "enable_custom_style": true,
-            "color": "#f2a65a",
+            "color": "#e08a5c",
             "size": 13
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Owen Kessler slept badly for ten years. Now he helps others sleep well.",
+            "text": "Maren Holt killed her first twenty plants. Now she teaches people to keep theirs.",
             "tag": "h2",
             "enable_custom_style": true,
             "size_desktop": 34,
@@ -733,7 +733,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>He gives short talks on sleep to teams that work early, late and through the night, and writes a short letter about sleep every other week. <strong>Lights Out</strong> is the book he wanted on the night he gave up and got out of bed at four.</p><p>This is sample text. Replace it with your own story.</p>",
+            "text": "<p>She ran a small plant shop for eight years, answering the same questions at the counter every day, and writes a short letter about plant care every other week. <strong>Keep Them Alive</strong> is those answers, written down.</p><p>This is sample text. Replace it with your own story.</p>",
             "enable_custom_style": true,
             "size_desktop": 17,
             "size_mobile": 16
@@ -742,7 +742,7 @@
         "button_4": {
           "type": "button",
           "settings": {
-            "label": "More about Owen",
+            "label": "More about Maren",
             "link": "/pages/about",
             "button_style": "secondary"
           }
@@ -764,7 +764,7 @@
         "container_max_width": 1000,
         "headline_spacing": 30,
         "enable_custom_style": true,
-        "count_color": "#f2a65a",
+        "count_color": "#e08a5c",
         "description_text_color": "#c8c8cc",
         "count_size": 56,
         "count_font_weight": "bold",
@@ -790,22 +790,22 @@
         "count_box_2": {
           "type": "count_box",
           "settings": {
-            "number": 12,
+            "number": 14,
             "text": "short chapters"
           }
         },
         "count_box_3": {
           "type": "count_box",
           "settings": {
-            "number": 186,
+            "number": 212,
             "text": "pages, PDF and EPUB"
           }
         },
         "count_box_4": {
           "type": "count_box",
           "settings": {
-            "number": 28,
-            "text": "small changes to try"
+            "number": 60,
+            "text": "plants with their own care notes"
           }
         }
       },
@@ -848,14 +848,14 @@
           "type": "faq_item",
           "settings": {
             "question": "What is the difference between the editions?",
-            "answer": "<p>The ebook is the book. Ebook and audiobook adds the full audio, read by Owen. The complete set adds the printable sleep diary as well.</p>"
+            "answer": "<p>The ebook is the book. Ebook and audiobook adds the full audio, read by Maren. The complete set adds sixty printable care cards as well.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "I slept badly last night. Where do I start?",
-            "answer": "<p>Start with chapters two and six. They take about an hour together and give you a light plan for tomorrow morning and a wind down hour for tonight.</p>"
+            "question": "A plant is dying right now. Where do I start?",
+            "answer": "<p>Start with chapter twelve, what the leaves are telling you, then look up your plant in the care notes. Most rescues start with moving the pot or watering less.</p>"
           }
         },
         "faq_item_6": {

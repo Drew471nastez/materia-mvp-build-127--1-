@@ -11,7 +11,7 @@
         "content_gap": 18,
         "media_type": "image",
         "image": "shopify://shop_images/courselanding-teacher.webp",
-        "image_alt": "Jonah Reyes crouching on a lawn and shaking paws with a white puppy",
+        "image_alt": "Maya Lind in a standing side stretch on a reformer",
         "aspect_w": 4,
         "aspect_h": 5,
         "image_fit": "cover",
@@ -27,16 +27,16 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "Your trainer",
+            "text": "Your teacher",
             "enable_custom_style": true,
-            "color": "#2f4fd1",
+            "color": "#9b4a2c",
             "size": 13
           }
         },
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "I teach owners, not just dogs",
+            "text": "I teach you to see your own form",
             "tag": "h1",
             "size_desktop": 44,
             "size_mobile": 30
@@ -45,13 +45,13 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Write your own story here in plain words: how you started training, what you saw go wrong in classes, and what you do differently now.</p><p>I watch and answer every Sunday clip myself. That part is not automated, and it is the part owners say helps most.</p>"
+            "text": "<p>Write your own story here in plain words: how you started teaching, what you saw go wrong in busy classes, and what you do differently now.</p><p>I watch and answer every Sunday clip myself. That part is not automated, and it is the part students say helps most.</p>"
           }
         },
         "button_1": {
           "type": "button",
           "settings": {
-            "label": "Start training",
+            "label": "Start the course",
             "link": "/#shopify-section-offer",
             "button_style": "primary",
             "radius": 6
@@ -75,8 +75,8 @@
         "content_align": "left",
         "content_gap": 18,
         "media_type": "image",
-        "image": "shopify://shop_images/courselanding-highfive.webp",
-        "image_alt": "A woman sitting on a disused railway line giving a high five to her dog",
+        "image": "shopify://shop_images/courselanding-studio.webp",
+        "image_alt": "A side kneeling stretch on the reformer, one arm reaching overhead",
         "aspect_w": 1,
         "aspect_h": 1,
         "image_fit": "cover",
@@ -94,14 +94,14 @@
           "settings": {
             "text": "Why this course",
             "enable_custom_style": true,
-            "color": "#2f4fd1",
+            "color": "#9b4a2c",
             "size": 13
           }
         },
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Built for real homes, not the training field",
+            "text": "Built for practising on your own",
             "tag": "h2",
             "size_desktop": 40,
             "size_mobile": 28
@@ -110,7 +110,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Most puppy classes happen in a hall once a week. Most problems happen in your hallway at seven in the morning. The course is filmed in ordinary homes and streets, so you practise where the trouble is.</p>"
+            "text": "<p>A studio class has twelve people and one teacher, and nobody sees your ribs or your knees. The course slows every exercise down and names the springs, so you can practise alone and know it is right.</p>"
           }
         }
       },
@@ -130,10 +130,10 @@
         "header_gap": 40,
         "show_dividers": true,
         "enable_custom_style": true,
-        "label_color": "#2f4fd1",
-        "item_heading_color": "#141a2e",
-        "text_color": "#4b5060",
-        "divider_color": "#e4e6ee",
+        "label_color": "#9b4a2c",
+        "item_heading_color": "#261d18",
+        "text_color": "#5a514b",
+        "divider_color": "#ece6e0",
         "item_heading_size": 22,
         "padding_top": 96,
         "padding_bottom": 96,
@@ -144,7 +144,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "How I train",
+            "text": "How I teach",
             "size_enable": true,
             "size_desktop": 40,
             "size_mobile": 28,
@@ -156,8 +156,8 @@
           "type": "column",
           "settings": {
             "label": "One",
-            "heading": "Reward what you want",
-            "text": "<p>Puppies repeat what pays. Catch the calm moments and pay for them, and you get more of them.</p>"
+            "heading": "Light springs first",
+            "text": "<p>Heavy springs hide poor form. Light ones show it, and make the right muscles do the work.</p>"
           }
         },
         "column_2": {
@@ -165,7 +165,7 @@
           "settings": {
             "label": "Two",
             "heading": "Short and often",
-            "text": "<p>Three sessions of ten minutes teach more than one long one. A puppy stops listening after a quarter of an hour.</p>"
+            "text": "<p>Three sessions of twenty minutes teach more than one long class a week, and they are easier to keep.</p>"
           }
         },
         "column_3": {
@@ -173,7 +173,7 @@
           "settings": {
             "label": "Three",
             "heading": "Easy first, then harder",
-            "text": "<p>Every skill starts in the kitchen and ends in the park. Move on only when the easy version works.</p>"
+            "text": "<p>Every exercise has a simpler version. Move on only when the simple one feels steady.</p>"
           }
         }
       },
@@ -207,8 +207,8 @@
         "pagination_spacing": 28,
         "enable_custom_colors": true,
         "card_bg": "#ffffff",
-        "card_border_color": "#e4e6ee",
-        "quote_color": "#141a2e",
+        "card_border_color": "#ece6e0",
+        "quote_color": "#261d18",
         "enable_custom_typography": true,
         "quote_size": 17,
         "autoplay": false,
@@ -225,14 +225,14 @@
           "type": "eyebrow",
           "settings": {
             "enabled": true,
-            "text": "Owners"
+            "text": "Students"
           }
         },
         "heading_1": {
           "type": "heading",
           "settings": {
             "enabled": true,
-            "text": "The first calm walk"
+            "text": "After six weeks"
           }
         },
         "subheading_1": {
@@ -245,46 +245,46 @@
         "testimonial_1": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Our spaniel pulled so hard I dreaded walks. Two weeks of the lead lessons and my eleven year old can walk him to school.</p>",
+            "quote": "<p>I bought a folding reformer in January and only ever did footwork on it. Week three got me into the straps.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "Cocker spaniel, 5 months"
+            "role": "Home reformer, beginner"
           }
         },
         "testimonial_2": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>The Sunday clips are the best part. Jonah spotted that I was rewarding too late, every single time.</p>",
+            "quote": "<p>The Sunday clips are the best part. Maya spotted that my ribs flared on every single bridge.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "Labrador, 4 months"
+            "role": "Gym reformer, two years"
           }
         },
         "testimonial_3": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Ten minutes three times a day is the only way this could work with two jobs and a toddler.</p>",
+            "quote": "<p>Twenty minutes three times a week is the only way this works around my shifts.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "Rescue, mixed breed"
+            "role": "Home reformer, night shifts"
           }
         },
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>She used to bark at every knock on the door. Now she goes to her mat and waits.</p>",
+            "quote": "<p>I finally know which springs to use instead of copying the person next to me in class.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "Border collie, 9 months"
+            "role": "Studio member"
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>The long line lessons gave me the nerve to let him off the lead in the park. He comes back.</p>",
+            "quote": "<p>Coming back after my second baby, the easier versions made it feel safe to start again.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "German shepherd, 7 months"
+            "role": "Returning after pregnancy"
           }
         }
       },
@@ -327,7 +327,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Start with ten minutes tomorrow morning",
+            "text": "Twenty minutes, three times this week",
             "enable_custom_style": true,
             "font": "heading",
             "weight": "700",
@@ -342,7 +342,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "Six weeks from now you could have a puppy who walks beside you and comes when called. The first lesson takes ten minutes.",
+            "text": "Six weeks from now you could set up your reformer, choose your springs and run a forty minute class on your own. The first lesson takes twenty minutes.",
             "enable_custom_style": true,
             "size_d": 18,
             "size_m": 16,
@@ -353,7 +353,7 @@
         "button_1": {
           "type": "button",
           "settings": {
-            "label": "Start training",
+            "label": "Start the course",
             "link": "/#shopify-section-offer"
           }
         }

@@ -1,4 +1,4 @@
-/* Templates round 23, remade in round 24: Northpaper's sales page for one Notion template, Creator OS (a content system for creators), after the owner's reference: a centred hero over the workspace, the pages inside as screenshot cards, who it is for, three extras, two plans on a grey band with a note from the maker and a short letter, a wall of buyer notes, questions and a last call. Built from the theme's own sections around one card grid (notionpage-cards). */
+/* Templates round 23, remade in round 24 and polished in round 25 (white sections, one card tone): Northpaper's sales page for one Notion template, Creator OS (a content system for creators), after the owner's reference: a centred hero over the workspace, the pages inside as screenshot cards, who it is for, three extras, the offer as the template itself (the theme's featured product: picture, price, editions, buy buttons, what you get and a refund) with a note from the maker and a short letter, a wall of buyer notes, questions and a last call. Built from the theme's own sections around one card grid (notionpage-cards). */
 {
   "sections": {
     "hero": {
@@ -151,7 +151,7 @@
         "columns_mobile": "1",
         "image_position": "top",
         "image_ratio": "1.385",
-        "card_bg": "#ecebe8",
+        "card_bg": "#f5f4f1",
         "card_radius": 18,
         "image_radius": 10,
         "card_padding": 26,
@@ -258,7 +258,7 @@
         "columns_mobile": "1",
         "image_position": "bottom",
         "image_ratio": "1.385",
-        "card_bg": "#ecebe8",
+        "card_bg": "#f5f4f1",
         "card_radius": 18,
         "image_radius": 10,
         "card_padding": 34,
@@ -346,7 +346,7 @@
         "columns_mobile": "1",
         "image_position": "bottom",
         "image_ratio": "1.385",
-        "card_bg": "#ecebe8",
+        "card_bg": "#f5f4f1",
         "card_radius": 18,
         "image_radius": 10,
         "card_padding": 26,
@@ -398,67 +398,109 @@
       ]
     },
     "pricing": {
-      "type": "pricing-cards",
+      "type": "featured-product",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "eyebrow": "",
-        "heading": "Skip the weekend of building it yourself",
-        "intro": "<p>Duplicate the finished system in one click and plan next month tonight. Pay once and keep every update.</p>",
-        "heading_size": "h2",
-        "heading_align": "center",
-        "footnote": "<p>Prices in US dollars. Taxes worked out at checkout. Refund within 14 days if it is not for you.</p>",
-        "card_style": "outline",
-        "use_theme_corners": false,
-        "card_radius": 18,
-        "card_gap": 20,
-        "price_size": 44,
-        "mobile_layout": "stack",
+        "color_scheme": "default",
         "section_width": "container",
-        "use_theme_spacing": false,
-        "padding_top": 104,
-        "padding_bottom": 48,
-        "padding_top_mobile": 64,
-        "padding_bottom_mobile": 32
+        "reset_spacing": true,
+        "product": "",
+        "show_view_link": true,
+        "view_link_label": "See every page inside",
+        "desktop_layout": "hidden_thumbnail",
+        "desktop_media_width": 52,
+        "desktop_main_image_position": "left",
+        "show_thumbnails": false,
+        "enable_size_chart": false,
+        "enable_dynamic_checkout": true,
+        "enable_image_square": false,
+        "enable_lightbox": false,
+        "enable_sticky_content_on_desktop": false,
+        "padding_top": 40,
+        "padding_bottom": 88
       },
       "blocks": {
-        "plan_1": {
-          "type": "plan",
+        "intro_1": {
+          "type": "text",
           "settings": {
-            "name": "Creator OS",
-            "description": "<p>The content system for Notion.</p>",
-            "badge": "",
-            "featured": false,
-            "plan_product": "creator-os",
-            "price": "$29",
-            "compare_price": "$39",
-            "note": "One payment",
-            "features": "Creator OS for Notion\nDashboard, idea bank, scripts and calendar\nSponsors, analytics and weekly review\nVideo walkthrough\nEvery future update\n- Sponsor Kit\n- Rate card and pitch emails",
-            "button_label": "Get Creator OS",
-            "button_link": "/collections/all",
-            "button_style": "primary"
+            "heading": "Notion template",
+            "content": "<p>Eight linked pages for planning, scripting, posting and getting paid. Works on Notion's free plan.</p>"
           }
         },
-        "plan_2": {
-          "type": "plan",
+        "title_1": {
+          "type": "title",
           "settings": {
-            "name": "The Creator Bundle",
-            "description": "<p>Creator OS with the Sponsor Kit.</p>",
-            "badge": "Most chosen",
-            "featured": true,
-            "plan_product": "the-creator-bundle",
-            "price": "$39",
-            "compare_price": "$48",
-            "note": "One payment",
-            "features": "Creator OS for Notion\nDashboard, idea bank, scripts and calendar\nSponsors, analytics and weekly review\nVideo walkthrough\nEvery future update\nSponsor Kit\nRate card and pitch emails",
-            "button_label": "Get the bundle",
-            "button_link": "/collections/all",
-            "button_style": "secondary"
+            "show_vendor": false,
+            "title_font_size_desktop": 36,
+            "title_font_size_mobile": 28
+          }
+        },
+        "price_1": {
+          "type": "price",
+          "settings": {
+            "price_font_size_desktop": 30,
+            "price_font_size_mobile": 26,
+            "price_font_weight": "700"
+          }
+        },
+        "variant_1": {
+          "type": "variant_picker",
+          "settings": {
+            "variant_type": "swatches",
+            "show_size_guide": false,
+            "picker_swatch_style": "theme"
+          }
+        },
+        "buy_1": {
+          "type": "buy_buttons",
+          "settings": {
+            "show_add_to_cart": true,
+            "show_dynamic_checkout": true,
+            "show_quantity": false,
+            "buttons_full_width": true,
+            "show_wishlist_button": false,
+            "atc_appearance": "theme",
+            "buy_appearance": "theme",
+            "atc_icon_enable": false
+          }
+        },
+        "included_1": {
+          "type": "whats_included",
+          "settings": {
+            "heading": "What you get",
+            "items": "Creator OS for Notion, eight linked pages\nA link that duplicates it into your workspace\nA 14 minute video walkthrough\nEvery future update, free\nWith the Sponsor Kit: a rate card, a media kit page and five pitch emails",
+            "two_columns": false,
+            "boxed": true,
+            "spacing_top": 16,
+            "spacing_bottom": 12
+          }
+        },
+        "guarantee_1": {
+          "type": "guarantee_row",
+          "settings": {
+            "style": "left",
+            "columns_mobile": "1",
+            "icon_1": "download",
+            "title_1": "Yours in a minute",
+            "text_1": "The link arrives by email",
+            "icon_2": "return",
+            "title_2": "14 day refund",
+            "text_2": "One email, no form",
+            "icon_3": "chat",
+            "title_3": "Real people",
+            "text_3": "We answer every email",
+            "spacing_top": 12,
+            "spacing_bottom": 0
           }
         }
       },
       "block_order": [
-        "plan_1",
-        "plan_2"
+        "intro_1",
+        "title_1",
+        "price_1",
+        "variant_1",
+        "buy_1",
+        "included_1",
+        "guarantee_1"
       ]
     },
     "maker": {
@@ -472,7 +514,7 @@
         "text_max_width": 780,
         "gap_top": 18,
         "enable_custom_style": true,
-        "bg_color": "#f7f7f5",
+        "bg_color": "#f5f4f1",
         "radius": 16,
         "enable_shadow": false,
         "reveal": false,
@@ -561,7 +603,7 @@
         "more_label": "Show more reviews",
         "less_label": "Show fewer",
         "enable_custom_style": true,
-        "card_bg": "#efeeeb",
+        "card_bg": "#f5f4f1",
         "quote_color": "#37352f",
         "name_color": "#191918",
         "star_color": "#191918",
@@ -740,7 +782,7 @@
         "section_max_width_mobile": 560,
         "item_padding_y": 20,
         "enable_custom_style": true,
-        "tabs_track_bg": "#ecebe8",
+        "tabs_track_bg": "#f2f1ee",
         "tab_active_bg": "#ffffff",
         "tab_active_color": "#191918",
         "tab_inactive_color": "#6f6e69",
@@ -879,7 +921,7 @@
         "banner_surface": "soft",
         "banner_tint": 4,
         "use_custom_bg": true,
-        "bg_color": "#ecebe8",
+        "bg_color": "#f5f4f1",
         "use_theme_radius": false,
         "section_border_radius": 20,
         "banner_shadow": "none",
@@ -945,6 +987,36 @@
         "subheading_3",
         "button_4"
       ]
+    },
+    "offer_head": {
+      "type": "titleandsubtitle",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "content_alignment": "center",
+        "text_max_width": 720,
+        "subheading_text": "<p>Duplicate the finished system in one click and plan next month tonight. Pay once and keep every update.</p>",
+        "title_font_size_desktop": 40,
+        "title_font_weight": "700",
+        "subheading_font_size_desktop": 17,
+        "title_subheading_gap_desktop": 14,
+        "padding_top_desktop": 56,
+        "padding_bottom_desktop": 8,
+        "title_mobile_font_size": 28,
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 0
+      },
+      "blocks": {
+        "title_1": {
+          "type": "title",
+          "settings": {
+            "text": "Skip the weekend of building it yourself"
+          }
+        }
+      },
+      "block_order": [
+        "title_1"
+      ]
     }
   },
   "order": [
@@ -953,6 +1025,7 @@
     "inside",
     "for",
     "extras",
+    "offer_head",
     "pricing",
     "maker",
     "letter",

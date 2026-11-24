@@ -1,7 +1,7 @@
 
 <!doctype html>
 <html class="no-js" lang="en" dir="ltr">
-<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/author-book/a/cart.d56b0a2183cf.json";
+<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/author-book/a/cart.de471b5610c2.json",WISH_DATA="";
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
@@ -86,6 +86,8 @@ if(D.readyState==="loading")D.addEventListener("DOMContentLoaded",arrive);else a
 
 if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);if(mine(u))return F.apply(this,arguments);
 /* Cards round 24: the cart answers from the template's drawn cart (./theme-templates/preview-cart.ts), as a store would. */
+/* Round 25: the wishlist page asks for its saved products' cards; every product's card is in WISH_DATA and the theme keeps the saved ones. */
+if(WISH_DATA&&/\/search$/.test(path(u))&&/[?&]section_id=/.test(u))return F(WISH_DATA).then(function(r){return r.json()}).then(function(d){return new Response(d.html,{status:200,headers:{"Content-Type":"text/html"}})});
 var p=path(u),q=/[?&]sections=/.test(u),c=/\/cart(\.js|\.json|\/(add|change|update|clear)(\.js)?)$/.test(p);if(CART_DATA&&(c||q)){var w=c?cartReply(p,o):sectionsReply(u);return w.then(function(r){return new Response(JSON.stringify(r[1]),{status:r[0],headers:{"Content-Type":"application/json"}})},function(){var r=reply(u);return new Response(r[2],{status:r[0],headers:{"Content-Type":r[1]}})})}
 var r=reply(u);return Promise.resolve(new Response(r[2],{status:r[0],headers:{"Content-Type":r[1]}}))};
 var X=W.XMLHttpRequest&&W.XMLHttpRequest.prototype;if(X){var O=X.open;X.open=function(m,u){var a=[].slice.call(arguments);if(!mine(u)){var r=reply(u);a[0]="GET";a[1]="data:"+r[1]+","+encodeURIComponent(r[2])}return O.apply(this,a)}}
@@ -170,13 +172,13 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
     }, true);
   });
 })();
-</script><title>Collections | Lights Out</title>
-<meta property="og:site_name" content="Lights Out">
-<meta property="og:title" content="Collections | Lights Out">
+</script><title>Collections | Windowsill</title>
+<meta property="og:site_name" content="Windowsill">
+<meta property="og:title" content="Collections | Windowsill">
 <meta property="og:type" content="website">
-<meta property="og:description" content="Lights Out"><meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Collections | Lights Out">
-<meta name="twitter:description" content="Lights Out">
+<meta property="og:description" content="Windowsill"><meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Collections | Windowsill">
+<meta name="twitter:description" content="Windowsill">
 <style id="speed-optimization-css">
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -206,8 +208,8 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
         } catch (e) {}
       })();
     </script>
-<link href="/theme-previews/_base/a/critical.03978b251a4f.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/product-card.9a3739dc0c4c.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"primary","product_size":17,"price_size":16,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
+<link href="/theme-previews/_base/a/critical.4539b38450ad.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/product-card.57905ba3cf39.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"primary","product_size":17,"price_size":16,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
 <style>html:not([data-card-custom='true']) .product-item .product-item__name { font-size:var(--body-font-size, 16px); text-transform:var(--heading-text-transform, none) !important; } html:not([data-card-custom='true']) .product-item .product-item__price { font-size:var(--body-font-size, 16px); }</style>
 <script>document.documentElement.dataset.cardCustom = false === true ? 'true' : 'false';</script>
 <script type="application/json" data-badge-style-settings>false</script>
@@ -216,16 +218,16 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
     document.addEventListener('DOMContentLoaded',function(){setTimeout(go,4000)},{once:true})}
     ['pointerdown','click','keydown','scroll','touchstart'].forEach(function(n){addEventListener(n,go,{once:true,passive:true,capture:true})})})(["/theme-previews/_base/a/popup.18cdf2513c31.css","/theme-previews/_base/a/tingle-min.ed947d9dd1c7.css"]);</script><link rel="stylesheet" href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" media="print" onload="this.media='all'">
 <noscript><link href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" rel="stylesheet" type="text/css" media="all"></noscript>
-<link rel="stylesheet" href="/theme-previews/_base/a/fonts.4fbc177eb54d.css" data-materia-fonts>
-<style data-materia-font-fallbacks>@font-face{font-family:"Mulish Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:104.3%;ascent-override:96.4%;descent-override:24%;line-gap-override:0%}@font-face{font-family:"Mulish Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:104.3%;ascent-override:96.4%;descent-override:24%;line-gap-override:0%}@font-face{font-family:"Barlow Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:96%;ascent-override:104.2%;descent-override:20.8%;line-gap-override:0%}@font-face{font-family:"Barlow Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:96%;ascent-override:104.2%;descent-override:20.8%;line-gap-override:0%}</style><style data-shopify>
+<link rel="stylesheet" href="/theme-previews/_base/a/fonts.5fc986777be6.css" data-materia-fonts>
+<style data-materia-font-fallbacks>@font-face{font-family:"Mulish Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:104.3%;ascent-override:96.4%;descent-override:24%;line-gap-override:0%}@font-face{font-family:"Mulish Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:104.3%;ascent-override:96.4%;descent-override:24%;line-gap-override:0%}@font-face{font-family:"Young Serif Fallback";src:local("Times New Roman"), local("TimesNewRomanPSMT"), local("Liberation Serif");font-weight:100 549;size-adjust:122.7%;ascent-override:85.2%;descent-override:29.8%;line-gap-override:0%}@font-face{font-family:"Young Serif Fallback";src:local("Times New Roman Bold"), local("TimesNewRomanPS-BoldMT"), local("Liberation Serif Bold");font-weight:550 1000;size-adjust:122.7%;ascent-override:85.2%;descent-override:29.8%;line-gap-override:0%}</style><style data-shopify>
   :root {
     --body-font: "Mulish", "Mulish Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    --heading-font: "Barlow", "Barlow Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --heading-font: "Young Serif", "Young Serif Fallback", Georgia, "Times New Roman", serif, sans-serif;
     --menu-font: var(--body-font);
     --btn-font: var(--body-font);
   }
 </style>
-<link rel="stylesheet" href="/theme-previews/author-book/a/i.101ca952dec1.css" data-shopify>
+<link rel="stylesheet" href="/theme-previews/author-book/a/i.0eb59bcebd45.css" data-shopify>
 <link href="/theme-previews/_base/a/theme.d71f5b96fec8.css" rel="stylesheet" type="text/css" media="all"><noscript><link href="/theme-previews/_base/a/popup.18cdf2513c31.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.9c20c549e3cf.css">
 <link rel="preload" as="style" href="/theme-previews/_base/a/minicart.ac0014483417.css" fetchpriority="low">
 <link rel="preload" as="style" href="/theme-previews/_base/a/materia-experience.b68d6d8152a8.css" fetchpriority="low">
@@ -318,12 +320,12 @@ data-menu-hover="none"
     --count-bubble-animation: mt-count-pop;
   }
 </style><style data-shopify>#shopify-section-header {
-    --hs-mnav-bg: #0b0f1d;
+    --hs-mnav-bg: #15302a;
     --hs-mnav-heading: #ffffff;
     --hs-mnav-text: #c8c8cc;
     --hs-hover-fill: #ffffff;
-    --hs-logo-width: 78px;
-    --hs-logo-width-mobile: 78px;
+    --hs-logo-width: 172px;
+    --hs-logo-width-mobile: 138px;
     --hs-logo-max-height: 68px;
     --hs-logo-box-height: 84px;
   }#shopify-section-header { --hs-menu-gap: 28px; --hs-icon-gap: 10px; --hs-icon-gap-mobile: 6px; --hs-logo-x: 0px; --hs-logo-x-mobile: 0px; }@media (max-width: 1024.98px) {
@@ -331,7 +333,7 @@ data-menu-hover="none"
       --hs-logo-max-height: 48px;
       --hs-logo-box-height: 64px;
     }
-  }:root { --hs-mnav-title-bg: #ffffff; --hs-mnav-title-color: #18181a; }</style><link href="/theme-previews/_base/a/header-layout.ed2de67e6e9c.css" rel="stylesheet" type="text/css" media="all">
+  }:root { --hs-mnav-title-bg: #ffffff; --hs-mnav-title-color: #17201b; }</style><link href="/theme-previews/_base/a/header-layout.ed2de67e6e9c.css" rel="stylesheet" type="text/css" media="all">
 <style>
   #shopify-section-header {
     --header-height-desktop: 84px;
@@ -353,12 +355,24 @@ style="--section-pt: 0;--section-pb: 0;--transparent-color: #ffffff;--menu-hover
 <div class="header__logo text-center text-left-1025 inline-flex align-center"><a
 class="logo-img no-underline inline-flex align-center h1 my-0"
 href="/theme-previews/author-book/index.html"
-aria-label="Lights Out"
+aria-label="Windowsill"
 >
 <span
 class="header__logo inline-flex align-center"
-style="--header-logo-width: 208px; --header-logo-width-mobile: 78px;"
-><span class="header__logo-text" style="font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 600); font-size: clamp(20px, 2.2vw, 28px); line-height: 1; letter-spacing: -0.01em; color: inherit; white-space: nowrap;">Lights Out</span></span>
+style="--header-logo-width: 172px; --header-logo-width-mobile: 78px;"
+><img
+srcset="/theme-previews/author-book/a/authorbook-logo-400.b485b58da97b.webp 165w,/theme-previews/author-book/a/authorbook-logo-400.b485b58da97b.webp 330w,/theme-previews/author-book/a/authorbook-logo.40bf8b1c6661.webp 535w,/theme-previews/author-book/a/authorbook-logo.40bf8b1c6661.webp 750w,/theme-previews/author-book/a/authorbook-logo.40bf8b1c6661.webp 1600w
+"
+src="/theme-previews/author-book/a/authorbook-logo-400.b485b58da97b.webp"
+sizes="(max-width: 1024.98px) 138px, 172px"
+loading="eager"
+decoding="sync"
+fetchpriority="high"
+class="header__normal-logo"
+width="172"
+height="172"
+alt="Windowsill"
+></span>
 </a>
 </div>
 <div class="header__menu"><button
@@ -499,7 +513,7 @@ data-badge-case="style"
 data-badge-pos="above"
 data-badge-lift
 style="
---mm-title-bg: #ffffff; --mm-title-color: #18181a;
+--mm-title-bg: #ffffff; --mm-title-color: #17201b;
 --mb-badge-size: 10px;--mb-badge-border: 1px;
 --hot-cl: ;--hot-bg-cl: ;
 --new-cl: ;--new-bg-cl: ;
@@ -516,7 +530,7 @@ height="13"
 viewBox="0 0 13 13"
 fill="none"
 class="heading-color"
-style="color: #18181a !important; --color-heading: #18181a;"
+style="color: #17201b !important; --color-heading: #17201b;"
 >
 <use href="#icon-close" />
 </svg>
@@ -524,11 +538,11 @@ style="color: #18181a !important; --color-heading: #18181a;"
 <div class="navigation__menu-content navigation__menu-content-mobile word-break">
 <div
 class="menu-mobile-title min-h-55 min-h-1025-50 flex align-center px-30 py-5 hidden-1025 gap-30"
-style="background: #ffffff !important; color: #18181a !important; --color-heading: #18181a; --mm-title-bg: #ffffff; --mm-title-color: #18181a;"
+style="background: #ffffff !important; color: #17201b !important; --color-heading: #17201b; --mm-title-bg: #ffffff; --mm-title-color: #17201b;"
 >
 <a
 class="active no-underline heading-style py-10 inline-flex align-center gap-10"
-style="color: #18181a !important;"
+style="color: #17201b !important;"
 data-menu="horizontal-list"
 role="link"
 aria-disabled="true"
@@ -603,7 +617,7 @@ href="/theme-previews/author-book/pages/faqs.html"
 <symbol id="icon-bag">
 <path d="M12.7518 2.91374L11.6276 1.44835H3.37237L2.24824 2.91374H12.7518ZM14.8419 3.18637V3.20341C14.8419 3.20341 14.8478 3.20341 14.8595 3.20341C14.8946 3.27157 14.9239 3.33972 14.9473 3.40788C14.9824 3.47604 15 3.54988 15 3.62939V13.819C15 14.1143 14.9356 14.3983 14.8068 14.6709C14.6897 14.9322 14.5316 15.1594 14.3326 15.3525C14.1335 15.557 13.8934 15.716 13.6124 15.8296C13.3431 15.9432 13.0562 16 12.7518 16H2.24824C1.94379 16 1.65105 15.9375 1.37002 15.8126C1.1007 15.699 0.866511 15.5456 0.667447 15.3525C0.456674 15.1594 0.29274 14.9322 0.175644 14.6709C0.058548 14.3983 0 14.1143 0 13.819V3.62939C0 3.58395 0.0058548 3.53852 0.0175644 3.49308C0.029274 3.43628 0.0468384 3.37948 0.0702576 3.32268C0.0819672 3.29996 0.0936768 3.27725 0.105386 3.25453C0.128806 3.23181 0.14637 3.20909 0.15808 3.18637L2.40632 0.28967C2.47658 0.198793 2.5644 0.130635 2.66979 0.085197C2.77518 0.028399 2.88642 0 3.00351 0H11.9965C12.1136 0 12.2248 0.028399 12.3302 0.085197C12.4356 0.130635 12.5234 0.198793 12.5937 0.28967L14.8419 3.18637ZM1.51054 4.36209V13.819C1.51054 13.9098 1.5281 14.0007 1.56323 14.0916C1.59836 14.1825 1.65105 14.262 1.72131 14.3301C1.79157 14.3983 1.87354 14.4494 1.96721 14.4835C2.06089 14.5176 2.15457 14.5346 2.24824 14.5346H12.7518C12.8571 14.5346 12.9508 14.5176 13.0328 14.4835C13.1265 14.4494 13.2084 14.3983 13.2787 14.3301C13.3489 14.262 13.4016 14.1825 13.4368 14.0916C13.4719 14.0007 13.4895 13.9098 13.4895 13.819V4.36209H1.51054ZM9.74824 6.54313C9.74824 6.33866 9.8185 6.16826 9.95902 6.03195C10.1112 5.88427 10.2927 5.81044 10.5035 5.81044C10.7026 5.81044 10.8724 5.88427 11.0129 6.03195C11.1651 6.16826 11.2412 6.33866 11.2412 6.54313C11.2412 7.04295 11.1417 7.51438 10.9426 7.9574C10.7553 8.40043 10.4918 8.78665 10.1522 9.11608C9.81265 9.44551 9.41452 9.70678 8.95785 9.89989C8.50117 10.0816 8.01522 10.1725 7.5 10.1725C6.98478 10.1725 6.49883 10.0816 6.04215 9.89989C5.58548 9.70678 5.18735 9.44551 4.84777 9.11608C4.5082 8.78665 4.23888 8.40043 4.03981 7.9574C3.85246 7.51438 3.75878 7.04295 3.75878 6.54313C3.75878 6.33866 3.82904 6.16826 3.96956 6.03195C4.12178 5.88427 4.29742 5.81044 4.49649 5.81044C4.70726 5.81044 4.8829 5.88427 5.02342 6.03195C5.17564 6.16826 5.25176 6.33866 5.25176 6.54313C5.25176 6.84984 5.3103 7.13383 5.4274 7.3951C5.5445 7.65637 5.70843 7.88356 5.9192 8.07668C6.11827 8.28115 6.35246 8.44018 6.62178 8.55378C6.8911 8.66738 7.18384 8.72417 7.5 8.72417C7.81616 8.72417 8.1089 8.66738 8.37822 8.55378C8.64754 8.44018 8.88173 8.28115 9.0808 8.07668C9.29157 7.88356 9.4555 7.65637 9.5726 7.3951C9.6897 7.13383 9.74824 6.84984 9.74824 6.54313Z" fill="currentColor"/>
 </symbol>
-</svg><a class="hs-cta hs-cta--pos-after_icons hs-cta--m-in_row hs-cta--primary hs-cta--theme hs-cta--desktop hs-cta--ms-small hs-cta--font-body" href="/theme-previews/author-book/collections/all.html" data-theme-button="primary" data-sl-button style="--mb-bg: var(--btn-primary-bg-color); --mb-text: var(--btn-primary-color); --mb-hover-bg: var(--btn-primary-hover-bg-color); --mb-hover-text: var(--btn-primary-hover-color); --hs-cta-gap: 20px; --hs-cta-gap-mobile: 10px; --hs-cta-x: 0px; --hs-cta-y: 0px; --hs-cta-bg: #f2a65a; --hs-cta-fg: #18181a; --hs-cta-bd: #f2a65a; --hs-cta-bw: 0px; --hs-cta-radius: 999px; --hs-cta-fs: 16px; --hs-cta-fw: 700; --hs-cta-tt: none; --hs-cta-ls: 0px; --hs-cta-py: 14px; --hs-cta-px: 26px; --hs-cta-deco: none; --hs-cta-shadow: none; --hs-cta-dur: 225ms; --hs-cta-ease: cubic-bezier(0.2, 0.7, 0.2, 1); --hs-cta-hbg: #ffffff; --hs-cta-hfg: #18181a; --hs-cta-hbd: #ffffff; --hs-cta-htransform: none; --hs-cta-hshadow: none; --hs-cta-hfilter: none; --hs-cta-hdeco: none;" data-lh-block="header_button_1" data-block-id="header_button_1">Buy the ebook</a></div>
+</svg><a class="hs-cta hs-cta--pos-after_icons hs-cta--m-in_row hs-cta--primary hs-cta--theme hs-cta--desktop hs-cta--ms-small hs-cta--font-body" href="/theme-previews/author-book/collections/all.html" data-theme-button="primary" data-sl-button style="--mb-bg: var(--btn-primary-bg-color); --mb-text: var(--btn-primary-color); --mb-hover-bg: var(--btn-primary-hover-bg-color); --mb-hover-text: var(--btn-primary-hover-color); --hs-cta-gap: 20px; --hs-cta-gap-mobile: 10px; --hs-cta-x: 0px; --hs-cta-y: 0px; --hs-cta-bg: #e08a5c; --hs-cta-fg: #17201b; --hs-cta-bd: #e08a5c; --hs-cta-bw: 0px; --hs-cta-radius: 999px; --hs-cta-fs: 16px; --hs-cta-fw: 700; --hs-cta-tt: none; --hs-cta-ls: 0px; --hs-cta-py: 14px; --hs-cta-px: 26px; --hs-cta-deco: none; --hs-cta-shadow: none; --hs-cta-dur: 225ms; --hs-cta-ease: cubic-bezier(0.2, 0.7, 0.2, 1); --hs-cta-hbg: #ffffff; --hs-cta-hfg: #17201b; --hs-cta-hbd: #ffffff; --hs-cta-htransform: none; --hs-cta-hshadow: none; --hs-cta-hfilter: none; --hs-cta-hdeco: none;" data-lh-block="header_button_1" data-block-id="header_button_1">Buy the ebook</a></div>
 </header-inner>
 </div>
 </div></header><script src="/theme-previews/author-book/a/i.b8ec2f2ea707.js"></script>
@@ -685,7 +699,7 @@ data-lcp-block-type="description"
 data-block-id="description_tLPCVn"
 style="color: #57575e; --ph-desc-size: 15px;"
 >
-<p>The ebook in every edition, the audiobook, the sleep diary and a team licence.</p>
+<p>The ebook in every edition, the audiobook, the care cards and a short guide to pet safe plants.</p>
 </motion-element>
 </div>
 </div>
@@ -847,7 +861,7 @@ href="/theme-previews/author-book/collections/gifts.html"
 aria-label="Gifts"
 style="--aspect-ratio: 1.0;"
 >
-<img src="/theme-previews/author-book/a/authorbook-audiobook.750134925d6e.webp" srcset="/theme-previews/author-book/a/authorbook-audiobook.750134925d6e.webp 720w, /theme-previews/author-book/a/authorbook-audiobook.750134925d6e.webp 660w, /theme-previews/author-book/a/authorbook-audiobook.750134925d6e.webp 550w, /theme-previews/author-book/a/authorbook-audiobook.750134925d6e.webp 480w, /theme-previews/author-book/a/authorbook-audiobook-400.93346ca310fd.webp 360w, /theme-previews/author-book/a/authorbook-audiobook-400.93346ca310fd.webp 240w, /theme-previews/author-book/a/authorbook-audiobook-400.93346ca310fd.webp 185w, /theme-previews/author-book/a/authorbook-audiobook-400.93346ca310fd.webp 120w, /theme-previews/author-book/a/authorbook-audiobook-400.93346ca310fd.webp 60w" alt="Gifts" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * 0 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="rounded">
+<img src="/theme-previews/author-book/a/authorbook-audiobook.20a5fa387e05.webp" srcset="/theme-previews/author-book/a/authorbook-audiobook.20a5fa387e05.webp 720w, /theme-previews/author-book/a/authorbook-audiobook.20a5fa387e05.webp 660w, /theme-previews/author-book/a/authorbook-audiobook.20a5fa387e05.webp 550w, /theme-previews/author-book/a/authorbook-audiobook.20a5fa387e05.webp 480w, /theme-previews/author-book/a/authorbook-audiobook-400.fdaa8e520740.webp 360w, /theme-previews/author-book/a/authorbook-audiobook-400.fdaa8e520740.webp 240w, /theme-previews/author-book/a/authorbook-audiobook-400.fdaa8e520740.webp 185w, /theme-previews/author-book/a/authorbook-audiobook-400.fdaa8e520740.webp 120w, /theme-previews/author-book/a/authorbook-audiobook-400.fdaa8e520740.webp 60w" alt="Gifts" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * 0 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="rounded">
 </a>
 </div>
 <div
@@ -882,7 +896,7 @@ href="/theme-previews/author-book/collections/new-in.html"
 aria-label="New in"
 style="--aspect-ratio: 1.0;"
 >
-<img src="/theme-previews/author-book/a/authorbook-ebook.a1ea9cb0a53c.webp" srcset="/theme-previews/author-book/a/authorbook-ebook.a1ea9cb0a53c.webp 720w, /theme-previews/author-book/a/authorbook-ebook.a1ea9cb0a53c.webp 660w, /theme-previews/author-book/a/authorbook-ebook.a1ea9cb0a53c.webp 550w, /theme-previews/author-book/a/authorbook-ebook.a1ea9cb0a53c.webp 480w, /theme-previews/author-book/a/authorbook-ebook-400.1d7290a39635.webp 360w, /theme-previews/author-book/a/authorbook-ebook-400.1d7290a39635.webp 240w, /theme-previews/author-book/a/authorbook-ebook-400.1d7290a39635.webp 185w, /theme-previews/author-book/a/authorbook-ebook-400.1d7290a39635.webp 120w, /theme-previews/author-book/a/authorbook-ebook-400.1d7290a39635.webp 60w" alt="New in" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * 0 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="rounded">
+<img src="/theme-previews/author-book/a/authorbook-ebook.c7f0c2593ed1.webp" srcset="/theme-previews/author-book/a/authorbook-ebook.c7f0c2593ed1.webp 720w, /theme-previews/author-book/a/authorbook-ebook.c7f0c2593ed1.webp 660w, /theme-previews/author-book/a/authorbook-ebook.c7f0c2593ed1.webp 550w, /theme-previews/author-book/a/authorbook-ebook.c7f0c2593ed1.webp 480w, /theme-previews/author-book/a/authorbook-ebook-400.e3616c744612.webp 360w, /theme-previews/author-book/a/authorbook-ebook-400.e3616c744612.webp 240w, /theme-previews/author-book/a/authorbook-ebook-400.e3616c744612.webp 185w, /theme-previews/author-book/a/authorbook-ebook-400.e3616c744612.webp 120w, /theme-previews/author-book/a/authorbook-ebook-400.e3616c744612.webp 60w" alt="New in" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * 0 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="rounded">
 </a>
 </div>
 <div
@@ -917,7 +931,7 @@ href="/theme-previews/author-book/collections/best-sellers.html"
 aria-label="Best sellers"
 style="--aspect-ratio: 1.0;"
 >
-<img src="/theme-previews/author-book/a/authorbook-workbook.407d2b4fc8b6.webp" srcset="/theme-previews/author-book/a/authorbook-workbook.407d2b4fc8b6.webp 720w, /theme-previews/author-book/a/authorbook-workbook.407d2b4fc8b6.webp 660w, /theme-previews/author-book/a/authorbook-workbook.407d2b4fc8b6.webp 550w, /theme-previews/author-book/a/authorbook-workbook.407d2b4fc8b6.webp 480w, /theme-previews/author-book/a/authorbook-workbook-400.ad2dd8010d12.webp 360w, /theme-previews/author-book/a/authorbook-workbook-400.ad2dd8010d12.webp 240w, /theme-previews/author-book/a/authorbook-workbook-400.ad2dd8010d12.webp 185w, /theme-previews/author-book/a/authorbook-workbook-400.ad2dd8010d12.webp 120w, /theme-previews/author-book/a/authorbook-workbook-400.ad2dd8010d12.webp 60w" alt="Best sellers" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * 0 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="rounded">
+<img src="/theme-previews/author-book/a/authorbook-cards.132c100df34c.webp" srcset="/theme-previews/author-book/a/authorbook-cards.132c100df34c.webp 720w, /theme-previews/author-book/a/authorbook-cards.132c100df34c.webp 660w, /theme-previews/author-book/a/authorbook-cards.132c100df34c.webp 550w, /theme-previews/author-book/a/authorbook-cards.132c100df34c.webp 480w, /theme-previews/author-book/a/authorbook-cards-400.cdfe32b47632.webp 360w, /theme-previews/author-book/a/authorbook-cards-400.cdfe32b47632.webp 240w, /theme-previews/author-book/a/authorbook-cards-400.cdfe32b47632.webp 185w, /theme-previews/author-book/a/authorbook-cards-400.cdfe32b47632.webp 120w, /theme-previews/author-book/a/authorbook-cards-400.cdfe32b47632.webp 60w" alt="Best sellers" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * 0 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="rounded">
 </a>
 </div>
 <div
@@ -984,12 +998,12 @@ data-block-id="store_info_1"
 class="footer__block-heading fs-custom my-0 py-20 mb-md-5"
 style="--font-size: 15"
 >
-<span data-ft-heading>Lights Out</span>
+<span data-ft-heading>Windowsill</span>
 </h3>
 <div
 class="store-info-content"
 ><div class="footer__block-info rich__text-mt-0 mb-20" data-ft-desc>
-<p>A practical guide to sleeping well, by Owen Kessler. Ebook in PDF and EPUB, with an audiobook and a printable sleep diary.</p>
+<p>Keep Them Alive, a houseplant care guide by Maren Holt. Ebook in PDF and EPUB, with an audiobook and printable care cards.</p>
 </div>
 </div>
 </div><div
@@ -1066,10 +1080,10 @@ style="--font-size: 15"
 <ul class="list-unstyled"><li class="pb-8">
 <a
 href="/theme-previews/author-book/pages/about.html"
-aria-label="About Owen"
+aria-label="About Maren"
 class="no-underline word-break reversed-links relative"
 >
-About Owen
+About Maren
 </a>
 </li><li class="pb-8">
 <a
@@ -1104,7 +1118,7 @@ class="footer__block-heading collapsible-heading relative heading-letter-spacing
 style="--font-size: 15"
 >
 <button type="button" class="footer-acc__toggle" data-footer-acc-toggle aria-expanded="false" aria-controls="FooterAcc-newsletter_1">
-<span data-ft-heading>The sleep letter</span>
+<span data-ft-heading>The plant letter</span>
 <span class="open-children-toggle hidden-md absolute inset-0 flex flex-end">
 <span class="arrow-toggle" aria-hidden="true">
 <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1116,7 +1130,7 @@ style="--font-size: 15"
 </h3>
 <div class="footer-acc__panel" id="FooterAcc-newsletter_1"><div class="footer-acc__inner">
 <div class="collapsible-content mb-30"><div class="footer__block-description mb-23" data-ft-desc>
-One short email every other week with one thing to try tonight. Free.
+One short email every other week with one thing to check on your plants. Free.
 </div>
 <form id="ContactFooter" accept-charset="UTF-8" class="footer__newsletter newsletter-form" data-storelib-form="subscribe" data-ft-form="newsletter_1" data-success-message="Thanks for subscribing." data-error-message="" data-storelib-form="subscribe" data-preview-form><input type="hidden" name="form_type" value="customer"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="storelib_placement" value="footer"><input type="hidden" name="contact[tags]" value="newsletter">
 <div class="newsletter-form__field-wrapper">
@@ -1247,7 +1261,7 @@ Español
 </form>
 </localization-form>
 </div>
-<div class="footer__copyright" data-ft-copyright>© 2026 Lights Out</div>
+<div class="footer__copyright" data-ft-copyright>© 2026 Windowsill</div>
 <ul class="footer__policies list-unstyled flex flex-wrap" data-ft-policies><li><a href="/theme-previews/author-book/policies/refund-policy.html">Refund policy</a></li><li><a href="/theme-previews/author-book/policies/privacy-policy.html">Privacy policy</a></li><li><a href="/theme-previews/author-book/policies/terms-of-service.html">Terms of service</a></li></ul><div class="footer__powered" data-ft-powered><a href="#" data-preview-inert data-storelib-badge="" style="display:inline-flex;align-items:center;gap:.45em;white-space:nowrap;vertical-align:middle"><svg data-storelib-badge-mark="" aria-hidden="true" focusable="false" viewBox="0 0 200 200" width="14" height="14" style="display:block;flex:none;width:1.2em;height:1.2em;overflow:visible"><mask id="sl-pb-s" maskUnits="userSpaceOnUse" x="0" y="0" width="200" height="200"><rect width="200" height="200" fill="#fff"/><path transform="translate(48.97 38.44) scale(1.08) translate(-54 -43) translate(134.125,52.875)" d="M0 0 C0.99749268 0.36665771 0.99749268 0.36665771 2.01513672 0.74072266 C6.62777473 2.59663113 6.62777473 2.59663113 7.68823242 4.86303711 C7.94652165 7.99120666 7.02705902 10.04467511 5.85546875 12.94921875 C5.41009766 14.05974609 4.96472656 15.17027344 4.50585938 16.31445312 C4.02955078 17.46880859 3.55324219 18.62316406 3.0625 19.8125 C2.59779297 20.97845703 2.13308594 22.14441406 1.65429688 23.34570312 C-1.85471661 31.98985831 -1.85471661 31.98985831 -4.125 33.125 C-6.02961204 32.43054915 -7.90085447 31.64344514 -9.75 30.8125 C-19.66422998 26.58368153 -27.26609106 25.85047702 -38.125 26.125 C-38.455 27.115 -38.785 28.105 -39.125 29.125 C-38.14402344 29.36734375 -37.16304687 29.6096875 -36.15234375 29.859375 C-33.31305776 30.56236873 -30.47635159 31.27497918 -27.640625 31.9921875 C-24.80213536 32.70970135 -21.95989766 33.40235421 -19.109375 34.0703125 C-6.69949938 37.1089446 3.02755655 40.84926977 9.875 52.125 C13.29151905 58.95803811 12.61307566 67.23479967 10.625 74.4375 C7.53029491 83.45189328 1.37513276 90.18616729 -7.02734375 94.67578125 C-26.20884362 103.04454374 -49.04415352 101.90170642 -68.5 94.625 C-72.25964144 93.07749587 -75.67848864 91.2806362 -79.125 89.125 C-78.55593823 84.90468545 -77.56543969 81.39586411 -75.83984375 77.5078125 C-75.39189453 76.48945313 -74.94394531 75.47109375 -74.48242188 74.421875 C-73.77956055 72.85179688 -73.77956055 72.85179688 -73.0625 71.25 C-72.59005859 70.18007812 -72.11761719 69.11015625 -71.63085938 68.0078125 C-70.46832699 65.3774362 -69.29955398 62.75002483 -68.125 60.125 C-63.80181734 61.13483216 -60.07150265 62.96083682 -56.07421875 64.87109375 C-49.32009515 67.74271451 -43.48344492 68.41757298 -36.25 68.3125 C-35.38375 68.31185547 -34.5175 68.31121094 -33.625 68.31054688 C-29.55080641 68.64235092 -29.55080641 68.64235092 -26.125 67.125 C-32.43853708 64.84703882 -38.66045093 62.93279428 -45.25 61.625 C-56.73505022 59.25968679 -67.31315991 55.21661495 -74.125 45.125 C-77.1608836 40.09281577 -77.67121961 36.10082917 -77.625 30.375 C-77.62072998 29.57876221 -77.61645996 28.78252441 -77.61206055 27.9621582 C-77.37730644 19.82208022 -74.95520496 14.3797357 -69.625 8.25 C-68.8 7.54875 -67.975 6.8475 -67.125 6.125 C-66.403125 5.465 -65.68125 4.805 -64.9375 4.125 C-46.69751714 -8.84565448 -20.22397968 -7.61423584 0 0 Z" fill="#000"/></mask><rect width="200" height="200" rx="48" fill="currentColor" mask="url(#sl-pb-s)"/></svg><span>Powered by Storelib</span></a></div></div>
 <div class="footer__payment flex grow-1 align-center max-w-100" style="justify-content: flex-end; --pb-width: 100%; margin-left: auto;" data-ft-block="payment_badges_1" data-ft-type="payment_badges" data-block-id="payment_badges_1">
 <ul class="footer__payment-badges"><li class="payment-badge" aria-label="Visa"><svg class="icon icon--full-color" viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Visa">
@@ -1358,11 +1372,11 @@ aria-modal="true"
 aria-label="Search"
 data-search-mode="popup"
 class="search-overlay search-overlay--popup search__type-popup search__popup-anim--fade color-default"
-style="--color-background: #ffffff;          --color-text: #45454a;          --color-heading: #18181a;          --color-primary: #a85a1c;          --color-border: #e6e4df;          --gradient-background: #ffffff;          background-color: #ffffff;          color: #45454a;"
+style="--color-background: #ffffff;          --color-text: #46504a;          --color-heading: #17201b;          --color-primary: #a4502c;          --color-border: #e6e4df;          --gradient-background: #ffffff;          background-color: #ffffff;          color: #46504a;"
 ><div
 class="search__type-popup search__popup-anim--fade color-default h-full overflow-auto px-15 custom-scrollbar"
 data-search-popup-anim="fade"
-style="--color-background: #ffffff;    --color-text: #45454a;    --color-heading: #18181a;    --color-primary: #a85a1c;    --color-border: #e6e4df;    --gradient-background: #ffffff;    background-color: #ffffff;    color: #45454a;"
+style="--color-background: #ffffff;    --color-text: #46504a;    --color-heading: #17201b;    --color-primary: #a4502c;    --color-border: #e6e4df;    --gradient-background: #ffffff;    background-color: #ffffff;    color: #46504a;"
 >
 <div class="fluid_container">
 <h3 class="search-title search-title--animated text-center h4 m-0 hidden block-sm" aria-label="Search"><span class="search-title__char" style="--char-i: 0;" aria-hidden="true">S</span><span class="search-title__char" style="--char-i: 1;" aria-hidden="true">e</span><span class="search-title__char" style="--char-i: 2;" aria-hidden="true">a</span><span class="search-title__char" style="--char-i: 3;" aria-hidden="true">r</span><span class="search-title__char" style="--char-i: 4;" aria-hidden="true">c</span><span class="search-title__char" style="--char-i: 5;" aria-hidden="true">h</span></h3>
@@ -1493,13 +1507,13 @@ style=" ;--col-number: 1;--col-tablet: 1;--col-desktop-small:3;--col-desktop: 5;
     --materia-cart-control: 40px;
     --materia-cart-recommend-gap: 12px;
   }
-</style><link href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" rel="stylesheet" type="text/css" media="all"><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/author-book/a/i.32aa27261280.css" data-cart-drawer-style="paint">
+</style><link href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" rel="stylesheet" type="text/css" media="all"><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/author-book/a/i.5b3dd048d9cc.css" data-cart-drawer-style="paint">
 <cart-notification data-cart-drawer-version="20261021-2"
 data-show-quantity="true"
 data-show-shipping-estimator="false"
 data-show-free-shipping="false"
-id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #45454a;    --color-heading: #18181a;    --color-primary: #a85a1c;    --color-border: #e6e4df;    --gradient-background: #ffffff;    --btn-primary-color: #18181a;    --btn-primary-bg-color: #f2a65a;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #18181a;    --btn-secondary-color: #18181a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfccc6;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #18181a;    --btn-outline-color: #18181a;    --btn-outline-border-color: #cfccc6;    background-color: #ffffff !important;    color: #45454a !important;">
-<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #45454a;    --color-heading: #18181a;    --color-primary: #a85a1c;    --color-border: #e6e4df;    --gradient-background: #ffffff;    --btn-primary-color: #18181a;    --btn-primary-bg-color: #f2a65a;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #18181a;    --btn-secondary-color: #18181a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfccc6;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #18181a;    --btn-outline-color: #18181a;    --btn-outline-border-color: #cfccc6;    background-color: #ffffff !important;    color: #45454a !important;">
+id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #46504a;    --color-heading: #17201b;    --color-primary: #a4502c;    --color-border: #e6e4df;    --gradient-background: #ffffff;    --btn-primary-color: #17201b;    --btn-primary-bg-color: #e08a5c;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #17201b;    --btn-secondary-color: #17201b;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfccc6;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #17201b;    --btn-outline-color: #17201b;    --btn-outline-border-color: #cfccc6;    background-color: #ffffff !important;    color: #46504a !important;">
+<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #46504a;    --color-heading: #17201b;    --color-primary: #a4502c;    --color-border: #e6e4df;    --gradient-background: #ffffff;    --btn-primary-color: #17201b;    --btn-primary-bg-color: #e08a5c;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #17201b;    --btn-secondary-color: #17201b;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfccc6;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #17201b;    --btn-outline-color: #17201b;    --btn-outline-border-color: #cfccc6;    background-color: #ffffff !important;    color: #46504a !important;">
 <button type="button" class="cart-drawer-sheet-scrim" aria-label="Cancel"></button>
 <div class="minicart__header flex gap-10 align-center justify-between px-30 py-18 color-default">
 <div class="h5 minicart-heading my-0">
@@ -1635,13 +1649,13 @@ Skip to content
     --materia-cart-control: 40px;
     --materia-cart-recommend-gap: 12px;
   }
-</style><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/author-book/a/i.32aa27261280.css" data-cart-drawer-style="paint">
+</style><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/author-book/a/i.5b3dd048d9cc.css" data-cart-drawer-style="paint">
 <cart-notification data-cart-drawer-version="20261021-2"
 data-show-quantity="true"
 data-show-shipping-estimator="false"
 data-show-free-shipping="false"
-id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #45454a;    --color-heading: #18181a;    --color-primary: #a85a1c;    --color-border: #e6e4df;    --gradient-background: #ffffff;    --btn-primary-color: #18181a;    --btn-primary-bg-color: #f2a65a;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #18181a;    --btn-secondary-color: #18181a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfccc6;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #18181a;    --btn-outline-color: #18181a;    --btn-outline-border-color: #cfccc6;    background-color: #ffffff !important;    color: #45454a !important;">
-<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #45454a;    --color-heading: #18181a;    --color-primary: #a85a1c;    --color-border: #e6e4df;    --gradient-background: #ffffff;    --btn-primary-color: #18181a;    --btn-primary-bg-color: #f2a65a;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #18181a;    --btn-secondary-color: #18181a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfccc6;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #18181a;    --btn-outline-color: #18181a;    --btn-outline-border-color: #cfccc6;    background-color: #ffffff !important;    color: #45454a !important;">
+id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #46504a;    --color-heading: #17201b;    --color-primary: #a4502c;    --color-border: #e6e4df;    --gradient-background: #ffffff;    --btn-primary-color: #17201b;    --btn-primary-bg-color: #e08a5c;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #17201b;    --btn-secondary-color: #17201b;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfccc6;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #17201b;    --btn-outline-color: #17201b;    --btn-outline-border-color: #cfccc6;    background-color: #ffffff !important;    color: #46504a !important;">
+<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #46504a;    --color-heading: #17201b;    --color-primary: #a4502c;    --color-border: #e6e4df;    --gradient-background: #ffffff;    --btn-primary-color: #17201b;    --btn-primary-bg-color: #e08a5c;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #17201b;    --btn-secondary-color: #17201b;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfccc6;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #17201b;    --btn-outline-color: #17201b;    --btn-outline-border-color: #cfccc6;    background-color: #ffffff !important;    color: #46504a !important;">
 <button type="button" class="cart-drawer-sheet-scrim" aria-label="Cancel"></button>
 <div class="minicart__header flex gap-10 align-center justify-between px-30 py-18 color-default">
 <div class="h5 minicart-heading my-0">

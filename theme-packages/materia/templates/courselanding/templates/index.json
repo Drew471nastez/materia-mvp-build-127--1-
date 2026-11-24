@@ -1,74 +1,85 @@
-/* Templates round 24: Good Lead, a sales page for one six week online puppy training course, in cobalt blue on white: a park photograph hero, who it is for, a normal week, the four stages, the trainer, free videos compared, owner quotes, the offer as the course product itself (the theme's featured product: picture, price, options, buy buttons, what you get and a 14 day refund), questions with a contact card and a last call. Built from the theme's own sections. */
+/* Templates round 25: Arch Pilates, a sales page for one six week online reformer Pilates course taught by a sample teacher, in clay on white: a split hero with the teacher on the reformer, who it is for, a normal week, the four blocks, the teacher, free videos compared, student quotes, the offer as the course product itself (the theme's featured product: picture, price, options, buy buttons, what you get and a 14 day refund), questions with a contact card and a last call. Built from the theme's own sections; photographs from one Unsplash studio session. */
 {
   "sections": {
     "hero": {
-      "type": "hero-image1",
+      "type": "hero-split-media",
       "settings": {
-        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
-        "image": "shopify://shop_images/courselanding-hero.webp",
-        "image_mobile": "shopify://shop_images/courselanding-hero-phone.webp",
-        "image_alt": "A young German shepherd sitting on the grass beside its owner in an autumn park",
+        "color_scheme": "default",
+        "section_width": "full_width",
+        "image_position": "right",
+        "media_width_desktop": 50,
         "content_align": "left",
-        "vertical_align": "bottom",
-        "content_max_width": 860,
-        "content_gap": 18,
-        "image_position_x": 50,
-        "image_position_y": 55,
-        "enable_overlay": true,
-        "overlay_color": "#000000",
-        "overlay_opacity": 40,
-        "min_height_desktop": 700,
-        "padding_top_desktop": 120,
-        "padding_bottom_desktop": 88,
-        "side_padding_desktop": 64,
-        "min_height_mobile": 600,
-        "padding_top_mobile": 96,
-        "padding_bottom_mobile": 40,
+        "vertical_align": "center",
+        "content_max_width": 560,
+        "content_gap": 20,
+        "min_height_desktop": 720,
+        "image": "shopify://shop_images/courselanding-hero.webp",
+        "image_alt": "A teacher holding a side plank on a reformer in a cream studio with lit arches",
+        "image_position_x": 45,
+        "image_position_y": 40,
+        "image_radius": 0,
+        "padding_top_desktop": 64,
+        "padding_bottom_desktop": 64,
+        "side_padding_desktop": 128,
+        "mobile_image_first": true,
+        "media_height_mobile": 440,
+        "padding_top_mobile": 32,
+        "padding_bottom_mobile": 44,
         "side_padding_mobile": 20
       },
       "blocks": {
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "Online puppy training course",
+            "text": "Online reformer Pilates course",
             "enable_custom_style": true,
-            "color": "#ffffff",
-            "font_weight": "600",
-            "text_case": "uppercase",
-            "letter_spacing": 2,
-            "size_desktop": 13,
-            "size_mobile": 12
+            "color": "#9b4a2c",
+            "size_enable": true,
+            "size": 14
           }
         },
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Six weeks to a puppy who listens",
-            "enable_custom_style": true,
-            "color": "#ffffff",
-            "size_desktop": 76,
-            "size_mobile": 44,
-            "font_weight": "700",
-            "letter_spacing": -2,
-            "line_height": 1.0
+            "text": "Learn the reformer properly in six weeks",
+            "weight_enable": true,
+            "weight": "500",
+            "size_enable": true,
+            "size_desktop": 64,
+            "size_mobile": 40,
+            "line_height": 1.05,
+            "tracking": -1
           }
         },
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Ten minute sessions you fit around your day, a live class with a trainer every week, and methods built on rewards, never on punishment.</p>",
-            "enable_custom_style": true,
-            "color": "#f1f1f1",
+            "text": "<p>Short lessons filmed in the studio, a live class every Wednesday and form checks on your own clips. For a reformer at home or the one at your gym.</p>",
+            "size_enable": true,
             "size": 18,
-            "size_mobile": 16,
-            "line_height": 1.55
+            "line_height": 1.6
           }
         },
-        "primary_button_1": {
-          "type": "primary_button",
+        "button_1": {
+          "type": "button",
           "settings": {
-            "label": "Start training",
-            "link": "/#shopify-section-offer"
+            "text": "Start the course",
+            "link": "/#shopify-section-offer",
+            "button_style": "primary",
+            "size": 16,
+            "pad_x": 30,
+            "pad_y": 16
+          }
+        },
+        "button_2": {
+          "type": "button",
+          "settings": {
+            "text": "See the six weeks",
+            "link": "/#shopify-section-weeks",
+            "button_style": "secondary",
+            "size": 16,
+            "pad_x": 30,
+            "pad_y": 16
           }
         }
       },
@@ -76,7 +87,8 @@
         "eyebrow_1",
         "heading_1",
         "subheading_1",
-        "primary_button_1"
+        "button_1",
+        "button_2"
       ]
     },
     "start": {
@@ -89,10 +101,10 @@
         "header_gap": 40,
         "show_dividers": true,
         "enable_custom_style": true,
-        "label_color": "#2f4fd1",
-        "item_heading_color": "#141a2e",
-        "text_color": "#4b5060",
-        "divider_color": "#e4e6ee",
+        "label_color": "#9b4a2c",
+        "item_heading_color": "#261d18",
+        "text_color": "#5a514b",
+        "divider_color": "#ece6e0",
         "item_heading_size": 24,
         "padding_top": 96,
         "padding_bottom": 72,
@@ -103,7 +115,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "For puppies who pull, jump up and chew the sofa",
+            "text": "For your first reformer, or the one you bought and barely use",
             "size_enable": true,
             "size_desktop": 44,
             "size_mobile": 30,
@@ -115,31 +127,31 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>You do not need a garden, a clicker or a dog you have trained before. You need ten minutes, three times a day, and a pocket of treats.</p>"
+            "text": "<p>You do not need studio experience or a teacher beside you. You need a reformer, twenty minutes and three free evenings a week.</p>"
           }
         },
         "column_1": {
           "type": "column",
           "settings": {
-            "label": "Age",
-            "heading": "Eight weeks to eighteen months",
-            "text": "<p>Puppies and young dogs of any breed. Older dogs can join too and start with week one.</p>"
+            "label": "Who",
+            "heading": "New or coming back",
+            "text": "<p>Complete beginners, and people returning after a break or a baby. Tell us about any injury before you start.</p>"
           }
         },
         "column_2": {
           "type": "column",
           "settings": {
             "label": "Time",
-            "heading": "Ten minutes, three times a day",
-            "text": "<p>Short sessions keep a puppy keen. Each lesson says exactly what to practise and for how long.</p>"
+            "heading": "Twenty minutes, three times a week",
+            "text": "<p>Each lesson is one short session, with the springs, the reps and what you should feel written underneath.</p>"
           }
         },
         "column_3": {
           "type": "column",
           "settings": {
             "label": "Method",
-            "heading": "Rewards, not corrections",
-            "text": "<p>Every skill is taught with food and play. Nothing in the course uses pain, fear or a prong collar.</p>"
+            "heading": "Form before load",
+            "text": "<p>Every exercise starts on light springs. You add load once the shape is right, not before.</p>"
           }
         }
       },
@@ -159,19 +171,19 @@
         "image_position": "left",
         "image_width_pct": 46,
         "gap_desktop": 80,
-        "image": "shopify://shop_images/courselanding-lead.webp",
-        "image_alt": "A golden retriever puppy on a green lead walking across autumn grass",
+        "image": "shopify://shop_images/courselanding-straps.webp",
+        "image_alt": "Lying on the carriage with both feet in the straps, legs raised",
         "image_aspect_desktop": "4 / 5",
         "image_aspect": "4 / 5",
         "image_radius": 6,
         "step_style": "numbered",
         "marker_size": 34,
         "custom_colors": true,
-        "marker_color": "#2f4fd1",
+        "marker_color": "#9b4a2c",
         "marker_text_color": "#ffffff",
-        "line_color": "#dadfeb",
-        "step_title_color": "#141a2e",
-        "step_desc_color": "#4b5060",
+        "line_color": "#e5dbd2",
+        "step_title_color": "#261d18",
+        "step_desc_color": "#5a514b",
         "step_title_size": 19,
         "step_desc_size": 15,
         "button_radius": 6,
@@ -184,14 +196,14 @@
           "settings": {
             "text": "A normal week",
             "custom_style": true,
-            "color": "#2f4fd1",
+            "color": "#9b4a2c",
             "size": 13
           }
         },
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "One skill a week, practised in short sessions",
+            "text": "One block a week, practised in short sessions",
             "tag": "h2",
             "size_desktop": 44,
             "size_mobile": 30
@@ -200,42 +212,42 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Every week has the same shape, so it fits around work and walks.</p>",
+            "text": "<p>Every week has the same shape, so it fits around work and family.</p>",
             "size": 16
           }
         },
         "step_1": {
           "type": "step",
           "settings": {
-            "title": "Monday: a short lesson",
-            "description": "<p>Watch the week’s skill in a ten minute video, with the steps written underneath.</p>"
+            "title": "Monday: the new block",
+            "description": "<p>Watch the week’s exercises in a fifteen minute lesson, with springs and reps written underneath.</p>"
           }
         },
         "step_2": {
           "type": "step",
           "settings": {
-            "title": "Every day: three sessions",
-            "description": "<p>Ten minutes before breakfast, after work and before bed. A tick sheet keeps count.</p>"
+            "title": "Three days: practise",
+            "description": "<p>Twenty minutes on the reformer, on any three days. A printable sheet keeps count.</p>"
           }
         },
         "step_3": {
           "type": "step",
           "settings": {
             "title": "Wednesday: live class",
-            "description": "<p>A trainer answers questions on video for 45 minutes. Bring your puppy to the screen.</p>"
+            "description": "<p>Maya teaches a 45 minute class on video and takes questions at the end. Cameras optional.</p>"
           }
         },
         "step_4": {
           "type": "step",
           "settings": {
             "title": "Sunday: send a clip",
-            "description": "<p>Film one minute of practice. Your trainer replies with what to change and the next step.</p>"
+            "description": "<p>Film one exercise from the side. Maya replies with what to change and what to try next.</p>"
           }
         },
         "button_1": {
           "type": "button",
           "settings": {
-            "label": "Start training",
+            "label": "Start the course",
             "url": "/#shopify-section-offer"
           }
         }
@@ -264,11 +276,11 @@
         "marker_size": 34,
         "line_thickness": 2,
         "enable_custom_style": true,
-        "line_color": "#e4e6ee",
-        "marker_color": "#2f4fd1",
-        "label_color": "#2f4fd1",
-        "title_color": "#141a2e",
-        "text_color": "#4b5060",
+        "line_color": "#ece6e0",
+        "marker_color": "#9b4a2c",
+        "label_color": "#9b4a2c",
+        "title_color": "#261d18",
+        "text_color": "#5a514b",
         "fill_on_scroll": true,
         "padding_top_desktop": 104,
         "padding_bottom_desktop": 104,
@@ -281,13 +293,13 @@
           "settings": {
             "text": "The six weeks",
             "enable_custom_style": true,
-            "color": "#2f4fd1"
+            "color": "#9b4a2c"
           }
         },
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Four stages, one dog you can take anywhere",
+            "text": "Four blocks, from footwork to your own class",
             "size_enable": true,
             "size_desktop": 44,
             "size_mobile": 30,
@@ -298,45 +310,45 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Each stage ends with a short test you can do at home, so you know when to move on.</p>"
+            "text": "<p>Each block ends with a short check you film at home, so you know when to move on.</p>"
           }
         },
         "item_1": {
           "type": "item",
           "settings": {
             "label": "Week 1",
-            "title": "Name, sit and settle",
-            "text": "<p>Your puppy learns to look at you when you say its name, to sit for a reward and to lie on a mat while you eat.</p>"
+            "title": "Set up and footwork",
+            "text": "<p>Springs, headrest and footbar set for your height, a neutral spine, and footwork in four positions.</p>"
           }
         },
         "item_2": {
           "type": "item",
           "settings": {
             "label": "Weeks 2 and 3",
-            "title": "A loose lead",
-            "text": "<p>Walking beside you without pulling, first in the hallway, then on your street. What to do when they lunge at another dog.</p>"
+            "title": "Core on the carriage",
+            "text": "<p>The hundred, bridging and leg circles in the straps, and how to keep your neck out of all three.</p>"
           }
         },
         "item_3": {
           "type": "item",
           "settings": {
             "label": "Weeks 4 and 5",
-            "title": "Come when called",
-            "text": "<p>A recall that works in the park, with a long line first. Leaving things on the ground and dropping what is in their mouth.</p>"
+            "title": "Kneeling and side work",
+            "text": "<p>The kneeling arm series, side splits and side bends, on lighter springs than you would guess.</p>"
           }
         },
         "item_4": {
           "type": "item",
           "settings": {
             "label": "Week 6",
-            "title": "Out in the world",
-            "text": "<p>Cafés, buses, visitors at the door and an hour home alone. The last class is a walk somewhere busy.</p>"
+            "title": "Your own forty minutes",
+            "text": "<p>A full class that strings the blocks together, and a simple way to plan your next one.</p>"
           }
         },
         "button_1": {
           "type": "button",
           "settings": {
-            "label": "Start training",
+            "label": "Start the course",
             "link": "/#shopify-section-offer",
             "style": "primary",
             "radius": 6
@@ -365,7 +377,7 @@
         "content_gap": 18,
         "media_type": "image",
         "image": "shopify://shop_images/courselanding-teacher.webp",
-        "image_alt": "Jonah Reyes, the trainer, crouching on a lawn and shaking paws with a white puppy",
+        "image_alt": "Maya Lind, the teacher, in a standing side stretch on a reformer",
         "aspect_w": 4,
         "aspect_h": 5,
         "image_fit": "cover",
@@ -381,16 +393,16 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "Your trainer",
+            "text": "Your teacher",
             "enable_custom_style": true,
-            "color": "#2f4fd1",
+            "color": "#9b4a2c",
             "size": 13
           }
         },
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Taught by Jonah Reyes",
+            "text": "Taught by Maya Lind",
             "tag": "h2",
             "size_desktop": 44,
             "size_mobile": 30
@@ -399,13 +411,13 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Write a few lines about yourself here: how you started, which dogs you work with and why you built this course. People sign up because of the person teaching it.</p><p>Jonah has trained family dogs for twelve years, in puppy classes first and in people’s homes since 2019. He still runs the Wednesday class himself.</p>"
+            "text": "<p>Write a few lines about yourself here: how you started, who you teach and why you built this course. People sign up because of the person teaching it.</p><p>Maya has taught reformer classes for nine years, in studios first and online since 2021. She still teaches the Wednesday class herself.</p>"
           }
         },
         "button_1": {
           "type": "button",
           "settings": {
-            "label": "Read Jonah’s story",
+            "label": "Read Maya’s story",
             "link": "/pages/about",
             "button_style": "secondary",
             "radius": 6
@@ -427,16 +439,16 @@
         "header_align": "center",
         "card_radius": 8,
         "enable_custom_style": true,
-        "us_card_bg": "#141a2e",
+        "us_card_bg": "#261d18",
         "us_card_text": "#ffffff",
         "us_card_shadow": "none",
         "them_card_bg": "#ffffff",
-        "them_card_text": "#141a2e",
-        "them_card_border": "#e4e6ee",
-        "check_color": "#2f4fd1",
-        "cross_color": "#9aa0b4",
-        "cross_color_them": "#9aa0b4",
-        "minus_color": "#9aa0b4",
+        "them_card_text": "#261d18",
+        "them_card_border": "#ece6e0",
+        "check_color": "#9b4a2c",
+        "cross_color": "#aaa098",
+        "cross_color_them": "#aaa098",
+        "minus_color": "#aaa098",
         "card_title_weight": "700",
         "padding_top_desktop": 104,
         "padding_bottom_desktop": 104
@@ -445,7 +457,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Why not just watch free videos?",
+            "text": "Why not just follow free videos?",
             "enable_custom_style": true,
             "weight": "700",
             "size_desktop": 44,
@@ -455,13 +467,13 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Free videos are fine for one trick. A puppy needs skills in the right order and someone who sees what is going wrong.</p>"
+            "text": "<p>Free videos are fine for one workout. Learning the reformer takes the basics in the right order and someone who can see your form.</p>"
           }
         },
         "card_us_1": {
           "type": "card_us",
           "settings": {
-            "title": "Good Lead"
+            "title": "Arch Pilates"
           }
         },
         "card_them_1": {
@@ -473,7 +485,7 @@
         "row_1": {
           "type": "row",
           "settings": {
-            "label_us": "Six weeks of skills in the right order",
+            "label_us": "Six weeks in the right order",
             "icon_us": "check",
             "label_them": "Whatever plays next",
             "icon_them": "cross"
@@ -482,7 +494,7 @@
         "row_2": {
           "type": "row",
           "settings": {
-            "label_us": "A trainer who watches your clip every week",
+            "label_us": "A teacher who checks your clip every week",
             "icon_us": "check",
             "label_them": "Comments from strangers",
             "icon_them": "cross"
@@ -491,9 +503,9 @@
         "row_3": {
           "type": "row",
           "settings": {
-            "label_us": "Reward based methods only",
+            "label_us": "Springs given for every exercise",
             "icon_us": "check",
-            "label_them": "Every method at once, some of them harsh",
+            "label_them": "Springs that do not match your machine",
             "icon_them": "minus"
           }
         },
@@ -509,9 +521,9 @@
         "row_5": {
           "type": "row",
           "settings": {
-            "label_us": "A plan for your puppy’s age",
+            "label_us": "An easier version of every exercise",
             "icon_us": "check",
-            "label_them": "Advice for a different dog",
+            "label_them": "One version for everyone",
             "icon_them": "cross"
           }
         }
@@ -551,8 +563,8 @@
         "pagination_spacing": 28,
         "enable_custom_colors": true,
         "card_bg": "#ffffff",
-        "card_border_color": "#e4e6ee",
-        "quote_color": "#141a2e",
+        "card_border_color": "#ece6e0",
+        "quote_color": "#261d18",
         "enable_custom_typography": true,
         "quote_size": 17,
         "autoplay": false,
@@ -569,14 +581,14 @@
           "type": "eyebrow",
           "settings": {
             "enabled": true,
-            "text": "Owners"
+            "text": "Students"
           }
         },
         "heading_1": {
           "type": "heading",
           "settings": {
             "enabled": true,
-            "text": "The first calm walk"
+            "text": "After six weeks"
           }
         },
         "subheading_1": {
@@ -589,46 +601,46 @@
         "testimonial_1": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Our spaniel pulled so hard I dreaded walks. Two weeks of the lead lessons and my eleven year old can walk him to school.</p>",
+            "quote": "<p>I bought a folding reformer in January and only ever did footwork on it. Week three got me into the straps.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "Cocker spaniel, 5 months"
+            "role": "Home reformer, beginner"
           }
         },
         "testimonial_2": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>The Sunday clips are the best part. Jonah spotted that I was rewarding too late, every single time.</p>",
+            "quote": "<p>The Sunday clips are the best part. Maya spotted that my ribs flared on every single bridge.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "Labrador, 4 months"
+            "role": "Gym reformer, two years"
           }
         },
         "testimonial_3": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Ten minutes three times a day is the only way this could work with two jobs and a toddler.</p>",
+            "quote": "<p>Twenty minutes three times a week is the only way this works around my shifts.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "Rescue, mixed breed"
+            "role": "Home reformer, night shifts"
           }
         },
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>She used to bark at every knock on the door. Now she goes to her mat and waits.</p>",
+            "quote": "<p>I finally know which springs to use instead of copying the person next to me in class.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "Border collie, 9 months"
+            "role": "Studio member"
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>The long line lessons gave me the nerve to let him off the lead in the park. He comes back.</p>",
+            "quote": "<p>Coming back after my second baby, the easier versions made it feel safe to start again.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "German shepherd, 7 months"
+            "role": "Returning after pregnancy"
           }
         }
       },
@@ -713,7 +725,7 @@
           "type": "whats_included",
           "settings": {
             "heading": "What you get",
-            "items": "6 weeks of short video lessons\nA live class with a trainer every Wednesday\nFeedback on a one minute clip every week\nA printable plan and tick sheet for each week\nLessons yours to keep",
+            "items": "6 weeks of short video lessons\nA live class with Maya every Wednesday\nFeedback on one clip every week\nSprings and reps for each week, to print\nLessons yours to keep",
             "two_columns": false,
             "boxed": true,
             "spacing_top": 16,
@@ -732,7 +744,7 @@
             "title_2": "14 day refund",
             "text_2": "One email, for any reason",
             "icon_3": "chat",
-            "title_3": "A real trainer",
+            "title_3": "A real teacher",
             "text_3": "Replies to your clip every week",
             "spacing_top": 12,
             "spacing_bottom": 0
@@ -764,15 +776,15 @@
         "gap_header_to_items": 28,
         "item_padding_y": 22,
         "enable_custom_style": true,
-        "question_color": "#141a2e",
-        "hover_color": "#2f4fd1",
-        "icon_color": "#2f4fd1",
-        "answer_color": "#4b5060",
-        "divider_color": "#e4e6ee",
-        "card_bg": "#f2f4fa",
+        "question_color": "#261d18",
+        "hover_color": "#9b4a2c",
+        "icon_color": "#9b4a2c",
+        "answer_color": "#5a514b",
+        "divider_color": "#ece6e0",
+        "card_bg": "#f8f5f2",
         "card_border_color": "rgba(0,0,0,0)",
-        "card_heading_color": "#141a2e",
-        "card_text_color": "#4b5060",
+        "card_heading_color": "#261d18",
+        "card_text_color": "#5a514b",
         "reveal": false,
         "padding_top": 104,
         "padding_bottom": 104,
@@ -794,22 +806,22 @@
         "faq_item_1": {
           "type": "faq_item",
           "settings": {
-            "question": "My puppy is eight weeks old. Is that too young?",
-            "answer": "<p>No, it is a good time to start. Week one is short sessions on the floor at home, before your puppy has had its vaccinations and can go out.</p>"
+            "question": "I have never used a reformer. Is that a problem?",
+            "answer": "<p>No. Week one starts with setting up the machine and lying on it. Everything begins on light springs and builds slowly.</p>"
           }
         },
         "faq_item_2": {
           "type": "faq_item",
           "settings": {
-            "question": "Does it work for an older dog?",
-            "answer": "<p>Yes, up to about two years and often older. Start at week one; grown dogs usually move faster through the first stage.</p>"
+            "question": "Which reformers does it work with?",
+            "answer": "<p>Any studio or folding home reformer with springs, a footbar and straps. Spring colours differ by maker, so each lesson gives the load as light, medium or heavy.</p>"
           }
         },
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
             "question": "What if I miss a live class?",
-            "answer": "<p>Every class is recorded and added to the course the same day. Send your question beforehand and the trainer answers it on the recording.</p>"
+            "answer": "<p>Every class is recorded and added to the course the same day. Send your question beforehand and Maya answers it on the recording.</p>"
           }
         },
         "faq_item_4": {
@@ -822,22 +834,22 @@
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "What do I need to buy?",
-            "answer": "<p>A flat collar or harness, a two metre lead, a ten metre long line for week four and small soft treats. No clicker and no special collar.</p>"
+            "question": "I have a sore back or knee. Can I join?",
+            "answer": "<p>Often yes, and every exercise has an easier version. Check with your doctor or physio first and tell us before you start. The course does not replace treatment.</p>"
           }
         },
         "faq_item_6": {
           "type": "faq_item",
           "settings": {
             "question": "How do I get access?",
-            "answer": "<p>Straight after payment you get a login by email. Lessons work on your phone, and the class link arrives before each class.</p>"
+            "answer": "<p>Straight after payment you get a login by email. Lessons play on a phone or tablet beside the reformer, and the class link arrives before each class.</p>"
           }
         },
         "card_text_1": {
           "type": "card_text",
           "settings": {
             "heading": "Not sure where to start?",
-            "text": "<p>Tell us your puppy’s age and what is hardest right now. Jonah replies within two days.</p>"
+            "text": "<p>Tell us which reformer you have and how long you have practised. Maya replies within two days.</p>"
           }
         },
         "button_1": {
@@ -899,7 +911,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Start with ten minutes tomorrow morning",
+            "text": "Twenty minutes, three times this week",
             "enable_custom_style": true,
             "font": "heading",
             "weight": "700",
@@ -914,7 +926,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "Six weeks from now you could have a puppy who walks beside you and comes when called. The first lesson takes ten minutes.",
+            "text": "Six weeks from now you could set up your reformer, choose your springs and run a forty minute class on your own. The first lesson takes twenty minutes.",
             "enable_custom_style": true,
             "size_d": 18,
             "size_m": 16,
@@ -925,7 +937,7 @@
         "button_1": {
           "type": "button",
           "settings": {
-            "label": "Start training",
+            "label": "Start the course",
             "link": "/#shopify-section-offer"
           }
         }

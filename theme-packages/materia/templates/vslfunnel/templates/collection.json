@@ -1,4 +1,4 @@
-/* Templates round 24: the Open Shade catalogue: the course and its extras, then the free settings cards. */
+/* Templates round 24: the Paper Garden catalogue: the course and its extras, then the free colour charts. */
 {
   "sections": {
     "main-collection-heading": {
@@ -82,28 +82,28 @@
       "type": "newsletter-split",
       "settings": {
         "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "image": "shopify://shop_images/vslfunnel-prints.webp",
-        "image_alt": "Printed photographs pinned to a cork board beside rolls of film",
+        "image": "shopify://shop_images/vslfunnel-tin.webp",
+        "image_alt": "A loose watercolour of coral flowers and leaves on a desk beside a paint tin and brushes",
         "image_position": "left",
         "image_ratio": "landscape",
         "image_width": 50,
         "form_layout": "horizontal",
-        "btn_text": "Send me the cards",
+        "btn_text": "Send me the charts",
         "email_placeholder": "Your email",
         "note": "One email a month at most. Leave whenever you like.",
-        "success_text": "Done. The settings cards are on their way to your inbox."
+        "success_text": "Done. The colour charts are on their way to your inbox."
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Get the settings cards free"
+            "text": "Get the colour charts free"
           }
         },
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Four pocket cards from module one as a PDF: the settings to start from for portraits, movement, low light and landscapes.</p>"
+            "text": "<p>Four mixing charts from module four as a PDF: greens, pinks, warm reds and soft neutrals from a palette of six colours.</p>"
           }
         }
       },

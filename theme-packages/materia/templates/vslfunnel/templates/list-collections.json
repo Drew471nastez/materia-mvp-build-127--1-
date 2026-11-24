@@ -1,4 +1,4 @@
-/* Templates round 24: Open Shade list of collections. */
+/* Templates round 24: Paper Garden list of collections. */
 {
   "sections": {
     "heading": {
@@ -28,7 +28,7 @@
         "description_tLPCVn": {
           "type": "description",
           "settings": {
-            "description": "<p>The course, the assignment book on its own and a portfolio review call.</p>",
+            "description": "<p>The course, the tracing sheets on their own and a painting review call.</p>",
             "description_color": "#57575e",
             "enable_custom_style": true,
             "description_font_size": 15

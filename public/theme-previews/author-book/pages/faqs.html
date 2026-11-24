@@ -1,7 +1,7 @@
 
 <!doctype html>
 <html class="no-js" lang="en" dir="ltr">
-<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/author-book/a/cart.d56b0a2183cf.json";
+<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/author-book/a/cart.de471b5610c2.json",WISH_DATA="";
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
@@ -86,6 +86,8 @@ if(D.readyState==="loading")D.addEventListener("DOMContentLoaded",arrive);else a
 
 if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);if(mine(u))return F.apply(this,arguments);
 /* Cards round 24: the cart answers from the template's drawn cart (./theme-templates/preview-cart.ts), as a store would. */
+/* Round 25: the wishlist page asks for its saved products' cards; every product's card is in WISH_DATA and the theme keeps the saved ones. */
+if(WISH_DATA&&/\/search$/.test(path(u))&&/[?&]section_id=/.test(u))return F(WISH_DATA).then(function(r){return r.json()}).then(function(d){return new Response(d.html,{status:200,headers:{"Content-Type":"text/html"}})});
 var p=path(u),q=/[?&]sections=/.test(u),c=/\/cart(\.js|\.json|\/(add|change|update|clear)(\.js)?)$/.test(p);if(CART_DATA&&(c||q)){var w=c?cartReply(p,o):sectionsReply(u);return w.then(function(r){return new Response(JSON.stringify(r[1]),{status:r[0],headers:{"Content-Type":"application/json"}})},function(){var r=reply(u);return new Response(r[2],{status:r[0],headers:{"Content-Type":r[1]}})})}
 var r=reply(u);return Promise.resolve(new Response(r[2],{status:r[0],headers:{"Content-Type":r[1]}}))};
 var X=W.XMLHttpRequest&&W.XMLHttpRequest.prototype;if(X){var O=X.open;X.open=function(m,u){var a=[].slice.call(arguments);if(!mine(u)){var r=reply(u);a[0]="GET";a[1]="data:"+r[1]+","+encodeURIComponent(r[2])}return O.apply(this,a)}}
@@ -170,13 +172,13 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
     }, true);
   });
 })();
-</script><title>Faqs | Lights Out</title>
-<meta property="og:site_name" content="Lights Out">
-<meta property="og:title" content="Faqs | Lights Out">
+</script><title>Faqs | Windowsill</title>
+<meta property="og:site_name" content="Windowsill">
+<meta property="og:title" content="Faqs | Windowsill">
 <meta property="og:type" content="website">
-<meta property="og:description" content="Lights Out"><meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Faqs | Lights Out">
-<meta name="twitter:description" content="Lights Out">
+<meta property="og:description" content="Windowsill"><meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Faqs | Windowsill">
+<meta name="twitter:description" content="Windowsill">
 <style id="speed-optimization-css">
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -206,8 +208,8 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
         } catch (e) {}
       })();
     </script>
-<link href="/theme-previews/_base/a/critical.03978b251a4f.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/product-card.9a3739dc0c4c.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"primary","product_size":17,"price_size":16,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
+<link href="/theme-previews/_base/a/critical.4539b38450ad.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/product-card.57905ba3cf39.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"primary","product_size":17,"price_size":16,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
 <style>html:not([data-card-custom='true']) .product-item .product-item__name { font-size:var(--body-font-size, 16px); text-transform:var(--heading-text-transform, none) !important; } html:not([data-card-custom='true']) .product-item .product-item__price { font-size:var(--body-font-size, 16px); }</style>
 <script>document.documentElement.dataset.cardCustom = false === true ? 'true' : 'false';</script>
 <script type="application/json" data-badge-style-settings>false</script>
@@ -216,16 +218,16 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
     document.addEventListener('DOMContentLoaded',function(){setTimeout(go,4000)},{once:true})}
     ['pointerdown','click','keydown','scroll','touchstart'].forEach(function(n){addEventListener(n,go,{once:true,passive:true,capture:true})})})(["/theme-previews/_base/a/popup.18cdf2513c31.css","/theme-previews/_base/a/tingle-min.ed947d9dd1c7.css"]);</script><link rel="stylesheet" href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" media="print" onload="this.media='all'">
 <noscript><link href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" rel="stylesheet" type="text/css" media="all"></noscript>
-<link rel="stylesheet" href="/theme-previews/_base/a/fonts.4fbc177eb54d.css" data-materia-fonts>
-<style data-materia-font-fallbacks>@font-face{font-family:"Mulish Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:104.3%;ascent-override:96.4%;descent-override:24%;line-gap-override:0%}@font-face{font-family:"Mulish Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:104.3%;ascent-override:96.4%;descent-override:24%;line-gap-override:0%}@font-face{font-family:"Barlow Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:96%;ascent-override:104.2%;descent-override:20.8%;line-gap-override:0%}@font-face{font-family:"Barlow Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:96%;ascent-override:104.2%;descent-override:20.8%;line-gap-override:0%}</style><style data-shopify>
+<link rel="stylesheet" href="/theme-previews/_base/a/fonts.5fc986777be6.css" data-materia-fonts>
+<style data-materia-font-fallbacks>@font-face{font-family:"Mulish Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:104.3%;ascent-override:96.4%;descent-override:24%;line-gap-override:0%}@font-face{font-family:"Mulish Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:104.3%;ascent-override:96.4%;descent-override:24%;line-gap-override:0%}@font-face{font-family:"Young Serif Fallback";src:local("Times New Roman"), local("TimesNewRomanPSMT"), local("Liberation Serif");font-weight:100 549;size-adjust:122.7%;ascent-override:85.2%;descent-override:29.8%;line-gap-override:0%}@font-face{font-family:"Young Serif Fallback";src:local("Times New Roman Bold"), local("TimesNewRomanPS-BoldMT"), local("Liberation Serif Bold");font-weight:550 1000;size-adjust:122.7%;ascent-override:85.2%;descent-override:29.8%;line-gap-override:0%}</style><style data-shopify>
   :root {
     --body-font: "Mulish", "Mulish Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    --heading-font: "Barlow", "Barlow Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --heading-font: "Young Serif", "Young Serif Fallback", Georgia, "Times New Roman", serif, sans-serif;
     --menu-font: var(--body-font);
     --btn-font: var(--body-font);
   }
 </style>
-<link rel="stylesheet" href="/theme-previews/author-book/a/i.101ca952dec1.css" data-shopify>
+<link rel="stylesheet" href="/theme-previews/author-book/a/i.0eb59bcebd45.css" data-shopify>
 <link href="/theme-previews/_base/a/theme.d71f5b96fec8.css" rel="stylesheet" type="text/css" media="all"><noscript><link href="/theme-previews/_base/a/popup.18cdf2513c31.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.9c20c549e3cf.css">
 <link rel="preload" as="style" href="/theme-previews/_base/a/minicart.ac0014483417.css" fetchpriority="low">
 <link rel="preload" as="style" href="/theme-previews/_base/a/materia-experience.b68d6d8152a8.css" fetchpriority="low">
@@ -318,12 +320,12 @@ data-menu-hover="none"
     --count-bubble-animation: mt-count-pop;
   }
 </style><style data-shopify>#shopify-section-header {
-    --hs-mnav-bg: #0b0f1d;
+    --hs-mnav-bg: #15302a;
     --hs-mnav-heading: #ffffff;
     --hs-mnav-text: #c8c8cc;
     --hs-hover-fill: #ffffff;
-    --hs-logo-width: 78px;
-    --hs-logo-width-mobile: 78px;
+    --hs-logo-width: 172px;
+    --hs-logo-width-mobile: 138px;
     --hs-logo-max-height: 68px;
     --hs-logo-box-height: 84px;
   }#shopify-section-header { --hs-menu-gap: 28px; --hs-icon-gap: 10px; --hs-icon-gap-mobile: 6px; --hs-logo-x: 0px; --hs-logo-x-mobile: 0px; }@media (max-width: 1024.98px) {
@@ -331,7 +333,7 @@ data-menu-hover="none"
       --hs-logo-max-height: 48px;
       --hs-logo-box-height: 64px;
     }
-  }:root { --hs-mnav-title-bg: #ffffff; --hs-mnav-title-color: #18181a; }</style><link href="/theme-previews/_base/a/header-layout.ed2de67e6e9c.css" rel="stylesheet" type="text/css" media="all">
+  }:root { --hs-mnav-title-bg: #ffffff; --hs-mnav-title-color: #17201b; }</style><link href="/theme-previews/_base/a/header-layout.ed2de67e6e9c.css" rel="stylesheet" type="text/css" media="all">
 <style>
   #shopify-section-header {
     --header-height-desktop: 84px;
@@ -353,12 +355,24 @@ style="--section-pt: 0;--section-pb: 0;--transparent-color: #ffffff;--menu-hover
 <div class="header__logo text-center text-left-1025 inline-flex align-center"><a
 class="logo-img no-underline inline-flex align-center h1 my-0"
 href="/theme-previews/author-book/index.html"
-aria-label="Lights Out"
+aria-label="Windowsill"
 >
 <span
 class="header__logo inline-flex align-center"
-style="--header-logo-width: 208px; --header-logo-width-mobile: 78px;"
-><span class="header__logo-text" style="font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, 600); font-size: clamp(20px, 2.2vw, 28px); line-height: 1; letter-spacing: -0.01em; color: inherit; white-space: nowrap;">Lights Out</span></span>
+style="--header-logo-width: 172px; --header-logo-width-mobile: 78px;"
+><img
+srcset="/theme-previews/author-book/a/authorbook-logo-400.b485b58da97b.webp 165w,/theme-previews/author-book/a/authorbook-logo-400.b485b58da97b.webp 330w,/theme-previews/author-book/a/authorbook-logo.40bf8b1c6661.webp 535w,/theme-previews/author-book/a/authorbook-logo.40bf8b1c6661.webp 750w,/theme-previews/author-book/a/authorbook-logo.40bf8b1c6661.webp 1600w
+"
+src="/theme-previews/author-book/a/authorbook-logo-400.b485b58da97b.webp"
+sizes="(max-width: 1024.98px) 138px, 172px"
+loading="eager"
+decoding="sync"
+fetchpriority="high"
+class="header__normal-logo"
+width="172"
+height="172"
+alt="Windowsill"
+></span>
 </a>
 </div>
 <div class="header__menu"><button
@@ -499,7 +513,7 @@ data-badge-case="style"
 data-badge-pos="above"
 data-badge-lift
 style="
---mm-title-bg: #ffffff; --mm-title-color: #18181a;
+--mm-title-bg: #ffffff; --mm-title-color: #17201b;
 --mb-badge-size: 10px;--mb-badge-border: 1px;
 --hot-cl: ;--hot-bg-cl: ;
 --new-cl: ;--new-bg-cl: ;
@@ -516,7 +530,7 @@ height="13"
 viewBox="0 0 13 13"
 fill="none"
 class="heading-color"
-style="color: #18181a !important; --color-heading: #18181a;"
+style="color: #17201b !important; --color-heading: #17201b;"
 >
 <use href="#icon-close" />
 </svg>
@@ -524,11 +538,11 @@ style="color: #18181a !important; --color-heading: #18181a;"
 <div class="navigation__menu-content navigation__menu-content-mobile word-break">
 <div
 class="menu-mobile-title min-h-55 min-h-1025-50 flex align-center px-30 py-5 hidden-1025 gap-30"
-style="background: #ffffff !important; color: #18181a !important; --color-heading: #18181a; --mm-title-bg: #ffffff; --mm-title-color: #18181a;"
+style="background: #ffffff !important; color: #17201b !important; --color-heading: #17201b; --mm-title-bg: #ffffff; --mm-title-color: #17201b;"
 >
 <a
 class="active no-underline heading-style py-10 inline-flex align-center gap-10"
-style="color: #18181a !important;"
+style="color: #17201b !important;"
 data-menu="horizontal-list"
 role="link"
 aria-disabled="true"
@@ -603,7 +617,7 @@ href="/theme-previews/author-book/pages/faqs.html"
 <symbol id="icon-bag">
 <path d="M12.7518 2.91374L11.6276 1.44835H3.37237L2.24824 2.91374H12.7518ZM14.8419 3.18637V3.20341C14.8419 3.20341 14.8478 3.20341 14.8595 3.20341C14.8946 3.27157 14.9239 3.33972 14.9473 3.40788C14.9824 3.47604 15 3.54988 15 3.62939V13.819C15 14.1143 14.9356 14.3983 14.8068 14.6709C14.6897 14.9322 14.5316 15.1594 14.3326 15.3525C14.1335 15.557 13.8934 15.716 13.6124 15.8296C13.3431 15.9432 13.0562 16 12.7518 16H2.24824C1.94379 16 1.65105 15.9375 1.37002 15.8126C1.1007 15.699 0.866511 15.5456 0.667447 15.3525C0.456674 15.1594 0.29274 14.9322 0.175644 14.6709C0.058548 14.3983 0 14.1143 0 13.819V3.62939C0 3.58395 0.0058548 3.53852 0.0175644 3.49308C0.029274 3.43628 0.0468384 3.37948 0.0702576 3.32268C0.0819672 3.29996 0.0936768 3.27725 0.105386 3.25453C0.128806 3.23181 0.14637 3.20909 0.15808 3.18637L2.40632 0.28967C2.47658 0.198793 2.5644 0.130635 2.66979 0.085197C2.77518 0.028399 2.88642 0 3.00351 0H11.9965C12.1136 0 12.2248 0.028399 12.3302 0.085197C12.4356 0.130635 12.5234 0.198793 12.5937 0.28967L14.8419 3.18637ZM1.51054 4.36209V13.819C1.51054 13.9098 1.5281 14.0007 1.56323 14.0916C1.59836 14.1825 1.65105 14.262 1.72131 14.3301C1.79157 14.3983 1.87354 14.4494 1.96721 14.4835C2.06089 14.5176 2.15457 14.5346 2.24824 14.5346H12.7518C12.8571 14.5346 12.9508 14.5176 13.0328 14.4835C13.1265 14.4494 13.2084 14.3983 13.2787 14.3301C13.3489 14.262 13.4016 14.1825 13.4368 14.0916C13.4719 14.0007 13.4895 13.9098 13.4895 13.819V4.36209H1.51054ZM9.74824 6.54313C9.74824 6.33866 9.8185 6.16826 9.95902 6.03195C10.1112 5.88427 10.2927 5.81044 10.5035 5.81044C10.7026 5.81044 10.8724 5.88427 11.0129 6.03195C11.1651 6.16826 11.2412 6.33866 11.2412 6.54313C11.2412 7.04295 11.1417 7.51438 10.9426 7.9574C10.7553 8.40043 10.4918 8.78665 10.1522 9.11608C9.81265 9.44551 9.41452 9.70678 8.95785 9.89989C8.50117 10.0816 8.01522 10.1725 7.5 10.1725C6.98478 10.1725 6.49883 10.0816 6.04215 9.89989C5.58548 9.70678 5.18735 9.44551 4.84777 9.11608C4.5082 8.78665 4.23888 8.40043 4.03981 7.9574C3.85246 7.51438 3.75878 7.04295 3.75878 6.54313C3.75878 6.33866 3.82904 6.16826 3.96956 6.03195C4.12178 5.88427 4.29742 5.81044 4.49649 5.81044C4.70726 5.81044 4.8829 5.88427 5.02342 6.03195C5.17564 6.16826 5.25176 6.33866 5.25176 6.54313C5.25176 6.84984 5.3103 7.13383 5.4274 7.3951C5.5445 7.65637 5.70843 7.88356 5.9192 8.07668C6.11827 8.28115 6.35246 8.44018 6.62178 8.55378C6.8911 8.66738 7.18384 8.72417 7.5 8.72417C7.81616 8.72417 8.1089 8.66738 8.37822 8.55378C8.64754 8.44018 8.88173 8.28115 9.0808 8.07668C9.29157 7.88356 9.4555 7.65637 9.5726 7.3951C9.6897 7.13383 9.74824 6.84984 9.74824 6.54313Z" fill="currentColor"/>
 </symbol>
-</svg><a class="hs-cta hs-cta--pos-after_icons hs-cta--m-in_row hs-cta--primary hs-cta--theme hs-cta--desktop hs-cta--ms-small hs-cta--font-body" href="/theme-previews/author-book/collections/all.html" data-theme-button="primary" data-sl-button style="--mb-bg: var(--btn-primary-bg-color); --mb-text: var(--btn-primary-color); --mb-hover-bg: var(--btn-primary-hover-bg-color); --mb-hover-text: var(--btn-primary-hover-color); --hs-cta-gap: 20px; --hs-cta-gap-mobile: 10px; --hs-cta-x: 0px; --hs-cta-y: 0px; --hs-cta-bg: #f2a65a; --hs-cta-fg: #18181a; --hs-cta-bd: #f2a65a; --hs-cta-bw: 0px; --hs-cta-radius: 999px; --hs-cta-fs: 16px; --hs-cta-fw: 700; --hs-cta-tt: none; --hs-cta-ls: 0px; --hs-cta-py: 14px; --hs-cta-px: 26px; --hs-cta-deco: none; --hs-cta-shadow: none; --hs-cta-dur: 225ms; --hs-cta-ease: cubic-bezier(0.2, 0.7, 0.2, 1); --hs-cta-hbg: #ffffff; --hs-cta-hfg: #18181a; --hs-cta-hbd: #ffffff; --hs-cta-htransform: none; --hs-cta-hshadow: none; --hs-cta-hfilter: none; --hs-cta-hdeco: none;" data-lh-block="header_button_1" data-block-id="header_button_1">Buy the ebook</a></div>
+</svg><a class="hs-cta hs-cta--pos-after_icons hs-cta--m-in_row hs-cta--primary hs-cta--theme hs-cta--desktop hs-cta--ms-small hs-cta--font-body" href="/theme-previews/author-book/collections/all.html" data-theme-button="primary" data-sl-button style="--mb-bg: var(--btn-primary-bg-color); --mb-text: var(--btn-primary-color); --mb-hover-bg: var(--btn-primary-hover-bg-color); --mb-hover-text: var(--btn-primary-hover-color); --hs-cta-gap: 20px; --hs-cta-gap-mobile: 10px; --hs-cta-x: 0px; --hs-cta-y: 0px; --hs-cta-bg: #e08a5c; --hs-cta-fg: #17201b; --hs-cta-bd: #e08a5c; --hs-cta-bw: 0px; --hs-cta-radius: 999px; --hs-cta-fs: 16px; --hs-cta-fw: 700; --hs-cta-tt: none; --hs-cta-ls: 0px; --hs-cta-py: 14px; --hs-cta-px: 26px; --hs-cta-deco: none; --hs-cta-shadow: none; --hs-cta-dur: 225ms; --hs-cta-ease: cubic-bezier(0.2, 0.7, 0.2, 1); --hs-cta-hbg: #ffffff; --hs-cta-hfg: #17201b; --hs-cta-hbd: #ffffff; --hs-cta-htransform: none; --hs-cta-hshadow: none; --hs-cta-hfilter: none; --hs-cta-hdeco: none;" data-lh-block="header_button_1" data-block-id="header_button_1">Buy the ebook</a></div>
 </header-inner>
 </div>
 </div></header><script src="/theme-previews/author-book/a/i.b8ec2f2ea707.js"></script>
@@ -638,7 +652,7 @@ href="/theme-previews/author-book/pages/faqs.html"
   :where(#shopify-section-faq) :is(h1,h2,h3,h4,h5,h6){font-family:var(--heading-font,inherit);font-weight:var(--heading-weight,inherit)}
   @media (min-width:768px){#shopify-section-faq{margin-top:0px;margin-bottom:0px}}
 </style>
-<link href="/theme-previews/_base/a/faq-pro.b7e810b1d391.css" rel="stylesheet" type="text/css" media="all"><div class="faq7 color-default gradient" data-faq7-root data-faq-root="faq-pro" data-faq-section="faq" data-faq-settings="{&quot;color_scheme&quot;:{&quot;id&quot;:&quot;default&quot;,&quot;settings&quot;:{&quot;page_colors&quot;:null,&quot;background&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;text_color&quot;:{&quot;red&quot;:69,&quot;green&quot;:69,&quot;blue&quot;:74,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:3,&quot;lightness&quot;:28,&quot;rgb&quot;:&quot;69 69 74&quot;,&quot;rgba&quot;:&quot;69 69 74 / 1&quot;,&quot;hex&quot;:&quot;#45454a&quot;},&quot;heading_color&quot;:{&quot;red&quot;:24,&quot;green&quot;:24,&quot;blue&quot;:26,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:4,&quot;lightness&quot;:10,&quot;rgb&quot;:&quot;24 24 26&quot;,&quot;rgba&quot;:&quot;24 24 26 / 1&quot;,&quot;hex&quot;:&quot;#18181a&quot;},&quot;primary_color&quot;:{&quot;red&quot;:168,&quot;green&quot;:90,&quot;blue&quot;:28,&quot;alpha&quot;:1,&quot;hue&quot;:27,&quot;saturation&quot;:71,&quot;lightness&quot;:38,&quot;rgb&quot;:&quot;168 90 28&quot;,&quot;rgba&quot;:&quot;168 90 28 / 1&quot;,&quot;hex&quot;:&quot;#a85a1c&quot;},&quot;border_color&quot;:{&quot;red&quot;:230,&quot;green&quot;:228,&quot;blue&quot;:223,&quot;alpha&quot;:1,&quot;hue&quot;:43,&quot;saturation&quot;:12,&quot;lightness&quot;:89,&quot;rgb&quot;:&quot;230 228 223&quot;,&quot;rgba&quot;:&quot;230 228 223 / 1&quot;,&quot;hex&quot;:&quot;#e6e4df&quot;},&quot;badge_background&quot;:null,&quot;badge_text&quot;:null,&quot;primary_button_colors&quot;:null,&quot;btn_primary_background&quot;:{&quot;red&quot;:242,&quot;green&quot;:166,&quot;blue&quot;:90,&quot;alpha&quot;:1,&quot;hue&quot;:30,&quot;saturation&quot;:85,&quot;lightness&quot;:65,&quot;rgb&quot;:&quot;242 166 90&quot;,&quot;rgba&quot;:&quot;242 166 90 / 1&quot;,&quot;hex&quot;:&quot;#f2a65a&quot;},&quot;btn_primary_color&quot;:{&quot;red&quot;:24,&quot;green&quot;:24,&quot;blue&quot;:26,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:4,&quot;lightness&quot;:10,&quot;rgb&quot;:&quot;24 24 26&quot;,&quot;rgba&quot;:&quot;24 24 26 / 1&quot;,&quot;hex&quot;:&quot;#18181a&quot;},&quot;btn_primary_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_primary_hover_background&quot;:{&quot;red&quot;:24,&quot;green&quot;:24,&quot;blue&quot;:26,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:4,&quot;lightness&quot;:10,&quot;rgb&quot;:&quot;24 24 26&quot;,&quot;rgba&quot;:&quot;24 24 26 / 1&quot;,&quot;hex&quot;:&quot;#18181a&quot;},&quot;btn_primary_hover_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_primary_hover_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;secondary_button_colors&quot;:null,&quot;btn_secondary_background&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_color&quot;:{&quot;red&quot;:24,&quot;green&quot;:24,&quot;blue&quot;:26,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:4,&quot;lightness&quot;:10,&quot;rgb&quot;:&quot;24 24 26&quot;,&quot;rgba&quot;:&quot;24 24 26 / 1&quot;,&quot;hex&quot;:&quot;#18181a&quot;},&quot;btn_secondary_border&quot;:{&quot;red&quot;:207,&quot;green&quot;:204,&quot;blue&quot;:198,&quot;alpha&quot;:1,&quot;hue&quot;:40,&quot;saturation&quot;:9,&quot;lightness&quot;:79,&quot;rgb&quot;:&quot;207 204 198&quot;,&quot;rgba&quot;:&quot;207 204 198 / 1&quot;,&quot;hex&quot;:&quot;#cfccc6&quot;},&quot;btn_secondary_hover_background&quot;:{&quot;red&quot;:24,&quot;green&quot;:24,&quot;blue&quot;:26,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:4,&quot;lightness&quot;:10,&quot;rgb&quot;:&quot;24 24 26&quot;,&quot;rgba&quot;:&quot;24 24 26 / 1&quot;,&quot;hex&quot;:&quot;#18181a&quot;},&quot;btn_secondary_hover_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_hover_border_color&quot;:null,&quot;background_gradient&quot;:&quot;&quot;,&quot;btn_primary_gradient&quot;:&quot;&quot;,&quot;btn_primary_hover_background_gradient&quot;:&quot;&quot;,&quot;btn_secondary_hover_border&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_outline_color&quot;:{&quot;red&quot;:24,&quot;green&quot;:24,&quot;blue&quot;:26,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:4,&quot;lightness&quot;:10,&quot;rgb&quot;:&quot;24 24 26&quot;,&quot;rgba&quot;:&quot;24 24 26 / 1&quot;,&quot;hex&quot;:&quot;#18181a&quot;},&quot;btn_outline_border_color&quot;:{&quot;red&quot;:207,&quot;green&quot;:204,&quot;blue&quot;:198,&quot;alpha&quot;:1,&quot;hue&quot;:40,&quot;saturation&quot;:9,&quot;lightness&quot;:79,&quot;rgb&quot;:&quot;207 204 198&quot;,&quot;rgba&quot;:&quot;207 204 198 / 1&quot;,&quot;hex&quot;:&quot;#cfccc6&quot;},&quot;button_link_color&quot;:{&quot;red&quot;:24,&quot;green&quot;:24,&quot;blue&quot;:26,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:4,&quot;lightness&quot;:10,&quot;rgb&quot;:&quot;24 24 26&quot;,&quot;rgba&quot;:&quot;24 24 26 / 1&quot;,&quot;hex&quot;:&quot;#18181a&quot;},&quot;button_link_hover_color&quot;:{&quot;red&quot;:24,&quot;green&quot;:24,&quot;blue&quot;:26,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:4,&quot;lightness&quot;:10,&quot;rgb&quot;:&quot;24 24 26&quot;,&quot;rgba&quot;:&quot;24 24 26 / 1&quot;,&quot;hex&quot;:&quot;#18181a&quot;}}},&quot;section_width&quot;:&quot;fluid_container&quot;,&quot;reset_spacing&quot;:true,&quot;structured_data&quot;:false,&quot;heading&quot;:&quot;Frequently asked questions&quot;,&quot;subheading&quot;:&quot;&lt;p&gt;Have a question? We&#39;re here to help.&lt;\/p&gt;&quot;,&quot;first_item_open&quot;:true,&quot;allow_multiple_open&quot;:false,&quot;open_icon&quot;:&quot;plus&quot;,&quot;content_alignment&quot;:&quot;left&quot;,&quot;max_content_width&quot;:820,&quot;col_gap&quot;:60,&quot;gap_header_to_items&quot;:32,&quot;gap_heading_to_subheading&quot;:12,&quot;gap_between_items&quot;:19,&quot;item_padding_y&quot;:20,&quot;item_padding_x&quot;:14,&quot;item_radius&quot;:11,&quot;show_dividers&quot;:true,&quot;enable_custom_style&quot;:false,&quot;section_bg&quot;:null,&quot;card_bg&quot;:null,&quot;card_border_color&quot;:null,&quot;divider_color&quot;:null,&quot;question_color&quot;:null,&quot;hover_color&quot;:null,&quot;icon_color&quot;:null,&quot;answer_color&quot;:null,&quot;heading_color&quot;:null,&quot;subheading_color&quot;:null,&quot;enable_custom_fonts&quot;:false,&quot;heading_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;body_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;heading_size_desktop&quot;:36,&quot;heading_size_mobile&quot;:26,&quot;enable_custom_heading_weight&quot;:false,&quot;heading_weight&quot;:&quot;600&quot;,&quot;subheading_size_desktop&quot;:16,&quot;subheading_size_mobile&quot;:14,&quot;question_size_desktop&quot;:18,&quot;question_size_mobile&quot;:15,&quot;enable_custom_question_weight&quot;:false,&quot;question_weight&quot;:&quot;600&quot;,&quot;answer_size_desktop&quot;:15,&quot;answer_size_mobile&quot;:14,&quot;reveal&quot;:true,&quot;scroll_animation&quot;:&quot;inherit&quot;,&quot;padding_top&quot;:60,&quot;padding_bottom&quot;:60,&quot;section_margin_top_desktop&quot;:0,&quot;section_margin_bottom_desktop&quot;:0,&quot;section_margin_top_mobile&quot;:0,&quot;section_margin_bottom_mobile&quot;:0}" data-faq7-anim="none" data-faq7-width="fluid_container" style="--faq7-bg:var(--color-background);--faq7-pt:60px;--faq7-pb:60px;--faq7-col-gap:60px;--faq7-align:left;--faq7-mi:0;--faq7-cta-justify:flex-start;--faq7-gap-header:32px;--faq7-maxw:820px;--faq7-h-m:26px;--faq7-h-d:36px;--faq7-heading-color:var(--color-heading);--faq7-gap-sub:12px;--faq7-sub-m:14px;--faq7-sub-d:16px;--faq7-sub-color:var(--color-text);--faq7-gap-items:19px;--faq7-card-bg:rgba(var(--color-heading-rgb), 0.04);--faq7-card-border:transparent;--faq7-radius:11px;--faq7-divider:var(--color-border);--faq7-py:20px;--faq7-px:14px;--faq7-q-color:var(--color-heading);--faq7-q-m:15px;--faq7-q-d:18px;--faq7-hover:var(--color-primary);--faq7-icon-color:var(--color-heading);--faq7-a-color:var(--color-text);--faq7-a-m:14px;--faq7-a-d:15px;">
+<link href="/theme-previews/_base/a/faq-pro.b7e810b1d391.css" rel="stylesheet" type="text/css" media="all"><div class="faq7 color-default gradient" data-faq7-root data-faq-root="faq-pro" data-faq-section="faq" data-faq-settings="{&quot;color_scheme&quot;:{&quot;id&quot;:&quot;default&quot;,&quot;settings&quot;:{&quot;page_colors&quot;:null,&quot;background&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;text_color&quot;:{&quot;red&quot;:70,&quot;green&quot;:80,&quot;blue&quot;:74,&quot;alpha&quot;:1,&quot;hue&quot;:144,&quot;saturation&quot;:7,&quot;lightness&quot;:29,&quot;rgb&quot;:&quot;70 80 74&quot;,&quot;rgba&quot;:&quot;70 80 74 / 1&quot;,&quot;hex&quot;:&quot;#46504a&quot;},&quot;heading_color&quot;:{&quot;red&quot;:23,&quot;green&quot;:32,&quot;blue&quot;:27,&quot;alpha&quot;:1,&quot;hue&quot;:147,&quot;saturation&quot;:16,&quot;lightness&quot;:11,&quot;rgb&quot;:&quot;23 32 27&quot;,&quot;rgba&quot;:&quot;23 32 27 / 1&quot;,&quot;hex&quot;:&quot;#17201b&quot;},&quot;primary_color&quot;:{&quot;red&quot;:164,&quot;green&quot;:80,&quot;blue&quot;:44,&quot;alpha&quot;:1,&quot;hue&quot;:18,&quot;saturation&quot;:58,&quot;lightness&quot;:41,&quot;rgb&quot;:&quot;164 80 44&quot;,&quot;rgba&quot;:&quot;164 80 44 / 1&quot;,&quot;hex&quot;:&quot;#a4502c&quot;},&quot;border_color&quot;:{&quot;red&quot;:230,&quot;green&quot;:228,&quot;blue&quot;:223,&quot;alpha&quot;:1,&quot;hue&quot;:43,&quot;saturation&quot;:12,&quot;lightness&quot;:89,&quot;rgb&quot;:&quot;230 228 223&quot;,&quot;rgba&quot;:&quot;230 228 223 / 1&quot;,&quot;hex&quot;:&quot;#e6e4df&quot;},&quot;badge_background&quot;:null,&quot;badge_text&quot;:null,&quot;primary_button_colors&quot;:null,&quot;btn_primary_background&quot;:{&quot;red&quot;:224,&quot;green&quot;:138,&quot;blue&quot;:92,&quot;alpha&quot;:1,&quot;hue&quot;:21,&quot;saturation&quot;:68,&quot;lightness&quot;:62,&quot;rgb&quot;:&quot;224 138 92&quot;,&quot;rgba&quot;:&quot;224 138 92 / 1&quot;,&quot;hex&quot;:&quot;#e08a5c&quot;},&quot;btn_primary_color&quot;:{&quot;red&quot;:23,&quot;green&quot;:32,&quot;blue&quot;:27,&quot;alpha&quot;:1,&quot;hue&quot;:147,&quot;saturation&quot;:16,&quot;lightness&quot;:11,&quot;rgb&quot;:&quot;23 32 27&quot;,&quot;rgba&quot;:&quot;23 32 27 / 1&quot;,&quot;hex&quot;:&quot;#17201b&quot;},&quot;btn_primary_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_primary_hover_background&quot;:{&quot;red&quot;:23,&quot;green&quot;:32,&quot;blue&quot;:27,&quot;alpha&quot;:1,&quot;hue&quot;:147,&quot;saturation&quot;:16,&quot;lightness&quot;:11,&quot;rgb&quot;:&quot;23 32 27&quot;,&quot;rgba&quot;:&quot;23 32 27 / 1&quot;,&quot;hex&quot;:&quot;#17201b&quot;},&quot;btn_primary_hover_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_primary_hover_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;secondary_button_colors&quot;:null,&quot;btn_secondary_background&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_color&quot;:{&quot;red&quot;:23,&quot;green&quot;:32,&quot;blue&quot;:27,&quot;alpha&quot;:1,&quot;hue&quot;:147,&quot;saturation&quot;:16,&quot;lightness&quot;:11,&quot;rgb&quot;:&quot;23 32 27&quot;,&quot;rgba&quot;:&quot;23 32 27 / 1&quot;,&quot;hex&quot;:&quot;#17201b&quot;},&quot;btn_secondary_border&quot;:{&quot;red&quot;:207,&quot;green&quot;:204,&quot;blue&quot;:198,&quot;alpha&quot;:1,&quot;hue&quot;:40,&quot;saturation&quot;:9,&quot;lightness&quot;:79,&quot;rgb&quot;:&quot;207 204 198&quot;,&quot;rgba&quot;:&quot;207 204 198 / 1&quot;,&quot;hex&quot;:&quot;#cfccc6&quot;},&quot;btn_secondary_hover_background&quot;:{&quot;red&quot;:23,&quot;green&quot;:32,&quot;blue&quot;:27,&quot;alpha&quot;:1,&quot;hue&quot;:147,&quot;saturation&quot;:16,&quot;lightness&quot;:11,&quot;rgb&quot;:&quot;23 32 27&quot;,&quot;rgba&quot;:&quot;23 32 27 / 1&quot;,&quot;hex&quot;:&quot;#17201b&quot;},&quot;btn_secondary_hover_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_hover_border_color&quot;:null,&quot;background_gradient&quot;:&quot;&quot;,&quot;btn_primary_gradient&quot;:&quot;&quot;,&quot;btn_primary_hover_background_gradient&quot;:&quot;&quot;,&quot;btn_secondary_hover_border&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_outline_color&quot;:{&quot;red&quot;:23,&quot;green&quot;:32,&quot;blue&quot;:27,&quot;alpha&quot;:1,&quot;hue&quot;:147,&quot;saturation&quot;:16,&quot;lightness&quot;:11,&quot;rgb&quot;:&quot;23 32 27&quot;,&quot;rgba&quot;:&quot;23 32 27 / 1&quot;,&quot;hex&quot;:&quot;#17201b&quot;},&quot;btn_outline_border_color&quot;:{&quot;red&quot;:207,&quot;green&quot;:204,&quot;blue&quot;:198,&quot;alpha&quot;:1,&quot;hue&quot;:40,&quot;saturation&quot;:9,&quot;lightness&quot;:79,&quot;rgb&quot;:&quot;207 204 198&quot;,&quot;rgba&quot;:&quot;207 204 198 / 1&quot;,&quot;hex&quot;:&quot;#cfccc6&quot;},&quot;button_link_color&quot;:{&quot;red&quot;:23,&quot;green&quot;:32,&quot;blue&quot;:27,&quot;alpha&quot;:1,&quot;hue&quot;:147,&quot;saturation&quot;:16,&quot;lightness&quot;:11,&quot;rgb&quot;:&quot;23 32 27&quot;,&quot;rgba&quot;:&quot;23 32 27 / 1&quot;,&quot;hex&quot;:&quot;#17201b&quot;},&quot;button_link_hover_color&quot;:{&quot;red&quot;:23,&quot;green&quot;:32,&quot;blue&quot;:27,&quot;alpha&quot;:1,&quot;hue&quot;:147,&quot;saturation&quot;:16,&quot;lightness&quot;:11,&quot;rgb&quot;:&quot;23 32 27&quot;,&quot;rgba&quot;:&quot;23 32 27 / 1&quot;,&quot;hex&quot;:&quot;#17201b&quot;}}},&quot;section_width&quot;:&quot;fluid_container&quot;,&quot;reset_spacing&quot;:true,&quot;structured_data&quot;:false,&quot;heading&quot;:&quot;Frequently asked questions&quot;,&quot;subheading&quot;:&quot;&lt;p&gt;Have a question? We&#39;re here to help.&lt;\/p&gt;&quot;,&quot;first_item_open&quot;:true,&quot;allow_multiple_open&quot;:false,&quot;open_icon&quot;:&quot;plus&quot;,&quot;content_alignment&quot;:&quot;left&quot;,&quot;max_content_width&quot;:820,&quot;col_gap&quot;:60,&quot;gap_header_to_items&quot;:32,&quot;gap_heading_to_subheading&quot;:12,&quot;gap_between_items&quot;:19,&quot;item_padding_y&quot;:20,&quot;item_padding_x&quot;:14,&quot;item_radius&quot;:11,&quot;show_dividers&quot;:true,&quot;enable_custom_style&quot;:false,&quot;section_bg&quot;:null,&quot;card_bg&quot;:null,&quot;card_border_color&quot;:null,&quot;divider_color&quot;:null,&quot;question_color&quot;:null,&quot;hover_color&quot;:null,&quot;icon_color&quot;:null,&quot;answer_color&quot;:null,&quot;heading_color&quot;:null,&quot;subheading_color&quot;:null,&quot;enable_custom_fonts&quot;:false,&quot;heading_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;body_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;heading_size_desktop&quot;:36,&quot;heading_size_mobile&quot;:26,&quot;enable_custom_heading_weight&quot;:false,&quot;heading_weight&quot;:&quot;600&quot;,&quot;subheading_size_desktop&quot;:16,&quot;subheading_size_mobile&quot;:14,&quot;question_size_desktop&quot;:18,&quot;question_size_mobile&quot;:15,&quot;enable_custom_question_weight&quot;:false,&quot;question_weight&quot;:&quot;600&quot;,&quot;answer_size_desktop&quot;:15,&quot;answer_size_mobile&quot;:14,&quot;reveal&quot;:true,&quot;scroll_animation&quot;:&quot;inherit&quot;,&quot;padding_top&quot;:60,&quot;padding_bottom&quot;:60,&quot;section_margin_top_desktop&quot;:0,&quot;section_margin_bottom_desktop&quot;:0,&quot;section_margin_top_mobile&quot;:0,&quot;section_margin_bottom_mobile&quot;:0}" data-faq7-anim="none" data-faq7-width="fluid_container" style="--faq7-bg:var(--color-background);--faq7-pt:60px;--faq7-pb:60px;--faq7-col-gap:60px;--faq7-align:left;--faq7-mi:0;--faq7-cta-justify:flex-start;--faq7-gap-header:32px;--faq7-maxw:820px;--faq7-h-m:26px;--faq7-h-d:36px;--faq7-heading-color:var(--color-heading);--faq7-gap-sub:12px;--faq7-sub-m:14px;--faq7-sub-d:16px;--faq7-sub-color:var(--color-text);--faq7-gap-items:19px;--faq7-card-bg:rgba(var(--color-heading-rgb), 0.04);--faq7-card-border:transparent;--faq7-radius:11px;--faq7-divider:var(--color-border);--faq7-py:20px;--faq7-px:14px;--faq7-q-color:var(--color-heading);--faq7-q-m:15px;--faq7-q-d:18px;--faq7-hover:var(--color-primary);--faq7-icon-color:var(--color-heading);--faq7-a-color:var(--color-text);--faq7-a-m:14px;--faq7-a-d:15px;">
 <div class="faq7__inner">
 <div class="faq7__layout"><div class="faq7__header"><h2 class="faq7__heading" id="block-heading_1" data-faq-block="heading_1" data-faq-type="heading" data-faq-settings="{&quot;text&quot;:&quot;Questions&quot;,&quot;tag&quot;:&quot;h2&quot;,&quot;enable_custom_style&quot;:false,&quot;color&quot;:null,&quot;enable_custom_fonts&quot;:false,&quot;font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;weight_enable&quot;:false,&quot;weight&quot;:&quot;700&quot;,&quot;size_enable&quot;:false,&quot;size_desktop&quot;:36,&quot;size_mobile&quot;:26,&quot;line_height&quot;:1.15,&quot;tracking&quot;:0}" data-block-id="heading_1">Questions</h2><div class="faq7__subheading" id="block-subheading_2" data-faq-block="subheading_2" data-faq-type="subheading" data-faq-settings="{&quot;text&quot;:&quot;&lt;p&gt;Something else? &lt;a href=\&quot;/pages/contact\&quot;&gt;Write to us&lt;\/a&gt;.&lt;\/p&gt;&quot;,&quot;enable_custom_style&quot;:false,&quot;color&quot;:null,&quot;enable_custom_fonts&quot;:false,&quot;font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;weight_enable&quot;:false,&quot;weight&quot;:&quot;400&quot;,&quot;size_enable&quot;:false,&quot;size&quot;:16,&quot;line_height&quot;:1.5}" data-block-id="subheading_2"><p>Something else? <a href="/theme-previews/author-book/pages/contact.html">Write to us</a>.</p></div></div><template data-faq-icons>
 <svg data-icon="chevron" class="faq7__icon-chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -659,7 +673,7 @@ data-faq7-trigger data-faq-trigger
 <div class="faq7__a" data-faq-answer><p>An ebook. You get a PDF and an EPUB file by email straight after you pay, and you can read them on any phone, tablet, computer or e-reader.</p></div>
 </div>
 </div>
-</div><div class="faq7__item"  data-faq7-item data-faq-item id="block-faq_item_4" data-faq-block="faq_item_4" data-faq-type="faq_item" data-faq-settings="{&quot;question&quot;:&quot;What is the difference between the editions?&quot;,&quot;answer&quot;:&quot;&lt;p&gt;The ebook is the book. Ebook and audiobook adds the full audio, read by Owen. The complete set adds the printable sleep diary as well.&lt;\/p&gt;&quot;}" data-block-id="faq_item_4">
+</div><div class="faq7__item"  data-faq7-item data-faq-item id="block-faq_item_4" data-faq-block="faq_item_4" data-faq-type="faq_item" data-faq-settings="{&quot;question&quot;:&quot;What is the difference between the editions?&quot;,&quot;answer&quot;:&quot;&lt;p&gt;The ebook is the book. Ebook and audiobook adds the full audio, read by Maren. The complete set adds sixty printable care cards as well.&lt;\/p&gt;&quot;}" data-block-id="faq_item_4">
 <button
 type="button"
 class="faq7__q"
@@ -672,10 +686,10 @@ data-faq7-trigger data-faq-trigger
 </button>
 <div class="faq7__a-wrap" id="faq7-a-faq-2" data-faq-panel>
 <div class="faq7__a-inner">
-<div class="faq7__a" data-faq-answer><p>The ebook is the book. Ebook and audiobook adds the full audio, read by Owen. The complete set adds the printable sleep diary as well.</p></div>
+<div class="faq7__a" data-faq-answer><p>The ebook is the book. Ebook and audiobook adds the full audio, read by Maren. The complete set adds sixty printable care cards as well.</p></div>
 </div>
 </div>
-</div><div class="faq7__item"  data-faq7-item data-faq-item id="block-faq_item_5" data-faq-block="faq_item_5" data-faq-type="faq_item" data-faq-settings="{&quot;question&quot;:&quot;I slept badly last night. Where do I start?&quot;,&quot;answer&quot;:&quot;&lt;p&gt;Start with chapters two and six. They take about an hour together and give you a light plan for tomorrow morning and a wind down hour for tonight.&lt;\/p&gt;&quot;}" data-block-id="faq_item_5">
+</div><div class="faq7__item"  data-faq7-item data-faq-item id="block-faq_item_5" data-faq-block="faq_item_5" data-faq-type="faq_item" data-faq-settings="{&quot;question&quot;:&quot;A plant is dying right now. Where do I start?&quot;,&quot;answer&quot;:&quot;&lt;p&gt;Start with chapter twelve, what the leaves are telling you, then look up your plant in the care notes. Most rescues start with moving the pot or watering less.&lt;\/p&gt;&quot;}" data-block-id="faq_item_5">
 <button
 type="button"
 class="faq7__q"
@@ -683,15 +697,15 @@ aria-expanded="false"
 aria-controls="faq7-a-faq-3"
 data-faq7-trigger data-faq-trigger
 >
-<span data-faq-question>I slept badly last night. Where do I start?</span>
+<span data-faq-question>A plant is dying right now. Where do I start?</span>
 <span class="faq7__icon" aria-hidden="true" data-faq-icon="plus"><span class="faq7__icon-plus"><span class="v"></span><span class="h"></span></span></span>
 </button>
 <div class="faq7__a-wrap" id="faq7-a-faq-3" data-faq-panel>
 <div class="faq7__a-inner">
-<div class="faq7__a" data-faq-answer><p>Start with chapters two and six. They take about an hour together and give you a light plan for tomorrow morning and a wind down hour for tonight.</p></div>
+<div class="faq7__a" data-faq-answer><p>Start with chapter twelve, what the leaves are telling you, then look up your plant in the care notes. Most rescues start with moving the pot or watering less.</p></div>
 </div>
 </div>
-</div><div class="faq7__item"  data-faq7-item data-faq-item id="block-faq_item_6" data-faq-block="faq_item_6" data-faq-type="faq_item" data-faq-settings="{&quot;question&quot;:&quot;Is this medical advice?&quot;,&quot;answer&quot;:&quot;&lt;p&gt;No. It is practical advice for ordinary bad sleep. If you snore loudly, stop breathing at night or have been sleeping badly for months, see a doctor first. Chapter one says when.&lt;\/p&gt;&quot;}" data-block-id="faq_item_6">
+</div><div class="faq7__item"  data-faq7-item data-faq-item id="block-faq_item_6" data-faq-block="faq_item_6" data-faq-type="faq_item" data-faq-settings="{&quot;question&quot;:&quot;Are these plants safe for pets?&quot;,&quot;answer&quot;:&quot;&lt;p&gt;Every plant in the care notes is marked safe or not safe for cats and dogs. For a full list, the short pet safe guide covers forty plants. If a pet has eaten a plant, call your vet.&lt;\/p&gt;&quot;}" data-block-id="faq_item_6">
 <button
 type="button"
 class="faq7__q"
@@ -699,15 +713,15 @@ aria-expanded="false"
 aria-controls="faq7-a-faq-4"
 data-faq7-trigger data-faq-trigger
 >
-<span data-faq-question>Is this medical advice?</span>
+<span data-faq-question>Are these plants safe for pets?</span>
 <span class="faq7__icon" aria-hidden="true" data-faq-icon="plus"><span class="faq7__icon-plus"><span class="v"></span><span class="h"></span></span></span>
 </button>
 <div class="faq7__a-wrap" id="faq7-a-faq-4" data-faq-panel>
 <div class="faq7__a-inner">
-<div class="faq7__a" data-faq-answer><p>No. It is practical advice for ordinary bad sleep. If you snore loudly, stop breathing at night or have been sleeping badly for months, see a doctor first. Chapter one says when.</p></div>
+<div class="faq7__a" data-faq-answer><p>Every plant in the care notes is marked safe or not safe for cats and dogs. For a full list, the short pet safe guide covers forty plants. If a pet has eaten a plant, call your vet.</p></div>
 </div>
 </div>
-</div><div class="faq7__item"  data-faq7-item data-faq-item id="block-faq_item_7" data-faq-block="faq_item_7" data-faq-type="faq_item" data-faq-settings="{&quot;question&quot;:&quot;Can I buy copies for my team?&quot;,&quot;answer&quot;:&quot;&lt;p&gt;Yes. The team licence covers up to ten people with one invoice, useful for shift teams and night workers. For a bigger group, &lt;a href=\&quot;/pages/contact\&quot;&gt;write to us&lt;\/a&gt;.&lt;\/p&gt;&quot;}" data-block-id="faq_item_7">
+</div><div class="faq7__item"  data-faq7-item data-faq-item id="block-faq_item_7" data-faq-block="faq_item_7" data-faq-type="faq_item" data-faq-settings="{&quot;question&quot;:&quot;Can I give it as a gift?&quot;,&quot;answer&quot;:&quot;&lt;p&gt;Yes. Add the recipient’s email at checkout and the files go to them with your note. For a plant shop or a group, &lt;a href=\&quot;/pages/contact\&quot;&gt;write to us&lt;\/a&gt;.&lt;\/p&gt;&quot;}" data-block-id="faq_item_7">
 <button
 type="button"
 class="faq7__q"
@@ -715,12 +729,12 @@ aria-expanded="false"
 aria-controls="faq7-a-faq-5"
 data-faq7-trigger data-faq-trigger
 >
-<span data-faq-question>Can I buy copies for my team?</span>
+<span data-faq-question>Can I give it as a gift?</span>
 <span class="faq7__icon" aria-hidden="true" data-faq-icon="plus"><span class="faq7__icon-plus"><span class="v"></span><span class="h"></span></span></span>
 </button>
 <div class="faq7__a-wrap" id="faq7-a-faq-5" data-faq-panel>
 <div class="faq7__a-inner">
-<div class="faq7__a" data-faq-answer><p>Yes. The team licence covers up to ten people with one invoice, useful for shift teams and night workers. For a bigger group, <a href="/theme-previews/author-book/pages/contact.html">write to us</a>.</p></div>
+<div class="faq7__a" data-faq-answer><p>Yes. Add the recipient’s email at checkout and the files go to them with your note. For a plant shop or a group, <a href="/theme-previews/author-book/pages/contact.html">write to us</a>.</p></div>
 </div>
 </div>
 </div><div class="faq7__item"  data-faq7-item data-faq-item id="block-faq_item_8" data-faq-block="faq_item_8" data-faq-type="faq_item" data-faq-settings="{&quot;question&quot;:&quot;What if it is not for me?&quot;,&quot;answer&quot;:&quot;&lt;p&gt;Email within 30 days and you get your money back. No questions asked.&lt;\/p&gt;&quot;}" data-block-id="faq_item_8">
@@ -760,9 +774,9 @@ data-faq7-trigger data-faq-trigger
   :where(html:not([data-font-priority='off'])) #shopify-section-editions :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
-</style><link rel="stylesheet" href="/theme-previews/author-book/a/i.33f34f3b5504.css">
+</style><link rel="stylesheet" href="/theme-previews/author-book/a/i.08dfd51dbc35.css">
 <div class="pg section color-scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca gradient" data-section-type="products-grid" data-section-id="editions">
-<div class="fluid_container"><div class="pg__head"><h2 class="pg__heading h2">Get the book</h2><div class="pg__text rte"><p>The ebook, the audiobook, the sleep diary and a licence for your team.</p></div></div><div class="pg__grid">
+<div class="fluid_container"><div class="pg__head"><h2 class="pg__heading h2">Get the book</h2><div class="pg__text rte"><p>The ebook, the audiobook, the care cards and the pet safe guide.</p></div></div><div class="pg__grid">
 <div
 class="product-item product__item-js  style-as-standard"
 >
@@ -777,15 +791,15 @@ style="--animation-order: 1;  "
 <div class="product-item__inner hover-effect overflow-hidden relative">
 <a
 draggable="false"
-href="/theme-previews/author-book/products/lights-out.html"
-aria-label="Lights Out"
+href="/theme-previews/author-book/products/keep-them-alive.html"
+aria-label="Keep Them Alive"
 class="product__media product-item__media--ratio rounded block show_secondary"
 style="--aspect-ratio: 3/4;"
 >
-<img src="/theme-previews/author-book/a/authorbook-ebook.a1ea9cb0a53c.webp" srcset="/theme-previews/author-book/a/authorbook-ebook.a1ea9cb0a53c.webp 720w, /theme-previews/author-book/a/authorbook-ebook.a1ea9cb0a53c.webp 660w, /theme-previews/author-book/a/authorbook-ebook.a1ea9cb0a53c.webp 550w, /theme-previews/author-book/a/authorbook-ebook.a1ea9cb0a53c.webp 480w, /theme-previews/author-book/a/authorbook-ebook-400.1d7290a39635.webp 330w, /theme-previews/author-book/a/authorbook-ebook-400.1d7290a39635.webp 240w, /theme-previews/author-book/a/authorbook-ebook-400.1d7290a39635.webp 185w" alt="Lights Out" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1360px -  24px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 24px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/author-book/a/authorbook-ebook.c7f0c2593ed1.webp" srcset="/theme-previews/author-book/a/authorbook-ebook.c7f0c2593ed1.webp 720w, /theme-previews/author-book/a/authorbook-ebook.c7f0c2593ed1.webp 660w, /theme-previews/author-book/a/authorbook-ebook.c7f0c2593ed1.webp 550w, /theme-previews/author-book/a/authorbook-ebook.c7f0c2593ed1.webp 480w, /theme-previews/author-book/a/authorbook-ebook-400.e3616c744612.webp 330w, /theme-previews/author-book/a/authorbook-ebook-400.e3616c744612.webp 240w, /theme-previews/author-book/a/authorbook-ebook-400.e3616c744612.webp 185w" alt="Keep Them Alive" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1360px -  24px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 24px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
-<img src="/theme-previews/author-book/a/authorbook-ed-ebook.f88416d15809.webp" srcset="/theme-previews/author-book/a/authorbook-ed-ebook.f88416d15809.webp 720w, /theme-previews/author-book/a/authorbook-ed-ebook.f88416d15809.webp 660w, /theme-previews/author-book/a/authorbook-ed-ebook.f88416d15809.webp 550w, /theme-previews/author-book/a/authorbook-ed-ebook.f88416d15809.webp 480w, /theme-previews/author-book/a/authorbook-ed-ebook-400.c2d4e9ec578c.webp 330w, /theme-previews/author-book/a/authorbook-ed-ebook-400.c2d4e9ec578c.webp 240w, /theme-previews/author-book/a/authorbook-ed-ebook-400.c2d4e9ec578c.webp 185w" alt="Lights Out" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1360px -  24px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 24px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/author-book/a/authorbook-ed-ebook.7c68e31ba277.webp" srcset="/theme-previews/author-book/a/authorbook-ed-ebook.7c68e31ba277.webp 720w, /theme-previews/author-book/a/authorbook-ed-ebook.7c68e31ba277.webp 660w, /theme-previews/author-book/a/authorbook-ed-ebook.7c68e31ba277.webp 550w, /theme-previews/author-book/a/authorbook-ed-ebook.7c68e31ba277.webp 480w, /theme-previews/author-book/a/authorbook-ed-ebook-400.428d2e851bb2.webp 330w, /theme-previews/author-book/a/authorbook-ed-ebook-400.428d2e851bb2.webp 240w, /theme-previews/author-book/a/authorbook-ed-ebook-400.428d2e851bb2.webp 185w" alt="Keep Them Alive" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1360px -  24px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 24px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
@@ -838,11 +852,11 @@ Out of Stock
 </div>
 <div class="product-item__information word-break text-left mt-15">
 <a
-aria-label="Lights Out"
+aria-label="Keep Them Alive"
 class="product-item__name unset heading-style no-underline fs-custom block lh-normal"
 style="--font-size: 17;"            
-href="/theme-previews/author-book/products/lights-out.html"
->Lights Out</a>
+href="/theme-previews/author-book/products/keep-them-alive.html"
+>Keep Them Alive</a>
 <div
 class="product-item__price justify-content-left fs-custom flex gap-custom lh-normal "
 style="--font-size: 16; --gap: 3px;"
@@ -879,12 +893,12 @@ style="--animation-order: 2;  "
 <div class="product-item__inner hover-effect overflow-hidden relative">
 <a
 draggable="false"
-href="/theme-previews/author-book/products/lights-out-audiobook.html"
-aria-label="Lights Out, audiobook"
+href="/theme-previews/author-book/products/keep-them-alive-audiobook.html"
+aria-label="Keep Them Alive, audiobook"
 class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 3/4;"
 >
-<img src="/theme-previews/author-book/a/authorbook-audiobook.750134925d6e.webp" srcset="/theme-previews/author-book/a/authorbook-audiobook.750134925d6e.webp 720w, /theme-previews/author-book/a/authorbook-audiobook.750134925d6e.webp 660w, /theme-previews/author-book/a/authorbook-audiobook.750134925d6e.webp 550w, /theme-previews/author-book/a/authorbook-audiobook.750134925d6e.webp 480w, /theme-previews/author-book/a/authorbook-audiobook-400.93346ca310fd.webp 330w, /theme-previews/author-book/a/authorbook-audiobook-400.93346ca310fd.webp 240w, /theme-previews/author-book/a/authorbook-audiobook-400.93346ca310fd.webp 185w" alt="Lights Out, audiobook" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1360px -  24px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 24px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/author-book/a/authorbook-audiobook.20a5fa387e05.webp" srcset="/theme-previews/author-book/a/authorbook-audiobook.20a5fa387e05.webp 720w, /theme-previews/author-book/a/authorbook-audiobook.20a5fa387e05.webp 660w, /theme-previews/author-book/a/authorbook-audiobook.20a5fa387e05.webp 550w, /theme-previews/author-book/a/authorbook-audiobook.20a5fa387e05.webp 480w, /theme-previews/author-book/a/authorbook-audiobook-400.fdaa8e520740.webp 330w, /theme-previews/author-book/a/authorbook-audiobook-400.fdaa8e520740.webp 240w, /theme-previews/author-book/a/authorbook-audiobook-400.fdaa8e520740.webp 185w" alt="Keep Them Alive, audiobook" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1360px -  24px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 24px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -936,11 +950,11 @@ Out of Stock
 </div>
 <div class="product-item__information word-break text-left mt-15">
 <a
-aria-label="Lights Out, audiobook"
+aria-label="Keep Them Alive, audiobook"
 class="product-item__name unset heading-style no-underline fs-custom block lh-normal"
 style="--font-size: 17;"            
-href="/theme-previews/author-book/products/lights-out-audiobook.html"
->Lights Out, audiobook</a>
+href="/theme-previews/author-book/products/keep-them-alive-audiobook.html"
+>Keep Them Alive, audiobook</a>
 <div
 class="product-item__price justify-content-left fs-custom flex gap-custom lh-normal "
 style="--font-size: 16; --gap: 3px;"
@@ -971,12 +985,12 @@ style="--animation-order: 3;  "
 <div class="product-item__inner hover-effect overflow-hidden relative">
 <a
 draggable="false"
-href="/theme-previews/author-book/products/sleep-diary-workbook.html"
-aria-label="Sleep diary workbook"
+href="/theme-previews/author-book/products/plant-care-cards-printable.html"
+aria-label="Plant care cards, printable"
 class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 3/4;"
 >
-<img src="/theme-previews/author-book/a/authorbook-workbook.407d2b4fc8b6.webp" srcset="/theme-previews/author-book/a/authorbook-workbook.407d2b4fc8b6.webp 720w, /theme-previews/author-book/a/authorbook-workbook.407d2b4fc8b6.webp 660w, /theme-previews/author-book/a/authorbook-workbook.407d2b4fc8b6.webp 550w, /theme-previews/author-book/a/authorbook-workbook.407d2b4fc8b6.webp 480w, /theme-previews/author-book/a/authorbook-workbook-400.ad2dd8010d12.webp 330w, /theme-previews/author-book/a/authorbook-workbook-400.ad2dd8010d12.webp 240w, /theme-previews/author-book/a/authorbook-workbook-400.ad2dd8010d12.webp 185w" alt="Sleep diary workbook" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1360px -  24px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 24px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/author-book/a/authorbook-cards.132c100df34c.webp" srcset="/theme-previews/author-book/a/authorbook-cards.132c100df34c.webp 720w, /theme-previews/author-book/a/authorbook-cards.132c100df34c.webp 660w, /theme-previews/author-book/a/authorbook-cards.132c100df34c.webp 550w, /theme-previews/author-book/a/authorbook-cards.132c100df34c.webp 480w, /theme-previews/author-book/a/authorbook-cards-400.cdfe32b47632.webp 330w, /theme-previews/author-book/a/authorbook-cards-400.cdfe32b47632.webp 240w, /theme-previews/author-book/a/authorbook-cards-400.cdfe32b47632.webp 185w" alt="Plant care cards, printable" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1360px -  24px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 24px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -1028,11 +1042,11 @@ Out of Stock
 </div>
 <div class="product-item__information word-break text-left mt-15">
 <a
-aria-label="Sleep diary workbook"
+aria-label="Plant care cards, printable"
 class="product-item__name unset heading-style no-underline fs-custom block lh-normal"
 style="--font-size: 17;"            
-href="/theme-previews/author-book/products/sleep-diary-workbook.html"
->Sleep diary workbook</a>
+href="/theme-previews/author-book/products/plant-care-cards-printable.html"
+>Plant care cards, printable</a>
 <div
 class="product-item__price justify-content-left fs-custom flex gap-custom lh-normal "
 style="--font-size: 16; --gap: 3px;"
@@ -1063,12 +1077,12 @@ style="--animation-order: 4;  "
 <div class="product-item__inner hover-effect overflow-hidden relative">
 <a
 draggable="false"
-href="/theme-previews/author-book/products/lights-out-team-licence.html"
-aria-label="Lights Out, team licence"
+href="/theme-previews/author-book/products/pet-safe-plants-a-short-guide.html"
+aria-label="Pet safe plants, a short guide"
 class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 3/4;"
 >
-<img src="/theme-previews/author-book/a/authorbook-team.799e0b6d9e84.webp" srcset="/theme-previews/author-book/a/authorbook-team.799e0b6d9e84.webp 720w, /theme-previews/author-book/a/authorbook-team.799e0b6d9e84.webp 660w, /theme-previews/author-book/a/authorbook-team.799e0b6d9e84.webp 550w, /theme-previews/author-book/a/authorbook-team.799e0b6d9e84.webp 480w, /theme-previews/author-book/a/authorbook-team-400.3138253dd73d.webp 330w, /theme-previews/author-book/a/authorbook-team-400.3138253dd73d.webp 240w, /theme-previews/author-book/a/authorbook-team-400.3138253dd73d.webp 185w" alt="Lights Out, team licence" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1360px -  24px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 24px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/author-book/a/authorbook-petsafe.fe300625b358.webp" srcset="/theme-previews/author-book/a/authorbook-petsafe.fe300625b358.webp 720w, /theme-previews/author-book/a/authorbook-petsafe.fe300625b358.webp 660w, /theme-previews/author-book/a/authorbook-petsafe.fe300625b358.webp 550w, /theme-previews/author-book/a/authorbook-petsafe.fe300625b358.webp 480w, /theme-previews/author-book/a/authorbook-petsafe-400.b9fc9b1188bb.webp 330w, /theme-previews/author-book/a/authorbook-petsafe-400.b9fc9b1188bb.webp 240w, /theme-previews/author-book/a/authorbook-petsafe-400.b9fc9b1188bb.webp 185w" alt="Pet safe plants, a short guide" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1360px -  24px * 3) * 0.25), (min-width: 768px) calc( (100vw - 30px - 24px * 2 ) * 0.33), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -1120,18 +1134,18 @@ Out of Stock
 </div>
 <div class="product-item__information word-break text-left mt-15">
 <a
-aria-label="Lights Out, team licence"
+aria-label="Pet safe plants, a short guide"
 class="product-item__name unset heading-style no-underline fs-custom block lh-normal"
 style="--font-size: 17;"            
-href="/theme-previews/author-book/products/lights-out-team-licence.html"
->Lights Out, team licence</a>
+href="/theme-previews/author-book/products/pet-safe-plants-a-short-guide.html"
+>Pet safe plants, a short guide</a>
 <div
 class="product-item__price justify-content-left fs-custom flex gap-custom lh-normal "
 style="--font-size: 16; --gap: 3px;"
 ><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular">
 <span class="visually-hidden">Regular price</span>
 <span class="price price-same-style heading-style">
-$149.00
+$12.00
 </span>
 </div>
 </div>
@@ -1381,9 +1395,9 @@ data-reveal="fade_up"
 style="--rm-bg: var(--color-background, transparent); --rm-gradient: none; --rm-overlay: #000000; --rm-overlay-opacity: 0; --rm-content-max: 720px; --rm-align: center; --rm-flex: center; --rm-align-m: center; --rm-flex-m: center; --rm-gap: 18px; --rm-pt: 88px; --rm-pb: 88px; --rm-pt-m: 50px; --rm-pb-m: 56px; --rm-section-pad-left: 20px; --rm-section-pad-right: 20px; --rm-section-pad-left-m: 20px; --rm-section-pad-right-m: 20px; --rm-section-radius: 0px; --rm-border-w: 0px; --rm-border-c: var(--color-border, rgba(0,0,0,0.12)); --rm-shadow: none; --rm-sub-btn-gap: 30px; --rm-inner-pad: 16px; --rm-reveal-range: 60%;"
 >
 <div class="rm-hero__inner">
-<p class="rm-hero__eyebrow" data-promo-block="eyebrow_1" data-hg-block="eyebrow_1" data-hg-type="eyebrow" data-block-id="eyebrow_1">Lights Out</p>
-<h2 class="rm-hero__heading" data-promo-block="heading_2" data-hg-block="heading_2" data-hg-type="heading" style="" data-block-id="heading_2">Tonight can be a better night</h2>
-<p class="rm-hero__sub" data-promo-block="subheading_3" data-hg-block="subheading_3" data-hg-type="subheading" style="" data-block-id="subheading_3">Twelve short chapters, PDF and EPUB, in your inbox in a minute.</p>
+<p class="rm-hero__eyebrow" data-promo-block="eyebrow_1" data-hg-block="eyebrow_1" data-hg-type="eyebrow" data-block-id="eyebrow_1">Keep Them Alive</p>
+<h2 class="rm-hero__heading" data-promo-block="heading_2" data-hg-block="heading_2" data-hg-type="heading" style="" data-block-id="heading_2">Your plants can do better than this</h2>
+<p class="rm-hero__sub" data-promo-block="subheading_3" data-hg-block="subheading_3" data-hg-type="subheading" style="" data-block-id="subheading_3">Fourteen short chapters and sixty plants, PDF and EPUB, in your inbox in a minute.</p>
 <a class="rm-hero__btn" data-promo-block="button_4" data-hg-block="button_4" data-hg-type="button" data-theme-button="primary" data-sl-button data-button-role="primary" href="/theme-previews/author-book/collections/all.html" data-block-id="button_4">Buy the ebook</a>
 </div>
 </div>
@@ -1435,12 +1449,12 @@ data-block-id="store_info_1"
 class="footer__block-heading fs-custom my-0 py-20 mb-md-5"
 style="--font-size: 15"
 >
-<span data-ft-heading>Lights Out</span>
+<span data-ft-heading>Windowsill</span>
 </h3>
 <div
 class="store-info-content"
 ><div class="footer__block-info rich__text-mt-0 mb-20" data-ft-desc>
-<p>A practical guide to sleeping well, by Owen Kessler. Ebook in PDF and EPUB, with an audiobook and a printable sleep diary.</p>
+<p>Keep Them Alive, a houseplant care guide by Maren Holt. Ebook in PDF and EPUB, with an audiobook and printable care cards.</p>
 </div>
 </div>
 </div><div
@@ -1517,10 +1531,10 @@ style="--font-size: 15"
 <ul class="list-unstyled"><li class="pb-8">
 <a
 href="/theme-previews/author-book/pages/about.html"
-aria-label="About Owen"
+aria-label="About Maren"
 class="no-underline word-break reversed-links relative"
 >
-About Owen
+About Maren
 </a>
 </li><li class="pb-8">
 <a
@@ -1555,7 +1569,7 @@ class="footer__block-heading collapsible-heading relative heading-letter-spacing
 style="--font-size: 15"
 >
 <button type="button" class="footer-acc__toggle" data-footer-acc-toggle aria-expanded="false" aria-controls="FooterAcc-newsletter_1">
-<span data-ft-heading>The sleep letter</span>
+<span data-ft-heading>The plant letter</span>
 <span class="open-children-toggle hidden-md absolute inset-0 flex flex-end">
 <span class="arrow-toggle" aria-hidden="true">
 <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1567,7 +1581,7 @@ style="--font-size: 15"
 </h3>
 <div class="footer-acc__panel" id="FooterAcc-newsletter_1"><div class="footer-acc__inner">
 <div class="collapsible-content mb-30"><div class="footer__block-description mb-23" data-ft-desc>
-One short email every other week with one thing to try tonight. Free.
+One short email every other week with one thing to check on your plants. Free.
 </div>
 <form id="ContactFooter" accept-charset="UTF-8" class="footer__newsletter newsletter-form" data-storelib-form="subscribe" data-ft-form="newsletter_1" data-success-message="Thanks for subscribing." data-error-message="" data-storelib-form="subscribe" data-preview-form><input type="hidden" name="form_type" value="customer"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="storelib_placement" value="footer"><input type="hidden" name="contact[tags]" value="newsletter">
 <div class="newsletter-form__field-wrapper">
@@ -1698,7 +1712,7 @@ Español
 </form>
 </localization-form>
 </div>
-<div class="footer__copyright" data-ft-copyright>© 2026 Lights Out</div>
+<div class="footer__copyright" data-ft-copyright>© 2026 Windowsill</div>
 <ul class="footer__policies list-unstyled flex flex-wrap" data-ft-policies><li><a href="/theme-previews/author-book/policies/refund-policy.html">Refund policy</a></li><li><a href="/theme-previews/author-book/policies/privacy-policy.html">Privacy policy</a></li><li><a href="/theme-previews/author-book/policies/terms-of-service.html">Terms of service</a></li></ul><div class="footer__powered" data-ft-powered><a href="#" data-preview-inert data-storelib-badge="" style="display:inline-flex;align-items:center;gap:.45em;white-space:nowrap;vertical-align:middle"><svg data-storelib-badge-mark="" aria-hidden="true" focusable="false" viewBox="0 0 200 200" width="14" height="14" style="display:block;flex:none;width:1.2em;height:1.2em;overflow:visible"><mask id="sl-pb-s" maskUnits="userSpaceOnUse" x="0" y="0" width="200" height="200"><rect width="200" height="200" fill="#fff"/><path transform="translate(48.97 38.44) scale(1.08) translate(-54 -43) translate(134.125,52.875)" d="M0 0 C0.99749268 0.36665771 0.99749268 0.36665771 2.01513672 0.74072266 C6.62777473 2.59663113 6.62777473 2.59663113 7.68823242 4.86303711 C7.94652165 7.99120666 7.02705902 10.04467511 5.85546875 12.94921875 C5.41009766 14.05974609 4.96472656 15.17027344 4.50585938 16.31445312 C4.02955078 17.46880859 3.55324219 18.62316406 3.0625 19.8125 C2.59779297 20.97845703 2.13308594 22.14441406 1.65429688 23.34570312 C-1.85471661 31.98985831 -1.85471661 31.98985831 -4.125 33.125 C-6.02961204 32.43054915 -7.90085447 31.64344514 -9.75 30.8125 C-19.66422998 26.58368153 -27.26609106 25.85047702 -38.125 26.125 C-38.455 27.115 -38.785 28.105 -39.125 29.125 C-38.14402344 29.36734375 -37.16304687 29.6096875 -36.15234375 29.859375 C-33.31305776 30.56236873 -30.47635159 31.27497918 -27.640625 31.9921875 C-24.80213536 32.70970135 -21.95989766 33.40235421 -19.109375 34.0703125 C-6.69949938 37.1089446 3.02755655 40.84926977 9.875 52.125 C13.29151905 58.95803811 12.61307566 67.23479967 10.625 74.4375 C7.53029491 83.45189328 1.37513276 90.18616729 -7.02734375 94.67578125 C-26.20884362 103.04454374 -49.04415352 101.90170642 -68.5 94.625 C-72.25964144 93.07749587 -75.67848864 91.2806362 -79.125 89.125 C-78.55593823 84.90468545 -77.56543969 81.39586411 -75.83984375 77.5078125 C-75.39189453 76.48945313 -74.94394531 75.47109375 -74.48242188 74.421875 C-73.77956055 72.85179688 -73.77956055 72.85179688 -73.0625 71.25 C-72.59005859 70.18007812 -72.11761719 69.11015625 -71.63085938 68.0078125 C-70.46832699 65.3774362 -69.29955398 62.75002483 -68.125 60.125 C-63.80181734 61.13483216 -60.07150265 62.96083682 -56.07421875 64.87109375 C-49.32009515 67.74271451 -43.48344492 68.41757298 -36.25 68.3125 C-35.38375 68.31185547 -34.5175 68.31121094 -33.625 68.31054688 C-29.55080641 68.64235092 -29.55080641 68.64235092 -26.125 67.125 C-32.43853708 64.84703882 -38.66045093 62.93279428 -45.25 61.625 C-56.73505022 59.25968679 -67.31315991 55.21661495 -74.125 45.125 C-77.1608836 40.09281577 -77.67121961 36.10082917 -77.625 30.375 C-77.62072998 29.57876221 -77.61645996 28.78252441 -77.61206055 27.9621582 C-77.37730644 19.82208022 -74.95520496 14.3797357 -69.625 8.25 C-68.8 7.54875 -67.975 6.8475 -67.125 6.125 C-66.403125 5.465 -65.68125 4.805 -64.9375 4.125 C-46.69751714 -8.84565448 -20.22397968 -7.61423584 0 0 Z" fill="#000"/></mask><rect width="200" height="200" rx="48" fill="currentColor" mask="url(#sl-pb-s)"/></svg><span>Powered by Storelib</span></a></div></div>
 <div class="footer__payment flex grow-1 align-center max-w-100" style="justify-content: flex-end; --pb-width: 100%; margin-left: auto;" data-ft-block="payment_badges_1" data-ft-type="payment_badges" data-block-id="payment_badges_1">
 <ul class="footer__payment-badges"><li class="payment-badge" aria-label="Visa"><svg class="icon icon--full-color" viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Visa">
@@ -1809,11 +1823,11 @@ aria-modal="true"
 aria-label="Search"
 data-search-mode="popup"
 class="search-overlay search-overlay--popup search__type-popup search__popup-anim--fade color-default"
-style="--color-background: #ffffff;          --color-text: #45454a;          --color-heading: #18181a;          --color-primary: #a85a1c;          --color-border: #e6e4df;          --gradient-background: #ffffff;          background-color: #ffffff;          color: #45454a;"
+style="--color-background: #ffffff;          --color-text: #46504a;          --color-heading: #17201b;          --color-primary: #a4502c;          --color-border: #e6e4df;          --gradient-background: #ffffff;          background-color: #ffffff;          color: #46504a;"
 ><div
 class="search__type-popup search__popup-anim--fade color-default h-full overflow-auto px-15 custom-scrollbar"
 data-search-popup-anim="fade"
-style="--color-background: #ffffff;    --color-text: #45454a;    --color-heading: #18181a;    --color-primary: #a85a1c;    --color-border: #e6e4df;    --gradient-background: #ffffff;    background-color: #ffffff;    color: #45454a;"
+style="--color-background: #ffffff;    --color-text: #46504a;    --color-heading: #17201b;    --color-primary: #a4502c;    --color-border: #e6e4df;    --gradient-background: #ffffff;    background-color: #ffffff;    color: #46504a;"
 >
 <div class="fluid_container">
 <h3 class="search-title search-title--animated text-center h4 m-0 hidden block-sm" aria-label="Search"><span class="search-title__char" style="--char-i: 0;" aria-hidden="true">S</span><span class="search-title__char" style="--char-i: 1;" aria-hidden="true">e</span><span class="search-title__char" style="--char-i: 2;" aria-hidden="true">a</span><span class="search-title__char" style="--char-i: 3;" aria-hidden="true">r</span><span class="search-title__char" style="--char-i: 4;" aria-hidden="true">c</span><span class="search-title__char" style="--char-i: 5;" aria-hidden="true">h</span></h3>
@@ -1944,13 +1958,13 @@ style=" ;--col-number: 1;--col-tablet: 1;--col-desktop-small:3;--col-desktop: 5;
     --materia-cart-control: 40px;
     --materia-cart-recommend-gap: 12px;
   }
-</style><link href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" rel="stylesheet" type="text/css" media="all"><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/author-book/a/i.32aa27261280.css" data-cart-drawer-style="paint">
+</style><link href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" rel="stylesheet" type="text/css" media="all"><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/author-book/a/i.5b3dd048d9cc.css" data-cart-drawer-style="paint">
 <cart-notification data-cart-drawer-version="20261021-2"
 data-show-quantity="true"
 data-show-shipping-estimator="false"
 data-show-free-shipping="false"
-id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #45454a;    --color-heading: #18181a;    --color-primary: #a85a1c;    --color-border: #e6e4df;    --gradient-background: #ffffff;    --btn-primary-color: #18181a;    --btn-primary-bg-color: #f2a65a;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #18181a;    --btn-secondary-color: #18181a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfccc6;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #18181a;    --btn-outline-color: #18181a;    --btn-outline-border-color: #cfccc6;    background-color: #ffffff !important;    color: #45454a !important;">
-<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #45454a;    --color-heading: #18181a;    --color-primary: #a85a1c;    --color-border: #e6e4df;    --gradient-background: #ffffff;    --btn-primary-color: #18181a;    --btn-primary-bg-color: #f2a65a;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #18181a;    --btn-secondary-color: #18181a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfccc6;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #18181a;    --btn-outline-color: #18181a;    --btn-outline-border-color: #cfccc6;    background-color: #ffffff !important;    color: #45454a !important;">
+id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #46504a;    --color-heading: #17201b;    --color-primary: #a4502c;    --color-border: #e6e4df;    --gradient-background: #ffffff;    --btn-primary-color: #17201b;    --btn-primary-bg-color: #e08a5c;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #17201b;    --btn-secondary-color: #17201b;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfccc6;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #17201b;    --btn-outline-color: #17201b;    --btn-outline-border-color: #cfccc6;    background-color: #ffffff !important;    color: #46504a !important;">
+<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #46504a;    --color-heading: #17201b;    --color-primary: #a4502c;    --color-border: #e6e4df;    --gradient-background: #ffffff;    --btn-primary-color: #17201b;    --btn-primary-bg-color: #e08a5c;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #17201b;    --btn-secondary-color: #17201b;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfccc6;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #17201b;    --btn-outline-color: #17201b;    --btn-outline-border-color: #cfccc6;    background-color: #ffffff !important;    color: #46504a !important;">
 <button type="button" class="cart-drawer-sheet-scrim" aria-label="Cancel"></button>
 <div class="minicart__header flex gap-10 align-center justify-between px-30 py-18 color-default">
 <div class="h5 minicart-heading my-0">
@@ -2086,13 +2100,13 @@ Skip to content
     --materia-cart-control: 40px;
     --materia-cart-recommend-gap: 12px;
   }
-</style><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/author-book/a/i.32aa27261280.css" data-cart-drawer-style="paint">
+</style><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/author-book/a/i.5b3dd048d9cc.css" data-cart-drawer-style="paint">
 <cart-notification data-cart-drawer-version="20261021-2"
 data-show-quantity="true"
 data-show-shipping-estimator="false"
 data-show-free-shipping="false"
-id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #45454a;    --color-heading: #18181a;    --color-primary: #a85a1c;    --color-border: #e6e4df;    --gradient-background: #ffffff;    --btn-primary-color: #18181a;    --btn-primary-bg-color: #f2a65a;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #18181a;    --btn-secondary-color: #18181a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfccc6;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #18181a;    --btn-outline-color: #18181a;    --btn-outline-border-color: #cfccc6;    background-color: #ffffff !important;    color: #45454a !important;">
-<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #45454a;    --color-heading: #18181a;    --color-primary: #a85a1c;    --color-border: #e6e4df;    --gradient-background: #ffffff;    --btn-primary-color: #18181a;    --btn-primary-bg-color: #f2a65a;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #18181a;    --btn-secondary-color: #18181a;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfccc6;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #18181a;    --btn-outline-color: #18181a;    --btn-outline-border-color: #cfccc6;    background-color: #ffffff !important;    color: #45454a !important;">
+id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #46504a;    --color-heading: #17201b;    --color-primary: #a4502c;    --color-border: #e6e4df;    --gradient-background: #ffffff;    --btn-primary-color: #17201b;    --btn-primary-bg-color: #e08a5c;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #17201b;    --btn-secondary-color: #17201b;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfccc6;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #17201b;    --btn-outline-color: #17201b;    --btn-outline-border-color: #cfccc6;    background-color: #ffffff !important;    color: #46504a !important;">
+<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #46504a;    --color-heading: #17201b;    --color-primary: #a4502c;    --color-border: #e6e4df;    --gradient-background: #ffffff;    --btn-primary-color: #17201b;    --btn-primary-bg-color: #e08a5c;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #17201b;    --btn-secondary-color: #17201b;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfccc6;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #17201b;    --btn-outline-color: #17201b;    --btn-outline-border-color: #cfccc6;    background-color: #ffffff !important;    color: #46504a !important;">
 <button type="button" class="cart-drawer-sheet-scrim" aria-label="Cancel"></button>
 <div class="minicart__header flex gap-10 align-center justify-between px-30 py-18 color-default">
 <div class="h5 minicart-heading my-0">

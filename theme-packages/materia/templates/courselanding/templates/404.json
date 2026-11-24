@@ -16,7 +16,7 @@
         "heading_6nj4md": {
           "type": "heading",
           "settings": {
-            "heading": "This page ran off",
+            "heading": "This page is not here",
             "font_size": 36,
             "uppercase": false,
             "font_weight": "heading_weight",
@@ -79,7 +79,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Start with ten minutes tomorrow morning",
+            "text": "Twenty minutes, three times this week",
             "enable_custom_style": true,
             "font": "heading",
             "weight": "700",
@@ -94,7 +94,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "Six weeks from now you could have a puppy who walks beside you and comes when called. The first lesson takes ten minutes.",
+            "text": "Six weeks from now you could set up your reformer, choose your springs and run a forty minute class on your own. The first lesson takes twenty minutes.",
             "enable_custom_style": true,
             "size_d": 18,
             "size_m": 16,

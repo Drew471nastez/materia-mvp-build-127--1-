@@ -1,4 +1,4 @@
-/* Templates round 24: Open Shade cart, with three short answers before paying. */
+/* Templates round 24: Paper Garden cart, with three short answers before paying. */
 {
   "sections": {
     "heading": {
@@ -71,7 +71,7 @@
         "faq_3": {
           "type": "faq",
           "settings": {
-            "question": "Buying for a photo club?",
+            "question": "Buying for an art group?",
             "answer": "<p>Group places for five or more are cheaper. Write to us from the contact page.</p>"
           }
         },

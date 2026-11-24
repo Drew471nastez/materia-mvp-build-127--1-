@@ -22,13 +22,13 @@
           "type": "store_info",
           "settings": {
             "show_logo": false,
-            "store_heading": "Lights Out",
+            "store_heading": "Windowsill",
             "image_width": 110,
             "store_email": true,
             "store_phone": false,
             "store_address": false,
             "content_width": "33%",
-            "store_description": "<p>A practical guide to sleeping well, by Owen Kessler. Ebook in PDF and EPUB, with an audiobook and a printable sleep diary.</p>"
+            "store_description": "<p>Keep Them Alive, a houseplant care guide by Maren Holt. Ebook in PDF and EPUB, with an audiobook and printable care cards.</p>"
           }
         },
         "link_list_2": {
@@ -51,8 +51,8 @@
           "type": "newsletter",
           "settings": {
             "note": "",
-            "heading": "The sleep letter",
-            "description": "One short email every other week with one thing to try tonight. Free.",
+            "heading": "The plant letter",
+            "description": "One short email every other week with one thing to check on your plants. Free.",
             "button_label": "Sign up",
             "content_width": "33%",
             "email_placeholder": "Your email"
