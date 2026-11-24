@@ -1,7 +1,7 @@
 
 <!doctype html>
 <html class="no-js" lang="en" dir="ltr">
-<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/outerwear/a/cart.cfffefe423b0.json";
+<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/outerwear/a/cart.e1d34ce094ac.json",WISH_DATA="/theme-previews/outerwear/a/wishlist.c17b3db37856.json";
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
@@ -86,6 +86,8 @@ if(D.readyState==="loading")D.addEventListener("DOMContentLoaded",arrive);else a
 
 if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);if(mine(u))return F.apply(this,arguments);
 /* Cards round 24: the cart answers from the template's drawn cart (./theme-templates/preview-cart.ts), as a store would. */
+/* Round 25: the wishlist page asks for its saved products' cards; every product's card is in WISH_DATA and the theme keeps the saved ones. */
+if(WISH_DATA&&/\/search$/.test(path(u))&&/[?&]section_id=/.test(u))return F(WISH_DATA).then(function(r){return r.json()}).then(function(d){return new Response(d.html,{status:200,headers:{"Content-Type":"text/html"}})});
 var p=path(u),q=/[?&]sections=/.test(u),c=/\/cart(\.js|\.json|\/(add|change|update|clear)(\.js)?)$/.test(p);if(CART_DATA&&(c||q)){var w=c?cartReply(p,o):sectionsReply(u);return w.then(function(r){return new Response(JSON.stringify(r[1]),{status:r[0],headers:{"Content-Type":"application/json"}})},function(){var r=reply(u);return new Response(r[2],{status:r[0],headers:{"Content-Type":r[1]}})})}
 var r=reply(u);return Promise.resolve(new Response(r[2],{status:r[0],headers:{"Content-Type":r[1]}}))};
 var X=W.XMLHttpRequest&&W.XMLHttpRequest.prototype;if(X){var O=X.open;X.open=function(m,u){var a=[].slice.call(arguments);if(!mine(u)){var r=reply(u);a[0]="GET";a[1]="data:"+r[1]+","+encodeURIComponent(r[2])}return O.apply(this,a)}}
@@ -207,9 +209,9 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
         } catch (e) {}
       })();
     </script>
-<link href="/theme-previews/_base/a/critical.03978b251a4f.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/animation.d0494c87fafa.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/product-card.9a3739dc0c4c.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"outline","product_size":15,"price_size":14,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
+<link href="/theme-previews/_base/a/critical.4539b38450ad.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/animation.ea82f84e3656.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/product-card.57905ba3cf39.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"outline","product_size":15,"price_size":14,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
 <style>html:not([data-card-custom='true']) .product-item .product-item__name { font-size:var(--body-font-size, 16px); text-transform:var(--heading-text-transform, none) !important; } html:not([data-card-custom='true']) .product-item .product-item__price { font-size:var(--body-font-size, 16px); }</style>
 <script>document.documentElement.dataset.cardCustom = false === true ? 'true' : 'false';</script>
 <script type="application/json" data-badge-style-settings>false</script>
@@ -599,6 +601,18 @@ href="/theme-previews/outerwear/blogs/news.html"
 </li>
 <li class="level0 hidden-1025">
 <a
+class="no-underline py-10 lh-normal flex border-bottom border-bottom-1025-0 min-h-55 min-h-1025-50 align-center"
+href="/theme-previews/outerwear/pages/wishlist.html"
+aria-label="Wishlist"
+>
+<svg width="17" height="15" viewBox="0 0 19 16" class="me-10" fill="none">
+<use href="#icon-wishlist-header" />
+</svg>
+Wishlist
+</a>
+</li>
+<li class="level0 hidden-1025">
+<a
 href="#" data-preview-inert
 class="no-underline py-10 lh-normal flex border-bottom border-bottom-1025-0 min-h-55 min-h-1025-50 align-center account-login"
 aria-label=" Login / Register"
@@ -767,6 +781,19 @@ aria-label="Log In"
 <use href="#icon-account" />
 </svg>
 Log In
+</a><a
+href="/theme-previews/outerwear/pages/wishlist.html"
+class="mobile-nav-actions__wishlist inline-flex align-center justify-content-center no-underline"
+aria-label="Wishlist"
+>
+<h-count class="relative lh-1 fs-0 inline-flex align-center justify-content-center">
+<svg width="19" height="16" viewBox="0 0 19 16" fill="none" aria-hidden="true">
+<use href="#icon-wishlist-header" />
+</svg>
+<span class="absolute lh-1 wishlist-count h-count inline-flex align-center justify-content-center rounded-50 overflow-hidden fs-10">
+0
+</span>
+</h-count>
 </a></div><div class="lang__currency-on-nav flex flex-wrap hidden-1025 border-top">
 <localization-form>
 <form id="localization-language-header" accept-charset="UTF-8" class="shopify-localization-form" data-preview-form><input type="hidden" name="form_type" value="localization"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="storelib_country" value="US">
@@ -981,6 +1008,22 @@ href="#" data-preview-inert
 aria-label="account"
 class="btn-reset pointer header-icon transition header-color header-action-text-btn inline-flex content-center header__icon-account header-color lh-1"
 ><span class="header-action-text">Account</span></a></div>
+<div class="header__wishlist hidden block-1025">
+<a
+href="/theme-previews/outerwear/pages/wishlist.html"
+class="header-icon header-color w-44 h-44 inline-flex content-center"
+aria-label="Wishlist"
+>
+<h-count class="relative lh-1 fs-0">
+<svg width="19" height="16" viewBox="0 0 19 16" fill="none">
+<use href="#icon-wishlist-header" />
+</svg>
+<span class="absolute lh-1 wishlist-count h-count inline-flex align-center justify-content-center rounded-50 overflow-hidden fs-10">
+0
+</span>
+</h-count>
+</a>
+</div>
 <div class="minicart">
 <div>
 <div
@@ -1472,13 +1515,12 @@ style="--animation-order: 1;  "
 draggable="false"
 href="/theme-previews/outerwear/products/cocoon-puffer.html"
 aria-label="Cocoon puffer"
-class="product__media product-item__media--ratio rounded block show_secondary"
+class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 3/4;"
 >
-<img src="/theme-previews/outerwear/a/outerwear-cocoon-puffer-bone.202f91480d0d.webp" srcset="/theme-previews/outerwear/a/outerwear-cocoon-puffer-bone.202f91480d0d.webp 720w, /theme-previews/outerwear/a/outerwear-cocoon-puffer-bone.202f91480d0d.webp 660w, /theme-previews/outerwear/a/outerwear-cocoon-puffer-bone.202f91480d0d.webp 550w, /theme-previews/outerwear/a/outerwear-cocoon-puffer-bone.202f91480d0d.webp 480w, /theme-previews/outerwear/a/outerwear-cocoon-puffer-bone-400.1869fac4671f.webp 330w, /theme-previews/outerwear/a/outerwear-cocoon-puffer-bone-400.1869fac4671f.webp 240w, /theme-previews/outerwear/a/outerwear-cocoon-puffer-bone-400.1869fac4671f.webp 185w" alt="Cocoon puffer" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1440px -  14px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 14px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image">
+<img src="/theme-previews/outerwear/a/outerwear-cocoon-puffer-bone.6a2b1ffcde95.webp" srcset="/theme-previews/outerwear/a/outerwear-cocoon-puffer-bone-800.7c2e884c7f68.webp 720w, /theme-previews/outerwear/a/outerwear-cocoon-puffer-bone-800.7c2e884c7f68.webp 660w, /theme-previews/outerwear/a/outerwear-cocoon-puffer-bone-800.7c2e884c7f68.webp 550w, /theme-previews/outerwear/a/outerwear-cocoon-puffer-bone-800.7c2e884c7f68.webp 480w, /theme-previews/outerwear/a/outerwear-cocoon-puffer-bone-400.73b64721d3ab.webp 330w, /theme-previews/outerwear/a/outerwear-cocoon-puffer-bone-400.73b64721d3ab.webp 240w, /theme-previews/outerwear/a/outerwear-cocoon-puffer-bone-400.73b64721d3ab.webp 185w" alt="Cocoon puffer" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1440px -  14px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 14px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image">
 <div class="loading_image skeleton">
 </div>
-<img src="/theme-previews/outerwear/a/outerwear-cocoon-puffer-bone-detail.77d03b3be581.webp" srcset="/theme-previews/outerwear/a/outerwear-cocoon-puffer-bone-detail.77d03b3be581.webp 720w, /theme-previews/outerwear/a/outerwear-cocoon-puffer-bone-detail.77d03b3be581.webp 660w, /theme-previews/outerwear/a/outerwear-cocoon-puffer-bone-detail.77d03b3be581.webp 550w, /theme-previews/outerwear/a/outerwear-cocoon-puffer-bone-detail.77d03b3be581.webp 480w, /theme-previews/outerwear/a/outerwear-cocoon-puffer-bone-detail-400.73136d41ba1d.webp 330w, /theme-previews/outerwear/a/outerwear-cocoon-puffer-bone-detail-400.73136d41ba1d.webp 240w, /theme-previews/outerwear/a/outerwear-cocoon-puffer-bone-detail-400.73136d41ba1d.webp 185w" alt="Cocoon puffer" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1440px -  14px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 14px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
@@ -1495,8 +1537,28 @@ data-show-preorder="true"
 data-sale-badge-type="percent"
 >
 </div>
+<div class="product-item__button-action pc-heart heading-color transition flex z-5">
+<button-wishlist
+tabindex="0"
+role="button"
+aria-pressed="false"
+aria-label="Add to wishlist: Cocoon puffer"
+class="product-item__button pointer product-item__button-wishlist tooltip relative transition rounded-50 p-0 shadow w-45 h-45 inline-flex content-center"
+data-product-id="00000000-0000-4000-8000-000000000011"
+data-product-handle="cocoon-puffer"
+data-action="remove"
+data-tooltip-remove="Remove from wishlist"
+data-tooltip-add="Add to wishlist"
+data-tooltip-redirect="Browse wishlist"
+>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+<use href="#icon-wishlist" />
+</svg>
+<span class="tooltip-content invisible rounded-3 absolute pointer-none tooltip-left">Add to wishlist</span>
+</button-wishlist>
 </div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible">
+</div>
+<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
 </div>
 </div>
 <div class="product-item__information word-break text-start mt-15">
@@ -1517,7 +1579,7 @@ $210.00
 </div>
 </div>
 </div>
-<product-form class="product-item__product-form pc-form--below hidden block-1025"><form id="quick-add-products00000000-0000-4000-8000-000000000011" accept-charset="UTF-8" class="form" novalidate="novalidate" data-type="add-to-cart-form" data-type="add-to-cart-form" data-preview-form><input type="hidden" name="form_type" value="product"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="product-id" value="00000000-0000-4000-8000-000000000011"><input
+<product-form class="product-item__product-form pc-form--below"><form id="quick-add-products00000000-0000-4000-8000-000000000011" accept-charset="UTF-8" class="form" novalidate="novalidate" data-type="add-to-cart-form" data-type="add-to-cart-form" data-preview-form><input type="hidden" name="form_type" value="product"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="product-id" value="00000000-0000-4000-8000-000000000011"><input
 type="hidden"
 name="id"
 value="00000000-0000-4000-8000-001100000001"
@@ -1568,13 +1630,12 @@ style="--animation-order: 2;  "
 draggable="false"
 href="/theme-previews/outerwear/products/quilted-vest.html"
 aria-label="Quilted vest"
-class="product__media product-item__media--ratio rounded block show_secondary"
+class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 3/4;"
 >
-<img src="/theme-previews/outerwear/a/outerwear-quilted-vest-black.6d7ba639cac2.webp" srcset="/theme-previews/outerwear/a/outerwear-quilted-vest-black.6d7ba639cac2.webp 720w, /theme-previews/outerwear/a/outerwear-quilted-vest-black.6d7ba639cac2.webp 660w, /theme-previews/outerwear/a/outerwear-quilted-vest-black.6d7ba639cac2.webp 550w, /theme-previews/outerwear/a/outerwear-quilted-vest-black.6d7ba639cac2.webp 480w, /theme-previews/outerwear/a/outerwear-quilted-vest-black-400.fcde4ba8016a.webp 330w, /theme-previews/outerwear/a/outerwear-quilted-vest-black-400.fcde4ba8016a.webp 240w, /theme-previews/outerwear/a/outerwear-quilted-vest-black-400.fcde4ba8016a.webp 185w" alt="Quilted vest" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1440px -  14px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 14px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image">
+<img src="/theme-previews/outerwear/a/outerwear-quilted-vest-black.ef7a8c6ecfb4.webp" srcset="/theme-previews/outerwear/a/outerwear-quilted-vest-black-800.4b928f5eb77b.webp 720w, /theme-previews/outerwear/a/outerwear-quilted-vest-black-800.4b928f5eb77b.webp 660w, /theme-previews/outerwear/a/outerwear-quilted-vest-black-800.4b928f5eb77b.webp 550w, /theme-previews/outerwear/a/outerwear-quilted-vest-black-800.4b928f5eb77b.webp 480w, /theme-previews/outerwear/a/outerwear-quilted-vest-black-400.ac21b75e7b03.webp 330w, /theme-previews/outerwear/a/outerwear-quilted-vest-black-400.ac21b75e7b03.webp 240w, /theme-previews/outerwear/a/outerwear-quilted-vest-black-400.ac21b75e7b03.webp 185w" alt="Quilted vest" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1440px -  14px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 14px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image">
 <div class="loading_image skeleton">
 </div>
-<img src="/theme-previews/outerwear/a/outerwear-quilted-vest-black-detail.e4d114ba4cd9.webp" srcset="/theme-previews/outerwear/a/outerwear-quilted-vest-black-detail.e4d114ba4cd9.webp 720w, /theme-previews/outerwear/a/outerwear-quilted-vest-black-detail.e4d114ba4cd9.webp 660w, /theme-previews/outerwear/a/outerwear-quilted-vest-black-detail.e4d114ba4cd9.webp 550w, /theme-previews/outerwear/a/outerwear-quilted-vest-black-detail.e4d114ba4cd9.webp 480w, /theme-previews/outerwear/a/outerwear-quilted-vest-black-detail-400.67b55db6ca85.webp 330w, /theme-previews/outerwear/a/outerwear-quilted-vest-black-detail-400.67b55db6ca85.webp 240w, /theme-previews/outerwear/a/outerwear-quilted-vest-black-detail-400.67b55db6ca85.webp 185w" alt="Quilted vest" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1440px -  14px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 14px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
@@ -1591,8 +1652,28 @@ data-show-preorder="true"
 data-sale-badge-type="percent"
 >
 </div>
+<div class="product-item__button-action pc-heart heading-color transition flex z-5">
+<button-wishlist
+tabindex="0"
+role="button"
+aria-pressed="false"
+aria-label="Add to wishlist: Quilted vest"
+class="product-item__button pointer product-item__button-wishlist tooltip relative transition rounded-50 p-0 shadow w-45 h-45 inline-flex content-center"
+data-product-id="00000000-0000-4000-8000-000000000012"
+data-product-handle="quilted-vest"
+data-action="remove"
+data-tooltip-remove="Remove from wishlist"
+data-tooltip-add="Add to wishlist"
+data-tooltip-redirect="Browse wishlist"
+>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+<use href="#icon-wishlist" />
+</svg>
+<span class="tooltip-content invisible rounded-3 absolute pointer-none tooltip-left">Add to wishlist</span>
+</button-wishlist>
 </div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible">
+</div>
+<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
 </div>
 </div>
 <div class="product-item__information word-break text-start mt-15">
@@ -1613,7 +1694,7 @@ $135.00
 </div>
 </div>
 </div>
-<product-form class="product-item__product-form pc-form--below hidden block-1025"><form id="quick-add-products00000000-0000-4000-8000-000000000012" accept-charset="UTF-8" class="form" novalidate="novalidate" data-type="add-to-cart-form" data-type="add-to-cart-form" data-preview-form><input type="hidden" name="form_type" value="product"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="product-id" value="00000000-0000-4000-8000-000000000012"><input
+<product-form class="product-item__product-form pc-form--below"><form id="quick-add-products00000000-0000-4000-8000-000000000012" accept-charset="UTF-8" class="form" novalidate="novalidate" data-type="add-to-cart-form" data-type="add-to-cart-form" data-preview-form><input type="hidden" name="form_type" value="product"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="product-id" value="00000000-0000-4000-8000-000000000012"><input
 type="hidden"
 name="id"
 value="00000000-0000-4000-8000-001200000001"
@@ -1664,13 +1745,12 @@ style="--animation-order: 3;  "
 draggable="false"
 href="/theme-previews/outerwear/products/lined-work-parka.html"
 aria-label="Lined work parka"
-class="product__media product-item__media--ratio rounded block show_secondary"
+class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 3/4;"
 >
-<img src="/theme-previews/outerwear/a/outerwear-work-parka-rust.5d45a783c239.webp" srcset="/theme-previews/outerwear/a/outerwear-work-parka-rust.5d45a783c239.webp 720w, /theme-previews/outerwear/a/outerwear-work-parka-rust.5d45a783c239.webp 660w, /theme-previews/outerwear/a/outerwear-work-parka-rust.5d45a783c239.webp 550w, /theme-previews/outerwear/a/outerwear-work-parka-rust.5d45a783c239.webp 480w, /theme-previews/outerwear/a/outerwear-work-parka-rust-400.56599aee8920.webp 330w, /theme-previews/outerwear/a/outerwear-work-parka-rust-400.56599aee8920.webp 240w, /theme-previews/outerwear/a/outerwear-work-parka-rust-400.56599aee8920.webp 185w" alt="Lined work parka" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1440px -  14px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 14px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image">
+<img src="/theme-previews/outerwear/a/outerwear-work-parka-rust.3544b086b45f.webp" srcset="/theme-previews/outerwear/a/outerwear-work-parka-rust-800.e5beecf3e6fc.webp 720w, /theme-previews/outerwear/a/outerwear-work-parka-rust-800.e5beecf3e6fc.webp 660w, /theme-previews/outerwear/a/outerwear-work-parka-rust-800.e5beecf3e6fc.webp 550w, /theme-previews/outerwear/a/outerwear-work-parka-rust-800.e5beecf3e6fc.webp 480w, /theme-previews/outerwear/a/outerwear-work-parka-rust-400.e607d4102758.webp 330w, /theme-previews/outerwear/a/outerwear-work-parka-rust-400.e607d4102758.webp 240w, /theme-previews/outerwear/a/outerwear-work-parka-rust-400.e607d4102758.webp 185w" alt="Lined work parka" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((1440px -  14px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 14px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="product-image first-image bls-loaded-image">
 <div class="loading_image skeleton">
 </div>
-<img src="/theme-previews/outerwear/a/outerwear-work-parka-rust-detail.cac3b413f6f3.webp" srcset="/theme-previews/outerwear/a/outerwear-work-parka-rust-detail.cac3b413f6f3.webp 720w, /theme-previews/outerwear/a/outerwear-work-parka-rust-detail.cac3b413f6f3.webp 660w, /theme-previews/outerwear/a/outerwear-work-parka-rust-detail.cac3b413f6f3.webp 550w, /theme-previews/outerwear/a/outerwear-work-parka-rust-detail.cac3b413f6f3.webp 480w, /theme-previews/outerwear/a/outerwear-work-parka-rust-detail-400.b51889291bfa.webp 330w, /theme-previews/outerwear/a/outerwear-work-parka-rust-detail-400.b51889291bfa.webp 240w, /theme-previews/outerwear/a/outerwear-work-parka-rust-detail-400.b51889291bfa.webp 185w" alt="Lined work parka" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1440px -  14px * 4) * 0.2), (min-width: 768px) calc( (100vw - 30px - 14px * 3 ) * 0.25), calc( (100vw - 30px - 10px * 1 ) * 0.5)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
@@ -1690,8 +1770,28 @@ class="product__badges-sale product__badges-type-percent product__badges-inner a
 >-16%
 </div>
 </div>
+<div class="product-item__button-action pc-heart heading-color transition flex z-5">
+<button-wishlist
+tabindex="0"
+role="button"
+aria-pressed="false"
+aria-label="Add to wishlist: Lined work parka"
+class="product-item__button pointer product-item__button-wishlist tooltip relative transition rounded-50 p-0 shadow w-45 h-45 inline-flex content-center"
+data-product-id="00000000-0000-4000-8000-000000000013"
+data-product-handle="lined-work-parka"
+data-action="remove"
+data-tooltip-remove="Remove from wishlist"
+data-tooltip-add="Add to wishlist"
+data-tooltip-redirect="Browse wishlist"
+>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+<use href="#icon-wishlist" />
+</svg>
+<span class="tooltip-content invisible rounded-3 absolute pointer-none tooltip-left">Add to wishlist</span>
+</button-wishlist>
 </div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible">
+</div>
+<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
 </div>
 </div>
 <div class="product-item__information word-break text-start mt-15">
@@ -1716,7 +1816,7 @@ $185.00
 </div>
 </div>
 </div>
-<product-form class="product-item__product-form pc-form--below hidden block-1025"><form id="quick-add-products00000000-0000-4000-8000-000000000013" accept-charset="UTF-8" class="form" novalidate="novalidate" data-type="add-to-cart-form" data-type="add-to-cart-form" data-preview-form><input type="hidden" name="form_type" value="product"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="product-id" value="00000000-0000-4000-8000-000000000013"><input
+<product-form class="product-item__product-form pc-form--below"><form id="quick-add-products00000000-0000-4000-8000-000000000013" accept-charset="UTF-8" class="form" novalidate="novalidate" data-type="add-to-cart-form" data-type="add-to-cart-form" data-preview-form><input type="hidden" name="form_type" value="product"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="product-id" value="00000000-0000-4000-8000-000000000013"><input
 type="hidden"
 name="id"
 value="00000000-0000-4000-8000-001300000001"
@@ -2331,7 +2431,7 @@ Sign up
 <button type="button" class="cpnb-code-coupon_promotion_newsletter_popup" data-code="STRATA10" aria-label="Copy coupon code">STRATA10</button>
 </div></div>
 </div><div class="cpnb-image-coupon_promotion_newsletter_popup" data-pg-block="image" data-pg-type="image" data-pg-i18n="Promotion image" data-block-id="image">
-<template data-pg-ph><svg class="cpnb-placeholder" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 525.5 525.5" preserveAspectRatio="xMidYMid slice" role="img" aria-label="image"><rect width="525.5" height="525.5" fill="currentColor" opacity=".06"/><path d="M175 200h175v125H175z M200 300l35-45 30 35 25-25 35 35z" fill="none" stroke="currentColor" stroke-width="6" opacity=".35"/><circle cx="305" cy="235" r="14" fill="currentColor" opacity=".25"/></svg></template><img src="/theme-previews/outerwear/a/outerwear-night-layers.2cf4bbbfe830.webp" srcset="/theme-previews/outerwear/a/outerwear-night-layers-400.6e75620a7407.webp 352w, /theme-previews/outerwear/a/outerwear-night-layers.2cf4bbbfe830.webp 832w, /theme-previews/outerwear/a/outerwear-night-layers.2cf4bbbfe830.webp 1200w, /theme-previews/outerwear/a/outerwear-night-layers.2cf4bbbfe830.webp 1600w, /theme-previews/outerwear/a/outerwear-night-layers.2cf4bbbfe830.webp 2400w" alt="A woman in a dark puffer jacket under red light" loading="lazy"></div></div>
+<template data-pg-ph><svg class="cpnb-placeholder" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 525.5 525.5" preserveAspectRatio="xMidYMid slice" role="img" aria-label="image"><rect width="525.5" height="525.5" fill="currentColor" opacity=".06"/><path d="M175 200h175v125H175z M200 300l35-45 30 35 25-25 35 35z" fill="none" stroke="currentColor" stroke-width="6" opacity=".35"/><circle cx="305" cy="235" r="14" fill="currentColor" opacity=".25"/></svg></template><img src="/theme-previews/outerwear/a/outerwear-night-layers.8822629c4128.webp" srcset="/theme-previews/outerwear/a/outerwear-night-layers-400.c13c95fcd246.webp 352w, /theme-previews/outerwear/a/outerwear-night-layers.8822629c4128.webp 832w, /theme-previews/outerwear/a/outerwear-night-layers.8822629c4128.webp 1200w, /theme-previews/outerwear/a/outerwear-night-layers.8822629c4128.webp 1600w, /theme-previews/outerwear/a/outerwear-night-layers.8822629c4128.webp 2400w" alt="A woman in a dark puffer jacket under red light" loading="lazy"></div></div>
 </div>
 </dialog>
 </section>
@@ -2530,7 +2630,7 @@ Continue Shopping
 <div class="overlayminicart">
 </div>
 <script src="/theme-previews/outerwear/a/i.f50d71910c82.js"></script>
-<script src="/theme-previews/_base/a/animation.7fa50ded717b.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/animation.f51a19fde607.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/tingle-min.9664ca3641cf.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/cart-discount.6748c8dd9657.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/theme.7a7dd8f80f89.js"  defer="defer" type="module"></script>

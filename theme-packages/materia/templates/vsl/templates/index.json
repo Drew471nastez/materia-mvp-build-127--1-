@@ -14,7 +14,7 @@
         "show_video": true,
         "poster": "shopify://shop_images/vsl-video-poster.webp",
         "poster_alt": "A creator sitting on the floor, talking to a camera on a tripod",
-        "poster_grey": true,
+        "poster_grey": false,
         "length_label": "7 min",
         "video_title": "Watch the course introduction",
         "play_label": "Play the introduction",

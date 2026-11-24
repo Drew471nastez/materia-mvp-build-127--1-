@@ -76,7 +76,7 @@
         "action_text_weight": "500",
         "logo_width_desktop": 150,
         "show_shopping_cart": true,
-        "show_wishlist_icon": false,
+        "show_wishlist_icon": true,
         "sticky_header_type": "on-scroll-up",
         "transparent_header": true,
         "transparent_mobile": false,

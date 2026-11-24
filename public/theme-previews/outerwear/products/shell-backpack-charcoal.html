@@ -1,7 +1,7 @@
 
 <!doctype html>
 <html class="no-js" lang="en" dir="ltr">
-<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/outerwear/a/cart.cfffefe423b0.json";
+<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/outerwear/a/cart.e1d34ce094ac.json",WISH_DATA="/theme-previews/outerwear/a/wishlist.c17b3db37856.json";
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
@@ -86,6 +86,8 @@ if(D.readyState==="loading")D.addEventListener("DOMContentLoaded",arrive);else a
 
 if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);if(mine(u))return F.apply(this,arguments);
 /* Cards round 24: the cart answers from the template's drawn cart (./theme-templates/preview-cart.ts), as a store would. */
+/* Round 25: the wishlist page asks for its saved products' cards; every product's card is in WISH_DATA and the theme keeps the saved ones. */
+if(WISH_DATA&&/\/search$/.test(path(u))&&/[?&]section_id=/.test(u))return F(WISH_DATA).then(function(r){return r.json()}).then(function(d){return new Response(d.html,{status:200,headers:{"Content-Type":"text/html"}})});
 var p=path(u),q=/[?&]sections=/.test(u),c=/\/cart(\.js|\.json|\/(add|change|update|clear)(\.js)?)$/.test(p);if(CART_DATA&&(c||q)){var w=c?cartReply(p,o):sectionsReply(u);return w.then(function(r){return new Response(JSON.stringify(r[1]),{status:r[0],headers:{"Content-Type":"application/json"}})},function(){var r=reply(u);return new Response(r[2],{status:r[0],headers:{"Content-Type":r[1]}})})}
 var r=reply(u);return Promise.resolve(new Response(r[2],{status:r[0],headers:{"Content-Type":r[1]}}))};
 var X=W.XMLHttpRequest&&W.XMLHttpRequest.prototype;if(X){var O=X.open;X.open=function(m,u){var a=[].slice.call(arguments);if(!mine(u)){var r=reply(u);a[0]="GET";a[1]="data:"+r[1]+","+encodeURIComponent(r[2])}return O.apply(this,a)}}
@@ -208,9 +210,9 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
         } catch (e) {}
       })();
     </script>
-<link href="/theme-previews/_base/a/critical.03978b251a4f.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/animation.d0494c87fafa.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/product-card.9a3739dc0c4c.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"outline","product_size":15,"price_size":14,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
+<link href="/theme-previews/_base/a/critical.4539b38450ad.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/animation.ea82f84e3656.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/product-card.57905ba3cf39.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"outline","product_size":15,"price_size":14,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
 <style>html:not([data-card-custom='true']) .product-item .product-item__name { font-size:var(--body-font-size, 16px); text-transform:var(--heading-text-transform, none) !important; } html:not([data-card-custom='true']) .product-item .product-item__price { font-size:var(--body-font-size, 16px); }</style>
 <script>document.documentElement.dataset.cardCustom = false === true ? 'true' : 'false';</script>
 <script type="application/json" data-badge-style-settings>false</script>
@@ -601,6 +603,18 @@ href="/theme-previews/outerwear/blogs/news.html"
 </li>
 <li class="level0 hidden-1025">
 <a
+class="no-underline py-10 lh-normal flex border-bottom border-bottom-1025-0 min-h-55 min-h-1025-50 align-center"
+href="/theme-previews/outerwear/pages/wishlist.html"
+aria-label="Wishlist"
+>
+<svg width="17" height="15" viewBox="0 0 19 16" class="me-10" fill="none">
+<use href="#icon-wishlist-header" />
+</svg>
+Wishlist
+</a>
+</li>
+<li class="level0 hidden-1025">
+<a
 href="#" data-preview-inert
 class="no-underline py-10 lh-normal flex border-bottom border-bottom-1025-0 min-h-55 min-h-1025-50 align-center account-login"
 aria-label=" Login / Register"
@@ -769,6 +783,19 @@ aria-label="Log In"
 <use href="#icon-account" />
 </svg>
 Log In
+</a><a
+href="/theme-previews/outerwear/pages/wishlist.html"
+class="mobile-nav-actions__wishlist inline-flex align-center justify-content-center no-underline"
+aria-label="Wishlist"
+>
+<h-count class="relative lh-1 fs-0 inline-flex align-center justify-content-center">
+<svg width="19" height="16" viewBox="0 0 19 16" fill="none" aria-hidden="true">
+<use href="#icon-wishlist-header" />
+</svg>
+<span class="absolute lh-1 wishlist-count h-count inline-flex align-center justify-content-center rounded-50 overflow-hidden fs-10">
+0
+</span>
+</h-count>
 </a></div><div class="lang__currency-on-nav flex flex-wrap hidden-1025 border-top">
 <localization-form>
 <form id="localization-language-header" accept-charset="UTF-8" class="shopify-localization-form" data-preview-form><input type="hidden" name="form_type" value="localization"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="storelib_country" value="US">
@@ -983,6 +1010,22 @@ href="#" data-preview-inert
 aria-label="account"
 class="btn-reset pointer header-icon transition header-color header-action-text-btn inline-flex content-center header__icon-account header-color lh-1"
 ><span class="header-action-text">Account</span></a></div>
+<div class="header__wishlist hidden block-1025">
+<a
+href="/theme-previews/outerwear/pages/wishlist.html"
+class="header-icon header-color w-44 h-44 inline-flex content-center"
+aria-label="Wishlist"
+>
+<h-count class="relative lh-1 fs-0">
+<svg width="19" height="16" viewBox="0 0 19 16" fill="none">
+<use href="#icon-wishlist-header" />
+</svg>
+<span class="absolute lh-1 wishlist-count h-count inline-flex align-center justify-content-center rounded-50 overflow-hidden fs-10">
+0
+</span>
+</h-count>
+</a>
+</div>
 <div class="minicart">
 <div>
 <div
@@ -1130,7 +1173,7 @@ data-mt-video="autoplay"
 data-mt-media-viewer
 data-mt-product-id="00000000-0000-4000-8000-000000000018"
 data-mt-gallery-config="thumbnail|hidden_thumbnail|hidden_thumbnail|1|open_lightbox|inner-1|true|true|false||true||true|true"
-data-mt-gallery-media="[{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.8deef98d5ea3.webp&quot;,&quot;url&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.8deef98d5ea3.webp&quot;,&quot;alt&quot;:&quot;Shell backpack, charcoal&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.8deef98d5ea3.webp&quot;,&quot;url&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.8deef98d5ea3.webp&quot;,&quot;alt&quot;:&quot;Shell backpack, charcoal&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.8deef98d5ea3.webp&quot;,&quot;url&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.8deef98d5ea3.webp&quot;,&quot;alt&quot;:&quot;Shell backpack, charcoal&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.8deef98d5ea3.webp&quot;,&quot;url&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.8deef98d5ea3.webp&quot;,&quot;alt&quot;:&quot;Shell backpack, charcoal&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.8deef98d5ea3.webp&quot;,&quot;url&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.8deef98d5ea3.webp&quot;,&quot;alt&quot;:&quot;Shell backpack, charcoal&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.8deef98d5ea3.webp&quot;,&quot;url&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.8deef98d5ea3.webp&quot;,&quot;alt&quot;:&quot;Shell backpack, charcoal&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:null,&quot;y&quot;:null}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.8deef98d5ea3.webp&quot;,&quot;url&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.8deef98d5ea3.webp&quot;,&quot;alt&quot;:&quot;Shell backpack, charcoal&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:null},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:null},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:null,&quot;src&quot;:null,&quot;url&quot;:null,&quot;alt&quot;:null,&quot;width&quot;:null,&quot;height&quot;:null,&quot;aspect_ratio&quot;:null,&quot;media_type&quot;:null,&quot;position&quot;:null,&quot;presentation&quot;:null,&quot;attached_to_variant&quot;:null,&quot;variants&quot;:null,&quot;preview_image&quot;:null}}}}}}}},{&quot;id&quot;:1001,&quot;src&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-detail.13ff50a79ff8.webp&quot;,&quot;url&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-detail.13ff50a79ff8.webp&quot;,&quot;alt&quot;:&quot;Shell backpack, charcoal&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:2,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1001,&quot;src&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-detail.13ff50a79ff8.webp&quot;,&quot;url&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-detail.13ff50a79ff8.webp&quot;,&quot;alt&quot;:&quot;Shell backpack, charcoal&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:2,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1001,&quot;src&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-detail.13ff50a79ff8.webp&quot;,&quot;url&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-detail.13ff50a79ff8.webp&quot;,&quot;alt&quot;:&quot;Shell backpack, charcoal&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:2,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1001,&quot;src&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-detail.13ff50a79ff8.webp&quot;,&quot;url&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-detail.13ff50a79ff8.webp&quot;,&quot;alt&quot;:&quot;Shell backpack, charcoal&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:2,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1001,&quot;src&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-detail.13ff50a79ff8.webp&quot;,&quot;url&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-detail.13ff50a79ff8.webp&quot;,&quot;alt&quot;:&quot;Shell backpack, charcoal&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:2,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1001,&quot;src&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-detail.13ff50a79ff8.webp&quot;,&quot;url&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-detail.13ff50a79ff8.webp&quot;,&quot;alt&quot;:&quot;Shell backpack, charcoal&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:2,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:null,&quot;y&quot;:null}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1001,&quot;src&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-detail.13ff50a79ff8.webp&quot;,&quot;url&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-detail.13ff50a79ff8.webp&quot;,&quot;alt&quot;:&quot;Shell backpack, charcoal&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:null},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:2,&quot;presentation&quot;:{&quot;focal_point&quot;:null},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:null,&quot;src&quot;:null,&quot;url&quot;:null,&quot;alt&quot;:null,&quot;width&quot;:null,&quot;height&quot;:null,&quot;aspect_ratio&quot;:null,&quot;media_type&quot;:null,&quot;position&quot;:null,&quot;presentation&quot;:null,&quot;attached_to_variant&quot;:null,&quot;variants&quot;:null,&quot;preview_image&quot;:null}}}}}}}}]"
+data-mt-gallery-media="[{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.edc98507126a.webp&quot;,&quot;url&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.edc98507126a.webp&quot;,&quot;alt&quot;:&quot;Shell backpack, charcoal&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.edc98507126a.webp&quot;,&quot;url&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.edc98507126a.webp&quot;,&quot;alt&quot;:&quot;Shell backpack, charcoal&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.edc98507126a.webp&quot;,&quot;url&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.edc98507126a.webp&quot;,&quot;alt&quot;:&quot;Shell backpack, charcoal&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.edc98507126a.webp&quot;,&quot;url&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.edc98507126a.webp&quot;,&quot;alt&quot;:&quot;Shell backpack, charcoal&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.edc98507126a.webp&quot;,&quot;url&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.edc98507126a.webp&quot;,&quot;alt&quot;:&quot;Shell backpack, charcoal&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.edc98507126a.webp&quot;,&quot;url&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.edc98507126a.webp&quot;,&quot;alt&quot;:&quot;Shell backpack, charcoal&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:null,&quot;y&quot;:null}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.edc98507126a.webp&quot;,&quot;url&quot;:&quot;/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.edc98507126a.webp&quot;,&quot;alt&quot;:&quot;Shell backpack, charcoal&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:null},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:null},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:null,&quot;src&quot;:null,&quot;url&quot;:null,&quot;alt&quot;:null,&quot;width&quot;:null,&quot;height&quot;:null,&quot;aspect_ratio&quot;:null,&quot;media_type&quot;:null,&quot;position&quot;:null,&quot;presentation&quot;:null,&quot;attached_to_variant&quot;:null,&quot;variants&quot;:null,&quot;preview_image&quot;:null}}}}}}}}]"
 data-mt-lightbox
 >
 <zoom-action
@@ -1146,7 +1189,7 @@ data-mobile="1"
 data-tablet="1"
 data-desktop="1"
 data-thumb-direction="horizontal"
-data-thumb-slides-per-view="4"
+data-thumb-slides-per-view="4"data-nothumb="true"
 data-auto-play-video="true"
 >
 <div class="media-main-swiper skeleton-loading">
@@ -1157,56 +1200,19 @@ tabindex="0" role="button" aria-label="Shell backpack, charcoal"
 class="media-gallery__image  swiper-slide media-item rounded-5 pointer"
 data-position="1"
 data-media-id="main-1000"
-data-mt-src="/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.8deef98d5ea3.webp"
+data-mt-src="/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.edc98507126a.webp"
 data-pswp-width="1600"
 data-pswp-height="1600"
 data-cropped="true"
 style="--aspect-ratio: 3/4"
 data-pane-container
 >
-<img src="/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.8deef98d5ea3.webp" srcset="/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.8deef98d5ea3.webp 720w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.8deef98d5ea3.webp 660w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.8deef98d5ea3.webp 550w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.8deef98d5ea3.webp 480w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-400.c61efe801b5f.webp 330w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-400.c61efe801b5f.webp 240w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-400.c61efe801b5f.webp 185w" alt="Shell backpack, charcoal" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="drift-trigger bls-loaded-image">
+<img src="/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.edc98507126a.webp" srcset="/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-800.93bfd724eee1.webp 720w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-800.93bfd724eee1.webp 660w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-800.93bfd724eee1.webp 550w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-800.93bfd724eee1.webp 480w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-400.9344fbf862c6.webp 330w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-400.9344fbf862c6.webp 240w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-400.9344fbf862c6.webp 185w" alt="Shell backpack, charcoal" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="drift-trigger bls-loaded-image">
 <div class="loading_image skeleton">
 </div>
 </a>
-<a
-tabindex="0" role="button" aria-label="Shell backpack, charcoal"
-class="media-gallery__image  swiper-slide media-item rounded-5 pointer"
-data-position="2"
-data-media-id="main-1001"
-data-mt-src="/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-detail.13ff50a79ff8.webp"
-data-pswp-width="1600"
-data-pswp-height="1600"
-data-cropped="true"
-style="--aspect-ratio: 3/4"
-data-pane-container
->
-<img src="/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-detail.13ff50a79ff8.webp" srcset="/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-detail.13ff50a79ff8.webp 720w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-detail.13ff50a79ff8.webp 660w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-detail.13ff50a79ff8.webp 550w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-detail.13ff50a79ff8.webp 480w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-detail-400.13b6b3a37598.webp 330w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-detail-400.13b6b3a37598.webp 240w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-detail-400.13b6b3a37598.webp 185w" alt="Shell backpack, charcoal" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="drift-trigger bls-loaded-image bls-loading-image">
-<div class="loading_image skeleton">
+</div></div>
 </div>
-</a>
-</div><div
-class="swiper-actions flex block-md content-center gap-10 mb-30 mb-md-0 main-slide__navigation "
->
-<div
-class="swiper-arrow swiper-arrow--prev main-slide__navigation transition swiper-button-prev bg-white btn-hover inline-flex content-center border  rounded-50 overflow-hidden"
->
-<svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-<use href="#icon-slider-prev" />
-</svg>
-</div>
-<div
-class="swiper-arrow swiper-arrow--next main-slide__navigation transition swiper-button-next bg-white btn-hover inline-flex content-center border  rounded-50 overflow-hidden"
->
-<svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-<use href="#icon-slider-next" />
-</svg>
-</div>
-</div>
-</div>
-</div>
-<div
-class="swiper-pagination hidden-md"
-></div>
 </slide-with-thumbs>
 </zoom-action>
 </media-gallery>
@@ -1528,13 +1534,12 @@ style=""
 draggable="false"
 href="/theme-previews/outerwear/products/shell-backpack-charcoal.html"
 aria-label="Shell backpack, charcoal"
-class="product__media product-item__media--ratio rounded block show_secondary"
+class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 3/4;"
 >
-<img src="/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.8deef98d5ea3.webp" srcset="/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.8deef98d5ea3.webp 720w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.8deef98d5ea3.webp 660w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.8deef98d5ea3.webp 550w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.8deef98d5ea3.webp 480w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-400.c61efe801b5f.webp 330w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-400.c61efe801b5f.webp 240w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-400.c61efe801b5f.webp 185w" alt="Shell backpack, charcoal" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.edc98507126a.webp" srcset="/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-800.93bfd724eee1.webp 720w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-800.93bfd724eee1.webp 660w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-800.93bfd724eee1.webp 550w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-800.93bfd724eee1.webp 480w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-400.9344fbf862c6.webp 330w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-400.9344fbf862c6.webp 240w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-400.9344fbf862c6.webp 185w" alt="Shell backpack, charcoal" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
-<img src="/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-detail.13ff50a79ff8.webp" srcset="/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-detail.13ff50a79ff8.webp 720w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-detail.13ff50a79ff8.webp 660w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-detail.13ff50a79ff8.webp 550w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-detail.13ff50a79ff8.webp 480w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-detail-400.13b6b3a37598.webp 330w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-detail-400.13b6b3a37598.webp 240w, /theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-detail-400.13b6b3a37598.webp 185w" alt="Shell backpack, charcoal" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
 </a><div class="pc-corner" data-pc-corner>
 </div>
 </div>
@@ -1618,7 +1623,7 @@ style="--btn-padding-x: 2.5rem;"
       data-product-json
       class="productJson"
     >
-      {"id":"00000000-0000-4000-8000-000000000018","title":"Shell backpack, charcoal","handle":"shell-backpack-charcoal","description":"<p>A moulded shell backpack with a padded laptop sleeve, a water repellent face and a top grab handle. Holds 18 litres.<\/p>","published_at":null,"created_at":null,"vendor":"","type":"","tags":[],"price":12000,"price_min":12000,"price_max":12000,"available":true,"price_varies":false,"compare_at_price":null,"compare_at_price_min":0,"compare_at_price_max":0,"compare_at_price_varies":false,"variants":[{"id":"00000000-0000-4000-8000-000000000018","title":"Default Title","option1":"Default Title","option2":null,"option3":null,"sku":"","requires_shipping":true,"taxable":true,"featured_image":null,"available":true,"name":"Shell backpack, charcoal","public_title":null,"options":["Default Title"],"price":12000,"weight":0,"compare_at_price":null,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}}],"images":["/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.8deef98d5ea3.webp","/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-detail.13ff50a79ff8.webp"],"featured_image":"/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.8deef98d5ea3.webp","options":["Title"],"media":[{"alt":"Shell backpack, charcoal","id":1000,"position":1,"preview_image":{"aspect_ratio":1,"height":1600,"width":1600,"src":"/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.8deef98d5ea3.webp"},"aspect_ratio":1,"height":1600,"media_type":"image","src":"/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.8deef98d5ea3.webp","width":1600},{"alt":"Shell backpack, charcoal","id":1001,"position":2,"preview_image":{"aspect_ratio":1,"height":1600,"width":1600,"src":"/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-detail.13ff50a79ff8.webp"},"aspect_ratio":1,"height":1600,"media_type":"image","src":"/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal-detail.13ff50a79ff8.webp","width":1600}],"requires_selling_plan":false,"selling_plan_groups":[],"content":"<p>A moulded shell backpack with a padded laptop sleeve, a water repellent face and a top grab handle. Holds 18 litres.<\/p>"}
+      {"id":"00000000-0000-4000-8000-000000000018","title":"Shell backpack, charcoal","handle":"shell-backpack-charcoal","description":"<p>A moulded shell backpack with a padded laptop sleeve, a water repellent face and a top grab handle. Holds 18 litres.<\/p>","published_at":null,"created_at":null,"vendor":"","type":"","tags":[],"price":12000,"price_min":12000,"price_max":12000,"available":true,"price_varies":false,"compare_at_price":null,"compare_at_price_min":0,"compare_at_price_max":0,"compare_at_price_varies":false,"variants":[{"id":"00000000-0000-4000-8000-000000000018","title":"Default Title","option1":"Default Title","option2":null,"option3":null,"sku":"","requires_shipping":true,"taxable":true,"featured_image":null,"available":true,"name":"Shell backpack, charcoal","public_title":null,"options":["Default Title"],"price":12000,"weight":0,"compare_at_price":null,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}}],"images":["/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.edc98507126a.webp"],"featured_image":"/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.edc98507126a.webp","options":["Title"],"media":[{"alt":"Shell backpack, charcoal","id":1000,"position":1,"preview_image":{"aspect_ratio":1,"height":1600,"width":1600,"src":"/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.edc98507126a.webp"},"aspect_ratio":1,"height":1600,"media_type":"image","src":"/theme-previews/outerwear/a/outerwear-shell-backpack-charcoal.edc98507126a.webp","width":1600}],"requires_selling_plan":false,"selling_plan_groups":[],"content":"<p>A moulded shell backpack with a padded laptop sleeve, a water repellent face and a top grab handle. Holds 18 litres.<\/p>"}
     </script><script type="application/json" data-variant-media>
   {"00000000-0000-4000-8000-000000000018": { "id": "", "src": "" }}
 </script><script>
@@ -1737,10 +1742,10 @@ aria-label="Merino crew"
 class="product__media product-item__media--ratio rounded block show_secondary"
 style="--aspect-ratio: 3/4;"
 >
-<img src="/theme-previews/outerwear/a/outerwear-merino-crew-black.2ecf117d0dc7.webp" srcset="/theme-previews/outerwear/a/outerwear-merino-crew-black.2ecf117d0dc7.webp 720w, /theme-previews/outerwear/a/outerwear-merino-crew-black.2ecf117d0dc7.webp 660w, /theme-previews/outerwear/a/outerwear-merino-crew-black.2ecf117d0dc7.webp 550w, /theme-previews/outerwear/a/outerwear-merino-crew-black.2ecf117d0dc7.webp 480w, /theme-previews/outerwear/a/outerwear-merino-crew-black-400.8dc453e7201d.webp 330w, /theme-previews/outerwear/a/outerwear-merino-crew-black-400.8dc453e7201d.webp 240w, /theme-previews/outerwear/a/outerwear-merino-crew-black-400.8dc453e7201d.webp 185w" alt="Merino crew" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/outerwear/a/outerwear-merino-crew-black.86e2ad360eec.webp" srcset="/theme-previews/outerwear/a/outerwear-merino-crew-black-800.b804da658f83.webp 720w, /theme-previews/outerwear/a/outerwear-merino-crew-black-800.b804da658f83.webp 660w, /theme-previews/outerwear/a/outerwear-merino-crew-black-800.b804da658f83.webp 550w, /theme-previews/outerwear/a/outerwear-merino-crew-black-800.b804da658f83.webp 480w, /theme-previews/outerwear/a/outerwear-merino-crew-black-400.9d46431433c3.webp 330w, /theme-previews/outerwear/a/outerwear-merino-crew-black-400.9d46431433c3.webp 240w, /theme-previews/outerwear/a/outerwear-merino-crew-black-400.9d46431433c3.webp 185w" alt="Merino crew" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
-<img src="/theme-previews/outerwear/a/outerwear-merino-crew-black-detail.c52a1aa4172d.webp" srcset="/theme-previews/outerwear/a/outerwear-merino-crew-black-detail.c52a1aa4172d.webp 720w, /theme-previews/outerwear/a/outerwear-merino-crew-black-detail.c52a1aa4172d.webp 660w, /theme-previews/outerwear/a/outerwear-merino-crew-black-detail.c52a1aa4172d.webp 550w, /theme-previews/outerwear/a/outerwear-merino-crew-black-detail.c52a1aa4172d.webp 480w, /theme-previews/outerwear/a/outerwear-merino-crew-black-detail-400.0d2825bd5ace.webp 330w, /theme-previews/outerwear/a/outerwear-merino-crew-black-detail-400.0d2825bd5ace.webp 240w, /theme-previews/outerwear/a/outerwear-merino-crew-black-detail-400.0d2825bd5ace.webp 185w" alt="Merino crew" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/outerwear/a/outerwear-merino-crew-black-close.b7bc8584a3ec.webp" srcset="/theme-previews/outerwear/a/outerwear-merino-crew-black-close-800.361c210c9dd1.webp 720w, /theme-previews/outerwear/a/outerwear-merino-crew-black-close-800.361c210c9dd1.webp 660w, /theme-previews/outerwear/a/outerwear-merino-crew-black-close-800.361c210c9dd1.webp 550w, /theme-previews/outerwear/a/outerwear-merino-crew-black-close-800.361c210c9dd1.webp 480w, /theme-previews/outerwear/a/outerwear-merino-crew-black-close-400.49618c878702.webp 330w, /theme-previews/outerwear/a/outerwear-merino-crew-black-close-400.49618c878702.webp 240w, /theme-previews/outerwear/a/outerwear-merino-crew-black-close-400.49618c878702.webp 185w" alt="Merino crew" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
@@ -1758,7 +1763,7 @@ data-sale-badge-type="percent"
 >
 </div>
 </div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible">
+<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
 </div>
 </div>
 <div class="product-item__information word-break text-start mt-15">
@@ -1805,10 +1810,10 @@ aria-label="Washed oversized tee"
 class="product__media product-item__media--ratio rounded block show_secondary"
 style="--aspect-ratio: 3/4;"
 >
-<img src="/theme-previews/outerwear/a/outerwear-washed-tee-clay.631f061a920c.webp" srcset="/theme-previews/outerwear/a/outerwear-washed-tee-clay.631f061a920c.webp 720w, /theme-previews/outerwear/a/outerwear-washed-tee-clay.631f061a920c.webp 660w, /theme-previews/outerwear/a/outerwear-washed-tee-clay.631f061a920c.webp 550w, /theme-previews/outerwear/a/outerwear-washed-tee-clay.631f061a920c.webp 480w, /theme-previews/outerwear/a/outerwear-washed-tee-clay-400.5129298d2bf2.webp 330w, /theme-previews/outerwear/a/outerwear-washed-tee-clay-400.5129298d2bf2.webp 240w, /theme-previews/outerwear/a/outerwear-washed-tee-clay-400.5129298d2bf2.webp 185w" alt="Washed oversized tee" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/outerwear/a/outerwear-washed-tee-clay.9eae02cc7cc8.webp" srcset="/theme-previews/outerwear/a/outerwear-washed-tee-clay-800.3e5d852d26f0.webp 720w, /theme-previews/outerwear/a/outerwear-washed-tee-clay-800.3e5d852d26f0.webp 660w, /theme-previews/outerwear/a/outerwear-washed-tee-clay-800.3e5d852d26f0.webp 550w, /theme-previews/outerwear/a/outerwear-washed-tee-clay-800.3e5d852d26f0.webp 480w, /theme-previews/outerwear/a/outerwear-washed-tee-clay-400.6329c403951b.webp 330w, /theme-previews/outerwear/a/outerwear-washed-tee-clay-400.6329c403951b.webp 240w, /theme-previews/outerwear/a/outerwear-washed-tee-clay-400.6329c403951b.webp 185w" alt="Washed oversized tee" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
-<img src="/theme-previews/outerwear/a/outerwear-washed-tee-clay-detail.41d389646f6a.webp" srcset="/theme-previews/outerwear/a/outerwear-washed-tee-clay-detail.41d389646f6a.webp 720w, /theme-previews/outerwear/a/outerwear-washed-tee-clay-detail.41d389646f6a.webp 660w, /theme-previews/outerwear/a/outerwear-washed-tee-clay-detail.41d389646f6a.webp 550w, /theme-previews/outerwear/a/outerwear-washed-tee-clay-detail.41d389646f6a.webp 480w, /theme-previews/outerwear/a/outerwear-washed-tee-clay-detail-400.5e893d74b519.webp 330w, /theme-previews/outerwear/a/outerwear-washed-tee-clay-detail-400.5e893d74b519.webp 240w, /theme-previews/outerwear/a/outerwear-washed-tee-clay-detail-400.5e893d74b519.webp 185w" alt="Washed oversized tee" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/outerwear/a/outerwear-washed-tee-clay-pose.9a915805355e.webp" srcset="/theme-previews/outerwear/a/outerwear-washed-tee-clay-pose-800.e3a472374ba7.webp 720w, /theme-previews/outerwear/a/outerwear-washed-tee-clay-pose-800.e3a472374ba7.webp 660w, /theme-previews/outerwear/a/outerwear-washed-tee-clay-pose-800.e3a472374ba7.webp 550w, /theme-previews/outerwear/a/outerwear-washed-tee-clay-pose-800.e3a472374ba7.webp 480w, /theme-previews/outerwear/a/outerwear-washed-tee-clay-pose-400.ec0a179cd457.webp 330w, /theme-previews/outerwear/a/outerwear-washed-tee-clay-pose-400.ec0a179cd457.webp 240w, /theme-previews/outerwear/a/outerwear-washed-tee-clay-pose-400.ec0a179cd457.webp 185w" alt="Washed oversized tee" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
@@ -1826,7 +1831,7 @@ data-sale-badge-type="percent"
 >
 </div>
 </div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible">
+<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
 </div>
 </div>
 <div class="product-item__information word-break text-start mt-15">
@@ -1870,13 +1875,12 @@ style="--animation-order: 3;  "
 draggable="false"
 href="/theme-previews/outerwear/products/rib-beanie.html"
 aria-label="Rib beanie"
-class="product__media product-item__media--ratio rounded block show_secondary"
+class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 3/4;"
 >
-<img src="/theme-previews/outerwear/a/outerwear-rib-beanie-charcoal.429389649794.webp" srcset="/theme-previews/outerwear/a/outerwear-rib-beanie-charcoal.429389649794.webp 720w, /theme-previews/outerwear/a/outerwear-rib-beanie-charcoal.429389649794.webp 660w, /theme-previews/outerwear/a/outerwear-rib-beanie-charcoal.429389649794.webp 550w, /theme-previews/outerwear/a/outerwear-rib-beanie-charcoal.429389649794.webp 480w, /theme-previews/outerwear/a/outerwear-rib-beanie-charcoal-400.86713b06e41b.webp 330w, /theme-previews/outerwear/a/outerwear-rib-beanie-charcoal-400.86713b06e41b.webp 240w, /theme-previews/outerwear/a/outerwear-rib-beanie-charcoal-400.86713b06e41b.webp 185w" alt="Rib beanie" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/outerwear/a/outerwear-rib-beanie-charcoal.6afb6603aa09.webp" srcset="/theme-previews/outerwear/a/outerwear-rib-beanie-charcoal-800.b47780ca6273.webp 720w, /theme-previews/outerwear/a/outerwear-rib-beanie-charcoal-800.b47780ca6273.webp 660w, /theme-previews/outerwear/a/outerwear-rib-beanie-charcoal-800.b47780ca6273.webp 550w, /theme-previews/outerwear/a/outerwear-rib-beanie-charcoal-800.b47780ca6273.webp 480w, /theme-previews/outerwear/a/outerwear-rib-beanie-charcoal-400.814386a43785.webp 330w, /theme-previews/outerwear/a/outerwear-rib-beanie-charcoal-400.814386a43785.webp 240w, /theme-previews/outerwear/a/outerwear-rib-beanie-charcoal-400.814386a43785.webp 185w" alt="Rib beanie" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
-<img src="/theme-previews/outerwear/a/outerwear-rib-beanie-charcoal-detail.e5b0b806630d.webp" srcset="/theme-previews/outerwear/a/outerwear-rib-beanie-charcoal-detail.e5b0b806630d.webp 720w, /theme-previews/outerwear/a/outerwear-rib-beanie-charcoal-detail.e5b0b806630d.webp 660w, /theme-previews/outerwear/a/outerwear-rib-beanie-charcoal-detail.e5b0b806630d.webp 550w, /theme-previews/outerwear/a/outerwear-rib-beanie-charcoal-detail.e5b0b806630d.webp 480w, /theme-previews/outerwear/a/outerwear-rib-beanie-charcoal-detail-400.fe90598f6678.webp 330w, /theme-previews/outerwear/a/outerwear-rib-beanie-charcoal-detail-400.fe90598f6678.webp 240w, /theme-previews/outerwear/a/outerwear-rib-beanie-charcoal-detail-400.fe90598f6678.webp 185w" alt="Rib beanie" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
@@ -1894,7 +1898,7 @@ data-sale-badge-type="percent"
 >
 </div>
 </div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible">
+<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
 </div>
 </div>
 <div class="product-item__information word-break text-start mt-15">
@@ -1936,13 +1940,12 @@ style="--animation-order: 4;  "
 draggable="false"
 href="/theme-previews/outerwear/products/canvas-tote-sand.html"
 aria-label="Canvas tote, sand"
-class="product__media product-item__media--ratio rounded block show_secondary"
+class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 3/4;"
 >
-<img src="/theme-previews/outerwear/a/outerwear-canvas-tote-sand.fdb47f0baff6.webp" srcset="/theme-previews/outerwear/a/outerwear-canvas-tote-sand.fdb47f0baff6.webp 720w, /theme-previews/outerwear/a/outerwear-canvas-tote-sand.fdb47f0baff6.webp 660w, /theme-previews/outerwear/a/outerwear-canvas-tote-sand.fdb47f0baff6.webp 550w, /theme-previews/outerwear/a/outerwear-canvas-tote-sand.fdb47f0baff6.webp 480w, /theme-previews/outerwear/a/outerwear-canvas-tote-sand-400.1a779bc8b9f8.webp 330w, /theme-previews/outerwear/a/outerwear-canvas-tote-sand-400.1a779bc8b9f8.webp 240w, /theme-previews/outerwear/a/outerwear-canvas-tote-sand-400.1a779bc8b9f8.webp 185w" alt="Canvas tote, sand" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/outerwear/a/outerwear-canvas-tote-sand.7ea0d2ee69ab.webp" srcset="/theme-previews/outerwear/a/outerwear-canvas-tote-sand-800.bf83f51ecbc9.webp 720w, /theme-previews/outerwear/a/outerwear-canvas-tote-sand-800.bf83f51ecbc9.webp 660w, /theme-previews/outerwear/a/outerwear-canvas-tote-sand-800.bf83f51ecbc9.webp 550w, /theme-previews/outerwear/a/outerwear-canvas-tote-sand-800.bf83f51ecbc9.webp 480w, /theme-previews/outerwear/a/outerwear-canvas-tote-sand-400.791ec9794fde.webp 330w, /theme-previews/outerwear/a/outerwear-canvas-tote-sand-400.791ec9794fde.webp 240w, /theme-previews/outerwear/a/outerwear-canvas-tote-sand-400.791ec9794fde.webp 185w" alt="Canvas tote, sand" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
-<img src="/theme-previews/outerwear/a/outerwear-canvas-tote-sand-detail.3c46d2c101dd.webp" srcset="/theme-previews/outerwear/a/outerwear-canvas-tote-sand-detail.3c46d2c101dd.webp 720w, /theme-previews/outerwear/a/outerwear-canvas-tote-sand-detail.3c46d2c101dd.webp 660w, /theme-previews/outerwear/a/outerwear-canvas-tote-sand-detail.3c46d2c101dd.webp 550w, /theme-previews/outerwear/a/outerwear-canvas-tote-sand-detail.3c46d2c101dd.webp 480w, /theme-previews/outerwear/a/outerwear-canvas-tote-sand-detail-400.768b833ff1aa.webp 330w, /theme-previews/outerwear/a/outerwear-canvas-tote-sand-detail-400.768b833ff1aa.webp 240w, /theme-previews/outerwear/a/outerwear-canvas-tote-sand-detail-400.768b833ff1aa.webp 185w" alt="Canvas tote, sand" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
@@ -1960,7 +1963,7 @@ data-sale-badge-type="percent"
 >
 </div>
 </div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible">
+<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
 </div>
 </div>
 <div class="product-item__information word-break text-start mt-15">
@@ -2651,7 +2654,7 @@ Sign up
 <button type="button" class="cpnb-code-coupon_promotion_newsletter_popup" data-code="STRATA10" aria-label="Copy coupon code">STRATA10</button>
 </div></div>
 </div><div class="cpnb-image-coupon_promotion_newsletter_popup" data-pg-block="image" data-pg-type="image" data-pg-i18n="Promotion image" data-block-id="image">
-<template data-pg-ph><svg class="cpnb-placeholder" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 525.5 525.5" preserveAspectRatio="xMidYMid slice" role="img" aria-label="image"><rect width="525.5" height="525.5" fill="currentColor" opacity=".06"/><path d="M175 200h175v125H175z M200 300l35-45 30 35 25-25 35 35z" fill="none" stroke="currentColor" stroke-width="6" opacity=".35"/><circle cx="305" cy="235" r="14" fill="currentColor" opacity=".25"/></svg></template><img src="/theme-previews/outerwear/a/outerwear-night-layers.2cf4bbbfe830.webp" srcset="/theme-previews/outerwear/a/outerwear-night-layers-400.6e75620a7407.webp 352w, /theme-previews/outerwear/a/outerwear-night-layers.2cf4bbbfe830.webp 832w, /theme-previews/outerwear/a/outerwear-night-layers.2cf4bbbfe830.webp 1200w, /theme-previews/outerwear/a/outerwear-night-layers.2cf4bbbfe830.webp 1600w, /theme-previews/outerwear/a/outerwear-night-layers.2cf4bbbfe830.webp 2400w" alt="A woman in a dark puffer jacket under red light" loading="lazy"></div></div>
+<template data-pg-ph><svg class="cpnb-placeholder" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 525.5 525.5" preserveAspectRatio="xMidYMid slice" role="img" aria-label="image"><rect width="525.5" height="525.5" fill="currentColor" opacity=".06"/><path d="M175 200h175v125H175z M200 300l35-45 30 35 25-25 35 35z" fill="none" stroke="currentColor" stroke-width="6" opacity=".35"/><circle cx="305" cy="235" r="14" fill="currentColor" opacity=".25"/></svg></template><img src="/theme-previews/outerwear/a/outerwear-night-layers.8822629c4128.webp" srcset="/theme-previews/outerwear/a/outerwear-night-layers-400.c13c95fcd246.webp 352w, /theme-previews/outerwear/a/outerwear-night-layers.8822629c4128.webp 832w, /theme-previews/outerwear/a/outerwear-night-layers.8822629c4128.webp 1200w, /theme-previews/outerwear/a/outerwear-night-layers.8822629c4128.webp 1600w, /theme-previews/outerwear/a/outerwear-night-layers.8822629c4128.webp 2400w" alt="A woman in a dark puffer jacket under red light" loading="lazy"></div></div>
 </div>
 </dialog>
 </section>
@@ -2850,7 +2853,7 @@ Continue Shopping
 <div class="overlayminicart">
 </div>
 <script src="/theme-previews/outerwear/a/i.f50d71910c82.js"></script>
-<script src="/theme-previews/_base/a/animation.7fa50ded717b.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/animation.f51a19fde607.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/tingle-min.9664ca3641cf.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/cart-discount.6748c8dd9657.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/theme.7a7dd8f80f89.js"  defer="defer" type="module"></script>

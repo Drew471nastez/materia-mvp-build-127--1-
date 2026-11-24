@@ -1,3 +1,4 @@
+/* Templates round 25: back to the round 23 order the owner preferred (trending, category banners, finishing details beside a picture, wet weeks, collections, night layers beside a picture, about, a single big review), all on Materia's own sections; the scrolling picture hero stays. */
 {
   "sections": {
     "hero": {
@@ -105,81 +106,56 @@
       ]
     },
     "trending": {
-      "type": "collection-tab",
+      "type": "products-carousel",
       "settings": {
         "color_scheme": "default",
         "section_width": "stretch_width",
         "reset_spacing": true,
-        "items_to_show": 4,
+        "collection": "all",
+        "items_to_show": 8,
+        "header_size": "medium",
+        "header_alignment": "left",
+        "header_spacing": 24,
         "items_per_row": 4,
-        "rows": 1,
-        "column_gap": 2,
-        "content_alignment": "left",
-        "tab_style": "underline",
-        "tabs_alignment": "left",
-        "tab_padding_x": 0,
-        "tab_padding_y": 6,
-        "tab_gap": 22,
-        "show_nav_bottom_border": false,
-        "gap_tabs_to_products": 18,
-        "show_load_more_button": false,
-        "tab_switch_animation": "fade",
-        "reveal": true,
-        "padding_top": 28,
-        "padding_bottom": 0,
-        "vertical_gap_subheading_section_desktop": 14,
         "items_per_row_mobile": 2,
-        "rows_mobile": 2,
-        "vertical_gap_subheading_section_mobile": 12
+        "column_gap": 2,
+        "show_arrow": true,
+        "carousel_pagination": "show_progress_bar",
+        "pagination_style": "dot",
+        "pagination_position": "center",
+        "infinite": false,
+        "autoplay": false,
+        "reveal": true,
+        "padding_top": 40,
+        "padding_bottom": 56,
+        "gap_products_to_pagination": 20,
+        "gap_pagination_to_button": 24,
+        "gap_products_to_button": 28
       },
       "blocks": {
         "h": {
           "type": "heading",
           "settings": {
-            "heading": "Trending",
-            "text_style": "small",
-            "heading_size": "h2",
-            "custom_style": true,
-            "heading_font_size_desktop": 15,
-            "heading_font_size_mobile": 15,
-            "heading_font_weight": "500"
+            "text": "Trending",
+            "size_desktop": 28,
+            "size_mobile": 24
           }
         },
-        "t_all": {
-          "type": "collection",
+        "v": {
+          "type": "view_all",
           "settings": {
-            "collection": "all",
-            "collection_title": "All"
-          }
-        },
-        "t_out": {
-          "type": "collection",
-          "settings": {
-            "collection": "outerwear",
-            "collection_title": "Outerwear"
-          }
-        },
-        "t_knit": {
-          "type": "collection",
-          "settings": {
-            "collection": "knit-and-tees",
-            "collection_title": "Knit and tees"
-          }
-        },
-        "t_acc": {
-          "type": "collection",
-          "settings": {
-            "collection": "accessories",
-            "collection_title": "Accessories"
+            "enabled": true,
+            "label": "Shop all",
+            "link": "/collections/all",
+            "position": "header",
+            "use_theme_button": false,
+            "uppercase": false
           }
         }
       },
       "block_order": [
         "h",
-        "t_all",
-        "t_out",
-        "t_knit",
-        "t_acc"
+        "v"
       ]
     },
     "categories": {
@@ -241,32 +217,38 @@
       ]
     },
     "details": {
-      "type": "product-shop-the-look",
+      "type": "products-carousel",
       "settings": {
         "color_scheme": "default",
-        "section_width": "full_width",
+        "section_width": "stretch_width",
         "reset_spacing": true,
-        "image_position": "right",
-        "column_valign": "center",
-        "image_width_pct": 50,
-        "gap_desktop": 72,
-        "text_gap": 16,
-        "image": "shopify://shop_images/outerwear-look-station.webp",
-        "image_aspect_desktop": "4 / 5",
-        "image_radius": 0,
-        "card_style": "compact",
-        "show_price": true,
-        "card_image_size": 96,
-        "card_image_radius": 0,
-        "card_radius": 0,
-        "card_padding": 12,
-        "card_gap": 16,
-        "padding_top": 0,
-        "padding_bottom": 0,
-        "side_padding_desktop": 48,
-        "gap_mobile": 24,
-        "side_padding_mobile": 16,
-        "image_aspect": "4 / 5"
+        "collection": "accessories",
+        "items_to_show": 3,
+        "header_size": "medium",
+        "header_alignment": "left",
+        "header_spacing": 24,
+        "items_per_row": 2,
+        "items_per_row_mobile": 2,
+        "column_gap": 10,
+        "show_arrow": true,
+        "carousel_pagination": "show_progress_bar",
+        "pagination_style": "dot",
+        "pagination_position": "center",
+        "infinite": false,
+        "autoplay": false,
+        "reveal": true,
+        "padding_top": 56,
+        "padding_bottom": 64,
+        "gap_products_to_pagination": 20,
+        "gap_pagination_to_button": 24,
+        "gap_products_to_button": 28,
+        "show_banner": true,
+        "banner_type": "image",
+        "banner_image": "shopify://shop_images/outerwear-look-station.webp",
+        "banner_width": 42,
+        "position": "right",
+        "sticky_banner": false,
+        "banner_link": "/collections/accessories"
       },
       "blocks": {
         "e": {
@@ -279,9 +261,8 @@
           "type": "heading",
           "settings": {
             "text": "The finishing details",
-            "tag": "h2",
-            "size_desktop": 60,
-            "size_mobile": 40
+            "size_desktop": 56,
+            "size_mobile": 36
           }
         },
         "s": {
@@ -290,22 +271,15 @@
             "text": "<p>A beanie, a backpack and a tote. The small things that turn a jacket into an outfit.</p>"
           }
         },
-        "p1": {
-          "type": "product",
+        "v": {
+          "type": "view_all",
           "settings": {
-            "product": "rib-beanie"
-          }
-        },
-        "p2": {
-          "type": "product",
-          "settings": {
-            "product": "shell-backpack-charcoal"
-          }
-        },
-        "p3": {
-          "type": "product",
-          "settings": {
-            "product": "canvas-tote-sand"
+            "enabled": true,
+            "label": "Shop accessories",
+            "link": "/collections/accessories",
+            "position": "header",
+            "use_theme_button": false,
+            "uppercase": false
           }
         }
       },
@@ -313,9 +287,7 @@
         "e",
         "h",
         "s",
-        "p1",
-        "p2",
-        "p3"
+        "v"
       ]
     },
     "wet": {
@@ -448,7 +420,7 @@
         "color_scheme": "default",
         "section_width": "full_width",
         "reset_spacing": true,
-        "image_position": "right",
+        "image_position": "left",
         "text_column_width": 50,
         "content_align": "left",
         "media_type": "image",
@@ -456,10 +428,10 @@
         "aspect_w": 4,
         "aspect_h": 5,
         "image_radius": 0,
-        "gap_desktop": 48,
-        "padding_top_desktop": 20,
-        "padding_bottom_desktop": 20,
-        "side_padding_desktop": 20,
+        "gap_desktop": 72,
+        "padding_top_desktop": 72,
+        "padding_bottom_desktop": 72,
+        "side_padding_desktop": 48,
         "padding_top_mobile": 16,
         "padding_bottom_mobile": 40,
         "side_padding_mobile": 16,
@@ -504,80 +476,68 @@
       ]
     },
     "review": {
-      "type": "testimonial-product",
+      "type": "Image-and-video-text",
       "settings": {
         "color_scheme": "default",
-        "section_width": "fluid_container",
+        "section_width": "full_width",
         "reset_spacing": true,
-        "text_align": "left",
-        "cards_desktop": 3,
-        "card_gap": 0,
-        "card_style": "outline",
-        "show_arrows": true,
-        "show_progress": true,
-        "enable_custom_style": true,
-        "card_radius": 0,
-        "quote_size": 18,
-        "reveal": true,
-        "padding_top": 64,
-        "padding_bottom": 64,
-        "mobile_peek": true,
-        "quote_size_mobile": 16,
-        "padding_top_mobile": 44,
-        "padding_bottom_mobile": 44
+        "image_position": "right",
+        "text_column_width": 50,
+        "content_align": "left",
+        "content_gap": 20,
+        "media_type": "image",
+        "image": "shopify://shop_images/outerwear-review-doorway.webp",
+        "image_alt": "Someone in a lined canvas parka in a lit doorway at night",
+        "aspect_w": 4,
+        "aspect_h": 5,
+        "image_fit": "cover",
+        "image_radius": 0,
+        "gap_desktop": 72,
+        "padding_top_desktop": 72,
+        "padding_bottom_desktop": 72,
+        "side_padding_desktop": 48,
+        "mobile_order": "text_first",
+        "gap_mobile": 28,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 48,
+        "side_padding_mobile": 16
       },
       "blocks": {
         "e": {
           "type": "eyebrow",
           "settings": {
-            "text": "Reviews"
+            "text": "★★★★★  Reviews"
           }
         },
         "h": {
           "type": "heading",
           "settings": {
-            "text": "Worn every day since it came",
-            "size": 44,
-            "size_mobile": 30
+            "text": "“Warm enough for the walk to work and light enough for the train. I have worn it every day since it came.”",
+            "tag": "h2",
+            "size_desktop": 44,
+            "size_mobile": 28
           }
         },
-        "t1": {
-          "type": "testimonial",
+        "s": {
+          "type": "subheading",
           "settings": {
-            "product": "lined-work-parka",
-            "body": "Warm enough for the walk to work and light enough for the train. The hood stays up in the wind. Sample review, replace it with one from your customers.",
-            "name": "Customer name",
-            "role": "Lined work parka, M",
-            "rating": 5
+            "text": "<p><strong>Customer name</strong>, on the Lined work parka</p><p>Sample review. Replace it with one from your customers.</p>"
           }
         },
-        "t2": {
-          "type": "testimonial",
+        "b": {
+          "type": "button",
           "settings": {
-            "product": "gloss-down-puffer",
-            "body": "Boxy and short, exactly as the fit notes say. I sized down and it sits right over a knit. Sample review, replace it with your own.",
-            "name": "Customer name",
-            "role": "Gloss down puffer, S",
-            "rating": 5
-          }
-        },
-        "t3": {
-          "type": "testimonial",
-          "settings": {
-            "product": "merino-crew",
-            "body": "Thin enough to wear under everything and it has not pilled after a winter of washing. Sample review, replace it with your own.",
-            "name": "Customer name",
-            "role": "Merino crew, L",
-            "rating": 5
+            "label": "Shop parkas",
+            "link": "/collections/parkas",
+            "button_style": "primary"
           }
         }
       },
       "block_order": [
         "e",
         "h",
-        "t1",
-        "t2",
-        "t3"
+        "s",
+        "b"
       ]
     },
     "instagram": {
@@ -795,6 +755,80 @@
       "block_order": [
         "d"
       ]
+    },
+    "highlights": {
+      "type": "products-carousel",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "stretch_width",
+        "reset_spacing": true,
+        "collection": "outerwear",
+        "items_to_show": 5,
+        "header_size": "medium",
+        "header_alignment": "left",
+        "header_spacing": 24,
+        "items_per_row": 2,
+        "items_per_row_mobile": 2,
+        "column_gap": 10,
+        "show_arrow": true,
+        "carousel_pagination": "show_progress_bar",
+        "pagination_style": "dot",
+        "pagination_position": "center",
+        "infinite": false,
+        "autoplay": false,
+        "reveal": true,
+        "padding_top": 56,
+        "padding_bottom": 64,
+        "gap_products_to_pagination": 20,
+        "gap_pagination_to_button": 24,
+        "gap_products_to_button": 28,
+        "show_banner": true,
+        "banner_type": "image",
+        "banner_image": "shopify://shop_images/outerwear-night-layers.webp",
+        "banner_width": 42,
+        "position": "left",
+        "sticky_banner": false,
+        "banner_link": "/collections/outerwear"
+      },
+      "blocks": {
+        "e": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Highlights"
+          }
+        },
+        "h": {
+          "type": "heading",
+          "settings": {
+            "text": "Night layers",
+            "size_desktop": 56,
+            "size_mobile": 36
+          }
+        },
+        "s": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Down, quilting and lined canvas for the walk home after dark.</p>"
+          }
+        },
+        "v": {
+          "type": "view_all",
+          "settings": {
+            "enabled": true,
+            "label": "View all",
+            "link": "/collections/outerwear",
+            "position": "header",
+            "use_theme_button": false,
+            "uppercase": false
+          }
+        }
+      },
+      "block_order": [
+        "e",
+        "h",
+        "s",
+        "v"
+      ]
     }
   },
   "order": [
@@ -804,6 +838,7 @@
     "details",
     "wet",
     "collections",
+    "highlights",
     "about",
     "review",
     "instagram",

@@ -1,14 +1,32 @@
-/* Templates round 22: rebuilt from the theme's own sections (collage hero, image with text, rows, promo banner, testimonials, newsletter with image, gallery, FAQ, banner); Lora and Open Sans. */
+/* Templates round 22: rebuilt from the theme's own sections (collage hero, image with text, rows, promo banner, testimonials, newsletter with image, gallery, FAQ, banner); Lora and Open Sans. Round 25: one strong portrait in a split hero (Materia hero-split-media) in place of the three picture collage. */
 {
   "sections": {
     "hero": {
-      "type": "hero-collage",
+      "type": "hero-split-media",
       "settings": {
         "color_scheme": "default",
+        "section_width": "full_width",
+        "reset_spacing": true,
         "image_position": "right",
-        "content_max_width": 520,
-        "image_aspect_ratio": "portrait",
-        "section_width": "container"
+        "media_width_desktop": 50,
+        "content_align": "left",
+        "vertical_align": "center",
+        "content_max_width": 540,
+        "content_gap": 22,
+        "min_height_desktop": 780,
+        "image": "shopify://shop_images/coachpro-hero.webp",
+        "image_alt": "Camila Duarte in a white suit in her studio",
+        "image_position_x": 50,
+        "image_position_y": 18,
+        "padding_top_desktop": 0,
+        "padding_bottom_desktop": 0,
+        "side_padding_desktop": 80,
+        "mobile_image_first": true,
+        "media_height_mobile": 480,
+        "padding_top_mobile": 32,
+        "padding_bottom_mobile": 48,
+        "side_padding_mobile": 20,
+        "image_radius": 0
       },
       "blocks": {
         "eyebrow_1": {
@@ -20,21 +38,27 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Run a creative business that pays you properly"
+            "text": "Run a creative business that pays you properly",
+            "size_enable": true,
+            "size_desktop": 60,
+            "size_mobile": 38,
+            "line_height": 1.08
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>I help designers, makers and studio owners price with confidence, win better clients and get their evenings back. Ten years running my own interior studio taught me most of it the hard way.</p>"
+            "text": "<p>I help designers, makers and studio owners price with confidence, win better clients and get their evenings back. Ten years running my own interior studio taught me most of it the hard way.</p>",
+            "size_enable": true,
+            "size": 17,
+            "line_height": 1.6
           }
         },
         "button_4": {
           "type": "button",
           "settings": {
             "text": "Get the free worksheet",
-            "link": "/pages/worksheet",
-            "button_style": "primary"
+            "link": "/pages/worksheet"
           }
         },
         "button_5": {
@@ -44,27 +68,6 @@
             "link": "/pages/programmes",
             "button_style": "secondary"
           }
-        },
-        "image_6": {
-          "type": "image",
-          "settings": {
-            "image": "shopify://shop_images/coachpro-hero.webp",
-            "alt": "Camila Duarte in a white suit"
-          }
-        },
-        "image_7": {
-          "type": "image",
-          "settings": {
-            "image": "shopify://shop_images/coachpro-moment-studio.webp",
-            "alt": "Camila in the studio in the evening"
-          }
-        },
-        "image_8": {
-          "type": "image",
-          "settings": {
-            "image": "shopify://shop_images/coachpro-moment-floor.webp",
-            "alt": "Camila on the floor with plans"
-          }
         }
       },
       "block_order": [
@@ -72,10 +75,7 @@
         "heading_2",
         "subheading_3",
         "button_4",
-        "button_5",
-        "image_6",
-        "image_7",
-        "image_8"
+        "button_5"
       ]
     },
     "hello": {

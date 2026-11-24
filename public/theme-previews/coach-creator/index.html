@@ -1,7 +1,7 @@
 
 <!doctype html>
 <html class="no-js" lang="en" dir="ltr">
-<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/coach-creator/a/cart.25bdedaa6c71.json";
+<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/coach-creator/a/cart.25bdedaa6c71.json",WISH_DATA="";
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
@@ -86,6 +86,8 @@ if(D.readyState==="loading")D.addEventListener("DOMContentLoaded",arrive);else a
 
 if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);if(mine(u))return F.apply(this,arguments);
 /* Cards round 24: the cart answers from the template's drawn cart (./theme-templates/preview-cart.ts), as a store would. */
+/* Round 25: the wishlist page asks for its saved products' cards; every product's card is in WISH_DATA and the theme keeps the saved ones. */
+if(WISH_DATA&&/\/search$/.test(path(u))&&/[?&]section_id=/.test(u))return F(WISH_DATA).then(function(r){return r.json()}).then(function(d){return new Response(d.html,{status:200,headers:{"Content-Type":"text/html"}})});
 var p=path(u),q=/[?&]sections=/.test(u),c=/\/cart(\.js|\.json|\/(add|change|update|clear)(\.js)?)$/.test(p);if(CART_DATA&&(c||q)){var w=c?cartReply(p,o):sectionsReply(u);return w.then(function(r){return new Response(JSON.stringify(r[1]),{status:r[0],headers:{"Content-Type":"application/json"}})},function(){var r=reply(u);return new Response(r[2],{status:r[0],headers:{"Content-Type":r[1]}})})}
 var r=reply(u);return Promise.resolve(new Response(r[2],{status:r[0],headers:{"Content-Type":r[1]}}))};
 var X=W.XMLHttpRequest&&W.XMLHttpRequest.prototype;if(X){var O=X.open;X.open=function(m,u){var a=[].slice.call(arguments);if(!mine(u)){var r=reply(u);a[0]="GET";a[1]="data:"+r[1]+","+encodeURIComponent(r[2])}return O.apply(this,a)}}
@@ -206,8 +208,8 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
         } catch (e) {}
       })();
     </script>
-<link href="/theme-previews/_base/a/critical.03978b251a4f.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/product-card.9a3739dc0c4c.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"primary","product_size":17,"price_size":16,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
+<link href="/theme-previews/_base/a/critical.4539b38450ad.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/product-card.57905ba3cf39.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"primary","product_size":17,"price_size":16,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
 <style>html:not([data-card-custom='true']) .product-item .product-item__name { font-size:var(--body-font-size, 16px); text-transform:var(--heading-text-transform, none) !important; } html:not([data-card-custom='true']) .product-item .product-item__price { font-size:var(--body-font-size, 16px); }</style>
 <script>document.documentElement.dataset.cardCustom = false === true ? 'true' : 'false';</script>
 <script type="application/json" data-badge-style-settings>false</script>
@@ -610,7 +612,7 @@ href="/theme-previews/coach-creator/pages/contact.html"
 </div></header><script src="/theme-previews/coach-creator/a/i.b8ec2f2ea707.js"></script>
 <link href="/theme-previews/_base/a/header-sticky.6c34c873cb06.css" rel="stylesheet" type="text/css" media="all">
 <script src="/theme-previews/coach-creator/a/i.9790def5bd53.js"></script><script src="/theme-previews/_base/a/header-sticky-extras.78e1fb4f310f.js" defer="defer"></script></div><script src="/theme-previews/coach-creator/a/i.0d9f91566ff2.js"></script>
-<main id="MainContent" class="content-for-layout focus-none" role="main" tabindex="-1"><div id="shopify-section-hero" class="shopify-section" data-section-id="hero" data-section-type="hero-collage"><script src="/theme-previews/_base/a/live-r7-hero.8435aaadc83b.js" defer="defer"></script>
+<main id="MainContent" class="content-for-layout focus-none" role="main" tabindex="-1"><div id="shopify-section-hero" class="shopify-section" data-section-id="hero" data-section-type="hero-split-media"><script src="/theme-previews/_base/a/live-r7-hero.8435aaadc83b.js" defer="defer"></script>
 <style>
   #shopify-section-hero {
     font-family: var(--body-font, inherit);
@@ -658,69 +660,46 @@ href="/theme-previews/coach-creator/pages/contact.html"
     #shopify-section-hero .r7h__heading{font-size:var(--r7h-size-d,var(--h1-size,4rem))}
   }
 </style><style>
-  #shopify-section-hero .hcl{padding-block:calc(var(--r7h-pt-m,40px)*var(--sl-space-scale,1)) calc(var(--r7h-pb-m,40px)*var(--sl-space-scale,1))}
-  #shopify-section-hero .hcl__grid{display:flex;flex-direction:column;gap:calc(32px*var(--sl-space-scale,1))}
-  #shopify-section-hero .hcl__content{display:flex;justify-content:var(--r7h-items,flex-start);min-width:0}
-  #shopify-section-hero .hcl__media{min-width:0}
-  #shopify-section-hero .hcl__media[hidden]{display:none}
-  #shopify-section-hero .hcl__track{display:flex;gap:var(--hcl-gap,16px);margin:0;padding:0;list-style:none}
-  #shopify-section-hero .hcl__tile{position:relative;display:block;min-width:0;aspect-ratio:var(--hcl-ratio,1 / 1);overflow:hidden;border-radius:var(--hcl-radius,var(--rounded-radius,0px));background:color-mix(in srgb,var(--color-heading) 7%,var(--color-background));color:inherit;text-decoration:none;-webkit-tap-highlight-color:transparent}
-  #shopify-section-hero .hcl__img{position:absolute;inset:0;width:100%;height:100%;max-width:none;object-fit:cover;display:block;transition:transform .35s ease}
-  #shopify-section-hero .hcl__img[data-r7h-empty]{object-fit:contain}
-  #shopify-section-hero a.hcl__tile:active{opacity:.85}
-  #shopify-section-hero a.hcl__tile:focus-visible{outline:2px solid var(--color-heading);outline-offset:-2px}
-  @media (hover:hover){
-    #shopify-section-hero a.hcl__tile:hover .hcl__img{transform:scale(1.04)}
-  }
-  #shopify-section-hero .hcl__nav{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
-  #shopify-section-hero .hcl__nav[hidden]{display:none}
-  #shopify-section-hero .hcl__arrow{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;margin:0;padding:0;border:1px solid var(--color-border);border-radius:var(--btn-radius,0px);background:transparent;color:var(--color-heading);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:opacity .2s ease}
-  #shopify-section-hero .hcl__arrow svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
-  #shopify-section-hero .hcl__arrow:active{opacity:.6}
-  #shopify-section-hero .hcl__arrow:focus-visible{outline:2px solid var(--color-heading);outline-offset:2px}
-  #shopify-section-hero .hcl__arrow:disabled{opacity:.35;cursor:default}
-  #shopify-section-hero .hcl__frame:dir(rtl) .hcl__arrow svg{transform:scaleX(-1)}
+  #shopify-section-hero .hsm__grid{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(var(--hsm-media-h-m,320px),1fr)}
+  #shopify-section-hero .hsm[data-full] .hsm__grid{min-height:calc(var(--sl-vh,1svh)*100)}
+  #shopify-section-hero .hsm__media{position:relative;min-width:0;min-height:0;overflow:hidden;border-radius:var(--hsm-radius,0px);background:color-mix(in srgb,var(--color-heading) 7%,var(--color-background))}
+  #shopify-section-hero .hsm__frame:is(.container,.fluid_container) .hsm__media{border-radius:var(--hsm-radius,var(--rounded-radius,0px))}
+  #shopify-section-hero .hsm__media :is(.hsm__img,.hsm__video){position:absolute;inset:0;width:100%;height:100%;max-width:none;object-fit:cover;object-position:var(--hsm-fx,50%) var(--hsm-fy,50%);display:block}
+  #shopify-section-hero .hsm__media .hsm__img[data-r7h-empty]{object-fit:none;object-position:50% 50%}
+  #shopify-section-hero .hsm__media [hidden]{display:none}
+  #shopify-section-hero .hsm__toggle{position:absolute;inset-block-end:12px;inset-inline-end:12px;z-index:1;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;margin:0;padding:0;border:1px solid var(--color-border);border-radius:var(--btn-radius,0px);background:var(--color-background);color:var(--color-heading);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:opacity .2s ease}
+  #shopify-section-hero .hsm__toggle:active{opacity:.7}
+  #shopify-section-hero .hsm__toggle:focus-visible{outline:2px solid var(--color-heading);outline-offset:2px}
+  #shopify-section-hero .hsm__toggle svg{width:16px;height:16px;fill:currentColor}
+  #shopify-section-hero .hsm__toggle[aria-pressed="true"] .hsm__icon-play,#shopify-section-hero .hsm__toggle[aria-pressed="false"] .hsm__icon-pause{display:none}
+  #shopify-section-hero .hsm__content{display:flex;flex-direction:column;align-items:var(--r7h-items,flex-start);justify-content:center;min-width:0;padding:calc(var(--r7h-pt-m,40px)*var(--sl-space-scale,1)) var(--r7h-px-m,24px) calc(var(--r7h-pb-m,40px)*var(--sl-space-scale,1))}
+  #shopify-section-hero .hsm[data-empty-text] .hsm__content{display:none}
   @media (max-width:767px){
-    #shopify-section-hero .hcl__frame{padding-inline:1.5rem}
-    #shopify-section-hero .hcl[data-media-first] .hcl__media{order:-1}
-    #shopify-section-hero .hcl__track{overflow-x:auto;overflow-y:hidden;margin-inline:-1.5rem;padding-inline:1.5rem;scroll-padding-inline:1.5rem;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;scrollbar-width:none;touch-action:pan-x pan-y}
-    #shopify-section-hero .hcl__track::-webkit-scrollbar{display:none}
-    #shopify-section-hero .hcl__track:focus-visible{outline:2px solid var(--color-heading);outline-offset:-2px}
-    #shopify-section-hero .hcl__tile{flex:0 0 var(--hcl-tile-m,75%);scroll-snap-align:start}
-    #shopify-section-hero .hcl[data-count="1"] .hcl__tile{flex-basis:100%}
+    #shopify-section-hero .hsm__media{order:2}
+    #shopify-section-hero .hsm[data-media-first] .hsm__grid{grid-template-rows:minmax(var(--hsm-media-h-m,320px),1fr) auto}
+    #shopify-section-hero .hsm[data-media-first] .hsm__media{order:0}
+    #shopify-section-hero .hsm[data-empty-text] .hsm__grid{grid-template-rows:minmax(var(--hsm-media-h-m,320px),1fr)}
   }
   @media (min-width:768px){
-    #shopify-section-hero .hcl{padding-block:calc(var(--r7h-pt-d,80px)*var(--sl-space-scale,1)) calc(var(--r7h-pb-d,80px)*var(--sl-space-scale,1))}
-    #shopify-section-hero .hcl__frame.stretch_width{padding-inline:3rem}
-    #shopify-section-hero .hcl__frame.full_width .hcl__content{padding-inline-start:3rem}
-    #shopify-section-hero .hcl[data-side="left"] .hcl__frame.full_width .hcl__content{padding-inline:0 3rem}
-    #shopify-section-hero .hcl__grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,var(--hcl-media,45%));align-items:center;gap:calc(48px*var(--sl-space-scale,1))}
-    #shopify-section-hero .hcl[data-side="left"] .hcl__grid{grid-template-columns:minmax(0,var(--hcl-media,45%)) minmax(0,1fr)}
-    #shopify-section-hero .hcl[data-side="left"] .hcl__media{order:-1}
-    #shopify-section-hero .hcl[data-count="0"] .hcl__grid{grid-template-columns:minmax(0,1fr)}
-    #shopify-section-hero .hcl__track{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;padding-bottom:var(--hcl-offset,32px)}
-    #shopify-section-hero .hcl__tile:nth-child(even){top:var(--hcl-offset,32px)}
-    #shopify-section-hero .hcl[data-count="1"] .hcl__track{grid-template-columns:minmax(0,1fr);padding-bottom:0}
-    #shopify-section-hero .hcl[data-count="3"] .hcl__tile:nth-child(1){grid-column:1;grid-row:1 / span 2;aspect-ratio:auto;height:100%}
-    #shopify-section-hero .hcl[data-count="3"] .hcl__tile:nth-child(n+2){grid-column:2;top:var(--hcl-offset,32px)}
-    #shopify-section-hero .hcl__nav{display:none}
+    #shopify-section-hero .hsm__grid{grid-template-columns:minmax(0,1fr) minmax(0,var(--hsm-media,50%));grid-template-rows:minmax(0,1fr);min-height:var(--hsm-min-d,560px)}
+    #shopify-section-hero .hsm__media{order:2}
+    #shopify-section-hero .hsm[data-side="left"] .hsm__grid{grid-template-columns:minmax(0,var(--hsm-media,50%)) minmax(0,1fr)}
+    #shopify-section-hero .hsm[data-side="left"] .hsm__media{order:0}
+    #shopify-section-hero .hsm[data-empty-text] .hsm__grid{grid-template-columns:minmax(0,1fr)}
+    #shopify-section-hero .hsm__content{justify-content:var(--hsm-valign,center);padding:calc(var(--r7h-pt-d,80px)*var(--sl-space-scale,1)) var(--r7h-px-d,64px) calc(var(--r7h-pb-d,80px)*var(--sl-space-scale,1))}
   }
   @media (prefers-reduced-motion:reduce){
-    #shopify-section-hero .hcl__img,#shopify-section-hero .hcl__arrow{transition:none}
-    #shopify-section-hero a.hcl__tile:hover .hcl__img{transform:none}
+    #shopify-section-hero .hsm__toggle{transition:none}
   }
-</style>
-<div class="r7h hcl color-default" data-r7h="collage" data-r7h-section="hero" data-r7h-placeholder="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22300%22 viewBox=%220 0 400 300%22%3E%3Cg fill=%22%23808080%22 fill-opacity=%220.4%22%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22/%3E%3C/g%3E%3C/svg%3E" data-side="right" data-count="3" data-reset-spacing style="--r7h-gap:16px;--r7h-max:520px;--r7h-align:left;--r7h-items:flex-start;--r7h-pt-d:80px;--r7h-pb-d:80px;--r7h-pt-m:40px;--r7h-pb-m:40px;--hcl-media:45%;--hcl-ratio:4 / 5;--hcl-gap:16px;--hcl-offset:32px;--hcl-tile-m:75%;">
-<div class="hcl__frame container" data-r7h-frame>
-<div class="hcl__grid">
-<div class="hcl__content"><div class="r7h__stack"><p class="r7h__eyebrow" data-r7h-block="eyebrow_1" data-r7h-type="eyebrow" data-block-id="eyebrow_1" style="">Business coach for creative founders</p><h1 class="r7h__heading" data-r7h-block="heading_2" data-r7h-type="heading" data-block-id="heading_2" style="">Run a creative business that pays you properly</h1><div class="r7h__text" data-r7h-block="subheading_3" data-r7h-type="subheading" data-block-id="subheading_3" style=""><p>I help designers, makers and studio owners price with confidence, win better clients and get their evenings back. Ten years running my own interior studio taught me most of it the hard way.</p></div><div class="r7h__buttons"><a href="/theme-previews/coach-creator/pages/worksheet.html" class="r7h__cta" data-theme-button="primary" data-sl-button data-r7h-block="button_4" data-r7h-type="button" data-block-id="button_4" style="">Get the free worksheet</a><a href="/theme-previews/coach-creator/pages/programmes.html" class="r7h__cta" data-theme-button="secondary" data-sl-button data-r7h-block="button_5" data-r7h-type="button" data-block-id="button_5" style="">Work with me</a></div></div></div>
-<div class="hcl__media">
-<div class="hcl__track" data-r7h-track><div class="hcl__tile" data-r7h-block="image_6" data-r7h-type="image" data-block-id="image_6"><img class="hcl__img" data-r7h-image src="/theme-previews/coach-creator/a/coachpro-hero.c6781d78229d.webp" srcset="/theme-previews/coach-creator/a/coachpro-hero-800.27844d473da3.webp 450w, /theme-previews/coach-creator/a/coachpro-hero.c6781d78229d.webp 900w, /theme-previews/coach-creator/a/coachpro-hero.c6781d78229d.webp 1400w" sizes="(min-width: 768px) 30vw, 75vw" width="1600" height="1600" alt="Camila Duarte in a white suit" loading="eager" decoding="async"></div><div class="hcl__tile" data-r7h-block="image_7" data-r7h-type="image" data-block-id="image_7"><img class="hcl__img" data-r7h-image src="/theme-previews/coach-creator/a/coachpro-moment-studio.eb6fc6322540.webp" srcset="/theme-previews/coach-creator/a/coachpro-moment-studio.eb6fc6322540.webp 450w, /theme-previews/coach-creator/a/coachpro-moment-studio.eb6fc6322540.webp 900w, /theme-previews/coach-creator/a/coachpro-moment-studio.eb6fc6322540.webp 1400w" sizes="(min-width: 768px) 30vw, 75vw" width="1600" height="1600" alt="Camila in the studio in the evening" loading="lazy" decoding="async"></div><div class="hcl__tile" data-r7h-block="image_8" data-r7h-type="image" data-block-id="image_8"><img class="hcl__img" data-r7h-image src="/theme-previews/coach-creator/a/coachpro-moment-floor.6377682f75ba.webp" srcset="/theme-previews/coach-creator/a/coachpro-moment-floor.6377682f75ba.webp 450w, /theme-previews/coach-creator/a/coachpro-moment-floor.6377682f75ba.webp 900w, /theme-previews/coach-creator/a/coachpro-moment-floor.6377682f75ba.webp 1400w" sizes="(min-width: 768px) 30vw, 75vw" width="1600" height="1600" alt="Camila on the floor with plans" loading="lazy" decoding="async"></div></div>
-<div class="hcl__nav" data-r7h-nav>
-<button type="button" class="hcl__arrow" data-r7h-prev aria-label="Previous" disabled><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M10 3L5 8l5 5"/></svg></button>
-<button type="button" class="hcl__arrow" data-r7h-next aria-label="Next"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M6 3l5 5-5 5"/></svg></button>
+</style><div class="r7h hsm color-default" data-r7h="split" data-r7h-section="hero" data-r7h-placeholder="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22300%22 viewBox=%220 0 400 300%22%3E%3Cg fill=%22%23808080%22 fill-opacity=%220.4%22%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22/%3E%3C/g%3E%3C/svg%3E" data-side="right" data-media-first data-reset-spacing style="--r7h-gap:22px;--r7h-max:540px;--r7h-align:left;--r7h-items:flex-start;--r7h-pt-d:0px;--r7h-pb-d:0px;--r7h-px-d:80px;--r7h-pt-m:32px;--r7h-pb-m:48px;--r7h-px-m:20px;--hsm-media:50%;--hsm-min-d:780px;--hsm-media-h-m:480px;--hsm-valign:center;--hsm-fx:50%;--hsm-fy:18%;">
+<div class="hsm__frame full_width" data-r7h-frame>
+<div class="hsm__grid">
+<div class="hsm__media">
+<img class="hsm__img" data-r7h-image src="/theme-previews/coach-creator/a/coachpro-hero.c17f765fce36.webp" srcset="/theme-previews/coach-creator/a/coachpro-hero-800.0ea12404ec6a.webp 750w, /theme-previews/coach-creator/a/coachpro-hero.c17f765fce36.webp 1100w, /theme-previews/coach-creator/a/coachpro-hero.c17f765fce36.webp 1600w, /theme-previews/coach-creator/a/coachpro-hero.c17f765fce36.webp 2200w" sizes="(min-width: 768px) 50vw, 100vw" width="1600" height="1600" alt="Camila Duarte in a white suit in her studio" loading="eager" fetchpriority="high" decoding="async">
+<video class="hsm__video" data-r7h-video hidden muted loop playsinline preload="metadata" tabindex="-1" aria-hidden="true"></video>
+<button type="button" class="hsm__toggle" data-r7h-video-toggle aria-pressed="false" aria-label="Play / pause" hidden><svg class="hsm__icon-pause" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 2h4v12H3zM9 2h4v12H9z"/></svg><svg class="hsm__icon-play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4 2l10 6-10 6z"/></svg></button>
 </div>
-</div>
+<div class="hsm__content"><div class="r7h__stack"><p class="r7h__eyebrow" data-r7h-block="eyebrow_1" data-r7h-type="eyebrow" data-block-id="eyebrow_1" style="">Business coach for creative founders</p><h1 class="r7h__heading" data-r7h-block="heading_2" data-r7h-type="heading" data-block-id="heading_2" data-own-size style="--r7h-size-d:60px;--r7h-size-m:38px;--r7h-lh:1.08;--r7h-ls:0px;">Run a creative business that pays you properly</h1><div class="r7h__text" data-r7h-block="subheading_3" data-r7h-type="subheading" data-block-id="subheading_3" style="--r7h-size:17px;--r7h-lh:1.6;"><p>I help designers, makers and studio owners price with confidence, win better clients and get their evenings back. Ten years running my own interior studio taught me most of it the hard way.</p></div><div class="r7h__buttons"><a href="/theme-previews/coach-creator/pages/worksheet.html" class="r7h__cta" data-theme-button="primary" data-sl-button data-r7h-block="button_4" data-r7h-type="button" data-block-id="button_4" style="">Get the free worksheet</a><a href="/theme-previews/coach-creator/pages/programmes.html" class="r7h__cta" data-theme-button="secondary" data-sl-button data-r7h-block="button_5" data-r7h-type="button" data-block-id="button_5" style="">Work with me</a></div></div></div>
 </div>
 </div>
 </div></div><section id="shopify-section-hello" class="shopify-section section sec__image-video-text" data-section-id="hello" data-section-type="image-and-video-text"><script src="/theme-previews/_base/a/media-live-benefits.fca52bd1fd57.js" defer="defer"></script>

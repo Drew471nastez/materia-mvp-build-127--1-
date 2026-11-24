@@ -278,7 +278,9 @@ async function editsOf(built: BuiltSite, key: string, at: number): Promise<EditR
       const added: StoredBlock = { ...clone(copyOf), id: "a_block_added_now", settings: { ...(copyOf.settings ?? {}), [gone.field]: (blockFields.get(copyOf.type) ?? []).find((f) => f.id === gone.field)?.type === "richtext" ? "<p>Heron 9082 added</p>" : "Heron 9082 added" } }
       const limit = schema.blocks?.find((b) => b.type === copyOf.type)?.limit
       const full = typeof schema.max_blocks === "number" && (section.blocks ?? []).length >= schema.max_blocks
-      if (!full && !(typeof limit === "number" && movable.filter((b) => b.type === copyOf.type).length >= limit)) {
+      /* Changed on purpose (templates round 25): Sample packs' home now opens on a photo hero, so the first release section the check meets is its "One release, large" spotlight, which by its own setting draws one release only; an added release is not meant to show there. */
+      const oneByDesign = section.type === "samples-release-hero" && (section.settings as Record<string, unknown> | undefined)?.layout === "feature"
+      if (!full && !oneByDesign && !(typeof limit === "number" && movable.filter((b) => b.type === copyOf.type).length >= limit)) {
         const html2 = visibleText(await drawWith(built, key, withSection((s) => { s.blocks = [...s.blocks!, added] }), section.id))
         if (!html2.includes("Heron 9082 added")) problems.push("a block was added and the page did not show it")
       }
