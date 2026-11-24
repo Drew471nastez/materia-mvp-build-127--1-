@@ -437,7 +437,7 @@ export const SAMPLE_SHOPS: Record<string, { name: string; products: SampleProduc
       { title: "A weekly review for creators in twenty minutes", tag: "Weekly review", image: "notionpage-post-review.webp", excerpt: "Look back, plan, chase. The Friday routine that keeps a channel moving without taking over the weekend.", html: `<p>A channel slows down when nobody looks at it as a whole. Twenty minutes on Friday is enough.</p><h2 id="back">Look back</h2><p>Log views and subscribers for each post that went out. Mark the best and the worst and write one line on why.</p><h2 id="plan">Plan</h2><p>Pick next week's main post and its shorts, and move finished edits to scheduled.</p><h2 id="chase">Chase</h2><p>Send any sponsor drafts that are due and any invoices that are not paid.</p>` },
     ],
   },
-  /* Templates round 24: Hanger Lane, a heavyweight basics label around a clothing rail (hanging-rail): hoodies, sweats, tees, a knit and two jackets. Every garment is a real Unsplash photograph of it on its hanger, cut out to a transparent background (rembg), with a side view turned from the front photo; each has a close crop of the same photograph as its second picture. */
+  /* Templates round 24: Hanger Lane, a heavyweight basics label around a clothing rail (hanging-rail): hoodies in five colours, sweats, tees, a knit and two jackets. Every garment is a real Unsplash photograph of it on its hanger, cut out to a transparent background (rembg) and given the same wooden hanger; four of the hoodies are the white hoodie photograph tinted. Each has a close crop as its second picture. */
   rail: {
     name: "Hanger Lane",
     products: [
