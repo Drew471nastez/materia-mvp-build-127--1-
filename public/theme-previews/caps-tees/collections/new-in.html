@@ -1,7 +1,7 @@
 
 <!doctype html>
 <html class="no-js" lang="en" dir="ltr">
-<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/caps-tees/a/cart.1f49d2db97f3.json";
+<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/caps-tees/a/cart.655cc4050189.json";
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
@@ -34,7 +34,8 @@ try{if(!W.name||names()){var n=names()||{slpv:{}};n.slpv[SLUG]=s;W.name=JSON.str
 function carry(u){if(!BAG.t)return u;try{var x=new URL(u,location.href);if(x.pathname.indexOf(ROOT+SLUG+"/")!==0||!/[.]html$/.test(x.pathname))return u;x.searchParams.set("slc",enc(BAG));return x.href}catch(e){return u}}
 D.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[href]");if(a&&!a.hasAttribute("data-preview-inert")){var to=carry(a.href);if(to!==a.href)a.href=to}},true);
 var DATA=null,DP=null;function data(){return DP||(DP=F(CART_DATA).then(function(r){return r.json()}).then(function(d){DATA=d;BAG.l=BAG.l.filter(function(x){return x.e<d.e.length});return d}))}
-var made={};function sec(i,k){var id=i+":"+k;if(made[id])return made[id];var x=DATA.e[i],o=k?x.r:x.d,s=typeof o==="string"?o:patch(sec(x.b,k),o);return made[id]=s}
+var made={};function sec(i,k){var id=i+":"+k;if(made[id])return made[id];var x=DATA.e[i],o=k?x.r:x.d,s=typeof o==="string"?o:patch(x.b<0?DATA.empty[k]:sec(x.b,k),o);return made[id]=s}
+var its={};function itemOf(i){if(its[i])return its[i];var x=DATA.e[i],o=x.item;return its[i]=typeof o==="string"?o:patch(itemOf(x.b),o)}
 function patch(b,x){var ops=x.o;if(!ops.length)return b;var t=b.split(RE[x.t]);for(var k=ops.length-1;k>=0;k--)t.splice(ops[k][0],ops[k][1],ops[k][2]);return t.join("")}
 function money(c){var f=DATA.fmt||"$"+"{{amount}}",m=/\{\{\s*(\w+)\s*\}\}/.exec(f),k=m?m[1]:"amount",dp=/no_decimals/.test(k)?0:2,eu=/comma_separator/.test(k),p=(c/100).toFixed(dp).split(".");var s=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,eu?".":(/apostrophe/.test(k)?"'":","))+(p[1]?(eu?",":".")+p[1]:"");return f.replace(/\{\{\s*\w+\s*\}\}/,s)}
 function moneyRe(){var f=DATA.fmt||"$"+"{{amount}}",at=f.search(/\{\{/),end=f.indexOf("}}")+2;var esc=function(s){return s.replace(/[.*+?^$()|[\]\\{}]/g,"\\$&")};return new RegExp(esc(f.slice(0,at))+"\\d[\\d.,']*"+esc(f.slice(end)),"g")}
@@ -44,7 +45,7 @@ function times(root,q){if(q===1)return;var re=moneyRe();texts(root,function(v){r
 function set(root,c){var re=moneyRe(),done=false;texts(root,function(v){return v.replace(re,function(){if(done)return"";done=true;return money(c)})})}
 function line(el,q){el.querySelectorAll('input[name="updates[]"]').forEach(function(i){i.value=q;i.setAttribute("value",q);i.setAttribute("data-value",q)});el.querySelectorAll("[data-quantity]").forEach(function(x){x.setAttribute("data-quantity",q)});
 el.querySelectorAll(".minicart__item-prices,.cart-item__totals").forEach(function(x){times(x,q)})}
-function item(x,n){var it=JSON.parse(JSON.stringify(DATA.e[x.e].item)),q=x.q;it.quantity=q;it.key=DATA.e[x.e].k;["line_price","original_line_price","final_line_price","discounted_line_price"].forEach(function(k){if(typeof it[k]==="number")it[k]=it[k]*q});return it}
+function item(x,n){var it=JSON.parse(itemOf(x.e)),q=x.q;it.quantity=q;it.key=DATA.e[x.e].k;["line_price","original_line_price","final_line_price","discounted_line_price"].forEach(function(k){if(typeof it[k]==="number")it[k]=it[k]*q});return it}
 function cartJson(){var items=BAG.l.map(item),sum=function(k){return items.reduce(function(a,b){return a+(+b[k]||0)},0)},total=sum("final_line_price")||sum("line_price");
 return{token:"preview",note:BAG.note||"",attributes:{},original_total_price:sum("original_line_price")||total,total_price:total,total_discount:0,total_weight:0,item_count:items.reduce(function(a,b){return a+b.quantity},0),items:items,requires_shipping:items.some(function(i){return i.requires_shipping}),currency:DATA.cur,items_subtotal_price:total,cart_level_discount_applications:[]}}
 var DP2=new DOMParser();
@@ -1288,45 +1289,6 @@ href="/theme-previews/caps-tees/collections/new-in.html"
 role="checkbox"
 aria-checked="false"
 data-facets-link
-data-facets-key="value-size-small"
-data-facets-param="filter.v.option.size"
-data-facets-value="Small"
->
-<span class="facets-value__box" aria-hidden="true"></span>
-<span class="facets-value__label">Small</span><span class="facets-value__count">(1)</span></a>
-</li><li>
-<a
-class="facets-value"
-href="/theme-previews/caps-tees/collections/new-in.html"
-role="checkbox"
-aria-checked="false"
-data-facets-link
-data-facets-key="value-size-medium"
-data-facets-param="filter.v.option.size"
-data-facets-value="Medium"
->
-<span class="facets-value__box" aria-hidden="true"></span>
-<span class="facets-value__label">Medium</span><span class="facets-value__count">(1)</span></a>
-</li><li>
-<a
-class="facets-value"
-href="/theme-previews/caps-tees/collections/new-in.html"
-role="checkbox"
-aria-checked="false"
-data-facets-link
-data-facets-key="value-size-large"
-data-facets-param="filter.v.option.size"
-data-facets-value="Large"
->
-<span class="facets-value__box" aria-hidden="true"></span>
-<span class="facets-value__label">Large</span><span class="facets-value__count">(1)</span></a>
-</li><li>
-<a
-class="facets-value"
-href="/theme-previews/caps-tees/collections/new-in.html"
-role="checkbox"
-aria-checked="false"
-data-facets-link
 data-facets-key="value-size-xs"
 data-facets-param="filter.v.option.size"
 data-facets-value="XS"
@@ -1471,7 +1433,7 @@ data-sale-badge-type="percent"
 <product-form class="product-item__product-form pc-form--media"><form id="quick-add-products00000000-0000-4000-8000-000000000010" accept-charset="UTF-8" class="form" novalidate="novalidate" data-type="add-to-cart-form" data-type="add-to-cart-form" data-preview-form><input type="hidden" name="form_type" value="product"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="product-id" value="00000000-0000-4000-8000-000000000010"><input
 type="hidden"
 name="id"
-value="00000000-0000-4000-8000-000000000100"
+value="00000000-0000-4000-8000-000000000010"
 disabled
 >
 <button
@@ -1516,12 +1478,7 @@ $38.00
 </div>
 </div>
 </div>
-<script type="application/json" class="product-variant__quantity">
-            [{ "option":"Small","qty":11,"available":true,"mamagement":""},{ "option":"Medium","qty":11,"available":true,"mamagement":""},{ "option":"Large","qty":0,"available":false,"mamagement":"shopify"}]
-          </script>
-</motion-element><script type="application/json" class="productItemVariantsQty">
-        [{ "option":"Small","qty":11,"available":true,"mamagement":""},{ "option":"Medium","qty":11,"available":true,"mamagement":""},{ "option":"Large","qty":0,"available":false,"mamagement":"shopify"}]
-      </script></div>
+</motion-element></div>
 </div><div
 class="grid__item loadmore-item"
 >
@@ -1563,10 +1520,7 @@ data-show-sale="true"
 data-show-sold-out="true"
 data-show-preorder="true"
 data-sale-badge-type="percent"
-><div
-class="product__badges-sale product__badges-type-percent product__badges-inner align-self-start px-15 sale inline-flex content-center subheading_weight text-center lh-normal"
->-20%
-</div>
+>
 </div>
 </div>
 <div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible">
@@ -1609,15 +1563,11 @@ href="/theme-previews/caps-tees/products/twill-cap-rose.html"
 <div
 class="product-item__price justify-content-start fs-custom flex gap-custom lh-normal "
 style="--font-size: 13; --gap: 3px;"
-><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular primary-color">
-<span class="visually-hidden">Sale price</span>
-<span class="price heading_weight primary-color price-same-style price--special">
+><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular">
+<span class="visually-hidden">Regular price</span>
+<span class="price price-same-style heading-style">
 $38.00
 </span>
-</div>
-<div class="price-regular">
-<span class="visually-hidden">Regular price</span>
-<s class="price-item compare-price dark-grey">$47.50</s>
 </div>
 </div>
 </div>

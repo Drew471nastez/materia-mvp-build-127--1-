@@ -58,22 +58,24 @@ export const SAMPLE_POLICIES = [
 ]
 
 /** The template's sample shop, grown to a shop with a catalogue: at least six products, one with sizes, one on sale. */
-export function fullShop(template: string): { name: string; products: SampleProduct[] } {
+export function fullShop(template: string, own = false): { name: string; products: SampleProduct[] } {
   const shop = SAMPLE_SHOPS[template] ?? { name: "Sample store", products: [] }
   const products = [...shop.products.map((p) => ({ ...p }))]
+  /* Cards round 24: the live preview shows the template's own sample products only, at their own prices: no filler products and no made up sale beside them. */
+  if (own) return { name: shop.name, products }
   for (const f of FILLER) if (products.length < 6) products.push({ ...f, image: products[products.length % Math.max(1, shop.products.length)]?.image, kind: shop.products[0]?.kind })
   if (products[1] && !products[1].compare) products[1].compare = `$${(parseFloat(products[1].price.replace(/[^0-9.]/g, "")) * 1.25).toFixed(2)}`
   return { name: shop.name, products }
 }
 
 /** A site with a catalogue, collections, a blog and policies; or, `empty`, with none of them. */
-export function auditSite(imported: ImportedTemplate, template: string, empty: boolean): BuiltSite {
+export function auditSite(imported: ImportedTemplate, template: string, empty: boolean, opts: { own?: boolean } = {}): BuiltSite {
   if (empty) return siteFor(imported, { name: (SAMPLE_SHOPS[template] ?? { name: "Sample store" }).name, products: [] })
-  const built = siteFor(imported, fullShop(template))
+  const built = siteFor(imported, fullShop(template, opts.own))
   const products = built.site.products
-  /* The first product has real variants, each with its own id and price: its own options (./shops.ts), or sizes when it has none. */
+  /* The first product has real variants, each with its own id and price: its own options (./shops.ts), or sizes when it has none (not in the live preview, `own`: it shows the product as the template sells it). */
   const first = products[0]
-  if (first && !(first.settings.variants as unknown[] | undefined)?.length) {
+  if (first && !opts.own && !(first.settings.variants as unknown[] | undefined)?.length) {
     const sizes = ["Small", "Medium", "Large"]
     first.settings.options = [{ name: "Size", values: sizes }]
     first.settings.variants = sizes.map((name, i) => ({ id: `00000000-0000-4000-8000-00000000010${i}`, name, options: [name], price: first.settings.price, available: i !== 2 }))

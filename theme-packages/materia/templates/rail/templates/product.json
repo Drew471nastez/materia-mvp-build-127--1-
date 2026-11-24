@@ -208,7 +208,13 @@
         },
         "pay": {
           "type": "payment_badges",
-          "settings": {}
+          "settings": {
+            "show_paypal": true,
+            "show_unionpay": false,
+            "h_main": "Pay with",
+            "sub_text": "Shipping and returns",
+            "sub_url": "/pages/shipping"
+          }
         }
       },
       "block_order": [

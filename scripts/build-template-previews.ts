@@ -148,7 +148,7 @@ async function buildTemplate(t: (typeof CODE_TEMPLATES)[number]) {
   const id = `${CODE_THEME_PACKAGE}/${t.template}`
   const slug = t.slug
   const imported = await importTemplate(id)
-  const built: BuiltSite = auditSite(imported, t.template, false)
+  const built: BuiltSite = auditSite(imported, t.template, false, { own: true })
   /* The address the pages print for themselves; taken out below. */
   built.site.host = "preview.invalid"
   const { overlay, base } = templateDirs(id)

@@ -1,7 +1,7 @@
 
 <!doctype html>
 <html class="no-js" lang="en" dir="ltr">
-<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/boutique-rail/a/cart.26d9952faef9.json";
+<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/boutique-rail/a/cart.f4a7fa52f784.json";
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
@@ -34,7 +34,8 @@ try{if(!W.name||names()){var n=names()||{slpv:{}};n.slpv[SLUG]=s;W.name=JSON.str
 function carry(u){if(!BAG.t)return u;try{var x=new URL(u,location.href);if(x.pathname.indexOf(ROOT+SLUG+"/")!==0||!/[.]html$/.test(x.pathname))return u;x.searchParams.set("slc",enc(BAG));return x.href}catch(e){return u}}
 D.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[href]");if(a&&!a.hasAttribute("data-preview-inert")){var to=carry(a.href);if(to!==a.href)a.href=to}},true);
 var DATA=null,DP=null;function data(){return DP||(DP=F(CART_DATA).then(function(r){return r.json()}).then(function(d){DATA=d;BAG.l=BAG.l.filter(function(x){return x.e<d.e.length});return d}))}
-var made={};function sec(i,k){var id=i+":"+k;if(made[id])return made[id];var x=DATA.e[i],o=k?x.r:x.d,s=typeof o==="string"?o:patch(sec(x.b,k),o);return made[id]=s}
+var made={};function sec(i,k){var id=i+":"+k;if(made[id])return made[id];var x=DATA.e[i],o=k?x.r:x.d,s=typeof o==="string"?o:patch(x.b<0?DATA.empty[k]:sec(x.b,k),o);return made[id]=s}
+var its={};function itemOf(i){if(its[i])return its[i];var x=DATA.e[i],o=x.item;return its[i]=typeof o==="string"?o:patch(itemOf(x.b),o)}
 function patch(b,x){var ops=x.o;if(!ops.length)return b;var t=b.split(RE[x.t]);for(var k=ops.length-1;k>=0;k--)t.splice(ops[k][0],ops[k][1],ops[k][2]);return t.join("")}
 function money(c){var f=DATA.fmt||"$"+"{{amount}}",m=/\{\{\s*(\w+)\s*\}\}/.exec(f),k=m?m[1]:"amount",dp=/no_decimals/.test(k)?0:2,eu=/comma_separator/.test(k),p=(c/100).toFixed(dp).split(".");var s=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,eu?".":(/apostrophe/.test(k)?"'":","))+(p[1]?(eu?",":".")+p[1]:"");return f.replace(/\{\{\s*\w+\s*\}\}/,s)}
 function moneyRe(){var f=DATA.fmt||"$"+"{{amount}}",at=f.search(/\{\{/),end=f.indexOf("}}")+2;var esc=function(s){return s.replace(/[.*+?^$()|[\]\\{}]/g,"\\$&")};return new RegExp(esc(f.slice(0,at))+"\\d[\\d.,']*"+esc(f.slice(end)),"g")}
@@ -44,7 +45,7 @@ function times(root,q){if(q===1)return;var re=moneyRe();texts(root,function(v){r
 function set(root,c){var re=moneyRe(),done=false;texts(root,function(v){return v.replace(re,function(){if(done)return"";done=true;return money(c)})})}
 function line(el,q){el.querySelectorAll('input[name="updates[]"]').forEach(function(i){i.value=q;i.setAttribute("value",q);i.setAttribute("data-value",q)});el.querySelectorAll("[data-quantity]").forEach(function(x){x.setAttribute("data-quantity",q)});
 el.querySelectorAll(".minicart__item-prices,.cart-item__totals").forEach(function(x){times(x,q)})}
-function item(x,n){var it=JSON.parse(JSON.stringify(DATA.e[x.e].item)),q=x.q;it.quantity=q;it.key=DATA.e[x.e].k;["line_price","original_line_price","final_line_price","discounted_line_price"].forEach(function(k){if(typeof it[k]==="number")it[k]=it[k]*q});return it}
+function item(x,n){var it=JSON.parse(itemOf(x.e)),q=x.q;it.quantity=q;it.key=DATA.e[x.e].k;["line_price","original_line_price","final_line_price","discounted_line_price"].forEach(function(k){if(typeof it[k]==="number")it[k]=it[k]*q});return it}
 function cartJson(){var items=BAG.l.map(item),sum=function(k){return items.reduce(function(a,b){return a+(+b[k]||0)},0)},total=sum("final_line_price")||sum("line_price");
 return{token:"preview",note:BAG.note||"",attributes:{},original_total_price:sum("original_line_price")||total,total_price:total,total_discount:0,total_weight:0,item_count:items.reduce(function(a,b){return a+b.quantity},0),items:items,requires_shipping:items.some(function(i){return i.requires_shipping}),currency:DATA.cur,items_subtotal_price:total,cart_level_discount_applications:[]}}
 var DP2=new DOMParser();
@@ -389,7 +390,7 @@ data-menu-hover="none"
       --hs-logo-max-height: 40px;
       --hs-logo-box-height: 56px;
     }
-  }:root { --hs-mnav-title-bg: #ffffff; --hs-mnav-title-color: #111111; }</style><link href="/theme-previews/_base/a/header-layout.c35c8527fd88.css" rel="stylesheet" type="text/css" media="all">
+  }:root { --hs-mnav-title-bg: #ffffff; --hs-mnav-title-color: #111111; }</style><link href="/theme-previews/_base/a/header-layout.ed2de67e6e9c.css" rel="stylesheet" type="text/css" media="all">
 <style>
   #shopify-section-header {
     --header-height-desktop: 62px;
@@ -1069,14 +1070,14 @@ data-strings='{"add": &quot;Add to Cart&quot;, "soldOut": &quot;Out of Stock&quo
                   "title": "Crew sweatshirt, black",
                   "url": "/products/crew-sweatshirt-black",
                   "price": "$84.00",
-                  "compare": "$105.00",
+                  "compare": "",
                   "note": "Loopback cotton, a ribbed hem and cuffs",
                   "front": "/theme-previews/boutique-rail/a/rail-crew-black-front.535f7901171e.webp",
                   "frontSet": "/theme-previews/boutique-rail/a/rail-crew-black-front.535f7901171e.webp 640w, /theme-previews/boutique-rail/a/rail-crew-black-front.535f7901171e.webp 960w, /theme-previews/boutique-rail/a/rail-crew-black-front.535f7901171e.webp 1300w",
                   "back": "",
                   "selected": "00000000-0000-4000-8000-001100000001",
                   "options": [{ "name": "Size", "values": ["S","M","L","XL"] }],
-                  "variants": [{ "id": "00000000-0000-4000-8000-001100000001", "options": ["S"], "price": "$84.00", "compare": "$105.00", "available": true },{ "id": "00000000-0000-4000-8000-001100000002", "options": ["M"], "price": "$84.00", "compare": "$105.00", "available": true },{ "id": "00000000-0000-4000-8000-001100000003", "options": ["L"], "price": "$84.00", "compare": "$105.00", "available": true },{ "id": "00000000-0000-4000-8000-001100000004", "options": ["XL"], "price": "$84.00", "compare": "$105.00", "available": true }]
+                  "variants": [{ "id": "00000000-0000-4000-8000-001100000001", "options": ["S"], "price": "$84.00", "compare": "", "available": true },{ "id": "00000000-0000-4000-8000-001100000002", "options": ["M"], "price": "$84.00", "compare": "", "available": true },{ "id": "00000000-0000-4000-8000-001100000003", "options": ["L"], "price": "$84.00", "compare": "", "available": true },{ "id": "00000000-0000-4000-8000-001100000004", "options": ["XL"], "price": "$84.00", "compare": "", "available": true }]
                 }
               </script>
 </li><li class="hr__item" data-block-id="g3">

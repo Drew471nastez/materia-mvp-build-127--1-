@@ -1,7 +1,7 @@
 
 <!doctype html>
 <html class="no-js" lang="en" dir="ltr">
-<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/caps-tees/a/cart.1f49d2db97f3.json";
+<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/caps-tees/a/cart.655cc4050189.json";
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
@@ -34,7 +34,8 @@ try{if(!W.name||names()){var n=names()||{slpv:{}};n.slpv[SLUG]=s;W.name=JSON.str
 function carry(u){if(!BAG.t)return u;try{var x=new URL(u,location.href);if(x.pathname.indexOf(ROOT+SLUG+"/")!==0||!/[.]html$/.test(x.pathname))return u;x.searchParams.set("slc",enc(BAG));return x.href}catch(e){return u}}
 D.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[href]");if(a&&!a.hasAttribute("data-preview-inert")){var to=carry(a.href);if(to!==a.href)a.href=to}},true);
 var DATA=null,DP=null;function data(){return DP||(DP=F(CART_DATA).then(function(r){return r.json()}).then(function(d){DATA=d;BAG.l=BAG.l.filter(function(x){return x.e<d.e.length});return d}))}
-var made={};function sec(i,k){var id=i+":"+k;if(made[id])return made[id];var x=DATA.e[i],o=k?x.r:x.d,s=typeof o==="string"?o:patch(sec(x.b,k),o);return made[id]=s}
+var made={};function sec(i,k){var id=i+":"+k;if(made[id])return made[id];var x=DATA.e[i],o=k?x.r:x.d,s=typeof o==="string"?o:patch(x.b<0?DATA.empty[k]:sec(x.b,k),o);return made[id]=s}
+var its={};function itemOf(i){if(its[i])return its[i];var x=DATA.e[i],o=x.item;return its[i]=typeof o==="string"?o:patch(itemOf(x.b),o)}
 function patch(b,x){var ops=x.o;if(!ops.length)return b;var t=b.split(RE[x.t]);for(var k=ops.length-1;k>=0;k--)t.splice(ops[k][0],ops[k][1],ops[k][2]);return t.join("")}
 function money(c){var f=DATA.fmt||"$"+"{{amount}}",m=/\{\{\s*(\w+)\s*\}\}/.exec(f),k=m?m[1]:"amount",dp=/no_decimals/.test(k)?0:2,eu=/comma_separator/.test(k),p=(c/100).toFixed(dp).split(".");var s=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,eu?".":(/apostrophe/.test(k)?"'":","))+(p[1]?(eu?",":".")+p[1]:"");return f.replace(/\{\{\s*\w+\s*\}\}/,s)}
 function moneyRe(){var f=DATA.fmt||"$"+"{{amount}}",at=f.search(/\{\{/),end=f.indexOf("}}")+2;var esc=function(s){return s.replace(/[.*+?^$()|[\]\\{}]/g,"\\$&")};return new RegExp(esc(f.slice(0,at))+"\\d[\\d.,']*"+esc(f.slice(end)),"g")}
@@ -44,7 +45,7 @@ function times(root,q){if(q===1)return;var re=moneyRe();texts(root,function(v){r
 function set(root,c){var re=moneyRe(),done=false;texts(root,function(v){return v.replace(re,function(){if(done)return"";done=true;return money(c)})})}
 function line(el,q){el.querySelectorAll('input[name="updates[]"]').forEach(function(i){i.value=q;i.setAttribute("value",q);i.setAttribute("data-value",q)});el.querySelectorAll("[data-quantity]").forEach(function(x){x.setAttribute("data-quantity",q)});
 el.querySelectorAll(".minicart__item-prices,.cart-item__totals").forEach(function(x){times(x,q)})}
-function item(x,n){var it=JSON.parse(JSON.stringify(DATA.e[x.e].item)),q=x.q;it.quantity=q;it.key=DATA.e[x.e].k;["line_price","original_line_price","final_line_price","discounted_line_price"].forEach(function(k){if(typeof it[k]==="number")it[k]=it[k]*q});return it}
+function item(x,n){var it=JSON.parse(itemOf(x.e)),q=x.q;it.quantity=q;it.key=DATA.e[x.e].k;["line_price","original_line_price","final_line_price","discounted_line_price"].forEach(function(k){if(typeof it[k]==="number")it[k]=it[k]*q});return it}
 function cartJson(){var items=BAG.l.map(item),sum=function(k){return items.reduce(function(a,b){return a+(+b[k]||0)},0)},total=sum("final_line_price")||sum("line_price");
 return{token:"preview",note:BAG.note||"",attributes:{},original_total_price:sum("original_line_price")||total,total_price:total,total_discount:0,total_weight:0,item_count:items.reduce(function(a,b){return a+b.quantity},0),items:items,requires_shipping:items.some(function(i){return i.requires_shipping}),currency:DATA.cur,items_subtotal_price:total,cart_level_discount_applications:[]}}
 var DP2=new DOMParser();
@@ -1149,15 +1150,11 @@ id="price-main"
 class="product-detail__price mb-10"
 data-block-id="price_1"
 style="font-size: 20px; font-weight: 500;"
-><div class="card-product-price price-large flex align-center flex-wrap gap-5 relative"><div class="price-regular primary-color">
-<span class="visually-hidden">Sale price</span>
-<span class="price heading_weight primary-color price-same-style price--special">
+><div class="card-product-price price-large flex align-center flex-wrap gap-5 relative"><div class="price-regular">
+<span class="visually-hidden">Regular price</span>
+<span class="price price-same-style heading-style">
 $38.00
 </span>
-</div>
-<div class="price-regular">
-<span class="visually-hidden">Regular price</span>
-<s class="price-item compare-price dark-grey">$47.50</s>
 </div>
 </div>
 </div>
@@ -1486,7 +1483,7 @@ $38.00
 <svg class="mt-select-wrap__chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2.5 4.5 3.5 3.5 3.5-3.5"/></svg>
 </div>
 <script type="application/json" data-variant-data>
-    [{"id":"00000000-0000-4000-8000-000000000011","title":"Default Title","option1":"Default Title","option2":null,"option3":null,"sku":"","requires_shipping":true,"taxable":true,"featured_image":null,"available":true,"name":"Twill cap, rose","public_title":null,"options":["Default Title"],"price":3800,"weight":0,"compare_at_price":4750,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}}]
+    [{"id":"00000000-0000-4000-8000-000000000011","title":"Default Title","option1":"Default Title","option2":null,"option3":null,"sku":"","requires_shipping":true,"taxable":true,"featured_image":null,"available":true,"name":"Twill cap, rose","public_title":null,"options":["Default Title"],"price":3800,"weight":0,"compare_at_price":null,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}}]
   </script>
 </variant-radios-sticky>
 </div>
@@ -1529,7 +1526,7 @@ style="--btn-padding-x: 2.5rem;"
       data-product-json
       class="productJson"
     >
-      {"id":"00000000-0000-4000-8000-000000000011","title":"Twill cap, rose","handle":"twill-cap-rose","description":"<p>Six panel washed cotton twill with a curved peak and a strap at the back. One size.<\/p>","published_at":null,"created_at":null,"vendor":"","type":"","tags":[],"price":3800,"price_min":3800,"price_max":3800,"available":true,"price_varies":false,"compare_at_price":4750,"compare_at_price_min":4750,"compare_at_price_max":4750,"compare_at_price_varies":false,"variants":[{"id":"00000000-0000-4000-8000-000000000011","title":"Default Title","option1":"Default Title","option2":null,"option3":null,"sku":"","requires_shipping":true,"taxable":true,"featured_image":null,"available":true,"name":"Twill cap, rose","public_title":null,"options":["Default Title"],"price":3800,"weight":0,"compare_at_price":4750,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}}],"images":["/theme-previews/caps-tees/a/capstees-cap-rose.7e3fc23c1f43.webp","/theme-previews/caps-tees/a/capstees-cap-rose-detail.6f3b7fc63f0b.webp"],"featured_image":"/theme-previews/caps-tees/a/capstees-cap-rose.7e3fc23c1f43.webp","options":["Title"],"media":[{"alt":"Twill cap, rose","id":1000,"position":1,"preview_image":{"aspect_ratio":1,"height":1600,"width":1600,"src":"/theme-previews/caps-tees/a/capstees-cap-rose.7e3fc23c1f43.webp"},"aspect_ratio":1,"height":1600,"media_type":"image","src":"/theme-previews/caps-tees/a/capstees-cap-rose.7e3fc23c1f43.webp","width":1600},{"alt":"Twill cap, rose","id":1001,"position":2,"preview_image":{"aspect_ratio":1,"height":1600,"width":1600,"src":"/theme-previews/caps-tees/a/capstees-cap-rose-detail.6f3b7fc63f0b.webp"},"aspect_ratio":1,"height":1600,"media_type":"image","src":"/theme-previews/caps-tees/a/capstees-cap-rose-detail.6f3b7fc63f0b.webp","width":1600}],"requires_selling_plan":false,"selling_plan_groups":[],"content":"<p>Six panel washed cotton twill with a curved peak and a strap at the back. One size.<\/p>"}
+      {"id":"00000000-0000-4000-8000-000000000011","title":"Twill cap, rose","handle":"twill-cap-rose","description":"<p>Six panel washed cotton twill with a curved peak and a strap at the back. One size.<\/p>","published_at":null,"created_at":null,"vendor":"","type":"","tags":[],"price":3800,"price_min":3800,"price_max":3800,"available":true,"price_varies":false,"compare_at_price":null,"compare_at_price_min":0,"compare_at_price_max":0,"compare_at_price_varies":false,"variants":[{"id":"00000000-0000-4000-8000-000000000011","title":"Default Title","option1":"Default Title","option2":null,"option3":null,"sku":"","requires_shipping":true,"taxable":true,"featured_image":null,"available":true,"name":"Twill cap, rose","public_title":null,"options":["Default Title"],"price":3800,"weight":0,"compare_at_price":null,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}}],"images":["/theme-previews/caps-tees/a/capstees-cap-rose.7e3fc23c1f43.webp","/theme-previews/caps-tees/a/capstees-cap-rose-detail.6f3b7fc63f0b.webp"],"featured_image":"/theme-previews/caps-tees/a/capstees-cap-rose.7e3fc23c1f43.webp","options":["Title"],"media":[{"alt":"Twill cap, rose","id":1000,"position":1,"preview_image":{"aspect_ratio":1,"height":1600,"width":1600,"src":"/theme-previews/caps-tees/a/capstees-cap-rose.7e3fc23c1f43.webp"},"aspect_ratio":1,"height":1600,"media_type":"image","src":"/theme-previews/caps-tees/a/capstees-cap-rose.7e3fc23c1f43.webp","width":1600},{"alt":"Twill cap, rose","id":1001,"position":2,"preview_image":{"aspect_ratio":1,"height":1600,"width":1600,"src":"/theme-previews/caps-tees/a/capstees-cap-rose-detail.6f3b7fc63f0b.webp"},"aspect_ratio":1,"height":1600,"media_type":"image","src":"/theme-previews/caps-tees/a/capstees-cap-rose-detail.6f3b7fc63f0b.webp","width":1600}],"requires_selling_plan":false,"selling_plan_groups":[],"content":"<p>Six panel washed cotton twill with a curved peak and a strap at the back. One size.<\/p>"}
     </script><script type="application/json" data-variant-media>
   {"00000000-0000-4000-8000-000000000011": { "id": "", "src": "" }}
 </script><script>

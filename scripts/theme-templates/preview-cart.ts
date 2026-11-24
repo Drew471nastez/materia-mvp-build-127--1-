@@ -110,8 +110,8 @@ export interface PreviewCartData {
   page: string
   /** The drawer and the cart page for an empty cart. */
   empty: [drawer: string, page: string]
-  /** Each thing a cart can hold, in order: `b` the one its drawing is told from (-1: written whole in `d` and `r`). */
-  e: { k: string; id: string; p: string; one: boolean; b: number; d: Diff | string; r: Diff | string; item: Record<string, unknown> }[]
+  /** Each thing a cart can hold, in order: `b` the one its drawing and its cart line are told from (-1: the first, told from the empty cart); `d`, `r` and `item` a difference, or whole where that is no longer. */
+  e: { k: string; id: string; p: string; one: boolean; b: number; d: Diff | string; r: Diff | string; item: Diff | string }[]
 }
 
 const MAX_LINES = 160
@@ -134,11 +134,18 @@ export async function previewCartData(site: SiteData, cartPageHtml: string, fini
   }
   if (!things.length) return null
   const list = things.slice(0, MAX_LINES)
+  /* The stylesheets the cart page already carries are not written again: the drawer and the page section keep their own (see arrive in the shim). */
+  const page0 = await finish(cartPageHtml)
   const draw = async (cart: CartEntry[], path: string, id: string): Promise<string> => {
     const res = await answer(site, { method: "GET", path, query: new URLSearchParams(`sections=${id}`), body: null, cart })
     const html = (JSON.parse(String(res.body)) as Record<string, string | null>)[id]
     if (!html) throw new Error(`the ${id} section did not draw for ${path}`)
-    return finish(html)
+    /* Only those before the section's own content (#minicart-form, #main-cart-items): what the theme swaps in later keeps its styles. */
+    const out = await finish(html)
+    const at = out.search(/\bid="(?:minicart-form|main-cart-items)"/)
+    if (at < 0) return out
+    const head = out.slice(0, out.lastIndexOf("<", at))
+    return head.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, (m) => (m.length > 200 && page0.includes(m) ? "" : m)) + out.slice(head.length)
   }
   const empty: [string, string] = [await draw([], "/", "minicart-form"), await draw([], "/cart", page)]
   const drawn: [string, string][] = []
@@ -158,16 +165,29 @@ export async function previewCartData(site: SiteData, cartPageHtml: string, fini
     const item = items[i]
     let b = firstOf.get(t.p)
     if (b === undefined) {
+      /* A product's first line: from whichever product's first line before it is nearest (the shortest difference). */
+      const firsts = [...firstOf.values()]
       firstOf.set(t.p, i)
-      b = i === 0 ? -1 : 0
+      b = -1
+      let best = Infinity
+      for (const f of firsts) {
+        const size = JSON.stringify(diffMarkup(drawn[f][0], drawn[i][0]).o).length + JSON.stringify(diffMarkup(drawn[f][1], drawn[i][1]).o).length
+        if (size < best) [best, b] = [size, f]
+      }
     }
-    const told = (k: 0 | 1): Diff | string => {
-      if (b === -1) return drawn[i][k]
-      const ops = diffMarkup(drawn[b!][k], drawn[i][k])
-      if (patchMarkup(drawn[b!][k], ops) !== drawn[i][k]) throw new Error(`the cart drawing of line ${i} does not come back from its difference`)
-      return ops
+    /* Told from what it is nearest: its product's first line, another product's first line, and the first line itself from the empty cart. Kept whole where that is no shorter. */
+    const told = (from: string, to: string): Diff | string => {
+      const ops = diffMarkup(from, to)
+      if (patchMarkup(from, ops) !== to) throw new Error(`the cart drawing of line ${i} does not come back from its difference`)
+      return JSON.stringify(ops).length < to.length ? ops : to
     }
-    return { k: `pv${i}x`, id: String(item.variant_id ?? item.id ?? t.v ?? t.p), p: t.p, one: t.one, b: b!, d: told(0), r: told(1), item }
+    const own = JSON.stringify(item)
+    return {
+      k: `pv${i}x`, id: String(item.variant_id ?? item.id ?? t.v ?? t.p), p: t.p, one: t.one, b: b!,
+      d: told(b === -1 ? empty[0] : drawn[b!][0], drawn[i][0]),
+      r: told(b === -1 ? empty[1] : drawn[b!][1], drawn[i][1]),
+      item: b === -1 ? own : told(JSON.stringify(items[b!]), own),
+    }
   })
   const shop = site.shop as { currency?: string; moneyFormat?: string }
   return { fmt: shop.moneyFormat ?? "${{amount}}", cur: shop.currency ?? "USD", page, empty, e }
@@ -193,7 +213,8 @@ try{if(!W.name||names()){var n=names()||{slpv:{}};n.slpv[SLUG]=s;W.name=JSON.str
 function carry(u){if(!BAG.t)return u;try{var x=new URL(u,location.href);if(x.pathname.indexOf(ROOT+SLUG+"/")!==0||!/[.]html$/.test(x.pathname))return u;x.searchParams.set("slc",enc(BAG));return x.href}catch(e){return u}}
 D.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[href]");if(a&&!a.hasAttribute("data-preview-inert")){var to=carry(a.href);if(to!==a.href)a.href=to}},true);
 var DATA=null,DP=null;function data(){return DP||(DP=F(CART_DATA).then(function(r){return r.json()}).then(function(d){DATA=d;BAG.l=BAG.l.filter(function(x){return x.e<d.e.length});return d}))}
-var made={};function sec(i,k){var id=i+":"+k;if(made[id])return made[id];var x=DATA.e[i],o=k?x.r:x.d,s=typeof o==="string"?o:patch(sec(x.b,k),o);return made[id]=s}
+var made={};function sec(i,k){var id=i+":"+k;if(made[id])return made[id];var x=DATA.e[i],o=k?x.r:x.d,s=typeof o==="string"?o:patch(x.b<0?DATA.empty[k]:sec(x.b,k),o);return made[id]=s}
+var its={};function itemOf(i){if(its[i])return its[i];var x=DATA.e[i],o=x.item;return its[i]=typeof o==="string"?o:patch(itemOf(x.b),o)}
 function patch(b,x){var ops=x.o;if(!ops.length)return b;var t=b.split(RE[x.t]);for(var k=ops.length-1;k>=0;k--)t.splice(ops[k][0],ops[k][1],ops[k][2]);return t.join("")}
 function money(c){var f=DATA.fmt||"$"+"{{amount}}",m=/\{\{\s*(\w+)\s*\}\}/.exec(f),k=m?m[1]:"amount",dp=/no_decimals/.test(k)?0:2,eu=/comma_separator/.test(k),p=(c/100).toFixed(dp).split(".");var s=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,eu?".":(/apostrophe/.test(k)?"'":","))+(p[1]?(eu?",":".")+p[1]:"");return f.replace(/\{\{\s*\w+\s*\}\}/,s)}
 function moneyRe(){var f=DATA.fmt||"$"+"{{amount}}",at=f.search(/\{\{/),end=f.indexOf("}}")+2;var esc=function(s){return s.replace(/[.*+?^$()|[\]\\{}]/g,"\\$&")};return new RegExp(esc(f.slice(0,at))+"\\d[\\d.,']*"+esc(f.slice(end)),"g")}
@@ -203,7 +224,7 @@ function times(root,q){if(q===1)return;var re=moneyRe();texts(root,function(v){r
 function set(root,c){var re=moneyRe(),done=false;texts(root,function(v){return v.replace(re,function(){if(done)return"";done=true;return money(c)})})}
 function line(el,q){el.querySelectorAll('input[name="updates[]"]').forEach(function(i){i.value=q;i.setAttribute("value",q);i.setAttribute("data-value",q)});el.querySelectorAll("[data-quantity]").forEach(function(x){x.setAttribute("data-quantity",q)});
 el.querySelectorAll(".minicart__item-prices,.cart-item__totals").forEach(function(x){times(x,q)})}
-function item(x,n){var it=JSON.parse(JSON.stringify(DATA.e[x.e].item)),q=x.q;it.quantity=q;it.key=DATA.e[x.e].k;["line_price","original_line_price","final_line_price","discounted_line_price"].forEach(function(k){if(typeof it[k]==="number")it[k]=it[k]*q});return it}
+function item(x,n){var it=JSON.parse(itemOf(x.e)),q=x.q;it.quantity=q;it.key=DATA.e[x.e].k;["line_price","original_line_price","final_line_price","discounted_line_price"].forEach(function(k){if(typeof it[k]==="number")it[k]=it[k]*q});return it}
 function cartJson(){var items=BAG.l.map(item),sum=function(k){return items.reduce(function(a,b){return a+(+b[k]||0)},0)},total=sum("final_line_price")||sum("line_price");
 return{token:"preview",note:BAG.note||"",attributes:{},original_total_price:sum("original_line_price")||total,total_price:total,total_discount:0,total_weight:0,item_count:items.reduce(function(a,b){return a+b.quantity},0),items:items,requires_shipping:items.some(function(i){return i.requires_shipping}),currency:DATA.cur,items_subtotal_price:total,cart_level_discount_applications:[]}}
 var DP2=new DOMParser();
@@ -238,7 +259,7 @@ var hold=null;if(BAG.l.length&&/\/cart\.html$/.test(location.pathname)){hold=D.c
 function arrive(){if(W.routes){try{var cu=W.routes.cart_url;Object.defineProperty(W.routes,"cart_url",{configurable:true,get:function(){return carry(ROOT+SLUG+"/cart.html")}})}catch(e){}}
 if(!CART_DATA||!BAG.l.length)return;paintCount();data().then(function(){if(!BAG.l.length){if(hold)hold.remove();return}
 var dr=D.getElementById("minicart-form");if(dr){var d=DP2.parseFromString(compose(0),"text/html").querySelector("#minicart-form");if(d){dr.innerHTML=d.innerHTML;var cd=dr.closest("cart-drawer,cart-notification,.is-empty");if(cd)cd.classList.remove("is-empty")}}
-var pg=D.getElementById("main-cart-items");if(pg){var s=pg.closest(".shopify-section")||pg.parentNode,n=DP2.parseFromString(compose(1),"text/html").querySelector(".shopify-section");if(s&&n)s.innerHTML=n.innerHTML}
+var pg=D.getElementById("main-cart-items");if(pg){var s=pg.closest(".shopify-section")||pg.parentNode,n=DP2.parseFromString(compose(1),"text/html").querySelector(".shopify-section");if(s&&n){[].slice.call(s.childNodes).forEach(function(c){if(c.nodeName!=="STYLE"&&c.nodeName!=="LINK")s.removeChild(c)});[].slice.call(n.childNodes).forEach(function(c){s.appendChild(D.importNode(c,true))})}}
 paintCount();if(hold)requestAnimationFrame(function(){hold.remove()})}).catch(function(){if(hold)hold.remove()})}
 if(D.readyState==="loading")D.addEventListener("DOMContentLoaded",arrive);else arrive();
 `
