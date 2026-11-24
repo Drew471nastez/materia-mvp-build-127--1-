@@ -209,13 +209,12 @@
     "product_style": "standard",
     "product_alignment": "start",
     "product_image_ratio": "square",
-    "show_secondary_image": false,
-    "product_hover_effect": "none",
+    "show_secondary_image": true,
+    "product_hover_effect": "hover_fade",
     "product_size": 13,
     "price_size": 13,
     "show_variant": false,
     "show_add_cart": true,
-    "show_quick_view": true,
     "card_atc_button": "outline",
     "show_wishlist": false,
     "show_quantity_input": false,
@@ -247,6 +246,7 @@
     "sold_out_color": "#ffffff",
     "instagram": "https://www.instagram.com",
     "tiktok": "https://www.tiktok.com",
-    "pinterest": "https://www.pinterest.com"
+    "pinterest": "https://www.pinterest.com",
+    "cart_drawer_buttons": "both"
   }
 }

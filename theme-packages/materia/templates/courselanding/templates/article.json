@@ -48,7 +48,7 @@
         "author_highlight_n4CqbT": {
           "type": "author_highlight",
           "settings": {
-            "author_text": "Want to practise this with a real person? Join a conversation class.",
+            "author_text": "Want a trainer to look at your puppy? Send a clip in the course every Sunday.",
             "author_image_size": 65
           }
         }
@@ -66,7 +66,7 @@
       "type": "blog-posts",
       "settings": {
         "reveal": false,
-        "heading": "More notes on learning Spanish",
+        "heading": "More notes on training",
         "autoplay": false,
         "infinite": false,
         "show_date": true,
@@ -119,7 +119,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Say your first real sentence this week",
+            "text": "Start with ten minutes tomorrow morning",
             "enable_custom_style": true,
             "font": "heading",
             "weight": "700",
@@ -134,7 +134,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "Twelve weeks from now you could hold a conversation in Spanish. It starts with twenty minutes tomorrow morning.",
+            "text": "Six weeks from now you could have a puppy who walks beside you and comes when called. The first lesson takes ten minutes.",
             "enable_custom_style": true,
             "size_d": 18,
             "size_m": 16,

@@ -57,6 +57,7 @@ import { templateDirs } from "../lib/themes/template-packages"
 import { answer, themeAsset } from "../lib/storelib-theme/compat/site"
 import { importTemplate, MEDIA_PREFIX, type BuiltSite } from "./theme-templates/site"
 import { auditSite } from "./theme-templates/fixtures"
+import { PREVIEW_CART_SHIM, previewCartData } from "./theme-templates/preview-cart"
 
 const OUT = join("public", TEMPLATE_PREVIEW_ROOT.replace(/^\//, ""))
 const FONT_CACHE = join("node_modules", ".cache", "template-previews-fonts")
@@ -356,15 +357,9 @@ async function buildTemplate(t: (typeof CODE_TEMPLATES)[number]) {
     return pages.has(path) ? pageUrl(path) + hash : null
   }
 
-  const html = new Map<string, string>()
-  for (const [path, raw] of pages) {
-    let page = raw
-    /* The page's own address on a host it is not on: canonical, alternates, its social card. */
-    page = page.replace(/<link\b[^>]*\brel=["']?(?:canonical|alternate|preconnect|dns-prefetch|prefetch|prerender)\b[^>]*>/gi, "")
-    page = page.replace(/<meta\b[^>]*\b(?:property|name)=["'](?:og:url|og:image|og:image:secure_url|twitter:image)["'][^>]*>/gi, "")
-    /* Prefetching, and the structured data search engines read (a preview is never indexed, and it names the build's host). */
-    page = page.replace(/<script\b[^>]*type=["'](?:speculationrules|application\/ld\+json)["'][^>]*>[\s\S]*?<\/script>/gi, "")
-    page = vendorless(page)
+  /** A section's or a page's markup as the preview serves it: its pictures, scripts and fonts as files here, its links to the pages written here. */
+  async function finish(markup: string): Promise<string> {
+    let page = vendorless(markup)
     /* The font library's stylesheets, from here. */
     for (const m of [...page.matchAll(/<link\b[^>]*href=["'](https:\/\/fonts\.googleapis\.com\/css2?[^"']+)["'][^>]*>/gi)]) {
       const sheet = await fontSheet(decodeAmp(m[1]))
@@ -373,8 +368,33 @@ async function buildTemplate(t: (typeof CODE_TEMPLATES)[number]) {
     page = await assetRefs(page)
     page = await inlineStyleUrls(page)
     page = linksAndForms(page, pageOf)
-    page = page.replace(/https?:\/\/preview\.invalid/g, "").replace(/preview\.invalid/g, "preview")
-    page = page.replace(/<head\b[^>]*>/i, (h) => `${h}<script data-template-preview>${SHIM}</script>`)
+    return page.replace(/https?:\/\/preview\.invalid/g, "").replace(/preview\.invalid/g, "preview")
+  }
+
+  /*
+    Cards round 24: the cart works in the preview. Materia's drawer and cart
+    page, drawn for each thing the shop's cart can hold, in one file the shim
+    reads when the visitor first adds something (./theme-templates/preview-cart.ts).
+  */
+  const cart = pages.has("/cart") ? await previewCartData(built.site, pages.get("/cart")!, finish, pageOf) : null
+  let cartData = ""
+  if (cart) {
+    const body = JSON.stringify(cart)
+    const rel = own(`cart.${sha(body)}.json`)
+    write(rel, body)
+    cartData = url(rel)
+  }
+
+  const html = new Map<string, string>()
+  for (const [path, raw] of pages) {
+    let page = raw
+    /* The page's own address on a host it is not on: canonical, alternates, its social card. */
+    page = page.replace(/<link\b[^>]*\brel=["']?(?:canonical|alternate|preconnect|dns-prefetch|prefetch|prerender)\b[^>]*>/gi, "")
+    page = page.replace(/<meta\b[^>]*\b(?:property|name)=["'](?:og:url|og:image|og:image:secure_url|twitter:image)["'][^>]*>/gi, "")
+    /* Prefetching, and the structured data search engines read (a preview is never indexed, and it names the build's host). */
+    page = page.replace(/<script\b[^>]*type=["'](?:speculationrules|application\/ld\+json)["'][^>]*>[\s\S]*?<\/script>/gi, "")
+    page = await finish(page)
+    page = page.replace(/<head\b[^>]*>/i, (h) => `${h}<script data-template-preview>${shim(cartData)}</script>`)
     html.set(path, page)
   }
 
@@ -479,7 +499,7 @@ function linksAndForms(page: string, pageOf: (href: string) => string | null): s
  * says it is a preview. When the page is drawn, the marketplace is told, so
  * it can take its screenshot away.
  */
-const SHIM = `(function(){var W=window,D=document;W.__slTemplatePreview=true;
+const shim = (cartData: string) => `(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA=${JSON.stringify(cartData)};
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
@@ -493,11 +513,15 @@ function path(u){try{return new URL(u,location.href).pathname}catch(e){return""}
 var CART={token:"preview",note:"",attributes:{},original_total_price:0,total_price:0,total_discount:0,total_weight:0,item_count:0,items:[],requires_shipping:false,currency:"USD",items_subtotal_price:0,cart_level_discount_applications:[]};
 var NO={status:422,message:"Preview",description:"This is a preview of the template. Add it to your library to sell from it."};
 function reply(u){var p=path(u);
-if(/\\/cart\\/add(\\.js)?$/.test(p)){showNote(pressed);return[422,"application/json",JSON.stringify(NO)]}
+if(/\\/cart\\/add(\\.js)?$/.test(p))return[422,"application/json",JSON.stringify(NO)];
 if(/\\/cart(\\.js|\\.json|\\/(change|update|clear)(\\.js)?)$/.test(p))return[200,"application/json",JSON.stringify(CART)];
 if(/\\.(js|json)$/.test(p)||/\\/search\\/suggest/.test(p))return[200,"application/json","{}"];
 return[200,"text/html","<!doctype html><html><body></body></html>"]}
-var F=W.fetch;if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);if(mine(u))return F.apply(this,arguments);var r=reply(u);return Promise.resolve(new Response(r[2],{status:r[0],headers:{"Content-Type":r[1]}}))};
+var F=W.fetch;${PREVIEW_CART_SHIM}
+if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);if(mine(u))return F.apply(this,arguments);
+/* Cards round 24: the cart answers from the template's drawn cart (./theme-templates/preview-cart.ts), as a store would. */
+var p=path(u),q=/[?&]sections=/.test(u),c=/\\/cart(\\.js|\\.json|\\/(add|change|update|clear)(\\.js)?)$/.test(p);if(CART_DATA&&(c||q)){var w=c?cartReply(p,o):sectionsReply(u);return w.then(function(r){return new Response(JSON.stringify(r[1]),{status:r[0],headers:{"Content-Type":"application/json"}})},function(){var r=reply(u);return new Response(r[2],{status:r[0],headers:{"Content-Type":r[1]}})})}
+var r=reply(u);return Promise.resolve(new Response(r[2],{status:r[0],headers:{"Content-Type":r[1]}}))};
 var X=W.XMLHttpRequest&&W.XMLHttpRequest.prototype;if(X){var O=X.open;X.open=function(m,u){var a=[].slice.call(arguments);if(!mine(u)){var r=reply(u);a[0]="GET";a[1]="data:"+r[1]+","+encodeURIComponent(r[2])}return O.apply(this,a)}}
 if(navigator.sendBeacon)navigator.sendBeacon=function(){return true};
 W.open=function(){return null};
@@ -514,13 +538,17 @@ n.style.left=Math.round(x)+"px";n.style.top=Math.round(y)+"px";note=n;
 requestAnimationFrame(function(){requestAnimationFrame(function(){n.style.opacity="1";n.style.transform="none"})});noteT=setTimeout(hideNote,3200)}
 W.addEventListener("scroll",hideNote,{passive:true});
 function productForm(f){return !!(f&&f.querySelector&&f.querySelector("input[name=id],select[name=id]"))}
-var BUY=".product-form__submit,.shopify-payment-button__button,.product_buy_now_button,.button_buy-now,.product-group-buy-now,[data-add-to-cart],[data-buy-now]";
-function buying(b){if(!b||!b.getAttribute)return false;var n=(b.getAttribute("name")||"").toLowerCase();if(n==="add"||n==="checkout")return true;if(b.matches&&b.matches(BUY))return true;var t=(b.getAttribute("type")||(b.tagName==="BUTTON"?"submit":"")).toLowerCase();return (t==="submit"||t==="image")&&productForm(b.form||b.closest("form"))}
-var pressed=null;D.addEventListener("pointerdown",function(e){pressed=e.target&&e.target.closest?e.target.closest("button,a,input"):null},true);
+/* Cards round 24: Add to cart goes to the preview's cart; Buy now and Check out, which would take an order, still get the note. */
+var BUY=".shopify-payment-button__button,.product_buy_now_button,.product-group-buy-now,[data-buy-now],.btn-checkout,.cart__checkout-button";
+function buying(b){if(!b||!b.getAttribute)return false;var n=(b.getAttribute("name")||"").toLowerCase();if(n==="checkout")return true;return !!(b.closest&&b.closest(BUY))}
 W.addEventListener("click",function(e){var b=e.target&&e.target.closest&&e.target.closest("button,input[type=submit],input[type=image],a");if(!buying(b))return;e.preventDefault();e.stopImmediatePropagation();showNote(b)},true);
-function submit(f,b){setTimeout(function(){var ev;try{ev=new SubmitEvent("submit",{bubbles:true,cancelable:true,submitter:b||null})}catch(_){ev=new Event("submit",{bubbles:true,cancelable:true})}f.dispatchEvent(ev)},0)}
+function submit(f,b){setTimeout(function(){var ev;try{ev=new SubmitEvent("submit",{bubbles:true,cancelable:true,submitter:b||null})}catch(_){ev=new Event("submit",{bubbles:true,cancelable:true})}f.dispatchEvent(ev);if(!ev.defaultPrevented&&productForm(f))addAlone(f,b)},0)}
+/* A product form no script of the theme takes: added here, and the drawer opens with it (or the cart page, where the page has none). */
+function addAlone(f,b){var id=f.querySelector("input[name=id],select[name=id]"),q=f.querySelector("input[name=quantity]");if(!CART_DATA||!id){showNote(b);return}
+cartReply("/cart/add.js",{body:JSON.stringify({id:id.value,quantity:q?q.value:1,sections:["minicart-form"]})}).then(function(r){if(r[0]!==200){showNote(b);return}var dr=D.getElementById("minicart-form"),cn=D.querySelector("cart-notification,cart-drawer");
+if(dr&&cn&&cn.open){var d=new DOMParser().parseFromString(r[1].sections["minicart-form"],"text/html").querySelector("#minicart-form");if(d)dr.innerHTML=d.innerHTML;cn.classList.remove("is-empty");paintCount();cn.open()}else location.href=carry(ROOT+SLUG+"/cart.html")})}
 D.addEventListener("click",function(e){var b=e.target&&e.target.closest&&e.target.closest("button,input[type=submit],input[type=image]");if(!b||!b.form)return;var t=(b.getAttribute("type")||"submit").toLowerCase();if(t!=="submit"&&t!=="image")return;e.preventDefault();submit(b.form,b)},true);
-D.addEventListener("keydown",function(e){var i=e.target;if(e.key!=="Enter"||!i||i.tagName!=="INPUT"||!i.form)return;e.preventDefault();if(productForm(i.form)){showNote(i.form.querySelector("[name=add],button[type=submit],button:not([type])")||i);return}submit(i.form,null)},true);
+D.addEventListener("keydown",function(e){var i=e.target;if(e.key!=="Enter"||!i||i.tagName!=="INPUT"||!i.form)return;e.preventDefault();submit(i.form,i.form.querySelector("[name=add],button[type=submit],button:not([type])"))},true);
 D.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[data-preview-inert]");if(a)e.preventDefault()},true);
 var told=false;function tell(){if(told)return;told=true;try{parent.postMessage({type:"storelib:template-preview",ready:true,path:location.pathname},"*")}catch(e){}}
 W.addEventListener("load",tell);D.addEventListener("DOMContentLoaded",function(){setTimeout(tell,1200)});

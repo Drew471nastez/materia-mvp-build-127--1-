@@ -3889,3 +3889,5 @@ nav.mobile {
   pointer-events: auto;
   transform: translateY(0);
 }
+/* Icons in benefit, trust and guarantee rows draw their whole shape: a stroke or curve that touches the edge of its box is never shaved off. */
+:where([class*="benefit" i], [class*="IconsBar"], [class*="trust" i], [class*="guarantee" i]) svg { overflow: visible; }

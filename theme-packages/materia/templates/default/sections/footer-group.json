@@ -7,7 +7,7 @@
       "settings": {
         "custom_text": "",
         "padding_top": 72,
-        "show_social": false,
+        "show_social": true,
         "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
         "custom_image": "",
         "reset_spacing": true,

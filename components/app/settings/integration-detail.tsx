@@ -62,6 +62,7 @@ import { PageIntegrationsSection, reloadPageIntegrations } from "@/components/on
 import { isPageIntegration } from "@/lib/onepage/integrations/catalog"
 import { AppListing } from "@/components/app/integrations/app-listing"
 import { InstallSheet } from "@/components/app/integrations/install-sheet"
+import { FloatingBack } from "@/components/app/integrations/floating-back"
 import { ActivityCard, InstalledApp, SyncedCard } from "@/components/app/integrations/installed-app"
 import { activityOf, installLabel, installMode, installSteps, relatedOf, syncedOf } from "@/lib/integrations/listing"
 
@@ -645,9 +646,13 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
     the moment the link is back: the link and the arrow trade places on one
     observer and one transition. The bar's own action follows the header's,
     as before: shown only once the header's is out of view.
+
+    Round r24: where there is a Back, the floating Back takes the bar's
+    place on the same flag (barShown); the bar is drawn only where there is
+    none, and comes with the header's action (actionOut).
   */
   const { bar: barShown, action: actionOut } = usePageBar(onBack ? backMark : null, actionsRef, barOn, listing)
-  const pinned = onBack ? barShown : actionOut
+  const pinned = actionOut
   const barAction = notifyOnly || !!verb ? "primary" : plan || installed ? "settings" : null
   const actions = (
     <div ref={actionsRef} className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:shrink-0 lg:justify-end" data-integration-actions="">
@@ -723,7 +728,15 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
 
   return (
     <>
-      {barOn ? (
+      {/*
+        BACK FLOATS (r24, the owner): wherever the page has a Back to
+        integrations, the full-width bar gives way to a round Back at the top
+        left (components/app/integrations/floating-back), on the same flag the
+        bar came on. The bar stays where there is no way back and an action to
+        follow (/app/reviews).
+      */}
+      {onBack ? <FloatingBack shown={barShown} onBack={onBack} /> : null}
+      {barOn && !onBack ? (
         /*
           THE ACTION FOLLOWS (round 27, round Y2). A sticky box with no
           height, so it takes no room and nothing under it moves. The bar
@@ -754,18 +767,7 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
             aria-hidden={!pinned}
             data-integration-pin={pinned ? "shown" : "hidden"}
           >
-            <div className={cn("flex items-center gap-2.5 rounded-2xl border border-[#e5e7eb]/80 bg-white p-2 shadow-[0_1px_2px_rgba(16,24,40,0.05),0_12px_28px_-14px_rgba(16,24,40,0.24)]", onBack ? "pl-1.5" : "pl-2.5")}>
-              {onBack ? (
-                <button
-                  type="button"
-                  onClick={onBack}
-                  aria-label={tt("Back to integrations")}
-                  className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#4b5563] outline-none transition-colors after:absolute after:-inset-1 after:content-[''] hover:bg-[#f1f2f4] active:bg-[#eceef1] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent]"
-                  data-integration-pin-back=""
-                >
-                  <ChevronLeft className="h-[18px] w-[18px]" aria-hidden />
-                </button>
-              ) : null}
+            <div className="flex items-center gap-2.5 rounded-2xl border border-[#e5e7eb]/80 bg-white p-2 pl-2.5 shadow-[0_1px_2px_rgba(16,24,40,0.05),0_12px_28px_-14px_rgba(16,24,40,0.24)]">
               <Mark item={item} size={32} />
               <span className="min-w-0 flex-1 truncate text-[14.5px] font-semibold text-[#1a1a2e]">{item.name}</span>
               {barAction ? (

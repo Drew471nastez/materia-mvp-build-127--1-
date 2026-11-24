@@ -1,7 +1,7 @@
 
 <!doctype html>
 <html class="no-js" lang="en" dir="ltr">
-<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;
+<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/digital-renaissance/a/cart.da555b4fcffa.json";
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
@@ -15,11 +15,78 @@ function path(u){try{return new URL(u,location.href).pathname}catch(e){return""}
 var CART={token:"preview",note:"",attributes:{},original_total_price:0,total_price:0,total_discount:0,total_weight:0,item_count:0,items:[],requires_shipping:false,currency:"USD",items_subtotal_price:0,cart_level_discount_applications:[]};
 var NO={status:422,message:"Preview",description:"This is a preview of the template. Add it to your library to sell from it."};
 function reply(u){var p=path(u);
-if(/\/cart\/add(\.js)?$/.test(p)){showNote(pressed);return[422,"application/json",JSON.stringify(NO)]}
+if(/\/cart\/add(\.js)?$/.test(p))return[422,"application/json",JSON.stringify(NO)];
 if(/\/cart(\.js|\.json|\/(change|update|clear)(\.js)?)$/.test(p))return[200,"application/json",JSON.stringify(CART)];
 if(/\.(js|json)$/.test(p)||/\/search\/suggest/.test(p))return[200,"application/json","{}"];
 return[200,"text/html","<!doctype html><html><body></body></html>"]}
-var F=W.fetch;if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);if(mine(u))return F.apply(this,arguments);var r=reply(u);return Promise.resolve(new Response(r[2],{status:r[0],headers:{"Content-Type":r[1]}}))};
+var F=W.fetch;
+var SLUG=location.pathname.slice(ROOT.length).split("/")[0],CK="slpv-cart:"+SLUG,RE=[/(?=[<"\s>=])/,/(?=\n)/];
+function dec(s){var m=/^(\d+)~(.*)$/.exec(s||"");if(!m)return null;var lines=[];(m[2]?m[2].split("-"):[]).forEach(function(x){var p=x.split(".");var e=+p[0],q=+p[1];if(e>=0&&q>0&&e===Math.floor(e))lines.push({e:e,q:Math.min(99,Math.floor(q))})});return{t:+m[1],l:lines}}
+function enc(c){return c.t+"~"+c.l.map(function(x){return x.e+"."+x.q}).join("-")}
+function names(){try{var n=JSON.parse(W.name||"null");return n&&typeof n==="object"&&n.slpv?n:null}catch(e){return null}}
+var BAG=(function(){var best={t:0,l:[]},take=function(c){if(c&&c.t>=best.t)best=c};
+var m=/[?&]slc=([^&#]*)/.exec(location.search);if(m)take(dec(decodeURIComponent(m[1])));
+var n=names();if(n&&n.slpv[SLUG])take(dec(n.slpv[SLUG]));
+try{take(dec(W.localStorage.getItem(CK)))}catch(e){}
+return best})();
+function keep(){BAG.t=Date.now();var s=enc(BAG);try{W.localStorage.setItem(CK,s)}catch(e){}
+try{if(!W.name||names()){var n=names()||{slpv:{}};n.slpv[SLUG]=s;W.name=JSON.stringify(n)}}catch(e){}}
+function carry(u){if(!BAG.t)return u;try{var x=new URL(u,location.href);if(x.pathname.indexOf(ROOT+SLUG+"/")!==0||!/[.]html$/.test(x.pathname))return u;x.searchParams.set("slc",enc(BAG));return x.href}catch(e){return u}}
+D.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[href]");if(a&&!a.hasAttribute("data-preview-inert")){var to=carry(a.href);if(to!==a.href)a.href=to}},true);
+var DATA=null,DP=null;function data(){return DP||(DP=F(CART_DATA).then(function(r){return r.json()}).then(function(d){DATA=d;BAG.l=BAG.l.filter(function(x){return x.e<d.e.length});return d}))}
+var made={};function sec(i,k){var id=i+":"+k;if(made[id])return made[id];var x=DATA.e[i],o=k?x.r:x.d,s=typeof o==="string"?o:patch(sec(x.b,k),o);return made[id]=s}
+function patch(b,x){var ops=x.o;if(!ops.length)return b;var t=b.split(RE[x.t]);for(var k=ops.length-1;k>=0;k--)t.splice(ops[k][0],ops[k][1],ops[k][2]);return t.join("")}
+function money(c){var f=DATA.fmt||"$"+"{{amount}}",m=/\{\{\s*(\w+)\s*\}\}/.exec(f),k=m?m[1]:"amount",dp=/no_decimals/.test(k)?0:2,eu=/comma_separator/.test(k),p=(c/100).toFixed(dp).split(".");var s=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,eu?".":(/apostrophe/.test(k)?"'":","))+(p[1]?(eu?",":".")+p[1]:"");return f.replace(/\{\{\s*\w+\s*\}\}/,s)}
+function moneyRe(){var f=DATA.fmt||"$"+"{{amount}}",at=f.search(/\{\{/),end=f.indexOf("}}")+2;var esc=function(s){return s.replace(/[.*+?^$()|[\]\\{}]/g,"\\$&")};return new RegExp(esc(f.slice(0,at))+"\\d[\\d.,']*"+esc(f.slice(end)),"g")}
+function cents(s){var d=s.replace(/[^\d]/g,"");return /no_decimals/.test(DATA.fmt)?+d*100:+d}
+function texts(root,fn){if(!root)return;var w=root.ownerDocument.createTreeWalker(root,4),n;while(n=w.nextNode())n.nodeValue=fn(n.nodeValue)}
+function times(root,q){if(q===1)return;var re=moneyRe();texts(root,function(v){return v.replace(re,function(m){return money(cents(m)*q)})})}
+function set(root,c){var re=moneyRe(),done=false;texts(root,function(v){return v.replace(re,function(){if(done)return"";done=true;return money(c)})})}
+function line(el,q){el.querySelectorAll('input[name="updates[]"]').forEach(function(i){i.value=q;i.setAttribute("value",q);i.setAttribute("data-value",q)});el.querySelectorAll("[data-quantity]").forEach(function(x){x.setAttribute("data-quantity",q)});
+el.querySelectorAll(".minicart__item-prices,.cart-item__totals").forEach(function(x){times(x,q)})}
+function item(x,n){var it=JSON.parse(JSON.stringify(DATA.e[x.e].item)),q=x.q;it.quantity=q;it.key=DATA.e[x.e].k;["line_price","original_line_price","final_line_price","discounted_line_price"].forEach(function(k){if(typeof it[k]==="number")it[k]=it[k]*q});return it}
+function cartJson(){var items=BAG.l.map(item),sum=function(k){return items.reduce(function(a,b){return a+(+b[k]||0)},0)},total=sum("final_line_price")||sum("line_price");
+return{token:"preview",note:BAG.note||"",attributes:{},original_total_price:sum("original_line_price")||total,total_price:total,total_discount:0,total_weight:0,item_count:items.reduce(function(a,b){return a+b.quantity},0),items:items,requires_shipping:items.some(function(i){return i.requires_shipping}),currency:DATA.cur,items_subtotal_price:total,cart_level_discount_applications:[]}}
+var DP2=new DOMParser();
+function compose(k){if(!BAG.l.length)return DATA.empty[k];var c=cartJson(),docs=BAG.l.map(function(x){return DP2.parseFromString(sec(x.e,k),"text/html")}),sk=docs[0];
+var pick=function(d){return k?d.querySelector("table.cart-items tbody > tr.cart-item"):d.querySelector("#minicart-form .items > .cart-item")};
+var first=pick(sk);if(!first)return DATA.empty[k];var box=first.parentNode;
+BAG.l.forEach(function(x,n){var el=n?sk.importNode(pick(docs[n]),true):first;line(el,x.q);if(k)renumber(el,n+1);if(n)box.appendChild(el)});
+sk.querySelectorAll("[data-cart-subtotal-price],.cart-info .totals").forEach(function(x){set(x,c.total_price)});
+return sk.body.innerHTML}
+function renumber(el,n){[el].concat([].slice.call(el.querySelectorAll("*"))).forEach(function(x){["id","for","data-index"].forEach(function(a){var v=x.getAttribute(a);if(v!=null&&/(^|-)1$/.test(v))x.setAttribute(a,v.replace(/1$/,n))});if(x.classList)[].slice.call(x.classList).forEach(function(c){if(/^cart-item__totals-1$/.test(c)){x.classList.remove(c);x.classList.add("cart-item__totals-"+n)}})})}
+function sections(ask){var out={};(Array.isArray(ask)?ask:String(ask||"").split(",")).forEach(function(s){s=String(s).trim();if(!s)return;out[s]=s==="minicart-form"?compose(0):s===DATA.page?compose(1):null});return out}
+function find(id){id=String(id==null?"":id);var m=/^pv(\d+)x$/.exec(id);if(m)return +m[1];for(var i=0;i<DATA.e.length;i++)if(DATA.e[i].id===id||DATA.e[i].k===id)return i;for(i=0;i<DATA.e.length;i++)if(DATA.e[i].p===id)return i;return -1}
+function fieldsOf(b){var o={};if(!b)return o;if(typeof b==="string"){try{return JSON.parse(b)}catch(e){b=new URLSearchParams(b)}}
+if(b.forEach&&!Array.isArray(b)){b.forEach(function(v,k){var m=/^items\[(\d+)\]\[(\w+)\]$/.exec(k);if(m){(o.items=o.items||[])[+m[1]]=(o.items[+m[1]]||{});o.items[+m[1]][m[2]]=v;return}var u=/^updates\[(.*)\]$/.exec(k);if(u){(o.updates=o.updates||(u[1]===""?[]:{}));if(Array.isArray(o.updates))o.updates.push(v);else o.updates[u[1]]=v;return}o[k]=v});return o}return o}
+function lineOf(f){if(f.line!=null&&f.line!==""){var n=+f.line-1;return BAG.l[n]?n:-1}var e=find(f.id);for(var i=0;i<BAG.l.length;i++)if(BAG.l[i].e===e)return i;return -1}
+function setQ(n,q){q=Math.max(0,Math.min(99,Math.floor(+q)||0));if(n<0)return;if(!q)BAG.l.splice(n,1);else BAG.l[n].q=DATA.e[BAG.l[n].e].one?1:q}
+function bad(m){return[422,{status:422,message:m,description:m}]}
+function cartReply(p,o){var f=fieldsOf(o&&o.body),act=/\/cart\/(add|change|update|clear)(?:\.js)?$/.exec(p);return data().then(function(){
+if(!act){var j=cartJson();return[200,j]}
+if(act[1]==="add"){var list=f.items&&f.items.length?f.items.filter(Boolean):[{id:f.id,quantity:f.quantity}],added=[];
+for(var i=0;i<list.length;i++){var e=find(list[i].id);if(e<0)return bad("This option is sold out.");var q=Math.max(1,Math.min(99,Math.floor(+list[i].quantity)||1)),hit=null;
+BAG.l.forEach(function(x){if(x.e===e)hit=x});if(hit)hit.q=DATA.e[e].one?1:Math.min(99,hit.q+q);else{hit={e:e,q:DATA.e[e].one?1:q};BAG.l.push(hit)}added.push(hit)}
+keep();var out=f.items&&f.items.length?{items:added.map(item)}:item(added[0]);if(f.sections)out.sections=sections(f.sections);return[200,out]}
+if(act[1]==="change"){setQ(lineOf(f),f.quantity)}
+else if(act[1]==="clear"){BAG.l=[]}
+else{if(f.note!=null)BAG.note=String(f.note);var u=f.updates;if(Array.isArray(u))u.forEach(function(q,n){setQ(n,q)});else if(u&&typeof u==="object")Object.keys(u).forEach(function(k){setQ(lineOf({id:k}),u[k])})}
+BAG.l=BAG.l.filter(function(x){return x.q>0});keep();var j=cartJson();if(f.sections)j.sections=sections(f.sections);return[200,j]})}
+function sectionsReply(u){return data().then(function(){var x=new URL(u,location.href);return[200,sections(x.searchParams.get("sections"))]})}
+function count(){return BAG.l.reduce(function(a,b){return a+b.q},0)}
+function paintCount(){var n=count();D.querySelectorAll(".cart-count").forEach(function(el){var t=el.classList.contains("cart-count-drawer")?"("+n+")":String(n);if(el.textContent.trim()!==t)el.textContent=t})}
+var hold=null;if(BAG.l.length&&/\/cart\.html$/.test(location.pathname)){hold=D.createElement("style");hold.textContent="#main-cart-items{visibility:hidden}";(D.head||D.documentElement).appendChild(hold)}
+function arrive(){if(W.routes){try{var cu=W.routes.cart_url;Object.defineProperty(W.routes,"cart_url",{configurable:true,get:function(){return carry(ROOT+SLUG+"/cart.html")}})}catch(e){}}
+if(!CART_DATA||!BAG.l.length)return;paintCount();data().then(function(){if(!BAG.l.length){if(hold)hold.remove();return}
+var dr=D.getElementById("minicart-form");if(dr){var d=DP2.parseFromString(compose(0),"text/html").querySelector("#minicart-form");if(d){dr.innerHTML=d.innerHTML;var cd=dr.closest("cart-drawer,cart-notification,.is-empty");if(cd)cd.classList.remove("is-empty")}}
+var pg=D.getElementById("main-cart-items");if(pg){var s=pg.closest(".shopify-section")||pg.parentNode,n=DP2.parseFromString(compose(1),"text/html").querySelector(".shopify-section");if(s&&n)s.innerHTML=n.innerHTML}
+paintCount();if(hold)requestAnimationFrame(function(){hold.remove()})}).catch(function(){if(hold)hold.remove()})}
+if(D.readyState==="loading")D.addEventListener("DOMContentLoaded",arrive);else arrive();
+
+if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);if(mine(u))return F.apply(this,arguments);
+/* Cards round 24: the cart answers from the template's drawn cart (./theme-templates/preview-cart.ts), as a store would. */
+var p=path(u),q=/[?&]sections=/.test(u),c=/\/cart(\.js|\.json|\/(add|change|update|clear)(\.js)?)$/.test(p);if(CART_DATA&&(c||q)){var w=c?cartReply(p,o):sectionsReply(u);return w.then(function(r){return new Response(JSON.stringify(r[1]),{status:r[0],headers:{"Content-Type":"application/json"}})},function(){var r=reply(u);return new Response(r[2],{status:r[0],headers:{"Content-Type":r[1]}})})}
+var r=reply(u);return Promise.resolve(new Response(r[2],{status:r[0],headers:{"Content-Type":r[1]}}))};
 var X=W.XMLHttpRequest&&W.XMLHttpRequest.prototype;if(X){var O=X.open;X.open=function(m,u){var a=[].slice.call(arguments);if(!mine(u)){var r=reply(u);a[0]="GET";a[1]="data:"+r[1]+","+encodeURIComponent(r[2])}return O.apply(this,a)}}
 if(navigator.sendBeacon)navigator.sendBeacon=function(){return true};
 W.open=function(){return null};
@@ -36,13 +103,17 @@ n.style.left=Math.round(x)+"px";n.style.top=Math.round(y)+"px";note=n;
 requestAnimationFrame(function(){requestAnimationFrame(function(){n.style.opacity="1";n.style.transform="none"})});noteT=setTimeout(hideNote,3200)}
 W.addEventListener("scroll",hideNote,{passive:true});
 function productForm(f){return !!(f&&f.querySelector&&f.querySelector("input[name=id],select[name=id]"))}
-var BUY=".product-form__submit,.shopify-payment-button__button,.product_buy_now_button,.button_buy-now,.product-group-buy-now,[data-add-to-cart],[data-buy-now]";
-function buying(b){if(!b||!b.getAttribute)return false;var n=(b.getAttribute("name")||"").toLowerCase();if(n==="add"||n==="checkout")return true;if(b.matches&&b.matches(BUY))return true;var t=(b.getAttribute("type")||(b.tagName==="BUTTON"?"submit":"")).toLowerCase();return (t==="submit"||t==="image")&&productForm(b.form||b.closest("form"))}
-var pressed=null;D.addEventListener("pointerdown",function(e){pressed=e.target&&e.target.closest?e.target.closest("button,a,input"):null},true);
+/* Cards round 24: Add to cart goes to the preview's cart; Buy now and Check out, which would take an order, still get the note. */
+var BUY=".shopify-payment-button__button,.product_buy_now_button,.product-group-buy-now,[data-buy-now],.btn-checkout,.cart__checkout-button";
+function buying(b){if(!b||!b.getAttribute)return false;var n=(b.getAttribute("name")||"").toLowerCase();if(n==="checkout")return true;return !!(b.closest&&b.closest(BUY))}
 W.addEventListener("click",function(e){var b=e.target&&e.target.closest&&e.target.closest("button,input[type=submit],input[type=image],a");if(!buying(b))return;e.preventDefault();e.stopImmediatePropagation();showNote(b)},true);
-function submit(f,b){setTimeout(function(){var ev;try{ev=new SubmitEvent("submit",{bubbles:true,cancelable:true,submitter:b||null})}catch(_){ev=new Event("submit",{bubbles:true,cancelable:true})}f.dispatchEvent(ev)},0)}
+function submit(f,b){setTimeout(function(){var ev;try{ev=new SubmitEvent("submit",{bubbles:true,cancelable:true,submitter:b||null})}catch(_){ev=new Event("submit",{bubbles:true,cancelable:true})}f.dispatchEvent(ev);if(!ev.defaultPrevented&&productForm(f))addAlone(f,b)},0)}
+/* A product form no script of the theme takes: added here, and the drawer opens with it (or the cart page, where the page has none). */
+function addAlone(f,b){var id=f.querySelector("input[name=id],select[name=id]"),q=f.querySelector("input[name=quantity]");if(!CART_DATA||!id){showNote(b);return}
+cartReply("/cart/add.js",{body:JSON.stringify({id:id.value,quantity:q?q.value:1,sections:["minicart-form"]})}).then(function(r){if(r[0]!==200){showNote(b);return}var dr=D.getElementById("minicart-form"),cn=D.querySelector("cart-notification,cart-drawer");
+if(dr&&cn&&cn.open){var d=new DOMParser().parseFromString(r[1].sections["minicart-form"],"text/html").querySelector("#minicart-form");if(d)dr.innerHTML=d.innerHTML;cn.classList.remove("is-empty");paintCount();cn.open()}else location.href=carry(ROOT+SLUG+"/cart.html")})}
 D.addEventListener("click",function(e){var b=e.target&&e.target.closest&&e.target.closest("button,input[type=submit],input[type=image]");if(!b||!b.form)return;var t=(b.getAttribute("type")||"submit").toLowerCase();if(t!=="submit"&&t!=="image")return;e.preventDefault();submit(b.form,b)},true);
-D.addEventListener("keydown",function(e){var i=e.target;if(e.key!=="Enter"||!i||i.tagName!=="INPUT"||!i.form)return;e.preventDefault();if(productForm(i.form)){showNote(i.form.querySelector("[name=add],button[type=submit],button:not([type])")||i);return}submit(i.form,null)},true);
+D.addEventListener("keydown",function(e){var i=e.target;if(e.key!=="Enter"||!i||i.tagName!=="INPUT"||!i.form)return;e.preventDefault();submit(i.form,i.form.querySelector("[name=add],button[type=submit],button:not([type])"))},true);
 D.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[data-preview-inert]");if(a)e.preventDefault()},true);
 var told=false;function tell(){if(told)return;told=true;try{parent.postMessage({type:"storelib:template-preview",ready:true,path:location.pathname},"*")}catch(e){}}
 W.addEventListener("load",tell);D.addEventListener("DOMContentLoaded",function(){setTimeout(tell,1200)});
@@ -134,9 +205,9 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
         } catch (e) {}
       })();
     </script>
-<link href="/theme-previews/_base/a/critical.7f3f35898a25.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/critical.03978b251a4f.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
 <link href="/theme-previews/_base/a/animation.d0494c87fafa.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/product-card.f00653542c82.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"primary","product_size":17,"price_size":16,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
+<link href="/theme-previews/_base/a/product-card.9a3739dc0c4c.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"primary","product_size":17,"price_size":16,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
 <style>html:not([data-card-custom='true']) .product-item .product-item__name { font-size:var(--body-font-size, 16px); text-transform:var(--heading-text-transform, none) !important; } html:not([data-card-custom='true']) .product-item .product-item__price { font-size:var(--body-font-size, 16px); }</style>
 <script>document.documentElement.dataset.cardCustom = false === true ? 'true' : 'false';</script>
 <script type="application/json" data-badge-style-settings>false</script>
@@ -260,7 +331,7 @@ data-menu-hover="none"
       --hs-logo-max-height: 44px;
       --hs-logo-box-height: 60px;
     }
-  }:root { --hs-mnav-title-bg: #07080d; --hs-mnav-title-color: #ffffff; }</style><link href="/theme-previews/_base/a/header-layout.9f68c30912e8.css" rel="stylesheet" type="text/css" media="all">
+  }:root { --hs-mnav-title-bg: #07080d; --hs-mnav-title-color: #ffffff; }</style><link href="/theme-previews/_base/a/header-layout.ed2de67e6e9c.css" rel="stylesheet" type="text/css" media="all">
 <style>
   #shopify-section-header {
     --header-height-desktop: 72px;
@@ -334,16 +405,17 @@ style="
 --custom_2-cl: ;--custom_2-bg-cl: ;
 "
 >
-<div class="navigation__menu-content word-break">
+<div class="navigation__menu-content word-break"><noscript><style>.header__menu .horizontal-list[data-hs-wait] { opacity: 1 !important; animation: none !important; }</style></noscript>
 <ul
 class="horizontal-list list-unstyled inline-flex-1025 flex-wrap row-gap-0 horizontal px-30 px-1025-0 show-localization animation-down-to-up"
+data-hs-wait
 >
 <svg hidden>
 <symbol id="icon-arrow-down">
 <path fill="currentColor" d="M1.09 1.822a.52.52 0 0 1-.178-.396c0-.164.06-.306.178-.424A.557.557 0 0 1 1.5.838c.164 0 .3.055.41.164L5 4.092l3.09-3.09A.557.557 0 0 1 8.5.838c.164 0 .3.055.41.164.119.118.178.26.178.424a.52.52 0 0 1-.178.396l-3.5 3.5A.535.535 0 0 1 5 5.5c-.164 0-.3-.06-.41-.178l-3.5-3.5Z"/>
 </symbol>
 </svg>
-<li
+<li data-hs-i="0"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -351,7 +423,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/digital-renaissance/index.html#curriculum"
 ><span>Curriculum</span></a></menu-item></li>
-<li
+<li data-hs-i="1"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -359,7 +431,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/digital-renaissance/index.html#bonuses"
 ><span>Bonuses</span></a></menu-item></li>
-<li
+<li data-hs-i="2"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -367,7 +439,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/digital-renaissance/pages/about.html"
 ><span>Instructor</span></a></menu-item></li>
-<li
+<li data-hs-i="3"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -375,7 +447,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/digital-renaissance/index.html#shopify-section-pricing"
 ><span>Pricing</span></a></menu-item></li>
-<li
+<li data-hs-i="4"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -383,6 +455,48 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/digital-renaissance/pages/faqs.html"
 ><span>Questions</span></a></menu-item></li>
+<li class="level0 menu-parent menu-parent__horizontal dropdown-menu hs-more" data-hs-more>
+<menu-item class="relative static-1025 flex justify-between align-center header-color px-15">
+<a
+class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
+href="#"
+role="button"
+aria-haspopup="true"
+aria-expanded="false"
+data-hs-more-toggle
+>
+<span>More</span>
+<open-children-toggle class="inline-flex flex-end align-center ms-5">
+<svg class="icon-down" width="10" height="6" aria-hidden="true">
+<use href="#icon-arrow-down" />
+</svg>
+</open-children-toggle>
+</a>
+</menu-item>
+<div class="submenu submenu-horizontal invisible-1025 absolute gradient color-default">
+<ul class="subchildmenu hs-more__list list-unstyled px-1025-0"><li class="menu-link level-1" data-hs-more-i="0" hidden>
+<a
+class="menu_item-link no-underline py-1025-5 inline-flex align-center"
+href="/theme-previews/digital-renaissance/index.html#curriculum"
+><span class="menu-link-text">Curriculum</span></a></li><li class="menu-link level-1" data-hs-more-i="1" hidden>
+<a
+class="menu_item-link no-underline py-1025-5 inline-flex align-center"
+href="/theme-previews/digital-renaissance/index.html#bonuses"
+><span class="menu-link-text">Bonuses</span></a></li><li class="menu-link level-1" data-hs-more-i="2" hidden>
+<a
+class="menu_item-link no-underline py-1025-5 inline-flex align-center"
+href="/theme-previews/digital-renaissance/pages/about.html"
+><span class="menu-link-text">Instructor</span></a></li><li class="menu-link level-1" data-hs-more-i="3" hidden>
+<a
+class="menu_item-link no-underline py-1025-5 inline-flex align-center"
+href="/theme-previews/digital-renaissance/index.html#shopify-section-pricing"
+><span class="menu-link-text">Pricing</span></a></li><li class="menu-link level-1" data-hs-more-i="4" hidden>
+<a
+class="menu_item-link no-underline py-1025-5 inline-flex align-center"
+href="/theme-previews/digital-renaissance/pages/faqs.html"
+><span class="menu-link-text">Questions</span></a></li></ul>
+</div>
+</li>
 </ul>
 </div>
 </nav>
@@ -442,7 +556,7 @@ class="horizontal-list list-unstyled inline-flex-1025 flex-wrap row-gap-0 horizo
 <path fill="currentColor" d="M1.09 1.822a.52.52 0 0 1-.178-.396c0-.164.06-.306.178-.424A.557.557 0 0 1 1.5.838c.164 0 .3.055.41.164L5 4.092l3.09-3.09A.557.557 0 0 1 8.5.838c.164 0 .3.055.41.164.119.118.178.26.178.424a.52.52 0 0 1-.178.396l-3.5 3.5A.535.535 0 0 1 5 5.5c-.164 0-.3-.06-.41-.178l-3.5-3.5Z"/>
 </symbol>
 </svg>
-<li
+<li data-hs-i="0"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -450,7 +564,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/digital-renaissance/index.html#curriculum"
 ><span>Curriculum</span></a></menu-item></li>
-<li
+<li data-hs-i="1"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -458,7 +572,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/digital-renaissance/index.html#bonuses"
 ><span>Bonuses</span></a></menu-item></li>
-<li
+<li data-hs-i="2"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -466,7 +580,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/digital-renaissance/pages/about.html"
 ><span>Instructor</span></a></menu-item></li>
-<li
+<li data-hs-i="3"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -474,7 +588,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/digital-renaissance/index.html#shopify-section-pricing"
 ><span>Pricing</span></a></menu-item></li>
-<li
+<li data-hs-i="4"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -505,7 +619,7 @@ href="/theme-previews/digital-renaissance/pages/faqs.html"
 </svg><a class="hs-cta hs-cta--pos-after_icons hs-cta--m-in_row hs-cta--primary hs-cta--theme hs-cta--desktop hs-cta--ms-small hs-cta--font-body" href="/theme-previews/digital-renaissance/index.html#shopify-section-pricing" data-theme-button="primary" data-sl-button style="--mb-bg: var(--btn-primary-bg-color); --mb-text: var(--btn-primary-color); --mb-hover-bg: var(--btn-primary-hover-bg-color); --mb-hover-text: var(--btn-primary-hover-color); --hs-cta-gap: 20px; --hs-cta-gap-mobile: 10px; --hs-cta-x: 0px; --hs-cta-y: 0px; --hs-cta-bg: #e3a63a; --hs-cta-fg: #15130f; --hs-cta-bd: #e3a63a; --hs-cta-bw: 0px; --hs-cta-radius: 6px; --hs-cta-fs: 16px; --hs-cta-fw: 700; --hs-cta-tt: none; --hs-cta-ls: 0px; --hs-cta-py: 14px; --hs-cta-px: 26px; --hs-cta-deco: none; --hs-cta-shadow: none; --hs-cta-dur: 225ms; --hs-cta-ease: cubic-bezier(0.2, 0.7, 0.2, 1); --hs-cta-hbg: #f5f2ea; --hs-cta-hfg: #15130f; --hs-cta-hbd: #f5f2ea; --hs-cta-htransform: none; --hs-cta-hshadow: none; --hs-cta-hfilter: none; --hs-cta-hdeco: none;" data-lh-block="header_button_1" data-block-id="header_button_1">Join now</a></div>
 </header-inner>
 </div>
-</div></header>
+</div></header><script src="/theme-previews/digital-renaissance/a/i.b8ec2f2ea707.js"></script>
 <link href="/theme-previews/_base/a/header-sticky.6c34c873cb06.css" rel="stylesheet" type="text/css" media="all">
 <script src="/theme-previews/digital-renaissance/a/i.9790def5bd53.js"></script><script src="/theme-previews/_base/a/header-sticky-extras.78e1fb4f310f.js" defer="defer"></script></div><script src="/theme-previews/digital-renaissance/a/i.0d9f91566ff2.js"></script>
 <main id="MainContent" class="content-for-layout focus-none" role="main" tabindex="-1"><div id="shopify-section-hero" class="shopify-section" data-section-id="hero" data-section-type="hero-split-media"><script src="/theme-previews/_base/a/live-r7-hero.8435aaadc83b.js" defer="defer"></script>
@@ -599,11 +713,11 @@ href="/theme-previews/digital-renaissance/pages/faqs.html"
   @media (prefers-reduced-motion:reduce){
     #shopify-section-hero .hsm__toggle{transition:none}
   }
-</style><div class="r7h hsm color-default" data-r7h="split" data-r7h-section="hero" data-r7h-placeholder="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22300%22 viewBox=%220 0 400 300%22%3E%3Cg fill=%22%23808080%22 fill-opacity=%220.4%22%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22/%3E%3C/g%3E%3C/svg%3E" data-side="right" data-reset-spacing style="--r7h-gap:22px;--r7h-max:600px;--r7h-align:left;--r7h-items:flex-start;--r7h-pt-d:64px;--r7h-pb-d:88px;--r7h-px-d:0px;--r7h-pt-m:28px;--r7h-pb-m:40px;--r7h-px-m:16px;--hsm-media:46%;--hsm-min-d:620px;--hsm-media-h-m:380px;--hsm-valign:center;--hsm-fx:50%;--hsm-fy:40%;">
+</style><div class="r7h hsm color-default" data-r7h="split" data-r7h-section="hero" data-r7h-placeholder="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22300%22 viewBox=%220 0 400 300%22%3E%3Cg fill=%22%23808080%22 fill-opacity=%220.4%22%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22/%3E%3C/g%3E%3C/svg%3E" data-side="right" data-reset-spacing style="--r7h-gap:22px;--r7h-max:600px;--r7h-align:left;--r7h-items:flex-start;--r7h-pt-d:64px;--r7h-pb-d:88px;--r7h-px-d:0px;--r7h-pt-m:28px;--r7h-pb-m:40px;--r7h-px-m:16px;--hsm-media:46%;--hsm-min-d:620px;--hsm-media-h-m:380px;--hsm-valign:center;--hsm-fx:50%;--hsm-fy:25%;">
 <div class="hsm__frame container" data-r7h-frame>
 <div class="hsm__grid">
 <div class="hsm__media">
-<img class="hsm__img" data-r7h-image src="/theme-previews/digital-renaissance/a/renaissance-hero.6659250f6c9c.webp" srcset="/theme-previews/digital-renaissance/a/renaissance-hero-800.91f800d496e8.webp 750w, /theme-previews/digital-renaissance/a/renaissance-hero.6659250f6c9c.webp 1100w, /theme-previews/digital-renaissance/a/renaissance-hero.6659250f6c9c.webp 1600w, /theme-previews/digital-renaissance/a/renaissance-hero.6659250f6c9c.webp 2200w" sizes="(min-width: 768px) 46vw, 100vw" width="1600" height="1600" alt="A shop owner at a trestle table in his studio, typing on a laptop" loading="eager" fetchpriority="high" decoding="async">
+<img class="hsm__img" data-r7h-image src="/theme-previews/digital-renaissance/a/renaissance-hero.417350af2d69.webp" srcset="/theme-previews/digital-renaissance/a/renaissance-hero-800.ea55f4ac9bda.webp 750w, /theme-previews/digital-renaissance/a/renaissance-hero.417350af2d69.webp 1100w, /theme-previews/digital-renaissance/a/renaissance-hero.417350af2d69.webp 1600w, /theme-previews/digital-renaissance/a/renaissance-hero.417350af2d69.webp 2200w" sizes="(min-width: 768px) 46vw, 100vw" width="1600" height="1600" alt="A business owner with curly hair and glasses standing in her studio office, arms folded" loading="eager" fetchpriority="high" decoding="async">
 <video class="hsm__video" data-r7h-video hidden muted loop playsinline preload="metadata" tabindex="-1" aria-hidden="true"></video>
 <button type="button" class="hsm__toggle" data-r7h-video-toggle aria-pressed="false" aria-label="Play / pause" hidden><svg class="hsm__icon-pause" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 2h4v12H3zM9 2h4v12H9z"/></svg><svg class="hsm__icon-play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4 2l10 6-10 6z"/></svg></button>
 </div>
@@ -1961,6 +2075,18 @@ decoding="async"><svg hidden aria-hidden="true" class="placeholder-svg" xmlns="h
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true }); else init();
   })();
 </script></section><section id="shopify-section-curriculum" class="shopify-section renaissance-curriculum-section" data-section-id="curriculum" data-section-type="renaissance-curriculum"><style>
+  details[data-smooth] > .sd-body { display: grid; grid-template-rows: 1fr; transition: grid-template-rows var(--sd-time, .42s) cubic-bezier(.4, 0, .2, 1); }
+  details[data-smooth] > .sd-body > * { min-height: 0; overflow: hidden; transition: opacity var(--sd-time, .42s) ease; }
+  details[data-smooth][data-sd-opening] > .sd-body,
+  details[data-smooth][data-sd-closing] > .sd-body { grid-template-rows: 0fr; }
+  details[data-smooth][data-sd-opening] > .sd-body > *,
+  details[data-smooth][data-sd-closing] > .sd-body > * { opacity: 0; }
+  @media (prefers-reduced-motion: reduce) {
+    details[data-smooth] > .sd-body, details[data-smooth] > .sd-body > * { transition: none; }
+  }
+</style>
+<script src="/theme-previews/digital-renaissance/a/i.4df92f6c2346.js"></script>
+<style>
   #shopify-section-curriculum .rnc { --gold: #e3a63a; --lapis: #e3a63a; background: #0e0e0f; color: #aeaaa2; padding: 56px 16px 56px; }
   @media (min-width: 990px) { #shopify-section-curriculum .rnc { padding: 112px 40px 112px; } }
   #shopify-section-curriculum .rnc__in { max-width: 920px; margin: 0 auto; }
@@ -1970,92 +2096,93 @@ decoding="async"><svg hidden aria-hidden="true" class="placeholder-svg" xmlns="h
   #shopify-section-curriculum .rnc__title em { font-style: normal; color: var(--gold); }
   #shopify-section-curriculum .rnc__intro { max-width: 36em; margin: 0 auto 36px; text-align: center; font-size: 16.5px; line-height: 1.6; }
   #shopify-section-curriculum .rnc__intro p { margin: 0; }
-  #shopify-section-curriculum .rnc__list { display: grid; gap: 10px; }
-  #shopify-section-curriculum .rnc__mod { border-radius: 16px; border: 1px solid rgba(255,255,255,.08); background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.01)); transition: border-color .3s ease, background-color .3s ease; }
-  #shopify-section-curriculum .rnc__mod[open] { border-color: color-mix(in srgb, var(--lapis) 55%, transparent); background-color: color-mix(in srgb, var(--lapis) 5%, transparent); }
-  #shopify-section-curriculum .rnc__sum { display: grid; grid-template-columns: 56px minmax(0, 1fr) 32px; gap: 14px; align-items: center; padding: 14px; cursor: pointer; list-style: none; }
+  /* The modules: one list between hairlines, no boxes. Each row is the module's number, its title with its topic under it, the lessons and time on the right and a chevron that turns as it opens (snippets/smooth-details runs the height). */
+  #shopify-section-curriculum .rnc__list { border-top: 1px solid rgba(255,255,255,.22); }
+  #shopify-section-curriculum .rnc__mod { border-bottom: 1px solid rgba(255,255,255,.1); --sd-time: .44s; }
+  #shopify-section-curriculum .rnc__sum { display: grid; grid-template-columns: 34px minmax(0, 1fr) 20px; gap: 14px; align-items: baseline; padding: 22px 0; cursor: pointer; list-style: none; -webkit-tap-highlight-color: transparent; }
   #shopify-section-curriculum .rnc__sum::-webkit-details-marker { display: none; }
-  @media (min-width: 750px) { #shopify-section-curriculum .rnc__sum { grid-template-columns: 76px minmax(0, 1fr) auto 34px; gap: 20px; padding: 16px 18px 16px 16px; } }
-  #shopify-section-curriculum .rnc__tile { position: relative; display: grid; place-items: center; aspect-ratio: 1; border-radius: 12px; overflow: hidden; background: color-mix(in srgb, var(--lapis) 14%, #141416); border: 1px solid color-mix(in srgb, var(--lapis) 35%, transparent); color: var(--gold); font-family: var(--heading-font, sans-serif); font-weight: 600; font-size: 26px; }
-  @media (min-width: 750px) { #shopify-section-curriculum .rnc__tile { font-size: 36px; } }
-  #shopify-section-curriculum .rnc__tile span { position: relative; }
-  #shopify-section-curriculum .rnc__name { display: block; color: #fff; font-family: var(--heading-font, sans-serif); font-size: 17px; font-weight: 600; letter-spacing: -.02em; line-height: 1.25; }
-  @media (min-width: 750px) { #shopify-section-curriculum .rnc__name { font-size: 20px; } }
-  #shopify-section-curriculum .rnc__topic { display: inline-block; margin: 4px 0 0; color: var(--gold); font-size: 11.5px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; }
-  #shopify-section-curriculum .rnc__meta { display: none; text-align: right; color: #d6d9e3; font-size: 13px; line-height: 1.5; white-space: nowrap; }
+  #shopify-section-curriculum .rnc__sum:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
+  @media (min-width: 750px) { #shopify-section-curriculum .rnc__sum { grid-template-columns: 56px minmax(0, 1fr) auto 20px; gap: 20px; padding: 26px 0; } }
+  #shopify-section-curriculum .rnc__tile { color: var(--gold); font-family: var(--heading-font, sans-serif); font-weight: 600; font-size: 18px; line-height: 1; font-variant-numeric: tabular-nums; }
+  @media (min-width: 750px) { #shopify-section-curriculum .rnc__tile { font-size: 22px; } }
+  #shopify-section-curriculum .rnc__name { display: block; color: #fff; font-family: var(--heading-font, sans-serif); font-size: 18px; font-weight: 600; letter-spacing: -.01em; line-height: 1.25; transition: color .25s ease; }
+  @media (min-width: 750px) { #shopify-section-curriculum .rnc__name { font-size: 21px; } }
+  @media (hover: hover) { #shopify-section-curriculum .rnc__sum:hover .rnc__name { color: var(--gold); } }
+  #shopify-section-curriculum .rnc__topic { display: block; margin: 6px 0 0; color: #8a90a3; font-size: 14px; line-height: 1.4; }
+  #shopify-section-curriculum .rnc__meta { display: none; text-align: right; color: #d6d9e3; font-size: 14px; line-height: 1.5; white-space: nowrap; font-variant-numeric: tabular-nums; }
   @media (min-width: 750px) { #shopify-section-curriculum .rnc__meta { display: block; } }
-  #shopify-section-curriculum .rnc__meta small { display: block; color: #8a90a3; font-size: 12.5px; }
-  #shopify-section-curriculum .rnc__toggle { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; background: rgba(255,255,255,.07); color: #fff; transition: transform .3s ease, background-color .3s ease; }
-  #shopify-section-curriculum .rnc__toggle svg { width: 14px; height: 14px; }
-  #shopify-section-curriculum .rnc__mod[open] .rnc__toggle { transform: rotate(180deg); background: var(--lapis); color: #15130f; }
-  #shopify-section-curriculum .rnc__body { padding: 0 16px 20px; }
-  @media (min-width: 750px) { #shopify-section-curriculum .rnc__body { padding: 0 24px 24px 112px; } }
+  #shopify-section-curriculum .rnc__meta small { display: block; color: #8a90a3; font-size: 13px; }
+  #shopify-section-curriculum .rnc__toggle { align-self: center; display: block; width: 20px; height: 20px; color: #fff; transition: transform .44s cubic-bezier(.2, .7, .2, 1); }
+  #shopify-section-curriculum .rnc__toggle svg { display: block; width: 20px; height: 20px; }
+  #shopify-section-curriculum .rnc__mod[open]:not([data-sd-closing]) .rnc__toggle { transform: rotate(180deg); }
+  #shopify-section-curriculum .rnc__body { padding: 0 0 26px 48px; }
+  @media (min-width: 750px) { #shopify-section-curriculum .rnc__body { padding: 0 40px 28px 76px; } }
   #shopify-section-curriculum .rnc__desc { margin: 0 0 14px; font-size: 15.5px; line-height: 1.6; }
-  #shopify-section-curriculum .rnc__mobile-meta { margin: 0 0 12px; color: #d6d9e3; font-size: 13px; }
+  #shopify-section-curriculum .rnc__mobile-meta { margin: 0 0 12px; color: #d6d9e3; font-size: 13.5px; }
   @media (min-width: 750px) { #shopify-section-curriculum .rnc__mobile-meta { display: none; } }
   #shopify-section-curriculum .rnc__lessons { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; counter-reset: l; }
-  #shopify-section-curriculum .rnc__lessons li { counter-increment: l; display: flex; gap: 12px; align-items: baseline; padding: 10px 0; border-top: 1px solid rgba(255,255,255,.07); color: #e3e5ee; font-size: 14.5px; line-height: 1.45; }
-  #shopify-section-curriculum .rnc__lessons li::before { content: counter(l, decimal-leading-zero); flex: 0 0 auto; color: #6f7588; font-size: 12px; font-variant-numeric: tabular-nums; }
+  #shopify-section-curriculum .rnc__lessons li { counter-increment: l; display: grid; grid-template-columns: 28px 1fr; gap: 8px; align-items: baseline; padding: 9px 0; color: #e3e5ee; font-size: 15px; line-height: 1.45; }
+  #shopify-section-curriculum .rnc__lessons li::before { content: counter(l, decimal-leading-zero); color: #6f7588; font-size: 12.5px; font-variant-numeric: tabular-nums; }
   #shopify-section-curriculum .rnc__cta { margin-top: 32px; text-align: center; }
   #shopify-section-curriculum .rnc__btn { display: inline-flex; align-items: center; gap: 10px; min-height: 56px; padding: 0 28px; border-radius: 12px; background: var(--lapis); color: #15130f; font-size: 16px; font-weight: 600; text-decoration: none; transition: transform .25s ease; }
   #shopify-section-curriculum .rnc__btn:hover { transform: translateY(-2px); }
   #shopify-section-curriculum .rnc__note { margin: 12px 0 0; font-size: 13.5px; color: #8a90a3; }
-  @media (prefers-reduced-motion: reduce) { #shopify-section-curriculum .rnc__toggle, #shopify-section-curriculum .rnc__mod { transition: none; } }#shopify-section-curriculum .rnc__title, #shopify-section-curriculum .rnc__name { text-transform: uppercase; letter-spacing: .01em; } #shopify-section-curriculum .rnc__title { font-weight: 700; line-height: 1.02; }</style>
+  @media (prefers-reduced-motion: reduce) { #shopify-section-curriculum .rnc__toggle, #shopify-section-curriculum .rnc__name { transition: none; } }#shopify-section-curriculum .rnc__title, #shopify-section-curriculum .rnc__name { text-transform: uppercase; letter-spacing: .01em; } #shopify-section-curriculum .rnc__title { font-weight: 700; line-height: 1.02; }</style>
 <section data-own-size class="rnc" id="curriculum">
-<div class="rnc__in"><p class="rnc__eyebrow">Curriculum</p><h2 class="rnc__title">Six modules, one plan</h2><div class="rnc__intro"><p>Each module ends with one thing set up and working in your own business.</p></div><div class="rnc__list"><details class="rnc__mod" open data-block-id="module_1">
-<summary class="rnc__sum">
-<span class="rnc__tile" aria-hidden="true"><span>1</span></span>
+<div class="rnc__in"><p class="rnc__eyebrow">Curriculum</p><h2 class="rnc__title">Six modules, one plan</h2><div class="rnc__intro"><p>Each module ends with one thing set up and working in your own business.</p></div><div class="rnc__list"><details class="rnc__mod" data-smooth open data-block-id="module_1">
+<summary class="rnc__sum" aria-expanded="true">
+<span class="rnc__tile" aria-hidden="true">01</span>
 <span><span class="rnc__name">Foundations that hold up</span><span class="rnc__topic">Basics</span></span>
 <span class="rnc__meta">6 lessons<small>48 min</small></span>
-<span class="rnc__toggle" aria-hidden="true"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5.2 7 9.2l4-4"/></svg></span>
+<span class="rnc__toggle" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7.5l5 5 5-5"/></svg></span>
 </summary>
-<div class="rnc__body">
-<p class="rnc__mobile-meta">6 lessons, 48 min</p><p class="rnc__desc">Know what these tools are good at, what they get wrong, and how to ask so the answer is usable the first time.</p><ol class="rnc__lessons"><li>What AI is good at, and where it fails</li><li>Choosing tools without the hype</li><li>Prompts that work: role, task, context, format</li><li>Checking answers you cannot trust yet</li><li>Client data and privacy</li><li>Your AI notebook</li></ol></div>
-</details><details class="rnc__mod"  data-block-id="module_2">
-<summary class="rnc__sum">
-<span class="rnc__tile" aria-hidden="true"><span>2</span></span>
+<div class="sd-body"><div><div class="rnc__body">
+<p class="rnc__mobile-meta">6 lessons, 48 min</p><p class="rnc__desc">Know what these tools are good at, what they get wrong, and how to ask so the answer is usable the first time.</p><ol class="rnc__lessons"><li>What AI is good at, and where it fails</li><li>Choosing tools without the hype</li><li>Prompts that work: role, task, context, format</li><li>Checking answers you cannot trust yet</li><li>Client data and privacy</li><li>Your AI notebook</li></ol></div></div></div>
+</details><details class="rnc__mod" data-smooth data-block-id="module_2">
+<summary class="rnc__sum" aria-expanded="false">
+<span class="rnc__tile" aria-hidden="true">02</span>
 <span><span class="rnc__name">Writing in your own voice</span><span class="rnc__topic">Content</span></span>
 <span class="rnc__meta">7 lessons<small>1 h 05 min</small></span>
-<span class="rnc__toggle" aria-hidden="true"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5.2 7 9.2l4-4"/></svg></span>
+<span class="rnc__toggle" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7.5l5 5 5-5"/></svg></span>
 </summary>
-<div class="rnc__body">
-<p class="rnc__mobile-meta">7 lessons, 1 h 05 min</p><p class="rnc__desc">Build a voice guide once, then write emails, posts, pages and proposals that sound like you, in a fraction of the time.</p><ol class="rnc__lessons"><li>Build your voice guide</li><li>Emails and replies in half the time</li><li>Product pages and descriptions</li><li>A month of posts in an afternoon</li><li>Editing, not generating</li><li>Proposals that win</li><li>Your newsletter, drafted</li></ol></div>
-</details><details class="rnc__mod"  data-block-id="module_3">
-<summary class="rnc__sum">
-<span class="rnc__tile" aria-hidden="true"><span>3</span></span>
+<div class="sd-body"><div><div class="rnc__body">
+<p class="rnc__mobile-meta">7 lessons, 1 h 05 min</p><p class="rnc__desc">Build a voice guide once, then write emails, posts, pages and proposals that sound like you, in a fraction of the time.</p><ol class="rnc__lessons"><li>Build your voice guide</li><li>Emails and replies in half the time</li><li>Product pages and descriptions</li><li>A month of posts in an afternoon</li><li>Editing, not generating</li><li>Proposals that win</li><li>Your newsletter, drafted</li></ol></div></div></div>
+</details><details class="rnc__mod" data-smooth data-block-id="module_3">
+<summary class="rnc__sum" aria-expanded="false">
+<span class="rnc__tile" aria-hidden="true">03</span>
 <span><span class="rnc__name">Customer service and sales</span><span class="rnc__topic">Sales</span></span>
 <span class="rnc__meta">7 lessons<small>58 min</small></span>
-<span class="rnc__toggle" aria-hidden="true"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5.2 7 9.2l4-4"/></svg></span>
+<span class="rnc__toggle" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7.5l5 5 5-5"/></svg></span>
 </summary>
-<div class="rnc__body">
-<p class="rnc__mobile-meta">7 lessons, 58 min</p><p class="rnc__desc">Answer customers faster without sounding like a robot, and follow up on every lead without a spreadsheet.</p><ol class="rnc__lessons"><li>A reply library for the questions you get daily</li><li>Handling refunds and complaints</li><li>Lead follow up that runs itself</li><li>Sales calls: prepare in five minutes</li><li>Turning reviews into answers</li><li>Chat on your website, done carefully</li><li>Measuring what changed</li></ol></div>
-</details><details class="rnc__mod"  data-block-id="module_4">
-<summary class="rnc__sum">
-<span class="rnc__tile" aria-hidden="true"><span>4</span></span>
+<div class="sd-body"><div><div class="rnc__body">
+<p class="rnc__mobile-meta">7 lessons, 58 min</p><p class="rnc__desc">Answer customers faster without sounding like a robot, and follow up on every lead without a spreadsheet.</p><ol class="rnc__lessons"><li>A reply library for the questions you get daily</li><li>Handling refunds and complaints</li><li>Lead follow up that runs itself</li><li>Sales calls: prepare in five minutes</li><li>Turning reviews into answers</li><li>Chat on your website, done carefully</li><li>Measuring what changed</li></ol></div></div></div>
+</details><details class="rnc__mod" data-smooth data-block-id="module_4">
+<summary class="rnc__sum" aria-expanded="false">
+<span class="rnc__tile" aria-hidden="true">04</span>
 <span><span class="rnc__name">Research and decisions</span><span class="rnc__topic">Strategy</span></span>
 <span class="rnc__meta">6 lessons<small>52 min</small></span>
-<span class="rnc__toggle" aria-hidden="true"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5.2 7 9.2l4-4"/></svg></span>
+<span class="rnc__toggle" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7.5l5 5 5-5"/></svg></span>
 </summary>
-<div class="rnc__body">
-<p class="rnc__mobile-meta">6 lessons, 52 min</p><p class="rnc__desc">Use AI as a fast research assistant: competitors, pricing, customer feedback and the numbers in your own business.</p><ol class="rnc__lessons"><li>Competitor research in an hour</li><li>Reading customer feedback at scale</li><li>Pricing checks</li><li>Your numbers, explained in plain words</li><li>Planning a launch</li><li>A decision journal</li></ol></div>
-</details><details class="rnc__mod"  data-block-id="module_5">
-<summary class="rnc__sum">
-<span class="rnc__tile" aria-hidden="true"><span>5</span></span>
+<div class="sd-body"><div><div class="rnc__body">
+<p class="rnc__mobile-meta">6 lessons, 52 min</p><p class="rnc__desc">Use AI as a fast research assistant: competitors, pricing, customer feedback and the numbers in your own business.</p><ol class="rnc__lessons"><li>Competitor research in an hour</li><li>Reading customer feedback at scale</li><li>Pricing checks</li><li>Your numbers, explained in plain words</li><li>Planning a launch</li><li>A decision journal</li></ol></div></div></div>
+</details><details class="rnc__mod" data-smooth data-block-id="module_5">
+<summary class="rnc__sum" aria-expanded="false">
+<span class="rnc__tile" aria-hidden="true">05</span>
 <span><span class="rnc__name">Automations that run while you work</span><span class="rnc__topic">Operations</span></span>
 <span class="rnc__meta">8 lessons<small>1 h 20 min</small></span>
-<span class="rnc__toggle" aria-hidden="true"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5.2 7 9.2l4-4"/></svg></span>
+<span class="rnc__toggle" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7.5l5 5 5-5"/></svg></span>
 </summary>
-<div class="rnc__body">
-<p class="rnc__mobile-meta">8 lessons, 1 h 20 min</p><p class="rnc__desc">Connect the tools you already pay for so invoices, bookings, reports and handovers happen without you.</p><ol class="rnc__lessons"><li>Where automation pays and where it does not</li><li>Your first automation in 20 minutes</li><li>Invoices that chase themselves</li><li>Bookings and reminders</li><li>The weekly report, written for you</li><li>Onboarding new clients</li><li>Handovers between people</li><li>Keeping it all safe</li></ol></div>
-</details><details class="rnc__mod"  data-block-id="module_6">
-<summary class="rnc__sum">
-<span class="rnc__tile" aria-hidden="true"><span>6</span></span>
+<div class="sd-body"><div><div class="rnc__body">
+<p class="rnc__mobile-meta">8 lessons, 1 h 20 min</p><p class="rnc__desc">Connect the tools you already pay for so invoices, bookings, reports and handovers happen without you.</p><ol class="rnc__lessons"><li>Where automation pays and where it does not</li><li>Your first automation in 20 minutes</li><li>Invoices that chase themselves</li><li>Bookings and reminders</li><li>The weekly report, written for you</li><li>Onboarding new clients</li><li>Handovers between people</li><li>Keeping it all safe</li></ol></div></div></div>
+</details><details class="rnc__mod" data-smooth data-block-id="module_6">
+<summary class="rnc__sum" aria-expanded="false">
+<span class="rnc__tile" aria-hidden="true">06</span>
 <span><span class="rnc__name">Your AI operating system</span><span class="rnc__topic">Systems</span></span>
 <span class="rnc__meta">6 lessons<small>44 min</small></span>
-<span class="rnc__toggle" aria-hidden="true"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5.2 7 9.2l4-4"/></svg></span>
+<span class="rnc__toggle" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7.5l5 5 5-5"/></svg></span>
 </summary>
-<div class="rnc__body">
-<p class="rnc__mobile-meta">6 lessons, 44 min</p><p class="rnc__desc">Put it together: which jobs go to AI, which stay with people, and the weekly routine that keeps it working.</p><ol class="rnc__lessons"><li>Mapping your week</li><li>What to hand over first</li><li>Training your team</li><li>Costs and tools, reviewed</li><li>The weekly routine</li><li>Your next 90 days</li></ol></div>
+<div class="sd-body"><div><div class="rnc__body">
+<p class="rnc__mobile-meta">6 lessons, 44 min</p><p class="rnc__desc">Put it together: which jobs go to AI, which stay with people, and the weekly routine that keeps it working.</p><ol class="rnc__lessons"><li>Mapping your week</li><li>What to hand over first</li><li>Training your team</li><li>Costs and tools, reviewed</li><li>The weekly routine</li><li>Your next 90 days</li></ol></div></div></div>
 </details></div><div class="rnc__cta"><a class="rnc__btn" href="/theme-previews/digital-renaissance/index.html#shopify-section-pricing">Join Digital Renaissance</a><p class="rnc__note">Start the day you join. One module a week works well.</p></div></div>
 </section>
 </section><section id="shopify-section-reviews" class="shopify-section" data-section-id="reviews" data-section-type="theme-testimonials"><script src="/theme-previews/_base/a/live-testimonials.6e78f70ae7ca.js" defer="defer"></script>
@@ -2410,6 +2537,101 @@ decoding="async"
 <div class="ivt__text mlb__text"><p class="ivt__eyebrow mlb__eyebrow" data-block-id="eyebrow_1" data-mlb-block="eyebrow_1" data-mlb-type="eyebrow" data-block-id="eyebrow_1" style="--b-c: #e3a63a;--b-fs: 13px;">Your instructor</p><h2 class="ivt__heading mlb__heading" data-block-id="heading_1" data-mlb-block="heading_1" data-mlb-type="heading" data-block-id="heading_1" style="--b-c: var(--color-heading);--b-fs-m: 34px;--b-fs-d: 52px;">Taught by Karim Nassar</h2><div class="ivt__subheading mlb__sub" data-block-id="subheading_1" data-mlb-block="subheading_1" data-mlb-type="subheading" data-block-id="subheading_1" style="--b-c: var(--color-text);--b-fs-m: 15px;--b-fs-d: 17px;"><p>Karim runs a small studio that sets up AI workflows for service businesses, shops and agencies. Before that he spent twelve years running operations for a chain of clinics, which is why the course starts with the boring work.</p><p>Write your own story here: what you do, who you do it for, and why you teach it.</p></div><a href="/theme-previews/digital-renaissance/pages/about.html" class="ivt__btn mlb__btn" data-theme-button="secondary" data-sl-button data-full="false" data-block-id="button_1" data-mlb-block="button_1" data-mlb-type="button" data-block-id="button_1" style="">Read Karim’s story</a></div>
 </div>
 </div>
+</div></section><section id="shopify-section-next_call" class="shopify-section section-countdown-timer-pro-2" data-section-id="next_call" data-section-type="countdown-timer2"><script src="/theme-previews/_base/a/live-countdown.0d86ea95e815.js" defer="defer"></script>
+<style>
+  #shopify-section-next_call {
+    font-family: var(--body-font, inherit);
+    font-size: var(--body-font-size, inherit);
+    font-weight: var(--body-weight, inherit);
+    line-height: var(--body-line-height, inherit);
+    color: var(--color-text);
+  }
+  #shopify-section-next_call :is(h1, h2, h3, h4, h5, h6) {
+    font-family: var(--heading-font, inherit);
+    font-weight: var(--heading-weight, inherit);
+    letter-spacing: var(--heading-letter-spacing, normal);
+    line-height: var(--heading-line-height, 1.2);
+    text-transform: var(--heading-text-transform, none);
+  }
+  :where(html:not([data-font-priority='off'])) #shopify-section-next_call :where(.subheading, .sub-heading, [class*='__subheading']) {
+    font-weight: var(--subheading-weight, 500);
+  }
+</style><style>
+    #shopify-section-next_call.scroll-trigger {
+      --animation-duration: 950ms;
+      --animation-delay: 80ms;
+    }
+  </style>
+<script>
+    (function(){
+      var el = document.getElementById('shopify-section-next_call');
+      if (!el || el.classList.contains('scroll-trigger')) return;
+      el.classList.add('scroll-trigger', "fade_in");
+    })();
+  </script><style>
+  #shopify-section-next_call { margin-top: 0px; margin-bottom: 0px; }
+  @media (min-width: 768px) { #shopify-section-next_call { margin-top: 0px; margin-bottom: 0px; } }
+  #shopify-section-next_call { margin-top: 0 !important; margin-bottom: 0 !important; }
+  #shopify-section-next_call + .shopify-section { margin-top: 0 !important; }
+  #shopify-section-next_call .ti-cd [hidden] { display: none !important; }
+  #shopify-section-next_call .ti-cd { padding-top: var(--cd2-pt-m); padding-bottom: var(--cd2-pb-m); font-family: var(--cd2-bf, var(--body-font, inherit)); }
+  #shopify-section-next_call .ti-cd[data-cd-state='unset']:not([data-cd-editor]) { display: none !important; }
+  #shopify-section-next_call .ti-cd__inner { box-sizing: border-box; }
+  #shopify-section-next_call .ti-cd[data-cd2-width='container'] .ti-cd__inner { max-width: calc(var(--page-width, 1300px) + 3rem); margin-inline: auto; padding-inline: 1.5rem; }
+  #shopify-section-next_call .ti-cd[data-cd2-width='fluid_container'] .ti-cd__inner { max-width: calc(var(--fluid-container-width, 1500px) + 3rem); margin-inline: auto; padding-inline: 1.5rem; }
+  #shopify-section-next_call .ti-cd[data-cd2-width='stretch_width'] .ti-cd__inner { padding-inline: 1.5rem; }
+  #shopify-section-next_call .ti-cd__grid { display: flex; flex-direction: column; gap: 32px; align-items: stretch; }
+  #shopify-section-next_call .ti-cd__content-col { display: flex; flex-direction: column; gap: 18px; text-align: var(--cd2-m-align); align-items: var(--cd2-m-flex); }
+  #shopify-section-next_call .ti-cd__timer { display: flex; flex-wrap: nowrap; justify-content: center; gap: var(--cd2-cgap-m); max-width: 100%; }
+  #shopify-section-next_call .ti-cd__unit { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; flex: 0 1 auto; }
+  #shopify-section-next_call .ti-cd__num { width: var(--cd2-size-m); height: var(--cd2-size-m); border-radius: var(--cd2-round); background-color: var(--cd2-circle); color: var(--cd2-num); display: flex; align-items: center; justify-content: center; font-family: var(--cd2-hf, inherit); font-weight: var(--heading-weight, 700); font-size: var(--cd2-ns-m); line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  #shopify-section-next_call .ti-cd__num.is-tick { animation: cd2-tick .4s cubic-bezier(.34, 1.4, .64, 1); }
+  @keyframes cd2-tick { 50% { transform: scale(1.06); } }
+  #shopify-section-next_call .ti-cd__label { color: var(--cd2-label); font-size: var(--cd2-ls-m); line-height: 1.3; text-align: center; }
+  #shopify-section-next_call .ti-cd__heading { margin: 0 0 var(--cdb-gap, 4px); color: var(--cdb-c, var(--color-heading)); font-family: var(--cdb-ff, var(--cd2-hf, var(--heading-font, inherit))); font-weight: var(--cdb-fw, var(--heading-weight, 700)); font-size: var(--cdb-fs-m, 28px); line-height: var(--heading-line-height, 1.15); }
+  #shopify-section-next_call .ti-cd__description { margin: 0 0 var(--cdb-gap, 8px); color: var(--cdb-c, var(--color-text)); font-family: var(--cdb-ff, var(--cd2-bf, var(--body-font, inherit))); font-weight: var(--cdb-fw, var(--body-weight, 400)); font-size: var(--cdb-fs-m, 14px); line-height: 1.55; }
+  #shopify-section-next_call .ti-cd__description :is(p, li) { margin: 0 0 .35em; color: inherit; font-family: inherit; font-weight: inherit; font-size: inherit; line-height: inherit; }
+  #shopify-section-next_call .ti-cd__description :is(p, li):last-child { margin-bottom: 0; }
+  #shopify-section-next_call .ti-cd__button { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; cursor: pointer; }
+  #shopify-section-next_call .ti-cd__button[data-own-shape] { --mb-font-size: var(--cdb-bfs-m); }
+  #shopify-section-next_call .ti-cd__hint { display: none; margin: 0; font-size: 13px; color: var(--color-text); }
+  #shopify-section-next_call .ti-cd[data-cd-state='unset'] .ti-cd__hint { display: block; }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-next_call .ti-cd__num.is-tick { animation: none; }
+  }
+  @media (min-width: 768px) {
+    #shopify-section-next_call .ti-cd { padding-top: var(--cd2-pt-d); padding-bottom: var(--cd2-pb-d); }
+    #shopify-section-next_call .ti-cd__grid { flex-direction: var(--cd2-dir); align-items: var(--cd2-valign); gap: var(--cd2-gap); justify-content: space-between; }
+    #shopify-section-next_call .ti-cd__timer-col, #shopify-section-next_call .ti-cd__content-col { flex: 1 1 0; min-width: 0; }
+    #shopify-section-next_call .ti-cd__content-col { text-align: start; align-items: flex-start; }
+    #shopify-section-next_call .ti-cd__timer { gap: var(--cd2-cgap-d); justify-content: flex-start; }
+    #shopify-section-next_call .ti-cd__num { width: var(--cd2-size-d); height: var(--cd2-size-d); font-size: var(--cd2-ns-d); }
+    #shopify-section-next_call .ti-cd__label { font-size: var(--cd2-ls-d); }
+    #shopify-section-next_call .ti-cd__button[data-own-shape] { --mb-font-size: var(--cdb-bfs-d); }
+    #shopify-section-next_call .ti-cd__heading { font-size: var(--cdb-fs-d, 44px); }
+    #shopify-section-next_call .ti-cd__description { font-size: var(--cdb-fs-d, 16px); }
+  }
+  @media (min-width: 1200px) { #shopify-section-next_call .ti-cd[data-cd2-width='stretch_width'] .ti-cd__inner { padding-inline: 3rem; } }#shopify-section-next_call .ti-cd__inner-content[data-cd-reveal]:not(.is-revealed) { opacity: 0; }
+    #shopify-section-next_call .ti-cd__inner-content[data-cd-reveal] { transition: opacity .8s ease; }#shopify-section-next_call .ti-cd__inner-content[data-cd-reveal]:not(.is-revealed) { transform: translateY(20px); }
+        #shopify-section-next_call .ti-cd__inner-content[data-cd-reveal] { transition: opacity .8s ease, transform .8s ease; }@media (prefers-reduced-motion: reduce) {
+      #shopify-section-next_call .ti-cd__inner-content { opacity: 1 !important; transform: none !important; transition: none !important; filter: none !important; clip-path: none !important; }
+    }</style>
+<div class="section ti-cd color-default gradient" data-cd-root="countdown-timer2" data-cd-section="next_call" data-cd-settings="{&quot;color_scheme&quot;:{&quot;id&quot;:&quot;default&quot;,&quot;settings&quot;:{&quot;page_colors&quot;:null,&quot;background&quot;:{&quot;red&quot;:14,&quot;green&quot;:14,&quot;blue&quot;:15,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:3,&quot;lightness&quot;:6,&quot;rgb&quot;:&quot;14 14 15&quot;,&quot;rgba&quot;:&quot;14 14 15 / 1&quot;,&quot;hex&quot;:&quot;#0e0e0f&quot;},&quot;text_color&quot;:{&quot;red&quot;:174,&quot;green&quot;:170,&quot;blue&quot;:162,&quot;alpha&quot;:1,&quot;hue&quot;:40,&quot;saturation&quot;:7,&quot;lightness&quot;:66,&quot;rgb&quot;:&quot;174 170 162&quot;,&quot;rgba&quot;:&quot;174 170 162 / 1&quot;,&quot;hex&quot;:&quot;#aeaaa2&quot;},&quot;heading_color&quot;:{&quot;red&quot;:245,&quot;green&quot;:242,&quot;blue&quot;:234,&quot;alpha&quot;:1,&quot;hue&quot;:44,&quot;saturation&quot;:35,&quot;lightness&quot;:94,&quot;rgb&quot;:&quot;245 242 234&quot;,&quot;rgba&quot;:&quot;245 242 234 / 1&quot;,&quot;hex&quot;:&quot;#f5f2ea&quot;},&quot;primary_color&quot;:{&quot;red&quot;:227,&quot;green&quot;:166,&quot;blue&quot;:58,&quot;alpha&quot;:1,&quot;hue&quot;:38,&quot;saturation&quot;:75,&quot;lightness&quot;:56,&quot;rgb&quot;:&quot;227 166 58&quot;,&quot;rgba&quot;:&quot;227 166 58 / 1&quot;,&quot;hex&quot;:&quot;#e3a63a&quot;},&quot;border_color&quot;:{&quot;red&quot;:42,&quot;green&quot;:42,&quot;blue&quot;:46,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:5,&quot;lightness&quot;:17,&quot;rgb&quot;:&quot;42 42 46&quot;,&quot;rgba&quot;:&quot;42 42 46 / 1&quot;,&quot;hex&quot;:&quot;#2a2a2e&quot;},&quot;badge_background&quot;:null,&quot;badge_text&quot;:null,&quot;primary_button_colors&quot;:null,&quot;btn_primary_background&quot;:{&quot;red&quot;:227,&quot;green&quot;:166,&quot;blue&quot;:58,&quot;alpha&quot;:1,&quot;hue&quot;:38,&quot;saturation&quot;:75,&quot;lightness&quot;:56,&quot;rgb&quot;:&quot;227 166 58&quot;,&quot;rgba&quot;:&quot;227 166 58 / 1&quot;,&quot;hex&quot;:&quot;#e3a63a&quot;},&quot;btn_primary_color&quot;:{&quot;red&quot;:21,&quot;green&quot;:19,&quot;blue&quot;:15,&quot;alpha&quot;:1,&quot;hue&quot;:40,&quot;saturation&quot;:17,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;21 19 15&quot;,&quot;rgba&quot;:&quot;21 19 15 / 1&quot;,&quot;hex&quot;:&quot;#15130f&quot;},&quot;btn_primary_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_primary_hover_background&quot;:{&quot;red&quot;:245,&quot;green&quot;:242,&quot;blue&quot;:234,&quot;alpha&quot;:1,&quot;hue&quot;:44,&quot;saturation&quot;:35,&quot;lightness&quot;:94,&quot;rgb&quot;:&quot;245 242 234&quot;,&quot;rgba&quot;:&quot;245 242 234 / 1&quot;,&quot;hex&quot;:&quot;#f5f2ea&quot;},&quot;btn_primary_hover_color&quot;:{&quot;red&quot;:21,&quot;green&quot;:19,&quot;blue&quot;:15,&quot;alpha&quot;:1,&quot;hue&quot;:40,&quot;saturation&quot;:17,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;21 19 15&quot;,&quot;rgba&quot;:&quot;21 19 15 / 1&quot;,&quot;hex&quot;:&quot;#15130f&quot;},&quot;btn_primary_hover_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;secondary_button_colors&quot;:null,&quot;btn_secondary_background&quot;:{&quot;red&quot;:14,&quot;green&quot;:14,&quot;blue&quot;:15,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:3,&quot;lightness&quot;:6,&quot;rgb&quot;:&quot;14 14 15&quot;,&quot;rgba&quot;:&quot;14 14 15 / 1&quot;,&quot;hex&quot;:&quot;#0e0e0f&quot;},&quot;btn_secondary_color&quot;:{&quot;red&quot;:245,&quot;green&quot;:242,&quot;blue&quot;:234,&quot;alpha&quot;:1,&quot;hue&quot;:44,&quot;saturation&quot;:35,&quot;lightness&quot;:94,&quot;rgb&quot;:&quot;245 242 234&quot;,&quot;rgba&quot;:&quot;245 242 234 / 1&quot;,&quot;hex&quot;:&quot;#f5f2ea&quot;},&quot;btn_secondary_border&quot;:{&quot;red&quot;:74,&quot;green&quot;:74,&quot;blue&quot;:80,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:4,&quot;lightness&quot;:30,&quot;rgb&quot;:&quot;74 74 80&quot;,&quot;rgba&quot;:&quot;74 74 80 / 1&quot;,&quot;hex&quot;:&quot;#4a4a50&quot;},&quot;btn_secondary_hover_background&quot;:{&quot;red&quot;:245,&quot;green&quot;:242,&quot;blue&quot;:234,&quot;alpha&quot;:1,&quot;hue&quot;:44,&quot;saturation&quot;:35,&quot;lightness&quot;:94,&quot;rgb&quot;:&quot;245 242 234&quot;,&quot;rgba&quot;:&quot;245 242 234 / 1&quot;,&quot;hex&quot;:&quot;#f5f2ea&quot;},&quot;btn_secondary_hover_color&quot;:{&quot;red&quot;:21,&quot;green&quot;:19,&quot;blue&quot;:15,&quot;alpha&quot;:1,&quot;hue&quot;:40,&quot;saturation&quot;:17,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;21 19 15&quot;,&quot;rgba&quot;:&quot;21 19 15 / 1&quot;,&quot;hex&quot;:&quot;#15130f&quot;},&quot;btn_secondary_hover_border_color&quot;:null,&quot;background_gradient&quot;:&quot;&quot;,&quot;btn_primary_gradient&quot;:&quot;&quot;,&quot;btn_primary_hover_background_gradient&quot;:&quot;&quot;,&quot;btn_secondary_hover_border&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_outline_color&quot;:{&quot;red&quot;:245,&quot;green&quot;:242,&quot;blue&quot;:234,&quot;alpha&quot;:1,&quot;hue&quot;:44,&quot;saturation&quot;:35,&quot;lightness&quot;:94,&quot;rgb&quot;:&quot;245 242 234&quot;,&quot;rgba&quot;:&quot;245 242 234 / 1&quot;,&quot;hex&quot;:&quot;#f5f2ea&quot;},&quot;btn_outline_border_color&quot;:{&quot;red&quot;:74,&quot;green&quot;:74,&quot;blue&quot;:80,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:4,&quot;lightness&quot;:30,&quot;rgb&quot;:&quot;74 74 80&quot;,&quot;rgba&quot;:&quot;74 74 80 / 1&quot;,&quot;hex&quot;:&quot;#4a4a50&quot;},&quot;button_link_color&quot;:{&quot;red&quot;:245,&quot;green&quot;:242,&quot;blue&quot;:234,&quot;alpha&quot;:1,&quot;hue&quot;:44,&quot;saturation&quot;:35,&quot;lightness&quot;:94,&quot;rgb&quot;:&quot;245 242 234&quot;,&quot;rgba&quot;:&quot;245 242 234 / 1&quot;,&quot;hex&quot;:&quot;#f5f2ea&quot;},&quot;button_link_hover_color&quot;:{&quot;red&quot;:227,&quot;green&quot;:166,&quot;blue&quot;:58,&quot;alpha&quot;:1,&quot;hue&quot;:38,&quot;saturation&quot;:75,&quot;lightness&quot;:56,&quot;rgb&quot;:&quot;227 166 58&quot;,&quot;rgba&quot;:&quot;227 166 58 / 1&quot;,&quot;hex&quot;:&quot;#e3a63a&quot;}}},&quot;section_width&quot;:&quot;container&quot;,&quot;reset_spacing&quot;:true,&quot;end_date&quot;:&quot;2026-11-26&quot;,&quot;end_time&quot;:&quot;18:00&quot;,&quot;restart_period&quot;:&quot;weekly&quot;,&quot;show_days&quot;:true,&quot;days_label&quot;:&quot;Days&quot;,&quot;show_hours&quot;:true,&quot;hours_label&quot;:&quot;Hours&quot;,&quot;show_minutes&quot;:true,&quot;minutes_label&quot;:&quot;Mins&quot;,&quot;show_seconds&quot;:true,&quot;seconds_label&quot;:&quot;Secs&quot;,&quot;layout_direction&quot;:&quot;timer_right&quot;,&quot;vertical_alignment&quot;:&quot;center&quot;,&quot;gap_columns&quot;:64,&quot;circle_size_desktop&quot;:92,&quot;circle_radius&quot;:12,&quot;gap_circles_desktop&quot;:12,&quot;enable_custom_style&quot;:true,&quot;circle_bg_color&quot;:{&quot;red&quot;:227,&quot;green&quot;:166,&quot;blue&quot;:58,&quot;alpha&quot;:1,&quot;hue&quot;:38,&quot;saturation&quot;:75,&quot;lightness&quot;:56,&quot;rgb&quot;:&quot;227 166 58&quot;,&quot;rgba&quot;:&quot;227 166 58 / 1&quot;,&quot;hex&quot;:&quot;#e3a63a&quot;},&quot;circle_text_color&quot;:{&quot;red&quot;:14,&quot;green&quot;:14,&quot;blue&quot;:15,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:3,&quot;lightness&quot;:6,&quot;rgb&quot;:&quot;14 14 15&quot;,&quot;rgba&quot;:&quot;14 14 15 / 1&quot;,&quot;hex&quot;:&quot;#0e0e0f&quot;},&quot;label_color&quot;:{&quot;red&quot;:174,&quot;green&quot;:170,&quot;blue&quot;:162,&quot;alpha&quot;:1,&quot;hue&quot;:40,&quot;saturation&quot;:7,&quot;lightness&quot;:66,&quot;rgb&quot;:&quot;174 170 162&quot;,&quot;rgba&quot;:&quot;174 170 162 / 1&quot;,&quot;hex&quot;:&quot;#aeaaa2&quot;},&quot;enable_custom_fonts&quot;:false,&quot;heading_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;body_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;number_font_size_desktop&quot;:30,&quot;label_font_size_desktop&quot;:13,&quot;reveal&quot;:true,&quot;scroll_animation&quot;:&quot;smooth-fade-up&quot;,&quot;padding_top&quot;:88,&quot;padding_bottom&quot;:88,&quot;section_margin_top_desktop&quot;:0,&quot;section_margin_bottom_desktop&quot;:0,&quot;content_alignment_mobile&quot;:&quot;center&quot;,&quot;circle_size_mobile&quot;:66,&quot;number_font_size_mobile&quot;:22,&quot;label_font_size_mobile&quot;:11,&quot;gap_circles_mobile&quot;:8,&quot;padding_top_mobile&quot;:56,&quot;padding_bottom_mobile&quot;:56,&quot;section_margin_top_mobile&quot;:0,&quot;section_margin_bottom_mobile&quot;:0}" data-cd-state="running" data-cd2-width="container" style="--cd2-dir:row-reverse;--cd2-valign:center;--cd2-gap:64px;--cd2-m-align:center;--cd2-m-flex:center;--cd2-size-m:66px;--cd2-size-d:92px;--cd2-round:12%;--cd2-circle:#e3a63a;--cd2-num:#0e0e0f;--cd2-label:#aeaaa2;--cd2-ns-m:22px;--cd2-ns-d:30px;--cd2-ls-m:11px;--cd2-ls-d:13px;--cd2-cgap-m:8px;--cd2-cgap-d:12px;--cd2-pt-m:56px;--cd2-pb-m:56px;--cd2-pt-d:88px;--cd2-pb-d:88px;">
+<div class="ti-cd__inner">
+<div class="ti-cd__inner-content" data-cd-reveal="smooth-fade-up">
+<div class="ti-cd__grid">
+<div class="ti-cd__timer-col">
+<div class="ti-cd__timer" role="timer" data-cd-clock>
+<div class="ti-cd__unit" data-cd-show="d"><div class="ti-cd__num" data-cd-unit="d">00</div><span class="ti-cd__label" data-cd-label="d" data-cd-label-hide>Days</span></div>
+<div class="ti-cd__unit" data-cd-show="h"><div class="ti-cd__num" data-cd-unit="h">00</div><span class="ti-cd__label" data-cd-label="h" data-cd-label-hide>Hours</span></div>
+<div class="ti-cd__unit" data-cd-show="m"><div class="ti-cd__num" data-cd-unit="m">00</div><span class="ti-cd__label" data-cd-label="m" data-cd-label-hide>Mins</span></div>
+<div class="ti-cd__unit" data-cd-show="s"><div class="ti-cd__num" data-cd-unit="s" data-cd-pulse>00</div><span class="ti-cd__label" data-cd-label="s" data-cd-label-hide>Secs</span></div>
+</div>
+</div>
+<div class="ti-cd__content-col"><h2 class="ti-cd__heading" data-cd-block="heading_1" data-cd-type="heading" data-cd-settings="{&quot;heading&quot;:&quot;The next live call starts in&quot;,&quot;gap_below&quot;:10,&quot;enable_custom_style&quot;:false,&quot;color&quot;:null,&quot;enable_custom_fonts&quot;:false,&quot;font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;enable_custom_font_weight&quot;:false,&quot;font_weight&quot;:&quot;700&quot;,&quot;font_size_desktop&quot;:40,&quot;font_size_mobile&quot;:28}" style="--cdb-fs-m:28px;--cdb-fs-d:40px;--cdb-gap:10px;" data-block-id="heading_1">The next live call starts in</h2><div class="ti-cd__description" data-cd-block="description_1" data-cd-type="description" data-cd-settings="{&quot;description&quot;:&quot;&lt;p&gt;Every Thursday at 6pm. Bring a task from your week and we build the fix together. Every call is recorded for anyone who cannot make it.&lt;\/p&gt;&quot;,&quot;gap_below&quot;:20,&quot;enable_custom_style&quot;:false,&quot;color&quot;:null,&quot;enable_custom_fonts&quot;:false,&quot;font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;enable_custom_font_weight&quot;:false,&quot;font_weight&quot;:&quot;400&quot;,&quot;font_size_desktop&quot;:16,&quot;font_size_mobile&quot;:14}" style="--cdb-fs-m:14px;--cdb-fs-d:16px;--cdb-gap:20px;" data-block-id="description_1"><p>Every Thursday at 6pm. Bring a task from your week and we build the fix together. Every call is recorded for anyone who cannot make it.</p></div><a class="ti-cd__button" href="/theme-previews/digital-renaissance/index.html#shopify-section-pricing" data-cd-btn data-cd-block="button_1" data-cd-type="button" data-cd-settings="{&quot;button_label&quot;:&quot;Join Digital Renaissance&quot;,&quot;button_url&quot;:&quot;/#shopify-section-pricing&quot;,&quot;enable_custom_style&quot;:false,&quot;button_bg_color&quot;:null,&quot;button_text_color&quot;:null,&quot;button_hover_bg_color&quot;:null,&quot;button_hover_text_color&quot;:null,&quot;button_border_color&quot;:null,&quot;button_hover_border_color&quot;:null,&quot;use_theme_button&quot;:true,&quot;button_border_width&quot;:0,&quot;button_padding_x&quot;:28,&quot;button_padding_y&quot;:14,&quot;button_border_radius&quot;:8,&quot;button_font_size&quot;:15,&quot;button_font_size_mobile&quot;:14,&quot;enable_custom_font_weight&quot;:false,&quot;font_weight&quot;:&quot;600&quot;}" data-theme-button="primary" data-sl-button style="" data-block-id="button_1">Join Digital Renaissance</a></div>
+</div>
+</div>
+</div>
 </div></section><div id="shopify-section-pricing" class="shopify-section pricing-cards-section" data-section-id="pricing" data-section-type="pricing-cards"><style>
   #shopify-section-pricing { margin-top: 0 !important; margin-bottom: 0 !important; }
   .pcards-pricing {
@@ -2434,7 +2656,9 @@ decoding="async"
   .pcards-pricing .pcards__grid { display: grid; gap: var(--pc-gap); grid-template-columns: 1fr; margin: 0; padding: 0; list-style: none; }
   @media (min-width: 750px) { .pcards-pricing .pcards__grid { grid-template-columns: repeat(min(2, var(--pc-cols)), minmax(0, 1fr)); } }
   @media (min-width: 1025px) { .pcards-pricing .pcards__grid { grid-template-columns: repeat(var(--pc-cols), minmax(0, 1fr)); } }
-  .pcards-pricing .pcard { position: relative; display: grid; grid-template-rows: subgrid; grid-row: span 5; row-gap: 0; padding: clamp(22px, 2.4vw, 32px); border-radius: var(--pc-radius); min-width: 0; }
+  .pcards-pricing .pcards__grid:has(.pcard__badge) { padding-top: 14px; }
+  .pcards-pricing .pcard { position: relative; display: grid; grid-template-rows: subgrid; grid-row: span 5; row-gap: 0; padding: clamp(24px, 2.6vw, 36px); border-radius: var(--pc-radius); min-width: 0; --pc-check-bg: rgba(var(--color-heading-rgb), .08); --pc-check-ink: var(--color-heading); transition: border-color .3s ease, box-shadow .3s ease, transform .3s cubic-bezier(.2,.7,.2,1), background-color .3s ease; }
+  .pcards-pricing .pcard[data-featured] { --pc-check-bg: var(--btn-primary-bg-color, var(--color-heading)); --pc-check-ink: var(--btn-primary-color, var(--color-background)); }
   .pcards-pricing[data-style='outline'] .pcard { border: 1px solid var(--pc-line); }
   .pcards-pricing[data-style='filled'] .pcard { background: var(--pc-soft); }
   .pcards-pricing[data-style='lines'] .pcards__grid { gap: 0; }
@@ -2443,24 +2667,35 @@ decoding="async"
     .pcards-pricing[data-style='lines'] .pcard { padding-inline: clamp(20px, 2.4vw, 36px); border-top: 0; border-left: 1px solid var(--pc-line); }
     .pcards-pricing[data-style='lines'] .pcard:first-child { border-left: 0; padding-left: 0; }
   }
-  .pcards-pricing[data-style='outline'] .pcard[data-featured] { border: 2px solid var(--color-heading); }
-  .pcards-pricing[data-style='filled'] .pcard[data-featured] { background: transparent; box-shadow: inset 0 0 0 2px var(--color-heading); }
-  .pcards-pricing .pcard__top { display: flex; flex-direction: column; gap: 6px; padding-bottom: 18px; }
-  .pcards-pricing .pcard__badge { align-self: flex-start; margin-bottom: 6px; padding: 4px 10px; border-radius: var(--bages-radius, 4px); background: var(--badge-background); color: var(--badge-text); font-size: 1.15rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; line-height: 1.3; }
+  /* The plan that stands out: a firmer edge (a ring, so the card keeps its size and its rows stay level with the others), a faint wash and a soft shadow under it. */
+  .pcards-pricing[data-style='outline'] .pcard[data-featured] { border-color: var(--color-heading); box-shadow: 0 0 0 1px var(--color-heading), 0 24px 48px -30px rgba(0, 0, 0, .35); background: rgba(var(--color-heading-rgb), .025); }
+  .pcards-pricing[data-style='filled'] .pcard[data-featured] { background: var(--color-background); box-shadow: inset 0 0 0 1.5px var(--color-heading), 0 24px 48px -30px rgba(0, 0, 0, .35); }
+  @media (hover: hover) and (pointer: fine) {
+    .pcards-pricing[data-style='outline'] .pcard:not([data-featured]):hover { border-color: rgba(var(--color-heading-rgb), .34); box-shadow: 0 18px 40px -30px rgba(0, 0, 0, .3); transform: translateY(-2px); }
+    .pcards-pricing[data-style='filled'] .pcard:not([data-featured]):hover { background: rgba(var(--color-heading-rgb), .065); transform: translateY(-2px); }
+  }
+  @media (prefers-reduced-motion: reduce) { .pcards-pricing .pcard { transition: none; transform: none !important; } }
+  .pcards-pricing .pcard__top { display: flex; flex-direction: column; gap: 8px; padding-bottom: 24px; }
+  /* The badge sits on the card's top edge, out of the flow, so every plan's name starts on the same line. */
+  .pcards-pricing .pcard__badge { position: absolute; top: 0; left: clamp(24px, 2.6vw, 36px); transform: translateY(-50%); padding: 5px 11px; border-radius: var(--bages-radius, 4px); background: var(--badge-background, var(--color-heading)); color: var(--badge-text, var(--color-background)); font-size: 1.1rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; line-height: 1.3; white-space: nowrap; }
+  .pcards-pricing[data-style='lines'] .pcard__badge { position: static; transform: none; align-self: flex-start; order: -1; margin-bottom: 4px; }
   .pcards-pricing .pcard__name { margin: 0; --size: 2rem; }
-  .pcards-pricing .pcard__desc { margin: 0; font-size: 1.4rem; line-height: 1.55; color: rgba(var(--color-text-rgb), .82); }
+  .pcards-pricing .pcard__desc { margin: 0; font-size: 1.4rem; line-height: 1.55; color: rgba(var(--color-text-rgb), .74); }
   .pcards-pricing .pcard__desc p { margin: 0; }
-  .pcards-pricing .pcard__price { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding-bottom: 20px; }
-  .pcards-pricing .pcard__amount { font-family: var(--heading-font); font-weight: var(--heading-weight); letter-spacing: var(--heading-letter-spacing, normal); color: var(--color-heading); font-size: clamp(3rem, 3vw, 4.8rem); line-height: 1; font-variant-numeric: tabular-nums; }
-  .pcards-pricing .pcard__compare { font-size: 1.5rem; color: rgba(var(--color-text-rgb), .6); }
-  .pcards-pricing .pcard__note { flex-basis: 100%; font-size: 1.3rem; color: rgba(var(--color-text-rgb), .72); }
-  .pcards-pricing .pcard__cta { padding-bottom: 22px; }
+  .pcards-pricing .pcard__price { display: flex; flex-wrap: wrap; align-items: baseline; align-content: end; gap: 6px 10px; padding-bottom: 22px; }
+  .pcards-pricing .pcard__amount { font-family: var(--heading-font); font-weight: var(--heading-weight); letter-spacing: var(--heading-letter-spacing, -0.01em); color: var(--color-heading); font-size: clamp(3rem, 3vw, 4.8rem); line-height: 1; font-variant-numeric: tabular-nums; }
+  .pcards-pricing .pcard__compare { font-size: 1.5rem; color: rgba(var(--color-text-rgb), .55); text-decoration-thickness: 1px; }
+  .pcards-pricing .pcard__note { flex-basis: 100%; font-size: 1.3rem; color: rgba(var(--color-text-rgb), .66); }
+  .pcards-pricing .pcard__cta { padding-bottom: 26px; }
   .pcards-pricing .pcard__cta [data-theme-button] { width: 100%; }
-  .pcards-pricing .pcard__features { margin: 0; padding: 18px 0 0; list-style: none; border-top: 1px solid var(--pc-line); display: flex; flex-direction: column; gap: 10px; font-size: 1.4rem; line-height: 1.45; }
-  .pcards-pricing .pcard__features li { display: grid; grid-template-columns: 16px 1fr; gap: 10px; align-items: start; }
-  .pcards-pricing .pcard__features svg { width: 16px; height: 16px; margin-top: 2px; color: var(--color-heading); }
-  .pcards-pricing .pcard__features li[data-off] { color: rgba(var(--color-text-rgb), .5); }
-  .pcards-pricing .pcard__features li[data-off] svg { color: currentColor; }
+  .pcards-pricing .pcard__features { margin: 0; padding: 22px 0 0; list-style: none; border-top: 1px solid var(--pc-line); display: flex; flex-direction: column; gap: 12px; font-size: 1.4rem; line-height: 1.45; }
+  .pcards-pricing .pcard__features li { display: grid; grid-template-columns: 18px 1fr; gap: 12px; align-items: start; }
+  /* Included: a small filled dot with a check in it (the button colour on the plan that stands out). Not included: a short dash, quieter text. */
+  .pcards-pricing .pcard__features svg { width: 18px; height: 18px; margin-top: 1px; overflow: visible; }
+  .pcards-pricing .pcard__features svg circle { fill: var(--pc-check-bg); }
+  .pcards-pricing .pcard__features svg path { stroke: var(--pc-check-ink); }
+  .pcards-pricing .pcard__features li[data-off] { color: rgba(var(--color-text-rgb), .48); }
+  .pcards-pricing .pcard__features li[data-off] svg path { stroke: currentColor; }
   .pcards-pricing .pcards__foot { margin-top: 24px; font-size: 1.3rem; color: rgba(var(--color-text-rgb), .72); text-align: center; }
   .pcards-pricing .pcards__foot p { margin: 0; }
   .pcards-pricing .pcards__empty { padding: 32px; border: 1px dashed var(--pc-line); border-radius: var(--pc-radius); text-align: center; font-size: 1.4rem; }
@@ -2470,17 +2705,17 @@ decoding="async"
 <div class="pcard__top"><h3 class="pcard__name h5">Self paced</h3><div class="pcard__desc"><p>The full course, at your own speed.</p></div></div>
 <div class="pcard__price"><span class="pcard__amount">$297</span><s class="pcard__compare"><span class="visually-hidden">Was </span>$397</s><span class="pcard__note">One payment, or three of $105</span></div>
 <div class="pcard__cta"><a href="/theme-previews/digital-renaissance/collections/all.html" data-theme-button="secondary" data-sl-button>Join self paced</a></div>
-<ul class="pcard__features" role="list"><li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 8.5l3.2 3L13 4.5"/></svg><span>All 40 lessons</span></li><li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 8.5l3.2 3L13 4.5"/></svg><span>The prompt library</span></li><li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 8.5l3.2 3L13 4.5"/></svg><span>Voice guide and automation recipes</span></li><li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 8.5l3.2 3L13 4.5"/></svg><span>Private community</span></li><li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 8.5l3.2 3L13 4.5"/></svg><span>Lifetime updates</span></li><li data-off><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" focusable="false"><path d="M4 8h8"/></svg><span><span class="visually-hidden">Not included: </span>Live calls with Karim</span></li><li data-off><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" focusable="false"><path d="M4 8h8"/></svg><span><span class="visually-hidden">Not included: </span>Private AI audit</span></li></ul>
+<ul class="pcard__features" role="list"><li><svg viewBox="0 0 18 18" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="9" r="9"/><path d="M5.6 9.3l2.2 2.1 4.6-4.8"/></svg><span>All 40 lessons</span></li><li><svg viewBox="0 0 18 18" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="9" r="9"/><path d="M5.6 9.3l2.2 2.1 4.6-4.8"/></svg><span>The prompt library</span></li><li><svg viewBox="0 0 18 18" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="9" r="9"/><path d="M5.6 9.3l2.2 2.1 4.6-4.8"/></svg><span>Voice guide and automation recipes</span></li><li><svg viewBox="0 0 18 18" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="9" r="9"/><path d="M5.6 9.3l2.2 2.1 4.6-4.8"/></svg><span>Private community</span></li><li><svg viewBox="0 0 18 18" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="9" r="9"/><path d="M5.6 9.3l2.2 2.1 4.6-4.8"/></svg><span>Lifetime updates</span></li><li data-off><svg viewBox="0 0 18 18" fill="none" stroke-width="1.5" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M6 9h6"/></svg><span><span class="visually-hidden">Not included: </span>Live calls with Karim</span></li><li data-off><svg viewBox="0 0 18 18" fill="none" stroke-width="1.5" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M6 9h6"/></svg><span><span class="visually-hidden">Not included: </span>Private AI audit</span></li></ul>
 </li><li class="pcard" data-featured data-block-id="plan_2">
 <div class="pcard__top"><span class="pcard__badge">Most chosen</span><h3 class="pcard__name h5">Cohort edition</h3><div class="pcard__desc"><p>The course with six weeks of live help.</p></div></div>
 <div class="pcard__price"><span class="pcard__amount">$497</span><s class="pcard__compare"><span class="visually-hidden">Was </span>$697</s><span class="pcard__note">One payment, or three of $175</span></div>
 <div class="pcard__cta"><a href="/theme-previews/digital-renaissance/collections/all.html" data-theme-button="primary" data-sl-button>Join the cohort</a></div>
-<ul class="pcard__features" role="list"><li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 8.5l3.2 3L13 4.5"/></svg><span>All 40 lessons</span></li><li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 8.5l3.2 3L13 4.5"/></svg><span>The prompt library</span></li><li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 8.5l3.2 3L13 4.5"/></svg><span>Voice guide and automation recipes</span></li><li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 8.5l3.2 3L13 4.5"/></svg><span>Private community</span></li><li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 8.5l3.2 3L13 4.5"/></svg><span>Lifetime updates</span></li><li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 8.5l3.2 3L13 4.5"/></svg><span>12 live calls with Karim</span></li><li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 8.5l3.2 3L13 4.5"/></svg><span>Private AI audit</span></li></ul>
+<ul class="pcard__features" role="list"><li><svg viewBox="0 0 18 18" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="9" r="9"/><path d="M5.6 9.3l2.2 2.1 4.6-4.8"/></svg><span>All 40 lessons</span></li><li><svg viewBox="0 0 18 18" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="9" r="9"/><path d="M5.6 9.3l2.2 2.1 4.6-4.8"/></svg><span>The prompt library</span></li><li><svg viewBox="0 0 18 18" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="9" r="9"/><path d="M5.6 9.3l2.2 2.1 4.6-4.8"/></svg><span>Voice guide and automation recipes</span></li><li><svg viewBox="0 0 18 18" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="9" r="9"/><path d="M5.6 9.3l2.2 2.1 4.6-4.8"/></svg><span>Private community</span></li><li><svg viewBox="0 0 18 18" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="9" r="9"/><path d="M5.6 9.3l2.2 2.1 4.6-4.8"/></svg><span>Lifetime updates</span></li><li><svg viewBox="0 0 18 18" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="9" r="9"/><path d="M5.6 9.3l2.2 2.1 4.6-4.8"/></svg><span>12 live calls with Karim</span></li><li><svg viewBox="0 0 18 18" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="9" r="9"/><path d="M5.6 9.3l2.2 2.1 4.6-4.8"/></svg><span>Private AI audit</span></li></ul>
 </li><li class="pcard" data-block-id="plan_3">
 <div class="pcard__top"><h3 class="pcard__name h5">Team</h3><div class="pcard__desc"><p>The cohort edition for up to five people.</p></div></div>
 <div class="pcard__price"><span class="pcard__amount">$1,190</span><span class="pcard__note">One payment for the team</span></div>
 <div class="pcard__cta"><a href="/theme-previews/digital-renaissance/pages/contact.html" data-theme-button="secondary" data-sl-button>Get team access</a></div>
-<ul class="pcard__features" role="list"><li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 8.5l3.2 3L13 4.5"/></svg><span>Everything in the cohort edition</span></li><li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 8.5l3.2 3L13 4.5"/></svg><span>Five seats</span></li><li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 8.5l3.2 3L13 4.5"/></svg><span>A team session on your workflows</span></li><li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 8.5l3.2 3L13 4.5"/></svg><span>Shared prompt library</span></li><li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 8.5l3.2 3L13 4.5"/></svg><span>Invoice for your business</span></li></ul>
+<ul class="pcard__features" role="list"><li><svg viewBox="0 0 18 18" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="9" r="9"/><path d="M5.6 9.3l2.2 2.1 4.6-4.8"/></svg><span>Everything in the cohort edition</span></li><li><svg viewBox="0 0 18 18" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="9" r="9"/><path d="M5.6 9.3l2.2 2.1 4.6-4.8"/></svg><span>Five seats</span></li><li><svg viewBox="0 0 18 18" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="9" r="9"/><path d="M5.6 9.3l2.2 2.1 4.6-4.8"/></svg><span>A team session on your workflows</span></li><li><svg viewBox="0 0 18 18" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="9" r="9"/><path d="M5.6 9.3l2.2 2.1 4.6-4.8"/></svg><span>Shared prompt library</span></li><li><svg viewBox="0 0 18 18" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="9" r="9"/><path d="M5.6 9.3l2.2 2.1 4.6-4.8"/></svg><span>Invoice for your business</span></li></ul>
 </li></ul><div class="pcards__foot"><p>Prices in US dollars. Pay in full or in three monthly parts at checkout. 30 day refund on every edition.</p></div></div>
 </section><style>#shopify-section-pricing.scroll-trigger { --animation-duration: 950ms; --animation-delay: 80ms; }</style>
 <script>(function(){var el=document.getElementById('shopify-section-pricing');if(!el||el.classList.contains('scroll-trigger'))return;el.classList.add('scroll-trigger',"fade_in");})();</script></div><div id="shopify-section-guarantee" class="shopify-section" data-section-id="guarantee" data-section-type="guarantee-banner"><script src="/theme-previews/_base/a/live-r7-features.9e491bb00160.js" defer="defer"></script>

@@ -325,7 +325,8 @@
   "main_menu": {
     "horizontal": {
       "close": "Fechar",
-      "title": "Menu"
+      "title": "Menu",
+      "more": "Mais"
     },
     "vertical": {
       "title": "Categorias",

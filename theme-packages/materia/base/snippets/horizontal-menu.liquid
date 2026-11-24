@@ -71,8 +71,11 @@
     "
   >
     <div class="navigation__menu-content word-break">
+      {%- comment -%} data-hs-wait: unseen on desktop until snippets/header-menu-fit has fitted the line (a moment, before the first paint on a return visit); header-layout.css shows it anyway after 2.5s and the noscript rule shows it at once without script. {%- endcomment -%}
+      <noscript><style>.header__menu .horizontal-list[data-hs-wait] { opacity: 1 !important; animation: none !important; }</style></noscript>
       <ul
         class="horizontal-list list-unstyled inline-flex-1025 flex-wrap row-gap-0 horizontal px-30 px-1025-0 show-localization animation-{{ section_st.dropdowns_animation }}"
+        {% if section_st.mega_menu.links.size > 1 %}data-hs-wait{% endif %}
       >
         <svg hidden>
           <symbol id="icon-arrow-down">
@@ -228,7 +231,7 @@
             {%- endcapture -%}
             <li
               {{ last_block.shopify_attributes }}
-              data-mm-blocks="{{ mm_ids }}"
+              data-mm-blocks="{{ mm_ids }}" data-hs-i="{{ forloop.index0 }}"
               class="level0{% if link.links.size or has_content %} menu-parent menu-parent__horizontal mega-menu{% else %} single{% endif %}{% if li_style != blank %} has-link-color{% endif %}"
               {% if li_style != blank %}style="{{ li_style }}"{% endif %}
             >
@@ -539,7 +542,7 @@
               {%- endif -%}
             </li>
           {% else %}
-            <li
+            <li data-hs-i="{{ forloop.index0 }}"
               class="level0{% if link.links.size > 0 %} menu-parent menu-parent__horizontal dropdown-menu{% else %} single{% endif %}{% if li_style != blank %} has-link-color{% endif %}"
               {% if style_block != null %}{{ style_block.shopify_attributes }}{% endif %}
               {% if mm_ids != blank %}data-mm-blocks="{{ mm_ids }}"{% endif %}
@@ -619,6 +622,10 @@
         {%- endif -%}
         {%- endcapture -%}
         {{- menu_items -}}
+        {%- comment -%} Desktop only: when the links do not fit on one line beside the logo and the icons, the last ones fold into More (header-menu-fit below). Its list is every top-level link with its own links, drawn here so it needs no copying; the fit shows only the folded ones. {%- endcomment -%}
+        {%- if section_st.mega_menu.links.size > 1 -%}
+          {%- render 'header-menu-more', menu: section_st.mega_menu, uppercase_first: uppercase_first -%}
+        {%- endif -%}
         {%- if wishlist -%}
           <li class="level0 hidden-1025">
             <a

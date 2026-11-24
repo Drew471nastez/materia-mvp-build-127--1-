@@ -1,0 +1,116 @@
+{
+  "type": "footer",
+  "name": "t:sections.footer.name",
+  "sections": {
+    "footer": {
+      "type": "footer",
+      "settings": {
+        "custom_text": "HANGER LANE",
+        "padding_top": 48,
+        "show_social": false,
+        "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636",
+        "custom_image": "",
+        "reset_spacing": true,
+        "section_width": "stretch_width",
+        "copyright_text": "© {{ 'now' | date: '%Y' }} {{ shop.name }}",
+        "heading_weight": "500",
+        "padding_bottom": 0,
+        "separator_line": "unset",
+        "arrow_icon_size": 14,
+        "link_hover_color": "",
+        "heading_transform": "uppercase",
+        "custom_text_italic": false,
+        "custom_elements_gap": 20,
+        "enable_custom_image": false,
+        "enable_custom_style": false,
+        "footer_heading_size": 13,
+        "enable_custom_text_big": true,
+        "enable_country_selector": true,
+        "custom_image_size_mobile": 60,
+        "enable_language_selector": true,
+        "custom_image_size_desktop": 64,
+        "custom_text_font_size_mobile": 52,
+        "custom_text_font_size_desktop": 200,
+        "show_policy_links": true,
+        "show_payment_icons": true,
+        "custom_header_position": "bottom"
+      },
+      "blocks": {
+        "newsletter": {
+          "type": "newsletter",
+          "settings": {
+            "heading": "Never miss a drop",
+            "description": "",
+            "email_placeholder": "Email address",
+            "button_label": "Sign up",
+            "note": "<p>One email when new pieces go on the rail. Unsubscribe any time.</p>",
+            "success_text": "Thanks, you are on the list.",
+            "content_width": "32%"
+          }
+        },
+        "shop": {
+          "type": "link_list",
+          "settings": {
+            "menu": "footer-shop",
+            "heading": "Shop",
+            "content_width": "13%"
+          }
+        },
+        "info": {
+          "type": "link_list",
+          "settings": {
+            "menu": "footer",
+            "heading": "Info",
+            "content_width": "13%"
+          }
+        },
+        "social": {
+          "type": "link_list",
+          "settings": {
+            "menu": "footer-social",
+            "heading": "Social",
+            "content_width": "13%"
+          }
+        },
+        "contact": {
+          "type": "store_info",
+          "settings": {
+            "show_logo": false,
+            "store_heading": "Contact",
+            "store_description": "<p>Studio and returns</p><p>Open on Saturdays, your city</p><p><a href=\"/pages/contact\">Get in touch</a></p>",
+            "store_email": false,
+            "store_phone": false,
+            "store_address": false,
+            "content_width": "16%",
+            "top_offset": 0
+          }
+        },
+        "pay": {
+          "type": "payment_badges",
+          "settings": {
+            "alignment": "right",
+            "enable_visa": true,
+            "enable_mastercard": true,
+            "enable_amex": true,
+            "enable_paypal": true,
+            "enable_apple_pay": true,
+            "enable_google_pay": true,
+            "enable_klarna": false,
+            "content_width": "100%"
+          }
+        }
+      },
+      "block_order": [
+        "newsletter",
+        "shop",
+        "info",
+        "social",
+        "contact",
+        "pay"
+      ]
+    }
+  },
+  "order": [
+    "footer"
+  ]
+}

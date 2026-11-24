@@ -1,7 +1,7 @@
 
 <!doctype html>
 <html class="no-js" lang="en" dir="ltr">
-<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;
+<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/caps-tees/a/cart.1f49d2db97f3.json";
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
@@ -15,11 +15,78 @@ function path(u){try{return new URL(u,location.href).pathname}catch(e){return""}
 var CART={token:"preview",note:"",attributes:{},original_total_price:0,total_price:0,total_discount:0,total_weight:0,item_count:0,items:[],requires_shipping:false,currency:"USD",items_subtotal_price:0,cart_level_discount_applications:[]};
 var NO={status:422,message:"Preview",description:"This is a preview of the template. Add it to your library to sell from it."};
 function reply(u){var p=path(u);
-if(/\/cart\/add(\.js)?$/.test(p)){showNote(pressed);return[422,"application/json",JSON.stringify(NO)]}
+if(/\/cart\/add(\.js)?$/.test(p))return[422,"application/json",JSON.stringify(NO)];
 if(/\/cart(\.js|\.json|\/(change|update|clear)(\.js)?)$/.test(p))return[200,"application/json",JSON.stringify(CART)];
 if(/\.(js|json)$/.test(p)||/\/search\/suggest/.test(p))return[200,"application/json","{}"];
 return[200,"text/html","<!doctype html><html><body></body></html>"]}
-var F=W.fetch;if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);if(mine(u))return F.apply(this,arguments);var r=reply(u);return Promise.resolve(new Response(r[2],{status:r[0],headers:{"Content-Type":r[1]}}))};
+var F=W.fetch;
+var SLUG=location.pathname.slice(ROOT.length).split("/")[0],CK="slpv-cart:"+SLUG,RE=[/(?=[<"\s>=])/,/(?=\n)/];
+function dec(s){var m=/^(\d+)~(.*)$/.exec(s||"");if(!m)return null;var lines=[];(m[2]?m[2].split("-"):[]).forEach(function(x){var p=x.split(".");var e=+p[0],q=+p[1];if(e>=0&&q>0&&e===Math.floor(e))lines.push({e:e,q:Math.min(99,Math.floor(q))})});return{t:+m[1],l:lines}}
+function enc(c){return c.t+"~"+c.l.map(function(x){return x.e+"."+x.q}).join("-")}
+function names(){try{var n=JSON.parse(W.name||"null");return n&&typeof n==="object"&&n.slpv?n:null}catch(e){return null}}
+var BAG=(function(){var best={t:0,l:[]},take=function(c){if(c&&c.t>=best.t)best=c};
+var m=/[?&]slc=([^&#]*)/.exec(location.search);if(m)take(dec(decodeURIComponent(m[1])));
+var n=names();if(n&&n.slpv[SLUG])take(dec(n.slpv[SLUG]));
+try{take(dec(W.localStorage.getItem(CK)))}catch(e){}
+return best})();
+function keep(){BAG.t=Date.now();var s=enc(BAG);try{W.localStorage.setItem(CK,s)}catch(e){}
+try{if(!W.name||names()){var n=names()||{slpv:{}};n.slpv[SLUG]=s;W.name=JSON.stringify(n)}}catch(e){}}
+function carry(u){if(!BAG.t)return u;try{var x=new URL(u,location.href);if(x.pathname.indexOf(ROOT+SLUG+"/")!==0||!/[.]html$/.test(x.pathname))return u;x.searchParams.set("slc",enc(BAG));return x.href}catch(e){return u}}
+D.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[href]");if(a&&!a.hasAttribute("data-preview-inert")){var to=carry(a.href);if(to!==a.href)a.href=to}},true);
+var DATA=null,DP=null;function data(){return DP||(DP=F(CART_DATA).then(function(r){return r.json()}).then(function(d){DATA=d;BAG.l=BAG.l.filter(function(x){return x.e<d.e.length});return d}))}
+var made={};function sec(i,k){var id=i+":"+k;if(made[id])return made[id];var x=DATA.e[i],o=k?x.r:x.d,s=typeof o==="string"?o:patch(sec(x.b,k),o);return made[id]=s}
+function patch(b,x){var ops=x.o;if(!ops.length)return b;var t=b.split(RE[x.t]);for(var k=ops.length-1;k>=0;k--)t.splice(ops[k][0],ops[k][1],ops[k][2]);return t.join("")}
+function money(c){var f=DATA.fmt||"$"+"{{amount}}",m=/\{\{\s*(\w+)\s*\}\}/.exec(f),k=m?m[1]:"amount",dp=/no_decimals/.test(k)?0:2,eu=/comma_separator/.test(k),p=(c/100).toFixed(dp).split(".");var s=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,eu?".":(/apostrophe/.test(k)?"'":","))+(p[1]?(eu?",":".")+p[1]:"");return f.replace(/\{\{\s*\w+\s*\}\}/,s)}
+function moneyRe(){var f=DATA.fmt||"$"+"{{amount}}",at=f.search(/\{\{/),end=f.indexOf("}}")+2;var esc=function(s){return s.replace(/[.*+?^$()|[\]\\{}]/g,"\\$&")};return new RegExp(esc(f.slice(0,at))+"\\d[\\d.,']*"+esc(f.slice(end)),"g")}
+function cents(s){var d=s.replace(/[^\d]/g,"");return /no_decimals/.test(DATA.fmt)?+d*100:+d}
+function texts(root,fn){if(!root)return;var w=root.ownerDocument.createTreeWalker(root,4),n;while(n=w.nextNode())n.nodeValue=fn(n.nodeValue)}
+function times(root,q){if(q===1)return;var re=moneyRe();texts(root,function(v){return v.replace(re,function(m){return money(cents(m)*q)})})}
+function set(root,c){var re=moneyRe(),done=false;texts(root,function(v){return v.replace(re,function(){if(done)return"";done=true;return money(c)})})}
+function line(el,q){el.querySelectorAll('input[name="updates[]"]').forEach(function(i){i.value=q;i.setAttribute("value",q);i.setAttribute("data-value",q)});el.querySelectorAll("[data-quantity]").forEach(function(x){x.setAttribute("data-quantity",q)});
+el.querySelectorAll(".minicart__item-prices,.cart-item__totals").forEach(function(x){times(x,q)})}
+function item(x,n){var it=JSON.parse(JSON.stringify(DATA.e[x.e].item)),q=x.q;it.quantity=q;it.key=DATA.e[x.e].k;["line_price","original_line_price","final_line_price","discounted_line_price"].forEach(function(k){if(typeof it[k]==="number")it[k]=it[k]*q});return it}
+function cartJson(){var items=BAG.l.map(item),sum=function(k){return items.reduce(function(a,b){return a+(+b[k]||0)},0)},total=sum("final_line_price")||sum("line_price");
+return{token:"preview",note:BAG.note||"",attributes:{},original_total_price:sum("original_line_price")||total,total_price:total,total_discount:0,total_weight:0,item_count:items.reduce(function(a,b){return a+b.quantity},0),items:items,requires_shipping:items.some(function(i){return i.requires_shipping}),currency:DATA.cur,items_subtotal_price:total,cart_level_discount_applications:[]}}
+var DP2=new DOMParser();
+function compose(k){if(!BAG.l.length)return DATA.empty[k];var c=cartJson(),docs=BAG.l.map(function(x){return DP2.parseFromString(sec(x.e,k),"text/html")}),sk=docs[0];
+var pick=function(d){return k?d.querySelector("table.cart-items tbody > tr.cart-item"):d.querySelector("#minicart-form .items > .cart-item")};
+var first=pick(sk);if(!first)return DATA.empty[k];var box=first.parentNode;
+BAG.l.forEach(function(x,n){var el=n?sk.importNode(pick(docs[n]),true):first;line(el,x.q);if(k)renumber(el,n+1);if(n)box.appendChild(el)});
+sk.querySelectorAll("[data-cart-subtotal-price],.cart-info .totals").forEach(function(x){set(x,c.total_price)});
+return sk.body.innerHTML}
+function renumber(el,n){[el].concat([].slice.call(el.querySelectorAll("*"))).forEach(function(x){["id","for","data-index"].forEach(function(a){var v=x.getAttribute(a);if(v!=null&&/(^|-)1$/.test(v))x.setAttribute(a,v.replace(/1$/,n))});if(x.classList)[].slice.call(x.classList).forEach(function(c){if(/^cart-item__totals-1$/.test(c)){x.classList.remove(c);x.classList.add("cart-item__totals-"+n)}})})}
+function sections(ask){var out={};(Array.isArray(ask)?ask:String(ask||"").split(",")).forEach(function(s){s=String(s).trim();if(!s)return;out[s]=s==="minicart-form"?compose(0):s===DATA.page?compose(1):null});return out}
+function find(id){id=String(id==null?"":id);var m=/^pv(\d+)x$/.exec(id);if(m)return +m[1];for(var i=0;i<DATA.e.length;i++)if(DATA.e[i].id===id||DATA.e[i].k===id)return i;for(i=0;i<DATA.e.length;i++)if(DATA.e[i].p===id)return i;return -1}
+function fieldsOf(b){var o={};if(!b)return o;if(typeof b==="string"){try{return JSON.parse(b)}catch(e){b=new URLSearchParams(b)}}
+if(b.forEach&&!Array.isArray(b)){b.forEach(function(v,k){var m=/^items\[(\d+)\]\[(\w+)\]$/.exec(k);if(m){(o.items=o.items||[])[+m[1]]=(o.items[+m[1]]||{});o.items[+m[1]][m[2]]=v;return}var u=/^updates\[(.*)\]$/.exec(k);if(u){(o.updates=o.updates||(u[1]===""?[]:{}));if(Array.isArray(o.updates))o.updates.push(v);else o.updates[u[1]]=v;return}o[k]=v});return o}return o}
+function lineOf(f){if(f.line!=null&&f.line!==""){var n=+f.line-1;return BAG.l[n]?n:-1}var e=find(f.id);for(var i=0;i<BAG.l.length;i++)if(BAG.l[i].e===e)return i;return -1}
+function setQ(n,q){q=Math.max(0,Math.min(99,Math.floor(+q)||0));if(n<0)return;if(!q)BAG.l.splice(n,1);else BAG.l[n].q=DATA.e[BAG.l[n].e].one?1:q}
+function bad(m){return[422,{status:422,message:m,description:m}]}
+function cartReply(p,o){var f=fieldsOf(o&&o.body),act=/\/cart\/(add|change|update|clear)(?:\.js)?$/.exec(p);return data().then(function(){
+if(!act){var j=cartJson();return[200,j]}
+if(act[1]==="add"){var list=f.items&&f.items.length?f.items.filter(Boolean):[{id:f.id,quantity:f.quantity}],added=[];
+for(var i=0;i<list.length;i++){var e=find(list[i].id);if(e<0)return bad("This option is sold out.");var q=Math.max(1,Math.min(99,Math.floor(+list[i].quantity)||1)),hit=null;
+BAG.l.forEach(function(x){if(x.e===e)hit=x});if(hit)hit.q=DATA.e[e].one?1:Math.min(99,hit.q+q);else{hit={e:e,q:DATA.e[e].one?1:q};BAG.l.push(hit)}added.push(hit)}
+keep();var out=f.items&&f.items.length?{items:added.map(item)}:item(added[0]);if(f.sections)out.sections=sections(f.sections);return[200,out]}
+if(act[1]==="change"){setQ(lineOf(f),f.quantity)}
+else if(act[1]==="clear"){BAG.l=[]}
+else{if(f.note!=null)BAG.note=String(f.note);var u=f.updates;if(Array.isArray(u))u.forEach(function(q,n){setQ(n,q)});else if(u&&typeof u==="object")Object.keys(u).forEach(function(k){setQ(lineOf({id:k}),u[k])})}
+BAG.l=BAG.l.filter(function(x){return x.q>0});keep();var j=cartJson();if(f.sections)j.sections=sections(f.sections);return[200,j]})}
+function sectionsReply(u){return data().then(function(){var x=new URL(u,location.href);return[200,sections(x.searchParams.get("sections"))]})}
+function count(){return BAG.l.reduce(function(a,b){return a+b.q},0)}
+function paintCount(){var n=count();D.querySelectorAll(".cart-count").forEach(function(el){var t=el.classList.contains("cart-count-drawer")?"("+n+")":String(n);if(el.textContent.trim()!==t)el.textContent=t})}
+var hold=null;if(BAG.l.length&&/\/cart\.html$/.test(location.pathname)){hold=D.createElement("style");hold.textContent="#main-cart-items{visibility:hidden}";(D.head||D.documentElement).appendChild(hold)}
+function arrive(){if(W.routes){try{var cu=W.routes.cart_url;Object.defineProperty(W.routes,"cart_url",{configurable:true,get:function(){return carry(ROOT+SLUG+"/cart.html")}})}catch(e){}}
+if(!CART_DATA||!BAG.l.length)return;paintCount();data().then(function(){if(!BAG.l.length){if(hold)hold.remove();return}
+var dr=D.getElementById("minicart-form");if(dr){var d=DP2.parseFromString(compose(0),"text/html").querySelector("#minicart-form");if(d){dr.innerHTML=d.innerHTML;var cd=dr.closest("cart-drawer,cart-notification,.is-empty");if(cd)cd.classList.remove("is-empty")}}
+var pg=D.getElementById("main-cart-items");if(pg){var s=pg.closest(".shopify-section")||pg.parentNode,n=DP2.parseFromString(compose(1),"text/html").querySelector(".shopify-section");if(s&&n)s.innerHTML=n.innerHTML}
+paintCount();if(hold)requestAnimationFrame(function(){hold.remove()})}).catch(function(){if(hold)hold.remove()})}
+if(D.readyState==="loading")D.addEventListener("DOMContentLoaded",arrive);else arrive();
+
+if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);if(mine(u))return F.apply(this,arguments);
+/* Cards round 24: the cart answers from the template's drawn cart (./theme-templates/preview-cart.ts), as a store would. */
+var p=path(u),q=/[?&]sections=/.test(u),c=/\/cart(\.js|\.json|\/(add|change|update|clear)(\.js)?)$/.test(p);if(CART_DATA&&(c||q)){var w=c?cartReply(p,o):sectionsReply(u);return w.then(function(r){return new Response(JSON.stringify(r[1]),{status:r[0],headers:{"Content-Type":"application/json"}})},function(){var r=reply(u);return new Response(r[2],{status:r[0],headers:{"Content-Type":r[1]}})})}
+var r=reply(u);return Promise.resolve(new Response(r[2],{status:r[0],headers:{"Content-Type":r[1]}}))};
 var X=W.XMLHttpRequest&&W.XMLHttpRequest.prototype;if(X){var O=X.open;X.open=function(m,u){var a=[].slice.call(arguments);if(!mine(u)){var r=reply(u);a[0]="GET";a[1]="data:"+r[1]+","+encodeURIComponent(r[2])}return O.apply(this,a)}}
 if(navigator.sendBeacon)navigator.sendBeacon=function(){return true};
 W.open=function(){return null};
@@ -36,13 +103,17 @@ n.style.left=Math.round(x)+"px";n.style.top=Math.round(y)+"px";note=n;
 requestAnimationFrame(function(){requestAnimationFrame(function(){n.style.opacity="1";n.style.transform="none"})});noteT=setTimeout(hideNote,3200)}
 W.addEventListener("scroll",hideNote,{passive:true});
 function productForm(f){return !!(f&&f.querySelector&&f.querySelector("input[name=id],select[name=id]"))}
-var BUY=".product-form__submit,.shopify-payment-button__button,.product_buy_now_button,.button_buy-now,.product-group-buy-now,[data-add-to-cart],[data-buy-now]";
-function buying(b){if(!b||!b.getAttribute)return false;var n=(b.getAttribute("name")||"").toLowerCase();if(n==="add"||n==="checkout")return true;if(b.matches&&b.matches(BUY))return true;var t=(b.getAttribute("type")||(b.tagName==="BUTTON"?"submit":"")).toLowerCase();return (t==="submit"||t==="image")&&productForm(b.form||b.closest("form"))}
-var pressed=null;D.addEventListener("pointerdown",function(e){pressed=e.target&&e.target.closest?e.target.closest("button,a,input"):null},true);
+/* Cards round 24: Add to cart goes to the preview's cart; Buy now and Check out, which would take an order, still get the note. */
+var BUY=".shopify-payment-button__button,.product_buy_now_button,.product-group-buy-now,[data-buy-now],.btn-checkout,.cart__checkout-button";
+function buying(b){if(!b||!b.getAttribute)return false;var n=(b.getAttribute("name")||"").toLowerCase();if(n==="checkout")return true;return !!(b.closest&&b.closest(BUY))}
 W.addEventListener("click",function(e){var b=e.target&&e.target.closest&&e.target.closest("button,input[type=submit],input[type=image],a");if(!buying(b))return;e.preventDefault();e.stopImmediatePropagation();showNote(b)},true);
-function submit(f,b){setTimeout(function(){var ev;try{ev=new SubmitEvent("submit",{bubbles:true,cancelable:true,submitter:b||null})}catch(_){ev=new Event("submit",{bubbles:true,cancelable:true})}f.dispatchEvent(ev)},0)}
+function submit(f,b){setTimeout(function(){var ev;try{ev=new SubmitEvent("submit",{bubbles:true,cancelable:true,submitter:b||null})}catch(_){ev=new Event("submit",{bubbles:true,cancelable:true})}f.dispatchEvent(ev);if(!ev.defaultPrevented&&productForm(f))addAlone(f,b)},0)}
+/* A product form no script of the theme takes: added here, and the drawer opens with it (or the cart page, where the page has none). */
+function addAlone(f,b){var id=f.querySelector("input[name=id],select[name=id]"),q=f.querySelector("input[name=quantity]");if(!CART_DATA||!id){showNote(b);return}
+cartReply("/cart/add.js",{body:JSON.stringify({id:id.value,quantity:q?q.value:1,sections:["minicart-form"]})}).then(function(r){if(r[0]!==200){showNote(b);return}var dr=D.getElementById("minicart-form"),cn=D.querySelector("cart-notification,cart-drawer");
+if(dr&&cn&&cn.open){var d=new DOMParser().parseFromString(r[1].sections["minicart-form"],"text/html").querySelector("#minicart-form");if(d)dr.innerHTML=d.innerHTML;cn.classList.remove("is-empty");paintCount();cn.open()}else location.href=carry(ROOT+SLUG+"/cart.html")})}
 D.addEventListener("click",function(e){var b=e.target&&e.target.closest&&e.target.closest("button,input[type=submit],input[type=image]");if(!b||!b.form)return;var t=(b.getAttribute("type")||"submit").toLowerCase();if(t!=="submit"&&t!=="image")return;e.preventDefault();submit(b.form,b)},true);
-D.addEventListener("keydown",function(e){var i=e.target;if(e.key!=="Enter"||!i||i.tagName!=="INPUT"||!i.form)return;e.preventDefault();if(productForm(i.form)){showNote(i.form.querySelector("[name=add],button[type=submit],button:not([type])")||i);return}submit(i.form,null)},true);
+D.addEventListener("keydown",function(e){var i=e.target;if(e.key!=="Enter"||!i||i.tagName!=="INPUT"||!i.form)return;e.preventDefault();submit(i.form,i.form.querySelector("[name=add],button[type=submit],button:not([type])"))},true);
 D.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[data-preview-inert]");if(a)e.preventDefault()},true);
 var told=false;function tell(){if(told)return;told=true;try{parent.postMessage({type:"storelib:template-preview",ready:true,path:location.pathname},"*")}catch(e){}}
 W.addEventListener("load",tell);D.addEventListener("DOMContentLoaded",function(){setTimeout(tell,1200)});
@@ -136,8 +207,8 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
         } catch (e) {}
       })();
     </script>
-<link href="/theme-previews/_base/a/critical.7f3f35898a25.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/product-card.f00653542c82.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"outline","product_size":13,"price_size":13,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
+<link href="/theme-previews/_base/a/critical.03978b251a4f.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/product-card.9a3739dc0c4c.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"outline","product_size":13,"price_size":13,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
 <style>html:not([data-card-custom='true']) .product-item .product-item__name { font-size:var(--body-font-size, 16px); text-transform:var(--heading-text-transform, none) !important; } html:not([data-card-custom='true']) .product-item .product-item__price { font-size:var(--body-font-size, 16px); }</style>
 <script>document.documentElement.dataset.cardCustom = false === true ? 'true' : 'false';</script>
 <script type="application/json" data-badge-style-settings>false</script>
@@ -158,7 +229,7 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
 <link href="/theme-previews/_base/a/theme.d71f5b96fec8.css" rel="stylesheet" type="text/css" media="all"><noscript><link href="/theme-previews/_base/a/popup.18cdf2513c31.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.9c20c549e3cf.css">
 <link rel="preload" as="style" href="/theme-previews/_base/a/minicart.ac0014483417.css" fetchpriority="low">
 <link rel="preload" as="style" href="/theme-previews/_base/a/materia-experience.b68d6d8152a8.css" fetchpriority="low">
-<link rel="stylesheet" href="/theme-previews/caps-tees/a/i.f077913b1dc3.css"><link rel="stylesheet" href="/theme-previews/caps-tees/a/i.63b16d2c4a32.css"><link href="/theme-previews/_base/a/theme-button-contract.7d286d7eee9b.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/localization-controls.9494a0c83131.css" rel="stylesheet" type="text/css" media="all"><link rel="modulepreload" href="/theme-previews/_base/a/theme.7a7dd8f80f89.js" fetchpriority="low"><link rel="preload" as="style" href="/theme-previews/_base/a/main-product.f6cc6e1c565b.css">
+<link rel="stylesheet" href="/theme-previews/caps-tees/a/i.f077913b1dc3.css"><link rel="stylesheet" href="/theme-previews/caps-tees/a/i.63b16d2c4a32.css"><link href="/theme-previews/_base/a/theme-button-contract.7d286d7eee9b.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/localization-controls.9494a0c83131.css" rel="stylesheet" type="text/css" media="all"><link rel="modulepreload" href="/theme-previews/_base/a/theme.7a7dd8f80f89.js" fetchpriority="low"><link rel="preload" as="style" href="/theme-previews/_base/a/main-product.c8eac1cfd035.css">
 <link rel="preload" as="style" href="/theme-previews/_base/a/product-page-ui.b247d1d435f0.css"><script data-storelib-head src="/theme-previews/caps-tees/a/i.585ec254f5fd.js"></script>
 <script src="/theme-previews/_base/a/swiper-bundle-min.31d164f7367d.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/motion-min.d1f8eb312b47.js" type="module" defer="defer" fetchpriority="low"></script>
@@ -244,10 +315,10 @@ data-menu-hover="none"
     .shopify-section + #shopify-section-top_bar {
       margin-top: 0 !important;
     }</style><link rel="stylesheet" href="/theme-previews/caps-tees/a/i.8ca5eca54d18.css">
-<!-- ti-theme:start --><link rel="stylesheet" href="/theme-previews/caps-tees/a/i.392f7319f582.css" data-shopify><div
+<!-- ti-theme:start --><link rel="stylesheet" href="/theme-previews/caps-tees/a/i.fcb0dfd8408d.css" data-shopify><div
 id="topbar-top_bar" data-tb-width="full_width" data-announcement-three="top_bar" data-pro-three-settings="{&quot;color_scheme&quot;:{&quot;id&quot;:&quot;scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9&quot;,&quot;settings&quot;:{&quot;page_colors&quot;:null,&quot;background&quot;:{&quot;red&quot;:20,&quot;green&quot;:20,&quot;blue&quot;:20,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:8,&quot;rgb&quot;:&quot;20 20 20&quot;,&quot;rgba&quot;:&quot;20 20 20 / 1&quot;,&quot;hex&quot;:&quot;#141414&quot;},&quot;text_color&quot;:{&quot;red&quot;:207,&quot;green&quot;:207,&quot;blue&quot;:207,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:81,&quot;rgb&quot;:&quot;207 207 207&quot;,&quot;rgba&quot;:&quot;207 207 207 / 1&quot;,&quot;hex&quot;:&quot;#cfcfcf&quot;},&quot;heading_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;primary_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;border_color&quot;:{&quot;red&quot;:46,&quot;green&quot;:46,&quot;blue&quot;:46,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:18,&quot;rgb&quot;:&quot;46 46 46&quot;,&quot;rgba&quot;:&quot;46 46 46 / 1&quot;,&quot;hex&quot;:&quot;#2e2e2e&quot;},&quot;badge_background&quot;:null,&quot;badge_text&quot;:null,&quot;primary_button_colors&quot;:null,&quot;btn_primary_background&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_primary_color&quot;:{&quot;red&quot;:20,&quot;green&quot;:20,&quot;blue&quot;:20,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:8,&quot;rgb&quot;:&quot;20 20 20&quot;,&quot;rgba&quot;:&quot;20 20 20 / 1&quot;,&quot;hex&quot;:&quot;#141414&quot;},&quot;btn_primary_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_primary_hover_background&quot;:{&quot;red&quot;:230,&quot;green&quot;:230,&quot;blue&quot;:230,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:90,&quot;rgb&quot;:&quot;230 230 230&quot;,&quot;rgba&quot;:&quot;230 230 230 / 1&quot;,&quot;hex&quot;:&quot;#e6e6e6&quot;},&quot;btn_primary_hover_color&quot;:{&quot;red&quot;:20,&quot;green&quot;:20,&quot;blue&quot;:20,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:8,&quot;rgb&quot;:&quot;20 20 20&quot;,&quot;rgba&quot;:&quot;20 20 20 / 1&quot;,&quot;hex&quot;:&quot;#141414&quot;},&quot;btn_primary_hover_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;secondary_button_colors&quot;:null,&quot;btn_secondary_background&quot;:{&quot;red&quot;:20,&quot;green&quot;:20,&quot;blue&quot;:20,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:8,&quot;rgb&quot;:&quot;20 20 20&quot;,&quot;rgba&quot;:&quot;20 20 20 / 1&quot;,&quot;hex&quot;:&quot;#141414&quot;},&quot;btn_secondary_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_border&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_hover_background&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_hover_color&quot;:{&quot;red&quot;:20,&quot;green&quot;:20,&quot;blue&quot;:20,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:8,&quot;rgb&quot;:&quot;20 20 20&quot;,&quot;rgba&quot;:&quot;20 20 20 / 1&quot;,&quot;hex&quot;:&quot;#141414&quot;},&quot;btn_secondary_hover_border_color&quot;:null,&quot;background_gradient&quot;:&quot;&quot;,&quot;btn_primary_gradient&quot;:&quot;&quot;,&quot;btn_primary_hover_background_gradient&quot;:&quot;&quot;,&quot;btn_secondary_hover_border&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_outline_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_outline_border_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;button_link_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;button_link_hover_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;}}},&quot;section_width&quot;:&quot;full_width&quot;,&quot;sticky_top&quot;:false,&quot;show_mobile&quot;:true,&quot;text_align&quot;:&quot;center&quot;,&quot;uppercase&quot;:false,&quot;font_size&quot;:13,&quot;font_weight&quot;:&quot;body_weight&quot;,&quot;letter_spacing&quot;:0,&quot;enable_custom_fonts&quot;:false,&quot;font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;enable_custom_colors&quot;:false,&quot;custom_bg_color&quot;:null,&quot;custom_text_color&quot;:null,&quot;custom_link_color&quot;:null,&quot;custom_arrow_color&quot;:null,&quot;border_position&quot;:&quot;bottom&quot;,&quot;border_width&quot;:0,&quot;border_color&quot;:{&quot;red&quot;:229,&quot;green&quot;:229,&quot;blue&quot;:229,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:90,&quot;rgb&quot;:&quot;229 229 229&quot;,&quot;rgba&quot;:&quot;229 229 229 / 1&quot;,&quot;hex&quot;:&quot;#e5e5e5&quot;},&quot;reveal&quot;:true,&quot;show_arrows&quot;:false,&quot;show_arrows_mobile&quot;:false,&quot;transition_speed&quot;:700,&quot;change_every&quot;:5,&quot;padding_top&quot;:8,&quot;padding_bottom&quot;:8,&quot;enable_custom_position&quot;:false,&quot;desktop_horizontal_offset&quot;:0,&quot;section_margin_top_desktop&quot;:0,&quot;section_margin_bottom_desktop&quot;:0,&quot;section_margin_top_mobile&quot;:0,&quot;section_margin_bottom_mobile&quot;:0,&quot;reset_spacing&quot;:true}"
 data-sticky-announcement="false"
-data-tb-blocks="socials_1:socials text_slider_1:text_slider " data-tb-border="bottom:0" data-tb-pos="false:0"
+data-tb-blocks="socials_1:socials text_slider_1:text_slider cur_lang_1:cur_lang " data-tb-border="bottom:0" data-tb-pos="false:0"
 class="topbar gradient pt-min pb-min section remove_spacing color-scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9"
 style="--section-pt: 8; --section-pb: 8;--swiper-navigation-color: var(--color-text);--tb-justify: center;--tb-align: center;"
 >
@@ -255,7 +326,7 @@ style="--section-pt: 8; --section-pb: 8;--swiper-navigation-color: var(--color-t
 <div
 class="flex flex-wrap flex-md-nowrap gap justify-center justify-between-1025 align-center topbar__section-inner gap-10 gap-lg-25 fs-custom body_weight"
 style="--font-size: 13;" data-tb-font="Assistant, sans-serif"
-><div class="topbar-item hidden block-1025" data-tb-block="socials_1"><ul class="list-social list-social--outline list-unstyled flex align-center flex-wrap gap" style="--col-gap: 12px;"><li class="list-social__item inline-flex">
+><div class="topbar__side topbar__side--start"><div class="topbar-item hidden block-1025" data-tb-block="socials_1"><ul class="list-social list-social--outline list-unstyled flex align-center flex-wrap gap" style="--col-gap: 12px;"><li class="list-social__item inline-flex">
 <a
 href="#" data-preview-inert
 class="social-icon-link inline-flex content-center tooltip relative"
@@ -291,7 +362,7 @@ aria-label="Pinterest"
 <span class="tooltip-content invisible rounded-3 absolute pointer-none tooltip-bottom">Pinterest</span>
 </a>
 </li></ul><link rel="stylesheet" href="/theme-previews/caps-tees/a/i.33fe5d6a5e7a.css" data-shopify></div>
-<div class="topbar-item text-slide" data-tb-block="text_slider_1"><announcement-rotator-v2
+</div><div class="topbar-item text-slide" data-tb-block="text_slider_1"><announcement-rotator-v2
 id="topbar-messages-top_bar-text_slider_1"
 class="topbar-slider"
 data-section-id="top_bar"
@@ -308,7 +379,97 @@ data-duration="700"
 <div class="px-10 topbar-text-cell"><span class="topbar-text topbar-text--lg" data-tb-text>Every piece is made to order in small runs</span><span class="topbar-text topbar-text--sm" data-tb-text-mobile>Every piece is made to order in small runs</span></div>
 </div>
 </div>
-</announcement-rotator-v2></div></div>
+</announcement-rotator-v2></div><div class="topbar__side topbar__side--end"><div class="lang__currency-desktop justify-content-center justity-md-unset topbar-item hidden flex-1025 flex-wrap gap-10 gap-lg-25 align-center row-gap-0" data-tb-block="cur_lang_1">
+<localization-form>
+<form id="localization-country-top_bar" accept-charset="UTF-8" class="shopify-localization-form" data-preview-form><input type="hidden" name="form_type" value="localization"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="storelib_country" value="US">
+<input type="hidden" name="country_code" value="US">
+<div class="disclosure relative flex align-center">
+<button type="button" aria-expanded="false" aria-controls="localization-country-top_bar-options" aria-label="United States (USD)" class="button-localization pointer disclosure__button show-overlay flex align-center gap-10 ">
+<span class="flex align-center gap-10">
+<span class="rounded-50 border localization-flags "><img src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2024%22%3E%3Ctext%20x%3D%2216%22%20y%3D%2219%22%20font-size%3D%2220%22%20text-anchor%3D%22middle%22%3E%F0%9F%87%BA%F0%9F%87%B8%3C%2Ftext%3E%3C%2Fsvg%3E" alt="United States"></span>
+<span>
+USD $
+</span>
+</span>
+<svg class="icon-down flex-10" width="10" height="6">
+<use href="#icon-arrow-down" />
+</svg>
+</button>
+<div id="localization-country-top_bar-options" data-search-label="Search" data-empty-label="No matches" class="disclosure__list custom-scrollbar shadow transition invisible z-10 absolute left-0 right-0 color-default overflow-y-auto"><ul class="h-full list-unstyled" data-country-options></ul>
+</div>
+</div>
+</form>
+</localization-form>
+<localization-form>
+<form id="localization-language-top_bar" accept-charset="UTF-8" class="shopify-localization-form" data-preview-form><input type="hidden" name="form_type" value="localization"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="storelib_country" value="US">
+<input type="hidden" name="language_code" value="en">
+<div class="disclosure relative flex align-center">
+<button type="button" aria-expanded="false" aria-controls="localization-language-top_bar-options" aria-label="English" class="button-localization pointer disclosure__button show-overlay flex align-center gap-10">
+<span class="">
+<span >English</span>
+</span>
+<svg class="icon-down flex-10" width="10" height="6">
+<use href="#icon-arrow-down" />
+</svg>
+</button>
+<div id="localization-language-top_bar-options" data-search-label="Search" data-empty-label="No matches" class="disclosure__list custom-scrollbar transition shadow invisible z-10 absolute left-0 right-0 color-default">
+<ul class="h-full list-unstyled">
+<li class="disclosure__item py-4" tabindex="-1">
+<a
+href="#"
+class="no-underline text-color hover-heading-color"
+aria-current="true"
+hreflang="en"
+lang="en"
+data-value="en"
+aria-label="English"
+>
+English
+</a>
+</li>
+<li class="disclosure__item py-4" tabindex="-1">
+<a
+href="#"
+class="no-underline text-color hover-heading-color"
+hreflang="fr"
+lang="fr"
+data-value="fr"
+aria-label="Français"
+>
+Français
+</a>
+</li>
+<li class="disclosure__item py-4" tabindex="-1">
+<a
+href="#"
+class="no-underline text-color hover-heading-color"
+hreflang="de"
+lang="de"
+data-value="de"
+aria-label="Deutsch"
+>
+Deutsch
+</a>
+</li>
+<li class="disclosure__item py-4" tabindex="-1">
+<a
+href="#"
+class="no-underline text-color hover-heading-color"
+hreflang="es"
+lang="es"
+data-value="es"
+aria-label="Español"
+>
+Español
+</a>
+</li>
+</ul>
+</div>
+</div>
+</form>
+</localization-form>
+</div></div>
+</div>
 </div>
 </div>
 </div><div id="shopify-section-header" class="shopify-section shopify-section-group-header-group section-header" data-section-id="header" data-section-type="theme-header"><link href="/theme-previews/_base/a/header-section.1c94351c418a.css" rel="stylesheet" type="text/css" media="all">
@@ -343,7 +504,7 @@ data-duration="700"
       --hs-logo-max-height: 48px;
       --hs-logo-box-height: 64px;
     }
-  }:root { --hs-mnav-title-bg: #ffffff; --hs-mnav-title-color: #111111; }</style><link href="/theme-previews/_base/a/header-layout.9f68c30912e8.css" rel="stylesheet" type="text/css" media="all">
+  }:root { --hs-mnav-title-bg: #ffffff; --hs-mnav-title-color: #111111; }</style><link href="/theme-previews/_base/a/header-layout.ed2de67e6e9c.css" rel="stylesheet" type="text/css" media="all">
 <style>
   #shopify-section-header {
     --header-height-desktop: 92px;
@@ -416,16 +577,17 @@ style="
 --custom_2-cl: #ffffff;--custom_2-bg-cl: #8b5cf6;
 "
 >
-<div class="navigation__menu-content word-break">
+<div class="navigation__menu-content word-break"><noscript><style>.header__menu .horizontal-list[data-hs-wait] { opacity: 1 !important; animation: none !important; }</style></noscript>
 <ul
 class="horizontal-list list-unstyled inline-flex-1025 flex-wrap row-gap-0 horizontal px-30 px-1025-0 show-localization animation-down-to-up"
+data-hs-wait
 >
 <svg hidden>
 <symbol id="icon-arrow-down">
 <path fill="currentColor" d="M1.09 1.822a.52.52 0 0 1-.178-.396c0-.164.06-.306.178-.424A.557.557 0 0 1 1.5.838c.164 0 .3.055.41.164L5 4.092l3.09-3.09A.557.557 0 0 1 8.5.838c.164 0 .3.055.41.164.119.118.178.26.178.424a.52.52 0 0 1-.178.396l-3.5 3.5A.535.535 0 0 1 5 5.5c-.164 0-.3-.06-.41-.178l-3.5-3.5Z"/>
 </symbol>
 </svg>
-<li
+<li data-hs-i="0"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -433,7 +595,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/caps-tees/collections/all.html"
 ><span>Shop all</span></a></menu-item></li>
-<li
+<li data-hs-i="1"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -441,7 +603,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/caps-tees/search.html"
 ><span>Caps</span></a></menu-item></li>
-<li
+<li data-hs-i="2"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -449,7 +611,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/caps-tees/search.html"
 ><span>Tees</span></a></menu-item></li>
-<li
+<li data-hs-i="3"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -457,7 +619,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/caps-tees/search.html"
 ><span>Crewnecks</span></a></menu-item></li>
-<li
+<li data-hs-i="4"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -465,7 +627,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/caps-tees/pages/about.html"
 ><span>About</span></a></menu-item></li>
-<li
+<li data-hs-i="5"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -473,6 +635,52 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/caps-tees/pages/contact.html"
 ><span>Contact</span></a></menu-item></li>
+<li class="level0 menu-parent menu-parent__horizontal dropdown-menu hs-more" data-hs-more>
+<menu-item class="relative static-1025 flex justify-between align-center header-color px-15">
+<a
+class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
+href="#"
+role="button"
+aria-haspopup="true"
+aria-expanded="false"
+data-hs-more-toggle
+>
+<span>More</span>
+<open-children-toggle class="inline-flex flex-end align-center ms-5">
+<svg class="icon-down" width="10" height="6" aria-hidden="true">
+<use href="#icon-arrow-down" />
+</svg>
+</open-children-toggle>
+</a>
+</menu-item>
+<div class="submenu submenu-horizontal invisible-1025 absolute gradient color-default">
+<ul class="subchildmenu hs-more__list list-unstyled px-1025-0"><li class="menu-link level-1" data-hs-more-i="0" hidden>
+<a
+class="menu_item-link no-underline py-1025-5 inline-flex align-center"
+href="/theme-previews/caps-tees/collections/all.html"
+><span class="menu-link-text">Shop all</span></a></li><li class="menu-link level-1" data-hs-more-i="1" hidden>
+<a
+class="menu_item-link no-underline py-1025-5 inline-flex align-center"
+href="/theme-previews/caps-tees/search.html"
+><span class="menu-link-text">Caps</span></a></li><li class="menu-link level-1" data-hs-more-i="2" hidden>
+<a
+class="menu_item-link no-underline py-1025-5 inline-flex align-center"
+href="/theme-previews/caps-tees/search.html"
+><span class="menu-link-text">Tees</span></a></li><li class="menu-link level-1" data-hs-more-i="3" hidden>
+<a
+class="menu_item-link no-underline py-1025-5 inline-flex align-center"
+href="/theme-previews/caps-tees/search.html"
+><span class="menu-link-text">Crewnecks</span></a></li><li class="menu-link level-1" data-hs-more-i="4" hidden>
+<a
+class="menu_item-link no-underline py-1025-5 inline-flex align-center"
+href="/theme-previews/caps-tees/pages/about.html"
+><span class="menu-link-text">About</span></a></li><li class="menu-link level-1" data-hs-more-i="5" hidden>
+<a
+class="menu_item-link no-underline py-1025-5 inline-flex align-center"
+href="/theme-previews/caps-tees/pages/contact.html"
+><span class="menu-link-text">Contact</span></a></li></ul>
+</div>
+</li>
 </ul>
 </div>
 </nav>
@@ -532,7 +740,7 @@ class="horizontal-list list-unstyled inline-flex-1025 flex-wrap row-gap-0 horizo
 <path fill="currentColor" d="M1.09 1.822a.52.52 0 0 1-.178-.396c0-.164.06-.306.178-.424A.557.557 0 0 1 1.5.838c.164 0 .3.055.41.164L5 4.092l3.09-3.09A.557.557 0 0 1 8.5.838c.164 0 .3.055.41.164.119.118.178.26.178.424a.52.52 0 0 1-.178.396l-3.5 3.5A.535.535 0 0 1 5 5.5c-.164 0-.3-.06-.41-.178l-3.5-3.5Z"/>
 </symbol>
 </svg>
-<li
+<li data-hs-i="0"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -540,7 +748,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/caps-tees/collections/all.html"
 ><span>Shop all</span></a></menu-item></li>
-<li
+<li data-hs-i="1"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -548,7 +756,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/caps-tees/search.html"
 ><span>Caps</span></a></menu-item></li>
-<li
+<li data-hs-i="2"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -556,7 +764,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/caps-tees/search.html"
 ><span>Tees</span></a></menu-item></li>
-<li
+<li data-hs-i="3"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -564,7 +772,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/caps-tees/search.html"
 ><span>Crewnecks</span></a></menu-item></li>
-<li
+<li data-hs-i="4"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -572,7 +780,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/caps-tees/pages/about.html"
 ><span>About</span></a></menu-item></li>
-<li
+<li data-hs-i="5"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -691,96 +899,6 @@ United States
 <path d="M12.7518 2.91374L11.6276 1.44835H3.37237L2.24824 2.91374H12.7518ZM14.8419 3.18637V3.20341C14.8419 3.20341 14.8478 3.20341 14.8595 3.20341C14.8946 3.27157 14.9239 3.33972 14.9473 3.40788C14.9824 3.47604 15 3.54988 15 3.62939V13.819C15 14.1143 14.9356 14.3983 14.8068 14.6709C14.6897 14.9322 14.5316 15.1594 14.3326 15.3525C14.1335 15.557 13.8934 15.716 13.6124 15.8296C13.3431 15.9432 13.0562 16 12.7518 16H2.24824C1.94379 16 1.65105 15.9375 1.37002 15.8126C1.1007 15.699 0.866511 15.5456 0.667447 15.3525C0.456674 15.1594 0.29274 14.9322 0.175644 14.6709C0.058548 14.3983 0 14.1143 0 13.819V3.62939C0 3.58395 0.0058548 3.53852 0.0175644 3.49308C0.029274 3.43628 0.0468384 3.37948 0.0702576 3.32268C0.0819672 3.29996 0.0936768 3.27725 0.105386 3.25453C0.128806 3.23181 0.14637 3.20909 0.15808 3.18637L2.40632 0.28967C2.47658 0.198793 2.5644 0.130635 2.66979 0.085197C2.77518 0.028399 2.88642 0 3.00351 0H11.9965C12.1136 0 12.2248 0.028399 12.3302 0.085197C12.4356 0.130635 12.5234 0.198793 12.5937 0.28967L14.8419 3.18637ZM1.51054 4.36209V13.819C1.51054 13.9098 1.5281 14.0007 1.56323 14.0916C1.59836 14.1825 1.65105 14.262 1.72131 14.3301C1.79157 14.3983 1.87354 14.4494 1.96721 14.4835C2.06089 14.5176 2.15457 14.5346 2.24824 14.5346H12.7518C12.8571 14.5346 12.9508 14.5176 13.0328 14.4835C13.1265 14.4494 13.2084 14.3983 13.2787 14.3301C13.3489 14.262 13.4016 14.1825 13.4368 14.0916C13.4719 14.0007 13.4895 13.9098 13.4895 13.819V4.36209H1.51054ZM9.74824 6.54313C9.74824 6.33866 9.8185 6.16826 9.95902 6.03195C10.1112 5.88427 10.2927 5.81044 10.5035 5.81044C10.7026 5.81044 10.8724 5.88427 11.0129 6.03195C11.1651 6.16826 11.2412 6.33866 11.2412 6.54313C11.2412 7.04295 11.1417 7.51438 10.9426 7.9574C10.7553 8.40043 10.4918 8.78665 10.1522 9.11608C9.81265 9.44551 9.41452 9.70678 8.95785 9.89989C8.50117 10.0816 8.01522 10.1725 7.5 10.1725C6.98478 10.1725 6.49883 10.0816 6.04215 9.89989C5.58548 9.70678 5.18735 9.44551 4.84777 9.11608C4.5082 8.78665 4.23888 8.40043 4.03981 7.9574C3.85246 7.51438 3.75878 7.04295 3.75878 6.54313C3.75878 6.33866 3.82904 6.16826 3.96956 6.03195C4.12178 5.88427 4.29742 5.81044 4.49649 5.81044C4.70726 5.81044 4.8829 5.88427 5.02342 6.03195C5.17564 6.16826 5.25176 6.33866 5.25176 6.54313C5.25176 6.84984 5.3103 7.13383 5.4274 7.3951C5.5445 7.65637 5.70843 7.88356 5.9192 8.07668C6.11827 8.28115 6.35246 8.44018 6.62178 8.55378C6.8911 8.66738 7.18384 8.72417 7.5 8.72417C7.81616 8.72417 8.1089 8.66738 8.37822 8.55378C8.64754 8.44018 8.88173 8.28115 9.0808 8.07668C9.29157 7.88356 9.4555 7.65637 9.5726 7.3951C9.6897 7.13383 9.74824 6.84984 9.74824 6.54313Z" fill="currentColor"/>
 </symbol>
 </svg>
-<div class="lang__currency-desktop hidden flex-1025 align-center">
-<localization-form>
-<form id="localization-country-header" accept-charset="UTF-8" class="shopify-localization-form" data-preview-form><input type="hidden" name="form_type" value="localization"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="storelib_country" value="US">
-<input type="hidden" name="country_code" value="US">
-<div class="disclosure relative flex align-center">
-<button type="button" aria-expanded="false" aria-controls="localization-country-header-options" aria-label="United States (USD)" class="button-localization pointer disclosure__button show-overlay flex align-center gap-10 ">
-<span class="flex align-center gap-10">
-<span class="rounded-50 border localization-flags "><img src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2024%22%3E%3Ctext%20x%3D%2216%22%20y%3D%2219%22%20font-size%3D%2220%22%20text-anchor%3D%22middle%22%3E%F0%9F%87%BA%F0%9F%87%B8%3C%2Ftext%3E%3C%2Fsvg%3E" alt="United States"></span>
-<span>
-USD $
-</span>
-</span>
-<svg class="icon-down flex-10" width="10" height="6">
-<use href="#icon-arrow-down" />
-</svg>
-</button>
-<div id="localization-country-header-options" data-search-label="Search" data-empty-label="No matches" class="disclosure__list custom-scrollbar shadow transition invisible z-10 absolute left-0 right-0 color-default overflow-y-auto"><ul class="h-full list-unstyled" data-country-options></ul>
-</div>
-</div>
-</form>
-</localization-form>
-<localization-form>
-<form id="localization-language-header" accept-charset="UTF-8" class="shopify-localization-form" data-preview-form><input type="hidden" name="form_type" value="localization"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="storelib_country" value="US">
-<input type="hidden" name="language_code" value="en">
-<div class="disclosure relative flex align-center">
-<button type="button" aria-expanded="false" aria-controls="localization-language-header-options" aria-label="English" class="button-localization pointer disclosure__button show-overlay flex align-center gap-10">
-<span class="">
-<span >English</span>
-</span>
-<svg class="icon-down flex-10" width="10" height="6">
-<use href="#icon-arrow-down" />
-</svg>
-</button>
-<div id="localization-language-header-options" data-search-label="Search" data-empty-label="No matches" class="disclosure__list custom-scrollbar transition shadow invisible z-10 absolute left-0 right-0 color-default">
-<ul class="h-full list-unstyled">
-<li class="disclosure__item py-4" tabindex="-1">
-<a
-href="#"
-class="no-underline text-color hover-heading-color"
-aria-current="true"
-hreflang="en"
-lang="en"
-data-value="en"
-aria-label="English"
->
-English
-</a>
-</li>
-<li class="disclosure__item py-4" tabindex="-1">
-<a
-href="#"
-class="no-underline text-color hover-heading-color"
-hreflang="fr"
-lang="fr"
-data-value="fr"
-aria-label="Français"
->
-Français
-</a>
-</li>
-<li class="disclosure__item py-4" tabindex="-1">
-<a
-href="#"
-class="no-underline text-color hover-heading-color"
-hreflang="de"
-lang="de"
-data-value="de"
-aria-label="Deutsch"
->
-Deutsch
-</a>
-</li>
-<li class="disclosure__item py-4" tabindex="-1">
-<a
-href="#"
-class="no-underline text-color hover-heading-color"
-hreflang="es"
-lang="es"
-data-value="es"
-aria-label="Español"
->
-Español
-</a>
-</li>
-</ul>
-</div>
-</div>
-</form>
-</localization-form>
-</div>
 <div class="header_search ">
 <div class="block block-quick-search block-search predictive_search_suggest search_popup"><div class="dropdown-toggle">
 <button
@@ -818,7 +936,7 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
 </div>
 </header-inner>
 </div>
-</div></header>
+</div></header><script src="/theme-previews/caps-tees/a/i.b8ec2f2ea707.js"></script>
 <link href="/theme-previews/_base/a/header-sticky.6c34c873cb06.css" rel="stylesheet" type="text/css" media="all">
 <script src="/theme-previews/caps-tees/a/i.9790def5bd53.js"></script><script src="/theme-previews/_base/a/header-sticky-extras.78e1fb4f310f.js" defer="defer"></script></div><script src="/theme-previews/caps-tees/a/i.0d9f91566ff2.js"></script>
 <main id="MainContent" class="content-for-layout focus-none" role="main" tabindex="-1"><div data-size-chart-data data-product="00000000-0000-4000-8000-000000000017" hidden></div><section id="shopify-section-main" class="shopify-section section main-product-section" data-section-id="main" data-section-type="main-product"><style>
@@ -869,7 +987,7 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
         #shopify-section-main .full_width {
           max-width: none !important;
           padding-inline: 1rem !important;
-        }}</style><link href="/theme-previews/_base/a/main-product.f6cc6e1c565b.css" rel="stylesheet" type="text/css" media="all">
+        }}</style><link href="/theme-previews/_base/a/main-product.c8eac1cfd035.css" rel="stylesheet" type="text/css" media="all">
 <link href="/theme-previews/_base/a/product-page-ui.b247d1d435f0.css" rel="stylesheet" type="text/css" media="all">
 <script src="/theme-previews/_base/a/product-page-ui.25d8015e67fc.js" defer="defer"></script><link rel="stylesheet" href="/theme-previews/caps-tees/a/i.72f738fc031e.css">
 <script src="/theme-previews/caps-tees/a/i.83b40a9b2d8b.js"></script><link rel="stylesheet" href="/theme-previews/caps-tees/a/i.bed5a20391cb.css"><style data-mp-own="main">
@@ -948,7 +1066,7 @@ data-mt-video="autoplay"
 data-mt-media-viewer
 data-mt-product-id="00000000-0000-4000-8000-000000000017"
 data-mt-gallery-config="grid|grid_1_column|show_thumbnails|1|open_lightbox|inner-1|true|true|false||true||true|true"
-data-mt-gallery-media="[{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp&quot;,&quot;url&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp&quot;,&quot;alt&quot;:&quot;Wordmark tee, sand&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp&quot;,&quot;url&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp&quot;,&quot;alt&quot;:&quot;Wordmark tee, sand&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp&quot;,&quot;url&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp&quot;,&quot;alt&quot;:&quot;Wordmark tee, sand&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp&quot;,&quot;url&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp&quot;,&quot;alt&quot;:&quot;Wordmark tee, sand&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp&quot;,&quot;url&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp&quot;,&quot;alt&quot;:&quot;Wordmark tee, sand&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp&quot;,&quot;url&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp&quot;,&quot;alt&quot;:&quot;Wordmark tee, sand&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:null,&quot;y&quot;:null}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp&quot;,&quot;url&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp&quot;,&quot;alt&quot;:&quot;Wordmark tee, sand&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:null},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:null},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:null,&quot;src&quot;:null,&quot;url&quot;:null,&quot;alt&quot;:null,&quot;width&quot;:null,&quot;height&quot;:null,&quot;aspect_ratio&quot;:null,&quot;media_type&quot;:null,&quot;position&quot;:null,&quot;presentation&quot;:null,&quot;attached_to_variant&quot;:null,&quot;variants&quot;:null,&quot;preview_image&quot;:null}}}}}}}}]"
+data-mt-gallery-media="[{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp&quot;,&quot;url&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp&quot;,&quot;alt&quot;:&quot;Wordmark tee, sand&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp&quot;,&quot;url&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp&quot;,&quot;alt&quot;:&quot;Wordmark tee, sand&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp&quot;,&quot;url&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp&quot;,&quot;alt&quot;:&quot;Wordmark tee, sand&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp&quot;,&quot;url&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp&quot;,&quot;alt&quot;:&quot;Wordmark tee, sand&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp&quot;,&quot;url&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp&quot;,&quot;alt&quot;:&quot;Wordmark tee, sand&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp&quot;,&quot;url&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp&quot;,&quot;alt&quot;:&quot;Wordmark tee, sand&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:null,&quot;y&quot;:null}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp&quot;,&quot;url&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp&quot;,&quot;alt&quot;:&quot;Wordmark tee, sand&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:null},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:null},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:null,&quot;src&quot;:null,&quot;url&quot;:null,&quot;alt&quot;:null,&quot;width&quot;:null,&quot;height&quot;:null,&quot;aspect_ratio&quot;:null,&quot;media_type&quot;:null,&quot;position&quot;:null,&quot;presentation&quot;:null,&quot;attached_to_variant&quot;:null,&quot;variants&quot;:null,&quot;preview_image&quot;:null}}}}}}}},{&quot;id&quot;:1001,&quot;src&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand-detail.873df26dc48f.webp&quot;,&quot;url&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand-detail.873df26dc48f.webp&quot;,&quot;alt&quot;:&quot;Wordmark tee, sand&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:2,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1001,&quot;src&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand-detail.873df26dc48f.webp&quot;,&quot;url&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand-detail.873df26dc48f.webp&quot;,&quot;alt&quot;:&quot;Wordmark tee, sand&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:2,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1001,&quot;src&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand-detail.873df26dc48f.webp&quot;,&quot;url&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand-detail.873df26dc48f.webp&quot;,&quot;alt&quot;:&quot;Wordmark tee, sand&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:2,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1001,&quot;src&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand-detail.873df26dc48f.webp&quot;,&quot;url&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand-detail.873df26dc48f.webp&quot;,&quot;alt&quot;:&quot;Wordmark tee, sand&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:2,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1001,&quot;src&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand-detail.873df26dc48f.webp&quot;,&quot;url&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand-detail.873df26dc48f.webp&quot;,&quot;alt&quot;:&quot;Wordmark tee, sand&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:2,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1001,&quot;src&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand-detail.873df26dc48f.webp&quot;,&quot;url&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand-detail.873df26dc48f.webp&quot;,&quot;alt&quot;:&quot;Wordmark tee, sand&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:2,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:null,&quot;y&quot;:null}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1001,&quot;src&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand-detail.873df26dc48f.webp&quot;,&quot;url&quot;:&quot;/theme-previews/caps-tees/a/capstees-tee-sand-detail.873df26dc48f.webp&quot;,&quot;alt&quot;:&quot;Wordmark tee, sand&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:null},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:2,&quot;presentation&quot;:{&quot;focal_point&quot;:null},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:null,&quot;src&quot;:null,&quot;url&quot;:null,&quot;alt&quot;:null,&quot;width&quot;:null,&quot;height&quot;:null,&quot;aspect_ratio&quot;:null,&quot;media_type&quot;:null,&quot;position&quot;:null,&quot;presentation&quot;:null,&quot;attached_to_variant&quot;:null,&quot;variants&quot;:null,&quot;preview_image&quot;:null}}}}}}}}]"
 data-mt-lightbox
 >
 <zoom-action
@@ -958,7 +1076,7 @@ data-type="open_lightbox"
 <div
 id="GalleryViewer-main"
 class="grid grid-cols gap grid_scroll"
-style="--col-number: 1.2;--col-desktop: 1;--col-tablet: 1;--col-gap: 10px;"
+style="--col-number: 1;--col-desktop: 1;--col-tablet: 1;--col-gap: 10px;"
 >
 <a
 tabindex="0" role="button" aria-label="Wordmark tee, sand"
@@ -973,6 +1091,22 @@ style="--aspect-ratio: 1/1"
 data-pane-container
 >
 <img src="/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp" srcset="/theme-previews/caps-tees/a/capstees-tee-sand-800.804525312f7e.webp 720w, /theme-previews/caps-tees/a/capstees-tee-sand-800.804525312f7e.webp 660w, /theme-previews/caps-tees/a/capstees-tee-sand-800.804525312f7e.webp 550w, /theme-previews/caps-tees/a/capstees-tee-sand-800.804525312f7e.webp 480w, /theme-previews/caps-tees/a/capstees-tee-sand-400.41c5c2797779.webp 330w, /theme-previews/caps-tees/a/capstees-tee-sand-400.41c5c2797779.webp 240w, /theme-previews/caps-tees/a/capstees-tee-sand-400.41c5c2797779.webp 185w" alt="Wordmark tee, sand" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="drift-trigger bls-loaded-image">
+<div class="loading_image skeleton">
+</div>
+</a>
+<a
+tabindex="0" role="button" aria-label="Wordmark tee, sand"
+class="media-gallery__image  rounded-5 pointer"
+data-position="2"
+data-media-id="main-1001"
+data-mt-src="/theme-previews/caps-tees/a/capstees-tee-sand-detail.873df26dc48f.webp"
+data-pswp-width="1600"
+data-pswp-height="1600"
+data-cropped="true"
+style="--aspect-ratio: 1/1"
+data-pane-container
+>
+<img src="/theme-previews/caps-tees/a/capstees-tee-sand-detail.873df26dc48f.webp" srcset="/theme-previews/caps-tees/a/capstees-tee-sand-detail-800.2078495389c5.webp 720w, /theme-previews/caps-tees/a/capstees-tee-sand-detail-800.2078495389c5.webp 660w, /theme-previews/caps-tees/a/capstees-tee-sand-detail-800.2078495389c5.webp 550w, /theme-previews/caps-tees/a/capstees-tee-sand-detail-800.2078495389c5.webp 480w, /theme-previews/caps-tees/a/capstees-tee-sand-detail-400.d530fa221d18.webp 330w, /theme-previews/caps-tees/a/capstees-tee-sand-detail-400.d530fa221d18.webp 240w, /theme-previews/caps-tees/a/capstees-tee-sand-detail-400.d530fa221d18.webp 185w" alt="Wordmark tee, sand" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="drift-trigger bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
 </a>
@@ -1394,7 +1528,7 @@ data-mobile-layout="show_thumbnails"
 data-zoom="open_lightbox"
 >
 <motion-element
-class="product-item__wrapper block  none flex gap-custom align-center "
+class="product-item__wrapper block  hover_fade flex gap-custom align-center "
 data-motion="fade-up-lg"
 hold
 data-motion-delay="-50.0"
@@ -1405,12 +1539,13 @@ style=""
 draggable="false"
 href="/theme-previews/caps-tees/products/wordmark-tee-sand.html"
 aria-label="Wordmark tee, sand"
-class="product__media product-item__media--ratio rounded block"
+class="product__media product-item__media--ratio rounded block show_secondary"
 style="--aspect-ratio: 1/1;"
 >
 <img src="/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp" srcset="/theme-previews/caps-tees/a/capstees-tee-sand-800.804525312f7e.webp 720w, /theme-previews/caps-tees/a/capstees-tee-sand-800.804525312f7e.webp 660w, /theme-previews/caps-tees/a/capstees-tee-sand-800.804525312f7e.webp 550w, /theme-previews/caps-tees/a/capstees-tee-sand-800.804525312f7e.webp 480w, /theme-previews/caps-tees/a/capstees-tee-sand-400.41c5c2797779.webp 330w, /theme-previews/caps-tees/a/capstees-tee-sand-400.41c5c2797779.webp 240w, /theme-previews/caps-tees/a/capstees-tee-sand-400.41c5c2797779.webp 185w" alt="Wordmark tee, sand" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
+<img src="/theme-previews/caps-tees/a/capstees-tee-sand-detail.873df26dc48f.webp" srcset="/theme-previews/caps-tees/a/capstees-tee-sand-detail-800.2078495389c5.webp 720w, /theme-previews/caps-tees/a/capstees-tee-sand-detail-800.2078495389c5.webp 660w, /theme-previews/caps-tees/a/capstees-tee-sand-detail-800.2078495389c5.webp 550w, /theme-previews/caps-tees/a/capstees-tee-sand-detail-800.2078495389c5.webp 480w, /theme-previews/caps-tees/a/capstees-tee-sand-detail-400.d530fa221d18.webp 330w, /theme-previews/caps-tees/a/capstees-tee-sand-detail-400.d530fa221d18.webp 240w, /theme-previews/caps-tees/a/capstees-tee-sand-detail-400.d530fa221d18.webp 185w" alt="Wordmark tee, sand" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
 </a><div class="pc-corner" data-pc-corner>
 </div>
 </div>
@@ -1423,7 +1558,8 @@ href="/theme-previews/caps-tees/products/wordmark-tee-sand.html"
 >Wordmark tee, sand</a>
 <div class="flex flex-wrap gap-10 product-list-action">
 </div>
-</div><script type="application/json" class="product-variant__quantity">
+</div>
+<script type="application/json" class="product-variant__quantity">
             [{ "option":"XS","qty":11,"available":true,"mamagement":""},{ "option":"S","qty":11,"available":true,"mamagement":""},{ "option":"M","qty":11,"available":true,"mamagement":""},{ "option":"L","qty":11,"available":true,"mamagement":""},{ "option":"XL","qty":11,"available":true,"mamagement":""},{ "option":"XXL","qty":11,"available":true,"mamagement":""}]
           </script>
 </motion-element><script type="application/json" class="productItemVariantsQty">
@@ -1551,7 +1687,7 @@ style="--btn-padding-x: 2.5rem;"
       data-product-json
       class="productJson"
     >
-      {"id":"00000000-0000-4000-8000-000000000017","title":"Wordmark tee, sand","handle":"wordmark-tee-sand","description":"<p>Heavy 240 gsm combed cotton with our name printed across the chest in water based ink. Easy fit, dropped shoulders.<\/p>","published_at":null,"created_at":null,"vendor":"","type":"","tags":[],"price":3600,"price_min":3600,"price_max":3600,"available":true,"price_varies":false,"compare_at_price":4200,"compare_at_price_min":4200,"compare_at_price_max":4200,"compare_at_price_varies":false,"variants":[{"id":"00000000-0000-4000-8000-001700000001","title":"XS","option1":"XS","option2":null,"option3":null,"sku":"","requires_shipping":true,"taxable":true,"featured_image":null,"available":true,"name":"Wordmark tee, sand - XS","public_title":"XS","options":["XS"],"price":3600,"weight":0,"compare_at_price":4200,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-001700000002","title":"S","option1":"S","option2":null,"option3":null,"sku":"","requires_shipping":true,"taxable":true,"featured_image":null,"available":true,"name":"Wordmark tee, sand - S","public_title":"S","options":["S"],"price":3600,"weight":0,"compare_at_price":4200,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-001700000003","title":"M","option1":"M","option2":null,"option3":null,"sku":"","requires_shipping":true,"taxable":true,"featured_image":null,"available":true,"name":"Wordmark tee, sand - M","public_title":"M","options":["M"],"price":3600,"weight":0,"compare_at_price":4200,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-001700000004","title":"L","option1":"L","option2":null,"option3":null,"sku":"","requires_shipping":true,"taxable":true,"featured_image":null,"available":true,"name":"Wordmark tee, sand - L","public_title":"L","options":["L"],"price":3600,"weight":0,"compare_at_price":4200,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-001700000005","title":"XL","option1":"XL","option2":null,"option3":null,"sku":"","requires_shipping":true,"taxable":true,"featured_image":null,"available":true,"name":"Wordmark tee, sand - XL","public_title":"XL","options":["XL"],"price":3600,"weight":0,"compare_at_price":4200,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-001700000006","title":"XXL","option1":"XXL","option2":null,"option3":null,"sku":"","requires_shipping":true,"taxable":true,"featured_image":null,"available":true,"name":"Wordmark tee, sand - XXL","public_title":"XXL","options":["XXL"],"price":3600,"weight":0,"compare_at_price":4200,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}}],"images":["/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp"],"featured_image":"/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp","options":["Size"],"media":[{"alt":"Wordmark tee, sand","id":1000,"position":1,"preview_image":{"aspect_ratio":1,"height":1600,"width":1600,"src":"/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp"},"aspect_ratio":1,"height":1600,"media_type":"image","src":"/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp","width":1600}],"requires_selling_plan":false,"selling_plan_groups":[],"content":"<p>Heavy 240 gsm combed cotton with our name printed across the chest in water based ink. Easy fit, dropped shoulders.<\/p>"}
+      {"id":"00000000-0000-4000-8000-000000000017","title":"Wordmark tee, sand","handle":"wordmark-tee-sand","description":"<p>Heavy 240 gsm combed cotton with our name printed across the chest in water based ink. Easy fit, dropped shoulders.<\/p>","published_at":null,"created_at":null,"vendor":"","type":"","tags":[],"price":3600,"price_min":3600,"price_max":3600,"available":true,"price_varies":false,"compare_at_price":4200,"compare_at_price_min":4200,"compare_at_price_max":4200,"compare_at_price_varies":false,"variants":[{"id":"00000000-0000-4000-8000-001700000001","title":"XS","option1":"XS","option2":null,"option3":null,"sku":"","requires_shipping":true,"taxable":true,"featured_image":null,"available":true,"name":"Wordmark tee, sand - XS","public_title":"XS","options":["XS"],"price":3600,"weight":0,"compare_at_price":4200,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-001700000002","title":"S","option1":"S","option2":null,"option3":null,"sku":"","requires_shipping":true,"taxable":true,"featured_image":null,"available":true,"name":"Wordmark tee, sand - S","public_title":"S","options":["S"],"price":3600,"weight":0,"compare_at_price":4200,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-001700000003","title":"M","option1":"M","option2":null,"option3":null,"sku":"","requires_shipping":true,"taxable":true,"featured_image":null,"available":true,"name":"Wordmark tee, sand - M","public_title":"M","options":["M"],"price":3600,"weight":0,"compare_at_price":4200,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-001700000004","title":"L","option1":"L","option2":null,"option3":null,"sku":"","requires_shipping":true,"taxable":true,"featured_image":null,"available":true,"name":"Wordmark tee, sand - L","public_title":"L","options":["L"],"price":3600,"weight":0,"compare_at_price":4200,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-001700000005","title":"XL","option1":"XL","option2":null,"option3":null,"sku":"","requires_shipping":true,"taxable":true,"featured_image":null,"available":true,"name":"Wordmark tee, sand - XL","public_title":"XL","options":["XL"],"price":3600,"weight":0,"compare_at_price":4200,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}},{"id":"00000000-0000-4000-8000-001700000006","title":"XXL","option1":"XXL","option2":null,"option3":null,"sku":"","requires_shipping":true,"taxable":true,"featured_image":null,"available":true,"name":"Wordmark tee, sand - XXL","public_title":"XXL","options":["XXL"],"price":3600,"weight":0,"compare_at_price":4200,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}}],"images":["/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp","/theme-previews/caps-tees/a/capstees-tee-sand-detail.873df26dc48f.webp"],"featured_image":"/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp","options":["Size"],"media":[{"alt":"Wordmark tee, sand","id":1000,"position":1,"preview_image":{"aspect_ratio":1,"height":1600,"width":1600,"src":"/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp"},"aspect_ratio":1,"height":1600,"media_type":"image","src":"/theme-previews/caps-tees/a/capstees-tee-sand.a8e438071af8.webp","width":1600},{"alt":"Wordmark tee, sand","id":1001,"position":2,"preview_image":{"aspect_ratio":1,"height":1600,"width":1600,"src":"/theme-previews/caps-tees/a/capstees-tee-sand-detail.873df26dc48f.webp"},"aspect_ratio":1,"height":1600,"media_type":"image","src":"/theme-previews/caps-tees/a/capstees-tee-sand-detail.873df26dc48f.webp","width":1600}],"requires_selling_plan":false,"selling_plan_groups":[],"content":"<p>Heavy 240 gsm combed cotton with our name printed across the chest in water based ink. Easy fit, dropped shoulders.<\/p>"}
     </script><script type="application/json" data-variant-media>
   {"00000000-0000-4000-8000-001700000001": { "id": "", "src": "" },"00000000-0000-4000-8000-001700000002": { "id": "", "src": "" },"00000000-0000-4000-8000-001700000003": { "id": "", "src": "" },"00000000-0000-4000-8000-001700000004": { "id": "", "src": "" },"00000000-0000-4000-8000-001700000005": { "id": "", "src": "" },"00000000-0000-4000-8000-001700000006": { "id": "", "src": "" }}
 </script><script type="application/json" class="productVariantsQty">
@@ -1657,7 +1793,7 @@ class="products-grid__items flex flex-cols row-gap-20 row-gap-md-30 flex-wrap "
 class="product-item product__item-js  style-as-standard"
 >
 <motion-element
-class="product-item__wrapper block  none product-grid "
+class="product-item__wrapper block  hover_fade product-grid "
 data-cascade
 data-motion="fade-up-lg"
 hold
@@ -1669,12 +1805,13 @@ style="--animation-order: 1;  "
 draggable="false"
 href="/theme-previews/caps-tees/products/wordmark-tee-bottle-green.html"
 aria-label="Wordmark tee, bottle green"
-class="product__media product-item__media--ratio rounded block"
+class="product__media product-item__media--ratio rounded block show_secondary"
 style="--aspect-ratio: 1/1;"
 >
 <img src="/theme-previews/caps-tees/a/capstees-tee-bottle.4ad11c0e4664.webp" srcset="/theme-previews/caps-tees/a/capstees-tee-bottle-800.885114516c1e.webp 720w, /theme-previews/caps-tees/a/capstees-tee-bottle-800.885114516c1e.webp 660w, /theme-previews/caps-tees/a/capstees-tee-bottle-800.885114516c1e.webp 550w, /theme-previews/caps-tees/a/capstees-tee-bottle-800.885114516c1e.webp 480w, /theme-previews/caps-tees/a/capstees-tee-bottle-400.940328eed53c.webp 330w, /theme-previews/caps-tees/a/capstees-tee-bottle-400.940328eed53c.webp 240w, /theme-previews/caps-tees/a/capstees-tee-bottle-400.940328eed53c.webp 185w" alt="Wordmark tee, bottle green" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
+<img src="/theme-previews/caps-tees/a/capstees-tee-bottle-detail.a57b23500ca6.webp" srcset="/theme-previews/caps-tees/a/capstees-tee-bottle-detail-800.f71935f56974.webp 720w, /theme-previews/caps-tees/a/capstees-tee-bottle-detail-800.f71935f56974.webp 660w, /theme-previews/caps-tees/a/capstees-tee-bottle-detail-800.f71935f56974.webp 550w, /theme-previews/caps-tees/a/capstees-tee-bottle-detail-800.f71935f56974.webp 480w, /theme-previews/caps-tees/a/capstees-tee-bottle-detail-400.eb99ab405117.webp 330w, /theme-previews/caps-tees/a/capstees-tee-bottle-detail-400.eb99ab405117.webp 240w, /theme-previews/caps-tees/a/capstees-tee-bottle-detail-400.eb99ab405117.webp 185w" alt="Wordmark tee, bottle green" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
@@ -1713,7 +1850,8 @@ $36.00
 </div>
 </div>
 </div>
-</div><script type="application/json" class="product-variant__quantity">
+</div>
+<script type="application/json" class="product-variant__quantity">
             [{ "option":"XS","qty":11,"available":true,"mamagement":""},{ "option":"S","qty":11,"available":true,"mamagement":""},{ "option":"M","qty":11,"available":true,"mamagement":""},{ "option":"L","qty":11,"available":true,"mamagement":""},{ "option":"XL","qty":11,"available":true,"mamagement":""},{ "option":"XXL","qty":11,"available":true,"mamagement":""}]
           </script>
 </motion-element><script type="application/json" class="productItemVariantsQty">
@@ -1723,7 +1861,7 @@ $36.00
 class="product-item product__item-js  style-as-standard"
 >
 <motion-element
-class="product-item__wrapper block  none product-grid "
+class="product-item__wrapper block  hover_fade product-grid "
 data-cascade
 data-motion="fade-up-lg"
 hold
@@ -1735,12 +1873,13 @@ style="--animation-order: 2;  "
 draggable="false"
 href="/theme-previews/caps-tees/products/heavy-crewneck-ash.html"
 aria-label="Heavy crewneck, ash"
-class="product__media product-item__media--ratio rounded block"
+class="product__media product-item__media--ratio rounded block show_secondary"
 style="--aspect-ratio: 1/1;"
 >
 <img src="/theme-previews/caps-tees/a/capstees-crew-ash.b889f23b59ca.webp" srcset="/theme-previews/caps-tees/a/capstees-crew-ash-800.c67fbec7baf0.webp 720w, /theme-previews/caps-tees/a/capstees-crew-ash-800.c67fbec7baf0.webp 660w, /theme-previews/caps-tees/a/capstees-crew-ash-800.c67fbec7baf0.webp 550w, /theme-previews/caps-tees/a/capstees-crew-ash-800.c67fbec7baf0.webp 480w, /theme-previews/caps-tees/a/capstees-crew-ash-400.82bb97c69189.webp 330w, /theme-previews/caps-tees/a/capstees-crew-ash-400.82bb97c69189.webp 240w, /theme-previews/caps-tees/a/capstees-crew-ash-400.82bb97c69189.webp 185w" alt="Heavy crewneck, ash" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
+<img src="/theme-previews/caps-tees/a/capstees-crew-ash-detail.836b610add58.webp" srcset="/theme-previews/caps-tees/a/capstees-crew-ash-detail-800.5a7342e8d9bd.webp 720w, /theme-previews/caps-tees/a/capstees-crew-ash-detail-800.5a7342e8d9bd.webp 660w, /theme-previews/caps-tees/a/capstees-crew-ash-detail-800.5a7342e8d9bd.webp 550w, /theme-previews/caps-tees/a/capstees-crew-ash-detail-800.5a7342e8d9bd.webp 480w, /theme-previews/caps-tees/a/capstees-crew-ash-detail-400.4364ccbbab9c.webp 330w, /theme-previews/caps-tees/a/capstees-crew-ash-detail-400.4364ccbbab9c.webp 240w, /theme-previews/caps-tees/a/capstees-crew-ash-detail-400.4364ccbbab9c.webp 185w" alt="Heavy crewneck, ash" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
@@ -1779,7 +1918,8 @@ $72.00
 </div>
 </div>
 </div>
-</div><script type="application/json" class="product-variant__quantity">
+</div>
+<script type="application/json" class="product-variant__quantity">
             [{ "option":"XS","qty":11,"available":true,"mamagement":""},{ "option":"S","qty":11,"available":true,"mamagement":""},{ "option":"M","qty":11,"available":true,"mamagement":""},{ "option":"L","qty":11,"available":true,"mamagement":""},{ "option":"XL","qty":11,"available":true,"mamagement":""},{ "option":"XXL","qty":11,"available":true,"mamagement":""}]
           </script>
 </motion-element><script type="application/json" class="productItemVariantsQty">
@@ -1789,7 +1929,7 @@ $72.00
 class="product-item product__item-js  style-as-standard"
 >
 <motion-element
-class="product-item__wrapper block  none product-grid "
+class="product-item__wrapper block  hover_fade product-grid "
 data-cascade
 data-motion="fade-up-lg"
 hold
@@ -1801,12 +1941,13 @@ style="--animation-order: 3;  "
 draggable="false"
 href="/theme-previews/caps-tees/products/heavy-crewneck-black.html"
 aria-label="Heavy crewneck, black"
-class="product__media product-item__media--ratio rounded block"
+class="product__media product-item__media--ratio rounded block show_secondary"
 style="--aspect-ratio: 1/1;"
 >
 <img src="/theme-previews/caps-tees/a/capstees-crew-black.38eeee294270.webp" srcset="/theme-previews/caps-tees/a/capstees-crew-black-800.5a8fc50812c8.webp 720w, /theme-previews/caps-tees/a/capstees-crew-black-800.5a8fc50812c8.webp 660w, /theme-previews/caps-tees/a/capstees-crew-black-800.5a8fc50812c8.webp 550w, /theme-previews/caps-tees/a/capstees-crew-black-800.5a8fc50812c8.webp 480w, /theme-previews/caps-tees/a/capstees-crew-black-400.b23f3af1cf78.webp 330w, /theme-previews/caps-tees/a/capstees-crew-black-400.b23f3af1cf78.webp 240w, /theme-previews/caps-tees/a/capstees-crew-black-400.b23f3af1cf78.webp 185w" alt="Heavy crewneck, black" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
+<img src="/theme-previews/caps-tees/a/capstees-crew-black-detail.4a2ec23d7bea.webp" srcset="/theme-previews/caps-tees/a/capstees-crew-black-detail-800.abd9ab06624a.webp 720w, /theme-previews/caps-tees/a/capstees-crew-black-detail-800.abd9ab06624a.webp 660w, /theme-previews/caps-tees/a/capstees-crew-black-detail-800.abd9ab06624a.webp 550w, /theme-previews/caps-tees/a/capstees-crew-black-detail-800.abd9ab06624a.webp 480w, /theme-previews/caps-tees/a/capstees-crew-black-detail-400.26622e7768e3.webp 330w, /theme-previews/caps-tees/a/capstees-crew-black-detail-400.26622e7768e3.webp 240w, /theme-previews/caps-tees/a/capstees-crew-black-detail-400.26622e7768e3.webp 185w" alt="Heavy crewneck, black" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
@@ -1845,7 +1986,8 @@ $72.00
 </div>
 </div>
 </div>
-</div><script type="application/json" class="product-variant__quantity">
+</div>
+<script type="application/json" class="product-variant__quantity">
             [{ "option":"XS","qty":11,"available":true,"mamagement":""},{ "option":"S","qty":11,"available":true,"mamagement":""},{ "option":"M","qty":11,"available":true,"mamagement":""},{ "option":"L","qty":11,"available":true,"mamagement":""},{ "option":"XL","qty":11,"available":true,"mamagement":""},{ "option":"XXL","qty":11,"available":true,"mamagement":""}]
           </script>
 </motion-element><script type="application/json" class="productItemVariantsQty">
@@ -1855,7 +1997,7 @@ $72.00
 class="product-item product__item-js  style-as-standard"
 >
 <motion-element
-class="product-item__wrapper block  none product-grid "
+class="product-item__wrapper block  hover_fade product-grid "
 data-cascade
 data-motion="fade-up-lg"
 hold
@@ -1867,12 +2009,13 @@ style="--animation-order: 4;  "
 draggable="false"
 href="/theme-previews/caps-tees/products/heavy-crewneck-forest.html"
 aria-label="Heavy crewneck, forest"
-class="product__media product-item__media--ratio rounded block"
+class="product__media product-item__media--ratio rounded block show_secondary"
 style="--aspect-ratio: 1/1;"
 >
 <img src="/theme-previews/caps-tees/a/capstees-crew-forest.942288517c83.webp" srcset="/theme-previews/caps-tees/a/capstees-crew-forest-800.086ef9e4f52e.webp 720w, /theme-previews/caps-tees/a/capstees-crew-forest-800.086ef9e4f52e.webp 660w, /theme-previews/caps-tees/a/capstees-crew-forest-800.086ef9e4f52e.webp 550w, /theme-previews/caps-tees/a/capstees-crew-forest-800.086ef9e4f52e.webp 480w, /theme-previews/caps-tees/a/capstees-crew-forest-400.e5abf0897115.webp 330w, /theme-previews/caps-tees/a/capstees-crew-forest-400.e5abf0897115.webp 240w, /theme-previews/caps-tees/a/capstees-crew-forest-400.e5abf0897115.webp 185w" alt="Heavy crewneck, forest" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
+<img src="/theme-previews/caps-tees/a/capstees-crew-forest-detail.21a9077ebc28.webp" srcset="/theme-previews/caps-tees/a/capstees-crew-forest-detail-800.0c28edd103c2.webp 720w, /theme-previews/caps-tees/a/capstees-crew-forest-detail-800.0c28edd103c2.webp 660w, /theme-previews/caps-tees/a/capstees-crew-forest-detail-800.0c28edd103c2.webp 550w, /theme-previews/caps-tees/a/capstees-crew-forest-detail-800.0c28edd103c2.webp 480w, /theme-previews/caps-tees/a/capstees-crew-forest-detail-400.92e96e7e6e09.webp 330w, /theme-previews/caps-tees/a/capstees-crew-forest-detail-400.92e96e7e6e09.webp 240w, /theme-previews/caps-tees/a/capstees-crew-forest-detail-400.92e96e7e6e09.webp 185w" alt="Heavy crewneck, forest" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="secondary-image opacity-0 product-image bls-loaded-image bls-loading-image">
 </a><div class="pc-corner" data-pc-corner>
 <div
 class="product__badges fs-small flex flex-column flex-wrap pointer-none absolute top-sm-15 top-10 left-sm-15 left-10"
@@ -1911,7 +2054,8 @@ $72.00
 </div>
 </div>
 </div>
-</div><script type="application/json" class="product-variant__quantity">
+</div>
+<script type="application/json" class="product-variant__quantity">
             [{ "option":"XS","qty":11,"available":true,"mamagement":""},{ "option":"S","qty":11,"available":true,"mamagement":""},{ "option":"M","qty":11,"available":true,"mamagement":""},{ "option":"L","qty":11,"available":true,"mamagement":""},{ "option":"XL","qty":11,"available":true,"mamagement":""},{ "option":"XXL","qty":0,"available":false,"mamagement":"shopify"}]
           </script>
 </motion-element><script type="application/json" class="productItemVariantsQty">
@@ -3194,7 +3338,12 @@ class="btn-reset pointer mini_cart_addon_btn show-overlay inline-flex align-cent
 <span class="subtotal-price h5 my-5" data-cart-subtotal-price>
 $0.00
 </span>
-</div><button
+</div><a
+class="action block mb-10 mt-17 btn-outline w-full text-center no-underline viewcart"
+href="/theme-previews/caps-tees/cart.html"
+>
+<span>View Cart</span>
+</a><button
 type="submit"
 class="btn-primary w-full btn-checkout"
 name="checkout"

@@ -26,7 +26,7 @@
         "description_YRWpkt": {
           "type": "description",
           "settings": {
-            "description": "<p>Short notes on learning Spanish as an adult, one idea each.</p>",
+            "description": "<p>Short notes on raising a puppy, one problem each.</p>",
             "enable_custom_style": false,
             "description_font_size": 16
           }
@@ -104,7 +104,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Say your first real sentence this week",
+            "text": "Start with ten minutes tomorrow morning",
             "enable_custom_style": true,
             "font": "heading",
             "weight": "700",
@@ -119,7 +119,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "Twelve weeks from now you could hold a conversation in Spanish. It starts with twenty minutes tomorrow morning.",
+            "text": "Six weeks from now you could have a puppy who walks beside you and comes when called. The first lesson takes ten minutes.",
             "enable_custom_style": true,
             "size_d": 18,
             "size_m": 16,

@@ -61,6 +61,8 @@ export interface SampleProduct {
   options?: { name: string; values: string[] }[]
   /** Dollars an option value adds to the price (and to the compare at price): { "A3": 10, "Oak frame": 45 }. */
   add?: Record<string, number>
+  /** More photos of the product after the first (a detail, the back, a room), as a creator uploads them: the card shows the second on hover (Product cards > Show secondary image). */
+  images?: string[]
   /** A picture for an option value, a colour's own photo: the variant shows it and the gallery holds it. */
   pictures?: Record<string, string>
   /** Variants that are sold out, by name ("XL", "XL / Sand") or by one of their values. */
@@ -111,7 +113,7 @@ function card(p: SampleProduct, i: number, imageUrl: (name: string) => string, c
   const slug = p.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
   const image = p.image ? imageUrl(p.image) : ""
   const variants = variantsOf(p, i, imageUrl)
-  const images = [...new Set([image, ...variants.map((v) => v.image)].filter(Boolean))]
+  const images = [...new Set([image, ...(p.images ?? []).map(imageUrl), ...variants.map((v) => v.image)].filter(Boolean))]
   const proof = sampleProof(p, i)
   return {
     id: `00000000-0000-4000-8000-0000000000${String(i + 10)}`,

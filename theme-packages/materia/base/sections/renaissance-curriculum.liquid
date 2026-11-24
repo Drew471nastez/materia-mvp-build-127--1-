@@ -1,14 +1,15 @@
 {%- comment -%}
   Digital Renaissance: the curriculum. A heading, then each module (a block)
-  as a row that opens: a square tile with the module number in gold on the
-  accent colour, the title, a small topic tag, a line, and on the right the
-  number of lessons and the running time. Opened, it lists the lessons.
-  Native <details>, so it works without script; the first one is open.
+  as a row that opens: the module number in gold, the title with its topic
+  under it, and on the right the number of lessons and the running time.
+  Opened, it lists the lessons. Native <details>, so it works without
+  script; snippets/smooth-details animates the height. The first is open.
 {%- endcomment -%}
 {%- liquid
   assign st = section.settings
   assign sid = section.id
 -%}
+{%- render 'smooth-details' -%}
 <style>
   #shopify-section-{{ sid }} .rnc { --gold: {{ st.gold | default: '#e3a63a' }}; --lapis: {{ st.accent | default: '#e3a63a' }}; background: {{ st.background | default: '#07080d' }}; color: {{ st.text_color | default: '#a7adbf' }}; padding: {{ st.padding_top_mobile | default: 56 }}px 16px {{ st.padding_bottom_mobile | default: 56 }}px; }
   @media (min-width: 990px) { #shopify-section-{{ sid }} .rnc { padding: {{ st.padding_top | default: 112 }}px 40px {{ st.padding_bottom | default: 112 }}px; } }
@@ -19,37 +20,38 @@
   #shopify-section-{{ sid }} .rnc__title em { font-style: normal; color: var(--gold); }
   #shopify-section-{{ sid }} .rnc__intro { max-width: 36em; margin: 0 auto 36px; text-align: center; font-size: 16.5px; line-height: 1.6; }
   #shopify-section-{{ sid }} .rnc__intro p { margin: 0; }
-  #shopify-section-{{ sid }} .rnc__list { display: grid; gap: 10px; }
-  #shopify-section-{{ sid }} .rnc__mod { border-radius: 16px; border: 1px solid rgba(255,255,255,.08); background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.01)); transition: border-color .3s ease, background-color .3s ease; }
-  #shopify-section-{{ sid }} .rnc__mod[open] { border-color: color-mix(in srgb, var(--lapis) 55%, transparent); background-color: color-mix(in srgb, var(--lapis) 5%, transparent); }
-  #shopify-section-{{ sid }} .rnc__sum { display: grid; grid-template-columns: 56px minmax(0, 1fr) 32px; gap: 14px; align-items: center; padding: 14px; cursor: pointer; list-style: none; }
+  /* The modules: one list between hairlines, no boxes. Each row is the module's number, its title with its topic under it, the lessons and time on the right and a chevron that turns as it opens (snippets/smooth-details runs the height). */
+  #shopify-section-{{ sid }} .rnc__list { border-top: 1px solid rgba(255,255,255,.22); }
+  #shopify-section-{{ sid }} .rnc__mod { border-bottom: 1px solid rgba(255,255,255,.1); --sd-time: .44s; }
+  #shopify-section-{{ sid }} .rnc__sum { display: grid; grid-template-columns: 34px minmax(0, 1fr) 20px; gap: 14px; align-items: baseline; padding: 22px 0; cursor: pointer; list-style: none; -webkit-tap-highlight-color: transparent; }
   #shopify-section-{{ sid }} .rnc__sum::-webkit-details-marker { display: none; }
-  @media (min-width: 750px) { #shopify-section-{{ sid }} .rnc__sum { grid-template-columns: 76px minmax(0, 1fr) auto 34px; gap: 20px; padding: 16px 18px 16px 16px; } }
-  #shopify-section-{{ sid }} .rnc__tile { position: relative; display: grid; place-items: center; aspect-ratio: 1; border-radius: 12px; overflow: hidden; background: color-mix(in srgb, var(--lapis) 14%, #141416); border: 1px solid color-mix(in srgb, var(--lapis) 35%, transparent); color: var(--gold); font-family: var(--heading-font, sans-serif); font-weight: 600; font-size: 26px; }
-  @media (min-width: 750px) { #shopify-section-{{ sid }} .rnc__tile { font-size: 36px; } }
-  #shopify-section-{{ sid }} .rnc__tile span { position: relative; }
-  #shopify-section-{{ sid }} .rnc__name { display: block; color: #fff; font-family: var(--heading-font, sans-serif); font-size: 17px; font-weight: 600; letter-spacing: -.02em; line-height: 1.25; }
-  @media (min-width: 750px) { #shopify-section-{{ sid }} .rnc__name { font-size: 20px; } }
-  #shopify-section-{{ sid }} .rnc__topic { display: inline-block; margin: 4px 0 0; color: var(--gold); font-size: 11.5px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; }
-  #shopify-section-{{ sid }} .rnc__meta { display: none; text-align: right; color: #d6d9e3; font-size: 13px; line-height: 1.5; white-space: nowrap; }
+  #shopify-section-{{ sid }} .rnc__sum:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .rnc__sum { grid-template-columns: 56px minmax(0, 1fr) auto 20px; gap: 20px; padding: 26px 0; } }
+  #shopify-section-{{ sid }} .rnc__tile { color: var(--gold); font-family: var(--heading-font, sans-serif); font-weight: 600; font-size: 18px; line-height: 1; font-variant-numeric: tabular-nums; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .rnc__tile { font-size: 22px; } }
+  #shopify-section-{{ sid }} .rnc__name { display: block; color: #fff; font-family: var(--heading-font, sans-serif); font-size: 18px; font-weight: 600; letter-spacing: -.01em; line-height: 1.25; transition: color .25s ease; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .rnc__name { font-size: 21px; } }
+  @media (hover: hover) { #shopify-section-{{ sid }} .rnc__sum:hover .rnc__name { color: var(--gold); } }
+  #shopify-section-{{ sid }} .rnc__topic { display: block; margin: 6px 0 0; color: #8a90a3; font-size: 14px; line-height: 1.4; }
+  #shopify-section-{{ sid }} .rnc__meta { display: none; text-align: right; color: #d6d9e3; font-size: 14px; line-height: 1.5; white-space: nowrap; font-variant-numeric: tabular-nums; }
   @media (min-width: 750px) { #shopify-section-{{ sid }} .rnc__meta { display: block; } }
-  #shopify-section-{{ sid }} .rnc__meta small { display: block; color: #8a90a3; font-size: 12.5px; }
-  #shopify-section-{{ sid }} .rnc__toggle { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; background: rgba(255,255,255,.07); color: #fff; transition: transform .3s ease, background-color .3s ease; }
-  #shopify-section-{{ sid }} .rnc__toggle svg { width: 14px; height: 14px; }
-  #shopify-section-{{ sid }} .rnc__mod[open] .rnc__toggle { transform: rotate(180deg); background: var(--lapis); color: {{ st.button_text | default: '#ffffff' }}; }
-  #shopify-section-{{ sid }} .rnc__body { padding: 0 16px 20px; }
-  @media (min-width: 750px) { #shopify-section-{{ sid }} .rnc__body { padding: 0 24px 24px 112px; } }
+  #shopify-section-{{ sid }} .rnc__meta small { display: block; color: #8a90a3; font-size: 13px; }
+  #shopify-section-{{ sid }} .rnc__toggle { align-self: center; display: block; width: 20px; height: 20px; color: #fff; transition: transform .44s cubic-bezier(.2, .7, .2, 1); }
+  #shopify-section-{{ sid }} .rnc__toggle svg { display: block; width: 20px; height: 20px; }
+  #shopify-section-{{ sid }} .rnc__mod[open]:not([data-sd-closing]) .rnc__toggle { transform: rotate(180deg); }
+  #shopify-section-{{ sid }} .rnc__body { padding: 0 0 26px 48px; }
+  @media (min-width: 750px) { #shopify-section-{{ sid }} .rnc__body { padding: 0 40px 28px 76px; } }
   #shopify-section-{{ sid }} .rnc__desc { margin: 0 0 14px; font-size: 15.5px; line-height: 1.6; }
-  #shopify-section-{{ sid }} .rnc__mobile-meta { margin: 0 0 12px; color: #d6d9e3; font-size: 13px; }
+  #shopify-section-{{ sid }} .rnc__mobile-meta { margin: 0 0 12px; color: #d6d9e3; font-size: 13.5px; }
   @media (min-width: 750px) { #shopify-section-{{ sid }} .rnc__mobile-meta { display: none; } }
   #shopify-section-{{ sid }} .rnc__lessons { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; counter-reset: l; }
-  #shopify-section-{{ sid }} .rnc__lessons li { counter-increment: l; display: flex; gap: 12px; align-items: baseline; padding: 10px 0; border-top: 1px solid rgba(255,255,255,.07); color: #e3e5ee; font-size: 14.5px; line-height: 1.45; }
-  #shopify-section-{{ sid }} .rnc__lessons li::before { content: counter(l, decimal-leading-zero); flex: 0 0 auto; color: #6f7588; font-size: 12px; font-variant-numeric: tabular-nums; }
+  #shopify-section-{{ sid }} .rnc__lessons li { counter-increment: l; display: grid; grid-template-columns: 28px 1fr; gap: 8px; align-items: baseline; padding: 9px 0; color: #e3e5ee; font-size: 15px; line-height: 1.45; }
+  #shopify-section-{{ sid }} .rnc__lessons li::before { content: counter(l, decimal-leading-zero); color: #6f7588; font-size: 12.5px; font-variant-numeric: tabular-nums; }
   #shopify-section-{{ sid }} .rnc__cta { margin-top: 32px; text-align: center; }
   #shopify-section-{{ sid }} .rnc__btn { display: inline-flex; align-items: center; gap: 10px; min-height: 56px; padding: 0 28px; border-radius: 12px; background: var(--lapis); color: {{ st.button_text | default: '#ffffff' }}; font-size: 16px; font-weight: 600; text-decoration: none; transition: transform .25s ease; }
   #shopify-section-{{ sid }} .rnc__btn:hover { transform: translateY(-2px); }
   #shopify-section-{{ sid }} .rnc__note { margin: 12px 0 0; font-size: 13.5px; color: #8a90a3; }
-  @media (prefers-reduced-motion: reduce) { #shopify-section-{{ sid }} .rnc__toggle, #shopify-section-{{ sid }} .rnc__mod { transition: none; } }
+  @media (prefers-reduced-motion: reduce) { #shopify-section-{{ sid }} .rnc__toggle, #shopify-section-{{ sid }} .rnc__name { transition: none; } }
   {%- if st.caps -%}#shopify-section-{{ sid }} .rnc__title, #shopify-section-{{ sid }} .rnc__name { text-transform: uppercase; letter-spacing: .01em; } #shopify-section-{{ sid }} .rnc__title { font-weight: 700; line-height: 1.02; }{%- endif -%}
 </style>
 <section data-own-size class="rnc"{% if st.anchor != blank %} id="{{ st.anchor | handleize }}"{% endif %}>
@@ -61,20 +63,22 @@
       {%- for block in section.blocks -%}
         {%- assign b = block.settings -%}
         {%- assign lessons = b.lessons | newline_to_br | split: '<br />' -%}
-        <details class="rnc__mod" {% if forloop.first and st.open_first %}open{% endif %} {{ block.shopify_attributes }}>
-          <summary class="rnc__sum">
-            <span class="rnc__tile" aria-hidden="true"><span>{{ forloop.index }}</span></span>
+        {%- assign is_open = false -%}
+        {%- if forloop.first and st.open_first -%}{%- assign is_open = true -%}{%- endif -%}
+        <details class="rnc__mod" data-smooth{% if is_open %} open{% endif %} {{ block.shopify_attributes }}>
+          <summary class="rnc__sum" aria-expanded="{{ is_open }}">
+            <span class="rnc__tile" aria-hidden="true">{% if forloop.index < 10 %}0{% endif %}{{ forloop.index }}</span>
             <span><span class="rnc__name">{{ b.title | escape }}</span>{%- if b.topic != blank -%}<span class="rnc__topic">{{ b.topic | escape }}</span>{%- endif -%}</span>
             <span class="rnc__meta">{{ b.lesson_count | escape }}<small>{{ b.duration | escape }}</small></span>
-            <span class="rnc__toggle" aria-hidden="true"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5.2 7 9.2l4-4"/></svg></span>
+            <span class="rnc__toggle" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7.5l5 5 5-5"/></svg></span>
           </summary>
-          <div class="rnc__body">
+          <div class="sd-body"><div><div class="rnc__body">
             <p class="rnc__mobile-meta">{{ b.lesson_count | escape }}{% if b.duration != blank %}, {{ b.duration | escape }}{% endif %}</p>
             {%- if b.text != blank -%}<p class="rnc__desc">{{ b.text | escape }}</p>{%- endif -%}
             {%- if b.lessons != blank -%}
               <ol class="rnc__lessons">{%- for l in lessons -%}{%- assign line = l | strip -%}{%- if line != blank -%}<li>{{ line | escape }}</li>{%- endif -%}{%- endfor -%}</ol>
             {%- endif -%}
-          </div>
+          </div></div></div>
         </details>
       {%- endfor -%}
     </div>

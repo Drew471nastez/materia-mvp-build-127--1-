@@ -325,7 +325,8 @@
   "main_menu": {
     "horizontal": {
       "close": "Cerca",
-      "title": "Menú"
+      "title": "Menú",
+      "more": "Más"
     },
     "vertical": {
       "title": "Categorías",

@@ -783,8 +783,9 @@ html.nav-open :is(#materia-header, .shopify-section.section-header) header-inner
   }
   :is(#materia-header, .shopify-section.section-header) header-inner.logo-position > .header__action > * { flex: none; }
   :is(#materia-header, .shopify-section.section-header) .header__action > a.hs-cta { align-self: center !important; left: 0 !important; top: 0 !important; }
-  :is(#materia-header, .shopify-section.section-header) .header__action > .hs-cta--desktop { display: none !important; }
-  :is(#materia-header, .shopify-section.section-header) .header__action > a.hs-cta--m-below { display: none !important; }
+  /* a.hs-cta.hs-cta--… so the hide outranks the Custom style's own display (a.hs-cta:where(.hs-cta--custom)): Show on mobile off, or the button in its own bar below, hides it from the phone row whatever its style. */
+  :is(#materia-header, .shopify-section.section-header) .header__action > a.hs-cta.hs-cta--desktop { display: none !important; }
+  :is(#materia-header, .shopify-section.section-header) .header__action > a.hs-cta.hs-cta--m-below { display: none !important; }
   :is(#materia-header, .shopify-section.section-header) :is(.header__action, .hs-cta-bar__in) > a.hs-cta { min-height: 44px !important; white-space: nowrap; }
   /* Size on phones: hs-cta--ms-compact or hs-cta--ms-small on the button. */
   :is(#materia-header, .shopify-section.section-header) :is(.header__action, .hs-cta-bar__in) > a.hs-cta:where(.hs-cta--ms-compact) {
@@ -940,4 +941,41 @@ html.nav-open :is(#materia-header, .shopify-section.section-header) header-inner
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+}
+/* One line of menu links on desktop (snippets/header-menu-fit and header-menu-more). The menu's column takes the room the logo and the icons leave and never grows past it; the links never wrap; the ones that do not fit are folded into More. The logo keeps its own width and the icons, selectors and button keep theirs. */
+.hs-more { display: none; }
+@media (min-width: 1025px) {
+  :is(#materia-header, .shopify-section.section-header) header-inner.logo-position.logo-left:has(> .header__menu) {
+    /* As the theme draws it (1fr auto 1fr): the menu centred between two equal sides while it fits; when it does not, the sides keep what they hold and the menu takes what is left. */
+    grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr) !important;
+  }
+  :is(#materia-header, .shopify-section.section-header) header-inner.logo-position.logo-center:has(> .header__menu) {
+    grid-template-columns: minmax(0, 1fr) max-content minmax(max-content, 1fr) !important;
+  }
+  :is(#materia-header, .shopify-section.section-header) header-inner.logo-position > .header__menu,
+  :is(#materia-header, .shopify-section.section-header) .header__menu > nav.navigation:not(.mobile) { min-width: 0; }
+  :is(#materia-header, .shopify-section.section-header) .header__menu > nav.navigation:not(.mobile) .horizontal-list {
+    flex-wrap: nowrap !important;
+  }
+  :is(#materia-header, .shopify-section.section-header) .header__menu > nav.navigation:not(.mobile) .horizontal-list > .level0 {
+    flex: none;
+    white-space: nowrap;
+  }
+  :is(#materia-header, .shopify-section.section-header) .header__menu .horizontal-list > li[data-hs-folded] { display: none !important; }
+  :is(#materia-header, .shopify-section.section-header) .header__menu > nav.navigation:not(.mobile) .horizontal-list { transition: opacity .2s ease; }
+  :is(#materia-header, .shopify-section.section-header) .header__menu > nav.navigation:not(.mobile) .horizontal-list[data-hs-wait] { opacity: 0; transition: none; animation: hs-menu-late 0s linear 2.5s forwards; }
+  @keyframes hs-menu-late { to { opacity: 1; } }
+  :is(#materia-header, .shopify-section.section-header) .header__menu .horizontal-list[data-hs-fold] > .hs-more { display: list-item; }
+  .hs-more > menu-item > a { cursor: pointer; }
+  .hs-more [data-hs-more-i][hidden] { display: none !important; }
+  .hs-more .hs-more__list { display: block; }
+  .hs-more .hs-more__list > li + li { margin-top: 2px; }
+  .hs-more .hs-more__sub { margin: 0 0 6px; padding: 0; }
+  .hs-more .hs-more__sub .menu_item-link {
+    padding-left: calc(var(--dd-pad-x, 3rem) + 12px) !important;
+    font-size: 0.92em;
+    opacity: 0.72;
+    transition: opacity 0.2s ease;
+  }
+  .hs-more .hs-more__sub .menu_item-link:is(:hover, :focus-visible) { opacity: 1; }
 }

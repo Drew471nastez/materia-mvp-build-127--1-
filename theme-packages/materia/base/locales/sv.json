@@ -325,7 +325,8 @@
   "main_menu": {
     "horizontal": {
       "close": "Nära",
-      "title": "Meny"
+      "title": "Meny",
+      "more": "Mer"
     },
     "vertical": {
       "title": "Kategorier",

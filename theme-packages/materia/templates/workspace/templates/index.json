@@ -8,7 +8,7 @@
         "maker_note": "makes every template here",
         "maker_link": "/pages/about",
         "heading": "Notion templates that stay <mark>tidy</mark> after the first week",
-        "text": "<p>A freelance desk, a meal planner, a budget and three more. Each one is a page you duplicate into your own workspace, and all of them work on Notion's free plan.</p>",
+        "text": "<p>Six templates you duplicate into your own Notion. All of them work on the free plan.</p>",
         "button_label": "Browse the templates",
         "button_link": "/collections/all",
         "button2_label": "How they work",
@@ -18,9 +18,9 @@
         "fact_3": "Free updates by email",
         "image": "shopify://shop_images/workspace-hero.webp",
         "image_alt": "The Freelance desk template in Notion: three totals for the month, a board of this week's projects and a list of invoices",
-        "heading_size": 66,
-        "heading_size_mobile": 38,
-        "padding_top": 72,
+        "heading_size": 56,
+        "heading_size_mobile": 34,
+        "padding_top": 56,
         "padding_bottom": 40
       }
     },

@@ -85,6 +85,8 @@ export function auditSite(imported: ImportedTemplate, template: string, empty: b
     col("gifts", "Gifts", products.slice(1, 4), "Small things to give."),
     col("new-in", "New in", products.slice(0, half), "What arrived this month."),
     col("best-sellers", "Best sellers", products.slice(half), "What people buy most."),
+    /* Templates round 24: the shop's own collections (./shops.ts), the ones its menus link to. */
+    ...(SAMPLE_SHOPS[template]?.collections ?? []).map((c) => col(c.handle, c.title, products.filter((p) => c.products.includes(String(p.settings.title))), c.description)),
   ] as SiteData["collections"]
   const { cards, full } = posts(cover, SAMPLE_SHOPS[template]?.posts)
   const blog: CompatBlogSource = {

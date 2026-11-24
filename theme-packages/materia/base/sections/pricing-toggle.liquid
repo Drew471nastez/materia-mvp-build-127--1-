@@ -48,15 +48,20 @@
   .ptog-{{ sid }} .ptog__save { font-size: 1.15rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; opacity: .8; }
   .ptog-{{ sid }} .ptog__grid { display: grid; gap: {{ s.card_gap | default: 20 }}px; grid-template-columns: 1fr; margin: 0; padding: 0; list-style: none; }
   @media (min-width: 750px) { .ptog-{{ sid }} .ptog__grid { grid-template-columns: repeat(var(--pt-cols), minmax(0, 1fr)); } }
-  .ptog-{{ sid }} .ptcard { position: relative; display: grid; grid-template-rows: subgrid; grid-row: span 4; row-gap: 0; padding: clamp(22px, 2.4vw, 32px); border-radius: var(--pt-radius); border: 1px solid var(--pt-line); min-width: 0; }
+  .ptog-{{ sid }} .ptog__grid:has(.ptcard__badge) { padding-top: 14px; }
+  .ptog-{{ sid }} .ptcard { position: relative; display: grid; grid-template-rows: subgrid; grid-row: span 4; row-gap: 0; padding: clamp(24px, 2.6vw, 36px); border-radius: var(--pt-radius); border: 1px solid var(--pt-line); min-width: 0; --pt-check-bg: rgba(var(--color-heading-rgb), .08); --pt-check-ink: var(--color-heading); transition: border-color .3s ease, box-shadow .3s ease, transform .3s cubic-bezier(.2,.7,.2,1), background-color .3s ease; }
   .ptog-{{ sid }}[data-style='filled'] .ptcard { border-color: transparent; background: var(--pt-soft); }
-  .ptog-{{ sid }} .ptcard[data-featured] { border: 2px solid var(--color-heading); background: transparent; }
-  .ptog-{{ sid }} .ptcard__top { display: flex; flex-direction: column; gap: 6px; padding-bottom: 18px; }
-  .ptog-{{ sid }} .ptcard__badge { align-self: flex-start; margin-bottom: 6px; padding: 4px 10px; border-radius: var(--bages-radius, 4px); background: var(--badge-background); color: var(--badge-text); font-size: 1.15rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; line-height: 1.3; }
+  /* The plan that stands out: a ring (the card keeps its size), a faint wash, a soft shadow and filled ticks in the button colour. */
+  .ptog-{{ sid }} .ptcard[data-featured] { border-color: var(--color-heading); box-shadow: 0 0 0 1px var(--color-heading), 0 24px 48px -30px rgba(0, 0, 0, .35); background: rgba(var(--color-heading-rgb), .025); --pt-check-bg: var(--btn-primary-bg-color, var(--color-heading)); --pt-check-ink: var(--btn-primary-color, var(--color-background)); }
+  @media (hover: hover) and (pointer: fine) {
+    .ptog-{{ sid }} .ptcard:not([data-featured]):hover { border-color: rgba(var(--color-heading-rgb), .34); box-shadow: 0 18px 40px -30px rgba(0, 0, 0, .3); transform: translateY(-2px); }
+  }
+  .ptog-{{ sid }} .ptcard__top { display: flex; flex-direction: column; gap: 8px; padding-bottom: 24px; }
+  .ptog-{{ sid }} .ptcard__badge { position: absolute; top: 0; left: clamp(24px, 2.6vw, 36px); transform: translateY(-50%); padding: 5px 11px; border-radius: var(--bages-radius, 4px); background: var(--badge-background, var(--color-heading)); color: var(--badge-text, var(--color-background)); font-size: 1.1rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; line-height: 1.3; white-space: nowrap; }
   .ptog-{{ sid }} .ptcard__name { margin: 0; --size: 2rem; }
-  .ptog-{{ sid }} .ptcard__desc { font-size: 1.4rem; line-height: 1.55; color: rgba(var(--color-text-rgb), .82); }
+  .ptog-{{ sid }} .ptcard__desc { font-size: 1.4rem; line-height: 1.55; color: rgba(var(--color-text-rgb), .74); }
   .ptog-{{ sid }} .ptcard__desc p { margin: 0; }
-  .ptog-{{ sid }} .ptcard__price { display: grid; padding-bottom: 20px; }
+  .ptog-{{ sid }} .ptcard__price { display: grid; align-content: end; padding-bottom: 22px; }
   .ptog-{{ sid }} .ptcard__way { grid-area: 1 / 1; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; transition: opacity .28s ease, transform .28s cubic-bezier(.2,.7,.2,1); }
   .ptog-{{ sid }} .ptcard__way[data-way='b'], .ptog-{{ sid }}[data-mode='b'] .ptcard__way[data-way='a'] { opacity: 0; transform: translateY(6px); visibility: hidden; transition: opacity .28s ease, transform .28s cubic-bezier(.2,.7,.2,1), visibility 0s .28s; }
   .ptog-{{ sid }}[data-mode='b'] .ptcard__way[data-way='b'] { opacity: 1; transform: none; visibility: visible; transition: opacity .28s ease .06s, transform .28s cubic-bezier(.2,.7,.2,1) .06s, visibility 0s; }
@@ -67,15 +72,17 @@
   .ptog-{{ sid }} .ptcard__cta > * { grid-area: 1 / 1; width: 100%; }
   .ptog-{{ sid }} .ptcard__cta [data-way='b'], .ptog-{{ sid }}[data-mode='b'] .ptcard__cta [data-way='a'] { visibility: hidden; }
   .ptog-{{ sid }}[data-mode='b'] .ptcard__cta [data-way='b'] { visibility: visible; }
-  .ptog-{{ sid }} .ptcard__features { margin: 0 0 22px; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; font-size: 1.4rem; line-height: 1.45; }
-  .ptog-{{ sid }} .ptcard__features li { display: grid; grid-template-columns: 16px 1fr; gap: 10px; align-items: start; }
-  .ptog-{{ sid }} .ptcard__features svg { width: 16px; height: 16px; margin-top: 2px; color: var(--color-heading); }
-  .ptog-{{ sid }} .ptcard__features li[data-off] { color: rgba(var(--color-text-rgb), .5); }
-  .ptog-{{ sid }} .ptcard__features li[data-off] svg { color: currentColor; }
+  .ptog-{{ sid }} .ptcard__features { margin: 0 0 26px; padding: 22px 0 0; border-top: 1px solid var(--pt-line); list-style: none; display: flex; flex-direction: column; gap: 12px; font-size: 1.4rem; line-height: 1.45; }
+  .ptog-{{ sid }} .ptcard__features li { display: grid; grid-template-columns: 18px 1fr; gap: 12px; align-items: start; }
+  .ptog-{{ sid }} .ptcard__features svg { width: 18px; height: 18px; margin-top: 1px; overflow: visible; }
+  .ptog-{{ sid }} .ptcard__features svg circle { fill: var(--pt-check-bg); }
+  .ptog-{{ sid }} .ptcard__features svg path { stroke: var(--pt-check-ink); }
+  .ptog-{{ sid }} .ptcard__features li[data-off] { color: rgba(var(--color-text-rgb), .48); }
+  .ptog-{{ sid }} .ptcard__features li[data-off] svg path { stroke: currentColor; }
   .ptog-{{ sid }} .ptog__foot { margin-top: 24px; font-size: 1.3rem; text-align: center; color: rgba(var(--color-text-rgb), .72); }
   .ptog-{{ sid }} .ptog__foot p { margin: 0; }
   @media (prefers-reduced-motion: reduce) {
-    .ptog-{{ sid }} .ptog__switch::before, .ptog-{{ sid }} .ptcard__way, .ptog-{{ sid }} .ptog__opt { transition: none !important; }
+    .ptog-{{ sid }} .ptog__switch::before, .ptog-{{ sid }} .ptcard__way, .ptog-{{ sid }} .ptog__opt, .ptog-{{ sid }} .ptcard { transition: none !important; transform: none !important; }
   }
 </style>
 <section class="ptog ptog-{{ sid }} color-{{ scheme }} gradient" data-mode="{{ start }}" data-style="{{ s.card_style | default: 'outline' }}" data-ptog aria-labelledby="ptog-title-{{ sid }}">
@@ -123,9 +130,9 @@
               {%- if t == blank -%}{%- continue -%}{%- endif -%}
               {%- assign first = t | slice: 0 -%}
               {%- if first == '-' -%}
-                <li data-off><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" focusable="false"><path d="M4 8h8"/></svg><span><span class="visually-hidden">Not included: </span>{{ t | remove_first: '-' | strip | escape }}</span></li>
+                <li data-off><svg viewBox="0 0 18 18" fill="none" stroke-width="1.5" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M6 9h6"/></svg><span><span class="visually-hidden">Not included: </span>{{ t | remove_first: '-' | strip | escape }}</span></li>
               {%- else -%}
-                <li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 8.5l3.2 3L13 4.5"/></svg><span>{{ t | escape }}</span></li>
+                <li><svg viewBox="0 0 18 18" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="9" r="9"/><path d="M5.6 9.3l2.2 2.1 4.6-4.8"/></svg><span>{{ t | escape }}</span></li>
               {%- endif -%}
             {%- endfor -%}
           </ul>

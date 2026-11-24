@@ -325,7 +325,8 @@
   "main_menu": {
     "horizontal": {
       "close": "Schließen",
-      "title": "Speisekarte"
+      "title": "Speisekarte",
+      "more": "Mehr"
     },
     "vertical": {
       "title": "Kategorien",

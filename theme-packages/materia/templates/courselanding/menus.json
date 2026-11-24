@@ -3,16 +3,16 @@
     "title": "Main menu",
     "links": [
       {
-        "title": "The 12 weeks",
+        "title": "The six weeks",
         "url": "/#shopify-section-weeks"
       },
       {
-        "title": "Your teacher",
+        "title": "Your trainer",
         "url": "/pages/about"
       },
       {
-        "title": "Pricing",
-        "url": "/#shopify-section-pricing"
+        "title": "Join",
+        "url": "/#shopify-section-offer"
       },
       {
         "title": "Questions",
@@ -24,7 +24,7 @@
     "title": "Pages",
     "links": [
       {
-        "title": "About Lucía",
+        "title": "About Jonah",
         "url": "/pages/about"
       },
       {
@@ -40,7 +40,7 @@
         "url": "/collections/all"
       },
       {
-        "title": "Notes on Spanish",
+        "title": "Training notes",
         "url": "/blogs/news"
       }
     ]

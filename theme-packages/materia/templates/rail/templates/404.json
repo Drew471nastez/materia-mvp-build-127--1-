@@ -1,0 +1,59 @@
+{
+  "sections": {
+    "main": {
+      "type": "page-404",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "fluid_container",
+        "reset_spacing": true,
+        "show_404_icon": false,
+        "padding_top": 120,
+        "padding_bottom": 140
+      },
+      "blocks": {
+        "sub": {
+          "type": "subheading",
+          "settings": {
+            "subheading": "404",
+            "font_size": 14,
+            "spacing_bottom": 16
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "heading": "Nothing on this hanger",
+            "font_size": 40,
+            "spacing_bottom": 20
+          }
+        },
+        "text": {
+          "type": "description",
+          "settings": {
+            "description": "<p>This page has moved or never existed. The whole rail is one click away.</p>",
+            "font_size": 16,
+            "spacing_bottom": 32
+          }
+        },
+        "button": {
+          "type": "button",
+          "settings": {
+            "first_button_label": "Shop everything",
+            "first_button_link": "/collections/all",
+            "first_button_type": "primary",
+            "spacing_bottom": 0
+          }
+        }
+      },
+      "block_order": [
+        "sub",
+        "heading",
+        "text",
+        "button"
+      ]
+    }
+  },
+  "order": [
+    "main"
+  ]
+}

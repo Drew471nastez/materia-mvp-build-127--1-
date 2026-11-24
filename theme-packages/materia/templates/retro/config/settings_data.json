@@ -205,9 +205,9 @@
     "show_vendor": false,
     "show_rate": false,
     "show_wishlist": false,
-    "show_add_cart": false,
-    "show_secondary_image": false,
-    "product_hover_effect": "none",
+    "show_add_cart": true,
+    "show_secondary_image": true,
+    "product_hover_effect": "hover_fade",
     "scroll_animation": "none",
     "hover_effect": "none",
     "card_atc_button": "outline",
@@ -229,6 +229,7 @@
     "menu_hover_style": "underline",
     "button_font": "body_font",
     "page_width": 1200,
-    "fluid_container_width": 1320
+    "fluid_container_width": 1320,
+    "cart_drawer_buttons": "both"
   }
 }

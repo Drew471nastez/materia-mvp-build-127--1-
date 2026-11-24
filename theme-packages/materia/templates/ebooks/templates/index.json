@@ -112,23 +112,6 @@
         "all"
       ]
     },
-    "wave1": {
-      "type": "waves-divider",
-      "settings": {
-        "color_scheme": "default",
-        "section_width": "full_width",
-        "reveal": false,
-        "wave_variant": "mountains",
-        "wave_rotate": false,
-        "full_width": true,
-        "enable_custom_style": true,
-        "wave_color": "#f2ebe0",
-        "background_color": "#1f1b17",
-        "section_bg": "#1f1b17",
-        "wave_height": 36,
-        "wave_height_mobile": 18
-      }
-    },
     "library": {
       "type": "Image-and-video-text",
       "settings": {
@@ -143,9 +126,9 @@
         "text_column_width": 50,
         "content_align": "left",
         "gap_desktop": 80,
-        "padding_top_desktop": 72,
+        "padding_top_desktop": 96,
         "padding_bottom_desktop": 88,
-        "padding_top_mobile": 40,
+        "padding_top_mobile": 56,
         "padding_bottom_mobile": 56
       },
       "blocks": {
@@ -326,23 +309,6 @@
         "b3",
         "b4"
       ]
-    },
-    "wave2": {
-      "type": "waves-divider",
-      "settings": {
-        "color_scheme": "default",
-        "section_width": "full_width",
-        "reveal": false,
-        "wave_variant": "mountains",
-        "wave_rotate": true,
-        "full_width": true,
-        "enable_custom_style": true,
-        "wave_color": "#1f1b17",
-        "background_color": "#ffffff",
-        "section_bg": "#ffffff",
-        "wave_height": 36,
-        "wave_height_mobile": 18
-      }
     },
     "formats": {
       "type": "comparison-table",
@@ -737,11 +703,9 @@
   "order": [
     "hero",
     "books",
-    "wave1",
     "library",
     "cook",
     "inside",
-    "wave2",
     "formats",
     "story",
     "pasture",

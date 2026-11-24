@@ -325,7 +325,8 @@
   "main_menu": {
     "horizontal": {
       "close": "Vicino",
-      "title": "Menu"
+      "title": "Menu",
+      "more": "Altro"
     },
     "vertical": {
       "title": "Categorie",

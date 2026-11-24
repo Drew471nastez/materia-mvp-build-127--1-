@@ -2,75 +2,57 @@
   "type": "header",
   "name": "t:sections.header.name",
   "sections": {
-    "ticker": {
-      "type": "Annoucment-Bar-Scrolling",
+    "bar": {
+      "type": "announcement-bar",
+      "name": "Announcement bar",
       "settings": {
         "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636",
         "section_width": "full_width",
         "reset_spacing": true,
-        "enable_link_redirect": false,
-        "redirect_url": "/",
-        "message_1": "Free returns within 30 days",
-        "message_2": "Shipped in recycled paper",
-        "message_spacing": 22,
-        "repetition_spacing": 35,
-        "background_type": "solid",
-        "gradient_angle": 90,
-        "separator_icon": "fa-circle",
-        "enable_custom_style": false,
-        "enable_custom_font": false,
-        "announcement_font": "assistant_n4",
+        "homepage_only": false,
+        "show_mobile": true,
+        "label_days": "d",
+        "label_hours": "h",
+        "label_minutes": "m",
+        "label_seconds": "s",
+        "announcement_actions": "slide",
+        "icon_between_item": "none",
+        "show_separator_line": false,
+        "show_close": false,
         "font_size": 12,
-        "message_font_weight": "400",
+        "font_weight": "body_weight",
         "uppercase": false,
         "reveal": true,
-        "autoplay": true,
-        "scroll_speed": 1500,
-        "pause_on_hover": true,
-        "background_animation": "none",
-        "hover_effect": "none",
-        "bar_height": 34,
-        "section_margin_top_desktop": 0,
-        "section_margin_bottom_desktop": 0,
-        "section_margin_top_mobile": 0,
-        "section_margin_bottom_mobile": 0,
-        "message_3": "New shirts every Friday",
-        "message_4": "Washed linen, cut loose"
+        "change_every": 5,
+        "padding_top": 9,
+        "padding_bottom": 9
       },
-      "name": "Announcement bar",
       "blocks": {
-        "message_1": {
-          "type": "message",
+        "a1": {
+          "type": "announcement",
           "settings": {
-            "text": "Free returns within 30 days",
-            "enable_custom_style": false,
-            "enable_custom_fonts": false,
-            "font": "assistant_n4"
+            "text": "Chapter two lands in",
+            "countdown_deadline": "03-05-2027 10:00",
+            "ended_text": "Chapter two is in the shop"
           }
         },
-        "message_2": {
-          "type": "message",
+        "a2": {
+          "type": "announcement",
           "settings": {
-            "text": "New shirts every Friday",
-            "enable_custom_style": false,
-            "enable_custom_fonts": false,
-            "font": "assistant_n4"
+            "text": "Free returns within 30 days"
           }
         },
-        "message_3": {
-          "type": "message",
+        "a3": {
+          "type": "announcement",
           "settings": {
-            "text": "Shipped in recycled paper",
-            "enable_custom_style": false,
-            "enable_custom_fonts": false,
-            "font": "assistant_n4"
+            "text": "Shipped in recycled paper"
           }
         }
       },
       "block_order": [
-        "message_1",
-        "message_2",
-        "message_3"
+        "a1",
+        "a2",
+        "a3"
       ]
     },
     "header": {
@@ -207,7 +189,7 @@
     }
   },
   "order": [
-    "ticker",
+    "bar",
     "header"
   ]
 }

@@ -325,7 +325,8 @@
   "main_menu": {
     "horizontal": {
       "close": "Lukke",
-      "title": "Meny"
+      "title": "Meny",
+      "more": "Mer"
     },
     "vertical": {
       "title": "Kategorier",

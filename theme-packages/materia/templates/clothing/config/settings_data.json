@@ -215,7 +215,6 @@
     "price_size": 14,
     "show_variant": false,
     "show_add_cart": true,
-    "show_quick_view": true,
     "card_atc_button": "outline",
     "show_wishlist": false,
     "show_quantity_input": false,
@@ -241,6 +240,7 @@
     "cart_drawer_recommendations": true,
     "product_recommendations_heading": "Wear it with",
     "cart_page_product_recommendations_heading": "Wear it with",
-    "page_transition_style": "fade"
+    "page_transition_style": "fade",
+    "cart_drawer_buttons": "both"
   }
 }

@@ -23,7 +23,7 @@
  * Installed means: a pixel with its ID saved, a provider with a key or an
  * address saved. Built in means it works with nothing to connect.
  */
-import { FILTER_PILL, FILTER_PILL_OFF, FILTER_PILL_ON, FILTER_PILL_ROW } from "@/components/app/filter-pills"
+import { FILTER_PILL, FILTER_PILL_OFF, FILTER_PILL_ON, PillScrollRow } from "@/components/app/filter-pills"
 import * as React from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -843,7 +843,8 @@ export function IntegrationsDirectory({ page = false, only = null, initial: serv
       </div>
 
       <div className="flex items-start gap-2">
-        <div ref={pillsRef} className={cn(FILTER_PILL_ROW, "flex-1")} role="tablist" aria-label={tt("Categories")} data-integration-pills="">
+        {/* One row that scrolls sideways at every width (r24): it fades where it is cut and follows a mouse drag. */}
+        <PillScrollRow rowRef={pillsRef} className="flex-1" role="tablist" aria-label={tt("Categories")} data-integration-pills="">
           {pills.map((f) => {
             const on = active === f
             return (
@@ -865,7 +866,7 @@ export function IntegrationsDirectory({ page = false, only = null, initial: serv
               </button>
             )
           })}
-        </div>
+        </PillScrollRow>
         <FilterMenu status={statusFilter} by={maker} onChange={chooseFilters} counts={filterCounts} />
       </div>
 

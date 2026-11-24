@@ -1,0 +1,53 @@
+{%- comment -%}
+  Smooth open and close for a row that opens (details and summary). Put
+  data-smooth on the details and wrap what it shows in one element with
+  class sd-body (its single child holds the content). The body's height runs
+  between nothing and its own height on grid-template-rows, so it never
+  jumps, and the content fades with it. Without script the row still opens
+  and closes as plain details; with reduced motion it opens at once.
+  Written once per page whichever section asks first.
+{%- endcomment -%}
+<style>
+  details[data-smooth] > .sd-body { display: grid; grid-template-rows: 1fr; transition: grid-template-rows var(--sd-time, .42s) cubic-bezier(.4, 0, .2, 1); }
+  details[data-smooth] > .sd-body > * { min-height: 0; overflow: hidden; transition: opacity var(--sd-time, .42s) ease; }
+  details[data-smooth][data-sd-opening] > .sd-body,
+  details[data-smooth][data-sd-closing] > .sd-body { grid-template-rows: 0fr; }
+  details[data-smooth][data-sd-opening] > .sd-body > *,
+  details[data-smooth][data-sd-closing] > .sd-body > * { opacity: 0; }
+  @media (prefers-reduced-motion: reduce) {
+    details[data-smooth] > .sd-body, details[data-smooth] > .sd-body > * { transition: none; }
+  }
+</style>
+<script>
+  (function () {
+    if (window.__smoothDetails) return;
+    window.__smoothDetails = true;
+    var still = window.matchMedia('(prefers-reduced-motion: reduce)');
+    document.addEventListener('click', function (e) {
+      var sum = e.target.closest && e.target.closest('details[data-smooth] > summary');
+      if (!sum || e.defaultPrevented) return;
+      var d = sum.parentElement, body = d.querySelector(':scope > .sd-body');
+      if (!body || still.matches) return;
+      e.preventDefault();
+      var done = function () { body.removeEventListener('transitionend', end); clearTimeout(d.__sdTimer); };
+      var end = function (ev) {
+        if (ev && (ev.target !== body || ev.propertyName !== 'grid-template-rows')) return;
+        done();
+        if (d.hasAttribute('data-sd-closing')) { d.removeAttribute('data-sd-closing'); d.open = false; }
+      };
+      if (d.__sdEnd) { body.removeEventListener('transitionend', d.__sdEnd); clearTimeout(d.__sdTimer); }
+      d.__sdEnd = end;
+      if (!d.open || d.hasAttribute('data-sd-closing')) {
+        d.removeAttribute('data-sd-closing');
+        if (!d.open) { d.setAttribute('data-sd-opening', ''); d.open = true; body.offsetHeight; }
+        d.removeAttribute('data-sd-opening');
+        sum.setAttribute('aria-expanded', 'true');
+      } else {
+        d.setAttribute('data-sd-closing', '');
+        sum.setAttribute('aria-expanded', 'false');
+        body.addEventListener('transitionend', end);
+        d.__sdTimer = setTimeout(end, 700);
+      }
+    });
+  })();
+</script>

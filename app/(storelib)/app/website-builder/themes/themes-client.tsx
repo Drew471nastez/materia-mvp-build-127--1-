@@ -6,7 +6,7 @@
  * ===========================================================================
  * It was a page of its own (/app/website-builder/themes), reached by leaving
  * the Website page. It is a layer over that page now: "Theme marketplace"
- * beside Browse themes, and Show more under its six cards, open it where the
+ * beside Browse themes, and Show more under its nine cards, open it where the
  * creator is, and closing it leaves them where they were. It lists every
  * theme the page was given: every published listing and every template
  * that ships with the code (lib/themes/marketplace-server publishedListings),

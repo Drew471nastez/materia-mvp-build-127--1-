@@ -325,7 +325,8 @@
   "main_menu": {
     "horizontal": {
       "close": "Kapalı",
-      "title": "Menü"
+      "title": "Menü",
+      "more": "Daha fazla"
     },
     "vertical": {
       "title": "Kategoriler",

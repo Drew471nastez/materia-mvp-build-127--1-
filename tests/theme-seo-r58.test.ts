@@ -170,7 +170,7 @@ async function main() {
   const rel = relatedListings(bySlug("clothing"), listings)
   const fashion = THEME_SEO_CATEGORIES.find((c) => c.slug === "fashion")!.members
   check("related templates: six by default, never itself", RELATED_COUNT === 6 && rel.length === 6 && listings.every((l) => !relatedListings(l, listings).some((r) => r.slug === l.slug) && relatedListings(l, listings).length === 6))
-  check("  Clothing: every other fashion template (print on demand, caps and tees, outerwear, lifestyle label, night shop, merch), nothing else first", rel.every((r) => fashion.includes(r.slug)) && fashion.filter((m) => m !== "clothing").every((m) => rel.some((r) => r.slug === m)), rel.map((r) => r.slug))
+  check("  Clothing: every other fashion template (print on demand, caps and tees, outerwear, lifestyle label, night shop, merch), nothing else first", rel.every((r) => fashion.includes(r.slug)) && rel.length === Math.min(RELATED_COUNT, fashion.filter((m) => m !== "clothing").length) /* Changed on purpose (templates round 24): Boutique rail makes eight fashion templates, more than the six related places, so Clothing shows six of the other seven, all of them fashion. */, rel.map((r) => r.slug))
   for (const slug of fashion) {
     const r = relatedListings(bySlug(slug), listings).map((x) => x.slug)
     const others = fashion.filter((m) => m !== slug)

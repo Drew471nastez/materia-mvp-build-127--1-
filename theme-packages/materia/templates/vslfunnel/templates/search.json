@@ -1,4 +1,4 @@
-/* Templates round 23: Smallplot search, the course and extras, then the free planting calendar. */
+/* Templates round 24: Open Shade search, the course and extras, then the free settings cards. */
 {
   "sections": {
     "main": {
@@ -9,7 +9,7 @@
         "reset_spacing": true,
         "heading": "Search",
         "sorting": true,
-        "empty_text": "Nothing matched. Try course, calendar or call.",
+        "empty_text": "Nothing matched. Try course, assignments or review.",
         "empty_link_label": "See everything",
         "empty_link_url": "/collections/all",
         "enable_filtering": false,
@@ -31,7 +31,7 @@
       "settings": {
         "color_scheme": "default",
         "heading": "The course and the extras",
-        "text": "<p>The full course, the printable plans on their own, and a call about your space.</p>",
+        "text": "<p>The full course, the assignment book on its own, and a portfolio review call.</p>",
         "items_to_show": 4,
         "items_per_row": 4,
         "show_add_to_cart": true,
@@ -44,28 +44,28 @@
       "type": "newsletter-split",
       "settings": {
         "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "image": "shopify://shop_images/vslfunnel-seedlings.webp",
-        "image_alt": "Seedlings coming up in a tray of soil blocks",
+        "image": "shopify://shop_images/vslfunnel-prints.webp",
+        "image_alt": "Printed photographs pinned to a cork board beside rolls of film",
         "image_position": "left",
         "image_ratio": "landscape",
         "image_width": 50,
         "form_layout": "horizontal",
-        "btn_text": "Send me the calendar",
+        "btn_text": "Send me the cards",
         "email_placeholder": "Your email",
         "note": "One email a month at most. Leave whenever you like.",
-        "success_text": "Done. The calendar is on its way to your inbox."
+        "success_text": "Done. The settings cards are on their way to your inbox."
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Get the planting calendar free"
+            "text": "Get the settings cards free"
           }
         },
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>The calendar from module one as a PDF: what to sow and plant each week, worked out from your last frost date.</p>"
+            "text": "<p>Four pocket cards from module one as a PDF: the settings to start from for portraits, movement, low light and landscapes.</p>"
           }
         }
       },

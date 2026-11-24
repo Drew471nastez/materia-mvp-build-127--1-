@@ -11,7 +11,7 @@
         "content_gap": 18,
         "media_type": "image",
         "image": "shopify://shop_images/courselanding-teacher.webp",
-        "image_alt": "Lucía Ferrer, the course teacher, in front of a chalkboard",
+        "image_alt": "Jonah Reyes crouching on a lawn and shaking paws with a white puppy",
         "aspect_w": 4,
         "aspect_h": 5,
         "image_fit": "cover",
@@ -27,16 +27,16 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "Your teacher",
+            "text": "Your trainer",
             "enable_custom_style": true,
-            "color": "#f25c05",
+            "color": "#2f4fd1",
             "size": 13
           }
         },
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "I teach adults who were told they are bad at languages",
+            "text": "I teach owners, not just dogs",
             "tag": "h1",
             "size_desktop": 44,
             "size_mobile": 30
@@ -45,14 +45,14 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Write your own story here in plain words: how you started teaching, what went wrong in the classes you sat through, and what you do differently now.</p><p>I read and answer every voice note myself. That part is not automated, and it is the part students say helps most.</p>"
+            "text": "<p>Write your own story here in plain words: how you started training, what you saw go wrong in classes, and what you do differently now.</p><p>I watch and answer every Sunday clip myself. That part is not automated, and it is the part owners say helps most.</p>"
           }
         },
         "button_1": {
           "type": "button",
           "settings": {
-            "label": "Start speaking",
-            "link": "/#shopify-section-pricing",
+            "label": "Start training",
+            "link": "/#shopify-section-offer",
             "button_style": "primary",
             "radius": 6
           }
@@ -75,8 +75,8 @@
         "content_align": "left",
         "content_gap": 18,
         "media_type": "image",
-        "image": "shopify://shop_images/courselanding-group.webp",
-        "image_alt": "Four friends talking around a café table",
+        "image": "shopify://shop_images/courselanding-highfive.webp",
+        "image_alt": "A woman sitting on a disused railway line giving a high five to her dog",
         "aspect_w": 1,
         "aspect_h": 1,
         "image_fit": "cover",
@@ -94,14 +94,14 @@
           "settings": {
             "text": "Why this course",
             "enable_custom_style": true,
-            "color": "#f25c05",
+            "color": "#2f4fd1",
             "size": 13
           }
         },
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Built for the table, not the exam",
+            "text": "Built for real homes, not the training field",
             "tag": "h2",
             "size_desktop": 40,
             "size_mobile": 28
@@ -110,7 +110,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Most courses teach you to pass a test. This one teaches you to sit at a table with Spanish speakers and keep up: the phrases people really use, at the speed they really talk.</p>"
+            "text": "<p>Most puppy classes happen in a hall once a week. Most problems happen in your hallway at seven in the morning. The course is filmed in ordinary homes and streets, so you practise where the trouble is.</p>"
           }
         }
       },
@@ -130,10 +130,10 @@
         "header_gap": 40,
         "show_dividers": true,
         "enable_custom_style": true,
-        "label_color": "#f25c05",
-        "item_heading_color": "#15171a",
-        "text_color": "#50545c",
-        "divider_color": "#e6e7ea",
+        "label_color": "#2f4fd1",
+        "item_heading_color": "#141a2e",
+        "text_color": "#4b5060",
+        "divider_color": "#e4e6ee",
         "item_heading_size": 22,
         "padding_top": 96,
         "padding_bottom": 96,
@@ -144,7 +144,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "How I teach",
+            "text": "How I train",
             "size_enable": true,
             "size_desktop": 40,
             "size_mobile": 28,
@@ -156,24 +156,24 @@
           "type": "column",
           "settings": {
             "label": "One",
-            "heading": "Listen first",
-            "text": "<p>Every lesson starts with real Spanish at normal speed. You understand more than you think.</p>"
+            "heading": "Reward what you want",
+            "text": "<p>Puppies repeat what pays. Catch the calm moments and pay for them, and you get more of them.</p>"
           }
         },
         "column_2": {
           "type": "column",
           "settings": {
             "label": "Two",
-            "heading": "Speak before you are ready",
-            "text": "<p>Mistakes in a small, kind group are how you get fluent. Nobody waits until they are perfect.</p>"
+            "heading": "Short and often",
+            "text": "<p>Three sessions of ten minutes teach more than one long one. A puppy stops listening after a quarter of an hour.</p>"
           }
         },
         "column_3": {
           "type": "column",
           "settings": {
             "label": "Three",
-            "heading": "Grammar in small pieces",
-            "text": "<p>One rule at a time, only when you need it to say something you want to say.</p>"
+            "heading": "Easy first, then harder",
+            "text": "<p>Every skill starts in the kitchen and ends in the park. Move on only when the easy version works.</p>"
           }
         }
       },
@@ -207,8 +207,8 @@
         "pagination_spacing": 28,
         "enable_custom_colors": true,
         "card_bg": "#ffffff",
-        "card_border_color": "#e6e7ea",
-        "quote_color": "#15171a",
+        "card_border_color": "#e4e6ee",
+        "quote_color": "#141a2e",
         "enable_custom_typography": true,
         "quote_size": 17,
         "autoplay": false,
@@ -225,66 +225,66 @@
           "type": "eyebrow",
           "settings": {
             "enabled": true,
-            "text": "Students"
+            "text": "Owners"
           }
         },
         "heading_1": {
           "type": "heading",
           "settings": {
             "enabled": true,
-            "text": "The first real conversation"
+            "text": "The first calm walk"
           }
         },
         "subheading_1": {
           "type": "subheading",
           "settings": {
             "enabled": true,
-            "text": "<p>Sample quotes to show the layout. Replace them with your students’ own words.</p>"
+            "text": "<p>Sample quotes to show the layout. Replace them with your own students’ words.</p>"
           }
         },
         "testimonial_1": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I had used an app for two years and still could not order a coffee without panicking. Six weeks of classes and I chatted with our neighbours in Málaga.</p>",
+            "quote": "<p>Our spaniel pulled so hard I dreaded walks. Two weeks of the lead lessons and my eleven year old can walk him to school.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "Started at 52"
+            "role": "Cocker spaniel, 5 months"
           }
         },
         "testimonial_2": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>The voice notes are the best part. Lucía hears the same mistake I make every week and tells me exactly how to fix it.</p>",
+            "quote": "<p>The Sunday clips are the best part. Jonah spotted that I was rewarding too late, every single time.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "Nurse, studies before shifts"
+            "role": "Labrador, 4 months"
           }
         },
         "testimonial_3": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Twenty minutes in the morning is the only way I could have done this. I do the lesson on the train.</p>",
+            "quote": "<p>Ten minutes three times a day is the only way this could work with two jobs and a toddler.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "Commutes to the city"
+            "role": "Rescue, mixed breed"
           }
         },
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Being in a group of six made me show up. Nobody minded my accent, and by week eight I stopped minding it too.</p>",
+            "quote": "<p>She used to bark at every knock on the door. Now she goes to her mat and waits.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "Moving to Valencia next year"
+            "role": "Border collie, 9 months"
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>My partner is from Mexico. I can finally talk to his mother on the phone.</p>",
+            "quote": "<p>The long line lessons gave me the nerve to let him off the lead in the park. He comes back.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "Learning for family"
+            "role": "German shepherd, 7 months"
           }
         }
       },
@@ -327,7 +327,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Say your first real sentence this week",
+            "text": "Start with ten minutes tomorrow morning",
             "enable_custom_style": true,
             "font": "heading",
             "weight": "700",
@@ -342,7 +342,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "Twelve weeks from now you could hold a conversation in Spanish. It starts with twenty minutes tomorrow morning.",
+            "text": "Six weeks from now you could have a puppy who walks beside you and comes when called. The first lesson takes ten minutes.",
             "enable_custom_style": true,
             "size_d": 18,
             "size_m": 16,
@@ -353,8 +353,8 @@
         "button_1": {
           "type": "button",
           "settings": {
-            "label": "Start speaking",
-            "link": "/#shopify-section-pricing"
+            "label": "Start training",
+            "link": "/#shopify-section-offer"
           }
         }
       },

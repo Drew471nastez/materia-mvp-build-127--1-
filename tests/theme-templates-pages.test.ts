@@ -354,7 +354,9 @@ async function main() {
     const pageJson = ["index", "product", "collection", "page.about", "page.contact", "page.faqs"].filter((f) => existsSync(join(overlay, "templates", `${f}.json`))).map((f) => [f, JSON.parse(readFileSync(join(overlay, "templates", `${f}.json`), "utf8").replace(/^\s*\/\*[\s\S]*?\*\//, "")) /* Changed on purpose (templates round 22): a template file may open with a comment. */ as { sections: Record<string, { type: string; settings?: Record<string, unknown>; blocks?: Record<string, { type: string; settings?: Record<string, unknown> }> }> }] as const)
     const promises: string[] = []
     for (const [f, json] of pageJson) for (const sec of Object.values(json.sections)) {
-      for (const [k, v] of Object.entries(sec.settings ?? {})) if (/^(end_iso|countdown_date|end_date|deadline)$/.test(k) && typeof v === "string" && v.trim() !== "") promises.push(`${f}: ${sec.type} counts down to ${v}`)
+      /* Changed on purpose (round 24): the owner asked for Materia's countdown sections on a few templates. One that starts again every day, week or month (countdown-timer2's restart_period) counts to a time that comes round again, a weekly live call or a weekly offer, never to a one off date that has passed; a fixed date still fails. */
+      const recurring = typeof sec.settings?.restart_period === "string" && sec.settings.restart_period !== "none"
+      for (const [k, v] of Object.entries(sec.settings ?? {})) if (/^(end_iso|countdown_date|end_date|deadline)$/.test(k) && typeof v === "string" && v.trim() !== "" && !recurring) promises.push(`${f}: ${sec.type} counts down to ${v}`)
       for (const b of Object.values(sec.blocks ?? {})) {
         if (b.type === "in_stock") promises.push(`${f}: an "In stock, receive it by" line that reads no stock and promises a date`)
         /* Changed on purpose (product page round 23): a Sold counter that reads the product's own count, verified from paid orders (lib/products/sold-counts-server.ts), is real proof; one with a typed number is still made up. */

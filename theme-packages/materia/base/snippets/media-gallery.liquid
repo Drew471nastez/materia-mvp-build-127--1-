@@ -46,6 +46,14 @@
     assign mg_per_view = '1.5'
   endif
   comment
+    Cards round 24: one picture fills the phone's width (a peek of nothing
+    left a gap at its side), and the grid and stacked layouts follow Images
+    per row (mobile) as the carousel does, instead of always 1.2.
+  endcomment
+  if images.size < 2 and type != 'quickview'
+    assign mg_per_view = '1'
+  endif
+  comment
     Sticky media (on unless the section turns it off): on a computer the
     shorter of the two columns stays in view while the other scrolls.
   endcomment
@@ -200,7 +208,7 @@
       <div
         id="GalleryViewer-{{ section.id }}"
         class="grid grid-cols gap grid_scroll"
-        style="{%- if desktop_layout == 'grid_1_column' -%}--col-number: 1.2;--col-desktop: 1;--col-tablet: 1;--col-gap: 10px;{%- else -%}--col-number: 1.2;--col-tablet: 2;--col-desktop: 2;--col-gap: 10px;{%- endif -%}"
+        style="{%- if desktop_layout == 'grid_1_column' -%}--col-number: {{ mg_per_view }};--col-desktop: 1;--col-tablet: 1;--col-gap: 10px;{%- else -%}--col-number: {{ mg_per_view }};--col-tablet: 2;--col-desktop: 2;--col-gap: 10px;{%- endif -%}"
       >
         {% render 'product-media-layout',
           product: product,
@@ -219,7 +227,7 @@
       <div
         class="stacked gap-10 grid grid-cols grid_scroll"
         id="GalleryViewer-{{ section.id }}"
-        style="--col-number: 1.2;"
+        style="--col-number: {{ mg_per_view }};"
       >
         {% render 'product-media-layout',
           product: product,

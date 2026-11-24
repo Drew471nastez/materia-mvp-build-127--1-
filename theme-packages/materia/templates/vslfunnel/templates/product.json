@@ -1,4 +1,4 @@
-/* Templates round 23: the Smallplot course page: title, price, options, start today and refund rows, buy buttons, a link back to the free lesson, what you get, questions and payment marks, then a look inside, student quotes and the other products. */
+/* Templates round 24: the Open Shade course page: title, price, options, start today and refund rows, buy buttons, a link back to the free lesson, what you get, questions and payment marks, then a look inside, student quotes and the other products. */
 {
   "sections": {
     "breadcrumb": {
@@ -71,7 +71,7 @@
           "type": "text",
           "settings": {
             "heading": "",
-            "content": "<p>An eight week online course in growing vegetables on a balcony, patio or small yard, taught by Maren Holt.</p>"
+            "content": "<p>An eight week online course in shooting in manual with the camera you already own, taught by Ida Marsh.</p>"
           }
         },
         "price_4": {
@@ -171,7 +171,7 @@
           "type": "whats_included",
           "settings": {
             "heading": "What you get",
-            "items": "46 video lessons in eight modules\nSix live Q and A calls with Maren\nPlanting calendar and bed plans to print\nLessons yours to keep",
+            "items": "44 video lessons in eight modules\nSix live photo reviews with Ida\nSettings cards to print\nLessons yours to keep",
             "two_columns": false,
             "boxed": true
           }
@@ -189,7 +189,7 @@
           "type": "collapsible_row",
           "settings": {
             "heading": "Options",
-            "content": "<p><strong>Course:</strong> the full class with the live calls. <strong>Course and a garden plan:</strong> adds a 45 minute video call with Maren and a planting plan drawn for your space. Either can be paid in full or in three monthly parts.</p>",
+            "content": "<p><strong>Course:</strong> the full class with the live reviews. <strong>Course and a portfolio review:</strong> adds a 45 minute video call with Ida on twenty of your photos, with written notes after. Either can be paid in full or in three monthly parts.</p>",
             "use_product_description": false,
             "open": false
           }
@@ -201,11 +201,11 @@
             "use_product_faqs": false,
             "first_open": false,
             "q_1": "When does the class start?",
-            "a_1": "<p>2 March. Module one opens the day you join, so you can read your space and order soil before the first sowings.</p>",
-            "q_2": "How much space do I need?",
-            "a_2": "<p>A spot with four or more hours of direct sun. A balcony of two square metres is enough for the whole course.</p>",
-            "q_3": "What if I miss a live call?",
-            "a_3": "<p>Every call is recorded and added to the course the same day. Send your question beforehand and Maren answers it on the recording.</p>",
+            "a_1": "<p>12 January. Module one opens the day you join, so you can learn your camera's dials before the first assignment.</p>",
+            "q_2": "Which camera do I need?",
+            "a_2": "<p>Any camera with a manual mode: mirrorless, DSLR or a compact with M on the dial.</p>",
+            "q_3": "What if I miss a live review?",
+            "a_3": "<p>Every call is recorded and added to the course the same day. Send your photos beforehand and Ida reviews them on the recording.</p>",
             "q_4": "What if it is not for me?",
             "a_4": "<p>Email us within 30 days of joining and you get a full refund.</p>",
             "spacing_top": 12,
@@ -280,8 +280,8 @@
         "section_width": "container",
         "image_position": "left",
         "text_column_width": 46,
-        "image": "shopify://shop_images/vslfunnel-bed.webp",
-        "image_alt": "Lettuce, chives and herbs growing in a wooden raised bed",
+        "image": "shopify://shop_images/vslfunnel-studio-wide.webp",
+        "image_alt": "A photographer lighting a model in a white studio while the shots come up on a laptop",
         "aspect_w": 3,
         "aspect_h": 2,
         "image_fit": "cover",
@@ -300,13 +300,13 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Short lessons, one job a week"
+            "text": "Short lessons, one assignment a week"
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Each module is five or six lessons of ten to twenty minutes and a single page with the week's job. About two hours a week in spring, less in summer.</p>"
+            "text": "<p>Each module is five or six lessons of ten to twenty minutes and a one page assignment. About two hours a week.</p>"
           }
         },
         "button_4": {
@@ -350,7 +350,7 @@
         "pagination_spacing": 32,
         "enable_custom_colors": true,
         "card_bg": "#ffffff",
-        "card_border_color": "#dfe4da",
+        "card_border_color": "#e4e4e4",
         "enable_custom_typography": true,
         "quote_size": 17,
         "autoplay": false,
@@ -390,50 +390,50 @@
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>My balcony was a row of dead herbs. This summer it held tomatoes, two kinds of beans and more salad than we could eat. The one page plan from week one did most of the work.</p>",
+            "quote": "<p>I had a camera for three years and used it twice. By week three I was shooting in manual without thinking about it, and my photos of the kids are finally sharp.</p>",
             "rating": 0,
-            "name": "Amira R.",
-            "role": "Balcony, third floor",
+            "name": "Naomi B.",
+            "role": "Mirrorless, bought secondhand",
             "avatar": "shopify://shop_images/vslfunnel-student-1.webp"
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>The raised bed lesson was the push I needed. One Saturday afternoon, two beds, and the planting calendar told me what went in each week.</p>",
+            "quote": "<p>The window light lesson changed every photo I take at home. One chair, one window, and I stopped using the flash.</p>",
             "rating": 0,
-            "name": "Jonas T.",
-            "role": "Small back yard",
+            "name": "Rafael O.",
+            "role": "Photographs his family",
             "avatar": "shopify://shop_images/vslfunnel-student-2.webp"
           }
         },
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Every week has one job, so I never felt behind. The live calls answered the questions I was too shy to post anywhere.</p>",
+            "quote": "<p>Each week has one assignment, so I never felt behind. In the live reviews Ida looked at my photos and told me exactly what to change.</p>",
             "rating": 0,
-            "name": "Sofia K.",
-            "role": "Windowsill and a shared yard",
+            "name": "Chloe L.",
+            "role": "First camera",
             "avatar": "shopify://shop_images/vslfunnel-student-3.webp"
           }
         },
         "testimonial_7": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Slugs ate everything I planted the year before. Module seven sorted that out without a single pellet.</p>",
+            "quote": "<p>I travel a lot and always came home with flat, grey pictures. Module three fixed that in an afternoon.</p>",
             "rating": 0,
-            "name": "David M.",
-            "role": "Allotment, first year",
+            "name": "Tomas K.",
+            "role": "Travel photos",
             "avatar": "shopify://shop_images/vslfunnel-student-4.webp"
           }
         },
         "testimonial_8": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Short, calm lessons. I watched most of them on my phone, standing next to the pots I was working on.</p>",
+            "quote": "<p>Short, clear lessons. I watched them on the train and tried the settings that evening.</p>",
             "rating": 0,
-            "name": "Lena P.",
-            "role": "Patio of pots",
+            "name": "Elif M.",
+            "role": "Learns on the commute",
             "avatar": "shopify://shop_images/vslfunnel-student-5.webp"
           }
         }
@@ -455,7 +455,7 @@
         "color_scheme": "default",
         "section_width": "container",
         "reset_spacing": true,
-        "heading": "Also from Smallplot",
+        "heading": "Also from Open Shade",
         "description": "",
         "header_size": "small",
         "header_alignment": "left",

@@ -325,7 +325,8 @@
   "main_menu": {
     "horizontal": {
       "close": "近い",
-      "title": "メニュー"
+      "title": "メニュー",
+      "more": "その他"
     },
     "vertical": {
       "title": "カテゴリー",

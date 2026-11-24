@@ -11,7 +11,7 @@
  *      in all), each with Publish, Edit and the long tail in a menu. A
  *      website being imported, added or copied has its row there from the
  *      first moment (./incoming.tsx), and the page scrolls to it when it lands.
- *   3. Browse themes: six templates as cards, then Show more, which opens
+ *   3. Browse themes: nine templates as cards, then Show more, which opens
  *      the theme marketplace as a popup over this page with every theme
  *      (./themes/themes-client.tsx). A card's cover opens the template's
  *      preview over the page (./themes/theme-preview.tsx).
@@ -744,8 +744,23 @@ async function decodedFirst(url: string | null, within = 10_000): Promise<void> 
 /** Saves this tab has already fetched the page again for. */
 const REFRESHED = new Set<string>()
 
-/** How many templates Browse themes shows before Show more opens the marketplace: two rows of three on a laptop. */
-const ROW_THEME_CARDS = 6
+/** How many templates Browse themes shows before Show more opens the marketplace: three rows of three on a laptop (round 24, the owner: nine, then Show more). */
+const ROW_THEME_CARDS = 9
+
+/**
+ * The templates Browse themes puts first, in this order, by address (round
+ * 24, the owner): Storelib Default first, Notion templates in the second
+ * row where the Cookbook was, and Night shop, Poster shop and Print on demand
+ * as the third. A slug the page was not given is skipped, and the rest of
+ * the marketplace's own order fills what is left.
+ */
+export const BROWSE_THEMES_FIRST = ["storelib-default", "clothing", "merch", "digital-products", "art-books", "templates-shop", "space-clothing", "posters", "print-on-demand"] as const
+
+/** Browse themes' cards: BROWSE_THEMES_FIRST that are there, then the others in the marketplace's order, `count` in all. */
+export function browseThemes<T extends { slug: string }>(listings: readonly T[], count: number = ROW_THEME_CARDS): T[] {
+  const first = BROWSE_THEMES_FIRST.map((slug) => listings.find((l) => l.slug === slug)).filter((l): l is T => !!l)
+  return [...first, ...listings.filter((l) => !first.includes(l))].slice(0, count)
+}
 
 /** The marketplace's and the preview's words out of the address, without a history entry. */
 function clearThemesAddress() {
@@ -1864,8 +1879,8 @@ export function WebsiteBuilderClient({
         }
       : null
 
-  /* Browse themes: the first six of the marketplace's themes, then Show more, which opens all of them. */
-  const explore = listings.slice(0, ROW_THEME_CARDS)
+  /* Browse themes: nine of the marketplace's themes, the owner's choice first (browseThemes), then Show more, which opens all of them. */
+  const explore = browseThemes(listings, ROW_THEME_CARDS)
   /* The template a preview names, among the ones this page was given; a slug it does not know opens nothing. */
   /*
     BROWSE THEMES WAITS FOR THE PAGE'S FIRST FRAME, ON A PHONE. It is a

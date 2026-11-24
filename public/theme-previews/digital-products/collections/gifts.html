@@ -1,7 +1,7 @@
 
 <!doctype html>
 <html class="no-js" lang="en" dir="ltr">
-<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;
+<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/digital-products/a/cart.317a2877b9d5.json";
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
@@ -15,11 +15,78 @@ function path(u){try{return new URL(u,location.href).pathname}catch(e){return""}
 var CART={token:"preview",note:"",attributes:{},original_total_price:0,total_price:0,total_discount:0,total_weight:0,item_count:0,items:[],requires_shipping:false,currency:"USD",items_subtotal_price:0,cart_level_discount_applications:[]};
 var NO={status:422,message:"Preview",description:"This is a preview of the template. Add it to your library to sell from it."};
 function reply(u){var p=path(u);
-if(/\/cart\/add(\.js)?$/.test(p)){showNote(pressed);return[422,"application/json",JSON.stringify(NO)]}
+if(/\/cart\/add(\.js)?$/.test(p))return[422,"application/json",JSON.stringify(NO)];
 if(/\/cart(\.js|\.json|\/(change|update|clear)(\.js)?)$/.test(p))return[200,"application/json",JSON.stringify(CART)];
 if(/\.(js|json)$/.test(p)||/\/search\/suggest/.test(p))return[200,"application/json","{}"];
 return[200,"text/html","<!doctype html><html><body></body></html>"]}
-var F=W.fetch;if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);if(mine(u))return F.apply(this,arguments);var r=reply(u);return Promise.resolve(new Response(r[2],{status:r[0],headers:{"Content-Type":r[1]}}))};
+var F=W.fetch;
+var SLUG=location.pathname.slice(ROOT.length).split("/")[0],CK="slpv-cart:"+SLUG,RE=[/(?=[<"\s>=])/,/(?=\n)/];
+function dec(s){var m=/^(\d+)~(.*)$/.exec(s||"");if(!m)return null;var lines=[];(m[2]?m[2].split("-"):[]).forEach(function(x){var p=x.split(".");var e=+p[0],q=+p[1];if(e>=0&&q>0&&e===Math.floor(e))lines.push({e:e,q:Math.min(99,Math.floor(q))})});return{t:+m[1],l:lines}}
+function enc(c){return c.t+"~"+c.l.map(function(x){return x.e+"."+x.q}).join("-")}
+function names(){try{var n=JSON.parse(W.name||"null");return n&&typeof n==="object"&&n.slpv?n:null}catch(e){return null}}
+var BAG=(function(){var best={t:0,l:[]},take=function(c){if(c&&c.t>=best.t)best=c};
+var m=/[?&]slc=([^&#]*)/.exec(location.search);if(m)take(dec(decodeURIComponent(m[1])));
+var n=names();if(n&&n.slpv[SLUG])take(dec(n.slpv[SLUG]));
+try{take(dec(W.localStorage.getItem(CK)))}catch(e){}
+return best})();
+function keep(){BAG.t=Date.now();var s=enc(BAG);try{W.localStorage.setItem(CK,s)}catch(e){}
+try{if(!W.name||names()){var n=names()||{slpv:{}};n.slpv[SLUG]=s;W.name=JSON.stringify(n)}}catch(e){}}
+function carry(u){if(!BAG.t)return u;try{var x=new URL(u,location.href);if(x.pathname.indexOf(ROOT+SLUG+"/")!==0||!/[.]html$/.test(x.pathname))return u;x.searchParams.set("slc",enc(BAG));return x.href}catch(e){return u}}
+D.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[href]");if(a&&!a.hasAttribute("data-preview-inert")){var to=carry(a.href);if(to!==a.href)a.href=to}},true);
+var DATA=null,DP=null;function data(){return DP||(DP=F(CART_DATA).then(function(r){return r.json()}).then(function(d){DATA=d;BAG.l=BAG.l.filter(function(x){return x.e<d.e.length});return d}))}
+var made={};function sec(i,k){var id=i+":"+k;if(made[id])return made[id];var x=DATA.e[i],o=k?x.r:x.d,s=typeof o==="string"?o:patch(sec(x.b,k),o);return made[id]=s}
+function patch(b,x){var ops=x.o;if(!ops.length)return b;var t=b.split(RE[x.t]);for(var k=ops.length-1;k>=0;k--)t.splice(ops[k][0],ops[k][1],ops[k][2]);return t.join("")}
+function money(c){var f=DATA.fmt||"$"+"{{amount}}",m=/\{\{\s*(\w+)\s*\}\}/.exec(f),k=m?m[1]:"amount",dp=/no_decimals/.test(k)?0:2,eu=/comma_separator/.test(k),p=(c/100).toFixed(dp).split(".");var s=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,eu?".":(/apostrophe/.test(k)?"'":","))+(p[1]?(eu?",":".")+p[1]:"");return f.replace(/\{\{\s*\w+\s*\}\}/,s)}
+function moneyRe(){var f=DATA.fmt||"$"+"{{amount}}",at=f.search(/\{\{/),end=f.indexOf("}}")+2;var esc=function(s){return s.replace(/[.*+?^$()|[\]\\{}]/g,"\\$&")};return new RegExp(esc(f.slice(0,at))+"\\d[\\d.,']*"+esc(f.slice(end)),"g")}
+function cents(s){var d=s.replace(/[^\d]/g,"");return /no_decimals/.test(DATA.fmt)?+d*100:+d}
+function texts(root,fn){if(!root)return;var w=root.ownerDocument.createTreeWalker(root,4),n;while(n=w.nextNode())n.nodeValue=fn(n.nodeValue)}
+function times(root,q){if(q===1)return;var re=moneyRe();texts(root,function(v){return v.replace(re,function(m){return money(cents(m)*q)})})}
+function set(root,c){var re=moneyRe(),done=false;texts(root,function(v){return v.replace(re,function(){if(done)return"";done=true;return money(c)})})}
+function line(el,q){el.querySelectorAll('input[name="updates[]"]').forEach(function(i){i.value=q;i.setAttribute("value",q);i.setAttribute("data-value",q)});el.querySelectorAll("[data-quantity]").forEach(function(x){x.setAttribute("data-quantity",q)});
+el.querySelectorAll(".minicart__item-prices,.cart-item__totals").forEach(function(x){times(x,q)})}
+function item(x,n){var it=JSON.parse(JSON.stringify(DATA.e[x.e].item)),q=x.q;it.quantity=q;it.key=DATA.e[x.e].k;["line_price","original_line_price","final_line_price","discounted_line_price"].forEach(function(k){if(typeof it[k]==="number")it[k]=it[k]*q});return it}
+function cartJson(){var items=BAG.l.map(item),sum=function(k){return items.reduce(function(a,b){return a+(+b[k]||0)},0)},total=sum("final_line_price")||sum("line_price");
+return{token:"preview",note:BAG.note||"",attributes:{},original_total_price:sum("original_line_price")||total,total_price:total,total_discount:0,total_weight:0,item_count:items.reduce(function(a,b){return a+b.quantity},0),items:items,requires_shipping:items.some(function(i){return i.requires_shipping}),currency:DATA.cur,items_subtotal_price:total,cart_level_discount_applications:[]}}
+var DP2=new DOMParser();
+function compose(k){if(!BAG.l.length)return DATA.empty[k];var c=cartJson(),docs=BAG.l.map(function(x){return DP2.parseFromString(sec(x.e,k),"text/html")}),sk=docs[0];
+var pick=function(d){return k?d.querySelector("table.cart-items tbody > tr.cart-item"):d.querySelector("#minicart-form .items > .cart-item")};
+var first=pick(sk);if(!first)return DATA.empty[k];var box=first.parentNode;
+BAG.l.forEach(function(x,n){var el=n?sk.importNode(pick(docs[n]),true):first;line(el,x.q);if(k)renumber(el,n+1);if(n)box.appendChild(el)});
+sk.querySelectorAll("[data-cart-subtotal-price],.cart-info .totals").forEach(function(x){set(x,c.total_price)});
+return sk.body.innerHTML}
+function renumber(el,n){[el].concat([].slice.call(el.querySelectorAll("*"))).forEach(function(x){["id","for","data-index"].forEach(function(a){var v=x.getAttribute(a);if(v!=null&&/(^|-)1$/.test(v))x.setAttribute(a,v.replace(/1$/,n))});if(x.classList)[].slice.call(x.classList).forEach(function(c){if(/^cart-item__totals-1$/.test(c)){x.classList.remove(c);x.classList.add("cart-item__totals-"+n)}})})}
+function sections(ask){var out={};(Array.isArray(ask)?ask:String(ask||"").split(",")).forEach(function(s){s=String(s).trim();if(!s)return;out[s]=s==="minicart-form"?compose(0):s===DATA.page?compose(1):null});return out}
+function find(id){id=String(id==null?"":id);var m=/^pv(\d+)x$/.exec(id);if(m)return +m[1];for(var i=0;i<DATA.e.length;i++)if(DATA.e[i].id===id||DATA.e[i].k===id)return i;for(i=0;i<DATA.e.length;i++)if(DATA.e[i].p===id)return i;return -1}
+function fieldsOf(b){var o={};if(!b)return o;if(typeof b==="string"){try{return JSON.parse(b)}catch(e){b=new URLSearchParams(b)}}
+if(b.forEach&&!Array.isArray(b)){b.forEach(function(v,k){var m=/^items\[(\d+)\]\[(\w+)\]$/.exec(k);if(m){(o.items=o.items||[])[+m[1]]=(o.items[+m[1]]||{});o.items[+m[1]][m[2]]=v;return}var u=/^updates\[(.*)\]$/.exec(k);if(u){(o.updates=o.updates||(u[1]===""?[]:{}));if(Array.isArray(o.updates))o.updates.push(v);else o.updates[u[1]]=v;return}o[k]=v});return o}return o}
+function lineOf(f){if(f.line!=null&&f.line!==""){var n=+f.line-1;return BAG.l[n]?n:-1}var e=find(f.id);for(var i=0;i<BAG.l.length;i++)if(BAG.l[i].e===e)return i;return -1}
+function setQ(n,q){q=Math.max(0,Math.min(99,Math.floor(+q)||0));if(n<0)return;if(!q)BAG.l.splice(n,1);else BAG.l[n].q=DATA.e[BAG.l[n].e].one?1:q}
+function bad(m){return[422,{status:422,message:m,description:m}]}
+function cartReply(p,o){var f=fieldsOf(o&&o.body),act=/\/cart\/(add|change|update|clear)(?:\.js)?$/.exec(p);return data().then(function(){
+if(!act){var j=cartJson();return[200,j]}
+if(act[1]==="add"){var list=f.items&&f.items.length?f.items.filter(Boolean):[{id:f.id,quantity:f.quantity}],added=[];
+for(var i=0;i<list.length;i++){var e=find(list[i].id);if(e<0)return bad("This option is sold out.");var q=Math.max(1,Math.min(99,Math.floor(+list[i].quantity)||1)),hit=null;
+BAG.l.forEach(function(x){if(x.e===e)hit=x});if(hit)hit.q=DATA.e[e].one?1:Math.min(99,hit.q+q);else{hit={e:e,q:DATA.e[e].one?1:q};BAG.l.push(hit)}added.push(hit)}
+keep();var out=f.items&&f.items.length?{items:added.map(item)}:item(added[0]);if(f.sections)out.sections=sections(f.sections);return[200,out]}
+if(act[1]==="change"){setQ(lineOf(f),f.quantity)}
+else if(act[1]==="clear"){BAG.l=[]}
+else{if(f.note!=null)BAG.note=String(f.note);var u=f.updates;if(Array.isArray(u))u.forEach(function(q,n){setQ(n,q)});else if(u&&typeof u==="object")Object.keys(u).forEach(function(k){setQ(lineOf({id:k}),u[k])})}
+BAG.l=BAG.l.filter(function(x){return x.q>0});keep();var j=cartJson();if(f.sections)j.sections=sections(f.sections);return[200,j]})}
+function sectionsReply(u){return data().then(function(){var x=new URL(u,location.href);return[200,sections(x.searchParams.get("sections"))]})}
+function count(){return BAG.l.reduce(function(a,b){return a+b.q},0)}
+function paintCount(){var n=count();D.querySelectorAll(".cart-count").forEach(function(el){var t=el.classList.contains("cart-count-drawer")?"("+n+")":String(n);if(el.textContent.trim()!==t)el.textContent=t})}
+var hold=null;if(BAG.l.length&&/\/cart\.html$/.test(location.pathname)){hold=D.createElement("style");hold.textContent="#main-cart-items{visibility:hidden}";(D.head||D.documentElement).appendChild(hold)}
+function arrive(){if(W.routes){try{var cu=W.routes.cart_url;Object.defineProperty(W.routes,"cart_url",{configurable:true,get:function(){return carry(ROOT+SLUG+"/cart.html")}})}catch(e){}}
+if(!CART_DATA||!BAG.l.length)return;paintCount();data().then(function(){if(!BAG.l.length){if(hold)hold.remove();return}
+var dr=D.getElementById("minicart-form");if(dr){var d=DP2.parseFromString(compose(0),"text/html").querySelector("#minicart-form");if(d){dr.innerHTML=d.innerHTML;var cd=dr.closest("cart-drawer,cart-notification,.is-empty");if(cd)cd.classList.remove("is-empty")}}
+var pg=D.getElementById("main-cart-items");if(pg){var s=pg.closest(".shopify-section")||pg.parentNode,n=DP2.parseFromString(compose(1),"text/html").querySelector(".shopify-section");if(s&&n)s.innerHTML=n.innerHTML}
+paintCount();if(hold)requestAnimationFrame(function(){hold.remove()})}).catch(function(){if(hold)hold.remove()})}
+if(D.readyState==="loading")D.addEventListener("DOMContentLoaded",arrive);else arrive();
+
+if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);if(mine(u))return F.apply(this,arguments);
+/* Cards round 24: the cart answers from the template's drawn cart (./theme-templates/preview-cart.ts), as a store would. */
+var p=path(u),q=/[?&]sections=/.test(u),c=/\/cart(\.js|\.json|\/(add|change|update|clear)(\.js)?)$/.test(p);if(CART_DATA&&(c||q)){var w=c?cartReply(p,o):sectionsReply(u);return w.then(function(r){return new Response(JSON.stringify(r[1]),{status:r[0],headers:{"Content-Type":"application/json"}})},function(){var r=reply(u);return new Response(r[2],{status:r[0],headers:{"Content-Type":r[1]}})})}
+var r=reply(u);return Promise.resolve(new Response(r[2],{status:r[0],headers:{"Content-Type":r[1]}}))};
 var X=W.XMLHttpRequest&&W.XMLHttpRequest.prototype;if(X){var O=X.open;X.open=function(m,u){var a=[].slice.call(arguments);if(!mine(u)){var r=reply(u);a[0]="GET";a[1]="data:"+r[1]+","+encodeURIComponent(r[2])}return O.apply(this,a)}}
 if(navigator.sendBeacon)navigator.sendBeacon=function(){return true};
 W.open=function(){return null};
@@ -36,13 +103,17 @@ n.style.left=Math.round(x)+"px";n.style.top=Math.round(y)+"px";note=n;
 requestAnimationFrame(function(){requestAnimationFrame(function(){n.style.opacity="1";n.style.transform="none"})});noteT=setTimeout(hideNote,3200)}
 W.addEventListener("scroll",hideNote,{passive:true});
 function productForm(f){return !!(f&&f.querySelector&&f.querySelector("input[name=id],select[name=id]"))}
-var BUY=".product-form__submit,.shopify-payment-button__button,.product_buy_now_button,.button_buy-now,.product-group-buy-now,[data-add-to-cart],[data-buy-now]";
-function buying(b){if(!b||!b.getAttribute)return false;var n=(b.getAttribute("name")||"").toLowerCase();if(n==="add"||n==="checkout")return true;if(b.matches&&b.matches(BUY))return true;var t=(b.getAttribute("type")||(b.tagName==="BUTTON"?"submit":"")).toLowerCase();return (t==="submit"||t==="image")&&productForm(b.form||b.closest("form"))}
-var pressed=null;D.addEventListener("pointerdown",function(e){pressed=e.target&&e.target.closest?e.target.closest("button,a,input"):null},true);
+/* Cards round 24: Add to cart goes to the preview's cart; Buy now and Check out, which would take an order, still get the note. */
+var BUY=".shopify-payment-button__button,.product_buy_now_button,.product-group-buy-now,[data-buy-now],.btn-checkout,.cart__checkout-button";
+function buying(b){if(!b||!b.getAttribute)return false;var n=(b.getAttribute("name")||"").toLowerCase();if(n==="checkout")return true;return !!(b.closest&&b.closest(BUY))}
 W.addEventListener("click",function(e){var b=e.target&&e.target.closest&&e.target.closest("button,input[type=submit],input[type=image],a");if(!buying(b))return;e.preventDefault();e.stopImmediatePropagation();showNote(b)},true);
-function submit(f,b){setTimeout(function(){var ev;try{ev=new SubmitEvent("submit",{bubbles:true,cancelable:true,submitter:b||null})}catch(_){ev=new Event("submit",{bubbles:true,cancelable:true})}f.dispatchEvent(ev)},0)}
+function submit(f,b){setTimeout(function(){var ev;try{ev=new SubmitEvent("submit",{bubbles:true,cancelable:true,submitter:b||null})}catch(_){ev=new Event("submit",{bubbles:true,cancelable:true})}f.dispatchEvent(ev);if(!ev.defaultPrevented&&productForm(f))addAlone(f,b)},0)}
+/* A product form no script of the theme takes: added here, and the drawer opens with it (or the cart page, where the page has none). */
+function addAlone(f,b){var id=f.querySelector("input[name=id],select[name=id]"),q=f.querySelector("input[name=quantity]");if(!CART_DATA||!id){showNote(b);return}
+cartReply("/cart/add.js",{body:JSON.stringify({id:id.value,quantity:q?q.value:1,sections:["minicart-form"]})}).then(function(r){if(r[0]!==200){showNote(b);return}var dr=D.getElementById("minicart-form"),cn=D.querySelector("cart-notification,cart-drawer");
+if(dr&&cn&&cn.open){var d=new DOMParser().parseFromString(r[1].sections["minicart-form"],"text/html").querySelector("#minicart-form");if(d)dr.innerHTML=d.innerHTML;cn.classList.remove("is-empty");paintCount();cn.open()}else location.href=carry(ROOT+SLUG+"/cart.html")})}
 D.addEventListener("click",function(e){var b=e.target&&e.target.closest&&e.target.closest("button,input[type=submit],input[type=image]");if(!b||!b.form)return;var t=(b.getAttribute("type")||"submit").toLowerCase();if(t!=="submit"&&t!=="image")return;e.preventDefault();submit(b.form,b)},true);
-D.addEventListener("keydown",function(e){var i=e.target;if(e.key!=="Enter"||!i||i.tagName!=="INPUT"||!i.form)return;e.preventDefault();if(productForm(i.form)){showNote(i.form.querySelector("[name=add],button[type=submit],button:not([type])")||i);return}submit(i.form,null)},true);
+D.addEventListener("keydown",function(e){var i=e.target;if(e.key!=="Enter"||!i||i.tagName!=="INPUT"||!i.form)return;e.preventDefault();submit(i.form,i.form.querySelector("[name=add],button[type=submit],button:not([type])"))},true);
 D.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[data-preview-inert]");if(a)e.preventDefault()},true);
 var told=false;function tell(){if(told)return;told=true;try{parent.postMessage({type:"storelib:template-preview",ready:true,path:location.pathname},"*")}catch(e){}}
 W.addEventListener("load",tell);D.addEventListener("DOMContentLoaded",function(){setTimeout(tell,1200)});
@@ -135,9 +206,9 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
         } catch (e) {}
       })();
     </script>
-<link href="/theme-previews/_base/a/critical.7f3f35898a25.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/critical.03978b251a4f.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
 <link href="/theme-previews/_base/a/animation.d0494c87fafa.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/product-card.f00653542c82.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"primary","product_size":17,"price_size":15,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
+<link href="/theme-previews/_base/a/product-card.9a3739dc0c4c.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"primary","product_size":17,"price_size":15,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
 <style>html:not([data-card-custom='true']) .product-item .product-item__name { font-size:var(--body-font-size, 16px); text-transform:var(--heading-text-transform, none) !important; } html:not([data-card-custom='true']) .product-item .product-item__price { font-size:var(--body-font-size, 16px); }</style>
 <script>document.documentElement.dataset.cardCustom = false === true ? 'true' : 'false';</script>
 <script type="application/json" data-badge-style-settings>false</script>
@@ -256,7 +327,7 @@ data-menu-hover="none"
     .shopify-section + #shopify-section-top_bar {
       margin-top: 0 !important;
     }</style><link rel="stylesheet" href="/theme-previews/digital-products/a/i.8ca5eca54d18.css">
-<!-- ti-theme:start --><link rel="stylesheet" href="/theme-previews/digital-products/a/i.392f7319f582.css" data-shopify><div
+<!-- ti-theme:start --><link rel="stylesheet" href="/theme-previews/digital-products/a/i.fcb0dfd8408d.css" data-shopify><div
 id="topbar-top_bar" data-tb-width="full_width" data-announcement-three="top_bar" data-pro-three-settings="{&quot;color_scheme&quot;:{&quot;id&quot;:&quot;scheme-6da511c0-ea26-4213-b3d3-e09320840636&quot;,&quot;settings&quot;:{&quot;page_colors&quot;:null,&quot;background&quot;:{&quot;red&quot;:36,&quot;green&quot;:64,&quot;blue&quot;:230,&quot;alpha&quot;:1,&quot;hue&quot;:231,&quot;saturation&quot;:80,&quot;lightness&quot;:52,&quot;rgb&quot;:&quot;36 64 230&quot;,&quot;rgba&quot;:&quot;36 64 230 / 1&quot;,&quot;hex&quot;:&quot;#2440e6&quot;},&quot;text_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;heading_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;primary_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;border_color&quot;:{&quot;red&quot;:77,&quot;green&quot;:100,&quot;blue&quot;:236,&quot;alpha&quot;:1,&quot;hue&quot;:231,&quot;saturation&quot;:81,&quot;lightness&quot;:61,&quot;rgb&quot;:&quot;77 100 236&quot;,&quot;rgba&quot;:&quot;77 100 236 / 1&quot;,&quot;hex&quot;:&quot;#4d64ec&quot;},&quot;badge_background&quot;:null,&quot;badge_text&quot;:null,&quot;primary_button_colors&quot;:null,&quot;btn_primary_background&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_primary_color&quot;:{&quot;red&quot;:36,&quot;green&quot;:64,&quot;blue&quot;:230,&quot;alpha&quot;:1,&quot;hue&quot;:231,&quot;saturation&quot;:80,&quot;lightness&quot;:52,&quot;rgb&quot;:&quot;36 64 230&quot;,&quot;rgba&quot;:&quot;36 64 230 / 1&quot;,&quot;hex&quot;:&quot;#2440e6&quot;},&quot;btn_primary_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_primary_hover_background&quot;:{&quot;red&quot;:232,&quot;green&quot;:235,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:232,&quot;saturation&quot;:100,&quot;lightness&quot;:95,&quot;rgb&quot;:&quot;232 235 255&quot;,&quot;rgba&quot;:&quot;232 235 255 / 1&quot;,&quot;hex&quot;:&quot;#e8ebff&quot;},&quot;btn_primary_hover_color&quot;:{&quot;red&quot;:36,&quot;green&quot;:64,&quot;blue&quot;:230,&quot;alpha&quot;:1,&quot;hue&quot;:231,&quot;saturation&quot;:80,&quot;lightness&quot;:52,&quot;rgb&quot;:&quot;36 64 230&quot;,&quot;rgba&quot;:&quot;36 64 230 / 1&quot;,&quot;hex&quot;:&quot;#2440e6&quot;},&quot;btn_primary_hover_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;secondary_button_colors&quot;:null,&quot;btn_secondary_background&quot;:{&quot;red&quot;:36,&quot;green&quot;:64,&quot;blue&quot;:230,&quot;alpha&quot;:1,&quot;hue&quot;:231,&quot;saturation&quot;:80,&quot;lightness&quot;:52,&quot;rgb&quot;:&quot;36 64 230&quot;,&quot;rgba&quot;:&quot;36 64 230 / 1&quot;,&quot;hex&quot;:&quot;#2440e6&quot;},&quot;btn_secondary_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_border&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_hover_background&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_hover_color&quot;:{&quot;red&quot;:36,&quot;green&quot;:64,&quot;blue&quot;:230,&quot;alpha&quot;:1,&quot;hue&quot;:231,&quot;saturation&quot;:80,&quot;lightness&quot;:52,&quot;rgb&quot;:&quot;36 64 230&quot;,&quot;rgba&quot;:&quot;36 64 230 / 1&quot;,&quot;hex&quot;:&quot;#2440e6&quot;},&quot;btn_secondary_hover_border_color&quot;:null,&quot;background_gradient&quot;:&quot;&quot;,&quot;btn_primary_gradient&quot;:&quot;&quot;,&quot;btn_primary_hover_background_gradient&quot;:&quot;&quot;,&quot;btn_secondary_hover_border&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_outline_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_outline_border_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;button_link_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;button_link_hover_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;}}},&quot;section_width&quot;:&quot;full_width&quot;,&quot;sticky_top&quot;:false,&quot;show_mobile&quot;:true,&quot;text_align&quot;:&quot;center&quot;,&quot;uppercase&quot;:false,&quot;font_size&quot;:14,&quot;font_weight&quot;:&quot;body_weight&quot;,&quot;letter_spacing&quot;:0,&quot;enable_custom_fonts&quot;:false,&quot;font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;enable_custom_colors&quot;:false,&quot;custom_bg_color&quot;:null,&quot;custom_text_color&quot;:null,&quot;custom_link_color&quot;:null,&quot;custom_arrow_color&quot;:null,&quot;border_position&quot;:&quot;bottom&quot;,&quot;border_width&quot;:0,&quot;border_color&quot;:{&quot;red&quot;:229,&quot;green&quot;:229,&quot;blue&quot;:229,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:90,&quot;rgb&quot;:&quot;229 229 229&quot;,&quot;rgba&quot;:&quot;229 229 229 / 1&quot;,&quot;hex&quot;:&quot;#e5e5e5&quot;},&quot;reveal&quot;:true,&quot;show_arrows&quot;:false,&quot;show_arrows_mobile&quot;:false,&quot;transition_speed&quot;:700,&quot;change_every&quot;:5,&quot;padding_top&quot;:9,&quot;padding_bottom&quot;:9,&quot;enable_custom_position&quot;:false,&quot;desktop_horizontal_offset&quot;:0,&quot;section_margin_top_desktop&quot;:0,&quot;section_margin_bottom_desktop&quot;:0,&quot;section_margin_top_mobile&quot;:0,&quot;section_margin_bottom_mobile&quot;:0,&quot;reset_spacing&quot;:true}"
 data-sticky-announcement="false"
 data-tb-blocks="text_slider_1:text_slider " data-tb-border="bottom:0" data-tb-pos="false:0"
@@ -267,7 +338,7 @@ style="--section-pt: 9; --section-pb: 9;--swiper-navigation-color: var(--color-t
 <div
 class="flex flex-wrap flex-md-nowrap gap justify-center justify-between-1025 align-center topbar__section-inner gap-10 gap-lg-25 fs-custom body_weight"
 style="--font-size: 14;" data-tb-font="Assistant, sans-serif"
-><div class="topbar-item text-slide" data-tb-block="text_slider_1"><announcement-rotator-v2
+><div class="topbar__side topbar__side--start"></div><div class="topbar-item text-slide" data-tb-block="text_slider_1"><announcement-rotator-v2
 id="topbar-messages-top_bar-text_slider_1"
 class="topbar-slider"
 data-section-id="top_bar"
@@ -278,7 +349,8 @@ data-duration="700"
 <div class="px-10 topbar-text-cell"><span class="topbar-text topbar-text--lg" data-tb-text>Every file downloads the moment you pay</span><span class="topbar-text topbar-text--sm" data-tb-text-mobile>Every file downloads the moment you pay</span></div>
 </div>
 </div>
-</announcement-rotator-v2></div></div>
+</announcement-rotator-v2></div><div class="topbar__side topbar__side--end"></div>
+</div>
 </div>
 </div>
 </div><div id="shopify-section-header" class="shopify-section shopify-section-group-header-group section-header" data-section-id="header" data-section-type="theme-header"><link href="/theme-previews/_base/a/header-section.1c94351c418a.css" rel="stylesheet" type="text/css" media="all">
@@ -313,7 +385,7 @@ data-duration="700"
       --hs-logo-max-height: 44px;
       --hs-logo-box-height: 60px;
     }
-  }:root { --hs-mnav-title-bg: #242424; --hs-mnav-title-color: #ffffff; }</style><link href="/theme-previews/_base/a/header-layout.9f68c30912e8.css" rel="stylesheet" type="text/css" media="all">
+  }:root { --hs-mnav-title-bg: #242424; --hs-mnav-title-color: #ffffff; }</style><link href="/theme-previews/_base/a/header-layout.c35c8527fd88.css" rel="stylesheet" type="text/css" media="all">
 <style>
   #shopify-section-header {
     --header-height-desktop: 76px;
@@ -374,16 +446,17 @@ style="
 --custom_2-cl: #ffffff;--custom_2-bg-cl: #8b5cf6;
 "
 >
-<div class="navigation__menu-content word-break">
+<div class="navigation__menu-content word-break"><noscript><style>.header__menu .horizontal-list[data-hs-wait] { opacity: 1 !important; animation: none !important; }</style></noscript>
 <ul
 class="horizontal-list list-unstyled inline-flex-1025 flex-wrap row-gap-0 horizontal px-30 px-1025-0 show-localization animation-down-to-up"
+data-hs-wait
 >
 <svg hidden>
 <symbol id="icon-arrow-down">
 <path fill="currentColor" d="M1.09 1.822a.52.52 0 0 1-.178-.396c0-.164.06-.306.178-.424A.557.557 0 0 1 1.5.838c.164 0 .3.055.41.164L5 4.092l3.09-3.09A.557.557 0 0 1 8.5.838c.164 0 .3.055.41.164.119.118.178.26.178.424a.52.52 0 0 1-.178.396l-3.5 3.5A.535.535 0 0 1 5 5.5c-.164 0-.3-.06-.41-.178l-3.5-3.5Z"/>
 </symbol>
 </svg>
-<li
+<li data-hs-i="0"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -391,7 +464,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/digital-products/collections/all.html"
 ><span>All files</span></a></menu-item></li>
-<li
+<li data-hs-i="1"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -399,7 +472,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/digital-products/pages/licence.html"
 ><span>Licence</span></a></menu-item></li>
-<li
+<li data-hs-i="2"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -407,7 +480,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/digital-products/pages/faqs.html"
 ><span>Questions</span></a></menu-item></li>
-<li
+<li data-hs-i="3"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -415,6 +488,44 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/digital-products/pages/about.html"
 ><span>About</span></a></menu-item></li>
+<li class="level0 menu-parent menu-parent__horizontal dropdown-menu hs-more" data-hs-more>
+<menu-item class="relative static-1025 flex justify-between align-center header-color px-15">
+<a
+class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
+href="#"
+role="button"
+aria-haspopup="true"
+aria-expanded="false"
+data-hs-more-toggle
+>
+<span>More</span>
+<open-children-toggle class="inline-flex flex-end align-center ms-5">
+<svg class="icon-down" width="10" height="6" aria-hidden="true">
+<use href="#icon-arrow-down" />
+</svg>
+</open-children-toggle>
+</a>
+</menu-item>
+<div class="submenu submenu-horizontal invisible-1025 absolute gradient color-default">
+<ul class="subchildmenu hs-more__list list-unstyled px-1025-0"><li class="menu-link level-1" data-hs-more-i="0" hidden>
+<a
+class="menu_item-link no-underline py-1025-5 inline-flex align-center"
+href="/theme-previews/digital-products/collections/all.html"
+><span class="menu-link-text">All files</span></a></li><li class="menu-link level-1" data-hs-more-i="1" hidden>
+<a
+class="menu_item-link no-underline py-1025-5 inline-flex align-center"
+href="/theme-previews/digital-products/pages/licence.html"
+><span class="menu-link-text">Licence</span></a></li><li class="menu-link level-1" data-hs-more-i="2" hidden>
+<a
+class="menu_item-link no-underline py-1025-5 inline-flex align-center"
+href="/theme-previews/digital-products/pages/faqs.html"
+><span class="menu-link-text">Questions</span></a></li><li class="menu-link level-1" data-hs-more-i="3" hidden>
+<a
+class="menu_item-link no-underline py-1025-5 inline-flex align-center"
+href="/theme-previews/digital-products/pages/about.html"
+><span class="menu-link-text">About</span></a></li></ul>
+</div>
+</li>
 <li class="level0 hidden-1025">
 <a
 href="#" data-preview-inert
@@ -486,7 +597,7 @@ class="horizontal-list list-unstyled inline-flex-1025 flex-wrap row-gap-0 horizo
 <path fill="currentColor" d="M1.09 1.822a.52.52 0 0 1-.178-.396c0-.164.06-.306.178-.424A.557.557 0 0 1 1.5.838c.164 0 .3.055.41.164L5 4.092l3.09-3.09A.557.557 0 0 1 8.5.838c.164 0 .3.055.41.164.119.118.178.26.178.424a.52.52 0 0 1-.178.396l-3.5 3.5A.535.535 0 0 1 5 5.5c-.164 0-.3-.06-.41-.178l-3.5-3.5Z"/>
 </symbol>
 </svg>
-<li
+<li data-hs-i="0"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -494,7 +605,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/digital-products/collections/all.html"
 ><span>All files</span></a></menu-item></li>
-<li
+<li data-hs-i="1"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -502,7 +613,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/digital-products/pages/licence.html"
 ><span>Licence</span></a></menu-item></li>
-<li
+<li data-hs-i="2"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -510,7 +621,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/digital-products/pages/faqs.html"
 ><span>Questions</span></a></menu-item></li>
-<li
+<li data-hs-i="3"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -593,7 +704,7 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
 </div>
 </header-inner>
 </div>
-</div></header>
+</div></header><script src="/theme-previews/digital-products/a/i.b8ec2f2ea707.js"></script>
 <link href="/theme-previews/_base/a/header-sticky.6c34c873cb06.css" rel="stylesheet" type="text/css" media="all">
 <script src="/theme-previews/digital-products/a/i.9790def5bd53.js"></script><script src="/theme-previews/_base/a/header-sticky-extras.78e1fb4f310f.js" defer="defer"></script></div><script src="/theme-previews/digital-products/a/i.0d9f91566ff2.js"></script>
 <main id="MainContent" class="content-for-layout focus-none" role="main" tabindex="-1"><section id="shopify-section-main-collection-heading" class="shopify-section page-title" data-section-id="main-collection-heading" data-section-type="main-collection-heading"><style>
@@ -1091,7 +1202,8 @@ $29.00
 </div>
 </div>
 </div>
-</div><script type="application/json" class="product-variant__quantity">
+</div>
+<script type="application/json" class="product-variant__quantity">
             [{ "option":"Personal","qty":11,"available":true,"mamagement":""},{ "option":"Commercial","qty":11,"available":true,"mamagement":""}]
           </script>
 </motion-element><script type="application/json" class="productItemVariantsQty">
@@ -1161,7 +1273,8 @@ $19.00
 </div>
 </div>
 </div>
-</div><script type="application/json" class="product-variant__quantity">
+</div>
+<script type="application/json" class="product-variant__quantity">
             [{ "option":"Personal","qty":11,"available":true,"mamagement":""},{ "option":"Commercial","qty":11,"available":true,"mamagement":""}]
           </script>
 </motion-element><script type="application/json" class="productItemVariantsQty">

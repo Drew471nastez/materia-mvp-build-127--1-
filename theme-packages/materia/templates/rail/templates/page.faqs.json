@@ -1,0 +1,155 @@
+{
+  "sections": {
+    "faq": {
+      "type": "faq-tabs",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "tab_1_label": "Sizing",
+        "tab_2_label": "Fabrics",
+        "tab_3_label": "Shipping",
+        "tab_4_label": "Returns and care",
+        "tab_5_label": "",
+        "open_first": true,
+        "allow_multiple_open": true,
+        "header_align": "left",
+        "section_max_width_desktop": 900,
+        "tabs_shadow": "none",
+        "tab_weight": "500",
+        "q_size": 17,
+        "q_weight": "700",
+        "a_size": 15,
+        "padding_top_desktop": 56,
+        "padding_bottom_desktop": 96,
+        "padding_top_mobile": 40,
+        "padding_bottom_mobile": 56,
+        "structured_data": true
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Size and care",
+            "tag": "h1",
+            "size_enable": true,
+            "size_desktop": 40,
+            "size_mobile": 32
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Fit, fabrics, shipping and washing. Anything else, <a href=\"/pages/contact\">write to us</a>.</p>"
+          }
+        },
+        "faq_1": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "How do the tees and sweats fit?",
+            "answer": "<p>Boxy: wide in the shoulder and a little short in the body. Take your usual size; one down for a closer fit.</p>"
+          }
+        },
+        "faq_2": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "How do the knit and the jackets fit?",
+            "answer": "<p>True to size, with room for a hoodie under the bomber.</p>"
+          }
+        },
+        "faq_3": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "Where do I find measurements?",
+            "answer": "<p>Every product page has a size guide in centimetres, measured flat across the garment.</p>"
+          }
+        },
+        "faq_4": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "2",
+            "question": "How heavy is heavyweight?",
+            "answer": "<p>Our tees are 240 gsm and the hoodie fleece is 450 gsm. A standard tee is around 150.</p>"
+          }
+        },
+        "faq_5": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "2",
+            "question": "Will the cotton shrink?",
+            "answer": "<p>Every piece is washed before it is sewn, so it moves less than 3 percent if you wash it cold.</p>"
+          }
+        },
+        "faq_6": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "2",
+            "question": "Is the knit itchy?",
+            "answer": "<p>It is a wool and alpaca mix. Most people wear it over a tee.</p>"
+          }
+        },
+        "faq_7": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "How long does shipping take?",
+            "answer": "<p>Orders ship in 1 to 2 working days, tracked, and arrive in 2 to 5.</p>"
+          }
+        },
+        "faq_8": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "What does shipping cost?",
+            "answer": "<p>Free over $120. Below that, the price is shown at checkout before you pay.</p>"
+          }
+        },
+        "faq_9": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "4",
+            "question": "How do returns work?",
+            "answer": "<p>Within 30 days, unworn with the tags on. Start a return from the link in your order email and we send a free label.</p>"
+          }
+        },
+        "faq_10": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "4",
+            "question": "How should I wash it?",
+            "answer": "<p>Cold and inside out, then dry flat or on a hanger. Skip the tumble dryer.</p>"
+          }
+        },
+        "faq_11": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "4",
+            "question": "Do you repair seams?",
+            "answer": "<p>Yes, free for the first year. Write to us with a photo and your order number.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1",
+        "faq_1",
+        "faq_2",
+        "faq_3",
+        "faq_4",
+        "faq_5",
+        "faq_6",
+        "faq_7",
+        "faq_8",
+        "faq_9",
+        "faq_10",
+        "faq_11"
+      ]
+    }
+  },
+  "order": [
+    "faq"
+  ]
+}

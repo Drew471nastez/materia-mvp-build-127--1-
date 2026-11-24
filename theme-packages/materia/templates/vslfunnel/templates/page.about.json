@@ -1,12 +1,12 @@
-/* Templates round 23: about Maren Holt, the sample teacher: her story, why the course exists, three ideas it is built on, student quotes and the free planting calendar. */
+/* Templates round 24: about Ida Marsh, the sample teacher: her story, why the course exists, three ideas it is built on, student quotes and the free settings cards. */
 {
   "sections": {
     "story": {
       "type": "Image-and-video-text",
       "settings": {
         "color_scheme": "default",
-        "image": "shopify://shop_images/vslfunnel-maren.webp",
-        "image_alt": "Maren Holt on her porch step with a bowl of tomatoes and peppers",
+        "image": "shopify://shop_images/vslfunnel-ida-portrait.webp",
+        "image_alt": "Ida Marsh smiling in her studio with a camera in one hand",
         "image_position": "left",
         "aspect_w": 4,
         "aspect_h": 5,
@@ -23,20 +23,20 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Maren Holt",
+            "text": "Ida Marsh",
             "tag": "h1"
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Maren started growing food on a third floor balcony with two pots of tomatoes and a bag of compost she carried up the stairs. Nine years later she grows most of her family's summer vegetables on a rented terrace and one shared raised bed.</p><p>For eight years she has run the beginners' class at her community garden. Smallplot is that class, filmed over a whole season. This is sample text. Replace it with your own story.</p>"
+            "text": "<p>Ida bought her first camera with her first pay cheque and left it on auto for a year. When she finally learned the three settings it took a weekend, because someone explained them plainly.</p><p>She has photographed portraits and events for eleven years and taught an evening class for six. Open Shade is that class, filmed. This is sample text. Replace it with your own story.</p>"
           }
         },
         "button_4": {
           "type": "button",
           "settings": {
-            "label": "Join the spring class",
+            "label": "Join the January class",
             "link": "/collections/all"
           }
         }
@@ -52,8 +52,8 @@
       "type": "Image-and-video-text",
       "settings": {
         "color_scheme": "default",
-        "image": "shopify://shop_images/vslfunnel-tomatoes.webp",
-        "image_alt": "Cherry tomatoes ripening on a plant in a pot",
+        "image": "shopify://shop_images/vslfunnel-studio-wide.webp",
+        "image_alt": "A photographer working with a model in a bright white studio",
         "image_position": "right",
         "aspect_w": 1,
         "aspect_h": 1,
@@ -69,13 +69,13 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Growing books assume you have a garden"
+            "text": "Camera manuals explain buttons, not photos"
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Most growing advice is written for long beds and a shed. People in flats and terraced houses kept asking the same questions in class: which pot, how much sun, what to do about the wind on the fourth floor. The course answers those first.</p>"
+            "text": "<p>A good camera comes with a manual of four hundred pages and a menu of ninety items. People in Ida's class kept asking the same things: why indoor photos come out dark, why the children are blurred, why the sky turns white. The course answers those first.</p>"
           }
         }
       },
@@ -103,24 +103,24 @@
           "type": "column",
           "settings": {
             "label": "01",
-            "heading": "Small is easier",
-            "text": "<p>A balcony you look after every day grows more than a big bed you visit on Sundays.</p>"
+            "heading": "Learn on the camera you own",
+            "text": "<p>New gear fixes very little. Knowing three settings fixes most things.</p>"
           }
         },
         "column_3": {
           "type": "column",
           "settings": {
             "label": "02",
-            "heading": "One job a week",
-            "text": "<p>Gardening falls apart when everything is urgent. The season has an order, and the course follows it.</p>"
+            "heading": "One setting a week",
+            "text": "<p>Learning everything at once is why people go back to auto. The course adds one thing at a time.</p>"
           }
         },
         "column_4": {
           "type": "column",
           "settings": {
             "label": "03",
-            "heading": "No sprays",
-            "text": "<p>Nets, timing and a few flowers do the work. Nothing in the course needs a chemical.</p>"
+            "heading": "Shoot, then talk",
+            "text": "<p>Every lesson ends with an assignment, and every other week someone looks at the result with you.</p>"
           }
         }
       },
@@ -162,27 +162,27 @@
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "body": "My balcony was a row of dead herbs. This summer it held tomatoes, beans and more salad than we could eat.",
-            "name": "Amira R.",
-            "role": "Balcony, third floor",
+            "body": "I had a camera for three years and used it twice. By week three I was shooting in manual without thinking about it, and my photos of the kids are finally sharp.",
+            "name": "Naomi B.",
+            "role": "Mirrorless, bought secondhand",
             "rating": 0
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "body": "One Saturday afternoon, two raised beds, and the calendar told me what went in each week.",
-            "name": "Jonas T.",
-            "role": "Small back yard",
+            "body": "The window light lesson changed every photo I take at home. One chair, one window, and I stopped using the flash.",
+            "name": "Rafael O.",
+            "role": "Photographs his family",
             "rating": 0
           }
         },
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "body": "Every week has one job, so I never felt behind.",
-            "name": "Sofia K.",
-            "role": "Windowsill and a shared yard",
+            "body": "Each week has one assignment, so I never felt behind. In the live reviews Ida looked at my photos and told me exactly what to change.",
+            "name": "Chloe L.",
+            "role": "First camera",
             "rating": 0
           }
         }
@@ -200,28 +200,28 @@
       "type": "newsletter-split",
       "settings": {
         "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "image": "shopify://shop_images/vslfunnel-seedlings.webp",
-        "image_alt": "Seedlings coming up in a tray of soil blocks",
+        "image": "shopify://shop_images/vslfunnel-prints.webp",
+        "image_alt": "Printed photographs pinned to a cork board beside rolls of film",
         "image_position": "left",
         "image_ratio": "landscape",
         "image_width": 50,
         "form_layout": "horizontal",
-        "btn_text": "Send me the calendar",
+        "btn_text": "Send me the cards",
         "email_placeholder": "Your email",
         "note": "One email a month at most. Leave whenever you like.",
-        "success_text": "Done. The calendar is on its way to your inbox."
+        "success_text": "Done. The settings cards are on their way to your inbox."
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Get the planting calendar free"
+            "text": "Get the settings cards free"
           }
         },
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>The calendar from module one as a PDF: what to sow and plant each week, worked out from your last frost date.</p>"
+            "text": "<p>Four pocket cards from module one as a PDF: the settings to start from for portraits, movement, low light and landscapes.</p>"
           }
         }
       },

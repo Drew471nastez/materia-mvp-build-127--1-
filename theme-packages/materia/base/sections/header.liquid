@@ -1530,7 +1530,7 @@
                   </symbol>
           </svg>
           {%- if hs_cta_pos == 'before_icons' -%}{{ hs_cta }}{%- endif -%}
-          {% if show_language or show_country %}
+          {% if show_language or show_country %}{% unless section_st.localization_in_menu_only %}
             <div class="lang__currency-desktop hidden flex-1025 align-center">
               {% if show_country %}
                 {% render 'country-switcher', compact: true %}
@@ -1539,7 +1539,7 @@
                 {% render 'language-switcher' %}
               {% endif %}
             </div>
-          {% endif %}
+          {% endunless %}{% endif %}
           {%- liquid
             if top_search
               render 'top-search-header', as_text: actions_as_text, text_class: header_text_class
@@ -1570,6 +1570,8 @@
     </div>
   {%- endif -%}
 </header>
+{%- comment -%} Right after the whole bar (logo, menu, icons and button) is in the page, so the menu is fitted against the room the others really leave, before the first paint. {%- endcomment -%}
+{%- render 'header-menu-fit' -%}
 {% render 'header-sticky-controller', pgs: pgs %}
 {%- if false -%}
 <script>
@@ -2254,6 +2256,13 @@
       "id": "show_language",
       "label": "Show language",
       "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "localization_in_menu_only",
+      "label": "Only in the phone menu",
+      "info": "Turn on when the announcement bar shows the selectors on desktop, so they are not shown twice.",
+      "default": false
     },
     {
       "type": "header",

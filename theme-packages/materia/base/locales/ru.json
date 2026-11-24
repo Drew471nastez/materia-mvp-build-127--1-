@@ -325,7 +325,8 @@
   "main_menu": {
     "horizontal": {
       "close": "Закрывать",
-      "title": "Меню"
+      "title": "Меню",
+      "more": "Ещё"
     },
     "vertical": {
       "title": "Категории",

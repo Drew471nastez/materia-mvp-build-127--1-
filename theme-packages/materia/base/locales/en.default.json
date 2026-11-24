@@ -538,7 +538,8 @@
   "main_menu": {
     "horizontal": {
       "close": "Close",
-      "title": "Menu"
+      "title": "Menu",
+      "more": "More"
     },
     "vertical": {
       "title": "Categories",

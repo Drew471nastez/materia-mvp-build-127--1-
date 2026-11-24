@@ -136,7 +136,7 @@ export const CODE_TEMPLATES: readonly CodeTemplate[] = [
   { slug: "vsl-course", template: "vsl", name: "Video sales letter", category: "courses" },
   /* Templates round 20: a one page course site, outlined labels and accent words, a curriculum that opens and a form card, after the owner's onepage reference. */
   { slug: "online-course", template: "course2", name: "Online course", category: "courses" },
-  /* Templates round 20: a one offer course sales page on a soft grey ground, dark panels, a timeline of screens and everything in the offer, after the owner's reference. */
+  /* Templates round 20: a one offer course sales page, after the owner's reference. Round 24: Good Lead, a six week puppy training course in cobalt blue; the offer is the course product itself (the theme's featured product) in place of price cards. */
   { slug: "course-landing", template: "courselanding", name: "Course landing", category: "courses" },
   /* Templates round 20: a merch shop on an old desktop, product windows, a taskbar with a Start menu, quick view and added to cart dialogs. */
   { slug: "retro-merch", template: "retro", name: "Retro desktop", category: "creators" },
@@ -154,12 +154,14 @@ export const CODE_TEMPLATES: readonly CodeTemplate[] = [
   { slug: "caps-tees", template: "capstees", name: "Caps and tees", category: "fashion" },
   /* Templates round 22: a print on demand apparel store after the owner's reference: a split sale hero, a gift guide, price tiles, new arrivals, a product highlight, big collection tiles, a shop visit banner, email signup and reviews, built from the theme's own sections. */
   { slug: "print-on-demand", template: "podshop", name: "Print on demand", category: "fashion" },
-  /* Templates round 23: Strata, an outerwear label after the owner's streetwear reference: a two picture hero, trending pieces under tabs, category banners, a list of collections, a highlight beside a grid, a story split, a review, an Instagram strip and a big wordmark, built from the theme's own sections. */
+  /* Templates round 23: Strata, an outerwear label after the owner's streetwear reference: trending pieces under tabs, category banners, a list of collections, a story split, an Instagram strip and a big wordmark, built from the theme's own sections. Round 24: Materia's scrolling picture hero with three editorial photographs, the shop the look and testimonial with product sections in place of the custom ones, and a collection for every menu link. */
   { slug: "outerwear", template: "outerwear", name: "Outerwear label", category: "fashion" },
-  /* Templates round 23: a second video sales letter, on a light page: Smallplot, an eight week course in growing vegetables on a balcony, patio or small yard. The free lesson plays in a large player with its own cover picture, then who it is for, the eight modules, the teacher, student quotes, the offer with a refund, questions and a book a call page, built from the theme's own sections. */
+  /* Templates round 23: a second video sales letter, on a light page. Round 24: Open Shade, an eight week course in shooting in manual with the camera you already own, in black and yellow. The free lesson plays in a large player with the teacher on its cover, then who it is for, the eight modules, the teacher, student quotes, the offer with a refund, questions and a book a call page, built from the theme's own sections. */
   { slug: "vsl-funnel", template: "vslfunnel", name: "VSL funnel", category: "courses" },
-  /* Templates round 23: one Notion template's sales page after the owner's reference: Offer Board, a job search tracker by Northpaper. A hero with the workspace, the pages inside as screenshot cards, who it is for, the extras, two plans, a note from the maker, a wall of buyer notes, questions and a last call, built from the theme's own sections around one card grid (notionpage-cards). */
+  /* Templates round 23: one Notion template's sales page after the owner's reference, by Northpaper; round 24: the product is Creator OS, a Notion system for content creators, with buyer photos. A hero with the workspace, the pages inside as screenshot cards, who it is for, the extras, two plans, a note from the maker, a wall of buyer notes, questions and a last call, built from the theme's own sections around one card grid (notionpage-cards). */
   { slug: "notion-sales-page", template: "notionpage", name: "Notion sales page", category: "digital" },
+  /* Templates round 24: Hanger Lane, a heavyweight basics label whose home page opens on a clothing rail (hanging-rail): garments on hangers that turn to the front under the pointer and lift into a focus view with sizes and Add to cart. Then bestsellers under tabs, two category tiles, shop the look, a statement, a story banner, reviews, a community strip and a lookbook page with the rail over a landscape, built from the theme's own sections. */
+  { slug: "boutique-rail", template: "rail", name: "Boutique rail", category: "fashion" },
 ]
 
 /** Where a template's pictures live: its home page whole at 1440 wide, and at a phone's width (scripts/build-theme-template-covers.ts takes both). */

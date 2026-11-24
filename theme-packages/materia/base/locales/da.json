@@ -325,7 +325,8 @@
   "main_menu": {
     "horizontal": {
       "close": "Tæt",
-      "title": "Menu"
+      "title": "Menu",
+      "more": "Mere"
     },
     "vertical": {
       "title": "Kategorier",

@@ -49,10 +49,19 @@
             "text3_mobile": "",
             "hidden_on_mobile": false
           }
+        },
+        "cur_lang_1": {
+          "type": "cur_lang",
+          "settings": {
+            "show_currency": true,
+            "show_language": true,
+            "hidden_on_mobile": true
+          }
         }
       },
       "block_order": [
-        "text_slider_1"
+        "text_slider_1",
+        "cur_lang_1"
       ]
     },
     "header": {
@@ -123,7 +132,8 @@
         "count_bubble_color": "#ffffff",
         "menu_mobile_background": "#ffffff",
         "dropdown_radius": 0,
-        "dropdown_shadow": "none"
+        "dropdown_shadow": "none",
+        "localization_in_menu_only": true
       },
       "blocks": {
         "pill_glass_1": {

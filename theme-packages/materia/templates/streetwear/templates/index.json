@@ -109,7 +109,7 @@
         "show_short_description": false,
         "show_swatches": false,
         "show_price": true,
-        "show_add_to_cart": false,
+        "show_add_to_cart": true,
         "show_action": false,
         "header_alignment": "left",
         "padding_top": 20,
@@ -266,42 +266,47 @@
       ]
     },
     "statement": {
-      "type": "text-heading",
+      "type": "scroll-text-banner",
       "settings": {
         "color_scheme": "default",
-        "section_width": "container",
-        "reset_spacing": true,
-        "reveal": true,
-        "show_on_mobile": true,
-        "elements_alignment": "center",
-        "enable_second_text": false,
-        "second_text": "",
-        "second_text_size_desktop": 16,
-        "second_text_size_mobile": 14,
-        "second_text_font_weight": "400",
-        "title_text_size": 44,
-        "title_mobile_size": 28,
-        "title_font_weight": "theme",
-        "title_line_height": "1.2",
-        "section_height_desktop": 170,
-        "section_height_mobile": 170,
+        "text_align": "center",
+        "max_width": 1040,
+        "uppercase": false,
+        "font_size_d": 48,
+        "font_size_m": 28,
+        "line_height": 1.2,
+        "bold": true,
+        "font_style": "heading",
+        "letter_spacing": -1,
+        "base_opacity": 15,
+        "scroll_length": 100,
+        "fit_content_d": true,
+        "fit_content_m": true,
+        "stage_height_d": 100,
+        "stage_height_m": 100,
+        "reveal_speed": 0.3,
         "padding_top": 112,
         "padding_bottom": 112,
-        "padding_left_desktop": 80,
-        "padding_right_desktop": 80,
-        "padding_left_mobile": 20,
-        "padding_right_mobile": 20
+        "width": "container"
       },
       "blocks": {
-        "title": {
-          "type": "title",
+        "text_1": {
+          "type": "text",
           "settings": {
-            "title_text": "Washed linen, cut loose, made to be worn from the first coffee to the last light"
+            "text": "<p>Washed linen, cut loose and light, made to be worn from the first coffee to <strong>the last light</strong>, then washed and worn again tomorrow.</p>"
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "label": "OUR STORY",
+            "link": "/pages/about"
           }
         }
       },
       "block_order": [
-        "title"
+        "text_1",
+        "button_1"
       ]
     },
     "sea": {
@@ -498,15 +503,245 @@
         "heading",
         "buttons"
       ]
+    },
+    "places": {
+      "type": "inline-image-heading",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "reset_spacing": true,
+        "content_alignment": "center",
+        "image_size": 84,
+        "image_gap": 8,
+        "image_offset_y": 0,
+        "heading_size": 58,
+        "heading_size_mobile": 30,
+        "image_size_mobile": 44,
+        "enable_custom_size": true,
+        "heading_line_height": "1.15",
+        "heading_letter_spacing": -1,
+        "reveal": true,
+        "padding_top": 104,
+        "padding_bottom": 104,
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 64,
+        "show_eyebrow": false,
+        "heading_tag": "h2"
+      },
+      "blocks": {
+        "t1": {
+          "type": "text",
+          "settings": {
+            "text": "Worn on the beach"
+          }
+        },
+        "i1": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/streetwear-beach-shirt.webp"
+          }
+        },
+        "t2": {
+          "type": "text",
+          "settings": {
+            "text": "in the old town"
+          }
+        },
+        "i2": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/streetwear-cafe-street.webp"
+          }
+        },
+        "t3": {
+          "type": "text",
+          "settings": {
+            "text": "and up the hill"
+          }
+        },
+        "i3": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/streetwear-hill-palms.webp"
+          }
+        }
+      },
+      "block_order": [
+        "t1",
+        "i1",
+        "t2",
+        "i2",
+        "t3",
+        "i3"
+      ]
+    },
+    "weekend": {
+      "type": "countdown-timer2",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "section_width": "container",
+        "reset_spacing": true,
+        "end_date": "2026-11-29",
+        "end_time": "23:59",
+        "restart_period": "weekly",
+        "show_days": true,
+        "days_label": "Days",
+        "show_hours": true,
+        "hours_label": "Hours",
+        "show_minutes": true,
+        "minutes_label": "Mins",
+        "show_seconds": true,
+        "seconds_label": "Secs",
+        "layout_direction": "timer_right",
+        "vertical_alignment": "center",
+        "gap_columns": 64,
+        "circle_size_desktop": 92,
+        "circle_radius": 50,
+        "gap_circles_desktop": 14,
+        "enable_custom_style": true,
+        "circle_bg_color": "#ffffff",
+        "circle_text_color": "#121211",
+        "label_color": "#cfcdc7",
+        "number_font_size_desktop": 28,
+        "label_font_size_desktop": 13,
+        "reveal": true,
+        "scroll_animation": "smooth-fade-up",
+        "padding_top": 88,
+        "padding_bottom": 88,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "circle_size_mobile": 66,
+        "number_font_size_mobile": 20,
+        "label_font_size_mobile": 11,
+        "gap_circles_mobile": 8
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "heading": "Two shirts for $180 this week",
+            "font_size_desktop": 44,
+            "font_size_mobile": 28,
+            "gap_below": 10
+          }
+        },
+        "description_1": {
+          "type": "description",
+          "settings": {
+            "description": "<p>Pick any two linen shirts and the second is $60 off at checkout. The offer ends at midnight on Sunday.</p>",
+            "gap_below": 20
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "button_label": "Shop shirts",
+            "button_url": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_1",
+        "button_1"
+      ]
+    },
+    "fabric": {
+      "type": "progress-circles",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "text_align": "center",
+        "per_row_desktop": "4",
+        "per_row_mobile": "2",
+        "ring_size_desktop": 132,
+        "ring_thickness": 3,
+        "percent_size_desktop": 30,
+        "label_size_desktop": 15,
+        "label_max_width": 220,
+        "animate": true,
+        "enable_custom_style": true,
+        "ring_color": "#161615",
+        "ring_track": "#e2e0da",
+        "percent_color": "#161615",
+        "label_color": "#55544f",
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 96,
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 64
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "What a shirt is made of",
+            "size_desktop": 36,
+            "size_mobile": 26
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>From the cloth to the box it comes in.</p>"
+          }
+        },
+        "s1": {
+          "type": "stat",
+          "settings": {
+            "percent": 100,
+            "label": "Linen, woven from European flax"
+          }
+        },
+        "s2": {
+          "type": "stat",
+          "settings": {
+            "percent": 100,
+            "label": "Recycled paper in the mailer it ships in"
+          }
+        },
+        "s3": {
+          "type": "stat",
+          "settings": {
+            "percent": 3,
+            "label": "Shrinks after the first wash, then holds its size"
+          }
+        },
+        "footnote_1": {
+          "type": "footnote",
+          "settings": {
+            "text": "<p>Sample figures for this template. Put your own fabric facts here.</p>"
+          }
+        },
+        "s4": {
+          "type": "stat",
+          "settings": {
+            "percent": 100,
+            "label": "Washed before it ships, so it is soft from the first wear"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1",
+        "s1",
+        "s4",
+        "s3",
+        "s2",
+        "footnote_1"
+      ]
     }
   },
   "order": [
     "hero",
     "most_wanted",
+    "statement",
     "everyday",
     "split",
-    "statement",
+    "places",
+    "weekend",
     "sea",
+    "fabric",
     "hill",
     "town"
   ]

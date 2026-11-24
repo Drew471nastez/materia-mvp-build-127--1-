@@ -206,9 +206,8 @@
     "show_rate": false,
     "show_wishlist": false,
     "show_add_cart": true,
-    "show_quick_view": true,
-    "show_secondary_image": false,
-    "product_hover_effect": "none",
+    "show_secondary_image": true,
+    "product_hover_effect": "hover_fade",
     "scroll_animation": "none",
     "hover_effect": "none",
     "card_atc_button": "outline",
@@ -234,6 +233,10 @@
     "logo": "shopify://shop_images/space-moon.webp",
     "instagram": "https://instagram.com",
     "youtube": "https://youtube.com",
-    "tiktok": "https://tiktok.com"
+    "tiktok": "https://tiktok.com",
+    "bubble_bg": "#e0201b",
+    "bubble_text": "#ffffff",
+    "bubble_border_width": 0,
+    "cart_drawer_buttons": "both"
   }
 }

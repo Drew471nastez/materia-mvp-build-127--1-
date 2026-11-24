@@ -1,4 +1,4 @@
-/* Templates round 23: one journal post, more posts, then the free planting calendar. */
+/* Templates round 24: one journal post, more posts, then the free settings cards. */
 {
   "sections": {
     "main": {
@@ -49,7 +49,7 @@
         "author_highlight_n4CqbT": {
           "type": "author_highlight",
           "settings": {
-            "author_text": "Liked this? The Small Space Food Garden goes through the whole season, one week at a time.",
+            "author_text": "Liked this? Shoot in Manual takes one setting a week, with an assignment for each.",
             "author_image_size": 65
           }
         }
@@ -96,28 +96,28 @@
       "type": "newsletter-split",
       "settings": {
         "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "image": "shopify://shop_images/vslfunnel-seedlings.webp",
-        "image_alt": "Seedlings coming up in a tray of soil blocks",
+        "image": "shopify://shop_images/vslfunnel-prints.webp",
+        "image_alt": "Printed photographs pinned to a cork board beside rolls of film",
         "image_position": "left",
         "image_ratio": "landscape",
         "image_width": 50,
         "form_layout": "horizontal",
-        "btn_text": "Send me the calendar",
+        "btn_text": "Send me the cards",
         "email_placeholder": "Your email",
         "note": "One email a month at most. Leave whenever you like.",
-        "success_text": "Done. The calendar is on its way to your inbox."
+        "success_text": "Done. The settings cards are on their way to your inbox."
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Get the planting calendar free"
+            "text": "Get the settings cards free"
           }
         },
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>The calendar from module one as a PDF: what to sow and plant each week, worked out from your last frost date.</p>"
+            "text": "<p>Four pocket cards from module one as a PDF: the settings to start from for portraits, movement, low light and landscapes.</p>"
           }
         }
       },

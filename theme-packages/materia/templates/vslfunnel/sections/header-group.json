@@ -31,7 +31,7 @@
         "redirect_to_link": true,
         "logo_width_mobile": 78,
         "menu_link_spacing": 30,
-        "menu_mobile_color": "#16211a",
+        "menu_mobile_color": "#161616",
         "show_account_icon": false,
         "action_text_weight": "400",
         "logo_width_desktop": 78,
@@ -113,13 +113,13 @@
             "custom_text": "#ffffff",
             "mobile_size": "small",
             "button_style": "primary",
-            "custom_border": "#1f5130",
-            "custom_radius": 8,
+            "custom_border": "#161616",
+            "custom_radius": 6,
             "show_on_mobile": false,
             "button_offset_x": 0,
             "button_offset_y": 0,
             "button_position": "after_icons",
-            "custom_hover_bg": "#16211a",
+            "custom_hover_bg": "#000000",
             "custom_font_size": 15,
             "custom_padding_x": 20,
             "custom_padding_y": 11,
@@ -130,7 +130,7 @@
             "mobile_hide_icons": "account_wishlist_search",
             "custom_font_weight": "600",
             "custom_border_width": 1,
-            "custom_hover_border": "#16211a"
+            "custom_hover_border": "#000000"
           }
         }
       },

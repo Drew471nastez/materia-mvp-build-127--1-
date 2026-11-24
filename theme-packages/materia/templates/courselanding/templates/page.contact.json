@@ -19,14 +19,14 @@
         "description_2": {
           "type": "description",
           "settings": {
-            "text": "<p>A question before you join, a class time that does not work, or trouble with a lesson. It all comes to the same inbox.</p>"
+            "text": "<p>A question before you join, a class time that does not work, or a problem that is not in the lessons. It all comes to the same inbox.</p>"
           }
         },
         "info_3": {
           "type": "info",
           "settings": {
             "icon": "mail",
-            "line1": "hola@charla.school",
+            "line1": "hello@goodlead.example",
             "line2": "Replace with your own address"
           }
         },
@@ -61,15 +61,15 @@
         "gap_header_to_items": 28,
         "item_padding_y": 22,
         "enable_custom_style": true,
-        "question_color": "#15171a",
-        "hover_color": "#f25c05",
-        "icon_color": "#f25c05",
-        "answer_color": "#50545c",
-        "divider_color": "#e6e7ea",
-        "card_bg": "#f3f4f6",
+        "question_color": "#141a2e",
+        "hover_color": "#2f4fd1",
+        "icon_color": "#2f4fd1",
+        "answer_color": "#4b5060",
+        "divider_color": "#e4e6ee",
+        "card_bg": "#f2f4fa",
         "card_border_color": "rgba(0,0,0,0)",
-        "card_heading_color": "#15171a",
-        "card_text_color": "#50545c",
+        "card_heading_color": "#141a2e",
+        "card_text_color": "#4b5060",
         "reveal": false,
         "padding_top": 24,
         "padding_bottom": 104,
@@ -91,36 +91,36 @@
         "faq_item_1": {
           "type": "faq_item",
           "settings": {
-            "question": "I have tried before and given up. Why would this be different?",
-            "answer": "<p>Most people give up because they never speak. Here you speak in the first class, in a small group, and someone expects you there twice a week.</p>"
+            "question": "My puppy is eight weeks old. Is that too young?",
+            "answer": "<p>No, it is a good time to start. Week one is short sessions on the floor at home, before your puppy has had its vaccinations and can go out.</p>"
           }
         },
         "faq_item_2": {
           "type": "faq_item",
           "settings": {
-            "question": "Which Spanish do you teach?",
-            "answer": "<p>Spanish from Spain in the lessons, with notes on how Latin American Spanish differs. Teachers in the classes come from both.</p>"
+            "question": "Does it work for an older dog?",
+            "answer": "<p>Yes, up to about two years and often older. Start at week one; grown dogs usually move faster through the first stage.</p>"
           }
         },
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
-            "question": "What if I miss a class?",
-            "answer": "<p>Join another group that week, or watch the recording and send a voice note instead. Life happens.</p>"
+            "question": "What if I miss a live class?",
+            "answer": "<p>Every class is recorded and added to the course the same day. Send your question beforehand and the trainer answers it on the recording.</p>"
           }
         },
         "faq_item_4": {
           "type": "faq_item",
           "settings": {
-            "question": "When are the classes?",
-            "answer": "<p>Mornings and evenings in European and American time zones. You pick a group when you join. Change this to your own schedule.</p>"
+            "question": "When are the live classes?",
+            "answer": "<p>Wednesday evenings, one class for European time zones and one for American ones. You pick when you join. Change this to your own schedule.</p>"
           }
         },
         "card_text_1": {
           "type": "card_text",
           "settings": {
-            "heading": "Not sure where you are?",
-            "text": "<p>Tell us what Spanish you have now and why you are learning. Lucía replies within two days.</p>"
+            "heading": "Not sure where to start?",
+            "text": "<p>Tell us your puppy’s age and what is hardest right now. Jonah replies within two days.</p>"
           }
         },
         "button_1": {

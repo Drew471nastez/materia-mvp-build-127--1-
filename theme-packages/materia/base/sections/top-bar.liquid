@@ -300,22 +300,21 @@
     #topbar-{{ section.id }} .lang__currency-desktop { flex: 0 1 auto; flex-wrap: nowrap; gap: 12px; min-width: 0; }
     #topbar-{{ section.id }} .lang__currency-desktop .localization-flags { width: 20px; height: 20px; }
     #topbar-{{ section.id }} .button-localization > span { min-width: 0; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+    /* Sides (topbar__side): on phones they are not boxes at all, so the blocks wrap and centre as one row. On desktop the bar is three columns and the two sides are always the same width, so a centred message is centred on the page and not on the room the side content leaves. */
+    #topbar-{{ section.id }} .topbar__side { display: contents; }
     @media (min-width: 1025px) {
-      /* A message + selector pair stays centered on the page, not on the leftover space. */
-      #topbar-{{ section.id }} .topbar__section-inner:has(> .text-slide + .lang__currency-desktop:last-child) {
+      #topbar-{{ section.id }} .topbar__section-inner {
         display: grid;
-        grid-template-columns: minmax(220px, 1fr) minmax(0, 760px) minmax(220px, 1fr);
+        grid-template-columns: minmax(0, 1fr) minmax(0, auto) minmax(0, 1fr);
+        align-items: center;
       }
-      #topbar-{{ section.id }} .topbar__section-inner:has(> .text-slide + .lang__currency-desktop:last-child) > .text-slide {
-        grid-column: 2;
-        width: 100%;
-        margin-inline: auto;
-        justify-self: center;
-      }
-      #topbar-{{ section.id }} .topbar__section-inner:has(> .text-slide + .lang__currency-desktop:last-child) > .lang__currency-desktop {
-        grid-column: 3;
-        justify-self: end;
-      }
+      #topbar-{{ section.id }}[style*="--tb-justify: flex-start"] .topbar__section-inner,
+      #topbar-{{ section.id }}[style*="--tb-justify: flex-end"] .topbar__section-inner { grid-template-columns: auto minmax(0, 1fr) auto; }
+      #topbar-{{ section.id }} .topbar__side { display: flex; align-items: center; gap: 12px 24px; min-width: 0; }
+      #topbar-{{ section.id }} .topbar__side--start { grid-column: 1; justify-content: flex-start; }
+      #topbar-{{ section.id }} .topbar__side--end { grid-column: 3; justify-content: flex-end; }
+      #topbar-{{ section.id }} .topbar__section-inner > .text-slide { grid-column: 2; width: min(760px, 100%); }
+      #topbar-{{ section.id }} .topbar__section-inner > .text-slide.topbar-has-arrows { width: min(690px, 100%); }
     }
     @media (max-width: 767px) {
       #topbar-{{ section.id }} .text-slide.topbar-has-arrows:not(.topbar-mobile-arrows) { grid-template-columns: minmax(0, 1fr); }
@@ -378,11 +377,16 @@
         class="flex flex-wrap flex-md-nowrap gap justify-center justify-between-1025 align-center topbar__section-inner gap-10 gap-lg-25 fs-custom {{ section_st.font_weight }}"
         style="--font-size: {{ section_st.font_size }};{% if tb_font != blank %}--tb-font: {{ tb_font }};{% endif %}"{% if tb_font != blank %} data-own-font{% endif %}{% if section_st.font != blank %} data-tb-font="{{ section_st.font.family }}, {{ section_st.font.fallback_families }}"{% endif %}
       >
+        {%- comment -%} Each block is drawn into one of three places: what comes before the first message, the messages, and what comes after. On desktop the two sides take equal columns, so the message sits in the middle of the page whatever is beside it (socials, contact details, selectors). On phones the places fall away and the blocks wrap and centre as before. {%- endcomment -%}
         {%- assign tb_messages_drawn = false -%}
+        {%- assign tb_start = '' -%}
+        {%- assign tb_mid = '' -%}
+        {%- assign tb_end = '' -%}
         {%- for block in section.blocks -%}
           {%- liquid
             assign block_st = block.settings
           -%}
+          {%- capture tb_piece -%}
           {%- case block.type -%}
             {%- when 'store_information' -%}
               {% if theme_st.store_email != blank or theme_st.store_phone != blank %}
@@ -555,7 +559,20 @@
                 {% endif %}
               </div>
           {%- endcase -%}
+          {%- endcapture -%}
+          {%- liquid
+            if block.type == 'message' or block.type == 'text_slider'
+              assign tb_mid = tb_mid | append: tb_piece
+            elsif tb_mid == blank
+              assign tb_start = tb_start | append: tb_piece
+            else
+              assign tb_end = tb_end | append: tb_piece
+            endif
+          -%}
         {%- endfor -%}
+        <div class="topbar__side topbar__side--start">{{ tb_start }}</div>
+        {{- tb_mid -}}
+        <div class="topbar__side topbar__side--end">{{ tb_end }}</div>
       </div>
     </div>
   </div>

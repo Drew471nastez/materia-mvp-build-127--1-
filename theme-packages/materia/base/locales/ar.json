@@ -325,7 +325,8 @@
   "main_menu": {
     "horizontal": {
       "close": "يغلق",
-      "title": "قائمة طعام"
+      "title": "قائمة طعام",
+      "more": "المزيد"
     },
     "vertical": {
       "title": "فئات",

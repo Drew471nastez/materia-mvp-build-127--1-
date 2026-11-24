@@ -1,0 +1,414 @@
+{
+  "sections": {
+    "rail": {
+      "type": "hanging-rail",
+      "settings": {
+        "eyebrow": "New collection",
+        "eyebrow_2": "Heavyweight basics",
+        "heading": "Layers that hang right.",
+        "text_below": "<p>Heavyweight cotton and wool, cut boxy, made to wear for years.</p>",
+        "button_label": "Shop the collection",
+        "button_link": "/collections/all",
+        "caption_layout": "split",
+        "garment_height": 300,
+        "garment_height_mobile": 210,
+        "garment_width": 40,
+        "gap": 12,
+        "hover_gap": 26,
+        "turn_speed": 500,
+        "swing": 55,
+        "show_tags": true,
+        "overflow": "scroll",
+        "click_action": "focus",
+        "rail_top": 36,
+        "rail_thickness": 5,
+        "rail_finish": "steel",
+        "rail_brackets": false,
+        "background_style": "picture",
+        "background_colour": "#f6f6f4",
+        "background_image": "shopify://shop_images/rail-hills.webp",
+        "image_focus_x": 50,
+        "image_focus_y": 60,
+        "overlay_colour": "#0b0f0c",
+        "overlay_opacity": 30,
+        "text_colour": "#ffffff",
+        "heading_size": 64,
+        "heading_size_mobile": 36,
+        "head_gap": 20,
+        "padding_top": 72,
+        "padding_bottom": 40,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 32
+      },
+      "blocks": {
+        "g1": {
+          "type": "garment",
+          "settings": {
+            "product": "heavyweight-hoodie-white",
+            "side_image": "shopify://shop_images/rail-hoodie-white-side.webp",
+            "front_image": "shopify://shop_images/rail-hoodie-white-front.webp",
+            "tag_text": "",
+            "name": "",
+            "note": "450 gsm brushed fleece, double layer hood"
+          }
+        },
+        "g2": {
+          "type": "garment",
+          "settings": {
+            "product": "crew-sweatshirt-black",
+            "side_image": "shopify://shop_images/rail-crew-black-side.webp",
+            "front_image": "shopify://shop_images/rail-crew-black-front.webp",
+            "tag_text": "",
+            "name": "",
+            "note": "Loopback cotton, a ribbed hem and cuffs"
+          }
+        },
+        "g3": {
+          "type": "garment",
+          "settings": {
+            "product": "long-sleeve-tee-black",
+            "side_image": "shopify://shop_images/rail-longsleeve-black-side.webp",
+            "front_image": "shopify://shop_images/rail-longsleeve-black-front.webp",
+            "tag_text": "",
+            "name": "",
+            "note": "240 gsm jersey, cut long"
+          }
+        },
+        "g4": {
+          "type": "garment",
+          "settings": {
+            "product": "boxy-tee-black",
+            "side_image": "shopify://shop_images/rail-tee-black-side.webp",
+            "front_image": "shopify://shop_images/rail-tee-black-front.webp",
+            "tag_text": "",
+            "name": "",
+            "note": "240 gsm jersey, dropped shoulders"
+          }
+        },
+        "g5": {
+          "type": "garment",
+          "settings": {
+            "product": "hand-knit-crew-rust",
+            "side_image": "shopify://shop_images/rail-knit-rust-side.webp",
+            "front_image": "shopify://shop_images/rail-knit-rust-front.webp",
+            "tag_text": "",
+            "name": "",
+            "note": "Chunky wool and alpaca, knitted by hand"
+          }
+        },
+        "g6": {
+          "type": "garment",
+          "settings": {
+            "product": "nylon-bomber-clay",
+            "side_image": "shopify://shop_images/rail-bomber-clay-side.webp",
+            "front_image": "shopify://shop_images/rail-bomber-clay-front.webp",
+            "tag_text": "",
+            "name": "",
+            "note": "Washed nylon, a sleeve pocket and rib trims"
+          }
+        },
+        "g7": {
+          "type": "garment",
+          "settings": {
+            "product": "boxy-tee-white",
+            "side_image": "shopify://shop_images/rail-tee-white-side.webp",
+            "front_image": "shopify://shop_images/rail-tee-white-front.webp",
+            "tag_text": "",
+            "name": "",
+            "note": "240 gsm jersey, dropped shoulders"
+          }
+        },
+        "g8": {
+          "type": "garment",
+          "settings": {
+            "product": "washed-long-sleeve-charcoal",
+            "side_image": "shopify://shop_images/rail-longsleeve-charcoal-side.webp",
+            "front_image": "shopify://shop_images/rail-longsleeve-charcoal-front.webp",
+            "tag_text": "",
+            "name": "",
+            "note": "Garment dyed and washed soft"
+          }
+        },
+        "g9": {
+          "type": "garment",
+          "settings": {
+            "product": "slub-tee-sky",
+            "side_image": "shopify://shop_images/rail-tee-sky-side.webp",
+            "front_image": "shopify://shop_images/rail-tee-sky-front.webp",
+            "tag_text": "",
+            "name": "",
+            "note": "Slub cotton with an uneven, heathered look"
+          }
+        },
+        "g10": {
+          "type": "garment",
+          "settings": {
+            "product": "shawl-collar-blazer-navy",
+            "side_image": "shopify://shop_images/rail-blazer-navy-side.webp",
+            "front_image": "shopify://shop_images/rail-blazer-navy-front.webp",
+            "tag_text": "",
+            "name": "",
+            "note": "Textured wool blend, a satin shawl collar"
+          }
+        }
+      },
+      "block_order": [
+        "g1",
+        "g2",
+        "g3",
+        "g4",
+        "g5",
+        "g6",
+        "g7",
+        "g8",
+        "g9",
+        "g10"
+      ]
+    },
+    "gallery": {
+      "type": "media-lightbox-gallery",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "fluid_container",
+        "reset_spacing": true,
+        "content_align": "left",
+        "content_gap": 12,
+        "columns_desktop": 4,
+        "gap_desktop": 12,
+        "image_ratio": "portrait",
+        "image_radius": 0,
+        "enable_custom_style": false,
+        "enable_custom_fonts": false,
+        "heading_font": "assistant_n4",
+        "body_font": "assistant_n4",
+        "padding_top_desktop": 80,
+        "padding_bottom_desktop": 80,
+        "side_padding_desktop": 32,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "content_align_mobile": "left",
+        "columns_mobile": 2,
+        "gap_mobile": 8,
+        "padding_top_mobile": 60,
+        "padding_bottom_mobile": 60,
+        "side_padding_mobile": 20,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Autumn, in the studio",
+            "enable_custom_style": false,
+            "size_desktop": 36,
+            "size_mobile": 28
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Tap a picture to see it large.</p>",
+            "enable_custom_style": false,
+            "size_desktop": 16,
+            "size_mobile": 15
+          }
+        },
+        "image_1": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/rail-loft.webp",
+            "caption": "Crew and joggers"
+          }
+        },
+        "image_2": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/rail-portrait.webp",
+            "caption": "Black hood"
+          }
+        },
+        "image_3": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/rail-grey-hood.webp",
+            "caption": "Grey hood"
+          }
+        },
+        "image_4": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/rail-walk.webp",
+            "caption": "White room"
+          }
+        },
+        "image_5": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/rail-pair.webp",
+            "caption": "Two in black"
+          }
+        },
+        "image_6": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/rail-tile-hoodies.webp",
+            "caption": "Out walking"
+          }
+        },
+        "image_7": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/rail-look-hoodie.webp",
+            "caption": "Black on black"
+          }
+        },
+        "image_8": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/rail-story.webp",
+            "caption": "Studio light"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_1",
+        "image_1",
+        "image_2",
+        "image_3",
+        "image_4",
+        "image_5",
+        "image_6",
+        "image_7",
+        "image_8"
+      ]
+    },
+    "banner": {
+      "type": "banner3",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "section_width": "stretch_width",
+        "reset_spacing": true,
+        "text_align": "center",
+        "max_width": 970,
+        "heading_tag": "h2",
+        "use_custom_text": false,
+        "heading_color": "#000000",
+        "text_color": "#0f0f0f",
+        "use_custom_bg": false,
+        "enable_bg_gradient": false,
+        "overlay_opacity": 0,
+        "banner_surface": "section",
+        "banner_tint": 6,
+        "use_theme_radius": false,
+        "section_border_radius": 50,
+        "banner_border_width": 0,
+        "banner_shadow": "none",
+        "reveal": true,
+        "reveal_style": "fade_up",
+        "reveal_range": 60,
+        "hover_lift": false,
+        "show_desktop": true,
+        "stack_gap": 14,
+        "sub_btn_gap": 32,
+        "side_padding": 28,
+        "pad_top_desktop": 70,
+        "pad_bottom_desktop": 60,
+        "section_padding_top": 60,
+        "section_padding_bottom": 60,
+        "section_pad_left": 120,
+        "section_pad_right": 120,
+        "section_margin_top_desktop": 0,
+        "section_margin_bottom_desktop": 0,
+        "mobile_text_align": "inherit",
+        "mobile_button_full": false,
+        "show_mobile": true,
+        "pad_top_mobile": 50,
+        "pad_bottom_mobile": 52,
+        "section_padding_top_mobile": 40,
+        "section_padding_bottom_mobile": 40,
+        "section_pad_left_mobile": 0,
+        "section_pad_right_mobile": 0,
+        "section_margin_top_mobile": 0,
+        "section_margin_bottom_mobile": 0,
+        "bg_gradient": ""
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "The rail",
+            "enable_custom_style": false,
+            "font": "body",
+            "weight": "500",
+            "transform": "uppercase",
+            "letterspace": 0.6,
+            "lineheight": "1.4",
+            "size_d": 17,
+            "opacity": 100,
+            "size_m": 17
+          }
+        },
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Every piece in the pictures",
+            "enable_custom_style": false,
+            "font": "heading",
+            "weight": "700",
+            "transform": "none",
+            "letterspace": 0,
+            "lineheight": "1.15",
+            "size_d": 34,
+            "max_width": 0,
+            "size_m": 28
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "text": "Ten pieces, from a 240 gsm tee to a hand knitted crew.",
+            "enable_custom_style": false,
+            "font": "body",
+            "weight": "theme",
+            "transform": "none",
+            "letterspace": 0,
+            "lineheight": "1.5",
+            "size_d": 16,
+            "opacity": 100,
+            "max_width": 0,
+            "size_m": 16
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "label": "Shop everything",
+            "link": "/collections/all",
+            "enable_custom_style": false,
+            "use_theme_button": true,
+            "border_width": 0,
+            "radius": 40,
+            "pad_h": 20,
+            "pad_v": 10,
+            "weight": "600",
+            "size_d": 17,
+            "size_m": 17
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_1",
+        "subheading_1",
+        "button_1"
+      ]
+    }
+  },
+  "order": [
+    "rail",
+    "gallery",
+    "banner"
+  ]
+}

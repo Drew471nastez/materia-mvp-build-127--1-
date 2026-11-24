@@ -149,7 +149,8 @@
      heading was as wide as its words and centred in the row, so it started
      10px in from the field (Night shop). */
   @media (max-width: 767.98px) {
-    #shopify-section-{{ section.id }} [data-nl-box] > [data-ct-header] { flex: 1 1 100%; width: 100%; }
+    /* Only the horizontal layout (heading beside the form) breaks onto two rows here; in the column layout a full flex basis made the heading take all the height and pushed the form out of view. */
+    #shopify-section-{{ section.id }} [data-nl-layout="horizontal"] [data-nl-box] > [data-ct-header] { flex: 1 1 100%; width: 100%; }
   }
   @media (max-width: 749.98px) {
     #shopify-section-{{ section.id }} [data-nl-submit] { max-width: none; }

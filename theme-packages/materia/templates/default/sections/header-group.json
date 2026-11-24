@@ -11,16 +11,16 @@
         "sticky_top": false,
         "text_align": "center",
         "font_weight": "body_weight",
-        "padding_top": 7,
+        "padding_top": 9,
         "show_arrows": false,
         "show_mobile": true,
         "border_color": "#e5e5e5",
         "border_width": 0,
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636",
         "reset_spacing": true,
-        "section_width": "full_width",
+        "section_width": "fluid_container",
         "letter_spacing": 0,
-        "padding_bottom": 7,
+        "padding_bottom": 9,
         "border_position": "bottom",
         "custom_bg_color": "",
         "transition_speed": 700,
@@ -37,6 +37,12 @@
       },
       "name": "Announcement bar",
       "blocks": {
+        "socials_1": {
+          "type": "socials",
+          "settings": {
+            "hidden_on_mobile": true
+          }
+        },
         "text_slider_1": {
           "type": "text_slider",
           "settings": {
@@ -49,10 +55,21 @@
             "text3_mobile": "",
             "hidden_on_mobile": false
           }
+        },
+        "cur_lang_1": {
+          "type": "cur_lang",
+          "settings": {
+            "show_currency": true,
+            "show_language": true,
+            "hidden_on_mobile": true
+          }
         }
       },
       "block_order": [
-        "text_slider_1"
+        "socials_1",
+        "text_slider_1",
+        "cur_lang_1",
+        "cur_lang_1"
       ]
     },
     "header": {
@@ -116,7 +133,8 @@
         "transparent_hover_fill_color": "#ffffff",
         "transparent_text_hover_color": "#1a1a1a",
         "section_margin_bottom_desktop": 0,
-        "transparent_bottom_border_color": "#020202"
+        "transparent_bottom_border_color": "#020202",
+        "localization_in_menu_only": true
       },
       "blocks": {
         "pill_glass_1": {

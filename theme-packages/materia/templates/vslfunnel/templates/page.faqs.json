@@ -1,4 +1,4 @@
-/* Templates round 23: Smallplot questions: space, dates, costs, seasons, payment and refunds, then the course and extras and a last call to join. */
+/* Templates round 24: every question about the course in one list, the course and its extras, and a last call to join. */
 {
   "sections": {
     "faq": {
@@ -25,29 +25,29 @@
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
-            "question": "How much space do I need?",
-            "answer": "<p>A spot with four or more hours of direct sun. A balcony of two square metres is enough for the whole course.</p>"
+            "question": "Which camera do I need?",
+            "answer": "<p>Any camera with a manual mode: mirrorless, DSLR or a compact with M on the dial. The lessons show the settings on the three common dial layouts.</p>"
           }
         },
         "faq_item_4": {
           "type": "faq_item",
           "settings": {
             "question": "When does the next class start?",
-            "answer": "<p>The spring class starts 2 March. You can join before then and start with module one straight away.</p>"
+            "answer": "<p>The January class starts 12 January. You can join before then and start with module one straight away.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "How much will the garden itself cost?",
-            "answer": "<p>Most students spend between $60 and $150 on pots or a bed, compost and seeds in the first year. Module one lists what to buy for your space and what to skip.</p>"
+            "question": "Do I need to buy a new lens?",
+            "answer": "<p>No. Everything in the course works with the lens the camera came with. Module five says when a second lens is worth it.</p>"
           }
         },
         "faq_item_6": {
           "type": "faq_item",
           "settings": {
-            "question": "My season is different. Does it still work?",
-            "answer": "<p>Yes. The planting calendar works from your own last frost date. If your spring is later, start each module when your calendar says.</p>"
+            "question": "Can I do it with my phone?",
+            "answer": "<p>The light and composition lessons work with any phone. The settings lessons need manual control, so most of the course assumes a camera.</p>"
           }
         },
         "faq_item_7": {
@@ -81,7 +81,7 @@
       "settings": {
         "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
         "heading": "The course and the extras",
-        "text": "<p>The full course, the printable plans on their own, and a call about your space.</p>",
+        "text": "<p>The full course, the assignment book on its own, and a portfolio review call.</p>",
         "items_to_show": 4,
         "items_per_row": 4,
         "show_add_to_cart": true,
@@ -104,14 +104,14 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "Smallplot",
+            "text": "Open Shade",
             "transform": "uppercase"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Sow in March, pick in June",
+            "text": "Shoot in manual by March",
             "transform": "none",
             "lineheight": "1.25"
           }
@@ -119,13 +119,13 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "Eight modules, six live calls and a 30 day refund."
+            "text": "Eight modules, six live photo reviews and a 30 day refund."
           }
         },
         "button_4": {
           "type": "button",
           "settings": {
-            "label": "Join the spring class",
+            "label": "Join the January class",
             "link": "/collections/all"
           }
         }

@@ -1,14 +1,16 @@
 {%- comment -%}
   Online course: the curriculum. A label, a heading and a paragraph that
   stay in place on the left while the modules scroll on the right. Each
-  module is a row that opens (details and summary) to show its lessons, one
-  per line with a small play mark; the row shows its number, title and how
-  long it is. The totals line under the intro is typed by the creator.
+  module is a row that opens (details and summary, animated by
+  snippets/smooth-details) to show its lessons, one per line with a small
+  play mark; the row shows its number, title and how long it is. The totals
+  line under the intro is typed by the creator.
 {%- endcomment -%}
 {%- liquid
   assign s = section.settings
   assign sid = section.id
 -%}
+{%- render 'smooth-details' -%}
 <style>
   #shopify-section-{{ sid }} .c2c {
     --c2-accent: {{ s.accent | default: '#12704f' }};
@@ -21,42 +23,41 @@
     scroll-margin-top: 80px;
   }
   @media (min-width: 990px) { #shopify-section-{{ sid }} .c2c { padding: {{ s.padding_top | default: 96 }}px 0 {{ s.padding_bottom | default: 96 }}px; } }
-  #shopify-section-{{ sid }} .c2c__in { max-width: 1200px; margin: 0 auto; padding: 0 20px; display: grid; gap: 32px; align-items: start; }
-  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2c__in { padding: 0 40px; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); gap: 72px; } #shopify-section-{{ sid }} .c2c__head { position: sticky; top: 104px; } }
-  #shopify-section-{{ sid }} .c2-tag { display: inline-block; margin: 0 0 22px; padding: 8px 12px; border: 1px solid #d9dce1; border-radius: 6px; font-size: 13px; line-height: 1; letter-spacing: .05em; text-transform: uppercase; color: var(--c2-ink); }
-  #shopify-section-{{ sid }} .c2c__title { margin: 0 0 18px; color: var(--c2-ink); font-family: var(--heading-font, inherit); font-weight: 700; font-size: 34px; line-height: 1.06; letter-spacing: -.035em; text-wrap: balance; }
+  #shopify-section-{{ sid }} .c2c__in { max-width: 1200px; margin: 0 auto; padding: 0 20px; display: grid; gap: 36px; align-items: start; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2c__in { padding: 0 40px; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 80px; } #shopify-section-{{ sid }} .c2c__head { position: sticky; top: 104px; } }
+  #shopify-section-{{ sid }} .c2-tag { margin: 0 0 16px; font-size: 13px; font-weight: 600; line-height: 1.2; letter-spacing: .08em; text-transform: uppercase; color: var(--c2-accent); }
+  #shopify-section-{{ sid }} .c2c__title { margin: 0 0 18px; color: var(--c2-ink); font-family: var(--heading-font, inherit); font-weight: 700; font-size: 34px; line-height: 1.08; letter-spacing: -.03em; text-wrap: balance; }
   @media (min-width: 990px) { #shopify-section-{{ sid }} .c2c__title { font-size: {{ s.heading_size | default: 48 }}px; } }
   #shopify-section-{{ sid }} .c2c__title em { font-style: normal; color: var(--c2-accent); }
   #shopify-section-{{ sid }} .c2c__text { font-size: 17px; line-height: 1.6; max-width: 30em; }
   #shopify-section-{{ sid }} .c2c__text p { margin: 0 0 12px; }
-  #shopify-section-{{ sid }} .c2c__total { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0 0; padding: 0; list-style: none; }
-  #shopify-section-{{ sid }} .c2c__total li { padding: 8px 12px; border-radius: 6px; background: color-mix(in srgb, var(--c2-accent) 8%, #ffffff); color: var(--c2-ink); font-size: 14px; font-weight: 600; }
-  #shopify-section-{{ sid }} .c2c__list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--c2-line); }
-  #shopify-section-{{ sid }} .c2c__mod { border-bottom: 1px solid var(--c2-line); }
-  #shopify-section-{{ sid }} .c2c__mod summary { list-style: none; display: grid; grid-template-columns: 40px minmax(0, 1fr) 32px; gap: 14px; align-items: center; padding: 20px 0; cursor: pointer; }
-  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2c__mod summary { grid-template-columns: 48px minmax(0, 1fr) auto 32px; gap: 20px; padding: 24px 0; } }
+  /* The totals: one plain line of facts, not badges. */
+  #shopify-section-{{ sid }} .c2c__total { display: flex; flex-wrap: wrap; gap: 4px 0; margin: 20px 0 0; padding: 0; list-style: none; color: var(--c2-ink); font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  #shopify-section-{{ sid }} .c2c__total li + li::before { content: ""; display: inline-block; width: 4px; height: 4px; margin: 0 12px; border-radius: 50%; background: currentColor; opacity: .35; vertical-align: middle; }
+  /* The modules: a plain numbered list between two lines. Each row is its number, its title and how long it is; the chevron turns as it opens. */
+  #shopify-section-{{ sid }} .c2c__list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--c2-ink); }
+  #shopify-section-{{ sid }} .c2c__mod { border-bottom: 1px solid var(--c2-line); --sd-time: .44s; }
+  #shopify-section-{{ sid }} .c2c__mod summary { list-style: none; display: grid; grid-template-columns: 34px minmax(0, 1fr) 20px; gap: 12px; align-items: baseline; padding: 22px 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2c__mod summary { grid-template-columns: 44px minmax(0, 1fr) auto 20px; gap: 20px; padding: 26px 0; } }
   #shopify-section-{{ sid }} .c2c__mod summary::-webkit-details-marker { display: none; }
-  #shopify-section-{{ sid }} .c2c__n { display: grid; place-items: center; height: 32px; border-radius: 6px; background: var(--c2-accent); color: #fff; font-size: 14px; font-variant-numeric: tabular-nums; }
-  #shopify-section-{{ sid }} .c2c__name { color: var(--c2-ink); font-family: var(--heading-font, inherit); font-weight: 700; font-size: 18px; line-height: 1.3; letter-spacing: -.02em; }
+  #shopify-section-{{ sid }} .c2c__mod summary:focus-visible { outline: 2px solid var(--c2-accent); outline-offset: 4px; }
+  #shopify-section-{{ sid }} .c2c__n { color: var(--c2-text); opacity: .7; font-size: 15px; font-weight: 500; font-variant-numeric: tabular-nums; }
+  #shopify-section-{{ sid }} .c2c__name { color: var(--c2-ink); font-family: var(--heading-font, inherit); font-weight: 600; font-size: 18px; line-height: 1.3; letter-spacing: -.015em; transition: color .25s ease; }
   @media (min-width: 990px) { #shopify-section-{{ sid }} .c2c__name { font-size: 21px; } }
-  #shopify-section-{{ sid }} .c2c__meta { font-size: 14px; color: #6b7079; white-space: nowrap; }
-  @media (max-width: 989px) { #shopify-section-{{ sid }} .c2c__meta { display: block; margin-top: 4px; font-family: var(--body-font, inherit); font-weight: 400; font-size: 13px; letter-spacing: 0; } #shopify-section-{{ sid }} .c2c__meta--wide { display: none; } }
+  @media (hover: hover) { #shopify-section-{{ sid }} .c2c__mod summary:hover .c2c__name { color: var(--c2-accent); } }
+  #shopify-section-{{ sid }} .c2c__meta { font-size: 14px; color: var(--c2-text); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  @media (max-width: 989px) { #shopify-section-{{ sid }} .c2c__meta { display: block; margin-top: 4px; font-family: var(--body-font, inherit); font-weight: 400; font-size: 13.5px; letter-spacing: 0; } #shopify-section-{{ sid }} .c2c__meta--wide { display: none; } }
   @media (min-width: 990px) { #shopify-section-{{ sid }} .c2c__meta--small { display: none; } }
-  #shopify-section-{{ sid }} .c2c__chev { position: relative; width: 32px; height: 32px; border-radius: 6px; border: 1px solid var(--c2-line); }
-  #shopify-section-{{ sid }} .c2c__chev::before, #shopify-section-{{ sid }} .c2c__chev::after { content: ""; position: absolute; left: 50%; top: 50%; width: 12px; height: 1.5px; margin: -.75px 0 0 -6px; background: var(--c2-ink); transition: transform .35s cubic-bezier(.2,.65,.25,1); }
-  #shopify-section-{{ sid }} .c2c__chev::after { transform: rotate(90deg); }
-  #shopify-section-{{ sid }} details[open] .c2c__chev::after { transform: rotate(0deg); }
-  #shopify-section-{{ sid }} .c2c__lessons { margin: 0; padding: 0 0 22px 54px; list-style: none; display: grid; gap: 10px; counter-reset: c2l; }
-  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2c__lessons { padding-left: 68px; } }
-  #shopify-section-{{ sid }} details[open] .c2c__lessons { animation: c2c-open-{{ sid }} .45s cubic-bezier(.2,.65,.25,1); }
-  @keyframes c2c-open-{{ sid }} { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
-  #shopify-section-{{ sid }} .c2c__lessons li { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: start; font-size: 15px; line-height: 1.45; }
-  #shopify-section-{{ sid }} .c2c__lessons svg { width: 22px; height: 22px; color: var(--c2-accent); }
+  #shopify-section-{{ sid }} .c2c__chev { align-self: center; width: 20px; height: 20px; color: var(--c2-ink); transition: transform .44s cubic-bezier(.2, .7, .2, 1); }
+  #shopify-section-{{ sid }} details[open]:not([data-sd-closing]) .c2c__chev { transform: rotate(180deg); }
+  #shopify-section-{{ sid }} .c2c__lessons { margin: 0; padding: 0 0 26px 46px; list-style: none; display: grid; gap: 12px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .c2c__lessons { padding-left: 64px; padding-right: 40px; } }
+  #shopify-section-{{ sid }} .c2c__lessons li { display: grid; grid-template-columns: 10px 1fr; gap: 14px; align-items: baseline; font-size: 15.5px; line-height: 1.5; }
+  #shopify-section-{{ sid }} .c2c__lessons svg { width: 9px; height: 10px; color: var(--c2-accent); transform: translateY(1px); }
   #shopify-section-{{ sid }} [data-c2r].c2r-wait { opacity: 0; transform: translate3d(0, 22px, 0); }
   #shopify-section-{{ sid }} [data-c2r].c2r-in { opacity: 1; transform: none; transition: opacity .8s cubic-bezier(.2,.65,.25,1) var(--d, 0ms), transform .8s cubic-bezier(.2,.65,.25,1) var(--d, 0ms); }
   @media (prefers-reduced-motion: reduce) {
-    #shopify-section-{{ sid }} details[open] .c2c__lessons { animation: none; }
-    #shopify-section-{{ sid }} .c2c__chev::before, #shopify-section-{{ sid }} .c2c__chev::after { transition: none; }
+    #shopify-section-{{ sid }} .c2c__chev, #shopify-section-{{ sid }} .c2c__name { transition: none; }
   }
 </style>
 <section class="c2c"{% if s.anchor != blank %} id="{{ s.anchor | handleize }}"{% endif %}>
@@ -74,20 +75,26 @@
       {%- for block in section.blocks -%}
         {%- assign b = block.settings -%}
         {%- assign lessons = b.lessons | newline_to_br | split: '<br />' -%}
+        {%- assign is_open = false -%}
+        {%- if forloop.first and s.first_open -%}{%- assign is_open = true -%}{%- endif -%}
         <li {{ block.shopify_attributes }}>
-          <details class="c2c__mod"{% if forloop.first and s.first_open %} open{% endif %}>
-            <summary>
+          <details class="c2c__mod" data-smooth{% if is_open %} open{% endif %}>
+            <summary aria-expanded="{{ is_open }}">
               <span class="c2c__n" aria-hidden="true">{% if forloop.index < 10 %}0{% endif %}{{ forloop.index }}</span>
               <span class="c2c__name">{{ b.title | escape }}{% if b.meta != blank %}<span class="c2c__meta c2c__meta--small">{{ b.meta | escape }}</span>{% endif %}</span>
               {%- if b.meta != blank -%}<span class="c2c__meta c2c__meta--wide">{{ b.meta | escape }}</span>{%- endif -%}
-              <span class="c2c__chev" aria-hidden="true"></span>
+              <svg class="c2c__chev" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 7.5l5 5 5-5"/></svg>
             </summary>
-            <ul class="c2c__lessons" role="list">
-              {%- for line in lessons -%}
-                {%- assign t = line | strip -%}
-                {%- if t != blank -%}<li><svg viewBox="0 0 22 22" fill="none" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="9.5" stroke="currentColor" stroke-width="1.4"/><path d="M9 7.5l5 3.5-5 3.5z" fill="currentColor"/></svg><span>{{ t | escape }}</span></li>{%- endif -%}
-              {%- endfor -%}
-            </ul>
+            <div class="sd-body">
+              <div>
+                <ul class="c2c__lessons" role="list">
+                  {%- for line in lessons -%}
+                    {%- assign t = line | strip -%}
+                    {%- if t != blank -%}<li><svg viewBox="0 0 9 10" aria-hidden="true" focusable="false"><path d="M0 0l9 5-9 5z" fill="currentColor"/></svg><span>{{ t | escape }}</span></li>{%- endif -%}
+                  {%- endfor -%}
+                </ul>
+              </div>
+            </div>
           </details>
         </li>
       {%- endfor -%}

@@ -54,11 +54,20 @@
             "change_every": 5,
             "hidden_on_mobile": false
           }
+        },
+        "cur_lang_1": {
+          "type": "cur_lang",
+          "settings": {
+            "show_currency": true,
+            "show_language": true,
+            "hidden_on_mobile": true
+          }
         }
       },
       "block_order": [
         "socials_1",
-        "text_slider_1"
+        "text_slider_1",
+        "cur_lang_1"
       ]
     },
     "header": {
@@ -126,7 +135,8 @@
         "menu_font_size": 12,
         "menu_font_weight": "500",
         "menu_mobile_background": "#ffffff",
-        "menu_mobile_dividers": true
+        "menu_mobile_dividers": true,
+        "localization_in_menu_only": true
       },
       "blocks": {
         "pill_glass_1": {

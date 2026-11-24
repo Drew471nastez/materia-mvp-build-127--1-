@@ -118,10 +118,10 @@ async function main() {
           /*
             As a visitor with a mouse sees the cards (templates round 23):
             headless Chromium answers (hover: none), cannot be told
-            otherwise, and the cards then drew their quick view button, their
-            add to cart bar and their second picture on every card.
+            otherwise, and the cards then drew their add to cart bar and
+            their second picture on every card.
           */
-          await p.addStyleTag({ content: ".product-item .pc-qv, .product-item .product-grid .product-item__inner .pc-form--media { opacity: 0 !important; } .product-item .product__media.show_secondary.peek-secondary > .secondary-image { opacity: 0 !important; }" }).catch(() => undefined)
+          await p.addStyleTag({ content: ".product-item .product-grid .product-item__inner .pc-form--media { opacity: 0 !important; } .product-item .product__media.show_secondary.peek-secondary > .secondary-image { opacity: 0 !important; }" }).catch(() => undefined)
           /* Scrolled top to bottom once, so pictures loaded lazily and sections revealed on scroll are in the photograph. */
           await p.evaluate(async () => {
             const step = Math.round(innerHeight * 0.8)

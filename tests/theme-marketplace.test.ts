@@ -19,6 +19,7 @@ import JSZip from "jszip"
 
 import { stripComments } from "./_source"
 import {
+  CODE_TEMPLATES,
   ADD_REFUSALS,
   DEFAULT_LISTING_SLUG,
   LIBRARY_THEME_CARDS,
@@ -82,7 +83,7 @@ async function main() {
   console.log("\nListings\n")
   const builtin = builtinListings()
   /* Changed on purpose (templates round 16, then 17, then 18): the code lists twelve templates (Skincare removed and Creator Landing added in round 18) made from one theme, the default first; the native Storelib Default is no longer listed (tests/theme-templates.test.ts holds the rest). */
-  check("Storelib's own templates are listed from code, free, by Storelib, the default first", builtin.length === 19 /* Changed on purpose (templates round 20): Tour merch removed; Coach, Video sales letter, Online course, Course landing and Retro desktop added, nineteen (round 19 had added Art books, Night shop and Poster shop). */ + 5 /* Changed on purpose (templates round 21): Author, Content creator, Coach creator, Digital Renaissance and XP shop added, twenty four. */ + 2 /* Changed on purpose (templates round 22): Caps and tees and Print on demand added, twenty six. */ + 1 /* Changed on purpose (templates round 23): VSL funnel added. */ + 1 /* Changed on purpose (templates round 23): Outerwear label added. */ + 1 /* Changed on purpose (templates round 23): Notion sales page added. */ && builtin[0].slug === DEFAULT_LISTING_SLUG && builtin.every((b) => b.tier === "free" && b.author === "Storelib" && !b.builtinThemeId && !!b.codePackage && b.hasPackage))
+  check("Storelib's own templates are listed from code, free, by Storelib, the default first", builtin.length === 19 /* Changed on purpose (templates round 20): Tour merch removed; Coach, Video sales letter, Online course, Course landing and Retro desktop added, nineteen (round 19 had added Art books, Night shop and Poster shop). */ + 5 /* Changed on purpose (templates round 21): Author, Content creator, Coach creator, Digital Renaissance and XP shop added, twenty four. */ + 2 /* Changed on purpose (templates round 22): Caps and tees and Print on demand added, twenty six. */ + 1 /* Changed on purpose (templates round 23): VSL funnel added. */ + 1 /* Changed on purpose (templates round 23): Outerwear label added. */ + 1 /* Changed on purpose (templates round 23): Notion sales page added. */ + 1 /* Changed on purpose (templates round 24): Boutique rail added. */ && builtin[0].slug === DEFAULT_LISTING_SLUG && builtin.every((b) => b.tier === "free" && b.author === "Storelib" && !b.builtinThemeId && !!b.codePackage && b.hasPackage))
   const codeSlugs = builtin.map((b) => b.slug).join(",")
   const merged = mergeListings([listing({ slug: "b", sortOrder: 2 }), listing({ slug: "a", sortOrder: 1 }), listing({ slug: "hidden", published: false })])
   /* Changed on purpose (templates round 16, then 17, then 18): twelve code listings lead, not one. */
@@ -240,7 +241,15 @@ async function main() {
   const client = read("app/(storelib)/app/website-builder/website-builder-client.tsx")
   /* Changed on purpose (templates round 16): the marketplace is a popup over the page, opened by a button, not a link to /themes in a new tab (scripts/check-theme-popup.mjs measures it). */
   /* Changed on purpose (the owner: six template cards, then Show more that opens the marketplace popup; the Explore more themes card is gone). */
-  check("Browse themes is a grid of six cards, three to a row, then Show more that opens the popup", /const ROW_THEME_CARDS = 6/.test(client) && /listings\.slice\(0, ROW_THEME_CARDS\)/.test(client) && /<ThemeTemplateCard\b/.test(client) && !/MoreThemesCard/.test(client) && /lg:grid-cols-3/.test(client) && /data-theme-marketplace-open="more"[\s\S]{0,200}onClick=\{\(e\) => openThemes\(e\.currentTarget\)\}[\s\S]{0,1200}\{tt\("Show more"\)\}/.test(client))
+  /* Changed on purpose (round 24): the owner: nine cards (three rows), Storelib Default first, Notion templates in place of the Cookbook, and Night shop, Poster shop and Print on demand as the third row; the rest follow in the marketplace's order. */
+  check("Browse themes is a grid of nine cards, three to a row, then Show more that opens the popup", /const ROW_THEME_CARDS = 9/.test(client) && /const explore = browseThemes\(listings, ROW_THEME_CARDS\)/.test(client) && /<ThemeTemplateCard\b/.test(client) && !/MoreThemesCard/.test(client) && /lg:grid-cols-3/.test(client) && /data-theme-marketplace-open="more"[\s\S]{0,200}onClick=\{\(e\) => openThemes\(e\.currentTarget\)\}[\s\S]{0,1200}\{tt\("Show more"\)\}/.test(client))
+  {
+    /* Changed on purpose (round 24): the order Browse themes puts first, and that every one of them is a template the code ships. */
+    const first = (client.match(/export const BROWSE_THEMES_FIRST = \[([^\]]+)\]/)?.[1] ?? "").match(/"[^"]+"/g)?.map((x) => x.slice(1, -1)) ?? []
+    const names = first.map((slug) => CODE_TEMPLATES.find((t) => t.slug === slug)?.name)
+    check("  Browse themes' first nine: Storelib Default first, Notion templates, then Night shop, Poster shop and Print on demand", names.join("|") === "Storelib Default|Clothing|Merch|Digital products|Art books|Notion templates|Night shop|Poster shop|Print on demand", names)
+    check("  and the rest of the marketplace fills what is left, in its own order", /return \[\.\.\.first, \.\.\.listings\.filter\(\(l\) => !first\.includes\(l\)\)\]\.slice\(0, count\)/.test(client))
+  }
   check("  with a Theme marketplace button beside the heading that opens the popup", /data-theme-marketplace-open="heading"[\s\S]{0,1200}\{tt\("Theme marketplace"\)\}/.test(client) && /text-\[14px\] font-semibold/.test(client) && !/MARKETPLACE_PATH/.test(client) && /<ThemeMarketplace\b/.test(client))
   const card = read("components/themes/theme-card.tsx")
   check("the card: picture, bold name, by author, action at the row's end", /aspect-\[4\/3\]/.test(card) && /font-semibold/.test(card) && /tt\("by \{author\}"/.test(card) && /\{action \? <div className="shrink-0">\{action\}<\/div> : null\}/.test(card))

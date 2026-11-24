@@ -1,0 +1,315 @@
+{
+  "sections": {
+    "main": {
+      "type": "main-product",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "full_width",
+        "section_width_mobile": "full_width",
+        "reset_spacing": true,
+        "desktop_layout": "grid_2_column",
+        "desktop_media_width": 60,
+        "enable_sticky_content_on_desktop": true,
+        "sticky_top_gap": 90,
+        "content_gap_desktop": 40,
+        "media_square": false,
+        "image_zoom": "open_lightbox",
+        "enable_on_desktop": false,
+        "enable_on_mobile": true,
+        "sticky_show_image": true,
+        "sticky_show_title": true,
+        "sticky_show_variant_picker": true,
+        "sticky_show_quantity": false,
+        "sticky_button_radius": 4,
+        "padding_top": 36,
+        "padding_bottom": 48,
+        "mobile_options": "hidden_thumbnail",
+        "mobile_slides_per_view": "1",
+        "enable_nav_dots_mobile": true,
+        "enable_custom_padding": true,
+        "padding_left_mobile": 16,
+        "padding_right_mobile": 16,
+        "padding_left_desktop": 0,
+        "padding_right_desktop": 28
+      },
+      "blocks": {
+        "title_1": {
+          "type": "title",
+          "settings": {
+            "show_vendor": false,
+            "title_font_size_desktop": 34,
+            "title_font_size_mobile": 28
+          }
+        },
+        "price_1": {
+          "type": "price",
+          "settings": {
+            "price_font_size_desktop": 18,
+            "price_font_size_mobile": 17,
+            "price_font_weight": "500",
+            "compare_font_size_desktop": 16,
+            "compare_font_size_mobile": 15,
+            "compare_font_weight": "400"
+          }
+        },
+        "variant_picker_1": {
+          "type": "variant_picker",
+          "settings": {
+            "variant_type": "button",
+            "show_size_guide": false,
+            "picker_swatch_style": "variant_images",
+            "size_guide_content": ""
+          }
+        },
+        "size_guide_1": {
+          "type": "size_guide",
+          "settings": {
+            "use_storelib_chart": true,
+            "table_unit": "cm",
+            "size_guide_label": "Size guide",
+            "size_guide_display": "modal",
+            "size_guide_appearance": "link",
+            "table_data": "Size | Chest | Length | Sleeve\nXS | 104 | 66 | 58\nS | 110 | 68 | 60\nM | 116 | 70 | 62\nL | 122 | 72 | 64\nXL | 128 | 74 | 66",
+            "size_guide_content": "<p>Garment measurements in centimetres, taken flat. Tees and sweats are cut boxy: take your usual size for the intended fit, one down for a closer one.</p>"
+          }
+        },
+        "text_1": {
+          "type": "text",
+          "settings": {
+            "heading": "",
+            "content": "<p>Model is 183 cm and wears a size L.</p>"
+          }
+        },
+        "buy_buttons_1": {
+          "type": "buy_buttons",
+          "settings": {
+            "show_add_to_cart": true,
+            "show_dynamic_checkout": true,
+            "show_quantity": true,
+            "buttons_full_width": true,
+            "quantity_right_of_atc": false,
+            "show_wishlist_button": false,
+            "atc_appearance": "theme",
+            "buy_appearance": "outline",
+            "atc_icon_enable": false,
+            "atc_icon": "bag",
+            "buy_icon_enable": false,
+            "show_gift_card_recipient": false
+          }
+        },
+        "collapsible_row_1": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "Description",
+            "content": "",
+            "use_product_description": true,
+            "open": true
+          }
+        },
+        "collapsible_row_2": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "Fabric and care",
+            "content": "<ul><li>Heavyweight cotton, knitted and dyed in Portugal</li><li>Wash cold inside out, dry flat or on a hanger</li><li>Do not tumble dry: the cotton shrinks</li></ul>",
+            "use_product_description": false,
+            "open": false
+          }
+        },
+        "collapsible_row_3": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "Fit",
+            "content": "<p>Boxy and a little short in the body, with dropped shoulders. Take your usual size. Knitwear and jackets are true to size.</p>",
+            "use_product_description": false,
+            "open": false
+          }
+        },
+        "collapsible_row_4": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "Shipping and payment",
+            "content": "<p>Orders ship in 1 to 2 working days. Free shipping over $120 and free returns within 30 days. We take cards, PayPal, Apple Pay and Google Pay. <a href=\"/pages/shipping\">Shipping and returns in full</a></p>",
+            "use_product_description": false,
+            "open": false
+          }
+        },
+        "product_addons_1": {
+          "type": "product_addons",
+          "settings": {
+            "show_ask_question": false,
+            "show_share": true,
+            "share_copy_label": "Copy link",
+            "share_copied_label": "Link copied"
+          }
+        },
+        "pp23_rating": {
+          "type": "product_reviews",
+          "settings": {
+            "review_source": "product",
+            "review_label": "reviews",
+            "padding_top": 4,
+            "padding_bottom": 10,
+            "enable_counter_custom": false
+          }
+        },
+        "pp23_sold": {
+          "type": "sold_counter",
+          "settings": {
+            "sold_source": "product",
+            "refresh_sold_count": true,
+            "sold_label": "sold",
+            "show_live_dot": true,
+            "padding_top": 2,
+            "padding_bottom": 16,
+            "enable_counter_custom": false
+          }
+        },
+        "pp23_info": {
+          "type": "infotables",
+          "settings": {
+            "max_width": 760,
+            "center_card": false,
+            "section_pt_d": 6,
+            "section_pb_d": 22,
+            "section_pt_m": 6,
+            "section_pb_m": 18,
+            "pt_d": 16,
+            "pb_d": 16,
+            "pl_d": 20,
+            "pr_d": 20,
+            "pt_m": 14,
+            "pb_m": 14,
+            "pl_m": 16,
+            "pr_m": 16,
+            "font_size_d": 15,
+            "font_size_m": 14,
+            "line_height": 150,
+            "font_weight": 400,
+            "icon_gap": 16,
+            "icon_size": 22,
+            "border_style": "solid",
+            "divider_style": "solid",
+            "enable_custom_style": false,
+            "row1_enable": true,
+            "row2_enable": false,
+            "row3_enable": true,
+            "row1_highlight_weight": 600,
+            "row2_highlight_weight": 600,
+            "row3_highlight_weight": 600,
+            "row1_custom_icon": false,
+            "row2_custom_icon": false,
+            "row3_custom_icon": false,
+            "row1_lead": "Ships in",
+            "row1_strong": "1 to 2 working days",
+            "row2_lead": "Use code",
+            "row3_lead": "Free returns",
+            "row3_strong": "within 30 days of delivery"
+          }
+        },
+        "pay": {
+          "type": "payment_badges",
+          "settings": {}
+        }
+      },
+      "block_order": [
+        "title_1",
+        "pp23_rating",
+        "price_1",
+        "pp23_sold",
+        "variant_picker_1",
+        "size_guide_1",
+        "buy_buttons_1",
+        "text_1",
+        "pp23_info",
+        "collapsible_row_1",
+        "collapsible_row_2",
+        "collapsible_row_3",
+        "collapsible_row_4",
+        "pay",
+        "product_addons_1"
+      ]
+    },
+    "related": {
+      "type": "related-products",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "full_width",
+        "reset_spacing": true,
+        "heading": "Hang it next to",
+        "description": "",
+        "header_size": "small",
+        "header_alignment": "left",
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 0,
+        "intent": "related",
+        "items_to_show": 4,
+        "show_badges": true,
+        "show_vendor": false,
+        "show_rating": false,
+        "show_swatches": false,
+        "show_price": true,
+        "show_add_to_cart": false,
+        "show_action": false,
+        "padding_top": 40,
+        "padding_bottom": 0
+      }
+    },
+    "benefits": {
+      "type": "benefits-bar",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "full_width",
+        "reset_spacing": true,
+        "bar_width": 64,
+        "icons_per_row_desktop": 3,
+        "enable_circle_icons": false,
+        "icon_size": 24,
+        "icon_title_size": 14,
+        "top_padding_desktop": 30,
+        "bottom_padding_desktop": 30,
+        "icons_mobile_layout": 1,
+        "top_padding_mobile": 24,
+        "bottom_padding_mobile": 24,
+        "left_padding_mobile": 24,
+        "right_padding_mobile": 24
+      },
+      "blocks": {
+        "b1": {
+          "type": "icon",
+          "settings": {
+            "icon_title": "<strong>Free shipping</strong> <br>On orders over $120",
+            "icon_type": "icon",
+            "icon": "truck"
+          }
+        },
+        "b2": {
+          "type": "icon",
+          "settings": {
+            "icon_title": "<strong>Free returns</strong> <br>Within 30 days of delivery",
+            "icon_type": "icon",
+            "icon": "box"
+          }
+        },
+        "b3": {
+          "type": "icon",
+          "settings": {
+            "icon_title": "<strong>Secure payment</strong> <br>Cards, PayPal, Apple Pay",
+            "icon_type": "icon",
+            "icon": "lock"
+          }
+        }
+      },
+      "block_order": [
+        "b1",
+        "b2",
+        "b3"
+      ]
+    }
+  },
+  "order": [
+    "main",
+    "related",
+    "benefits"
+  ]
+}

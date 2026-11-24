@@ -1033,3 +1033,25 @@ variant-radios-detail fieldset:last-of-type {
   color: var(--color-text, #111111) !important;
   fill: currentColor !important;
 }
+
+/* ── Cards round 24: the gallery on a phone, and the details' first line ──
+   A grid or stacked gallery scrolls sideways on a phone, one picture per
+   Images per row (mobile) (snippets/media-gallery.liquid): each picture
+   stops at the page's side padding instead of halfway. */
+@media (max-width: 767.98px) {
+  .sec__featured-product media-gallery .grid_scroll {
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: var(--bs-gutter-x, 15px);
+    overscroll-behavior-x: contain;
+  }
+  .sec__featured-product media-gallery .grid_scroll > * { scroll-snap-align: start; }
+}
+/* A product page that opens on Main product with its picture against the
+   header (top padding under 24px, a full width section): the details
+   beside it start 32px down, so the stars are never pressed to the header.
+   --section-pt is the section's own Top padding. */
+@media (min-width: 1025px) {
+  .main-product-section:first-child .sec__featured-product.pt-min > :is(.full_width, .stretch_width) .product-detail__information {
+    padding-top: clamp(0px, calc(32px - var(--section-pt, 0) * 1px), 32px);
+  }
+}

@@ -1,4 +1,4 @@
-/* Templates round 23: Smallplot missing page, with the way back and a last call to join. */
+/* Templates round 24: Open Shade missing page, with the way back and a last call to join. */
 {
   "sections": {
     "main": {
@@ -66,14 +66,14 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "Smallplot",
+            "text": "Open Shade",
             "transform": "uppercase"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Sow in March, pick in June",
+            "text": "Shoot in manual by March",
             "transform": "none",
             "lineheight": "1.25"
           }
@@ -81,13 +81,13 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "Eight modules, six live calls and a 30 day refund."
+            "text": "Eight modules, six live photo reviews and a 30 day refund."
           }
         },
         "button_4": {
           "type": "button",
           "settings": {
-            "label": "Join the spring class",
+            "label": "Join the January class",
             "link": "/collections/all"
           }
         }

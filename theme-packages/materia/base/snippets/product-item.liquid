@@ -81,16 +81,6 @@
   assign show_secondary_image = theme_st.show_secondary_image
   assign show_add_cart = theme_st.show_add_cart
   assign show_variant = theme_st.show_variant
-  comment
-    Quick view (Theme settings > Product cards). A product with options never
-    goes to the cart with its first variant chosen for the shopper: its quick
-    add opens the quick view to choose them (assets/product-quick-view.js).
-  endcomment
-  assign show_quick_view = theme_st.show_quick_view
-  assign qv_choose = false
-  if card_product.has_only_default_variant == false and card_product.variants.size > 1 and type != 'sticky'
-    assign qv_choose = true
-  endif
   assign product_truncation_title = theme_st.product_truncation_title
   assign hidden_price = theme_st.hidden_price
   assign wishlist = pages.wishlist
@@ -415,18 +405,6 @@
           {% endif %}
         {% endif %}
         </div>
-        {%- if show_quick_view and template_enable_action == true and type != 'list' and type != 'sticky' and type != 'product-set' -%}
-          <button
-            type="button"
-            class="pc-qv"
-            data-quick-view-open
-            aria-haspopup="dialog"
-            aria-label="{{ 'products.product.actions.quickview.label' | t | escape }}: {{ card_product.title | escape }}"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6"/></svg>
-            <span class="pc-qv__label">{{ 'products.product.actions.quickview.label' | t }}</span>
-          </button>
-        {%- endif -%}
         {% if template_enable_product_badges == true %}
           {% render 'product-badges',
             card_product: card_product,
@@ -473,7 +451,8 @@
                         >
                         <button
                           id="{{ product_form_id }}-submit"
-                          {% if qv_choose %}type="button" data-quick-view-open{% else %}type="submit" name="add"{% endif %}
+                          type="submit"
+                          name="add"
                           class="product__add-cart product-item__button-submit pc-atc btn text-center"
                           data-sl-button data-button-role="{{ card_atc_role }}" data-theme-button="{{ card_atc_role }}"{% if card_atc_choice == 'outline' %} data-button-outline="true" data-button-appearance="outline"{% else %} data-button-local-appearance="theme"{% endif %}
                           aria-haspopup="dialog"
@@ -620,7 +599,8 @@
                     >
                     <button
                       id="{{ product_form_id }}-submit"
-                      {% if qv_choose %}type="button" data-quick-view-open{% else %}type="submit" name="add"{% endif %}
+                      type="submit"
+                      name="add"
                       class="product-item__button-submit pc-atc pc-atc--list bls-add-cart-list pointer btn-primary relative text-center w-full"
                       {%- comment -%} List cards (cart drawer and cart page recommendations) keep the primary button: those lists have their own button colours. {%- endcomment %}
                       data-sl-button data-button-role="primary" data-theme-button="primary"
@@ -713,7 +693,8 @@
                     >
                     <button
                       id="{{ product_form_id }}-submit"
-                      {% if qv_choose %}type="button" data-quick-view-open{% else %}type="submit" name="add"{% endif %}
+                      type="submit"
+                      name="add"
                       class="w-full product__add-cart product-item__select-options pc-atc pc-atc--below{% if card_atc_role == 'primary' %} btn-primary{% else %} btn-outline{% endif %} text-center relative morden-style"
                       data-sl-button data-button-role="{{ card_atc_role }}" data-theme-button="{{ card_atc_role }}"{% if card_atc_choice == 'outline' %} data-button-outline="true" data-button-appearance="outline"{% else %} data-button-local-appearance="theme"{% endif %}
                       aria-haspopup="dialog"
@@ -744,18 +725,6 @@
           {% endif %}
         {% endif %}
       </div>
-      {%- liquid
-        assign qv_needed = false
-        if show_quick_view and template_enable_action == true and type != 'list' and type != 'sticky' and type != 'product-set'
-          assign qv_needed = true
-        endif
-        if qv_choose and show_add_cart and template_enable_add_cart == true and theme_st.enable_catalog_mode == false
-          assign qv_needed = true
-        endif
-      -%}
-      {%- if qv_needed -%}
-        {%- render 'product-quick-view-data', product: card_product -%}
-      {%- endif -%}
       {% if template_disable_script_trigger_product_data != true %}
         {%- liquid
           assign has_color = false

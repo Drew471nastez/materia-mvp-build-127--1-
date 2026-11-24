@@ -325,7 +325,8 @@
   "main_menu": {
     "horizontal": {
       "close": "닫다",
-      "title": "메뉴"
+      "title": "메뉴",
+      "more": "더보기"
     },
     "vertical": {
       "title": "카테고리",

@@ -13,9 +13,9 @@
         "content_gap": 22,
         "min_height_desktop": 620,
         "image": "shopify://shop_images/renaissance-hero.webp",
-        "image_alt": "A shop owner at a trestle table in his studio, typing on a laptop",
+        "image_alt": "A business owner with curly hair and glasses standing in her studio office, arms folded",
         "image_position_x": 50,
-        "image_position_y": 40,
+        "image_position_y": 25,
         "image_radius": 10,
         "padding_top_desktop": 64,
         "padding_bottom_desktop": 88,
@@ -1426,6 +1426,77 @@
         "button_1",
         "note_1"
       ]
+    },
+    "next_call": {
+      "type": "countdown-timer2",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "end_date": "2026-11-26",
+        "end_time": "18:00",
+        "restart_period": "weekly",
+        "show_days": true,
+        "days_label": "Days",
+        "show_hours": true,
+        "hours_label": "Hours",
+        "show_minutes": true,
+        "minutes_label": "Mins",
+        "show_seconds": true,
+        "seconds_label": "Secs",
+        "layout_direction": "timer_right",
+        "vertical_alignment": "center",
+        "gap_columns": 64,
+        "circle_size_desktop": 92,
+        "circle_radius": 12,
+        "gap_circles_desktop": 12,
+        "enable_custom_style": true,
+        "circle_bg_color": "#e3a63a",
+        "circle_text_color": "#0e0e0f",
+        "label_color": "#aeaaa2",
+        "number_font_size_desktop": 30,
+        "label_font_size_desktop": 13,
+        "reveal": true,
+        "scroll_animation": "smooth-fade-up",
+        "padding_top": 88,
+        "padding_bottom": 88,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "circle_size_mobile": 66,
+        "number_font_size_mobile": 22,
+        "label_font_size_mobile": 11,
+        "gap_circles_mobile": 8
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "heading": "The next live call starts in",
+            "font_size_desktop": 40,
+            "font_size_mobile": 28,
+            "gap_below": 10
+          }
+        },
+        "description_1": {
+          "type": "description",
+          "settings": {
+            "description": "<p>Every Thursday at 6pm. Bring a task from your week and we build the fix together. Every call is recorded for anyone who cannot make it.</p>",
+            "gap_below": 20
+          }
+        },
+        "button_1": {
+          "type": "button",
+          "settings": {
+            "button_label": "Join Digital Renaissance",
+            "button_url": "/#shopify-section-pricing"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_1",
+        "button_1"
+      ]
     }
   },
   "order": [
@@ -1441,6 +1512,7 @@
     "bonuses",
     "results",
     "instructor",
+    "next_call",
     "pricing",
     "guarantee",
     "faq",

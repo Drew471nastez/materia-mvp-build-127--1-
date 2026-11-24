@@ -83,25 +83,26 @@
       ]
     },
     "products_listing_2": {
-      "type": "products-listing",
+      "type": "products-carousel",
       "settings": {
         "color_scheme": "default",
         "section_width": "container",
-        "items_to_show": 4,
+        "items_to_show": 8,
         "items_per_row": 4,
         "items_per_row_mobile": 2,
         "column_gap": 24,
-        "row_gap": 40,
-        "show_rating": false,
-        "show_swatches": false,
-        "show_add_to_cart": false,
-        "show_badges": true,
         "header_alignment": "left",
+        "show_arrow": true,
+        "carousel_pagination": "show_dots_on_mobile",
+        "pagination_style": "dot",
+        "infinite": false,
+        "autoplay": false,
+        "reveal": false,
         "padding_top": 96,
         "padding_bottom": 56
       },
       "blocks": {
-        "heading_1": {
+        "heading": {
           "type": "heading",
           "settings": {
             "text": "New in",
@@ -109,19 +110,19 @@
             "size_mobile": 26
           }
         },
-        "button_2": {
-          "type": "button",
+        "all": {
+          "type": "view_all",
           "settings": {
-            "text": "Shop all",
+            "enabled": true,
+            "label": "Shop all",
             "link": "/collections/all",
-            "position": "header",
-            "button_style": "secondary"
+            "position": "header"
           }
         }
       },
       "block_order": [
-        "heading_1",
-        "button_2"
+        "heading",
+        "all"
       ]
     },
     "category_banners_3": {
@@ -349,97 +350,108 @@
       ]
     },
     "faq_6": {
-      "type": "faq-contact-card",
+      "type": "faq-pro",
       "settings": {
         "color_scheme": "default",
         "section_width": "container",
+        "structured_data": true,
+        "first_item_open": true,
+        "allow_multiple_open": false,
+        "open_icon": "plus",
+        "content_alignment": "left",
+        "max_content_width": 1160,
+        "col_gap": 72,
+        "gap_header_to_items": 32,
+        "gap_heading_to_subheading": 14,
+        "gap_between_items": 10,
+        "item_padding_y": 20,
+        "item_padding_x": 22,
+        "item_radius": 8,
+        "show_dividers": false,
+        "heading_size_desktop": 40,
+        "heading_size_mobile": 30,
+        "question_size_desktop": 17,
+        "question_size_mobile": 15,
+        "answer_size_desktop": 15,
         "padding_top": 104,
-        "padding_bottom": 112,
-        "card_sticky": true,
-        "question_size_desktop": 18,
-        "max_content_width": 1252
+        "padding_bottom": 112
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Questions"
+            "text": "Questions",
+            "tag": "h2"
           }
         },
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>The ones we hear most. The rest are on the <a href=\"/pages/faqs\">help page</a>.</p>"
+            "text": "<p>The ones we hear most. Everything else is on the <a href=\"/pages/faqs\">help page</a>, and one of us replies to every message within a working day.</p>"
           }
         },
-        "faq_item_3": {
+        "button_3": {
+          "type": "button",
+          "settings": {
+            "label": "Contact us",
+            "link": "/pages/contact",
+            "style": "secondary",
+            "radius": 6
+          }
+        },
+        "faq_item_4": {
           "type": "faq_item",
           "settings": {
             "question": "When will my order arrive?",
             "answer": "<p>We pack orders within two working days and send them tracked. Most arrive three to five days later. You get the tracking link by email.</p>"
           }
         },
-        "faq_item_4": {
-          "type": "faq_item",
-          "settings": {
-            "question": "How do downloads work?",
-            "answer": "<p>As soon as you pay, the download link appears on the confirmation page and in your receipt email. It also stays in your account.</p>"
-          }
-        },
         "faq_item_5": {
-          "type": "faq_item",
-          "settings": {
-            "question": "Can I return something?",
-            "answer": "<p>Yes. Send anything physical back unused within 30 days for a full refund. Downloads can be refunded within 14 days if you have not opened them.</p>"
-          }
-        },
-        "faq_item_6": {
           "type": "faq_item",
           "settings": {
             "question": "Do you ship abroad?",
             "answer": "<p>To most countries. You see the delivery price for yours at checkout, before you pay.</p>"
           }
         },
-        "card_text_7": {
-          "type": "card_text",
+        "faq_item_6": {
+          "type": "faq_item",
           "settings": {
-            "heading": "Still have a question?",
-            "text": "<p>Write to us and one of us will reply within a working day.</p>"
+            "question": "Can I change my order after paying?",
+            "answer": "<p>Write to us the same day and we will change the size, colour or address before it is packed.</p>"
           }
         },
-        "button_8": {
-          "type": "button",
+        "faq_item_8": {
+          "type": "faq_item",
           "settings": {
-            "label": "Contact us",
-            "link": "/pages/contact"
+            "question": "How do downloads work?",
+            "answer": "<p>As soon as you pay, the download link appears on the confirmation page and in your receipt email. It also stays in your account.</p>"
           }
         },
-        "contact_line_9": {
-          "type": "contact_line",
+        "faq_item_11": {
+          "type": "faq_item",
           "settings": {
-            "label": "Email",
-            "text": "hello@example.com"
+            "question": "Can I return something?",
+            "answer": "<p>Yes. Send anything physical back unused within 30 days for a full refund.</p>"
           }
         },
-        "contact_line_10": {
-          "type": "contact_line",
+        "faq_item_13": {
+          "type": "faq_item",
           "settings": {
-            "label": "Hours",
-            "text": "Monday to Friday, 9 to 5"
+            "question": "Something arrived damaged",
+            "answer": "<p>Send us a photo and we will post a new one straight away. You do not need to send the old one back.</p>"
           }
         }
       },
       "block_order": [
         "heading_1",
         "subheading_2",
-        "faq_item_3",
+        "button_3",
         "faq_item_4",
         "faq_item_5",
+        "faq_item_8",
+        "faq_item_11",
         "faq_item_6",
-        "card_text_7",
-        "button_8",
-        "contact_line_9",
-        "contact_line_10"
+        "faq_item_13"
       ]
     },
     "newsletter_7": {
@@ -535,12 +547,90 @@
         "column_3",
         "column_4"
       ]
+    },
+    "made_here": {
+      "type": "inline-image-heading",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "content_alignment": "center",
+        "image_size": 72,
+        "image_gap": 8,
+        "heading_size": 48,
+        "heading_size_mobile": 28,
+        "image_size_mobile": 40,
+        "enable_custom_size": true,
+        "heading_line_height": "1.15",
+        "heading_letter_spacing": -1,
+        "reveal": true,
+        "padding_top": 96,
+        "padding_bottom": 40,
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 24,
+        "show_eyebrow": false,
+        "heading_tag": "h2"
+      },
+      "blocks": {
+        "t1": {
+          "type": "text",
+          "settings": {
+            "text": "Mugs"
+          }
+        },
+        "i1": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/default-cat-drinkware.webp"
+          }
+        },
+        "t2": {
+          "type": "text",
+          "settings": {
+            "text": "bags"
+          }
+        },
+        "i2": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/default-cat-bags.webp"
+          }
+        },
+        "t3": {
+          "type": "text",
+          "settings": {
+            "text": "and planners"
+          }
+        },
+        "i3": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/default-cat-downloads.webp"
+          }
+        },
+        "t4": {
+          "type": "text",
+          "settings": {
+            "text": "made in one small studio"
+          }
+        }
+      },
+      "block_order": [
+        "t1",
+        "i1",
+        "t2",
+        "i2",
+        "t3",
+        "i3",
+        "t4"
+      ]
     }
   },
   "order": [
     "hero_split_1",
     "products_listing_2",
     "promises_8",
+    "made_here",
     "category_banners_3",
     "image_benefits_4",
     "image_text_5",

@@ -87,7 +87,7 @@
           "type": "collapsible_row",
           "settings": {
             "heading": "What is inside",
-            "content": "<p>60 short daily lessons in four stages, 24 live conversation classes in a group of six, weekly voice note feedback from your teacher and a printable phrasebook for each stage.</p>",
+            "content": "<p>Six weeks of short video lessons in four stages, a live class with a trainer every Wednesday, feedback on a one minute clip every Sunday, and a printable plan and tick sheet for each week.</p>",
             "use_product_description": true,
             "open": true
           }
@@ -95,8 +95,8 @@
         "collapsible_row_2": {
           "type": "collapsible_row",
           "settings": {
-            "heading": "Lessons or lessons and classes",
-            "content": "<p>Lessons only gives you the daily lessons, voice note feedback and phrasebooks. With classes you also join a group of six for two live conversations a week.</p>",
+            "heading": "Course or course and sessions",
+            "content": "<p>The course gives you the lessons, the live classes and the weekly clip feedback. With two private sessions you also get two 45 minute video calls with Jonah about your own puppy, to use any time in the six weeks.</p>",
             "use_product_description": false,
             "open": false
           }
@@ -159,7 +159,7 @@
           "type": "collapsible_row",
           "settings": {
             "heading": "Questions",
-            "content": "<p>For complete beginners and people who stopped after school. Lessons work on any phone. Classes run mornings and evenings in European and American time zones.</p>",
+            "content": "<p>For puppies from eight weeks and young dogs up to about two years. Lessons work on any phone. The live class runs on Wednesday evenings in European and American time zones.</p>",
             "use_product_description": false,
             "open": false
           }
@@ -268,8 +268,8 @@
         "pagination_spacing": 28,
         "enable_custom_colors": true,
         "card_bg": "#ffffff",
-        "card_border_color": "#e6e7ea",
-        "quote_color": "#15171a",
+        "card_border_color": "#e4e6ee",
+        "quote_color": "#141a2e",
         "enable_custom_typography": true,
         "quote_size": 17,
         "autoplay": false,
@@ -286,66 +286,66 @@
           "type": "eyebrow",
           "settings": {
             "enabled": true,
-            "text": "Students"
+            "text": "Owners"
           }
         },
         "heading_1": {
           "type": "heading",
           "settings": {
             "enabled": true,
-            "text": "The first real conversation"
+            "text": "The first calm walk"
           }
         },
         "subheading_1": {
           "type": "subheading",
           "settings": {
             "enabled": true,
-            "text": "<p>Sample quotes to show the layout. Replace them with your students’ own words.</p>"
+            "text": "<p>Sample quotes to show the layout. Replace them with your own students’ words.</p>"
           }
         },
         "testimonial_1": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I had used an app for two years and still could not order a coffee without panicking. Six weeks of classes and I chatted with our neighbours in Málaga.</p>",
+            "quote": "<p>Our spaniel pulled so hard I dreaded walks. Two weeks of the lead lessons and my eleven year old can walk him to school.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "Started at 52"
+            "role": "Cocker spaniel, 5 months"
           }
         },
         "testimonial_2": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>The voice notes are the best part. Lucía hears the same mistake I make every week and tells me exactly how to fix it.</p>",
+            "quote": "<p>The Sunday clips are the best part. Jonah spotted that I was rewarding too late, every single time.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "Nurse, studies before shifts"
+            "role": "Labrador, 4 months"
           }
         },
         "testimonial_3": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Twenty minutes in the morning is the only way I could have done this. I do the lesson on the train.</p>",
+            "quote": "<p>Ten minutes three times a day is the only way this could work with two jobs and a toddler.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "Commutes to the city"
+            "role": "Rescue, mixed breed"
           }
         },
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Being in a group of six made me show up. Nobody minded my accent, and by week eight I stopped minding it too.</p>",
+            "quote": "<p>She used to bark at every knock on the door. Now she goes to her mat and waits.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "Moving to Valencia next year"
+            "role": "Border collie, 9 months"
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>My partner is from Mexico. I can finally talk to his mother on the phone.</p>",
+            "quote": "<p>The long line lessons gave me the nerve to let him off the lead in the park. He comes back.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "Learning for family"
+            "role": "German shepherd, 7 months"
           }
         }
       },
@@ -375,15 +375,15 @@
         "gap_header_to_items": 28,
         "item_padding_y": 22,
         "enable_custom_style": true,
-        "question_color": "#15171a",
-        "hover_color": "#f25c05",
-        "icon_color": "#f25c05",
-        "answer_color": "#50545c",
-        "divider_color": "#e6e7ea",
-        "card_bg": "#f3f4f6",
+        "question_color": "#141a2e",
+        "hover_color": "#2f4fd1",
+        "icon_color": "#2f4fd1",
+        "answer_color": "#4b5060",
+        "divider_color": "#e4e6ee",
+        "card_bg": "#f2f4fa",
         "card_border_color": "rgba(0,0,0,0)",
-        "card_heading_color": "#15171a",
-        "card_text_color": "#50545c",
+        "card_heading_color": "#141a2e",
+        "card_text_color": "#4b5060",
         "reveal": false,
         "padding_top": 48,
         "padding_bottom": 104,
@@ -405,50 +405,50 @@
         "faq_item_1": {
           "type": "faq_item",
           "settings": {
-            "question": "I have tried before and given up. Why would this be different?",
-            "answer": "<p>Most people give up because they never speak. Here you speak in the first class, in a small group, and someone expects you there twice a week.</p>"
+            "question": "My puppy is eight weeks old. Is that too young?",
+            "answer": "<p>No, it is a good time to start. Week one is short sessions on the floor at home, before your puppy has had its vaccinations and can go out.</p>"
           }
         },
         "faq_item_2": {
           "type": "faq_item",
           "settings": {
-            "question": "Which Spanish do you teach?",
-            "answer": "<p>Spanish from Spain in the lessons, with notes on how Latin American Spanish differs. Teachers in the classes come from both.</p>"
+            "question": "Does it work for an older dog?",
+            "answer": "<p>Yes, up to about two years and often older. Start at week one; grown dogs usually move faster through the first stage.</p>"
           }
         },
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
-            "question": "What if I miss a class?",
-            "answer": "<p>Join another group that week, or watch the recording and send a voice note instead. Life happens.</p>"
+            "question": "What if I miss a live class?",
+            "answer": "<p>Every class is recorded and added to the course the same day. Send your question beforehand and the trainer answers it on the recording.</p>"
           }
         },
         "faq_item_4": {
           "type": "faq_item",
           "settings": {
-            "question": "When are the classes?",
-            "answer": "<p>Mornings and evenings in European and American time zones. You pick a group when you join. Change this to your own schedule.</p>"
+            "question": "When are the live classes?",
+            "answer": "<p>Wednesday evenings, one class for European time zones and one for American ones. You pick when you join. Change this to your own schedule.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "Do I need to buy books?",
-            "answer": "<p>No. Everything is in the course, including a phrasebook for each stage you can print.</p>"
+            "question": "What do I need to buy?",
+            "answer": "<p>A flat collar or harness, a two metre lead, a ten metre long line for week four and small soft treats. No clicker and no special collar.</p>"
           }
         },
         "faq_item_6": {
           "type": "faq_item",
           "settings": {
             "question": "How do I get access?",
-            "answer": "<p>Straight after payment you get a login by email. Lessons work on your phone, and class links arrive before each class.</p>"
+            "answer": "<p>Straight after payment you get a login by email. Lessons work on your phone, and the class link arrives before each class.</p>"
           }
         },
         "card_text_1": {
           "type": "card_text",
           "settings": {
-            "heading": "Not sure where you are?",
-            "text": "<p>Tell us what Spanish you have now and why you are learning. Lucía replies within two days.</p>"
+            "heading": "Not sure where to start?",
+            "text": "<p>Tell us your puppy’s age and what is hardest right now. Jonah replies within two days.</p>"
           }
         },
         "button_1": {
@@ -522,11 +522,11 @@
         "marker_size": 34,
         "line_thickness": 2,
         "enable_custom_style": true,
-        "line_color": "#e6e7ea",
-        "marker_color": "#f25c05",
-        "label_color": "#f25c05",
-        "title_color": "#15171a",
-        "text_color": "#50545c",
+        "line_color": "#e4e6ee",
+        "marker_color": "#2f4fd1",
+        "label_color": "#2f4fd1",
+        "title_color": "#141a2e",
+        "text_color": "#4b5060",
         "fill_on_scroll": true,
         "padding_top_desktop": 96,
         "padding_bottom_desktop": 96,
@@ -537,15 +537,15 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "The 12 weeks",
+            "text": "The six weeks",
             "enable_custom_style": true,
-            "color": "#f25c05"
+            "color": "#2f4fd1"
           }
         },
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Four stages, one real conversation",
+            "text": "Four stages, one dog you can take anywhere",
             "size_enable": true,
             "size_desktop": 44,
             "size_mobile": 30,
@@ -556,46 +556,46 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Each stage ends with a class built around one situation you will actually meet.</p>"
+            "text": "<p>Each stage ends with a short test you can do at home, so you know when to move on.</p>"
           }
         },
         "item_1": {
           "type": "item",
           "settings": {
-            "label": "Weeks 1 to 3",
-            "title": "Getting by",
-            "text": "<p>Introduce yourself, order food and drink, ask the way and understand the answer. Numbers, times and prices.</p>"
+            "label": "Week 1",
+            "title": "Name, sit and settle",
+            "text": "<p>Your puppy learns to look at you when you say its name, to sit for a reward and to lie on a mat while you eat.</p>"
           }
         },
         "item_2": {
           "type": "item",
           "settings": {
-            "label": "Weeks 4 to 6",
-            "title": "Your life",
-            "text": "<p>Talk about your work, your family and your weekend. The past tense you need, and nothing you do not.</p>"
+            "label": "Weeks 2 and 3",
+            "title": "A loose lead",
+            "text": "<p>Walking beside you without pulling, first in the hallway, then on your street. What to do when they lunge at another dog.</p>"
           }
         },
         "item_3": {
           "type": "item",
           "settings": {
-            "label": "Weeks 7 to 9",
-            "title": "Opinions and plans",
-            "text": "<p>Agree, disagree, make plans and tell a short story. You start to follow people speaking at normal speed.</p>"
+            "label": "Weeks 4 and 5",
+            "title": "Come when called",
+            "text": "<p>A recall that works in the park, with a long line first. Leaving things on the ground and dropping what is in their mouth.</p>"
           }
         },
         "item_4": {
           "type": "item",
           "settings": {
-            "label": "Weeks 10 to 12",
-            "title": "Real situations",
-            "text": "<p>A phone call, a pharmacy, a problem with a booking. The last class is twenty minutes with no English at all.</p>"
+            "label": "Week 6",
+            "title": "Out in the world",
+            "text": "<p>Cafés, buses, visitors at the door and an hour home alone. The last class is a walk somewhere busy.</p>"
           }
         },
         "button_1": {
           "type": "button",
           "settings": {
-            "label": "Start speaking",
-            "link": "/#shopify-section-pricing",
+            "label": "Start training",
+            "link": "/#shopify-section-offer",
             "style": "primary",
             "radius": 6
           }

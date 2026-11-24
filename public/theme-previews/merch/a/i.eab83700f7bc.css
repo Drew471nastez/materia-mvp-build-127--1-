@@ -1,0 +1,140 @@
+#topbar-top_bar a { text-decoration-line: none; }
+    #topbar-top_bar .topbar__section-inner { letter-spacing: 0px; }
+    .topbar-item .list-social__item a { width: 3rem; height: 3rem; }
+
+    
+    #topbar-top_bar .topbar-text { display: inline; }
+    #topbar-top_bar .topbar-text--sm { display: none; }
+    #topbar-top_bar .topbar-text--lg { display: inline; }
+    @media (max-width: 767.98px) {
+      #topbar-top_bar .topbar-text--lg { display: none; }
+      #topbar-top_bar .topbar-text--sm { display: inline; }
+    }
+
+    /* Custom color overrides — leave any setting blank to inherit the scheme. *//* Custom desktop horizontal offset: shifts the messages left or right
+       within the bar on desktop only (--tb-offset, written on the bar while
+       Custom position is on). Mobile stays centred. */
+    @media (min-width: 1025px) {
+      #topbar-top_bar[data-tb-offset] .topbar-item.text-slide {
+        transform: translateX(var(--tb-offset, 0%));
+        will-change: transform;
+      }
+    }
+    /* Custom font (Typography): the bar's text keeps it over the theme font. */
+    #topbar-top_bar .topbar__section-inner[data-own-font] { font-family: var(--tb-font, inherit); }
+    /* A Message block's own colour wins over the bar's text and link colours. */
+    #topbar-top_bar [data-tb-own-color],
+    #topbar-top_bar [data-tb-own-color] :is(.topbar-text-cell, .topbar-text, a) { color: var(--tb-msg-color) !important; }
+    #topbar-top_bar .topbar-message__link { color: inherit; text-decoration-line: underline; text-underline-offset: 3px; }
+
+    /* Navigation occupies real columns outside the clipped Swiper viewport. */
+    #shopify-section-top_bar:has(.button-localization.open) { z-index: 25; }
+    #topbar-top_bar > div {
+      padding-inline: clamp(16px, 2.5vw, 40px);
+    }
+    #topbar-top_bar .topbar__section-inner { gap: 12px 24px; }
+    #topbar-top_bar .text-slide {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      align-items: center;
+      min-width: 0;
+      max-width: 760px;
+      flex: 1 1 280px;
+      margin-inline: auto;
+    }
+    #topbar-top_bar .text-slide.topbar-has-arrows {
+      grid-template-columns: 44px minmax(0, 1fr) 44px;
+      max-width: min(100%, 690px);
+      gap: 4px;
+    }
+    #topbar-top_bar .text-slide.topbar-has-arrows .topbar-slider-arrow {
+      width: 44px !important; height: 44px !important; min-height: 44px !important;
+      border-radius: 50%; transition: background-color .2s ease, opacity .2s ease;
+    }
+    @media (hover:hover) { #topbar-top_bar .topbar-slider-arrow:hover { background-color: color-mix(in srgb, currentColor 9%, transparent) !important; } }
+    #topbar-top_bar .text-slide.hidden { display: none; }
+    @media (min-width: 1025px) {
+      #topbar-top_bar .text-slide.hidden { display: grid; }
+    }
+    #topbar-top_bar announcement-rotator-v2.topbar-slider {
+      display: block;
+      width: 100%;
+      min-width: 0;
+      overflow: hidden;
+      padding: 0;
+      margin: 0;
+      isolation: isolate;
+    }
+    #topbar-top_bar .topbar-track { display: grid; align-items: stretch; }
+    #topbar-top_bar .topbar-message {
+      display: flex;
+      grid-area: 1 / 1;
+      min-width: 0;
+      align-items: center;
+      justify-content: var(--tb-justify, center);
+      text-align: var(--tb-align, center);
+      height: auto;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      line-height: 1.4;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: none;
+    }
+    #topbar-top_bar .topbar-message.is-active { opacity: 1; visibility: visible; pointer-events: auto; }
+    #topbar-top_bar announcement-rotator-v2 { touch-action: pan-y; }
+    @media (prefers-reduced-motion: reduce) {
+      #topbar-top_bar .topbar-message { transition: none; }
+    }
+    #topbar-top_bar .topbar-text-cell { width: 100%; min-width: 0; padding: 4px 8px; }
+    #topbar-top_bar .topbar-slider-arrow {
+      position: static !important;
+      inset: auto !important;
+      margin: 0 !important;
+      transform: none !important;
+      width: 44px !important;
+      height: 44px !important;
+      min-height: 44px !important;
+      max-height: none !important;
+      display: inline-flex !important;
+      align-items: center;
+      justify-content: center;
+      border: 0 !important;
+      padding: 0 !important;
+      background: transparent !important;
+      color: inherit !important;
+      opacity: 1;
+      cursor: pointer;
+      flex: none;
+    }
+    #topbar-top_bar .topbar-slider-arrow::before,
+    #topbar-top_bar .topbar-slider-arrow::after { content: none !important; }
+    #topbar-top_bar .topbar-slider-arrow svg { width: 16px; height: 16px; flex: none; }
+    #topbar-top_bar .topbar-slider-arrow:focus-visible { outline: 2px solid currentColor; outline-offset: -4px; }
+    #topbar-top_bar .lang__currency-desktop { flex: 0 1 auto; flex-wrap: nowrap; gap: 12px; min-width: 0; }
+    #topbar-top_bar .lang__currency-desktop .localization-flags { width: 20px; height: 20px; }
+    #topbar-top_bar .button-localization > span { min-width: 0; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+    /* Sides (topbar__side): on phones they are not boxes at all, so the blocks wrap and centre as one row. On desktop the bar is three columns and the two sides are always the same width, so a centred message is centred on the page and not on the room the side content leaves. */
+    #topbar-top_bar .topbar__side { display: contents; }
+    @media (min-width: 1025px) {
+      #topbar-top_bar .topbar__section-inner {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, auto) minmax(0, 1fr);
+        align-items: center;
+      }
+      #topbar-top_bar[style*="--tb-justify: flex-start"] .topbar__section-inner,
+      #topbar-top_bar[style*="--tb-justify: flex-end"] .topbar__section-inner { grid-template-columns: auto minmax(0, 1fr) auto; }
+      #topbar-top_bar .topbar__side { display: flex; align-items: center; gap: 12px 24px; min-width: 0; }
+      #topbar-top_bar .topbar__side--start { grid-column: 1; justify-content: flex-start; }
+      #topbar-top_bar .topbar__side--end { grid-column: 3; justify-content: flex-end; }
+      #topbar-top_bar .topbar__section-inner > .text-slide { grid-column: 2; width: min(760px, 100%); }
+      #topbar-top_bar .topbar__section-inner > .text-slide.topbar-has-arrows { width: min(690px, 100%); }
+    }
+    @media (max-width: 767px) {
+      #topbar-top_bar .text-slide.topbar-has-arrows:not(.topbar-mobile-arrows) { grid-template-columns: minmax(0, 1fr); }
+      #topbar-top_bar .text-slide:not(.topbar-mobile-arrows) .topbar-slider-arrow { display: none !important; }
+    }@media (max-width: 1024px) {
+      #topbar-top_bar .topbar-message { justify-content: center; }
+      #topbar-top_bar .text-slide { max-width: 100%; }
+    }
