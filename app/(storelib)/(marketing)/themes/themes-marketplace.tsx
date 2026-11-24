@@ -6,7 +6,8 @@
  * ===========================================================================
  * Round 58, after Shopify's theme store: filters down the left on a
  * computer (category, price, features), a count and an order above a grid
- * of cards, twelve at a time with Load more. On a phone and a tablet the
+ * of cards, twenty at a time with Load more (marketplace round 24, the
+ * owner: "show 20 by default"). On a phone and a tablet the
  * filters and the order are one sheet (components/ui/bottom-sheet), opened
  * by a Filter button beside the count.
  *
@@ -37,7 +38,7 @@
  *
  * NOTHING MOVES WHILE IT LOADS. The cards are on the page from the server,
  * each picture's box is drawn at its shape before the picture arrives, and
- * the cards after the first twelve are in the page too, hidden, so every
+ * the cards after the first twenty are in the page too, hidden, so every
  * template is a link a crawler can follow from here.
  */
 import * as React from "react"
@@ -50,7 +51,7 @@ import { MarketplaceCard } from "@/components/themes/marketplace-card"
 import { THEME_SORTS, MARKETPLACE_PATH, type ThemeSort, type ThemeTier } from "@/lib/themes/marketplace-shared"
 import { THEME_FEATURES, type MarketplaceCard as Card, type MarketplaceCategoryCopy, type ThemeFeature } from "@/lib/themes/theme-seo"
 
-const PAGE_SIZE = 12
+const PAGE_SIZE = 20
 
 const PRICES: { id: ThemeTier; label: string }[] = [
   { id: "free", label: "Free" },
@@ -130,7 +131,7 @@ export function ThemesMarketplace({
   const latest = React.useRef({ f, limit })
   latest.current = { f, limit }
 
-  /* A change of filters or order starts from the first twelve again. */
+  /* A change of filters or order starts from the first twenty again. */
   const change = React.useCallback((next: React.SetStateAction<Filters>) => {
     setF(next)
     setLimit(PAGE_SIZE)

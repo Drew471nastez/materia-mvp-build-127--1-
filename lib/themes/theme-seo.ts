@@ -655,9 +655,9 @@ export const THEME_SEO: readonly ThemeSeo[] = [
   {
     slug: "outerwear",
     title: "Streetwear Outerwear Store Website Template | Storelib",
-    description: "A streetwear template for an outerwear label: a two photo hero, trending pieces, category banners, a collection list, highlights, a review and an Instagram strip.",
+    description: "A streetwear template for an outerwear label: a moving photo hero, trending pieces under tabs, category banners, collections, reviews and an Instagram strip.",
     h1: "Streetwear outerwear store website template",
-    intro: "Outerwear label is a shop for a streetwear brand that sells jackets, puffers and knitwear. Big condensed headings sit over photographs, product cards carry their name and price in a white box, and a giant wordmark closes the page above the footer.",
+    intro: "Outerwear label is a shop for a streetwear brand that sells jackets, puffers and knitwear. Editorial photographs scroll slowly behind a big condensed heading, every menu link opens a collection, and a giant wordmark closes the page above the footer.",
     primaryCategory: "fashion",
     primaryKeyword: "streetwear store website template",
     secondaryKeywords: ["outerwear brand website", "jacket store website", "urban clothing brand website"],
@@ -746,19 +746,56 @@ export function themePageCopy(listing: ThemeListing): ThemePageCopy {
 
 /* ── Related templates ────────────────────────────────────────────────── */
 
-/** Up to `n` other listings: the same category first, then ones that share a category, then the rest in the featured order. */
-export function relatedListings(listing: ThemeListing, all: readonly ThemeListing[], n = 3): ThemeListing[] {
+/**
+ * Categories that sit next to each other: a visitor looking at one is the
+ * likeliest to want the others. Fashion and online stores share shoppers;
+ * courses, coaching and landing pages share the people who sell expertise.
+ */
+export const NEIGHBOUR_CATEGORIES: Readonly<Record<string, readonly string[]>> = {
+  fashion: ["online-store", "creators"],
+  "online-store": ["fashion", "creators"],
+  creators: ["online-store", "fashion", "digital-products"],
+  "digital-products": ["landing-pages", "creators", "courses"],
+  courses: ["landing-pages", "coaching", "digital-products"],
+  coaching: ["courses", "landing-pages", "creators"],
+  "landing-pages": ["courses", "digital-products", "coaching"],
+}
+
+/** How many related templates a template's page shows (marketplace round 24: more than three, a full row of six). */
+export const RELATED_COUNT = 6
+
+/**
+ * Up to `n` other listings, closest first (marketplace round 24, the owner:
+ * "for a fashion template, all the fashion templates before anything else;
+ * the same category first, then related categories"):
+ *   0  in this template's own category, in that category's own order; a
+ *      template in the fashion category counts fashion as its own too, so
+ *      Merch (filed under creators) shows the clothing templates first;
+ *   1  shares any other category with it, the more shared the sooner;
+ *   2  in a neighbouring category (NEIGHBOUR_CATEGORIES);
+ *   3  the rest, in the featured order.
+ */
+export function relatedListings(listing: ThemeListing, all: readonly ThemeListing[], n = RELATED_COUNT): ThemeListing[] {
   const mine = categoriesOf(listing).map((c) => c.slug)
-  const score = (l: ThemeListing) => {
+  /* A template that sells clothes is a fashion template first, wherever else it is filed (Merch is filed under creators); then its own category. */
+  const homes = [...(mine.includes("fashion") ? ["fashion"] : []), mine[0]].filter((s, i, a): s is string => !!s && a.indexOf(s) === i)
+  const near = new Set(homes.flatMap((h) => NEIGHBOUR_CATEGORIES[h] ?? []))
+  const rank = (l: ThemeListing) => {
     const theirs = categoriesOf(l).map((c) => c.slug)
-    if (theirs[0] === mine[0]) return 0
-    if (theirs.some((s) => mine.includes(s))) return 1
-    return 2
+    const shared = theirs.filter((s) => mine.includes(s)).length
+    const home = homes.findIndex((h) => theirs.includes(h))
+    if (home >= 0) {
+      const at = seoCategory(homes[home])?.members.indexOf(l.slug) ?? -1
+      return [0, home, at < 0 ? 999 : at]
+    }
+    if (shared) return [1, -shared, 0]
+    if (theirs.some((s) => near.has(s))) return [2, 0, 0]
+    return [3, 0, 0]
   }
   return all
     .filter((l) => l.slug !== listing.slug)
-    .map((l, i) => ({ l, s: score(l), i }))
-    .sort((a, b) => a.s - b.s || a.i - b.i)
+    .map((l, i) => ({ l, r: rank(l), i }))
+    .sort((a, b) => a.r[0] - b.r[0] || a.r[1] - b.r[1] || a.r[2] - b.r[2] || a.i - b.i)
     .slice(0, n)
     .map((x) => x.l)
 }

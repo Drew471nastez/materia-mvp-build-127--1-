@@ -33,6 +33,8 @@ import {
   categoriesOf,
   listingsInCategory,
   marketplaceCard,
+  NEIGHBOUR_CATEGORIES,
+  RELATED_COUNT,
   relatedListings,
   themeAlt,
   themeImages,
@@ -46,6 +48,7 @@ import { PLATFORM_DISALLOW, robotsTxt } from "../lib/seo/indexing"
 import { robotsAllowed } from "../lib/seo/robots-match"
 import { llmsTxt } from "../lib/developers/llms"
 import { stripComments } from "./_source"
+import { CARD_PAN_SPEED, PAN_ACCEL, RETURN_RAMP_S, glide, returnSpeedFor, type Glide } from "../components/themes/card-glide"
 
 let passed = 0
 let failed = 0
@@ -163,8 +166,19 @@ async function main() {
   check("an uploaded listing joins the category of its kind", categoriesOf(uploaded)[0]?.slug === "digital-products" && listingsInCategory([...listings, uploaded], "digital-products").some((l) => l.slug === "aurora"))
   const up = themePageCopy(uploaded)
   check("  and gets a plain page of its own: its name in the title, the shared questions, no claimed features", up.title === "Aurora Website Template | Storelib" && up.h1 === "Aurora website template" && up.features.length === 0 && up.faqs.length === 3 && up.description.length <= 160)
-  const rel = relatedListings(bySlug("clothing"), listings, 3)
-  check("related templates: three others, its own category first", rel.length === 3 && !rel.some((r) => r.slug === "clothing") && categoriesOf(rel[0])[0].slug === "fashion")
+  /* Changed on purpose (marketplace round 24, the owner: "for a fashion template, all the fashion templates before others; same category first, then related categories; more than three"). */
+  const rel = relatedListings(bySlug("clothing"), listings)
+  const fashion = THEME_SEO_CATEGORIES.find((c) => c.slug === "fashion")!.members
+  check("related templates: six by default, never itself", RELATED_COUNT === 6 && rel.length === 6 && listings.every((l) => !relatedListings(l, listings).some((r) => r.slug === l.slug) && relatedListings(l, listings).length === 6))
+  check("  Clothing: every other fashion template (print on demand, caps and tees, outerwear, lifestyle label, night shop, merch), nothing else first", rel.every((r) => fashion.includes(r.slug)) && fashion.filter((m) => m !== "clothing").every((m) => rel.some((r) => r.slug === m)), rel.map((r) => r.slug))
+  for (const slug of fashion) {
+    const r = relatedListings(bySlug(slug), listings).map((x) => x.slug)
+    const others = fashion.filter((m) => m !== slug)
+    check(`  ${slug}: the fashion templates come before any other`, r.slice(0, Math.min(6, others.length)).every((x) => others.includes(x)), r)
+  }
+  const coachRel = relatedListings(bySlug("coach"), listings)
+  check("  Coach: its own category's templates first, then ones sharing a category or a neighbouring one", categoriesOf(coachRel[0]).some((c) => c.slug === "coaching") && coachRel.every((r) => categoriesOf(r).some((c) => categoriesOf(bySlug("coach")).some((m) => m.slug === c.slug) || (NEIGHBOUR_CATEGORIES.coaching ?? []).includes(c.slug))), coachRel.map((r) => r.slug))
+  check("  every category has neighbours that are categories", Object.entries(NEIGHBOUR_CATEGORIES).every(([k, v]) => THEME_SEO_CATEGORIES.some((c) => c.slug === k) && v.every((x) => THEME_SEO_CATEGORIES.some((c) => c.slug === x))))
 
   console.log("\n  4. Structured data")
   for (const l of listings) {
@@ -261,23 +275,69 @@ async function main() {
   check("a category: built for each category, unknown ones 404, its own canonical, title and share card", /dynamicParams = false/.test(cat) && /THEME_SEO_CATEGORIES\.map\(\(c\) => \(\{ category: c\.slug \}\)\)/.test(cat) && /path: themeCategoryPath\(cat\.slug\)/.test(cat) && /categoryJsonLd\(cat, inIt\)/.test(cat))
   check("a template: canonical at its address, its title as written, its share card, its JSON-LD", /path: listingPath\(listing\.slug\),\s*title: copy\.title,\s*absolute: true/.test(detail) && /image: og \? \{ url: og\.src/.test(detail) && /themeJsonLd\(listing, copy\)/.test(detail) && /generateStaticParams\(\) \{\s*return CODE_TEMPLATES\.map/.test(detail))
   check("  one H1, the intro, the facts, the gallery with sizes and alt, what is included, who it is for, questions, related", (detail.match(/<h1\b/g) ?? []).length === 1 && /data-theme-intro/.test(detail) && /data-theme-facts/.test(detail) && /width=\{img\.hero\.width\} height=\{img\.hero\.height\} alt=\{themeAlt\(listing, "hero"/.test(detail) && /What is included/.test(detail) && /Who it is for/.test(detail) && /<FaqList faqs=\{copy\.faqs\}/.test(detail) && /Related templates/.test(detail))
+  /* Changed on purpose (marketplace round 24, the owner): checks instead of dots; the gallery is the live website with a Desktop / Phone switch over the pictures; six related templates. */
+  const live = read("app/(storelib)/(marketing)/themes/[slug]/theme-live.tsx")
+  check("  what is included and who it is for: a check before each line, no dots", (detail.match(/<Check \/>/g) ?? []).length === 2 && /function Check\(\)[\s\S]{0,300}<svg aria-hidden/.test(detail) && !/rounded-full bg-\[#9ca3af\]/.test(detail))
+  check("  the gallery: the live website (the static preview, sandboxed) with the server's pictures under it as placeholders, the whole page links kept", /<ThemeLivePreview\b[\s\S]{0,200}src=\{templatePreviewPath\(listing\)\}/.test(detail) && /desktop=\{\s*img\.hero \?/.test(detail) && /phone=\{\s*img\.phone \?/.test(detail) && /img\.fullDesktop/.test(detail) && /sandbox="allow-scripts"/.test(live) && /data-theme-live-switch/.test(live) && />\s*\{d === "desktop" \? "Desktop" : "Phone"\}/.test(live))
+  check("    one stage whose height CSS sets before anything loads; Desktop fills it, Phone is a 390 by 844 screen at the same height", /data-theme-live-stage="" className="relative aspect-\[4\/5\] w-full sm:aspect-\[8\/5\]"/.test(live) && /"absolute inset-y-0 overflow-hidden/.test(live) && /aspect-\[390\/844\]/.test(live))
+  check("    the pictures blurred until the website says it drew, then the website fades in over them; never white (the template's ground)", /filter: `blur\(\$\{BLUR_PX\}px\)/.test(live) && /storelib:template-preview-drawn/.test(live) && /transitionDuration: `\$\{LIVE_FADE_MS\}ms`/.test(live) && /TEMPLATE_PREVIEW_GROUNDS\[listing\.slug\]/.test(detail) && /backgroundColor: ground\?\.\[d\]/.test(live))
+  check("    lazy: the frame is made only after the page has loaded, the gallery is on screen and the visitor has moved (or a quiet while)", /new IntersectionObserver/.test(live) && /addEventListener\("load", afterLoad/.test(live) && /LIVE_IDLE_MS/.test(live) && /loading="lazy"/.test(live) && /live && made\[d\] && stage \?/.test(live))
+  check("  related: RELATED_COUNT of them, a row a finger scrolls on a phone and a grid of three on a computer", /relatedListings\(listing, all, RELATED_COUNT\)/.test(detail) && /snap-x snap-mandatory/.test(detail) && /lg:grid lg:grid-cols-3/.test(detail))
   check("  Use this template adds it, signed out goes to sign in and back with ?add=1", /"Use this template"/.test(actions) && /p\.get\("add"\) !== "1"/.test(actions) && /\/login\?next=\$\{encodeURIComponent\(`\$\{listingPath\(slug\)\}\?add=1`\)\}/.test(read("components/themes/use-add-theme.ts")))
   /* Changed on purpose (marketplace round 23, the owner: "no double header, keep one: the Storelib theme marketplace header", with the purple logo, Dashboard, the bell and the photo signed in; no line under the heading; a black footer). */
   const bar = read("components/themes/marketplace-header.tsx")
   const layout = read("app/(storelib)/(marketing)/themes/layout.tsx")
   const siteHeader = read("components/marketing/conditional-header.tsx")
   check("one header: the marketplace's own bar on every page under /themes, the site's header not drawn there", /<MarketplaceHeader \/>/.test(layout) && /function isOwnScreen\(p: string\): boolean \{[^}]*isThemeStore\(p\)/.test(siteHeader) && /function isThemeStore\(p: string\): boolean \{\s*return p === "\/themes" \|\| p\.startsWith\("\/themes\/"\)/.test(siteHeader) && !/MarketplaceBar/.test(page + cat + detail))
-  check("  the purple logo picture and the marketplace's name", /<StorelibLogo size=\{30\} priority alt="" \/>/.test(bar) && !/variant="solid"/.test(bar) && /Storelib theme marketplace/.test(bar))
+  /* Changed on purpose (marketplace round 24, the owner: the icon and the name "slightly bigger"): 34px and 20px, from 30 and 18. */
+  check("  the purple logo picture and the marketplace's name, a touch larger", /<StorelibLogo size=\{34\} priority alt="" \/>/.test(bar) && /sm:text-\[20px\]/.test(bar) && !/variant="solid"/.test(bar) && /Storelib theme marketplace/.test(bar))
   check("  signed in: Dashboard to /app, the site's bell and the site's account menu and sheet; signed out: Sign in and Get started", /href="\/app"[\s\S]{0,400}Dashboard/.test(bar) && /<NotificationBell\b/.test(bar) && /<DesktopAccountMenu\b/.test(bar) && /<AccountSheet\b/.test(bar) && /readAuthSnapshot\(\)/.test(bar) && /Sign in/.test(bar) && /Get started/.test(bar))
   check("  no line under the heading: MarketplaceHeading takes no intro, and /themes says no count of templates there", !/intro/.test(shell.slice(shell.indexOf("export function MarketplaceHeading"), shell.indexOf("export function CategorySummary"))) && !/MARKETPLACE_SEO\.intro/.test(page) && /<CategorySummary text=\{cat\.intro\} \/>/.test(cat))
-  check("  a black footer of real links: every category, the templates, help, Storelib, the legal pages", /<MarketplaceFooter categories=\{categories\} \/>/.test(layout) && /bg-\[#0a0a0c\]/.test(shell) && /publicHelpUrl\(\)/.test(shell) && ["/terms", "/privacy", "/refund-policy", "/pricing", "/features", "/faq"].every((h) => shell.includes(`"${h}"`)) && !/shopify/i.test(bar + shell + layout))
-  check("the marketplace: category links, price and feature checkboxes, sort, twelve at a time with Load more", /<CategoryRow key=\{c\.slug\} href=\{`\$\{c\.path\}\$\{query\}`\}/.test(market) && /type="checkbox"/.test(market) && /THEME_FEATURES\.map/.test(market) && /data-market-sort/.test(market) && /const PAGE_SIZE = 12/.test(market) && /Load more/.test(market))
+  /* Changed on purpose (marketplace round 24, the owner: "the footer the same as storelib.com's main footer, not the custom black one"). */
+  const conditionalFooter = read("components/marketing/conditional-footer.tsx")
+  check("  storelib.com's own footer, drawn by the layout in the server's HTML; the marketplace's black footer is gone and ConditionalFooter adds no second one", /<MarketingFooter \/>/.test(layout) && /from "@\/components\/marketing\/footer"/.test(layout) && !/MarketplaceFooter/.test(layout + shell) && !/bg-\[#0a0a0c\]/.test(shell) && !/startsWith\("\/themes/.test(conditionalFooter) && !/shopify/i.test(bar + shell + layout))
+  /* Changed on purpose (marketplace round 24, the owner: Dashboard "a solid button with a little depth, like Storelib's app buttons", not plain text). */
+  check("  Dashboard is a solid button with depth: the near black fill, a hairline, a soft shadow and a light top edge", ["bg-[#1a1a2e]", "border border-", "shadow-[0_1px_2px", "inset_0_1px_0", "hover:bg-"].every((c) => (/const SOLID =\s*"([^"]*)"/.exec(bar)?.[1] ?? "").includes(c)) && /data-market-dashboard=""\s*className=\{cn\(SOLID/.test(bar))
+  /* Changed on purpose (marketplace round 24, the owner: "show 20 templates by default before Load more"). */
+  check("the marketplace: category links, price and feature checkboxes, sort, twenty at a time with Load more", /<CategoryRow key=\{c\.slug\} href=\{`\$\{c\.path\}\$\{query\}`\}/.test(market) && /type="checkbox"/.test(market) && /THEME_FEATURES\.map/.test(market) && /data-market-sort/.test(market) && /const PAGE_SIZE = 20/.test(market) && /Load more/.test(market))
   check("  on a phone and a tablet the filters are a bottom sheet, opened by Filter", /<BottomSheet\b/.test(market) && /title="Filter and sort"/.test(market) && /data-market-filter-open=""[\s\S]{0,400}lg:hidden/.test(market) && /aside aria-label="Filters" className="hidden lg:block"/.test(market))
-  check("  every card is in the page from the server; the ones after twelve are hidden, not missing", /hidden=\{i >= limit\}/.test(market))
+  check("  every card is in the page from the server; the ones after twenty are hidden, not missing", /hidden=\{i >= limit\}/.test(market))
   const card = read("components/themes/marketplace-card.tsx")
   /* Changed on purpose (marketplace round 23, the owner: "cards: the screenshot in a rounded frame, name, price or Free below"; on hover the page scrolls smoothly, transform only). The category line under the price is gone. */
   check("  a card: one link, the picture's box drawn at 4:5 with width and height, the name, the price under it", /<Link\s+href=\{card\.href\}/.test(card) && /aspect-\[4\/5\]/.test(card) && /width=\{card\.image\.width\}/.test(card) && /height=\{card\.image\.height\}/.test(card) && /\{card\.name\}<\/h3>\s*<p data-market-price=""[^>]*>\s*\{card\.price\}/.test(card))
-  check("  on a mouse's hover the whole page slides by transform, asked for only then, never under reduced motion, back on leave", /-scroll\.webp/.test(card) && /e\.pointerType !== "mouse" \|\| !scroll \|\| still\(\)/.test(card) && /translate3d\(0, \$\{-distance\}px, 0\)/.test(card) && /img\.style\.transform = "translate3d\(0, 0, 0\)"/.test(card) && /\[transition-property:transform\]/.test(card) && /motion-reduce:/.test(card) && !/className="group /.test(card) && /-scroll\.webp/.test(read("scripts/build-theme-seo-images.mjs")))
+  /* Changed on purpose (marketplace round 24, the owner: the way back "snaps very fast and glitchy"; both ways smooth and in proportion, from wherever it is, never a jump): one motion with a position and a speed, moved each frame (glide), not two CSS transitions. */
+  check("  on a mouse's hover the whole page slides by transform, asked for only then, never under reduced motion, back on leave", /-scroll\.webp/.test(card) && /e\.pointerType !== "mouse" \|\| !scroll \|\| still\(\)/.test(card) && /img\.style\.transform = `translate3d\(0, \$\{motion\.current\.y\.toFixed\(2\)\}px, 0\)`/.test(card) && /requestAnimationFrame\(step\)/.test(card) && !/transition-property:transform|transitionDuration/.test(card) && /motion-reduce:/.test(card) && !/className="group /.test(card) && /-scroll\.webp/.test(read("scripts/build-theme-seo-images.mjs")))
+  {
+    /* The slide, frame by frame at 60 a second: a long page under the mouse for a second, then away, then back half way up. */
+    const D = 2400
+    const s: Glide = { y: 0, v: 0 }
+    const ys: number[] = [0]
+    const run = (to: number, cruise: number, accel: number, frames: number) => {
+      for (let i = 0; i < frames; i++) {
+        const done = glide(s, to, cruise, accel, 1 / 60, -D, 0)
+        ys.push(s.y)
+        if (done) return i + 1
+      }
+      return -1
+    }
+    const down = { to: -D, cruise: CARD_PAN_SPEED, accel: PAN_ACCEL }
+    run(down.to, down.cruise, down.accel, 60)
+    const after1s = -s.y
+    const back = returnSpeedFor(after1s)
+    const tookBack = run(0, back, back / RETURN_RAMP_S, 600)
+    run(down.to, down.cruise, down.accel, 40)
+    const mid = -s.y
+    const back2 = returnSpeedFor(mid)
+    run(0, back2, back2 / RETURN_RAMP_S, 20)
+    /* the mouse comes back while it is still on its way up */
+    run(down.to, down.cruise, down.accel, 90)
+    const steps = ys.slice(1).map((y, i) => y - ys[i])
+    const jerks = steps.slice(1).map((d, i) => Math.abs(d - steps[i]))
+    check(`  after a second's hover (${Math.round(after1s)}px down) it comes back in ${Math.round((tookBack / 60) * 1000)}ms: not a snap, not a crawl`, after1s > 120 && after1s < 220 && tookBack > 0 && tookBack / 60 >= 0.35 && tookBack / 60 <= 0.75, { after1s, tookBack })
+    check("  never outside the page, never a jump: no frame moves more than its cruising speed allows, and the speed never changes abruptly", ys.every((y) => y <= 0 && y >= -D) && Math.max(...steps.map(Math.abs)) <= returnSpeedFor(D) / 60 + 0.01 && Math.max(...jerks) < 3, { maxStep: Math.max(...steps.map(Math.abs)), maxJerk: Math.max(...jerks) })
+    const longBack = returnSpeedFor(D)
+    check("  a whole page comes back in about a second and a half, a short way in under half a second's cruising", D / longBack <= 1.4 && D / longBack >= 0.9 && 100 / returnSpeedFor(100) < 0.5)
+  }
   check("  Back lands where it left: the filters, Load more's cards and the scroll kept in the history entry, put back before the first frame", /MARKET_RETURN_KEY/.test(market) && /document\.addEventListener\("click", onClick, true\)/.test(market) && /window\.addEventListener\("pagehide", keep\)/.test(market) && /h\.scrollRestoration = "manual"/.test(market) && /useIsoLayoutEffect\(\(\) => \{\s*const kept = readKept\(\)/.test(market))
   const preview = read("app/(storelib)/app/website-builder/themes/theme-preview.tsx")
   check("the preview: the template's first screen blurred under the website while it loads, and This is a preview that goes by itself", /<BlurPlaceholder key=\{blur\} src=\{blur\} \/>/.test(preview) && /blur\(\$\{BLUR_PX\}px\)/.test(preview) && /tt\("This is a preview"\)/.test(preview) && /pointer-events-none absolute inset-x-0 bottom-/.test(preview) && /PREVIEW_NOTE_FOR_MS/.test(preview))
@@ -295,6 +355,7 @@ async function main() {
     "app/(storelib)/(marketing)/themes/page.tsx",
     "app/(storelib)/(marketing)/themes/[slug]/page.tsx",
     "app/(storelib)/(marketing)/themes/[slug]/theme-detail.tsx",
+    "app/(storelib)/(marketing)/themes/[slug]/theme-live.tsx",
     "app/(storelib)/(marketing)/themes/category/[category]/page.tsx",
   ]
   for (const f of visible) {

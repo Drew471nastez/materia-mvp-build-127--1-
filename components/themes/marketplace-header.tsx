@@ -46,14 +46,23 @@ const link: HeaderLink = (path) => ({ href: path, onClick: () => {} })
 
 const ICON_BUTTON = "text-[#4b5563] hover:bg-[#f1f2f4] hover:text-[#1a1a2e] h-10 w-10"
 const FOCUS = "outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 focus-visible:ring-offset-2"
+/**
+ * The bar's one solid button (marketplace round 24, the owner: Dashboard "a
+ * solid button with a little depth, clean, like Storelib's app buttons"):
+ * the near black of Use this template and Get started, a hairline of its own
+ * colour, a soft shadow under it and a faint light along its top edge. It
+ * darkens a little under a mouse and presses in a touch.
+ */
+const SOLID =
+  "inline-flex h-10 items-center whitespace-nowrap rounded-[10px] border border-[#111122] bg-[#1a1a2e] px-4 text-[15px] font-semibold text-white shadow-[0_1px_2px_rgba(16,24,40,0.18),0_4px_10px_-6px_rgba(26,26,46,0.55),inset_0_1px_0_rgba(255,255,255,0.1)] transition-[background-color,scale] duration-150 hover:bg-[#2d2d44] active:scale-[0.98] motion-reduce:active:scale-100"
 
 export function MarketplaceHeader() {
   return (
     <header data-market-header="" className="relative z-30 bg-white pt-[env(safe-area-inset-top)]">
       <div className={cn(MARKET_CONTAINER, "flex h-16 items-center justify-between gap-3 sm:h-[72px]")}>
         <Link href={MARKETPLACE_PATH} data-market-bar="" className={cn("-ml-1 inline-flex h-11 min-w-0 items-center gap-2.5 rounded-lg px-1", FOCUS)}>
-          <StorelibLogo size={30} priority alt="" />
-          <span className="truncate text-[17px] font-semibold tracking-[-0.01em] text-[#1a1a2e] sm:text-[18px]">
+          <StorelibLogo size={34} priority alt="" />
+          <span className="truncate text-[18px] font-semibold tracking-[-0.015em] text-[#1a1a2e] sm:text-[20px]">
             <span className="max-sm:hidden">Storelib theme marketplace</span>
             <span className="sm:hidden">Themes</span>
           </span>
@@ -99,7 +108,7 @@ function Guest() {
       <Link
         href="/signup"
         prefetch={false}
-        className={cn("inline-flex h-10 items-center whitespace-nowrap rounded-lg bg-[#1a1a2e] px-4 text-[15px] font-medium text-white transition-colors hover:bg-[#2d2d44]", FOCUS)}
+        className={cn(SOLID, FOCUS)}
       >
         Get started
       </Link>
@@ -128,7 +137,7 @@ function SignedIn({ me }: { me: AuthSnapshot }) {
       <Link
         href="/app"
         data-market-dashboard=""
-        className={cn("mr-1 inline-flex h-10 items-center rounded-lg px-3 text-[15px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#f1f2f4]", FOCUS)}
+        className={cn(SOLID, "mr-1 max-sm:h-9 max-sm:px-3 max-sm:text-[14px]", FOCUS)}
       >
         Dashboard
       </Link>

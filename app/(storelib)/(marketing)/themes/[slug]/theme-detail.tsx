@@ -17,8 +17,8 @@
  * The demo is the template's real website: a code template's prerendered
  * pages (public/theme-previews, sandboxed and noindex, next.config.mjs), a
  * Storelib package drawn live (/theme-preview), or an imported theme's demo
- * store. It opens in a new tab rather than in a frame here, so this page
- * loads its own pictures first.
+ * store. It opens in a new tab; the gallery (./theme-live.tsx) shows the
+ * same website in a frame on this page, made only once the page has loaded.
  */
 import * as React from "react"
 

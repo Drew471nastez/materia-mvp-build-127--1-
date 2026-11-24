@@ -21,12 +21,29 @@
  * only when a mouse arrives. Its top is the card's picture exactly (both are
  * the page's top at the frame's width), so it is put over the card the
  * moment it is decoded and nothing visibly changes; then it slides up
- * through the page at a steady reading speed. Leaving brings it back to the
- * top quicker than it went, from wherever it had got to. The slide is a
- * transform on its own layer, the compositor's work, so the page lays
- * nothing out and paints nothing while it runs, and nothing around the
- * card moves. With reduced motion it does not slide, and the picture is
- * never asked for. A touch is a tap on the link, never a slide.
+ * through the page at a steady reading speed.
+ *
+ * ONE MOTION, BOTH WAYS (marketplace round 24, the owner: "on hover-out it
+ * snaps back very fast and glitchy; make both directions smooth and
+ * proportional, from wherever it is, never jumps, no glitch when I hover
+ * again mid way"). The slide is no longer two CSS transitions handed to the
+ * browser one after the other: a transition that is replaced mid way starts
+ * the new one at zero speed with a new curve, and the old return (420 to
+ * 850ms whatever the distance) threw a long page back in under a second.
+ * Now the picture has a position and a speed, and each frame moves the
+ * position toward where it is going (the page's end under the mouse, the
+ * top after it leaves) with a limited acceleration (glide): it speeds up
+ * gently, keeps a cruising speed, and slows down to stop exactly at the
+ * end. Leaving or coming back mid way only changes where it is going, so
+ * the speed it has carries on and turns round smoothly; the position is
+ * never set, only moved, so it can never jump. The way back cruises at a
+ * speed picked from the distance left (returnSpeedFor): a second's hover
+ * comes back in about half a second, a whole page in about a second and a
+ * half. Each frame writes one transform on the picture's own layer, the
+ * compositor's work: nothing is laid out or painted while it runs, and
+ * nothing around the card moves. With reduced motion it does not slide,
+ * and the picture is never asked for. A touch is a tap on the link, never
+ * a slide.
  *
  * NOT A ".group". app/globals.css takes every transform off the children of
  * a .group under (hover: none), for taps that linger as hovers; a laptop
@@ -37,17 +54,7 @@ import * as React from "react"
 import Link from "next/link"
 
 import type { MarketplaceCard as Card } from "@/lib/themes/theme-seo"
-
-/** CSS pixels a second the page slides at under a mouse: a long page in about ten seconds. */
-export const CARD_PAN_SPEED = 210
-const PAN_MIN_MS = 2600
-const PAN_MAX_MS = 12000
-/** Back to the top, from wherever it got to. */
-const RETURN_MIN_MS = 420
-const RETURN_MAX_MS = 850
-/** A gentle start and a gentle stop, near linear in between, so it reads as a scroll rather than a throw. */
-const PAN_EASE = "cubic-bezier(0.42, 0, 0.58, 1)"
-const RETURN_EASE = "cubic-bezier(0.22, 1, 0.36, 1)"
+import { CARD_PAN_SPEED, PAN_ACCEL, RETURN_RAMP_S, glide, returnSpeedFor, type Glide } from "@/components/themes/card-glide"
 
 /**
  * The whole home page for the hover: the built template's scroll picture, or
@@ -73,6 +80,33 @@ export function MarketplaceCard({ card, priority = false, hidden = false }: { ca
   const [ready, setReady] = React.useState(false)
   const scroll = scrollPictureOf(card)
 
+  /* Where the picture is and how fast it moves; where it is going; the frame that moves it. */
+  const motion = React.useRef<Glide>({ y: 0, v: 0 })
+  const goal = React.useRef<{ to: number; cruise: number; accel: number; lo: number }>({ to: 0, cruise: 0, accel: PAN_ACCEL, lo: 0 })
+  const raf = React.useRef(0)
+  const last = React.useRef(0)
+
+  const step = React.useCallback((now: number) => {
+    const img = strip.current
+    if (!img) {
+      raf.current = 0
+      return
+    }
+    /* A frame late by a tab switch moves as if it were one frame, never a leap. */
+    const dt = last.current ? Math.min(0.05, Math.max(0, (now - last.current) / 1000)) : 1 / 60
+    last.current = now
+    const g = goal.current
+    const done = glide(motion.current, g.to, g.cruise, g.accel, dt, g.lo, 0)
+    img.style.transform = `translate3d(0, ${motion.current.y.toFixed(2)}px, 0)`
+    if (done) {
+      raf.current = 0
+      last.current = 0
+      img.dataset.marketCardMotion = "still"
+      return
+    }
+    raf.current = requestAnimationFrame(step)
+  }, [])
+
   const pan = React.useCallback((on: boolean) => {
     const f = frame.current
     const img = strip.current
@@ -80,19 +114,20 @@ export function MarketplaceCard({ card, priority = false, hidden = false }: { ca
     const distance = Math.max(0, img.getBoundingClientRect().height - f.getBoundingClientRect().height)
     if (on) {
       if (distance < 1) return
-      const ms = Math.min(PAN_MAX_MS, Math.max(PAN_MIN_MS, (distance / CARD_PAN_SPEED) * 1000))
-      img.style.transitionTimingFunction = PAN_EASE
-      img.style.transitionDuration = `${Math.round(ms)}ms`
-      img.style.transform = `translate3d(0, ${-distance}px, 0)`
+      goal.current = { to: -distance, cruise: CARD_PAN_SPEED, accel: PAN_ACCEL, lo: -distance }
     } else {
-      /* From where it is now: the distance left to the top sets the time, so a short hover comes back quickly. */
-      const now = -new DOMMatrixReadOnly(getComputedStyle(img).transform === "none" ? undefined : getComputedStyle(img).transform).m42
-      const ms = Math.min(RETURN_MAX_MS, Math.max(RETURN_MIN_MS, now / 3))
-      img.style.transitionTimingFunction = RETURN_EASE
-      img.style.transitionDuration = `${Math.round(ms)}ms`
-      img.style.transform = "translate3d(0, 0, 0)"
+      /* From where it is now: the distance left to the top sets the speed, so a short hover comes back quickly and a long one smoothly. */
+      const cruise = returnSpeedFor(Math.abs(motion.current.y))
+      goal.current = { to: 0, cruise, accel: cruise / RETURN_RAMP_S, lo: Math.min(goal.current.lo, -distance) }
     }
-  }, [])
+    img.dataset.marketCardMotion = on ? "down" : "up"
+    if (!raf.current) {
+      last.current = 0
+      raf.current = requestAnimationFrame(step)
+    }
+  }, [step])
+
+  React.useEffect(() => () => cancelAnimationFrame(raf.current), [])
 
   /* The picture decoded while the mouse is still over the card: put it up and slide. */
   const onStripLoad = React.useCallback(() => {
@@ -165,7 +200,7 @@ export function MarketplaceCard({ card, priority = false, hidden = false }: { ca
               draggable={false}
               onLoad={onStripLoad}
               data-market-card-scroll={ready ? "ready" : "loading"}
-              className="pointer-events-none absolute inset-x-0 top-0 block h-auto w-full select-none [backface-visibility:hidden] [transform:translate3d(0,0,0)] [transition-property:transform] [will-change:transform] motion-reduce:[transition:none]"
+              className="pointer-events-none absolute inset-x-0 top-0 block h-auto w-full select-none [backface-visibility:hidden] [transform:translate3d(0,0,0)] [will-change:transform] motion-reduce:hidden"
               style={{ opacity: ready ? 1 : 0 }}
             />
           ) : null}

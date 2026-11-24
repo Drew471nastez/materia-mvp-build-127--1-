@@ -3,14 +3,16 @@ import { notFound } from "next/navigation"
 
 import { listingBySlug, publishedListings } from "@/lib/themes/marketplace-server"
 import { CODE_TEMPLATES, LISTING_SLUG_RE, MARKETPLACE_PATH, builtinListings, hasLivePreview, listingPath, templatePreviewPath, tierLabel, type ThemeListing } from "@/lib/themes/marketplace-shared"
-import { featureLabel, marketplaceCard, relatedListings, themeAlt, themeCategoryPath, themeImages, themePageCopy, categoriesOf } from "@/lib/themes/theme-seo"
+import { RELATED_COUNT, featureLabel, marketplaceCard, relatedListings, themeAlt, themeCategoryPath, themeImages, themePageCopy, categoriesOf } from "@/lib/themes/theme-seo"
 import { themeJsonLd } from "@/lib/themes/theme-seo-jsonld"
 import { pageMetadata } from "@/lib/seo/page-metadata"
 import Link from "next/link"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import { MarketplaceCard } from "@/components/themes/marketplace-card"
 import { Breadcrumbs, FaqList, MARKET_CONTAINER } from "@/components/themes/marketplace-shell"
+import { TEMPLATE_PREVIEW_GROUNDS } from "@/lib/themes/template-preview-grounds"
 import { ThemeActions } from "./theme-detail"
+import { ThemeLivePreview } from "./theme-live"
 
 /**
  * ===========================================================================
@@ -20,7 +22,13 @@ import { ThemeActions } from "./theme-detail"
  * it is for (lib/themes/theme-seo.ts), then the facts an answer engine
  * quotes (price, what it works with, the pages in it, who made it), the
  * gallery, what is included, who it is for, the questions, related
- * templates and the categories. All of it is drawn here on the server; only
+ * templates and the categories.
+ *
+ * Marketplace round 24: the gallery is the template's live website with a
+ * Desktop / Phone switch (./theme-live.tsx), its pictures drawn here under
+ * it; what is included and who it is for are lists with a check; related
+ * templates are six, the closest first (relatedListings), a row a finger
+ * scrolls on a phone and a grid of three on a computer. All of it is drawn here on the server; only
  * Use this template and the demo answer a click (./theme-detail.tsx).
  *
  * Held at the edge like the list, and dropped with it when the admin saves.
@@ -66,7 +74,7 @@ export default async function ThemePage({ params }: { params: Promise<{ slug: st
   const copy = themePageCopy(listing)
   const img = themeImages(listing)
   const cat = copy.primaryCategory
-  const related = relatedListings(listing, all, 3)
+  const related = relatedListings(listing, all, RELATED_COUNT)
   const otherCats = categoriesOf(listing).slice(1)
 
   return (
@@ -100,49 +108,50 @@ export default async function ThemePage({ params }: { params: Promise<{ slug: st
             </div>
           </div>
 
-          {/* ── The gallery: the home page on a computer and on a phone ── */}
+          {/* ── The gallery: the template's real website on a computer or a phone, its pictures under it (./theme-live.tsx) ── */}
           <section aria-label="Gallery" className="min-w-0 lg:col-start-1 lg:row-start-1" data-theme-gallery="">
-            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,0.3fr)] items-end gap-3 sm:gap-5">
-              {img.hero ? (
-                <figure className="min-w-0">
-                  <div className="overflow-hidden rounded-xl bg-[#eef0f3] shadow-[0_0_0_1px_rgba(17,24,39,0.08),0_18px_40px_-24px_rgba(15,23,42,0.35)]">
-                    {/* eslint-disable-next-line @next/next/no-img-element -- cut to size and WebP already (scripts/build-theme-seo-images.mjs) */}
-                    <img src={img.hero.src} width={img.hero.width} height={img.hero.height} alt={themeAlt(listing, "hero", copy.h1)} fetchPriority="high" decoding="async" className="block aspect-[8/5] h-auto w-full object-cover object-top" />
-                  </div>
-                </figure>
-              ) : null}
-              {img.phone ? (
-                <figure className="min-w-0">
-                  <div className="overflow-hidden rounded-[14px] bg-[#eef0f3] shadow-[0_0_0_1px_rgba(17,24,39,0.1),0_16px_32px_-18px_rgba(15,23,42,0.4)] sm:rounded-[20px]">
-                    {/* eslint-disable-next-line @next/next/no-img-element -- cut to size and WebP already */}
-                    <img src={img.phone.src} width={img.phone.width} height={img.phone.height} alt={themeAlt(listing, "phone", copy.h1)} loading="lazy" decoding="async" className="block aspect-[390/844] h-auto w-full object-cover object-top" />
-                  </div>
-                </figure>
-              ) : null}
-            </div>
-            {img.fullDesktop || img.fullPhone ? (
-              <p className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-[14px]">
-                {img.fullDesktop ? (
-                  <a href={img.fullDesktop} target="_blank" rel="noopener" className="font-medium text-[#1a1a2e] underline decoration-[#1a1a2e]/25 underline-offset-4 hover:decoration-[#1a1a2e]">
-                    Whole home page on a computer
-                  </a>
-                ) : null}
-                {img.fullPhone ? (
-                  <a href={img.fullPhone} target="_blank" rel="noopener" className="font-medium text-[#1a1a2e] underline decoration-[#1a1a2e]/25 underline-offset-4 hover:decoration-[#1a1a2e]">
-                    On a phone
-                  </a>
-                ) : null}
-              </p>
-            ) : null}
+            <ThemeLivePreview
+              src={templatePreviewPath(listing)}
+              name={listing.name}
+              ground={TEMPLATE_PREVIEW_GROUNDS[listing.slug] ?? null}
+              desktop={
+                img.hero ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- cut to size and WebP already (scripts/build-theme-seo-images.mjs)
+                  <img src={img.hero.src} width={img.hero.width} height={img.hero.height} alt={themeAlt(listing, "hero", copy.h1)} fetchPriority="high" decoding="async" />
+                ) : null
+              }
+              phone={
+                img.phone ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- cut to size and WebP already
+                  <img src={img.phone.src} width={img.phone.width} height={img.phone.height} alt={themeAlt(listing, "phone", copy.h1)} loading="lazy" decoding="async" />
+                ) : null
+              }
+              links={
+                img.fullDesktop || img.fullPhone ? (
+                  <p className="flex flex-wrap gap-x-5 gap-y-1 text-[14px]">
+                    {img.fullDesktop ? (
+                      <a href={img.fullDesktop} target="_blank" rel="noopener" className="font-medium text-[#1a1a2e] underline decoration-[#1a1a2e]/25 underline-offset-4 hover:decoration-[#1a1a2e]">
+                        Whole home page on a computer
+                      </a>
+                    ) : null}
+                    {img.fullPhone ? (
+                      <a href={img.fullPhone} target="_blank" rel="noopener" className="font-medium text-[#1a1a2e] underline decoration-[#1a1a2e]/25 underline-offset-4 hover:decoration-[#1a1a2e]">
+                        On a phone
+                      </a>
+                    ) : null}
+                  </p>
+                ) : null
+              }
+            />
 
             {/* ── What is in it ───────────────────────────────── */}
             <div className="mt-14 grid grid-cols-1 gap-10 md:grid-cols-2">
               <section aria-labelledby="theme-included" data-theme-included="">
                 <h2 id="theme-included" className="text-[20px] font-bold tracking-[-0.01em] text-[#1a1a2e] sm:text-[22px]">What is included</h2>
                 {copy.features.length ? (
-                  <ul className="mt-3 space-y-1.5 text-[15px] leading-[1.55] text-[#374151]">
+                  <ul className="mt-3 space-y-2 text-[15px] leading-[1.55] text-[#374151]">
                     {copy.features.map((f) => (
-                      <li key={f} className="flex gap-2.5"><span aria-hidden className="mt-[9px] h-1 w-1 shrink-0 rounded-full bg-[#9ca3af]" />{featureLabel(f)}</li>
+                      <li key={f} className="flex gap-2.5"><Check />{featureLabel(f)}</li>
                     ))}
                   </ul>
                 ) : null}
@@ -154,9 +163,9 @@ export default async function ThemePage({ params }: { params: Promise<{ slug: st
               {copy.bestFor.length ? (
                 <section aria-labelledby="theme-for" data-theme-for="">
                   <h2 id="theme-for" className="text-[20px] font-bold tracking-[-0.01em] text-[#1a1a2e] sm:text-[22px]">Who it is for</h2>
-                  <ul className="mt-3 space-y-1.5 text-[15px] leading-[1.55] text-[#374151]">
+                  <ul className="mt-3 space-y-2 text-[15px] leading-[1.55] text-[#374151]">
                     {copy.bestFor.map((b) => (
-                      <li key={b} className="flex gap-2.5"><span aria-hidden className="mt-[9px] h-1 w-1 shrink-0 rounded-full bg-[#9ca3af]" />{b}</li>
+                      <li key={b} className="flex gap-2.5"><Check />{b}</li>
                     ))}
                   </ul>
                 </section>
@@ -180,9 +189,15 @@ export default async function ThemePage({ params }: { params: Promise<{ slug: st
                 </Link>
               ) : null}
             </div>
-            <div className="mt-6 grid grid-cols-1 gap-x-6 gap-y-9 min-[520px]:grid-cols-2 lg:grid-cols-3">
+            {/* A row a finger scrolls on a phone (each card most of the screen, the next one showing), a grid of three from 1024px. */}
+            <div
+              data-theme-related-list={related.length}
+              className="-mx-4 mt-6 flex snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain px-4 pb-2 [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:mx-0 lg:grid lg:grid-cols-3 lg:gap-x-8 lg:gap-y-10 lg:overflow-visible lg:px-0 lg:pb-0 [&::-webkit-scrollbar]:hidden"
+            >
               {related.map((r) => (
-                <MarketplaceCard key={r.slug} card={marketplaceCard(r)} />
+                <div key={r.slug} className="w-[72%] shrink-0 snap-start scroll-ml-4 min-[520px]:w-[44%] sm:scroll-ml-6 lg:w-auto">
+                  <MarketplaceCard card={marketplaceCard(r)} />
+                </div>
               ))}
             </div>
             {otherCats.length ? (
@@ -201,5 +216,14 @@ export default async function ThemePage({ params }: { params: Promise<{ slug: st
         ) : null}
       </div>
     </div>
+  )
+}
+
+/** A small check before each line of what is included and who it is for (marketplace round 24, the owner: "clean check icons instead of dots"). */
+function Check() {
+  return (
+    <svg aria-hidden viewBox="0 0 16 16" data-theme-check="" className="mt-[4px] h-4 w-4 shrink-0 text-[#1a1a2e]" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3.25 8.4 6.4 11.5 12.75 4.75" />
+    </svg>
   )
 }
