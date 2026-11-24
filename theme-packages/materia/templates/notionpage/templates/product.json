@@ -1,4 +1,4 @@
-/* Templates round 23: the Offer Board product page: gallery, title, price with the compare at price, the edition picker, instant access and refund rows, buy buttons, what you get, how the duplicate link works, questions and payment marks, then the pages inside, buyer notes and the other templates. */
+/* Templates round 23: the Creator OS product page: gallery, title, price with the compare at price, the edition picker, instant access and refund rows, buy buttons, what you get, how the duplicate link works, questions and payment marks, then the pages inside, buyer notes and the other templates. */
 {
   "sections": {
     "breadcrumb": {
@@ -71,7 +71,7 @@
           "type": "text",
           "settings": {
             "heading": "",
-            "content": "<p>A Notion template for running a job search, from the first saved role to the signed offer.</p>"
+            "content": "<p>A Notion template for content creators, from the first idea to the published post and the sponsor invoice.</p>"
           }
         },
         "price_4": {
@@ -171,7 +171,7 @@
           "type": "whats_included",
           "settings": {
             "heading": "What you get",
-            "items": "The Offer Board template for Notion\nA link that duplicates it into your workspace\nA 12 minute video walkthrough\nEvery future update, free",
+            "items": "The Creator OS template for Notion\nA link that duplicates it into your workspace\nA 14 minute video walkthrough\nEvery future update, free",
             "two_columns": false,
             "boxed": true
           }
@@ -189,7 +189,7 @@
           "type": "collapsible_row",
           "settings": {
             "heading": "How you get it",
-            "content": "<p>After you pay, open the link on the receipt page or in the email while you are signed in to Notion. Press <strong>Duplicate</strong> at the top right and Offer Board is copied into your own workspace, ready to fill in. Works on Notion's free plan.</p>",
+            "content": "<p>After you pay, open the link on the receipt page or in the email while you are signed in to Notion. Press <strong>Duplicate</strong> at the top right and Creator OS is copied into your own workspace, ready to fill in. Works on Notion's free plan.</p>",
             "use_product_description": false,
             "open": false
           }
@@ -201,13 +201,13 @@
             "use_product_faqs": false,
             "first_open": false,
             "q_1": "Do I need a paid Notion plan?",
-            "a_1": "<p>No. Offer Board works on Notion's free plan, on the web, the desktop app and the phone app.</p>",
+            "a_1": "<p>No. Creator OS works on Notion's free plan, on the web, the desktop app and the phone app.</p>",
             "q_2": "I have never used Notion. Will I manage?",
-            "a_2": "<p>Yes. The Instructions page has a 12 minute walkthrough and five steps to follow. Most people are adding roles within the first half hour.</p>",
+            "a_2": "<p>Yes. The Instructions page has a 14 minute walkthrough and five steps to follow. Most people have their ideas in within the first half hour.</p>",
             "q_3": "Can I change it?",
-            "a_3": "<p>Every page, property and view is yours to edit. Rename the stages, add a column for visa sponsorship, delete the pages you do not need.</p>",
+            "a_3": "<p>Every page, property and view is yours to edit. Rename the stages, add a column for a second channel, delete the pages you do not need.</p>",
             "q_4": "What is your refund policy?",
-            "a_4": "<p>If Offer Board is not for you, email us within 14 days and we refund you. No form to fill in.</p>",
+            "a_4": "<p>If Creator OS is not for you, email us within 14 days and we refund you. No form to fill in.</p>",
             "spacing_top": 12,
             "spacing_bottom": 12
           }
@@ -277,7 +277,7 @@
       "type": "notionpage-cards",
       "settings": {
         "heading": "A look at the pages",
-        "text": "<p>Each one linked to the others, so a role knows its company, its people and its interview stories.</p>",
+        "text": "<p>Each one linked to the others, so an idea carries its script, its post date, its sponsor and its numbers.</p>",
         "heading_align": "center",
         "columns": "4",
         "columns_mobile": "1",
@@ -308,31 +308,31 @@
           "settings": {
             "image": "shopify://shop_images/notionpage-dashboard.webp",
             "title": "Dashboard",
-            "text": "<p>The numbers for this week, the pipeline and quick capture.</p>"
+            "text": "<p>The month in numbers, content by stage and quick capture.</p>"
           }
         },
         "card_2": {
           "type": "card",
           "settings": {
-            "image": "shopify://shop_images/notionpage-applications.webp",
-            "title": "Applications",
-            "text": "<p>A board by stage, with a table and deadlines view.</p>"
+            "image": "shopify://shop_images/notionpage-ideas.webp",
+            "title": "Idea bank",
+            "text": "<p>Every idea on a board, scored and moved along by stage.</p>"
           }
         },
         "card_3": {
           "type": "card",
           "settings": {
-            "image": "shopify://shop_images/notionpage-companies.webp",
-            "title": "Companies",
-            "text": "<p>Where you want to work, with fit and open roles.</p>"
+            "image": "shopify://shop_images/notionpage-scripts.webp",
+            "title": "Scripts",
+            "text": "<p>One page per video: hook, outline and call to action.</p>"
           }
         },
         "card_4": {
           "type": "card",
           "settings": {
-            "image": "shopify://shop_images/notionpage-offers.webp",
-            "title": "Offers",
-            "text": "<p>Two offers side by side, line by line.</p>"
+            "image": "shopify://shop_images/notionpage-analytics.webp",
+            "title": "Analytics",
+            "text": "<p>Views, click rate and subscribers for every post.</p>"
           }
         }
       },
@@ -381,15 +381,15 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "Notes from people who used Offer Board in their own search."
+            "text": "Sample notes to show the layout. Replace them with what your buyers say."
           }
         },
         "testimonial_3": {
           "type": "testimonial",
           "settings": {
-            "body": "I had applications in three spreadsheets and my email. Two evenings in, everything was on one board and I could finally see which ones had gone quiet.",
+            "body": "I had ideas in three notes apps and a spreadsheet. Two evenings in, everything was on one board and I could see what was close to done.",
             "name": "Priya R.",
-            "role": "Product designer",
+            "role": "Cooking channel",
             "rating": 0,
             "avatar": "shopify://shop_images/notionpage-avatar-1.webp"
           }
@@ -397,9 +397,9 @@
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "body": "The follow up dates are the part I use most. Notion tells me who to write to that day, so I stopped losing people after the first call.",
-            "name": "Tom A.",
-            "role": "Data analyst",
+            "body": "The calendar is the part I use most. I plan a month on Sunday and the week mostly runs itself.",
+            "name": "Marco D.",
+            "role": "Fitness creator",
             "rating": 0,
             "avatar": "shopify://shop_images/notionpage-avatar-2.webp"
           }
@@ -407,9 +407,9 @@
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "body": "I am new to Notion and was worried. The walkthrough video got me set up in about 20 minutes.",
-            "name": "Grace L.",
-            "role": "Graduate, first job search",
+            "body": "I am new to Notion and was worried. The walkthrough got me set up in about 20 minutes.",
+            "name": "Ada O.",
+            "role": "New to YouTube",
             "rating": 0,
             "avatar": "shopify://shop_images/notionpage-avatar-3.webp"
           }
@@ -417,9 +417,9 @@
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "body": "The story bank saved me before every interview. I wrote six stories once and reused them for every company.",
-            "name": "Sam O.",
-            "role": "Engineering manager",
+            "body": "The script page changed how I film. Hook, outline, call to action, and I stopped rambling on camera.",
+            "name": "Theo K.",
+            "role": "Tech reviews",
             "rating": 0,
             "avatar": "shopify://shop_images/notionpage-avatar-4.webp"
           }
@@ -427,9 +427,9 @@
         "testimonial_7": {
           "type": "testimonial",
           "settings": {
-            "body": "Having two offers side by side in a table made the decision calmer. I asked for a week to decide and got it.",
+            "body": "Every sponsor in one table with the fee and the due date. I look far more organised than I am.",
             "name": "Lena B.",
-            "role": "Marketing lead",
+            "role": "Instagram and TikTok",
             "rating": 0,
             "avatar": "shopify://shop_images/notionpage-avatar-5.webp"
           }
@@ -437,9 +437,9 @@
         "testimonial_8": {
           "type": "testimonial",
           "settings": {
-            "body": "Simple enough that I actually kept using it after week two, which never happened with anything else I tried.",
-            "name": "Marco R.",
-            "role": "Account executive",
+            "body": "Simple enough that I kept using it after week two, which never happened with anything else I tried.",
+            "name": "Daniel S.",
+            "role": "Podcast host",
             "rating": 0,
             "avatar": "shopify://shop_images/notionpage-avatar-6.webp"
           }

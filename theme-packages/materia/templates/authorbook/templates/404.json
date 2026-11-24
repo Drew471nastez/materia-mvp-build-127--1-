@@ -65,14 +65,14 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "Hold the Room",
+            "text": "Lights Out",
             "transform": "uppercase"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Your next talk can be your best one",
+            "text": "Tonight can be a better night",
             "transform": "none",
             "lineheight": "1.25"
           }
@@ -80,7 +80,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "Fourteen short chapters, PDF and EPUB, in your inbox in a minute."
+            "text": "Twelve short chapters, PDF and EPUB, in your inbox in a minute."
           }
         },
         "button_4": {

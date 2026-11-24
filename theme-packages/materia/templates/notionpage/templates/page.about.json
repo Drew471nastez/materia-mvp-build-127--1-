@@ -55,12 +55,12 @@
         "row_1": {
           "type": "row",
           "settings": {
-            "image": "shopify://shop_images/notionpage-applications.webp",
+            "image": "shopify://shop_images/notionpage-ideas.webp",
             "caption": "How it started",
-            "heading": "A follow up that never got sent",
+            "heading": "A notes app full of ideas",
             "heading_tag": "h2",
-            "body": "<p>In 2024 Jonas was looking for a design job with forty roles in a spreadsheet. A recruiter asked him to check back on a Tuesday. He remembered on Thursday. The role had gone.</p><p>That weekend he built the first version of Offer Board in Notion. A friend asked for a copy, then her friends did.</p>",
-            "btn_label": "See Offer Board",
+            "body": "<p>In 2024 Jonas was posting three videos a week with ideas in a notes app, scripts in documents and sponsor emails in his inbox. A brand asked for a draft by Tuesday. He found the email on Thursday.</p><p>That weekend he built the first version of Creator OS in Notion. A friend with a cooking channel asked for a copy, then her friends did.</p>",
+            "btn_label": "See Creator OS",
             "btn_link": "/collections/all",
             "image_position": "right"
           }
@@ -122,15 +122,15 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "A few notes from people who used Offer Board in their search."
+            "text": "Sample notes to show the layout. Replace them with what your buyers say."
           }
         },
         "testimonial_3": {
           "type": "testimonial",
           "settings": {
-            "body": "I had applications in three spreadsheets and my email. Two evenings in, everything was on one board and I could finally see which ones had gone quiet.",
+            "body": "I had ideas in three notes apps and a spreadsheet. Two evenings in, everything was on one board and I could see what was close to done.",
             "name": "Priya R.",
-            "role": "Product designer",
+            "role": "Cooking channel",
             "rating": 0,
             "avatar": "shopify://shop_images/notionpage-avatar-1.webp"
           }
@@ -138,9 +138,9 @@
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "body": "The follow up dates are the part I use most. Notion tells me who to write to that day, so I stopped losing people after the first call.",
-            "name": "Tom A.",
-            "role": "Data analyst",
+            "body": "The calendar is the part I use most. I plan a month on Sunday and the week mostly runs itself.",
+            "name": "Marco D.",
+            "role": "Fitness creator",
             "rating": 0,
             "avatar": "shopify://shop_images/notionpage-avatar-2.webp"
           }
@@ -148,9 +148,9 @@
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "body": "I am new to Notion and was worried. The walkthrough video got me set up in about 20 minutes.",
-            "name": "Grace L.",
-            "role": "Graduate, first job search",
+            "body": "I am new to Notion and was worried. The walkthrough got me set up in about 20 minutes.",
+            "name": "Ada O.",
+            "role": "New to YouTube",
             "rating": 0,
             "avatar": "shopify://shop_images/notionpage-avatar-3.webp"
           }
@@ -158,9 +158,9 @@
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "body": "The story bank saved me before every interview. I wrote six stories once and reused them for every company.",
-            "name": "Sam O.",
-            "role": "Engineering manager",
+            "body": "The script page changed how I film. Hook, outline, call to action, and I stopped rambling on camera.",
+            "name": "Theo K.",
+            "role": "Tech reviews",
             "rating": 0,
             "avatar": "shopify://shop_images/notionpage-avatar-4.webp"
           }
@@ -168,9 +168,9 @@
         "testimonial_7": {
           "type": "testimonial",
           "settings": {
-            "body": "Having two offers side by side in a table made the decision calmer. I asked for a week to decide and got it.",
+            "body": "Every sponsor in one table with the fee and the due date. I look far more organised than I am.",
             "name": "Lena B.",
-            "role": "Marketing lead",
+            "role": "Instagram and TikTok",
             "rating": 0,
             "avatar": "shopify://shop_images/notionpage-avatar-5.webp"
           }
@@ -178,9 +178,9 @@
         "testimonial_8": {
           "type": "testimonial",
           "settings": {
-            "body": "Simple enough that I actually kept using it after week two, which never happened with anything else I tried.",
-            "name": "Marco R.",
-            "role": "Account executive",
+            "body": "Simple enough that I kept using it after week two, which never happened with anything else I tried.",
+            "name": "Daniel S.",
+            "role": "Podcast host",
             "rating": 0,
             "avatar": "shopify://shop_images/notionpage-avatar-6.webp"
           }
@@ -240,7 +240,7 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Offer Board",
+            "text": "Creator OS",
             "enable_custom_style": true,
             "size_d": 34,
             "size_m": 28,
@@ -250,7 +250,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "Run your whole job search from one Notion page. Pay once, keep every update."
+            "text": "Plan, script and post your content from one Notion page. Pay once, keep every update."
           }
         },
         "button_4": {

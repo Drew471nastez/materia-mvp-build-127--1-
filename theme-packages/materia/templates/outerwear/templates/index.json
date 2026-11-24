@@ -1,75 +1,186 @@
 {
   "sections": {
     "hero": {
-      "type": "slideshow",
+      "type": "hero-pro-scrolling",
       "settings": {
         "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
         "section_width": "full_width",
         "reset_spacing": true,
-        "slide_height": "custom",
-        "desktop_height": 880,
-        "show_arrow": false,
-        "carousel_pagination": "none",
-        "autoplay": false,
-        "slide_effect": "fade",
-        "heading_font_size": 84,
-        "heading_font_size_mobile": 46,
-        "heading_spacing_bottom": 0,
-        "des_font_size": 16,
-        "des_font_size_mobile": 15,
-        "des_spacing_bottom": 18,
-        "mobile_height": 600,
-        "reveal": true
+        "content_align": "center",
+        "vertical_align": "center",
+        "content_gap": 16,
+        "content_max_width": 760,
+        "aria_label": "Strata, new season",
+        "enable_scrolling": true,
+        "direction": "left",
+        "speed_desktop": 38,
+        "pane_width_desktop": 40,
+        "image_gap": 0,
+        "fade_edges": false,
+        "enable_overlay": true,
+        "overlay_color": "#000000",
+        "overlay_opacity": 26,
+        "animation": "fade_up",
+        "pause_on_hover": false,
+        "show_motion_control": true,
+        "pause_label": "Pause pictures",
+        "resume_label": "Play pictures",
+        "hero_height_desktop": 820,
+        "content_padding_desktop": 64,
+        "hero_height_mobile": 600,
+        "pane_width_mobile": 78,
+        "speed_mobile": 28,
+        "content_padding_mobile": 28
       },
       "blocks": {
-        "slide": {
-          "type": "slider_item",
+        "img_coat": {
+          "type": "image",
           "settings": {
-            "subheading": "",
-            "heading": "Built for the cold stretch",
-            "description": "<p>Down, canvas and knit, cut boxy and made to wear in layers.</p>",
-            "first_button_label": "Shop now",
-            "first_button_link": "/collections/all",
-            "first_button_style": "primary",
-            "image": "shopify://shop_images/outerwear-hero-shell.webp",
-            "image_mobile": "shopify://shop_images/outerwear-hero-shell.webp",
-            "split_images_enable": true,
-            "image_split_left": "shopify://shop_images/outerwear-hero-street.webp",
-            "image_split_right": "shopify://shop_images/outerwear-hero-shell.webp",
-            "split_gap": 0,
-            "split_mobile_use_primary": true,
-            "split_mobile_primary_image": "shopify://shop_images/outerwear-hero-shell.webp",
-            "overlay_opacity": 18,
-            "content_position": "middle-center",
-            "content_alignment": "center",
-            "content_position_mobile": "bottom-center",
-            "content_alignment_mobile": "center",
-            "content_width": "container",
-            "content_max_width": 60,
-            "content_padding_block": 60,
-            "slider_effect": "none"
+            "image": "shopify://shop_images/outerwear-hero-coat.webp",
+            "image_alt": "Model in a grey wool overshirt and black sunglasses",
+            "image_fit": "cover",
+            "image_position_x": 50,
+            "image_position_y": 30
+          }
+        },
+        "img_quilt": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/outerwear-hero-quilt.webp",
+            "image_alt": "Model pulling on a quilted olive jacket",
+            "image_fit": "cover",
+            "image_position_x": 50,
+            "image_position_y": 30
+          }
+        },
+        "img_night": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/outerwear-hero-night.webp",
+            "image_alt": "Model in a navy puffer against a dark glass wall",
+            "image_fit": "cover",
+            "image_position_x": 50,
+            "image_position_y": 30
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "Built for the cold stretch",
+            "tag": "h1",
+            "enable_custom_style": true,
+            "color": "#ffffff",
+            "size_desktop": 96,
+            "size_mobile": 50,
+            "line_height": 92,
+            "text_case": "uppercase"
+          }
+        },
+        "sub": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Down, canvas and knit, cut boxy and made to wear in layers.</p>",
+            "enable_custom_style": true,
+            "color": "#ffffff",
+            "size_desktop": 16,
+            "size_mobile": 15
+          }
+        },
+        "button": {
+          "type": "button",
+          "settings": {
+            "label": "Shop outerwear",
+            "link": "/collections/outerwear",
+            "use_theme_button": true
           }
         }
       },
       "block_order": [
-        "slide"
+        "img_coat",
+        "img_quilt",
+        "img_night",
+        "heading",
+        "sub",
+        "button"
       ]
     },
     "trending": {
-      "type": "outerwear-highlight",
+      "type": "collection-tab",
       "settings": {
-        "label": "Trending",
-        "label_link_text": "Shop all",
-        "label_link": "/collections/all",
-        "image_position": "none",
-        "heading": "",
-        "button_label": "",
-        "products_to_show": 4,
-        "columns_desktop": 4,
-        "columns_mobile": 2,
-        "card_box": true,
-        "color_scheme": "default"
-      }
+        "color_scheme": "default",
+        "section_width": "stretch_width",
+        "reset_spacing": true,
+        "items_to_show": 4,
+        "items_per_row": 4,
+        "rows": 1,
+        "column_gap": 2,
+        "content_alignment": "left",
+        "tab_style": "underline",
+        "tabs_alignment": "left",
+        "tab_padding_x": 0,
+        "tab_padding_y": 6,
+        "tab_gap": 22,
+        "show_nav_bottom_border": false,
+        "gap_tabs_to_products": 18,
+        "show_load_more_button": false,
+        "tab_switch_animation": "fade",
+        "reveal": true,
+        "padding_top": 28,
+        "padding_bottom": 0,
+        "vertical_gap_subheading_section_desktop": 14,
+        "items_per_row_mobile": 2,
+        "rows_mobile": 2,
+        "vertical_gap_subheading_section_mobile": 12
+      },
+      "blocks": {
+        "h": {
+          "type": "heading",
+          "settings": {
+            "heading": "Trending",
+            "text_style": "small",
+            "heading_size": "h2",
+            "custom_style": true,
+            "heading_font_size_desktop": 15,
+            "heading_font_size_mobile": 15,
+            "heading_font_weight": "500"
+          }
+        },
+        "t_all": {
+          "type": "collection",
+          "settings": {
+            "collection": "all",
+            "collection_title": "All"
+          }
+        },
+        "t_out": {
+          "type": "collection",
+          "settings": {
+            "collection": "outerwear",
+            "collection_title": "Outerwear"
+          }
+        },
+        "t_knit": {
+          "type": "collection",
+          "settings": {
+            "collection": "knit-and-tees",
+            "collection_title": "Knit and tees"
+          }
+        },
+        "t_acc": {
+          "type": "collection",
+          "settings": {
+            "collection": "accessories",
+            "collection_title": "Accessories"
+          }
+        }
+      },
+      "block_order": [
+        "h",
+        "t_all",
+        "t_out",
+        "t_knit",
+        "t_acc"
+      ]
     },
     "categories": {
       "type": "collection-banner",
@@ -98,12 +209,13 @@
             "subheading": "",
             "description": "",
             "primary_button_label": "Shop now",
-            "primary_button_link": "/search?q=parka",
+            "primary_button_link": "/collections/outerwear",
             "image_desktop": "shopify://shop_images/outerwear-tile-jackets.webp",
             "card_height": "1",
             "vertical_text_gap": 16,
             "primary_button_style": "primary",
-            "heading_size": 64
+            "heading_size": 64,
+            "collection": "outerwear"
           }
         },
         "puffers": {
@@ -113,12 +225,13 @@
             "subheading": "",
             "description": "",
             "primary_button_label": "Shop now",
-            "primary_button_link": "/search?q=puffer",
+            "primary_button_link": "/collections/puffers",
             "image_desktop": "shopify://shop_images/outerwear-tile-puffers.webp",
             "card_height": "1",
             "vertical_text_gap": 16,
             "primary_button_style": "primary",
-            "heading_size": 64
+            "heading_size": 64,
+            "collection": "puffers"
           }
         }
       },
@@ -128,28 +241,82 @@
       ]
     },
     "details": {
-      "type": "outerwear-highlight",
+      "type": "product-shop-the-look",
       "settings": {
-        "label": "Accessories",
-        "label_link_text": "",
-        "image": "shopify://shop_images/outerwear-look-station.webp",
+        "color_scheme": "default",
+        "section_width": "full_width",
+        "reset_spacing": true,
         "image_position": "right",
-        "image_width": 50,
-        "overlay_opacity": 0,
-        "text_position": "column",
-        "heading": "The finishing details",
-        "text": "<p>A beanie, a merino crew, a washed tee. The small things that turn a jacket into an outfit.</p>",
-        "button_label": "Shop all",
-        "button_link": "/collections/all",
-        "heading_size": 60,
-        "heading_size_mobile": 40,
-        "products_to_show": 2,
-        "offset": 6,
-        "columns_desktop": 2,
-        "columns_mobile": 2,
-        "card_box": true,
-        "color_scheme": "default"
-      }
+        "column_valign": "center",
+        "image_width_pct": 50,
+        "gap_desktop": 72,
+        "text_gap": 16,
+        "image": "shopify://shop_images/outerwear-look-station.webp",
+        "image_aspect_desktop": "4 / 5",
+        "image_radius": 0,
+        "card_style": "compact",
+        "show_price": true,
+        "card_image_size": 96,
+        "card_image_radius": 0,
+        "card_radius": 0,
+        "card_padding": 12,
+        "card_gap": 16,
+        "padding_top": 0,
+        "padding_bottom": 0,
+        "side_padding_desktop": 48,
+        "gap_mobile": 24,
+        "side_padding_mobile": 16,
+        "image_aspect": "4 / 5"
+      },
+      "blocks": {
+        "e": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Accessories"
+          }
+        },
+        "h": {
+          "type": "heading",
+          "settings": {
+            "text": "The finishing details",
+            "tag": "h2",
+            "size_desktop": 60,
+            "size_mobile": 40
+          }
+        },
+        "s": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>A beanie, a backpack and a tote. The small things that turn a jacket into an outfit.</p>"
+          }
+        },
+        "p1": {
+          "type": "product",
+          "settings": {
+            "product": "rib-beanie"
+          }
+        },
+        "p2": {
+          "type": "product",
+          "settings": {
+            "product": "shell-backpack-charcoal"
+          }
+        },
+        "p3": {
+          "type": "product",
+          "settings": {
+            "product": "canvas-tote-sand"
+          }
+        }
+      },
+      "block_order": [
+        "e",
+        "h",
+        "s",
+        "p1",
+        "p2",
+        "p3"
+      ]
     },
     "wet": {
       "type": "hero-image1",
@@ -193,7 +360,7 @@
           "type": "primary_button",
           "settings": {
             "label": "Shop now",
-            "link": "/search?q=parka"
+            "link": "/collections/parkas"
           }
         }
       },
@@ -226,73 +393,54 @@
         "mobile_image_position": "column"
       },
       "blocks": {
-        "c1": {
+        "i0": {
           "type": "item",
           "settings": {
             "title": "PUFFERS",
-            "image": "shopify://shop_images/outerwear-col-puffers.webp"
+            "image": "shopify://shop_images/outerwear-col-puffers.webp",
+            "collection": "puffers"
           }
         },
-        "c2": {
+        "i1": {
           "type": "item",
           "settings": {
             "title": "PARKAS",
-            "image": "shopify://shop_images/outerwear-col-parkas.webp"
+            "image": "shopify://shop_images/outerwear-col-parkas.webp",
+            "collection": "parkas"
           }
         },
-        "c3": {
+        "i2": {
           "type": "item",
           "settings": {
-            "title": "VESTS",
-            "image": "shopify://shop_images/outerwear-col-vests.webp"
+            "title": "OUTERWEAR",
+            "image": "shopify://shop_images/outerwear-col-vests.webp",
+            "collection": "outerwear"
           }
         },
-        "c4": {
+        "i3": {
           "type": "item",
           "settings": {
-            "title": "KNITWEAR",
-            "image": "shopify://shop_images/outerwear-col-knitwear.webp"
+            "title": "KNIT AND TEES",
+            "image": "shopify://shop_images/outerwear-col-knitwear.webp",
+            "collection": "knit-and-tees"
           }
         },
-        "c5": {
+        "i4": {
           "type": "item",
           "settings": {
-            "title": "HATS",
-            "image": "shopify://shop_images/outerwear-col-hats.webp"
+            "title": "ACCESSORIES",
+            "image": "shopify://shop_images/outerwear-col-hats.webp",
+            "collection": "accessories"
           }
         }
       },
       "block_order": [
-        "c1",
-        "c2",
-        "c3",
-        "c4",
-        "c5"
+        "i0",
+        "i1",
+        "i2",
+        "i3",
+        "i4"
       ]
-    },
-    "highlights": {
-      "type": "outerwear-highlight",
-      "settings": {
-        "label": "Highlights",
-        "label_link_text": "View all",
-        "label_link": "/collections/all",
-        "image": "shopify://shop_images/outerwear-night-layers.webp",
-        "image_position": "left",
-        "image_width": 50,
-        "image_focus_y": 30,
-        "overlay_opacity": 30,
-        "text_position": "image",
-        "heading": "Night layers",
-        "button_label": "Shop now",
-        "button_link": "/search?q=puffer",
-        "heading_size": 84,
-        "heading_size_mobile": 48,
-        "products_to_show": 4,
-        "columns_desktop": 2,
-        "columns_mobile": 2,
-        "card_box": true,
-        "color_scheme": "default"
-      }
     },
     "about": {
       "type": "Image-and-video-text",
@@ -356,22 +504,81 @@
       ]
     },
     "review": {
-      "type": "outerwear-review",
+      "type": "testimonial-product",
       "settings": {
-        "label": "Reviews",
-        "rating": 5,
-        "quote": "Warm enough for the walk to work and light enough for the train. I have worn it every day since it came.",
-        "author": "Customer name",
-        "note": "Sample review. Replace it with one from your customers.",
-        "product": "lined-work-parka",
-        "image": "shopify://shop_images/outerwear-review-doorway.webp",
-        "image_position": "right",
-        "image_focus_y": 30,
-        "min_height": 700,
-        "quote_size": 54,
-        "quote_size_mobile": 32,
-        "color_scheme": "default"
-      }
+        "color_scheme": "default",
+        "section_width": "fluid_container",
+        "reset_spacing": true,
+        "text_align": "left",
+        "cards_desktop": 3,
+        "card_gap": 0,
+        "card_style": "outline",
+        "show_arrows": true,
+        "show_progress": true,
+        "enable_custom_style": true,
+        "card_radius": 0,
+        "quote_size": 18,
+        "reveal": true,
+        "padding_top": 64,
+        "padding_bottom": 64,
+        "mobile_peek": true,
+        "quote_size_mobile": 16,
+        "padding_top_mobile": 44,
+        "padding_bottom_mobile": 44
+      },
+      "blocks": {
+        "e": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Reviews"
+          }
+        },
+        "h": {
+          "type": "heading",
+          "settings": {
+            "text": "Worn every day since it came",
+            "size": 44,
+            "size_mobile": 30
+          }
+        },
+        "t1": {
+          "type": "testimonial",
+          "settings": {
+            "product": "lined-work-parka",
+            "body": "Warm enough for the walk to work and light enough for the train. The hood stays up in the wind. Sample review, replace it with one from your customers.",
+            "name": "Customer name",
+            "role": "Lined work parka, M",
+            "rating": 5
+          }
+        },
+        "t2": {
+          "type": "testimonial",
+          "settings": {
+            "product": "gloss-down-puffer",
+            "body": "Boxy and short, exactly as the fit notes say. I sized down and it sits right over a knit. Sample review, replace it with your own.",
+            "name": "Customer name",
+            "role": "Gloss down puffer, S",
+            "rating": 5
+          }
+        },
+        "t3": {
+          "type": "testimonial",
+          "settings": {
+            "product": "merino-crew",
+            "body": "Thin enough to wear under everything and it has not pilled after a winter of washing. Sample review, replace it with your own.",
+            "name": "Customer name",
+            "role": "Merino crew, L",
+            "rating": 5
+          }
+        }
+      },
+      "block_order": [
+        "e",
+        "h",
+        "t1",
+        "t2",
+        "t3"
+      ]
     },
     "instagram": {
       "type": "Instagram-promo",
@@ -597,7 +804,6 @@
     "details",
     "wet",
     "collections",
-    "highlights",
     "about",
     "review",
     "instagram",

@@ -29,7 +29,7 @@
           "settings": {
             "font_size": 15,
             "uppercase": false,
-            "subheading": "The link may be old. Offer Board and the rest of the templates are a click away.",
+            "subheading": "The link may be old. Creator OS and the rest of the templates are a click away.",
             "font_weight": "body_weight",
             "spacing_bottom": 40
           }
@@ -41,7 +41,7 @@
             "spacing_bottom": 0,
             "first_button_link": "/",
             "first_button_type": "primary",
-            "first_button_label": "Back to Offer Board"
+            "first_button_label": "Back to Creator OS"
           }
         }
       },
@@ -95,7 +95,7 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Offer Board",
+            "text": "Creator OS",
             "enable_custom_style": true,
             "size_d": 34,
             "size_m": 28,
@@ -105,7 +105,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "Run your whole job search from one Notion page. Pay once, keep every update."
+            "text": "Plan, script and post your content from one Notion page. Pay once, keep every update."
           }
         },
         "button_4": {

@@ -9,7 +9,7 @@
         "reset_spacing": true,
         "heading": "Search",
         "sorting": true,
-        "empty_text": "Nothing matched. Try ebook, audiobook or workbook.",
+        "empty_text": "Nothing matched. Try ebook, audiobook or diary.",
         "empty_link_label": "See everything",
         "empty_link_url": "/collections/all",
         "enable_filtering": false,
@@ -31,7 +31,7 @@
       "settings": {
         "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca",
         "heading": "Get the book",
-        "text": "<p>The ebook, the audiobook, the workbook and a licence for your team.</p>",
+        "text": "<p>The ebook, the audiobook, the sleep diary and a licence for your team.</p>",
         "items_to_show": 4,
         "items_per_row": 4,
         "show_add_to_cart": true,
@@ -44,15 +44,15 @@
       "type": "newsletter-split",
       "settings": {
         "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
-        "image": "shopify://shop_images/authorbook-spread-outline.webp",
-        "image_alt": "Two open pages from chapter two of Hold the Room",
+        "image": "shopify://shop_images/authorbook-spread-light.webp",
+        "image_alt": "Two open pages from chapter two of Lights Out",
         "image_position": "left",
         "image_ratio": "landscape",
         "image_width": 50,
         "form_layout": "horizontal",
         "btn_text": "Send it to me",
         "email_placeholder": "Your email",
-        "note": "You also get the talk letter every other week. Leave whenever you like.",
+        "note": "You also get the sleep letter every other week. Leave whenever you like.",
         "success_text": "Done. Chapter two is in your inbox."
       },
       "blocks": {
@@ -65,7 +65,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>The one sentence talk, as a PDF: the outline from the book and the exercise that fixes most talks before you open a slide deck.</p>"
+            "text": "<p>Set your body clock with light, as a PDF: the daily light plan from the book and the one habit that makes the others work.</p>"
           }
         }
       },

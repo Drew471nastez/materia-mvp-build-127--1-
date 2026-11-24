@@ -1,19 +1,19 @@
-/* Templates round 23: the free chapter page, sign up for chapter two, what is in the book, the talk letter and readers. */
+/* Templates round 23: the free chapter page, sign up for chapter two, what is in the book, the sleep letter and readers. */
 {
   "sections": {
     "chapter": {
       "type": "newsletter-split",
       "settings": {
         "color_scheme": "default",
-        "image": "shopify://shop_images/authorbook-spread-outline.webp",
-        "image_alt": "Two open pages from chapter two of Hold the Room",
+        "image": "shopify://shop_images/authorbook-spread-light.webp",
+        "image_alt": "Two open pages from chapter two of Lights Out",
         "image_position": "left",
         "image_ratio": "landscape",
         "image_width": 50,
         "form_layout": "horizontal",
         "btn_text": "Send it to me",
         "email_placeholder": "Your email",
-        "note": "You also get the talk letter every other week. Leave whenever you like.",
+        "note": "You also get the sleep letter every other week. Leave whenever you like.",
         "success_text": "Done. Chapter two is in your inbox."
       },
       "blocks": {
@@ -26,7 +26,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>The one sentence talk, as a PDF: the outline from the book and the exercise that fixes most talks before you open a slide deck. Twenty minutes to read.</p>"
+            "text": "<p>Set your body clock with light, as a PDF: the daily light plan from the book and the one habit that makes the others work. Twenty minutes to read.</p>"
           }
         }
       },
@@ -53,55 +53,55 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Fourteen short chapters. Each ends with one exercise to try on your next real talk.</p>"
+            "text": "<p>Twelve short chapters. Each ends with one change to try this week.</p>"
           }
         },
         "column_3": {
           "type": "column",
           "settings": {
             "label": "Chapter 2",
-            "heading": "The one sentence talk",
-            "text": "<p>Find the point before you build anything else.</p>"
+            "heading": "Set your body clock with light",
+            "text": "<p>Morning light, dim evenings and one wake time.</p>"
           }
         },
         "column_4": {
           "type": "column",
           "settings": {
             "label": "Chapter 3",
-            "heading": "An outline that travels",
-            "text": "<p>One structure for five minutes or forty five.</p>"
+            "heading": "Coffee, drinks and dinner",
+            "text": "<p>What to move earlier, and by how much.</p>"
           }
         },
         "column_5": {
           "type": "column",
           "settings": {
-            "label": "Chapter 5",
-            "heading": "Nerves are fuel",
-            "text": "<p>The ninety second reset and how to open strong.</p>"
+            "label": "Chapter 4",
+            "heading": "A bedroom that helps",
+            "text": "<p>Dark, cool, quiet, and no phone on the pillow.</p>"
           }
         },
         "column_6": {
           "type": "column",
           "settings": {
-            "label": "Chapter 7",
-            "heading": "Slides that help",
-            "text": "<p>Headlines that make the point, and the squint test.</p>"
+            "label": "Chapter 6",
+            "heading": "The wind down hour",
+            "text": "<p>Five small things, in the same order every night.</p>"
           }
         },
         "column_7": {
           "type": "column",
           "settings": {
             "label": "Chapter 9",
-            "heading": "Your voice",
-            "text": "<p>Pace, pauses and sounding like yourself.</p>"
+            "heading": "Awake at 3am",
+            "text": "<p>What to do instead of checking the clock.</p>"
           }
         },
         "column_8": {
           "type": "column",
           "settings": {
             "label": "Chapter 12",
-            "heading": "Taking questions",
-            "text": "<p>Honest answers when you do not know.</p>"
+            "heading": "Your two week plan",
+            "text": "<p>One change at a time, and how to know it worked.</p>"
           }
         }
       },
@@ -120,8 +120,8 @@
       "type": "Image-and-video-text",
       "settings": {
         "color_scheme": "default",
-        "image": "shopify://shop_images/authorbook-spread-nerves.webp",
-        "image_alt": "Two open pages from chapter five, Nerves are fuel",
+        "image": "shopify://shop_images/authorbook-spread-night.webp",
+        "image_alt": "Two open pages from chapter nine, Awake at 3am",
         "image_position": "right",
         "aspect_w": 16,
         "aspect_h": 11,
@@ -132,7 +132,7 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "The talk letter"
+            "text": "The sleep letter"
           }
         },
         "heading_2": {
@@ -144,7 +144,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>One method to try on your next talk, and an honest answer to a question a reader sent in. Free, and you can leave whenever you like.</p>"
+            "text": "<p>One thing to try tonight, and an honest answer to a question a reader sent in. Free, and you can leave whenever you like.</p>"
           }
         }
       },
@@ -185,8 +185,8 @@
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "body": "I read chapter two on the train and rewrote my quarterly update before I got to the office.",
-            "name": "Priya N.",
+            "body": "I moved my coffee and got ten minutes of light every morning. Two weeks later I was falling asleep before midnight.",
+            "name": "Maya A.",
             "role": "Product manager",
             "rating": 5
           }
@@ -194,18 +194,18 @@
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "body": "The ninety second reset is now the thing I do before every client pitch.",
+            "body": "The 3am chapter alone was worth it. I stopped checking the clock and started getting back to sleep.",
             "name": "Daniel A.",
-            "role": "Founder, design studio",
+            "role": "Father of two",
             "rating": 5
           }
         },
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "body": "The chapter on questions made me stop dreading the end of a talk.",
+            "body": "I work nights in a hospital. Chapter ten is the first advice that fit my real week.",
             "name": "Lena M.",
-            "role": "Secondary school teacher",
+            "role": "Night shift nurse",
             "rating": 5
           }
         }

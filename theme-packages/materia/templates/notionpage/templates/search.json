@@ -9,7 +9,7 @@
         "reset_spacing": true,
         "heading": "Search",
         "sorting": true,
-        "empty_text": "Nothing matched. Try offer, interview or bundle.",
+        "empty_text": "Nothing matched. Try creator, sponsor or bundle.",
         "empty_link_label": "See everything",
         "empty_link_url": "/collections/all",
         "enable_filtering": false,
@@ -31,7 +31,7 @@
       "settings": {
         "color_scheme": "default",
         "heading": "The templates",
-        "text": "<p>Offer Board, the Interview Prep Kit and the bundle with both.</p>",
+        "text": "<p>Creator OS, the Sponsor Kit and the bundle with both.</p>",
         "items_to_show": 3,
         "items_per_row": 3,
         "show_add_to_cart": true,

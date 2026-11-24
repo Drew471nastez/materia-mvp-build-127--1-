@@ -32,7 +32,7 @@
       "settings": {
         "color_scheme": "default",
         "btn_text": "Send message",
-        "ph_website": "A question about Offer Board, a refund or a student discount",
+        "ph_website": "A question about Creator OS, a refund or a student discount",
         "label_website": "Subject",
         "success_text": "Thank you. We read every message and reply within two working days."
       },
@@ -46,7 +46,7 @@
         "description_2": {
           "type": "description",
           "settings": {
-            "text": "<p>Questions about Offer Board, a refund, a student discount or a template you wish existed. A person reads every message.</p>"
+            "text": "<p>Questions about Creator OS, a refund, a student discount or a template you wish existed. A person reads every message.</p>"
           }
         },
         "info_3": {
@@ -132,8 +132,8 @@
           "type": "faq_item",
           "settings": {
             "tab": "1",
-            "question": "What is Offer Board?",
-            "answer": "<p>A Notion template for running a job search. It keeps the roles you save, the companies, the people you talk to, your interview stories and any offers in one workspace, linked to each other.</p>"
+            "question": "What is Creator OS?",
+            "answer": "<p>A Notion template for content creators. It keeps your ideas, scripts, content calendar, sponsor deals and the numbers behind each post in one workspace, linked to each other.</p>"
           }
         },
         "faq_item_4": {
@@ -141,7 +141,7 @@
           "settings": {
             "tab": "1",
             "question": "Do I need a paid Notion plan?",
-            "answer": "<p>No. Offer Board works on Notion's free plan, on the web, the desktop app and the phone app.</p>"
+            "answer": "<p>No. Creator OS works on Notion's free plan, on the web, the desktop app and the phone app.</p>"
           }
         },
         "faq_item_5": {
@@ -157,7 +157,7 @@
           "settings": {
             "tab": "1",
             "question": "I have never used Notion. Will I manage?",
-            "answer": "<p>Yes. The Instructions page has a 12 minute walkthrough and five steps to follow. Most people are adding roles within the first half hour.</p>"
+            "answer": "<p>Yes. The Instructions page has a 14 minute walkthrough and five steps to follow. Most people have their ideas in within the first half hour.</p>"
           }
         },
         "faq_item_7": {
@@ -165,7 +165,7 @@
           "settings": {
             "tab": "1",
             "question": "Can I change it?",
-            "answer": "<p>Every page, property and view is yours to edit. Rename the stages, add a column for visa sponsorship, delete the pages you do not need.</p>"
+            "answer": "<p>Every page, property and view is yours to edit. Rename the stages, add a column for a second channel, delete the pages you do not need.</p>"
           }
         }
       },

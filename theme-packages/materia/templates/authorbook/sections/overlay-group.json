@@ -638,7 +638,7 @@
         "circle_bg_color": "#18181b",
         "arrow_color": "#ffffff",
         "arrow_hover_color": "#111113",
-        "circle_bg_hover_color": "#ff5f1f",
+        "circle_bg_hover_color": "#f2a65a",
         "progress_color": "#3a3a40",
         "progress_active_color": "#ff5f1f",
         "progress_thickness": 2,

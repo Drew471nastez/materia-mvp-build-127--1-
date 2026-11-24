@@ -27,7 +27,7 @@
         "description_YRWpkt": {
           "type": "description",
           "settings": {
-            "description": "<p>Short, practical notes on running a job search: follow ups, reviews, interviews and offers.</p>",
+            "description": "<p>Short, practical notes on making content: planning, scripts, sponsors and the weekly review.</p>",
             "enable_custom_style": false,
             "description_font_size": 16
           }
@@ -120,7 +120,7 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Offer Board",
+            "text": "Creator OS",
             "enable_custom_style": true,
             "size_d": 34,
             "size_m": 28,
@@ -130,7 +130,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "Run your whole job search from one Notion page. Pay once, keep every update."
+            "text": "Plan, script and post your content from one Notion page. Pay once, keep every update."
           }
         },
         "button_4": {

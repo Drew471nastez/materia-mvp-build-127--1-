@@ -33,28 +33,28 @@
           "type": "faq_item",
           "settings": {
             "question": "What is the difference between the editions?",
-            "answer": "<p>The ebook is the book. Ebook and audiobook adds the full audio, read by Owen. The complete set adds the printable talk planner workbook as well.</p>"
+            "answer": "<p>The ebook is the book. Ebook and audiobook adds the full audio, read by Owen. The complete set adds the printable sleep diary as well.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "I have a talk next week. Will this help in time?",
-            "answer": "<p>Yes. Start with chapters two and five. They take about an hour together and give you an outline and a plan for your nerves.</p>"
+            "question": "I slept badly last night. Where do I start?",
+            "answer": "<p>Start with chapters two and six. They take about an hour together and give you a light plan for tomorrow morning and a wind down hour for tonight.</p>"
           }
         },
         "faq_item_6": {
           "type": "faq_item",
           "settings": {
-            "question": "Does it cover video calls and online talks?",
-            "answer": "<p>Yes. Every chapter has notes for presenting on a call, and chapter eleven is about online talks and webinars.</p>"
+            "question": "Is this medical advice?",
+            "answer": "<p>No. It is practical advice for ordinary bad sleep. If you snore loudly, stop breathing at night or have been sleeping badly for months, see a doctor first. Chapter one says when.</p>"
           }
         },
         "faq_item_7": {
           "type": "faq_item",
           "settings": {
             "question": "Can I buy copies for my team?",
-            "answer": "<p>Yes. The team licence covers up to ten people with one invoice. For a bigger group, <a href=\"/pages/contact\">write to us</a>.</p>"
+            "answer": "<p>Yes. The team licence covers up to ten people with one invoice, useful for shift teams and night workers. For a bigger group, <a href=\"/pages/contact\">write to us</a>.</p>"
           }
         },
         "faq_item_8": {
@@ -81,7 +81,7 @@
       "settings": {
         "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca",
         "heading": "Get the book",
-        "text": "<p>The ebook, the audiobook, the workbook and a licence for your team.</p>",
+        "text": "<p>The ebook, the audiobook, the sleep diary and a licence for your team.</p>",
         "items_to_show": 4,
         "items_per_row": 4,
         "show_add_to_cart": true,
@@ -103,14 +103,14 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "Hold the Room",
+            "text": "Lights Out",
             "transform": "uppercase"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Your next talk can be your best one",
+            "text": "Tonight can be a better night",
             "transform": "none",
             "lineheight": "1.25"
           }
@@ -118,7 +118,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "Fourteen short chapters, PDF and EPUB, in your inbox in a minute."
+            "text": "Twelve short chapters, PDF and EPUB, in your inbox in a minute."
           }
         },
         "button_4": {

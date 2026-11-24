@@ -2,45 +2,107 @@
   "main-menu": {
     "title": "Main menu",
     "links": [
-      { "title": "Outerwear", "url": "/collections/all", "links": [
-        { "title": "Puffers", "url": "/search?q=puffer" },
-        { "title": "Parkas", "url": "/search?q=parka" },
-        { "title": "Vests", "url": "/search?q=vest" },
-        { "title": "Faux fur", "url": "/search?q=fur" },
-        { "title": "Everything", "url": "/collections/all" }
-      ] },
-      { "title": "Knitwear", "url": "/search?q=merino" },
-      { "title": "Tees", "url": "/search?q=tee" },
-      { "title": "Accessories", "url": "/search?q=beanie" },
-      { "title": "Journal", "url": "/blogs/news" }
+      {
+        "title": "Outerwear",
+        "url": "/collections/outerwear",
+        "links": [
+          {
+            "title": "Puffers and vests",
+            "url": "/collections/puffers"
+          },
+          {
+            "title": "Parkas and fur",
+            "url": "/collections/parkas"
+          },
+          {
+            "title": "All outerwear",
+            "url": "/collections/outerwear"
+          },
+          {
+            "title": "Everything",
+            "url": "/collections/all"
+          }
+        ]
+      },
+      {
+        "title": "Knit and tees",
+        "url": "/collections/knit-and-tees"
+      },
+      {
+        "title": "Accessories",
+        "url": "/collections/accessories"
+      },
+      {
+        "title": "Journal",
+        "url": "/blogs/news"
+      }
     ]
   },
   "footer-shop": {
     "title": "Shop",
     "links": [
-      { "title": "Everything", "url": "/collections/all" },
-      { "title": "Puffers", "url": "/search?q=puffer" },
-      { "title": "Parkas", "url": "/search?q=parka" },
-      { "title": "Knitwear", "url": "/search?q=merino" },
-      { "title": "Collections", "url": "/collections" }
+      {
+        "title": "Everything",
+        "url": "/collections/all"
+      },
+      {
+        "title": "Outerwear",
+        "url": "/collections/outerwear"
+      },
+      {
+        "title": "Puffers and vests",
+        "url": "/collections/puffers"
+      },
+      {
+        "title": "Knit and tees",
+        "url": "/collections/knit-and-tees"
+      },
+      {
+        "title": "Accessories",
+        "url": "/collections/accessories"
+      }
     ]
   },
   "footer": {
     "title": "Info",
     "links": [
-      { "title": "About", "url": "/pages/about" },
-      { "title": "Shipping and returns", "url": "/pages/shipping" },
-      { "title": "Size and care", "url": "/pages/faqs" },
-      { "title": "Journal", "url": "/blogs/news" },
-      { "title": "Contact", "url": "/pages/contact" }
+      {
+        "title": "About",
+        "url": "/pages/about"
+      },
+      {
+        "title": "Shipping and returns",
+        "url": "/pages/shipping"
+      },
+      {
+        "title": "Size and care",
+        "url": "/pages/faqs"
+      },
+      {
+        "title": "Journal",
+        "url": "/blogs/news"
+      },
+      {
+        "title": "Contact",
+        "url": "/pages/contact"
+      }
     ]
   },
   "footer-social": {
     "title": "Social",
     "links": [
-      { "title": "Instagram", "url": "https://www.instagram.com/" },
-      { "title": "TikTok", "url": "https://www.tiktok.com/" },
-      { "title": "Pinterest", "url": "https://www.pinterest.com/" }
+      {
+        "title": "Instagram",
+        "url": "https://www.instagram.com/"
+      },
+      {
+        "title": "TikTok",
+        "url": "https://www.tiktok.com/"
+      },
+      {
+        "title": "Pinterest",
+        "url": "https://www.pinterest.com/"
+      }
     ]
   }
 }

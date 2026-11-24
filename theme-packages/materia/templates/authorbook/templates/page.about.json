@@ -30,7 +30,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>For ten years Owen was the person who volunteered to make the slides so someone else would have to present them. Then a job made him speak every week, and he started writing down what actually helped.</p><p>He now runs small speaking workshops for teams and first time conference speakers, and writes a short letter about talks every other week. This is sample text. Replace it with your own story.</p>"
+            "text": "<p>For ten years Owen slept five hours a night and called it normal. Then a year of shift work made it impossible to ignore, and he started writing down what actually helped.</p><p>He now gives short talks on sleep to teams that work early, late and through the night, and writes a short letter about sleep every other week. This is sample text. Replace it with your own story.</p>"
           }
         },
         "button_4": {
@@ -52,8 +52,8 @@
       "type": "Image-and-video-text",
       "settings": {
         "color_scheme": "default",
-        "image": "shopify://shop_images/authorbook-stage.webp",
-        "image_alt": "A speaker in front of a full lecture hall, and the book open at chapter two",
+        "image": "shopify://shop_images/authorbook-bedroom.webp",
+        "image_alt": "A dark bedroom with a reading lamp, and the book open at chapter six",
         "image_position": "right",
         "aspect_w": 1,
         "aspect_h": 1,
@@ -69,13 +69,13 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "The book he wanted before his first talk"
+            "text": "The book he wanted on the night he gave up on sleep"
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Most speaking advice is either about posture or about being yourself. Neither tells you what to do on Tuesday night with a talk on Thursday. Hold the Room does, chapter by chapter, in the order you need it.</p>"
+            "text": "<p>Most sleep advice is a list of forty rules. Nobody follows forty rules. Lights Out picks the handful that matter, in the order to try them, with what to do on the nights they do not work.</p>"
           }
         }
       },
@@ -103,24 +103,24 @@
           "type": "column",
           "settings": {
             "label": "01",
-            "heading": "One point per talk",
-            "text": "<p>If you cannot say it in a sentence, the room cannot repeat it.</p>"
+            "heading": "Light sets the clock",
+            "text": "<p>Morning light and dim evenings do more than any supplement.</p>"
           }
         },
         "column_3": {
           "type": "column",
           "settings": {
             "label": "02",
-            "heading": "Nerves are normal",
-            "text": "<p>You do not need to feel calm. You need a plan for the first minute.</p>"
+            "heading": "Waking is normal",
+            "text": "<p>Everyone wakes in the night. What you do next is what counts.</p>"
           }
         },
         "column_4": {
           "type": "column",
           "settings": {
             "label": "03",
-            "heading": "Practice beats talent",
-            "text": "<p>Every method in the book is something you try on a real talk, then again.</p>"
+            "heading": "Small and steady wins",
+            "text": "<p>One change a week, kept for two weeks, beats a perfect plan for three days.</p>"
           }
         }
       },
@@ -162,8 +162,8 @@
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "body": "I read chapter two on the train and rewrote my quarterly update before I got to the office.",
-            "name": "Priya N.",
+            "body": "I moved my coffee and got ten minutes of light every morning. Two weeks later I was falling asleep before midnight.",
+            "name": "Maya A.",
             "role": "Product manager",
             "rating": 5
           }
@@ -171,18 +171,18 @@
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "body": "The ninety second reset is now the thing I do before every client pitch.",
+            "body": "The 3am chapter alone was worth it. I stopped checking the clock and started getting back to sleep.",
             "name": "Daniel A.",
-            "role": "Founder, design studio",
+            "role": "Father of two",
             "rating": 5
           }
         },
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "body": "The chapter on questions made me stop dreading the end of a talk.",
+            "body": "I work nights in a hospital. Chapter ten is the first advice that fit my real week.",
             "name": "Lena M.",
-            "role": "Secondary school teacher",
+            "role": "Night shift nurse",
             "rating": 5
           }
         }
@@ -200,15 +200,15 @@
       "type": "newsletter-split",
       "settings": {
         "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
-        "image": "shopify://shop_images/authorbook-spread-outline.webp",
-        "image_alt": "Two open pages from chapter two of Hold the Room",
+        "image": "shopify://shop_images/authorbook-spread-light.webp",
+        "image_alt": "Two open pages from chapter two of Lights Out",
         "image_position": "left",
         "image_ratio": "landscape",
         "image_width": 50,
         "form_layout": "horizontal",
         "btn_text": "Send it to me",
         "email_placeholder": "Your email",
-        "note": "You also get the talk letter every other week. Leave whenever you like.",
+        "note": "You also get the sleep letter every other week. Leave whenever you like.",
         "success_text": "Done. Chapter two is in your inbox."
       },
       "blocks": {
@@ -221,7 +221,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>The one sentence talk, as a PDF: the outline from the book and the exercise that fixes most talks before you open a slide deck.</p>"
+            "text": "<p>Set your body clock with light, as a PDF: the daily light plan from the book and the one habit that makes the others work.</p>"
           }
         }
       },

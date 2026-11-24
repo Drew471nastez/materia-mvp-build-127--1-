@@ -28,7 +28,7 @@
             "store_phone": false,
             "store_address": false,
             "content_width": "33%",
-            "store_description": "<p>Notion templates for the parts of life that need a system. Offer Board is for running a job search from the first saved role to the signed offer.</p>"
+            "store_description": "<p>Notion templates for the parts of work that need a system. Creator OS takes a video, a post or an episode from the first idea to the published link.</p>"
           }
         },
         "link_list_2": {
@@ -51,8 +51,8 @@
           "type": "newsletter",
           "settings": {
             "note": "",
-            "heading": "Free follow up scripts",
-            "description": "Five short emails for after you apply, after an interview and when an offer is late.",
+            "heading": "Free hook formulas",
+            "description": "Twelve opening lines that work on YouTube, shorts and newsletters, sent once.",
             "button_label": "Send them",
             "content_width": "33%",
             "email_placeholder": "Your email"

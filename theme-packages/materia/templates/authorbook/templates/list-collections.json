@@ -28,7 +28,7 @@
         "description_tLPCVn": {
           "type": "description",
           "settings": {
-            "description": "<p>The ebook in every edition, the audiobook, the workbook and a team licence.</p>",
+            "description": "<p>The ebook in every edition, the audiobook, the sleep diary and a team licence.</p>",
             "description_color": "#57575e",
             "enable_custom_style": true,
             "description_font_size": 15

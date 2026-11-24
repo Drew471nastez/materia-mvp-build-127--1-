@@ -215,6 +215,7 @@
     "twitter": "https://x.com",
     "count_bubble_bg": "#191918",
     "sale_background": "#e5484d",
-    "sale_color": "#ffffff"
+    "sale_color": "#ffffff",
+    "body_line_height": 1.8
   }
 }

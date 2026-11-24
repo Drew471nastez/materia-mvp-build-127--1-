@@ -1,7 +1,7 @@
 
 <!doctype html>
 <html class="no-js" lang="en" dir="ltr">
-<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;
+<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/notion-sales-page/a/cart.b9c2adf77e97.json";
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
@@ -15,11 +15,78 @@ function path(u){try{return new URL(u,location.href).pathname}catch(e){return""}
 var CART={token:"preview",note:"",attributes:{},original_total_price:0,total_price:0,total_discount:0,total_weight:0,item_count:0,items:[],requires_shipping:false,currency:"USD",items_subtotal_price:0,cart_level_discount_applications:[]};
 var NO={status:422,message:"Preview",description:"This is a preview of the template. Add it to your library to sell from it."};
 function reply(u){var p=path(u);
-if(/\/cart\/add(\.js)?$/.test(p)){showNote(pressed);return[422,"application/json",JSON.stringify(NO)]}
+if(/\/cart\/add(\.js)?$/.test(p))return[422,"application/json",JSON.stringify(NO)];
 if(/\/cart(\.js|\.json|\/(change|update|clear)(\.js)?)$/.test(p))return[200,"application/json",JSON.stringify(CART)];
 if(/\.(js|json)$/.test(p)||/\/search\/suggest/.test(p))return[200,"application/json","{}"];
 return[200,"text/html","<!doctype html><html><body></body></html>"]}
-var F=W.fetch;if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);if(mine(u))return F.apply(this,arguments);var r=reply(u);return Promise.resolve(new Response(r[2],{status:r[0],headers:{"Content-Type":r[1]}}))};
+var F=W.fetch;
+var SLUG=location.pathname.slice(ROOT.length).split("/")[0],CK="slpv-cart:"+SLUG,RE=[/(?=[<"\s>=])/,/(?=\n)/];
+function dec(s){var m=/^(\d+)~(.*)$/.exec(s||"");if(!m)return null;var lines=[];(m[2]?m[2].split("-"):[]).forEach(function(x){var p=x.split(".");var e=+p[0],q=+p[1];if(e>=0&&q>0&&e===Math.floor(e))lines.push({e:e,q:Math.min(99,Math.floor(q))})});return{t:+m[1],l:lines}}
+function enc(c){return c.t+"~"+c.l.map(function(x){return x.e+"."+x.q}).join("-")}
+function names(){try{var n=JSON.parse(W.name||"null");return n&&typeof n==="object"&&n.slpv?n:null}catch(e){return null}}
+var BAG=(function(){var best={t:0,l:[]},take=function(c){if(c&&c.t>=best.t)best=c};
+var m=/[?&]slc=([^&#]*)/.exec(location.search);if(m)take(dec(decodeURIComponent(m[1])));
+var n=names();if(n&&n.slpv[SLUG])take(dec(n.slpv[SLUG]));
+try{take(dec(W.localStorage.getItem(CK)))}catch(e){}
+return best})();
+function keep(){BAG.t=Date.now();var s=enc(BAG);try{W.localStorage.setItem(CK,s)}catch(e){}
+try{if(!W.name||names()){var n=names()||{slpv:{}};n.slpv[SLUG]=s;W.name=JSON.stringify(n)}}catch(e){}}
+function carry(u){if(!BAG.t)return u;try{var x=new URL(u,location.href);if(x.pathname.indexOf(ROOT+SLUG+"/")!==0||!/[.]html$/.test(x.pathname))return u;x.searchParams.set("slc",enc(BAG));return x.href}catch(e){return u}}
+D.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[href]");if(a&&!a.hasAttribute("data-preview-inert")){var to=carry(a.href);if(to!==a.href)a.href=to}},true);
+var DATA=null,DP=null;function data(){return DP||(DP=F(CART_DATA).then(function(r){return r.json()}).then(function(d){DATA=d;BAG.l=BAG.l.filter(function(x){return x.e<d.e.length});return d}))}
+var made={};function sec(i,k){var id=i+":"+k;if(made[id])return made[id];var x=DATA.e[i],o=k?x.r:x.d,s=typeof o==="string"?o:patch(sec(x.b,k),o);return made[id]=s}
+function patch(b,x){var ops=x.o;if(!ops.length)return b;var t=b.split(RE[x.t]);for(var k=ops.length-1;k>=0;k--)t.splice(ops[k][0],ops[k][1],ops[k][2]);return t.join("")}
+function money(c){var f=DATA.fmt||"$"+"{{amount}}",m=/\{\{\s*(\w+)\s*\}\}/.exec(f),k=m?m[1]:"amount",dp=/no_decimals/.test(k)?0:2,eu=/comma_separator/.test(k),p=(c/100).toFixed(dp).split(".");var s=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,eu?".":(/apostrophe/.test(k)?"'":","))+(p[1]?(eu?",":".")+p[1]:"");return f.replace(/\{\{\s*\w+\s*\}\}/,s)}
+function moneyRe(){var f=DATA.fmt||"$"+"{{amount}}",at=f.search(/\{\{/),end=f.indexOf("}}")+2;var esc=function(s){return s.replace(/[.*+?^$()|[\]\\{}]/g,"\\$&")};return new RegExp(esc(f.slice(0,at))+"\\d[\\d.,']*"+esc(f.slice(end)),"g")}
+function cents(s){var d=s.replace(/[^\d]/g,"");return /no_decimals/.test(DATA.fmt)?+d*100:+d}
+function texts(root,fn){if(!root)return;var w=root.ownerDocument.createTreeWalker(root,4),n;while(n=w.nextNode())n.nodeValue=fn(n.nodeValue)}
+function times(root,q){if(q===1)return;var re=moneyRe();texts(root,function(v){return v.replace(re,function(m){return money(cents(m)*q)})})}
+function set(root,c){var re=moneyRe(),done=false;texts(root,function(v){return v.replace(re,function(){if(done)return"";done=true;return money(c)})})}
+function line(el,q){el.querySelectorAll('input[name="updates[]"]').forEach(function(i){i.value=q;i.setAttribute("value",q);i.setAttribute("data-value",q)});el.querySelectorAll("[data-quantity]").forEach(function(x){x.setAttribute("data-quantity",q)});
+el.querySelectorAll(".minicart__item-prices,.cart-item__totals").forEach(function(x){times(x,q)})}
+function item(x,n){var it=JSON.parse(JSON.stringify(DATA.e[x.e].item)),q=x.q;it.quantity=q;it.key=DATA.e[x.e].k;["line_price","original_line_price","final_line_price","discounted_line_price"].forEach(function(k){if(typeof it[k]==="number")it[k]=it[k]*q});return it}
+function cartJson(){var items=BAG.l.map(item),sum=function(k){return items.reduce(function(a,b){return a+(+b[k]||0)},0)},total=sum("final_line_price")||sum("line_price");
+return{token:"preview",note:BAG.note||"",attributes:{},original_total_price:sum("original_line_price")||total,total_price:total,total_discount:0,total_weight:0,item_count:items.reduce(function(a,b){return a+b.quantity},0),items:items,requires_shipping:items.some(function(i){return i.requires_shipping}),currency:DATA.cur,items_subtotal_price:total,cart_level_discount_applications:[]}}
+var DP2=new DOMParser();
+function compose(k){if(!BAG.l.length)return DATA.empty[k];var c=cartJson(),docs=BAG.l.map(function(x){return DP2.parseFromString(sec(x.e,k),"text/html")}),sk=docs[0];
+var pick=function(d){return k?d.querySelector("table.cart-items tbody > tr.cart-item"):d.querySelector("#minicart-form .items > .cart-item")};
+var first=pick(sk);if(!first)return DATA.empty[k];var box=first.parentNode;
+BAG.l.forEach(function(x,n){var el=n?sk.importNode(pick(docs[n]),true):first;line(el,x.q);if(k)renumber(el,n+1);if(n)box.appendChild(el)});
+sk.querySelectorAll("[data-cart-subtotal-price],.cart-info .totals").forEach(function(x){set(x,c.total_price)});
+return sk.body.innerHTML}
+function renumber(el,n){[el].concat([].slice.call(el.querySelectorAll("*"))).forEach(function(x){["id","for","data-index"].forEach(function(a){var v=x.getAttribute(a);if(v!=null&&/(^|-)1$/.test(v))x.setAttribute(a,v.replace(/1$/,n))});if(x.classList)[].slice.call(x.classList).forEach(function(c){if(/^cart-item__totals-1$/.test(c)){x.classList.remove(c);x.classList.add("cart-item__totals-"+n)}})})}
+function sections(ask){var out={};(Array.isArray(ask)?ask:String(ask||"").split(",")).forEach(function(s){s=String(s).trim();if(!s)return;out[s]=s==="minicart-form"?compose(0):s===DATA.page?compose(1):null});return out}
+function find(id){id=String(id==null?"":id);var m=/^pv(\d+)x$/.exec(id);if(m)return +m[1];for(var i=0;i<DATA.e.length;i++)if(DATA.e[i].id===id||DATA.e[i].k===id)return i;for(i=0;i<DATA.e.length;i++)if(DATA.e[i].p===id)return i;return -1}
+function fieldsOf(b){var o={};if(!b)return o;if(typeof b==="string"){try{return JSON.parse(b)}catch(e){b=new URLSearchParams(b)}}
+if(b.forEach&&!Array.isArray(b)){b.forEach(function(v,k){var m=/^items\[(\d+)\]\[(\w+)\]$/.exec(k);if(m){(o.items=o.items||[])[+m[1]]=(o.items[+m[1]]||{});o.items[+m[1]][m[2]]=v;return}var u=/^updates\[(.*)\]$/.exec(k);if(u){(o.updates=o.updates||(u[1]===""?[]:{}));if(Array.isArray(o.updates))o.updates.push(v);else o.updates[u[1]]=v;return}o[k]=v});return o}return o}
+function lineOf(f){if(f.line!=null&&f.line!==""){var n=+f.line-1;return BAG.l[n]?n:-1}var e=find(f.id);for(var i=0;i<BAG.l.length;i++)if(BAG.l[i].e===e)return i;return -1}
+function setQ(n,q){q=Math.max(0,Math.min(99,Math.floor(+q)||0));if(n<0)return;if(!q)BAG.l.splice(n,1);else BAG.l[n].q=DATA.e[BAG.l[n].e].one?1:q}
+function bad(m){return[422,{status:422,message:m,description:m}]}
+function cartReply(p,o){var f=fieldsOf(o&&o.body),act=/\/cart\/(add|change|update|clear)(?:\.js)?$/.exec(p);return data().then(function(){
+if(!act){var j=cartJson();return[200,j]}
+if(act[1]==="add"){var list=f.items&&f.items.length?f.items.filter(Boolean):[{id:f.id,quantity:f.quantity}],added=[];
+for(var i=0;i<list.length;i++){var e=find(list[i].id);if(e<0)return bad("This option is sold out.");var q=Math.max(1,Math.min(99,Math.floor(+list[i].quantity)||1)),hit=null;
+BAG.l.forEach(function(x){if(x.e===e)hit=x});if(hit)hit.q=DATA.e[e].one?1:Math.min(99,hit.q+q);else{hit={e:e,q:DATA.e[e].one?1:q};BAG.l.push(hit)}added.push(hit)}
+keep();var out=f.items&&f.items.length?{items:added.map(item)}:item(added[0]);if(f.sections)out.sections=sections(f.sections);return[200,out]}
+if(act[1]==="change"){setQ(lineOf(f),f.quantity)}
+else if(act[1]==="clear"){BAG.l=[]}
+else{if(f.note!=null)BAG.note=String(f.note);var u=f.updates;if(Array.isArray(u))u.forEach(function(q,n){setQ(n,q)});else if(u&&typeof u==="object")Object.keys(u).forEach(function(k){setQ(lineOf({id:k}),u[k])})}
+BAG.l=BAG.l.filter(function(x){return x.q>0});keep();var j=cartJson();if(f.sections)j.sections=sections(f.sections);return[200,j]})}
+function sectionsReply(u){return data().then(function(){var x=new URL(u,location.href);return[200,sections(x.searchParams.get("sections"))]})}
+function count(){return BAG.l.reduce(function(a,b){return a+b.q},0)}
+function paintCount(){var n=count();D.querySelectorAll(".cart-count").forEach(function(el){var t=el.classList.contains("cart-count-drawer")?"("+n+")":String(n);if(el.textContent.trim()!==t)el.textContent=t})}
+var hold=null;if(BAG.l.length&&/\/cart\.html$/.test(location.pathname)){hold=D.createElement("style");hold.textContent="#main-cart-items{visibility:hidden}";(D.head||D.documentElement).appendChild(hold)}
+function arrive(){if(W.routes){try{var cu=W.routes.cart_url;Object.defineProperty(W.routes,"cart_url",{configurable:true,get:function(){return carry(ROOT+SLUG+"/cart.html")}})}catch(e){}}
+if(!CART_DATA||!BAG.l.length)return;paintCount();data().then(function(){if(!BAG.l.length){if(hold)hold.remove();return}
+var dr=D.getElementById("minicart-form");if(dr){var d=DP2.parseFromString(compose(0),"text/html").querySelector("#minicart-form");if(d){dr.innerHTML=d.innerHTML;var cd=dr.closest("cart-drawer,cart-notification,.is-empty");if(cd)cd.classList.remove("is-empty")}}
+var pg=D.getElementById("main-cart-items");if(pg){var s=pg.closest(".shopify-section")||pg.parentNode,n=DP2.parseFromString(compose(1),"text/html").querySelector(".shopify-section");if(s&&n)s.innerHTML=n.innerHTML}
+paintCount();if(hold)requestAnimationFrame(function(){hold.remove()})}).catch(function(){if(hold)hold.remove()})}
+if(D.readyState==="loading")D.addEventListener("DOMContentLoaded",arrive);else arrive();
+
+if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);if(mine(u))return F.apply(this,arguments);
+/* Cards round 24: the cart answers from the template's drawn cart (./theme-templates/preview-cart.ts), as a store would. */
+var p=path(u),q=/[?&]sections=/.test(u),c=/\/cart(\.js|\.json|\/(add|change|update|clear)(\.js)?)$/.test(p);if(CART_DATA&&(c||q)){var w=c?cartReply(p,o):sectionsReply(u);return w.then(function(r){return new Response(JSON.stringify(r[1]),{status:r[0],headers:{"Content-Type":"application/json"}})},function(){var r=reply(u);return new Response(r[2],{status:r[0],headers:{"Content-Type":r[1]}})})}
+var r=reply(u);return Promise.resolve(new Response(r[2],{status:r[0],headers:{"Content-Type":r[1]}}))};
 var X=W.XMLHttpRequest&&W.XMLHttpRequest.prototype;if(X){var O=X.open;X.open=function(m,u){var a=[].slice.call(arguments);if(!mine(u)){var r=reply(u);a[0]="GET";a[1]="data:"+r[1]+","+encodeURIComponent(r[2])}return O.apply(this,a)}}
 if(navigator.sendBeacon)navigator.sendBeacon=function(){return true};
 W.open=function(){return null};
@@ -36,13 +103,17 @@ n.style.left=Math.round(x)+"px";n.style.top=Math.round(y)+"px";note=n;
 requestAnimationFrame(function(){requestAnimationFrame(function(){n.style.opacity="1";n.style.transform="none"})});noteT=setTimeout(hideNote,3200)}
 W.addEventListener("scroll",hideNote,{passive:true});
 function productForm(f){return !!(f&&f.querySelector&&f.querySelector("input[name=id],select[name=id]"))}
-var BUY=".product-form__submit,.shopify-payment-button__button,.product_buy_now_button,.button_buy-now,.product-group-buy-now,[data-add-to-cart],[data-buy-now]";
-function buying(b){if(!b||!b.getAttribute)return false;var n=(b.getAttribute("name")||"").toLowerCase();if(n==="add"||n==="checkout")return true;if(b.matches&&b.matches(BUY))return true;var t=(b.getAttribute("type")||(b.tagName==="BUTTON"?"submit":"")).toLowerCase();return (t==="submit"||t==="image")&&productForm(b.form||b.closest("form"))}
-var pressed=null;D.addEventListener("pointerdown",function(e){pressed=e.target&&e.target.closest?e.target.closest("button,a,input"):null},true);
+/* Cards round 24: Add to cart goes to the preview's cart; Buy now and Check out, which would take an order, still get the note. */
+var BUY=".shopify-payment-button__button,.product_buy_now_button,.product-group-buy-now,[data-buy-now],.btn-checkout,.cart__checkout-button";
+function buying(b){if(!b||!b.getAttribute)return false;var n=(b.getAttribute("name")||"").toLowerCase();if(n==="checkout")return true;return !!(b.closest&&b.closest(BUY))}
 W.addEventListener("click",function(e){var b=e.target&&e.target.closest&&e.target.closest("button,input[type=submit],input[type=image],a");if(!buying(b))return;e.preventDefault();e.stopImmediatePropagation();showNote(b)},true);
-function submit(f,b){setTimeout(function(){var ev;try{ev=new SubmitEvent("submit",{bubbles:true,cancelable:true,submitter:b||null})}catch(_){ev=new Event("submit",{bubbles:true,cancelable:true})}f.dispatchEvent(ev)},0)}
+function submit(f,b){setTimeout(function(){var ev;try{ev=new SubmitEvent("submit",{bubbles:true,cancelable:true,submitter:b||null})}catch(_){ev=new Event("submit",{bubbles:true,cancelable:true})}f.dispatchEvent(ev);if(!ev.defaultPrevented&&productForm(f))addAlone(f,b)},0)}
+/* A product form no script of the theme takes: added here, and the drawer opens with it (or the cart page, where the page has none). */
+function addAlone(f,b){var id=f.querySelector("input[name=id],select[name=id]"),q=f.querySelector("input[name=quantity]");if(!CART_DATA||!id){showNote(b);return}
+cartReply("/cart/add.js",{body:JSON.stringify({id:id.value,quantity:q?q.value:1,sections:["minicart-form"]})}).then(function(r){if(r[0]!==200){showNote(b);return}var dr=D.getElementById("minicart-form"),cn=D.querySelector("cart-notification,cart-drawer");
+if(dr&&cn&&cn.open){var d=new DOMParser().parseFromString(r[1].sections["minicart-form"],"text/html").querySelector("#minicart-form");if(d)dr.innerHTML=d.innerHTML;cn.classList.remove("is-empty");paintCount();cn.open()}else location.href=carry(ROOT+SLUG+"/cart.html")})}
 D.addEventListener("click",function(e){var b=e.target&&e.target.closest&&e.target.closest("button,input[type=submit],input[type=image]");if(!b||!b.form)return;var t=(b.getAttribute("type")||"submit").toLowerCase();if(t!=="submit"&&t!=="image")return;e.preventDefault();submit(b.form,b)},true);
-D.addEventListener("keydown",function(e){var i=e.target;if(e.key!=="Enter"||!i||i.tagName!=="INPUT"||!i.form)return;e.preventDefault();if(productForm(i.form)){showNote(i.form.querySelector("[name=add],button[type=submit],button:not([type])")||i);return}submit(i.form,null)},true);
+D.addEventListener("keydown",function(e){var i=e.target;if(e.key!=="Enter"||!i||i.tagName!=="INPUT"||!i.form)return;e.preventDefault();submit(i.form,i.form.querySelector("[name=add],button[type=submit],button:not([type])"))},true);
 D.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[data-preview-inert]");if(a)e.preventDefault()},true);
 var told=false;function tell(){if(told)return;told=true;try{parent.postMessage({type:"storelib:template-preview",ready:true,path:location.pathname},"*")}catch(e){}}
 W.addEventListener("load",tell);D.addEventListener("DOMContentLoaded",function(){setTimeout(tell,1200)});
@@ -135,8 +206,8 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
         } catch (e) {}
       })();
     </script>
-<link href="/theme-previews/_base/a/critical.7f3f35898a25.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/product-card.f00653542c82.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"primary","product_size":17,"price_size":16,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
+<link href="/theme-previews/_base/a/critical.03978b251a4f.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/product-card.9a3739dc0c4c.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"primary","product_size":17,"price_size":16,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
 <style>html:not([data-card-custom='true']) .product-item .product-item__name { font-size:var(--body-font-size, 16px); text-transform:var(--heading-text-transform, none) !important; } html:not([data-card-custom='true']) .product-item .product-item__price { font-size:var(--body-font-size, 16px); }</style>
 <script>document.documentElement.dataset.cardCustom = false === true ? 'true' : 'false';</script>
 <script type="application/json" data-badge-style-settings>false</script>
@@ -153,11 +224,11 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
     --btn-font: var(--body-font);
   }
 </style>
-<link rel="stylesheet" href="/theme-previews/notion-sales-page/a/i.cac8ba6f7883.css" data-shopify>
+<link rel="stylesheet" href="/theme-previews/notion-sales-page/a/i.67534bba810f.css" data-shopify>
 <link href="/theme-previews/_base/a/theme.d71f5b96fec8.css" rel="stylesheet" type="text/css" media="all"><noscript><link href="/theme-previews/_base/a/popup.18cdf2513c31.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.9c20c549e3cf.css">
 <link rel="preload" as="style" href="/theme-previews/_base/a/minicart.ac0014483417.css" fetchpriority="low">
 <link rel="preload" as="style" href="/theme-previews/_base/a/materia-experience.b68d6d8152a8.css" fetchpriority="low">
-<link rel="stylesheet" href="/theme-previews/notion-sales-page/a/i.98e45fe73bc9.css"><link rel="stylesheet" href="/theme-previews/notion-sales-page/a/i.413c3bb41ce5.css"><link href="/theme-previews/_base/a/theme-button-contract.7d286d7eee9b.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/localization-controls.9494a0c83131.css" rel="stylesheet" type="text/css" media="all"><link rel="modulepreload" href="/theme-previews/_base/a/theme.7a7dd8f80f89.js" fetchpriority="low"><link rel="preload" as="style" href="/theme-previews/_base/a/main-product.f6cc6e1c565b.css">
+<link rel="stylesheet" href="/theme-previews/notion-sales-page/a/i.d8a0fc5aef6a.css"><link rel="stylesheet" href="/theme-previews/notion-sales-page/a/i.413c3bb41ce5.css"><link href="/theme-previews/_base/a/theme-button-contract.7d286d7eee9b.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/localization-controls.9494a0c83131.css" rel="stylesheet" type="text/css" media="all"><link rel="modulepreload" href="/theme-previews/_base/a/theme.7a7dd8f80f89.js" fetchpriority="low"><link rel="preload" as="style" href="/theme-previews/_base/a/main-product.c8eac1cfd035.css">
 <link rel="preload" as="style" href="/theme-previews/_base/a/product-page-ui.b247d1d435f0.css"><script data-storelib-head src="/theme-previews/notion-sales-page/a/i.585ec254f5fd.js"></script>
 <script src="/theme-previews/_base/a/swiper-bundle-min.31d164f7367d.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/motion-min.d1f8eb312b47.js" type="module" defer="defer" fetchpriority="low"></script>
@@ -246,7 +317,7 @@ data-menu-hover="none"
   :where(html:not([data-font-priority='off'])) #shopify-section-offer_bar :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
-</style><span data-ti-no-reveal hidden></span><link rel="stylesheet" href="/theme-previews/notion-sales-page/a/i.19de36c766d9.css"><link rel="stylesheet" href="/theme-previews/notion-sales-page/a/i.1e83b1a45400.css"><section id="announcement-bar-offer_bar" class="unique-announcement-bar color-scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9 gradient" data-an-root="announcement-bar-basic" data-an-section="offer_bar" data-an-close-days="1" data-an-fallback-href="/collections/all" data-width="full_width" data-reset="true" data-show="display_all" data-close-d="false" data-close-m="false" data-close-days="1" data-sticky-announcement="false" data-own-weight aria-label="Announcement" style="--ab-bg: #191918;--ab-text: #e7e6e2;--ab-border: var(--color-border);--ab-bw: 0px;--ab-justify: center;--ab-ta: center;--ab-gap: 12px;--ab-px: 16px;--ab-px-m: 14px;--ab-ls: 0px;--ab-tt: none;--ab-ff: inherit;--ab-fw: 500;--ab-fs-d: 14px;--ab-fs-m: 13px;--ab-h-d: 42px;--ab-h-m: 49px;"><a href="/theme-previews/notion-sales-page/collections/all.html" class="ab-msg" data-an-no-link="SPAN" data-vis="all" data-an-block="message_1" data-an-type="message" data-block-id="message_1" style=""><span class="ab-msg__d">Version 2 adds a follow up calendar and an offer table. See what changed</span><span class="ab-msg__m">Version 2: follow up calendar and offer table</span></a><button type="button" class="close-button" data-an-close aria-label="Close announcement"><span aria-hidden="true">&times;</span></button>
+</style><span data-ti-no-reveal hidden></span><link rel="stylesheet" href="/theme-previews/notion-sales-page/a/i.19de36c766d9.css"><link rel="stylesheet" href="/theme-previews/notion-sales-page/a/i.1e83b1a45400.css"><section id="announcement-bar-offer_bar" class="unique-announcement-bar color-scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9 gradient" data-an-root="announcement-bar-basic" data-an-section="offer_bar" data-an-close-days="1" data-an-fallback-href="/collections/all" data-width="full_width" data-reset="true" data-show="display_all" data-close-d="false" data-close-m="false" data-close-days="1" data-sticky-announcement="false" data-own-weight aria-label="Announcement" style="--ab-bg: #191918;--ab-text: #e7e6e2;--ab-border: var(--color-border);--ab-bw: 0px;--ab-justify: center;--ab-ta: center;--ab-gap: 12px;--ab-px: 16px;--ab-px-m: 14px;--ab-ls: 0px;--ab-tt: none;--ab-ff: inherit;--ab-fw: 500;--ab-fs-d: 14px;--ab-fs-m: 13px;--ab-h-d: 42px;--ab-h-m: 49px;"><a href="/theme-previews/notion-sales-page/collections/all.html" class="ab-msg" data-an-no-link="SPAN" data-vis="all" data-an-block="message_1" data-an-type="message" data-block-id="message_1" style=""><span class="ab-msg__d">Version 2 adds an analytics page and a sponsor pipeline. See what changed</span><span class="ab-msg__m">Version 2: analytics and sponsors</span></a><button type="button" class="close-button" data-an-close aria-label="Close announcement"><span aria-hidden="true">&times;</span></button>
 </section><script>
   (function () {
     var bar = document.getElementById('announcement-bar-offer_bar');
@@ -284,7 +355,7 @@ data-menu-hover="none"
       --hs-logo-max-height: 48px;
       --hs-logo-box-height: 64px;
     }
-  }:root { --hs-mnav-title-bg: #ffffff; --hs-mnav-title-color: #191918; }</style><link href="/theme-previews/_base/a/header-layout.9f68c30912e8.css" rel="stylesheet" type="text/css" media="all">
+  }:root { --hs-mnav-title-bg: #ffffff; --hs-mnav-title-color: #191918; }</style><link href="/theme-previews/_base/a/header-layout.ab25e26824e3.css" rel="stylesheet" type="text/css" media="all">
 <style>
   #shopify-section-header {
     --header-height-desktop: 68px;
@@ -366,7 +437,7 @@ class="horizontal-list list-unstyled inline-flex-1025 flex-wrap row-gap-0 horizo
 <path fill="currentColor" d="M1.09 1.822a.52.52 0 0 1-.178-.396c0-.164.06-.306.178-.424A.557.557 0 0 1 1.5.838c.164 0 .3.055.41.164L5 4.092l3.09-3.09A.557.557 0 0 1 8.5.838c.164 0 .3.055.41.164.119.118.178.26.178.424a.52.52 0 0 1-.178.396l-3.5 3.5A.535.535 0 0 1 5 5.5c-.164 0-.3-.06-.41-.178l-3.5-3.5Z"/>
 </symbol>
 </svg>
-<li
+<li data-hs-i="0"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -374,7 +445,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/notion-sales-page/index.html#shopify-section-inside"
 ><span>Inside</span></a></menu-item></li>
-<li
+<li data-hs-i="1"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -382,7 +453,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/notion-sales-page/index.html#shopify-section-for"
 ><span>Who it is for</span></a></menu-item></li>
-<li
+<li data-hs-i="2"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -390,7 +461,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/notion-sales-page/index.html#shopify-section-pricing"
 ><span>Pricing</span></a></menu-item></li>
-<li
+<li data-hs-i="3"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -398,7 +469,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/notion-sales-page/index.html#shopify-section-reviews"
 ><span>Reviews</span></a></menu-item></li>
-<li
+<li data-hs-i="4"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -406,9 +477,51 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/notion-sales-page/pages/faqs.html"
 ><span>Questions</span></a></menu-item></li>
+<li class="level0 menu-parent menu-parent__horizontal dropdown-menu hs-more" data-hs-more>
+<menu-item class="relative static-1025 flex justify-between align-center header-color px-15">
+<a
+class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
+href="#"
+role="button"
+aria-haspopup="true"
+aria-expanded="false"
+data-hs-more-toggle
+>
+<span>More</span>
+<open-children-toggle class="inline-flex flex-end align-center ms-5">
+<svg class="icon-down" width="10" height="6" aria-hidden="true">
+<use href="#icon-arrow-down" />
+</svg>
+</open-children-toggle>
+</a>
+</menu-item>
+<div class="submenu submenu-horizontal invisible-1025 absolute gradient color-default">
+<ul class="subchildmenu hs-more__list list-unstyled px-1025-0"><li class="menu-link level-1" data-hs-more-i="0" hidden>
+<a
+class="menu_item-link no-underline py-1025-5 inline-flex align-center"
+href="/theme-previews/notion-sales-page/index.html#shopify-section-inside"
+><span class="menu-link-text">Inside</span></a></li><li class="menu-link level-1" data-hs-more-i="1" hidden>
+<a
+class="menu_item-link no-underline py-1025-5 inline-flex align-center"
+href="/theme-previews/notion-sales-page/index.html#shopify-section-for"
+><span class="menu-link-text">Who it is for</span></a></li><li class="menu-link level-1" data-hs-more-i="2" hidden>
+<a
+class="menu_item-link no-underline py-1025-5 inline-flex align-center"
+href="/theme-previews/notion-sales-page/index.html#shopify-section-pricing"
+><span class="menu-link-text">Pricing</span></a></li><li class="menu-link level-1" data-hs-more-i="3" hidden>
+<a
+class="menu_item-link no-underline py-1025-5 inline-flex align-center"
+href="/theme-previews/notion-sales-page/index.html#shopify-section-reviews"
+><span class="menu-link-text">Reviews</span></a></li><li class="menu-link level-1" data-hs-more-i="4" hidden>
+<a
+class="menu_item-link no-underline py-1025-5 inline-flex align-center"
+href="/theme-previews/notion-sales-page/pages/faqs.html"
+><span class="menu-link-text">Questions</span></a></li></ul>
+</div>
+</li>
 </ul>
 </div>
-</nav>
+</nav><script src="/theme-previews/notion-sales-page/a/i.269ac71befc6.js"></script>
 <nav
 class="flex flex-column mobile block-1025 navigation horizontal fixed inset-0 down-to-up"
 data-action-mobile="true"
@@ -465,7 +578,7 @@ class="horizontal-list list-unstyled inline-flex-1025 flex-wrap row-gap-0 horizo
 <path fill="currentColor" d="M1.09 1.822a.52.52 0 0 1-.178-.396c0-.164.06-.306.178-.424A.557.557 0 0 1 1.5.838c.164 0 .3.055.41.164L5 4.092l3.09-3.09A.557.557 0 0 1 8.5.838c.164 0 .3.055.41.164.119.118.178.26.178.424a.52.52 0 0 1-.178.396l-3.5 3.5A.535.535 0 0 1 5 5.5c-.164 0-.3-.06-.41-.178l-3.5-3.5Z"/>
 </symbol>
 </svg>
-<li
+<li data-hs-i="0"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -473,7 +586,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/notion-sales-page/index.html#shopify-section-inside"
 ><span>Inside</span></a></menu-item></li>
-<li
+<li data-hs-i="1"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -481,7 +594,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/notion-sales-page/index.html#shopify-section-for"
 ><span>Who it is for</span></a></menu-item></li>
-<li
+<li data-hs-i="2"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -489,7 +602,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/notion-sales-page/index.html#shopify-section-pricing"
 ><span>Pricing</span></a></menu-item></li>
-<li
+<li data-hs-i="3"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -497,7 +610,7 @@ class="level0 single"
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
 href="/theme-previews/notion-sales-page/index.html#shopify-section-reviews"
 ><span>Reviews</span></a></menu-item></li>
-<li
+<li data-hs-i="4"
 class="level0 single"
 >
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
@@ -588,7 +701,7 @@ style="--bc-link: color-mix(in srgb, var(--color-text) 72%, transparent); --bc-c
 <ol class="bc__trail">
 <li class="bc__item"><a class="bc__link" href="/theme-previews/notion-sales-page/index.html">Home</a></li><li class="bc__item"><span class="bc__current" aria-current="page">Sample product two</span></li></ol><div class="bc__nav"><a class="bc__btn" data-product-neighbor href="/theme-previews/notion-sales-page/products/sample-product-one.html" aria-label="Previous: Sample product one">
 <svg data-bc-dir="prev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
-<span class="bc__peek" aria-hidden="true"><img src="/theme-previews/notion-sales-page/a/notionpage-offer-board-400.2e7b7eb81f80.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-offer-board-400.2e7b7eb81f80.webp 352w, /theme-previews/notion-sales-page/a/notionpage-offer-board.103c166302ef.webp 832w, /theme-previews/notion-sales-page/a/notionpage-offer-board.103c166302ef.webp 1200w, /theme-previews/notion-sales-page/a/notionpage-offer-board.103c166302ef.webp 1600w, /theme-previews/notion-sales-page/a/notionpage-offer-board.103c166302ef.webp 2400w" alt="" width="56" height="56" loading="lazy"><span>
+<span class="bc__peek" aria-hidden="true"><img src="/theme-previews/notion-sales-page/a/notionpage-creator-os-400.5373eb2798d7.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-creator-os-400.5373eb2798d7.webp 352w, /theme-previews/notion-sales-page/a/notionpage-creator-os.068dd3a38acb.webp 832w, /theme-previews/notion-sales-page/a/notionpage-creator-os.068dd3a38acb.webp 1200w, /theme-previews/notion-sales-page/a/notionpage-creator-os.068dd3a38acb.webp 1600w, /theme-previews/notion-sales-page/a/notionpage-creator-os.068dd3a38acb.webp 2400w" alt="" width="56" height="56" loading="lazy"><span>
 <span class="bc__peek-title">Sample product one</span><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular">
 <span class="visually-hidden">Regular price</span>
 <span class="price price-same-style heading-style">
@@ -602,7 +715,7 @@ $24.00
 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/></svg>
 </a><a class="bc__btn" data-product-neighbor href="/theme-previews/notion-sales-page/products/sample-product-three.html" aria-label="Next: Sample product three">
 <svg data-bc-dir="next" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
-<span class="bc__peek" aria-hidden="true"><img src="/theme-previews/notion-sales-page/a/notionpage-bundle-400.b8af9ad36b2f.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-bundle-400.b8af9ad36b2f.webp 352w, /theme-previews/notion-sales-page/a/notionpage-bundle.8a4a3a22646a.webp 832w, /theme-previews/notion-sales-page/a/notionpage-bundle.8a4a3a22646a.webp 1200w, /theme-previews/notion-sales-page/a/notionpage-bundle.8a4a3a22646a.webp 1600w, /theme-previews/notion-sales-page/a/notionpage-bundle.8a4a3a22646a.webp 2400w" alt="" width="56" height="56" loading="lazy"><span>
+<span class="bc__peek" aria-hidden="true"><img src="/theme-previews/notion-sales-page/a/notionpage-bundle-400.ddd0255ce105.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-bundle-400.ddd0255ce105.webp 352w, /theme-previews/notion-sales-page/a/notionpage-bundle.d0588bcddc3f.webp 832w, /theme-previews/notion-sales-page/a/notionpage-bundle.d0588bcddc3f.webp 1200w, /theme-previews/notion-sales-page/a/notionpage-bundle.d0588bcddc3f.webp 1600w, /theme-previews/notion-sales-page/a/notionpage-bundle.d0588bcddc3f.webp 2400w" alt="" width="56" height="56" loading="lazy"><span>
 <span class="bc__peek-title">Sample product three</span><div class="card-product-price  flex align-center flex-wrap gap-5 relative"><div class="price-regular">
 <span class="visually-hidden">Regular price</span>
 <span class="price price-same-style heading-style">
@@ -662,7 +775,7 @@ $18.00
         #shopify-section-main .full_width {
           max-width: var(--fluid-container-width, 1500px) !important;
           padding-inline: 1.5rem !important;
-        }}</style><link href="/theme-previews/_base/a/main-product.f6cc6e1c565b.css" rel="stylesheet" type="text/css" media="all">
+        }}</style><link href="/theme-previews/_base/a/main-product.c8eac1cfd035.css" rel="stylesheet" type="text/css" media="all">
 <link href="/theme-previews/_base/a/product-page-ui.b247d1d435f0.css" rel="stylesheet" type="text/css" media="all">
 <script src="/theme-previews/_base/a/product-page-ui.25d8015e67fc.js" defer="defer"></script><link rel="stylesheet" href="/theme-previews/notion-sales-page/a/i.644c4c1b6ea1.css"><style data-mp-own="main">
     @media (min-width: 1024px) {
@@ -739,7 +852,7 @@ data-mt-video="autoplay"
 data-mt-media-viewer
 data-mt-product-id="00000000-0000-4000-8000-000000000014"
 data-mt-gallery-config="thumbnail|thumbnail_bottom|show_thumbnails|1|open_lightbox|inner-1|true|true|false||true||true|true"
-data-mt-gallery-media="[{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/notion-sales-page/a/notionpage-interview-kit.7005e77555eb.webp&quot;,&quot;url&quot;:&quot;/theme-previews/notion-sales-page/a/notionpage-interview-kit.7005e77555eb.webp&quot;,&quot;alt&quot;:&quot;Sample product two&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/notion-sales-page/a/notionpage-interview-kit.7005e77555eb.webp&quot;,&quot;url&quot;:&quot;/theme-previews/notion-sales-page/a/notionpage-interview-kit.7005e77555eb.webp&quot;,&quot;alt&quot;:&quot;Sample product two&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/notion-sales-page/a/notionpage-interview-kit.7005e77555eb.webp&quot;,&quot;url&quot;:&quot;/theme-previews/notion-sales-page/a/notionpage-interview-kit.7005e77555eb.webp&quot;,&quot;alt&quot;:&quot;Sample product two&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/notion-sales-page/a/notionpage-interview-kit.7005e77555eb.webp&quot;,&quot;url&quot;:&quot;/theme-previews/notion-sales-page/a/notionpage-interview-kit.7005e77555eb.webp&quot;,&quot;alt&quot;:&quot;Sample product two&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/notion-sales-page/a/notionpage-interview-kit.7005e77555eb.webp&quot;,&quot;url&quot;:&quot;/theme-previews/notion-sales-page/a/notionpage-interview-kit.7005e77555eb.webp&quot;,&quot;alt&quot;:&quot;Sample product two&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/notion-sales-page/a/notionpage-interview-kit.7005e77555eb.webp&quot;,&quot;url&quot;:&quot;/theme-previews/notion-sales-page/a/notionpage-interview-kit.7005e77555eb.webp&quot;,&quot;alt&quot;:&quot;Sample product two&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:null,&quot;y&quot;:null}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/notion-sales-page/a/notionpage-interview-kit.7005e77555eb.webp&quot;,&quot;url&quot;:&quot;/theme-previews/notion-sales-page/a/notionpage-interview-kit.7005e77555eb.webp&quot;,&quot;alt&quot;:&quot;Sample product two&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:null},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:null},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:null,&quot;src&quot;:null,&quot;url&quot;:null,&quot;alt&quot;:null,&quot;width&quot;:null,&quot;height&quot;:null,&quot;aspect_ratio&quot;:null,&quot;media_type&quot;:null,&quot;position&quot;:null,&quot;presentation&quot;:null,&quot;attached_to_variant&quot;:null,&quot;variants&quot;:null,&quot;preview_image&quot;:null}}}}}}}}]"
+data-mt-gallery-media="[{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/notion-sales-page/a/notionpage-sponsor-kit.981eb26641e4.webp&quot;,&quot;url&quot;:&quot;/theme-previews/notion-sales-page/a/notionpage-sponsor-kit.981eb26641e4.webp&quot;,&quot;alt&quot;:&quot;Sample product two&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/notion-sales-page/a/notionpage-sponsor-kit.981eb26641e4.webp&quot;,&quot;url&quot;:&quot;/theme-previews/notion-sales-page/a/notionpage-sponsor-kit.981eb26641e4.webp&quot;,&quot;alt&quot;:&quot;Sample product two&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/notion-sales-page/a/notionpage-sponsor-kit.981eb26641e4.webp&quot;,&quot;url&quot;:&quot;/theme-previews/notion-sales-page/a/notionpage-sponsor-kit.981eb26641e4.webp&quot;,&quot;alt&quot;:&quot;Sample product two&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/notion-sales-page/a/notionpage-sponsor-kit.981eb26641e4.webp&quot;,&quot;url&quot;:&quot;/theme-previews/notion-sales-page/a/notionpage-sponsor-kit.981eb26641e4.webp&quot;,&quot;alt&quot;:&quot;Sample product two&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/notion-sales-page/a/notionpage-sponsor-kit.981eb26641e4.webp&quot;,&quot;url&quot;:&quot;/theme-previews/notion-sales-page/a/notionpage-sponsor-kit.981eb26641e4.webp&quot;,&quot;alt&quot;:&quot;Sample product two&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/notion-sales-page/a/notionpage-sponsor-kit.981eb26641e4.webp&quot;,&quot;url&quot;:&quot;/theme-previews/notion-sales-page/a/notionpage-sponsor-kit.981eb26641e4.webp&quot;,&quot;alt&quot;:&quot;Sample product two&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:null,&quot;y&quot;:null}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/notion-sales-page/a/notionpage-sponsor-kit.981eb26641e4.webp&quot;,&quot;url&quot;:&quot;/theme-previews/notion-sales-page/a/notionpage-sponsor-kit.981eb26641e4.webp&quot;,&quot;alt&quot;:&quot;Sample product two&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:null},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:null},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:null,&quot;src&quot;:null,&quot;url&quot;:null,&quot;alt&quot;:null,&quot;width&quot;:null,&quot;height&quot;:null,&quot;aspect_ratio&quot;:null,&quot;media_type&quot;:null,&quot;position&quot;:null,&quot;presentation&quot;:null,&quot;attached_to_variant&quot;:null,&quot;variants&quot;:null,&quot;preview_image&quot;:null}}}}}}}}]"
 data-mt-lightbox
 >
 <zoom-action
@@ -766,14 +879,14 @@ tabindex="0" role="button" aria-label="Sample product two"
 class="media-gallery__image  swiper-slide media-item rounded-5 pointer"
 data-position="1"
 data-media-id="main-1000"
-data-mt-src="/theme-previews/notion-sales-page/a/notionpage-interview-kit.7005e77555eb.webp"
+data-mt-src="/theme-previews/notion-sales-page/a/notionpage-sponsor-kit.981eb26641e4.webp"
 data-pswp-width="1600"
 data-pswp-height="1600"
 data-cropped="true"
 style="--aspect-ratio: 4/3"
 data-pane-container
 >
-<img src="/theme-previews/notion-sales-page/a/notionpage-interview-kit.7005e77555eb.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-interview-kit-800.4db582d35c12.webp 720w, /theme-previews/notion-sales-page/a/notionpage-interview-kit-800.4db582d35c12.webp 660w, /theme-previews/notion-sales-page/a/notionpage-interview-kit-800.4db582d35c12.webp 550w, /theme-previews/notion-sales-page/a/notionpage-interview-kit-800.4db582d35c12.webp 480w, /theme-previews/notion-sales-page/a/notionpage-interview-kit-400.8598db4a60d9.webp 330w, /theme-previews/notion-sales-page/a/notionpage-interview-kit-400.8598db4a60d9.webp 240w, /theme-previews/notion-sales-page/a/notionpage-interview-kit-400.8598db4a60d9.webp 185w" alt="Sample product two" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="drift-trigger bls-loaded-image">
+<img src="/theme-previews/notion-sales-page/a/notionpage-sponsor-kit.981eb26641e4.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-sponsor-kit-800.9535ad4a9cd9.webp 720w, /theme-previews/notion-sales-page/a/notionpage-sponsor-kit-800.9535ad4a9cd9.webp 660w, /theme-previews/notion-sales-page/a/notionpage-sponsor-kit-800.9535ad4a9cd9.webp 550w, /theme-previews/notion-sales-page/a/notionpage-sponsor-kit-800.9535ad4a9cd9.webp 480w, /theme-previews/notion-sales-page/a/notionpage-sponsor-kit-400.2d273deec99b.webp 330w, /theme-previews/notion-sales-page/a/notionpage-sponsor-kit-400.2d273deec99b.webp 240w, /theme-previews/notion-sales-page/a/notionpage-sponsor-kit-400.2d273deec99b.webp 185w" alt="Sample product two" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="drift-trigger bls-loaded-image">
 <div class="loading_image skeleton">
 </div>
 </a>
@@ -804,7 +917,7 @@ style="font-size: 30px;"
                 }
               </style>
 </motion-element></div><div class="pib-own" data-pib-block="text_3" data-pib-type="text" style="display: contents">
-<div class="mb-25" data-block-id="text_3"><div class="product-detail__text-content rich__text-m0"><p>A Notion template for running a job search, from the first saved role to the signed offer.</p></div></div></div><div class="pib-own" data-pib-block="price_4" data-pib-type="price" style="display: contents">
+<div class="mb-25" data-block-id="text_3"><div class="product-detail__text-content rich__text-m0"><p>A Notion template for content creators, from the first idea to the published post and the sponsor invoice.</p></div></div></div><div class="pib-own" data-pib-block="price_4" data-pib-type="price" style="display: contents">
 <div
 id="price-main"
 class="product-detail__price mb-10"
@@ -938,7 +1051,7 @@ data-sl-button data-button-role="secondary" data-theme-button="secondary"
 <script src="/theme-previews/notion-sales-page/a/i.b00da6d5282f.js"></script><div class="pix" style="--pix-mt: 4px; --pix-mb: 12px" data-block-id="link_button_8">
 <a class="pix-btn pix-btn--text" href="/theme-previews/notion-sales-page/index.html#shopify-section-inside"><span>See every page inside</span>
 </a>
-</div></div><div class="pib-own" data-pib-block="whats_included_9" data-pib-type="whats_included" style="display: contents"><div class="pix pix__box" style="--pix-mt: 12px; --pix-mb: 12px" data-block-id="whats_included_9"><p class="pix__h">What you get</p><div class="pix-inc"><ul><li><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>The Offer Board template for Notion</span></li><li><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>A link that duplicates it into your workspace</span></li><li><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>A 12 minute video walkthrough</span></li><li><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Every future update, free</span></li></ul>
+</div></div><div class="pib-own" data-pib-block="whats_included_9" data-pib-type="whats_included" style="display: contents"><div class="pix pix__box" style="--pix-mt: 12px; --pix-mb: 12px" data-block-id="whats_included_9"><p class="pix__h">What you get</p><div class="pix-inc"><ul><li><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>The Creator OS template for Notion</span></li><li><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>A link that duplicates it into your workspace</span></li><li><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>A 14 minute video walkthrough</span></li><li><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Every future update, free</span></li></ul>
 </div>
 </div></div><div class="pib-own" data-pib-block="collapsible_row_10" data-pib-type="collapsible_row" style="display: contents"><details class="mt-acc product-detail__collapsible" data-mt-acc-key="collapsible_row_10" data-block-id="collapsible_row_10" open>
 <summary>
@@ -954,9 +1067,9 @@ data-sl-button data-button-role="secondary" data-theme-button="secondary"
 <svg class="mt-acc__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
 </summary>
 <div class="mt-acc__body">
-<div class="mt-acc__inner rte"><p>After you pay, open the link on the receipt page or in the email while you are signed in to Notion. Press <strong>Duplicate</strong> at the top right and Offer Board is copied into your own workspace, ready to fill in. Works on Notion's free plan.</p></div>
+<div class="mt-acc__inner rte"><p>After you pay, open the link on the receipt page or in the email while you are signed in to Notion. Press <strong>Duplicate</strong> at the top right and Creator OS is copied into your own workspace, ready to fill in. Works on Notion's free plan.</p></div>
 </div>
-</details></div><div class="pib-own" data-pib-block="faq_accordion_12" data-pib-type="faq_accordion" style="display: contents"><div class="pix pix-faq" style="--pix-mt: 12px; --pix-mb: 12px" data-block-id="faq_accordion_12"><p class="pix__h">Questions</p><div class="pix-faq__i"><details><summary><span>Do I need a paid Notion plan?</span><span class="pix-faq__x" aria-hidden="true"></span></summary><div class="pix-faq__a"><p>No. Offer Board works on Notion's free plan, on the web, the desktop app and the phone app.</p></div></details></div><div class="pix-faq__i"><details><summary><span>I have never used Notion. Will I manage?</span><span class="pix-faq__x" aria-hidden="true"></span></summary><div class="pix-faq__a"><p>Yes. The Instructions page has a 12 minute walkthrough and five steps to follow. Most people are adding roles within the first half hour.</p></div></details></div><div class="pix-faq__i"><details><summary><span>Can I change it?</span><span class="pix-faq__x" aria-hidden="true"></span></summary><div class="pix-faq__a"><p>Every page, property and view is yours to edit. Rename the stages, add a column for visa sponsorship, delete the pages you do not need.</p></div></details></div><div class="pix-faq__i"><details><summary><span>What is your refund policy?</span><span class="pix-faq__x" aria-hidden="true"></span></summary><div class="pix-faq__a"><p>If Offer Board is not for you, email us within 14 days and we refund you. No form to fill in.</p></div></details></div></div></div><div class="pib-own" data-pib-block="payment_badges_13" data-pib-type="payment_badges" style="display: contents"><div id="PaymentBadges-payment_badges_13"
+</details></div><div class="pib-own" data-pib-block="faq_accordion_12" data-pib-type="faq_accordion" style="display: contents"><div class="pix pix-faq" style="--pix-mt: 12px; --pix-mb: 12px" data-block-id="faq_accordion_12"><p class="pix__h">Questions</p><div class="pix-faq__i"><details><summary><span>Do I need a paid Notion plan?</span><span class="pix-faq__x" aria-hidden="true"></span></summary><div class="pix-faq__a"><p>No. Creator OS works on Notion's free plan, on the web, the desktop app and the phone app.</p></div></details></div><div class="pix-faq__i"><details><summary><span>I have never used Notion. Will I manage?</span><span class="pix-faq__x" aria-hidden="true"></span></summary><div class="pix-faq__a"><p>Yes. The Instructions page has a 14 minute walkthrough and five steps to follow. Most people have their ideas in within the first half hour.</p></div></details></div><div class="pix-faq__i"><details><summary><span>Can I change it?</span><span class="pix-faq__x" aria-hidden="true"></span></summary><div class="pix-faq__a"><p>Every page, property and view is yours to edit. Rename the stages, add a column for a second channel, delete the pages you do not need.</p></div></details></div><div class="pix-faq__i"><details><summary><span>What is your refund policy?</span><span class="pix-faq__x" aria-hidden="true"></span></summary><div class="pix-faq__a"><p>If Creator OS is not for you, email us within 14 days and we refund you. No form to fill in.</p></div></details></div></div></div><div class="pib-own" data-pib-block="payment_badges_13" data-pib-type="payment_badges" style="display: contents"><div id="PaymentBadges-payment_badges_13"
 class="pb-wrap"
 role="region"
 aria-label="Payment badges"
@@ -1105,7 +1218,7 @@ aria-label="Sample product two"
 class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 4/3;"
 >
-<img src="/theme-previews/notion-sales-page/a/notionpage-interview-kit.7005e77555eb.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-interview-kit-800.4db582d35c12.webp 720w, /theme-previews/notion-sales-page/a/notionpage-interview-kit-800.4db582d35c12.webp 660w, /theme-previews/notion-sales-page/a/notionpage-interview-kit-800.4db582d35c12.webp 550w, /theme-previews/notion-sales-page/a/notionpage-interview-kit-800.4db582d35c12.webp 480w, /theme-previews/notion-sales-page/a/notionpage-interview-kit-400.8598db4a60d9.webp 330w, /theme-previews/notion-sales-page/a/notionpage-interview-kit-400.8598db4a60d9.webp 240w, /theme-previews/notion-sales-page/a/notionpage-interview-kit-400.8598db4a60d9.webp 185w" alt="Sample product two" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/notion-sales-page/a/notionpage-sponsor-kit.981eb26641e4.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-sponsor-kit-800.9535ad4a9cd9.webp 720w, /theme-previews/notion-sales-page/a/notionpage-sponsor-kit-800.9535ad4a9cd9.webp 660w, /theme-previews/notion-sales-page/a/notionpage-sponsor-kit-800.9535ad4a9cd9.webp 550w, /theme-previews/notion-sales-page/a/notionpage-sponsor-kit-800.9535ad4a9cd9.webp 480w, /theme-previews/notion-sales-page/a/notionpage-sponsor-kit-400.2d273deec99b.webp 330w, /theme-previews/notion-sales-page/a/notionpage-sponsor-kit-400.2d273deec99b.webp 240w, /theme-previews/notion-sales-page/a/notionpage-sponsor-kit-400.2d273deec99b.webp 185w" alt="Sample product two" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -1120,7 +1233,8 @@ href="/theme-previews/notion-sales-page/products/sample-product-two.html"
 >Sample product two</a>
 <div class="flex flex-wrap gap-10 product-list-action">
 </div>
-</div><script type="application/json" class="product-variant__quantity">
+</div>
+<script type="application/json" class="product-variant__quantity">
             [{ "option":"Default Title","qty":11,"available":true,"mamagement":""}]
           </script>
 </motion-element></div>
@@ -1230,7 +1344,7 @@ style="--btn-padding-x: 2.5rem;"
       data-product-json
       class="productJson"
     >
-      {"id":"00000000-0000-4000-8000-000000000014","title":"Sample product two","handle":"sample-product-two","description":"","published_at":null,"created_at":null,"vendor":"","type":"","tags":[],"price":3600,"price_min":3600,"price_max":3600,"available":true,"price_varies":false,"compare_at_price":4800,"compare_at_price_min":4800,"compare_at_price_max":4800,"compare_at_price_varies":false,"variants":[{"id":"00000000-0000-4000-8000-000000000014","title":"Default Title","option1":"Default Title","option2":null,"option3":null,"sku":"","requires_shipping":false,"taxable":true,"featured_image":null,"available":true,"name":"Sample product two","public_title":null,"options":["Default Title"],"price":3600,"weight":0,"compare_at_price":4800,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}}],"images":["/theme-previews/notion-sales-page/a/notionpage-interview-kit.7005e77555eb.webp"],"featured_image":"/theme-previews/notion-sales-page/a/notionpage-interview-kit.7005e77555eb.webp","options":["Title"],"media":[{"alt":"Sample product two","id":1000,"position":1,"preview_image":{"aspect_ratio":1,"height":1600,"width":1600,"src":"/theme-previews/notion-sales-page/a/notionpage-interview-kit.7005e77555eb.webp"},"aspect_ratio":1,"height":1600,"media_type":"image","src":"/theme-previews/notion-sales-page/a/notionpage-interview-kit.7005e77555eb.webp","width":1600}],"requires_selling_plan":false,"selling_plan_groups":[],"content":""}
+      {"id":"00000000-0000-4000-8000-000000000014","title":"Sample product two","handle":"sample-product-two","description":"","published_at":null,"created_at":null,"vendor":"","type":"","tags":[],"price":3600,"price_min":3600,"price_max":3600,"available":true,"price_varies":false,"compare_at_price":4800,"compare_at_price_min":4800,"compare_at_price_max":4800,"compare_at_price_varies":false,"variants":[{"id":"00000000-0000-4000-8000-000000000014","title":"Default Title","option1":"Default Title","option2":null,"option3":null,"sku":"","requires_shipping":false,"taxable":true,"featured_image":null,"available":true,"name":"Sample product two","public_title":null,"options":["Default Title"],"price":3600,"weight":0,"compare_at_price":4800,"inventory_management":null,"barcode":"","featured_media":null,"requires_selling_plan":false,"selling_plan_allocations":[],"quantity_rule":{"min":1,"max":null,"increment":1}}],"images":["/theme-previews/notion-sales-page/a/notionpage-sponsor-kit.981eb26641e4.webp"],"featured_image":"/theme-previews/notion-sales-page/a/notionpage-sponsor-kit.981eb26641e4.webp","options":["Title"],"media":[{"alt":"Sample product two","id":1000,"position":1,"preview_image":{"aspect_ratio":1,"height":1600,"width":1600,"src":"/theme-previews/notion-sales-page/a/notionpage-sponsor-kit.981eb26641e4.webp"},"aspect_ratio":1,"height":1600,"media_type":"image","src":"/theme-previews/notion-sales-page/a/notionpage-sponsor-kit.981eb26641e4.webp","width":1600}],"requires_selling_plan":false,"selling_plan_groups":[],"content":""}
     </script><script type="application/json" data-variant-media>
   {"00000000-0000-4000-8000-000000000014": { "id": "", "src": "" }}
 </script><script>
@@ -1261,20 +1375,20 @@ style="--btn-padding-x: 2.5rem;"
   </script>
 </div>
 </div>
-</section><section id="shopify-section-inside" class="shopify-section section" data-section-id="inside" data-section-type="notionpage-cards"><link rel="stylesheet" href="/theme-previews/notion-sales-page/a/i.e38d4d5c1e84.css">
+</section><section id="shopify-section-inside" class="shopify-section section" data-section-id="inside" data-section-type="notionpage-cards"><link rel="stylesheet" href="/theme-previews/notion-sales-page/a/i.205f73a3be5c.css">
 <div class="npc section color-default gradient" data-section-type="notionpage-cards" data-section-id="inside">
-<div class="npc__inner"><div class="npc__head" data-align="center"><h2 class="npc__heading h2">A look at the pages</h2><div class="npc__text"><p>Each one linked to the others, so a role knows its company, its people and its interview stories.</p></div></div><ul class="npc__grid" role="list"><li class="npc__card" data-media="top" data-block-id="card_1">
-<span class="npc__media"><img src="/theme-previews/notion-sales-page/a/notionpage-dashboard.3fde7e0e6380.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-dashboard-800.ae9b63bb8eba.webp 400w, /theme-previews/notion-sales-page/a/notionpage-dashboard-800.ae9b63bb8eba.webp 600w, /theme-previews/notion-sales-page/a/notionpage-dashboard.3fde7e0e6380.webp 900w, /theme-previews/notion-sales-page/a/notionpage-dashboard.3fde7e0e6380.webp 1200w, /theme-previews/notion-sales-page/a/notionpage-dashboard.3fde7e0e6380.webp 1400w" alt="Dashboard" loading="lazy" sizes="(min-width: 1100px) 40vw, (min-width: 750px) 50vw, 100vw"></span>
-<div><h3 class="npc__title">Dashboard</h3><div class="npc__body"><p>The numbers for this week, the pipeline and quick capture.</p></div></div>
+<div class="npc__inner"><div class="npc__head" data-align="center"><h2 class="npc__heading h2">A look at the pages</h2><div class="npc__text"><p>Each one linked to the others, so an idea carries its script, its post date, its sponsor and its numbers.</p></div></div><ul class="npc__grid" role="list"><li class="npc__card" data-media="top" data-block-id="card_1">
+<span class="npc__media"><img src="/theme-previews/notion-sales-page/a/notionpage-dashboard.90f27c79088f.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-dashboard-800.ba8d4cc7ce6d.webp 400w, /theme-previews/notion-sales-page/a/notionpage-dashboard-800.ba8d4cc7ce6d.webp 600w, /theme-previews/notion-sales-page/a/notionpage-dashboard.90f27c79088f.webp 900w, /theme-previews/notion-sales-page/a/notionpage-dashboard.90f27c79088f.webp 1200w, /theme-previews/notion-sales-page/a/notionpage-dashboard.90f27c79088f.webp 1400w" alt="Dashboard" loading="lazy" sizes="(min-width: 1100px) 40vw, (min-width: 750px) 50vw, 100vw"></span>
+<div><h3 class="npc__title">Dashboard</h3><div class="npc__body"><p>The month in numbers, content by stage and quick capture.</p></div></div>
 </li><li class="npc__card" data-media="top" data-block-id="card_2">
-<span class="npc__media"><img src="/theme-previews/notion-sales-page/a/notionpage-applications.a6f4df945879.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-applications-800.8ab01a8f94c4.webp 400w, /theme-previews/notion-sales-page/a/notionpage-applications-800.8ab01a8f94c4.webp 600w, /theme-previews/notion-sales-page/a/notionpage-applications.a6f4df945879.webp 900w, /theme-previews/notion-sales-page/a/notionpage-applications.a6f4df945879.webp 1200w, /theme-previews/notion-sales-page/a/notionpage-applications.a6f4df945879.webp 1400w" alt="Applications" loading="lazy" sizes="(min-width: 1100px) 40vw, (min-width: 750px) 50vw, 100vw"></span>
-<div><h3 class="npc__title">Applications</h3><div class="npc__body"><p>A board by stage, with a table and deadlines view.</p></div></div>
+<span class="npc__media"><img src="/theme-previews/notion-sales-page/a/notionpage-ideas.95c3fca6abab.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-ideas-800.3d18586fab60.webp 400w, /theme-previews/notion-sales-page/a/notionpage-ideas-800.3d18586fab60.webp 600w, /theme-previews/notion-sales-page/a/notionpage-ideas.95c3fca6abab.webp 900w, /theme-previews/notion-sales-page/a/notionpage-ideas.95c3fca6abab.webp 1200w, /theme-previews/notion-sales-page/a/notionpage-ideas.95c3fca6abab.webp 1400w" alt="Idea bank" loading="lazy" sizes="(min-width: 1100px) 40vw, (min-width: 750px) 50vw, 100vw"></span>
+<div><h3 class="npc__title">Idea bank</h3><div class="npc__body"><p>Every idea on a board, scored and moved along by stage.</p></div></div>
 </li><li class="npc__card" data-media="top" data-block-id="card_3">
-<span class="npc__media"><img src="/theme-previews/notion-sales-page/a/notionpage-companies.55cb917559f4.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-companies-800.d827a996b0ba.webp 400w, /theme-previews/notion-sales-page/a/notionpage-companies-800.d827a996b0ba.webp 600w, /theme-previews/notion-sales-page/a/notionpage-companies.55cb917559f4.webp 900w, /theme-previews/notion-sales-page/a/notionpage-companies.55cb917559f4.webp 1200w, /theme-previews/notion-sales-page/a/notionpage-companies.55cb917559f4.webp 1400w" alt="Companies" loading="lazy" sizes="(min-width: 1100px) 40vw, (min-width: 750px) 50vw, 100vw"></span>
-<div><h3 class="npc__title">Companies</h3><div class="npc__body"><p>Where you want to work, with fit and open roles.</p></div></div>
+<span class="npc__media"><img src="/theme-previews/notion-sales-page/a/notionpage-scripts.89d60b09e821.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-scripts-800.24af987e79c2.webp 400w, /theme-previews/notion-sales-page/a/notionpage-scripts-800.24af987e79c2.webp 600w, /theme-previews/notion-sales-page/a/notionpage-scripts.89d60b09e821.webp 900w, /theme-previews/notion-sales-page/a/notionpage-scripts.89d60b09e821.webp 1200w, /theme-previews/notion-sales-page/a/notionpage-scripts.89d60b09e821.webp 1400w" alt="Scripts" loading="lazy" sizes="(min-width: 1100px) 40vw, (min-width: 750px) 50vw, 100vw"></span>
+<div><h3 class="npc__title">Scripts</h3><div class="npc__body"><p>One page per video: hook, outline and call to action.</p></div></div>
 </li><li class="npc__card" data-media="top" data-block-id="card_4">
-<span class="npc__media"><img src="/theme-previews/notion-sales-page/a/notionpage-offers.584f801be01f.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-offers-800.65c9efb3c186.webp 400w, /theme-previews/notion-sales-page/a/notionpage-offers-800.65c9efb3c186.webp 600w, /theme-previews/notion-sales-page/a/notionpage-offers.584f801be01f.webp 900w, /theme-previews/notion-sales-page/a/notionpage-offers.584f801be01f.webp 1200w, /theme-previews/notion-sales-page/a/notionpage-offers.584f801be01f.webp 1400w" alt="Offers" loading="lazy" sizes="(min-width: 1100px) 40vw, (min-width: 750px) 50vw, 100vw"></span>
-<div><h3 class="npc__title">Offers</h3><div class="npc__body"><p>Two offers side by side, line by line.</p></div></div>
+<span class="npc__media"><img src="/theme-previews/notion-sales-page/a/notionpage-analytics.f1c94791460f.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-analytics-800.179232fe97ab.webp 400w, /theme-previews/notion-sales-page/a/notionpage-analytics-800.179232fe97ab.webp 600w, /theme-previews/notion-sales-page/a/notionpage-analytics.f1c94791460f.webp 900w, /theme-previews/notion-sales-page/a/notionpage-analytics.f1c94791460f.webp 1200w, /theme-previews/notion-sales-page/a/notionpage-analytics.f1c94791460f.webp 1400w" alt="Analytics" loading="lazy" sizes="(min-width: 1100px) 40vw, (min-width: 750px) 50vw, 100vw"></span>
+<div><h3 class="npc__title">Analytics</h3><div class="npc__body"><p>Views, click rate and subscribers for every post.</p></div></div>
 </li></ul>
 </div>
 </div>
@@ -1301,18 +1415,18 @@ style="--btn-padding-x: 2.5rem;"
 <link rel="stylesheet" href="/theme-previews/notion-sales-page/a/i.2b45134514d5.css">
 <div class="r7t r7w color-default gradient" data-r7t-root="testimonial-wall" data-section-id="reviews" data-card="filled" data-align="left" data-collapse="none" data-few="false" data-open="false" data-less="true" data-reset="true" style="--r7t-bg: var(--color-background);--r7t-text: var(--color-text);--r7t-card-bg: #efeeeb;--r7t-card-border: var(--color-border);--r7t-quote-c: #37352f;--r7t-name-c: #191918;--r7t-star-on: #191918;--r7t-star-off: color-mix(in srgb, var(--color-text) 22%, transparent);--r7t-radius: 14px;--r7t-hf: var(--heading-font);--r7t-bf: var(--body-font);--r7t-gap: 16px;--r7t-q-d: 15px;--r7t-q-m: 15px;--r7t-pt: 72px;--r7t-pb: 40px;--r7t-pt-m: 56px;--r7t-pb-m: 24px;--r7t-mt: 0px;--r7t-mb: 0px;--r7t-mt-m: 0px;--r7t-mb-m: 0px;--r7w-cols: 3;--r7w-cols-l: 3;--r7w-cols-t: 2;--r7w-part: 0.55fr;">
 <div class="r7t__frame" data-width="container">
-<div class="r7t__head"><h2 class="r7t__heading" data-r7t-block="heading_1" data-r7t-type="heading" data-block-id="heading_1" style="--b-c: var(--color-heading);--b-fs-d: 40px;--b-fs-m: 28px;">From buyers</h2><div class="r7t__sub" data-r7t-block="subheading_2" data-r7t-type="subheading" data-block-id="subheading_2" style="--b-c: var(--color-text);--b-fs: 16px;">Notes from people who used Offer Board in their own search.</div></div><div class="r7w__clip" id="r7w-wall-reviews" data-r7t-clip>
+<div class="r7t__head"><h2 class="r7t__heading" data-r7t-block="heading_1" data-r7t-type="heading" data-block-id="heading_1" style="--b-c: var(--color-heading);--b-fs-d: 40px;--b-fs-m: 28px;">From buyers</h2><div class="r7t__sub" data-r7t-block="subheading_2" data-r7t-type="subheading" data-block-id="subheading_2" style="--b-c: var(--color-text);--b-fs: 16px;">Sample notes to show the layout. Replace them with what your buyers say.</div></div><div class="r7w__clip" id="r7w-wall-reviews" data-r7t-clip>
 <div class="r7w__inner">
 <div class="r7w__wall" data-r7t-wall><div class="r7w__item">
 <div class="r7t-card r7w__card" data-r7t-block="testimonial_3" data-r7t-type="testimonial" data-block-id="testimonial_3">
 <div class="r7w__photo" data-r7t-photo hidden></div>
 <span class="r7t-stars" role="img" aria-label="0 / 5" data-r7t-stars hidden><span class="r7t-star" style="--r7t-fill: 0%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 0%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 0%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 0%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 0%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span></span>
-<p class="r7t-card__quote" data-r7t-text>I had applications in three spreadsheets and my email. Two evenings in, everything was on one board and I could finally see which ones had gone quiet.</p>
+<p class="r7t-card__quote" data-r7t-text>I had ideas in three notes apps and a spreadsheet. Two evenings in, everything was on one board and I could see what was close to done.</p>
 <div class="r7t-card__by" data-r7t-by>
-<span class="r7t-card__avatar" data-r7t-avatar><img src="/theme-previews/notion-sales-page/a/notionpage-avatar-1.201084e6e1ec.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-avatar-1.201084e6e1ec.webp 40w, /theme-previews/notion-sales-page/a/notionpage-avatar-1.201084e6e1ec.webp 80w, /theme-previews/notion-sales-page/a/notionpage-avatar-1.201084e6e1ec.webp 120w" alt="" width="40" height="40" loading="lazy" decoding="async" sizes="40px"></span>
+<span class="r7t-card__avatar" data-r7t-avatar><img src="/theme-previews/notion-sales-page/a/notionpage-avatar-1.d0654bf59798.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-avatar-1.d0654bf59798.webp 40w, /theme-previews/notion-sales-page/a/notionpage-avatar-1.d0654bf59798.webp 80w, /theme-previews/notion-sales-page/a/notionpage-avatar-1.d0654bf59798.webp 120w" alt="" width="40" height="40" loading="lazy" decoding="async" sizes="40px"></span>
 <div class="r7t-card__who">
 <h3 class="r7t-card__name" data-r7t-name>Priya R.</h3>
-<p class="r7t-card__role" data-r7t-role>Product designer</p>
+<p class="r7t-card__role" data-r7t-role>Cooking channel</p>
 </div>
 </div>
 </div>
@@ -1320,12 +1434,12 @@ style="--btn-padding-x: 2.5rem;"
 <div class="r7t-card r7w__card" data-r7t-block="testimonial_4" data-r7t-type="testimonial" data-block-id="testimonial_4">
 <div class="r7w__photo" data-r7t-photo hidden></div>
 <span class="r7t-stars" role="img" aria-label="0 / 5" data-r7t-stars hidden><span class="r7t-star" style="--r7t-fill: 0%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 0%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 0%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 0%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 0%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span></span>
-<p class="r7t-card__quote" data-r7t-text>The follow up dates are the part I use most. Notion tells me who to write to that day, so I stopped losing people after the first call.</p>
+<p class="r7t-card__quote" data-r7t-text>The calendar is the part I use most. I plan a month on Sunday and the week mostly runs itself.</p>
 <div class="r7t-card__by" data-r7t-by>
-<span class="r7t-card__avatar" data-r7t-avatar><img src="/theme-previews/notion-sales-page/a/notionpage-avatar-2.8f34dae8c9f9.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-avatar-2.8f34dae8c9f9.webp 40w, /theme-previews/notion-sales-page/a/notionpage-avatar-2.8f34dae8c9f9.webp 80w, /theme-previews/notion-sales-page/a/notionpage-avatar-2.8f34dae8c9f9.webp 120w" alt="" width="40" height="40" loading="lazy" decoding="async" sizes="40px"></span>
+<span class="r7t-card__avatar" data-r7t-avatar><img src="/theme-previews/notion-sales-page/a/notionpage-avatar-2.adab126cd9ee.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-avatar-2.adab126cd9ee.webp 40w, /theme-previews/notion-sales-page/a/notionpage-avatar-2.adab126cd9ee.webp 80w, /theme-previews/notion-sales-page/a/notionpage-avatar-2.adab126cd9ee.webp 120w" alt="" width="40" height="40" loading="lazy" decoding="async" sizes="40px"></span>
 <div class="r7t-card__who">
-<h3 class="r7t-card__name" data-r7t-name>Tom A.</h3>
-<p class="r7t-card__role" data-r7t-role>Data analyst</p>
+<h3 class="r7t-card__name" data-r7t-name>Marco D.</h3>
+<p class="r7t-card__role" data-r7t-role>Fitness creator</p>
 </div>
 </div>
 </div>
@@ -1333,12 +1447,12 @@ style="--btn-padding-x: 2.5rem;"
 <div class="r7t-card r7w__card" data-r7t-block="testimonial_5" data-r7t-type="testimonial" data-block-id="testimonial_5">
 <div class="r7w__photo" data-r7t-photo hidden></div>
 <span class="r7t-stars" role="img" aria-label="0 / 5" data-r7t-stars hidden><span class="r7t-star" style="--r7t-fill: 0%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 0%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 0%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 0%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 0%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span></span>
-<p class="r7t-card__quote" data-r7t-text>I am new to Notion and was worried. The walkthrough video got me set up in about 20 minutes.</p>
+<p class="r7t-card__quote" data-r7t-text>I am new to Notion and was worried. The walkthrough got me set up in about 20 minutes.</p>
 <div class="r7t-card__by" data-r7t-by>
-<span class="r7t-card__avatar" data-r7t-avatar><img src="/theme-previews/notion-sales-page/a/notionpage-avatar-3.de5d65aaef71.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-avatar-3.de5d65aaef71.webp 40w, /theme-previews/notion-sales-page/a/notionpage-avatar-3.de5d65aaef71.webp 80w, /theme-previews/notion-sales-page/a/notionpage-avatar-3.de5d65aaef71.webp 120w" alt="" width="40" height="40" loading="lazy" decoding="async" sizes="40px"></span>
+<span class="r7t-card__avatar" data-r7t-avatar><img src="/theme-previews/notion-sales-page/a/notionpage-avatar-3.d03d9b67f49e.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-avatar-3.d03d9b67f49e.webp 40w, /theme-previews/notion-sales-page/a/notionpage-avatar-3.d03d9b67f49e.webp 80w, /theme-previews/notion-sales-page/a/notionpage-avatar-3.d03d9b67f49e.webp 120w" alt="" width="40" height="40" loading="lazy" decoding="async" sizes="40px"></span>
 <div class="r7t-card__who">
-<h3 class="r7t-card__name" data-r7t-name>Grace L.</h3>
-<p class="r7t-card__role" data-r7t-role>Graduate, first job search</p>
+<h3 class="r7t-card__name" data-r7t-name>Ada O.</h3>
+<p class="r7t-card__role" data-r7t-role>New to YouTube</p>
 </div>
 </div>
 </div>
@@ -1346,12 +1460,12 @@ style="--btn-padding-x: 2.5rem;"
 <div class="r7t-card r7w__card" data-r7t-block="testimonial_6" data-r7t-type="testimonial" data-block-id="testimonial_6">
 <div class="r7w__photo" data-r7t-photo hidden></div>
 <span class="r7t-stars" role="img" aria-label="0 / 5" data-r7t-stars hidden><span class="r7t-star" style="--r7t-fill: 0%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 0%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 0%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 0%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 0%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span></span>
-<p class="r7t-card__quote" data-r7t-text>The story bank saved me before every interview. I wrote six stories once and reused them for every company.</p>
+<p class="r7t-card__quote" data-r7t-text>The script page changed how I film. Hook, outline, call to action, and I stopped rambling on camera.</p>
 <div class="r7t-card__by" data-r7t-by>
-<span class="r7t-card__avatar" data-r7t-avatar><img src="/theme-previews/notion-sales-page/a/notionpage-avatar-4.fe9cd853110a.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-avatar-4.fe9cd853110a.webp 40w, /theme-previews/notion-sales-page/a/notionpage-avatar-4.fe9cd853110a.webp 80w, /theme-previews/notion-sales-page/a/notionpage-avatar-4.fe9cd853110a.webp 120w" alt="" width="40" height="40" loading="lazy" decoding="async" sizes="40px"></span>
+<span class="r7t-card__avatar" data-r7t-avatar><img src="/theme-previews/notion-sales-page/a/notionpage-avatar-4.4d94dbbf0a7d.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-avatar-4.4d94dbbf0a7d.webp 40w, /theme-previews/notion-sales-page/a/notionpage-avatar-4.4d94dbbf0a7d.webp 80w, /theme-previews/notion-sales-page/a/notionpage-avatar-4.4d94dbbf0a7d.webp 120w" alt="" width="40" height="40" loading="lazy" decoding="async" sizes="40px"></span>
 <div class="r7t-card__who">
-<h3 class="r7t-card__name" data-r7t-name>Sam O.</h3>
-<p class="r7t-card__role" data-r7t-role>Engineering manager</p>
+<h3 class="r7t-card__name" data-r7t-name>Theo K.</h3>
+<p class="r7t-card__role" data-r7t-role>Tech reviews</p>
 </div>
 </div>
 </div>
@@ -1359,12 +1473,12 @@ style="--btn-padding-x: 2.5rem;"
 <div class="r7t-card r7w__card" data-r7t-block="testimonial_7" data-r7t-type="testimonial" data-block-id="testimonial_7">
 <div class="r7w__photo" data-r7t-photo hidden></div>
 <span class="r7t-stars" role="img" aria-label="0 / 5" data-r7t-stars hidden><span class="r7t-star" style="--r7t-fill: 0%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 0%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 0%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 0%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 0%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span></span>
-<p class="r7t-card__quote" data-r7t-text>Having two offers side by side in a table made the decision calmer. I asked for a week to decide and got it.</p>
+<p class="r7t-card__quote" data-r7t-text>Every sponsor in one table with the fee and the due date. I look far more organised than I am.</p>
 <div class="r7t-card__by" data-r7t-by>
-<span class="r7t-card__avatar" data-r7t-avatar><img src="/theme-previews/notion-sales-page/a/notionpage-avatar-5.e3d8ca9de273.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-avatar-5.e3d8ca9de273.webp 40w, /theme-previews/notion-sales-page/a/notionpage-avatar-5.e3d8ca9de273.webp 80w, /theme-previews/notion-sales-page/a/notionpage-avatar-5.e3d8ca9de273.webp 120w" alt="" width="40" height="40" loading="lazy" decoding="async" sizes="40px"></span>
+<span class="r7t-card__avatar" data-r7t-avatar><img src="/theme-previews/notion-sales-page/a/notionpage-avatar-5.a8984faa1b57.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-avatar-5.a8984faa1b57.webp 40w, /theme-previews/notion-sales-page/a/notionpage-avatar-5.a8984faa1b57.webp 80w, /theme-previews/notion-sales-page/a/notionpage-avatar-5.a8984faa1b57.webp 120w" alt="" width="40" height="40" loading="lazy" decoding="async" sizes="40px"></span>
 <div class="r7t-card__who">
 <h3 class="r7t-card__name" data-r7t-name>Lena B.</h3>
-<p class="r7t-card__role" data-r7t-role>Marketing lead</p>
+<p class="r7t-card__role" data-r7t-role>Instagram and TikTok</p>
 </div>
 </div>
 </div>
@@ -1372,12 +1486,12 @@ style="--btn-padding-x: 2.5rem;"
 <div class="r7t-card r7w__card" data-r7t-block="testimonial_8" data-r7t-type="testimonial" data-block-id="testimonial_8">
 <div class="r7w__photo" data-r7t-photo hidden></div>
 <span class="r7t-stars" role="img" aria-label="0 / 5" data-r7t-stars hidden><span class="r7t-star" style="--r7t-fill: 0%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 0%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 0%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 0%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span><span class="r7t-star" style="--r7t-fill: 0%;" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z"/></svg></span></span>
-<p class="r7t-card__quote" data-r7t-text>Simple enough that I actually kept using it after week two, which never happened with anything else I tried.</p>
+<p class="r7t-card__quote" data-r7t-text>Simple enough that I kept using it after week two, which never happened with anything else I tried.</p>
 <div class="r7t-card__by" data-r7t-by>
-<span class="r7t-card__avatar" data-r7t-avatar><img src="/theme-previews/notion-sales-page/a/notionpage-avatar-6.5dd54deed74c.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-avatar-6.5dd54deed74c.webp 40w, /theme-previews/notion-sales-page/a/notionpage-avatar-6.5dd54deed74c.webp 80w, /theme-previews/notion-sales-page/a/notionpage-avatar-6.5dd54deed74c.webp 120w" alt="" width="40" height="40" loading="lazy" decoding="async" sizes="40px"></span>
+<span class="r7t-card__avatar" data-r7t-avatar><img src="/theme-previews/notion-sales-page/a/notionpage-avatar-6.d949ad4ec68d.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-avatar-6.d949ad4ec68d.webp 40w, /theme-previews/notion-sales-page/a/notionpage-avatar-6.d949ad4ec68d.webp 80w, /theme-previews/notion-sales-page/a/notionpage-avatar-6.d949ad4ec68d.webp 120w" alt="" width="40" height="40" loading="lazy" decoding="async" sizes="40px"></span>
 <div class="r7t-card__who">
-<h3 class="r7t-card__name" data-r7t-name>Marco R.</h3>
-<p class="r7t-card__role" data-r7t-role>Account executive</p>
+<h3 class="r7t-card__name" data-r7t-name>Daniel S.</h3>
+<p class="r7t-card__role" data-r7t-role>Podcast host</p>
 </div>
 </div>
 </div>
@@ -1473,7 +1587,7 @@ aria-label="Sample product one"
 class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 4/3;"
 >
-<img src="/theme-previews/notion-sales-page/a/notionpage-offer-board.103c166302ef.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-offer-board-800.c13590ddfc74.webp 720w, /theme-previews/notion-sales-page/a/notionpage-offer-board-800.c13590ddfc74.webp 660w, /theme-previews/notion-sales-page/a/notionpage-offer-board-800.c13590ddfc74.webp 550w, /theme-previews/notion-sales-page/a/notionpage-offer-board-800.c13590ddfc74.webp 480w, /theme-previews/notion-sales-page/a/notionpage-offer-board-400.2e7b7eb81f80.webp 330w, /theme-previews/notion-sales-page/a/notionpage-offer-board-400.2e7b7eb81f80.webp 240w, /theme-previews/notion-sales-page/a/notionpage-offer-board-400.2e7b7eb81f80.webp 185w" alt="Sample product one" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/notion-sales-page/a/notionpage-creator-os.068dd3a38acb.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-creator-os-800.6eb48e458f0b.webp 720w, /theme-previews/notion-sales-page/a/notionpage-creator-os-800.6eb48e458f0b.webp 660w, /theme-previews/notion-sales-page/a/notionpage-creator-os-800.6eb48e458f0b.webp 550w, /theme-previews/notion-sales-page/a/notionpage-creator-os-800.6eb48e458f0b.webp 480w, /theme-previews/notion-sales-page/a/notionpage-creator-os-400.5373eb2798d7.webp 330w, /theme-previews/notion-sales-page/a/notionpage-creator-os-400.5373eb2798d7.webp 240w, /theme-previews/notion-sales-page/a/notionpage-creator-os-400.5373eb2798d7.webp 185w" alt="Sample product one" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -1514,7 +1628,8 @@ $24.00
 </div>
 </div>
 </div>
-</div><script type="application/json" class="product-variant__quantity">
+</div>
+<script type="application/json" class="product-variant__quantity">
             [{ "option":"Default Title","qty":11,"available":true,"mamagement":""}]
           </script>
 </motion-element></div>
@@ -1537,7 +1652,7 @@ aria-label="Sample product three"
 class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 4/3;"
 >
-<img src="/theme-previews/notion-sales-page/a/notionpage-bundle.8a4a3a22646a.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-bundle-800.0d1b85fb2cee.webp 720w, /theme-previews/notion-sales-page/a/notionpage-bundle-800.0d1b85fb2cee.webp 660w, /theme-previews/notion-sales-page/a/notionpage-bundle-800.0d1b85fb2cee.webp 550w, /theme-previews/notion-sales-page/a/notionpage-bundle-800.0d1b85fb2cee.webp 480w, /theme-previews/notion-sales-page/a/notionpage-bundle-400.b8af9ad36b2f.webp 330w, /theme-previews/notion-sales-page/a/notionpage-bundle-400.b8af9ad36b2f.webp 240w, /theme-previews/notion-sales-page/a/notionpage-bundle-400.b8af9ad36b2f.webp 185w" alt="Sample product three" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/notion-sales-page/a/notionpage-bundle.d0588bcddc3f.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-bundle-800.900dbfbe68be.webp 720w, /theme-previews/notion-sales-page/a/notionpage-bundle-800.900dbfbe68be.webp 660w, /theme-previews/notion-sales-page/a/notionpage-bundle-800.900dbfbe68be.webp 550w, /theme-previews/notion-sales-page/a/notionpage-bundle-800.900dbfbe68be.webp 480w, /theme-previews/notion-sales-page/a/notionpage-bundle-400.ddd0255ce105.webp 330w, /theme-previews/notion-sales-page/a/notionpage-bundle-400.ddd0255ce105.webp 240w, /theme-previews/notion-sales-page/a/notionpage-bundle-400.ddd0255ce105.webp 185w" alt="Sample product three" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -1578,7 +1693,8 @@ $18.00
 </div>
 </div>
 </div>
-</div><script type="application/json" class="product-variant__quantity">
+</div>
+<script type="application/json" class="product-variant__quantity">
             [{ "option":"Default Title","qty":11,"available":true,"mamagement":""}]
           </script>
 </motion-element></div>
@@ -1596,12 +1712,12 @@ style="--animation-order: 3;  "
 <div class="product-item__inner hover-effect overflow-hidden relative">
 <a
 draggable="false"
-href="/theme-previews/notion-sales-page/products/offer-board.html"
-aria-label="Offer Board"
+href="/theme-previews/notion-sales-page/products/creator-os.html"
+aria-label="Creator OS"
 class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 4/3;"
 >
-<img src="/theme-previews/notion-sales-page/a/notionpage-offer-board.103c166302ef.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-offer-board-800.c13590ddfc74.webp 720w, /theme-previews/notion-sales-page/a/notionpage-offer-board-800.c13590ddfc74.webp 660w, /theme-previews/notion-sales-page/a/notionpage-offer-board-800.c13590ddfc74.webp 550w, /theme-previews/notion-sales-page/a/notionpage-offer-board-800.c13590ddfc74.webp 480w, /theme-previews/notion-sales-page/a/notionpage-offer-board-400.2e7b7eb81f80.webp 330w, /theme-previews/notion-sales-page/a/notionpage-offer-board-400.2e7b7eb81f80.webp 240w, /theme-previews/notion-sales-page/a/notionpage-offer-board-400.2e7b7eb81f80.webp 185w" alt="Offer Board" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/notion-sales-page/a/notionpage-creator-os.068dd3a38acb.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-creator-os-800.6eb48e458f0b.webp 720w, /theme-previews/notion-sales-page/a/notionpage-creator-os-800.6eb48e458f0b.webp 660w, /theme-previews/notion-sales-page/a/notionpage-creator-os-800.6eb48e458f0b.webp 550w, /theme-previews/notion-sales-page/a/notionpage-creator-os-800.6eb48e458f0b.webp 480w, /theme-previews/notion-sales-page/a/notionpage-creator-os-400.5373eb2798d7.webp 330w, /theme-previews/notion-sales-page/a/notionpage-creator-os-400.5373eb2798d7.webp 240w, /theme-previews/notion-sales-page/a/notionpage-creator-os-400.5373eb2798d7.webp 185w" alt="Creator OS" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -1629,11 +1745,11 @@ class="product__badges-sale product__badges-type-percent product__badges-inner a
 </div>
 <div class="product-item__information word-break text-left mt-15">
 <a
-aria-label="Offer Board"
+aria-label="Creator OS"
 class="product-item__name unset heading-style no-underline fs-custom block lh-normal"
 style="--font-size: 17;"            
-href="/theme-previews/notion-sales-page/products/offer-board.html"
->Offer Board</a>
+href="/theme-previews/notion-sales-page/products/creator-os.html"
+>Creator OS</a>
 <div
 class="product-item__price justify-content-left fs-custom flex gap-custom lh-normal "
 style="--font-size: 16; --gap: 3px;"
@@ -1649,11 +1765,12 @@ $29.00
 </div>
 </div>
 </div>
-</div><script type="application/json" class="product-variant__quantity">
-            [{ "option":"Template","qty":11,"available":true,"mamagement":""},{ "option":"Template and interview kit","qty":11,"available":true,"mamagement":""}]
+</div>
+<script type="application/json" class="product-variant__quantity">
+            [{ "option":"Template","qty":11,"available":true,"mamagement":""},{ "option":"Template and sponsor kit","qty":11,"available":true,"mamagement":""}]
           </script>
 </motion-element><script type="application/json" class="productItemVariantsQty">
-        [{ "option":"Template","qty":11,"available":true,"mamagement":""},{ "option":"Template and interview kit","qty":11,"available":true,"mamagement":""}]
+        [{ "option":"Template","qty":11,"available":true,"mamagement":""},{ "option":"Template and sponsor kit","qty":11,"available":true,"mamagement":""}]
       </script></div>
 <div
 class="product-item product__item-js  style-as-standard"
@@ -1669,12 +1786,12 @@ style="--animation-order: 4;  "
 <div class="product-item__inner hover-effect overflow-hidden relative">
 <a
 draggable="false"
-href="/theme-previews/notion-sales-page/products/interview-prep-kit.html"
-aria-label="Interview Prep Kit"
+href="/theme-previews/notion-sales-page/products/sponsor-kit.html"
+aria-label="Sponsor Kit"
 class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 4/3;"
 >
-<img src="/theme-previews/notion-sales-page/a/notionpage-interview-kit.7005e77555eb.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-interview-kit-800.4db582d35c12.webp 720w, /theme-previews/notion-sales-page/a/notionpage-interview-kit-800.4db582d35c12.webp 660w, /theme-previews/notion-sales-page/a/notionpage-interview-kit-800.4db582d35c12.webp 550w, /theme-previews/notion-sales-page/a/notionpage-interview-kit-800.4db582d35c12.webp 480w, /theme-previews/notion-sales-page/a/notionpage-interview-kit-400.8598db4a60d9.webp 330w, /theme-previews/notion-sales-page/a/notionpage-interview-kit-400.8598db4a60d9.webp 240w, /theme-previews/notion-sales-page/a/notionpage-interview-kit-400.8598db4a60d9.webp 185w" alt="Interview Prep Kit" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/notion-sales-page/a/notionpage-sponsor-kit.981eb26641e4.webp" srcset="/theme-previews/notion-sales-page/a/notionpage-sponsor-kit-800.9535ad4a9cd9.webp 720w, /theme-previews/notion-sales-page/a/notionpage-sponsor-kit-800.9535ad4a9cd9.webp 660w, /theme-previews/notion-sales-page/a/notionpage-sponsor-kit-800.9535ad4a9cd9.webp 550w, /theme-previews/notion-sales-page/a/notionpage-sponsor-kit-800.9535ad4a9cd9.webp 480w, /theme-previews/notion-sales-page/a/notionpage-sponsor-kit-400.2d273deec99b.webp 330w, /theme-previews/notion-sales-page/a/notionpage-sponsor-kit-400.2d273deec99b.webp 240w, /theme-previews/notion-sales-page/a/notionpage-sponsor-kit-400.2d273deec99b.webp 185w" alt="Sponsor Kit" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -1702,11 +1819,11 @@ class="product__badges-sale product__badges-type-percent product__badges-inner a
 </div>
 <div class="product-item__information word-break text-left mt-15">
 <a
-aria-label="Interview Prep Kit"
+aria-label="Sponsor Kit"
 class="product-item__name unset heading-style no-underline fs-custom block lh-normal"
 style="--font-size: 17;"            
-href="/theme-previews/notion-sales-page/products/interview-prep-kit.html"
->Interview Prep Kit</a>
+href="/theme-previews/notion-sales-page/products/sponsor-kit.html"
+>Sponsor Kit</a>
 <div
 class="product-item__price justify-content-left fs-custom flex gap-custom lh-normal "
 style="--font-size: 16; --gap: 3px;"
@@ -1722,7 +1839,8 @@ $19.00
 </div>
 </div>
 </div>
-</div><script type="application/json" class="product-variant__quantity">
+</div>
+<script type="application/json" class="product-variant__quantity">
             [{ "option":"Default Title","qty":11,"available":true,"mamagement":""}]
           </script>
 </motion-element></div>
@@ -1779,7 +1897,7 @@ style="--font-size: 15"
 <div
 class="store-info-content"
 ><div class="footer__block-info rich__text-mt-0 mb-20" data-ft-desc>
-<p>Notion templates for the parts of life that need a system. Offer Board is for running a job search from the first saved role to the signed offer.</p>
+<p>Notion templates for the parts of work that need a system. Creator OS takes a video, a post or an episode from the first idea to the published link.</p>
 </div>
 </div>
 </div><div
@@ -1806,10 +1924,10 @@ style="--font-size: 15"
 <ul class="list-unstyled"><li class="pb-8">
 <a
 href="/theme-previews/notion-sales-page/collections/all.html"
-aria-label="Offer Board and the kit"
+aria-label="Creator OS and the kit"
 class="no-underline word-break reversed-links relative"
 >
-Offer Board and the kit
+Creator OS and the kit
 </a>
 </li><li class="pb-8">
 <a
@@ -1894,7 +2012,7 @@ class="footer__block-heading collapsible-heading relative heading-letter-spacing
 style="--font-size: 15"
 >
 <button type="button" class="footer-acc__toggle" data-footer-acc-toggle aria-expanded="false" aria-controls="FooterAcc-newsletter_1">
-<span data-ft-heading>Free follow up scripts</span>
+<span data-ft-heading>Free hook formulas</span>
 <span class="open-children-toggle hidden-md absolute inset-0 flex flex-end">
 <span class="arrow-toggle" aria-hidden="true">
 <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1906,7 +2024,7 @@ style="--font-size: 15"
 </h3>
 <div class="footer-acc__panel" id="FooterAcc-newsletter_1"><div class="footer-acc__inner">
 <div class="collapsible-content mb-30"><div class="footer__block-description mb-23" data-ft-desc>
-Five short emails for after you apply, after an interview and when an offer is late.
+Twelve opening lines that work on YouTube, shorts and newsletters, sent once.
 </div>
 <form id="ContactFooter" accept-charset="UTF-8" class="footer__newsletter newsletter-form" data-storelib-form="subscribe" data-ft-form="newsletter_1" data-success-message="Thanks for subscribing." data-error-message="" data-storelib-form="subscribe" data-preview-form><input type="hidden" name="form_type" value="customer"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="storelib_placement" value="footer"><input type="hidden" name="contact[tags]" value="newsletter">
 <div class="newsletter-form__field-wrapper">

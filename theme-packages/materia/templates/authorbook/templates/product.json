@@ -81,7 +81,7 @@
           "type": "text",
           "settings": {
             "heading": "",
-            "content": "<p>A practical playbook for talks, pitches and presentations, by Owen Kessler.</p>"
+            "content": "<p>A practical guide to falling asleep, staying asleep and waking up rested, by Owen Kessler.</p>"
           }
         },
         "price_4": {
@@ -181,7 +181,7 @@
           "type": "whats_included",
           "settings": {
             "heading": "What you get",
-            "items": "Fourteen chapters, 212 pages, PDF and EPUB\n31 exercises to try on real talks\nSix talk outlines to copy\nNotes for video calls in every chapter",
+            "items": "Twelve chapters, 186 pages, PDF and EPUB\n28 small changes to try one at a time\nA two week plan to follow\nNotes for shift work, travel and new parents",
             "two_columns": false,
             "boxed": true
           }
@@ -199,7 +199,7 @@
           "type": "collapsible_row",
           "settings": {
             "heading": "Editions",
-            "content": "<p><strong>Ebook:</strong> PDF and EPUB. <strong>Ebook and audiobook:</strong> adds five and a half hours of MP3 files read by Owen. <strong>Complete set:</strong> adds the printable talk planner workbook.</p>",
+            "content": "<p><strong>Ebook:</strong> PDF and EPUB. <strong>Ebook and audiobook:</strong> adds four and a half hours of MP3 files read by Owen. <strong>Complete set:</strong> adds the printable sleep diary.</p>",
             "use_product_description": false,
             "open": false
           }
@@ -212,10 +212,10 @@
             "first_open": false,
             "q_1": "Is this an ebook or a printed book?",
             "a_1": "<p>An ebook. You get a PDF and an EPUB file by email straight after you pay, and you can read them on any phone, tablet, computer or e-reader.</p>",
-            "q_2": "I have a talk next week. Will this help in time?",
-            "a_2": "<p>Yes. Start with chapters two and five. They take about an hour together and give you an outline and a plan for your nerves.</p>",
-            "q_3": "Does it cover video calls and online talks?",
-            "a_3": "<p>Yes. Every chapter has notes for presenting on a call, and chapter eleven is about online talks and webinars.</p>",
+            "q_2": "I slept badly last night. Where do I start?",
+            "a_2": "<p>Start with chapters two and six. They take about an hour together and give you a light plan for tomorrow morning and a wind down hour for tonight.</p>",
+            "q_3": "Is this medical advice?",
+            "a_3": "<p>No. It is practical advice for ordinary bad sleep. If you snore loudly, stop breathing at night or have been sleeping badly for months, see a doctor first. Chapter one says when.</p>",
             "q_4": "What if it is not for me?",
             "a_4": "<p>Email within 30 days and you get your money back. No questions asked.</p>",
             "spacing_top": 12,
@@ -291,8 +291,8 @@
         "section_width": "container",
         "image_position": "left",
         "text_column_width": 46,
-        "image": "shopify://shop_images/authorbook-spread-slides.webp",
-        "image_alt": "Two open pages from chapter seven, Slides that help",
+        "image": "shopify://shop_images/authorbook-spread-winddown.webp",
+        "image_alt": "Two open pages from chapter six, The wind down hour",
         "aspect_w": 16,
         "aspect_h": 11,
         "image_fit": "cover",
@@ -317,7 +317,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Every chapter is a method you can use on your next talk, with an exercise at the end. Read it in a weekend, or one chapter the night before you present.</p>"
+            "text": "<p>Every chapter is one change you can make this week, with a short plan at the end. Read it in a weekend, or one chapter a night with the lamp on.</p>"
           }
         },
         "button_4": {
@@ -388,9 +388,9 @@
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I read chapter two on the train and rewrote my quarterly update before I got to the office. It was the first one where nobody checked their phone.</p>",
+            "quote": "<p>I moved my coffee and got ten minutes of light every morning. Two weeks later I was falling asleep before midnight without trying.</p>",
             "rating": 5,
-            "name": "Priya N.",
+            "name": "Maya A.",
             "role": "Product manager",
             "avatar": "shopify://shop_images/authorbook-reader-1.webp"
           }
@@ -398,20 +398,20 @@
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Short, practical and honest. The ninety second reset is now the thing I do before every client pitch.</p>",
+            "quote": "<p>Short, practical and honest. The 3am chapter alone was worth it. I stopped checking the clock and started getting back to sleep.</p>",
             "rating": 5,
             "name": "Daniel A.",
-            "role": "Founder, design studio",
+            "role": "Father of two",
             "avatar": "shopify://shop_images/authorbook-reader-2.webp"
           }
         },
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I teach for a living and still picked up a lot. The chapter on questions made me stop dreading the end of a talk.</p>",
+            "quote": "<p>I work nights in a hospital. Chapter ten is the first sleep advice that fit my real week instead of an ideal one.</p>",
             "rating": 5,
             "name": "Lena M.",
-            "role": "Secondary school teacher",
+            "role": "Night shift nurse",
             "avatar": "shopify://shop_images/authorbook-reader-3.webp"
           }
         }

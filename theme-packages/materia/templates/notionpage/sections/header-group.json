@@ -36,8 +36,8 @@
         "message_1": {
           "type": "message",
           "settings": {
-            "text": "Version 2 adds a follow up calendar and an offer table. See what changed",
-            "text_mobile": "Version 2: follow up calendar and offer table",
+            "text": "Version 2 adds an analytics page and a sponsor pipeline. See what changed",
+            "text_mobile": "Version 2: analytics and sponsors",
             "link": "/collections/all",
             "open_in_new_tab": false,
             "visibility": "all",

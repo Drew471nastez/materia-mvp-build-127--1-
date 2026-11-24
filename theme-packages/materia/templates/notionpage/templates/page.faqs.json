@@ -52,7 +52,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>About Offer Board, Notion, getting the template and refunds.</p>",
+            "text": "<p>About Creator OS, Notion, getting the template and refunds.</p>",
             "max_width": 560
           }
         },
@@ -60,8 +60,8 @@
           "type": "faq_item",
           "settings": {
             "tab": "1",
-            "question": "What is Offer Board?",
-            "answer": "<p>A Notion template for running a job search. It keeps the roles you save, the companies, the people you talk to, your interview stories and any offers in one workspace, linked to each other.</p>"
+            "question": "What is Creator OS?",
+            "answer": "<p>A Notion template for content creators. It keeps your ideas, scripts, content calendar, sponsor deals and the numbers behind each post in one workspace, linked to each other.</p>"
           }
         },
         "faq_item_4": {
@@ -69,7 +69,7 @@
           "settings": {
             "tab": "1",
             "question": "Do I need a paid Notion plan?",
-            "answer": "<p>No. Offer Board works on Notion's free plan, on the web, the desktop app and the phone app.</p>"
+            "answer": "<p>No. Creator OS works on Notion's free plan, on the web, the desktop app and the phone app.</p>"
           }
         },
         "faq_item_5": {
@@ -85,7 +85,7 @@
           "settings": {
             "tab": "3",
             "question": "I have never used Notion. Will I manage?",
-            "answer": "<p>Yes. The Instructions page has a 12 minute walkthrough and five steps to follow. Most people are adding roles within the first half hour.</p>"
+            "answer": "<p>Yes. The Instructions page has a 14 minute walkthrough and five steps to follow. Most people have their ideas in within the first half hour.</p>"
           }
         },
         "faq_item_7": {
@@ -93,15 +93,15 @@
           "settings": {
             "tab": "1",
             "question": "Can I change it?",
-            "answer": "<p>Every page, property and view is yours to edit. Rename the stages, add a column for visa sponsorship, delete the pages you do not need.</p>"
+            "answer": "<p>Every page, property and view is yours to edit. Rename the stages, add a column for a second channel, delete the pages you do not need.</p>"
           }
         },
         "faq_item_8": {
           "type": "faq_item",
           "settings": {
             "tab": "3",
-            "question": "Can I use it with a career coach or a friend?",
-            "answer": "<p>Yes. Share the workspace or a single page with them from Notion, and they can comment on your applications and stories.</p>"
+            "question": "Can my editor or manager use it with me?",
+            "answer": "<p>Yes. Share the workspace or a single page from Notion, and they can comment on scripts, pick up edits and update sponsor deals.</p>"
           }
         },
         "faq_item_9": {
@@ -117,7 +117,7 @@
           "settings": {
             "tab": "2",
             "question": "What is your refund policy?",
-            "answer": "<p>If Offer Board is not for you, email us within 14 days and we refund you. No form to fill in.</p>"
+            "answer": "<p>If Creator OS is not for you, email us within 14 days and we refund you. No form to fill in.</p>"
           }
         },
         "faq_item_11": {
@@ -186,7 +186,7 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Offer Board",
+            "text": "Creator OS",
             "enable_custom_style": true,
             "size_d": 34,
             "size_m": 28,
@@ -196,7 +196,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "Run your whole job search from one Notion page. Pay once, keep every update."
+            "text": "Plan, script and post your content from one Notion page. Pay once, keep every update."
           }
         },
         "button_4": {

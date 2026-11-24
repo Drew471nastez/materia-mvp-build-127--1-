@@ -131,7 +131,7 @@
           "settings": {
             "tab": "1",
             "question": "Do I need a paid Notion plan?",
-            "answer": "<p>No. Offer Board works on Notion's free plan, on the web, the desktop app and the phone app.</p>"
+            "answer": "<p>No. Creator OS works on Notion's free plan, on the web, the desktop app and the phone app.</p>"
           }
         },
         "faq_item_3": {
@@ -147,7 +147,7 @@
           "settings": {
             "tab": "1",
             "question": "I have never used Notion. Will I manage?",
-            "answer": "<p>Yes. The Instructions page has a 12 minute walkthrough and five steps to follow. Most people are adding roles within the first half hour.</p>"
+            "answer": "<p>Yes. The Instructions page has a 14 minute walkthrough and five steps to follow. Most people have their ideas in within the first half hour.</p>"
           }
         }
       },

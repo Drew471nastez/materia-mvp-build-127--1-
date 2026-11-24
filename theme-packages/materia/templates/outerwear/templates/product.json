@@ -21,10 +21,10 @@
         "sticky_show_variant_picker": true,
         "sticky_show_quantity": false,
         "sticky_button_radius": 4,
-        "padding_top": 0,
+        "padding_top": 36,
         "padding_bottom": 48,
         "mobile_options": "hidden_thumbnail",
-        "mobile_slides_per_view": "1.2",
+        "mobile_slides_per_view": "1",
         "enable_nav_dots_mobile": true,
         "enable_custom_padding": true,
         "padding_left_mobile": 16,
@@ -147,7 +147,7 @@
           "settings": {
             "review_source": "product",
             "review_label": "reviews",
-            "padding_top": 0,
+            "padding_top": 4,
             "padding_bottom": 10,
             "enable_counter_custom": false
           }
@@ -250,25 +250,6 @@
         "padding_bottom": 0
       }
     },
-    "review": {
-      "type": "outerwear-review",
-      "settings": {
-        "label": "Reviews",
-        "rating": 5,
-        "quote": "The fit is exactly as described. Boxy, short and warm without the bulk.",
-        "author": "Customer name",
-        "note": "Sample review. Replace it with one from your customers.",
-        "product": "",
-        "image": "shopify://shop_images/outerwear-review-doorway.webp",
-        "image_position": "right",
-        "image_focus_y": 30,
-        "min_height": 560,
-        "quote_size": 48,
-        "quote_size_mobile": 30,
-        "color_scheme": "default",
-        "padding_top": 40
-      }
-    },
     "benefits": {
       "type": "benefits-bar",
       "settings": {
@@ -324,7 +305,6 @@
   "order": [
     "main",
     "related",
-    "review",
     "benefits"
   ]
 }

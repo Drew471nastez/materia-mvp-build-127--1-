@@ -46,7 +46,7 @@
         "description_2": {
           "type": "description",
           "settings": {
-            "text": "<p>Reader questions, team workshops, podcasts and conference talks. Every message is read by a person.</p>"
+            "text": "<p>Reader questions, workplace talks on sleep, podcasts and interviews. Every message is read by a person.</p>"
           }
         },
         "info_3": {
@@ -62,7 +62,7 @@
           "settings": {
             "icon": "map",
             "line1": "Workshops in person and online",
-            "line2": "For teams of four to twenty"
+            "line2": "For teams of ten or more"
           }
         }
       },
@@ -105,21 +105,21 @@
           "type": "faq_item",
           "settings": {
             "question": "What is the difference between the editions?",
-            "answer": "<p>The ebook is the book. Ebook and audiobook adds the full audio, read by Owen. The complete set adds the printable talk planner workbook as well.</p>"
+            "answer": "<p>The ebook is the book. Ebook and audiobook adds the full audio, read by Owen. The complete set adds the printable sleep diary as well.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "I have a talk next week. Will this help in time?",
-            "answer": "<p>Yes. Start with chapters two and five. They take about an hour together and give you an outline and a plan for your nerves.</p>"
+            "question": "I slept badly last night. Where do I start?",
+            "answer": "<p>Start with chapters two and six. They take about an hour together and give you a light plan for tomorrow morning and a wind down hour for tonight.</p>"
           }
         },
         "faq_item_6": {
           "type": "faq_item",
           "settings": {
-            "question": "Does it cover video calls and online talks?",
-            "answer": "<p>Yes. Every chapter has notes for presenting on a call, and chapter eleven is about online talks and webinars.</p>"
+            "question": "Is this medical advice?",
+            "answer": "<p>No. It is practical advice for ordinary bad sleep. If you snore loudly, stop breathing at night or have been sleeping badly for months, see a doctor first. Chapter one says when.</p>"
           }
         }
       },
