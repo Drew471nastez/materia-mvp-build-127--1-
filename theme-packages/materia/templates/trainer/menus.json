@@ -1,0 +1,78 @@
+{
+  "main-menu": {
+    "title": "Main menu",
+    "links": [
+      {
+        "title": "Programs",
+        "url": "/collections/all"
+      },
+      {
+        "title": "Coaching",
+        "url": "/pages/book-a-call"
+      },
+      {
+        "title": "About",
+        "url": "/pages/about"
+      },
+      {
+        "title": "Journal",
+        "url": "/blogs/news"
+      },
+      {
+        "title": "FAQ",
+        "url": "/pages/faqs"
+      }
+    ]
+  },
+  "footer": {
+    "title": "Train",
+    "links": [
+      {
+        "title": "Programs",
+        "url": "/collections/all"
+      },
+      {
+        "title": "Online coaching",
+        "url": "/pages/book-a-call"
+      },
+      {
+        "title": "About Mateo",
+        "url": "/pages/about"
+      },
+      {
+        "title": "Journal",
+        "url": "/blogs/news"
+      }
+    ]
+  },
+  "footer-help": {
+    "title": "Help",
+    "links": [
+      {
+        "title": "FAQ",
+        "url": "/pages/faqs"
+      },
+      {
+        "title": "Contact",
+        "url": "/pages/contact"
+      },
+      {
+        "title": "Search",
+        "url": "/search"
+      }
+    ]
+  },
+  "footer-hello": {
+    "title": "Elsewhere",
+    "links": [
+      {
+        "title": "Instagram",
+        "url": "https://www.instagram.com"
+      },
+      {
+        "title": "YouTube",
+        "url": "https://www.youtube.com"
+      }
+    ]
+  }
+}

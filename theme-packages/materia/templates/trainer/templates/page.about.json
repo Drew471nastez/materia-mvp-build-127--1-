@@ -1,0 +1,378 @@
+/* Templates round 25: Mateo Ruiz, a personal strength coach in Valencia and online: a cinematic hero, the coach, three ways to work together, programs, how coaching works, the plan in the app, progress shown honestly, client quotes, questions and a weekly email, built from the theme's own sections. */
+{
+  "sections": {
+    "story": {
+      "type": "hero-split-media",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "full_width",
+        "image_position": "right",
+        "media_width_desktop": 50,
+        "content_align": "left",
+        "vertical_align": "center",
+        "content_max_width": 540,
+        "content_gap": 18,
+        "min_height_desktop": 640,
+        "image": "shopify://shop_images/trainer-mateo.webp",
+        "image_alt": "Mateo laughing with a client between sets",
+        "image_position_x": 50,
+        "image_position_y": 4,
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 96,
+        "side_padding_desktop": 72,
+        "mobile_image_first": true,
+        "media_height_mobile": 420,
+        "padding_top_mobile": 40,
+        "padding_bottom_mobile": 48
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "About"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Hi, I am Mateo",
+            "enable_custom_style": true,
+            "size_enable": true,
+            "size_desktop": 56,
+            "size_mobile": 38,
+            "line_height": 1.04
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>I started lifting at 17 to get better at football and kept going after the football stopped. I have coached for eight years, first on a gym floor and now mostly online, with a few clients in person in Ruzafa.</p><p>I am qualified in strength and conditioning and I keep learning. What I care about most is that you still train in five years.</p>"
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "text": "Book a free call",
+            "link": "/pages/book-a-call",
+            "button_style": "primary"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
+    },
+    "beliefs": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "default",
+        "columns_desktop": 3,
+        "show_dividers": true
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "How I coach"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Three things that are true of every plan I write.</p>"
+          }
+        },
+        "column_3": {
+          "type": "column",
+          "settings": {
+            "label": "01",
+            "heading": "Learn the lift first",
+            "text": "<p>Light weights and good positions for the first weeks. Load comes once the movement is yours.</p>"
+          }
+        },
+        "column_4": {
+          "type": "column",
+          "settings": {
+            "label": "02",
+            "heading": "Train for the week you have",
+            "text": "<p>Three hours a week done for a year beats six hours a week done for a month. The plan fits your life, not the other way round.</p>"
+          }
+        },
+        "column_5": {
+          "type": "column",
+          "settings": {
+            "label": "03",
+            "heading": "Honest numbers",
+            "text": "<p>No promises about kilos lost by a date. We track what you lift, how you sleep and how you feel, and adjust from there.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "column_3",
+        "column_4",
+        "column_5"
+      ]
+    },
+    "where": {
+      "type": "dual-image-with-text",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "section_width": "container",
+        "image_position": "right",
+        "text_column_width": 44,
+        "content_align": "left",
+        "content_gap": 18,
+        "aspect_ratio_w": 4,
+        "aspect_ratio_h": 5,
+        "show_dots": false,
+        "gap_desktop": 96,
+        "padding_top_desktop": 112,
+        "padding_bottom_desktop": 112,
+        "mobile_order": "text_first",
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 64
+      },
+      "blocks": {
+        "main_image_1": {
+          "type": "main_image",
+          "settings": {
+            "image": "shopify://shop_images/trainer-spot.webp",
+            "alt": "Mateo watching a client press two dumbbells overhead",
+            "anchor": "top_right",
+            "size": 70,
+            "fit": "cover",
+            "position_x": 50,
+            "position_y": 40,
+            "radius": 4
+          }
+        },
+        "accent_image_2": {
+          "type": "accent_image",
+          "settings": {
+            "image": "shopify://shop_images/trainer-own.webp",
+            "alt": "Mateo training on his own, a cable raise",
+            "anchor": "bottom_left",
+            "size": 44,
+            "above_main": true,
+            "fit": "cover",
+            "radius": 4,
+            "shadow": false,
+            "border_width": 6,
+            "enable_custom_style": true,
+            "border_color": "#efe9e2",
+            "size_mobile": 46
+          }
+        },
+        "eyebrow_3": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "In person"
+          }
+        },
+        "heading_4": {
+          "type": "heading",
+          "settings": {
+            "text": "Where I train people",
+            "tag": "h2",
+            "enable_custom_style": true,
+            "size_desktop": 40,
+            "size_mobile": 30
+          }
+        },
+        "subheading_5": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>In person sessions are at a quiet gym in Ruzafa, Valencia, mornings from 7 and evenings until 9. The first session is mostly talking and moving well, with very little weight.</p><p>Between sessions you train from the app, and I review your week the same way I do for online clients.</p>"
+          }
+        },
+        "button_6": {
+          "type": "button",
+          "settings": {
+            "label": "Ask about times",
+            "link": "/pages/book-a-call",
+            "button_style": "primary",
+            "radius": 4
+          }
+        }
+      },
+      "block_order": [
+        "main_image_1",
+        "accent_image_2",
+        "eyebrow_3",
+        "heading_4",
+        "subheading_5",
+        "button_6"
+      ]
+    },
+    "clients": {
+      "type": "testimonials",
+      "settings": {
+        "color_scheme": "default",
+        "display_mode": "carousel",
+        "columns": 3,
+        "header_alignment": "left",
+        "card_style": "outline",
+        "card_radius": 6,
+        "card_padding": 28,
+        "show_quote_mark": false,
+        "show_rating": false,
+        "avatar_shape": "circle",
+        "avatar_size": 52,
+        "show_arrow": false,
+        "section_width": "container",
+        "carousel_pagination": "show",
+        "pagination_style": "line",
+        "pagination_position": "left",
+        "padding_top": 96,
+        "padding_bottom": 96,
+        "quote_size": 17,
+        "enable_custom_typography": true,
+        "header_spacing_desktop": 44
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "enabled": true,
+            "text": "Clients"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "enabled": true,
+            "text": "What clients say"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "enabled": true,
+            "text": "<p>Sample words to show the layout. Replace them with quotes from your own clients, with their permission.</p>"
+          }
+        },
+        "testimonial_4": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>I started at 54 with a sore back. Mateo had me pulling from blocks for a month before the floor, and my back has been fine since.</p>",
+            "rating": 0,
+            "name": "Sample client",
+            "role": "1:1 in Valencia",
+            "avatar": "shopify://shop_images/trainer-client-1.webp"
+          }
+        },
+        "testimonial_5": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>The weekly review is the part I would pay for on its own. Someone notices when I skip the same exercise three weeks running.</p>",
+            "rating": 0,
+            "name": "Sample client",
+            "role": "Online coaching",
+            "avatar": "shopify://shop_images/trainer-client-2.webp"
+          }
+        },
+        "testimonial_6": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>I train at home with dumbbells and a bench. He never once told me I needed a gym.</p>",
+            "rating": 0,
+            "name": "Sample client",
+            "role": "Strength Foundations",
+            "avatar": "shopify://shop_images/trainer-client-3.webp"
+          }
+        },
+        "testimonial_7": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>I was nervous about the barbell. The first session was only bracing and the hinge, and that was the right call.</p>",
+            "rating": 0,
+            "name": "Sample client",
+            "role": "1:1 in Valencia",
+            "avatar": "shopify://shop_images/trainer-client-4.webp"
+          }
+        },
+        "testimonial_8": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Two kids and shift work. The plan moves when my week does and nobody makes me feel bad about it.</p>",
+            "rating": 0,
+            "name": "Sample client",
+            "role": "Online coaching",
+            "avatar": "shopify://shop_images/trainer-client-5.webp"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "testimonial_4",
+        "testimonial_5",
+        "testimonial_6",
+        "testimonial_7",
+        "testimonial_8"
+      ]
+    },
+    "letter": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "email_label": "Email address",
+        "email_placeholder": "Your email",
+        "btn_text": "Sign up",
+        "note": "One email on Mondays. Leave any time.",
+        "subscribed_button_text": "Signed up",
+        "success_text": "Thank you. The first session arrives on Monday.",
+        "image_position": "right",
+        "content_alignment": "left",
+        "form_layout": "horizontal",
+        "image_width": 46,
+        "column_gap": 80,
+        "image": "shopify://shop_images/trainer-own.webp",
+        "image_alt": "Mateo training on his own, a cable raise",
+        "image_ratio": "square",
+        "button_style": "primary",
+        "use_theme_button": true,
+        "button_radius": 4,
+        "padding_top": 0,
+        "padding_bottom": 0,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 48
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "One session a week, by email",
+            "size_enable": true,
+            "size_desktop": 38,
+            "size_mobile": 28
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>A workout you can do in 40 minutes, one lift explained properly and nothing else. Every Monday.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    }
+  },
+  "order": [
+    "story",
+    "beliefs",
+    "where",
+    "clients",
+    "letter"
+  ]
+}

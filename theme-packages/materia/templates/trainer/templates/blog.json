@@ -1,0 +1,132 @@
+/* Templates round 25: Mateo Ruiz, a personal strength coach in Valencia and online: a cinematic hero, the coach, three ways to work together, programs, how coaching works, the plan in the app, progress shown honestly, client quotes, questions and a weekly email, built from the theme's own sections. */
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "height": "adapt",
+        "alignment": "center",
+        "padding_top": 66,
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "reset_spacing": true,
+        "section_width": "container",
+        "padding_bottom": 55,
+        "overlay_opacity": 0
+      },
+      "blocks": {
+        "heading_xwFKKa": {
+          "type": "heading",
+          "settings": {
+            "page_title": "Journal",
+            "header_size": "medium",
+            "vertical_gap": 14,
+            "heading_font_size": 36,
+            "enable_heading_color": false
+          }
+        },
+        "description_YRWpkt": {
+          "type": "description",
+          "settings": {
+            "description": "<p>Notes on learning the lifts, training around a busy week, eating enough protein and sleeping well.</p>",
+            "enable_custom_style": false,
+            "description_font_size": 16
+          }
+        }
+      },
+      "block_order": [
+        "heading_xwFKKa",
+        "description_YRWpkt"
+      ]
+    },
+    "main": {
+      "type": "main-blog",
+      "settings": {
+        "layout": "grid",
+        "row_gap": 64,
+        "show_date": true,
+        "column_gap": 40,
+        "margin_top": 32,
+        "title_size": 22,
+        "badge_width": 70,
+        "image_ratio": "custom",
+        "title_hover": "underline",
+        "badge_height": 30,
+        "custom_ratio": "3:2",
+        "hover_effect": "lift",
+        "image_radius": 3,
+        "show_excerpt": true,
+        "excerpt_lines": 2,
+        "items_per_row": 3,
+        "items_to_show": 12,
+        "margin_bottom": 0,
+        "readmore_line": "style",
+        "readmore_text": "Read more",
+        "readmore_type": "underline",
+        "reset_spacing": true,
+        "section_width": "fluid_container",
+        "show_category": true,
+        "show_readmore": true,
+        "button_show_more": "Load more",
+        "content_alignment": "left",
+        "badge_border_radius": 19,
+        "enable_custom_style": true,
+        "badge_text_font_size": 14,
+        "items_per_row_mobile": 1,
+        "badge_vertical_position": 16,
+        "badge_horizontal_position": 16
+      },
+      "name": "Main blog"
+    },
+    "cta": {
+      "type": "banner3",
+      "settings": {
+        "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636",
+        "banner_surface": "section",
+        "max_width": 720,
+        "pad_top_desktop": 96,
+        "pad_bottom_desktop": 96,
+        "text_align": "center"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Free 20 minute call",
+            "transform": "uppercase"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Not sure where to start?",
+            "transform": "none"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "Tell me about your training and your week. If I am not the right coach for you, I will say so."
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "Book a free call",
+            "link": "/pages/book-a-call"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
+    }
+  },
+  "order": [
+    "heading",
+    "main",
+    "cta"
+  ]
+}

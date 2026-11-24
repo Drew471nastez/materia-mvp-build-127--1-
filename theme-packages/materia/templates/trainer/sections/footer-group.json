@@ -1,0 +1,101 @@
+{
+  "type": "footer",
+  "name": "t:sections.footer.name",
+  "sections": {
+    "footer": {
+      "type": "footer",
+      "settings": {
+        "custom_text": "",
+        "padding_top": 80,
+        "show_social": true,
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "custom_image": "",
+        "reset_spacing": true,
+        "section_width": "fluid_container",
+        "copyright_text": "© {{ 'now' | date: '%Y' }} {{ shop.name }}. All rights reserved.",
+        "heading_weight": "600",
+        "padding_bottom": 28,
+        "separator_line": "all-page",
+        "arrow_icon_size": 14,
+        "link_hover_color": "",
+        "heading_transform": "none",
+        "custom_text_italic": false,
+        "custom_elements_gap": 22,
+        "enable_custom_image": false,
+        "enable_custom_style": false,
+        "footer_heading_size": 15,
+        "enable_custom_text_big": false,
+        "enable_country_selector": false,
+        "custom_image_size_mobile": 168,
+        "enable_language_selector": false,
+        "custom_image_size_desktop": 144,
+        "custom_text_font_size_mobile": 94,
+        "custom_text_font_size_desktop": 264,
+        "show_policy_links": true
+      },
+      "blocks": {
+        "store_info_1": {
+          "type": "store_info",
+          "settings": {
+            "show_logo": false,
+            "image_width": 140,
+            "store_email": false,
+            "store_phone": false,
+            "store_address": false,
+            "content_width": "40%",
+            "store_heading": "Mateo Ruiz",
+            "store_description": "<p>Strength coach in Valencia and online. Programs in an app, online coaching with a weekly review and 1:1 sessions in Ruzafa.</p>"
+          }
+        },
+        "link_list_1": {
+          "type": "link_list",
+          "settings": {
+            "menu": "footer",
+            "heading": "Train",
+            "content_width": "17%"
+          }
+        },
+        "link_list_2": {
+          "type": "link_list",
+          "settings": {
+            "menu": "footer-help",
+            "heading": "Help",
+            "content_width": "17%"
+          }
+        },
+        "payment_badges_1": {
+          "type": "payment_badges",
+          "settings": {
+            "alignment": "right",
+            "enable_amex": true,
+            "enable_visa": true,
+            "content_width": "100%",
+            "enable_klarna": false,
+            "enable_paypal": true,
+            "enable_apple_pay": true,
+            "enable_google_pay": true,
+            "enable_mastercard": true
+          }
+        },
+        "link_list_3": {
+          "type": "link_list",
+          "settings": {
+            "menu": "footer-hello",
+            "heading": "Elsewhere",
+            "content_width": "17%"
+          }
+        }
+      },
+      "block_order": [
+        "store_info_1",
+        "link_list_1",
+        "link_list_2",
+        "link_list_3",
+        "payment_badges_1"
+      ]
+    }
+  },
+  "order": [
+    "footer"
+  ]
+}

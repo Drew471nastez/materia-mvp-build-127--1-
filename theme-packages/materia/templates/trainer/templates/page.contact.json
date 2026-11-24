@@ -1,0 +1,187 @@
+/* Templates round 25: Mateo Ruiz, a personal strength coach in Valencia and online: a cinematic hero, the coach, three ways to work together, programs, how coaching works, the plan in the app, progress shown honestly, client quotes, questions and a weekly email, built from the theme's own sections. */
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "height": "adapt",
+        "alignment": "left",
+        "padding_top": 72,
+        "padding_bottom": 24,
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "reset_spacing": true,
+        "section_width": "container",
+        "overlay_opacity": 0
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "",
+            "header_size": "medium",
+            "heading_font_size": 44
+          }
+        }
+      },
+      "block_order": [
+        "heading_1"
+      ]
+    },
+    "form": {
+      "type": "contactformsimple2",
+      "settings": {
+        "color_scheme": "default",
+        "btn_text": "Send message",
+        "ph_website": "What you train for (optional)",
+        "label_website": "Goal",
+        "success_text": "Thank you. I reply within a day."
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Write to me"
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "text": "<p>Questions about a program, coaching or sessions in Valencia. I answer every message myself, within a day.</p>"
+          }
+        },
+        "info_3": {
+          "type": "info",
+          "settings": {
+            "icon": "mail",
+            "line1": "hello@example.com",
+            "line2": "Or use the form on this page"
+          }
+        },
+        "info_4": {
+          "type": "info",
+          "settings": {
+            "icon": "map",
+            "line1": "Ruzafa, Valencia, and online",
+            "line2": "Sessions mornings from 7, evenings until 9"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_2",
+        "info_3",
+        "info_4"
+      ]
+    },
+    "faq": {
+      "type": "faq-contact-card",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "section_width": "container",
+        "first_item_open": true,
+        "open_icon": "plus",
+        "card_position": "right",
+        "card_sticky": true,
+        "max_content_width": 1160,
+        "col_gap": 72,
+        "padding_top": 104,
+        "padding_bottom": 104,
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 64,
+        "question_size_desktop": 18
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Questions"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>About coaching, the programs and the free call.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do I need a gym?",
+            "answer": "<p>No. Every program has a gym version and a home version for dumbbells and a bench. Online coaching works with whatever you have.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "I have never lifted. Is that a problem?",
+            "answer": "<p>Most people I coach started there. The first weeks teach the lifts with light weights and plenty of video feedback.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What happens on the free call?",
+            "answer": "<p>Twenty minutes on video. We talk about your training, your week and what you want. If I am not the right coach for you, I say so and point you somewhere better.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I pause online coaching?",
+            "answer": "<p>Yes. Pause or stop before your next month starts, by email or from your account. There is no minimum term.</p>"
+          }
+        },
+        "card_text_7": {
+          "type": "card_text",
+          "settings": {
+            "heading": "Still deciding?",
+            "text": "<p>Book the free call or send me a message. I answer every message myself, within a day.</p>"
+          }
+        },
+        "button_8": {
+          "type": "button",
+          "settings": {
+            "label": "Book a free call",
+            "link": "/pages/book-a-call",
+            "style": "primary",
+            "full_width": true,
+            "radius": 4
+          }
+        },
+        "contact_line_9": {
+          "type": "contact_line",
+          "settings": {
+            "label": "Write",
+            "text": "Send a message",
+            "link": "/pages/contact"
+          }
+        },
+        "contact_line_10": {
+          "type": "contact_line",
+          "settings": {
+            "label": "Train",
+            "text": "Ruzafa, Valencia, and online",
+            "link": ""
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "card_text_7",
+        "button_8",
+        "contact_line_9",
+        "contact_line_10"
+      ]
+    }
+  },
+  "order": [
+    "heading",
+    "form",
+    "faq"
+  ]
+}

@@ -1,0 +1,910 @@
+/* Templates round 25: Mateo Ruiz, a personal strength coach in Valencia and online: a cinematic hero, the coach, three ways to work together, programs, how coaching works, the plan in the app, progress shown honestly, client quotes, questions and a weekly email, built from the theme's own sections. */
+{
+  "sections": {
+    "hero": {
+      "type": "hero-section-pro",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "full_width",
+        "reset_spacing": true,
+        "elements_alignment_desktop": "flex-start",
+        "elements_alignment_mobile": "flex-start",
+        "desktop_width": 640,
+        "texts_reveal_animation": "fade",
+        "reveal_speed": 800,
+        "reveal_stagger": 120,
+        "animation": "theme",
+        "background_height_desktop": 92,
+        "padding_top": 200,
+        "padding_bottom": 110,
+        "hero_content_padding_left_desktop": 72,
+        "hero_content_padding_right_desktop": 40,
+        "background_height_mobile": 88,
+        "padding_top_mobile": 260,
+        "padding_bottom_mobile": 40,
+        "hero_content_padding_left_mobile": 20,
+        "hero_content_padding_right_mobile": 20
+      },
+      "blocks": {
+        "background_1": {
+          "type": "background",
+          "settings": {
+            "background_image": "shopify://shop_images/trainer-hero.webp",
+            "background_image_mobile": "shopify://shop_images/trainer-hero-phone.webp",
+            "background_brightness": 0.66,
+            "enable_parallax_mouse": false,
+            "image_reveal_animation": "fade"
+          }
+        },
+        "top_text_1": {
+          "type": "top_text",
+          "settings": {
+            "top_text": "Mateo Ruiz, strength coach in Valencia and online",
+            "enable_custom_style": true,
+            "top_text_color": "#e9b394",
+            "font_source": "body",
+            "text_case": "none",
+            "top_text_size_desktop": 15,
+            "top_text_size_mobile": 13,
+            "font_weight": "500",
+            "top_text_gap_from_title": 18
+          }
+        },
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "title_text": "Get strong with a coach who reads every session",
+            "enable_custom_style": true,
+            "title_text_color": "#ffffff",
+            "title_line_height_desktop": 1.02,
+            "title_line_height_mobile": 1.06,
+            "font_source": "heading",
+            "text_case": "none",
+            "letter_spacing": -2,
+            "title_size_desktop": 72,
+            "title_size_mobile": 40,
+            "title_width_desktop": 100,
+            "title_font_weight": "inherit"
+          }
+        },
+        "subheading_1": {
+          "type": "subheading",
+          "settings": {
+            "subheading_text": "Programs in an app, online coaching with a review every week, and 1:1 sessions in Valencia. It starts with a free 20 minute call.",
+            "enable_custom_style": true,
+            "subheading_text_color": "#eae3db",
+            "font_source": "body",
+            "subheading_text_size_desktop": 18,
+            "subheading_text_size_mobile": 16,
+            "subheading_vertical_gap": 22,
+            "subheading_to_button_gap": 34
+          }
+        },
+        "primary_button_1": {
+          "type": "primary_button",
+          "settings": {
+            "button_text": "Book a free call",
+            "button_link": "/pages/book-a-call",
+            "use_theme_button": true,
+            "button_hover_animation": "none",
+            "selected_icon": "none"
+          }
+        },
+        "secondary_button_1": {
+          "type": "secondary_button",
+          "settings": {
+            "enable_secondary_button": true,
+            "secondary_button_text": "See coaching plans",
+            "secondary_button_link": "/collections/all",
+            "use_theme_button": true,
+            "secondary_button_horizontal_gap": 12
+          }
+        }
+      },
+      "block_order": [
+        "background_1",
+        "top_text_1",
+        "heading_1",
+        "subheading_1",
+        "primary_button_1",
+        "secondary_button_1"
+      ]
+    },
+    "coach": {
+      "type": "dual-image-with-text",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "image_position": "left",
+        "text_column_width": 44,
+        "content_align": "left",
+        "content_gap": 18,
+        "aspect_ratio_w": 4,
+        "aspect_ratio_h": 5,
+        "show_dots": false,
+        "gap_desktop": 96,
+        "padding_top_desktop": 120,
+        "padding_bottom_desktop": 120,
+        "side_padding_desktop": 32,
+        "mobile_order": "media_first",
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 64
+      },
+      "blocks": {
+        "main_image_1": {
+          "type": "main_image",
+          "settings": {
+            "image": "shopify://shop_images/trainer-mateo.webp",
+            "alt": "Mateo laughing with a client between sets on the bench press",
+            "anchor": "top_left",
+            "size": 72,
+            "fit": "cover",
+            "position_x": 50,
+            "position_y": 30,
+            "radius": 4
+          }
+        },
+        "accent_image_2": {
+          "type": "accent_image",
+          "settings": {
+            "image": "shopify://shop_images/trainer-cue.webp",
+            "alt": "Mateo counting out the next set with his hands",
+            "anchor": "bottom_right",
+            "size": 44,
+            "offset_x": 0,
+            "offset_y": 0,
+            "above_main": true,
+            "fit": "cover",
+            "radius": 4,
+            "shadow": false,
+            "border_width": 6,
+            "enable_custom_style": true,
+            "border_color": "#fbfaf7",
+            "size_mobile": 46
+          }
+        },
+        "eyebrow_3": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Your coach"
+          }
+        },
+        "heading_4": {
+          "type": "heading",
+          "settings": {
+            "text": "I coach people who want to lift well and keep at it",
+            "tag": "h2",
+            "enable_custom_style": true,
+            "size_desktop": 42,
+            "size_mobile": 30
+          }
+        },
+        "subheading_5": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>I have coached for eight years. Most of the people I train have a desk job, a family and three or four hours a week, so that is what I write for.</p><p>We learn the lifts properly, add weight when you are ready and change the plan when life gets in the way. No shouting, no before and after promises.</p>"
+          }
+        },
+        "button_6": {
+          "type": "button",
+          "settings": {
+            "label": "More about me",
+            "link": "/pages/about",
+            "button_style": "secondary",
+            "radius": 4
+          }
+        }
+      },
+      "block_order": [
+        "main_image_1",
+        "accent_image_2",
+        "eyebrow_3",
+        "heading_4",
+        "subheading_5",
+        "button_6"
+      ]
+    },
+    "ways": {
+      "type": "pricing-cards",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "eyebrow": "Work with me",
+        "heading": "Three ways to train with me",
+        "intro": "<p>A program to follow on your own, coaching online, or sessions in person. All of them start with a plan written around your week.</p>",
+        "heading_size": "h2",
+        "heading_align": "left",
+        "footnote": "Not sure which suits you? The first call is free and there is no sales pitch at the end.",
+        "card_style": "filled",
+        "use_theme_corners": true,
+        "card_gap": 20,
+        "price_size": 40,
+        "mobile_layout": "stack",
+        "section_width": "container",
+        "use_theme_spacing": false,
+        "padding_top": 104,
+        "padding_bottom": 104,
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 64
+      },
+      "blocks": {
+        "plan_1": {
+          "type": "plan",
+          "settings": {
+            "name": "Program",
+            "description": "<p>Twelve weeks to follow on your own, in the app.</p>",
+            "badge": "",
+            "featured": false,
+            "price": "$79",
+            "compare_price": "",
+            "note": "One payment",
+            "features": "Twelve weeks, three or four days a week\nGym and home versions\nA short video for every exercise\nWeights that go up as your logs do\nEmail me your questions",
+            "button_label": "See the programs",
+            "button_link": "/collections/all",
+            "button_style": "secondary"
+          }
+        },
+        "plan_2": {
+          "type": "plan",
+          "settings": {
+            "name": "Online coaching",
+            "description": "<p>Your plan written for you and read every week.</p>",
+            "badge": "Most support",
+            "featured": true,
+            "price": "$189",
+            "compare_price": "",
+            "note": "A month, stop any time",
+            "features": "A plan written for you, four weeks at a time\nI review your logs every Sunday\nFeedback on your lift videos\nMessages answered within a day\nA video call every month",
+            "button_label": "Book a free call",
+            "button_link": "/pages/book-a-call",
+            "button_style": "primary"
+          }
+        },
+        "plan_3": {
+          "type": "plan",
+          "settings": {
+            "name": "1:1 in Valencia",
+            "description": "<p>Sessions in person at a small gym in Ruzafa.</p>",
+            "badge": "",
+            "featured": false,
+            "price": "$65",
+            "compare_price": "",
+            "note": "A session, in packs of 5 or 10",
+            "features": "Every lift taught in person\nA plan for the days between\nMornings before work and evenings\nThe app and the weekly review included",
+            "button_label": "Ask about times",
+            "button_link": "/pages/book-a-call",
+            "button_style": "secondary"
+          }
+        }
+      },
+      "block_order": [
+        "plan_1",
+        "plan_2",
+        "plan_3"
+      ]
+    },
+    "programs": {
+      "type": "products-carousel",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "collection": "all",
+        "items_to_show": 8,
+        "header_alignment": "left",
+        "header_spacing": 36,
+        "items_per_row": 4,
+        "column_gap": 24,
+        "show_arrow": true,
+        "carousel_pagination": "show_progress_bar",
+        "pagination_style": "progress",
+        "pagination_position": "left",
+        "padding_top": 104,
+        "padding_bottom": 104,
+        "items_per_row_mobile": 2
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Programs and coaching"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Start this week",
+            "size_desktop": 40,
+            "size_mobile": 28,
+            "enable_custom_style": true
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Programs you can start on Monday, coaching by the month and a form check if you only want a second pair of eyes.</p>"
+          }
+        },
+        "view_all_4": {
+          "type": "view_all",
+          "settings": {
+            "enabled": true,
+            "label": "See all",
+            "link": "/collections/all",
+            "position": "header"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "view_all_4"
+      ]
+    },
+    "how": {
+      "type": "image-with-text-steps",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "image_position": "right",
+        "column_valign": "center",
+        "image_width_pct": 46,
+        "gap_desktop": 80,
+        "image": "shopify://shop_images/trainer-session.webp",
+        "image_alt": "Mateo kneeling beside a client on the leg press, talking her through the next set",
+        "image_aspect_desktop": "4 / 5",
+        "image_aspect": "4 / 5",
+        "image_radius": 4,
+        "step_style": "numbered_outline",
+        "marker_size": 34,
+        "marker_font_size": 14,
+        "line_style": "solid",
+        "line_thickness": 1,
+        "step_gap_below": 26,
+        "step_title_size": 18,
+        "step_desc_size": 15,
+        "button_radius": 4,
+        "padding_top": 104,
+        "padding_bottom": 104,
+        "side_padding_desktop": 24
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Online coaching"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "How a month of coaching works",
+            "tag": "h2"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Four weeks at a time, built around the days and the kit you actually have.</p>"
+          }
+        },
+        "step_4": {
+          "type": "step",
+          "settings": {
+            "title": "A free call",
+            "description": "<p>Twenty minutes on video: your training so far, your week, old injuries and what you want from the next three months.</p>"
+          }
+        },
+        "step_5": {
+          "type": "step",
+          "settings": {
+            "title": "Your first four weeks",
+            "description": "<p>A plan written for you, in the app within three days. Every exercise has a short video and a weight to start with.</p>"
+          }
+        },
+        "step_6": {
+          "type": "step",
+          "settings": {
+            "title": "Train and log",
+            "description": "<p>Log your weights and how each set felt. Film a set when I ask for one and I reply with what to change.</p>"
+          }
+        },
+        "step_7": {
+          "type": "step",
+          "settings": {
+            "title": "A review every Sunday",
+            "description": "<p>I read your week, answer your questions and adjust the next one. A video call once a month.</p>"
+          }
+        },
+        "button_8": {
+          "type": "button",
+          "settings": {
+            "label": "Book a free call",
+            "url": "/pages/book-a-call"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "step_4",
+        "step_5",
+        "step_6",
+        "step_7",
+        "button_8"
+      ]
+    },
+    "app": {
+      "type": "image-with-text-benefits",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "media_position": "right",
+        "media_column_width": 46,
+        "content_align": "left",
+        "content_gap": 22,
+        "per_row": "1",
+        "media_aspect_w": 4,
+        "media_aspect_h": 5,
+        "media_radius": 4,
+        "benefits_per_row_desktop": "2",
+        "benefit_layout": "vertical",
+        "benefit_padding": 0,
+        "benefit_radius": 0,
+        "benefit_border_width": 0,
+        "icon_size": 36,
+        "icon_padding": 0,
+        "benefit_heading_size": 17,
+        "enable_custom_style": true,
+        "benefit_bg": "rgba(0,0,0,0)",
+        "icon_color": "#b4512a",
+        "icon_bg": "rgba(0,0,0,0)",
+        "benefit_text_size": 15,
+        "gap_desktop": 96,
+        "benefit_gap_desktop": 32,
+        "padding_top_desktop": 120,
+        "padding_bottom_desktop": 120,
+        "mobile_order": "text_first",
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 64
+      },
+      "blocks": {
+        "media_1": {
+          "type": "media",
+          "settings": {
+            "media_type": "image",
+            "image": "shopify://shop_images/trainer-app.webp",
+            "alt": "A phone showing the day's session: four exercises with sets, reps and weights, and a note from Mateo"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Your plan, on your phone",
+            "tag": "h2",
+            "uppercase": false,
+            "enable_custom_style": true,
+            "size_desktop": 42,
+            "size_mobile": 30
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Every session sits in the app: the exercises, the sets and reps and the weight to use. Log what you did and I see it the same day.</p>"
+          }
+        },
+        "benefits_group_4": {
+          "type": "benefits_group",
+          "settings": {}
+        },
+        "benefit_5": {
+          "type": "benefit",
+          "settings": {
+            "heading": "Weights that move",
+            "text": "<p>When your logs say a weight is easy, the next week goes up. When it is not, it waits.</p>",
+            "icon_source": "library",
+            "icon_name": "flame"
+          }
+        },
+        "benefit_6": {
+          "type": "benefit",
+          "settings": {
+            "heading": "A video for every lift",
+            "text": "<p>Filmed in the gym from the front and the side, with the two cues that matter most.</p>",
+            "icon_source": "library",
+            "icon_name": "award"
+          }
+        },
+        "benefit_7": {
+          "type": "benefit",
+          "settings": {
+            "heading": "A note on each session",
+            "text": "<p>One line from me on what to watch for, written for you.</p>",
+            "icon_source": "library",
+            "icon_name": "feather"
+          }
+        },
+        "benefit_8": {
+          "type": "benefit",
+          "settings": {
+            "heading": "Train without signal",
+            "text": "<p>Download the week before you go and log offline in a basement gym.</p>",
+            "icon_source": "library",
+            "icon_name": "clock"
+          }
+        }
+      },
+      "block_order": [
+        "media_1",
+        "heading_2",
+        "subheading_3",
+        "benefits_group_4",
+        "benefit_5",
+        "benefit_6",
+        "benefit_7",
+        "benefit_8"
+      ]
+    },
+    "progress": {
+      "type": "before-and-after-reveal",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "section_width": "full_width",
+        "section_max_width_desktop": 1100,
+        "header_gap": 16,
+        "gap_header_images": 56,
+        "image_aspect": "4 / 5",
+        "image_radius": 4,
+        "before_rotate": -2,
+        "after_rotate": 2,
+        "images_max_width": 820,
+        "images_gap_desktop": 120,
+        "images_gap_mobile": 40,
+        "show_labels": true,
+        "arrow_style": "arrow-thin",
+        "arrow_size": 72,
+        "arrow_size_mobile": 32,
+        "arrow_animation": "none",
+        "padding_top_desktop": 112,
+        "padding_bottom_desktop": 112,
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 64
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Progress, shown honestly",
+            "tag": "h2",
+            "size_enable": true,
+            "size_desktop": 42,
+            "size_mobile": 30,
+            "weight_enable": true,
+            "weight": "600"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Client photos go here only with written consent, taken in the same light and the same place, with no filters. This pair is a sample from one photo shoot, to show the layout.</p>",
+            "max_width": 620
+          }
+        },
+        "before_3": {
+          "type": "before",
+          "settings": {
+            "label": "Week 1",
+            "image": "shopify://shop_images/trainer-week1.webp",
+            "alt": "Sample photo: a woman under a barbell, ready to squat"
+          }
+        },
+        "after_4": {
+          "type": "after",
+          "settings": {
+            "label": "Week 12",
+            "image": "shopify://shop_images/trainer-week12.webp",
+            "alt": "Sample photo: the same woman curling an EZ bar"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "before_3",
+        "after_4"
+      ]
+    },
+    "clients": {
+      "type": "testimonials",
+      "settings": {
+        "color_scheme": "default",
+        "display_mode": "carousel",
+        "columns": 3,
+        "header_alignment": "left",
+        "card_style": "outline",
+        "card_radius": 6,
+        "card_padding": 28,
+        "show_quote_mark": false,
+        "show_rating": false,
+        "avatar_shape": "circle",
+        "avatar_size": 52,
+        "show_arrow": false,
+        "section_width": "container",
+        "carousel_pagination": "show",
+        "pagination_style": "line",
+        "pagination_position": "left",
+        "padding_top": 96,
+        "padding_bottom": 96,
+        "quote_size": 17,
+        "enable_custom_typography": true,
+        "header_spacing_desktop": 44
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "enabled": true,
+            "text": "Clients"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "enabled": true,
+            "text": "What clients say"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "enabled": true,
+            "text": "<p>Sample words to show the layout. Replace them with quotes from your own clients, with their permission.</p>"
+          }
+        },
+        "testimonial_4": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>I started at 54 with a sore back. Mateo had me pulling from blocks for a month before the floor, and my back has been fine since.</p>",
+            "rating": 0,
+            "name": "Sample client",
+            "role": "1:1 in Valencia",
+            "avatar": "shopify://shop_images/trainer-client-1.webp"
+          }
+        },
+        "testimonial_5": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>The weekly review is the part I would pay for on its own. Someone notices when I skip the same exercise three weeks running.</p>",
+            "rating": 0,
+            "name": "Sample client",
+            "role": "Online coaching",
+            "avatar": "shopify://shop_images/trainer-client-2.webp"
+          }
+        },
+        "testimonial_6": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>I train at home with dumbbells and a bench. He never once told me I needed a gym.</p>",
+            "rating": 0,
+            "name": "Sample client",
+            "role": "Strength Foundations",
+            "avatar": "shopify://shop_images/trainer-client-3.webp"
+          }
+        },
+        "testimonial_7": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>I was nervous about the barbell. The first session was only bracing and the hinge, and that was the right call.</p>",
+            "rating": 0,
+            "name": "Sample client",
+            "role": "1:1 in Valencia",
+            "avatar": "shopify://shop_images/trainer-client-4.webp"
+          }
+        },
+        "testimonial_8": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Two kids and shift work. The plan moves when my week does and nobody makes me feel bad about it.</p>",
+            "rating": 0,
+            "name": "Sample client",
+            "role": "Online coaching",
+            "avatar": "shopify://shop_images/trainer-client-5.webp"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "testimonial_4",
+        "testimonial_5",
+        "testimonial_6",
+        "testimonial_7",
+        "testimonial_8"
+      ]
+    },
+    "faq": {
+      "type": "faq-contact-card",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "section_width": "container",
+        "first_item_open": true,
+        "open_icon": "plus",
+        "card_position": "right",
+        "card_sticky": true,
+        "max_content_width": 1160,
+        "col_gap": 72,
+        "padding_top": 104,
+        "padding_bottom": 104,
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 64,
+        "question_size_desktop": 18
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Questions"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>About coaching, the programs and the free call.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do I need a gym?",
+            "answer": "<p>No. Every program has a gym version and a home version for dumbbells and a bench. Online coaching works with whatever you have.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "I have never lifted. Is that a problem?",
+            "answer": "<p>Most people I coach started there. The first weeks teach the lifts with light weights and plenty of video feedback.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What happens on the free call?",
+            "answer": "<p>Twenty minutes on video. We talk about your training, your week and what you want. If I am not the right coach for you, I say so and point you somewhere better.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I pause online coaching?",
+            "answer": "<p>Yes. Pause or stop before your next month starts, by email or from your account. There is no minimum term.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do you write meal plans?",
+            "answer": "<p>I give simple guidance on protein, meals around training and sleep. For a full meal plan or a medical condition I refer you to a registered dietitian.</p>"
+          }
+        },
+        "faq_item_8": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if I get injured?",
+            "answer": "<p>Tell me in your log. We train around it, and I point you to a physio when it needs one. I am a coach, not a doctor.</p>"
+          }
+        },
+        "card_text_9": {
+          "type": "card_text",
+          "settings": {
+            "heading": "Still deciding?",
+            "text": "<p>Book the free call or send me a message. I answer every message myself, within a day.</p>"
+          }
+        },
+        "button_10": {
+          "type": "button",
+          "settings": {
+            "label": "Book a free call",
+            "link": "/pages/book-a-call",
+            "style": "primary",
+            "full_width": true,
+            "radius": 4
+          }
+        },
+        "contact_line_11": {
+          "type": "contact_line",
+          "settings": {
+            "label": "Write",
+            "text": "Send a message",
+            "link": "/pages/contact"
+          }
+        },
+        "contact_line_12": {
+          "type": "contact_line",
+          "settings": {
+            "label": "Train",
+            "text": "Ruzafa, Valencia, and online",
+            "link": ""
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7",
+        "faq_item_8",
+        "card_text_9",
+        "button_10",
+        "contact_line_11",
+        "contact_line_12"
+      ]
+    },
+    "letter": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "email_label": "Email address",
+        "email_placeholder": "Your email",
+        "btn_text": "Sign up",
+        "note": "One email on Mondays. Leave any time.",
+        "subscribed_button_text": "Signed up",
+        "success_text": "Thank you. The first session arrives on Monday.",
+        "image_position": "left",
+        "content_alignment": "left",
+        "form_layout": "horizontal",
+        "image_width": 46,
+        "column_gap": 80,
+        "image": "shopify://shop_images/trainer-checkin.webp",
+        "image_alt": "Mateo walking a client through her next exercise",
+        "image_ratio": "square",
+        "button_style": "primary",
+        "use_theme_button": true,
+        "button_radius": 4,
+        "padding_top": 0,
+        "padding_bottom": 0,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 48
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "One session a week, by email",
+            "size_enable": true,
+            "size_desktop": 38,
+            "size_mobile": 28
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>A workout you can do in 40 minutes, one lift explained properly and nothing else. Every Monday.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    }
+  },
+  "order": [
+    "hero",
+    "coach",
+    "ways",
+    "programs",
+    "how",
+    "app",
+    "progress",
+    "clients",
+    "faq",
+    "letter"
+  ]
+}

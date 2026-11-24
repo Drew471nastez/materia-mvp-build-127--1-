@@ -1,0 +1,295 @@
+/* Templates round 25: Mateo Ruiz, a personal strength coach in Valencia and online: a cinematic hero, the coach, three ways to work together, programs, how coaching works, the plan in the app, progress shown honestly, client quotes, questions and a weekly email, built from the theme's own sections. */
+{
+  "sections": {
+    "intro": {
+      "type": "hero-split-media",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "full_width",
+        "image_position": "right",
+        "media_width_desktop": 52,
+        "content_align": "left",
+        "vertical_align": "center",
+        "content_max_width": 520,
+        "content_gap": 18,
+        "min_height_desktop": 560,
+        "image": "shopify://shop_images/trainer-talk.webp",
+        "image_alt": "Mateo talking a client through her plan on the gym floor",
+        "image_position_x": 35,
+        "image_position_y": 40,
+        "padding_top_desktop": 88,
+        "padding_bottom_desktop": 88,
+        "side_padding_desktop": 72,
+        "mobile_image_first": true,
+        "media_height_mobile": 300,
+        "padding_top_mobile": 36,
+        "padding_bottom_mobile": 44
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Free, 20 minutes, on video"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Book a free call",
+            "enable_custom_style": true,
+            "size_enable": true,
+            "size_desktop": 56,
+            "size_mobile": 38,
+            "line_height": 1.04
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Tell me about your training, your week and what you want from the next three months. You leave with a clear next step, whether or not it is with me.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3"
+      ]
+    },
+    "form": {
+      "type": "journey-storelib-form",
+      "settings": {
+        "heading": "Pick a time",
+        "text": "<p>Choose a slot and answer three short questions. If the booking form does not show yet, <a href=\"/pages/contact\">send me a message</a> and I will reply with times.</p>",
+        "text_align": "left",
+        "color_scheme": "default",
+        "max_width": 880,
+        "padding_top_desktop": 80,
+        "padding_bottom_desktop": 80,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 48
+      }
+    },
+    "call": {
+      "type": "image-with-text-steps",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "section_width": "container",
+        "image_position": "left",
+        "column_valign": "center",
+        "image_width_pct": 46,
+        "gap_desktop": 80,
+        "image": "shopify://shop_images/trainer-checkin.webp",
+        "image_alt": "Mateo explaining the next exercise to a client",
+        "image_aspect_desktop": "4 / 5",
+        "image_aspect": "4 / 5",
+        "image_radius": 4,
+        "step_style": "numbered_outline",
+        "marker_size": 34,
+        "marker_font_size": 14,
+        "line_style": "solid",
+        "line_thickness": 1,
+        "step_gap_below": 26,
+        "step_title_size": 18,
+        "step_desc_size": 15,
+        "button_radius": 4,
+        "padding_top": 104,
+        "padding_bottom": 104,
+        "side_padding_desktop": 24
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "The call"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "What happens on the call",
+            "tag": "h2"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>No sales script. If a program on your own suits you better than coaching, I will tell you.</p>"
+          }
+        },
+        "step_4": {
+          "type": "step",
+          "settings": {
+            "title": "Your training so far",
+            "description": "<p>What you have done, what worked, what hurt and what you stopped.</p>"
+          }
+        },
+        "step_5": {
+          "type": "step",
+          "settings": {
+            "title": "Your week",
+            "description": "<p>The days and the hours you really have, and the kit you can get to.</p>"
+          }
+        },
+        "step_6": {
+          "type": "step",
+          "settings": {
+            "title": "What you want",
+            "description": "<p>A lift, a feeling, an event, or simply to keep going this time.</p>"
+          }
+        },
+        "step_7": {
+          "type": "step",
+          "settings": {
+            "title": "A next step",
+            "description": "<p>A program, coaching or a session in person, with the price and when you would start.</p>"
+          }
+        },
+        "button_8": {
+          "type": "button",
+          "settings": {
+            "label": "See the programs",
+            "url": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "step_4",
+        "step_5",
+        "step_6",
+        "step_7",
+        "button_8"
+      ]
+    },
+    "faq": {
+      "type": "faq-contact-card",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "first_item_open": true,
+        "open_icon": "plus",
+        "card_position": "right",
+        "card_sticky": true,
+        "max_content_width": 1160,
+        "col_gap": 72,
+        "padding_top": 104,
+        "padding_bottom": 104,
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 64,
+        "question_size_desktop": 18
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Questions"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>About coaching, the programs and the free call.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do I need a gym?",
+            "answer": "<p>No. Every program has a gym version and a home version for dumbbells and a bench. Online coaching works with whatever you have.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "I have never lifted. Is that a problem?",
+            "answer": "<p>Most people I coach started there. The first weeks teach the lifts with light weights and plenty of video feedback.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What happens on the free call?",
+            "answer": "<p>Twenty minutes on video. We talk about your training, your week and what you want. If I am not the right coach for you, I say so and point you somewhere better.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I pause online coaching?",
+            "answer": "<p>Yes. Pause or stop before your next month starts, by email or from your account. There is no minimum term.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do you write meal plans?",
+            "answer": "<p>I give simple guidance on protein, meals around training and sleep. For a full meal plan or a medical condition I refer you to a registered dietitian.</p>"
+          }
+        },
+        "faq_item_8": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if I get injured?",
+            "answer": "<p>Tell me in your log. We train around it, and I point you to a physio when it needs one. I am a coach, not a doctor.</p>"
+          }
+        },
+        "card_text_9": {
+          "type": "card_text",
+          "settings": {
+            "heading": "Still deciding?",
+            "text": "<p>Book the free call or send me a message. I answer every message myself, within a day.</p>"
+          }
+        },
+        "button_10": {
+          "type": "button",
+          "settings": {
+            "label": "Book a free call",
+            "link": "/pages/book-a-call",
+            "style": "primary",
+            "full_width": true,
+            "radius": 4
+          }
+        },
+        "contact_line_11": {
+          "type": "contact_line",
+          "settings": {
+            "label": "Write",
+            "text": "Send a message",
+            "link": "/pages/contact"
+          }
+        },
+        "contact_line_12": {
+          "type": "contact_line",
+          "settings": {
+            "label": "Train",
+            "text": "Ruzafa, Valencia, and online",
+            "link": ""
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7",
+        "faq_item_8",
+        "card_text_9",
+        "button_10",
+        "contact_line_11",
+        "contact_line_12"
+      ]
+    }
+  },
+  "order": [
+    "intro",
+    "form",
+    "call",
+    "faq"
+  ]
+}

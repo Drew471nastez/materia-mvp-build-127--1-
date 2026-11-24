@@ -1,0 +1,106 @@
+/* Templates round 25: Mateo Ruiz, a personal strength coach in Valencia and online: a cinematic hero, the coach, three ways to work together, programs, how coaching works, the plan in the app, progress shown honestly, client quotes, questions and a weekly email, built from the theme's own sections. */
+{
+  "sections": {
+    "main": {
+      "type": "page-404",
+      "settings": {
+        "padding_top": 58,
+        "reset_spacing": false,
+        "section_width": "fluid_container",
+        "padding_bottom": 56
+      },
+      "blocks": {
+        "image_VQTRFT": {
+          "type": "image",
+          "settings": {}
+        },
+        "heading_6nj4md": {
+          "type": "heading",
+          "settings": {
+            "heading": "This page is not here",
+            "font_size": 36,
+            "uppercase": false,
+            "font_weight": "heading_weight",
+            "spacing_bottom": 20
+          }
+        },
+        "subheading_yFdKEQ": {
+          "type": "subheading",
+          "settings": {
+            "font_size": 15,
+            "uppercase": false,
+            "subheading": "The programs, coaching and the free call are one click away.",
+            "font_weight": "body_weight",
+            "spacing_bottom": 40
+          }
+        },
+        "button_4yrfiE": {
+          "type": "button",
+          "settings": {
+            "open_link": false,
+            "spacing_bottom": 0,
+            "first_button_link": "/",
+            "first_button_type": "primary",
+            "first_button_label": "Back to the home page"
+          }
+        }
+      },
+      "block_order": [
+        "image_VQTRFT",
+        "heading_6nj4md",
+        "subheading_yFdKEQ",
+        "button_4yrfiE"
+      ]
+    },
+    "cta": {
+      "type": "banner3",
+      "settings": {
+        "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636",
+        "banner_surface": "section",
+        "max_width": 720,
+        "pad_top_desktop": 96,
+        "pad_bottom_desktop": 96,
+        "text_align": "center"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Free 20 minute call",
+            "transform": "uppercase"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Not sure where to start?",
+            "transform": "none"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "Tell me about your training and your week. If I am not the right coach for you, I will say so."
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "Book a free call",
+            "link": "/pages/book-a-call"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
+    }
+  },
+  "order": [
+    "main",
+    "cta"
+  ]
+}

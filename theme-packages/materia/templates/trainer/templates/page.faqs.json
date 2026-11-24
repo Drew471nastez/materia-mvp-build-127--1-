@@ -1,0 +1,298 @@
+/* Templates round 25: Mateo Ruiz, a personal strength coach in Valencia and online: a cinematic hero, the coach, three ways to work together, programs, how coaching works, the plan in the app, progress shown honestly, client quotes, questions and a weekly email, built from the theme's own sections. */
+{
+  "sections": {
+    "faq": {
+      "type": "faq-tabs",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "tab_1_label": "Getting started",
+        "tab_2_label": "Programs",
+        "tab_3_label": "Coaching",
+        "open_first": true,
+        "allow_multiple_open": false,
+        "header_align": "left",
+        "section_max_width_desktop": 880,
+        "q_size": 18,
+        "q_weight": "600",
+        "padding_top_desktop": 88,
+        "padding_bottom_desktop": 104
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Questions",
+            "tag": "h1",
+            "size_enable": true,
+            "size_desktop": 52,
+            "size_mobile": 36
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>About coaching, the programs and sessions in Valencia. Anything else, <a href=\"/pages/contact\">write to me</a>.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "What is the difference between a program and coaching?",
+            "answer": "<p>A program is twelve weeks written for a kind of person. Coaching is written for you, four weeks at a time, and I read every session you log.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "Do I need a gym?",
+            "answer": "<p>No. Every program has a gym version and a home version for dumbbells and a bench. Online coaching works with whatever you have.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "I have never lifted. Is that a problem?",
+            "answer": "<p>Most people I coach started there. The first weeks teach the lifts with light weights and plenty of video feedback.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "What if I get injured?",
+            "answer": "<p>Tell me in your log. We train around it, and I point you to a physio when it needs one. I am a coach, not a doctor.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "1",
+            "question": "Do you write meal plans?",
+            "answer": "<p>I give simple guidance on protein, meals around training and sleep. For a full meal plan or a medical condition I refer you to a registered dietitian.</p>"
+          }
+        },
+        "faq_item_8": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "2",
+            "question": "How do I get my program?",
+            "answer": "<p>Straight after checkout you get a link to the app and an email with the same link. The first week is ready to start.</p>"
+          }
+        },
+        "faq_item_9": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "2",
+            "question": "Which program should I pick?",
+            "answer": "<p>Strength Foundations if you are new or coming back. Not sure? Book the free call or send me a message.</p>"
+          }
+        },
+        "faq_item_10": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "2",
+            "question": "Can I swap a program?",
+            "answer": "<p>Yes, for another program within 14 days. Write to me and it is done the same day.</p>"
+          }
+        },
+        "faq_item_11": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "How does online coaching start?",
+            "answer": "<p>With the free call. After it you get a short form, then your first four weeks in the app within three days.</p>"
+          }
+        },
+        "faq_item_12": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "How often do we talk?",
+            "answer": "<p>Messages in the app any day, a written review every Sunday and a video call once a month.</p>"
+          }
+        },
+        "faq_item_13": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "Can I pause or stop?",
+            "answer": "<p>Yes. Pause or stop before your next month starts, by email or from your account. There is no minimum term.</p>"
+          }
+        },
+        "faq_item_14": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "Where are the sessions in person?",
+            "answer": "<p>At a quiet gym in Ruzafa, Valencia. Mornings from 7 and evenings until 9, in packs of 5 or 10.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7",
+        "faq_item_8",
+        "faq_item_9",
+        "faq_item_10",
+        "faq_item_11",
+        "faq_item_12",
+        "faq_item_13",
+        "faq_item_14"
+      ]
+    },
+    "how": {
+      "type": "image-with-text-steps",
+      "settings": {
+        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "section_width": "container",
+        "image_position": "right",
+        "column_valign": "center",
+        "image_width_pct": 46,
+        "gap_desktop": 80,
+        "image": "shopify://shop_images/trainer-session.webp",
+        "image_alt": "Mateo kneeling beside a client on the leg press, talking her through the next set",
+        "image_aspect_desktop": "4 / 5",
+        "image_aspect": "4 / 5",
+        "image_radius": 4,
+        "step_style": "numbered_outline",
+        "marker_size": 34,
+        "marker_font_size": 14,
+        "line_style": "solid",
+        "line_thickness": 1,
+        "step_gap_below": 26,
+        "step_title_size": 18,
+        "step_desc_size": 15,
+        "button_radius": 4,
+        "padding_top": 104,
+        "padding_bottom": 104,
+        "side_padding_desktop": 24
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Online coaching"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "How a month of coaching works",
+            "tag": "h2"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Four weeks at a time, built around the days and the kit you actually have.</p>"
+          }
+        },
+        "step_4": {
+          "type": "step",
+          "settings": {
+            "title": "A free call",
+            "description": "<p>Twenty minutes on video: your training so far, your week, old injuries and what you want from the next three months.</p>"
+          }
+        },
+        "step_5": {
+          "type": "step",
+          "settings": {
+            "title": "Your first four weeks",
+            "description": "<p>A plan written for you, in the app within three days. Every exercise has a short video and a weight to start with.</p>"
+          }
+        },
+        "step_6": {
+          "type": "step",
+          "settings": {
+            "title": "Train and log",
+            "description": "<p>Log your weights and how each set felt. Film a set when I ask for one and I reply with what to change.</p>"
+          }
+        },
+        "step_7": {
+          "type": "step",
+          "settings": {
+            "title": "A review every Sunday",
+            "description": "<p>I read your week, answer your questions and adjust the next one. A video call once a month.</p>"
+          }
+        },
+        "button_8": {
+          "type": "button",
+          "settings": {
+            "label": "Book a free call",
+            "url": "/pages/book-a-call"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "step_4",
+        "step_5",
+        "step_6",
+        "step_7",
+        "button_8"
+      ]
+    },
+    "cta": {
+      "type": "banner3",
+      "settings": {
+        "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636",
+        "banner_surface": "section",
+        "max_width": 720,
+        "pad_top_desktop": 96,
+        "pad_bottom_desktop": 96,
+        "text_align": "center"
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Free 20 minute call",
+            "transform": "uppercase"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Not sure where to start?",
+            "transform": "none"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "Tell me about your training and your week. If I am not the right coach for you, I will say so."
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "Book a free call",
+            "link": "/pages/book-a-call"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
+    }
+  },
+  "order": [
+    "faq",
+    "how",
+    "cta"
+  ]
+}
