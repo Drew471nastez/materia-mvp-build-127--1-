@@ -857,7 +857,8 @@
         "form",
         "image",
         "dismiss"
-      ]
+      ],
+      "disabled": true
     },
     "order_notification_pro_1": {
       "type": "fake-order",
