@@ -7,15 +7,18 @@
  * The right column's top on an app's listing: one large frame and two tiles
  * beside it from 1024px, a row that scrolls sideways with a snap on a phone.
  *
- *   VIDEOS    the provider's demo and up to three more, each checked
+ *   VIDEO     exactly one (r24, the owner): the provider's demo, checked
  *             against its own YouTube channel (lib/integrations/videos.ts).
- *             Each is shown by its own YouTube thumbnail, from i.ytimg.com,
- *             lazy, sized and in a box that has its shape before it comes.
- *             Pressing the large one, or a tile, plays it: a
- *             youtube-nocookie frame takes the poster's exact box. Nothing
- *             is asked of youtube.com before a press. More than three, and
- *             the second tile says "+ 2 more", as Shopify's app pages do.
- *   PICTURES  files in /public with their source noted, when there are any.
+ *             A lite embed: its own YouTube thumbnail, from i.ytimg.com,
+ *             lazy, sized and in a box that has its shape before it comes,
+ *             with a play button. Pressing it (large, or its tile) puts a
+ *             youtube-nocookie frame in the poster's exact box. Nothing is
+ *             asked of youtube.com before a press, and only the layout that
+ *             was pressed loads the frame (the other is hidden, and a hidden
+ *             frame would still load and play).
+ *   PICTURES  Storelib's own pictures of the app connected to a store
+ *             (lib/integrations/shots.ts): WebP at three widths with a
+ *             srcset, lazy, 16:9, their size written on the tag.
  *   SCENES    otherwise (and to fill the frames when there are fewer than
  *             three videos), Storelib's own UI drawn small: what the
  *             integration does here, in the page's own type and colours.
@@ -145,12 +148,12 @@ function SceneFrame({ item, frame, large }: { item: Pick<Integration, "id" | "na
   )
 }
 
-type Slide = { kind: "video"; id: string; title: string; channel: string } | { kind: "image"; src: string; alt: string } | { kind: "scene"; frame: Frame }
+type Slide = { kind: "video"; id: string; title: string; channel: string } | { kind: "image"; src: string; alt: string; srcSet?: string; width?: number; height?: number } | { kind: "scene"; frame: Frame }
 
-/** The slides in order: the demo, the provider's other checked videos, pictures, then Storelib's drawn scenes to fill the frames (all of them when there is no video). */
+/** The slides in order: the one video, the pictures, then Storelib's drawn scenes to fill the frames (all of them when there is neither). */
 export function slidesOf(item: Pick<Integration, "name">, media: AppMedia): Slide[] {
-  const videos = [media.video, ...media.more].filter((v): v is NonNullable<typeof v> => !!v).map((v) => ({ kind: "video" as const, id: v.youtubeId, title: v.title, channel: v.channel }))
-  const pictures = media.screenshots.map((s) => ({ kind: "image" as const, src: s.src, alt: s.alt }))
+  const videos = media.video ? [{ kind: "video" as const, id: media.video.youtubeId, title: media.video.title, channel: media.video.channel }] : []
+  const pictures = media.screenshots.map((s) => ({ kind: "image" as const, src: s.src, alt: s.alt, srcSet: s.srcSet, width: s.width, height: s.height }))
   const drawn = scenes(media.scene, item.name).map((frame) => ({ kind: "scene" as const, frame }))
   const own = [...videos, ...pictures]
   return own.length >= 3 ? own : [...own, ...drawn].slice(0, 3)
@@ -233,20 +236,29 @@ function VideoSlide({ item, id, title, color, playing, onPlay }: { item: Pick<In
   )
 }
 
+/** One of Storelib's pictures: lazy, its widths offered, its size on the tag so the box never waits for it. */
+function Shot({ s, sizes, tile = false }: { s: Extract<Slide, { kind: "image" }>; sizes: string; tile?: boolean }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={s.src} srcSet={s.srcSet} sizes={s.srcSet ? sizes : undefined} width={s.width} height={s.height} alt={s.alt} className={cn("h-full w-full object-cover", tile && "object-left-top")} loading="lazy" decoding="async" data-app-photo="" data-app-shot="" />
+  )
+}
+
 export function AppMediaGallery({ item, media, color }: { item: Pick<Integration, "id" | "name" | "logo">; media: AppMedia; color: string }) {
   const slides = slidesOf(item, media)
   const [at, setAt] = React.useState(0)
   /* The one video playing, by its slide: only ever one, and it stops when another slide is shown. */
   const [playing, setPlaying] = React.useState<number | null>(null)
+  /* Which layout was pressed: the computer's frame or the phone's row. Only that one loads the player. */
+  const [where, setWhere] = React.useState<"grid" | "row">("grid")
   const label = (s: Slide) => (s.kind === "scene" ? s.frame.title : s.kind === "video" ? tt("Play {title}", { title: s.title }) : s.alt)
-  /* A video's frame is 16:9, as its thumbnail is; Storelib's drawn scenes keep the 16:10 they were drawn for. */
-  const shape = slides[0]?.kind === "video" ? "aspect-video" : "aspect-[16/10]"
+  /* A video's frame is 16:9, as its thumbnail and Storelib's pictures are; the drawn scenes keep the 16:10 they were drawn for. */
+  const shape = slides[0]?.kind === "scene" ? "aspect-[16/10]" : "aspect-video"
   const large = (s: Slide, i: number) =>
     s.kind === "video" ? (
-      <VideoSlide item={item} id={s.id} title={s.title} color={color} playing={playing === i} onPlay={() => setPlaying(i)} />
+      <VideoSlide item={item} id={s.id} title={s.title} color={color} playing={playing === i && where === "row"} onPlay={() => { setWhere("row"); setPlaying(i) }} />
     ) : s.kind === "image" ? (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={s.src} alt={s.alt} className="h-full w-full object-cover" loading="lazy" decoding="async" data-app-photo="" />
+      <Shot s={s} sizes="(min-width: 640px) 520px, 86vw" />
     ) : (
       <SceneFrame item={item} frame={s.frame} large />
     )
@@ -259,8 +271,8 @@ export function AppMediaGallery({ item, media, color }: { item: Pick<Integration
         </span>
       </>
     ) : s.kind === "image" ? (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={s.src} alt={s.alt} className="h-full w-full object-cover" loading="lazy" decoding="async" data-app-photo="" />
+      /* A tile is squarer than the picture: it keeps the app's name and the page's title, at its top left. */
+      <Shot s={s} sizes="280px" tile />
     ) : (
       <SceneFrame item={item} frame={s.frame} large={false} />
     )
@@ -271,6 +283,7 @@ export function AppMediaGallery({ item, media, color }: { item: Pick<Integration
   const choose = (i: number) => {
     setAt(i)
     /* A video's tile plays it: pressing a picture of a video means watch it. */
+    setWhere("grid")
     setPlaying(slides[i]?.kind === "video" ? i : null)
   }
   return (
@@ -281,7 +294,13 @@ export function AppMediaGallery({ item, media, color }: { item: Pick<Integration
           {slides.map((s, i) => (
             <div key={i} className={cn("absolute inset-0 transition-opacity duration-200 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none", i === at ? "opacity-100" : "pointer-events-none opacity-0")} inert={i !== at} aria-hidden={i !== at}>
               {/* Only the shown one can be playing: another slide stops it. */}
-              {s.kind === "video" ? <VideoSlide item={item} id={s.id} title={s.title} color={color} playing={playing === i && at === i} onPlay={() => setPlaying(i)} /> : large(s, i)}
+              {s.kind === "video" ? (
+                <VideoSlide item={item} id={s.id} title={s.title} color={color} playing={playing === i && at === i && where === "grid"} onPlay={() => { setWhere("grid"); setPlaying(i) }} />
+              ) : s.kind === "image" ? (
+                <Shot s={s} sizes="(min-width: 1440px) 720px, 56vw" />
+              ) : (
+                large(s, i)
+              )}
             </div>
           ))}
         </div>

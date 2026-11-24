@@ -58,7 +58,8 @@ console.log("\nEvery integration's demo, checked on its provider's own channel\n
   check("  nothing for one not yet available, and no ID for an integration that does not exist", Object.keys(VERIFIED_VIDEOS).every((id) => installable.some((i) => i.id === id)) && Object.keys(GALLERY_VIDEOS).every((id) => !!VERIFIED_VIDEOS[id]))
   check("  2 to 4 videos for each provider that has any", Object.keys(VERIFIED_VIDEOS).every((id) => { const n = 1 + (GALLERY_VIDEOS[id]?.length ?? 0); return n >= 2 && n <= 4 }))
   check("  the demos named in the report: Printful's what it is, ShipStation's overview, Klaviyo's what it is", VERIFIED_VIDEOS.printful?.youtubeId === "u04owj7jiM4" && VERIFIED_VIDEOS.printful.channel === "Printful Custom Printing" && VERIFIED_VIDEOS.shipstation?.youtubeId === "V50bZh_o3uo" && VERIFIED_VIDEOS.klaviyo?.youtubeId === "6Pxd9VKH2Gg")
-  check("  mediaFor gives the demo and the rest; none for one coming soon", mediaFor(integrationById("printful")!).video?.youtubeId === "u04owj7jiM4" && mediaFor(integrationById("printful")!).more.length === 3 && mediaFor(integrationById("sendcloud")!).video === null && mediaFor(integrationById("telegram")!).more.length === 0)
+  /* Changed on purpose (r24, the owner): the gallery shows exactly one video; the rest stay here, checked, for the record. */
+  check("  mediaFor gives the demo alone, and Storelib's pictures; none for one coming soon", mediaFor(integrationById("printful")!).video?.youtubeId === "u04owj7jiM4" && !("more" in mediaFor(integrationById("printful")!)) && mediaFor(integrationById("printful")!).screenshots.length === 2 && mediaFor(integrationById("sendcloud")!).video === null && mediaFor(integrationById("sendcloud")!).screenshots.length === 0)
 }
 
 console.log("\nThe gallery: the providers' own thumbnails, loaded from YouTube's image host\n")
@@ -66,23 +67,24 @@ console.log("\nThe gallery: the providers' own thumbnails, loaded from YouTube's
   check("a thumbnail is i.ytimg.com's maxresdefault, only for a well formed ID", youtubeThumbUrl("u04owj7jiM4") === "https://i.ytimg.com/vi/u04owj7jiM4/maxresdefault.jpg" && youtubeThumbUrl("../x") === null && youtubeThumbUrl("abc\"def") === null)
   const pub = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap((d) => (d.isDirectory() ? pub(join(dir, d.name)) : [d.name]))
   check("  none is copied into /public", existsSync("public") && !pub("public").some((f) => /maxresdefault|hqdefault|ytimg/.test(f)))
+  /* Changed on purpose (r24, the owner): one video, its own YouTube cover; the other frames are Storelib's pictures of the app connected (tests/integrations-r24). */
   const printful = integrationById("printful")!
   const html = renderToStaticMarkup(React.createElement(AppMediaGallery, { item: printful, media: mediaFor(printful), color: "#2c2c2c" }))
-  const imgs = html.match(/<img[^>]*data-app-photo[^>]*>/g) ?? []
-  check("Printful: its 4 videos, each thumbnail lazy, 1280 by 720, with its title as alt text", slidesOf(printful, mediaFor(printful)).length === 4 && imgs.length > 0 && imgs.every((t) => /loading="lazy"/.test(t) && /width="1280"/.test(t) && /height="720"/.test(t) && /alt="[^"]{8,}"/.test(t) && /src="https:\/\/i\.ytimg\.com\/vi\/[\w-]{11}\/maxresdefault\.jpg"/.test(t)), imgs.slice(0, 2))
-  check("  every frame has its shape before the picture comes (16:9, as the thumbnails are)", /aspect-video/.test(html) && !/aspect-\[16\/10\]/.test(html))
-  check("  the fourth is counted on the second tile, as Shopify's app pages do", /data-app-gallery-more="1"/.test(html) && />\+ 1 more</.test(html))
-  check("  a tile is a button that plays its video", (html.match(/data-app-gallery-thumb=/g) ?? []).length === 2 && /aria-label="Play [^"]+"/.test(html))
+  const thumbs = (html.match(/<img[^>]*src="https:\/\/i\.ytimg[^>]*>/g) ?? [])
+  check("Printful: one video and two pictures, the video's cover lazy, 1280 by 720, with its title as alt text", slidesOf(printful, mediaFor(printful)).map((x) => x.kind).join() === "video,image,image" && thumbs.length > 0 && thumbs.every((t) => /loading="lazy"/.test(t) && /width="1280"/.test(t) && /height="720"/.test(t) && /alt="[^"]{8,}"/.test(t) && /maxresdefault\.jpg/.test(t)) && new Set(thumbs.map((t) => t.match(/vi\/([\w-]{11})\//)![1])).size === 1, thumbs.slice(0, 2))
+  check("  every frame has its shape before the picture comes (16:9, as the cover and the pictures are)", /aspect-video/.test(html) && !/aspect-\[16\/10\]/.test(html))
+  check("  three frames, nothing counted past them", !/data-app-gallery-more/.test(html))
+  check("  a tile is a button: the pictures open in the large frame", (html.match(/data-app-gallery-thumb=/g) ?? []).length === 2)
   check("  nothing from youtube.com and no frame until a press", !/youtube(-nocookie)?\.com/.test(html) && !/<iframe/.test(html))
   const pin = integrationById("pinterest-tag")!
   const pinSlides = slidesOf(pin, mediaFor(pin))
-  check("Pinterest Tag: two videos, and one of Storelib's drawn scenes to fill the third frame", pinSlides.map((s) => s.kind).join() === "video,video,scene")
+  check("Pinterest Tag: its video and two pictures of its tag events", pinSlides.map((s) => s.kind).join() === "video,image,image")
   const tg = integrationById("telegram")!
   const tgHtml = renderToStaticMarkup(React.createElement(AppMediaGallery, { item: tg, media: mediaFor(tg), color: "#2c2c2c" }))
   check("Telegram, with none found: Storelib's drawn scenes, no picture from YouTube", slidesOf(tg, mediaFor(tg)).every((s) => s.kind === "scene") && !/ytimg/.test(tgHtml) && /aspect-\[16\/10\]/.test(tgHtml))
   const media = read("components/app/integrations/app-media.tsx")
   check("the embed is still youtube-nocookie, only on a press, in the poster's own box", /youtubeEmbedUrl\(id\)/.test(media) && /playing \? \(\s*<iframe src=\{src\}/.test(media) && /className="absolute inset-0 h-full w-full border-0/.test(media))
-  check("  one video plays at a time; showing another slide stops it", /playing=\{playing === i && at === i\}/.test(media) && /setPlaying\(slides\[i\]\?\.kind === "video" \? i : null\)/.test(media))
+  check("  one video plays at a time; showing another slide stops it; only the layout pressed loads the frame", /playing=\{playing === i && at === i && where === "grid"\}/.test(media) && /playing=\{playing === i && where === "row"\}/.test(media) && /setPlaying\(slides\[i\]\?\.kind === "video" \? i : null\)/.test(media))
   check("  a thumbnail that does not come leaves the tint and the mark, never a hole", /onError=\{\(\) => setState\("failed"\)\}/.test(media) && /state === "failed" \|\| !src/.test(media))
   check("  it fades in on opacity alone", /transition-opacity duration-200[^"]*", state === "ready" \? "opacity-100" : "opacity-0"/.test(media))
 }

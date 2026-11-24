@@ -30,6 +30,7 @@ import { CATEGORY_NAMES, type Integration } from "@/lib/integrations/catalog"
 import { TRACKERS } from "@/lib/store/tracking"
 import { installVerb, oneTapInstall, setupSteps } from "@/lib/integrations/detail-actions"
 import { GALLERY_VIDEOS, VERIFIED_VIDEOS, type VerifiedVideo } from "@/lib/integrations/videos"
+import { APP_SHOTS, SHOT_HEIGHT, SHOT_WIDTH, shotSrc, shotSrcSet } from "@/lib/integrations/shots"
 
 export { GALLERY_VIDEOS, VERIFIED_VIDEOS, type VerifiedVideo }
 
@@ -39,21 +40,30 @@ export interface AppScreenshot {
   alt: string
   /** Where it came from (a press kit's address, or "Storelib"). */
   source: string
+  /** Every width it was written at, for the browser to choose from. */
+  srcSet?: string
+  width?: number
+  height?: number
 }
 
 /** What the gallery's illustration draws: what the integration does in Storelib, in Storelib's own UI. */
 export type SceneKind = "orders" | "labels" | "shipments" | "subscribers" | "pixel" | "reviews" | "bookings" | "community" | "signups" | "parcels" | "analytics" | "soon"
 
 export interface AppMedia {
+  /** The one video (r24: exactly one, the demo; the provider's other checked videos stay in lib/integrations/videos for the record). */
   video: VerifiedVideo | null
-  /** More checked videos from the provider, shown as thumbnail tiles. */
-  more: VerifiedVideo[]
   screenshots: AppScreenshot[]
   scene: SceneKind
 }
 
-/** Pictures by catalog id. Empty: no press kit image was reachable to check its terms (round 58). */
-export const SCREENSHOTS: Partial<Record<string, AppScreenshot[]>> = {}
+/**
+ * Pictures by catalog id (r24): Storelib's own drawings of each app as it
+ * looks connected to a store (lib/integrations/shots.ts), source "Storelib".
+ * No press kit image is used (round 58: none was reachable to check its terms).
+ */
+export const SCREENSHOTS: Partial<Record<string, AppScreenshot[]>> = Object.fromEntries(
+  Object.entries(APP_SHOTS).map(([id, list]) => [id, (list ?? []).map((s) => ({ src: shotSrc(id, s.view, SHOT_WIDTH), srcSet: shotSrcSet(id, s.view), width: SHOT_WIDTH, height: SHOT_HEIGHT, alt: s.alt, source: "Storelib" }))]),
+)
 
 /** An 11 character YouTube ID, and nothing else. */
 export const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/
@@ -91,7 +101,7 @@ export function sceneFor(item: Integration): SceneKind {
 
 export function mediaFor(item: Integration): AppMedia {
   const video = item.comingSoon || item.kind === "listed" ? null : (VERIFIED_VIDEOS[item.id] ?? null)
-  return { video, more: video ? (GALLERY_VIDEOS[item.id] ?? []) : [], screenshots: SCREENSHOTS[item.id] ?? [], scene: sceneFor(item) }
+  return { video, screenshots: item.comingSoon || item.kind === "listed" ? [] : (SCREENSHOTS[item.id] ?? []), scene: sceneFor(item) }
 }
 
 /** How the page installs it: one press, the provider's own sign in, a sheet with steps, or a request to be told. */

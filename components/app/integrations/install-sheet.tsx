@@ -7,7 +7,18 @@
  * Install on an app's listing opens this: on a phone the app's bottom sheet
  * (components/physical/ui Modal, the same one every /app sheet is), on a
  * computer a dialog that fades and rises 8px in and goes the same way out,
- * on opacity and transform only, 180ms, none under reduced motion.
+ * on opacity, translate and scale only, none under reduced motion.
+ *
+ * SMOOTH BOTH WAYS (r24, the owner: "closing it glitches"). Tailwind 4
+ * writes translate-y-2 and scale-[0.98] to the `translate` and `scale`
+ * properties, not to `transform`, so the transition the dialog had
+ * (opacity, transform) faded it but moved it in one frame: 8px and 2% at
+ * the first frame of the way in and of the way out. Measured per frame in
+ * scripts/check-integrations-r24.mjs. It now transitions the three
+ * properties it changes; it comes in over 200ms on a decelerating curve
+ * and goes over 160ms on an accelerating one, and it is taken off the page
+ * only when the panel's own transition has ended (with a timer behind it),
+ * so the last frames of the way out are always drawn.
  *
  * Inside: the steps, numbered and short ("1. Open Printful, Developer
  * portal, Your tokens. 2. Create a token. 3. Paste it here."), then the
@@ -30,7 +41,9 @@ import { BTN_PRIMARY, Modal, useModalPhone } from "@/components/physical/ui"
 import { Mark } from "@/components/app/settings/integration-mark"
 import type { Integration } from "@/lib/integrations/catalog"
 
-const MS = 180
+/* In, and out: out is a little quicker, as a thing put away is. */
+const MS_IN = 200
+const MS_OUT = 160
 
 function reduced(): boolean {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
@@ -78,7 +91,7 @@ export function InstallSheet({ open, onClose, item, title, steps, panel, install
   }, [installed, open])
   React.useEffect(() => {
     if (!open) {
-      const t = window.setTimeout(() => setDone(false), MS + 40)
+      const t = window.setTimeout(() => setDone(false), MS_OUT + 120)
       return () => window.clearTimeout(t)
     }
   }, [open])
@@ -136,15 +149,39 @@ function InstallDialog({ open, onClose, title, item, footer, children }: { open:
       opener.current = document.activeElement as HTMLElement | null
       setMounted(true)
       /* Drawn hidden for one frame, then shown: the transition has a start. */
-      const r = window.requestAnimationFrame(() => window.requestAnimationFrame(() => setShown(true)))
-      return () => window.cancelAnimationFrame(r)
+      let r2 = 0
+      const r = window.requestAnimationFrame(() => {
+        r2 = window.requestAnimationFrame(() => setShown(true))
+      })
+      return () => {
+        window.cancelAnimationFrame(r)
+        window.cancelAnimationFrame(r2)
+      }
     }
     setShown(false)
-    const t = window.setTimeout(() => {
+    /* Off the page once the panel's own way out has ended, never before its last frame; the timer is there for a tab that draws no frames. */
+    let gone = false
+    const leave = () => {
+      if (gone) return
+      gone = true
       setMounted(false)
       opener.current?.focus?.({ preventScroll: true })
-    }, reduced() ? 0 : MS)
-    return () => window.clearTimeout(t)
+    }
+    if (reduced()) {
+      leave()
+      return
+    }
+    const el = panel.current
+    const ended = (e: TransitionEvent) => {
+      if (e.target === el && e.propertyName === "opacity") leave()
+    }
+    el?.addEventListener("transitionend", ended)
+    const t = window.setTimeout(leave, MS_OUT + 120)
+    return () => {
+      gone = true
+      window.clearTimeout(t)
+      el?.removeEventListener("transitionend", ended)
+    }
   }, [open])
   React.useEffect(() => {
     if (!open) return
@@ -155,7 +192,8 @@ function InstallDialog({ open, onClose, title, item, footer, children }: { open:
       if (e.key === "Escape") onClose()
     }
     window.addEventListener("keydown", key)
-    const t = window.setTimeout(() => panel.current?.querySelector<HTMLElement>("input:not([data-no-autofocus]), select, textarea")?.focus({ preventScroll: true }), 40)
+    /* Into the field once the panel has arrived: a focus restyles what gains it, and that belongs after the movement. */
+    const t = window.setTimeout(() => panel.current?.querySelector<HTMLElement>("input:not([data-no-autofocus]), select, textarea")?.focus({ preventScroll: true }), reduced() ? 0 : MS_IN)
     return () => {
       window.clearTimeout(t)
       window.removeEventListener("keydown", key)
@@ -163,10 +201,14 @@ function InstallDialog({ open, onClose, title, item, footer, children }: { open:
     }
   }, [open, onClose])
   if (!mounted || typeof document === "undefined") return null
-  const motion = "transition-[opacity,transform] duration-[180ms] ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none"
+  /* The three properties it changes, all on the compositor; in on a decelerating curve, out on an accelerating one. */
+  const motion = cn(
+    "transition-[opacity,translate,scale] motion-reduce:transition-none",
+    shown ? "duration-[200ms] ease-[cubic-bezier(0.2,0,0,1)]" : "duration-[160ms] ease-[cubic-bezier(0.4,0,1,1)]",
+  )
   return createPortal(
-    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4" role="presentation" data-install-dialog={shown ? "open" : "closing"}>
-      <div className={cn("absolute inset-0 bg-[rgba(17,24,39,0.36)]", motion, shown ? "opacity-100" : "opacity-0")} onClick={onClose} aria-hidden />
+    <div className={cn("fixed inset-0 z-[80] flex items-center justify-center p-4", !shown && "pointer-events-none")} role="presentation" data-install-dialog={shown ? "open" : "closing"}>
+      <div className={cn("absolute inset-0 bg-[rgba(17,24,39,0.36)]", motion, shown ? "opacity-100" : "pointer-events-none opacity-0")} onClick={onClose} aria-hidden />
       <div
         ref={panel}
         role="dialog"
@@ -175,7 +217,7 @@ function InstallDialog({ open, onClose, title, item, footer, children }: { open:
         onKeyDown={(e) => {
           if (e.key === "Enter" && (e.target as HTMLElement).tagName === "INPUT") e.preventDefault()
         }}
-        className={cn("relative flex max-h-[min(88dvh,720px)] w-full max-w-[520px] flex-col rounded-2xl bg-white shadow-[0_24px_64px_-16px_rgba(17,24,39,0.28)] will-change-transform", motion, shown ? "translate-y-0 scale-100 opacity-100" : "translate-y-2 scale-[0.98] opacity-0")}
+        className={cn("relative flex max-h-[min(88dvh,720px)] w-full max-w-[520px] flex-col rounded-2xl bg-white shadow-[0_24px_64px_-16px_rgba(17,24,39,0.28)] will-change-[opacity,translate,scale]", motion, shown ? "translate-y-0 scale-100 opacity-100" : "pointer-events-none translate-y-2 scale-[0.98] opacity-0")}
       >
         <div className="flex items-center gap-3 border-b border-[#f1f2f4] px-5 py-3.5">
           <Mark item={item} size={28} />

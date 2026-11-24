@@ -3,6 +3,7 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 import { useEdgeFade } from "@/components/app/use-edge-fade"
+import { useDragScroll } from "@/components/app/use-drag-scroll"
 
 /**
  * The pill row the Integrations page draws (All, Installed, the categories),
@@ -30,6 +31,15 @@ export const FILTER_PILL_OFF = "bg-white text-[#1a1a2e] shadow-[0_0_0_1px_rgba(1
 /* The ring is drawn outside each pill, so the row keeps 4px around them that a sideways scroller would otherwise clip. */
 export const FILTER_PILL_ROW =
   "relative -m-1 flex min-w-0 gap-2 overflow-x-auto p-1 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible [&::-webkit-scrollbar]:hidden"
+/*
+  ONE ROW AT EVERY WIDTH (r24, the owner: the Integrations pills "wrap into two rows; make them one horizontal row that
+  scrolls smoothly"). The same row, never wrapped: it scrolls sideways on a computer too, with no scrollbar, fades at the
+  end that is cut (.edge-fade, components/app/use-edge-fade), keeps a sideways swipe to itself (no browser back at its
+  end) and leaves room for a focused pill's ring at either end (scroll-padding). A mouse drags it (components/app/
+  use-drag-scroll).
+*/
+export const FILTER_PILL_SCROLL_ROW =
+  "edge-fade relative -m-1 flex min-w-0 flex-nowrap gap-2 overflow-x-auto overflow-y-hidden overscroll-x-contain scroll-px-6 p-1 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden"
 
 export interface FilterPillOption<T extends string> {
   value: T
@@ -96,6 +106,39 @@ export function FilterPills<T extends string>({
           </button>
         )
       })}
+    </div>
+  )
+}
+
+/**
+ * The one-row pill strip (FILTER_PILL_SCROLL_ROW) with what makes it one:
+ * the fade where it is cut, a mouse drag, and the chosen pill whole on the
+ * first frame (an address that names a category far down the row opens with
+ * that pill in view, without a slide). Its own component so the row's
+ * listeners are set up whenever it is mounted, not only with its page.
+ * `rowRef` hands the element to a page that measures the row itself.
+ */
+export function PillScrollRow({ rowRef, className, children, ...rest }: React.HTMLAttributes<HTMLDivElement> & { rowRef?: React.RefObject<HTMLDivElement | null> }) {
+  const row = useEdgeFade<HTMLDivElement>()
+  useDragScroll(row)
+  const set = React.useCallback(
+    (el: HTMLDivElement | null) => {
+      row.current = el
+      if (rowRef) rowRef.current = el
+    },
+    [row, rowRef],
+  )
+  React.useLayoutEffect(() => {
+    const strip = row.current
+    const pill = strip?.querySelector<HTMLElement>('[aria-selected="true"]')
+    if (!strip || !pill || strip.scrollWidth <= strip.clientWidth + 1) return
+    const room = 28
+    if (pill.offsetLeft + pill.offsetWidth + room > strip.clientWidth) strip.scrollLeft = pill.offsetLeft + pill.offsetWidth + room - strip.clientWidth
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  return (
+    <div ref={set} className={cn(FILTER_PILL_SCROLL_ROW, className)} {...rest}>
+      {children}
     </div>
   )
 }
