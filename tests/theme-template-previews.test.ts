@@ -41,8 +41,9 @@ const TEXT = /\.(html|css|js|json|svg)$/
 const MB = 1048576
 /* Changed on purpose (templates round 21): 25 templates now, each still within its own 10 MB. */
 /* Changed on purpose (templates round 23): 30 and more templates, and each picture also as the smaller copies its srcset asks for (scripts/build-template-previews.ts sizedPicture, about 7 MB in all), so a phone downloads a card's file, not a 1600 pixel one. */
-const BUDGET_TOTAL = 220 * MB
-/* Changed on purpose (templates round 25): sample product pictures are 1600 px from their photographs now, each with a real second shot instead of a zoomed crop; the outerwear shop's 35 pages of HTML alone are 8 MB, so its pictures take it to about 10.7 MB. The whole folder stays within its 220 MB. */
+/* Changed on purpose (round 25 integration): 34 templates, four of them new this round, with 1600 px product pictures and real second shots. Each preview is its own folder served from the CDN and a visitor loads one, so the total is a deploy size, not a page weight; each template still keeps its own 11 MB. */
+const BUDGET_TOTAL = 280 * MB
+/* Changed on purpose (templates round 25): sample product pictures are 1600 px from their photographs now, each with a real second shot instead of a zoomed crop; the outerwear shop's 35 pages of HTML alone are 8 MB, so its pictures take it to about 10.7 MB. */
 const BUDGET_TEMPLATE = 11 * MB
 
 function main() {
