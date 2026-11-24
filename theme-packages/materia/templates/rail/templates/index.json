@@ -10,12 +10,12 @@
         "button_label": "Shop the collection",
         "button_link": "/collections/all",
         "caption_layout": "center",
-        "garment_height": 250,
-        "garment_height_mobile": 190,
-        "garment_width": 52,
-        "gap": 4,
+        "garment_height": 290,
+        "garment_height_mobile": 200,
+        "garment_width": 50,
+        "gap": 6,
         "hover_gap": 22,
-        "rest_turn": 26,
+        "rest_turn": 30,
         "turn_speed": 450,
         "swing": 45,
         "show_tags": true,
@@ -234,21 +234,13 @@
             "collection": "tees",
             "collection_title": "Tees"
           }
-        },
-        "t_jackets": {
-          "type": "collection",
-          "settings": {
-            "collection": "jackets",
-            "collection_title": "Knit and jackets"
-          }
         }
       },
       "block_order": [
         "h",
         "t_all",
         "t_sweats",
-        "t_tees",
-        "t_jackets"
+        "t_tees"
       ]
     },
     "categories": {
@@ -530,10 +522,10 @@
         "t3": {
           "type": "testimonial",
           "settings": {
-            "product": "hand-knit-crew-rust",
-            "body": "Heavy and warm, and the colour is richer than the photos. Sample review, replace it with your own.",
+            "product": "heavyweight-hoodie-forest",
+            "body": "Heavy and warm, and the green is deeper than on screen. Sample review, replace it with your own.",
             "name": "Customer name",
-            "role": "Hand knit crew, M",
+            "role": "Heavyweight hoodie, forest, M",
             "rating": 5
           }
         }

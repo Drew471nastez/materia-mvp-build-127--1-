@@ -38,7 +38,8 @@ async function main() {
 
   const space = await home("space")
   const rule = /<style data-header-colours>([\s\S]*?)<\/style>/.exec(space)?.[1] ?? ""
-  check("Night shop: its icons and its phone menu button are red, from the header's settings", /\.header__action \.header-icon, \.nav-toggle\)\s*\{\s*color:\s*#e0201b/i.test(rule) && /:hover\s*\{\s*color:\s*#ff4b45/i.test(rule), rule.slice(0, 300))
+  /* Changed on purpose (round 24): the owner asked for white icons on Night shop, red only on hover. */
+  check("Night shop: its icons and its phone menu button are white with a red hover, from the header's settings", /\.header__action \.header-icon, \.nav-toggle\)\s*\{\s*color:\s*#ffffff/i.test(rule) && /:hover\s*\{\s*color:\s*#ff4b45/i.test(rule), rule.slice(0, 300))
   const group = JSON.parse(readFileSync(join(PKG, "templates", "space", "sections", "header-group.json"), "utf8")) as { sections: Record<string, { type: string }> }
   check("  and no style-only section does it any more", !Object.values(group.sections).some((s) => s.type === "space-header-icons") && !existsSync(join(PKG, "base", "sections", "space-header-icons.liquid")))
 

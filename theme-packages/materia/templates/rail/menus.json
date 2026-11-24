@@ -15,10 +15,6 @@
             "url": "/collections/tees"
           },
           {
-            "title": "Knit and jackets",
-            "url": "/collections/jackets"
-          },
-          {
             "title": "Everything",
             "url": "/collections/all"
           }
@@ -52,10 +48,6 @@
       {
         "title": "Tees",
         "url": "/collections/tees"
-      },
-      {
-        "title": "Knit and jackets",
-        "url": "/collections/jackets"
       },
       {
         "title": "Lookbook",

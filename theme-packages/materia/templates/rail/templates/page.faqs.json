@@ -55,8 +55,8 @@
           "type": "faq_item",
           "settings": {
             "tab": "1",
-            "question": "How do the knit and the jackets fit?",
-            "answer": "<p>True to size, with room for a hoodie under the bomber.</p>"
+            "question": "How do the hoodies fit?",
+            "answer": "<p>Roomy, with dropped shoulders and a hood that stays up. Take your usual size.</p>"
           }
         },
         "faq_3": {
@@ -87,8 +87,8 @@
           "type": "faq_item",
           "settings": {
             "tab": "2",
-            "question": "Is the knit itchy?",
-            "answer": "<p>It is a wool and alpaca mix. Most people wear it over a tee.</p>"
+            "question": "Does the fleece pill?",
+            "answer": "<p>Brushed fleece sheds a little in the first washes, then settles. Wash it inside out.</p>"
           }
         },
         "faq_7": {

@@ -8,7 +8,7 @@
         "reset_spacing": true,
         "heading": "Search",
         "sorting": true,
-        "empty_text": "Nothing matched. Try a piece or a fabric: hoodie, tee, knit, bomber.",
+        "empty_text": "Nothing matched. Try a piece or a colour: hoodie, tee, oat, forest.",
         "empty_link_label": "See everything",
         "empty_link_url": "/collections/all",
         "enable_filtering": true,

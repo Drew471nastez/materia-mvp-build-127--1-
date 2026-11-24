@@ -940,6 +940,51 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: "note", text: "Deleting a picture takes it off anything that still shows it, so check your website first." },
     ],
   },
+  {
+    slug: "hanging-rail",
+    category: "website-builder",
+    title: "Set up a Hanging rail of your clothes",
+    summary: "Show your garments on hangers on a rail: cut out a photo of each, add it to a Garment block and choose its product.",
+    keywords: ["hanging rail", "clothing rail", "clothes rail", "garments", "hangers", "transparent png", "remove background", "cut out", "cutout", "boutique rail"],
+    updated: "2026-11-24",
+    related: ["files-library", "build-your-website"],
+    body: [
+      { type: "p", text: "The Hanging rail section shows your clothes as they hang in a shop. Point at a garment and it turns to face you; click it and it opens with its sizes and Add to cart. Every template has it: in the website builder, press Add section and choose Hanging rail of products." },
+      { type: "image", src: "/help/hanging-rail/rail.webp", alt: "A rail of ten hoodies, sweatshirts and tees on wooden hangers, each with a small price tag", width: 720, height: 245 },
+      { type: "h", text: "1. Photograph each garment on a hanger" },
+      { type: "steps", items: [
+        "Hang it on a plain wall or door in daylight, with nothing overlapping it.",
+        "Stand square to it and keep the whole hanger, hook included, in the photo.",
+        "Use the same kind of hanger for every garment. The rail looks calmer when they match.",
+      ] },
+      { type: "h", text: "2. Cut out the background" },
+      { type: "p", text: "Each picture must be a transparent PNG or WebP: the garment and its hanger with nothing behind them. Any background remover makes one from your photo in a click. Then check the edges and crop close, with the hook at the top centre." },
+      { type: "image", src: "/help/hanging-rail/cutout-good.webp", alt: "A good cut-out: a white hoodie on a wooden hanger with clean edges, cropped close with the hook at the top centre", caption: "Good: clean edges, the whole hook, cropped close.", width: 280, height: 350 },
+      { type: "image", src: "/help/hanging-rail/cutout-bad.webp", alt: "A poor cut-out: a hazy grey edge left along one sleeve, a smudge of the background at the cuff and empty space beside the garment", caption: "Redo it: a haze of the wall along the sleeve, a smudge at the cuff, and empty space around it.", width: 280, height: 350 },
+      { type: "table", head: ["Picture", "Size", "Where it shows"], rows: [
+        ["Front view", "About 1000 x 1300 px", "On the rail, turned a little, and large when opened"],
+        ["Side view (optional)", "About 400 x 1000 px", "On the rail instead of the front view"],
+        ["Back view (optional)", "About 1000 x 1300 px", "Only when a visitor presses Back"],
+      ] },
+      { type: "h", text: "3. Add the garments" },
+      { type: "steps", items: [
+        "Add a Garment block for each piece on the rail.",
+        "Choose its Product. Title, price, sizes and its page come from the product.",
+        "Upload the Front view. Add a Side view or a Back view if you have them.",
+        "Set Size on the rail so tees hang shorter than hoodies: about 85% for a tee.",
+        "Drag the blocks to change their order.",
+      ] },
+      { type: "h", text: "4. Settings to try" },
+      { type: "facts", items: [
+        ["Garment height", "How big they hang, on a computer and on a phone."],
+        ["Turn at rest", "How far each garment turns away until someone points at it."],
+        ["Hover turn speed and Hanger swing", "How quickly they turn and how much they swing. Set the swing to 0 for none."],
+        ["When the garments are wider than the screen", "Let the row scroll, or make every garment smaller so all fit."],
+        ["Background", "A plain colour, or a picture such as a landscape with a shade over it."],
+      ] },
+      { type: "note", text: "A garment that floats below the rail has empty space above its hook. Crop the picture again." },
+    ],
+  },
 
   /* ── Policies ────────────────────────────────────────────────────────── */
   {

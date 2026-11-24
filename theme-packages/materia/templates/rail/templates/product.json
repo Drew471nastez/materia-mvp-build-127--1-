@@ -119,7 +119,7 @@
           "type": "collapsible_row",
           "settings": {
             "heading": "Fit",
-            "content": "<p>Boxy and a little short in the body, with dropped shoulders. Take your usual size. Knitwear and jackets are true to size.</p>",
+            "content": "<p>Boxy and a little short in the body, with dropped shoulders. Take your usual size.</p>",
             "use_product_description": false,
             "open": false
           }

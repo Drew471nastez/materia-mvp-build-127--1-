@@ -34,7 +34,7 @@
   assign count = section.blocks.size
   assign gh = st.garment_height | default: 300
   assign gh_m = st.garment_height_mobile | default: 210
-  assign ratio = st.garment_width | default: 36
+  assign ratio = st.garment_width | default: 50
   assign slot = gh | times: ratio | divided_by: 100
   assign slot_m = gh_m | times: ratio | divided_by: 100
   assign side_1x = slot | at_least: 60
@@ -89,8 +89,9 @@
   .hr__side { width: var(--hr-slot); }
   .hr__front { width: calc(var(--hr-ghx) * var(--hr-k, 1)); }
   /* No side view: the front view hangs turned a little away, as clothes on a rail do, and turns to face the visitor. */
-  .hr__front--rest { opacity: 1; transform: translateX(-50%) perspective(1100px) rotateY(var(--hr-rest)); }
+
   .hr__front { opacity: 0; transform: translateX(-50%) perspective(900px) rotateY(-74deg); }
+  .hr__front.hr__front--rest { opacity: 1; transform: translateX(-50%) perspective(1100px) rotateY(var(--hr-rest)); }
   /* Each picture keeps its own layer while the pointer is over the rail, so turning one repaints nothing around it. */
   hanging-rail.is-live .hr__side, hanging-rail.is-live .hr__front { will-change: transform, opacity; }
   .hr__blank { width: calc(var(--hr-ghx) * .5); color: currentColor; opacity: .5; }
@@ -922,7 +923,7 @@
   "class": "section",
   "max_blocks": 24,
   "settings": [
-    { "type": "paragraph", "content": "A clothing rail of your products. Each Garment block is one piece on a hanger: choose its product, then add its pictures. Pictures must be transparent PNG or WebP cut-outs of the garment on its hanger, with nothing behind it. To make them, take the product photos you already have of each garment on a hanger and remove the background with any background remover, then crop close to the garment with the hook at the top centre. Step by step guide: docs/hanging-rail.md (Hanging rail guide)." },
+    { "type": "paragraph", "content": "A clothing rail of your products. Each Garment block is one piece on a hanger: choose its product, then add its pictures. Pictures must be transparent PNG or WebP cut-outs of the garment on its hanger, with nothing behind it. To make them, take the product photos you already have of each garment on a hanger and remove the background with any background remover, then crop close to the garment with the hook at the top centre. Step by step guide with pictures: storelib.com/help/website-builder/hanging-rail" },
     { "type": "header", "content": "Text" },
     { "type": "text", "id": "eyebrow", "label": "Small heading", "default": "New collection" },
     { "type": "text", "id": "eyebrow_2", "label": "Small heading, second part", "info": "Shown after a thin line, a little lighter.", "default": "Heavyweight basics" },
@@ -937,7 +938,7 @@
     { "type": "header", "content": "Garments" },
     { "type": "range", "id": "garment_height", "label": "Garment height", "min": 160, "max": 560, "step": 10, "unit": "px", "default": 300, "info": "How tall each garment hangs on a computer, hook to hem." },
     { "type": "range", "id": "garment_height_mobile", "label": "Garment height on phones", "min": 120, "max": 400, "step": 10, "unit": "px", "default": 210 },
-    { "type": "range", "id": "garment_width", "label": "Room for a garment on the rail", "min": 20, "max": 80, "step": 1, "unit": "%", "default": 36, "info": "As a share of its height. Side views are narrow: 30 to 40% suits most. A wider side view is scaled down to fit."  },
+    { "type": "range", "id": "garment_width", "label": "Room for a garment on the rail", "min": 20, "max": 80, "step": 1, "unit": "%", "default": 50, "info": "As a share of its height. About 50% for front views turned a little, 30 to 40% for narrow side views. Neighbours may overlap a little, as on a real rail."  },
     { "type": "range", "id": "gap", "label": "Gap between garments", "min": 0, "max": 60, "step": 2, "unit": "px", "default": 14 },
     { "type": "range", "id": "rest_turn", "label": "Turn at rest", "min": 0, "max": 60, "step": 2, "unit": "deg", "default": 24, "info": "For garments without a side view: how far they hang turned away until a visitor points at one." },
     { "type": "range", "id": "hover_gap", "label": "Hover side gap", "min": 0, "max": 80, "step": 2, "unit": "px", "default": 24, "info": "The extra room the neighbours leave either side of a garment turned to the front." },

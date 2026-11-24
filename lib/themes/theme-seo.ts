@@ -105,13 +105,13 @@ export const THEME_SEO_CATEGORIES: readonly ThemeSeoCategory[] = [
     title: "Fashion and Clothing Store Templates | Storelib",
     description: "Website templates for clothing brands and fashion labels on Storelib, with lookbook pages, size friendly product pages and a free plan to start.",
     h1: "Fashion and clothing store templates",
-    intro: "Four templates for selling clothes: a classic clothing brand, a lifestyle label, a dark night themed shop and a merch store. Three of them include a lookbook page for showing a collection on people.",
+    intro: "Eight templates for selling clothes: Clothing, Lifestyle label, Night shop, Merch, Caps and tees, Print on demand, Outerwear label and Boutique rail. Four of them include a lookbook page for showing a collection on people.",
     primaryKeyword: "fashion website template",
     secondaryKeywords: ["clothing store website template", "apparel website template", "streetwear website template"],
     members: ["clothing", "streetwear", "space-clothing", "merch", "caps-tees", "print-on-demand", "outerwear", "boutique-rail"],
     faqs: [
       { q: "Do these templates support sizes and colours?", a: "Yes. Product options such as size and colour are set on the product in Storelib, and the product page shows a picker for them." },
-      { q: "What is a lookbook page?", a: "A page of large photos that shows a collection worn or styled, linking to the products in it. Clothing, Lifestyle label and Night shop include one." },
+      { q: "What is a lookbook page?", a: "A page of large photos that shows a collection worn or styled, linking to the products in it. Clothing, Lifestyle label, Night shop and Boutique rail include one." },
     ],
   },
   {

@@ -689,7 +689,7 @@ Templates round 23, after the owner's streetwear reference. The lifestyle photog
 
 ## Boutique rail (rail, Hanger Lane)
 
-Templates round 24, after the owner's hanging rail video and store reference. Every garment on the rail is a real Unsplash photograph of it on its hanger, cut out by machine (rembg, BiRefNet and IS-Net models) and cleaned by hand. No side view is a photograph: each is the front cut-out turned about its hook in perspective and shaded on the far half. The hangers differ from garment to garment because the photographs do. The lifestyle and landscape pictures are Unsplash photographs, resized. Notes on the garments: the white hoodie is cropped from a photo of a hoodie and jeans on a rope; the black long sleeve, the black tee and the charcoal long sleeve are the three garments of one photograph, each long sleeve's hidden sleeve edge mirrored from its other sleeve; the bomber's hand was removed and its hook redrawn.
+Templates round 24, after the owner's hanging rail video and store reference. Every garment on the rail is a real Unsplash photograph of it on its hanger, cut out by machine (rembg, BiRefNet and IS-Net models) and cleaned by hand. One hanger for all: each photograph's own hanger is toned to the same natural wood, the white hoodie's plastic hanger recoloured as wood, and the charcoal long sleeve, whose hook was out of frame, given a drawn steel hook. The grey, oat, forest and charcoal hoodies are the white hoodie photograph tinted; they are not photographs of those colours. No garment has a side view: the rail turns each front cut-out a little away in the browser. The black long sleeve, the black tee and the charcoal long sleeve are the three garments of one photograph, each long sleeve's hidden sleeve edge mirrored from its other sleeve. The lifestyle and landscape pictures are Unsplash photographs, resized.
 
 | Template | File | Source | Licence |
 | --- | --- | --- | --- |
@@ -704,42 +704,32 @@ Templates round 24, after the owner's hanging rail video and store reference. Ev
 | rail | assets/rail-walk.webp | https://images.unsplash.com/photo-1563129507-4dbc51f57681 | Unsplash License |
 | rail | assets/rail-pair.webp | https://images.unsplash.com/photo-1559697242-a465f2578a95 | Unsplash License |
 | rail | assets/rail-hoodie-white-front.webp | https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77 | Unsplash License |
-| rail | assets/rail-hoodie-white-side.webp | https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77 | Unsplash License |
 | rail (sample products) | scripts/theme-templates/products/rail/rail-hoodie-white.webp | https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77 (the cut-out set on one light grey) | Unsplash License |
 | rail (sample products) | scripts/theme-templates/products/rail/rail-hoodie-white-detail.webp | https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77 (a close crop of the original photograph) | Unsplash License |
 | rail | assets/rail-crew-black-front.webp | https://images.unsplash.com/photo-1618354691551-44de113f0164 | Unsplash License |
-| rail | assets/rail-crew-black-side.webp | https://images.unsplash.com/photo-1618354691551-44de113f0164 | Unsplash License |
 | rail (sample products) | scripts/theme-templates/products/rail/rail-crew-black.webp | https://images.unsplash.com/photo-1618354691551-44de113f0164 (the cut-out set on one light grey) | Unsplash License |
 | rail (sample products) | scripts/theme-templates/products/rail/rail-crew-black-detail.webp | https://images.unsplash.com/photo-1618354691551-44de113f0164 (a close crop of the original photograph) | Unsplash License |
 | rail | assets/rail-longsleeve-black-front.webp | https://images.unsplash.com/photo-1610502778270-c5c6f4c7d575 | Unsplash License |
-| rail | assets/rail-longsleeve-black-side.webp | https://images.unsplash.com/photo-1610502778270-c5c6f4c7d575 | Unsplash License |
 | rail (sample products) | scripts/theme-templates/products/rail/rail-longsleeve-black.webp | https://images.unsplash.com/photo-1610502778270-c5c6f4c7d575 (the cut-out set on one light grey) | Unsplash License |
 | rail (sample products) | scripts/theme-templates/products/rail/rail-longsleeve-black-detail.webp | https://images.unsplash.com/photo-1610502778270-c5c6f4c7d575 (a close crop of the original photograph) | Unsplash License |
 | rail | assets/rail-tee-black-front.webp | https://images.unsplash.com/photo-1610502778270-c5c6f4c7d575 | Unsplash License |
-| rail | assets/rail-tee-black-side.webp | https://images.unsplash.com/photo-1610502778270-c5c6f4c7d575 | Unsplash License |
 | rail (sample products) | scripts/theme-templates/products/rail/rail-tee-black.webp | https://images.unsplash.com/photo-1610502778270-c5c6f4c7d575 (the cut-out set on one light grey) | Unsplash License |
 | rail (sample products) | scripts/theme-templates/products/rail/rail-tee-black-detail.webp | https://images.unsplash.com/photo-1610502778270-c5c6f4c7d575 (a close crop of the original photograph) | Unsplash License |
 | rail | assets/rail-longsleeve-charcoal-front.webp | https://images.unsplash.com/photo-1610502778270-c5c6f4c7d575 | Unsplash License |
-| rail | assets/rail-longsleeve-charcoal-side.webp | https://images.unsplash.com/photo-1610502778270-c5c6f4c7d575 | Unsplash License |
 | rail (sample products) | scripts/theme-templates/products/rail/rail-longsleeve-charcoal.webp | https://images.unsplash.com/photo-1610502778270-c5c6f4c7d575 (the cut-out set on one light grey) | Unsplash License |
 | rail (sample products) | scripts/theme-templates/products/rail/rail-longsleeve-charcoal-detail.webp | https://images.unsplash.com/photo-1610502778270-c5c6f4c7d575 (a close crop of the original photograph) | Unsplash License |
 | rail | assets/rail-tee-white-front.webp | https://images.unsplash.com/photo-1778671394516-8270eac13c42 | Unsplash License |
-| rail | assets/rail-tee-white-side.webp | https://images.unsplash.com/photo-1778671394516-8270eac13c42 | Unsplash License |
 | rail (sample products) | scripts/theme-templates/products/rail/rail-tee-white.webp | https://images.unsplash.com/photo-1778671394516-8270eac13c42 (the cut-out set on one light grey) | Unsplash License |
 | rail (sample products) | scripts/theme-templates/products/rail/rail-tee-white-detail.webp | https://images.unsplash.com/photo-1778671394516-8270eac13c42 (a close crop of the original photograph) | Unsplash License |
-| rail | assets/rail-tee-sky-front.webp | https://images.unsplash.com/photo-1564584217132-2271feaeb3c5 | Unsplash License |
-| rail | assets/rail-tee-sky-side.webp | https://images.unsplash.com/photo-1564584217132-2271feaeb3c5 | Unsplash License |
-| rail (sample products) | scripts/theme-templates/products/rail/rail-tee-sky.webp | https://images.unsplash.com/photo-1564584217132-2271feaeb3c5 (the cut-out set on one light grey) | Unsplash License |
-| rail (sample products) | scripts/theme-templates/products/rail/rail-tee-sky-detail.webp | https://images.unsplash.com/photo-1564584217132-2271feaeb3c5 (a close crop of the original photograph) | Unsplash License |
-| rail | assets/rail-knit-rust-front.webp | https://images.unsplash.com/photo-1773747310662-e7cc9e681226 | Unsplash License |
-| rail | assets/rail-knit-rust-side.webp | https://images.unsplash.com/photo-1773747310662-e7cc9e681226 | Unsplash License |
-| rail (sample products) | scripts/theme-templates/products/rail/rail-knit-rust.webp | https://images.unsplash.com/photo-1773747310662-e7cc9e681226 (the cut-out set on one light grey) | Unsplash License |
-| rail (sample products) | scripts/theme-templates/products/rail/rail-knit-rust-detail.webp | https://images.unsplash.com/photo-1773747310662-e7cc9e681226 (a close crop of the original photograph) | Unsplash License |
-| rail | assets/rail-blazer-navy-front.webp | https://images.unsplash.com/photo-1667283831517-5b747b3c17c8 | Unsplash License |
-| rail | assets/rail-blazer-navy-side.webp | https://images.unsplash.com/photo-1667283831517-5b747b3c17c8 | Unsplash License |
-| rail (sample products) | scripts/theme-templates/products/rail/rail-blazer-navy.webp | https://images.unsplash.com/photo-1667283831517-5b747b3c17c8 (the cut-out set on one light grey) | Unsplash License |
-| rail (sample products) | scripts/theme-templates/products/rail/rail-blazer-navy-detail.webp | https://images.unsplash.com/photo-1667283831517-5b747b3c17c8 (a close crop of the original photograph) | Unsplash License |
-| rail | assets/rail-bomber-clay-front.webp | https://images.unsplash.com/photo-1591047139829-d91aecb6caea | Unsplash License |
-| rail | assets/rail-bomber-clay-side.webp | https://images.unsplash.com/photo-1591047139829-d91aecb6caea | Unsplash License |
-| rail (sample products) | scripts/theme-templates/products/rail/rail-bomber-clay.webp | https://images.unsplash.com/photo-1591047139829-d91aecb6caea (the cut-out set on one light grey) | Unsplash License |
-| rail (sample products) | scripts/theme-templates/products/rail/rail-bomber-clay-detail.webp | https://images.unsplash.com/photo-1591047139829-d91aecb6caea (a close crop of the original photograph) | Unsplash License |
+| rail | assets/rail-hoodie-charcoal-front.webp | https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77 | Unsplash License |
+| rail (sample products) | scripts/theme-templates/products/rail/rail-hoodie-charcoal.webp | https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77 (the white hoodie cut out, tinted charcoal, set on one light grey) | Unsplash License |
+| rail (sample products) | scripts/theme-templates/products/rail/rail-hoodie-charcoal-detail.webp | https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77 (a close crop of the same tinted cut-out) | Unsplash License |
+| rail | assets/rail-hoodie-grey-front.webp | https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77 | Unsplash License |
+| rail (sample products) | scripts/theme-templates/products/rail/rail-hoodie-grey.webp | https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77 (the white hoodie cut out, tinted grey, set on one light grey) | Unsplash License |
+| rail (sample products) | scripts/theme-templates/products/rail/rail-hoodie-grey-detail.webp | https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77 (a close crop of the same tinted cut-out) | Unsplash License |
+| rail | assets/rail-hoodie-oat-front.webp | https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77 | Unsplash License |
+| rail (sample products) | scripts/theme-templates/products/rail/rail-hoodie-oat.webp | https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77 (the white hoodie cut out, tinted oat, set on one light grey) | Unsplash License |
+| rail (sample products) | scripts/theme-templates/products/rail/rail-hoodie-oat-detail.webp | https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77 (a close crop of the same tinted cut-out) | Unsplash License |
+| rail | assets/rail-hoodie-forest-front.webp | https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77 | Unsplash License |
+| rail (sample products) | scripts/theme-templates/products/rail/rail-hoodie-forest.webp | https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77 (the white hoodie cut out, tinted forest, set on one light grey) | Unsplash License |
+| rail (sample products) | scripts/theme-templates/products/rail/rail-hoodie-forest-detail.webp | https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77 (a close crop of the same tinted cut-out) | Unsplash License |

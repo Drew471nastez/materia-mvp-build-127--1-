@@ -57,7 +57,8 @@ async function main() {
   check("  motion is turned off when the visitor asks for less", /prefers-reduced-motion: reduce/.test(source) && /RM\.matches/.test(source))
   check("  the animation loop stops when nothing moves", /if \(moving\) this\.wake\(\)/.test(source))
   check("  Add to cart is the theme's own <product-form>", /<product-form class="hr-focus__form"/.test(source) && /name="id"/.test(source))
-  check("the guide exists", existsSync("docs/hanging-rail.md") && /transparent/i.test(readFileSync("docs/hanging-rail.md", "utf8")))
+  const help = readFileSync("lib/help/articles.ts", "utf8")
+  check("the guide is a help article creators can open, with a good and a bad cut-out pictured", /slug: "hanging-rail",\s*category: "website-builder"/.test(help) && ["rail", "cutout-good", "cutout-bad"].every((f) => existsSync(`public/help/hanging-rail/${f}.webp`) && help.includes(`/help/hanging-rail/${f}.webp`)))
 
   /* ── The schema ───────────────────────────────────────────────────── */
   const imported = await importTemplate(`${CODE_THEME_PACKAGE}/${TEMPLATE}`)
@@ -71,7 +72,7 @@ async function main() {
   const field = (id: string) => schema.fields.find((f) => f.id === id) as { options?: { value: string; label: string }[]; info?: string } | undefined
   check("  scroll mode and click behaviour say what they do", (field("overflow")?.options ?? []).some((o) => /drop garments into the row to scroll/i.test(o.label)) && (field("click_action")?.options ?? []).some((o) => /lift garment on the rail into focus view/i.test(o.label)))
   const info = JSON.stringify(schema)
-  check("  the info says transparent PNG or WebP cut-outs on a hanger, how to make them and where the guide is", /transparent PNG or WebP cut-outs of the garment on its hanger/.test(info) && /remove the background/i.test(info) && /docs\/hanging-rail\.md/.test(info))
+  check("  the info says transparent PNG or WebP cut-outs on a hanger, how to make them and where the guide is", /transparent PNG or WebP cut-outs of the garment on its hanger/.test(info) && /remove the background/i.test(info) && /storelib\.com\/help\/website-builder\/hanging-rail/.test(info))
   check("  and the sizes the pictures should be", /400 x 1000 px/.test(info) && /1000 x 1300 px/.test(info))
   const garment = schema.blocks?.find((b) => b.type === "garment")
   const bf = new Map((garment?.fields ?? []).map((f) => [f.id, String(f.type)]))
@@ -94,19 +95,19 @@ async function main() {
   check("  its link opens the product page when scripts do not run", linked.every((p) => html.includes(`href="${p!.settings.url}"`)))
   check("  the tag shows the product's price", /<span class="hr__tag"><span>\$98<\/span>/.test(html))
   check("  no template code is left", !RAW.test(html.replace(/<script[\s\S]*?<\/script>/g, "")))
-  check("side views are asked for at the size they are drawn", /<img class="hr__side" src="[^"]+" srcset="[^"]+ \d+w, [^"]+ \d+w" sizes="\(max-width: 749px\) \d+px, \d+px"/.test(html))
-  check("  front views wait: no src until the page has loaded or the pointer comes", /<img class="hr__front" data-src="/.test(html) && !/<img class="hr__front" src=/.test(html))
+  check("a garment without a side view hangs its front view turned, asked for at its drawn size", /<img class="hr__front hr__front--rest" src="[^"]+" srcset="[^"]+ \d+w, [^"]+ \d+w" sizes="\(max-width: 749px\) \d+px, \d+px"/.test(html))
   check("  every picture has a width and height or a fixed box, so nothing moves while they load", /width="\d+" height="\d+"/.test(html) && /\.hr__item \{[^}]*height: calc\(var\(--hr-ghx\)/.test(source))
+  check("  each garment carries its size on the rail (tees shorter than hoodies)", /--hr-k: 0\.86/.test(html) && /--hr-k: 1(\.0)?;/.test(html))
 
   /* A garment with a back view, and one with no side view. */
   const withBack = JSON.parse(JSON.stringify(home)) as Stored[]
   const r2 = withBack.find((s) => s.id === rail.id)!
   r2.blocks![0].settings = { ...r2.blocks![0].settings, back_image: "/__media/a-back-view.webp" }
-  r2.blocks![1].settings = { ...r2.blocks![1].settings, side_image: "", tag_text: "Two for $80" }
+  r2.blocks![1].settings = { ...r2.blocks![1].settings, side_image: "/__media/a-side-view.webp", tag_text: "Two for $80" }
   built.site.pages.home = withBack as never
   const html2 = sectionMarkup(await get(), rail.id) ?? ""
   check("a back view is never an <img> on the page, only an address in the garment's data", /a-back-view\.webp/.test(html2) && !/<img[^>]+a-back-view/.test(html2))
-  check("  a garment without a side view shows its front view turned", /<img class="hr__side hr__side--turned"/.test(html2))
+  check("  a garment with a side view shows it on the rail at its drawn size, and its front view waits (no src until the page has loaded or the pointer comes)", /<img class="hr__side" src="[^"]*a-side-view[^"]*" srcset="[^"]+ \d+w, [^"]+ \d+w"/.test(html2) && /<img class="hr__front" data-src="/.test(html2) && !/<img class="hr__front" src=/.test(html2))
   check("  the tag text replaces the price when it is set", /<span class="hr__tag"><span>Two for \$80<\/span>/.test(html2))
   built.site.pages.home = home as never
 
