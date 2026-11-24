@@ -1,0 +1,65 @@
+{
+  "sections": {
+    "main": {
+      "type": "main-search",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "padding_top": 48,
+        "padding_bottom": 48
+      }
+    },
+    "popular": {
+      "type": "products-listing",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "collection": "all",
+        "items_to_show": 3,
+        "heading": "Popular templates",
+        "show_view_all": false,
+        "header_alignment": "center",
+        "heading_subtext_gap": 10,
+        "items_per_row": 3,
+        "items_per_row_mobile": 1,
+        "column_gap": 24,
+        "row_gap": 28,
+        "show_badges": true,
+        "show_vendor": false,
+        "show_rating": false,
+        "show_short_description": true,
+        "show_swatches": false,
+        "show_price": true,
+        "show_add_to_cart": false,
+        "show_action": false,
+        "reveal": false,
+        "padding_top": 24,
+        "padding_bottom": 88
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Popular templates",
+            "size_desktop": 40,
+            "size_mobile": 30
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>A good place to start.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    }
+  },
+  "order": [
+    "main",
+    "popular"
+  ]
+}

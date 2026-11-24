@@ -1,0 +1,127 @@
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "height": "adapt",
+        "alignment": "left",
+        "padding_top": 56,
+        "color_scheme": "default",
+        "reset_spacing": true,
+        "section_width": "fluid_container",
+        "padding_bottom": 0,
+        "overlay_opacity": 0
+      },
+      "blocks": {
+        "breadcrumb_fkLpBa": {
+          "type": "breadcrumb",
+          "settings": {}
+        },
+        "heading_f6yAbL": {
+          "type": "heading",
+          "settings": {
+            "page_title": "Your cart",
+            "header_size": "default",
+            "vertical_gap": 8,
+            "heading_color": "",
+            "heading_font_size": 34,
+            "enable_heading_color": false
+          }
+        }
+      },
+      "block_order": [
+        "breadcrumb_fkLpBa",
+        "heading_f6yAbL"
+      ]
+    },
+    "cart-items": {
+      "type": "main-cart-items",
+      "settings": {
+        "padding_top": 40,
+        "reset_spacing": true,
+        "section_width": "fluid_container",
+        "padding_bottom": 60,
+        "enable_cart_note": false,
+        "enable_discount_code": true,
+        "show_estimate_shipping": false,
+        "color_scheme": "default"
+      },
+      "blocks": {
+        "faq_section_1": {
+          "type": "faq_section",
+          "settings": {
+            "show_faq": true,
+            "faq_heading": "Before you pay"
+          }
+        },
+        "faq_1": {
+          "type": "faq",
+          "settings": {
+            "question": "How do I get the files?",
+            "answer": "<p>Right after checkout you get an email receipt with your download page link.</p>"
+          }
+        },
+        "faq_2": {
+          "type": "faq",
+          "settings": {
+            "question": "Can I release music made with these?",
+            "answer": "<p>Yes. Every sound is 100% royalty free, commercial releases included.</p>"
+          }
+        },
+        "faq_3": {
+          "type": "faq",
+          "settings": {
+            "question": "Buying more than one tech house pack?",
+            "answer": "<p>The <a href=\"/collections/all\">Tech House Master Bundle 2025</a> holds over 1,000 sounds in one download.</p>"
+          }
+        },
+        "payment_badges_67Mgyc": {
+          "type": "payment_badges",
+          "settings": {
+            "show_amex": true,
+            "show_visa": true,
+            "show_amazon": false,
+            "show_klarna": false,
+            "show_paypal": false,
+            "show_discover": false,
+            "show_apple_pay": true,
+            "show_google_pay": true,
+            "show_mastercard": true,
+            "show_payment_badges": true
+          }
+        }
+      },
+      "block_order": [
+        "faq_section_1",
+        "faq_1",
+        "faq_2",
+        "faq_3",
+        "payment_badges_67Mgyc"
+      ]
+    },
+    "packs": {
+      "type": "products-grid",
+      "settings": {
+        "heading": "Add another pack",
+        "text": "",
+        "items_to_show": 4,
+        "show_add_to_cart": false,
+        "button_label": "See all packs",
+        "button_link": "/collections/all",
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 20,
+        "header_alignment": "left",
+        "color_scheme": "default",
+        "section_width": "fluid_container",
+        "padding_top": 40,
+        "padding_bottom": 80
+      }
+    }
+  },
+  "order": [
+    "heading",
+    "cart-items",
+    "packs"
+  ]
+}

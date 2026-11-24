@@ -37,4 +37,5 @@ export const TEMPLATE_PREVIEW_GROUNDS: Readonly<Record<string, { desktop: string
   "vsl-funnel": { desktop: "#fefefe", phone: "#fefefe" },
   "notion-sales-page": { desktop: "#fefefe", phone: "#fefefe" },
   "streetwear-drop": { desktop: "#f9f9f8", phone: "#f9f9f7" },
+  "notion-creator": { desktop: "#ffffff", phone: "#ffffff" },
 }

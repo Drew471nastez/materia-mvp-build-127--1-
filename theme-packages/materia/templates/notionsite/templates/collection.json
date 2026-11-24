@@ -1,0 +1,116 @@
+{
+  "sections": {
+    "main-collection-heading": {
+      "type": "main-collection-heading",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "alignment": "center",
+        "padding_top": 56,
+        "padding_bottom": 8
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {}
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {}
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_2"
+      ]
+    },
+    "main-collection-product": {
+      "type": "main-collection-product",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "items_per_row": 3,
+        "items_to_show": 12,
+        "column_gap": 24,
+        "pagination": "default",
+        "enable_filtering": true,
+        "filter_layout": "horizontal",
+        "default_filter": "close_all",
+        "show_filter_counts": false,
+        "number_products_per_page": false,
+        "sorting": true,
+        "toolbar_button_style": "pill",
+        "padding_top": 16,
+        "padding_bottom": 88,
+        "items_per_row_mobile": "1"
+      },
+      "blocks": {
+        "categories_1": {
+          "type": "categories",
+          "settings": {
+            "title": "Templates",
+            "menu": "templates-filter"
+          }
+        }
+      },
+      "block_order": [
+        "categories_1"
+      ]
+    },
+    "free": {
+      "type": "products-listing",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "collection": "free",
+        "items_to_show": 3,
+        "heading": "Free to duplicate",
+        "show_view_all": false,
+        "header_alignment": "center",
+        "heading_subtext_gap": 10,
+        "items_per_row": 3,
+        "items_per_row_mobile": 1,
+        "column_gap": 24,
+        "row_gap": 28,
+        "show_badges": true,
+        "show_vendor": false,
+        "show_rating": false,
+        "show_short_description": true,
+        "show_swatches": false,
+        "show_price": true,
+        "show_add_to_cart": false,
+        "show_action": false,
+        "reveal": false,
+        "padding_top": 24,
+        "padding_bottom": 88
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Free to duplicate",
+            "size_desktop": 40,
+            "size_mobile": 30
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Not sure yet? Start with one of these and keep it.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    }
+  },
+  "order": [
+    "main-collection-heading",
+    "main-collection-product",
+    "free"
+  ]
+}

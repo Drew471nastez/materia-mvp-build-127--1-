@@ -1,0 +1,1975 @@
+{
+  "sections": {
+    "main": {
+      "type": "main-product",
+      "settings": {
+        "image_zoom": "open_lightbox",
+        "padding_top": 0,
+        "color_scheme": "default",
+        "media_square": true,
+        "reset_spacing": true,
+        "section_width": "container",
+        "sticky_bar_bg": "",
+        "desktop_layout": "thumbnail_bottom",
+        "mobile_options": "show_thumbnails",
+        "padding_bottom": 64,
+        "sticky_top_gap": 24,
+        "enable_on_mobile": true,
+        "sticky_padding_y": 12,
+        "enable_on_desktop": true,
+        "sticky_show_image": true,
+        "sticky_show_title": true,
+        "content_gap_desktop": 56,
+        "desktop_media_width": 52,
+        "padding_left_mobile": 0,
+        "sticky_border_color": "",
+        "enable_video_looping": true,
+        "padding_left_desktop": 0,
+        "padding_right_mobile": 0,
+        "section_width_mobile": "fluid_container",
+        "sticky_button_radius": 8,
+        "sticky_show_quantity": true,
+        "enable_custom_padding": false,
+        "enable_video_autoplay": true,
+        "padding_right_desktop": 0,
+        "enable_nav_dots_mobile": false,
+        "mobile_slides_per_view": "1",
+        "enable_custom_media_gap": false,
+        "sticky_show_variant_picker": true,
+        "enable_sticky_content_on_desktop": true
+      },
+      "blocks": {
+        "title_1": {
+          "type": "title",
+          "settings": {
+            "show_vendor": false,
+            "title_font_size_desktop": 48,
+            "title_font_size_mobile": 34
+          }
+        },
+        "price_1": {
+          "type": "price",
+          "settings": {
+            "price_font_size_desktop": 28,
+            "price_font_size_mobile": 24,
+            "price_font_weight": "700",
+            "compare_font_size_desktop": 18,
+            "compare_font_size_mobile": 15,
+            "compare_font_weight": "400"
+          }
+        },
+        "variant_picker_1": {
+          "type": "variant_picker",
+          "settings": {
+            "variant_type": "button",
+            "show_size_guide": false,
+            "picker_swatch_style": "theme"
+          }
+        },
+        "buy_buttons_1": {
+          "type": "buy_buttons",
+          "settings": {
+            "show_add_to_cart": true,
+            "show_dynamic_checkout": true,
+            "show_quantity": false,
+            "buttons_full_width": true,
+            "quantity_right_of_atc": false,
+            "show_wishlist_button": false,
+            "atc_appearance": "theme",
+            "buy_appearance": "theme",
+            "atc_icon_enable": true,
+            "atc_icon": "bag",
+            "buy_icon_enable": false,
+            "show_gift_card_recipient": false
+          }
+        },
+        "collapsible_row_2": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "What you download",
+            "content": "<p>One ZIP file of 24 bit, 44.1 kHz WAV files in named folders, with MIDI files where the pack has melodic parts and a PDF of the licence. The link is on your receipt page and in your email.</p>",
+            "use_product_description": false,
+            "open": false
+          }
+        },
+        "collapsible_row_3": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "Licence",
+            "content": "<p>Royalty free: use the sounds in your own music, released, streamed or synced, and keep what it earns. You cannot share, resell or repackage the sounds as samples. <a href=\"/pages/licence\">Read the licence</a>.</p>",
+            "use_product_description": false,
+            "open": false
+          }
+        },
+        "payment_badges_1": {
+          "type": "payment_badges",
+          "settings": {
+            "h_main": "",
+            "sec_bg": "rgba(0,0,0,0)",
+            "sec_mb": 0,
+            "sec_mt": 0,
+            "sec_pb": 22,
+            "sec_pl": 0,
+            "sec_pr": 0,
+            "sec_pt": 22,
+            "badge_h": 31,
+            "badge_w": 47,
+            "sub_url": "",
+            "sec_maxw": 116,
+            "sec_pl_m": 0,
+            "sec_pr_m": 0,
+            "sub_text": "",
+            "badge_h_m": 22,
+            "badge_w_m": 68,
+            "h_main_mb": 16,
+            "h_main_mt": 0,
+            "show_amex": true,
+            "show_visa": true,
+            "sub_color": "#a3a3ab",
+            "sub_hover": "#f3f3f4",
+            "a11y_label": "Payment badges",
+            "sec_maxw_m": 150,
+            "sec_radius": 0,
+            "sub_newtab": false,
+            "text_align": "left",
+            "h_main_size": 16,
+            "show_paypal": true,
+            "sub_uline_w": 1,
+            "badges_align": "auto",
+            "h_main_color": "#a3a3ab",
+            "text_align_m": "left",
+            "toggle_icons": true,
+            "show_unionpay": false,
+            "sub_underline": false,
+            "show_apple_pay": true,
+            "show_google_pay": true,
+            "show_mastercard": true
+          }
+        },
+        "collapsible_row_4": {
+          "type": "collapsible_row",
+          "settings": {
+            "open": false,
+            "heading": "Help with a download",
+            "use_product_description": false,
+            "content": "<p>Use the <a href=\"/pages/contact\">contact page</a> with your order number and we will send a new link the same day.</p>"
+          }
+        },
+        "specs_1": {
+          "type": "specs_badge",
+          "settings": {
+            "text": "Instant download · 24 bit WAV · Royalty free",
+            "padding_x": 12,
+            "padding_y": 6,
+            "padding_top": 0,
+            "padding_bottom": 10,
+            "alignment": "left",
+            "font_size": 12,
+            "font_size_mobile": 12,
+            "font_weight": "600",
+            "text_color": "#ffb4a3",
+            "bg_color": "rgba(255,138,115,0.10)",
+            "border_color": "rgba(255,138,115,0.35)",
+            "border_width": 1,
+            "border_radius": 100
+          }
+        },
+        "short_1": {
+          "type": "short_description",
+          "settings": {
+            "excerpt_length": 320
+          }
+        },
+        "hearlink_1": {
+          "type": "text",
+          "settings": {
+            "heading": "",
+            "content": "<p><a href=\"#demo\">Hear the demo</a> and <a href=\"#sounds\">every sound</a> before you buy. One plays at a time.</p>"
+          }
+        },
+        "collapsible_row_5": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "Which DAWs?",
+            "content": "<p>Every one that opens WAV and MIDI files: Ableton Live, FL Studio, Logic Pro, Bitwig Studio, Cubase, Studio One, Reaper, Pro Tools and GarageBand. No plugin needed.</p>",
+            "use_product_description": false,
+            "open": false
+          }
+        },
+        "badges_1": {
+          "type": "badges",
+          "settings": {
+            "position_next_to_price": true
+          }
+        },
+        "pp23_rating": {
+          "type": "product_reviews",
+          "settings": {
+            "review_source": "product",
+            "review_label": "reviews",
+            "padding_top": 0,
+            "padding_bottom": 10,
+            "enable_counter_custom": false
+          }
+        },
+        "pp23_sold": {
+          "type": "sold_counter",
+          "settings": {
+            "sold_source": "product",
+            "refresh_sold_count": true,
+            "sold_label": "sold",
+            "show_live_dot": true,
+            "padding_top": 2,
+            "padding_bottom": 16,
+            "enable_counter_custom": false
+          }
+        },
+        "pp23_info": {
+          "type": "infotables",
+          "settings": {
+            "max_width": 760,
+            "center_card": false,
+            "section_pt_d": 6,
+            "section_pb_d": 22,
+            "section_pt_m": 6,
+            "section_pb_m": 18,
+            "pt_d": 16,
+            "pb_d": 16,
+            "pl_d": 20,
+            "pr_d": 20,
+            "pt_m": 14,
+            "pb_m": 14,
+            "pl_m": 16,
+            "pr_m": 16,
+            "font_size_d": 15,
+            "font_size_m": 14,
+            "line_height": 150,
+            "font_weight": 400,
+            "icon_gap": 16,
+            "icon_size": 22,
+            "border_style": "solid",
+            "divider_style": "solid",
+            "enable_custom_style": false,
+            "row1_enable": true,
+            "row2_enable": true,
+            "row3_enable": true,
+            "row1_highlight_weight": 600,
+            "row2_highlight_weight": 600,
+            "row3_highlight_weight": 600,
+            "row1_custom_icon": true,
+            "row2_custom_icon": false,
+            "row3_custom_icon": true,
+            "row1_lead": "Instant download:",
+            "row1_strong": "one ZIP of 24 bit WAV files, yours to keep.",
+            "row1_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M12 3.5v11.5\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\"/><path d=\"m7.5 10.5 4.5 4.5 4.5-4.5\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M4 15.5v2.5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2.5\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\"/></svg>",
+            "row2_lead": "New here? Use",
+            "row2_code": "FIRSTPACK",
+            "row2_tail": "for 15% off your first pack.",
+            "row3_lead": "Licence:",
+            "row3_strong": "royalty free, for releases, streams and sync.",
+            "row3_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M4 12a8 8 0 1 0 2.4-5.7L4 8.5\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M4 4v4.5h4.5\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M12 8v4l2.5 2\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\"/></svg>"
+          }
+        }
+      },
+      "block_order": [
+        "specs_1",
+        "pp23_rating",
+        "title_1",
+        "price_1",
+        "badges_1",
+        "pp23_sold",
+        "short_1",
+        "hearlink_1",
+        "variant_picker_1",
+        "pp23_info",
+        "buy_buttons_1",
+        "collapsible_row_2",
+        "collapsible_row_3",
+        "collapsible_row_5",
+        "collapsible_row_4",
+        "payment_badges_1"
+      ]
+    },
+    "demo": {
+      "type": "samples-audio-tracks",
+      "settings": {
+        "layout": "feature",
+        "eyebrow": "",
+        "heading": "Hear it in a track.",
+        "text": "<p>The loop below is the pack as it comes, with nothing added.</p>",
+        "anchor": "demo",
+        "max_width": 1040,
+        "heading_size": 40,
+        "heading_size_mobile": 30,
+        "accent": "#ff8a73",
+        "color_scheme": "scheme-sp-deep",
+        "section_width": "container",
+        "padding_top": 72,
+        "padding_bottom": 56
+      },
+      "blocks": {
+        "t_night_bus": {
+          "type": "track",
+          "settings": {
+            "title": "Night Bus demo",
+            "subtitle": "132 BPM, F minor",
+            "cover": "shopify://shop_images/soundpacks-box-night-bus.webp",
+            "link_label": "",
+            "for_name": "Night Bus",
+            "audio": "shopify://shop_images/soundpacks-demo-night-bus.mp4",
+            "seconds": 7.77,
+            "peaks": "88,85,81,85,78,41,16,62,51,29,80,73,68,59,30,14,6,100,97,89,80,75,55,34,77,72,70,64,87,85,81,92,78,50,21,63,45,25,77,71,67,67,82,73,56,85,79,75,66,69,53,29,83,72,64,60,93,88,83,85,75,65,19,68,43,26,78,73,67,63,29,16,6,97,92,89,84,69,59,41,79,73,74,68,91,89,80,83,78,68,27,60,52,29,79,73,68,65,84,76,60,81,80,75,67,67,55,29,83,75,65,63,5,3,3,2,2,2,2,2"
+          }
+        },
+        "t_chrome_drums": {
+          "type": "track",
+          "settings": {
+            "title": "Chrome Drums demo",
+            "subtitle": "126 BPM",
+            "cover": "shopify://shop_images/soundpacks-box-chrome-drums.webp",
+            "link_label": "",
+            "for_name": "Chrome Drums",
+            "audio": "shopify://shop_images/soundpacks-demo-chrome-drums.mp4",
+            "seconds": 8.12,
+            "peaks": "86,75,68,79,59,44,33,94,87,73,76,61,42,37,87,75,73,86,61,43,33,98,91,73,93,67,51,36,87,76,69,76,71,43,37,98,88,72,81,71,43,37,89,77,79,79,67,43,39,96,87,73,94,75,49,39,87,80,68,73,72,43,35,100,91,79,77,72,48,42,88,81,78,77,74,42,42,99,91,77,96,81,52,40,92,84,73,65,78,53,38,93,96,81,65,80,46,40,89,85,73,62,81,49,38,95,95,78,65,83,64,46,27,11,8,5,2,3,2,2"
+          }
+        },
+        "t_soft_focus": {
+          "type": "track",
+          "settings": {
+            "title": "Soft Focus demo",
+            "subtitle": "84 BPM, D minor",
+            "cover": "shopify://shop_images/soundpacks-box-soft-focus.webp",
+            "link_label": "",
+            "for_name": "Soft Focus",
+            "audio": "shopify://shop_images/soundpacks-demo-soft-focus.mp4",
+            "seconds": 6.91,
+            "peaks": "90,95,83,88,86,81,70,73,79,71,74,73,86,86,75,63,48,66,88,90,74,70,57,84,60,75,81,74,93,100,97,86,80,70,66,67,65,84,80,70,69,62,56,71,75,71,46,65,62,92,99,98,86,86,86,87,89,87,81,79,81,81,92,74,72,69,57,65,96,94,77,70,61,72,74,77,74,78,98,98,87,80,76,81,76,74,74,86,71,71,62,60,64,63,53,53,51,55,69,47,35,48,63,56,23,26,25,23,38,34,9,61,22,23,15,13,14,8,7,2"
+          }
+        },
+        "t_heavy_water": {
+          "type": "track",
+          "settings": {
+            "title": "Heavy Water demo",
+            "subtitle": "140 BPM, G minor",
+            "cover": "shopify://shop_images/soundpacks-box-heavy-water.webp",
+            "link_label": "",
+            "for_name": "Heavy Water",
+            "audio": "shopify://shop_images/soundpacks-demo-heavy-water.mp4",
+            "seconds": 7.36,
+            "peaks": "100,87,79,76,60,53,51,65,37,2,80,66,63,60,65,44,30,100,90,89,82,71,59,52,67,47,2,79,76,53,36,41,13,2,38,33,2,2,38,2,2,83,90,84,75,96,82,84,63,38,67,67,83,61,58,99,98,95,81,90,70,69,73,70,46,32,85,78,75,74,63,53,44,98,93,87,81,81,67,71,74,66,34,79,81,62,49,54,41,36,46,42,38,38,55,37,36,94,95,92,85,99,90,87,70,41,78,76,81,62,58,55,2,2,2,2,2,2,2,2"
+          }
+        },
+        "t_afterglow": {
+          "type": "track",
+          "settings": {
+            "title": "Afterglow demo",
+            "subtitle": "122 BPM, A minor",
+            "cover": "shopify://shop_images/soundpacks-box-afterglow.webp",
+            "link_label": "",
+            "for_name": "Afterglow",
+            "audio": "shopify://shop_images/soundpacks-demo-afterglow.mp4",
+            "seconds": 8.37,
+            "peaks": "82,69,57,98,86,85,72,92,84,64,97,84,81,79,84,72,63,98,87,84,78,97,79,68,96,86,79,79,83,73,62,96,88,83,80,96,82,70,100,85,84,86,86,77,62,97,85,78,83,92,88,71,86,95,83,86,85,80,66,77,97,80,81,90,92,69,59,100,81,81,85,83,69,51,96,77,81,93,94,72,57,99,81,84,83,82,67,59,96,80,86,89,95,77,63,97,81,82,83,83,71,58,94,81,85,90,97,76,60,96,78,80,44,18,18,14,12,10,4,2"
+          }
+        },
+        "t_dust_and_tape": {
+          "type": "track",
+          "settings": {
+            "title": "Dust and Tape demo",
+            "subtitle": "D minor",
+            "cover": "shopify://shop_images/soundpacks-box-dust-and-tape.webp",
+            "link_label": "",
+            "for_name": "Dust and Tape",
+            "audio": "shopify://shop_images/soundpacks-demo-dust-and-tape.mp4",
+            "seconds": 8.0,
+            "peaks": "22,24,34,42,28,29,32,30,34,34,41,40,44,48,57,54,56,63,63,65,69,69,75,74,76,80,83,84,88,89,94,92,91,95,94,94,93,93,91,94,95,92,93,95,100,95,92,87,93,95,90,88,91,96,90,91,86,91,92,90,98,88,97,94,99,96,93,97,94,88,94,91,87,86,87,86,90,87,88,92,94,89,92,87,90,89,88,91,92,88,89,87,86,86,85,83,82,81,78,80,74,74,70,66,56,51,46,39,36,28,27,21,17,14,13,10,6,4,2,2"
+          }
+        },
+        "t_first_light": {
+          "type": "track",
+          "settings": {
+            "title": "First Light demo",
+            "subtitle": "124 BPM, C minor",
+            "cover": "shopify://shop_images/soundpacks-box-first-light.webp",
+            "link_label": "",
+            "for_name": "First Light",
+            "audio": "shopify://shop_images/soundpacks-demo-first-light.mp4",
+            "seconds": 8.24,
+            "peaks": "80,66,51,95,74,75,23,94,77,63,97,74,71,11,79,66,51,93,78,74,18,93,77,60,94,75,71,18,82,67,53,94,77,77,41,91,80,62,94,79,77,56,81,70,56,93,80,70,58,91,88,65,94,94,71,67,82,70,55,98,93,79,72,90,87,67,89,95,71,70,84,71,57,45,95,75,72,89,86,68,48,93,71,70,81,72,59,43,96,71,80,90,91,65,51,95,73,76,81,73,62,46,96,71,71,90,89,71,50,100,69,71,4,3,3,2,2,2,2,2"
+          }
+        },
+        "t_small_hours": {
+          "type": "track",
+          "settings": {
+            "title": "Small Hours demo",
+            "subtitle": "90 BPM",
+            "cover": "shopify://shop_images/soundpacks-box-small-hours.webp",
+            "link_label": "",
+            "for_name": "Small Hours",
+            "audio": "shopify://shop_images/soundpacks-demo-small-hours.mp4",
+            "seconds": 5.83,
+            "peaks": "97,91,87,53,42,24,37,28,9,7,3,2,2,79,78,68,54,32,26,11,98,93,91,70,43,34,20,26,16,8,5,3,2,2,100,92,90,62,42,27,20,82,76,58,36,26,14,5,28,19,15,10,55,53,100,98,92,88,49,35,20,44,22,9,6,3,2,2,81,76,68,46,32,24,12,96,93,91,62,43,31,20,24,16,8,4,2,2,2,99,92,88,62,42,27,20,79,76,53,38,24,15,34,27,15,12,11,59,51,36,25,18,11,8,2,2,2,2,2,2"
+          }
+        },
+        "t_drums_and_low_end": {
+          "type": "track",
+          "settings": {
+            "title": "Night Bus demo, one of the packs in this bundle",
+            "subtitle": "132 BPM, F minor",
+            "cover": "shopify://shop_images/soundpacks-box-night-bus.webp",
+            "link_label": "",
+            "for_name": "Drums and Low End",
+            "audio": "shopify://shop_images/soundpacks-demo-night-bus.mp4",
+            "seconds": 7.77,
+            "peaks": "88,85,81,85,78,41,16,62,51,29,80,73,68,59,30,14,6,100,97,89,80,75,55,34,77,72,70,64,87,85,81,92,78,50,21,63,45,25,77,71,67,67,82,73,56,85,79,75,66,69,53,29,83,72,64,60,93,88,83,85,75,65,19,68,43,26,78,73,67,63,29,16,6,97,92,89,84,69,59,41,79,73,74,68,91,89,80,83,78,68,27,60,52,29,79,73,68,65,84,76,60,81,80,75,67,67,55,29,83,75,65,63,5,3,3,2,2,2,2,2"
+          }
+        },
+        "t_full_shelf": {
+          "type": "track",
+          "settings": {
+            "title": "Night Bus demo, one of the packs in this bundle",
+            "subtitle": "132 BPM, F minor",
+            "cover": "shopify://shop_images/soundpacks-box-night-bus.webp",
+            "link_label": "",
+            "for_name": "The Full Shelf",
+            "audio": "shopify://shop_images/soundpacks-demo-night-bus.mp4",
+            "seconds": 7.77,
+            "peaks": "88,85,81,85,78,41,16,62,51,29,80,73,68,59,30,14,6,100,97,89,80,75,55,34,77,72,70,64,87,85,81,92,78,50,21,63,45,25,77,71,67,67,82,73,56,85,79,75,66,69,53,29,83,72,64,60,93,88,83,85,75,65,19,68,43,26,78,73,67,63,29,16,6,97,92,89,84,69,59,41,79,73,74,68,91,89,80,83,78,68,27,60,52,29,79,73,68,65,84,76,60,81,80,75,67,67,55,29,83,75,65,63,5,3,3,2,2,2,2,2"
+          }
+        }
+      },
+      "block_order": [
+        "t_night_bus",
+        "t_chrome_drums",
+        "t_soft_focus",
+        "t_heavy_water",
+        "t_afterglow",
+        "t_dust_and_tape",
+        "t_first_light",
+        "t_small_hours",
+        "t_drums_and_low_end",
+        "t_full_shelf"
+      ]
+    },
+    "sounds": {
+      "type": "soundpacks-track-table",
+      "settings": {
+        "eyebrow": "Sounds",
+        "heading": "Play the sounds.",
+        "text": "<p>A loop and a few one shots straight from the folders, named as they are in the download.</p>",
+        "heading_align": "left",
+        "note": "<p>Previews are compressed renders of the 24 bit WAV files, with nothing added.</p>",
+        "anchor": "sounds",
+        "col_audio": "Audio",
+        "col_type": "Type",
+        "col_name": "Name and file",
+        "col_bpm": "BPM",
+        "col_key": "Key",
+        "bpm_suffix": true,
+        "accent": "#ff8a73",
+        "panel_color": "#141416",
+        "use_theme_radius": false,
+        "panel_radius": 28,
+        "max_width": 1200,
+        "heading_size": 44,
+        "heading_size_mobile": 30,
+        "color_scheme": "scheme-sp-deep",
+        "section_width": "container",
+        "padding_top": 24,
+        "padding_bottom": 80
+      },
+      "blocks": {
+        "r_night_bus_demo": {
+          "type": "sound",
+          "settings": {
+            "title": "Night Bus demo loop",
+            "file": "Lowmoth Night Bus Demo 132BPM Fm.wav",
+            "kind": "loop",
+            "bpm": "132",
+            "key": "F minor",
+            "for_name": "Night Bus",
+            "audio": "shopify://shop_images/soundpacks-demo-night-bus.mp4",
+            "seconds": 7.77,
+            "peaks": "88,85,81,85,78,41,16,62,51,29,80,73,68,59,30,14,6,100,97,89,80,75,55,34,77,72,70,64,87,85,81,92,78,50,21,63,45,25,77,71,67,67,82,73,56,85,79,75,66,69,53,29,83,72,64,60,93,88,83,85,75,65,19,68,43,26,78,73,67,63,29,16,6,97,92,89,84,69,59,41,79,73,74,68,91,89,80,83,78,68,27,60,52,29,79,73,68,65,84,76,60,81,80,75,67,67,55,29,83,75,65,63,5,3,3,2,2,2,2,2"
+          }
+        },
+        "r_night_bus_1": {
+          "type": "sound",
+          "settings": {
+            "title": "Kick 03",
+            "file": "Lowmoth Night Bus Kick 03.wav",
+            "kind": "one_shot",
+            "bpm": "",
+            "key": "",
+            "for_name": "Night Bus",
+            "audio": "shopify://shop_images/soundpacks-shot-night-bus-kick.mp4",
+            "seconds": 0.4,
+            "peaks": "100,98,96,94,95,94,93,93,92,89,91,89,89,88,85,86,83,85,83,83,83,78,80,62,78,74,75,76,57,73,70,67,70,57,67,67,47,65,63,52,62,58,54,59,51,53,56,45,52,53,40,50,50,35,47,47,31,45,45,28,42,42,25,40,40,23,38,38,22,35,35,21,33,33,20,31,31,19,29,29,18,28,28,17,26,26,16,24,24,15,23,23,14,22,21,13,20,20,13,19,19,12,18,18,11,17,17,11,16,16,10,15,15,9,12,12,5,6,5,2"
+          }
+        },
+        "r_night_bus_2": {
+          "type": "sound",
+          "settings": {
+            "title": "Clap 11",
+            "file": "Lowmoth Night Bus Clap 11.wav",
+            "kind": "one_shot",
+            "bpm": "",
+            "key": "",
+            "for_name": "Night Bus",
+            "audio": "shopify://shop_images/soundpacks-shot-night-bus-clap.mp4",
+            "seconds": 0.35,
+            "peaks": "82,49,40,49,66,61,35,87,100,76,94,79,87,63,90,78,79,70,86,51,71,63,74,57,41,70,55,52,50,51,49,58,57,46,50,44,50,34,30,42,37,42,43,35,43,35,33,38,35,37,25,27,27,24,24,20,25,26,26,27,26,24,23,20,23,26,20,23,20,22,22,19,18,18,16,13,13,13,15,13,13,13,12,12,17,14,12,12,10,12,11,10,11,10,8,10,9,8,10,8,9,6,8,7,8,7,7,8,6,6,5,7,6,6,4,4,3,4,2,2"
+          }
+        },
+        "r_night_bus_3": {
+          "type": "sound",
+          "settings": {
+            "title": "Rim 07",
+            "file": "Lowmoth Night Bus Rim 07.wav",
+            "kind": "one_shot",
+            "bpm": "",
+            "key": "",
+            "for_name": "Night Bus",
+            "audio": "shopify://shop_images/soundpacks-shot-night-bus-rim.mp4",
+            "seconds": 0.12,
+            "peaks": "90,85,100,85,76,67,56,49,52,46,47,45,41,37,34,28,30,27,27,26,24,22,20,17,18,16,16,15,14,13,12,11,11,10,9,9,8,8,7,6,5,6,5,5,5,5,4,4,3,3,3,3,3,3,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2"
+          }
+        },
+        "r_chrome_drums_demo": {
+          "type": "sound",
+          "settings": {
+            "title": "Chrome Drums demo loop",
+            "file": "Lowmoth Chrome Drums Demo 126BPM.wav",
+            "kind": "loop",
+            "bpm": "126",
+            "key": "",
+            "for_name": "Chrome Drums",
+            "audio": "shopify://shop_images/soundpacks-demo-chrome-drums.mp4",
+            "seconds": 8.12,
+            "peaks": "86,75,68,79,59,44,33,94,87,73,76,61,42,37,87,75,73,86,61,43,33,98,91,73,93,67,51,36,87,76,69,76,71,43,37,98,88,72,81,71,43,37,89,77,79,79,67,43,39,96,87,73,94,75,49,39,87,80,68,73,72,43,35,100,91,79,77,72,48,42,88,81,78,77,74,42,42,99,91,77,96,81,52,40,92,84,73,65,78,53,38,93,96,81,65,80,46,40,89,85,73,62,81,49,38,95,95,78,65,83,64,46,27,11,8,5,2,3,2,2"
+          }
+        },
+        "r_chrome_drums_1": {
+          "type": "sound",
+          "settings": {
+            "title": "Kick 12",
+            "file": "Lowmoth Chrome Drums Kick 12.wav",
+            "kind": "one_shot",
+            "bpm": "",
+            "key": "",
+            "for_name": "Chrome Drums",
+            "audio": "shopify://shop_images/soundpacks-shot-chrome-drums-kick.mp4",
+            "seconds": 0.5,
+            "peaks": "100,99,98,97,96,96,95,95,94,94,93,92,92,91,89,90,89,87,88,77,86,78,84,75,82,68,81,70,78,75,76,76,71,74,54,71,67,69,69,56,66,59,64,64,52,61,54,58,58,44,56,52,52,53,34,51,49,45,48,38,46,46,37,44,39,41,42,27,40,38,35,38,29,36,36,27,34,31,31,32,21,30,30,26,29,24,27,27,19,26,24,23,24,18,23,23,19,22,19,21,21,13,20,19,17,19,15,18,18,13,17,15,15,16,11,15,14,7,7,5"
+          }
+        },
+        "r_chrome_drums_2": {
+          "type": "sound",
+          "settings": {
+            "title": "Clap 04",
+            "file": "Lowmoth Chrome Drums Clap 04.wav",
+            "kind": "one_shot",
+            "bpm": "",
+            "key": "",
+            "for_name": "Chrome Drums",
+            "audio": "shopify://shop_images/soundpacks-shot-chrome-drums-clap.mp4",
+            "seconds": 0.4,
+            "peaks": "92,51,34,70,51,35,94,83,84,100,99,76,89,70,78,78,82,85,60,74,62,56,87,69,59,61,57,52,41,45,46,52,31,37,39,30,35,32,36,36,46,33,28,34,31,30,28,23,23,25,22,22,26,24,28,23,21,22,20,16,23,17,19,17,12,13,16,14,13,12,14,17,15,16,17,13,11,11,10,10,9,10,11,8,10,10,8,8,9,7,7,8,7,7,6,8,5,8,6,7,5,6,5,6,6,5,5,4,4,5,4,4,4,4,3,3,2,2,2,2"
+          }
+        },
+        "r_chrome_drums_3": {
+          "type": "sound",
+          "settings": {
+            "title": "Closed Hat 21",
+            "file": "Lowmoth Chrome Drums Closed Hat 21.wav",
+            "kind": "one_shot",
+            "bpm": "",
+            "key": "",
+            "for_name": "Chrome Drums",
+            "audio": "shopify://shop_images/soundpacks-shot-chrome-drums-hat.mp4",
+            "seconds": 0.09,
+            "peaks": "90,100,98,83,89,71,99,95,74,85,81,46,50,68,56,73,51,51,73,60,40,65,46,55,40,33,32,32,37,34,41,30,34,25,30,30,28,29,24,22,29,29,27,17,19,22,15,22,18,19,20,15,20,14,17,19,15,14,13,11,12,14,15,14,11,11,13,9,10,13,8,11,9,7,7,11,8,9,6,6,6,6,7,5,7,6,5,5,6,5,4,3,5,4,3,4,3,3,3,3,3,3,3,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2"
+          }
+        },
+        "r_chrome_drums_4": {
+          "type": "sound",
+          "settings": {
+            "title": "Open Hat 09",
+            "file": "Lowmoth Chrome Drums Open Hat 09.wav",
+            "kind": "one_shot",
+            "bpm": "",
+            "key": "",
+            "for_name": "Chrome Drums",
+            "audio": "shopify://shop_images/soundpacks-shot-chrome-drums-open-hat.mp4",
+            "seconds": 0.42,
+            "peaks": "79,99,80,83,100,80,91,80,72,80,77,81,62,68,73,70,73,73,56,68,59,67,62,55,49,61,57,60,48,53,49,53,57,48,45,43,44,44,47,42,43,36,39,33,47,33,37,37,46,33,33,30,28,28,29,27,27,30,25,26,28,26,29,23,27,25,28,29,22,24,23,20,19,20,20,23,22,18,16,22,18,16,16,18,19,17,17,17,17,17,16,15,15,15,14,12,14,16,12,12,13,14,12,13,11,11,12,12,10,11,9,11,10,10,9,9,7,5,3,2"
+          }
+        },
+        "r_chrome_drums_5": {
+          "type": "sound",
+          "settings": {
+            "title": "Tom Low 02",
+            "file": "Lowmoth Chrome Drums Tom Low 02.wav",
+            "kind": "one_shot",
+            "bpm": "",
+            "key": "",
+            "for_name": "Chrome Drums",
+            "audio": "shopify://shop_images/soundpacks-shot-chrome-drums-tom.mp4",
+            "seconds": 0.45,
+            "peaks": "100,98,96,93,91,89,86,84,82,80,77,75,74,73,71,68,66,65,64,62,60,57,58,56,55,52,53,51,49,47,48,46,45,42,43,42,40,37,39,38,36,35,35,34,33,33,32,31,30,30,29,28,26,27,26,25,24,24,23,23,23,22,21,20,20,20,19,18,18,18,17,17,17,16,16,15,15,15,14,14,14,13,12,13,12,12,11,11,11,11,11,10,10,10,10,9,9,8,9,8,8,8,8,8,7,7,7,7,7,7,6,6,6,6,6,5,4,3,2,2"
+          }
+        },
+        "r_soft_focus_demo": {
+          "type": "sound",
+          "settings": {
+            "title": "Soft Focus demo loop",
+            "file": "Lowmoth Soft Focus Demo 84BPM Dm.wav",
+            "kind": "loop",
+            "bpm": "84",
+            "key": "D minor",
+            "for_name": "Soft Focus",
+            "audio": "shopify://shop_images/soundpacks-demo-soft-focus.mp4",
+            "seconds": 6.91,
+            "peaks": "90,95,83,88,86,81,70,73,79,71,74,73,86,86,75,63,48,66,88,90,74,70,57,84,60,75,81,74,93,100,97,86,80,70,66,67,65,84,80,70,69,62,56,71,75,71,46,65,62,92,99,98,86,86,86,87,89,87,81,79,81,81,92,74,72,69,57,65,96,94,77,70,61,72,74,77,74,78,98,98,87,80,76,81,76,74,74,86,71,71,62,60,64,63,53,53,51,55,69,47,35,48,63,56,23,26,25,23,38,34,9,61,22,23,15,13,14,8,7,2"
+          }
+        },
+        "r_soft_focus_1": {
+          "type": "sound",
+          "settings": {
+            "title": "Chord Dm9 01",
+            "file": "Lowmoth Soft Focus Chord Dm9 01.wav",
+            "kind": "one_shot",
+            "bpm": "",
+            "key": "",
+            "for_name": "Soft Focus",
+            "audio": "shopify://shop_images/soundpacks-shot-soft-focus-chord.mp4",
+            "seconds": 1.6,
+            "peaks": "73,73,67,80,82,90,89,83,82,72,85,80,71,90,80,77,100,75,82,92,85,85,61,89,82,77,85,68,68,72,74,74,82,66,72,57,79,75,64,84,43,66,44,76,58,61,66,56,55,57,62,48,61,45,66,49,68,60,50,65,50,57,61,59,49,47,56,46,46,49,49,40,53,45,51,52,54,52,39,54,48,43,52,34,43,34,47,40,38,40,44,33,45,45,32,48,39,42,25,48,39,36,45,26,36,38,40,33,33,33,38,28,36,39,29,40,27,35,16,17"
+          }
+        },
+        "r_heavy_water_demo": {
+          "type": "sound",
+          "settings": {
+            "title": "Heavy Water demo loop",
+            "file": "Lowmoth Heavy Water Demo 140BPM Gm.wav",
+            "kind": "loop",
+            "bpm": "140",
+            "key": "G minor",
+            "for_name": "Heavy Water",
+            "audio": "shopify://shop_images/soundpacks-demo-heavy-water.mp4",
+            "seconds": 7.36,
+            "peaks": "100,87,79,76,60,53,51,65,37,2,80,66,63,60,65,44,30,100,90,89,82,71,59,52,67,47,2,79,76,53,36,41,13,2,38,33,2,2,38,2,2,83,90,84,75,96,82,84,63,38,67,67,83,61,58,99,98,95,81,90,70,69,73,70,46,32,85,78,75,74,63,53,44,98,93,87,81,81,67,71,74,66,34,79,81,62,49,54,41,36,46,42,38,38,55,37,36,94,95,92,85,99,90,87,70,41,78,76,81,62,58,55,2,2,2,2,2,2,2,2"
+          }
+        },
+        "r_heavy_water_1": {
+          "type": "sound",
+          "settings": {
+            "title": "808 Long 14",
+            "file": "Lowmoth Heavy Water 808 Long 14.wav",
+            "kind": "one_shot",
+            "bpm": "",
+            "key": "",
+            "for_name": "Heavy Water",
+            "audio": "shopify://shop_images/soundpacks-shot-heavy-water-808.mp4",
+            "seconds": 1.2,
+            "peaks": "100,99,98,97,96,96,95,94,93,92,91,91,90,89,88,87,86,86,85,84,84,83,82,82,81,80,80,79,78,78,77,76,75,75,74,73,73,72,71,71,70,70,69,68,68,67,66,66,65,65,64,64,63,62,62,61,61,60,60,59,59,58,58,57,56,56,55,55,54,54,54,53,53,52,52,52,51,51,50,50,49,49,48,48,48,47,47,46,46,45,45,45,44,44,43,43,43,42,42,41,41,41,40,40,40,39,39,39,38,38,38,37,37,37,36,36,36,35,25,8"
+          }
+        },
+        "r_heavy_water_2": {
+          "type": "sound",
+          "settings": {
+            "title": "Reese 05",
+            "file": "Lowmoth Heavy Water Reese 05.wav",
+            "kind": "one_shot",
+            "bpm": "",
+            "key": "",
+            "for_name": "Heavy Water",
+            "audio": "shopify://shop_images/soundpacks-shot-heavy-water-reese.mp4",
+            "seconds": 1.4,
+            "peaks": "97,100,97,94,97,96,91,91,93,90,88,92,92,88,89,92,90,87,92,92,87,89,92,90,85,92,91,85,89,92,90,86,91,91,85,89,91,91,87,91,91,87,89,91,91,88,91,90,88,89,90,90,89,90,89,89,89,90,89,90,89,89,89,90,89,90,90,88,87,90,90,78,90,91,87,85,90,91,78,90,91,85,82,90,91,78,90,91,81,83,90,91,77,90,91,86,83,90,91,76,90,91,91,83,90,91,77,90,91,91,85,91,92,81,91,92,92,81,70,22"
+          }
+        },
+        "r_afterglow_demo": {
+          "type": "sound",
+          "settings": {
+            "title": "Afterglow demo loop",
+            "file": "Lowmoth Afterglow Demo 122BPM Am.wav",
+            "kind": "loop",
+            "bpm": "122",
+            "key": "A minor",
+            "for_name": "Afterglow",
+            "audio": "shopify://shop_images/soundpacks-demo-afterglow.mp4",
+            "seconds": 8.37,
+            "peaks": "82,69,57,98,86,85,72,92,84,64,97,84,81,79,84,72,63,98,87,84,78,97,79,68,96,86,79,79,83,73,62,96,88,83,80,96,82,70,100,85,84,86,86,77,62,97,85,78,83,92,88,71,86,95,83,86,85,80,66,77,97,80,81,90,92,69,59,100,81,81,85,83,69,51,96,77,81,93,94,72,57,99,81,84,83,82,67,59,96,80,86,89,95,77,63,97,81,82,83,83,71,58,94,81,85,90,97,76,60,96,78,80,44,18,18,14,12,10,4,2"
+          }
+        },
+        "r_afterglow_1": {
+          "type": "sound",
+          "settings": {
+            "title": "Pluck A 03",
+            "file": "Lowmoth Afterglow Pluck A 03.wav",
+            "kind": "one_shot",
+            "bpm": "",
+            "key": "",
+            "for_name": "Afterglow",
+            "audio": "shopify://shop_images/soundpacks-shot-afterglow-pluck.mp4",
+            "seconds": 0.6,
+            "peaks": "100,98,95,94,90,88,83,86,87,93,87,87,88,71,72,63,55,57,55,55,56,57,51,50,43,46,47,43,46,42,36,42,45,43,39,45,46,45,45,47,46,48,46,44,40,40,40,39,36,34,29,33,35,38,41,43,41,41,42,39,34,31,30,30,30,28,28,29,28,29,26,25,21,23,21,22,23,21,19,22,22,21,23,23,23,21,19,19,18,19,21,18,19,18,19,19,18,16,19,20,21,21,21,19,20,19,18,19,18,17,17,15,15,14,14,13,14,11,8,5"
+          }
+        },
+        "r_afterglow_2": {
+          "type": "sound",
+          "settings": {
+            "title": "Stab Am 02",
+            "file": "Lowmoth Afterglow Stab Am 02.wav",
+            "kind": "one_shot",
+            "bpm": "",
+            "key": "",
+            "for_name": "Afterglow",
+            "audio": "shopify://shop_images/soundpacks-shot-afterglow-stab.mp4",
+            "seconds": 0.4,
+            "peaks": "76,74,88,83,96,32,45,100,55,77,66,83,85,75,68,81,80,79,79,57,85,80,75,76,69,72,81,61,67,84,73,74,56,55,73,60,55,50,52,60,55,40,35,44,61,41,39,45,36,29,23,42,46,34,29,39,37,37,41,29,40,34,29,31,28,35,37,23,27,24,27,36,36,28,36,18,28,17,24,30,31,17,25,20,26,25,16,25,26,23,20,27,36,27,22,26,25,29,20,20,31,27,23,17,17,23,25,21,20,25,20,22,11,14,23,22,10,11,6,3"
+          }
+        },
+        "r_dust_and_tape_demo": {
+          "type": "sound",
+          "settings": {
+            "title": "Dust and Tape demo loop",
+            "file": "Lowmoth Dust and Tape Demo Dm.wav",
+            "kind": "loop",
+            "bpm": "",
+            "key": "D minor",
+            "for_name": "Dust and Tape",
+            "audio": "shopify://shop_images/soundpacks-demo-dust-and-tape.mp4",
+            "seconds": 8.0,
+            "peaks": "22,24,34,42,28,29,32,30,34,34,41,40,44,48,57,54,56,63,63,65,69,69,75,74,76,80,83,84,88,89,94,92,91,95,94,94,93,93,91,94,95,92,93,95,100,95,92,87,93,95,90,88,91,96,90,91,86,91,92,90,98,88,97,94,99,96,93,97,94,88,94,91,87,86,87,86,90,87,88,92,94,89,92,87,90,89,88,91,92,88,89,87,86,86,85,83,82,81,78,80,74,74,70,66,56,51,46,39,36,28,27,21,17,14,13,10,6,4,2,2"
+          }
+        },
+        "r_first_light_demo": {
+          "type": "sound",
+          "settings": {
+            "title": "First Light demo loop",
+            "file": "Lowmoth First Light Demo 124BPM Cm.wav",
+            "kind": "loop",
+            "bpm": "124",
+            "key": "C minor",
+            "for_name": "First Light",
+            "audio": "shopify://shop_images/soundpacks-demo-first-light.mp4",
+            "seconds": 8.24,
+            "peaks": "80,66,51,95,74,75,23,94,77,63,97,74,71,11,79,66,51,93,78,74,18,93,77,60,94,75,71,18,82,67,53,94,77,77,41,91,80,62,94,79,77,56,81,70,56,93,80,70,58,91,88,65,94,94,71,67,82,70,55,98,93,79,72,90,87,67,89,95,71,70,84,71,57,45,95,75,72,89,86,68,48,93,71,70,81,72,59,43,96,71,80,90,91,65,51,95,73,76,81,73,62,46,96,71,71,90,89,71,50,100,69,71,4,3,3,2,2,2,2,2"
+          }
+        },
+        "r_first_light_1": {
+          "type": "sound",
+          "settings": {
+            "title": "Kick 01",
+            "file": "Lowmoth First Light Kick 01.wav",
+            "kind": "one_shot",
+            "bpm": "",
+            "key": "",
+            "for_name": "First Light",
+            "audio": "shopify://shop_images/soundpacks-shot-first-light-kick.mp4",
+            "seconds": 0.42,
+            "peaks": "100,99,97,96,95,94,94,93,92,92,91,87,89,88,88,86,84,84,81,83,81,80,80,76,78,63,76,69,73,73,62,70,62,68,68,50,65,62,58,62,51,59,59,39,56,56,45,54,49,48,51,42,48,48,33,46,46,30,43,43,33,41,39,34,39,34,35,37,29,34,35,24,33,33,19,31,31,21,29,28,23,27,25,23,26,22,23,24,19,22,23,16,21,21,12,20,20,14,19,19,14,18,17,15,17,15,15,16,13,15,15,11,14,14,9,11,10,4,5,4"
+          }
+        },
+        "r_first_light_2": {
+          "type": "sound",
+          "settings": {
+            "title": "Stab Cm 04",
+            "file": "Lowmoth First Light Stab Cm 04.wav",
+            "kind": "one_shot",
+            "bpm": "",
+            "key": "",
+            "for_name": "First Light",
+            "audio": "shopify://shop_images/soundpacks-shot-first-light-stab.mp4",
+            "seconds": 0.3,
+            "peaks": "53,76,91,69,95,84,99,51,68,100,84,58,73,59,64,69,63,73,61,56,74,63,60,50,61,84,58,36,46,66,51,41,66,53,62,43,25,47,47,46,49,39,54,41,50,62,37,45,69,45,53,46,33,42,36,34,26,29,47,23,59,37,33,49,49,47,33,24,41,37,35,36,24,31,29,32,37,25,23,30,32,32,34,24,18,25,26,19,20,16,16,26,24,20,23,19,23,30,24,20,26,13,26,14,17,25,18,20,10,18,23,18,15,16,14,17,5,10,6,3"
+          }
+        },
+        "r_small_hours_demo": {
+          "type": "sound",
+          "settings": {
+            "title": "Small Hours demo loop",
+            "file": "Lowmoth Small Hours Demo 90BPM.wav",
+            "kind": "loop",
+            "bpm": "90",
+            "key": "",
+            "for_name": "Small Hours",
+            "audio": "shopify://shop_images/soundpacks-demo-small-hours.mp4",
+            "seconds": 5.83,
+            "peaks": "97,91,87,53,42,24,37,28,9,7,3,2,2,79,78,68,54,32,26,11,98,93,91,70,43,34,20,26,16,8,5,3,2,2,100,92,90,62,42,27,20,82,76,58,36,26,14,5,28,19,15,10,55,53,100,98,92,88,49,35,20,44,22,9,6,3,2,2,81,76,68,46,32,24,12,96,93,91,62,43,31,20,24,16,8,4,2,2,2,99,92,88,62,42,27,20,79,76,53,38,24,15,34,27,15,12,11,59,51,36,25,18,11,8,2,2,2,2,2,2"
+          }
+        },
+        "r_drums_and_low_end_night_bus": {
+          "type": "sound",
+          "settings": {
+            "title": "Night Bus demo loop",
+            "file": "Lowmoth Night Bus Demo 132BPM Fm.wav",
+            "kind": "loop",
+            "bpm": "132",
+            "key": "F minor",
+            "for_name": "Drums and Low End",
+            "audio": "shopify://shop_images/soundpacks-demo-night-bus.mp4",
+            "seconds": 7.77,
+            "peaks": "88,85,81,85,78,41,16,62,51,29,80,73,68,59,30,14,6,100,97,89,80,75,55,34,77,72,70,64,87,85,81,92,78,50,21,63,45,25,77,71,67,67,82,73,56,85,79,75,66,69,53,29,83,72,64,60,93,88,83,85,75,65,19,68,43,26,78,73,67,63,29,16,6,97,92,89,84,69,59,41,79,73,74,68,91,89,80,83,78,68,27,60,52,29,79,73,68,65,84,76,60,81,80,75,67,67,55,29,83,75,65,63,5,3,3,2,2,2,2,2"
+          }
+        },
+        "r_drums_and_low_end_chrome_drums": {
+          "type": "sound",
+          "settings": {
+            "title": "Chrome Drums demo loop",
+            "file": "Lowmoth Chrome Drums Demo 126BPM.wav",
+            "kind": "loop",
+            "bpm": "126",
+            "key": "",
+            "for_name": "Drums and Low End",
+            "audio": "shopify://shop_images/soundpacks-demo-chrome-drums.mp4",
+            "seconds": 8.12,
+            "peaks": "86,75,68,79,59,44,33,94,87,73,76,61,42,37,87,75,73,86,61,43,33,98,91,73,93,67,51,36,87,76,69,76,71,43,37,98,88,72,81,71,43,37,89,77,79,79,67,43,39,96,87,73,94,75,49,39,87,80,68,73,72,43,35,100,91,79,77,72,48,42,88,81,78,77,74,42,42,99,91,77,96,81,52,40,92,84,73,65,78,53,38,93,96,81,65,80,46,40,89,85,73,62,81,49,38,95,95,78,65,83,64,46,27,11,8,5,2,3,2,2"
+          }
+        },
+        "r_drums_and_low_end_heavy_water": {
+          "type": "sound",
+          "settings": {
+            "title": "Heavy Water demo loop",
+            "file": "Lowmoth Heavy Water Demo 140BPM Gm.wav",
+            "kind": "loop",
+            "bpm": "140",
+            "key": "G minor",
+            "for_name": "Drums and Low End",
+            "audio": "shopify://shop_images/soundpacks-demo-heavy-water.mp4",
+            "seconds": 7.36,
+            "peaks": "100,87,79,76,60,53,51,65,37,2,80,66,63,60,65,44,30,100,90,89,82,71,59,52,67,47,2,79,76,53,36,41,13,2,38,33,2,2,38,2,2,83,90,84,75,96,82,84,63,38,67,67,83,61,58,99,98,95,81,90,70,69,73,70,46,32,85,78,75,74,63,53,44,98,93,87,81,81,67,71,74,66,34,79,81,62,49,54,41,36,46,42,38,38,55,37,36,94,95,92,85,99,90,87,70,41,78,76,81,62,58,55,2,2,2,2,2,2,2,2"
+          }
+        },
+        "r_full_shelf_night_bus": {
+          "type": "sound",
+          "settings": {
+            "title": "Night Bus demo loop",
+            "file": "Lowmoth Night Bus Demo 132BPM Fm.wav",
+            "kind": "loop",
+            "bpm": "132",
+            "key": "F minor",
+            "for_name": "The Full Shelf",
+            "audio": "shopify://shop_images/soundpacks-demo-night-bus.mp4",
+            "seconds": 7.77,
+            "peaks": "88,85,81,85,78,41,16,62,51,29,80,73,68,59,30,14,6,100,97,89,80,75,55,34,77,72,70,64,87,85,81,92,78,50,21,63,45,25,77,71,67,67,82,73,56,85,79,75,66,69,53,29,83,72,64,60,93,88,83,85,75,65,19,68,43,26,78,73,67,63,29,16,6,97,92,89,84,69,59,41,79,73,74,68,91,89,80,83,78,68,27,60,52,29,79,73,68,65,84,76,60,81,80,75,67,67,55,29,83,75,65,63,5,3,3,2,2,2,2,2"
+          }
+        },
+        "r_full_shelf_chrome_drums": {
+          "type": "sound",
+          "settings": {
+            "title": "Chrome Drums demo loop",
+            "file": "Lowmoth Chrome Drums Demo 126BPM.wav",
+            "kind": "loop",
+            "bpm": "126",
+            "key": "",
+            "for_name": "The Full Shelf",
+            "audio": "shopify://shop_images/soundpacks-demo-chrome-drums.mp4",
+            "seconds": 8.12,
+            "peaks": "86,75,68,79,59,44,33,94,87,73,76,61,42,37,87,75,73,86,61,43,33,98,91,73,93,67,51,36,87,76,69,76,71,43,37,98,88,72,81,71,43,37,89,77,79,79,67,43,39,96,87,73,94,75,49,39,87,80,68,73,72,43,35,100,91,79,77,72,48,42,88,81,78,77,74,42,42,99,91,77,96,81,52,40,92,84,73,65,78,53,38,93,96,81,65,80,46,40,89,85,73,62,81,49,38,95,95,78,65,83,64,46,27,11,8,5,2,3,2,2"
+          }
+        },
+        "r_full_shelf_soft_focus": {
+          "type": "sound",
+          "settings": {
+            "title": "Soft Focus demo loop",
+            "file": "Lowmoth Soft Focus Demo 84BPM Dm.wav",
+            "kind": "loop",
+            "bpm": "84",
+            "key": "D minor",
+            "for_name": "The Full Shelf",
+            "audio": "shopify://shop_images/soundpacks-demo-soft-focus.mp4",
+            "seconds": 6.91,
+            "peaks": "90,95,83,88,86,81,70,73,79,71,74,73,86,86,75,63,48,66,88,90,74,70,57,84,60,75,81,74,93,100,97,86,80,70,66,67,65,84,80,70,69,62,56,71,75,71,46,65,62,92,99,98,86,86,86,87,89,87,81,79,81,81,92,74,72,69,57,65,96,94,77,70,61,72,74,77,74,78,98,98,87,80,76,81,76,74,74,86,71,71,62,60,64,63,53,53,51,55,69,47,35,48,63,56,23,26,25,23,38,34,9,61,22,23,15,13,14,8,7,2"
+          }
+        }
+      },
+      "block_order": [
+        "r_night_bus_demo",
+        "r_night_bus_1",
+        "r_night_bus_2",
+        "r_night_bus_3",
+        "r_chrome_drums_demo",
+        "r_chrome_drums_1",
+        "r_chrome_drums_2",
+        "r_chrome_drums_3",
+        "r_chrome_drums_4",
+        "r_chrome_drums_5",
+        "r_soft_focus_demo",
+        "r_soft_focus_1",
+        "r_heavy_water_demo",
+        "r_heavy_water_1",
+        "r_heavy_water_2",
+        "r_afterglow_demo",
+        "r_afterglow_1",
+        "r_afterglow_2",
+        "r_dust_and_tape_demo",
+        "r_first_light_demo",
+        "r_first_light_1",
+        "r_first_light_2",
+        "r_small_hours_demo",
+        "r_drums_and_low_end_night_bus",
+        "r_drums_and_low_end_chrome_drums",
+        "r_drums_and_low_end_heavy_water",
+        "r_full_shelf_night_bus",
+        "r_full_shelf_chrome_drums",
+        "r_full_shelf_soft_focus"
+      ]
+    },
+    "contents": {
+      "type": "samples-pack-contents",
+      "settings": {
+        "eyebrow": "",
+        "heading": "What is inside.",
+        "text": "<p>Every folder, counted. WAV files at 24 bit, 44.1 kHz.</p>",
+        "max_width": 1200,
+        "heading_size": 44,
+        "heading_size_mobile": 30,
+        "color_scheme": "default",
+        "section_width": "container",
+        "padding_top": 88,
+        "padding_bottom": 56
+      },
+      "blocks": {
+        "s_night_bus_0": {
+          "type": "stat",
+          "settings": {
+            "value": "412",
+            "label": "WAV files",
+            "for_name": "Night Bus"
+          }
+        },
+        "s_night_bus_1": {
+          "type": "stat",
+          "settings": {
+            "value": "640 MB",
+            "label": "Unzipped",
+            "for_name": "Night Bus"
+          }
+        },
+        "s_night_bus_2": {
+          "type": "stat",
+          "settings": {
+            "value": "132",
+            "label": "BPM",
+            "for_name": "Night Bus"
+          }
+        },
+        "s_night_bus_3": {
+          "type": "stat",
+          "settings": {
+            "value": "78",
+            "label": "MIDI files",
+            "for_name": "Night Bus"
+          }
+        },
+        "p_night_bus_0": {
+          "type": "part",
+          "settings": {
+            "title": "Drum one shots",
+            "count": "160",
+            "list": "<ul><li>24 kicks</li><li>38 claps and snares</li><li>52 hats and shakers</li><li>46 rims and percs</li></ul>",
+            "for_name": "Night Bus"
+          }
+        },
+        "p_night_bus_1": {
+          "type": "part",
+          "settings": {
+            "title": "Drum loops",
+            "count": "64",
+            "list": "<ul><li>Full two step grooves</li><li>Hat and shaker tops</li><li>Percussion loops</li></ul>",
+            "for_name": "Night Bus"
+          }
+        },
+        "p_night_bus_2": {
+          "type": "part",
+          "settings": {
+            "title": "Bass loops",
+            "count": "42",
+            "list": "<ul><li>Sub bass</li><li>Organ bass</li><li>Each with its MIDI</li></ul>",
+            "for_name": "Night Bus"
+          }
+        },
+        "p_night_bus_3": {
+          "type": "part",
+          "settings": {
+            "title": "Chord stabs",
+            "count": "36",
+            "list": "<ul><li>Detuned stabs</li><li>Organ chords</li><li>Each with its MIDI</li></ul>",
+            "for_name": "Night Bus"
+          }
+        },
+        "s_chrome_drums_0": {
+          "type": "stat",
+          "settings": {
+            "value": "630",
+            "label": "WAV files",
+            "for_name": "Chrome Drums"
+          }
+        },
+        "s_chrome_drums_1": {
+          "type": "stat",
+          "settings": {
+            "value": "720 MB",
+            "label": "Unzipped",
+            "for_name": "Chrome Drums"
+          }
+        },
+        "s_chrome_drums_2": {
+          "type": "stat",
+          "settings": {
+            "value": "520",
+            "label": "One shots",
+            "for_name": "Chrome Drums"
+          }
+        },
+        "s_chrome_drums_3": {
+          "type": "stat",
+          "settings": {
+            "value": "110",
+            "label": "Loops",
+            "for_name": "Chrome Drums"
+          }
+        },
+        "p_chrome_drums_0": {
+          "type": "part",
+          "settings": {
+            "title": "One shots",
+            "count": "520",
+            "list": "<ul><li>96 kicks</li><li>84 claps</li><li>110 closed hats</li><li>72 open hats</li><li>158 toms and percs</li></ul>",
+            "for_name": "Chrome Drums"
+          }
+        },
+        "p_chrome_drums_1": {
+          "type": "part",
+          "settings": {
+            "title": "Loops",
+            "count": "110",
+            "list": "<ul><li>60 full drum loops</li><li>50 top loops</li><li>120 to 130 BPM</li></ul>",
+            "for_name": "Chrome Drums"
+          }
+        },
+        "s_soft_focus_0": {
+          "type": "stat",
+          "settings": {
+            "value": "300",
+            "label": "WAV files",
+            "for_name": "Soft Focus"
+          }
+        },
+        "s_soft_focus_1": {
+          "type": "stat",
+          "settings": {
+            "value": "410 MB",
+            "label": "Unzipped",
+            "for_name": "Soft Focus"
+          }
+        },
+        "s_soft_focus_2": {
+          "type": "stat",
+          "settings": {
+            "value": "70 to 90",
+            "label": "BPM",
+            "for_name": "Soft Focus"
+          }
+        },
+        "s_soft_focus_3": {
+          "type": "stat",
+          "settings": {
+            "value": "90",
+            "label": "MIDI files",
+            "for_name": "Soft Focus"
+          }
+        },
+        "p_soft_focus_0": {
+          "type": "part",
+          "settings": {
+            "title": "Keys loops",
+            "count": "90",
+            "list": "<ul><li>Electric piano</li><li>Felt piano</li><li>Each with its MIDI</li></ul>",
+            "for_name": "Soft Focus"
+          }
+        },
+        "p_soft_focus_1": {
+          "type": "part",
+          "settings": {
+            "title": "Chord one shots",
+            "count": "48",
+            "list": "<ul><li>Minor nines and elevens</li><li>Played at three velocities</li></ul>",
+            "for_name": "Soft Focus"
+          }
+        },
+        "p_soft_focus_2": {
+          "type": "part",
+          "settings": {
+            "title": "Textures",
+            "count": "40",
+            "list": "<ul><li>Tape hiss</li><li>Room tone</li><li>Vinyl crackle</li></ul>",
+            "for_name": "Soft Focus"
+          }
+        },
+        "p_soft_focus_3": {
+          "type": "part",
+          "settings": {
+            "title": "Drum loops",
+            "count": "32",
+            "list": "<ul><li>Dusty breaks at 70 to 90 BPM</li></ul>",
+            "for_name": "Soft Focus"
+          }
+        },
+        "s_heavy_water_0": {
+          "type": "stat",
+          "settings": {
+            "value": "242",
+            "label": "WAV files",
+            "for_name": "Heavy Water"
+          }
+        },
+        "s_heavy_water_1": {
+          "type": "stat",
+          "settings": {
+            "value": "530 MB",
+            "label": "Unzipped",
+            "for_name": "Heavy Water"
+          }
+        },
+        "s_heavy_water_2": {
+          "type": "stat",
+          "settings": {
+            "value": "Tuned",
+            "label": "Every bass",
+            "for_name": "Heavy Water"
+          }
+        },
+        "s_heavy_water_3": {
+          "type": "stat",
+          "settings": {
+            "value": "76",
+            "label": "MIDI files",
+            "for_name": "Heavy Water"
+          }
+        },
+        "p_heavy_water_0": {
+          "type": "part",
+          "settings": {
+            "title": "808s",
+            "count": "60",
+            "list": "<ul><li>Long and short</li><li>Clean and distorted</li><li>Tuned to C</li></ul>",
+            "for_name": "Heavy Water"
+          }
+        },
+        "p_heavy_water_1": {
+          "type": "part",
+          "settings": {
+            "title": "Reese loops",
+            "count": "40",
+            "list": "<ul><li>140 and 174 BPM</li><li>With their MIDI</li></ul>",
+            "for_name": "Heavy Water"
+          }
+        },
+        "p_heavy_water_2": {
+          "type": "part",
+          "settings": {
+            "title": "Sub one shots",
+            "count": "30",
+            "list": "<ul><li>Sine and triangle subs</li></ul>",
+            "for_name": "Heavy Water"
+          }
+        },
+        "p_heavy_water_3": {
+          "type": "part",
+          "settings": {
+            "title": "Bass and drum loops",
+            "count": "36",
+            "list": "<ul><li>Full loops to start from</li></ul>",
+            "for_name": "Heavy Water"
+          }
+        },
+        "s_afterglow_0": {
+          "type": "stat",
+          "settings": {
+            "value": "236",
+            "label": "WAV files",
+            "for_name": "Afterglow"
+          }
+        },
+        "s_afterglow_1": {
+          "type": "stat",
+          "settings": {
+            "value": "780 MB",
+            "label": "Unzipped",
+            "for_name": "Afterglow"
+          }
+        },
+        "s_afterglow_2": {
+          "type": "stat",
+          "settings": {
+            "value": "120 to 124",
+            "label": "BPM",
+            "for_name": "Afterglow"
+          }
+        },
+        "s_afterglow_3": {
+          "type": "stat",
+          "settings": {
+            "value": "80",
+            "label": "MIDI files",
+            "for_name": "Afterglow"
+          }
+        },
+        "p_afterglow_0": {
+          "type": "part",
+          "settings": {
+            "title": "Synth loops",
+            "count": "80",
+            "list": "<ul><li>30 arps</li><li>24 pads</li><li>26 plucks</li></ul>",
+            "for_name": "Afterglow"
+          }
+        },
+        "p_afterglow_1": {
+          "type": "part",
+          "settings": {
+            "title": "Stabs",
+            "count": "40",
+            "list": "<ul><li>Chord stabs in every key</li></ul>",
+            "for_name": "Afterglow"
+          }
+        },
+        "p_afterglow_2": {
+          "type": "part",
+          "settings": {
+            "title": "Drum loops",
+            "count": "36",
+            "list": "<ul><li>Rolling grooves at 120 to 124 BPM</li></ul>",
+            "for_name": "Afterglow"
+          }
+        },
+        "s_dust_and_tape_0": {
+          "type": "stat",
+          "settings": {
+            "value": "48",
+            "label": "WAV files",
+            "for_name": "Dust and Tape"
+          }
+        },
+        "s_dust_and_tape_1": {
+          "type": "stat",
+          "settings": {
+            "value": "190 MB",
+            "label": "Unzipped",
+            "for_name": "Dust and Tape"
+          }
+        },
+        "s_dust_and_tape_2": {
+          "type": "stat",
+          "settings": {
+            "value": "Free",
+            "label": "Same licence",
+            "for_name": "Dust and Tape"
+          }
+        },
+        "p_dust_and_tape_0": {
+          "type": "part",
+          "settings": {
+            "title": "Textures",
+            "count": "48",
+            "list": "<ul><li>12 tape hiss</li><li>12 room tones</li><li>12 drones</li><li>12 crackle and foley</li></ul>",
+            "for_name": "Dust and Tape"
+          }
+        },
+        "s_first_light_0": {
+          "type": "stat",
+          "settings": {
+            "value": "120",
+            "label": "WAV files",
+            "for_name": "First Light"
+          }
+        },
+        "s_first_light_1": {
+          "type": "stat",
+          "settings": {
+            "value": "150 MB",
+            "label": "Unzipped",
+            "for_name": "First Light"
+          }
+        },
+        "s_first_light_2": {
+          "type": "stat",
+          "settings": {
+            "value": "124",
+            "label": "BPM",
+            "for_name": "First Light"
+          }
+        },
+        "p_first_light_0": {
+          "type": "part",
+          "settings": {
+            "title": "Drums",
+            "count": "60",
+            "list": "<ul><li>20 kicks</li><li>40 claps and hats</li></ul>",
+            "for_name": "First Light"
+          }
+        },
+        "p_first_light_1": {
+          "type": "part",
+          "settings": {
+            "title": "Stabs and bass",
+            "count": "40",
+            "list": "<ul><li>24 stabs</li><li>16 bass loops</li></ul>",
+            "for_name": "First Light"
+          }
+        },
+        "p_first_light_2": {
+          "type": "part",
+          "settings": {
+            "title": "Drum loops",
+            "count": "20",
+            "list": "<ul><li>Full loops at 124 BPM</li></ul>",
+            "for_name": "First Light"
+          }
+        },
+        "s_small_hours_0": {
+          "type": "stat",
+          "settings": {
+            "value": "64",
+            "label": "WAV files",
+            "for_name": "Small Hours"
+          }
+        },
+        "s_small_hours_1": {
+          "type": "stat",
+          "settings": {
+            "value": "120 MB",
+            "label": "Unzipped",
+            "for_name": "Small Hours"
+          }
+        },
+        "s_small_hours_2": {
+          "type": "stat",
+          "settings": {
+            "value": "80 to 95",
+            "label": "BPM",
+            "for_name": "Small Hours"
+          }
+        },
+        "p_small_hours_0": {
+          "type": "part",
+          "settings": {
+            "title": "Breaks",
+            "count": "24",
+            "list": "<ul><li>Swung and straight</li></ul>",
+            "for_name": "Small Hours"
+          }
+        },
+        "p_small_hours_1": {
+          "type": "part",
+          "settings": {
+            "title": "One shots",
+            "count": "40",
+            "list": "<ul><li>12 kicks</li><li>12 snares</li><li>16 hats</li></ul>",
+            "for_name": "Small Hours"
+          }
+        },
+        "s_drums_and_low_end_0": {
+          "type": "stat",
+          "settings": {
+            "value": "1,284",
+            "label": "WAV files",
+            "for_name": "Drums and Low End"
+          }
+        },
+        "s_drums_and_low_end_1": {
+          "type": "stat",
+          "settings": {
+            "value": "1.9 GB",
+            "label": "Unzipped",
+            "for_name": "Drums and Low End"
+          }
+        },
+        "s_drums_and_low_end_2": {
+          "type": "stat",
+          "settings": {
+            "value": "3",
+            "label": "Packs",
+            "for_name": "Drums and Low End"
+          }
+        },
+        "p_drums_and_low_end_0": {
+          "type": "part",
+          "settings": {
+            "title": "Night Bus",
+            "count": "412",
+            "list": "<ul><li>UK garage</li><li>640 MB unzipped</li></ul>",
+            "for_name": "Drums and Low End"
+          }
+        },
+        "p_drums_and_low_end_1": {
+          "type": "part",
+          "settings": {
+            "title": "Chrome Drums",
+            "count": "630",
+            "list": "<ul><li>Drum samples</li><li>720 MB unzipped</li></ul>",
+            "for_name": "Drums and Low End"
+          }
+        },
+        "p_drums_and_low_end_2": {
+          "type": "part",
+          "settings": {
+            "title": "Heavy Water",
+            "count": "242",
+            "list": "<ul><li>Bass</li><li>530 MB unzipped</li></ul>",
+            "for_name": "Drums and Low End"
+          }
+        },
+        "s_full_shelf_0": {
+          "type": "stat",
+          "settings": {
+            "value": "1,820",
+            "label": "WAV files",
+            "for_name": "The Full Shelf"
+          }
+        },
+        "s_full_shelf_1": {
+          "type": "stat",
+          "settings": {
+            "value": "3.1 GB",
+            "label": "Unzipped",
+            "for_name": "The Full Shelf"
+          }
+        },
+        "s_full_shelf_2": {
+          "type": "stat",
+          "settings": {
+            "value": "5",
+            "label": "Packs",
+            "for_name": "The Full Shelf"
+          }
+        },
+        "p_full_shelf_0": {
+          "type": "part",
+          "settings": {
+            "title": "Night Bus",
+            "count": "412",
+            "list": "<ul><li>UK garage</li><li>640 MB unzipped</li></ul>",
+            "for_name": "The Full Shelf"
+          }
+        },
+        "p_full_shelf_1": {
+          "type": "part",
+          "settings": {
+            "title": "Chrome Drums",
+            "count": "630",
+            "list": "<ul><li>Drum samples</li><li>720 MB unzipped</li></ul>",
+            "for_name": "The Full Shelf"
+          }
+        },
+        "p_full_shelf_2": {
+          "type": "part",
+          "settings": {
+            "title": "Soft Focus",
+            "count": "300",
+            "list": "<ul><li>Lo-fi keys</li><li>410 MB unzipped</li></ul>",
+            "for_name": "The Full Shelf"
+          }
+        },
+        "p_full_shelf_3": {
+          "type": "part",
+          "settings": {
+            "title": "Heavy Water",
+            "count": "242",
+            "list": "<ul><li>Bass</li><li>530 MB unzipped</li></ul>",
+            "for_name": "The Full Shelf"
+          }
+        },
+        "p_full_shelf_4": {
+          "type": "part",
+          "settings": {
+            "title": "Afterglow",
+            "count": "236",
+            "list": "<ul><li>Melodic house</li><li>780 MB unzipped</li></ul>",
+            "for_name": "The Full Shelf"
+          }
+        }
+      },
+      "block_order": [
+        "s_night_bus_0",
+        "s_night_bus_1",
+        "s_night_bus_2",
+        "s_night_bus_3",
+        "p_night_bus_0",
+        "p_night_bus_1",
+        "p_night_bus_2",
+        "p_night_bus_3",
+        "s_chrome_drums_0",
+        "s_chrome_drums_1",
+        "s_chrome_drums_2",
+        "s_chrome_drums_3",
+        "p_chrome_drums_0",
+        "p_chrome_drums_1",
+        "s_soft_focus_0",
+        "s_soft_focus_1",
+        "s_soft_focus_2",
+        "s_soft_focus_3",
+        "p_soft_focus_0",
+        "p_soft_focus_1",
+        "p_soft_focus_2",
+        "p_soft_focus_3",
+        "s_heavy_water_0",
+        "s_heavy_water_1",
+        "s_heavy_water_2",
+        "s_heavy_water_3",
+        "p_heavy_water_0",
+        "p_heavy_water_1",
+        "p_heavy_water_2",
+        "p_heavy_water_3",
+        "s_afterglow_0",
+        "s_afterglow_1",
+        "s_afterglow_2",
+        "s_afterglow_3",
+        "p_afterglow_0",
+        "p_afterglow_1",
+        "p_afterglow_2",
+        "s_dust_and_tape_0",
+        "s_dust_and_tape_1",
+        "s_dust_and_tape_2",
+        "p_dust_and_tape_0",
+        "s_first_light_0",
+        "s_first_light_1",
+        "s_first_light_2",
+        "p_first_light_0",
+        "p_first_light_1",
+        "p_first_light_2",
+        "s_small_hours_0",
+        "s_small_hours_1",
+        "s_small_hours_2",
+        "p_small_hours_0",
+        "p_small_hours_1",
+        "s_drums_and_low_end_0",
+        "s_drums_and_low_end_1",
+        "s_drums_and_low_end_2",
+        "p_drums_and_low_end_0",
+        "p_drums_and_low_end_1",
+        "p_drums_and_low_end_2",
+        "s_full_shelf_0",
+        "s_full_shelf_1",
+        "s_full_shelf_2",
+        "p_full_shelf_0",
+        "p_full_shelf_1",
+        "p_full_shelf_2",
+        "p_full_shelf_3",
+        "p_full_shelf_4"
+      ]
+    },
+    "daws": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "content_alignment": "left",
+        "columns_desktop": 3,
+        "columns_tablet": 2,
+        "column_gap": 32,
+        "header_gap": 40,
+        "show_dividers": true,
+        "enable_custom_style": true,
+        "label_color": "#ff8a73",
+        "item_heading_color": "#f3f3f4",
+        "text_color": "#a3a3ab",
+        "divider_color": "#26262a",
+        "item_heading_size": 22,
+        "reveal": true,
+        "padding_top": 56,
+        "padding_bottom": 80,
+        "mobile_layout": "stack",
+        "item_heading_size_mobile": 20,
+        "padding_top_mobile": 40,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "Before you buy.",
+            "size_enable": true,
+            "size_desktop": 44,
+            "size_mobile": 30
+          }
+        },
+        "col_1": {
+          "type": "column",
+          "settings": {
+            "label": "Works in",
+            "heading": "Every DAW.",
+            "text": "<p>Ableton Live, FL Studio, Logic Pro, Bitwig Studio, Cubase, Studio One, Reaper, Pro Tools and GarageBand. WAV and MIDI, no plugin needed.</p>"
+          }
+        },
+        "col_2": {
+          "type": "column",
+          "settings": {
+            "label": "Licence",
+            "heading": "Royalty free.",
+            "text": "<p>Use the sounds in your own releases, streams, sync and client work. Do not share or resell them as samples.</p>",
+            "link_label": "Read the licence",
+            "link": "/pages/licence"
+          }
+        },
+        "col_3": {
+          "type": "column",
+          "settings": {
+            "label": "Format",
+            "heading": "24 bit WAV.",
+            "text": "<p>Named by type, BPM and key, in folders you can drop straight into your browser. MIDI for every melodic loop.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading",
+        "col_1",
+        "col_2",
+        "col_3"
+      ]
+    },
+    "bundles": {
+      "type": "pricing-cards",
+      "settings": {
+        "color_scheme": "scheme-sp-panel",
+        "eyebrow": "Bundles",
+        "heading": "More sounds, less per pack.",
+        "intro": "<p>Every bundle is the same files as the single packs, in one download.</p>",
+        "heading_size": "h2",
+        "heading_align": "left",
+        "footnote": "",
+        "card_style": "filled",
+        "use_theme_corners": true,
+        "card_radius": 20,
+        "card_gap": 16,
+        "price_size": 40,
+        "mobile_layout": "stack",
+        "section_width": "container",
+        "use_theme_spacing": false,
+        "padding_top": 80,
+        "padding_bottom": 80,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "plan_single": {
+          "type": "plan",
+          "settings": {
+            "name": "One pack",
+            "description": "<p>Pick the sound you need now.</p>",
+            "badge": "",
+            "featured": false,
+            "price": "$19 to $29",
+            "compare_price": "",
+            "note": "Per pack, yours to keep",
+            "features": "Preview every sound first\n24 bit WAV files and MIDI\nRoyalty free licence",
+            "button_label": "Browse packs",
+            "button_link": "/collections/packs",
+            "button_style": "secondary"
+          }
+        },
+        "plan_drums": {
+          "type": "plan",
+          "settings": {
+            "name": "Drums and Low End",
+            "description": "<p>Night Bus, Chrome Drums and Heavy Water.</p>",
+            "badge": "",
+            "featured": false,
+            "price": "$59.00",
+            "compare_price": "$80.00",
+            "note": "One download, 1.9 GB",
+            "features": "1,284 WAV files\nDrums, grooves and bass\nRoyalty free licence",
+            "button_label": "Get the bundle",
+            "button_link": "/collections/bundles",
+            "button_style": "secondary"
+          }
+        },
+        "plan_shelf": {
+          "type": "plan",
+          "settings": {
+            "name": "The Full Shelf",
+            "description": "<p>Every paid pack, and the ones released this year.</p>",
+            "badge": "Best value",
+            "featured": true,
+            "price": "$79.00",
+            "compare_price": "$124.00",
+            "note": "One download, 3.1 GB",
+            "features": "All five paid packs\nNew paid packs this year added free\nRoyalty free licence",
+            "button_label": "Get the full shelf",
+            "button_link": "/collections/bundles",
+            "button_style": "primary"
+          }
+        }
+      },
+      "block_order": [
+        "plan_single",
+        "plan_drums",
+        "plan_shelf"
+      ]
+    },
+    "reviews": {
+      "type": "testimonials",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "display_mode": "carousel",
+        "show_quote_mark": false,
+        "show_rating": true,
+        "columns": 3,
+        "column_gap": 16,
+        "header_alignment": "left",
+        "card_style": "boxed",
+        "card_align": "left",
+        "card_padding": 28,
+        "card_content_gap": 16,
+        "card_radius": 20,
+        "avatar_shape": "circle",
+        "avatar_size": 48,
+        "show_arrow": true,
+        "carousel_pagination": "show_dots_on_mobile",
+        "pagination_style": "pill",
+        "enable_custom_colors": true,
+        "card_bg": "#18181b",
+        "card_border_color": "#18181b",
+        "quote_color": "#e7e7ea",
+        "enable_custom_typography": true,
+        "quote_size": 17,
+        "reveal": true,
+        "padding_top": 80,
+        "padding_bottom": 56,
+        "header_spacing_desktop": 36,
+        "columns_mobile": 1
+      },
+      "blocks": {
+        "eyebrow": {
+          "type": "eyebrow",
+          "settings": {
+            "enabled": true,
+            "text": "Sample reviews"
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "enabled": true,
+            "text": "What producers say."
+          }
+        },
+        "subheading": {
+          "type": "subheading",
+          "settings": {
+            "enabled": true,
+            "text": "<p>Placeholders for your own buyers’ words. Replace them with real reviews as they come in.</p>"
+          }
+        },
+        "review_1": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>The two step loops swing the right amount out of the box. I cut two of them up and had a finished garage track by the weekend.</p>",
+            "rating": 5,
+            "name": "Sample buyer",
+            "role": "Bought Night Bus",
+            "avatar": "shopify://shop_images/soundpacks-avatar-1.webp"
+          }
+        },
+        "review_2": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Clean and driven versions of every hit is the bit I did not know I wanted. The kicks sit in a mix without any EQ.</p>",
+            "rating": 5,
+            "name": "Sample buyer",
+            "role": "Bought Chrome Drums",
+            "avatar": "shopify://shop_images/soundpacks-avatar-2.webp"
+          }
+        },
+        "review_3": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Every 808 is labelled with its key, so I stopped tuning by ear. That alone saved me an evening.</p>",
+            "rating": 5,
+            "name": "Sample buyer",
+            "role": "Bought Heavy Water",
+            "avatar": "shopify://shop_images/soundpacks-avatar-3.webp"
+          }
+        },
+        "review_4": {
+          "type": "testimonial",
+          "settings": {
+            "quote": "<p>Came for the free breaks, stayed for Soft Focus. Being able to play every pack on the page before paying made it an easy call.</p>",
+            "rating": 5,
+            "name": "Sample buyer",
+            "role": "Took Small Hours for free",
+            "avatar": "shopify://shop_images/soundpacks-avatar-4.webp"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow",
+        "heading",
+        "subheading",
+        "review_1",
+        "review_2",
+        "review_3",
+        "review_4"
+      ]
+    },
+    "faq": {
+      "type": "faq",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "first_item_open": false,
+        "allow_multiple_open": false,
+        "open_icon": "chevron",
+        "content_alignment": "left",
+        "max_content_width": 860,
+        "gap_header_to_items": 32,
+        "gap_between_items": 0,
+        "item_padding_y": 20,
+        "item_padding_x": 28,
+        "item_radius": 0,
+        "show_dividers": true,
+        "card_bg": "#141416",
+        "divider_color": "#26262a",
+        "question_color": "#e7e7ea",
+        "icon_color": "#a3a3ab",
+        "answer_color": "#a3a3ab",
+        "question_size_desktop": 17,
+        "question_size_mobile": 15,
+        "question_weight": "600",
+        "answer_size_desktop": 15,
+        "heading_weight": "800",
+        "reveal": true,
+        "padding_top": 56,
+        "padding_bottom": 72
+      },
+      "blocks": {
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "Questions? Answers.",
+            "tag": "h2",
+            "size_enable": true,
+            "size_desktop": 44,
+            "size_mobile": 32
+          }
+        },
+        "q1": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I hear a pack before I buy it?",
+            "answer": "<p>Yes. Every pack has a demo and a table of its sounds on its page, and every card on the home page plays. Press play on anything; only one sound plays at a time.</p>"
+          }
+        },
+        "q2": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Which DAW do I need?",
+            "answer": "<p>Any. The sounds are 24 bit WAV files and the MIDI files are standard MIDI, so they open in Ableton Live, FL Studio, Logic Pro, Bitwig, Cubase, Studio One, Reaper and the rest.</p>"
+          }
+        },
+        "q3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Are the sounds royalty free?",
+            "answer": "<p>Yes. Use them in your own music, released or not, and keep everything it earns. You cannot share or resell the sounds themselves. <a href=\"/pages/licence\">Read the licence</a>.</p>"
+          }
+        },
+        "q4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How do I get the files?",
+            "answer": "<p>Right after checkout you get a download link on the receipt page and by email. Each pack is one ZIP file.</p>"
+          }
+        },
+        "q5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do bundles include future packs?",
+            "answer": "<p>The Full Shelf includes every paid pack released in the same year, added to your downloads when it comes out.</p>"
+          }
+        },
+        "q6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Something went wrong with a download",
+            "answer": "<p>Write to us from the <a href=\"/pages/contact\">contact page</a> with your order number and we will send a new link.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading",
+        "q1",
+        "q2",
+        "q3",
+        "q4",
+        "q5",
+        "q6"
+      ]
+    },
+    "more": {
+      "type": "products-carousel",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "collection": "all",
+        "items_to_show": 8,
+        "heading": "More packs.",
+        "header_size": "large",
+        "header_alignment": "left",
+        "items_per_row": 4,
+        "column_gap": 16,
+        "show_arrow": true,
+        "carousel_pagination": "show_dots_on_mobile",
+        "reveal": true,
+        "padding_top": 72,
+        "padding_bottom": 88,
+        "items_per_row_mobile": 2
+      },
+      "blocks": {
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "More packs.",
+            "enable_custom_style": true,
+            "size_desktop": 44,
+            "size_mobile": 30
+          }
+        },
+        "view_all": {
+          "type": "view_all",
+          "settings": {
+            "enabled": true,
+            "label": "All packs",
+            "link": "/collections/packs",
+            "position": "header",
+            "use_theme_button": true
+          }
+        }
+      },
+      "block_order": [
+        "heading",
+        "view_all"
+      ]
+    }
+  },
+  "order": [
+    "main",
+    "demo",
+    "sounds",
+    "contents",
+    "daws",
+    "bundles",
+    "reviews",
+    "faq",
+    "more"
+  ]
+}

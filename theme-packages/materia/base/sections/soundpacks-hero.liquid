@@ -1,0 +1,407 @@
+{%- comment -%}
+  Sound packs (templates round 25): a centred hero for a sample label. A
+  small pill, a large heading, a line and a button, with short previews
+  floating around them as little players. Each floating player is a block
+  with its own sound and waveform; one sound plays at a time across the
+  page (the theme's shared players, samples-audio-tracks). On a phone the
+  players sit in a row under the button instead of floating.
+
+  The button is the theme's primary button. A gradient can be laid over it
+  with the two button colours below; left empty it is the scheme's own.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default'
+  assign pt = s.padding_top | default: 120
+  assign pb = s.padding_bottom | default: 120
+-%}
+<style>
+  #shopify-section-{{ sid }} .sph { --spx-accent: {% if s.accent != blank %}{{ s.accent }}{% else %}var(--btn-primary-bg-color){% endif %}; position: relative; overflow: hidden; isolation: isolate; padding-block: {{ s.padding_top_mobile | default: 72 }}px {{ s.padding_bottom_mobile | default: 56 }}px; }
+  #shopify-section-{{ sid }} .ssp { --ssp-p: 0%; --ssp-h: 0%; --ssp-sw: 2px; --ssp-accent: var(--spx-accent); --ssp-base: rgba(var(--color-heading-rgb), .26); --ssp-done: var(--spx-accent); min-width: 0; }
+  #shopify-section-{{ sid }} .ssp__btn { position: relative; flex: none; box-sizing: border-box; margin: 0; padding: 0; border: 0; border-radius: 50%; display: grid; place-items: center; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background-color .2s ease, color .2s ease, transform .2s ease, box-shadow .2s ease; }
+  #shopify-section-{{ sid }} .ssp__btn:focus-visible, #shopify-section-{{ sid }} .ssp__wave:focus-visible { outline: 2px solid var(--spx-accent); outline-offset: 3px; }
+  #shopify-section-{{ sid }} .ssp__btn[disabled] { cursor: default; opacity: .5; }
+  #shopify-section-{{ sid }} .ssp__i { grid-area: 1 / 1; width: 42%; height: 42%; display: block; transition: opacity .18s ease; }
+  #shopify-section-{{ sid }} .ssp__i--play { transform: translateX(4%); }
+  #shopify-section-{{ sid }} .ssp__i--pause { opacity: 0; }
+  #shopify-section-{{ sid }} .ssp.is-playing .ssp__i--play { opacity: 0; }
+  #shopify-section-{{ sid }} .ssp.is-playing .ssp__i--pause { opacity: 1; }
+  #shopify-section-{{ sid }} .ssp__btn::after { content: ""; position: absolute; inset: -3px; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--spx-accent); opacity: 0; transition: opacity .2s ease; pointer-events: none; }
+  #shopify-section-{{ sid }} .ssp.is-loading .ssp__btn::after { opacity: 1; animation: spx-spin .8s linear infinite; }
+  #shopify-section-{{ sid }} .ssp__row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  #shopify-section-{{ sid }} .ssp__wave { position: relative; flex: 1 1 auto; min-width: 0; cursor: pointer; touch-action: pan-y; -webkit-tap-highlight-color: transparent; }
+  #shopify-section-{{ sid }} .ssp--off .ssp__wave { cursor: default; }
+  #shopify-section-{{ sid }} .ssp__svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; fill: none; stroke: var(--ssp-base); stroke-width: var(--ssp-sw); stroke-linecap: round; pointer-events: none; transform-origin: 50% 50%; }
+  #shopify-section-{{ sid }} .ssp__svg--hover { stroke: rgba(var(--color-heading-rgb), .55); clip-path: inset(-2px calc(100% - var(--ssp-h)) -2px 0); opacity: 0; transition: opacity .2s ease; }
+  #shopify-section-{{ sid }} .ssp__svg--done { stroke: var(--ssp-done); clip-path: inset(-2px calc(100% - var(--ssp-p)) -2px 0); }
+  #shopify-section-{{ sid }} .ssp:not(.is-started) .ssp__svg--done { visibility: hidden; }
+  #shopify-section-{{ sid }} .ssp__head { position: absolute; top: 6%; bottom: 6%; left: var(--ssp-p); width: 2px; margin-left: -1px; border-radius: 2px; background: rgb(var(--color-heading-rgb)); opacity: 0; transition: opacity .2s ease; pointer-events: none; }
+  #shopify-section-{{ sid }} .ssp.is-started .ssp__head { opacity: .9; }
+  #shopify-section-{{ sid }} .ssp__tip { position: absolute; bottom: calc(100% + 6px); left: var(--ssp-h); transform: translateX(-50%); padding: 3px 7px; border-radius: 6px; background: rgb(var(--color-heading-rgb)); color: var(--color-background); font-size: 11px; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; white-space: nowrap; opacity: 0; transition: opacity .15s ease; pointer-events: none; z-index: 2; }
+  #shopify-section-{{ sid }} .ssp--flat .ssp__svg { stroke: rgba(var(--color-heading-rgb), .18); }
+  #shopify-section-{{ sid }} .ssp--drawn .ssp__svg { animation: spx-grow .5s cubic-bezier(.2,.7,.2,1) both; }
+  #shopify-section-{{ sid }} .ssp__time { flex: none; font-size: 12px; line-height: 1; color: var(--color-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  #shopify-section-{{ sid }} .ssp.is-started .ssp__time { color: var(--color-heading); }
+  @media (hover: hover) and (pointer: fine) {
+    #shopify-section-{{ sid }} .ssp:not(.ssp--off) .ssp__wave:hover .ssp__svg--hover, #shopify-section-{{ sid }} .ssp.has-len:not(.ssp--off) .ssp__wave:hover .ssp__tip { opacity: 1; }
+  }
+  @keyframes spx-spin { to { transform: rotate(360deg); } }
+  @keyframes spx-grow { from { transform: scaleY(.08); } to { transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-{{ sid }} .ssp__btn, #shopify-section-{{ sid }} .ssp__i, #shopify-section-{{ sid }} .ssp__svg--hover, #shopify-section-{{ sid }} .ssp__head, #shopify-section-{{ sid }} .ssp__tip { transition: none; }
+    #shopify-section-{{ sid }} .ssp--drawn .ssp__svg { animation: none; }
+  }
+  #shopify-section-{{ sid }} .sph__bg { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+  #shopify-section-{{ sid }} .sph__bg img { width: 100%; height: 100%; object-fit: cover; opacity: {{ s.image_opacity | default: 30 | divided_by: 100.0 }}; }
+  #shopify-section-{{ sid }} .sph__lines { position: absolute; inset: 0; z-index: -1; pointer-events: none; background-image: repeating-linear-gradient(90deg, rgba(var(--color-heading-rgb), .035) 0 1px, transparent 1px 64px); -webkit-mask-image: radial-gradient(ellipse 70% 80% at 50% 40%, #000 30%, transparent 75%); mask-image: radial-gradient(ellipse 70% 80% at 50% 40%, #000 30%, transparent 75%); }
+  #shopify-section-{{ sid }} .sph__glow { position: absolute; left: 50%; top: 58%; width: min(900px, 120vw); aspect-ratio: 2; transform: translate(-50%, -50%); z-index: -1; pointer-events: none; background: radial-gradient(closest-side, {{ s.glow_color | default: '#ff7a6b' }}, transparent); opacity: {{ s.glow_strength | default: 14 | divided_by: 100.0 }}; filter: blur(20px); }
+  #shopify-section-{{ sid }} .sph__inner { position: relative; max-width: {{ s.content_width | default: 760 }}px; margin: 0 auto; padding-inline: 20px; text-align: center; display: flex; flex-direction: column; align-items: center; }
+  #shopify-section-{{ sid }} .sph__pill { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 22px; padding: 6px 14px; border-radius: 999px; border: 1px solid rgba(var(--color-heading-rgb), .22); background: rgba(var(--color-heading-rgb), .04); font-size: 13px; line-height: 1.2; color: var(--color-heading); }
+  #shopify-section-{{ sid }} .sph__pill strong, #shopify-section-{{ sid }} .sph__pill b { color: var(--spx-accent); font-weight: 600; }
+  #shopify-section-{{ sid }} .sph__heading { margin: 0; font-size: {{ s.heading_size_mobile | default: 44 }}px; line-height: 1.02; letter-spacing: -0.03em; text-wrap: balance; }
+  #shopify-section-{{ sid }} .sph__text { margin: 18px auto 0; max-width: 46ch; font-size: 16px; line-height: 1.55; color: var(--color-text); text-wrap: pretty; }
+  #shopify-section-{{ sid }} .sph__text p { margin: 0; }
+  #shopify-section-{{ sid }} .sph__buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 30px; }
+  {%- if s.button_from != blank and s.button_to != blank -%}
+  #shopify-section-{{ sid }} .sph__btn.btn-primary { background: linear-gradient(135deg, {{ s.button_from }}, {{ s.button_to }}); border-color: transparent; }
+  #shopify-section-{{ sid }} .sph__btn.btn-primary:hover { background: linear-gradient(135deg, {{ s.button_to }}, {{ s.button_from }}); border-color: transparent; }
+  {%- endif -%}
+  #shopify-section-{{ sid }} .sph__note { margin: 14px 0 0; font-size: 13px; color: var(--color-text); }
+  #shopify-section-{{ sid }} .sph__chips { list-style: none; margin: 36px auto 0; padding: 0 20px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; max-width: 520px; }
+  #shopify-section-{{ sid }} .sph__chip { min-width: 0; }
+  #shopify-section-{{ sid }} .sph__chip:nth-child(n+5) { display: none; }
+  #shopify-section-{{ sid }} .sph__chip .ssp { display: grid; grid-template-columns: 30px minmax(0, 1fr); align-items: center; column-gap: 10px; row-gap: 3px; padding: 9px 12px 9px 9px; border-radius: 14px; background: rgba(var(--color-heading-rgb), .06); border: 1px solid rgba(var(--color-heading-rgb), .09); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); transition: border-color .2s ease, background-color .2s ease; }
+  #shopify-section-{{ sid }} .sph__chip .ssp__btn { grid-row: 1 / span 2; width: 30px; height: 30px; background: rgba(var(--color-heading-rgb), .9); color: var(--color-background); }
+  #shopify-section-{{ sid }} .sph__chip .ssp.is-playing { border-color: color-mix(in srgb, var(--spx-accent) 60%, transparent); }
+  #shopify-section-{{ sid }} .sph__chip .ssp.is-playing .ssp__btn { background: var(--spx-accent); color: var(--btn-primary-color, #fff); }
+  #shopify-section-{{ sid }} .sph__chip .ssp__row { grid-column: 2; }
+  #shopify-section-{{ sid }} .sph__chip .ssp__wave { height: 20px; }
+  #shopify-section-{{ sid }} .sph__chip .ssp__time { display: none; }
+  #shopify-section-{{ sid }} .sph__cap { grid-column: 2; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; line-height: 1.2; text-align: left; color: var(--color-text); }
+  @media (min-width: 990px) {
+    #shopify-section-{{ sid }} .sph { padding-block: {{ pt }}px {{ pb }}px; min-height: {{ s.min_height | default: 640 }}px; display: flex; align-items: center; }
+    #shopify-section-{{ sid }} .sph > .sph__inner { width: 100%; }
+    #shopify-section-{{ sid }} .sph__heading { font-size: {{ s.heading_size | default: 84 }}px; }
+    #shopify-section-{{ sid }} .sph__text { font-size: 18px; }
+    #shopify-section-{{ sid }} .sph__chips { position: absolute; inset: 0; margin: 0; padding: 0; max-width: none; display: block; pointer-events: none; }
+    #shopify-section-{{ sid }} .sph__chip, #shopify-section-{{ sid }} .sph__chip:nth-child(n+5) { display: block; position: absolute; width: var(--w, 220px); pointer-events: auto; }
+    #shopify-section-{{ sid }} .sph__chip:nth-child(8n+1) { left: 6%; top: 18%; --w: 220px; }
+    #shopify-section-{{ sid }} .sph__chip:nth-child(8n+2) { right: 5%; top: 14%; --w: 210px; }
+    #shopify-section-{{ sid }} .sph__chip:nth-child(8n+3) { left: 2%; top: 46%; --w: 190px; }
+    #shopify-section-{{ sid }} .sph__chip:nth-child(8n+4) { right: 2%; top: 40%; --w: 250px; }
+    #shopify-section-{{ sid }} .sph__chip:nth-child(8n+5) { left: 9%; top: 72%; --w: 230px; }
+    #shopify-section-{{ sid }} .sph__chip:nth-child(8n+6) { right: 9%; top: 68%; --w: 220px; }
+    #shopify-section-{{ sid }} .sph__chip:nth-child(8n+7) { left: 22%; top: 6%; --w: 180px; }
+    #shopify-section-{{ sid }} .sph__chip:nth-child(8n+8) { right: 22%; top: 84%; --w: 180px; }
+    {%- if s.float -%}
+    #shopify-section-{{ sid }} .sph__chip { animation: sph-float 7s ease-in-out infinite alternate; }
+    #shopify-section-{{ sid }} .sph__chip:nth-child(2n) { animation-duration: 9s; animation-delay: -3s; }
+    #shopify-section-{{ sid }} .sph__chip:nth-child(3n) { animation-duration: 8s; animation-delay: -5s; }
+    #shopify-section-{{ sid }} .sph__chip:hover, #shopify-section-{{ sid }} .sph__chip:focus-within, #shopify-section-{{ sid }} .sph__chip:has(.is-started) { animation-play-state: paused; }
+    {%- endif -%}
+    #shopify-section-{{ sid }} .sph__chip .ssp { opacity: .78; }
+    #shopify-section-{{ sid }} .sph__chip .ssp:hover, #shopify-section-{{ sid }} .sph__chip .ssp.is-started { opacity: 1; background: rgba(var(--color-heading-rgb), .09); }
+  }
+  @media (min-width: 990px) and (max-width: 1199px) {
+    #shopify-section-{{ sid }} .sph__chip:nth-child(n+7) { display: none; }
+    #shopify-section-{{ sid }} .sph__chip { --w: 180px !important; }
+  }
+  @keyframes sph-float { from { transform: translateY(-6px); } to { transform: translateY(8px); } }
+  @media (prefers-reduced-motion: reduce) { #shopify-section-{{ sid }} .sph__chip { animation: none !important; } }
+</style>
+<div class="sph section color-{{ color_scheme }} gradient" data-section-id="{{ sid }}">
+  {%- if s.background != blank -%}<div class="sph__bg">{{ s.background | image_url: width: 2000 | image_tag: loading: 'eager', fetchpriority: 'high', widths: '750, 1100, 1500, 2000', sizes: '100vw', alt: '' }}</div>{%- endif -%}
+  {%- if s.show_lines -%}<div class="sph__lines" aria-hidden="true"></div>{%- endif -%}
+  {%- if s.show_glow -%}<div class="sph__glow" aria-hidden="true"></div>{%- endif -%}
+  <div class="sph__inner">
+    {%- if s.pill != blank -%}<p class="sph__pill">{{ s.pill }}</p>{%- endif -%}
+    {%- if s.heading != blank -%}<h1 class="sph__heading h1">{{ s.heading }}</h1>{%- endif -%}
+    {%- if s.text != blank -%}<div class="sph__text">{{ s.text }}</div>{%- endif -%}
+    {%- if s.button_label != blank or s.button_2_label != blank -%}
+      <div class="sph__buttons">
+        {%- if s.button_label != blank -%}<a class="sph__btn btn btn-primary" href="{{ s.button_link | default: routes.all_products_collection_url }}">{{ s.button_label | escape }}</a>{%- endif -%}
+        {%- if s.button_2_label != blank -%}<a class="btn btn-secondary" href="{{ s.button_2_link | default: routes.all_products_collection_url }}">{{ s.button_2_label | escape }}</a>{%- endif -%}
+      </div>
+    {%- endif -%}
+    {%- if s.note != blank -%}<p class="sph__note">{{ s.note | escape }}</p>{%- endif -%}
+  </div>
+  {%- if section.blocks.size > 0 -%}
+    <ul class="sph__chips" role="list" aria-label="{{ s.chips_label | default: 'Previews' | escape }}">
+      {%- for block in section.blocks -%}
+        {%- liquid
+          assign b = block.settings
+          assign ssp_audio = b.audio
+          assign ssp_title = b.title
+          assign ssp_peaks = b.peaks
+          assign ssp_len = b.seconds
+          assign ssp_id = 'ssp-' | append: sid | append: '-' | append: block.id
+          assign ssp_class = 'sph__player'
+          assign ssp_before = ''
+        -%}
+        {%- capture ssp_after -%}{%- if b.title != blank -%}<span class="sph__cap">{{ b.title | escape }}</span>{%- endif -%}{%- endcapture -%}
+        <li class="sph__chip" {{ block.shopify_attributes }}>
+{%- liquid
+  assign ssp_src = ssp_audio | strip
+  if ssp_src != blank
+    if ssp_src contains 'shopify://shop_images/'
+      assign ssp_src = ssp_src | remove_first: 'shopify://shop_images/' | asset_url
+    elsif ssp_src contains '/'
+    else
+      assign ssp_src = ssp_src | asset_url
+    endif
+  endif
+  assign ssp_d = ''
+  assign ssp_pk = ssp_peaks | strip | split: ','
+  assign ssp_n = ssp_pk.size
+  assign ssp_flat = false
+  if ssp_n < 16
+    assign ssp_n = 120
+    assign ssp_flat = true
+    for i in (1..120)
+      assign ssp_x = i | minus: 0.5
+      assign ssp_d = ssp_d | append: 'M' | append: ssp_x | append: ' 48.6V51.4'
+    endfor
+  else
+    for ssp_v in ssp_pk
+      assign ssp_hh = ssp_v | strip | plus: 0 | times: 0.46 | at_least: 1.4 | round: 1
+      assign ssp_x = forloop.index | minus: 0.5
+      assign ssp_y1 = 50 | minus: ssp_hh | round: 1
+      assign ssp_y2 = 50 | plus: ssp_hh | round: 1
+      assign ssp_d = ssp_d | append: 'M' | append: ssp_x | append: ' ' | append: ssp_y1 | append: 'V' | append: ssp_y2
+    endfor
+  endif
+  assign ssp_label = ssp_title | default: 'track' | escape
+  assign ssp_clock = '0:00'
+  assign ssp_secs = ssp_len | plus: 0 | round
+  if ssp_secs > 0
+    assign ssp_m = ssp_secs | divided_by: 60
+    assign ssp_s = ssp_secs | modulo: 60 | prepend: '0' | slice: -2, 2
+    assign ssp_clock = ssp_m | append: ':' | append: ssp_s
+  endif
+-%}
+<div class="ssp {{ ssp_class }}{% if ssp_src == blank %} ssp--off{% endif %}{% if ssp_flat %} ssp--flat{% endif %}{% if ssp_secs > 0 %} has-len{% endif %}" data-ssp{% if ssp_src != blank %} data-src="{{ ssp_src }}"{% endif %} data-title="{{ ssp_label }}"{% if ssp_secs > 0 %} data-len="{{ ssp_len | plus: 0 }}"{% endif %}{% unless ssp_flat %} data-peaks="{{ ssp_pk | join: ',' | strip | escape }}"{% endunless %}>
+  {{ ssp_before }}
+  <button class="ssp__btn" type="button" data-ssp-btn aria-label="Play {{ ssp_label }}"{% if ssp_src == blank %} disabled{% endif %}>
+    <svg class="ssp__i ssp__i--play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.6 2.9v10.2c0 .6.6.9 1.1.6l7.9-5.1c.5-.3.5-1 0-1.3L5.7 2.3c-.5-.3-1.1 0-1.1.6Z" fill="currentColor"/></svg>
+    <svg class="ssp__i ssp__i--pause" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="3.8" y="2.8" width="3" height="10.4" rx="1" fill="currentColor"/><rect x="9.2" y="2.8" width="3" height="10.4" rx="1" fill="currentColor"/></svg>
+  </button>
+  <div class="ssp__row">
+  <div class="ssp__wave" data-ssp-wave{% if ssp_src != blank %} role="slider" tabindex="0" aria-label="Seek in {{ ssp_label }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="0:00"{% endif %}>
+    <svg class="ssp__svg" viewBox="0 0 {{ ssp_n }} 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path id="{{ ssp_id }}" d="{{ ssp_d }}" vector-effect="non-scaling-stroke"/></svg>
+    <svg class="ssp__svg ssp__svg--hover" viewBox="0 0 {{ ssp_n }} 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#{{ ssp_id }}"/></svg>
+    <svg class="ssp__svg ssp__svg--done" viewBox="0 0 {{ ssp_n }} 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><use href="#{{ ssp_id }}"/></svg>
+    {%- if ssp_src != blank -%}<span class="ssp__head" aria-hidden="true"></span><span class="ssp__tip" aria-hidden="true" data-ssp-tip>0:00</span>{%- endif -%}
+  </div>
+  <span class="ssp__time" data-ssp-time>{% if ssp_src == blank %}No preview{% else %}{{ ssp_clock }}{% endif %}</span>
+  </div>
+  {{ ssp_after }}
+</div>
+        </li>
+      {%- endfor -%}
+    </ul>
+  {%- endif -%}
+</div>
+<script>
+  /* The sample players (samples-audio-tracks, samples-pack-cards, samples-release-hero and the soundpacks sections): one copy runs, whichever section loads first, so one sound plays at a time across the page. */
+  (function () {
+    var V = 5;
+    if (window.__ssp && window.__ssp.v >= V) { window.__ssp.scan(); return; }
+    var current = null, N = 120, PITCH = 4, KEY = 'ssp-peaks:', reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    function fmt(t) { if (!isFinite(t) || t < 0) t = 0; var m = Math.floor(t / 60), s = Math.floor(t % 60); return m + ':' + (s < 10 ? '0' : '') + s; }
+    function remember(k, v) { try { localStorage.setItem(KEY + k, v); } catch (e) {} }
+    function recall(k) { try { return localStorage.getItem(KEY + k); } catch (e) { return null; } }
+    function pathOf(list) { var d = ''; for (var i = 0; i < list.length; i++) { var h = Math.max(1.4, list[i] * 0.46); d += 'M' + (i + 0.5) + ' ' + (50 - h).toFixed(1) + 'V' + (50 + h).toFixed(1); } return d; }
+    /* As many bars as the width holds at an even pitch, each the loudest of the peaks it covers: a narrow card draws fewer, clearer bars. */
+    function fit(list, count) {
+      if (count >= list.length) return list;
+      var out = [], step = list.length / count;
+      for (var i = 0; i < count; i++) { var a = Math.floor(i * step), b = Math.max(a + 1, Math.floor((i + 1) * step)), m = 0; for (var j = a; j < b; j++) if (list[j] > m) m = list[j]; out.push(m); }
+      return out;
+    }
+    function shape(el) {
+      var wave = el.querySelector('[data-ssp-wave]'), path = el.querySelector('.ssp__svg path'), list = el.__peaks;
+      if (!wave || !path) return;
+      var w = wave.clientWidth; if (!w) return;
+      var bars = list && list.length ? fit(list, Math.max(16, Math.floor(w / PITCH))) : null, n = bars ? bars.length : N;
+      if (bars && n !== el.__bars) {
+        el.__bars = n; path.setAttribute('d', pathOf(bars));
+        el.querySelectorAll('.ssp__svg').forEach(function (s) { s.setAttribute('viewBox', '0 0 ' + n + ' 100'); });
+      }
+      el.style.setProperty('--ssp-sw', Math.max(1, Math.min(3.2, (w / n) * 0.58)).toFixed(2) + 'px');
+    }
+    function draw(el, list) {
+      if (!list.length) return;
+      el.__peaks = list; el.__bars = 0; el.classList.remove('ssp--flat'); shape(el);
+      if (!reduce) el.classList.add('ssp--drawn');
+    }
+    /* A track saved without its peaks: read them from the file after it starts playing, when the browser has it anyway, and keep them for the next visit. */
+    function measure(el) {
+      var src = el.getAttribute('data-src'), AC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+      if (!src || el.__measured || !AC || !window.fetch || !el.classList.contains('ssp--flat')) return;
+      el.__measured = true;
+      (window.requestIdleCallback || function (f) { return setTimeout(f, 400); })(function () {
+        fetch(src, { credentials: 'same-origin' }).then(function (r) { if (!r.ok) throw new Error('fetch'); return r.arrayBuffer(); }).then(function (buf) {
+          var ctx = new AC(1, 1, 22050);
+          return new Promise(function (res, rej) { var p = ctx.decodeAudioData(buf, res, rej); if (p && p.then) p.then(res, rej); });
+        }).then(function (ab) {
+          var ch = ab.getChannelData(0), step = Math.max(1, Math.floor(ch.length / N)), out = [], max = 0;
+          for (var i = 0; i < N; i++) { var m = 0, end = Math.min(ch.length, (i + 1) * step); for (var j = i * step; j < end; j += 4) { var v = ch[j] < 0 ? -ch[j] : ch[j]; if (v > m) m = v; } out.push(m); if (m > max) max = m; }
+          out = out.map(function (v) { return max ? Math.round(Math.pow(v / max, 0.8) * 100) : 0; });
+          remember(src, out.join(','));
+          document.querySelectorAll('[data-ssp].ssp--flat').forEach(function (o) { if (o.getAttribute('data-src') === src) draw(o, out); });
+        }).catch(function () {});
+      });
+    }
+    function setup(el) {
+      if (el.__ssp) return; el.__ssp = true;
+      var src = el.getAttribute('data-src'), btn = el.querySelector('[data-ssp-btn]'), wave = el.querySelector('[data-ssp-wave]'), time = el.querySelector('[data-ssp-time]'), tip = el.querySelector('[data-ssp-tip]');
+      var given = (el.getAttribute('data-peaks') || '').split(',').map(Number).filter(function (v) { return isFinite(v); });
+      if (given.length >= 16) el.__peaks = given;
+      if (wave && window.ResizeObserver) new ResizeObserver(function () { shape(el); }).observe(wave); else shape(el);
+      if (!src || !btn || !wave) return;
+      if (el.classList.contains('ssp--flat')) { var kept = recall(src); if (kept) draw(el, kept.split(',').map(Number)); }
+      var audio = null, raf = 0, shown = -1, dragging = false, pending = -1, title = el.getAttribute('data-title') || '', len = parseFloat(el.getAttribute('data-len')) || 0;
+      function total() { return audio && audio.duration > 0 && isFinite(audio.duration) ? audio.duration : len; }
+      function pct() { return audio && audio.duration > 0 ? Math.min(100, (audio.currentTime / audio.duration) * 100) : 0; }
+      function paint(force) {
+        var d = total(), t = audio ? audio.currentTime : 0, started = el.classList.contains('is-started');
+        el.style.setProperty('--ssp-p', pct().toFixed(3) + '%');
+        var sec = started ? Math.floor(t) : -2;
+        if (force || sec !== shown) {
+          shown = sec;
+          time.textContent = started ? fmt(t) : fmt(d);
+          wave.setAttribute('aria-valuenow', Math.round(pct()));
+          wave.setAttribute('aria-valuetext', fmt(t) + (d > 0 ? ' of ' + fmt(d) : ''));
+        }
+      }
+      function loop() { paint(); if (audio && !audio.paused) raf = requestAnimationFrame(loop); }
+      function make() {
+        if (audio) return audio;
+        audio = new Audio(); audio.preload = 'auto'; audio.src = src; el.__audio = audio;
+        audio.addEventListener('play', function () {
+          if (current && current !== audio) current.pause();
+          current = audio; el.classList.add('is-playing', 'is-started'); btn.setAttribute('aria-label', 'Pause ' + title);
+          if ('mediaSession' in navigator && window.MediaMetadata) try { navigator.mediaSession.metadata = new MediaMetadata({ title: title, artist: document.title }); } catch (e) {}
+          cancelAnimationFrame(raf); loop();
+        });
+        audio.addEventListener('waiting', function () { el.classList.add('is-loading'); });
+        audio.addEventListener('playing', function () { el.classList.remove('is-loading'); measure(el); });
+        audio.addEventListener('pause', function () { el.classList.remove('is-playing', 'is-loading'); btn.setAttribute('aria-label', 'Play ' + title); cancelAnimationFrame(raf); paint(true); });
+        audio.addEventListener('ended', function () { el.classList.remove('is-started'); audio.currentTime = 0; paint(true); });
+        audio.addEventListener('loadedmetadata', function () { if (pending >= 0) { audio.currentTime = pending * audio.duration; pending = -1; } el.classList.add('has-len'); paint(true); });
+        audio.addEventListener('error', function () { el.classList.remove('is-playing', 'is-loading', 'is-started'); el.classList.add('ssp--off'); time.textContent = 'Could not play'; btn.disabled = true; });
+        return audio;
+      }
+      function play(at) {
+        make(); el.classList.add('is-loading');
+        if (at >= 0) { el.classList.add('is-started'); el.style.setProperty('--ssp-p', (at * 100).toFixed(3) + '%'); if (audio.readyState >= 1 && audio.duration) audio.currentTime = at * audio.duration; else pending = at; }
+        var p = audio.play(); if (p && p.catch) p.catch(function () { el.classList.remove('is-loading'); });
+      }
+      btn.addEventListener('click', function () { if (!audio || audio.paused) play(-1); else audio.pause(); });
+      function at(x) { var r = wave.getBoundingClientRect(); return r.width ? Math.max(0, Math.min(1, (x - r.left) / r.width)) : 0; }
+      function seekable() { var r = audio.seekable; return r && r.length > 0 && r.end(r.length - 1) > 0; }
+      /* A server that does not answer range requests gives a file the browser cannot seek in: fetch it whole once (a preview is small) and play it from memory. */
+      function rescue(f) {
+        pending = f; el.style.setProperty('--ssp-p', (f * 100).toFixed(3) + '%');
+        if (el.__rescued || !window.fetch || !window.URL) return; el.__rescued = true;
+        var going = !audio.paused; el.classList.add('is-loading');
+        fetch(src, { credentials: 'same-origin' }).then(function (r) { if (!r.ok) throw new Error('fetch'); return r.blob(); }).then(function (blob) {
+          audio.src = URL.createObjectURL(blob); audio.load(); if (going) audio.play().catch(function () {});
+        }).catch(function () { el.classList.remove('is-loading'); });
+      }
+      function seek(f) {
+        if (!audio || audio.readyState < 1 || !audio.duration) { play(f); return; }
+        el.classList.add('is-started');
+        if (!seekable()) { rescue(f); return; }
+        audio.currentTime = f * audio.duration; paint(true);
+      }
+      wave.addEventListener('pointerdown', function (e) { if (e.button > 0) return; dragging = true; try { wave.setPointerCapture(e.pointerId); } catch (x) {} seek(at(e.clientX)); });
+      wave.addEventListener('pointermove', function (e) {
+        var f = at(e.clientX);
+        if (e.pointerType === 'mouse') { el.style.setProperty('--ssp-h', (f * 100).toFixed(2) + '%'); if (tip) { var d = total(); if (d > 0) tip.textContent = fmt(f * d); } }
+        if (dragging && audio && audio.duration) { if (seekable()) { audio.currentTime = f * audio.duration; paint(); } else rescue(f); }
+      });
+      function stop() { dragging = false; }
+      wave.addEventListener('pointerup', stop); wave.addEventListener('pointercancel', stop); wave.addEventListener('lostpointercapture', stop);
+      wave.addEventListener('keydown', function (e) {
+        var k = e.key;
+        if (k === ' ' || k === 'Enter') { e.preventDefault(); btn.click(); return; }
+        if (['ArrowRight', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].indexOf(k) < 0) return;
+        e.preventDefault();
+        var f = pct() / 100, step = k === 'PageUp' || k === 'PageDown' ? 0.2 : 0.05;
+        if (k === 'ArrowRight' || k === 'ArrowUp' || k === 'PageUp') f += step; else if (k === 'ArrowLeft' || k === 'ArrowDown' || k === 'PageDown') f -= step; else if (k === 'Home') f = 0; else f = 0.999;
+        seek(Math.max(0, Math.min(0.999, f)));
+      });
+    }
+    function scan(root) { (root && root.querySelectorAll ? root : document).querySelectorAll('[data-ssp]').forEach(setup); }
+    window.__ssp = { v: V, scan: scan, pauseIn: function (root) { root.querySelectorAll('[data-ssp]').forEach(function (el) { if (el.__audio) el.__audio.pause(); }); } };
+    document.addEventListener('shopify:section:load', function (e) { scan(e.target); });
+    document.addEventListener('shopify:section:unload', function (e) { window.__ssp.pauseIn(e.target); });
+    scan(); if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { scan(); });
+  })();
+</script>
+{% schema %}
+{
+  "name": "Hero with floating previews",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    { "type": "header", "content": "Content" },
+    { "type": "inline_richtext", "id": "pill", "label": "Pill", "info": "Bold words take the accent colour." },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "Sounds for your next track." },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Sample packs made in our own studio. Press play on any of them.</p>" },
+    { "type": "text", "id": "button_label", "label": "Button label", "default": "Browse packs" },
+    { "type": "url", "id": "button_link", "label": "Button link" },
+    { "type": "text", "id": "button_2_label", "label": "Second button label" },
+    { "type": "url", "id": "button_2_link", "label": "Second button link" },
+    { "type": "text", "id": "note", "label": "Line under the buttons" },
+    { "type": "text", "id": "chips_label", "label": "Name of the previews, for screen readers", "default": "Previews" },
+    { "type": "header", "content": "Look" },
+    { "type": "color", "id": "button_from", "label": "Button gradient, first colour", "info": "Set both to lay a gradient over the primary button." },
+    { "type": "color", "id": "button_to", "label": "Button gradient, second colour" },
+    { "type": "color", "id": "accent", "label": "Accent", "info": "Bold words in the pill and the playing wave. Left empty, the scheme's button colour." },
+    { "type": "checkbox", "id": "show_glow", "label": "Glow behind the heading", "default": true },
+    { "type": "color", "id": "glow_color", "label": "Glow colour", "default": "#ff7a6b" },
+    { "type": "range", "id": "glow_strength", "label": "Glow strength", "min": 0, "max": 60, "step": 2, "unit": "%", "default": 14 },
+    { "type": "checkbox", "id": "show_lines", "label": "Thin vertical lines", "default": true },
+    { "type": "image_picker", "id": "background", "label": "Background picture" },
+    { "type": "range", "id": "image_opacity", "label": "Picture strength", "min": 5, "max": 100, "step": 5, "unit": "%", "default": 30 },
+    { "type": "checkbox", "id": "float", "label": "Previews float gently", "default": true },
+    { "type": "range", "id": "heading_size", "label": "Heading size", "min": 36, "max": 120, "step": 2, "unit": "px", "default": 84 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size on phones", "min": 28, "max": 64, "step": 2, "unit": "px", "default": 44 },
+    { "type": "range", "id": "content_width", "label": "Text width", "min": 480, "max": 1000, "step": 20, "unit": "px", "default": 760 },
+    { "type": "range", "id": "min_height", "label": "Height on a computer", "min": 400, "max": 900, "step": 20, "unit": "px", "default": 640 },
+    { "type": "header", "content": "General" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default" },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 200, "step": 4, "unit": "px", "default": 120 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 200, "step": 4, "unit": "px", "default": 120 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Top padding on phones", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 72 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Bottom padding on phones", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 56 }
+  ],
+  "blocks": [
+    {
+      "type": "preview",
+      "name": "Floating preview",
+      "limit": 8,
+      "settings": [
+        { "type": "text", "id": "title", "label": "Caption", "default": "Drum loop, 124 BPM" },
+        { "type": "file_picker", "id": "audio", "label": "Audio file", "accept": ["audio"], "info": "An mp3, wav, m4a, ogg, aac or flac file, or an https link. A few seconds is enough." },
+        { "type": "number", "id": "seconds", "label": "Length in seconds" },
+        { "type": "textarea", "id": "peaks", "label": "Waveform peaks", "info": "Optional: 120 numbers from 0 to 100, separated by commas. Left empty, the wave is read from the file the first time it plays." }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Hero with floating previews",
+      "blocks": [
+        { "type": "preview", "settings": { "title": "Drum loop, 124 BPM" } },
+        { "type": "preview", "settings": { "title": "Bass loop, 124 BPM" } },
+        { "type": "preview", "settings": { "title": "Chords, A minor" } },
+        { "type": "preview", "settings": { "title": "Top loop, 124 BPM" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

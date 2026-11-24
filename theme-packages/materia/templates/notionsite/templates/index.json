@@ -1,0 +1,782 @@
+/* Templates round 25: Margin, a Notion template creator's website by Nora Lind, after the owner's reference: her photo over a large heading with buyer avatars, popular templates as cards, the template most people start with, how buying works in three drawn steps, the free templates, the creator, a wall of buyer notes, the blog, a monthly email and questions. Built from the theme's own sections around one hero (notionsite-hero); every Notion page in the pictures is drawn for the template. */
+{
+  "sections": {
+    "hero": {
+      "type": "notionsite-hero",
+      "settings": {
+        "image": "shopify://shop_images/notionsite-creator.webp",
+        "image_alt": "Nora Lind",
+        "avatar_shape": "circle",
+        "avatar_size": 132,
+        "avatar_size_mobile": 96,
+        "intro": "Notion templates by Nora",
+        "heading": "Calm systems for a busy life",
+        "text": "<p>Planners and trackers for money, work, travel and the week ahead. I build them, use them for months, then share them here.</p>",
+        "button_label": "Get the bundle",
+        "button_link": "/products/life-os-bundle",
+        "button_2_label": "Browse templates",
+        "button_2_link": "/collections/all",
+        "proof_avatar_1": "shopify://shop_images/notionsite-buyer-1.webp",
+        "proof_avatar_2": "shopify://shop_images/notionsite-buyer-2.webp",
+        "proof_avatar_3": "shopify://shop_images/notionsite-buyer-3.webp",
+        "proof_avatar_4": "shopify://shop_images/notionsite-buyer-4.webp",
+        "proof_avatar_5": "shopify://shop_images/notionsite-buyer-5.webp",
+        "show_stars": true,
+        "stars": 5,
+        "star_color": "#f5b301",
+        "proof_text": "Read what buyers say",
+        "proof_link": "/#reviews",
+        "align": "left",
+        "content_width": 1100,
+        "intro_size": 40,
+        "intro_size_mobile": 26,
+        "intro_weight": "500",
+        "heading_size": 76,
+        "heading_size_mobile": 40,
+        "text_size": 18,
+        "text_size_mobile": 16,
+        "color_scheme": "default",
+        "section_width": "container",
+        "padding_top": 156,
+        "padding_bottom": 72,
+        "padding_top_mobile": 40,
+        "padding_bottom_mobile": 40
+      }
+    },
+    "popular": {
+      "type": "products-listing",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "collection": "all",
+        "items_to_show": 6,
+        "heading": "Popular Notion templates",
+        "show_view_all": false,
+        "header_alignment": "center",
+        "heading_subtext_gap": 10,
+        "items_per_row": 3,
+        "items_per_row_mobile": 1,
+        "column_gap": 24,
+        "row_gap": 28,
+        "show_badges": true,
+        "show_vendor": false,
+        "show_rating": false,
+        "show_short_description": true,
+        "show_swatches": false,
+        "show_price": true,
+        "show_add_to_cart": false,
+        "show_action": false,
+        "reveal": false,
+        "padding_top": 56,
+        "padding_bottom": 88
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Popular Notion templates",
+            "size_desktop": 40,
+            "size_mobile": 30
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Planners and trackers I use every week. Each one comes with a short walkthrough.</p>"
+          }
+        },
+        "button_3": {
+          "type": "button",
+          "settings": {
+            "text": "More Notion templates",
+            "link": "/collections/all",
+            "position": "bottom",
+            "button_style": "primary",
+            "use_theme_button": true
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "button_3"
+      ]
+    },
+    "featured": {
+      "type": "featured-product",
+      "settings": {
+        "color_scheme": "scheme-6c1d2a40-91b7-4c55-9a0e-5d3f0b8e7a11",
+        "section_width": "container",
+        "reset_spacing": true,
+        "product": "",
+        "show_view_link": false,
+        "desktop_layout": "hidden_thumbnail",
+        "desktop_media_width": 54,
+        "desktop_main_image_position": "left",
+        "show_thumbnails": false,
+        "enable_size_chart": false,
+        "enable_dynamic_checkout": true,
+        "enable_image_square": false,
+        "enable_lightbox": false,
+        "enable_sticky_content_on_desktop": false,
+        "reveal": false,
+        "padding_top": 72,
+        "padding_bottom": 72
+      },
+      "blocks": {
+        "badges_1": {
+          "type": "badges",
+          "settings": {}
+        },
+        "title_2": {
+          "type": "title",
+          "settings": {
+            "show_vendor": false,
+            "title_font_size_desktop": 40,
+            "title_font_size_mobile": 30
+          }
+        },
+        "text_3": {
+          "type": "text",
+          "settings": {
+            "heading": "",
+            "content": "<p>The template most people start with: a budget that adds itself up, every payment in one table, a calendar of bills and savings goals you can watch fill.</p>"
+          }
+        },
+        "price_4": {
+          "type": "price",
+          "settings": {
+            "price_font_size_desktop": 26,
+            "price_font_size_mobile": 24,
+            "price_font_weight": "600"
+          }
+        },
+        "variant_picker_5": {
+          "type": "variant_picker",
+          "settings": {
+            "variant_type": "swatches",
+            "show_size_guide": false,
+            "picker_swatch_style": "theme"
+          }
+        },
+        "buy_buttons_6": {
+          "type": "buy_buttons",
+          "settings": {
+            "show_add_to_cart": true,
+            "show_dynamic_checkout": true,
+            "show_quantity": false,
+            "buttons_full_width": false,
+            "show_wishlist_button": false,
+            "atc_appearance": "theme",
+            "buy_appearance": "theme",
+            "atc_icon_enable": false
+          }
+        },
+        "link_button_7": {
+          "type": "link_button",
+          "settings": {
+            "label": "See every page inside",
+            "link": "/products/money-planner",
+            "style": "text",
+            "icon": "none",
+            "full_width": false,
+            "spacing_top": 4,
+            "spacing_bottom": 0
+          }
+        }
+      },
+      "block_order": [
+        "badges_1",
+        "title_2",
+        "text_3",
+        "price_4",
+        "variant_picker_5",
+        "buy_buttons_6",
+        "link_button_7"
+      ]
+    },
+    "how": {
+      "type": "how-to-use",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "cols_desktop": 3,
+        "content_align": "left",
+        "image_ratio": "4/3",
+        "image_fit": "cover",
+        "image_radius": 16,
+        "image_border": false,
+        "number_size": 15,
+        "title_size_desktop": 20,
+        "desc_size_desktop": 15,
+        "reveal": false,
+        "col_gap_desktop": 24,
+        "gap_desktop": 24,
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 48,
+        "enable_mobile_carousel": false,
+        "title_size_mobile": 18,
+        "desc_size_mobile": 15,
+        "gap_mobile": 32,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 24
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "From checkout to your workspace",
+            "align": "center",
+            "gap_below": 40,
+            "size_desktop": 40,
+            "size_mobile": 30
+          }
+        },
+        "step_2": {
+          "type": "step",
+          "settings": {
+            "image": "shopify://shop_images/notionsite-step-email.webp",
+            "number": "1",
+            "title": "Pick a template",
+            "description": "<p>Pay, or check out at $0 for a free one. The link arrives on the receipt page and by email.</p>"
+          }
+        },
+        "step_3": {
+          "type": "step",
+          "settings": {
+            "image": "shopify://shop_images/notionsite-step-duplicate.webp",
+            "number": "2",
+            "title": "Press Duplicate",
+            "description": "<p>Open the link while signed in to Notion and copy the template into your own workspace.</p>"
+          }
+        },
+        "step_4": {
+          "type": "step",
+          "settings": {
+            "image": "shopify://shop_images/notionsite-step-yours.webp",
+            "number": "3",
+            "title": "Make it yours",
+            "description": "<p>Delete the sample rows, rename what you like and add your own. It works on Notion's free plan.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "step_2",
+        "step_3",
+        "step_4"
+      ]
+    },
+    "free": {
+      "type": "products-listing",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "collection": "free",
+        "items_to_show": 3,
+        "heading": "Start with a free one",
+        "show_view_all": false,
+        "header_alignment": "center",
+        "heading_subtext_gap": 10,
+        "items_per_row": 3,
+        "items_per_row_mobile": 1,
+        "column_gap": 24,
+        "row_gap": 28,
+        "show_badges": true,
+        "show_vendor": false,
+        "show_rating": false,
+        "show_short_description": true,
+        "show_swatches": false,
+        "show_price": true,
+        "show_add_to_cart": false,
+        "show_action": false,
+        "reveal": false,
+        "padding_top": 72,
+        "padding_bottom": 88
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Start with a free one",
+            "size_desktop": 40,
+            "size_mobile": 30
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Three templates you can duplicate for nothing and keep.</p>"
+          }
+        },
+        "button_3": {
+          "type": "button",
+          "settings": {
+            "text": "All free templates",
+            "link": "/collections/free",
+            "position": "bottom",
+            "button_style": "primary",
+            "use_theme_button": true
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "button_3"
+      ]
+    },
+    "creator": {
+      "type": "image-with-text-multirow",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "alternate_rows": false,
+        "content_align": "left",
+        "text_column_width": 55,
+        "row_gap_desktop": 40,
+        "col_gap_desktop": 56,
+        "content_gap": 16,
+        "image_aspect_w": 4,
+        "image_aspect_h": 5,
+        "image_fit": "cover",
+        "image_radius": 16,
+        "heading_size_desktop": 40,
+        "heading_weight": "theme",
+        "body_size_desktop": 17,
+        "padding_top_desktop": 48,
+        "padding_bottom_desktop": 48,
+        "heading_size_mobile": 30,
+        "body_size_mobile": 15,
+        "padding_top_mobile": 32,
+        "padding_bottom_mobile": 32,
+        "side_padding_mobile": 16
+      },
+      "blocks": {
+        "row_1": {
+          "type": "row",
+          "settings": {
+            "image": "shopify://shop_images/notionsite-creator-portrait.webp",
+            "caption": "Nora Lind, Copenhagen",
+            "heading": "Meet the creator",
+            "heading_tag": "h2",
+            "body": "<p>I'm Nora. I spent eight years as a project manager, which mostly meant turning messy lists into systems people actually use. Now I do the same for the rest of life, in Notion.</p><p>Every template here started as something I built for myself or a friend and used for months before selling it. If a page does not earn its place, it goes. Questions come straight to me, and I answer them.</p>",
+            "btn_label": "Read my story",
+            "btn_link": "/pages/about",
+            "image_position": "left",
+            "row_padding": 40,
+            "row_radius": 24,
+            "enable_custom_style": true,
+            "row_bg": "#f5f5f4",
+            "use_theme_button": true
+          }
+        }
+      },
+      "block_order": [
+        "row_1"
+      ]
+    },
+    "reviews": {
+      "type": "testimonial-wall",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "text_align": "center",
+        "columns": 4,
+        "card_gap": 16,
+        "card_style": "filled",
+        "collapse": "always",
+        "collapsed_part": 60,
+        "more_label": "Load more",
+        "less_label": "Show fewer",
+        "enable_custom_style": true,
+        "card_bg": "#f5f5f4",
+        "quote_color": "#2e2e30",
+        "name_color": "#111111",
+        "star_color": "#f5b301",
+        "star_empty_color": "#e3e3e1",
+        "card_radius": 16,
+        "quote_size": 15,
+        "quote_size_mobile": 15,
+        "reveal": false,
+        "padding_top": 96,
+        "padding_bottom": 48,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 32
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Testimonials",
+            "size": 40,
+            "size_mobile": 30
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Sample notes in the layout this wall shows. Replace them with what your own buyers say.</p>"
+          }
+        },
+        "testimonial_3": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Set it up in one evening. For the first time I know on the 20th how much is left for the month, without opening my bank app.",
+            "name": "Hanna K.",
+            "role": "Money Planner",
+            "rating": 5,
+            "avatar": "shopify://shop_images/notionsite-buyer-1.webp"
+          }
+        },
+        "testimonial_4": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Simple and quick to fill in. Exactly what I wanted from a free planner.",
+            "name": "Daniel O.",
+            "role": "Weekly Planner",
+            "rating": 5,
+            "avatar": "shopify://shop_images/notionsite-buyer-2.webp"
+          }
+        },
+        "testimonial_5": {
+          "type": "testimonial",
+          "settings": {
+            "body": "The interview prep page is the part I did not know I needed. I practised every answer on it before my second round.",
+            "name": "Amara B.",
+            "role": "Job Search Tracker",
+            "rating": 5,
+            "avatar": "shopify://shop_images/notionsite-buyer-3.webp"
+          }
+        },
+        "testimonial_6": {
+          "type": "testimonial",
+          "settings": {
+            "body": "I use the trip pages for every weekend away now, not only the big holidays.",
+            "name": "Rosa M.",
+            "role": "Travel Planner",
+            "rating": 5,
+            "avatar": "shopify://shop_images/notionsite-buyer-4.webp"
+          }
+        },
+        "testimonial_7": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Clean, no clutter. It looks like Notion, not like a poster.",
+            "name": "Sami T.",
+            "role": "Daily Journal",
+            "rating": 5,
+            "avatar": "shopify://shop_images/notionsite-buyer-5.webp"
+          }
+        },
+        "testimonial_8": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Meal plan on Sunday, one shop, done. My partner adds recipes from his phone.",
+            "name": "Julia W.",
+            "role": "Recipe Box",
+            "rating": 5,
+            "avatar": "shopify://shop_images/notionsite-buyer-6.webp"
+          }
+        },
+        "testimonial_9": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Bought the bundle for the budget and ended up using all four. The Home page with what is due this week is great.",
+            "name": "Marcus L.",
+            "role": "Life OS Bundle",
+            "rating": 5,
+            "avatar": "shopify://shop_images/notionsite-buyer-7.webp"
+          }
+        },
+        "testimonial_10": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Good walkthrough video. I had never used a linked database before and it made sense straight away.",
+            "name": "Ellie P.",
+            "role": "Money Planner",
+            "rating": 5,
+            "avatar": "shopify://shop_images/notionsite-buyer-8.webp"
+          }
+        },
+        "testimonial_11": {
+          "type": "testimonial",
+          "settings": {
+            "body": "The squat chart going up every week keeps me going to the gym.",
+            "name": "Arif S.",
+            "role": "Workout Log",
+            "rating": 5,
+            "avatar": "shopify://shop_images/notionsite-buyer-9.webp"
+          }
+        },
+        "testimonial_12": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Moods on the calendar show me patterns I would never have noticed.",
+            "name": "Noor H.",
+            "role": "Daily Journal",
+            "rating": 5,
+            "avatar": "shopify://shop_images/notionsite-buyer-10.webp"
+          }
+        },
+        "testimonial_13": {
+          "type": "testimonial",
+          "settings": {
+            "body": "I asked a question about the bills calendar and got a clear answer the same day.",
+            "name": "Peter G.",
+            "role": "Money Planner",
+            "rating": 5,
+            "avatar": "shopify://shop_images/notionsite-buyer-11.webp"
+          }
+        },
+        "testimonial_14": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Light enough that I actually keep it up. Six weeks and counting.",
+            "name": "Mei C.",
+            "role": "Weekly Planner",
+            "rating": 5,
+            "avatar": "shopify://shop_images/notionsite-buyer-12.webp"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "testimonial_3",
+        "testimonial_4",
+        "testimonial_5",
+        "testimonial_6",
+        "testimonial_7",
+        "testimonial_8",
+        "testimonial_9",
+        "testimonial_10",
+        "testimonial_11",
+        "testimonial_12",
+        "testimonial_13",
+        "testimonial_14"
+      ]
+    },
+    "blog": {
+      "type": "blog-posts",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "blog": "news",
+        "items_to_show": 3,
+        "items_per_row": 3,
+        "items_per_row_mobile": 1,
+        "show_date": true,
+        "show_author": false,
+        "show_view_all": true,
+        "view_all_label": "All posts",
+        "view_all_link": "/blogs/news",
+        "header_alignment": "center",
+        "content_alignment": "left",
+        "column_gap": 24,
+        "vertical_gap": 24,
+        "image_ratio": "landscape",
+        "padding_top": 72,
+        "padding_bottom": 72
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "heading": "From the blog",
+            "tag": "h2",
+            "size": "custom",
+            "custom_size": 40
+          }
+        },
+        "text_2": {
+          "type": "text",
+          "settings": {
+            "text": "<p>How I use the templates, and what I learned building them.</p>",
+            "size": "base",
+            "max_width": "medium"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "text_2"
+      ]
+    },
+    "newsletter": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "scheme-6c1d2a40-91b7-4c55-9a0e-5d3f0b8e7a11",
+        "section_width": "container",
+        "show_section_on": "all",
+        "email_label": "Email address",
+        "email_placeholder": "name@email.com",
+        "btn_text": "Subscribe",
+        "note": "One email a month. Unsubscribe any time.",
+        "subscribed_button_text": "Subscribed",
+        "success_text": "Thanks, you are on the list.",
+        "image_position": "right",
+        "content_alignment": "left",
+        "form_layout": "horizontal",
+        "image_width": 42,
+        "column_gap": 56,
+        "image": "shopify://shop_images/notionsite-newsletter.webp",
+        "image_alt": "A drawing of an envelope with a checklist coming out of it",
+        "image_ratio": "square",
+        "button_style": "primary",
+        "use_theme_button": true,
+        "reveal": false,
+        "padding_top": 48,
+        "padding_bottom": 96,
+        "padding_top_mobile": 40,
+        "padding_bottom_mobile": 56,
+        "show_image_mobile": false
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "A new template, once a month"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>What I made, what I changed and one free template for subscribers. Nothing else.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    },
+    "faq": {
+      "type": "faq",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "structured_data": true,
+        "heading": "Frequently asked questions",
+        "subheading": "<p>Everything worth knowing before you duplicate a template.</p>",
+        "first_item_open": false,
+        "allow_multiple_open": false,
+        "open_icon": "plus",
+        "content_alignment": "center",
+        "max_content_width": 760,
+        "gap_header_to_items": 36,
+        "gap_heading_to_subheading": 10,
+        "gap_between_items": 12,
+        "item_padding_y": 18,
+        "item_padding_x": 22,
+        "item_radius": 14,
+        "show_dividers": false,
+        "enable_custom_style": true,
+        "card_bg": "#f5f5f4",
+        "card_border_color": "#ececea",
+        "question_color": "#111111",
+        "icon_color": "#111111",
+        "answer_color": "#55555a",
+        "heading_size_desktop": 40,
+        "heading_size_mobile": 30,
+        "question_size_desktop": 16,
+        "question_size_mobile": 15,
+        "enable_custom_question_weight": true,
+        "question_weight": "500",
+        "answer_size_desktop": 15,
+        "answer_size_mobile": 14,
+        "reveal": false,
+        "padding_top": 72,
+        "padding_bottom": 96
+      },
+      "blocks": {
+        "faq_item_1": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Who are these templates for?",
+            "answer": "<p>People who want their money, work, trips and week in one tidy place without building it from scratch. If you can type in a table, you can use them.</p>"
+          }
+        },
+        "faq_item_2": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do I need a paid Notion plan?",
+            "answer": "<p>No. Every template works on Notion's free plan, on the web, the desktop app and the phone app.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How do I get a template after I pay?",
+            "answer": "<p>The receipt page and the email both have a link. Open it while you are signed in to Notion, press Duplicate and the template is copied into your workspace.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Are the free templates really free?",
+            "answer": "<p>Yes. Check out at $0, get the same link by email and keep the template. You can unsubscribe from emails at any time.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I change a template?",
+            "answer": "<p>Every page, property and view is yours to edit. Rename things, add columns, delete pages you do not need.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What does the commercial licence cover?",
+            "answer": "<p>The personal licence is for your own use. The commercial licence lets you use the template inside your business or set it up for one client. Reselling it is not allowed with either.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Will I get updates?",
+            "answer": "<p>Yes. When a template changes, everyone who bought it gets an email with the new link, at no cost.</p>"
+          }
+        },
+        "faq_item_8": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if it is not for me?",
+            "answer": "<p>Email within 14 days of buying and you get your money back. No form to fill in.</p>"
+          }
+        },
+        "faq_item_9": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How can I ask a question?",
+            "answer": "<p>Write from the contact page. I read every message and reply within two working days.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "faq_item_1",
+        "faq_item_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7",
+        "faq_item_8",
+        "faq_item_9"
+      ]
+    }
+  },
+  "order": [
+    "hero",
+    "popular",
+    "featured",
+    "how",
+    "free",
+    "creator",
+    "reviews",
+    "blog",
+    "newsletter",
+    "faq"
+  ]
+}

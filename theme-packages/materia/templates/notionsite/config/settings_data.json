@@ -151,6 +151,7 @@
     "favicon": "shopify://shop_images/notionsite-mark.webp",
     "field_style": "outline",
     "input_radius": 10,
-    "field_height": 48
+    "field_height": 48,
+    "enable_custom_badges": true
   }
 }

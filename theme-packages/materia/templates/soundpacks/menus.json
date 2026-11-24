@@ -1,0 +1,86 @@
+{
+  "main-menu": {
+    "title": "Main menu",
+    "links": [
+      {
+        "title": "Packs",
+        "url": "/collections/packs"
+      },
+      {
+        "title": "Bundles",
+        "url": "/collections/bundles"
+      },
+      {
+        "title": "Free",
+        "url": "/collections/free"
+      },
+      {
+        "title": "Journal",
+        "url": "/blogs/news"
+      },
+      {
+        "title": "Licence",
+        "url": "/pages/licence"
+      },
+      {
+        "title": "Support",
+        "url": "/pages/faqs"
+      }
+    ]
+  },
+  "footer-shop": {
+    "title": "Shop",
+    "links": [
+      {
+        "title": "All packs",
+        "url": "/collections/packs"
+      },
+      {
+        "title": "Bundles",
+        "url": "/collections/bundles"
+      },
+      {
+        "title": "Everything",
+        "url": "/collections/all"
+      },
+      {
+        "title": "Journal",
+        "url": "/blogs/news"
+      }
+    ]
+  },
+  "footer-free": {
+    "title": "Free",
+    "links": [
+      {
+        "title": "Free packs",
+        "url": "/collections/free"
+      },
+      {
+        "title": "Licence",
+        "url": "/pages/licence"
+      },
+      {
+        "title": "About Lowmoth",
+        "url": "/pages/about"
+      }
+    ]
+  },
+  "footer": {
+    "title": "Help",
+    "links": [
+      {
+        "title": "Questions",
+        "url": "/pages/faqs"
+      },
+      {
+        "title": "Contact",
+        "url": "/pages/contact"
+      },
+      {
+        "title": "Search",
+        "url": "/search"
+      }
+    ]
+  }
+}

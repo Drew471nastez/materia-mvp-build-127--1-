@@ -1,0 +1,98 @@
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "alignment": "center",
+        "height": "based_on_content",
+        "padding_top": 64,
+        "padding_bottom": 8
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "Blog",
+            "header_size": "large",
+            "vertical_gap": 10
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "description": "<p>How I use the templates, and what I learned building them.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_2"
+      ]
+    },
+    "main": {
+      "type": "main-blog",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "padding_top": 24,
+        "padding_bottom": 64
+      }
+    },
+    "newsletter": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "scheme-6c1d2a40-91b7-4c55-9a0e-5d3f0b8e7a11",
+        "section_width": "container",
+        "show_section_on": "all",
+        "email_label": "Email address",
+        "email_placeholder": "name@email.com",
+        "btn_text": "Subscribe",
+        "note": "One email a month. Unsubscribe any time.",
+        "subscribed_button_text": "Subscribed",
+        "success_text": "Thanks, you are on the list.",
+        "image_position": "right",
+        "content_alignment": "left",
+        "form_layout": "horizontal",
+        "image_width": 42,
+        "column_gap": 56,
+        "image": "shopify://shop_images/notionsite-newsletter.webp",
+        "image_alt": "A drawing of an envelope with a checklist coming out of it",
+        "image_ratio": "square",
+        "button_style": "primary",
+        "use_theme_button": true,
+        "reveal": false,
+        "padding_top": 0,
+        "padding_bottom": 96,
+        "padding_top_mobile": 40,
+        "padding_bottom_mobile": 56,
+        "show_image_mobile": false
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "A new template, once a month"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>What I made, what I changed and one free template for subscribers. Nothing else.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    }
+  },
+  "order": [
+    "heading",
+    "main",
+    "newsletter"
+  ]
+}
