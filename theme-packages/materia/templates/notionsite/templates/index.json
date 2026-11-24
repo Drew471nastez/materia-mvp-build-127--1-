@@ -550,7 +550,6 @@
       "settings": {
         "color_scheme": "default",
         "section_width": "container",
-        "blog": "news",
         "items_to_show": 3,
         "items_per_row": 3,
         "items_per_row_mobile": 1,

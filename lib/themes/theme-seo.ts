@@ -535,7 +535,7 @@ export const THEME_SEO: readonly ThemeSeo[] = [
     title: "Notion Template Creator Website Template | Storelib",
     description: "A website template for a Notion template creator: your photo, template cards, free templates, how duplicating works, buyer reviews, FAQ and an email list.",
     h1: "Website template for Notion template creators",
-    intro: "Notion creator is a personal website for someone who makes and sells Notion templates, shown here as Margin by Nora Lind. It opens on the creator's photo and a large heading, then the templates as cards with prices, the one most people start with, how duplicating works, free templates, the creator, buyer notes, a monthly email and questions. A templates page sorts them into premium, free, on sale and bundles.",
+    intro: "Notion creator is a personal website for someone who makes and sells Notion templates, shown here as Margin by Nora Lind. It opens on her photo, then the templates as cards, how duplicating works, free templates, buyer notes and questions. A templates page sorts them into premium, free, on sale and bundles.",
     primaryCategory: "digital-products",
     primaryKeyword: "notion template creator website",
     secondaryKeywords: ["sell notion templates website", "notion creator portfolio", "notion template store design"],

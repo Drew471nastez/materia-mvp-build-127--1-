@@ -36,7 +36,7 @@
           "settings": {
             "open_link": false,
             "spacing_bottom": 0,
-            "first_button_link": "/collections/packs",
+            "first_button_link": "/collections/all",
             "first_button_type": "primary",
             "first_button_label": "Browse packs"
           }

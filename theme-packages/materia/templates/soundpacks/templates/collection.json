@@ -77,89 +77,10 @@
         "block-mvmkfj68-2-iqqos"
       ]
     },
-    "bundles": {
-      "type": "pricing-cards",
-      "settings": {
-        "color_scheme": "scheme-sp-panel",
-        "eyebrow": "Bundles",
-        "heading": "More sounds, less per pack.",
-        "intro": "<p>Every bundle is the same files as the single packs, in one download.</p>",
-        "heading_size": "h2",
-        "heading_align": "left",
-        "footnote": "",
-        "card_style": "filled",
-        "use_theme_corners": true,
-        "card_radius": 20,
-        "card_gap": 16,
-        "price_size": 40,
-        "mobile_layout": "stack",
-        "section_width": "container",
-        "use_theme_spacing": false,
-        "padding_top": 72,
-        "padding_bottom": 72,
-        "padding_top_mobile": 56,
-        "padding_bottom_mobile": 56
-      },
-      "blocks": {
-        "plan_single": {
-          "type": "plan",
-          "settings": {
-            "name": "One pack",
-            "description": "<p>Pick the sound you need now.</p>",
-            "badge": "",
-            "featured": false,
-            "price": "$19 to $29",
-            "compare_price": "",
-            "note": "Per pack, yours to keep",
-            "features": "Preview every sound first\n24 bit WAV files and MIDI\nRoyalty free licence",
-            "button_label": "Browse packs",
-            "button_link": "/collections/packs",
-            "button_style": "secondary"
-          }
-        },
-        "plan_drums": {
-          "type": "plan",
-          "settings": {
-            "name": "Drums and Low End",
-            "description": "<p>Night Bus, Chrome Drums and Heavy Water.</p>",
-            "badge": "",
-            "featured": false,
-            "price": "$59.00",
-            "compare_price": "$80.00",
-            "note": "One download, 1.9 GB",
-            "features": "1,284 WAV files\nDrums, grooves and bass\nRoyalty free licence",
-            "button_label": "Get the bundle",
-            "button_link": "/collections/bundles",
-            "button_style": "secondary"
-          }
-        },
-        "plan_shelf": {
-          "type": "plan",
-          "settings": {
-            "name": "The Full Shelf",
-            "description": "<p>Every paid pack, and the ones released this year.</p>",
-            "badge": "Best value",
-            "featured": true,
-            "price": "$79.00",
-            "compare_price": "$124.00",
-            "note": "One download, 3.1 GB",
-            "features": "All five paid packs\nNew paid packs this year added free\nRoyalty free licence",
-            "button_label": "Get the full shelf",
-            "button_link": "/collections/bundles",
-            "button_style": "primary"
-          }
-        }
-      },
-      "block_order": [
-        "plan_single",
-        "plan_drums",
-        "plan_shelf"
-      ]
-    },
     "signup": {
       "type": "newsletter",
       "settings": {
-        "color_scheme": "default",
+        "color_scheme": "scheme-sp-panel",
         "section_width": "container",
         "reset_spacing": true,
         "heading": "",
@@ -207,7 +128,6 @@
   "order": [
     "main-collection-heading",
     "main-collection-product",
-    "bundles",
     "signup"
   ]
 }

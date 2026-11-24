@@ -15,7 +15,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "page_title": "Blog",
+            "page_title": "",
             "header_size": "large",
             "vertical_gap": 10
           }
