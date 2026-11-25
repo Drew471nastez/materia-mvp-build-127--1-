@@ -1312,6 +1312,8 @@ const SUITES = [
   "tests/live-speed-x.test.ts",
   /* Oct 21: an imported theme's page held for a returning visitor (only Storelib's own page cookies keep it private), routed after one round trip (SQL part 257 site_route_facts), its draw's reads started together (scripts/check-live-speed.mjs asks a live site the same questions) */
   "tests/live-speed-imported.test.ts",
+  /* Round 27 (the owner: adding a theme and opening the editor take too long): a template converted once per server and stored by the import's own writes in this request (pictures six at a time and only new ones, rows in 3 MB parts three at a time, the listing's note in the first write, the template's own cover), only its own and the base's release rows, and the editor's two large reads a 304 when unchanged (lib/website-builder/revalidated-json.ts). Measured over a fake database with a fixed delay per query. */
+  "tests/theme-add-speed-r27.test.ts",
   /* Round 26 (W6): community SEO by state, the sitemap and canonicals, the member links inside a community and their presses (SQL part 221) */
   "tests/seo26.test.ts",
   /* Round 44: Storelib's own public pages: each page's whole metadata, the auth steps noindex, Explore's canonicals, the blog's pages, feed and dates, the Help Center's og:url, legal pages in the sitemap, llms.txt. */

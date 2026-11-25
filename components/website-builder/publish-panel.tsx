@@ -539,13 +539,15 @@ function Body({
         * Said here because this is where it costs something. Publishing
         * normally saves a copy of the site first, so a publish can be undone;
         * with the table missing it saves nothing and says nothing, which is
-        * the worst version of both.
+        * the worst version of both. Only an admin is told (round 61): the
+        * setup route answers null to everybody else, because running SQL is
+        * the owner's job and a creator's publish goes live either way.
         */}
       {backupsReady === false && (
         <p className="flex items-start gap-2.5 rounded-xl border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-[14px] text-amber-200">
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
           <span>
-            {tt("This publish will not be backed up. Run supabase/sql/RUN_THEME_BACKUPS.sql once to turn backups on.")}
+            {tt("Admin note: this publish will not be backed up. Run part D of supabase/sql/RUN_PENDING_ROUND_60.sql (or RUN_THEME_BACKUPS.sql) once to turn backups on. Creators do not see this.")}
           </span>
         </p>
       )}

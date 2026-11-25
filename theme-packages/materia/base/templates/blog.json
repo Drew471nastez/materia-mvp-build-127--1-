@@ -5,21 +5,29 @@
       "settings": {
         "height": "adapt",
         "alignment": "center",
-        "padding_top": 66,
+        "padding_top": 72,
         "color_scheme": "",
         "reset_spacing": true,
-        "section_width": "container",
-        "padding_bottom": 55,
-        "overlay_opacity": 0
+        "section_width": "stretch_width",
+        "padding_bottom": 64,
+        "overlay_opacity": 25
       },
       "blocks": {
+        "breadcrumb_bl": {
+          "type": "breadcrumb",
+          "settings": {
+            "separator": "dot",
+            "font_size": 13,
+            "uppercase": false
+          }
+        },
         "heading_xwFKKa": {
           "type": "heading",
           "settings": {
             "page_title": "",
             "header_size": "medium",
-            "vertical_gap": 14,
-            "heading_font_size": 36,
+            "vertical_gap": 12,
+            "heading_font_size": 40,
             "enable_heading_color": false
           }
         },
@@ -33,6 +41,7 @@
         }
       },
       "block_order": [
+        "breadcrumb_bl",
         "heading_xwFKKa",
         "description_YRWpkt"
       ]
@@ -40,40 +49,80 @@
     "main": {
       "type": "main-blog",
       "settings": {
+        "card_style": "editorial",
+        "sidebar_position": "left",
         "layout": "grid",
-        "row_gap": 64,
+        "row_gap": 56,
         "show_date": true,
-        "column_gap": 40,
-        "margin_top": 32,
-        "title_size": 22,
-        "badge_width": 70,
-        "image_ratio": "adapt",
-        "title_hover": "underline",
-        "badge_height": 30,
+        "show_author": true,
+        "column_gap": 24,
+        "padding_top": 56,
+        "padding_bottom": 72,
+        "padding_top_mobile": 36,
+        "padding_bottom_mobile": 48,
+        "title_size": 19,
+        "image_ratio": "custom",
         "custom_ratio": "16:10",
-        "hover_effect": "lift",
-        "image_radius": 14,
+        "title_hover": "underline",
+        "hover_effect": "zoom",
+        "image_radius": 10,
         "show_excerpt": true,
-        "excerpt_lines": 2,
+        "excerpt_lines": 3,
         "items_per_row": 3,
-        "items_to_show": 12,
-        "margin_bottom": 0,
-        "readmore_line": "style",
+        "items_to_show": 9,
         "readmore_text": "Read article",
-        "readmore_type": "underline",
         "reset_spacing": true,
-        "section_width": "fluid_container",
+        "section_width": "container",
         "show_category": true,
-        "show_readmore": true,
-        "button_show_more": "Load more",
+        "show_readmore": false,
         "content_alignment": "left",
-        "badge_border_radius": 19,
-        "enable_custom_style": true,
-        "badge_text_font_size": 14,
         "items_per_row_mobile": 1,
-        "badge_vertical_position": 16,
-        "badge_horizontal_position": 16
+        "card_entrance": true,
+        "pagination": "default"
       },
+      "blocks": {
+        "categories_bl": {
+          "type": "categories",
+          "settings": {
+            "heading": "Blog categories",
+            "show_count": false
+          }
+        },
+        "recent_bl": {
+          "type": "recent",
+          "settings": {
+            "heading": "Popular posts",
+            "count": 3,
+            "show_image": true,
+            "show_date": true
+          }
+        },
+        "topics_bl": {
+          "type": "topics",
+          "settings": {
+            "heading": "Tags",
+            "all_label": ""
+          }
+        },
+        "promo_bl": {
+          "type": "promo",
+          "settings": {
+            "ratio": "portrait",
+            "overlay": 30,
+            "subheading": "From the shop",
+            "heading": "Pieces from this season",
+            "button_label": "Shop now",
+            "link": "/collections/all",
+            "button_style": "light"
+          }
+        }
+      },
+      "block_order": [
+        "categories_bl",
+        "recent_bl",
+        "topics_bl",
+        "promo_bl"
+      ],
       "name": "Main blog"
     }
   },

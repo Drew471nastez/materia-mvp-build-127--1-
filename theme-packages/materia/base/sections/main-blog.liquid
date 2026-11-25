@@ -153,6 +153,17 @@
     assign mb_has_posts = true
   endif
   assign mb_badge_ref = section_st.blog_post_badge_reference | split: '/' | last
+
+  comment
+    Card style Editorial (round 61): the post's category as a pill under the
+    picture, then the title, the start of the post and "Post by <author>
+    <date>" under it, with the sidebar's blocks divided by lines. Classic,
+    the default, is the card every install drew before.
+  endcomment
+  assign mb_v2 = false
+  if section_st.card_style == 'editorial'
+    assign mb_v2 = true
+  endif
 -%}
 {%- capture mb_btn_override -%}
   {%- if btn_custom -%}
@@ -392,10 +403,58 @@
   #shopify-section-{{ section.id }} .mb-banner__text > :last-child { margin-bottom: 0; }
   #shopify-section-{{ section.id }} .mb-banner__btn { align-self: flex-start; margin-top: 6px; }
   @media (prefers-reduced-motion: reduce) { #shopify-section-{{ section.id }} :is(.mb-topic, .mb-recent__media img, .mb-side) { transition: none !important; } }
+
+  /* Card style Editorial (round 61). Colours from the colour scheme, the
+     pill and tag radius from Theme settings, the author in the scheme's
+     primary colour. */
+  #shopify-section-{{ section.id }} .mb-v2 .mb-card__body { gap: 0; padding-top: 22px; }
+  #shopify-section-{{ section.id }} .mb-v2 .mb-pill { position: relative; z-index: 2; display: inline-flex; align-items: center; min-height: 30px; margin-bottom: 16px; padding: 0 14px; border: 1px solid var(--color-border, color-mix(in srgb, var(--color-text) 16%, transparent)); border-radius: var(--pill-radius, 999px); font-size: 13px; line-height: 1; color: var(--color-heading); text-decoration: none; transition: border-color .25s ease, background-color .25s ease, color .25s ease; }
+  @media (hover: hover) { #shopify-section-{{ section.id }} .mb-v2 .mb-pill:hover { border-color: var(--color-heading); } }
+  #shopify-section-{{ section.id }} .mb-v2 .mb-card .mb-card__title { margin: 0 0 12px; line-height: 1.3; }
+  #shopify-section-{{ section.id }} .mb-v2 .mb-card__excerpt { margin: 0 0 16px; font-size: 15px; line-height: 1.7; }
+  #shopify-section-{{ section.id }} .mb-v2 .mb-card__byline { margin: auto 0 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; font-size: 14px; line-height: 1.5; color: color-mix(in srgb, var(--color-text) 80%, transparent); }
+  #shopify-section-{{ section.id }} .mb-v2 .mb-card__author { color: var(--color-primary, var(--color-heading)); font-weight: 500; }
+  #shopify-section-{{ section.id }} .mb-v2 .mb-card__foot { padding-top: 14px; }
+  #shopify-section-{{ section.id }} .mb-v2 .mb-side { gap: 0; }
+  #shopify-section-{{ section.id }} .mb-v2 .mb-side__block { padding-block: 30px; border-bottom: 1px solid var(--color-border, color-mix(in srgb, var(--color-text) 12%, transparent)); }
+  #shopify-section-{{ section.id }} .mb-v2 .mb-side__block:first-child { padding-top: 0; }
+  #shopify-section-{{ section.id }} .mb-v2 .mb-side__block:last-child,
+  #shopify-section-{{ section.id }} .mb-v2 .mb-side__block:has(+ .mb-promo-wrap) { border-bottom: 0; }
+  #shopify-section-{{ section.id }} .mb-v2 .mb-side__block:has(+ .mb-promo-wrap) { padding-bottom: 0; }
+  #shopify-section-{{ section.id }} .mb-v2 .mb-promo-wrap { border-bottom: 0; }
+  #shopify-section-{{ section.id }} .mb-v2 .mb-side__title { margin: 0 0 20px; padding: 0; border: 0; font-size: 17px; }
+  #shopify-section-{{ section.id }} .mb-v2 .mb-topics { gap: 10px; }
+  #shopify-section-{{ section.id }} .mb-v2 .mb-topic { min-height: 40px; padding: 0 18px; border-color: transparent; border-radius: var(--btn-radius, 999px); background: color-mix(in srgb, var(--color-text) 6%, var(--color-background)); color: var(--color-heading); font-size: 14px; }
+  #shopify-section-{{ section.id }} .mb-v2 .mb-topic::first-letter { text-transform: uppercase; }
+  @media (hover: hover) { #shopify-section-{{ section.id }} .mb-v2 .mb-topic:hover { background: var(--color-heading); border-color: var(--color-heading); color: var(--color-background); } }
+  #shopify-section-{{ section.id }} .mb-v2 .mb-recent { gap: 18px; }
+  #shopify-section-{{ section.id }} .mb-v2 .mb-recent__media { flex-basis: 64px; width: 64px; border-radius: min(var(--card-radius, 6px), 8px); }
+  #shopify-section-{{ section.id }} .mb-v2 .mb-recent__name { font-size: 14px; }
+  #shopify-section-{{ section.id }} .mb-v2 .mb-recent__date { font-size: 12px; }
+  #shopify-section-{{ section.id }} .mb-cats { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+  #shopify-section-{{ section.id }} .mb-cats__link { color: var(--color-text); font-size: 15px; line-height: 1.4; text-decoration: none; transition: color .25s ease; }
+  #shopify-section-{{ section.id }} .mb-cats__link.is-active { color: var(--color-heading); font-weight: 600; }
+  @media (hover: hover) { #shopify-section-{{ section.id }} .mb-cats__link:hover { color: var(--color-heading); } }
+  #shopify-section-{{ section.id }} .mb-cats__count { opacity: .6; }
+  #shopify-section-{{ section.id }} .mb-promo { position: relative; isolation: isolate; display: flex; align-items: flex-end; aspect-ratio: var(--promo-ratio, 3 / 4); overflow: hidden; border-radius: var(--card-radius, 8px); color: #fff; text-decoration: none; }
+  #shopify-section-{{ section.id }} .mb-promo__media { position: absolute; inset: 0; z-index: -2; }
+  #shopify-section-{{ section.id }} .mb-promo__media :is(img, svg) { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .8s cubic-bezier(.2, .7, .2, 1); }
+  #shopify-section-{{ section.id }} .mb-promo::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(to top, rgba(0, 0, 0, var(--promo-dark, .25)), rgba(0, 0, 0, calc(var(--promo-dark, .25) * .35))); pointer-events: none; }
+  #shopify-section-{{ section.id }} .mb-promo__body { width: 100%; padding: 28px 22px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+  #shopify-section-{{ section.id }} .mb-promo__sub { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+  #shopify-section-{{ section.id }} .mb-promo__heading { font-family: var(--heading-font); font-weight: var(--heading-weight, 600); font-size: 28px; line-height: 1.12; letter-spacing: -0.01em; text-wrap: balance; }
+  #shopify-section-{{ section.id }} .mb-promo__btn { margin-top: 14px; width: 100%; min-height: 48px; display: inline-flex; align-items: center; justify-content: center; }
+  @media (hover: hover) { #shopify-section-{{ section.id }} .mb-promo:hover .mb-promo__media :is(img, svg) { transform: scale(1.04); } }
+  #shopify-section-{{ section.id }} .mb-promo:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+  #shopify-section-{{ section.id }} .mb-v2 .pagination__item--current { background: var(--color-heading); border-color: var(--color-heading); color: var(--color-background); }
+  @media (max-width: 989px) {
+    #shopify-section-{{ section.id }} .mb-v2 .mb-promo-wrap { max-width: 420px; }
+  }
+  @media (prefers-reduced-motion: reduce) { #shopify-section-{{ section.id }} :is(.mb-pill, .mb-cats__link, .mb-promo__media img, .mb-promo__media svg) { transition: none !important; } }
 </style>
 
 <div
-  class="section sec__blog-list mb-root color-{{ color_scheme }} gradient"
+  class="section sec__blog-list mb-root color-{{ color_scheme }} gradient{% if mb_v2 %} mb-v2{% endif %}"
   style="{{ root_style | strip | strip_newlines }}"
   data-lcp="main-blog"
   data-lcp-id="{{ section.id }}"{% if request.design_mode %}
@@ -437,7 +496,19 @@
                     <div class="mb-card__body">
                       {%- assign mb_show_cat = false -%}
                       {%- if section_st.show_category and mb_cat != blank -%}{%- assign mb_show_cat = true -%}{%- endif -%}
-                      {%- if mb_show_cat or show_date -%}
+                      {%- if mb_v2 -%}
+                        {%- liquid
+                          assign mb_pill = article.storelib.category.title | default: mb_cat
+                          assign mb_pill_url = article.storelib.category.url
+                          if mb_pill_url == blank and mb_cat != blank
+                            assign mb_cat_h = mb_cat | handle
+                            assign mb_pill_url = selected_blog.url | append: '/tagged/' | append: mb_cat_h
+                          endif
+                        -%}
+                        {%- if section_st.show_category and mb_pill != blank -%}
+                          <a class="mb-pill" href="{{ mb_pill_url | default: selected_blog.url }}">{{ mb_pill | escape }}</a>
+                        {%- endif -%}
+                      {%- elsif mb_show_cat or show_date -%}
                         <p class="mb-card__meta">
                           {%- if mb_show_cat -%}<span class="mb-card__cat">{{ mb_cat }}</span>{%- endif -%}
                           {%- if mb_show_cat and show_date -%}<span class="mb-card__dot" aria-hidden="true">&middot;</span>{%- endif -%}
@@ -447,6 +518,16 @@
                       <h3 class="mb-card__title"><a href="{{ article.url }}"><span>{{ article.title | escape }}</span></a></h3>
                       {%- if show_excerpt and mb_excerpt != blank -%}
                         <p class="mb-card__excerpt">{{ mb_excerpt }}</p>
+                      {%- endif -%}
+                      {%- if mb_v2 -%}
+                        {%- assign mb_by = false -%}
+                        {%- if section_st.show_author and article.author != blank -%}{%- assign mb_by = true -%}{%- endif -%}
+                        {%- if mb_by or show_date -%}
+                          <p class="mb-card__byline">
+                            {%- if mb_by -%}<span>{{ 'blog_post.post_by' | t }} <span class="mb-card__author">{{ article.author | escape }}</span></span>{%- endif -%}
+                            {%- if show_date -%}<time class="mb-card__date" datetime="{{ article.published_at | date: '%Y-%m-%d' }}">{{ article.published_at | date: '%b %-d, %Y' }}</time>{%- endif -%}
+                          </p>
+                        {%- endif -%}
                       {%- endif -%}
                       {%- if show_readmore -%}
                         {%- assign mb_rm_text = section_st.readmore_text | default: 'Read article' -%}
@@ -525,6 +606,62 @@
                     {%- endfor -%}
                   </ul>
                 </div>
+              {%- when 'categories' -%}
+                {%- liquid
+                  assign mb_menu = bs.menu
+                  assign mb_cats = selected_blog.storelib.categories
+                -%}
+                {%- if mb_menu.links.size > 0 or mb_cats.size > 0 or selected_blog.all_tags.size > 0 or request.design_mode -%}
+                  <div class="mb-side__block mb-side__block--cats" {{ block.shopify_attributes }}>
+                    {%- if bs.heading != blank -%}<h2 class="mb-side__title h6">{{ bs.heading | escape }}</h2>{%- endif -%}
+                    <ul class="mb-cats" role="list">
+                      {%- if mb_menu.links.size > 0 -%}
+                        {%- for link in mb_menu.links -%}
+                          <li><a class="mb-cats__link{% if link.active %} is-active{% endif %}" href="{{ link.url }}"{% if link.active %} aria-current="page"{% endif %}>{{ link.title | escape }}</a></li>
+                        {%- endfor -%}
+                      {%- elsif mb_cats.size > 0 -%}
+                        {%- for cat in mb_cats -%}
+                          <li><a class="mb-cats__link{% if cat.current %} is-active{% endif %}" href="{{ cat.url }}"{% if cat.current %} aria-current="page"{% endif %}>{{ cat.title | escape }}{% if bs.show_count %} <span class="mb-cats__count">({{ cat.count }})</span>{% endif %}</a></li>
+                        {%- endfor -%}
+                      {%- else -%}
+                        {%- for tag in selected_blog.all_tags -%}
+                          {%- assign mb_on = false -%}{%- if current_tags contains tag -%}{%- assign mb_on = true -%}{%- endif -%}
+                          <li><a class="mb-cats__link{% if mb_on %} is-active{% endif %}" href="{{ selected_blog.url }}/tagged/{{ tag | handle }}"{% if mb_on %} aria-current="page"{% endif %}>{{ tag | escape }}</a></li>
+                        {%- endfor -%}
+                      {%- endif -%}
+                    </ul>
+                  </div>
+                {%- endif -%}
+              {%- when 'promo' -%}
+                {%- liquid
+                  assign mb_promo_url = bs.link | default: routes.all_products_collection_url | default: '/collections/all'
+                  case bs.ratio
+                    when 'square'
+                      assign mb_promo_ratio = '1 / 1'
+                    when 'tall'
+                      assign mb_promo_ratio = '2 / 3'
+                    else
+                      assign mb_promo_ratio = '3 / 4'
+                  endcase
+                -%}
+                <div class="mb-side__block mb-promo-wrap" {{ block.shopify_attributes }}>
+                  <a class="mb-promo" href="{{ mb_promo_url }}" style="--promo-ratio: {{ mb_promo_ratio }}; --promo-dark: {{ bs.overlay | default: 0 | divided_by: 100.0 }};">
+                    <span class="mb-promo__media" aria-hidden="true">
+                      {%- if bs.image != blank -%}
+                        {{ bs.image | image_url: width: 800 | image_tag: loading: 'lazy', widths: '400, 600, 800', sizes: '(min-width: 990px) 300px, 100vw', alt: '' }}
+                      {%- else -%}
+                        {%- render 'placeholder-image', type: 'lifestyle-2', class: 'mb-promo__ph' -%}
+                      {%- endif -%}
+                    </span>
+                    <span class="mb-promo__body">
+                      {%- if bs.subheading != blank -%}<span class="mb-promo__sub">{{ bs.subheading | escape }}</span>{%- endif -%}
+                      {%- if bs.heading != blank -%}<span class="mb-promo__heading">{{ bs.heading | escape }}</span>{%- endif -%}
+                      {%- if bs.button_label != blank -%}
+                        <span class="mb-promo__btn btn btn-primary no-underline" data-theme-button="primary" data-sl-button{% if bs.button_style != 'primary' %} style="--mb-bg: #ffffff; --mb-text: #111111; --mb-border: #ffffff; --mb-hover-bg: #ffffff; --mb-hover-text: #111111; --mb-hover-border: #ffffff;"{% endif %}>{{ bs.button_label | escape }}</span>
+                      {%- endif -%}
+                    </span>
+                  </a>
+                </div>
               {%- when 'banner' -%}
                 <div class="mb-side__block mb-banner color-{{ bs.color_scheme.id | default: bs.color_scheme | default: color_scheme }}" {{ block.shopify_attributes }}>
                   {%- if bs.image != blank -%}
@@ -557,7 +694,7 @@
       "id": "sidebar_position",
       "label": "Sidebar",
       "default": "right",
-      "info": "Shows when the section has Topics, Recent posts or Banner blocks.",
+      "info": "Shows when the section has Categories, Topics, Recent posts, Promo picture or Banner blocks.",
       "options": [
         {
           "value": "none",
@@ -620,16 +757,41 @@
       "info": "The blog handle, for example news. Empty shows the blog being read."
     },
     {
+      "type": "select",
+      "id": "card_style",
+      "label": "Card style",
+      "default": "classic",
+      "options": [
+        {
+          "value": "classic",
+          "label": "Classic"
+        },
+        {
+          "value": "editorial",
+          "label": "Editorial"
+        }
+      ],
+      "info": "Editorial puts the category in a pill under the picture, and the author and date under the text."
+    },
+    {
       "type": "checkbox",
       "id": "show_category",
-      "label": "Show category (first tag)",
-      "default": true
+      "label": "Show category",
+      "default": true,
+      "info": "The post's category, or its first tag when it has none."
     },
     {
       "type": "checkbox",
       "id": "show_date",
       "label": "Show date",
       "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_author",
+      "label": "Show author",
+      "default": false,
+      "visible_if": "{{ section.settings.card_style == 'editorial' }}"
     },
     {
       "type": "checkbox",
@@ -1294,8 +1456,33 @@
   ],
   "blocks": [
     {
+      "type": "categories",
+      "name": "Categories",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "text",
+          "id": "heading",
+          "label": "Heading",
+          "default": "Blog categories"
+        },
+        {
+          "type": "link_list",
+          "id": "menu",
+          "label": "Menu",
+          "info": "Empty lists the blog's own categories, or its tags when it has none."
+        },
+        {
+          "type": "checkbox",
+          "id": "show_count",
+          "label": "Show number of posts",
+          "default": false
+        }
+      ]
+    },
+    {
       "type": "topics",
-      "name": "Topics",
+      "name": "Tags",
       "limit": 1,
       "settings": [
         {
@@ -1387,6 +1574,86 @@
           "type": "url",
           "id": "button_link",
           "label": "Button link"
+        }
+      ]
+    },
+    {
+      "type": "promo",
+      "name": "Promo picture",
+      "settings": [
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Image"
+        },
+        {
+          "type": "select",
+          "id": "ratio",
+          "label": "Shape",
+          "default": "portrait",
+          "options": [
+            {
+              "value": "portrait",
+              "label": "Portrait"
+            },
+            {
+              "value": "square",
+              "label": "Square"
+            },
+            {
+              "value": "tall",
+              "label": "Tall"
+            }
+          ]
+        },
+        {
+          "type": "range",
+          "id": "overlay",
+          "label": "Darken picture",
+          "min": 0,
+          "max": 80,
+          "step": 5,
+          "unit": "%",
+          "default": 30
+        },
+        {
+          "type": "text",
+          "id": "subheading",
+          "label": "Small heading",
+          "default": "From the shop"
+        },
+        {
+          "type": "text",
+          "id": "heading",
+          "label": "Heading",
+          "default": "Pieces from this season"
+        },
+        {
+          "type": "text",
+          "id": "button_label",
+          "label": "Button label",
+          "default": "Shop now"
+        },
+        {
+          "type": "url",
+          "id": "link",
+          "label": "Link"
+        },
+        {
+          "type": "select",
+          "id": "button_style",
+          "label": "Button",
+          "default": "light",
+          "options": [
+            {
+              "value": "light",
+              "label": "White"
+            },
+            {
+              "value": "primary",
+              "label": "Theme primary"
+            }
+          ]
         }
       ]
     }

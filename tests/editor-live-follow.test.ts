@@ -292,7 +292,8 @@ function wiring() {
   const editor = read("app/(storelib)/website-builder/editor/[installId]/page.tsx")
   const texts = editor.slice(editor.indexOf("async function readThemeTexts"), editor.indexOf("async function readThemeTexts") + 1800)
   check("each file read", (texts.match(/signal: AbortSignal\.timeout\(PUSH_READ_MS\)/g) ?? []).length === 2, texts.length)
-  check("the theme's sources", /files\?sources=1`, \{ cache: "no-store", signal: AbortSignal\.timeout\(PUSH_READ_MS\) \}/.test(editor))
+  /* Changed on purpose (round 27): "no-cache" still asks the server every time (a 304 when nothing changed, lib/website-builder/revalidated-json.ts), so a push is still read. */
+  check("the theme's sources", /files\?sources=1`, \{ cache: "no-cache", signal: AbortSignal\.timeout\(PUSH_READ_MS\) \}/.test(editor))
   const load = editor.slice(editor.indexOf("const loadData = useCallback"), editor.indexOf("const loadData = useCallback") + 3600) /* Changed on purpose (r51): the open is numbered first (openEpoch), which moved this further in. */
   check("a refused draft read still lands the push's files and lines", /if \(!res\.ok\) \{[\s\S]*?const alongside = afterQuietLoad\.current[\s\S]*?if \(alongside\) startTransition\(alongside\)[\s\S]*?return false\s*\}/.test(load))
 

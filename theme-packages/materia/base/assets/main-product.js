@@ -155,8 +155,11 @@ class StickyAddCart extends HTMLElement {
   }
   // Sits on top of the phone navigation bar instead of under it; with no
   // bar below, its own padding clears the home indicator (safe area).
+  // Any other bar fixed to the bottom of the screen (a template's taskbar)
+  // opts in with data-mt-bottom-bar and is cleared the same way, on every
+  // screen size.
   placeAboveNav() {
-    const navs = [...document.querySelectorAll('mobile-navigation-bar')];
+    const navs = [...document.querySelectorAll('mobile-navigation-bar, [data-mt-bottom-bar]')];
     if (this._navNodes && (navs.length !== this._navNodes.size || navs.some(nav => !this._navNodes.has(nav)))) {
       this._ro?.disconnect();
       this._navAttributes?.disconnect();

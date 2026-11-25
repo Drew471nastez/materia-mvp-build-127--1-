@@ -832,7 +832,19 @@ export class CompatTheme {
       sizeCharts: page.sizeCharts,
       ratings: pageRatings(page.reviews),
       ...(page.siteBlog ? { blog: page.siteBlog } : {}),
+      ...(this.demoPicturesOff() ? { hideThemePictures: true } : {}),
     }
+  }
+
+  /**
+   * "Show demo pictures" turned off in Theme settings (round 61): only a
+   * theme whose settings schema has `show_demo_pictures`, and only when the
+   * stored value is false. Missing means on, so an install made before the
+   * setting existed draws exactly as it did.
+   */
+  private demoPicturesOff(): boolean {
+    if (this.settingsValues?.show_demo_pictures !== false) return false
+    return this.settingsSchema.some((g) => Array.isArray(g.settings) && (g.settings as O[]).some((s) => s && s.id === "show_demo_pictures"))
   }
 
   /** The whole context of a page, made once and shared by every section drawn on it. */
@@ -844,7 +856,9 @@ export class CompatTheme {
     /* The theme's own settings may name each other ("{{ settings.color_palette.color3 }}"): read once the page's context exists. */
     let pageCtx: Ctx | null = null
     /* The theme's own settings name a product exactly or none (a gift wrap of the store it came from is not the shop's first product). */
-    const settings = typedSettings(allSettings, this.settingsValues, res, resolverFor(() => pageCtx), { exactProducts: true })
+    /* The theme's own pictures (its logo, its favicon) are never demo pictures: only sections and blocks read hideThemePictures. */
+    const themeRes = res.hideThemePictures ? { ...res, hideThemePictures: false } : res
+    const settings = typedSettings(allSettings, this.settingsValues, themeRes, resolverFor(() => pageCtx), { exactProducts: true })
     if (schemeSetting?.id) settings[schemeSetting.id] = schemes
     const currency = page.shop.currency ?? "USD"
     const moneyFormat = page.shop.moneyFormat ?? "${{amount}}"
@@ -1369,7 +1383,9 @@ export class CompatTheme {
     return page && page.id === product.id ? null : product
   }
 
-  private sectionObject(instance: CompatSectionInstance, schema: O, res: Resources, index: number, group: string | undefined, dyn: DynamicResolver): O {
+  private sectionObject(instance: CompatSectionInstance, schema: O, pageRes: Resources, index: number, group: string | undefined, dyn: DynamicResolver): O {
+    /* Show demo pictures off hides a page's pictures, not the header's or footer's (a footer logo, a desktop wallpaper): those are the site's frame. */
+    const res = group && pageRes.hideThemePictures ? { ...pageRes, hideThemePictures: false } : pageRes
     const settingsSchema = (Array.isArray(schema.settings) ? schema.settings : []) as ShopifySetting[]
     const localBlocks = (Array.isArray(schema.blocks) ? schema.blocks : []) as O[]
     const blocks = (instance.blocks ?? []).filter((b) => !b.disabled && !b.hidden).map((b) => this.blockObject(b, localBlocks, res, dyn))

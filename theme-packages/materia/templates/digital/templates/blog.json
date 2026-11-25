@@ -5,9 +5,13 @@
       "settings": {
         "color_scheme": "default",
         "section_width": "container",
-        "alignment": "left",
-        "padding_top": 64,
-        "padding_bottom": 24
+        "alignment": "center",
+        "padding_top": 104,
+        "padding_bottom": 104,
+        "background_image": "shopify://shop_images/digital-hero-studio.webp",
+        "height": "based_on_content",
+        "overlay_opacity": 38,
+        "text_on_image": "light"
       },
       "blocks": {
         "heading_1": {
@@ -15,17 +19,28 @@
           "settings": {
             "page_title": "Blog",
             "heading_font_size": 48,
-            "header_size": "default"
+            "header_size": "default",
+            "enable_heading_color": false
           }
         },
         "description_2": {
           "type": "description",
           "settings": {
-            "description": "<p>How we use our own files, release notes and short tutorials.</p>"
+            "description": "<p>How we use our own files, release notes and short tutorials.</p>",
+            "enable_custom_style": false
+          }
+        },
+        "breadcrumb_r61": {
+          "type": "breadcrumb",
+          "settings": {
+            "separator": "dot",
+            "font_size": 13,
+            "uppercase": false
           }
         }
       },
       "block_order": [
+        "breadcrumb_r61",
         "heading_1",
         "description_2"
       ]
@@ -36,31 +51,83 @@
         "layout": "grid",
         "row_gap": 56,
         "show_date": true,
-        "column_gap": 32,
-        "margin_top": 24,
-        "title_size": 22,
+        "column_gap": 24,
+        "margin_top": 0,
+        "title_size": 19,
         "image_ratio": "custom",
-        "custom_ratio": "4:3",
+        "custom_ratio": "16:10",
         "title_hover": "underline",
-        "hover_effect": "lift",
+        "hover_effect": "zoom",
         "image_radius": 12,
         "show_excerpt": true,
-        "excerpt_lines": 2,
+        "excerpt_lines": 3,
         "items_per_row": 3,
-        "items_to_show": 12,
+        "items_to_show": 9,
         "margin_bottom": 96,
         "readmore_text": "Read",
         "readmore_type": "underline",
         "readmore_line": "style",
         "reset_spacing": true,
         "section_width": "container",
-        "show_category": false,
-        "show_readmore": true,
+        "show_category": true,
+        "show_readmore": false,
         "button_show_more": "Load more",
         "content_alignment": "left",
         "enable_custom_style": false,
-        "items_per_row_mobile": 1
-      }
+        "items_per_row_mobile": 1,
+        "card_style": "editorial",
+        "sidebar_position": "left",
+        "show_author": true,
+        "pagination": "default",
+        "padding_top": 56,
+        "padding_bottom": 72,
+        "padding_top_mobile": 36,
+        "padding_bottom_mobile": 48
+      },
+      "blocks": {
+        "categories_r61": {
+          "type": "categories",
+          "settings": {
+            "heading": "Blog categories",
+            "show_count": false
+          }
+        },
+        "recent_r61": {
+          "type": "recent",
+          "settings": {
+            "heading": "Popular posts",
+            "count": 3,
+            "show_image": true,
+            "show_date": true
+          }
+        },
+        "topics_r61": {
+          "type": "topics",
+          "settings": {
+            "heading": "Tags",
+            "all_label": ""
+          }
+        },
+        "promo_r61": {
+          "type": "promo",
+          "settings": {
+            "ratio": "portrait",
+            "overlay": 30,
+            "subheading": "From the shop",
+            "heading": "See what is new",
+            "button_label": "Shop now",
+            "link": "/collections/all",
+            "button_style": "light",
+            "image": "shopify://shop_images/digital-hero-studio.webp"
+          }
+        }
+      },
+      "block_order": [
+        "categories_r61",
+        "recent_r61",
+        "topics_r61",
+        "promo_r61"
+      ]
     },
     "news": {
       "type": "newsletter",

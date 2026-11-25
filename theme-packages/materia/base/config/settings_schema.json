@@ -12,10 +12,10 @@
     "settings": [
       {
         "type": "checkbox",
-        "id": "enable_demo_images",
+        "id": "show_demo_pictures",
         "label": "Show demo pictures",
-        "info": "Fills some empty pictures with sample photos. Turn off to show plain placeholder drawings wherever a picture is not chosen yet.",
-        "default": false
+        "info": "The template's own photos, until you replace them. Turn off to see plain placeholders in every section where you have not picked a picture yet. Your header and footer keep theirs.",
+        "default": true
       }
     ]
   },

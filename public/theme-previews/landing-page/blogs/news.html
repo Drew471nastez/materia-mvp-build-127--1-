@@ -731,17 +731,36 @@ href="/theme-previews/landing-page/pages/faqs.html"
   :where(#shopify-section-heading) :is(h1, h2, h3, h4, h5, h6) {
     font-weight: var(--heading-weight, inherit);
   }
-</style><link rel="stylesheet" href="/theme-previews/landing-page/a/i.1a87895cbf41.css"><link rel="stylesheet" href="/theme-previews/landing-page/a/i.27917ccd36ec.css"><div
-class="section remove_spacing sec__page-heading color-default gradient align-center justify-content-center flex"
-style="--section-pt: 66; --section-pb: 55;--overlay-opacity: 0%;"
+</style><link rel="stylesheet" href="/theme-previews/landing-page/a/i.c279ddbe4948.css"><link rel="stylesheet" href="/theme-previews/landing-page/a/i.27917ccd36ec.css"><div
+class="section remove_spacing sec__page-heading color-default gradient bg-transparent relative ph-on-image--light align-center justify-content-center flex"
+style="--section-pt: 104; --section-pb: 104;--overlay-opacity: 38%;"
 data-lcp="page-heading"
 data-lcp-id="heading"
->
+><div class="overlay-bg">
+<img src="/theme-previews/landing-page/a/landing-starter-desk.366e6d509bdd.webp" srcset="/theme-previews/landing-page/a/landing-starter-desk.366e6d509bdd.webp 3840w, /theme-previews/landing-page/a/landing-starter-desk.366e6d509bdd.webp 3000w, /theme-previews/landing-page/a/landing-starter-desk.366e6d509bdd.webp 2400w, /theme-previews/landing-page/a/landing-starter-desk.366e6d509bdd.webp 1920w, /theme-previews/landing-page/a/landing-starter-desk.366e6d509bdd.webp 1500w, /theme-previews/landing-page/a/landing-starter-desk.366e6d509bdd.webp 1370w, /theme-previews/landing-page/a/landing-starter-desk.366e6d509bdd.webp 1100w, /theme-previews/landing-page/a/landing-starter-desk-800.e3e1163a59f4.webp 720w, /theme-previews/landing-page/a/landing-starter-desk-800.e3e1163a59f4.webp 660w, /theme-previews/landing-page/a/landing-starter-desk-800.e3e1163a59f4.webp 550w, /theme-previews/landing-page/a/landing-starter-desk-800.e3e1163a59f4.webp 480w, /theme-previews/landing-page/a/landing-starter-desk-400.b136a3a30d31.webp 360w" alt="product" width="1200" height="900" loading="lazy" fetchpriority="auto" decoding="async" sizes="auto, (min-width: 1200px) calc((1310px -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 30px - 0px * 0 ) * 1), calc( (100vw - 30px - 0px * 0 ) * 1)" class="background-heading absolute inset-0 z--1 pointer-none w-full h-full object-position-center object-fit-cover">
+</div>
 <div class="container">
 <div class="heading-content relative text-center"><motion-element
 data-motion="fade-up-lg"
 hold
 data-motion-delay="0"
+class=" block"
+data-lcp-block="breadcrumb_r61"
+data-lcp-block-type="breadcrumb"
+><nav
+class="bc page-title-breadcrumb"
+aria-label="Home"
+data-bc-sep="dot"
+style="--bc-link: color-mix(in srgb, var(--color-text) 72%, transparent); --bc-current: var(--color-heading); --bc-size: 13px; --bc-justify: center;"
+data-block-id="breadcrumb_r61"
+>
+<ol class="bc__trail">
+<li class="bc__item"><a class="bc__link" href="/theme-previews/landing-page/index.html">Home</a></li><li class="bc__item"><span class="bc__current" aria-current="page">Blog</span></li></ol>
+</nav>
+</motion-element><motion-element
+data-motion="fade-up-lg"
+hold
+data-motion-delay="50"
 class=" block"
 data-lcp-block="heading_xwFKKa"
 data-lcp-block-type="heading"
@@ -757,7 +776,7 @@ style="margin-bottom: 14px; --ph-size: 36px;"
 <motion-element
 data-motion="fade-up-lg"
 hold
-data-motion-delay="50"
+data-motion-delay="100"
 class="heading-description block  mt-10 rich__text-m0"
 data-lcp-block="description_YRWpkt"
 data-lcp-block-type="description"
@@ -981,37 +1000,94 @@ style="color: var(--color-text); --ph-desc-size: 16px;"
   #shopify-section-main .mb-banner__text > :last-child { margin-bottom: 0; }
   #shopify-section-main .mb-banner__btn { align-self: flex-start; margin-top: 6px; }
   @media (prefers-reduced-motion: reduce) { #shopify-section-main :is(.mb-topic, .mb-recent__media img, .mb-side) { transition: none !important; } }
+
+  /* Card style Editorial (round 61). Colours from the colour scheme, the
+     pill and tag radius from Theme settings, the author in the scheme's
+     primary colour. */
+  #shopify-section-main .mb-v2 .mb-card__body { gap: 0; padding-top: 22px; }
+  #shopify-section-main .mb-v2 .mb-pill { position: relative; z-index: 2; display: inline-flex; align-items: center; min-height: 30px; margin-bottom: 16px; padding: 0 14px; border: 1px solid var(--color-border, color-mix(in srgb, var(--color-text) 16%, transparent)); border-radius: var(--pill-radius, 999px); font-size: 13px; line-height: 1; color: var(--color-heading); text-decoration: none; transition: border-color .25s ease, background-color .25s ease, color .25s ease; }
+  @media (hover: hover) { #shopify-section-main .mb-v2 .mb-pill:hover { border-color: var(--color-heading); } }
+  #shopify-section-main .mb-v2 .mb-card .mb-card__title { margin: 0 0 12px; line-height: 1.3; }
+  #shopify-section-main .mb-v2 .mb-card__excerpt { margin: 0 0 16px; font-size: 15px; line-height: 1.7; }
+  #shopify-section-main .mb-v2 .mb-card__byline { margin: auto 0 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; font-size: 14px; line-height: 1.5; color: color-mix(in srgb, var(--color-text) 80%, transparent); }
+  #shopify-section-main .mb-v2 .mb-card__author { color: var(--color-primary, var(--color-heading)); font-weight: 500; }
+  #shopify-section-main .mb-v2 .mb-card__foot { padding-top: 14px; }
+  #shopify-section-main .mb-v2 .mb-side { gap: 0; }
+  #shopify-section-main .mb-v2 .mb-side__block { padding-block: 30px; border-bottom: 1px solid var(--color-border, color-mix(in srgb, var(--color-text) 12%, transparent)); }
+  #shopify-section-main .mb-v2 .mb-side__block:first-child { padding-top: 0; }
+  #shopify-section-main .mb-v2 .mb-side__block:last-child,
+  #shopify-section-main .mb-v2 .mb-side__block:has(+ .mb-promo-wrap) { border-bottom: 0; }
+  #shopify-section-main .mb-v2 .mb-side__block:has(+ .mb-promo-wrap) { padding-bottom: 0; }
+  #shopify-section-main .mb-v2 .mb-promo-wrap { border-bottom: 0; }
+  #shopify-section-main .mb-v2 .mb-side__title { margin: 0 0 20px; padding: 0; border: 0; font-size: 17px; }
+  #shopify-section-main .mb-v2 .mb-topics { gap: 10px; }
+  #shopify-section-main .mb-v2 .mb-topic { min-height: 40px; padding: 0 18px; border-color: transparent; border-radius: var(--btn-radius, 999px); background: color-mix(in srgb, var(--color-text) 6%, var(--color-background)); color: var(--color-heading); font-size: 14px; }
+  #shopify-section-main .mb-v2 .mb-topic::first-letter { text-transform: uppercase; }
+  @media (hover: hover) { #shopify-section-main .mb-v2 .mb-topic:hover { background: var(--color-heading); border-color: var(--color-heading); color: var(--color-background); } }
+  #shopify-section-main .mb-v2 .mb-recent { gap: 18px; }
+  #shopify-section-main .mb-v2 .mb-recent__media { flex-basis: 64px; width: 64px; border-radius: min(var(--card-radius, 6px), 8px); }
+  #shopify-section-main .mb-v2 .mb-recent__name { font-size: 14px; }
+  #shopify-section-main .mb-v2 .mb-recent__date { font-size: 12px; }
+  #shopify-section-main .mb-cats { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+  #shopify-section-main .mb-cats__link { color: var(--color-text); font-size: 15px; line-height: 1.4; text-decoration: none; transition: color .25s ease; }
+  #shopify-section-main .mb-cats__link.is-active { color: var(--color-heading); font-weight: 600; }
+  @media (hover: hover) { #shopify-section-main .mb-cats__link:hover { color: var(--color-heading); } }
+  #shopify-section-main .mb-cats__count { opacity: .6; }
+  #shopify-section-main .mb-promo { position: relative; isolation: isolate; display: flex; align-items: flex-end; aspect-ratio: var(--promo-ratio, 3 / 4); overflow: hidden; border-radius: var(--card-radius, 8px); color: #fff; text-decoration: none; }
+  #shopify-section-main .mb-promo__media { position: absolute; inset: 0; z-index: -2; }
+  #shopify-section-main .mb-promo__media :is(img, svg) { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .8s cubic-bezier(.2, .7, .2, 1); }
+  #shopify-section-main .mb-promo::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(to top, rgba(0, 0, 0, var(--promo-dark, .25)), rgba(0, 0, 0, calc(var(--promo-dark, .25) * .35))); pointer-events: none; }
+  #shopify-section-main .mb-promo__body { width: 100%; padding: 28px 22px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+  #shopify-section-main .mb-promo__sub { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+  #shopify-section-main .mb-promo__heading { font-family: var(--heading-font); font-weight: var(--heading-weight, 600); font-size: 28px; line-height: 1.12; letter-spacing: -0.01em; text-wrap: balance; }
+  #shopify-section-main .mb-promo__btn { margin-top: 14px; width: 100%; min-height: 48px; display: inline-flex; align-items: center; justify-content: center; }
+  @media (hover: hover) { #shopify-section-main .mb-promo:hover .mb-promo__media :is(img, svg) { transform: scale(1.04); } }
+  #shopify-section-main .mb-promo:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+  #shopify-section-main .mb-v2 .pagination__item--current { background: var(--color-heading); border-color: var(--color-heading); color: var(--color-background); }
+  @media (max-width: 989px) {
+    #shopify-section-main .mb-v2 .mb-promo-wrap { max-width: 420px; }
+  }
+  @media (prefers-reduced-motion: reduce) { #shopify-section-main :is(.mb-pill, .mb-cats__link, .mb-promo__media img, .mb-promo__media svg) { transition: none !important; } }
 </style>
 <div
-class="section sec__blog-list mb-root color-default gradient"
-style="--mb-align: left;  --mb-img-radius: 14px;  --mb-pt: 0px;  --mb-pb: 64px;  --mb-pt-m: 0px;  --mb-pb-m: 48px;  --section-mt: 32px;  --section-mb: 0px;  --badge-vertical-position: 16px;  --badge-horizontal-position: 16px;  --badge-width: 70px;  --badge-height: 30px;  --badge-font-size: 14px;  --badge-radius: 19px;  --badge-bg: var(--color-primary);  --badge-color: var(--btn-primary-color);"
+class="section sec__blog-list mb-root color-default gradient mb-v2"
+style="--mb-align: left;  --mb-img-radius: 14px;  --mb-pt: 56px;  --mb-pb: 72px;  --mb-pt-m: 36px;  --mb-pb-m: 48px;  --section-mt: 0px;  --section-mb: 0px;  --badge-vertical-position: 16px;  --badge-horizontal-position: 16px;  --badge-width: 70px;  --badge-height: 30px;  --badge-font-size: 14px;  --badge-radius: 19px;  --badge-bg: var(--color-primary);  --badge-color: var(--btn-primary-color);"
 data-lcp="main-blog"
 data-lcp-id="main"
 >
-<div class="fluid_container"><div class="blog-grid-container flex flex-wrap gap-40 justify-between"><div class="main-blog w-full">
+<div class="fluid_container"><div class="blog-grid-container flex flex-wrap gap-40 justify-between mb-has-sidebar mb-sidebar--left"><div class="main-blog w-full">
 <div>
 <div
 id="blog-articles"
-class="blog-articles mb-list mb-list--grid mb-align--left mb-hover--lift mb-btn-hover--theme mb-title-hover--underline mb-link-line--style mb-enter"
-style="--mb-ratio: auto;  --mb-title-size: 22px;  --mb-lines: 2;        --col-desktop: 3;  --col-number: 1;  --col-tablet: 3;  --col-mobile: 1;  --col-gap: 15px;  --col-gap-desktop: 40px;  --row-gap: 64px;  --mbl-link: var(--mb-title, currentColor);  --mbl-link-hover: var(--mbl-link);"
+class="blog-articles mb-list mb-list--grid mb-align--left mb-hover--zoom mb-btn-hover--theme mb-title-hover--underline mb-link-line--style mb-enter"
+style="--mb-ratio: 16 / 10;  --mb-title-size: 19px;  --mb-lines: 3;        --col-desktop: 3;  --col-number: 1;  --col-tablet: 3;  --col-mobile: 1;  --col-gap: 15px;  --col-gap-desktop: 24px;  --row-gap: 56px;  --mbl-link: var(--mb-title, currentColor);  --mbl-link-hover: var(--mbl-link);"
 ><article class="mb-card">
-<a class="mb-card__media mb-card__media--adapt" href="/theme-previews/landing-page/blogs/news/how-we-pack-every-order.html" tabindex="-1" aria-hidden="true"><img src="/theme-previews/landing-page/a/landing-cover-whole-edit.713eebac1c3a.webp" alt="How we pack every order" width="1600" height="900" decoding="async"></a>
-<div class="mb-card__body"><p class="mb-card__meta"><span class="mb-card__cat">Notes</span><span class="mb-card__dot" aria-hidden="true">&middot;</span><time class="mb-card__date" datetime="2026-11-20">Nov 20, 2026</time></p><h3 class="mb-card__title"><a href="/theme-previews/landing-page/blogs/news/how-we-pack-every-order.html"><span>How we pack every order</span></a></h3><p class="mb-card__excerpt">A short note from the shop about how things are made, packed and sent.</p><div class="mb-card__foot">
-<a class="mb-btn mb-btn--underline" href="/theme-previews/landing-page/blogs/news/how-we-pack-every-order.html" aria-label="Watch the lesson: How we pack every order" data-mbl-title="How we pack every order"><span class="mb-btn__label">Watch the lesson</span><span class="mb-btn__arrow" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
-</div></div>
+<a class="mb-card__media" href="/theme-previews/landing-page/blogs/news/how-we-pack-every-order.html" tabindex="-1" aria-hidden="true"><img src="/theme-previews/landing-page/a/landing-cover-whole-edit.713eebac1c3a.webp" alt="How we pack every order" width="1600" height="900" decoding="async"></a>
+<div class="mb-card__body"><a class="mb-pill" href="#" data-preview-inert>Notes</a><h3 class="mb-card__title"><a href="/theme-previews/landing-page/blogs/news/how-we-pack-every-order.html"><span>How we pack every order</span></a></h3><p class="mb-card__excerpt">A short note from the shop about how things are made, packed and sent.</p><p class="mb-card__byline"><span>Post by <span class="mb-card__author">Sam Rivera</span></span><time class="mb-card__date" datetime="2026-11-20">Nov 20, 2026</time></p></div>
 </article><article class="mb-card">
-<a class="mb-card__media mb-card__media--adapt" href="/theme-previews/landing-page/blogs/news/three-questions-we-get-every-week.html" tabindex="-1" aria-hidden="true"><img src="/theme-previews/landing-page/a/landing-cover-whole-edit.713eebac1c3a.webp" alt="Three questions we get every week" width="1600" height="900" decoding="async"></a>
-<div class="mb-card__body"><p class="mb-card__meta"><span class="mb-card__cat">Questions</span><span class="mb-card__dot" aria-hidden="true">&middot;</span><time class="mb-card__date" datetime="2026-11-19">Nov 19, 2026</time></p><h3 class="mb-card__title"><a href="/theme-previews/landing-page/blogs/news/three-questions-we-get-every-week.html"><span>Three questions we get every week</span></a></h3><p class="mb-card__excerpt">A short note from the shop about how things are made, packed and sent.</p><div class="mb-card__foot">
-<a class="mb-btn mb-btn--underline" href="/theme-previews/landing-page/blogs/news/three-questions-we-get-every-week.html" aria-label="Watch the lesson: Three questions we get every week" data-mbl-title="Three questions we get every week"><span class="mb-btn__label">Watch the lesson</span><span class="mb-btn__arrow" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
-</div></div>
+<a class="mb-card__media" href="/theme-previews/landing-page/blogs/news/three-questions-we-get-every-week.html" tabindex="-1" aria-hidden="true"><img src="/theme-previews/landing-page/a/landing-cover-cutting.631aba30fba1.webp" alt="Three questions we get every week" width="1600" height="900" decoding="async"></a>
+<div class="mb-card__body"><a class="mb-pill" href="#" data-preview-inert>Questions</a><h3 class="mb-card__title"><a href="/theme-previews/landing-page/blogs/news/three-questions-we-get-every-week.html"><span>Three questions we get every week</span></a></h3><p class="mb-card__excerpt">A short note from the shop about how things are made, packed and sent.</p><p class="mb-card__byline"><span>Post by <span class="mb-card__author">Sam Rivera</span></span><time class="mb-card__date" datetime="2026-11-19">Nov 19, 2026</time></p></div>
 </article><article class="mb-card">
-<a class="mb-card__media mb-card__media--adapt" href="/theme-previews/landing-page/blogs/news/what-changed-this-season.html" tabindex="-1" aria-hidden="true"><img src="/theme-previews/landing-page/a/landing-cover-whole-edit.713eebac1c3a.webp" alt="What changed this season" width="1600" height="900" decoding="async"></a>
-<div class="mb-card__body"><p class="mb-card__meta"><span class="mb-card__cat">Notes</span><span class="mb-card__dot" aria-hidden="true">&middot;</span><time class="mb-card__date" datetime="2026-11-18">Nov 18, 2026</time></p><h3 class="mb-card__title"><a href="/theme-previews/landing-page/blogs/news/what-changed-this-season.html"><span>What changed this season</span></a></h3><p class="mb-card__excerpt">A short note from the shop about how things are made, packed and sent.</p><div class="mb-card__foot">
-<a class="mb-btn mb-btn--underline" href="/theme-previews/landing-page/blogs/news/what-changed-this-season.html" aria-label="Watch the lesson: What changed this season" data-mbl-title="What changed this season"><span class="mb-btn__label">Watch the lesson</span><span class="mb-btn__arrow" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
-</div></div>
+<a class="mb-card__media" href="/theme-previews/landing-page/blogs/news/what-changed-this-season.html" tabindex="-1" aria-hidden="true"><img src="/theme-previews/landing-page/a/landing-cover-colour.9fd52a7266e3.webp" alt="What changed this season" width="1600" height="900" decoding="async"></a>
+<div class="mb-card__body"><a class="mb-pill" href="#" data-preview-inert>Notes</a><h3 class="mb-card__title"><a href="/theme-previews/landing-page/blogs/news/what-changed-this-season.html"><span>What changed this season</span></a></h3><p class="mb-card__excerpt">A short note from the shop about how things are made, packed and sent.</p><p class="mb-card__byline"><span>Post by <span class="mb-card__author">Sam Rivera</span></span><time class="mb-card__date" datetime="2026-11-18">Nov 18, 2026</time></p></div>
 </article></div>
 </div>
-</div></div>
+</div><aside class="mb-side" aria-label="Blog"><div class="mb-side__block mb-side__block--cats" data-block-id="categories_r61"><h2 class="mb-side__title h6">Blog categories</h2><ul class="mb-cats" role="list"><li><a class="mb-cats__link" href="#" data-preview-inert>Notes</a></li></ul>
+</div><div class="mb-side__block" data-block-id="recent_r61"><h2 class="mb-side__title h6">Popular posts</h2><ul class="mb-recent" role="list"><li>
+<a class="mb-recent__item" href="/theme-previews/landing-page/blogs/news/how-we-pack-every-order.html"><span class="mb-recent__media"><img src="/theme-previews/landing-page/a/landing-cover-whole-edit-400.5427cbe7234f.webp" srcset="/theme-previews/landing-page/a/landing-cover-whole-edit-400.5427cbe7234f.webp 90w, /theme-previews/landing-page/a/landing-cover-whole-edit-400.5427cbe7234f.webp 180w" alt="" loading="lazy" sizes="72px"></span><span class="mb-recent__text">
+<span class="mb-recent__name">How we pack every order</span><time class="mb-recent__date" datetime="2026-11-20">Nov 20, 2026</time></span>
+</a>
+</li><li>
+<a class="mb-recent__item" href="/theme-previews/landing-page/blogs/news/three-questions-we-get-every-week.html"><span class="mb-recent__media"><img src="/theme-previews/landing-page/a/landing-cover-cutting-400.04452ed1330d.webp" srcset="/theme-previews/landing-page/a/landing-cover-cutting-400.04452ed1330d.webp 90w, /theme-previews/landing-page/a/landing-cover-cutting-400.04452ed1330d.webp 180w" alt="" loading="lazy" sizes="72px"></span><span class="mb-recent__text">
+<span class="mb-recent__name">Three questions we get every week</span><time class="mb-recent__date" datetime="2026-11-19">Nov 19, 2026</time></span>
+</a>
+</li><li>
+<a class="mb-recent__item" href="/theme-previews/landing-page/blogs/news/what-changed-this-season.html"><span class="mb-recent__media"><img src="/theme-previews/landing-page/a/landing-cover-colour-400.8210b1056eaa.webp" srcset="/theme-previews/landing-page/a/landing-cover-colour-400.8210b1056eaa.webp 90w, /theme-previews/landing-page/a/landing-cover-colour-400.8210b1056eaa.webp 180w" alt="" loading="lazy" sizes="72px"></span><span class="mb-recent__text">
+<span class="mb-recent__name">What changed this season</span><time class="mb-recent__date" datetime="2026-11-18">Nov 18, 2026</time></span>
+</a>
+</li></ul>
+</div><div class="mb-side__block" data-block-id="topics_r61"><h2 class="mb-side__title h6">Tags</h2><ul class="mb-topics" role="list"><li><a class="mb-topic" href="#" data-preview-inert>Notes</a></li><li><a class="mb-topic" href="#" data-preview-inert>Questions</a></li></ul>
+</div></aside></div>
 </div>
 </div></section><section id="shopify-section-final" class="shopify-section section section-edge-bleed s-tt" data-section-id="final" data-section-type="banner3"><style>
   :where(html:not([data-font-priority='off'])) #shopify-section-final :where(.subheading, .sub-heading, [class*='__subheading']) {

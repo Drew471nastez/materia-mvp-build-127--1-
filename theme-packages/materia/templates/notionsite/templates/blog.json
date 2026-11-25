@@ -8,8 +8,11 @@
         "reset_spacing": true,
         "alignment": "center",
         "height": "based_on_content",
-        "padding_top": 64,
-        "padding_bottom": 8
+        "padding_top": 104,
+        "padding_bottom": 104,
+        "background_image": "shopify://shop_images/notionsite-newsletter.webp",
+        "overlay_opacity": 38,
+        "text_on_image": "light"
       },
       "blocks": {
         "heading_1": {
@@ -17,17 +20,28 @@
           "settings": {
             "page_title": "",
             "header_size": "large",
-            "vertical_gap": 10
+            "vertical_gap": 10,
+            "enable_heading_color": false
           }
         },
         "description_2": {
           "type": "description",
           "settings": {
-            "description": "<p>How I use the templates, and what I learned building them.</p>"
+            "description": "<p>How I use the templates, and what I learned building them.</p>",
+            "enable_custom_style": false
+          }
+        },
+        "breadcrumb_r61": {
+          "type": "breadcrumb",
+          "settings": {
+            "separator": "dot",
+            "font_size": 13,
+            "uppercase": false
           }
         }
       },
       "block_order": [
+        "breadcrumb_r61",
         "heading_1",
         "description_2"
       ]
@@ -37,9 +51,77 @@
       "settings": {
         "color_scheme": "default",
         "section_width": "container",
-        "padding_top": 24,
-        "padding_bottom": 64
-      }
+        "padding_top": 56,
+        "padding_bottom": 72,
+        "card_style": "editorial",
+        "sidebar_position": "left",
+        "layout": "grid",
+        "show_author": true,
+        "show_date": true,
+        "show_category": true,
+        "show_excerpt": true,
+        "excerpt_lines": 3,
+        "show_readmore": false,
+        "items_per_row": 3,
+        "items_to_show": 9,
+        "items_per_row_mobile": 1,
+        "image_ratio": "custom",
+        "custom_ratio": "16:10",
+        "content_alignment": "left",
+        "title_size": 19,
+        "column_gap": 24,
+        "row_gap": 56,
+        "hover_effect": "zoom",
+        "pagination": "default",
+        "padding_top_mobile": 36,
+        "padding_bottom_mobile": 48,
+        "margin_top": 0,
+        "image_radius": 10
+      },
+      "blocks": {
+        "categories_r61": {
+          "type": "categories",
+          "settings": {
+            "heading": "Blog categories",
+            "show_count": false
+          }
+        },
+        "recent_r61": {
+          "type": "recent",
+          "settings": {
+            "heading": "Popular posts",
+            "count": 3,
+            "show_image": true,
+            "show_date": true
+          }
+        },
+        "topics_r61": {
+          "type": "topics",
+          "settings": {
+            "heading": "Tags",
+            "all_label": ""
+          }
+        },
+        "promo_r61": {
+          "type": "promo",
+          "settings": {
+            "ratio": "portrait",
+            "overlay": 30,
+            "subheading": "From the shop",
+            "heading": "See what is new",
+            "button_label": "Shop now",
+            "link": "/collections/all",
+            "button_style": "light",
+            "image": "shopify://shop_images/notionsite-newsletter.webp"
+          }
+        }
+      },
+      "block_order": [
+        "categories_r61",
+        "recent_r61",
+        "topics_r61",
+        "promo_r61"
+      ]
     },
     "newsletter": {
       "type": "newsletter-split",

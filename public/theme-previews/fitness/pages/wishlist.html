@@ -750,6 +750,9 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
   #shopify-section-page-heading .sec__page-heading .overlay-bg { position: absolute; inset: 0; z-index: -1; overflow: hidden; }
   /* Overlay opacity: a dark layer over the background image. */
   #shopify-section-page-heading .sec__page-heading .overlay-bg::after { content: ""; position: absolute; inset: 0; background: #000000; opacity: var(--overlay-opacity, 0%); pointer-events: none; }
+  /* Text on the picture: White (round 61) turns the heading, text and breadcrumbs white while a picture is behind them, and only then: with no picture (or Show demo pictures off) the colour scheme's colours come back. */
+  #shopify-section-page-heading .sec__page-heading.ph-on-image--light { --color-heading: #ffffff; --color-text: rgba(255, 255, 255, 0.88); --color-link: #ffffff; }
+  #shopify-section-page-heading .sec__page-heading.ph-on-image--light :is(h1, .heading-title) { color: #ffffff; }
   /* Top and bottom padding: applied here too, at zero specificity so the theme's own spacing rule still wins where it exists. */
   :where(#shopify-section-page-heading .sec__page-heading) { padding-top: calc(var(--section-pt, 0) * 1px); padding-bottom: calc(var(--section-pb, 0) * 1px); }
   /* Custom heading size, a little smaller on phones. */

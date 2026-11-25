@@ -305,6 +305,7 @@ const imageReady = (imageOrArray) => {
     })
   );
 };
+const MOTION_FROM_OPACITY = 0.2;
 class MotionElement extends HTMLElement {
   connectedCallback() {
     // In the theme editor, a page load animates like the storefront; an
@@ -377,7 +378,8 @@ class MotionElement extends HTMLElement {
 
   preInitialize() {
     if (this.motionDisabled || this.isHold) return;
-    this.style.opacity = '0';
+    // Never blank while it waits (round 27): its first frame is partly visible.
+    this.style.opacity = String(MOTION_FROM_OPACITY);
     this.style.transform = this.animationType.startsWith('zoom') ? 'scale(0.985)' :
       this.animationType === 'fade-in' ? 'none' : 'translateY(12px)';
   }
@@ -394,7 +396,7 @@ class MotionElement extends HTMLElement {
     const duration = parseFloat(css.getPropertyValue('--animation-duration')) || 700;
     const delay = parseFloat(css.getPropertyValue('--animation-delay-base')) || 0;
     const animation = this._animation = this.animate([
-      {opacity: 0, transform: this.style.transform || 'none'},
+      {opacity: MOTION_FROM_OPACITY, transform: this.style.transform || 'none'},
       {opacity: 1, transform: 'none'}
     ], {duration, delay: delay + this.animationDelay * 1000, easing: this.transition, fill: 'both'});
     try { await animation.finished; } catch (_) { /* Removed sections cancel their animation. */ }

@@ -13,6 +13,7 @@ import { withStorelibReviewsSection } from "@/lib/storelib-theme/compat/storelib
 import { THEME_DATA_FILE, THEME_SCHEMA_FILE } from "@/lib/storelib-theme/theme-config"
 import { settingsDataFor } from "@/lib/website-builder/theme-config-store"
 import { dbFailure } from "@/lib/website-builder/write-retry"
+import { REVALIDATED_CACHE, revalidatedJson } from "@/lib/website-builder/revalidated-json"
 
 type Params = { params: Promise<{ installId: string }> }
 
@@ -153,7 +154,8 @@ async function handleGET(req: Request, { params }: Params) {
       if (rows.length < 1000) break
     }
     /* The pass the canvas's draft asset addresses carry (lib/storelib-theme/compat/draft-version.ts): only for whoever may read these files. */
-    return NextResponse.json({ files, asset_pass: draftAssetPass(installId) })
+    /* Round 27: megabytes on a Materia theme; asked again with what the browser has, unchanged files are a 304 and nothing is sent (revalidated-json.ts). */
+    return revalidatedJson(req, { files, asset_pass: draftAssetPass(installId) })
   }
 
   if (searchParams.get("sources") === "1") {
@@ -163,6 +165,9 @@ async function handleGET(req: Request, { params }: Params) {
      * editing a section would be shown the version they have not saved over
      * yet. The storefront reads `content` and only `content`.
      */
+    /* Round 27: the theme's own settings file is asked beside the sources, not after them. */
+    const schemaAsked = Promise.resolve(supabase!.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId).eq("path", THEME_SCHEMA_FILE).maybeSingle())
+    schemaAsked.catch(() => {})
     const { data, error: readErr } = await supabase!
       .from("store_theme_custom_files")
       .select("path, content, draft_content")
@@ -175,14 +180,14 @@ async function handleGET(req: Request, { params }: Params) {
     const rows = readErr ? (fallback?.data ?? []) : (data ?? [])
     const files = sourceMap(rows as { path: string; content: string; draft_content?: string | null }[])
     /* The theme's own Theme settings, when it has a config/settings_schema.json: the sidebar draws its groups from it (lib/storelib-theme/theme-config.ts). */
-    const schemaRead = await supabase!.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId).eq("path", THEME_SCHEMA_FILE).maybeSingle()
+    const schemaRead = await schemaAsked
     const schemaRow = schemaRead.error
       ? await supabase!.from("store_theme_custom_files").select("path, content").eq("install_id", installId).eq("path", THEME_SCHEMA_FILE).maybeSingle()
       : schemaRead
     if (schemaRow.error) return NextResponse.json({ error: "Could not read theme settings. Try again." }, { status: 503 })
     const settingsSchema = schemaRow.error || !schemaRow.data ? null : (sourceMap([schemaRow.data as { path: string; content: string; draft_content?: string | null }])[THEME_SCHEMA_FILE] ?? null)
     /* An imported theme offers Storelib Reviews' section in Add section like one of its own (lib/storelib-theme/compat/storelib-reviews.ts). */
-    return NextResponse.json({ files: withStorelibReviewsSection(files), settings_schema: settingsSchema })
+    return revalidatedJson(req, { files: withStorelibReviewsSection(files), settings_schema: settingsSchema })
   }
 
   // List all custom files if no path
@@ -469,6 +474,7 @@ export async function PATCH(req: Request, { params }: Params) {
 export const GET = timed("builder", "/api/website-builder/themes/:id/files", async (req: Request, params: Params) => {
   const res = await handleGET(req, params)
   /* A push just wrote these. A cached copy is the editor showing the old theme until a hard refresh. */
-  res.headers.set("Cache-Control", "no-store")
+  /* Round 27: the two large reads may be kept by the browser only as "ask me first" (no-cache with their ETag, ./revalidated-json.ts), so it is never shown without the server saying it is still the theme. */
+  if (res.headers.get("Cache-Control") !== REVALIDATED_CACHE) res.headers.set("Cache-Control", "no-store")
   return res
 })
