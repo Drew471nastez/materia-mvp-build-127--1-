@@ -87,7 +87,6 @@
           "type": "variant_picker",
           "settings": {
             "variant_type": "swatches",
-            "show_size_guide": false,
             "picker_swatch_style": "theme"
           }
         },
@@ -323,7 +322,7 @@
           "type": "guarantee_row",
           "settings": {
             "style": "boxed",
-            "columns_mobile": "1",
+            "columns_mobile": "3",
             "icon_1": "truck",
             "title_1": "Sent flat",
             "text_1": "Rigid mailer, tracked",
@@ -332,7 +331,7 @@
             "text_2": "On unframed prints",
             "icon_3": "lock",
             "title_3": "Secure checkout",
-            "text_3": "Card, Apple Pay, Google Pay",
+            "text_3": "Cards and wallets",
             "icon_4": "support",
             "title_4": "",
             "text_4": "",

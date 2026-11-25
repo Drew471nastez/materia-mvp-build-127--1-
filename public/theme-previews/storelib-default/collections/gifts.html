@@ -1,7 +1,7 @@
 
 <!doctype html>
 <html class="no-js" lang="en" dir="ltr">
-<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/storelib-default/a/cart.a532a1fff1d3.json",WISH_DATA="";
+<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/storelib-default/a/cart.a532a1fff1d3.json",WISH_DATA="",QV_DATA="/theme-previews/storelib-default/a/quickview.acc6970e03ba.json",RV_DATA="/theme-previews/storelib-default/a/recent.de94b8a880cd.json";
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
@@ -84,7 +84,12 @@ var pg=D.getElementById("main-cart-items");if(pg){var s=pg.closest(".shopify-sec
 paintCount();if(hold)requestAnimationFrame(function(){hold.remove()})}).catch(function(){if(hold)hold.remove()})}
 if(D.readyState==="loading")D.addEventListener("DOMContentLoaded",arrive);else arrive();
 
-if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);if(mine(u))return F.apply(this,arguments);
+if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);
+/* Round 26: a card's Quick view (each product's, from QV_DATA) and the Recently viewed row (every product's card, from RV_DATA; the theme keeps the visitor's). */
+var sid=/[?&]section_id=([^&#]+)/.exec(u);sid=sid&&sid[1];
+if(sid==="product-quickview"&&QV_DATA){var hm=//products/([^/?#]+?)(?:.html)?$/.exec(path(u));return F(QV_DATA).then(function(r){return r.json()}).then(function(d){var n=hm?d.k.indexOf(decodeURIComponent(hm[1])):-1;if(n<0)return new Response("",{status:404});var x=d.d[n];return new Response(typeof x==="string"?x:patch(d.d[0],x),{status:200,headers:{"Content-Type":"text/html"}})})}
+if(sid==="recently-viewed"&&RV_DATA)return F(RV_DATA).then(function(r){return r.json()}).then(function(d){return new Response(d.html,{status:200,headers:{"Content-Type":"text/html"}})});
+if(mine(u))return F.apply(this,arguments);
 /* Cards round 24: the cart answers from the template's drawn cart (./theme-templates/preview-cart.ts), as a store would. */
 /* Round 25: the wishlist page asks for its saved products' cards; every product's card is in WISH_DATA and the theme keeps the saved ones. */
 if(WISH_DATA&&/\/search$/.test(path(u))&&/[?&]section_id=/.test(u))return F(WISH_DATA).then(function(r){return r.json()}).then(function(d){return new Response(d.html,{status:200,headers:{"Content-Type":"text/html"}})});
@@ -1362,7 +1367,7 @@ tabindex="0"
 role="button"
 aria-label="Quick view: Cotton cap, mustard"
 class="pc-action pointer"
-data-url="/theme-previews/storelib-default/products/cotton-cap-mustard.html"
+data-url="/theme-previews/storelib-default/products/cotton-cap-mustard.html?section_id=product-quickview"
 data-custom-class="quickview"
 aria-haspopup="dialog"
 >
@@ -1455,7 +1460,7 @@ tabindex="0"
 role="button"
 aria-label="Quick view: Desk Planner, printable PDF"
 class="pc-action pointer"
-data-url="/theme-previews/storelib-default/products/desk-planner-printable-pdf.html"
+data-url="/theme-previews/storelib-default/products/desk-planner-printable-pdf.html?section_id=product-quickview"
 data-custom-class="quickview"
 aria-haspopup="dialog"
 >
@@ -1548,7 +1553,7 @@ tabindex="0"
 role="button"
 aria-label="Quick view: Steel bottle, 600 ml"
 class="pc-action pointer"
-data-url="/theme-previews/storelib-default/products/steel-bottle-600-ml.html"
+data-url="/theme-previews/storelib-default/products/steel-bottle-600-ml.html?section_id=product-quickview"
 data-custom-class="quickview"
 aria-haspopup="dialog"
 >

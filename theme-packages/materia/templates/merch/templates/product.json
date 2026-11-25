@@ -81,10 +81,7 @@
           "type": "variant_picker",
           "settings": {
             "variant_type": "swatches",
-            "show_size_guide": true,
-            "picker_swatch_style": "theme",
-            "size_guide_label": "Size guide",
-            "size_guide_content": "<p>Measured flat, in centimetres. Boxy fit: take your usual size for room, one down for a closer fit.</p><table><tr><th>Size</th><th>Chest</th><th>Length</th></tr><tr><td>XS</td><td>56</td><td>66</td></tr><tr><td>S</td><td>59</td><td>68</td></tr><tr><td>M</td><td>62</td><td>70</td></tr><tr><td>L</td><td>65</td><td>72</td></tr><tr><td>XL</td><td>68</td><td>74</td></tr></table>"
+            "picker_swatch_style": "theme"
           }
         },
         "buy_buttons_1": {
@@ -251,6 +248,15 @@
             "row3_lead": "Free shipping:",
             "row3_strong": "on orders over $80. Returns within 30 days."
           }
+        },
+        "variant_picker_1_size_guide": {
+          "type": "size_guide",
+          "settings": {
+            "size_guide_label": "Size guide",
+            "size_guide_content": "<p>Measured flat, in centimetres. Boxy fit: take your usual size for room, one down for a closer fit.</p><table><tr><th>Size</th><th>Chest</th><th>Length</th></tr><tr><td>XS</td><td>56</td><td>66</td></tr><tr><td>S</td><td>59</td><td>68</td></tr><tr><td>M</td><td>62</td><td>70</td></tr><tr><td>L</td><td>65</td><td>72</td></tr><tr><td>XL</td><td>68</td><td>74</td></tr></table>",
+            "use_storelib_chart": true,
+            "size_guide_appearance": "link"
+          }
         }
       },
       "block_order": [
@@ -259,6 +265,7 @@
         "price_1",
         "pp23_sold",
         "variant_picker_1",
+        "variant_picker_1_size_guide",
         "pp23_info",
         "buy_buttons_1",
         "product_description_1",

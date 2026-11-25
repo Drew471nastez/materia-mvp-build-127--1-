@@ -1,7 +1,7 @@
 
 <!doctype html>
 <html class="no-js" lang="en" dir="ltr">
-<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/coach/a/cart.0dd8d0919bd4.json",WISH_DATA="";
+<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/coach/a/cart.a95cc55c28e1.json",WISH_DATA="",QV_DATA="/theme-previews/coach/a/quickview.55388f98c5b3.json",RV_DATA="/theme-previews/coach/a/recent.4e58066392c5.json";
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
@@ -84,7 +84,12 @@ var pg=D.getElementById("main-cart-items");if(pg){var s=pg.closest(".shopify-sec
 paintCount();if(hold)requestAnimationFrame(function(){hold.remove()})}).catch(function(){if(hold)hold.remove()})}
 if(D.readyState==="loading")D.addEventListener("DOMContentLoaded",arrive);else arrive();
 
-if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);if(mine(u))return F.apply(this,arguments);
+if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);
+/* Round 26: a card's Quick view (each product's, from QV_DATA) and the Recently viewed row (every product's card, from RV_DATA; the theme keeps the visitor's). */
+var sid=/[?&]section_id=([^&#]+)/.exec(u);sid=sid&&sid[1];
+if(sid==="product-quickview"&&QV_DATA){var hm=//products/([^/?#]+?)(?:.html)?$/.exec(path(u));return F(QV_DATA).then(function(r){return r.json()}).then(function(d){var n=hm?d.k.indexOf(decodeURIComponent(hm[1])):-1;if(n<0)return new Response("",{status:404});var x=d.d[n];return new Response(typeof x==="string"?x:patch(d.d[0],x),{status:200,headers:{"Content-Type":"text/html"}})})}
+if(sid==="recently-viewed"&&RV_DATA)return F(RV_DATA).then(function(r){return r.json()}).then(function(d){return new Response(d.html,{status:200,headers:{"Content-Type":"text/html"}})});
+if(mine(u))return F.apply(this,arguments);
 /* Cards round 24: the cart answers from the template's drawn cart (./theme-templates/preview-cart.ts), as a store would. */
 /* Round 25: the wishlist page asks for its saved products' cards; every product's card is in WISH_DATA and the theme keeps the saved ones. */
 if(WISH_DATA&&/\/search$/.test(path(u))&&/[?&]section_id=/.test(u))return F(WISH_DATA).then(function(r){return r.json()}).then(function(d){return new Response(d.html,{status:200,headers:{"Content-Type":"text/html"}})});
@@ -151,28 +156,26 @@ if(wait)return setTimeout(look,50);
 Promise.all(seen.slice(0,24).map(function(g){return g.decode?g.decode().catch(function(){}):0})).then(fin,fin)}
 look();setTimeout(fin,1500)}
 D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn)});
-})();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><style data-page-background>html{background-color:#ffffff}</style><script src="/theme-previews/coach/a/i.8f16b849b94d.js"></script>
-<meta charset="utf-8">
+})();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><style data-page-background>html{background-color:#ffffff}</style><script>
+      (function () {
+        function show(img) {
+          if (!img || img.tagName !== 'IMG' || !img.classList.contains('bls-loading-image')) return;
+          img.classList.remove('bls-loading-image');
+          var wrap = img.closest && img.closest('motion-element.bls-loading-image');
+          if (wrap) wrap.classList.remove('bls-loading-image');
+        }
+        document.addEventListener('load', function (e) { show(e.target); }, true);
+        document.addEventListener('error', function (e) { show(e.target); }, true);
+        document.addEventListener('DOMContentLoaded', function () {
+          var list = document.querySelectorAll('img.bls-loading-image');
+          for (var k = 0; k < list.length; k++) if (list[k].complete) show(list[k]);
+        }, { once: true });
+      })();
+    </script>
+<script src="/theme-previews/coach/a/i.59a2755e14fa.js"></script><meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="">
-<script>
-/* Register before editor/page scripts, without blocking the parser on an asset.
-   Deferred handlers only claim recognized storefront controls or resolved
-   same-page section links. Other editor selection events are left alone. */
-(() => {
-  if (window.__materiaSectionLinkCapture) return;
-  window.__materiaSectionLinkCapture = true;
-  ['click','pointerdown','pointerup','pointercancel','submit'].forEach(type => {
-    window.addEventListener(type, event => {
-      if(type==='submit'){window.materiaForms?.handleSubmit?.(event);return;}
-      if(window.MateriaProductDialogs?.handle(event))return;
-      if(window.MateriaHeaderActions?.handle(event))return;
-      window.MateriaSectionLinks?.[type]?.(event);
-    }, true);
-  });
-})();
-</script><title>About | Amara Wells</title>
+<meta name="theme-color" content=""><script src="/theme-previews/coach/a/i.5802c928e030.js"></script><title>About | Amara Wells</title>
 <meta property="og:site_name" content="Amara Wells">
 <meta property="og:title" content="About | Amara Wells">
 <meta property="og:type" content="website">
@@ -196,24 +199,24 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
   .shopify-section[data-perf-offscreen] *,
   .shopify-section[data-perf-offscreen] *::before,
   .shopify-section[data-perf-offscreen] *::after { animation-play-state: paused !important; }
-</style><link rel="stylesheet" href="/theme-previews/coach/a/i.012d2c72efea.css" id="speed-page-landing"><script src="/theme-previews/coach/a/i.0bd6d5139503.js"></script><script id="speed-optimization-js" src="/theme-previews/coach/a/i.be4f88e0dbf9.js"></script>
+</style><link rel="stylesheet" href="/theme-previews/coach/a/i.91e49e396991.css" id="speed-page-landing"><script src="/theme-previews/coach/a/i.0bd6d5139503.js"></script><script id="speed-optimization-js" src="/theme-previews/coach/a/i.fe3bbcd3c347.js"></script>
 <script>
       (function () {
         try {
           var l = document.createElement('link');
           l.rel = 'modulepreload';
-          l.href = new URL('/theme-previews/_base/a/cart-components.ca7c1c36e6df.js', new URL("/theme-previews/_base/a/theme.7a7dd8f80f89.js", location.href)).href;
+          l.href = new URL('/theme-previews/_base/a/cart-components.b6711c3796ec.js', new URL("/theme-previews/_base/a/theme.bbc3b899a286.js", location.href)).href;
           l.fetchPriority = 'low';
           document.head.appendChild(l);
         } catch (e) {}
       })();
-    </script>
-<link href="/theme-previews/_base/a/critical.4539b38450ad.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/product-card.a0a3949c11b6.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"primary","product_size":17,"price_size":16,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
+    </script><link href="/theme-previews/_base/a/critical.54065bf3194d.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.75f200d0d253.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/product-card.81043f197a7d.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"primary","product_size":17,"price_size":16,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
 <style>html:not([data-card-custom='true']) .product-item .product-item__name { font-size:var(--body-font-size, 16px); text-transform:var(--heading-text-transform, none) !important; } html:not([data-card-custom='true']) .product-item .product-item__price { font-size:var(--body-font-size, 16px); }</style>
 <script>document.documentElement.dataset.cardCustom = false === true ? 'true' : 'false';</script>
 <script type="application/json" data-badge-style-settings>false</script>
-<script>document.documentElement.dataset.badgeCustom = 'false';</script><script src="/theme-previews/coach/a/i.1ce91c58da38.js"></script><link href="/theme-previews/_base/a/swiper-bundle-min.8599ecaab05b.css" rel="stylesheet" type="text/css" media="all"><script>(function(u){var done=false;function go(){if(done)return;done=true;for(var i=0;i<u.length;i++){if(document.querySelector('link[href="'+u[i]+'"]'))continue;var l=document.createElement('link');l.rel='stylesheet';l.href=u[i];document.head.appendChild(l)}}
+<script>document.documentElement.dataset.badgeCustom = 'false';</script><script src="/theme-previews/coach/a/i.1ce91c58da38.js"></script><style>:root { --pc-act-size: 44px; }</style>
+<link href="/theme-previews/_base/a/swiper-bundle-min.8599ecaab05b.css" rel="stylesheet" type="text/css" media="all"><script>(function(u){var done=false;function go(){if(done)return;done=true;for(var i=0;u.length>i;i++){if(document.querySelector('link[href="'+u[i]+'"]'))continue;var l=document.createElement('link');l.rel='stylesheet';l.href=u[i];document.head.appendChild(l)}}
     window.MateriaLateCss={now:go};if(document.readyState==='complete')setTimeout(go,0);else{addEventListener('load',function(){setTimeout(go,0)},{once:true});
     document.addEventListener('DOMContentLoaded',function(){setTimeout(go,4000)},{once:true})}
     ['pointerdown','click','keydown','scroll','touchstart'].forEach(function(n){addEventListener(n,go,{once:true,passive:true,capture:true})})})(["/theme-previews/_base/a/popup.18cdf2513c31.css","/theme-previews/_base/a/tingle-min.ed947d9dd1c7.css"]);</script><link rel="stylesheet" href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" media="print" onload="this.media='all'">
@@ -225,36 +228,27 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
     --heading-font: "Barlow", "Barlow Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     --menu-font: var(--body-font);
     --btn-font: var(--body-font);
+    --heading-font-style: normal;
+    --font-body-family: var(--body-font);
+    --font-heading-family: var(--heading-font);
   }
 </style>
-<link rel="stylesheet" href="/theme-previews/coach/a/i.79e7fe53369e.css" data-shopify>
-<link href="/theme-previews/_base/a/theme.d71f5b96fec8.css" rel="stylesheet" type="text/css" media="all"><noscript><link href="/theme-previews/_base/a/popup.18cdf2513c31.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.9c20c549e3cf.css">
-<link rel="preload" as="style" href="/theme-previews/_base/a/minicart.ac0014483417.css" fetchpriority="low">
-<link rel="preload" as="style" href="/theme-previews/_base/a/materia-experience.b68d6d8152a8.css" fetchpriority="low">
-<link rel="stylesheet" href="/theme-previews/coach/a/i.ed1aa92f7580.css"><link rel="stylesheet" href="/theme-previews/coach/a/i.82e20d1f8890.css"><link href="/theme-previews/_base/a/theme-button-contract.7d286d7eee9b.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/localization-controls.9494a0c83131.css" rel="stylesheet" type="text/css" media="all"><link rel="modulepreload" href="/theme-previews/_base/a/theme.7a7dd8f80f89.js" fetchpriority="low"><script data-storelib-head src="/theme-previews/coach/a/i.585ec254f5fd.js"></script>
+<link rel="stylesheet" href="/theme-previews/coach/a/i.c330329223a9.css" data-shopify><link href="/theme-previews/_base/a/theme.55299cac0019.css" rel="stylesheet" type="text/css" media="all"><noscript><link href="/theme-previews/_base/a/popup.18cdf2513c31.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.9c20c549e3cf.css">
+<link rel="preload" as="style" href="/theme-previews/_base/a/minicart.679b4fb18845.css" fetchpriority="low">
+<link rel="preload" as="style" href="/theme-previews/_base/a/materia-experience.6a68b7e13653.css" fetchpriority="low">
+<link rel="stylesheet" href="/theme-previews/coach/a/i.ed1aa92f7580.css"><link rel="stylesheet" href="/theme-previews/coach/a/i.82e20d1f8890.css"><link href="/theme-previews/_base/a/theme-button-contract.344c6ef650d4.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/localization-controls.ea52564768ef.css" rel="stylesheet" type="text/css" media="all"><link rel="modulepreload" href="/theme-previews/_base/a/theme.bbc3b899a286.js" fetchpriority="low"><script data-storelib-head src="/theme-previews/coach/a/i.585ec254f5fd.js"></script>
 <script src="/theme-previews/_base/a/swiper-bundle-min.31d164f7367d.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/motion-min.d1f8eb312b47.js" type="module" defer="defer" fetchpriority="low"></script>
-<script src="/theme-previews/_base/a/utils.90eeb774e439.js" defer="defer" data-cart-count="0"></script>
-<script src="/theme-previews/_base/a/global.81b2db9b06dc.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/utils.26985d2d39f0.js" defer="defer" data-cart-count="0"></script>
+<script src="/theme-previews/_base/a/global.7e439d21bc2d.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/cart-drawer-safety.b8d627a0381e.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/section-links.0b22549c79d2.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/section-links.83dcb60cec8e.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/product-counters.9b2dc07295e6.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/product-block-runtime.93fadbdef136.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/product-dialogs.f42edf25d068.js" defer="defer"></script><link href="/theme-previews/_base/a/hero-pro-scrolling.2f3038157711.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/marketing-sections.89572ff66c1d.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/hero-product-three.8649fa31ecc2.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/hero-product-two.b3341fcb0b09.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/hero-image-one.7347eaeaff3f.css" rel="stylesheet" type="text/css" media="all">
-<script src="/theme-previews/_base/a/hero-image-one.3135c3043e4f.js" defer="defer"></script>
-<link href="/theme-previews/_base/a/before-after-controls.0119d231c0b0.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/text-section-controls.f1a83e444db3.css" rel="stylesheet" type="text/css" media="all"><script src="/theme-previews/coach/a/i.b6aa80ad4fa9.js"></script>
-<link href="/theme-previews/_base/a/testimonial-quote.d74462f50435.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/announcement-pro-4.98b829b630a8.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/product-block-runtime.0c74f3d394a4.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" rel="stylesheet" type="text/css" media="all">
+<script src="/theme-previews/_base/a/product-block-runtime.6868605d527a.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/product-dialogs.f42edf25d068.js" defer="defer"></script><script src="/theme-previews/_base/a/hero-image-one.9accbabb78ac.js" defer="defer"></script><script src="/theme-previews/coach/a/i.8914d0afedfd.js"></script><link href="/theme-previews/_base/a/product-block-runtime.0c74f3d394a4.css" rel="stylesheet" type="text/css" media="all"><link rel="stylesheet" href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" rel="stylesheet" type="text/css" media="all"></noscript>
 <script src="/theme-previews/_base/a/drift.eaae124afa1e.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/photoswipe-init.7c544f9d83a1.js" type="module"></script>
-<script src="/theme-previews/coach/a/i.90af8640dd2d.js"></script><link rel="stylesheet" href="/theme-previews/coach/a/i.935454524e32.css">
-<script>(function(){try{var d=document.createElement('div');d.style.cssText='position:absolute;top:-99px;width:60px;height:60px;overflow:scroll;visibility:hidden';document.documentElement.appendChild(d);if(d.offsetWidth-d.clientWidth>0)document.documentElement.classList.add('sl-sb-room');d.remove()}catch(e){}})();</script><style>
+<script src="/theme-previews/_base/a/photoswipe-init.7fe034915110.js" type="module"></script>
+<script src="/theme-previews/coach/a/i.69f67d6283fa.js"></script><link href="/theme-previews/_base/a/layout-guard.cedd846e364b.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/late-css-guard.de9307102bbd.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-type.64c10b084388.css" rel="stylesheet" type="text/css" media="all"><script>(function(){try{var d=document.createElement('div');d.style.cssText='position:absolute;top:-99px;width:60px;height:60px;overflow:scroll;visibility:hidden';document.documentElement.appendChild(d);if(d.offsetWidth-d.clientWidth>0)document.documentElement.classList.add('sl-sb-room');d.remove()}catch(e){}})();</script><style>
         html, body { min-height: 100%; }
         body {
           display: flex;
@@ -271,7 +265,7 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
         body > #shopify-section-footer-group,
         body > #shopify-section-sections--footer-group,
         body > .shopify-section-group-footer-group { flex: 0 0 auto; }
-      </style><style data-sl-focus>[tabindex="-1"]:focus,dialog:focus,[role="dialog"]:focus,[aria-modal="true"]:focus,details-modal:focus,modal-dialog:focus{outline:none!important}</style><link rel="stylesheet" href="/theme-previews/coach/a/i.baba7fb2aa0e.css" data-sl-busy-buttons><style data-sl-missing-image>img[data-sl-missing]{background-color:#f3f4f6!important;background-image:none!important;object-fit:contain!important;object-position:50% 50%!important;color:transparent!important}html[data-sl-dark] img[data-sl-missing],[data-community-theme="dark"] img[data-sl-missing]{background-color:#26282c!important}</style><script data-sl-missing-image src="/theme-previews/coach/a/i.d77d88883af7.js"></script><script data-sl-cover-trim src="/theme-previews/coach/a/i.fc4335148114.js"></script><link rel="stylesheet" href="/theme-previews/_base/a/fonts.bd14396acf32.css" data-storelib-font><link rel="stylesheet" href="/theme-previews/_base/a/fonts.fb2ab27c2a4b.css" data-storelib-font><link rel="stylesheet" href="/theme-previews/coach/a/i.6815f399169b.css" data-storelib-bundle><style data-storelib-overrides>.button:not(.button--tertiary):not(.button-unstyled):not(.link):hover,.btn:hover,button[type=submit]:not(.button-unstyled):not(.link):hover,input[type=submit]:hover,.shopify-payment-button__button--unbranded:hover{transform:none!important;box-shadow:none!important;filter:none!important}.button:not(.button--tertiary):not(.button-unstyled):not(.link),.btn,button[type=submit]:not(.button-unstyled):not(.link),input[type=submit],.shopify-payment-button__button--unbranded{transition:none!important}input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=hidden]):not([type=submit]),select,textarea,.field__input,.select__select{border-color:#bababa!important}input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=hidden]):not([type=submit]):focus,select:focus,textarea:focus,.field__input:focus,.select__select:focus{outline:2px solid #adadad!important;outline-offset:1px;border-color:#adadad!important;box-shadow:none!important}</style><link rel="icon" href="data:,"></head>
+      </style><style data-sl-focus>[tabindex="-1"]:focus,dialog:focus,[role="dialog"]:focus,[aria-modal="true"]:focus,details-modal:focus,modal-dialog:focus{outline:none!important}</style><link rel="stylesheet" href="/theme-previews/coach/a/i.baba7fb2aa0e.css" data-sl-busy-buttons><style data-sl-missing-image>img[data-sl-missing]{background-color:#f3f4f6!important;background-image:none!important;object-fit:contain!important;object-position:50% 50%!important;color:transparent!important}html[data-sl-dark] img[data-sl-missing],[data-community-theme="dark"] img[data-sl-missing]{background-color:#26282c!important}</style><script data-sl-missing-image src="/theme-previews/coach/a/i.d77d88883af7.js"></script><script data-sl-cover-trim src="/theme-previews/coach/a/i.fc4335148114.js"></script><link rel="stylesheet" href="/theme-previews/_base/a/fonts.bd14396acf32.css" data-storelib-font><link rel="stylesheet" href="/theme-previews/_base/a/fonts.fb2ab27c2a4b.css" data-storelib-font><link rel="stylesheet" href="/theme-previews/coach/a/i.17f73b1756bd.css" data-storelib-bundle><link rel="stylesheet" href="/theme-previews/coach/a/i.0016b90be953.css" data-storelib-overrides><link rel="icon" href="data:,"></head>
 <body
 class="gradient rounded-style  page"
 data-btn-style="solid"
@@ -301,25 +295,11 @@ data-menu-hover="none"
           later = setTimeout(release, 120);
         });
       })();
-    </script><div id="shopify-section-offer_bar" class="shopify-section shopify-section-group-header-group section-announcement-bar section-edge-bleed" data-section-id="offer_bar" data-section-type="announcement-bar"><script src="/theme-previews/_base/a/live-announcements.a913d191e812.js" defer="defer"></script><style>
-  #shopify-section-offer_bar {
-    font-family: var(--body-font, inherit);
-    font-size: var(--body-font-size, inherit);
-    font-weight: var(--body-weight, inherit);
-    line-height: var(--body-line-height, inherit);
-    color: var(--color-text);
-  }
-  #shopify-section-offer_bar :is(h1, h2, h3, h4, h5, h6) {
-    font-family: var(--heading-font, inherit);
-    font-weight: var(--heading-weight, inherit);
-    letter-spacing: var(--heading-letter-spacing, normal);
-    line-height: var(--heading-line-height, 1.2);
-    text-transform: var(--heading-text-transform, none);
-  }
+    </script><div id="shopify-section-offer_bar" class="shopify-section shopify-section-group-header-group section-announcement-bar section-edge-bleed s-tt has-overlay" data-section-id="offer_bar" data-section-type="announcement-bar"><script src="/theme-previews/_base/a/live-announcements-runtime.0a55b4e3dee0.js" defer="defer"></script><style>
   :where(html:not([data-font-priority='off'])) #shopify-section-offer_bar :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
-</style><link rel="stylesheet" href="/theme-previews/coach/a/i.19de36c766d9.css"><link rel="stylesheet" href="/theme-previews/coach/a/i.938c271772dc.css"><div id="announcement-bar-pro-2-offer_bar" class="ab2 announcement-bar-pro-2 color-scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9 gradient" role="region" aria-label="Announcements" data-an-root="announcement-bar" data-an-section="offer_bar" data-width="full_width" data-reset="true" data-mode="slide" data-multi="true" data-page="page" data-home-only="false" data-show-mobile="true" data-close="false" data-icon="none" data-interval="6" data-sticky-announcement="false" style="--ab2-fs: 13px;--ab2-pt: 12px;--ab2-pb: 12px;--ab2-speed: 15s;--ab2-gap: 50px;--ab2-fw: var(--subheading-weight, 600);--ab2-tt: none;--ab2-ff: var(--body-font);--ab2-text: #e6e6e6;--ab2-bg: #121212;--ab2-accent: #ffffff;--ab2-line: var(--color-border);--ab2-lw: 0px;">
+</style><link rel="stylesheet" href="/theme-previews/coach/a/i.19de36c766d9.css"><link rel="stylesheet" href="/theme-previews/coach/a/i.1d7580018322.css"><div id="announcement-bar-pro-2-offer_bar" class="ab2 announcement-bar-pro-2 color-scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9 gradient" role="region" aria-label="Announcements" data-an-root="announcement-bar" data-an-section="offer_bar" data-width="full_width" data-reset="true" data-mode="slide" data-multi="true" data-page="page" data-home-only="false" data-show-mobile="true" data-close="false" data-icon="none" data-interval="6" data-sticky-announcement="false" style="--ab2-fs: 13px;--ab2-pt: 12px;--ab2-pb: 12px;--ab2-speed: 15s;--ab2-gap: 50px;--ab2-fw: var(--subheading-weight, 600);--ab2-tt: none;--ab2-ff: var(--body-font);--ab2-text: #e6e6e6;--ab2-bg: #121212;--ab2-accent: #ffffff;--ab2-line: var(--color-border);--ab2-lw: 0px;">
 <div class="ab2__inner">
 <div class="ab2__slides" data-an-slides>
 <button type="button" class="ab2__arrow" data-an-prev aria-label="Previous announcement"><svg width="8" height="14" viewBox="0 0 8 14" aria-hidden="true" focusable="false"><path d="M7 1 1 7l6 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
@@ -404,8 +384,8 @@ data-menu-hover="none"
 </div>
 <button type="button" class="ab2__close announcement-bar-close" data-an-close aria-label="Close announcement"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="m1 1 10 10M11 1 1 11" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
 </div>
-</div><div id="shopify-section-header" class="shopify-section shopify-section-group-header-group section-header" data-section-id="header" data-section-type="theme-header"><link href="/theme-previews/_base/a/header-section.1c94351c418a.css" rel="stylesheet" type="text/css" media="all">
-<script src="/theme-previews/_base/a/header-section.87538c6edb5d.js" defer="defer"></script><style>
+</div><div id="shopify-section-header" class="shopify-section shopify-section-group-header-group section-header has-popup" data-section-id="header" data-section-type="theme-header"><link href="/theme-previews/_base/a/header-section.d609d0b23c83.css" rel="stylesheet" type="text/css" media="all">
+<script src="/theme-previews/_base/a/header-section.529bac1525b9.js" defer="defer"></script><style>
   #shopify-section-header {
     --hs-margin-top: 0px;
     --hs-margin-bottom: 0px;
@@ -436,7 +416,7 @@ data-menu-hover="none"
       --hs-logo-max-height: 48px;
       --hs-logo-box-height: 64px;
     }
-  }:root { --hs-mnav-title-bg: #242424; --hs-mnav-title-color: #ffffff; }</style><link href="/theme-previews/_base/a/header-layout.ed2de67e6e9c.css" rel="stylesheet" type="text/css" media="all">
+  }:root { --hs-mnav-title-bg: #242424; --hs-mnav-title-color: #ffffff; }</style><link href="/theme-previews/_base/a/header-layout.784e491443d1.css" rel="stylesheet" type="text/css" media="all">
 <style>
   #shopify-section-header {
     --header-height-desktop: 76px;
@@ -689,8 +669,7 @@ class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 
 href="/theme-previews/coach/pages/faqs.html"
 ><span>FAQ</span></a></menu-item></li>
 </ul>
-</div><div class="lang__currency-on-nav flex flex-wrap hidden-1025 border-top"></div>
-</nav></div>
+</div></nav></div>
 <div class="header__action flex flex-end align-center">
 <svg class="hs-sprite" hidden aria-hidden="true" focusable="false" width="0" height="0" style="position:absolute;width:0;height:0;overflow:hidden;display:none">
 <symbol id="icon-wishlist-header">
@@ -712,24 +691,9 @@ href="/theme-previews/coach/pages/faqs.html"
 </header-inner>
 </div>
 </div></header><script src="/theme-previews/coach/a/i.b8ec2f2ea707.js"></script>
-<link href="/theme-previews/_base/a/header-sticky.6c34c873cb06.css" rel="stylesheet" type="text/css" media="all">
-<script src="/theme-previews/coach/a/i.9790def5bd53.js"></script><script src="/theme-previews/_base/a/header-sticky-extras.78e1fb4f310f.js" defer="defer"></script></div><script src="/theme-previews/coach/a/i.0d9f91566ff2.js"></script>
-<main id="MainContent" class="content-for-layout focus-none" role="main" tabindex="-1"><section id="shopify-section-story" class="shopify-section section sec__image-video-text" data-section-id="story" data-section-type="image-and-video-text"><script src="/theme-previews/_base/a/media-live-benefits.fca52bd1fd57.js" defer="defer"></script>
-<style>
-  #shopify-section-story {
-    font-family: var(--body-font, inherit);
-    font-size: var(--body-font-size, inherit);
-    font-weight: var(--body-weight, inherit);
-    line-height: var(--body-line-height, inherit);
-    color: var(--color-text);
-  }
-  #shopify-section-story :is(h1, h2, h3, h4, h5, h6) {
-    font-family: var(--heading-font, inherit);
-    font-weight: var(--heading-weight, inherit);
-    letter-spacing: var(--heading-letter-spacing, normal);
-    line-height: var(--heading-line-height, 1.2);
-    text-transform: var(--heading-text-transform, none);
-  }
+<link href="/theme-previews/_base/a/header-sticky.3e10a26b0bdf.css" rel="stylesheet" type="text/css" media="all">
+<script src="/theme-previews/coach/a/i.9790def5bd53.js"></script><script src="/theme-previews/_base/a/header-sticky-extras.78e1fb4f310f.js" defer="defer"></script></div><script>(function(){var l=document.querySelectorAll('.shopify-section-group-header-group');for(var i=0;i < l.length && i < 6;i++)l[i].setAttribute('data-mt-hold',String(i))})();</script><script src="/theme-previews/coach/a/i.0235c8b1fe44.js"></script>
+<main id="MainContent" class="content-for-layout focus-none" role="main" tabindex="-1"><section id="shopify-section-story" class="shopify-section section sec__image-video-text s-tt" data-section-id="story" data-section-type="image-and-video-text"><script src="/theme-previews/_base/a/media-benefits-runtime.536397946d66.js" defer="defer"></script><style>
   :where(html:not([data-font-priority='off'])) #shopify-section-story :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
@@ -783,7 +747,7 @@ href="/theme-previews/coach/pages/faqs.html"
   #shopify-section-story .mlb__frame { position: relative; overflow: hidden; border-radius: var(--m-r, 0px); aspect-ratio: var(--m-ar, 4 / 5); background: var(--m-ph-bg, color-mix(in srgb, var(--color-text) 8%, var(--color-background))); color: var(--color-text); }
   #shopify-section-story .mlb__frame > :is(img, video, .video-wrapper, svg), #shopify-section-story .mlb__frame .video-wrapper > * { width: 100%; height: 100%; display: block; }
   #shopify-section-story .mlb__frame > :is(img, video), #shopify-section-story .mlb__frame .video-wrapper video { object-fit: var(--m-fit, cover); }
-  #shopify-section-story .mlb__frame > svg.mlb__ph { opacity: .35; padding: 18%; }
+  #shopify-section-story .mlb__frame > svg.mlb__ph { background: none; }
 
   #shopify-section-story .mlb__text > * { margin: 0; max-width: 100%; }
   #shopify-section-story .mlb__eyebrow { color: var(--b-c); font-size: var(--b-fs); font-weight: var(--subheading-weight, 700); letter-spacing: 2px; text-transform: uppercase; line-height: 1.2; }
@@ -818,22 +782,7 @@ decoding="async"
 <div class="ivt__text mlb__text"><p class="ivt__eyebrow mlb__eyebrow" data-block-id="eyebrow_1" data-mlb-block="eyebrow_1" data-mlb-type="eyebrow" data-block-id="eyebrow_1" style="--b-c: var(--color-text);--b-fs: 12px;">About</p><h2 class="ivt__heading mlb__heading" data-block-id="heading_2" data-mlb-block="heading_2" data-mlb-type="heading" data-block-id="heading_2" style="--b-c: var(--color-heading);--b-fs-m: 32px;--b-fs-d: 52px;">Amara Wells, running coach</h2><div class="ivt__subheading mlb__sub" data-block-id="subheading_3" data-mlb-block="subheading_3" data-mlb-type="subheading" data-block-id="subheading_3" style="--b-c: var(--color-text);--b-fs-m: 15px;--b-fs-d: 17px;"><p>I grew up sprinting and ran the 400 metres in college. After that I tried to become a marathoner by running more every week, and spent two years injured.</p><p>A coach fixed it by making most of my running slow. I have been passing that on for nine years, first at a club in Austin and now online.</p></div></div>
 </div>
 </div>
-</div></section><section id="shopify-section-beliefs" class="shopify-section section-text-columns" data-section-id="beliefs" data-section-type="text-columns"><script src="/theme-previews/_base/a/live-r7-text.e581a8267cbb.js" defer="defer"></script>
-<style>
-  #shopify-section-beliefs {
-    font-family: var(--body-font, inherit);
-    font-size: var(--body-font-size, inherit);
-    font-weight: var(--body-weight, inherit);
-    line-height: var(--body-line-height, inherit);
-    color: var(--color-text);
-  }
-  #shopify-section-beliefs :is(h1, h2, h3, h4, h5, h6) {
-    font-family: var(--heading-font, inherit);
-    font-weight: var(--heading-weight, inherit);
-    letter-spacing: var(--heading-letter-spacing, normal);
-    line-height: var(--heading-line-height, 1.2);
-    text-transform: var(--heading-text-transform, none);
-  }
+</div></section><section id="shopify-section-beliefs" class="shopify-section section-text-columns s-tt" data-section-id="beliefs" data-section-type="text-columns"><script src="/theme-previews/_base/a/r7-text-runtime.a3e607c36752.js" defer="defer"></script><style>
   :where(html:not([data-font-priority='off'])) #shopify-section-beliefs :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
@@ -1134,22 +1083,7 @@ style="--r7t-bg: var(--color-background); --r7t-link-ink: var(--color-link, var(
 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 5l7 7-7 7"/></svg>
 </button>
 </div></div>
-</div></section><section id="shopify-section-saturday" class="shopify-section section sec__image-video-text" data-section-id="saturday" data-section-type="image-and-video-text"><script src="/theme-previews/_base/a/media-live-benefits.fca52bd1fd57.js" defer="defer"></script>
-<style>
-  #shopify-section-saturday {
-    font-family: var(--body-font, inherit);
-    font-size: var(--body-font-size, inherit);
-    font-weight: var(--body-weight, inherit);
-    line-height: var(--body-line-height, inherit);
-    color: var(--color-text);
-  }
-  #shopify-section-saturday :is(h1, h2, h3, h4, h5, h6) {
-    font-family: var(--heading-font, inherit);
-    font-weight: var(--heading-weight, inherit);
-    letter-spacing: var(--heading-letter-spacing, normal);
-    line-height: var(--heading-line-height, 1.2);
-    text-transform: var(--heading-text-transform, none);
-  }
+</div></section><section id="shopify-section-saturday" class="shopify-section section sec__image-video-text s-tt" data-section-id="saturday" data-section-type="image-and-video-text"><script src="/theme-previews/_base/a/media-benefits-runtime.536397946d66.js" defer="defer"></script><style>
   :where(html:not([data-font-priority='off'])) #shopify-section-saturday :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
@@ -1203,7 +1137,7 @@ style="--r7t-bg: var(--color-background); --r7t-link-ink: var(--color-link, var(
   #shopify-section-saturday .mlb__frame { position: relative; overflow: hidden; border-radius: var(--m-r, 0px); aspect-ratio: var(--m-ar, 4 / 5); background: var(--m-ph-bg, color-mix(in srgb, var(--color-text) 8%, var(--color-background))); color: var(--color-text); }
   #shopify-section-saturday .mlb__frame > :is(img, video, .video-wrapper, svg), #shopify-section-saturday .mlb__frame .video-wrapper > * { width: 100%; height: 100%; display: block; }
   #shopify-section-saturday .mlb__frame > :is(img, video), #shopify-section-saturday .mlb__frame .video-wrapper video { object-fit: var(--m-fit, cover); }
-  #shopify-section-saturday .mlb__frame > svg.mlb__ph { opacity: .35; padding: 18%; }
+  #shopify-section-saturday .mlb__frame > svg.mlb__ph { background: none; }
 
   #shopify-section-saturday .mlb__text > * { margin: 0; max-width: 100%; }
   #shopify-section-saturday .mlb__eyebrow { color: var(--b-c); font-size: var(--b-fs); font-weight: var(--subheading-weight, 700); letter-spacing: 2px; text-transform: uppercase; line-height: 1.2; }
@@ -1238,32 +1172,15 @@ decoding="async"
 <div class="ivt__text mlb__text"><p class="ivt__eyebrow mlb__eyebrow" data-block-id="eyebrow_1" data-mlb-block="eyebrow_1" data-mlb-type="eyebrow" data-block-id="eyebrow_1" style="--b-c: var(--color-text);--b-fs: 12px;">Saturday group run</p><h2 class="ivt__heading mlb__heading" data-block-id="heading_2" data-mlb-block="heading_2" data-mlb-type="heading" data-block-id="heading_2" style="--b-c: var(--color-heading);--b-fs-m: 32px;--b-fs-d: 44px;">Free, 7:30, at the river trail</h2><div class="ivt__subheading mlb__sub" data-block-id="subheading_3" data-mlb-block="subheading_3" data-mlb-type="subheading" data-block-id="subheading_3" style="--b-c: var(--color-text);--b-fs-m: 15px;--b-fs-d: 17px;"><p>Every Saturday we meet by the boathouse on the river trail. There is a group for every pace and nobody gets left behind. Coffee after, if you want it.</p></div><a href="/theme-previews/coach/pages/contact.html" class="ivt__btn mlb__btn" data-theme-button="primary" data-sl-button data-full="false" data-block-id="button_4" data-mlb-block="button_4" data-mlb-type="button" data-block-id="button_4" style="">Ask about the group</a></div>
 </div>
 </div>
-</div></section><section id="shopify-section-moments" class="shopify-section simple-gallery--gallery-" data-section-id="moments" data-section-type="gallery-grid1"><script src="/theme-previews/_base/a/media-live-galleries-a.fb88886b4db3.js" defer="defer"></script>
-<style>
-  #shopify-section-moments {
-    font-family: var(--body-font, inherit);
-    font-size: var(--body-font-size, inherit);
-    font-weight: var(--body-weight, inherit);
-    line-height: var(--body-line-height, inherit);
-    color: var(--color-text);
-  }
-  #shopify-section-moments :is(h1, h2, h3, h4, h5, h6) {
-    font-family: var(--heading-font, inherit);
-    font-weight: var(--heading-weight, inherit);
-    letter-spacing: var(--heading-letter-spacing, normal);
-    line-height: var(--heading-line-height, 1.2);
-    text-transform: var(--heading-text-transform, none);
-  }
+</div></section><section id="shopify-section-moments" class="shopify-section simple-gallery--gallery- s-tt" data-section-id="moments" data-section-type="gallery-grid1"><script src="/theme-previews/_base/a/media-galleries-a-runtime.cb6cc8cafae7.js" defer="defer"></script><style>
   :where(html:not([data-font-priority='off'])) #shopify-section-moments :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
-</style><link rel="stylesheet" href="/theme-previews/coach/a/i.eb40a23087f7.css"><link rel="stylesheet" href="/theme-previews/coach/a/i.dff5e6023b3b.css">
+</style><link rel="stylesheet" href="/theme-previews/coach/a/i.598504294c75.css"><link rel="stylesheet" href="/theme-previews/coach/a/i.dff5e6023b3b.css">
 <div
 class="mga mga-g1 color-default gradient"
 data-mga-section="moments"
 data-mga-type="gallery-grid1"
-data-mga-settings="{&quot;color_scheme&quot;:{&quot;id&quot;:&quot;default&quot;,&quot;settings&quot;:{&quot;page_colors&quot;:null,&quot;background&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;text_color&quot;:{&quot;red&quot;:69,&quot;green&quot;:69,&quot;blue&quot;:69,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:27,&quot;rgb&quot;:&quot;69 69 69&quot;,&quot;rgba&quot;:&quot;69 69 69 / 1&quot;,&quot;hex&quot;:&quot;#454545&quot;},&quot;heading_color&quot;:{&quot;red&quot;:18,&quot;green&quot;:18,&quot;blue&quot;:18,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;18 18 18&quot;,&quot;rgba&quot;:&quot;18 18 18 / 1&quot;,&quot;hex&quot;:&quot;#121212&quot;},&quot;primary_color&quot;:{&quot;red&quot;:217,&quot;green&quot;:65,&quot;blue&quot;:30,&quot;alpha&quot;:1,&quot;hue&quot;:11,&quot;saturation&quot;:76,&quot;lightness&quot;:48,&quot;rgb&quot;:&quot;217 65 30&quot;,&quot;rgba&quot;:&quot;217 65 30 / 1&quot;,&quot;hex&quot;:&quot;#d9411e&quot;},&quot;border_color&quot;:{&quot;red&quot;:227,&quot;green&quot;:227,&quot;blue&quot;:227,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:89,&quot;rgb&quot;:&quot;227 227 227&quot;,&quot;rgba&quot;:&quot;227 227 227 / 1&quot;,&quot;hex&quot;:&quot;#e3e3e3&quot;},&quot;badge_background&quot;:null,&quot;badge_text&quot;:null,&quot;primary_button_colors&quot;:null,&quot;btn_primary_background&quot;:{&quot;red&quot;:18,&quot;green&quot;:18,&quot;blue&quot;:18,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;18 18 18&quot;,&quot;rgba&quot;:&quot;18 18 18 / 1&quot;,&quot;hex&quot;:&quot;#121212&quot;},&quot;btn_primary_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_primary_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_primary_hover_background&quot;:{&quot;red&quot;:217,&quot;green&quot;:65,&quot;blue&quot;:30,&quot;alpha&quot;:1,&quot;hue&quot;:11,&quot;saturation&quot;:76,&quot;lightness&quot;:48,&quot;rgb&quot;:&quot;217 65 30&quot;,&quot;rgba&quot;:&quot;217 65 30 / 1&quot;,&quot;hex&quot;:&quot;#d9411e&quot;},&quot;btn_primary_hover_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_primary_hover_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;secondary_button_colors&quot;:null,&quot;btn_secondary_background&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_color&quot;:{&quot;red&quot;:18,&quot;green&quot;:18,&quot;blue&quot;:18,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;18 18 18&quot;,&quot;rgba&quot;:&quot;18 18 18 / 1&quot;,&quot;hex&quot;:&quot;#121212&quot;},&quot;btn_secondary_border&quot;:{&quot;red&quot;:207,&quot;green&quot;:207,&quot;blue&quot;:207,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:81,&quot;rgb&quot;:&quot;207 207 207&quot;,&quot;rgba&quot;:&quot;207 207 207 / 1&quot;,&quot;hex&quot;:&quot;#cfcfcf&quot;},&quot;btn_secondary_hover_background&quot;:{&quot;red&quot;:18,&quot;green&quot;:18,&quot;blue&quot;:18,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;18 18 18&quot;,&quot;rgba&quot;:&quot;18 18 18 / 1&quot;,&quot;hex&quot;:&quot;#121212&quot;},&quot;btn_secondary_hover_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_hover_border_color&quot;:null,&quot;background_gradient&quot;:&quot;&quot;,&quot;btn_primary_gradient&quot;:&quot;&quot;,&quot;btn_primary_hover_background_gradient&quot;:&quot;&quot;,&quot;btn_secondary_hover_border&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_outline_color&quot;:{&quot;red&quot;:18,&quot;green&quot;:18,&quot;blue&quot;:18,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;18 18 18&quot;,&quot;rgba&quot;:&quot;18 18 18 / 1&quot;,&quot;hex&quot;:&quot;#121212&quot;},&quot;btn_outline_border_color&quot;:{&quot;red&quot;:207,&quot;green&quot;:207,&quot;blue&quot;:207,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:81,&quot;rgb&quot;:&quot;207 207 207&quot;,&quot;rgba&quot;:&quot;207 207 207 / 1&quot;,&quot;hex&quot;:&quot;#cfcfcf&quot;},&quot;button_link_color&quot;:{&quot;red&quot;:18,&quot;green&quot;:18,&quot;blue&quot;:18,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;18 18 18&quot;,&quot;rgba&quot;:&quot;18 18 18 / 1&quot;,&quot;hex&quot;:&quot;#121212&quot;},&quot;button_link_hover_color&quot;:{&quot;red&quot;:18,&quot;green&quot;:18,&quot;blue&quot;:18,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;18 18 18&quot;,&quot;rgba&quot;:&quot;18 18 18 / 1&quot;,&quot;hex&quot;:&quot;#121212&quot;}}},&quot;is_fullwidth&quot;:false,&quot;display_section_on&quot;:&quot;all_devices&quot;,&quot;reset_spacing&quot;:true,&quot;container_max_width&quot;:1320,&quot;gutter&quot;:8,&quot;vertical_space_desktop&quot;:20,&quot;background_image_1&quot;:{&quot;id&quot;:1841306427,&quot;src&quot;:&quot;/theme-previews/coach/a/coach-track.f1ac73b1ac4b.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach/a/coach-track.f1ac73b1ac4b.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1841306427,&quot;src&quot;:&quot;/theme-previews/coach/a/coach-track.f1ac73b1ac4b.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach/a/coach-track.f1ac73b1ac4b.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1841306427,&quot;src&quot;:&quot;/theme-previews/coach/a/coach-track.f1ac73b1ac4b.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach/a/coach-track.f1ac73b1ac4b.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1841306427,&quot;src&quot;:&quot;/theme-previews/coach/a/coach-track.f1ac73b1ac4b.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach/a/coach-track.f1ac73b1ac4b.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1841306427,&quot;src&quot;:&quot;/theme-previews/coach/a/coach-track.f1ac73b1ac4b.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach/a/coach-track.f1ac73b1ac4b.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1841306427,&quot;src&quot;:&quot;/theme-previews/coach/a/coach-track.f1ac73b1ac4b.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach/a/coach-track.f1ac73b1ac4b.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:null,&quot;y&quot;:null}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1841306427,&quot;src&quot;:&quot;/theme-previews/coach/a/coach-track.f1ac73b1ac4b.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach/a/coach-track.f1ac73b1ac4b.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:null},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:null},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:null,&quot;src&quot;:null,&quot;url&quot;:null,&quot;alt&quot;:null,&quot;width&quot;:null,&quot;height&quot;:null,&quot;aspect_ratio&quot;:null,&quot;media_type&quot;:null,&quot;position&quot;:null,&quot;presentation&quot;:null,&quot;attached_to_variant&quot;:null,&quot;variants&quot;:null,&quot;preview_image&quot;:null}}}}}}}},&quot;alt_1&quot;:&quot;A runner on a track at sunset&quot;,&quot;video_url_1&quot;:&quot;&quot;,&quot;background_image_2&quot;:{&quot;id&quot;:278126642,&quot;src&quot;:&quot;/theme-previews/coach/a/coach-stride.91fda23441c8.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach/a/coach-stride.91fda23441c8.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:278126642,&quot;src&quot;:&quot;/theme-previews/coach/a/coach-stride.91fda23441c8.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach/a/coach-stride.91fda23441c8.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:278126642,&quot;src&quot;:&quot;/theme-previews/coach/a/coach-stride.91fda23441c8.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach/a/coach-stride.91fda23441c8.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:278126642,&quot;src&quot;:&quot;/theme-previews/coach/a/coach-stride.91fda23441c8.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach/a/coach-stride.91fda23441c8.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:278126642,&quot;src&quot;:&quot;/theme-previews/coach/a/coach-stride.91fda23441c8.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach/a/coach-stride.91fda23441c8.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:278126642,&quot;src&quot;:&quot;/theme-previews/coach/a/coach-stride.91fda23441c8.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach/a/coach-stride.91fda23441c8.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:null,&quot;y&quot;:null}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:278126642,&quot;src&quot;:&quot;/theme-previews/coach/a/coach-stride.91fda23441c8.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach/a/coach-stride.91fda23441c8.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:null},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:null},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:null,&quot;src&quot;:null,&quot;url&quot;:null,&quot;alt&quot;:null,&quot;width&quot;:null,&quot;height&quot;:null,&quot;aspect_ratio&quot;:null,&quot;media_type&quot;:null,&quot;position&quot;:null,&quot;presentation&quot;:null,&quot;attached_to_variant&quot;:null,&quot;variants&quot;:null,&quot;preview_image&quot;:null}}}}}}}},&quot;alt_2&quot;:&quot;A runner mid stride&quot;,&quot;video_url_2&quot;:&quot;&quot;,&quot;background_image_3&quot;:{&quot;id&quot;:1363824674,&quot;src&quot;:&quot;/theme-previews/coach/a/coach-trail.0b13f199dfcf.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach/a/coach-trail.0b13f199dfcf.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1363824674,&quot;src&quot;:&quot;/theme-previews/coach/a/coach-trail.0b13f199dfcf.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach/a/coach-trail.0b13f199dfcf.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1363824674,&quot;src&quot;:&quot;/theme-previews/coach/a/coach-trail.0b13f199dfcf.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach/a/coach-trail.0b13f199dfcf.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1363824674,&quot;src&quot;:&quot;/theme-previews/coach/a/coach-trail.0b13f199dfcf.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach/a/coach-trail.0b13f199dfcf.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1363824674,&quot;src&quot;:&quot;/theme-previews/coach/a/coach-trail.0b13f199dfcf.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach/a/coach-trail.0b13f199dfcf.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1363824674,&quot;src&quot;:&quot;/theme-previews/coach/a/coach-trail.0b13f199dfcf.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach/a/coach-trail.0b13f199dfcf.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:null,&quot;y&quot;:null}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1363824674,&quot;src&quot;:&quot;/theme-previews/coach/a/coach-trail.0b13f199dfcf.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach/a/coach-trail.0b13f199dfcf.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:null},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:null},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:null,&quot;src&quot;:null,&quot;url&quot;:null,&quot;alt&quot;:null,&quot;width&quot;:null,&quot;height&quot;:null,&quot;aspect_ratio&quot;:null,&quot;media_type&quot;:null,&quot;position&quot;:null,&quot;presentation&quot;:null,&quot;attached_to_variant&quot;:null,&quot;variants&quot;:null,&quot;preview_image&quot;:null}}}}}}}},&quot;alt_3&quot;:&quot;A runner on a ridge&quot;,&quot;video_url_3&quot;:&quot;&quot;,&quot;background_image_4&quot;:{&quot;id&quot;:132201641,&quot;src&quot;:&quot;/theme-previews/coach/a/coach-dawn.5619d87feed6.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach/a/coach-dawn.5619d87feed6.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:132201641,&quot;src&quot;:&quot;/theme-previews/coach/a/coach-dawn.5619d87feed6.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach/a/coach-dawn.5619d87feed6.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:132201641,&quot;src&quot;:&quot;/theme-previews/coach/a/coach-dawn.5619d87feed6.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach/a/coach-dawn.5619d87feed6.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:132201641,&quot;src&quot;:&quot;/theme-previews/coach/a/coach-dawn.5619d87feed6.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach/a/coach-dawn.5619d87feed6.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:132201641,&quot;src&quot;:&quot;/theme-previews/coach/a/coach-dawn.5619d87feed6.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach/a/coach-dawn.5619d87feed6.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:132201641,&quot;src&quot;:&quot;/theme-previews/coach/a/coach-dawn.5619d87feed6.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach/a/coach-dawn.5619d87feed6.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:null,&quot;y&quot;:null}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:132201641,&quot;src&quot;:&quot;/theme-previews/coach/a/coach-dawn.5619d87feed6.webp&quot;,&quot;url&quot;:&quot;/theme-previews/coach/a/coach-dawn.5619d87feed6.webp&quot;,&quot;alt&quot;:&quot;&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:null},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:null},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:null,&quot;src&quot;:null,&quot;url&quot;:null,&quot;alt&quot;:null,&quot;width&quot;:null,&quot;height&quot;:null,&quot;aspect_ratio&quot;:null,&quot;media_type&quot;:null,&quot;position&quot;:null,&quot;presentation&quot;:null,&quot;attached_to_variant&quot;:null,&quot;variants&quot;:null,&quot;preview_image&quot;:null}}}}}}}},&quot;alt_4&quot;:&quot;A runner at dawn&quot;,&quot;video_url_4&quot;:&quot;&quot;,&quot;image_border_radius&quot;:8,&quot;image_hover_animation&quot;:&quot;fade-in&quot;,&quot;lazyload&quot;:true,&quot;enable_custom_style&quot;:false,&quot;section_bg&quot;:null,&quot;background_color&quot;:null,&quot;section_padding_top&quot;:50,&quot;section_padding_bottom&quot;:50,&quot;padding_left_desktop&quot;:25,&quot;padding_right_desktop&quot;:25,&quot;vertical_space_mobile&quot;:20,&quot;section_padding_top_mobile&quot;:50,&quot;section_padding_bottom_mobile&quot;:50,&quot;padding_left_mobile&quot;:10,&quot;padding_right_mobile&quot;:10,&quot;custom_css&quot;:&quot;&quot;}"
-data-mga-defaults='{"color_scheme":"default-color-scheme","is_fullwidth":false,"display_section_on":"all_devices","reset_spacing":true,"container_max_width":1320,"gutter":10,"vertical_space_desktop":20,"image_border_radius":8,"image_hover_animation":"fade-in","lazyload":true,"enable_custom_style":false,"section_padding_top":50,"section_padding_bottom":50,"padding_left_desktop":25,"padding_right_desktop":25,"vertical_space_mobile":20,"section_padding_top_mobile":50,"section_padding_bottom_mobile":50,"padding_left_mobile":10,"padding_right_mobile":10}'
 data-mga-reset="true"
 data-mga-hover="fade-in"
 data-mga-show="all"
@@ -1272,39 +1189,24 @@ style="--mga-section-bg: var(--color-background); --mga-bg: var(--color-backgrou
 <style data-mga-custom-css></style>
 <div class="mga__frame mga-g1__frame">
 <div class="mga-g1__grid"><div class="mga-media mga-g1__item" data-mga-slot="1" data-media="image">
-<svg class="mga-ph" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false" fill="currentColor"><circle cx="186" cy="132" r="9"/><path d="M164 176l26-30 16 18 13-12 23 24z"/></svg>
+<svg data-ph aria-hidden="true" focusable="false" preserveAspectRatio="xMidYMid slice" class="placeholder-image placeholder-svg mga-ph" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 525.5 525.5" preserveAspectRatio="xMidYMid slice" role="img" aria-label="collection"><rect width="525.5" height="525.5" fill="currentColor" opacity=".06"/><path d="M175 200h175v125H175z M200 300l35-45 30 35 25-25 35 35z" fill="none" stroke="currentColor" stroke-width="6" opacity=".35"/><circle cx="305" cy="235" r="14" fill="currentColor" opacity=".25"/></svg>
 <video data-mga-video class="mga-fill" muted loop playsinline autoplay preload="metadata" aria-hidden="true" hidden></video>
 <img data-mga-img class="mga-fill" src="/theme-previews/coach/a/coach-track.f1ac73b1ac4b.webp" srcset="/theme-previews/coach/a/coach-track.f1ac73b1ac4b.webp 490w, /theme-previews/coach/a/coach-track.f1ac73b1ac4b.webp 750w, /theme-previews/coach/a/coach-track.f1ac73b1ac4b.webp 1100w, /theme-previews/coach/a/coach-track.f1ac73b1ac4b.webp 1500w" sizes="(min-width: 750px) 50vw, 100vw" width="1600" height="1600" alt="A runner on a track at sunset" loading="lazy" decoding="async">
 </div><div class="mga-g1__side"><div class="mga-media mga-g1__item" data-mga-slot="2" data-media="image">
-<svg class="mga-ph" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false" fill="currentColor"><circle cx="186" cy="132" r="9"/><path d="M164 176l26-30 16 18 13-12 23 24z"/></svg>
+<svg data-ph aria-hidden="true" focusable="false" preserveAspectRatio="xMidYMid slice" class="placeholder-image placeholder-svg mga-ph" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 525.5 525.5" preserveAspectRatio="xMidYMid slice" role="img" aria-label="collection"><rect width="525.5" height="525.5" fill="currentColor" opacity=".06"/><path d="M175 200h175v125H175z M200 300l35-45 30 35 25-25 35 35z" fill="none" stroke="currentColor" stroke-width="6" opacity=".35"/><circle cx="305" cy="235" r="14" fill="currentColor" opacity=".25"/></svg>
 <video data-mga-video class="mga-fill" muted loop playsinline autoplay preload="metadata" aria-hidden="true" hidden></video>
 <img data-mga-img class="mga-fill" src="/theme-previews/coach/a/coach-stride.91fda23441c8.webp" srcset="/theme-previews/coach/a/coach-stride.91fda23441c8.webp 490w, /theme-previews/coach/a/coach-stride.91fda23441c8.webp 750w, /theme-previews/coach/a/coach-stride.91fda23441c8.webp 1100w, /theme-previews/coach/a/coach-stride.91fda23441c8.webp 1500w" sizes="(min-width: 750px) 50vw, 100vw" width="1600" height="1600" alt="A runner mid stride" loading="lazy" decoding="async">
 </div><div class="mga-media mga-g1__item" data-mga-slot="3" data-media="image">
-<svg class="mga-ph" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false" fill="currentColor"><circle cx="186" cy="132" r="9"/><path d="M164 176l26-30 16 18 13-12 23 24z"/></svg>
+<svg data-ph aria-hidden="true" focusable="false" preserveAspectRatio="xMidYMid slice" class="placeholder-image placeholder-svg mga-ph" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 525.5 525.5" preserveAspectRatio="xMidYMid slice" role="img" aria-label="collection"><rect width="525.5" height="525.5" fill="currentColor" opacity=".06"/><path d="M175 200h175v125H175z M200 300l35-45 30 35 25-25 35 35z" fill="none" stroke="currentColor" stroke-width="6" opacity=".35"/><circle cx="305" cy="235" r="14" fill="currentColor" opacity=".25"/></svg>
 <video data-mga-video class="mga-fill" muted loop playsinline autoplay preload="metadata" aria-hidden="true" hidden></video>
 <img data-mga-img class="mga-fill" src="/theme-previews/coach/a/coach-trail.0b13f199dfcf.webp" srcset="/theme-previews/coach/a/coach-trail.0b13f199dfcf.webp 490w, /theme-previews/coach/a/coach-trail.0b13f199dfcf.webp 750w, /theme-previews/coach/a/coach-trail.0b13f199dfcf.webp 1100w, /theme-previews/coach/a/coach-trail.0b13f199dfcf.webp 1500w" sizes="(min-width: 750px) 25vw, 50vw" width="1600" height="1600" alt="A runner on a ridge" loading="lazy" decoding="async">
 </div><div class="mga-media mga-g1__item" data-mga-slot="4" data-media="image">
-<svg class="mga-ph" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false" fill="currentColor"><circle cx="186" cy="132" r="9"/><path d="M164 176l26-30 16 18 13-12 23 24z"/></svg>
+<svg data-ph aria-hidden="true" focusable="false" preserveAspectRatio="xMidYMid slice" class="placeholder-image placeholder-svg mga-ph" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 525.5 525.5" preserveAspectRatio="xMidYMid slice" role="img" aria-label="collection"><rect width="525.5" height="525.5" fill="currentColor" opacity=".06"/><path d="M175 200h175v125H175z M200 300l35-45 30 35 25-25 35 35z" fill="none" stroke="currentColor" stroke-width="6" opacity=".35"/><circle cx="305" cy="235" r="14" fill="currentColor" opacity=".25"/></svg>
 <video data-mga-video class="mga-fill" muted loop playsinline autoplay preload="metadata" aria-hidden="true" hidden></video>
 <img data-mga-img class="mga-fill" src="/theme-previews/coach/a/coach-dawn.5619d87feed6.webp" srcset="/theme-previews/coach/a/coach-dawn.5619d87feed6.webp 490w, /theme-previews/coach/a/coach-dawn.5619d87feed6.webp 750w, /theme-previews/coach/a/coach-dawn.5619d87feed6.webp 1100w, /theme-previews/coach/a/coach-dawn.5619d87feed6.webp 1500w" sizes="(min-width: 750px) 25vw, 50vw" width="1600" height="1600" alt="A runner at dawn" loading="lazy" decoding="async">
 </div></div></div>
 </div>
-</div></section><section id="shopify-section-runners" class="shopify-section" data-section-id="runners" data-section-type="theme-testimonials"><script src="/theme-previews/_base/a/live-testimonials.6e78f70ae7ca.js" defer="defer"></script>
-<style>
-  #shopify-section-runners {
-    font-family: var(--body-font, inherit);
-    font-size: var(--body-font-size, inherit);
-    font-weight: var(--body-weight, inherit);
-    line-height: var(--body-line-height, inherit);
-    color: var(--color-text);
-  }
-  #shopify-section-runners :is(h1, h2, h3, h4, h5, h6) {
-    font-family: var(--heading-font, inherit);
-    font-weight: var(--heading-weight, inherit);
-    letter-spacing: var(--heading-letter-spacing, normal);
-    line-height: var(--heading-line-height, 1.2);
-    text-transform: var(--heading-text-transform, none);
-  }
+</div></section><section id="shopify-section-runners" class="shopify-section s-tt" data-section-id="runners" data-section-type="theme-testimonials"><script src="/theme-previews/_base/a/live-testimonials-runtime.48c38b1692fd.js" defer="defer"></script><style>
   :where(html:not([data-font-priority='off'])) #shopify-section-runners :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
@@ -1332,7 +1234,7 @@ data-tm-card="outline"
 data-tm-align="left"
 data-tm-avatar="circle"
 data-tm-pag="line"
-style="--section-pt: 40;  --section-pb: 40;  --tm-col-gap: 24px;    --tm-card-bg: color-mix(in srgb, var(--color-text) 4%, var(--color-background));  --tm-card-border: var(--color-border);  --tm-quote-color: var(--color-heading);    --tm-card-radius: 16px;  --tm-cols: 3;  --tm-cols-mb: 1;  --tm-avatar-size: 56px;  --tm-hs-m: 24px;  --tm-hs-d: 36px;  --tm-align: left;  --tm-pad: 24px;  --tm-gap: 14px;    --tm-below-m: 0px;  --tm-below-d: 0px;  --tm-pag-space: 30px;  --tm-pag-justify: flex-start;  --tm-pag-mi: 0 auto;"
+style="--section-pt: 40;  --section-pb: 40;  --tm-col-gap: 24px;    --tm-card-bg: color-mix(in srgb, var(--color-text) 4%, var(--color-background));  --tm-card-border: var(--color-border);  --tm-quote-color: var(--color-heading);    --tm-card-radius: 16px;  --tm-cols: 3;  --tm-cols-mb: 1;  --tm-avatar-size: 56px;  --tm-hs-m: 24px;  --tm-hs-d: 36px;  --tm-align: left;  --tm-pad: 24px;  --tm-gap: 14px;    --tm-below-m: 0px;  --tm-below-d: 0px;  --tm-pag-space: 30px;--tm-pag-justify: flex-start;  --tm-pag-mi: 0 auto;"
 >
 <div class="fluid_container"><div class="tm-header section__header text-left"><p class="tm-head tm-head--eyebrow tm-head-eyebrow_1 fs-custom" data-tm-block="eyebrow_1" data-tm-type="eyebrow" data-block-id="eyebrow_1">Runners</p><h2 class="tm-head tm-head--heading tm-head-heading_2 heading-letter-spacing" data-tm-block="heading_2" data-tm-type="heading" data-block-id="heading_2">From people I coach</h2><div class="tm-head tm-head--sub tm-head-subheading_3 rich__text-m0" data-tm-block="subheading_3" data-tm-type="subheading" data-block-id="subheading_3"><p>Sample words to show the layout. Replace them with quotes from your own runners, with their permission.</p></div></div>
 <div class="tm-cards-wrap"><slide-section
@@ -1375,21 +1277,7 @@ style="--swiper-pagination-position: static;"
 ></div></slide-section></div>
 </div>
 </div>
-</section><section id="shopify-section-cta" class="shopify-section section section-edge-bleed" data-section-id="cta" data-section-type="banner3"><style>
-  #shopify-section-cta {
-    font-family: var(--body-font, inherit);
-    font-size: var(--body-font-size, inherit);
-    font-weight: var(--body-weight, inherit);
-    line-height: var(--body-line-height, inherit);
-    color: var(--color-text);
-  }
-  #shopify-section-cta :is(h1, h2, h3, h4, h5, h6) {
-    font-family: var(--heading-font, inherit);
-    font-weight: var(--heading-weight, inherit);
-    letter-spacing: var(--heading-letter-spacing, normal);
-    line-height: var(--heading-line-height, 1.2);
-    text-transform: var(--heading-text-transform, none);
-  }
+</section><section id="shopify-section-cta" class="shopify-section section section-edge-bleed s-tt" data-section-id="cta" data-section-type="banner3"><style>
   :where(html:not([data-font-priority='off'])) #shopify-section-cta :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
@@ -1412,7 +1300,7 @@ style="--swiper-pagination-position: static;"
       margin-bottom: var(--rm3-mb-d) !important;
     }
   }
-  #shopify-section-cta:has(#rm3-cta[data-reset-spacing]) > :is(.section, section, div) { margin-top: 0 !important; margin-bottom: 0 !important; }
+  #shopify-section-cta:is(*, #_[_]) > :is(.section, section, div) { margin-top: 0 !important; margin-bottom: 0 !important; }
   @media (max-width: 749px) { #shopify-section-cta:has(#rm3-cta[data-hide-mobile]) { display: none !important; } }
   @media (min-width: 750px) { #shopify-section-cta:has(#rm3-cta[data-hide-desktop]) { display: none !important; } }
   :where(#shopify-section-cta) :where(button, input, textarea, select, optgroup) { font-family: inherit; }
@@ -1427,7 +1315,20 @@ data-hg-section="cta"
 data-reset-spacing
 style="--rm-heading-c: var(--color-heading, currentColor); --rm-text-c: var(--color-text, currentColor); --rm3-bg: var(--color-background, transparent); --rm3-pt-m: 40px; --rm3-pb-m: 40px; --rm3-pt-d: 60px; --rm3-pb-d: 60px;"
 >
-<link rel="stylesheet" href="/theme-previews/coach/a/i.72db6a41194b.css">
+<link href="/theme-previews/_base/a/section-banner3.053b977da284.css" rel="stylesheet" type="text/css" media="all">
+<style>
+/* Reveal on scroll (CSS only), used when the theme's own scroll animation is off */@keyframes rm3-in-cta {
+      from { opacity: 0; translate: var(--rm-reveal-from-y, none); scale: var(--rm-reveal-from-scale, none); }
+      to { opacity: 1; translate: none; scale: none; }
+    }
+@supports (animation-timeline: view()) {
+      #rm-hero-cta[data-reveal] {
+        animation: rm3-in-cta linear both;
+        animation-timeline: view();
+        animation-range: entry 0% entry var(--rm-reveal-range, 60%);
+      }
+    }
+</style>
 <div class="rm3__container rm3__container--stretch_width">
 <div
 class="rm-hero"
@@ -1445,22 +1346,8 @@ style="--rm-bg: var(--color-background, transparent); --rm-gradient: none; --rm-
 </div>
 </section>
 </section>
-</main><script src="/theme-previews/coach/a/i.3221b11617b1.js"></script>
-<div id="shopify-section-footer" class="shopify-section shopify-section-group-footer-group" data-section-id="footer" data-section-type="theme-footer"><style>
-  #shopify-section-footer {
-    font-family: var(--body-font, inherit);
-    font-size: var(--body-font-size, inherit);
-    font-weight: var(--body-weight, inherit);
-    line-height: var(--body-line-height, inherit);
-    color: var(--color-text);
-  }
-  #shopify-section-footer :is(h1, h2, h3, h4, h5, h6) {
-    font-family: var(--heading-font, inherit);
-    font-weight: var(--heading-weight, inherit);
-    letter-spacing: var(--heading-letter-spacing, normal);
-    line-height: var(--heading-line-height, 1.2);
-    text-transform: var(--heading-text-transform, none);
-  }
+</main><script src="/theme-previews/coach/a/i.4b7055612832.js"></script>
+<div id="shopify-section-footer" class="shopify-section shopify-section-group-footer-group s-tt" data-section-id="footer" data-section-type="theme-footer"><style>
   :where(html:not([data-font-priority='off'])) #shopify-section-footer :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
@@ -1671,6 +1558,7 @@ style="--font-size: 15"
 One email a week: a session, a note on pacing and the group run time.
 </div>
 <form id="ContactFooter" accept-charset="UTF-8" class="footer__newsletter newsletter-form" data-storelib-form="subscribe" data-ft-form="newsletter_1" data-success-message="Thanks for subscribing." data-error-message="" data-storelib-form="subscribe" data-preview-form><input type="hidden" name="form_type" value="customer"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="storelib_placement" value="footer"><input type="hidden" name="contact[tags]" value="newsletter">
+<input type="hidden" name="contact[accepts_marketing]" value="true">
 <div class="newsletter-form__field-wrapper">
 <div class="field mb-0 footer-newsletter-fields">
 <div class="flex-1 relative footer-newsletter-email">
@@ -1708,8 +1596,7 @@ aria-label="Sign up"
 </div>
 </div>
 <div class="footer__bottom"><div class="fluid_container">
-<div class="footer_bottom-inner justify-center justify-md-end flex flex-wrap flex-md-nowrap align-center border-top gap-20 gap-xl-30 py-30"><div class="flex flex-wrap gap-10 gap-xl-30 justify-center justify-md-start"><div class="footer__column footer__localization lang__currency-desktop flex flex-nowrap align-center gap-10">
-</div>
+<div class="footer_bottom-inner justify-center justify-md-end flex flex-wrap flex-md-nowrap align-center border-top gap-20 gap-xl-30 py-30"><div class="flex flex-wrap gap-10 gap-xl-30 justify-center justify-md-start">
 <div class="footer__copyright" data-ft-copyright>© 2026 Amara Wells. All rights reserved.</div>
 <ul class="footer__policies list-unstyled flex flex-wrap" data-ft-policies><li><a href="/theme-previews/coach/policies/refund-policy.html">Refund policy</a></li><li><a href="/theme-previews/coach/policies/privacy-policy.html">Privacy policy</a></li><li><a href="/theme-previews/coach/policies/terms-of-service.html">Terms of service</a></li></ul><div class="footer__powered" data-ft-powered><a href="#" data-preview-inert data-storelib-badge="" style="display:inline-flex;align-items:center;gap:.45em;white-space:nowrap;vertical-align:middle"><svg data-storelib-badge-mark="" aria-hidden="true" focusable="false" viewBox="0 0 200 200" width="14" height="14" style="display:block;flex:none;width:1.2em;height:1.2em;overflow:visible"><mask id="sl-pb-s" maskUnits="userSpaceOnUse" x="0" y="0" width="200" height="200"><rect width="200" height="200" fill="#fff"/><path transform="translate(48.97 38.44) scale(1.08) translate(-54 -43) translate(134.125,52.875)" d="M0 0 C0.99749268 0.36665771 0.99749268 0.36665771 2.01513672 0.74072266 C6.62777473 2.59663113 6.62777473 2.59663113 7.68823242 4.86303711 C7.94652165 7.99120666 7.02705902 10.04467511 5.85546875 12.94921875 C5.41009766 14.05974609 4.96472656 15.17027344 4.50585938 16.31445312 C4.02955078 17.46880859 3.55324219 18.62316406 3.0625 19.8125 C2.59779297 20.97845703 2.13308594 22.14441406 1.65429688 23.34570312 C-1.85471661 31.98985831 -1.85471661 31.98985831 -4.125 33.125 C-6.02961204 32.43054915 -7.90085447 31.64344514 -9.75 30.8125 C-19.66422998 26.58368153 -27.26609106 25.85047702 -38.125 26.125 C-38.455 27.115 -38.785 28.105 -39.125 29.125 C-38.14402344 29.36734375 -37.16304687 29.6096875 -36.15234375 29.859375 C-33.31305776 30.56236873 -30.47635159 31.27497918 -27.640625 31.9921875 C-24.80213536 32.70970135 -21.95989766 33.40235421 -19.109375 34.0703125 C-6.69949938 37.1089446 3.02755655 40.84926977 9.875 52.125 C13.29151905 58.95803811 12.61307566 67.23479967 10.625 74.4375 C7.53029491 83.45189328 1.37513276 90.18616729 -7.02734375 94.67578125 C-26.20884362 103.04454374 -49.04415352 101.90170642 -68.5 94.625 C-72.25964144 93.07749587 -75.67848864 91.2806362 -79.125 89.125 C-78.55593823 84.90468545 -77.56543969 81.39586411 -75.83984375 77.5078125 C-75.39189453 76.48945313 -74.94394531 75.47109375 -74.48242188 74.421875 C-73.77956055 72.85179688 -73.77956055 72.85179688 -73.0625 71.25 C-72.59005859 70.18007812 -72.11761719 69.11015625 -71.63085938 68.0078125 C-70.46832699 65.3774362 -69.29955398 62.75002483 -68.125 60.125 C-63.80181734 61.13483216 -60.07150265 62.96083682 -56.07421875 64.87109375 C-49.32009515 67.74271451 -43.48344492 68.41757298 -36.25 68.3125 C-35.38375 68.31185547 -34.5175 68.31121094 -33.625 68.31054688 C-29.55080641 68.64235092 -29.55080641 68.64235092 -26.125 67.125 C-32.43853708 64.84703882 -38.66045093 62.93279428 -45.25 61.625 C-56.73505022 59.25968679 -67.31315991 55.21661495 -74.125 45.125 C-77.1608836 40.09281577 -77.67121961 36.10082917 -77.625 30.375 C-77.62072998 29.57876221 -77.61645996 28.78252441 -77.61206055 27.9621582 C-77.37730644 19.82208022 -74.95520496 14.3797357 -69.625 8.25 C-68.8 7.54875 -67.975 6.8475 -67.125 6.125 C-66.403125 5.465 -65.68125 4.805 -64.9375 4.125 C-46.69751714 -8.84565448 -20.22397968 -7.61423584 0 0 Z" fill="#000"/></mask><rect width="200" height="200" rx="48" fill="currentColor" mask="url(#sl-pb-s)"/></svg><span>Powered by Storelib</span></a></div></div>
 <div class="footer__payment flex grow-1 align-center max-w-100" style="justify-content: flex-end; --pb-width: 100%; margin-left: auto;" data-ft-block="payment_badges_1" data-ft-type="payment_badges" data-block-id="payment_badges_1">
@@ -1778,22 +1665,7 @@ viewBox="0 0 165.521 105.965">
 </div>
 </div>
 </footer>
-<script src="/theme-previews/_base/a/footer-section.9a4c5ff9f6cb.js" defer></script></div><div id="shopify-section-back_to_top_pro" class="shopify-section shopify-section-group-overlay-group" data-section-id="back_to_top_pro" data-section-type="back-to-top-pro"><script src="/theme-previews/_base/a/live-page-popups.b4de4283a50f.js" defer="defer"></script>
-<style>
-  #shopify-section-back_to_top_pro {
-    font-family: var(--body-font, inherit);
-    font-size: var(--body-font-size, inherit);
-    font-weight: var(--body-weight, inherit);
-    line-height: var(--body-line-height, inherit);
-    color: var(--color-text);
-  }
-  #shopify-section-back_to_top_pro :is(h1, h2, h3, h4, h5, h6) {
-    font-family: var(--heading-font, inherit);
-    font-weight: var(--heading-weight, inherit);
-    letter-spacing: var(--heading-letter-spacing, normal);
-    line-height: var(--heading-line-height, 1.2);
-    text-transform: var(--heading-text-transform, none);
-  }
+<script src="/theme-previews/_base/a/footer-section.250ebdc9bef8.js" defer></script></div><div id="shopify-section-back_to_top_pro" class="shopify-section shopify-section-group-overlay-group s-tt" data-section-id="back_to_top_pro" data-section-type="back-to-top-pro"><script src="/theme-previews/_base/a/live-page-popups-runtime.8ade52702ae7.js" defer="defer"></script><style>
   :where(html:not([data-font-priority='off'])) #shopify-section-back_to_top_pro :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
@@ -1809,9 +1681,9 @@ viewBox="0 0 165.521 105.965">
 </span>
 </button>
 </div>
-<script src="/theme-previews/_base/a/materia-popups.f56a33a9d6a5.js" defer="defer"></script>
-<script src="/theme-previews/coach/a/i.c985487c9a26.js"></script>
-</div><script>window.__mtFillCounts&&window.__mtFillCounts(true)</script><link href="/theme-previews/_base/a/search-type-default.fb1515a9c0d2.css" rel="stylesheet" type="text/css" media="all">
+<script src="/theme-previews/_base/a/materia-popups.b25a8780e75d.js" defer="defer"></script>
+<script src="/theme-previews/coach/a/i.f4b585a5b120.js"></script>
+</div><script>window.__mtFillCounts&&window.__mtFillCounts(true)</script><link rel="stylesheet" href="/theme-previews/_base/a/search-type-default.fb1515a9c0d2.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/search-type-default.fb1515a9c0d2.css" rel="stylesheet" type="text/css" media="all"></noscript>
 <header-search class="header_search search_type_popup">
 <div class="block block-quick-search block-search predictive_search_suggest search_popup"><div
 id="search-form"
@@ -1949,20 +1821,20 @@ style=" ;--col-number: 1;--col-tablet: 1;--col-desktop-small:3;--col-desktop: 5;
 </div>
 </div>
 </header-search>
-<div class="overlay_search" popover="manual" aria-hidden="true"></div><script type="application/json" id="materia-country-options" data-current="US">[["US","United States","USD","$",""],["GB","United Kingdom","GBP","£",""],["CA","Canada","CAD","$",""],["AU","Australia","AUD","$",""],["DE","Germany","EUR","€",""],["FR","France","EUR","€",""]]</script><link rel="stylesheet" href="/theme-previews/_base/a/minicart.ac0014483417.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/minicart.ac0014483417.css" rel="stylesheet" type="text/css" media="all"></noscript><link href="/theme-previews/_base/a/materia-experience.b68d6d8152a8.css" rel="stylesheet" type="text/css" media="all"><style data-cart-drawer-style="size">
+<div class="overlay_search" popover="manual" aria-hidden="true"></div><script type="application/json" id="materia-country-options" data-current="US">[["US","United States","USD","$",""],["GB","United Kingdom","GBP","£",""],["CA","Canada","CAD","$",""],["AU","Australia","AUD","$",""],["DE","Germany","EUR","€",""],["FR","France","EUR","€",""]]</script><link rel="stylesheet" href="/theme-previews/_base/a/minicart.679b4fb18845.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/minicart.679b4fb18845.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="stylesheet" href="/theme-previews/_base/a/materia-experience.6a68b7e13653.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/materia-experience.6a68b7e13653.css" rel="stylesheet" type="text/css" media="all"></noscript><style data-cart-drawer-style="size">
   #minicart_wrapper.open_drawer .minicart__wrapper {
     --materia-cart-width: 500px;
     --materia-cart-gap: 12px;
     --materia-cart-control: 40px;
     --materia-cart-recommend-gap: 12px;
   }
-</style><link href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" rel="stylesheet" type="text/css" media="all"><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/coach/a/i.e09d7df961d5.css" data-cart-drawer-style="paint">
+</style><link rel="stylesheet" href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" rel="stylesheet" type="text/css" media="all"></noscript><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/coach/a/i.e09d7df961d5.css" data-cart-drawer-style="paint">
 <cart-notification data-cart-drawer-version="20261021-2"
 data-show-quantity="true"
 data-show-shipping-estimator="false"
 data-show-free-shipping="false"
-id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #454545;    --color-heading: #121212;    --color-primary: #d9411e;    --color-border: #e3e3e3;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #121212;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #d9411e;    --btn-secondary-color: #121212;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfcfcf;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #121212;    --btn-outline-color: #121212;    --btn-outline-border-color: #cfcfcf;    background-color: #ffffff !important;    color: #454545 !important;">
-<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #454545;    --color-heading: #121212;    --color-primary: #d9411e;    --color-border: #e3e3e3;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #121212;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #d9411e;    --btn-secondary-color: #121212;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfcfcf;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #121212;    --btn-outline-color: #121212;    --btn-outline-border-color: #cfcfcf;    background-color: #ffffff !important;    color: #454545 !important;">
+id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #ffffff;    --color-text: #454545;    --color-heading: #121212;    --color-primary: #d9411e;    --color-border: #e3e3e3;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #121212;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #d9411e;    --btn-secondary-color: #121212;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfcfcf;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #121212;    --btn-outline-color: #121212;    --btn-outline-border-color: #cfcfcf;    background-color: #ffffff !important;    color: #454545 !important;">
+<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #ffffff;    --color-text: #454545;    --color-heading: #121212;    --color-primary: #d9411e;    --color-border: #e3e3e3;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #121212;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #d9411e;    --btn-secondary-color: #121212;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfcfcf;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #121212;    --btn-outline-color: #121212;    --btn-outline-border-color: #cfcfcf;    background-color: #ffffff !important;    color: #454545 !important;">
 <button type="button" class="cart-drawer-sheet-scrim" aria-label="Cancel"></button>
 <div class="minicart__header flex gap-10 align-center justify-between px-30 py-18 color-default">
 <div class="h5 minicart-heading my-0">
@@ -1980,8 +1852,7 @@ aria-label="Close"
 </div><div
 id="minicart-form"
 class="minicart-form flex-1 flex flex-column grow relative overflow-hidden color-default"
->
-<div class="minicart-scroll flex-1 overflow-y-scroll custom-scrollbar">
+><div class="minicart-scroll flex-1 overflow-y-scroll custom-scrollbar">
 <form
 id="minicart"
 class="minicart-form flex-1 flex flex-column grow relative overflow-hidden color-default"
@@ -1999,19 +1870,27 @@ Continue Shopping
 </button>
 </div></div></form>
 </div>
-</div></div><link href="/theme-previews/_base/a/cart-drawer.47458f3359f5.css" rel="stylesheet" type="text/css" media="all">
-<script src="/theme-previews/_base/a/cart-drawer.312c83e49d19.js" defer="defer"></script></cart-notification>
+</div></div><link rel="stylesheet" href="/theme-previews/_base/a/cart-drawer.be428451fb9a.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/cart-drawer.be428451fb9a.css" rel="stylesheet" type="text/css" media="all"></noscript>
+<script src="/theme-previews/_base/a/cart-drawer.579386a6ba85.js" defer="defer"></script></cart-notification>
 <div class="overlayminicart">
 </div>
-<script src="/theme-previews/coach/a/i.f50d71910c82.js"></script>
+<div id="shopify-section-custom-colors" class="shopify-section" data-section-id="custom-colors" data-section-type="custom-colors"><style>
+  #shopify-section-custom-colors {
+    font-weight: var(--body-weight, inherit);
+  }
+  :where(#shopify-section-custom-colors) :is(h1, h2, h3, h4, h5, h6) {
+    font-weight: var(--heading-weight, inherit);
+  }
+  #shopify-section-custom-colors { isolation: isolate; position: relative; }
+</style>
+</div><script src="/theme-previews/coach/a/i.7878e9c8a781.js"></script>
 <script src="/theme-previews/_base/a/tingle-min.9664ca3641cf.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/cart-discount.6748c8dd9657.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/theme.7a7dd8f80f89.js"  defer="defer" type="module"></script>
-<script src="/theme-previews/_base/a/materia-experience.f80ef0e4ccda.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/product-card-settings.ab815c3ef72d.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/size-chart.cbff3f8443f7.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/theme-navigation.7093e0784816.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/cart-variant-edit.8299a1d91738.js" defer="defer"></script><svg aria-hidden="true" focusable="false" role="presentation" xmlns="http://www.w3.org/2000/svg" class="hidden" hidden>
+<script src="/theme-previews/_base/a/cart-discount.31276c74b980.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/theme.bbc3b899a286.js"  defer="defer" type="module"></script>
+<script src="/theme-previews/_base/a/materia-experience.95a8a8fb6473.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/product-card-settings.6a080b7abf94.js" defer="defer"></script><script>(window.mtLazy||function(u){var s=document.createElement('script');s.src=u;document.head.appendChild(s)})("/theme-previews/_base/a/size-chart.cbff3f8443f7.js")</script>
+<script src="/theme-previews/_base/a/theme-navigation.56a40d956dde.js" defer="defer"></script>
+<script>(window.mtLazy||function(u){var s=document.createElement('script');s.src=u;document.head.appendChild(s)})("/theme-previews/_base/a/cart-variant-edit.8299a1d91738.js")</script><svg aria-hidden="true" focusable="false" role="presentation" xmlns="http://www.w3.org/2000/svg" class="hidden" hidden>
 <symbol id="icon-close" viewBox="0 0 13 14" fill="none">
 <path d="M0.282609 2.06784C0.0942029 1.89363 0 1.68314 0 1.43635C0 1.17504 0.0942029 0.950028 0.282609 0.761307C0.456522 0.587102 0.673913 0.5 0.934783 0.5C1.19565 0.5 1.41304 0.587102 1.58696 0.761307L6.5 5.68258L11.413 0.761307C11.587 0.587102 11.8043 0.5 12.0652 0.5C12.3261 0.5 12.5435 0.587102 12.7174 0.761307C12.9058 0.950028 13 1.17504 13 1.43635C13 1.68314 12.9058 1.89363 12.7174 2.06784L7.80435 6.98911L12.7174 11.9104C12.9058 12.0991 13 12.3241 13 12.5854C13 12.8322 12.9058 13.0427 12.7174 13.2169C12.5435 13.4056 12.3261 13.5 12.0652 13.5C11.8043 13.5 11.587 13.4056 11.413 13.2169L6.5 8.31742L1.58696 13.2169C1.41304 13.4056 1.19565 13.5 0.934783 13.5C0.673913 13.5 0.456522 13.4056 0.282609 13.2169C0.0942029 13.0427 0 12.8322 0 12.5854C0 12.3241 0.0942029 12.0991 0.282609 11.9104L5.19565 6.98911L0.282609 2.06784Z" fill="currentColor"/>
 </symbol>
@@ -2064,32 +1943,21 @@ Skip to content
 <ul hidden>
 <li id="a11y-refresh-page-message">Choosing a selection results in a full page refresh.</li>
 <li id="a11y-new-window-message">Opens in a new window.</li>
-</ul><link href="/theme-previews/_base/a/materia-forms.2772768a5535.css" rel="stylesheet" type="text/css" media="all">
-<script src="/theme-previews/_base/a/materia-forms.7082d7d84838.js" defer="defer"></script>
-<script src="/theme-previews/coach/a/i.7e0b24218544.js"></script><script src="/theme-previews/coach/a/i.ba16972b7db0.js"></script><style>
-  @keyframes materiaMediaFade { from { opacity: 0; } to { opacity: 1; } }
-  html.js-media-fade .media-fade-run { animation: materiaMediaFade .4s ease; }
-</style>
-<script src="/theme-previews/coach/a/i.f7db1e8f8748.js"></script>
-<link rel="stylesheet" href="/theme-previews/coach/a/i.7c52d5318a5a.css">
-<script src="/theme-previews/coach/a/i.a459fa2d52ff.js"></script><script id="materia-shipping-data" type="application/json">
-  {
-    "rates": "",
-    "delivery": "",
-    "freePage": "150",
-    "freeDrawer": "150",
-    "subtotal": 0,
-    "currency": "USD",
-    "country": "US",
-    "text": {
-      "choose": "Choose your country",
-      "rateTo": "Shipping to {{ country }}",
-      "free": "Free",
-      "freeOver": "Free shipping on orders over {{ amount }}",
-      "atCheckout": "Shipping to {{ country }} is calculated at checkout."
-    }
+</ul><link rel="stylesheet" href="/theme-previews/_base/a/materia-forms.2772768a5535.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/materia-forms.2772768a5535.css" rel="stylesheet" type="text/css" media="all"></noscript><script>(function(u){var load=window.mtLazy||function(x){var s=document.createElement('script');s.src=x;document.head.appendChild(s)};
+window.__mtFormsUrl=u;if(/[?&](customer_posted|contact_posted|form_type)=/.test(location.search+' '+(window.__mtPostedUrl||'')))(load.now||load)(u);else load(u)})("/theme-previews/_base/a/materia-forms.1ff8018ff069.js")</script><script src="/theme-previews/coach/a/i.46ae589d856d.js"></script><script src="/theme-previews/coach/a/i.ba16972b7db0.js"></script><style>
+  html.mt-img-reveal img.media-fade-wait {
+    background-color: rgb(var(--text-color, 0 0 0) / 0.05);
   }
-</script><script src="/theme-previews/coach/a/i.a060c6e3df4c.js"></script><div id="shopify-section-cart-drawer-live" class="shopify-section shopify-section-group-overlay-group" data-section-id="cart-drawer-live" data-section-type="cart-drawer-live"><style>
+</style>
+<script src="/theme-previews/coach/a/i.d93814c7a9ed.js"></script>
+<link rel="stylesheet" href="/theme-previews/coach/a/i.7c52d5318a5a.css">
+<script src="/theme-previews/coach/a/i.e5cb30aabe6c.js"></script><script id="materia-shipping-data" type="application/json">
+  {
+    "country": "US",
+    "available": ["US","GB","CA","AU","DE","FR"],
+    "text": { "choose": "Choose your country" }
+  }
+</script><script src="/theme-previews/coach/a/i.f5316e84d1bf.js"></script><div id="shopify-section-cart-drawer-live" class="shopify-section shopify-section-group-overlay-group" data-section-id="cart-drawer-live" data-section-type="cart-drawer-live"><style>
   #shopify-section-cart-drawer-live { display: none !important; }
 </style><div data-ti-no-reveal data-no-image-carry hidden><template data-cart-drawer-source><style data-cart-drawer-style="size">
   #minicart_wrapper.open_drawer .minicart__wrapper {
@@ -2103,8 +1971,8 @@ Skip to content
 data-show-quantity="true"
 data-show-shipping-estimator="false"
 data-show-free-shipping="false"
-id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #454545;    --color-heading: #121212;    --color-primary: #d9411e;    --color-border: #e3e3e3;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #121212;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #d9411e;    --btn-secondary-color: #121212;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfcfcf;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #121212;    --btn-outline-color: #121212;    --btn-outline-border-color: #cfcfcf;    background-color: #ffffff !important;    color: #454545 !important;">
-<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #454545;    --color-heading: #121212;    --color-primary: #d9411e;    --color-border: #e3e3e3;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #121212;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #d9411e;    --btn-secondary-color: #121212;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfcfcf;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #121212;    --btn-outline-color: #121212;    --btn-outline-border-color: #cfcfcf;    background-color: #ffffff !important;    color: #454545 !important;">
+id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #ffffff;    --color-text: #454545;    --color-heading: #121212;    --color-primary: #d9411e;    --color-border: #e3e3e3;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #121212;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #d9411e;    --btn-secondary-color: #121212;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfcfcf;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #121212;    --btn-outline-color: #121212;    --btn-outline-border-color: #cfcfcf;    background-color: #ffffff !important;    color: #454545 !important;">
+<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #ffffff;    --color-text: #454545;    --color-heading: #121212;    --color-primary: #d9411e;    --color-border: #e3e3e3;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #121212;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #d9411e;    --btn-secondary-color: #121212;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfcfcf;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #121212;    --btn-outline-color: #121212;    --btn-outline-border-color: #cfcfcf;    background-color: #ffffff !important;    color: #454545 !important;">
 <button type="button" class="cart-drawer-sheet-scrim" aria-label="Cancel"></button>
 <div class="minicart__header flex gap-10 align-center justify-between px-30 py-18 color-default">
 <div class="h5 minicart-heading my-0">
@@ -2122,14 +1990,13 @@ aria-label="Close"
 </div><div
 id="minicart-form"
 class="minicart-form flex-1 flex flex-column grow relative overflow-hidden color-default"
->
-<div class="minicart-scroll flex-1 overflow-y-scroll custom-scrollbar">
+><div class="minicart-scroll flex-1 overflow-y-scroll custom-scrollbar">
 <form
 id="minicart"
 class="minicart-form flex-1 flex flex-column grow relative overflow-hidden color-default"
 novalidate
-data-preview-form><div class="minicart-body flex-1 grow pt-30 px-30 overflow-x-hidden pb-30"><div class="items">
-</div></div></form>
+data-preview-form><div class="minicart-body flex-1 grow pt-30 px-30 overflow-x-hidden pb-30"><div class="cda-slot" data-cda-slot="top_of_drawer"></div><div class="items">
+</div><div class="cda-slot" data-cda-slot="below_items"></div></div></form>
 <minicart-discount
 class="cart-footeraddon grey-bg absolute transition w-full z-10 p-30 left-0 bottom-0 border-top shadow pointer-none cart__addon-content"
 id="coupon"
@@ -2175,34 +2042,19 @@ Cancel
 <minicart-recommendations
 data-added-text="Added"
 data-url="#"
-class="bls-image-js block cart-recommend pt-30 pb-30 px-30 border-top block no-js-hidden"
-><h4 class="minicart-heading mt-0 mb-15 fs-18 heading-letter-spacing">
-You may also like...
-</h4><slide-section
-class="swiper swiper-cart-upsell"
-id="swiper-cart-upsell"
-data-section-id="cart-upsell"
-data-autoplay="false"
-data-loop="false"
-data-mobile="1"
-data-tablet="1"
-data-desktop="1"
-data-item-mobile="1"
-data-pagination-progressbar="false"
-data-recommend-pagination="dots"
-data-spacing="12"
->
-<div class="swiper-wrapper"></div>
-<div class="cart-recommend__nav">
-<button type="button" class="cart-recommend__arrow swiper-button-prev" aria-label="Previous">
-<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg>
+data-source=".cart-rec__track"
+class="block cart-recommend cart-recommend--cards pt-30 pb-30 px-30 border-top block no-js-hidden"
+><cart-rec-carousel class="cart-rec block">
+<div class="cart-rec__head"><h4 class="minicart-heading cart-rec__heading heading-letter-spacing">You may also like...</h4><div class="cart-rec__arrows">
+<button type="button" class="cart-rec__arrow" data-cart-rec-prev aria-label="Previous" disabled>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg>
 </button>
-<div class="swiper-pagination"></div>
-<button type="button" class="cart-recommend__arrow swiper-button-next" aria-label="Next">
-<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg>
+<button type="button" class="cart-rec__arrow" data-cart-rec-next aria-label="Next">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9.5 6 6 6-6 6"/></svg>
 </button>
-</div>
-</slide-section></minicart-recommendations>
+</div></div>
+<div class="cart-rec__track" data-cart-rec-track role="region" aria-label="You may also like..." tabindex="0"></div>
+</cart-rec-carousel></minicart-recommendations>
 <div class="cart-addons flex justify-center border-top">
 <div data-id="coupon" class="mini_cart_coupon lh-1">
 <button
@@ -2212,13 +2064,11 @@ data-open="coupon"
 aria-expanded="false"
 aria-controls="coupon"
 class="btn-reset pointer mini_cart_addon_btn show-overlay inline-flex align-center gift relative"
-><svg class="cart-tool-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 4h16v5a3 3 0 0 0 0 6v5H4v-5a3 3 0 0 0 0-6V4Z"/><path d="m9 15 6-6M9 9h.01M15 15h.01"/></svg><span class="cart-tool-label">
-<span>Coupon code</span>
-</span>
+><svg class="cart-tool-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 4h16v5a3 3 0 0 0 0 6v5H4v-5a3 3 0 0 0 0-6V4Z"/><path d="m9 15 6-6M9 9h.01M15 15h.01"/></svg><span class="cart-tool-label"><span class="cart-tool-label__long">Coupon code</span><span class="cart-tool-label__short" aria-hidden="true">Coupon</span></span>
 </button>
 </div>
 </div></div>
-<div class="cart-footer"><p class="cart-editor-preview">Editor preview: shoppers see this once the cart has items.</p><div class="cart-drawer-addons-row px-30"></div>
+<div class="cart-footer"><div class="cart-drawer-addons-row px-30"><div class="cda-slot" data-cda-slot="above_subtotal"></div></div>
 <div class="drawer-bottom cart__ctas px-30 pt-20 pb-30 grey-bg border-top">
 <div class="cart-summary text-right" data-cart-summary>
 <div data-discounts>
@@ -2231,14 +2081,12 @@ class="btn-reset pointer mini_cart_addon_btn show-overlay inline-flex align-cent
 <span class="subtotal-price h5 my-5" data-cart-subtotal-price>
 $0.00
 </span>
-</div><button
+</div><div class="cda-slot" data-cda-slot="above_checkout"></div><button
 type="submit"
 class="btn-primary w-full btn-checkout"
 name="checkout"
 form="minicart"
->
-<span>Checkout</span>
-</button><div class="cda-payments"
+><span>Checkout</span></button><div class="cda-slot" data-cda-slot="below_checkout"><div class="cda-payments"
 style="--cda-payments-color: var(--color-text, #6B7280);
 --cda-payments-text-size: 12px;
 --cda-payments-badge-h: 32px;
@@ -2299,7 +2147,7 @@ viewBox="0 0 165.521 105.965">
 <path d="M7.079 12.05a2.709 2.709 0 0 1 0-1.735v-1.17H5.577a4.505 4.505 0 0 0 0 4.075l1.502-1.17z" fill="#FBBC04"></path>
 <path d="M9.629 8.44a2.452 2.452 0 0 1 1.74.68l1.3-1.293a4.37 4.37 0 0 0-3.065-1.183 4.53 4.53 0 0 0-4.027 2.5l1.502 1.171a2.715 2.715 0 0 1 2.55-1.875z" fill="#EA4335"></path>
 </svg></li></ul>
-</div></div>
+</div></div></div>
 </div>
 </div></div></cart-notification>
 <div class="overlayminicart">

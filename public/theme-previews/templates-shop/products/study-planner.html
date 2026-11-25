@@ -1,7 +1,7 @@
 
 <!doctype html>
 <html class="no-js" lang="en" dir="ltr">
-<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/templates-shop/a/cart.2c899a255c2c.json",WISH_DATA="";
+<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/templates-shop/a/cart.2c899a255c2c.json",WISH_DATA="",QV_DATA="/theme-previews/templates-shop/a/quickview.e22bfff62827.json",RV_DATA="/theme-previews/templates-shop/a/recent.bf54f559d543.json";
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
@@ -84,7 +84,12 @@ var pg=D.getElementById("main-cart-items");if(pg){var s=pg.closest(".shopify-sec
 paintCount();if(hold)requestAnimationFrame(function(){hold.remove()})}).catch(function(){if(hold)hold.remove()})}
 if(D.readyState==="loading")D.addEventListener("DOMContentLoaded",arrive);else arrive();
 
-if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);if(mine(u))return F.apply(this,arguments);
+if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);
+/* Round 26: a card's Quick view (each product's, from QV_DATA) and the Recently viewed row (every product's card, from RV_DATA; the theme keeps the visitor's). */
+var sid=/[?&]section_id=([^&#]+)/.exec(u);sid=sid&&sid[1];
+if(sid==="product-quickview"&&QV_DATA){var hm=//products/([^/?#]+?)(?:.html)?$/.exec(path(u));return F(QV_DATA).then(function(r){return r.json()}).then(function(d){var n=hm?d.k.indexOf(decodeURIComponent(hm[1])):-1;if(n<0)return new Response("",{status:404});var x=d.d[n];return new Response(typeof x==="string"?x:patch(d.d[0],x),{status:200,headers:{"Content-Type":"text/html"}})})}
+if(sid==="recently-viewed"&&RV_DATA)return F(RV_DATA).then(function(r){return r.json()}).then(function(d){return new Response(d.html,{status:200,headers:{"Content-Type":"text/html"}})});
+if(mine(u))return F.apply(this,arguments);
 /* Cards round 24: the cart answers from the template's drawn cart (./theme-templates/preview-cart.ts), as a store would. */
 /* Round 25: the wishlist page asks for its saved products' cards; every product's card is in WISH_DATA and the theme keeps the saved ones. */
 if(WISH_DATA&&/\/search$/.test(path(u))&&/[?&]section_id=/.test(u))return F(WISH_DATA).then(function(r){return r.json()}).then(function(d){return new Response(d.html,{status:200,headers:{"Content-Type":"text/html"}})});
@@ -1678,7 +1683,77 @@ $29.00
       </script></div>
 </div></div>
 </div>
-</section>
+</section><section id="shopify-section-recently_viewed" class="shopify-section s-tt" data-section-id="recently_viewed" data-section-type="recently-viewed"><script src="/theme-previews/_base/a/r7-products-runtime.e74c1e24b1d4.js" defer="defer"></script><style>
+  :where(html:not([data-font-priority='off'])) #shopify-section-recently_viewed :where(.subheading, .sub-heading, [class*='__subheading']) {
+    font-weight: var(--subheading-weight, 500);
+  }
+</style><style>
+  #shopify-section-recently_viewed.scroll-trigger {
+    --animation-duration: 950ms;
+    --animation-delay: 80ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-recently_viewed');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', "subtle_rise");
+  })();
+</script><style data-rs-bulletproof>/* reset_spacing: bulletproof override of ALL section spacing mechanisms */
+    #shopify-section-recently_viewed,
+    #shopify-section-recently_viewed > .section,
+    #shopify-section-recently_viewed > section,
+    #shopify-section-recently_viewed > div,
+    #shopify-section-recently_viewed > div > .section {
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
+    }
+    #shopify-section-recently_viewed + .shopify-section,
+    #shopify-section-recently_viewed + section,
+    .shopify-section + #shopify-section-recently_viewed {
+      margin-top: 0 !important;
+    }</style><link href="/theme-previews/_base/a/r7-products.997b904247eb.css" rel="stylesheet" type="text/css" media="all"><style>
+  #shopify-section-recently_viewed { isolation: isolate; position: relative; }
+  #shopify-section-recently_viewed, .shopify-section + #shopify-section-recently_viewed {
+    margin-top: 0px !important;
+    margin-bottom: 0px !important;
+  }
+  @media (min-width: 768px) {
+    #shopify-section-recently_viewed, .shopify-section + #shopify-section-recently_viewed {
+      margin-top: 0px !important;
+      margin-bottom: 0px !important;
+    }
+  }
+  /* Nothing viewed yet: the section takes no space at all. */
+  #shopify-section-recently_viewed:has(> .r7rv[hidden]) { display: none !important; }</style>
+<div
+class="section r7k r7rv color-default gradient remove_spacing"
+data-r7k-root="recently-viewed" data-r7k-section="recently_viewed"
+data-align="left" data-width="container"
+data-arrows="true" data-progress="true"
+data-over-d="false" data-over-m="false"
+data-rv-state="wait" data-rv-limit="8" data-rv-cols="4" data-rv-cols-m="2" data-rv-current="00000000-0000-4000-8000-000000000015" data-rv-url="/search"
+style="--section-pt: 40;--section-pb: 56;--r7k-hgap: 32px;--rv-cols: 4;--rv-cols-m: 2;--rv-gap: 20px;--rv-gap-m: 15px;--rv-f-d: 1;--rv-f-m: 1;" hidden
+>
+<div class="r7k-inner container" data-r7k-width>
+<div class="r7k-header" data-r7k-header>
+<div class="r7k-header__text"><h2 class="r7k-heading" id="r7k-heading-recently_viewed" data-r7k-block="heading_rv" data-r7k-type="heading" style="--r7k-fs-d: 32px;--r7k-fs-m: 26px;" data-block-id="heading_rv">Recently viewed</h2></div>
+<div class="r7rv__nav" data-r7k-nav>
+<button type="button" class="r7rv__arrow r7rv__arrow--prev" data-r7k-prev aria-controls="r7rv-track-recently_viewed" aria-label="Previous" disabled>
+<svg width="14" height="14" viewBox="0 0 12 12" fill="none" aria-hidden="true" focusable="false"><path d="M8 2 4 6l4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</button>
+<button type="button" class="r7rv__arrow r7rv__arrow--next" data-r7k-next aria-controls="r7rv-track-recently_viewed" aria-label="Next">
+<svg width="14" height="14" viewBox="0 0 12 12" fill="none" aria-hidden="true" focusable="false"><path d="m4 2 4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</button>
+</div>
+</div>
+<ul
+class="r7rv__track" id="r7rv-track-recently_viewed" role="list" data-r7k-track tabindex="0"
+aria-labelledby="r7k-heading-recently_viewed"
+></ul>
+<div class="r7rv__progress" data-r7k-progress aria-hidden="true"><span class="r7rv__thumb"></span></div>
+</div>
+</div></section>
 </main><script src="/theme-previews/templates-shop/a/i.4b7055612832.js"></script>
 <div id="shopify-section-footer" class="shopify-section shopify-section-group-footer-group s-tt" data-section-id="footer" data-section-type="theme-footer"><style>
   :where(html:not([data-font-priority='off'])) #shopify-section-footer :where(.subheading, .sub-heading, [class*='__subheading']) {

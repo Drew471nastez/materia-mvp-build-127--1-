@@ -1,7 +1,7 @@
 
 <!doctype html>
 <html class="no-js" lang="en" dir="ltr">
-<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/merch/a/cart.a40b44dd0a48.json",WISH_DATA="/theme-previews/merch/a/wishlist.e3b4bafda88f.json";
+<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/merch/a/cart.a40b44dd0a48.json",WISH_DATA="/theme-previews/merch/a/wishlist.0eea76ed323c.json",QV_DATA="/theme-previews/merch/a/quickview.bece15cfc6ac.json",RV_DATA="/theme-previews/merch/a/recent.960398030f70.json";
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
@@ -84,7 +84,12 @@ var pg=D.getElementById("main-cart-items");if(pg){var s=pg.closest(".shopify-sec
 paintCount();if(hold)requestAnimationFrame(function(){hold.remove()})}).catch(function(){if(hold)hold.remove()})}
 if(D.readyState==="loading")D.addEventListener("DOMContentLoaded",arrive);else arrive();
 
-if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);if(mine(u))return F.apply(this,arguments);
+if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);
+/* Round 26: a card's Quick view (each product's, from QV_DATA) and the Recently viewed row (every product's card, from RV_DATA; the theme keeps the visitor's). */
+var sid=/[?&]section_id=([^&#]+)/.exec(u);sid=sid&&sid[1];
+if(sid==="product-quickview"&&QV_DATA){var hm=//products/([^/?#]+?)(?:.html)?$/.exec(path(u));return F(QV_DATA).then(function(r){return r.json()}).then(function(d){var n=hm?d.k.indexOf(decodeURIComponent(hm[1])):-1;if(n<0)return new Response("",{status:404});var x=d.d[n];return new Response(typeof x==="string"?x:patch(d.d[0],x),{status:200,headers:{"Content-Type":"text/html"}})})}
+if(sid==="recently-viewed"&&RV_DATA)return F(RV_DATA).then(function(r){return r.json()}).then(function(d){return new Response(d.html,{status:200,headers:{"Content-Type":"text/html"}})});
+if(mine(u))return F.apply(this,arguments);
 /* Cards round 24: the cart answers from the template's drawn cart (./theme-templates/preview-cart.ts), as a store would. */
 /* Round 25: the wishlist page asks for its saved products' cards; every product's card is in WISH_DATA and the theme keeps the saved ones. */
 if(WISH_DATA&&/\/search$/.test(path(u))&&/[?&]section_id=/.test(u))return F(WISH_DATA).then(function(r){return r.json()}).then(function(d){return new Response(d.html,{status:200,headers:{"Content-Type":"text/html"}})});
@@ -206,7 +211,7 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
           document.head.appendChild(l);
         } catch (e) {}
       })();
-    </script><link href="/theme-previews/_base/a/base.d8ddf84b871f.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"outline","product_size":13,"price_size":13,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
+    </script><link href="/theme-previews/_base/a/base.a7bb01c1b397.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"outline","product_size":13,"price_size":13,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
 <style>html:not([data-card-custom='true']) .product-item .product-item__name { font-size:var(--body-font-size, 16px); text-transform:var(--heading-text-transform, none) !important; } html:not([data-card-custom='true']) .product-item .product-item__price { font-size:var(--body-font-size, 16px); }</style>
 <script>document.documentElement.dataset.cardCustom = false === true ? 'true' : 'false';</script>
 <script type="application/json" data-badge-style-settings>true</script>
@@ -1366,6 +1371,31 @@ XL</span>
   {"00000000-0000-4000-8000-001200000001": { "price": "$38.00", "compare_at_price": "" },"00000000-0000-4000-8000-001200000002": { "price": "$38.00", "compare_at_price": "" },"00000000-0000-4000-8000-001200000003": { "price": "$38.00", "compare_at_price": "" },"00000000-0000-4000-8000-001200000004": { "price": "$38.00", "compare_at_price": "" },"00000000-0000-4000-8000-001200000005": { "price": "$38.00", "compare_at_price": "" }}
 </script>
 </variant-radios-detail>
+</div></div><div class="pib-own" data-pib-block="variant_picker_1_size_guide" data-pib-type="size_guide" style="display: contents"><div class="mt-size-guide-root mt-size-guide-root--block" data-size-chart-root="variant_picker_1_size_guide" data-block-preview-root="variant_picker_1_size_guide" data-block-id="variant_picker_1_size_guide">
+<button
+type="button"
+class="mt-size-guide"
+data-mt-sheet-open
+aria-controls="SizeChart-main-variant_picker_1_size_guide"
+aria-haspopup="dialog"
+aria-expanded="false"
+>
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 8.5 3l12.5 12.5-5.5 5.5z"/><path d="m7 7 1.5 1.5M10 5.5 11.5 7M13 8.5 14.5 10M11 11l1.5 1.5M16 11.5l1.5 1.5"/></svg>
+<span>Size guide</span>
+</button>
+<dialog id="SizeChart-main-variant_picker_1_size_guide" class="mt-sheet" aria-labelledby="SizeChart-main-variant_picker_1_size_guide-title">
+<div class="mt-sheet__panel">
+<div class="mt-sheet__head">
+<h2 id="SizeChart-main-variant_picker_1_size_guide-title" class="mt-sheet__title">Size guide</h2>
+<button type="button" class="mt-sheet__close" data-mt-sheet-close aria-label="Close">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+</button>
+</div>
+<div class="mt-sheet__body rte">
+<div class="mt-sheet__table-wrap"><div class="mt-size-chart__note rte"><p>Measured flat, in centimetres. Boxy fit: take your usual size for room, one down for a closer fit.</p><table><tr><th>Size</th><th>Chest</th><th>Length</th></tr><tr><td>XS</td><td>56</td><td>66</td></tr><tr><td>S</td><td>59</td><td>68</td></tr><tr><td>M</td><td>62</td><td>70</td></tr><tr><td>L</td><td>65</td><td>72</td></tr><tr><td>XL</td><td>68</td><td>74</td></tr></table></div></div>
+</div>
+</div>
+</dialog>
 </div></div><div class="pib-own" data-pib-block="pp23_info" data-pib-type="infotables" style="display: contents"><div id="InfoTables-pp23_info" class="it-card" data-block-id="pp23_info"
 style="
 --it-bg: #ffffff;
@@ -2323,7 +2353,77 @@ $44.00
       </script></div>
 </div></div>
 </div>
-</section><section id="shopify-section-reviews" class="shopify-section section-testimonial-product s-tt" data-section-id="reviews" data-section-type="testimonial-product"><script src="/theme-previews/_base/a/r7-testimonials-runtime.70d39791c83f.js" defer="defer"></script><style>
+</section><section id="shopify-section-recently_viewed" class="shopify-section s-tt" data-section-id="recently_viewed" data-section-type="recently-viewed"><script src="/theme-previews/_base/a/r7-products-runtime.e74c1e24b1d4.js" defer="defer"></script><style>
+  :where(html:not([data-font-priority='off'])) #shopify-section-recently_viewed :where(.subheading, .sub-heading, [class*='__subheading']) {
+    font-weight: var(--subheading-weight, 500);
+  }
+</style><style>
+  #shopify-section-recently_viewed.scroll-trigger {
+    --animation-duration: 950ms;
+    --animation-delay: 80ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-recently_viewed');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', "fade_in");
+  })();
+</script><style data-rs-bulletproof>/* reset_spacing: bulletproof override of ALL section spacing mechanisms */
+    #shopify-section-recently_viewed,
+    #shopify-section-recently_viewed > .section,
+    #shopify-section-recently_viewed > section,
+    #shopify-section-recently_viewed > div,
+    #shopify-section-recently_viewed > div > .section {
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
+    }
+    #shopify-section-recently_viewed + .shopify-section,
+    #shopify-section-recently_viewed + section,
+    .shopify-section + #shopify-section-recently_viewed {
+      margin-top: 0 !important;
+    }</style><link href="/theme-previews/_base/a/r7-products.997b904247eb.css" rel="stylesheet" type="text/css" media="all"><style>
+  #shopify-section-recently_viewed { isolation: isolate; position: relative; }
+  #shopify-section-recently_viewed, .shopify-section + #shopify-section-recently_viewed {
+    margin-top: 0px !important;
+    margin-bottom: 0px !important;
+  }
+  @media (min-width: 768px) {
+    #shopify-section-recently_viewed, .shopify-section + #shopify-section-recently_viewed {
+      margin-top: 0px !important;
+      margin-bottom: 0px !important;
+    }
+  }
+  /* Nothing viewed yet: the section takes no space at all. */
+  #shopify-section-recently_viewed:has(> .r7rv[hidden]) { display: none !important; }</style>
+<div
+class="section r7k r7rv color-default gradient remove_spacing"
+data-r7k-root="recently-viewed" data-r7k-section="recently_viewed"
+data-align="left" data-width="fluid_container"
+data-arrows="true" data-progress="true"
+data-over-d="false" data-over-m="false"
+data-rv-state="wait" data-rv-limit="8" data-rv-cols="4" data-rv-cols-m="2" data-rv-current="00000000-0000-4000-8000-000000000012" data-rv-url="/search"
+style="--section-pt: 40;--section-pb: 56;--r7k-hgap: 32px;--rv-cols: 4;--rv-cols-m: 2;--rv-gap: 20px;--rv-gap-m: 15px;--rv-f-d: 1;--rv-f-m: 1;" hidden
+>
+<div class="r7k-inner fluid_container" data-r7k-width>
+<div class="r7k-header" data-r7k-header>
+<div class="r7k-header__text"><h2 class="r7k-heading" id="r7k-heading-recently_viewed" data-r7k-block="heading_rv" data-r7k-type="heading" style="--r7k-fs-d: 32px;--r7k-fs-m: 26px;" data-block-id="heading_rv">Recently viewed</h2></div>
+<div class="r7rv__nav" data-r7k-nav>
+<button type="button" class="r7rv__arrow r7rv__arrow--prev" data-r7k-prev aria-controls="r7rv-track-recently_viewed" aria-label="Previous" disabled>
+<svg width="14" height="14" viewBox="0 0 12 12" fill="none" aria-hidden="true" focusable="false"><path d="M8 2 4 6l4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</button>
+<button type="button" class="r7rv__arrow r7rv__arrow--next" data-r7k-next aria-controls="r7rv-track-recently_viewed" aria-label="Next">
+<svg width="14" height="14" viewBox="0 0 12 12" fill="none" aria-hidden="true" focusable="false"><path d="m4 2 4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</button>
+</div>
+</div>
+<ul
+class="r7rv__track" id="r7rv-track-recently_viewed" role="list" data-r7k-track tabindex="0"
+aria-labelledby="r7k-heading-recently_viewed"
+></ul>
+<div class="r7rv__progress" data-r7k-progress aria-hidden="true"><span class="r7rv__thumb"></span></div>
+</div>
+</div></section><section id="shopify-section-reviews" class="shopify-section section-testimonial-product s-tt" data-section-id="reviews" data-section-type="testimonial-product"><script src="/theme-previews/_base/a/r7-testimonials-runtime.70d39791c83f.js" defer="defer"></script><style>
   :where(html:not([data-font-priority='off'])) #shopify-section-reviews :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }

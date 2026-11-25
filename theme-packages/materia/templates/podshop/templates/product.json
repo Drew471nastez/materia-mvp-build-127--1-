@@ -56,9 +56,7 @@
           "type": "variant_picker",
           "settings": {
             "variant_type": "swatches",
-            "show_size_guide": false,
-            "picker_swatch_style": "theme",
-            "size_guide_content": "<p>Measurements in inches, taken flat across the chest and from the shoulder to the hem.</p>"
+            "picker_swatch_style": "theme"
           }
         },
         "size_guide_1": {
@@ -67,7 +65,6 @@
             "use_storelib_chart": true,
             "table_unit": "in",
             "size_guide_label": "Size chart",
-            "size_guide_display": "modal",
             "size_guide_appearance": "link",
             "table_data": "Size | Chest | Length\nS | 18 | 28\nM | 20 | 29\nL | 22 | 30\nXL | 24 | 31\n2XL | 26 | 32",
             "size_guide_content": "<p>Body measurements in centimetres. Between two sizes? Take the larger for coats and knitwear, the smaller for tailoring.</p>"

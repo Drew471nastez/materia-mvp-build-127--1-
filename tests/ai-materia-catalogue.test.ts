@@ -53,6 +53,10 @@ import { agentRulesText, builderAgentRules } from "@/lib/agent-rules"
 import { searchComponents } from "@/lib/agent-access/components"
 import { purposeOfType } from "@/lib/storelib-ai/materia/catalogue"
 import { CAPS, CONCEPT, HERO, scripted } from "./ai-builder-agent-fixtures"
+import JSZip from "jszip"
+import { composeTemplateZip } from "@/lib/themes/template-packages"
+import { convertShopifyTheme } from "@/lib/storelib-theme/shopify/convert"
+import { completenessIssues } from "@/lib/ai-builder/agent/site-plan"
 import { sitePlan } from "./ai-builder-whole-site-fixtures"
 
 let passed = 0
@@ -97,7 +101,14 @@ async function main() {
     const input = readCatalogueInput()
     const rebuilt = buildMateriaCatalogue(input)
     const onDisk = readFileSync(join(process.cwd(), "lib/storelib-ai/materia/catalogue.generated.ts"), "utf8")
-    check("the generated module is exactly what the theme's files build today (run scripts/build-materia-catalogue.ts when this fails)", catalogueModuleText(rebuilt) === onDisk)
+    check("the generated module is exactly what the theme's files build today (scripts/build-materia-catalogue.mjs, run before build, dev and the push tests, regenerates it)", catalogueModuleText(rebuilt) === onDisk)
+    const pkg = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8")) as { scripts: Record<string, string> }
+    const runner = readFileSync(join(process.cwd(), "scripts/run-push-tests.mjs"), "utf8")
+    check("it is regenerated before every build, dev server and push test run, so a template edit cannot leave it stale",
+      pkg.scripts.build.indexOf("node scripts/build-materia-catalogue.mjs") > 0 && pkg.scripts.build.indexOf("node scripts/build-materia-catalogue.mjs") < pkg.scripts.build.indexOf("scripts/build-next.mjs") &&
+        pkg.scripts.dev.indexOf("node scripts/build-materia-catalogue.mjs") >= 0 && pkg.scripts.dev.indexOf("node scripts/build-materia-catalogue.mjs") < pkg.scripts.dev.indexOf("next dev") &&
+        runner.indexOf('"scripts/build-materia-catalogue.mjs"') > 0 && runner.indexOf('"scripts/build-materia-catalogue.mjs"') < runner.indexOf('execFileSync("pnpm", ["exec", "tsc"'))
+    check("  the pre-step writes only when the catalogue changed", /readFileSync\(out, "utf8"\) === text/.test(readFileSync(join(process.cwd(), "scripts/build-materia-catalogue.ts"), "utf8")))
     const withSchema = Object.entries(input.sections).filter(([, text]) => liquidSchema(text))
     check("every base section with a {% schema %} is in it, under its file name", withSchema.length >= 300 && withSchema.every(([f]) => !!materiaSection(f.replace(/\.liquid$/, ""))), { sections: withSchema.length })
     check("the theme blocks too", rebuilt.blocks.length >= 20 && rebuilt.blocks.some((b) => b.type === "variant_picker"))
@@ -232,6 +243,23 @@ async function main() {
     const edit = materiaBrief({ job: job({ edit: true }), files, pages: pages as never })
     check("Edit with AI on a Materia site: the short rules, the site's sections by purpose, what it can add", /THIS SITE IS BUILT ON MATERIA/.test(edit.text) && /home: hero-image1 \[hero\], faq-tabs \[faq\]/.test(edit.text) && /BY WHAT THEY DO/.test(edit.text) && edit.choice === null)
     check("Edit with AI on a site that is not Materia: nothing added", materiaBrief({ job: job({ edit: true }), files: [], pages: pages as never }).text === "")
+
+    /* Start with AI from a template: the real "trainer" template, converted as the import converts it, is the website the agent starts on. */
+    const converted = await convertShopifyTheme(await JSZip.loadAsync(await composeTemplateZip("materia/trainer")), { fallbackName: "AI website" })
+    if (converted.ok === false) throw new Error("the trainer template did not convert")
+    const tplFiles = Object.fromEntries(Object.entries(converted.theme.files).filter(([p]) => p.endsWith(".storelib")))
+    const tplPages = Object.fromEntries(converted.theme.pages.map((p) => [p.page_key, p.sections as never]))
+    const onTemplate = memoryStore({ files: tplFiles, pages: tplPages })
+    const tplModel = scripted([{ calls: [["list_pages", {}]] }], { id: "plan" })
+    const tplJob = job({ mode: "theme", options: { generation: "theme", category: "fitness_coach", template: "trainer" } })
+    const tr = await runAgentSlice(tplJob, null, { ...deps, store: onTemplate, models: { ...deps.models, plan: { provider: tplModel, model: "claude-opus-5-5", effort: "medium" } } }, { deadline: T0 + 10 * 60_000, maxIterations: 1 })
+    const tplFirst = String((tplModel.requests[0]?.turns[0] as { text?: string; content?: string })?.text ?? (tplModel.requests[0]?.turns[0] as { content?: string })?.content ?? "")
+    check("Start with AI on the imported template: the agent follows THAT template and knows Materia is installed", tr.checkpoint.materia?.template === "trainer" && tr.checkpoint.materia?.install === true, tr.checkpoint.materia)
+    check("  told it is the template, already imported, to adapt (never ship), and to place Materia's own sections", /NEW WEBSITE FROM A STORELIB TEMPLATE/.test(tplFirst) && /TEMPLATE, ALREADY IMPORTED/.test(tplFirst) && /THIS WEBSITE RUNS ON MATERIA/.test(tplFirst) && !/NEW WEBSITE INSIDE A THEME/.test(tplFirst), tplFirst.slice(0, 600))
+    check("  no AI-own starter template is poured over it", !tr.checkpoint.template)
+    const homeBody = (onTemplate.project.pages.home ?? []).filter((x) => !(x as { group?: string }).group && !x.hidden)
+    const done = completenessIssues({ pages: await onTemplate.listPages(), sources: onTemplate.project.files, settings: {}, caps: CAPS, mode: "theme", plan: { pages: [{ key: "home", sections: homeBody.map((x) => x.type) }] }, materia: true })
+    check("  finish reads its Materia sections as the site's own (no 'none of your own' on the template's home)", !done.some((i) => i.code === "site.home_sections" || i.code === "site.template_product" || i.code === "site.unreachable"), done.map((i) => i.code))
 
     /* The classic planner. */
     const turn = sitePlanTurn({ prompt: "A running coach", caps: EMPTY_CAPABILITIES, capsText: "", addable: [], presets: [], reference: plannerReference({ prompt: "Marathon plans from a running coach" }) })

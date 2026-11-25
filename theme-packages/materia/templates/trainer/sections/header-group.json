@@ -11,24 +11,24 @@
         "show_close": false,
         "show_separator_line": false,
         "enable_custom_style": true,
-        "background_color": "#17120e",
-        "text_color": "#e9e2da",
-        "accent_color": "#e48a5c",
-        "uppercase": false,
-        "font_size": 13,
+        "background_color": "#0d0d0d",
+        "text_color": "#e6e4de",
+        "accent_color": "#ffffff",
+        "uppercase": true,
+        "font_size": 12,
         "change_every": 6
       },
       "blocks": {
         "announcement_1": {
           "type": "announcement",
           "settings": {
-            "text": "Two online coaching spots open for January. <a href=\"/pages/book-a-call\">Book a free call</a>"
+            "text": "Taking two new online clients for January. <a href=\"/pages/apply\">Apply</a>"
           }
         },
         "announcement_2": {
           "type": "announcement",
           "settings": {
-            "text": "New: Strength Foundations, a twelve week program for gym or home. <a href=\"/collections/all\">See the programs</a>"
+            "text": "New: Strength Foundations, twelve weeks for gym or home. <a href=\"/collections/programs\">See the programs</a>"
           }
         }
       },
@@ -44,7 +44,7 @@
         "menu_tab": "unset",
         "mega_menu": "main-menu",
         "show_search": false,
-        "color_scheme": "default",
+        "color_scheme": "scheme-b0fae5fa-c388-4a42-acd3-92cf8fe0b1fb",
         "icon_spacing": 10,
         "header_height": 78,
         "header_layout": "stretch_width",
@@ -54,7 +54,7 @@
         "section_width": "container",
         "show_currency": false,
         "show_language": false,
-        "separator_line": "unset",
+        "separator_line": "all-page",
         "actions_as_text": false,
         "collection_list": [],
         "logo_gap_mobile": 0,
@@ -64,15 +64,15 @@
         "menu_custom_font": "ibm_plex_sans_n5",
         "menu_hover_style": "inherit",
         "redirect_to_link": true,
-        "logo_width_mobile": 120,
+        "logo_width_mobile": 140,
         "menu_link_spacing": 32,
         "menu_mobile_color": "#ffffff",
         "show_account_icon": false,
         "action_text_weight": "400",
-        "logo_width_desktop": 150,
+        "logo_width_desktop": 170,
         "show_shopping_cart": true,
         "show_wishlist_icon": false,
-        "sticky_header_type": "on-scroll-up",
+        "sticky_header_type": "always",
         "transparent_header": false,
         "transparent_mobile": false,
         "dropdowns_animation": "down-to-up",
@@ -98,7 +98,8 @@
         "transparent_hover_fill_color": "#ffffff",
         "transparent_text_hover_color": "#1a1a1a",
         "section_margin_bottom_desktop": 0,
-        "transparent_bottom_border_color": "#020202"
+        "transparent_bottom_border_color": "#020202",
+        "menu_font_weight": "600"
       },
       "blocks": {
         "pill_glass_1": {

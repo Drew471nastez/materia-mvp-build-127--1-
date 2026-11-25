@@ -1,3 +1,4 @@
+/* Lowmoth pack page. Round 26: what is inside is a folder browser with one row of tabs (soundpacks-contents). */
 {
   "sections": {
     "main": {
@@ -62,7 +63,6 @@
           "type": "variant_picker",
           "settings": {
             "variant_type": "button",
-            "show_size_guide": false,
             "picker_swatch_style": "theme"
           }
         },
@@ -288,7 +288,7 @@
         "max_width": 1040,
         "heading_size": 40,
         "heading_size_mobile": 30,
-        "accent": "#ff8a73",
+        "accent": "#c6f432",
         "color_scheme": "scheme-sp-deep",
         "section_width": "container",
         "padding_top": 72,
@@ -454,7 +454,7 @@
         "col_bpm": "BPM",
         "col_key": "Key",
         "bpm_suffix": true,
-        "accent": "#ff8a73",
+        "accent": "#c6f432",
         "panel_color": "#141416",
         "use_theme_radius": false,
         "panel_radius": 28,
@@ -907,17 +907,19 @@
       ]
     },
     "contents": {
-      "type": "samples-pack-contents",
+      "type": "soundpacks-contents",
       "settings": {
-        "eyebrow": "",
         "heading": "What is inside.",
-        "text": "<p>Every folder, counted. WAV files at 24 bit, 44.1 kHz.</p>",
+        "text": "<p>Every folder in the ZIP, counted. WAV files at 24 bit, 44.1 kHz.</p>",
+        "align": "left",
+        "tabs_label": "Folders in the pack",
+        "accent": "#c6f432",
         "max_width": 1200,
         "heading_size": 44,
         "heading_size_mobile": 30,
         "color_scheme": "default",
         "section_width": "container",
-        "padding_top": 88,
+        "padding_top": 80,
         "padding_bottom": 56
       },
       "blocks": {
@@ -1563,7 +1565,7 @@
         "header_gap": 40,
         "show_dividers": true,
         "enable_custom_style": true,
-        "label_color": "#ff8a73",
+        "label_color": "#c6f432",
         "item_heading_color": "#f3f3f4",
         "text_color": "#a3a3ab",
         "divider_color": "#26262a",

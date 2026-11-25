@@ -1,5 +1,4 @@
-/* Templates round 25: back to the round 23 order the owner preferred (trending, category banners, finishing details beside a picture, wet weeks, collections, night layers beside a picture, about, a single big review), all on Materia's own sections; the scrolling picture hero stays. */
-/* Templates round 26: a scrolling strip of materials under the hero for a little more character, and room between the trending cards so their Add to cart buttons never touch. */
+/* Templates round 25: back to the round 23 order the owner preferred (trending, category banners, finishing details beside a picture, wet weeks, collections, night layers beside a picture, about, a single big review), all on Materia's own sections; the scrolling picture hero stays. Templates round 26: a scrolling strip of materials under the hero for a little more character, and room between the trending cards so their Add to cart buttons never touch. */
 {
   "sections": {
     "hero": {

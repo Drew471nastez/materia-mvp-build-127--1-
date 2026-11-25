@@ -1,7 +1,7 @@
 
 <!doctype html>
 <html class="no-js" lang="en" dir="ltr">
-<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/notion-sales-page/a/cart.be7f5854038f.json",WISH_DATA="";
+<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/notion-sales-page/a/cart.5461c7b71be4.json",WISH_DATA="",QV_DATA="/theme-previews/notion-sales-page/a/quickview.96342627ef4f.json",RV_DATA="/theme-previews/notion-sales-page/a/recent.7f63224bcf47.json";
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
@@ -84,7 +84,12 @@ var pg=D.getElementById("main-cart-items");if(pg){var s=pg.closest(".shopify-sec
 paintCount();if(hold)requestAnimationFrame(function(){hold.remove()})}).catch(function(){if(hold)hold.remove()})}
 if(D.readyState==="loading")D.addEventListener("DOMContentLoaded",arrive);else arrive();
 
-if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);if(mine(u))return F.apply(this,arguments);
+if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);
+/* Round 26: a card's Quick view (each product's, from QV_DATA) and the Recently viewed row (every product's card, from RV_DATA; the theme keeps the visitor's). */
+var sid=/[?&]section_id=([^&#]+)/.exec(u);sid=sid&&sid[1];
+if(sid==="product-quickview"&&QV_DATA){var hm=//products/([^/?#]+?)(?:.html)?$/.exec(path(u));return F(QV_DATA).then(function(r){return r.json()}).then(function(d){var n=hm?d.k.indexOf(decodeURIComponent(hm[1])):-1;if(n<0)return new Response("",{status:404});var x=d.d[n];return new Response(typeof x==="string"?x:patch(d.d[0],x),{status:200,headers:{"Content-Type":"text/html"}})})}
+if(sid==="recently-viewed"&&RV_DATA)return F(RV_DATA).then(function(r){return r.json()}).then(function(d){return new Response(d.html,{status:200,headers:{"Content-Type":"text/html"}})});
+if(mine(u))return F.apply(this,arguments);
 /* Cards round 24: the cart answers from the template's drawn cart (./theme-templates/preview-cart.ts), as a store would. */
 /* Round 25: the wishlist page asks for its saved products' cards; every product's card is in WISH_DATA and the theme keeps the saved ones. */
 if(WISH_DATA&&/\/search$/.test(path(u))&&/[?&]section_id=/.test(u))return F(WISH_DATA).then(function(r){return r.json()}).then(function(d){return new Response(d.html,{status:200,headers:{"Content-Type":"text/html"}})});
@@ -197,13 +202,13 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
   .shopify-section[data-perf-offscreen] *,
   .shopify-section[data-perf-offscreen] *::before,
   .shopify-section[data-perf-offscreen] *::after { animation-play-state: paused !important; }
-</style><link rel="stylesheet" href="/theme-previews/notion-sales-page/a/i.7a7b3254a69f.css" id="speed-page-landing"><script src="/theme-previews/notion-sales-page/a/i.0bd6d5139503.js"></script><script id="speed-optimization-js" src="/theme-previews/notion-sales-page/a/i.fe3bbcd3c347.js"></script>
+</style><link rel="stylesheet" href="/theme-previews/notion-sales-page/a/i.91e49e396991.css" id="speed-page-landing"><script src="/theme-previews/notion-sales-page/a/i.0bd6d5139503.js"></script><script id="speed-optimization-js" src="/theme-previews/notion-sales-page/a/i.fe3bbcd3c347.js"></script>
 <script>
       (function () {
         try {
           var l = document.createElement('link');
           l.rel = 'modulepreload';
-          l.href = new URL('/theme-previews/_base/a/cart-components.14f925b5b149.js', new URL("/theme-previews/_base/a/theme.bfa96d6f1e75.js", location.href)).href;
+          l.href = new URL('/theme-previews/_base/a/cart-components.b6711c3796ec.js', new URL("/theme-previews/_base/a/theme.bbc3b899a286.js", location.href)).href;
           l.fetchPriority = 'low';
           document.head.appendChild(l);
         } catch (e) {}
@@ -233,7 +238,7 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
 <link rel="stylesheet" href="/theme-previews/notion-sales-page/a/i.6c0d78881d40.css" data-shopify><link href="/theme-previews/_base/a/theme.55299cac0019.css" rel="stylesheet" type="text/css" media="all"><noscript><link href="/theme-previews/_base/a/popup.18cdf2513c31.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.9c20c549e3cf.css">
 <link rel="preload" as="style" href="/theme-previews/_base/a/minicart.679b4fb18845.css" fetchpriority="low">
 <link rel="preload" as="style" href="/theme-previews/_base/a/materia-experience.6a68b7e13653.css" fetchpriority="low">
-<link rel="stylesheet" href="/theme-previews/notion-sales-page/a/i.d8a0fc5aef6a.css"><link rel="stylesheet" href="/theme-previews/notion-sales-page/a/i.413c3bb41ce5.css"><link href="/theme-previews/_base/a/theme-button-contract.344c6ef650d4.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/localization-controls.ea52564768ef.css" rel="stylesheet" type="text/css" media="all"><link rel="modulepreload" href="/theme-previews/_base/a/theme.bfa96d6f1e75.js" fetchpriority="low"><script data-storelib-head src="/theme-previews/notion-sales-page/a/i.585ec254f5fd.js"></script>
+<link rel="stylesheet" href="/theme-previews/notion-sales-page/a/i.d8a0fc5aef6a.css"><link rel="stylesheet" href="/theme-previews/notion-sales-page/a/i.413c3bb41ce5.css"><link href="/theme-previews/_base/a/theme-button-contract.344c6ef650d4.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/localization-controls.ea52564768ef.css" rel="stylesheet" type="text/css" media="all"><link rel="modulepreload" href="/theme-previews/_base/a/theme.bbc3b899a286.js" fetchpriority="low"><script data-storelib-head src="/theme-previews/notion-sales-page/a/i.585ec254f5fd.js"></script>
 <script src="/theme-previews/_base/a/swiper-bundle-min.31d164f7367d.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/motion-min.d1f8eb312b47.js" type="module" defer="defer" fetchpriority="low"></script>
 <script src="/theme-previews/_base/a/utils.26985d2d39f0.js" defer="defer" data-cart-count="0"></script>
@@ -262,7 +267,7 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
         body > #shopify-section-footer-group,
         body > #shopify-section-sections--footer-group,
         body > .shopify-section-group-footer-group { flex: 0 0 auto; }
-      </style><style data-sl-focus>[tabindex="-1"]:focus,dialog:focus,[role="dialog"]:focus,[aria-modal="true"]:focus,details-modal:focus,modal-dialog:focus{outline:none!important}</style><link rel="stylesheet" href="/theme-previews/notion-sales-page/a/i.baba7fb2aa0e.css" data-sl-busy-buttons><style data-sl-missing-image>img[data-sl-missing]{background-color:#f3f4f6!important;background-image:none!important;object-fit:contain!important;object-position:50% 50%!important;color:transparent!important}html[data-sl-dark] img[data-sl-missing],[data-community-theme="dark"] img[data-sl-missing]{background-color:#26282c!important}</style><script data-sl-missing-image src="/theme-previews/notion-sales-page/a/i.d77d88883af7.js"></script><script data-sl-cover-trim src="/theme-previews/notion-sales-page/a/i.fc4335148114.js"></script><link rel="stylesheet" href="/theme-previews/_base/a/fonts.bd14396acf32.css" data-storelib-font><link rel="stylesheet" href="/theme-previews/_base/a/fonts.fb2ab27c2a4b.css" data-storelib-font><link rel="stylesheet" href="/theme-previews/notion-sales-page/a/i.17f73b1756bd.css" data-storelib-bundle><style data-storelib-overrides>.button:not(.button--tertiary):not(.button-unstyled):not(.link):hover,.btn:hover,button[type=submit]:not(.button-unstyled):not(.link):hover,input[type=submit]:hover,.shopify-payment-button__button--unbranded:hover{transform:none!important;box-shadow:none!important;filter:none!important}.button:not(.button--tertiary):not(.button-unstyled):not(.link),.btn,button[type=submit]:not(.button-unstyled):not(.link),input[type=submit],.shopify-payment-button__button--unbranded{transition:none!important}input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=hidden]):not([type=submit]),select,textarea,.field__input,.select__select{border-color:#bababa!important}input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=hidden]):not([type=submit]):focus,select:focus,textarea:focus,.field__input:focus,.select__select:focus{outline:2px solid #adadad!important;outline-offset:1px;border-color:#adadad!important;box-shadow:none!important}</style><link rel="icon" href="data:,"></head>
+      </style><style data-sl-focus>[tabindex="-1"]:focus,dialog:focus,[role="dialog"]:focus,[aria-modal="true"]:focus,details-modal:focus,modal-dialog:focus{outline:none!important}</style><link rel="stylesheet" href="/theme-previews/notion-sales-page/a/i.baba7fb2aa0e.css" data-sl-busy-buttons><style data-sl-missing-image>img[data-sl-missing]{background-color:#f3f4f6!important;background-image:none!important;object-fit:contain!important;object-position:50% 50%!important;color:transparent!important}html[data-sl-dark] img[data-sl-missing],[data-community-theme="dark"] img[data-sl-missing]{background-color:#26282c!important}</style><script data-sl-missing-image src="/theme-previews/notion-sales-page/a/i.d77d88883af7.js"></script><script data-sl-cover-trim src="/theme-previews/notion-sales-page/a/i.fc4335148114.js"></script><link rel="stylesheet" href="/theme-previews/_base/a/fonts.bd14396acf32.css" data-storelib-font><link rel="stylesheet" href="/theme-previews/_base/a/fonts.fb2ab27c2a4b.css" data-storelib-font><link rel="stylesheet" href="/theme-previews/notion-sales-page/a/i.17f73b1756bd.css" data-storelib-bundle><link rel="stylesheet" href="/theme-previews/notion-sales-page/a/i.0016b90be953.css" data-storelib-overrides><link rel="icon" href="data:,"></head>
 <body
 class="gradient rounded-style  page"
 data-btn-style="solid"
@@ -1096,7 +1101,7 @@ viewBox="0 0 165.521 105.965">
 </span>
 </button>
 </div>
-<script src="/theme-previews/_base/a/materia-popups.96769370ce85.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/materia-popups.b25a8780e75d.js" defer="defer"></script>
 <script src="/theme-previews/notion-sales-page/a/i.f4b585a5b120.js"></script>
 </div><script>window.__mtFillCounts&&window.__mtFillCounts(true)</script><link rel="stylesheet" href="/theme-previews/_base/a/search-type-default.fb1515a9c0d2.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/search-type-default.fb1515a9c0d2.css" rel="stylesheet" type="text/css" media="all"></noscript>
 <header-search class="header_search search_type_popup">
@@ -1286,7 +1291,7 @@ Continue Shopping
 </div></div></form>
 </div>
 </div></div><link rel="stylesheet" href="/theme-previews/_base/a/cart-drawer.be428451fb9a.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/cart-drawer.be428451fb9a.css" rel="stylesheet" type="text/css" media="all"></noscript>
-<script src="/theme-previews/_base/a/cart-drawer.851147404250.js" defer="defer"></script></cart-notification>
+<script src="/theme-previews/_base/a/cart-drawer.579386a6ba85.js" defer="defer"></script></cart-notification>
 <div class="overlayminicart">
 </div>
 <div id="shopify-section-custom-colors" class="shopify-section" data-section-id="custom-colors" data-section-type="custom-colors"><style>
@@ -1300,11 +1305,11 @@ Continue Shopping
 </style>
 </div><script src="/theme-previews/notion-sales-page/a/i.7878e9c8a781.js"></script>
 <script src="/theme-previews/_base/a/tingle-min.9664ca3641cf.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/cart-discount.49db14ebd05b.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/theme.bfa96d6f1e75.js"  defer="defer" type="module"></script>
-<script src="/theme-previews/_base/a/materia-experience.33944b51bd6f.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/cart-discount.31276c74b980.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/theme.bbc3b899a286.js"  defer="defer" type="module"></script>
+<script src="/theme-previews/_base/a/materia-experience.95a8a8fb6473.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/product-card-settings.6a080b7abf94.js" defer="defer"></script><script>(window.mtLazy||function(u){var s=document.createElement('script');s.src=u;document.head.appendChild(s)})("/theme-previews/_base/a/size-chart.cbff3f8443f7.js")</script>
-<script src="/theme-previews/_base/a/theme-navigation.d9bcdbe0febc.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/theme-navigation.56a40d956dde.js" defer="defer"></script>
 <script>(window.mtLazy||function(u){var s=document.createElement('script');s.src=u;document.head.appendChild(s)})("/theme-previews/_base/a/cart-variant-edit.8299a1d91738.js")</script><svg aria-hidden="true" focusable="false" role="presentation" xmlns="http://www.w3.org/2000/svg" class="hidden" hidden>
 <symbol id="icon-close" viewBox="0 0 13 14" fill="none">
 <path d="M0.282609 2.06784C0.0942029 1.89363 0 1.68314 0 1.43635C0 1.17504 0.0942029 0.950028 0.282609 0.761307C0.456522 0.587102 0.673913 0.5 0.934783 0.5C1.19565 0.5 1.41304 0.587102 1.58696 0.761307L6.5 5.68258L11.413 0.761307C11.587 0.587102 11.8043 0.5 12.0652 0.5C12.3261 0.5 12.5435 0.587102 12.7174 0.761307C12.9058 0.950028 13 1.17504 13 1.43635C13 1.68314 12.9058 1.89363 12.7174 2.06784L7.80435 6.98911L12.7174 11.9104C12.9058 12.0991 13 12.3241 13 12.5854C13 12.8322 12.9058 13.0427 12.7174 13.2169C12.5435 13.4056 12.3261 13.5 12.0652 13.5C11.8043 13.5 11.587 13.4056 11.413 13.2169L6.5 8.31742L1.58696 13.2169C1.41304 13.4056 1.19565 13.5 0.934783 13.5C0.673913 13.5 0.456522 13.4056 0.282609 13.2169C0.0942029 13.0427 0 12.8322 0 12.5854C0 12.3241 0.0942029 12.0991 0.282609 11.9104L5.19565 6.98911L0.282609 2.06784Z" fill="currentColor"/>
@@ -1359,7 +1364,7 @@ Skip to content
 <li id="a11y-refresh-page-message">Choosing a selection results in a full page refresh.</li>
 <li id="a11y-new-window-message">Opens in a new window.</li>
 </ul><link rel="stylesheet" href="/theme-previews/_base/a/materia-forms.2772768a5535.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/materia-forms.2772768a5535.css" rel="stylesheet" type="text/css" media="all"></noscript><script>(function(u){var load=window.mtLazy||function(x){var s=document.createElement('script');s.src=x;document.head.appendChild(s)};
-window.__mtFormsUrl=u;if(/[?&](customer_posted|contact_posted|form_type)=/.test(location.search+' '+(window.__mtPostedUrl||'')))(load.now||load)(u);else load(u)})("/theme-previews/_base/a/materia-forms.201a7d20041f.js")</script><script src="/theme-previews/notion-sales-page/a/i.46ae589d856d.js"></script><script src="/theme-previews/notion-sales-page/a/i.ba16972b7db0.js"></script><style>
+window.__mtFormsUrl=u;if(/[?&](customer_posted|contact_posted|form_type)=/.test(location.search+' '+(window.__mtPostedUrl||'')))(load.now||load)(u);else load(u)})("/theme-previews/_base/a/materia-forms.1ff8018ff069.js")</script><script src="/theme-previews/notion-sales-page/a/i.46ae589d856d.js"></script><script src="/theme-previews/notion-sales-page/a/i.ba16972b7db0.js"></script><style>
   html.mt-img-reveal img.media-fade-wait {
     background-color: rgb(var(--text-color, 0 0 0) / 0.05);
   }

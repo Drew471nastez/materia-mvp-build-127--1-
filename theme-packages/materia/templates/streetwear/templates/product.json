@@ -87,7 +87,6 @@
           "type": "variant_picker",
           "settings": {
             "variant_type": "swatches",
-            "show_size_guide": false,
             "picker_swatch_style": "theme"
           }
         },
@@ -97,7 +96,6 @@
             "use_storelib_chart": true,
             "table_unit": "cm",
             "size_guide_label": "Size guide",
-            "size_guide_display": "modal",
             "size_guide_appearance": "link",
             "table_data": "Size | Chest | Length | Sleeve\nS | 104 | 70 | 22\nM | 110 | 72 | 23\nL | 116 | 74 | 24\nXL | 122 | 76 | 25",
             "size_guide_content": "<p>Garment measurements in centimetres, laid flat. Cut loose: take your usual size.</p>"

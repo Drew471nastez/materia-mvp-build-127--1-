@@ -1,7 +1,7 @@
 
 <!doctype html>
 <html class="no-js" lang="en" dir="ltr">
-<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/space-clothing/a/cart.475719e12145.json",WISH_DATA="";
+<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/space-clothing/a/cart.475719e12145.json",WISH_DATA="",QV_DATA="/theme-previews/space-clothing/a/quickview.45d00ca0d202.json",RV_DATA="/theme-previews/space-clothing/a/recent.c5ef423eb3d8.json";
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
@@ -84,7 +84,12 @@ var pg=D.getElementById("main-cart-items");if(pg){var s=pg.closest(".shopify-sec
 paintCount();if(hold)requestAnimationFrame(function(){hold.remove()})}).catch(function(){if(hold)hold.remove()})}
 if(D.readyState==="loading")D.addEventListener("DOMContentLoaded",arrive);else arrive();
 
-if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);if(mine(u))return F.apply(this,arguments);
+if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);
+/* Round 26: a card's Quick view (each product's, from QV_DATA) and the Recently viewed row (every product's card, from RV_DATA; the theme keeps the visitor's). */
+var sid=/[?&]section_id=([^&#]+)/.exec(u);sid=sid&&sid[1];
+if(sid==="product-quickview"&&QV_DATA){var hm=//products/([^/?#]+?)(?:.html)?$/.exec(path(u));return F(QV_DATA).then(function(r){return r.json()}).then(function(d){var n=hm?d.k.indexOf(decodeURIComponent(hm[1])):-1;if(n<0)return new Response("",{status:404});var x=d.d[n];return new Response(typeof x==="string"?x:patch(d.d[0],x),{status:200,headers:{"Content-Type":"text/html"}})})}
+if(sid==="recently-viewed"&&RV_DATA)return F(RV_DATA).then(function(r){return r.json()}).then(function(d){return new Response(d.html,{status:200,headers:{"Content-Type":"text/html"}})});
+if(mine(u))return F.apply(this,arguments);
 /* Cards round 24: the cart answers from the template's drawn cart (./theme-templates/preview-cart.ts), as a store would. */
 /* Round 25: the wishlist page asks for its saved products' cards; every product's card is in WISH_DATA and the theme keeps the saved ones. */
 if(WISH_DATA&&/\/search$/.test(path(u))&&/[?&]section_id=/.test(u))return F(WISH_DATA).then(function(r){return r.json()}).then(function(d){return new Response(d.html,{status:200,headers:{"Content-Type":"text/html"}})});
@@ -870,7 +875,7 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
     .space-clock-clock { font-size: 10px; padding-bottom: 14px; }
   }
 </style>
-<div class="space-clock space-clock-clock" data-space-clock="date_time" data-hours="12"><time datetime="2026-11-25T09:16">25/11/2026 09:16</time></div>
+<div class="space-clock space-clock-clock" data-space-clock="date_time" data-hours="12"><time datetime="2026-11-25T09:45">25/11/2026 09:45</time></div>
 <script>
   (function () {
     var root = document.querySelector('.space-clock-clock');
@@ -1179,7 +1184,20 @@ aria-expanded="false"
 </button>
 </div>
 <div class="mt-sheet__body rte">
-<div class="mt-sheet__table-wrap"><div class="mt-size-chart__note rte"><p>Body measurements in centimetres. Boxy fit: take your usual size.</p></div></div>
+<div class="mt-sheet__table-wrap"><div class="mt-size-chart mt-size-chart--units" data-mt-size-chart data-size-triggers="Size, Taglia"><div class="mt-size-chart__units" role="radiogroup" aria-label="Units">
+<label><input type="radio" name="mt-size-unit-rows-size_guide_1" value="cm" checked> cm</label>
+<label><input type="radio" name="mt-size-unit-rows-size_guide_1" value="in"> in</label>
+</div><div class="mt-size-chart__scroll" data-unit="cm" tabindex="0" role="region" aria-label="Size chart (cm)">
+<table class="mt-size-chart__table" data-unit="cm">
+<thead><tr><th scope="col">Size</th><th scope="col">Chest</th><th scope="col">Waist</th><th scope="col">Length (cm)</th></tr></thead>
+<tbody><tr><th scope="row">XS</th><td>86 to 90</td><td>70 to 74</td><td>68</td></tr><tr><th scope="row">S</th><td>91 to 96</td><td>75 to 80</td><td>70</td></tr><tr><th scope="row">M</th><td>97 to 102</td><td>81 to 86</td><td>72</td></tr><tr><th scope="row">L</th><td>103 to 108</td><td>87 to 92</td><td>74</td></tr><tr><th scope="row">XL</th><td>109 to 115</td><td>93 to 99</td><td>76</td></tr></tbody>
+</table>
+</div><div class="mt-size-chart__scroll" data-unit="in" tabindex="0" role="region" aria-label="Size chart (in)">
+<table class="mt-size-chart__table" data-unit="in">
+<thead><tr><th scope="col">Size</th><th scope="col">Chest</th><th scope="col">Waist</th><th scope="col">Length (in)</th></tr></thead>
+<tbody><tr><th scope="row">XS</th><td>86 to 90</td><td>70 to 74</td><td>26.8</td></tr><tr><th scope="row">S</th><td>91 to 96</td><td>75 to 80</td><td>27.6</td></tr><tr><th scope="row">M</th><td>97 to 102</td><td>81 to 86</td><td>28.3</td></tr><tr><th scope="row">L</th><td>103 to 108</td><td>87 to 92</td><td>29.1</td></tr><tr><th scope="row">XL</th><td>109 to 115</td><td>93 to 99</td><td>29.9</td></tr></tbody>
+</table>
+</div></div><div class="mt-size-chart__note rte"><p>Body measurements in centimetres. Boxy fit: take your usual size.</p></div></div>
 </div>
 </div>
 </dialog>

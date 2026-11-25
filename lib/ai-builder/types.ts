@@ -283,6 +283,12 @@ export interface StartOptions {
     colors?: string[]
     language?: string
   }
+  /**
+   * Round 26: the Materia template (CODE_TEMPLATES `template`, e.g. "trainer") the new website was made from,
+   * chosen and imported by the server before the job runs (lib/themes/template-install.ts). Never taken from the
+   * browser: parseStartOptions does not read it.
+   */
+  template?: string
 }
 
 /** POST /api/website-builder/themes/create body for Start with AI. */

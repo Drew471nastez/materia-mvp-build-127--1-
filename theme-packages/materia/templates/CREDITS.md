@@ -160,7 +160,8 @@ They are not part of a template and are never added to a creator's website.
 | ebooks | assets/ebooks-pasture-fog.webp | https://images.unsplash.com/photo-1527928407206-c0a98085a5ec | Unsplash License |
 | ebooks | assets/ebooks-eggs.webp | https://images.unsplash.com/photo-1498654077810-12c21d4d6dc3 | Unsplash License |
 | ebooks | assets/ebooks-stockpot.webp | https://images.unsplash.com/photo-1572171579626-e79450374587 | Unsplash License |
-| ebooks | assets/ebooks-kitchen.webp, assets/ebooks-kitchen-phone.webp | https://images.unsplash.com/photo-1580929753603-10519c6e480a (Janko Ferlič), pots on a gas stove; the About page hero | Unsplash License |
+| ebooks | assets/ebooks-kitchen.webp | https://images.unsplash.com/photo-1580929753603-10519c6e480a | Unsplash License |
+| ebooks | assets/ebooks-kitchen-phone.webp | https://images.unsplash.com/photo-1580929753603-10519c6e480a | Unsplash License |
 | ebooks | assets/ebooks-sourdough.webp | https://images.unsplash.com/photo-1767065888377-e5ffb4e39645 | Unsplash License |
 | ebooks | assets/ebooks-library.webp | Drawn for this template | Storelib |
 | ebooks (drawn around) | assets/ebooks-library.webp | the four cover photographs below | Unsplash License |
@@ -194,6 +195,7 @@ They are not part of a template and are never added to a creator's website.
 | fitness | assets/fitness-floor-work.webp | https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b | Unsplash License |
 | fitness | assets/fitness-stretch.webp | https://images.unsplash.com/photo-1544367567-0f2fcb009e0b | Unsplash License |
 | fitness | assets/fitness-dumbbells.webp | https://images.unsplash.com/photo-1534438327276-14e5300c3a48 | Unsplash License |
+| fitness | assets/fitness-logo.webp | Drawn for this template | Storelib |
 | landing | assets/landing-hero-desk.webp | https://images.unsplash.com/photo-1546663250-e28569a9706d | Unsplash License |
 | landing | assets/landing-starter-desk.webp | https://images.unsplash.com/photo-1627244714766-94dab62ed964 | Unsplash License |
 | landing | assets/landing-behind-camera.webp | https://images.unsplash.com/photo-1497015289639-54688650d173 | Unsplash License |
@@ -245,6 +247,7 @@ They are not part of a template and are never added to a creator's website.
 | creator | assets/creator-press-5.webp | Drawn for this template | Storelib |
 | creator (cover only) | scripts/theme-templates/products/creator/creator-dark-paper.webp | Drawn for this template | Storelib |
 | creator (cover only) | scripts/theme-templates/products/creator/creator-workbook.webp | Drawn for this template | Storelib |
+| creator | assets/creator-logo.webp | Drawn for this template | Storelib |
 | streetwear | assets/streetwear-beach-shirt.webp | https://images.unsplash.com/photo-1772583435283-b07bc9950497 | Unsplash License |
 | streetwear | assets/streetwear-cafe-street.webp | https://images.unsplash.com/photo-1782179284550-311f707c7722 | Unsplash License |
 | streetwear | assets/streetwear-cream-shirt.webp | https://images.unsplash.com/photo-1627686011747-74adda3d2343 | Unsplash License |
@@ -285,6 +288,7 @@ They are not part of a template and are never added to a creator's website.
 | samples | assets/samples-demo-bass-collection.mp4 | https://freesound.org/people/Johnnie_Holiday/sounds/688234/ : "Tech House 808 Bass Loop.wav" by Johnnie_Holiday, first 6 bars; trimmed, faded out, levelled to -14 LUFS, AAC mono. A stand in until Loudlib's own demos are uploaded | CC0 1.0 (public domain) |
 | samples | assets/samples-dj-hands.webp | https://images.unsplash.com/photo-1470225620780-dba8ba36b745 | Unsplash License |
 | samples | assets/samples-hero-studio.webp | https://images.unsplash.com/photo-1563330232-57114bb0823c | Unsplash License |
+| samples | assets/samples-hero-console.webp | https://images.unsplash.com/photo-1518972559570-7cc1309f3229 | Unsplash License |
 | samples | assets/samples-avatar-tasha.webp | https://images.unsplash.com/photo-1668092834733-60f7c0d567a1 | Unsplash License |
 | samples | assets/samples-avatar-tony.webp | https://images.unsplash.com/photo-1764014352836-dba4e1b5ba46 | Unsplash License |
 | samples | assets/samples-avatar-sasha.webp | https://images.unsplash.com/photo-1625786682948-2168238883d2 | Unsplash License |
@@ -300,6 +304,7 @@ They are not part of a template and are never added to a creator's website.
 | samples (cover only) | scripts/theme-templates/products/samples/samples-pack-tech-house-unitech.webp | Loudlib's own pack box, owner's artwork from its Payhip store (pe56d.s3.amazonaws.com): Tech House Unitech Vol I on a plain dark background | Loudlib (the owner) |
 | samples (cover only) | scripts/theme-templates/products/samples/samples-pack-drums-collection.webp | Loudlib's own pack box, owner's artwork from its Payhip store (pe56d.s3.amazonaws.com): Drums Collection (Tech House Drums Collection Vol I) on a plain dark background | Loudlib (the owner) |
 | samples (cover only) | scripts/theme-templates/products/samples/samples-pack-bass-collection.webp | Loudlib's own pack box, owner's artwork from its Payhip store (pe56d.s3.amazonaws.com): Bass Collection (Tech House Bass Collection Vol I) on a plain dark background | Loudlib (the owner) |
+| samples (sample products) | scripts/theme-templates/products/samples/samples-pack-*.webp, assets/samples-box-*.webp | Round 26: each box moved so it sits in the middle of its picture (they sat 5 to 10 percent right of centre). The hero picture samples-hero-console.webp has the maker name on the mixing desk painted out. The two logos drawn in round 26 (fitness-logo.webp, creator-logo.webp) set their wordmarks in Bebas Neue and Lora, both SIL Open Font License | as above |
 | workspace | assets/workspace-hero.webp | Drawn for this template | Storelib |
 | workspace | assets/workspace-feature-projects.webp | Drawn for this template | Storelib |
 | workspace | assets/workspace-feature-invoices.webp | Drawn for this template | Storelib |
@@ -574,10 +579,10 @@ Templates round 22. Lifestyle photographs are Unsplash photographs, cropped. The
 | podshop | assets/podshop-newsletter.webp | https://images.unsplash.com/photo-1758523672869-73fe82e25585 | Unsplash License |
 | podshop | assets/podshop-about-hands.webp | https://images.unsplash.com/photo-1456456496250-d5e7c0a9b44d | Unsplash License |
 | podshop | assets/podshop-about-press.webp | https://images.unsplash.com/photo-1773525912476-213bff96b8a4 | Unsplash License |
-| podshop | assets/podshop-about-hero.webp, assets/podshop-about-hero-phone.webp | https://images.unsplash.com/photo-1663433567177-9f94be0bff4c (Anthony Roberts), a printer pulling ink across a screen; the Our story hero | Unsplash License |
+| podshop | assets/podshop-about-hero.webp | https://images.unsplash.com/photo-1663433567177-9f94be0bff4c | Unsplash License |
+| podshop | assets/podshop-about-hero-phone.webp | https://images.unsplash.com/photo-1663433567177-9f94be0bff4c | Unsplash License |
 | podshop | assets/podshop-logo.webp | Drawn for this template | Storelib |
-| podshop | assets/podshop-logo-white.webp | Drawn for this template (the logo in white, for the footer) | Storelib |
-| podshop | assets/podshop-mark.webp | Drawn for this template | Storelib |
+| podshop | assets/podshop-logo-white.webp | Drawn for this template | Storelib |
 | podshop | assets/podshop-panel.webp | Drawn for this template | Storelib |
 | podshop (sample products) | scripts/theme-templates/products/podshop/podshop-rivercity-tee-black.webp | https://images.unsplash.com/photo-1651761179569-4ba2aa054997 (cut out, recoloured black, print drawn on) | Unsplash License |
 | podshop (sample products) | scripts/theme-templates/products/podshop/podshop-rivercity-tee-white.webp | https://images.unsplash.com/photo-1651761179569-4ba2aa054997 (cut out, print drawn on) | Unsplash License |
@@ -730,8 +735,10 @@ Templates round 23, after the owner's streetwear reference. The lifestyle photog
 | outerwear (sample products, second picture) | scripts/theme-templates/products/outerwear/outerwear-merino-crew-black-close.webp | https://images.unsplash.com/photo-1770909792243-5aaa0ecb279c, the same knit on the same model, closer | Unsplash License |
 | outerwear (sample products, second picture) | scripts/theme-templates/products/outerwear/outerwear-washed-tee-clay-pose.webp | https://images.unsplash.com/photo-1780566759997-6a4eabceaa10, the same tee in the same session | Unsplash License |
 | outerwear (sample products) | scripts/theme-templates/products/outerwear/*.webp | Round 25: redrawn at 1600 px from the full size photographs, background flattened to one grey. The cocoon puffer, quilted vest, work parka, rib beanie, backpack and tote have one picture each; no honest second shot was found | as above |
-<!-- notionpage (templates round 23, remade in round 24): every screen is a Notion page drawn as HTML for this template (Creator OS, its sample data and names invented) and photographed in a tablet, phone or window frame. The buyer and maker pictures are Unsplash portraits, cropped round; the notes beside them are marked as samples to replace. -->
+<!-- notionpage (templates round 23, remade in round 24): every screen is a Notion page drawn as HTML for this template (Creator OS, its sample data and names invented) and photographed in a tablet, phone or window frame. The buyer pictures are Unsplash portraits, cropped round; the notes beside them are marked as samples to replace. Round 26: the maker's note and his portrait are gone; the Notion logo in the hero label and the Northpaper logo are drawn. -->
 | notionpage | assets/notionpage-avatar-1.webp | https://images.unsplash.com/photo-1488426862026-3ee34a7d66df | Unsplash License |
+| notionpage | assets/notionpage-notion.webp | The Notion logo, redrawn as a vector for the label that says the product is a Notion template (nominative use; Notion is a trademark of Notion Labs) | Notion Labs trademark |
+| notionpage | assets/notionpage-logo.webp | Drawn for this template (round 26): a page with a folded corner and an N, and the Northpaper wordmark | Storelib |
 | notionpage | assets/notionpage-avatar-2.webp | https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d | Unsplash License |
 | notionpage | assets/notionpage-avatar-3.webp | https://images.unsplash.com/photo-1531123897727-8f129e1688ce | Unsplash License |
 | notionpage | assets/notionpage-avatar-4.webp | https://images.unsplash.com/photo-1539571696357-5a69c17a67c6 | Unsplash License |
@@ -743,7 +750,6 @@ Templates round 23, after the owner's streetwear reference. The lifestyle photog
 | notionpage | assets/notionpage-avatar-10.webp | https://images.unsplash.com/photo-1599566150163-29194dcaad36 | Unsplash License |
 | notionpage | assets/notionpage-avatar-11.webp | https://images.unsplash.com/photo-1544005313-94ddf0286df2 | Unsplash License |
 | notionpage | assets/notionpage-avatar-12.webp | https://images.unsplash.com/photo-1770510067230-1059f0776b3a | Unsplash License |
-| notionpage | assets/notionpage-avatar-13.webp | https://images.unsplash.com/photo-1506794778202-cad84cf45f1d | Unsplash License |
 | notionpage | assets/notionpage-analytics.webp | Drawn for this template | Storelib |
 | notionpage | assets/notionpage-calendar.webp | Drawn for this template | Storelib |
 | notionpage | assets/notionpage-dashboard.webp | Drawn for this template | Storelib |
@@ -821,7 +827,6 @@ Personal trainer (round 25): Mateo Ruiz, a sample strength coach in Valencia and
 
 | Template | File | Source | License |
 | --- | --- | --- | --- |
-| trainer | assets/trainer-hero.webp | https://images.unsplash.com/photo-1738523686878-e63f7d95dabf | Unsplash License |
 | trainer | assets/trainer-hero-phone.webp | https://images.unsplash.com/photo-1738523686878-e63f7d95dabf | Unsplash License |
 | trainer | assets/trainer-mateo.webp | https://images.unsplash.com/photo-1738523687439-6932804fa042 | Unsplash License |
 | trainer | assets/trainer-cue.webp | https://images.unsplash.com/photo-1738523686527-d68bd5eaeaae | Unsplash License |
@@ -830,7 +835,6 @@ Personal trainer (round 25): Mateo Ruiz, a sample strength coach in Valencia and
 | trainer | assets/trainer-spot.webp | https://images.unsplash.com/photo-1738523687459-963f3fb56522 | Unsplash License |
 | trainer | assets/trainer-talk.webp | https://images.unsplash.com/photo-1738523686619-1b3b5d2405ee | Unsplash License |
 | trainer | assets/trainer-own.webp | https://images.unsplash.com/photo-1738524108435-1047a1d4c194 | Unsplash License |
-| trainer | assets/trainer-app.webp | https://images.unsplash.com/photo-1739082850035-1afb2fded185 | Unsplash License |
 | trainer | assets/trainer-week1.webp | https://images.unsplash.com/photo-1574680178050-55c6a6a96e0a | Unsplash License |
 | trainer | assets/trainer-week12.webp | https://images.unsplash.com/photo-1574680088814-c9e8a10d8a4d | Unsplash License |
 | trainer | assets/trainer-client-1.webp | https://images.unsplash.com/photo-1750698544727-ffc439ade2ba | Unsplash License |
@@ -846,17 +850,19 @@ Personal trainer (round 25): Mateo Ruiz, a sample strength coach in Valencia and
 | trainer (cover only) | scripts/theme-templates/products/trainer/trainer-foundations-curl.webp | https://images.unsplash.com/photo-1574680088814-c9e8a10d8a4d | Unsplash License |
 | trainer (cover only) | scripts/theme-templates/products/trainer/trainer-formcheck.webp | https://images.unsplash.com/photo-1738524108435-1047a1d4c194 | Unsplash License |
 | trainer (cover only) | scripts/theme-templates/products/trainer/trainer-formcheck-cue.webp | https://images.unsplash.com/photo-1738523686527-d68bd5eaeaae | Unsplash License |
+| trainer (cover only) | scripts/theme-templates/products/trainer/trainer-club.webp | https://images.unsplash.com/photo-1738523686619-1b3b5d2405ee | Unsplash License |
+| trainer (cover only) | scripts/theme-templates/products/trainer/trainer-club-session.webp | https://images.unsplash.com/photo-1738523686534-7055df5858d6 | Unsplash License |
+| trainer | assets/trainer-logo.webp | Drawn for this template (round 26): an MR block and the name in Anton | Storelib |
 | trainer (cover only) | scripts/theme-templates/products/trainer/trainer-post-own.webp | https://images.unsplash.com/photo-1738524108435-1047a1d4c194 | Unsplash License |
 | trainer (cover only) | scripts/theme-templates/products/trainer/trainer-post-talk.webp | https://images.unsplash.com/photo-1738523686619-1b3b5d2405ee | Unsplash License |
 | trainer (cover only) | scripts/theme-templates/products/trainer/trainer-post-squat.webp | https://images.unsplash.com/photo-1574680178050-55c6a6a96e0a | Unsplash License |
 
 ## Notion creator (notionsite, Margin)
 
-<!-- notionsite (templates round 25): every Notion screen is a page drawn as HTML for this template (the templates, their sample data and names are invented) and photographed on a tablet; the logo, the three how it works pictures and the envelope drawing were drawn for it too. The creator and buyer pictures are Unsplash portraits, cropped; the notes beside the buyers are marked as samples to replace. -->
+<!-- notionsite (templates round 25, round 26): every Notion screen is a page drawn as HTML for this template (round 26: templates for running a small business; the businesses, clients, sample data and names are invented) and photographed on a tablet; the logo, the three how it works pictures, the envelope drawing and the line drawn avatar of Nora in the hero were drawn for it too. The creator portrait in the about rows and the buyer pictures are Unsplash portraits, cropped; the notes beside the buyers are marked as samples to replace. -->
 
 | Template | File | Source | Licence |
 | --- | --- | --- | --- |
-| notionsite | assets/notionsite-creator.webp | https://images.unsplash.com/photo-1567532939604-b6b5b0db2604 | Unsplash License |
 | notionsite | assets/notionsite-creator-portrait.webp | https://images.unsplash.com/photo-1567532939604-b6b5b0db2604 | Unsplash License |
 | notionsite | assets/notionsite-buyer-1.webp | https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91 | Unsplash License |
 | notionsite | assets/notionsite-buyer-2.webp | https://images.unsplash.com/photo-1507591064344-4c6ce005b128 | Unsplash License |
@@ -871,16 +877,17 @@ Personal trainer (round 25): Mateo Ruiz, a sample strength coach in Valencia and
 | notionsite | assets/notionsite-buyer-11.webp | https://images.unsplash.com/photo-1472099645785-5658abf4ff4e | Unsplash License |
 | notionsite | assets/notionsite-buyer-12.webp | https://images.unsplash.com/photo-1548142813-c348350df52b | Unsplash License |
 | notionsite | assets/notionsite-logo.webp | Drawn for this template | Storelib |
+| notionsite | assets/notionsite-avatar.webp | Drawn for this template (round 26): a line drawn avatar of Nora, as SVG, to replace with your own | Storelib |
 | notionsite | assets/notionsite-mark.webp | Drawn for this template | Storelib |
 | notionsite | assets/notionsite-step-email.webp | Drawn for this template | Storelib |
 | notionsite | assets/notionsite-step-duplicate.webp | Drawn for this template | Storelib |
 | notionsite | assets/notionsite-step-yours.webp | Drawn for this template | Storelib |
 | notionsite | assets/notionsite-newsletter.webp | Drawn for this template | Storelib |
-| notionsite (sample products) | scripts/theme-templates/products/notionsite/*.webp | Drawn for this template: Notion pages on a tablet, two or three different pages per template | Storelib |
+| notionsite (sample products) | scripts/theme-templates/products/notionsite/*.webp | Drawn for this template: Notion pages on a tablet, two different pages per template (round 26: Client CRM, Project Tracker, Finance Dashboard, Content Calendar, SOP Library, Business OS Bundle and three free ones) | Storelib |
 
 ## Sound packs (soundpacks, Lowmoth)
 
-Sound packs (round 25): Lowmoth, a sample label made up for the template. Every pack cover, pack box, bundle picture, folder view and the logo is drawn for this template in Python (PIL and numpy): generative artwork with the pack name, set on a box in three quarter view. The previews are synthesised for the template, one demo loop per pack and a few one shots, so they are free of anyone else's recordings. The producer at a pad controller, the mixing desk and the studio room are Unsplash photographs; small maker names on the studio's rack and an interface are blurred out and the room is cropped to leave out a branded amplifier. The faces on the sample reviews are Unsplash portraits, cropped round and marked on the page as sample reviews to replace.
+Sound packs (round 25, redrawn in round 26): Lowmoth, a sample label made up for the template. Every pack cover is an illustration drawn for this template as SVG in a two and three colour screen print style (a night bus, a drum machine, piano keys, a wave, palms at sunset, a cassette, a skyline at sunrise, a snare under the moon), with no other brand on it; the sleeve and record pictures, the bundle pictures, the folder views and the moth logo are drawn for it too. The previews are synthesised for the template, one demo loop per pack and a few one shots, so they are free of anyone else's recordings. The producer at a pad controller, the mixing desk and the studio room are Unsplash photographs; small maker names on the studio's rack and an interface are blurred out and the room is cropped to leave out a branded amplifier. The faces on the sample reviews are Unsplash portraits, cropped round and marked on the page as sample reviews to replace.
 
 | Template | File | Source | License |
 | --- | --- | --- | --- |

@@ -685,7 +685,8 @@ section("The add route")
     ["duplicate", "app/api/website-builder/themes/[installId]/duplicate/route.ts"],
     ["import", "app/api/website-builder/themes/import/route.ts"],
   ] as const) {
-    const src = stripComments(read(path))
+    /* Changed on purpose (round 26): the import's install writes are in lib/themes/imported-theme-store.ts, read after the route. */
+    const src = stripComments(read(path) + (label === "import" ? read("lib/themes/imported-theme-store.ts") : ""))
     const asks = src.indexOf("librarySlotsLeft(supabase, creator.id)")
     const writes = src.indexOf(".insert(")
     check(`${label} asks the limit before it writes`, asks > 0 && writes > asks)
@@ -1491,7 +1492,8 @@ section("Two at once still make five, and an import that says what went wrong")
   const routes = {
     add: read("app/api/website-builder/themes/add/route.ts"),
     duplicate: read("app/api/website-builder/themes/[installId]/duplicate/route.ts"),
-    import: read("app/api/website-builder/themes/import/route.ts"),
+    /* Changed on purpose (round 26): the import's install writes moved to lib/themes/imported-theme-store.ts, shared with Start with AI's template start; the route and that module are read together. */
+    import: read("app/api/website-builder/themes/import/route.ts") + read("lib/themes/imported-theme-store.ts"),
   }
   for (const [name, src] of Object.entries(routes)) {
     const insertAt = src.indexOf('.from("store_theme_installs")\n    .insert(') >= 0 ? src.indexOf('.from("store_theme_installs")\n    .insert(') : src.indexOf('.from("store_theme_installs")\n      .insert(')

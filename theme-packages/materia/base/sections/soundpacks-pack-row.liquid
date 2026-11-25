@@ -31,9 +31,11 @@
   #shopify-section-{{ sid }} .ssp__btn { position: relative; flex: none; box-sizing: border-box; margin: 0; padding: 0; border: 0; border-radius: 50%; display: grid; place-items: center; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background-color .2s ease, color .2s ease, transform .2s ease, box-shadow .2s ease; }
   #shopify-section-{{ sid }} .ssp__btn:focus-visible, #shopify-section-{{ sid }} .ssp__wave:focus-visible { outline: 2px solid var(--spx-accent); outline-offset: 3px; }
   #shopify-section-{{ sid }} .ssp__btn[disabled] { cursor: default; opacity: .5; }
-  #shopify-section-{{ sid }} .ssp__i { grid-area: 1 / 1; width: 42%; height: 42%; display: block; transition: opacity .18s ease; }
-  #shopify-section-{{ sid }} .ssp__i--play { transform: translateX(4%); }
-  #shopify-section-{{ sid }} .ssp__i--pause { opacity: 0; }
+  #shopify-section-{{ sid }} .ssp__i { grid-area: 1 / 1; width: 42%; height: 42%; display: block; transition: opacity .2s ease, scale .2s ease; }
+  #shopify-section-{{ sid }} .ssp__i--play { transform: translateX(-3.1%); } /* Round 26: the triangle's box sits right of centre in its 16 unit view; this puts its weight in the middle of the circle. */
+  #shopify-section-{{ sid }} .ssp__i--pause { opacity: 0; scale: .7; }
+  #shopify-section-{{ sid }} .ssp.is-playing .ssp__i--play { scale: .7; }
+  #shopify-section-{{ sid }} .ssp.is-playing .ssp__i--pause { scale: 1; }
   #shopify-section-{{ sid }} .ssp.is-playing .ssp__i--play { opacity: 0; }
   #shopify-section-{{ sid }} .ssp.is-playing .ssp__i--pause { opacity: 1; }
   #shopify-section-{{ sid }} .ssp__btn::after { content: ""; position: absolute; inset: -3px; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--spx-accent); opacity: 0; transition: opacity .2s ease; pointer-events: none; }

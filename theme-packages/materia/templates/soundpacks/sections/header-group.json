@@ -9,7 +9,7 @@
         "menu_tab": "unset",
         "mega_menu": "main-menu",
         "show_search": true,
-        "color_scheme": "default",
+        "color_scheme": "scheme-sp-bar",
         "icon_spacing": 10,
         "header_height": 72,
         "header_layout": "container",
@@ -19,7 +19,7 @@
         "section_width": "fluid_container",
         "show_currency": false,
         "show_language": false,
-        "separator_line": "unset",
+        "separator_line": "all-page",
         "actions_as_text": false,
         "collection_list": [],
         "logo_gap_mobile": 0,
@@ -29,15 +29,15 @@
         "menu_custom_font": "bodoni_moda_n4",
         "menu_hover_style": "fade",
         "redirect_to_link": true,
-        "logo_width_mobile": 104,
-        "menu_link_spacing": 28,
+        "logo_width_mobile": 112,
+        "menu_link_spacing": 26,
         "menu_mobile_color": "#f3f3f4",
         "show_account_icon": true,
         "action_text_weight": "400",
-        "logo_width_desktop": 118,
+        "logo_width_desktop": 132,
         "show_shopping_cart": true,
         "show_wishlist_icon": false,
-        "sticky_header_type": "on-scroll-up",
+        "sticky_header_type": "always",
         "transparent_header": false,
         "transparent_mobile": false,
         "dropdowns_animation": "down-to-up",
@@ -65,7 +65,8 @@
         "section_margin_bottom_desktop": 0,
         "transparent_bottom_border_color": "#020202",
         "menu_mobile_background": "#111113",
-        "dropdown_radius": 14
+        "dropdown_radius": 14,
+        "menu_font_weight": "500"
       },
       "blocks": {
         "pill_glass_1": {
@@ -162,9 +163,55 @@
         "menu_badges_1",
         "header_button_1"
       ]
+    },
+    "bar": {
+      "type": "announcement-bar-basic",
+      "settings": {
+        "color_scheme": "scheme-sp-accent",
+        "section_width": "full_width",
+        "display_section_on": "display_all",
+        "reset_spacing": true,
+        "link": "/products/night-bus",
+        "open_in_new_tab": false,
+        "content_alignment": "center",
+        "content_gap": 12,
+        "bar_padding_x": 16,
+        "background_type": "solid",
+        "show_border_bottom": false,
+        "enable_custom_style": true,
+        "text_color": "#10120a",
+        "background_color": "#c6f432",
+        "font_size": 14,
+        "mobile_font_size": 13,
+        "enable_custom_font_weight": true,
+        "message_font_weight": "600",
+        "letter_spacing": 0,
+        "text_transform": "none",
+        "reveal": false,
+        "show_close_button": false,
+        "show_close_button_mobile": false,
+        "bar_height": 40
+      },
+      "blocks": {
+        "message_1": {
+          "type": "message",
+          "settings": {
+            "text": "Night Bus is out: 412 UK garage sounds with a demo to play first",
+            "text_mobile": "Night Bus is out: 412 UK garage sounds",
+            "link": "/products/night-bus",
+            "open_in_new_tab": false,
+            "visibility": "all",
+            "enable_custom_style": false
+          }
+        }
+      },
+      "block_order": [
+        "message_1"
+      ]
     }
   },
   "order": [
+    "bar",
     "header"
   ]
 }

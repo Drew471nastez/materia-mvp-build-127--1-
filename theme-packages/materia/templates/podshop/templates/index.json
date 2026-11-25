@@ -83,7 +83,7 @@
             "heading": "Tees for the whole crew",
             "description": "<p>Pick a print, pick the colours. We print every size you need.</p>",
             "first_button_label": "Shop tees",
-            "first_button_link": "/collections/graphic-tees",
+            "first_button_link": "/collections/essentials",
             "first_button_style": false,
             "second_button_label": "",
             "second_button_link": "",
@@ -199,7 +199,7 @@
           "settings": {
             "background_image": "shopify://shop_images/podshop-gift-him.webp",
             "alt": "A young man in a blue tee",
-            "gallery_link_url": "/collections/graphic-tees",
+            "gallery_link_url": "/collections/essentials",
             "gallery_link_label": "Gifts for him"
           }
         },
@@ -208,7 +208,7 @@
           "settings": {
             "background_image": "shopify://shop_images/podshop-gift-her.webp",
             "alt": "A woman in an orange beanie",
-            "gallery_link_url": "/collections/caps-and-beanies",
+            "gallery_link_url": "/collections/winter",
             "gallery_link_label": "Gifts for her"
           }
         },
@@ -226,7 +226,7 @@
           "settings": {
             "background_image": "shopify://shop_images/podshop-gift-extras.webp",
             "alt": "Someone holding a canvas tote",
-            "gallery_link_url": "/collections/caps-and-beanies",
+            "gallery_link_url": "/collections/winter",
             "gallery_link_label": "Small extras"
           }
         }
@@ -267,7 +267,7 @@
             "heading": "Gifts under $30",
             "description": "Small gifts with hometown spirit. Caps, beanies and tees.",
             "primary_button_label": "Shop gifts",
-            "primary_button_link": "/collections/caps-and-beanies",
+            "primary_button_link": "/collections/winter",
             "image_desktop": "shopify://shop_images/podshop-price-30.webp",
             "card_height": "1",
             "vertical_text_gap": 10,
@@ -295,7 +295,7 @@
             "heading": "Gifts $30 to $50",
             "description": "Fan favourites and everyday tees they will reach for again.",
             "primary_button_label": "Shop gifts",
-            "primary_button_link": "/collections/graphic-tees",
+            "primary_button_link": "/collections/essentials",
             "image_desktop": "shopify://shop_images/podshop-price-50.webp",
             "card_height": "1",
             "vertical_text_gap": 10,
@@ -323,7 +323,7 @@
             "heading": "Gifts $50 to $75",
             "description": "Soft crewnecks and matching sets for everyone on your list.",
             "primary_button_label": "Shop gifts",
-            "primary_button_link": "/collections/crewnecks",
+            "primary_button_link": "/collections/winter",
             "image_desktop": "shopify://shop_images/podshop-price-75.webp",
             "card_height": "1",
             "vertical_text_gap": 10,
@@ -462,7 +462,7 @@
           "type": "button",
           "settings": {
             "label": "Shop now",
-            "link": "/collections/crewnecks",
+            "link": "/collections/winter",
             "button_style": "primary",
             "use_theme_button": true
           }
@@ -648,7 +648,7 @@
             "heading": "",
             "description": "",
             "first_button_label": "Shop men's tees",
-            "first_button_link": "/collections/graphic-tees",
+            "first_button_link": "/collections/essentials",
             "first_button_style": false,
             "second_button_label": "",
             "second_button_link": "",
@@ -686,8 +686,8 @@
             "subheading": "",
             "heading": "",
             "description": "",
-            "first_button_label": "Shop caps and beanies",
-            "first_button_link": "/collections/caps-and-beanies",
+            "first_button_label": "Shop winter",
+            "first_button_link": "/collections/winter",
             "first_button_style": false,
             "second_button_label": "",
             "second_button_link": "",
@@ -763,7 +763,7 @@
           "settings": {
             "background_image": "shopify://shop_images/podshop-fav-crew.webp",
             "alt": "A woman in a sage crewneck",
-            "gallery_link_url": "/collections/crewnecks",
+            "gallery_link_url": "/collections/winter",
             "gallery_link_label": "Crewnecks"
           }
         },
@@ -772,7 +772,7 @@
           "settings": {
             "background_image": "shopify://shop_images/podshop-fav-beanie.webp",
             "alt": "A green knit beanie",
-            "gallery_link_url": "/collections/caps-and-beanies",
+            "gallery_link_url": "/collections/winter",
             "gallery_link_label": "Beanies"
           }
         },
@@ -781,7 +781,7 @@
           "settings": {
             "background_image": "shopify://shop_images/podshop-fav-brown.webp",
             "alt": "A man in a brown sweatshirt on a hill",
-            "gallery_link_url": "/collections/crewnecks",
+            "gallery_link_url": "/collections/winter",
             "gallery_link_label": "Everyday sweatshirts"
           }
         },
@@ -790,7 +790,7 @@
           "settings": {
             "background_image": "shopify://shop_images/podshop-fav-pink.webp",
             "alt": "A woman in a pale pink sweatshirt",
-            "gallery_link_url": "/collections/graphic-tees",
+            "gallery_link_url": "/collections/essentials",
             "gallery_link_label": "Soft colours"
           }
         }

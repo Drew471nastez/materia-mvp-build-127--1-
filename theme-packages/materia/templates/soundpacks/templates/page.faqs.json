@@ -1,50 +1,68 @@
+/* Templates round 26: the questions in four tabs (the packs, the licence, downloads, orders), a way to support, every demo in one list and the free pack signup. */
 {
   "sections": {
     "faq": {
-      "type": "faq",
+      "type": "faq-tabs",
       "settings": {
         "color_scheme": "default",
-        "section_width": "container",
-        "reset_spacing": true,
-        "first_item_open": false,
+        "section_width": "full_width",
+        "structured_data": true,
+        "open_first": true,
         "allow_multiple_open": false,
-        "open_icon": "chevron",
-        "content_alignment": "left",
-        "max_content_width": 860,
-        "gap_header_to_items": 32,
-        "gap_between_items": 0,
-        "item_padding_y": 20,
-        "item_padding_x": 28,
-        "item_radius": 0,
-        "show_dividers": true,
-        "card_bg": "#141416",
+        "header_align": "left",
+        "section_max_width_desktop": 860,
+        "section_max_width_tablet": 720,
+        "section_max_width_mobile": 560,
+        "gap_subheading_tabs": 36,
+        "gap_tabs_list": 20,
+        "item_padding_y": 22,
+        "enable_custom_style": true,
+        "section_bg": "#0b0b0c",
+        "tabs_track_bg": "#18181c",
+        "tab_active_bg": "#c6f432",
+        "tab_active_color": "#10120a",
+        "tab_inactive_color": "#a3a3ab",
         "divider_color": "#26262a",
-        "question_color": "#e7e7ea",
-        "icon_color": "#a3a3ab",
-        "answer_color": "#a3a3ab",
-        "question_size_desktop": 17,
-        "question_size_mobile": 15,
-        "question_weight": "600",
-        "answer_size_desktop": 15,
-        "heading_weight": "800",
-        "reveal": true,
-        "padding_top": 72,
-        "padding_bottom": 56
+        "q_color": "#f3f3f4",
+        "plus_color": "#c6f432",
+        "a_color": "#a3a3ab",
+        "tab_size": 14,
+        "tab_weight": "700",
+        "q_size": 18,
+        "q_weight": "600",
+        "a_size": 15,
+        "padding_top_desktop": 88,
+        "padding_bottom_desktop": 64,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 40,
+        "tab_1_label": "The packs",
+        "tab_2_label": "Licence",
+        "tab_3_label": "Downloads",
+        "tab_4_label": "Orders",
+        "tab_5_label": ""
       },
       "blocks": {
         "heading": {
           "type": "heading",
           "settings": {
             "text": "Questions? Answers.",
-            "tag": "h2",
+            "tag": "h1",
             "size_enable": true,
-            "size_desktop": 44,
-            "size_mobile": 32
+            "size_desktop": 56,
+            "size_mobile": 36,
+            "weight": "800"
+          }
+        },
+        "subheading": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>About the packs, the licence, downloads and orders. Not here? <a href=\"/pages/support\">Ask support</a>.</p>"
           }
         },
         "q1": {
           "type": "faq_item",
           "settings": {
+            "tab": "1",
             "question": "Can I hear a pack before I buy it?",
             "answer": "<p>Yes. Every pack has a demo and a table of its sounds on its page, and every card on the home page plays. Press play on anything; only one sound plays at a time.</p>"
           }
@@ -52,6 +70,7 @@
         "q2": {
           "type": "faq_item",
           "settings": {
+            "tab": "1",
             "question": "Which DAW do I need?",
             "answer": "<p>Any. The sounds are 24 bit WAV files and the MIDI files are standard MIDI, so they open in Ableton Live, FL Studio, Logic Pro, Bitwig, Cubase, Studio One, Reaper and the rest.</p>"
           }
@@ -59,55 +78,95 @@
         "q3": {
           "type": "faq_item",
           "settings": {
-            "question": "Are the sounds royalty free?",
-            "answer": "<p>Yes. Use them in your own music, released or not, and keep everything it earns. You cannot share or resell the sounds themselves. <a href=\"/pages/licence\">Read the licence</a>.</p>"
+            "tab": "1",
+            "question": "Do bundles include future packs?",
+            "answer": "<p>The Full Shelf includes every paid pack released in the same year, added to your downloads when it comes out.</p>"
           }
         },
         "q4": {
           "type": "faq_item",
           "settings": {
-            "question": "How do I get the files?",
-            "answer": "<p>Right after checkout you get a download link on the receipt page and by email. Each pack is one ZIP file.</p>"
+            "tab": "1",
+            "question": "Are the loops in key and tempo?",
+            "answer": "<p>Every melodic loop is labelled with its key and every loop with its tempo, in the file name, so they line up when you drag them in.</p>"
           }
         },
         "q5": {
           "type": "faq_item",
           "settings": {
-            "question": "Do bundles include future packs?",
-            "answer": "<p>The Full Shelf includes every paid pack released in the same year, added to your downloads when it comes out.</p>"
+            "tab": "2",
+            "question": "Are the sounds royalty free?",
+            "answer": "<p>Yes. Use them in your own music, released or not, and keep everything it earns. You cannot share or resell the sounds themselves. <a href=\"/pages/licence\">Read the licence</a>.</p>"
           }
         },
         "q6": {
           "type": "faq_item",
           "settings": {
-            "question": "Something went wrong with a download",
-            "answer": "<p>Write to us from the <a href=\"/pages/contact\">contact page</a> with your order number and we will send a new link.</p>"
+            "tab": "2",
+            "question": "Can I use the sounds for clients?",
+            "answer": "<p>Yes, inside a finished piece of music for a client: a release, an advert, a game or a film. See the <a href=\"/pages/licence\">licence</a>.</p>"
           }
         },
         "q7": {
           "type": "faq_item",
           "settings": {
-            "question": "Can I get a refund?",
-            "answer": "<p>If a pack is not what you expected, write within 14 days of buying and we refund it. We ask what was wrong so the next pack is better.</p>"
+            "tab": "2",
+            "question": "Do I need to credit Lowmoth?",
+            "answer": "<p>No. A credit is nice to see but never required.</p>"
           }
         },
         "q8": {
           "type": "faq_item",
           "settings": {
-            "question": "Do you take PayPal?",
-            "answer": "<p>Cards, Apple Pay and Google Pay today. PayPal is coming to the checkout soon.</p>"
+            "tab": "3",
+            "question": "How do I get the files?",
+            "answer": "<p>Right after checkout you get a download link on the receipt page and by email. Each pack is one ZIP file.</p>"
           }
         },
         "q9": {
           "type": "faq_item",
           "settings": {
-            "question": "Can I use the sounds for clients?",
-            "answer": "<p>Yes, inside a finished piece of music for a client: a release, an advert, a game or a film. See the <a href=\"/pages/licence\">licence</a>.</p>"
+            "tab": "3",
+            "question": "Something went wrong with a download",
+            "answer": "<p>Write to us from the <a href=\"/pages/contact\">contact page</a> with your order number and we will send a new link.</p>"
+          }
+        },
+        "q10": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "3",
+            "question": "Can I download a pack again later?",
+            "answer": "<p>Yes. The link in your email keeps working, and your account page lists every pack you have bought.</p>"
+          }
+        },
+        "q11": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "4",
+            "question": "Can I get a refund?",
+            "answer": "<p>If a pack is not what you expected, write within 14 days of buying and we refund it. We ask what was wrong so the next pack is better.</p>"
+          }
+        },
+        "q12": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "4",
+            "question": "Do you take PayPal?",
+            "answer": "<p>Cards, Apple Pay and Google Pay today. PayPal is coming to the checkout soon.</p>"
+          }
+        },
+        "q13": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "4",
+            "question": "Can I get an invoice for my company?",
+            "answer": "<p>Yes. The receipt email has a PDF invoice. Write to us if it needs a VAT number or a different address.</p>"
           }
         }
       },
       "block_order": [
         "heading",
+        "subheading",
         "q1",
         "q2",
         "q3",
@@ -116,7 +175,11 @@
         "q6",
         "q7",
         "q8",
-        "q9"
+        "q9",
+        "q10",
+        "q11",
+        "q12",
+        "q13"
       ]
     },
     "demos": {
@@ -134,7 +197,7 @@
         "col_bpm": "BPM",
         "col_key": "Key",
         "bpm_suffix": true,
-        "accent": "#ff8a73",
+        "accent": "#c6f432",
         "panel_color": "#141416",
         "use_theme_radius": false,
         "panel_radius": 28,
@@ -317,10 +380,76 @@
         "heading",
         "subheading"
       ]
+    },
+    "cta": {
+      "type": "banner3",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "text_align": "left",
+        "max_width": 1100,
+        "heading_tag": "h2",
+        "banner_surface": "soft",
+        "banner_tint": 4,
+        "use_custom_bg": true,
+        "bg_color": "#18181c",
+        "use_theme_radius": false,
+        "section_border_radius": 18,
+        "banner_shadow": "none",
+        "reveal": false,
+        "stack_gap": 10,
+        "sub_btn_gap": 22,
+        "pad_top_desktop": 44,
+        "pad_bottom_desktop": 44,
+        "pad_top_mobile": 32,
+        "pad_bottom_mobile": 32,
+        "section_padding_top": 8,
+        "section_padding_bottom": 40,
+        "section_padding_top_mobile": 8,
+        "section_padding_bottom_mobile": 32
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Still stuck?"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "A person answers within a day.",
+            "enable_custom_style": true,
+            "size_d": 32,
+            "size_m": 26,
+            "weight": "800"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "Downloads, the licence or a refund: send your order number and we sort it out."
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "Go to support",
+            "link": "/pages/support"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
     }
   },
   "order": [
     "faq",
+    "cta",
     "demos",
     "signup"
   ]

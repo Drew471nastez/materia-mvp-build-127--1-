@@ -1,0 +1,18 @@
+
+  #shopify-section-form { isolation: isolate; position: relative; }
+  :where(#shopify-section-form) { font-family: var(--body-font, inherit); }
+  :where(#shopify-section-form) :is(h2, h3) { font-family: var(--heading-font, inherit); font-weight: var(--heading-weight, inherit); }
+  #shopify-section-form .jsf {
+    background: var(--color-background);
+    color: var(--color-text);
+    padding: 48px 20px 48px;
+  }
+  #shopify-section-form .jsf__inner { max-width: 880px; margin: 0 auto; }
+  #shopify-section-form .jsf__head { text-align: left; margin: 0 0 24px; }
+  #shopify-section-form .jsf__title { margin: 0; color: var(--color-heading, inherit); font-size: clamp(26px, 4vw, 36px); line-height: 1.15; }
+  #shopify-section-form .jsf__text { margin: 10px 0 0; opacity: .8; line-height: 1.6; }
+  #shopify-section-form .jsf__text > :first-child { margin-top: 0; }
+  #shopify-section-form .jsf__text > :last-child { margin-bottom: 0; }
+  @media (min-width: 768px) {
+    #shopify-section-form .jsf { padding-top: 80px; padding-bottom: 80px; }
+  }

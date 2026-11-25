@@ -15,7 +15,7 @@
         "url": "/collections/free"
       },
       {
-        "title": "Journal",
+        "title": "Blog",
         "url": "/blogs/news"
       },
       {
@@ -24,7 +24,7 @@
       },
       {
         "title": "Support",
-        "url": "/pages/faqs"
+        "url": "/pages/support"
       }
     ]
   },
@@ -44,7 +44,7 @@
         "url": "/collections/all"
       },
       {
-        "title": "Journal",
+        "title": "Blog",
         "url": "/blogs/news"
       }
     ]
@@ -69,6 +69,10 @@
   "footer": {
     "title": "Help",
     "links": [
+      {
+        "title": "Support",
+        "url": "/pages/support"
+      },
       {
         "title": "Questions",
         "url": "/pages/faqs"

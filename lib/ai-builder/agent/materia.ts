@@ -35,6 +35,7 @@ import {
   chooseMateriaTemplate,
   MATERIA_EDIT_RULES,
   MATERIA_RULES,
+  materiaTemplate,
   planCitationIssues,
   purposeOfType,
   referenceFocus,
@@ -50,7 +51,10 @@ export const MATERIA_BRIEF_CHARS = 7_500
 
 export { isMateriaInstall, materiaInstallTypes } from "@/lib/storelib-ai/materia/install"
 
-const PLACE_ON_MATERIA = `THIS WEBSITE RUNS ON MATERIA: its sections are in the site's files (sections/<type>.storelib, Materia's own, read only). Build with them: set_page_sections with their types, then set_section_settings and blocks to make each one this business's. Write an ai_ component only for the edge, where no Materia section does the job, and keep its settings in the same style.`
+const PLACE_ON_MATERIA = `THIS WEBSITE RUNS ON MATERIA: its sections are in the site's files (sections/<type>.storelib, Materia's own, read only). Build with them: set_page_sections with their types, then set_section_settings and blocks to make each one this business's. Write an ai_ component only for the edge, where no Materia section does the job, and keep its settings in the same style. The header and footer are Materia's (group header and footer): keep them and set them; the menus are the store's.`
+
+/** A new website made from a template (Start with AI, round 26): what is already there and what is left to do. */
+const FROM_TEMPLATE = (name: string) => `THIS NEW WEBSITE IS STORELIB'S "${name}" TEMPLATE, ALREADY IMPORTED (its pages, header, footer, sections and sample words and pictures are in place; list_pages shows them). It is the starting point, never the result: rewrite every section's words for this business, replace its pictures with this business's own, bind the store's real products, drop or swap sections that do not fit and add Materia sections the plan needs. Its sample names, products, quotes and numbers are not this creator's and must not stay.`
 
 const MODEL_ON_MATERIA = `THIS WEBSITE IS WRITTEN AS YOUR OWN COMPONENTS, ON THE MATERIA PATTERN: Materia's sections are not installed on this website, so each section is an ai_ component modelled on the Materia section for its slot: the same job, the same kind of controls (a color_scheme, section_width, alignment, heading, subheading and button settings, repeating items as blocks) and the reference template's running order and rhythm of colour schemes. In the site plan, name each section's model as materia:<type> ("ai_opening: materia:hero-image1, the promise and the first program"). A section with no Materia model says custom; that is the edge, two or three on a site at most.`
 
@@ -83,11 +87,14 @@ export function materiaBrief(input: { job: AgentJobInput; files: readonly Stored
     return { text: text.slice(0, MATERIA_BRIEF_CHARS), choice: null, install }
   }
   const sells = (input.caps?.products ?? []).slice(0, 12).map((p) => p.title).join(" ")
-  const choice = chooseMateriaTemplate({ prompt: job.prompt, category: job.options?.category ?? null, extra: sells })
+  /* A website made from a template follows that template; otherwise the closest one is chosen here. */
+  const imported = job.options?.template ? materiaTemplate(job.options.template) : undefined
+  const choice: TemplateChoice = imported ? { template: imported, score: 0, matched: [], runnerUp: null } : chooseMateriaTemplate({ prompt: job.prompt, category: job.options?.category ?? null, extra: sells })
   const reference = templateReferenceText(choice.template, { budget: 2_600, why: choice.matched })
-  const used = rules.length + reference.length + (install ? PLACE_ON_MATERIA : MODEL_ON_MATERIA).length + 200
+  const how = install ? [imported && !job.redesign ? FROM_TEMPLATE(imported.name) : "", PLACE_ON_MATERIA].filter(Boolean).join("\n") : MODEL_ON_MATERIA
+  const used = rules.length + reference.length + how.length + 200
   const catalogue = catalogueText({ focus: referenceFocus(choice.template), ...(install ? { only: new Set(own) } : {}), budget: Math.max(1_500, MATERIA_BRIEF_CHARS - used) })
-  const text = [rules, install ? PLACE_ON_MATERIA : MODEL_ON_MATERIA, reference, catalogue].filter(Boolean).join("\n\n")
+  const text = [rules, how, reference, catalogue].filter(Boolean).join("\n\n")
   return { text: text.slice(0, MATERIA_BRIEF_CHARS), choice, install }
 }
 

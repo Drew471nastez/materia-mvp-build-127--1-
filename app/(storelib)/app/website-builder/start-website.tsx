@@ -104,8 +104,9 @@ function DoorBody({ icon, title, line, busy }: { icon: React.ReactNode; title: s
  */
 function GenerationChoice({ value, agent, disabled, onChange }: { value: GenerationMode; agent: boolean; disabled: boolean; onChange: (next: GenerationMode) => void }) {
   const options: { id: GenerationMode; title: string; line: string; off?: boolean }[] = [
+    /* Round 26: the AI builds like the templates, from the closest one (lib/themes/template-install.ts), the default. */
+    { id: "theme", title: tt("From a Storelib template"), line: tt("Starts from the closest template and makes it yours.") },
     { id: "blank", title: tt("From scratch"), line: tt("The AI designs every page, the header and the footer."), off: !agent },
-    { id: "theme", title: tt("Inside Storelib's theme"), line: tt("Keeps the theme's header, footer and sections.") },
   ]
   return (
     <div className="pt-1">

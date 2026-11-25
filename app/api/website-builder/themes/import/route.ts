@@ -13,16 +13,14 @@ import { type CoverResult, coverForNewWebsite, isPackagedCover, renderOrigin, st
 import { MAX_BYTES as SNAPSHOT_MAX_BYTES } from "@/lib/website-builder/snapshot"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { LIBRARY_FULL_CODE, LIBRARY_FULL_MESSAGE, firstSortOrder, isLibraryFullError, keptWithinLimit, librarySlotsLeft } from "@/lib/website-builder/library-limit"
-import { ensureStoreMenus } from "@/lib/website-builder/store-menus-server"
+import { LIBRARY_FULL_CODE, LIBRARY_FULL_MESSAGE, firstSortOrder, librarySlotsLeft } from "@/lib/website-builder/library-limit"
 import { screenInBackground } from "@/lib/storage/upload-guard"
-import { inspectHead, inspectUpload } from "@/lib/security/uploads/inspect"
+import { inspectUpload } from "@/lib/security/uploads/inspect"
 import { nodeInflateRaw } from "@/lib/security/uploads/zip-inflate"
 import { logUploadVerdict } from "@/lib/security/uploads/audit"
 import { runAfterResponse } from "@/lib/security/uploads/pipeline"
 import { IMPORT_BUCKET, IMPORT_MAX_BYTES, IMPORT_NOT_A_PACKAGE, IMPORT_TOO_LARGE, isOwnImportPath, looksLikeZip } from "@/lib/website-builder/theme-import"
 import JSZip from "jszip"
-import { createHash } from "node:crypto"
 import {
   parseThemePackageManifest,
   MAX_IMAGE_BYTES_IN_ZIP,
@@ -31,7 +29,6 @@ import {
 } from "@/lib/website-builder/theme-package-schema"
 import { buildPackage, readPackage } from "@/lib/storelib-theme"
 import { SHOPIFY_LICENSE_NOTICE, conversionSummary, convertShopifyTheme, isShopifyTheme, type ConversionReport, type ImportedTheme } from "@/lib/storelib-theme/shopify/convert"
-import { ASSET_MAP_PATH } from "@/lib/storelib-theme/compat/install"
 import { kindLookup, repairChrome } from "@/lib/storelib-theme/section-groups"
 import { pagesFromPackageFiles } from "@/lib/website-builder/theme-pages"
 import { THEME_SCHEMA_FILE, packageThemeConfig } from "@/lib/storelib-theme/theme-config"
@@ -46,23 +43,12 @@ import {
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import { ownSectionFields, sanitizeSections, sanitizeThemeSettings } from "@/lib/website-builder/sanitize-sections"
 import type { SectionInstance } from "@/lib/website-builder/types"
-import { STORELIB_DEFAULT_ID, THEME_REGISTRY, themeCatalogRow } from "@/lib/website-builder/theme-registry"
+import { catalogThemeId, createImportedInstall, fillImportedInstall, packageFileAllowed, storeImportedTheme, type StoreFailure } from "@/lib/themes/imported-theme-store"
 
 import { DEFAULT_THEME_SOURCES } from "../../../../../themes/default/sources.generated"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 
 const BUCKET = "store-builder-images"
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-/**
- * A file inside a package, checked by the central check before it gets a
- * public URL: a picture must be a picture, a video a video, and nothing may
- * be a program, a script or a web page, whatever its extension says.
- */
-function packageFileAllowed(name: string, bytes: Uint8Array, kind: MediaKind): boolean {
-  const context = kind === "image" ? "public_image" : kind === "video" ? "video" : "link_page_file"
-  return inspectHead({ fileName: name, size: bytes.byteLength || 1, head: bytes.subarray(0, 8192), context }).ok
-}
 
 function rewriteUrls(node: unknown, urlMap: Record<string, string>): unknown {
   if (typeof node === "string") return urlMap[node] ?? node
@@ -496,100 +482,17 @@ export async function POST(req: Request) {
 
 type Admin = ReturnType<typeof createAdminClient>
 
-/** An imported theme is hundreds of files: written a few hundred at a time, so no one request is megabytes. */
-async function insertInChunks(admin: Admin, files: { install_id: string; path: string; content: string }[]): Promise<{ error: unknown }> {
-  const CHUNK = 200
-  for (let i = 0; i < files.length; i += CHUNK) {
-    const { error } = await admin.from("store_theme_custom_files").insert(files.slice(i, i + CHUNK))
-    if (error) return { error }
-  }
-  return { error: null }
+/* The install's writes are shared with Start with AI's template start (lib/themes/imported-theme-store.ts); these answer as this route does. */
+const asResponse = (f: StoreFailure) => NextResponse.json(f.code ? { error: f.error, code: f.code } : { error: f.error }, { status: f.status })
+
+async function createInstall(admin: Admin, creatorId: string, fields: { theme_id: string; name: string; sort_order: number }): Promise<{ id: string } | NextResponse> {
+  const made = await createImportedInstall(admin, creatorId, fields)
+  return made.ok === false ? asResponse(made) : { id: made.id }
 }
 
-/**
- * The catalogue theme a new install points at.
- *
- * `store_theme_installs.theme_id` is NOT NULL and a foreign key into
- * `themes`. A package carries the id of the theme it came from, and that id
- * means nothing in an account whose catalogue never had it, which is the
- * ordinary case for a package from somebody else. Written unchecked, the
- * insert failed and the import died with a 500 the person could do nothing
- * about (the older manifest format wrote null, which failed every time). So
- * the id is used only when the row is really there, and the default theme
- * stands in when it is not, registered first if this database lacks it.
- */
-async function catalogThemeId(admin: Admin, claimed: unknown): Promise<string> {
-  if (typeof claimed === "string" && UUID.test(claimed)) {
-    const { data: known } = await admin.from("themes").select("id").eq("id", claimed).maybeSingle()
-    if (known) return claimed
-  }
-  const { data: haveDefault } = await admin.from("themes").select("id").eq("id", STORELIB_DEFAULT_ID).maybeSingle()
-  if (!haveDefault) {
-    const def = THEME_REGISTRY.find((t) => t.id === STORELIB_DEFAULT_ID)
-    if (def) await admin.from("themes").upsert(themeCatalogRow(def), { onConflict: "id" })
-  }
-  return STORELIB_DEFAULT_ID
-}
-
-/**
- * The new install's row: a draft ("unpublished" means a site that was live
- * and was taken offline, and this one never was), before every website
- * already there. Two imports at once cannot make a sixth: the database
- * refuses, or the recount backs this one out (lib/website-builder/library-limit.ts).
- */
-async function createInstall(
-  admin: Admin,
-  creatorId: string,
-  fields: { theme_id: string; name: string; sort_order: number },
-): Promise<{ id: string } | NextResponse> {
-  const { data, error } = await admin
-    .from("store_theme_installs")
-    .insert({ creator_id: creatorId, ...fields, status: "draft", is_custom: true })
-    .select("id")
-    .single()
-  if (isLibraryFullError(error)) {
-    return NextResponse.json({ error: LIBRARY_FULL_MESSAGE, code: LIBRARY_FULL_CODE }, { status: 400 })
-  }
-  if (error || !data) {
-    return NextResponse.json({ error: error?.message ?? "Failed to create install" }, { status: 500 })
-  }
-  if (!(await keptWithinLimit(admin, creatorId, data.id as string))) {
-    return NextResponse.json({ error: LIBRARY_FULL_MESSAGE, code: LIBRARY_FULL_CODE }, { status: 400 })
-  }
-  /*
-    The store's menus, written down before the imported website draws them:
-    an imported theme reads `main-menu` and `footer` from the store
-    (compat/menus.ts), and with no row it drew a made up Home, Shop, Contact
-    instead of the navigation the creator built (store-menus-server.ts).
-  */
-  await ensureStoreMenus(admin, creatorId, { excludeInstallId: data.id as string })
-  return { id: data.id as string }
-}
-
-/**
- * Its settings, pages and files, or nothing: a website missing its pages
- * opens to an empty editor, which reads as loss. Any write that fails
- * removes the install again (its rows go with it) and says so. Null when
- * everything landed.
- */
-async function fillInstall(
-  admin: Admin,
-  installId: string,
-  settings: Record<string, unknown>,
-  pages: { page_key: string; sections: unknown }[],
-  files: { install_id: string; path: string; content: string }[],
-): Promise<NextResponse | null> {
-  const writes = [
-    admin.from("store_theme_settings").insert({ install_id: installId, settings, draft_settings: settings }),
-    pages.length > 0
-      ? admin.from("store_theme_pages").insert(pages.map((p) => ({ install_id: installId, page_key: p.page_key, sections: p.sections })))
-      : Promise.resolve({ error: null }),
-    insertInChunks(admin, files),
-  ]
-  const failed = (await Promise.all(writes)).find((r) => r.error)
-  if (!failed) return null
-  await admin.from("store_theme_installs").delete().eq("id", installId)
-  return NextResponse.json({ error: "Could not import this theme. Try again." }, { status: 500 })
+async function fillInstall(admin: Admin, installId: string, settings: Record<string, unknown>, pages: { page_key: string; sections: unknown }[], files: { install_id: string; path: string; content: string }[]): Promise<NextResponse | null> {
+  const failed = await fillImportedInstall(admin, installId, settings, pages, files)
+  return failed ? asResponse(failed) : null
 }
 
 /**
@@ -609,48 +512,15 @@ async function importShopifyTheme(
   theme: ImportedTheme,
   report: ConversionReport,
 ): Promise<NextResponse> {
-  const addresses: Record<string, string> = {}
-  const imported: Partial<Record<MediaKind, number>> = {}
-  for (const asset of theme.binaries) {
-    try {
-      const ext = extensionOf(asset.name)
-      const type = MEDIA_TYPES[ext]
-      if (!type || asset.bytes.byteLength > MAX_BYTES[type.kind] || !packageFileAllowed(asset.name, asset.bytes, type.kind)) {
-        report.skipped.push({ file: `assets/${asset.name}`, reason: "It is not a picture or video Storelib stores" })
-        continue
-      }
-      const path = `${who.userId}/imported/${createHash("sha256").update(asset.bytes).digest("hex").slice(0, 32)}.${ext}`
-      const { error } = await admin.storage.from(BUCKET).upload(path, Buffer.from(asset.bytes), { contentType: type.mime, upsert: true, cacheControl: "31536000" })
-      if (error) {
-        report.skipped.push({ file: `assets/${asset.name}`, reason: "It could not be stored. Import the theme again to retry" })
-        continue
-      }
-      addresses[asset.name] = admin.storage.from(BUCKET).getPublicUrl(path).data.publicUrl
-      imported[type.kind] = (imported[type.kind] ?? 0) + 1
-    } catch {
-      report.skipped.push({ file: `assets/${asset.name}`, reason: "It could not be stored. Import the theme again to retry" })
-    }
-  }
-  /* The whole report is kept with the theme, where the code editor shows it: the answer's summary is one line. */
-  const files: Record<string, string> = { ...theme.files, [ASSET_MAP_PATH]: JSON.stringify(addresses, null, 2), "shopify/import-report.json": JSON.stringify({ summary: conversionSummary(report), ...report }, null, 2) }
-  const own = ownSectionFields(Object.entries(files).filter(([p]) => p.endsWith(".storelib")).map(([path, content]) => ({ path, content })))
-  const pages = theme.pages.map((p) => ({ page_key: p.page_key, sections: sanitizeSections(p.sections as unknown as SectionInstance[], own) }))
-  const settings = sanitizeThemeSettings(theme.settings as unknown as Record<string, unknown>)
-
-  const sortOrder = await firstSortOrder(admin, who.creatorId)
-  const made = await createInstall(admin, who.creatorId, { theme_id: await catalogThemeId(admin, null), name: theme.name, sort_order: sortOrder })
-  if (made instanceof NextResponse) return made
-  const rows = Object.entries(files).map(([path, content]) => ({ install_id: made.id, path, content }))
-  const filled = await fillInstall(admin, made.id, settings, pages, rows)
-  if (filled) return filled
-
-  const first = await coverForNewWebsite({ installId: made.id, userId: who.userId, creatorId: who.creatorId }, renderOrigin(req.url), "import", null)
+  const stored = await storeImportedTheme(admin, who, theme, report)
+  if (stored.ok === false) return asResponse(stored)
+  const first = await coverForNewWebsite({ installId: stored.installId, userId: who.userId, creatorId: who.creatorId }, renderOrigin(req.url), "import", null)
   return NextResponse.json({
     ok: true,
-    install_id: made.id,
+    install_id: stored.installId,
     name: theme.name,
     migrated: false,
-    media: describeMedia(imported),
+    media: describeMedia(stored.imported),
     left_out: [],
     shopify: { ...report, summary: `${conversionSummary(report)}${report.notes.length || report.skipped.length ? " The full report is in the code editor, original/import-report.json." : ""}`, license: SHOPIFY_LICENSE_NOTICE },
     ...first,

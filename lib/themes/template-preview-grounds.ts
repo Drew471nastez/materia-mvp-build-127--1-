@@ -11,7 +11,7 @@ export const TEMPLATE_PREVIEW_GROUNDS: Readonly<Record<string, { desktop: string
   "merch": { desktop: "#7b8a91", phone: "#050504" },
   "digital-products": { desktop: "#fefefe", phone: "#fefefe" },
   "art-books": { desktop: "#ffffff", phone: "#ffffff" },
-  "ebooks": { desktop: "#1a1815", phone: "#ffffff" },
+  "ebooks": { desktop: "#241d18", phone: "#ffffff" },
   "fitness": { desktop: "#070707", phone: "#080808" },
   "landing-page": { desktop: "#100f12", phone: "#161616" },
   "creator-landing": { desktop: "#fdfcfb", phone: "#fdfdfc" },
@@ -38,5 +38,5 @@ export const TEMPLATE_PREVIEW_GROUNDS: Readonly<Record<string, { desktop: string
   "notion-sales-page": { desktop: "#fefefe", phone: "#fefefe" },
   "streetwear-drop": { desktop: "#f9f9f8", phone: "#f9f9f7" },
   "notion-creator": { desktop: "#fefefe", phone: "#fefefe" },
-  "sound-packs": { desktop: "#120d0e", phone: "#120e0e" },
+  "sound-packs": { desktop: "#181414", phone: "#120e0e" },
 }

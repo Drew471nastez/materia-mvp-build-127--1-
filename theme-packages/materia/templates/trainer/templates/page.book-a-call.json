@@ -167,7 +167,7 @@
     "faq": {
       "type": "faq-contact-card",
       "settings": {
-        "color_scheme": "default",
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
         "section_width": "container",
         "first_item_open": true,
         "open_icon": "plus",

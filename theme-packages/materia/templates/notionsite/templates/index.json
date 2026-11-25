@@ -115,7 +115,6 @@
         "desktop_media_width": 54,
         "desktop_main_image_position": "left",
         "show_thumbnails": false,
-        "enable_size_chart": false,
         "enable_dynamic_checkout": true,
         "enable_image_square": false,
         "enable_lightbox": false,
@@ -156,7 +155,6 @@
           "type": "variant_picker",
           "settings": {
             "variant_type": "swatches",
-            "show_size_guide": false,
             "picker_swatch_style": "theme"
           }
         },

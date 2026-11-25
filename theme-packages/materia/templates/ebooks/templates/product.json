@@ -56,7 +56,6 @@
           "type": "variant_picker",
           "settings": {
             "variant_type": "button",
-            "show_size_guide": false,
             "picker_swatch_style": "theme"
           }
         },

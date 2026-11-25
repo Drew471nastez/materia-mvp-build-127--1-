@@ -200,6 +200,12 @@ export interface CompletenessInput {
   caps: RuntimeCapabilities | null
   mode: GenerationMode
   plan: SitePlan | null
+  /**
+   * Round 26: the website is one of Storelib's templates on Materia (Start with AI from a template). Its Materia
+   * sections count as the site's own; its product, collection, shop and search pages are the template's (they draw
+   * the store's real products); its pages are reached through the store's menus (/pages/<key>), not settings.menus.
+   */
+  materia?: boolean
 }
 
 const CHROME = new Set(["header", "footer", "overlay"])
@@ -266,6 +272,7 @@ export function chromeLinks(home: SectionInstance[], sources: Record<string, str
  * Errors (they block finish). Code `site.*`.
  */
 export function completenessIssues(input: CompletenessInput): ValidationIssue[] {
+  if (input.materia) return materiaCompleteness(input)
   const issues: ValidationIssue[] = []
   const err = (code: string, message: string) => issues.push({ severity: "error", code, message })
   const byKey = new Map(input.pages.map((p) => [p.key, p.sections]))
@@ -329,6 +336,35 @@ export function completenessIssues(input: CompletenessInput): ValidationIssue[] 
   for (const p of input.pages) {
     if (!isMainPage(p.key)) continue
     if (!links.has(pagePath(p.key))) err("site.unreachable", `${p.key} (${pagePath(p.key)}) is not linked from the header or the footer. Link it from the menu your header or footer reads, or a link in either.`)
+  }
+  return issues
+}
+
+/**
+ * A website on a Materia template: the same bar, read for a site whose sections are Materia's. Home has ten body
+ * sections (Materia's or the AI's), six of them different; every other main page has sections (the template's own pages
+ * are shorter by design) or the plan's reason; every
+ * page the plan promised exists. The store's templates draw from the template's own pages, and the header and
+ * footer are Materia's, linked through the store's menus.
+ */
+function materiaCompleteness(input: CompletenessInput): ValidationIssue[] {
+  const issues: ValidationIssue[] = []
+  const err = (code: string, message: string) => issues.push({ severity: "error", code, message })
+  const byKey = new Map(input.pages.map((p) => [p.key, p.sections]))
+  const planned = new Map((input.plan?.pages ?? []).map((p) => [p.key, p]))
+  if (!input.plan) err("site.plan_missing", "There is no site plan. Send report_progress phase \"plan\" with pages: every page and template with its sections.")
+  const home = body(byKey.get("home") ?? [])
+  const distinct = new Set(home.map((s) => s.type)).size
+  if (home.length < MIN_HOME_SECTIONS) err("site.home_sections", `home has ${home.length} section${home.length === 1 ? "" : "s"}; it needs at least ${MIN_HOME_SECTIONS} (header and footer not counted). Add Materia sections (or one of your own for the edge) with set_page_sections, each with its own job.`)
+  else if (distinct < MIN_HOME_DISTINCT) err("site.home_variety", `home repeats ${distinct} section type${distinct === 1 ? "" : "s"} across ${home.length} sections; use at least ${MIN_HOME_DISTINCT} different ones.`)
+  for (const p of input.pages) {
+    if (!isMainPage(p.key)) continue
+    const n = body(p.sections).length
+    if (n === 0 && !planned.get(p.key)?.reason) err("site.page_sections", `${p.key} has no sections. Place Materia sections on it, or give the page a reason in the plan.`)
+  }
+  for (const p of input.plan?.pages ?? []) {
+    if (p.key === "home" || isTemplateKey(p.key)) continue
+    if (!byKey.has(p.key)) err("site.plan_page_missing", `The plan has a page "${p.key}" that does not exist. Make it with add_page and place its sections, or take it out of the plan.`)
   }
   return issues
 }

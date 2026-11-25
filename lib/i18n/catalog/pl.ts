@@ -5,6 +5,8 @@
  * keys, no trailing comma). A sentence missing here shows in English.
  */
 const words: Record<string, string> = {
+ "From a Storelib template": "Z szablonu Storelib",
+ "Starts from the closest template and makes it yours.": "Zaczyna od najbliższego szablonu i dopasowuje go do Ciebie.",
  "{name}, home page": "{name}, strona główna",
  "Library full": "Biblioteka pełna",
  "Shown on your profile.": "Widoczne na Twoim profilu.",

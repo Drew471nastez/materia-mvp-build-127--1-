@@ -82,7 +82,6 @@
           "type": "variant_picker",
           "settings": {
             "variant_type": "swatches",
-            "show_size_guide": false,
             "picker_swatch_style": "theme"
           }
         },

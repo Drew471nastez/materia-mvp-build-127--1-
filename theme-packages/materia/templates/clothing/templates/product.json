@@ -56,7 +56,6 @@
           "type": "variant_picker",
           "settings": {
             "variant_type": "swatches",
-            "show_size_guide": false,
             "picker_swatch_style": "theme"
           }
         },
@@ -66,7 +65,6 @@
             "use_storelib_chart": true,
             "table_unit": "cm",
             "size_guide_label": "Size guide",
-            "size_guide_display": "modal",
             "size_guide_appearance": "link",
             "table_data": "Size | Chest | Waist | Hip\nXS | 82 to 86 | 66 to 70 | 88 to 92\nS | 87 to 91 | 71 to 75 | 93 to 97\nM | 92 to 97 | 76 to 81 | 98 to 103\nL | 98 to 103 | 82 to 87 | 104 to 109\nXL | 104 to 110 | 88 to 94 | 110 to 116",
             "size_guide_content": "<p>Body measurements in centimetres. Between two sizes? Take the larger for coats and knitwear, the smaller for tailoring.</p>"

@@ -166,7 +166,7 @@ function typeSystemsFor(job: AgentJobInput, directions: Direction[]): TypeSystem
 }
 
 /** The first user turn of a job. */
-export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilities | null; pages: StoredPage[]; files: StoredFile[]; knowledge: KnowledgeHit[]; directions?: Direction[]; design?: JobDesignBrief | null; template?: string; pictures?: string; materia?: string }): string {
+export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilities | null; pages: StoredPage[]; files: StoredFile[]; knowledge: KnowledgeHit[]; directions?: Direction[]; design?: JobDesignBrief | null; template?: string; pictures?: string; materia?: string; materiaInstall?: boolean }): string {
   const { job } = input
   /* Round O: an edit's direction is the site's own design, its DESIGN.md and tokens, kept unless asked (spec I.5). */
   const scoped = !!job.edit || job.redesign === "changes"
@@ -187,7 +187,9 @@ export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilit
       ? "EXISTING WEBSITE, CHANGES ACROSS THE SITE: this website exists and the creator made it. Make the changes the request describes, wherever on the site they belong, and nothing else. Keep every page, section, word, picture, product and binding that the request does not ask you to change, by id. Native sections stay native: change their settings with set_section_settings, add your own ai_ components beside them only where the request needs something new. Read before you edit (list_pages, read_file). A backup was taken before you started; the creator can undo this job."
       : job.redesign === "full"
         ? "EXISTING WEBSITE, FULL REDESIGN: this website exists and the creator asked for a new look for all of it. Keep its content: every page, the words the creator wrote, the pictures, products, collections, forms and menus it is bound to (read them with list_pages and read_file and carry them over by value or id). Change the look: tokens, layout, your own ai_ components in place of sections that do not fit the concept. Do not delete a page or invent content. A backup was taken before you started; the creator can undo this job."
-        : job.mode === "blank"
+        : input.materiaInstall && job.mode !== "blank"
+          ? "NEW WEBSITE FROM A STORELIB TEMPLATE: this website is one of Storelib's templates on the Materia theme, imported for this creator before you started. Build on it the way the template was built: its Materia sections, header and footer are the site's; adapt every one to this business (words, pictures, real products, colour schemes), drop or swap what does not fit, add the Materia sections the plan needs, and write your own ai_ components only for the edge."
+          : job.mode === "blank"
       ? "NEW WEBSITE, BLANK: there is no theme layout, no header and no footer, and the page draws no built-in cart drawer, search or switches. Everything a visitor sees is a component you write, on every page and template, the site's own header and footer included (with its own cart drawer, search window and language and currency switches through the hooks)."
       : "NEW WEBSITE INSIDE A THEME: the theme's settings and any sections already on the pages are there, but they are not the design. Build the site from your own ai_ components for the concept; keep an existing section only where it already fits, and replace the rest. Write the site's own header and footer and put them in place of the theme's: its frame is not this site's."
   return [

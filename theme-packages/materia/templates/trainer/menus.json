@@ -3,19 +3,23 @@
     "title": "Main menu",
     "links": [
       {
-        "title": "Programs",
-        "url": "/collections/all"
+        "title": "Coaching",
+        "url": "/collections/coaching"
       },
       {
-        "title": "Coaching",
-        "url": "/pages/book-a-call"
+        "title": "Programs",
+        "url": "/collections/programs"
+      },
+      {
+        "title": "Club",
+        "url": "/products/the-strength-club"
       },
       {
         "title": "About",
         "url": "/pages/about"
       },
       {
-        "title": "Journal",
+        "title": "Blog",
         "url": "/blogs/news"
       },
       {
@@ -28,20 +32,28 @@
     "title": "Train",
     "links": [
       {
-        "title": "Programs",
-        "url": "/collections/all"
+        "title": "1:1 coaching",
+        "url": "/collections/coaching"
       },
       {
-        "title": "Online coaching",
-        "url": "/pages/book-a-call"
+        "title": "Programs",
+        "url": "/collections/programs"
+      },
+      {
+        "title": "The Strength Club",
+        "url": "/products/the-strength-club"
+      },
+      {
+        "title": "Find your plan",
+        "url": "/pages/find-your-plan"
+      },
+      {
+        "title": "Apply",
+        "url": "/pages/apply"
       },
       {
         "title": "About Mateo",
         "url": "/pages/about"
-      },
-      {
-        "title": "Journal",
-        "url": "/blogs/news"
       }
     ]
   },
@@ -49,16 +61,20 @@
     "title": "Help",
     "links": [
       {
+        "title": "Book a free call",
+        "url": "/pages/book-a-call"
+      },
+      {
         "title": "FAQ",
         "url": "/pages/faqs"
       },
       {
-        "title": "Contact",
-        "url": "/pages/contact"
+        "title": "Blog",
+        "url": "/blogs/news"
       },
       {
-        "title": "Search",
-        "url": "/search"
+        "title": "Contact",
+        "url": "/pages/contact"
       }
     ]
   },

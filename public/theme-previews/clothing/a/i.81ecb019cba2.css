@@ -1,0 +1,193 @@
+
+  #shopify-section-coupon_promotion_newsletter_popup { position: static; }
+  .cpnb-coupon_promotion_newsletter_popup { font-family: var(--body-font, inherit); }
+  .cpnb-coupon_promotion_newsletter_popup *, .cpnb-coupon_promotion_newsletter_popup *::before, .cpnb-coupon_promotion_newsletter_popup *::after { box-sizing: border-box; }
+  .cpnb-coupon_promotion_newsletter_popup [hidden] { display: none !important; }
+
+  .cpnb-overlay-coupon_promotion_newsletter_popup {
+    position: fixed; inset: 0;
+    background: var(--cpnb-overlay, #000000);
+    opacity: 0;
+    pointer-events: none; visibility: hidden;
+    transition: opacity .3s ease, visibility 0s linear .3s;
+    z-index: 2147483646;
+  }
+  .cpnb-coupon_promotion_newsletter_popup.cpnb-open .cpnb-overlay-coupon_promotion_newsletter_popup {
+    opacity: var(--cpnb-overlay-o, .5);
+    pointer-events: auto; visibility: visible; transition-delay: 0s;
+  }
+
+  .cpnb-card-coupon_promotion_newsletter_popup {
+    position: fixed; left: 50%; top: 50%;
+    transform: translate(-50%, -50%) scale(.96);
+    opacity: 0; pointer-events: none; visibility: hidden;
+    transition: transform .35s cubic-bezier(.2,.8,.2,1), opacity .3s ease, visibility 0s linear .35s;
+    z-index: 2147483647;
+    width: min(calc(100vw - var(--cpnb-gutter, 32px)), var(--cpnb-w, 880px));
+    max-height: calc(var(--sl-vh, 1vh) * 100 - 24px);
+    overflow: hidden auto; overscroll-behavior: contain;
+    background: var(--cpnb-bg, var(--color-background));
+    color: var(--cpnb-text, var(--color-text));
+    border-radius: var(--cpnb-radius, 14px);
+    box-shadow: 0 12px 40px rgba(0,0,0,.15);
+  }
+  .cpnb-coupon_promotion_newsletter_popup.cpnb-open .cpnb-card-coupon_promotion_newsletter_popup {
+    opacity: 1; pointer-events: auto; visibility: visible; transition-delay: 0s;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  @media (min-width: 750px) {
+    .cpnb-card-coupon_promotion_newsletter_popup {
+      width: min(92vw, var(--cpnb-w, 880px));
+      max-height: min(560px, calc(var(--sl-vh, 1vh) * 100 - 32px));
+    }
+  }
+
+  /* Two columns on desktop, the picture on the chosen side */
+  .cpnb-grid-coupon_promotion_newsletter_popup {
+    display: grid;
+    grid-template-columns: 1.05fr .95fr;
+    align-items: stretch;
+    gap: 0;
+    height: 100%;
+  }
+  .cpnb-coupon_promotion_newsletter_popup[data-cpnb-side="image-left"] .cpnb-grid-coupon_promotion_newsletter_popup { grid-template-columns: .95fr 1.05fr; }
+  .cpnb-coupon_promotion_newsletter_popup[data-cpnb-side="image-left"] .cpnb-text-coupon_promotion_newsletter_popup { order: 2; }
+  .cpnb-coupon_promotion_newsletter_popup[data-cpnb-side="image-left"] .cpnb-image-coupon_promotion_newsletter_popup { order: 1; }
+  @media (max-width: 749px) {
+    .cpnb-coupon_promotion_newsletter_popup[data-cpnb-side] .cpnb-grid-coupon_promotion_newsletter_popup {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto 1fr;
+      height: auto;
+    }
+    .cpnb-coupon_promotion_newsletter_popup[data-cpnb-mobile-image="above"] .cpnb-grid-coupon_promotion_newsletter_popup .cpnb-text-coupon_promotion_newsletter_popup { order: 2; }
+    .cpnb-coupon_promotion_newsletter_popup[data-cpnb-mobile-image="above"] .cpnb-grid-coupon_promotion_newsletter_popup .cpnb-image-coupon_promotion_newsletter_popup { order: 1; }
+    .cpnb-coupon_promotion_newsletter_popup[data-cpnb-mobile-image="below"] .cpnb-grid-coupon_promotion_newsletter_popup .cpnb-text-coupon_promotion_newsletter_popup { order: 1; }
+    .cpnb-coupon_promotion_newsletter_popup[data-cpnb-mobile-image="below"] .cpnb-grid-coupon_promotion_newsletter_popup .cpnb-image-coupon_promotion_newsletter_popup { order: 2; }
+    .cpnb-coupon_promotion_newsletter_popup[data-cpnb-mobile-image="hidden"] .cpnb-grid-coupon_promotion_newsletter_popup .cpnb-image-coupon_promotion_newsletter_popup { display: none; }
+    .cpnb-coupon_promotion_newsletter_popup[data-cpnb-mobile-image="hidden"][data-cpnb-side] .cpnb-grid-coupon_promotion_newsletter_popup { grid-template-rows: 1fr; }
+  }
+
+  .cpnb-text-coupon_promotion_newsletter_popup {
+    padding: var(--cpnb-pad-v, 24px) var(--cpnb-pad-h, 28px);
+    display: flex; flex-direction: column;
+    justify-content: center;
+    text-align: start;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .cpnb-coupon_promotion_newsletter_popup[data-cpnb-align="center"] .cpnb-text-coupon_promotion_newsletter_popup { text-align: center; align-items: center; }
+  @media (max-width: 749px) {
+    .cpnb-text-coupon_promotion_newsletter_popup { padding: 18px 20px; justify-content: flex-start; }
+  }
+
+  .cpnb-image-coupon_promotion_newsletter_popup {
+    background: #f3f3f3;
+    overflow: hidden;
+    min-height: 0;
+  }
+  .cpnb-coupon_promotion_newsletter_popup[data-cpnb-ratio="square"] .cpnb-image-coupon_promotion_newsletter_popup { aspect-ratio: 1 / 1; }
+  .cpnb-coupon_promotion_newsletter_popup[data-cpnb-ratio="portrait"] .cpnb-image-coupon_promotion_newsletter_popup { aspect-ratio: 3 / 4; }
+  .cpnb-coupon_promotion_newsletter_popup[data-cpnb-ratio="landscape"] .cpnb-image-coupon_promotion_newsletter_popup { aspect-ratio: 4 / 3; }
+  .cpnb-coupon_promotion_newsletter_popup[data-cpnb-ratio="wide"] .cpnb-image-coupon_promotion_newsletter_popup { aspect-ratio: 16 / 9; }
+  .cpnb-image-coupon_promotion_newsletter_popup .cpnb-placeholder { display: block; width: 100%; height: 100%; min-height: 200px; opacity: .5; }
+  .cpnb-image-coupon_promotion_newsletter_popup img {
+    width: 100%; height: 100%;
+    object-fit: var(--cpnb-fit, cover);
+    object-position: var(--cpnb-pos, center);
+    display: block;
+  }
+  @media (max-width: 749px) {
+    .cpnb-coupon_promotion_newsletter_popup[data-cpnb-ratio] .cpnb-image-coupon_promotion_newsletter_popup { aspect-ratio: 16 / 10; }
+    .cpnb-coupon_promotion_newsletter_popup[data-cpnb-ratio][data-cpnb-mh="fixed"] .cpnb-image-coupon_promotion_newsletter_popup { height: var(--cpnb-mh-px, 180px); aspect-ratio: auto; }
+  }
+
+  .cpnb-close-coupon_promotion_newsletter_popup {
+    position: absolute; top: 10px; right: 10px;
+    width: 44px; height: 44px; padding: 0;
+    border: none; border-radius: 50%;
+    background: var(--color-background, #fff);
+    color: var(--cpnb-close, var(--color-heading));
+    font-size: 18px; line-height: 1;
+    cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,.1);
+    transition: transform .2s ease, background .2s ease;
+    z-index: 2;
+  }
+  .cpnb-close-coupon_promotion_newsletter_popup:hover { background: color-mix(in srgb, currentColor 10%, var(--color-background, #fff)); }
+  .cpnb-close-coupon_promotion_newsletter_popup svg { width: 18px; height: 18px; }
+  .cpnb-close-coupon_promotion_newsletter_popup:focus-visible, .cpnb-code-coupon_promotion_newsletter_popup:focus-visible, .cpnb-dismiss-coupon_promotion_newsletter_popup:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+
+  .cpnb-eyebrow-coupon_promotion_newsletter_popup { font-weight: 700; letter-spacing: .12em; text-transform: uppercase; opacity: .85; margin: 0 0 6px; }
+  .cpnb-headline-coupon_promotion_newsletter_popup { font-weight: var(--heading-weight, 800); line-height: 1.1; margin: 0 0 8px; }
+  .cpnb-subheading-coupon_promotion_newsletter_popup { line-height: 1.45; margin: 0 0 12px; max-width: 480px; }
+  @media (max-width: 749px) {
+    .cpnb-headline-coupon_promotion_newsletter_popup { font-size: calc(var(--cpnb-size, 32px) * .75) !important; }
+    .cpnb-subheading-coupon_promotion_newsletter_popup { font-size: calc(var(--cpnb-size, 15px) * .94) !important; margin-bottom: 10px; }
+  }
+
+  /* The code: at once, or only after signing up (gated) */
+  .cpnb-coupon_promotion_newsletter_popup[data-cpnb-gate="true"] .cpnb-coupon-coupon_promotion_newsletter_popup.cpnb-coupon-gated { display: none; }
+  .cpnb-coupon_promotion_newsletter_popup[data-cpnb-gate="true"].cpnb-subscribed .cpnb-coupon-coupon_promotion_newsletter_popup.cpnb-coupon-gated { display: flex; }
+  .cpnb-coupon_promotion_newsletter_popup[data-cpnb-gate="true"] .cpnb-coupon-coupon_promotion_newsletter_popup.cpnb-coupon-ungated { display: none !important; }
+  .cpnb-coupon_promotion_newsletter_popup[data-cpnb-gate="false"] .cpnb-coupon-coupon_promotion_newsletter_popup.cpnb-coupon-gated { display: none !important; }
+  .cpnb-coupon_promotion_newsletter_popup[data-cpnb-gate="false"] .cpnb-coupon-coupon_promotion_newsletter_popup.cpnb-coupon-ungated { display: flex; }
+  .cpnb-coupon_promotion_newsletter_popup[data-cpnb-gate="false"] .cpnb-postpane-coupon_promotion_newsletter_popup { display: none !important; }
+  .cpnb-code-row-coupon_promotion_newsletter_popup {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+    margin: 0 0 10px;
+  }
+  .cpnb-coupon_promotion_newsletter_popup[data-cpnb-align="center"] .cpnb-code-row-coupon_promotion_newsletter_popup { justify-content: center; }
+  .cpnb-code-label-coupon_promotion_newsletter_popup { font-weight: 600; opacity: .9; font-size: 13px; letter-spacing: .08em; }
+  .cpnb-code-coupon_promotion_newsletter_popup {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-weight: 700; letter-spacing: .12em; font-size: 15px;
+    min-height: 44px; padding: 8px 14px; border-radius: 6px;
+    border: 2px dashed currentColor; color: inherit;
+    cursor: pointer; user-select: all;
+    background: transparent;
+    transition: background .2s ease, color .2s ease, border-color .2s ease;
+  }
+  .cpnb-code-coupon_promotion_newsletter_popup.is-copied { background: #1c8d3a; color: #fff; border-color: #1c8d3a; }
+
+  .cpnb-prepane-coupon_promotion_newsletter_popup { display: block; }
+  .cpnb-coupon_promotion_newsletter_popup.cpnb-subscribed .cpnb-prepane-coupon_promotion_newsletter_popup { display: none; }
+  .cpnb-postpane-coupon_promotion_newsletter_popup { display: none; }
+  .cpnb-coupon_promotion_newsletter_popup.cpnb-subscribed .cpnb-postpane-coupon_promotion_newsletter_popup { display: block; }
+  .cpnb-success-coupon_promotion_newsletter_popup { color: #1c8d3a; margin: 0 0 12px; font-size: 14px; font-weight: 600; }
+
+  .cpnb-form-coupon_promotion_newsletter_popup { max-width: 420px; }
+  .cpnb-coupon_promotion_newsletter_popup[data-cpnb-align="center"] .cpnb-form-coupon_promotion_newsletter_popup { margin-inline: auto; }
+  .cpnb-form-coupon_promotion_newsletter_popup > form,
+  .cpnb-form-coupon_promotion_newsletter_popup form.cpnb-formel-coupon_promotion_newsletter_popup { display: flex; flex-direction: column; gap: 12px; }
+  .cpnb-form-coupon_promotion_newsletter_popup input[type="email"] {
+    width: 100%; min-height: 44px; padding: 12px 14px;
+    border-radius: var(--input-radius, 8px);
+    border: 1px solid var(--color-border);
+    font-size: 16px;
+    background: var(--input-bg, var(--color-background)); color: var(--input-color, var(--color-text));
+  }
+  .cpnb-form-coupon_promotion_newsletter_popup input[type="email"]:focus-visible { outline: 2px solid var(--color-heading); outline-offset: 1px; }
+  /* The submit is a theme button (theme-button-contract.css); with the
+     theme's button style off, its own shape arrives as --mb-* tokens. */
+  .cpnb-form-coupon_promotion_newsletter_popup button[type="submit"] { width: 100%; cursor: pointer; }
+  .cpnb-form-coupon_promotion_newsletter_popup button[type="submit"][data-own-shape] { --mb-padding-y: 12px; --mb-padding-x: 20px; --mb-font-size: 15px; }
+  .cpnb-form-coupon_promotion_newsletter_popup button[type="submit"].is-loading { pointer-events: none; opacity: .7; }
+  .cpnb-form-coupon_promotion_newsletter_popup .storelib-form-note[role="alert"] { margin: 0; font-size: 14px; line-height: 1.45; color: color-mix(in srgb, #d92d20 72%, var(--color-text)); }
+  .cpnb-form-coupon_promotion_newsletter_popup [aria-busy="true"] button[type="submit"], .cpnb-form-coupon_promotion_newsletter_popup form[aria-busy="true"] button[type="submit"] { opacity: .7; cursor: progress; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cpnb-card-coupon_promotion_newsletter_popup, .cpnb-overlay-coupon_promotion_newsletter_popup, .cpnb-form-coupon_promotion_newsletter_popup button[type="submit"], .cpnb-code-coupon_promotion_newsletter_popup, .cpnb-close-coupon_promotion_newsletter_popup { transition: none !important; animation: none !important; }
+    .cpnb-card-coupon_promotion_newsletter_popup { transform: translate(-50%, -50%) !important; }
+  }
+
+  .cpnb-dismiss-wrap-coupon_promotion_newsletter_popup { margin-top: 10px; text-align: var(--cpnb-dismiss-align, center); }
+  .cpnb-dismiss-coupon_promotion_newsletter_popup {
+    background: none; border: none; cursor: pointer;
+    font-size: 13px;
+    text-decoration: underline;
+    color: inherit; opacity: .7;
+    min-height: 44px; padding: 4px 8px;
+    transition: opacity .2s ease;
+  }
+  .cpnb-dismiss-coupon_promotion_newsletter_popup:hover { opacity: 1; }

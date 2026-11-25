@@ -122,12 +122,28 @@ async function drawDraft(installId: string): Promise<string> {
 }
 
 /** Creates a website with AI for `slug` and runs the job to its end. */
-async function build(w: AiWorld, who: Awaited<ReturnType<typeof seller>>, d: Design, script: Script, opts: { generation?: StartOptions["generation"]; key: string; beforeTurns?: (installId: string, jobId: string) => Promise<void> }): Promise<Built> {
+async function build(w: AiWorld, who: Awaited<ReturnType<typeof seller>>, d: Design, script: Script, opts: { generation?: StartOptions["generation"]; key: string; beforeTurns?: (installId: string, jobId: string) => Promise<void>; existing?: boolean }): Promise<Built> {
   const options: StartOptions = { generation: opts.generation ?? "blank", ...(d.category ? { category: d.category as StartOptions["category"] } : {}) }
-  const made = await w.j.call("POST /api/website-builder/themes/create", { as: who.person, body: { mode: "ai", prompt: d.prompt, key: opts.key, options } })
-  if (made.status !== 200 || !made.json?.job?.id) throw new Error(`create failed for ${d.label}: ${made.status} ${JSON.stringify(made.json)}`)
-  const installId = String(made.json.install.id)
-  const jobId = String(made.json.job.id)
+  let installId: string
+  let jobId: string
+  if (opts.existing) {
+    /*
+      Changed on purpose (round 26): Start with AI inside a theme now makes the website from a Storelib template (Materia).
+      A change to a website that already exists (E) starts from one made with Start from blank (Storelib Default, its header
+      and footer), and its job row is made as the create route makes one, like G3 below.
+    */
+    const plain = await w.j.call("POST /api/website-builder/themes/create", { as: who.person, body: { mode: "blank" } })
+    if (plain.status !== 200 || !plain.json?.install?.id) throw new Error(`create failed for ${d.label}: ${plain.status} ${JSON.stringify(plain.json)}`)
+    installId = String(plain.json.install.id)
+    const [row] = w.j.db.insert("ai_site_jobs", { creator_id: who.creatorId, owner_user_id: who.person.id, install_id: installId, prompt: d.prompt, idempotency_key: opts.key, status: "queued", step: "agent", engine: "agent", mode: "theme", options, progress: 0, state: {} }, {})
+    jobId = String(row.id)
+    w.kicks.push({ jobId, token: null })
+  } else {
+    const made = await w.j.call("POST /api/website-builder/themes/create", { as: who.person, body: { mode: "ai", prompt: d.prompt, key: opts.key, options } })
+    if (made.status !== 200 || !made.json?.job?.id) throw new Error(`create failed for ${d.label}: ${made.status} ${JSON.stringify(made.json)}`)
+    installId = String(made.json.install.id)
+    jobId = String(made.json.job.id)
+  }
   if (opts.beforeTurns) await opts.beforeTurns(installId, jobId)
   const s = scriptModels(script, { clock: w.clock })
   w.scripts.set(jobId, s)
@@ -228,6 +244,7 @@ async function main() {
   ]
   const bE = await build(w, e, eDesign, eScript, {
     generation: "theme",
+    existing: true,
     key: "1b7c1e2a-0000-4000-8000-000000000110",
     beforeTurns: async (installId, jobId) => {
       eInstall = installId

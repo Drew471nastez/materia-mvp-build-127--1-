@@ -217,7 +217,8 @@ async function main() {
   // ═══════════════════════════════════════════════════════════════════════
   {
     const exportRoute = readFileSync(join(process.cwd(), "app/api/website-builder/themes/[installId]/export/route.ts"), "utf8")
-    const importRoute = readFileSync(join(process.cwd(), "app/api/website-builder/themes/import/route.ts"), "utf8")
+    /* Changed on purpose (round 26): the install's writes moved to lib/themes/imported-theme-store.ts (shared with Start with AI's template start); read after the route. */
+    const importRoute = readFileSync(join(process.cwd(), "app/api/website-builder/themes/import/route.ts"), "utf8") + readFileSync(join(process.cwd(), "lib/themes/imported-theme-store.ts"), "utf8")
     const client = readFileSync(join(process.cwd(), "app/(storelib)/app/website-builder/website-builder-client.tsx"), "utf8")
 
     /* Its templates and its header and footer group files come from lib/website-builder/theme-pages.ts, which writes them with templateFromSections. */

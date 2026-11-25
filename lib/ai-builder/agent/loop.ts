@@ -36,7 +36,7 @@ import { AGENT_TOOL_NAMES, type AgentEvent, type AgentJobStatus, type AgentPhase
 import type { AgentToolInputs, AgentToolOutputs, ToolSet } from "../agent-tools"
 import type { AgentDeps, AgentJobInput, KnowledgeHit, ModelRole } from "./ports"
 import { AGENT_SYSTEM, briefMessage } from "./prompts"
-import { materiaBrief } from "./materia"
+import { isMateriaInstall, materiaBrief } from "./materia"
 import { TOOL_LIST } from "./tool-specs"
 import { compactCheckpoint, compactLive, resumeTurns, toCheckpointTurns } from "./compact"
 import { addUnique, newCheckpoint, type CriticState, type LoopCheckpoint } from "./state"
@@ -272,7 +272,7 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
       }
     })()
     if (materia.choice) cp.materia = { template: materia.choice.template.template, score: materia.choice.score, matched: materia.choice.matched.slice(0, 12), install: materia.install }
-    cp.turns.push({ role: "user", text: briefMessage({ job, caps, pages: pagesNow, files: filesNow, knowledge, directions, design, pictures: picturesNote, ...(templateText ? { template: templateText } : {}), ...(materia.text ? { materia: materia.text } : {}) }) })
+    cp.turns.push({ role: "user", text: briefMessage({ job, caps, pages: pagesNow, files: filesNow, knowledge, directions, design, pictures: picturesNote, ...(templateText ? { template: templateText } : {}), ...(materia.text ? { materia: materia.text } : {}), materiaInstall: materia.install }) })
     if (scoped) setPhase("build", "Making your change")
     else setPhase("plan", "Deciding the look")
   }
@@ -766,7 +766,7 @@ export async function verify(job: AgentJobInput, deps: AgentDeps, cp: LoopCheckp
   if (!job.edit && !job.redesign) {
     const src: Record<string, string> = {}
     for (const f of await deps.store.listFiles()) if (f.text.trim()) src[f.path] = f.text
-    issues.push(...completenessIssues({ pages: stored, sources: src, settings: await deps.store.readSettings(), caps: cp.caps ?? null, mode: job.mode, plan: cp.sitePlan ?? null }))
+    issues.push(...completenessIssues({ pages: stored, sources: src, settings: await deps.store.readSettings(), caps: cp.caps ?? null, mode: job.mode, plan: cp.sitePlan ?? null, materia: isMateriaInstall(src) }))
   }
   /*
     COMPLETE SECTIONS AND PICTURES (round P, P5, ./content-check.ts). Every placed ai_ section holds enough real

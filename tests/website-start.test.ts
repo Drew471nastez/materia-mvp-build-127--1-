@@ -45,6 +45,11 @@ import {
   withStartParam,
 } from "@/lib/website-builder/start-handoff"
 import { classifyIntent } from "@/lib/website-builder/agent/intent"
+import { installCodeTemplate } from "@/lib/themes/template-install"
+import { storeImportedTheme } from "@/lib/themes/imported-theme-store"
+import { composeTemplateZip } from "@/lib/themes/template-packages"
+import { chooseMateriaTemplate } from "@/lib/storelib-ai/materia/reference"
+import { START_GENERATION } from "@/lib/website-builder/ai-site/start-options"
 import { StartWebsite } from "@/app/(storelib)/app/website-builder/start-website"
 import { libraryFullSentence } from "@/app/(storelib)/app/website-builder/library-full-dialog"
 
@@ -70,11 +75,11 @@ const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\
 
 // ── A small PostgREST in memory ────────────────────────────────────────────
 type Row = Record<string, unknown>
-type Fail = Partial<Record<"themes.upsert" | "installs.insert" | "settings.insert" | "pages.insert" | "installs.count", { message: string; code?: string }>>
-const TABLE: Record<string, string> = { store_theme_installs: "installs", store_theme_settings: "settings", store_theme_pages: "pages", themes: "themes" }
+type Fail = Partial<Record<"themes.upsert" | "installs.insert" | "settings.insert" | "pages.insert" | "installs.count" | "files.insert", { message: string; code?: string }>>
+const TABLE: Record<string, string> = { store_theme_installs: "installs", store_theme_settings: "settings", store_theme_pages: "pages", themes: "themes", store_theme_custom_files: "files" }
 
 function fakeDb(seed: { installs?: Row[]; themes?: Row[] } = {}, opts: { fail?: Fail; countAfterInsert?: number } = {}) {
-  const tables: Record<string, Row[]> = { installs: [...(seed.installs ?? [])], settings: [], pages: [], themes: [...(seed.themes ?? [])] }
+  const tables: Record<string, Row[]> = { installs: [...(seed.installs ?? [])], settings: [], pages: [], themes: [...(seed.themes ?? [])], files: [] }
   const log: string[] = []
   let ids = 0
   let inserted = false
@@ -276,7 +281,7 @@ section("The route, and Add left as it was")
   check("rate limited per person, as a site action", /rateLimit\(\{\s*bucket: "site-create",\s*subjects: \[`user:\$\{site\.userId\}`\],\s*windows: LIMITS\.siteAction/.test(route) && /if \(limited\) return limited/.test(route))
   check("a mode or a 400", /if \(!isStartMode\(mode\)\) return NextResponse\.json\(\{ error: "mode must be ai or blank" \}, \{ status: 400 \}\)/.test(route))
   check("the helper writes, with the caller's client for the count and the service role for the rows",
-    /const admin = createAdminClient\(\)/.test(route) && /createStartWebsite\(\{ supabase, admin \}, \{ creatorId, mode, name: body\?\.name, chrome: generating && options\.generation === "blank" \? "none" : "theme" \}\)/.test(route) && /const creatorId = creator\.id as string/.test(route))
+    /const admin = createAdminClient\(\)/.test(route) && /* Changed on purpose (round 26): the call also names the template an AI start is made from, and injects the import. */ /createStartWebsite\(\s*\{ supabase, admin \},\s*\{ creatorId, mode, name: body\?\.name, chrome: generating && options\.generation === "blank" \? "none" : "theme", \.\.\.\(fromTemplate \? \{ template: \{ id: fromTemplate, userId: site\.ownerUserId \} \} : \{\}\) \},\s*\{ installTemplate: installCodeTemplate \},\s*\)/.test(route) && /const creatorId = creator\.id as string/.test(route))
   check("  its refusal keeps the code the page opens the full library sheet for", /made\.code \? \{ error: made\.error, code: made\.code \}/.test(route))
   check("the cover is taken as Add takes it, and the answer carries the install",
     /coverForNewWebsite\(\{ installId: made\.install\.id, userId: site\.ownerUserId, creatorId \}, renderOrigin\(req\.url\), "create", null\)/.test(route) &&
@@ -408,6 +413,64 @@ section("The Website page's three doors")
   /* It goes in the request body now (the server builds the site), still never in the address. */
   check("  the description never goes in the address", !/encodeURIComponent\(prompt\)/.test(start) && !/[?&]prompt=/.test(start))
   check("the page has no link to /app/sites", !/\/app\/sites|new-site-flow/.test(client + read("app/(storelib)/app/website-builder/start-website.tsx")))
+}
+
+// ── 5. Start with AI from one of Storelib's templates (round 26) ──────────
+section("Start with AI makes the website from the closest Materia template")
+{
+  const who = { userId: "u1", creatorId: "c1" }
+  /* The helper with the import stood in: the limit first, the name picked, the import's answer passed on. */
+  const calls: { template: string; name: string }[] = []
+  const stub = (async (_admin: unknown, _who: unknown, template: string, opts: { name: string }) => {
+    calls.push({ template, name: opts.name })
+    return { ok: true, installId: "tpl-1", name: opts.name, template }
+  }) as never
+  const db = fakeDb({ installs: [install({ name: "AI website" })], themes: catalogue })
+  const made = await create({ supabase: db.client, admin: db.client }, { creatorId: "c1", mode: "ai", template: { id: "trainer", userId: "u1" } }, { menus: noMenus, installTemplate: stub })
+  check("an AI start with a template is that template, imported, one website", made.ok && made.install.id === "tpl-1" && made.install.template === "trainer" && calls.length === 1 && calls[0].template === "trainer", made)
+  check("  named as every AI start is (a number when taken), and no Storelib Default rows written", calls[0]?.name === "AI website 2" && db.tables.installs.length === 1 && db.tables.pages.length === 0 && db.tables.settings.length === 0)
+  const full = fakeDb({ installs: Array.from({ length: THEME_INSTALL_LIMIT }, (_, i) => install({ sort_order: i, status: i ? "draft" : "published" })), themes: catalogue })
+  calls.length = 0
+  const refused = await create({ supabase: full.client, admin: full.client }, { creatorId: "c1", mode: "ai", template: { id: "trainer", userId: "u1" } }, { menus: noMenus, installTemplate: stub })
+  check("  a full library refuses before anything is imported, with the code the page opens its sheet for", !refused.ok && refused.code === LIBRARY_FULL_CODE && refused.error === LIBRARY_FULL_MESSAGE && calls.length === 0, refused)
+  const failing = (async () => ({ ok: false, status: 500, error: "Could not make the website from its template. Try again." })) as never
+  const failed = await create({ supabase: db.client, admin: db.client }, { creatorId: "c1", mode: "ai", template: { id: "trainer", userId: "u1" } }, { menus: noMenus, installTemplate: failing })
+  check("  an import that fails is the answer, with nothing of Storelib Default made in its place", !failed.ok && failed.status === 500 && db.tables.installs.length === 1, failed)
+  const noImport = await create({ supabase: db.client, admin: db.client }, { creatorId: "c1", mode: "ai", template: { id: "trainer", userId: "u1" } }, { menus: noMenus })
+  check("  without the import injected (a browser never has it) it refuses rather than make something else", !noImport.ok && noImport.status === 500)
+
+  /* The real template, composed, converted and stored by the import's own writes into the database in memory. */
+  const zip = await composeTemplateZip("materia/trainer")
+  const real = await installCodeTemplate(db.client, who, "trainer", { name: "Mateo's coaching", deps: { compose: async () => zip, menus: async () => undefined, store: (a, w, t, r, o) => storeImportedTheme(a, w, t, r, { ...o, menus: noMenus as never }) } })
+  const row = real.ok ? db.tables.installs.find((r) => r.id === real.installId) : null
+  const files = db.tables.files.filter((f) => real.ok && f.install_id === real.installId)
+  const pages = db.tables.pages.filter((p) => real.ok && p.install_id === real.installId)
+  check("the real import: a draft install, first in the library, named for the creator", real.ok && row?.status === "draft" && row?.name === "Mateo's coaching" && row?.is_custom === true, { real, row })
+  check("  Materia's own section files (compat), its pages with the template's sections, its settings", files.length > 200 && files.some((f) => f.path === "sections/hero-section-pro.storelib" && /<template compat="shopify">/.test(String(f.content))) && pages.some((p) => p.page_key === "home" && (p.sections as { type: string }[]).some((x) => x.type === "hero-section-pro")) && db.tables.settings.some((x) => real.ok && x.install_id === real.installId), { files: files.length, pages: pages.map((p) => p.page_key) })
+
+  for (const what of ["pages.insert", "settings.insert", "files.insert"] as const) {
+    const broken = fakeDb({ installs: [install()], themes: catalogue }, { fail: { [what]: { message: "boom" } } })
+    const r = await installCodeTemplate(broken.client, who, "trainer", { name: "AI website", deps: { compose: async () => zip, menus: async () => undefined, store: (a, w, t, rep, o) => storeImportedTheme(a, w, t, rep, { ...o, menus: noMenus as never }) } })
+    check(`  a failed ${what.replace(".insert", "")} write takes the new website back (one install left: the old one)`, !r.ok && r.status === 500 && broken.tables.installs.length === 1 && broken.log.some((l) => l.startsWith("delete installs")), { r, log: broken.log })
+  }
+  const raced = fakeDb({ installs: [install()], themes: catalogue }, { fail: { "installs.insert": { message: "library_full" } } })
+  const racedR = await installCodeTemplate(raced.client, who, "trainer", { name: "AI website", deps: { compose: async () => zip, menus: async () => undefined, store: (a, w, t, rep, o) => storeImportedTheme(a, w, t, rep, { ...o, menus: noMenus as never }) } })
+  check("  two at once past the limit: refused as a full library", !racedR.ok && racedR.code === LIBRARY_FULL_CODE)
+  const unknownTemplate = await installCodeTemplate(db.client, who, "../etc", { name: "x" })
+  check("  only a template the code lists", !unknownTemplate.ok && unknownTemplate.status === 400)
+  const badZip = await installCodeTemplate(db.client, who, "trainer", { name: "x", deps: { compose: async () => { throw new Error("no files") } } })
+  const noConvert = await installCodeTemplate(db.client, who, "trainer", { name: "x", deps: { compose: async () => zip, convert: (async () => ({ ok: false, error: "nope" })) as never } })
+  check("  a template that cannot be composed or converted is a plain failure, nothing stored", !badZip.ok && badZip.status === 500 && !noConvert.ok && noConvert.status === 500 && !/no files|nope/.test(String((badZip as { error?: string }).error)))
+
+  /* The route: chosen and imported before the job, the job told which template, From scratch and the older paths kept. */
+  const route = code("app/api/website-builder/themes/create/route.ts")
+  check("the route chooses the closest template from the words and the example, before the website is made",
+    /const fromTemplate = generating && engine === "agent" && options\.generation === "theme" && !noJobsTable \? chooseMateriaTemplate\(\{ prompt, category: options\.category \?\? null \}\)\.template\.template : null/.test(route) && route.indexOf("const fromTemplate") < route.indexOf("createStartWebsite(") && route.indexOf("createStartWebsite(") < route.indexOf("startJobRow("))
+  check("  the job is told which template it was made from", /options: fromTemplate \? \{ \.\.\.options, template: fromTemplate \} : options/.test(route))
+  check("  From scratch stays a blank page, and the classic engine and the in-request path keep Storelib Default", /options\.generation === "theme"/.test(route) && /engine === "agent"/.test(route) && /!noJobsTable/.test(route) && /chrome: generating && options\.generation === "blank" \? "none" : "theme"/.test(route))
+  check("  a job that cannot be written still takes its website back", /if \(job\.kind !== "made"\) \{\s*await admin\.from\("store_theme_installs"\)\.delete\(\)\.eq\("id", made\.install\.id\)\.eq\("creator_id", creatorId\)/.test(route))
+  check("a fitness coach's description picks a coaching template", ["trainer", "fitness", "coach"].includes(chooseMateriaTemplate({ prompt: "A website for my personal training business", category: "fitness_coach" }).template.template))
+  check("the Website page starts on From a Storelib template, From scratch still a choice", START_GENERATION === "theme" && /tt\("From a Storelib template"\)/.test(read("app/(storelib)/app/website-builder/start-website.tsx")) && /tt\("From scratch"\)/.test(read("app/(storelib)/app/website-builder/start-website.tsx")))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

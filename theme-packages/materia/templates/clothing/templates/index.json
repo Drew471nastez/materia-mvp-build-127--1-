@@ -303,7 +303,6 @@
         "desktop_media_width": 46,
         "desktop_main_image_position": "left",
         "show_thumbnails": false,
-        "enable_size_chart": true,
         "enable_dynamic_checkout": false,
         "enable_image_square": false,
         "enable_lightbox": false,
@@ -334,8 +333,7 @@
         "variant_1": {
           "type": "variant_picker",
           "settings": {
-            "variant_type": "swatches",
-            "show_size_guide": false
+            "variant_type": "swatches"
           }
         },
         "buy_1": {

@@ -7,30 +7,38 @@
         "url": "/collections/all",
         "links": [
           {
-            "title": "Tops",
-            "url": "/collections/all",
+            "title": "Collections",
+            "url": "/collections",
             "links": [
               {
-                "title": "Graphic tees",
-                "url": "/collections/graphic-tees"
+                "title": "Winter",
+                "url": "/collections/winter"
               },
               {
-                "title": "Crewnecks",
-                "url": "/collections/crewnecks"
+                "title": "Hometown",
+                "url": "/collections/hometown"
               },
               {
-                "title": "Everything",
-                "url": "/collections/all"
+                "title": "Game day",
+                "url": "/collections/game-day"
+              },
+              {
+                "title": "Essentials",
+                "url": "/collections/essentials"
               }
             ]
           },
           {
-            "title": "Accessories",
-            "url": "/collections/caps-and-beanies",
+            "title": "Shop",
+            "url": "/collections/all",
             "links": [
               {
-                "title": "Caps and beanies",
-                "url": "/collections/caps-and-beanies"
+                "title": "Everything",
+                "url": "/collections/all"
+              },
+              {
+                "title": "New in",
+                "url": "/collections/new-in"
               },
               {
                 "title": "Gifts",
@@ -109,16 +117,20 @@
         "url": "/collections/all"
       },
       {
-        "title": "Graphic tees",
-        "url": "/collections/graphic-tees"
+        "title": "Winter",
+        "url": "/collections/winter"
       },
       {
-        "title": "Crewnecks",
-        "url": "/collections/crewnecks"
+        "title": "Hometown",
+        "url": "/collections/hometown"
       },
       {
-        "title": "Caps and beanies",
-        "url": "/collections/caps-and-beanies"
+        "title": "Game day",
+        "url": "/collections/game-day"
+      },
+      {
+        "title": "Essentials",
+        "url": "/collections/essentials"
       }
     ]
   },

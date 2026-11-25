@@ -1,0 +1,163 @@
+{%- comment -%}
+  Sound packs (templates round 26): a split hero for a sample label. The
+  words on one side (a small label, a large heading, a line, two buttons, a
+  note and up to three short facts), and on the other the pack covers as a
+  tilted wall: each cover is a block with its picture, its name and a link
+  to its page. On a phone the covers become one row under the buttons.
+  The covers drift slowly unless the visitor prefers reduced motion.
+  Fonts, colours and buttons follow Theme settings and the colour scheme.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default'
+  assign covers = section.blocks | where: 'type', 'cover'
+  assign facts = section.blocks | where: 'type', 'fact'
+-%}
+<style>
+  #shopify-section-{{ sid }} .sch { --sch-accent: {% if s.accent != blank %}{{ s.accent }}{% else %}var(--btn-primary-bg-color){% endif %}; position: relative; overflow: hidden; isolation: isolate; padding-block: {{ s.padding_top_mobile }}px {{ s.padding_bottom_mobile }}px; }
+  #shopify-section-{{ sid }} .sch__grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 40px; align-items: center; }
+  #shopify-section-{{ sid }} .sch__copy { max-width: 620px; }
+  #shopify-section-{{ sid }} .sch__label { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 20px; padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(var(--color-heading-rgb), .16); font-size: 13px; font-weight: 600; letter-spacing: .02em; color: var(--color-heading); }
+  #shopify-section-{{ sid }} .sch__label::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--sch-accent); }
+  #shopify-section-{{ sid }} .sch__heading { margin: 0; font-size: {{ s.heading_size_mobile }}px; line-height: .98; letter-spacing: -.035em; text-wrap: balance; }
+  #shopify-section-{{ sid }} .sch__heading em, #shopify-section-{{ sid }} .sch__heading strong { font-style: normal; color: var(--sch-accent); }
+  #shopify-section-{{ sid }} .sch__text { margin: 20px 0 0; font-size: 17px; line-height: 1.55; color: var(--color-text); max-width: 48ch; }
+  #shopify-section-{{ sid }} .sch__text > * { margin: 0; }
+  #shopify-section-{{ sid }} .sch__buttons { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+  #shopify-section-{{ sid }} .sch__buttons .button { min-width: 160px; justify-content: center; text-align: center; }
+  #shopify-section-{{ sid }} .sch__note { margin: 14px 0 0; font-size: 14px; color: var(--color-text); opacity: .8; }
+  #shopify-section-{{ sid }} .sch__facts { list-style: none; margin: 32px 0 0; padding: 22px 0 0; border-top: 1px solid rgba(var(--color-heading-rgb), .12); display: grid; grid-template-columns: repeat({{ facts.size | at_least: 1 }}, minmax(0, 1fr)); gap: 16px; }
+  #shopify-section-{{ sid }} .sch__fact b { display: block; font-family: var(--font-heading-family, inherit); font-size: 26px; line-height: 1.1; color: var(--color-heading); font-variant-numeric: tabular-nums; }
+  #shopify-section-{{ sid }} .sch__fact span { display: block; margin-top: 4px; font-size: 13px; line-height: 1.35; color: var(--color-text); }
+  #shopify-section-{{ sid }} .sch__wall { list-style: none; margin: 0; padding: 6px 0 10px; display: grid; grid-auto-flow: column; grid-auto-columns: 46%; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; }
+  #shopify-section-{{ sid }} .sch__wall::-webkit-scrollbar { display: none; }
+  #shopify-section-{{ sid }} .sch__cover { scroll-snap-align: start; }
+  #shopify-section-{{ sid }} .sch__cover a { display: block; color: inherit; text-decoration: none; }
+  #shopify-section-{{ sid }} .sch__art { display: block; aspect-ratio: 1; border-radius: {{ s.cover_radius }}px; overflow: hidden; background: rgba(var(--color-heading-rgb), .08); box-shadow: 0 18px 40px -18px rgba(0, 0, 0, .7); transition: transform .35s cubic-bezier(.2, .7, .2, 1); }
+  #shopify-section-{{ sid }} .sch__art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  #shopify-section-{{ sid }} .sch__name { display: flex; justify-content: space-between; gap: 8px; margin-top: 10px; font-size: 14px; font-weight: 600; color: var(--color-heading); }
+  #shopify-section-{{ sid }} .sch__name span { font-weight: 500; color: var(--color-text); }
+  #shopify-section-{{ sid }} .sch__cover a:hover .sch__art { transform: translateY(-4px); }
+  #shopify-section-{{ sid }} .sch__cover a:focus-visible { outline: none; }
+  #shopify-section-{{ sid }} .sch__cover a:focus-visible .sch__art { box-shadow: 0 0 0 2px var(--color-background), 0 0 0 4px var(--sch-accent); }
+  @media (min-width: 990px) {
+    #shopify-section-{{ sid }} .sch { padding-block: {{ s.padding_top }}px {{ s.padding_bottom }}px; }
+    #shopify-section-{{ sid }} .sch__grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 56px; min-height: {{ s.min_height }}px; }
+    #shopify-section-{{ sid }} .sch__heading { font-size: {{ s.heading_size }}px; }
+    #shopify-section-{{ sid }} .sch__stage { position: relative; height: 100%; min-height: {{ s.min_height }}px; }
+    #shopify-section-{{ sid }} .sch__wall { position: absolute; top: 50%; left: 50%; width: 106%; margin: 0; padding: 0; overflow: visible; grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; transform: translate(-50%, -50%) rotate(-7deg); }
+    #shopify-section-{{ sid }} .sch__cover:nth-child(3n+2) { transform: translateY(42px); }
+    #shopify-section-{{ sid }} .sch__cover:nth-child(3n+3) { transform: translateY(-26px); }
+    #shopify-section-{{ sid }} .sch--drift .sch__cover { animation: sch-drift-{{ sid | handleize }} 9s ease-in-out infinite alternate; }
+    #shopify-section-{{ sid }} .sch--drift .sch__cover:nth-child(3n+2) { animation-delay: -3s; }
+    #shopify-section-{{ sid }} .sch--drift .sch__cover:nth-child(3n+3) { animation-delay: -6s; }
+  }
+  @keyframes sch-drift-{{ sid | handleize }} { from { translate: 0 -8px; } to { translate: 0 8px; } }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-{{ sid }} .sch--drift .sch__cover { animation: none; }
+    #shopify-section-{{ sid }} .sch__art { transition: none; }
+  }
+</style>
+<div class="sch section color-{{ color_scheme }} gradient{% if s.drift %} sch--drift{% endif %}">
+  <div class="{{ s.section_width | default: 'container' }}">
+    <div class="sch__grid">
+      <div class="sch__copy">
+        {%- if s.label != blank -%}<p class="sch__label">{{ s.label | escape }}</p>{%- endif -%}
+        {%- if s.heading != blank -%}<h1 class="sch__heading h1">{{ s.heading }}</h1>{%- endif -%}
+        {%- if s.text != blank -%}<div class="sch__text rte">{{ s.text }}</div>{%- endif -%}
+        {%- if s.button_label != blank or s.button_2_label != blank -%}
+          <div class="sch__buttons">
+            {%- if s.button_label != blank -%}<a class="button inline-block btn-primary" data-theme-button="primary" href="{{ s.button_link | default: routes.all_products_collection_url }}">{{ s.button_label | escape }}</a>{%- endif -%}
+            {%- if s.button_2_label != blank -%}<a class="button inline-block btn-secondary" data-theme-button="secondary" href="{{ s.button_2_link | default: routes.all_products_collection_url }}">{{ s.button_2_label | escape }}</a>{%- endif -%}
+          </div>
+        {%- endif -%}
+        {%- if s.note != blank -%}<p class="sch__note">{{ s.note | escape }}</p>{%- endif -%}
+        {%- if facts.size > 0 -%}
+          <ul class="sch__facts" role="list">
+            {%- for block in facts -%}<li class="sch__fact" {{ block.shopify_attributes }}><b>{{ block.settings.value | escape }}</b><span>{{ block.settings.label | escape }}</span></li>{%- endfor -%}
+          </ul>
+        {%- endif -%}
+      </div>
+      <div class="sch__stage">
+        {%- if covers.size > 0 -%}
+          <ul class="sch__wall" role="list">
+            {%- for block in covers -%}
+              {%- assign b = block.settings -%}
+              <li class="sch__cover" {{ block.shopify_attributes }}>
+                {%- if b.link != blank -%}<a href="{{ b.link }}">{%- else -%}<div>{%- endif -%}
+                  <span class="sch__art">{%- if b.image != blank -%}{{ b.image | image_url: width: 720 | image_tag: loading: 'eager', widths: '320, 480, 720', sizes: '(min-width: 990px) 16vw, 46vw', alt: b.title }}{%- endif -%}</span>
+                  {%- if b.title != blank or b.note != blank -%}<span class="sch__name">{{ b.title | escape }}{% if b.note != blank %}<span>{{ b.note | escape }}</span>{% endif %}</span>{%- endif -%}
+                {%- if b.link != blank -%}</a>{%- else -%}</div>{%- endif -%}
+              </li>
+            {%- endfor -%}
+          </ul>
+        {%- endif -%}
+      </div>
+    </div>
+  </div>
+</div>
+{% schema %}
+{
+  "name": "Hero with pack covers",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    { "type": "header", "content": "Content" },
+    { "type": "text", "id": "label", "label": "Label", "default": "New pack out now" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "Sounds for your next track.", "info": "Italic or bold words take the accent colour." },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Sample packs made in our own studio, each with a demo you can play before you buy.</p>" },
+    { "type": "text", "id": "button_label", "label": "Button label", "default": "Browse packs" },
+    { "type": "url", "id": "button_link", "label": "Button link" },
+    { "type": "text", "id": "button_2_label", "label": "Second button label" },
+    { "type": "url", "id": "button_2_link", "label": "Second button link" },
+    { "type": "text", "id": "note", "label": "Line under the buttons" },
+    { "type": "header", "content": "Look" },
+    { "type": "color", "id": "accent", "label": "Accent", "info": "The dot in the label and highlighted words. Left empty, the scheme's button colour." },
+    { "type": "checkbox", "id": "drift", "label": "Covers drift slowly", "default": true },
+    { "type": "range", "id": "cover_radius", "label": "Cover corners", "min": 0, "max": 24, "step": 1, "unit": "px", "default": 6 },
+    { "type": "range", "id": "heading_size", "label": "Heading size", "min": 36, "max": 120, "step": 2, "unit": "px", "default": 80 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size on phones", "min": 28, "max": 64, "step": 2, "unit": "px", "default": 46 },
+    { "type": "range", "id": "min_height", "label": "Height on a computer", "min": 400, "max": 900, "step": 20, "unit": "px", "default": 620 },
+    { "type": "header", "content": "General" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default" },
+    { "type": "select", "id": "section_width", "label": "Section width", "default": "container", "options": [{ "value": "container", "label": "Default" }, { "value": "fluid_container", "label": "Fluid container" }, { "value": "stretch_width", "label": "Stretched" }] },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 200, "step": 4, "unit": "px", "default": 72 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 200, "step": 4, "unit": "px", "default": 72 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Top padding on phones", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 48 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Bottom padding on phones", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 48 }
+  ],
+  "blocks": [
+    {
+      "type": "cover",
+      "name": "Cover",
+      "limit": 9,
+      "settings": [
+        { "type": "image_picker", "id": "image", "label": "Cover" },
+        { "type": "text", "id": "title", "label": "Name", "default": "Pack name" },
+        { "type": "text", "id": "note", "label": "Small note", "info": "For example the price or Free." },
+        { "type": "url", "id": "link", "label": "Link" }
+      ]
+    },
+    {
+      "type": "fact",
+      "name": "Fact",
+      "limit": 3,
+      "settings": [
+        { "type": "text", "id": "value", "label": "Value", "default": "24 bit" },
+        { "type": "text", "id": "label", "label": "Label", "default": "WAV in every pack" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Hero with pack covers",
+      "blocks": [
+        { "type": "cover" }, { "type": "cover" }, { "type": "cover" },
+        { "type": "cover" }, { "type": "cover" }, { "type": "cover" },
+        { "type": "fact" }
+      ]
+    }
+  ]
+}
+{% endschema %}

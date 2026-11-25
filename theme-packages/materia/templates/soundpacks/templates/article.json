@@ -59,7 +59,7 @@
       "type": "blog-posts",
       "settings": {
         "reveal": false,
-        "heading": "More from the journal",
+        "heading": "More from the blog",
         "autoplay": false,
         "infinite": false,
         "show_date": true,
@@ -100,7 +100,7 @@
         "section_width": "container",
         "padding_top": 48,
         "padding_bottom": 72,
-        "accent": "#ff8a73"
+        "accent": "#c6f432"
       },
       "blocks": {
         "t_chrome_drums": {

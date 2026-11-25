@@ -112,15 +112,19 @@ async function main() {
     check("arrived: the new ids in page order", arrivedIds(["a", "b"], [{ id: "a" }, { id: "n1" }, { id: "b" }, { id: "n2" }]).join() === "n1,n2")
 
     /* R6: the default */
-    check("Start with AI builds from scratch by default", START_GENERATION === "blank")
+    /* Changed on purpose (round 26): Start with AI starts from the closest Storelib template by default; From scratch is still a choice. */
+    check("Start with AI builds from a Storelib template by default", START_GENERATION === "theme")
     check("  the new AI builder off: the press builds inside the theme (the page says so), never 'blank' on the older builder", startGeneration("blank", false) === "theme" && startGeneration("blank", true) === "blank" && startGeneration("theme", true) === "theme")
     const old = memoryStorage()
     old.setItem("storelib:start-ai-draft", JSON.stringify({ prompt: "My bakery", category: null, inserted: null, generation: "theme" }))
-    check("  a draft from before this round (its 'theme' was the old default): from scratch", readStartDraft(old)?.generation === "blank" && readStartDraft(old)?.prompt === "My bakery")
+    /* Changed on purpose (round 26): an older draft reads the new default. */
+    check("  a draft from before this round: the default, its words kept", readStartDraft(old)?.generation === "theme" && readStartDraft(old)?.prompt === "My bakery")
     const now = memoryStorage()
     saveStartDraft(now, { prompt: "My bakery", category: null, inserted: null, generation: "theme" })
     check("  inside the theme picked this round: kept across a reload", readStartDraft(now)?.generation === "theme")
-    saveStartDraft(now, { prompt: "", category: null, inserted: null, generation: "blank" })
+    saveStartDraft(now, { prompt: "My bakery", category: null, inserted: null, generation: "blank" })
+    check("  from scratch picked this round: kept across a reload", readStartDraft(now)?.generation === "blank")
+    saveStartDraft(now, { prompt: "", category: null, inserted: null, generation: "theme" })
     check("  an empty box on the default: nothing kept", now.store.size === 0)
   }
 
@@ -128,8 +132,9 @@ async function main() {
   {
     const start = (agent: boolean) => renderToStaticMarkup(createElement(StartWebsite, { full: false, starting: null, agent, onStart() {}, onFull() {}, onBrowse() {} }))
     const on = start(true)
-    check("start screen: From scratch is picked first", /data-start-generation="blank"/.test(on) && /data-start-generation-option="blank"[^>]*aria-checked="true"|aria-checked="true"[^>]*data-start-generation-option="blank"/.test(on), on.match(/<div role="radiogroup"[\s\S]{0,600}/)?.[0])
-    check("  the theme is the second option, named for what it keeps", /Inside Storelib(&#x27;|')s theme/.test(on) && /Keeps the theme(&#x27;|')s header, footer and sections/.test(on))
+    /* Changed on purpose (round 26): From a Storelib template is first and picked; From scratch is the second option. */
+    check("start screen: From a Storelib template is picked first", /data-start-generation="theme"/.test(on) && /data-start-generation-option="theme"[^>]*aria-checked="true"|aria-checked="true"[^>]*data-start-generation-option="theme"/.test(on) && on.indexOf('data-start-generation-option="theme"') < on.indexOf('data-start-generation-option="blank"'), on.match(/<div role="radiogroup"[\s\S]{0,600}/)?.[0])
+    check("  each option says what it does: the closest template made yours, or every page designed from scratch", /From a Storelib template/.test(on) && /Starts from the closest template and makes it yours/.test(on) && /From scratch/.test(on))
     check("  no 'Without the theme' checkbox any more", !/Without the theme/.test(on) && !/data-start-blank/.test(on))
     check("  no note while the new AI builder is on", !/data-start-agent-off/.test(on))
     const off = start(false)
@@ -214,6 +219,22 @@ async function main() {
     check("blank with the new AI builder on for the account: an agent job, mode blank", blankOn.status === 200 && agentRow?.engine === "agent" && agentRow?.mode === "blank" && agentRow?.step === "agent", { status: blankOn.status, row: agentRow && { engine: agentRow.engine, mode: agentRow.mode } })
     const home = j.rows("store_theme_pages").find((p) => p.install_id === blankOn.json?.install?.id && p.page_key === "home")
     check("  and its home page has nothing of the theme on it", Array.isArray(home?.sections) && (home!.sections as unknown[]).length === 0)
+
+    /* Round 26: From a Storelib template with the new AI builder on: the closest Materia template, imported through the real routes before the job. */
+    for (const r of jobs()) r.status = "complete"
+    process.env.AI_BUILDER_AGENT_ACCOUNTS = "leelive"
+    const fromTpl = await j.call("POST /api/website-builder/themes/create", { as: seller, body: { mode: "ai", prompt: "A website for my personal training business with my programs and a free first call.", key: "2b7c1e2a-0000-4000-8000-000000000004", options: { generation: "theme", category: "fitness_coach" } } })
+    delete process.env.AI_BUILDER_AGENT_ACCOUNTS
+    const tplRow = jobs().find((r) => r.id === fromTpl.json?.job?.id)
+    const tplInstall = j.rows("store_theme_installs").find((r) => r.id === fromTpl.json?.install?.id)
+    const tplFiles = j.rows("store_theme_custom_files").filter((f) => f.install_id === fromTpl.json?.install?.id)
+    const tplHome = j.rows("store_theme_pages").find((p) => p.install_id === fromTpl.json?.install?.id && p.page_key === "home")
+    check("from a template, the new AI builder on: the closest template imported before the agent job, which is told which one",
+      fromTpl.status === 200 && ["trainer", "fitness", "coach"].includes(String(fromTpl.json?.install?.template)) && tplRow?.engine === "agent" && (tplRow?.options as { template?: string } | undefined)?.template === fromTpl.json?.install?.template && tplInstall?.status === "draft",
+      { status: fromTpl.status, json: fromTpl.json, options: tplRow?.options })
+    check("  the website is Materia's: its section files and the template's home sections, as Browse themes would add it",
+      tplFiles.length > 200 && tplFiles.some((f) => /<template compat="shopify">/.test(String(f.content))) && Array.isArray(tplHome?.sections) && (tplHome!.sections as unknown[]).length > 5,
+      { files: tplFiles.length, home: (tplHome?.sections as { type: string }[] | undefined)?.map((x) => x.type) })
 
     const plain = await j.call("POST /api/website-builder/themes/create", { as: seller, body: { mode: "blank" } })
     check("Start from blank (no AI) is unchanged", plain.status === 200 && !plain.json?.job)

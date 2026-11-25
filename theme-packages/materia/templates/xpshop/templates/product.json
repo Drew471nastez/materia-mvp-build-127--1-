@@ -68,7 +68,6 @@
           "type": "variant_picker",
           "settings": {
             "variant_type": "swatches",
-            "show_size_guide": false,
             "picker_swatch_style": "theme"
           }
         },
@@ -78,7 +77,6 @@
             "use_storelib_chart": true,
             "table_unit": "cm",
             "size_guide_label": "Size guide",
-            "size_guide_display": "modal",
             "size_guide_appearance": "link",
             "table_data": "Size | Chest | Waist | Length\nXS | 86 to 90 | 70 to 74 | 68\nS | 91 to 96 | 75 to 80 | 70\nM | 97 to 102 | 81 to 86 | 72\nL | 103 to 108 | 87 to 92 | 74\nXL | 109 to 115 | 93 to 99 | 76",
             "size_guide_content": "<p>Body measurements in centimetres. Boxy fit: take your usual size.</p>"

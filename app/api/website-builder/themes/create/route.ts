@@ -11,6 +11,8 @@ import { kickJob } from "@/lib/website-builder/ai-site/runner"
 import { startJobRow, isStartKey, MAX_RUNNING_JOBS } from "@/lib/website-builder/ai-site/start"
 import { agentEnabledFor } from "@/lib/website-builder/ai-site/agent-access"
 import { parseStartOptions } from "@/lib/website-builder/ai-site/start-options"
+import { chooseMateriaTemplate } from "@/lib/storelib-ai/materia/reference"
+import { installCodeTemplate } from "@/lib/themes/template-install"
 
 export const runtime = "nodejs"
 /** The website is made at once, and photographed within QUICK_COVER_MS when a browser is that quick, as Add does. */
@@ -23,7 +25,8 @@ export const maxDuration = 60
  *
  * The Website page's Start with AI and Start from blank: a new Storelib
  * Default website, as a draft, whose home page is only its header and
- * footer. See lib/website-builder/create-website.ts for what is written and
+ * footer; or, for Start with AI inside a theme on the agent engine (round
+ * 26), the closest of Storelib's Materia templates, imported whole. See lib/website-builder/create-website.ts for what is written and
  * why Add theme is not used.
  *
  * START WITH AI makes a generation job too (lib/website-builder/ai-site,
@@ -61,7 +64,7 @@ export const maxDuration = 60
  * spends the store's AI. The same library limit and refusal.
  */
 /** Round N: the words a From scratch press gets when the new AI builder is not on for the account. */
-const AGENT_OFF_MESSAGE = "The new AI builder isn't on for your account yet. Pick Inside Storelib's theme to start with AI now."
+const AGENT_OFF_MESSAGE = "The new AI builder isn't on for your account yet. Pick From a Storelib template to start with AI now."
 
 /** An AI start's picture: none yet, and none waited for. The Website page asks for one later, as for any site without one. */
 const AI_START_COVER = { cover: null, cover_pending: false } as const
@@ -126,7 +129,19 @@ export async function POST(req: Request) {
     if ((count ?? 0) >= MAX_RUNNING_JOBS) return NextResponse.json({ error: "A website is already being made with AI. Wait for it to finish, then start another.", code: "ai_busy" }, { status: 429 })
   }
 
-  const made = await createStartWebsite({ supabase, admin }, { creatorId, mode, name: body?.name, chrome: generating && options.generation === "blank" ? "none" : "theme" })
+  /*
+    ROUND 26: START WITH AI BUILDS LIKE THE TEMPLATES. Inside a theme, on the agent engine with the jobs table, the
+    new website is the closest of Storelib's Materia templates to the description (the example picked and the words),
+    imported as Browse themes adds one, BEFORE the job exists, so the agent places and adapts Materia's real sections
+    (lib/themes/template-install.ts). From scratch stays a blank page; the classic engine and the in-request path
+    (no jobs table) keep Storelib Default, which is what they build with.
+  */
+  const fromTemplate = generating && engine === "agent" && options.generation === "theme" && !noJobsTable ? chooseMateriaTemplate({ prompt, category: options.category ?? null }).template.template : null
+  const made = await createStartWebsite(
+    { supabase, admin },
+    { creatorId, mode, name: body?.name, chrome: generating && options.generation === "blank" ? "none" : "theme", ...(fromTemplate ? { template: { id: fromTemplate, userId: site.ownerUserId } } : {}) },
+    { installTemplate: installCodeTemplate },
+  )
   if (!made.ok) {
     return NextResponse.json(made.code ? { error: made.error, code: made.code } : { error: made.error }, { status: made.status })
   }
@@ -136,7 +151,7 @@ export async function POST(req: Request) {
 
   if (!generating) return NextResponse.json({ install: made.install, ...first })
 
-  const job = await startJobRow(admin, { creatorId, ownerUserId: site.ownerUserId, installId: made.install.id, prompt, key: key!, options, engine: engine ?? "classic" })
+  const job = await startJobRow(admin, { creatorId, ownerUserId: site.ownerUserId, installId: made.install.id, prompt, key: key!, options: fromTemplate ? { ...options, template: fromTemplate } : options, engine: engine ?? "classic" })
   /* Two of the same press at once: the second website goes, the first press's job answers. */
   if (job.kind === "duplicate") {
     await admin.from("store_theme_installs").delete().eq("id", made.install.id).eq("creator_id", creatorId)

@@ -64,7 +64,8 @@ export const START_PRESETS: readonly { id: StartCategory; label: string; prompt:
  * is the second option. The server's own default for a body without options
  * stays "theme" (parseStartOptions), for anything sent before this round.
  */
-export const START_GENERATION: GenerationMode = "blank"
+/* Round 26: from the closest of Storelib's templates (the owner: build like the templates are built); From scratch stays a choice. */
+export const START_GENERATION: GenerationMode = "theme"
 
 /**
  * What a press sends, given the choice on screen and whether the new AI
@@ -170,6 +171,7 @@ export function startContext(options: StartOptions | null | undefined): string {
   const lines: string[] = []
   if (options.category) lines.push(`Kind of website (the example they picked): ${presetFor(options.category).industry}.`)
   if (options.generation === "blank") lines.push("Start from a blank page: no theme header, footer or sections exist. Make the header and footer too, or none if the site is better without.")
+  else if (options.template) lines.push(`Made from Storelib's "${options.template}" template, on the Materia theme: its pages, header, footer and sections are in place. Keep the ones that fit, make every one of them this business's, and change the rest.`)
   else lines.push("Build inside Storelib's own theme: keep its header and footer and fill the pages.")
   if (options.preset) lines.push(`Design preset they chose: ${options.preset}.`)
   const p = options.preferences
@@ -238,7 +240,8 @@ export function forgetPendingStart(storage: KeyStorage | null | undefined): void
 
 const DRAFT = "storelib:start-ai-draft"
 /** Round N: drafts saved since From scratch became the default say so; an older draft's "theme" was only the old default, not a choice. */
-const DRAFT_VERSION = 2
+/* 3 since round 26: a draft from before kept the old default (From scratch) as if it were chosen; it reads the new default. */
+const DRAFT_VERSION = 3
 
 export interface StartDraft {
   prompt: string
@@ -267,7 +270,7 @@ export function readStartDraft(storage: KeyStorage | null | undefined): StartDra
       category: isStartCategory(d.category) ? d.category : null,
       inserted: typeof d.inserted === "string" ? d.inserted : null,
       /* Inside the theme only when it was picked (a draft of this round); an older draft's was the old default. */
-      generation: d.v === DRAFT_VERSION && d.generation === "theme" ? "theme" : START_GENERATION,
+      generation: d.v === DRAFT_VERSION && (d.generation === "theme" || d.generation === "blank") ? d.generation : START_GENERATION,
     }
   } catch {
     return null

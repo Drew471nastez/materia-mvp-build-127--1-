@@ -22,6 +22,8 @@ import { join, basename, dirname, relative } from "node:path"
 
 // Fresh/temporary checkouts and parallel SQL changes use the current source catalog.
 execFileSync(process.execPath, ["scripts/build-sql-catalog.mjs"], { stdio: "inherit" })
+/* Round 26: the AI builder's Materia catalogue, regenerated from theme-packages first, so tests/ai-materia-catalogue reads it current. */
+execFileSync(process.execPath, ["scripts/build-materia-catalogue.mjs"], { stdio: "inherit" })
 
 /* Round AU: the production build ignores type errors, so a name used but never defined (a missing import,
    a component never written) used to reach storelib.com as a ReferenceError. Any such name fails the suite. */

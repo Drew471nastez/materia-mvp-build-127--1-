@@ -1,0 +1,59 @@
+
+  #shopify-section-reviews .r7p { --r7p-n: var(--r7p-pv-m); }
+  #shopify-section-reviews .r7p__track { display: flex; gap: var(--r7t-gap); margin-inline: calc(var(--r7t-pad) * -1); padding-inline: var(--r7t-pad); scroll-padding-inline: var(--r7t-pad); overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; scrollbar-width: none; touch-action: pan-x pan-y; }
+  #shopify-section-reviews .r7p__track::-webkit-scrollbar { display: none; }
+  #shopify-section-reviews .r7p__track:focus-visible { outline: 2px solid var(--r7t-name-c); outline-offset: -2px; }
+  #shopify-section-reviews .r7p__card { flex: 0 0 calc((100% - var(--r7t-gap) * (var(--r7p-n) - 1)) / var(--r7p-n)); scroll-snap-align: start; }
+  #shopify-section-reviews .r7p__product { display: flex; align-items: center; align-self: stretch; gap: 12px; min-height: 44px; margin-top: auto; padding-top: 14px; border-top: 1px solid color-mix(in srgb, var(--r7t-text) 18%, transparent); color: var(--r7t-text); text-decoration: none; transition: opacity .15s ease; -webkit-tap-highlight-color: transparent; }
+  #shopify-section-reviews a.r7p__product:active { opacity: .7; }
+  #shopify-section-reviews a.r7p__product:focus-visible { outline: 2px solid var(--r7t-name-c); outline-offset: 4px; }
+  #shopify-section-reviews .r7p__pic { flex: 0 0 56px; width: 56px; height: 56px; overflow: hidden; border-radius: min(var(--r7t-radius), 8px); background: color-mix(in srgb, var(--r7t-text) 10%, transparent); color: color-mix(in srgb, var(--r7t-text) 45%, transparent); }
+  #shopify-section-reviews .r7p__pic img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  #shopify-section-reviews .r7p__pic svg { display: block; width: 100%; height: 100%; margin: 0; }
+  #shopify-section-reviews .r7p__ptext { display: flex; flex: 1 1 auto; flex-direction: column; gap: 2px; min-width: 0; }
+  #shopify-section-reviews .r7p__ptitle { color: var(--r7t-name-c); font-size: 14px; font-weight: 600; line-height: 1.3; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  #shopify-section-reviews .r7p__price { font-size: 13px; line-height: 1.3; }
+  #shopify-section-reviews .r7p__price s { margin-inline-end: 6px; opacity: .7; }
+  #shopify-section-reviews .r7p__soldout { margin-inline-start: 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+  #shopify-section-reviews .r7p__go { flex: 0 0 auto; width: 16px; height: 16px; color: var(--r7t-name-c); transition: transform .2s ease; }
+  [dir="rtl"] #shopify-section-reviews .r7p__go, [dir="rtl"] #shopify-section-reviews .r7p__arrow svg { transform: scaleX(-1); }
+  #shopify-section-reviews .r7p__product--empty { font-size: 13px; line-height: 1.35; }
+  #shopify-section-reviews .r7p__nav { display: flex; align-items: center; gap: 20px; margin-top: 20px; }
+  #shopify-section-reviews .r7p[data-arrows="false"][data-progress="false"] .r7p__nav { display: none; }
+  #shopify-section-reviews .r7p__bar { position: relative; flex: 1 1 auto; height: 2px; overflow: hidden; border-radius: 2px; background: color-mix(in srgb, var(--r7t-text) 22%, transparent); }
+  #shopify-section-reviews .r7p[data-progress="false"] .r7p__bar { visibility: hidden; }
+  #shopify-section-reviews .r7p__fill { position: absolute; inset: 0; background: var(--r7t-name-c); transform-origin: left center; transform: scaleX(var(--r7p-f, calc(var(--r7p-n) / var(--r7p-count)))); }
+  [dir="rtl"] #shopify-section-reviews .r7p__fill { transform-origin: right center; }
+  #shopify-section-reviews .r7p__arrows { display: flex; flex: 0 0 auto; gap: 8px; }
+  #shopify-section-reviews .r7p[data-arrows="false"] .r7p__arrows { display: none; }
+  #shopify-section-reviews .r7p__arrow { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin: 0; padding: 0; border: 1px solid var(--r7t-card-border); border-radius: 50%; background: transparent; color: var(--r7t-name-c); cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background-color .2s ease, color .2s ease, border-color .2s ease, opacity .2s ease; }
+  #shopify-section-reviews .r7p__arrow svg { display: block; width: 16px; height: 16px; }
+  #shopify-section-reviews .r7p__arrow:active:not(:disabled) { background: var(--r7t-name-c); color: var(--r7t-bg); border-color: var(--r7t-name-c); }
+  #shopify-section-reviews .r7p__arrow:disabled { opacity: .35; cursor: default; }
+  #shopify-section-reviews .r7p__arrow:focus-visible { outline: 2px solid var(--r7t-name-c); outline-offset: 2px; }
+  @media (hover: hover) {
+    #shopify-section-reviews .r7p__arrow:hover:not(:disabled) { background: var(--r7t-name-c); color: var(--r7t-bg); border-color: var(--r7t-name-c); }
+    #shopify-section-reviews a.r7p__product:hover .r7p__ptitle { text-decoration: underline; text-underline-offset: 2px; }
+    #shopify-section-reviews a.r7p__product:hover .r7p__go { transform: translateX(3px); }
+  }
+  @media (max-width: 767px) {
+    #shopify-section-reviews .r7p[data-fit-m="true"] .r7p__nav { display: none; }
+    #shopify-section-reviews .r7p[data-fit-m="true"][data-align="center"] .r7p__track { justify-content: center; }
+  }
+  @media (min-width: 768px) {
+    #shopify-section-reviews .r7p { --r7p-n: var(--r7p-pv-t); }
+    #shopify-section-reviews .r7p__nav { margin-top: 28px; }
+  }
+  @media (min-width: 768px) and (max-width: 989px) {
+    #shopify-section-reviews .r7p[data-fit-t="true"] .r7p__nav { display: none; }
+    #shopify-section-reviews .r7p[data-fit-t="true"][data-align="center"] .r7p__track { justify-content: center; }
+  }
+  @media (min-width: 990px) {
+    #shopify-section-reviews .r7p { --r7p-n: var(--r7p-pv); }
+    #shopify-section-reviews .r7p[data-fit-d="true"] .r7p__nav { display: none; }
+    #shopify-section-reviews .r7p[data-fit-d="true"][data-align="center"] .r7p__track { justify-content: center; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-reviews .r7p__arrow, #shopify-section-reviews .r7p__go, #shopify-section-reviews .r7p__product { transition: none; }
+    #shopify-section-reviews .r7p__track { scroll-behavior: auto; }
+  }

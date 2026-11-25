@@ -1,0 +1,233 @@
+{%- comment -%}
+  Sound packs (templates round 26): what a pack holds, as a row of figures
+  above a folder browser. Each folder is a tab with its name and its count,
+  in one row of equal tabs; the open tab shows its list. On a phone the
+  tabs scroll sideways in one line. Same blocks as Pack contents
+  (samples-pack-contents): each figure and folder can be tied to a product,
+  picked or named by the product's name, and on a product's page only its
+  own show, with the ones tied to no product. A page with nothing to show
+  draws nothing.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default'
+  assign stats = 0
+  assign parts = 0
+  for block in section.blocks
+    if product != blank
+      if block.settings.for_product != blank
+        if block.settings.for_product.id != product.id
+          continue
+        endif
+      elsif block.settings.for_name != blank
+        assign want = block.settings.for_name | handleize
+        if want != product.handle
+          continue
+        endif
+      endif
+    endif
+    if block.type == 'stat'
+      assign stats = stats | plus: 1
+    else
+      assign parts = parts | plus: 1
+    endif
+  endfor
+  assign shown = stats | plus: parts
+-%}
+{%- if shown > 0 or request.design_mode -%}
+<style>
+  #shopify-section-{{ sid }} .spc { --spc-accent: {% if s.accent != blank %}{{ s.accent }}{% else %}var(--btn-primary-bg-color){% endif %}; padding-block: {{ s.padding_top | times: 0.7 | round }}px {{ s.padding_bottom | times: 0.7 | round }}px; }
+  #shopify-section-{{ sid }} .spc__inner { max-width: {{ s.max_width }}px; margin-inline: auto; }
+  #shopify-section-{{ sid }} .spc__head { margin: 0 0 28px; text-align: {{ s.align }}; }
+  #shopify-section-{{ sid }} .spc__heading { margin: 0; font-size: {{ s.heading_size_mobile }}px; line-height: 1.1; }
+  #shopify-section-{{ sid }} .spc__text { margin: 10px 0 0; font-size: 15px; color: var(--color-text); }
+  #shopify-section-{{ sid }} .spc__text > * { margin: 0; }
+  #shopify-section-{{ sid }} .spc__stats { list-style: none; margin: 0 0 16px; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border: 1px solid rgba(var(--color-heading-rgb), .1); border-radius: 14px; overflow: hidden; }
+  #shopify-section-{{ sid }} .spc__stat { padding: 18px 20px; border-right: 1px solid rgba(var(--color-heading-rgb), .1); border-bottom: 1px solid rgba(var(--color-heading-rgb), .1); margin: 0 -1px -1px 0; }
+  #shopify-section-{{ sid }} .spc__value { display: block; font-family: var(--font-heading-family, inherit); font-size: 28px; font-weight: 700; line-height: 1.05; color: var(--color-heading); font-variant-numeric: tabular-nums; }
+  #shopify-section-{{ sid }} .spc__label { display: block; margin-top: 6px; font-size: 13px; color: var(--color-text); }
+  #shopify-section-{{ sid }} .spc__box { border: 1px solid rgba(var(--color-heading-rgb), .1); border-radius: 14px; overflow: hidden; background: rgba(var(--color-heading-rgb), .025); }
+  #shopify-section-{{ sid }} .spc__tabs { display: flex; gap: 0; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid rgba(var(--color-heading-rgb), .1); }
+  #shopify-section-{{ sid }} .spc__tabs::-webkit-scrollbar { display: none; }
+  #shopify-section-{{ sid }} .spc__tab { flex: 1 0 auto; display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 56px; margin: 0; padding: 0 20px; border: 0; border-right: 1px solid rgba(var(--color-heading-rgb), .08); background: transparent; color: var(--color-text); font: inherit; font-size: 15px; font-weight: 600; line-height: 1; white-space: nowrap; cursor: pointer; position: relative; transition: color .2s ease, background-color .2s ease; }
+  #shopify-section-{{ sid }} .spc__tab:last-child { border-right: 0; }
+  #shopify-section-{{ sid }} .spc__tab::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--spc-accent); transform: scaleX(0); transition: transform .25s ease; }
+  #shopify-section-{{ sid }} .spc__tab:hover { color: var(--color-heading); }
+  #shopify-section-{{ sid }} .spc__tab[aria-selected="true"] { color: var(--color-heading); background: rgba(var(--color-heading-rgb), .04); }
+  #shopify-section-{{ sid }} .spc__tab[aria-selected="true"]::after { transform: scaleX(1); }
+  #shopify-section-{{ sid }} .spc__tab:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--spc-accent); }
+  #shopify-section-{{ sid }} .spc__count { display: inline-grid; place-items: center; min-width: 28px; height: 22px; padding: 0 7px; border-radius: 999px; font-size: 12px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; background: rgba(var(--color-heading-rgb), .1); color: var(--color-heading); }
+  #shopify-section-{{ sid }} .spc__tab[aria-selected="true"] .spc__count { background: var(--spc-accent); color: var(--btn-primary-color, #111); }
+  #shopify-section-{{ sid }} .spc__panel { padding: 8px 24px 20px; }
+  #shopify-section-{{ sid }} .spc__panel[hidden] { display: none; }
+  #shopify-section-{{ sid }} .spc__panel ul { list-style: none; margin: 0; padding: 0; }
+  #shopify-section-{{ sid }} .spc__panel li { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0; border-bottom: 1px solid rgba(var(--color-heading-rgb), .07); font-size: 15px; color: var(--color-heading); }
+  #shopify-section-{{ sid }} .spc__panel li:last-child { border-bottom: 0; }
+  #shopify-section-{{ sid }} .spc__panel li::before { content: ""; flex: none; width: 18px; height: 14px; border-radius: 3px; border: 1.5px solid currentColor; opacity: .45; }
+  #shopify-section-{{ sid }} .spc__panel p { margin: 12px 0; color: var(--color-text); }
+  #shopify-section-{{ sid }} .spc__empty { text-align: center; font-size: 15px; color: var(--color-text); }
+  @media (min-width: 750px) {
+    #shopify-section-{{ sid }} .spc { padding-block: {{ s.padding_top }}px {{ s.padding_bottom }}px; }
+    #shopify-section-{{ sid }} .spc__heading { font-size: {{ s.heading_size }}px; }
+    #shopify-section-{{ sid }} .spc__stats { grid-template-columns: repeat({% if stats < 4 and stats > 0 %}{{ stats }}{% else %}4{% endif %}, minmax(0, 1fr)); }
+    #shopify-section-{{ sid }} .spc__panel ul { columns: 2; column-gap: 40px; }
+    #shopify-section-{{ sid }} .spc__panel li { break-inside: avoid; }
+  }
+  @media (prefers-reduced-motion: reduce) { #shopify-section-{{ sid }} .spc__tab, #shopify-section-{{ sid }} .spc__tab::after { transition: none; } }
+</style>
+<div class="spc section color-{{ color_scheme }} gradient" data-section-id="{{ sid }}">
+  <div class="{{ s.section_width | default: 'container' }}">
+    <div class="spc__inner">
+      {%- if s.heading != blank or s.text != blank -%}
+        <div class="spc__head">
+          {%- if s.heading != blank -%}<h2 class="spc__heading h2">{{ s.heading }}</h2>{%- endif -%}
+          {%- if s.text != blank -%}<div class="spc__text rte">{{ s.text }}</div>{%- endif -%}
+        </div>
+      {%- endif -%}
+      {%- if stats > 0 -%}
+        <ul class="spc__stats" role="list">
+          {%- for block in section.blocks -%}
+            {%- if block.type != 'stat' -%}{%- continue -%}{%- endif -%}
+            {%- liquid
+              if product != blank
+                if block.settings.for_product != blank
+                  if block.settings.for_product.id != product.id
+                    continue
+                  endif
+                elsif block.settings.for_name != blank
+                  assign want = block.settings.for_name | handleize
+                  if want != product.handle
+                    continue
+                  endif
+                endif
+              endif
+            -%}
+            <li class="spc__stat" {{ block.shopify_attributes }}><span class="spc__value">{{ block.settings.value | escape }}</span><span class="spc__label">{{ block.settings.label | escape }}</span></li>
+          {%- endfor -%}
+        </ul>
+      {%- endif -%}
+      {%- if parts > 0 -%}
+        <div class="spc__box" data-spc>
+          <div class="spc__tabs" role="tablist" aria-label="{{ s.tabs_label | default: 'Folders' | escape }}">
+            {%- assign n = 0 -%}
+            {%- for block in section.blocks -%}
+              {%- if block.type != 'part' -%}{%- continue -%}{%- endif -%}
+              {%- liquid
+                if product != blank
+                  if block.settings.for_product != blank
+                    if block.settings.for_product.id != product.id
+                      continue
+                    endif
+                  elsif block.settings.for_name != blank
+                    assign want = block.settings.for_name | handleize
+                    if want != product.handle
+                      continue
+                    endif
+                  endif
+                endif
+                assign n = n | plus: 1
+              -%}
+              <button class="spc__tab" type="button" role="tab" id="spc-{{ sid }}-t-{{ block.id }}" aria-controls="spc-{{ sid }}-p-{{ block.id }}" aria-selected="{% if n == 1 %}true{% else %}false{% endif %}" tabindex="{% if n == 1 %}0{% else %}-1{% endif %}" {{ block.shopify_attributes }}>
+                <span>{{ block.settings.title | escape }}</span>
+                {%- if block.settings.count != blank -%}<span class="spc__count">{{ block.settings.count | escape }}</span>{%- endif -%}
+              </button>
+            {%- endfor -%}
+          </div>
+          {%- assign n = 0 -%}
+          {%- for block in section.blocks -%}
+            {%- if block.type != 'part' -%}{%- continue -%}{%- endif -%}
+            {%- liquid
+              if product != blank
+                if block.settings.for_product != blank
+                  if block.settings.for_product.id != product.id
+                    continue
+                  endif
+                elsif block.settings.for_name != blank
+                  assign want = block.settings.for_name | handleize
+                  if want != product.handle
+                    continue
+                  endif
+                endif
+              endif
+              assign n = n | plus: 1
+            -%}
+            <div class="spc__panel rte" role="tabpanel" id="spc-{{ sid }}-p-{{ block.id }}" aria-labelledby="spc-{{ sid }}-t-{{ block.id }}"{% if n != 1 %} hidden{% endif %}>{{ block.settings.list }}</div>
+          {%- endfor -%}
+        </div>
+      {%- endif -%}
+      {%- if shown == 0 -%}<p class="spc__empty">Add figures and folders for this product, or leave their product empty to show them on every product.</p>{%- endif -%}
+    </div>
+  </div>
+</div>
+<script>
+  (function () {
+    var box = document.querySelector('#shopify-section-{{ sid }} [data-spc]');
+    if (!box || box.__spc) return; box.__spc = 1;
+    var tabs = [].slice.call(box.querySelectorAll('[role="tab"]'));
+    function open(t, focus) {
+      tabs.forEach(function (x) {
+        var on = x === t, p = document.getElementById(x.getAttribute('aria-controls'));
+        x.setAttribute('aria-selected', on ? 'true' : 'false'); x.tabIndex = on ? 0 : -1;
+        if (p) p.hidden = !on;
+      });
+      if (focus) t.focus();
+      t.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+    tabs.forEach(function (t, i) {
+      t.addEventListener('click', function () { open(t); });
+      t.addEventListener('keydown', function (e) {
+        var k = e.key, j = k === 'ArrowRight' ? i + 1 : k === 'ArrowLeft' ? i - 1 : k === 'Home' ? 0 : k === 'End' ? tabs.length - 1 : -2;
+        if (j === -2) return; e.preventDefault(); open(tabs[(j + tabs.length) % tabs.length], true);
+      });
+    });
+  })();
+</script>
+{%- endif -%}
+{% schema %}
+{
+  "name": "Pack folders",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "What is inside." },
+    { "type": "richtext", "id": "text", "label": "Text" },
+    { "type": "select", "id": "align", "label": "Heading alignment", "default": "left", "options": [{ "value": "left", "label": "Left" }, { "value": "center", "label": "Centre" }] },
+    { "type": "text", "id": "tabs_label", "label": "Name of the tabs, for screen readers", "default": "Folders" },
+    { "type": "color", "id": "accent", "label": "Accent", "info": "The open tab's line and count. Left empty, the scheme's button colour." },
+    { "type": "range", "id": "max_width", "label": "Width", "min": 640, "max": 1400, "step": 20, "unit": "px", "default": 1200 },
+    { "type": "range", "id": "heading_size", "label": "Heading size", "min": 20, "max": 72, "step": 2, "unit": "px", "default": 44 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size on phones", "min": 18, "max": 48, "step": 2, "unit": "px", "default": 30 },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default" },
+    { "type": "select", "id": "section_width", "label": "Section width", "default": "container", "options": [{ "value": "container", "label": "Default" }, { "value": "fluid_container", "label": "Fluid container" }, { "value": "stretch_width", "label": "Stretched" }] },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 80 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 56 }
+  ],
+  "blocks": [
+    {
+      "type": "stat",
+      "name": "Figure",
+      "settings": [
+        { "type": "text", "id": "value", "label": "Value", "default": "400+" },
+        { "type": "text", "id": "label", "label": "Label", "default": "WAV files" },
+        { "type": "product", "id": "for_product", "label": "Product", "info": "Show this figure on this product's page only. Left empty, it shows on every product." },
+        { "type": "text", "id": "for_name", "label": "Or the product's name" }
+      ]
+    },
+    {
+      "type": "part",
+      "name": "Folder",
+      "settings": [
+        { "type": "text", "id": "title", "label": "Folder", "default": "Drum loops" },
+        { "type": "text", "id": "count", "label": "Count", "default": "64" },
+        { "type": "richtext", "id": "list", "label": "What is in it", "default": "<ul><li>Full grooves</li><li>Tops</li><li>Percussion</li></ul>" },
+        { "type": "product", "id": "for_product", "label": "Product", "info": "Show this folder on this product's page only. Left empty, it shows on every product." },
+        { "type": "text", "id": "for_name", "label": "Or the product's name" }
+      ]
+    }
+  ],
+  "presets": [
+    { "name": "Pack folders", "blocks": [{ "type": "stat" }, { "type": "part" }, { "type": "part", "settings": { "title": "One shots", "count": "120" } }] }
+  ]
+}
+{% endschema %}

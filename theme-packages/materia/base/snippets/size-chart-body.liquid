@@ -19,6 +19,14 @@
 {%- liquid
   assign scb = block.settings
   assign scb_src = scb.chart_source | default: 'page'
+  comment
+    Storelib: a block saved before Source existed carries its table rows and
+    no page; Source then reads its default (Page), which has nothing to show.
+    Its rows are its chart, as they were.
+  endcomment
+  if scb_src == 'page' and scb.size_guide_page == blank and scb.table_data != blank
+    assign scb_src = 'table'
+  endif
   assign scb_mf = true
   if scb_src != 'metafield' and scb.use_storelib_chart == false
     assign scb_mf = false

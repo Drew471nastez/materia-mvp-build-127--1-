@@ -1,0 +1,39 @@
+
+#shopify-section-breadcrumb .bc__trail {
+    display: flex; align-items: center; flex-wrap: nowrap; gap: 0; min-width: 0;
+    margin: 0; padding: 0; list-style: none;
+    justify-content: var(--bc-justify, flex-start); flex: 1;
+  }
+  #shopify-section-breadcrumb .bc__item { display: inline-flex; align-items: center; min-width: 0; flex: none; }
+#shopify-section-breadcrumb .bc__current {
+    color: var(--bc-current); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+  }
+  #shopify-section-breadcrumb .bc__nav { position: relative; z-index: 8; display: inline-flex; align-items: center; gap: 6px; flex: none; pointer-events: auto; }
+  #shopify-section-breadcrumb .bc__btn {
+    position: relative; display: inline-flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px; border-radius: 50%;
+    color: var(--bc-current); text-decoration: none;
+    border: 1px solid transparent;
+    transition: background-color .2s ease, border-color .2s ease, transform .2s ease;
+    pointer-events: auto;
+    touch-action: manipulation;
+  }
+#shopify-section-breadcrumb .bc__peek {
+    position: absolute; top: calc(100% + 8px); inset-inline-end: 0; z-index: 5;
+    display: flex; gap: 12px; align-items: center; width: min(260px, calc(100vw - 32px)); padding: 10px;
+    background: var(--color-background); color: var(--color-text);
+    border: 1px solid var(--bc-line); border-radius: var(--card-radius, 10px);
+    box-shadow: 0 12px 32px -16px rgba(0,0,0,.28);
+    opacity: 0; visibility: hidden; transform: translateY(-4px);
+    transition: opacity .2s ease, transform .2s ease, visibility 0s linear .2s;
+    text-transform: none; letter-spacing: normal; pointer-events: none;
+  }
+#shopify-section-breadcrumb .bc__peek-title { display: block; color: var(--color-heading); font-weight: var(--subheading-weight, 500); line-height: 1.3; }
+@media (hover: none), (max-width: 749px) {
+    #shopify-section-breadcrumb .bc__peek { display: none; }
+    #shopify-section-breadcrumb .bc__btn { width: 40px; height: 40px; }
+    #shopify-section-breadcrumb .bc__btn::after { content: ""; position: absolute; inset: -3px; border-radius: 50%; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-breadcrumb :is(.bc__link, .bc__btn, .bc__peek) { transition: none; }
+  }
