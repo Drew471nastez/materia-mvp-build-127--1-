@@ -255,10 +255,31 @@ export function footerGroup(g: Json, c: CreatorSiteContent): Json {
   return { ...g, sections: out }
 }
 
-/** Every popup and the sample order notices off. */
+/** Popups and order notices whose words and offers were the template's (one offered a 10% code). */
+const SAMPLE_OVERLAY = /popup|promo|fake-order|spin-wheel|countdown/i
+
+/** The overlay group without the template's popups and sample order notices; what is left (the phone bar, back to top) stays off as it was. */
 export function overlayGroup(g: Json): Json {
   const sections = obj(g.sections)
-  return { ...g, sections: Object.fromEntries(Object.entries(sections).map(([k, s]) => [k, { ...obj(s), disabled: true }])) }
+  const keep = (Array.isArray(g.order) ? (g.order as string[]) : Object.keys(sections)).filter((k) => !SAMPLE_OVERLAY.test(String(obj(sections[k]).type ?? "")))
+  return { ...g, sections: Object.fromEntries(keep.map((k) => [k, { ...obj(sections[k]), disabled: true }])), order: keep }
+}
+
+/** The page a locked store shows: their name, the email field, and no sample promise. */
+export function passwordPage(t: Json, c: CreatorSiteContent): Json {
+  const sections = obj(t.sections)
+  const out: Json = {}
+  for (const [k, raw] of Object.entries(sections)) {
+    const s = obj(raw)
+    const bl = obj(s.blocks)
+    const keep = (Array.isArray(s.block_order) ? (s.block_order as string[]) : Object.keys(bl)).filter((id) => !/subheading|text|description/.test(String(obj(bl[id]).type)))
+    out[k] = {
+      ...s,
+      blocks: Object.fromEntries(keep.map((id) => [id, obj(bl[id]).type === "heading" ? { ...obj(bl[id]), settings: { ...obj(obj(bl[id]).settings), heading: c.name } } : bl[id]])),
+      block_order: keep,
+    }
+  }
+  return { ...t, sections: out }
 }
 
 /** The theme settings: their logo, their links (the template's sample addresses cleared), cards that keep a product's picture whole. */
@@ -337,6 +358,8 @@ export function tailorTemplate(files: Files, c: CreatorSiteContent): Map<string,
   if (footer) write(out, "sections/footer-group.json", footerGroup(footer, c))
   const overlay = readJson(files, "sections/overlay-group.json")
   if (overlay) write(out, "sections/overlay-group.json", overlayGroup(overlay))
+  const password = readJson(files, "templates/password.json")
+  if (password) write(out, "templates/password.json", passwordPage(password, c))
   const settings = readJson(files, "config/settings_data.json")
   if (settings) write(out, "config/settings_data.json", themeSettings(settings, c))
 

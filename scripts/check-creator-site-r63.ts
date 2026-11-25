@@ -90,7 +90,7 @@ async function main() {
   if (r.ok === false) throw new Error("the template did not convert")
   const media = new Map(r.theme.binaries.map((b) => [b.name, b.bytes]))
   const addresses = Object.fromEntries([...media.keys()].map((n) => [n, `/__media/${encodeURIComponent(n)}`]))
-  const themeFiles = { ...r.theme.files, [ASSET_MAP_PATH]: JSON.stringify(addresses) }
+  const themeFiles: Record<string, string> = { ...r.theme.files, [ASSET_MAP_PATH]: JSON.stringify(addresses) }
   const theme = themeOfInstall(themeFiles, r.theme.settings, {
     assetUrl: (n) => addresses[n] ?? `/__asset/${encodeURIComponent(n)}`,
     assetText: (n) => themeFiles[`shopify/assets/${n}`] ?? null,
@@ -155,7 +155,9 @@ async function main() {
   }
 
   const require = createRequire(import.meta.url)
-  const pw = require(process.env.PLAYWRIGHT_MODULE ?? "playwright") as typeof import("playwright")
+  /* Playwright is not a dependency of the app: the global install, or the one PLAYWRIGHT_MODULE names. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pw = require(process.env.PLAYWRIGHT_MODULE ?? "playwright") as any
   const browser = await pw.chromium.launch()
   const report: Record<string, unknown>[] = []
   const samplesSeen: string[] = []
@@ -165,12 +167,14 @@ async function main() {
   for (const w of WIDTHS) {
     const ctx = await browser.newContext({ viewport: { width: w, height: w < 700 ? 800 : 900 }, deviceScaleFactor: 2 })
     const page = await ctx.newPage()
-    await page.route(/https:\/\/storelib\.com\/media\//, async (route) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await page.route(/https:\/\/storelib\.com\/media\//, async (route: any) => {
       const b = localPicture(route.request().url())
       if (!b) return route.fulfill({ status: 404, body: "" })
       return route.fulfill({ status: 200, body: b, contentType: MIME[extname(route.request().url().split("?")[0]).toLowerCase()] ?? "image/png" })
     })
-    await page.route(/\/_next\/image\?/, async (route) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await page.route(/\/_next\/image\?/, async (route: any) => {
       const to = new URL(route.request().url()).searchParams.get("url") ?? ""
       const b = /^https:\/\/storelib\.com\/media\//.test(to) ? localPicture(to) : null
       if (b) return route.fulfill({ status: 200, body: b, contentType: MIME[extname(to.split("?")[0]).toLowerCase()] ?? "image/png" })
