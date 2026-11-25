@@ -1,0 +1,47 @@
+
+
+#shopify-section-programmes .tg, #shopify-section-programmes .tg *, #shopify-section-programmes .tg *::before, #shopify-section-programmes .tg *::after { box-sizing: border-box; }
+#shopify-section-programmes .tg {
+  background: var(--tg-bg, var(--gradient-background, var(--color-background)));
+  color: var(--tg-text, var(--color-text));
+  font-family: var(--tg-bf, var(--body-font));
+  font-weight: var(--tg-bw, var(--body-weight, 400));
+  padding: var(--tg-pt-m) var(--tg-px-m) var(--tg-pb-m);
+  margin: 0;
+}
+@media (min-width: 900px) {
+  #shopify-section-programmes .tg { padding: var(--tg-pt-d) var(--tg-px-d) var(--tg-pb-d); }
+}
+#shopify-section-programmes .tg__inner { width: 100%; max-width: var(--tg-maxw, none); margin-inline: auto; }
+@media (min-width: 1200px) {
+  #shopify-section-programmes .tg__inner { padding-inline: var(--tg-stretch, 0px); }
+}
+#shopify-section-programmes .tg :is(p, div, span, li, a, button) { font-family: inherit; }
+#shopify-section-programmes .tg .tg__h { font-family: var(--tg-hf, var(--heading-font)); font-weight: var(--tg-hw, var(--heading-weight, 700)); }
+#shopify-section-programmes .tg [data-theme-button] { font-family: var(--btn-font, var(--tg-bf, var(--body-font))) !important; }
+#shopify-section-programmes .tg [data-theme-button][data-own-shape] { font-size: var(--mb-font-size); padding: var(--mb-padding-y) var(--mb-padding-x); border-radius: var(--mb-radius); }
+#shopify-section-programmes .tg [data-theme-button][data-own-weight] { font-weight: var(--mb-weight); }
+#shopify-section-programmes .tg [hidden] { display: none !important; }
+#shopify-section-programmes .tg img.tg__ph { object-fit: cover !important; }
+#shopify-section-programmes .tg :focus-visible { outline: 2px solid var(--color-heading); outline-offset: 3px; }
+#shopify-section-programmes .iwm__rows { display: flex; flex-direction: column; gap: var(--iwm-rg-m); }
+#shopify-section-programmes .iwm__row { display: flex; flex-direction: column; align-items: center; gap: var(--iwm-cg-m); background: var(--iwm-row-bg, transparent); padding: var(--iwm-row-pad, 0px); border-radius: var(--iwm-row-r, 0px); }
+#shopify-section-programmes .iwm__media, #shopify-section-programmes .iwm__text { width: 100%; min-width: 0; }
+#shopify-section-programmes .iwm__media { overflow: hidden; border-radius: var(--iwm-r); aspect-ratio: var(--iwm-ar); background: var(--iwm-img-bg, color-mix(in srgb, var(--color-text) 8%, var(--color-background))); }
+#shopify-section-programmes .iwm__media img { width: 100%; height: 100%; display: block; object-fit: var(--iwm-fit); }
+#shopify-section-programmes .iwm__text { display: flex; flex-direction: column; gap: var(--iwm-cgap); align-items: var(--iwm-ai-m); text-align: var(--iwm-ta-m); }
+#shopify-section-programmes .iwm__text > * { margin: 0; max-width: 100%; }
+#shopify-section-programmes .iwm__caption { font-size: var(--iwm-cap-size); font-weight: 700; letter-spacing: 2px; text-transform: uppercase; line-height: 1.2; color: var(--iwm-cap-c, inherit); }
+#shopify-section-programmes .iwm .iwm__heading { font-size: var(--iwm-h-m); font-weight: var(--iwm-hw, var(--tg-hw, var(--heading-weight, 700))); line-height: 1.1; letter-spacing: -0.01em; color: var(--iwm-head-c, var(--color-heading)); }
+#shopify-section-programmes .iwm__body { font-size: var(--iwm-b-m); line-height: 1.6; max-width: 540px; color: var(--iwm-body-c, inherit); }
+#shopify-section-programmes .iwm__body p { margin: 0 0 .5em; }
+#shopify-section-programmes .iwm__body > :last-child { margin-bottom: 0; }
+@media (min-width: 900px) {
+  #shopify-section-programmes .iwm__rows { gap: var(--iwm-rg-d); }
+  #shopify-section-programmes .iwm__row { flex-direction: row; gap: var(--iwm-cg-d); }
+  #shopify-section-programmes .iwm__row[data-side="right"] { flex-direction: row-reverse; }
+  #shopify-section-programmes .iwm__text { flex: 0 0 var(--iwm-tw); width: auto; align-items: var(--iwm-ai-d); text-align: var(--iwm-ta-d); }
+  #shopify-section-programmes .iwm__media { flex: 1 1 0; width: auto; }
+  #shopify-section-programmes .iwm .iwm__heading { font-size: var(--iwm-h-d); }
+  #shopify-section-programmes .iwm__body { font-size: var(--iwm-b-d); }
+}

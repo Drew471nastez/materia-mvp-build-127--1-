@@ -36,7 +36,7 @@
         "store_info_1": {
           "type": "store_info",
           "settings": {
-            "show_logo": true,
+            "show_logo": false,
             "top_offset": 0,
             "image_width": 170,
             "store_email": true,
@@ -87,17 +87,22 @@
             "enable_google_pay": true,
             "enable_mastercard": true
           }
+        },
+        "logo_row": {
+          "type": "custom_liquid",
+          "settings": {
+            "custom_liquid": "{%- if settings.logo != blank -%}<a href=\"{{ routes.root_url }}\" aria-label=\"{{ shop.name | escape }}\" style=\"display:inline-block;line-height:0\"><img src=\"{{ settings.logo | image_url: width: 480 }}\" alt=\"{{ shop.name | escape }}\" width=\"166\" height=\"38\" loading=\"lazy\" style=\"height:38px;width:auto;max-width:100%\"></a>{%- else -%}<a href=\"{{ routes.root_url }}\" class=\"heading-color no-underline\">{{ shop.name | escape }}</a>{%- endif -%}",
+            "content_width": "100%"
+          }
         }
       },
       "block_order": [
+        "logo_row",
         "store_info_1",
         "link_list_1",
         "link_list_2",
         "newsletter_1",
         "payment_badges_1"
-      ],
-      "custom_css": [
-        ".store-info-content img {width: auto; height: 38px; max-width: 100%; aspect-ratio: auto; object-fit: contain; object-position: left center;}"
       ]
     }
   },

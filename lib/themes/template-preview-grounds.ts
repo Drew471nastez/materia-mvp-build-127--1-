@@ -16,7 +16,7 @@ export const TEMPLATE_PREVIEW_GROUNDS: Readonly<Record<string, { desktop: string
   "landing-page": { desktop: "#100f12", phone: "#161616" },
   "creator-landing": { desktop: "#fdfcfb", phone: "#fefdfc" },
   "streetwear": { desktop: "#020303", phone: "#020817" },
-  "sample-packs": { desktop: "#0e1316", phone: "#110d13" },
+  "sample-packs": { desktop: "#24211e", phone: "#1b1b1a" },
   "templates-shop": { desktop: "#fbfbfb", phone: "#fcfbfb" },
   "space-clothing": { desktop: "#010101", phone: "#030303" },
   "posters": { desktop: "#cdc3eb", phone: "#d4c8f5" },

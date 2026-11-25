@@ -1,0 +1,31 @@
+
+  #shopify-section-contents .spk { padding-block: 28px 39px; }
+  #shopify-section-contents .spk__inner { max-width: 1040px; margin-inline: auto; }
+  #shopify-section-contents .spk__head { text-align: center; margin: 0 auto 28px; max-width: 640px; }
+  #shopify-section-contents .spk__eyebrow { margin: 0 0 10px; font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--color-text); }
+  #shopify-section-contents .spk__heading { margin: 0; font-size: 26px; line-height: 1.12; }
+  #shopify-section-contents .spk__text { margin: 10px 0 0; font-size: 15px; color: var(--color-text); }
+  #shopify-section-contents .spk__text > * { margin: 0; }
+  #shopify-section-contents .spk__stats { list-style: none; margin: 0 0 14px; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  #shopify-section-contents .spk__stat { border-radius: 12px; padding: 16px 12px; text-align: center; background: rgba(var(--color-heading-rgb), .05); border: 1px solid rgba(var(--color-heading-rgb), .07); }
+  #shopify-section-contents .spk__value { display: block; font-family: var(--heading-font, inherit); font-size: 26px; font-weight: 700; line-height: 1.1; color: var(--color-heading); font-variant-numeric: tabular-nums; }
+  #shopify-section-contents .spk__label { display: block; margin-top: 4px; font-size: 13px; color: var(--color-text); }
+  #shopify-section-contents .spk__parts { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  #shopify-section-contents .spk__part { border-radius: 12px; padding: 18px 18px 20px; background: rgba(var(--color-heading-rgb), .035); border: 1px solid rgba(var(--color-heading-rgb), .07); }
+  #shopify-section-contents .spk__ptop { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  #shopify-section-contents .spk__name { margin: 0; font-size: 17px; line-height: 1.25; color: var(--color-heading); }
+  #shopify-section-contents .spk__count { flex: none; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--btn-primary-bg-color); color: var(--btn-primary-color); font-variant-numeric: tabular-nums; }
+  #shopify-section-contents .spk__list { margin: 10px 0 0; font-size: 14px; line-height: 1.6; color: var(--color-text); }
+  #shopify-section-contents .spk__list > * { margin: 0; }
+  #shopify-section-contents .spk__list ul { padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px; }
+  #shopify-section-contents .spk__list li { padding: 4px 10px; border-radius: 6px; background: rgba(var(--color-heading-rgb), .06); color: var(--color-heading); font-size: 13px; font-variant-numeric: tabular-nums; }
+  #shopify-section-contents .spk__empty { text-align: center; font-size: 15px; color: var(--color-text); }
+  @media (min-width: 750px) {
+    #shopify-section-contents .spk { padding-block: 40px 56px; }
+    #shopify-section-contents .spk__heading { font-size: 32px; }
+    #shopify-section-contents .spk__head { margin-bottom: 36px; }
+    #shopify-section-contents .spk__stats { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
+    #shopify-section-contents .spk__value { font-size: 32px; }
+    #shopify-section-contents .spk__parts { grid-template-columns: repeat(1, minmax(0, 1fr)); gap: 12px; }
+    #shopify-section-contents .spk__part { padding: 22px 24px 24px; }
+  }

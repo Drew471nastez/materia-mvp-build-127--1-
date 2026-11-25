@@ -37,7 +37,7 @@
         "store_info_1": {
           "type": "store_info",
           "settings": {
-            "show_logo": true,
+            "show_logo": false,
             "image_width": 110,
             "store_email": true,
             "store_phone": false,
@@ -70,16 +70,21 @@
             "heading": "Things I make",
             "content_width": "16%"
           }
+        },
+        "logo_row": {
+          "type": "custom_liquid",
+          "settings": {
+            "custom_liquid": "{%- if settings.logo != blank -%}<a href=\"{{ routes.root_url }}\" aria-label=\"{{ shop.name | escape }}\" style=\"display:inline-block;line-height:0\"><img src=\"{{ settings.logo | image_url: width: 480 }}\" alt=\"{{ shop.name | escape }}\" width=\"172\" height=\"36\" loading=\"lazy\" style=\"height:36px;width:auto;max-width:100%\"></a>{%- else -%}<a href=\"{{ routes.root_url }}\" class=\"heading-color no-underline\">{{ shop.name | escape }}</a>{%- endif -%}",
+            "content_width": "100%"
+          }
         }
       },
       "block_order": [
+        "logo_row",
         "store_info_1",
         "link_list_1",
         "link_list_2",
         "link_list_3"
-      ],
-      "custom_css": [
-        ".store-info-content img {width: auto; height: 34px; max-width: 100%; aspect-ratio: auto; object-fit: contain; object-position: left center; margin-bottom: 14px;}"
       ]
     }
   },

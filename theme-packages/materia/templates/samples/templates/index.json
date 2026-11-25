@@ -228,13 +228,6 @@
         "c_tech_house_unitech",
         "c_drums_collection",
         "c_bass_collection"
-      ],
-      "custom_css": [
-        ".spc__pills {gap: 4px; padding: 4px; width: max-content; max-width: 100%; border-radius: 999px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08);}",
-        ".spc__pills .spc__pill {height: 34px; padding: 0 18px; border-color: transparent; color: #a1a1aa; font-weight: 600; letter-spacing: .01em;}",
-        ".spc__pills .spc__pill:hover {color: #f4f4f5; background: rgba(139,92,246,.16); border-color: transparent;}",
-        ".spc__pills .spc__pill[aria-pressed=\"true\"] {background: #7c3aed; color: #ffffff; border-color: transparent; box-shadow: 0 6px 18px -8px rgba(124,58,237,.9);}",
-        ".spc__pills .spc__pill:focus-visible {outline: 2px solid #8b5cf6; outline-offset: 2px;}"
       ]
     },
     "bundle": {
