@@ -194,7 +194,7 @@ async function main() {
     const add = code("app/api/website-builder/themes/add/route.ts")
     check("adding a theme writes the store's menus down first and names them", /const carried = await ensureStoreMenus\(admin, creator\.id, \{ excludeInstallId: newInstall\.id as string \}\)/.test(add) && /pointAtStoreMenus\(preset\.pages\.home, carried\.menus, carried\)/.test(add) && /sections: homeSections/.test(add))
     check("  without the table, the new website gets its own copy", /carried && !carried\.stored \? \{ \.\.\.preset\.settings, menus: carried\.menus \}/.test(add))
-    check("importing a theme does the same before its menus are read", /await ensureStoreMenus\(admin, creatorId, \{ excludeInstallId: data\.id as string \}\)/.test(code("app/api/website-builder/themes/import/route.ts")))
+    check("importing a theme does the same before its menus are read", /\(deps\.menus \?\? ensureStoreMenus\)\(admin, creatorId, \{ excludeInstallId: data\.id as string \}\)/.test(code("lib/themes/imported-theme-store.ts")) && /storeImportedTheme/.test(code("app/api/website-builder/themes/import/route.ts")) /* Changed on purpose (round 26): the import route's writes moved to lib/themes/imported-theme-store.ts, shared with Start with AI. */)
     const publish = code("app/api/website-builder/themes/[installId]/publish/route.ts")
     check("publishing writes them down while the old website is still live", publish.indexOf("await ensureStoreMenus(admin, creator.id, { names: false, preferInstallId: installId })") > 0 && publish.indexOf("ensureStoreMenus(admin") < publish.indexOf('admin.rpc("publish_theme_install"'))
   }

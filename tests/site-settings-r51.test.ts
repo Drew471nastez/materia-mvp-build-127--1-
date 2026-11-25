@@ -51,7 +51,7 @@ async function main() {
   console.log("\n1. The newsletter in the builder's canvas")
   {
     check("the canvas's URL reads an address on the builder's origin as the page's own (\"null\")", /get origin\(\) \{ var o = super\.origin; return pageOrigin === "null" && homeOrigin && o === homeOrigin \? "null" : o; \}/.test(CANVAS_REQUESTS))
-    check("  only inside a page with no origin of its own, and only for the builder's origin", /var pageOrigin = location\.origin;/.test(CANVAS_REQUESTS) && /homeOrigin = new NativeURL\(baseUrl\)\.origin/.test(CANVAS_REQUESTS))
+    check("  only inside a page with no origin of its own, and only for the builder's origin", /var pageOrigin = "";\s*try \{ pageOrigin = String\(location\.origin\); \} catch \(e\) \{\}/.test(CANVAS_REQUESTS) /* Changed on purpose (round 26): the origin is read inside a guard so the script also runs where location is missing. */ && /homeOrigin = new NativeURL\(baseUrl\)\.origin/.test(CANVAS_REQUESTS))
     check("  the bridge's own routing reads the real origin", /url = new NativeURL\(raw, baseUrl\)/.test(CANVAS_REQUESTS) && /home = new NativeURL\(baseUrl\)/.test(CANVAS_REQUESTS))
     /* The script still parses as the page runs it. */
     let parses = true
