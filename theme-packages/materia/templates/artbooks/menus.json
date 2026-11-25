@@ -12,7 +12,7 @@
           { "title": "Photographs", "url": "/search?q=photographs" }
         ]
       },
-      { "title": "Journal", "url": "/blogs/news" },
+      { "title": "Blog", "url": "/blogs/news" },
       { "title": "About", "url": "/pages/about" },
       { "title": "Questions", "url": "/pages/faqs" },
       { "title": "Contact", "url": "/pages/contact" }
@@ -24,7 +24,7 @@
       { "title": "About", "url": "/pages/about" },
       { "title": "Questions", "url": "/pages/faqs" },
       { "title": "Contact", "url": "/pages/contact" },
-      { "title": "Journal", "url": "/blogs/news" }
+      { "title": "Blog", "url": "/blogs/news" }
     ]
   },
   "subjects": {

@@ -976,7 +976,7 @@
         "sub": {
           "type": "subheading",
           "settings": {
-            "text": "Journal",
+            "text": "Blog",
             "style": "caption",
             "color": "#e3221b"
           }

@@ -13,7 +13,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "page_title": "Journal",
+            "page_title": "Blog",
             "heading_font_size": 48,
             "header_size": "default"
           }

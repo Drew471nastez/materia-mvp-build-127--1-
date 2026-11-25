@@ -92,7 +92,7 @@ export function auditSite(imported: ImportedTemplate, template: string, empty: b
   ] as SiteData["collections"]
   const { cards, full } = posts(cover, SAMPLE_SHOPS[template]?.posts)
   const blog: CompatBlogSource = {
-    settings: { handle: "news", previousHandles: [], title: "Journal", description: "Notes from the shop", postsPerPage: 6, seoTitle: "", seoDescription: "", ogImageUrl: "" },
+    settings: { handle: "news", previousHandles: [], title: "Blog", description: "Notes from the shop", postsPerPage: 6, seoTitle: "", seoDescription: "", ogImageUrl: "" },
     cards,
     post: async (slug) => full[slug] ?? null,
     preview: async () => null,

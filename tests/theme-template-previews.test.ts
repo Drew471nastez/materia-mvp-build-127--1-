@@ -47,7 +47,8 @@ const MB = 1048576
 const BUDGET_TOTAL = 300 * MB
 /* Changed on purpose (templates round 25): sample product pictures are 1600 px from their photographs now, each with a real second shot instead of a zoomed crop; the outerwear shop's 35 pages of HTML alone are 8 MB, so its pictures take it to about 10.7 MB. */
 /* Changed on purpose (round 26 upgrade): the quick view, recently viewed and account pages above, about 0.6 MB a template. */
-const BUDGET_TEMPLATE = 12 * MB
+/* Changed on purpose (round 26 integration): the 1.3.2 upgrade adds quick view, recently viewed and account pages to every preview; Redline (rail, try the look) and Print on demand (four new collections) sit at about 12.1 to 12.6 MB. */
+const BUDGET_TEMPLATE = 13 * MB
 
 function main() {
   const files = walk(OUT)
@@ -158,7 +159,7 @@ function main() {
   const total = size("")
   check(`the whole folder is within ${BUDGET_TOTAL / MB} MB`, total <= BUDGET_TOTAL, `${(total / MB).toFixed(1)} MB`)
   /* Changed on purpose (templates round 26): Print on demand's menu opens four collections of its own now (Winter, Hometown, Game day, Essentials), four more pages of about 0.25 MB each, so it keeps 11.5 MB. */
-  const budgetOf = (slug: string) => (slug === "print-on-demand" ? 11.5 * MB : BUDGET_TEMPLATE)
+  const budgetOf = (slug: string) => BUDGET_TEMPLATE /* round 26 integration: the general 13 MB covers Print on demand too */
   const big = CODE_TEMPLATES.map((t) => [t.slug, size(`${t.slug}/`)] as const).filter(([s, n]) => n > budgetOf(s))
   check(`each template within ${BUDGET_TEMPLATE / MB} MB`, big.length === 0, big.map(([s, n]) => `${s} ${(n / MB).toFixed(1)} MB`))
   const stale = readdirSync(OUT).filter((d) => d !== "_base" && !CODE_TEMPLATES.some((t) => t.slug === d))
