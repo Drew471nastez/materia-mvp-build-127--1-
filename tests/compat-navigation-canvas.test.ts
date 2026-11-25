@@ -61,7 +61,8 @@ async function main() {
     const blogTheme = new CompatTheme({ "layout/theme.liquid": "<html><body>{{ content_for_layout }}</body></html>" }, {}, { assetUrl: (n) => `/a/${n}` })
     const blog = blogTheme.pageContext({ ...page, template: "blog", path: "/blogs/news" }).globals.blog as { title?: string; articles?: unknown[] } | null
     check("a blog page has its blog, titled by its address and with no posts (Dawn's main-blog drew nothing at all)", blog?.title === "News" && Array.isArray(blog?.articles) && blog!.articles!.length === 0, blog)
-    check("the theme's settings are read exactly", /typedSettings\(allSettings, this\.settingsValues, res, resolverFor\(\(\) => pageCtx\), \{ exactProducts: true \}\)/.test(read("lib/storelib-theme/compat/theme.ts")))
+    /* Changed on purpose (round 27): the theme's own settings are read with `themeRes`, the page's resources with hideThemePictures off (a theme's logo and favicon are never demo pictures, show_demo_pictures); it is `res` itself whenever that switch is off. */
+    check("the theme's settings are read exactly", /const themeRes = res\.hideThemePictures \? \{ \.\.\.res, hideThemePictures: false \} : res/.test(read("lib/storelib-theme/compat/theme.ts")) && /typedSettings\(allSettings, this\.settingsValues, themeRes, resolverFor\(\(\) => pageCtx\), \{ exactProducts: true \}\)/.test(read("lib/storelib-theme/compat/theme.ts")))
   }
 
   console.log("\nBetween two pages of a live site\n")
