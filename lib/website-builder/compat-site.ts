@@ -74,7 +74,7 @@ import { blogFor, readLivePost, readPreviewPost, siteBlogRedirect } from "@/lib/
 import { readLadder } from "@/lib/supabase/missing-memory"
 import { readTwice } from "@/lib/onepage/bounded-read"
 import { inTime, inTimeOrThrow } from "@/lib/net/in-time"
-import { refReads, resolveFileRows, withRefColumn } from "./theme-file-refs"
+import { refsOn, resolveFileRows, withRefColumn } from "./theme-file-refs"
 
 /*
   ===========================================================================
@@ -138,7 +138,7 @@ export async function installFiles(admin: Admin, installId: string, draft: boole
   const ask = (q: (signal?: AbortSignal) => PromiseLike<Res>): Promise<Res> =>
     bound ? readTwice((signal) => q(signal) as PromiseLike<{ data: unknown; error: { message?: string } | null }>, bound) : Promise.resolve(q())
   /* Round 27: with the reference column when unchanged files may be kept once (./theme-file-refs.ts); today's query otherwise. */
-  const refs = await refReads(admin)
+  const refs = await refsOn()
   for (let from = 0; from < 20_000; from += page) {
     const table = () => admin.from("store_theme_custom_files")
     const live = (signal?: AbortSignal) => {

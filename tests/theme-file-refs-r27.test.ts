@@ -38,6 +38,8 @@ import {
   asReferenceRows,
   forgetHeldBlobs,
   forgetRefColumn,
+  refColumnChecks,
+  refColumnPresent,
   heldBlobCount,
   isRefRow,
   refReads,
@@ -162,36 +164,41 @@ async function main() {
   const converted = (await convertTemplateFiles(composeTemplateFiles("materia/clothing"), "Clothing"))!
   const fresh = async () => (await convertTemplateFiles(composeTemplateFiles("materia/clothing"), "Clothing"))!
 
-  section("Off: production as today")
+  section("Before the SQL: production as today")
   {
     delete process.env.STORELIB_THEME_FILE_REFS
     forgetRefColumn()
     const db = memoryDb({ column: false })
-    check("the switch off: no read asks for the column, and nothing is asked to find out", !(await refReads(db.client)) && db.asked.length === 0)
+    setRefsAdmin(() => db.client)
+    check("the column is looked for once, found absent, and no read asks for it", !(await refReads(db.client)) && db.asked.length === 1 && /select store_theme_custom_files blob_sha256/.test(db.asked[0]))
     check("  the columns of every read are today's", withRefColumn("path, content", false) === "path, content")
     const made = await storeImportedTheme(db.client, who, converted.theme, converted.report, { name: "Old", menus: noMenus })
     const rows = db.tables.store_theme_custom_files
     check("  a new website is full copies, with no reference column in any write", made.ok && rows.length > 900 && rows.every((r) => !("blob_sha256" in r) && typeof r.content === "string") && db.tables.theme_file_blobs.length === 0)
     const files = await installFiles(db.client as never, (made as { installId: string }).installId, false)
-    check("  the storefront's read is the same query and the same files", Object.keys(files).length === Object.keys(converted.theme.files).length + 2 && !db.asked.some((a) => /blob_sha256/.test(a)))
-    /* The converted readers with the switch off: today's queries, and the service role never even made. */
-    let adminMade = 0
-    setRefsAdmin(() => { adminMade++; throw new Error("no client should be made") })
+    check("  the storefront's read is the same query and the same files", Object.keys(files).length === Object.keys(converted.theme.files).length + 2)
     const oid0 = (made as { installId: string }).installId
-    const offReads = [
+    await Promise.all([
       (await import("@/lib/agent-access/operations")).listFiles(db.client as never, oid0),
       (await import("@/lib/website-builder/storefront-render")).sectionSources(db.client as never, oid0),
       (await import("@/lib/website-builder/draft-section-sources")).draftSectionSources(db.client, oid0),
       (await import("@/lib/website-builder/backups")).readSnapshot(db.client as never, oid0),
       (await import("@/lib/website-builder/theme-file-drafts")).promoteFileDrafts(db.client, oid0),
-    ]
-    await Promise.all(offReads)
-    check("  the converted readers and writers ask exactly today's queries, and make no service-role client", adminMade === 0 && !db.asked.some((a) => /blob_sha256|theme_file_blobs/.test(a)))
-    setRefsAdmin(null)
+    ])
+    check("  every converted reader and writer asks today's queries; the server checked the column once in all", refColumnChecks() === 1 && db.asked.filter((a) => /blob_sha256|theme_file_blobs/.test(a)).length === 1, { checks: refColumnChecks(), asked: db.asked.filter((a) => /blob_sha256|theme_file_blobs/.test(a)) })
     process.env.STORELIB_THEME_FILE_REFS = "1"
     forgetRefColumn()
-    check("the switch on before the SQL ran: the column is looked for, not found, and not asked for", !(await refReads(db.client)) && !(await refWrites(db.client, undefined, true)))
+    check("the switch on before the SQL ran: nothing is written as references", !(await refReads(db.client)) && !(await refWrites(db.client, undefined, true)))
     delete process.env.STORELIB_THEME_FILE_REFS
+    forgetRefColumn()
+    let flaky = true
+    const healthy = memoryDb({ column: true }).client as unknown as { from: (t: string) => unknown }
+    const blinking = { from: (t: string) => (flaky ? { select: () => ({ limit: async () => ({ data: null, error: { code: "57014", message: "canceling statement due to statement timeout" } }) }) } : healthy.from(t)) }
+    const first = await refColumnPresent(blinking as never)
+    flaky = false
+    const second = await refColumnPresent(blinking as never)
+    check("  a check that failed for another reason (a timeout) decides nothing: the next read asks again", first === false && second === true && refColumnChecks() === 2)
+    setRefsAdmin(null)
   }
 
   section("Side by side: an old full-copy website and a new referencing one")
@@ -199,7 +206,8 @@ async function main() {
   forgetRefColumn()
   forgetHeldBlobs()
   const db = memoryDb({ column: true })
-  check("the switch on and the SQL run: reads ask for the reference column", await refReads(db.client))
+  setRefsAdmin(() => db.client)
+  check("the SQL run: reads ask for the reference column", await refReads(db.client))
   check("  and new websites may be references: every reader resolves them (REFS_READERS_DONE)", REFS_READERS_DONE === true && (await refWrites(db.client)) && !(await refWrites(db.client, undefined, false)))
   const old = await storeImportedTheme(db.client, who, (await fresh()).theme, (await fresh()).report, { name: "Old", menus: noMenus, refs: false })
   const oldId = (old as { installId: string }).installId
@@ -351,8 +359,32 @@ async function main() {
     const before = db.tables.store_theme_custom_files.filter((r) => r.install_id === nid).length
     const gone = await added.removeAdded(db.client as never, nid, [{ kind: "file", key: "DESIGN.md" } as never])
     check("Undo added since: a reference row is not removed as an empty file", db.tables.store_theme_custom_files.filter((r) => r.install_id === nid).length === before && db.tables.store_theme_custom_files.some((r) => r.install_id === nid && r.path === "DESIGN.md"), gone)
-    const refsOff = await (async () => { delete process.env.STORELIB_THEME_FILE_REFS; const q = { is: () => { throw new Error("asked") } }; const r = await ownRowsOnly(q as never); process.env.STORELIB_THEME_FILE_REFS = "1"; return r === q })()
-    check("  with the switch off the delete is today's query, untouched", refsOff)
+    const refsOff = await (async () => {
+      const before = memoryDb({ column: false })
+      forgetRefColumn()
+      setRefsAdmin(() => before.client)
+      const q = { is: () => { throw new Error("asked") } }
+      const r = await ownRowsOnly(q as never)
+      forgetRefColumn()
+      setRefsAdmin(() => db.client)
+      return r === q
+    })()
+    check("  before the SQL the delete is today's query, untouched", refsOff)
+  }
+
+  section("The switch turned off after websites were stored as references")
+  {
+    delete process.env.STORELIB_THEME_FILE_REFS
+    const refSite = (third as { installId: string }).installId
+    forgetHeldBlobs()
+    const live = await installFiles(db.client as never, refSite, false)
+    check("a website stored as references still draws every file: reading never depends on the switch", Object.keys(live).length > 900 && live[Object.keys(converted.theme.files).find((p) => converted.theme.files[p].length > REF_MIN_CHARS && p.startsWith("shopify/assets/"))!] !== undefined && db.tables.store_theme_custom_files.some((r) => r.install_id === refSite && isRefRow(r as never)))
+    const sources = await (await import("@/lib/website-builder/storefront-render")).sectionSources(db.client as never, refSite)
+    check("  and every reader still resolves (the storefront's section sources)", Object.keys(sources).length >= 0 && Object.values(sources).every((t) => t.length > 0))
+    const afterOff = await storeImportedTheme(db.client, who, (await fresh()).theme, (await fresh()).report, { name: "After", menus: noMenus })
+    const afterRows = db.tables.store_theme_custom_files.filter((r) => r.install_id === (afterOff as { installId: string }).installId)
+    check("  only writing stops: a new website is full copies again", afterOff.ok && afterRows.length > 900 && afterRows.every((r) => !isRefRow(r as never)))
+    process.env.STORELIB_THEME_FILE_REFS = "1"
   }
   setRefsAdmin(null)
   delete process.env.STORELIB_THEME_FILE_REFS

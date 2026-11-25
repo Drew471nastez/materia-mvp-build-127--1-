@@ -14,8 +14,7 @@ import { THEME_DATA_FILE, THEME_SCHEMA_FILE } from "@/lib/storelib-theme/theme-c
 import { settingsDataFor } from "@/lib/website-builder/theme-config-store"
 import { dbFailure } from "@/lib/website-builder/write-retry"
 import { REVALIDATED_CACHE, revalidatedJson } from "@/lib/website-builder/revalidated-json"
-import { fileCols, isRefRow, refReads, refsSwitchedOn, resolveFileRows, resolveRef, withRefColumn, type MaybeRef } from "@/lib/website-builder/theme-file-refs"
-import { createAdminClient } from "@/lib/supabase/admin"
+import { fileCols, isRefRow, refsOn, resolveRef, resolveRefs, withRefColumn, type MaybeRef } from "@/lib/website-builder/theme-file-refs"
 
 type Params = { params: Promise<{ installId: string }> }
 
@@ -97,11 +96,11 @@ async function handleGET(req: Request, { params }: Params) {
     (service role: the blobs are nobody's to read directly), after this
     caller was found to own the install above. Null when a blob could not be read.
   */
-  const refsHere = (): Promise<boolean> => (refsSwitchedOn() ? refReads(createAdminClient()) : Promise.resolve(false))
+  const refsHere = (): Promise<boolean> => refsOn()
   const resolveHere = async <R extends { path: string; content?: string | null }>(rows: R[]): Promise<R[] | null> => {
     if (!rows.some((r) => isRefRow(r as MaybeRef))) return rows
     try {
-      return await resolveFileRows(createAdminClient(), rows)
+      return await resolveRefs(rows)
     } catch (e) {
       console.error("[theme-files] the shared files could not be read:", e instanceof Error ? e.message : e)
       return null

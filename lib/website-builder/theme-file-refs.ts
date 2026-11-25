@@ -23,15 +23,17 @@
  *   existing websites   full copies, never touched; a row with text is read
  *                       exactly as before (a row is a reference only when
  *                       its content is '' AND it names a blob)
- *   reads               ask for `blob_sha256` only when the column exists
- *                       and references are on (refReads); otherwise the
- *                       query is the query of today, to the character
+ *   reads               ask for `blob_sha256` whenever the column exists
+ *                       (checked once per server, refReads), whatever the
+ *                       switch says, so turning it off never hides a file;
+ *                       before the SQL the query is today's, to the character
  *   new websites        written as references only when references are on,
  *                       the column and the blobs table exist, and
  *                       REFS_READERS_DONE (every reader of the table
  *                       resolves; tests/theme-file-refs-r27.test.ts checks it)
  *
- * Turned on by STORELIB_THEME_FILE_REFS=1 (an environment variable), after
+ * Writing new websites as references is turned on by
+ * STORELIB_THEME_FILE_REFS=1 (an environment variable), after
  * RUN_PENDING_ROUND_27.sql. Server only.
  */
 import { createHash } from "node:crypto"
@@ -63,44 +65,78 @@ export const REFS_READERS_DONE = true
 export const sha256Text = (text: string): string => createHash("sha256").update(text, "utf8").digest("hex")
 const SHA = /^[0-9a-f]{64}$/
 
-/** The owner's switch (an environment variable). Off: nothing here asks the database anything. */
+/**
+ * The owner's switch (an environment variable). It decides only whether NEW
+ * websites are WRITTEN as references. Reading never depends on it: a row
+ * that is a reference is resolved whenever the column exists, so turning the
+ * switch off after some websites were stored as references is always safe.
+ */
 export function refsSwitchedOn(env: Record<string, string | undefined> = process.env): boolean {
   return env.STORELIB_THEME_FILE_REFS === "1"
 }
 
-/* Whether the column and the blobs table are there, known for a while per server. */
+/*
+  WHETHER THE COLUMN IS THERE, asked once per server and kept: present is
+  kept for good (the SQL only adds), absent for ABSENT_MS, so a server sees
+  the SQL a few minutes after it ran. Only an answer that says so ("column
+  ... does not exist") is "absent"; a read that failed for another reason (the
+  database slow, a network error) decides nothing and keeps the last answer
+  this server had (none yet: absent, as before the SQL, and asked again on
+  the next read). One check at a time per server.
+*/
 let known: { at: number; present: boolean } | null = null
-const PRESENT_MS = 10 * 60_000
-const ABSENT_MS = 60_000
+let checking: Promise<boolean> | null = null
+export const ABSENT_MS = 10 * 60_000
+let checks = 0
+const missingColumn = (e: { code?: string; message?: string } | null | undefined) =>
+  !!e && (["42703", "PGRST204", "42P01", "PGRST205"].includes(e.code ?? "") || /does not exist|schema cache|could not find/i.test(e.message ?? ""))
+
 export async function refColumnPresent(db: Db, now = Date.now()): Promise<boolean> {
-  if (known && now - known.at < (known.present ? PRESENT_MS : ABSENT_MS)) return known.present
-  let present = false
+  if (known && (known.present || now - known.at < ABSENT_MS)) return known.present
+  if (checking) return checking
+  checking = (async () => {
+    checks++
+    try {
+      const col = await db.from("store_theme_custom_files").select(REF_COLUMN).limit(1)
+      if (!col.error) known = { at: now, present: true }
+      else if (missingColumn(col.error)) known = { at: now, present: false }
+    } catch {
+      /* decides nothing */
+    }
+    return known?.present ?? false
+  })()
   try {
-    const [col, blobs] = await Promise.all([
-      db.from("store_theme_custom_files").select(REF_COLUMN).limit(1),
-      db.from(BLOBS_TABLE).select("sha256").limit(1),
-    ])
-    present = !col.error && !blobs.error
-  } catch {
-    present = false
+    return await checking
+  } finally {
+    checking = null
   }
-  known = { at: now, present }
-  return present
 }
 /** For the tests. */
 export function forgetRefColumn(): void {
   known = null
+  checking = null
+  checks = 0
+}
+/** For the tests: how many times this server asked. */
+export function refColumnChecks(): number {
+  return checks
 }
 
-/** Whether reads should ask for references: the switch on and the column there. Off: no query at all. */
-export async function refReads(db: Db, env?: Record<string, string | undefined>): Promise<boolean> {
-  if (!refsSwitchedOn(env)) return false
+/** Whether reads ask for references: whenever the column exists, whatever the switch says. */
+export async function refReads(db: Db): Promise<boolean> {
   return refColumnPresent(db)
 }
 
-/** Whether a NEW website may be written as references now. */
+/** Whether a NEW website may be written as references now: the switch on, every reader done, the column and the blobs table there. */
 export async function refWrites(db: Db, env?: Record<string, string | undefined>, readersDone = REFS_READERS_DONE): Promise<boolean> {
-  return readersDone && (await refReads(db, env))
+  if (!readersDone || !refsSwitchedOn(env)) return false
+  if (!(await refColumnPresent(db))) return false
+  try {
+    const blobs = await db.from(BLOBS_TABLE).select("sha256").limit(1)
+    return !blobs.error
+  } catch {
+    return false
+  }
 }
 
 /** The columns a read selects: today's, with the reference column when references are read. */
@@ -241,9 +277,10 @@ export async function asReferenceRows(db: Db, rows: readonly FileRow[]): Promise
    the service role. Whether references are on, and the blobs themselves,
    are always asked with the service role: the blobs are nobody's to read
    directly, and every caller here has already been allowed the install.
-   With STORELIB_THEME_FILE_REFS unset none of these asks anything:
-   fileCols answers today's columns, resolveRefs answers the rows it was
-   given, ownRowsOnly the query it was given. */
+   Before RUN_PENDING_ROUND_27.sql has run, fileCols answers today's
+   columns (after one check per server), resolveRefs the rows it was given
+   and ownRowsOnly the query it was given. The switch is not consulted by
+   any read. */
 
 let adminFactory: (() => Db | Promise<Db>) | null = null
 /** For the tests: the client the blobs are read and written with. */
@@ -256,16 +293,22 @@ export async function refsAdmin(): Promise<Db> {
   return createAdminClient() as unknown as Db
 }
 
-/** References are read: the switch on and the column there. Off: no query. */
+/** References are read whenever the column exists (asked once per server), whatever the switch says. */
 export async function refsOn(): Promise<boolean> {
-  if (!refsSwitchedOn()) return false
-  return refColumnPresent(await refsAdmin())
+  if (known?.present) return true
+  if (known && Date.now() - known.at < ABSENT_MS) return false
+  try {
+    return await refColumnPresent(await refsAdmin())
+  } catch {
+    /* No service-role client here (a script, a test without keys): what this server last knew, else today's queries. */
+    return known?.present ?? false
+  }
 }
 
-/** New rows may be written as references (the switch, the column, every reader done). */
+/** New rows may be written as references (the switch, every reader done, the column and the blobs table). */
 export async function refsWritable(): Promise<boolean> {
   if (!REFS_READERS_DONE || !refsSwitchedOn()) return false
-  return refColumnPresent(await refsAdmin())
+  return refWrites(await refsAdmin())
 }
 
 /** The columns to select: today's, plus the reference column when references are read. */
