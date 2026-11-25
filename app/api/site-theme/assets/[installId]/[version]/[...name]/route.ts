@@ -32,6 +32,7 @@ import { assetVersion, isContentVersion, plainAssetVersion } from "@/lib/storeli
 import { splitAssetVersion } from "@/lib/storelib-theme/compat/draft-version"
 import { isDraftAssetPass } from "@/lib/website-builder/draft-asset-pass"
 import { keepAnswer, keptAnswer, readAssetRows, type AssetAdmin, type AssetRow } from "@/lib/storelib-theme/compat/asset-serve"
+import { refReads, withRefColumn } from "@/lib/website-builder/theme-file-refs"
 
 /*
   LIGHT TO START (round AQ). Right after a deploy every file of a page is a
@@ -118,7 +119,8 @@ export async function GET(_req: Request, { params }: Params) {
   const hit = asked.draft ? null : keptAnswer(installId, version, name)
   if (hit) return new NextResponse(typeof hit.body === "string" ? hit.body : new Blob([hit.body as BlobPart]), { headers: { ...cors, "Content-Type": hit.type, "Cache-Control": hit.cache, "X-Storelib-Asset": "kept" } })
   const admin = createAdminClient()
-  const cols = draft ? "path, content, draft_content" : "path, content"
+  /* Round 27: with the reference column when a website's unchanged files may be kept once (lib/website-builder/theme-file-refs.ts); today's columns otherwise. */
+  const cols = withRefColumn(draft ? "path, content, draft_content" : "path, content", await refReads(admin))
   let rows: AssetRow[]
   try {
     /* Read with the other files of this install asked for in the same moment (asset-serve.ts readAssetRows): one query, not one each. */

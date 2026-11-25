@@ -195,19 +195,28 @@
       One render-blocking stylesheet: base.css is critical, section-isolation,
       animation, product-card, swiper-bundle.min, theme, theme-button-contract,
       localization-controls, product-block-runtime and layout-guard, in that
-      cascade order (built by tools/build-base-css.js; edit the sources, then
-      rebuild), then late-css-guard and section-type. The theme editor (no section isolation there), stores without
-      scroll animation and right-to-left stores (rtl.css sits in the middle of
-      that order) link the source files one by one, as before.
+      cascade order (built by scripts/build-materia-base-css.mjs; edit the
+      sources, then rebuild), then late-css-guard and section-type. The theme
+      editor (no section isolation there) and right-to-left stores (rtl.css
+      sits in the middle of that order) link the source files one by one.
+    {%- endcomment -%}
+    {%- comment -%}
+      Without scroll animation the same bundle less animation.css,
+      base-static.css (it never linked animation.css): one request instead of
+      the eleven files it linked one by one before.
     {%- endcomment -%}
     {%- liquid
       assign use_base_css = true
-      if request.design_mode or settings.scroll_animation == 'none' or enable_rtl
+      assign base_css_file = 'base.css'
+      if settings.scroll_animation == 'none'
+        assign base_css_file = 'base-static.css'
+      endif
+      if request.design_mode or enable_rtl
         assign use_base_css = false
       endif
     -%}
     {%- if use_base_css -%}
-      {{ 'base.css' | asset_url | stylesheet_tag }}
+      {{ base_css_file | asset_url | stylesheet_tag }}
     {%- else -%}
     {{ 'critical.css' | asset_url | stylesheet_tag }}
 

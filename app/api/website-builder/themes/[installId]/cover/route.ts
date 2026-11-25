@@ -1,7 +1,8 @@
 import { websiteInstallCaller } from "@/lib/team/website"
 import { NextResponse } from "next/server"
 import { isThemeId } from "@/lib/website-builder/theme-registry"
-import { newestCover, renderOrigin, takeCover } from "@/lib/website-builder/cover-take"
+import { newestCover, renderOrigin, takeCover, templateCoverOf } from "@/lib/website-builder/cover-take"
+import { COVER_RETRY_AFTER_S, browserKnownMissing, isBrowserMissing } from "@/lib/website-builder/template-cover"
 import { mintCoverPass } from "@/lib/website-builder/cover-pass"
 import { isCompatInstall } from "@/lib/website-builder/compat-site"
 import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
@@ -74,7 +75,8 @@ export async function GET(req: Request, { params }: Params) {
   }
   try {
     const cover = await newestCover({ installId, userId: who.ownerUserId })
-    return NextResponse.json(cover ?? { url: null }, { headers: { "Cache-Control": "no-store" } })
+    /* Round 27: `unavailable` when this server knows no photograph can be taken, so a page looking for one stops looking (cover-refresh.ts watchCover). */
+    return NextResponse.json(cover ?? (browserKnownMissing() ? { url: null, unavailable: true } : { url: null }), { headers: { "Cache-Control": "no-store" } })
   } catch {
     return NextResponse.json({ url: null }, { headers: { "Cache-Control": "no-store" } })
   }
@@ -105,6 +107,18 @@ export async function POST(req: Request, { params }: Params) {
     /* Said out loud: a cover that silently never arrives is how this went
        unnoticed for a week the last time. */
     console.error("[cover] could not take the screenshots:", e instanceof Error ? e.message : e)
+    /*
+      ROUND 27: NO BROWSER IN THIS FUNCTION. Not a moment's failure worth
+      asking again in fifteen seconds: the page is told so and for how long
+      (cover-refresh.ts backs off), and a website from one of Storelib's
+      templates with no picture yet gets the template's own.
+    */
+    if (isBrowserMissing(e)) {
+      const owner = { installId, userId: who.ownerUserId, creatorId: who.creatorId }
+      const fallback = await templateCoverOf(owner, renderOrigin(req.url))
+      if (fallback) return NextResponse.json(fallback)
+      return NextResponse.json({ error: "The cover could not be taken", code: "cover_unavailable", retry_after_s: COVER_RETRY_AFTER_S }, { status: 503, headers: { "Retry-After": String(COVER_RETRY_AFTER_S) } })
+    }
     return NextResponse.json({ error: "The cover could not be taken" }, { status: 502 })
   }
 }

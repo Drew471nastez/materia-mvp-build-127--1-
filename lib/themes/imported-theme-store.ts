@@ -25,6 +25,7 @@ import type { SectionInstance } from "@/lib/website-builder/types"
 import { LIBRARY_FULL_CODE, LIBRARY_FULL_MESSAGE, firstSortOrder, isLibraryFullError, keptWithinLimit } from "@/lib/website-builder/library-limit"
 import { ensureStoreMenus } from "@/lib/website-builder/store-menus-server"
 import { STORELIB_DEFAULT_ID, THEME_REGISTRY, themeCatalogRow } from "@/lib/website-builder/theme-registry"
+import { asReferenceRows, refWrites } from "@/lib/website-builder/theme-file-refs"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Admin = SupabaseClient<any, any, any>
@@ -93,7 +94,7 @@ export async function inPool<T, R>(items: readonly T[], limit: number, work: (it
   return out
 }
 
-export async function insertInChunks(admin: Admin, files: { install_id: string; path: string; content: string }[], parallel = CHUNK_PARALLEL): Promise<{ error: unknown }> {
+export async function insertInChunks(admin: Admin, files: { install_id: string; path: string; content: string; blob_sha256?: string }[], parallel = CHUNK_PARALLEL): Promise<{ error: unknown }> {
   let failed: unknown = null
   await inPool(fileChunks(files), parallel, async (part) => {
     /* Once one part failed the install goes anyway: the rest are not sent. */
@@ -168,11 +169,22 @@ export async function fillImportedInstall(
   settings: Record<string, unknown>,
   pages: { page_key: string; sections: unknown }[],
   files: { install_id: string; path: string; content: string }[],
+  opts: { refs?: boolean } = {},
 ): Promise<StoreFailure | null> {
+  /*
+    ROUND 27: THE THEME'S UNCHANGED FILES KEPT ONCE (lib/website-builder/
+    theme-file-refs.ts), only when that is on and every reader resolves
+    (refWrites). Blobs that cannot be written: full copies, as before.
+  */
+  const useRefs = opts.refs ?? (await refWrites(admin).catch(() => false))
+  const rows = useRefs ? await asReferenceRows(admin, files).catch((e) => {
+    console.error("[themes/import] the shared files could not be written, storing full copies:", e instanceof Error ? e.message : e)
+    return files
+  }) : files
   const writes = [
     admin.from("store_theme_settings").insert({ install_id: installId, settings, draft_settings: settings }),
     pages.length > 0 ? admin.from("store_theme_pages").insert(pages.map((p) => ({ install_id: installId, page_key: p.page_key, sections: p.sections }))) : Promise.resolve({ error: null }),
-    insertInChunks(admin, files),
+    insertInChunks(admin, rows),
   ]
   const failed = (await Promise.all(writes)).find((r) => r.error)
   if (!failed) return null
@@ -218,7 +230,7 @@ export async function storeImportedTheme(
   who: { userId: string; creatorId: string },
   theme: ImportedTheme,
   report: ConversionReport,
-  opts: { name?: string; menus?: typeof ensureStoreMenus; mark?: (settings: Record<string, unknown>) => Record<string, unknown>; timing?: (step: string) => void } = {},
+  opts: { name?: string; menus?: typeof ensureStoreMenus; mark?: (settings: Record<string, unknown>) => Record<string, unknown>; timing?: (step: string) => void; refs?: boolean } = {},
 ): Promise<StoredTheme | StoreFailure> {
   const lap = opts.timing ?? (() => {})
   /*
@@ -273,7 +285,7 @@ export async function storeImportedTheme(
   if (made.ok === false) return made
   lap("install")
   const rows = Object.entries(files).map(([path, content]) => ({ install_id: made.id, path, content }))
-  const filled = await fillImportedInstall(admin, made.id, settings, pages, rows)
+  const filled = await fillImportedInstall(admin, made.id, settings, pages, rows, { refs: opts.refs })
   lap("rows")
   if (filled) return filled
   return { ok: true, installId: made.id, name, imported }

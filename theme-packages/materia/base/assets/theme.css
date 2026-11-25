@@ -287,8 +287,10 @@ input[type='checkbox']:checked + .checkmark:before {
      the pointer reaches the card, a moment before the picture itself): a
      standing will-change kept a layer for every card picture on the page and
      rastered them at their resting size, so a zoomed picture stayed soft. */
+  /* Round 27: one calm curve for every hover. A picture eases its scale over
+     0.7s (a zoom that settles, never a snap), opacity and colour over 0.4s. */
   .hover-effect :is(img, .placeholder-image, picture) {
-    transition: var(--transition);
+    transition: transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.4s ease, filter 0.5s ease;
   }
   :is(.product-item, .collection-item):hover .hover-effect :is(img, .placeholder-image, picture),
   .hover-effect:hover :is(img, .placeholder-image, picture) {
@@ -301,7 +303,7 @@ input[type='checkbox']:checked + .checkmark:before {
     transform: var(--zoom-transform, scale(1.05));
   }
   .hover_fade .hover-effect:hover :is(img, .placeholder-image, picture) {
-    opacity: 0.8;
+    opacity: 0.86;
   }
   .hover_fade .hover-effect:hover .secondary-image {
     opacity: 1;
@@ -324,14 +326,14 @@ input[type='checkbox']:checked + .checkmark:before {
     perspective: 800px;
   }
   .hover_tilt .hover-effect:hover :is(img, .placeholder-image, picture) {
-    transform: rotateX(2deg) rotateY(-3deg) scale(1.03);
+    transform: rotateX(2deg) rotateY(-3deg) scale(1.04);
   }
   .hover_lift .hover-effect {
-    transition: transform .35s cubic-bezier(.2,.7,.2,1), box-shadow .35s ease;
+    transition: transform .45s cubic-bezier(.2,.7,.2,1), box-shadow .45s cubic-bezier(.2,.7,.2,1);
   }
   .hover_lift .hover-effect:hover {
     transform: translateY(-6px);
-    box-shadow: 0 12px 28px -10px rgba(0,0,0,.18);
+    box-shadow: 0 14px 30px -12px rgba(0,0,0,.2);
   }
   .hover_slide .hover-effect {
     overflow: hidden;
@@ -348,7 +350,7 @@ input[type='checkbox']:checked + .checkmark:before {
   .hover_reveal .hover-effect .secondary-image,
   .hover_reveal .hover-effect .hover-effect__alt {
     opacity: 0;
-    transition: opacity .35s ease;
+    transition: opacity .45s cubic-bezier(.33, 0, .2, 1), transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
   }
   .hover_reveal .hover-effect:hover .secondary-image,
   .hover_reveal .hover-effect:hover .hover-effect__alt {
@@ -362,6 +364,7 @@ input[type='checkbox']:checked + .checkmark:before {
   }
   .hover_blur .hover-effect:hover :is(img, .placeholder-image, picture) {
     filter: blur(2px) brightness(0.96);
+    transform: scale(1.02);
   }
   .hover_grayscale .hover-effect :is(img, .placeholder-image, picture) {
     filter: grayscale(1);

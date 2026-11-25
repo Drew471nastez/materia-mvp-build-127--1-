@@ -8,11 +8,8 @@
         "reset_spacing": true,
         "alignment": "center",
         "height": "based_on_content",
-        "padding_top": 104,
-        "padding_bottom": 104,
-        "background_image": "shopify://shop_images/notionsite-newsletter.webp",
-        "overlay_opacity": 38,
-        "text_on_image": "light"
+        "padding_top": 64,
+        "padding_bottom": 8
       },
       "blocks": {
         "heading_1": {
@@ -20,15 +17,13 @@
           "settings": {
             "page_title": "",
             "header_size": "large",
-            "vertical_gap": 10,
-            "enable_heading_color": false
+            "vertical_gap": 10
           }
         },
         "description_2": {
           "type": "description",
           "settings": {
-            "description": "<p>How I use the templates, and what I learned building them.</p>",
-            "enable_custom_style": false
+            "description": "<p>How I use the templates, and what I learned building them.</p>"
           }
         },
         "breadcrumb_r61": {

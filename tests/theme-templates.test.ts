@@ -163,6 +163,8 @@ async function main() {
   check("no address at the old platform anywhere in it", !baseText.some(([, t]) => /shopify\.com|shopifycdn|myshopify/i.test(t)), baseText.filter(([, t]) => /shopify\.com|shopifycdn|myshopify/i.test(t)).map(([f]) => f).slice(0, 8))
   /* Round 26 (Materia 1.3.2): the live store links one combined stylesheet, built from the sources the builder links one by one; a source edited without rebuilding it would differ between the two. */
   check("assets/base.css is built from its sources (node scripts/build-materia-base-css.mjs)", read(join(BASE, "assets/base.css")) === buildBaseCss(join(BASE, "assets")))
+  /* Round 27: stores with Scroll animation set to None link base-static.css, the same bundle without animation.css, instead of eleven files. */
+  check("assets/base-static.css is built from its sources, without animation.css", read(join(BASE, "assets/base-static.css")) === buildBaseCss(join(BASE, "assets"), "base-static.css") && !read(join(BASE, "assets/base-static.css")).includes("---- animation.css ----"))
 
   console.log("\nNever the word Shopify where a creator reads\n")
   const said: string[] = []

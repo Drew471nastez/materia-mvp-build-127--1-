@@ -74,6 +74,7 @@ import { blogFor, readLivePost, readPreviewPost, siteBlogRedirect } from "@/lib/
 import { readLadder } from "@/lib/supabase/missing-memory"
 import { readTwice } from "@/lib/onepage/bounded-read"
 import { inTime, inTimeOrThrow } from "@/lib/net/in-time"
+import { refReads, resolveFileRows, withRefColumn } from "./theme-file-refs"
 
 /*
   ===========================================================================
@@ -136,15 +137,17 @@ export async function installFiles(admin: Admin, installId: string, draft: boole
   type Res = { data: unknown; error: unknown }
   const ask = (q: (signal?: AbortSignal) => PromiseLike<Res>): Promise<Res> =>
     bound ? readTwice((signal) => q(signal) as PromiseLike<{ data: unknown; error: { message?: string } | null }>, bound) : Promise.resolve(q())
+  /* Round 27: with the reference column when unchanged files may be kept once (./theme-file-refs.ts); today's query otherwise. */
+  const refs = await refReads(admin)
   for (let from = 0; from < 20_000; from += page) {
     const table = () => admin.from("store_theme_custom_files")
     const live = (signal?: AbortSignal) => {
-      const q = table().select("path, content").eq("install_id", installId).order("path").range(from, from + page - 1)
+      const q = table().select(withRefColumn("path, content", refs)).eq("install_id", installId).order("path").range(from, from + page - 1)
       return signal ? q.abortSignal(signal) : q
     }
     let res: Res = draft
       ? await ask((signal) => {
-          const q = table().select("path, content, draft_content").eq("install_id", installId).order("path").range(from, from + page - 1)
+          const q = table().select(withRefColumn("path, content, draft_content", refs)).eq("install_id", installId).order("path").range(from, from + page - 1)
           return signal ? q.abortSignal(signal) : q
         })
       : await ask(live)
@@ -152,7 +155,12 @@ export async function installFiles(admin: Admin, installId: string, draft: boole
     if (res.error && draft) res = await ask(live)
     /* A page of files that did not come is not a theme without them: thrown, so a half-read theme is never held as the theme (site-read.ts). */
     if (res.error) throw new SiteReadError("theme files", (res.error as { message?: string }).message ?? "the read failed")
-    const rows = (res.data ?? []) as Row[]
+    let rows = (res.data ?? []) as Row[]
+    try {
+      rows = await resolveFileRows(admin, rows as (Row & { blob_sha256?: string | null })[])
+    } catch (e) {
+      throw new SiteReadError("theme files", e instanceof Error ? e.message : "the blobs could not be read")
+    }
     for (const r of rows) {
       const text = draft ? (r.draft_content ?? r.content) : r.content
       if (typeof text === "string" && text !== "") out[r.path] = text

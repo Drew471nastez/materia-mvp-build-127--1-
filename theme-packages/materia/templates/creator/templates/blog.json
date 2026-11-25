@@ -3,16 +3,14 @@
     "heading": {
       "type": "page-heading",
       "settings": {
-        "height": "based_on_content",
+        "height": "adapt",
         "alignment": "center",
-        "padding_top": 104,
+        "padding_top": 66,
         "color_scheme": "",
         "reset_spacing": true,
         "section_width": "container",
-        "padding_bottom": 104,
-        "overlay_opacity": 38,
-        "background_image": "shopify://shop_images/creator-press-1.webp",
-        "text_on_image": "light"
+        "padding_bottom": 55,
+        "overlay_opacity": 0
       },
       "blocks": {
         "heading_xwFKKa": {

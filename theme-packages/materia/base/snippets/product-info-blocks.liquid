@@ -2165,7 +2165,7 @@ margin-top: {{ bs.section_mt_d }}px !important;
       --it-sec-pb-m: {{ bs.section_pb_m | default: 0 }}px;
      ">
   <div class="it-width" style="max-width: {{ bs.max_width | default: 760 }}px; {% if bs.center_card %}margin-left:auto;margin-right:auto;{% endif %}">
-    <div class="it-inner">
+    <div class="it-inner" role="list">
 
       {%- if bs.row1_enable != false -%}
       <div class="it-row it-row-1" role="listitem">

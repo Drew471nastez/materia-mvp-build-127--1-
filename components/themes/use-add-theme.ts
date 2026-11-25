@@ -11,6 +11,7 @@
 import * as React from "react"
 
 import { listingPath } from "@/lib/themes/marketplace-shared"
+import { postAddTheme } from "@/lib/themes/add-attempt-client"
 
 export type AddState =
   | { phase: "idle" }
@@ -27,7 +28,8 @@ export function useAddTheme() {
     busy.current = true
     setState({ phase: "adding", slug })
     try {
-      const res = await fetch("/api/themes/marketplace/add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slug }) })
+      /* Round 27: with the press's key, sent again once with the same key when no answer came (lib/themes/add-attempt-client.ts). */
+      const res = await postAddTheme(slug)
       const body = (await res.json().catch(() => ({}))) as { error?: string; code?: string }
       if (res.status === 401) {
         window.location.assign(`/login?next=${encodeURIComponent(`${listingPath(slug)}?add=1`)}`)

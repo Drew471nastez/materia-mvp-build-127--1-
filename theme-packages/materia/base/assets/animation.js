@@ -204,7 +204,8 @@ function armReveal(entries) {
     revealArming.delete(el);
     if (!el.isConnected || el.hasAttribute(SCROLL_ANIMATION_DONE_ATTR)) { revealObserver.unobserve(el); return false; }
     // In view now, or already scrolled past: shown at once. Further down: armed for its reveal.
-    if (entry.isIntersecting || entry.boundingClientRect.bottom <= 0 || inFirstScreen(entry)) { revealObserver.unobserve(el); markDone(el); return false; }
+    // Nothing to see (a section of styles only, an empty one): never waits.
+    if (entry.isIntersecting || entry.boundingClientRect.bottom <= 0 || entry.boundingClientRect.height < 2 || inFirstScreen(entry)) { revealObserver.unobserve(el); markDone(el); return false; }
     arm(el);
     return entry.isIntersecting;
   });
@@ -267,13 +268,18 @@ function makeObserver(callback, margin) {
 
 const revealObserver = makeObserver((entries) => {
   entries = armReveal(entries);
-  // Things that come into view together play in reading order, a short
-  // stagger apart; the order comes from the observer's own boxes.
+  // Things of one section that come into view together (a row of cards) play
+  // in reading order, a short stagger apart; the order comes from the
+  // observer's own boxes. Another section never waits for them.
   const entering = entries.filter(entry => entry.isIntersecting)
     .sort((a, b) => (a.boundingClientRect.top - b.boundingClientRect.top) || (a.boundingClientRect.left - b.boundingClientRect.left));
   const now = [];
-  entering.forEach(({target}, index) => {
+  const groups = new Map();
+  entering.forEach(({target}) => {
     revealObserver.unobserve(target);
+    const group = target.closest('.shopify-section') || document.body;
+    const index = groups.get(group) || 0;
+    groups.set(group, index + 1);
     if (index) target.style.setProperty('--reveal-order', String(Math.min(index, REVEAL_MAX_STAGGER)));
     const waiting = picturesReady(target);
     if (waiting) waiting.then(() => requestAnimationFrame(() => reveal([target])));

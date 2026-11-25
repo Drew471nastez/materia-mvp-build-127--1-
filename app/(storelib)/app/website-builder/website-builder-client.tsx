@@ -105,6 +105,7 @@ import { SITE_PICTURE_QUALITY, optimizedImageUrl } from "@/lib/images/optimized-
 import { THEME_PARAM, THEMES_PARAM, ThemeMarketplace } from "./themes/themes-client"
 import { PREVIEW_PARAM, ThemePreview, framedSteps } from "./themes/theme-preview"
 import { relativeTime } from "@/lib/website-builder/relative-time"
+import { postAddTheme } from "@/lib/themes/add-attempt-client"
 import { type Cover, coverBeingWatched, latestCover, requestCover, savedAt, seedCover, watchCover } from "@/lib/website-builder/cover-refresh"
 import { pagesBehind } from "@/lib/website-builder/page-refresh"
 import { decodeCover, isDecoded, rememberCover, shownCover } from "@/lib/website-builder/cover-memory"
@@ -1578,7 +1579,8 @@ export function WebsiteBuilderClient({
       "add",
       l.name,
       async () => {
-        const res = await fetch("/api/themes/marketplace/add", json("POST", { slug: l.slug }))
+        /* Round 27: with the press's key, so a retry after a lost answer is the same website (lib/themes/add-attempt-client.ts). */
+        const res = await postAddTheme(l.slug)
         return { ok: res.ok, data: await res.json().catch(() => ({})) }
       },
       (data) => {

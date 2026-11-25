@@ -14,7 +14,9 @@ import { readReleaseRowsFor, releasedFiles, zipOf } from "@/lib/themes/releases-
 import { convertTemplateFiles } from "@/lib/themes/template-install"
 import { storeImportedTheme } from "@/lib/themes/imported-theme-store"
 import { describeMedia } from "@/lib/storelib-theme/media"
-import { coverAfterCreate, isPackagedCover, renderOrigin, storeCover, type CoverOwner } from "@/lib/website-builder/cover-take"
+import { coverAfterCreate, newestCover, renderOrigin, storeCover, type CoverOwner } from "@/lib/website-builder/cover-take"
+import { templateCoverBytes } from "@/lib/website-builder/template-cover"
+import { installsWithAddKey, isAddKey, oncePerKey, oneWebsitePerKey, withAddKey, type KeyedInstall } from "@/lib/themes/add-attempt"
 import { MAX_BYTES as SNAPSHOT_MAX_BYTES } from "@/lib/website-builder/snapshot"
 import { withInstalledRelease } from "@/lib/themes/releases-shared"
 import { readStoreMenus, writeStoreMenus } from "@/lib/website-builder/store-menus-server"
@@ -59,6 +61,12 @@ export const maxDuration = 60
  * room in the library.
  */
 export async function POST(req: Request) {
+  /* Round 27: the press's key (lib/themes/add-attempt.ts); the same key at once on this server waits for the first. */
+  const key = await req.clone().json().then((b: { key?: unknown } | null) => (isAddKey(b?.key) ? (b!.key as string) : null), () => null)
+  return oncePerKey(key, () => addToLibrary(req, key))
+}
+
+async function addToLibrary(req: Request, key: string | null): Promise<Response> {
   const supabase = await createClient()
   const who = await routeUser()
   if (who.kind === "unavailable") return authUnavailableResponse()
@@ -85,6 +93,23 @@ export async function POST(req: Request) {
     const reason = (verdict as { reason: keyof typeof ADD_REFUSALS }).reason
     return NextResponse.json({ error: ADD_REFUSALS[reason], code: reason }, { status: reason === "needs_pro" ? 403 : reason === "paid_soon" ? 402 : 409 })
   }
+
+  /*
+    THE SAME PRESS AGAIN (round 27, lib/themes/add-attempt.ts): a website of
+    this store already made with this key is the answer, and nothing is made.
+    Before the rate limit, so a retry of a press that worked is never refused.
+  */
+  const replay = async (made: KeyedInstall) => {
+    const cover = await newestCover({ installId: made.id, userId: user.id }).catch(() => null)
+    return NextResponse.json({ ok: true, install_id: made.id, name: made.name, install: { id: made.id }, replay: true, cover: cover ? { url: cover.url, mobile_url: cover.mobile_url, updated_at: cover.updated_at ?? new Date().toISOString() } : null, cover_pending: false })
+  }
+  if (key) {
+    const same = await installsWithAddKey(createAdminClient(), creator.id as string, key)
+    if (same[0]) return replay(same[0])
+  }
+  /* Two servers raced with the same key: the oldest website stays and is the answer. */
+  const settled = async (installId: unknown): Promise<KeyedInstall | null> =>
+    key && typeof installId === "string" ? oneWebsitePerKey(createAdminClient(), creator.id as string, key, installId).catch(() => null) : null
 
   const forward = (url: string, payload: unknown) =>
     new Request(new URL(url, req.url), { method: "POST", headers: { "Content-Type": "application/json", cookie: req.headers.get("cookie") ?? "" }, body: JSON.stringify(payload) })
@@ -128,7 +153,8 @@ export async function POST(req: Request) {
   const mark = (s: unknown): Record<string, unknown> => {
     const o = s && typeof s === "object" ? (s as Record<string, unknown>) : {}
     const marked = o.compat && typeof o.compat === "object" ? { ...o, compat: { ...(o.compat as Record<string, unknown>), listing: listing.slug } } : { ...o, [LISTING_SETTINGS_KEY]: listing.slug }
-    return released ? withInstalledRelease(marked, released.version) : marked
+    const keyed = key ? withAddKey(marked, key) : marked
+    return released ? withInstalledRelease(keyed, released.version) : keyed
   }
   const named = async (made: Record<string, unknown> & { install_id?: string }) => {
     if (typeof made.install_id !== "string") return
@@ -173,7 +199,7 @@ export async function POST(req: Request) {
     }
     const owner = { userId: user.id, creatorId: creator.id as string }
     /* The template's picture, asked for now: a static file the CDN serves (marketplace-shared.ts templateCoverPath). */
-    const coverAsked = templateCoverBytes(listing.cover, listing.screenshots?.[1] ?? null, req.url)
+    const coverAsked = templateCoverBytes({ cover: listing.cover, phone: listing.screenshots?.[1] ?? null }, renderOrigin(req.url), SNAPSHOT_MAX_BYTES)
     let files: Map<string, Buffer>
     try {
       files = released?.files ?? composeTemplateFiles(listing.codePackage)
@@ -194,6 +220,8 @@ export async function POST(req: Request) {
       const failure = stored as { status: number; error: string; code?: string }
       return NextResponse.json(failure.code ? { error: failure.error, code: failure.code } : { error: failure.error }, { status: failure.status })
     }
+    const earlier = await settled(stored.installId)
+    if (earlier) return replay(earlier)
     /*
       ITS NAVIGATION, FOR A STORE WITH NONE. Menus are the store's, one set
       for every website (store-menus-server.ts), so a template never replaces
@@ -233,6 +261,8 @@ export async function POST(req: Request) {
     const { shopify: _report, ...made } = (await res.json().catch(() => ({}))) as Record<string, unknown> & { install_id?: string }
     void _report
     await named(made)
+    const earlier = await settled(made.install_id)
+    if (earlier) return replay(earlier)
     return NextResponse.json({ ...made, name: listing.name, install: made.install_id ? { id: made.install_id } : undefined })
   }
 
@@ -250,31 +280,9 @@ export async function POST(req: Request) {
   const made = (await res.json().catch(() => ({}))) as Record<string, unknown> & { install_id?: string }
   /* Named as the marketplace names it, not as the zip's own theme.json does. */
   await named(made)
+  const earlier = await settled(made.install_id)
+  if (earlier) return replay(earlier)
   return NextResponse.json({ ...made, name: listing.name, install: made.install_id ? { id: made.install_id } : undefined })
-}
-
-/**
- * The template's own pictures (its home page at 1440 wide and at a phone's
- * width, built by scripts/build-theme-template-covers.ts and served as
- * static files): what the new website looks like, since it IS the template
- * until it is edited. Asked of this deployment's own origin. Null when either
- * is not a WebP a cover may be, or did not come within COVER_FETCH_MS.
- */
-const COVER_FETCH_MS = 2500
-async function templateCoverBytes(cover: string | null, phone: string | null, base: string): Promise<{ desktop: Buffer; phone: Buffer | null } | null> {
-  const read = async (path: string | null): Promise<Buffer | null> => {
-    if (!path || !path.startsWith("/")) return null
-    try {
-      const r = await fetch(new URL(path, renderOrigin(base)), { signal: AbortSignal.timeout(COVER_FETCH_MS) })
-      if (!r.ok) return null
-      const bytes = Buffer.from(await r.arrayBuffer())
-      return isPackagedCover(bytes, SNAPSHOT_MAX_BYTES) ? bytes : null
-    } catch {
-      return null
-    }
-  }
-  const [desktop, mobile] = await Promise.all([read(cover), read(phone)])
-  return desktop ? { desktop, phone: mobile } : null
 }
 
 /**

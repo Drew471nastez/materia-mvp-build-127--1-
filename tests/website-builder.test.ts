@@ -1342,6 +1342,8 @@ section("A form that says it worked, did")
   check("and the answer is held, not asked per editor load", /unstable_cache/.test(state) && /revalidate: 300/.test(state))
   check("the endpoint is for whoever is signed in, and nobody else", /if \(!user\) return NextResponse\.json\(\{ error: "Unauthorized" \}, \{ status: 401 \}\)/.test(route))
   check("it carries no data out of those tables", !/select\("\*"\)/.test(route) && !/from\(/.test(route))
+  /* Round 61: running SQL is the owner's job, so only an admin is told; a creator's publish goes live either way. */
+  check("only an admin gets the answer; a creator gets setup: null and no warning", /isAdminAuthenticated\(\)/.test(route) && /if \(!admin\) return NextResponse\.json\(\{ setup: null, admin: false \}\)/.test(route) && /Admin note: this publish will not be backed up/.test(panel))
 
   check("publish says a publish will not be backed up", /backupsReady === false/.test(panel) && /will not be backed up/.test(panel))
   check("and names the file to run", /RUN_THEME_BACKUPS\.sql/.test(panel))

@@ -1,71 +1,62 @@
 {%- comment -%}
-  Smooth media load — one reveal for every picture
-  ------------------------------------------------
-  The single place that decides how a picture arrives, for every image and
-  video that is not a product picture inside a .bls-image-js area (those keep
-  their own skeleton: critical.css .loading_image + the reveal script at the
-  top of layout/theme.liquid, which uses the same 500ms ease and fades its
-  skeleton out under the picture).
+  Smooth media load (round 27): one way for every picture to arrive
+  ------------------------------------------------------------------
+  The single place that decides how a picture arrives, product pictures
+  included.
 
-    * While a picture is on its way its box shows a calm, colour-scheme tint
-      (the text colour at 5%) with a very soft shimmer. The tint only appears
-      if the picture has not arrived within ~90ms, so cached pictures never
-      flash it.
-    * When it arrives AFTER the page has painted and it is on screen, it fades
-      in (opacity 0 -> its own opacity, 500ms ease). Pictures that are ready
-      before the first paint, cached pictures (arrive in under ~90ms), the
-      priority picture (fetchpriority=high) and pictures off screen simply
-      show — nothing to fade.
-    * It never sets opacity as a resting state: the fade is a one-shot Web
-      Animation with no fill, so if JS stops, an animation is cancelled or a
-      node is cloned (carousel loop slides), the picture is just visible.
-    * Hover / secondary card pictures (.secondary-image, .opacity-0,
+    * AHEAD OF THE SCROLL. Lazy pictures within about one and a half screens
+      of the visible area are asked for early (loading=eager, low priority so
+      they never compete with what is on screen), and decoded as they arrive
+      (img.decode()), so by the time they scroll in they are simply there.
+      This starts once the first screen has loaded, or 2.5s after the page
+      is readable if a slow file holds the load. Save-Data and 2G skip it.
+    * A CALM BOX WHILE IT TRAVELS. A picture still on its way shows its own
+      box (width and height from the markup, so nothing moves) in a faint
+      tint of the colour scheme (the text colour at 5%).
+    * DECODED, THEN A SHORT FADE. A picture that arrives while it is on
+      screen and took longer than ~90ms (not from the cache) is decoded
+      first and then fades in over 260ms, from the tint, never popping in
+      half drawn. A picture that is there before the first paint, the
+      priority picture (fetchpriority=high), a cached one and one that
+      arrives off screen simply show.
+    * NOTHING IS LEFT HIDDEN. A picture is only held at opacity 0 between
+      its arrival and its decode (a few frames, 400ms at most), the fade is
+      a one-shot Web Animation with no fill, and an error shows the box as
+      it is. Hover and second card pictures (.secondary-image, .opacity-0,
       .invisible) are never touched.
-    * Reduced motion, or Theme settings > Animations = none: the tint stays
-      (it is static), the fade is skipped.
-    * Theme editor: works the same; a section the editor redraws in place
-      ([data-mt-redrawn]) shows its pictures at once.
-    * Never twice: not on a picture whose section reveal will show it.
-
-  Earlier loading (lookahead): once the page has loaded, lazy pictures within
-  ~800px of the screen are switched to loading=eager with fetchpriority=low,
-  so they are usually there before they scroll in, without competing with
-  the first paint or with the pictures on screen.
+    * Reduced motion: the tint and the early loading stay, the fade goes.
 {%- endcomment -%}
 <style>
   html.mt-img-reveal img.media-fade-wait {
     background-color: rgb(var(--text-color, 0 0 0) / 0.05);
+    background-color: color-mix(in srgb, var(--color-text, #000) 5%, transparent);
   }
+  html.mt-img-reveal img.media-fade-hold { opacity: 0 !important; }
 </style>
 <script>
 (function () {
   var root = document.documentElement;
+  if (window.__mtMediaLoad) return;
+  window.__mtMediaLoad = true;
   if (!root.classList.contains('mt-img-reveal')) root.classList.add('mt-img-reveal');
   var rm = false;
   try { rm = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
-  // Pictures are shown the moment they arrive, never faded in: fades on every
-  // picture made landing on a page look slow and flickery.
-  var canFade = false;
-  var FADE_MS = 500, CACHED_MS = 90;
+  var FADE_MS = 260, CACHED_MS = 90, DECODE_MAX_MS = 400;
 
   // Has the page painted yet? (This runs at the end of <body>, so it may have.)
   var painted = false;
   try { painted = performance.getEntriesByType('paint').length > 0; } catch (e) {}
-  if (!painted) {
-    var raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
-    raf(function () { raf(function () { painted = true; }); });
-  }
+  var raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
+  if (!painted) raf(function () { raf(function () { painted = true; }); });
 
   var seen = ('WeakSet' in window) ? new WeakSet() : null;
   var SKIP = /(?:^|\s)(secondary-image|opacity-0|invisible)(?:\s|$)/;
 
   function eligible(el) {
-    if (el.tagName !== 'IMG' && el.tagName !== 'VIDEO') { return false; }
-    if (el.getAttribute('fetchpriority') === 'high') { return false; }
+    if (el.tagName !== 'IMG' && el.tagName !== 'VIDEO') return false;
+    if (el.getAttribute('fetchpriority') === 'high') return false;
     var cn = (typeof el.className === 'string') ? el.className : '';
-    if (cn && SKIP.test(cn)) { return false; }
-    // Product pictures inside a .bls-image-js area have the skeleton reveal.
-    if (cn.indexOf('bls-loaded-image') !== -1 && el.closest && el.closest('.bls-image-js')) { return false; }
+    if (cn && SKIP.test(cn)) return false;
     return true;
   }
 
@@ -75,72 +66,86 @@
       r.top < (window.innerHeight || root.clientHeight) && r.left < (window.innerWidth || root.clientWidth);
   }
 
-  function reveal(el, t0) {
-    if (!canFade || !painted || (Date.now() - t0) < CACHED_MS) { return; }
-    if (el.style.opacity !== '' || (el.closest && el.closest('[data-mt-redrawn]'))) { return; }
-    // Never twice (round 20): a picture whose section reveal will show it
-    // (animation.js waits for it) is not faded as well.
-    if (el.closest && el.closest('.scroll-trigger--armed')) { return; }
-    if (!onScreen(el)) { return; }
-    var to = parseFloat(getComputedStyle(el).opacity);
-    if (!(to > 0.05)) { return; }                     // hidden by design: leave it
-    try { el.animate([{ opacity: 0 }, { opacity: to }], { duration: FADE_MS, easing: 'ease' }); } catch (e) {}
+  // Decoded before it is shown, so the frame that shows it has all of it.
+  function decoded(img) {
+    if (!img.decode) return Promise.resolve();
+    return Promise.race([img.decode().catch(function () {}), new Promise(function (r) { setTimeout(r, DECODE_MAX_MS); })]);
+  }
+
+  function arrive(el, t0) {
+    var fade = !rm && painted && (Date.now() - t0) >= CACHED_MS && onScreen(el);
+    if (!fade || el.tagName !== 'IMG') { el.classList.remove('media-fade-wait'); return; }
+    // Held for its decode only (a few frames), then faded in from the tint it stands on.
+    el.classList.add('media-fade-hold');
+    decoded(el).then(function () {
+      raf(function () {
+        el.classList.remove('media-fade-hold');
+        var to = parseFloat(getComputedStyle(el).opacity);
+        if (!(to > 0.05)) { el.classList.remove('media-fade-wait'); return; }
+        var a = null;
+        try { a = el.animate([{ opacity: 0 }, { opacity: to }], { duration: FADE_MS, easing: 'cubic-bezier(0.33, 0, 0.2, 1)' }); } catch (e) {}
+        if (a && a.finished) a.finished.then(function () { el.classList.remove('media-fade-wait'); }, function () { el.classList.remove('media-fade-wait'); });
+        else el.classList.remove('media-fade-wait');
+      });
+    });
   }
 
   function prep(el) {
-    if (!eligible(el)) { return; }
-    if (seen) { if (seen.has(el)) { return; } seen.add(el); }
+    if (!eligible(el)) return;
+    if (seen) { if (seen.has(el)) return; seen.add(el); }
     var isImg = el.tagName === 'IMG';
     // Already shown, already failed, or no picture asked for yet: nothing to wait for.
-    if (isImg ? el.complete : (el.readyState >= 2 || el.hasAttribute('poster'))) { return; }
+    if (isImg ? (el.complete && (el.naturalWidth > 0 || !el.currentSrc)) : (el.readyState >= 2 || el.hasAttribute('poster'))) return;
     var t0 = Date.now();
     var tint = setTimeout(function () { el.classList.add('media-fade-wait'); }, CACHED_MS);
-    function done(ok) {
-      clearTimeout(tint);
-      el.classList.remove('media-fade-wait');
-      if (ok) { reveal(el, t0); }
-    }
-    el.addEventListener(isImg ? 'load' : 'loadeddata', function () { done(true); }, { once: true });
-    el.addEventListener('error', function () { done(false); }, { once: true });
+    el.addEventListener(isImg ? 'load' : 'loadeddata', function () { clearTimeout(tint); arrive(el, t0); }, { once: true });
+    el.addEventListener('error', function () { clearTimeout(tint); el.classList.remove('media-fade-wait', 'media-fade-hold'); }, { once: true });
   }
 
   function scan(ctx) {
     if (ctx.tagName === 'IMG' || ctx.tagName === 'VIDEO') { prep(ctx); return; }
-    if (!ctx.querySelectorAll) { return; }
+    if (!ctx.querySelectorAll) return;
     var nodes = ctx.querySelectorAll('img, video');
-    for (var i = 0; i < nodes.length; i++) { prep(nodes[i]); }
+    for (var i = 0; i < nodes.length; i++) prep(nodes[i]);
   }
 
-  /* ---- Lookahead: lazy pictures near the screen load before they arrive ---- */
+  /* ---- Ahead of the scroll: lazy pictures near the screen load and decode before they arrive ---- */
   var ahead = null;
   function watchAhead(ctx) {
-    if (!ahead) { return; }
+    if (!ahead) return;
     var list = (ctx.tagName === 'IMG') ? [ctx] : (ctx.querySelectorAll ? ctx.querySelectorAll('img[loading="lazy"]') : []);
     for (var i = 0; i < list.length; i++) {
       var img = list[i];
-      if (img.getAttribute('loading') === 'lazy' && !img.complete) { ahead.observe(img); }
+      if (img.getAttribute('loading') === 'lazy' && !img.complete) ahead.observe(img);
     }
   }
   function startAhead() {
-    if (!('IntersectionObserver' in window)) { return; }
+    if (ahead || !('IntersectionObserver' in window)) return;
     var conn = navigator.connection;
-    if (conn && (conn.saveData || /(^|-)2g$/.test(conn.effectiveType || ''))) { return; }
-    ahead = new IntersectionObserver(function (entries) {
-      for (var i = 0; i < entries.length; i++) {
-        var e = entries[i];
-        if (!e.isIntersecting) { continue; }
-        var img = e.target;
-        ahead.unobserve(img);
-        if (img.complete || img.getAttribute('loading') !== 'lazy') { continue; }
-        // Not shown (a closed menu panel, a hidden slide or tab): leave it to the browser.
-        // (Opacity is not a test: sections waiting for their scroll animation are at 0.)
-        if (img.checkVisibility && !img.checkVisibility({ visibilityProperty: true })) { continue; }
-        // Still below/beside the screen: fetch now, but behind what is on screen.
-        var fp = img.getAttribute('fetchpriority');
-        if (!onScreen(img) && (!fp || fp === 'auto')) { img.setAttribute('fetchpriority', 'low'); }
-        img.setAttribute('loading', 'eager');
-      }
-    }, { rootMargin: '800px 400px' });
+    if (conn && (conn.saveData || /(^|-)2g$/.test(conn.effectiveType || ''))) return;
+    var opts = { rootMargin: '150% 50% 150% 50%' };
+    // Inside a frame (the builder's canvas) the frame's own screen counts: with no root the margin is dropped there.
+    if (window.top !== window) opts.root = document;
+    var make = function (o) {
+      return new IntersectionObserver(function (entries) {
+        for (var i = 0; i < entries.length; i++) {
+          var e = entries[i];
+          if (!e.isIntersecting) continue;
+          var img = e.target;
+          ahead.unobserve(img);
+          if (img.complete || img.getAttribute('loading') !== 'lazy') continue;
+          // Not shown (a closed menu panel, a hidden slide or tab): leave it to the browser.
+          if (img.checkVisibility && !img.checkVisibility({ visibilityProperty: true })) continue;
+          // Still off screen: fetched now, but behind what is on screen.
+          var fp = img.getAttribute('fetchpriority');
+          if (!onScreen(img) && (!fp || fp === 'auto')) img.setAttribute('fetchpriority', 'low');
+          img.setAttribute('loading', 'eager');
+          // Decoded as it arrives, off screen, so it is drawn whole the moment it scrolls in.
+          img.addEventListener('load', function () { if (this.decode && !onScreen(this)) this.decode().catch(function () {}); }, { once: true });
+        }
+      }, o);
+    };
+    try { ahead = make(opts); } catch (e) { delete opts.root; ahead = make(opts); }
     watchAhead(document);
   }
 
@@ -151,7 +156,7 @@
       for (var i = 0; i < muts.length; i++) {
         var added = muts[i].addedNodes;
         for (var j = 0; j < added.length; j++) {
-          if (added[j].nodeType !== 1) { continue; }
+          if (added[j].nodeType !== 1) continue;
           scan(added[j]);
           watchAhead(added[j]);
         }
@@ -159,9 +164,13 @@
     }).observe(root, { childList: true, subtree: true });
   }
 
-  // Only after the page has loaded (and the browser is idle), so the first
-  // paint and the first pictures never share the network with it.
-  function later() { (window.requestIdleCallback || function (f) { setTimeout(f, 200); })(startAhead, { timeout: 1500 }); }
-  if (document.readyState === 'complete') { later(); } else { window.addEventListener('load', later, { once: true }); }
+  // Once the first screen is in (the load event, or 2.5s after the page is
+  // readable if a slow file holds it), so it never shares the network with it.
+  function later() { (window.requestIdleCallback || function (f) { setTimeout(f, 120); })(startAhead, { timeout: 800 }); }
+  if (document.readyState === 'complete') later();
+  else {
+    window.addEventListener('load', later, { once: true });
+    document.addEventListener('DOMContentLoaded', function () { setTimeout(later, 2500); }, { once: true });
+  }
 })();
 </script>
