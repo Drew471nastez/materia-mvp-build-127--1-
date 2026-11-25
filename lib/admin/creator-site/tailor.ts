@@ -320,6 +320,20 @@ export function collectionPage(t: Json, c: CreatorSiteContent): Json {
 
 const SHOP_IMAGE = /shopify:\/\/shop_images\/([^"?#\\]+)/g
 
+/**
+ * The template's sample pictures still named by a page the tailoring keeps as it is (the blog's banner and its
+ * sidebar promo, a popup): emptied, so the creator's site shows only what they gave and the theme's plain look.
+ */
+function clearSamplePictures(before: Files, out: Map<string, Buffer>): void {
+  const own = new Set([...before.keys()].filter((k) => k.startsWith("assets/")).map((k) => k.slice("assets/".length)))
+  for (const [path, b] of out) {
+    if (!path.endsWith(".json")) continue
+    const text = b.toString("utf8")
+    const next = text.replace(/"shopify:\/\/shop_images\/([^"?#\\]+)"/g, (whole, name: string) => (own.has(decodeURIComponent(name)) ? '""' : whole))
+    if (next !== text) out.set(path, Buffer.from(next, "utf8"))
+  }
+}
+
 /** The template's own pictures no page names any more: not stored under the creator's account. */
 function dropUnusedPictures(before: Files, out: Map<string, Buffer>): void {
   const named = (files: Files) => {
@@ -363,6 +377,7 @@ export function tailorTemplate(files: Files, c: CreatorSiteContent): Map<string,
   const settings = readJson(files, "config/settings_data.json")
   if (settings) write(out, "config/settings_data.json", themeSettings(settings, c))
 
+  clearSamplePictures(files, out)
   dropUnusedPictures(files, out)
   return out
 }
