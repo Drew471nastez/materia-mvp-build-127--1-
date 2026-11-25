@@ -86,7 +86,7 @@ export async function GET(_req: Request, { params }: Params) {
       to an address of Storelib's own storage, never anywhere the map says.
     */
     const { data: mapRead } = await createAdminClient().from("store_theme_custom_files").select(await fileCols("path, content")).eq("install_id", installId).eq("path", ASSET_MAP_PATH).maybeSingle()
-    const data = await resolveRef(mapRead as { path: string; content?: string } | null)
+    const data = await resolveRef(mapRead as unknown as { path: string; content?: string } | null)
     let to: unknown = null
     try {
       to = (JSON.parse(String((data as { content?: string } | null)?.content ?? "{}")) as Record<string, unknown>)[name]
