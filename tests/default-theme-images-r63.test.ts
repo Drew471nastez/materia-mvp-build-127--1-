@@ -33,6 +33,9 @@ import { createStartWebsite } from "@/lib/website-builder/create-website"
 import { homeChromeOnly, installCodeTemplate } from "@/lib/themes/template-install"
 import { BROWSABLE_THEME_IDS, STORELIB_DEFAULT_ID } from "@/lib/website-builder/theme-registry"
 import { chooseMateriaTemplate } from "@/lib/storelib-ai/materia/reference"
+import { Ctx, renderString } from "@/lib/storelib-theme/compat/runtime"
+import { compatFilter } from "@/lib/storelib-theme/compat/filters"
+import { productObject } from "@/lib/storelib-theme/compat/objects"
 
 let passed = 0
 let failed = 0
@@ -129,6 +132,10 @@ async function main() {
     const ri = read("theme-packages/materia/base/snippets/responsive-image.liquid")
     const productWidths = [...ri.matchAll(/if type == 'product'\s*(?:#[^\n]*\n\s*)?assign widths = '([^']+)'/g)].map((m) => m[1])
     check("every product picture is offered up to 1440 wide (a 582 wide gallery picture needs 1164 at 2x)", productWidths.length >= 4 && productWidths.every((w) => w.split(",").map(Number).includes(1440)), productWidths)
+    const guard = read("theme-packages/materia/base/assets/layout-guard.css")
+    check("a gallery picture in a frame of fixed shape fills it: the weightless height:auto guard no longer wins over the frame's cover rule",
+      guard.indexOf(":where(img[width][height]) { height: auto; }") < guard.indexOf(":where([style*='--aspect-ratio'] > img:first-child, [style*='--aspect-ratio'] > img.secondary-image, [style*='--aspect-ratio'] > picture > img, [style*='--aspect-ratio'] motion-element img) { height: 100%; }") &&
+        read("theme-packages/materia/base/assets/base.css").includes(":where([style*='--aspect-ratio'] > img:first-child, [style*='--aspect-ratio'] > img.secondary-image, [style*='--aspect-ratio'] > picture > img, [style*='--aspect-ratio'] motion-element img) { height: 100%; }"))
     check("  Materia's product cards still cover their frame", /\.product-item__media--ratio :is\(img, picture, video, motion-element\) \{\s*position: absolute;[\s\S]{0,80}object-fit: cover;/.test(read("theme-packages/materia/base/assets/base.css")))
   }
 
@@ -141,6 +148,32 @@ async function main() {
     check("  a chosen ratio still covers its frame, as before", /aspect \? "h-full object-cover" : naturalFit\(pos\)/.test(media))
     check("  nothing measured in script, so nothing moves after the first paint", !/naturalWidth|onLoad=/.test(media))
     check("scripts/check-product-images-r63.mjs measures it in Chromium at 360, 390, 768 and 1280", /for \(const width of \[360, 390, 768, 1280\]\)/.test(read("scripts/check-product-images-r63.mjs")))
+  }
+
+  section("6. A free product says Free in the current Storelib Default, as the old theme did")
+  {
+    const locale = (file: string) => JSON.parse(read(`theme-packages/materia/base/locales/${file}`).replace(/\/\*[\s\S]*?\*\//g, "")) as Record<string, unknown>
+    const lookup = (words: Record<string, unknown>) => (key: string) => key.split(".").reduce<unknown>((o, k) => (o && typeof o === "object" ? (o as Record<string, unknown>)[k] : null), words)
+    const priceSrc = read("theme-packages/materia/base/snippets/price.liquid")
+    const mapSrc = read("theme-packages/materia/base/snippets/variant-price-map.liquid")
+    const env = { snippet: () => null, filter: compatFilter } as never
+    const draw = (src: string, settings: Record<string, unknown>, opts: { scope?: string; words?: Record<string, unknown> } = {}) => {
+      const product = productObject({ id: "p1", settings: { title: "Skinny to strong", slug: "skinny", kind: "digital", available: true, image: "https://img.test/a.png", ...settings } })
+      const ctx = new Ctx({ settings: {} }, env, { scope: { product, scope: opts.scope ?? "item" }, registers: { compat: { moneyFormat: "£{{amount}}", translate: lookup(opts.words ?? locale("en.default.json")) } } })
+      return renderString(src, ctx).replace(/\s+/g, " ")
+    }
+    const text = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()
+    const free = draw(priceSrc, { price: "£0.00" })
+    check("a card: Free, not £0.00", /\bFree\b/.test(text(free)) && !/£0\.00/.test(free), text(free))
+    check("  the product page too", /\bFree\b/.test(text(draw(priceSrc, { price: "£0.00" }, { scope: "detail" }))) && !/£0\.00/.test(draw(priceSrc, { price: "£0.00" }, { scope: "detail" })))
+    check("  in the store's language", /Gratis|Kostenlos/i.test(text(draw(priceSrc, { price: "£0.00" }, { words: locale("de.json") }))), text(draw(priceSrc, { price: "£0.00" }, { words: locale("de.json") })))
+    check("a paid product keeps its price", /£8\.99/.test(draw(priceSrc, { price: "£8.99" })) && !/\bFree\b/.test(text(draw(priceSrc, { price: "£8.99" }))))
+    const pwyw = draw(priceSrc, { price: "£0.00", pay_what_you_want: true })
+    check("pay what you want keeps its amount", /£0\.00/.test(pwyw) && !/\bFree\b/.test(text(pwyw)), text(pwyw))
+    const sale = draw(priceSrc, { price: "£0.00", compare_price: "£10.00" })
+    check("a free product on sale: Free, and the compare at price struck through, as before", /price--special/.test(sale) && /<s class="price-item compare-price[^"]*">\s*£10\.00/.test(sale) && /\bFree\b/.test(text(sale)), text(sale))
+    const map = draw(mapSrc, { price: "£0.00" })
+    check("the variant picker's prices say Free too", /"price": "Free"/.test(map), map)
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

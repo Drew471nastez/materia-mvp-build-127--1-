@@ -17,6 +17,8 @@
       {%- assign vp_price = v.price | money -%}
       {%- assign vp_compare = v.compare_at_price | money -%}
     {%- endif -%}
+    {%- comment -%} r63: a free variant says Free, as the price snippet prints it; never for pay what you want. {%- endcomment -%}
+    {%- if v.price == 0 and product.pay_what_you_want != true -%}{%- assign vp_price = 'general.cart.shipping.free' | t -%}{%- endif -%}
     {%- unless v.compare_at_price > v.price -%}{%- assign vp_compare = '' -%}{%- endunless -%}
     {{ v.id | append: '' | json }}: { "price": {{ vp_price | strip | json }}, "compare_at_price": {{ vp_compare | strip | json }} }
     {%- unless forloop.last -%},{%- endunless -%}

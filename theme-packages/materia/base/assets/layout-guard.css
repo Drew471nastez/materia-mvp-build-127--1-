@@ -9,6 +9,12 @@ lite-youtube, model-viewer, .shopify-installments {
    ratio, not a fixed height (a footer logo was drawn at its file's full height).
    No weight at all, so every height a section sets still wins. */
 :where(img[width][height]) { height: auto; }
+/* Except a picture in a frame of a fixed shape (r63): there it fills the frame,
+   as the theme's own cover rule says (critical.css, [style*='--aspect-ratio']).
+   The rule above came later at the same weight and won, so a product gallery
+   picture whose file was not the frame's shape drew at its own height with a
+   blank band beside it. Also no weight, so a section's own height still wins. */
+:where([style*='--aspect-ratio'] > img:first-child, [style*='--aspect-ratio'] > img.secondary-image, [style*='--aspect-ratio'] > picture > img, [style*='--aspect-ratio'] motion-element img) { height: 100%; }
 /* The page keeps its scrollbar space while a drawer, search or popup
    locks scrolling, so nothing shifts and the fixed header is not cut.
    The old compensation (body padding, header margin) is switched off. */

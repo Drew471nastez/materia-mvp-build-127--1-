@@ -8861,6 +8861,7 @@ lite-youtube, model-viewer, .shopify-installments {
   max-width: 100%;
 }
 :where(img[width][height]) { height: auto; }
+:where([style*='--aspect-ratio'] > img:first-child, [style*='--aspect-ratio'] > img.secondary-image, [style*='--aspect-ratio'] > picture > img, [style*='--aspect-ratio'] motion-element img) { height: 100%; }
 html { --mat-sbw: 0px !important; }
 html.sl-sb-room { scrollbar-gutter: stable; }
 body { padding-right: 0 !important; }
