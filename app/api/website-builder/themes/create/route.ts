@@ -139,7 +139,8 @@ export async function POST(req: Request) {
   const fromTemplate = generating && engine === "agent" && options.generation === "theme" && !noJobsTable ? chooseMateriaTemplate({ prompt, category: options.category ?? null }).template.template : null
   const made = await createStartWebsite(
     { supabase, admin },
-    { creatorId, mode, name: body?.name, chrome: generating && options.generation === "blank" ? "none" : "theme", ...(fromTemplate ? { template: { id: fromTemplate, userId: site.ownerUserId } } : {}) },
+    /* r63: userId too, so Start from blank imports the current Storelib Default (create-website.ts) into the owner's media folder. */
+    { creatorId, mode, name: body?.name, chrome: generating && options.generation === "blank" ? "none" : "theme", ...(fromTemplate ? { template: { id: fromTemplate, userId: site.ownerUserId } } : {}), userId: site.ownerUserId },
     { installTemplate: installCodeTemplate },
   )
   if (!made.ok) {

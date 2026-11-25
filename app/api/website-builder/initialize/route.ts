@@ -143,7 +143,7 @@ export async function POST() {
 
   /* The default theme as a draft when the library is empty, never published
      here: the same seed the website page runs (lib/website-builder/starter-website.ts). */
-  await ensureStarterWebsite(admin, creator.id)
+  await ensureStarterWebsite(admin, creator.id, { userId: site.ownerUserId })
 
   // Ensure product page templates exist for all installs
   const { data: installs } = await admin

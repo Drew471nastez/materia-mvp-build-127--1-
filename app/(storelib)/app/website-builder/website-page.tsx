@@ -153,11 +153,13 @@ export async function WebsitePage({ create = false }: { /** The Create a website
     /*
       An empty library: Storelib Default goes in as a draft, so there is a
       website to open and nothing is live until the creator publishes it.
+      The Materia template Browse themes shows (r63), its pictures stored in
+      the owner's media folder, as Add stores them.
       Idempotent, and never twice (lib/website-builder/starter-website.ts).
       Not on a read that failed: `rows` is null then, and a library that
       could not be read is not an empty one.
     */
-    const { installId } = await ensureStarterWebsite(createAdminClient(), creator.id)
+    const { installId } = await ensureStarterWebsite(createAdminClient(), creator.id, { userId: access.ownerUserId })
     if (installId) ({ data: rows } = await load())
   }
 

@@ -242,7 +242,12 @@ async function main() {
     check("  and the theme's header and footer, as before", ((themeHome?.sections ?? []) as { type: string }[]).map((s) => s.type).join() === "header,footer")
 
     const plain = await j.call("POST /api/website-builder/themes/create", { as: seller, body: { mode: "blank" } })
-    check("Start from blank (no AI) is unchanged: a website with header and footer, no job", plain.status === 200 && !plain.json?.job && ((j.rows("store_theme_pages").find((p) => p.install_id === plain.json?.install?.id && p.page_key === "home")?.sections ?? []) as { type: string }[]).map((s) => s.type).join() === "header,footer")
+    /* Changed on purpose (r63): Start from blank is the current Storelib Default (the Materia template Browse themes shows), its frame on an empty home page, not the native theme's header and footer. */
+    const plainHome = (j.rows("store_theme_pages").find((p) => p.install_id === plain.json?.install?.id && p.page_key === "home")?.sections ?? []) as { type: string; group?: string }[]
+    const plainInstall = j.rows("store_theme_installs").find((r) => r.id === plain.json?.install?.id)
+    check("Start from blank (no AI): the current Storelib Default's header and footer on an empty home page, no job",
+      plain.status === 200 && !plain.json?.job && plainHome.length > 0 && plainHome.every((s) => !!s.group) && plainHome.some((s) => s.type === "theme-header") && plainHome.some((s) => s.type === "theme-footer") && plainInstall?.is_custom === true,
+      { status: plain.status, home: plainHome.map((s) => s.type), install: plainInstall })
 
     check("no server errors on the way", j.serverErrors.length === 0 && j.afterErrors.length === 0, { server: j.serverErrors, after: j.afterErrors })
   }

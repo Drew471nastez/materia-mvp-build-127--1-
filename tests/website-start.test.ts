@@ -211,16 +211,34 @@ section("What a new website is made of")
 // ── 2. The create helper, against a database in memory ────────────────────
 section("Creating it")
 {
-  /* Blank, beside the Storelib Default every account already has: no one-copy check. */
+  /*
+    Changed on purpose (r63): Start from blank is the Materia Storelib Default now (below), so the native rows are
+    Start with AI's on the classic engine only, and these checks of the native path press AI instead of blank.
+  */
   const db = fakeDb({ installs: [install({ sort_order: 3 })], themes: catalogue })
-  const made = await create({ supabase: db.client, admin: db.client }, { creatorId: "c1", mode: "blank" }, { menus: noMenus })
+  const made = await create({ supabase: db.client, admin: db.client }, { creatorId: "c1", mode: "ai" }, { menus: noMenus })
   const row = made.ok ? db.tables.installs.find((r) => r.id === made.install.id) : null
   check("a second Storelib Default is made beside the first (no \"already in your library\")", made.ok && db.tables.installs.length === 2, made)
-  check("  a draft of Storelib Default, named New website, after the others", row?.theme_id === STORELIB_DEFAULT_ID && row?.status === "draft" && row?.name === "New website" && row?.sort_order === 4 && row?.is_custom === false && row?.creator_id === "c1", row)
+  check("  a draft of Storelib Default, named AI website, after the others", row?.theme_id === STORELIB_DEFAULT_ID && row?.status === "draft" && row?.name === "AI website" && row?.sort_order === 4 && row?.is_custom === false && row?.creator_id === "c1", row)
   const pages = db.tables.pages.filter((p) => made.ok && p.install_id === made.install.id)
   const home = pages.find((p) => p.page_key === "home")?.sections as { type: string }[] | undefined
   check("  with a home page of header and footer only, and the product page", pages.length === 2 && home?.map((s) => s.type).join() === "header,footer" && !!pages.find((p) => p.page_key === "product"))
   check("  and the preset's settings", JSON.stringify(db.tables.settings[0]?.settings) === JSON.stringify(preset.settings))
+
+  /* r63: Start from blank imports the current Storelib Default with an empty home page, never the native theme. */
+  const blankCalls: { template: string; name: string; blankHome?: boolean; userId: string }[] = []
+  const blankStub = (async (_admin: unknown, who: { userId: string }, template: string, opts: { name: string; blankHome?: boolean }) => {
+    blankCalls.push({ template, name: opts.name, blankHome: opts.blankHome, userId: who.userId })
+    return { ok: true, installId: "made-blank", name: opts.name, template }
+  }) as never
+  const blankDb = fakeDb({ installs: [install()], themes: catalogue })
+  const blankMade = await create({ supabase: blankDb.client, admin: blankDb.client }, { creatorId: "c1", mode: "blank", userId: "u1" }, { menus: noMenus, installTemplate: blankStub })
+  check("Start from blank: the default template, its home page left blank, named New website",
+    blankMade.ok && blankMade.install.id === "made-blank" && JSON.stringify(blankCalls) === JSON.stringify([{ template: "default", name: "New website", blankHome: true, userId: "u1" }]), blankCalls)
+  check("  and no native install written beside it", blankDb.tables.installs.length === 1 && !blankDb.log.some((l) => l.startsWith("insert")))
+  const noUser = fakeDb({ installs: [install()], themes: catalogue })
+  const noUserRes = await create({ supabase: noUser.client, admin: noUser.client }, { creatorId: "c1", mode: "blank" }, { menus: noMenus, installTemplate: blankStub })
+  check("  without the owner's id it is refused, never made from the old default", !noUserRes.ok && noUserRes.status === 500 && noUser.tables.installs.length === 1 && blankCalls.length === 1)
 
   const ai = fakeDb({ installs: [install({ name: "AI website" })], themes: catalogue })
   const aiMade = await create({ supabase: ai.client, admin: ai.client }, { creatorId: "c1", mode: "ai" }, { menus: noMenus })
@@ -230,14 +248,14 @@ section("Creating it")
   check("  or the name it was given", namedMade.ok && named.tables.installs.find((r) => r.id === namedMade.install.id)?.name === "Candle shop")
 
   const noCatalogue = fakeDb({ installs: [install()] })
-  const seeded = await create({ supabase: noCatalogue.client, admin: noCatalogue.client }, { creatorId: "c1", mode: "blank" }, { menus: noMenus })
+  const seeded = await create({ supabase: noCatalogue.client, admin: noCatalogue.client }, { creatorId: "c1", mode: "ai" }, { menus: noMenus })
   check("the catalogue row is made when the database has not heard of the theme", seeded.ok && noCatalogue.tables.themes.some((t) => t.id === STORELIB_DEFAULT_ID) && noCatalogue.log.includes("upsert themes"))
 
   /* The store's menus: named by the header and footer, and copied into settings where there is no table. */
   const menus = { "main-menu": { title: "Main menu", links: [{ title: "Shop", url: "/products" }] }, footer: { title: "Footer", links: [{ title: "About", url: "/about" }] } }
   const carried = fakeDb({ installs: [install()], themes: catalogue })
   const asked: unknown[] = []
-  const withMenus = await create({ supabase: carried.client, admin: carried.client }, { creatorId: "c1", mode: "blank" }, {
+  const withMenus = await create({ supabase: carried.client, admin: carried.client }, { creatorId: "c1", mode: "ai" }, {
     menus: (async (_db: unknown, creatorId: string, o: unknown) => {
       asked.push([creatorId, o])
       return { menus, header: null, footer: null, stored: false }
@@ -253,13 +271,13 @@ section("Creating it")
   check(`a library of ${THEME_INSTALL_LIMIT} is refused before anything is written, with Add's refusal`,
     !refused.ok && refused.status === 400 && refused.code === LIBRARY_FULL_CODE && refused.error === LIBRARY_FULL_MESSAGE && fullDb.tables.installs.length === THEME_INSTALL_LIMIT && !fullDb.log.some((l) => l.startsWith("insert")), refused)
   const unreadable = fakeDb({ installs: [install()], themes: catalogue }, { fail: { "installs.count": { message: "timeout" } } })
-  const unreadRes = await create({ supabase: unreadable.client, admin: unreadable.client }, { creatorId: "c1", mode: "blank" }, { menus: noMenus })
+  const unreadRes = await create({ supabase: unreadable.client, admin: unreadable.client }, { creatorId: "c1", mode: "ai" }, { menus: noMenus })
   check("  a count that cannot be read is full, not room", !unreadRes.ok && unreadRes.code === LIBRARY_FULL_CODE && unreadable.tables.installs.length === 1)
   const raced = fakeDb({ installs: [install()], themes: catalogue }, { fail: { "installs.insert": { message: "library_full" } } })
-  const racedRes = await create({ supabase: raced.client, admin: raced.client }, { creatorId: "c1", mode: "blank" }, { menus: noMenus })
+  const racedRes = await create({ supabase: raced.client, admin: raced.client }, { creatorId: "c1", mode: "ai" }, { menus: noMenus })
   check("  the database's own refusal reads as a full library", !racedRes.ok && racedRes.code === LIBRARY_FULL_CODE)
   const over = fakeDb({ installs: [install()], themes: catalogue }, { countAfterInsert: THEME_INSTALL_LIMIT + 1 })
-  const overRes = await create({ supabase: over.client, admin: over.client }, { creatorId: "c1", mode: "blank" }, { menus: noMenus })
+  const overRes = await create({ supabase: over.client, admin: over.client }, { creatorId: "c1", mode: "ai" }, { menus: noMenus })
   check("  two at once: the recount backs the new one out", !overRes.ok && overRes.code === LIBRARY_FULL_CODE && over.tables.installs.length === 1 && over.tables.pages.length === 0)
 
   /* Settings and pages, or nothing. */
@@ -281,7 +299,7 @@ section("The route, and Add left as it was")
   check("rate limited per person, as a site action", /rateLimit\(\{\s*bucket: "site-create",\s*subjects: \[`user:\$\{site\.userId\}`\],\s*windows: LIMITS\.siteAction/.test(route) && /if \(limited\) return limited/.test(route))
   check("a mode or a 400", /if \(!isStartMode\(mode\)\) return NextResponse\.json\(\{ error: "mode must be ai or blank" \}, \{ status: 400 \}\)/.test(route))
   check("the helper writes, with the caller's client for the count and the service role for the rows",
-    /const admin = createAdminClient\(\)/.test(route) && /* Changed on purpose (round 26): the call also names the template an AI start is made from, and injects the import. */ /createStartWebsite\(\s*\{ supabase, admin \},\s*\{ creatorId, mode, name: body\?\.name, chrome: generating && options\.generation === "blank" \? "none" : "theme", \.\.\.\(fromTemplate \? \{ template: \{ id: fromTemplate, userId: site\.ownerUserId \} \} : \{\}\) \},\s*\{ installTemplate: installCodeTemplate \},\s*\)/.test(route) && /const creatorId = creator\.id as string/.test(route))
+    /const admin = createAdminClient\(\)/.test(route) && /* Changed on purpose (round 26): the call also names the template an AI start is made from, and injects the import. Changed on purpose (r63): and the owner's id, for Start from blank's template. */ /createStartWebsite\(\s*\{ supabase, admin \},\s*\{ creatorId, mode, name: body\?\.name, chrome: generating && options\.generation === "blank" \? "none" : "theme", \.\.\.\(fromTemplate \? \{ template: \{ id: fromTemplate, userId: site\.ownerUserId \} \} : \{\}\), userId: site\.ownerUserId \},\s*\{ installTemplate: installCodeTemplate \},\s*\)/.test(route) && /const creatorId = creator\.id as string/.test(route))
   check("  its refusal keeps the code the page opens the full library sheet for", /made\.code \? \{ error: made\.error, code: made\.code \}/.test(route))
   check("the cover is taken as Add takes it, and the answer carries the install",
     /coverForNewWebsite\(\{ installId: made\.install\.id, userId: site\.ownerUserId, creatorId \}, renderOrigin\(req\.url\), "create", null\)/.test(route) &&

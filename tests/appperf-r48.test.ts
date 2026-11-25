@@ -209,7 +209,7 @@ section("Website: the library beside the creator read")
   check("  the library by the store id websitePage found", /\.eq\("creator_id", storeId\)/.test(src) && /const storeId = access\.creatorId/.test(src))
   check("  the website's name and the listings started before it", src.indexOf("const handle = websiteHandleOf(storeId)") < src.indexOf("const [{ data: creator }, { data: profile }, library]") && src.indexOf("const listings = publishedListings()") < src.indexOf("const [{ data: creator }, { data: profile }, library]"))
   check("no creator row: /app, as before", /if \(!creator\) redirect\("\/app"\)/.test(src))
-  check("an empty library is still seeded and read again", /if \(rows && rows\.length === 0\)/.test(src) && /ensureStarterWebsite\(createAdminClient\(\), creator\.id\)/.test(src) && /\(\{ data: rows \} = await load\(\)\)/.test(src))
+  check("an empty library is still seeded and read again", /if \(rows && rows\.length === 0\)/.test(src) && /* Changed on purpose (r63): with the owner's user id. */ /ensureStarterWebsite\(createAdminClient\(\), creator\.id, \{ userId: access\.ownerUserId \}\)/.test(src) && /\(\{ data: rows \} = await load\(\)\)/.test(src))
 }
 
 section("No route level loading screen under /app (the owner's rule, tests/app-shell-motion.test.ts)")
