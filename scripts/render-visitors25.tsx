@@ -30,7 +30,7 @@ import { CommerceSettings } from "@/components/website-builder/website-settings/
 import { MarketsPanel } from "@/components/app/settings/markets-panel"
 import { CookieConsentBanner } from "@/components/cookie-consent-banner"
 import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"
-import { starterRows } from "@/lib/website-builder/starter-website"
+import { starterRows } from "./_fixtures/native-starter"
 import type { GaItem } from "@/lib/store/ga"
 
 const q = new URLSearchParams(location.search)
