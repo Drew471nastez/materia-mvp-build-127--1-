@@ -98,7 +98,8 @@
   .hr__g:focus-visible::after { opacity: 1; }
   .hr__swing { position: absolute; left: 0; right: 0; top: 0; height: calc(var(--hr-ghx) * var(--hr-k, 1)); transform-origin: 50% 2%; }
   /* Lifted off the rail into the focus view: the hanger is empty until the garment flies back. */
-  .hr__item.is-lifted .hr__swing { visibility: hidden; }
+  /* Invisible but still clickable: a garment pressed while it flies back to this hanger reopens (visibility: hidden would let the click fall through to nothing). */
+  .hr__item.is-lifted .hr__swing { opacity: 0 !important; transition: none !important; }
   .hr__side, .hr__front, .hr__blank { position: absolute; top: 0; left: 50%; height: 100%; max-width: none; transform: translateX(-50%); transform-origin: 50% 0; pointer-events: none; -webkit-user-drag: none; user-select: none; object-fit: contain; object-position: 50% 0; }
   /* A side view keeps its own width at the garment's height, so it hangs at the scale of its front view: hook over hook, hem level with hem. */
   .hr__side { width: auto; }
