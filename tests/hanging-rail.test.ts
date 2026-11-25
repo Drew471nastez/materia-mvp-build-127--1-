@@ -220,7 +220,8 @@ async function main() {
     await p.keyboard.press("Escape")
     await new Promise((r) => setTimeout(r, 150))
     await p.mouse.click(g3!.x + g3!.width / 2, g3!.y + g3!.height / 2)
-    await new Promise((r) => setTimeout(r, 1100))
+    /* Settled, not timed: under load the re-open can still be flying at a fixed 1.1 s; wait (up to 5 s) for the open, lifted, no-copy state the check asserts. */
+    await p.waitForFunction(() => { const f = document.querySelector(".hr-focus") as HTMLElement | null; return !!f && !f.hidden && f.classList.contains("is-open") && document.querySelectorAll(".hr-fly").length === 0 && document.querySelectorAll(".hr__item.is-lifted").length === 1 }, { timeout: 5000 }).catch(() => undefined)
     const again = await p.evaluate(() => ({ open: !(document.querySelector(".hr-focus") as HTMLElement).hidden && document.querySelector(".hr-focus")!.classList.contains("is-open"), flies: document.querySelectorAll(".hr-fly").length, lifted: document.querySelectorAll(".hr__item.is-lifted").length, img: getComputedStyle(document.querySelector(".hr-focus__img")!).visibility }))
     check("  closing and opening interrupt each other cleanly: open, one garment lifted, no copy left flying", again.open && again.flies === 0 && again.lifted === 1 && again.img === "visible", again)
     await p.keyboard.press("Escape")
