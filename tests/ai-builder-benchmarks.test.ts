@@ -269,7 +269,7 @@ async function main() {
   built.push(bE)
   const eHome = installPages(w, eInstall).home.draft ?? []
   check("E: complete", bE.status === "complete", { status: bE.status, tail: jobEvents(w, bE.jobId).slice(-5).map((x) => [x.kind, x.payload]) })
-  check("  the theme's header and footer stay; the offer band is added; the spotlight kept by id with its binding", eHome.map((s: { type: string }) => s.type).join() === "header,ai_offer_band,product_spotlight,footer" && eHome.find((s: { id: string }) => s.id === spotlightId)?.settings?.button_url === e.productId, eHome.map((s: { type: string; id: string; settings: unknown }) => [s.type, s.id, s.settings]))
+  check("  the theme's header and footer stay; the offer band is added; the spotlight kept by id with its binding", /* Round 63: a website made without AI is the Storelib Default (Materia), whose frame is its top bar, header and footer. */ eHome.filter((s: { group?: string }) => !s.group).map((s: { type: string }) => s.type).join() === "ai_offer_band,product_spotlight" && ["theme-header", "theme-footer"].every((t) => eHome.some((s: { type: string }) => s.type === t)) && eHome.find((s: { id: string }) => s.id === spotlightId)?.settings?.button_url === e.productId, eHome.map((s: { type: string; id: string; settings: unknown }) => [s.type, s.id, s.settings]))
   /* Taken by the person through the Backups route here. Redesign with AI (round M, POST themes/[id]/redesign) takes one itself before the job: tests/ai-builder-redesign-m1.test.ts. */
   check("  a backup was taken through the Backups route before the AI ran", backupId.length > 0)
   const restore = await j.call(`POST /api/website-builder/themes/${eInstall}/backups/${backupId}/restore`, { as: e.person })
@@ -282,11 +282,11 @@ async function main() {
   const f = await seller(w, "bench-f")
   const plain = await j.call("POST /api/website-builder/themes/create", { as: f.person, body: { mode: "blank" } })
   const fHome = installPages(w, String(plain.json?.install?.id)).home
-  check("F: made, no job, the theme's header and footer", plain.status === 200 && !plain.json?.job && fHome.sections.map((s: { type: string }) => s.type).join() === "header,footer" && j.rows("ai_site_jobs").every((r) => r.creator_id !== f.creatorId))
+  check("F: made, no job, the theme's header and footer", plain.status === 200 && !plain.json?.job && /* Round 63: Start from blank is the Storelib Default with only its frame on the home page. */ fHome.sections.every((s: { group?: string }) => !!s.group) && ["theme-header", "theme-footer"].every((t) => fHome.sections.some((s: { type: string }) => s.type === t)) && j.rows("ai_site_jobs").every((r) => r.creator_id !== f.creatorId))
   const fPub = await j.call(`POST /api/website-builder/themes/${plain.json?.install?.id}/publish`, { as: f.person, body: { action: "publish" } })
   const { publishedSiteByName } = await import("@/lib/website-builder/published-site")
   const fLive = await publishedSiteByName("bench-f", "home")
-  check("  published, the live site draws the theme's header and footer (the legacy path keeps working)", fPub.status === 200 && fLive.kind === "site" && fLive.site.sections.map((s) => s.type).join() === "header,footer", fLive.kind === "site" ? fLive.site.sections.map((s) => s.type) : fLive.kind)
+  check("  published, the live site draws the theme's header and footer (the legacy path keeps working)", fPub.status === 200 && fLive.kind === "site" && ["theme-header", "theme-footer"].every((t) => fLive.site.sections.some((s) => s.type === t)), fLive.kind === "site" ? fLive.site.sections.map((s) => s.type) : fLive.kind)
 
   section("G: iterative edits change only what was asked")
   const g = await seller(w, "bench-g")

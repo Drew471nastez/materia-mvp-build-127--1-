@@ -24,6 +24,7 @@
 import { fieldIssues } from "./form-fields"
 import { checkSectionSource, plainCompileErrors } from "@/lib/website-builder/agent/compile-feedback"
 import { compileSection, compileThemeFile } from "@/lib/storelib-theme/storelib/compile"
+import { isCompatSource, shopifySchemaOf, splitCompatFile } from "@/lib/storelib-theme/compat/theme"
 import { controlFor } from "@/lib/storelib-theme/controls/registry"
 import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
@@ -189,6 +190,15 @@ export interface SchemaInfo {
 export function schemaInfo(type: string, sources: Record<string, string>): SchemaInfo | null {
   const path = `sections/${type}.storelib`
   const text = sources[path] ?? (isAiComponentType(type) ? undefined : DEFAULT_THEME_SOURCES[path as keyof typeof DEFAULT_THEME_SOURCES])
+  if (text && isCompatSource(text)) {
+    /*
+      A section of an installed code template (the Storelib Default and the other Materia templates), kept as the
+      theme's own Liquid in compat form. It is the theme's to render, so the type is known; its Shopify settings are
+      not the agent's to check here. Its groups come from the theme's own schema.
+    */
+    const own = shopifySchemaOf(splitCompatFile(text).schema) as { enabled_on?: { groups?: string[] } }
+    return { settings: [], blocks: {}, groups: Array.isArray(own.enabled_on?.groups) ? own.enabled_on.groups : undefined }
+  }
   if (text) {
     const compiled = compileSection(text, { file: path })
     if (compiled.ok === false) return null

@@ -454,7 +454,10 @@ export function createToolSet(ctx: ToolContext): ToolSet {
       ids.push(id)
     }
     if (errorsOf(issues).length) return { ok: false, ids: [], issues }
-    for (const g of ["header", "footer"]) if (chrome.filter((s) => s.group === g).length > 1) return { ok: false, ids: [], issues: [{ severity: "error", code: "chrome.two", message: `Only one ${g} per site.` }] }
+    /* A Materia site's header group holds its announcement bar and its header together: there, one of each type. */
+    const frameOf = (g: string) => chrome.filter((s) => s.group === g)
+    const twice = (g: string) => (isMateriaInstall(src) ? new Set(frameOf(g).map((s) => s.type)).size < frameOf(g).length : frameOf(g).length > 1)
+    for (const g of ["header", "footer"]) if (twice(g)) return { ok: false, ids: [], issues: [{ severity: "error", code: "chrome.two", message: `Only one ${g} per site.` }] }
 
     const changed = new Map<string, SectionInstance[]>()
     const groupsSent = new Set(chrome.map((s) => String(s.group)))

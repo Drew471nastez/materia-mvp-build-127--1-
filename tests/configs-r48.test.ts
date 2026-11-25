@@ -89,6 +89,8 @@ const OWNER_READERS = [
   "lib/social/onepage-sync.ts",
   /* Round 51: Contacts › Forms' "used on", the signed in owner's own creator page configs searched for their forms' ids (service role, creator id from the session, app/api/forms?overview=1). */
   "lib/forms/overview-server.ts",
+  /* Round 63: admin Build website reads one creator's published shop config (service role, behind the admin check in app/api/admin/creators/site) to fill the Storelib Default with their own hero and text. */
+  "lib/admin/creator-site/build.ts",
 ]
 
 function readersInRepo(): string[] {
