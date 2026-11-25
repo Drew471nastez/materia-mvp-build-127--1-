@@ -27,7 +27,7 @@ export const TEMPLATE_PREVIEW_GROUNDS: Readonly<Record<string, { desktop: string
   "retro-merch": { desktop: "#c3c2c2", phone: "#c2c2c2" },
   "author-book": { desktop: "#132e28", phone: "#142e27" },
   "content-creator": { desktop: "#fefefe", phone: "#fefefe" },
-  "coach-creator": { desktop: "#fefefd", phone: "#fefefe" },
+  "coach-creator": { desktop: "#fefefe", phone: "#fefefe" },
   "personal-trainer": { desktop: "#0b0b0b", phone: "#0c0c0c" },
   "digital-renaissance": { desktop: "#161616", phone: "#0b0b0b" },
   "xp-merch": { desktop: "#fcf8ee", phone: "#fbfcfc" },
@@ -38,6 +38,6 @@ export const TEMPLATE_PREVIEW_GROUNDS: Readonly<Record<string, { desktop: string
   "notion-sales-page": { desktop: "#fdfdfd", phone: "#fdfdfd" },
   "streetwear-drop": { desktop: "#f9f9f8", phone: "#f9f9f7" },
   "notion-creator": { desktop: "#ffffff", phone: "#fefefe" },
-  "sound-packs": { desktop: "#0c0c16", phone: "#0b0b0b" },
-  "digital-studio": { desktop: "#ffffff", phone: "#ffffff" },
+  "sound-packs": { desktop: "#0c0b16", phone: "#0b0b0c" },
+  "digital-studio": { desktop: "#fcfbfa", phone: "#fdfdfd" },
 }

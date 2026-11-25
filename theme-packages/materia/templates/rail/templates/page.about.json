@@ -16,7 +16,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "page_title": "About Sixth Ward",
+            "page_title": "About Kurb Club",
             "header_size": "default",
             "heading_font_size": 40,
             "vertical_gap": 12,
@@ -26,7 +26,7 @@
         "description_1": {
           "type": "description",
           "settings": {
-            "description": "<p>Sixth Ward is a streetwear label that makes heavyweight hoodies, sweats and tees. Plain colours, thick cotton and a boxy cut, dropped twice a year and sold from one rail in our studio and from this shop.</p>",
+            "description": "<p>Kurb Club is a streetwear label that makes heavyweight hoodies, sweats and tees. Plain colours, thick cotton and a boxy cut, dropped twice a year and sold from one rail in our studio and from this shop.</p>",
             "enable_custom_style": false,
             "description_font_size": 16
           }

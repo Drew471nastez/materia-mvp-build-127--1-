@@ -21,10 +21,11 @@
     assign slots = 4
   endif
   assign s_names = st.sample_pieces | split: '|'
-  assign s_px = '45,40,28|66,45,78|62,55,64|50,40,30' | split: '|'
-  assign s_py = '30,68,94|30,52,93|34,75,93|30,62,94' | split: '|'
-  assign s_price = '8900,9900,12900|14900,7900,15900|11900,13900,9900|5900,9900,12900' | split: '|'
-  assign s_ar = '0.307,0.407,0.253,0.503' | split: ','
+  # Storelib: streetwear samples (snippets/try-the-look-sample has the photos and their credits)
+  assign s_px = '52,40,22|50,46,24|58,40,22|55,36,30' | split: '|'
+  assign s_py = '28,66,96|30,58,95|28,72,96|28,64,96' | split: '|'
+  assign s_price = '12900,9900,13900|5900,6900,15900|5900,11900,16900|5900,10900,14900' | split: '|'
+  assign s_ar = '0.310,0.369,0.289,0.352' | split: ','
   assign pct = st.bundle_discount | default: 0
   assign keep = 100 | minus: pct
   assign ttl_mw = st.model_width | default: 42 | divided_by: 100.0
@@ -71,7 +72,7 @@
     outline: none;
   }
   #shopify-section-{{ sid }} [data-align='bottom'] .ttl__model { align-items: flex-end; }
-  #shopify-section-{{ sid }} .ttl__model.is-on { cursor: none; }
+  #shopify-section-{{ sid }} .ttl__model.is-on { cursor: pointer; }
   #shopify-section-{{ sid }} .ttl__model.is-on:focus-visible .ttl__fit { outline: 2px solid var(--color-heading); outline-offset: 6px; border-radius: 6px; }
   @media (hover: none) { #shopify-section-{{ sid }} .ttl__model.is-on { cursor: pointer; } }
   #shopify-section-{{ sid }} .ttl__model[data-far] { opacity: 0; pointer-events: none; }
@@ -86,22 +87,26 @@
   #shopify-section-{{ sid }} .ttl__stage.is-drag .ttl__model { transition: opacity .3s ease, filter .25s ease; filter: none; }
   #shopify-section-{{ sid }} .ttl__stage.is-drag .ttl__pin { opacity: 0; transition-delay: 0s; }
 
-  /* Glass circle that trails the pointer: "View" over the look in focus, "Drag" beside it */
+  /* Storelib: the glass circle sits exactly on the pointer (no trailing, no catching up) and stands in for it
+     over the stage. "View" over the look in focus, "Drag" beside it and while dragging: the two words
+     cross-fade in place and the circle eases between its two sizes, so the change never jumps. */
   #shopify-section-{{ sid }} .ttl__view {
-    position: absolute; left: 0; top: 0; z-index: 30; width: 104px; height: 104px; margin: -52px 0 0 -52px; border-radius: 50%;
-    display: grid; place-items: center; pointer-events: none; opacity: 0; scale: .5;
+    position: absolute; left: 0; top: 0; z-index: 30; width: 96px; height: 96px; margin: -48px 0 0 -48px; border-radius: 50%;
+    display: grid; place-items: center; pointer-events: none; opacity: 0; scale: .4;
     font-size: 11px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; color: var(--color-heading);
     background: color-mix(in srgb, var(--color-background) 40%, transparent);
     border: 1px solid color-mix(in srgb, #fff 70%, transparent);
     box-shadow: 0 10px 30px -12px rgb(0 0 0 / .25), inset 0 1px 0 rgb(255 255 255 / .6);
     -webkit-backdrop-filter: blur(10px) saturate(1.3); backdrop-filter: blur(10px) saturate(1.3);
-    transition: opacity .3s ease, scale .5s var(--ease); will-change: transform;
+    transition: opacity .28s ease, scale .42s var(--ease); will-change: transform, opacity;
   }
-  #shopify-section-{{ sid }} .ttl__view > span { grid-area: 1 / 1; transition: opacity .2s ease; }
+  #shopify-section-{{ sid }} .ttl__view > span { grid-area: 1 / 1; padding-left: .2em; transition: opacity .26s ease, translate .34s var(--ease); }
   #shopify-section-{{ sid }} .ttl__view[data-mode='view'] { opacity: 1; scale: 1; }
-  #shopify-section-{{ sid }} .ttl__view[data-mode='drag'] { opacity: 1; scale: .7; }
-  #shopify-section-{{ sid }} .ttl__view:not([data-mode='drag']) [data-v-drag], #shopify-section-{{ sid }} .ttl__view[data-mode='drag'] [data-v-view] { opacity: 0; }
-  #shopify-section-{{ sid }} .ttl__view[data-mode='drag'] [data-v-drag] { font-size: 13px; }
+  #shopify-section-{{ sid }} .ttl__view[data-mode='drag'] { opacity: 1; scale: .8; }
+  #shopify-section-{{ sid }} .ttl__view[data-mode='drag'].is-grabbing { scale: .7; }
+  #shopify-section-{{ sid }} .ttl__view:not([data-mode='drag']) [data-v-drag] { opacity: 0; translate: 0 5px; }
+  #shopify-section-{{ sid }} .ttl__view[data-mode='drag'] [data-v-view] { opacity: 0; translate: 0 -5px; }
+  #shopify-section-{{ sid }} .ttl__stage[data-cursor], #shopify-section-{{ sid }} .ttl__stage[data-cursor] * { cursor: none !important; }
   @media (hover: none) { #shopify-section-{{ sid }} .ttl__view { display: none; } }
 
   /* Pins */
@@ -142,7 +147,7 @@
   #shopify-section-{{ sid }} .ttl__pieces { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; opacity: .6; white-space: nowrap; }
   #shopify-section-{{ sid }} .ttl__look { display: flex; flex-direction: column; min-height: 0; height: 100%; }
   #shopify-section-{{ sid }} .ttl__look[hidden] { display: none; }
-  #shopify-section-{{ sid }} .ttl__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; overflow-y: auto; scrollbar-width: thin; flex: 1; min-height: 0; }
+  #shopify-section-{{ sid }} .ttl__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; overflow-y: auto; scrollbar-width: none; flex: 1; min-height: 0; }
   #shopify-section-{{ sid }} .ttl__item { display: grid; grid-template-columns: 88px minmax(0, 1fr) auto; align-items: center; column-gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--line); transition: background-color .3s ease; }
   #shopify-section-{{ sid }} .ttl__item.is-hot { background: color-mix(in srgb, var(--color-text) 4%, transparent); }
   #shopify-section-{{ sid }} .ttl__img { position: relative; aspect-ratio: 1; border-radius: var(--card-radius, 8px); overflow: hidden; background: var(--tint); display: block; }
@@ -199,18 +204,17 @@
   /* The look, opened: a card with the model and its pins beside the pieces */
   #shopify-section-{{ sid }} .ttl__lb { position: fixed; inset: 0; z-index: 70; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 24px; border: 0; background: transparent; color: var(--color-text); overflow: hidden; }
   #shopify-section-{{ sid }} .ttl__lb[open] { display: grid; place-items: center; }
-  #shopify-section-{{ sid }} .ttl__lb::backdrop { background: rgb(0 0 0 / .42); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); animation: ttlFade .35s ease; }
-  #shopify-section-{{ sid }} .ttl__lb.is-closing::backdrop { animation: ttlOut .3s ease forwards; }
+  /* Storelib: the dim layer is the dialog's own element (not ::backdrop), so it fades with the card, and closing
+     plays the same animations backwards (see lbMotion()). */
+  #shopify-section-{{ sid }} .ttl__lb::backdrop { background: transparent; }
+  #shopify-section-{{ sid }} .ttl__lb-bg { position: fixed; inset: 0; background: rgb(0 0 0 / .42); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+  #shopify-section-{{ sid }} .ttl__lb.is-closing { pointer-events: none; }
+  html.ttl-lock { overflow: hidden; }
   #shopify-section-{{ sid }} .ttl__card {
     position: relative; width: min(1120px, 100%); height: min(760px, 100%); display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(320px, .85fr);
     background: var(--color-background); border-radius: clamp(10px, var(--card-radius, 16px), 24px); overflow: hidden;
-    box-shadow: 0 40px 100px -30px rgb(0 0 0 / .45); animation: ttlCardIn .55s var(--ease) both;
+    box-shadow: 0 40px 100px -30px rgb(0 0 0 / .45); will-change: transform;
   }
-  #shopify-section-{{ sid }} .ttl__lb.is-closing .ttl__card { animation: ttlCardOut .3s ease forwards; }
-  @keyframes ttlFade { from { opacity: 0; } }
-  @keyframes ttlOut { to { opacity: 0; } }
-  @keyframes ttlCardIn { from { opacity: 0; transform: translateY(24px) scale(.97); } }
-  @keyframes ttlCardOut { to { opacity: 0; transform: translateY(14px) scale(.98); } }
   #shopify-section-{{ sid }} .ttl__card-m { position: relative; display: flex; flex-direction: column; min-height: 0; padding: 26px 28px 18px; background: var(--tint); }
   #shopify-section-{{ sid }} .ttl__card-top { display: flex; flex-direction: column; gap: 4px; padding-right: 56px; }
   #shopify-section-{{ sid }} .ttl__eyebrow:empty { display: none; }
@@ -229,15 +233,19 @@
   #shopify-section-{{ sid }} .ttl__card .ttl__ph .ttl__d-only { display: inline; }
   #shopify-section-{{ sid }} .ttl__card .ttl__item { grid-template-columns: 72px minmax(0, 1fr) auto; padding: 14px 0; }
   #shopify-section-{{ sid }} .ttl__card .ttl__bundle-row { display: flex; }
+  #shopify-section-{{ sid }} .ttl__sheet-grip { display: none; }
+  #shopify-section-{{ sid }} .ttl__item.is-pulse { animation: ttlPulse 1.2s var(--ease); }
+  @keyframes ttlPulse { 0%, 100% { background-color: transparent; } 25% { background-color: color-mix(in srgb, var(--color-text) 8%, transparent); } }
   #shopify-section-{{ sid }} .ttl__lb-close { position: absolute; top: 16px; right: 16px; z-index: 3; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--line); background: var(--color-background); color: var(--color-heading); cursor: pointer; transition: transform .35s var(--ease); }
   @media (hover: hover) { #shopify-section-{{ sid }} .ttl__lb-close:hover { transform: rotate(90deg); } }
   @media (max-width: 749px) {
     #shopify-section-{{ sid }} .ttl__lb { padding: 0; }
     #shopify-section-{{ sid }} .ttl__lb[open] { place-items: end stretch; }
-    #shopify-section-{{ sid }} .ttl__card { width: 100%; height: auto; max-height: 94dvh; grid-template-columns: minmax(0, 1fr); overflow-y: auto; overscroll-behavior: contain; border-radius: 20px 20px 0 0; animation-name: ttlSheetIn; }
-    #shopify-section-{{ sid }} .ttl__lb.is-closing .ttl__card { animation-name: ttlSheetOut; }
-    @keyframes ttlSheetIn { from { transform: translateY(100%); } }
-    @keyframes ttlSheetOut { to { transform: translateY(100%); } }
+    #shopify-section-{{ sid }} .ttl__card { width: 100%; height: auto; max-height: 94dvh; grid-template-columns: minmax(0, 1fr); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; border-radius: 20px 20px 0 0; }
+    #shopify-section-{{ sid }} .ttl__card::-webkit-scrollbar { display: none; }
+    /* A phone draws no blur behind the sheet: the dim alone keeps every frame light. */
+    #shopify-section-{{ sid }} .ttl__lb-bg { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgb(0 0 0 / .48); }
+    #shopify-section-{{ sid }} .ttl__sheet-grip { display: block; width: 40px; height: 4px; margin: 10px auto -8px; border-radius: 4px; background: color-mix(in srgb, var(--color-text) 20%, transparent); }
     #shopify-section-{{ sid }} .ttl__card-m { padding: 20px 20px 12px; }
     #shopify-section-{{ sid }} .ttl__card-fig { flex: none; height: 54dvh; }
     #shopify-section-{{ sid }} .ttl__card .ttl__label { display: none; }
@@ -273,11 +281,21 @@
             endif
             assign count = 0
             for q in (1..4)
-              assign pk = 'product_' | append: q
+              assign pk = 'piece_' | append: q
               if bs[pk] != blank
                 assign count = count | plus: 1
               endif
             endfor
+            # Storelib: a look with no product picked takes the first four of its collection, on the same pins.
+            assign use_col = false
+            assign col_ps = empty
+            if count == 0 and bs.look_collection != blank
+              assign col_ps = bs.look_collection.products | slice: 0, 4
+              assign count = col_ps.size
+              if count > 0
+                assign use_col = true
+              endif
+            endif
             assign ar = 0.42
             if bs.model_image != blank
               assign ar = bs.model_image.aspect_ratio
@@ -296,7 +314,8 @@
                 {%- if count > 0 -%}
                   {%- assign n = 0 -%}
                   {%- for q in (1..4) -%}
-                    {%- assign pk = 'product_' | append: q -%}{%- assign p = bs[pk] -%}
+                    {%- assign pk = 'piece_' | append: q -%}{%- assign p = bs[pk] -%}
+                    {%- if use_col -%}{%- assign qi = q | minus: 1 -%}{%- assign p = col_ps[qi] -%}{%- endif -%}
                     {%- if p != blank -%}
                       {%- assign n = n | plus: 1 -%}
                       {%- assign xk = 'pin_x_' | append: q -%}{%- assign yk = 'pin_y_' | append: q -%}
@@ -353,9 +372,28 @@
           assign total = 0
           assign count = 0
           assign ids = ''
+          assign use_col = false
+          assign col_ps = empty
+          assign picked = 0
           for q in (1..4)
-            assign pk = 'product_' | append: q
+            assign pk = 'piece_' | append: q
+            if bs[pk] != blank
+              assign picked = picked | plus: 1
+            endif
+          endfor
+          if picked == 0 and bs.look_collection != blank
+            assign col_ps = bs.look_collection.products | slice: 0, 4
+            if col_ps.size > 0
+              assign use_col = true
+            endif
+          endif
+          for q in (1..4)
+            assign pk = 'piece_' | append: q
             assign p = bs[pk]
+            if use_col
+              assign qi = q | minus: 1
+              assign p = col_ps[qi]
+            endif
             if p != blank
               assign v = p.selected_or_first_available_variant
               assign total = total | plus: v.price
@@ -391,7 +429,8 @@
             {%- else -%}
               {%- assign n = 0 -%}
               {%- for q in (1..4) -%}
-                {%- assign pk = 'product_' | append: q -%}{%- assign p = bs[pk] -%}
+                {%- assign pk = 'piece_' | append: q -%}{%- assign p = bs[pk] -%}
+                {%- if use_col -%}{%- assign qi = q | minus: 1 -%}{%- assign p = col_ps[qi] -%}{%- endif -%}
                 {%- if p != blank -%}
                   {%- assign n = n | plus: 1 -%}{%- assign v = p.selected_or_first_available_variant -%}
                   <li class="ttl__item" data-item="{{ n }}">
@@ -437,7 +476,9 @@
     </aside>
   </div>
   <dialog class="ttl__lb" data-lb aria-labelledby="TtlLbTitle-{{ sid }}">
+    <span class="ttl__lb-bg" data-lb-bg aria-hidden="true"></span>
     <div class="ttl__card">
+      <span class="ttl__sheet-grip" aria-hidden="true"></span>
       <div class="ttl__card-m">
         <div class="ttl__card-top"><span class="ttl__eyebrow" data-lb-num></span><h3 class="ttl__card-t" id="TtlLbTitle-{{ sid }}" data-lb-title></h3></div>
         <div class="ttl__card-fig" data-lb-fig></div>
@@ -450,31 +491,38 @@
 </try-the-look>
 
 <script>
-    /* A variant id: a number on some platforms, a UUID on Storelib; kept as it is when it is not a number. */
-    const ttlId = v => (/^\d+$/.test(String(v)) ? Number(v) : String(v));
-  window.MateriaAddItems = window.MateriaAddItems || async function (items) {
+  /* Adds lines to the cart the way the theme's own forms do (the drawer's sections, the count), at /cart/add.js,
+     which Shopify and Storelib both answer. opts.open === false keeps the drawer shut (the caller says it is added). */
+  window.MateriaAddItems = window.MateriaAddItems || async function (items, opts) {
+    opts = opts || {};
     const cart = document.querySelector('cart-drawer') || document.querySelector('cart-notification');
     const sections = cart && cart.getSectionsToRender ? cart.getSectionsToRender().map(s => s.id) : [];
-    const res = await fetch((window.routes && window.routes.cart_add_url) || '/cart/add', {
-      method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    const base = ((window.routes && window.routes.cart_add_url) || '/cart/add').replace(/\.js$/, '');
+    const res = await fetch(base + '.js', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
       body: JSON.stringify({ items, sections, sections_url: location.pathname })
     });
-    const data = await res.json();
-    if (data.status || data.errors) throw new Error(data.description || data.message || data.errors);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.status || data.errors) throw new Error(data.description || data.message || data.errors || res.statusText);
     fetch('/cart.json').then(r => r.json()).then(c => document.querySelectorAll('.cart-count').forEach(el => { el.textContent = el.classList.contains('cart-count-drawer') ? '(' + c.item_count + ')' : (c.item_count > 100 ? '~' : c.item_count); })).catch(() => {});
+    if (typeof window.publish === 'function' && window.PUB_SUB_EVENTS) { try { window.publish(window.PUB_SUB_EVENTS.cartUpdate, { source: 'materia-add-items', cartData: data }); } catch (_) {} }
     if (cart) {
       if (data.sections) cart.getSectionsToRender().forEach(s => {
         const el = document.getElementById(s.id); if (!el || !data.sections[s.id]) return;
         const incoming = new DOMParser().parseFromString(data.sections[s.id], 'text/html').querySelector('#minicart-form');
         if (incoming && !(window.materiaPatchDrawerCart && window.materiaPatchDrawerCart(el, incoming))) el.innerHTML = incoming.innerHTML;
       });
-      if (typeof cart.cartAction === 'function') cart.cartAction();
-      if (typeof cart.open === 'function') cart.open();
-    } else { location.href = (window.routes && window.routes.cart_url) || '/cart'; }
+      if (opts.open !== false) {
+        if (typeof cart.cartAction === 'function') cart.cartAction();
+        if (typeof cart.open === 'function') cart.open();
+      }
+    } else if (opts.open !== false) { location.href = (window.routes && window.routes.cart_url) || '/cart'; }
     return data;
   };
 
   if (!customElements.get('try-the-look')) {
+    /* A variant id: a number on some platforms, a UUID on Storelib; kept as it is when it is not a number. */
+    const ttlId = v => (/^\d+$/.test(String(v)) ? Number(v) : String(v));
     customElements.define('try-the-look', class extends HTMLElement {
       connectedCallback() {
         if (this._ready) return; this._ready = true;
@@ -496,7 +544,7 @@
           if (m && m.classList.contains('is-on') && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); this.openView(m); }
           if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); this.go(this.i + (e.key === 'ArrowRight' ? 1 : -1), true); this.models[this.i].focus({ preventScroll: true }); }
         });
-        this.lb?.addEventListener('click', e => { if (e.target === this.lb) this.closeView(); });
+        this.lb?.addEventListener('click', e => { if (e.target === this.lb || (e.target.matches && e.target.matches('[data-lb-bg]'))) this.closeView(); });
         this.lb?.addEventListener('cancel', e => { e.preventDefault(); this.closeView(); });
         this.initCursor(); this.initDrag();
         // Autoplay: only while on screen, never in the editor or with reduced motion
@@ -513,7 +561,12 @@
       onClick(e) {
         const t = e.target; if (!t.closest) return;
         if (t.closest('[data-lb-close]')) return this.closeView();
-        const pin = t.closest('[data-pin]'); if (pin) return this.pinGo(pin);
+        const pin = t.closest('[data-pin]');
+        if (pin) {
+          // A phone: the dot opens the look as a sheet, with its piece shown (the pieces under the runway are a narrow row there).
+          if (!pin.closest('[data-lb]') && matchMedia('(max-width: 749px)').matches && this.lb) { const m = pin.closest('[data-model]'); if (m) return this.openView(m, pin.dataset.pin); }
+          return this.pinGo(pin, true);
+        }
         const model = t.closest('[data-model]');
         if (model && this.stage.contains(model)) {
           if (this._swiped) return;
@@ -554,37 +607,40 @@
         const pin = e.target.closest && e.target.closest('[data-pin]'); if (!pin || (e.relatedTarget && pin.contains(e.relatedTarget))) return;
         pin.classList.toggle('is-hot', on); this.listFor(pin)?.querySelector('[data-item="' + pin.dataset.pin + '"]')?.classList.toggle('is-hot', on);
       }
-      pinGo(pin) {
+      // A dot: its piece is brought into view and marked, and a piece with sizes opens its size picker, ready to add.
+      pinGo(pin, shop) {
         const it = this.listFor(pin)?.querySelector('[data-item="' + pin.dataset.pin + '"]'); if (!it) return;
-        const list = it.parentElement;
+        const list = it.parentElement, card = pin.closest('.ttl__card');
         if (list.scrollWidth > list.clientWidth + 2) list.scrollTo({ left: it.offsetLeft - list.offsetLeft - 20, behavior: 'smooth' });
         else if (list.scrollHeight > list.clientHeight + 2) list.scrollTo({ top: it.offsetTop - list.offsetTop, behavior: 'smooth' });
+        else if (card && card.scrollHeight > card.clientHeight + 2) card.scrollTo({ top: Math.max(0, it.offsetTop - card.clientHeight * 0.35), behavior: 'smooth' });
         else it.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         [pin, it].forEach(x => x.classList.add('is-hot')); clearTimeout(pin._t);
         pin._t = setTimeout(() => [pin, it].forEach(x => x.classList.remove('is-hot')), 1500);
+        it.classList.remove('is-pulse'); void it.offsetWidth; it.classList.add('is-pulse');
+        if (shop) { const pick = it.querySelector('[data-pick][aria-expanded="false"]'); if (pick) pick.click(); }
       }
-      // Glass circle: trails the pointer (eased every frame, stops once it has caught up).
+      // Glass circle: drawn exactly at the pointer every frame it moves; its words and size change by cross-fading.
       initCursor() {
         const st = this.stage, v = this.view; if (!v) return;
-        let tx = 0, ty = 0, cx = 0, cy = 0, raf = 0;
-        const follow = () => {
-          cx += (tx - cx) * 0.22; cy += (ty - cy) * 0.22;
-          v.style.transform = 'translate3d(' + cx.toFixed(1) + 'px,' + cy.toFixed(1) + 'px,0)';
-          raf = Math.abs(tx - cx) + Math.abs(ty - cy) > 0.3 ? requestAnimationFrame(follow) : 0;
+        let x = 0, y = 0, raf = 0;
+        const place = () => { raf = 0; v.style.transform = 'translate3d(' + x + 'px,' + y + 'px,0)'; };
+        this._mode = m => { if (v.dataset.mode === m || (!m && !v.dataset.mode)) return; if (m) v.dataset.mode = m; else delete v.dataset.mode; st.toggleAttribute('data-cursor', !!m); };
+        this._cursorAt = e => {
+          const r = st.getBoundingClientRect(); x = Math.round(e.clientX - r.left); y = Math.round(e.clientY - r.top);
+          if (!v.dataset.mode) place(); else if (!raf) raf = requestAnimationFrame(place);
         };
         st.addEventListener('pointermove', e => {
-          if (e.pointerType !== 'mouse' || this._drag) return;
-          const r = st.getBoundingClientRect(); tx = e.clientX - r.left; ty = e.clientY - r.top;
+          if (e.pointerType !== 'mouse') return;
           let mode = '';
-          if (!this._drag && !e.target.closest('[data-pin], button')) {
+          if (this._drag) mode = 'drag';
+          else if (!e.target.closest('[data-pin], button, a')) {
             const m = e.target.closest('[data-model]');
             mode = m && m.classList.contains('is-on') && e.target.closest('.ttl__fit') ? 'view' : (this.models.length > 1 ? 'drag' : '');
           }
-          if (mode && !v.dataset.mode) { cx = tx; cy = ty; }
-          if (v.dataset.mode !== mode) { if (mode) v.dataset.mode = mode; else delete v.dataset.mode; }
-          if (!raf) raf = requestAnimationFrame(follow);
+          this._cursorAt(e); this._mode(mode);
         });
-        st.addEventListener('pointerleave', () => { delete v.dataset.mode; });
+        st.addEventListener('pointerleave', () => { if (!this._drag) this._mode(''); });
       }
       // Drag / swipe: the whole lineup follows 1:1, then a flick or a past-a-third drag settles on the next look.
       initDrag() {
@@ -594,13 +650,14 @@
           if (e.button > 0 || this.models.length < 2 || e.target.closest('[data-pin], button, a')) return;
           x0 = lastX = e.clientX; y0 = e.clientY; lastT = e.timeStamp; vel = 0; this._drag = 0;
           const m = this.models[this.i]; step = Math.max(60, (m ? m.offsetWidth : 260) * 0.55);
+          // While the pointer is down nothing eases: the lineup is drawn where the pointer is, 1:1.
         });
         st.addEventListener('pointermove', e => {
           if (x0 == null) return; const dx = e.clientX - x0;
           if (!this._drag) {
             if (Math.abs(dx) < 6) return;
             if (Math.abs(e.clientY - y0) > Math.abs(dx)) { x0 = null; return; }
-            st.classList.add('is-drag'); if (this.view) delete this.view.dataset.mode; clearTimeout(this._t);
+            st.classList.add('is-drag'); if (this.view && e.pointerType === 'mouse') { this._mode('drag'); this.view.classList.add('is-grabbing'); } clearTimeout(this._t);
             try { st.setPointerCapture(e.pointerId); } catch (_) {}
           }
           const dt = e.timeStamp - lastT; if (dt > 0) vel = 0.75 * ((e.clientX - lastX) / dt) + 0.25 * vel;
@@ -610,7 +667,7 @@
         const end = e => {
           if (x0 == null) return; x0 = null;
           const dx = this._drag; if (!dx) return;
-          cancelAnimationFrame(frame); frame = 0; this._drag = 0; st.classList.remove('is-drag');
+          cancelAnimationFrame(frame); frame = 0; this._drag = 0; st.classList.remove('is-drag'); this.view?.classList.remove('is-grabbing');
           if (e.timeStamp - lastT > 90) vel = 0;
           const proj = -dx / step; let n = Math.round(proj);
           if (Math.abs(vel) > 0.35 && (vel < 0) === (dx < 0)) n = vel < 0 ? Math.max(1, Math.ceil(proj - 0.25)) : Math.min(-1, Math.floor(proj + 0.25));
@@ -630,28 +687,49 @@
           if (Math.abs(acc) > 40) { this.go(this.i + (acc > 0 ? 1 : -1), true); acc = 0; lock = e.timeStamp + 650; }
         }, { passive: false });
       }
-      openView(m) {
+      openView(m, pinNo) {
         const lb = this.lb; if (!lb || lb.open) return;
         const k = this.models.indexOf(m), look = this.looks[k];
         lb.querySelector('[data-lb-num]').textContent = m.dataset.num && m.dataset.num !== m.dataset.title ? m.dataset.num : '';
         lb.querySelector('[data-lb-title]').textContent = m.dataset.title || '';
         const fig = lb.querySelector('[data-lb-fig]'), fit = m.querySelector('.ttl__fit');
         fig.replaceChildren(); if (fit) {
+          // The same picture as on the stage (same srcset and sizes, so it is the one already loaded: nothing blinks).
           const c = fit.cloneNode(true);
-          c.querySelectorAll('img').forEach(img => { img.loading = 'eager'; if (img.sizes) img.sizes = '(min-width: 750px) 44vw, 80vw'; });
+          c.querySelectorAll('img').forEach(img => { img.loading = 'eager'; });
+          c.querySelectorAll('.is-hot').forEach(x => x.classList.remove('is-hot'));
           fig.append(c);
         }
         const panel = lb.querySelector('[data-lb-panel]'); panel.replaceChildren();
-        if (look) { const c = look.cloneNode(true); c.hidden = false; c.querySelectorAll('.is-open, .is-hot').forEach(x => x.classList.remove('is-open', 'is-hot')); panel.append(c); }
+        if (look) { const c = look.cloneNode(true); c.hidden = false; c.querySelectorAll('.is-open, .is-hot, .is-pulse').forEach(x => x.classList.remove('is-open', 'is-hot', 'is-pulse')); c.querySelectorAll('[data-pick]').forEach(x => x.setAttribute('aria-expanded', 'false')); panel.append(c); }
         clearTimeout(this._t); this._modal = true;
-        lb.classList.remove('is-closing'); lb.showModal();
-        document.documentElement.style.overflow = 'hidden';
+        lb.classList.remove('is-closing');
+        lb.showModal(); document.documentElement.classList.add('ttl-lock');
+        const card = lb.querySelector('.ttl__card'); if (card) card.scrollTop = 0;
+        this.lbMotion(true).then(() => { if (pinNo) { const pin = fig.querySelector('[data-pin="' + pinNo + '"]'); if (pin) this.pinGo(pin, true); } });
       }
       closeView() {
         const lb = this.lb; if (!lb || !lb.open || lb.classList.contains('is-closing')) return;
-        const finish = () => { lb.classList.remove('is-closing'); lb.close(); document.documentElement.style.removeProperty('overflow'); this._modal = false; if (this.hasAttribute('data-playing')) this.setPlaying(true); };
-        if (matchMedia('(prefers-reduced-motion: reduce)').matches) return finish();
-        lb.classList.add('is-closing'); setTimeout(finish, 300);
+        lb.classList.add('is-closing');
+        this.lbMotion(false).then(() => {
+          lb.close(); lb.classList.remove('is-closing');
+          (this._lbAnims || []).forEach(a => a.cancel()); this._lbAnims = [];
+          document.documentElement.classList.remove('ttl-lock'); this._modal = false;
+          if (this.hasAttribute('data-playing')) this.setPlaying(true);
+        });
+      }
+      // One set of animations: forwards to open, backwards to close. A card on a computer, a sheet that rises on a phone.
+      lbMotion(opening) {
+        (this._lbAnims || []).forEach(a => a.cancel()); this._lbAnims = [];
+        const lb = this.lb, card = lb.querySelector('.ttl__card'), bg = lb.querySelector('[data-lb-bg]');
+        if (!lb.animate || matchMedia('(prefers-reduced-motion: reduce)').matches) return Promise.resolve();
+        const sheet = matchMedia('(max-width: 749px)').matches;
+        const o = { fill: 'both', direction: opening ? 'normal' : 'reverse' };
+        this._lbAnims = [
+          bg.animate([{ opacity: 0 }, { opacity: 1 }], { ...o, duration: sheet ? 420 : 380, easing: 'cubic-bezier(.4, 0, .2, 1)' }),
+          card.animate(sheet ? [{ transform: 'translate3d(0, 100%, 0)' }, { transform: 'translate3d(0, 0, 0)' }] : [{ opacity: 0, transform: 'translateY(24px) scale(.97)' }, { opacity: 1, transform: 'none' }], { ...o, duration: sheet ? 460 : 520, easing: sheet ? 'cubic-bezier(.32, .72, 0, 1)' : 'cubic-bezier(.22, 1, .36, 1)' })
+        ];
+        return Promise.all(this._lbAnims.map(a => a.finished.catch(() => {}))).then(() => { if (opening) { this._lbAnims.forEach(a => a.cancel()); this._lbAnims = []; } });
       }
       setPlaying(on, byUser) {
         if (byUser) this._paused = !on;
@@ -693,7 +771,7 @@
   "settings": [
     {
       "type": "paragraph",
-      "content": "Set up: add a Look block per outfit. Upload the model as a transparent PNG or WebP (an image editor's Remove background), full length and cropped at the feet. Pick up to 4 products and move each pin onto its piece with the two sliders (0-100% across and down the picture). Sample photos are CC0 (credits in snippets/try-the-look-sample)."
+      "content": "Set up: add a Look block per outfit. Upload the model as a transparent PNG or WebP (an image editor's Remove background), full length and cropped at the feet. Pick up to 4 products, or a collection, and move each pin onto its piece with the two sliders (0-100% across and down the picture). Sample photos are from Unsplash (credits in snippets/try-the-look-sample)."
     },
     {
       "type": "color_scheme",
@@ -818,7 +896,7 @@
       "type": "text",
       "id": "sample_pieces",
       "label": "Sample piece names",
-      "default": "Denim overshirt, Slim black jeans, Leather derbies | Tailored blazer, Wool mini skirt, Suede ankle boots | Floral playsuit, Leather tote, Strappy sandals | Bandeau top, Skinny jeans, Block heels",
+      "default": "Graffiti zip hoodie, Graffiti sweatpants, Black court sneakers | Black heavyweight tee, Nylon shorts, High-top sneakers | Washed black tee, Wide black denim, Silver runners | Boxy black tee, Stone cargo pants, Grey trail runners",
       "info": "Three names per sample look, looks separated by |."
     },
     {
@@ -995,7 +1073,7 @@
           "type": "text",
           "id": "title",
           "label": "Look name",
-          "default": "The city edit"
+          "default": "Full black"
         },
         {
           "type": "image_picker",
@@ -1004,12 +1082,18 @@
           "info": "Transparent PNG or WebP, full length, cropped at the feet."
         },
         {
+          "type": "collection",
+          "id": "look_collection",
+          "label": "Collection",
+          "info": "Used when no product is picked below: its first four products take pins 1 to 4."
+        },
+        {
           "type": "header",
           "content": "Piece 1"
         },
         {
           "type": "product",
-          "id": "product_1",
+          "id": "piece_1",
           "label": "Product"
         },
         {
@@ -1039,7 +1123,7 @@
         },
         {
           "type": "product",
-          "id": "product_2",
+          "id": "piece_2",
           "label": "Product"
         },
         {
@@ -1068,7 +1152,7 @@
         },
         {
           "type": "product",
-          "id": "product_3",
+          "id": "piece_3",
           "label": "Product"
         },
         {
@@ -1097,7 +1181,7 @@
         },
         {
           "type": "product",
-          "id": "product_4",
+          "id": "piece_4",
           "label": "Product"
         },
         {
@@ -1131,25 +1215,25 @@
         {
           "type": "look",
           "settings": {
-            "title": "The city edit"
+            "title": "Full black"
           }
         },
         {
           "type": "look",
           "settings": {
-            "title": "Gallery opening"
+            "title": "Court day"
           }
         },
         {
           "type": "look",
           "settings": {
-            "title": "Studio day"
+            "title": "Wide leg"
           }
         },
         {
           "type": "look",
           "settings": {
-            "title": "Weekend"
+            "title": "Cargo"
           }
         },
         {

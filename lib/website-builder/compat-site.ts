@@ -340,10 +340,13 @@ const SHOP_HOLD_S = 60
 const NOT_HELD = Symbol("not held")
 
 /** `read`, held under `tags`, unless what it answered is `skip(value)` (a failed or empty read), which is passed on and read again next time. */
-/** Each card with its verified units sold (settings.sold_count), when the count was read whole; the cards as they were otherwise. */
-function withSoldCounts<T extends { id: string; settings: Record<string, unknown> }>(cards: T[], sold: Record<string, number> | null): T[] {
+/** Each card with its verified units sold (settings.sold_count, and sold_count_24h / _7d / _30d for the last day, week and month), when the count was read whole; the cards as they were otherwise. */
+function withSoldCounts<T extends { id: string; settings: Record<string, unknown> }>(cards: T[], sold: Record<string, { all: number; h24: number; d7: number; d30: number }> | null): T[] {
   if (!sold) return cards
-  return cards.map((c) => (typeof sold[c.id] === "number" ? { ...c, settings: { ...c.settings, sold_count: sold[c.id] } } : c))
+  return cards.map((c) => {
+    const n = sold[c.id]
+    return n && typeof n.all === "number" ? { ...c, settings: { ...c.settings, sold_count: n.all, sold_count_24h: n.h24, sold_count_7d: n.d7, sold_count_30d: n.d30 } } : c
+  })
 }
 
 /* `stable`: the entry's name for the data cache, kept across deploys (./last-good.ts keyedAs); without one, the function's text, as before. */
@@ -625,7 +628,7 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     reads it fresh. A count that could not be read whole is not given.
   */
   const soldIds = [...new Set([...products, ...catalog].map((c) => c.id))]
-  const readSold = () => import("@/lib/products/sold-counts-server").then((m) => m.soldCounts(admin as never, soldIds)).then((m) => (m ? Object.fromEntries(m) : null)).catch(() => null)
+  const readSold = () => import("@/lib/products/sold-counts-server").then((m) => m.soldCountsWithWindows(admin as never, soldIds)).then((m) => (m ? Object.fromEntries(m) : null)).catch(() => null)
   const soldAsked = soldIds.length === 0 ? Promise.resolve(null) : draft ? readSold() : part("sold", heldUnless(["compat-sold", creator.creatorId], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readSold, (v) => v === null), null)
   const physical = await physicalAsked
   if (!rows) return { kind: "missing" }

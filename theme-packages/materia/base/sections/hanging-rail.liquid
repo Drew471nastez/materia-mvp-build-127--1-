@@ -127,7 +127,8 @@
   .hr__caption { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 18px var(--hr-edge) 0; text-align: center; }
   .hr__lines { position: relative; display: grid; min-height: 1.5em; width: 100%; max-width: 640px; }
   .hr__lines > * { grid-area: 1 / 1; margin: 0; transition: opacity .25s ease, transform .25s ease; }
-  .hr__name { font-size: 14px; font-weight: 600; opacity: 0; transform: translateY(4px); color: var(--hr-heading); }
+  .hr__name { font-size: 14px; font-weight: 600; opacity: 0; transform: translateY(4px); color: var(--hr-heading); min-width: 0; min-height: 1.5em; line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* The name and the line under the rail share one cell: the cell is as tall as the taller of the two, and the name is one line, so pointing at garments never moves anything below. */
   .hr__name small { font-weight: 400; opacity: .7; margin-left: 8px; font-size: inherit; }
   .hr__text { font-size: 14px; line-height: 1.5; }
   .hr__text > * { margin: 0; }
@@ -138,7 +139,7 @@
   .hr--split .hr__caption { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 12px 32px; text-align: left; }
   .hr--split .hr__lines, .hr--split .hr__caption .hr__pane { display: contents; }
   .hr--split .hr__name { grid-column: 1; grid-row: 1 / span 2; align-self: end; }
-  .hr--split .hr__name small { display: block; margin: 4px 0 0; }
+  .hr--split .hr__name small { display: inline; margin: 0 0 0 8px; }
   .hr--split .hr__name:not(:empty) { opacity: 1; transform: none; }
   .hr--split .hr__text { grid-column: 2; grid-row: 1; text-align: right; justify-self: end; max-width: 34ch; }
   .hr--split.is-showing .hr__text { opacity: 1; transform: none; }
@@ -175,7 +176,9 @@
   .hr-focus__img { max-height: 100%; max-width: 100%; width: auto; height: 100%; object-fit: contain; transition: opacity .25s ease; }
   .hr-focus__img.is-hidden { opacity: 0; }
   .hr-focus__img.is-flying { visibility: hidden; transition: none; }
-  .hr-focus__info { opacity: 0; transform: translateY(10px); transition: opacity .3s ease, transform .3s ease; max-height: 100%; overflow: auto; padding: 4px; scrollbar-width: thin; }
+  .hr-focus__info { opacity: 0; transform: translateY(10px); transition: opacity .3s ease, transform .3s ease; max-height: 100%; overflow: auto; padding: 4px; scrollbar-width: none; }
+  /* Scrolls when it must, with no scroll bar showing (wheel, touch and keys still scroll it). */
+  .hr-focus__info::-webkit-scrollbar, .hr-focus__panel::-webkit-scrollbar { display: none; }
   .hr-focus.is-open .hr-focus__info { opacity: 1; transform: none; transition-delay: .1s; }
   .hr-focus__chrome { opacity: 0; transition: opacity .25s ease; }
   .hr-focus.is-open .hr-focus__chrome { opacity: .75; }
@@ -236,7 +239,7 @@
   html.hr-locked body { padding-right: var(--hr-bar, 0); }
   @media (max-width: 749px) {
     .hr-focus--solid .hr-focus__backdrop { background: color-mix(in srgb, var(--hrf-bg) 70%, transparent); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
-    .hr-focus__panel { inset: auto 0 0 0; max-height: 92dvh; display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 0 0 calc(16px + env(safe-area-inset-bottom)); background: var(--hrf-bg); border-radius: var(--hr-sheet-r, 16px) var(--hr-sheet-r, 16px) 0 0; box-shadow: 0 -10px 40px -16px rgba(0,0,0,.35); transform: translateY(100%); transition: transform .4s cubic-bezier(.2,.8,.2,1); overflow: auto; overscroll-behavior: contain; }
+    .hr-focus__panel { inset: auto 0 0 0; max-height: 92dvh; display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 0 0 calc(16px + env(safe-area-inset-bottom)); background: var(--hrf-bg); border-radius: var(--hr-sheet-r, 16px) var(--hr-sheet-r, 16px) 0 0; box-shadow: 0 -10px 40px -16px rgba(0,0,0,.35); transform: translateY(100%); transition: transform .4s cubic-bezier(.2,.8,.2,1); overflow: auto; overscroll-behavior: contain; scrollbar-width: none; }
     .hr-focus.is-open .hr-focus__panel { transform: none; }
     .hr-focus.is-closing .hr-focus__panel { transition-timing-function: cubic-bezier(.4,0,.6,1); transition-duration: .34s; }
     .hr-focus__media { height: 44dvh; min-height: 260px; padding: 28px 52px 8px; flex: none; }

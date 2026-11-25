@@ -931,27 +931,11 @@
             "for_name": "Night Bus"
           }
         },
-        "s_night_bus_1": {
-          "type": "stat",
-          "settings": {
-            "value": "640 MB",
-            "label": "Unzipped",
-            "for_name": "Night Bus"
-          }
-        },
         "s_night_bus_2": {
           "type": "stat",
           "settings": {
             "value": "132",
             "label": "BPM",
-            "for_name": "Night Bus"
-          }
-        },
-        "s_night_bus_3": {
-          "type": "stat",
-          "settings": {
-            "value": "78",
-            "label": "MIDI files",
             "for_name": "Night Bus"
           }
         },
@@ -999,14 +983,6 @@
             "for_name": "Chrome Drums"
           }
         },
-        "s_chrome_drums_1": {
-          "type": "stat",
-          "settings": {
-            "value": "720 MB",
-            "label": "Unzipped",
-            "for_name": "Chrome Drums"
-          }
-        },
         "s_chrome_drums_2": {
           "type": "stat",
           "settings": {
@@ -1049,27 +1025,11 @@
             "for_name": "Soft Focus"
           }
         },
-        "s_soft_focus_1": {
-          "type": "stat",
-          "settings": {
-            "value": "410 MB",
-            "label": "Unzipped",
-            "for_name": "Soft Focus"
-          }
-        },
         "s_soft_focus_2": {
           "type": "stat",
           "settings": {
             "value": "70 to 90",
             "label": "BPM",
-            "for_name": "Soft Focus"
-          }
-        },
-        "s_soft_focus_3": {
-          "type": "stat",
-          "settings": {
-            "value": "90",
-            "label": "MIDI files",
             "for_name": "Soft Focus"
           }
         },
@@ -1117,27 +1077,11 @@
             "for_name": "Heavy Water"
           }
         },
-        "s_heavy_water_1": {
-          "type": "stat",
-          "settings": {
-            "value": "530 MB",
-            "label": "Unzipped",
-            "for_name": "Heavy Water"
-          }
-        },
         "s_heavy_water_2": {
           "type": "stat",
           "settings": {
             "value": "Tuned",
             "label": "Every bass",
-            "for_name": "Heavy Water"
-          }
-        },
-        "s_heavy_water_3": {
-          "type": "stat",
-          "settings": {
-            "value": "76",
-            "label": "MIDI files",
             "for_name": "Heavy Water"
           }
         },
@@ -1185,27 +1129,11 @@
             "for_name": "Afterglow"
           }
         },
-        "s_afterglow_1": {
-          "type": "stat",
-          "settings": {
-            "value": "780 MB",
-            "label": "Unzipped",
-            "for_name": "Afterglow"
-          }
-        },
         "s_afterglow_2": {
           "type": "stat",
           "settings": {
             "value": "120 to 124",
             "label": "BPM",
-            "for_name": "Afterglow"
-          }
-        },
-        "s_afterglow_3": {
-          "type": "stat",
-          "settings": {
-            "value": "80",
-            "label": "MIDI files",
             "for_name": "Afterglow"
           }
         },
@@ -1481,9 +1409,33 @@
             "list": "<ul><li>Melodic house</li><li>780 MB unzipped</li></ul>",
             "for_name": "The Full Shelf"
           }
+        },
+        "s_all_bits": {
+          "type": "stat",
+          "settings": {
+            "value": "24 bit",
+            "label": "WAV at 44.1 kHz in every pack"
+          }
+        },
+        "s_all_licence": {
+          "type": "stat",
+          "settings": {
+            "value": "Royalty free",
+            "label": "For releases, streams and sync"
+          }
+        },
+        "p_all_licence": {
+          "type": "part",
+          "settings": {
+            "title": "Licence",
+            "count": "1",
+            "list": "<ul><li>Licence.pdf, the terms in plain English</li><li>Use the sounds in released music, streams, adverts, games and films</li><li>Do not share or resell the sounds themselves</li></ul>"
+          }
         }
       },
       "block_order": [
+        "s_all_bits",
+        "s_all_licence",
         "s_drums_and_low_end_0",
         "s_drums_and_low_end_1",
         "s_drums_and_low_end_2",
@@ -1499,39 +1451,30 @@
         "p_full_shelf_3",
         "p_full_shelf_4",
         "s_night_bus_0",
-        "s_night_bus_1",
         "s_night_bus_2",
-        "s_night_bus_3",
         "p_night_bus_0",
         "p_night_bus_1",
         "p_night_bus_2",
         "p_night_bus_3",
         "s_chrome_drums_0",
-        "s_chrome_drums_1",
         "s_chrome_drums_2",
         "s_chrome_drums_3",
         "p_chrome_drums_0",
         "p_chrome_drums_1",
         "s_soft_focus_0",
-        "s_soft_focus_1",
         "s_soft_focus_2",
-        "s_soft_focus_3",
         "p_soft_focus_0",
         "p_soft_focus_1",
         "p_soft_focus_2",
         "p_soft_focus_3",
         "s_heavy_water_0",
-        "s_heavy_water_1",
         "s_heavy_water_2",
-        "s_heavy_water_3",
         "p_heavy_water_0",
         "p_heavy_water_1",
         "p_heavy_water_2",
         "p_heavy_water_3",
         "s_afterglow_0",
-        "s_afterglow_1",
         "s_afterglow_2",
-        "s_afterglow_3",
         "p_afterglow_0",
         "p_afterglow_1",
         "p_afterglow_2",
@@ -1549,7 +1492,8 @@
         "s_small_hours_1",
         "s_small_hours_2",
         "p_small_hours_0",
-        "p_small_hours_1"
+        "p_small_hours_1",
+        "p_all_licence"
       ]
     },
     "daws": {

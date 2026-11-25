@@ -19612,14 +19612,14 @@
         },
         {
           "type": "paragraph",
-          "content": "Reads custom.sold_count for each product, or one verified count you supply. No random numbers are generated."
+          "content": "Counts the product's paid orders in the window you pick, or one verified count you supply. Hidden while the count is 0. No random numbers are generated."
         },
         {
           "type": "checkbox",
           "id": "refresh_sold_count",
           "label": "Refresh product count",
           "default": true,
-          "info": "Refreshes the product’s published custom.sold_count while visible, at most once per minute. Manual counts remain fixed. Never generates or rotates numbers.",
+          "info": "Refreshes the product’s count while visible, at most once per minute. Manual counts remain fixed. Never generates or rotates numbers.",
           "visible_if": "{{ block.settings.sold_source == 'product' }}"
         },
         {
@@ -19637,6 +19637,31 @@
               "label": "Verified count"
             }
           ]
+        },
+        {
+          "type": "select",
+          "id": "sold_window",
+          "label": "Count sales from",
+          "default": "24h",
+          "options": [
+            {
+              "value": "24h",
+              "label": "Last 24 hours"
+            },
+            {
+              "value": "7d",
+              "label": "Last 7 days"
+            },
+            {
+              "value": "30d",
+              "label": "Last 30 days"
+            },
+            {
+              "value": "all",
+              "label": "All time"
+            }
+          ],
+          "visible_if": "{{ block.settings.sold_source == 'product' }}"
         },
         {
           "type": "number",
@@ -19662,15 +19687,19 @@
           "type": "text",
           "id": "sold_period_label",
           "label": "Period phrase",
-          "default": "in the last",
-          "visible_if": "{{ block.settings.sold_source == 'manual' }}"
+          "default": "in the last"
         },
         {
           "type": "text",
           "id": "hours_label",
           "label": "Period unit",
-          "default": "hours",
-          "visible_if": "{{ block.settings.sold_source == 'manual' }}"
+          "default": "hours"
+        },
+        {
+          "type": "text",
+          "id": "days_label",
+          "label": "Period unit (days)",
+          "default": "days"
         },
         {
           "type": "checkbox",

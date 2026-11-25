@@ -37,7 +37,7 @@ const MAX_LINES = 50_000
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = { from: (table: string) => any }
 
-type Line = { id: string; product_id: string | null; quantity: number | null }
+type Line = { id: string; product_id: string | null; quantity: number | null; created_at?: string | null }
 
 /**
  * Units sold of each of these products (all of them one store's), or null
@@ -45,23 +45,55 @@ type Line = { id: string; product_id: string | null; quantity: number | null }
  * answer, 0 when none of it has sold.
  */
 export async function soldCounts(db: Db, productIds: string[]): Promise<Map<string, number> | null> {
+  const read = await countSold(db, productIds, Date.now())
+  return read ? new Map([...read].map(([id, c]) => [id, c.all])) : null
+}
+
+/**
+ * RECENT SALES (round 26): the same count, and the units of it sold in the
+ * last 24 hours, 7 days and 30 days, by when the order was placed
+ * (orders.created_at). What a theme's Sold counter says as "5 sold in the
+ * last 24 hours" (custom.sold_count_24h, _7d, _30d). Returned units are
+ * taken from the window their line was sold in. Null when not read whole.
+ */
+export type SoldWindows = { all: number; h24: number; d7: number; d30: number }
+export const SOLD_WINDOWS_MS = { h24: 24 * 3600_000, d7: 7 * 24 * 3600_000, d30: 30 * 24 * 3600_000 } as const
+
+export async function soldCountsWithWindows(db: Db, productIds: string[], now = Date.now()): Promise<Map<string, SoldWindows> | null> {
+  return countSold(db, productIds, now)
+}
+
+/** The windows a line placed at `at` is in, none when its time is unknown or in the future. */
+function windowsOf(at: unknown, now: number): (keyof typeof SOLD_WINDOWS_MS)[] {
+  const t = typeof at === "string" || typeof at === "number" ? new Date(at).getTime() : NaN
+  if (!Number.isFinite(t) || t > now + 60_000) return []
+  const age = now - t
+  return (Object.keys(SOLD_WINDOWS_MS) as (keyof typeof SOLD_WINDOWS_MS)[]).filter((k) => age <= SOLD_WINDOWS_MS[k])
+}
+
+async function countSold(db: Db, productIds: string[], now: number): Promise<Map<string, SoldWindows> | null> {
   const ids = [...new Set(productIds.filter((x) => typeof x === "string" && x))]
-  const counts = new Map<string, number>(ids.map((id) => [id, 0]))
+  const counts = new Map<string, SoldWindows>(ids.map((id) => [id, { all: 0, h24: 0, d7: 0, d30: 0 }]))
   if (ids.length === 0) return counts
   const lineProduct = new Map<string, string>()
+  const lineWindows = new Map<string, (keyof typeof SOLD_WINDOWS_MS)[]>()
   let read = 0
   for (let i = 0; i < ids.length; i += 80) {
     const batch = ids.slice(i, i + 80)
     for (let from = 0; ; from += PAGE) {
-      const { data, error } = await db.from("orders").select("id, product_id, quantity").in("product_id", batch).in("status", SOLD_STATUSES as unknown as string[]).order("id").range(from, from + PAGE - 1)
+      const { data, error } = await db.from("orders").select("id, product_id, quantity, created_at").in("product_id", batch).in("status", SOLD_STATUSES as unknown as string[]).order("id").range(from, from + PAGE - 1)
       if (error) return null
       const rows = (data ?? []) as Line[]
       for (const r of rows) {
         if (!r.product_id || !counts.has(r.product_id)) continue
         /* A line with no quantity is one unit (a download, an older order). */
         const units = Math.max(1, Math.floor(Number(r.quantity) || 1))
-        counts.set(r.product_id, (counts.get(r.product_id) ?? 0) + units)
+        const c = counts.get(r.product_id)!
+        c.all += units
+        const windows = windowsOf(r.created_at, now)
+        for (const w of windows) c[w] += units
         lineProduct.set(r.id, r.product_id)
+        if (windows.length) lineWindows.set(r.id, windows)
       }
       read += rows.length
       if (read > MAX_LINES) return null
@@ -84,7 +116,10 @@ export async function soldCounts(db: Db, productIds: string[]): Promise<Map<stri
     for (const r of (data ?? []) as { order_id: string; quantity: number | null }[]) {
       const product = lineProduct.get(r.order_id)
       if (!product) continue
-      counts.set(product, Math.max(0, (counts.get(product) ?? 0) - Math.max(0, Math.floor(Number(r.quantity) || 0))))
+      const c = counts.get(product)!
+      const back = Math.max(0, Math.floor(Number(r.quantity) || 0))
+      c.all = Math.max(0, c.all - back)
+      for (const w of lineWindows.get(r.order_id) ?? []) c[w] = Math.max(0, c[w] - back)
     }
   }
   return counts

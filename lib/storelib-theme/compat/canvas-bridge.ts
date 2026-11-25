@@ -3186,7 +3186,8 @@ export const CANVAS_REQUESTS = `
   var fixBase = function (b) { var s = String(b); return s === "null" || s.indexOf("about:") === 0 ? baseUrl : b; };
   var homeOrigin = null;
   try { homeOrigin = new NativeURL(baseUrl).origin; } catch (e) {}
-  var pageOrigin = location.origin;
+  var pageOrigin = "";
+  try { pageOrigin = String(location.origin); } catch (e) {}
   try {
     window.URL = class extends NativeURL {
       constructor(u, b) { if (arguments.length > 1 && b !== undefined) super(u, fixBase(b)); else super(u); }

@@ -12,18 +12,19 @@
   {% render 'boutique-rail-sample', index: 0, view: 'front' %}
 {%- enddoc -%}
 {%- comment -%}
-  Photo credits. Every sample is a public-domain (CC0 1.0) photograph from
-  rawpixel's public domain collection, cut out and, for some, recoloured; no
-  attribution is required, it is given here as a courtesy.
-  1 Denim shirt              - "Demin shirt", rawpixel, CC0 1.0: https://www.rawpixel.com/image/6032758
-  2 Wool coat, camel         - "Jacket hanger", rawpixel, CC0 1.0 (recoloured): https://www.rawpixel.com/image/6039264
-  3 Knit, olive              - "Mail Shirt", rawpixel, CC0 1.0: https://www.rawpixel.com/image/8930556
-  4 Overshirt, black         - "Demin shirt", rawpixel, CC0 1.0 (recoloured): https://www.rawpixel.com/image/6032758
-  5 Wool coat, rose          - "Jacket hanger", rawpixel, CC0 1.0: https://www.rawpixel.com/image/6039264
-  6 Knit, oat                - "Mail Shirt", rawpixel, CC0 1.0 (recoloured): https://www.rawpixel.com/image/8930556
-  7 Overshirt, sage          - "Demin shirt", rawpixel, CC0 1.0 (recoloured): https://www.rawpixel.com/image/6032758
-  8 Wool coat, navy          - "Jacket hanger", rawpixel, CC0 1.0 (recoloured): https://www.rawpixel.com/image/6039264
-  License: https://creativecommons.org/publicdomain/zero/1.0/
+  Photo credits (Storelib, round 26: streetwear samples). Real photographs of
+  garments on their hangers, from Unsplash (Unsplash License), cut out by
+  machine and cleaned by hand; the hook above each is drawn by the section,
+  so the photographs' own hooks are trimmed off.
+  1 Charcoal hoodie, 3 Oat hoodie, 5 Forest hoodie, 7 Grey hoodie
+      - https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77, the white hoodie tinted
+  2 White boxy tee  - https://images.unsplash.com/photo-1778671394516-8270eac13c42
+  4 Black long sleeve, 6 Black boxy tee
+      - https://images.unsplash.com/photo-1610502778270-c5c6f4c7d575
+  8 Black crew      - https://images.unsplash.com/photo-1618354691551-44de113f0164
+  The side views are drawn from each garment's own front photograph (strips of
+  it resampled into a garment hanging side on); they are not photographs taken
+  from the side. License: https://unsplash.com/license
 {%- endcomment -%}
 {%- liquid
   assign n = index | default: kind | default: 0 | modulo: 8 | plus: 1

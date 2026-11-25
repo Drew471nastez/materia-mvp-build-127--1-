@@ -91,6 +91,39 @@
       }
     ]
   },
+  "shop-filter": {
+    "title": "Shop by kind",
+    "links": [
+      {
+        "title": "Everything",
+        "url": "/collections/all"
+      },
+      {
+        "title": "Fonts",
+        "url": "/collections/fonts"
+      },
+      {
+        "title": "Presets",
+        "url": "/collections/presets"
+      },
+      {
+        "title": "Brushes and textures",
+        "url": "/collections/brushes-textures"
+      },
+      {
+        "title": "Templates",
+        "url": "/collections/templates"
+      },
+      {
+        "title": "Guides and courses",
+        "url": "/collections/guides-courses"
+      },
+      {
+        "title": "Bundles",
+        "url": "/collections/bundles"
+      }
+    ]
+  },
   "footer-help": {
     "title": "Help",
     "links": [
@@ -107,8 +140,8 @@
         "url": "/pages/contact"
       },
       {
-        "title": "Refund policy",
-        "url": "/policies/refund-policy"
+        "title": "Shop by kind",
+        "url": "/collections"
       }
     ]
   },

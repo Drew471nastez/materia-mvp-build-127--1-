@@ -618,6 +618,14 @@ function productMetafields(s: Record<string, unknown>, rating?: unknown, product
     custom.sold_count = { ...field, namespace: "custom" }
     storelib.sold_count = { ...field, namespace: "storelib" }
   }
+  /* `custom.sold_count_24h`, `_7d`, `_30d` (round 26): the units of that count sold in the last 24 hours, 7 days and 30 days, from the same paid orders. Absent when not read whole, as above. */
+  for (const w of ["24h", "7d", "30d"] as const) {
+    const n = s[`sold_count_${w}`]
+    if (typeof n !== "number" || !Number.isInteger(n) || n < 0) continue
+    const field = { [OUTPUT]: String(n), value: n, key: `sold_count_${w}`, type: "number_integer" }
+    custom[`sold_count_${w}`] = { ...field, namespace: "custom" }
+    storelib[`sold_count_${w}`] = { ...field, namespace: "storelib" }
+  }
   const reviews = reviewMetafields(rating)
   /* `storelib.reviews`: the same numbers with how many reviews gave each star, for a theme that draws the bars. */
   const summary = storelibReviewSummary(rating)

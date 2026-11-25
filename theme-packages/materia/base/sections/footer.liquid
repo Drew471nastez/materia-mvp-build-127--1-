@@ -529,64 +529,52 @@
       {{ footer_custom_header }}
     {%- endif -%}
     <div class="{{ container }}">
-      <div class="footer_bottom-inner justify-center justify-md-end flex flex-wrap flex-md-nowrap align-center border-top gap-20 gap-xl-30 py-30">
-        {%- if section_st.enable_country_selector
-          or section_st.enable_language_selector
-          or section_st.copyright_text
-          or shop.policies.size > 0
-          or powered_by_link != blank
+      {%- comment -%}
+        Round 26: the bottom band in two tidy rows. The first holds the
+        market and language pickers, with the payment badges at its end;
+        the second the copyright, policies and Powered by Storelib, with
+        the social icons (one row) at its end. Without pickers it is one
+        row: the legal line, then the icons and badges. On a phone every
+        group stacks, centred.
+      {%- endcomment -%}
+      {%- liquid
+        assign fb_has_social_host = false
+        for fb in section.blocks
+          if fb.type == 'store_info' or fb.type == 'newsletter'
+            assign fb_has_social_host = true
+          endif
+        endfor
+      -%}
+      {%- liquid
+        assign fb_show_social = false
+        if section_st.show_social and fb_has_social_host == false
+          assign fb_show_social = true
+        endif
+      -%}
+      {%- capture fb_localization -%}
+        {%- liquid
+          assign ft_cur = false
+          assign ft_lang = false
+          if section_st.enable_country_selector
+            assign ft_cur = true
+          endif
+          if section_st.enable_language_selector
+            assign ft_lang = true
+          endif
         -%}
-          <div class="flex flex-wrap gap-10 gap-xl-30 justify-center justify-md-start">
-            {%- liquid
-              assign ft_cur = false
-              assign ft_lang = false
-              if section_st.enable_country_selector
-                assign ft_cur = true
-              endif
-              if section_st.enable_language_selector
-                assign ft_lang = true
-              endif
-            -%}
-            {%- if ft_cur or ft_lang -%}
-              <div class="footer__column footer__localization lang__currency-desktop flex flex-nowrap align-center gap-10">
-                {%- comment -%} One market or one language: the current one as a quiet label (static_single), like the header. {%- endcomment -%}
-                {%- if ft_cur -%}
-                  {%- render 'country-switcher', static_single: true -%}
-                {% endif %}
-                {%- if ft_lang -%}
-                  {%- render 'language-switcher', static_single: true -%}
-                {% endif %}
-              </div>
+        {%- if ft_cur or ft_lang -%}
+          <div class="footer__column footer__localization lang__currency-desktop flex flex-nowrap align-center gap-10">
+            {%- comment -%} One market or one language: the current one as a quiet label (static_single), like the header. {%- endcomment -%}
+            {%- if ft_cur -%}
+              {%- render 'country-switcher', static_single: true -%}
             {% endif %}
-            {%- if section_st.copyright_text %}
-              <div class="footer__copyright" data-ft-copyright>{{ section_st.copyright_text }}</div>
+            {%- if ft_lang -%}
+              {%- render 'language-switcher', static_single: true -%}
             {% endif %}
-            {%- comment -%} The store's own policies (refunds, privacy, terms, shipping), each linked once it has been written. A store with none shows no links. {%- endcomment -%}
-            {%- if section_st.show_policy_links != false and shop.policies.size > 0 -%}
-              <ul class="footer__policies list-unstyled flex flex-wrap" data-ft-policies>
-                {%- for policy in shop.policies -%}
-                  <li><a href="{{ policy.url }}">{{ policy.title | escape }}</a></li>
-                {%- endfor -%}
-              </ul>
-            {%- endif -%}
-            {%- comment -%} "Powered by Storelib", small, by the copyright line. Storelib decides it on the server: Theme settings › Store Information hides it only on a paid plan (lib/storelib-theme/compat/powered-by.ts). {%- endcomment -%}
-            {%- if powered_by_link != blank -%}
-              <div class="footer__powered" data-ft-powered>{{ powered_by_link }}</div>
-            {%- endif -%}
           </div>
         {% endif %}
-
-        {%- liquid
-          assign fb_has_social_host = false
-          for fb in section.blocks
-            if fb.type == 'store_info' or fb.type == 'newsletter'
-              assign fb_has_social_host = true
-            endif
-          endfor
-        -%}
-        {%- if section_st.show_social and fb_has_social_host == false -%}
-          <social-icon class="block footer__social-bottom">{% render 'social-icons' %}</social-icon>
-        {%- endif -%}
+      {%- endcapture -%}
+      {%- capture fb_payments -%}
         {%- comment -%}
           Payment badges row — rendered HERE (in the bottom band, on
           the same line as the © copyright text) when the merchant has
@@ -665,6 +653,55 @@
             </ul>
           </div>
         {%- endif -%}
+      {%- endcapture -%}
+      {%- assign fb_localization = fb_localization | strip -%}
+      {%- assign fb_payments = fb_payments | strip -%}
+      {%- capture fb_legal -%}
+        {%- if section_st.copyright_text or shop.policies.size > 0 or powered_by_link != blank -%}
+          <div class="footer-bottom__legal">
+              {%- if section_st.copyright_text %}
+                <div class="footer__copyright" data-ft-copyright>{{ section_st.copyright_text }}</div>
+              {% endif %}
+              {%- comment -%} The store's own policies (refunds, privacy, terms, shipping), each linked once it has been written. A store with none shows no links. {%- endcomment -%}
+              {%- if section_st.show_policy_links != false and shop.policies.size > 0 -%}
+                <ul class="footer__policies list-unstyled flex flex-wrap" data-ft-policies>
+                  {%- for policy in shop.policies -%}
+                    <li><a href="{{ policy.url }}">{{ policy.title | escape }}</a></li>
+                  {%- endfor -%}
+                </ul>
+              {%- endif -%}
+              {%- comment -%} "Powered by Storelib", small, by the copyright line. Storelib decides it on the server: Theme settings › Store Information hides it only on a paid plan (lib/storelib-theme/compat/powered-by.ts). {%- endcomment -%}
+              {%- if powered_by_link != blank -%}
+                <div class="footer__powered" data-ft-powered>{{ powered_by_link }}</div>
+              {%- endif -%}
+          </div>
+        {%- endif -%}
+      {%- endcapture -%}
+      {%- capture fb_social -%}
+        {%- if fb_show_social -%}
+          <social-icon class="block footer__social-bottom">{% render 'social-icons' %}</social-icon>
+        {%- endif -%}
+      {%- endcapture -%}
+      {%- assign fb_social = fb_social | strip -%}
+      <div class="footer_bottom-inner footer-bottom border-top{% if fb_localization == blank %} footer-bottom--one-row{% endif %}">
+        {%- if fb_localization != blank -%}
+          <div class="footer-bottom__row footer-bottom__row--utility">
+            {{ fb_localization }}
+            {{ fb_payments }}
+          </div>
+          <div class="footer-bottom__row footer-bottom__row--legal">
+            {{ fb_legal }}
+            {{ fb_social }}
+          </div>
+        {%- else -%}
+          <div class="footer-bottom__row footer-bottom__row--legal">
+            {{ fb_legal }}
+            {%- if fb_social != blank or fb_payments != blank -%}
+              <div class="footer-bottom__end">{{ fb_social }}{{ fb_payments }}</div>
+            {%- endif -%}
+          </div>
+        {%- endif -%}
+        </div>
       </div>
     </div>
   </div>

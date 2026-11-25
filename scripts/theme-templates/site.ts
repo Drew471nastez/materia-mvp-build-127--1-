@@ -80,9 +80,19 @@ export interface SampleProduct {
   product's own numbers, never typed ones) have something to draw in the
   previews and covers. A live store draws its own reviews and paid orders.
 */
-function sampleProof(p: SampleProduct, i: number): { rating: { value: number; count: number }; sold: number } {
+/*
+  Sample units sold (round 26): small, ordinary numbers for a young shop,
+  as the Sold counter shows them ("3 sold in the last 24 hours"). Some
+  products sold none today, so their counter is hidden, as on a live store.
+  The week and month always hold at least the day before them.
+*/
+function sampleProof(p: SampleProduct, i: number): { rating: { value: number; count: number }; sold: number; h24: number; d7: number; d30: number } {
   const [value, count] = p.rating ?? [[4.9, 4.8, 4.7, 4.9, 4.8, 4.6][i % 6], 14 + ((i * 23) % 71)]
-  return { rating: { value, count }, sold: p.sold ?? 6 + ((i * 11) % 37) }
+  const all = p.sold ?? 6 + ((i * 11) % 37)
+  const d30 = Math.min(all, 3 + ((i * 7) % 9))
+  const d7 = Math.min(d30, 2 + ((i * 5) % 5))
+  const h24 = Math.min(d7, [3, 2, 0, 4, 1, 2, 0, 3][i % 8])
+  return { rating: { value, count }, sold: all, h24, d7, d30 }
 }
 
 const money = (n: number) => `$${n.toFixed(2)}`
@@ -123,7 +133,7 @@ function card(p: SampleProduct, i: number, imageUrl: (name: string) => string, c
       title: p.title, slug, url: `/products/${slug}`, price: p.price, compare_price: p.compare ?? "", currency, free: false, pay_what_you_want: false,
       image, images, kind: p.kind ?? "physical", available: true, tag: "", checkout_url: `/checkout/${slug}`,
       description: p.description ?? "", description_html: p.description ? `<p>${p.description}</p>` : "", variants, options: (p.options ?? []).slice(0, 3), category: "",
-      sold_count: proof.sold,
+      sold_count: proof.sold, sold_count_24h: proof.h24, sold_count_7d: proof.d7, sold_count_30d: proof.d30,
     },
   }
 }

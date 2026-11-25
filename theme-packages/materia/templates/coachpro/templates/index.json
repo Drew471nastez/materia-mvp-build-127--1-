@@ -1,4 +1,4 @@
-/* Templates round 21: a business coach for creative founders. Round 26: the coach is Marcus Hale, a sample coach, pictured in one Unsplash photo session at his desk; Hanken Grotesk headings; the home page is the hero with a wider gap to the photo, a marquee of topics, hello, the three programmes, pricing cards linked to their products, the show, client stories, the free worksheet, questions and a last call. The Sunday letter sign up sits on the right of the footer. */
+/* Templates round 21: a business coach for creative founders. Round 26: the coach is Marcus Hale, a sample coach, pictured in one Unsplash photo session at his desk; Hanken Grotesk headings; the home page is the hero with a wider gap to the photo, hello, a marquee of topics, the three programmes, pricing cards linked to their products, the show, client stories, the free worksheet, questions and a last call. The Sunday letter sign up sits on the right of the footer. */
 {
   "sections": {
     "hero": {
@@ -641,8 +641,8 @@
   },
   "order": [
     "hero",
-    "topics",
     "hello",
+    "topics",
     "intro",
     "programmes",
     "prices",

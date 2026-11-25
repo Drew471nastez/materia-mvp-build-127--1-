@@ -6,19 +6,19 @@
       "settings": {
         "color_scheme": "default",
         "section_width": "container",
-        "content_alignment": "left",
         "reset_spacing": true,
+        "alignment": "left",
+        "height": "based_on_content",
         "padding_top": 64,
-        "padding_bottom": 24,
-        "padding_top_mobile": 40,
-        "padding_bottom_mobile": 16
+        "padding_bottom": 24
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "heading": "The licence, in plain words",
-            "heading_size": "h1"
+            "page_title": "The licence, in plain words",
+            "header_size": "large",
+            "vertical_gap": 10
           }
         },
         "description_2": {

@@ -12,13 +12,13 @@
       if(cache.size>30)cache.delete(cache.keys().next().value);
     }
     const doc=await entry.promise;if(!doc||!root.isConnected)return;
-    const source=[...doc.querySelectorAll('[data-product-counter-source]')].find(el=>el.dataset.productCounterSource===id),raw=source?.dataset.sold;
+    const source=[...doc.querySelectorAll('[data-product-counter-source]')].find(el=>el.dataset.productCounterSource===id),win={'24h':'soldDay','7d':'soldWeek','30d':'soldMonth'}[root.dataset.soldWindow]||'sold',raw=source?.dataset[win];
     if(!source)return;
     if(raw==null||!/^\d+$/.test(raw.trim())){const row=root.querySelector('.rs__sold');if(row)row.hidden=true;return;}
     const count=Number(raw);if(!Number.isSafeInteger(count))return;
     const value=root.querySelector('[data-verified-sold-count]');if(value){const text=value.textContent.replace(/^\s*\d+/,String(count));if(text!==value.textContent)value.textContent=text;}
-    // A published zero is real data. An absent count is unknown, not zero.
-    const row=root.querySelector('.rs__sold');if(row)row.hidden=false;
+    // An absent count is unknown, and a zero has nothing to say yet: both stay hidden.
+    const row=root.querySelector('.rs__sold');if(row)row.hidden=count<1;
   }
   const observer='IntersectionObserver'in window?new IntersectionObserver(entries=>entries.forEach(entry=>{if(entry.isIntersecting)update(entry.target);})):null;
   function scan(){seen.forEach(root=>{if(!root.isConnected){observer?.unobserve(root);seen.delete(root);}});document.querySelectorAll('[data-live-sold-source="product"]').forEach(root=>{if(seen.has(root))return;seen.add(root);observer?.observe(root);update(root);});}

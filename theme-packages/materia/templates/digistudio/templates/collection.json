@@ -45,14 +45,14 @@
         "toolbar_button_style": "pill",
         "padding_top": 16,
         "padding_bottom": 88,
-        "items_per_row_mobile": "1"
+        "items_per_row_mobile": "2"
       },
       "blocks": {
         "categories_1": {
           "type": "categories",
           "settings": {
-            "title": "Templates",
-            "menu": "templates-filter"
+            "title": "Shop by kind",
+            "menu": "shop-filter"
           }
         }
       },

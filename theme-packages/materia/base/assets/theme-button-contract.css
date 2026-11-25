@@ -131,6 +131,16 @@
     border-radius: 0 !important; padding-inline: 0 !important;
   }
   [data-theme-button]:focus-visible { outline: 2px solid currentColor !important; outline-offset: 3px; }
+  /* Round 26: every other button, link and control gets a ring in the
+     theme's colours when reached by keyboard, instead of the browser's
+     default (blue in Safari). Layered and unweighted: a section's own focus
+     style still wins. A mouse or tap focus draws nothing. */
+  :where(button, [role='button'], input[type='submit'], input[type='button'], input[type='reset'], a, summary, select, [tabindex]:not([tabindex='-1'])):focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--input-focus-color, var(--color-heading, currentColor)) 70%, transparent);
+    outline-offset: 2px;
+  }
+  :where(button, [role='button'], input, select, textarea, a, summary, [tabindex]):focus:not(:focus-visible) { outline: none; }
+  :where(button, [role='button'], input, select, textarea, a, summary, label) { -webkit-tap-highlight-color: transparent; }
   @media (hover: hover) {
     [data-theme-button][data-button-hover='darken']:not(:disabled):hover { filter: brightness(.9); }
     [data-theme-button][data-button-hover='underline']:not(:disabled):hover { text-decoration: underline !important; text-underline-offset: .2em; }
@@ -265,8 +275,10 @@
     fill:none !important;
   }
   :is(input,select,textarea):not([type='hidden'],[type='checkbox'],[type='radio'],[type='range'],[type='color'],[type='file'],[type='submit'],[type='button'],[type='reset']):not(:where(.loc-sheet-search,.mcp-search,[data-sheet-search]) *):focus-visible {
-    outline: 2px solid var(--input-focus-color, var(--color-primary, currentColor)) !important;
-    outline-offset: 2px;
+    /* Round 26: a quiet ring in the theme's own colour (Theme settings > Focus ring, else the heading colour), never the browser's blue. */
+    outline: 2px solid color-mix(in srgb, var(--input-focus-color, var(--color-heading, currentColor)) 70%, transparent) !important;
+    outline-offset: 1px;
+    box-shadow: none;
   }
   form label:where(:not([data-own-font], [data-own-font] *)) { font-family:var(--body-font,sans-serif) !important; }
   form label:where(:not([data-own-weight], [data-own-weight] *)) { font-weight: var(--body-weight,400) !important; }

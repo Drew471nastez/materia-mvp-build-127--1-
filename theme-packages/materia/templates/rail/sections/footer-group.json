@@ -5,11 +5,11 @@
     "footer": {
       "type": "footer",
       "settings": {
-        "custom_text": "SIXTH WARD",
-        "padding_top": 48,
+        "custom_text": "KURB CLUB",
+        "padding_top": 72,
         "show_social": false,
-        "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636",
-        "custom_image": "",
+        "color_scheme": "default",
+        "custom_image": "shopify://shop_images/rail-logo.webp",
         "reset_spacing": true,
         "section_width": "stretch_width",
         "copyright_text": "© {{ 'now' | date: '%Y' }} {{ shop.name }}",
@@ -20,20 +20,20 @@
         "link_hover_color": "",
         "heading_transform": "uppercase",
         "custom_text_italic": false,
-        "custom_elements_gap": 20,
-        "enable_custom_image": false,
+        "custom_elements_gap": 56,
+        "enable_custom_image": true,
         "enable_custom_style": false,
         "footer_heading_size": 13,
         "enable_custom_text_big": false,
         "enable_country_selector": true,
-        "custom_image_size_mobile": 60,
+        "custom_image_size_mobile": 320,
         "enable_language_selector": true,
-        "custom_image_size_desktop": 64,
+        "custom_image_size_desktop": 600,
         "custom_text_font_size_mobile": 52,
         "custom_text_font_size_desktop": 200,
         "show_policy_links": true,
         "show_payment_icons": true,
-        "custom_header_position": "bottom"
+        "custom_header_position": "top"
       },
       "blocks": {
         "newsletter": {
@@ -138,7 +138,7 @@
         "w1": {
           "type": "word",
           "settings": {
-            "text": "Sixth Ward"
+            "text": "Kurb Club"
           }
         },
         "w2": {

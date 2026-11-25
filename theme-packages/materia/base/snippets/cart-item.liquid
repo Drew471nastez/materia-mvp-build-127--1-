@@ -98,40 +98,6 @@
         </li>
       {%- endfor -%}
     </ul>
-    {% if hidden_price == false %}
-      <div class="minicart__item-prices mt-3 flex flex-wrap grow-1">
-        <span class="minicart__item-price heading-style">
-          {% if show_currency_code %}{{ item.final_line_price | money_with_currency }}{% else %}{{ item.final_line_price | money }}{% endif %}
-        </span>
-        {% if item.original_line_price > item.final_line_price %}
-          <s class="minicart__item-original-price">{% if show_currency_code %}{{ item.original_line_price | money_with_currency }}{% else %}{{ item.original_line_price | money }}{% endif %}</s>
-        {% endif %}
-        {%- if item.variant.available and item.unit_price_measurement -%}
-          <div class="unit-price caption">
-            <span class="visually-hidden">{{ 'products.product.price.unit_price' | t }}</span>
-            {% if show_currency_code %}
-              {{ item.variant.unit_price | money_with_currency }}
-            {% else %}
-              {{ item.variant.unit_price | money }}
-            {% endif %}
-            <span aria-hidden="true">/</span>
-            <span class="visually-hidden">&nbsp;{{ 'accessibility.unit_price_separator' | t }}&nbsp;</span>
-            {%- if item.variant.unit_price_measurement.reference_value != 1 -%}
-              {{- item.variant.unit_price_measurement.reference_value -}}
-            {%- endif -%}
-            {{ item.variant.unit_price_measurement.reference_unit }}
-          </div>
-        {%- endif -%}
-        <div
-          class="cart-item__error inline-flex align-start"
-          id="CartDrawer-LineItemError-{{ item.key }}"
-          role="alert"
-        >
-          <span class="cart-item__error-text cart-item__error-text-{{ item.id }}"></span>
-          {%- render 'icon-error' -%}
-        </div>
-      </div>
-    {% endif %}
     <div class="cart-item__controls">
         {% if theme_st.enable_catalog_mode != true and show_quantity %}
           <div class="minicart__actions mt-6 flex grow-1 bottom-left w-full">
@@ -177,6 +143,33 @@
             </quantity-input>
           </div>
         {% endif %}
+    {%- comment -%} Round 26: the line price sits in the quantity row, centred with the stepper and the remove button. {%- endcomment -%}
+    {% if hidden_price == false %}
+      <div class="minicart__item-prices flex flex-wrap">
+        <span class="minicart__item-price heading-style">
+          {% if show_currency_code %}{{ item.final_line_price | money_with_currency }}{% else %}{{ item.final_line_price | money }}{% endif %}
+        </span>
+        {% if item.original_line_price > item.final_line_price %}
+          <s class="minicart__item-original-price">{% if show_currency_code %}{{ item.original_line_price | money_with_currency }}{% else %}{{ item.original_line_price | money }}{% endif %}</s>
+        {% endif %}
+        {%- if item.variant.available and item.unit_price_measurement -%}
+          <div class="unit-price caption">
+            <span class="visually-hidden">{{ 'products.product.price.unit_price' | t }}</span>
+            {% if show_currency_code %}
+              {{ item.variant.unit_price | money_with_currency }}
+            {% else %}
+              {{ item.variant.unit_price | money }}
+            {% endif %}
+            <span aria-hidden="true">/</span>
+            <span class="visually-hidden">&nbsp;{{ 'accessibility.unit_price_separator' | t }}&nbsp;</span>
+            {%- if item.variant.unit_price_measurement.reference_value != 1 -%}
+              {{- item.variant.unit_price_measurement.reference_value -}}
+            {%- endif -%}
+            {{ item.variant.unit_price_measurement.reference_unit }}
+          </div>
+        {%- endif -%}
+      </div>
+    {% endif %}
     <div class="minicart__bottom minicart__bottom--top-right absolute flex flex-column gap-8 top-0 {% if enable_rtl %}left-0{% else %}right-0{% endif %}">
       <svg hidden>
         <symbol id="icon-trash" viewBox="0 0 14 14">
@@ -215,6 +208,16 @@
       </mini-cart-remove-button>
     </div>
     </div>
+    {% if hidden_price == false %}
+      <div
+          class="cart-item__error inline-flex align-start"
+          id="CartDrawer-LineItemError-{{ item.key }}"
+          role="alert"
+        >
+          <span class="cart-item__error-text cart-item__error-text-{{ item.id }}"></span>
+          {%- render 'icon-error' -%}
+        </div>
+    {% endif %}
     {%- if settings.cart_drawer_show_variant_edit != false and item.product.has_only_default_variant == false -%}
       <cart-item-variant-switch id="cart-variants-{{ item.key | handleize }}" class="cart-item__variant-picker" hidden
         data-line-key="{{ item.key | escape }}"

@@ -8,5 +8,5 @@
 {% enddoc -%}
 {%- assign counter_product = product | default: page.product -%}
 {%- if counter_product.id != blank -%}
-<template data-product-counter-source="{{ counter_product.id }}" data-sold="{{ counter_product.metafields.custom.sold_count.value | default: counter_product.metafields.custom.sold_count | escape }}"></template>
+<template data-product-counter-source="{{ counter_product.id }}" data-sold="{{ counter_product.metafields.custom.sold_count.value | default: counter_product.metafields.custom.sold_count | escape }}" data-sold-day="{{ counter_product.metafields.custom.sold_count_24h.value | default: counter_product.metafields.custom.sold_count_24h | escape }}" data-sold-week="{{ counter_product.metafields.custom.sold_count_7d.value | default: counter_product.metafields.custom.sold_count_7d | escape }}" data-sold-month="{{ counter_product.metafields.custom.sold_count_30d.value | default: counter_product.metafields.custom.sold_count_30d | escape }}"></template>
 {%- endif -%}

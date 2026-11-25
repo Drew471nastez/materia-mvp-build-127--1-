@@ -365,9 +365,9 @@
       {%- render 'quantity-style' -%}
       {%- if settings.storelib_input_focus != blank -%}
         :root, body, [class*="color-"] { --input-focus-color: {{ settings.storelib_input_focus }}; }
-        input:focus, textarea:focus, select:focus {
-          outline: 2px solid {{ settings.storelib_input_focus }};
-          outline-offset: 2px;
+        input:focus-visible, textarea:focus-visible, select:focus-visible {
+          outline: 2px solid color-mix(in srgb, {{ settings.storelib_input_focus }} 70%, transparent);
+          outline-offset: 1px;
         }
       {%- endif -%}
       {%- if settings.storelib_input_radius != blank and settings.storelib_input_radius >= 0 -%}

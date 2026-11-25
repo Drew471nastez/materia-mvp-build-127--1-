@@ -16,7 +16,7 @@
         "heading_1": {
           "type": "heading",
           "settings": {
-            "page_title": "",
+            "page_title": "Journal",
             "header_size": "large",
             "vertical_gap": 10
           }

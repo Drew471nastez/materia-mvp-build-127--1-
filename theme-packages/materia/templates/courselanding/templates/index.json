@@ -1,4 +1,4 @@
-/* Templates round 20: one course sold on a one offer page. Round 26: Arch Pilates gets a drawn arch mark and wordmark, Bodoni Moda headings, a 50/50 hero (Hero Product 3) that opens with overlapping student avatars and a short sample review, a marquee of the moves in espresso, the free videos comparison on espresso, pill selectors in the offer and a compact footer. */
+/* Templates round 20: one course sold on a one offer page. Round 26: Arch Pilates gets a drawn arch mark and wordmark, Bodoni Moda headings, a 50/50 hero (Hero Product 3) that opens with overlapping student avatars and a short sample review, a marquee of the moves in espresso after who it is for, the free videos comparison on espresso, pill selectors in the offer and a compact footer. */
 {
   "sections": {
     "hero": {
@@ -1052,8 +1052,8 @@
   },
   "order": [
     "hero",
-    "moves",
     "start",
+    "moves",
     "week",
     "weeks",
     "coach",

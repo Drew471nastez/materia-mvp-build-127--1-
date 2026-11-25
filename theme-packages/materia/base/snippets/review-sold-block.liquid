@@ -36,8 +36,27 @@
   endcomment
   assign sold_raw = ''
   assign sold_from_block = false
+  comment
+    Round 26: the Sold counter says what sold recently, "5 sold in the last
+    24 hours", from the product's paid orders in that window
+    (custom.sold_count_24h, _7d, _30d); "all" is every sale. Only the Sold
+    counter block has the setting; the combined block keeps every sale.
+  endcomment
+  assign sold_window = 'all'
+  if mode == 'sold'
+    assign sold_window = st.sold_window | default: '24h'
+  endif
   if st.sold_source != 'manual'
-    assign sold_raw = product.metafields.custom.sold_count.value | default: product.metafields.custom.sold_count | default: ''
+    case sold_window
+      when '24h'
+        assign sold_raw = product.metafields.custom.sold_count_24h.value | default: product.metafields.custom.sold_count_24h | default: ''
+      when '7d'
+        assign sold_raw = product.metafields.custom.sold_count_7d.value | default: product.metafields.custom.sold_count_7d | default: ''
+      when '30d'
+        assign sold_raw = product.metafields.custom.sold_count_30d.value | default: product.metafields.custom.sold_count_30d | default: ''
+      else
+        assign sold_raw = product.metafields.custom.sold_count.value | default: product.metafields.custom.sold_count | default: ''
+    endcase
   endif
   assign sold_count = sold_raw | plus: 0
   assign sold_ok = false
@@ -56,6 +75,19 @@
     assign sold_count = 0
   endif
   assign sold_hours = 0
+  assign sold_period_unit = st.hours_label | default: 'hours'
+  if sold_from_block == false and st.sold_source != 'manual'
+    case sold_window
+      when '24h'
+        assign sold_hours = 24
+      when '7d'
+        assign sold_hours = 7
+        assign sold_period_unit = st.days_label | default: 'days'
+      when '30d'
+        assign sold_hours = 30
+        assign sold_period_unit = st.days_label | default: 'days'
+    endcase
+  endif
   if sold_from_block
     assign hours_raw = st.hours | strip
     assign sold_hours = hours_raw | plus: 0
@@ -105,10 +137,9 @@
   if rs_sold_enabled and sold_count > 0
     assign show_sold = true
   endif
-  assign sold_nondigits = sold_raw | append: '' | remove: '0' | remove: '1' | remove: '2' | remove: '3' | remove: '4' | remove: '5' | remove: '6' | remove: '7' | remove: '8' | remove: '9' | strip
-  if rs_sold_enabled and mode == 'sold' and st.sold_source != 'manual' and sold_raw != blank and sold_count == 0 and sold_nondigits == blank
-    assign show_sold = true
-  endif
+  comment
+    A count of 0 is not shown (round 26): the line appears once something sells.
+  endcomment
   assign show_app = false
   if rs_reviews_enabled and rating_from_app
     assign show_app = true
@@ -133,7 +164,7 @@
   class="review_sold rs rs--{{ rs_style }}"
   id="review-sold-{{ block.id }}"
   {{ block.shopify_attributes }}
-  {% if mode == 'sold' and st.sold_source != 'manual' and st.refresh_sold_count != false %}data-live-sold-source="product" data-product-counter-id="{{ product.id }}" data-product-counter-url="{{ product.url | escape }}"{% endif %}
+  {% if mode == 'sold' and st.sold_source != 'manual' and st.refresh_sold_count != false %}data-live-sold-source="product" data-sold-window="{{ sold_window | escape }}" data-product-counter-id="{{ product.id }}" data-product-counter-url="{{ product.url | escape }}"{% endif %}
   style="{% if mode != blank and rs_custom == false %}--rs-size-m:calc(var(--body-font-size,16px) * .875); --rs-size-d:calc(var(--body-font-size,16px) * .875);{% else %}--rs-size-m: {{ st.font_size_mobile | default: 13 }}px; --rs-size-d: {{ st.font_size_desktop | default: 14 }}px;{% endif %} --rs-pt: {{ st.padding_top | default: 0 }}px; --rs-pb: {{ st.padding_bottom | default: 0 }}px;
     {%- if rs_custom and st.star_color != blank %} --rs-star: {{ st.star_color }};{% endif -%}
     {%- if rs_custom and st.text_color != blank %} --rs-text: {{ st.text_color }};{% endif -%}
@@ -157,7 +188,7 @@
   {%- if show_sold or rs_live_sold -%}
     <span class="product-sold rs__sold"{% unless show_sold %} hidden{% endunless %}>
       {%- if st.show_live_dot != false -%}<span class="product-sold__dot rs__dot" aria-hidden="true"></span>{%- endif -%}
-      <span data-verified-sold-count>{{ sold_count }} {{ st.sold_label | default: 'sold' | escape_once }}{% if sold_hours > 0 %} {{ st.sold_period_label | default: 'in the last' | escape_once }} {{ sold_hours }} {{ st.hours_label | default: 'hours' | escape_once }}{% endif %}</span>
+      <span data-verified-sold-count>{{ sold_count }} {{ st.sold_label | default: 'sold' | escape_once }}{% if sold_hours > 0 %} {{ st.sold_period_label | default: 'in the last' | escape_once }} {{ sold_hours }} {{ sold_period_unit | escape_once }}{% endif %}</span>
     </span>
   {%- endif -%}
 </div>
@@ -172,6 +203,12 @@
   if rs_sold_enabled and show_sold == false
     if st.sold contains ','
       assign rs_note = rs_note | append: ' Sold: “' | append: st.sold | append: '” is a list; type one number.'
+    elsif mode == 'sold' and st.sold_source != 'manual'
+      if sold_hours > 0
+        assign rs_note = rs_note | append: ' Sold: nothing sold in the last ' | append: sold_hours | append: ' ' | append: sold_period_unit | append: ' yet. The line shows once an order is paid.'
+      else
+        assign rs_note = rs_note | append: ' Sold: nothing sold yet. The line shows once an order is paid.'
+      endif
     else
       assign rs_note = rs_note | append: ' Sold: type a number here or fill custom.sold_count.'
     endif
