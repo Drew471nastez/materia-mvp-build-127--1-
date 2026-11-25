@@ -927,10 +927,14 @@
     endif
     assign menu_size = section_st.menu_font_size | default: 15
     assign menu_vars = menu_vars | append: '--hs-menu-size: ' | append: menu_size | append: 'px;'
-    if section_st.menu_font_weight != blank and section_st.menu_font_weight != 'theme'
-      assign own_weight = true
-      assign menu_vars = menu_vars | append: '--hs-menu-weight: ' | append: section_st.menu_font_weight | append: ';'
-    endif
+  endif
+  comment
+    The menu's weight works on its own, with or without the custom font
+    (a template can make its menu a step heavier and keep the theme's font).
+  endcomment
+  if section_st.menu_font_weight != blank and section_st.menu_font_weight != 'theme'
+    assign own_weight = true
+    assign menu_vars = menu_vars | append: '--hs-menu-weight: ' | append: section_st.menu_font_weight | append: ';'
   endif
   assign theme_hover = settings.menu_hover_style | default: 'underline'
   if hover_retired contains theme_hover
@@ -2119,9 +2123,8 @@
     {
       "type": "select",
       "id": "menu_font_weight",
-      "label": "Weight",
+      "label": "Menu weight",
       "default": "theme",
-      "visible_if": "{{ section.settings.enable_custom_fonts }}",
       "options": [
         {
           "value": "theme",

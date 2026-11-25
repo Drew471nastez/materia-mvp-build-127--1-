@@ -446,7 +446,7 @@ section("Start with AI makes the website from the closest Materia template")
   const files = db.tables.files.filter((f) => real.ok && f.install_id === real.installId)
   const pages = db.tables.pages.filter((p) => real.ok && p.install_id === real.installId)
   check("the real import: a draft install, first in the library, named for the creator", real.ok && row?.status === "draft" && row?.name === "Mateo's coaching" && row?.is_custom === true, { real, row })
-  check("  Materia's own section files (compat), its pages with the template's sections, its settings", files.length > 200 && files.some((f) => f.path === "sections/hero-section-pro.storelib" && /<template compat="shopify">/.test(String(f.content))) && pages.some((p) => p.page_key === "home" && (p.sections as { type: string }[]).some((x) => x.type === "hero-section-pro")) && db.tables.settings.some((x) => real.ok && x.install_id === real.installId), { files: files.length, pages: pages.map((p) => p.page_key) })
+  check("  Materia's own section files (compat), its pages with the template's sections, its settings", files.length > 200 && files.some((f) => /<template compat="shopify">/.test(String(f.content))) && pages.some((p) => p.page_key === "home" && (p.sections as { type: string }[]).length >= 5 && (p.sections as { type: string }[]).every((x) => files.some((f) => f.path === `sections/${x.type}.storelib`))) && db.tables.settings.some((x) => real.ok && x.install_id === real.installId), { files: files.length, pages: pages.map((p) => p.page_key) })
 
   for (const what of ["pages.insert", "settings.insert", "files.insert"] as const) {
     const broken = fakeDb({ installs: [install()], themes: catalogue }, { fail: { [what]: { message: "boom" } } })

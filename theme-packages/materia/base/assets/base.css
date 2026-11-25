@@ -8853,6 +8853,7 @@ img, svg, video, iframe, canvas, table, pre,
 lite-youtube, model-viewer, .shopify-installments {
   max-width: 100%;
 }
+:where(img[width][height]) { height: auto; }
 html { --mat-sbw: 0px !important; }
 html.sl-sb-room { scrollbar-gutter: stable; }
 body { padding-right: 0 !important; }

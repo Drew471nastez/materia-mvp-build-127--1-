@@ -305,7 +305,7 @@
     prop(H, '--menu-hover-color', st.hoverColor || (hv === 'color' ? 'var(--color-primary, currentColor)' : 'var(--color-link-hover, currentColor)'));
   }
   function menuType(H, st) {
-    const on = st.fonts, f = on ? st.font : '', w = on && st.weight && st.weight !== 'theme' ? st.weight : '';
+    const on = st.fonts, f = on ? st.font : '', w = st.weight && st.weight !== 'theme' ? st.weight : '';
     attr(H, 'data-own-size', on);
     attr(H, 'data-own-font', !!f);
     attr(H, 'data-own-weight', !!w);

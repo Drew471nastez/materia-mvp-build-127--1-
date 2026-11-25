@@ -215,7 +215,14 @@
     -}}
   </picture>
 {% else %}
+  {%- comment -%} A width passed in (a logo's) takes the picture's own proportions for its height, so it is never drawn at the original's full height. {%- endcomment -%}
   {% assign width = width | default: image.width %}
+  {%- liquid
+    assign ri_height = image.height
+    if width != image.width and image.width > 0
+      assign ri_height = width | times: image.height | divided_by: image.width | round
+    endif
+  -%}
   {{-
     image
     | image_url: width: image.width
@@ -224,7 +231,7 @@
       fetchpriority: fetch_priority,
       decoding: decoding,
       width: width,
-      height: image.height,
+      height: ri_height,
       sizes: sizes,
       class: class,
       widths: widths,
@@ -431,7 +438,14 @@
     -}}
   </picture>
 {% else %}
+  {%- comment -%} A width passed in (a logo's) takes the picture's own proportions for its height, so it is never drawn at the original's full height. {%- endcomment -%}
   {% assign width = width | default: image.width %}
+  {%- liquid
+    assign ri_height = image.height
+    if width != image.width and image.width > 0
+      assign ri_height = width | times: image.height | divided_by: image.width | round
+    endif
+  -%}
   {{-
     image
     | image_url: width: image.width
@@ -440,7 +454,7 @@
       fetchpriority: fetch_priority,
       decoding: decoding,
       width: width,
-      height: image.height,
+      height: ri_height,
       sizes: sizes,
       class: class,
       widths: widths,

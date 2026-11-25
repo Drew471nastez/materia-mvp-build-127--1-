@@ -1,0 +1,21 @@
+
+  /* The View all button's label sits in the middle of its height whatever the
+     theme's button padding and minimum height (a block with a minimum height
+     kept the words at the top). */
+  #shopify-section-courses .pg__foot > .button { display: inline-flex; align-items: center; justify-content: center; }
+  #shopify-section-courses { isolation: isolate; position: relative; }#shopify-section-courses .pg { padding-block: 29px max(29px, var(--product-row-space, 0px)); }
+  #shopify-section-courses .pg__head { display: flex; flex-direction: column; gap: 8px; margin-bottom: 28px; text-align: left; align-items: flex-start; }
+  #shopify-section-courses .pg__heading { margin: 0; overflow-wrap: anywhere; }
+  #shopify-section-courses .pg__text { margin: 0; max-width: 60ch; color: var(--color-text); }
+  #shopify-section-courses .pg__text > :first-child { margin-top: 0; }
+  #shopify-section-courses .pg__text > :last-child { margin-bottom: 0; }
+  #shopify-section-courses .pg__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  #shopify-section-courses .pg__grid > * { min-width: 0; }
+  #shopify-section-courses .pg__foot { display: flex; justify-content: center; margin-top: 32px; }
+  @media (min-width: 768px) {
+    #shopify-section-courses .pg { padding-block: 48px max(48px, var(--product-row-space, 0px)); }
+    #shopify-section-courses .pg__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+  }
+  @media (min-width: 1025px) {
+    #shopify-section-courses .pg__grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  }

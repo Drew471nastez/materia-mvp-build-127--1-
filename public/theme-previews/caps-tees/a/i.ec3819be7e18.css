@@ -1,8 +1,0 @@
-
-  #shopify-section-mark .bl__link { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 44px; color: inherit; text-decoration: none; border-radius: var(--rounded-radius, 8px); }
-  #shopify-section-mark .bl__frame { display: flex; align-items: center; justify-content: center; width: min(100%, var(--bl-w)); aspect-ratio: var(--bl-ar); opacity: var(--bl-op); color: var(--lg-text); border-radius: var(--rounded-radius, 8px); overflow: hidden; transition: opacity var(--btn-anim-duration, .3s) ease; }
-  #shopify-section-mark .bl[data-framed='true'] .bl__frame { border: 1px solid var(--color-border); padding: 12px; }
-  #shopify-section-mark .bl__link:hover .bl__frame, #shopify-section-mark .bl__link:focus-visible .bl__frame { opacity: 1; }
-  #shopify-section-mark .bl__frame > img { display: block; width: 100%; height: 100%; object-fit: contain; }
-  #shopify-section-mark .bl__frame > svg { display: block; width: 100%; height: auto; max-height: 100%; }
-  @media (prefers-reduced-motion: reduce) { #shopify-section-mark .bl__frame { transition: none; } }

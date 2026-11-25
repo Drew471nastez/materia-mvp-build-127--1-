@@ -5,6 +5,10 @@ img, svg, video, iframe, canvas, table, pre,
 lite-youtube, model-viewer, .shopify-installments {
   max-width: 100%;
 }
+/* A picture keeps its proportions: its width and height attributes give the
+   ratio, not a fixed height (a footer logo was drawn at its file's full height).
+   No weight at all, so every height a section sets still wins. */
+:where(img[width][height]) { height: auto; }
 /* The page keeps its scrollbar space while a drawer, search or popup
    locks scrolling, so nothing shifts and the fixed header is not cut.
    The old compensation (body padding, header margin) is switched off. */

@@ -8801,6 +8801,17 @@
           "default": "swatches"
         },
         {
+          "type": "select",
+          "id": "picker_button_shape",
+          "label": "Button shape",
+          "default": "theme",
+          "options": [
+            { "value": "theme", "label": "Theme" },
+            { "value": "circle", "label": "Circle" }
+          ],
+          "info": "Circle draws size and other option buttons as round buttons of one size. Colour swatches keep their own shape."
+        },
+        {
           "type": "header",
           "content": "Style"
         },
@@ -13721,6 +13732,30 @@
             }
           ],
           "default": "link"
+        },
+        {
+          "type": "header",
+          "content": "Spacing"
+        },
+        {
+          "type": "range",
+          "id": "spacing_top",
+          "label": "Space above",
+          "min": 0,
+          "max": 60,
+          "step": 2,
+          "unit": "px",
+          "default": 0
+        },
+        {
+          "type": "range",
+          "id": "spacing_bottom",
+          "label": "Space below",
+          "min": 0,
+          "max": 60,
+          "step": 2,
+          "unit": "px",
+          "default": 0
         },
         {
           "type": "header",

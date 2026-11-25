@@ -45,6 +45,25 @@
     }
   </style>
 {%- endif -%}
+{%- if vp.picker_button_shape == 'circle' -%}
+  {%- comment -%} Round option buttons: one size each, the value centred; colour swatches keep their own shape. {%- endcomment -%}
+  <style>
+    #variant-picker-{{ block.id }} .product__item-option:not(.product__color-swatch) {
+      display: inline-flex !important;
+      align-items: center;
+      justify-content: center;
+      width: 4.4rem;
+      min-width: 4.4rem;
+      height: auto;
+      aspect-ratio: 1;
+      padding: 0 !important;
+      border-radius: 50% !important;
+      text-align: center;
+      line-height: 1;
+      white-space: nowrap;
+    }
+  </style>
+{%- endif -%}
 <div
   id="variant-picker-{{ block.id }}"
   class="product-detail__variant-picker mb-25"

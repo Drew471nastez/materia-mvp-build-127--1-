@@ -31,7 +31,7 @@
 -%}
 {%- if sg_has or sg_remote -%}
   {%- comment -%} While the editor note stands in for it, the note carries the block's attributes. {%- endcomment -%}
-  <div class="mt-size-guide-root mt-size-guide-root--block" data-size-chart-root="{{ block.id }}"
+  <div class="mt-size-guide-root mt-size-guide-root--block" data-size-chart-root="{{ block.id }}"{% if sg.spacing_top > 0 or sg.spacing_bottom > 0 %} style="margin-block: {{ sg.spacing_top | default: 0 }}px {{ sg.spacing_bottom | default: 0 }}px;"{% endif %}
     {%- if sg_has or request.design_mode != true %} data-block-preview-root="{{ block.id }}" {{ block.shopify_attributes }}{% endif -%}
     {%- unless sg_has %} hidden data-size-chart-await{% endunless %}>
   <button
