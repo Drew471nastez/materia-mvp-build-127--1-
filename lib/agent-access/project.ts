@@ -43,6 +43,7 @@ import { agentMayWrite, isThemeConfigFile } from "./protected"
 import { readFile, writeSection, type OpResult } from "./operations"
 import { siteBrief } from "./site-brief"
 import { checkOps, opsScope, type PageOpInput } from "./page-ops"
+import { purposeOfType } from "@/lib/storelib-ai/materia/catalogue"
 import { searchComponents } from "./components"
 import { ALL_CHECKS, checkPageState, checkSectionFile, describeResults, type CheckResult } from "./checks"
 import { validateSection } from "@/lib/storelib-ai/validate"
@@ -250,6 +251,7 @@ export async function findComponents(db: Db, who: AgentIdentity, query: unknown,
     custom,
     addable: new Set([...ADDABLE_SECTIONS, ...custom]),
     limit: typeof limit === "number" ? limit : undefined,
+    purpose: purposeOfType,
   })
   return { ok: true, value: JSON.stringify({ query: typeof query === "string" ? query : "", results: hits }, null, 2) }
 }

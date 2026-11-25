@@ -1,2 +1,9 @@
-{%- comment -%} Materia Themes. Empty-image placeholder for the galleries-a sections; follows the colour scheme. {%- endcomment -%}
-<svg class="mga-ph" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false" fill="currentColor"><circle cx="186" cy="132" r="9"/><path d="M164 176l26-30 16 18 13-12 23 24z"/></svg>
+{%- doc -%}
+  Materia Themes. Empty-image placeholder for the galleries-a sections: the shared line drawing (snippets/placeholder-image), varied by `index`; follows the colour scheme.
+
+  @param {number} index - Index
+
+  @example
+  {% render 'media-galleries-a-ph', index: n %}
+{%- enddoc -%}
+{%- render 'placeholder-image', type: 'collection', index: index, class: 'mga-ph' -%}

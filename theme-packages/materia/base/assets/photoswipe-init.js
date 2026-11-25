@@ -2,7 +2,15 @@
 'use-strict';
 
 import PhotoSwipeLightbox from './photoswipe-lightbox.esm.min.js';
-import Photoswipe from './photoswipe.esm.min.js';
+// The lightbox core (80 KB) is fetched when a gallery first opens, or when
+// the page has gone idle, not with every page that only shows the gallery.
+let photoswipeCore = null;
+const loadPhotoswipe = () => (photoswipeCore ||= import('./photoswipe.esm.min.js'));
+const warmPhotoswipe = () => {
+  const go = () => loadPhotoswipe().catch(() => { photoswipeCore = null; });
+  const later = () => (window.requestIdleCallback || ((fn) => setTimeout(fn, 1500)))(go, { timeout: 4000 });
+  if (document.readyState === 'complete') later(); else window.addEventListener('load', later, { once: true });
+};
 // js gallery
 class ZoomAction extends HTMLElement {
   static get observedAttributes() { return ['data-type','data-zoom-option']; }
@@ -17,6 +25,7 @@ class ZoomAction extends HTMLElement {
   }
   init() {
     if (this.type === 'no_zoom') return;
+    warmPhotoswipe();
     this._onResize = this.responsive.bind(this);
     window.addEventListener('resize', this._onResize);
     // A gallery drawn after the page loaded (a builder redraw, a new product
@@ -67,7 +76,7 @@ class ZoomAction extends HTMLElement {
         this.lightbox = new PhotoSwipeLightbox({
           gallery: this,
           children: 'a',
-          pswpModule: () => Photoswipe,
+          pswpModule: loadPhotoswipe,
           counter: false,
           zoom: false,
           preloader: false,

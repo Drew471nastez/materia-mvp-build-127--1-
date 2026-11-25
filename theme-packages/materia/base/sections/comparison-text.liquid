@@ -1,7 +1,7 @@
-<script src="{{ 'live-features-b.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-features-b.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
@@ -142,7 +142,8 @@
   </div>
 </section>{% schema %}
 {
-  "name": "Text Comparisons",
+  "class": "s-tt",
+"name": "Text Comparisons",
   "settings": [
     {
       "type": "header",
@@ -152,7 +153,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Colour scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -639,7 +640,6 @@
               "label": "H4"
             }
           ],
-          "hidden": true,
           "info": "Legacy: the heading is always an h2",
           "visible_if": "{{ false }}"
         },
@@ -895,8 +895,8 @@
   ],
   "presets": [
     {
-      "name": "Text Comparisons",
-      "category": "Features",
+      "name": "Comparison – Problem vs Solution",
+      "category": "09 · Comparisons",
       "blocks": [
         {
           "type": "heading"

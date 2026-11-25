@@ -1,4 +1,4 @@
-<script src="{{ 'live-features-a.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-features-a.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%} Runtime, once per page (the CSS and hero-image-one.js from layout/theme.storelib, every other script from the tags at the top of this file): shopify/assets/live-features-a.js. {%- endcomment -%}
 {%- comment -%}
@@ -12,7 +12,7 @@
 {%- endcomment -%}
 {%- liquid
   assign st = section.settings
-  assign scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign own = st.enable_custom_style
   assign icon_names = 'check,star,heart,shield,truck,package,leaf,gift,clock,sparkle,zap,refresh,sun,thumbs-up,award,lock,globe,message' | split: ','
   assign align = st.header_align | default: 'center'
@@ -107,7 +107,7 @@
         {%- assign cs = block.settings -%}
         {%- assign full = false -%}{%- if cs.icon_type == 'image' and cs.icon_image != blank and cs.icon_fill_circle -%}{%- assign full = true -%}{%- endif -%}
         <div class="bcir__cell" id="block-{{ block.id }}" data-fa-block="{{ block.id }}" data-fa-type="circle"{% if request.design_mode %} data-fa-settings="{{ cs | json | escape }}"{% endif %} style="{% if cs.enable_custom_style %}--bcir-c-bg: {% render 'scheme-color', color: cs.circle_bg, fallback: 'var(--bcir-c-bg-s)' %};--bcir-c-border: {% render 'scheme-color', color: cs.circle_border_color, fallback: 'var(--bcir-c-border-s)' %};--bcir-c-icon: {% render 'scheme-color', color: cs.icon_color, fallback: 'var(--bcir-c-icon-s)' %};{% endif %}" {{ block.shopify_attributes }}>
-          {%- if cs.link != blank -%}<a class="bcir__item" data-fa-nolink="div" href="{{ cs.link | url }}">{%- else -%}<div class="bcir__item" data-fa-nolink="div">{%- endif -%}
+          {%- if cs.link != blank -%}<a class="bcir__item" data-fa-nolink="div" href="{{ cs.link }}">{%- else -%}<div class="bcir__item" data-fa-nolink="div">{%- endif -%}
             <span class="bcir__circle{% if full %} bcir__circle--full{% endif %}">
               <span class="bcir__icon" aria-hidden="true">
                 {%- case cs.icon_type -%}
@@ -129,7 +129,8 @@
   </div>
 </section>{% schema %}
 {
-  "name": "Benefits Circles",
+  "class": "s-tt",
+"name": "Benefits Circles",
   "settings": [
     {
       "type": "header",
@@ -139,7 +140,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -164,7 +165,6 @@
           "label": "Full width"
         }
       ],
-      "hidden": true,
       "info": "Legacy: the content width settings set the width.",
       "visible_if": "{{ false }}"
     },
@@ -467,14 +467,14 @@
       "type": "font_picker",
       "id": "heading_font",
       "label": "Heading and label font",
-      "default": "helvetica_n4",
+      "default": "assistant_n4",
       "visible_if": "{{ section.settings.enable_custom_fonts }}"
     },
     {
       "type": "font_picker",
       "id": "body_font",
       "label": "Text font",
-      "default": "helvetica_n4",
+      "default": "assistant_n4",
       "visible_if": "{{ section.settings.enable_custom_fonts }}"
     },
     {
@@ -763,8 +763,7 @@
             }
           ],
           "visible_if": "{{ false }}",
-          "info": "Legacy: the heading is an h2.",
-          "hidden": true
+          "info": "Legacy: the heading is an h2."
         },
         {
           "type": "checkbox",
@@ -1043,7 +1042,7 @@
           "type": "html",
           "id": "icon_svg",
           "label": "Custom SVG (when SVG)",
-          "info": "Paste raw <svg>…</svg>.",
+          "info": "Paste raw SVG markup.",
           "visible_if": "{{ block.settings.icon_type == 'svg' }}"
         },
         {
@@ -1083,7 +1082,7 @@
   "presets": [
     {
       "name": "Benefits Circles",
-      "category": "Features",
+      "category": "05 · Benefits & features",
       "blocks": [
         {
           "type": "heading"

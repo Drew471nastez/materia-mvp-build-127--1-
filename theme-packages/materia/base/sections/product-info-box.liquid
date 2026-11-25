@@ -1,7 +1,7 @@
-<script src="{{ 'live-products-a.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-products-a.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-products-a-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
@@ -283,7 +283,8 @@
 </style>
 {% schema %}
 {
-  "name": "Product Info Box",
+  "class": "s-tt",
+"name": "Product Info Box",
   "settings": [
     {
       "type": "header",
@@ -293,7 +294,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -1023,7 +1024,7 @@
   "presets": [
     {
       "name": "Product Info Box",
-      "category": "Products",
+      "category": "03 · Products",
       "blocks": [
         {
           "type": "top_row"

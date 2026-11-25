@@ -1,4 +1,11 @@
-{%- comment -%} Materia Themes. The Font Awesome Free 6 icon library (CC BY 4.0) of Benefits Icons and Benefits Bar. name: the icon's value. {%- endcomment -%}
+{%- doc -%}
+  Materia Themes. The Font Awesome Free 6 icon library (CC BY 4.0) of Benefits Icons and Benefits Bar. name: the icon's value.
+
+  @param {string} name - Library icon
+
+  @example
+  {% render 'features-a-fa-icon', name: n %}
+{%- enddoc -%}
 {%- case name -%}
 {%- when 'lock' -%}
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path d="M400 224h-24v-72C376 68.2 307.8 0 224 0S72 68.2 72 152v72H48c-26.5 0-48 21.5-48 48v192c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48V272c0-26.5-21.5-48-48-48zm-104 0H152v-72c0-39.7 32.3-72 72-72s72 32.3 72 72v72z"/></svg>
@@ -39,7 +46,7 @@
 {%- when 'star' -%}
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path d="M259.3 17.8L194 150.2 47.9 171.5c-26.2 3.8-36.7 36.1-17.7 54.6l105.7 103-25 145.5c-4.5 26.3 23.2 46 46.4 33.7L288 439.6l130.7 68.7c23.2 12.2 50.9-7.4 46.4-33.7l-25-145.5 105.7-103c19-18.5 8.5-50.8-17.7-54.6L382 150.2 316.7 17.8c-11.7-23.6-45.6-23.9-57.4 0z"/></svg>
 {%- when 'undo_alt' -%}
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path d="M255.5 8c-66.3 .1-126.4 26.2-170.9 68.7L49 41C33.9 25.9 8 36.6 8 57.9V192c0 13.3 10.7 24 24 24h134.1c21.4 0 32.1-25.9 17-41l-41.8-41.8c30.9-28.9 70.8-44.9 113.2-45.3 92.4-.8 170.3 74 169.5 169.4C423.2 348 349.8 424 256 424c-41.1 0-80-14.7-110.6-41.6-4.7-4.2-11.9-3.9-16.4 .6L89.3 422.7c-4.9 4.9-4.6 12.8 .5 17.4C133.8 479.8 192.1 504 256 504c137 0 248-111 248-248C504 119.2 392.4 7.8 255.5 8z"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path d="M125.7 160H176c17.7 0 32 14.3 32 32s-14.3 32-32 32H48c-17.7 0-32-14.3-32-32V64c0-17.7 14.3-32 32-32s32 14.3 32 32v51.2L97.6 97.6c87.5-87.5 229.3-87.5 316.8 0s87.5 229.3 0 316.8s-229.3 87.5-316.8 0c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0c62.5 62.5 163.8 62.5 226.3 0s62.5-163.8 0-226.3s-163.8-62.5-226.3 0L125.7 160z"/></svg>
 {%- when 'calendar_check' -%}
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.--><path d="M436 160H12c-6.6 0-12-5.4-12-12v-36c0-26.5 21.5-48 48-48h48V12c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v52h128V12c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v52h48c26.5 0 48 21.5 48 48v36c0 6.6-5.4 12-12 12zM12 192h424c6.6 0 12 5.4 12 12v260c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V204c0-6.6 5.4-12 12-12zm333.3 95.9l-28.2-28.4c-4.7-4.7-12.3-4.7-17-.1L194.1 364.7l-46-46.4c-4.7-4.7-12.3-4.7-17-.1l-28.4 28.2c-4.7 4.7-4.7 12.3-.1 17l82.6 83.3c4.7 4.7 12.3 4.7 17 .1l143-141.8c4.7-4.7 4.7-12.3 .1-17z"/></svg>
 {%- when 'sync_alt' -%}

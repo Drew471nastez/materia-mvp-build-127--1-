@@ -1,0 +1,20 @@
+/* block-paymentbadges.css: static styles of snippets/product-info-blocks.liquid, moved out of its inline <style> so they are cached.
+   :is(<selector>,#_): #_ never matches; it only keeps the (1,0,0) specificity of the per-instance id selector it replaces
+   (:is(.s-pib-paymentbadges,#_) is the section wrapper, schema class "s-pib-paymentbadges"). Per-instance values stay inline as custom properties. */
+:is([id^="PaymentBadges-"],#_){
+      background: var(--pb-bg);
+      border-radius: var(--pb-radius);
+      padding-top: var(--pb-pt);
+      padding-bottom: var(--pb-pb);
+      margin-top: var(--pb-mt);
+      margin-bottom: var(--pb-mb);
+    }
+:is([id^="PaymentBadges-"],#_) .pb-inner{
+      max-width: var(--pb-maxw);
+      padding-left: var(--pb-pl);
+      padding-right: var(--pb-pr);
+      margin-inline: auto;
+    }
+/* TEXT */
+:is([id^="PaymentBadges-"],#_) .pb-head{ display:flex; flex-direction:column; gap:6px; }
+:is([id^="PaymentBadges-"],#_) a.pb-label:hover{ color: var(--pb-label-hover) !important; }

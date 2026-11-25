@@ -40,6 +40,8 @@ import { cleanMenus } from "../lib/storelib-theme/values"
 import { LIMITS } from "../lib/storelib-theme/types"
 import { SAMPLE_SHOPS } from "../scripts/theme-templates/shops"
 import { STORELIB_DEFAULT_ID } from "../lib/website-builder/theme-registry"
+// @ts-expect-error a plain ES module script, without types
+import { buildBaseCss } from "../scripts/build-materia-base-css.mjs"
 
 /* Changed on purpose (templates round 22): a template file may open with a comment, as the theme's own generated files do (the import reads past it). */
 const parseJson = (text: string) => JSON.parse(text.replace(/^\s*\/\*[\s\S]*?\*\//, ""))
@@ -159,6 +161,8 @@ async function main() {
   const baseText = baseFiles.filter((f) => /\.(liquid|json|js|css|svg)$/.test(f)).map((f) => [f, read(join(BASE, f))] as const)
   check("nothing of the old starter content is left in it", !baseText.some(([, t]) => OLD_STARTER.test(t)), baseText.filter(([, t]) => OLD_STARTER.test(t)).map(([f]) => f).slice(0, 8))
   check("no address at the old platform anywhere in it", !baseText.some(([, t]) => /shopify\.com|shopifycdn|myshopify/i.test(t)), baseText.filter(([, t]) => /shopify\.com|shopifycdn|myshopify/i.test(t)).map(([f]) => f).slice(0, 8))
+  /* Round 26 (Materia 1.3.2): the live store links one combined stylesheet, built from the sources the builder links one by one; a source edited without rebuilding it would differ between the two. */
+  check("assets/base.css is built from its sources (node scripts/build-materia-base-css.mjs)", read(join(BASE, "assets/base.css")) === buildBaseCss(join(BASE, "assets")))
 
   console.log("\nNever the word Shopify where a creator reads\n")
   const said: string[] = []

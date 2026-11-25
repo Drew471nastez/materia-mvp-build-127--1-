@@ -156,9 +156,20 @@ video {
   max-width: 100%;
 }
 .placeholder-image {
-  fill: rgba(51, 50, 50, 0.35);
-  background-color: #eee;
+  fill: rgba(var(--color-text-rgb, 51, 50, 50), 0.35);
+  color: rgba(var(--color-text-rgb, 51, 50, 50), 0.35);
+  background-color: rgba(var(--color-text-rgb, 51, 50, 50), 0.04);
+  background-color: color-mix(in srgb, rgb(var(--color-text-rgb, 51, 50, 50)) 4%, var(--color-background, #ffffff));
   display: block;
+}
+:where(svg.placeholder-image) {
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+}
+:where(svg.placeholder-image--avatar) {
+  border-radius: 50%;
+  aspect-ratio: 1;
 }
 @media (min-width: 992px) {
   .h-full_screen {
@@ -286,6 +297,13 @@ a.hover-heading-color:hover {
 }
 .opacity-0 {
   opacity: 0;
+}
+/* A title in a <motion-element> is never hidden from the server: a first-screen
+   heading would stay blank until the deferred scripts ran, then pop in. The
+   element hides itself (inline style) only when it starts below the first
+   screen, and fades in as it is scrolled to (global.js MotionElement). */
+motion-element.opacity-0 {
+  opacity: 1;
 }
 .opacity-1 {
   opacity: 1;
@@ -3314,7 +3332,7 @@ mobile-navigation-bar > * {
 /* Loading effect — simplified to a clean, soft shimmer.
    Single subtle gradient sweep over a flat neutral fill, slower for less
    visual noise, no busy box-shadow or harsh contrast. */
-.product__color-swatch:not([style*='background']),
+:is(variant-radios, variant-radios-detail, variant-radios-single):not(:defined) .product__color-swatch:not([style*='background']),
 .skeleton .thumbnail-slide [class*='media-gallery__'],
 .skeleton
   :is(
@@ -3581,11 +3599,15 @@ cookie-bar.cookie-bar[data-cookie-style="glass"] {
 .loading_image {
   display: none !important;
 }
-.bls-image-js .bls-loading-image{
-   opacity: 0.01;
+/* A product picture is visible from its first byte: no near-invisible state and
+   no grey block over it. While it downloads its box shows a faint tint of the
+   colour scheme, which the picture simply covers when it arrives. */
+.bls-image-js .bls-loading-image {
+  opacity: 1;
+  background-color: color-mix(in srgb, var(--color-text, #000) 4%, var(--color-background, #fff));
 }
 .bls-image-js .bls-loading-image ~ .loading_image {
-  display: flex !important;
+  display: none !important;
   justify-content: center;
   align-items: center;
   position: absolute;
@@ -3603,10 +3625,11 @@ cookie-bar.cookie-bar[data-cookie-style="glass"] {
    are inert on the storefront (no .shopify-design-mode class), so the
    skeleton + fade-in reveal for real visitors is unchanged. */
 /* The layout puts .shopify-design-mode on <html>, not <body>. */
-:is(html, body).shopify-design-mode .bls-image-js .bls-loading-image {
+:is(html, body).shopify-design-mode [data-mt-redrawn] .bls-image-js .bls-loading-image,
+:is(html, body).shopify-design-mode [data-mt-redrawn].bls-image-js .bls-loading-image {
   opacity: 1;
 }
-:is(html, body).shopify-design-mode .bls-image-js .bls-loading-image ~ .loading_image {
+:is(html, body).shopify-design-mode [data-mt-redrawn] .bls-image-js .bls-loading-image ~ .loading_image {
   display: none !important;
 }
 .bls-image-js .bls-loading-image > img.secondary-image {
@@ -3904,7 +3927,7 @@ nav.mobile {
   opacity: 0;
   pointer-events: none;
   transform: translateY(3rem);
-  transition: all 0.3s;
+  transition: opacity 0.3s, transform 0.3s, visibility 0.3s;
 }
 
 .idea-product.active .idea-product-list {
@@ -3915,3 +3938,128 @@ nav.mobile {
 }
 /* Icons in benefit, trust and guarantee rows draw their whole shape: a stroke or curve that touches the edge of its box is never shaved off. */
 :where([class*="benefit" i], [class*="IconsBar"], [class*="trust" i], [class*="guarantee" i]) svg { overflow: visible; }
+
+/* Product pictures still arriving sit on a calm, static skeleton (no shimmer);
+   the moment a picture arrives it is shown and the skeleton is gone, with no
+   fade (see the reveal script at the top of layout/theme.liquid). */
+.bls-image-js .bls-loading-image ~ .loading_image.skeleton { overflow: hidden; }
+
+/* ---------- Free-shipping progress (snippets/free-shipping-bar) ----------
+   Message + slim rounded track. Every colour derives from the colour scheme
+   (or the Cart Drawer fill colour), so the bar reads on light and dark
+   schemes. The fill is full width and slides by transform (--fs-progress
+   0..1): no layout work while the cart total changes. */
+.fsb {
+  --fsb-fill: var(--cart-shipping-fill, var(--color-heading, var(--color-text, currentColor)));
+  --fsb-track: color-mix(in srgb, var(--color-text, currentColor) 11%, transparent);
+  --fsb-ease: cubic-bezier(.22, 1, .36, 1);
+  display: block; color: var(--color-text);
+}
+.fsb__head { display: flex; align-items: center; gap: 10px; min-height: 28px; margin-bottom: 10px; }
+.fsb__icon {
+  position: relative; flex: 0 0 28px; width: 28px; height: 28px; border-radius: 50%;
+  color: var(--fsb-fill); background: color-mix(in srgb, var(--fsb-fill) 12%, transparent);
+  transition: background-color .22s ease, color .22s ease;
+}
+.fsb__glyph { position: absolute; inset: 0; margin: auto; transition: opacity .2s ease, transform .22s var(--fsb-ease); }
+.fsb__glyph--done { opacity: 0; transform: scale(.5); }
+.fsb.cart_shipping_free .fsb__icon { background: var(--fsb-fill); color: var(--color-background, #fff); }
+.fsb.cart_shipping_free .fsb__glyph--truck { opacity: 0; transform: translateX(6px); }
+.fsb.cart_shipping_free .fsb__glyph--done { opacity: 1; transform: none; }
+.fsb__msg { flex: 1 1 auto; min-width: 0; margin: 0; font-size: .93em; line-height: 1.4; color: var(--color-text); opacity: 1 !important; font-variant-numeric: tabular-nums; }
+.fsb__msg .price, .fsb__msg strong, .fsb__msg b { font-weight: 600; color: var(--color-heading, inherit); }
+.fsb__track { position: relative; height: 6px; border-radius: 999px; background: var(--fsb-track); overflow: hidden; isolation: isolate; }
+.fsb__fill {
+  position: absolute; inset: 0; display: block; width: 100% !important; height: 100%; border-radius: inherit;
+  background: var(--fsb-fill); overflow: hidden;
+  transform: translate3d(calc((var(--fs-progress, 0) - 1) * 100%), 0, 0);
+  transition: transform .5s var(--fsb-ease), background-color .3s ease;
+  will-change: transform;
+}
+[dir="rtl"] .fsb__fill { transform: translate3d(calc((1 - var(--fs-progress, 0)) * 100%), 0, 0); }
+@media (prefers-reduced-motion: reduce) {
+  .fsb__fill, .fsb__icon, .fsb__glyph { transition: none !important; }
+  .fsb__fill::after { animation: none !important; display: none; }
+}
+
+/* "Truck on the bar" style (.fsb--truck): a 6px striped accent fill, a 26px
+   badge (14px icon, 1px ring) riding the fill end (clamped inside the track), the message below.
+   Fill and badge read the same --fs-progress and share one transform
+   transition, so they move together without layout work. */
+.fsb--truck {
+  --fsb-accent: var(--cart-shipping-accent, var(--color-primary, var(--color-heading, currentColor)));
+  --fsb-fill: var(--fsb-accent);
+  --fsb-badge: 26px;
+  --fsb-move: .5s cubic-bezier(.22, 1, .36, 1);
+}
+.fsb--truck .fsb__bar { position: relative; height: var(--fsb-badge); display: flex; align-items: center; container-type: inline-size; }
+.fsb--truck .fsb__track { flex: 1 1 auto; height: 6px; background: color-mix(in srgb, var(--color-text, currentColor) 12%, var(--color-background, #fff)); }
+.fsb--truck .fsb__fill {
+  background-color: var(--fsb-accent);
+  background-image: linear-gradient(135deg, rgb(255 255 255 / .2) 25%, transparent 25% 50%, rgb(255 255 255 / .2) 50% 75%, transparent 75%);
+  background-size: 12px 12px;
+  animation: fsb-stripes 1.2s linear infinite;
+  transition: transform var(--fsb-move), background-color .3s ease;
+}
+@keyframes fsb-stripes { to { background-position: 12px 0; } }
+.fsb--truck .fsb__badge {
+  position: absolute; top: 0; left: 0; z-index: 1; box-sizing: border-box;
+  width: var(--fsb-badge); height: var(--fsb-badge); border-radius: 50%;
+  border: 1px solid var(--fsb-accent); background: var(--color-background, #fff); color: var(--fsb-accent);
+  box-shadow: 0 1px 2px rgb(0 0 0 / .06);
+  /* centre on the fill end, kept fully inside the track */
+  transform: translate3d(clamp(0px, calc(var(--fs-progress, 0) * 100cqw - var(--fsb-badge) / 2), calc(100cqw - var(--fsb-badge))), 0, 0);
+  transition: transform var(--fsb-move), background-color .25s ease, color .25s ease;
+  will-change: transform;
+}
+[dir="rtl"] .fsb--truck .fsb__badge { left: auto; right: 0; transform: translate3d(calc(-1 * clamp(0px, calc(var(--fs-progress, 0) * 100cqw - var(--fsb-badge) / 2), calc(100cqw - var(--fsb-badge)))), 0, 0); }
+@supports not (width: 1cqw) {
+  .fsb--truck .fsb__badge { transform: translateX(-50%); left: clamp(calc(var(--fsb-badge) / 2), calc(var(--fs-progress, 0) * 100%), calc(100% - var(--fsb-badge) / 2)); transition: left var(--fsb-move), background-color .25s ease; }
+}
+.fsb--truck.cart_shipping_free .fsb__badge { background: var(--fsb-accent); color: var(--color-background, #fff); }
+.fsb--truck .fsb__badge .fsb__glyph { width: 14px; height: 14px; }
+.fsb--truck.cart_shipping_free .fsb__fill { animation: none; }
+.fsb--truck .fsb__msg { margin-top: 8px; }
+/* The shipping message always reads from the start edge, never centred (even inside a centred drawer). */
+.fsb, .fsb .fsb__msg, .fsb .free-shipping-message { text-align: start; }
+/* !important: the drawer scheme sheet recolours every span in .grey-bg. */
+.fsb--truck .fsb__msg .primary-color { color: var(--fsb-accent) !important; }
+@media (prefers-reduced-motion: reduce) {
+  .fsb--truck .fsb__fill { animation: none !important; }
+  .fsb--truck .fsb__badge { transition: none !important; }
+}
+
+/* ---------- Text link with arrow (quick view "View full details", featured
+   product "View product") ----------
+   The label and a thin arrow in the heading colour and weight. On hover a fine
+   underline draws in from the start and the arrow slides; both on the
+   compositor-friendly properties only. */
+.mt-more-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--heading-font, inherit);
+  font-weight: var(--heading-weight, 600);
+  font-size: 14px;
+  line-height: 1.4;
+  letter-spacing: .01em;
+  color: var(--color-heading, currentColor);
+  text-decoration: none !important;
+  -webkit-tap-highlight-color: transparent;
+}
+.mt-more-link__label {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 0% 1px;
+  padding-bottom: 2px;
+  transition: background-size .35s cubic-bezier(.2, .7, .2, 1);
+}
+.mt-more-link__arrow { flex: none; transition: transform .35s cubic-bezier(.2, .7, .2, 1); }
+@media (hover: hover) {
+  .mt-more-link:hover .mt-more-link__label { background-size: 100% 1px; }
+  .mt-more-link:hover .mt-more-link__arrow { transform: translateX(4px); }
+}
+.mt-more-link:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; border-radius: 2px; }
+:is([dir='rtl'], .rtl) .mt-more-link__arrow { scale: -1 1; }
+@media (prefers-reduced-motion: reduce) { .mt-more-link__label, .mt-more-link__arrow { transition: none; } }

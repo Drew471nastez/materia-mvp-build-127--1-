@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. Reviews & sold counter (Main product, Featured product).
   Reviews: the product's own rating (Storelib's rating and review count, or
   a reviews app), else the rating and count typed in this block. Sold: the
@@ -6,7 +6,15 @@
   only" always uses the typed values. A list such as 8,10,12 (the original
   theme picked one at random) is never shown: only one real number is, and
   the builder says so.
-{%- endcomment -%}
+
+  @param {block} block - The block being rendered
+  @param {string} [mode] - Mode ('reviews', 'sold')
+  @param {product} product - The product to render
+  @param {boolean} [sold_only] - Sold only
+
+  @example
+  {% render 'review-sold-block', product: product, block: block, mode: 'reviews', section: section %}
+{%- enddoc -%}
 {%- liquid
   assign product = product | default: page.product
   assign st = block.settings
@@ -159,16 +167,16 @@
 {%- liquid
   assign rs_note = ''
   if rs_reviews_enabled and show_rating == false and show_app == false
-    assign rs_note = 'Reviews: this product has no rating of its own yet. Type your rating and review count in this block to show them.'
+    assign rs_note = 'Reviews: no rating yet; type one in this block.'
   endif
   if rs_sold_enabled and show_sold == false
     if st.sold contains ','
-      assign rs_note = rs_note | append: ' Sold: “' | append: st.sold | append: '” is a list the original theme picked from at random. Type one real number, such as 34.'
+      assign rs_note = rs_note | append: ' Sold: “' | append: st.sold | append: '” is a list; type one number.'
     else
-      assign rs_note = rs_note | append: ' Sold: type the number sold in this block, or give the product a custom.sold_count field.'
+      assign rs_note = rs_note | append: ' Sold: type a number here or fill custom.sold_count.'
     endif
   elsif show_sold and st.hours contains ','
-    assign rs_note = rs_note | append: ' Period: “' | append: st.hours | append: '” is a list, so no period is shown. Type one number of hours, or leave it empty.'
+    assign rs_note = rs_note | append: ' Period: “' | append: st.hours | append: '” is a list; type one number of hours.'
   endif
   assign rs_note = rs_note | strip
 -%}
@@ -213,9 +221,9 @@
   @keyframes rs-ping { 0% { transform: scale(1); opacity: .55; } 70%, 100% { transform: scale(2.4); opacity: 0; } }
   @media (prefers-reduced-motion: reduce) { .rs__dot::after { animation: none; display: none; } }
   .rs__note {
-    display: none; margin: 6px 0 0; padding: 8px 10px; font-size: 12px; line-height: 1.45;
-    border: 1px dashed var(--color-border, currentColor); border-radius: var(--input-radius, 6px);
-    color: var(--color-text);
+    display: none; margin: 6px 0 0; padding: 6px 10px; font-size: 12px; line-height: 1.4;
+    border: 1px dashed color-mix(in srgb, var(--color-text, currentColor) 22%, transparent); border-radius: 4px;
+    color: color-mix(in srgb, var(--color-text, currentColor) 62%, transparent);
   }
   html.shopify-design-mode .rs__note, .rs__note[data-editor-preview] { display: block; }
 </style>

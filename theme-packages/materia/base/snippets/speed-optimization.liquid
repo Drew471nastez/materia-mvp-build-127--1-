@@ -151,37 +151,49 @@
     assign pt_gap = pt_out | times: 4 | divided_by: 5
   -%}
   <style id="speed-page-landing">
-    /* The old page stays painted until the new one is ready (Storelib holds it), then a short
-       fade-through: the old page fades away first and the new one comes in as it goes, so the
-       two pages are never seen on top of each other (which read as the page loading twice) and
-       there is never a frame of bare background. The header stays where it is. Page change:
-       None is an instant swap. Off for visitors who ask for less motion. */
-    html:root::view-transition { background: var(--color-background, Canvas); }
-    html:root::view-transition-group(root) { animation: none; mix-blend-mode: normal; }
-    {%- if pt_style == 'none' %}
-    html:root::view-transition-old(root),
-    html:root::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
-    html:root::view-transition-old(root) { opacity: 1; }
-    {%- else %}
-    @keyframes mt-page-out { to { opacity: 0; } }
-    @keyframes mt-page-in { from { opacity: 0;{% if pt_style == 'rise' %} transform: translate3d(0, 10px, 0);{% endif %} } }
+    /* Page change. The old page stays painted until the next one is ready, so
+       there is never a blank or white frame. The announcement bars and the
+       header (the header group, tagged data-mt-hold in layout/theme.liquid)
+       hold perfectly still between pages. Page change: Fade (default) cross-fades
+       the two pages; Rise adds a slight lift; None swaps at once.
+       Off for visitors who ask for less motion. */
     @media (prefers-reduced-motion: no-preference) {
-      html:root::view-transition-old(root) { mix-blend-mode: normal; animation: mt-page-out {{ pt_out }}ms cubic-bezier(0.4, 0, 1, 1) both; }
-      html:root::view-transition-new(root) { mix-blend-mode: normal; animation: mt-page-in {{ pt_ms }}ms cubic-bezier(0.2, 0.7, 0.2, 1) {{ pt_gap }}ms both; }
-      /* The header is the same on every page: it stays put instead of fading with the page. */
-      html:active-view-transition .shopify-section.section-header { view-transition-name: mt-site-header; }
-      html:root::view-transition-group(mt-site-header),
-      html:root::view-transition-old(mt-site-header),
-      html:root::view-transition-new(mt-site-header) { animation: none; mix-blend-mode: normal; }
-      /* The old header stays under the new one until the change is over: hidden, the bar went blank
-         (a frame of bare sky on Night shop) whenever the arriving page was not drawn yet. */
-      html:root::view-transition-old(mt-site-header) { animation: none; opacity: 1; }
-    }
-    @media (prefers-reduced-motion: reduce) {
+      @view-transition { navigation: auto; }
+      html:root::view-transition { background: var(--color-background, Canvas); }
+      html:root::view-transition-group(root) { animation: none; }
+      {%- if pt_style == 'none' %}
       html:root::view-transition-old(root),
       html:root::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+      html:root::view-transition-old(root) { display: none; }
+      {%- else %}
+      /* A true cross-fade: the next page fades in over the one you are leaving, at
+         the same moment, so the screen is never blank (no flash) and nothing jumps. */
+      html:root::view-transition-old(root) { animation: mt-page-out {{ pt_ms }}ms cubic-bezier(0.4, 0, 0.2, 1) both; }
+      html:root::view-transition-new(root) { animation: mt-page-in {{ pt_ms }}ms cubic-bezier(0.4, 0, 0.2, 1) both; }
+      @keyframes mt-page-out { to { opacity: 0; } }
+      @keyframes mt-page-in { from { opacity: 0;{% if pt_style == 'rise' %} transform: translate3d(0, 6px, 0);{% endif %} } }
+      {%- endif %}
+      html:active-view-transition [data-mt-hold="0"] { view-transition-name: mt-hold-0; }
+      html:active-view-transition [data-mt-hold="1"] { view-transition-name: mt-hold-1; }
+      html:active-view-transition [data-mt-hold="2"] { view-transition-name: mt-hold-2; }
+      html:active-view-transition [data-mt-hold="3"] { view-transition-name: mt-hold-3; }
+      html:active-view-transition [data-mt-hold="4"] { view-transition-name: mt-hold-4; }
+      html:active-view-transition [data-mt-hold="5"] { view-transition-name: mt-hold-5; }
+      html:root::view-transition-group(mt-hold-0), html:root::view-transition-new(mt-hold-0),
+      html:root::view-transition-group(mt-hold-1), html:root::view-transition-new(mt-hold-1),
+      html:root::view-transition-group(mt-hold-2), html:root::view-transition-new(mt-hold-2),
+      html:root::view-transition-group(mt-hold-3), html:root::view-transition-new(mt-hold-3),
+      html:root::view-transition-group(mt-hold-4), html:root::view-transition-new(mt-hold-4),
+      html:root::view-transition-group(mt-hold-5), html:root::view-transition-new(mt-hold-5) { animation: none; mix-blend-mode: normal; }
+      html:root::view-transition-old(mt-hold-0),
+      html:root::view-transition-old(mt-hold-1),
+      html:root::view-transition-old(mt-hold-2),
+      html:root::view-transition-old(mt-hold-3),
+      html:root::view-transition-old(mt-hold-4),
+      html:root::view-transition-old(mt-hold-5) { animation: none; opacity: 1; }
+      /* The old bars stay under the new ones until the change is over (not display: none): hidden,
+         the header went blank (a frame of bare sky on Night shop) whenever the arriving page was not drawn yet. */
     }
-    {%- endif %}
     /* Held, the page being left still on screen, while the arriving page's first pictures come in (below). */
     html[data-mt-wait-pictures]::view-transition-group(*),
     html[data-mt-wait-pictures]::view-transition-old(*),
@@ -281,10 +293,9 @@
         localStorage.setItem(FONT_KEY, JSON.stringify({ sheets: sheets }));
       } catch (e) {}
     };
-    var afterFonts = function () {
-      if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { setTimeout(rememberFonts, 300); });
-      else setTimeout(rememberFonts, 300);
-    };
+    {%- comment -%} Remembered when the page is idle. Asking document.fonts.ready at load made
+       the browser work out the style of the whole page just for this. {%- endcomment %}
+    var afterFonts = function () { setTimeout(function () { idle(rememberFonts); }, 1500); };
     if (document.readyState === 'complete') afterFonts();
     else window.addEventListener('load', afterFonts, { once: true });
     var fontSeen = function (href) {

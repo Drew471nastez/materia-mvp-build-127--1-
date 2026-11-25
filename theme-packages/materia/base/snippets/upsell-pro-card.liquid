@@ -1,3 +1,17 @@
+{% doc %}
+  One product card of the Upsell Pro block.
+
+  @param {string} cur_id - Cur id
+  @param {string} dom_id - Dom id
+  @param {boolean} hide_current - Hide current product
+  @param {boolean} hide_unavailable - Hide sold out
+  @param {string} mode - Add
+  @param {object} p - P
+  @param {object} s - Settings object (section or block settings)
+
+  @example
+  {% render 'upsell-pro-card', p: mp, s: s, cur_id: cur_id, hide_current: hide_current, hide_unavailable: hide_unavailable, mode: up_mode, dom_id: block_id %}
+{% enddoc -%}
 {%- assign fb_accessibility_add = 'accessibility.add' | t -%}
 {%- assign fb_accessibility_sold_out = 'accessibility.sold_out' | t -%}
 {%- comment -%}

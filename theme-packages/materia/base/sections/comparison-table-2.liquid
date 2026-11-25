@@ -1,7 +1,7 @@
-<script src="{{ 'live-features-b.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-features-b.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-features-b-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
@@ -64,7 +64,10 @@
     endif
   endfor
   assign title_done = false
-  assign placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 120 120%22%3E%3Crect width=%22120%22 height=%22120%22 rx=%2216%22 fill=%22%23888%22 fill-opacity=%22.14%22/%3E%3Cpath d=%22M38 78l16-19 11 12 8-7 14 14z%22 fill=%22%23888%22 fill-opacity=%22.45%22/%3E%3Ccircle cx=%2272%22 cy=%2246%22 r=%227%22 fill=%22%23888%22 fill-opacity=%22.45%22/%3E%3C/svg%3E'
+  capture placeholder
+    render 'placeholder-image', type: 'product-1', scheme: section.settings.color_scheme, ratio: '1/1', format: 'url'
+  endcapture
+  assign placeholder = placeholder | strip
   assign spx = 'heading_size_desktop,heading_size_mobile,sub_size,gap_heading_sub,gap_header,table_max_width,label_col_width,label_col_width_mobile,col_min_width,col_width_mobile,col_gap,col_gap_mobile,header_row_height,col_image_size,col_title_size,col_radius,col_border_width,row_label_weight:n,row_label_size,row_label_pad,cell_weight:n,cell_size,divider_width,progress_height,gap_progress,padding_top_desktop,padding_bottom_desktop,section_margin_top_desktop,section_margin_bottom_desktop,padding_top_mobile,padding_bottom_mobile,section_margin_top_mobile,section_margin_bottom_mobile'
   assign sc = 'section_bg,heading_color,sub_color,col_title_color,col_bg_top,col_bg,col_border_color,col_bg_highlight,col_border_highlight,row_label_color,cell_color,cell_color_highlight,check_color,check_color_highlight,cross_color,divider_color,divider_color_highlight,progress_color,progress_track_color'
   assign sw = 'heading_weight,col_title_weight'
@@ -110,6 +113,7 @@
   #shopify-section-{{ sid }} .fbt2__col { --bg: var(--fb-col_bg, color-mix(in srgb, var(--color-text) 4%, var(--color-background))); --bd: var(--fb-col_border_color, var(--color-border)); height: var(--fb-header_row_height); padding: 12px 8px 14px; vertical-align: bottom; text-align: center; background: linear-gradient(var(--fb-col_bg_top, var(--bg)) 0 45%, var(--bg) 45%); border: var(--fb-col_border_width) solid var(--bd); border-bottom: 0; border-radius: var(--fb-col_radius) var(--fb-col_radius) 0 0; }
   #shopify-section-{{ sid }} .fbt2__col[data-highlight='true'], #shopify-section-{{ sid }} .fbt2__cell[data-highlight='true'] { --bg: var(--fb-col_bg_highlight, color-mix(in srgb, var(--color-primary) 10%, var(--color-background))); --bd: var(--fb-col_border_highlight, var(--color-primary)); }
   #shopify-section-{{ sid }} .fbt2__img { display: block; margin: 0 auto 8px; width: var(--fb-col_image_size); height: var(--fb-col_image_size); max-width: 100%; object-fit: contain; }
+  #shopify-section-{{ sid }} .fbt2__img[data-fb-empty] { object-fit: cover; border-radius: 12px; }
   #shopify-section-{{ sid }} .fbt2__ct { display: block; margin: 0; color: var(--fb-col_title_color, var(--color-heading)); font-family: var(--fbt2-hf); font-weight: var(--fb-col_title_weight, var(--heading-weight, 700)); font-size: var(--fb-col_title_size); line-height: 1.25; overflow-wrap: anywhere; }
   #shopify-section-{{ sid }} .fbt2__cell { --bg: var(--fb-col_bg, color-mix(in srgb, var(--color-text) 4%, var(--color-background))); --bd: var(--fb-col_border_color, var(--color-border)); background: var(--bg); border-inline: var(--fb-col_border_width) solid var(--bd); border-top: var(--line); padding: 12px 8px; text-align: center; vertical-align: middle; color: var(--fb-cell_color, var(--color-text)); font-weight: var(--fb-cell_weight); font-size: var(--fb-cell_size); line-height: 1.3; overflow-wrap: anywhere; }
   #shopify-section-{{ sid }} .fbt2__cell[data-highlight='true'] { color: var(--fb-cell_color_highlight, var(--color-primary)); border-top-color: var(--fb-divider_color_highlight, color-mix(in srgb, var(--color-primary) 40%, var(--color-background))); }
@@ -204,7 +208,8 @@
   </div>
 </section>{% schema %}
 {
-  "name": "Comparison Table 2",
+  "class": "s-tt",
+"name": "Comparison Table 2",
   "settings": [
     {
       "type": "header",
@@ -214,7 +219,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Colour scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -275,7 +280,6 @@
       "id": "heading",
       "label": "Heading",
       "default": "Why choose us",
-      "hidden": true,
       "info": "Legacy: used only when the section has no heading block",
       "visible_if": "{{ false }}"
     },
@@ -302,7 +306,6 @@
           "label": "H4"
         }
       ],
-      "hidden": true,
       "info": "Legacy: the heading is always an h2",
       "visible_if": "{{ false }}"
     },
@@ -311,7 +314,6 @@
       "id": "subheading",
       "label": "Subheading",
       "default": "<p>A clean side-by-side comparison so you can see exactly what makes us different.</p>",
-      "hidden": true,
       "info": "Legacy: used only when the section has no subheading block",
       "visible_if": "{{ false }}"
     },
@@ -531,7 +533,6 @@
       "type": "color",
       "id": "heading_color",
       "label": "Heading color",
-      "hidden": true,
       "info": "Legacy: used only when the section has no heading block",
       "visible_if": "{{ false }}"
     },
@@ -539,7 +540,6 @@
       "type": "color",
       "id": "sub_color",
       "label": "Subheading color",
-      "hidden": true,
       "info": "Legacy: used only when the section has no subheading block",
       "visible_if": "{{ false }}"
     },
@@ -695,7 +695,6 @@
           "label": "Extra-bold"
         }
       ],
-      "hidden": true,
       "info": "Legacy: used only when the section has no heading block",
       "visible_if": "{{ false }}"
     },
@@ -708,7 +707,6 @@
       "step": 1,
       "unit": "px",
       "default": 40,
-      "hidden": true,
       "info": "Legacy: used only when the section has no heading block",
       "visible_if": "{{ false }}"
     },
@@ -721,7 +719,6 @@
       "step": 1,
       "unit": "px",
       "default": 28,
-      "hidden": true,
       "info": "Legacy: used only when the section has no heading block",
       "visible_if": "{{ false }}"
     },
@@ -734,7 +731,6 @@
       "step": 1,
       "unit": "px",
       "default": 16,
-      "hidden": true,
       "info": "Legacy: used only when the section has no subheading block",
       "visible_if": "{{ false }}"
     },
@@ -1327,8 +1323,8 @@
   ],
   "presets": [
     {
-      "name": "Comparison Table 2",
-      "category": "Features",
+      "name": "Comparison Table – Image Columns",
+      "category": "09 · Comparisons",
       "blocks": [
         {
           "type": "heading"

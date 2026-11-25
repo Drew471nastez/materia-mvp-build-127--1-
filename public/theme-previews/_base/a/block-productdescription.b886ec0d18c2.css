@@ -1,0 +1,28 @@
+/* block-productdescription.css: static styles of snippets/product-info-blocks.liquid, moved out of its inline <style> so they are cached.
+   :is(<selector>,#_): #_ never matches; it only keeps the (1,0,0) specificity of the per-instance id selector it replaces
+   (:is(.s-pib-productdescription,#_) is the section wrapper, schema class "s-pib-productdescription"). Per-instance values stay inline as custom properties. */
+/* scoped to this block only */
+:is([id^="ProductDescription-"],#_) .pd-inner{
+        padding-left: var(--pd-pl-d);
+        padding-right: var(--pd-pr-d);
+        padding-top: var(--pd-pt-d);
+        padding-bottom: var(--pd-pb-d);
+      }
+:is([id^="ProductDescription-"],#_) .pd-content{
+        color: var(--pd-color);
+        text-align: start;                           /* left aligned */
+        font-size: var(--pd-fs-d);
+        line-height: var(--pd-lh-v);
+        margin: 0;
+      }
+@media (max-width: 768px){
+        :is([id^="ProductDescription-"],#_) .pd-inner{
+          padding-left: var(--pd-pl-m);
+          padding-right: var(--pd-pr-m);
+          padding-top: var(--pd-pt-m);
+          padding-bottom: var(--pd-pb-m);
+        }
+        :is([id^="ProductDescription-"],#_) .pd-content{
+          font-size: var(--pd-fs-m);
+        }
+      }

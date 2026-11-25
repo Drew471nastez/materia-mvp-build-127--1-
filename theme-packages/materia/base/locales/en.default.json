@@ -51,7 +51,6 @@
     "split_right_image": "Split right image",
     "image_over_text": "Image over text",
     "scrolling_image": "Scrolling image",
-    "shopify": "Storelib",
     "video_thumbnail": "Video thumbnail",
     "play_video": "Play video",
     "product_benefits_placeholder": "Product benefits placeholder",
@@ -210,7 +209,42 @@
     "yes": "Yes",
     "low": "Low",
     "new_badge": "NEW",
-    "add": "Add"
+    "add": "Add",
+    "loading": "Loading",
+    "media_gallery": "Media gallery",
+    "share_link": "Copy link",
+    "ui": {
+      "announcements": "Announcements",
+      "previous_announcement": "Previous announcement",
+      "next_announcement": "Next announcement",
+      "close_announcement": "Close announcement",
+      "benefits": "Benefits",
+      "brand_logos": "Brand logos",
+      "logos": "Logos",
+      "pause_scrolling": "Pause scrolling",
+      "previous_image": "Previous image",
+      "next_image": "Next image",
+      "previous_slide": "Previous slide",
+      "next_slide": "Next slide",
+      "reviews": "Reviews",
+      "testimonial_sources": "Review sources",
+      "previous_logos": "Previous logos",
+      "next_logos": "Next logos",
+      "turn_sound_on": "Turn sound on",
+      "leave_empty": "Leave this field empty",
+      "units": "Units",
+      "rating_out_of": "{{ rating }} out of {{ total }} stars",
+      "show_logo": "Show logo {{ number }}",
+      "share_email": "Share by email",
+      "add": "Add",
+      "decrease_quantity": "Decrease quantity",
+      "increase_quantity": "Increase quantity",
+      "written_by": "Written by",
+      "was": "Was",
+      "now": "Now",
+      "tagged": "tagged \"{{ tags }}\"",
+      "description": "Description"
+    }
   },
   "page_sale": {
     "use_code": "Use code:"
@@ -234,7 +268,8 @@
   },
   "general": {
     "content": {
-      "discount_code_error": "Discount code cannot be applied to your cart",
+      "discount_code_error": "This code can't be used on your cart yet. If your order qualifies, it will be applied at checkout.",
+      "discount_code_pending": "Applies at checkout if your order qualifies",
       "discount_code_remove": "Discount code has been removed.",
       "discount_code_applied": "Discount code has been applied.",
       "discount_code_already": "Discount code already applied"
@@ -250,7 +285,7 @@
       "login_form_password_placeholder": "Your password",
       "login_form_error": "Wrong password!",
       "login_form_submit": "Enter",
-      "admin_link_html": "Are you the store owner? <a href=\"https://storelib.com/login\" class=\"link underlined-link\">Log in here</a>",
+      "admin_link_html": "Are you the store owner? <a href=\"/admin\" class=\"link underlined-link\">Log in here</a>",
       "powered_by_shopify_html": "This shop opens soon"
     },
     "contact": {
@@ -306,7 +341,13 @@
         "other": "Found {{ count }} results for \"{{ terms }}\""
       },
       "title": "Search",
-      "close": "Close"
+      "close": "Close",
+      "recently_viewed": "Recently viewed",
+      "clear": "Clear",
+      "products": "Products",
+      "collections": "Collections",
+      "pages": "Pages",
+      "suggestions": "Suggestions"
     },
     "cart": {
       "label": "Cart",
@@ -345,15 +386,18 @@
       "heading_guarantee": "Up to 30-Day Guarantee",
       "note": {
         "title": "Add Order Note",
+        "short": "Add note",
         "placeholder": "How can we help you?"
       },
       "gift": {
         "title": "Add Gift",
+        "short": "Gift wrap",
         "gift_wrap_html": "Please wrap the product carefully. Fee is only <span class=\"price heading-style\">{{ price }}</span>. (You can choose or not)",
         "button_text": "Add A Gift Wrap"
       },
       "shipping": {
         "title": "Estimate",
+        "short": "Estimate",
         "estimate_shipping_title": "Estimate Shipping",
         "estimate_shipping_button": "Estimate Shipping",
         "cart_estimate_shipping_button": "Calculate Shipping",
@@ -365,6 +409,7 @@
       },
       "coupon": {
         "title": "Add Coupon",
+        "short": "Coupon",
         "enter_discount_code": "Coupon code"
       },
       "headings": {
@@ -406,7 +451,8 @@
     "banner": "Banner",
     "view_all": "View All",
     "policies_html": "I agree to the <a href=\"/policies/privacy-policy\" target=\"_blank\" title=\"Privacy Policy\"><strong>Privacy Policy</strong></a> of the website.",
-    "close": "Close"
+    "close": "Close",
+    "carousel_products": "Products"
   },
   "blogs": {
     "article": {
@@ -414,7 +460,10 @@
       "tags": "Tags",
       "by": "By {{ author }}",
       "read_more_title": "Read more: {{ title }}",
-      "comments": "Comments",
+      "comments": {
+        "one": "{{ count }} comment",
+        "other": "{{ count }} comments"
+      },
       "sharing": {
         "share": "Share",
         "twitter": "Twitter",
@@ -904,7 +953,10 @@
     "header": {
       "announcement": "Announcement",
       "menu": "Menu",
-      "cart_count": "Cart count"
+      "cart_count": {
+        "one": "{{ count }} item",
+        "other": "{{ count }} items"
+      }
     },
     "testimonial": {
       "alt": "Testimonial",

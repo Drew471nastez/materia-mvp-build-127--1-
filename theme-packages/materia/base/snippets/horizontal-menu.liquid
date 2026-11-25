@@ -1,3 +1,12 @@
+{% doc %}
+  Desktop horizontal main menu of the header, with dropdowns and mega menus.
+
+  @param {boolean} show_country - Show country / currency
+  @param {boolean} show_language - Show language
+
+  @example
+  {% render 'horizontal-menu', class: 'min-h-1025-50', show_language: show_language, show_country: show_country %}
+{% enddoc -%}
 {%- comment -%}
   Materia Themes. Developed By Materia Themes.
 {%- endcomment -%}
@@ -71,17 +80,7 @@
     "
   >
     <div class="navigation__menu-content word-break">
-      {%- comment -%} data-hs-wait: unseen on desktop until snippets/header-menu-fit has fitted the line (a moment, before the first paint on a return visit); header-layout.css shows it anyway after 2.5s and the noscript rule shows it at once without script. {%- endcomment -%}
-      <noscript><style>.header__menu .horizontal-list[data-hs-wait] { opacity: 1 !important; animation: none !important; }</style></noscript>
-      <ul
-        class="horizontal-list list-unstyled inline-flex-1025 flex-wrap row-gap-0 horizontal px-30 px-1025-0 show-localization animation-{{ section_st.dropdowns_animation }}"
-        {% if section_st.mega_menu.links.size > 1 %}data-hs-wait{% endif %}
-      >
-        <svg hidden>
-          <symbol id="icon-arrow-down">
-            <path fill="currentColor" d="M1.09 1.822a.52.52 0 0 1-.178-.396c0-.164.06-.306.178-.424A.557.557 0 0 1 1.5.838c.164 0 .3.055.41.164L5 4.092l3.09-3.09A.557.557 0 0 1 8.5.838c.164 0 .3.055.41.164.119.118.178.26.178.424a.52.52 0 0 1-.178.396l-3.5 3.5A.535.535 0 0 1 5 5.5c-.164 0-.3-.06-.41-.178l-3.5-3.5Z"/>
-          </symbol>
-        </svg>
+      {%- comment -%} The menu items are drawn first (captured), so the list can say whether it holds a badge: has-menu-label replaces .horizontal-list:has(.menu_label) in header-section.css / header-layout.css. {%- endcomment -%}
         {%- assign mm_seen = ' ' -%}
         {%- capture menu_items -%}
         {%- for link in section_st.mega_menu.links -%}
@@ -273,9 +272,6 @@
                             {% assign banner_count = banner_count | plus: 1 %}
                           {%- endif -%}
                         {% endfor %}
-                        {%- liquid             
-                          assign only_for_domain_match = false
-                        -%}                 
                         <div
                           class="flex flex-column gap{% if block_st.promotion_position == "left" %} flex-1025-row-reverse{% else %} flex-1025-row{% endif %}"
                           style="--col-mega-width: {{ block_st.promotion_image_width }}%; --col-gap: 30px"
@@ -287,7 +283,7 @@
                               class="menu-list"
                               style="--row-gap: 40px; --col-desktop:{{ block_st.promotion_menu_column }};"
                             >
-                              {%- render 'submenu-list' , link: link , only_for_domain: only_for_domain_match -%}
+                              {%- render 'submenu-list' , link: link  -%}
                             </div>
                           {% endif %}
                           {%- if block_st.promotion_image_1 != blank or block_st.promotion_image_2 != blank -%}
@@ -405,7 +401,7 @@
                                               sizes: '(min-width: 1025px) 320px, 50vw'
                                             %}
                                           {%- else -%}
-                                            {% render 'placeholder-render' %}
+                                            {% render 'placeholder-render', type: 'collection', index: forloop.index %}
                                           {%- endif -%}
                                         </a>
                                         <div class="collection-info absolute bottom-25 inset-x-0 text-center">
@@ -462,7 +458,7 @@
                                       sizes: '(min-width: 1025px) 300px, 50vw'
                                     %}
                                   {%- else -%}
-                                    {% render 'placeholder-render' %}
+                                    {% render 'placeholder-render', type: 'collection', index: forloop.index %}
                                   {%- endif -%}
                                 </a>
                                 {%- if block_st.show_titles -%}
@@ -520,7 +516,6 @@
                                     {% render 'product-item',
                                       card_product: product_value,
                                       template_enable_price: mp_price,
-                                      template_enable_action: false,
                                       template_enable_product_vendor: false,
                                       template_enable_rate: false,
                                       template_enable_product_short_description: false,
@@ -621,6 +616,17 @@
           {%- endfor -%}
         {%- endif -%}
         {%- endcapture -%}
+      {%- comment -%} data-hs-wait: unseen on desktop until snippets/header-menu-fit has fitted the line (a moment, before the first paint on a return visit); header-layout.css shows it anyway after 2.5s and the noscript rule shows it at once without script. {%- endcomment -%}
+      <noscript><style>.header__menu .horizontal-list[data-hs-wait] { opacity: 1 !important; animation: none !important; }</style></noscript>
+      <ul
+        class="horizontal-list{% if menu_items contains 'class="menu_label' %} has-menu-label{% endif %} list-unstyled inline-flex-1025 flex-wrap row-gap-0 horizontal px-30 px-1025-0 show-localization animation-{{ section_st.dropdowns_animation }}"
+        {% if section_st.mega_menu.links.size > 1 %}data-hs-wait{% endif %}
+      >
+        <svg hidden>
+          <symbol id="icon-arrow-down">
+            <path fill="currentColor" d="M1.09 1.822a.52.52 0 0 1-.178-.396c0-.164.06-.306.178-.424A.557.557 0 0 1 1.5.838c.164 0 .3.055.41.164L5 4.092l3.09-3.09A.557.557 0 0 1 8.5.838c.164 0 .3.055.41.164.119.118.178.26.178.424a.52.52 0 0 1-.178.396l-3.5 3.5A.535.535 0 0 1 5 5.5c-.164 0-.3-.06-.41-.178l-3.5-3.5Z"/>
+          </symbol>
+        </svg>
         {{- menu_items -}}
         {%- comment -%} Desktop only: when the links do not fit on one line beside the logo and the icons, the last ones fold into More (header-menu-fit below). Its list is every top-level link with its own links, drawn here so it needs no copying; the fit shows only the folded ones. {%- endcomment -%}
         {%- if section_st.mega_menu.links.size > 1 -%}
@@ -630,7 +636,7 @@
           <li class="level0 hidden-1025">
             <a
               class="no-underline py-10 lh-normal flex border-bottom border-bottom-1025-0 min-h-55 min-h-1025-50 align-center{% if uppercase_first %} uppercase{% endif %}"
-              href="/pages/wishlist"
+              href="{%- render 'wishlist-url' -%}"
               aria-label="{{ 'templates.wishlist.wishlist' | t }}"
             >
               <svg width="17" height="15" viewBox="0 0 19 16" class="me-10" fill="none">
@@ -745,8 +751,9 @@
           -%}
           {%- case mm_title_type -%}
             {%- when 'theme_logo' -%}
-              {%- if settings.logo != blank -%}
-                {{ settings.logo | image_url: width: 400 | image_tag: loading: 'eager', class: 'menu-mobile-title__logo', style: mm_logo_style, alt: mm_title_text }}
+              {%- assign mm_theme_logo = settings.logo | default: settings.mobile_logo -%}
+              {%- if mm_theme_logo != blank -%}
+                {{ mm_theme_logo | image_url: width: 400 | image_tag: loading: 'eager', class: 'menu-mobile-title__logo', style: mm_logo_style, alt: mm_title_text }}
               {%- else -%}
                 {{ mm_title_text }}
               {%- endif -%}
@@ -775,7 +782,7 @@
         {% endif %}
       </div>
       <ul
-        class="horizontal-list list-unstyled inline-flex-1025 flex-wrap row-gap-0 horizontal px-30 px-1025-0 show-localization animation-{{ section_st.dropdowns_animation }}"
+        class="horizontal-list{% if menu_items contains 'class="menu_label' %} has-menu-label{% endif %} list-unstyled inline-flex-1025 flex-wrap row-gap-0 horizontal px-30 px-1025-0 show-localization animation-{{ section_st.dropdowns_animation }}"
       >
         <svg hidden>
           <symbol id="icon-arrow-down">
@@ -822,7 +829,7 @@
         {%- endif -%}
         {%- if wishlist -%}
           <a
-            href="/pages/wishlist"
+            href="{%- render 'wishlist-url' -%}"
             class="mobile-nav-actions__wishlist inline-flex align-center justify-content-center no-underline"
             aria-label="{{ 'templates.wishlist.wishlist' | t }}"
           >
@@ -838,10 +845,13 @@
         {%- endif -%}
       </div>
     {%- endif -%}
-    <div class="lang__currency-on-nav flex flex-wrap hidden-1025 border-top">
-      {%- if show_language -%} {%- render 'language-switcher' -%} {%- endif -%}
-      {%- if show_country -%} {%- render 'country-switcher' -%} {%- endif -%}
-    </div>
+    {%- comment -%} One language or one market: the pickers draw the current one as a quiet label (static_single). {%- endcomment -%}
+    {%- if show_language or show_country -%}
+      <div class="lang__currency-on-nav flex flex-wrap hidden-1025 border-top">
+        {%- if show_language -%} {%- render 'language-switcher', id_suffix: '-drawer', static_single: true -%} {%- endif -%}
+        {%- if show_country -%} {%- render 'country-switcher', id_suffix: '-drawer', static_single: true -%} {%- endif -%}
+      </div>
+    {%- endif -%}
   </nav>
 
 

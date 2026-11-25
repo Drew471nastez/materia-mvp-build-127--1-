@@ -1,3 +1,16 @@
+{% doc %}
+  Pagination links (numbers, previous/next or load more) for a paginated list.
+
+  @param {string} [anchor] - Anchor; no current caller passes it
+  @param {number} [count] - Count
+  @param {number} number_page - Posts per page
+  @param {object} paginate - The paginate object
+  @param {string} pagination - Pagination
+  @param {object} section_st - Section settings object
+
+  @example
+  {% render 'pagination', section_st: st, pagination: st.pagination, number_page: 10, count: customer.orders_count, paginate: paginate %}
+{% enddoc -%}
 {%- comment -%}
   Materia Themes. Developed By Materia Themes.
 {%- endcomment -%}

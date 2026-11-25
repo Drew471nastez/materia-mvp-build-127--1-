@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. One block of Newsletter Split (sections/newsletter-split)
   or Follow Us (sections/social-follow-cta), by its type: heading,
   subheading, image (a picture of Follow Us, linked when it has a link).
@@ -10,7 +10,14 @@
   again. data-own-font / data-own-weight / data-own-size keep a custom font,
   weight or size ahead of Theme settings > Typography priority, here in the
   first paint and from the script on live edits.
-{%- endcomment -%}
+
+  @param {block} block - The block being rendered
+  @param {number} [index] - Index
+  @param {section} section - The section being rendered
+
+  @example
+  {% render 'r7-connect-block', block: block, section: section, index: forloop.index %}
+{%- enddoc -%}
 {%- liquid
   assign bs = block.settings
   assign st = section.settings
@@ -51,7 +58,7 @@
       {%- if bs.image != blank -%}
         <img class="r7n__tile-img" data-r7n-tile-img src="{{ bs.image | image_url: width: 900 }}" srcset="{{ bs.image | image_url: width: 400 }} 400w, {{ bs.image | image_url: width: 600 }} 600w, {{ bs.image | image_url: width: 900 }} 900w" sizes="(min-width: 768px) 25vw, 72vw" width="{{ bs.image.width | default: 900 }}" height="{{ bs.image.height | default: 900 }}" alt="{{ tile_alt | escape }}" loading="lazy" decoding="async"{% if bs.image.presentation.focal_point != blank %} style="object-position: {{ bs.image.presentation.focal_point }}"{% endif %}>
       {%- else -%}
-        {%- render 'placeholder-render', class: 'r7n__tile-img r7n__tile-img--ph' -%}
+        {%- render 'placeholder-render', class: 'r7n__tile-img r7n__tile-img--ph', type: 'collection', index: index -%}
       {%- endif -%}
     </{{ tile_tag }}>
 {%- endcase -%}

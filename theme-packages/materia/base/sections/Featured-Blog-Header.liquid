@@ -1,6 +1,6 @@
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- assign fb_accessibility_featured_article = 'accessibility.featured_article' | t -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
@@ -185,7 +185,8 @@
   #hero-banner-2-{{ section.id }} [hidden] { display: none !important; }
   #hero-banner-2-{{ section.id }} .fbh-skeleton { display: block; height: 0.8em; width: min(420px, 60vw); max-width: 100%; margin: 0.1em auto; border-radius: 6px; background: rgb(255 255 255 / 0.35); }
   #hero-banner-2-{{ section.id }} .fbh-skeleton--line { height: 12px; width: min(520px, 70vw); margin: 10px auto; }
-  #hero-banner-2-{{ section.id }} .featured_main3-image.fbh-empty { background-color: color-mix(in srgb, var(--color-background) 35%, rgb(0 0 0)); }
+  #hero-banner-2-{{ section.id }} .featured_main3-image.fbh-empty { background-color: color-mix(in srgb, var(--color-background) 35%, rgb(0 0 0)); overflow: hidden; }
+  #hero-banner-2-{{ section.id }} .featured_main3-image.fbh-empty > .fbh-ph { width: 100%; height: 100%; background: none; fill: rgb(255 255 255 / .3); }
   #hero-banner-2-{{ section.id }} .featured_link3:not([href]) { cursor: default; }
   #hero-banner-2-{{ section.id }} .featured_link3[data-own-shape] { --mb-radius: var(--fbh-btn-radius); --mb-border-width: var(--fbh-btn-bw); --mb-weight: var(--fbh-btn-weight); --mb-font-size: var(--fbh-read-d); }
   @media (max-width: 767px) { #hero-banner-2-{{ section.id }} .featured_link3[data-own-shape] { --mb-font-size: var(--fbh-read-m); } }
@@ -573,7 +574,9 @@
               {% else %}
                 class="featured_main3-image fbh-empty"
               {% endif %}
-            ></div>
+            >
+              {%- unless block.settings.custom_image or fbh_article.image -%}{%- render 'placeholder-image', type: 'lifestyle-1', class: 'fbh-ph' -%}{%- endunless -%}
+            </div>
 
             <!-- Editable label for 'Featured Article' text -->
             <span class="featured_article3" data-lcp-fallback="{{ fb_accessibility_featured_article | escape }}">
@@ -620,7 +623,7 @@
                   | image_tag: alt: block.settings.article.title
                 }}
               {%- else -%}
-                <img src="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Crect width=%22400%22 height=%22300%22 fill=%22%23efefef%22/%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22 fill=%22%23cfcfcf%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22 fill=%22%23cfcfcf%22/%3E%3C/svg%3E" alt="" width="400" height="300" loading="lazy">
+                <img src="{%- render 'placeholder-image', type: 'lifestyle', index: forloop.index, scheme: color_scheme, ratio: '4/3', format: 'url' -%}" alt="" width="400" height="300" loading="lazy">
               {%- endif -%}
 
               <div class="featured_item-info3">
@@ -639,11 +642,12 @@
 </div>
 {%- endif -%}
 <!-- ti-theme:end -->
+
 {% schema %}
 {
   "name": "Featured post banner",
   "tag": "section",
-  "class": "custom-blog",
+  "class": "custom-blog s-tt",
   "max_blocks": 1,
   "settings": [
     {
@@ -654,7 +658,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Colour scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -771,7 +775,6 @@
       "min": 0,
       "max": 100,
       "step": 1,
-      "hidden": true,
       "info": "Legacy: this section holds one post.",
       "visible_if": "{{ false }}"
     },
@@ -1007,7 +1010,6 @@
       "min": 50,
       "max": 800,
       "step": 10,
-      "hidden": true,
       "info": "Legacy: on phones the picture takes its mobile shape.",
       "visible_if": "{{ false }}"
     },

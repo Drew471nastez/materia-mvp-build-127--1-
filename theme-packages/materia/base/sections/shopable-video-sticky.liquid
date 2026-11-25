@@ -1,4 +1,4 @@
-<script src="{{ 'live-product-extras.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-product-extras.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%} The floating video slides in on its own (live-product-extras.js); the theme's section reveal is not used, because fading the zero-height wrapper would hide the fixed video with it. {%- endcomment -%}
 <style data-rs-bulletproof>
@@ -55,7 +55,7 @@
 {{ 'shopable-video.css' | asset_url | stylesheet_tag }}
 {%- liquid
   assign section_st = section.settings
-  assign color_scheme = section_st.color_scheme.id | default: section_st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section_st.color_scheme.id | default: section_st.color_scheme | default: 'default'
   assign image_ratio = section_st.image_ratio
   assign custom_ratio = section_st.custom_ratio
   assign offset_bottom = section_st.offset_bottom
@@ -162,7 +162,7 @@
                 {%- assign image_alt = poster_image.alt | default: mini_product.title | escape -%}
                 {% render 'responsive-image', type: 'banner', image: poster_image, image_alt: image_alt %}
               {% else %}
-                {% render 'placeholder-render' %}
+                {% render 'placeholder-render', type: 'lifestyle', index: forloop.index %}
               {% endif %}
             {% endif %}
           </div>
@@ -192,7 +192,7 @@
             class="video-mini-item__popup"
             style="--aspect-ratio: {{ ratio }};"
           >
-            {%- render 'placeholder-render', class: 'rounded' -%}
+            {%- render 'placeholder-render', class: 'rounded', type: 'lifestyle', index: forloop.index -%}
           </div>
         {% endif %}
         <button
@@ -214,9 +214,11 @@
 </shopable-video-sticky>
 <script src="{{ 'shopable-video-sticky.js' | asset_url }}" defer="defer"></script>
 
+
 {% schema %}
 {
-  "name": "Floating video",
+  "class": "s-tt has-popup",
+"name": "Floating video",
   "tag": "section",
   "disabled_on": {
     "groups": [
@@ -233,7 +235,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Colour scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "checkbox",
@@ -277,7 +279,6 @@
       "id": "reveal",
       "label": "Reveal on scroll",
       "default": true,
-      "hidden": true,
       "info": "Legacy: the floating video slides in on its own after the visitor scrolls.",
       "visible_if": "{{ false }}"
     },
@@ -308,7 +309,6 @@
         }
       ],
       "default": "adapt",
-      "hidden": true,
       "info": "Legacy: the floating video is always a 150px circle.",
       "visible_if": "{{ false }}"
     },
@@ -316,7 +316,6 @@
       "type": "text",
       "id": "custom_ratio",
       "label": "Custom ratio",
-      "hidden": true,
       "info": "Legacy: the floating video is always a 150px circle.",
       "visible_if": "{{ false }}"
     },
@@ -324,7 +323,6 @@
       "type": "color",
       "id": "section_bg",
       "label": "Section background",
-      "hidden": true,
       "info": "Legacy: the floating video has no background area.",
       "visible_if": "{{ false }}"
     }

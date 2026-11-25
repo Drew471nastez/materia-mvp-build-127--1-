@@ -1,7 +1,7 @@
-<script src="{{ 'live-products-c.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-products-c.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- assign fb_accessibility_no_products_found = 'accessibility.no_products_found' | t -%}
 {%- assign fb_accessibility_add_collection_tab_hint = 'accessibility.add_collection_tab_hint' | t -%}
@@ -284,9 +284,9 @@
     <div class="ti-tabs__header">
       {%- for block in section.blocks -%}
         {%- if block.type == 'heading' and show_heading and block.id == heading_block.id -%}
-          <h2 class="ti-tabs__heading ti-tabs__rt"{% if h_custom %} data-own-weight{% endif %} data-ct-block="{{ block.id }}" data-ct-type="heading" data-ct-block-settings="{{ block.settings | json | escape }}" {{ block.shopify_attributes }}>{{ hb.heading }}</h2>
+          <h2 class="ti-tabs__heading ti-tabs__rt"{% if h_custom %} data-own-weight{% endif %} data-ct-block="{{ block.id }}" data-ct-type="heading" {% if request.design_mode %}data-ct-block-settings="{{ block.settings | json | escape }}"{% endif %} {{ block.shopify_attributes }}>{{ hb.heading }}</h2>
         {%- elsif block.type == 'subheading' and show_subheading and block.id == subheading_block.id -%}
-          <div class="ti-tabs__subheading ti-tabs__rt" data-ct-block="{{ block.id }}" data-ct-type="subheading" data-ct-block-settings="{{ block.settings | json | escape }}" {{ block.shopify_attributes }}>{{ sb.subheading }}</div>
+          <div class="ti-tabs__subheading ti-tabs__rt" data-ct-block="{{ block.id }}" data-ct-type="subheading" {% if request.design_mode %}data-ct-block-settings="{{ block.settings | json | escape }}"{% endif %} {{ block.shopify_attributes }}>{{ sb.subheading }}</div>
         {%- endif -%}
       {%- endfor -%}
     </div>
@@ -298,8 +298,8 @@
   class="section ti-tabs sec__collection-tab color-{{ color_scheme }} gradient pt-section pb-section{% if st.reset_spacing %} remove_spacing{% endif %}{% if reveal %} overflow-hidden{% endif %}"
   data-collection-tab
   data-ct-section="{{ sid }}"
-  data-ct-settings="{{ st | json | escape }}"
-  data-ct-defaults="&#123;&quot;color_scheme&quot;:&quot;default-color-scheme&quot;,&quot;section_width&quot;:&quot;fluid_container&quot;,&quot;reset_spacing&quot;:true,&quot;items_to_show&quot;:8,&quot;items_per_row&quot;:4,&quot;rows&quot;:1,&quot;column_gap&quot;:20,&quot;content_alignment&quot;:&quot;center&quot;,&quot;vertical_gap_heading_subheading&quot;:10,&quot;tab_style&quot;:&quot;pill&quot;,&quot;tabs_alignment&quot;:&quot;center&quot;,&quot;tab_border_radius&quot;:8,&quot;tab_padding_x&quot;:22,&quot;tab_padding_y&quot;:10,&quot;tab_gap&quot;:10,&quot;tab_unchecked_border_thickness&quot;:0,&quot;tab_checked_border_thickness&quot;:0,&quot;show_tab_icon&quot;:false,&quot;tab_icon_size&quot;:22,&quot;show_product_count&quot;:false,&quot;show_nav_bottom_border&quot;:false,&quot;nav_bottom_border_thickness&quot;:1,&quot;gap_tabs_to_products&quot;:30,&quot;show_load_more_button&quot;:true,&quot;button_label&quot;:&quot;View More&quot;,&quot;use_outline_button_style&quot;:false,&quot;gap_loadmore&quot;:30,&quot;empty_state_message&quot;:&quot;No products found in this collection.&quot;,&quot;empty_state_font_size&quot;:16,&quot;enable_custom_styling&quot;:false,&quot;tab_font_size&quot;:14,&quot;tab_font_weight&quot;:&quot;500&quot;,&quot;tab_switch_animation&quot;:&quot;fade&quot;,&quot;reveal&quot;:true,&quot;scroll_animation&quot;:&quot;smooth-fade-up&quot;,&quot;padding_top&quot;:30,&quot;padding_bottom&quot;:30,&quot;vertical_gap_subheading_section_desktop&quot;:25,&quot;section_margin_top_desktop&quot;:0,&quot;section_margin_bottom_desktop&quot;:0,&quot;items_per_row_mobile&quot;:2,&quot;rows_mobile&quot;:1,&quot;tabs_full_width&quot;:false,&quot;vertical_gap_subheading_section_mobile&quot;:18,&quot;section_margin_top_mobile&quot;:0,&quot;section_margin_bottom_mobile&quot;:0&#125;"
+  {% if request.design_mode %}data-ct-settings="{{ st | json | escape }}"{% endif %}
+  data-ct-defaults="&#123;&quot;color_scheme&quot;:&quot;default&quot;,&quot;section_width&quot;:&quot;fluid_container&quot;,&quot;reset_spacing&quot;:true,&quot;items_to_show&quot;:8,&quot;items_per_row&quot;:4,&quot;rows&quot;:1,&quot;column_gap&quot;:20,&quot;content_alignment&quot;:&quot;center&quot;,&quot;vertical_gap_heading_subheading&quot;:10,&quot;tab_style&quot;:&quot;pill&quot;,&quot;tabs_alignment&quot;:&quot;center&quot;,&quot;tab_border_radius&quot;:8,&quot;tab_padding_x&quot;:22,&quot;tab_padding_y&quot;:10,&quot;tab_gap&quot;:10,&quot;tab_unchecked_border_thickness&quot;:0,&quot;tab_checked_border_thickness&quot;:0,&quot;show_tab_icon&quot;:false,&quot;tab_icon_size&quot;:22,&quot;show_product_count&quot;:false,&quot;show_nav_bottom_border&quot;:false,&quot;nav_bottom_border_thickness&quot;:1,&quot;gap_tabs_to_products&quot;:30,&quot;show_load_more_button&quot;:true,&quot;button_label&quot;:&quot;View More&quot;,&quot;use_outline_button_style&quot;:false,&quot;gap_loadmore&quot;:30,&quot;empty_state_message&quot;:&quot;No products found in this collection.&quot;,&quot;empty_state_font_size&quot;:16,&quot;enable_custom_styling&quot;:false,&quot;tab_font_size&quot;:14,&quot;tab_font_weight&quot;:&quot;500&quot;,&quot;tab_switch_animation&quot;:&quot;fade&quot;,&quot;reveal&quot;:true,&quot;scroll_animation&quot;:&quot;smooth-fade-up&quot;,&quot;padding_top&quot;:30,&quot;padding_bottom&quot;:30,&quot;vertical_gap_subheading_section_desktop&quot;:25,&quot;section_margin_top_desktop&quot;:0,&quot;section_margin_bottom_desktop&quot;:0,&quot;items_per_row_mobile&quot;:2,&quot;rows_mobile&quot;:1,&quot;tabs_full_width&quot;:false,&quot;vertical_gap_subheading_section_mobile&quot;:18,&quot;section_margin_top_mobile&quot;:0,&quot;section_margin_bottom_mobile&quot;:0&#125;"
   data-ct-block-defaults="&#123;&quot;heading&quot;:&#123;&quot;heading&quot;:&quot;Featured Products&quot;,&quot;text_style&quot;:&quot;medium&quot;,&quot;heading_size&quot;:&quot;h2&quot;,&quot;custom_style&quot;:false,&quot;heading_font_weight&quot;:&quot;700&quot;,&quot;heading_font_size_desktop&quot;:28,&quot;heading_font_size_mobile&quot;:24&#125;,&quot;subheading&quot;:&#123;&quot;subheading&quot;:&quot;<p>Pick a collection to see what is in it.</p>&quot;,&quot;text_size&quot;:&quot;body&quot;,&quot;max_width&quot;:640,&quot;custom_style&quot;:false,&quot;subheading_font_weight&quot;:&quot;400&quot;,&quot;subheading_font_size_desktop&quot;:16,&quot;subheading_font_size_mobile&quot;:14&#125;,&quot;collection&quot;:&#123;&#125;,&quot;view_more&quot;:&#123;&quot;enabled&quot;:true,&quot;label&quot;:&quot;View more&quot;,&quot;button_role&quot;:&quot;primary&quot;,&quot;appearance&quot;:&quot;theme&quot;,&quot;custom_style&quot;:false&#125;&#125;"
   data-ct-animation="{{ scroll_animation }}"
   data-ct-width="{{ section_width }}"
@@ -340,6 +340,9 @@
                 if col_obj.id == blank
                   assign col_obj = collections[bs.collection]
                 endif
+                if col_obj.id == blank and col_obj.handle != 'all'
+                  assign col_obj = collections.all
+                endif
                 assign col_title = bs.collection_title
                 if col_title == blank
                   if col_obj != blank and col_obj.title != blank
@@ -365,7 +368,7 @@
                 data-block-id="{{ block.id }}"
                 data-ct-block="{{ block.id }}"
                 data-ct-type="collection"
-                data-ct-block-settings="{{ ct_bjson | escape }}"
+                {% if request.design_mode %}data-ct-block-settings="{{ ct_bjson | escape }}"{% endif %}
                 data-ct-title="{{ ct_title | escape }}"
                 role="tab"
                 aria-selected="{% if tab_i == 1 %}true{% else %}false{% endif %}"
@@ -396,10 +399,13 @@
                 if col_obj.id == blank
                   assign col_obj = collections[bs.collection]
                 endif
+                if col_obj.id == blank and col_obj.handle != 'all'
+                  assign col_obj = collections.all
+                endif
                 assign panel_id = 'ti-tabs-panel-' | append: sid | append: '-' | append: block.id
                 assign all_product_visible = rows | times: items_per_row
                 assign products_avail = 0
-                if col_obj.id != blank
+                if col_obj != blank
                   assign products_avail = col_obj.products.size
                 endif
               -%}
@@ -457,7 +463,7 @@
                           -%}
                         {%- endfor -%}
                       </grid-custom>
-                      <div class="ti-tabs__loadmore-wrap"{% if view_more_block %} data-ct-block="{{ view_more_block.id }}" data-ct-type="view_more" data-ct-block-settings="{{ view_more_block.settings | json | escape }}" {{ view_more_block.shopify_attributes }}{% endif %}>
+                      <div class="ti-tabs__loadmore-wrap"{% if view_more_block %} data-ct-block="{{ view_more_block.id }}" data-ct-type="view_more" {% if request.design_mode %}data-ct-block-settings="{{ view_more_block.settings | json | escape }}"{% endif %} {{ view_more_block.shopify_attributes }}{% endif %}>
                         <loadmore-function
                           data-all-products="{{ products_to_show }}"
                           data-section-id="{{ sid }}"
@@ -524,7 +530,8 @@
   </div>
 </div>{% schema %}
 {
-  "name": "Product Tabs Navigation ",
+  "class": "s-tt",
+"name": "Product Tabs Navigation ",
   "tag": "section",
   "disabled_on": {
     "groups": [
@@ -542,7 +549,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -825,7 +832,6 @@
       "label": "Show Load more button",
       "info": "Legacy: used only when the section has no View more button block.",
       "default": true,
-      "hidden": true,
       "visible_if": "{{ false }}"
     },
     {
@@ -833,7 +839,6 @@
       "id": "button_label",
       "label": "Button label",
       "default": "View More",
-      "hidden": true,
       "info": "Legacy: used only when the section has no View more button block.",
       "visible_if": "{{ false }}"
     },
@@ -842,7 +847,6 @@
       "id": "use_outline_button_style",
       "label": "Outline button",
       "default": false,
-      "hidden": true,
       "info": "Legacy: used only when the section has no View more button block.",
       "visible_if": "{{ false }}"
     },
@@ -1160,7 +1164,6 @@
       "max": 4,
       "step": 1,
       "default": 1,
-      "hidden": true,
       "info": "Not used: on phones the grid shows every product the tab has loaded.",
       "visible_if": "{{ false }}"
     },
@@ -1259,8 +1262,7 @@
               "value": "h3",
               "label": "Heading 3"
             }
-          ],
-          "hidden": true
+          ]
         },
         {
           "type": "header",
@@ -1556,8 +1558,8 @@
   ],
   "presets": [
     {
-      "name": "Product Tabs Navigation",
-      "category": "Products",
+      "name": "Product Tabs",
+      "category": "03 · Products",
       "blocks": [
         {
           "type": "heading"

@@ -68,7 +68,7 @@ function materiaPruneRecommendationExtras(root) {
   // product card *after* the recommendations response was cleaned.
   root?.querySelectorAll('details').forEach(details => {
     let panel = details.parentElement;
-    while(panel && panel!==root && !panel.matches('.product-item,.swiper-slide,.cart-upsell-item')) {
+    while(panel && panel!==root && !panel.matches('.product-item,.swiper-slide,.cart-upsell-item,.cart-rec__slide')) {
       if(panel.querySelector('h2,h3,h4,h5') && !panel.querySelector('img,form,button[type="submit"],[data-theme-button]')) { panel.remove(); return; }
       panel=panel.parentElement;
     }
@@ -177,10 +177,29 @@ function materiaPatchDrawerCart(target, incoming, options = {}) {
       materiaUpdateCartValue(dst,fresh[index]);
     });
   }
-  // Recalculate savings text when installed without remounting the panel.
-  const savingsOld = target.querySelector('.cda-savings');
-  const savingsNew = incoming.querySelector('.cda-savings');
-  if (savingsOld && savingsNew && savingsOld.innerHTML !== savingsNew.innerHTML) savingsOld.innerHTML = savingsNew.innerHTML;
+  // Cart boosters (savings, loyalty, stock, shipping estimate...) follow the
+  // new totals: each slot is redrawn only when its content changed.
+  target.querySelectorAll('[data-cda-slot]').forEach(slot => {
+    const fresh = incoming.querySelector(`[data-cda-slot="${slot.dataset.cdaSlot}"]`);
+    if (!fresh) return;
+    const strip = html => html.replace(/<strong class="cda-urgency__timer">[^<]*<\/strong>/g, '');
+    if (strip(slot.innerHTML) !== strip(fresh.innerHTML)) { slot.innerHTML = fresh.innerHTML; window.cdaTick?.(); }
+  });
+  // Manually picked recommendations: the server leaves out variants now in
+  // the cart, so redraw the cards when that list changed.
+  const pickOld = target.querySelector('.cart-recommend-custom');
+  const pickNew = incoming.querySelector('.cart-recommend-custom');
+  if (pickOld && pickNew) {
+    const trackOld = pickOld.querySelector('[data-cart-rec-track]'), trackNew = pickNew.querySelector('[data-cart-rec-track]');
+    const ids = el => [...(el?.querySelectorAll('.cart-rec__card [name="id"]') || [])].map(input => input.options ? [...input.options].map(o => o.value).join(',') : input.value).join('|');
+    if (trackOld && trackNew && ids(trackOld) !== ids(trackNew)) {
+      trackOld.innerHTML = trackNew.innerHTML;
+      if (trackOld.animate && !materiaReduced()) trackOld.animate([{opacity: .35}, {opacity: 1}], {duration: 220, easing: 'ease-out'});
+    }
+    const empty = !pickNew.querySelector('.cart-rec__slide');
+    pickOld.hidden = empty;
+    pickOld.classList.toggle('hidden-recommend', empty);
+  }
   // Recommendations follow the new lead product without going blank: the
   // mounted list stays until the new one has arrived.
   const recOld = target.querySelector('minicart-recommendations');
@@ -538,113 +557,8 @@ class CartNotification extends HTMLElement {
           target.disabled = false;
           target.removeAttribute("aria-busy");
         });
-    } else if (action == "shipping") {
-      var e = {};
-      (e.zip = document.querySelector("#AddressZip").value || ""),
-        (e.country = document.querySelector("#address_country").value || ""),
-        (e.province = document.querySelector("#address_province").value || ""),
-        this._getCartShippingRatesForDestination(e);
     }
-  }
-
-  _getCartShippingRatesForDestination(event) {
-    fetch(
-      `${window.Shopify.routes.root}cart/shipping_rates.json?shipping_address%5Bzip%5D=${encodeURIComponent(event.zip)}&shipping_address%5Bcountry%5D=${encodeURIComponent(event.country)}&shipping_address%5Bprovince%5D=${encodeURIComponent(event.province)}`
-    )
-      .then((response) => {
-        return response.text();
-      })
-      .then((state) => {
-        const message = document.querySelector(".addon-message");
-        // Clear previous output (legacy <p> nodes + new shipping cards/headers)
-        message
-          .querySelectorAll("p, .shipping-rates, .shipping-summary")
-          .forEach((n) => n.remove());
-        const { showDeliveryDays, deliveryDayOne, deliveryDaysOther } =
-          message.dataset;
-        const parsedState = JSON.parse(state);
-        const escapeHtml = (s = "") =>
-          String(s).replace(/[&<>"']/g, (c) => ({
-            "&": "&amp;",
-            "<": "&lt;",
-            ">": "&gt;",
-            '"': "&quot;",
-            "'": "&#39;",
-          })[c]);
-        if (parsedState && parsedState.shipping_rates) {
-          if (parsedState.shipping_rates.length > 0) {
-            message.classList.remove("error", "warning");
-            message.classList.add("success");
-            // Header summary
-            const summary = document.createElement("div");
-            summary.className = "shipping-summary";
-            const addressLabel =
-              event.zip + ", " + event.country + " " + event.province;
-            summary.innerHTML =
-              '<svg class="shipping-summary__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z"/><path d="M19 17a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z"/><path d="M3 6h11v11H9"/><path d="M14 9h4l3 4v4h-2"/></svg>' +
-              '<span class="shipping-summary__text">' +
-              (cartStrings?.shipping_rate || "Estimated rates for {{address}}").replace(
-                "{{address}}",
-                "<strong>" + escapeHtml(addressLabel) + "</strong>"
-              ) +
-              "</span>";
-            message.appendChild(summary);
-
-            // Rates list
-            const list = document.createElement("ul");
-            list.className = "shipping-rates";
-            parsedState.shipping_rates.forEach((rate) => {
-              let daysHtml = "";
-              if (rate.delivery_days.length > 0 && showDeliveryDays == "true") {
-                let typeDay = deliveryDayOne;
-                const day = rate.delivery_days[0];
-                const dayAt = rate.delivery_days.at(-1);
-                if (day > 1) typeDay = deliveryDaysOther;
-                const range = day === dayAt ? day : day + "–" + dayAt;
-                daysHtml =
-                  '<span class="shipping-rate__eta">' +
-                  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>' +
-                  range +
-                  " " +
-                  escapeHtml(typeDay) +
-                  "</span>";
-              }
-              const li = document.createElement("li");
-              li.className = "shipping-rate";
-              li.innerHTML =
-                '<span class="shipping-rate__name">' +
-                escapeHtml(rate.name) +
-                "</span>" +
-                '<span class="shipping-rate__meta">' +
-                daysHtml +
-                '<span class="shipping-rate__price">' +
-                Shopify.formatMoney(rate.price, cartStrings?.money_format) +
-                "</span>" +
-                "</span>";
-              list.appendChild(li);
-            });
-            message.appendChild(list);
-          } else {
-            message.classList.remove("error", "success");
-            message.classList.add("warning");
-            const p = document.createElement("p");
-            p.innerText = cartStrings?.no_shipping;
-            message.appendChild(p);
-          }
-        } else {
-          message.classList.remove("success", "warning");
-          message.classList.add("error");
-          Object.entries(parsedState).map((error) => {
-            const message_error = `${error[1][0]}`;
-            const p = document.createElement("p");
-            p.innerText = message_error;
-            message.appendChild(p);
-          });
-        }
-      })
-      .catch((error) => {
-        throw error;
-      });
+    // The shipping estimate is answered by cart-drawer.js (the platform's own rates).
   }
 
   addGiftwrapClick(event) {
@@ -989,7 +903,7 @@ class CartNotification extends HTMLElement {
     try { if (typeof BlsLazyloadImg !== "undefined" && BlsLazyloadImg?.init) BlsLazyloadImg.init(this); } catch (_) {}
     try {
       const cartRecommend = this.querySelector(".cart-recommend");
-      if (cartRecommend && !cartRecommend.classList.contains("hidden-recommend") && cartRecommend.querySelector(".swiper-slide, .cart-upsell-item")) {
+      if (cartRecommend && !cartRecommend.classList.contains("hidden-recommend") && cartRecommend.querySelector(".swiper-slide, .cart-upsell-item, .cart-rec__slide")) {
         requestAnimationFrame(() => { if (cartRecommend.isConnected) cartRecommend.classList.add("open"); });
       }
     } catch (_) {}
@@ -1196,7 +1110,7 @@ class BaseFetcher extends HTMLElement {
     if (!url || this._loadingUrl === url) return;
     const revision = this._requestRevision = (this._requestRevision || 0) + 1;
     const cacheKey = url;
-    if (!this.querySelector('.swiper-slide, .cart-upsell-item')) this.hidden = true;
+    if (!this.querySelector('.swiper-slide, .cart-upsell-item, .cart-rec__slide')) this.hidden = true;
     const cached = BaseFetcher.htmlCache.get(cacheKey);
     if (cached && Date.now() - cached.at < 15000) {
       this.updateContent(cached.html, sourceSelector, targetSelector);
@@ -1223,7 +1137,7 @@ class BaseFetcher extends HTMLElement {
     } catch (error) {
       if (error.name !== 'AbortError') {
         console.warn('[Materia recommendations] Request failed:', error);
-        if (!this.querySelector('.swiper-slide, .cart-upsell-item')) this.hidden = true;
+        if (!this.querySelector('.swiper-slide, .cart-upsell-item, .cart-rec__slide')) this.hidden = true;
       }
     } finally {
       if (revision === this._requestRevision) {
@@ -1243,15 +1157,17 @@ class BaseFetcher extends HTMLElement {
     const content = results?.querySelector(sourceSelector);
     if (content) {
       [...content.children].forEach(child => {
-        if (!child.matches('.swiper-slide, .cart-upsell-item') || !child.querySelector('.product-item')) child.remove();
+        // Drawer cards (.cart-rec__slide) carry their own form instead of a product card.
+        const card = child.matches('.cart-rec__slide') ? child.querySelector('[data-cart-rec-card]') : child.matches('.swiper-slide, .cart-upsell-item') && child.querySelector('.product-item');
+        if (!card) child.remove();
       });
       materiaPruneRecommendationExtras(content);
     }
-    if (content?.querySelector('.swiper-slide, .cart-upsell-item')) {
+    if (content?.querySelector('.swiper-slide, .cart-upsell-item, .cart-rec__slide')) {
       const target = this.querySelector(targetSelector);
       if (target) {
         if (target.innerHTML === content.innerHTML) { this.hidden = false; return; }
-        const had = !!target.querySelector('.swiper-slide, .cart-upsell-item');
+        const had = !!target.querySelector('.swiper-slide, .cart-upsell-item, .cart-rec__slide');
         target.innerHTML = content.innerHTML;
         if (had && target.animate && !materiaReduced()) target.animate([{opacity: .35}, {opacity: 1}], {duration: 220, easing: 'ease-out'});
         this.hidden = false;
@@ -1292,15 +1208,13 @@ class CartUpsell extends BaseFetcher {
   refresh(url) {
     if (!url || url === this.dataset.url) return;
     this.dataset.url = url;
-    this.fetchAndUpdate(url, ".swiper-wrapper", ".swiper-wrapper");
+    const source = this.dataset.source || ".swiper-wrapper";
+    this.fetchAndUpdate(url, source, source);
   }
   
   connectedCallback() {
-    this.fetchAndUpdate(
-      this.dataset.url,
-      ".swiper-wrapper",
-      ".swiper-wrapper"
-    );
+    const source = this.dataset.source || ".swiper-wrapper";
+    this.fetchAndUpdate(this.dataset.url, source, source);
   }
 }
 customElements.define("minicart-recommendations", CartUpsell);

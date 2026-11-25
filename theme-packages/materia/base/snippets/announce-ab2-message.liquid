@@ -1,9 +1,14 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. One message of Announcement Bar Pro 2: its text and, when
   it has an end date, its countdown. shopify/assets/live-announcements.js
   ticks every countdown of the bar once a second while it is on screen.
+
+  @param {block} block - The block being rendered
+  @param {section} section - The section being rendered
+
+  @example
   {% render 'announce-ab2-message', block: block, section: section %}
-{%- endcomment -%}
+{%- enddoc -%}
 {%- assign bs = block.settings -%}
 {%- assign st = section.settings -%}
 <span class="ab2__text" data-an-text>{{ bs.text }}</span>

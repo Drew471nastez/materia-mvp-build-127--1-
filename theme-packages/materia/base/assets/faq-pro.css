@@ -97,7 +97,7 @@
   padding: var(--faq7-py) var(--faq7-px);
   text-align: start;
   color: var(--faq7-q-color) !important;
-  font-family: var(--faq7-hf, inherit);
+  font-family: var(--faq7-hf, var(--heading-font, inherit));
   font-size: var(--faq7-q-m);
   line-height: 1.4;
   transition: color .2s ease;
@@ -153,26 +153,25 @@
 :is(#_, .faq7) .faq7__a a { color: inherit; text-decoration: underline; }
 :is(#_, .faq7) .faq7__a :is(p, li, strong, em) { font-family: inherit; }
 
-/* The section's own reveal (Scroll animation on a visitor's page) */
-.faq7:is(#_, [data-faq7-reveal]) {
+/* The section's own reveal (its Reveal style, when not "Inherit from theme";
+   inherit plays the theme's reveal, animation.js). Nothing is hidden by this
+   file alone: faq-pro.js arms (data-faq7-armed) only a section that starts
+   below the first screen, so one in view simply shows. Opacity and transform
+   only, so the compositor plays it; will-change only while armed. */
+.faq7:is(#_, [data-faq7-reveal][data-faq7-armed]) {
   opacity: 0;
-  transition: opacity .8s ease, transform .8s ease, filter .8s ease, clip-path .8s ease;
+  transition: opacity .8s ease, transform .8s ease;
   will-change: opacity, transform;
 }
-.faq7:is(#_, [data-faq7-reveal="slide-in"]) { transform: translateX(-20px); }
-.faq7.is-revealed:is(#_, [data-faq7-reveal="slide-in"]) { transform: translateX(0); }
-.faq7:is(#_, [data-faq7-reveal="smooth-fade-up"]) { transform: translateY(20px); }
-.faq7.is-revealed:is(#_, [data-faq7-reveal="smooth-fade-up"]) { transform: translateY(0); }
-.faq7:is(#_, [data-faq7-reveal="blur_up"]) { transform: translateY(12px); filter: blur(4px); }
-.faq7.is-revealed:is(#_, [data-faq7-reveal="blur_up"]) { transform: none; filter: none; }
-.faq7:is(#_, [data-faq7-reveal="slide_side"]) { transform: translateX(-28px); }
-.faq7.is-revealed:is(#_, [data-faq7-reveal="slide_side"]) { transform: none; }
-.faq7:is(#_, [data-faq7-reveal="mask_reveal"]) { opacity: 1; clip-path: inset(0 0 100% 0); transform: translateY(10px); }
-.faq7.is-revealed:is(#_, [data-faq7-reveal="mask_reveal"]) { clip-path: inset(0 0 0 0); transform: none; }
+.faq7:is(#_, [data-faq7-reveal="slide-in"][data-faq7-armed]) { transform: translateX(-20px); }
+.faq7:is(#_, [data-faq7-reveal="smooth-fade-up"][data-faq7-armed]) { transform: translateY(20px); }
+.faq7:is(#_, [data-faq7-reveal="blur_up"][data-faq7-armed]) { transform: translateY(12px) scale(.985); }
+.faq7:is(#_, [data-faq7-reveal="slide_side"][data-faq7-armed]) { transform: translateX(-28px); }
+.faq7:is(#_, [data-faq7-reveal="mask_reveal"][data-faq7-armed]) { transform: translateY(18px) scaleY(.96); transform-origin: 50% 0; }
+.faq7.is-revealed:is(#_, [data-faq7-reveal][data-faq7-armed]) { opacity: 1; transform: none; }
 @media (prefers-reduced-motion: reduce) {
-  .faq7:is(#_, [data-faq7-reveal]) { filter: none !important; clip-path: none !important; }
+  .faq7:is(#_, [data-faq7-reveal]) { opacity: 1 !important; transform: none !important; transition: none !important; }
 }
-.faq7.is-revealed:is(#_, [data-faq7-reveal]) { opacity: 1; }
 
 /* Button block, inside the header under the heading and subheading */
 :is(#_, .faq7) .faq7__cta-row {

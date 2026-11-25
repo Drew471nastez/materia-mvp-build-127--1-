@@ -82,3 +82,13 @@
   .wishlist-page__ghost,
   .wishlist-page__status.is-shown { animation: none; }
 }
+
+/* The saved-products count above the cards (data-wishlist-count, kept live by wishlist.js). */
+.wishlist-page__count {
+  margin: 0 0 clamp(16px, 2.5vw, 28px);
+  color: color-mix(in srgb, var(--color-text, currentColor) 72%, transparent);
+  font-size: 15px;
+  transition: opacity .2s ease;
+}
+.wishlist-page__count.is-updating { opacity: .4; }
+.wishlist-page-section.is-empty .wishlist-page__count { display: none; }

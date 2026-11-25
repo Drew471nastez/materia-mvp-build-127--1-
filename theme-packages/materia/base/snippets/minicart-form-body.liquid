@@ -1,18 +1,24 @@
-{%- comment -%}
+{%- doc -%}
   The drawer's scrolling body and footer, #minicart-form. Rendered by the
   minicart snippet on page load and by the minicart-form section after every
   cart change, so both always match the Cart Drawer settings.
-{%- endcomment -%}
+
+  @param {object} [carrier] - Carrier
+
+  @example
+  {% render 'minicart-form-body', carrier: carrier %}
+{%- enddoc -%}
 {%- liquid
   assign theme_st = settings
   assign show_currency_code = theme_st.show_currency_code
   assign action_after_add_cart = theme_st.action_after_add_cart
+  comment
+    Product recommendations > Placement: the drawer shows them for "Cart
+    drawer" and "Both"; the cart page reads the same setting.
+  endcomment
   assign minicart_type = 'disable'
-  if theme_st.cart_drawer_recommendations
+  if theme_st.minicart_type == 'show_inside' or theme_st.minicart_type == 'show_both'
     assign minicart_type = 'show_inside'
-    if theme_st.minicart_type == 'show_beside'
-      assign minicart_type = 'show_beside'
-    endif
   endif
   assign recommendations_heading = theme_st.product_recommendations_heading
   assign product_recommendations_type = theme_st.product_recommendations_type
@@ -43,6 +49,19 @@
   id="minicart-form"
   class="minicart-form flex-1 flex flex-column grow relative overflow-hidden color-default"
 >
+  {%- comment -%} Reservation timer: drawn with the cart, so it appears with the first item. {%- endcomment -%}
+  {%- if settings.show_duration_on_minicart_cart_page and cart.items.size > 0 -%}
+    <div class="cart-countdown-time px-30 heading-style color-default">
+      <countdown-timer
+        data-minutes-left="{{ settings.cart_duration }}"
+        data-timeout-message="{{ 'general.cart.timeout_message' | t }}"
+        class="flex flex-wrap align-center pt-17 pb-15 border-bottom-dashed  w-full"
+      >
+        <span class="me-5">{{- 'general.cart.countdown_message_html' | t -}}</span>
+        <div class="countdown-inner inline-flex align-center"></div>
+      </countdown-timer>
+    </div>
+  {%- endif -%}
   <div class="minicart-scroll flex-1 overflow-y-scroll custom-scrollbar">
     <form
       id="minicart"
@@ -93,74 +112,60 @@
     {% endif %}
     {% if drawer_parts %}
       {% if action_after_add_cart == 'open_drawer' and minicart_type == 'show_inside' or action_after_add_cart == 'open_drawer' and minicart_type == 'show_both' %}
+        {%- capture rec_cards_html -%}
+          {%- if product_recommendations_type != 'auto' -%}
+            {%- for item in select_product_recommendations limit: 12 -%}
+              {%- liquid
+                assign hidden = false
+                if item.available == false
+                  assign hidden = true
+                endif
+              -%}
+              {%- unless hidden -%}
+                {%- render 'cart-recommend-card', product: item -%}
+              {%- endunless -%}
+            {%- endfor -%}
+          {%- endif -%}
+        {%- endcapture -%}
+        {%- assign rec_cards_html = rec_cards_html | strip -%}
         {%- if product_recommendations_type == 'auto' -%}
           <minicart-recommendations
             data-added-text="{{ 'accessibility.added' | t | escape }}"
-            data-url="{{ routes.product_recommendations_url }}?product_id={{ cart.items.first.product_id }}&limit=6&section_id=cart-upsell"
-            class="bls-image-js block cart-recommend pt-30 pb-30 px-30 border-top block{% if product_recommendations_type == 'auto' %} no-js-hidden{% endif %}"
+            data-url="{{ routes.product_recommendations_url }}?product_id={{ cart.items.first.product_id }}&limit=8&section_id=cart-upsell&in_cart={{ cart.items | map: 'variant_id' | uniq | join: '-' }}"
+            data-source=".cart-rec__track"
+            class="block cart-recommend cart-recommend--cards pt-30 pb-30 px-30 border-top block{% if product_recommendations_type == 'auto' %} no-js-hidden{% endif %}"
           >
         {%- else -%}
           <div
-            data-added-text="{{ 'accessibility.added' | t | escape }}" class="cart-recommend cart-recommend-custom pt-30 pb-30 px-30 border-top inside block{% if select_product_recommendations == blank %} hidden-recommend{% endif %}"
+            data-added-text="{{ 'accessibility.added' | t | escape }}" class="cart-recommend cart-recommend--cards cart-recommend-custom pt-30 pb-30 px-30 border-top inside block{% if rec_cards_html == blank %} hidden-recommend{% endif %}"
+            {% if rec_cards_html == blank %}hidden{% endif %}
           >
         {%- endif -%}
-        {%- if recommendations_heading -%}
-          <h4 class="minicart-heading mt-0 mb-15 fs-18 heading-letter-spacing">
-            {{ recommendations_heading }}
-          </h4>
-        {%- endif -%}
-        <slide-section
-          class="swiper swiper-cart-upsell"
-          id="swiper-cart-upsell"
-          data-section-id="cart-upsell"
-          data-autoplay="false"
-          data-loop="false"
-          data-mobile="1"
-          data-tablet="1"
-          data-desktop="1"
-          data-item-mobile="1"
-          data-pagination-progressbar="{% if settings.cart_drawer_recommend_pagination == 'progress' %}true{% else %}false{% endif %}"
-          data-recommend-pagination="{{ settings.cart_drawer_recommend_pagination | default: 'dots' }}"
-          data-spacing="{{ settings.cart_drawer_recommend_gap | default: 12 }}"
-        >
-          <div class="swiper-wrapper">
-            {%- if product_recommendations_type != 'auto' -%}
-              {%- for item in select_product_recommendations -%}
-                {% liquid
-                  assign hidden = false
-                  for itemcart in cart.items
-                    if itemcart.product_id == item.id
-                      assign hidden = true
-                    endif
-                  endfor
-                %}
-                {% if hidden == false %}
-                  <div class="swiper-slide">
-                    {% render 'product-item',
-                      card_product: item,
-                      template_enable_price: true,
-                      template_enable_add_cart: true,
-                      template_enable_product_vendor: false,
-                      template_enable_rate: false,
-                      template_enable_product_short_description: false,
-                      template_enable_color_swatches: false,
-                      type: 'list'
-                    %}
-                  </div>
-                {% endif %}
-              {%- endfor -%}
+        {%- comment -%}
+          Scroll-snap carousel of compact cards (snippets/cart-recommend-card).
+          Auto: minicart-recommendations fills the track from the cart-upsell
+          section (data-source). Select: the picked products render here.
+        {%- endcomment -%}
+        <cart-rec-carousel class="cart-rec block">
+          <div class="cart-rec__head">
+            {%- if recommendations_heading != blank -%}
+              <h4 class="minicart-heading cart-rec__heading heading-letter-spacing">{{ recommendations_heading }}</h4>
             {%- endif -%}
+            {%- unless settings.cart_drawer_recommend_pagination == 'none' -%}
+              <div class="cart-rec__arrows">
+                <button type="button" class="cart-rec__arrow" data-cart-rec-prev aria-label="{{ 'accessibility.previous' | t | escape }}" disabled>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg>
+                </button>
+                <button type="button" class="cart-rec__arrow" data-cart-rec-next aria-label="{{ 'accessibility.next' | t | escape }}">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9.5 6 6 6-6 6"/></svg>
+                </button>
+              </div>
+            {%- endunless -%}
           </div>
-          <div class="cart-recommend__nav">
-            <button type="button" class="cart-recommend__arrow swiper-button-prev" aria-label="{{ 'accessibility.previous' | t }}">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg>
-            </button>
-            <div class="swiper-pagination"></div>
-            <button type="button" class="cart-recommend__arrow swiper-button-next" aria-label="{{ 'accessibility.next' | t }}">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg>
-            </button>
+          <div class="cart-rec__track" data-cart-rec-track role="region" aria-label="{{ recommendations_heading | default: 'Recommendations' | escape }}" tabindex="0">
+            {{- rec_cards_html -}}
           </div>
-        </slide-section>
+        </cart-rec-carousel>
         {%- if product_recommendations_type == 'auto' -%}
           </minicart-recommendations>
         {%- else -%}
@@ -241,9 +246,6 @@
   </div>
   {% if drawer_parts %}
     <div class="cart-footer{% if action_after_add_cart == 'show_popup' %} mt-30{% endif %}">
-    {%- if cart.items.size == 0 -%}
-      <p class="cart-editor-preview">Editor preview: shoppers see this once the cart has items.</p>
-    {%- endif -%}
       {%- comment -%} Cart drawer addons rendered ABOVE the gray totals container {%- endcomment -%}
       <div class="cart-drawer-addons-row px-30">
         {%- render 'cart-drawer-addons', slot: 'above_subtotal' -%}
@@ -320,11 +322,6 @@
           {%- endif -%}
           {%- render 'cart-drawer-addons', slot: 'above_checkout' -%}
           {%- assign drawer_buttons = settings.cart_drawer_buttons | default: 'both' -%}
-          {%- if drawer_buttons == 'continue_shopping' or drawer_buttons == 'checkout_continue' -%}
-          <button type="button" class="action mb-10 btn-outline w-full text-center close-cart materia-continue-shopping">
-            <span>{{ 'general.continue_shopping' | t }}</span>
-          </button>
-          {%- endif -%}
           {%- if drawer_buttons == 'both' or drawer_buttons == 'view_cart' -%}
           <a
             class="action block mb-10{% unless drawer_terms_enabled %} mt-17{% endunless %} btn-outline w-full text-center no-underline viewcart"
@@ -341,7 +338,29 @@
             form="minicart"
             {% if drawer_terms_enabled %}data-requires-terms="drawer" aria-disabled="true" disabled{% endif %}
           >
-            <span>{{ 'general.cart.checkout' | t }}</span>
+            {%- liquid
+              assign co_mode = settings.cart_checkout_label | default: 'checkout'
+              assign co_label = 'general.cart.checkout' | t
+              if show_currency_code
+                assign co_price = cart.total_price | money_with_currency
+              else
+                assign co_price = cart.total_price | money
+              endif
+              assign co_price_html = '<span class="btn-checkout__price" data-checkout-price>' | append: co_price | append: '</span>'
+              assign co_custom = settings.cart_checkout_custom_text | strip | escape
+            -%}
+            {%- if co_mode == 'checkout_price' -%}
+              <span class="btn-checkout__label">{{ co_label }}</span><span class="btn-checkout__sep" aria-hidden="true">&middot;</span>{{ co_price_html }}
+            {%- elsif co_mode == 'custom' and co_custom != blank -%}
+              <span class="btn-checkout__label">{{ co_custom | replace: '[price]', co_price_html }}</span>
+            {%- else -%}
+              <span>{{ co_label }}</span>
+            {%- endif -%}
+          </button>
+          {%- endif -%}
+          {%- if drawer_buttons == 'continue_shopping' or drawer_buttons == 'checkout_continue' -%}
+          <button type="button" class="action mb-10 btn-outline w-full text-center close-cart materia-continue-shopping">
+            <span>{{ 'general.continue_shopping' | t }}</span>
           </button>
           {%- endif -%}
           {%- render 'cart-drawer-addons', slot: 'below_checkout' -%}

@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. Hero Benefits only. A custom font for one part of the
   section: the native font picker (picker) unless it is still on its default
   (Assistant) while the hidden legacy font list (legacy) holds another font,
@@ -6,7 +6,15 @@
   the @font-face rules of a picked font object, anything else prints the CSS
   font stack (fallback when there is no font). shopify/assets/hero-benefits.js
   picks and spells the stack the same way for live edits.
-{%- endcomment -%}
+
+  @param {string} [fallback] - Fallback ('var(--body-font)', 'var(--heading-font)')
+  @param {string} legacy - Default heading font
+  @param {string} [mode] - Mode
+  @param {font} picker - Heading font
+
+  @example
+  {% render 'hero-benefits-font', picker: s.heading_font_picker, legacy: s.heading_font, fallback: 'var(--heading-font)' %}
+{%- enddoc -%}
 {%- liquid
   assign hbf = picker
   assign hbf_default = false

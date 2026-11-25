@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. Opt-out attributes for Theme settings > Typography "Use in
   every section" (snippets/theme-controls), printed on the text-grid root.
   Custom fonts on: data-own-font, so the section's own heading and body
@@ -7,7 +7,12 @@
   Multirow's Heading weight): data-own-weight. Off: nothing, the theme wins.
   media-live-text-grid.js toggles the same attributes live.
   Use: <div ... {% render 'media-tg-own', st: st %}>
-{%- endcomment -%}
+
+  @param {object} st - Section settings object
+
+  @example
+  {% render 'media-tg-own', st: st %}
+{%- enddoc -%}
 {%- liquid
   assign own_weight = false
   if st.enable_custom_fonts and st.heading_font.weight != blank

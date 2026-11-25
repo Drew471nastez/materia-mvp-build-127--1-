@@ -1,6 +1,6 @@
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 <style data-rs-bulletproof>
   {%- if section.settings.reset_spacing -%}
@@ -31,106 +31,20 @@
   :where(#shopify-section-{{ section.id }}) :is(h1, h2, h3, h4, h5, h6) { font-weight: var(--heading-weight, inherit); }
 </style>
 
-{%- comment -%}
-  === COLLECTION CARD BUTTON COLOR FIX ===
-
-  The collection title is rendered as <a class="collection-item__name btn btn-white">.
-  The theme's `.btn-white` rule sets:
-      --btn-bg: var(--color-white);
-      --btn-color: var(--btn-outline-color);
-      --btn-border-color: var(--color-white);
-
-  So when the merchant changes the scheme's Button Primary color, nothing
-  changes on these cards — they use `.btn-white` styling instead.
-
-  Fix: override --btn-bg / --btn-color / --btn-border-color on
-  .collection-item__name.btn-white inside this section so they consume the
-  scheme's Button Primary vars that the theme already generates from the
-  color scheme settings:
-      --btn-primary-bg-color           (from btn_primary_background)
-      --btn-primary-bg-graident-color  (from btn_primary_gradient)
-      --btn-primary-color              (from btn_primary_color)
-      --btn-primary-border-color       (from btn_primary_border_color)
-      --btn-primary-hover-bg-color     (from btn_primary_hover_background)
-      --btn-primary-hover-color        (from btn_primary_hover_color)
-      --btn-primary-hover-border-color (from btn_primary_hover_border_color)
-
-  This way the merchant's choice in the editor flows correctly to the cards.
-{%- endcomment -%}
+{%- liquid
+  # The collection title on the image is a real theme button: its colours,
+  # shape, font and hover effect all come from Theme settings > Buttons and
+  # the colour scheme (Title button style picks which button).
+  case section.settings.title_button_style
+    when 'outline'
+      assign mlc_title_button = 'btn-outline'
+    when 'white'
+      assign mlc_title_button = 'btn-white'
+    else
+      assign mlc_title_button = 'btn-primary'
+  endcase
+-%}
 <style>
-  #shopify-section-{{ section.id }} .collection-item .collection-item__name.btn-white,
-  #shopify-section-{{ section.id }} .collection-item .collection-item__name.btn,
-  #shopify-section-{{ section.id }} .collection-items .collection-item__name.btn-white,
-  #shopify-section-{{ section.id }} .collection-items .collection-item__name.btn {
-    --btn-bg: var(--btn-primary-bg-color) !important;
-    --btn-bg-gradient: var(--btn-primary-bg-graident-color, var(--btn-primary-bg-color)) !important;
-    --btn-color: var(--btn-primary-color) !important;
-    --btn-border-color: var(--btn-primary-border-color, var(--btn-primary-bg-color)) !important;
-    background: var(--btn-primary-bg-color) !important;
-    background: var(--btn-primary-bg-graident-color, var(--btn-primary-bg-color)) !important;
-    color: var(--btn-primary-color) !important;
-    border: var(--btn-border-width, 1px) solid var(--btn-primary-border-color, var(--btn-primary-bg-color)) !important;
-    transition: background-color var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease), background var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease), color var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease), border-color var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease), transform var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease) !important;
-  }
-  #shopify-section-{{ section.id }} loadmore-button .btn-primary {
-    transition: background-color var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease), color var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease), border-color var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease);
-  }
-  @media (prefers-reduced-motion: reduce) {
-    #shopify-section-{{ section.id }} .collection-item__name.btn,
-    #shopify-section-{{ section.id }} .collection-item__name.btn-white,
-    #shopify-section-{{ section.id }} loadmore-button .btn-primary { transition: none !important; }
-  }
-  /* Inner span (the text node) inherits */
-  #shopify-section-{{ section.id }} .collection-item .collection-item__name.btn-white *,
-  #shopify-section-{{ section.id }} .collection-item .collection-item__name.btn *,
-  #shopify-section-{{ section.id }} .collection-items .collection-item__name.btn-white *,
-  #shopify-section-{{ section.id }} .collection-items .collection-item__name.btn * {
-    color: var(--btn-primary-color) !important;
-  }
-
-  /* Hover state — uses scheme's hover vars */
-  #shopify-section-{{ section.id }} .collection-item .collection-item__name.btn-white:hover,
-  #shopify-section-{{ section.id }} .collection-item .collection-item__name.btn-white:focus-visible,
-  #shopify-section-{{ section.id }} .collection-item .collection-item__name.btn:hover,
-  #shopify-section-{{ section.id }} .collection-item .collection-item__name.btn:focus-visible,
-  #shopify-section-{{ section.id }} .collection-items .collection-item__name.btn-white:hover,
-  #shopify-section-{{ section.id }} .collection-items .collection-item__name.btn-white:focus-visible,
-  #shopify-section-{{ section.id }} .collection-item:hover .collection-item__name.btn-white,
-  #shopify-section-{{ section.id }} .collection-items:hover .collection-item__name.btn-white {
-    --btn-bg: var(--btn-primary-hover-bg-color, var(--btn-primary-bg-color)) !important;
-    --btn-color: var(--btn-primary-hover-color, var(--btn-primary-color)) !important;
-    --btn-border-color: var(--btn-primary-hover-border-color, var(--btn-primary-hover-bg-color, var(--btn-primary-bg-color))) !important;
-    background: var(--btn-primary-hover-bg-color, var(--btn-primary-bg-color)) !important;
-    background: var(--btn-primary-hover-bg-color-graident, var(--btn-primary-hover-bg-color, var(--btn-primary-bg-color))) !important;
-    color: var(--btn-primary-hover-color, var(--btn-primary-color)) !important;
-    border-color: var(--btn-primary-hover-border-color, var(--btn-primary-hover-bg-color, var(--btn-primary-bg-color))) !important;
-  }
-  #shopify-section-{{ section.id }} .collection-item .collection-item__name.btn-white:hover *,
-  #shopify-section-{{ section.id }} .collection-item .collection-item__name.btn:hover *,
-  #shopify-section-{{ section.id }} .collection-items .collection-item__name.btn-white:hover *,
-  #shopify-section-{{ section.id }} .collection-item:hover .collection-item__name.btn-white *,
-  #shopify-section-{{ section.id }} .collection-items:hover .collection-item__name.btn-white * {
-    color: var(--btn-primary-hover-color, var(--btn-primary-color)) !important;
-  }
-
-  /* Load-more button (also uses .btn-primary, theme already handles it,
-     but we make sure scheme vars apply correctly here too) */
-  #shopify-section-{{ section.id }} loadmore-button .button.btn-primary,
-  #shopify-section-{{ section.id }} loadmore-button a.btn-primary {
-    --btn-bg: var(--btn-primary-bg-color) !important;
-    --btn-color: var(--btn-primary-color) !important;
-    --btn-border-color: var(--btn-primary-border-color, var(--btn-primary-bg-color)) !important;
-    background: var(--btn-primary-bg-color) !important;
-    color: var(--btn-primary-color) !important;
-    border: var(--btn-border-width, 1px) solid var(--btn-primary-border-color, var(--btn-primary-bg-color)) !important;
-  }
-  #shopify-section-{{ section.id }} loadmore-button .button.btn-primary:hover,
-  #shopify-section-{{ section.id }} loadmore-button a.btn-primary:hover {
-    background: var(--btn-primary-hover-bg-color, var(--btn-primary-bg-color)) !important;
-    color: var(--btn-primary-hover-color, var(--btn-primary-color)) !important;
-    border-color: var(--btn-primary-hover-border-color, var(--btn-primary-hover-bg-color)) !important;
-  }
-
   /* A title wraps between words, never inside one ("Activewea r" on a phone):
      the button keeps whole words and hyphenates only a word wider than it. */
   #shopify-section-{{ section.id }} .collection-item__name,
@@ -160,6 +74,20 @@
   assign design = section_st.design
   assign collection_information_position = 'overlay_image'
   assign scroll_animation = settings.scroll_animation
+  comment
+    Picked collections that no longer exist (deleted, or never made in this
+    store) draw nothing on the live page; with none left the page lists every
+    collection, so it never shows empty placeholder cards.
+  endcomment
+  assign picked_count = 0
+  for block in section.blocks
+    if block.settings.collection != blank
+      assign picked_count = picked_count | plus: 1
+    endif
+  endfor
+  if type == 'selected' and picked_count == 0 and request.design_mode == false
+    assign type = 'all'
+  endif
 -%}
 {%- capture style -%}
   --section-pt: {{ section_st.padding_top }}; --section-pb: {{ section_st.padding_bottom }};
@@ -233,10 +161,11 @@
                       style="--animation-order: {{  forloop.index }};"
                     {%- endif -%}
                   >
-                    {% render 'collection-item',
+                    {% render 'collection-item', index: forloop.index,
                       card_collection: collection,
                       section: section,
                       design: design,
+                      title_button: mlc_title_button,
                       collection_information_position: collection_information_position
                     %}
                   </motion-element>
@@ -262,11 +191,16 @@
             style="{{ col_style | strip | strip_newlines }}"
           >
             {%- assign load = false -%}
+            {%- assign shown = 0 -%}
             {% for block in section.blocks %}
               {%- liquid
                 assign block_st = block.settings
+                if block_st.collection == blank and request.design_mode == false
+                  continue
+                endif
+                assign shown = shown | plus: 1
                 assign class = ' grid-custom-item'
-                if forloop.index > items_to_show
+                if shown > items_to_show
                   assign class = ' grid-custom-item hidden trigger_slidein'
                   assign load = true
                 endif
@@ -280,11 +214,12 @@
                   style="--animation-order: {{  forloop.index }};"
                 {%- endif -%}
               >
-                {% render 'collection-item',
+                {% render 'collection-item', index: forloop.index,
                   card_collection: block_st.collection,
                   section: section,
                   block: block,
                   design: design,
+                  title_button: mlc_title_button,
                   collection_information_position: collection_information_position
                 %}
               </motion-element>
@@ -307,10 +242,11 @@
     </div>
   </div>
 </div>
+
 {% schema %}
 {
   "name": "Collections list page",
-  "class": "section",
+  "class": "section s-tt",
   "tag": "section",
   "settings": [
     {
@@ -321,7 +257,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Colour scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -501,6 +437,27 @@
     },
     {
       "type": "select",
+      "id": "title_button_style",
+      "label": "Title button style",
+      "default": "primary",
+      "info": "For the Default design. Colours, shape, font and hover come from Theme settings > Buttons and the colour scheme.",
+      "options": [
+        {
+          "value": "primary",
+          "label": "Primary"
+        },
+        {
+          "value": "outline",
+          "label": "Outline"
+        },
+        {
+          "value": "white",
+          "label": "White"
+        }
+      ]
+    },
+    {
+      "type": "select",
       "id": "pagination",
       "label": "Pagination",
       "default": "default",
@@ -607,8 +564,7 @@
         {
           "type": "collection",
           "id": "collection",
-          "label": "Collection",
-          "visible_if": "{{ section.settings.type == 'selected' }}"
+          "label": "Collection"
         },
         {
           "type": "text",

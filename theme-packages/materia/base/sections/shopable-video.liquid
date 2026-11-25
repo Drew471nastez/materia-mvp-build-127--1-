@@ -1,4 +1,4 @@
-<script src="{{ 'media-live-stats-reels.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'media-live-stats-reels.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'media-stats-reels-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay), when "Reveal on scroll" is on. {%- endcomment -%}
 {%- if section.settings.reveal and settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
@@ -40,7 +40,7 @@
   assign sid = section.id
   assign custom = s.enable_custom_style
   assign section_width = s.section_width | default: 'fluid_container'
-  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default'
   assign columns = s.columns | default: 4
   assign columns_mobile = s.columns_mobile | default: 1
   assign pagination = s.carousel_pagination | default: 'show_dots'
@@ -177,7 +177,7 @@
   }
   #shopify-section-{{ sid }} .sv-card--has-media { background: #111; }
   #shopify-section-{{ sid }} .sv-card > :is(video, img, iframe) { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border: 0; }
-  #shopify-section-{{ sid }} .sv-card > img.sv-card__placeholder { object-fit: contain; padding: 20%; }
+  #shopify-section-{{ sid }} .sv-card > img.sv-card__placeholder { object-fit: cover; }
   #shopify-section-{{ sid }} .sv-card__overlay {
     position: absolute; inset: 0; z-index: 1; pointer-events: none;
     background: color-mix(in srgb, var(--sv-overlay-color, #000) calc(var(--sv-overlay) * 100%), transparent);
@@ -221,7 +221,7 @@
   }
 </style>
 
-<div class="section sv color-{{ color_scheme }} gradient{% if s.padding_top < 30 %} pt-min{% endif %}{% if s.padding_bottom < 30 %} pb-min{% endif %}" data-msr="video"{% if s.enable_custom_fonts %} data-own-font{% endif %} data-msr-autoplay="{% if s.autoplay_carousel %}{{ s.autorotate_speed }}{% else %}off{% endif %}" data-msr-section="{{ sid }}" data-msr-settings="{{ s | json | escape }}" data-msr-defaults='{"color_scheme":"default-color-scheme","section_width":"fluid_container","reset_spacing":true,"header_alignment":"left","columns":4,"column_gap":16,"show_arrow":false,"carousel_pagination":"show_dots","pagination_style":"pill","pagination_position":"center","infinite":false,"autoplay_carousel":false,"autorotate_speed":5,"image_ratio":"portrait","custom_ratio":"4:5","autoplay_videos":true,"muted":true,"loop_videos":true,"show_controls":false,"card_radius":16,"custom_card_padding":18,"overlay_opacity":10,"enable_custom_style":false,"custom_card_overlay_color":"#000000","enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","custom_heading_size":18,"reveal":true,"padding_top":40,"padding_bottom":40,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"columns_mobile":1,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}' data-msr-block-defaults='{"eyebrow":{"text":"Watch and shop","enable_custom_style":false,"size_enable":false,"size":14,"enable_custom_fonts":false,"font":"assistant_n4"},"heading":{"text":"Shop the look","enable_custom_style":false,"weight_enable":false,"weight":"700","size_enable":false,"size_desktop":36,"size_mobile":28,"line_height":1.2,"enable_custom_fonts":false,"font":"assistant_n4"},"subheading":{"text":"<p>Short videos of the products in use. Tap a card to see the product.</p>","enable_custom_style":false,"size_enable":false,"size":16,"line_height":1.5,"enable_custom_fonts":false,"font":"assistant_n4"},"video":{"content_position":"bottom"}}' data-msr-placeholder="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Cg fill=%22%23000000%22 fill-opacity=%220.18%22%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22/%3E%3C/g%3E%3C/svg%3E" data-controls="{{ s.show_controls }}" style="{{ sv_style | strip_newlines }}">
+<div class="section sv color-{{ color_scheme }} gradient{% if s.padding_top < 30 %} pt-min{% endif %}{% if s.padding_bottom < 30 %} pb-min{% endif %}" data-msr="video"{% if s.enable_custom_fonts %} data-own-font{% endif %} data-msr-autoplay="{% if s.autoplay_carousel %}{{ s.autorotate_speed }}{% else %}off{% endif %}" data-msr-section="{{ sid }}" data-msr-settings="{{ s | json | escape }}" data-msr-defaults='{"color_scheme":"default","section_width":"fluid_container","reset_spacing":true,"header_alignment":"left","columns":4,"column_gap":16,"show_arrow":false,"carousel_pagination":"show_dots","pagination_style":"pill","pagination_position":"center","infinite":false,"autoplay_carousel":false,"autorotate_speed":5,"image_ratio":"portrait","custom_ratio":"4:5","autoplay_videos":true,"muted":true,"loop_videos":true,"show_controls":false,"card_radius":16,"custom_card_padding":18,"overlay_opacity":10,"enable_custom_style":false,"custom_card_overlay_color":"#000000","enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","custom_heading_size":18,"reveal":true,"padding_top":40,"padding_bottom":40,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"columns_mobile":1,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}' data-msr-block-defaults='{"eyebrow":{"text":"Watch and shop","enable_custom_style":false,"size_enable":false,"size":14,"enable_custom_fonts":false,"font":"assistant_n4"},"heading":{"text":"Shop the look","enable_custom_style":false,"weight_enable":false,"weight":"700","size_enable":false,"size_desktop":36,"size_mobile":28,"line_height":1.2,"enable_custom_fonts":false,"font":"assistant_n4"},"subheading":{"text":"<p>Short videos of the products in use. Tap a card to see the product.</p>","enable_custom_style":false,"size_enable":false,"size":16,"line_height":1.5,"enable_custom_fonts":false,"font":"assistant_n4"},"video":{"content_position":"bottom"}}' data-msr-placeholder="{%- render 'placeholder-image', type: 'lifestyle-1', scheme: color_scheme, ratio: '3/4', format: 'url' -%}" data-controls="{{ s.show_controls }}" style="{{ sv_style | strip_newlines }}">
   <div class="sv__inner {{ section_width }}">
     <div class="sv__header"{% unless has_header %} hidden{% endunless %}>
       {%- unless has_eyebrow_block -%}
@@ -294,7 +294,7 @@
                 {%- elsif b.poster_image != blank -%}
                   <img data-sv-poster src="{{ b.poster_image | image_url: width: 800 }}" alt="{{ b.poster_image.alt | escape }}" width="{{ b.poster_image.width | default: 800 }}" height="{{ b.poster_image.height | default: 1067 }}" loading="lazy" decoding="async">
                 {%- else -%}
-                  <img class="sv-card__placeholder" src="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Cg fill=%22%23000000%22 fill-opacity=%220.18%22%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22/%3E%3C/g%3E%3C/svg%3E" alt="" width="400" height="300" loading="lazy" decoding="async">
+                  <img class="sv-card__placeholder" src="{%- render 'placeholder-image', type: 'lifestyle', index: forloop.index, scheme: color_scheme, ratio: '3/4', format: 'url' -%}" alt="" width="300" height="400" loading="lazy" decoding="async">
                 {%- endif -%}
 
                 <div class="sv-card__overlay" aria-hidden="true"{% unless has_content %} hidden{% endunless %}></div>
@@ -338,7 +338,8 @@
 {%- comment -%} Carousel, video playback and live edits: shopify/assets/media-live-stats-reels.js (loaded on every page). {%- endcomment -%}
 {% schema %}
 {
-  "name": "Shoppable Video",
+  "class": "s-tt",
+"name": "Shoppable Video",
   "tag": "section",
   "disabled_on": {
     "groups": [
@@ -355,7 +356,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -415,7 +416,6 @@
       "type": "inline_richtext",
       "id": "subheading",
       "label": "Top text",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Eyebrow block",
       "visible_if": "{{ false }}"
     },
@@ -423,7 +423,6 @@
       "type": "inline_richtext",
       "id": "heading",
       "label": "Heading",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Heading block",
       "visible_if": "{{ false }}"
     },
@@ -431,7 +430,6 @@
       "type": "richtext",
       "id": "description",
       "label": "Description",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Subheading block",
       "visible_if": "{{ false }}"
     },
@@ -691,7 +689,6 @@
       "type": "color",
       "id": "section_bg",
       "label": "Background (legacy)",
-      "hidden": true,
       "info": "Kept for saved content; used when Background is empty and custom styling is on.",
       "visible_if": "{{ false }}"
     },
@@ -1166,7 +1163,7 @@
   "presets": [
     {
       "name": "Shoppable Video",
-      "category": "Image and video",
+      "category": "06 · Gallery & video",
       "blocks": [
         {
           "type": "eyebrow"

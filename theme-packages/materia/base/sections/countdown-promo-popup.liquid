@@ -1,4 +1,4 @@
-<script src="{{ 'live-page-popups.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-page-popups.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-page-popups-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%}
   Materia Themes. Countdown Promo Popup: a picture beside an eyebrow, a
@@ -12,7 +12,7 @@
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign fb_accessibility_completed = 'accessibility.completed' | t
   assign fb_accessibility_promotion = 'accessibility.promotion' | t
   assign block_eyebrow = section.blocks | where: 'type', 'eyebrow' | first
@@ -245,9 +245,11 @@
       {%- if block_image != blank -%}
         {%- capture demo_cdp -%}{%- render 'demo-image', key: section.id -%}{%- endcapture -%}
         {%- assign demo_cdp = demo_cdp | strip -%}
+        {%- capture demo_cdp_wh -%}{%- render 'demo-image', key: section.id, dims: true -%}{%- endcapture -%}
+        {%- assign demo_cdp_wh = demo_cdp_wh | strip | split: 'x' -%}
         {%- assign cdp_alt = block_image.settings.alt | default: fb_accessibility_promotion -%}
         <div class="cdp-image-{{ sid }}" data-pg-block="{{ block_image.id }}" data-pg-type="image"{% if request.design_mode %} data-pg-settings="{{ block_image.settings | json | escape }}"{% endif %} {{ block_image.shopify_attributes }}>
-          <template data-pg-ph>{%- if demo_cdp != blank -%}<img src="{{ demo_cdp }}" alt="{{ fb_accessibility_promotion }}" loading="lazy">{%- else -%}{{ 'lifestyle-1' | placeholder_svg_tag: 'cdp-placeholder' }}{%- endif -%}</template>
+          <template data-pg-ph>{%- if demo_cdp != blank -%}<img src="{{ demo_cdp }}" alt="{{ fb_accessibility_promotion }}" width="{{ demo_cdp_wh[0] | default: 900 }}" height="{{ demo_cdp_wh[1] | default: 1125 }}" loading="lazy">{%- else -%}{{ 'lifestyle-1' | placeholder_svg_tag: 'cdp-placeholder' }}{%- endif -%}</template>
           {%- if block_image.settings.image != blank -%}
             {{ block_image.settings.image | image_url: width: 900 | image_tag:
                 loading: 'lazy',
@@ -255,7 +257,7 @@
                 sizes: '(min-width: 750px) 50vw, 100vw',
                 widths: '360,540,720,900' }}
           {%- elsif demo_cdp != blank -%}
-            <img src="{{ demo_cdp }}" alt="{{ fb_accessibility_promotion }}" loading="lazy">
+            <img src="{{ demo_cdp }}" alt="{{ fb_accessibility_promotion }}" width="{{ demo_cdp_wh[0] | default: 900 }}" height="{{ demo_cdp_wh[1] | default: 1125 }}" loading="lazy">
           {%- else -%}
             {{ 'lifestyle-1' | placeholder_svg_tag: 'cdp-placeholder' }}
           {%- endif -%}
@@ -455,11 +457,12 @@
 })();
 </script>
 
+
 {% schema %}
 {
   "name": "Countdown Promo Popup",
   "tag": "section",
-  "class": "section-countdown-promo-popup",
+  "class": "section-countdown-promo-popup s-tt has-overlay",
   "enabled_on": {
     "groups": [
       "custom.overlay"
@@ -474,7 +477,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "header",

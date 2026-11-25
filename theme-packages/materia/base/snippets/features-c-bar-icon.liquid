@@ -1,6 +1,11 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. The item icons of Benefits Bar 3 (sections/ingredients-highlight-bar).
-{%- endcomment -%}
+
+  @param {string} icon - Icon
+
+  @example
+  {% render 'features-c-bar-icon', icon: b.icon %}
+{%- enddoc -%}
 {%- case icon -%}
   {%- when 'microscope' -%}
     <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18h12"/><path d="M9 18a6 6 0 0 0 6-5"/><path d="M14.5 4.5l2 2"/><path d="m11 8 3-3 2 2-3 3z"/><path d="m11 8-2.5 2.5a2.12 2.12 0 0 0 3 3L14 11"/><path d="M5 21h6"/></svg>

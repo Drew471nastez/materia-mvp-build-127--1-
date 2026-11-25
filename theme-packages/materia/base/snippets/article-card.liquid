@@ -1,3 +1,31 @@
+{% doc %}
+  Renders a blog article card (image, category, date, title, excerpt).
+
+  @param {product} article - Article
+  @param {object} [blog] - Blog
+  @param {number} [column_gap] - Gap between posts
+  @param {string} [content_alignment] - Post text alignment
+  @param {string} [custom_ratio] - Custom ratio
+  @param {string} image_ratio - Image ratio
+  @param {number} indexFor - Index For
+  @param {number} [items_per_row] - Posts per row (desktop)
+  @param {number} [items_per_row_mobile] - Posts per row (mobile)
+  @param {string} [layout] - Layout; no current caller passes it
+  @param {string} [pagination] - Pagination style
+  @param {string} [readmore_type] - Readmore type; no current caller passes it
+  @param {string} scroll_animation - When a section scrolls into view
+  @param {boolean} [search_card] - Search card
+  @param {string} [section_width] - Section width
+  @param {boolean} show_author - Show author
+  @param {boolean} [show_category] - Show category
+  @param {boolean} [show_comment_count] - Show comment count
+  @param {boolean} show_date - Show date
+  @param {boolean} [show_excerpt] - Show excerpt
+  @param {boolean} [show_readmore] - Show readmore; no current caller passes it
+
+  @example
+  {% render 'article-card', article: post, blog: selected_blog, scroll_animation: scroll_animation_custom, show_date: show_date, show_author: show_author, section_width: section_width, items_per_row: items_per_row, items_per_row_mobile: items_per_row_mobile, column_gap: section_st.column_gap, image_ratio: image_ratio, custom_ratio: custom_ratio, content_alignment: content_alignment, indexFor: n %}
+{% enddoc -%}
 {%- comment -%}
   Materia Themes. Developed By Materia Themes.
 {%- endcomment -%}
@@ -75,7 +103,8 @@
           image_alt: image_alt
         %}
       {%- else -%}
-        {%- render 'placeholder-render', class: 'rounded transition' -%}
+        {%- assign ac_ph_index = indexFor | default: article.id | default: 1 -%}
+        {%- render 'placeholder-render', class: 'rounded transition', type: 'lifestyle', index: ac_ph_index -%}
       {%- endif -%}
     </a>
   </div>

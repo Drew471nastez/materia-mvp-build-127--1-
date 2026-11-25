@@ -95,7 +95,7 @@
             "quantity_right_of_atc": false,
             "show_wishlist_button": false,
             "atc_appearance": "theme",
-            "buy_appearance": "theme",
+            "buy_appearance": "outline",
             "atc_icon_enable": false,
             "atc_icon": "bag",
             "buy_icon_enable": false,
@@ -161,13 +161,13 @@
             "sub_newtab": false,
             "text_align": "left",
             "h_main_size": 16,
-            "show_paypal": false,
+            "show_paypal": true,
             "sub_uline_w": 1,
             "badges_align": "auto",
             "h_main_color": "#2c2c2c",
             "text_align_m": "center",
             "toggle_icons": true,
-            "show_unionpay": true,
+            "show_unionpay": false,
             "sub_underline": false,
             "show_apple_pay": true,
             "show_google_pay": true,
@@ -301,31 +301,6 @@
         "column_4"
       ]
     },
-    "quotebanner_1": {
-      "type": "quotebanner",
-      "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976"
-      },
-      "blocks": {
-        "quote_1": {
-          "type": "quote",
-          "settings": {
-            "quote_text": "Add a line from a student or reader about this."
-          }
-        },
-        "author_2": {
-          "type": "author",
-          "settings": {
-            "author_name": "Student name",
-            "author_role": "What they took"
-          }
-        }
-      },
-      "block_order": [
-        "quote_1",
-        "author_2"
-      ]
-    },
     "related": {
       "type": "related-products",
       "settings": {
@@ -352,13 +327,136 @@
         "padding_top": 72,
         "padding_bottom": 96
       }
+    },
+    "maker": {
+      "type": "dual-image-with-text",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "image_position": "left",
+        "text_column_width": 48,
+        "content_align": "left",
+        "content_gap": 18,
+        "aspect_ratio_w": 1,
+        "aspect_ratio_h": 1,
+        "show_dots": true,
+        "dots_behind_main": true,
+        "dot_size": 90,
+        "dot_opacity": 100,
+        "dot_a_x": 8,
+        "dot_a_y": 10,
+        "dot_b_x": 78,
+        "dot_b_y": 86,
+        "enable_custom_style": true,
+        "dot_color": "#f6a27c",
+        "dot_color_b": "#d6eef8",
+        "gap_desktop": 84,
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 96,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "mobile_order": "media_first"
+      },
+      "blocks": {
+        "main_image_1": {
+          "type": "main_image",
+          "settings": {
+            "image": "shopify://shop_images/creator-ines-side.webp",
+            "alt": "Ines at her desk, drawing with coloured pencils",
+            "anchor": "top_left",
+            "size": 78,
+            "fit": "cover",
+            "radius": 14,
+            "shadow": false
+          }
+        },
+        "accent_image_2": {
+          "type": "accent_image",
+          "settings": {
+            "image": "shopify://shop_images/creator-ines-hands-frame.webp",
+            "alt": "A coloured pencil drawing on dark paper, close up",
+            "anchor": "bottom_right",
+            "size": 42,
+            "fit": "cover",
+            "radius": 14,
+            "shadow": true,
+            "above_main": true,
+            "border_width": 6,
+            "enable_custom_style": true,
+            "border_color": "#fdfcfa",
+            "size_mobile": 42
+          }
+        },
+        "eyebrow_3": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Who made this"
+          }
+        },
+        "heading_4": {
+          "type": "heading",
+          "settings": {
+            "text": "I tried every exercise before you get it",
+            "tag": "h2",
+            "size_desktop": 40,
+            "size_mobile": 30
+          }
+        },
+        "subheading_5": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>I'm Ines. I stopped drawing at eleven and started again at twenty nine, ten minutes at a time, before work.</p><p>Everything I sell came out of those mornings. If a lesson did not work at my own desk, it is not in here.</p>"
+          }
+        },
+        "button_6": {
+          "type": "button",
+          "settings": {
+            "label": "Read my story",
+            "link": "/pages/about",
+            "button_style": "primary"
+          }
+        }
+      },
+      "block_order": [
+        "main_image_1",
+        "accent_image_2",
+        "eyebrow_3",
+        "heading_4",
+        "subheading_5",
+        "button_6"
+      ]
+    },
+    "recently_viewed": {
+      "type": "recently-viewed",
+      "blocks": {
+        "heading_rv": {
+          "type": "heading",
+          "settings": {
+            "text": "Recently viewed"
+          }
+        }
+      },
+      "block_order": [
+        "heading_rv"
+      ],
+      "settings": {
+        "section_width": "container",
+        "products_to_show": 8,
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 20,
+        "padding_top": 40,
+        "padding_bottom": 56
+      },
+      "disabled": true
     }
   },
   "order": [
     "breadcrumb",
     "main",
     "inside",
-    "quotebanner_1",
-    "related"
+    "maker",
+    "related",
+    "recently_viewed"
   ]
 }

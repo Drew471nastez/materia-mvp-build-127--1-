@@ -1,124 +1,43 @@
-/* Templates round 23, remade in round 24 and polished in round 25 (white sections, one card tone): Northpaper's sales page for one Notion template, Creator OS (a content system for creators), after the owner's reference: a centred hero over the workspace, the pages inside as screenshot cards, who it is for, three extras, the offer as the template itself (the theme's featured product: picture, price, editions, buy buttons, what you get and a refund) with a note from the maker and a short letter, a wall of buyer notes, questions and a last call. Built from the theme's own sections around one card grid (notionpage-cards). */
+/* Templates round 23, remade in round 24 and polished in round 25 (white sections, one card tone): Northpaper's sales page for one Notion template, Creator OS (a content system for creators), after the owner's reference: a centred hero over the workspace, the pages inside as screenshot cards, who it is for, three extras, the offer as the template itself (the theme's featured product: picture, price, editions, buy buttons, what you get and a refund) then the same week with and without the template (round 26, in place of the maker's note), a wall of buyer notes, questions and a last call. Built from the theme's own sections around one card grid (notionpage-cards). Round 26: the hero is notionpage-hero, whose label carries the Notion logo as a picture. */
 {
   "sections": {
     "hero": {
-      "type": "hero-image1",
+      "type": "notionpage-hero",
       "settings": {
+        "label_icon": "shopify://shop_images/notionpage-notion.webp",
+        "label_icon_alt": "Notion",
+        "label": "Notion template, updated for 2026",
+        "label_link": "#shopify-section-inside",
+        "heading": "Plan, script and post your content from one Notion page",
+        "text": "<p>Creator OS keeps your ideas, scripts, content calendar, sponsor deals and analytics in one linked system, so you spend the week making things instead of looking for them.</p>",
+        "button_label": "Get the template",
+        "button_link": "#shopify-section-pricing",
+        "button_2_label": "",
+        "button_2_link": "",
+        "note": "Pay once. Works on Notion's free plan.",
+        "proof_avatar_1": "shopify://shop_images/notionpage-avatar-1.webp",
+        "proof_avatar_2": "shopify://shop_images/notionpage-avatar-2.webp",
+        "proof_avatar_3": "shopify://shop_images/notionpage-avatar-3.webp",
+        "proof_avatar_4": "shopify://shop_images/notionpage-avatar-4.webp",
+        "proof_avatar_5": "",
+        "show_stars": true,
+        "stars": 5,
+        "star_color": "#f2b01e",
+        "proof_text": "Read what buyers say",
+        "proof_link": "#shopify-section-reviews",
+        "align": "center",
+        "content_width": 900,
+        "heading_size": 58,
+        "heading_size_mobile": 36,
+        "text_size": 19,
+        "text_size_mobile": 16,
         "color_scheme": "default",
-        "section_width": "full_width",
-        "reset_spacing": true,
-        "content_align": "center",
-        "vertical_align": "center",
-        "content_max_width": 780,
-        "content_gap": 18,
-        "use_background_color": true,
-        "enable_overlay": false,
-        "animation": "none",
-        "min_height_desktop": 240,
-        "padding_top_desktop": 88,
-        "padding_bottom_desktop": 48,
-        "min_height_mobile": 240,
-        "padding_top_mobile": 56,
-        "padding_bottom_mobile": 28,
-        "side_padding_mobile": 20,
-        "buttons_margin_top": 10
-      },
-      "blocks": {
-        "badge_1": {
-          "type": "badge",
-          "settings": {
-            "text": "Notion template, updated for 2026",
-            "icon": "",
-            "enable_custom_style": true,
-            "bg": "#ffffff",
-            "color": "#191918",
-            "font_weight": "500",
-            "size_desktop": 14,
-            "size_mobile": 13,
-            "radius": 8
-          }
-        },
-        "heading_2": {
-          "type": "heading",
-          "settings": {
-            "text": "Plan, script and post your content from one Notion page",
-            "size_desktop": 60,
-            "size_mobile": 36,
-            "font_weight": "700",
-            "letter_spacing": -1,
-            "line_height": 1.08,
-            "tag": "h1"
-          }
-        },
-        "subheading_3": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p>Creator OS keeps your ideas, scripts, content calendar, sponsor deals and analytics in one linked system, so you spend the week making things instead of looking for them.</p>",
-            "size": 19,
-            "size_mobile": 16,
-            "line_height": 1.5
-          }
-        },
-        "primary_button_4": {
-          "type": "primary_button",
-          "settings": {
-            "label": "Get the template",
-            "link": "/collections/all",
-            "font_size": 16,
-            "radius": 10,
-            "padding_x": 34,
-            "padding_y": 15
-          }
-        },
-        "eyebrow_5": {
-          "type": "eyebrow",
-          "settings": {
-            "text": "Pay once. Works on Notion's free plan.",
-            "enable_custom_style": true,
-            "color": "#787774",
-            "size_desktop": 14,
-            "size_mobile": 13,
-            "text_case": "none",
-            "font_weight": "400"
-          }
-        },
-        "happy_customers_6": {
-          "type": "happy_customers",
-          "settings": {
-            "show_avatars": true,
-            "show_stars": true,
-            "show_rating_text": true,
-            "avatar_1": "shopify://shop_images/notionpage-avatar-1.webp",
-            "avatar_2": "shopify://shop_images/notionpage-avatar-2.webp",
-            "avatar_3": "shopify://shop_images/notionpage-avatar-3.webp",
-            "avatar_4": "shopify://shop_images/notionpage-avatar-4.webp",
-            "avatar_count": 4,
-            "rating_text": "Read what buyers say below",
-            "total_stars": 5,
-            "filled_stars": 5,
-            "enable_custom_style": true,
-            "text_color": "#55534e",
-            "font_weight": "400",
-            "font_size_desktop": 14,
-            "font_size_mobile": 13,
-            "filled_color": "#f2b01e",
-            "unfilled_color": "#e4e3df",
-            "padding_top": 14,
-            "padding_bottom": 0,
-            "avatar_size": 38,
-            "avatar_overlap": 28,
-            "star_size": 15
-          }
-        }
-      },
-      "block_order": [
-        "badge_1",
-        "heading_2",
-        "subheading_3",
-        "primary_button_4",
-        "eyebrow_5",
-        "happy_customers_6"
-      ]
+        "section_width": "container",
+        "padding_top": 84,
+        "padding_bottom": 44,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 28
+      }
     },
     "screen": {
       "type": "image-2",
@@ -502,92 +421,6 @@
         "included_1",
         "guarantee_1"
       ]
-    },
-    "maker": {
-      "type": "quotebanner",
-      "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "section_width": "full_width",
-        "text_align_desktop": "left",
-        "max_width": "custom",
-        "custom_max_width": 780,
-        "text_max_width": 780,
-        "gap_top": 18,
-        "enable_custom_style": true,
-        "bg_color": "#f5f4f1",
-        "radius": 16,
-        "enable_shadow": false,
-        "reveal": false,
-        "top_padding_desktop": 28,
-        "bottom_padding_desktop": 28,
-        "pad_x_desktop": 32,
-        "text_align_mobile": "left",
-        "top_padding_mobile": 22,
-        "bottom_padding_mobile": 22,
-        "pad_x_mobile": 20,
-        "section_margin_top_desktop": 0,
-        "section_margin_bottom_desktop": 0
-      },
-      "blocks": {
-        "quote_1": {
-          "type": "quote",
-          "settings": {
-            "quote_text": "I built Creator OS in 2024 for my own channel, after a sponsor draft went missing in my inbox. Northpaper is me and one other designer. We use it every week, we update it, and we answer every email.",
-            "use_curly_quotes": false,
-            "quote_size": 17,
-            "quote_size_mobile": 16,
-            "enable_custom_style": true,
-            "quote_weight": "400",
-            "quote_color": "#37352f"
-          }
-        },
-        "author_2": {
-          "type": "author",
-          "settings": {
-            "author_name": "Jonas Weir",
-            "author_role": "Made Creator OS",
-            "avatar": "shopify://shop_images/notionpage-avatar-13.webp",
-            "author_size": 16,
-            "author_size_mobile": 15,
-            "enable_custom_style": true,
-            "author_color": "#191918",
-            "avatar_size": 40
-          }
-        }
-      },
-      "block_order": [
-        "quote_1",
-        "author_2"
-      ]
-    },
-    "letter": {
-      "type": "titleandsubtitle",
-      "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "section_width": "full_width",
-        "reset_spacing": true,
-        "reveal": false,
-        "subheading_text": "<p>Making content is a small business with a lot of moving parts. Forty ideas, three scripts on the go, a calendar for four platforms and a sponsor who wants a draft by Thursday.</p><p>Most of us run it from a notes app, a few documents and an inbox. That works for the first month. Then an upload slips because the script was in the wrong folder.</p><p>Creator OS is the system we wished we had:</p><ul><li>every idea on one board, scored and moved along</li><li>a script page with the hook first</li><li>one calendar for every platform</li><li>sponsors with the fee, the deliverable and the due date</li><li>the numbers for each post, logged once a week</li></ul><p>It is plain on purpose. Seven pages you will open every week and a review that takes twenty minutes on a Friday.</p><p>New to Notion? The walkthrough video covers everything you need.</p>",
-        "content_alignment": "left",
-        "text_max_width": 620,
-        "subheading_font_size_desktop": 17,
-        "subheading_line_height_desktop": 1.75,
-        "title_subheading_gap_desktop": 0,
-        "subheading_padding_left_desktop": 0,
-        "subheading_padding_right_desktop": 0,
-        "padding_top_desktop": 40,
-        "padding_bottom_desktop": 72,
-        "content_alignment_mobile": "left",
-        "title_subheading_gap_mobile": 0,
-        "subheading_padding_left_mobile": 14,
-        "subheading_padding_right_mobile": 0,
-        "subheading_line_height_mobile": 1.7,
-        "subheading_font_size_mobile": 16,
-        "padding_top_mobile": 24,
-        "padding_bottom_mobile": 48
-      },
-      "blocks": {},
-      "block_order": []
     },
     "reviews": {
       "type": "testimonial-wall",
@@ -1017,6 +850,138 @@
       "block_order": [
         "title_1"
       ]
+    },
+    "compare": {
+      "type": "comparison-cards",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "check_label": "Yes",
+        "cross_label": "No",
+        "minus_label": "Partly",
+        "header_align": "center",
+        "section_max_width_desktop": 980,
+        "heading_sub_gap_desktop": 14,
+        "gap_subheading_content": 40,
+        "cards_gap_desktop": 20,
+        "card_radius": 16,
+        "card_padding_desktop": 32,
+        "card_padding_x_desktop": 32,
+        "row_gap": 18,
+        "icon_size": 20,
+        "icon_text_gap": 12,
+        "enable_custom_style": true,
+        "section_bg": "#ffffff",
+        "us_card_bg": "#191918",
+        "us_card_text": "#ffffff",
+        "us_card_shadow": false,
+        "them_card_bg": "#f7f7f5",
+        "them_card_text": "#55534e",
+        "them_card_border": "#e9e8e4",
+        "them_card_border_width": 1,
+        "check_color": "#ffffff",
+        "cross_color": "#b4b2ac",
+        "cross_color_them": "#b4b2ac",
+        "minus_color": "#b4b2ac",
+        "card_title_weight": "700",
+        "card_title_size_desktop": 20,
+        "row_text_size": 16,
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 24,
+        "section_max_width_mobile": 560,
+        "heading_sub_gap_mobile": 12,
+        "gap_subheading_content_mobile": 28,
+        "cards_gap_mobile": 14,
+        "card_padding_mobile": 22,
+        "card_padding_x_mobile": 20,
+        "card_title_size_mobile": 18,
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 8
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "The same week, with and without it",
+            "tag": "h2"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Most creators run their channel from a notes app, a few docs and an inbox. Here is what changes when it all sits in one workspace.</p>"
+          }
+        },
+        "card_them_3": {
+          "type": "card_them",
+          "settings": {
+            "title": "Notes, docs and an inbox"
+          }
+        },
+        "card_us_4": {
+          "type": "card_us",
+          "settings": {
+            "title": "Creator OS"
+          }
+        },
+        "row_5": {
+          "type": "row",
+          "settings": {
+            "label_them": "Ideas spread over three apps",
+            "icon_them": "cross",
+            "label_us": "Every idea on one board, scored",
+            "icon_us": "check"
+          }
+        },
+        "row_6": {
+          "type": "row",
+          "settings": {
+            "label_them": "Scripts in a folder you search for",
+            "icon_them": "cross",
+            "label_us": "A script page per video, hook first",
+            "icon_us": "check"
+          }
+        },
+        "row_7": {
+          "type": "row",
+          "settings": {
+            "label_them": "A calendar for each platform",
+            "icon_them": "cross",
+            "label_us": "One calendar for every platform",
+            "icon_us": "check"
+          }
+        },
+        "row_8": {
+          "type": "row",
+          "settings": {
+            "label_them": "Sponsor dates buried in email",
+            "icon_them": "cross",
+            "label_us": "Fee, draft date and invoice in one row",
+            "icon_us": "check"
+          }
+        },
+        "row_9": {
+          "type": "row",
+          "settings": {
+            "label_them": "Numbers checked when you remember",
+            "icon_them": "cross",
+            "label_us": "A twenty minute review every Friday",
+            "icon_us": "check"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "card_them_3",
+        "card_us_4",
+        "row_5",
+        "row_6",
+        "row_7",
+        "row_8",
+        "row_9"
+      ]
     }
   },
   "order": [
@@ -1027,8 +992,7 @@
     "extras",
     "offer_head",
     "pricing",
-    "maker",
-    "letter",
+    "compare",
     "reviews",
     "faq",
     "cta"

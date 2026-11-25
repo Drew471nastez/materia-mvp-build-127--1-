@@ -1,11 +1,15 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. The logo carousel of Brand logo and Logos list: a scroll
   snap row with arrows, dots or a progress bar. Logos per row, gaps, arrows
   and pagination are CSS variables and attributes on the carousel
   (.lgc) and root (.lg); live-logos.js drives arrows, dots, keyboard, loop and
   autoplay. Phone below 768px, tablet to 989px, desktop above.
+
+  @param {section} section - The section being rendered
+
+  @example
   {% render 'logos-carousel-style', section: section %}
-{%- endcomment -%}
+{%- enddoc -%}
 {%- assign sid = section.id -%}
 <style>
   #shopify-section-{{ sid }} .lgc { --per: var(--per-m); --gap: var(--gap-m); }

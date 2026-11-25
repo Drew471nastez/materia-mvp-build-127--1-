@@ -1,7 +1,6 @@
 {% render 'theme-type' %}
 {%- comment -%}
-  Materia Themes. Create account (/account/register). Storelib signs a visitor in with a code emailed to them, so a new account is a name and an email; there is no password field. The store's create_customer form is kept and Storelib sends the code.
-  Live edits: shopify/assets/live-account-pages.js.
+  Materia Themes. Create account (/account/register): the platform's create_customer form with name, email and password.
 {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
   <style>
@@ -21,7 +20,7 @@
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign custom = st.enable_custom_style
 -%}
 {% render 'account-pages-base', sid: sid %}
@@ -93,6 +92,18 @@
             aria-required="true"
           >
         </div>
+        {%- comment -%} classic customer accounts need a password. {%- endcomment -%}
+        <div class="ap__field">
+          <label for="password-{{ sid }}"><span>{{ 'customer.register.password' | t }}</span><span class="ap__req" aria-hidden="true">*</span></label>
+          <input
+            type="password"
+            name="customer[password]"
+            id="password-{{ sid }}"
+            autocomplete="new-password"
+            required
+            aria-required="true"
+          >
+        </div>
         <div class="ap__t ap-form__note" data-ap-rich="privacy_text" data-ap-opt{% if st.privacy_text == blank %} hidden{% endif %}>{{ st.privacy_text }}</div>
         <button type="submit" class="btn-primary ap__btn" data-theme-button="primary" data-sl-button><span data-ap-text="button_label">{{ st.button_label | escape }}</span></button>
         <p class="ap-form__alt"><a class="ap__link" href="{{ routes.account_login_url }}" data-ap-text="login_link_label" data-ap-opt{% if st.login_link_label == blank %} hidden{% endif %}>{{ st.login_link_label | escape }}</a></p>
@@ -101,7 +112,8 @@
   </div>
 </div>{% schema %}
 {
-  "name": "Create account",
+  "class": "s-tt",
+"name": "Create account",
   "tag": "section",
   "settings": [
     {
@@ -112,7 +124,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",

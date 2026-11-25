@@ -1,0 +1,239 @@
+/* Country and language pickers (snippets/country-switcher, language-switcher):
+   keep the native accessible button, without browser-default button chrome.
+   Linked once from layout/theme.storelib's <head>, so a builder redraw of the
+   header, top bar or footer keeps it. */
+localization-form button.button-localization {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px !important;
+  min-height: 44px;
+  margin: 0 !important;
+  padding: 8px 6px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: inherit !important;
+  font-family: inherit !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 1.3 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  cursor: pointer;
+  transition: none;
+}
+localization-form button.button-localization:hover,
+localization-form button.button-localization.open { background: transparent !important; box-shadow: none !important; }
+localization-form .button-localization:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+localization-form .button-localization > span { gap: 8px !important; }
+localization-form .button-localization .localization-flags { width: 18px; height: 18px; }
+localization-form .button-localization > svg {
+  flex: none; width: 10px; height: 6px;
+  transform: rotate(0deg);
+  transform-origin: center;
+  transition: transform 320ms cubic-bezier(.22,.61,.36,1);
+}
+localization-form .button-localization.open > svg { transform: rotate(180deg); }
+.lang__currency-desktop:has(localization-form + localization-form) { gap: 2px !important; }
+.lang__currency-desktop localization-form + localization-form { border: 0 !important; padding-inline-start: 0 !important; }
+localization-form .button-localization > svg { transition: transform .24s cubic-bezier(.2,.7,.2,1) !important; transform-origin: center; }
+localization-form .button-localization[aria-expanded="true"] > svg,
+localization-form .button-localization.open > svg { transform: rotate(180deg) !important; }
+localization-form .disclosure__list a, localization-form .disclosure__list a:hover { text-decoration: none !important; background-image: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  localization-form .button-localization { transition: none; }
+  localization-form .button-localization > svg { transition: none !important; }
+}
+
+/* ---------------------------------------------------------------------------
+   One look for every country and language selector: header, top bar, footer,
+   phone menu and the phone tab bar. Flags are 18px circles; an option is a
+   flag, its name, its currency (code and symbol) and a check on the current
+   one. On desktop the list is a small card that fades and rises in 160ms,
+   with its own scroll (and a search field above long lists); on phones and
+   tablets it is the bottom sheet (theme.css) with a drag handle.
+   --------------------------------------------------------------------------- */
+:is(localization-form, .hs-loc-static, .materia-localization-sheet) .localization-flags {
+  display: inline-flex !important;
+  flex: none;
+  width: 18px !important;
+  height: 18px !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px color-mix(in srgb, currentColor 14%, transparent);
+  transform: none;
+}
+:is(localization-form, .hs-loc-static, .materia-localization-sheet) .localization-flags img {
+  display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 50%;
+}
+/* The one-market / one-language label (static_single) wherever it is drawn. */
+.hs-loc-static {
+  gap: 8px; min-height: 44px; padding: 8px 6px;
+  font-size: 14px; font-weight: 500; line-height: 1.3;
+  color: inherit; opacity: .72; cursor: default; user-select: none; white-space: nowrap;
+}
+.footer__localization:has(.hs-loc-static) { gap: 16px; }
+
+/* Options */
+localization-form .disclosure__list .loc-option.loc-option,
+.materia-localization-sheet .loc-option.loc-option {
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 8px 10px !important;
+  border-radius: 8px;
+  color: var(--color-text, #111) !important;
+  outline: none;
+  transition: background-color .14s ease;
+}
+localization-form .disclosure__list .loc-option .loc-option__label { flex: 1 1 auto; min-width: 0; }
+localization-form .disclosure__list .loc-option .loc-option__meta,
+.materia-localization-sheet .loc-option .loc-option__meta {
+  flex: none;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  opacity: .62;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.loc-option .loc-option__check {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-inline-start: 2px;
+  color: var(--color-heading, currentColor);
+  opacity: 0;
+}
+.loc-option[aria-current="true"] .loc-option__check { opacity: 1; }
+localization-form .disclosure__list .loc-option[aria-current="true"],
+localization-form .disclosure__list .loc-option[aria-current="true"] .loc-option__label,
+.materia-localization-sheet .loc-option[aria-current="true"],
+.materia-localization-sheet .loc-option[aria-current="true"] .loc-option__label {
+  font-weight: 600 !important;
+  color: var(--color-heading, #111) !important;
+}
+@media (hover: hover) {
+  localization-form .disclosure__list .loc-option.loc-option:hover,
+  .materia-localization-sheet .loc-option.loc-option:hover {
+    background: color-mix(in srgb, var(--color-text, #111) 6%, transparent) !important;
+  }
+}
+localization-form .disclosure__list .loc-option.loc-option:focus-visible,
+.materia-localization-sheet .loc-option.loc-option:focus-visible {
+  background: color-mix(in srgb, var(--color-text, #111) 8%, transparent) !important;
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-heading, #111) 45%, transparent);
+}
+localization-form .disclosure__list .disclosure__item { padding: 0 !important; border: 0; }
+.loc-sheet-empty { margin: 0; padding: 12px 10px; font-size: 14px; opacity: .7; }
+.loc-sheet-empty[hidden] { display: none; }
+
+@media (min-width: 1025px) {
+  /* The list: a card under (in the footer, above) its button. */
+  localization-form .disclosure > .disclosure__list.disclosure__list {
+    position: absolute !important;
+    top: calc(100% + 6px) !important;
+    bottom: auto !important;
+    left: auto !important;
+    right: 0 !important;
+    width: max-content !important;
+    min-width: 220px !important;
+    max-width: min(320px, calc(100vw - 32px)) !important;
+    max-height: min(420px, 60vh) !important;
+    display: flex !important;
+    flex-direction: column;
+    margin: 0 !important;
+    padding: 6px !important;
+    overflow: hidden !important;
+    background: var(--color-background, #fff) !important;
+    color: var(--color-text, #111);
+    border: 1px solid color-mix(in srgb, var(--color-text, #111) 10%, transparent) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 14px 34px -14px rgba(0, 0, 0, .24), 0 2px 6px -2px rgba(0, 0, 0, .08) !important;
+    z-index: 30 !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    transform: translateY(6px) !important;
+    pointer-events: none;
+    transition: opacity 160ms ease, transform 160ms cubic-bezier(.2, .7, .2, 1), visibility 0s linear 160ms !important;
+  }
+  localization-form .disclosure > .button-localization.open + .disclosure__list.disclosure__list {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: translateY(0) !important;
+    pointer-events: auto;
+    transition: opacity 160ms ease, transform 160ms cubic-bezier(.2, .7, .2, 1), visibility 0s !important;
+  }
+  html[dir="rtl"] localization-form .disclosure > .disclosure__list.disclosure__list { left: 0 !important; right: auto !important; }
+  .footer__localization localization-form .disclosure > .disclosure__list.disclosure__list {
+    top: auto !important;
+    bottom: calc(100% + 6px) !important;
+    left: 0 !important;
+    right: auto !important;
+  }
+  html[dir="rtl"] .footer__localization localization-form .disclosure > .disclosure__list.disclosure__list { left: auto !important; right: 0 !important; }
+  /* Its own scroll. */
+  localization-form .disclosure > .disclosure__list > ul {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none !important;
+    height: auto !important;
+    margin: 0;
+    padding: 0 !important;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scroll-snap-type: none;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--color-text, #111) 22%, transparent) transparent;
+  }
+  /* The search field above long lists; the drag handle is for phones only. */
+  localization-form .disclosure > .disclosure__list .loc-sheet-head { flex: none; position: static !important; top: auto !important; margin: 0 !important; padding: 0 0 6px !important; background: transparent !important; }
+  localization-form .disclosure > .disclosure__list .sheet-grab-area { display: none !important; }
+  localization-form .disclosure > .disclosure__list .loc-sheet-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 36px;
+    margin: 0;
+    padding: 0 10px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--color-text, #111) 6%, transparent);
+    color: color-mix(in srgb, var(--color-text, #111) 60%, transparent);
+    cursor: text;
+  }
+  localization-form .disclosure > .disclosure__list .loc-sheet-search:focus-within {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-heading, #111) 30%, transparent);
+  }
+  localization-form .disclosure > .disclosure__list .loc-sheet-search input {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0 !important;
+    outline: 0;
+    box-shadow: none !important;
+    background: transparent !important;
+    color: var(--color-heading, #111) !important;
+    font: inherit;
+    font-size: 14px;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+}
+/* Phones and tablets: the bottom sheet's rows. */
+@media (max-width: 1024.98px) {
+  .materia-localization-sheet .loc-option.loc-option { gap: 12px; min-height: 48px; }
+  .materia-localization-sheet .loc-option .loc-option__label { flex: 1 1 auto; min-width: 0; }
+  /* The option draws its own check (.loc-option__check). */
+  body > .disclosure__list.materia-localization-sheet li a.loc-option[aria-current="true"]::after { content: none !important; display: none !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  localization-form .disclosure > .disclosure__list.disclosure__list,
+  localization-form .disclosure > .button-localization.open + .disclosure__list.disclosure__list { transition: none !important; transform: none !important; }
+}

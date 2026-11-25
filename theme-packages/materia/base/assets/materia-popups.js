@@ -78,29 +78,192 @@
       return n.getClientRects().length && !n.closest('[hidden], [inert]');
     });
   }
+  // Page scroll is held without touching any style: a change to <html>'s
+  // overflow (or its scrollbar gutter) re-styled every element of the page,
+  // about 100ms on a phone, in the very frame the popup opened. Wheel, touch
+  // and scroll keys outside the popup's own scrolling parts do nothing while
+  // a modal popup is open; inside them they scroll as usual (and never chain
+  // to the page).
+  var SCROLL_KEYS = { ' ': 1, PageUp: 1, PageDown: 1, Home: 1, End: 1, ArrowUp: 1, ArrowDown: 1, Spacebar: 1 };
+  function scrollsInside(target, dy) {
+    var box = current && (current.dialog || current.root);
+    for (var el = target; el && el.nodeType === 1; el = el.parentElement) {
+      if (box && !box.contains(el)) break;
+      var cs = getComputedStyle(el);
+      if (/(auto|scroll)/.test(cs.overflowY) && el.scrollHeight > el.clientHeight + 1) {
+        if (dy < 0 ? el.scrollTop > 0 : dy > 0 ? el.scrollTop + el.clientHeight < el.scrollHeight - 1 : true) return true;
+      }
+      if (el === box) break;
+    }
+    return false;
+  }
+  var touchY = 0;
+  function onWheel(e) { if (!scrollsInside(e.target, e.deltaY)) e.preventDefault(); }
+  function onTouchStart(e) { touchY = e.touches && e.touches[0] ? e.touches[0].clientY : 0; }
+  function onTouchMove(e) { var y = e.touches && e.touches[0] ? e.touches[0].clientY : touchY; if (!scrollsInside(e.target, touchY - y)) e.preventDefault(); }
+  function onKey(e) {
+    if (!SCROLL_KEYS[e.key] || e.defaultPrevented) return;
+    var t = e.target;
+    if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || (e.key === ' ' && /^(BUTTON|A)$/.test(t.tagName)))) return;
+    if (!scrollsInside(t, /Up|Home/.test(e.key) ? -1 : 1)) e.preventDefault();
+  }
   function lockScroll() {
     if (scrollLock || design) return;
-    var html = document.documentElement;
-    var gap = window.innerWidth - html.clientWidth;
-    scrollLock = { overflow: html.style.overflow, pad: document.body.style.paddingRight };
-    html.style.overflow = 'hidden';
-    if (gap > 0) document.body.style.paddingRight = gap + 'px';
-    html.setAttribute('data-popup-open', '');
+    scrollLock = true;
+    document.addEventListener('wheel', onWheel, { passive: false, capture: true });
+    document.addEventListener('touchstart', onTouchStart, { passive: true, capture: true });
+    document.addEventListener('touchmove', onTouchMove, { passive: false, capture: true });
+    document.addEventListener('keydown', onKey, true);
+    document.documentElement.setAttribute('data-popup-open', '');
   }
   function unlockScroll() {
     if (!scrollLock) return;
-    document.documentElement.style.overflow = scrollLock.overflow;
-    document.body.style.paddingRight = scrollLock.pad;
+    document.removeEventListener('wheel', onWheel, { capture: true });
+    document.removeEventListener('touchstart', onTouchStart, { capture: true });
+    document.removeEventListener('touchmove', onTouchMove, { capture: true });
+    document.removeEventListener('keydown', onKey, true);
     document.documentElement.removeAttribute('data-popup-open');
     scrollLock = null;
   }
 
+
+  // ---- motion -------------------------------------------------------------
+  // One motion for every popup. Opening (320ms, cubic-bezier(.2,.8,.2,1)): the
+  // shade fades in and the card rises from 16px below at 98% while fading in;
+  // on phones a card that sits on the bottom edge slides up from below.
+  // Closing (220ms, ease-in) plays the same backwards, and only then does the
+  // section close and its dialog shut. Only opacity and transform move (the
+  // compositor's own properties); the card's transform is added onto the one
+  // its section gives it (composite: add), so a centred card stays centred.
+  // will-change is set just before and dropped after. While it moves, the
+  // section's own transitions are held off ([data-mp-motion]) so nothing
+  // animates twice, and pictures in the card are decoded before the first frame.
+  var OPEN_MS = 320, CLOSE_MS = 220, EASE_OUT = 'cubic-bezier(.2,.8,.2,1)', EASE_IN = 'cubic-bezier(.4,0,1,1)';
+  try {
+    var motionCss = document.createElement('style');
+    motionCss.setAttribute('data-materia-motion', '');
+    motionCss.textContent = '[data-mp-motion],[data-mp-motion] *{transition:none!important}';
+    (document.head || document.documentElement).appendChild(motionCss);
+  } catch (e) {}
+  function parts(entry) {
+    var card = entry.dialog && entry.dialog.nodeType === 1 ? entry.dialog : null;
+    var shade = entry.backdrop && entry.backdrop.nodeType === 1 ? entry.backdrop : null;
+    if (shade === card) shade = null;
+    return { card: card, shade: shade };
+  }
+  function canAnimate(el) { return !!(el && typeof el.animate === 'function') && !reduced(); }
+  function settle(entry) {
+    var m = entry.motion;
+    if (!m) return;
+    entry.motion = null;
+    m.anims.forEach(function (a) { try { a.cancel(); } catch (e) {} });
+    m.els.forEach(function (el) { el.style.removeProperty('will-change'); });
+    if (m.finish) m.finish();
+    clearTimeout(entry.motionOff);
+    entry.root.removeAttribute('data-mp-motion');
+  }
+  function decodeIn(el, ms) {
+    var imgs = el ? Array.prototype.slice.call(el.querySelectorAll('img')) : [];
+    var jobs = imgs.filter(function (img) { return img.getAttribute('src') || img.currentSrc; }).map(function (img) {
+      if (img.loading === 'lazy') img.loading = 'eager';
+      return img.decode ? img.decode().catch(function () {}) : null;
+    }).filter(Boolean);
+    if (!jobs.length) return Promise.resolve();
+    return Promise.race([Promise.all(jobs), new Promise(function (r) { setTimeout(r, ms); })]);
+  }
+  function moveIn(entry) {
+    settle(entry);
+    var p = parts(entry);
+    if (!canAnimate(p.card)) return;
+    var root = entry.root;
+    root.setAttribute('data-mp-motion', 'in');
+    var r = p.card.getBoundingClientRect();
+    var sheet = window.innerWidth <= 640 && r.height > 0 && window.innerHeight - r.bottom < 4;
+    var from = sheet ? 'translate3d(0,100%,0)' : 'translate3d(0,16px,0) scale(.98)';
+    var to = sheet ? 'translate3d(0,0,0)' : 'translate3d(0,0,0) scale(1)';
+    var o = { duration: OPEN_MS, easing: EASE_OUT, fill: 'both' };
+    var anims = [
+      p.card.animate([{ transform: from, composite: 'add' }, { transform: to, composite: 'add' }], o),
+      p.card.animate([{ opacity: 0 }, { opacity: 1 }], { duration: sheet ? OPEN_MS : 220, easing: 'ease-out', fill: 'both' })
+    ];
+    if (p.shade) anims.push(p.shade.animate([{ opacity: 0 }, { opacity: 1 }], { duration: OPEN_MS, easing: 'ease-out', fill: 'both' }));
+    anims.forEach(function (a) { a.pause(); });
+    var els = [p.card].concat(p.shade ? [p.shade] : []);
+    var m = entry.motion = { anims: anims, els: els };
+    decodeIn(p.card, 250).then(function () {
+      if (entry.motion !== m) return;
+      requestAnimationFrame(function () {
+        if (entry.motion !== m) return;
+        els.forEach(function (el) { el.style.willChange = 'transform, opacity'; });
+        anims.forEach(function (a) { a.play(); });
+        anims[0].finished.then(function () { if (entry.motion === m) settle(entry); }, function () {});
+      });
+    });
+  }
+  function moveOut(entry, done) {
+    settle(entry);
+    var p = parts(entry);
+    if (!canAnimate(p.card)) { done(); return; }
+    var root = entry.root;
+    root.setAttribute('data-mp-motion', 'out');
+    var r = p.card.getBoundingClientRect();
+    var sheet = window.innerWidth <= 640 && r.height > 0 && window.innerHeight - r.bottom < 4;
+    var to = sheet ? 'translate3d(0,100%,0)' : 'translate3d(0,16px,0) scale(.98)';
+    var o = { duration: CLOSE_MS, easing: EASE_IN, fill: 'forwards' };
+    var els = [p.card].concat(p.shade ? [p.shade] : []);
+    els.forEach(function (el) { el.style.willChange = 'transform, opacity'; });
+    var anims = [
+      p.card.animate([{ transform: 'translate3d(0,0,0) scale(1)', composite: 'add' }, { transform: to, composite: 'add' }], o),
+      p.card.animate([{ opacity: 1 }, { opacity: 0 }], o)
+    ];
+    if (p.shade) anims.push(p.shade.animate([{ opacity: 1 }, { opacity: 0 }], o));
+    var m = entry.motion = { anims: anims, els: els, finish: null };
+    var finished = false;
+    var end = function () {
+      if (finished) return; finished = true;
+      done();
+      // The section is shut now; the end frame holds until its closed style
+      // is in place, then the hold on its own transitions is lifted.
+      entry.motionOff = setTimeout(function () {
+        if (entry.motion === m) { entry.motion = null; anims.forEach(function (a) { try { a.cancel(); } catch (e) {} }); els.forEach(function (el) { el.style.removeProperty('will-change'); }); }
+        if (!entry.motion) root.removeAttribute('data-mp-motion');
+      }, 60);
+    };
+    m.finish = end;
+    anims[0].finished.then(end, function () {});
+  }
+
   // ---- open / close -----------------------------------------------------
+  // An open cart drawer, quick view, search, phone menu or other drawer:
+  // popups wait in the queue until it closes (never drawn over it).
+  var COVER_CLASSES = ['open-drawer', 'open-minicart', 'open-search', 'nav-open', 'open-sidebar', 'open-popup', 'tingle-enabled', 'mt-lock', 'facets-locked'];
+  var COVER_SEL = '.mcp-backdrop.open, .loc-sheet-backdrop.open, cart-drawer[open], .drawer.active, menu-drawer[open], details[open] > .menu-drawer, [data-storelib-drawer][open], .tingle-modal--visible';
+  function covered() {
+    var html = document.documentElement, body = document.body;
+    for (var i = 0; i < COVER_CLASSES.length; i++) {
+      if (html.classList.contains(COVER_CLASSES[i]) || (body && body.classList.contains(COVER_CLASSES[i]))) return true;
+    }
+    try { return !!document.querySelector(COVER_SEL); } catch (e) { return false; }
+  }
   function blocked() {
+    if (design) return false;
     // A cookie banner asks first; popups wait for its answer (materia:consent).
     var consent = document.querySelector('cookie-consent[data-open]');
-    return !!(consent && !consent.hidden && !design);
+    if (consent && !consent.hidden) return true;
+    return covered();
   }
+  // When a drawer or menu closes, the next waiting popup may open.
+  var coverFrame = 0;
+  function coverChanged() {
+    if (coverFrame || !queue.length) return;
+    coverFrame = setTimeout(function () { coverFrame = 0; if (!current && !blocked()) flush(); }, 700);
+  }
+  try {
+    var coverWatch = new MutationObserver(coverChanged);
+    coverWatch.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    var watchBody = function () { if (document.body) coverWatch.observe(document.body, { attributes: true, attributeFilter: ['class'] }); };
+    if (document.body) watchBody(); else document.addEventListener('DOMContentLoaded', watchBody);
+  } catch (e) {}
 
   function show(entry, opts) {
     opts = opts || {};
@@ -120,8 +283,11 @@
     entry.root.setAttribute('aria-hidden', 'false');
     entry.root.setAttribute('data-popup-state', 'open');
     try { window.MateriaLateCss && window.MateriaLateCss.now(); } catch (e) {}
-    try { entry.open && entry.open({ instant: !!opts.instant || reduced(), preview: !!opts.preview }); } catch (e) { console.error(e); }
+    // The page scroll is held before anything moves (one style pass for <html>).
     if (entry.modal !== false) lockScroll();
+    settle(entry);
+    if (!opts.instant) entry.root.setAttribute('data-mp-motion', 'in');
+    try { entry.open && entry.open({ instant: !!opts.instant || reduced(), preview: !!opts.preview }); } catch (e) { console.error(e); }
     if (!opts.preview && entry.focus !== false) {
       var dialog = entry.dialog || entry.root;
       requestAnimationFrame(function () {
@@ -132,6 +298,7 @@
       });
     }
     emit('materia:popup-open', { id: entry.id });
+    if (!opts.instant) moveIn(entry); else entry.root.removeAttribute('data-mp-motion');
     return true;
   }
 
@@ -146,15 +313,21 @@
     current = null;
     entry.root.setAttribute('aria-hidden', 'true');
     entry.root.setAttribute('data-popup-state', 'closed');
-    try { entry.close && entry.close({ instant: !!opts.instant || reduced(), reason: opts.reason || 'close' }); } catch (e) { console.error(e); }
-    unlockScroll();
     if (opts.reason !== 'replaced' && !design && opts.reason !== 'deselect') remember(entry);
     var back = lastFocus; lastFocus = null;
     if (back && back.isConnected && opts.reason !== 'replaced' && opts.reason !== 'unload') {
       try { back.focus({ preventScroll: true }); } catch (e) {}
     }
-    emit('materia:popup-close', { id: entry.id, reason: opts.reason || 'close' });
-    if (opts.reason !== 'replaced') setTimeout(flush, entry.gap != null ? entry.gap : 600);
+    // The close plays to its end, then the section shuts and its dialog closes.
+    var shut = function () {
+      if (current === entry) return;
+      try { entry.close && entry.close({ instant: !!opts.instant || reduced(), reason: opts.reason || 'close' }); } catch (e) { console.error(e); }
+      if (!current) unlockScroll();
+      emit('materia:popup-close', { id: entry.id, reason: opts.reason || 'close' });
+    };
+    if (opts.instant || opts.reason === 'replaced' || opts.reason === 'unload') { settle(entry); shut(); }
+    else moveOut(entry, shut);
+    if (opts.reason !== 'replaced') setTimeout(flush, (entry.gap != null ? entry.gap : 600) + CLOSE_MS);
   }
 
   function flush() {
@@ -318,9 +491,17 @@
     var d = e.detail || {};
     return d.sectionId != null ? String(d.sectionId) : '';
   }
+  // Another section picked, added or previewed (the add-section library):
+  // a popup shown only because it was selected steps away.
+  function stepAway(id) {
+    if (!design || !current || current.id === id || current.preview) return;
+    current.selected = false;
+    hide(current, { reason: 'deselect', instant: true });
+  }
   function onSelect(e) {
     var id = sectionOf(e);
     var entry = entries[id];
+    stepAway(id);
     if (!entry) return;
     entry.selected = true;
     show(entry, { force: true, preview: true });
@@ -334,6 +515,7 @@
   document.addEventListener('shopify:section:select', onSelect);
   document.addEventListener('shopify:block:select', onSelect);
   document.addEventListener('shopify:section:deselect', onDeselect);
+  document.addEventListener('shopify:section:load', function (e) { var id = sectionOf(e); if (id && !entries[id]) stepAway(id); });
   document.addEventListener('shopify:section:unload', function (e) {
     var id = sectionOf(e);
     if (entries[id] && !entries[id].root.isConnected) unregister(id);
@@ -414,7 +596,7 @@
   window.addEventListener('scroll', function () { clearTimeout(insetScroll); insetScroll = setTimeout(queueInset, 150); }, { passive: true });
   document.addEventListener('materia:consent', function () { setTimeout(queueInset, 450); });
   try {
-    new MutationObserver(queueInset).observe(document.documentElement, { subtree: true, attributes: true, attributeFilter: ['data-open', 'hidden'] });
+    new MutationObserver(queueInset).observe(document.documentElement, { subtree: true, attributes: true, attributeFilter: ['data-open', 'hidden', 'data-settled'] });
   } catch (e) {}
   // First measured while the page is idle after it is parsed (a frame at
   // DOMContentLoaded forced a layout of the whole page there), then whenever
@@ -432,6 +614,7 @@
       watch();
       document.addEventListener('materia:consent', watch);
       document.addEventListener('storelib:section-load', watch);
+      document.addEventListener('shopify:section:load', watch);
       try { new MutationObserver(watch).observe(document.documentElement, { subtree: true, attributes: true, attributeFilter: ['data-open'] }); } catch (e) {}
     }
     queueInset();
@@ -442,8 +625,27 @@
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', idleInset); else idleInset();
 
+  /* Back from the platform after a signup form in a popup was posted the ordinary way (its
+     CAPTCHA needs the real submit): the platform sends the browser back with ?customer_posted=true
+     (or ?contact_posted=true) and the form's #id; with errors, the page draws form.errors in
+     the form ([data-mt-form-errors]). theme.js tidies the address and keeps the one it found
+     in window.__mtPostedUrl. 'ok' (an address already on the list counts), 'error' or ''. */
+  function posted(form) {
+    if (!form || !form.id || design) return '';
+    var url;
+    try { url = new URL(window.__mtPostedUrl || location.href); } catch (e) { return ''; }
+    var hash = '';
+    try { hash = decodeURIComponent(url.hash.slice(1)); } catch (e) { hash = url.hash.slice(1); }
+    if (hash !== form.id) return '';
+    var err = form.querySelector('[data-mt-form-errors]');
+    if (err) return /taken|already|exist/i.test(err.getAttribute('data-mt-form-errors') || '') ? 'ok' : 'error';
+    if (/[?&](customer|contact)_posted=true/.test(url.search) || form.querySelector('[data-mt-form-posted]')) return 'ok';
+    return '';
+  }
+
   window.MateriaPopups = {
     version: 1,
+    posted: posted,
     register: register,
     unregister: unregister,
     open: function (id) { return show(entries[id], { force: true }); },
@@ -455,6 +657,7 @@
     reduced: reduced,
     pageViews: function () { return views; },
     bottomInset: bottomInset,
+    covered: covered,
     get design() { return design; }
   };
 

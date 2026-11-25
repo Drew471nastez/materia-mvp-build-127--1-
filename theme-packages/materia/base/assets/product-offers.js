@@ -18,9 +18,18 @@
    prices the order again on the server; nothing here changes a charge.
 
    A discount code set on a block is applied after the add with the cart's
-   own discount request (POST /cart/update.js with "discount"). */
+   own discount request (POST /cart/update.js with "discount").
+
+   On the platform there is no offers endpoint: blocks use their own settings. A
+   saving is shown only where the block names a discount code (created in
+   Storelib under Discounts) together with the saving that code gives, and the
+   code is applied to the cart with the add. Image fields are sent with the add
+   as multipart form data, the way the platform stores line item files. */
 (function () {
   if (window.MateriaProductOffers) return;
+  /* The platform storefronts (and the platform theme editor) have no /api/offers or
+     /cart/upload: offers come from block settings, files go with the add. */
+  const IS_SHOPIFY = !!(window.Shopify && window.Shopify.shop && !window.Shopify.storelib);
 
   // Writes a price, keeping the server-drawn text when no formatter has loaded.
   const putMoney = (el, cents, format) => { const text = money(cents, format); if (el && text) el.textContent = text; };
@@ -76,6 +85,7 @@
   const selectReady = select => !!select?.value && !!select.selectedOptions[0] && !select.selectedOptions[0].disabled;
   const selectionKey = items => JSON.stringify(items.map(i => [String(i.id), Number(i.quantity)||1]).sort((a,b)=>a[0].localeCompare(b[0])));
 
+  const friendlyError = status => status === 429 ? 'Too many requests right now. Please try again in a moment.' : ((window.cartStrings && window.cartStrings.error) || 'This item could not be added. Please try again.');
   async function post(url, body) {
     const response = await fetch(url, {method: 'POST', headers: jsonHeaders, body: JSON.stringify(body), credentials: 'same-origin'});
     let data = null;
@@ -83,7 +93,7 @@
     if (!response.ok || (data && data.status && Number(data.status) >= 400)) {
       const message = (data && (data.message || data.description || (typeof data.errors === 'string' && data.errors))) || '';
       const error = new Error(message || 'HTTP ' + response.status);
-      error.userMessage = message;
+      error.userMessage = message || friendlyError(response.status);
       throw error;
     }
     return data || {};
@@ -93,6 +103,7 @@
      without it answers 404 and the block keeps its own settings. */
   const offerCache = new Map();
   function readOffers(url) {
+    if (IS_SHOPIFY && /^\/api\/offers/.test(url)) return Promise.resolve(null);
     const cached = offerCache.get(url);
     if (!cached || cached.expires <= Date.now()) {
       offerCache.set(url, {expires:Date.now()+60000, value:fetch(url, {headers: {Accept: 'application/json'}, credentials: 'same-origin'})
@@ -139,7 +150,7 @@
     return items.map(item => {
       const line = {id: String(item.id), quantity: Math.max(1, parseInt(item.quantity, 10) || 1)};
       const props = {};
-      Object.entries(item.properties || {}).forEach(([k, v]) => { if (v !== '' && v != null) props[k] = String(v); });
+      Object.entries(item.properties || {}).forEach(([k, v]) => { if (v !== '' && v != null && !(typeof File !== 'undefined' && v instanceof File)) props[k] = String(v); });
       if (Object.keys(props).length) line.properties = props;
       return line;
     });
@@ -147,12 +158,34 @@
 
   /** Adds every line in one request, applies an optional code, redraws the
       drawer and opens it unless open is false. */
+  /* Lines with an image field go one by one as multipart form data (the platform
+     keeps the file on the line item); the rest go together as JSON. */
+  async function postFileLine(item, ids) {
+    const form = new FormData();
+    form.append('id', String(item.id));
+    form.append('quantity', String(Math.max(1, parseInt(item.quantity, 10) || 1)));
+    Object.entries(item.properties || {}).forEach(([k, v]) => { if (v !== '' && v != null) form.append(`properties[${k}]`, v); });
+    if (ids.length) { form.append('sections', ids.join(',')); form.append('sections_url', window.location.pathname); }
+    const response = await fetch(addUrl(), {method: 'POST', body: form, credentials: 'same-origin', headers: {Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest'}});
+    let data = null;
+    try { data = await response.json(); } catch (_) {}
+    if (!response.ok || (data && data.status && Number(data.status) >= 400)) {
+      const message = (data && (data.message || data.description)) || '';
+      const error = new Error(message || 'HTTP ' + response.status); error.userMessage = message || friendlyError(response.status); throw error;
+    }
+    return data || {};
+  }
+  const hasFile = item => Object.values(item.properties || {}).some(v => typeof File !== 'undefined' && v instanceof File);
   async function addLines(items, options = {}) {
     const cart = findCart();
     const ids = sectionIds(cart);
-    const body = {items: cleanItems(items)};
+    const fileItems = items.filter(hasFile);
+    const plainItems = items.filter(item => !hasFile(item));
+    const body = {items: cleanItems(plainItems)};
     if (ids.length && !options.discountCode) { body.sections = ids; body.sections_url = window.location.pathname; }
-    let data = await post(addUrl(), body);
+    let data = {};
+    for (const item of fileItems) data = await postFileLine(item, options.discountCode || plainItems.length ? [] : ids);
+    if (plainItems.length) data = await post(addUrl(), body);
     if (options.discountCode) {
       let codes = [];
       try {
@@ -220,6 +253,7 @@
       if (!match) continue;
       if (value instanceof File) {
         if (!value.size) continue;
+        if (IS_SHOPIFY) { properties[match[1]] = value; continue; }
         const body = new FormData(); body.append('file', value);
         const response = await fetch('/cart/upload', {method:'POST',credentials:'same-origin',body});
         const result = await response.json();
@@ -303,14 +337,15 @@
       this.message.dataset.tone = tone || '';
       this.message.classList.toggle('visually-hidden', tone === 'success');
     }
-    async run(items, discountCode) {
+    async run(items, discountCode, mainIds) {
       if (mainBusy.has(this.form()) || !this.button || this.button.getAttribute('aria-busy') === 'true') return;
       this.say('');
       const version = this.selectionVersion || 0;
       actionBusy(this.button, true, this.addedText);
       try {
-        const properties = await personalization(this.form());
-        if (items[0]) items[0].properties = {...properties,...items[0].properties};
+        const ids = new Set((mainIds && mainIds.length ? mainIds : [items[0]?.id]).map(String));
+        const own = items.find(item => ids.has(String(item.id)));
+        if (own) own.properties = {...await personalization(this.form()),...own.properties};
         await addLines(items, {discountCode,open:this.dataset.openDrawer!=='false', source: this.localName});
         if ((this.selectionVersion || 0) === version) {
           this._addedItems = items.map(item => ({id:String(item.id),quantity:item.quantity}));
@@ -373,7 +408,10 @@
         if (this.dataset.currency && this.dataset.storeCurrency && this.dataset.currency!==this.dataset.storeCurrency) return 0;
         return total === this.offer.fullCents ? this.offer.amountCents : 0;
       }
-      // Block settings are presentation, not a discount authorization.
+      // The platform: the block's discount code takes the saving off; the block
+      // shows the saving that code gives the full set.
+      const pct = Math.min(100, Math.max(0, Number(this.dataset.discount) || 0));
+      if (IS_SHOPIFY && pct > 0 && this.dataset.discountCode) return Math.round(total * pct / 100);
       return 0;
     }
     update() {
@@ -415,6 +453,7 @@
       if (countEl) countEl.textContent = String(count);
       this.complete = complete;
       this.shownSaving = saving;
+      if (!this.offer) { const note = this.querySelector('[data-offer-note]'); if (note) note.hidden = !saving; }
       scheduleMainOfferButtons();
       if (this.button) this.button.disabled = count === 0 || this.button.getAttribute('aria-busy') === 'true';
     }
@@ -444,7 +483,7 @@
       });
       return {items, mainIds:lines.filter(line=>line.hasAttribute('data-main-line')).map(line=>this.variantOf(line).id), discountCode:this.complete ? (this.dataset.discountCode || '') : ''};
     }
-    submit() { const selected=this.selection(); if(selected.items.length)this.run(selected.items,selected.discountCode);
+    submit() { const selected=this.selection(); if(selected.items.length)this.run(selected.items,selected.discountCode,selected.mainIds);
     }
   }
 
@@ -513,8 +552,10 @@
     /* What a tier costs for this variant: paid units at the tier's price, free units at nothing. */
     priceOf(radio, variant) {
       const paid = this.paidOf(radio); const free = this.freeOf(radio); const units = paid + free;
-      const authorized = !!radio.dataset.offerId;
-      const percent = authorized ? Math.min(100, Math.max(0, Number(radio.dataset.discount) || 0)) : 0;
+      // The platform: a tier with its own discount code is priced as that code prices it.
+      const coded = IS_SHOPIFY && !radio.dataset.offerId && !!radio.dataset.discountCode && ((Number(radio.dataset.configuredDiscount) || 0) > 0 || free > 0);
+      const authorized = !!radio.dataset.offerId || coded;
+      const percent = authorized ? Math.min(100, Math.max(0, Number(coded ? radio.dataset.configuredDiscount : radio.dataset.discount) || 0)) : 0;
       const amount = authorized ? Math.max(0, Number(radio.dataset.amount) || 0) : 0;
       const rate = authorized ? this.storelibRate || 0 : 0;
       let total;
@@ -907,12 +948,12 @@
     const root=roots[0];root.dataset.options=JSON.stringify({...parse(root.dataset.options),...root._tierImageOverrides,...images});
     Object.assign(root._tierImageOverrides||={},images);refreshTierImages(root);
   });
-  document.addEventListener('storelib:section-load',event=>{
+  ['storelib:section-load','shopify:section:load'].forEach(type=>document.addEventListener(type,event=>{
     const scope=event.target?.querySelectorAll?event.target:document;
     const selector='quantity-offer,storelib-product-offers[data-kind="quantity_offer"]';
     const roots=[...scope.querySelectorAll(selector)];if(scope.matches?.(selector))roots.push(scope);
     roots.forEach(root=>{delete root._tierImageOverrides;watchTierImages(root);});
-  });
+  }));
   let nativeOfferSequence=0;
   /* rate: store currency per base unit (offer variant price here / its
      priceCents in the offer), set in draw. Storelib
@@ -1035,9 +1076,8 @@
         actionBusy(button,true,this.addedText || 'Added');status.textContent='';status.hidden=true;status.classList.remove('visually-hidden');
         try{
           const lines=action();if(!lines?.length)return;
-          const props=await personalization(this.form());
           const own=lines.find(line=>this.variants.some(v=>v.id===String(line.id)));
-          if(own)own.properties={...props,...own.properties};
+          if(own)own.properties={...await personalization(this.form()),...own.properties};
           await addLines(lines,{open:this.dataset.kind==='upsell_pro'?safelyOpen(this.options):this.options.open_cart_after_add!==false,discountCode:this.dataset.kind==='quantity_offer'?this.codeFor(this.chosen):'',source:'storelib-offers'});
           button._addedSelection=selectionKey(lines);button._addedRevision=this.cartRevision || 0;button.dataset.added='true';text.textContent=this.addedText||'Added';status.textContent=text.textContent;status.classList.add('visually-hidden');status.hidden=false;
         }catch(error){status.textContent=error.userMessage||error.message||this.options.error_text||'';status.hidden=false;}
@@ -1181,7 +1221,11 @@
       try{const url=new URL(item.imageUrl,location.href);if(!['http:','https:'].includes(url.protocol))return;const img=node('img');img.src=url.href;img.alt=item.title||'';img.width=56;img.height=56;img.loading='lazy';img.decoding='async';if(this.dataset.kind==='upsell_pro'){const wrap=node('span','upsell-card__media');wrap.style.borderRadius=this.options.image_shape==='square'?'0':this.options.image_shape==='rounded'?'10px':'8px';wrap.append(img);parent.append(wrap);}else{img.className='po-line__media';parent.append(img);}}catch(_){}
     }
   }
-  const linkedMode = provider => ['main','both'].includes(provider.dataset.purchaseAction || provider.options?.purchase_action);
+  // A quantity offer that mirrors its tier into the main form also routes the
+  // main Add to cart / Buy now through the offer while the chosen tier has a
+  // discount code, so the saving the block shows is actually applied.
+  const linkedMode = provider => ['main','both'].includes(provider.dataset.purchaseAction || provider.options?.purchase_action)
+    || (provider.localName==='quantity-offer' && provider.dataset.syncForm==='true' && !!provider.tier?.()?.dataset.discountCode);
   const mainProviders = form => [...document.querySelectorAll('product-bundle,quantity-offer,upsell-pro,pair-with,storelib-product-offers')].filter(provider => provider.isConnected && linkedMode(provider) && provider.form?.() === form);
   const mainBusy = new WeakSet();
 
@@ -1237,7 +1281,7 @@
   async function continueCartCheckout(form) {
     const cart=findCart(),checkout=cart?.querySelector('button[name="checkout"].btn-checkout');
     if (checkout && !checkout.disabled && checkout.getAttribute('aria-disabled')!=='true') {
-      checkout.click(); // Existing Storelib cart checkout, never a made-up API.
+      checkout.click(); // The cart's own checkout button (cart terms included), never a made-up API.
     } else if (checkout) {
       await cart.open?.();
       mainStatus(form,'Review your cart and confirm the required terms to continue.',true);
@@ -1298,6 +1342,54 @@
     event.preventDefault();event.stopImmediatePropagation();
     submitMainOffers(form,button,button.hasAttribute('data-offer-buy-now')||button.hasAttribute('data-storelib-buy-now')||button.name==='checkout');
   },true);
+  /* The platform: the product's own Buy now ([data-storelib-buy-now], no offer
+     block linked to the form) adds this item, with its quantity, options and
+     personalisation fields, and goes straight to checkout. */
+  async function shopifyBuyNow(form, button) {
+    if (mainBusy.has(form)) return;
+    const scope = form.closest('.product-detail__information') || document;
+    const fields = [...scope.querySelectorAll('product-property input')];
+    if (fields.some(input => !input.reportValidity())) return;
+    mainBusy.add(form);
+    actionBusy(button, true);
+    try {
+      const body = new FormData(form);
+      body.delete('checkout');
+      for (const [key, value] of [...body.entries()]) {
+        if (typeof File !== 'undefined' && value instanceof File && !value.size) body.delete(key);
+        else if (value === '' && /^properties\[/.test(key)) body.delete(key);
+      }
+      fields.forEach(input => {
+        if (!input.name || input.form === form) return;
+        if (input.type === 'file') { if (input.files && input.files[0]) body.set(input.name, input.files[0]); }
+        else if (input.value) body.set(input.name, input.value);
+      });
+      if (!body.get('id')) throw new Error('Choose an available product variant.');
+      const response = await fetch(addUrl(), {method: 'POST', body, credentials: 'same-origin', headers: {Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest'}});
+      let data = null;
+      try { data = await response.json(); } catch (_) {}
+      if (!response.ok || (data && data.status && Number(data.status) >= 400)) {
+        const error = new Error((data && (data.description || data.message)) || 'This item could not be added. Please try again.');
+        error.userMessage = error.message; throw error;
+      }
+      const root = String(window.routes?.root_url || window.Shopify?.routes?.root || '/').replace(/\/?$/, '/');
+      window.location.assign(root + 'checkout');
+    } catch (error) {
+      mainStatus(form, error.userMessage || error.message || 'This item could not be added. Please try again.', true);
+      actionBusy(button, false);
+    } finally {
+      mainBusy.delete(form);
+    }
+  }
+  if (IS_SHOPIFY) {
+    window.addEventListener('click', event => {
+      const button = event.target.closest?.('[data-storelib-buy-now]');
+      const form = button?.form;
+      if (!form || button.disabled || button.getAttribute('aria-disabled') === 'true' || mainProviders(form).length) return;
+      event.preventDefault(); event.stopImmediatePropagation();
+      shopifyBuyNow(form, button);
+    }, true);
+  }
   ['DOMContentLoaded','storelib:section-load','shopify:section:load'].forEach(type=>document.addEventListener(type,scheduleMainOfferButtons));
   const safelyOpen = options => options.open_drawer_after_add === true;
   window.MateriaProductOffers = {addLines, removeVariant, money, tierPrice};

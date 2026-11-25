@@ -7,20 +7,40 @@
         "url": "/collections/outerwear",
         "links": [
           {
-            "title": "Puffers and vests",
-            "url": "/collections/puffers"
+            "title": "Outerwear",
+            "url": "/collections/outerwear",
+            "links": [
+              {
+                "title": "Puffers and vests",
+                "url": "/collections/puffers"
+              },
+              {
+                "title": "Parkas and fur",
+                "url": "/collections/parkas"
+              },
+              {
+                "title": "All outerwear",
+                "url": "/collections/outerwear"
+              }
+            ]
           },
           {
-            "title": "Parkas and fur",
-            "url": "/collections/parkas"
-          },
-          {
-            "title": "All outerwear",
-            "url": "/collections/outerwear"
-          },
-          {
-            "title": "Everything",
-            "url": "/collections/all"
+            "title": "Layers",
+            "url": "/collections/all",
+            "links": [
+              {
+                "title": "Knit and tees",
+                "url": "/collections/knit-and-tees"
+              },
+              {
+                "title": "Accessories",
+                "url": "/collections/accessories"
+              },
+              {
+                "title": "Everything",
+                "url": "/collections/all"
+              }
+            ]
           }
         ]
       },

@@ -1,3 +1,14 @@
+{% doc %}
+  Prints the ISO end time of a countdown from its schedule controls (fixed date or evergreen).
+
+  @param {boolean} [allow_product] - Allow product
+  @param {object} controls - Settings object that holds the style controls
+  @param {object} [legacy_date] - Legacy date; no current caller passes it
+  @param {product} [product] - The product to render
+
+  @example
+  {% render 'countdown-schedule', controls: ts, product: product, allow_product: true %}
+{% enddoc -%}
 {%- liquid
   assign schedule_end = controls.end_iso | default: legacy_date
   if controls.timing_input != 'iso' and controls.end_date != blank

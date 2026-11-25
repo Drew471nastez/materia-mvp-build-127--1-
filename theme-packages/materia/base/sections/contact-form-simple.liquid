@@ -1,6 +1,6 @@
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- assign fb_accessibility_field = 'accessibility.field' | t -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
@@ -323,7 +323,7 @@
     object-fit: cover;
     display: block;
   }
-  #shopify-section-{{ sid }} .cfs__side-placeholder svg { width: 100%; height: auto; aspect-ratio: 4 / 3; border-radius: var(--cfs-img-r); background: color-mix(in srgb, var(--color-text) 6%, transparent); fill: color-mix(in srgb, var(--color-text) 30%, transparent); }
+  #shopify-section-{{ sid }} .cfs__side-placeholder svg { width: 100%; height: auto; aspect-ratio: 4 / 3; border-radius: var(--cfs-img-r); }
 
   /* Info row */
   #shopify-section-{{ sid }} .cfs__info {
@@ -430,7 +430,7 @@
           {%- comment -%} The fields' wrapper carries the section's field values (Match theme fields off) and type switches. {%- endcomment -%}
           <div class="cfs__form" data-cfs-form{% if own_field %} data-cfs-own-field{% endif %}{% if sec_font %} data-own-font{% endif %}{% if label_weight != 'theme' %} data-own-weight{% endif %} style="{{ cfs_field_vars | strip_newlines }}">
           {%- if form.posted_successfully? -%}
-            <div class="cfs__success" role="status">{{ st.success_message | default: 'Thanks for reaching out. We will get back to you shortly.' }}</div>
+            <div class="cfs__success" role="status" data-mt-result>{{ st.success_message | default: 'Thanks for reaching out. We will get back to you shortly.' }}</div>
           {%- endif -%}
           {%- if form.errors -%}
             <div class="cfs__errors" role="alert">
@@ -521,7 +521,7 @@
                    data-ct-block="{{ side_image_block.id }}" data-ct-type="side_image"{% if request.design_mode %} data-ct-settings="{{ side_image_block.settings | json | escape }}"{% endif %}
                    {{ side_image_block.shopify_attributes }}>
             {%- elsif side_image_block -%}
-              <div class="cfs__side-placeholder" data-ct-block="{{ side_image_block.id }}" data-ct-type="side_image"{% if request.design_mode %} data-ct-settings="{{ side_image_block.settings | json | escape }}"{% endif %} {{ side_image_block.shopify_attributes }}>{{ 'image' | placeholder_svg_tag: 'cfs__side-image' }}</div>
+              <div class="cfs__side-placeholder" data-ct-block="{{ side_image_block.id }}" data-ct-type="side_image"{% if request.design_mode %} data-ct-settings="{{ side_image_block.settings | json | escape }}"{% endif %} {{ side_image_block.shopify_attributes }}>{%- render 'placeholder-image', type: 'lifestyle-2', class: 'cfs__side-image' -%}</div>
             {%- endif -%}
 
             {%- if infos.size > 0 -%}
@@ -565,9 +565,11 @@
   {%- render 'contact-live-icons', set: 'cfs', all: true -%}
 </section>
 
+
 {% schema %}
 {
-  "name": "Contact Form Simple",
+  "class": "s-tt",
+"name": "Contact Form Simple",
   "settings": [
     {
       "type": "header",
@@ -577,7 +579,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -638,7 +640,6 @@
       "id": "submit_label",
       "label": "Button label",
       "default": "Send message",
-      "hidden": true,
       "info": "Legacy: used only when the section has no submit button block",
       "visible_if": "{{ false }}"
     },
@@ -1291,7 +1292,6 @@
               "label": "H4"
             }
           ],
-          "hidden": true,
           "info": "Legacy: the heading is always an h2 (the hero holds the page's h1).",
           "visible_if": "{{ false }}"
         },
@@ -1681,8 +1681,8 @@
   ],
   "presets": [
     {
-      "name": "Contact Form Simple",
-      "category": "Contact",
+      "name": "Contact Form – Custom Fields",
+      "category": "15 · Newsletter & contact",
       "blocks": [
         {
           "type": "heading"

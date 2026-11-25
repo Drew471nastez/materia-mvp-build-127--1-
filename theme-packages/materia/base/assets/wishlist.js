@@ -46,6 +46,7 @@
     this.empty = root.querySelector("[data-wishlist-empty]");
     this.loading = root.querySelector("[data-wishlist-loading]");
     this.status = root.querySelector("[data-wishlist-status]");
+    this.count = root.querySelector("[data-wishlist-count]");
     this.section = root.dataset.renderSection || "page-wishlist";
     this.request = 0;
     this.shown = [];
@@ -61,6 +62,16 @@
   WishlistPage.prototype.showEmpty = function (on) {
     if (this.empty) this.empty.hidden = !on;
     this.root.classList.toggle("is-empty", !!on);
+  };
+
+  /* "3 saved products" above the cards; hidden while loading and when empty. */
+  WishlistPage.prototype.setCount = function (n) {
+    var el = this.count;
+    if (!el) return;
+    if (n == null || n < 1) { el.hidden = true; return; }
+    var text = (n === 1 ? el.dataset.one : (el.dataset.other || "").replace(/\[count\]/g, String(n))) || String(n);
+    if (el.textContent !== text) el.textContent = text;
+    el.hidden = false;
   };
 
   WishlistPage.prototype.cards = function () {
@@ -96,6 +107,7 @@
       this.cards().forEach(function (card) { card.remove(); });
       this.shown = [];
       this.setLoading(false);
+      this.setCount(0);
       // In the builder the sample cards stay so the creator can style them.
       this.showEmpty(!samples.length);
       return Promise.resolve();
@@ -129,6 +141,7 @@
         self.list.appendChild(frag);
         self.shown = shown;
         self.setLoading(false);
+        self.setCount(shown.length);
         self.showEmpty(!shown.length);
         store().sync(self.root);
         if (typeof window.initLazyloadItem === "function") {
@@ -151,6 +164,8 @@
     var self = this;
     var card = this.list && this.list.querySelector('[data-wishlist-card][data-wishlist-id="' + String(id).replace(/"/g, '\\"') + '"]:not([data-wishlist-sample])');
     if (!card) return;
+    this.shown = this.shown.filter(function (x) { return x !== String(id); });
+    this.setCount(this.shown.length);
     var done = function () {
       // The cards after it slide into its place instead of jumping.
       var rest = self.cards().filter(function (c) { return c !== card; });

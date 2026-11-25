@@ -1,12 +1,16 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. Section width for the contact sections (Contact Form
   Simple, Contact Form Simple 2, Google map, Newsletter): the element that
   carries the Section width class (container, fluid_container,
   stretch_width or full_width) gets the theme's width, so live-contact.js
   changes the width by changing that class, without a redraw. The same
   rules the sections printed for their chosen width before.
+
+  @param {string} sid - Section id, used to scope CSS and element ids
+
+  @example
   {% render 'contact-live-width', sid: section.id %}
-{%- endcomment -%}
+{%- enddoc -%}
   #shopify-section-{{ sid }} .container {
     max-width: calc(var(--page-width, 1300px) + 3rem) !important;
     margin-inline: auto !important;

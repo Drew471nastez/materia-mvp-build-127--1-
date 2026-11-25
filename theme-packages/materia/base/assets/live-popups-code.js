@@ -1,6 +1,6 @@
 /* Materia Themes. Popups and custom code: Custom HTML (custom-html), Custom
    code (custom-liquid), Order notification (fake-order), Promotion popup
-   (promotion-popup) and Size Chart Popup (size-chart-popup). Loaded on every
+   (promotion-popup). Loaded on every
    page by layout/theme.storelib.
 
    Live edits: every root [data-pc-root] carries its settings as JSON and
@@ -116,6 +116,8 @@
     put(root, '@data-fo-side', L ? L.position || 'left' : 'left');
     put(root, '@data-fo-mobile', L && off(L.show_on_mobile_fake_order) ? 'false' : 'true');
     put(root, '--fo-radius', px(L ? L.border_radius : 5, 5));
+    put(root, '--fo-img', px(L ? L.image_size : 56, 56));
+    put(root, '@data-fo-shadow', L && off(L.shadow) ? 'false' : 'true');
     put(c.q('[data-fo-progress]'), 'hidden', !!(L && bool(L.disable_progress_bar)));
     const dur = A ? num(A.animation_duration, 15000) || 15000 : 15000;
     put(root, '@data-fo-anim', ANIM[A && A.notification_animation] || 'fade');
@@ -125,13 +127,16 @@
     put(root, '@data-show-gap', String(A ? num(A.show_gap_seconds, 10) || 10 : 10));
     /* buyers: only the names the creator typed */
     const users = String(P && P.fake_user || '').trim().split('|').map(x => x.trim()).filter(Boolean);
-    st.users = users; st.fallback = P && P.buyer_fallback || 'Someone';
-    if (!st.running) put(c.q('[data-user]'), 'text', users[0] || st.fallback);
+    st.users = users; st.fallback = P && P.buyer_fallback || 'Someone'; st.joiner = P && P.place_joiner != null ? String(P.place_joiner) : 'in';
+    put(root, '@data-fo-builder', bool(s.show_in_builder) ? 'true' : 'false');
+    if (!st.running) { const b = foBuyer(users[0] || st.fallback); put(c.q('[data-user]'), 'text', b.name); put(c.q('[data-fo-place]'), 'text', b.place); put(c.q('[data-fo-place-wrap]'), 'hidden', !b.place); }
+    put(c.q('[data-fo-joiner]'), 'text', st.joiner);
     /* text */
     put(root, '@aria-label', strip(T ? T.heading_text || 'Latest Orders' : 'Latest Orders'));
     put(c.q('[data-fo-purchased]'), 'text', T && !blank(T.purchased_text) ? T.purchased_text : i18n.purchased || 'purchased');
-    /* time line: only what the creator wrote; nothing time based is made up */
-    const tl = T && !blank(T.time_line) ? String(T.time_line).trim() : '';
+    /* time line: what the creator wrote; [minutes] becomes a number per card */
+    st.timeLine = T && !blank(T.time_line) ? String(T.time_line).trim() : '';
+    const tl = st.timeLine.split('[minutes]').join('12');
     put(c.q('[data-fo-time-text]'), 'text', tl);
     put(c.q('[data-fo-time]'), 'hidden', !tl);
     const verify = c.q('[data-fo-verify]'), vText = T ? T.text_verify : 'Verify';
@@ -231,48 +236,11 @@
     if (lt && !c.blocks.some(x => x.type === 'text')) put(lt, 'rich', String(s.promotion_content || '').split('[promotion_code]').join(code));
   }
 
-  /* Size Chart Popup */
-  function sizeChart(c) {
-    const {root, s, put, st} = c, o = bool(s.enable_custom_style), f = bool(s.enable_custom_fonts);
-    const i18n = st.i18n || (st.i18n = parse(root.dataset.scsI18n));
-    scheme(c);
-    put(root, '--scs-align', s.align || 'left'); put(root, '--scs-mt', px(s.margin_top)); put(root, '--scs-mb', px(s.margin_bottom));
-    put(root, '--scs-trig-fs', px(s.trig_size, 16)); put(root, '--scs-trig-fw', String(s.trig_weight || '600')); put(root, '--scs-gap', px(s.trig_gap, 8));
-    put(root, '--scs-pad-y', px(s.trig_pad_y, 8)); put(root, '--scs-pad-x', px(s.trig_pad_x, 0)); put(root, '--scs-icon', px(s.icon_size, 18));
-    put(root, '--scs-title-fs', px(s.title_size, 20)); put(root, '--scs-pad', px(s.modal_padding, 24)); put(root, '--scs-mw-d', px(s.modal_width_d, 720)); put(root, '--scs-mw-m', px(s.modal_width_m, 360));
-    put(root, '--scs-trig', o ? color(s.trig_color, 'var(--color-text)') : null);
-    put(root, '--scs-icon-c', o ? color(s.icon_color, 'var(--scs-trig)') : null);
-    put(root, '--scs-title', o ? color(s.title_color, 'var(--color-heading)') : null);
-    put(root, '--scs-bg', o ? color(s.modal_bg, 'var(--color-background)') : null);
-    put(root, '--scs-text', o ? color(s.text_color, 'var(--color-text)') : null);
-    put(root, '--scs-tb', o ? color(s.table_border_color, 'var(--color-border)') : null);
-    put(root, '--scs-ts', o ? color(s.table_stripe_color, 'color-mix(in srgb, var(--color-text) 5%, var(--color-background))') : null);
-    put(root, '--scs-radius', o ? px(s.modal_radius, 16) : null);
-    put(root, '--scs-hf', f && font(s.heading_font) || null); put(root, '--scs-bf', f && font(s.body_font) || null);
-    for (const sel of ['[data-scs-open]', '[data-scs-title]', '.scs__body']) put(c.q(sel), '@data-own-font', f);
-    put(root, '@data-scs-underline', bool(s.underline_text) ? 'true' : 'false');
-    put(c.q('[data-scs-icon]'), 'hidden', !bool(s.show_icon));
-    put(c.q('[data-scs-label]'), 'text', s.trig_text || i18n.title || 'Size Guide');
-    put(c.q('[data-scs-title]'), 'text', s.modal_title || i18n.title || 'Size Guide');
-    const table = c.q('[data-scs-table]');
-    if (table) {
-      put(table, '@aria-label', s.modal_title || i18n.title || 'Size Guide');
-      const rows = c.blocks.filter(x => x.type === 'row');
-      put(c.q('[data-scs-headers]'), 'hidden', blank(s.headers));
-      put(c.q('[data-scs-headers]'), 'head', s.headers || '');
-      const legacyRows = !rows.length && [1, 2, 3, 4, 5, 6, 7, 8].some(n => !blank(s['row_' + n]));
-      put(table, 'hidden', blank(s.headers) && !rows.length && !legacyRows);
-      for (const x of rows) { put(x.el, 'row', x.b.cells || ''); put(x.el, 'hidden', blank(x.b.cells)); }
-    }
-    for (const x of c.blocks) if (x.type === 'notes') { put(x.el, 'rich', x.b.text || ''); put(x.el, 'hidden', blank(x.b.text)); }
-  }
-
   const TYPES = {
     'custom-html': {derive: code, margins: (s, d) => [s['section_margin_top_' + (d ? 'desktop' : 'mobile')], s['section_margin_bottom_' + (d ? 'desktop' : 'mobile')]], reset: s => bool(s.reset_spacing)},
     'custom-liquid': {derive: code, margins: (s, d) => [s['section_margin_top_' + (d ? 'desktop' : 'mobile')], s['section_margin_bottom_' + (d ? 'desktop' : 'mobile')]], reset: s => bool(s.reset_spacing)},
-    'fake-order': {derive: fakeOrder, init: foInit, edit: foEdit, select: foPreview},
+    'fake-order': {derive: fakeOrder, init: foInit, edit: foEdit, select: foSync},
     'promotion-popup': {derive: promo, init: ppInit, edit: ppEdit, select: st => dialogOpen(st, st.root.querySelector('[data-pp-dialog]'))},
-    'size-chart-popup': {derive: sizeChart, init: scsInit, edit: scsEdit, select: st => dialogOpen(st, st.root.querySelector('[data-scs-dialog]'))},
   };
 
   /* ---------- dialogs ---------- */
@@ -314,7 +282,7 @@
     const list = [...openDialogs].filter(d => d.open && !d.matches(':modal'));
     const dlg = list.pop();
     if (dlg) { const root = dlg.closest(SEL), st = roots.get(root); if (st) { e.preventDefault(); dialogClose(st, dlg); return; } }
-    for (const st of roots.values()) if (st.type === TYPES['fake-order'] && st.root.dataset.foState === 'shown') foClose(st);
+    for (const st of roots.values()) if (st.type === TYPES['fake-order'] && st.root.dataset.foState === 'shown' && st.root.contains(document.activeElement)) foClose(st);
   });
 
   /* Promotion popup: the live site's trigger and memory */
@@ -343,7 +311,7 @@
     const fire = () => {
       if (!root.isConnected) return;
       /* one popup at a time: wait while another modal or the cookie banner is open */
-      if (document.querySelector('dialog[open]:modal, html[data-popup-open], cookie-consent[data-open]')) { st.timer = setTimeout(fire, 4000); return; }
+      if (document.querySelector('dialog[open]:modal, html[data-popup-open], cookie-consent[data-open]') || (window.MateriaPopups && window.MateriaPopups.covered && window.MateriaPopups.covered())) { st.timer = setTimeout(fire, 4000); return; }
       dialogOpen(st, dlg);
     };
     st.timer = setTimeout(fire, num(root.dataset.ppDelay, 15) * 1000);
@@ -368,59 +336,153 @@
     else if (keys.some(k => /^(show_promotion|delay|hide_days)/.test(k))) ppArm(st);
   }
 
-  /* Size Chart Popup */
-  function scsInit(st) {
-    const root = st.root, dlg = root.querySelector('[data-scs-dialog]');
-    wireDialog(st, dlg, '[data-scs-close]');
-    const fn = e => { const t = e.target.closest('[data-scs-open]'); if (t && root.contains(t)) { e.preventDefault(); if (dlg.open) dialogClose(st, dlg); else dialogOpen(st, dlg, t); } };
-    root.addEventListener('click', fn); st.cleanup.push(() => root.removeEventListener('click', fn));
+  /* Order notification: a small toast that cycles through the products.
+     First after "First one after", each shown for "Each shows for" (the
+     progress bar fills), then hidden for "Gap between". Hover or focus pauses
+     it (the bar too); the close button hides it for the rest of the visit. It
+     moves up above the back-to-top button and an open cookie banner on its
+     side. In the builder it cycles the same way while its section is selected
+     (or always with "Show in the builder"), with a short gap. */
+  const foSelected = new Set();
+  function foBuyer(v) {
+    const t = String(v == null ? '' : v).trim(), m = /^(.*?)\s*\(([^)]*)\)\s*$/.exec(t);
+    return m ? {name: m[1].trim() || t, place: m[2].trim()} : {name: t, place: ''};
   }
-  const TRIGGER = /^(trig_|show_icon|underline_text|icon_|align|margin_)/;
-  function scsEdit(st, keys, block) {
-    if (design() && (block || keys.some(k => !TRIGGER.test(k)))) dialogOpen(st, st.root.querySelector('[data-scs-dialog]'));
-  }
-
-  /* Order notification */
   function foItems(st) { const el = st.root.querySelector('[data-fo-items]'); try { return JSON.parse(el ? el.textContent : '[]') || []; } catch (_) { return []; } }
+  const foKey = st => 'materia:fo-closed:' + st.root.dataset.pcSection;
+  function foSetup(st) {
+    const root = st.root;
+    if (!st.users) {
+      const pb = [...root.querySelectorAll('[data-pc-block][data-pc-type="products"]')].find(el => el.closest(SEL) === root), P = pb ? parse(pb.dataset.pcSettings) : null;
+      st.users = String(P && P.fake_user || '').trim().split('|').map(x => x.trim()).filter(Boolean);
+      st.fallback = P && P.buyer_fallback || 'Someone';
+      st.joiner = P && P.place_joiner != null ? String(P.place_joiner) : 'in';
+    }
+    if (st.timeLine == null) { const el = root.querySelector('[data-fo-time-template]'); try { st.timeLine = String(JSON.parse(el ? el.textContent : '""') || '').trim(); } catch (_) { st.timeLine = ''; } }
+  }
+  const foWanted = st => st.root.dataset.foEnabled !== 'false' && (!design() || foSelected.has(st.root.dataset.pcSection) || st.root.dataset.foBuilder === 'true');
   function foInit(st) {
     const root = st.root;
-    const close = e => { if (e.target.closest('[data-fo-close]')) { e.preventDefault(); foClose(st); } };
-    root.addEventListener('click', close); st.cleanup.push(() => root.removeEventListener('click', close));
-    if (root.dataset.foEnabled === 'false') return;
-    if (design()) { foPreview(st); return; }
+    const on = (el, type, fn) => { el.addEventListener(type, fn); st.cleanup.push(() => el.removeEventListener(type, fn)); };
+    on(root, 'click', e => { if (e.target.closest('[data-fo-close]')) { e.preventDefault(); foClose(st, true); } });
+    on(root, 'mouseenter', () => foPause(st));
+    on(root, 'mouseleave', () => foResume(st));
+    on(root, 'focusin', () => foPause(st));
+    on(root, 'focusout', e => { if (!root.contains(e.relatedTarget)) foResume(st); });
+    const place = () => { if (root.dataset.foState === 'shown') foPlace(st); };
+    // Placed again when back to top or the cookie panel changes, never on every scroll frame (live-popups-code-runtime.js).
+    let pf = 0, settle = 0;
+    const placeSoon = () => { if (!pf) pf = requestAnimationFrame(() => { pf = 0; place(); }); clearTimeout(settle); settle = setTimeout(place, 450); };
+    if ('MutationObserver' in window) {
+      const mo = new MutationObserver(placeSoon);
+      const watchOthers = () => { for (const el of document.querySelectorAll('[data-back-to-top], cookie-consent')) if (!root.contains(el)) mo.observe(el, {attributes: true, attributeFilter: ['class', 'style', 'hidden', 'data-open', 'data-covered']}); };
+      watchOthers();
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watchOthers, {once: true});
+      st.cleanup.push(() => mo.disconnect());
+    }
+    on(window, 'resize', place);
+    on(document, 'materia:bottom-inset', () => { place(); setTimeout(place, 450); });
+    on(document, 'materia:consent', () => setTimeout(place, 400));
+    foSetup(st);
     st.items = foItems(st);
-    if (!st.items.length) return;
-    const vis = () => { if (document.hidden) foStop(st); else if (!st.closed && !st.timer) foLater(st, num(root.dataset.showGap, 10) * 1000, foShow); };
-    document.addEventListener('visibilitychange', vis); st.cleanup.push(() => document.removeEventListener('visibilitychange', vis));
-    foLater(st, parseInt(root.dataset.timeDelay, 10) || 5000, foShow);
+    st.next = 0; st.nextUser = Math.floor(Math.random() * Math.max(1, st.users.length));
+    on(document, 'visibilitychange', () => { if (document.hidden) foStop(st); else if (!st.closed && !st.timer && foWanted(st) && st.items.length) foLater(st, 1000, foShow); });
+    if (design()) { foSync(st); return; }
+    if (root.dataset.foEnabled === 'false' || store.get(foKey(st), true) || !st.items.length) return;
+    foLater(st, num(parseInt(root.dataset.timeDelay, 10), 5000), foShow);
   }
-  function foLater(st, ms, fn) { clearTimeout(st.timer); st.timer = setTimeout(() => { st.timer = 0; if (st.root.isConnected) fn(st); }, Math.max(0, ms)); }
-  function foStop(st) { clearTimeout(st.timer); st.timer = 0; if (st.root.dataset.foState === 'shown' && !design()) st.root.dataset.foState = 'hidden'; }
+  /* builder: cycling while selected, or always with "Show in the builder" */
+  function foSync(st) {
+    if (!design()) return;
+    const root = st.root;
+    if (foWanted(st)) {
+      root.setAttribute('data-fo-preview', '');
+      st.closed = false;
+      if (root.dataset.foState !== 'shown') { clearTimeout(st.timer); st.timer = 0; st.left = null; foShow(st); }
+    } else {
+      clearTimeout(st.timer); st.timer = 0; st.left = null;
+      root.dataset.foState = 'hidden'; root.removeAttribute('data-fo-preview'); root.removeAttribute('data-fo-paused');
+    }
+  }
+  /* will-change only around a slide in or out */
+  function foWill(st) { const r = st.root; r.style.willChange = 'transform, opacity'; clearTimeout(st.willT); st.willT = setTimeout(() => r.style.removeProperty('will-change'), 400); }
+  function foLater(st, ms, fn) {
+    clearTimeout(st.timer);
+    st.fn = fn; st.due = Date.now() + Math.max(0, ms);
+    st.timer = setTimeout(() => { st.timer = 0; st.fn = null; if (st.root.isConnected) fn(st); }, Math.max(0, ms));
+  }
+  function foPause(st) {
+    if (st.root.dataset.foState !== 'shown' || !st.timer || st.left != null) return;
+    clearTimeout(st.timer); st.timer = 0; st.left = Math.max(0, st.due - Date.now());
+    st.root.setAttribute('data-fo-paused', '');
+  }
+  function foResume(st) {
+    if (st.left == null) return;
+    const left = st.left, fn = st.fn; st.left = null;
+    st.root.removeAttribute('data-fo-paused');
+    if (fn && !st.closed) foLater(st, left, fn);
+  }
+  function foStop(st) { clearTimeout(st.timer); st.timer = 0; st.left = null; st.root.removeAttribute('data-fo-paused'); if (st.root.dataset.foState === 'shown') st.root.dataset.foState = 'hidden'; }
+  /* lift the card above what else sits low on its side of the screen */
+  function foPlace(st) {
+    const root = st.root;
+    const lift = parseFloat(root.style.getPropertyValue('--fo-lift')) || 0;
+    const r = root.getBoundingClientRect();
+    if (!r.width) return;
+    const base = r.bottom + lift, h = window.innerHeight;
+    let need = 0;
+    for (const el of document.querySelectorAll('[data-back-to-top], cookie-consent[data-open]:not([data-covered]) [data-consent-panel]')) {
+      if (root.contains(el) || !el.getClientRects().length) continue;
+      const s = getComputedStyle(el);
+      if (s.visibility === 'hidden' || s.display === 'none' || +s.opacity < 0.05) continue;
+      const b = el.getBoundingClientRect();
+      if (!b.height || b.right <= r.left || b.left >= r.right || b.bottom <= h * 0.4) continue;
+      if (b.top < base) need = Math.max(need, base - b.top + 10);
+    }
+    need = Math.round(need);
+    if (need !== Math.round(lift)) { if (need) root.style.setProperty('--fo-lift', need + 'px'); else root.style.removeProperty('--fo-lift'); }
+  }
+  function foFill(st, it, user) {
+    const root = st.root, title = root.querySelector('[data-title-fake]'), img = root.querySelector('[data-img]'), ph = root.querySelector('[data-fo-ph]');
+    if (title && it.title) title.textContent = it.title;
+    for (const a of root.querySelectorAll('[data-url]')) if (it.url) a.href = it.url;
+    if (img) { if (it.img) { if (img.getAttribute('src') !== it.img) img.src = it.img; img.hidden = false; if (ph) ph.hidden = true; } else if (it.title) { img.hidden = true; if (ph) ph.hidden = false; } }
+    const b = foBuyer(user), u = root.querySelector('[data-user]'), place = root.querySelector('[data-fo-place]'), wrap = root.querySelector('[data-fo-place-wrap]'), j = root.querySelector('[data-fo-joiner]');
+    if (u) u.textContent = b.name;
+    if (place) place.textContent = b.place;
+    if (wrap) wrap.hidden = !b.place;
+    if (j) j.textContent = st.joiner || 'in';
+    const time = root.querySelector('[data-fo-time-text]'), tw = root.querySelector('[data-fo-time]');
+    if (time && st.timeLine) time.textContent = st.timeLine.split('[minutes]').join(String(2 + Math.floor(Math.random() * 57)));
+    if (tw) tw.hidden = !st.timeLine;
+  }
   function foShow(st) {
     const root = st.root;
-    if (st.closed || root.dataset.foEnabled === 'false') return;
+    if (st.closed || !foWanted(st)) return;
     const items = st.items || [], users = st.users || [];
-    if (!items.length) return;
-    let i = Math.floor(Math.random() * items.length);
-    if (items.length > 1 && i === st.lastItem) i = (i + 1) % items.length;
-    st.lastItem = i; st.running = true;
-    const it = items[i] || {}, title = root.querySelector('[data-title-fake]'), img = root.querySelector('[data-img]'), user = root.querySelector('[data-user]');
-    if (title) title.textContent = it.title || '';
-    for (const a of root.querySelectorAll('[data-url]')) if (it.url) a.href = it.url;
-    if (img && it.img && img.getAttribute('src') !== it.img) img.src = it.img;
-    if (user) user.textContent = users.length ? users[Math.floor(Math.random() * users.length)] : st.fallback || 'Someone';
+    if (!items.length) { if (design()) root.dataset.foState = 'shown'; return; }
+    const it = items[st.next % items.length] || {};
+    st.next = (st.next + 1) % items.length;
+    const user = users.length ? users[st.nextUser++ % users.length] : st.fallback || 'Someone';
+    st.running = true;
+    foFill(st, it, user);
+    root.removeAttribute('data-fo-paused');
+    foWill(st);
     root.dataset.foState = 'shown';
-    foLater(st, num(root.dataset.animDuration, 15000), () => {
+    foPlace(st);
+    foLater(st, Math.max(1000, num(root.dataset.animDuration, 15000)), () => {
+      foWill(st);
       root.dataset.foState = 'hidden';
-      foLater(st, num(root.dataset.showGap, 10) * 1000, foShow);
+      const gap = Math.max(1, num(root.dataset.showGap, 10)) * 1000;
+      foLater(st, design() ? Math.min(gap, 1500) : gap, foShow);
     });
   }
-  function foClose(st) { st.closed = true; clearTimeout(st.timer); st.timer = 0; st.root.dataset.foState = 'hidden'; st.root.removeAttribute('data-fo-preview'); }
-  function foPreview(st) {
-    if (st.root.dataset.foEnabled === 'false') { st.root.dataset.foState = 'hidden'; return; }
-    st.closed = false; st.root.dataset.foPreview = ''; st.root.dataset.foState = 'shown';
+  function foClose(st, remember) {
+    st.closed = true; clearTimeout(st.timer); st.timer = 0; st.left = null;
+    st.root.dataset.foState = 'hidden'; st.root.removeAttribute('data-fo-paused');
+    if (remember && !design()) store.set(foKey(st), '1', true);
   }
-  function foEdit(st) { if (design()) foPreview(st); }
+  function foEdit(st) { foSync(st); }
 
   /* ---------- the engine ---------- */
   function derive(root, st, record) {
@@ -494,16 +556,24 @@
   const pick = (e, on) => {
     const d = e.detail || {}, id = sectionId(d.sectionId || d.section_id || d.section);
     for (const [root, st] of roots) {
-      if (root.dataset.pcSection !== id && !(e.target && e.target.nodeType === 1 && root.contains(e.target))) continue;
+      if (root.dataset.pcSection !== id && !(e.target && e.target.nodeType === 1 && root.contains(e.target))) {
+        /* another section picked: this card's preview steps away (unless "Show in the builder") */
+        if (on && id && st.type === TYPES['fake-order'] && foSelected.delete(root.dataset.pcSection)) foSync(st);
+        continue;
+      }
       st.selected = on;
-      if (on) { if (st.type.select) st.type.select(st); }
-      else if (st.type === TYPES['fake-order']) { if (design()) { root.dataset.foState = 'hidden'; root.removeAttribute('data-fo-preview'); } }
+      if (st.type === TYPES['fake-order']) { if (on) foSelected.add(root.dataset.pcSection); else foSelected.delete(root.dataset.pcSection); foSync(st); }
+      else if (on) { if (st.type.select) st.type.select(st); }
       else if (st.type.select && !(st.type === TYPES['promotion-popup'] && root.dataset.ppPreview === 'true')) for (const dlg of root.querySelectorAll('dialog')) dialogClose(st, dlg);
     }
   };
   document.addEventListener('shopify:section:select', e => pick(e, true));
   document.addEventListener('shopify:block:select', e => pick(e, true));
   document.addEventListener('shopify:section:deselect', e => pick(e, false));
+  document.addEventListener('shopify:section:load', e => {
+    const id = sectionId((e.detail || {}).sectionId);
+    for (const [root, st] of roots) if (id && root.isConnected && root.dataset.pcSection !== id && st.type === TYPES['fake-order'] && foSelected.delete(root.dataset.pcSection)) foSync(st);
+  });
   for (const name of ['DOMContentLoaded', 'storelib:section-load', 'shopify:section:load']) document.addEventListener(name, scan);
   const watched = n => n.nodeType === 1 && (n.matches(SEL + ',[data-pc-block]') || n.querySelector(SEL + ',[data-pc-block]'));
   new MutationObserver(records => {

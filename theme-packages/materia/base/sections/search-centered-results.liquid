@@ -1,0 +1,141 @@
+{%- comment -%}
+  Materia Themes. Centered popup search (Theme settings > Search > Search type: Centered popup).
+  Only fetched with the Section Rendering API by assets/search-centered.js:
+    /search/suggest?q=..&section_id=search-centered-results  -> predictive results
+    /search?q=id:1 OR id:2&type=product&section_id=..          -> recently viewed cards
+    /?section_id=search-centered-results                       -> products shown when empty
+{%- endcomment -%}
+{%- liquid
+  assign limit = settings.search_centered_products | default: 8
+  assign show_price = settings.show_search_price
+  if show_price == nil
+    assign show_price = true
+  endif
+-%}
+{%- if predictive_search.performed -%}
+  {%- liquid
+    assign res = predictive_search.resources
+    assign has_any = false
+    if res.products.size > 0 or res.collections.size > 0 or res.pages.size > 0 or res.queries.size > 0
+      assign has_any = true
+    endif
+  -%}
+  <div class="sc-predictive" data-sc-mode="predictive" data-terms="{{ predictive_search.terms | escape }}">
+    {%- if has_any -%}
+      {%- if res.queries.size > 0 or res.collections.size > 0 or res.pages.size > 0 -%}
+        <div class="sc-links">
+          {%- if res.queries.size > 0 -%}
+            <div class="sc-links__group">
+              <h3 class="sc-heading">{{ 'general.search.suggestions' | t }}</h3>
+              <ul class="sc-list" role="list">
+                {%- for q in res.queries limit: 5 -%}
+                  <li><a class="sc-link" href="{{ q.url }}">{{ q.styled_text }}</a></li>
+                {%- endfor -%}
+              </ul>
+            </div>
+          {%- endif -%}
+          {%- if res.collections.size > 0 -%}
+            <div class="sc-links__group">
+              <h3 class="sc-heading">{{ 'general.search.collections' | t }}</h3>
+              <ul class="sc-list" role="list">
+                {%- for c in res.collections limit: 5 -%}
+                  <li><a class="sc-link" href="{{ c.url }}">{{ c.title | escape }}</a></li>
+                {%- endfor -%}
+              </ul>
+            </div>
+          {%- endif -%}
+          {%- if res.pages.size > 0 -%}
+            <div class="sc-links__group">
+              <h3 class="sc-heading">{{ 'general.search.pages' | t }}</h3>
+              <ul class="sc-list" role="list">
+                {%- for p in res.pages limit: 5 -%}
+                  <li><a class="sc-link" href="{{ p.url }}">{{ p.title | escape }}</a></li>
+                {%- endfor -%}
+              </ul>
+            </div>
+          {%- endif -%}
+        </div>
+      {%- endif -%}
+      {%- if res.products.size > 0 -%}
+        <div class="sc-block">
+          <h3 class="sc-heading">{{ 'general.search.products' | t }}</h3>
+          <div class="sc-grid">
+            {%- for product in res.products limit: limit -%}
+              {%- render 'search-centered-card', product: product, show_price: show_price -%}
+            {%- endfor -%}
+          </div>
+        </div>
+      {%- endif -%}
+      <a class="sc-view-all" href="{{ routes.search_url }}?q={{ predictive_search.terms | url_encode }}">
+        {{- 'general.search.view_all' | t -}}
+      </a>
+    {%- else -%}
+      {%- comment -%} Nothing found: the message, the store's popular searches (Theme settings > Search > Suggestions > Show trending searches) and a few products to carry on with. {%- endcomment -%}
+      <div class="sc-none" data-sc-none>
+        <svg class="sc-none__icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M8.5 11h5"/></svg>
+        <p class="sc-none__text">{{ 'templates.search.no_results' | t: terms: predictive_search.terms }}</p>
+      </div>
+      {%- liquid
+        assign popular = settings.popular_key_word | replace: ' ,', ',' | replace: ', ', ',' | split: ','
+        assign show_popular = false
+        if settings.search_show_trending != false and settings.popular_key_word != blank
+          assign show_popular = true
+        endif
+        assign source = settings.search_centered_collection
+        if source == blank or source.products_count == 0
+          assign source = collections.all
+        endif
+      -%}
+      {%- if show_popular -%}
+        <div class="sc-block">
+          <h3 class="sc-heading">{{ 'general.search.quick_search' | t }}</h3>
+          <ul class="sc-chips" role="list">
+            {%- for term in popular limit: 8 -%}
+              {%- assign term = term | strip -%}
+              {%- if term != blank -%}
+                <li><a class="sc-chip" href="{{ routes.search_url }}?q={{ term | url_encode }}" data-sc-term="{{ term | escape }}">{{ term | escape }}</a></li>
+              {%- endif -%}
+            {%- endfor -%}
+          </ul>
+        </div>
+      {%- endif -%}
+      {%- if source.products.size > 0 -%}
+        <div class="sc-block">
+          <h3 class="sc-heading">{{ 'general.search.popular_products' | t }}</h3>
+          <div class="sc-grid">
+            {%- for product in source.products limit: 4 -%}
+              {%- render 'search-centered-card', product: product, show_price: show_price -%}
+            {%- endfor -%}
+          </div>
+        </div>
+      {%- endif -%}
+    {%- endif -%}
+  </div>
+{%- elsif search.performed -%}
+  <div class="sc-grid" data-sc-mode="recent">
+    {%- for product in search.results limit: limit -%}
+      {%- if product.object_type == 'product' -%}
+        {%- render 'search-centered-card', product: product, show_price: show_price -%}
+      {%- endif -%}
+    {%- endfor -%}
+  </div>
+{%- else -%}
+  {%- liquid
+    assign source = settings.search_centered_collection
+    if source == blank or source.products_count == 0
+      assign source = collections.all
+    endif
+  -%}
+  <div class="sc-grid" data-sc-mode="featured">
+    {%- for product in source.products limit: limit -%}
+      {%- render 'search-centered-card', product: product, show_price: show_price -%}
+    {%- endfor -%}
+  </div>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Search results (centered)",
+  "settings": []
+}
+{% endschema %}

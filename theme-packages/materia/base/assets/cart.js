@@ -7,6 +7,25 @@ function debounce(fn, wait) {
   };
 }
 
+/* The Cart API answers a refused change with a status, not a cart: 422 with
+   a description ("You can only add 5 of this item to your cart."), 429 when
+   changes come too fast, 5xx when it is busy. Returns the message to show,
+   or null when the answer is a cart. */
+window.materiaCartFailure = window.materiaCartFailure || function (status, data) {
+  const failed = !(status >= 200 && status < 300) || !data || typeof data !== "object" || data.errors || Number(data.status) >= 400;
+  if (!failed) return null;
+  const generic = window.cartStrings?.error || "There was an error while updating your cart. Please try again.";
+  if (status === 429 || status >= 500 || !data || typeof data !== "object") return generic;
+  const detail = data.errors || data.description;
+  if (typeof detail === "string" && detail.trim()) return detail.trim();
+  if (detail && typeof detail === "object") {
+    const text = Object.values(detail).flat().filter((v) => typeof v === "string").join(" ").trim();
+    if (text) return text;
+  }
+  return generic;
+};
+window.materiaEscapeText = window.materiaEscapeText || ((text) => String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]));
+
 class CartUtils {
   /**
    * Update cart count display across all cart count elements
@@ -282,13 +301,17 @@ class CartItems extends HTMLElement {
 
     let answered = false;
     fetch(`${routes.cart_change_url}`, { ...fetchConfig(), ...{ body } })
-      .then((response) => response.text())
-      .then((state) => {
-        const parsedState = JSON.parse(state);
+      .then((response) => response.text().then((text) => ({ status: response.status, text })))
+      .then(({ status, text }) => {
+        let parsedState = null;
+        try { parsedState = JSON.parse(text); } catch (_) {}
         answered = true;
-        
-        if (parsedState.errors) {
-          this.updateMessageErrors(line, parsedState.errors, target);
+
+        // 422 (not enough stock), 429 (too fast), 5xx or a page that is not a
+        // cart: the field goes back to what the cart holds, and says why.
+        const failure = window.materiaCartFailure(status, parsedState);
+        if (failure) {
+          this.updateMessageErrors(line, failure, target);
           this.disableLoading();
           return;
         }
@@ -346,8 +369,8 @@ class CartItems extends HTMLElement {
   }
 
   updateMessageErrors(line, message, target) {
-    const val = target.dataset.value;
-    target.value = val;
+    // A remove button sends no field; a quantity field goes back to the cart's value.
+    if (target?.dataset && target.dataset.value != null) target.value = target.dataset.value;
     var wrapperDiv = document.createElement("div");
     var messageDiv = document.createElement("div");
     messageDiv.className = `mt-10 line-item-error-${line} error form__message inline-flex align-center`;
@@ -495,10 +518,22 @@ if (!customElements.get("cart-note")) {
           "change",
           debounce((event) => {
             const body = JSON.stringify({ note: event.target.value });
+            // The note stays in the field; a refused save says so instead of
+            // being lost silently at checkout.
             fetch(`${routes.cart_update_url}`, {
               ...fetchConfig(),
               ...{ body },
-            });
+            })
+              .then((response) => response.text().then((text) => {
+                let data = null;
+                try { data = JSON.parse(text); } catch (_) {}
+                const failure = window.materiaCartFailure(response.status, data);
+                if (failure) throw new Error(failure);
+              }))
+              .catch((error) => {
+                const message = error instanceof TypeError ? window.cartStrings?.error : error.message;
+                if (message) CartUtils.showToast(window.materiaEscapeText(message), "error");
+              });
           }, 300)
         );
       }
@@ -571,7 +606,8 @@ class CartEstimate extends HTMLElement {
         const row = document.createElement('p'), name = document.createElement('span'), price = document.createElement('span');
         row.className = 'cart-shipping-rate';
         name.textContent = String(rate.name || '');
-        price.innerHTML = Shopify.formatMoney(rate.price, window.cartStrings?.money_format);
+        // The platform gives the rate in units ("8.00"); formatMoney takes cents.
+        price.innerHTML = Shopify.formatMoney(Math.round(Number(rate.price) * 100), window.cartStrings?.money_format);
         row.append(name,price); message.appendChild(row);
         const days = Array.isArray(rate.delivery_days) ? rate.delivery_days : [];
         if (message.dataset.showDeliveryDays === 'true' && days.length) {
@@ -647,7 +683,16 @@ class CartDiscount extends HTMLElement {
       signal: abortController.signal,
     });
 
-    return response.json();
+    const text = await response.text();
+    let data = null;
+    try { data = JSON.parse(text); } catch (_) {}
+    const failure = window.materiaCartFailure(response.status, data);
+    if (failure) {
+      const error = new Error(failure);
+      error.cartMessage = failure;
+      throw error;
+    }
+    return data;
   }
 
   /**
@@ -754,7 +799,8 @@ class CartDiscount extends HTMLElement {
   #handleError(error, operation = "discount operation") {
     if (error.name !== "AbortError") {
       console.error(`Error during ${operation}:`, error);
-      this.#handleDiscountError();
+      // The cart refused or could not be reached: say that, not "invalid code".
+      this.toastError(window.materiaEscapeText(error.cartMessage || window.cartStrings?.error || ""));
     }
   }
 
@@ -810,12 +856,18 @@ class CartDiscount extends HTMLElement {
           String(discount.code || "").toLowerCase() === wanted
       );
       if (!applied || applied.applicable === false) {
+        // Kept by the platform for checkout (free shipping code, minimum not met
+        // yet): show it on the cart, removable, with the reason.
+        discountCode.value = "";
+        this.#updateCartUI(data);
+        window.materiaSyncDiscountPills?.(data.discount_codes);
         this.#handleDiscountError();
         return;
       }
 
       discountCode.value = "";
       this.#updateCartUI(data);
+      window.materiaSyncDiscountPills?.(data.discount_codes);
       this.toastSuccess(cartStrings?.discount_applied);
     } catch (error) {
       this.#handleError(error, "applying discount");
@@ -832,13 +884,12 @@ class CartDiscount extends HTMLElement {
   removeDiscount = async (event) => {
     event.preventDefault();
     event.stopPropagation();
-    const removeButton = event.target.closest(".cart-discount-remove");
-    removeButton.setAttribute("aria-disabled", "true");
-    removeButton.classList.add("loading");
     if (event instanceof KeyboardEvent && event.key !== "Enter") {
       return;
     }
+    const removeButton = event.target.closest(".cart-discount-remove");
 
+    // Nothing to remove: the button is left as it was, not spinning.
     const discountCode = this.#getDiscountCodeFromEvent(event);
     if (!discountCode) return;
 
@@ -852,6 +903,9 @@ class CartDiscount extends HTMLElement {
       return;
     }
 
+    removeButton.setAttribute("aria-disabled", "true");
+    removeButton.classList.add("loading");
+
     const abortController = this.#createAbortController();
 
     try {
@@ -860,6 +914,7 @@ class CartDiscount extends HTMLElement {
         abortController
       );
       this.#updateCartUI(data);
+      window.materiaSyncDiscountPills?.(data.discount_codes);
       this.toastSuccess(cartStrings?.discount_removed);
     } catch (error) {
       this.#handleError(error, "removing discount");

@@ -108,40 +108,6 @@
             "show_gift_card_recipient": false
           }
         },
-        "vertical_benefits_1": {
-          "type": "vertical_benefits",
-          "settings": {
-            "vb_pt": 14,
-            "vb_pb": 18,
-            "vb_mt": 0,
-            "vb_mb": 0,
-            "vb_item_space": 10,
-            "vb_maxw": 100,
-            "vb_pl": 0,
-            "vb_pr": 0,
-            "vb_text_size_d": 14,
-            "vb_text_size_m": 14,
-            "vb_icon_gap": 12,
-            "vb_icon_gap_m": 10,
-            "vb_icon_size": 26,
-            "vb_icon_size_m": 26,
-            "vb_text_color": "",
-            "vb_bg": "",
-            "vb_icon_color": "",
-            "item1_title": "Printed on 250 gsm matte paper",
-            "item1_icon_library": "leaf",
-            "item1_use_image": false,
-            "item1_image_size": 50,
-            "item2_title": "Sent flat in a rigid mailer",
-            "item2_icon_library": "truck",
-            "item2_use_image": false,
-            "item2_image_size": 50,
-            "item3_title": "Framed prints arrive ready to hang",
-            "item3_icon_library": "check",
-            "item3_use_image": false,
-            "item3_image_size": 50
-          }
-        },
         "collapsible_row_1": {
           "type": "collapsible_row",
           "settings": {
@@ -201,13 +167,13 @@
             "sub_newtab": false,
             "text_align": "left",
             "h_main_size": 16,
-            "show_paypal": false,
+            "show_paypal": true,
             "sub_uline_w": 1,
             "badges_align": "auto",
             "h_main_color": "#2c2c2c",
             "text_align_m": "center",
             "toggle_icons": true,
-            "show_unionpay": true,
+            "show_unionpay": false,
             "sub_underline": false,
             "show_apple_pay": true,
             "show_google_pay": true,
@@ -271,10 +237,107 @@
             "row1_custom_icon": false,
             "row2_custom_icon": false,
             "row3_custom_icon": false,
-            "row1_lead": "Made and sent:",
-            "row1_strong": "within three working days, flat in a rigid mailer.",
+            "row1_lead": "Printed:",
+            "row1_strong": "to order in our studio, within three working days.",
             "row3_lead": "Returns:",
             "row3_strong": "unframed prints within 30 days."
+          }
+        },
+        "size_table_1": {
+          "type": "size_table",
+          "settings": {
+            "chart_source": "table",
+            "table_data": "Size | Paper | Fits a frame of\nA4 | 21 x 29.7 cm | A4, or 24 x 30 cm with a mount\nA3 | 29.7 x 42 cm | A3, or 30 x 40 cm with a mount\n50 x 70 cm | 50 x 70 cm | 50 x 70 cm",
+            "table_unit": "none",
+            "use_storelib_chart": false,
+            "title": "Print sizes",
+            "collapsible": true,
+            "start_open": false,
+            "zebra": true,
+            "title_size": 15,
+            "cell_size": 14,
+            "radius": 10,
+            "space_above": 4,
+            "space_below": 10
+          }
+        },
+        "quantity_offer_1": {
+          "type": "quantity_offer",
+          "settings": {
+            "tier_source": "custom",
+            "style": "minimal",
+            "show_compare": true,
+            "padding_top": 4,
+            "padding_bottom": 12,
+            "heading": "Two prints or more, 15% off",
+            "default_tier": "1",
+            "per_item_label": "each",
+            "save_label": "Save",
+            "you_save_label": "You save",
+            "tier_1_enable": true,
+            "tier_1_quantity": 1,
+            "tier_1_label": "One print",
+            "tier_1_discount": 0,
+            "tier_2_enable": true,
+            "tier_2_quantity": 2,
+            "tier_2_label": "Two prints",
+            "tier_2_discount": 15,
+            "tier_2_badge": "Most picked",
+            "tier_3_enable": true,
+            "tier_3_quantity": 3,
+            "tier_3_label": "Three prints",
+            "tier_3_discount": 15,
+            "tier_4_enable": false,
+            "purchase_action": "main",
+            "show_button": false,
+            "sync_form_quantity": true,
+            "checkout_note": "The saving comes off at checkout with the code PRINTS15.",
+            "tier_2_code": "PRINTS15",
+            "tier_3_code": "PRINTS15"
+          }
+        },
+        "delivery_estimate_1": {
+          "type": "delivery_estimate",
+          "settings": {
+            "min_days": 3,
+            "max_days": 6,
+            "skip_weekends": true,
+            "boxed": false,
+            "hide_digital": true,
+            "spacing_top": 2,
+            "spacing_bottom": 6
+          }
+        },
+        "whats_included_1": {
+          "type": "whats_included",
+          "settings": {
+            "heading": "In the mailer",
+            "items": "Your print, flat between two sheets of card\nA backing board for framed prints, hanging hooks fitted\nA small card with care notes",
+            "two_columns": false,
+            "boxed": true,
+            "spacing_top": 8,
+            "spacing_bottom": 8
+          }
+        },
+        "guarantee_row_1": {
+          "type": "guarantee_row",
+          "settings": {
+            "style": "boxed",
+            "columns_mobile": "1",
+            "icon_1": "truck",
+            "title_1": "Sent flat",
+            "text_1": "Rigid mailer, tracked",
+            "icon_2": "return",
+            "title_2": "30 day returns",
+            "text_2": "On unframed prints",
+            "icon_3": "lock",
+            "title_3": "Secure checkout",
+            "text_3": "Card, Apple Pay, Google Pay",
+            "icon_4": "support",
+            "title_4": "",
+            "text_4": "",
+            "spacing_top": 10,
+            "spacing_bottom": 6
           }
         }
       },
@@ -284,13 +347,17 @@
         "price_1",
         "short_description_1",
         "variant_picker_1",
+        "size_table_1",
+        "quantity_offer_1",
         "buy_buttons_1",
         "pp23_sold",
+        "delivery_estimate_1",
         "pp23_info",
-        "vertical_benefits_1",
+        "whats_included_1",
         "collapsible_row_1",
         "collapsible_row_2",
         "collapsible_row_3",
+        "guarantee_row_1",
         "payment_badges_1"
       ]
     },
@@ -509,6 +576,29 @@
         "q3",
         "q4"
       ]
+    },
+    "recently_viewed": {
+      "type": "recently-viewed",
+      "blocks": {
+        "heading_rv": {
+          "type": "heading",
+          "settings": {
+            "text": "Recently viewed"
+          }
+        }
+      },
+      "block_order": [
+        "heading_rv"
+      ],
+      "settings": {
+        "section_width": "fluid_container",
+        "products_to_show": 8,
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 20,
+        "padding_top": 40,
+        "padding_bottom": 56
+      }
     }
   },
   "order": [
@@ -516,6 +606,7 @@
     "main",
     "text_columns_1",
     "products_carousel_2",
+    "recently_viewed",
     "faq"
   ]
 }

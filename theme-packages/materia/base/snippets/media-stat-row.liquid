@@ -1,8 +1,13 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. One percentage ring row for sections/image-with-text-stats.
   Input: stat (a stat block). The ring's final offset is the --iws-off
   variable, so the section CSS can hold it empty until the reveal.
-{%- endcomment -%}
+
+  @param {block} stat - Stat
+
+  @example
+  {% render 'media-stat-row', stat: stat %}
+{%- enddoc -%}
 {%- liquid
   assign sb = stat.settings
   assign pct = sb.percent | default: 0

@@ -1,3 +1,11 @@
+{% doc %}
+  Inline variant editor (Edit) for a cart page line item.
+
+  @param {object} item - Cart line item
+
+  @example
+  {% render 'cart-page-variant-editor', item: item, section_id: section.id %}
+{% enddoc -%}
 {%- if item.product.has_only_default_variant == false -%}
   <details class="cart-page-variant-editor">
     <summary>{{ 'general.cart.edit' | t }}</summary>

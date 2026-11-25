@@ -1,0 +1,47 @@
+/* block-countdownbadge.css: static styles of snippets/product-info-blocks.liquid, moved out of its inline <style> so they are cached.
+   :is(<selector>,#_): #_ never matches; it only keeps the (1,0,0) specificity of the per-instance id selector it replaces
+   (:is(.s-pib-countdownbadge,#_) is the section wrapper, schema class "s-pib-countdownbadge"). Per-instance values stay inline as custom properties. */
+:is([id^="CountdownBadge-"],#_) .cd-num{font-variant-numeric:tabular-nums;min-width:2ch;display:inline-block;}
+:is([id^="CountdownBadge-"],#_) [hidden]{display:none!important;}
+/* Outside spacing (section-level margins) */
+:is([id^="CountdownBadge-"],#_){
+    display:block;
+    font-family:var(--body-font,inherit);
+    margin-top: var(--cd-mt-d);
+    margin-bottom: var(--cd-mb-d);
+  }
+@media (max-width:768px){
+    :is([id^="CountdownBadge-"],#_){
+      margin-top: var(--cd-mt-m);
+      margin-bottom: var(--cd-mb-m);
+    }
+  }
+/* Card (visual and width) */
+:is([id^="CountdownBadge-"],#_) .cd-card{
+    background: var(--cd-bg);
+    border: 1px solid var(--cd-border);
+    border-radius: var(--cd-radius);
+    padding: 12px var(--cd-pr-d) 12px var(--cd-pl-d);
+    width: var(--cd-width-d);        /* fixed desktop width in px */
+    max-width: 100%;                 /* never overflow parent */
+    box-sizing: border-box;
+  }
+@media (max-width:768px){
+    :is([id^="CountdownBadge-"],#_) .cd-card{
+      padding-left: var(--cd-pl-m);
+      padding-right: var(--cd-pr-m);
+      width: var(--cd-width-m);      /* fixed mobile width in px */
+    }
+  }
+/* Timer row */
+:is([id^="CountdownBadge-"],#_) .cd-row{
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--cd-gap);
+    flex-wrap: wrap;
+  }
+:is([id^="CountdownBadge-"],#_) .cd-item{
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+  }

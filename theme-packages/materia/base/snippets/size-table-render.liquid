@@ -1,57 +1,34 @@
-{%- comment -%}
-  Materia Themes. Size chart block (size_table): the sizes drawn in the
-  page, as a row that opens and closes like Expandable info rows
-  (details.mt-acc, animated by product-page-ui) or always open.
-  What it shows, first one found:
-    1. the size chart given to this product in Storelib (Products > Size
-       charts), unless "Use the product's Storelib size chart" is off;
-    2. the product's custom field named below, when that is on;
-    3. the block's Table data.
-  Rows: the first line names the columns, then one size per line, cells
-  split by "|" (snippets/size-rows-table). A product's Storelib chart only
-  reaches its own page, so elsewhere it is asked from that page by
-  size-chart.js and the block shows once it arrives.
+{%- doc -%}
+  Materia Themes. Size guide table block (size_table): the chart drawn in
+  the page, as a row that opens and closes like Expandable info rows
+  (details.mt-acc, animated by product-page-ui) or always open. The chart
+  comes from snippets/size-chart-body. Nothing for visitors when there is
+  no chart; the editor shows a one-line note instead.
   Inputs: block, product.
-{%- endcomment -%}
+
+  @param {block} block - The block being rendered
+  @param {product} product - The product to render
+
+  @example
+  {% render 'size-table-render', block: block, product: product %}
+{%- enddoc -%}
 {%- liquid
   assign bs = block.settings
   assign uid = block.id
   assign title = bs.title | default: 'Size guide'
-
-  assign use_chart = true
-  if bs.use_storelib_chart == false
-    assign use_chart = false
+-%}
+{%- capture st_body -%}{%- render 'size-chart-body', block: block, product: product -%}{%- endcapture -%}
+{%- liquid
+  assign has_rows = false
+  assign st_t = st_body | strip_html | strip
+  if st_t != blank or st_body contains '<img' or st_body contains '<table'
+    assign has_rows = true
   endif
-  assign assigned_native = blank
-  if use_chart
-    assign assigned_native = product.metafields.storelib.size_chart
-    if assigned_native == blank and page.product.id == product.id
-      assign assigned_native = page.product.metafields.storelib.size_chart
-    endif
-  endif
-
-  assign raw = bs.table_data
-  if bs.use_metafield
-    assign mf_ns  = bs.metafield_namespace | default: 'custom'
-    assign mf_key = bs.metafield_key       | default: 'size_table'
-    assign mf = product.metafields[mf_ns][mf_key]
-    if mf != blank
-      assign raw = mf.value | default: mf
-    endif
-  endif
-
   assign remote = false
-  if use_chart and assigned_native == blank and product.url != blank
-    if request.design_mode or request.path != product.url
-      assign remote = true
-    endif
+  if st_body contains 'data-size-chart-remote'
+    assign remote = true
   endif
 -%}
-{%- capture assigned_chart -%}{%- if assigned_native != blank -%}{%- render 'product-size-chart-content', product: product, chart_id: block.id -%}{%- endif -%}{%- endcapture -%}
-{%- capture typed_rows -%}{%- if assigned_chart == blank -%}{%- render 'size-rows-table', data: raw, unit: bs.table_unit, uid: uid -%}{%- endif -%}{%- endcapture -%}
-{%- assign has_rows = false -%}
-{%- if assigned_chart != blank or typed_rows != blank -%}{%- assign has_rows = true -%}{%- endif -%}
-
 {%- if has_rows or remote -%}
 {%- capture st_head_bg -%}{%- render 'scheme-color', color: bs.accent, fallback: 'unset' -%}{%- endcapture -%}
 {%- capture st_head_text -%}{%- render 'scheme-color', color: bs.header_text_color, fallback: 'unset' -%}{%- endcapture -%}
@@ -91,8 +68,7 @@
 
 {%- capture _table -%}
   <div class="sz-body">
-    {%- if remote -%}<div data-size-chart-remote="{{ product.url }}"{% unless has_rows %} hidden{% endunless %}></div>{%- endif -%}
-    {%- if assigned_chart != blank -%}{{ assigned_chart }}{%- elsif typed_rows != blank -%}{%- if remote -%}<div data-size-chart-fallback>{{ typed_rows }}</div>{%- else -%}{{ typed_rows }}{%- endif -%}{%- endif -%}
+    {{ st_body }}
   </div>
 {%- endcapture -%}
 
@@ -114,5 +90,5 @@
 </div>
 {%- endif -%}
 {%- unless has_rows -%}
-  {%- render 'size-chart-preview', block: block, rows_setting: true -%}
+  {%- render 'size-chart-preview', block: block, label: title -%}
 {%- endunless -%}

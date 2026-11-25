@@ -1,0 +1,89 @@
+{%- comment -%}
+  Materia Themes. Search type "Centered popup" (Theme settings > Search).
+  Rendered inside #search-form by snippets/top-search.liquid. Open, close,
+  Esc, backdrop click, focus and scroll lock come from BlsSearchShopify
+  (theme.js); recently viewed, empty-state products and predictive results
+  come from assets/search-centered.js via sections/search-centered-results.
+{%- endcomment -%}
+{%- liquid
+  assign show_recent = settings.search_centered_recent
+  if show_recent == nil
+    assign show_recent = true
+  endif
+-%}
+<link rel="stylesheet" href="{{ 'search-centered.css' | asset_url }}" media="print" onload="this.media='all'"><noscript>{{ 'search-centered.css' | asset_url | stylesheet_tag }}</noscript>
+<div
+  class="search-centered"
+  data-search-centered
+  data-show-recent="{{ show_recent }}"
+  data-limit="{{ settings.search_centered_products | default: 8 }}"
+  data-section="search-centered-results"
+  data-suggest-url="{{ routes.predictive_search_url }}"
+  data-search-url="{{ routes.search_url }}"
+  data-root-url="{{ routes.root_url }}"
+>
+  <div class="search-centered__head">
+    <form action="{{ routes.search_url }}" id="search_mini_form" method="get" role="search" class="search-centered__form">
+      {%- if settings.search_result != blank and settings.search_result != 'all' -%}<input type="hidden" name="type" value="{{ settings.search_result }}">{%- endif -%}
+      <svg class="search-centered__icon" width="18" height="18" viewBox="0 0 17 17" fill="currentColor" aria-hidden="true">
+        <use href="#icon-search" />
+      </svg>
+      <label class="visually-hidden" for="search-centered-input">{{ 'general.search.search' | t }}</label>
+      <input
+        class="search-centered__input"
+        type="search"
+        name="q"
+        id="search-centered-input"
+        value="{{ search.terms | escape }}"
+        placeholder="{{ 'general.search.search' | t }}"
+        maxlength="128"
+        aria-controls="search-centered-results"
+        autocorrect="off"
+        autocomplete="off"
+        autocapitalize="off"
+        spellcheck="false"
+      >
+      <input type="hidden" name="options[prefix]" value="last">
+      <span class="search-centered__spinner" aria-hidden="true"></span>
+      <button type="button" class="btn-reset btn-search-close search-centered__close" aria-label="{{ 'general.search.close' | t }}">
+        <svg width="14" height="14" viewBox="0 0 13 14" fill="none" aria-hidden="true"><use href="#icon-close" /></svg>
+      </button>
+    </form>
+  </div>
+  <div class="search-centered__body" id="search-centered-results" aria-live="polite">
+    <div class="search-centered__empty" data-sc-empty>
+      {%- if show_recent -%}
+        <section class="sc-block" data-sc-recent hidden>
+          <div class="sc-block__row">
+            <h3 class="sc-heading">{{ 'general.search.recently_viewed' | t }}</h3>
+            <button type="button" class="btn-reset sc-clear" data-sc-clear>{{ 'general.search.clear' | t }}</button>
+          </div>
+          <div data-sc-recent-grid></div>
+        </section>
+      {%- endif -%}
+      <section class="sc-block" data-sc-featured>
+        <h3 class="sc-heading">{{ 'general.search.products' | t }}</h3>
+        <div data-sc-featured-grid>
+          <div class="sc-grid sc-grid--skeleton" aria-hidden="true">
+            {%- for i in (1..4) -%}<span class="sc-card"><span class="sc-card__media"></span></span>{%- endfor -%}
+          </div>
+        </div>
+      </section>
+    </div>
+    <div class="search-centered__results" data-sc-results hidden></div>
+  </div>
+</div>
+{%- if template.name == 'product' and product -%}
+  <script>
+    {%- comment -%} Same key main-product.js keeps, so the theme's Recently viewed section and this popup agree. {%- endcomment -%}
+    try {
+      var k = 'materia__recently-viewed-products', id = '{{ product.id }}';
+      var l = JSON.parse(localStorage.getItem(k) || '[]');
+      if (!Array.isArray(l)) l = [];
+      l = l.filter(function (x) { return String(x) !== id; });
+      l.unshift(id);
+      localStorage.setItem(k, JSON.stringify(l.slice(0, 25)));
+    } catch (e) {}
+  </script>
+{%- endif -%}
+<script src="{{ 'search-centered.js' | asset_url }}" defer="defer"></script>

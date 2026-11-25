@@ -1155,6 +1155,36 @@ facets-root { display: block; }
   gap: 12px 16px;
   margin: 0 0 16px;
 }
+/* Where Filter opens a drawer (phones, tablets, the Drawer layout) the
+   toolbar stays reachable: it sticks under whatever header is pinned
+   (--header-offset, written by the header's sticky controller) and follows
+   it as the header slides in and out. Its background runs to the window's
+   edges so cards never show beside it. */
+@media (max-width: 1024.98px) {
+  .facets-toolbar {
+    position: sticky;
+    top: var(--header-offset, 0px);
+    z-index: 4;
+    margin-bottom: 8px;
+    padding: 8px 0;
+    background: var(--color-background, #fff);
+    box-shadow: 0 0 0 100vmax var(--color-background, #fff);
+    clip-path: inset(0 -100vmax);
+    transition: top 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+}
+@media (min-width: 1025px) {
+  .facets--drawer > .facets-toolbar {
+    position: sticky;
+    top: var(--header-offset, 0px);
+    z-index: 4;
+    padding: 10px 0;
+    background: var(--color-background, #fff);
+    box-shadow: 0 0 0 100vmax var(--color-background, #fff);
+    clip-path: inset(0 -100vmax);
+    transition: top 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+}
 /* Filter takes its size from Theme settings > Buttons; Sort by matches its
    height so the two stay on one line. */
 .facets-toolbar > .facets-toolbar__count { align-self: center; }
@@ -1189,6 +1219,60 @@ facets-root { display: block; }
   color: var(--facets-muted);
 }
 .facets-sort { margin-inline-start: auto; }
+/* Columns / list switcher (section setting): 20px line icons */
+.facets-view {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  align-self: center;
+  margin-inline-start: auto;
+}
+.facets-view ~ .facets-sort { margin-inline-start: 0; }
+.facets-view__btn {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-heading, var(--color-text, #111));
+  opacity: 0.28;
+  cursor: pointer;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 200ms cubic-bezier(0.2, 0.7, 0.2, 1), transform 200ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.facets-view__icon { display: block; width: 20px; height: 20px; transition: transform 200ms cubic-bezier(0.2, 0.7, 0.2, 1); }
+@media (hover: hover) { .facets-view__btn:hover { opacity: 0.6; } }
+.facets-view__btn:active .facets-view__icon { transform: scale(0.9); }
+.facets-view__btn[aria-pressed='true'] { opacity: 1; }
+/* A focus ring for keyboard users only; a click never leaves a box around the icon. */
+.facets-view__btn:focus:not(:focus-visible) { outline: none; box-shadow: none; }
+.facets-view__btn:focus-visible { outline: 2px solid currentColor; outline-offset: 0; }
+@media (prefers-reduced-motion: reduce) { .facets-view__btn, .facets-view__icon { transition: none; } }
+.facets-view__btn--mobile { display: none; }
+@media (max-width: 749.98px) {
+  .facets-view__btn--mobile { display: inline-grid; }
+  .facets-view__btn--desktop { display: none; }
+  .facets-view { order: 4; margin-inline-start: auto; margin-inline-end: -8px; }
+  .facets-view ~ .facets-sort { margin-inline-start: auto; }
+}
+/* The remembered columns (set on <html> before the grid is drawn). */
+html[data-facets-cols-mobile='1'] .facets-grid { --cols-mobile: 1 !important; }
+html[data-facets-cols-mobile='2'] .facets-grid { --cols-mobile: 2 !important; }
+html[data-facets-cols-desktop='2'] .facets-grid { --cols-desktop: 2 !important; --cols-tablet: 2 !important; }
+html[data-facets-cols-desktop='3'] .facets-grid { --cols-desktop: 3 !important; --cols-tablet: 3 !important; }
+html[data-facets-cols-desktop='4'] .facets-grid { --cols-desktop: 4 !important; --cols-tablet: 3 !important; }
+/* Changing columns: the cards glide to their new places (View Transitions,
+   collection.js), on the theme's sheet curve. */
+html.facets-vt::view-transition-group(*) { animation-duration: 320ms; animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1); }
+html.facets-vt::view-transition-old(*),
+html.facets-vt::view-transition-new(*) { animation-duration: 320ms; }
+html.facets-vt::view-transition-old(root),
+html.facets-vt::view-transition-new(root) { animation: none; }
+}
 .facets-sort__trigger {
   display: inline-flex;
   align-items: center;
@@ -1252,6 +1336,12 @@ facets-root { display: block; }
 .facets-tbtn--minimal:hover > span:not(.facets-toolbar__badge),
 .facets-tbtn--minimal:hover .facets-sort__current { text-decoration-color: currentColor; }
 .facets-tbtn--minimal .facets-sort__label { text-decoration: none; }
+/* Sort by is never underlined (the old rule underlined the label and value
+   together and looked like a broken link): hover dims it and nudges the chevron. */
+.facets-sort__trigger :is(.facets-sort__label, .facets-sort__current) { text-decoration: none !important; }
+.facets-sort__trigger .facets-sort__current { transition: opacity 0.18s ease; }
+@media (hover: hover) { .facets-sort__trigger:hover .facets-sort__current { opacity: 0.7; } }
+.facets-sort__trigger:focus:not(:focus-visible) { outline: none; }
 .facets-tbtn .facets-toolbar__badge { border: 0; background: var(--color-heading, #111); color: var(--color-background, #fff); }
 .facets-sort__trigger.facets-tbtn { justify-content: flex-start; gap: 6px; }
 .facets-sort__trigger.facets-tbtn--minimal { gap: 4px; }
@@ -1336,14 +1426,29 @@ facets-root { display: block; }
     overscroll-behavior: contain;
     border-radius: 16px 16px 0 0;
     padding-bottom: env(safe-area-inset-bottom, 0px);
-    box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.16);
+    /* The shadow belongs to the open sheet only (it fades as it leaves), so
+       no strip of it stays above the bottom edge at the end of the slide. */
+    box-shadow: 0 -12px 40px rgba(0, 0, 0, 0);
     translate: 0 100%;
-    transition: translate 0.32s var(--facets-ease), overlay 0.32s allow-discrete, display 0.32s allow-discrete;
+    /* Sheet motion: 280ms, fast out of the gate and settling softly. */
+    --facets-sheet-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition: translate 0.28s var(--facets-sheet-ease), box-shadow 0.28s var(--facets-sheet-ease), overlay 0.28s allow-discrete, display 0.28s allow-discrete;
   }
-  .facets-sort__panel:popover-open { translate: 0 0; }
-  .facets-sort__panel::backdrop { background: rgba(0, 0, 0, calc(0.4 * (1 - var(--sheet-pull, 0)))); }
+  .facets-sort__panel:popover-open { translate: 0 0; box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.16); }
+  /* The shade fades in and out with the sheet, and lightens as it is pulled down. */
+  .facets-sort__panel::backdrop {
+    background: rgba(0, 0, 0, calc(0.4 * (1 - var(--sheet-pull, 0))));
+    opacity: 0;
+    transition: opacity 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), overlay 0.28s allow-discrete, display 0.28s allow-discrete;
+  }
+  .facets-sort__panel:popover-open::backdrop { opacity: 1; }
+  .facets-sort__panel.is-dragging::backdrop { transition: none; }
   .facets-sort__panel.is-drag-closed,
   .facets-sort__panel.is-drag-closed::backdrop { transition: none; }
+  /* The page under the open sheet holds still (the room of a scrollbar is
+     kept, so nothing shifts sideways). */
+  html:has(.facets-sort__panel:popover-open) { overflow: hidden; scrollbar-gutter: stable; }
+  html:has(.facets-sort__panel:popover-open) body { overscroll-behavior: none; }
   /* The grabber: the title row drags the sheet down */
   .facets-sort__panel .facets-sheet__head {
     position: relative;
@@ -1367,7 +1472,8 @@ facets-root { display: block; }
   .facets-sort__options { padding: 6px 8px 12px; }
   .facets-sort__option { min-height: 48px; font-size: 16px; }
   @starting-style {
-    .facets-sort__panel:popover-open { translate: 0 100%; }
+    .facets-sort__panel:popover-open { translate: 0 100%; box-shadow: 0 -12px 40px rgba(0, 0, 0, 0); }
+    .facets-sort__panel:popover-open::backdrop { opacity: 0; }
   }
 }
 /* Computers: an inline dropdown under its button, like the theme's fields */
@@ -1407,27 +1513,41 @@ facets-root { display: block; }
   overflow: hidden;
   flex-direction: column;
   padding-inline-start: env(safe-area-inset-left, 0px);
-  box-shadow: 12px 0 40px rgba(0, 0, 0, 0.16);
+  /* One duration and curve for the slide, its shadow and the shade. The
+     shadow only exists while the drawer is open, so it can never show at
+     the edge of the window once the drawer has slid away. */
+  --facets-drawer-ms: 300ms;
+  --facets-drawer-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  box-shadow: 12px 0 40px rgba(0, 0, 0, 0);
   translate: -100% 0;
   backface-visibility: hidden;
-  transition: translate 0.34s var(--facets-ease), overlay 0.34s allow-discrete, display 0.34s allow-discrete;
+  will-change: translate;
+  transition:
+    translate var(--facets-drawer-ms) var(--facets-drawer-ease),
+    box-shadow var(--facets-drawer-ms) var(--facets-drawer-ease),
+    overlay var(--facets-drawer-ms) allow-discrete,
+    display var(--facets-drawer-ms) allow-discrete;
 }
 .facets-panel:focus { outline: none; }
 [dir='rtl'] .facets-panel { inset: 0 0 0 auto; translate: 100% 0; padding-inline-start: env(safe-area-inset-right, 0px); }
-.facets-panel:popover-open { display: flex; translate: 0 0; }
-.facets-panel:popover-open.is-closing { translate:-100% 0; }
-[dir='rtl'] .facets-panel:popover-open.is-closing { translate:100% 0; }
+.facets-panel:popover-open { display: flex; translate: 0 0; box-shadow: 12px 0 40px rgba(0, 0, 0, 0.16); }
+[dir='rtl'] .facets-panel:popover-open { box-shadow: -12px 0 40px rgba(0, 0, 0, 0.16); }
+.facets-panel:popover-open.is-closing { translate:-100% 0; box-shadow: 12px 0 40px rgba(0, 0, 0, 0); }
+[dir='rtl'] .facets-panel:popover-open.is-closing { translate:100% 0; box-shadow: -12px 0 40px rgba(0, 0, 0, 0); }
 .facets-panel:popover-open.is-closing::backdrop { opacity:0; }
+/* Following a finger: no easing between the frames. */
+.facets-panel.is-dragging,
+.facets-panel.is-dragging::backdrop { transition: none; }
 @starting-style {
-  .facets-panel:popover-open { translate: -100% 0; }
-  [dir='rtl'] .facets-panel:popover-open { translate: 100% 0; }
+  .facets-panel:popover-open { translate: -100% 0; box-shadow: 12px 0 40px rgba(0, 0, 0, 0); }
+  [dir='rtl'] .facets-panel:popover-open { translate: 100% 0; box-shadow: -12px 0 40px rgba(0, 0, 0, 0); }
 }
 .facets-panel::backdrop {
   background: rgba(0, 0, 0, 0.4);
   opacity: 0;
-  transition: opacity 0.34s ease, overlay 0.34s allow-discrete, display 0.34s allow-discrete;
+  transition: opacity 300ms cubic-bezier(0.2, 0.8, 0.2, 1), overlay 300ms allow-discrete, display 300ms allow-discrete;
 }
-.facets-panel:popover-open::backdrop { opacity: 1; }
+.facets-panel:popover-open::backdrop { opacity: var(--facets-shade, 1); }
 @starting-style {
   .facets-panel:popover-open::backdrop { opacity: 0; }
 }
@@ -1832,7 +1952,8 @@ html:has(.facets-panel:popover-open) body { overscroll-behavior: none; }
 }
 .facets-empty__title { margin: 0; }
 .facets-empty__text { margin: 0; color: var(--facets-muted); }
-.facets-empty__action { --mb-padding-y: 11px; --mb-padding-x: 24px; margin-top: 8px; }
+.facets-empty__action,
+.facets-empty__page { --mb-padding-y: 11px; --mb-padding-x: 24px; margin-top: 8px; }
 .facets-empty__clear { color: var(--color-heading, #111); text-decoration: underline; text-underline-offset: 3px; }
 
 /* Search page: heading, field, count and toolbar at phone width */
@@ -1842,8 +1963,10 @@ html:has(.facets-panel:popover-open) body { overscroll-behavior: none; }
 .sec__search-main .search-page-header .ssearch__input { color: var(--color-heading, #111); min-height: 48px; }
 @media (max-width: 749.98px) {
   .sec__search-main .search-page-header .field { max-width: 100%; }
-  .facets-toolbar { gap: 10px; }
+  .facets-toolbar { gap: 4px 10px; }
   .facets-toolbar__count { order: 3; flex-basis: 100%; }
+  /* Count and the column switcher share the second row. */
+  .facets-toolbar:has(.facets-view) .facets-toolbar__count { flex: 1 0 calc(100% - 130px); }
   .facets-sort__trigger { max-width: calc(100vw - 32px - 140px); }
   .facets-sort__current { overflow: hidden; text-overflow: ellipsis; }
 }

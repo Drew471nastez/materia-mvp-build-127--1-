@@ -4,4 +4,5 @@
   cart-drawer-sheets, in that order. Storelib moves the link into the head in
   the place these styles held, so the cascade is unchanged.
 {%- endcomment -%}
-{{ 'cart-drawer.css' | asset_url | stylesheet_tag }}
+{%- comment -%} The drawer is closed at first paint: off the cart page its styles load without holding the page. {%- endcomment -%}
+{%- if template != 'cart' -%}<link rel="stylesheet" href="{{ 'cart-drawer.css' | asset_url }}" media="print" onload="this.media='all'"><noscript>{{ 'cart-drawer.css' | asset_url | stylesheet_tag }}</noscript>{%- else -%}{{ 'cart-drawer.css' | asset_url | stylesheet_tag }}{%- endif -%}

@@ -1,6 +1,15 @@
+{% doc %}
+  Status label (applicable or not) for one discount code applied to the cart.
+
+  @param {object} cart - Cart
+  @param {object} discount_code - Discount code
+
+  @example
+  {% render 'cart-code-status', cart: cart, discount_code: discount_code %}
+{% enddoc -%}
 {%- assign code_state = cart.discount_codes | where: 'code', discount_code | first -%}
 {%- if code_state != blank -%}
   <small class="cart-code-status" data-applicable="{{ code_state.applicable }}">
-    {%- if code_state.applicable -%}{{ 'general.content.discount_code_applied' | t }}{%- else -%}{{ 'general.content.discount_code_error' | t }}{%- endif -%}
+    {%- if code_state.applicable -%}{{ 'general.content.discount_code_applied' | t }}{%- else -%}{{ 'general.content.discount_code_pending' | t }}{%- endif -%}
   </small>
 {%- endif -%}

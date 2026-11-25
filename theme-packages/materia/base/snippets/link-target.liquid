@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. target and rel for one link, only when the creator asked
   for that link to open in a new tab:
   - new_tab / legacy_new_tab: the link's own toggle in a block or section
@@ -8,7 +8,15 @@
     open_new_tab property on the link is read too.
   A link nobody flagged never gets a target, same site or not. Print the
   address with | remove: '#_blank' so the marker never reaches the href.
-{%- endcomment -%}
+
+  @param {object} [legacy_new_tab] - Legacy new tab
+  @param {object} [link] - Menu link
+  @param {boolean} [new_tab] - Open in a new tab
+  @param {string} [url] - URL
+
+  @example
+  {% render 'link-target', link: link, new_tab: block_st.open-link-newtab, legacy_new_tab: block_st.open_link_newtab %}
+{%- enddoc -%}
 {%- liquid
   if new_tab == nil
     assign new_tab = legacy_new_tab

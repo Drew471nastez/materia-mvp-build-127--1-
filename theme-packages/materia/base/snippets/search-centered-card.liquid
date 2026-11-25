@@ -1,0 +1,52 @@
+{%- doc -%}
+  Product card for the Centered popup search (sections/search-centered-results.liquid).
+  Params: product, show_price
+
+  @param {product} product - The product to render
+  @param {boolean} show_price - Show prices in results
+
+  @example
+  {% render 'search-centered-card', product: product, show_price: show_price %}
+{%- enddoc -%}
+{%- liquid
+  assign media = product.featured_media
+  assign compare = product.compare_at_price_min
+  assign on_sale = false
+  if compare > product.price_min
+    assign on_sale = true
+  endif
+-%}
+<a class="sc-card" href="{{ product.url }}" data-product-id="{{ product.id }}">
+  <span class="sc-card__media">
+    {%- if media -%}
+      {{-
+        media
+        | image_url: width: 480
+        | image_tag:
+          loading: 'lazy',
+          widths: '160, 240, 320, 480',
+          sizes: '(min-width: 990px) 240px, (min-width: 750px) 30vw, 45vw',
+          alt: product.title,
+          class: 'sc-card__img'
+      -}}
+    {%- else -%}
+      {%- render 'placeholder-image', type: 'product-1', class: 'sc-card__img sc-card__img--placeholder' -%}
+    {%- endif -%}
+  </span>
+  <span class="sc-card__title">{{ product.title | escape }}</span>
+  {%- if show_price -%}
+    <span class="sc-card__price">
+      {%- if on_sale -%}
+        <s class="sc-card__compare">{{ compare | money }}</s>
+      {%- endif -%}
+      <span class="sc-card__now{% if on_sale %} is-sale{% endif %}">
+        {%- assign price_text = product.price_min | money -%}
+        {%- if product.price_varies -%}
+          {{- 'products.price.from_price_html' | t: price: price_text -}}
+        {%- else -%}
+          {{- price_text -}}
+        {%- endif -%}
+      </span>
+    </span>
+  {%- endif -%}
+</a>

@@ -1,4 +1,4 @@
-<script src="{{ 'live-r7-extras.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-r7-extras.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'r7-extras-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 <script src="{{ 'materia-popups.js' | asset_url }}" defer="defer"></script>
 {%- comment -%}
@@ -23,7 +23,7 @@
   assign st = section.settings
   assign sid = section.id
   assign design = request.design_mode
-  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign preview = false
   if design and st.editor_mode
     assign preview = true
@@ -281,7 +281,7 @@
               <div class="pbs__text" data-r7x-block="{{ block.id }}" data-r7x-type="text"{% if design %} data-r7x-settings="{{ bs | json | escape }}"{% endif %}{% if bs.text == blank %} hidden{% endif %}{% if b_color != 'none' %} style="--pb-c: {{ b_color }};"{% endif %} {{ block.shopify_attributes }}>{{ bs.text }}</div>
             {%- when 'button' -%}
               {%- assign b_kind = bs.style | default: 'primary' -%}
-              <a class="pbs__button btn-{{ b_kind }}" data-theme-button="{{ b_kind }}" data-sl-button data-pbs-cta data-r7x-block="{{ block.id }}" data-r7x-type="button"{% if design %} data-r7x-settings="{{ bs | json | escape }}"{% endif %} data-r7x-default-href="{{ routes.all_products_collection_url }}" href="{% if bs.link != blank %}{{ bs.link | url }}{% else %}{{ routes.all_products_collection_url }}{% endif %}"{% if bs.label == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ bs.label | escape }}</a>
+              <a class="pbs__button btn-{{ b_kind }}" data-theme-button="{{ b_kind }}" data-sl-button data-pbs-cta data-r7x-block="{{ block.id }}" data-r7x-type="button"{% if design %} data-r7x-settings="{{ bs | json | escape }}"{% endif %} data-r7x-default-href="{{ routes.all_products_collection_url }}" href="{% if bs.link != blank %}{{ bs.link }}{% else %}{{ routes.all_products_collection_url }}{% endif %}"{% if bs.label == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ bs.label | escape }}</a>
           {%- endcase -%}
         {%- endfor -%}
         {%- if design and section.blocks.size == 0 -%}<p class="pbs__empty">Add a Heading, Text or Button block.</p>{%- endif -%}
@@ -292,7 +292,7 @@
 {
   "name": "Bottom Sheet Popup",
   "tag": "section",
-  "class": "section-popup-bottom-sheet",
+  "class": "section-popup-bottom-sheet s-tt has-overlay",
   "enabled_on": {
     "groups": [
       "custom.overlay"
@@ -307,7 +307,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "header",
@@ -672,8 +672,8 @@
   ],
   "presets": [
     {
-      "name": "Bottom Sheet Popup",
-      "category": "Promotional Popup",
+      "name": "Popup – Bottom Sheet",
+      "category": "17 · Popups & notifications",
       "blocks": [
         {
           "type": "heading"

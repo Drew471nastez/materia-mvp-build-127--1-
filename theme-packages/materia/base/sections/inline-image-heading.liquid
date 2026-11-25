@@ -1,4 +1,4 @@
-<script src="{{ 'live-text.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-text.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%}
   Materia Themes. Inline Image Heading: an optional eyebrow block and one
@@ -11,7 +11,7 @@
 {%- endcomment -%}
 {%- liquid
   assign st = section.settings
-  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign align = st.content_alignment | default: 'center'
   assign eyebrow_block = section.blocks | where: 'type', 'eyebrow' | first
   assign heading_blocks = 0
@@ -191,7 +191,7 @@
   class="iih section color-{{ color_scheme }} gradient"
   data-live-text="inline-image-heading"
   data-lt-section="{{ section.id }}"
-  data-lt-settings="{{ section.settings | json | escape }}"
+  {% if request.design_mode %}data-lt-settings="{{ section.settings | json | escape }}"{% endif %}
   {% if st.enable_custom_fonts %}data-own-font{% endif %}
   style="--iih-bg: {{ iih_bg | strip }}; --iih-ink: {{ iih_ink | strip }}; --iih-font: {{ iih_font | strip }}; --iih-body-font: {{ iih_body_font | strip }}; --iih-weight: {{ iih_weight }}; --iih-lh: {% if st.enable_custom_size %}{{ st.heading_line_height | default: 1.15 }}{% else %}var(--heading-line-height, 1.2){% endif %}; --iih-ls: {% if st.enable_custom_size %}{{ st.heading_letter_spacing | default: 0 }}px{% else %}var(--heading-letter-spacing, normal){% endif %}; --iih-size-d: {{ st.heading_size | default: 56 }}px; --iih-size-m: {{ st.heading_size_mobile | default: 30 }}px; --iih-img-d: {{ st.image_size | default: 64 }}px; --iih-img-m: {{ st.image_size_mobile | default: 40 }}px; --iih-gap: {{ st.image_gap | default: 0 }}px; --iih-offset: {{ st.image_offset_y | default: 0 }}px; --iih-pt-d: {{ st.padding_top }}px; --iih-pb-d: {{ st.padding_bottom }}px; --iih-pt-m: {{ st.padding_top_mobile }}px; --iih-pb-m: {{ st.padding_bottom_mobile }}px; --iih-align: {{ align }}; --iih-max: {{ iih_max }}; --iih-pad: {{ iih_pad }}; --iih-pad-wide: {{ iih_pad_wide }};"
 >
@@ -201,7 +201,7 @@
       {%- capture eb_ink -%}{% if eb.enable_custom_style %}{% render 'scheme-color', color: eb.color, fallback: 'var(--color-text)' %}{% else %}var(--color-text){% endif %}{%- endcapture -%}
       <p
         class="iih__eyebrow"
-        data-lt-block="{{ eyebrow_block.id }}" data-lt-type="eyebrow" data-lt-settings="{{ eb | json | escape }}" {{ eyebrow_block.shopify_attributes }}
+        data-lt-block="{{ eyebrow_block.id }}" data-lt-type="eyebrow" {% if request.design_mode %}data-lt-settings="{{ eb | json | escape }}"{% endif %} {{ eyebrow_block.shopify_attributes }}
         {% if eb.enable_custom_fonts or st.enable_custom_fonts %}data-own-font{% endif %}
         {% if eb.text == blank %}hidden{% endif %}
         style="--iih-eyebrow-ink: {{ eb_ink | strip }}; --iih-eyebrow-size-d: {{ eb.size }}px; --iih-eyebrow-size-m: {{ eb.size_mobile }}px; --iih-eyebrow-weight: {% if eb.weight == 'theme' or eb.weight == blank %}var(--body-weight, 400){% else %}{{ eb.weight }}{% endif %}; --iih-eyebrow-ls: {{ eb.letter_spacing }}px; --iih-eyebrow-case: {% if eb.uppercase %}uppercase{% else %}none{% endif %}; --iih-eyebrow-gap: {{ eb.spacing_below }}px;{% if eb.enable_custom_fonts and eb.font.family != blank %} --iih-eyebrow-font: {{ eb.font.family }}, {{ eb.font.fallback_families | default: 'sans-serif' }};{% endif %}"
@@ -226,12 +226,12 @@
           {%- assign bs = block.settings -%}
           {%- case block.type -%}
             {%- when 'text' -%}
-              <span class="iih__text" data-lt-block="{{ block.id }}" data-lt-type="text" data-lt-settings="{{ bs | json | escape }}" {{ block.shopify_attributes }}{% if bs.text == blank %} hidden{% endif %}>{{ bs.text }}</span>{{ ' ' }}
+              <span class="iih__text" data-lt-block="{{ block.id }}" data-lt-type="text" {% if request.design_mode %}data-lt-settings="{{ bs | json | escape }}"{% endif %} {{ block.shopify_attributes }}{% if bs.text == blank %} hidden{% endif %}>{{ bs.text }}</span>{{ ' ' }}
             {%- when 'image' -%}
               {%- assign col = bs.collection -%}
               {%- assign col_img = col.image | default: col.featured_image -%}
               {%- assign chosen = bs.image | default: col_img -%}
-              <span class="iih__media" data-lt-block="{{ block.id }}" data-lt-type="image" data-lt-settings="{{ bs | json | escape }}" {{ block.shopify_attributes }}{% if bs.size_override > 0 %} style="--iih-d: {{ bs.size_override }}px;"{% endif %}>
+              <span class="iih__media" data-lt-block="{{ block.id }}" data-lt-type="image" {% if request.design_mode %}data-lt-settings="{{ bs | json | escape }}"{% endif %} {{ block.shopify_attributes }}{% if bs.size_override > 0 %} style="--iih-d: {{ bs.size_override }}px;"{% endif %}>
                 {%- if col != blank and col.url != blank -%}<a class="iih__link" href="{{ col.url }}" aria-label="{{ col.title | escape }}">{%- endif -%}
                 {%- if chosen != blank -%}
                   <img
@@ -246,7 +246,7 @@
                     decoding="async"
                   >
                 {%- else -%}
-                  {{ 'image' | placeholder_svg_tag: 'iih__img iih__placeholder' }}
+                  {%- render 'placeholder-image', type: 'image', class: 'iih__img iih__placeholder' -%}
                 {%- endif -%}
                 {%- if col != blank and col.url != blank -%}</a>{%- endif -%}
               </span>{{ ' ' }}
@@ -259,7 +259,7 @@
 {
   "name": "Inline Image Heading",
   "tag": "section",
-  "class": "section-inline-image-heading",
+  "class": "section-inline-image-heading s-tt",
   "max_blocks": 30,
   "settings": [
     {
@@ -270,7 +270,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -616,7 +616,6 @@
       "id": "show_eyebrow",
       "label": "Show eyebrow",
       "default": true,
-      "hidden": true,
       "info": "Legacy: used only when the section has no Eyebrow block.",
       "visible_if": "{{ false }}"
     },
@@ -625,7 +624,6 @@
       "id": "eyebrow",
       "label": "Eyebrow text",
       "default": "Crafted with intention",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Eyebrow block.",
       "visible_if": "{{ false }}"
     },
@@ -638,7 +636,6 @@
       "step": 1,
       "unit": "px",
       "default": 14,
-      "hidden": true,
       "info": "Legacy: used only when the section has no Eyebrow block.",
       "visible_if": "{{ false }}"
     },
@@ -651,7 +648,6 @@
       "step": 1,
       "unit": "px",
       "default": 13,
-      "hidden": true,
       "info": "Legacy: used only when the section has no Eyebrow block.",
       "visible_if": "{{ false }}"
     },
@@ -674,7 +670,6 @@
           "label": "Bold"
         }
       ],
-      "hidden": true,
       "info": "Legacy: used only when the section has no Eyebrow block.",
       "visible_if": "{{ false }}"
     },
@@ -683,7 +678,6 @@
       "id": "eyebrow_uppercase",
       "label": "Uppercase eyebrow",
       "default": false,
-      "hidden": true,
       "info": "Legacy: used only when the section has no Eyebrow block.",
       "visible_if": "{{ false }}"
     },
@@ -696,7 +690,6 @@
       "step": 1,
       "unit": "px",
       "default": 1,
-      "hidden": true,
       "info": "Legacy: used only when the section has no Eyebrow block.",
       "visible_if": "{{ false }}"
     },
@@ -709,7 +702,6 @@
       "step": 2,
       "unit": "px",
       "default": 24,
-      "hidden": true,
       "info": "Legacy: used only when the section has no Eyebrow block.",
       "visible_if": "{{ false }}"
     },
@@ -717,7 +709,6 @@
       "type": "color",
       "id": "eyebrow_color",
       "label": "Eyebrow color",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Eyebrow block.",
       "visible_if": "{{ false }}"
     },
@@ -745,7 +736,6 @@
         }
       ],
       "visible_if": "{{ false }}",
-      "hidden": true,
       "info": "The heading is always an h2."
     }
   ],
@@ -914,7 +904,7 @@
   "presets": [
     {
       "name": "Inline Image Heading",
-      "category": "Text",
+      "category": "12 · Text",
       "settings": {
         "section_width": "fluid_container",
         "content_alignment": "center",

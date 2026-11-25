@@ -1,7 +1,8 @@
 {%- render 'theme-type' -%}
 {%- render 'password-launch-content', section: section -%}{% schema %}
 {
-  "name": "Coming soon",
+  "class": "s-tt",
+"name": "Coming soon",
   "enabled_on": {
     "templates": [
       "password"
@@ -17,7 +18,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -102,7 +103,6 @@
       "type": "url",
       "id": "owner_login_url",
       "label": "Owner link",
-      "default": "https://storelib.com",
       "visible_if": "{{ section.settings.show_owner_login }}"
     },
     {
@@ -185,7 +185,7 @@
           "label": "Save emails"
         }
       ],
-      "info": "Preview only never saves email addresses. Save subscribers makes a real request and requires StoreLib to enable subscriber submissions for this preview."
+      "info": "Preview only never saves email addresses. Save subscribers sends a real sign-up from the theme editor, saved to Customers in Shopify."
     },
     {
       "type": "text",
@@ -638,8 +638,7 @@
           "type": "text",
           "id": "countdown_date",
           "label": "Launch date",
-          "info": "Year-month-day, for example 2027-03-01. The countdown hides once the date has passed.",
-          "default": ""
+          "info": "Year-month-day, for example 2027-03-01. The countdown hides once the date has passed."
         },
         {
           "type": "header",

@@ -242,6 +242,8 @@ export interface SitePlanContext {
   presets?: readonly DesignPreset[]
   /** A coder is in the job: "custom" sections and the site's own header and footer may be planned. */
   free?: boolean
+  /** Round 26: the closest Storelib template as the plan's pattern (lib/storelib-ai/materia/reference.ts plannerReference). */
+  reference?: string
 }
 
 /** The planner's turn: the brief, what is real, the presets and the library. */
@@ -254,6 +256,7 @@ export function sitePlanTurn(ctx: SitePlanContext): string {
     `DESIGN PRESETS (pick the one whose mood fits; adjust it if the brief needs)\n${describePresets(ctx.presets ?? DESIGN_PRESETS)}`,
     `SECTION TYPES FOR THIS SITE\n${describeLibrary(types, ctx.schemas)}${ctx.free ? `\n- custom: a section designed and coded for this site from your brief (any layout, any motion, its own settings)` : ""}`,
     left.length ? `Not offered here, because this creator has nothing real to put in them: ${left.join(", ")}.` : "",
+    ctx.reference ?? "",
   ]
     .filter(Boolean)
     .join("\n\n")

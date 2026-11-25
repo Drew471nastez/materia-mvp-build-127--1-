@@ -1,6 +1,6 @@
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 <style>
   /* Section width */
@@ -155,7 +155,7 @@
                         class="product-item__media--ratio rounded-5"
                         style="--aspect-ratio: {{ ratio }};"
                       >
-                        {% render 'placeholder-render', class: 'rounded-5' %}
+                        {% render 'placeholder-render', class: 'rounded-5', type: 'product', index: forloop.index %}
                       </div>
                     {% endif %}
                   </a>
@@ -267,7 +267,7 @@
                           class="product-item__price flex gap-custom lh-normal fs-custom"
                           style="--font-size: {{ settings.price_size }}; --gap: 3px;--product-item__price-top: 14px;"
                         >
-                          {%- render 'price', scope: 'item', product: product, show_badges: false -%}
+                          {%- render 'price', scope: 'item', product: product -%}
                         </div>
                       {% endif %}
                     </div>
@@ -313,7 +313,8 @@
 </div>
 {% schema %}
 {
-  "name": "Product grouped",
+  "class": "s-tt",
+"name": "Product grouped",
   "settings": [
     {
       "type": "header",
@@ -323,7 +324,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Colour scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",

@@ -1,0 +1,19 @@
+/* Theme settings > Typography for each section (was printed inline by snippets/theme-type in every
+   section). :is(.s-tt,#_) is the wrapper of every section that renders theme-type (schema class
+   "s-tt"); #_ never matches and only keeps the (1,0,0) specificity of #shopify-section-<id>.
+   Sections that print styles before theme-type pass inline: true and keep the inline copy, so the
+   order of their rules is unchanged. */
+:is(.s-tt,#_) {
+  font-family: var(--body-font, inherit);
+  font-size: var(--body-font-size, inherit);
+  font-weight: var(--body-weight, inherit);
+  line-height: var(--body-line-height, inherit);
+  color: var(--color-text);
+}
+:is(.s-tt,#_) :is(h1, h2, h3, h4, h5, h6) {
+  font-family: var(--heading-font, inherit);
+  font-weight: var(--heading-weight, inherit);
+  letter-spacing: var(--heading-letter-spacing, normal);
+  line-height: var(--heading-line-height, 1.2);
+  text-transform: var(--heading-text-transform, none);
+}

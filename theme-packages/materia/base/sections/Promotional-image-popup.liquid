@@ -1,4 +1,4 @@
-<script src="{{ 'live-page-popups.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-page-popups.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-page-popups-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%}
   Materia Themes. Image Banner Popup: a picture (with an optional link) in a
@@ -10,7 +10,7 @@
 {%- endcomment -%}
 {%- liquid
   assign st = section.settings
-  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign block_image = section.blocks | where: 'type', 'image' | first
   assign im = st
   if block_image != blank
@@ -249,9 +249,11 @@
   document.addEventListener('shopify:section:load', reload);
 })();
 </script>
+
 {% schema %}
 {
-  "name": "Image Banner Popup",
+  "class": "s-tt has-popup",
+"name": "Image Banner Popup",
   "enabled_on": {
     "groups": [
       "custom.overlay"
@@ -266,7 +268,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "header",
@@ -373,7 +375,6 @@
       "type": "image_picker",
       "id": "image_desktop",
       "label": "Image",
-      "hidden": true,
       "info": "Legacy: used only when the popup has no Banner image block.",
       "visible_if": "{{ false }}"
     },
@@ -381,7 +382,6 @@
       "type": "image_picker",
       "id": "image_mobile",
       "label": "Image on phones",
-      "hidden": true,
       "info": "Legacy: used only when the popup has no Banner image block.",
       "visible_if": "{{ false }}"
     },
@@ -394,7 +394,6 @@
       "type": "url",
       "id": "image_link",
       "label": "Link",
-      "hidden": true,
       "info": "Legacy: used only when the popup has no Banner image block.",
       "visible_if": "{{ false }}"
     },
@@ -403,7 +402,6 @@
       "id": "lazy",
       "label": "Load when needed",
       "default": true,
-      "hidden": true,
       "info": "Legacy: used only when the popup has no Banner image block.",
       "visible_if": "{{ false }}"
     },
@@ -416,7 +414,6 @@
       "step": 1,
       "unit": "%",
       "default": 100,
-      "hidden": true,
       "info": "Legacy: used only when the popup has no Banner image block.",
       "visible_if": "{{ false }}"
     },
@@ -429,7 +426,6 @@
       "step": 10,
       "unit": "px",
       "default": 300,
-      "hidden": true,
       "info": "Legacy: used only when the popup has no Banner image block.",
       "visible_if": "{{ false }}"
     },
@@ -442,7 +438,6 @@
       "step": 1,
       "unit": "%",
       "default": 100,
-      "hidden": true,
       "info": "Legacy: used only when the popup has no Banner image block.",
       "visible_if": "{{ false }}"
     },
@@ -455,7 +450,6 @@
       "step": 10,
       "unit": "px",
       "default": 200,
-      "hidden": true,
       "info": "Legacy: used only when the popup has no Banner image block.",
       "visible_if": "{{ false }}"
     },
@@ -615,7 +609,6 @@
       "label": "Heading font",
       "default": "assistant_n4",
       "visible_if": "{{ false }}",
-      "hidden": true,
       "info": "This popup has no heading."
     },
     {

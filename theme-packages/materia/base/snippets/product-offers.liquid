@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. The product information's Bundle and Quantity offer blocks,
   built for Storelib's cart and checkout.
   Params: block, product (the section's product), section, kind ('bundle' or
@@ -11,7 +11,16 @@
   takes off. docs/upsells-storelib.md says what each line carries.
   Style: cards, list or bold. Custom style on: the block's own colours,
   corners, border and spacing, else the colour scheme and theme buttons.
-{%- endcomment -%}
+
+  @param {block} block - The block being rendered
+  @param {string} kind - Kind ('bundle', 'quantity_offer')
+  @param {product} product - The product to render
+  @param {string} product_form_id - Product form id
+  @param {object} shop - Shop
+
+  @example
+  {% render 'product-offers', kind: 'bundle', block: block, section: section, product: product, product_form_id: product_form_id, shop: shop %}
+{%- enddoc -%}
 {%- liquid
   assign product = product | default: page.product
   assign kind = kind | default: block.type
@@ -91,7 +100,7 @@
               {%- if img != blank -%}
                 <img src="{{ img | image_url: width: 160 }}" alt="{{ img.alt | default: p.title | escape }}" width="56" height="56" loading="lazy" decoding="async">
               {%- else -%}
-                {{ 'product-1' | placeholder_svg_tag: 'po-line__placeholder' }}
+                {%- render 'placeholder-image', type: 'product-1', class: 'po-line__placeholder' -%}
               {%- endif -%}
             </span>
           {%- endif -%}
@@ -119,8 +128,17 @@
     {%- endfor -%}
   {%- endcapture -%}
   {%- if picked > 0 -%}
-    {%- assign saving = 0 -%}
-    {%- assign pct = 0 -%}
+    {%- liquid
+      comment
+        the platform: the saving is shown only with a discount code, which the add applies.
+      endcomment
+      assign saving = 0
+      assign pct = 0
+      if bs.discount_code != blank and bs.discount_percent > 0
+        assign pct = bs.discount_percent
+        assign saving = full_total | times: pct | divided_by: 100.0 | round
+      endif
+    -%}
     <product-bundle
       class="po po-bundle"
       id="ProductBundle-{{ uid }}"
@@ -270,9 +288,13 @@
               endif
             endif
             comment
-              Only a verified Storelib offer authorizes a saving.
+              A verified offer, or on the platform the tier's own discount code, authorizes a saving.
             endcomment
             assign full_total = v0.price | times: units
+            if bs[k_code] != blank and disc > 0 or bs[k_code] != blank and free > 0
+              assign paid_each = 100 | minus: disc | times: v0.price | divided_by: 100.0 | round
+              assign full_total = paid_each | times: qty
+            endif
             assign compare_each = v0.price
             if free == 0 and disc == 0 and v0.compare_at_price > v0.price
               assign compare_each = v0.compare_at_price

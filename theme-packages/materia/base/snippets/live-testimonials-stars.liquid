@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. Five stars filled to a rating (0 to 5, any fraction: 4.3
   fills four stars and 30% of the fifth). Each star is the empty star with
   the filled star clipped over it (--lt-fill), coloured by --lt-star-on and
@@ -7,7 +7,14 @@
   rating: the number. class: extra class on the row (optional). hidden: true
   hides the row (it stays in the page so a live edit can show it). A rating
   of 0 (none set) draws no stars either.
-{%- endcomment -%}
+
+  @param {string} [class] - Extra CSS classes; no current caller passes it
+  @param {boolean} [hidden] - Hidden
+  @param {number} rating - Filled stars
+
+  @example
+  {% render 'live-testimonials-stars', rating: score_num, hidden: no_score %}
+{%- enddoc -%}
 {%- assign lt_rating = rating | default: 0 | at_least: 0 | at_most: 5 -%}
 <span class="lt-stars{% if class != blank %} {{ class }}{% endif %}" role="img" aria-label="{{ lt_rating }} / 5" data-lt-stars{% if hidden or lt_rating <= 0 %} hidden{% endif %}>
   {%- for n in (1..5) -%}

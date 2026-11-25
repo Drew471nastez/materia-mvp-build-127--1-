@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. One follow button of Follow Us (sections/social-follow-cta):
   the network the key names (a Theme settings > Social media id), its icon
   and its name. The icons are the ones snippets/social-icons draws.
@@ -7,7 +7,16 @@
   social links in a new tab. prefix: words before the name. attrs: the
   button attributes the section works out (theme button contract, own shape,
   own font, custom colours).
-{%- endcomment -%}
+
+  @param {string} attrs - Attrs
+  @param {string} key - Key
+  @param {string} prefix - Words before the network name
+  @param {string} target - Target
+  @param {string} url - URL
+
+  @example
+  {% render 'r7-connect-network', key: key, url: net_url, target: net_target, prefix: st.button_prefix, attrs: btn_attrs %}
+{%- enddoc -%}
 {%- liquid
   case key
     when 'facebook'

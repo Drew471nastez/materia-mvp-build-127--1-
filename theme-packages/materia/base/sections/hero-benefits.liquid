@@ -1,7 +1,7 @@
 {% render 'theme-type' %}
 <script src="{{ 'hero-benefits.js' | asset_url }}" defer="defer"></script>
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
@@ -585,9 +585,6 @@
       }
     {% endif %}
   {% endfor %}
-  {% if request.design_mode %}
-  #shopify-section-{{ sid }}.scroll-trigger { animation: none !important; opacity: 1 !important; transform: none !important; visibility: visible !important; }
-  {% endif %}
   #shopify-section-{{ sid }} .hb__grid:not(:has(.hb__media)) .hb__text { flex: 1; max-width: 100%; }
   @media (prefers-reduced-motion: reduce) {
     #shopify-section-{{ sid }}.scroll-trigger { animation: none !important; opacity: 1 !important; transform: none !important; }
@@ -791,8 +788,10 @@
 
         {%- if image_desktop == blank and mobile_image == blank -%}
           <img
-            src="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Crect width=%22400%22 height=%22300%22 fill=%22%23efefef%22/%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22 fill=%22%23cfcfcf%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22 fill=%22%23cfcfcf%22/%3E%3C/svg%3E"
-            alt="{{ 'accessibility.placeholder' | t }}"
+            src="{%- render 'placeholder-image', type: 'lifestyle-1', scheme: color_scheme, ratio: '4/3', format: 'url' -%}"
+            alt=""
+            width="400"
+            height="300"
             loading="lazy">
         {%- endif -%}
       </div>
@@ -805,7 +804,7 @@
 {
   "name": "Hero Benefits",
   "tag": "section",
-  "class": "section-hero-benefits",
+  "class": "section-hero-benefits s-tt",
   "settings": [
     {
       "type": "header",
@@ -815,7 +814,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -1997,13 +1996,14 @@
       "info": "Legacy setting retained for existing content. Edit the Heading or Image block instead."
     },
     {
-      "type": "range",
+      "type": "select",
       "id": "benefits_columns_mobile",
       "label": "Benefit columns",
-      "min": 1,
-      "max": 2,
-      "step": 1,
-      "default": 2
+      "options": [
+        { "value": "1", "label": "1" },
+        { "value": "2", "label": "2" }
+      ],
+      "default": "2"
     },
     {
       "type": "range",
@@ -2641,7 +2641,6 @@
           "step": 10,
           "unit": "px",
           "default": 360,
-          "visible_if": "{{ true }}",
           "info": "Used in stacked mobile layout. Overlay height is controlled in the section’s Mobile settings."
         }
       ]
@@ -2903,8 +2902,8 @@
           "id": "icon_svg",
           "label": "SVG code",
           "visible_if": "{{ block.settings.icon_type == 'svg' }}",
-          "info": "Multiline SVG markup. Paste the complete <svg>...</svg> code here. Use Description for formatted text.",
-          "placeholder": "<svg viewBox=\"0 0 24 24\">\n  <path d=\"...\" />\n</svg>"
+          "info": "Multiline SVG markup. Paste the complete SVG code here. Use Description for formatted text.",
+          "placeholder": "Paste your SVG code here"
         },
         {
           "type": "text",
@@ -3100,8 +3099,8 @@
   ],
   "presets": [
     {
-      "name": "Hero Benefits",
-      "category": "Hero and banners",
+      "name": "Hero – Benefits",
+      "category": "01 · Hero & slideshows",
       "blocks": [
         {
           "type": "heading"

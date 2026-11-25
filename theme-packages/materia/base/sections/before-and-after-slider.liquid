@@ -1,7 +1,7 @@
-<script src="{{ 'media-live-before-after.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'media-live-before-after.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'before-after-media-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if section.settings.reveal == false -%}<span data-ti-no-reveal hidden></span>{%- endif -%}
@@ -39,7 +39,14 @@
   assign st = section.settings
   assign sid = section.id
   assign custom = st.enable_custom_style
-  assign placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Cg fill=%22%23808080%22 fill-opacity=%220.5%22%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22/%3E%3C/g%3E%3C/svg%3E'
+  capture placeholder
+    render 'placeholder-image', type: 'lifestyle-1', scheme: color_scheme, ratio: '16/9', format: 'url'
+  endcapture
+  assign placeholder = placeholder | strip
+  capture placeholder_after
+    render 'placeholder-image', type: 'lifestyle-2', scheme: color_scheme, ratio: '16/9', format: 'url'
+  endcapture
+  assign placeholder_after = placeholder_after | strip
   assign ratio = st.media_aspect_ratio | default: '16 / 9'
   assign wide = '1fr'
   case ratio
@@ -244,7 +251,7 @@
 </style>
 {% render 'media-ba-compare-style', sid: sid %}
 {%- capture cta_style -%}{%- if custom -%}{%- render 'button-overrides', bg: st.button_background_color, text: st.button_text_color -%}{%- endif -%}{%- if st.use_theme_button == false -%}{%- render 'button-overrides', custom: true, radius: st.button_border_radius, padding_y: st.button_padding_tb, padding_x: st.button_padding_lr, font_size: st.button_text_size -%}{%- endif -%}{%- endcapture -%}
-<div class="bas color-{{ color_scheme }} gradient" data-bam-root="slider" data-bam-section="{{ sid }}" data-bam-settings="{{ st | json | escape }}" data-bam-defaults='{"color_scheme":"default-color-scheme","section_width":"full_width","show_on_device":"all","reset_spacing":true,"before_caption":"Before","after_caption":"After","enable_button":true,"text_alignment":"center","media_location":"bottom","horizontal_gap":100,"container_max_width":850,"element_spacing":21,"headline_spacing":15,"media_aspect_ratio":"16 / 9","media_radius":5,"image_shadow":"none","start_percent":50,"show_bar":true,"vertical_line_weight":3,"bar_opacity":75,"show_circle":true,"circle_icon":"icon2","circle_opacity":95,"use_theme_button":true,"button_text_size":14,"button_padding_tb":9,"button_padding_lr":23,"button_border_radius":5,"button_hover_animation":"fade-in","enable_custom_style":false,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","headline_size":36,"headline_line_height":"1.0","text_size":17,"text_line_height":"1.4","reveal":true,"section_padding_top_bottom":30,"section_padding_left_right":25,"container_padding_top_bottom":10,"container_padding_left_right":10,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"mobile_headline_size":38,"mobile_section_padding_top_bottom":30,"mobile_section_padding_left_right":25,"mobile_container_padding_top_bottom":10,"mobile_container_padding_left_right":0,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}' data-bam-block-defaults='{"heading":{"text":"<strong>Before and after</strong>","enable_custom_style":false,"weight_enable":false,"weight":"700","size_enable":false,"size_desktop":36,"size_mobile":30,"line_height":1.1,"tracking":0,"enable_custom_fonts":false,"font":"assistant_n4"},"subheading":{"text":"<p>Present comparisons between two images, for showcasing product benefits.</p>","enable_custom_style":false,"weight_enable":false,"weight":"400","size_enable":false,"size":17,"line_height":1.4,"enable_custom_fonts":false,"font":"assistant_n4"},"button":{"text":"Shop now","link":"/collections/all","enable_custom_style":false,"use_theme_button":true,"border_width":0,"radius":5,"size":14,"weight_enable":false,"weight":"600","enable_custom_fonts":false,"font":"assistant_n4","pad_x":23,"pad_y":9}}' data-bam-placeholder="{{ placeholder | escape }}" data-width="{{ st.section_width }}" data-show="{{ st.show_on_device | default: 'all' }}" data-location="{{ st.media_location | default: 'bottom' }}" data-shadow="{{ st.image_shadow | default: 'none' }}">
+<div class="bas color-{{ color_scheme }} gradient" data-bam-root="slider" data-bam-section="{{ sid }}" {% if request.design_mode %}data-bam-settings="{{ st | json | escape }}"{% endif %} {% if request.design_mode %}data-bam-defaults='{"color_scheme":"default","section_width":"full_width","show_on_device":"all","reset_spacing":true,"before_caption":"Before","after_caption":"After","enable_button":true,"text_alignment":"center","media_location":"bottom","horizontal_gap":100,"container_max_width":850,"element_spacing":21,"headline_spacing":15,"media_aspect_ratio":"16 / 9","media_radius":5,"image_shadow":"none","start_percent":50,"show_bar":true,"vertical_line_weight":3,"bar_opacity":75,"show_circle":true,"circle_icon":"icon2","circle_opacity":95,"use_theme_button":true,"button_text_size":14,"button_padding_tb":9,"button_padding_lr":23,"button_border_radius":5,"button_hover_animation":"fade-in","enable_custom_style":false,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","headline_size":36,"headline_line_height":"1.0","text_size":17,"text_line_height":"1.4","reveal":true,"section_padding_top_bottom":30,"section_padding_left_right":25,"container_padding_top_bottom":10,"container_padding_left_right":10,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"mobile_headline_size":38,"mobile_section_padding_top_bottom":30,"mobile_section_padding_left_right":25,"mobile_container_padding_top_bottom":10,"mobile_container_padding_left_right":0,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}'{% endif %} {% if request.design_mode %}data-bam-block-defaults='{"heading":{"text":"<strong>Before and after</strong>","enable_custom_style":false,"weight_enable":false,"weight":"700","size_enable":false,"size_desktop":36,"size_mobile":30,"line_height":1.1,"tracking":0,"enable_custom_fonts":false,"font":"assistant_n4"},"subheading":{"text":"<p>Present comparisons between two images, for showcasing product benefits.</p>","enable_custom_style":false,"weight_enable":false,"weight":"400","size_enable":false,"size":17,"line_height":1.4,"enable_custom_fonts":false,"font":"assistant_n4"},"button":{"text":"Shop now","link":"/collections/all","enable_custom_style":false,"use_theme_button":true,"border_width":0,"radius":5,"size":14,"weight_enable":false,"weight":"600","enable_custom_fonts":false,"font":"assistant_n4","pad_x":23,"pad_y":9}}'{% endif %} data-bam-placeholder="{{ placeholder | escape }}" data-width="{{ st.section_width }}" data-show="{{ st.show_on_device | default: 'all' }}" data-location="{{ st.media_location | default: 'bottom' }}" data-shadow="{{ st.image_shadow | default: 'none' }}">
   <div class="bas__container">
     <div class="bas__grid">
       <div class="bas__text"{% unless show_text %} hidden{% endunless %}>
@@ -260,17 +267,17 @@
           {%- if bs.enable_custom_fonts and bs.font.family -%}{%- assign block_font = true -%}{%- endif -%}
           {%- case block.type -%}
             {%- when 'heading' -%}
-              <h2 class="bas__heading" data-bam-block="{{ block.id }}" data-bam-type="heading" data-bam-settings="{{ bs | json | escape }}" data-size="{% if bs.size_enable %}true{% else %}false{% endif %}" data-weight="{% if bs.weight_enable %}true{% else %}false{% endif %}" data-own-size{% if sec_head_font or block_font %} data-own-font{% endif %}{% if bs.weight_enable %} data-own-weight{% endif %}{% if bs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ bs.text }}</h2>
+              <h2 class="bas__heading" data-bam-block="{{ block.id }}" data-bam-type="heading" {% if request.design_mode %}data-bam-settings="{{ bs | json | escape }}"{% endif %} data-size="{% if bs.size_enable %}true{% else %}false{% endif %}" data-weight="{% if bs.weight_enable %}true{% else %}false{% endif %}" data-own-size{% if sec_head_font or block_font %} data-own-font{% endif %}{% if bs.weight_enable %} data-own-weight{% endif %}{% if bs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ bs.text }}</h2>
             {%- when 'subheading' -%}
-              <div class="bas__content" data-bam-block="{{ block.id }}" data-bam-type="subheading" data-bam-settings="{{ bs | json | escape }}" data-size="{% if bs.size_enable %}true{% else %}false{% endif %}" data-weight="{% if bs.weight_enable %}true{% else %}false{% endif %}"{% if sec_body_font or block_font %} data-own-font{% endif %}{% if bs.weight_enable %} data-own-weight{% endif %}{% if bs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ bs.text }}</div>
+              <div class="bas__content" data-bam-block="{{ block.id }}" data-bam-type="subheading" {% if request.design_mode %}data-bam-settings="{{ bs | json | escape }}"{% endif %} data-size="{% if bs.size_enable %}true{% else %}false{% endif %}" data-weight="{% if bs.weight_enable %}true{% else %}false{% endif %}"{% if sec_body_font or block_font %} data-own-font{% endif %}{% if bs.weight_enable %} data-own-weight{% endif %}{% if bs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ bs.text }}</div>
             {%- when 'button' -%}
               {%- capture btn_style -%}{%- if bs.enable_custom_style -%}{%- render 'button-overrides', bg: bs.bg, text: bs.color, border: bs.border_color, hover_bg: bs.bg_hover, hover_text: bs.color_hover -%}{%- endif -%}{%- if bs.use_theme_button == false -%}{%- if bs.weight_enable -%}{%- assign btn_weight = bs.weight -%}{%- else -%}{%- assign btn_weight = nil -%}{%- endif -%}{%- render 'button-overrides', custom: true, radius: bs.radius, padding_y: bs.pad_y, padding_x: bs.pad_x, font_size: bs.size, weight: btn_weight, border_width: bs.border_width -%}{%- if block_font -%}--mb-font: {{ bs.font.family }}, {{ bs.font.fallback_families | default: 'sans-serif' }};{%- endif -%}{%- endif -%}{%- endcapture -%}
               {%- capture btn_own -%}{%- if bs.use_theme_button == false %} data-own-shape{%- if bs.weight_enable %} data-own-weight{%- endif -%}{%- if block_font %} data-own-font{%- endif -%}{%- endif -%}{%- endcapture -%}
               <div class="bas__actions" data-bam-button-wrap{% if bs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>
                 {%- if bs.link != blank -%}
-                  <a class="bas__cta" href="{{ bs.link }}" data-bam-block="{{ block.id }}" data-bam-type="button" data-bam-settings="{{ bs | json | escape }}" data-theme-button="primary" data-sl-button data-button-role="primary"{{ btn_own }}{% if btn_style != blank %} style="{{ btn_style | strip }}"{% endif %}>{{ bs.text | escape }}</a>
+                  <a class="bas__cta" href="{{ bs.link }}" data-bam-block="{{ block.id }}" data-bam-type="button" {% if request.design_mode %}data-bam-settings="{{ bs | json | escape }}"{% endif %} data-theme-button="primary" data-sl-button data-button-role="primary"{{ btn_own }}{% if btn_style != blank %} style="{{ btn_style | strip }}"{% endif %}>{{ bs.text | escape }}</a>
                 {%- else -%}
-                  <button class="bas__cta" type="button" data-bam-block="{{ block.id }}" data-bam-type="button" data-bam-settings="{{ bs | json | escape }}" data-theme-button="primary" data-sl-button data-button-role="primary"{{ btn_own }}{% if btn_style != blank %} style="{{ btn_style | strip }}"{% endif %}>{{ bs.text | escape }}</button>
+                  <button class="bas__cta" type="button" data-bam-block="{{ block.id }}" data-bam-type="button" {% if request.design_mode %}data-bam-settings="{{ bs | json | escape }}"{% endif %} data-theme-button="primary" data-sl-button data-button-role="primary"{{ btn_own }}{% if btn_style != blank %} style="{{ btn_style | strip }}"{% endif %}>{{ bs.text | escape }}</button>
                 {%- endif -%}
               </div>
           {%- endcase -%}
@@ -290,7 +297,7 @@
           {%- if st.after_image != blank -%}
             <img class="bam-compare__img" data-bam-image="after_image" src="{{ st.after_image | image_url: width: 1200 }}" srcset="{{ st.after_image | image_url: width: 600 }} 600w, {{ st.after_image | image_url: width: 1200 }} 1200w, {{ st.after_image | image_url: width: 1800 }} 1800w" sizes="(min-width: 900px) 850px, 100vw" alt="{{ after_alt | escape }}" width="{{ st.after_image.width | default: 1600 }}" height="{{ st.after_image.height | default: 900 }}" loading="lazy" decoding="async" draggable="false">
           {%- else -%}
-            <img class="bam-compare__img" data-bam-image="after_image" src="{{ placeholder }}" alt="" width="1600" height="900" loading="lazy" decoding="async" draggable="false">
+            <img class="bam-compare__img" data-bam-image="after_image" src="{{ placeholder_after }}" alt="" width="1600" height="900" loading="lazy" decoding="async" draggable="false">
           {%- endif -%}
           <span class="bam-compare__label bam-compare__label--after" data-bam-text="after_caption"{% if st.after_caption == blank %} hidden{% endif %}>{{ st.after_caption }}</span>
           <div class="bam-compare__before">
@@ -315,7 +322,8 @@
   {%- endif -%}
 </div>{% schema %}
 {
-  "name": "Before and After Slider",
+  "class": "s-tt",
+"name": "Before and After Slider",
   "settings": [
     {
       "type": "header",
@@ -325,7 +333,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -398,7 +406,6 @@
       "id": "enable_button",
       "label": "Show button",
       "default": true,
-      "hidden": true,
       "info": "Legacy: used only when the section has no Button block",
       "visible_if": "{{ false }}"
     },
@@ -407,7 +414,6 @@
       "id": "link_text",
       "label": "Button label",
       "visible_if": "{{ false }}",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Button block"
     },
     {
@@ -415,7 +421,6 @@
       "id": "link",
       "label": "Button link",
       "visible_if": "{{ false }}",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Button block"
     },
     {
@@ -685,7 +690,6 @@
       "label": "Match theme button",
       "default": true,
       "visible_if": "{{ false }}",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Button block"
     },
     {
@@ -698,7 +702,6 @@
       "label": "Button text size",
       "default": 14,
       "visible_if": "{{ false }}",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Button block"
     },
     {
@@ -711,7 +714,6 @@
       "default": 9,
       "label": "Button padding top and bottom",
       "visible_if": "{{ false }}",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Button block"
     },
     {
@@ -724,7 +726,6 @@
       "default": 23,
       "label": "Button padding left and right",
       "visible_if": "{{ false }}",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Button block"
     },
     {
@@ -737,7 +738,6 @@
       "default": 5,
       "label": "Button corner radius",
       "visible_if": "{{ false }}",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Button block"
     },
     {
@@ -760,7 +760,6 @@
       ],
       "default": "fade-in",
       "visible_if": "{{ false }}",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Button block"
     },
     {
@@ -826,7 +825,6 @@
       "id": "button_background_color",
       "label": "Button background",
       "visible_if": "{{ false }}",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Button block"
     },
     {
@@ -834,7 +832,6 @@
       "id": "button_text_color",
       "label": "Button text",
       "visible_if": "{{ false }}",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Button block"
     },
     {
@@ -1092,8 +1089,8 @@
   ],
   "presets": [
     {
-      "name": "Before and After Image Slider",
-      "category": "Features",
+      "name": "Before & After – Slider",
+      "category": "09 · Comparisons",
       "blocks": [
         {
           "type": "heading"

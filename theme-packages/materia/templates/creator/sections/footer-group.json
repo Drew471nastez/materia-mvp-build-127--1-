@@ -12,7 +12,7 @@
         "custom_image": "",
         "reset_spacing": true,
         "section_width": "fluid_container",
-        "copyright_text": "\u00a9 {{ 'now' | date: '%Y' }} {{ shop.name }}. All rights reserved.",
+        "copyright_text": "© {{ 'now' | date: '%Y' }} {{ shop.name }}. All rights reserved.",
         "heading_weight": "600",
         "padding_bottom": 24,
         "separator_line": "all-page",
@@ -43,7 +43,7 @@
             "store_phone": false,
             "store_address": false,
             "content_width": "33.333%",
-            "store_heading": "Ines Hart",
+            "store_heading": "",
             "store_description": "<p>Drawing lessons, a book, a club and a Sunday letter, for grown ups who stopped drawing at school.</p>"
           }
         },
@@ -77,6 +77,9 @@
         "link_list_1",
         "link_list_2",
         "link_list_3"
+      ],
+      "custom_css": [
+        ".store-info-content img {width: auto; height: 34px; max-width: 100%; aspect-ratio: auto; object-fit: contain; object-position: left center; margin-bottom: 14px;}"
       ]
     }
   },

@@ -1,7 +1,7 @@
 {% render 'theme-type' %}
 {%- comment -%}
-  Materia Themes. The account's addresses (/account/addresses). Storelib saves a
-  customer's addresses at checkout, so this page lists them and edits nothing.
+  Materia Themes. The account's addresses (/account/addresses): the platform's
+  customer_address forms add, edit and delete them (classic customer accounts).
  
   Live edits: shopify/assets/live-account-pages.js.
 {%- endcomment -%}
@@ -23,7 +23,7 @@
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign custom = st.enable_custom_style
 -%}
 {% render 'account-pages-base', sid: sid %}
@@ -52,11 +52,63 @@
                 {%- endif -%}
                 <div class="ap-addr__body">{{ address | format_address }}</div>
                 {%- if address.phone != blank -%}<p class="ap-addr__phone">{{ address.phone }}</p>{%- endif -%}
+                <div class="ap-addr__actions">
+                  <details class="ap-addr__edit">
+                    <summary class="ap__link">{{ 'customer.addresses.edit' | t }}</summary>
+                    {%- form 'customer_address', address, class: 'ap__form' -%}
+                      {%- if form.errors -%}<div class="ap__msg ap__msg--error error" role="alert">{{ form.errors | default_errors }}</div>{%- endif -%}
+                      {%- render 'customer-address-form', form: form, uid: address.id -%}
+                      <button type="submit" class="btn-primary ap__btn" data-theme-button="primary" data-sl-button>{{ 'customer.addresses.update' | t }}</button>
+                    {%- endform -%}
+                  </details>
+                  <form method="post" action="{{ address.url }}" class="ap-addr__delete" data-confirm="{{ 'customer.addresses.delete_confirm' | t | escape }}">
+                    <input type="hidden" name="_method" value="delete">
+                    <button type="submit" class="ap__link">{{ 'customer.addresses.delete' | t }}</button>
+                  </form>
+                </div>
               </li>
             {%- endfor -%}
           </ul>
         {%- else -%}
           <p class="ap-card ap__t ap-addr__none" data-ap-text="empty_text">{{ st.empty_text | escape }}</p>
+        {%- endif -%}
+        {%- if customer -%}
+          <details class="ap-card ap-addr__new"{% if customer.addresses.size == 0 %} open{% endif %}>
+            <summary class="ap__h ap-addr__new-title">{{ 'customer.addresses.add_new' | t }}</summary>
+            {%- form 'customer_address', customer.new_address, class: 'ap__form' -%}
+              {%- if form.errors -%}<div class="ap__msg ap__msg--error error" role="alert">{{ form.errors | default_errors }}</div>{%- endif -%}
+              {%- render 'customer-address-form', form: form, uid: 'new' -%}
+              <button type="submit" class="btn-primary ap__btn" data-theme-button="primary" data-sl-button>{{ 'customer.addresses.add' | t }}</button>
+            {%- endform -%}
+          </details>
+          <script>
+            (function () {
+              var root = document.getElementById('shopify-section-{{ sid }}');
+              if (!root || root.__apAddr) return;
+              root.__apAddr = true;
+              function provinces(select) {
+                var target = document.getElementById(select.getAttribute('data-province-target'));
+                var wrap = root.querySelector('[data-province-wrap="' + select.getAttribute('data-province-target') + '"]');
+                if (!target) return;
+                var option = select.options[select.selectedIndex];
+                var list = [];
+                try { list = JSON.parse(option ? option.getAttribute('data-provinces') || '[]' : '[]'); } catch (e) {}
+                var wanted = target.getAttribute('data-default') || target.value;
+                target.innerHTML = '';
+                list.forEach(function (p) { var o = document.createElement('option'); o.value = p[0]; o.textContent = p[1]; if (p[0] === wanted || p[1] === wanted) o.selected = true; target.appendChild(o); });
+                if (wrap) wrap.hidden = list.length === 0;
+              }
+              root.querySelectorAll('[data-address-country]').forEach(function (select) {
+                var wanted = select.getAttribute('data-default');
+                if (wanted) for (var i = 0; i < select.options.length; i++) if (select.options[i].value === wanted || select.options[i].text === wanted) { select.selectedIndex = i; break; }
+                provinces(select);
+                select.addEventListener('change', function () { var t = document.getElementById(select.getAttribute('data-province-target')); if (t) t.removeAttribute('data-default'); provinces(select); });
+              });
+              root.querySelectorAll('form[data-confirm]').forEach(function (form) {
+                form.addEventListener('submit', function (e) { if (!window.confirm(form.getAttribute('data-confirm'))) e.preventDefault(); });
+              });
+            })();
+          </script>
         {%- endif -%}
       </div>
     </div>
@@ -69,9 +121,25 @@
   #shopify-section-{{ sid }} .ap-addr__default { color: var(--ap-h-c, var(--color-heading)); font-weight: 600; margin-bottom: 8px !important; }
   #shopify-section-{{ sid }} .ap-addr__body { overflow-wrap: anywhere; }
   #shopify-section-{{ sid }} .ap-addr__none { margin: 0; }
+  #shopify-section-{{ sid }} .ap-addr__actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 4px 18px; margin-top: 12px; }
+  #shopify-section-{{ sid }} .ap-addr__actions details[open] { flex-basis: 100%; }
+  #shopify-section-{{ sid }} .ap-addr__edit summary, #shopify-section-{{ sid }} .ap-addr__new summary { cursor: pointer; list-style: none; }
+  #shopify-section-{{ sid }} .ap-addr__edit summary::-webkit-details-marker, #shopify-section-{{ sid }} .ap-addr__new summary::-webkit-details-marker { display: none; }
+  #shopify-section-{{ sid }} .ap-addr__delete { margin: 0; }
+  #shopify-section-{{ sid }} .ap-addr__delete .ap__link { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
+  #shopify-section-{{ sid }} .ap-addr__new { margin-top: 24px; }
+  #shopify-section-{{ sid }} .ap-addr__new-title { margin: 0; font-size: 18px; }
+  #shopify-section-{{ sid }} .ap-addr__new[open] .ap-addr__new-title { margin-bottom: 16px; }
+  #shopify-section-{{ sid }} .ap-addr__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; margin: 12px 0 16px; }
+  #shopify-section-{{ sid }} .ap-addr__grid .ap__field { display: flex; flex-direction: column; gap: 6px; }
+  #shopify-section-{{ sid }} .ap-addr__grid input, #shopify-section-{{ sid }} .ap-addr__grid select { width: 100%; }
+  #shopify-section-{{ sid }} .ap-addr__wide { grid-column: 1 / -1; }
+  #shopify-section-{{ sid }} .ap-addr__check { display: flex; align-items: center; gap: 8px; }
+  @media (max-width: 575px) { #shopify-section-{{ sid }} .ap-addr__grid { grid-template-columns: minmax(0, 1fr); } }
 </style>{% schema %}
 {
-  "name": "Addresses",
+  "class": "s-tt",
+"name": "Addresses",
   "settings": [
     {
       "type": "header",
@@ -81,7 +149,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",

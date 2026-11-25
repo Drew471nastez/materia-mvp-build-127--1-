@@ -10,7 +10,7 @@
   assign section_st = section.settings
   assign st = section_st
   assign sid = section.id
-  assign color_scheme = section_st.color_scheme.id | default: section_st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section_st.color_scheme.id | default: section_st.color_scheme | default: 'default'
   assign container = section_st.section_width
   assign custom = st.enable_custom_style
   assign header_size = ''
@@ -87,7 +87,7 @@
 </div>{% schema %}
 {
   "name": "Store locations",
-  "class": "bls-store-location-page",
+  "class": "bls-store-location-page s-tt",
   "settings": [
     {
       "type": "header",
@@ -97,7 +97,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",

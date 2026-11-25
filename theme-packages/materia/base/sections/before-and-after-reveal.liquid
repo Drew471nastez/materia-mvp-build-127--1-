@@ -1,6 +1,7 @@
+{{ 'before-after-controls.css' | asset_url | stylesheet_tag }}
 <script src="{{ 'before-after-controls.js' | asset_url }}" defer="defer"></script>
 {%- comment -%} Runtime, once per page (the CSS and hero-image-one.js from layout/theme.storelib, every other script from the tags at the top of this file): shopify/assets/before-after-controls.css, shopify/assets/before-after-controls.js. {%- endcomment -%}
-{% render 'theme-type' %}
+{% render 'theme-type', inline: true %}
 {%- liquid
   assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
@@ -74,8 +75,18 @@
 {%- liquid
   assign st  = section.settings
   assign sid = section.id
-  assign placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Cg fill=%22%23000000%22 fill-opacity=%220.18%22%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22/%3E%3C/g%3E%3C/svg%3E'
-  assign av_placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22%3E%3Cg fill=%22%23000000%22 fill-opacity=%220.22%22%3E%3Ccircle cx=%2220%22 cy=%2215%22 r=%227%22/%3E%3Cpath d=%22M6 38c1-8 7-12 14-12s13 4 14 12z%22/%3E%3C/g%3E%3C/svg%3E'
+  capture placeholder
+    render 'placeholder-image', type: 'collection-4', scheme: color_scheme, ratio: '4/3', format: 'url'
+  endcapture
+  assign placeholder = placeholder | strip
+  capture placeholder_after
+    render 'placeholder-image', type: 'collection-5', scheme: color_scheme, ratio: '4/3', format: 'url'
+  endcapture
+  assign placeholder_after = placeholder_after | strip
+  capture av_placeholder
+    render 'placeholder-image', type: 'avatar', scheme: color_scheme, ratio: '1/1', format: 'url'
+  endcapture
+  assign av_placeholder = av_placeholder | strip
 
   assign before_block = nil
   assign after_block  = nil
@@ -416,7 +427,7 @@
 
           {%- when 'button' -%}
             {%- if true -%}
-              <a id="block-{{ block.id }}" class="bar__btn" data-ba-block="{{ block.id }}" data-ba-type="{{ block.type }}" data-ba-settings="{{ bs | json | escape }}" data-sl-button data-button-role="primary" data-theme-button="primary"{% if bs.use_theme_button == false %} data-own-shape{% if bs.weight_enable %} data-own-weight{% endif %}{% if block_font %} data-own-font{% endif %}{% endif %} href="{{ bs.link | url }}" {{ block.shopify_attributes }}>{{ bs.text | escape }}</a>
+              <a id="block-{{ block.id }}" class="bar__btn" data-ba-block="{{ block.id }}" data-ba-type="{{ block.type }}" data-ba-settings="{{ bs | json | escape }}" data-sl-button data-button-role="primary" data-theme-button="primary"{% if bs.use_theme_button == false %} data-own-shape{% if bs.weight_enable %} data-own-weight{% endif %}{% if block_font %} data-own-font{% endif %}{% endif %} href="{{ bs.link }}" {{ block.shopify_attributes }}>{{ bs.text | escape }}</a>
 
             {%- endif -%}
 
@@ -426,7 +437,7 @@
 
     {%- comment -%}========== IMAGES + ARROW ==========={%- endcomment -%}
     <div class="bar__images">
-      <div class="bar__img-card bar__img-card--before" data-ba-block="{{ before_block.id }}" data-ba-type="before" data-ba-settings="{{ before_block.settings | json | escape }}"
+      <div class="bar__img-card bar__img-card--before" data-ba-ph="{{ placeholder }}" data-ba-block="{{ before_block.id }}" data-ba-type="before" data-ba-settings="{{ before_block.settings | json | escape }}"
            {% if before_block %}{{ before_block.shopify_attributes }}{% endif %}>
         {%- if before_block and before_block.settings.image -%}
           <img src="{{ before_block.settings.image | image_url: width: 1200 }}"
@@ -434,7 +445,7 @@
                loading="lazy"
                width="{{ before_block.settings.image.width }}" height="{{ before_block.settings.image.height }}">
         {%- else -%}
-          <img src="{{ placeholder }}" alt="" loading="lazy">
+          <img src="{{ placeholder }}" alt="" width="400" height="300" loading="lazy">
         {%- endif -%}
         {%- if before_block -%}<span class="bar__label">{{ before_block.settings.label | default: fb_accessibility_before | escape }}</span>{%- endif -%}
       </div>
@@ -473,7 +484,7 @@
         {%- endcase -%}
       </span>
 
-      <div class="bar__img-card bar__img-card--after" data-ba-block="{{ after_block.id }}" data-ba-type="after" data-ba-settings="{{ after_block.settings | json | escape }}"
+      <div class="bar__img-card bar__img-card--after" data-ba-ph="{{ placeholder_after }}" data-ba-block="{{ after_block.id }}" data-ba-type="after" data-ba-settings="{{ after_block.settings | json | escape }}"
            {% if after_block %}{{ after_block.shopify_attributes }}{% endif %}>
         {%- if after_block and after_block.settings.image -%}
           <img src="{{ after_block.settings.image | image_url: width: 1200 }}"
@@ -481,7 +492,7 @@
                loading="lazy"
                width="{{ after_block.settings.image.width }}" height="{{ after_block.settings.image.height }}">
         {%- else -%}
-          <img src="{{ placeholder }}" alt="" loading="lazy">
+          <img src="{{ placeholder_after }}" alt="" width="400" height="300" loading="lazy">
         {%- endif -%}
         {%- if after_block -%}<span class="bar__label">{{ after_block.settings.label | default: fb_accessibility_after | escape }}</span>{%- endif -%}
       </div>
@@ -504,6 +515,7 @@
             </svg></template>
 </section>
 {% render 'before-after-initial', section:section %}
+
 
 {% schema %}
 {
@@ -1121,7 +1133,6 @@
               "label": "H4"
             }
           ],
-          "hidden": true,
           "visible_if": "{{ false }}"
         },
         {
@@ -1552,8 +1563,8 @@
   ],
   "presets": [
     {
-      "name": "Before And After Reveal",
-      "category": "Features",
+      "name": "Before & After – Reveal",
+      "category": "09 · Comparisons",
       "blocks": [
         {
           "type": "trust"

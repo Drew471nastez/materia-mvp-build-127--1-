@@ -1,15 +1,32 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. Sizes typed in a block, drawn like Storelib's own chart
   (snippets/product-size-chart-content): the first line names the columns,
-  then one size per line, cells split by "|". With unit 'cm' or 'in' (the
+  then one size per line, cells split by "|" (or by commas or tabs when
+  no "|" is used). With unit 'cm' or 'in' (the
   unit the numbers were typed in) visitors get a cm / in switch: number
   cells and ranges such as 86-91 after the first column are converted, and
   those columns name their unit. Prints nothing without at least one size.
   Inputs: data, unit ('', 'cm' or 'in'), uid, name (optional title).
-{%- endcomment -%}
+
+  @param {string} data - Rows
+  @param {string} [name] - Name; no current caller passes it
+  @param {string} uid - Uid
+  @param {string} unit - Unit
+
+  @example
+  {% render 'size-rows-table', data: mf_rows, unit: '', uid: chart_id %}
+{%- enddoc -%}
 {%- liquid
   assign sr_sep = '~~sr-row~~'
-  assign sr_raw = data | strip | replace: '<br />', '' | newline_to_br | split: '<br />'
+  assign sr_data = data | strip | replace: '<br />', ''
+  unless sr_data contains '|'
+    if sr_data contains '	'
+      assign sr_data = sr_data | replace: '	', '|'
+    else
+      assign sr_data = sr_data | replace: ',', '|'
+    endif
+  endunless
+  assign sr_raw = sr_data | newline_to_br | split: '<br />'
 -%}
 {%- capture sr_joined -%}{%- for sr_line in sr_raw -%}{%- assign sr_l = sr_line | strip -%}{%- if sr_l != blank -%}{{ sr_l }}{{ sr_sep }}{%- endif -%}{%- endfor -%}{%- endcapture -%}
 {%- assign sr_lines = sr_joined | split: sr_sep -%}
@@ -28,7 +45,7 @@
 <div class="mt-size-chart{% if sr_both %} mt-size-chart--units{% endif %}" data-mt-size-chart data-size-triggers="{{ settings.size_trigger | default: 'Size' | escape }}">
   {%- if name != blank -%}<p class="mt-size-chart__name"><strong>{{ name | escape }}</strong></p>{%- endif -%}
   {%- if sr_both -%}
-  <div class="mt-size-chart__units" role="radiogroup" aria-label="Units">
+  <div class="mt-size-chart__units" role="radiogroup" aria-label="{{ 'accessibility.ui.units' | t }}">
     <label><input type="radio" name="mt-size-unit-rows-{{ uid }}" value="cm"{% if sr_unit == 'cm' %} checked{% endif %}> cm</label>
     <label><input type="radio" name="mt-size-unit-rows-{{ uid }}" value="in"{% if sr_unit == 'in' %} checked{% endif %}> in</label>
   </div>

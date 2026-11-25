@@ -1,4 +1,4 @@
-<script src="{{ 'live-products-c.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-products-c.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-products-c-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
@@ -25,7 +25,7 @@
 {%- endcomment -%}
 {%- liquid
   assign s = section.settings
-  assign scheme = s.color_scheme.id | default: s.color_scheme | default: 'default-color-scheme'
+  assign scheme = s.color_scheme.id | default: s.color_scheme | default: 'default'
   assign uid = section.id
   assign custom = s.enable_custom_style
   assign mode = s.interaction_mode | default: 'click'
@@ -106,9 +106,9 @@
   }
 </style>
 
-<div class="stl pch shop-the-look-{{ uid }} color-{{ scheme }} gradient" data-pch="stl"{% if s.enable_custom_fonts %} data-own-font{% endif %} data-pch-section="{{ uid }}" data-pch-mode="{{ mode }}" data-pch-place="side" data-width="{{ s.width | default: 'fluid_container' }}" data-pulse="{% if s.pulse %}true{% else %}false{% endif %}" data-labels="{% if s.show_labels %}true{% else %}false{% endif %}" data-has-mobile="{% if s.image_mobile != blank %}true{% else %}false{% endif %}" data-pch-editing="{% if request.design_mode %}true{% else %}false{% endif %}" data-pch-settings="{{ s | json | escape }}" data-pch-defaults="&#123;&quot;color_scheme&quot;:&quot;default-color-scheme&quot;,&quot;width&quot;:&quot;fluid_container&quot;,&quot;show_price&quot;:true,&quot;link_label&quot;:&quot;View product&quot;,&quot;sold_out_label&quot;:&quot;Sold out&quot;,&quot;image_radius&quot;:0,&quot;interaction_mode&quot;:&quot;click&quot;,&quot;dot_size&quot;:18,&quot;pulse&quot;:true,&quot;show_labels&quot;:true,&quot;enable_custom_style&quot;:false,&quot;dot_color&quot;:&quot;#FFFFFF&quot;,&quot;enable_custom_fonts&quot;:false,&quot;heading_font&quot;:&quot;assistant_n4&quot;,&quot;body_font&quot;:&quot;assistant_n4&quot;,&quot;padding_top&quot;:36,&quot;padding_bottom&quot;:36&#125;" data-pch-block-defaults="&#123;&quot;hotspot&quot;:&#123;&quot;x_d&quot;:50,&quot;y_d&quot;:50,&quot;x_m&quot;:50,&quot;y_m&quot;:50&#125;&#125;" style="{{ root_vars | strip_newlines }}">
+<div class="stl pch shop-the-look-{{ uid }} color-{{ scheme }} gradient" data-pch="stl"{% if s.enable_custom_fonts %} data-own-font{% endif %} data-pch-section="{{ uid }}" data-pch-mode="{{ mode }}" data-pch-place="side" data-width="{{ s.width | default: 'fluid_container' }}" data-pulse="{% if s.pulse %}true{% else %}false{% endif %}" data-labels="{% if s.show_labels %}true{% else %}false{% endif %}" data-has-mobile="{% if s.image_mobile != blank %}true{% else %}false{% endif %}" data-pch-editing="{% if request.design_mode %}true{% else %}false{% endif %}" {% if request.design_mode %}data-pch-settings="{{ s | json | escape }}"{% endif %} data-pch-defaults="&#123;&quot;color_scheme&quot;:&quot;default&quot;,&quot;width&quot;:&quot;fluid_container&quot;,&quot;show_price&quot;:true,&quot;link_label&quot;:&quot;View product&quot;,&quot;sold_out_label&quot;:&quot;Sold out&quot;,&quot;image_radius&quot;:0,&quot;interaction_mode&quot;:&quot;click&quot;,&quot;dot_size&quot;:18,&quot;pulse&quot;:true,&quot;show_labels&quot;:true,&quot;enable_custom_style&quot;:false,&quot;dot_color&quot;:&quot;#FFFFFF&quot;,&quot;enable_custom_fonts&quot;:false,&quot;heading_font&quot;:&quot;assistant_n4&quot;,&quot;body_font&quot;:&quot;assistant_n4&quot;,&quot;padding_top&quot;:36,&quot;padding_bottom&quot;:36&#125;" data-pch-block-defaults="&#123;&quot;hotspot&quot;:&#123;&quot;x_d&quot;:50,&quot;y_d&quot;:50,&quot;x_m&quot;:50,&quot;y_m&quot;:50&#125;&#125;" style="{{ root_vars | strip_newlines }}">
   <div class="stl__inner">
-    <div class="stl__stage" data-pch-stage role="group" aria-label="Shop the look">
+    <div class="stl__stage" data-pch-stage role="group" aria-label="{{ 'general.outfit-idea.shop_the_look' | t }}">
       <div class="stl__media">
         {%- if s.image != blank -%}
           {{ s.image | image_url: width: 2200 | image_tag: loading: 'lazy', decoding: 'async', alt: s.image.alt, widths: '550,750,1100,1500,1800,2200', sizes: '100vw', class: 'stl__img stl__img--desktop' }}
@@ -116,7 +116,7 @@
             {{ s.image_mobile | image_url: width: 1100 | image_tag: loading: 'lazy', decoding: 'async', alt: s.image_mobile.alt, widths: '375,550,750,1100', sizes: '100vw', class: 'stl__img stl__img--mobile' }}
           {%- endif -%}
         {%- else -%}
-          {{ 'lifestyle-1' | placeholder_svg_tag: 'stl__placeholder' }}
+          {%- render 'placeholder-image', type: 'lifestyle-1', class: 'stl__placeholder' -%}
         {%- endif -%}
       </div>
 
@@ -147,7 +147,7 @@
             assign card_id = 'pch-pop-' | append: uid | append: '-' | append: block.id
           -%}
           {%- capture spot_json -%}{"custom_label":{{ b.custom_label | json }},"x_d":{{ xd | json }},"y_d":{{ yd | json }},"x_m":{{ xm | json }},"y_m":{{ ym | json }},"title":{{ p.title | json }}}{%- endcapture -%}
-          <div class="pch-spot stl__hotspot" data-pch-spot data-pch-block="{{ block.id }}" data-pch-type="hotspot" data-pch-settings="{{ spot_json | escape }}"{% if xd > 50 %} data-flip-d{% endif %}{% if xm > 50 %} data-flip-m{% endif %} style="--x-d: {{ xd }}%; --y-d: {{ yd }}%; --x-m: {{ xm }}%; --y-m: {{ ym }}%;"{% if hide_spot %} hidden{% endif %} {{ block.shopify_attributes }}>
+          <div class="pch-spot stl__hotspot" data-pch-spot data-pch-block="{{ block.id }}" data-pch-type="hotspot" {% if request.design_mode %}data-pch-settings="{{ spot_json | escape }}"{% endif %}{% if xd > 50 %} data-flip-d{% endif %}{% if xm > 50 %} data-flip-m{% endif %} style="--x-d: {{ xd }}%; --y-d: {{ yd }}%; --x-m: {{ xm }}%; --y-m: {{ ym }}%;"{% if hide_spot %} hidden{% endif %} {{ block.shopify_attributes }}>
             <button type="button" class="pch-dot stl__dot" data-pch-dot aria-expanded="false" aria-controls="{{ card_id }}">
               <span class="pch-dot__core" aria-hidden="true"></span>
               <span class="visually-hidden" data-pch-dot-label>{{ label_text | escape }}</span>
@@ -159,7 +159,7 @@
                   {%- if p.featured_image != blank -%}
                     {{ p.featured_image | image_url: width: 144 | image_tag: loading: 'lazy', decoding: 'async', alt: '', width: 72, height: 72, widths: '72,144', class: 'stl__card-img' }}
                   {%- else -%}
-                    {{ 'product-1' | placeholder_svg_tag: 'stl__card-img' }}
+                    {%- render 'placeholder-image', type: 'product-1', class: 'stl__card-img' -%}
                   {%- endif -%}
                 </span>
                 <span class="stl__card-info">
@@ -187,7 +187,7 @@
 {
   "name": "Product Shop The Look 2",
   "tag": "section",
-  "class": "section",
+  "class": "section s-tt",
   "settings": [
     {
       "type": "header",
@@ -197,7 +197,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -494,8 +494,8 @@
   "max_blocks": 8,
   "presets": [
     {
-      "name": "Product Shop The Look 2",
-      "category": "Products",
+      "name": "Shop the Look – Hotspots",
+      "category": "03 · Products",
       "blocks": [
         {
           "type": "hotspot",

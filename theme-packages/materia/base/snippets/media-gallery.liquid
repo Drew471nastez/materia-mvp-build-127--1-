@@ -1,7 +1,19 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. Developed By Materia Themes.
   lightbox: true opens the pictures full screen (product-page-ui.js).
-{%- endcomment -%}
+
+  @param {string} desktop_layout - Desktop layout
+  @param {object} images - Images
+  @param {boolean} lightbox - Lightbox
+  @param {product} product - The product to render
+  @param {section} section - The section being rendered
+  @param {object} section_st - Section settings object
+  @param {object} theme_st - Theme settings object
+  @param {string} [type] - Type
+
+  @example
+  {% render 'media-gallery', images: media, section_st: section.settings, theme_st: theme_st, product: product, section: section, position_index: default_position, desktop_layout: desktop_layout, type: type, lightbox: psl_lightbox %}
+{%- enddoc -%}
 {% liquid
   assign layout = 'grid'
 
@@ -92,13 +104,31 @@
     assign mg_autoplay = 'autoplay'
   endif
 -%}
+{%- liquid
+  assign mst_block = nil
+  if type != 'quickview' and section.blocks.size > 0
+    for mst_candidate in section.blocks
+      if mst_candidate.type == 'media_side_tiles'
+        assign mst_block = mst_candidate
+        break
+      endif
+    endfor
+  endif
+  assign mst_html = ''
+  if mst_block
+    capture mst_html
+      render 'media-side-tiles', block: mst_block
+    endcapture
+  endif
+  assign mst_sig = mst_html | md5
+-%}
 <media-gallery
   class="block{% if enable_sticky_content_on_desktop %} sticky top-30{% endif %}"
   data-layout="{{ layout }}"
   data-mt-video="{{ mg_autoplay }}"
   data-mt-media-viewer
   data-mt-product-id="{{ product.id }}"
-  data-mt-gallery-config="{{ layout }}|{{ desktop_layout }}|{{ mobile_options }}|{{ mg_per_view }}|{{ image_zoom }}|{{ zoom_option }}|{{ lightbox }}|{{ enable_sticky_content_on_desktop }}|{{ section_st.media_square }}|{{ section_st.enable_image_square }}|{{ section_st.enable_video_autoplay }}|{{ section_st.image_ratio }}|{{ section_st.enable_video_looping }}|{{ section_st.enable_video_controls }}"
+  data-mt-gallery-config="{{ layout }}|{{ desktop_layout }}|{{ mobile_options }}|{{ mg_per_view }}|{{ image_zoom }}|{{ zoom_option }}|{{ lightbox }}|{{ enable_sticky_content_on_desktop }}|{{ section_st.media_square }}|{{ section_st.enable_image_square }}|{{ section_st.enable_video_autoplay }}|{{ section_st.image_ratio }}|{{ section_st.enable_video_looping }}|{{ section_st.enable_video_controls }}|{{ mst_sig }}"
   data-mt-gallery-media="{{ product.media | json | escape }}"
   {% if section_st.media_square or section_st.enable_image_square %}data-square{% endif %}
   {% if lightbox %}data-mt-lightbox{% endif %}
@@ -139,6 +169,7 @@
         {%- if type == 'quickview' -%}
           {%- render 'swiper-navigation', class: 'original-style' -%}
         {% endif %}
+        {%- if mst_block -%}<div class="mst-row" style="--mst-row-gap: {{ mst_block.settings.gap | default: 8 }}px;">{%- endif -%}
         <div class="media-main-swiper skeleton-loading">
           <div class="swiper-wrapper-preview swiper">
             <div class="swiper-wrapper">
@@ -165,6 +196,7 @@
             {%- endif -%}
           </div>
         </div>
+        {%- if mst_block -%}{{- mst_html -}}</div>{%- endif -%}
         {% comment %} {%- render 'swiper-navigation' -%} {% endcomment %}
         {% if images.size > 1 and desktop_layout == 'thumbnail_left' or images.size > 1 and desktop_layout == 'thumbnail_bottom' %}
           <div class="media-thumb-swiper{% if desktop_layout == 'thumbnail_left' %} mt-10{% endif %}{% if mobile_options == 'hidden_thumbnail' %} thumbnail-slide__mobile--hidden{% endif %}">
@@ -205,6 +237,7 @@
       </slide-with-thumbs>
     {% when 'grid' %}
       {% comment %} Case grid layout {% endcomment %}
+      {%- if mst_block -%}<div class="mst-row" style="--mst-row-gap: {{ mst_block.settings.gap | default: 8 }}px;">{%- endif -%}
       <div
         id="GalleryViewer-{{ section.id }}"
         class="grid grid-cols gap grid_scroll"
@@ -222,8 +255,10 @@
           layout: layout
         %}
       </div>
+      {%- if mst_block -%}{{- mst_html -}}</div>{%- endif -%}
     {% else %}
       {% comment %} Case stack layout {% endcomment %}
+      {%- if mst_block -%}<div class="mst-row" style="--mst-row-gap: {{ mst_block.settings.gap | default: 8 }}px;">{%- endif -%}
       <div
         class="stacked gap-10 grid grid-cols grid_scroll"
         id="GalleryViewer-{{ section.id }}"
@@ -241,6 +276,7 @@
           layout: layout
         %}
       </div>
+      {%- if mst_block -%}{{- mst_html -}}</div>{%- endif -%}
   {% endcase %}
   {% comment %} Case product has only one image {% endcomment %}
   {% comment %}

@@ -1,3 +1,12 @@
+{% doc %}
+  Countdown timer block of the product page.
+
+  @param {block} block - The block being rendered
+  @param {product} product - The product to render
+
+  @example
+  {% render 'product-countdown-timer', product: product, block: block %}
+{% enddoc -%}
 {%- assign ts = block.settings -%}
 {%- capture timer_end -%}{%- render 'countdown-schedule', controls: ts, product: product, allow_product: true -%}{%- endcapture -%}
 {%- assign timer_end = timer_end | strip -%}

@@ -72,7 +72,7 @@
           "settings": {
             "heading": "Caps",
             "subheading": "<p>Six panel cotton twill</p>",
-            "link": "/search?q=cap",
+            "link": "/collections/caps",
             "image": "shopify://shop_images/capstees-tile-cap.webp"
           }
         },
@@ -81,7 +81,7 @@
           "settings": {
             "heading": "Tees",
             "subheading": "<p>Heavy 240 gsm cotton</p>",
-            "link": "/search?q=tee",
+            "link": "/collections/tees",
             "image": "shopify://shop_images/capstees-tile-tee.webp"
           }
         },
@@ -90,7 +90,7 @@
           "settings": {
             "heading": "Crewnecks",
             "subheading": "<p>Brushed back fleece</p>",
-            "link": "/search?q=crewneck",
+            "link": "/collections/crewnecks",
             "image": "shopify://shop_images/capstees-tile-crew.webp"
           }
         }

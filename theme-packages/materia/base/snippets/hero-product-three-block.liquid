@@ -1,8 +1,17 @@
+{% doc %}
+  One block of the Hero Product Three section.
+
+  @param {block} block - The block being rendered
+  @param {string} [kind] - Kind
+
+  @example
+  {% render 'hero-product-three-block', block: block, kind: kind %}
+{% enddoc -%}
 {% assign b = block.settings %}
 {% assign render_kind = kind | default: block.type %}{% case render_kind %}
 {% when 'heading' %}<h1 class="hp3__heading hp3__type" data-field="heading_text" data-rich style="font-family:var(--hp3-font,var(--heading-font))!important;font-size:var(--hp3-size,var(--h1-size,48px))!important;font-weight:var(--hp3-weight,var(--heading-weight,600))!important;line-height:var(--hp3-line,var(--heading-line-height,1.2))!important;text-transform:var(--hp3-case,var(--heading-text-transform,none))!important;letter-spacing:var(--hp3-letter,var(--heading-letter-spacing,normal))!important;">{{ b.heading_text | default: b.heading }}</h1>
 {% when 'subheading', 'rich_text' %}<div class="hp3__copy hp3__type" data-field="text" data-rich>{{ b.text }}</div>
-{% when 'primary_button', 'secondary_button' %}{% assign button_link = b.link | default: b.button_link %}{% assign button_label = b.label | default: b.button_label %}{% assign role = 'primary' %}{% if block.type == 'secondary_button' %}{% assign role = 'secondary' %}{% endif %}{% if button_link != blank and button_link != '#' %}<a class="hp3__button" data-theme-button="{{ role }}" data-sl-button href="{{ button_link | url | escape }}" data-field="label">{{ button_label | escape }}</a>{% else %}<button type="button" class="hp3__button" data-theme-button="{{ role }}" data-sl-button data-field="label">{{ button_label | escape }}</button>{% endif %}
+{% when 'primary_button', 'secondary_button' %}{% assign button_link = b.link | default: b.button_link %}{% assign button_label = b.label | default: b.button_label %}{% assign role = 'primary' %}{% if block.type == 'secondary_button' %}{% assign role = 'secondary' %}{% endif %}{% if button_link != blank and button_link != '#' %}<a class="hp3__button" data-theme-button="{{ role }}" data-sl-button href="{{ button_link | escape }}" data-field="label">{{ button_label | escape }}</a>{% else %}<button type="button" class="hp3__button" data-theme-button="{{ role }}" data-sl-button data-field="label">{{ button_label | escape }}</button>{% endif %}
 {% when 'guarantee_badge' %}{% assign benefit_text = b.text | default: b.benefit_text %}{% assign benefit_icon = b.icon | default: b.icon_preset %}<div class="hp3__inline"{% if benefit_text == blank %} hidden data-hp3-empty{% endif %}><span class="hp3__icon" data-icon="icon" aria-hidden="true">{% render 'hp-icon', icon: benefit_icon %}</span><span class="hp3__type" data-field="text">{{ benefit_text | escape }}</span></div>
 {% when 'pill_badge' %}<div class="hp3__pill"><span data-field="icon" aria-hidden="true">{{ b.icon | escape }}</span><span class="hp3__type" data-field="text">{{ b.text | escape }}</span></div>
 {% when 'accent_block' %}<span class="hp3__type" data-field="text"{% if b.text == blank %} hidden data-hp3-empty{% endif %}>{{ b.text | escape }}</span>

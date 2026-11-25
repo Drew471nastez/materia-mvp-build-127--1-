@@ -113,7 +113,7 @@
       put(wrap, '--r7h-mt-d', px(s.section_margin_top_desktop));
       put(wrap, '--r7h-mb-d', px(s.section_margin_bottom_desktop));
     }
-    put(root, 'scheme', scheme(s) || 'default-color-scheme');
+    put(root, 'scheme', scheme(s) || 'default');
     put(root, '@data-reset-spacing', bool(s.reset_spacing));
     put(c.q('[data-r7h-frame]'), 'width', WIDTHS.includes(s.section_width) ? s.section_width : fallbackWidth);
     put(root, '--r7h-gap', px(s.content_gap, 16));

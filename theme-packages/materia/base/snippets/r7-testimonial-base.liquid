@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. Rules that Testimonial Wall and Testimonial With Product
   share, scoped to one section (sid): the frame and its Section width, the
   eyebrow, heading and subheading blocks, the quote card (stars filled to a
@@ -7,7 +7,12 @@
   reaches these rules as --r7t-* properties and data-* attributes on the
   section root, printed by the section and repainted in the builder by
   assets/live-r7-testimonials.js with the same names and fallbacks.
-{%- endcomment -%}
+
+  @param {string} sid - Section id, used to scope CSS and element ids
+
+  @example
+  {% render 'r7-testimonial-base', sid: sid %}
+{%- enddoc -%}
 <style>
   #shopify-section-{{ sid }} .r7t { position: relative; background: var(--r7t-bg); color: var(--r7t-text); font-family: var(--r7t-bf); padding-top: var(--r7t-pt-m); padding-bottom: var(--r7t-pb-m); margin-top: var(--r7t-mt-m); margin-bottom: var(--r7t-mb-m); overflow: hidden; }
   #shopify-section-{{ sid }} .r7t[data-reset="true"] { margin-top: 0; margin-bottom: 0; }

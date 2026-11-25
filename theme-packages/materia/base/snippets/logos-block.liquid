@@ -1,5 +1,11 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. A block's own attributes in the Logos and trust sections,
   read by live-logos.js for live edits.
-{%- endcomment -%}
+
+  @param {block} block - The block being rendered
+  @param {boolean} [live] - Live
+
+  @example
+  {% render 'logos-block', block: block, live: true %}
+{%- enddoc -%}
 data-lg-block="{{ block.id }}" data-lg-type="{{ block.type }}"{% if request.design_mode or live %} data-lg-settings="{{ block.settings | json | escape }}"{% endif %} {{ block.shopify_attributes }}

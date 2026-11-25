@@ -1,8 +1,13 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. Each variant's picture, so the gallery can always go to it
   (theme.js variantMediaInfo / updateMedia). Main product and Featured
   product.
-{%- endcomment -%}
+
+  @param {product} product - The product to render
+
+  @example
+  {% render 'product-variant-media-json', product: product %}
+{%- enddoc -%}
 {%- unless product == empty or product == blank -%}
 <script type="application/json" data-variant-media>
   {

@@ -1,0 +1,105 @@
+/* section-image-with-text-steps.css: static styles of sections/image-with-text-steps.liquid, moved out of its inline <style> so they are cached.
+   :is(.s-image-with-text-steps,#_) is the section wrapper (schema class "s-image-with-text-steps"); #_ never matches and only keeps the
+   specificity of the former #shopify-section-<id> selector. Per-section values stay inline as custom properties. */
+:is(.s-image-with-text-steps,#_) { isolation: isolate; position: relative; }
+:is(.s-image-with-text-steps,#_) .iws-steps { background: var(--st-bg, var(--color-background)); }
+:is(.s-image-with-text-steps,#_) .iws {
+    padding: var(--st-pt) var(--st-px-m) var(--st-pb) !important;
+    font-family: var(--st-bfont, var(--body-font));
+  }
+:is(.s-image-with-text-steps,#_) .iws *, :is(.s-image-with-text-steps,#_) .iws *::before, :is(.s-image-with-text-steps,#_) .iws *::after { box-sizing: border-box; }
+:is(.s-image-with-text-steps,#_) .iws[data-width='full_width'] { padding-inline: 0 !important; }
+:is(.s-image-with-text-steps,#_) .iws[data-width='full_width'] .iws__media { border-radius: 0; }
+:is(.s-image-with-text-steps,#_) .iws[data-width='full_width'] .iws__col { padding-inline: var(--st-px-m); }
+:is(.s-image-with-text-steps,#_) .iws__inner {
+    max-width: var(--st-max); margin-inline: auto;
+    display: flex; flex-direction: column; gap: var(--st-gap-m);
+  }
+/* Image column */
+:is(.s-image-with-text-steps,#_) .iws__media {
+    flex: 0 0 100%; width: 100%; min-width: 0; position: relative; overflow: hidden;
+    border-radius: var(--st-radius); aspect-ratio: var(--st-ratio-m);
+    background: var(--st-img-bg, color-mix(in srgb, var(--color-text) 8%, var(--color-background)));
+  }
+:is(.s-image-with-text-steps,#_) .iws__media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Text column */
+:is(.s-image-with-text-steps,#_) .iws__col { flex: 1 1 100%; min-width: 0; display: flex; flex-direction: column; gap: var(--st-text-gap); }
+:is(.s-image-with-text-steps,#_) .iws__eyebrow {
+    margin: 0; font-size: var(--b-size, var(--sl-caption-size, 12px)); font-weight: var(--sl-caption-weight, 600);
+    text-transform: uppercase; letter-spacing: 0.18em; color: var(--b-color, var(--color-heading));
+  }
+:is(.s-image-with-text-steps,#_) .iws__heading {
+    margin: 0; color: var(--b-color, var(--color-heading)); font-family: var(--st-hfont, var(--heading-font));
+    font-weight: var(--b-weight, var(--heading-weight, 700));
+  }
+:is(.s-image-with-text-steps,#_) .iws__heading[data-custom] { line-height: 1.15; font-size: var(--b-size-m); }
+:is(.s-image-with-text-steps,#_) .iws__btn[data-own-shape] { font-size: var(--mb-font-size); padding: var(--mb-padding-y) var(--mb-padding-x); border-radius: var(--mb-radius); font-weight: var(--mb-weight); }
+:is(.s-image-with-text-steps,#_) [hidden] { display: none !important; }
+:is(.s-image-with-text-steps,#_) .iws__sub { margin: 0; line-height: 1.6; color: var(--b-color, var(--color-text)); font-size: var(--b-size, inherit); max-width: var(--b-max, 560px); }
+:is(.s-image-with-text-steps,#_) .iws__heading a, :is(.s-image-with-text-steps,#_) .iws__sub a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+:is(.s-image-with-text-steps,#_) .iws__sub p { margin: 0 0 0.5em; }
+:is(.s-image-with-text-steps,#_) .iws__sub p:last-child { margin: 0; }
+/* Steps */
+:is(.s-image-with-text-steps,#_) .iws__steps { margin: var(--st-steps-mt) 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+:is(.s-image-with-text-steps,#_) .iws__step {
+    --mk: var(--b-mk, var(--st-mk-color, var(--color-heading, currentColor)));
+    position: relative; display: grid; grid-template-columns: var(--st-mk) 1fr; gap: var(--st-gap-inline);
+    padding: 0 0 var(--st-gap-below) 0; align-items: start;
+  }
+:is(.s-image-with-text-steps,#_) .iws__step:not(:last-child)::before {
+    content: ''; position: absolute; top: var(--st-mk); bottom: 0; width: 0;
+    left: calc(var(--st-mk) / 2 - var(--st-line-w) / 2);
+    border-left: var(--st-line-w) var(--st-line-style) var(--st-line-color, color-mix(in srgb, var(--color-heading, currentColor) 35%, transparent));
+  }
+:is(.s-image-with-text-steps,#_) .iws__step-marker {
+    width: var(--st-mk); height: var(--st-mk); display: inline-flex; align-items: center; justify-content: center;
+    position: relative; z-index: 1; border-radius: 999px; line-height: 1; font-weight: 700; font-size: var(--st-mk-font);
+    color: var(--st-mk-text, var(--color-background)); background: var(--mk); border: var(--st-line-w) solid var(--mk);
+  }
+:is(.s-image-with-text-steps,#_) .iws__step-num, :is(.s-image-with-text-steps,#_) .iws__step-prefix { display: none; }
+:is(.s-image-with-text-steps,#_) :is(.iws__step--numbered, .iws__step--numbered_outline) .iws__step-num { display: inline; }
+:is(.s-image-with-text-steps,#_) .iws__step--prefixed .iws__step-prefix { display: inline; }
+:is(.s-image-with-text-steps,#_) :is(.iws__step--dot, .iws__step--dot_outline) .iws__step-marker {
+    width: calc(var(--st-mk) / 2); height: calc(var(--st-mk) / 2); margin: calc(var(--st-mk) / 4) 0 0 calc(var(--st-mk) / 4);
+  }
+:is(.s-image-with-text-steps,#_) .iws__step--dot .iws__step-marker { border: 0; }
+:is(.s-image-with-text-steps,#_) .iws__step--dot_outline .iws__step-marker { background: transparent; }
+:is(.s-image-with-text-steps,#_) .iws__step--numbered_outline .iws__step-marker { background: transparent; color: var(--mk); }
+:is(.s-image-with-text-steps,#_) .iws__step--prefixed { grid-template-columns: 1fr; }
+:is(.s-image-with-text-steps,#_) .iws__step--prefixed .iws__step-marker,
+  :is(.s-image-with-text-steps,#_) .iws__step--prefixed:not(:last-child)::before { display: none; }
+:is(.s-image-with-text-steps,#_) .iws__step--icon .iws__step-marker { background: transparent; border: 0; color: var(--mk); }
+:is(.s-image-with-text-steps,#_) .iws__step-marker img { width: 100%; height: 100%; object-fit: contain; }
+:is(.s-image-with-text-steps,#_) .iws__step:not(.iws__step--icon) .iws__step-marker img { display: none; }
+:is(.s-image-with-text-steps,#_) .iws__step-content { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+:is(.s-image-with-text-steps,#_) .iws__step-title {
+    margin: 0; font-family: var(--st-hfont, var(--heading-font)); font-weight: var(--heading-weight, 700);
+    font-size: var(--st-title-size, var(--sl-h4-size, 18px)); line-height: 1.3;
+    color: var(--b-title, var(--st-title-color, var(--color-heading)));
+  }
+:is(.s-image-with-text-steps,#_) .iws__step-prefix { color: var(--mk); margin-right: 6px; font-feature-settings: 'tnum'; }
+:is(.s-image-with-text-steps,#_) .iws__step-desc {
+    margin: 0; font-size: var(--st-desc-size, var(--sl-body-small-size, 14px)); line-height: 1.55;
+    color: var(--b-desc, var(--st-desc-color, var(--color-text)));
+  }
+:is(.s-image-with-text-steps,#_) .iws__step-desc p { margin: 0 0 0.5em; }
+:is(.s-image-with-text-steps,#_) .iws__step-desc p:last-child { margin: 0; }
+:is(.s-image-with-text-steps,#_) .iws__step-desc a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+/* Button: paint, shape, type, hover effect and timing come from Theme
+     settings > Buttons through the theme button contract
+     (theme-button-contract.css). The section's own colours (Enable custom
+     styling), and its size and shape when "Use theme button style" is off,
+     enter as tokens from snippets/button-overrides. Only placement is set here. */
+:is(.s-image-with-text-steps,#_) .iws__btn { margin-top: var(--st-btn-mt); align-self: flex-start; width: max-content; max-width: 100%; }
+@media (min-width: 768px) {
+    :is(.s-image-with-text-steps,#_) .iws { padding-inline: var(--st-px-d) !important; }
+    :is(.s-image-with-text-steps,#_) .iws[data-width='full_width'] { padding-inline: 0 !important; }
+    :is(.s-image-with-text-steps,#_) .iws[data-width='full_width'] .iws__col { padding-inline: var(--st-px-d); }
+    :is(.s-image-with-text-steps,#_) .iws__inner { flex-direction: var(--st-dir); gap: var(--st-gap-d); align-items: var(--st-valign); }
+    :is(.s-image-with-text-steps,#_) .iws__media {
+      flex: 0 0 calc(var(--st-img-w) - var(--st-gap-d) / 2); max-width: calc(var(--st-img-w) - var(--st-gap-d) / 2);
+      aspect-ratio: var(--st-ratio-d);
+    }
+    :is(.s-image-with-text-steps,#_) .iws__col { flex: 1 1 0; }
+    :is(.s-image-with-text-steps,#_) .iws__heading[data-custom] { font-size: var(--b-size-d); }
+  }

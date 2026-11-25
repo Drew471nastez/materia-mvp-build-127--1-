@@ -1,3 +1,11 @@
+{% doc %}
+  Initial CSS custom properties of one Hero Pro block.
+
+  @param {block} block - The block being rendered
+
+  @example
+  {% render 'hero-pro-block-initial-style', block: block %}
+{% enddoc -%}
 {% assign b = block.settings %}
 {% case block.type %}
 {% when 'top_text' %}--mk-block-mb-d:{{ b.top_text_gap_from_title | default: 10 }}px;--mk-block-mb-m:{{ b.top_text_gap_from_title | default: 10 }}px;

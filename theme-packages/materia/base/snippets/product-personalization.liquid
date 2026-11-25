@@ -1,3 +1,13 @@
+{% doc %}
+  Personalization text field block of the product form.
+
+  @param {block} block - The block being rendered
+  @param {string} product_form_id - Product form id
+  @param {section} section - The section being rendered
+
+  @example
+  {% render 'product-personalization', block: block, product: product, section: section, product_form_id: product_form_id %}
+{% enddoc -%}
 {%- liquid
   assign st = block.settings
   assign field_id = section.id | append: '-' | append: block.id

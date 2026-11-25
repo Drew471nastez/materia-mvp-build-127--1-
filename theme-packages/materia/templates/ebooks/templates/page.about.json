@@ -1,62 +1,68 @@
 {
   "sections": {
-    "heading": {
-      "type": "page-heading",
+    "hero": {
+      "type": "hero-image1",
       "settings": {
-        "color_scheme": "default",
-        "section_width": "container",
-        "reset_spacing": true,
-        "alignment": "left",
-        "height": "adapt",
-        "overlay_opacity": 0,
-        "padding_top": 56,
-        "padding_bottom": 40
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "image": "shopify://shop_images/ebooks-kitchen.webp",
+        "image_mobile": "shopify://shop_images/ebooks-kitchen-phone.webp",
+        "image_alt": "Pots on a gas stove in a home kitchen",
+        "content_align": "left",
+        "vertical_align": "bottom",
+        "content_max_width": 720,
+        "min_height_desktop": 560,
+        "min_height_mobile": 520,
+        "enable_overlay": true,
+        "overlay_color": "#14110e",
+        "overlay_opacity": 55,
+        "animation": "fade"
       },
       "blocks": {
-        "heading_1": {
-          "type": "heading",
+        "eyebrow": {
+          "type": "eyebrow",
           "settings": {
-            "page_title": "Our kitchen",
-            "header_size": "default",
-            "heading_font_size": 40,
-            "vertical_gap": 12,
-            "enable_heading_color": false
+            "text": "Our kitchen",
+            "enable_custom_style": true,
+            "text_case": "uppercase",
+            "letter_spacing": 2,
+            "size_desktop": 14,
+            "size_mobile": 12,
+            "font_weight": "700"
           }
         },
-        "description_1": {
-          "type": "description",
+        "heading": {
+          "type": "heading",
           "settings": {
-            "description": "<p>Marrow & Hearth is two cooks, one kitchen and a lot of jars. We write cookbooks for the food our grandparents took for granted: broth on the stove, the whole animal, vegetables that keep, and bread that takes its time.</p>",
-            "enable_custom_style": false,
-            "description_font_size": 16
+            "text": "Two cooks, one stove and a lot of jars",
+            "enable_custom_style": true,
+            "size_desktop": 64,
+            "size_mobile": 36,
+            "line_height": 1.05
+          }
+        },
+        "sub": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>We write cookbooks for the food our grandparents took for granted: broth on the stove, the whole animal, vegetables that keep and bread that takes its time.</p>",
+            "enable_custom_style": true,
+            "size": 19,
+            "size_mobile": 16
+          }
+        },
+        "btn": {
+          "type": "primary_button",
+          "settings": {
+            "label": "See the books",
+            "link": "/collections/all"
           }
         }
       },
       "block_order": [
-        "heading_1",
-        "description_1"
+        "eyebrow",
+        "heading",
+        "sub",
+        "btn"
       ]
-    },
-    "image": {
-      "type": "image-section",
-      "settings": {
-        "color_scheme": "default",
-        "is_fullwidth": true,
-        "img_min_height": 58,
-        "img_min_height_mobile": 60,
-        "background_image": "shopify://shop_images/ebooks-pasture-fog.webp",
-        "image_alt": "Cattle grazing in a misty field at dawn",
-        "image_border_radius": 0,
-        "image_description": "",
-        "enable_image_text_background": false,
-        "background_position_y": 60,
-        "section_padding_top": 0,
-        "section_padding_bottom": 0,
-        "section_padding_top_mobile": 0,
-        "section_padding_bottom_mobile": 0,
-        "padding_lr_desktop": 0,
-        "padding_lr_mobile": 0
-      }
     },
     "how": {
       "type": "text-columns",
@@ -190,98 +196,100 @@
       ]
     },
     "reviews": {
-      "type": "testimonials",
+      "type": "testimonial-product",
       "settings": {
         "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
         "section_width": "container",
-        "display_mode": "carousel",
-        "show_quote_mark": true,
-        "show_rating": true,
-        "columns": 3,
-        "column_gap": 24,
-        "header_alignment": "center",
-        "card_style": "outline",
-        "card_align": "center",
-        "card_padding": 32,
-        "card_radius": 6,
-        "show_arrow": false,
-        "carousel_pagination": "show",
-        "pagination_style": "dot",
-        "infinite": false,
-        "columns_mobile": 1,
-        "enable_custom_colors": true,
+        "text_align": "left",
+        "cards_desktop": 3,
+        "card_gap": 20,
+        "card_style": "filled",
+        "show_arrows": true,
+        "show_progress": true,
+        "enable_custom_style": true,
         "card_bg": "#26211c",
         "card_border_color": "#3a332c",
-        "quote_color": "#d9774c",
-        "padding_top": 88,
-        "padding_bottom": 88,
-        "header_spacing_desktop": 44
+        "star_color": "#d9774c",
+        "star_empty_color": "#4a4038",
+        "card_radius": 6,
+        "quote_size": 18,
+        "quote_size_mobile": 16,
+        "reveal": true,
+        "padding_top": 80,
+        "padding_bottom": 80,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "mobile_peek": true
       },
       "blocks": {
         "eyebrow": {
           "type": "eyebrow",
           "settings": {
-            "enabled": false,
-            "text": ""
+            "text": "Sample reviews"
           }
         },
         "heading": {
           "type": "heading",
           "settings": {
-            "enabled": true,
-            "text": "From readers’ kitchens"
+            "text": "Cooked from the books",
+            "size": 44,
+            "size_mobile": 30
           }
         },
         "sub": {
           "type": "subheading",
           "settings": {
-            "enabled": true,
-            "text": "<p>Sample reviews. Replace them with what your own readers write to you.</p>"
+            "text": "<p>What a reader tells you after the first pot, loaf or jar, next to the book it came from.</p>"
           }
         },
         "t0": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>The broth chapter alone was worth it. I make a pot every Sunday now and it carries us to Thursday.</p>",
-            "rating": 5,
+            "product": "the-broth-book",
+            "body": "The broth chapter alone was worth it. I make a pot every Sunday now and it carries us to Thursday.",
             "name": "Reader name",
-            "role": "The Broth Book"
-          }
-        },
-        "t1": {
-          "type": "testimonial",
-          "settings": {
-            "quote": "<p>I had never cooked liver that anyone in the house would eat. The pan fried one with onions changed that.</p>",
-            "rating": 5,
-            "name": "Reader name",
-            "role": "Nose to Tail at Home"
-          }
-        },
-        "t2": {
-          "type": "testimonial",
-          "settings": {
-            "quote": "<p>Clear steps, real quantities and no fuss. My first kraut worked, and so did the second.</p>",
-            "rating": 5,
-            "name": "Reader name",
-            "role": "Slow Ferments"
-          }
-        },
-        "t3": {
-          "type": "testimonial",
-          "settings": {
-            "quote": "<p>The shopping lists saved me an hour a week. We actually ate everything on the plan.</p>",
-            "rating": 5,
-            "name": "Reader name",
-            "role": "The 28 Day Table"
+            "role": "Replace with a real review",
+            "rating": 5
           }
         },
         "t4": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>My starter is three months old and the loaves keep getting better. The timings chapter is the one to read twice.</p>",
-            "rating": 5,
+            "product": "sourdough-from-scratch",
+            "body": "My starter is three months old and the loaves keep getting better. The timings chapter is the one to read twice.",
             "name": "Reader name",
-            "role": "Sourdough from Scratch"
+            "role": "Replace with a real review",
+            "rating": 5
+          }
+        },
+        "t1": {
+          "type": "testimonial",
+          "settings": {
+            "product": "nose-to-tail-at-home",
+            "body": "I had never cooked liver that anyone in the house would eat. The pan fried one with onions changed that.",
+            "name": "Reader name",
+            "role": "Replace with a real review",
+            "rating": 5
+          }
+        },
+        "t2": {
+          "type": "testimonial",
+          "settings": {
+            "product": "slow-ferments",
+            "body": "Clear steps, real quantities and no fuss. My first kraut worked, and so did the second.",
+            "name": "Reader name",
+            "role": "Replace with a real review",
+            "rating": 5
+          }
+        },
+        "t3": {
+          "type": "testimonial",
+          "settings": {
+            "product": "the-28-day-table",
+            "body": "The shopping lists saved me an hour a week. We actually ate everything on the plan.",
+            "name": "Reader name",
+            "role": "Replace with a real review",
+            "rating": 5
           }
         }
       },
@@ -290,10 +298,10 @@
         "heading",
         "sub",
         "t0",
+        "t4",
         "t1",
         "t2",
-        "t3",
-        "t4"
+        "t3"
       ]
     },
     "letter": {
@@ -342,8 +350,7 @@
     }
   },
   "order": [
-    "heading",
-    "image",
+    "hero",
     "how",
     "studio",
     "reviews",

@@ -1,7 +1,7 @@
-<script src="{{ 'live-testimonials.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-testimonials.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-testimonials-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 <style data-rs-bulletproof>
   {%- if section.settings.reset_spacing -%}
@@ -202,7 +202,7 @@
   --tm-below-m: {{ s.space_below_cards_mobile | default: 0 }}px;
   --tm-below-d: {{ s.space_below_cards_desktop | default: 0 }}px;
   --tm-pag-space: {{ s.pagination_spacing | default: 30 }}px;
-  --tm-pag-justify: {% case s.pagination_position | default: 'center' %}{% when 'left' %}flex-start{% when 'right' %}flex-end{% else %}center{% endcase %};
+  {%- assign tm_pag_pos = s.pagination_position | default: 'center' -%}--tm-pag-justify: {% case tm_pag_pos %}{% when 'left' %}flex-start{% when 'right' %}flex-end{% else %}center{% endcase %};
   --tm-pag-mi: {% case s.pagination_position %}{% when 'left' %}0 auto{% when 'right' %}auto 0{% else %}auto{% endcase %};
 {%- endcapture -%}
 {%- comment -%} The section's rules are in testimonials.css, shared by every instance and cached. What a setting chooses reaches it as the --tm-* properties and data-tm-* attributes on the section root below. Only a header block's own typography (its ids, its font) stays here. {%- endcomment -%}
@@ -365,9 +365,11 @@
   </div>
 </div>
 
+
 {% schema %}
 {
-  "name": "Testimonials Grid",
+  "class": "s-tt",
+"name": "Testimonials Grid",
   "tag": "section",
   "disabled_on": {
     "groups": [
@@ -384,7 +386,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -1239,8 +1241,7 @@
         {
           "type": "text",
           "id": "role",
-          "label": "Role / location",
-          "default": ""
+          "label": "Role / location"
         },
         {
           "type": "header",
@@ -1257,7 +1258,7 @@
   "presets": [
     {
       "name": "Testimonials Grid",
-      "category": "Testimonials",
+      "category": "07 · Reviews & testimonials",
       "blocks": [
         {
           "type": "eyebrow",

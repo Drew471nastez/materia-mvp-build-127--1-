@@ -1,9 +1,9 @@
-<script src="{{ 'live-announcements.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-announcements.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-announcements-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {%- comment -%} Runtime: shopify/assets/live-announcements.js (loaded by the layout on every page) applies live edits and runs the close button. {%- endcomment -%}
 {% render 'theme-type' %}
 {%- liquid
   assign st = section.settings
-  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign __ti_scroll_animation = settings.scroll_animation | default: 'none'
   assign fonts = st.enable_custom_fonts
   assign custom = st.enable_custom_style
@@ -77,12 +77,12 @@
 --ab-border: {% if custom %}{% render 'scheme-color', color: st.border_color, fallback: 'var(--color-border)' %}{% else %}var(--color-border){% endif %};--ab-bw: {% if st.show_border_bottom %}{{ st.border_width | default: 1 }}px{% else %}0px{% endif %};
 --ab-justify: {{ ab_justify }};--ab-ta: {{ ab_text_align }};--ab-gap: {{ st.content_gap | default: 0 }}px;--ab-px: {{ st.bar_padding_x | default: 0 }}px;--ab-px-m: {% if st.show_close_button_mobile %}36px{% else %}14px{% endif %};
 --ab-ls: {{ st.letter_spacing | default: 0 }}px;--ab-tt: {{ st.text_transform | default: 'none' }};
---ab-ff: {% if fonts %}{% render 'announce-font', font: st.body_font, on: true, fallback: 'inherit' %}{% elsif st.enable_custom_font %}"{{ st.custom_font }}"{% else %}inherit{% endif %};
+--ab-ff: {% if fonts %}{% render 'announce-font', font: st.body_font, on: true, fallback: 'inherit' %}{% elsif st.enable_custom_font %}'{{ st.custom_font }}'{% else %}inherit{% endif %};
 --ab-fw: {% if st.enable_custom_font_weight %}{{ st.message_font_weight | default: 400 }}{% elsif fonts %}{% render 'announce-font', font: st.body_font, on: true, fallback: 'var(--body-weight, inherit)', weight: true %}{% else %}var(--body-weight, inherit){% endif %};
 --ab-fs-d: {{ st.font_size }}px;--ab-fs-m: {{ st.mobile_font_size }}px;--ab-h-d: {{ st.bar_height }}px;--ab-h-m: {{ st.mobile_bar_height }}px;
 {%- endcapture -%}
 {%- assign own_font = false -%}{%- if fonts or st.enable_custom_font -%}{%- assign own_font = true -%}{%- endif -%}
-<section id="announcement-bar-{{ sid }}" class="unique-announcement-bar color-{{ color_scheme }} gradient" data-an-root="announcement-bar-basic" data-an-section="{{ sid }}"{% if request.design_mode %} data-an-settings="{{ section.settings | json | escape }}"{% else %} data-an-close-days="{% if section.settings.close_persistence_days == nil %}1{% else %}{{ section.settings.close_persistence_days }}{% endif %}"{% endif %}{% if request.design_mode %} data-an-defaults="&#123;&quot;color_scheme&quot;:&quot;default-color-scheme&quot;,&quot;section_width&quot;:&quot;full_width&quot;,&quot;display_section_on&quot;:&quot;display_all&quot;,&quot;reset_spacing&quot;:true,&quot;message&quot;:&quot;&quot;,&quot;message_mobile&quot;:&quot;&quot;,&quot;link&quot;:&quot;/&quot;,&quot;open_in_new_tab&quot;:false,&quot;content_alignment&quot;:&quot;center&quot;,&quot;content_gap&quot;:12,&quot;bar_padding_x&quot;:20,&quot;background_type&quot;:&quot;solid&quot;,&quot;gradient_angle&quot;:90,&quot;show_border_bottom&quot;:false,&quot;border_width&quot;:1,&quot;enable_custom_style&quot;:false,&quot;enable_custom_fonts&quot;:false,&quot;body_font&quot;:&quot;assistant_n4&quot;,&quot;enable_custom_font&quot;:false,&quot;custom_font&quot;:&quot;Roboto&quot;,&quot;font_size&quot;:15,&quot;enable_custom_font_weight&quot;:false,&quot;message_font_weight&quot;:&quot;400&quot;,&quot;button_font_weight&quot;:&quot;600&quot;,&quot;letter_spacing&quot;:0,&quot;text_transform&quot;:&quot;none&quot;,&quot;reveal&quot;:true,&quot;show_close_button&quot;:true,&quot;show_close_button_mobile&quot;:true,&quot;close_label&quot;:&quot;Close announcement&quot;,&quot;close_persistence_days&quot;:1,&quot;bar_height&quot;:53,&quot;section_margin_top_desktop&quot;:0,&quot;section_margin_bottom_desktop&quot;:0,&quot;mobile_font_size&quot;:15,&quot;mobile_bar_height&quot;:49,&quot;section_margin_top_mobile&quot;:0,&quot;section_margin_bottom_mobile&quot;:0&#125;"{% endif %}{% if request.design_mode %} data-an-block-defaults="&#123;&quot;message&quot;:&#123;&quot;text&quot;:&quot;Write your announcement here&quot;,&quot;open_in_new_tab&quot;:false,&quot;visibility&quot;:&quot;all&quot;,&quot;enable_custom_style&quot;:false,&quot;enable_custom_fonts&quot;:false,&quot;font&quot;:&quot;assistant_n4&quot;&#125;,&quot;button&quot;:&#123;&quot;label&quot;:&quot;Shop now&quot;,&quot;open_in_new_tab&quot;:false,&quot;visibility&quot;:&quot;all&quot;,&quot;style&quot;:&quot;filled&quot;,&quot;enable_custom_style&quot;:false,&quot;use_theme_button&quot;:true,&quot;font_size&quot;:14,&quot;radius&quot;:50,&quot;padding_x&quot;:18,&quot;padding_y&quot;:8,&quot;enable_custom_fonts&quot;:false,&quot;font&quot;:&quot;assistant_n4&quot;&#125;&#125;"{% endif %} data-an-fallback-href="{{ routes.all_products_collection_url | default: '/collections/all' }}" data-width="{{ st.section_width | default: 'full_width' }}" data-reset="{% if st.reset_spacing %}true{% else %}false{% endif %}" data-show="{{ st.display_section_on | default: 'display_all' }}" data-close-d="{% if st.show_close_button %}true{% else %}false{% endif %}" data-close-m="{% if st.show_close_button_mobile %}true{% else %}false{% endif %}" data-close-days="{{ st.close_persistence_days | default: 0 }}" data-sticky-announcement="false"{% if own_font %} data-own-font{% endif %}{% if own_font or st.enable_custom_font_weight %} data-own-weight{% endif %} aria-label="Announcement" style="{{ ab_vars | strip_newlines }}">
+<section id="announcement-bar-{{ sid }}" class="unique-announcement-bar color-{{ color_scheme }} gradient" data-an-root="announcement-bar-basic" data-an-section="{{ sid }}"{% if request.design_mode %} data-an-settings="{{ section.settings | json | escape }}"{% else %} data-an-close-days="{% if section.settings.close_persistence_days == nil %}1{% else %}{{ section.settings.close_persistence_days }}{% endif %}"{% endif %}{% if request.design_mode %} data-an-defaults="&#123;&quot;color_scheme&quot;:&quot;default&quot;,&quot;section_width&quot;:&quot;full_width&quot;,&quot;display_section_on&quot;:&quot;display_all&quot;,&quot;reset_spacing&quot;:true,&quot;message&quot;:&quot;&quot;,&quot;message_mobile&quot;:&quot;&quot;,&quot;link&quot;:&quot;/&quot;,&quot;open_in_new_tab&quot;:false,&quot;content_alignment&quot;:&quot;center&quot;,&quot;content_gap&quot;:12,&quot;bar_padding_x&quot;:20,&quot;background_type&quot;:&quot;solid&quot;,&quot;gradient_angle&quot;:90,&quot;show_border_bottom&quot;:false,&quot;border_width&quot;:1,&quot;enable_custom_style&quot;:false,&quot;enable_custom_fonts&quot;:false,&quot;body_font&quot;:&quot;assistant_n4&quot;,&quot;enable_custom_font&quot;:false,&quot;custom_font&quot;:&quot;Roboto&quot;,&quot;font_size&quot;:15,&quot;enable_custom_font_weight&quot;:false,&quot;message_font_weight&quot;:&quot;400&quot;,&quot;button_font_weight&quot;:&quot;600&quot;,&quot;letter_spacing&quot;:0,&quot;text_transform&quot;:&quot;none&quot;,&quot;reveal&quot;:true,&quot;show_close_button&quot;:true,&quot;show_close_button_mobile&quot;:true,&quot;close_label&quot;:&quot;Close announcement&quot;,&quot;close_persistence_days&quot;:1,&quot;bar_height&quot;:53,&quot;section_margin_top_desktop&quot;:0,&quot;section_margin_bottom_desktop&quot;:0,&quot;mobile_font_size&quot;:15,&quot;mobile_bar_height&quot;:49,&quot;section_margin_top_mobile&quot;:0,&quot;section_margin_bottom_mobile&quot;:0&#125;"{% endif %}{% if request.design_mode %} data-an-block-defaults="&#123;&quot;message&quot;:&#123;&quot;text&quot;:&quot;Write your announcement here&quot;,&quot;open_in_new_tab&quot;:false,&quot;visibility&quot;:&quot;all&quot;,&quot;enable_custom_style&quot;:false,&quot;enable_custom_fonts&quot;:false,&quot;font&quot;:&quot;assistant_n4&quot;&#125;,&quot;button&quot;:&#123;&quot;label&quot;:&quot;Shop now&quot;,&quot;open_in_new_tab&quot;:false,&quot;visibility&quot;:&quot;all&quot;,&quot;style&quot;:&quot;filled&quot;,&quot;enable_custom_style&quot;:false,&quot;use_theme_button&quot;:true,&quot;font_size&quot;:14,&quot;radius&quot;:50,&quot;padding_x&quot;:18,&quot;padding_y&quot;:8,&quot;enable_custom_fonts&quot;:false,&quot;font&quot;:&quot;assistant_n4&quot;&#125;&#125;"{% endif %} data-an-fallback-href="{{ routes.all_products_collection_url | default: '/collections/all' }}" data-width="{{ st.section_width | default: 'full_width' }}" data-reset="{% if st.reset_spacing %}true{% else %}false{% endif %}" data-show="{{ st.display_section_on | default: 'display_all' }}" data-close-d="{% if st.show_close_button %}true{% else %}false{% endif %}" data-close-m="{% if st.show_close_button_mobile %}true{% else %}false{% endif %}" data-close-days="{{ st.close_persistence_days | default: 0 }}" data-sticky-announcement="false"{% if own_font %} data-own-font{% endif %}{% if own_font or st.enable_custom_font_weight %} data-own-weight{% endif %} aria-label="{{ 'sections.header.announcement' | t }}" style="{{ ab_vars | strip_newlines }}">
   {%- if section.blocks.size > 0 -%}
     {%- for block in section.blocks -%}
       {%- assign bs = block.settings -%}
@@ -93,24 +93,24 @@
         {%- when 'message' -%}
           {%- capture msg_attrs -%}class="ab-msg" data-an-no-link="SPAN" data-vis="{{ vis }}" {% render 'announce-block', block: block %}{% if bfont %} data-own-font data-own-weight{% endif %}{% if bs.text == blank and bs.text_mobile == blank %} hidden{% endif %} style="{% if bs.enable_custom_style %}--b-c: {% render 'scheme-color', color: bs.color, fallback: 'var(--ab-text)' %};{% endif %}{% if bfont %}--b-f: {% render 'announce-font', font: bs.font, on: true, fallback: 'inherit' %};--b-w: {{ bs.font.weight | default: 400 }};{% endif %}"{%- endcapture -%}
           {%- capture msg_inner -%}<span class="ab-msg__d">{{ bs.text | escape }}</span><span class="ab-msg__m">{% if bs.text_mobile != blank %}{{ bs.text_mobile | escape }}{% else %}{{ bs.text | escape }}{% endif %}</span>{%- endcapture -%}
-          {%- if bs.link != blank -%}<a href="{{ bs.link | url }}"{{ tab }} {{ msg_attrs }}>{{ msg_inner }}</a>{%- else -%}<span {{ msg_attrs }}>{{ msg_inner }}</span>{%- endif -%}
+          {%- if bs.link != blank -%}<a href="{{ bs.link }}"{{ tab }} {{ msg_attrs }}>{{ msg_inner }}</a>{%- else -%}<span {{ msg_attrs }}>{{ msg_inner }}</span>{%- endif -%}
         {%- when 'button' -%}
           {%- capture btn_style -%}
-            {%- if bs.style == 'outline' -%}--mb-bg: transparent;{%- endif -%}
+            {%- if bs.style == 'outline' -%}--mb-bg: transparent;--mb-text: var(--ab-text);--mb-border: var(--ab-text);{%- endif -%}
             {%- if bs.enable_custom_style -%}{%- if bs.style == 'outline' -%}{%- render 'button-overrides', text: bs.text_color, border: bs.text_color, hover_bg: bs.bg_hover, hover_text: bs.color_hover -%}{%- else -%}{%- render 'button-overrides', bg: bs.bg_color, text: bs.text_color, hover_bg: bs.bg_hover, hover_text: bs.color_hover -%}{%- endif -%}{%- endif -%}
             {%- if bs.use_theme_button == false -%}--mb-radius: {{ bs.radius }}px;--mb-padding-y: {{ bs.padding_y }}px;--mb-padding-x: {{ bs.padding_x }}px;--mb-font-size: {{ bs.font_size }}px;{%- endif -%}
             {%- if st.enable_custom_font_weight -%}--mb-weight: {{ st.button_font_weight | default: 600 }};{%- endif -%}
             {%- if bfont -%}--mb-font: {% render 'announce-font', font: bs.font, on: true, fallback: 'inherit' %};{%- endif -%}
           {%- endcapture -%}
           {%- assign href = bs.link | default: routes.all_products_collection_url | default: '/collections/all' -%}
-          <a href="{{ href | url }}"{{ tab }} class="ab-button" data-theme-button="{% if bs.style == 'outline' %}secondary{% else %}primary{% endif %}" data-sl-button data-vis="{{ vis }}" {% render 'announce-block', block: block %}{% if bs.use_theme_button == false %} data-own-shape{% endif %}{% if st.enable_custom_font_weight %} data-own-weight{% endif %}{% if bfont %} data-own-font{% endif %}{% if bs.label == blank %} hidden{% endif %} style="{{ btn_style | strip }}">{{ bs.label | escape }}</a>
+          <a href="{{ href }}"{{ tab }} class="ab-button" data-theme-button="{% if bs.style == 'outline' %}secondary{% else %}primary{% endif %}"{% if bs.style == 'outline' %} data-button-local-appearance="outline" data-button-appearance="outline"{% endif %} data-sl-button data-vis="{{ vis }}" {% render 'announce-block', block: block %}{% if bs.use_theme_button == false %} data-own-shape{% endif %}{% if st.enable_custom_font_weight %} data-own-weight{% endif %}{% if bfont %} data-own-font{% endif %}{% if bs.label == blank %} hidden{% endif %} style="{{ btn_style | strip }}">{{ bs.label | escape }}</a>
       {%- endcase -%}
     {%- endfor -%}
   {%- else -%}
     {%- comment -%} No blocks yet: the section's own (legacy) message. {%- endcomment -%}
     {%- capture legacy_inner -%}<span class="ab-msg__d">{{ st.message | escape }}</span><span class="ab-msg__m">{% if st.message_mobile != blank %}{{ st.message_mobile | escape }}{% else %}{{ st.message | escape }}{% endif %}</span>{%- endcapture -%}
     {%- if st.link != blank -%}
-      <a href="{{ st.link | url }}" class="ab-msg" data-an-legacy="message" data-an-no-link="SPAN"{% if st.message == blank and st.message_mobile == blank %} hidden{% endif %}{% if st.open_in_new_tab %} target="_blank" rel="noopener"{% endif %}>{{ legacy_inner }}</a>
+      <a href="{{ st.link }}" class="ab-msg" data-an-legacy="message" data-an-no-link="SPAN"{% if st.message == blank and st.message_mobile == blank %} hidden{% endif %}{% if st.open_in_new_tab %} target="_blank" rel="noopener"{% endif %}>{{ legacy_inner }}</a>
     {%- else -%}
       <span class="ab-msg" data-an-legacy="message" data-an-no-link="SPAN"{% if st.message == blank and st.message_mobile == blank %} hidden{% endif %}>{{ legacy_inner }}</span>
     {%- endif -%}
@@ -129,8 +129,10 @@
 {
   "enabled_on": {
     "groups": [
-      "header",
-      "template"
+      "header"
+    ],
+    "templates": [
+      "*"
     ]
   },
   "name": "Announcement Bar Basic ",
@@ -143,7 +145,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -211,17 +213,13 @@
       "type": "textarea",
       "id": "message",
       "label": "Announcement text (Desktop)",
-      "default": "",
       "info": "Legacy: used only when the section has no blocks.",
-      "hidden": true,
       "visible_if": "{{ false }}"
     },
     {
       "type": "textarea",
       "id": "message_mobile",
       "label": "Announcement text (Mobile)",
-      "default": "",
-      "hidden": true,
       "info": "Legacy: used only when the section has no blocks.",
       "visible_if": "{{ false }}"
     },
@@ -230,7 +228,6 @@
       "id": "link",
       "label": "Message link",
       "default": "/",
-      "hidden": true,
       "info": "Legacy: used only when the section has no blocks.",
       "visible_if": "{{ false }}"
     },
@@ -239,7 +236,6 @@
       "id": "open_in_new_tab",
       "label": "Open message link in new tab",
       "default": false,
-      "hidden": true,
       "info": "Legacy: used only when the section has no blocks.",
       "visible_if": "{{ false }}"
     },
@@ -395,7 +391,6 @@
       "id": "enable_custom_font",
       "label": "Enable custom font",
       "default": false,
-      "hidden": true,
       "info": "Legacy: a Google font by name, used while Enable custom fonts is off.",
       "visible_if": "{{ false }}"
     },
@@ -858,7 +853,6 @@
           "label": "IM Fell Great Primer"
         }
       ],
-      "hidden": true,
       "info": "Legacy: a Google font by name, used while Enable custom fonts is off.",
       "visible_if": "{{ false }}"
     },
@@ -1125,7 +1119,7 @@
           "type": "textarea",
           "id": "text_mobile",
           "label": "Text on mobile",
-          "info": "Optional. Leave empty to use the text above."
+          "info": "Leave empty to use the text above."
         },
         {
           "type": "url",
@@ -1370,8 +1364,8 @@
   "max_blocks": 8,
   "presets": [
     {
-      "name": "Announcement Bar Basic ",
-      "category": "Announcements",
+      "name": "Announcement Bar – Simple",
+      "category": "18 · Header & announcements",
       "blocks": [
         {
           "type": "message",
@@ -1389,6 +1383,6 @@
       ]
     }
   ],
-  "class": "section-edge-bleed"
+  "class": "section-edge-bleed s-tt has-overlay"
 }
 {% endschema %}

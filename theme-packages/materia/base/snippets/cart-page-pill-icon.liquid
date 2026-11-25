@@ -1,9 +1,15 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. The icons of the cart page blocks (snippets/cart-page-block):
   the Benefits pills presets, and with set: 'guarantee' the Guarantee badge
   icons. Pass icon (and set). Only cart-page-block renders this snippet, and
   live-cart-search.js reads the same icons from a template for live edits.
-{%- endcomment -%}
+
+  @param {string} icon - Icon
+  @param {string} [set] - Set
+
+  @example
+  {% render 'cart-page-pill-icon', icon: k, set: 'guarantee' %}
+{%- enddoc -%}
 {%- if set == 'guarantee' -%}
   {%- case icon -%}
     {%- when 'shield' -%}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>

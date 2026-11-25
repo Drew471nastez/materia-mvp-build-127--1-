@@ -1,7 +1,7 @@
-<script src="{{ 'live-r7-connect.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-r7-connect.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'r7-connect-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if section.settings.reveal == false -%}<span data-ti-no-reveal hidden></span>{%- endif -%}
@@ -109,7 +109,7 @@
     {%- if tiles.size > 0 -%}
       <div class="r7n__gallery" data-r7n-gallery>
         <div class="r7n__track" id="r7n-track-{{ sid }}" data-r7n-track tabindex="0" role="region" aria-label="{{ 'accessibility.images' | t | escape }}">
-          {%- for block in tiles -%}{%- render 'r7-connect-block', block: block, section: section -%}{%- endfor -%}
+          {%- for block in tiles -%}{%- render 'r7-connect-block', block: block, section: section, index: forloop.index -%}{%- endfor -%}
         </div>
         <div class="r7n__nav" data-r7n-nav>
           <button type="button" class="r7n__arrow" data-r7n-prev aria-controls="r7n-track-{{ sid }}" aria-label="{{ 'accessibility.previous' | t | escape }}" disabled><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M15 6l-6 6 6 6"/></svg></button>
@@ -121,11 +121,11 @@
 </div>
 {%- if request.design_mode -%}
 {%- comment -%} The builder runs a redrawn or newly added section's inline scripts: load the controller if this page did not have it yet, or set this section up. {%- endcomment -%}
-<script>(function(){if(window.MateriaR7Connect)return window.MateriaR7Connect.scan();if(document.querySelector('script[data-r7n-boot]'))return;var s=document.createElement('script');s.src="{{ 'live-r7-connect.js' | asset_url }}";s.setAttribute('data-r7n-boot','');document.head.appendChild(s);})();</script>
+{%- if request.design_mode -%}<script>(function(){if(window.MateriaR7Connect)return window.MateriaR7Connect.scan();if(document.querySelector('script[data-r7n-boot]'))return;var s=document.createElement('script');s.src="{{ 'live-r7-connect.js' | asset_url }}";s.setAttribute('data-r7n-boot','');document.head.appendChild(s);})();</script>{%- endif -%}
 {%- endif -%}{% schema %}
 {
   "name": "Follow Us",
-  "class": "section-r7n",
+  "class": "section-r7n s-tt",
   "settings": [
     {
       "type": "header",
@@ -135,7 +135,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -626,8 +626,8 @@
           "label": "Line height",
           "min": 0.8,
           "max": 2,
-          "step": 0.05,
-          "default": 1.15,
+          "step": 0.1,
+          "default": 1.1,
           "visible_if": "{{ block.settings.size_enable }}"
         },
         {
@@ -745,7 +745,7 @@
           "label": "Line height",
           "min": 1,
           "max": 2.2,
-          "step": 0.05,
+          "step": 0.1,
           "default": 1.5,
           "visible_if": "{{ block.settings.size_enable }}"
         }
@@ -779,7 +779,7 @@
   "presets": [
     {
       "name": "Follow Us",
-      "category": "Social",
+      "category": "16 · Social media",
       "blocks": [
         {
           "type": "heading"

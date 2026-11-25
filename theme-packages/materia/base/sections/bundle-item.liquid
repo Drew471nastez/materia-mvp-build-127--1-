@@ -1,6 +1,6 @@
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 <style>
   /* Theme font-weight inheritance — inherit theme weights by default; explicit rules still override */
@@ -86,7 +86,7 @@
           no_animate: true
       %}
     {%- else -%}
-        {% render 'placeholder-render', class: 'rounded-5' %}
+        {% render 'placeholder-render', class: 'rounded-5', type: 'product', index: forloop.index %}
     {%- endif -%}
 </div>
 <div class="bundle-content">
@@ -175,7 +175,8 @@
 </div>
 {% schema %}
 {
-  "name": "Bundle item",
+  "class": "s-tt",
+"name": "Bundle item",
   "settings": [
     {
       "type": "header",
@@ -185,7 +186,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Colour scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",

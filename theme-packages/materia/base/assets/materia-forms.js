@@ -21,6 +21,12 @@
    its [data-nl-msg="done"|"error"] get the form's words, and done is cleared
    after data-success-ms so the button reads its label again. An address it
    cannot take sets aria-invalid on the field, which shows its [data-nl-hint].
+   On the platform there is no platform script that sends these forms, so this
+   file does: every form goes to the platform's /contact endpoint (form_type
+   customer with the tag newsletter for sign-ups, contact for messages), as
+   AJAX, and the answer is read from where the platform sends the browser
+   (customer_posted / contact_posted). A form the platform asks to verify (its
+   /challenge page) is sent the ordinary way so the visitor can finish it.
    Editor inline forms send real requests unless preview-only is selected; it redraws field colours live when
    Theme settings > Forms and fields change (snippets/field-colors does the
    same at render time). */
@@ -149,6 +155,135 @@
   const seen = () => { try { const v = JSON.parse(localStorage.getItem(SEEN) || '[]'); return Array.isArray(v) ? v : []; } catch (_) { return []; } };
   const remember = key => { try { const v = seen().filter(x => x !== key); v.push(key); localStorage.setItem(SEEN, JSON.stringify(v.slice(-20))); } catch (_) {} };
   const emailOf = form => (form && form.querySelector('input[type="email"]')?.value || '').trim();
+
+  /* The platform transport. Plain sign-up forms name their fields email / phone;
+     the platform wants contact[email] etc. and a form_type. */
+  const IS_SHOPIFY = Boolean(window.Shopify && window.Shopify.shop && !window.Shopify.storelib);
+  const shopifyType = form => {
+    const own = form.querySelector('input[name="form_type"]')?.value;
+    if (own) return own;
+    return (form.dataset.storelibForm === 'contact' || form.hasAttribute('data-mt-inline-contact')) ? 'contact' : 'customer';
+  };
+  const shopifyAction = form => {
+    const root = (window.routes?.root_url || window.Shopify?.routes?.root || '/').replace(/\/?$/, '/');
+    let url;
+    try { url = new URL(form.getAttribute('action') || (root + 'contact'), location.href); } catch (_) { url = new URL(root + 'contact', location.href); }
+    if (url.origin !== location.origin || !/\/contact\/?$/.test(url.pathname)) url = new URL(root + 'contact', location.href);
+    url.hash = '';
+    return url;
+  };
+  const shopifyBody = form => {
+    const type = shopifyType(form);
+    const source = new FormData(form);
+    const body = new FormData();
+    let tags = '';
+    for (const [key, value] of source.entries()) {
+      if (key === 'company') continue;
+      if (key === 'form_type' || key === 'utf8') continue;
+      if (/^(contact|customer|properties)\[/.test(key) || /^g-recaptcha|^h-captcha|^return_to$/.test(key)) {
+        if (key === 'contact[tags]') { tags = String(value); continue; }
+        body.append(key, value);
+        continue;
+      }
+      body.append(`contact[${key}]`, value);
+    }
+    body.set('form_type', type);
+    body.set('utf8', '\u2713');
+    if (type === 'customer') body.set('contact[tags]', tags || 'newsletter');
+    else if (tags) body.set('contact[tags]', tags);
+    if (type === 'customer' && !body.has('contact[email]')) {
+      const email = emailOf(form);
+      if (email) body.set('contact[email]', email);
+    }
+    return body;
+  };
+  /* Sends a form the ordinary way (full page): used when the platform asks the
+     visitor to prove they are not a bot. A plain form gets a copy that
+     carries the platform's field names. */
+  const shopifyNative = form => {
+    const action = shopifyAction(form);
+    if (form.querySelector('input[name="form_type"]')) { try { HTMLFormElement.prototype.submit.call(form); return; } catch (_) {} }
+    const copy = document.createElement('form');
+    copy.method = 'post'; copy.action = action.pathname + (form.id ? '#' + form.id : ''); copy.hidden = true;
+    for (const [key, value] of shopifyBody(form).entries()) {
+      if (typeof value !== 'string') continue;
+      const input = document.createElement('input'); input.type = 'hidden'; input.name = key; input.value = value; copy.appendChild(input);
+    }
+    document.body.appendChild(copy);
+    HTMLFormElement.prototype.submit.call(copy);
+  };
+  /* Resolves { ok, challenge, invalid }. */
+  const shopifySend = async form => {
+    const response = await fetch(shopifyAction(form).href, { method: 'POST', body: shopifyBody(form), credentials: 'same-origin', headers: { Accept: 'text/html' } });
+    let final;
+    try { final = new URL(response.url || location.href, location.href); } catch (_) { final = new URL(location.href); }
+    if (/\/challenge\/?$/.test(final.pathname)) return { ok: false, challenge: true };
+    /* A bot check in front of the store (403/429, or Cloudflare's cf-mitigated) answered instead of
+       the platform: the ordinary submit lets the browser show it and finish the sign-up. */
+    if (response.status === 403 || response.status === 429 || response.headers.get('cf-mitigated')) return { ok: false, challenge: true };
+    if (/[?&](customer_posted|contact_posted)=true/.test(final.search)) return { ok: true };
+    let text = '';
+    try { text = await response.text(); } catch (_) {}
+    if (/[?&](customer_posted|contact_posted)=true/.test(text.slice(0, 2000))) return { ok: true };
+    /* The page the platform drew again holds the form with its errors: this form by its id, else any
+       form's [data-mt-form-errors] (the platform's own words) or error box. */
+    let message = '';
+    try {
+      const doc = new DOMParser().parseFromString(text, 'text/html');
+      const again = form.id ? doc.getElementById(form.id) : null;
+      const pick = scope => scope && scope.querySelector('[data-mt-form-errors], .errors, .form__message.error, .newsletter-form__message.error');
+      const el = pick(again) || pick(doc);
+      if (el) message = el.getAttribute('data-mt-form-errors') || el.textContent || '';
+      if (!el && again && again.querySelector('[data-mt-form-posted]')) return { ok: true };
+    } catch (_) {}
+    message = message.replace(/\s+/g, ' ').trim();
+    const already = /taken|already|exist/i.test(message);
+    return { ok: false, already, invalid: !already && /email|invalid/i.test(message), message };
+  };
+  /* What Storelib's own form script did on its platform, done here on the platform
+     for forms posted without a page load: data-storelib-sending while it goes,
+     then data-state done (and the form's own success element) or a note. */
+  const shopifyRuntime = async form => {
+    if (form.hasAttribute('data-storelib-sending')) return;
+    form.setAttribute('data-storelib-sending', '');
+    form.setAttribute('aria-busy', 'true');
+    let result;
+    try { result = await shopifySend(form); } catch (_) { result = { ok: false }; }
+    form.removeAttribute('data-storelib-sending');
+    form.removeAttribute('aria-busy');
+    /* Anything the platform did not clearly answer (a network hiccup, a redirect, a page without its
+       usual markers) is sent the ordinary way, so the sign-up still reaches Shopify; only a
+       refusal the platform words itself (an invalid address) is shown here as an error. */
+    if (result.challenge || (!result.ok && !result.already && !result.message)) { shopifyNative(form); return; }
+    const parent = form.parentNode;
+    parent?.querySelectorAll(':scope > .storelib-form-note').forEach(el => el.remove());
+    if (result.ok || result.already) {
+      const success = form.querySelector('[data-storelib-success]');
+      if (success) { success.hidden = false; form.dataset.state = 'done'; try { form.reset(); } catch (_) {} return; }
+      const note = document.createElement('p');
+      note.className = 'storelib-form-note'; note.setAttribute('role', 'status');
+      note.textContent = (result.already && say(form).alreadyMessage) || thanks(form);
+      form.insertAdjacentElement('afterend', note);
+      form.dataset.state = 'done';
+      try { form.reset(); } catch (_) {}
+      return;
+    }
+    const note = document.createElement('p');
+    note.className = 'storelib-form-note'; note.setAttribute('role', 'alert');
+    note.textContent = result.invalid ? (say(form).invalidMessage || 'Enter a valid email address.') : (say(form).errorMessage || 'It did not send. Try again.');
+    form.querySelector('input[type="email"]')?.setAttribute('aria-invalid', String(Boolean(result.invalid)));
+    form.insertAdjacentElement('afterend', note);
+  };
+  /* Forms that on Storelib were sent by the platform's script: no form_type
+     (not a platform form tag) but marked data-storelib-form. */
+  /* Also a platform form tag marked data-mt-ajax (the popups): sent here without a page load, and
+     sent the ordinary way only when the platform or a bot check asks the visitor to verify. */
+  /* A real the platform form ({% form %}, it carries form_type) is always sent the ordinary way:
+     the platform's spam protection (hCaptcha) adds its token on that submit, so a form posted from
+     a script, in the background or by form.submit(), is refused with "Missing CAPTCHA token".
+     The section shows its result when the page comes back (form.posted_successfully?). */
+  const shopifyForm = form => IS_SHOPIFY && !!form?.querySelector?.('input[name="form_type"]');
+  const needsRuntime = form => IS_SHOPIFY && form.hasAttribute('data-storelib-form') && form.dataset.storelibForm !== 'native' && !shopifyForm(form);
 
   /* A success message drawn in or after the form becomes the toast. */
   const successOf = form => {
@@ -303,12 +438,21 @@
     if(message){message.textContent='';message.hidden=true;}
     if(own(form)){setState(form,'sending');form.querySelector('input[type=email]')?.removeAttribute('aria-invalid');}
     try {
+      if(IS_SHOPIFY){
+        let sent;
+        try{sent=await shopifySend(form);}catch(_){sent={ok:false};}
+        // Not clearly answered by the platform (see shopifyRuntime): send it the ordinary way.
+        if(sent.challenge || (!sent.ok && !sent.already && !sent.message)){pending(form,button,false);if(own(form))setState(form,'');shopifyNative(form);return;}
+        if(sent.already)already=true;
+        else if(!sent.ok)throw Object.assign(new Error(say(form).errorMessage || 'Unable to subscribe.'),{code:sent.invalid?'email':''});
+      }else{
       const url=new URL(form.action || '/contact',location.href);url.hash='';
       if(url.origin!==location.origin)throw new Error(say(form).errorMessage || 'Unable to send.');
       if(!/^\/contact(?:\/|$)/.test(url.pathname))url.pathname='/contact';
       const response=await fetch(url.href,{method:'POST',credentials:'same-origin',headers:{Accept:'application/json','X-Requested-With':'XMLHttpRequest'},body:new FormData(form)});
       const result=await response.json();
       if(!response.ok || result.ok!==true)throw Object.assign(new Error(result.message || say(form).errorMessage || 'Unable to subscribe.'),{userMessage:result.message,code:result.code});
+      }
       if(!form.isConnected)return;
       if(own(form)){
         if(key)remember(key);
@@ -355,6 +499,7 @@
   const handleInline = event => {
     const form=event.target;
     if(!isForm(form)||ownSuccess(form))return false;
+    if(shopifyForm(form)&&!(design()&&(form.querySelector('[data-preview-mode]')?.dataset.previewMode||form.dataset.previewSubmit)==='preview'))return false;
     const contact=form.hasAttribute('data-mt-inline-contact');
     const subscribe=form.hasAttribute('data-mt-inline-subscribe')||(design()&&['customer','subscribe'].includes(typeOf(form)));
     if(!contact&&!subscribe)return false;
@@ -403,13 +548,18 @@
 
     // Window capture runs before the theme's and Storelib's document listeners.
     const onSubmit = event => {
+      // A form that sends itself later (the spin wheel spins first) is left alone until then.
+      if (event.target?.hasAttribute?.('data-sw-hold')) return;
       if(handleInline(event))return;
       const form = event.target;
       if (!isForm(form)) return;
       if(design()&&form.hasAttribute('data-mt-inline-subscribe')&&(form.querySelector('[data-preview-mode]')?.dataset.previewMode||form.dataset.previewSubmit)!=='live'){
         event.preventDefault();event.stopImmediatePropagation();previewSubscribe(form,event.submitter||form.querySelector('[type=submit]'));return;
       }
-      if (form.hasAttribute('data-mt-sending') || form.hasAttribute('data-storelib-sending') || form.dataset.state === 'sending') {
+      /* A real the platform form: its CAPTCHA script may take the first submit (preventDefault), get its
+         token and submit again, so only a submit that already left the page (not prevented) is held. */
+      const busy = shopifyForm(form) ? form.__mtGone === true : (form.hasAttribute('data-mt-sending') || form.hasAttribute('data-storelib-sending') || form.dataset.state === 'sending');
+      if (busy) {
         event.preventDefault();
         event.stopImmediatePropagation();
         return;
@@ -427,24 +577,40 @@
       form.querySelectorAll('[data-mt-error]').forEach(clearFieldError);
       form.querySelectorAll('.mt-form-error').forEach(el => el.classList.remove('mt-form-error'));
       form.parentNode?.querySelectorAll(':scope > .storelib-form-note').forEach(el => el.remove());
-      if(form.hasAttribute('data-mt-inline-subscribe')){
+      if(form.hasAttribute('data-mt-inline-subscribe')&&!shopifyForm(form)){
         event.preventDefault();event.stopImmediatePropagation();
         if(!form.reportValidity())return;
         const key=emailOf(form)?hash(emailOf(form)):'';
         inlineSubscribe(form,event.submitter || form.querySelector('[type=submit]'),key,Boolean(key && seen().includes(key)));
         return;
       }
+      if (needsRuntime(form)) event.preventDefault();
+      if (shopifyForm(form)) setTimeout(() => { if (!event.defaultPrevented) form.__mtGone = true; }, 0);
       pending(form, event.submitter || form.querySelector('[type="submit"]'), true);
       const key = typeOf(form) === 'contact' ? '' : (emailOf(form) ? hash(emailOf(form)) : '');
       watch(form, event.submitter, Boolean(key && seen().includes(key)), key);
+      if (needsRuntime(form)) shopifyRuntime(form);
     };
     window.materiaForms.handleSubmit=onSubmit;
     if(!window.__materiaSectionLinkCapture)addEventListener('submit',onSubmit,true);
+    // Back on this page from the browser's history: its forms take a submit again.
+    addEventListener('pageshow', event => { if (event.persisted) document.querySelectorAll(FORMS).forEach(form => { form.__mtGone = false; pending(form, null, false); }); });
     // A page drawn after a full post (no script on the way there) still gets the toast.
     const init = () => {
       armAll();
+      /* The platform marks every form of the posted type as posted (or failed); the result belongs to the
+         form the page came back on (its #id), so the others' [data-mt-result] messages are hidden. */
+      try {
+        const back = new URL(window.__mtPostedUrl || location.href);
+        if (back.hash && /[?&](customer_posted|contact_posted|form_type)=/.test(back.search)) {
+          const id = decodeURIComponent(back.hash.slice(1));
+          document.querySelectorAll('form [data-mt-result]').forEach(el => { if (el.closest('form').id !== id) { el.style.display = 'none'; el.setAttribute('aria-hidden', 'true'); } });
+        }
+      } catch (_) {}
+      /* Back from an ordinary sign-up post, theme.js already shows its own thanks; the forms keep their inline message. */
+      const themeSaid = /[?&]customer_posted=true/.test(location.search) || /[?&]customer_posted=true/.test(window.__mtPostedUrl || '');
       document.querySelectorAll(FORMS).forEach(form => {
-        if (ownSuccess(form)) return;
+        if (ownSuccess(form) || themeSaid) return;
         const done = successOf(form);
         if (done && !done.matches('.storelib-form-note')) toastFrom(form, done);
       });
@@ -463,11 +629,24 @@
   const onPreviewSubmit = event => {
     if(handleInline(event))return;
     const form = event.target;
+    /* The platform editor: a plain sign-up form is not sent; it shows its done state. */
+    if (isForm(form) && needsRuntime(form)) {
+      event.preventDefault();
+      if (!form.reportValidity()) return;
+      const success = form.querySelector('[data-storelib-success]');
+      if (success) success.hidden = false;
+      form.dataset.state = 'done';
+      if (!success && say(form).successMessage) toast(say(form).successMessage, form, say(form).successMs);
+      return;
+    }
     if (!isForm(form) || ownSuccess(form)) return;
     if(form.hasAttribute('data-mt-inline-subscribe')){
+      const live=(form.querySelector('[data-preview-mode]')?.dataset.previewMode||form.dataset.previewSubmit)==='live';
+      // Live in the editor: a real the platform form goes the ordinary way (its CAPTCHA needs the real submit).
+      if(live&&shopifyForm(form))return;
       event.preventDefault();event.stopImmediatePropagation();if(!form.reportValidity())return;
       const button=event.submitter||form.querySelector('[type=submit]');
-      if((form.querySelector('[data-preview-mode]')?.dataset.previewMode||form.dataset.previewSubmit)==='live'){if(!form.hasAttribute('data-mt-sending'))inlineSubscribe(form,button,'',false);}
+      if(live){if(!form.hasAttribute('data-mt-sending'))inlineSubscribe(form,button,'',false);}
       else previewSubscribe(form,button);
       return;
     }
@@ -480,7 +659,7 @@
       return;
     }
     form.querySelectorAll('[data-mt-error]').forEach(clearFieldError);
-    const preview = typeOf(form) === 'contact' ? '' : ' Sign-ups go to Subscribers on your live site.';
+    const preview = typeOf(form) === 'contact' ? '' : ' Sign-ups are saved to your customers on your live store.';
     toast(say(form).successMessage + preview, form, say(form).successMs);
   };
   window.materiaForms.handleSubmit=onPreviewSubmit;

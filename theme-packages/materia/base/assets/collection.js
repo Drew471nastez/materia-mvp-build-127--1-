@@ -774,6 +774,21 @@ eventCollectionShopify.init();
         if (event.type === 'click' && this._swallowDismiss) {
           event.preventDefault(); event.stopImmediatePropagation(); this._swallowDismiss = false; return;
         }
+        // The Sort by sheet on a phone: a tap on the shade only closes it,
+        // never reaching the link or card under it.
+        const sheet = this.sortPanel;
+        if (sheet?.matches(':popover-open') && !window.matchMedia(SORT_DROPDOWN).matches) {
+          const box = sheet.getBoundingClientRect();
+          if (event.clientY >= box.top && event.clientX >= box.left && event.clientX <= box.right) return;
+          event.preventDefault(); event.stopImmediatePropagation();
+          if (event.type === 'pointerdown') {
+            this._swallowDismiss = true;
+            clearTimeout(this._swallowTimer);
+            this._swallowTimer = setTimeout(() => { this._swallowDismiss = false; }, 800);
+          }
+          try { sheet.hidePopover(); } catch (error) {}
+          return;
+        }
         const panel = this.filterPanel;
         if (!panel?.matches(':popover-open') || this.panelInline) return;
         const rect = panel.getBoundingClientRect();
@@ -812,6 +827,8 @@ eventCollectionShopify.init();
       );
       this.markSort();
       this.showClearFallback();
+      this.applyCols();
+      this.bindDrawerSwipe();
       this.watchLayout();
       // A row of dropdowns on a computer is a drawer on a phone: open its
       // panels there as the section's Default state says.
@@ -1026,17 +1043,87 @@ eventCollectionShopify.init();
       return false;
     }
 
+    /* Closing: the drawer slides out, its shadow and the shade fade with it
+       (one curve, one duration, collection-page.css); when the slide ends it
+       leaves the top layer at once, so nothing of it lingers after. */
     closeDrawer({ restoreFocus = false } = {}) {
       const panel = this.filterPanel;
       if (!panel || !panel.matches(':popover-open') || panel.classList.contains('is-closing')) return;
+      clearTimeout(this._closeTimer);
+      panel.classList.remove('is-dragging');
+      panel.getBoundingClientRect();
+      panel.style.removeProperty('translate');
+      panel.style.removeProperty('--facets-shade');
       panel.classList.add('is-closing');
+      let done = false;
       const finish = () => {
+        if (done) return;
+        done = true;
+        clearTimeout(this._closeTimer);
+        panel.removeEventListener('transitionend', onEnd);
+        // Hidden without a second (discrete) transition: gone this frame.
+        panel.style.transition = 'none';
         try { panel.hidePopover(); } catch (error) {}
         panel.classList.remove('is-closing');
+        panel.getBoundingClientRect();
+        requestAnimationFrame(() => panel.style.removeProperty('transition'));
         document.documentElement.classList.remove('facets-locked');
         if (restoreFocus) this.querySelector('[data-facets-open]')?.focus({preventScroll:true});
       };
-      this._closeTimer = setTimeout(finish, matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 340);
+      const onEnd = (event) => { if (event.target === panel && event.propertyName === 'translate') finish(); };
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches) { finish(); return; }
+      panel.addEventListener('transitionend', onEnd);
+      this._closeTimer = setTimeout(finish, 380);
+    }
+
+    /* A finger pulls the open drawer back toward its edge: it follows 1:1,
+       the shade lightens with it; let go past a third (or with a flick) and
+       it closes from where it is, else it springs back. */
+    bindDrawerSwipe() {
+      const panel = this.filterPanel;
+      if (!panel || panel._facetsSwipe) return;
+      panel._facetsSwipe = true;
+      let start = null, drag = null;
+      const rtl = () => getComputedStyle(panel).direction === 'rtl';
+      panel.addEventListener('touchstart', (event) => {
+        if (!panel.matches(':popover-open') || this.panelInline || event.touches.length !== 1 || panel.classList.contains('is-closing')) return;
+        const t = event.touches[0];
+        start = { x: t.clientX, y: t.clientY, time: performance.now() };
+        drag = null;
+      }, { passive: true });
+      panel.addEventListener('touchmove', (event) => {
+        if (!start) return;
+        const t = event.touches[0];
+        let dx = t.clientX - start.x;
+        const dy = t.clientY - start.y;
+        if (rtl()) dx = -dx;
+        if (!drag) {
+          if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+          if (dx >= 0 || Math.abs(dx) < Math.abs(dy) * 1.2 || event.target.closest('input')) { start = null; return; }
+          drag = { width: panel.getBoundingClientRect().width, last: dx, lastTime: performance.now(), v: 0 };
+          panel.classList.add('is-dragging');
+        }
+        if (event.cancelable) event.preventDefault();
+        const now = performance.now();
+        drag.v = (dx - drag.last) / Math.max(1, now - drag.lastTime);
+        drag.last = dx; drag.lastTime = now;
+        const offset = Math.min(0, dx);
+        panel.style.translate = `${rtl() ? -offset : offset}px 0`;
+        panel.style.setProperty('--facets-shade', String(Math.max(0, 1 + offset / drag.width).toFixed(3)));
+      }, { passive: false });
+      const end = () => {
+        if (!start) return;
+        start = null;
+        if (!drag) return;
+        const d = drag; drag = null;
+        if (-d.last > d.width / 3 || d.v < -0.45) { this.closeDrawer({ restoreFocus: true }); return; }
+        panel.classList.remove('is-dragging');
+        panel.getBoundingClientRect();
+        panel.style.removeProperty('translate');
+        panel.style.removeProperty('--facets-shade');
+      };
+      panel.addEventListener('touchend', end);
+      panel.addEventListener('touchcancel', end);
     }
 
     get sectionId() {
@@ -1066,6 +1153,21 @@ eventCollectionShopify.init();
         this.go(url.href, { focus: '[data-facets-sort-trigger]' });
         return;
       }
+      const cols = event.target.closest('[data-facets-cols]');
+      if (cols && this.contains(cols)) {
+        event.preventDefault();
+        this.setCols(cols.dataset.facetsCols, Number(cols.dataset.cols));
+        return;
+      }
+      const list = event.target.closest('[data-facets-list]');
+      if (list && this.contains(list)) {
+        event.preventDefault();
+        if (list.getAttribute('aria-pressed') === 'true') return;
+        const next = new URL(this._pendingHref || location.href);
+        next.searchParams.set('view', 'list');
+        this.go(next.href, { focus: '[data-facets-list]', transition: true });
+        return;
+      }
       const link = event.target.closest('a[data-facets-link]');
       if (link && this.contains(link)) {
         event.preventDefault();
@@ -1091,12 +1193,22 @@ eventCollectionShopify.init();
           this.bumpBadge(-1);
         } else if (link.matches('.facets-pill--clear, .facets-panel__clear, .facets-empty__action, .facets-empty__clear')) {
           this.bumpBadge(-Infinity);
-          const next = new URL(this._pendingHref || link.href);
+          // From the address as it is, so the search words, result type,
+          // sort and view all stay; only the filters and the page go.
+          const next = new URL(this._pendingHref || location.href);
           [...next.searchParams.keys()].filter(key => key.startsWith('filter.')).forEach(key => next.searchParams.delete(key));
           next.searchParams.delete('page');
           href = next.href;
         }
         this.go(href);
+        return;
+      }
+      const first = event.target.closest('a[data-facets-first-page]');
+      if (first && this.contains(first)) {
+        event.preventDefault();
+        const next = new URL(this._pendingHref || location.href);
+        next.searchParams.delete('page');
+        this.go(next.href, { scroll: true });
         return;
       }
       const page = event.target.closest('.pagination a[href]');
@@ -1108,6 +1220,7 @@ eventCollectionShopify.init();
 
     onKeydown(event) {
       if (event.key === 'Escape' && this.filterPanel?.matches(':popover-open')) { event.preventDefault(); this.closeDrawer({restoreFocus:true}); return; }
+      if (this.onSortKeydown(event)) return;
       if (event.key === 'Tab' && this.trapFocus(event)) return;
       if (event.key === 'Escape' && this.dropdownRow) {
         const open = event.target.closest('details[data-facets-group][open]');
@@ -1130,11 +1243,23 @@ eventCollectionShopify.init();
       event.preventDefault();
       const url = new URL(this._pendingHref || location.href);
       url.searchParams.delete('page');
-      form.querySelectorAll('input[name]:not([type="hidden"])').forEach((input) => {
-        const value = String(input.value || '').trim().replace(',', '.');
-        if (value === '' || Number.isNaN(Number(value))) url.searchParams.delete(input.name);
-        else url.searchParams.set(input.name, String(Math.max(0, Number(value))));
+      // Any amount is accepted (the platform clamps it); From above To swaps.
+      const read = (input) => {
+        const value = String((input && input.value) || '').trim().replace(',', '.');
+        return value === '' || Number.isNaN(Number(value)) ? null : Math.max(0, Number(value));
+      };
+      const min = form.querySelector('input[name$=".gte"]');
+      const max = form.querySelector('input[name$=".lte"]');
+      let low = read(min);
+      let high = read(max);
+      if (low != null && high != null && low > high) [low, high] = [high, low];
+      [[min, low], [max, high]].forEach(([input, value]) => {
+        if (!input) return;
+        if (value == null) url.searchParams.delete(input.name);
+        else url.searchParams.set(input.name, String(value));
       });
+      // A price applied from the row of dropdowns closes its dropdown.
+      if (this.dropdownRow) this.closeDropdowns();
       this.go(url.href);
     }
 
@@ -1216,6 +1341,45 @@ eventCollectionShopify.init();
       return this.querySelector('[data-facets-sort-panel]');
     }
 
+    /* The open Sort by list: arrows move between the options, Home/End jump.
+       On a phone (a modal sheet) Tab cycles inside it; on a computer (a
+       dropdown) Tab moves on and the list closes behind it. Escape is the
+       popover's own. */
+    onSortKeydown(event) {
+      const panel = this.sortPanel;
+      if (!panel || !panel.matches(':popover-open')) return false;
+      const options = [...panel.querySelectorAll('a[data-facets-sort]')];
+      const index = options.indexOf(document.activeElement);
+      if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key) && options.length) {
+        event.preventDefault();
+        let next = 0;
+        if (event.key === 'End') next = options.length - 1;
+        else if (event.key === 'ArrowDown') next = index < 0 ? 0 : Math.min(options.length - 1, index + 1);
+        else if (event.key === 'ArrowUp') next = index < 0 ? options.length - 1 : Math.max(0, index - 1);
+        options[next].focus();
+        return true;
+      }
+      if (event.key !== 'Tab') return false;
+      if (window.matchMedia(SORT_DROPDOWN).matches) {
+        if (panel.contains(document.activeElement)) {
+          try { panel.hidePopover(); } catch (error) {}
+          const trigger = this.querySelector('[data-facets-sort-trigger]');
+          if (event.shiftKey && trigger) { event.preventDefault(); trigger.focus(); }
+          else if (trigger) trigger.focus({ preventScroll: true });
+        }
+        return false;
+      }
+      const items = [...panel.querySelectorAll('a[href], button:not([disabled])')].filter((el) => el.getClientRects().length);
+      if (!items.length) return false;
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      if (!panel.contains(active)) { event.preventDefault(); (event.shiftKey ? last : first).focus(); return true; }
+      if (event.shiftKey && active === first) { event.preventDefault(); last.focus(); return true; }
+      if (!event.shiftKey && active === last) { event.preventDefault(); first.focus(); return true; }
+      return false;
+    }
+
     placeSortPanel() {
       const panel = this.sortPanel;
       const trigger = this.querySelector('[data-facets-sort-trigger]');
@@ -1269,6 +1433,103 @@ eventCollectionShopify.init();
       if (current) current.textContent = match.textContent.trim();
     }
 
+    /* Columns the visitor picked (per device size), kept in this browser and
+       mirrored on <html> (data-facets-cols-*), which the stylesheet reads;
+       the toolbar sets those before the grid is drawn, so a reload never
+       shows the default columns first. */
+    readCols(kind) {
+      try { return Number(localStorage.getItem(`facets:cols-${kind}`)) || 0; } catch (error) { return 0; }
+    }
+
+    get listView() {
+      const grid = this.querySelector('#product-grid');
+      return !!grid && !grid.classList.contains('facets-grid');
+    }
+
+    setCols(kind, count) {
+      if (!count) return;
+      try { localStorage.setItem(`facets:cols-${kind}`, String(count)); } catch (error) {}
+      if (this.listView) {
+        // The list is the section's own markup: ask for the grid again.
+        const next = new URL(this._pendingHref || location.href);
+        next.searchParams.delete('view');
+        this.go(next.href, { focus: `[data-facets-cols="${kind}"][data-cols="${count}"]`, transition: true });
+        return;
+      }
+      this.animateLayout(() => this.applyCols());
+    }
+
+    applyCols() {
+      const html = document.documentElement;
+      const view = this.querySelector('[data-facets-view]');
+      if (!view) return;
+      const desktop = this.readCols('desktop');
+      const mobile = this.readCols('mobile');
+      if (desktop >= 2 && desktop <= 4) html.setAttribute('data-facets-cols-desktop', desktop);
+      else html.removeAttribute('data-facets-cols-desktop');
+      if (mobile === 1 || mobile === 2) html.setAttribute('data-facets-cols-mobile', mobile);
+      else html.removeAttribute('data-facets-cols-mobile');
+      const grid = this.querySelector('#product-grid.facets-grid');
+      const style = grid ? getComputedStyle(grid) : null;
+      view.querySelectorAll('[data-facets-cols]').forEach((button) => {
+        const value = style ? parseInt(style.getPropertyValue(button.dataset.facetsCols === 'mobile' ? '--cols-mobile' : '--cols-desktop'), 10) : 0;
+        button.setAttribute('aria-pressed', String(!!grid && Math.min(value, 4) === Number(button.dataset.cols)));
+      });
+      const listButton = view.querySelector('[data-facets-list]');
+      if (listButton) listButton.setAttribute('aria-pressed', String(!grid && !!this.querySelector('#product-grid')));
+    }
+
+    /* The cards on screen glide from their old places to the new ones: a
+       View Transition where the browser has one, else the same move by hand
+       (FLIP). The cards are the same elements, so no picture loads again. */
+    animateLayout(change, { whole = false } = {}) {
+      const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const cards = () => [...this.querySelectorAll('#product-grid > .grid__item')];
+      const inView = (el) => { const r = el.getBoundingClientRect(); return r.bottom > -100 && r.top < window.innerHeight + 100; };
+      if (reduced) { change(); return Promise.resolve(); }
+      if (typeof document.startViewTransition === 'function') {
+        // Grid <-> list redraws the cards: the results cross-fade as one.
+        const named = whole ? [this.querySelector('[data-facets-part="results"]')].filter(Boolean) : cards().filter(inView).slice(0, 48);
+        named.forEach((el, i) => { el.style.viewTransitionName = whole ? 'facets-results' : `facets-card-${i}`; });
+        const html = document.documentElement;
+        html.classList.add('facets-vt');
+        let transition;
+        try { transition = document.startViewTransition(async () => { await change(); }); } catch (error) { change(); }
+        const clean = () => { named.forEach((el) => el.style.removeProperty('view-transition-name')); html.classList.remove('facets-vt'); };
+        if (!transition) { clean(); return Promise.resolve(); }
+        return transition.finished.then(clean, clean);
+      }
+      if (whole) {
+        const results = this.querySelector('[data-facets-part="results"]');
+        const out = change();
+        results?.animate?.([{ opacity: 0.4 }, { opacity: 1 }], { duration: 240, easing: 'ease-out' });
+        return Promise.resolve(out);
+      }
+      const before = new Map(cards().filter(inView).map((el) => [el, el.getBoundingClientRect()]));
+      const result = change();
+      return Promise.resolve(result).then(() => {
+        before.forEach((old, el) => {
+          if (!el.isConnected || !el.animate) return;
+          const now = el.getBoundingClientRect();
+          if (!now.width) return;
+          el.animate([
+            { transformOrigin: '0 0', transform: `translate(${old.left - now.left}px, ${old.top - now.top}px) scale(${old.width / now.width}, ${old.height / now.height})` },
+            { transformOrigin: '0 0', transform: 'none' },
+          ], { duration: 320, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' });
+        });
+      });
+    }
+
+    /* Before showing new cards, wait (briefly) for the first pictures to be
+       decoded, so a redrawn grid never flashes empty frames. */
+    async imagesReady(scope, limit = 8, wait = 400) {
+      const images = [...scope.querySelectorAll('#product-grid img')].slice(0, limit);
+      await Promise.race([
+        Promise.allSettled(images.map((img) => (img.decode ? img.decode() : Promise.resolve()))),
+        new Promise((resolve) => setTimeout(resolve, wait)),
+      ]);
+    }
+
     bumpBadge(delta) {
       const badge = this.querySelector('[data-facets-part="badge"]');
       if (!badge) return;
@@ -1284,7 +1545,7 @@ eventCollectionShopify.init();
     }
 
     async go(href, options = {}) {
-      const { push = true, focus = null, scroll = false } = options;
+      const { push = true, focus = null, scroll = false, transition = false } = options;
       const url = new URL(href, location.href);
       url.searchParams.delete('section_id');
       if (this._request && this._pendingHref === url.href) return;
@@ -1310,7 +1571,21 @@ eventCollectionShopify.init();
         if (push && target !== location.pathname + location.search + location.hash) {
           history.pushState({ facets: this.sectionId }, '', target);
         }
-        this.swap(next, { focus, scroll });
+        if (transition) {
+          // Grid <-> list: the new cards' pictures are decoded off screen
+          // first, then the layout changes in one smooth step.
+          const stage = document.createElement('div');
+          stage.style.cssText = 'position:fixed;left:-10000px;top:0;width:1200px;visibility:hidden;pointer-events:none';
+          stage.appendChild(next.querySelector('[data-facets-part="results"]')?.cloneNode(true) || document.createElement('div'));
+          document.body.appendChild(stage);
+          stage.querySelectorAll('img[data-src]').forEach((img) => { if (!img.getAttribute('src')) img.src = img.dataset.src; });
+          await this.imagesReady(stage);
+          stage.remove();
+          if (mine !== this._request || !this.isConnected) return;
+          await this.animateLayout(() => this.swap(next, { focus, scroll }), { whole: true });
+        } else {
+          this.swap(next, { focus, scroll });
+        }
       } catch (error) {
         if (error && error.name === 'AbortError') return;
         // The page itself always answers: fall back to loading it.
@@ -1367,6 +1642,7 @@ eventCollectionShopify.init();
       }
       this.markSort();
       this.showClearFallback();
+      this.applyCols();
       if (key) {
         const target = this.querySelector(key);
         if (target) target.focus({ preventScroll: true });

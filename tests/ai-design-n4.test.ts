@@ -263,7 +263,8 @@ async function main() {
   console.log("\n5. what the agent is told")
   {
     const sys = AGENT_SYSTEM
-    check("a senior designer-developer free of any theme", /senior designer-developer/.test(sys) && /free of any theme/.test(sys))
+    /* Changed on purpose (round 26): the owner now wants the agent to build the way the templates are built, on Materia's sections with a slight custom edge, never a generic theme's defaults (lib/storelib-ai/materia). */
+    check("a senior designer-developer building like the templates, on Materia, never a generic theme's defaults", /senior designer-developer/.test(sys) && /Materia theme's sections and blocks/.test(sys) && /Never a generic theme's defaults/.test(sys))
     check("its own header, footer, cart drawer, search and switches with the shared hooks", ["data-storelib-cart-panel", "data-storelib-search-panel", "data-storelib-search-result", "data-storelib-locale-list", "data-storelib-currency-list", "data-storelib-locale-current"].every((h) => sys.includes(h)) && sys.includes(HEADLESS_HOOK_GUIDE) && /NO built-in header, footer/.test(sys))
     check("10 or more sections on home, every page complete", /10 or more sections/.test(sys) && /No page is a single heading/.test(sys))
     check("no default display face, a clamp scale and tracking", /never the display face unless the creator named one/.test(sys) && /clamp\(\) on every heading/.test(sys) && /tracking/.test(sys))

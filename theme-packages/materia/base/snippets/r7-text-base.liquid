@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. The styles Text Columns and Sticky Heading Text share: the
   section wrapper (margins, Show on mobile), the root (background, padding,
   width), the header blocks drawn by snippets/r7-text-header, rich text and
@@ -8,7 +8,13 @@
   a block, printed by the section for the first paint and written again by
   live-r7-text.js on a live edit, with the same names and fallbacks. A
   heading with no size of its own keeps the theme's heading size (--size).
-{%- endcomment -%}
+
+  @param {string} p - P ('sht', 'txc')
+  @param {section} section - The section being rendered
+
+  @example
+  {% render 'r7-text-base', section: section, p: 'txc' %}
+{%- enddoc -%}
 {%- liquid
   assign st = section.settings
   assign mt_m = st.section_margin_top_mobile | default: 0

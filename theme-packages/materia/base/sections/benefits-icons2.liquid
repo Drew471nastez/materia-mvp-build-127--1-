@@ -1,4 +1,4 @@
-<script src="{{ 'live-features-a.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-features-a.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%} Runtime, once per page (the CSS and hero-image-one.js from layout/theme.storelib, every other script from the tags at the top of this file): shopify/assets/live-features-a.js. {%- endcomment -%}
 {%- comment -%}
@@ -11,7 +11,7 @@
 {%- endcomment -%}
 {%- liquid
   assign st = section.settings
-  assign scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign own = st.enable_custom_style
   assign mobile = st.icons_mobile_layout | default: '2'
   assign icon_names = 'lock,shield_alt,user_shield,check_circle,key,shipping_fast,box,truck,route,headset,envelope,comments,question_circle,map_marker_alt,award,gem,hands,thumbs-up,star,undo_alt,calendar_check,sync_alt,handshake,seedling,recycle,hand-holding-heart,globe,map_marked_alt,wallet,credit_card,receipt,lightbulb,magic,pencil_ruler,store,gift,percent,ruler-combined,palette,dollar-sign,clock,users,chart-line,battery-full' | split: ','
@@ -84,7 +84,7 @@
         {%- break -%}
       {%- endif -%}
     {%- endfor -%}
-    <ul class="bic__list" role="list"{% if mobile == 'slider' %} tabindex="0" aria-label="Benefits"{% endif %}>
+    <ul class="bic__list" role="list"{% if mobile == 'slider' %} tabindex="0" aria-label="{{ 'accessibility.ui.benefits' | t }}"{% endif %}>
       {%- for block in section.blocks -%}
         {%- if block.type != 'icon' -%}{%- continue -%}{%- endif -%}
         {%- liquid
@@ -119,7 +119,8 @@
   </div>
 </section>{% schema %}
 {
-  "name": "Benefits Icons",
+  "class": "s-tt",
+"name": "Benefits Icons",
   "settings": [
     {
       "type": "header",
@@ -129,7 +130,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -260,14 +261,14 @@
       "type": "font_picker",
       "id": "heading_font",
       "label": "Heading and title font",
-      "default": "helvetica_n4",
+      "default": "assistant_n4",
       "visible_if": "{{ section.settings.enable_custom_fonts }}"
     },
     {
       "type": "font_picker",
       "id": "body_font",
       "label": "Text font",
-      "default": "helvetica_n4",
+      "default": "assistant_n4",
       "visible_if": "{{ section.settings.enable_custom_fonts }}"
     },
     {
@@ -809,7 +810,7 @@
   "presets": [
     {
       "name": "Benefits Icons",
-      "category": "Features",
+      "category": "05 · Benefits & features",
       "blocks": [
         {
           "type": "heading"

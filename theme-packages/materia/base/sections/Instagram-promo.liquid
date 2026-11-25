@@ -1,7 +1,7 @@
-<script src="{{ 'live-social-dividers.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-social-dividers.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' and section.settings.reveal != false -%}
@@ -222,7 +222,7 @@
   #shopify-section-{{ section.id }} .image-container { position: relative; width: var(--ig-iw-m); height: var(--ig-ih-m); max-width: 100%; border-radius: var(--ig-radius); overflow: hidden; box-shadow: var(--ig-shadow); transition: box-shadow var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease), transform var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease); }
   #shopify-section-{{ section.id }} .ig-tile { display: block; width: 100%; height: 100%; position: relative; color: var(--color-text); }
   #shopify-section-{{ section.id }} .ig-tile:focus-visible { outline: 2px solid var(--color-heading); outline-offset: -4px; }
-  #shopify-section-{{ section.id }} .ig-tile > svg[data-sd-ph] { width: 100%; height: 100%; display: block; background: color-mix(in srgb, currentColor 10%, transparent); opacity: .6; }
+  #shopify-section-{{ section.id }} .ig-tile > svg[data-sd-ph] { width: 100%; height: 100%; display: block; }
   #shopify-section-{{ section.id }} .ig-tile > img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; display: block; transition: opacity var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease), transform var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease), filter var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease); }
   #shopify-section-{{ section.id }} .overlay { position: absolute; inset: 0; background-color: rgba(0, 0, 0, 0.3); opacity: 0; display: flex; justify-content: center; align-items: center; transition: opacity var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease); pointer-events: none; }
   #shopify-section-{{ section.id }} .overlay svg { fill: #fff; width: 2em; height: 2em; }
@@ -252,7 +252,7 @@
     #shopify-section-{{ section.id }} .image-container:hover .ig-tile > img { transform: none !important; }
   }
 </style>
-{%- if request.design_mode -%}<template data-sd-ph><svg viewBox="0 0 400 400" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false" data-sd-ph><g fill="currentColor" opacity=".55"><circle cx="160" cy="150" r="22"/><path d="M110 270l60-70 40 45 30-28 50 53z"/></g></svg></template>{%- endif -%}
+{%- if request.design_mode -%}<template data-sd-ph>{%- render 'placeholder-image', type: 'lifestyle-2', attrs: 'data-sd-ph' -%}</template>{%- endif -%}
 <div class="instagram-promo-section show-{% case s.show_section_on %}{% when 'no_devices' %}none hide-all{% when 'mobile_only' %}mobile{% when 'desktop_only' %}desktop{% else %}all{% endcase %}" data-sd-ig data-ig-hover="{{ s.image_hover_animation | default: 'none' }}" style="{{ ig_vars | strip_newlines }}">
   <div class="promo-container">
     {%- for block in section.blocks -%}
@@ -286,11 +286,11 @@
           <div class="image-container" data-sd-block="{{ block.id }}" data-sd-type="image"{% if request.design_mode %} data-sd-settings="{{ block.settings | json | escape }}"{% endif %} {{ block.shopify_attributes }}>
             <{% if tile_link != blank %}a href="{{ tile_link }}" target="_blank" rel="noopener" aria-label="{{ b.alt_text | escape }}"{% else %}div{% endif %} class="ig-tile" data-ig-tile>
               {%- if b.enable_image_url and b.image_url != blank -%}
-                <img data-sd-img alt="{{ b.alt_text | escape }}" src="{{ b.image_url }}" loading="lazy" decoding="async">
+                <img data-sd-img alt="{{ b.alt_text | escape }}" src="{{ b.image_url }}" width="600" height="600" loading="lazy" decoding="async">
               {%- elsif b.image != blank -%}
                 <img data-sd-img alt="{{ b.alt_text | escape }}" src="{{ b.image | image_url: width: 600 }}" width="{{ b.image.width }}" height="{{ b.image.height }}" loading="lazy" decoding="async">
               {%- else -%}
-                <svg viewBox="0 0 400 400" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false" data-sd-ph><g fill="currentColor" opacity=".55"><circle cx="160" cy="150" r="22"/><path d="M110 270l60-70 40 45 30-28 50 53z"/></g></svg>
+                {%- render 'placeholder-image', type: 'collection', index: forloop.index, attrs: 'data-sd-ph' -%}
               {%- endif -%}
               <span class="overlay" aria-hidden="true">{%- render 'icon-instagram', custom_width: 32 -%}</span>
             </{% if tile_link != blank %}a{% else %}div{% endif %}>
@@ -324,7 +324,8 @@
 </div>
 <!-- ti-theme:end -->{% schema %}
 {
-  "name": "Instagram Promo Pro 1",
+  "class": "s-tt",
+"name": "Instagram Promo Pro 1",
   "settings": [
     {
       "type": "header",
@@ -334,7 +335,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -405,7 +406,6 @@
       "id": "show_instagram_button",
       "label": "Show button",
       "default": false,
-      "hidden": true,
       "info": "Legacy: used only when the section has no Button block.",
       "visible_if": "{{ false }}"
     },
@@ -414,7 +414,6 @@
       "id": "button_text",
       "label": "Button label",
       "default": "Follow us on Instagram",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Button block.",
       "visible_if": "{{ false }}"
     },
@@ -423,7 +422,6 @@
       "id": "button_link_url",
       "label": "Button link",
       "default": "/",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Button block.",
       "visible_if": "{{ false }}"
     },
@@ -432,7 +430,6 @@
       "id": "use_theme_button",
       "label": "Use theme button style",
       "default": true,
-      "hidden": true,
       "info": "Legacy: used only when the section has no Button block.",
       "visible_if": "{{ false }}"
     },
@@ -440,7 +437,6 @@
       "type": "color",
       "id": "button_bg_color",
       "label": "Button background",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Button block.",
       "visible_if": "{{ false }}"
     },
@@ -448,7 +444,6 @@
       "type": "color",
       "id": "button_text_color",
       "label": "Button text",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Button block.",
       "visible_if": "{{ false }}"
     },
@@ -456,7 +451,6 @@
       "type": "color",
       "id": "button_hover_bg_color",
       "label": "Button hover background",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Button block.",
       "visible_if": "{{ false }}"
     },
@@ -464,7 +458,6 @@
       "type": "color",
       "id": "button_text_hover_color",
       "label": "Button hover text",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Button block.",
       "visible_if": "{{ false }}"
     },
@@ -477,7 +470,6 @@
       "step": 1,
       "unit": "px",
       "default": 16,
-      "hidden": true,
       "info": "Legacy: used only when the section has no Button block.",
       "visible_if": "{{ false }}"
     },
@@ -508,7 +500,6 @@
           "label": "700"
         }
       ],
-      "hidden": true,
       "info": "Legacy: used only when the section has no Button block.",
       "visible_if": "{{ false }}"
     },
@@ -521,7 +512,6 @@
       "step": 1,
       "unit": "px",
       "default": 15,
-      "hidden": true,
       "info": "Legacy: used only when the section has no Button block.",
       "visible_if": "{{ false }}"
     },
@@ -763,7 +753,6 @@
         }
       ],
       "default": "Roboto",
-      "hidden": true,
       "info": "Legacy: replaced by the font pickers above.",
       "visible_if": "{{ false }}"
     },
@@ -1157,7 +1146,6 @@
           "id": "enable_image_url",
           "label": "Use a picture address",
           "default": false,
-          "hidden": true,
           "info": "Legacy: pick the picture above instead.",
           "visible_if": "{{ false }}"
         },
@@ -1165,7 +1153,6 @@
           "type": "text",
           "id": "image_url",
           "label": "Picture address",
-          "hidden": true,
           "info": "Legacy: pick the picture above instead.",
           "visible_if": "{{ false }}"
         }
@@ -1293,8 +1280,8 @@
   "max_blocks": 12,
   "presets": [
     {
-      "name": "Instagram Promo Pro 1",
-      "category": "Social",
+      "name": "Instagram Feed",
+      "category": "16 · Social media",
       "settings": {
         "enable_custom_fonts": false,
         "image_width_desktop": 210,

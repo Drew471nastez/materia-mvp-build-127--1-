@@ -1,10 +1,16 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. An Eyebrow, Heading or Subheading block in the header of
   Recently Viewed and Product Duo. Colours follow the colour scheme until the
   block's Enable custom styling is on. live-r7-products.js writes the same
   values in the builder (the settings JSON is printed there only).
   block: the block. sid: the section id, for the heading's id.
-{%- endcomment -%}
+
+  @param {block} block - The block being rendered
+  @param {string} sid - Section id, used to scope CSS and element ids
+
+  @example
+  {% render 'r7-products-text', block: block, sid: sid %}
+{%- enddoc -%}
 {%- assign bs = block.settings -%}
 {%- capture r7k_style -%}
   {%- if block.type == 'heading' -%}

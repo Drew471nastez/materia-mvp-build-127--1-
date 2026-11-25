@@ -34,17 +34,26 @@
     });
     var animation = root.getAttribute('data-faq7-anim');
     var revealEl = root;
-    if (document.body.classList.contains('shopify-design-mode')) {
+    if (window.mtIsRedraw?.(root)) {
       revealEl.classList.add('is-revealed');
-    } else if (animation && animation !== 'none') {
+    } else if (animation && animation !== 'none' && revealEl.hasAttribute('data-faq7-reveal')) {
+      // First report: in (or above) the first screen it simply shows; further
+      // down it is armed (hidden, CSS) and reveals once when scrolled to.
+      var first = true;
       var io = new IntersectionObserver(function (entries, obs) {
-        entries.forEach(function (e) {
-          if (e.isIntersecting) {
-            revealEl.classList.add('is-revealed');
-            obs.unobserve(revealEl);
-          }
-        });
-      }, { threshold: 0.12 });
+        var e = entries[entries.length - 1];
+        if (first) {
+          first = false;
+          var rb = e.rootBounds, shown = !!rb && e.boundingClientRect.top < rb.top + (rb.bottom - rb.top) / 0.94;
+          if (e.isIntersecting || shown || e.boundingClientRect.bottom <= 0) { revealEl.classList.add('is-revealed'); obs.unobserve(revealEl); return; }
+          revealEl.setAttribute('data-faq7-armed', '');
+          return;
+        }
+        if (!e.isIntersecting) return;
+        obs.unobserve(revealEl);
+        revealEl.classList.add('is-revealed');
+        setTimeout(function () { revealEl.removeAttribute('data-faq7-armed'); }, 1000);
+      }, { threshold: 0, rootMargin: '0px 0px -6% 0px' });
       io.observe(revealEl);
     } else {
       revealEl.classList.add('is-revealed');
@@ -59,5 +68,5 @@
 
   window.MateriaFaqPro = { init: init };
   init(document);
-  document.addEventListener('storelib:section-load', function (e) { init(e.target); });
+  ['storelib:section-load', 'shopify:section:load'].forEach(function (name) { document.addEventListener(name, function (e) { init(e.target); }); });
 })();

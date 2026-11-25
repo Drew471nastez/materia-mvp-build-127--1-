@@ -1,0 +1,105 @@
+
+  /* Section isolation — prevent CSS/JS bleed between sections */
+  #shopify-section-hero {
+    isolation: isolate;
+    position: relative;
+  }
+  /* Aggressive theme typography */
+  :where(#shopify-section-hero) {
+    font-family: var(--body-font, inherit);
+  }
+  :where(#shopify-section-hero) :where(button, input, textarea, select, optgroup) {
+    font-family: inherit;
+  }
+  /* Theme font-weight inheritance — sections inherit theme weights by default.
+     Specific font-weight rules in section CSS still override these. */
+  #shopify-section-hero {
+    font-weight: var(--body-weight, inherit);
+  }
+  :where(#shopify-section-hero) :is(h1, h2, h3, h4, h5, h6) {
+    font-weight: var(--heading-weight, inherit);
+  }
+  :where(#shopify-section-hero) :is(h1, h2, h3, h4, h5, h6) {
+    font-family: var(--heading-font, inherit);
+  }
+  /* Section margin sliders (mobile-first) */
+  #shopify-section-hero {
+    margin-top: 0px;
+    margin-bottom: 0px;
+  }
+  @media (min-width: 768px) {
+    #shopify-section-hero {
+      margin-top: 0px;
+      margin-bottom: 0px;
+    }
+  }
+  /* Section wrapper spans its parent's full width without breaking out of
+     the editor preview. The section + first child span 100% so backgrounds
+     reach edge-to-edge but the editor inspector outline stays inside the
+     iframe viewport. */
+  #shopify-section-hero {
+    max-width: none !important;
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    position: relative !important;
+    box-sizing: border-box !important;
+  }
+  #shopify-section-hero > :where(div, section, header, footer, aside, main, article):first-child {
+    max-width: none !important;
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Section width — universal selector that works regardless of inner
+     markup. Targets both:
+       1) Theme container classes (.container/.fluid_container/etc.) — for
+          sections that have an inner wrapper with that class
+       2) The section's first-child div — for sections that don't have a
+          named inner wrapper. The padding-inline sets the max content
+          area while the wrapper itself stays 100% wide so any background
+          stays edge-to-edge. */#shopify-section-hero [data-ss-width="container"] .container {
+    max-width: calc(var(--page-width, 1300px) + 3rem) !important;
+    margin-inline: auto !important;
+    box-sizing: border-box !important;
+  }
+  #shopify-section-hero [data-ss-width="fluid_container"] .fluid_container {
+    max-width: calc(var(--fluid-container-width, 1500px) + 3rem) !important;
+    margin-inline: auto !important;
+    box-sizing: border-box !important;
+  }
+  @media (min-width: 1200px) {
+    #shopify-section-hero [data-ss-width="stretch_width"] .stretch_width { padding-inline: 3rem; }
+  }
+  /* Reset spacing */#shopify-section-hero { margin-bottom: 0 !important; margin-top: 0 !important; }
+    #shopify-section-hero + .shopify-section { margin-top: 0 !important; }/* === MOBILE FONT SIZE OVERRIDES ===
+     Each text element gets its desktop font-size from the existing
+     fs-custom / fs-medium / fs-big classes, fed by --font-size set
+     inline. To give the merchant an independent MOBILE font size,
+     we set a second variable inline (--font-size-mobile-sub /
+     -heading / -des) and override font-size below 768px using calc()
+     to convert the unitless slider value into px.
+
+     We use !important to win over the theme's fs-custom/fs-medium/fs-big
+     class rules from theme.css/critical.css which use cascaded specificity.
+     This only fires on mobile, so the desktop chain stays untouched. */
+  @media (max-width: 767.98px) {
+    #shopify-section-hero .sec__content-subheading {
+      font-size: calc(var(--font-size-mobile-sub) * 1px) !important;
+      line-height: 1.3;
+    }
+    #shopify-section-hero .sec__content-heading,
+    #shopify-section-hero :is(h1, h2, h3, h4, h5, h6).sec__content-heading {
+      font-size: calc(var(--font-size-mobile-heading) * 1px) !important;
+      line-height: 1.1;
+    }
+    #shopify-section-hero .sec__content-des,
+    #shopify-section-hero .sec__content-des * {
+      font-size: calc(var(--font-size-mobile-des) * 1px) !important;
+      line-height: 1.5;
+    }
+  }

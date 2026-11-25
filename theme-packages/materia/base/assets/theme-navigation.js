@@ -41,6 +41,8 @@
   const warmCheckout = () => {
     if (checkoutWarm) return;
     checkoutWarm = true;
+    // The platform's checkout runs on the store's own domain: nothing to open ahead.
+    if (window.Shopify && window.Shopify.shop && !window.Shopify.storelib) return;
     for (const href of ['https://js.stripe.com', 'https://api.stripe.com']) {
       const link = document.createElement('link');
       link.rel = 'preconnect'; link.href = href; link.crossOrigin = 'anonymous';
@@ -97,18 +99,27 @@
   const ready = () => {
     const idle = window.requestIdleCallback || (fn => setTimeout(fn, 150));
     idle(() => {
+      // Geometry comes from one IntersectionObserver pass instead of
+      // getBoundingClientRect() on each link, which forced a full layout
+      // while the page was still settling.
+      const main = [], nav = [], barLinks = [];
+      let n = 0;
+      for (const anchor of document.querySelectorAll('main a[href*="/products/"]')) { if (n++ === 40) break; main.push(anchor); }
+      nav.push(...document.querySelectorAll('header nav a[href], .section-header nav a[href]'));
+      barLinks.push(...document.querySelectorAll('mobile-navigation-bar a[href]'));
+      const all = new Set([...main, ...nav, ...barLinks]);
+      const pick = rects => {
       const picked = [...document.querySelectorAll('a[data-product-neighbor]')].slice(0, limited ? 1 : 2);
       // Prepare a small number of visible product destinations before the
       // shopper taps; never crawl the catalog or preload offscreen carousels.
       // On a slow connection, one page only, so it does not crowd the current one.
       const urls = new Set();
-      let inspected = 0, visible = 0;
+      let visible = 0;
       const visibleCap = limited ? 1 : 4;
-      for (const anchor of document.querySelectorAll('main a[href*="/products/"]')) {
-        if (inspected++ === 40) break;
+      for (const anchor of main) {
         if (urls.has(anchor.href)) continue;
-        const rect = anchor.getBoundingClientRect();
-        if (!rect.width || !rect.height || rect.bottom <= 0 || rect.top >= innerHeight || rect.right <= 0 || rect.left >= innerWidth) continue;
+        const rect = rects.get(anchor);
+        if (!rect || !rect.width || !rect.height || rect.bottom <= 0 || rect.top >= innerHeight || rect.right <= 0 || rect.left >= innerWidth) continue;
         urls.add(anchor.href); picked.push(anchor);
         if (++visible === visibleCap) break;
       }
@@ -116,22 +127,33 @@
       // collection): the pages most visitors open next.
       let menu = 0;
       const menuCap = limited ? 1 : 4;
-      for (const anchor of document.querySelectorAll('header nav a[href], .section-header nav a[href]')) {
+      for (const anchor of nav) {
         if (menu === menuCap) break;
-        const rect = anchor.getBoundingClientRect();
-        if (!rect.width || !rect.height || rect.top >= innerHeight || urls.has(anchor.href)) continue;
+        const rect = rects.get(anchor);
+        if (!rect || !rect.width || !rect.height || rect.top >= innerHeight || urls.has(anchor.href)) continue;
         urls.add(anchor.href); picked.push(anchor); menu++;
       }
       // The phone's bottom bar (home, shop, wishlist): fetched ahead, so a
       // tap there opens the page at once instead of waiting on the network.
       // Cart and account are skipped by the rule above.
       let bar = 0;
-      for (const anchor of document.querySelectorAll('mobile-navigation-bar a[href]')) {
+      for (const anchor of barLinks) {
         if (bar === (limited ? 1 : 3)) break;
-        if (!anchor.getBoundingClientRect().height || urls.has(anchor.href)) continue;
+        const rect = rects.get(anchor);
+        if (!rect || !rect.height || urls.has(anchor.href)) continue;
         urls.add(anchor.href); picked.push(anchor); bar++;
       }
       if (speculation) warmList(picked); else picked.forEach(warm);
+      };
+      if (!all.size || !('IntersectionObserver' in window)) { const rects = new Map(); all.forEach(a => rects.set(a, a.getBoundingClientRect())); pick(rects); return; }
+      const rects = new Map();
+      const io = new IntersectionObserver(entries => {
+        for (const entry of entries) if (!rects.has(entry.target)) rects.set(entry.target, entry.boundingClientRect);
+        if (rects.size < all.size) return;
+        io.disconnect();
+        pick(rects);
+      });
+      all.forEach(a => io.observe(a));
     }, {timeout: 500});
   };
   if (document.readyState !== 'loading') ready();

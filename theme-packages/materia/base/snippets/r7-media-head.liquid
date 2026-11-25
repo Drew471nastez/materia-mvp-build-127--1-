@@ -1,9 +1,13 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. The Heading and Text blocks of the round 7 Image and video
   sections. Colours follow the colour scheme until the block's own custom
   styling is on; the block's settings JSON is printed in the builder only.
+
+  @param {block} block - The block being rendered
+
+  @example
   {% render 'r7-media-head', block: block %}
-{%- endcomment -%}
+{%- enddoc -%}
 {%- assign bs = block.settings -%}
 {%- assign own = bs.enable_custom_style -%}
 {%- capture r7_block -%}data-block-id="{{ block.id }}" data-r7m-block="{{ block.id }}" data-r7m-type="{{ block.type }}"{% if request.design_mode %} data-r7m-settings="{{ bs | json | escape }}"{% endif %} {{ block.shopify_attributes }}{%- endcapture -%}

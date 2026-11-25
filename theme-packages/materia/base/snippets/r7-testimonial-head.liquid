@@ -1,11 +1,16 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. The eyebrow, heading and subheading blocks of Testimonial
   Wall and Testimonial With Product, in the order the creator put them. A
   block with no words is printed hidden, so words typed in the builder show
   at once. The heading is the section's h2. Colours follow the colour scheme
   until the block's custom styling is on.
   section: the section.
-{%- endcomment -%}
+
+  @param {section} section - The section being rendered
+
+  @example
+  {% render 'r7-testimonial-head', section: section %}
+{%- enddoc -%}
 <div class="r7t__head">
   {%- for b in section.blocks -%}
     {%- assign bs = b.settings -%}

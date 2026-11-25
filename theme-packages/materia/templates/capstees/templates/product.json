@@ -171,7 +171,7 @@
             "sold_label": "sold",
             "show_live_dot": true,
             "padding_top": 2,
-            "padding_bottom": 16,
+            "padding_bottom": 6,
             "enable_counter_custom": false
           }
         },
@@ -223,8 +223,8 @@
         "title_1",
         "price_1",
         "pp23_sold",
-        "variant_picker_1",
         "size_guide_1",
+        "variant_picker_1",
         "text_1",
         "pp23_info",
         "buy_buttons_1",
@@ -261,54 +261,6 @@
         "padding_top": 48,
         "padding_bottom": 56
       }
-    },
-    "image_text": {
-      "type": "Image-and-video-text",
-      "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
-        "image": "shopify://shop_images/capstees-white-tee.webp",
-        "image_alt": "A man in a plain white heavy cotton tee",
-        "image_position": "left",
-        "section_width": "container",
-        "image_radius": 10,
-        "aspect_w": 4,
-        "aspect_h": 5,
-        "text_column_width": 50,
-        "gap_desktop": 72,
-        "padding_top_desktop": 0,
-        "padding_bottom_desktop": 0,
-        "side_padding_desktop": 0,
-        "padding_top_mobile": 0,
-        "padding_bottom_mobile": 40,
-        "side_padding_mobile": 20
-      },
-      "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
-          "settings": {
-            "text": "How it fits"
-          }
-        },
-        "heading_2": {
-          "type": "heading",
-          "settings": {
-            "text": "Worn in, not worn out",
-            "size_desktop": 28,
-            "size_mobile": 22
-          }
-        },
-        "subheading_3": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p>Heavy cotton softens with every wash but keeps its shape. The neck rib is double stitched so it lies flat after a year of wearing.</p>"
-          }
-        }
-      },
-      "block_order": [
-        "eyebrow_1",
-        "heading_2",
-        "subheading_3"
-      ]
     },
     "mark": {
       "type": "brand-logo",
@@ -438,12 +390,35 @@
         "youtube",
         "x"
       ]
+    },
+    "recently_viewed": {
+      "type": "recently-viewed",
+      "blocks": {
+        "heading_rv": {
+          "type": "heading",
+          "settings": {
+            "text": "Recently viewed"
+          }
+        }
+      },
+      "block_order": [
+        "heading_rv"
+      ],
+      "settings": {
+        "section_width": "container",
+        "products_to_show": 8,
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 20,
+        "padding_top": 40,
+        "padding_bottom": 56
+      }
     }
   },
   "order": [
     "main",
     "related",
-    "image_text",
+    "recently_viewed",
     "mark",
     "statement",
     "social"

@@ -1,9 +1,9 @@
-<script src="{{ 'live-r7-trust.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-r7-trust.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
 -%}
 {%- comment -%}
   Materia Themes. Logo Wall: a heading, a short line and every logo at once
@@ -178,7 +178,7 @@
         {%- if design or bs.logo != blank -%}
         {%- assign alt = bs.alt | default: bs.logo.alt -%}
         <li class="lw__item" data-r7g-block="{{ block.id }}" data-r7g-type="logo"{% if design %} data-r7g-settings="{% capture lwb_json %}{"logo":{% if bs.logo != blank %}{{ bs.logo | image_url: width: 480 | json }}{% else %}""{% endif %},"alt":{{ bs.alt | append: '' | json }},"url":{{ bs.url | append: '' | json }}}{% endcapture %}{{ lwb_json | escape }}" data-r7g-own-alt="{{ bs.logo.alt | escape }}"{% endif %} {{ block.shopify_attributes }}>
-          <a class="lw__tile"{% if bs.url != blank %} href="{{ bs.url | url }}"{% endif %}>
+          <a class="lw__tile"{% if bs.url != blank %} href="{{ bs.url }}"{% endif %}>
             {%- if bs.logo != blank -%}
               <img class="lw__img" src="{{ bs.logo | image_url: width: 480 }}" srcset="{{ bs.logo | image_url: width: 240 }} 240w, {{ bs.logo | image_url: width: 480 }} 480w" sizes="240px" width="{{ bs.logo.width | default: 240 }}" height="{{ bs.logo.height | default: 96 }}" alt="{{ alt | escape }}" loading="lazy" decoding="async">
             {%- else -%}
@@ -197,7 +197,8 @@
 </div>
 {%- endif -%}{% schema %}
 {
-  "name": "Logo Wall",
+  "class": "s-tt",
+"name": "Logo Wall",
   "settings": [
     {
       "type": "header",
@@ -207,7 +208,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -626,7 +627,7 @@
   "presets": [
     {
       "name": "Logo Wall",
-      "category": "Logos and trust",
+      "category": "10 · Logos & press",
       "blocks": [
         {
           "type": "heading"

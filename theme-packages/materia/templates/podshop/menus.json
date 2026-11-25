@@ -12,11 +12,11 @@
             "links": [
               {
                 "title": "Graphic tees",
-                "url": "/search?q=tee"
+                "url": "/collections/graphic-tees"
               },
               {
                 "title": "Crewnecks",
-                "url": "/search?q=crew"
+                "url": "/collections/crewnecks"
               },
               {
                 "title": "Everything",
@@ -26,15 +26,15 @@
           },
           {
             "title": "Accessories",
-            "url": "/search?q=cap",
+            "url": "/collections/caps-and-beanies",
             "links": [
               {
-                "title": "Caps",
-                "url": "/search?q=cap"
+                "title": "Caps and beanies",
+                "url": "/collections/caps-and-beanies"
               },
               {
-                "title": "Beanies",
-                "url": "/search?q=beanie"
+                "title": "Gifts",
+                "url": "/collections/gifts"
               }
             ]
           },
@@ -64,19 +64,19 @@
       },
       {
         "title": "Winter",
-        "url": "/search?q=crew"
+        "url": "/collections/winter"
       },
       {
         "title": "Hometown",
-        "url": "/search?q=hometown"
+        "url": "/collections/hometown"
       },
       {
         "title": "Game day",
-        "url": "/search?q=game"
+        "url": "/collections/game-day"
       },
       {
         "title": "Essentials",
-        "url": "/search?q=tee"
+        "url": "/collections/essentials"
       },
       {
         "title": "Our story",
@@ -110,15 +110,15 @@
       },
       {
         "title": "Graphic tees",
-        "url": "/search?q=tee"
+        "url": "/collections/graphic-tees"
       },
       {
         "title": "Crewnecks",
-        "url": "/search?q=crew"
+        "url": "/collections/crewnecks"
       },
       {
         "title": "Caps and beanies",
-        "url": "/search?q=cap"
+        "url": "/collections/caps-and-beanies"
       }
     ]
   },

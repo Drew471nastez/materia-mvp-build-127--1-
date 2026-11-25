@@ -24,7 +24,7 @@
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign custom = st.enable_custom_style
 -%}
 {% render 'account-pages-base', sid: sid %}
@@ -106,7 +106,8 @@
   #shopify-section-{{ sid }} .ap-account__none .ap__t { margin: 0; }
 </style>{% schema %}
 {
-  "name": "Account",
+  "class": "s-tt",
+"name": "Account",
   "settings": [
     {
       "type": "header",
@@ -116,7 +117,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",

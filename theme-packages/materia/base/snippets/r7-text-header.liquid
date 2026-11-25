@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. The header of Text Columns and Sticky Heading Text: the
   eyebrow, heading, subheading and button blocks in their order.
   p: the section's class prefix (txc, sht).
@@ -10,7 +10,13 @@
   data-own-font / data-own-weight / data-own-size / data-own-shape so it
   keeps its value ahead of "Use in every section" (snippets/theme-controls).
   live-r7-text.js writes the same variables and attributes on a live edit.
-{%- endcomment -%}
+
+  @param {string} p - P ('sht', 'txc')
+  @param {section} section - The section being rendered
+
+  @example
+  {% render 'r7-text-header', section: section, p: 'txc' %}
+{%- enddoc -%}
 {%- liquid
   assign st = section.settings
   assign sec_font = false

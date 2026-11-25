@@ -1,9 +1,13 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. The separator icons of Announcement Bar Pro 1, drawn inline
   (no icon font to load). shopify/assets/live-announcements.js draws the same
   shapes for a live change (ICONS there).
+
+  @param {string} icon - Separator ('fa-circle', 'fa-star')
+
+  @example
   {% render 'announce-icon', icon: section.settings.separator_icon %}
-{%- endcomment -%}
+{%- enddoc -%}
 {%- case icon -%}
   {%- when 'fa-star' -%}<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01z"/></svg>
   {%- when 'fa-heart' -%}<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 21s-7.6-4.7-10-9.4C.6 8.4 2.6 4 6.6 4c2.2 0 3.6 1.1 5.4 3.2C13.8 5.1 15.2 4 17.4 4c4 0 6 4.4 4.6 7.6C19.6 16.3 12 21 12 21z"/></svg>

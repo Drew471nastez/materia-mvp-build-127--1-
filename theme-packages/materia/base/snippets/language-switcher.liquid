@@ -1,7 +1,17 @@
+{% doc %}
+  Language selector (localization form) when the shop has more than one language.
+
+  @param {string} [id_suffix] - Id suffix
+  @param {boolean} [static_single] - Static single
+  @param {string} [type] - Type
+
+  @example
+  {% render 'language-switcher', id_suffix: '-drawer', static_single: true %}
+{% enddoc -%}
 {% if localization.available_languages.size > 1 %}
   <localization-form>
     {% render 'localization-controls' %}
-    {%- assign form_id = 'localization-language-' | append: section.id -%}
+    {%- assign form_id = 'localization-language-' | append: section.id | append: id_suffix -%}
     {% form 'localization', id: form_id %}
       <input type="hidden" name="language_code" value="{{ localization.language.iso_code }}">
       <div class="disclosure relative flex align-center">
@@ -24,7 +34,7 @@
               <li class="disclosure__item py-4" tabindex="-1">
                 <a
                   href="#"
-                  class="no-underline text-color hover-heading-color"
+                  class="loc-option no-underline text-color hover-heading-color"
                   {% if language.iso_code == localization.language.iso_code %}
                     aria-current="true"
                   {% endif %}
@@ -33,7 +43,8 @@
                   data-value="{{ language.iso_code }}"
                   aria-label="{{ language.endonym_name | capitalize | escape }}"
                 >
-                  {{ language.endonym_name | capitalize }}
+                  <span class="loc-option__label">{{ language.endonym_name | capitalize }}</span>
+                  <svg class="loc-option__check" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </a>
               </li>
             {% endfor %}
@@ -42,4 +53,9 @@
       </div>
     {% endform %}
   </localization-form>
+{%- elsif static_single and localization.language -%}
+  {%- comment -%} One language only (the header passes static_single): the current language as a quiet label. Languages in Storelib turn it into the selector above. {%- endcomment -%}
+  <div class="hs-loc-static flex align-center{% if type == 'mobile-navigation' %} hs-loc-static--nav{% endif %}" data-loc-static="language">
+    <span>{{ localization.language.endonym_name | capitalize }}</span>
+  </div>
 {% endif %}

@@ -1,3 +1,11 @@
+{% doc %}
+  Renders one cart line item row (image, title, options, price, quantity, remove).
+
+  @param {object} item - Cart line item
+
+  @example
+  {% render 'cart-item', item: item %}
+{% enddoc -%}
 {%- comment -%}
   Materia Themes. Developed By Materia Themes.
 {%- endcomment -%}
@@ -29,7 +37,7 @@
         {%- assign image_alt = item.image.alt | default: item.product.title | escape -%}
         {{ item.image | image_url: width: 240 | image_tag: width: 90, height: 90, widths: '90,160,240', sizes: '64px', loading: 'eager', decoding: 'async', alt: image_alt, class: 'rounded-5' }}
       {%- else -%}
-        {% render 'placeholder-render', class: 'rounded-5' %}
+        {% render 'placeholder-render', class: 'rounded-5', type: 'product' %}
       {%- endif -%}
     </a>
   </div>
@@ -61,7 +69,7 @@
                   {{ property.last | split: '/' | last }}
                 </a>
               {%- else -%}
-                {{ property.last }}
+                {{ property.last | escape }}
               {%- endif -%}
             </span>
           </div>

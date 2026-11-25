@@ -1,0 +1,65 @@
+/* block-pairwith.css: static styles of snippets/product-info-blocks.liquid, moved out of its inline <style> so they are cached.
+   :is(<selector>,#_): #_ never matches; it only keeps the (1,0,0) specificity of the per-instance id selector it replaces
+   (:is(.s-pib-pairwith,#_) is the section wrapper, schema class "s-pib-pairwith"). Per-instance values stay inline as custom properties. */
+:is([id^="PairWith-"],#_){ margin: var(--pw-mt) var(--pw-pr) var(--pw-mb) var(--pw-pl); }
+@media (max-width:749px){
+    :is([id^="PairWith-"],#_){ margin: var(--pw-mt-m) var(--pw-pr-m) var(--pw-mb-m) var(--pw-pl-m); }
+  }
+:is([id^="PairWith-"],#_) .pw-wrap{ color: var(--pw-text-color); }
+:is([id^="PairWith-"],#_) .pw-heading{ font: inherit; font-weight: inherit; margin: 0 0 10px; }
+:is([id^="PairWith-"],#_) .pw-track{ display:flex; gap:var(--pw-gap-d); overflow:hidden; }
+/* CARD */
+:is([id^="PairWith-"],#_) .pw-card{
+    flex:0 0 calc((100%/var(--pw-perrow-d)) - (var(--pw-gap-d)*(var(--pw-perrow-d) - 1)/var(--pw-perrow-d)));
+    min-width:calc((100%/var(--pw-perrow-d)) - (var(--pw-gap-d)*(var(--pw-perrow-d) - 1)/var(--pw-perrow-d)));
+    background:var(--pw-card-bg);
+    border:var(--pw-card-bw) solid var(--pw-card-bc);
+    border-radius:var(--pw-card-radius);
+    padding:var(--pw-card-pad);
+    box-sizing:border-box;
+    scroll-snap-align:start;
+  }
+@media (max-width:749px){
+    :is([id^="PairWith-"],#_) .pw-track{ gap:var(--pw-gap-m); }
+    :is([id^="PairWith-"],#_) .pw-card{
+      flex-basis:calc((100%/var(--pw-perrow-m)) - (var(--pw-gap-m)*(var(--pw-perrow-m) - 1)/var(--pw-perrow-m)));
+      min-width:calc((100%/var(--pw-perrow-m)) - (var(--pw-gap-m)*(var(--pw-perrow-m) - 1)/var(--pw-perrow-m)));
+    }
+  }
+:is([id^="PairWith-"],#_) .pw-top{
+    display:grid; grid-template-columns:var(--pw-img-size) 1fr; align-items:center; gap:12px;
+    background:var(--pw-tab-bg); border:1px solid var(--pw-tab-border); border-radius:var(--pw-tab-radius); padding:10px;
+  }
+:is([id^="PairWith-"],#_) .pw-img{ width:var(--pw-img-size); height:var(--pw-img-size); border-radius:var(--pw-img-radius); object-fit:cover; background:#f2f2f2; }
+:is([id^="PairWith-"],#_) .pw-title{ font-size:var(--pw-title-size); line-height:1.25; margin:0; font-weight: 600; }
+:is([id^="PairWith-"],#_) .pw-variant{
+    appearance:none; -webkit-appearance:none; -moz-appearance:none;
+    display:block; width:100%; height:var(--pw-sel-h);
+    padding:0 calc(var(--pw-sel-px) + 16px) 0 var(--pw-sel-px);
+    font-size:var(--pw-sel-fs);
+    border:1px solid var(--pw-tab-border); border-radius:8px; background:var(--pw-card-bg); color:var(--pw-text-color);
+    line-height:var(--pw-sel-h); cursor:pointer;
+  }
+:is([id^="PairWith-"],#_) .pw-price{ color:var(--pw-price-color); font-size:var(--pw-text-size); font-weight:600; white-space:nowrap; }
+:is([id^="PairWith-"],#_) .pw-btn{
+    border-radius:var(--pw-btn-radius);
+    border:var(--pw-btn-bw) solid var(--pw-btn-border);
+    background:var(--pw-btn-bg);
+    color:var(--pw-btn-text);
+    min-height:44px; min-width:44px; padding:8px 16px; font-size:var(--pw-text-size); line-height:1.2;
+    font-family:var(--btn-font, inherit); font-weight:var(--btn-font-weight, 500); letter-spacing:var(--btn-letter-spacing, normal);
+    cursor:pointer; transition:background .18s ease, color .18s ease, border-color .18s ease, filter .18s ease, transform .18s ease;
+    white-space:nowrap;
+  }
+@media (hover:hover){ :is([id^="PairWith-"],#_) .pw-btn:not(:disabled):not(.is-added):hover{ filter:brightness(.95); border-color:color-mix(in srgb, var(--pw-btn-text) 45%, var(--pw-btn-border)); } }
+:is([id^="PairWith-"],#_) .pw-btn:not(:disabled):active{ transform:scale(.97); }
+@media (prefers-reduced-motion:reduce){ :is([id^="PairWith-"],#_) .pw-btn{ transition:none; } :is([id^="PairWith-"],#_) .pw-btn:active{ transform:none; } }
+:is([id^="PairWith-"],#_) .pw-btn:focus-visible, :is([id^="PairWith-"],#_) .pw-variant:focus-visible, :is([id^="PairWith-"],#_) .pw-arrow:focus-visible{ outline:2px solid currentColor; outline-offset:2px; }
+:is([id^="PairWith-"],#_) .pw-btn:disabled{ opacity:.55; cursor:not-allowed; }
+:is([id^="PairWith-"],#_) .pw-btn.is-error{ border-color: var(--color-error, #b42318); }
+:is([id^="PairWith-"],#_) .pw-price s{ font-weight:400; opacity:.6; margin-left:6px; }
+:is([id^="PairWith-"],#_) .pw-btn.is-added{
+    background:var(--pw-btn-bg-added);
+    color:var(--pw-btn-text-added);
+    border-color:var(--pw-btn-bg-added);
+  }

@@ -1,9 +1,9 @@
-<script src="{{ 'live-r7-collections.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-r7-collections.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
 -%}
 {%- comment -%}
   Materia Themes. Collection Mosaic: up to five collections in an uneven grid,
@@ -114,7 +114,7 @@
   }
   #shopify-section-{{ sid }} .cm__tile:first-child .cm__media { height: calc(var(--cm-h-m, 180px) * 1.5); }
   #shopify-section-{{ sid }} .cm__img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .5s cubic-bezier(.2, .7, .2, 1); }
-  #shopify-section-{{ sid }} .cm__ph { position: absolute; inset: 0; margin: auto; width: min(36%, 88px); height: auto; aspect-ratio: 1; display: block; color: var(--color-text); opacity: .3; }
+  #shopify-section-{{ sid }} .cm__ph { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   #shopify-section-{{ sid }} .cm__shade { position: absolute; inset: 0; display: none; background: var(--cm-overlay, #000000); opacity: var(--cm-shade, .25); pointer-events: none; }
   #shopify-section-{{ sid }} .cm__text { padding: 1.2rem 0 .4rem; text-align: start; }
   #shopify-section-{{ sid }} .cm__name { margin: 0; font-size: var(--cm-font-m, 17px); color: var(--cm-ink); overflow-wrap: anywhere; text-wrap: balance; }
@@ -233,9 +233,9 @@
           {%- if coll != blank -%}<a class="cm__link" href="{{ coll.url }}">{%- else -%}<div class="cm__link">{%- endif -%}
             <div class="cm__media">
               {%- if img != blank -%}
-                <img class="cm__img" src="{{ img | image_url: width: 1000 }}" srcset="{{ img | image_url: width: 400 }} 400w, {{ img | image_url: width: 700 }} 700w, {{ img | image_url: width: 1000 }} 1000w, {{ img | image_url: width: 1400 }} 1400w" sizes="{{ img_sizes }}"{% if img.width %} width="{{ img.width }}" height="{{ img.height }}"{% endif %} alt="" loading="lazy" decoding="async">
-              {%- elsif design -%}
-                <svg class="cm__ph" data-r7c-ph viewBox="0 0 120 120" aria-hidden="true" focusable="false"><circle cx="47" cy="48" r="7" fill="currentColor"/><path d="M28 84l22-25 13 14 10-9 19 20z" fill="currentColor"/></svg>
+                <img class="cm__img" src="{{ img | image_url: width: 1000 }}" srcset="{{ img | image_url: width: 400 }} 400w, {{ img | image_url: width: 700 }} 700w, {{ img | image_url: width: 1000 }} 1000w, {{ img | image_url: width: 1400 }} 1400w" sizes="{{ img_sizes }}" width="{{ img.width | default: 1000 }}" height="{{ img.height | default: 1000 }}" alt="" loading="lazy" decoding="async">
+              {%- else -%}
+                {%- render 'placeholder-image', type: 'collection', index: forloop.index, class: 'cm__ph', attrs: 'data-r7c-ph' -%}
               {%- endif -%}
               <span class="cm__shade" aria-hidden="true"></span>
             </div>
@@ -258,7 +258,8 @@
 </div>
 {%- endif -%}{% schema %}
 {
-  "name": "Collection Mosaic",
+  "class": "s-tt",
+"name": "Collection Mosaic",
   "settings": [
     {
       "type": "header",
@@ -268,7 +269,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -735,7 +736,7 @@
   "presets": [
     {
       "name": "Collection Mosaic",
-      "category": "Collections",
+      "category": "02 · Collections",
       "blocks": [
         {
           "type": "heading"

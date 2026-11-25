@@ -1,10 +1,13 @@
-<script src="{{ 'live-faq.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-faq.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-faq-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
-{%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
-{%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
+{%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay).
+  One reveal per section: with "Reveal style: Inherit from theme" the section plays the theme's
+  reveal (animation.js); a style of its own is played by faq-pro.js on the inner .faq7 instead. {%- endcomment -%}
+{%- assign faq7_own_style = section.settings.scroll_animation | default: 'inherit' -%}
+{%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' and section.settings.reveal != false and faq7_own_style == 'inherit' -%}
 <style>
   #shopify-section-{{ section.id }}.scroll-trigger {
     --animation-duration: {{ settings.animation_duration | default: 700 }}ms;
@@ -52,7 +55,7 @@
 {%- capture faq7_vars -%}{% render 'faq-live-vars', section: section, p: 'faq7', card_bg_fb: 'rgba(var(--color-heading-rgb), 0.04)', card_border_fb: 'transparent' %}{%- endcapture -%}
 {%- if st.enable_custom_fonts -%}<style>{{ st.heading_font | font_face: font_display: 'swap' }}{{ st.body_font | font_face: font_display: 'swap' }}</style>{%- endif -%}
 
-<div class="faq7 color-{{ color_scheme }} gradient" data-faq7-root data-faq-root="faq-pro" data-faq-section="{{ section.id }}" data-faq-settings="{{ section.settings | json | escape }}" data-faq7-anim="{{ scroll_animation }}" data-faq7-width="{{ st.section_width }}"{% if st.enable_custom_heading_weight %} data-faq7-hw{% endif %}{% if st.enable_custom_question_weight %} data-faq7-qw{% endif %}{% if st.show_dividers and st.gap_between_items == 0 %} data-faq7-dividers{% endif %}{% if reveal and scroll_animation != 'none' and request.design_mode != true %} data-faq7-reveal="{{ scroll_animation }}"{% endif %} style="{{ faq7_vars | strip_newlines }}">
+<div class="faq7 color-{{ color_scheme }} gradient" data-faq7-root data-faq-root="faq-pro" data-faq-section="{{ section.id }}" {% if request.design_mode %}data-faq-settings="{{ section.settings | json | escape }}"{% endif %} data-faq7-anim="{{ scroll_animation }}" data-faq7-width="{{ st.section_width }}"{% if st.enable_custom_heading_weight %} data-faq7-hw{% endif %}{% if st.enable_custom_question_weight %} data-faq7-qw{% endif %}{% if st.show_dividers and st.gap_between_items == 0 %} data-faq7-dividers{% endif %}{% if reveal and scroll_animation != 'none' and faq7_own_style != 'inherit' %} data-faq7-reveal="{{ scroll_animation }}"{% endif %} style="{{ faq7_vars | strip_newlines }}">
   <div class="faq7__inner">
     <div class="faq7__layout">
       {%- render 'faq-live-accordion', section: section, p: 'faq7' -%}
@@ -66,10 +69,11 @@
 <script>(function(){if(window.MateriaFaqPro)return window.MateriaFaqPro.init();if(document.querySelector('script[data-faq7-boot]'))return;var s=document.createElement('script');s.src="{{ 'faq-pro.js' | asset_url }}";s.setAttribute('data-faq7-boot','');document.head.appendChild(s);})();</script>
 {%- endif -%}
 
+
 {% schema %}
 {
   "name": "FAQ 4",
-  "class": "section-faq7",
+  "class": "section-faq7 s-tt",
   "settings": [
     {
       "type": "header",
@@ -79,7 +83,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -127,7 +131,6 @@
       "id": "heading",
       "label": "Heading",
       "default": "Frequently asked questions",
-      "hidden": true,
       "info": "Legacy: used only when the section has no heading block.",
       "visible_if": "{{ false }}"
     },
@@ -136,7 +139,6 @@
       "id": "subheading",
       "label": "Subheading",
       "default": "<p>Have a question? We're here to help.</p>",
-      "hidden": true,
       "info": "Legacy: used only when the section has no subheading block.",
       "visible_if": "{{ false }}"
     },
@@ -671,7 +673,6 @@
           "id": "tag",
           "label": "HTML tag",
           "default": "h2",
-          "hidden": true,
           "info": "The section heading is always an h2.",
           "options": [
             {
@@ -791,8 +792,8 @@
           "label": "Line height",
           "min": 0.8,
           "max": 2,
-          "step": 0.05,
-          "default": 1.15,
+          "step": 0.1,
+          "default": 1.1,
           "visible_if": "{{ block.settings.size_enable }}"
         },
         {
@@ -910,7 +911,7 @@
           "label": "Line height",
           "min": 1,
           "max": 2.2,
-          "step": 0.05,
+          "step": 0.1,
           "default": 1.5,
           "visible_if": "{{ block.settings.size_enable }}"
         }
@@ -1072,8 +1073,8 @@
   ],
   "presets": [
     {
-      "name": "FAQ 4",
-      "category": "FAQ",
+      "name": "FAQ – With Button",
+      "category": "13 · FAQ",
       "blocks": [
         {
           "type": "heading"

@@ -612,13 +612,14 @@ media-gallery[data-square] .mt-video-frame > video {
 }
 .pdp-wishlist--icon { flex: 0 0 auto; align-self: stretch; aspect-ratio: 1; padding: 0; }
 /* The heart stays on the Add to cart row, as tall as the button. */
-.product__submit-form-cart:has(> .pdp-wishlist--icon) { flex-wrap: nowrap; align-items: stretch; }
-.product__submit-form-cart:has(> .pdp-wishlist--icon) > .button_buy-now { flex: 1 1 auto; min-width: 0; }
-.product__submit-form-cart:has(> .pdp-wishlist--icon) > .product-form__quantity { display: flex; align-items: center; }
-.product__submit-form-cart:has(> .pdp-wishlist--icon) > .button_buy-now > button { white-space: nowrap; }
-.product__submit-form-cart:has(> .pdp-wishlist--icon) > .button_buy-now .btn-label { overflow: hidden; text-overflow: ellipsis; }
+/* --wl-icon is set by snippets/buy-buttons.liquid when the heart is in the row (was :has(> .pdp-wishlist--icon); same specificity, no page-wide restyle on DOM changes). */
+.product__submit-form-cart.product__submit-form-cart--wl-icon { flex-wrap: nowrap; align-items: stretch; }
+.product__submit-form-cart.product__submit-form-cart--wl-icon > .button_buy-now { flex: 1 1 auto; min-width: 0; }
+.product__submit-form-cart.product__submit-form-cart--wl-icon > .product-form__quantity { display: flex; align-items: center; }
+.product__submit-form-cart.product__submit-form-cart--wl-icon > .button_buy-now > button { white-space: nowrap; }
+.product__submit-form-cart.product__submit-form-cart--wl-icon > .button_buy-now .btn-label { overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 480px) {
-  .product__submit-form-cart:has(> .pdp-wishlist--icon) > .button_buy-now > button { --btn-padding-x: 12px !important; --mb-padding-x: 12px; }
+  .product__submit-form-cart.product__submit-form-cart--wl-icon > .button_buy-now > button { --btn-padding-x: 12px !important; --mb-padding-x: 12px; }
 }
 .pdp-wishlist--text { width: 100%; flex: 1 1 100%; min-height: 48px; }
 .pdp-wishlist:hover { border-color: var(--pdp-wl-ink); }
@@ -648,7 +649,8 @@ media-gallery[data-square] .mt-video-frame > video {
 }
 
 /* Builder-only note for a block that would repeat an earlier one. */
-.pib-note { margin: 0 0 12px; padding: 8px 12px; border: 1px dashed currentColor; border-radius: 6px; font-size: 13px; opacity: .7; }
+.pib-note { margin: 0 0 10px; padding: 6px 10px; border: 1px dashed color-mix(in srgb, currentColor 22%, transparent); border-radius: 4px; font-size: 12px; font-weight: 400; line-height: 1.4; letter-spacing: 0; text-transform: none; color: color-mix(in srgb, var(--color-text, currentColor) 62%, transparent); background: none; }
+html:not(.shopify-design-mode) .pib-note:not([data-editor-preview]) { display: none; }
 /* ---------- Size charts ----------
    Storelib's chart for the product and rows typed in a block share this
    look. Each table scrolls sideways inside its own box (never the page) and
@@ -742,7 +744,39 @@ media-gallery[data-square] .mt-video-frame > video {
   .mt-size-chart .mt-size-chart__table :is(th, td), .mt-size-chart__units label { transition: none; }
 }
 /* Builder only: what the size guide will look like, and where sizes come from. */
-.materia-chart-preview { padding: 16px; border: 1px dashed var(--color-border); border-radius: 8px; color: var(--color-text); background: var(--color-background); max-width: 100%; }
-.materia-chart-preview__title { margin: 0 0 10px; color: var(--color-heading); font-weight: var(--subheading-weight, 600); }
-.materia-chart-preview .mt-size-chart__table td { color: color-mix(in srgb, var(--color-text) 55%, transparent); }
-.materia-chart-preview__note { margin: 12px 0 0; font-size: .88em; line-height: 1.5; }
+.materia-chart-preview { margin: 4px 0 12px; padding: 8px 12px; border: 1px dashed var(--color-border); border-radius: 8px; color: var(--color-text); background: var(--color-background); max-width: 100%; font-size: .88em; line-height: 1.4; }
+.materia-chart-preview strong { color: var(--color-heading); }
+/* Page, rich text or HTML charts: wide tables scroll sideways in their box. */
+.mt-size-chart__html { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+.mt-size-chart__html table { width: 100%; border-collapse: collapse; }
+.mt-size-chart__html :is(th, td) { white-space: nowrap; padding: 10px 12px; border: 1px solid var(--color-border); text-align: start; }
+.mt-size-chart__html img { max-width: 100%; height: auto; }
+.mt-size-chart__html > :first-child { margin-top: 0; }
+.mt-size-chart__note { margin-top: 12px; font-size: .92em; }
+.mt-size-chart__note > :first-child { margin-top: 0; }
+.mt-size-chart__note > :last-child { margin-bottom: 0; }
+
+/* Express checkout (Buy buttons > Buy now style: Express). The platform draws the
+   wallet buttons; they follow the theme's button corners and height. */
+.btn-checkout-express { margin-top: 10px; }
+.btn-checkout-express shopify-accelerated-checkout,
+.btn-checkout-express shopify-accelerated-checkout-cart {
+  --shopify-accelerated-checkout-button-block-size: 50px;
+  --shopify-accelerated-checkout-button-border-radius: var(--btn-radius, 8px);
+  --shopify-accelerated-checkout-inline-alignment: center;
+  --shopify-accelerated-checkout-row-gap: 8px;
+}
+.btn-checkout-express .shopify-payment-button__button {
+  min-height: 50px;
+  border-radius: var(--btn-radius, 8px);
+  overflow: hidden;
+}
+.btn-checkout-express .shopify-payment-button__button--unbranded {
+  font-weight: 600;
+}
+.btn-checkout-express .shopify-payment-button__more-options {
+  margin-top: 8px;
+  font-size: 13px;
+  text-decoration: underline;
+}
+

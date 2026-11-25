@@ -1,7 +1,7 @@
-<script src="{{ 'live-products-d.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-products-d.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-products-d-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if section.settings.reveal == false -%}<span data-ti-no-reveal hidden></span>{%- endif -%}
@@ -31,13 +31,16 @@
   the button. Colours follow the colour scheme and Theme settings >
   Buttons until custom styling is on. Live edits: assets/live-products-d.js.
 {%- endcomment -%}
-{%- comment -%}pd-gen:settings{%- endcomment -%}{%- capture pd_settings -%}{"color_scheme":{{ section.settings.color_scheme.id | default: section.settings.color_scheme | append: '' | json }},"section_width":{{ section.settings.section_width | json }},"reset_spacing":{{ section.settings.reset_spacing | json }},"show_variant_picker":{{ section.settings.show_variant_picker | json }},"after_add":{{ section.settings.after_add | json }},"button_text":{{ section.settings.button_text | json }},"alignment":{{ section.settings.alignment | json }},"content_gap":{{ section.settings.content_gap | json }},"enable_custom_style":{{ section.settings.enable_custom_style | json }},"button_bg_color":{{ section.settings.button_bg_color | append: '' | json }},"button_text_color":{{ section.settings.button_text_color | append: '' | json }},"button_hover_color":{{ section.settings.button_hover_color | append: '' | json }},"button_border_color":{{ section.settings.button_border_color | append: '' | json }},"enable_gradient":{{ section.settings.enable_gradient | json }},"gradient_selector":{{ section.settings.gradient_selector | json }},"gradient_color_1":{{ section.settings.gradient_color_1 | append: '' | json }},"gradient_color_2":{{ section.settings.gradient_color_2 | append: '' | json }},"gradient_color_3":{{ section.settings.gradient_color_3 | append: '' | json }},"use_theme_button":{{ section.settings.use_theme_button | json }},"button_border_radius":{{ section.settings.button_border_radius | json }},"button_border_thickness":{{ section.settings.button_border_thickness | json }},"button_overall_size":{{ section.settings.button_overall_size | json }},"button_font_size":{{ section.settings.button_font_size | json }},"button_font_weight":{{ section.settings.button_font_weight | json }},"enable_custom_fonts":{{ section.settings.enable_custom_fonts | json }},"heading_font":{"family":{{ section.settings.heading_font.family | json }},"fallback_families":{{ section.settings.heading_font.fallback_families | json }}},"body_font":{"family":{{ section.settings.body_font.family | json }},"fallback_families":{{ section.settings.body_font.fallback_families | json }}},"reveal":{{ section.settings.reveal | json }},"padding_top":{{ section.settings.padding_top | json }},"padding_bottom":{{ section.settings.padding_bottom | json }},"section_margin_top_desktop":{{ section.settings.section_margin_top_desktop | json }},"section_margin_bottom_desktop":{{ section.settings.section_margin_bottom_desktop | json }},"section_margin_top_mobile":{{ section.settings.section_margin_top_mobile | json }},"section_margin_bottom_mobile":{{ section.settings.section_margin_bottom_mobile | json }}}{%- endcapture -%}{%- capture pd_defaults -%}{"color_scheme":"default-color-scheme","section_width":"fluid_container","reset_spacing":true,"show_variant_picker":false,"after_add":"checkout","button_text":"Add to Cart & Checkout","alignment":"center","content_gap":12,"enable_custom_style":false,"enable_gradient":false,"gradient_selector":"linear","use_theme_button":true,"button_border_radius":5,"button_border_thickness":0,"button_overall_size":100,"button_font_size":18,"button_font_weight":"normal","enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","reveal":true,"padding_top":20,"padding_bottom":20,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}{%- endcapture -%}{%- capture pd_block_defaults -%}{"button":{"text":"Buy now"},"heading":{"text":"Add it to your cart","enable_custom_style":false,"size_enable":false,"size_desktop":32,"size_mobile":28},"subheading":{"text":"<p>Choose an option and add it to your cart.</p>","enable_custom_style":false,"size_enable":false,"size":18}}{%- endcapture -%}{%- comment -%}/pd-gen{%- endcomment -%}
+{%- comment -%}pd-gen:settings{%- endcomment -%}{%- capture pd_settings -%}{"color_scheme":{{ section.settings.color_scheme.id | default: section.settings.color_scheme | append: '' | json }},"section_width":{{ section.settings.section_width | json }},"reset_spacing":{{ section.settings.reset_spacing | json }},"show_variant_picker":{{ section.settings.show_variant_picker | json }},"after_add":{{ section.settings.after_add | json }},"button_text":{{ section.settings.button_text | json }},"alignment":{{ section.settings.alignment | json }},"content_gap":{{ section.settings.content_gap | json }},"enable_custom_style":{{ section.settings.enable_custom_style | json }},"button_bg_color":{{ section.settings.button_bg_color | append: '' | json }},"button_text_color":{{ section.settings.button_text_color | append: '' | json }},"button_hover_color":{{ section.settings.button_hover_color | append: '' | json }},"button_border_color":{{ section.settings.button_border_color | append: '' | json }},"enable_gradient":{{ section.settings.enable_gradient | json }},"gradient_selector":{{ section.settings.gradient_selector | json }},"gradient_color_1":{{ section.settings.gradient_color_1 | append: '' | json }},"gradient_color_2":{{ section.settings.gradient_color_2 | append: '' | json }},"gradient_color_3":{{ section.settings.gradient_color_3 | append: '' | json }},"use_theme_button":{{ section.settings.use_theme_button | json }},"button_border_radius":{{ section.settings.button_border_radius | json }},"button_border_thickness":{{ section.settings.button_border_thickness | json }},"button_overall_size":{{ section.settings.button_overall_size | json }},"button_font_size":{{ section.settings.button_font_size | json }},"button_font_weight":{{ section.settings.button_font_weight | json }},"enable_custom_fonts":{{ section.settings.enable_custom_fonts | json }},"heading_font":{"family":{{ section.settings.heading_font.family | json }},"fallback_families":{{ section.settings.heading_font.fallback_families | json }}},"body_font":{"family":{{ section.settings.body_font.family | json }},"fallback_families":{{ section.settings.body_font.fallback_families | json }}},"reveal":{{ section.settings.reveal | json }},"padding_top":{{ section.settings.padding_top | json }},"padding_bottom":{{ section.settings.padding_bottom | json }},"section_margin_top_desktop":{{ section.settings.section_margin_top_desktop | json }},"section_margin_bottom_desktop":{{ section.settings.section_margin_bottom_desktop | json }},"section_margin_top_mobile":{{ section.settings.section_margin_top_mobile | json }},"section_margin_bottom_mobile":{{ section.settings.section_margin_bottom_mobile | json }}}{%- endcapture -%}{%- capture pd_defaults -%}{"color_scheme":"default","section_width":"fluid_container","reset_spacing":true,"show_variant_picker":false,"after_add":"checkout","button_text":"Add to Cart & Checkout","alignment":"center","content_gap":12,"enable_custom_style":false,"enable_gradient":false,"gradient_selector":"linear","use_theme_button":true,"button_border_radius":5,"button_border_thickness":0,"button_overall_size":100,"button_font_size":18,"button_font_weight":"normal","enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","reveal":true,"padding_top":20,"padding_bottom":20,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}{%- endcapture -%}{%- capture pd_block_defaults -%}{"button":{"text":"Buy now"},"heading":{"text":"Add it to your cart","enable_custom_style":false,"size_enable":false,"size_desktop":32,"size_mobile":28},"subheading":{"text":"<p>Choose an option and add it to your cart.</p>","enable_custom_style":false,"size_enable":false,"size":18}}{%- endcapture -%}{%- comment -%}/pd-gen{%- endcomment -%}
 {%- liquid
   assign s = section.settings
   assign sid = section.id
   assign p = s.selected_product
   if p == blank and product != blank and product.id != blank
     assign p = product
+  endif
+  if p == blank
+    assign p = collections.all.products.first
   endif
   assign v = p.selected_or_first_available_variant
   assign sold_out_label = 'products.product.actions.add_to_cart.sold_out.label' | t
@@ -203,11 +206,12 @@
 </div>
 {%- endif -%}{% schema %}
 {
-  "name": "Quick Add to Cart",
+  "class": "s-tt",
+"name": "Quick Add to Cart",
   "presets": [
     {
-      "name": "Quick Add Button",
-      "category": "Products",
+      "name": "Add to Cart Button",
+      "category": "03 · Products",
       "blocks": [
         {
           "type": "button"
@@ -224,7 +228,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -293,7 +297,6 @@
       "id": "button_text",
       "label": "Button label",
       "default": "Add to Cart & Checkout",
-      "hidden": true,
       "info": "Legacy: used only when the section has no button block.",
       "visible_if": "{{ false }}"
     },

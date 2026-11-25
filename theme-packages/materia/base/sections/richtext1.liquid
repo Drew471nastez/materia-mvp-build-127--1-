@@ -1,8 +1,9 @@
+{{ 'text-section-controls.css' | asset_url | stylesheet_tag }}
 <script src="{{ 'text-section-controls.js' | asset_url }}" defer="defer"></script>
 {%- comment -%} Runtime, once per page (the CSS and hero-image-one.js from layout/theme.storelib, every other script from the tags at the top of this file): shopify/assets/text-section-controls.css, shopify/assets/text-section-controls.js. {%- endcomment -%}
-{% render 'theme-type' %}
+{% render 'theme-type', inline: true %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' and section.settings.reveal != false -%}
@@ -147,7 +148,7 @@
 {% assign button_block = section.blocks | where: "type", "button" | first %}
 
 <div
-  id="rt-elements-pro-1-{{ section.id }}" data-text-controls="richtext1" data-tx-section="{{ section.id }}" data-tx-settings="{{ section.settings | json | escape }}" data-tx-defaults='{"color_scheme":"default-color-scheme","section_width":"fluid_container","reset_spacing":true,"reveal":true,"show_on_mobile":true,"badge_text":"BADGE","enable_badge":false,"show_left_circles":false,"left_circles_horizontal_position":80,"show_right_circles":false,"right_circles_horizontal_position":80,"circles_spacing":88,"main_demo_image_width":400,"main_demo_image_height":200,"main_demo_image_horizontal_position":0,"main_demo_image_vertical_position_desktop":0,"main_demo_image_vertical_position_mobile":0,"elements_alignment":"center","badge_width":120,"badge_height":40,"enable_custom_font":false,"badge_text_font_size":14,"badge_overall_size_desktop":100,"heading_font":"assistant_n4","body_font":"assistant_n4","badge_gradient_degrees":"to right","badge_enable_gradient":false,"badge_border_thickness":0,"badge_border_radius":20,"enable_custom_style":false,"padding_top":40,"padding_bottom":40,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"badge_vertical_position_desktop":0,"badge_vertical_position_mobile":0,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}' data-tx-block-defaults='{"title":{"title_text":"Talk about your brand","custom_font_title":"assistant_n4","title_text_size":32,"title_font_weight":"theme","enable_custom_fonts":false,"enable_title_gradient":false,"gradient_direction":"to right","enable_custom_style":false,"vertical_spacing_desktop":15,"title_mobile_size":31,"vertical_spacing_mobile":10},"description":{"description_text":"Pair text with an image to focus on your chosen product, collection, or blog post. Add details on availability, style, or even provide a review.","custom_font_description_button":"assistant_n4","description_text_size":16,"enable_custom_fonts":false,"enable_custom_style":false,"description_left_padding_desktop":200,"description_right_padding_desktop":200,"vertical_gap_subheading_button_desktop":25,"description_mobile_size":13,"description_left_padding_mobile":22,"description_right_padding_mobile":22,"vertical_gap_subheading_button_mobile":20},"button":{"button_text":"Shop Now","button_link":"/collections/all","use_theme_button":true,"button_width":150,"button_height":42,"button_icon_size":24,"enable_button_icon":false,"button_text_size":14,"button_font_weight":"theme","button_border_radius":6,"enable_custom_style":false,"button_hover_animation":"glow","button_icon_vertical_position":0}}' data-tx-editor="{% if request.design_mode or page.in_editor %}true{% else %}false{% endif %}"
+  id="rt-elements-pro-1-{{ section.id }}" data-text-controls="richtext1" data-tx-section="{{ section.id }}" data-tx-settings="{{ section.settings | json | escape }}" data-tx-defaults='{"color_scheme":"default","section_width":"fluid_container","reset_spacing":true,"reveal":true,"show_on_mobile":true,"badge_text":"BADGE","enable_badge":false,"show_left_circles":false,"left_circles_horizontal_position":80,"show_right_circles":false,"right_circles_horizontal_position":80,"circles_spacing":88,"main_demo_image_width":400,"main_demo_image_height":200,"main_demo_image_horizontal_position":0,"main_demo_image_vertical_position_desktop":0,"main_demo_image_vertical_position_mobile":0,"elements_alignment":"center","badge_width":120,"badge_height":40,"enable_custom_font":false,"badge_text_font_size":14,"badge_overall_size_desktop":100,"heading_font":"assistant_n4","body_font":"assistant_n4","badge_gradient_degrees":"to right","badge_enable_gradient":false,"badge_border_thickness":0,"badge_border_radius":20,"enable_custom_style":false,"padding_top":40,"padding_bottom":40,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"badge_vertical_position_desktop":0,"badge_vertical_position_mobile":0,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}' data-tx-block-defaults='{"title":{"title_text":"Talk about your brand","custom_font_title":"assistant_n4","title_text_size":32,"title_font_weight":"theme","enable_custom_fonts":false,"enable_title_gradient":false,"gradient_direction":"to right","enable_custom_style":false,"vertical_spacing_desktop":15,"title_mobile_size":31,"vertical_spacing_mobile":10},"description":{"description_text":"Pair text with an image to focus on your chosen product, collection, or blog post. Add details on availability, style, or even provide a review.","custom_font_description_button":"assistant_n4","description_text_size":16,"enable_custom_fonts":false,"enable_custom_style":false,"description_left_padding_desktop":200,"description_right_padding_desktop":200,"vertical_gap_subheading_button_desktop":25,"description_mobile_size":13,"description_left_padding_mobile":22,"description_right_padding_mobile":22,"vertical_gap_subheading_button_mobile":20},"button":{"button_text":"Shop Now","button_link":"/collections/all","use_theme_button":true,"button_width":150,"button_height":42,"button_icon_size":24,"enable_button_icon":false,"button_text_size":14,"button_font_weight":"theme","button_border_radius":6,"enable_custom_style":false,"button_hover_animation":"glow","button_icon_vertical_position":0}}' data-tx-editor="{% if request.design_mode or page.in_editor %}true{% else %}false{% endif %}"
   class="rt-elements-pro-1-wrapper color-{{ color_scheme }} gradient {{ section.settings.section_width }} {% if section.settings.enable_custom_font %}custom-font{% endif %} {% unless section.settings.show_on_mobile %}hide-on-mobile{% endunless %}"
   style="background-color: {% if section.settings.enable_custom_style %}{% render 'scheme-color', color: section.settings.background_color, fallback: 'var(--color-background)' %}{% else %}{{ 'var(--color-background)' }}{% endif %} !important; color: var(--color-text); padding-top: {{ section.settings.padding_top }}px; padding-bottom: {{ section.settings.padding_bottom }}px; position: relative;"
 >
@@ -155,12 +156,12 @@
   {% if section.settings.show_left_circles %}
     {% if section.settings.left_big_circle_image %}
       <div class="rt-elements-pro-1-floating-circle rt-elements-pro-1-floating-circle-left-big">
-        <img src="{{ section.settings.left_big_circle_image | img_url: '480x480' }}" alt="{{ 'accessibility.decorative_image' | t }}">
+        <img src="{{ section.settings.left_big_circle_image | image_url: width: 480, height: 480 }}" alt="{{ 'accessibility.decorative_image' | t }}" width="480" height="480">
       </div>
     {% endif %}
     {% if section.settings.left_medium_circle_image %}
       <div class="rt-elements-pro-1-floating-circle rt-elements-pro-1-floating-circle-left-medium">
-        <img src="{{ section.settings.left_medium_circle_image | img_url: '480x480' }}" alt="{{ 'accessibility.decorative_image' | t }}">
+        <img src="{{ section.settings.left_medium_circle_image | image_url: width: 480, height: 480 }}" alt="{{ 'accessibility.decorative_image' | t }}" width="480" height="480">
       </div>
     {% endif %}
   {% endif %}
@@ -169,12 +170,12 @@
   {% if section.settings.show_right_circles %}
     {% if section.settings.right_big_circle_image %}
       <div class="rt-elements-pro-1-floating-circle rt-elements-pro-1-floating-circle-right-big">
-        <img src="{{ section.settings.right_big_circle_image | img_url: '480x480' }}" alt="{{ 'accessibility.decorative_image' | t }}">
+        <img src="{{ section.settings.right_big_circle_image | image_url: width: 480, height: 480 }}" alt="{{ 'accessibility.decorative_image' | t }}" width="480" height="480">
       </div>
     {% endif %}
     {% if section.settings.right_medium_circle_image %}
       <div class="rt-elements-pro-1-floating-circle rt-elements-pro-1-floating-circle-right-medium">
-        <img src="{{ section.settings.right_medium_circle_image | img_url: '480x480' }}" alt="{{ 'accessibility.decorative_image' | t }}">
+        <img src="{{ section.settings.right_medium_circle_image | image_url: width: 480, height: 480 }}" alt="{{ 'accessibility.decorative_image' | t }}" width="480" height="480">
       </div>
     {% endif %}
   {% endif %}
@@ -185,8 +186,10 @@
     {% if section.settings.main_demo_image %}
       <div class="rt-elements-pro-1-main-image-wrapper">
         <img
-          src="{{ section.settings.main_demo_image | img_url: 'master' }}"
+          src="{{ section.settings.main_demo_image | image_url }}"
           alt="{{ 'accessibility.main_image' | t }}"
+          width="{{ section.settings.main_demo_image_width }}"
+          height="{{ section.settings.main_demo_image_height }}"
           class="rt-elements-pro-1-main-image"
           style="
             width: {{ section.settings.main_demo_image_width }}px;
@@ -287,7 +290,7 @@
             "
           >
             {% if block.settings.enable_button_icon and block.settings.button_icon_image %}
-              <img src="{{ block.settings.button_icon_image | img_url: 'master' }}" alt="{{ 'accessibility.button_icon' | t }}" style="width: {{ block.settings.button_icon_size }}px; height: {{ block.settings.button_icon_size }}px; border-radius: 50%; vertical-align: middle; margin-right: 8px; position: relative; top: {{ block.settings.button_icon_vertical_position }}px;">
+              <img src="{{ block.settings.button_icon_image | image_url }}" alt="{{ 'accessibility.button_icon' | t }}" width="{{ block.settings.button_icon_size }}" height="{{ block.settings.button_icon_size }}" style="width: {{ block.settings.button_icon_size }}px; height: {{ block.settings.button_icon_size }}px; border-radius: 50%; vertical-align: middle; margin-right: 8px; position: relative; top: {{ block.settings.button_icon_vertical_position }}px;">
             {% endif %}
             {{ block.settings.button_text }}
           </a>
@@ -540,7 +543,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -1556,8 +1559,8 @@
   ],
   "presets": [
     {
-      "name": "RichText Pro",
-      "category": "Text",
+      "name": "Rich Text – Floating Images",
+      "category": "12 · Text",
       "blocks": [
         {
           "type": "title"

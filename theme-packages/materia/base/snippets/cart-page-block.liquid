@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. The extra blocks of the cart page (main-cart-items):
   Simple rating, Happy customers, Benefits pills, Info box, Divider,
   Guarantee badge and Social proof avatars. Drawn once per block, in the
@@ -13,7 +13,12 @@
   The look itself is in main-cart-items (.lcs-*).
 
   Pass block, section_id. Only main-cart-items renders this snippet.
-{%- endcomment -%}
+
+  @param {block} block - The block being rendered
+
+  @example
+  {% render 'cart-page-block', block: block, section_id: section.id %}
+{%- enddoc -%}
 {%- liquid
   assign s = block.settings
   assign on = false

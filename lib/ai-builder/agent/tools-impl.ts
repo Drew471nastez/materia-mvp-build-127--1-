@@ -43,6 +43,8 @@ import { designSettingsWrite } from "../site-settings"
 import { isSlopDisplayFont } from "@/lib/storelib-ai/library/type-systems"
 import { schemaInfo, siteRoutes, typeOfPath, unknownBindingIds, validateFile, validateSite, errorsOf } from "./validate"
 import { describeSitePlan, isTemplateKey, readSitePlan, templatesFor } from "./site-plan"
+import { repairPlanCitations } from "./materia"
+import { closestTypes, resolveSectionType } from "@/lib/storelib-ai/materia/validate"
 import { versionOf } from "./version"
 import { conceptDirectionIssues, contractMetaAfter, refineBrief, syncContractFile, writeContract } from "./direction"
 import { protectOverrides } from "../design-contract"
@@ -346,7 +348,7 @@ export function createToolSet(ctx: ToolContext): ToolSet {
     const ids: string[] = []
     const seen = new Set<string>()
     for (const [i, raw] of (input.sections ?? []).entries()) {
-      const p = raw as PlacedSectionInput
+      let p = raw as PlacedSectionInput
       const where = `${input.page} #${i + 1}`
       if (!p || typeof p.type !== "string") {
         issues.push({ severity: "error", code: "page.section", message: `${where}: a section needs a type.` })
@@ -356,7 +358,26 @@ export function createToolSet(ctx: ToolContext): ToolSet {
         issues.push({ severity: "error", code: "chrome.builtin", message: `${where}: "${p.type}" is a built-in theme section. A blank website is made of your own ai_ components.` })
         continue
       }
-      const info = schemaInfo(p.type, src)
+      let info = schemaInfo(p.type, src)
+      /*
+        Round 26: a theme section's type written another way (hero_image1 for Materia's hero-image1, its display
+        name, another case) is the section the site has: repaired and said. An ai_ type is never guessed at: an
+        unwritten component is written first.
+      */
+      if (!info && !isAiComponentType(p.type)) {
+        const types = Object.keys(src).map((k) => /^sections\/([A-Za-z0-9_-]+)\.storelib$/.exec(k)?.[1]).filter((t): t is string => !!t && !isAiComponentType(t))
+        const r = resolveSectionType(p.type, types)
+        const repairedInfo = r ? schemaInfo(r.type, src) : null
+        if (r && repairedInfo) {
+          issues.push({ severity: "warning", code: "page.type_repaired", message: `${where}: "${p.type}" read as ${r.type}, the section this site has.` })
+          p = { ...p, type: r.type }
+          info = repairedInfo
+        } else {
+          const near = closestTypes(p.type, types)
+          issues.push({ severity: "error", code: "page.unknown_type", message: `${where}: there is no section "${p.type}".${near.length ? ` This site has ${near.join(", ")}.` : ""}` })
+          continue
+        }
+      }
       if (!info) {
         issues.push({ severity: "error", code: "page.unknown_type", message: `${where}: there is no section "${p.type}". Write sections/${p.type}.storelib first.` })
         continue
@@ -707,7 +728,13 @@ export function createToolSet(ctx: ToolContext): ToolSet {
       return { ok: r.ok, issues: r.issues.slice(0, 30), htmlBytes: r.htmlBytes }
     },
 
-    async report_progress({ phase, label, concept, tasks, pages, brief }) {
+    async report_progress({ phase, label, concept, tasks, pages: given, brief }) {
+      /*
+        Round 26: each planned section names its Materia model as materia:<type> (./materia.ts). A near miss is
+        rewritten here, before the plan is read; an unknown type refuses the plan below with the closest types.
+      */
+      const cited = given !== undefined && !job.edit && !job.redesign ? repairPlanCitations(given) : null
+      const pages = cited ? (cited.pages as typeof given) : given
       if (Array.isArray(tasks)) cp.openTasks = tasks.filter((t) => typeof t === "string").map((t) => t.slice(0, 160)).slice(0, 20)
       const notes: string[] = []
       /* Round O (O2): the plan model's refinements to the creative brief, within its shape. */
@@ -747,7 +774,7 @@ Notes: ${fit.warnings.join(" ")}` : ""}`)
       }
       /* Round N (N3): the site plan, every page and template with its sections. A new website's writes wait for it. */
       if (pages !== undefined && !job.edit && !job.redesign) {
-        const problems = siteIssues(pages, await caps())
+        const problems = [...siteIssues(pages, await caps()), ...(cited?.issues ?? []).filter((i) => i.severity === "error")]
         if (problems.length) {
           if (needsConcept() || needsPlan()) ctx.setPhase("plan", String(label ?? "").slice(0, 120))
           return {
@@ -759,7 +786,8 @@ Notes: ${fit.warnings.join(" ")}` : ""}`)
         const read = readSitePlan(pages, await caps(), planBrief)
         if (read.ok === true) {
           cp.sitePlan = read.plan
-          notes.push(`Site plan accepted:\n${describeSitePlan(read.plan)}`)
+          const repaired = (cited?.issues ?? []).filter((i) => i.severity === "warning").map((i) => i.message)
+          notes.push(`Site plan accepted:\n${describeSitePlan(read.plan)}${repaired.length ? `\nMateria models read as: ${repaired.slice(0, 6).join("; ")}` : ""}${cited && cited.cited === 0 ? "\nNo section names its Materia model (materia:<type>): build each on the Materia section for its slot, as the reference template does." : ""}`)
         }
       }
       if (needsConcept() && phase !== "plan") {

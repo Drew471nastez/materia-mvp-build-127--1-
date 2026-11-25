@@ -173,13 +173,13 @@
             "sub_newtab": false,
             "text_align": "left",
             "h_main_size": 16,
-            "show_paypal": false,
+            "show_paypal": true,
             "sub_uline_w": 1,
             "badges_align": "auto",
             "h_main_color": "#2c2c2c",
             "text_align_m": "center",
             "toggle_icons": true,
-            "show_unionpay": true,
+            "show_unionpay": false,
             "sub_underline": false,
             "show_apple_pay": true,
             "show_google_pay": true,
@@ -375,51 +375,126 @@
       }
     },
     "reviews": {
-      "type": "merch-reviews",
+      "type": "testimonial-product",
       "settings": {
-        "heading": "WHAT PEOPLE SAY",
-        "subheading": "Sample reviews. Replace them with your own.",
-        "background": "#f6f6f6",
-        "heading_color": "#111111",
-        "text_color": "#1a1a1a",
-        "muted_color": "#5c5c5c",
-        "star_color": "#111111",
-        "heading_size": 36,
-        "heading_size_mobile": 26,
-        "padding": 80,
-        "padding_mobile": 48
+        "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca",
+        "section_width": "fluid_container",
+        "reset_spacing": true,
+        "text_align": "left",
+        "cards_desktop": 3,
+        "card_gap": 20,
+        "card_style": "outline",
+        "show_arrows": true,
+        "show_progress": true,
+        "enable_custom_style": false,
+        "card_radius": 0,
+        "quote_size": 16,
+        "reveal": true,
+        "padding_top": 80,
+        "padding_bottom": 80,
+        "mobile_peek": true,
+        "quote_size_mobile": 15,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56
       },
       "blocks": {
-        "r1": {
-          "type": "review",
+        "eyebrow": {
+          "type": "eyebrow",
           "settings": {
-            "rating": 5,
-            "quote": "Heavy and warm without being stiff. Took my usual size and it sits right.",
-            "name": "Sample name"
+            "text": "Sample reviews",
+            "enable_custom_style": false
           }
         },
-        "r2": {
-          "type": "review",
+        "heading": {
+          "type": "heading",
           "settings": {
-            "rating": 5,
-            "quote": "The black stayed black after ten washes. Ordered a second one.",
-            "name": "Sample name"
+            "text": "WORN AND WASHED",
+            "size": 40,
+            "size_mobile": 28,
+            "enable_custom_style": false
           }
         },
-        "r3": {
-          "type": "review",
+        "subheading": {
+          "type": "subheading",
           "settings": {
-            "rating": 5,
-            "quote": "Arrived in three days in a paper mailer. Fits boxy, as the page says.",
-            "name": "Sample name"
+            "text": "<p>Each review sits beside the piece it is about. Replace these with what your customers say.</p>",
+            "size": 15,
+            "enable_custom_style": false
+          }
+        },
+        "t1": {
+          "type": "testimonial",
+          "settings": {
+            "product": "heavyweight-hoodie-black",
+            "body": "Heavy and warm without being stiff. I took my usual size and it sits right on the shoulders.",
+            "name": "Sample name",
+            "role": "Size M",
+            "rating": 5
+          }
+        },
+        "t2": {
+          "type": "testimonial",
+          "settings": {
+            "product": "everyday-tee-black",
+            "body": "The black stayed black after ten washes. I ordered a second one the same week.",
+            "name": "Sample name",
+            "role": "Size L",
+            "rating": 5
+          }
+        },
+        "t3": {
+          "type": "testimonial",
+          "settings": {
+            "product": "cargo-trackpant-bone",
+            "body": "Proper pockets that hold a phone without sagging. The cuff stops right at the ankle.",
+            "name": "Sample name",
+            "role": "Size M",
+            "rating": 5
+          }
+        },
+        "t4": {
+          "type": "testimonial",
+          "settings": {
+            "product": "oversized-tee-white",
+            "body": "Thick enough that nothing shows through. Boxy, as the page says, so I went one size down.",
+            "name": "Sample name",
+            "role": "Size S",
+            "rating": 5
           }
         }
       },
       "block_order": [
-        "r1",
-        "r2",
-        "r3"
+        "eyebrow",
+        "heading",
+        "subheading",
+        "t1",
+        "t2",
+        "t3",
+        "t4"
       ]
+    },
+    "recently_viewed": {
+      "type": "recently-viewed",
+      "blocks": {
+        "heading_rv": {
+          "type": "heading",
+          "settings": {
+            "text": "Recently viewed"
+          }
+        }
+      },
+      "block_order": [
+        "heading_rv"
+      ],
+      "settings": {
+        "section_width": "fluid_container",
+        "products_to_show": 8,
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 20,
+        "padding_top": 40,
+        "padding_bottom": 56
+      }
     }
   },
   "order": [
@@ -427,6 +502,7 @@
     "main",
     "text_columns_1",
     "related",
+    "recently_viewed",
     "reviews"
   ]
 }

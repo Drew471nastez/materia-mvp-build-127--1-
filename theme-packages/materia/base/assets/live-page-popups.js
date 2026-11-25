@@ -57,12 +57,17 @@
     const prev = opened.get(id);
     if (prev && prev !== dlg && prev.open) prev.close();
     opened.set(id, dlg);
-    const modal = !design() && typeof dlg.showModal === 'function';
-    if (dlg.open && dlg.matches(':modal') === modal) return;
+    /* Drawn over the page with the open attribute, never showModal(): making
+       the whole page inert restyled every element of it in the opening frame
+       (about 100ms on a phone) and twice again on closing. The manager keeps
+       focus inside (Tab), closes it on Escape and locks the page scroll;
+       aria-modal tells assistive tech; on the live site the transparent
+       dialog box takes the clicks around the card (a click there closes it). */
+    if (dlg.open && !dlg.matches(':modal')) return;
     if (dlg.open) dlg.close();
-    /* in the builder the open attribute alone: drawn in the page, and no
-       focus is taken from the sidebar while the creator types */
-    if (modal) { try { dlg.showModal(); } catch (_) { dlg.setAttribute('open', ''); } } else dlg.setAttribute('open', '');
+    dlg.setAttribute('aria-modal', 'true');
+    if (!design()) dlg.setAttribute('data-pg-live', ''); else dlg.removeAttribute('data-pg-live');
+    dlg.setAttribute('open', '');
   }
   function closeDialog(id) {
     const dlg = opened.get(id);
@@ -71,6 +76,15 @@
   }
   document.addEventListener('materia:popup-open', e => { const id = sidOf(e.detail); if (id) openDialog(id); });
   document.addEventListener('materia:popup-close', e => { const id = sidOf(e.detail); if (id) closeDialog(id); });
+  /* a click on the dialog box itself (around the card) closes it, like a backdrop */
+  document.addEventListener('click', e => {
+    const dlg = e.target;
+    if (!dlg || !dlg.matches || !dlg.matches('dialog[data-pg-dialog][data-pg-live][open]')) return;
+    const popup = dlg.querySelector('[data-popup-root]') || dlg.closest('[data-popup-root]');
+    const id = popup && popup.getAttribute('data-popup-root');
+    const P = window.MateriaPopups;
+    if (P && id && P.current() === id) P.close(id);
+  });
   /* Escape: the manager closes it (remembered, focus given back) */
   document.addEventListener('cancel', e => {
     const dlg = e.target;
@@ -172,7 +186,7 @@
     const s = st.s;
     const c = {root, st, s, put, blocks, q: sel => root.querySelector(sel), qa: sel => [...root.querySelectorAll(sel)], first: type => blocks.find(x => x.type === type),
       custom: bool(s.enable_custom_style), fonts: bool(s.enable_custom_fonts), design: design(), recording: !!record};
-    const v = s.color_scheme && s.color_scheme.id || s.color_scheme || 'default-color-scheme';
+    const v = s.color_scheme && s.color_scheme.id || s.color_scheme || 'default';
     if (st.rootScheme == null) st.rootScheme = [...root.classList].some(x => /^color-/.test(x));
     if (typeof v === 'string' && /^[\w-]+$/.test(v)) for (const el of [...(st.rootScheme ? [root] : []), ...root.querySelectorAll('[data-pg-scheme]')]) put(el, 'scheme', v);
     /* custom fonts: the root's font variables and the opt-out of the theme priority */

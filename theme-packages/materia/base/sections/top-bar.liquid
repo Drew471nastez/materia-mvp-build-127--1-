@@ -1,4 +1,4 @@
-<script src="{{ 'live-header.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-header.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-header-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 <script src="{{ 'announcement-three-colors.js' | asset_url }}" defer="defer"></script>
 {%- comment -%} Runtime, once per page (the CSS and hero-image-one.js from layout/theme.storelib, every other script from the tags at the top of this file): shopify/assets/announcement-three-colors.js. {%- endcomment -%}
 {%- comment -%} announcement-three-colors.js is linked by the tag at the top of this file (it runs once per page). {%- endcomment -%}
@@ -268,7 +268,11 @@
       transition: none;
     }
     #topbar-{{ section.id }} .topbar-message.is-active { opacity: 1; visibility: visible; pointer-events: auto; }
+    #topbar-{{ section.id }} .topbar-message.is-leaving { opacity: 1; visibility: visible; pointer-events: none; }
+    #topbar-{{ section.id }} announcement-rotator-v2[data-transitioning='true'] .topbar-message { will-change: transform, opacity; backface-visibility: hidden; }
     #topbar-{{ section.id }} announcement-rotator-v2 { touch-action: pan-y; }
+    #topbar-{{ section.id }} announcement-rotator-v2[data-dragging] { cursor: grabbing; user-select: none; -webkit-user-select: none; }
+    #topbar-{{ section.id }} announcement-rotator-v2[data-dragging] .topbar-message { transition: none !important; }
     @media (prefers-reduced-motion: reduce) {
       #topbar-{{ section.id }} .topbar-message { transition: none; }
     }
@@ -298,7 +302,7 @@
     #topbar-{{ section.id }} .topbar-slider-arrow svg { width: 16px; height: 16px; flex: none; }
     #topbar-{{ section.id }} .topbar-slider-arrow:focus-visible { outline: 2px solid currentColor; outline-offset: -4px; }
     #topbar-{{ section.id }} .lang__currency-desktop { flex: 0 1 auto; flex-wrap: nowrap; gap: 12px; min-width: 0; }
-    #topbar-{{ section.id }} .lang__currency-desktop .localization-flags { width: 20px; height: 20px; }
+    #topbar-{{ section.id }} .lang__currency-desktop .localization-flags { width: 18px; height: 18px; }
     #topbar-{{ section.id }} .button-localization > span { min-width: 0; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
     /* Sides (topbar__side): on phones they are not boxes at all, so the blocks wrap and centre as one row. On desktop the bar is three columns and the two sides are always the same width, so a centred message is centred on the page and not on the room the side content leaves. */
     #topbar-{{ section.id }} .topbar__side { display: contents; }
@@ -375,7 +379,7 @@
     <div class="{{ section_width }}">
       <div
         class="flex flex-wrap flex-md-nowrap gap justify-center justify-between-1025 align-center topbar__section-inner gap-10 gap-lg-25 fs-custom {{ section_st.font_weight }}"
-        style="--font-size: {{ section_st.font_size }};{% if tb_font != blank %}--tb-font: {{ tb_font }};{% endif %}"{% if tb_font != blank %} data-own-font{% endif %}{% if section_st.font != blank %} data-tb-font="{{ section_st.font.family }}, {{ section_st.font.fallback_families }}"{% endif %}
+        style="--font-size: {{ section_st.font_size }};{% if tb_font != blank %}--tb-font: {{ tb_font | escape }};{% endif %}"{% if tb_font != blank %} data-own-font{% endif %}{% if section_st.font != blank %} data-tb-font="{{ section_st.font.family | escape }}, {{ section_st.font.fallback_families | escape }}"{% endif %}
       >
         {%- comment -%} Each block is drawn into one of three places: what comes before the first message, the messages, and what comes after. On desktop the two sides take equal columns, so the message sits in the middle of the page whatever is beside it (socials, contact details, selectors). On phones the places fall away and the blocks wrap and centre as before. {%- endcomment -%}
         {%- assign tb_messages_drawn = false -%}
@@ -447,7 +451,8 @@
                     class="topbar-slider"
                     data-section-id="{{ section.id }}"
                     data-delay="{{ section_st.change_every | default: 5 }}"
-                    data-duration="{{ section_st.transition_speed | default: 700 }}"
+                    data-duration="{{ section_st.slide_speed | default: 380 }}"
+                    data-transition="{% if section_st.transition_type == 'fade' %}fade{% else %}slide{% endif %}"
                   >
                     <div class="topbar-track">
                       {%- assign tb_first = true -%}
@@ -492,7 +497,8 @@
                   class="topbar-slider"
                   data-section-id="{{ section.id }}"
                   data-delay="{{ block_st.change_every | default: 5 }}"
-                  data-duration="{{ section_st.transition_speed | default: 700 }}"
+                  data-duration="{{ section_st.slide_speed | default: 380 }}"
+                  data-transition="{% if section_st.transition_type == 'fade' %}fade{% else %}slide{% endif %}"
                 >
                   <div class="topbar-track">
                     {%- if block_st.text1 != blank or block_st.text1_mobile != blank -%}
@@ -550,14 +556,27 @@
                   {%- endif -%}
               </div>
             {%- when 'cur_lang' -%}
+              {%- comment -%} One market or one language: the current one as a quiet label (static_single), like the header. {%- endcomment -%}
+              {%- liquid
+                assign tb_cur = false
+                assign tb_lang = false
+                if block_st.show_currency
+                  assign tb_cur = true
+                endif
+                if block_st.show_language
+                  assign tb_lang = true
+                endif
+              -%}
+              {%- if tb_cur or tb_lang -%}
               <div class="lang__currency-desktop justify-content-center justity-md-unset topbar-item{% if block_st.hidden_on_mobile %} hidden flex-1025{% else %} flex{% endif %} flex-wrap gap-10 gap-lg-25 align-center row-gap-0" data-tb-block="{{ block.id }}">
-                {%- if block_st.show_currency -%}
-                  {%- render 'country-switcher', compact: true -%}
+                {%- if tb_cur -%}
+                  {%- render 'country-switcher', compact: true, static_single: true -%}
                 {% endif %}
-                {%- if block_st.show_language -%}
-                  {%- render 'language-switcher' -%}
+                {%- if tb_lang -%}
+                  {%- render 'language-switcher', static_single: true -%}
                 {% endif %}
               </div>
+              {%- endif -%}
           {%- endcase -%}
           {%- endcapture -%}
           {%- liquid
@@ -584,8 +603,10 @@
   "limit": 1,
   "enabled_on": {
     "groups": [
-      "header",
-      "template"
+      "header"
+    ],
+    "templates": [
+      "*"
     ]
   },
   "settings": [
@@ -818,14 +839,42 @@
       "default": true
     },
     {
+      "type": "select",
+      "id": "transition_type",
+      "label": "Transition",
+      "default": "slide",
+      "options": [
+        {
+          "value": "slide",
+          "label": "Slide"
+        },
+        {
+          "value": "fade",
+          "label": "Fade"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "slide_speed",
+      "label": "Slide speed",
+      "min": 250,
+      "max": 800,
+      "step": 10,
+      "unit": "ms",
+      "default": 380,
+      "visible_if": "{{ section.settings.transition_type != 'fade' }}"
+    },
+    {
       "type": "range",
       "id": "transition_speed",
-      "label": "Transition speed",
+      "label": "Transition speed (legacy)",
       "min": 200,
       "max": 1500,
       "step": 50,
       "unit": "ms",
-      "default": 700
+      "default": 700,
+      "visible_if": "{{ false }}"
     },
     {
       "type": "range",
@@ -1144,7 +1193,7 @@
   ],
   "presets": [
     {
-      "name": "Announcement Bar Pro 3",
+      "name": "Top Bar – Store Info & Socials",
       "blocks": [
         {
           "type": "message",
@@ -1162,7 +1211,7 @@
           "type": "cur_lang"
         }
       ],
-      "category": "Header & navigation"
+      "category": "18 · Header & announcements"
     }
   ]
 }

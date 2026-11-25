@@ -1,4 +1,4 @@
-<script src="{{ 'live-blog-slideshow.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-blog-slideshow.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {%- comment -%} Runtime, once per page (the CSS and hero-image-one.js from layout/theme.storelib, every other script from the tags at the top of this file): shopify/assets/slideshow-live.js and live-blog-slideshow.js. The image effects and slide changes are this section's own CSS and script (data-ss-fx, --fxi, data-ss-change); slideshow-pointer.js and the data-slideshow-pointer rules in slideshow.css are no longer used by it. {%- endcomment -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' and section.settings.reveal != false and section.settings.reveal != 'false' -%}
@@ -699,7 +699,7 @@
   id="{{ section.id }}"
   class="section{% if section_st.padding_top < 30 %} pt-min{% endif %}{% if section_st.padding_bottom < 30 %} pb-min{% endif %} gradient slideshow {{ slide_effect }} color-{{ color_scheme }}{{ reset_spacing }}"
   style="{{ style | strip | strip_newlines }}"
-  data-slideshow-settings="{{ section.settings | json | escape }}" data-slideshow-defaults='{"section_width":"full_width","slide_effect":"slide","subheading_font_size":15,"subheading_font_size_mobile":15,"subheading_font_weight":"body_weight","subheading_spacing_bottom":10,"heading_font_size":72,"heading_font_size_mobile":39,"heading_font_weight":"heading_weight","heading_spacing_bottom":12,"des_font_size":15,"des_font_size_mobile":15,"des_font_weight":"body_weight","des_spacing_bottom":40,"btn_custom_enable":false,"btn_radius_override":8,"btn_padding_y_override":14,"btn_padding_x_override":26,"btn_text_transform_override":"none","image_effect":"none","image_effect_intensity":5,"show_arrow":true,"arrow_visibility":"hover","arrow_show_mobile":false,"arrow_shape":"theme","arrow_style":"theme","arrow_size":48,"arrow_bg":"#ffffff","arrow_icon_color":"#121212","arrow_border_color":"#121212","arrow_hover_bg":"#121212","arrow_hover_icon_color":"#ffffff","autoplay":false,"autorotate_speed":5,"slide_loop":true,"carousel_pagination":"show_dots","pagination_style":"pill","pagination_position":"center","reveal":true,"slide_height":"full_screen","desktop_height":800,"padding_top":0,"padding_bottom":0,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"mobile_height":360,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0,"reset_spacing":true}' data-slide-defaults='{"subheading":"Top text","heading":"Hero Slideshow","enable_accent_heading":false,"accent_heading_color":"#e0a536","accent_heading_italic":false,"description":"&lt;p>Tell your brand&#39;s story through images&lt;/p>","slider_effect":"effect_fadeindown","first_button_label":"Shop Now","overlay_opacity":0,"split_images_enable":false,"split_gap":0,"split_mobile_use_primary":false,"content_position":"middle-center","content_position_mobile":"middle-center","content_alignment":"center","content_alignment_mobile":"center","content_width":"container","content_max_width":100,"content_padding_block":60,"content_padding_inline":30,"content_background":"#fff","content_box_opacity":100,"enable_trust_badges":false,"trust_badge_position":"below_buttons","trust_badge_accent_color":"#f5a623","trust_badge_font_size":14,"badge_text_weight":"500","trust_badge_space_above":18,"trust_badge_space_below":0,"trust_badge_gap":12,"badge_1_type":"icon","badge_1_rating":0,"badge_1_icon":"shield_check","badge_1_text":"Secure checkout","badge_2_type":"none","badge_2_rating":0,"badge_2_icon":"refresh","badge_2_text":"","badge_3_type":"none","badge_3_rating":0,"badge_3_icon":"truck","badge_3_text":"","enable_custom_fonts":false,"subheading_font":"assistant_n4","heading_font":"assistant_n4","description_font":"assistant_n4","enable_custom_font_weights":false,"subheading_weight":"500","heading_weight":"700","description_weight":"400","enable_custom_colors":false}' data-id="{{ section.id }}" data-ss-fx="{{ section_st.image_effect | default: 'none' }}" data-ss-width="{{ section_st.section_width }}" data-ss-change="{{ ss_change }}"
+  data-slideshow-settings="{{ section.settings | json | escape }}" {% if request.design_mode %}data-slideshow-defaults='{"section_width":"full_width","slide_effect":"slide","subheading_font_size":15,"subheading_font_size_mobile":15,"subheading_font_weight":"body_weight","subheading_spacing_bottom":10,"heading_font_size":72,"heading_font_size_mobile":39,"heading_font_weight":"heading_weight","heading_spacing_bottom":12,"des_font_size":15,"des_font_size_mobile":15,"des_font_weight":"body_weight","des_spacing_bottom":40,"btn_custom_enable":false,"btn_radius_override":8,"btn_padding_y_override":14,"btn_padding_x_override":26,"btn_text_transform_override":"none","image_effect":"none","image_effect_intensity":5,"show_arrow":true,"arrow_visibility":"hover","arrow_show_mobile":false,"arrow_shape":"theme","arrow_style":"theme","arrow_size":48,"arrow_bg":"#ffffff","arrow_icon_color":"#121212","arrow_border_color":"#121212","arrow_hover_bg":"#121212","arrow_hover_icon_color":"#ffffff","autoplay":false,"autorotate_speed":5,"slide_loop":true,"carousel_pagination":"show_dots","pagination_style":"pill","pagination_position":"center","reveal":true,"slide_height":"full_screen","desktop_height":800,"padding_top":0,"padding_bottom":0,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"mobile_height":360,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0,"reset_spacing":true}'{% endif %} {% if request.design_mode %}data-slide-defaults='{"subheading":"Top text","heading":"Hero Slideshow","enable_accent_heading":false,"accent_heading_color":"#e0a536","accent_heading_italic":false,"description":"&lt;p>Tell your brand&#39;s story through images&lt;/p>","slider_effect":"effect_fadeindown","first_button_label":"Shop Now","overlay_opacity":0,"split_images_enable":false,"split_gap":0,"split_mobile_use_primary":false,"content_position":"middle-center","content_position_mobile":"middle-center","content_alignment":"center","content_alignment_mobile":"center","content_width":"container","content_max_width":100,"content_padding_block":60,"content_padding_inline":30,"content_background":"#fff","content_box_opacity":100,"enable_trust_badges":false,"trust_badge_position":"below_buttons","trust_badge_accent_color":"#f5a623","trust_badge_font_size":14,"badge_text_weight":"500","trust_badge_space_above":18,"trust_badge_space_below":0,"trust_badge_gap":12,"badge_1_type":"icon","badge_1_rating":0,"badge_1_icon":"shield_check","badge_1_text":"Secure checkout","badge_2_type":"none","badge_2_rating":0,"badge_2_icon":"refresh","badge_2_text":"","badge_3_type":"none","badge_3_rating":0,"badge_3_icon":"truck","badge_3_text":"","enable_custom_fonts":false,"subheading_font":"assistant_n4","heading_font":"assistant_n4","description_font":"assistant_n4","enable_custom_font_weights":false,"subheading_weight":"500","heading_weight":"700","description_weight":"400","enable_custom_colors":false}'{% endif %} data-id="{{ section.id }}" data-ss-fx="{{ section_st.image_effect | default: 'none' }}" data-ss-width="{{ section_st.section_width }}" data-ss-change="{{ ss_change }}"
 >
   <div class="{{ section_width }}">
     {% if section.blocks.size > 0 %}
@@ -765,13 +765,17 @@
                   render 'demo-image', key: block.id
                 endcapture
                 assign demo_src = demo_src | strip
+                capture demo_wh
+                  render 'demo-image', key: block.id, dims: true
+                endcapture
+                assign demo_wh = demo_wh | strip | split: 'x'
                 capture demo_src_mobile
                   render 'demo-image', key: demo_mobile_key
                 endcapture
                 assign demo_src_mobile = demo_src_mobile | strip
               endif
             %}
-            <div {{ block.shopify_attributes }} class="swiper-slide" data-slide-id="{{ block.id }}" data-slide-settings="{{ block.settings | json | escape }}"{% if forloop.first %} data-first-slide{% endif %}>
+            <div {{ block.shopify_attributes }} class="swiper-slide" data-slide-id="{{ block.id }}" {% if request.design_mode %}data-slide-settings="{{ block.settings | json | escape }}"{% endif %}{% if forloop.first %} data-first-slide{% endif %}>
               {%- comment -%}
                 Per-slide FONT FAMILY overrides — gated by `enable_custom_fonts`.
                 Same scoping pattern as the colour overrides: scoped via
@@ -1017,7 +1021,7 @@
                       -%}
                       {%- if b_type == 'stars' -%}
                         <span class="banner__badge"{% unless b_rating > 0 %} hidden{% endunless %}>
-                          <span class="badge-stars" role="img" aria-label="{{ b_rating }} out of 5 stars">
+                          <span class="badge-stars" role="img" aria-label="{{ 'accessibility.ui.rating_out_of' | t: rating: b_rating, total: 5 }}">
                             <span class="badge-stars__bg">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
                             <span class="badge-stars__fg" style="width: {{ star_fill }}%">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
                           </span>
@@ -1081,6 +1085,8 @@
                              srcset="{{ block_st.split_mobile_primary_image | image_url: width: 600 }} 600w, {{ block_st.split_mobile_primary_image | image_url: width: 800 }} 800w, {{ block_st.split_mobile_primary_image | image_url: width: 1200 }} 1200w"
                              sizes="100vw"
                              alt="{{ block_st.heading | escape }}"
+                             width="{{ block_st.split_mobile_primary_image.width }}"
+                             height="{{ block_st.split_mobile_primary_image.height }}"
                              loading="{{ slide_loading }}"
                              class="banner__split-img">
                       </picture>
@@ -1090,14 +1096,14 @@
                         {%- if block_st.image_split_left != blank -%}
                           {{ block_st.image_split_left | image_url: width: 1200 | image_tag: alt: block_st.heading, class: 'banner__split-img', loading: slide_loading, widths: '600, 900, 1200, 1600' }}
                         {%- else -%}
-                          {%- render 'placeholder-render', class: 'absolute inset-0 w-full h-full object-fit-cover' -%}
+                          {%- render 'placeholder-render', class: 'absolute inset-0 w-full h-full object-fit-cover', type: 'lifestyle-1' -%}
                         {%- endif -%}
                       </div>
                       <div class="banner__media-split-right">
                         {%- if block_st.image_split_right != blank -%}
                           {{ block_st.image_split_right | image_url: width: 1200 | image_tag: alt: block_st.heading, class: 'banner__split-img', loading: slide_loading, widths: '600, 900, 1200, 1600' }}
                         {%- else -%}
-                          {%- render 'placeholder-render', class: 'absolute inset-0 w-full h-full object-fit-cover' -%}
+                          {%- render 'placeholder-render', class: 'absolute inset-0 w-full h-full object-fit-cover', type: 'lifestyle-2' -%}
                         {%- endif -%}
                       </div>
                     </div>
@@ -1250,13 +1256,13 @@
                     {%- if demo_src_mobile != blank -%}
                       <picture>
                         <source media="(max-width: 767px)" srcset="{{ demo_srcset_mobile | default: demo_src_mobile }}" sizes="100vw">
-                        <img src="{{ demo_src }}"{% if demo_srcset != blank %} srcset="{{ demo_srcset }}" sizes="100vw"{% endif %} alt="{{ block_st.heading | escape }}" class="absolute inset-0 w-full h-full object-fit-cover" loading="{{ slide_loading }}"{% if forloop.first %} fetchpriority="high"{% else %} decoding="async"{% endif %}>
+                        <img src="{{ demo_src }}"{% if demo_srcset != blank %} srcset="{{ demo_srcset }}" sizes="100vw"{% endif %} alt="{{ block_st.heading | escape }}" width="{{ demo_wh[0] | default: 1500 }}" height="{{ demo_wh[1] | default: 844 }}" class="absolute inset-0 w-full h-full object-fit-cover" loading="{{ slide_loading }}"{% if forloop.first %} fetchpriority="high"{% else %} decoding="async"{% endif %}>
                       </picture>
                     {%- else -%}
-                      <img src="{{ demo_src }}"{% if demo_srcset != blank %} srcset="{{ demo_srcset }}" sizes="100vw"{% endif %} alt="{{ block_st.heading | escape }}" class="absolute inset-0 w-full h-full object-fit-cover" loading="{{ slide_loading }}"{% if forloop.first %} fetchpriority="high"{% else %} decoding="async"{% endif %}>
+                      <img src="{{ demo_src }}"{% if demo_srcset != blank %} srcset="{{ demo_srcset }}" sizes="100vw"{% endif %} alt="{{ block_st.heading | escape }}" width="{{ demo_wh[0] | default: 1500 }}" height="{{ demo_wh[1] | default: 844 }}" class="absolute inset-0 w-full h-full object-fit-cover" loading="{{ slide_loading }}"{% if forloop.first %} fetchpriority="high"{% else %} decoding="async"{% endif %}>
                     {%- endif -%}
                   {%- else -%}
-                    {%- render 'placeholder-render', class: 'absolute inset-0 w-full h-full object-fit-cover' -%}
+                    {%- render 'placeholder-render', class: 'absolute inset-0 w-full h-full object-fit-cover', type: 'lifestyle', index: forloop.index -%}
                   {% endif %}
                   <span class="ss-fx-vig" aria-hidden="true"></span>
                   {%- if forloop.first -%}{%- comment -%} The first picture fades in over the soft background when it arrives, instead of snapping in after a grey moment; one already loaded shows at once. {%- endcomment -%}<script>(function(m){var i=m&&m.querySelector('img');if(!i||i.complete||!window.matchMedia||matchMedia('(prefers-reduced-motion: reduce)').matches)return;i.style.opacity='0';var done=false,show=function(){if(done)return;done=true;i.style.transition='opacity .45s cubic-bezier(.2,.7,.2,1)';void i.offsetWidth;i.style.opacity='';setTimeout(function(){i.style.transition=''},520)};i.addEventListener('load',show,{once:true});i.addEventListener('error',show,{once:true});setTimeout(show,3500)})(document.currentScript&&document.currentScript.parentElement)</script>{%- endif -%}
@@ -1405,12 +1411,12 @@
             class="swiper-actions flex block-md content-center gap-10 mb-30 mb-md-0 original-style{% if section_st.arrow_visibility == 'always' %} show-arrow{% endif %}{% if section_st.arrow_show_mobile %} show-on-mobile{% endif %}"
             data-arrow-style="{{ section_st.arrow_style | default: 'theme' }}"
           >
-            <button type="button" class="swiper-arrow swiper-arrow--prev original-style swiper-button-prev inline-flex content-center" data-ss-arrow aria-label="Previous slide" aria-controls="swiper-{{ section.id }}">
+            <button type="button" class="swiper-arrow swiper-arrow--prev original-style swiper-button-prev inline-flex content-center" data-ss-arrow aria-label="{{ 'accessibility.ui.previous_slide' | t }}" aria-controls="swiper-{{ section.id }}">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true" focusable="false">
                 <use href="#icon-slider-prev" />
               </svg>
             </button>
-            <button type="button" class="swiper-arrow swiper-arrow--next original-style swiper-button-next inline-flex content-center" data-ss-arrow aria-label="Next slide" aria-controls="swiper-{{ section.id }}">
+            <button type="button" class="swiper-arrow swiper-arrow--next original-style swiper-button-next inline-flex content-center" data-ss-arrow aria-label="{{ 'accessibility.ui.next_slide' | t }}" aria-controls="swiper-{{ section.id }}">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true" focusable="false">
                 <use href="#icon-slider-next" />
               </svg>
@@ -1595,6 +1601,7 @@
     {% endif %}
   </div>
 </div>
+
 
 {% schema %}
 {
@@ -3132,7 +3139,6 @@
           "type": "text",
           "id": "badge_2_text",
           "label": "Text",
-          "default": "",
           "visible_if": "{{ block.settings.enable_trust_badges and block.settings.badge_2_type != 'none' }}"
         },
         {
@@ -3227,7 +3233,6 @@
           "type": "text",
           "id": "badge_3_text",
           "label": "Text",
-          "default": "",
           "visible_if": "{{ block.settings.enable_trust_badges and block.settings.badge_3_type != 'none' }}"
         },
         {
@@ -3528,7 +3533,7 @@
           "type": "slider_item"
         }
       ],
-      "category": "Slideshows"
+      "category": "01 · Hero & slideshows"
     }
   ],
   "class": "section-edge-bleed"

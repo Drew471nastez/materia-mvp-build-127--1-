@@ -1,0 +1,31 @@
+/* live-testimonials.css: static styles of snippets/live-testimonials-style.liquid, moved out of its inline <style> so they are cached.
+   :is(<selector>,#_): #_ never matches; it only keeps the (1,0,0) specificity of the per-instance id selector it replaces
+   (:is(.s-lt,#_) is the section wrapper, schema class "s-lt"). Per-instance values stay inline as custom properties. */
+:is(.s-lt,#_) .lt-frame { box-sizing: border-box; }
+:is(.s-lt,#_) .lt-frame[data-width="container"] { max-width: calc(var(--page-width, 1300px) + 3rem); margin-inline: auto; padding-inline: 1.5rem; }
+:is(.s-lt,#_) .lt-frame[data-width="fluid_container"] { max-width: calc(var(--fluid-container-width, 1500px) + 3rem); margin-inline: auto; padding-inline: 1.5rem; }
+:is(.s-lt,#_) .lt-frame[data-width="stretch_width"] { padding-inline: 1.5rem; }
+@media (min-width: 1200px) { :is(.s-lt,#_) .lt-frame[data-width="stretch_width"] { padding-inline: 3rem; } }
+:is(.s-lt,#_) .lt-stars { display: inline-flex; align-items: center; gap: var(--lt-star-gap, 2px); vertical-align: middle; line-height: 0; }
+:is(.s-lt,#_) .lt-stars[hidden] { display: none; }
+:is(.s-lt,#_) .lt-star { position: relative; display: inline-block; flex: 0 0 auto; width: var(--lt-star-size, 18px); height: var(--lt-star-size, 18px); }
+:is(.s-lt,#_) .lt-star svg { display: block; width: 100%; height: 100%; fill: var(--lt-star-off, color-mix(in srgb, var(--color-text) 20%, transparent)); }
+:is(.s-lt,#_) .lt-star::before { content: ""; position: absolute; inset: 0; background: var(--lt-star-on, var(--color-primary)); -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z'/></svg>") center / contain no-repeat; mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 2l2.95 6.27L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.05-1z'/></svg>") center / contain no-repeat; clip-path: inset(0 calc(100% - var(--lt-fill, 0%)) 0 0); }
+:is(.s-lt,#_) [dir="rtl"] .lt-star::before, [dir="rtl"] :is(.s-lt,#_) .lt-star::before { clip-path: inset(0 0 0 calc(100% - var(--lt-fill, 0%))); }
+:is(.s-lt,#_) [data-lt-track] { scrollbar-width: none; overscroll-behavior-inline: contain; }
+:is(.s-lt,#_) [data-lt-track]::-webkit-scrollbar { display: none; }
+:is(.s-lt,#_) [data-lt-track]:focus-visible { outline: 2px solid var(--color-heading); outline-offset: 4px; }
+:is(.s-lt,#_) .lt-nav { display: flex; align-items: center; justify-content: center; gap: 12px; }
+:is(.s-lt,#_) .lt-arrow { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 44px; height: 44px; padding: 0; margin: 0; border-radius: 50%; border: 1px solid var(--lt-arrow-border, var(--color-border)); background: var(--lt-arrow-bg, var(--color-background)); color: var(--lt-arrow-c, var(--color-heading)); cursor: pointer; transition: background-color var(--btn-anim-duration, .2s) ease, color var(--btn-anim-duration, .2s) ease, border-color var(--btn-anim-duration, .2s) ease, opacity var(--btn-anim-duration, .2s) ease; }
+:is(.s-lt,#_) .lt-arrow:hover:not(:disabled) { background: var(--lt-arrow-bg-h, var(--color-heading)); color: var(--lt-arrow-c-h, var(--color-background)); border-color: var(--lt-arrow-bg-h, var(--color-heading)); }
+:is(.s-lt,#_) .lt-arrow:disabled { opacity: .35; cursor: default; }
+:is(.s-lt,#_) .lt-arrow svg { width: 16px; height: 16px; display: block; }
+:is(.s-lt,#_) .lt-dots { display: inline-flex; flex-wrap: wrap; justify-content: center; }
+:is(.s-lt,#_) .lt-dot { position: relative; width: 24px; height: 44px; padding: 0; margin: 0; border: 0; background: none; cursor: pointer; }
+:is(.s-lt,#_) .lt-dot::before { content: ""; position: absolute; left: 50%; top: 50%; width: 8px; height: 8px; border-radius: 50%; transform: translate(-50%, -50%); background: var(--lt-dot, color-mix(in srgb, var(--color-text) 30%, transparent)); transition: background-color var(--btn-anim-duration, .2s) ease, transform var(--btn-anim-duration, .2s) ease; }
+:is(.s-lt,#_) .lt-dot[aria-current="true"]::before { background: var(--lt-dot-active, var(--color-heading)); transform: translate(-50%, -50%) scale(1.25); }
+:is(.s-lt,#_) .lt-arrow:focus-visible, :is(.s-lt,#_) .lt-dot:focus-visible, :is(.s-lt,#_) .lt-vbtn:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+    :is(.s-lt,#_) .lt-arrow, :is(.s-lt,#_) .lt-dot::before { transition: none; }
+    :is(.s-lt,#_) [data-lt-track] { scroll-behavior: auto; }
+  }

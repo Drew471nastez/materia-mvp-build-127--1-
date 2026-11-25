@@ -1,3 +1,13 @@
+{% doc %}
+  Product price with compare-at price, unit price and sale state.
+
+  @param {string} [class] - Extra CSS classes ('flex gap-5 mt-5', 'price-large')
+  @param {product} [product] - The product to render
+  @param {string} scope - Scope ('detail', 'item')
+
+  @example
+  {% render 'price', scope: 'item', product: card_product, show_badges: false, class: priceclass %}
+{% enddoc -%}
 {%- comment -%}
   Materia Themes. Developed By Materia Themes.
 {%- endcomment -%}

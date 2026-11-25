@@ -1,9 +1,13 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. The handle icons of the before/after comparison sliders
   (Before and After Slider: icon1 to icon14; Before/After Slider 2: arrows,
   chevrons, lines, dots, plus). Every icon draws in currentColor.
+
+  @param {string} icon - Handle icon
+
+  @example
   {% render 'media-ba-icon', icon: 'icon2' %}
-{%- endcomment -%}
+{%- enddoc -%}
 {%- case icon -%}
   {%- when 'icon1' -%}
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 7L4 12L9 17M15 7L20 12L15 17"/></svg>

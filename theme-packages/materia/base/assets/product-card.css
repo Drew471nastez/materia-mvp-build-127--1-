@@ -1302,6 +1302,31 @@ body[data-badge-position='top_end'] .product-item__inner > .pc-corner:has(> .pro
   pointer-events: none;
 }
 .product-item .hover_lift .hover-effect:is(:hover, [data-pc-press])::after { pointer-events: auto; }
+/* Lift and Glow: the shadow is painted once, on a ::before under the card
+   picture, and only its opacity eases in (with the lift's transform), so the
+   compositor plays the hover; easing box-shadow itself repainted the card on
+   every frame. The card is its own stacking context (isolation above), so
+   the layer sits under the picture and above what is behind the card. */
+.product-item :is(.hover_lift, .hover_glow) .hover-effect::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0;
+  transition: opacity .4s ease;
+}
+.product-item .hover_lift .hover-effect::before { box-shadow: 0 12px 28px -10px rgba(0, 0, 0, .18); }
+.product-item .hover_glow .hover-effect::before { box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 35%, transparent), 0 10px 24px -12px rgba(0, 0, 0, .25); }
+.product-item :is(.hover_lift, .hover_glow) .hover-effect[data-pc-press] { box-shadow: none; }
+.product-item :is(.hover_lift, .hover_glow) .hover-effect[data-pc-press]::before { opacity: 1; }
+.product-item .hover_lift .hover-effect[data-pc-press] { transition: transform .4s var(--pc-ease, ease); }
+@media (min-width: 1025px) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .product-item :is(.hover_lift, .hover_glow) .hover-effect:hover { box-shadow: none; }
+  .product-item :is(.hover_lift, .hover_glow) .hover-effect:hover::before { opacity: 1; }
+  .product-item .hover_lift .hover-effect { transition: transform .4s cubic-bezier(.2, .7, .2, 1); }
+}
 
 /* ══════════════════════════════════════════════════════════════════════
    PRODUCT BADGES — every Theme settings > Product badges value
@@ -1469,4 +1494,579 @@ body[data-badge-position='top_end'] .product__badges.absolute .product__badges-i
     animation: pc-badge-shine 3.2s ease-in-out infinite;
     pointer-events: none;
   }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   CARD BUTTONS — wishlist and quick view (snippets/product-item: .pc-actions)
+   Theme settings > Product cards > Card buttons:
+   - Button position: side (a column in the top end corner) or bottom (a
+     row centred above the add to cart strip). Below 1025px both are the
+     side column: the round add button owns the bottom edge there.
+   - Show buttons: hover (desktop pointer; touch screens always show
+     them) or always. The add to cart strip follows the same choice.
+   - Show tooltips, Button size, hover background and icon colours.
+   Colours come from the card's colour scheme.
+   ══════════════════════════════════════════════════════════════════════ */
+.product-item {
+  --pc-act: var(--pc-act-size, 44px);
+  --pc-icon: var(--pc-act);
+  --pc-dur: .2s;
+}
+@media (max-width: 749.98px) {
+  .product-item { --pc-act: min(var(--pc-act-size, 44px), 38px); }
+}
+.pc-actions {
+  --pc-size: var(--pc-act, 44px);
+  position: absolute;
+  z-index: 6;
+  display: flex;
+  gap: var(--pc-gap, 8px);
+  pointer-events: none;
+}
+.pc-actions > * { pointer-events: auto; }
+.pc-actions--side,
+.pc-actions--bottom {
+  top: var(--pc-edge, 12px);
+  bottom: auto;
+  inset-inline-end: var(--pc-edge, 12px);
+  inset-inline-start: auto;
+  flex-direction: column;
+}
+@media (min-width: 1025px) {
+  .pc-actions--bottom {
+    top: auto;
+    inset-inline: 0;
+    bottom: var(--pc-edge, 15px);
+    flex-direction: row;
+    justify-content: center;
+  }
+  /* Above the add to cart strip when the card has one. */
+  .product-item__inner:has(> .product-item__action .pc-form--media) .pc-actions--bottom {
+    bottom: calc(var(--pc-edge, 15px) + var(--pc-btn, 44px) + 8px);
+  }
+}
+.product-item .pc-actions .pc-action {
+  position: relative;
+  box-sizing: border-box;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 var(--pc-size) !important;
+  width: var(--pc-size) !important;
+  height: var(--pc-size) !important;
+  min-width: 0 !important;
+  min-height: 0;
+  padding: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  background: var(--color-background, #fff);
+  color: var(--color-heading, #111);
+  border: 1px solid color-mix(in srgb, var(--color-heading, #111) 10%, transparent);
+  box-shadow: 0 4px 14px rgb(0 0 0 / .08);
+  transition: opacity var(--pc-dur) ease, transform var(--pc-dur) var(--pc-ease, ease), background-color var(--pc-dur) ease, color var(--pc-dur) ease, border-color var(--pc-dur) ease, box-shadow var(--pc-dur) ease;
+}
+.product-item .pc-actions .pc-action > svg { width: calc(var(--pc-size) * .4); height: calc(var(--pc-size) * .4); max-width: 18px; max-height: 18px; }
+/* Hover colours: Button hover background / Button hover icon, else the
+   scheme's primary button. Same specificity as, and after, the heart's
+   default hover, so the heart follows them; the custom heart colours
+   (Enable custom card styling) are injected later and still win. */
+@media (hover: hover) and (pointer: fine) {
+  .product-item .pc-actions .pc-action:hover,
+  .pc-actions .product-item__button-wishlist:hover {
+    background: var(--pc-act-hover-bg, var(--btn-primary-bg-color, var(--color-heading, #111))) !important;
+    color: var(--pc-act-hover-icon, var(--btn-primary-color, var(--color-background, #fff))) !important;
+    border-color: transparent !important;
+    box-shadow: 0 6px 18px rgb(0 0 0 / .14);
+  }
+}
+.product-item .pc-actions .pc-action:focus-visible { outline: 2px solid var(--color-heading, #111); outline-offset: 2px; }
+.product-item .pc-actions button-quickview.loading { pointer-events: none; }
+.product-item .pc-actions button-quickview.loading > svg { animation: pc-spin .8s linear infinite; }
+@keyframes pc-spin { to { rotate: 360deg; } }
+
+/* Show buttons: on hover (desktop pointer only), one after the other. */
+@media (hover: hover) and (pointer: fine) {
+  .product-item:not(:hover, :focus-within, .pc-reveal--always) .pc-actions:not(.pc-actions--always) .pc-action:not(.active) {
+    opacity: 0;
+    transform: translate3d(6px, 0, 0);
+  }
+  [dir='rtl'] .product-item:not(:hover, :focus-within, .pc-reveal--always) .pc-actions:not(.pc-actions--always) .pc-action:not(.active) { transform: translate3d(-6px, 0, 0); }
+  @media (min-width: 1025px) {
+    .product-item:not(:hover, :focus-within, .pc-reveal--always) .pc-actions--bottom:not(.pc-actions--always) .pc-action:not(.active) { transform: translate3d(0, 6px, 0); }
+  }
+  .product-item:hover .pc-actions .pc-action:nth-child(2) { transition-delay: .04s, .04s, 0s, 0s, 0s, 0s; }
+  .product-item:hover .pc-actions .pc-action:nth-child(3) { transition-delay: .08s, .08s, 0s, 0s, 0s, 0s; }
+}
+
+/* Tooltips: small, fade and slide in 180ms, always inside the card (to
+   the start side of the column, above the row). Desktop pointer only. */
+.pc-actions .pc-tip {
+  position: absolute;
+  z-index: 2;
+  width: max-content;
+  max-width: 16rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  padding: 5px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.2;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+  background: var(--color-heading, #111);
+  color: var(--color-background, #fff);
+  box-shadow: 0 4px 12px rgb(0 0 0 / .12);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .18s ease, transform .18s var(--pc-ease, ease), visibility 0s linear .18s;
+  top: 50%;
+  inset-inline-end: calc(100% + 8px);
+  transform: translate3d(4px, -50%, 0);
+}
+[dir='rtl'] .pc-actions .pc-tip { transform: translate3d(-4px, -50%, 0); }
+@media (min-width: 1025px) {
+  .pc-actions--bottom .pc-tip {
+    top: auto;
+    bottom: calc(100% + 8px);
+    inset-inline-end: auto;
+    left: 50%;
+    transform: translate3d(-50%, 4px, 0);
+  }
+}
+@media (hover: hover) and (pointer: fine) {
+  .pc-actions .pc-action:is(:hover, :focus-visible) .pc-tip {
+    opacity: 1;
+    visibility: visible;
+    transform: translate3d(0, -50%, 0);
+    transition: opacity .18s ease, transform .18s var(--pc-ease, ease), visibility 0s;
+  }
+}
+@media (hover: hover) and (pointer: fine) and (min-width: 1025px) {
+  .pc-actions--bottom .pc-action:is(:hover, :focus-visible) .pc-tip { transform: translate3d(-50%, 0, 0); }
+}
+@media (hover: none), (pointer: coarse) { .pc-actions .pc-tip { display: none; } }
+:is(.pc-no-tips, .pc-actions--no-tips) .pc-tip { display: none !important; }
+
+/* Badges in the top end corner: the column lines up under them. */
+body[data-badge-position='top_end'] .product-item__inner > .pc-corner:has(> .product__badges .product__badges-inner) > .pc-actions--side,
+body[data-badge-position='top_end'] .product-item__inner > .pc-corner:has(> .product__badges .product__badges-inner) > .pc-actions--bottom {
+  position: static;
+  flex: none;
+}
+@media (min-width: 1025px) {
+  body[data-badge-position='top_end'] .product-item__inner > .pc-corner:has(> .product__badges .product__badges-inner) > .pc-actions--bottom {
+    position: absolute;
+    inset-inline: 0;
+  }
+}
+/* Badges in a top corner keep out of the column's lane. */
+.product-item__inner:has(> .pc-corner > .pc-actions--side) .product__badges.absolute {
+  --pc-lane-top: calc(var(--pc-edge, 12px) + var(--pc-act, 44px) + 8px);
+}
+@media (max-width: 1024.98px) {
+  .product-item__inner:has(> .pc-corner > .pc-actions) .product__badges.absolute {
+    --pc-lane-top: calc(var(--pc-edge, 12px) + var(--pc-act, 44px) + 8px);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   ADD BUTTON ON THE PICTURE — the three "products with options" modes
+   (form, quick view, product page link) share one look: a strip along
+   the bottom edge on desktop, a round icon in the bottom end corner below
+   1025px. Show buttons: always keeps the strip in view.
+   ══════════════════════════════════════════════════════════════════════ */
+.product-item .pc-form--media :is(a, button-quickview).pc-atc { display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; }
+@media (min-width: 1025px) and (hover: hover) {
+  .product-item .product-grid .product-item__inner .pc-form--media {
+    transition: opacity var(--pc-dur) ease, translate .24s var(--pc-ease);
+    translate: 0 8px;
+  }
+  .product-item.pc-reveal--always .product-grid .product-item__inner .pc-form--media {
+    opacity: 1;
+    pointer-events: auto;
+    translate: 0 0;
+  }
+  body:is([data-badge-position='bottom_start'], [data-badge-position='bottom_end']) .product-item.pc-reveal--always .product__badges.absolute {
+    translate: 0 calc(-1 * max(0px, var(--pc-lift)));
+  }
+  .product-item.pc-reveal--always .product__badges-sale-countdown { bottom: calc(var(--pc-edge, 15px) + var(--pc-btn, 44px) + 8px) !important; }
+}
+/* Bottom badges also clear the bottom row of card buttons. */
+@media (min-width: 1025px) {
+  .product-item.pc-layout--bottom .product-item__inner:has(> .pc-corner > .pc-actions--bottom) .product__badges.absolute {
+    --pc-lift: calc(var(--pc-edge, 15px) + var(--pc-btn, 44px) + var(--pc-act, 44px) + 14px - var(--pc-badge-y));
+  }
+  .product-item.pc-layout--bottom .product-item__inner:has(> .pc-corner > .pc-actions--bottom):not(:has(> .product-item__action .pc-form--media)) .product__badges.absolute {
+    --pc-lift: calc(var(--pc-edge, 15px) + var(--pc-act, 44px) + 6px - var(--pc-badge-y));
+  }
+}
+@media (min-width: 1025px) and (hover: hover) {
+  body:is([data-badge-position='bottom_start'], [data-badge-position='bottom_end']) .product-item.pc-layout--bottom.pc-reveal--always .product__badges.absolute,
+  body:is([data-badge-position='bottom_start'], [data-badge-position='bottom_end']) .product-item.pc-layout--bottom .product-grid:is(:hover, :focus-within) .product__badges.absolute {
+    translate: 0 calc(-1 * max(0px, var(--pc-lift)));
+  }
+}
+
+@media (max-width: 1024.98px) {
+  .product-item .product-item__inner > .pc-atc-slot { position: absolute; display: flex; z-index: 5; }
+}
+/* Show buttons on phones: off hides the card buttons and the add button
+   on phones (the Modern card's button too). */
+@media (max-width: 749.98px) {
+  .product-item.pc-phones-off :is(.pc-actions, .pc-atc-slot, .pc-form--below) { display: none !important; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   CARD IMAGE SLIDER (Product cards > Image slider, Pictures in the slider)
+   Native scroll snap: a finger swipes, arrows (desktop hover) step one
+   picture. Pictures after the first load lazily. No position dots.
+   ══════════════════════════════════════════════════════════════════════ */
+.pc-slides {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+}
+.pc-slides::-webkit-scrollbar { display: none; }
+.pc-slide { position: relative; flex: 0 0 100%; width: 100%; height: 100%; scroll-snap-align: start; scroll-snap-stop: always; overflow: hidden; }
+.product-item .pc-slide :is(img, picture, motion-element) { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.pc-arrow {
+  /* Same size and the same inset on both sides, centred on the picture.
+     A side column of card buttons owns the top end corner, so the arrows
+     drop just below it when the picture is too short to clear it. */
+  --pc-arrow: 32px;
+  --pc-arrow-inset: 10px;
+  --pc-arrow-top: calc(50% - var(--pc-arrow) / 2);
+  position: absolute;
+  top: max(var(--pc-arrow-top), var(--pc-arrow-min, 0px));
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: var(--pc-arrow);
+  height: var(--pc-arrow);
+  margin: 0;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--color-heading, #111) 8%, transparent);
+  border-radius: 50%;
+  cursor: pointer;
+  background: color-mix(in srgb, var(--color-background, #fff) 92%, transparent);
+  color: var(--color-heading, #111);
+  box-shadow: 0 2px 8px rgb(0 0 0 / .12);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .18s ease, background-color .18s ease, color .18s ease;
+}
+.pc-arrow svg { width: 14px; height: 14px; }
+.pc-arrow--prev { inset-inline-start: var(--pc-arrow-inset); }
+.pc-arrow--next { inset-inline-end: var(--pc-arrow-inset); }
+.product-item__inner:has(.pc-actions--side > :nth-child(1)) .pc-arrow { --pc-arrow-min: calc(var(--pc-edge, 12px) + var(--pc-act, 44px) + 8px); }
+.product-item__inner:has(.pc-actions--side > :nth-child(2)) .pc-arrow { --pc-arrow-min: calc(var(--pc-edge, 12px) + 2 * var(--pc-act, 44px) + var(--pc-gap, 8px) + 8px); }
+@media (max-width: 1024.98px) {
+  .product-item__inner:has(.pc-actions--bottom > :nth-child(1)) .pc-arrow { --pc-arrow-min: calc(var(--pc-edge, 12px) + var(--pc-act, 44px) + 8px); }
+  .product-item__inner:has(.pc-actions--bottom > :nth-child(2)) .pc-arrow { --pc-arrow-min: calc(var(--pc-edge, 12px) + 2 * var(--pc-act, 44px) + var(--pc-gap, 8px) + 8px); }
+}
+[dir='rtl'] .pc-arrow svg { transform: scaleX(-1); }
+.pc-arrow:focus-visible { opacity: 1; pointer-events: auto; outline: 2px solid var(--color-heading, #111); outline-offset: 2px; }
+.pc-arrow[disabled] { opacity: 0 !important; pointer-events: none !important; }
+@media (hover: hover) and (pointer: fine) {
+  .product-item:hover .pc-arrow { opacity: 1; pointer-events: auto; }
+  .product-item .pc-arrow:hover { background: var(--pc-act-hover-bg, var(--btn-primary-bg-color, #111)); color: var(--pc-act-hover-icon, var(--btn-primary-color, #fff)); border-color: transparent; }
+}
+/* Phones and tablets swipe: no arrows by width (Chrome's responsive mode
+   reports a mouse) nor on any touch-first screen. */
+@media (max-width: 1024.98px), (hover: none), (pointer: coarse) { .product-item .pc-arrow, .pc-arrow { display: none !important; } }
+@media (prefers-reduced-motion: reduce) {
+  .pc-slides { scroll-behavior: auto; }
+  .pc-arrow, .pc-actions .pc-action, .pc-actions .pc-tip, .product-item .pc-form--media { transition: none !important; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   QUICK VIEW DIALOG (sections/product-quickview, theme.js QuickView)
+   Desktop: a wide two-column dialog, picture edge to edge on the left,
+   details scrolling on the right. Backdrop fades in 200ms, the dialog
+   rises from scale(.98)/8px in 260ms; close reverses in 200ms (tingle
+   removes the dialog 250ms after close). Phones: a bottom sheet that
+   theme.js QuickView.initSheet drives (transform only). Colours follow
+   Theme settings > Quick view > Color scheme. Scroll lock: html.open-popup.
+   ══════════════════════════════════════════════════════════════════════ */
+@keyframes pc-qv-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pc-qv-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes pc-qv-rise-in { from { opacity: 0; transform: translate3d(0, 8px, 0) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes pc-qv-rise-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translate3d(0, 8px, 0) scale(.98); } }
+@keyframes pc-qv-shimmer { from { background-position: 150% 0; } to { background-position: -50% 0; } }
+body .tingle-modal.quickview {
+  --popup-max-width: 1100px;
+  --tingle-padding: 0;
+  --qv-ease: cubic-bezier(.22, .61, .36, 1);
+  --qv-line: color-mix(in srgb, var(--color-text, #444) 16%, transparent);
+  --qv-soft: color-mix(in srgb, var(--color-text, #444) 6%, var(--color-background, #fff));
+  background: var(--overlay-bg, rgb(0 0 0 / .45));
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+body .tingle-modal.quickview.tingle-modal--visible {
+  display: flex;
+  visibility: visible;
+  opacity: 1;
+  animation: pc-qv-fade-in .2s linear both;
+}
+body .tingle-modal.quickview.tingle-modal--visible .tingle-modal-box {
+  display: block;
+  position: relative;
+  width: min(1100px, 92vw);
+  max-width: 1100px;
+  margin: auto;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--color-background, #fff);
+  color: var(--color-text, inherit);
+  box-shadow: 0 30px 80px -24px rgb(0 0 0 / .35);
+  transition: none;
+  animation: pc-qv-rise-in .26s var(--qv-ease) both;
+  transform-origin: 50% 60%;
+}
+body .tingle-modal.quickview .tingle-modal-box__content { padding: 0; max-height: none; overflow: visible; min-width: 0; scroll-snap-type: none; }
+body .tingle-modal.quickview .tingle-modal-box__footer { display: none; }
+body .tingle-modal.quickview.remove-loading { animation: pc-qv-fade-out .2s linear both; pointer-events: none; }
+body .tingle-modal.quickview.remove-loading .tingle-modal-box { animation: pc-qv-rise-out .2s cubic-bezier(.64, .04, .78, .39) both; }
+body .tingle-modal.quickview .tingle-modal__close {
+  position: absolute;
+  z-index: 5;
+  top: 12px;
+  right: 12px;
+  left: auto;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-heading, #111);
+  box-shadow: none;
+  cursor: pointer;
+  transition: background-color .18s ease, color .18s ease;
+}
+body .tingle-modal.quickview .tingle-modal__close:hover { background: color-mix(in srgb, var(--color-heading, #111) 8%, transparent); }
+body .tingle-modal.quickview .tingle-modal__closeIcon { color: inherit; display: grid; place-items: center; }
+body .tingle-modal.quickview .tingle-modal__closeIcon svg { width: 12px; height: 12px; }
+body .tingle-modal.quickview .tingle-modal__closeLabel { display: none; }
+body .tingle-modal.quickview .tingle-modal__close:focus-visible { outline: 2px solid var(--color-heading, #111); outline-offset: 2px; }
+
+/* Content */
+.qv { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; background: var(--color-background, #fff); color: var(--color-text, inherit); overscroll-behavior: contain; }
+.qv__media { position: relative; min-width: 0; background: var(--qv-soft, rgb(0 0 0 / .04)); }
+.qv__track { display: flex; height: 100%; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; outline: 0; }
+.qv__track::-webkit-scrollbar { display: none; }
+.qv__slide { flex: 0 0 100%; height: 100%; scroll-snap-align: start; scroll-snap-stop: always; display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); place-items: center; overflow: hidden; }
+.qv__slide img, .qv__slide .qv__placeholder { width: 100%; height: 100%; display: block; object-fit: cover; -webkit-user-drag: none; }
+.qv--fit-contain .qv__slide img { object-fit: contain; }
+.qv__nav { position: absolute; top: 50%; translate: 0 -50%; z-index: 2; width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%; display: grid; place-items: center; background: var(--color-background, #fff); color: var(--color-heading, #111); box-shadow: 0 2px 10px rgb(0 0 0 / .1); cursor: pointer; opacity: 0; transition: opacity .2s ease, scale .2s ease; }
+.qv__nav--prev { left: 14px; } .qv__nav--next { right: 14px; }
+.qv__media:hover .qv__nav, .qv__nav:focus-visible { opacity: 1; }
+.qv__nav:hover { scale: 1.06; }
+.qv__nav[disabled] { opacity: 0 !important; pointer-events: none; }
+.qv__count { position: absolute; z-index: 2; left: 50%; bottom: 14px; translate: -50% 0; padding: 3px 10px; border-radius: 99px; font-size: 12px; line-height: 1.5; font-variant-numeric: tabular-nums; background: color-mix(in srgb, var(--color-background, #fff) 85%, transparent); color: var(--color-heading, #111); pointer-events: none; }
+.qv__info { display: flex; flex-direction: column; min-width: 0; padding: 20px 16px 0; }
+.qv__title { margin: 0 0 8px; padding-inline-end: 32px; font-size: clamp(20px, 2vw, 26px); line-height: 1.25; color: var(--color-heading, inherit); }
+/* Rating (reviews.rating metafield): --qv-fill is set in the section, in px. */
+.qv__rating { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-height: 20px; margin: 0 0 10px; font-size: 13px; line-height: 1.4; color: var(--color-text, inherit); text-decoration: none; }
+.qv__rating:hover .qv__rating-count { text-decoration: underline; text-underline-offset: 2px; }
+.qv__rating-value { font-weight: 600; color: var(--color-heading, inherit); font-variant-numeric: tabular-nums; }
+.qv__stars { position: relative; display: inline-flex; gap: 2px; color: color-mix(in srgb, var(--color-text, #444) 22%, transparent); }
+.qv__stars svg { flex: 0 0 15px; width: 15px; height: 15px; fill: currentColor; }
+.qv__stars::after { content: ''; position: absolute; inset: 0 auto 0 0; width: var(--qv-fill, 0px); background: var(--color-review-star, #f5a623); -webkit-mask: var(--qv-star-mask); mask: var(--qv-star-mask); }
+.qv__stars { --qv-star-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='17' height='15' viewBox='0 0 17 15'%3E%3Cpath transform='scale(.625)' d='m12 2.6 2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.5l-5.9 3.1 1.2-6.5L2.5 9.5l6.6-.9z'/%3E%3C/svg%3E") 0 0 / 17px 15px repeat-x; }
+.qv__rating-count { opacity: .7; }
+.qv__price { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; margin: 2px 0 14px; font-size: 20px; font-weight: 600; color: var(--color-heading, inherit); }
+.qv__price-was { font-size: .8em; font-weight: 400; opacity: .55; }
+.qv__price .is-sale { color: var(--color-sale, var(--color-primary, #c0392b)); }
+.qv__desc { margin: 0 0 18px; font-size: 14px; line-height: 1.6; opacity: .85; }
+.qv__option { border: 0; padding: 0; margin: 0 0 16px; min-width: 0; }
+.qv__option legend { padding: 0; margin-bottom: 10px; font-weight: 600; font-size: 14px; color: var(--color-heading, inherit); }
+.qv__option legend span { font-weight: 400; opacity: .8; }
+.qv__values { display: flex; flex-wrap: wrap; gap: 8px; }
+.qv__value { min-width: 48px; min-height: 40px; padding: 8px 16px; border-radius: 999px; border: 1px solid var(--qv-line); background: transparent; color: var(--color-text, inherit); font: inherit; font-size: 14px; cursor: pointer; transition: border-color .18s ease, background-color .18s ease, color .18s ease; }
+.qv__value:hover { border-color: var(--color-heading, #111); }
+.qv__value[aria-pressed="true"] { background: var(--color-heading, #111); border-color: var(--color-heading, #111); color: var(--color-background, #fff); }
+.qv__value.is-unavailable { opacity: .5; text-decoration: line-through; }
+.qv .qv__swatch { position: relative; width: 34px; min-width: 34px; height: 34px; min-height: 34px; padding: 0; border: 0; border-radius: 50%; background: var(--swatch--background, var(--qv-soft)) center / cover no-repeat; box-shadow: inset 0 0 0 1px rgb(0 0 0 / .1); outline: 1px solid transparent; outline-offset: 3px; transition: outline-color .18s ease; }
+.qv .qv__swatch:hover { outline-color: var(--qv-line); }
+.qv .qv__swatch[aria-pressed="true"] { outline: 2px solid var(--color-heading, #111); outline-offset: 2px; }
+.qv .qv__swatch.is-unavailable { text-decoration: none; opacity: .4; }
+.qv .qv__swatch.is-unavailable::after { content: ''; position: absolute; left: 50%; top: 2px; bottom: 2px; width: 1.5px; rotate: 45deg; background: var(--color-heading, #111); }
+.qv__stock { margin: 0 0 12px; font-size: 13px; font-weight: 600; color: var(--color-sale, #c0392b); }
+.qv__form { display: block; }
+.qv__buy { display: flex; align-items: stretch; gap: 10px; margin-top: 6px; }
+.qv__qty { flex: 0 0 auto; display: inline-flex; align-items: center; height: 50px; border: 1px solid var(--qv-line); border-radius: 999px; overflow: hidden; }
+.qv__qty button { width: 40px; height: 100%; padding: 0; border: 0; background: none; display: grid; place-items: center; cursor: pointer; color: var(--color-heading, inherit); }
+.qv__qty input { width: 34px; height: 100%; padding: 0; text-align: center; border: 0; background: none; font: inherit; font-weight: 600; color: var(--color-heading, inherit); -moz-appearance: textfield; appearance: textfield; }
+.qv__qty input::-webkit-inner-spin-button, .qv__qty input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.qv .qv__atc { flex: 1 1 auto; min-width: 0; min-height: 50px; height: 50px; padding: 0 20px !important; --mb-radius: 999px; border-radius: 999px !important; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; }
+.qv .qv__atc[disabled] { opacity: .5; cursor: not-allowed; }
+.qv__wish { flex: 0 0 50px; width: 50px; height: 50px; border: 1px solid var(--qv-line); border-radius: 50%; display: grid; place-items: center; color: var(--color-heading, #111); background: transparent; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background-color .25s ease, border-color .25s ease, color .25s ease, transform .2s cubic-bezier(.2, .7, .2, 1); }
+.qv__wish svg { transition: fill .25s ease, stroke .25s ease; }
+@media (hover: hover) { .qv__wish:hover { border-color: var(--color-heading, #111); } }
+.qv__wish:active { transform: scale(.94); }
+.qv__wish.active svg { fill: currentColor; }
+.qv__wish.is-toggled svg { animation: wishlist-pop .35s ease; }
+.qv__express { margin-top: 12px; }
+/* Terms: the cart drawer's checkbox (minicart.css .cart-terms*), with the
+   drawer's sizes (#minicart_wrapper.open_drawer) and scheme colours
+   (cart-drawer-scheme.css). Buy it now takes the drawer checkout's
+   disabled look (.btn-checkout[data-requires-terms][disabled]). */
+.qv .cart-terms--qv { margin: 0 0 8px; font-size: 12px; }
+.qv .cart-terms--qv .cart-terms__field { min-height: 44px; align-items: center; }
+.qv .cart-terms--qv .cart-terms__box { margin-top: 0; }
+.qv .cart-terms--qv .cart-terms__check { border-color: color-mix(in srgb, var(--color-text, #111) 45%, transparent); }
+.qv .cart-terms--qv .cart-terms__text { font-size: 12px; line-height: 1.4; color: var(--color-text, #111); }
+.qv__dynamic { min-height: 50px; }
+.qv__dynamic[data-requires-terms] { transition: opacity var(--btn-anim-duration, .25s) var(--btn-anim-ease, ease), filter var(--btn-anim-duration, .25s) var(--btn-anim-ease, ease); }
+.qv__dynamic[data-requires-terms][aria-disabled="true"] { opacity: .45; filter: saturate(.75); cursor: not-allowed; }
+.qv__dynamic[data-requires-terms][aria-disabled="true"] > * { pointer-events: none; }
+/* Benefits (Theme settings > Quick view > Benefits). */
+.qv__benefits { display: grid; gap: 8px; margin: 16px 0 0; padding: 14px 0 0; list-style: none; border-top: 1px solid var(--qv-line); font-family: inherit; }
+.qv__benefit { display: flex; align-items: center; gap: 10px; margin: 0; padding: 0; font-size: 13px; line-height: 1.4; color: var(--color-text, inherit); }
+.qv__benefit::before { content: none; }
+.qv__benefit-icon { flex: 0 0 16px; width: 16px; height: 16px; color: var(--color-heading, currentColor); }
+.qv .shopify-payment-button__button { min-height: 50px; border-radius: 999px !important; overflow: hidden; }
+.qv .shopify-payment-button__more-options { margin-top: 8px; font-size: 13px; }
+.qv__more { align-self: flex-start; margin: 16px 0 0; }
+
+/* Skeleton while the content is on its way (theme.js QuickView). */
+.qv--skeleton .qv__media { background: none; }
+.qv--skeleton .qv__media, .qv-sk {
+  background: linear-gradient(100deg, var(--qv-soft) 40%, color-mix(in srgb, var(--color-text, #444) 11%, var(--color-background, #fff)) 50%, var(--qv-soft) 60%) var(--qv-soft);
+  background-size: 200% 100%;
+  animation: pc-qv-shimmer 1.2s linear infinite;
+}
+.qv-sk { display: block; height: 14px; margin-bottom: 14px; border-radius: 8px; }
+.qv-sk--title { height: 26px; width: 70%; } .qv-sk--price { width: 30%; height: 20px; margin-bottom: 22px; }
+.qv-sk--line { width: 92%; } .qv-sk--short { width: 60%; margin-bottom: 26px; }
+.qv-sk--btn { height: 50px; border-radius: 999px; margin-top: 10px; }
+
+@media (min-width: 768px) {
+  .qv { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); height: min(680px, 88vh); height: min(680px, 88dvh); }
+  .qv__media { height: 100%; }
+  .qv__count { display: none; }
+  .qv__info { height: 100%; overflow-y: auto; overscroll-behavior: contain; padding: 44px 40px 32px; scrollbar-width: thin; scrollbar-color: var(--qv-line) transparent; }
+}
+@media (max-width: 767.98px) {
+  body .tingle-modal.quickview { justify-content: flex-end; padding: 0; }
+  body .tingle-modal.quickview.tingle-modal--visible .tingle-modal-box {
+    width: 100% !important;
+    max-width: 100%;
+    margin: auto 0 0;
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -10px 40px -12px rgb(0 0 0 / .25);
+  }
+  /* Native-feeling sheet: scrolls without a visible scrollbar, no X (drag
+     down, tap the backdrop or Esc). The X stays reachable by keyboard. */
+  .qv { display: block; max-height: min(88vh, 88dvh); overflow-y: auto; overflow-x: hidden; scrollbar-width: none; -ms-overflow-style: none; }
+  .qv::-webkit-scrollbar, body .tingle-modal.quickview .tingle-modal-box__content::-webkit-scrollbar { display: none; width: 0; height: 0; }
+  /* Phones: the whole picture, never cropped. The box takes the first
+     image's shape (--qv-ratio, sections/product-quickview), at most 55vh;
+     every picture is contained on the scheme's soft image background. */
+  .qv__media { width: 100%; height: min(calc(100vw / var(--qv-ratio, 1)), 55vh); height: min(calc(100vw / var(--qv-ratio, 1)), 55svh); }
+  .qv--skeleton .qv__media { aspect-ratio: 1; }
+  /* Phones: the picture fills the full width of the sheet (no side bars). */
+  .qv__slide img, .qv--fit-cover .qv__slide img { object-fit: cover; }
+  .qv__track { touch-action: pan-x pan-y; }
+  .qv__count { left: auto; right: 10px; bottom: 10px; translate: none; padding: 1px 8px; font-size: 11px; letter-spacing: .02em; opacity: .9; }
+  .qv__nav { display: none; }
+  .qv__title { padding-inline-end: 0; }
+  /* Add to cart stays on screen: the form's wrappers step aside so the
+     bar is a direct item of the details column, last, sticky. */
+  .qv .qv__form, .qv .qv__form-inner { display: contents; }
+  .qv .qv__buy { order: 99; position: sticky; bottom: 0; z-index: 3; margin: 16px -16px 0; padding: 12px 16px max(22px, calc(12px + env(safe-area-inset-bottom, 0px))); background: var(--color-background, #fff); box-shadow: 0 -1px 0 var(--qv-line); }
+  .qv__qty { height: 48px; } .qv .qv__atc { height: 48px; min-height: 48px; } .qv__wish { flex-basis: 48px; width: 48px; height: 48px; }
+  .qv__qty button { width: 34px; }
+  .qv__more { margin-bottom: 4px; }
+  body .tingle-modal.quickview .tingle-modal__close:not(:focus-visible) {
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    overflow: hidden;
+    clip-path: inset(50%);
+    opacity: 0;
+  }
+  /* theme.js QuickView.initSheet: JS drives transform and backdrop. */
+  body .tingle-modal.quickview.qv-sheet { background: transparent; animation: none; overflow: hidden; overscroll-behavior: contain; }
+  body .tingle-modal.quickview.qv-sheet .qv-sheet__backdrop {
+    position: fixed;
+    inset: 0;
+    background: var(--overlay-bg, rgb(0 0 0 / .45));
+    opacity: 0;
+    will-change: opacity;
+  }
+  body .tingle-modal.quickview.qv-sheet.tingle-modal--visible .tingle-modal-box {
+    z-index: 1;
+    overflow: visible;
+    animation: none;
+    transition: none;
+    transform: translate3d(0, 100%, 0);
+    backface-visibility: hidden;
+  }
+  /* Covers the gap under the sheet while it is pulled up or springs back. */
+  body .tingle-modal.quickview.qv-sheet .tingle-modal-box::after {
+    content: '';
+    position: absolute;
+    top: calc(100% - 1px);
+    left: 0;
+    right: 0;
+    height: 160px;
+    background: var(--color-background, #fff);
+  }
+  body .tingle-modal.quickview.qv-sheet.remove-loading,
+  body .tingle-modal.quickview.qv-sheet.remove-loading .tingle-modal-box { animation: none; }
+  body .tingle-modal.quickview.qv-sheet .tingle-modal-box__content { border-radius: 16px 16px 0 0; overflow: hidden; }
+  /* No strip above the picture: the handle floats on the image area. */
+  body .tingle-modal.quickview.qv-sheet .qv { padding-top: 0; }
+  body .tingle-modal.quickview.qv-sheet.is-expanded .qv { max-height: calc(100vh - 10px); max-height: calc(100dvh - 10px - env(safe-area-inset-top, 0px)); }
+  body .tingle-modal.quickview.qv-sheet.is-dragging,
+  body .tingle-modal.quickview.qv-sheet.is-dragging * { -webkit-user-select: none; user-select: none; cursor: grabbing; }
+  .qv-sheet__handle {
+    position: absolute;
+    z-index: 6;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 24px;
+    display: flex;
+    justify-content: center;
+    padding-top: 8px;
+    border-radius: 16px 16px 0 0;
+    background: transparent;
+    touch-action: none;
+    cursor: grab;
+    transition: background-color .2s ease;
+  }
+  /* Scrolled past the picture: the handle gets the sheet's background. */
+  .qv-sheet.is-scrolled .qv-sheet__handle { background: var(--color-background, #fff); }
+  .qv-sheet__handle::before {
+    content: '';
+    width: 40px;
+    height: 5px;
+    border-radius: 99px;
+    background: color-mix(in srgb, var(--color-heading, #111) 22%, transparent);
+  }
+}
+.qv-sheet__handle, .qv-sheet__backdrop { display: none; }
+@media (max-width: 767.98px) { .qv-sheet .qv-sheet__handle { display: flex; } .qv-sheet .qv-sheet__backdrop { display: block; } }
+@media (prefers-reduced-motion: reduce) {
+  body .tingle-modal.quickview,
+  body .tingle-modal.quickview .tingle-modal-box { animation-duration: .01ms !important; }
+  .qv--skeleton .qv__media, .qv-sk { animation: none; }
+  .qv__nav, .qv__value, .qv__dynamic[data-requires-terms] { transition: none; }
 }

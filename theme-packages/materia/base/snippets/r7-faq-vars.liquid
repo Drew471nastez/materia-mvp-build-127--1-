@@ -1,11 +1,17 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. The values r7-faq.css reads, as --r7f-* variables for the
   root's style attribute of FAQ Search (kind: 'search') and FAQ With Contact
   Card (kind: 'card'). live-r7-faq.js derives the same list from the settings
   and writes the ones a live edit changes. Colours follow the colour scheme
   until "Enable custom styling" is on; fonts follow the theme until "Enable
   custom fonts" is on.
-{%- endcomment -%}
+
+  @param {string} kind - Kind ('card', 'search')
+  @param {section} section - The section being rendered
+
+  @example
+  {% render 'r7-faq-vars', section: section, kind: 'search' %}
+{%- enddoc -%}
 {%- liquid
   assign st = section.settings
   assign own = st.enable_custom_style

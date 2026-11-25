@@ -1,25 +1,31 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. The toolbar above a product grid on the search and
   collection pages: the Filter button, the result count, Sort by and the
   filters that are on as pills.
 
-  Accepts:
-  - results: search or collection (its filters, sort_options, sort_by)
-  - kind: 'search' or 'collection'
   - section_st, section_id
-  - enable_filtering: draws the Filter button
-  - filter_layout: vertical, horizontal or drawer (desktop)
-  - count_text: the result count, already worded
-  - base_url: where sort links go (routes.search_url or collection.url)
-  - terms_url: the search words, url encoded (search only)
-  - clear_url: the address with every filter off
-  - part: 'toolbar' (the row) or 'active' (the pills, drawn at the top of
     the results so that they arrive with them and never push the grid down)
 
   Everything that changes with a filter or a sort is inside an element with
   data-facets-part, which collection.js swaps in place from the section's
   own fresh markup.
-{%- endcomment -%}
+
+  @param {string} [base_url] - where sort links go (routes.search_url or collection.url)
+  @param {string} clear_url - the address with every filter off
+  @param {string} [count_text] - the result count, already worded
+  @param {boolean} [enable_filtering] - draws the Filter button
+  @param {string} [filter_layout] - vertical, horizontal or drawer (desktop)
+  @param {string} kind - 'search' or 'collection' ('collection', 'search')
+  @param {string} part - 'toolbar' (the row) or 'active' (the pills, drawn at the top of ('active', 'toolbar')
+  @param {collection} results - search or collection (its filters, sort_options, sort_by)
+  @param {string} section_id - Section id
+  @param {object} section_st - Section settings object
+  @param {string} [terms_url] - the search words, url encoded (search only)
+  @param {string} [view] - View
+
+  @example
+  {% render 'facets-toolbar', results: collection, kind: 'collection', section_st: section_st, section_id: section.id, enable_filtering: enable_filtering, filter_layout: filter_layout, count_text: count_text, base_url: collection_url, terms_url: '', clear_url: clear_url, view: view, part: 'toolbar' %}
+{%- enddoc -%}
 {%- liquid
   assign show_count = section_st.number_products_per_page
   assign sorting = section_st.sorting
@@ -113,6 +119,72 @@
   {%- if show_count -%}
     <p class="facets-toolbar__count" role="status" aria-live="polite" data-facets-part="count">{{ count_text }}</p>
   {%- endif -%}
+  {%- if section_st.show_view_switcher -%}
+    {%- comment -%}
+      Columns (and the list view on a collection): the grid's columns change
+      in place and are remembered for the visitor (collection.js); the list
+      is drawn by the section (?view=list). Phones offer 1 or 2 columns,
+      larger screens 2 to 4.
+    {%- endcomment -%}
+    {%- liquid
+      assign vs_view = view | default: 'grid'
+      assign vs_desktop = section_st.items_per_row | at_most: 4
+      assign vs_mobile = section_st.items_per_row_mobile | plus: 0
+      assign vs_grid_label = 'collections.toolbar.progress_bar.grid' | t
+    -%}
+    <div class="facets-view" role="group" aria-label="{{ vs_grid_label | escape }}" data-facets-part="view" data-facets-view="{{ vs_view }}">
+      {%- for n in (1..4) -%}
+        {%- liquid
+          assign vs_kind = 'desktop'
+          assign vs_default = vs_desktop
+          if n == 1
+            assign vs_kind = 'mobile'
+            assign vs_default = vs_mobile
+          endif
+          assign vs_label = 'collections.toolbar.progress_bar.columns' | t: amount: n
+        -%}
+        {%- if n == 2 -%}
+          <button type="button" class="facets-view__btn facets-view__btn--mobile" data-facets-cols="mobile" data-cols="2" aria-pressed="{% if vs_view != 'list' and vs_mobile == 2 %}true{% else %}false{% endif %}" aria-label="{{ vs_label | escape }}" title="{{ vs_label | escape }}">
+            {{- '' -}}<svg class="facets-view__icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" focusable="false"><rect x="3" y="3" width="6" height="14" rx="2"/><rect x="11" y="3" width="6" height="14" rx="2"/></svg>
+          </button>
+        {%- endif -%}
+        <button type="button" class="facets-view__btn facets-view__btn--{{ vs_kind }}" data-facets-cols="{{ vs_kind }}" data-cols="{{ n }}" aria-pressed="{% if vs_view != 'list' and vs_default == n %}true{% else %}false{% endif %}" aria-label="{{ vs_label | escape }}" title="{{ vs_label | escape }}">
+          {{- '' -}}<svg class="facets-view__icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" focusable="false">{%- case n -%}
+              {%- when 1 -%}<rect x="5.5" y="3" width="9" height="14" rx="2"/>
+              {%- when 2 -%}<rect x="3" y="3" width="6" height="14" rx="2"/><rect x="11" y="3" width="6" height="14" rx="2"/>
+              {%- when 3 -%}<rect x="2" y="3" width="4.4" height="14" rx="1.6"/><rect x="7.8" y="3" width="4.4" height="14" rx="1.6"/><rect x="13.6" y="3" width="4.4" height="14" rx="1.6"/>
+              {%- else -%}<rect x="1.5" y="3" width="3.2" height="14" rx="1.2"/><rect x="5.93" y="3" width="3.2" height="14" rx="1.2"/><rect x="10.36" y="3" width="3.2" height="14" rx="1.2"/><rect x="14.8" y="3" width="3.2" height="14" rx="1.2"/>
+            {%- endcase -%}
+          </svg>
+        </button>
+      {%- endfor -%}
+      {%- if kind == 'collection' -%}
+        {%- assign vs_list_label = 'collections.toolbar.progress_bar.list' | t -%}
+        <button type="button" class="facets-view__btn" data-facets-list aria-pressed="{% if vs_view == 'list' %}true{% else %}false{% endif %}" aria-label="{{ vs_list_label | escape }}" title="{{ vs_list_label | escape }}">
+          {{- '' -}}<svg class="facets-view__icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" focusable="false"><rect x="2.5" y="3" width="6" height="6" rx="1.6"/><rect x="2.5" y="11" width="6" height="6" rx="1.6"/><rect x="10.5" y="4" width="7" height="1.8" rx=".9"/><rect x="10.5" y="7" width="4.5" height="1.8" rx=".9"/><rect x="10.5" y="12" width="7" height="1.8" rx=".9"/><rect x="10.5" y="15" width="4.5" height="1.8" rx=".9"/></svg>
+        </button>
+      {%- endif -%}
+    </div>
+    {%- comment -%}
+      The visitor's remembered columns, set before the grid is drawn so it
+      never shows the default first (collection-page.css reads these).
+    {%- endcomment -%}
+    <script>
+      (function () {
+        try {
+          var d = document.documentElement, s = document.currentScript, v = s && s.previousElementSibling;
+          var c = { desktop: +localStorage.getItem('facets:cols-desktop') || 0, mobile: +localStorage.getItem('facets:cols-mobile') || 0 };
+          if (c.desktop >= 2 && c.desktop <= 4) d.setAttribute('data-facets-cols-desktop', c.desktop);
+          if (c.mobile === 1 || c.mobile === 2) d.setAttribute('data-facets-cols-mobile', c.mobile);
+          if (!v || v.getAttribute('data-facets-view') === 'list') return;
+          v.querySelectorAll('[data-facets-cols]').forEach(function (b) {
+            var want = c[b.getAttribute('data-facets-cols')];
+            if (want) b.setAttribute('aria-pressed', String(+b.getAttribute('data-cols') === want));
+          });
+        } catch (e) {}
+      })();
+    </script>
+  {%- endif -%}
   {%- if sorting -%}
     {%- if sort_options.size > 0 or use_fallback_sort -%}
       <div class="facets-sort">
@@ -196,7 +268,14 @@
             {%- assign max_value = filter.max_value.value | default: filter.range_max -%}
             <li>
               <a class="facets-pill" href="{{ filter.url_to_remove }}" data-facets-link data-facets-key="pill-{{ filter.label | handleize }}">
-                <span>{{ min_value | money }} – {{ max_value | money }}</span>
+                {%- comment -%} One end chosen: "From $70.00" or "To $50.00"; both: the range. {%- endcomment -%}
+                {%- if filter.max_value.value == null -%}
+                  <span>{{ section_st.price_min_label | default: 'From' | escape }} {{ min_value | money }}</span>
+                {%- elsif filter.min_value.value == null -%}
+                  <span>{{ section_st.price_max_label | default: 'To' | escape }} {{ max_value | money }}</span>
+                {%- else -%}
+                  <span>{{ min_value | money }} – {{ max_value | money }}</span>
+                {%- endif -%}
                 <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="m1 1 8 8M9 1 1 9"/></svg>
                 <span class="visually-hidden">{{ 'collections.sidebar.clear' | t }}</span>
               </a>

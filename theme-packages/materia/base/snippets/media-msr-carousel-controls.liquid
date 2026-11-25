@@ -1,11 +1,24 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. Arrows, page dots and progress bar for the shared
   scroll-snap carousel (Reels Wall, Shoppable Video). Every control is a
   44px button; shopify/assets/media-live-stats-reels.js moves the track.
   Inputs: count (slides), cols_d, cols_m, loop, arrows (true/false),
   dots ('dots', 'progress' or 'none'), mobile_only (true: dots on phones only),
   style (dot, pill, line, square, ring, number), position (left, center, right).
-{%- endcomment -%}
+
+  @param {boolean} arrows - Show arrows
+  @param {number} cols_d - Reels per row (desktop)
+  @param {number} cols_m - Reels per row (mobile)
+  @param {number} count - Count
+  @param {string} dots - Dots
+  @param {boolean} loop - Loop the carousel
+  @param {boolean} mobile_only - Mobile only
+  @param {string} position - Page dots position
+  @param {string} style - Page dots style
+
+  @example
+  {% render 'media-msr-carousel-controls', count: reels.size, cols_d: columns, cols_m: columns_mobile, loop: false, arrows: s.show_arrow, dots: dots, mobile_only: mobile_only, style: s.pagination_style, position: s.pagination_position %}
+{%- enddoc -%}
 {%- liquid
   assign pages_d = count | minus: cols_d | plus: 1
   if pages_d < 1

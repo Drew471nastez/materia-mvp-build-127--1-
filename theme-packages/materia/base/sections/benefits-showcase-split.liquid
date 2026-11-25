@@ -1,0 +1,457 @@
+{% render 'theme-type' %}
+{%- comment -%}
+  Materia Themes. Benefits Showcase Split: a picture that runs to the edge of
+  the screen on its half, with small labelled pins pointing at details of the
+  product, beside a heading, a two-column grid of benefit cards and a row of
+  stats. Colours follow the colour scheme, fonts follow Theme settings >
+  Typography. Self-contained: no extra asset files.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
+  assign pins = section.blocks | where: 'type', 'pin'
+  assign benefits = section.blocks | where: 'type', 'benefit'
+  assign stats = section.blocks | where: 'type', 'stat'
+-%}
+{%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
+<style>
+  #shopify-section-{{ sid }}.scroll-trigger {
+    --animation-duration: {{ settings.animation_duration | default: 600 }}ms;
+    --animation-delay: {{ settings.animation_delay | default: 0 }}ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-{{ sid }}');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', {{ settings.scroll_animation | json }});
+  })();
+</script>
+{%- endif -%}
+<style>
+  {%- case st.section_spacing %}
+    {%- when 'none' %}
+  #shopify-section-{{ sid }} .bss { margin-block: 0; }
+    {%- when 'top' %}
+  #shopify-section-{{ sid }} .bss { margin-block: var(--section-spacing) 0; }
+    {%- when 'bottom' %}
+  #shopify-section-{{ sid }} .bss { margin-block: 0 var(--section-spacing); }
+    {%- else %}
+  #shopify-section-{{ sid }} .bss { margin-block: var(--section-spacing); }
+  {%- endcase %}
+  #shopify-section-{{ sid }} .bss *, #shopify-section-{{ sid }} .bss *::before, #shopify-section-{{ sid }} .bss *::after { box-sizing: border-box; }
+  #shopify-section-{{ sid }} .bss {
+    --bss-line: var(--color-border, color-mix(in srgb, var(--color-text) 12%, transparent));
+    --bss-soft: color-mix(in srgb, var(--color-text) 4%, var(--color-background));
+    --bss-accent: {% render 'scheme-color', color: st.accent_color, fallback: 'var(--color-heading)' %};
+    --bss-radius: {% if st.custom_radius %}{{ st.card_radius }}px{% else %}var(--card-radius, 12px){% endif %};
+    --bss-gutter: var(--container-gutter, 30px);
+    /* The outer edge of the text lines up with the page container of every other section. */
+    --bss-edge: max(var(--bss-gutter), calc((100vw - var(--page-width, 1300px)) / 2));
+    background: var(--color-background);
+    color: var(--color-text);
+    overflow: hidden;
+  }
+  #shopify-section-{{ sid }} .bss__grid { display: grid; }
+  @media (min-width: 990px) {
+    #shopify-section-{{ sid }} .bss__grid { grid-template-columns: 1fr 1fr; }
+    {%- case st.desktop_height %}
+      {%- when 'tall' %}#shopify-section-{{ sid }} .bss__grid { min-height: 1040px; }
+      {%- when 'full' %}#shopify-section-{{ sid }} .bss__grid { min-height: 100svh; }
+    {%- endcase %}
+    #shopify-section-{{ sid }} [data-side='right'] .bss__media { order: 2; }
+  }
+
+  /* Picture half: edge to edge */
+  #shopify-section-{{ sid }} .bss__media { position: relative; background: var(--bss-soft); aspect-ratio: {{ st.ratio_mobile }}; overflow: hidden; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .bss__media { aspect-ratio: auto; } }
+  #shopify-section-{{ sid }} .bss__media > img,
+  #shopify-section-{{ sid }} .bss__media > svg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: {{ st.focal }}; display: block; }
+  #shopify-section-{{ sid }} [data-inset] .bss__media { margin: 0 var(--bss-gutter); border-radius: var(--bss-radius); }
+  @media (min-width: 990px) {
+    #shopify-section-{{ sid }} [data-inset] .bss__media { margin: 0 0 0 var(--bss-edge); }
+    #shopify-section-{{ sid }} [data-inset][data-side='right'] .bss__media { margin: 0 var(--bss-edge) 0 0; }
+  }
+
+  /* Pins */
+  #shopify-section-{{ sid }} .bss__pin {
+    position: absolute;
+    left: var(--x);
+    top: var(--y);
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: 2;
+  }
+  #shopify-section-{{ sid }} .bss__dot {
+    position: relative;
+    width: 14px;
+    height: 14px;
+    flex: none;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 0 0 4px rgb(255 255 255 / .35), 0 2px 10px rgb(0 0 0 / .25);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    #shopify-section-{{ sid }} .bss__dot::after {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 50%;
+      border: 1px solid rgb(255 255 255 / .8);
+      animation: bssPulse 2.4s ease-out infinite;
+    }
+  }
+  @keyframes bssPulse { from { transform: scale(1); opacity: .9; } to { transform: scale(2.2); opacity: 0; } }
+  #shopify-section-{{ sid }} .bss__label {
+    padding: 7px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    color: #111;
+    background: rgb(255 255 255 / .9);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 6px 20px -10px rgb(0 0 0 / .45);
+  }
+  #shopify-section-{{ sid }} .bss__pin[data-flip] { flex-direction: row-reverse; }
+  @media (max-width: 749px) { #shopify-section-{{ sid }} .bss__label { font-size: 11px; padding: 6px 10px; } }
+
+  /* Content half */
+  #shopify-section-{{ sid }} .bss__content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: {{ st.padding_mobile }}px var(--bss-gutter);
+    min-width: 0;
+  }
+  @media (min-width: 990px) {
+    #shopify-section-{{ sid }} .bss__content { padding: {{ st.padding_desktop }}px var(--bss-edge) {{ st.padding_desktop }}px clamp(40px, 5vw, 96px); }
+    #shopify-section-{{ sid }} [data-side='right'] .bss__content { padding: {{ st.padding_desktop }}px clamp(40px, 5vw, 96px) {{ st.padding_desktop }}px var(--bss-edge); }
+    #shopify-section-{{ sid }} .bss__content > * { width: 100%; max-width: 620px; }
+    #shopify-section-{{ sid }} [data-side='left'] .bss__content > * { margin-right: auto; }
+    #shopify-section-{{ sid }} [data-side='right'] .bss__content > * { margin-left: auto; }
+  }
+  #shopify-section-{{ sid }} .bss__eyebrow {
+    margin: 0 0 14px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--bss-accent);
+    opacity: .75;
+  }
+  #shopify-section-{{ sid }} .bss__heading { margin: 0; color: var(--color-heading); text-wrap: balance; }
+  {%- if st.custom_heading_size %}
+  #shopify-section-{{ sid }} .bss__heading { font-size: {{ st.heading_size_mobile }}px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .bss__heading { font-size: {{ st.heading_size }}px; } }
+  {%- endif %}
+  #shopify-section-{{ sid }} .bss__text { margin-top: 16px; font-size: 16px; line-height: 1.6; opacity: .8; }
+  #shopify-section-{{ sid }} .bss__text > :first-child { margin-top: 0; }
+  #shopify-section-{{ sid }} .bss__text > :last-child { margin-bottom: 0; }
+
+  #shopify-section-{{ sid }} .bss__cards {
+    list-style: none;
+    margin: 32px 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  @media (min-width: 600px) { #shopify-section-{{ sid }} .bss__cards { grid-template-columns: 1fr 1fr; } }
+  #shopify-section-{{ sid }} .bss__card {
+    padding: 20px;
+    border-radius: var(--bss-radius);
+    background: var(--bss-soft);
+    border: 1px solid transparent;
+    transition: border-color .25s ease, background-color .25s ease;
+  }
+  #shopify-section-{{ sid }} [data-cards='outline'] .bss__card { background: transparent; border-color: var(--bss-line); }
+  @media (hover: hover) { #shopify-section-{{ sid }} .bss__card:hover { border-color: var(--bss-line); background: var(--color-background); } }
+  #shopify-section-{{ sid }} .bss__icon {
+    width: 40px;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 14px;
+    border-radius: calc(var(--bss-radius) * .75);
+    color: var(--bss-accent);
+    background: var(--color-background);
+    box-shadow: inset 0 0 0 1px var(--bss-line);
+  }
+  #shopify-section-{{ sid }} .bss__icon svg, #shopify-section-{{ sid }} .bss__icon img { width: 20px; height: 20px; object-fit: contain; }
+  #shopify-section-{{ sid }} .bss__card-title { margin: 0; font-size: 16px; line-height: 1.35; color: var(--color-heading); }
+  #shopify-section-{{ sid }} .bss__card-text { margin: 6px 0 0; font-size: 14px; line-height: 1.55; opacity: .75; }
+
+  #shopify-section-{{ sid }} .bss__stats {
+    display: flex;
+    flex-wrap: wrap;
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid var(--bss-line);
+  }
+  #shopify-section-{{ sid }} .bss__stat { flex: 1 1 0; min-width: 96px; padding-right: 20px; display: flex; flex-direction: column; }
+  #shopify-section-{{ sid }} .bss__stat + .bss__stat { padding-left: 20px; border-left: 1px solid var(--bss-line); }
+  #shopify-section-{{ sid }} .bss__stat-value {
+    order: -1;
+    margin: 0;
+    font-family: var(--heading-font);
+    font-weight: var(--heading-weight, 700);
+    font-size: clamp(24px, 2.4vw, 32px);
+    line-height: 1.1;
+    color: var(--color-heading);
+    font-variant-numeric: tabular-nums;
+  }
+  #shopify-section-{{ sid }} .bss__stat-label { display: block; margin-top: 4px; font-size: 13px; opacity: .7; }
+
+  #shopify-section-{{ sid }} .bss__actions { margin-top: 32px; }
+</style>
+<section
+  class="bss color-{{ color_scheme }} gradient"
+  data-side="{{ st.image_side }}"
+  data-cards="{{ st.card_style }}"
+  {% if st.inset_image %}data-inset{% endif %}
+  aria-labelledby="BssHeading-{{ sid }}"
+>
+  <div class="bss__grid">
+    <div class="bss__media">
+      {%- if st.image != blank -%}
+        {%- assign mt_img_alt_1 = st.image.alt | default: st.heading | strip_html -%}{{ st.image | image_url: width: 2000 | image_tag:
+          widths: '500, 750, 1000, 1400, 1800, 2000',
+          sizes: '(min-width: 990px) 50vw, 100vw',
+          loading: 'lazy',
+          alt: mt_img_alt_1}}
+      {%- else -%}
+        {{ 'lifestyle-2' | placeholder_svg_tag }}
+      {%- endif -%}
+      {%- for block in pins -%}
+        {%- assign bs = block.settings -%}
+        {%- if bs.label != blank -%}
+          <span class="bss__pin" style="--x: {{ bs.x }}%; --y: {{ bs.y }}%;" {% if bs.x > 60 %}data-flip{% endif %} {{ block.shopify_attributes }}>
+            <span class="bss__dot" aria-hidden="true"></span>
+            <span class="bss__label">{{ bs.label | escape }}</span>
+          </span>
+        {%- endif -%}
+      {%- endfor -%}
+    </div>
+
+    <div class="bss__content">
+      {%- if st.eyebrow != blank -%}<p class="bss__eyebrow">{{ st.eyebrow | escape }}</p>{%- endif -%}
+      {%- if st.heading != blank -%}<h2 class="h2 bss__heading" id="BssHeading-{{ sid }}">{{ st.heading }}</h2>{%- endif -%}
+      {%- if st.text != blank -%}<div class="bss__text rte">{{ st.text }}</div>{%- endif -%}
+
+      {%- if benefits.size > 0 -%}
+        <ul class="bss__cards" role="list">
+          {%- for block in benefits -%}
+            {%- assign bs = block.settings -%}
+            <li class="bss__card" {{ block.shopify_attributes }}>
+              {%- if bs.icon != 'none' or bs.icon_image != blank -%}
+                <span class="bss__icon" aria-hidden="true">
+                  {%- if bs.icon_image != blank -%}
+                    {{ bs.icon_image | image_url: width: 80 | image_tag: loading: 'lazy', alt: '' }}
+                  {%- else -%}
+                    {%- render 'benefits-icon', icon: bs.icon, size: 20 -%}
+                  {%- endif -%}
+                </span>
+              {%- endif -%}
+              {%- if bs.title != blank -%}<h3 class="bss__card-title">{{ bs.title | escape }}</h3>{%- endif -%}
+              {%- if bs.text != blank -%}<p class="bss__card-text">{{ bs.text | escape }}</p>{%- endif -%}
+            </li>
+          {%- endfor -%}
+        </ul>
+      {%- endif -%}
+
+      {%- if stats.size > 0 -%}
+        <dl class="bss__stats">
+          {%- for block in stats -%}
+            <div class="bss__stat" {{ block.shopify_attributes }}>
+              <dt class="bss__stat-label">{{ block.settings.label | escape }}</dt>
+              <dd class="bss__stat-value">{{ block.settings.value | escape }}</dd>
+            </div>
+          {%- endfor -%}
+        </dl>
+      {%- endif -%}
+
+      {%- if st.button_label != blank -%}
+        <div class="bss__actions">
+          <a class="btn {% if st.button_style == 'outline' %}btn-outline{% else %}btn-primary{% endif %} inline-flex align-center no-underline" href="{{ st.button_link | default: routes.all_products_collection_url }}">
+            {{- st.button_label | escape -}}
+          </a>
+        </div>
+      {%- endif -%}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "class": "s-tt",
+  "name": "Benefits Showcase Split",
+  "tag": "div",
+  "max_blocks": 14,
+  "settings": [
+    { "type": "header", "content": "General" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default" },
+    { "type": "color", "id": "accent_color", "label": "Accent color", "info": "Eyebrow and icons. Leave empty to follow the colour scheme." },
+    {
+      "type": "select", "id": "section_spacing", "label": "Space around section", "default": "both",
+      "info": "Uses Theme settings > Layout > Section spacing.",
+      "options": [
+        { "value": "both", "label": "Top and bottom" },
+        { "value": "top", "label": "Top only" },
+        { "value": "bottom", "label": "Bottom only" },
+        { "value": "none", "label": "None" }
+      ]
+    },
+
+    { "type": "header", "content": "Image" },
+    { "type": "image_picker", "id": "image", "label": "Image" },
+    {
+      "type": "select", "id": "image_side", "label": "Image side on desktop", "default": "left",
+      "options": [
+        { "value": "left", "label": "Left" },
+        { "value": "right", "label": "Right" }
+      ]
+    },
+    { "type": "checkbox", "id": "inset_image", "label": "Inset image with rounded corners", "info": "Off: the image runs to the edge of the screen.", "default": false },
+    {
+      "type": "select", "id": "focal", "label": "Image focus", "default": "center",
+      "options": [
+        { "value": "center", "label": "Center" },
+        { "value": "top", "label": "Top" },
+        { "value": "bottom", "label": "Bottom" },
+        { "value": "left", "label": "Left" },
+        { "value": "right", "label": "Right" }
+      ]
+    },
+    {
+      "type": "select", "id": "ratio_mobile", "label": "Image shape on mobile", "default": "4 / 5", "info": "Shows on phones. Switch the editor preview to mobile to see it.",
+      "options": [
+        { "value": "1 / 1", "label": "Square" },
+        { "value": "4 / 5", "label": "Portrait" },
+        { "value": "5 / 4", "label": "Landscape" }
+      ]
+    },
+    {
+      "type": "select", "id": "desktop_height", "label": "Height on desktop", "default": "fit",
+      "info": "Fit text: the image is as tall as the text beside it. The section always grows when the text needs more room.",
+      "options": [
+        { "value": "fit", "label": "Fit text" },
+        { "value": "tall", "label": "Tall" },
+        { "value": "full", "label": "Full screen" }
+      ]
+    },
+
+    { "type": "header", "content": "Text" },
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "What's inside" },
+    { "type": "inline_richtext", "id": "heading", "label": "Heading", "default": "Every detail is there for a reason" },
+    { "type": "checkbox", "id": "custom_heading_size", "label": "Custom heading size", "info": "Off: uses the theme's heading size.", "default": false },
+    { "type": "range", "id": "heading_size", "label": "Heading size on desktop", "min": 28, "max": 64, "step": 2, "unit": "px", "default": 44 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size on mobile", "info": "Shows on phones.", "min": 22, "max": 44, "step": 2, "unit": "px", "default": 30 },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Point to what makes the product better with pins on the image, then back it up with the benefits and numbers below.</p>" },
+
+    { "type": "header", "content": "Cards" },
+    {
+      "type": "select", "id": "card_style", "label": "Card style", "default": "soft",
+      "options": [
+        { "value": "soft", "label": "Soft fill" },
+        { "value": "outline", "label": "Outline" }
+      ]
+    },
+    { "type": "checkbox", "id": "custom_radius", "label": "Custom corner radius", "info": "Off: uses Theme settings card radius for cards and the inset image.", "default": false },
+    { "type": "range", "id": "card_radius", "label": "Corner radius", "min": 0, "max": 28, "step": 2, "unit": "px", "default": 16 },
+
+    { "type": "header", "content": "Button" },
+    { "type": "text", "id": "button_label", "label": "Label", "default": "Shop the product" },
+    { "type": "url", "id": "button_link", "label": "Link" },
+    {
+      "type": "select", "id": "button_style", "label": "Style", "default": "solid",
+      "info": "Colours, shape and hover come from Theme settings > Buttons and the colour scheme.",
+      "options": [
+        { "value": "solid", "label": "Primary" },
+        { "value": "outline", "label": "Outline" }
+      ]
+    },
+
+    { "type": "header", "content": "Spacing" },
+    { "type": "range", "id": "padding_desktop", "label": "Content padding on desktop", "min": 24, "max": 160, "step": 4, "unit": "px", "default": 64 },
+    { "type": "range", "id": "padding_mobile", "label": "Content padding on mobile", "info": "Shows on phones.", "min": 16, "max": 96, "step": 4, "unit": "px", "default": 48 }
+  ],
+  "blocks": [
+    {
+      "type": "pin",
+      "name": "Image pin",
+      "limit": 4,
+      "settings": [
+        { "type": "text", "id": "label", "label": "Label", "default": "Detail" },
+        { "type": "range", "id": "x", "label": "Left to right", "min": 5, "max": 95, "step": 1, "unit": "%", "default": 40 },
+        { "type": "range", "id": "y", "label": "Top to bottom", "min": 5, "max": 95, "step": 1, "unit": "%", "default": 40 }
+      ]
+    },
+    {
+      "type": "benefit",
+      "name": "Benefit card",
+      "limit": 6,
+      "settings": [
+        {
+          "type": "select", "id": "icon", "label": "Icon", "default": "check",
+          "options": [
+            { "value": "none", "label": "None" },
+            { "value": "check", "label": "Check" },
+            { "value": "sparkle", "label": "Sparkle" },
+            { "value": "leaf", "label": "Leaf" },
+            { "value": "organic", "label": "Organic" },
+            { "value": "shield", "label": "Shield" },
+            { "value": "award", "label": "Award" },
+            { "value": "gem", "label": "Gem" },
+            { "value": "heart", "label": "Heart" },
+            { "value": "star", "label": "Star" },
+            { "value": "lightning", "label": "Lightning" },
+            { "value": "clock", "label": "Clock" },
+            { "value": "truck", "label": "Truck" },
+            { "value": "refresh", "label": "Returns" },
+            { "value": "recycle", "label": "Recycle" },
+            { "value": "globe", "label": "Globe" },
+            { "value": "box", "label": "Box" },
+            { "value": "handshake", "label": "Handshake" }
+          ]
+        },
+        { "type": "image_picker", "id": "icon_image", "label": "Custom icon image" },
+        { "type": "text", "id": "title", "label": "Title", "default": "Benefit title" },
+        { "type": "textarea", "id": "text", "label": "Text", "default": "A short line on why it matters." }
+      ]
+    },
+    {
+      "type": "stat",
+      "name": "Stat",
+      "limit": 4,
+      "settings": [
+        { "type": "text", "id": "value", "label": "Value", "default": "98%" },
+        { "type": "text", "id": "label", "label": "Label", "default": "would buy again" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Benefits Showcase Split",
+      "category": "05 · Benefits & features",
+      "blocks": [
+        { "type": "pin", "settings": { "label": "Soft-touch finish", "x": 30, "y": 32 } },
+        { "type": "pin", "settings": { "label": "Leak-proof seal", "x": 68, "y": 58 } },
+        { "type": "benefit", "settings": { "icon": "sparkle", "title": "Feels premium", "text": "Weighted and finished by hand, so it feels as good as it looks." } },
+        { "type": "benefit", "settings": { "icon": "shield", "title": "Built to last", "text": "Tested for daily use, covered by a 2-year warranty." } },
+        { "type": "benefit", "settings": { "icon": "leaf", "title": "Better materials", "text": "Recycled and plant-based where it counts." } },
+        { "type": "benefit", "settings": { "icon": "refresh", "title": "30-day trial", "text": "Not right for you? Send it back for a full refund." } },
+        { "type": "stat", "settings": { "value": "4.9★", "label": "average rating" } },
+        { "type": "stat", "settings": { "value": "50k+", "label": "happy customers" } },
+        { "type": "stat", "settings": { "value": "98%", "label": "would buy again" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

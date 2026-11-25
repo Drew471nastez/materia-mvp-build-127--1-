@@ -1,7 +1,7 @@
-<script src="{{ 'live-social-dividers.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-social-dividers.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
@@ -283,11 +283,18 @@
               assign show_key = 'show_' | append: key
               assign url_key = key | append: '_url'
               assign color_key = key | append: '_color'
-              assign label_key = platform
-              if platform == 'x'
-                assign label_key = 'twitter'
-              endif
-              assign label = 'general.social.links.' | append: label_key | t
+              case platform
+                when 'facebook'
+                  assign label = 'general.social.links.facebook' | t
+                when 'youtube'
+                  assign label = 'general.social.links.youtube' | t
+                when 'tiktok'
+                  assign label = 'general.social.links.tiktok' | t
+                when 'x'
+                  assign label = 'general.social.links.twitter' | t
+                else
+                  assign label = 'general.social.links.instagram' | t
+              endcase
               assign href = s[url_key]
               assign ic = ''
               if own_colors
@@ -308,9 +315,11 @@
 </div>
 <!-- ti-theme:end -->
 
+
 {% schema %}
 {
-  "name": "Social Icons Pro",
+  "class": "s-tt",
+"name": "Social Icons Pro",
   "settings": [
     {
       "type": "header",
@@ -320,7 +329,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -387,7 +396,6 @@
       "id": "show_mastercard",
       "default": true,
       "label": "Show Instagram",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Social icon block.",
       "visible_if": "{{ false }}"
     },
@@ -395,7 +403,6 @@
       "type": "color",
       "id": "mastercard_color",
       "label": "Instagram color",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Social icon block.",
       "visible_if": "{{ false }}"
     },
@@ -404,7 +411,6 @@
       "id": "mastercard_url",
       "label": "Instagram link",
       "default": "/",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Social icon block.",
       "visible_if": "{{ false }}"
     },
@@ -413,7 +419,6 @@
       "id": "show_paypal",
       "default": true,
       "label": "Show Facebook",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Social icon block.",
       "visible_if": "{{ false }}"
     },
@@ -421,7 +426,6 @@
       "type": "color",
       "id": "paypal_color",
       "label": "Facebook color",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Social icon block.",
       "visible_if": "{{ false }}"
     },
@@ -430,7 +434,6 @@
       "id": "paypal_url",
       "label": "Facebook link",
       "default": "/",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Social icon block.",
       "visible_if": "{{ false }}"
     },
@@ -439,7 +442,6 @@
       "id": "show_visa",
       "default": true,
       "label": "Show YouTube",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Social icon block.",
       "visible_if": "{{ false }}"
     },
@@ -447,7 +449,6 @@
       "type": "color",
       "id": "visa_color",
       "label": "YouTube color",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Social icon block.",
       "visible_if": "{{ false }}"
     },
@@ -456,7 +457,6 @@
       "id": "visa_url",
       "label": "YouTube link",
       "default": "/",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Social icon block.",
       "visible_if": "{{ false }}"
     },
@@ -465,7 +465,6 @@
       "id": "show_apple_pay",
       "default": true,
       "label": "Show TikTok",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Social icon block.",
       "visible_if": "{{ false }}"
     },
@@ -473,7 +472,6 @@
       "type": "color",
       "id": "apple_pay_color",
       "label": "TikTok color",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Social icon block.",
       "visible_if": "{{ false }}"
     },
@@ -482,7 +480,6 @@
       "id": "apple_pay_url",
       "label": "TikTok link",
       "default": "/",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Social icon block.",
       "visible_if": "{{ false }}"
     },
@@ -491,7 +488,6 @@
       "id": "show_google_pay",
       "default": true,
       "label": "Show X",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Social icon block.",
       "visible_if": "{{ false }}"
     },
@@ -499,7 +495,6 @@
       "type": "color",
       "id": "google_pay_color",
       "label": "X color",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Social icon block.",
       "visible_if": "{{ false }}"
     },
@@ -508,7 +503,6 @@
       "id": "google_pay_url",
       "label": "X link",
       "default": "/",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Social icon block.",
       "visible_if": "{{ false }}"
     },
@@ -635,7 +629,6 @@
       "id": "enable_custom_font",
       "label": "Custom fonts (all text blocks)",
       "default": false,
-      "hidden": true,
       "info": "Legacy: each Headline and Text block has its own custom font switch.",
       "visible_if": "{{ false }}"
     },
@@ -1094,8 +1087,8 @@
   ],
   "presets": [
     {
-      "name": "Social Icons Pro",
-      "category": "Social",
+      "name": "Social Icons",
+      "category": "16 · Social media",
       "blocks": [
         {
           "type": "headline"

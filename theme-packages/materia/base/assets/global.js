@@ -307,16 +307,28 @@ const imageReady = (imageOrArray) => {
 };
 class MotionElement extends HTMLElement {
   connectedCallback() {
+    // In the theme editor, a page load animates like the storefront; an
+    // element the editor draws again after the page settled (a setting or
+    // block change) shows at once, so edits update instantly.
+    if (this._editorRedraw === undefined) this._editorRedraw = false; // in view at connect: shown at once below; further down: revealed on scroll
     if (this.motionDisabled || this._played) { this.finishMotion(); return; }
     if (this.isHold || this.dataset.noview || this._observer) return;
-    const rect = this.getBoundingClientRect();
-    if (rect.top < window.innerHeight || !('IntersectionObserver' in window)) {
-      this.finishMotion();
-      return;
-    }
-    this.preInitialize();
+    if (!('IntersectionObserver' in window)) { this.finishMotion(); return; }
+    // The first report says where it is (the browser's own visibility, right
+    // inside the theme editor's frame too): on screen or above, it shows at
+    // once; further down it is hidden and fades in when scrolled to.
+    let first = true;
     this._observer = new IntersectionObserver(entries => {
-      if (!entries.some(entry => entry.isIntersecting)) return;
+      const entry = entries[entries.length - 1];
+      if (first) {
+        first = false;
+        if (entry.isIntersecting || entry.boundingClientRect.bottom <= 0) {
+          this._observer.disconnect(); this._observer = null; this.finishMotion(); return;
+        }
+        this.preInitialize();
+        return;
+      }
+      if (!entry.isIntersecting) return;
       this._observer.disconnect();
       this._observer = null;
       this.initialize();
@@ -337,8 +349,7 @@ class MotionElement extends HTMLElement {
     return document.body.dataset.scrollAnimation === 'none' ||
       !!this.closest('.product-detail__information, .product-single__information') ||
       !!this.closest('.scroll-trigger') ||
-      document.documentElement.classList.contains('shopify-design-mode') ||
-      window.Shopify?.designMode ||
+      !!this._editorRedraw ||
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   }
 
@@ -1102,6 +1113,10 @@ class PopupBase extends HTMLElement {
     }
 
     this.modal.setContent(content);
+    // The cart's "edit item" popup is styled by .mt-quick-edit (cart-drawer.css,
+    // minicart.css) rather than by .tingle-modal-box:has(#product-form-quick-edit) …,
+    // whose :has() on an ancestor made every DOM change restyle the page's svgs.
+    try { this.modal.modalBox?.classList.toggle("mt-quick-edit", !!this.modal.modalBox.querySelector("#product-form-quick-edit")); } catch (e) {}
     this.modal.open();
   }
 
@@ -1139,8 +1154,9 @@ class SwatchInit extends HTMLElement {
     if (color) {
       if (swatchType != "variant_images") {
         if (!optionSwatchValue) {
-          if (this.checkColor(color)) {
-            e.style.backgroundColor = color;
+          const cssColor = this.checkColor(color) ? color : color.replace(/[-\s]/g, '');
+          if (this.checkColor(cssColor)) {
+            e.style.backgroundColor = cssColor;
             if (customValue) e.classList.add(customValue);
           } else {
             if (customValue) e.classList.add(customValue);

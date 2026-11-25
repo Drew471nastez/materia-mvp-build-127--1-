@@ -36,6 +36,7 @@ import { AGENT_TOOL_NAMES, type AgentEvent, type AgentJobStatus, type AgentPhase
 import type { AgentToolInputs, AgentToolOutputs, ToolSet } from "../agent-tools"
 import type { AgentDeps, AgentJobInput, KnowledgeHit, ModelRole } from "./ports"
 import { AGENT_SYSTEM, briefMessage } from "./prompts"
+import { materiaBrief } from "./materia"
 import { TOOL_LIST } from "./tool-specs"
 import { compactCheckpoint, compactLive, resumeTurns, toCheckpointTurns } from "./compact"
 import { addUnique, newCheckpoint, type CriticState, type LoopCheckpoint } from "./state"
@@ -258,7 +259,20 @@ export async function runAgentSlice(job: AgentJobInput, saved: LoopCheckpoint | 
         /* Round P (P1): which picture service this environment has, plainly; none means a text-forward design, never a grey box. */
     const pictures = await (deps.images?.available() ?? Promise.resolve({ generate: null, stock: false })).catch(() => ({ generate: null, stock: false }))
     const picturesNote = imageBriefNote({ ...pictures, maxImages: deps.images?.maxImages ?? job.budget.maxImages ?? DEFAULT_MAX_IMAGES })
-    cp.turns.push({ role: "user", text: briefMessage({ job, caps, pages: pagesNow, files: filesNow, knowledge, directions, design, pictures: picturesNote, ...(templateText ? { template: templateText } : {}) }) })
+    /*
+      ROUND 26: BUILD LIKE THE TEMPLATES (./materia.ts). The closest Materia template as the pattern (page set, running
+      order, scheme rhythm, fonts) and the catalogue with its sections in detail; on an edit of a Materia site, its own
+      sections and what it can add. Deterministic, no model call; the rules themselves are in AGENT_SYSTEM.
+    */
+    const materia = (() => {
+      try {
+        return materiaBrief({ job, files: filesNow, pages: pagesNow, caps, withRules: false })
+      } catch {
+        return { text: "", choice: null, install: false }
+      }
+    })()
+    if (materia.choice) cp.materia = { template: materia.choice.template.template, score: materia.choice.score, matched: materia.choice.matched.slice(0, 12), install: materia.install }
+    cp.turns.push({ role: "user", text: briefMessage({ job, caps, pages: pagesNow, files: filesNow, knowledge, directions, design, pictures: picturesNote, ...(templateText ? { template: templateText } : {}), ...(materia.text ? { materia: materia.text } : {}) }) })
     if (scoped) setPhase("build", "Making your change")
     else setPhase("plan", "Deciding the look")
   }

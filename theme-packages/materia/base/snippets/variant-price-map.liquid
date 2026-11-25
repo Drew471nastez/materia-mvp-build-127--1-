@@ -1,7 +1,12 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. Each variant's price and compare-at price as the shop
   prints them, read by the variant picker when a variant is chosen.
-{%- endcomment -%}
+
+  @param {product} product - The product to render
+
+  @example
+  {% render 'variant-price-map', product: product %}
+{%- enddoc -%}
 <script type="application/json" data-variant-prices>
   {
   {%- for v in product.variants -%}

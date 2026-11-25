@@ -136,7 +136,7 @@ product-property + product-property {
   margin-top: -1rem;
 }
 input#custom-image-upload {
-  font-family: var(--base-font-family);
+  font-family: var(--body-font, inherit);
 }
 input#custom-image-upload::-webkit-file-upload-button {
   border: none;

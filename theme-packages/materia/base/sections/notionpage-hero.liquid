@@ -1,0 +1,137 @@
+{%- comment -%}
+  Materia Themes. Template sales hero (Notion sales page template): a small
+  label with its own icon picture (for example the Notion logo), a large
+  centred heading, a sentence, a button, a short note under it and a row of
+  buyer avatars with stars. Fonts, colours and buttons follow Theme settings
+  and the section's colour scheme; the button is the theme's own
+  (data-theme-button).
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default'
+  assign avatars = 0
+  for i in (1..5)
+    assign key = 'proof_avatar_' | append: i
+    if s[key] != blank
+      assign avatars = avatars | plus: 1
+    endif
+  endfor
+-%}
+<style>
+  #shopify-section-{{ sid }} .nph { padding-block: {{ s.padding_top_mobile }}px {{ s.padding_bottom_mobile }}px; }
+  #shopify-section-{{ sid }} .nph__copy { display: flex; flex-direction: column; align-items: {% if s.align == 'center' %}center{% else %}flex-start{% endif %}; text-align: {{ s.align }}; {% if s.align == 'center' %}margin-inline: auto;{% endif %} max-width: {{ s.content_width }}px; }
+  #shopify-section-{{ sid }} .nph__label { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 22px; padding: 5px 14px 5px 6px; border: 1px solid rgba(var(--color-heading-rgb), .12); border-radius: 999px; background: var(--color-background); box-shadow: 0 1px 2px rgba(var(--color-heading-rgb), .06); color: var(--color-heading); font-size: 13px; font-weight: 500; line-height: 1.3; text-decoration: none; transition: border-color .2s ease, box-shadow .2s ease; }
+  #shopify-section-{{ sid }} a.nph__label:hover { border-color: rgba(var(--color-heading-rgb), .28); box-shadow: 0 2px 6px rgba(var(--color-heading-rgb), .08); }
+  #shopify-section-{{ sid }} .nph__label img { width: 22px; height: 22px; object-fit: contain; display: block; flex: none; }
+  #shopify-section-{{ sid }} .nph__label-arrow { opacity: .55; margin-left: 2px; }
+  #shopify-section-{{ sid }} .nph__heading { margin: 0; font-size: {{ s.heading_size_mobile }}px; line-height: 1.06; letter-spacing: -.03em; }
+  #shopify-section-{{ sid }} .nph__text { margin: 18px 0 0; font-size: {{ s.text_size_mobile }}px; line-height: 1.55; color: var(--color-text); max-width: 62ch; }
+  #shopify-section-{{ sid }} .nph__text > * { margin: 0; }
+  #shopify-section-{{ sid }} .nph__buttons { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; {% if s.align == 'center' %}justify-content: center;{% endif %} }
+  #shopify-section-{{ sid }} .nph__buttons .button { min-width: 180px; justify-content: center; text-align: center; }
+  #shopify-section-{{ sid }} .nph__note { margin: 14px 0 0; font-size: 14px; color: var(--color-text); opacity: .85; }
+  #shopify-section-{{ sid }} .nph__proof { display: flex; align-items: center; gap: 12px; margin-top: 22px; color: var(--color-text); font-size: 14px; text-decoration: none; text-align: left; }
+  #shopify-section-{{ sid }} a.nph__proof:hover .nph__proof-text { text-decoration: underline; text-underline-offset: 3px; }
+  #shopify-section-{{ sid }} .nph__faces { display: flex; padding-left: 8px; }
+  #shopify-section-{{ sid }} .nph__faces img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; margin-left: -8px; border: 2px solid var(--color-background, #fff); background: rgba(var(--color-heading-rgb), .08); display: block; }
+  #shopify-section-{{ sid }} .nph__stars { display: flex; gap: 2px; color: {{ s.star_color }}; }
+  #shopify-section-{{ sid }} .nph__stars svg { width: 15px; height: 15px; display: block; }
+  #shopify-section-{{ sid }} .nph__proof-text { display: block; line-height: 1.35; margin-top: 2px; }
+  @media (min-width: 750px) {
+    #shopify-section-{{ sid }} .nph { padding-block: {{ s.padding_top }}px {{ s.padding_bottom }}px; }
+    #shopify-section-{{ sid }} .nph__label { font-size: 14px; }
+    #shopify-section-{{ sid }} .nph__heading { font-size: {{ s.heading_size }}px; }
+    #shopify-section-{{ sid }} .nph__text { font-size: {{ s.text_size }}px; }
+  }
+  @media (prefers-reduced-motion: reduce) { #shopify-section-{{ sid }} .nph__label { transition: none; } }
+</style>
+<div class="nph section color-{{ color_scheme }} gradient">
+  <div class="{{ s.section_width | default: 'container' }}">
+    <div class="nph__copy">
+      {%- if s.label != blank -%}
+        {%- if s.label_link != blank -%}<a class="nph__label" href="{{ s.label_link }}">{%- else -%}<p class="nph__label">{%- endif -%}
+          {%- if s.label_icon != blank -%}{{ s.label_icon | image_url: width: 96 | image_tag: loading: 'eager', width: 22, height: 22, alt: s.label_icon_alt | default: '' }}{%- endif -%}
+          <span>{{ s.label | escape }}</span>
+          {%- if s.label_link != blank -%}<span class="nph__label-arrow" aria-hidden="true">&rarr;</span>{%- endif -%}
+        {%- if s.label_link != blank -%}</a>{%- else -%}</p>{%- endif -%}
+      {%- endif -%}
+      {%- if s.heading != blank -%}<h1 class="nph__heading h1">{{ s.heading | escape }}</h1>{%- endif -%}
+      {%- if s.text != blank -%}<div class="nph__text rte">{{ s.text }}</div>{%- endif -%}
+      {%- if s.button_label != blank or s.button_2_label != blank -%}
+        <div class="nph__buttons">
+          {%- if s.button_label != blank -%}<a class="button inline-block btn-primary" data-theme-button="primary" href="{{ s.button_link | default: routes.all_products_collection_url }}">{{ s.button_label | escape }}</a>{%- endif -%}
+          {%- if s.button_2_label != blank -%}<a class="button inline-block btn-secondary" data-theme-button="secondary" href="{{ s.button_2_link | default: routes.all_products_collection_url }}">{{ s.button_2_label | escape }}</a>{%- endif -%}
+        </div>
+      {%- endif -%}
+      {%- if s.note != blank -%}<p class="nph__note">{{ s.note | escape }}</p>{%- endif -%}
+      {%- if avatars > 0 or s.show_stars or s.proof_text != blank -%}
+        {%- if s.proof_link != blank -%}<a class="nph__proof" href="{{ s.proof_link }}">{%- else -%}<div class="nph__proof">{%- endif -%}
+          {%- if avatars > 0 -%}
+            <span class="nph__faces">
+              {%- for i in (1..5) -%}
+                {%- assign key = 'proof_avatar_' | append: i -%}
+                {%- if s[key] != blank -%}{{ s[key] | image_url: width: 96 | image_tag: loading: 'eager', width: 34, height: 34, alt: '' }}{%- endif -%}
+              {%- endfor -%}
+            </span>
+          {%- endif -%}
+          <span>
+            {%- if s.show_stars -%}
+              <span class="nph__stars" aria-label="{{ s.stars }} out of 5 stars">
+                {%- for i in (1..s.stars) -%}<svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 1.6l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 14.9l-5.2 2.7 1-5.8L1.6 7.7l5.8-.8z"/></svg>{%- endfor -%}
+              </span>
+            {%- endif -%}
+            {%- if s.proof_text != blank -%}<span class="nph__proof-text">{{ s.proof_text | escape }}</span>{%- endif -%}
+          </span>
+        {%- if s.proof_link != blank -%}</a>{%- else -%}</div>{%- endif -%}
+      {%- endif -%}
+    </div>
+  </div>
+</div>
+{% schema %}
+{
+  "name": "Template hero",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    { "type": "header", "content": "Label" },
+    { "type": "image_picker", "id": "label_icon", "label": "Label icon", "info": "A small square picture, for example the Notion logo. Shown at 22 px." },
+    { "type": "text", "id": "label_icon_alt", "label": "Icon description", "default": "Notion" },
+    { "type": "text", "id": "label", "label": "Label", "default": "Notion template" },
+    { "type": "url", "id": "label_link", "label": "Label link" },
+    { "type": "header", "content": "Text" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Say what the template does in one line" },
+    { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Who it is for and what it keeps in one place, in one or two sentences.</p>" },
+    { "type": "text", "id": "button_label", "label": "Main button", "default": "Get the template" },
+    { "type": "url", "id": "button_link", "label": "Main button link" },
+    { "type": "text", "id": "button_2_label", "label": "Second button" },
+    { "type": "url", "id": "button_2_link", "label": "Second button link" },
+    { "type": "text", "id": "note", "label": "Note under the buttons", "default": "Pay once. Works on Notion's free plan." },
+    { "type": "header", "content": "Buyers" },
+    { "type": "image_picker", "id": "proof_avatar_1", "label": "Avatar 1" },
+    { "type": "image_picker", "id": "proof_avatar_2", "label": "Avatar 2" },
+    { "type": "image_picker", "id": "proof_avatar_3", "label": "Avatar 3" },
+    { "type": "image_picker", "id": "proof_avatar_4", "label": "Avatar 4" },
+    { "type": "image_picker", "id": "proof_avatar_5", "label": "Avatar 5" },
+    { "type": "checkbox", "id": "show_stars", "label": "Show stars", "default": true },
+    { "type": "range", "id": "stars", "label": "Stars", "min": 1, "max": 5, "step": 1, "default": 5 },
+    { "type": "color", "id": "star_color", "label": "Star colour", "default": "#f2b01e" },
+    { "type": "text", "id": "proof_text", "label": "Text beside the avatars", "default": "Read what buyers say" },
+    { "type": "url", "id": "proof_link", "label": "Link", "info": "For example your reviews section: /#reviews" },
+    { "type": "header", "content": "Look" },
+    { "type": "select", "id": "align", "label": "Alignment", "default": "center", "options": [{ "value": "left", "label": "Left" }, { "value": "center", "label": "Centre" }] },
+    { "type": "range", "id": "content_width", "label": "Text width", "min": 480, "max": 1200, "step": 20, "unit": "px", "default": 820 },
+    { "type": "range", "id": "heading_size", "label": "Heading size", "min": 32, "max": 110, "step": 2, "unit": "px", "default": 60 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size on phones", "min": 26, "max": 60, "step": 2, "unit": "px", "default": 36 },
+    { "type": "range", "id": "text_size", "label": "Text size", "min": 14, "max": 24, "step": 1, "unit": "px", "default": 19 },
+    { "type": "range", "id": "text_size_mobile", "label": "Text size on phones", "min": 13, "max": 20, "step": 1, "unit": "px", "default": 16 },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default" },
+    { "type": "select", "id": "section_width", "label": "Section width", "default": "container", "options": [{ "value": "container", "label": "Default" }, { "value": "fluid_container", "label": "Fluid container" }, { "value": "stretch_width", "label": "Stretched" }] },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 200, "step": 4, "unit": "px", "default": 88 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 200, "step": 4, "unit": "px", "default": 48 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Top padding on phones", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Bottom padding on phones", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 28 }
+  ],
+  "presets": [{ "name": "Template hero" }]
+}
+{% endschema %}

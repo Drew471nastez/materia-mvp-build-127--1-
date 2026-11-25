@@ -1,4 +1,4 @@
-<script src="{{ 'live-countdown.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-countdown.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-countdown-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%}
   Materia Themes. Countdown Timer Pro 3: a caption, heading, description and
@@ -19,7 +19,7 @@
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign own = st.enable_custom_style
   assign fonts = st.enable_custom_fonts
   assign timer_block = section.blocks | where: 'type', 'timer' | first
@@ -228,7 +228,8 @@
   </div>
 </section>{% schema %}
 {
-  "name": "Countdown Timer Pro 3",
+  "class": "s-tt",
+"name": "Countdown Timer Pro 3",
   "settings": [
     {
       "type": "header",
@@ -238,7 +239,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -1190,8 +1191,8 @@
   ],
   "presets": [
     {
-      "name": "Countdown Timer Pro 3",
-      "category": "Countdowns",
+      "name": "Countdown – Split with Text",
+      "category": "08 · Promotions & countdowns",
       "blocks": [
         {
           "type": "caption",

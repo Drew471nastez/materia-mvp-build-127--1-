@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. One eyebrow, heading, subheading or button block of Feature
   Timeline and Guarantee Banner, styled by snippets/r7-features-base.
   The heading is always an h2. A button with a link is an <a>, without one a
@@ -7,7 +7,12 @@
   (data-own-size, data-own-weight, data-own-shape) so Theme settings >
   "Use in every section" leaves that one value alone.
     block   the block
-{%- endcomment -%}
+
+  @param {block} block - The block being rendered
+
+  @example
+  {% render 'r7-features-block', block: block %}
+{%- enddoc -%}
 {%- assign bs = block.settings -%}
 {%- case block.type -%}
   {%- when 'eyebrow' -%}
@@ -45,7 +50,7 @@
       <span class="r7b__label" data-r7e-bt="{{ block.id }}:label">{{ bs.label | escape }}</span><svg class="r7b__arrow" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
     {%- endcapture -%}
     {%- if bs.link != blank -%}
-      <a href="{{ bs.link | url }}" {{ r7_btn_attrs | strip }}>{{ r7_btn_inner | strip }}</a>
+      <a href="{{ bs.link }}" {{ r7_btn_attrs | strip }}>{{ r7_btn_inner | strip }}</a>
     {%- else -%}
       <button type="button" {{ r7_btn_attrs | strip }}>{{ r7_btn_inner | strip }}</button>
     {%- endif -%}

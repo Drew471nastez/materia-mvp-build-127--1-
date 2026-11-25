@@ -1,12 +1,16 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. The header of Stat Counter and Stat Counter Pro: eyebrow,
   heading and subheading blocks in their block order. A section saved before
   these blocks existed keeps its text in the old section settings
   (subheading, heading, description); each one is drawn only while the
   section has no block of that type. shopify/assets/live-features-d.js
   applies edits to both in place.
+
+  @param {section} section - The section being rendered
+
+  @example
   {% render 'features-d-header', section: section %}
-{%- endcomment -%}
+{%- enddoc -%}
 {%- liquid
   assign s = section.settings
   assign eyebrow_blocks = section.blocks | where: 'type', 'eyebrow'
@@ -37,12 +41,12 @@
       {%- assign bs = block.settings -%}
       {%- case block.type -%}
         {%- when 'eyebrow' -%}
-          <p class="fd-eyebrow m-0 fs-custom subheading_weight" data-fd-block="{{ block.id }}" data-fd-type="eyebrow" data-fd-settings="{{ bs | json | escape }}" style="{% if bs.size_enable %}--b-size: {{ bs.size | default: 14 }}px;{% endif %}{% render 'media-msr-var', name: '--b-color', color: bs.color, on: bs.enable_custom_style %}"{% if bs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ bs.text | escape }}</p>
+          <p class="fd-eyebrow m-0 fs-custom subheading_weight" data-fd-block="{{ block.id }}" data-fd-type="eyebrow" {% if request.design_mode %}data-fd-settings="{{ bs | json | escape }}"{% endif %} style="{% if bs.size_enable %}--b-size: {{ bs.size | default: 14 }}px;{% endif %}{% render 'media-msr-var', name: '--b-color', color: bs.color, on: bs.enable_custom_style %}"{% if bs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ bs.text | escape }}</p>
         {%- when 'heading' -%}
-          <h2 class="fd-heading section__header-heading heading-letter-spacing" data-fd-block="{{ block.id }}" data-fd-type="heading" data-fd-settings="{{ bs | json | escape }}"{% if bs.weight_enable %} data-own-weight{% endif %}{% if bs.enable_custom_fonts %} data-own-font{% endif %} style="{% if bs.size_enable %}--b-size-m: {{ bs.size_mobile | default: 28 }}px; --b-size-d: {{ bs.size_desktop | default: 40 }}px;{% endif %}{% if bs.weight_enable %} --b-weight: {{ bs.weight | default: 700 }};{% endif %}{% if bs.enable_custom_fonts and bs.font.family != blank %} --b-font: {{ bs.font.family }}, {{ bs.font.fallback_families | default: 'serif' }};{% endif %}{% render 'media-msr-var', name: '--b-color', color: bs.color, on: bs.enable_custom_style %}"{% if bs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ bs.text }}</h2>
+          <h2 class="fd-heading section__header-heading heading-letter-spacing" data-fd-block="{{ block.id }}" data-fd-type="heading" {% if request.design_mode %}data-fd-settings="{{ bs | json | escape }}"{% endif %}{% if bs.weight_enable %} data-own-weight{% endif %}{% if bs.enable_custom_fonts %} data-own-font{% endif %} style="{% if bs.size_enable %}--b-size-m: {{ bs.size_mobile | default: 28 }}px; --b-size-d: {{ bs.size_desktop | default: 40 }}px;{% endif %}{% if bs.weight_enable %} --b-weight: {{ bs.weight | default: 700 }};{% endif %}{% if bs.enable_custom_fonts and bs.font.family != blank %} --b-font: {{ bs.font.family }}, {{ bs.font.fallback_families | default: 'serif' }};{% endif %}{% render 'media-msr-var', name: '--b-color', color: bs.color, on: bs.enable_custom_style %}"{% if bs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ bs.text }}</h2>
           {%- if bs.enable_custom_fonts and bs.font.family != blank -%}<style>{{ bs.font | font_face: font_display: 'swap' }}</style>{%- endif -%}
         {%- when 'subheading' -%}
-          <div class="fd-sub section__header-des rich__text-m0" data-fd-block="{{ block.id }}" data-fd-type="subheading" data-fd-settings="{{ bs | json | escape }}" style="--b-max: {{ bs.max_width | default: 640 }}px;{% if bs.size_enable %} --b-size: {{ bs.size | default: 16 }}px;{% endif %}{% render 'media-msr-var', name: '--b-color', color: bs.color, on: bs.enable_custom_style %}"{% if bs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ bs.text }}</div>
+          <div class="fd-sub section__header-des rich__text-m0" data-fd-block="{{ block.id }}" data-fd-type="subheading" {% if request.design_mode %}data-fd-settings="{{ bs | json | escape }}"{% endif %} style="--b-max: {{ bs.max_width | default: 640 }}px;{% if bs.size_enable %} --b-size: {{ bs.size | default: 16 }}px;{% endif %}{% render 'media-msr-var', name: '--b-color', color: bs.color, on: bs.enable_custom_style %}"{% if bs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ bs.text }}</div>
       {%- endcase -%}
     {%- endfor -%}
     {%- if legacy_sub -%}<div class="fd-sub section__header-des rich__text-m0" data-fd-legacy="description">{{ s.description }}</div>{%- endif -%}

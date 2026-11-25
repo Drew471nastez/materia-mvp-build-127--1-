@@ -1,0 +1,136 @@
+{%- doc -%}
+  One "You might also like" card in the cart drawer: rounded image, bold
+  title, a pill variant select, the price and a pill "+ Add" button.
+  A plain form (name="id"), so CartNotification.addFromRecommendation adds
+  the selected variant through /cart/add.js and redraws the drawer.
+  cart-drawer.js (cart-rec-carousel) keeps the price and button in step
+  with the select. Colours come from the drawer's colour scheme.
+
+  Variants already in the cart are left out of the select; the first
+  available variant that is not in the cart is preselected. A product whose
+  available variants are all in the cart renders nothing.
+
+  Pass: product
+
+  @param {product} product - The product to render
+
+  @example
+  {% render 'cart-recommend-card', product: product %}
+{%- enddoc -%}
+{%- liquid
+  assign rec_product = product
+  assign rec_in_cart = cart.items | map: 'variant_id' | join: ','
+  assign rec_in_cart = ',' | append: rec_in_cart | append: ','
+  assign rec_variant = nil
+  for v in rec_product.variants
+    assign v_key = ',' | append: v.id | append: ','
+    if v.available and rec_in_cart contains v_key
+      continue
+    endif
+    if v.available
+      assign rec_variant = v
+      break
+    endif
+  endfor
+-%}
+{%- if rec_variant != nil -%}
+{%- liquid
+  assign rec_media = rec_product.featured_media
+  if rec_variant.featured_media
+    assign rec_media = rec_variant.featured_media
+  endif
+  assign rec_add = 'products.product.add_to_cart' | t
+  assign rec_add_short = 'accessibility.add' | t
+  if rec_add_short contains 'translation missing'
+    assign rec_add_short = 'Add'
+  endif
+  assign rec_sold_out = 'products.product.sold_out' | t
+  assign rec_money_code = settings.show_currency_code
+-%}
+<div class="cart-rec__slide" data-product-id="{{ rec_product.id }}">
+  <form
+    class="cart-rec__card"
+    action="{{ routes.cart_add_url }}"
+    method="post"
+    data-cart-rec-card
+    novalidate
+  >
+    <a class="cart-rec__media" href="{{ rec_product.url }}" tabindex="-1" aria-hidden="true">
+      {%- if rec_media != blank -%}
+        {{ rec_media | image_url: width: 240 | image_tag: loading: 'lazy', widths: '120, 160, 240', sizes: '80px', alt: rec_product.title, class: 'cart-rec__img' }}
+      {%- else -%}
+        {%- render 'placeholder-image', type: 'product-1', class: 'cart-rec__img cart-rec__img--placeholder' -%}
+      {%- endif -%}
+    </a>
+    <div class="cart-rec__info">
+      <a class="cart-rec__title" href="{{ rec_product.url }}">{{ rec_product.title | escape }}</a>
+      {%- if rec_product.has_only_default_variant -%}
+        <input type="hidden" name="id" value="{{ rec_variant.id }}">
+      {%- else -%}
+        <div class="cart-rec__select-wrap">
+          <select
+            class="cart-rec__select"
+            name="id"
+            style="height: 32px !important;"
+            aria-label="{{ rec_product.options | join: ' / ' | escape }}"
+          >
+            {%- for variant in rec_product.variants -%}
+              {%- assign v_key = ',' | append: variant.id | append: ',' -%}
+              {%- if rec_in_cart contains v_key -%}{%- continue -%}{%- endif -%}
+              {%- liquid
+                if rec_money_code
+                  assign v_price = variant.price | money_with_currency
+                  assign v_compare = variant.compare_at_price | money_with_currency
+                else
+                  assign v_price = variant.price | money
+                  assign v_compare = variant.compare_at_price | money
+                endif
+                assign v_on_sale = false
+                if variant.compare_at_price > variant.price
+                  assign v_on_sale = true
+                endif
+              -%}
+              <option
+                value="{{ variant.id }}"
+                data-price="{{ v_price | escape }}"
+                {% if v_on_sale %}data-compare="{{ v_compare | escape }}"{% endif %}
+                {% if variant.featured_media %}data-image="{{ variant.featured_media | image_url: width: 240 }}"{% endif %}
+                {% unless variant.available %}disabled{% endunless %}
+                {% if variant.id == rec_variant.id %}selected{% endif %}
+              >
+                {{- variant.title | escape -}}{%- unless variant.available %} – {{ rec_sold_out }}{% endunless -%}
+              </option>
+            {%- endfor -%}
+          </select>
+          <svg class="cart-rec__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
+      {%- endif -%}
+      <div class="cart-rec__price" data-cart-rec-price>
+        {%- liquid
+          if rec_money_code
+            assign r_price = rec_variant.price | money_with_currency
+            assign r_compare = rec_variant.compare_at_price | money_with_currency
+          else
+            assign r_price = rec_variant.price | money
+            assign r_compare = rec_variant.compare_at_price | money
+          endif
+        -%}
+        <span class="cart-rec__price-now">{{ r_price }}</span>
+        {%- if rec_variant.compare_at_price > rec_variant.price -%}
+          <s class="cart-rec__price-was">{{ r_compare }}</s>
+        {%- endif -%}
+      </div>
+    </div>
+    <input type="hidden" name="quantity" value="1">
+    <button
+      type="submit"
+      class="cart-rec__add"
+      aria-label="{{ rec_add | escape }}: {{ rec_product.title | escape }}"
+      {% unless rec_variant.available %}aria-disabled="true" disabled{% endunless %}
+    >
+      <svg class="cart-rec__add-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      <span class="pc-atc__label">{{ rec_add_short }}</span>
+    </button>
+  </form>
+</div>
+{%- endif -%}

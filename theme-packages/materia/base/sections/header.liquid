@@ -159,6 +159,7 @@
   if section_st.uppercase_first
     assign header_text_class = header_text_class | append: ' uppercase'
   endif
+  # With one market or one language the pickers draw the current one as a quiet label (static_single), so the settings always show.
   assign show_country = section_st.show_currency
   assign show_language = section_st.show_language
   assign transparent_class = ''
@@ -1013,8 +1014,7 @@
       top: var(--sl-header-offset, 0px) !important;
     }
     {%- comment %}At rest / scrolling UP -> resting position, no transform (glass-safe).{% endcomment %}
-    #shopify-section-{{ section.id }}.shopify-section-header-sticky,
-    #shopify-section-{{ section.id }}.animate {
+    #shopify-section-{{ section.id }}.shopify-section-header-sticky {
       top: var(--sl-header-offset, 0px) !important;
       transform: none !important;
       animation: none !important;
@@ -1503,12 +1503,12 @@
     <div class="{{ section_width }}">
       <header-inner class="logo-position grid logo-{{ logo_position }} gap-10 gap-xl-50 header-middle align-center">
         <div class="header__logo text-center text-left-1025 inline-flex align-center">
-          {%- render 'logo', isTransparent: transparent, isTransparentMobile: transparent_mobile, drawn_desktop: section_st.logo_width_desktop, drawn_mobile: section_st.logo_width_mobile -%}
+          {%- render 'logo', isTransparent: transparent, drawn_desktop: section_st.logo_width_desktop, drawn_mobile: section_st.logo_width_mobile -%}
         </div>
         <div class="header__menu">
           {%- render 'toggle-menu' -%}
           {%- liquid
-            render 'horizontal-menu', class: 'min-h-1025-50', show_language: show_language, show_country: show_country
+            render 'horizontal-menu', show_language: show_language, show_country: show_country
           -%}
         </div>
         <div class="header__action flex flex-end align-center">
@@ -1533,10 +1533,10 @@
           {% if show_language or show_country %}{% unless section_st.localization_in_menu_only %}
             <div class="lang__currency-desktop hidden flex-1025 align-center">
               {% if show_country %}
-                {% render 'country-switcher', compact: true %}
+                {% render 'country-switcher', compact: true, static_single: true %}
               {% endif %}
               {% if show_language %}
-                {% render 'language-switcher' %}
+                {% render 'language-switcher', static_single: true %}
               {% endif %}
             </div>
           {% endunless %}{% endif %}
@@ -1604,7 +1604,7 @@
 {
   "name": "Header",
   "limit": 1,
-  "class": "section-header",
+  "class": "section-header has-popup",
   "enabled_on": {
     "groups": [
       "header"
@@ -1619,7 +1619,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "header",
@@ -1630,8 +1630,8 @@
       "id": "logo_width_desktop",
       "label": "Logo size",
       "min": 30,
-      "max": 400,
-      "step": 2,
+      "max": 396,
+      "step": 6,
       "unit": "px",
       "default": 120
     },
@@ -1640,7 +1640,7 @@
       "id": "logo_width_mobile",
       "label": "Logo size mobile",
       "min": 30,
-      "max": 300,
+      "max": 230,
       "step": 2,
       "unit": "px",
       "default": 100
@@ -1701,7 +1701,7 @@
       "visible_if": "{{ section.settings.logo_custom_position }}",
       "min": -100,
       "max": 200,
-      "step": 2,
+      "step": 4,
       "unit": "px",
       "default": 0,
       "info": "Moves the logo left (minus) or right (plus) on desktop. 0 keeps it where Logo position puts it."
@@ -2249,12 +2249,14 @@
       "type": "checkbox",
       "id": "show_currency",
       "label": "Show country / currency",
+      "info": "Add markets or languages in Storelib to let shoppers switch.",
       "default": true
     },
     {
       "type": "checkbox",
       "id": "show_language",
       "label": "Show language",
+      "info": "Add markets or languages in Storelib to let shoppers switch.",
       "default": true
     },
     {
@@ -2407,8 +2409,7 @@
     {
       "type": "collection_list",
       "id": "collection_list",
-      "label": "Featured collections",
-      "visible_if": "{{ section.settings.menu_tab == 'custom-collections' }}"
+      "label": "Featured collections"
     },
     {
       "type": "select",
@@ -3322,7 +3323,7 @@
     },
     {
       "type": "menu_collections_only",
-      "name": "Mega menu: collections only",
+      "name": "Mega menu: collections",
       "settings": [
         {
           "type": "header",
@@ -4498,7 +4499,7 @@
   ],
   "presets": [
     {
-      "name": "Header - Header",
+      "name": "Header",
       "blocks": [
         {
           "type": "pill_glass"
@@ -4510,7 +4511,7 @@
           "type": "menu_promotion"
         }
       ],
-      "category": "Header & navigation"
+      "category": "18 · Header & announcements"
     }
   ]
 }

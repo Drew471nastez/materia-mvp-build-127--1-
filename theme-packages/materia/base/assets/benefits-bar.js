@@ -47,5 +47,5 @@
 
   window.MateriaBenefitsBar = { init: init };
   init(document);
-  document.addEventListener('storelib:section-load', function (e) { init(e.target); });
+  ['storelib:section-load', 'shopify:section:load'].forEach(function (name) { document.addEventListener(name, function (e) { init(e.target); }); });
 })();

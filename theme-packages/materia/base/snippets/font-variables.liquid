@@ -6,27 +6,32 @@
   assign font_family_heading = 'Instrument Sans'
 
   assign theme_st = settings
-  # Body and headings each take, in this order: a font from More fonts, the
-  # font pairing's font, then the font picker's font.
+  # Body and headings each take, in this order: a font from More fonts, then
+  # what Font source picks: Pairing or theme font (the pairing's font, else
+  # the theme's Instrument Sans), Font library (the font picker's font) or
+  # Google Fonts (the typed name; with no name, the font picker's font).
   assign tp = theme_st.typography_preset | default: 'none'
   assign font_body_shopify = theme_st.font_body_system
-  assign font_body_google = theme_st.font_body_google
+  assign font_body_google = theme_st.font_body_google | strip
   assign font_body_google_embed = theme_st.font_body_google_embed
   assign font_type_body = 'default_font'
-  if font_body_shopify.family != blank
-    assign font_type_body = 'shopify'
+  if theme_st.font_type_body == 'shopify' or theme_st.font_type_body == 'google'
+    if font_body_shopify.family != blank
+      assign font_type_body = 'shopify'
+    endif
   endif
-  # Font source Google Fonts with a name typed in uses that family.
   if theme_st.font_type_body == 'google' and font_body_google != blank
     assign font_type_body = 'google'
   endif
 
   assign font_heading_shopify = theme_st.font_heading_system
-  assign font_heading_google = theme_st.font_heading_google
+  assign font_heading_google = theme_st.font_heading_google | strip
   assign font_body_heading_embed = theme_st.font_body_heading_embed
   assign font_type_heading = 'default_font'
-  if font_heading_shopify.family != blank
-    assign font_type_heading = 'shopify'
+  if theme_st.font_type_heading == 'shopify' or theme_st.font_type_heading == 'google'
+    if font_heading_shopify.family != blank
+      assign font_type_heading = 'shopify'
+    endif
   endif
   if theme_st.font_type_heading == 'google' and font_heading_google != blank
     assign font_type_heading = 'google'
@@ -58,19 +63,25 @@
     endif
   endfor
 
-  # A Google font typed in (Font source: Google Fonts) wins over the pairing.
+  # The pairing fills only text whose Font source is Pairing or theme font. A
+  # typed Google name that is one of the families below loads like More fonts
+  # (only the weights in use); any other name loads further down.
   assign mt_body = theme_st.font_body_google_family | default: 'none'
   if mt_body == 'none'
-    assign mt_body = tp_body
-    if font_type_body == 'google'
-      assign mt_body = ''
+    assign mt_body = ''
+    if font_type_body == 'default_font'
+      assign mt_body = tp_body
+    elsif font_type_body == 'google'
+      assign mt_body = font_body_google
     endif
   endif
   assign mt_head = theme_st.font_heading_google_family | default: 'none'
   if mt_head == 'none'
-    assign mt_head = tp_head
-    if font_type_heading == 'google'
-      assign mt_head = ''
+    assign mt_head = ''
+    if font_type_heading == 'default_font'
+      assign mt_head = tp_head
+    elsif font_type_heading == 'google'
+      assign mt_head = font_heading_google
     endif
   endif
 
@@ -102,7 +113,8 @@
   assign w_sub = theme_st.subheading_font_weight | default: 500 | plus: 0 | divided_by: 100
   assign w_btn = theme_st.btn_font_weight | default: 500 | plus: 0 | divided_by: 100
   assign want_body = w_body | append: ',7,' | append: w_sub
-  assign want_head = w_head | append: ''
+  # Headings also get bold, for <strong> and sections that set a heavier heading.
+  assign want_head = w_head | append: ',7'
   if theme_st.button_font == 'body_font'
     assign want_body = want_body | append: ',' | append: w_btn
   else
@@ -209,44 +221,152 @@
   The font picker's font is loaded only for text that More fonts or a pairing
   does not fill (font_type_* is 'materia' when they do; their stylesheet is
   above). The theme's own Instrument Sans loads only when nothing replaces it.
+  Only the weights the Typography, Buttons and menu settings use are loaded:
+  each wanted weight (want_body, want_head, in hundreds) takes the nearest
+  weight the family has, plus the body's italic and bold italic, so bold and
+  italic text never fall back to faux styles. The face body text and headings
+  draw first is preloaded.
 {%- endcomment -%}
-{% if font_type_body == 'default_font' and tp == 'none' %}
-  {{
-    'InstrumentSans-Regular.woff2'
-    | asset_url
-    | preload_tag: as: 'font', type: 'font/woff2', crossorigin: 'anonymous'
-  }}
-  {% style %}
-    @font-face {
-      font-family: "Instrument Sans";
-      src: url({{ 'InstrumentSans-SemiBold.woff2' | asset_url }}) format("woff2");
-      font-weight: 600;
-      font-style: normal;
-      font-display: swap;
-    }
-    @font-face {
-      font-family: "Instrument Sans";
-      src: url({{ 'InstrumentSans-Bold.ttf' | asset_url }});
-      font-weight: 700;
-      font-style: normal;
-      font-display: swap;
-    }
-    @font-face {
-      font-family: "Instrument Sans";
-      src: url({{ 'InstrumentSans-Medium.woff2' | asset_url }}) format("woff2");
-      font-weight: 500;
-      font-style: normal;
-      font-display: swap;
-    }
-    @font-face {
-      font-family: "Instrument Sans";
-      src: url({{ 'InstrumentSans-Regular.woff2' | asset_url }}) format("woff2");
-      font-weight: normal;
-      font-style: normal;
-      font-display: swap;
-    }
-  {% endstyle %}
-{% elsif font_type_body == 'google' and font_body_google != blank %}
+{%- liquid
+  assign is_want = ''
+  if font_type_body == 'default_font'
+    assign is_want = want_body
+  endif
+  if font_type_heading == 'default_font'
+    assign is_want = is_want | append: ',' | append: want_head
+  endif
+  assign is_faces = ''
+  assign is_preload = ''
+  if is_want != ''
+    assign is_files = '4:InstrumentSans-Regular.woff2:woff2|5:InstrumentSans-Medium.woff2:woff2|6:InstrumentSans-SemiBold.woff2:woff2|7:InstrumentSans-Bold.ttf:truetype' | split: '|'
+    assign is_got = ''
+    assign is_want_list = is_want | split: ','
+    for w in is_want_list
+      assign wn = w | plus: 0
+      if wn < 4
+        assign wn = 4
+      elsif wn > 7
+        assign wn = 7
+      endif
+      assign is_got = is_got | append: ',' | append: wn
+    endfor
+    assign is_first = want_body | split: ',' | first | plus: 0
+    if font_type_body != 'default_font'
+      assign is_first = want_head | split: ',' | first | plus: 0
+    endif
+    if is_first < 4
+      assign is_first = 4
+    elsif is_first > 7
+      assign is_first = 7
+    endif
+    for f in is_files
+      assign cells = f | split: ':'
+      unless is_got contains cells[0]
+        continue
+      endunless
+      assign f_url = cells[1] | asset_url
+      assign is_faces = is_faces | append: '@font-face{font-family:"Instrument Sans";src:url(' | append: f_url | append: ') format("' | append: cells[2] | append: '");font-weight:' | append: cells[0] | append: '00;font-style:normal;font-display:swap}'
+      assign cf = cells[0] | plus: 0
+      if cf == is_first and cells[2] == 'woff2'
+        assign is_preload = cells[1]
+      endif
+    endfor
+  endif
+-%}
+{%- if is_preload != '' -%}
+  {{ is_preload | asset_url | preload_tag: as: 'font', type: 'font/woff2', crossorigin: 'anonymous' }}
+{%- endif -%}
+{%- if is_faces != '' -%}
+  <style>{{ is_faces }}</style>
+{%- endif -%}
+
+{%- liquid
+  assign heading_font_style = 'normal'
+  assign sf_faces = ''
+  assign sf_seen = ''
+  assign sf_preload = ''
+  for role in (1..2)
+    if role == 1
+      unless font_type_body == 'shopify' and font_body_shopify.family != blank
+        continue
+      endunless
+      assign sf_font = font_body_shopify
+      assign sf_want = want_body
+      assign sf_style = 'normal'
+      assign font_family_body = font_body_shopify.family | append: ', ' | append: font_body_shopify.fallback_families
+    else
+      unless font_type_heading == 'shopify' and font_heading_shopify.family != blank
+        continue
+      endunless
+      assign sf_font = font_heading_shopify
+      assign sf_want = want_head
+      assign sf_style = font_heading_shopify.style
+      if sf_style == 'oblique'
+        assign sf_style = 'italic'
+      endif
+      assign heading_font_style = sf_style
+      assign font_family_heading = font_heading_shopify.family | append: ', ' | append: font_heading_shopify.fallback_families
+    endif
+    # Wanted (weight, style) pairs; the body also gets italic and bold italic.
+    assign sf_pairs = ''
+    assign sf_want_list = sf_want | split: ','
+    for w in sf_want_list
+      assign sf_pairs = sf_pairs | append: '|' | append: w | append: ':' | append: sf_style
+    endfor
+    if role == 1
+      assign w_first = sf_want | split: ',' | first
+      assign sf_pairs = sf_pairs | append: '|' | append: w_first | append: ':italic|7:italic'
+    endif
+    assign sf_pair_list = sf_pairs | remove_first: '|' | split: '|'
+    for pair in sf_pair_list
+      assign pc = pair | split: ':'
+      assign target = pc[0] | plus: 0 | times: 100
+      assign best = nil
+      assign best_gap = 9999
+      for v in sf_font.variants
+        assign v_style = v.style
+        if v_style == 'oblique'
+          assign v_style = 'italic'
+        endif
+        if v_style != pc[1]
+          continue
+        endif
+        assign gap = v.weight | plus: 0 | minus: target | abs
+        if gap < best_gap
+          assign best = v
+          assign best_gap = gap
+        endif
+      endfor
+      if best == nil
+        continue
+      endif
+      if forloop.first and sf_preload == ''
+        assign sf_preload = best | font_url
+      elsif forloop.first and role == 2
+        assign sf_preload_2 = best | font_url
+      endif
+      assign key = best.family | append: '/' | append: best.weight | append: '/' | append: best.style
+      if sf_seen contains key
+        continue
+      endif
+      assign sf_seen = sf_seen | append: '|' | append: key
+      assign sf_face = best | font_face: font_display: 'swap'
+      assign sf_faces = sf_faces | append: sf_face
+    endfor
+  endfor
+-%}
+{%- if sf_preload != '' -%}
+  <link rel="preload" as="font" href="{{ sf_preload }}" type="font/woff2" crossorigin>
+{%- endif -%}
+{%- if sf_preload_2 != blank and sf_preload_2 != sf_preload -%}
+  <link rel="preload" as="font" href="{{ sf_preload_2 }}" type="font/woff2" crossorigin>
+{%- endif -%}
+{%- if sf_faces != '' -%}
+  <style>{{ sf_faces }}</style>
+{%- endif -%}
+
+{%- comment -%} A Google family typed in that is not one of the More fonts families: its regular weight, from Google or the embed code. {%- endcomment -%}
+{%- if font_type_body == 'google' and font_body_google != blank -%}
   {%- assign g_name = font_body_google | strip | remove: '"' | remove: ';' | remove: '<' | remove: '>' | remove: '{' | remove: '}' -%}
   {%- assign font_family_body = '"' | append: g_name | append: '"' -%}
   {%- if font_body_google_embed != blank -%}
@@ -254,53 +374,8 @@
   {%- else -%}
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family={{ g_name | replace: ' ', '+' }}&display=swap">
   {%- endif -%}
-{% elsif font_type_body == 'shopify' and font_body_shopify.family != blank %}
-  {% # theme-check-disable AssetPreload %}
-  <link rel="preload" as="font" href="{{ font_body_shopify | font_url }}" type="font/woff2" crossorigin>
-  {% # theme-check-disable AssetPreload %}
-  {%- capture font_family_body -%}{{ font_body_shopify.family }}, {{ font_body_shopify.fallback_families }}{%- endcapture -%}
-  {%- style -%}
-    {%- for variant in font_body_shopify.variants -%}{{ variant | font_face: font_display: 'swap' }}{%- endfor -%}
-  {%- endstyle -%}
-{% endif %}
-
-{% if font_type_heading == 'default_font' and font_type_body != 'default_font' and tp == 'none' %}
-  {{
-    'InstrumentSans-Regular.woff2'
-    | asset_url
-    | preload_tag: as: 'font', type: 'font/woff2', crossorigin: 'anonymous'
-  }}
-  {% style %}
-    @font-face {
-      font-family: "Instrument Sans";
-      src: url({{ 'InstrumentSans-SemiBold.woff2' | asset_url }}) format("woff2");
-      font-weight: 600;
-      font-style: normal;
-      font-display: swap;
-    }
-    @font-face {
-      font-family: "Instrument Sans";
-      src: url({{ 'InstrumentSans-Bold.ttf' | asset_url }});
-      font-weight: 700;
-      font-style: normal;
-      font-display: swap;
-    }
-    @font-face {
-      font-family: "Instrument Sans";
-      src: url({{ 'InstrumentSans-Medium.woff2' | asset_url }}) format("woff2");
-      font-weight: 500;
-      font-style: normal;
-      font-display: swap;
-    }
-    @font-face {
-      font-family: "Instrument Sans";
-      src: url({{ 'InstrumentSans-Regular.woff2' | asset_url }}) format("woff2");
-      font-weight: normal;
-      font-style: normal;
-      font-display: swap;
-    }
-  {% endstyle %}
-{% elsif font_type_heading == 'google' and font_heading_google != blank %}
+{%- endif -%}
+{%- if font_type_heading == 'google' and font_heading_google != blank -%}
   {%- assign g_name = font_heading_google | strip | remove: '"' | remove: ';' | remove: '<' | remove: '>' | remove: '{' | remove: '}' -%}
   {%- assign font_family_heading = '"' | append: g_name | append: '"' -%}
   {%- if font_body_heading_embed != blank -%}
@@ -308,15 +383,7 @@
   {%- else -%}
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family={{ g_name | replace: ' ', '+' }}&display=swap">
   {%- endif -%}
-{% elsif font_type_heading == 'shopify' and font_heading_shopify.family != blank %}
-  {% # theme-check-disable AssetPreload %}
-  <link rel="preload" as="font" href="{{ font_heading_shopify | font_url }}" type="font/woff2" crossorigin>
-  {% # theme-check-disable AssetPreload %}
-  {%- capture font_family_heading -%}{{ font_heading_shopify.family }}, {{ font_heading_shopify.fallback_families }}{%- endcapture -%}
-  {%- style -%}
-    {%- for variant in font_heading_shopify.variants -%}{{ variant | font_face: font_display: 'swap' }}{%- endfor -%}
-  {%- endstyle -%}
-{% endif %}
+{%- endif -%}
 {% liquid
   assign font_menu_family = font_family_body
   assign font_menu_type = theme_st.menu_font
@@ -408,5 +475,9 @@
     {%- comment -%} Menu and buttons point at the body or heading font, so a new font in the builder reaches them too. {%- endcomment %}
     --menu-font: {% if font_menu_type == 'body_font' %}var(--body-font){% else %}var(--heading-font){% endif %};
     --btn-font: {% if font_button_type == 'body_font' %}var(--body-font){% else %}var(--heading-font){% endif %};
+    --heading-font-style: {{ heading_font_style }};
+    {%- comment -%} Names some stylesheets (header, gift card) use for the same fonts. {%- endcomment %}
+    --font-body-family: var(--body-font);
+    --font-heading-family: var(--heading-font);
   }
 {% endstyle %}

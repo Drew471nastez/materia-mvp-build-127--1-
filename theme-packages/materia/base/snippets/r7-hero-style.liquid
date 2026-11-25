@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. What Hero Split and Hero Collage share: the section's
   margins (on the wrapper, so the builder can change them without a redraw),
   the colour scheme background and the text column: eyebrow, heading, text
@@ -7,7 +7,12 @@
   variables on a live edit. Defaults are the theme's own: scheme colours,
   theme fonts and weights, the theme's h1 size and the theme's buttons.
   Use: render 'r7-hero-style', section: section
-{%- endcomment -%}
+
+  @param {section} section - The section being rendered
+
+  @example
+  {% render 'r7-hero-style', section: section %}
+{%- enddoc -%}
 {%- liquid
   assign st = section.settings
   assign sid = section.id

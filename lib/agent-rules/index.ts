@@ -40,7 +40,7 @@
  * copy an agent reads (MCP, AGENTS.md, the builder), so a transcript says
  * which rules the agent was working to.
  */
-export const RULEBOOK_VERSION = "2026.10.07"
+export const RULEBOOK_VERSION = "2026.11.25"
 
 export type RuleSurface = "builder" | "outside"
 
@@ -109,6 +109,15 @@ export const AGENT_RULE_GROUPS: RuleGroup[] = [
       "A new site, a whole site redesign or \"make this look like a real premium X website\" is a new direction: the current sections are not kept by default, and recolouring or rewording them is the wrong answer. Start from a short brief (purpose, audience, personality, category, sections in order, palette, type, imagery, motion, the one action), then remove, add, reorder and restyle to build it. Keep real facts and the creator's own words that still fit.",
       "Different businesses get different sites: a party is the next date, the music and tickets; a course is the result, curriculum, teacher and proof; a photographer is the pictures; a restaurant is food, the room and a booking. Vary layouts down the page. Smooth, interactive or animated is a requirement, built in CSS and stopped under reduced motion.",
       "Before finishing a redesign ask: would a designer hired for this brief choose this structure and design? If not, keep going.",
+    ],
+  },
+  {
+    id: "templates",
+    title: "Sites made from a template",
+    /* The builder is told this in the run itself, only on a Materia site (lib/website-builder/agent/materia-context.ts), so its cached system prompt does not grow for every other site. */
+    surfaces: ["outside"],
+    rules: [
+      "A site made from one of Storelib's templates runs on the Materia theme. Build on it the way the template was built: a Materia section that does the job before a new one (storelib_search_components finds them by what they do), in the settings style of the sections already on the page, with your own section only for what none of them does. Never invent a section type, a setting id or a block type; use them as the site's files name them. Enforced: unknown types and settings are refused or repaired with what the site has.",
     ],
   },
   {

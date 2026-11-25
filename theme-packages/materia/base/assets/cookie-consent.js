@@ -23,16 +23,52 @@
       return value;
     } catch (_) { return null; }
   };
-  const write = (accepted, days) => {
+  const CATS = ['analytics', 'marketing', 'preferences'];
+  /* true / false for all, or { analytics, marketing, preferences } */
+  const prefsOf = choice => {
+    const out = {};
+    CATS.forEach(k => { out[k] = typeof choice === 'boolean' ? choice : Boolean(choice && choice[k]); });
+    return out;
+  };
+  const write = (choice, days) => {
     const now = Date.now();
-    const value = { accepted, at: now, expires: now + Math.max(1, Number(days) || 180) * DAY };
+    const prefs = prefsOf(choice);
+    const accepted = CATS.every(k => prefs[k]);
+    const value = { accepted, prefs, at: now, expires: now + Math.max(1, Number(days) || 180) * DAY };
     try { localStorage.setItem(KEY, JSON.stringify(value)); } catch (_) {}
     return value;
   };
   const closedThisVisit = () => { try { return sessionStorage.getItem(CLOSED) === '1'; } catch (_) { return false; } };
   const rememberClosed = () => { try { sessionStorage.setItem(CLOSED, '1'); } catch (_) {} };
-  const announce = (accepted, stored) => {
-    document.dispatchEvent(new CustomEvent('materia:consent', { detail: { accepted, stored: Boolean(stored) } }));
+  const announce = (accepted, stored, prefs) => {
+    document.dispatchEvent(new CustomEvent('materia:consent', { detail: { accepted, stored: Boolean(stored), prefs: prefs || prefsOf(accepted) } }));
+  };
+
+  /* the platform's Customer Privacy API (window.Shopify.customerPrivacy), loaded
+     on demand. cb(api or null); never waits more than `wait` ms. */
+  const withPrivacy = (cb, wait = 2500) => {
+    const S = window.Shopify;
+    let done = false;
+    const finish = api => { if (done) return; done = true; cb(api || null); };
+    if (!S || S.designMode) return finish(null);
+    if (S.customerPrivacy) return finish(S.customerPrivacy);
+    if (typeof S.loadFeatures !== 'function') return finish(null);
+    setTimeout(() => finish(null), wait);
+    try { S.loadFeatures([{ name: 'consent-tracking-api', version: '0.1' }], error => finish(error ? null : S.customerPrivacy)); } catch (_) { finish(null); }
+  };
+  /* Does this visitor still need to be asked? Not where the platform says the
+     region needs no banner, nor when a choice is already on record there. */
+  const needsBanner = (el, cb) => {
+    if (el.dataset.region === 'false') return cb(true);
+    withPrivacy(api => {
+      if (!api) return cb(true);
+      try {
+        if (typeof api.shouldShowBanner === 'function' && !api.shouldShowBanner()) return cb(false);
+        const current = typeof api.currentVisitorConsent === 'function' ? api.currentVisitorConsent() : null;
+        if (current && CATS.some(k => current[k] === 'yes' || current[k] === 'no')) return cb(false);
+      } catch (_) {}
+      cb(true);
+    });
   };
 
   window.materiaConsent = window.materiaConsent || {
@@ -57,7 +93,9 @@
   /* Open cart drawer, search, phone menu or another drawer: the banner steps
      behind it and comes back when it closes. */
   const COVER_HTML = ['open-drawer', 'open-minicart', 'open-search', 'nav-open', 'open-sidebar', 'open-popup'];
-  const COVERS = '#minicart_wrapper.open_drawer, .mcp-backdrop.open, .loc-sheet-backdrop.open, cart-drawer[open], .drawer.active, menu-drawer[open], details[open] > .menu-drawer, [data-storelib-drawer][open]';
+  /* (#minicart_wrapper always carries the class open_drawer, open or not: the
+     html class open-minicart says when it is open.) */
+  const COVERS = '.tingle-modal--visible, .mcp-backdrop.open, .loc-sheet-backdrop.open, cart-drawer[open], .drawer.active, menu-drawer[open], details[open] > .menu-drawer, [data-storelib-drawer][open]';
   const covered = () => {
     const html = document.documentElement;
     if (COVER_HTML.some(name => html.classList.contains(name) || document.body?.classList.contains(name))) return true;
@@ -80,18 +118,26 @@
         if (action === 'accept') this.choose(true);
         else if (action === 'decline') this.choose(false);
         else if (action === 'close') this.dismiss();
+        else if (action === 'prefs') this.togglePrefs();
+        else if (event.target.closest?.('[data-consent-backdrop]')) this.dismiss();
+        else if (action === 'save') this.choose(this.readPrefs());
       });
       if (this.design) return this.startPreview();
       const stored = read();
-      if (stored) { announce(stored.accepted, true); return; }
+      if (stored) { announce(stored.accepted, true, stored.prefs); return; }
       if (this.dataset.enabled !== 'true' || this.dataset.pageOk === 'false') return;
       if (this.dataset.frequency === 'session' && closedThisVisit()) return;
       const delay = Math.max(0, Number(this.dataset.delay) || 0) * 1000;
-      this.timer = setTimeout(() => this.show(), delay);
+      const started = Date.now();
+      needsBanner(this, need => {
+        if (!need || !this.isConnected) return;
+        this.timer = setTimeout(() => this.show(), Math.max(0, delay - (Date.now() - started)));
+      });
     }
 
     disconnectedCallback() {
       clearTimeout(this.timer);
+      if (this.isOpen) this.lock(false);
       document.removeEventListener('keydown', this.onKey, true);
       window.removeEventListener('resize', this.place);
       this.watchCover(false);
@@ -119,8 +165,45 @@
       this.syncCover();
     }
 
+    /* will-change only while the panel moves in or out */
+    will() {
+      const els = [this.panel, this.querySelector('[data-consent-backdrop]')].filter(Boolean);
+      els.forEach(el => { el.style.willChange = 'transform, opacity'; });
+      clearTimeout(this.willTimer);
+      this.willTimer = setTimeout(() => els.forEach(el => el.style.removeProperty('will-change')), 380);
+    }
     get modal() { return this.dataset.position === 'modal'; }
-    get required() { return this.modal && this.dataset.require === 'true'; }
+    /* A modal or a dimmed banner holds focus and the page until it is answered or closed. */
+    get blocking() { return this.modal || this.dataset.backdrop === 'true'; }
+    get required() { return this.dataset.require === 'true'; }
+    /* Page scroll held with listeners, not styles (a style change on <html>
+       re-styled the whole page in the opening frame). Inside the panel it scrolls. */
+    lock(on) {
+      const html = document.documentElement;
+      if (!this.stopScroll) {
+        const inside = (t, dy) => {
+          for (let el = t; el && el.nodeType === 1 && this.panel.contains(el); el = el.parentElement) {
+            if (el.scrollHeight > el.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(el).overflowY) && (dy < 0 ? el.scrollTop > 0 : el.scrollTop + el.clientHeight < el.scrollHeight - 1)) return true;
+          }
+          return false;
+        };
+        let y0 = 0;
+        this.stopScroll = {
+          wheel: e => { if (!inside(e.target, e.deltaY)) e.preventDefault(); },
+          touchstart: e => { y0 = e.touches[0] ? e.touches[0].clientY : 0; },
+          touchmove: e => { const y = e.touches[0] ? e.touches[0].clientY : y0; if (!inside(e.target, y0 - y)) e.preventDefault(); },
+          keydown: e => { if (/^( |PageUp|PageDown|Home|End|ArrowUp|ArrowDown)$/.test(e.key) && !/^(INPUT|TEXTAREA|SELECT|BUTTON|A)$/.test(e.target.tagName || '') && !inside(e.target, /Up|Home/.test(e.key) ? -1 : 1)) e.preventDefault(); }
+        };
+      }
+      const want = Boolean(on && this.blocking && !this.design);
+      if (want === Boolean(this.scrollHeld)) return;
+      this.scrollHeld = want;
+      for (const [type, fn] of Object.entries(this.stopScroll)) {
+        if (want) document.addEventListener(type, fn, { passive: type === 'touchstart', capture: true });
+        else document.removeEventListener(type, fn, { capture: true });
+      }
+      html.toggleAttribute('data-cookie-lock', want);
+    }
 
     /* Lift a bottom banner above the mobile navigation bar while that bar shows. */
     place() {
@@ -153,31 +236,67 @@
       // One frame hidden-to-shown, so the entrance runs from its start.
       void this.offsetWidth;
       requestAnimationFrame(() => {
+        this.will();
         this.setAttribute('data-open', '');
-        if (this.modal && !this.hasAttribute('data-covered')) this.firstButton()?.focus({ preventScroll: true });
+        /* once the entrance has finished, what sits low on the screen measures it again */
+        clearTimeout(this.settleTimer);
+        this.settleTimer = setTimeout(() => { if (this.isOpen) this.setAttribute('data-settled', ''); }, 360);
+        /* focus goes to the banner itself (no choice pre-selected); Tab then reaches its buttons */
+        if (this.blocking && !this.hasAttribute('data-covered') && !this.design) this.panel.focus({ preventScroll: true });
       });
+      this.lock(true);
     }
 
     hide() {
       if (!this.isOpen) return;
       this.isOpen = false;
+      this.will();
       this.removeAttribute('data-open');
+      clearTimeout(this.settleTimer); this.removeAttribute('data-settled');
+      this.lock(false);
+      if (this.dataset.view) this.togglePrefs(false);
       document.removeEventListener('keydown', this.onKey, true);
       window.removeEventListener('resize', this.place);
       this.watchCover(false);
       const hadFocus = this.contains(document.activeElement);
       const done = () => { if (!this.isOpen) this.hidden = true; };
       if (this.dataset.animation === 'none' || reduced()) done();
-      else this.hideTimer = setTimeout(done, 340);
+      else this.hideTimer = setTimeout(done, 240);
       if (hadFocus && this.lastFocus?.isConnected && this.lastFocus !== document.body) {
         try { this.lastFocus.focus({ preventScroll: true }); } catch (_) {}
       }
     }
 
-    choose(accepted) {
-      if (!this.design) write(accepted, this.dataset.expiry);
-      announce(accepted, false);
+    choose(choice) {
+      const prefs = prefsOf(choice);
+      const accepted = CATS.every(k => prefs[k]);
+      if (!this.design) write(prefs, this.dataset.expiry);
+      announce(accepted, false, prefs);
       this.hide();
+    }
+
+    /* Preferences: the category switches under the message, and Save. */
+    togglePrefs(open) {
+      const box = this.querySelector('[data-consent-prefs]');
+      if (!box) return;
+      const on = typeof open === 'boolean' ? open : box.hidden;
+      box.hidden = !on;
+      if (on) this.dataset.view = 'prefs'; else delete this.dataset.view;
+      const btn = this.querySelector('[data-consent="prefs"]');
+      const save = this.querySelector('[data-consent="save"]');
+      if (btn) btn.setAttribute('aria-expanded', String(on));
+      if (save) save.hidden = !on;
+      if (on) {
+        const stored = read();
+        this.querySelectorAll('[data-consent-pref]').forEach(input => { input.checked = Boolean(stored && stored.prefs && stored.prefs[input.dataset.consentPref]); });
+        requestAnimationFrame(() => this.querySelector('[data-consent-pref]')?.focus({ preventScroll: true }));
+      }
+      this.place();
+    }
+    readPrefs() {
+      const prefs = {};
+      this.querySelectorAll('[data-consent-pref]').forEach(input => { prefs[input.dataset.consentPref] = input.checked; });
+      return prefs;
     }
 
     dismiss() {
@@ -187,7 +306,7 @@
     }
 
     buttons() {
-      return [...this.panel.querySelectorAll('a[href]:not([hidden]), button:not([hidden]):not(:disabled)')].filter(el => el.getClientRects().length);
+      return [...this.panel.querySelectorAll('a[href]:not([hidden]), button:not([hidden]):not(:disabled), input:not(:disabled)')].filter(el => el.getClientRects().length);
     }
     firstButton() {
       return this.panel.querySelector('.cookie-consent__actions button:not([hidden])') || this.buttons()[0];
@@ -198,20 +317,23 @@
       if (!this.isOpen || this.hasAttribute('data-covered')) return;
       if (event.key === 'Escape') {
         if (this.required) { event.preventDefault(); return; }
-        if (this.modal || this.contains(document.activeElement)) { event.preventDefault(); this.dismiss(); }
+        /* A plain banner answers Escape when it shows a close button or holds focus, and nothing else is open over the page. */
+        const other = [...document.querySelectorAll('dialog[open]')].some(d => !this.contains(d));
+        if (this.blocking || this.contains(document.activeElement) || (this.closeWanted && !other)) { event.preventDefault(); this.dismiss(); }
         return;
       }
-      if (event.key !== 'Tab' || !this.modal) return;
+      if (event.key !== 'Tab' || !this.blocking) return;
       const items = this.buttons();
       if (!items.length) return;
       const first = items[0], last = items[items.length - 1];
       if (!this.contains(document.activeElement)) { event.preventDefault(); first.focus(); }
+      else if (document.activeElement === this.panel) { event.preventDefault(); (event.shiftKey ? last : first).focus(); }
       else if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     }
 
     syncRole() {
-      if (this.modal) { this.panel.setAttribute('role', 'dialog'); this.panel.setAttribute('aria-modal', 'true'); }
+      if (this.blocking) { this.panel.setAttribute('role', 'dialog'); this.panel.setAttribute('aria-modal', 'true'); }
       else { this.panel.setAttribute('role', 'region'); this.panel.removeAttribute('aria-modal'); }
       // A modal that needs a choice has no close button.
       const close = this.querySelector('[data-consent="close"]');
@@ -226,7 +348,7 @@
       if (this.dataset.preview === 'true' && this.dataset.enabled === 'true' && this.dataset.pageOk !== 'false') this.show();
       document.addEventListener('storelib:settings-change', event => {
         const changed = event.detail?.settings || event.detail || {};
-        const keys = Object.keys(changed).filter(key => /^(enable_cookies|cookie_|heading_cookies|content_cookies|label_allow|label_refuse)/.test(key));
+        const keys = Object.keys(changed).filter(key => /^(enable_cookies|cookie_|heading_cookies|content_cookies|label_allow|label_refuse|label_preferences|label_save)/.test(key));
         if (!keys.length) return;
         keys.forEach(key => { this.state[key] = changed[key]; });
         this.applyPreview(changed);
@@ -242,13 +364,15 @@
       const has = key => Object.prototype.hasOwnProperty.call(s, key);
       const data = (key, attr, map) => { if (has(key) && s[key] != null) this.dataset[attr] = map ? map(s[key]) : String(s[key]); };
       if (has('enable_cookies')) this.dataset.enabled = String(yes(s.enable_cookies));
-      if (has('cookie_position') || has('cookie_style')) {
-        const look = String(this.state.cookie_style || 'bar-center');
+      if (has('cookie_position') || has('cookie_style') || has('cookie_look')) {
+        const legacy = String(this.state.cookie_style || 'bar-center');
         let position = String(this.state.cookie_position || 'bottom_center');
-        if (LEGACY[look] && position === 'bottom_center') position = LEGACY[look];
+        if (LEGACY[legacy] && position === 'bottom_center') position = LEGACY[legacy];
         this.dataset.position = position;
-        this.dataset.look = LEGACY[look] ? 'bar-center' : look;
+        this.dataset.look = String(this.state.cookie_look || 'standard');
       }
+      if (has('cookie_radius')) this.style.setProperty('--cookie-radius', (Number(s.cookie_radius) || 0) + 'px');
+      if (has('cookie_max_width')) this.style.setProperty('--cookie-width', (Number(s.cookie_max_width) || 720) + 'px');
       data('cookie_animation', 'animation');
       data('cookie_mobile_layout', 'mobile');
       data('cookie_modal_backdrop', 'backdrop', v => String(yes(v)));
@@ -264,6 +388,9 @@
       if (has('label_allow') && accept) accept.textContent = s.label_allow || 'Accept';
       if (has('label_refuse') && decline) decline.textContent = s.label_refuse || 'Decline';
       if (has('cookie_show_decline') && decline) decline.hidden = !yes(s.cookie_show_decline);
+      const prefsBtn = this.querySelector('[data-consent="prefs"]');
+      if (has('cookie_show_preferences') && prefsBtn) { prefsBtn.hidden = !yes(s.cookie_show_preferences); if (prefsBtn.hidden) this.togglePrefs(false); }
+      this.querySelectorAll('[data-consent-label]').forEach(el => { const k = el.dataset.consentLabel; if (has(k) && s[k]) el.textContent = s[k]; });
       if (has('cookie_show_close')) this.closeWanted = yes(s.cookie_show_close);
       this.syncRole();
       const link = this.querySelector('[data-consent-link]');
@@ -316,4 +443,17 @@
   }
 
   customElements.define('cookie-consent', CookieConsent);
+
+  /* The platform: the visitor's choice is also given to the platform's Customer Privacy
+     API, so the platform analytics, pixels and apps follow it. */
+  const shopifyConsent = prefs => {
+    const S = window.Shopify;
+    if (!S || S.designMode || !prefs) return;
+    withPrivacy(api => {
+      try {
+        api?.setTrackingConsent?.({ analytics: prefs.analytics, marketing: prefs.marketing, preferences: prefs.preferences, sale_of_data: prefs.marketing }, () => {});
+      } catch (_) {}
+    }, 10000);
+  };
+  document.addEventListener('materia:consent', event => { if (!event.detail?.stored) shopifyConsent(event.detail?.prefs); });
 })();

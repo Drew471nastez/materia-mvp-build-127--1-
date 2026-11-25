@@ -1,0 +1,76 @@
+
+  #hero .banner__media--split {
+    background: transparent;
+  }
+  #hero .banner__media-split {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--split-gap, 0px);
+    width: 100%;
+    height: 100%;
+  }
+  #hero .banner__media-split-left,
+  #hero .banner__media-split-right {
+    position: relative;
+    overflow: hidden;
+    height: 100%;
+  }
+  #hero .banner__split-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  @media (max-width: 767.98px) {
+    #hero .banner__media-split {
+      grid-template-columns: 1fr;
+      grid-template-rows: 1fr 1fr;
+    }
+    #hero .banner__media-split--hide-mobile {
+      display: none !important;
+    }
+  }
+  /* Hide mobile-primary on desktop, show on mobile */
+  #hero .banner__split-mobile-primary { display: none; }
+  @media (max-width: 767.98px) {
+    #hero .banner__split-mobile-primary {
+      display: block;
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+    }
+    #hero .banner__split-mobile-primary img {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+    }
+  }
+  /* Slide video / iframe — fills the slide using cover behavior so
+     external YouTube / Vimeo / direct .mp4 sources match the visual
+     style of an image slide. Iframes can't use object-fit, so we use
+     a `transform: scale + min-width/height` trick to ensure no letterbox
+     bars regardless of the source aspect ratio. */
+  #hero .banner__media video.slideshow {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  #hero .banner__media iframe.slideshow {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    /* 177.78vh = 16:9 aspect ratio in width terms — use vmax / aspect
+       trick so the iframe fully covers the slide on every screen
+       ratio without black bars. */
+    width: 177.78vh;
+    height: 56.25vw;
+    min-width: 100%;
+    min-height: 100%;
+    transform: translate(-50%, -50%);
+    border: 0;
+    display: block;
+    pointer-events: none;
+  }
+  /* Image effects: drawn further down in this file, keyed by the root's data-ss-fx and --fxi. */

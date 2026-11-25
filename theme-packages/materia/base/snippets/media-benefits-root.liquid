@@ -1,10 +1,22 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. The root attributes (part: 'attrs') and the shared CSS
   variables (part: 'vars') of the benefits Image and video sections. The
   same values are derived by media-live-benefits.js in the builder.
   side, align, align_m: the section's own setting values. tw: text column
   width in percent. gap_d, gap_m: column gaps in px.
-{%- endcomment -%}
+
+  @param {string} [align] - Text alignment (desktop)
+  @param {string} [align_m] - Text alignment (mobile)
+  @param {number} [gap_d] - Column gap (desktop)
+  @param {number} [gap_m] - Gap between media and text (mobile)
+  @param {string} part - Part ('attrs', 'vars')
+  @param {section} section - The section being rendered
+  @param {string} [side] - Media side (desktop)
+  @param {number} [tw] - Text column width (desktop)
+
+  @example
+  {% render 'media-benefits-root', section: section, part: 'attrs', side: st.image_side, align: st.text_align, align_m: st.text_align_mobile %}
+{%- enddoc -%}
 {%- assign st = section.settings -%}
 {%- if part == 'attrs' -%}
 data-mlb-section="{{ section.id }}"{% if request.design_mode %} data-mlb-settings="{{ st | json | escape }}"{% endif %} data-width="{{ st.section_width | default: 'full_width' }}" data-side="{{ side | default: 'left' }}" data-align="{{ align | default: 'left' }}" data-align-m="{{ align_m | default: 'left' }}" data-order-m="{{ st.mobile_order | default: 'media_first' }}"{% if st.enable_custom_fonts %} data-own-font{% endif %}

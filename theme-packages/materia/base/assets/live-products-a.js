@@ -70,7 +70,6 @@
         put(root, '.pb-min', num(s.padding_bottom) < 30);
         put(root, '.feature_product-center', bool(s.center));
         put(root, '@data-fp-thumbs', on(s.show_thumbnails) ? 'true' : 'false');
-        put(root, '@data-fp-size-chart', on(s.enable_size_chart) ? 'true' : 'false');
         put(root, '@data-fp-checkout', on(s.enable_dynamic_checkout) ? 'true' : 'false');
         const content = q('.featured-product__content');
         if (content) {

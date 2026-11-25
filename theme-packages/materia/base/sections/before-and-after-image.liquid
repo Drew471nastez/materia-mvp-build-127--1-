@@ -1,7 +1,7 @@
-<script src="{{ 'media-live-before-after.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'media-live-before-after.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if section.settings.reveal == false -%}<span data-ti-no-reveal hidden></span>{%- endif -%}
@@ -38,7 +38,14 @@
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Cg fill=%22%23808080%22 fill-opacity=%220.5%22%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22/%3E%3C/g%3E%3C/svg%3E'
+  capture placeholder
+    render 'placeholder-image', type: 'collection-4', scheme: color_scheme, ratio: '5/4', format: 'url'
+  endcapture
+  assign placeholder = placeholder | strip
+  capture placeholder_after
+    render 'placeholder-image', type: 'collection-5', scheme: color_scheme, ratio: '5/4', format: 'url'
+  endcapture
+  assign placeholder_after = placeholder_after | strip
   assign ratio_w = st.before_image_width | default: 570
   assign ratio_h = st.before_image_height | default: 460
   if ratio_w <= 0
@@ -168,14 +175,14 @@
     #shopify-section-{{ sid }} .bai__card, #shopify-section-{{ sid }} .bai__img { transition: none; }
   }
 </style>
-<div class="bai color-{{ color_scheme }} gradient" data-bam-root="image" data-bam-section="{{ sid }}" data-bam-settings="{{ st | json | escape }}" data-bam-defaults='{"color_scheme":"default-color-scheme","section_width":"full_width","reset_spacing":true,"show_text":true,"content_max_width":900,"desktop_horizontal_gap":20,"pair_gap":40,"before_image_width":570,"before_image_height":460,"border_radius":6,"image_shadow":"none","overlay_strength":0.4,"hover_animation":"fade_in","enable_custom_style":false,"enable_custom_fonts":false,"body_font":"assistant_n4","text_size":57,"desktop_text_vertical_position":30,"reveal":true,"desktop_padding":70,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"mobile_vertical_gap":15,"mobile_text_vertical_position":20,"mobile_padding":30,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}' data-bam-block-defaults='{"comparison":{"before_text":"Before","bw_before_image":false,"after_text":"After"}}' data-bam-placeholder="{{ placeholder | escape }}" data-width="{{ st.section_width }}" data-shadow="{{ st.image_shadow | default: 'none' }}" data-hover="{{ st.hover_animation | default: 'none' }}" data-labels="{% if st.show_text == false %}false{% else %}true{% endif %}">
+<div class="bai color-{{ color_scheme }} gradient" data-bam-root="image" data-bam-section="{{ sid }}" {% if request.design_mode %}data-bam-settings="{{ st | json | escape }}"{% endif %} {% if request.design_mode %}data-bam-defaults='{"color_scheme":"default","section_width":"full_width","reset_spacing":true,"show_text":true,"content_max_width":900,"desktop_horizontal_gap":20,"pair_gap":40,"before_image_width":570,"before_image_height":460,"border_radius":6,"image_shadow":"none","overlay_strength":0.4,"hover_animation":"fade_in","enable_custom_style":false,"enable_custom_fonts":false,"body_font":"assistant_n4","text_size":57,"desktop_text_vertical_position":30,"reveal":true,"desktop_padding":70,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"mobile_vertical_gap":15,"mobile_text_vertical_position":20,"mobile_padding":30,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}'{% endif %} {% if request.design_mode %}data-bam-block-defaults='{"comparison":{"before_text":"Before","bw_before_image":false,"after_text":"After"}}'{% endif %} data-bam-placeholder="{{ placeholder | escape }}" data-width="{{ st.section_width }}" data-shadow="{{ st.image_shadow | default: 'none' }}" data-hover="{{ st.hover_animation | default: 'none' }}" data-labels="{% if st.show_text == false %}false{% else %}true{% endif %}">
   <div class="bai__inner">
     {%- assign pairs = section.blocks | where: 'type', 'comparison' -%}
     {%- for block in pairs -%}
       {%- assign bb = block.settings -%}
       {%- assign before_label = bb.before_text | default: 'Before' -%}
       {%- assign after_label = bb.after_text | default: 'After' -%}
-      <div class="bai__pair" data-bam-block="{{ block.id }}" data-bam-type="comparison" data-bam-settings="{{ bb | json | escape }}" {{ block.shopify_attributes }}>
+      <div class="bai__pair" data-bam-block="{{ block.id }}" data-bam-type="comparison" {% if request.design_mode %}data-bam-settings="{{ bb | json | escape }}"{% endif %} {{ block.shopify_attributes }}>
         <figure class="bai__card bai__card--before" data-bw="{% if bb.bw_before_image %}true{% else %}false{% endif %}">
           {%- if bb.before_image != blank -%}
             <img class="bai__img" data-bam-image="before_image" src="{{ bb.before_image | image_url: width: 1400 }}" srcset="{{ bb.before_image | image_url: width: 700 }} 700w, {{ bb.before_image | image_url: width: 1400 }} 1400w" sizes="(min-width: 992px) 50vw, 100vw" alt="{{ bb.before_image.alt | default: before_label | escape }}" width="{{ bb.before_image.width | default: 1000 }}" height="{{ bb.before_image.height | default: 800 }}" loading="lazy" decoding="async">
@@ -188,21 +195,22 @@
           {%- if bb.after_image != blank -%}
             <img class="bai__img" data-bam-image="after_image" src="{{ bb.after_image | image_url: width: 1400 }}" srcset="{{ bb.after_image | image_url: width: 700 }} 700w, {{ bb.after_image | image_url: width: 1400 }} 1400w" sizes="(min-width: 992px) 50vw, 100vw" alt="{{ bb.after_image.alt | default: after_label | escape }}" width="{{ bb.after_image.width | default: 1000 }}" height="{{ bb.after_image.height | default: 800 }}" loading="lazy" decoding="async">
           {%- else -%}
-            <img class="bai__img" data-bam-image="after_image" src="{{ placeholder }}" alt="" width="1000" height="800" loading="lazy" decoding="async">
+            <img class="bai__img" data-bam-image="after_image" src="{{ placeholder_after }}" alt="" width="1000" height="800" loading="lazy" decoding="async">
           {%- endif -%}
           <figcaption class="bai__label" data-bam-text="after_text">{{ after_label | escape }}</figcaption>
         </figure>
       </div>
     {%- else -%}
       <div class="bai__pair">
-        <figure class="bai__card bai__card--before" data-bw="true"><img class="bai__img" src="{{ placeholder }}" alt="" width="1000" height="800" loading="lazy" decoding="async"><figcaption class="bai__label">Before</figcaption></figure>
-        <figure class="bai__card bai__card--after"><img class="bai__img" src="{{ placeholder }}" alt="" width="1000" height="800" loading="lazy" decoding="async"><figcaption class="bai__label">After</figcaption></figure>
+        <figure class="bai__card bai__card--before" data-bw="true"><img class="bai__img" src="{{ placeholder }}" alt="" width="1000" height="800" loading="lazy" decoding="async"><figcaption class="bai__label">{{ 'accessibility.before' | t }}</figcaption></figure>
+        <figure class="bai__card bai__card--after"><img class="bai__img" src="{{ placeholder_after }}" alt="" width="1000" height="800" loading="lazy" decoding="async"><figcaption class="bai__label">{{ 'accessibility.after' | t }}</figcaption></figure>
       </div>
     {%- endfor -%}
   </div>
 </div>{% schema %}
 {
-  "name": "Before/After Images",
+  "class": "s-tt",
+"name": "Before/After Images",
   "settings": [
     {
       "type": "header",
@@ -212,7 +220,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -539,8 +547,8 @@
   ],
   "presets": [
     {
-      "name": "Before After Comparison Images",
-      "category": "Features",
+      "name": "Before & After – Side by Side",
+      "category": "09 · Comparisons",
       "blocks": [
         {
           "type": "comparison"

@@ -1,0 +1,56 @@
+/* section-progress-benefits.css: static styles of sections/progress-benefits.liquid, moved out of its inline <style> so they are cached.
+   :is(.s-progress-benefits,#_) is the section wrapper (schema class "s-progress-benefits"); #_ never matches and only keeps the
+   specificity of the former #shopify-section-<id> selector. Per-section values stay inline as custom properties. */
+:is(.s-progress-benefits,#_) .pgc {
+    background: var(--pgc-bg, var(--color-background)); color: var(--pgc-text, var(--color-text));
+    font-family: var(--pgc-bfont, var(--body-font)); padding: var(--pgc-pt-m) var(--pgc-px-m) var(--pgc-pb-m); box-sizing: border-box;
+  }
+:is(.s-progress-benefits,#_) .pgc *, :is(.s-progress-benefits,#_) .pgc *::before, :is(.s-progress-benefits,#_) .pgc *::after { box-sizing: border-box; }
+:is(.s-progress-benefits,#_) [hidden] { display: none !important; }
+:is(.s-progress-benefits,#_) .pgc__inner { width: 100%; }
+:is(.s-progress-benefits,#_) .pgc__grid { display: flex; flex-direction: column; gap: var(--pgc-gap-m); }
+:is(.s-progress-benefits,#_) .pgc__col-text, :is(.s-progress-benefits,#_) .pgc__col-stats { width: 100%; min-width: 0; }
+:is(.s-progress-benefits,#_) .pgc__col-text { display: flex; flex-direction: column; gap: var(--pgc-text-gap); align-items: var(--pgc-ai-m); text-align: var(--pgc-ta-m); }
+:is(.s-progress-benefits,#_) .pgc__col-text:not(:has(> :not([hidden]))) { display: none; }
+:is(.s-progress-benefits,#_) .pgc__col-text > * { margin: 0; max-width: 100%; }
+:is(.s-progress-benefits,#_) .pgc__heading + .pgc__subheading,
+  :is(.s-progress-benefits,#_) .pgc__subheading + .pgc__subheading,
+  :is(.s-progress-benefits,#_) .pgc__heading + .pgc__heading { margin-top: calc(var(--pgc-head-gap) - var(--pgc-text-gap)); }
+:is(.s-progress-benefits,#_) .pgc__heading {
+    font-family: var(--pgc-hfont, var(--heading-font)); font-weight: var(--heading-weight, 700);
+    font-size: var(--b-size-m); line-height: var(--heading-line-height, 1.1); letter-spacing: var(--heading-letter-spacing, normal);
+    color: var(--b-color, var(--color-heading)); text-transform: var(--b-case, var(--heading-text-transform, none));
+  }
+:is(.s-progress-benefits,#_) .pgc__heading em { font-style: normal; color: var(--b-accent, var(--color-primary)); }
+:is(.s-progress-benefits,#_) .pgc__subheading { font-size: var(--b-size-m); line-height: 1.6; max-width: 480px; color: var(--b-color, var(--pgc-text, var(--color-text))); }
+:is(.s-progress-benefits,#_) .pgc__subheading p, :is(.s-progress-benefits,#_) .pgc__stat-label p, :is(.s-progress-benefits,#_) .pgc__footnote p { margin: 0 0 0.5em; }
+:is(.s-progress-benefits,#_) .pgc__subheading p:last-child, :is(.s-progress-benefits,#_) .pgc__stat-label p:last-child, :is(.s-progress-benefits,#_) .pgc__footnote p:last-child { margin: 0; }
+:is(.s-progress-benefits,#_) .pgc__footnote { font-size: var(--b-size); margin-top: var(--b-mt); color: var(--b-color, var(--pgc-text, var(--color-text))); }
+:is(.s-progress-benefits,#_) .pgc__stats {
+    display: grid; width: 100%; grid-template-columns: repeat(var(--pgc-cols-m), minmax(0, 1fr)); gap: var(--pgc-row-m) var(--pgc-col-m);
+  }
+:is(.s-progress-benefits,#_) .pgc__stat { display: flex; flex-direction: column; gap: var(--pgc-inner-gap); color: var(--pgc-label-color, var(--pgc-text, var(--color-text))); min-width: 0; }
+:is(.s-progress-benefits,#_) .pgc__stat-row { display: flex; align-items: center; gap: var(--pgc-ring-gap); }
+:is(.s-progress-benefits,#_) .pgc__stat-percent {
+    font-family: var(--pgc-hfont, var(--heading-font)); font-weight: var(--heading-weight, 700); font-size: var(--pgc-pct-m);
+    line-height: 1; letter-spacing: -0.02em; color: var(--pgc-pct-color, var(--color-heading)); font-variant-numeric: tabular-nums;
+    transition: opacity 0.4s ease;
+  }
+:is(.s-progress-benefits,#_) .pgc__stat-ring { width: var(--pgc-ring); height: var(--pgc-ring); flex-shrink: 0; }
+:is(.s-progress-benefits,#_) .pgc__stat-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); display: block; overflow: visible; }
+:is(.s-progress-benefits,#_) .pgc__ring-bg { stroke: var(--pgc-track, var(--color-border)); }
+:is(.s-progress-benefits,#_) .pgc__ring-fill {
+    stroke: var(--b-ring, var(--pgc-ring-color, var(--color-primary))); stroke-linecap: round;
+    stroke-dasharray: 175.93; stroke-dashoffset: var(--fd-off, 0); transition: stroke-dashoffset var(--fd-dur) cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+:is(.s-progress-benefits,#_) .pgc__stat-label { font-size: var(--pgc-label); line-height: 1.45; }
+:is(.s-progress-benefits,#_) .pgc[data-fd-reveal='pending'] .pgc__ring-fill { stroke-dashoffset: 175.93; }
+:is(.s-progress-benefits,#_) .pgc[data-fd-reveal='pending'] .pgc__stat-percent { opacity: 0; }
+:is(.s-progress-benefits,#_) .pgc:not([data-fd-reveal]) .pgc__ring-fill { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+    :is(.s-progress-benefits,#_) .pgc .pgc__ring-fill { stroke-dashoffset: var(--fd-off, 0); transition: none; }
+    :is(.s-progress-benefits,#_) .pgc .pgc__stat-percent { opacity: 1; transition: none; }
+  }
+@media (min-width: 1200px) {
+    :is(.s-progress-benefits,#_) .pgc.stretch_width .pgc__inner { padding-inline: 3rem; }
+  }

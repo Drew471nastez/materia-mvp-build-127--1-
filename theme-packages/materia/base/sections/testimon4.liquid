@@ -1,8 +1,8 @@
-<script src="{{ 'live-testimonials.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-testimonials.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-testimonials-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
   assign sid = section.id
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
   assign custom = section.settings.enable_custom_style
   assign hfont = section.settings.heading_custom
   assign tfont = section.settings.text_custom
@@ -191,7 +191,7 @@
 
     {%- if cards.size > 0 -%}
       <div class="t4__slider">
-        <div class="t4__track" data-lt-track data-testimonial-row tabindex="0" role="region" aria-roledescription="carousel" aria-label="Reviews">
+        <div class="t4__track" data-lt-track data-testimonial-row tabindex="0" role="region" aria-roledescription="carousel" aria-label="{{ 'accessibility.ui.reviews' | t }}">
           {%- for b in cards -%}
             {%- assign bs = b.settings -%}
             {%- assign plain = bs.text | strip_html | strip -%}
@@ -241,7 +241,7 @@
 {
   "name": "Testimonials 4",
   "tag": "section",
-  "class": "Testimonials",
+  "class": "Testimonials s-tt s-lt",
   "settings": [
     {
       "type": "header",
@@ -251,7 +251,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "checkbox",
@@ -289,8 +289,7 @@
     {
       "type": "text",
       "id": "rating_text",
-      "label": "Rating text",
-      "default": ""
+      "label": "Rating text"
     },
     {
       "type": "range",
@@ -317,8 +316,7 @@
     {
       "type": "richtext",
       "id": "text",
-      "label": "Text",
-      "default": ""
+      "label": "Text"
     },
     {
       "type": "image_picker",
@@ -1235,8 +1233,8 @@
   ],
   "presets": [
     {
-      "name": "Testimonials 4",
-      "category": "Testimonials",
+      "name": "Testimonial Slider – Profile Images",
+      "category": "07 · Reviews & testimonials",
       "settings": {
         "heading": "What customers say",
         "slider_mt": 36,

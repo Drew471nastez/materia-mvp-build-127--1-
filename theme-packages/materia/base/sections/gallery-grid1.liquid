@@ -1,8 +1,8 @@
-<script src="{{ 'media-live-galleries-a.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'media-live-galleries-a.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'media-galleries-a-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
   assign s = section.settings
-  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default'
   assign custom = s.enable_custom_style
   assign loading = 'eager'
   if s.lazyload
@@ -85,8 +85,8 @@
   class="mga mga-g1 color-{{ color_scheme }} gradient"
   data-mga-section="{{ section.id }}"
   data-mga-type="gallery-grid1"
-  data-mga-settings="{{ section.settings | json | escape }}"
-  data-mga-defaults='{"color_scheme":"default-color-scheme","is_fullwidth":false,"display_section_on":"all_devices","reset_spacing":true,"container_max_width":1320,"gutter":10,"vertical_space_desktop":20,"image_border_radius":8,"image_hover_animation":"fade-in","lazyload":true,"enable_custom_style":false,"section_padding_top":50,"section_padding_bottom":50,"padding_left_desktop":25,"padding_right_desktop":25,"vertical_space_mobile":20,"section_padding_top_mobile":50,"section_padding_bottom_mobile":50,"padding_left_mobile":10,"padding_right_mobile":10}'
+  {% if request.design_mode %}data-mga-settings="{{ section.settings | json | escape }}"{% endif %}
+  {% if request.design_mode %}data-mga-defaults='{"color_scheme":"default","is_fullwidth":false,"display_section_on":"all_devices","reset_spacing":true,"container_max_width":1320,"gutter":10,"vertical_space_desktop":20,"image_border_radius":8,"image_hover_animation":"fade-in","lazyload":true,"enable_custom_style":false,"section_padding_top":50,"section_padding_bottom":50,"padding_left_desktop":25,"padding_right_desktop":25,"vertical_space_mobile":20,"section_padding_top_mobile":50,"section_padding_bottom_mobile":50,"padding_left_mobile":10,"padding_right_mobile":10}'{% endif %}
   data-mga-reset="{% if s.reset_spacing %}true{% else %}false{% endif %}"
   data-mga-hover="{{ s.image_hover_animation | default: 'none' }}"
   data-mga-show="{{ show }}"
@@ -122,9 +122,9 @@
         -%}
         {%- if n == 2 -%}<div class="mga-g1__side">{%- endif -%}
         <div class="mga-media mga-g1__item" data-mga-slot="{{ n }}" data-media="{{ media }}">
-          {% render 'media-galleries-a-ph' %}
+          {% render 'media-galleries-a-ph', index: n %}
           <video data-mga-video class="mga-fill" muted loop playsinline autoplay preload="metadata" aria-hidden="true"{% if vid != blank %} src="{{ vid | escape }}"{% else %} hidden{% endif %}></video>
-          <img data-mga-img class="mga-fill"{% if img != blank %} src="{{ img | image_url: width: 1500 }}" srcset="{{ img | image_url: width: 490 }} 490w, {{ img | image_url: width: 750 }} 750w, {{ img | image_url: width: 1100 }} 1100w, {{ img | image_url: width: 1500 }} 1500w" sizes="{{ sizes }}" width="{{ img.width | default: 1500 }}" height="{{ img.height | default: 1500 }}"{% endif %}{% if img == blank or vid != blank %} hidden{% endif %} alt="{{ alt | escape }}" loading="{{ loading }}" decoding="async">
+          <img data-mga-img class="mga-fill"{% if img != blank %} src="{{ img | image_url: width: 1500 }}" srcset="{{ img | image_url: width: 490 }} 490w, {{ img | image_url: width: 750 }} 750w, {{ img | image_url: width: 1100 }} 1100w, {{ img | image_url: width: 1500 }} 1500w" sizes="{{ sizes }}"{% endif %} width="{{ img.width | default: 1500 }}" height="{{ img.height | default: 1500 }}"{% if img == blank or vid != blank %} hidden{% endif %} alt="{{ alt | escape }}" loading="{{ loading }}" decoding="async">
         </div>
         {%- if n == 4 -%}</div>{%- endif -%}
       {%- endfor -%}
@@ -134,7 +134,7 @@
 {
   "name": "Gallery Grid 1",
   "tag": "section",
-  "class": "simple-gallery--gallery-",
+  "class": "simple-gallery--gallery- s-tt",
   "settings": [
     {
       "type": "header",
@@ -144,7 +144,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "checkbox",
@@ -455,8 +455,8 @@
   ],
   "presets": [
     {
-      "name": "Gallery Grid 1",
-      "category": "Image and video"
+      "name": "Gallery – Mosaic",
+      "category": "06 · Gallery & video"
     }
   ]
 }

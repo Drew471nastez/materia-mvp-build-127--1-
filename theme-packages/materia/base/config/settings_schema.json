@@ -2,7 +2,7 @@
   {
     "name": "theme_info",
     "theme_name": "Materia Themes",
-    "theme_version": "1.2.0",
+    "theme_version": "1.3.2",
     "theme_author": "Materia Themes",
     "theme_documentation_url": "https://storelib.com",
     "theme_support_url": "https://storelib.com"
@@ -14,7 +14,8 @@
         "type": "checkbox",
         "id": "enable_demo_images",
         "label": "Show demo pictures",
-        "default": true
+        "info": "Fills some empty pictures with sample photos. Turn off to show plain placeholder drawings wherever a picture is not chosen yet.",
+        "default": false
       }
     ]
   },
@@ -44,9 +45,9 @@
       {
         "type": "range",
         "id": "desktop_logo_width",
-        "min": 30,
+        "min": 28,
         "max": 400,
-        "step": 2,
+        "step": 6,
         "unit": "px",
         "label": "Width on desktop",
         "default": 82
@@ -55,8 +56,8 @@
         "type": "range",
         "id": "mobile_logo_width",
         "min": 30,
-        "max": 300,
-        "step": 2,
+        "max": 298,
+        "step": 4,
         "unit": "px",
         "label": "Width on phones and tablets",
         "default": 82
@@ -72,8 +73,6 @@
         "definition": [
           {
             "type": "header",
-            "id": "page_colors",
-            "label": "Page",
             "content": "Page"
           },
           {
@@ -81,6 +80,12 @@
             "id": "background",
             "label": "Background",
             "default": "#FFFFFF"
+          },
+          {
+            "type": "color_background",
+            "id": "background_gradient",
+            "label": "Background gradient",
+            "info": "Optional. Used instead of the background color where a section supports gradients."
           },
           {
             "type": "color",
@@ -110,18 +115,18 @@
             "type": "color",
             "id": "badge_background",
             "label": "Badge fill",
-            "info": "Optional. Empty follows Primary fill. Product badges custom colours override this only when enabled."
+            "info": "Optional. Empty follows Primary fill. Product badges custom colours override this only when enabled.",
+            "default": "rgba(0,0,0,0)"
           },
           {
             "type": "color",
             "id": "badge_text",
             "label": "Badge text",
-            "info": "Optional. Empty follows Primary text."
+            "info": "Optional. Empty follows Primary text.",
+            "default": "rgba(0,0,0,0)"
           },
           {
             "type": "header",
-            "id": "primary_button_colors",
-            "label": "Primary button",
             "content": "Primary button"
           },
           {
@@ -140,7 +145,8 @@
             "type": "color",
             "id": "btn_primary_border_color",
             "label": "Primary border",
-            "info": "Optional. Empty follows Primary fill. Also used by outlined primary buttons."
+            "info": "Optional. Empty follows Primary fill. Also used by outlined primary buttons.",
+            "default": "rgba(0,0,0,0)"
           },
           {
             "type": "color",
@@ -158,12 +164,11 @@
             "type": "color",
             "id": "btn_primary_hover_border_color",
             "label": "Primary hover border",
-            "info": "Optional. Empty follows Primary hover."
+            "info": "Optional. Empty follows Primary hover.",
+            "default": "rgba(0,0,0,0)"
           },
           {
             "type": "header",
-            "id": "secondary_button_colors",
-            "label": "Secondary button",
             "content": "Secondary button"
           },
           {
@@ -200,13 +205,15 @@
             "type": "color",
             "id": "btn_secondary_hover_border_color",
             "label": "Secondary hover border",
-            "info": "Optional. Empty follows Secondary hover."
+            "info": "Optional. Empty follows Secondary hover.",
+            "default": "rgba(0,0,0,0)"
           }
         ],
         "role": {
           "text": "text_color",
           "background": {
-            "solid": "background"
+            "solid": "background",
+            "gradient": "background_gradient"
           },
           "links": "heading_color",
           "icons": "heading_color",
@@ -357,56 +364,206 @@
         "label": "More fonts",
         "default": "none",
         "options": [
-          { "value": "none", "label": "Use the font picker" },
-          { "value": "Inter", "label": "Inter" },
-          { "value": "Manrope", "label": "Manrope" },
-          { "value": "DM Sans", "label": "DM Sans" },
-          { "value": "Plus Jakarta Sans", "label": "Plus Jakarta Sans" },
-          { "value": "Outfit", "label": "Outfit" },
-          { "value": "Urbanist", "label": "Urbanist" },
-          { "value": "Space Grotesk", "label": "Space Grotesk" },
-          { "value": "Sora", "label": "Sora" },
-          { "value": "Lexend", "label": "Lexend" },
-          { "value": "Work Sans", "label": "Work Sans" },
-          { "value": "Figtree", "label": "Figtree" },
-          { "value": "Onest", "label": "Onest" },
-          { "value": "Geist", "label": "Geist" },
-          { "value": "Montserrat", "label": "Montserrat" },
-          { "value": "Poppins", "label": "Poppins" },
-          { "value": "Raleway", "label": "Raleway" },
-          { "value": "Nunito Sans", "label": "Nunito Sans" },
-          { "value": "Rubik", "label": "Rubik" },
-          { "value": "Karla", "label": "Karla" },
-          { "value": "Archivo", "label": "Archivo" },
-          { "value": "Barlow", "label": "Barlow" },
-          { "value": "Jost", "label": "Jost" },
-          { "value": "Albert Sans", "label": "Albert Sans" },
-          { "value": "Hanken Grotesk", "label": "Hanken Grotesk" },
-          { "value": "Schibsted Grotesk", "label": "Schibsted Grotesk" },
-          { "value": "Instrument Sans", "label": "Instrument Sans" },
-          { "value": "IBM Plex Sans", "label": "IBM Plex Sans" },
-          { "value": "Roboto", "label": "Roboto" },
-          { "value": "Lato", "label": "Lato" },
-          { "value": "Open Sans", "label": "Open Sans" },
-          { "value": "Quicksand", "label": "Quicksand" },
-          { "value": "Mulish", "label": "Mulish" },
-          { "value": "Bricolage Grotesque", "label": "Bricolage Grotesque" },
-          { "value": "Playfair Display", "label": "Playfair Display" },
-          { "value": "Cormorant Garamond", "label": "Cormorant Garamond" },
-          { "value": "Fraunces", "label": "Fraunces" },
-          { "value": "Lora", "label": "Lora" },
-          { "value": "Libre Baskerville", "label": "Libre Baskerville" },
-          { "value": "EB Garamond", "label": "EB Garamond" },
-          { "value": "Source Serif 4", "label": "Source Serif 4" },
-          { "value": "Bodoni Moda", "label": "Bodoni Moda" },
-          { "value": "Libre Caslon Text", "label": "Libre Caslon Text" },
-          { "value": "Merriweather", "label": "Merriweather" },
-          { "value": "Newsreader", "label": "Newsreader" },
-          { "value": "JetBrains Mono", "label": "JetBrains Mono" },
-          { "value": "Space Mono", "label": "Space Mono" },
-          { "value": "Geist Mono", "label": "Geist Mono" },
-          { "value": "Helvetica", "label": "Helvetica (on the device)" },
-          { "value": "Georgia", "label": "Georgia (on the device)" }
+          {
+            "value": "none",
+            "label": "Use the font picker"
+          },
+          {
+            "value": "Inter",
+            "label": "Inter"
+          },
+          {
+            "value": "Manrope",
+            "label": "Manrope"
+          },
+          {
+            "value": "DM Sans",
+            "label": "DM Sans"
+          },
+          {
+            "value": "Plus Jakarta Sans",
+            "label": "Plus Jakarta Sans"
+          },
+          {
+            "value": "Outfit",
+            "label": "Outfit"
+          },
+          {
+            "value": "Urbanist",
+            "label": "Urbanist"
+          },
+          {
+            "value": "Space Grotesk",
+            "label": "Space Grotesk"
+          },
+          {
+            "value": "Sora",
+            "label": "Sora"
+          },
+          {
+            "value": "Lexend",
+            "label": "Lexend"
+          },
+          {
+            "value": "Work Sans",
+            "label": "Work Sans"
+          },
+          {
+            "value": "Figtree",
+            "label": "Figtree"
+          },
+          {
+            "value": "Onest",
+            "label": "Onest"
+          },
+          {
+            "value": "Geist",
+            "label": "Geist"
+          },
+          {
+            "value": "Montserrat",
+            "label": "Montserrat"
+          },
+          {
+            "value": "Poppins",
+            "label": "Poppins"
+          },
+          {
+            "value": "Raleway",
+            "label": "Raleway"
+          },
+          {
+            "value": "Nunito Sans",
+            "label": "Nunito Sans"
+          },
+          {
+            "value": "Rubik",
+            "label": "Rubik"
+          },
+          {
+            "value": "Karla",
+            "label": "Karla"
+          },
+          {
+            "value": "Archivo",
+            "label": "Archivo"
+          },
+          {
+            "value": "Barlow",
+            "label": "Barlow"
+          },
+          {
+            "value": "Jost",
+            "label": "Jost"
+          },
+          {
+            "value": "Albert Sans",
+            "label": "Albert Sans"
+          },
+          {
+            "value": "Hanken Grotesk",
+            "label": "Hanken Grotesk"
+          },
+          {
+            "value": "Schibsted Grotesk",
+            "label": "Schibsted Grotesk"
+          },
+          {
+            "value": "Instrument Sans",
+            "label": "Instrument Sans"
+          },
+          {
+            "value": "IBM Plex Sans",
+            "label": "IBM Plex Sans"
+          },
+          {
+            "value": "Roboto",
+            "label": "Roboto"
+          },
+          {
+            "value": "Lato",
+            "label": "Lato"
+          },
+          {
+            "value": "Open Sans",
+            "label": "Open Sans"
+          },
+          {
+            "value": "Quicksand",
+            "label": "Quicksand"
+          },
+          {
+            "value": "Mulish",
+            "label": "Mulish"
+          },
+          {
+            "value": "Bricolage Grotesque",
+            "label": "Bricolage Grotesque"
+          },
+          {
+            "value": "Playfair Display",
+            "label": "Playfair Display"
+          },
+          {
+            "value": "Cormorant Garamond",
+            "label": "Cormorant Garamond"
+          },
+          {
+            "value": "Fraunces",
+            "label": "Fraunces"
+          },
+          {
+            "value": "Lora",
+            "label": "Lora"
+          },
+          {
+            "value": "Libre Baskerville",
+            "label": "Libre Baskerville"
+          },
+          {
+            "value": "EB Garamond",
+            "label": "EB Garamond"
+          },
+          {
+            "value": "Source Serif 4",
+            "label": "Source Serif 4"
+          },
+          {
+            "value": "Bodoni Moda",
+            "label": "Bodoni Moda"
+          },
+          {
+            "value": "Libre Caslon Text",
+            "label": "Libre Caslon Text"
+          },
+          {
+            "value": "Merriweather",
+            "label": "Merriweather"
+          },
+          {
+            "value": "Newsreader",
+            "label": "Newsreader"
+          },
+          {
+            "value": "JetBrains Mono",
+            "label": "JetBrains Mono"
+          },
+          {
+            "value": "Space Mono",
+            "label": "Space Mono"
+          },
+          {
+            "value": "Geist Mono",
+            "label": "Geist Mono"
+          },
+          {
+            "value": "Helvetica",
+            "label": "Helvetica (on the device)"
+          },
+          {
+            "value": "Georgia",
+            "label": "Georgia (on the device)"
+          }
         ]
       },
       {
@@ -483,66 +640,246 @@
         "label": "More fonts",
         "default": "none",
         "options": [
-          { "value": "none", "label": "Use the font picker" },
-          { "value": "Inter", "label": "Inter" },
-          { "value": "Manrope", "label": "Manrope" },
-          { "value": "DM Sans", "label": "DM Sans" },
-          { "value": "Plus Jakarta Sans", "label": "Plus Jakarta Sans" },
-          { "value": "Outfit", "label": "Outfit" },
-          { "value": "Urbanist", "label": "Urbanist" },
-          { "value": "Space Grotesk", "label": "Space Grotesk" },
-          { "value": "Sora", "label": "Sora" },
-          { "value": "Lexend", "label": "Lexend" },
-          { "value": "Work Sans", "label": "Work Sans" },
-          { "value": "Figtree", "label": "Figtree" },
-          { "value": "Onest", "label": "Onest" },
-          { "value": "Geist", "label": "Geist" },
-          { "value": "Montserrat", "label": "Montserrat" },
-          { "value": "Poppins", "label": "Poppins" },
-          { "value": "Raleway", "label": "Raleway" },
-          { "value": "Nunito Sans", "label": "Nunito Sans" },
-          { "value": "Rubik", "label": "Rubik" },
-          { "value": "Karla", "label": "Karla" },
-          { "value": "Archivo", "label": "Archivo" },
-          { "value": "Barlow", "label": "Barlow" },
-          { "value": "Jost", "label": "Jost" },
-          { "value": "Albert Sans", "label": "Albert Sans" },
-          { "value": "Hanken Grotesk", "label": "Hanken Grotesk" },
-          { "value": "Schibsted Grotesk", "label": "Schibsted Grotesk" },
-          { "value": "Instrument Sans", "label": "Instrument Sans" },
-          { "value": "IBM Plex Sans", "label": "IBM Plex Sans" },
-          { "value": "Roboto", "label": "Roboto" },
-          { "value": "Lato", "label": "Lato" },
-          { "value": "Open Sans", "label": "Open Sans" },
-          { "value": "Quicksand", "label": "Quicksand" },
-          { "value": "Mulish", "label": "Mulish" },
-          { "value": "Bricolage Grotesque", "label": "Bricolage Grotesque" },
-          { "value": "Syne", "label": "Syne" },
-          { "value": "Unbounded", "label": "Unbounded" },
-          { "value": "Bebas Neue", "label": "Bebas Neue" },
-          { "value": "Oswald", "label": "Oswald" },
-          { "value": "Anton", "label": "Anton" },
-          { "value": "Archivo Black", "label": "Archivo Black" },
-          { "value": "Playfair Display", "label": "Playfair Display" },
-          { "value": "Cormorant Garamond", "label": "Cormorant Garamond" },
-          { "value": "DM Serif Display", "label": "DM Serif Display" },
-          { "value": "Fraunces", "label": "Fraunces" },
-          { "value": "Lora", "label": "Lora" },
-          { "value": "Libre Baskerville", "label": "Libre Baskerville" },
-          { "value": "EB Garamond", "label": "EB Garamond" },
-          { "value": "Instrument Serif", "label": "Instrument Serif" },
-          { "value": "Source Serif 4", "label": "Source Serif 4" },
-          { "value": "Bodoni Moda", "label": "Bodoni Moda" },
-          { "value": "Libre Caslon Text", "label": "Libre Caslon Text" },
-          { "value": "Abril Fatface", "label": "Abril Fatface" },
-          { "value": "Merriweather", "label": "Merriweather" },
-          { "value": "Newsreader", "label": "Newsreader" },
-          { "value": "Young Serif", "label": "Young Serif" },
-          { "value": "JetBrains Mono", "label": "JetBrains Mono" },
-          { "value": "Space Mono", "label": "Space Mono" },
-          { "value": "Geist Mono", "label": "Geist Mono" },
-          { "value": "Helvetica", "label": "Helvetica (on the device)" },
-          { "value": "Georgia", "label": "Georgia (on the device)" }
+          {
+            "value": "none",
+            "label": "Use the font picker"
+          },
+          {
+            "value": "Inter",
+            "label": "Inter"
+          },
+          {
+            "value": "Manrope",
+            "label": "Manrope"
+          },
+          {
+            "value": "DM Sans",
+            "label": "DM Sans"
+          },
+          {
+            "value": "Plus Jakarta Sans",
+            "label": "Plus Jakarta Sans"
+          },
+          {
+            "value": "Outfit",
+            "label": "Outfit"
+          },
+          {
+            "value": "Urbanist",
+            "label": "Urbanist"
+          },
+          {
+            "value": "Space Grotesk",
+            "label": "Space Grotesk"
+          },
+          {
+            "value": "Sora",
+            "label": "Sora"
+          },
+          {
+            "value": "Lexend",
+            "label": "Lexend"
+          },
+          {
+            "value": "Work Sans",
+            "label": "Work Sans"
+          },
+          {
+            "value": "Figtree",
+            "label": "Figtree"
+          },
+          {
+            "value": "Onest",
+            "label": "Onest"
+          },
+          {
+            "value": "Geist",
+            "label": "Geist"
+          },
+          {
+            "value": "Montserrat",
+            "label": "Montserrat"
+          },
+          {
+            "value": "Poppins",
+            "label": "Poppins"
+          },
+          {
+            "value": "Raleway",
+            "label": "Raleway"
+          },
+          {
+            "value": "Nunito Sans",
+            "label": "Nunito Sans"
+          },
+          {
+            "value": "Rubik",
+            "label": "Rubik"
+          },
+          {
+            "value": "Karla",
+            "label": "Karla"
+          },
+          {
+            "value": "Archivo",
+            "label": "Archivo"
+          },
+          {
+            "value": "Barlow",
+            "label": "Barlow"
+          },
+          {
+            "value": "Jost",
+            "label": "Jost"
+          },
+          {
+            "value": "Albert Sans",
+            "label": "Albert Sans"
+          },
+          {
+            "value": "Hanken Grotesk",
+            "label": "Hanken Grotesk"
+          },
+          {
+            "value": "Schibsted Grotesk",
+            "label": "Schibsted Grotesk"
+          },
+          {
+            "value": "Instrument Sans",
+            "label": "Instrument Sans"
+          },
+          {
+            "value": "IBM Plex Sans",
+            "label": "IBM Plex Sans"
+          },
+          {
+            "value": "Roboto",
+            "label": "Roboto"
+          },
+          {
+            "value": "Lato",
+            "label": "Lato"
+          },
+          {
+            "value": "Open Sans",
+            "label": "Open Sans"
+          },
+          {
+            "value": "Quicksand",
+            "label": "Quicksand"
+          },
+          {
+            "value": "Mulish",
+            "label": "Mulish"
+          },
+          {
+            "value": "Bricolage Grotesque",
+            "label": "Bricolage Grotesque"
+          },
+          {
+            "value": "Syne",
+            "label": "Syne"
+          },
+          {
+            "value": "Unbounded",
+            "label": "Unbounded"
+          },
+          {
+            "value": "Bebas Neue",
+            "label": "Bebas Neue"
+          },
+          {
+            "value": "Oswald",
+            "label": "Oswald"
+          },
+          {
+            "value": "Anton",
+            "label": "Anton"
+          },
+          {
+            "value": "Archivo Black",
+            "label": "Archivo Black"
+          },
+          {
+            "value": "Playfair Display",
+            "label": "Playfair Display"
+          },
+          {
+            "value": "Cormorant Garamond",
+            "label": "Cormorant Garamond"
+          },
+          {
+            "value": "DM Serif Display",
+            "label": "DM Serif Display"
+          },
+          {
+            "value": "Fraunces",
+            "label": "Fraunces"
+          },
+          {
+            "value": "Lora",
+            "label": "Lora"
+          },
+          {
+            "value": "Libre Baskerville",
+            "label": "Libre Baskerville"
+          },
+          {
+            "value": "EB Garamond",
+            "label": "EB Garamond"
+          },
+          {
+            "value": "Instrument Serif",
+            "label": "Instrument Serif"
+          },
+          {
+            "value": "Source Serif 4",
+            "label": "Source Serif 4"
+          },
+          {
+            "value": "Bodoni Moda",
+            "label": "Bodoni Moda"
+          },
+          {
+            "value": "Libre Caslon Text",
+            "label": "Libre Caslon Text"
+          },
+          {
+            "value": "Abril Fatface",
+            "label": "Abril Fatface"
+          },
+          {
+            "value": "Merriweather",
+            "label": "Merriweather"
+          },
+          {
+            "value": "Newsreader",
+            "label": "Newsreader"
+          },
+          {
+            "value": "Young Serif",
+            "label": "Young Serif"
+          },
+          {
+            "value": "JetBrains Mono",
+            "label": "JetBrains Mono"
+          },
+          {
+            "value": "Space Mono",
+            "label": "Space Mono"
+          },
+          {
+            "value": "Geist Mono",
+            "label": "Geist Mono"
+          },
+          {
+            "value": "Helvetica",
+            "label": "Helvetica (on the device)"
+          },
+          {
+            "value": "Georgia",
+            "label": "Georgia (on the device)"
+          }
         ]
       },
       {
@@ -664,7 +1001,7 @@
         "type": "select",
         "id": "menu_hover_style",
         "label": "Menu link hover (now in Header)",
-        "info": "Set in the Header section, Main navigation. Kept for the header's Keep previous choice.",
+        "info": "Now set in the Header section, under Main navigation.",
         "visible_if": "{{ false }}",
         "default": "underline",
         "options": [
@@ -911,12 +1248,11 @@
         "id": "language_rtl",
         "label": "Right-to-left languages",
         "default": "ar,iw,he,ur,ug"
-      }
-    ]
-  },
-  {
-    "name": "Scale",
-    "settings": [
+      },
+      {
+        "type": "header",
+        "content": "Scale"
+      },
       {
         "type": "paragraph",
         "content": "Makes the theme's text, buttons, fields and spacing bigger or smaller together, for each screen size. A size set in a section's own settings stays as set. At 100% the site looks exactly as designed."
@@ -1465,44 +1801,6 @@
         "info": "Optional. Empty follows the scheme accent color."
       },
       {
-        "type": "range",
-        "id": "field_font_size",
-        "label": "Font size (no effect)",
-        "info": "Fields follow Typography > Body text.",
-        "min": 13,
-        "max": 20,
-        "step": 1,
-        "unit": "px",
-        "default": 16,
-        "visible_if": "{{ false }}"
-      },
-      {
-        "type": "select",
-        "id": "field_label_weight",
-        "label": "Label weight (no effect)",
-        "info": "Fields follow Typography > Body text.",
-        "default": "500",
-        "options": [
-          {
-            "value": "400",
-            "label": "Regular"
-          },
-          {
-            "value": "500",
-            "label": "Medium"
-          },
-          {
-            "value": "600",
-            "label": "Semibold"
-          },
-          {
-            "value": "700",
-            "label": "Bold"
-          }
-        ],
-        "visible_if": "{{ false }}"
-      },
-      {
         "type": "header",
         "content": "Quantity controls"
       },
@@ -1565,7 +1863,7 @@
             "label": "Modern"
           }
         ],
-        "info": "Standard puts the add to cart button on the picture; Modern puts an outline button under the details."
+        "info": "Standard: button on the picture. Modern: below the details."
       },
       {
         "type": "select",
@@ -1628,12 +1926,28 @@
         "type": "text",
         "id": "product_custom_ratio",
         "label": "Custom ratio",
-        "info": "Width:height, for example 4:5. Used when Image ratio is Custom."
+        "info": "Width:height, e.g. 4:5."
       },
       {
         "type": "checkbox",
         "id": "show_secondary_image",
         "label": "Show second image on hover"
+      },
+      {
+        "type": "checkbox",
+        "id": "card_image_slider",
+        "label": "Image slider",
+        "default": true,
+        "info": "Replaces the second image on hover."
+      },
+      {
+        "type": "range",
+        "id": "card_image_slider_max",
+        "label": "Pictures in the slider",
+        "min": 2,
+        "max": 8,
+        "step": 1,
+        "default": 5
       },
       {
         "type": "select",
@@ -1696,14 +2010,14 @@
         "unit": "px",
         "label": "Title size",
         "default": 14,
-        "info": "Applies with Enable custom card styling on; off, titles follow the theme's text size."
+        "info": "Needs custom card styling on."
       },
       {
         "type": "select",
         "id": "product_name_text_transform",
         "label": "Title case",
         "default": "unset",
-        "info": "Applies with Enable custom card styling on; off, titles follow the theme's heading case.",
+        "info": "Needs custom card styling on.",
         "options": [
           {
             "value": "unset",
@@ -1752,7 +2066,7 @@
         "unit": "px",
         "label": "Price size",
         "default": 14,
-        "info": "Applies with Enable custom card styling on; off, prices follow the theme's text size."
+        "info": "Needs custom card styling on."
       },
       {
         "type": "checkbox",
@@ -1763,30 +2077,27 @@
         "type": "checkbox",
         "id": "show_vendor",
         "label": "Show vendor",
-        "default": true,
-        "info": "No effect on Storelib: products have no vendor."
+        "default": true
       },
       {
         "type": "checkbox",
         "id": "show_short_description",
-        "label": "Show short description",
-        "info": "The product's short description field, or the start of its description."
+        "label": "Show short description"
       },
       {
         "type": "range",
         "id": "short_description_words",
-        "label": "Short description: length",
+        "label": "Short description: length (words)",
         "min": 5,
         "max": 40,
         "step": 1,
-        "unit": "words",
         "default": 15
       },
       {
         "type": "checkbox",
         "id": "show_rate",
         "label": "Show rating",
-        "info": "No effect on Storelib: the stars need review data, which Storelib products do not have.",
+        "info": "Needs a reviews app.",
         "default": true
       },
       {
@@ -1828,13 +2139,49 @@
           }
         ],
         "default": "auto",
-        "info": "Applies with Enable custom card styling on; off, the card's add to cart is the theme's primary button. Style default: the Standard card uses the primary button, the Modern card the outline one. Primary and Secondary are the buttons from Theme settings > Buttons (style, hover, type) in the card's colour scheme."
+        "info": "Needs custom card styling on."
+      },
+      {
+        "type": "select",
+        "id": "card_multi_variant_action",
+        "label": "Add to cart on products with options",
+        "default": "quick_view",
+        "options": [
+          {
+            "value": "quick_view",
+            "label": "Select options in quick view"
+          },
+          {
+            "value": "add_first",
+            "label": "Add the selected option"
+          },
+          {
+            "value": "product_page",
+            "label": "Open the product page"
+          }
+        ]
+      },
+      {
+        "type": "select",
+        "id": "card_options_label",
+        "label": "Button label on products with options",
+        "default": "select_options",
+        "options": [
+          {
+            "value": "select_options",
+            "label": "Select options"
+          },
+          {
+            "value": "add_to_cart",
+            "label": "Add to cart"
+          }
+        ]
       },
       {
         "type": "checkbox",
         "id": "enable_catalog_mode",
         "label": "Catalog mode",
-        "info": "Hides add to cart on cards and product pages."
+        "info": "Hides add to cart everywhere."
       },
       {
         "type": "checkbox",
@@ -1854,6 +2201,77 @@
       },
       {
         "type": "header",
+        "content": "Card buttons"
+      },
+      {
+        "type": "checkbox",
+        "id": "card_show_quickview",
+        "label": "Show quick view",
+        "default": true
+      },
+      {
+        "type": "select",
+        "id": "card_actions_layout",
+        "label": "Button position",
+        "default": "side",
+        "info": "Phones and tablets always use the side column.",
+        "options": [
+          {
+            "value": "side",
+            "label": "Side of image (stacked)"
+          },
+          {
+            "value": "bottom",
+            "label": "Bottom of image (row)"
+          }
+        ]
+      },
+      {
+        "type": "select",
+        "id": "card_actions_reveal",
+        "label": "Show buttons",
+        "default": "hover",
+        "info": "Also applies to the add to cart bar.",
+        "options": [
+          {
+            "value": "hover",
+            "label": "On hover (always on touch screens)"
+          },
+          {
+            "value": "always",
+            "label": "Always"
+          }
+        ]
+      },
+      {
+        "type": "checkbox",
+        "id": "card_actions_tooltips",
+        "label": "Show tooltips",
+        "default": true
+      },
+      {
+        "type": "range",
+        "id": "card_actions_size",
+        "label": "Button size",
+        "min": 34,
+        "max": 56,
+        "step": 2,
+        "unit": "px",
+        "default": 44
+      },
+      {
+        "type": "color",
+        "id": "card_actions_hover_bg",
+        "label": "Button hover background",
+        "info": "Empty follows the colour scheme."
+      },
+      {
+        "type": "color",
+        "id": "card_actions_hover_icon",
+        "label": "Button hover icon"
+      },
+      {
+        "type": "header",
         "content": "Custom colours"
       },
       {
@@ -1861,7 +2279,7 @@
         "id": "enable_custom_card_actions",
         "label": "Enable custom card styling",
         "default": false,
-        "info": "Off: card text, buttons and colours follow the theme typography, Buttons and colour scheme. On: enable the card-specific overrides below and in Content. Layout and product visibility are independent."
+        "info": "Off: cards follow the theme's fonts, buttons and colours."
       },
       {
         "type": "header",
@@ -1962,6 +2380,318 @@
         "type": "color",
         "id": "card_close_hover_color",
         "label": "Hover icon"
+      }
+    ]
+  },
+  {
+    "name": "Quick view",
+    "settings": [
+      {
+        "type": "color_scheme",
+        "id": "qv_color_scheme",
+        "label": "Color scheme",
+        "default": "scheme-1"
+      },
+      {
+        "type": "select",
+        "id": "qv_image_fit",
+        "label": "Image fit",
+        "default": "cover",
+        "options": [
+          {
+            "value": "cover",
+            "label": "Fill (crop)"
+          },
+          {
+            "value": "contain",
+            "label": "Fit (whole image)"
+          }
+        ]
+      },
+      {
+        "type": "checkbox",
+        "id": "qv_show_rating",
+        "label": "Show rating",
+        "default": true,
+        "info": "Uses the standard reviews rating metafields. Hidden without reviews."
+      },
+      {
+        "type": "checkbox",
+        "id": "qv_show_description",
+        "label": "Show description",
+        "default": true
+      },
+      {
+        "type": "range",
+        "id": "qv_description_words",
+        "label": "Description length",
+        "min": 10,
+        "max": 60,
+        "step": 5,
+        "unit": "wds",
+        "default": 30
+      },
+      {
+        "type": "checkbox",
+        "id": "qv_show_quantity",
+        "label": "Show quantity selector",
+        "default": true
+      },
+      {
+        "type": "checkbox",
+        "id": "qv_show_wishlist",
+        "label": "Show wishlist heart",
+        "default": true
+      },
+      {
+        "type": "checkbox",
+        "id": "qv_show_buy_now",
+        "label": "Show Buy it now",
+        "default": true
+      },
+      {
+        "type": "checkbox",
+        "id": "qv_show_terms",
+        "label": "Require terms checkbox for Buy it now",
+        "default": false
+      },
+      {
+        "type": "inline_richtext",
+        "id": "qv_terms_text",
+        "label": "Terms checkbox text",
+        "info": "Leave blank to use the cart drawer's agreement text and link."
+      },
+      {
+        "type": "checkbox",
+        "id": "qv_show_details_link",
+        "label": "Show View full details link",
+        "default": true
+      },
+      {
+        "type": "header",
+        "content": "Benefits"
+      },
+      {
+        "type": "checkbox",
+        "id": "qv_show_benefits",
+        "label": "Show benefits",
+        "default": true,
+        "info": "A short list under the buy buttons."
+      },
+      {
+        "type": "select",
+        "id": "qv_benefit_1_icon",
+        "label": "Benefit 1 icon",
+        "default": "truck",
+        "options": [
+          {
+            "value": "check",
+            "label": "Check"
+          },
+          {
+            "value": "truck",
+            "label": "Truck"
+          },
+          {
+            "value": "return",
+            "label": "Return"
+          },
+          {
+            "value": "shield",
+            "label": "Shield"
+          },
+          {
+            "value": "leaf",
+            "label": "Leaf"
+          },
+          {
+            "value": "star",
+            "label": "Star"
+          },
+          {
+            "value": "clock",
+            "label": "Clock"
+          },
+          {
+            "value": "lock",
+            "label": "Lock"
+          },
+          {
+            "value": "gift",
+            "label": "Gift"
+          },
+          {
+            "value": "heart",
+            "label": "Heart"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "id": "qv_benefit_1_text",
+        "label": "Benefit 1 text",
+        "default": "Fast shipping"
+      },
+      {
+        "type": "select",
+        "id": "qv_benefit_2_icon",
+        "label": "Benefit 2 icon",
+        "default": "return",
+        "options": [
+          {
+            "value": "check",
+            "label": "Check"
+          },
+          {
+            "value": "truck",
+            "label": "Truck"
+          },
+          {
+            "value": "return",
+            "label": "Return"
+          },
+          {
+            "value": "shield",
+            "label": "Shield"
+          },
+          {
+            "value": "leaf",
+            "label": "Leaf"
+          },
+          {
+            "value": "star",
+            "label": "Star"
+          },
+          {
+            "value": "clock",
+            "label": "Clock"
+          },
+          {
+            "value": "lock",
+            "label": "Lock"
+          },
+          {
+            "value": "gift",
+            "label": "Gift"
+          },
+          {
+            "value": "heart",
+            "label": "Heart"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "id": "qv_benefit_2_text",
+        "label": "Benefit 2 text",
+        "default": "Easy returns"
+      },
+      {
+        "type": "select",
+        "id": "qv_benefit_3_icon",
+        "label": "Benefit 3 icon",
+        "default": "lock",
+        "options": [
+          {
+            "value": "check",
+            "label": "Check"
+          },
+          {
+            "value": "truck",
+            "label": "Truck"
+          },
+          {
+            "value": "return",
+            "label": "Return"
+          },
+          {
+            "value": "shield",
+            "label": "Shield"
+          },
+          {
+            "value": "leaf",
+            "label": "Leaf"
+          },
+          {
+            "value": "star",
+            "label": "Star"
+          },
+          {
+            "value": "clock",
+            "label": "Clock"
+          },
+          {
+            "value": "lock",
+            "label": "Lock"
+          },
+          {
+            "value": "gift",
+            "label": "Gift"
+          },
+          {
+            "value": "heart",
+            "label": "Heart"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "id": "qv_benefit_3_text",
+        "label": "Benefit 3 text",
+        "default": "Secure checkout"
+      },
+      {
+        "type": "select",
+        "id": "qv_benefit_4_icon",
+        "label": "Benefit 4 icon",
+        "default": "check",
+        "options": [
+          {
+            "value": "check",
+            "label": "Check"
+          },
+          {
+            "value": "truck",
+            "label": "Truck"
+          },
+          {
+            "value": "return",
+            "label": "Return"
+          },
+          {
+            "value": "shield",
+            "label": "Shield"
+          },
+          {
+            "value": "leaf",
+            "label": "Leaf"
+          },
+          {
+            "value": "star",
+            "label": "Star"
+          },
+          {
+            "value": "clock",
+            "label": "Clock"
+          },
+          {
+            "value": "lock",
+            "label": "Lock"
+          },
+          {
+            "value": "gift",
+            "label": "Gift"
+          },
+          {
+            "value": "heart",
+            "label": "Heart"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "id": "qv_benefit_4_text",
+        "label": "Benefit 4 text"
       }
     ]
   },
@@ -2715,7 +3445,7 @@
         "type": "checkbox",
         "id": "cart_bubble_custom",
         "label": "Custom bubble style",
-        "info": "Off: follows Theme settings > Count bubble. An empty colour also follows it.",
+        "info": "Off: uses Theme settings > Count bubble.",
         "default": false
       },
       {
@@ -2759,6 +3489,33 @@
             "label": "Continue shopping only"
           }
         ]
+      },
+      {
+        "type": "select",
+        "id": "cart_checkout_label",
+        "label": "Checkout button text",
+        "default": "checkout",
+        "options": [
+          {
+            "value": "checkout",
+            "label": "Checkout"
+          },
+          {
+            "value": "checkout_price",
+            "label": "Checkout · price"
+          },
+          {
+            "value": "custom",
+            "label": "Custom text"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "id": "cart_checkout_custom_text",
+        "label": "Custom checkout text",
+        "default": "Secure checkout",
+        "info": "Add [price] to show the subtotal."
       },
       {
         "type": "header",
@@ -2817,13 +3574,6 @@
       },
       {
         "type": "checkbox",
-        "id": "show_estimate_shipping_rates",
-        "label": "Shipping rates (older switch)",
-        "info": "No effect. Show shipping estimate above turns the estimate on.",
-        "default": true
-      },
-      {
-        "type": "checkbox",
         "id": "enable_gift_wrap",
         "label": "Show gift wrap",
         "default": true
@@ -2834,16 +3584,8 @@
         "label": "Gift wrap: product"
       },
       {
-        "type": "checkbox",
-        "id": "show_cart_terms_drawer",
-        "label": "Terms (older switch)",
-        "info": "No effect. Checkout agreement above sets the drawer's terms box.",
-        "default": true
-      },
-      {
         "type": "header",
-        "content": "Free shipping message",
-        "info": "Uses the shipping rates set up for the store."
+        "content": "Free shipping message"
       },
       {
         "type": "checkbox",
@@ -2854,18 +3596,36 @@
       {
         "type": "text",
         "id": "free_shipping_minimum",
-        "label": "Free-shipping order amount"
+        "label": "Free-shipping order amount",
+        "info": "In your store currency, e.g. 75."
+      },
+      {
+        "type": "select",
+        "id": "free_shipping_bar_style",
+        "label": "Free-shipping bar style",
+        "options": [
+          {
+            "value": "truck",
+            "label": "Truck on the bar"
+          },
+          {
+            "value": "minimal",
+            "label": "Minimal"
+          }
+        ],
+        "default": "truck",
+        "info": "Also used on the cart page."
       },
       {
         "type": "checkbox",
         "id": "cart_freeship_custom_color_enable",
-        "label": "Use a custom fill color for the free-shipping progress bar",
+        "label": "Custom progress fill color",
         "default": false
       },
       {
         "type": "color",
         "id": "cart_freeship_fill_color",
-        "label": "Free-shipping bar fill color",
+        "label": "Progress fill color",
         "default": "#14854E"
       },
       {
@@ -2893,12 +3653,6 @@
         "content": "Product recommendations"
       },
       {
-        "type": "checkbox",
-        "id": "cart_drawer_recommendations",
-        "label": "Show product recommendations",
-        "default": true
-      },
-      {
         "type": "text",
         "id": "product_recommendations_heading",
         "label": "Heading",
@@ -2907,32 +3661,26 @@
       {
         "type": "select",
         "id": "minicart_type",
-        "label": "Product recommendations",
+        "label": "Show recommendations",
         "default": "show_inside",
         "options": [
           {
             "value": "disable",
-            "label": "Disable"
+            "label": "Off"
           },
           {
             "value": "show_inside",
-            "label": "Show inside cart drawer"
+            "label": "Cart drawer"
           },
           {
             "value": "show_on_cart_page",
-            "label": "Show on cart page"
+            "label": "Cart page"
           },
           {
             "value": "show_both",
-            "label": "Show on both (drawer + cart page)"
+            "label": "Cart drawer and cart page"
           }
         ]
-      },
-      {
-        "type": "checkbox",
-        "id": "show_on_cart_page",
-        "label": "Cart page (older switch)",
-        "info": "No effect. Shopping Cart > Show product recommendations sets the cart page."
       },
       {
         "type": "select",
@@ -2968,13 +3716,17 @@
       {
         "type": "select",
         "id": "cart_drawer_recommend_pagination",
-        "label": "Recommendation navigation",
-        "info": "Swipe on phones and tablets. Indicators are hidden when there is only one product. Desktop also has previous and next buttons.",
-        "default": "dots",
+        "label": "Recommendation arrows",
+        "default": "arrows",
         "options": [
-          { "value": "dots", "label": "Dots" },
-          { "value": "progress", "label": "Progress" },
-          { "value": "none", "label": "None" }
+          {
+            "value": "arrows",
+            "label": "Arrows"
+          },
+          {
+            "value": "none",
+            "label": "None (swipe only)"
+          }
         ]
       },
       {
@@ -3158,7 +3910,7 @@
         "type": "textarea",
         "id": "cd_trust1_svg",
         "label": "Badge 1: custom SVG",
-        "info": "Used instead of the icon while Use custom SVG icons is on."
+        "info": "Replaces the icon when custom SVG icons are on."
       },
       {
         "type": "text",
@@ -3562,7 +4314,7 @@
       },
       {
         "type": "header",
-        "content": "Money-saved highlight (auto from compare-at prices)"
+        "content": "Money-saved highlight (from compare-at prices)"
       },
       {
         "type": "checkbox",
@@ -3932,6 +4684,22 @@
         "default": "Pay securely with"
       },
       {
+        "type": "select",
+        "id": "cd_payments_source",
+        "label": "Payment icons",
+        "default": "manual",
+        "options": [
+          {
+            "value": "manual",
+            "label": "Picked below"
+          },
+          {
+            "value": "store",
+            "label": "Store's enabled payment methods"
+          }
+        ]
+      },
+      {
         "type": "checkbox",
         "id": "cd_payments_show_visa",
         "label": "Visa",
@@ -4055,13 +4823,6 @@
         "step": 1,
         "unit": "px",
         "default": 10
-      },
-      {
-        "type": "checkbox",
-        "id": "show_cart_terms_page",
-        "label": "Cart page terms (older switch)",
-        "info": "No effect. Shopping Cart > Checkout agreement sets the cart page's terms box.",
-        "default": true
       }
     ]
   },
@@ -4115,19 +4876,8 @@
         "type": "checkbox",
         "id": "cart_page_show_estimate_shipping_rates",
         "label": "Show shipping estimate",
-        "default": true
-      },
-      {
-        "type": "textarea",
-        "id": "shipping_estimate_rates",
-        "label": "Shipping rates",
-        "info": "For the shipping estimate in the cart page and drawer. One line per rate: country codes, =, the price. Example: DE, AT, FR = 4.90 and * = 9.90 for every other country. A country with no line is told shipping is calculated at checkout."
-      },
-      {
-        "type": "text",
-        "id": "shipping_estimate_delivery",
-        "label": "Delivery time",
-        "info": "Shown with the rate, for example 2 to 4 working days. Optional."
+        "default": true,
+        "info": "Rates come from your shipping settings in Storelib, for the countries you sell to."
       },
       {
         "type": "checkbox",
@@ -4351,21 +5101,14 @@
             "label": "Drawer"
           },
           {
+            "value": "centered",
+            "label": "Centered popup"
+          },
+          {
             "value": "none",
             "label": "Search page only"
           }
         ]
-      },
-      {
-        "type": "range",
-        "id": "search_popup_height",
-        "label": "Popup: vertical spacing",
-        "info": "No effect. The popup opens in the header bar, as tall as the header.",
-        "min": 0,
-        "max": 300,
-        "step": 10,
-        "unit": "px",
-        "default": 200
       },
       {
         "type": "select",
@@ -4390,6 +5133,31 @@
             "label": "Blur"
           }
         ]
+      },
+      {
+        "type": "header",
+        "content": "Centered popup"
+      },
+      {
+        "type": "checkbox",
+        "id": "search_centered_recent",
+        "label": "Show recently viewed",
+        "default": true
+      },
+      {
+        "type": "collection",
+        "id": "search_centered_collection",
+        "label": "Products before typing",
+        "info": "Empty: newest products."
+      },
+      {
+        "type": "range",
+        "id": "search_centered_products",
+        "label": "Products shown",
+        "min": 2,
+        "max": 12,
+        "step": 1,
+        "default": 8
       },
       {
         "type": "header",
@@ -4802,7 +5570,7 @@
         "max": 1400,
         "step": 50,
         "unit": "ms",
-        "default": 700
+        "default": 600
       },
       {
         "type": "range",
@@ -4901,11 +5669,20 @@
         "label": "Page change",
         "default": "fade",
         "options": [
-          { "value": "fade", "label": "Fade" },
-          { "value": "rise", "label": "Rise" },
-          { "value": "none", "label": "None" }
+          {
+            "value": "fade",
+            "label": "Fade"
+          },
+          {
+            "value": "rise",
+            "label": "Rise"
+          },
+          {
+            "value": "none",
+            "label": "None"
+          }
         ],
-        "info": "How one page hands over to the next on the live site. None swaps at once. Needs Snappier page navigation."
+        "info": "How one page hands over to the next on the live site. Fade cross-fades the pages with no blank frame; the announcement bars and header always hold still. Needs Snappier page navigation."
       },
       {
         "type": "range",
@@ -5058,6 +5835,13 @@
       },
       {
         "type": "checkbox",
+        "id": "cookie_only_where_required",
+        "label": "Only where the law requires it",
+        "info": "Shows the banner only where the visitor's region needs one, when the store can tell, and skips it when the visitor already chose.",
+        "default": true
+      },
+      {
+        "type": "checkbox",
         "id": "cookie_show_in_builder",
         "label": "Show in the builder",
         "info": "Preview only. Visitors still see it once, until they choose.",
@@ -5103,13 +5887,14 @@
         "type": "checkbox",
         "id": "cookie_modal_backdrop",
         "label": "Dim the page behind",
+        "info": "Shades the page while the banner is open, at every position. A click on the shade closes it, unless visitors must choose.",
         "default": true
       },
       {
         "type": "checkbox",
         "id": "cookie_require_choice",
         "label": "Visitors must choose",
-        "info": "Escape and the close button do not dismiss it.",
+        "info": "Escape, the close button and a click on the shade do not dismiss it: only Accept, Decline or Save do.",
         "default": false
       },
       {
@@ -5156,8 +5941,54 @@
       },
       {
         "type": "select",
-        "id": "cookie_style",
+        "id": "cookie_look",
         "label": "Look",
+        "default": "standard",
+        "options": [
+          {
+            "value": "standard",
+            "label": "Standard"
+          },
+          {
+            "value": "minimal",
+            "label": "Minimal"
+          },
+          {
+            "value": "glass",
+            "label": "Frosted glass"
+          },
+          {
+            "value": "dark",
+            "label": "Dark"
+          }
+        ],
+        "info": "The style only; Position decides where it sits. Colours come from the colour scheme below; Dark and Frosted glass paint their own."
+      },
+      {
+        "type": "range",
+        "id": "cookie_radius",
+        "label": "Corner radius",
+        "min": 0,
+        "max": 24,
+        "step": 1,
+        "unit": "px",
+        "default": 14,
+        "info": "Cards, the centred modal and the bottom centre bar. Full-width bars stay square."
+      },
+      {
+        "type": "range",
+        "id": "cookie_max_width",
+        "label": "Bottom centre bar width",
+        "min": 480,
+        "max": 1200,
+        "step": 20,
+        "unit": "px",
+        "default": 720
+      },
+      {
+        "type": "select",
+        "id": "cookie_style",
+        "label": "Look (earlier version)",
         "default": "bar-center",
         "options": [
           {
@@ -5193,7 +6024,8 @@
             "label": "Standard (top bar)"
           }
         ],
-        "info": "Colours come from the colour scheme below; Dark and Frosted glass paint their own."
+        "info": "Kept so a look saved before is read: its placement looks (bar, card, top bar) still place the banner while Position is Bottom centre bar.",
+        "visible_if": "{{ false }}"
       },
       {
         "type": "header",
@@ -5227,6 +6059,49 @@
         "id": "label_refuse",
         "label": "Decline button label",
         "info": "Empty shows \"Decline\"."
+      },
+      {
+        "type": "checkbox",
+        "id": "cookie_show_preferences",
+        "label": "Show preferences button",
+        "info": "Lets visitors choose analytics, marketing and personalisation cookies one by one.",
+        "default": true
+      },
+      {
+        "type": "text",
+        "id": "label_preferences",
+        "label": "Preferences button label",
+        "default": "Preferences"
+      },
+      {
+        "type": "text",
+        "id": "label_save",
+        "label": "Save button label",
+        "default": "Save choices"
+      },
+      {
+        "type": "text",
+        "id": "cookie_pref_necessary",
+        "label": "Necessary cookies label",
+        "default": "Necessary (always on)"
+      },
+      {
+        "type": "text",
+        "id": "cookie_pref_analytics",
+        "label": "Analytics cookies label",
+        "default": "Analytics"
+      },
+      {
+        "type": "text",
+        "id": "cookie_pref_marketing",
+        "label": "Marketing cookies label",
+        "default": "Marketing"
+      },
+      {
+        "type": "text",
+        "id": "cookie_pref_preferences",
+        "label": "Personalisation cookies label",
+        "default": "Personalisation"
       },
       {
         "type": "text",

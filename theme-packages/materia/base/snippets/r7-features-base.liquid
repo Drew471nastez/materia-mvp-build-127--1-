@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. The CSS Feature Timeline and Guarantee Banner share: the
   section root (.r7s: colour scheme background, section width, Show on,
   margins and padding), the eyebrow, heading and subheading blocks (.r7h) and
@@ -8,7 +8,13 @@
   (container query at 750px); margins and Show on follow the window.
     sid   section.id
     st    section.settings
-{%- endcomment -%}
+
+  @param {string} sid - Section id, used to scope CSS and element ids
+  @param {object} st - Section settings object
+
+  @example
+  {% render 'r7-features-base', sid: sid, st: st %}
+{%- enddoc -%}
 <style data-rs-bulletproof>
   #shopify-section-{{ sid }} > .r7s[data-reset_spacing='true'] { margin-top: 0 !important; margin-bottom: 0 !important; }
   #shopify-section-{{ sid }}:has(> .r7s[data-reset_spacing='true']) { margin-top: 0 !important; margin-bottom: 0 !important; }

@@ -87,7 +87,7 @@
     if (section.__ctReveal) return;
     section.__ctReveal = true;
     var animation = section.getAttribute('data-ct-animation');
-    if (document.body.classList.contains('shopify-design-mode') || !('IntersectionObserver' in window)) {
+    if (window.mtIsRedraw?.(section) || !('IntersectionObserver' in window)) {
       section.classList.add('is-revealed');
     } else if (animation && animation !== 'none') {
       // Shown by default. The first report says where it is: in or above the

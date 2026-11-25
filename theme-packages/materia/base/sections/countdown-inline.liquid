@@ -1,4 +1,4 @@
-<script src="{{ 'live-countdown.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-countdown.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-countdown-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%}
   Materia Themes. Countdown Timer Inline: one bar with an eyebrow chip, a
@@ -18,7 +18,7 @@
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign own = st.enable_custom_style
   assign fonts = st.enable_custom_fonts
   assign shape = false
@@ -197,7 +197,8 @@
   </div>
 </section>{% schema %}
 {
-  "name": "Countdown Timer Inline",
+  "class": "s-tt",
+"name": "Countdown Timer Inline",
   "settings": [
     {
       "type": "header",
@@ -207,7 +208,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -267,7 +268,6 @@
       "type": "text",
       "id": "end_iso",
       "label": "End date and time",
-      "default": "",
       "info": "Format: 2026-12-31T23:59:00, or 2026-12-31T23:59:00+02:00 for one moment everywhere. An impossible date such as 2026-02-30 hides the timer. A date with an offset (+02:00) stays fixed; one without counts to the visitor's own clock.",
       "placeholder": "2026-12-31T23:59:00"
     },
@@ -957,7 +957,6 @@
           "type": "color",
           "id": "color",
           "label": "Colour",
-          "default": "",
           "visible_if": "{{ block.settings.enable_custom_style }}"
         },
         {
@@ -1000,8 +999,8 @@
   ],
   "presets": [
     {
-      "name": "Countdown Timer Inline",
-      "category": "Countdowns",
+      "name": "Countdown – Inline Bar",
+      "category": "08 · Promotions & countdowns",
       "blocks": [
         {
           "type": "eyebrow"

@@ -264,21 +264,10 @@
     });
   }
   document.addEventListener('materia:card-settings-applied', () => syncButtons());
-  /* Search opens from the header: --search-top is the header's bottom edge
-     at the moment it opens (0 when the header is out of view). */
-  const searchTop = () => {
-    const header = document.querySelector('.section-header header.header, header.header');
-    const bottom = header ? header.getBoundingClientRect().bottom : 0;
-    const top = bottom > 0 && bottom < innerHeight * 0.6 ? Math.round(bottom) : 0;
-    document.documentElement.style.setProperty('--search-top', top + 'px');
-  };
-  let searchOpen = document.documentElement.classList.contains('open-search');
-  new MutationObserver(() => {
-    const open = document.documentElement.classList.contains('open-search');
-    if (open && !searchOpen) searchTop();
-    searchOpen = open;
-  }).observe(document.documentElement, {attributes: true, attributeFilter: ['class']});
-  addEventListener('resize', () => { if (searchOpen) searchTop(); }, {passive: true});
+  /* Search placement is measured by theme.js (placePopup sets --sh-height on
+     the search panel itself). Nothing reads a page-wide --search-top, and
+     writing a custom property on <html> restyled every element of the page
+     on each search open (300-800ms at 4x CPU), so it is no longer written. */
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => syncButtons(), {once:true});
   const sectionButtons = event => {
     const id = event.detail?.sectionId;
@@ -300,18 +289,9 @@
     const changed = event.detail?.settings;
     if (!changed || ['btn_style','btn_secondary_style','btn_hover_effect','storelib_button_hover_effect','btn_font_weight'].some(key => Object.prototype.hasOwnProperty.call(changed,key))) syncButtons();
     if (changed && Object.prototype.hasOwnProperty.call(changed, 'cart_drawer_recommend_pagination')) {
-      const mode = ['dots','progress','none'].includes(changed.cart_drawer_recommend_pagination) ? changed.cart_drawer_recommend_pagination : 'dots';
-      document.querySelectorAll('.swiper-cart-upsell').forEach(slider => {
-        slider.dataset.recommendPagination = mode;
-        slider.dataset.paginationProgressbar = String(mode === 'progress');
-        const swiper = slider.globalSlide;
-        if (!swiper?.pagination) return;
-        swiper.pagination.destroy();
-        swiper.params.pagination.type = mode === 'progress' ? 'progressbar' : 'bullets';
-        swiper.pagination.init();
-        swiper.pagination.render();
-        swiper.pagination.update();
-      });
+      // Cart Drawer > Recommendation arrows: "arrows" or "none" (swipe only).
+      const hide = changed.cart_drawer_recommend_pagination === 'none';
+      document.querySelectorAll('#minicart_wrapper .cart-rec__arrows').forEach(arrows => { arrows.hidden = hide; });
     }
   });
   new MutationObserver(records => {
@@ -333,7 +313,8 @@
     try { subscribe = form.matches('form.newsletter-form, form.footer__newsletter, form[data-storelib-form="subscribe"], form:has(input[name="contact[email]"])'); }
     catch (_) { subscribe = form.matches('form.newsletter-form, form.footer__newsletter, form[data-storelib-form="subscribe"]') || (form.matches('form[action*="/contact"]') && !!form.querySelector('input[name="contact[email]"]')); }
     if (!subscribe) return;
-    if (form.getAttribute('aria-busy') === 'true') { event.preventDefault(); return; }
+    // A platform form (form_type) may be submitted twice by its CAPTCHA script; materia-forms.js holds its repeats.
+    if (form.getAttribute('aria-busy') === 'true' && !form.querySelector('input[name="form_type"]')) { event.preventDefault(); return; }
     const button = event.submitter || form.querySelector('[type="submit"]');
     form.setAttribute('aria-busy', 'true');
     button?.classList.add('materia-form-pending');
@@ -505,25 +486,6 @@
   const lang = () => document.documentElement.lang || navigator.language || 'en';
   const names = (() => { try { return new Intl.DisplayNames([lang()], {type: 'region'}); } catch (e) { return null; } })();
   const nameOf = code => (names && names.of(code)) || code;
-  const fill = (text, values) => String(text || '').replace(/\{\{\s*(\w+)\s*\}\}/g, (m, k) => values[k] ?? '');
-  const money = (amount, currency) => {
-    try { return new Intl.NumberFormat(lang(), {style: 'currency', currency: currency || 'EUR'}).format(amount); }
-    catch (e) { return amount.toFixed(2) + ' ' + (currency || ''); }
-  };
-  /* "DE, AT, FR = 4.90" per line; "*" is every other country. */
-  const rateFor = (code) => {
-    let fallback = null;
-    for (const line of String(read().rates || '').split(/\r?\n/)) {
-      const [left, right] = line.split('=');
-      if (right == null) continue;
-      const price = parseFloat(right.replace(/[^\d.,]/g, '').replace(',', '.'));
-      if (!isFinite(price)) continue;
-      const codes = left.split(/[,\s]+/).map(c => c.trim().toUpperCase()).filter(Boolean);
-      if (codes.includes(code)) return price;
-      if (codes.includes('*')) fallback = price;
-    }
-    return fallback;
-  };
   const visitorCountry = () => {
     const set = String(read().country || '').toUpperCase();
     if (CODES.includes(set)) return set;
@@ -536,8 +498,12 @@
     const select = root.querySelector('select[name="address[country]"]');
     if (!select) return;
     select.removeAttribute('data-default');
-    const chosen = select.value && CODES.includes(select.value) ? select.value : visitorCountry();
-    const options = CODES.map(code => [code, nameOf(code)]).sort((a, b) => a[1].localeCompare(b[1], lang()));
+    // Only the countries the store sells to (its markets): any other one
+    // has no shipping rate, so the platform would answer "not supported".
+    const avail = (Array.isArray(read().available) ? read().available : []).map(c => String(c).toUpperCase()).filter(c => CODES.includes(c));
+    const list = avail.length ? avail : CODES;
+    const chosen = select.value && list.includes(select.value) ? select.value : (list.includes(visitorCountry()) ? visitorCountry() : (list.length === 1 ? list[0] : ''));
+    const options = list.map(code => [code, nameOf(code)]).sort((a, b) => a[1].localeCompare(b[1], lang()));
     select.innerHTML = '';
     const blank = new Option(read().text.choose || '', '');
     blank.disabled = true;
@@ -545,44 +511,6 @@
     for (const [code, label] of options) select.add(new Option(label, code));
     select.value = chosen || '';
     if (!select.value) blank.selected = true;
-  }
-  async function subtotal() {
-    try {
-      const res = await fetch((window.routes?.cart_url || '/cart') + '.js', {headers: {Accept: 'application/json'}});
-      const cart = await res.json();
-      if (typeof cart.total_price === 'number') return {cents: cart.total_price, currency: cart.currency};
-    } catch (e) {}
-    return {cents: Number(read().subtotal) || 0, currency: read().currency};
-  }
-  async function estimate(button) {
-    const box = button.closest('cart-estimate, .cart__addon-content, #shipping') || document;
-    const root = box.querySelector('[data-address="root"]');
-    const select = root?.querySelector('select[name="address[country]"]');
-    const out = box.querySelector('.addon-message') || (() => { const d = document.createElement('div'); d.className = 'addon-message mt-15'; box.querySelector('.addon-actions')?.after(d); return d; })();
-    const d = read(), t = d.text;
-    out.setAttribute('role', 'status');
-    out.classList.add('materia-ship-result');
-    if (!select || !select.value) { out.textContent = t.choose || ''; select?.focus(); return; }
-    const code = select.value, country = nameOf(code);
-    const price = rateFor(code);
-    if (price == null) { out.textContent = fill(t.atCheckout, {country}); return; }
-    button.setAttribute('aria-busy', 'true');
-    const {cents, currency} = await subtotal();
-    button.removeAttribute('aria-busy');
-    const cur = currency || d.currency;
-    const freeMin = parseFloat(String(box.closest('#minicart_wrapper, cart-notification') ? d.freeDrawer : d.freePage).replace(',', '.'));
-    const free = price === 0 || (isFinite(freeMin) && freeMin > 0 && cents / 100 >= freeMin);
-    out.innerHTML = '';
-    const line = document.createElement('p');
-    line.className = 'materia-ship-result__line';
-    const label = document.createElement('span');
-    label.textContent = fill(t.rateTo, {country});
-    const value = document.createElement('strong');
-    value.textContent = free ? (t.free || '0') : money(price, cur);
-    line.append(label, value);
-    out.append(line);
-    if (d.delivery) { const p = document.createElement('p'); p.className = 'materia-ship-result__note'; p.textContent = d.delivery; out.append(p); }
-    if (!free && isFinite(freeMin) && freeMin > 0) { const p = document.createElement('p'); p.className = 'materia-ship-result__note'; p.textContent = fill(t.freeOver, {amount: money(freeMin, cur)}); out.append(p); }
   }
   /* Country picker. The native select stays in the form as the value the
      estimate reads; this draws the choice like the theme's own country and
@@ -884,15 +812,9 @@
     if (openPicker && !openPicker.wrap.isConnected) { const gone = openPicker; openPicker = null; gone.close(false); }
     scope.querySelectorAll('[data-address="root"]').forEach(root => { prepare(root); enhance(root); });
   };
-  /* Capture phase: answer before the theme's platform-only handlers. */
-  document.addEventListener('click', event => {
-    const button = event.target.closest('[data-action="shipping"], .btn-save[data-action="shipping"]');
-    if (!button || !button.closest('cart-estimate, .cart__addon-content, #shipping')) return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    scan(button.closest('cart-estimate, .cart__addon-content, #shipping'));
-    estimate(button);
-  }, true);
+  /* The estimate itself comes from the platform (cart-drawer.js in the drawer,
+     cart.js on the cart page: /cart/shipping_rates.json, your real shipping
+     zones and rates). This file only prepares the country picker. */
   /* Opening the drawer's shipping sheet or redrawing the cart brings new forms. */
   let queued = 0;
   new MutationObserver(() => { if (!queued) queued = requestAnimationFrame(() => { queued = 0; scan(); }); })

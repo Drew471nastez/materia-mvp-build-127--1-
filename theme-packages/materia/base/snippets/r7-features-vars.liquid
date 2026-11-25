@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. Settings as CSS variables for Feature Timeline and
   Guarantee Banner. The sections print the same lists on their root in the
   builder (data-r7e-spec), so shopify/assets/live-r7-features.js writes
@@ -11,7 +11,16 @@
             picker has a family
     gate    the custom styling switch for the colours
   Variables are named --r7-<id>.
-{%- endcomment -%}
+
+  @param {string} c - C ('color', 'marker_color,title_color')
+  @param {string} [f] - F
+  @param {boolean} gate - Enable custom styling
+  @param {string} [px] - Px
+  @param {object} s - Settings object (section or block settings)
+
+  @example
+  {% render 'r7-features-vars', s: st, px: spx, c: sc, f: sf, gate: st.enable_custom_style %}
+{%- enddoc -%}
 {%- assign r7_l = px | split: ',' -%}
 {%- for r7_k in r7_l -%}
   {%- assign r7_p = r7_k | strip | split: ':' -%}

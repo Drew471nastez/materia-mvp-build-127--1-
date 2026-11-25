@@ -1,0 +1,163 @@
+{%- doc -%}
+  Materia Themes. The one empty-image picture of the theme: the platform's own
+  placeholder line drawings, drawn inline (nothing is fetched), coloured by the
+  section's colour scheme (light grey ground, lines in the text colour) and
+  cropped to fill their frame like a real picture (object-fit: cover).
+
+  Params (all optional):
+  - type:   a placeholder_svg_tag name ('product-3', 'collection-2', 'lifestyle-1',
+            'hero-apparel-1', 'image' …) or a family that rotates by `index`:
+            'product' (product-1…6), 'collection' (collection-1…6),
+            'lifestyle' (lifestyle-1…2), 'hero' (wide scenes: lifestyle-1…2),
+            'avatar' (a neutral person in a circle). Default 'image'.
+            Only the platform's one-colour line drawings are used, so every empty
+            picture looks alike: the coloured apparel illustrations
+            ('hero-apparel-N', 'product-apparel-N', 'detailed-apparel-1') are
+            drawn as line-art product / collection / lifestyle drawings.
+  - index:  number used to vary the drawing inside a grid (forloop.index).
+  - class:  extra classes (the classes the real <img> would have, so the
+            section's own sizing / radius rules apply to the placeholder too).
+  - ratio:  aspect ratio for the box, e.g. '4/3' or 1.5 (only when the frame
+            does not already set its own height).
+  - radius: corner radius, e.g. '12px' or 'var(--rounded-radius)'.
+  - style:  extra inline CSS.
+  - attrs:  extra raw attributes for the <svg> (e.g. 'hidden data-x').
+  - fit:    'contain' draws the whole drawing inside the box (logo slots);
+            default 'cover' fills the box like object-fit: cover.
+  - format: 'url' returns a data: URI of the same drawing instead of inline
+            markup, for an <img src> or a data-* attribute that scripts read.
+            Its colours are the text colour of `scheme` (a colour scheme
+            object or id; default: the first scheme) at 35 % on a 4 % ground.
+            With `ratio` ('4/3', '900x675') the file has that shape, so an
+            <img> keeps the box its width/height attributes promise.
+
+  @param {string} [attrs] - Attrs ('data-cl-ph', 'data-r7s-ph', 'hidden')
+  @param {string} [class] - Extra CSS classes ('placeholder-svg', 'qv__placeholder')
+  @param {string} [fit] - Fit
+  @param {string} [format] - Format
+  @param {number} [index] - Index
+  @param {number} [radius] - Radius
+  @param {string} [ratio] - Ratio
+  @param {string} [scheme] - Color scheme
+  @param {string} [style] - Style; no current caller passes it
+  @param {string} type - Type ('collection', 'lifestyle-1', 'product', 'product-1')
+
+  @example
+  {% render 'placeholder-image', type: 'image', class: 'lg__ph', attrs: 'data-lg-ph', fit: 'contain', ratio: '160/64', radius: 8 %}
+{%- enddoc -%}
+{%- liquid
+  assign ph_type = type | default: 'image' | downcase
+  assign ph_i = index | default: 1 | plus: 0
+  if ph_i < 1
+    assign ph_i = 1
+  endif
+  case ph_type
+    when 'product'
+      assign ph_n = ph_i | minus: 1 | modulo: 6 | plus: 1
+      assign ph_type = 'product-' | append: ph_n
+    when 'collection'
+      assign ph_n = ph_i | minus: 1 | modulo: 6 | plus: 1
+      assign ph_type = 'collection-' | append: ph_n
+    when 'lifestyle'
+      assign ph_n = ph_i | minus: 1 | modulo: 2 | plus: 1
+      assign ph_type = 'lifestyle-' | append: ph_n
+    when 'hero'
+      assign ph_n = ph_i | minus: 1 | modulo: 2 | plus: 1
+      assign ph_type = 'lifestyle-' | append: ph_n
+  endcase
+  if ph_type contains 'apparel'
+    assign ph_n = ph_type | split: '-' | last | plus: 0 | at_least: 1
+    if ph_type contains 'hero-'
+      assign ph_n = ph_n | minus: 1 | modulo: 2 | plus: 1
+      assign ph_type = 'lifestyle-' | append: ph_n
+    elsif ph_type contains 'product-'
+      assign ph_n = ph_n | plus: 1 | modulo: 6 | plus: 1
+      assign ph_type = 'product-' | append: ph_n
+    else
+      assign ph_type = 'collection-2'
+    endif
+  endif
+
+  assign ph_style = ''
+  if ratio != blank
+    assign ph_ratio = ratio | append: '' | replace: ':', '/'
+    assign ph_style = ph_style | append: 'aspect-ratio:' | append: ph_ratio | append: ';'
+  endif
+  if radius != blank
+    assign ph_radius = radius | append: ''
+    assign ph_rn = radius | plus: 0 | append: ''
+    if ph_rn == ph_radius
+      assign ph_radius = ph_radius | append: 'px'
+    endif
+    assign ph_style = ph_style | append: 'border-radius:' | append: ph_radius | append: ';'
+  endif
+  if style != blank
+    assign ph_style = ph_style | append: style
+  endif
+  assign ph_par = 'xMidYMid slice'
+  if fit == 'contain'
+    assign ph_par = 'xMidYMid meet'
+  endif
+  assign ph_attrs = '<svg data-ph aria-hidden="true" focusable="false" preserveAspectRatio="' | append: ph_par | append: '"'
+  if ph_style != blank
+    assign ph_attrs = ph_attrs | append: ' style="' | append: ph_style | append: '"'
+  endif
+  if attrs != blank
+    assign ph_attrs = ph_attrs | append: ' ' | append: attrs
+  endif
+  assign ph_class = 'placeholder-image placeholder-svg ' | append: class | strip
+-%}
+{%- if format == 'url' -%}
+  {%- liquid
+    assign ph_scheme = scheme
+    if ph_scheme.settings == blank
+      assign ph_scheme_id = scheme | default: ''
+      if ph_scheme_id != blank
+        assign ph_scheme = settings.color_schemes[ph_scheme_id]
+      endif
+    endif
+    if ph_scheme.settings == blank
+      assign ph_scheme = settings.color_schemes | first
+    endif
+    assign ph_c = ph_scheme.settings.text_color
+    assign ph_bgc = ph_scheme.settings.background
+    if ph_c == blank
+      assign ph_rgb = 'rgb(51,50,50)'
+      assign ph_ground = 'rgb(245,245,245)'
+    else
+      assign ph_rgb = 'rgb(' | append: ph_c.red | append: ',' | append: ph_c.green | append: ',' | append: ph_c.blue | append: ')'
+      # the ground: 4 % of the text colour over the scheme background, opaque (like the inline drawing)
+      assign ph_br = ph_bgc.red | default: 255 | times: 0.96 | plus: 0
+      assign ph_bg = ph_bgc.green | default: 255 | times: 0.96 | plus: 0
+      assign ph_bb = ph_bgc.blue | default: 255 | times: 0.96 | plus: 0
+      assign ph_br = ph_c.red | times: 0.04 | plus: ph_br | round
+      assign ph_bg = ph_c.green | times: 0.04 | plus: ph_bg | round
+      assign ph_bb = ph_c.blue | times: 0.04 | plus: ph_bb | round
+      assign ph_ground = 'rgb(' | append: ph_br | append: ',' | append: ph_bg | append: ',' | append: ph_bb | append: ')'
+    endif
+    if ph_type == 'avatar'
+      assign ph_svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="39" r="17"/><path d="M17 88c3-17 17-27 33-27s30 10 33 27c-9 7-21 12-33 12s-24-5-33-12z"/></svg>'
+    else
+      assign ph_svg = ph_type | placeholder_svg_tag
+    endif
+    assign ph_head = ph_svg | split: '>' | first
+    assign ph_body = ph_svg | remove_first: ph_head | remove_first: '>'
+    assign ph_head = ph_head | replace_first: '<svg', '<svg preserveAspectRatio="xMidYMid slice"'
+    if ratio != blank
+      assign ph_wh = ratio | append: '' | replace: ':', '/' | replace: 'x', '/' | split: '/'
+      assign ph_w = ph_wh[0] | strip | times: 100 | round
+      assign ph_h = ph_wh[1] | default: 1 | strip | times: 100 | round
+      assign ph_head = ph_head | append: ' width="' | append: ph_w | append: '" height="' | append: ph_h | append: '"'
+    endif
+    unless ph_head contains 'xmlns='
+      assign ph_head = ph_head | append: ' xmlns="http://www.w3.org/2000/svg"'
+    endunless
+    assign ph_out = ph_head | append: ' fill="' | append: ph_rgb | append: '" fill-opacity=".35"><rect x="-50%" y="-50%" width="200%" height="200%" fill="' | append: ph_ground | append: '" fill-opacity="1"/><g>' | append: ph_body | replace: '</svg>', '</g></svg>'
+    assign ph_out = ph_out | url_encode | replace: '+', '%20' | replace: '%2F', '/' | replace: '%3D', '=' | replace: '%3A', ':' | replace: '%2C', ','
+    echo 'data:image/svg+xml,' | append: ph_out
+  -%}
+{%- elsif ph_type == 'avatar' -%}
+  {{- '<svg class="placeholder-image placeholder-image--avatar ' | append: class | strip | append: '" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="39" r="17"/><path d="M17 88c3-17 17-27 33-27s30 10 33 27c-9 7-21 12-33 12s-24-5-33-12z"/></svg>' | replace_first: '<svg', ph_attrs -}}
+{%- else -%}
+  {{- ph_type | placeholder_svg_tag: ph_class | replace_first: '<svg', ph_attrs -}}
+{%- endif -%}

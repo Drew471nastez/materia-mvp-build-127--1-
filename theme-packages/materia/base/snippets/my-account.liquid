@@ -1,11 +1,17 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. Developed By Materia Themes.
 
-  Params:
     type     - 'header_mega' for the mega-menu header variant
     as_text  - when true, render an "Account" text label instead of the icon.
                All account links / login behavior are unchanged.
-{%- endcomment -%}
+
+  @param {boolean} as_text - Show actions as text
+  @param {string} text_class - Text class
+  @param {string} [type] - Type; no current caller passes it
+
+  @example
+  {% render 'my-account', as_text: actions_as_text, text_class: header_text_class %}
+{%- enddoc -%}
 {%- liquid
   assign section_st = section.settings
   assign enable_login_popup = section_st.enable_login_popup
@@ -25,19 +31,19 @@
   <div class="header_account hidden block-1025">
     {% if customer %}
       <div
-        aria-label="header icon account"
+        aria-label="{{ 'customer.account.title' | t }}"
         class="btn-reset pointer header-icon header-color {{ btn_size }} inline-flex content-center header__icon-account header-color {% if customer.email == blank %}action-login{% endif %}"
       >
     {%- else -%}
       {%- if enable_login_popup and login_one_time == false -%}
         <button
-          aria-label="account"
+          aria-label="{{ 'customer.account.title' | t }}"
           class="btn-reset pointer action-login-popup header-icon transition header-color {{ btn_size }} inline-flex content-center header__icon-account header-color"
         >
       {%- else -%}
         <a
           href="{{ routes.account_login_url }}"
-          aria-label="account"
+          aria-label="{{ 'customer.account.title' | t }}"
           class="btn-reset pointer header-icon transition header-color {{ btn_size }} inline-flex content-center header__icon-account header-color lh-1"
         >
       {%- endif -%}
@@ -65,19 +71,19 @@
   <div class="header_account header-account__mega hidden block-1025">
     {% if customer %}
       <div
-        aria-label="header icon account"
+        aria-label="{{ 'customer.account.title' | t }}"
         class="btn-reset pointer header-icon header-color flex content-center header__icon-account header-color {% if customer.email == blank %}action-login{% endif %}"
       >
     {%- else -%}
       {%- if enable_login_popup and login_one_time == false -%}
         <button
-          aria-label="account"
+          aria-label="{{ 'customer.account.title' | t }}"
           class="btn-reset pointer action-login-popup header-icon transition header-color flex content-center header__icon-account header-color"
         >
       {%- else -%}
         <a
           href="{{ routes.account_login_url }}"
-          aria-label="account"
+          aria-label="{{ 'customer.account.title' | t }}"
           class="btn-reset pointer header-icon transition header-color flex content-center header__icon-account header-color lh-1"
         >
       {%- endif -%}

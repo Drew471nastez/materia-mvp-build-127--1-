@@ -1,3 +1,11 @@
+{% doc %}
+  Data template (sold / viewers counts) read by the product counter script.
+
+  @param {product} product - The product to render
+
+  @example
+  {% render 'product-counter-data', product: product %}
+{% enddoc -%}
 {%- assign counter_product = product | default: page.product -%}
 {%- if counter_product.id != blank -%}
 <template data-product-counter-source="{{ counter_product.id }}" data-sold="{{ counter_product.metafields.custom.sold_count.value | default: counter_product.metafields.custom.sold_count | escape }}"></template>

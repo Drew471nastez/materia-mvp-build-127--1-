@@ -1,4 +1,4 @@
-<script src="{{ 'live-popups-code.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-popups-code.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' and section.settings.reveal != false -%}
@@ -116,7 +116,7 @@
 {%- liquid
   assign section_st = section.settings
   assign section_width = section_st.section_width | default: 'fluid_container'
-  assign color_scheme = section_st.color_scheme.id | default: section_st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section_st.color_scheme.id | default: section_st.color_scheme | default: 'default'
   assign pc_show = section_st.show_section_on | default: 'all'
   assign pc_pt = section_st.padding_top | default: 0
   assign pc_pb = section_st.padding_bottom | default: 0
@@ -147,7 +147,8 @@
   </div>
 {%- endif -%}{% schema %}
 {
-  "name": "Custom HTML",
+  "class": "s-tt",
+"name": "Custom HTML",
   "tag": "section",
   "disabled_on": {
     "groups": [
@@ -163,7 +164,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -313,7 +314,7 @@
   "presets": [
     {
       "name": "Custom HTML",
-      "category": "Custom Code"
+      "category": "19 · Layout & custom code"
     }
   ]
 }

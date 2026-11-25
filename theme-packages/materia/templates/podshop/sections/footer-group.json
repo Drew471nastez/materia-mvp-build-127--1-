@@ -9,10 +9,10 @@
         "padding_top": 56,
         "show_social": false,
         "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636",
-        "custom_image": "shopify://shop_images/podshop-mark.webp",
+        "custom_image": "shopify://shop_images/podshop-logo-white.webp",
         "reset_spacing": true,
         "section_width": "container",
-        "copyright_text": "\u00a9 {{ 'now' | date: '%Y' }} {{ shop.name }}",
+        "copyright_text": "© {{ 'now' | date: '%Y' }} {{ shop.name }}",
         "heading_weight": "700",
         "padding_bottom": 24,
         "separator_line": "unset",
@@ -26,14 +26,14 @@
         "footer_heading_size": 12,
         "enable_custom_text_big": false,
         "enable_country_selector": true,
-        "custom_image_size_mobile": 60,
+        "custom_image_size_mobile": 160,
         "enable_language_selector": true,
-        "custom_image_size_desktop": 64,
+        "custom_image_size_desktop": 200,
         "custom_text_font_size_mobile": 94,
         "custom_text_font_size_desktop": 264,
         "show_policy_links": true,
         "show_payment_icons": true,
-        "custom_header_position": "bottom"
+        "custom_header_position": "top"
       },
       "blocks": {
         "store_info_1": {

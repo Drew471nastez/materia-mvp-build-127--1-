@@ -1,19 +1,22 @@
+{{ 'hero-pro-scrolling.css' | asset_url | stylesheet_tag }}
+{{ 'hero-product-three.css' | asset_url | stylesheet_tag }}
+{{ 'hero-image-one.css' | asset_url | stylesheet_tag }}
 {%- comment -%} Runtime, once per page (the CSS and hero-image-one.js from layout/theme.storelib, every other script from the tags at the top of this file): shopify/assets/hero-image-one.css, shopify/assets/hero-image-one.js. {%- endcomment -%}
-{% render 'theme-type' %}
+{% render 'theme-type', inline: true %}
 {%- comment -%} hero-image-one.css and hero-image-one.js are linked once per page: the CSS and hero-image-one.js from layout/theme.storelib's <head>, every other script by the tags at the top of this file. {%- endcomment -%}
 {%- assign c = section.settings -%}
-{%- assign hi1_placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Crect width=%22400%22 height=%22300%22 fill=%22%23efefef%22/%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22 fill=%22%23cfcfcf%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22 fill=%22%23cfcfcf%22/%3E%3C/svg%3E' -%}
+{%- capture hi1_placeholder %}{% render 'placeholder-image', type: 'lifestyle-2', scheme: section.settings.color_scheme, ratio: '16/9', format: 'url' %}{% endcapture %}{% assign hi1_placeholder = hi1_placeholder | strip -%}
 {%- assign hi1_video = c.video.sources | first -%}
 {%- for source in c.video.sources -%}{%- if source.mime_type == 'video/mp4' or source.format == 'mp4' -%}{%- assign hi1_video = source -%}{%- break -%}{%- endif -%}{%- endfor -%}
 {%- assign hi1_video_url = hi1_video.url | default: c.video.url | default: c.video.src -%}
 {%- if hi1_video_url == blank and c.video != blank and c.video.sources == blank -%}{%- assign hi1_video_url = c.video -%}{%- endif -%}
 {%- assign hi1_video_url = hi1_video_url | default: c.video_url -%}
-{%- assign scheme = c.color_scheme.id | default: c.color_scheme | default: 'default-color-scheme' -%}
+{%- assign scheme = c.color_scheme.id | default: c.color_scheme | default: 'default' -%}
 {%- if c.enable_custom_fonts -%}<style>{% if c.heading_font.family %}{{ c.heading_font | font_face: font_display: 'swap' }}{% endif %}{% if c.body_font.family %}{{ c.body_font | font_face: font_display: 'swap' }}{% endif %}</style>{%- endif -%}
 <section id="hi1-{{ section.id }}" class="hi1-shell color-{{ scheme }}" data-hero-image-one="{{ section.id }}" data-hi1-placeholder="{{ hi1_placeholder | escape }}" data-hi1-editor="{% if request.design_mode or page.in_editor %}true{% else %}false{% endif %}" data-hi1-button-font="{{ settings.button_font | default: 'body_font' }}" data-hi1-settings="{{ c | json | escape }}" data-hi1-motion="{{ settings.scroll_animation | default: 'none' }}" data-hi1-duration="{{ settings.animation_duration | default: 700 }}" data-hi1-delay="{{ settings.animation_delay | default: 0 }}" style="{% render 'hero-image-one-vars', controls: c, kind: 'section' %}">
   <div class="hi1"><div class="hi1__bg"{% if c.use_background_color %} hidden{% endif %}>
     <picture{% if hi1_video_url != blank %} hidden{% endif %}>{% if c.image_mobile != blank %}<source media="(max-width:767px)" srcset="{% render 'offer-image-url', image: c.image_mobile, escaped: true %}">{% endif %}<img{% if c.image != blank %} src="{% render 'offer-image-url', image: c.image, escaped: true %}"{% elsif c.image_mobile != blank %} src="{% render 'offer-image-url', image: c.image_mobile, escaped: true %}"{% else %} src="{{ hi1_placeholder | escape }}"{% endif %} alt="{{ c.image_alt | default: c.image.alt | escape }}" width="1920" height="1080" loading="eager" fetchpriority="high" decoding="async"></picture>
-    <video{% if hi1_video_url != blank and c.use_background_color != true %} src="{{ hi1_video_url | url | escape }}"{% else %} hidden{% endif %}{% if c.video_poster != blank %} poster="{{ c.video_poster | image_url: width: 1920 }}"{% endif %} muted playsinline{% unless c.video_autoplay == false or c.use_background_color %} autoplay{% endunless %}{% unless c.video_loop == false %} loop{% endunless %}{% if c.video_controls %} controls{% endif %}></video>
+    <video{% if hi1_video_url != blank and c.use_background_color != true %} src="{{ hi1_video_url | escape }}"{% else %} hidden{% endif %}{% if c.video_poster != blank %} poster="{{ c.video_poster | image_url: width: 1920 }}"{% endif %} muted playsinline{% unless c.video_autoplay == false or c.use_background_color %} autoplay{% endunless %}{% unless c.video_loop == false %} loop{% endunless %}{% if c.video_controls %} controls{% endif %}></video>
     <span class="hi1__overlay" aria-hidden="true"{% if c.enable_overlay == false %} hidden{% endif %}></span>
   </div><div class="hi1__content">
   {% for block in section.blocks %}{% unless block.hidden %}{% capture block_inner %}{% render 'hero-image-one-block', block: block %}{% endcapture %}<div class="hi1__block" data-hi1-block="{{ block.id }}"{% if block_inner contains 'data-hi1-empty' %} hidden{% endif %} data-hi1-kind="{{ block.type }}" data-hi1-block-settings="{{ block.settings | json | escape }}" style="{% render 'hero-image-one-vars', controls: block.settings, kind: block.type %}" {{ block.shopify_attributes }}>{{ block_inner }}</div>{% endunless %}{% endfor %}
@@ -33,7 +36,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -1002,8 +1005,7 @@
             }
           ],
           "visible_if": "{{ false }}",
-          "info": "The heading level follows the page outline; the saved choice is kept.",
-          "hidden": true
+          "info": "The heading level follows the page outline; the saved choice is kept."
         }
       ]
     },
@@ -2222,8 +2224,7 @@
         {
           "type": "text",
           "id": "heading",
-          "label": "Heading text",
-          "default": ""
+          "label": "Heading text"
         },
         {
           "type": "image_picker",
@@ -2258,8 +2259,7 @@
         {
           "type": "text",
           "id": "rating_text",
-          "label": "Rating text",
-          "default": ""
+          "label": "Rating text"
         },
         {
           "type": "range",
@@ -2438,8 +2438,7 @@
         {
           "type": "text",
           "id": "text",
-          "label": "Rating text",
-          "default": ""
+          "label": "Rating text"
         },
         {
           "type": "range",
@@ -2610,8 +2609,7 @@
         {
           "type": "inline_richtext",
           "id": "label_text",
-          "label": "Label Text",
-          "default": ""
+          "label": "Label Text"
         },
         {
           "type": "url",
@@ -2841,8 +2839,8 @@
   ],
   "presets": [
     {
-      "name": "Hero Image 1",
-      "category": "Hero and banners",
+      "name": "Hero – Image or Video",
+      "category": "01 · Hero & slideshows",
       "blocks": [
         {
           "type": "eyebrow",

@@ -1,3 +1,14 @@
+{% doc %}
+  Upsell Pro block: recommended or merchant-picked products to add with the main product.
+
+  @param {block} block - The block being rendered
+  @param {product} current_product - Current product
+  @param {string} product_form_id - Product form id
+  @param {object} [recommendations] - Recommendations; no current caller passes it
+
+  @example
+  {% render 'upsell-pro', block: block, current_product: product, section: section, product_form_id: product_form_id %}
+{% enddoc -%}
 {%- assign current_product = current_product | default: product | default: page.product -%}
 {%- assign native_offers = current_product.metafields.storelib.offers.value | default: current_product.metafields.storelib.offers -%}
 {%- if native_offers.checkoutOffers != blank -%}
@@ -105,6 +116,9 @@
     endif
     assign manual_shown = manual_shown | plus: 1
   endfor
+  if s.source != 'auto' and manual_shown == 0
+    assign has_any = false
+  endif
   assign auto_pick = ','
   if s.source == 'auto'
     assign auto_needed = max | minus: manual_shown
@@ -248,10 +262,10 @@
   {%- endif -%}
 </upsell-pro>
 {%- else -%}
-  {%- render 'editor-block-preview', block: block, title: 'Upsell Pro', message: 'No selected products can be shown. Pick an available product other than this product, or adjust the visibility settings.', commerce: true -%}
+  {%- render 'editor-block-preview', block: block, title: 'Upsell Pro', message: 'The picked products are missing, sold out or this product. Pick other products in this block.' -%}
 {%- endif -%}
 {%- else -%}
-  {%- render 'editor-block-preview', block: block, title: 'Upsell Pro', message: 'Pick products in this block, or choose Picked, then recommended. Available products will appear here.', commerce: true -%}
+  {%- render 'editor-block-preview', block: block, title: 'Upsell Pro', message: 'Pick up to 6 products in this block to show them here.' -%}
 {%- endif -%}
 
 {%- endif -%}

@@ -1,7 +1,7 @@
-<script src="{{ 'live-faq.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-faq.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-faq-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
@@ -127,7 +127,7 @@
     padding: var(--faq6-py) var(--faq6-px);
     text-align: start;
     color: var(--faq6-q-color) !important;
-    font-family: var(--faq6-hf, inherit);
+    font-family: var(--faq6-hf, var(--heading-font, inherit));
     font-size: var(--faq6-q-m);
     line-height: 1.4;
     font-weight: var(--heading-weight, 600);
@@ -208,14 +208,14 @@
 {%- if st.enable_custom_fonts -%}<style>{{ st.heading_font | font_face: font_display: 'swap' }}{{ st.body_font | font_face: font_display: 'swap' }}</style>{%- endif -%}
 {%- capture faq_vars -%}{% render 'faq-live-vars', section: section, p: 'faq6', card_bg_fb: 'transparent', card_border_fb: 'transparent' %}{%- endcapture -%}
 
-<div class="faq6 color-{{ color_scheme }} gradient" data-faq-root="faq" data-faq-section="{{ section.id }}" data-faq-settings="{{ section.settings | json | escape }}" data-faq6-width="{{ st.section_width }}"{% if st.enable_custom_heading_weight %} data-faq6-hw{% endif %}{% if st.enable_custom_question_weight %} data-faq6-qw{% endif %}{% if st.show_dividers and st.gap_between_items == 0 %} data-faq6-dividers{% endif %}{% if reveal and scroll_animation != 'none' and request.design_mode != true %} data-faq-reveal="{{ scroll_animation }}"{% endif %} style="{{ faq_vars | strip_newlines }}">
+<div class="faq6 color-{{ color_scheme }} gradient" data-faq-root="faq" data-faq-section="{{ section.id }}" {% if request.design_mode %}data-faq-settings="{{ section.settings | json | escape }}"{% endif %} data-faq6-width="{{ st.section_width }}"{% if st.enable_custom_heading_weight %} data-faq6-hw{% endif %}{% if st.enable_custom_question_weight %} data-faq6-qw{% endif %}{% if st.show_dividers and st.gap_between_items == 0 %} data-faq6-dividers{% endif %}{% if reveal and scroll_animation != 'none' %} data-faq-reveal="{{ scroll_animation }}"{% endif %} style="{{ faq_vars | strip_newlines }}">
   <div class="faq6__inner">
     {%- render 'faq-live-accordion', section: section, p: 'faq6' -%}
   </div>
 </div>{% schema %}
 {
   "name": "FAQ 3",
-  "class": "section-faq-6",
+  "class": "section-faq-6 s-tt",
   "settings": [
     {
       "type": "header",
@@ -225,7 +225,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -273,7 +273,6 @@
       "id": "heading",
       "label": "Heading",
       "default": "Frequently asked questions",
-      "hidden": true,
       "info": "Legacy: used only when the section has no heading block.",
       "visible_if": "{{ false }}"
     },
@@ -282,7 +281,6 @@
       "id": "subheading",
       "label": "Subheading",
       "default": "",
-      "hidden": true,
       "info": "Legacy: used only when the section has no subheading block.",
       "visible_if": "{{ false }}"
     },
@@ -807,7 +805,6 @@
           "id": "tag",
           "label": "HTML tag",
           "default": "h2",
-          "hidden": true,
           "info": "The section heading is always an h2.",
           "options": [
             {
@@ -927,8 +924,8 @@
           "label": "Line height",
           "min": 0.8,
           "max": 2,
-          "step": 0.05,
-          "default": 1.15,
+          "step": 0.1,
+          "default": 1.1,
           "visible_if": "{{ block.settings.size_enable }}"
         },
         {
@@ -1046,7 +1043,7 @@
           "label": "Line height",
           "min": 1,
           "max": 2.2,
-          "step": 0.05,
+          "step": 0.1,
           "default": 1.5,
           "visible_if": "{{ block.settings.size_enable }}"
         }
@@ -1073,8 +1070,8 @@
   ],
   "presets": [
     {
-      "name": "FAQ 3",
-      "category": "FAQ",
+      "name": "FAQ – Simple",
+      "category": "13 · FAQ",
       "blocks": [
         {
           "type": "heading"

@@ -70,7 +70,7 @@
   }
 {%- endstyle -%}
 <section
-  class="section{% if section.settings.padding_top < 30 %} pt-min{% endif %}{% if section.settings.padding_bottom < 30 %} pb-min{% endif %} compare-page-section fadeIn mt-60 color-{{ section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme' }} gradient"
+  class="section{% if section.settings.padding_top < 30 %} pt-min{% endif %}{% if section.settings.padding_bottom < 30 %} pb-min{% endif %} compare-page-section fadeIn mt-60 color-{{ section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default' }} gradient"
   data-ap-root="page-compare"
   data-ap-section="{{ section.id }}"{% if request.design_mode %}
   data-ap-settings="{{ section.settings | json | escape }}"{% endif %}
@@ -223,7 +223,7 @@
                         class="product-item__media--ratio rounded"
                         style="--aspect-ratio: {{ ratio }};"
                       >
-                        {% render 'placeholder-render', class: 'rounded' %}
+                        {% render 'placeholder-render', class: 'rounded', type: 'product', index: forloop.index %}
                       </div>
                     {% endif %}
                   </a>
@@ -245,7 +245,7 @@
                     class="product-item__price justify-content-{{ settings.product_alignment }} flex gap-custom lh-normal fs-custom"
                     style="--font-size: {{ settings.price_size }}; --gap: 3px;"
                   >
-                    {%- render 'price', scope: 'item', product: product, show_badges: false -%}
+                    {%- render 'price', scope: 'item', product: product -%}
                   </div>
                 {% endif %}
                 {% if show_add_cart and theme_st.enable_catalog_mode == false %}
@@ -346,8 +346,14 @@
                 {%- for option in product.options_with_values -%}
                   {%- liquid
                     assign is_color_option = false
+                    assign _nv_first = option.values | first
+                    if _nv_first.swatch != blank
+                      assign is_color_option = true
+                    endif
+                    assign _opt_name_cmp = option.name | strip | downcase
                     for colorItem in option_name_color
-                      if option.name == colorItem
+                      assign _color_item_cmp = colorItem | strip | downcase
+                      if _opt_name_cmp == _color_item_cmp
                         assign is_color_option = true
                       endif
                     endfor
@@ -476,7 +482,7 @@
         <a
           class="compare-no-product-url btn-primary no-underline inline-block"
           data-theme-button="primary" data-sl-button
-          href="{{ section.settings.empty_button_url | default: routes.all_products_collection_url | url }}"
+          href="{{ section.settings.empty_button_url | default: routes.all_products_collection_url }}"
           data-ap-href="empty_button_url" data-ap-href-fallback="{{ routes.all_products_collection_url }}"
           data-ap-text="empty_button_label"
         >
@@ -488,9 +494,11 @@
   </div>
 </section>
 
+
 {% schema %}
 {
-  "name": "Compare products",
+  "class": "s-tt",
+"name": "Compare products",
   "settings": [
     {
       "type": "header",
@@ -500,7 +508,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",

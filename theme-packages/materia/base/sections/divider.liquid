@@ -1,4 +1,4 @@
-<script src="{{ 'live-social-dividers.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-social-dividers.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' and section.settings.reveal != false -%}
@@ -44,7 +44,7 @@
 {%- endcomment -%}
 {%- liquid
   assign s = section.settings
-  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default'
   assign section_width = s.section_width | default: 'full_width'
   assign style_kind = s.style | default: 'solid'
   assign align = s.align | default: 'center'
@@ -130,6 +130,7 @@
   </div>
 </div>
 
+
 {% schema %}
 {
   "name": "Divider",
@@ -150,7 +151,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -196,7 +197,6 @@
       "type": "text",
       "id": "label",
       "label": "Center label",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Label block.",
       "visible_if": "{{ false }}"
     },
@@ -204,7 +204,6 @@
       "type": "html",
       "id": "icon_svg",
       "label": "Center icon (SVG)",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Label block.",
       "visible_if": "{{ false }}"
     },
@@ -331,7 +330,6 @@
       "type": "color",
       "id": "label_color",
       "label": "Label color",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Label block.",
       "visible_if": "{{ false }}"
     },
@@ -344,7 +342,6 @@
       "step": 1,
       "unit": "px",
       "default": 12,
-      "hidden": true,
       "info": "Legacy: used only when the section has no Label block.",
       "visible_if": "{{ false }}"
     },
@@ -423,16 +420,16 @@
   ],
   "presets": [
     {
-      "name": "Divider",
-      "category": "Dividers",
+      "name": "Divider – Line",
+      "category": "19 · Layout & custom code",
       "settings": {
         "padding_top": 24,
         "padding_bottom": 24
       }
     },
     {
-      "name": "Divider with label",
-      "category": "Dividers",
+      "name": "Divider – Label",
+      "category": "19 · Layout & custom code",
       "settings": {
         "style": "solid",
         "width_pct": 60,
@@ -449,7 +446,7 @@
       ]
     }
   ],
-  "class": "section-edge-bleed",
+  "class": "section-edge-bleed s-tt",
   "blocks": [
     {
       "type": "label",

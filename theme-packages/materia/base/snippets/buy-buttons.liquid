@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. Add to cart, Buy now and Add to wishlist for the product
   information's Buy buttons block (block: the block) and the sticky bar
   (type: 'sticky', no block).
@@ -10,14 +10,24 @@
   colour and 1.15em, so they follow the button text; a custom icon colour
   only applies when the block turns it on.
 
-  Buy now is Storelib's buy now button ([data-storelib-buy-now]): it buys
-  this item alone and goes straight to checkout by default. When an offer
+  Buy now ([data-storelib-buy-now]) adds this item and goes straight to
+  the platform checkout (product-offers.js). When an offer
   block explicitly selects Main buttons or Both, product-offers.js combines
   that selection and continues through the existing cart checkout instead.
   Existing cart items and required cart terms remain in that flow.
 
   Inputs: product, block, product_form_id, section_id, formClass, type
-{%- endcomment -%}
+
+  @param {block} [block] - The block being rendered
+  @param {string} formClass - Form Class
+  @param {product} product - The product to render
+  @param {string} product_form_id - Product form id
+  @param {string} section_id - Section id
+  @param {string} type - Type ('main_product', 'sticky')
+
+  @example
+  {% render 'buy-buttons', product: product, product_form_id: product_form_id, section_id: section.id, show_wishlist: false, show_compare: false, formClass: 'feature-product-form', type: 'sticky' %}
+{%- enddoc -%}
 {%- if product != blank -%}
   {%- assign native_quantity_offers = product.metafields.storelib.offers.value.quantityBreaks -%}
   {%- assign quantity_blocks = section.blocks | where: 'type', 'quantity_offer' -%}
@@ -188,7 +198,8 @@
             -%}
           {%- endif -%}
           <div class="product-form__buttons btn-large flex flex-wrap gap-10">
-            <div class="product__submit-form-cart flex flex-wrap gap-10 gap-lg-20 align-center grow-1">
+            {%- comment -%} product__submit-form-cart--wl-icon: the heart icon sits in this row (styled in product-page-ui.css without a :has()). {%- endcomment -%}
+            <div class="product__submit-form-cart{% if wl_display == 'icon' %} product__submit-form-cart--wl-icon{% endif %} flex flex-wrap gap-10 gap-lg-20 align-center grow-1">
               {% if show_quantity == true %}
                 <div class="product-form__input product-form__quantity">
                   <quantity-input class="quantity btn-rounded overflow-hidden border inline-flex text-center grey-bg">
@@ -259,7 +270,16 @@
               {%- endif -%}
               {%- if wl_display == 'icon' -%}{{ wishlist_markup }}{%- endif -%}
             </div>
-            {%- if show_dynamic_checkout -%}
+            {%- if show_dynamic_checkout and bb.buy_now_style != 'theme' and gift_card_recipient_feature_active == false -%}
+              {%- comment -%} the platform's own dynamic checkout: Shop Pay, Apple Pay, Google Pay,
+                 PayPal… whichever wallets the store has on and the shopper's device supports,
+                 else the platform's unbranded "Buy it now". {%- endcomment -%}
+              <div class="btn-checkout-dynamic btn-checkout-express w-full">
+                {{ form | payment_button }}
+              </div>
+            {%- elsif show_dynamic_checkout -%}
+              {%- comment -%} the platform: Buy now is handled by product-offers.js (add, then checkout). {%- endcomment -%}
+              <script src="{{ 'product-offers.js' | asset_url }}" defer="defer"></script>
               <div class="btn-checkout-dynamic w-full">
                 <div class="shopify-payment-button" data-shopify="payment-button">
                   <button

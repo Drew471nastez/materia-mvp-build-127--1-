@@ -1,11 +1,27 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. The @font-face rules of an account, password or utility
   page section's custom fonts (see account-pages-font-vars).
   Params: st (section.settings)
-{%- endcomment -%}
+
+  @param {object} st - Section settings object
+
+  @example
+  {% render 'account-pages-font-face', st: st %}
+{%- enddoc -%}
 {%- if st.enable_custom_fonts -%}
   <style>
-    {%- if st.heading_font != blank -%}{{ st.heading_font | font_face: font_display: 'swap' }}{%- endif -%}
-    {%- if st.body_font != blank -%}{{ st.body_font | font_face: font_display: 'swap' }}{%- endif -%}
+    {%- comment -%} The theme's heading weight and the body's bold and italic too, so headings and bold text are not drawn in faux bold. {%- endcomment -%}
+    {%- if st.heading_font != blank -%}
+      {{ st.heading_font | font_face: font_display: 'swap' }}
+      {%- assign f_mod = st.heading_font | font_modify: 'weight', settings.heading_font_weight -%}
+      {%- if f_mod and f_mod.weight != st.heading_font.weight -%}{{ f_mod | font_face: font_display: 'swap' }}{%- endif -%}
+    {%- endif -%}
+    {%- if st.body_font != blank -%}
+      {{ st.body_font | font_face: font_display: 'swap' }}
+      {%- assign f_mod = st.body_font | font_modify: 'weight', 'bold' -%}
+      {%- if f_mod and f_mod.weight != st.body_font.weight -%}{{ f_mod | font_face: font_display: 'swap' }}{%- endif -%}
+      {%- assign f_mod = st.body_font | font_modify: 'style', 'italic' -%}
+      {%- if f_mod -%}{{ f_mod | font_face: font_display: 'swap' }}{%- endif -%}
+    {%- endif -%}
   </style>
 {%- endif -%}

@@ -83,7 +83,7 @@
   function derive(st) {
     const out = [], r = st.el, s = st.s;
     const cid = s.color_scheme && typeof s.color_scheme === 'object' ? s.color_scheme.id : s.color_scheme;
-    out.push([r, 'scheme', cid || 'default-color-scheme']);
+    out.push([r, 'scheme', cid || 'default']);
     scope(out, [r], s, st.spec, (kind, id) => [...r.querySelectorAll('[data-r7e-' + kind + '~="' + id + '"]')]);
     if (st.spec.seal) seal(out, r, s, st.spec.seal);
     for (const [id, b] of st.blocks) {

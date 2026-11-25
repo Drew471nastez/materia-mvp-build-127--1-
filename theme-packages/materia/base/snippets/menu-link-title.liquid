@@ -1,11 +1,19 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. A menu link's title and its badge.
   A badge comes from a tag in the link's title in Navigation: [hot], [new],
   [sale], [popular], [custom_1] or [custom_2] (any case), for example
   "Masonry [hot]". The tag never shows; the badge's words and colours are the
   header's Menu badges block. label: a block's own badge (Badge label), which
   wins over a tag. mode: 'text' prints the clean title only.
-{%- endcomment -%}
+
+  @param {string} [label] - Label
+  @param {string} [mode] - Mode
+  @param {string} [span_class] - Span class
+  @param {string} title - Title
+
+  @example
+  {% render 'menu-link-title', title: child_link.title, span_class: 'menu-link-text' %}
+{%- enddoc -%}
 {%- liquid
   assign mlt_badges = null
   for mlt_block in section.blocks

@@ -29,10 +29,10 @@
     });
     paint();
   };
-  document.addEventListener('storelib:section-load',setup);
+  document.addEventListener('storelib:section-load',setup);document.addEventListener('shopify:section:load',setup);
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',setup,{once:true});else setup();
   reduced.addEventListener?.('change',paint);
-  document.addEventListener('storelib:section-load',paint);document.addEventListener('visibilitychange',paint);
+  document.addEventListener('storelib:section-load',paint);document.addEventListener('shopify:section:load',paint);document.addEventListener('visibilitychange',paint);
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',paint);else paint();
   setInterval(paint,1000);window.MateriaPasswordLaunch={paint};
 })();

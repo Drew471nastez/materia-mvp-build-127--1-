@@ -1,4 +1,4 @@
-<script src="{{ 'live-countdown.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-countdown.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-countdown-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%}
   Materia Themes. Countdown Timer Pro 1: a heading and text over hours,
@@ -17,7 +17,7 @@
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign own = st.enable_custom_style
   assign fonts = st.enable_custom_fonts
   assign legacy_fonts = st.override_fonts
@@ -196,7 +196,8 @@
   </section>
 </div>{% schema %}
 {
-  "name": "Countdown Timer Pro 1",
+  "class": "s-tt",
+"name": "Countdown Timer Pro 1",
   "settings": [
     {
       "type": "header",
@@ -206,7 +207,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -419,7 +420,6 @@
       "unit": "px",
       "label": "Countdown size",
       "default": 60,
-      "hidden": true,
       "info": "Legacy: the numbers and labels have their own sizes.",
       "visible_if": "{{ false }}"
     },
@@ -467,7 +467,6 @@
       "id": "enable_background_image_url",
       "label": "Use image URL",
       "default": false,
-      "hidden": true,
       "info": "Legacy: use Background image.",
       "visible_if": "{{ false }}"
     },
@@ -477,7 +476,6 @@
       "label": "Image URL",
       "default": "/",
       "placeholder": "https://cdn.example.com/path/to/image.jpg",
-      "hidden": true,
       "info": "Legacy: used only while Use image URL is on.",
       "visible_if": "{{ false }}"
     },
@@ -608,7 +606,6 @@
       "type": "color",
       "id": "section_bg",
       "label": "Section background",
-      "hidden": true,
       "info": "Legacy: painted behind the whole section with custom styling on; use Background.",
       "visible_if": "{{ false }}"
     },
@@ -641,7 +638,6 @@
       "id": "override_fonts",
       "label": "Custom fonts",
       "default": false,
-      "hidden": true,
       "info": "Legacy: uses each block's font, and the text font for the numbers; use Custom font in the blocks.",
       "visible_if": "{{ false }}"
     },
@@ -1159,8 +1155,8 @@
   ],
   "presets": [
     {
-      "name": "Countdown Timer Pro 1",
-      "category": "Countdowns",
+      "name": "Countdown – Evergreen",
+      "category": "08 · Promotions & countdowns",
       "blocks": [
         {
           "type": "heading"

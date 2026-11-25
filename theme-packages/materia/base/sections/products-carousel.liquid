@@ -1,9 +1,9 @@
-<script src="{{ 'live-products-b.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-products-b.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-products-b-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
   assign s = section.settings
   assign sid = section.id
-  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
@@ -307,7 +307,7 @@
 </style>
 <div
   class="section pc{% if s.padding_top < 30 %} pt-min{% endif %}{% if s.padding_bottom < 30 %} pb-min{% endif %} sec__products-carousel color-{{ color_scheme }} gradient{% if s.reset_spacing %} remove_spacing{% endif %}{% if reveal %} overflow-hidden{% endif %}"
-  data-pb-root="products-carousel" data-pb-section="{{ sid }}" data-pb-settings="{{ pb_json | escape }}" data-pb-fallback-href="{{ fallback_href }}" data-pb-defaults='{"color_scheme":"default-color-scheme","section_width":"fluid_container","reset_spacing":true,"items_to_show":5,"heading":"Best Selling","header_size":"medium","header_alignment":"left","heading_underline":false,"header_spacing":32,"items_per_row":4,"column_gap":30,"show_banner":false,"banner_type":"image","video_autoplay":true,"banner_width":30,"position":"left","sticky_banner":false,"show_arrow":false,"carousel_pagination":"show_dots_on_mobile","pagination_style":"dot","pagination_position":"center","infinite":false,"autoplay":false,"autorotate_speed":5,"reveal":false,"enable_custom_style":false,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","padding_top":50,"padding_bottom":50,"gap_products_to_pagination":24,"gap_pagination_to_button":24,"gap_products_to_button":32,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"items_per_row_mobile":2,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}' data-pb-block-defaults='{"eyebrow":{"text":"Shop","enable_custom_style":false,"size":13},"heading":{"text":"Best Selling","enable_custom_style":false,"size_desktop":32,"size_mobile":26},"subheading":{"text":"&lt;p>Fresh picks from the collection.&lt;/p>","enable_custom_style":false,"size":16},"view_all":{"enabled":true,"label":"View all","position":"header","full_width":false,"uppercase":false,"enable_custom_style":false,"use_theme_button":true,"radius":6,"padding_x":26,"padding_y":14,"font_size":14,"font_weight":"600","border_width":1}}'
+  data-pb-root="products-carousel" data-pb-section="{{ sid }}" data-pb-settings="{{ pb_json | escape }}" data-pb-fallback-href="{{ fallback_href }}" data-pb-defaults='{"color_scheme":"default","section_width":"fluid_container","reset_spacing":true,"items_to_show":5,"heading":"Best Selling","header_size":"medium","header_alignment":"left","heading_underline":false,"header_spacing":32,"items_per_row":4,"column_gap":30,"show_banner":false,"banner_type":"image","video_autoplay":true,"banner_width":30,"position":"left","sticky_banner":false,"show_arrow":false,"carousel_pagination":"show_dots_on_mobile","pagination_style":"dot","pagination_position":"center","infinite":false,"autoplay":false,"autorotate_speed":5,"reveal":false,"enable_custom_style":false,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","padding_top":50,"padding_bottom":50,"gap_products_to_pagination":24,"gap_pagination_to_button":24,"gap_products_to_button":32,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"items_per_row_mobile":2,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}' data-pb-block-defaults='{"eyebrow":{"text":"Shop","enable_custom_style":false,"size":13},"heading":{"text":"Best Selling","enable_custom_style":false,"size_desktop":32,"size_mobile":26},"subheading":{"text":"&lt;p>Fresh picks from the collection.&lt;/p>","enable_custom_style":false,"size":16},"view_all":{"enabled":true,"label":"View all","position":"header","full_width":false,"uppercase":false,"enable_custom_style":false,"use_theme_button":true,"radius":6,"padding_x":26,"padding_y":14,"font_size":14,"font_weight":"600","border_width":1}}'
   data-align="{{ s.header_alignment | default: 'left' }}" data-underline="{% if s.heading_underline %}true{% else %}false{% endif %}" data-width="{{ section_width }}"
   style="--section-pt: {{ s.padding_top }};--section-pb: {{ s.padding_bottom }};--pc-hgap: {{ s.header_spacing | default: 0 }}px;--pc-gap-pag: {{ s.gap_products_to_pagination | default: 0 }}px;--pc-gap-pag-btn: {{ s.gap_pagination_to_button | default: 0 }}px;--pc-gap-btn: {{ s.gap_products_to_button | default: 0 }}px;--pc-banner-w: {{ s.banner_width | default: 30 }}%;{% if s.enable_custom_style %}--pb-bg: {% render 'scheme-color', color: s.section_bg_override, fallback: 'var(--color-background)' %};{% endif %}{% if s.enable_custom_fonts and s.heading_font.family != blank %}--heading-font: {{ s.heading_font.family }}, {{ s.heading_font.fallback_families | default: 'sans-serif' }};{% endif %}{% if s.enable_custom_fonts and s.body_font.family != blank %}--body-font: {{ s.body_font.family }}, {{ s.body_font.fallback_families | default: 'sans-serif' }};{% endif %}"
 >
@@ -335,7 +335,7 @@
   {%- if bs.uppercase -%}--btn-text-transform: uppercase;--btn-letter-spacing: 0.04em;{%- endif -%}
 {%- endcapture -%}
 {%- assign pb_label = bs.label | strip -%}
-<a class="pc__view-all no-underline" href="{% if bs.link != blank %}{{ bs.link | url }}{% else %}{{ fallback_href }}{% endif %}" data-theme-button="primary" data-sl-button{% if bs.use_theme_button == false %} data-own-shape data-own-weight{% endif %} data-block-id="{{ block.id }}" data-full="{% if bs.full_width %}true{% else %}false{% endif %}" data-pb-order="{{ forloop.index }}" data-pb-block="{{ block.id }}" data-pb-type="view_all" data-pb-settings="{{ pb_bjson | escape }}" style="{{ pb_style | strip }}"{% if bs.enabled == false or pb_label == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ pb_label | escape }}</a>{%- endif -%}{%- endfor -%}
+<a class="pc__view-all no-underline" href="{% if bs.link != blank %}{{ bs.link }}{% else %}{{ fallback_href }}{% endif %}" data-theme-button="primary" data-sl-button{% if bs.use_theme_button == false %} data-own-shape data-own-weight{% endif %} data-block-id="{{ block.id }}" data-full="{% if bs.full_width %}true{% else %}false{% endif %}" data-pb-order="{{ forloop.index }}" data-pb-block="{{ block.id }}" data-pb-type="view_all" data-pb-settings="{{ pb_bjson | escape }}" style="{{ pb_style | strip }}"{% if bs.enabled == false or pb_label == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ pb_label | escape }}</a>{%- endif -%}{%- endfor -%}
       </div>
     </div>
     {%- if data_free_scroll == 'true' -%}<div class="free-scroll">{%- endif -%}
@@ -365,12 +365,20 @@
           {%- render 'swiper-navigation' -%}
         {%- endif -%}
         <div class="swiper-wrapper">
-          {%- comment -%} On a product's own page the carousel is "more like this": the product being looked at is left out. {%- endcomment -%}
-          {%- assign pc_current_id = '' -%}
-          {%- if template.name == 'product' -%}{%- assign pc_current_id = product.id -%}{%- endif -%}
-          {%- if s.collection.products.size > 0 -%}
-            {%- for product in s.collection.products limit: items_to_show -%}
-              {%- if pc_current_id != blank and product.id == pc_current_id and s.collection.products.size > 1 -%}{%- continue -%}{%- endif -%}
+          {%- comment -%} On a product's own page the carousel is "more like this": the product being looked at is left out. With no collection chosen it shows the shop's products. {%- endcomment -%}
+          {%- liquid
+            assign pc_collection = s.collection
+            if pc_collection == blank
+              assign pc_collection = collections.all
+            endif
+            assign pc_current_id = ''
+            if template.name == 'product'
+              assign pc_current_id = product.id
+            endif
+          -%}
+          {%- if pc_collection.products.size > 0 -%}
+            {%- for product in pc_collection.products limit: items_to_show -%}
+              {%- if pc_current_id != blank and product.id == pc_current_id and pc_collection.products.size > 1 -%}{%- continue -%}{%- endif -%}
               {% render 'product-item',
                 card_product: product,
                 section_id: sid,
@@ -430,7 +438,7 @@
   {%- if bs.uppercase -%}--btn-text-transform: uppercase;--btn-letter-spacing: 0.04em;{%- endif -%}
 {%- endcapture -%}
 {%- assign pb_label = bs.label | strip -%}
-<a class="pc__view-all no-underline" href="{% if bs.link != blank %}{{ bs.link | url }}{% else %}{{ fallback_href }}{% endif %}" data-theme-button="primary" data-sl-button{% if bs.use_theme_button == false %} data-own-shape data-own-weight{% endif %} data-block-id="{{ block.id }}" data-full="{% if bs.full_width %}true{% else %}false{% endif %}" data-pb-order="{{ forloop.index }}" data-pb-block="{{ block.id }}" data-pb-type="view_all" data-pb-settings="{{ pb_bjson | escape }}" style="{{ pb_style | strip }}"{% if bs.enabled == false or pb_label == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ pb_label | escape }}</a>{%- endif -%}{%- endfor -%}
+<a class="pc__view-all no-underline" href="{% if bs.link != blank %}{{ bs.link }}{% else %}{{ fallback_href }}{% endif %}" data-theme-button="primary" data-sl-button{% if bs.use_theme_button == false %} data-own-shape data-own-weight{% endif %} data-block-id="{{ block.id }}" data-full="{% if bs.full_width %}true{% else %}false{% endif %}" data-pb-order="{{ forloop.index }}" data-pb-block="{{ block.id }}" data-pb-type="view_all" data-pb-settings="{{ pb_bjson | escape }}" style="{{ pb_style | strip }}"{% if bs.enabled == false or pb_label == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ pb_label | escape }}</a>{%- endif -%}{%- endfor -%}
       </div>
     {%- if show_banner -%}
       </div>
@@ -441,7 +449,7 @@
         {% if s.banner_link == blank or s.banner_type != 'image' %}
           role="link" aria-disabled="true"
         {% else %}
-          href="{{ s.banner_link | url }}"
+          href="{{ s.banner_link }}"
         {% endif %}
       >
         {%- if s.banner_type == 'image' and banner_image != blank -%}
@@ -478,7 +486,7 @@
             </div>
           {%- endif -%}
         {%- else -%}
-          {% render 'placeholder-render', class: 'rounded' %}
+          {% render 'placeholder-render', class: 'rounded', type: 'product', index: forloop.index %}
         {%- endif -%}
       </a>
       </div>
@@ -487,7 +495,8 @@
   </div>
 </div>{% schema %}
 {
-  "name": "Products carousel",
+  "class": "s-tt",
+"name": "Products carousel",
   "tag": "section",
   "disabled_on": {
     "groups": [
@@ -505,7 +514,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -560,7 +569,6 @@
       "id": "heading",
       "label": "Heading",
       "default": "Best Selling",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Heading block.",
       "visible_if": "{{ false }}"
     },
@@ -568,7 +576,6 @@
       "type": "inline_richtext",
       "id": "description",
       "label": "Description",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Subheading block.",
       "visible_if": "{{ false }}"
     },
@@ -591,7 +598,6 @@
           "label": "Large"
         }
       ],
-      "hidden": true,
       "info": "Legacy: used only when the section has no Heading block.",
       "visible_if": "{{ false }}"
     },
@@ -1327,8 +1333,8 @@
   ],
   "presets": [
     {
-      "name": "Products carousel",
-      "category": "Products",
+      "name": "Products Carousel",
+      "category": "03 · Products",
       "blocks": [
         {
           "type": "heading"

@@ -1,7 +1,7 @@
-<script src="{{ 'live-page-popups.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-page-popups.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-page-popups-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Custom colours are opt in: off, every colour below is empty and the popup follows its colour scheme. {%- endcomment -%}
 {%- liquid
@@ -236,12 +236,19 @@
     if (window['__bttStop_' + SID]) window['__bttStop_' + SID]();
     var path = btn.querySelector('.progress-path-' + SID);
     var showAfter = parseInt(btn.getAttribute('data-show-after'), 10) || 0;
-    var frame = 0, shown = null;
+    var frame = 0, shown = null, pageH = 0;
+    // The page's height comes from a ResizeObserver (reported after layout),
+    // not from scrollHeight on each scroll frame: reading it while the page
+    // still had layout to do forced that layout inside the frame (80-100ms).
+    if ('ResizeObserver' in window) {
+      var ro = new ResizeObserver(function(es){ pageH = es[es.length - 1].contentRect.height; queue(); });
+      ro.observe(document.body);
+    }
     // One read per frame: how far down the page is, as the ring and the reveal.
     function update(){
       frame = 0;
-      var y = window.scrollY || document.documentElement.scrollTop;
-      var max = document.documentElement.scrollHeight - window.innerHeight;
+      var y = window.scrollY;
+      var max = (pageH || document.documentElement.scrollHeight) - window.innerHeight;
       var on = y > showAfter;
       if (on !== shown) { shown = on; btn.classList.toggle('is-visible', on); }
       if (path) path.style.strokeDashoffset = String(100 - (max > 0 ? Math.min(1, y / max) : 0) * 100);
@@ -262,7 +269,7 @@
     // First read in the next frame, not at DOMContentLoaded: the page height
     // read here forced the page's first layout inside this script.
     queue();
-    window['__bttStop_' + SID] = function(){ window.removeEventListener('scroll', queue); window.removeEventListener('resize', queue); cancelAnimationFrame(frame); frame = 0; };
+    window['__bttStop_' + SID] = function(){ if (ro) ro.disconnect(); window.removeEventListener('scroll', queue); window.removeEventListener('resize', queue); cancelAnimationFrame(frame); frame = 0; };
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup, { once: true }); else setup();
   function reload(e){ if (e.detail && String(e.detail.sectionId) === SID) setup(); }
@@ -272,7 +279,8 @@
 </script>
 {% schema %}
 {
-  "name": "Back To Top Pro",
+  "class": "s-tt",
+"name": "Back To Top Pro",
   "enabled_on": {
     "groups": [
       "custom.overlay"
@@ -287,7 +295,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "header",

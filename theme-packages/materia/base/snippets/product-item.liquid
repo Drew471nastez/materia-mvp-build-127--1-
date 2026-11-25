@@ -14,24 +14,43 @@
 {%- comment -%}
   Materia Themes. Developed By Materia Themes.
 {%- endcomment -%}
-{% comment %}
+{% doc %}
   Renders a product card
 
-  Accepts:
-  - card_product: {Object} Product Liquid object (optional)
-  - template_enable_action: {Boolean} template is disable action or not, action is contain wishlist, quickview (optional)
-  - template_enable_product_vendor: {Boolean} template is disable vendor or not (optional)
-  - template_enable_rate: {Boolean} template is disable rate or not (optional)
-  - template_enable_price: {Boolean} template is disable price or not (optional)
-  - template_enable_product_short_description: {Boolean} template is disable short description or not (optional)
-  - template_enable_color_swatches: {Boolean} template is disable color swatches or not (optional)
-  - template_disable_product_url: {Boolean} template is disable product url or not (optional)
-  - class: {String} custom class (optional)
-  - type: {String} Display type of product item - list/normal (optional)
+  @param {product} [card_product] - Product Liquid object
+  @param {string} [class] - custom class (' swiper-slide', 'product-set', 'pstl__product-item')
+  @param {boolean} [collection_product] - Collection product
+  @param {number} [colunm] - Products per row (desktop)
+  @param {number} [colunm_mobile] - Products per row (mobile)
+  @param {string} [container] - Section width
+  @param {boolean} [custom_widths] - Custom widths; no current caller passes it
+  @param {string} [direction] - Direction; no current caller passes it
+  @param {boolean} [enable_short_description] - Enable short description
+  @param {number} [indexFor] - Index For
+  @param {string} [option_name] - Option name; no current caller passes it
+  @param {number} [padding] - Gap between products
+  @param {boolean} [product_set_badge] - Product set badge
+  @param {string} [scroll_animation] - When a section scrolls into view
+  @param {boolean} [search_thumb] - Search thumb; no current caller passes it
+  @param {string} [section_id] - Section id
+  @param {object} [section_st] - Section settings object
+  @param {string} [sizes] - Sizes
+  @param {boolean} [template_disable_product_url] - template is disable product url or not; no current caller passes it
+  @param {boolean} [template_disable_script_trigger_product_data] - Template disable script trigger product data; no current caller passes it
+  @param {boolean} [template_enable_action] - template is disable action or not, action is contain wishlist, quickview
+  @param {boolean} [template_enable_add_cart] - Show Add to cart button
+  @param {boolean} [template_enable_color_swatches] - template is disable color swatches or not
+  @param {boolean} [template_enable_price] - template is disable price or not
+  @param {boolean} [template_enable_product_badges] - Show badges
+  @param {boolean} [template_enable_product_short_description] - template is disable short description or not
+  @param {boolean} [template_enable_product_vendor] - template is disable vendor or not
+  @param {boolean} [template_enable_rate] - template is disable rate or not
+  @param {boolean} [template_enable_remove_in_wishlist_page] - Template enable remove in wishlist page
+  @param {string} [type] - Display type of product item - list/normal ('gird', 'product-set')
 
-  Usage:
-  {% render 'card-product', template_enable_action: false, template_enable_product_vendor: true %}
-{% endcomment %}
+  @example
+  {% render 'product-item', scroll_animation: scroll_animation, card_product: product, section_id: section.id, template_enable_action: true, template_enable_price: true, template_enable_product_vendor: true, template_enable_rate: true, template_enable_add_cart: true, template_enable_product_short_description: true, enable_short_description: true, template_enable_color_swatches: true, template_enable_product_badges: true, type: 'list', indexFor: forloop.index, type_collections: 'true', container: section_width, colunm: column, colunm_mobile: section_st.items_per_row_mobile, padding: section_st.column_gap, collection_product: true %}
+{% enddoc %}
 {% liquid
   assign enable_rtl = settings.rtl
   assign iso_code = request.locale.iso_code
@@ -102,7 +121,7 @@
 {% comment %} Case card product has data, handle data {% endcomment %}
 {% if card_product and card_product != empty and card_product.id != blank %}
   <div
-    class="product-item product__item-js {{ class }} style-as-{{ product_style }}"
+    class="product-item product__item-js {{ class }} style-as-{{ product_style }} pc-reveal--{{ theme_st.card_actions_reveal | default: 'hover' }} pc-layout--{{ theme_st.card_actions_layout | default: 'side' }}{% unless theme_st.show_action_on_mobile %} pc-phones-off{% endunless %}{% if theme_st.card_actions_tooltips == false %} pc-no-tips{% endif %}"
     {% if type == 'sticky' %}
       data-section="{{ section_id }}"
       data-color-trigger="{{ settings.color_swatch_trigger }}"
@@ -143,7 +162,7 @@
                   assign ratio = '3/4'
                 else
                   if product_custom_ratio != empty
-                    assign ratio = product_custom_ratio | replace: ':', '/'
+                    assign ratio = product_custom_ratio | strip | replace: ':', '/' | replace: 'x', '/' | replace: 'X', '/'
                   else
                     assign ratio = '3/4'
                   endif
@@ -159,6 +178,16 @@
             if product_media.media_type == 'video' or product_media.media_type == 'external_video'
               assign show_secondary_image = false
               assign type_video = true
+            endif
+          -%}
+          {%- liquid
+            assign pc_slider = false
+            assign pc_slider_max = theme_st.card_image_slider_max | default: 5
+            if theme_st.card_image_slider and type != 'list' and type != 'sticky' and search_thumb != true
+              assign pc_img_count = card_product.media | where: 'media_type', 'image' | size
+              if pc_img_count > 1
+                assign pc_slider = true
+              endif
             endif
           -%}
           <a
@@ -244,6 +273,23 @@
                   sizes: sizes
                 %}
               {% endif %}
+            {% elsif pc_slider %}
+              {%- comment -%} Swipe between the product's pictures (Theme settings > Product cards > Image slider). {%- endcomment -%}
+              <div class="pc-slides" data-pc-slides>
+                {%- assign pc_n = 0 -%}
+                {%- for pc_media in card_product.media -%}
+                  {%- if pc_media.media_type != 'image' or pc_n >= pc_slider_max -%}{%- continue -%}{%- endif -%}
+                  {%- assign pc_n = pc_n | plus: 1 -%}
+                  {%- assign pc_alt = pc_media.alt | default: card_product.title | escape -%}
+                  <div class="pc-slide">
+                    {%- if pc_n == 1 -%}
+                      {% render 'responsive-image', type: 'product', class: 'product-image first-image', image: pc_media, image_alt: pc_alt, container: container, colunm: colunm, colunm_mobile: colunm_mobile, padding: padding, custom_widths: custom_widths, sizes: sizes %}
+                    {%- else -%}
+                      {% render 'responsive-image', type: 'product', class: 'product-image', image: pc_media, image_alt: pc_alt, container: container, colunm: colunm, colunm_mobile: colunm_mobile, padding: padding, custom_widths: custom_widths, sizes: sizes %}
+                    {%- endif -%}
+                  </div>
+                {%- endfor -%}
+              </div>
             {% else %}
               {% render 'responsive-image',
                 type: 'product',
@@ -267,6 +313,10 @@
               -%}
             {% endif %}
           </a>
+          {%- if pc_slider -%}
+            <button type="button" class="pc-arrow pc-arrow--prev" data-pc-arrow="-1" aria-label="{{ 'accessibility.previous' | t }}" disabled><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
+            <button type="button" class="pc-arrow pc-arrow--next" data-pc-arrow="1" aria-label="{{ 'accessibility.next' | t }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
+          {%- endif -%}
         {%- else -%}
           {% comment %} Case product has no image show placeholder {% endcomment %}
           {%- liquid
@@ -281,7 +331,7 @@
                   assign ratio = '3/4'
                 else
                   if product_custom_ratio != empty
-                    assign ratio = product_custom_ratio | replace: ':', '/'
+                    assign ratio = product_custom_ratio | strip | replace: ':', '/' | replace: 'x', '/' | replace: 'X', '/'
                   else
                     assign ratio = '3/4'
                   endif
@@ -301,7 +351,8 @@
             class="product-item__media--ratio rounded block"
             style="--aspect-ratio: {% if search_thumb %}1{% else %}{{ ratio }}{% endif %};"
           >
-            {% render 'placeholder-render', class: 'rounded' %}
+            {%- assign pi_ph_index = indexFor | default: card_product.id | default: 1 -%}
+            {% render 'placeholder-render', class: 'rounded', type: 'product', index: pi_ph_index %}
           </a>
         {%- endif -%}
         {%- comment -%}
@@ -311,6 +362,20 @@
           it is one column in that corner, badge first and the heart right
           under it, at Product badges > Edge offset (product-card.css).
         {%- endcomment -%}
+        {%- liquid
+          comment
+            The card buttons (wishlist, quick view) share one group on the
+            image (Theme settings > Product cards > Card buttons). It sits in
+            the corner stack, so with the badges in the top end corner it
+            lines up under them instead of on top of them.
+          endcomment
+          assign pc_group = false
+          if type != 'list' and type != 'sticky' and type != 'product-set' and template_enable_action == true and template_enable_remove_in_wishlist_page != true
+            if show_wishlist or theme_st.card_show_quickview
+              assign pc_group = true
+            endif
+          endif
+        -%}
         <div class="pc-corner" data-pc-corner>
         {% if template_enable_product_badges == true %}
           {% render 'product-badges',
@@ -363,7 +428,7 @@
                 </span>
               </button-wishlist>
             {%- endif -%}
-          {% elsif template_enable_action == true and show_wishlist == true and type != 'product-set' %}
+          {% elsif template_enable_action == true and show_wishlist == true and type != 'product-set' and pc_group == false %}
             {%- comment -%} One place for the heart on every card style and width: the image's top end corner. {%- endcomment -%}
             <div class="product-item__button-action pc-heart heading-color transition flex z-5">
               {%- comment -%}
@@ -404,6 +469,43 @@
             </div>
           {% endif %}
         {% endif %}
+        {%- if pc_group -%}
+          {%- assign pc_layout = theme_st.card_actions_layout | default: 'side' -%}
+          <div class="pc-actions pc-actions--{{ pc_layout }}{% if theme_st.card_actions_reveal == 'always' %} pc-actions--always{% endif %}{% if theme_st.card_actions_tooltips == false %} pc-actions--no-tips{% endif %}">
+            {%- if show_wishlist -%}
+              <button-wishlist
+                tabindex="0"
+                role="button"
+                aria-pressed="false"
+                aria-label="{{ 'products.product.actions.wishlist.add' | t }}: {{ card_product.title | escape }}"
+                class="pc-action product-item__button pointer product-item__button-wishlist transition rounded-50 p-0 inline-flex content-center"
+                data-product-id="{{ card_product.id }}"
+                data-product-handle="{{ card_product.handle }}"
+                data-action="remove"
+                data-tooltip-remove="{{ 'products.product.actions.wishlist.remove' | t }}"
+                data-tooltip-add="{{ 'products.product.actions.wishlist.add' | t }}"
+                data-tooltip-redirect="{{ 'products.product.actions.wishlist.redirect' | t }}"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><use href="#icon-wishlist" /></svg>
+                <span class="pc-tip" aria-hidden="true">{{- 'products.product.actions.wishlist.add' | t -}}</span>
+              </button-wishlist>
+            {%- endif -%}
+            {%- if theme_st.card_show_quickview -%}
+              <button-quickview
+                tabindex="0"
+                role="button"
+                aria-label="{{ 'products.product.actions.quickview.label' | t }}: {{ card_product.title | escape }}"
+                class="pc-action pointer"
+                data-url="{{ card_product.url | split: '?' | first }}?section_id=product-quickview"
+                data-custom-class="quickview"
+                aria-haspopup="dialog"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+                <span class="pc-tip" aria-hidden="true">{{- 'products.product.actions.quickview.label' | t -}}</span>
+              </button-quickview>
+            {%- endif -%}
+          </div>
+        {%- endif -%}
         </div>
         {% if template_enable_product_badges == true %}
           {% render 'product-badges',
@@ -418,73 +520,117 @@
             <span>{{ 'products.product.label_set' | t: index: indexFor }}</span>
           </div>
         {% endif %}
-        {% if type != 'list' and type != 'sticky' %}
-          {%- comment -%} The quick add: a round 44px icon at the image's bottom end corner below 1025px, a labelled button along its bottom edge above. {%- endcomment -%}
-          <div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10{% if enable_rtl %} left-10{% else %} right-10{% endif %}{% if settings.show_action_on_mobile and product_style != 'card' %} invisible-1025{% elsif settings.show_action_on_mobile and product_style == 'card' %} visible-1025{% elsif settings.show_action_on_mobile == false and product_style == 'card' %} visible-1025{% endif %}{% if settings.show_action_on_mobile == false %} invisible{% endif %}">
-            {% if template_enable_action == true %}
-              {% if product_style != 'morden' %}
-                {% if template_enable_add_cart == true and show_add_cart and theme_st.enable_catalog_mode == false %}
-                  {%- liquid
-                    assign product_form_id = 'quick-add-' | append: section_id | append: card_product.id
-                    assign qty_rules = false
-                    if card_product.selected_or_first_available_variant.quantity_rule.template > 1 or card_product.selected_or_first_available_variant.quantity_rule.max != null or card_product.selected_or_first_available_variant.quantity_rule.increment > 1
-                      assign qty_rules = true
-                    endif
-                  -%}
-                  {%- comment -%} Always add-to-cart directly; opens cart drawer via action_after_add_cart {%- endcomment -%}
-                  {%- liquid
-                    assign _ignore_qty_rules = qty_rules
-                  -%}
-                    <product-form class="product-item__product-form pc-form--media">
-                      {%- form 'product',
-                        card_product,
-                        id: product_form_id,
-                        class: 'form',
-                        novalidate: 'novalidate',
-                        data-type: 'add-to-cart-form'
-                      -%}
-                        <input
-                          type="hidden"
-                          name="id"
-                          value="{{ card_product.selected_or_first_available_variant.id }}"
-                          disabled
-                        >
-                        <button
-                          id="{{ product_form_id }}-submit"
-                          type="submit"
-                          name="add"
-                          class="product__add-cart product-item__button-submit pc-atc btn text-center"
-                          data-sl-button data-button-role="{{ card_atc_role }}" data-theme-button="{{ card_atc_role }}"{% if card_atc_choice == 'outline' %} data-button-outline="true" data-button-appearance="outline"{% else %} data-button-local-appearance="theme"{% endif %}
-                          aria-haspopup="dialog"
-                          aria-live="polite"
-                          data-sold-out-message="true"
-                          {% if card_product.selected_or_first_available_variant.available == false %}
-                            disabled
-                          {% endif %}
-                        >
-                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="pc-atc__icon hidden-on-load icon-cart" aria-hidden="true" focusable="false">
-                            <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-                          </svg>
-                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="spin opacity-0 icon-load" aria-hidden="true" focusable="false">
-                            <use href="#icon-load"></use>
-                          </svg>
-                          <span class="pc-atc__label hidden-on-load btn-action">
-                            {%- if card_product.selected_or_first_available_variant.available -%}
-                              {{ 'products.product.actions.add_to_cart.default.label' | t }}
-
-                            {%- else -%}
-                              {{ 'products.product.actions.add_to_cart.sold_out.label' | t }}
-                            {%- endif -%}
-                          </span>
-                          <span class="sold-out-message hidden">
-                            {{ 'products.product.actions.add_to_cart.sold_out.label' | t }}
-                          </span>
-                        </button>
-                      {%- endform -%}
-                    </product-form>
-                {% endif %}
-              {% endif %}
-            {% endif %}
+        {%- comment -%}
+          The card's add button, drawn once and placed on the picture
+          (Standard) or under the details (Modern). Products with options
+          follow Product cards > Add to cart on products with options:
+          quick view (opens the quick view), add selected (adds the
+          selected or first available variant) or product page (a link).
+        {%- endcomment -%}
+        {%- liquid
+          assign pc_atc_html = ''
+          assign pc_can_buy = false
+          if template_enable_add_cart == true and show_add_cart and theme_st.enable_catalog_mode == false and type != 'list' and type != 'sticky'
+            assign pc_can_buy = true
+          endif
+          assign pc_place = 'media'
+          if product_style == 'morden'
+            assign pc_place = 'below'
+          elsif template_enable_action != true
+            assign pc_can_buy = false
+          endif
+          assign pc_mv = theme_st.card_multi_variant_action | default: 'quick_view'
+          assign pc_mode = 'add'
+          if card_product.has_only_default_variant == false and pc_mv != 'add_first' and card_product.available
+            if pc_mv == 'product_page'
+              assign pc_mode = 'link'
+            else
+              assign pc_mode = 'quickview'
+            endif
+          endif
+          comment
+            Product cards > Button label on products with options: the words
+            only; what the button does follows the mode above.
+          endcomment
+          assign pc_label = 'products.product.actions.add_to_cart.default.label' | t
+          if card_product.has_only_default_variant == false and theme_st.card_options_label != 'add_to_cart'
+            assign pc_label = 'products.product.actions.select_options.label' | t
+          endif
+          assign product_form_id = 'quick-add-' | append: section_id | append: card_product.id
+          assign pc_variant = card_product.selected_or_first_available_variant
+          if pc_place == 'below'
+            if card_atc_role == 'primary'
+              assign pc_btn_class = 'w-full product__add-cart product-item__select-options pc-atc pc-atc--below btn-primary text-center relative morden-style'
+            else
+              assign pc_btn_class = 'w-full product__add-cart product-item__select-options pc-atc pc-atc--below btn-outline text-center relative morden-style'
+            endif
+          else
+            assign pc_btn_class = 'product__add-cart product-item__button-submit pc-atc btn text-center'
+          endif
+        -%}
+        {%- if pc_can_buy -%}
+          {%- capture pc_btn_attrs -%}data-sl-button data-button-role="{{ card_atc_role }}" data-theme-button="{{ card_atc_role }}"{% if card_atc_choice == 'outline' %} data-button-outline="true" data-button-appearance="outline"{% else %} data-button-local-appearance="theme"{% endif %}{%- endcapture -%}
+          {%- capture pc_atc_icon -%}<svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="pc-atc__icon hidden-on-load icon-cart" aria-hidden="true" focusable="false"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>{%- endcapture -%}
+          {%- capture pc_atc_html -%}
+            {%- if pc_mode == 'add' -%}
+              <product-form class="product-item__product-form pc-form pc-form--{{ pc_place }}">
+                {%- form 'product', card_product, id: product_form_id, class: 'form', novalidate: 'novalidate', data-type: 'add-to-cart-form' -%}
+                  <input type="hidden" name="id" value="{{ pc_variant.id }}" disabled>
+                  <button
+                    id="{{ product_form_id }}-submit"
+                    type="submit"
+                    name="add"
+                    class="{{ pc_btn_class }}"
+                    {{ pc_btn_attrs }}
+                    aria-haspopup="dialog"
+                    aria-live="polite"
+                    data-sold-out-message="true"
+                    {% if pc_variant.available == false %}disabled{% endif %}
+                  >
+                    {{ pc_atc_icon }}
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="spin opacity-0 icon-load" aria-hidden="true" focusable="false"><use href="#icon-load"></use></svg>
+                    <span class="pc-atc__label hidden-on-load btn-action">
+                      {%- if pc_variant.available -%}
+                        {{ pc_label }}
+                      {%- else -%}
+                        {{ 'products.product.actions.add_to_cart.sold_out.label' | t }}
+                      {%- endif -%}
+                    </span>
+                    <span class="sold-out-message hidden">{{ 'products.product.actions.add_to_cart.sold_out.label' | t }}</span>
+                  </button>
+                {%- endform -%}
+              </product-form>
+            {%- elsif pc_mode == 'link' -%}
+              <div class="product-item__product-form pc-form pc-form--{{ pc_place }}">
+                <a href="{{ card_product.url }}" class="{{ pc_btn_class }}" {{ pc_btn_attrs }} aria-label="{{ pc_label }}: {{ card_product.title | escape }}">
+                  {{ pc_atc_icon }}
+                  <span class="pc-atc__label btn-action">{{ pc_label }}</span>
+                </a>
+              </div>
+            {%- else -%}
+              <div class="product-item__product-form pc-form pc-form--{{ pc_place }}">
+                <button-quickview
+                  role="button"
+                  tabindex="0"
+                  class="{{ pc_btn_class }} pointer"
+                  data-url="{{ card_product.url | split: '?' | first }}?section_id=product-quickview"
+                  data-custom-class="quickview"
+                  aria-haspopup="dialog"
+                  aria-label="{{ pc_label }}: {{ card_product.title | escape }}"
+                  {{ pc_btn_attrs }}
+                >
+                  {{ pc_atc_icon }}
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="spin opacity-0 icon-load" aria-hidden="true" focusable="false"><use href="#icon-load"></use></svg>
+                  <span class="pc-atc__label hidden-on-load btn-action">{{ pc_label }}</span>
+                </button-quickview>
+              </div>
+            {%- endif -%}
+          {%- endcapture -%}
+        {%- endif -%}
+        {% if type != 'list' and type != 'sticky' and pc_place == 'media' and pc_atc_html != '' %}
+          {%- comment -%} The quick add: a round icon at the image's bottom end corner below 1025px, a labelled button along its bottom edge above. {%- endcomment -%}
+          <div class="product-item__action pc-atc-slot">
+            {{ pc_atc_html }}
           </div>
         {% endif %}
       </div>
@@ -535,7 +681,7 @@
               class="product-item__price{% if type == 'list' or type == 'sticky' %} text-start{% else %} justify-content-{{ settings.product_alignment }} fs-custom{% endif %} flex gap-custom lh-normal {{ priceclass }}"
               style="--font-size: {{ settings.price_size }}; --gap: 3px;"
             >
-              {%- render 'price', scope: 'item', product: card_product, show_badges: false, class: priceclass -%}
+              {%- render 'price', scope: 'item', product: card_product, class: priceclass -%}
             </div>
           {% endif %}
         {% endif %}
@@ -667,68 +813,19 @@
             {% endif %}
           </div>
         {% else %}
-          {% if product_style == 'morden' %}
-            {% if template_enable_add_cart == true and show_add_cart and theme_st.enable_catalog_mode == false %}
-              {%- liquid
-                assign product_form_id = 'quick-add-' | append: section_id | append: card_product.id
-                assign qty_rules = false
-                if card_product.selected_or_first_available_variant.quantity_rule.template > 1 or card_product.selected_or_first_available_variant.quantity_rule.max != null or card_product.selected_or_first_available_variant.quantity_rule.increment > 1
-                  assign qty_rules = true
-                endif
-              -%}
-                {%- comment -%} Always add-to-cart directly {%- endcomment -%}
-                <product-form class="product-item__product-form pc-form--below{% if settings.show_action_on_mobile != true %} hidden block-1025{% endif %}">
-                  {%- form 'product',
-                    card_product,
-                    id: product_form_id,
-                    class: 'form',
-                    novalidate: 'novalidate',
-                    data-type: 'add-to-cart-form'
-                  -%}
-                    <input
-                      type="hidden"
-                      name="id"
-                      value="{{ card_product.selected_or_first_available_variant.id }}"
-                      disabled
-                    >
-                    <button
-                      id="{{ product_form_id }}-submit"
-                      type="submit"
-                      name="add"
-                      class="w-full product__add-cart product-item__select-options pc-atc pc-atc--below{% if card_atc_role == 'primary' %} btn-primary{% else %} btn-outline{% endif %} text-center relative morden-style"
-                      data-sl-button data-button-role="{{ card_atc_role }}" data-theme-button="{{ card_atc_role }}"{% if card_atc_choice == 'outline' %} data-button-outline="true" data-button-appearance="outline"{% else %} data-button-local-appearance="theme"{% endif %}
-                      aria-haspopup="dialog"
-                      aria-live="polite"
-                      data-sold-out-message="true"
-                      {% if card_product.selected_or_first_available_variant.available == false %}
-                        disabled
-                      {% endif %}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" class="spin opacity-0 icon-load">
-                        <use href="#icon-load"></use>
-                      </svg>
-                      <span class="pc-atc__label hidden-on-load btn-action">
-                        {%- if card_product.selected_or_first_available_variant.available -%}
-                          {{ 'products.product.actions.add_to_cart.default.label' | t }}
-
-                        {%- else -%}
-                          {{ 'products.product.actions.add_to_cart.sold_out.label' | t }}
-                        {%- endif -%}
-                      </span>
-                      <span class="sold-out-message hidden">
-                        {{ 'products.product.actions.add_to_cart.sold_out.label' | t }}
-                      </span>
-                    </button>
-                  {%- endform -%}
-                </product-form>
-            {% endif %}
-          {% endif %}
+          {%- if pc_place == 'below' and pc_atc_html != '' -%}
+            {{ pc_atc_html }}
+          {%- endif -%}
         {% endif %}
       </div>
       {% if template_disable_script_trigger_product_data != true %}
         {%- liquid
           assign has_color = false
           for option in card_product.options_with_values
+            assign _nv_first = option.values | first
+            if _nv_first.swatch != blank
+              assign has_color = true
+            endif
             if option.name == option_name
               assign has_color = true
             endif
@@ -814,7 +911,7 @@
                     assign ratio = '3/4'
                   else
                     if product_custom_ratio != empty
-                      assign ratio = product_custom_ratio | replace: ':', '/'
+                      assign ratio = product_custom_ratio | strip | replace: ':', '/' | replace: 'x', '/' | replace: 'X', '/'
                     else
                       assign ratio = '3/4'
                     endif
@@ -827,7 +924,8 @@
               class="product-item__media--ratio rounded"
               style="--aspect-ratio: {% if search_thumb %}1{% else %}{{ ratio }}{% endif %};"
             >
-              {%- render 'placeholder-render', class: 'rounded' -%}
+              {%- assign pi_ph_index = indexFor | default: card_product.id | default: 1 -%}
+              {%- render 'placeholder-render', class: 'rounded', type: 'product', index: pi_ph_index -%}
             </div>
           </a>
         </div>
@@ -854,7 +952,7 @@
           class="product-item__price mt-5 {% if type != 'list' %}justify-content-{{ settings.product_alignment }}{% endif %} fs-custom flex"
           style="--font-size: {{ settings.price_size }}"
         >
-          {%- render 'price', scope: 'item', show_badges: false, class: priceclass -%}
+          {%- render 'price', scope: 'item', class: priceclass -%}
         </div>
       </div>
     </motion-element>

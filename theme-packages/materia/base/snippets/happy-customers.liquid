@@ -1,11 +1,19 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes — Happy Customers block.
   Avatar row + heading + stars row. Pass `block`.
-{%- endcomment -%}
+
+  @param {block} block - The block being rendered
+
+  @example
+  {% render 'happy-customers', block: block %}
+{%- enddoc -%}
 {%- liquid
   assign s = block.settings
   assign block_id = 'happy-customers-' | append: block.id
-  assign placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Crect width=%22400%22 height=%22300%22 fill=%22%23efefef%22/%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22 fill=%22%23cfcfcf%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22 fill=%22%23cfcfcf%22/%3E%3C/svg%3E'
+  capture placeholder
+    render 'placeholder-image', type: 'avatar', scheme: section.settings.color_scheme, ratio: '1/1', format: 'url'
+  endcapture
+  assign placeholder = placeholder | strip
   assign avatar_count = s.avatar_count | default: 4
   assign avatar_size = s.avatar_size | default: 40
   assign overlap = s.avatar_overlap | default: 35
@@ -169,7 +177,9 @@
       {%- assign hc_show_text = false -%}{%- if s.show_rating_text and s.rating_text != blank -%}{%- assign hc_show_text = true -%}{%- endif -%}
       {%- comment -%} The rating words show beside the stars, or alone when there are no stars to show. {%- endcomment -%}
       {%- if hc_show_stars or hc_show_text -%}
-        <span class="hc-stars"{% if hc_show_stars %} aria-label="{{ filled_count }} out of {{ total_stars }} stars"{% endif %}>
+        {%- comment -%} Stars alone are one image with their rating as its name; beside the rating words the rating is read as hidden text, so the words are read too. {%- endcomment -%}
+        <span class="hc-stars"{% if hc_show_stars and hc_show_text == false %} role="img" aria-label="{{ 'accessibility.ui.rating_out_of' | t: rating: filled_count, total: total_stars }}"{% endif %}>
+          {%- if hc_show_stars and hc_show_text -%}<span class="visually-hidden">{{ 'accessibility.ui.rating_out_of' | t: rating: filled_count, total: total_stars }}</span>{%- endif -%}
           {%- if hc_show_stars -%}{%- for n in (1..total_stars) -%}
             {%- assign idx = forloop.index -%}
             {%- assign cls = '' -%}

@@ -1,7 +1,7 @@
-<script src="{{ 'live-faq.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-faq.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-faq-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
@@ -173,7 +173,7 @@
 </style>
 {%- if st.enable_custom_fonts -%}<style>{{ st.heading_font | font_face: font_display: 'swap' }}{{ st.body_font | font_face: font_display: 'swap' }}</style>{%- endif -%}
 
-<section class="fsi color-{{ color_scheme }} gradient" id="fsi-{{ sid }}" data-faq-root="faq-side-image" data-faq-section="{{ section.id }}" data-faq-settings="{{ section.settings | json | escape }}" data-fsi-width="{{ st.section_width | default: 'full_width' }}" data-fsi-side="{{ st.image_position | default: 'right' }}" data-fsi-mobile-image="{% if st.show_image_on_mobile %}true{% else %}false{% endif %}" data-fsi-aspect="{{ st.image_aspect | default: '1_1' }}" style="{{ fsi_vars | strip_newlines }}">
+<section class="fsi color-{{ color_scheme }} gradient" id="fsi-{{ sid }}" data-faq-root="faq-side-image" data-faq-section="{{ section.id }}" {% if request.design_mode %}data-faq-settings="{{ section.settings | json | escape }}"{% endif %} data-fsi-width="{{ st.section_width | default: 'full_width' }}" data-fsi-side="{{ st.image_position | default: 'right' }}" data-fsi-mobile-image="{% if st.show_image_on_mobile %}true{% else %}false{% endif %}" data-fsi-aspect="{{ st.image_aspect | default: '1_1' }}" style="{{ fsi_vars | strip_newlines }}">
   <div class="fsi__inner">
     <div class="fsi__content">
       {%- render 'faq-live-accordion', section: section, p: 'fsi', own_hw: own_hw -%}
@@ -182,14 +182,14 @@
       {%- if st.image != blank -%}
         {{ st.image | image_url: width: 1400 | image_tag: alt: st.image.alt, width: st.image.width, height: st.image.height, loading: 'lazy', sizes: '(min-width: 1024px) 50vw, 100vw', widths: '480,640,800,1000,1200,1400' }}
       {%- else -%}
-        <svg class="fsi__ph" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="400" height="300" fill="currentColor" opacity=".08"/><g fill="currentColor" opacity=".35"><circle cx="172" cy="124" r="14"/><path d="M140 192l40-46 25 28 20-18 35 36z"/></g></svg>
+        {%- render 'placeholder-image', type: 'lifestyle-2', class: 'fsi__ph' -%}
       {%- endif -%}
     </div>
   </div>
 </section>{% schema %}
 {
   "name": "FAQ 6",
-  "class": "section-faq6-side",
+  "class": "section-faq6-side s-tt",
   "tag": "section",
   "settings": [
     {
@@ -200,7 +200,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -248,7 +248,6 @@
       "id": "heading",
       "label": "Heading",
       "default": "Frequently Asked Questions",
-      "hidden": true,
       "info": "Legacy: used only when the section has no heading block.",
       "visible_if": "{{ false }}"
     },
@@ -257,7 +256,6 @@
       "id": "subheading",
       "label": "Subheading",
       "default": "<p>Find answers to common questions about our products, shipping, returns, and more.</p>",
-      "hidden": true,
       "info": "Legacy: used only when the section has no subheading block.",
       "visible_if": "{{ false }}"
     },
@@ -708,7 +706,6 @@
           "id": "tag",
           "label": "HTML tag",
           "default": "h2",
-          "hidden": true,
           "info": "The section heading is always an h2.",
           "options": [
             {
@@ -828,8 +825,8 @@
           "label": "Line height",
           "min": 0.8,
           "max": 2,
-          "step": 0.05,
-          "default": 1.15,
+          "step": 0.1,
+          "default": 1.1,
           "visible_if": "{{ block.settings.size_enable }}"
         },
         {
@@ -947,7 +944,7 @@
           "label": "Line height",
           "min": 1,
           "max": 2.2,
-          "step": 0.05,
+          "step": 0.1,
           "default": 1.5,
           "visible_if": "{{ block.settings.size_enable }}"
         }
@@ -974,8 +971,8 @@
   ],
   "presets": [
     {
-      "name": "FAQ 6",
-      "category": "FAQ",
+      "name": "FAQ – Tall Side Image",
+      "category": "13 · FAQ",
       "blocks": [
         {
           "type": "heading"

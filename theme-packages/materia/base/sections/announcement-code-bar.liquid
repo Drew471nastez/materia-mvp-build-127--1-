@@ -1,4 +1,4 @@
-<script src="{{ 'live-r7-promo.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-r7-promo.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'r7-promo-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%}
   Materia Themes. Announcement Code Bar: a slim bar that names an offer and
@@ -19,7 +19,7 @@
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign custom = st.enable_custom_style
   assign fonts = st.enable_custom_fonts
   assign mt_d = st.section_margin_top_desktop | default: 0
@@ -50,119 +50,11 @@
 {%- endif -%}
 {%- if fonts and st.body_font.family != blank -%}<style>{{ st.body_font | font_face: font_display: 'swap' }}</style>{%- endif -%}
 {%- for block in section.blocks -%}{%- if block.settings.enable_custom_fonts and block.settings.font.family != blank -%}<style>{{ block.settings.font | font_face: font_display: 'swap' }}</style>{%- endif -%}{%- endfor -%}
+{{ 'section-announcement-code-bar.css' | asset_url | stylesheet_tag }}
 <style>
-  #shopify-section-{{ sid }} { position: relative; isolation: isolate; z-index: 5; }
-  #shopify-section-{{ sid }}#shopify-section-{{ sid }} { margin-top: var(--acb-mt-m, {{ mt_m }}px) !important; margin-bottom: var(--acb-mb-m, {{ mb_m }}px) !important; }
+#shopify-section-{{ sid }}#shopify-section-{{ sid }} { margin-top: var(--acb-mt-m, {{ mt_m }}px) !important; margin-bottom: var(--acb-mb-m, {{ mb_m }}px) !important; }
   @media (min-width: 768px) {
     #shopify-section-{{ sid }}#shopify-section-{{ sid }} { margin-top: var(--acb-mt-d, {{ mt_d }}px) !important; margin-bottom: var(--acb-mb-d, {{ mb_d }}px) !important; }
-  }
-  #shopify-section-{{ sid }}:has(> .acb[data-reset='true']) { padding-top: 0 !important; padding-bottom: 0 !important; --section-spacing: 0px; }
-  #shopify-section-{{ sid }}:has(> .acb[data-reset='true']) + .shopify-section { margin-top: 0 !important; padding-top: 0 !important; }
-  #shopify-section-{{ sid }} .acb, #shopify-section-{{ sid }} .acb *, #shopify-section-{{ sid }} .acb *::before, #shopify-section-{{ sid }} .acb *::after { box-sizing: border-box; }
-  #shopify-section-{{ sid }} .acb [hidden] { display: none !important; }
-  #shopify-section-{{ sid }} .acb {
-    display: block;
-    width: 100%;
-    margin-inline: auto;
-    background: var(--acb-bg);
-    color: var(--acb-text);
-    font-family: var(--acb-ff);
-    font-size: var(--acb-fs-m);
-    line-height: 1.4;
-    border-bottom: var(--acb-lw) solid var(--acb-line);
-    padding: var(--acb-pt-m) 0 var(--acb-pb-m);
-  }
-  #shopify-section-{{ sid }} .acb[data-width='container'] { max-width: calc(var(--page-width, 1300px) + 3rem); }
-  #shopify-section-{{ sid }} .acb[data-width='fluid_container'] { max-width: calc(var(--fluid-container-width, 1500px) + 3rem); }
-  #shopify-section-{{ sid }} .acb[data-width='stretch_width'] { max-width: calc(100% - 3rem); }
-  #shopify-section-{{ sid }} .acb__row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    column-gap: 14px;
-    row-gap: 0;
-    min-height: 30px;
-    padding-inline: 16px;
-    text-align: center;
-  }
-  #shopify-section-{{ sid }} .acb[data-align='left'] .acb__row { justify-content: flex-start; text-align: start; }
-  #shopify-section-{{ sid }} .acb__msg { min-width: 0; color: var(--b-c, inherit); font-family: var(--b-f, inherit); overflow-wrap: anywhere; }
-  #shopify-section-{{ sid }} .acb__msg :is(strong, em, a, span) { font-family: inherit; color: inherit; }
-  #shopify-section-{{ sid }} .acb__msg a { text-decoration: underline; text-underline-offset: 3px; }
-  /* The button is the 44px target; the chip inside is what shows. Negative block margins keep the bar slim. */
-  #shopify-section-{{ sid }} .acb__code {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 44px;
-    margin: -7px 0;
-    padding: 0;
-    border: 0;
-    background: none;
-    box-shadow: none;
-    color: inherit;
-    font: inherit;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-  }
-  #shopify-section-{{ sid }} .acb__chip {
-    display: inline-grid;
-    grid-template-columns: auto auto;
-    align-items: center;
-    column-gap: 8px;
-    min-height: 30px;
-    padding: 3px 10px;
-    border: 1px dashed var(--acb-chip-line);
-    border-radius: var(--rounded-radius, 4px);
-    background: var(--acb-chip-bg);
-    color: var(--acb-chip-text);
-    font-weight: var(--heading-weight, 700);
-    letter-spacing: 0.06em;
-    white-space: nowrap;
-    transition: background-color 0.2s ease, transform 0.15s ease;
-  }
-  #shopify-section-{{ sid }} .acb__swap { display: grid; justify-items: center; }
-  #shopify-section-{{ sid }} .acb__swap > * { grid-area: 1 / 1; transition: opacity 0.2s ease; }
-  #shopify-section-{{ sid }} .acb__done { opacity: 0; }
-  #shopify-section-{{ sid }} .acb__icon { display: inline-flex; opacity: 0.75; }
-  #shopify-section-{{ sid }} .acb__icon svg { display: block; }
-  #shopify-section-{{ sid }} .acb__icon .acb__icon-done { display: none; }
-  #shopify-section-{{ sid }} .acb__code[data-copied] .acb__value { opacity: 0; }
-  #shopify-section-{{ sid }} .acb__code[data-copied] .acb__done { opacity: 1; }
-  #shopify-section-{{ sid }} .acb__code[data-copied] .acb__icon .acb__icon-copy { display: none; }
-  #shopify-section-{{ sid }} .acb__code[data-copied] .acb__icon .acb__icon-done { display: block; }
-  #shopify-section-{{ sid }} .acb__code:hover .acb__chip { background: var(--acb-chip-hover); }
-  #shopify-section-{{ sid }} .acb__code:active .acb__chip { transform: scale(0.97); }
-  #shopify-section-{{ sid }} .acb__code:focus-visible { outline: none; }
-  #shopify-section-{{ sid }} .acb__code:focus-visible .acb__chip { outline: 2px solid currentColor; outline-offset: 2px; }
-  /* Builder only: the place the code goes, while none is set. */
-  #shopify-section-{{ sid }} .acb__code[data-empty] { cursor: default; }
-  #shopify-section-{{ sid }} .acb__code[data-empty] .acb__chip { font-weight: inherit; letter-spacing: 0; font-style: italic; opacity: 0.7; }
-  #shopify-section-{{ sid }} .acb__code[data-empty] .acb__icon { display: none; }
-  #shopify-section-{{ sid }} .acb__link {
-    display: inline-flex;
-    align-items: center;
-    min-height: 44px;
-    margin: -7px 0;
-    color: var(--b-c, inherit);
-    text-decoration: underline;
-    text-underline-offset: 3px;
-    text-decoration-thickness: 1px;
-    white-space: nowrap;
-  }
-  #shopify-section-{{ sid }} .acb__link:hover { text-decoration-thickness: 2px; }
-  #shopify-section-{{ sid }} .acb__link:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
-  #shopify-section-{{ sid }} .acb__status { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
-  @media (max-width: 767px) { #shopify-section-{{ sid }} .acb[data-show='desktop'] { display: none; } }
-  @media (min-width: 768px) {
-    #shopify-section-{{ sid }} .acb { font-size: var(--acb-fs-d); padding: var(--acb-pt-d) 0 var(--acb-pb-d); }
-    #shopify-section-{{ sid }} .acb[data-show='mobile'] { display: none; }
-    #shopify-section-{{ sid }} .acb__row { padding-inline: 24px; column-gap: 18px; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    #shopify-section-{{ sid }} .acb__chip, #shopify-section-{{ sid }} .acb__swap > * { transition: none; }
-    #shopify-section-{{ sid }} .acb__code:active .acb__chip { transform: none; }
   }
 </style>
 {%- capture acb_vars -%}
@@ -170,14 +62,14 @@
 --acb-text: {% if custom %}{% render 'scheme-color', color: st.text_color, fallback: 'var(--color-text)' %}{% else %}var(--color-text){% endif %};
 --acb-line: {% if custom %}{% render 'scheme-color', color: st.line_color, fallback: 'var(--color-border)' %}{% else %}var(--color-border){% endif %};
 --acb-lw: {% if st.show_separator_line %}1px{% else %}0px{% endif %};
---acb-ff: {% if fonts and st.body_font.family != blank %}{{ st.body_font.family }}, {{ st.body_font.fallback_families | default: 'sans-serif' }}{% else %}var(--body-font){% endif %};
+--acb-ff: {% if fonts and st.body_font.family != blank %}{{ st.body_font.family | escape }}, {{ st.body_font.fallback_families | default: 'sans-serif' | escape }}{% else %}var(--body-font){% endif %};
 --acb-fs-d: {{ st.font_size | default: 14 }}px; --acb-fs-m: {{ st.mobile_font_size | default: 13 }}px;
 --acb-pt-d: {{ st.padding_top }}px; --acb-pb-d: {{ st.padding_bottom }}px; --acb-pt-m: {{ st.padding_top_mobile }}px; --acb-pb-m: {{ st.padding_bottom_mobile }}px;
 {%- endcapture -%}
 <div
   class="acb color-{{ color_scheme }} gradient"
   role="region"
-  aria-label="Announcement"
+  aria-label="{{ 'sections.header.announcement' | t }}"
   data-r7p="announcement-code-bar"
   data-r7p-section="{{ sid }}"
   {% if request.design_mode %}data-r7p-settings="{{ st | json | escape }}" data-r7p-editor{% endif %}
@@ -196,7 +88,7 @@
       {%- case block.type -%}
         {%- when 'message' -%}
           {%- assign bfont = false -%}{%- if bs.enable_custom_fonts and bs.font.family != blank -%}{%- assign bfont = true -%}{%- endif -%}
-          <span class="acb__msg" data-r7p-block="{{ block.id }}" data-r7p-type="message"{% if request.design_mode %} data-r7p-settings="{{ bs | json | escape }}"{% endif %}{% if bs.enable_custom_fonts %} data-own-font{% endif %}{% if bs.text == blank %} hidden{% endif %} style="{% if bs.enable_custom_style %}--b-c: {% render 'scheme-color', color: bs.color, fallback: 'var(--acb-text)' %};{% endif %}{% if bfont %}--b-f: {{ bs.font.family }}, {{ bs.font.fallback_families | default: 'sans-serif' }};{% endif %}" {{ block.shopify_attributes }}>{{ bs.text }}</span>
+          <span class="acb__msg" data-r7p-block="{{ block.id }}" data-r7p-type="message"{% if request.design_mode %} data-r7p-settings="{{ bs | json | escape }}"{% endif %}{% if bs.enable_custom_fonts %} data-own-font{% endif %}{% if bs.text == blank %} hidden{% endif %} style="{% if bs.enable_custom_style %}--b-c: {% render 'scheme-color', color: bs.color, fallback: 'var(--acb-text)' %};{% endif %}{% if bfont %}--b-f: {{ bs.font.family | escape }}, {{ bs.font.fallback_families | default: 'sans-serif' | escape }};{% endif %}" {{ block.shopify_attributes }}>{{ bs.text }}</span>
         {%- when 'code' -%}
           {%- assign code = bs.code | strip -%}
           {%- if code != blank or request.design_mode -%}
@@ -231,11 +123,13 @@
 {
   "name": "Announcement Code Bar",
   "tag": "section",
-  "class": "section-announcement-code-bar section-edge-bleed",
+  "class": "section-announcement-code-bar section-edge-bleed s-announcement-code-bar s-tt",
   "enabled_on": {
     "groups": [
-      "header",
-      "template"
+      "header"
+    ],
+    "templates": [
+      "*"
     ]
   },
   "max_blocks": 4,
@@ -248,7 +142,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -553,7 +447,7 @@
           "type": "text",
           "id": "code",
           "label": "Code",
-          "info": "The code exactly as your checkout takes it. Leave empty and visitors see the message alone."
+          "info": "Exactly as checkout accepts it; empty shows the message only."
         },
         {
           "type": "text",
@@ -637,8 +531,8 @@
   ],
   "presets": [
     {
-      "name": "Announcement Code Bar",
-      "category": "Announcements",
+      "name": "Announcement Bar – Discount Code",
+      "category": "18 · Header & announcements",
       "blocks": [
         {
           "type": "message"

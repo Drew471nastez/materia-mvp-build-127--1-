@@ -1,7 +1,7 @@
-<script src="{{ 'live-features-c.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-features-c.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-features-c-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%}
   Materia Themes. Benefits Bar 3: a heading block on the left and a row of
@@ -274,7 +274,7 @@
   --ihb-mpv: {{ s.mobile_per_view | default: 2.2 }}; --ihb-malign: {{ s.mobile_align | default: 'center' }}; --ihb-mjustify: {% if s.mobile_align == 'flex-start' %}flex-start{% else %}center{% endif %};
   --ihb-justify-d: {% if s.center_items %}safe center{% else %}safe flex-end{% endif %};
 {%- endcapture -%}
-<section class="ihb color-{{ color_scheme }} gradient" data-fc-root="ingredients-highlight-bar" data-fc-section="{{ sid }}" data-fc-settings="{{ s | json | escape }}" data-mobile-layout="{{ s.mobile_layout | default: 'scroll' }}"{% if fonts %} data-own-font{% endif %} style="{{ root_vars | strip_newlines }}">
+<section class="ihb color-{{ color_scheme }} gradient" data-fc-root="ingredients-highlight-bar" data-fc-section="{{ sid }}" {% if request.design_mode %}data-fc-settings="{{ s | json | escape }}"{% endif %} data-mobile-layout="{{ s.mobile_layout | default: 'scroll' }}"{% if fonts %} data-own-font{% endif %} style="{{ root_vars | strip_newlines }}">
   <div class="ihb__accent" aria-hidden="true"{% unless s.show_accent_bar %} hidden{% endunless %}></div>
   <div class="ihb__inner {{ width_class }}">
     {%- for block in section.blocks -%}
@@ -290,7 +290,7 @@
             assign own_size = true
           endif
         -%}
-        <h2 class="ihb__heading" data-fc-block="{{ block.id }}" data-fc-type="heading" data-fc-settings="{{ hb | json | escape }}" data-hide-mobile="{% if hb.heading_hide_mobile %}true{% else %}false{% endif %}"{% if own_weight %} data-own-weight{% endif %}{% if own_size %} data-own-size{% endif %} {{ block.shopify_attributes }}{% if hb.heading == blank %} hidden{% endif %} style="--ihb-h-size: {{ hb.heading_size_desktop | default: 26 }}px; --ihb-h-size-m: {{ hb.heading_size_mobile | default: 22 }}px; --ihb-h-color: {% if hb.enable_custom_style %}{% render 'scheme-color', color: hb.heading_color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %};{% if own_weight %} --ihb-h-weight: {{ hb.heading_weight }};{% endif %}{% if own_size %} --ihb-h-ls: {{ hb.heading_letter_spacing }}px;{% endif %}{% if hb.heading_uppercase %} --heading-text-transform: uppercase;{% endif %}">{{ hb.heading }}</h2>
+        <h2 class="ihb__heading" data-fc-block="{{ block.id }}" data-fc-type="heading" {% if request.design_mode %}data-fc-settings="{{ hb | json | escape }}"{% endif %} data-hide-mobile="{% if hb.heading_hide_mobile %}true{% else %}false{% endif %}"{% if own_weight %} data-own-weight{% endif %}{% if own_size %} data-own-size{% endif %} {{ block.shopify_attributes }}{% if hb.heading == blank %} hidden{% endif %} style="--ihb-h-size: {{ hb.heading_size_desktop | default: 26 }}px; --ihb-h-size-m: {{ hb.heading_size_mobile | default: 22 }}px; --ihb-h-color: {% if hb.enable_custom_style %}{% render 'scheme-color', color: hb.heading_color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %};{% if own_weight %} --ihb-h-weight: {{ hb.heading_weight }};{% endif %}{% if own_size %} --ihb-h-ls: {{ hb.heading_letter_spacing }}px;{% endif %}{% if hb.heading_uppercase %} --heading-text-transform: uppercase;{% endif %}">{{ hb.heading }}</h2>
       {%- endif -%}
     {%- endfor -%}
     <div class="ihb__scroller" data-ihb-scroller>
@@ -305,7 +305,7 @@
             assign top = b.top_label
             assign bottom = b.bottom_label
           -%}
-          <li class="ihb__item" data-fc-block="{{ block.id }}" data-fc-type="item" data-fc-settings="{{ b | json | escape }}" {{ block.shopify_attributes }}>
+          <li class="ihb__item" data-fc-block="{{ block.id }}" data-fc-type="item" {% if request.design_mode %}data-fc-settings="{{ b | json | escape }}"{% endif %} {{ block.shopify_attributes }}>
             <span class="ihb__icon" aria-hidden="true">
               {%- if b.icon_source == 'image' and b.custom_image != blank -%}
                 {{ b.custom_image | image_url: width: 160 | image_tag: loading: 'lazy', width: 40, height: 40, widths: '40,80,120,160', sizes: '40px', alt: '' }}
@@ -331,7 +331,7 @@
 {
   "name": "Benefits Bar 3",
   "tag": "section",
-  "class": "section-ingredients-highlight-bar",
+  "class": "section-ingredients-highlight-bar s-tt",
   "disabled_on": {
     "groups": [
       "header",
@@ -347,7 +347,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -1004,8 +1004,8 @@
   ],
   "presets": [
     {
-      "name": "Benefits Bar 3",
-      "category": "Features",
+      "name": "Benefits Bar – Ingredients",
+      "category": "05 · Benefits & features",
       "blocks": [
         {
           "type": "heading"

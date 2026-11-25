@@ -1,3 +1,14 @@
+{% doc %}
+  Five-star rating row of the Hero Image One section.
+
+  @param {number} filled - Filled stars
+  @param {boolean} [hide_empty] - Hide empty
+  @param {boolean} [tiles] - Tiles
+  @param {number} total - Total stars
+
+  @example
+  {% render 'hero-image-one-stars', filled: b.rating, total: 5, tiles: true, hide_empty: true %}
+{% enddoc -%}
 {%- assign stars_filled = filled | default: 0 -%}<span class="hi1__stars{% if tiles %} hi1__stars--tiles{% endif %}"{% if hide_empty and stars_filled <= 0 %} hidden{% endif %} role="img" aria-label="{{ filled }} / {{ total }}">
 {%- for n in (1..5) -%}
   {%- assign percent = filled | minus: n | plus: 1 | times: 100 | at_least: 0 | at_most: 100 -%}

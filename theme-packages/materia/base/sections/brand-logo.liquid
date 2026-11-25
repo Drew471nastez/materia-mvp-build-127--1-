@@ -1,4 +1,4 @@
-<script src="{{ 'live-logos.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-logos.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-logos-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%}
   Materia Themes. Brand logo: a row of brand logos that scrolls as a carousel
@@ -15,7 +15,7 @@
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign fonts = st.enable_custom_fonts
   assign count = 0
   assign has_heading = false
@@ -78,7 +78,7 @@
   #shopify-section-{{ sid }} .bl__frame > svg { display: block; width: 100%; height: auto; max-height: 100%; }
   @media (prefers-reduced-motion: reduce) { #shopify-section-{{ sid }} .bl__frame { transition: none; } }
 </style>
-<div class="lg bl sec__brand-logo color-{{ scheme }} gradient" {% render 'logos-root', part: 'attrs', section: section, type: 'brand-logo', width: st.section_width, fonts: fonts %} data-head-align="{{ st.header_alignment | default: 'center' }}" data-framed="{% if st.framed %}true{% else %}false{% endif %}" data-reveal="{% if st.reveal %}true{% else %}false{% endif %}"{% if request.design_mode %} data-lg-defaults="&#123;&quot;color_scheme&quot;:&quot;default-color-scheme&quot;,&quot;section_width&quot;:&quot;fluid_container&quot;,&quot;reset_spacing&quot;:true,&quot;header_alignment&quot;:&quot;center&quot;,&quot;open_link_newtab&quot;:true,&quot;heading&quot;:&quot;Brand logo&quot;,&quot;header_size&quot;:&quot;medium&quot;,&quot;items_per_row&quot;:6,&quot;column_gap&quot;:30,&quot;img_width&quot;:300,&quot;image_ratio&quot;:&quot;adapt&quot;,&quot;logo_opacity&quot;:100,&quot;framed&quot;:true,&quot;enable_custom_fonts&quot;:false,&quot;heading_font&quot;:&quot;assistant_n4&quot;,&quot;body_font&quot;:&quot;assistant_n4&quot;,&quot;show_arrow&quot;:false,&quot;carousel_pagination&quot;:&quot;disable&quot;,&quot;pagination_style&quot;:&quot;pill&quot;,&quot;pagination_position&quot;:&quot;center&quot;,&quot;infinite&quot;:false,&quot;autoplay&quot;:false,&quot;autorotate_speed&quot;:5,&quot;reveal&quot;:false,&quot;padding_top&quot;:0,&quot;padding_bottom&quot;:0,&quot;section_margin_top_desktop&quot;:0,&quot;section_margin_bottom_desktop&quot;:0,&quot;items_per_row_mobile&quot;:1,&quot;section_margin_top_mobile&quot;:0,&quot;section_margin_bottom_mobile&quot;:0&#125;"{% endif %}{% if request.design_mode %} data-lg-block-defaults="&#123;&quot;eyebrow&quot;:&#123;&quot;text&quot;:&quot;Our brands&quot;,&quot;enable_custom_style&quot;:false,&quot;size&quot;:13,&quot;uppercase&quot;:true&#125;,&quot;heading&quot;:&#123;&quot;text&quot;:&quot;Brands we stock&quot;,&quot;tag&quot;:&quot;h2&quot;,&quot;enable_custom_style&quot;:false,&quot;size_desktop&quot;:32,&quot;size_mobile&quot;:26&#125;,&quot;subheading&quot;:&#123;&quot;text&quot;:&quot;&lt;p&gt;A few of the labels you will find in our shop.&lt;/p&gt;&quot;,&quot;enable_custom_style&quot;:false,&quot;size_desktop&quot;:16,&quot;size_mobile&quot;:15&#125;,&quot;button&quot;:&#123;&quot;label&quot;:&quot;View all brands&quot;,&quot;button_style&quot;:&quot;primary&quot;,&quot;full_width&quot;:false,&quot;enable_custom_style&quot;:false,&quot;use_theme_button&quot;:true,&quot;padding_x&quot;:26,&quot;padding_y&quot;:14,&quot;radius&quot;:8,&quot;border_width&quot;:1,&quot;font_size&quot;:14,&quot;font_weight&quot;:&quot;600&quot;,&quot;uppercase&quot;:false&#125;,&quot;brand_items&quot;:&#123;&#125;&#125;"{% endif %} style="{% render 'logos-root', section: section, fonts: fonts, hfont: st.heading_font, bfont: st.body_font, pt_d: st.padding_top, pb_d: st.padding_bottom, pt_m: st.padding_top, pb_m: st.padding_bottom, px_d: 24, px_m: 16 %}--bl-w: {{ st.img_width | default: 300 }}px;--bl-op: {{ st.logo_opacity | default: 100 }}%;--bl-ar: {{ ratio }};">
+<div class="lg bl sec__brand-logo color-{{ scheme }} gradient" {% render 'logos-root', part: 'attrs', section: section, type: 'brand-logo', width: st.section_width, fonts: fonts %} data-head-align="{{ st.header_alignment | default: 'center' }}" data-framed="{% if st.framed %}true{% else %}false{% endif %}" data-reveal="{% if st.reveal %}true{% else %}false{% endif %}"{% if request.design_mode %} data-lg-defaults="&#123;&quot;color_scheme&quot;:&quot;default&quot;,&quot;section_width&quot;:&quot;fluid_container&quot;,&quot;reset_spacing&quot;:true,&quot;header_alignment&quot;:&quot;center&quot;,&quot;open_link_newtab&quot;:true,&quot;heading&quot;:&quot;Brand logo&quot;,&quot;header_size&quot;:&quot;medium&quot;,&quot;items_per_row&quot;:6,&quot;column_gap&quot;:30,&quot;img_width&quot;:300,&quot;image_ratio&quot;:&quot;adapt&quot;,&quot;logo_opacity&quot;:100,&quot;framed&quot;:true,&quot;enable_custom_fonts&quot;:false,&quot;heading_font&quot;:&quot;assistant_n4&quot;,&quot;body_font&quot;:&quot;assistant_n4&quot;,&quot;show_arrow&quot;:false,&quot;carousel_pagination&quot;:&quot;disable&quot;,&quot;pagination_style&quot;:&quot;pill&quot;,&quot;pagination_position&quot;:&quot;center&quot;,&quot;infinite&quot;:false,&quot;autoplay&quot;:false,&quot;autorotate_speed&quot;:5,&quot;reveal&quot;:false,&quot;padding_top&quot;:0,&quot;padding_bottom&quot;:0,&quot;section_margin_top_desktop&quot;:0,&quot;section_margin_bottom_desktop&quot;:0,&quot;items_per_row_mobile&quot;:1,&quot;section_margin_top_mobile&quot;:0,&quot;section_margin_bottom_mobile&quot;:0&#125;"{% endif %}{% if request.design_mode %} data-lg-block-defaults="&#123;&quot;eyebrow&quot;:&#123;&quot;text&quot;:&quot;Our brands&quot;,&quot;enable_custom_style&quot;:false,&quot;size&quot;:13,&quot;uppercase&quot;:true&#125;,&quot;heading&quot;:&#123;&quot;text&quot;:&quot;Brands we stock&quot;,&quot;tag&quot;:&quot;h2&quot;,&quot;enable_custom_style&quot;:false,&quot;size_desktop&quot;:32,&quot;size_mobile&quot;:26&#125;,&quot;subheading&quot;:&#123;&quot;text&quot;:&quot;&lt;p&gt;A few of the labels you will find in our shop.&lt;/p&gt;&quot;,&quot;enable_custom_style&quot;:false,&quot;size_desktop&quot;:16,&quot;size_mobile&quot;:15&#125;,&quot;button&quot;:&#123;&quot;label&quot;:&quot;View all brands&quot;,&quot;button_style&quot;:&quot;primary&quot;,&quot;full_width&quot;:false,&quot;enable_custom_style&quot;:false,&quot;use_theme_button&quot;:true,&quot;padding_x&quot;:26,&quot;padding_y&quot;:14,&quot;radius&quot;:8,&quot;border_width&quot;:1,&quot;font_size&quot;:14,&quot;font_weight&quot;:&quot;600&quot;,&quot;uppercase&quot;:false&#125;,&quot;brand_items&quot;:&#123;&#125;&#125;"{% endif %} style="{% render 'logos-root', section: section, fonts: fonts, hfont: st.heading_font, bfont: st.body_font, pt_d: st.padding_top, pb_d: st.padding_bottom, pt_m: st.padding_top, pb_m: st.padding_bottom, px_d: 24, px_m: 16 %}--bl-w: {{ st.img_width | default: 300 }}px;--bl-op: {{ st.logo_opacity | default: 100 }}%;--bl-ar: {{ ratio }};">
   <template data-lg-ph>{% render 'logos-ph' %}</template>
   <div class="lg__inner">
     <div class="lg-head">
@@ -102,13 +102,13 @@
         {%- endif -%}
       {%- endunless -%}
       {%- if has_button == false and st.show_view_all_button -%}
-        <a class="lg__btn" data-lg-legacy="button" data-theme-button="secondary" data-sl-button href="{{ st.view_all_button_link | default: routes.all_products_collection_url | url }}">{{ 'general.view_all' | t }}</a>
+        <a class="lg__btn" data-lg-legacy="button" data-theme-button="secondary" data-sl-button href="{{ st.view_all_button_link | default: routes.all_products_collection_url }}">{{ 'general.view_all' | t }}</a>
       {%- endif -%}
     </div>
     <div class="lgc" id="lgc-{{ sid }}" data-lg-carousel data-arrows="{% if st.show_arrow %}both{% else %}hide{% endif %}" data-pagination="{{ st.carousel_pagination | default: 'disable' }}" data-pstyle="{{ st.pagination_style | default: 'dot' }}" data-loop="{% if st.infinite %}true{% else %}false{% endif %}" data-autoplay="{% if st.autoplay %}true{% else %}false{% endif %}" data-speed="{{ st.autorotate_speed | default: 5 }}" data-fit-d="{% if count <= per_d %}true{% else %}false{% endif %}" data-fit-t="{% if count <= per_t %}true{% else %}false{% endif %}" data-fit-m="{% if count <= per_m %}true{% else %}false{% endif %}" style="--per-d: {{ per_d }};--per-t: {{ per_t }};--per-m: {{ per_m }};--gap-d: {{ st.column_gap | default: 0 }}px;--gap-m: {{ st.column_gap | default: 0 }}px;--count: {{ count | at_least: 1 }};--dots-justify: {{ dots_justify }};">
       <div class="lgc__stage">
       {%- render 'logos-carousel-nav', part: 'arrows', section: section, loop: st.infinite -%}
-      <ul class="lgc__track" role="list" tabindex="0" aria-label="Brand logos">
+      <ul class="lgc__track" role="list" tabindex="0" aria-label="{{ 'accessibility.ui.brand_logos' | t }}">
         {%- for block in section.blocks -%}
           {%- if block.type == 'brand_items' -%}
             {%- assign b = block.settings -%}
@@ -116,18 +116,18 @@
               {%- capture frame -%}
                 <span class="bl__frame" data-lg-img>
                   {%- assign demo = '' -%}
-                  {%- if b.image == blank -%}{%- capture demo -%}{%- render 'demo-image', key: block.id -%}{%- endcapture -%}{%- assign demo = demo | strip -%}{%- endif -%}
+                  {%- if b.image == blank -%}{%- capture demo -%}{%- render 'demo-image', key: block.id -%}{%- endcapture -%}{%- assign demo = demo | strip -%}{%- capture demo_wh -%}{%- render 'demo-image', key: block.id, dims: true -%}{%- endcapture -%}{%- assign demo_wh = demo_wh | strip | split: 'x' -%}{%- endif -%}
                   {%- if b.image != blank -%}
                     <img src="{{ b.image | image_url: width: 600 }}" alt="{{ b.image.alt | escape }}" width="{{ b.image.width }}" height="{{ b.image.height }}" loading="lazy" decoding="async">
                   {%- elsif demo != blank -%}
-                    <img src="{{ demo }}" alt="" loading="lazy" decoding="async">
+                    <img src="{{ demo }}" alt="" width="{{ demo_wh[0] | default: 240 }}" height="{{ demo_wh[1] | default: 120 }}" loading="lazy" decoding="async">
                   {%- else -%}
                     {%- render 'logos-ph' -%}
                   {%- endif -%}
                 </span>
               {%- endcapture -%}
               {%- if b.link != blank -%}
-                <a class="bl__link" data-lg-no-link="SPAN" href="{{ b.link | url }}"{% if st.open_link_newtab %} target="_blank" rel="noopener"{% endif %}>{{ frame }}</a>
+                <a class="bl__link" data-lg-no-link="SPAN" href="{{ b.link }}"{% if st.open_link_newtab %} target="_blank" rel="noopener"{% endif %}>{{ frame }}</a>
               {%- else -%}
                 <span class="bl__link" data-lg-no-link="SPAN">{{ frame }}</span>
               {%- endif -%}
@@ -143,7 +143,7 @@
 {
   "name": "Brand logo",
   "tag": "section",
-  "class": "section",
+  "class": "section s-tt",
   "disabled_on": {
     "groups": [
       "header",
@@ -160,7 +160,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -227,7 +227,6 @@
       "id": "heading",
       "default": "Brand logo",
       "label": "Heading",
-      "hidden": true,
       "info": "Legacy: used only when the section has no heading block",
       "visible_if": "{{ false }}"
     },
@@ -235,7 +234,6 @@
       "type": "richtext",
       "id": "description",
       "label": "Description",
-      "hidden": true,
       "info": "Legacy: used only when the section has no heading block",
       "visible_if": "{{ false }}"
     },
@@ -243,7 +241,6 @@
       "type": "checkbox",
       "id": "show_view_all_button",
       "label": "Show view all link",
-      "hidden": true,
       "info": "Legacy: used only when the section has no button block",
       "visible_if": "{{ false }}"
     },
@@ -251,7 +248,6 @@
       "type": "url",
       "id": "view_all_button_link",
       "label": "View all link",
-      "hidden": true,
       "info": "Legacy: used only when the section has no button block",
       "visible_if": "{{ false }}"
     },
@@ -274,7 +270,6 @@
           "label": "Large"
         }
       ],
-      "hidden": true,
       "info": "Legacy: used only when the section has no heading block",
       "visible_if": "{{ false }}"
     },
@@ -667,7 +662,6 @@
           "id": "tag",
           "label": "HTML tag",
           "default": "h2",
-          "hidden": true,
           "options": [
             {
               "value": "h2",
@@ -993,8 +987,8 @@
   ],
   "presets": [
     {
-      "name": "Brand logo",
-      "category": "Logos and trust",
+      "name": "Brand Logos",
+      "category": "10 · Logos & press",
       "settings": {
         "padding_top": 40,
         "padding_bottom": 40,

@@ -1,6 +1,6 @@
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- assign fb_accessibility_background_image = 'accessibility.background_image' | t -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
@@ -230,6 +230,7 @@
                           -%}
                           {%- form 'customer', id: 'ContactFooter', class: 'footer__newsletter newsletter-form', data-storelib-form: 'subscribe', data-ft-form: block.id, data-success-message: ft_ok, data-error-message: ft_err -%}
                             <input type="hidden" name="contact[tags]" value="newsletter">
+                            <input type="hidden" name="contact[accepts_marketing]" value="true">
                             <div class="newsletter-form__field-wrapper">
                               <div class="field mb-0 footer-newsletter-fields">
                                 <div class="flex-1 relative footer-newsletter-email">
@@ -277,7 +278,7 @@
                               {%- if form.errors -%}
                                 <div
                                   class="newsletter-form__message mt-10 inline-flex align-center error form__message"
-                                  id="ContactFooter-error"
+                                  id="ContactFooter-error" data-mt-result
                                 >
                                   {%- render 'icon-error' -%}
                                   {{- form.errors.translated_fields.email | capitalize }}
@@ -288,7 +289,7 @@
                             {%- if form.posted_successfully? -%}
                               <div
                                 class="mt-10 newsletter-form__message--success success form__message inline-flex align-center"
-                                id="ContactFooter-success"
+                                id="ContactFooter-success" data-mt-result
                                 tabindex="-1"
                               >
                                 {%- render 'icon-success' -%}
@@ -462,7 +463,7 @@
                           {%- if block_st.store_address and theme_st.store_address != blank -%}
                             <div class="footer__block-info">
                               {%- if store_href != blank -%}
-                                <a href="{{ store_href | url }}" class="heading-color no-underline">{{ theme_st.store_address }}</a>
+                                <a href="{{ store_href }}" class="heading-color no-underline">{{ theme_st.store_address }}</a>
                               {%- else -%}
                                 {{ theme_st.store_address }}
                               {%- endif -%}
@@ -536,13 +537,24 @@
           or powered_by_link != blank
         -%}
           <div class="flex flex-wrap gap-10 gap-xl-30 justify-center justify-md-start">
-            {%- if localization.available_countries.size > 1 or localization.available_languages.size > 1 -%}
+            {%- liquid
+              assign ft_cur = false
+              assign ft_lang = false
+              if section_st.enable_country_selector
+                assign ft_cur = true
+              endif
+              if section_st.enable_language_selector
+                assign ft_lang = true
+              endif
+            -%}
+            {%- if ft_cur or ft_lang -%}
               <div class="footer__column footer__localization lang__currency-desktop flex flex-nowrap align-center gap-10">
-                {%- if section_st.enable_country_selector -%}
-                  {%- render 'country-switcher' -%}
+                {%- comment -%} One market or one language: the current one as a quiet label (static_single), like the header. {%- endcomment -%}
+                {%- if ft_cur -%}
+                  {%- render 'country-switcher', static_single: true -%}
                 {% endif %}
-                {%- if section_st.enable_language_selector -%}
-                  {%- render 'language-switcher' -%}
+                {%- if ft_lang -%}
+                  {%- render 'language-switcher', static_single: true -%}
                 {% endif %}
               </div>
             {% endif %}
@@ -663,7 +675,8 @@
 <script>(function(){if(window.MateriaFooterAccordion)return window.MateriaFooterAccordion.sync(document.getElementById('shopify-section-{{ section.id }}'));if(document.querySelector('script[data-footer-boot]'))return;var s=document.createElement('script');s.src="{{ 'footer-section.js' | asset_url }}";s.setAttribute('data-footer-boot','');document.head.appendChild(s);})();</script>
 {%- endif -%}{% schema %}
 {
-  "name": "Footer",
+  "class": "s-tt",
+"name": "Footer",
   "enabled_on": {
     "groups": [
       "footer"
@@ -678,7 +691,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",

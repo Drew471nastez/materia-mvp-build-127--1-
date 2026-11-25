@@ -1,8 +1,8 @@
-<script src="{{ 'media-live-galleries-a.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'media-live-galleries-a.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'media-galleries-a-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
   assign s = section.settings
-  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default'
   assign custom = s.enable_custom_style
   assign loading = 'eager'
   if s.lazyload
@@ -118,9 +118,9 @@
   class="mga mga-b2 color-{{ color_scheme }} gradient"
   data-mga-section="{{ section.id }}"
   data-mga-type="gallery-basic2"
-  data-mga-settings="{{ section.settings | json | escape }}"
-  data-mga-defaults='{"color_scheme":"default-color-scheme","section_width":"full_width","reset_spacing":true,"columns_desktop":3,"gutter":20,"container_max_width":990,"img_proportion":"125%","image_border_radius":4,"make_images_circle":false,"image_shadow":"none","image_hover_animation":"zoom_in_subtle","display_video_first":false,"display_image_first":false,"icon_size":32,"lazyload":true,"enable_custom_style":false,"section_padding_top":50,"section_padding_bottom":50,"columns_mobile":1,"img_proportion_mobile":"80%","vertical_space_mobile":20,"section_padding_top_mobile":50,"section_padding_bottom_mobile":50}'
-  data-mga-block-defaults='{"image":{"link_label":"View details"}}'
+  {% if request.design_mode %}data-mga-settings="{{ section.settings | json | escape }}"{% endif %}
+  {% if request.design_mode %}data-mga-defaults='{"color_scheme":"default","section_width":"full_width","reset_spacing":true,"columns_desktop":3,"gutter":20,"container_max_width":990,"img_proportion":"125%","image_border_radius":4,"make_images_circle":false,"image_shadow":"none","image_hover_animation":"zoom_in_subtle","display_video_first":false,"display_image_first":false,"icon_size":32,"lazyload":true,"enable_custom_style":false,"section_padding_top":50,"section_padding_bottom":50,"columns_mobile":1,"img_proportion_mobile":"80%","vertical_space_mobile":20,"section_padding_top_mobile":50,"section_padding_bottom_mobile":50}'{% endif %}
+  {% if request.design_mode %}data-mga-block-defaults='{"image":{"link_label":"View details"}}'{% endif %}
   data-mga-width="{{ s.section_width | default: 'full_width' }}"
   data-mga-reset="{% if s.reset_spacing %}true{% else %}false{% endif %}"
   data-mga-hover="{{ s.image_hover_animation | default: 'none' }}"
@@ -137,7 +137,7 @@
               assign b = block.settings
               assign img = b.background_image
               assign vid = b.video_url | strip_html | strip
-              assign href = b.gallery_link_url | url
+              assign href = b.gallery_link_url
               assign media = 'none'
               if img != blank and vid != blank
                 assign media = 'both'
@@ -152,11 +152,11 @@
               endif
               assign link_label = b.link_label | strip_html | strip | default: 'View details'
             -%}
-            <li class="mga-b2__item" data-mga-block="{{ block.id }}" data-mga-type="image" data-mga-settings="{{ b | json | escape }}" {{ block.shopify_attributes }}>
+            <li class="mga-b2__item" data-mga-block="{{ block.id }}" data-mga-type="image" {% if request.design_mode %}data-mga-settings="{{ b | json | escape }}"{% endif %} {{ block.shopify_attributes }}>
               <div class="mga-media mga-b2__media" data-mga-media data-media="{{ media }}">
-                {% render 'media-galleries-a-ph' %}
+                {% render 'media-galleries-a-ph', index: forloop.index %}
                 <video data-mga-video class="mga-fill" muted loop playsinline autoplay preload="metadata" aria-hidden="true"{% if vid != blank %} src="{{ vid | escape }}"{% else %} hidden{% endif %}></video>
-                <img data-mga-img class="mga-fill"{% if img != blank %} src="{{ img | image_url: width: 1200 }}" srcset="{{ img | image_url: width: 490 }} 490w, {{ img | image_url: width: 750 }} 750w, {{ img | image_url: width: 1200 }} 1200w" sizes="(min-width: 750px) 33vw, 100vw" width="{{ img.width | default: 1200 }}" height="{{ img.height | default: 1500 }}"{% else %} hidden{% endif %} alt="{{ alt | escape }}" loading="{{ loading }}" decoding="async" draggable="false">
+                <img data-mga-img class="mga-fill"{% if img != blank %} src="{{ img | image_url: width: 1200 }}" srcset="{{ img | image_url: width: 490 }} 490w, {{ img | image_url: width: 750 }} 750w, {{ img | image_url: width: 1200 }} 1200w" sizes="(min-width: 750px) 33vw, 100vw"{% else %} hidden{% endif %} width="{{ img.width | default: 1200 }}" height="{{ img.height | default: 1500 }}" alt="{{ alt | escape }}" loading="{{ loading }}" decoding="async" draggable="false">
                 <a data-mga-link class="mga-b2__link"{% if href != blank %} href="{{ href }}"{% else %} hidden{% endif %} aria-label="{{ link_label | escape }}">
                   <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path fill="currentColor" d="M8.235 4.045a.75.75 0 111.03-1.09l4.5 4.25a.75.75 0 010 1.09l-4.5 4.25a.75.75 0 01-1.03-1.09L11.364 8.5H2.75a.75.75 0 010-1.5h8.614L8.235 4.045z"/></svg>
                 </a>
@@ -171,7 +171,7 @@
 {
   "name": "Gallery Simple 1",
   "tag": "section",
-  "class": "gallery-gallery",
+  "class": "gallery-gallery s-tt",
   "settings": [
     {
       "type": "header",
@@ -181,7 +181,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -569,8 +569,8 @@
   ],
   "presets": [
     {
-      "name": "Gallery Simple 1",
-      "category": "Image and video",
+      "name": "Gallery – Grid",
+      "category": "06 · Gallery & video",
       "settings": {},
       "blocks": [
         {

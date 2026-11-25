@@ -1,9 +1,17 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. One question of FAQ Tabs (sections/faq-tabs): item is the
   faq_item block, sid the section id, is_open opens it on load, sec_font
   marks the answer for the section's custom font.
-{%- endcomment -%}
-      <div class="fqt__item" id="block-{{ item.id }}" data-faq-item data-faq-block="{{ item.id }}" data-faq-type="faq_item" data-faq-settings="{{ item.settings | json | escape }}" data-fqt-tab="{{ item.settings.tab }}"{% if is_open %} open{% endif %} {{ item.shopify_attributes }}>
+
+  @param {boolean} is_open - Is open
+  @param {block} item - Cart line item
+  @param {boolean} sec_font - Font settings object of the section
+  @param {string} sid - Section id, used to scope CSS and element ids
+
+  @example
+  {% render 'faq-live-tab-item', item: item, sid: sid, is_open: is_open, sec_font: sec_font %}
+{%- enddoc -%}
+      <div class="fqt__item" id="block-{{ item.id }}" data-faq-item data-faq-block="{{ item.id }}" data-faq-type="faq_item" {% if request.design_mode %}data-faq-settings="{{ item.settings | json | escape }}"{% endif %} data-fqt-tab="{{ item.settings.tab }}"{% if is_open %} open{% endif %} {{ item.shopify_attributes }}>
         <button type="button" class="fqt__summary" data-faq-trigger aria-expanded="{% if is_open %}true{% else %}false{% endif %}" aria-controls="fqt-a-{{ sid }}-{{ item.id }}">
           <span data-faq-question>{{ item.settings.question }}</span>
           <span class="fqt__plus" aria-hidden="true"></span>

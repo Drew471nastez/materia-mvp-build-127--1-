@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes — In Stock Badge block.
   Pulsing green dot + "In Stock, Order Today To Receive It By {date}".
 
@@ -8,7 +8,12 @@
   the date format string.
 
   Pass `block`.
-{%- endcomment -%}
+
+  @param {block} block - The block being rendered
+
+  @example
+  {% render 'in-stock-badge', block: block %}
+{%- enddoc -%}
 {%- liquid
   assign s = block.settings
   assign block_id = 'in-stock-' | append: block.id

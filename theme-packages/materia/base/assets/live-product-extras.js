@@ -43,7 +43,7 @@
     const fam = api() && api().font ? api().font(v) : '';
     return !fam || /^var\(/.test(fam) ? '' : fam;
   };
-  const scheme = v => (v && typeof v === 'object' ? v.id : v) || 'default-color-scheme';
+  const scheme = v => (v && typeof v === 'object' ? v.id : v) || 'default';
   const reduce = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   const design = () => !!(window.Shopify && Shopify.designMode) || document.documentElement.classList.contains('shopify-design-mode');
 
@@ -153,7 +153,7 @@
   /* ---------- lifecycle ---------- */
   const KINDS = [
     {sel: '[data-rp-root]', id: el => el.dataset.rpSection, s: el => parse(el.dataset.rpSettings), derive: rpDerive, merge: rpMerge},
-    {sel: '[data-svs-root]', id: el => el.dataset.svsSection, s: el => ({color_scheme: ([...el.classList].find(c => c.startsWith('color-')) || 'color-default-color-scheme').slice(6), action_close: el.getAttribute('data-action-close') === 'true', offset_bottom: parseFloat(el.querySelector('.mini-video__video')?.style.bottom) || 150, offset_left: parseFloat(el.querySelector('.mini-video__video')?.style.getPropertyValue('--left')) || 25}), derive: svsDerive, merge: (st, x) => Object.assign(st.s, x)},
+    {sel: '[data-svs-root]', id: el => el.dataset.svsSection, s: el => ({color_scheme: ([...el.classList].find(c => c.startsWith('color-')) || 'color-default').slice(6), action_close: el.getAttribute('data-action-close') === 'true', offset_bottom: parseFloat(el.querySelector('.mini-video__video')?.style.bottom) || 150, offset_left: parseFloat(el.querySelector('.mini-video__video')?.style.getPropertyValue('--left')) || 25}), derive: svsDerive, merge: (st, x) => Object.assign(st.s, x)},
   ];
   const roots = new Map();
   function scan() {

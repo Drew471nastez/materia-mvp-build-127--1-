@@ -30,6 +30,7 @@ import type { ThemeOp } from "../agent/operations"
 import { schemaOf, type SchemaMap } from "../agent/schemas"
 import type { VisualFinding } from "../agent/visual-check"
 import type { ThemeState } from "../agent/operations"
+import { plannerReference } from "@/lib/storelib-ai/materia/reference"
 import { readSitePlan, sitePlanTool, sitePlanTurn, sitePlannerSystem, plannableTypes, planOutline, CUSTOM_TYPE, type SitePlan } from "../agent/site-plan"
 import type { Menu } from "@/lib/storelib-theme/values"
 import type { DesignPreset } from "../design-presets"
@@ -271,8 +272,16 @@ async function stepPlan(job: Job, deps: JobDeps): Promise<Job> {
   let spend = job.state.spend
   let plan: SitePlan | null = null
   let lastText = ""
+  /* Round 26: the closest of Storelib's templates as the plan's pattern (page set, order, rhythm), no model call. */
+  const reference = (() => {
+    try {
+      return plannerReference({ prompt: job.prompt, category: job.options?.category ?? null, extra: (caps.facts?.products ?? []).slice(0, 12).map((p) => p.title).join(" ") })
+    } catch {
+      return ""
+    }
+  })()
   for (let attempt = 0; attempt < 2 && !plan; attempt++) {
-    const user = sitePlanTurn({ prompt: jobBrief(job), caps, capsText, addable: deps.addable, schemas: deps.schemas, presets, free }) + (attempt && lastText ? `\n\nYOUR LAST ANSWER COULD NOT BE USED (no page with a section that can be built). Call submit_site_plan again.` : "")
+    const user = sitePlanTurn({ prompt: jobBrief(job), caps, capsText, addable: deps.addable, schemas: deps.schemas, presets, free, reference }) + (attempt && lastText ? `\n\nYOUR LAST ANSWER COULD NOT BE USED (no page with a section that can be built). Call submit_site_plan again.` : "")
     try {
       const r = await callOnce(deps.models.plan, { system: sitePlannerSystem({ free, craft: STUDIO_CRAFT }), user, tools: [tool], maxOutputTokens: 32_000, timeoutMs: 170_000, signal: deps.signal })
       spend = addSpend(spend, deps.models.plan.model, r.usage)

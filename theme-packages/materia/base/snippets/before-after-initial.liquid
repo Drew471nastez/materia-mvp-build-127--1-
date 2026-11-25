@@ -1,3 +1,11 @@
+{% doc %}
+  Initial inline styles (custom fonts and colours) of the Before/After section.
+
+  @param {section} section - The section being rendered
+
+  @example
+  {% render 'before-after-initial', section: section %}
+{% enddoc -%}
 {% assign s = section.settings %}
 <style>
 {% if s.enable_custom_fonts %}

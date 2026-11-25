@@ -1,0 +1,81 @@
+/* variant-selector-pro.css: static styles of snippets/variant-selector-pro-render.liquid, moved out of its inline <style> so they are cached.
+   :is(<selector>,#_): #_ never matches; it only keeps the (1,0,0) specificity of the per-instance id selector it replaces
+   (:is(.s-vsp,#_) is the section wrapper, schema class "s-vsp"). Per-instance values stay inline as custom properties. */
+:is(variant-radios-detail.vsp,#_) {
+    --vsp-text: var(--color-text);
+    --vsp-heading: var(--color-heading);
+    --vsp-border: var(--color-border);
+    --vsp-accent: var(--color-heading);
+    --vsp-selected-bg: var(--color-heading);
+    --vsp-bg: var(--color-background);
+    --vsp-selected-text: var(--color-background);
+    --vsp-muted: color-mix(in srgb, var(--vsp-text) 70%, transparent);
+    margin: var(--vsp-mt) 0 var(--vsp-mb);
+    color: var(--vsp-text);
+    font-family: var(--body-font);
+    font-weight: var(--body-weight);
+    display:block;
+    width:100%;
+    min-width:0;
+  }
+:is(variant-radios-detail.vsp,#_):not([data-vsp-custom]) {
+    --vsp-size:44px!important; --vsp-img-d:44px!important; --vsp-img-m:44px!important; --vsp-gap:8px!important; --vsp-gap-m:8px!important;
+    --vsp-accent:var(--color-heading)!important; --vsp-card-accent:var(--color-heading)!important; --vsp-text:var(--color-text)!important; --vsp-border:var(--color-border)!important;
+    --vsp-bg:var(--color-background)!important; --vsp-selected-bg:var(--color-heading)!important; --vsp-selected-text:var(--color-background)!important;
+    --vsp-img-bg:var(--color-background)!important; --vsp-muted:var(--color-text)!important;
+    --vsp-radius:var(--input-border-radius,4px)!important; --vsp-bw:var(--input-border-width,1px)!important;
+  }
+:is(variant-radios-detail.vsp,#_):not([data-vsp-custom]) :is(.vsp__title,.vsp__subtitle,.vsp__value,.vsp__label,.vsp__chip-text,.vsp__footer) { font-family:inherit!important; font-size:inherit!important; font-weight:inherit!important; color:inherit!important; letter-spacing:normal!important; text-transform:none!important; }
+:is(variant-radios-detail.vsp,#_):not([data-vsp-custom]) .vsp__soldout { color:var(--color-text)!important; background:var(--color-border)!important; }
+:is(variant-radios-detail.vsp,#_) .vsp__head { margin: 0 0 var(--vsp-header-gap); }
+:is(variant-radios-detail.vsp,#_) .vsp__title { margin: 0; line-height: 1.3; color: var(--vsp-heading); font-family: var(--heading-font, inherit); }
+:is(variant-radios-detail.vsp,#_) .vsp__subtitle { margin: 4px 0 0; line-height: 1.4; color: var(--vsp-muted); }
+:is(variant-radios-detail.vsp,#_) .vsp__footer { margin: 12px 0 0; font-size: 13px; line-height: 1.45; color: var(--vsp-muted); }
+:is(variant-radios-detail.vsp,#_) .vsp__option:last-of-type { margin-bottom: 0; }
+:is(variant-radios-detail.vsp,#_) .vsp__name { color: var(--vsp-heading); font-weight: var(--heading-weight); }
+:is(variant-radios-detail.vsp,#_) .vsp__sep { margin-left: -2px; color: var(--vsp-heading); }
+:is(variant-radios-detail.vsp,#_) .vsp__value { color: var(--vsp-text); }
+/* The cell is the label after the radio: the theme's general "checked
+     option" paint (dark background) must not reach it; the chip inside
+     carries the chosen state. */
+:is(variant-radios-detail.vsp,#_) .vsp__radio + .vsp__cell,
+  :is(variant-radios-detail.vsp,#_) .vsp__radio:checked + .vsp__cell {
+    background: transparent !important; border: 0 !important; color: inherit !important; box-shadow: none !important; padding: 0 !important;
+  }
+:is(variant-radios-detail.vsp,#_) .vsp__radio + .vsp__cell::before,
+  :is(variant-radios-detail.vsp,#_) .vsp__radio + .vsp__cell::after { content: none !important; }
+:is(variant-radios-detail.vsp,#_) .vsp__cell:hover .vsp__chip { border-color: var(--vsp-accent); }
+:is(variant-radios-detail.vsp,#_) .vsp__radio:checked + .vsp__cell .vsp__chip--button {
+    border-color: var(--vsp-accent);
+    background: var(--vsp-selected-bg);
+    box-shadow: inset 0 0 0 calc(var(--vsp-bw) - 1px) var(--vsp-accent);
+    color: var(--vsp-selected-text);
+  }
+:is(variant-radios-detail.vsp,#_) .vsp__chip--image img {
+    display: block; width: 100%; height: 100%;
+    object-fit: var(--vsp-img-fit); border-radius: calc(var(--vsp-img-radius) - 2px);
+  }
+:is(variant-radios-detail.vsp,#_) .vsp__chip--text .vsp__chip-text { position: static; width: auto; height: auto; clip: auto; }
+:is(variant-radios-detail.vsp,#_) .vsp__radio:checked + .vsp__cell :is(.vsp__chip--image, .vsp__chip--dot):not(.vsp__chip--text) {
+    border-color: var(--vsp-card-accent, var(--vsp-accent));
+    box-shadow: 0 0 0 calc(2px + var(--vsp-ring)) var(--color-background), 0 0 0 calc(2px + var(--vsp-ring) + max(var(--vsp-bw), 2px)) var(--vsp-card-accent, var(--vsp-accent));
+  }
+:is(variant-radios-detail.vsp,#_) .vsp__radio:checked + .vsp__cell .vsp__chip--text {
+    background: var(--vsp-selected-bg); color: var(--vsp-selected-text);
+    box-shadow: inset 0 0 0 1px var(--vsp-accent);
+  }
+:is(variant-radios-detail.vsp,#_) .vsp__radio:checked + .vsp__cell .vsp__label { color: var(--vsp-heading); font-weight: 600; }
+:is(variant-radios-detail.vsp,#_) .vsp__radio:focus-visible + .vsp__cell .vsp__chip { outline: 2px solid var(--vsp-accent); outline-offset: 3px; }
+:is(variant-radios-detail.vsp,#_) .vsp__radio.option-disabled + .vsp__cell .vsp__chip { opacity: .5; }
+:is(variant-radios-detail.vsp,#_) .vsp__radio.option-disabled + .vsp__cell .vsp__chip::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+    background: linear-gradient(to top left, transparent calc(50% - .5px), var(--vsp-text) calc(50% - .5px), var(--vsp-text) calc(50% + .5px), transparent calc(50% + .5px));
+  }
+/* Hover never moves an option: "lift" firms its border, "glow" adds a
+     soft shadow. */
+@media (hover: hover) {
+    :is(variant-radios-detail.vsp,#_):is(.vsp--hover-lift, .vsp--hover-both) .vsp__radio:not(:checked) + .vsp__cell:hover .vsp__chip { box-shadow: inset 0 0 0 1px var(--vsp-accent); }
+    :is(variant-radios-detail.vsp,#_):is(.vsp--hover-glow, .vsp--hover-both) .vsp__radio:not(:checked) + .vsp__cell:hover .vsp__chip { box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--vsp-accent) 60%, transparent); }
+  }
+/* Selected animation */
+:is(variant-radios-detail.vsp,#_).vsp--anim-scale .vsp__radio:checked + .vsp__cell .vsp__chip { transform: scale(1.04); }

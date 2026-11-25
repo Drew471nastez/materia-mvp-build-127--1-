@@ -1,9 +1,9 @@
-<script src="{{ 'live-testimonials.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-testimonials.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-testimonials-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign custom = st.enable_custom_style
   assign fonts = st.enable_custom_fonts
   assign scroll_anim = settings.scroll_animation | default: 'none'
@@ -134,7 +134,7 @@
                   <div class="tcp__card-head">
                     <div class="tcp__avatar" data-lt-media>
                       {%- if bs.avatar != blank -%}
-                        {{ bs.avatar | image_url: width: 150 | image_tag: loading: 'lazy', decoding: 'async', widths: '60,90,120,150', sizes: '54px', width: 54, height: 54, alt: bs.name | default: fb_customer }}
+                        {%- assign mt_img_alt_1 = bs.name | default: fb_customer -%}{{ bs.avatar | image_url: width: 150 | image_tag: loading: 'lazy', decoding: 'async', widths: '60,90,120,150', sizes: '54px', width: 54, height: 54, alt: mt_img_alt_1}}
                       {%- else -%}
                         <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false" data-lt-ph><circle cx="32" cy="26" r="10" fill="currentColor"/><path d="M14 56c0-10 9-16 18-16s18 6 18 16" fill="currentColor"/></svg>
                       {%- endif -%}
@@ -176,7 +176,7 @@
 {
   "name": "Testimonial Carousel Pro",
   "tag": "section",
-  "class": "section-testimonial-carousel-pro",
+  "class": "section-testimonial-carousel-pro s-tt s-lt",
   "disabled_on": {
     "groups": [
       "header",
@@ -192,7 +192,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -819,8 +819,7 @@
         {
           "type": "text",
           "id": "role",
-          "label": "Role / title",
-          "default": ""
+          "label": "Role / title"
         },
         {
           "type": "image_picker",
@@ -944,8 +943,8 @@
   ],
   "presets": [
     {
-      "name": "Testimonial Carousel Pro",
-      "category": "Testimonials",
+      "name": "Testimonial Carousel – Cards",
+      "category": "07 · Reviews & testimonials",
       "blocks": [
         {
           "type": "eyebrow"

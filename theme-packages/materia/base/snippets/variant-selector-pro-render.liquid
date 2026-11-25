@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. Variant Selector Pro: one row per option (Size, Colour...)
   with the option name and the chosen value. Sizes are buttons, colours are
   swatches drawn from each colour's variant picture, or its swatch colour,
@@ -6,7 +6,14 @@
   (variant-radios-detail), so price, stock, the add button, the variant id,
   the address and the gallery all follow a choice the same way.
   Inputs: block, section, product
-{%- endcomment -%}
+
+  @param {block} block - The block being rendered
+  @param {product} product - The product to render
+  @param {section} section - The section being rendered
+
+  @example
+  {% render 'variant-selector-pro-render', block: block, section: section, product: product %}
+{%- enddoc -%}
 {%- assign product = product | default: page.product -%}
 {%- unless product == blank or product.has_only_default_variant -%}
 {%- liquid
@@ -14,6 +21,7 @@
   assign vsp_selected = product.selected_or_first_available_variant
   assign product = product | default: page.product
   assign vsp_style = vsp.swatch_style | default: 'theme'
+  assign vsp_mode = vsp_style
   if vsp_style == 'theme'
     if settings.swatch_item_type == 'variant_images'
       assign vsp_style = 'image'
@@ -112,12 +120,23 @@
       assign opt_key = 'option' | append: opt_pos
       assign opt_name_down = option.name | downcase | strip
       assign is_color = false
+      assign _nv_first = option.values | first
+      if _nv_first.swatch != blank
+        assign is_color = true
+      endif
       for cn in vsp_color_names
         assign cn_clean = cn | strip
         if cn_clean != blank and opt_name_down contains cn_clean
           assign is_color = true
         endif
       endfor
+      comment
+        Colour swatch: Theme follows Theme settings > Variant swatches > Show
+        colour options as swatches; off draws colours as named buttons.
+      endcomment
+      if vsp_mode == 'theme' and settings.enable_color_swatches == false
+        assign is_color = false
+      endif
       assign opt_selected = option.selected_value | default: vsp_selected[opt_key] | default: vsp_selected.options[opt_index].value | default: vsp_selected.options[opt_index].name | default: vsp_selected.options[opt_index]
     -%}
     <fieldset class="product-form__input vsp__option{% if is_color %} vsp__option--color{% else %} vsp__option--button{% endif %}">
@@ -153,6 +172,9 @@
             if value.swatch.color
               assign swatch_color = value.swatch.color
             endif
+            if value.swatch.image != blank and value_image == blank
+              assign value_image = value.swatch.image
+            endif
             assign value_label = value
             assign ov_img_key = ''
             comment
@@ -174,6 +196,7 @@
               endif
             endif
             assign color_name = value | downcase | remove: ' ' | remove: '"' | remove: "'"
+            assign custom_class = 'custom__color-swatches--' | append: value | downcase | replace: ' ', '-' | replace: '"', "'"
             assign value_image_url = ''
             comment
               A picked picture is an image (sized with image_url); an address
@@ -187,10 +210,21 @@
               endif
             endif
             assign use_image = false
+            assign chip_image_url = value_image_url
             if is_color and value_image_url != blank
               if vsp_style == 'image' or ov_img_key != blank and vsp[ov_img_key] != blank
                 assign use_image = true
               endif
+            endif
+            comment
+              Colour mode: a value whose the platform swatch is a picture (pattern)
+              and has no swatch colour shows that picture in the dot.
+            endcomment
+            if is_color and use_image == false and swatch_color == blank and value.swatch.image != blank
+              assign chip_image_url = value.swatch.image | image_url: width: 120
+              assign use_swatch_image = true
+            else
+              assign use_swatch_image = false
             endif
           -%}
           {%- if vsp.hide_unavailable and value_available == false and value_checked == false -%}{%- continue -%}{%- endif -%}
@@ -202,17 +236,17 @@
             value="{{ value | escape }}"
             {% if value_checked %}checked{% endif %}
           >
-          <label for="{{ vsp_id }}" class="vsp__cell" data-vsp-image="{{ value_image_url | escape }}" data-vsp-color-value="{{ swatch_color | default: color_name | escape }}" title="{{ value_label | escape }}"{% if use_image %} data-image="{{ value_image_url }}"{% endif %}>
+          <label for="{{ vsp_id }}" class="vsp__cell" data-vsp-image="{{ value_image_url | escape }}" data-vsp-color-value="{{ swatch_color | default: color_name | escape }}" title="{{ value_label | escape }}"{% if is_color %} data-vsp-custom="{{ custom_class | escape }}"{% endif %}{% if use_image %} data-image="{{ value_image_url }}"{% endif %}>
             {%- if is_color -%}
-              {%- if use_image -%}
+              {%- if use_image or use_swatch_image -%}
                 {%- comment -%} With colour dots, a picture fills a dot of the same size. {%- endcomment -%}
                 <span class="vsp__chip vsp__chip--image{% if vsp_style == 'color' %} vsp__chip--photo{% endif %}">
-                  <img src="{{ value_image_url }}" alt="" width="120" height="120" loading="lazy" decoding="async">
+                  <img src="{{ chip_image_url }}" alt="" width="120" height="120" loading="lazy" decoding="async">
                 </span>
               {%- elsif swatch_color != blank -%}
                 <span class="vsp__chip vsp__chip--dot" style="--vsp-dot: {{ swatch_color }};"></span>
               {%- else -%}
-                <span class="vsp__chip vsp__chip--dot" data-vsp-color="{{ color_name | escape }}" style="--vsp-dot: {{ color_name | escape }};">
+                <span class="vsp__chip vsp__chip--dot {{ custom_class | escape }}" data-vsp-color="{{ color_name | escape }}" style="--vsp-dot: {{ color_name | escape }};">
                   <span class="vsp__chip-text" style="font-size: {{ vsp.placeholder_size | default: 11 }}px; font-weight: {{ vsp.placeholder_weight | default: 600 }};{% if vsp.placeholder_uppercase %} text-transform: uppercase;{% endif %}">{{ value_label }}</span>
                 </span>
               {%- endif -%}
@@ -241,34 +275,9 @@
   {%- render 'variant-price-map', product: product -%}
 </variant-radios-detail>
 
+{{ 'variant-selector-pro.css' | asset_url | stylesheet_tag }}
 <style>
-  #VariantSelectorPro-{{ block.id }} {
-    --vsp-text: var(--color-text);
-    --vsp-heading: var(--color-heading);
-    --vsp-border: var(--color-border);
-    --vsp-accent: var(--color-heading);
-    --vsp-selected-bg: var(--color-heading);
-    --vsp-bg: var(--color-background);
-    --vsp-selected-text: var(--color-background);
-    --vsp-muted: color-mix(in srgb, var(--vsp-text) 70%, transparent);
-    margin: var(--vsp-mt) 0 var(--vsp-mb);
-    color: var(--vsp-text);
-    font-family: var(--body-font);
-    font-weight: var(--body-weight);
-    display:block;
-    width:100%;
-    min-width:0;
-  }
-  #VariantSelectorPro-{{ block.id }}:not([data-vsp-custom]) {
-    --vsp-size:44px!important; --vsp-img-d:44px!important; --vsp-img-m:44px!important; --vsp-gap:8px!important; --vsp-gap-m:8px!important;
-    --vsp-accent:var(--color-heading)!important; --vsp-card-accent:var(--color-heading)!important; --vsp-text:var(--color-text)!important; --vsp-border:var(--color-border)!important;
-    --vsp-bg:var(--color-background)!important; --vsp-selected-bg:var(--color-heading)!important; --vsp-selected-text:var(--color-background)!important;
-    --vsp-img-bg:var(--color-background)!important; --vsp-muted:var(--color-text)!important;
-    --vsp-radius:var(--input-border-radius,4px)!important; --vsp-bw:var(--input-border-width,1px)!important;
-  }
-  #VariantSelectorPro-{{ block.id }}:not([data-vsp-custom]) :is(.vsp__title,.vsp__subtitle,.vsp__value,.vsp__label,.vsp__chip-text,.vsp__footer) { font-family:inherit!important; font-size:inherit!important; font-weight:inherit!important; color:inherit!important; letter-spacing:normal!important; text-transform:none!important; }
-  #VariantSelectorPro-{{ block.id }}:not([data-vsp-custom]) .vsp__soldout { color:var(--color-text)!important; background:var(--color-border)!important; }
-  {%- if vsp.enable_vsp_custom -%}
+{%- if vsp.enable_vsp_custom -%}
   #VariantSelectorPro-{{ block.id }}[data-vsp-custom] .vsp__values {
     --vsp-cols:{{ vsp.cols_mobile | default: 4 }};
     display:grid;
@@ -279,20 +288,12 @@
   #VariantSelectorPro-{{ block.id }}[data-vsp-custom] .vsp__values .vsp__radio + .vsp__cell { padding:{{ vsp.card_padding | default: 4 }}px!important; box-sizing:border-box; }
   @media(min-width:750px){#VariantSelectorPro-{{ block.id }}[data-vsp-custom] .vsp__values { --vsp-cols:{{ vsp.cols_desktop | default: 4 }}; grid-template-columns:repeat(var(--vsp-fit-cols, var(--vsp-cols)), max-content); }}
   {%- endif -%}
-  #VariantSelectorPro-{{ block.id }} .vsp__head { margin: 0 0 var(--vsp-header-gap); }
-  #VariantSelectorPro-{{ block.id }} .vsp__title { margin: 0; line-height: 1.3; color: var(--vsp-heading); font-family: var(--heading-font, inherit); }
-  #VariantSelectorPro-{{ block.id }} .vsp__subtitle { margin: 4px 0 0; line-height: 1.4; color: var(--vsp-muted); }
-  #VariantSelectorPro-{{ block.id }} .vsp__footer { margin: 12px 0 0; font-size: 13px; line-height: 1.45; color: var(--vsp-muted); }
-  #VariantSelectorPro-{{ block.id }} .vsp__option { border: 0; margin: 0 0 16px; padding: 0; min-width: 0; }
-  #VariantSelectorPro-{{ block.id }} .vsp__option:last-of-type { margin-bottom: 0; }
-  #VariantSelectorPro-{{ block.id }} .vsp__legend {
+#VariantSelectorPro-{{ block.id }} .vsp__option { border: 0; margin: 0 0 16px; padding: 0; min-width: 0; }
+#VariantSelectorPro-{{ block.id }} .vsp__legend {
     display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px;
     padding: 0; margin: 0 0 10px; line-height: 1.4;
   }
-  #VariantSelectorPro-{{ block.id }} .vsp__name { color: var(--vsp-heading); font-weight: var(--heading-weight); }
-  #VariantSelectorPro-{{ block.id }} .vsp__sep { margin-left: -2px; color: var(--vsp-heading); }
-  #VariantSelectorPro-{{ block.id }} .vsp__value { color: var(--vsp-text); }
-  #VariantSelectorPro-{{ block.id }} .vsp__values {
+#VariantSelectorPro-{{ block.id }} .vsp__values {
     display: flex; flex-wrap: wrap; align-items: flex-start;
     justify-content: var(--vsp-justify); gap: var(--vsp-gap-m);
   }
@@ -304,16 +305,7 @@
     margin: 0; cursor: pointer; min-width: 44px; max-width: 100%;
     -webkit-tap-highlight-color: transparent;
   }
-  /* The cell is the label after the radio: the theme's general "checked
-     option" paint (dark background) must not reach it; the chip inside
-     carries the chosen state. */
-  #VariantSelectorPro-{{ block.id }} .vsp__radio + .vsp__cell,
-  #VariantSelectorPro-{{ block.id }} .vsp__radio:checked + .vsp__cell {
-    background: transparent !important; border: 0 !important; color: inherit !important; box-shadow: none !important; padding: 0 !important;
-  }
-  #VariantSelectorPro-{{ block.id }} .vsp__radio + .vsp__cell::before,
-  #VariantSelectorPro-{{ block.id }} .vsp__radio + .vsp__cell::after { content: none !important; }
-  #VariantSelectorPro-{{ block.id }} .vsp__label { display: block; max-width: calc(var(--vsp-img-d) + 16px); text-align: center; line-height: 1.25; color: var(--vsp-text); overflow-wrap: anywhere; }
+#VariantSelectorPro-{{ block.id }} .vsp__label { display: block; max-width: calc(var(--vsp-img-d) + 16px); text-align: center; line-height: 1.25; color: var(--vsp-text); overflow-wrap: anywhere; }
   #VariantSelectorPro-{{ block.id }} .vsp__chip {
     position: relative; box-sizing: border-box;
     display: inline-flex; align-items: center; justify-content: center;
@@ -331,14 +323,7 @@
     letter-spacing: var(--btn-letter-spacing, normal);
     line-height: 1.2;
   }
-  #VariantSelectorPro-{{ block.id }} .vsp__cell:hover .vsp__chip { border-color: var(--vsp-accent); }
-  #VariantSelectorPro-{{ block.id }} .vsp__radio:checked + .vsp__cell .vsp__chip--button {
-    border-color: var(--vsp-accent);
-    background: var(--vsp-selected-bg);
-    box-shadow: inset 0 0 0 calc(var(--vsp-bw) - 1px) var(--vsp-accent);
-    color: var(--vsp-selected-text);
-  }
-  #VariantSelectorPro-{{ block.id }} .vsp__chip--image {
+#VariantSelectorPro-{{ block.id }} .vsp__chip--image {
     width: var(--vsp-img-m); height: auto; aspect-ratio: var(--vsp-ratio);
     padding: var(--vsp-img-pad);
     border: 1px solid var(--vsp-border);
@@ -350,11 +335,7 @@
     #VariantSelectorPro-{{ block.id }} .vsp__chip--image { width: var(--vsp-img-d); }
     #VariantSelectorPro-{{ block.id }} .vsp__label { max-width: calc(var(--vsp-img-d) + 16px); }
   }
-  #VariantSelectorPro-{{ block.id }} .vsp__chip--image img {
-    display: block; width: 100%; height: 100%;
-    object-fit: var(--vsp-img-fit); border-radius: calc(var(--vsp-img-radius) - 2px);
-  }
-  #VariantSelectorPro-{{ block.id }} .vsp__chip--dot {
+#VariantSelectorPro-{{ block.id }} .vsp__chip--dot {
     width: var(--vsp-size); height: var(--vsp-size);
     min-width: var(--vsp-size); min-height: var(--vsp-size);
     padding: 0; border: 1px solid var(--vsp-border); border-radius: 50%;
@@ -364,49 +345,22 @@
   #VariantSelectorPro-{{ block.id }} .vsp__chip--photo img {
     width: var(--vsp-size) !important; height: var(--vsp-size); min-width: var(--vsp-size); aspect-ratio: 1; padding: 0; border-radius: 50%;
   }
-  /* The name is already in the chip: no second label under it. */
-  #VariantSelectorPro-{{ block.id }} .vsp__chip--text + .vsp__label { display: none; }
+/* The name is already in the chip: no second label under it. */#VariantSelectorPro-{{ block.id }} .vsp__chip--text + .vsp__label { display: none; }
   #VariantSelectorPro-{{ block.id }} .vsp__chip-text {
     position: absolute; width: 1px; height: 1px; overflow: hidden;
     clip: rect(0 0 0 0); white-space: nowrap;
   }
-  /* A colour with no picture and no swatch colour reads as its name. */
-  #VariantSelectorPro-{{ block.id }} .vsp__chip--text {
+/* A colour with no picture and no swatch colour reads as its name. */#VariantSelectorPro-{{ block.id }} .vsp__chip--text {
     width: auto; padding: 0 16px; border-radius: var(--vsp-radius); background: var(--vsp-bg);
   }
-  #VariantSelectorPro-{{ block.id }} .vsp__chip--text .vsp__chip-text { position: static; width: auto; height: auto; clip: auto; }
-  #VariantSelectorPro-{{ block.id }} .vsp__radio:checked + .vsp__cell :is(.vsp__chip--image, .vsp__chip--dot):not(.vsp__chip--text) {
-    border-color: var(--vsp-card-accent, var(--vsp-accent));
-    box-shadow: 0 0 0 calc(2px + var(--vsp-ring)) var(--color-background), 0 0 0 calc(2px + var(--vsp-ring) + max(var(--vsp-bw), 2px)) var(--vsp-card-accent, var(--vsp-accent));
-  }
-  #VariantSelectorPro-{{ block.id }} .vsp__radio:checked + .vsp__cell .vsp__chip--text {
-    background: var(--vsp-selected-bg); color: var(--vsp-selected-text);
-    box-shadow: inset 0 0 0 1px var(--vsp-accent);
-  }
-  #VariantSelectorPro-{{ block.id }} .vsp__radio:checked + .vsp__cell .vsp__label { color: var(--vsp-heading); font-weight: 600; }
-  #VariantSelectorPro-{{ block.id }} .vsp__radio:focus-visible + .vsp__cell .vsp__chip { outline: 2px solid var(--vsp-accent); outline-offset: 3px; }
-  #VariantSelectorPro-{{ block.id }} .vsp__radio.option-disabled + .vsp__cell .vsp__chip { opacity: .5; }
-  #VariantSelectorPro-{{ block.id }} .vsp__radio.option-disabled + .vsp__cell .vsp__chip::after {
-    content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
-    background: linear-gradient(to top left, transparent calc(50% - .5px), var(--vsp-text) calc(50% - .5px), var(--vsp-text) calc(50% + .5px), transparent calc(50% + .5px));
-  }
-  #VariantSelectorPro-{{ block.id }} .vsp__soldout {
+#VariantSelectorPro-{{ block.id }} .vsp__soldout {
     position: absolute; top: -6px; right: -6px; z-index: 1;
     padding: 1px 6px; border-radius: 999px; font-size: 10px; font-weight: 600; line-height: 1.5;
     background: var(--color-heading); color: var(--color-background); pointer-events: none;
   }
-  /* Hover never moves an option: "lift" firms its border, "glow" adds a
-     soft shadow. */
-  @media (hover: hover) {
-    #VariantSelectorPro-{{ block.id }}:is(.vsp--hover-lift, .vsp--hover-both) .vsp__radio:not(:checked) + .vsp__cell:hover .vsp__chip { box-shadow: inset 0 0 0 1px var(--vsp-accent); }
-    #VariantSelectorPro-{{ block.id }}:is(.vsp--hover-glow, .vsp--hover-both) .vsp__radio:not(:checked) + .vsp__cell:hover .vsp__chip { box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--vsp-accent) 60%, transparent); }
-  }
-  /* Selected animation */
-  #VariantSelectorPro-{{ block.id }}.vsp--anim-scale .vsp__radio:checked + .vsp__cell .vsp__chip { transform: scale(1.04); }
-  #VariantSelectorPro-{{ block.id }}.vsp--anim-pulse .vsp__radio:checked + .vsp__cell .vsp__chip { animation: vsp-pulse-{{ block.id | handle }} .45s ease-out 1; }
+#VariantSelectorPro-{{ block.id }}.vsp--anim-pulse .vsp__radio:checked + .vsp__cell .vsp__chip { animation: vsp-pulse-{{ block.id | handle }} .45s ease-out 1; }
   @keyframes vsp-pulse-{{ block.id | handle }} { 0% { transform: scale(.94); } 60% { transform: scale(1.05); } 100% { transform: none; } }
-  /* Phones: a lighter selector with the same 44px targets. */
-  @media (max-width: 749px) {
+/* Phones: a lighter selector with the same 44px targets. */@media (max-width: 749px) {
     #VariantSelectorPro-{{ block.id }} .vsp__option { margin-bottom: 12px; }
     #VariantSelectorPro-{{ block.id }} .vsp__legend { margin-bottom: 8px; font-size: 14px; }
     #VariantSelectorPro-{{ block.id }} .vsp__values { gap: min(var(--vsp-gap-m), 8px); }

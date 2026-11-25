@@ -1,0 +1,262 @@
+/* Materia Themes. Developed By Materia Themes. */
+'use-strict';
+
+import PhotoSwipeLightbox from '/theme-previews/_base/a/photoswipe-lightbox-esm-min.f4f9971fd6d5.js';
+// The lightbox core (80 KB) is fetched when a gallery first opens, or when
+// the page has gone idle, not with every page that only shows the gallery.
+let photoswipeCore = null;
+const loadPhotoswipe = () => (photoswipeCore ||= import('/theme-previews/_base/a/photoswipe-esm-min.caa39f8735fa.js'));
+const warmPhotoswipe = () => {
+  const go = () => loadPhotoswipe().catch(() => { photoswipeCore = null; });
+  const later = () => (window.requestIdleCallback || ((fn) => setTimeout(fn, 1500)))(go, { timeout: 4000 });
+  if (document.readyState === 'complete') later(); else window.addEventListener('load', later, { once: true });
+};
+// js gallery
+class ZoomAction extends HTMLElement {
+  static get observedAttributes() { return ['data-type','data-zoom-option']; }
+  attributeChangedCallback() { if(this.isConnected)this.refreshZoom(); }
+  constructor() {
+    super();
+    this.type = this.dataset.type || 'no_zoom';
+    this.zoomOption = this.dataset.zoomOption || 'external';
+    this.lightbox = null;
+    this.drift = null;
+    this.init();
+  }
+  init() {
+    if (this.type === 'no_zoom') return;
+    warmPhotoswipe();
+    this._onResize = this.responsive.bind(this);
+    window.addEventListener('resize', this._onResize);
+    // A gallery drawn after the page loaded (a builder redraw, a new product
+    // picked, a section further down) sets its zoom up now: 'load' is past.
+    if (document.readyState === 'complete') setTimeout(() => { if (this.isConnected) this.responsive(); }, 0);
+    else window.addEventListener('load', this._onResize, { once: true });
+  }
+  connectedCallback() {
+    if (!this._onResize) this.init();
+    this._zoomObserver ||= new MutationObserver(records=>{
+      if(records.some(record=>[...record.addedNodes,...record.removedNodes].some(node=>node.nodeType===1 && (node.matches('.drift-trigger,.media-gallery__image')||node.querySelector('.drift-trigger')))))this.refreshZoom();
+    });
+    this._zoomObserver.observe(this,{childList:true,subtree:true});
+  }
+  refreshZoom() {
+    if(this._zoomFrame)return;
+    this._zoomFrame=requestAnimationFrame(()=>{
+      this._zoomFrame=0;if(!this.isConnected)return;
+      this.destroyDrifts();this.lightbox?.destroy();this.lightbox=null;
+      this.type=this.dataset.type||'no_zoom';this.zoomOption=this.dataset.zoomOption||'inner-1';
+      if(!this._onResize)this.init();
+      if(this.type!=='no_zoom')this.responsive();
+    });
+  }
+  initLightBox() {
+    if (this.lightbox !== null) return;
+    // Galleries marked data-mt-lightbox open in product-page-ui.js instead.
+    if (this.closest('[data-mt-lightbox]')) return;
+    this.querySelectorAll('a.media-gallery__image').forEach((a) => {
+      var position = 0;
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        const target = e.currentTarget;
+        if (target.getAttribute('data-position')) {
+          position = target.getAttribute('data-position');
+        } else if (
+          target.closest('media-gallery').querySelector('.swiper-slide-active')
+        ) {
+          position = target
+            .closest('media-gallery')
+            .querySelector('.swiper-slide-active')
+            .getAttribute('data-position');
+        } else if (target.closest('media-gallery').firstChild) {
+          position = target
+            .closest('media-gallery')
+            .firstChild?.getAttribute('data-position');
+        }
+        this.lightbox = new PhotoSwipeLightbox({
+          gallery: this,
+          children: 'a',
+          pswpModule: loadPhotoswipe,
+          counter: false,
+          zoom: false,
+          preloader: false,
+          arrowPrev: false,
+          arrowNext: false,
+          close: false,
+          loop: false,
+          bgOpacity: 1,
+        });
+        this.lightbox.on('uiRegister', () => {
+          const { pswp } = this.lightbox;
+          pswp?.ui.registerElement({
+            name: 'bls--close',
+            isButton: true,
+            tagName: 'button',
+            html: '<svg width="13" height="13" viewBox="0 0 13 13" fill="none" class="transition"><use href="#icon-close"></use></svg>',
+            onClick: () => {
+              pswp.close();
+            },
+          });
+          pswp?.ui.registerElement({
+            name: 'bottomBar',
+            className: 'pswp__bottom-bar',
+            appendTo: 'wrapper',
+            onInit: (el, pswp) => {
+              let next, prev, counter, useIconPrev;
+              let iconNext, iconPrev, useIconNext;
+              next = document.createElement('button');
+              next.setAttribute('type', 'button');
+              next.className = 'pswp__button pswp__button-next';
+              next.innerHTML = `<svg width="6" height="11" fill="none">
+              <use href="#icon-next"></use>
+            </svg>`;
+              next.onclick = () => {
+                pswp.next();
+              };
+              el.appendChild(next);
+
+              counter = document.createElement('span');
+              counter.className = 'pswp__counter';
+              pswp.on('change', () => {
+                counter.innerText =
+                  pswp.currIndex +
+                  1 +
+                  pswp.options.indexIndicatorSep +
+                  pswp.getNumItems();
+              });
+              el.appendChild(counter);
+
+              prev = document.createElement('button');
+              prev.setAttribute('type', 'button');
+              prev.className = 'pswp__button pswp__button-prev';
+              prev.innerHTML = `<svg width="6" height="11" fill="none">
+              <use href="#icon-back"></use>
+            </svg>`;
+              prev.onclick = () => {
+                pswp.prev();
+              };
+              el.appendChild(prev);
+            },
+          });
+        });
+        this.lightbox.init();
+        this.lightbox.loadAndOpen(position-1);
+      });
+    });
+  }
+   initDrift() {
+    if (this.drift !== null) return;
+    var allTriggers = this.querySelectorAll('.drift-trigger');
+    const section = this.closest('.sec__featured-product, .shopify-section, [id^="shopify-section-"]') || this.parentElement;
+    var paneContainer = section?.querySelector('.zoom-external-area');
+    if (typeof Drift !== 'function') return;
+    this._drifts = [];
+    if (allTriggers.length != 0) {
+      allTriggers.forEach( (trigger) => {
+        if (!trigger.getAttribute('data-zoom')) {
+          const source=trigger.closest('[data-mt-src]')?.dataset.mtSrc || trigger.currentSrc || trigger.getAttribute('src');
+          if(!source)return;
+          trigger.setAttribute('data-zoom',source);
+        }
+        const inlineContainer = trigger.closest('[data-pane-container]') || trigger.parentElement;
+        const zoomOption = this.zoomOption;
+        if (zoomOption === 'inner-2') {
+          this.drift = new Drift(trigger, {
+            inlinePane: zoomOption === 'inner-2',
+            zoomFactor: 3,
+            containInline: true,
+            paneContainer: inlineContainer,
+            inlineContainer,
+            hoverBoundingBox: zoomOption === 'external',
+            onShow: function () {
+              inlineContainer.classList.add('relative');
+            },
+            onHide: function () {
+              inlineContainer.classList.remove('relative');
+            },
+          });
+        } else {
+          this.drift = new Drift(trigger, {
+            inlinePane: zoomOption !== 'external' || !paneContainer,
+            zoomFactor: 5,
+            containInline: !!paneContainer,
+            paneContainer:
+              zoomOption === 'external' && paneContainer ? paneContainer : inlineContainer,
+            inlineContainer,
+            hoverBoundingBox: zoomOption === 'external',
+            onShow: function () {
+              inlineContainer.classList.add('relative');
+            },
+            onHide: function () {
+              inlineContainer.classList.remove('relative');
+            },
+          });
+        }
+        this._drifts.push(this.drift);
+      });
+    }
+  }
+  responsive() {
+    if (window.innerWidth >= 768) {
+      if (this.type === 'open_lightbox') {
+        this.initLightBox();
+      } else {
+        if (this.lightbox !== null) {
+          this.lightbox.destroy();
+          this.lightbox = null;
+        }
+        this.initDrift();
+      }
+    } else {
+      if (this.type !== 'open_lightbox') {
+        if (this.drift !== null) {
+          this.destroyDrifts();
+          this.drift = null;
+        }
+        this.initLightBox();
+      } else {
+        this.initLightBox();
+      }
+    }
+    this.updateSwiper();
+  }
+
+  // The thumbnail strip is measured again only when its box changed (Swiper
+  // updated it already otherwise; on window load this was a 40-60ms task),
+  // and not before it is built.
+  updateSwiper() {
+    const el = this.querySelector('.thumbnail-slide');
+    const sw = el && el.swiper;
+    if (!sw || sw.destroyed) return;
+    // Swiper's own width/height: the client box less padding, as it measures it.
+    const cs = getComputedStyle(el);
+    const w = el.clientWidth - (parseInt(cs.paddingLeft, 10) || 0) - (parseInt(cs.paddingRight, 10) || 0);
+    const h = el.clientHeight - (parseInt(cs.paddingTop, 10) || 0) - (parseInt(cs.paddingBottom, 10) || 0);
+    if (sw.width === w && sw.height === h) return;
+    sw.update();
+  }
+
+  disconnectedCallback() {
+    this._zoomObserver?.disconnect();
+    if(this._zoomFrame)cancelAnimationFrame(this._zoomFrame);
+    this._zoomFrame=0;
+    this.destroyDrifts();
+    this.lightbox?.destroy();
+    this.lightbox = null;
+    if (!this._onResize) return;
+    window.removeEventListener('resize', this._onResize);
+    window.removeEventListener('load', this._onResize);
+    this._onResize = null;
+  }
+  destroyDrifts() {
+    (this._drifts || (this.drift ? [this.drift] : [])).forEach(drift => {
+      drift.destroy();
+      // Drift normally waits for its exit animation. A removed gallery has
+      // no exit surface: release its own pane immediately, not another zoom.
+      drift.zoomPane?.el?.remove();
+    });
+    this._drifts = [];
+    this.drift = null;
+  }
+}
+customElements.define('zoom-action', ZoomAction);

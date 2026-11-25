@@ -700,10 +700,18 @@ class ProductGrouped extends HTMLElement {
       .then((response) => response.text())
       .then(async (responseText) => {
         const html = new DOMParser().parseFromString(responseText, "text/html");
-        this.innerHTML = html.querySelector(".product-group").innerHTML;
+        const list = html.querySelector(".product-group");
+        if (!list || !list.querySelector(".product-group-item")) {
+          // Nothing to sell as a group (products gone or sold out): drop the heading too.
+          const prev = this.previousElementSibling;
+          if (prev && /^H[1-6]$/.test(prev.tagName)) prev.hidden = true;
+          this.hidden = true;
+          return;
+        }
+        this.innerHTML = list.innerHTML;
       })
       .catch((e) => {
-        throw error;
+        console.error(e);
       })
       .finally(() => {
         this.eventProductGroupAction();
@@ -806,10 +814,11 @@ class ProductGrouped extends HTMLElement {
         );
       });
 
-    let totalQty = 0;
     const classQty = document.querySelectorAll(
       ".quantity__input-product-group"
     );
+    // Without quantity boxes (Product cards > quantity off) each item goes in once.
+    let totalQty = classQty.length ? 0 : 1;
     classQty.forEach((input) => {
       let valueQtyDefault = input.value;
       let valueAsDefault = parseFloat(valueQtyDefault);
@@ -883,8 +892,7 @@ class ProductGrouped extends HTMLElement {
         if (parsedState.items) {
           window.location.href = "/checkout";
         } else {
-          const content = document.querySelector(".form-infor .add-cart-error");
-          if (!content) return;
+          handleErrorMessagePopup(parsedState.description || parsedState.message || "This item could not be added. Please try again.");
         }
       })
       .catch((e) => {

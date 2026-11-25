@@ -1,9 +1,14 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. FAQPage structured data for the FAQ sections, built from
   the questions on the page (items: the section's question blocks, each
   with question and answer settings). A question or answer left empty is
   left out. Printed only when the section's "Add FAQ structured data" is on.
-{%- endcomment -%}
+
+  @param {object} items - Items
+
+  @example
+  {% render 'faq-live-jsonld', items: faq_items %}
+{%- enddoc -%}
 {%- assign faq_ld_sep = '' -%}
 {%- capture faq_ld_entities -%}
   {%- for item in items -%}

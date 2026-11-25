@@ -1,3 +1,12 @@
+{% doc %}
+  Main body of the product information column: renders each product info block.
+
+  @param {product} product - The product to render
+  @param {section} section - The section being rendered
+
+  @example
+  {% render 'main-product-body', section: section, product: product %}
+{% enddoc -%}
 {%- assign fb_accessibility_payment_badges = 'accessibility.payment_badges' | t -%}
 {%- assign fb_accessibility_use_code = 'accessibility.use_code' | t -%}
 {%- assign fb_accessibility_product_label = 'accessibility.product_label' | t -%}
@@ -87,7 +96,7 @@
   assign user_variants_image_group = false
   assign enable_sticky_add_cart_on_desktop = section_st.enable_on_desktop
   assign enable_sticky_add_cart_on_mobile = section_st.enable_on_mobile
-  assign enable_frequently_bought_together = false
+  assign enable_frequently_bought_together = section_st.enable_frequently_bought_together | default: false
   if settings.color_swatch_trigger != blank and settings.enable_color_swatches != false
     assign option_color_name = settings.color_swatch_trigger | split: ','
   else
@@ -123,7 +132,20 @@
     assign pinfo_btn_outline_color = pinfo_scheme.settings.btn_outline_color
     assign pinfo_btn_outline_border = pinfo_scheme.settings.btn_outline_border_color
   endif
-  assign products_group = product.metafields.custom.product_grouped
+  comment
+    A product sold as a group (custom.product_grouped) swaps the options and
+    buy buttons for the group list, but only when a Product grouped block is
+    there to show that list.
+  endcomment
+  assign products_group = nil
+  if product.metafields.custom.product_grouped != blank
+    for pg_b in section.blocks
+      if pg_b.type == 'product_grouped'
+        assign products_group = product.metafields.custom.product_grouped
+        break
+      endif
+    endfor
+  endif
   assign color = false
   for option in product.options_with_values
     for itemColor in option_color_name
@@ -330,7 +352,7 @@
   {%- if mp_heading_family != blank or mp_body_family != blank %} data-own-font{% endif %}
   style="{{ style | strip | strip_newlines }}"
 >
-  {{ 'component-deferred-media.css' | asset_url | stylesheet_tag }}
+  <link rel="stylesheet" href="{{ 'component-deferred-media.css' | asset_url }}" media="print" onload="this.media='all'"><noscript>{{ 'component-deferred-media.css' | asset_url | stylesheet_tag }}</noscript>
   {%- assign first_3_d_model = product.media | where: 'media_type', 'model' | first -%}
   {%- if first_3_d_model -%}
     {{ 'component-product-model.css' | asset_url | stylesheet_tag }}
@@ -340,11 +362,9 @@
       href="{{ 'component-model-viewer-ui.css' | asset_url }}"
     >
   {% endif %}
-  {%- if image_zoom == 'external_zoom' or image_zoom == 'inner_zoom_circle' or image_zoom == 'inner_zoom_square' -%}
-    {{ 'photoswipe.css' | asset_url | stylesheet_tag }}
-  {% endif %}
+  {%- comment -%} Lightbox styles, once (every zoom mode but no_zoom), loaded without holding the page. {%- endcomment -%}
   {% if image_zoom != 'no_zoom' %}
-    {{ 'photoswipe.css' | asset_url | stylesheet_tag }}
+    <link rel="stylesheet" href="{{ 'photoswipe.css' | asset_url }}" media="print" onload="this.media='all'"><noscript>{{ 'photoswipe.css' | asset_url | stylesheet_tag }}</noscript>
   {% endif %}
   {% if enable_skeleton_loading == true %}
     {{ 'skeleton.css' | asset_url | stylesheet_tag }}
@@ -359,12 +379,6 @@
     {%- if product.media.size > 0 -%}
       <div class="product-detail__media col-md-w-custom w-full ">
         {% comment %} logic check ratio of image{% endcomment %}
-        {%- liquid
-          assign default_position = 0
-          unless product.has_only_default_variant
-            assign default_position = product.selected_or_first_available_variant.featured_image.position | minus: 1
-          endunless
-        -%}
         {% liquid
           assign position = 1
           for opt in product.options_with_values
@@ -446,7 +460,6 @@
           theme_st: theme_st,
           product: product,
           section: section,
-          position_index: default_position,
           desktop_layout: desktop_layout,
           lightbox: mp_lightbox
         %}
@@ -466,11 +479,7 @@
         {% if section.settings.image_zoom == 'external_zoom' %}
           <div class="zoom-external-area"></div>
         {% endif %}
-        {%- assign pib_drawn = '' -%}
-        {%- for block in section.blocks -%}
-          {% assign block_st = block.settings %}
-          {%- include 'product-info-blocks' -%}
-        {%- endfor -%}
+        {%- render 'product-info-blocks', section: section, product: product, product_form_id: product_form_id, enable_skeleton_loading: enable_skeleton_loading, products_group: products_group, user_variants_image_group: user_variants_image_group, fb_accessibility_default: fb_accessibility_default, fb_accessibility_product_label: fb_accessibility_product_label, fb_accessibility_use_code: fb_accessibility_use_code, fb_accessibility_payment_badges: fb_accessibility_payment_badges -%}
         {% if enable_sticky_content_on_desktop %}</div>{% endif %}
       </motion-element>
   </div>
@@ -522,8 +531,6 @@
                 product: product,
                 product_form_id: product_form_id,
                 section_id: section.id,
-                show_wishlist: false,
-                show_compare: false,
                 formClass: 'feature-product-form',
                 type: 'sticky'
               -%}
@@ -619,15 +626,28 @@
             {%- if variant.sku != blank -%}
               "sku": {{ variant.sku | json }},
             {% endif %}
-            {%- if variant.barcode.size == 12 -%}
-              "gtin12": {{ variant.barcode }},
-            {% endif %}
-            {%- if variant.barcode.size == 13 -%}
-              "gtin13": {{ variant.barcode }},
-            {% endif %}
-            {%- if variant.barcode.size == 14 -%}
-              "gtin14": {{ variant.barcode }},
-            {% endif %}
+            {%- comment -%}
+              A GTIN is printed as a JSON string, and only when the barcode is all
+              digits: printed bare, a UPC with a leading zero (012345678905) or any
+              barcode with a letter or dash made the whole block invalid JSON, so
+              search engines dropped the product's price and stock.
+            {%- endcomment -%}
+            {%- liquid
+              assign gtin = variant.barcode | strip
+              assign gtin_rest = gtin
+              for d in (0..9)
+                assign digit = d | append: ''
+                assign gtin_rest = gtin_rest | remove: digit
+              endfor
+            -%}
+            {%- if gtin != blank and gtin_rest == '' -%}
+              {%- case gtin.size -%}
+                {%- when 8 -%}"gtin8": {{ gtin | json }},
+                {%- when 12 -%}"gtin12": {{ gtin | json }},
+                {%- when 13 -%}"gtin13": {{ gtin | json }},
+                {%- when 14 -%}"gtin14": {{ gtin | json }},
+              {%- endcase -%}
+            {%- endif %}
             "availability" : "http://schema.org/{% if variant.available %}InStock{% else %}OutOfStock{% endif %}",
             "price" : {{ variant.price | divided_by: 100.00 | json }},
             "priceCurrency" : {{ cart.currency.iso_code | json }},

@@ -1,7 +1,13 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. Developed By Materia Themes.
   Money-back guarantee block icon set. Pass `icon` and optionally `stroke`.
-{%- endcomment -%}
+
+  @param {string} icon - Secondary icon
+  @param {number} stroke - Icon stroke weight
+
+  @example
+  {% render 'guarantee-icon', icon: icon, stroke: 1.8 %}
+{%- enddoc -%}
 {%- assign sw = stroke | default: 1.6 -%}
 {%- case icon -%}
   {%- when 'shield_check' -%}

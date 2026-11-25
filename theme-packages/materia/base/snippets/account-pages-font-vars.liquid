@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. The custom fonts of an account, password or utility page
   section, printed into the section root's style attribute: the theme's own
   font variables, redefined inside the section, so the theme's priority
@@ -8,7 +8,12 @@
   account-pages-base render it.
 
   Params: st (section.settings, with enable_custom_fonts, heading_font, body_font)
-{%- endcomment -%}
+
+  @param {object} st - Section settings object
+
+  @example
+  {% render 'account-pages-font-vars', st: st %}
+{%- enddoc -%}
 {%- if st.enable_custom_fonts -%}
   {%- if st.heading_font.family != blank -%}--heading-font: {{ st.heading_font.family }}, {{ st.heading_font.fallback_families }};{%- endif -%}
   {%- if st.body_font.family != blank -%}--body-font: {{ st.body_font.family }}, {{ st.body_font.fallback_families }}; --mb-font: {{ st.body_font.family }}, {{ st.body_font.fallback_families }};{%- endif -%}

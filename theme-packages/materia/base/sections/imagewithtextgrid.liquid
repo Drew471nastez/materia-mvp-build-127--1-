@@ -1,6 +1,6 @@
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
@@ -47,7 +47,10 @@
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Cg fill=%22%23808080%22 fill-opacity=%220.5%22%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22/%3E%3C/g%3E%3C/svg%3E'
+  capture placeholder
+    render 'placeholder-image', type: 'lifestyle-1', scheme: color_scheme, ratio: '4/3', format: 'url'
+  endcapture
+  assign placeholder = placeholder | strip
   assign thumb_blocks = section.blocks | where: 'type', 'thumb_image'
   assign main_block = section.blocks | where: 'type', 'main_image' | first
   assign mb = main_block.settings
@@ -105,7 +108,7 @@
   #shopify-section-{{ sid }} .iwtg .iwtg__heading, #shopify-section-{{ sid }} .iwtg__subheading { font-size: var(--tg-size-d); }
 }
 </style>
-<div id="iwtg-{{ sid }}" class="tg iwtg section sec__image-text-grid color-{{ color_scheme }} gradient" data-tg-root="grid"{% render 'media-tg-own', st: st %} data-tg-section="{{ sid }}" data-tg-placeholder="{{ placeholder }}"{% if request.design_mode %} data-tg-settings="{{ st | json | escape }}"{% endif %}{% if request.design_mode %} data-tg-defaults='{"color_scheme":"default-color-scheme","section_width":"container","reset_spacing":true,"text_position":"right","layout":"thumbs_left","content_align":"left","text_column_width":38,"gap_desktop":48,"content_gap":16,"thumbs_width":23,"media_gap":16,"thumbs_gap":12,"image_radius":12,"main_aspect_w":3,"main_aspect_h":3,"thumb_aspect_w":1,"thumb_aspect_h":1,"main_fit":"cover","enable_custom_style":false,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","padding_top_desktop":100,"padding_bottom_desktop":100,"side_padding_desktop":32,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"content_align_mobile":"left","gap_mobile":32,"thumbs_mobile_width":30,"hide_thumbs_on_mobile":false,"padding_top_mobile":60,"padding_bottom_mobile":60,"side_padding_mobile":20,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}'{% endif %}{% if request.design_mode %} data-tg-block-defaults='{"main_image":{},"thumb_image":{},"eyebrow":{"text":"New collection","enable_custom_style":false,"size":12},"heading":{"text":"The new collection","tag":"h2","enable_custom_style":false,"size_desktop":40,"size_mobile":30},"subheading":{"text":"\u003cp>Show the main product large and three details beside it, then say in a sentence or two what makes it worth a look.\u003c/p>","enable_custom_style":false,"size_desktop":16,"size_mobile":14},"button":{"label":"SHOP NOW","full_width":false,"uppercase":true,"enable_custom_style":false,"use_theme_button":true,"padding_x":26,"padding_y":14,"radius":8,"border_width":1,"font_size":13,"font_weight":"600"}}'{% endif %}
+<div id="iwtg-{{ sid }}" class="tg iwtg section sec__image-text-grid color-{{ color_scheme }} gradient" data-tg-root="grid"{% render 'media-tg-own', st: st %} data-tg-section="{{ sid }}" data-tg-placeholder="{{ placeholder }}"{% if request.design_mode %} data-tg-settings="{{ st | json | escape }}"{% endif %}{% if request.design_mode %} data-tg-defaults='{"color_scheme":"default","section_width":"container","reset_spacing":true,"text_position":"right","layout":"thumbs_left","content_align":"left","text_column_width":38,"gap_desktop":48,"content_gap":16,"thumbs_width":23,"media_gap":16,"thumbs_gap":12,"image_radius":12,"main_aspect_w":3,"main_aspect_h":3,"thumb_aspect_w":1,"thumb_aspect_h":1,"main_fit":"cover","enable_custom_style":false,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","padding_top_desktop":100,"padding_bottom_desktop":100,"side_padding_desktop":32,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"content_align_mobile":"left","gap_mobile":32,"thumbs_mobile_width":30,"hide_thumbs_on_mobile":false,"padding_top_mobile":60,"padding_bottom_mobile":60,"side_padding_mobile":20,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}'{% endif %}{% if request.design_mode %} data-tg-block-defaults='{"main_image":{},"thumb_image":{},"eyebrow":{"text":"New collection","enable_custom_style":false,"size":12},"heading":{"text":"The new collection","tag":"h2","enable_custom_style":false,"size_desktop":40,"size_mobile":30},"subheading":{"text":"\u003cp>Show the main product large and three details beside it, then say in a sentence or two what makes it worth a look.\u003c/p>","enable_custom_style":false,"size_desktop":16,"size_mobile":14},"button":{"label":"SHOP NOW","full_width":false,"uppercase":true,"enable_custom_style":false,"use_theme_button":true,"padding_x":26,"padding_y":14,"radius":8,"border_width":1,"font_size":13,"font_weight":"600"}}'{% endif %}
   style="{% render 'media-tg-vars', st: st, text_color: true %}--iwtg-dir:{% if st.text_position == 'left' %}row-reverse{% else %}row{% endif %};--iwtg-mdir:{% if st.layout == 'thumbs_right' %}row-reverse{% else %}row{% endif %};--iwtg-ai-d:{{ ai }};--iwtg-ta-d:{{ ta }};--iwtg-ai-m:{{ ai_m }};--iwtg-ta-m:{{ ta_m }};--iwtg-tw:{{ st.text_column_width | default: 38 }}%;--iwtg-g-d:{{ st.gap_desktop | default: 48 }}px;--iwtg-g-m:{{ st.gap_mobile | default: 32 }}px;--iwtg-cgap:{{ st.content_gap | default: 16 }}px;--iwtg-thw:{{ st.thumbs_width | default: 23 }}%;--iwtg-thm:{{ st.thumbs_mobile_width | default: 30 }}%;--iwtg-mg:{{ st.media_gap | default: 16 }}px;--iwtg-tg:{{ st.thumbs_gap | default: 12 }}px;--iwtg-r:{{ st.image_radius | default: 12 }}px;--iwtg-mar:{{ st.main_aspect_w | default: 3 }} / {{ st.main_aspect_h | default: 3 }};--iwtg-tar:{{ st.thumb_aspect_w | default: 1 }} / {{ st.thumb_aspect_h | default: 1 }};--iwtg-fit:{{ st.main_fit | default: 'cover' }};--iwtg-thumbs-m:{% if st.hide_thumbs_on_mobile %}none{% else %}flex{% endif %};">
   <div class="tg__inner iwtg__inner">
     <div class="iwtg__grid">
@@ -118,7 +121,7 @@
                   {%- if thumb.settings.image != blank -%}
                     <img src="{{ thumb.settings.image | image_url: width: 600 }}" srcset="{{ thumb.settings.image | image_url: width: 300 }} 300w, {{ thumb.settings.image | image_url: width: 600 }} 600w" sizes="(min-width: 900px) 15vw, 30vw" alt="{{ thumb.settings.image.alt | escape }}" width="{{ thumb.settings.image.width | default: 600 }}" height="{{ thumb.settings.image.height | default: 600 }}" loading="lazy" decoding="async">
                   {%- else -%}
-                    <img class="tg__ph" src="{{ placeholder }}" alt="" width="400" height="300" loading="lazy" decoding="async">
+                    <img class="tg__ph" src="{%- render 'placeholder-image', type: 'product', index: forloop.index, scheme: color_scheme, ratio: '4/3', format: 'url' -%}" alt="" width="400" height="300" loading="lazy" decoding="async">
                   {%- endif -%}
                 </div>
               {%- endfor -%}
@@ -160,7 +163,7 @@
                   assign btn_case = 'none'
                 endif
               -%}
-              {%- if bs.link != blank -%}<a href="{{ bs.link | url }}"{% else %}<button type="button"{% endif %} class="iwtg__btn" data-theme-button="primary" data-sl-button{% if custom_btn %} data-own-shape{% if bs.font_weight != blank %} data-own-weight{% endif %}{% endif %} {{ data }}{% if bs.label == blank %} hidden{% endif %} style="{% if bs.enable_custom_style %}{% render 'button-overrides', bg: bs.bg, text: bs.color, border: bs.border_color, hover_bg: bs.bg_hover, hover_text: bs.color_hover, hover_border: bs.border_color_hover %}{% endif %}{% render 'button-overrides', custom: custom_btn, radius: bs.radius, padding_y: bs.padding_y, padding_x: bs.padding_x, font_size: bs.font_size, weight: bs.font_weight, border_width: bs.border_width, transform: btn_case %}{% if bs.full_width %}--tg-btn-w:100%;{% endif %}">{{ bs.label | escape }}{% if bs.link != blank %}</a>{% else %}</button>{% endif %}
+              {%- capture btn_attrs -%}class="iwtg__btn" data-theme-button="primary" data-sl-button{% if custom_btn %} data-own-shape{% if bs.font_weight != blank %} data-own-weight{% endif %}{% endif %} {{ data }}{% if bs.label == blank %} hidden{% endif %} style="{% if bs.enable_custom_style %}{% render 'button-overrides', bg: bs.bg, text: bs.color, border: bs.border_color, hover_bg: bs.bg_hover, hover_text: bs.color_hover, hover_border: bs.border_color_hover %}{% endif %}{% render 'button-overrides', custom: custom_btn, radius: bs.radius, padding_y: bs.padding_y, padding_x: bs.padding_x, font_size: bs.font_size, weight: bs.font_weight, border_width: bs.border_width, transform: btn_case %}{% if bs.full_width %}--tg-btn-w:100%;{% endif %}"{%- endcapture -%}{%- if bs.link != blank -%}<a href="{{ bs.link }}" {{ btn_attrs }}>{{ bs.label | escape }}</a>{% else %}<button type="button" {{ btn_attrs }}>{{ bs.label | escape }}</button>{% endif %}
           {%- endcase -%}
         {%- endfor -%}
       </div>
@@ -170,7 +173,7 @@
 {
   "name": "Image With Text Grid",
   "tag": "section",
-  "class": "section sec__image-text-grid",
+  "class": "section sec__image-text-grid s-tt",
   "settings": [
     {
       "type": "header",
@@ -180,7 +183,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -692,7 +695,6 @@
               "label": "H3"
             }
           ],
-          "hidden": true,
           "info": "Kept for saved content. The heading renders as h2.",
           "visible_if": "{{ false }}"
         },
@@ -960,8 +962,8 @@
   ],
   "presets": [
     {
-      "name": "Image With Text Grid",
-      "category": "Image and video",
+      "name": "Image with Text – Grid",
+      "category": "04 · Image & text",
       "blocks": [
         {
           "type": "thumb_image"

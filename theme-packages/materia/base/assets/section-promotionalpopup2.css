@@ -1,0 +1,252 @@
+/* section-promotionalpopup2.css: static styles of sections/promotionalpopup2.liquid, moved out of its inline <style> so they are cached.
+   :is(<selector>,#_): #_ never matches; it only keeps the (1,0,0) specificity of the per-instance id selector it replaces
+   (:is(.s-promotionalpopup2,#_) is the section wrapper, schema class "s-promotionalpopup2"). Per-instance values stay inline as custom properties. */
+:is(.s-promotionalpopup2,#_):has(> [data-pp2-reset]) { margin-top: 0 !important; margin-bottom: 0 !important; }
+:is(.s-promotionalpopup2,#_):has(> [data-pp2-reset]) + .shopify-section,
+  .shopify-section + :is(.s-promotionalpopup2,#_):has(> [data-pp2-reset]) { margin-top: 0 !important; }
+:where(.s-promotionalpopup2) :where(button, input, textarea, select, optgroup) { font-family: inherit; }
+:where(.s-promotionalpopup2) :is(h1, h2, h3, h4, h5, h6) { font-weight: var(--heading-weight, inherit); font-family: var(--heading-font, inherit); }
+.loudz-newsletter-4 * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+.loudz__content-inner {
+    padding: 0 32px;
+  }
+.loudz-newsletter-4 .loudz__popup {
+    align-items: var(--loudz-popup-align);
+    justify-content: var(--loudz-popup-justify);
+    inset: var(--loudz-popup-inset);
+    height: var(--loudz-popup-height);
+    width: var(--loudz-popup-width);
+    transition: opacity 0.3s ease, visibility 0s linear 0.3s;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    position: fixed;
+    display: flex;
+    max-height: calc(var(--sl-vh, 1vh) * 100);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    z-index: 2147483647;
+  }
+.loudz-newsletter-4 .loudz__content-box {
+    transform: translateY(16px) scale(.98);
+    transition: transform .35s cubic-bezier(.2,.8,.2,1);
+  }
+.loudz-newsletter-4 .loudz__popup.active .loudz__content-box { transform: none; }
+.loudz-newsletter-4 .loudz__popup.loudz__popup--center {
+    align-items: center;
+    justify-content: center;
+    inset: 0;
+    height: calc(var(--sl-vh, 1vh) * 100);
+    padding: 20px;
+  }
+.loudz-newsletter-4 .loudz__popup.loudz__popup--left {
+    left: 40px;
+    bottom: 40px;
+    right: auto;
+    top: auto;
+    align-items: flex-end;
+    justify-content: flex-start;
+  }
+.loudz-newsletter-4 .loudz__popup.loudz__popup--right {
+    right: 40px;
+    bottom: 40px;
+    left: auto;
+    top: auto;
+    align-items: flex-end;
+    justify-content: flex-end;
+  }
+.loudz-newsletter-4 .loudz__content-inner { padding-block: var(--pp2-pad-b, 32px); padding-inline: var(--pp2-pad-i, 32px); }
+.loudz-newsletter-4 .loudz__content-inner [hidden] { display: none !important; }
+.loudz-newsletter-4 .loudz__popup.active {
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+    transition-delay: 0s;
+  }
+.loudz-newsletter-4 .loudz__popup:after {
+    z-index: -1;
+  }
+.loudz-newsletter-4 .loudz__popup:after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--loudz-overlay-color, #000000);
+  opacity: var(--loudz-overlay-opacity, 0.5);
+  z-index: -1;
+  }
+.loudz-newsletter-4 .loudz__content-box {
+    border-radius: var(--loudz-border-radius);
+    max-width: var(--loudz-section-width);
+    background: var(--loudz-background-color);
+    width: 100%;
+    box-shadow: 0 6px 32px 0 rgba(16, 24, 40, 0.18);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    position: relative;
+    overflow: hidden;
+    margin: auto;
+    max-height: calc(var(--sl-vh, 1vh) * 100 - 40px);
+    overflow-y: auto;
+  }
+/* Mobile: always center the popup with a safe gutter, regardless of the
+     desktop `popup_position` setting. This guarantees the popup never sticks
+     to the right/left edge on phones. */
+@media (max-width: 767px) {
+    .loudz-newsletter-4 .loudz__popup {
+      align-items: center !important;
+      justify-content: center !important;
+      inset: 0 !important;
+      top: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      left: 0 !important;
+      width: 100vw !important;
+      height: calc(var(--sl-vh, 1vh) * 100) !important;
+      padding: 16px;
+    }
+    .loudz-newsletter-4 .loudz__content-box {
+      width: calc(100vw - var(--loudz-mobile-gutter, 32px)) !important;
+      max-width: calc(100vw - var(--loudz-mobile-gutter, 32px)) !important;
+      margin: auto !important;
+    }
+  }
+.loudz-newsletter-4 .loudz__description {
+    font-size: var(--loudz-description-size);
+    padding-top: var(--loudz-description-padding-top);
+    font-weight: var(--loudz-description-font-weight);
+    color: var(--loudz-description-color);
+    text-align: var(--loudz-content-alignment);
+    line-height: 1.5;
+  }
+.loudz-newsletter-4 .loudz__image-wrapper {
+    border-top-left-radius: var(--loudz-border-radius);
+    border-top-right-radius: var(--loudz-border-radius);
+    width: 100%;
+    overflow: hidden;
+    height: 220px;
+    flex-shrink: 0;
+    background: color-mix(in srgb, var(--color-heading) 8%, var(--color-background));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+.loudz-newsletter-4 .loudz__image-wrapper img {
+    width: 100%;
+    height: 220px;
+    object-fit: cover;
+    object-position: center;
+    display: block;
+  }
+.loudz-newsletter-4 .loudz__filter--grayscale { filter: grayscale(100%); }
+.loudz-newsletter-4 .loudz__filter--sepia { filter: sepia(100%) contrast(1.2); }
+.loudz-newsletter-4 .loudz__filter--invert { filter: invert(100%); }
+.loudz-newsletter-4 .loudz__heading {
+    font-size: var(--loudz-heading-size);
+    font-weight: var(--loudz-heading-weight);
+    padding-top: var(--loudz-heading-padding-top);
+    color: var(--loudz-heading-color);
+    text-align: var(--loudz-content-alignment);
+    line-height: 1.2;
+  }
+.loudz-newsletter-4 input[type="email"] {
+    font-size: var(--loudz-input-font-size);
+    font-weight: var(--loudz-input-font-weight);
+    margin-top: var(--loudz-input-padding-top);
+    border-radius: var(--loudz-input-border-radius);
+    background-color: var(--loudz-input-background-color);
+    color: var(--loudz-input-color);
+    border: var(--loudz-input-border-width, 1px) solid var(--loudz-input-border-color);
+    width: 100%;
+    min-height: var(--loudz-input-height, 0px);
+    padding: var(--loudz-input-padding, 16px 18px);
+    outline: none;
+    transition: border-color var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease), box-shadow var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease);
+  }
+.loudz-newsletter-4 input[type="email"]:focus-visible {
+    border-color: var(--color-heading);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-heading) 25%, transparent);
+  }
+.loudz-newsletter-4 input[type="email"]::placeholder {
+    color: var(--loudz-input-placeholder-color);
+    opacity: 1;
+  }
+/* The submit is a theme button (theme-button-contract.css): Theme settings >
+     Buttons draw it; the form's colours, and its shape when the theme style is
+     off, reach it as --mb-* tokens. */
+.loudz-newsletter-4 .loudz__button {
+    margin-top: var(--loudz-button-padding-top);
+    width: 100%;
+    cursor: pointer;
+    --mb-bg: var(--loudz-button-background-color);
+    --mb-text: var(--loudz-button-text-color);
+    --mb-border: var(--loudz-button-border-color);
+    --mb-hover-bg: var(--loudz-button-background-color-hover);
+    --mb-hover-text: var(--loudz-button-text-color-hover);
+    --mb-hover-border: var(--loudz-button-border-color-hover);
+    --mb-radius: var(--loudz-button-border-radius);
+    --mb-font-size: var(--loudz-button-font-size);
+    --mb-weight: var(--loudz-button-font-weight);
+  }
+.loudz-newsletter-4 .loudz__success { margin-top: 12px; color: var(--loudz-description-color); text-align: var(--loudz-content-alignment); }
+.loudz-newsletter-4 .loudz__success[hidden] { display: none; }
+.loudz-newsletter-4 .loudz__signup-wrap { display: contents; }
+/* Signed up: the success line replaces the field and the button. */
+.loudz-newsletter-4 form[data-state="done"] > :not(.loudz__success) { display: none !important; }
+.loudz-newsletter-4 .loudz__error, .loudz-newsletter-4 form + .storelib-form-note[role="alert"] { margin: 8px 0 0; font-size: 14px; line-height: 1.45; color: color-mix(in srgb, #d92d20 72%, var(--color-text)); text-align: var(--loudz-content-alignment); }
+.loudz-newsletter-4 form[aria-busy="true"] .loudz__button { opacity: .7; cursor: progress; }
+.loudz-newsletter-4 .loudz__placeholder-image { width: 100%; height: 100%; fill: color-mix(in srgb, var(--color-text) 30%, transparent); }
+.loudz-newsletter-4 .loudz__button:focus-visible,
+  .loudz-newsletter-4 .loudz__close:focus-visible { outline: 2px solid var(--color-heading); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+    .loudz-newsletter-4 .loudz__popup,
+    .loudz-newsletter-4 .loudz__close,
+    .loudz-newsletter-4 input[type="email"],
+    .loudz-newsletter-4 .loudz__content-box { transition: none; transform: none; }
+  }
+.loudz-newsletter-4 .loudz__close {
+    position: absolute;
+    top: 20px;
+    width: 44px;
+    height: 44px;
+    background: var(--color-background);
+    border-radius: 50%;
+    border: none;
+    box-shadow: 0 2px 8px 0 rgba(16, 24, 40, 0.10);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: var(--color-heading);
+    cursor: pointer;
+    z-index: 2;
+    transition: box-shadow var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease);
+  }
+.loudz-newsletter-4 .loudz__close--right {
+    right: 20px;
+    left: auto;
+  }
+.loudz-newsletter-4 .loudz__close--left {
+    left: 20px;
+    right: auto;
+  }
+.loudz-newsletter-4 .loudz__popup::-webkit-scrollbar {
+    width: 8px;
+}
+.loudz-newsletter-4 .loudz__popup::-webkit-scrollbar-track {
+    background: transparent;
+}
+.loudz-newsletter-4 .loudz__popup::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+}
+.loudz-newsletter-4 .loudz__popup::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.3);
+}

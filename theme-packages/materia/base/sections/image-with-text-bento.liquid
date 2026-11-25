@@ -1,6 +1,6 @@
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
@@ -48,7 +48,10 @@
   assign st = section.settings
   assign sid = section.id
   assign cols = st.columns | default: '3' | plus: 0
-  assign placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Cg fill=%22%23808080%22 fill-opacity=%220.5%22%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22/%3E%3C/g%3E%3C/svg%3E'
+  capture placeholder
+    render 'placeholder-image', type: 'collection-3', scheme: color_scheme, ratio: '4/3', format: 'url'
+  endcapture
+  assign placeholder = placeholder | strip
   assign scale = st.scale_desktop | default: 100 | divided_by: 100.0
   assign heading_blocks = section.blocks | where: 'type', 'heading'
   assign subheading_blocks = section.blocks | where: 'type', 'subheading'
@@ -100,7 +103,7 @@
   #shopify-section-{{ sid }} .iwb__card { grid-column: span var(--iwb-cs-d, 1); }
 }
 </style>
-<div id="iwb-{{ sid }}" class="tg iwb section sec__image-text-bento color-{{ color_scheme }} gradient" data-tg-root="bento"{% render 'media-tg-own', st: st %} data-tg-section="{{ sid }}" data-tg-placeholder="{{ placeholder }}"{% if request.design_mode %} data-tg-settings="{{ st | json | escape }}"{% endif %}{% if request.design_mode %} data-tg-defaults='{"color_scheme":"default-color-scheme","section_width":"container","custom_max_width_desktop":1200,"reset_spacing":true,"columns":"3","gap_desktop":20,"row_height_desktop":280,"head_gap":32,"card_padding":28,"scale_desktop":100,"card_radius":24,"enable_custom_style":false,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","section_heading_size_desktop":40,"card_heading_size_desktop":32,"card_body_size":14,"padding_top_desktop":100,"padding_bottom_desktop":100,"side_padding_desktop":32,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"gap_mobile":16,"row_height_mobile":220,"section_heading_size_mobile":28,"card_heading_size_mobile":22,"padding_top_mobile":60,"padding_bottom_mobile":60,"side_padding_mobile":20,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}'{% endif %}{% if request.design_mode %} data-tg-block-defaults='{"text_card":{"heading":"Card heading","heading_tag":"h3","body":"\u003cp>Short supporting copy that explains this tile.\u003c/p>","card_style":"inverse","col_span_desktop":"1","row_span_desktop":"1","enable_custom_style":false},"image_card":{"col_span_desktop":"1","row_span_desktop":"1"},"text_over_image":{"heading":"Headline","heading_tag":"h3","content_position":"center","col_span_desktop":"1","row_span_desktop":"1","overlay_opacity":50,"enable_custom_style":false},"heading":{"text":"Inside the shop","enable_custom_style":false,"size_enable":false,"size_desktop":40,"size_mobile":28},"subheading":{"enable_custom_style":false,"size_enable":false,"size":15}}'{% endif %}
+<div id="iwb-{{ sid }}" class="tg iwb section sec__image-text-bento color-{{ color_scheme }} gradient" data-tg-root="bento"{% render 'media-tg-own', st: st %} data-tg-section="{{ sid }}" data-tg-placeholder="{{ placeholder }}"{% if request.design_mode %} data-tg-settings="{{ st | json | escape }}"{% endif %}{% if request.design_mode %} data-tg-defaults='{"color_scheme":"default","section_width":"container","custom_max_width_desktop":1200,"reset_spacing":true,"columns":"3","gap_desktop":20,"row_height_desktop":280,"head_gap":32,"card_padding":28,"scale_desktop":100,"card_radius":24,"enable_custom_style":false,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","section_heading_size_desktop":40,"card_heading_size_desktop":32,"card_body_size":14,"padding_top_desktop":100,"padding_bottom_desktop":100,"side_padding_desktop":32,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"gap_mobile":16,"row_height_mobile":220,"section_heading_size_mobile":28,"card_heading_size_mobile":22,"padding_top_mobile":60,"padding_bottom_mobile":60,"side_padding_mobile":20,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}'{% endif %}{% if request.design_mode %} data-tg-block-defaults='{"text_card":{"heading":"Card heading","heading_tag":"h3","body":"\u003cp>Short supporting copy that explains this tile.\u003c/p>","card_style":"inverse","col_span_desktop":"1","row_span_desktop":"1","enable_custom_style":false},"image_card":{"col_span_desktop":"1","row_span_desktop":"1"},"text_over_image":{"heading":"Headline","heading_tag":"h3","content_position":"center","col_span_desktop":"1","row_span_desktop":"1","overlay_opacity":50,"enable_custom_style":false},"heading":{"text":"Inside the shop","enable_custom_style":false,"size_enable":false,"size_desktop":40,"size_mobile":28},"subheading":{"enable_custom_style":false,"size_enable":false,"size":15}}'{% endif %}
   style="{% render 'media-tg-vars', st: st %}--iwb-cols:{{ cols }};--iwb-scale:{{ scale }};--iwb-gap-d:{{ st.gap_desktop | default: 20 }}px;--iwb-gap-m:{{ st.gap_mobile | default: 16 }}px;--iwb-row-d:{{ st.row_height_desktop | default: 280 }}px;--iwb-row-m:{{ st.row_height_mobile | default: 220 }}px;--iwb-radius:{{ st.card_radius | default: 0 }}px;--iwb-pad:{{ st.card_padding | default: 28 }}px;--iwb-head-gap:{{ st.head_gap | default: 32 }}px;--iwb-h2-d:{{ st.section_heading_size_desktop | default: 40 }}px;--iwb-h2-m:{{ st.section_heading_size_mobile | default: 28 }}px;--iwb-h3-d:{{ st.card_heading_size_desktop | default: 32 }}px;--iwb-h3-m:{{ st.card_heading_size_mobile | default: 22 }}px;--iwb-body:{{ st.card_body_size | default: 14 }}px;{% if st.enable_custom_style %}--iwb-head-color:{% render 'scheme-color', color: st.section_heading_color, fallback: 'initial' %};--iwb-sub-color:{% render 'scheme-color', color: st.section_subheading_color, fallback: 'initial' %};{% endif %}">
   <div class="tg__inner iwb__inner">
     <div class="iwb__head">
@@ -144,7 +147,7 @@
               {%- if bs.image != blank -%}
                 <img src="{{ bs.image | image_url: width: 1000 }}" srcset="{{ bs.image | image_url: width: 500 }} 500w, {{ bs.image | image_url: width: 800 }} 800w, {{ bs.image | image_url: width: 1000 }} 1000w" sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw" alt="{{ bs.image.alt | default: bs.heading | strip_html | escape }}" width="{{ bs.image.width | default: 1000 }}" height="{{ bs.image.height | default: 1000 }}" loading="lazy" decoding="async">
               {%- else -%}
-                <img class="tg__ph" src="{{ placeholder }}" alt="" width="400" height="300" loading="lazy" decoding="async">
+                <img class="tg__ph" src="{%- render 'placeholder-image', type: 'collection', index: forloop.index, scheme: color_scheme, ratio: '4/3', format: 'url' -%}" alt="" width="400" height="300" loading="lazy" decoding="async">
               {%- endif -%}
             </div>
             {%- if block.type == 'text_over_image' -%}<div class="iwb__overlay" aria-hidden="true"></div>{%- endif -%}
@@ -164,7 +167,7 @@
 {
   "name": "Image With Text Bento",
   "tag": "section",
-  "class": "section sec__image-text-bento",
+  "class": "section sec__image-text-bento s-tt",
   "settings": [
     {
       "type": "header",
@@ -174,7 +177,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -229,7 +232,6 @@
       "type": "inline_richtext",
       "id": "heading",
       "label": "Heading",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Heading block",
       "visible_if": "{{ false }}"
     },
@@ -237,7 +239,6 @@
       "type": "inline_richtext",
       "id": "subheading",
       "label": "Subheading",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Subheading block",
       "visible_if": "{{ false }}"
     },
@@ -689,7 +690,6 @@
               "label": "H4"
             }
           ],
-          "hidden": true,
           "visible_if": "{{ false }}",
           "info": "Kept for saved content. Card headings render as h3."
         },
@@ -879,7 +879,6 @@
               "label": "H4"
             }
           ],
-          "hidden": true,
           "visible_if": "{{ false }}",
           "info": "Kept for saved content. Card headings render as h3."
         },
@@ -995,8 +994,8 @@
   ],
   "presets": [
     {
-      "name": "Image With Text Bento",
-      "category": "Image and video",
+      "name": "Image with Text – Bento",
+      "category": "04 · Image & text",
       "blocks": [
         {
           "type": "heading"

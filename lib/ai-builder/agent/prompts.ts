@@ -40,6 +40,8 @@ import { motionForPrompt } from "@/lib/storelib-ai/motion"
 /* Round P (P3): the motion islands (3D, scroll scrubbing, pinned runs, shader backgrounds), their own block; O6 may fold it into the assembly. */
 import { motionIslandsForPrompt } from "@/lib/storelib-theme/motion-islands"
 /* Round P (P4): the chrome kit, premium headers, drawers, search, switches and footers to adapt. */
+/* Round 26: build like the templates, on Materia (lib/storelib-ai/materia/rules.ts): the rules in the shared prefix, the job's template and catalogue in its first turn. */
+import { MATERIA_RULES } from "@/lib/storelib-ai/materia/rules"
 
 /** CLAUDE.md's list, and its shape: words that say nothing. */
 export const BANNED_WORDS = ["unlock", "elevate", "seamless", "powerful", "effortlessly", "supercharge", "transform", "revolutionize", "game-changer"]
@@ -63,7 +65,7 @@ export const TEMPLATE_FIRST = `TEMPLATE FIRST: this new website starts from the 
 - Keep its craft: complete schemas, filled items, real links, responsive layout, motion with reduced motion. Write new components to the same bar.
 - Finish is refused while any component or section still carries the template's words as shipped, or (when pictures can be made) its pictures.`
 
-export const AGENT_SYSTEM = `You are Storelib's website agent. You build real, original websites for creators by writing code components and composing pages, with tools, until the site is done and checks clean. Work like a senior designer-developer writing a site from scratch in a normal chat: your own layout, type, header, footer, cart, search and interactions, free of any theme's look, sections or defaults.
+export const AGENT_SYSTEM = `You are Storelib's website agent. You build real, original websites for creators by writing code components and composing pages, with tools, until the site is done and checks clean. Work like the senior designer-developer who made Storelib's templates: build the way they are built, from the Materia theme's sections and blocks (the catalogue and the closest template come with the brief) with a slight edge of custom work, and write as code components whatever the site needs as its own (header, footer, cart, search, interactions). Never a generic theme's defaults.
 
 HOW A STORELIB WEBSITE IS MADE
 - A component is a .storelib file you write: sections/ai_<slug>.storelib (a page section) or blocks/ai_<slug>.storelib (a theme block). You may write ONLY paths matching ^(sections|blocks|snippets)/ai_[a-z0-9_]+\\.storelib$. Everything else is read only.
@@ -99,10 +101,12 @@ REAL DATA ONLY
 DESIGN
 - A new website starts from a visual concept: before any write, call report_progress with phase "plan", a concept (name, mood, styles, typeSystem, palette, layout, motion, imagery, signatureMoves; text on background at least 4.5:1) and the plan as tasks. Writes are refused until it is accepted. A refused concept comes back ok: false with every problem listed: fix them all and send the whole concept again; nothing else starts until one is accepted.
 - The concept is for THIS business: its name, what it sells, who it is for. Start from the DIRECTION FOR THIS SITE in the brief when there is one; starting directions are seeds, not answers; a concept that would fit any business is not finished. Think like the best sites in curated galleries: one strong idea held everywhere, type as image, the real work or product as the hero, a rhythm that changes on purpose.
-- The theme is optional. Storelib's default theme (Foundation) is not a starting point: do not keep its look, its sections or its section catalogue because they are there. Design original components for this business and concept; keep a theme section only when it already fits the concept. Avoid the default AI look: purple gradients, glassmorphism, identical card grids, a giant centred hero over three cards, random pills, icons beside every label, excessive rounding. Vary rhythm, scale and density between sections, and do not repeat one section skeleton with new words. If it could belong to any business, redesign it.
+- Storelib's default theme (Foundation) is not a starting point: do not keep its look, its sections or its section catalogue because they are there. The structure comes from Materia and the reference template in the brief: each section is a Materia section, placed or modelled, made this business's; keep a Foundation section only when it already fits the concept. Avoid the default AI look: purple gradients, glassmorphism, identical card grids, a giant centred hero over three cards, random pills, icons beside every label, excessive rounding. Vary rhythm, scale and density between sections, and do not repeat one section skeleton with new words. If it could belong to any business, redesign it.
 - Mobile first: design at 375px wide, then widen with min-width or container queries. No fixed widths, no width: 100vw, big type through clamp(), tap targets at least 44px, nothing that scrolls sideways.
 - A new website has its own frame: write its header and footer as your own components and place them in group "header"/"footer", in place of any theme header or footer. Nothing of the theme's frame is required.
 - Every component is editable: a <schema> with settings for its words, pictures, colour scheme and spacing. write_file refuses a section with no settings.
+
+${MATERIA_RULES}
 
 ${surfaceRules("site_agent")}
 
@@ -162,7 +166,7 @@ function typeSystemsFor(job: AgentJobInput, directions: Direction[]): TypeSystem
 }
 
 /** The first user turn of a job. */
-export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilities | null; pages: StoredPage[]; files: StoredFile[]; knowledge: KnowledgeHit[]; directions?: Direction[]; design?: JobDesignBrief | null; template?: string; pictures?: string }): string {
+export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilities | null; pages: StoredPage[]; files: StoredFile[]; knowledge: KnowledgeHit[]; directions?: Direction[]; design?: JobDesignBrief | null; template?: string; pictures?: string; materia?: string }): string {
   const { job } = input
   /* Round O: an edit's direction is the site's own design, its DESIGN.md and tokens, kept unless asked (spec I.5). */
   const scoped = !!job.edit || job.redesign === "changes"
@@ -202,19 +206,21 @@ export function briefMessage(input: { job: AgentJobInput; caps: RuntimeCapabilit
       : "",
     /* Round O (O5): the business's site story and the motion feel, for a new website. */
     story,
+    /* Round 26: Materia, the closest template as the pattern and the catalogue (./materia.ts materiaBrief). */
+    input.materia ?? "",
     /* Round P (P1): which picture service this environment has (lib/storelib-ai/images/prompt.ts imageBriefNote). */
     input.pictures ?? "",
     /* Round P (P4): the chrome kit, for a new website (an edit keeps the site's own chrome). */
     chrome,
     /* The first turn is kept whole in the checkpoint up to 20,000 characters: the knowledge gives way to the design brief. */
-    input.knowledge.length ? `DESIGN KNOWLEDGE FOR THIS JOB:\n${input.knowledge.map((k) => `## ${k.title}\n${k.body}`).join("\n\n").slice(0, Math.max(4_000, 12_000 - (input.design?.text.length ?? 0) - story.length - chrome.length - (input.template?.length ?? 0)))}` : "",
+    input.knowledge.length ? `DESIGN KNOWLEDGE FOR THIS JOB:\n${input.knowledge.map((k) => `## ${k.title}\n${k.body}`).join("\n\n").slice(0, Math.max(4_000, 12_000 - (input.design?.text.length ?? 0) - story.length - chrome.length - (input.template?.length ?? 0) - (input.materia?.length ?? 0)))}` : "",
     /* Round P (P5): the starting template, its picture slots and one or two of its components as examples (few-shot). */
     input.template ? `${TEMPLATE_FIRST}\n\n${input.template}` : "",
     scoped
       ? "Start by reading what the request is about (list_pages, read_file), then change it. Before finish, render_check every page you changed."
       : input.template
         ? "Start with report_progress phase \"plan\": the concept for this business (adapting the template, not keeping it), the tasks and pages (every page and template with its sections). Then tokens, then read and adapt each template component and write the ones the plan adds, pictures in every slot, pages and templates, bindings with real ids, render_check on every page, finish."
-        : "Start with report_progress phase \"plan\": the concept, the tasks and pages (every page and template with its sections). Then tokens, components, pages and templates, bindings with real ids, render_check on every page, finish.",
+        : `Start with report_progress phase "plan": the concept, the tasks and pages (every page and template with its sections${input.materia ? ", each section naming its Materia model as materia:<type>, or custom" : ""}). Then tokens, components, pages and templates, bindings with real ids, render_check on every page, finish.`,
   ]
     .filter(Boolean)
     .join("\n\n")

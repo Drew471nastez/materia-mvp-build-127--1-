@@ -1,11 +1,14 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes — Delivery & Warranty Pills
   Rounded "pill" badges, each with an icon + text (e.g. "Fast 2-5 Day Europe
   Delivery", "1 Year Warranty Included"). Up to 4 pills, each toggleable.
   Icons come from the shared 'benefits-icon' library.
 
-  Usage: {%- render 'delivery-pills', block: block -%}
-{%- endcomment -%}
+  @param {block} block - The block being rendered
+
+  @example
+  {%- render 'delivery-pills', block: block -%}
+{%- enddoc -%}
 
 {%- liquid
   assign b = block.settings
@@ -71,7 +74,7 @@
       <div class="dpills__item">
         {%- assign ic = b[k_icon] -%}
         {%- if ic != blank and ic != 'none' -%}
-          <span class="dpills__icon">{%- render 'benefits-icon', icon: ic, size: b.icon_size | default: 22, color: b.icon_color | default: '#1B1B1B', stroke_width: 1.9 -%}</span>
+          <span class="dpills__icon">{%- assign dp_icon_size = b.icon_size | default: 22 -%}{%- assign dp_icon_color = b.icon_color | default: '#1B1B1B' -%}{%- render 'benefits-icon', icon: ic, size: dp_icon_size, color: dp_icon_color, stroke_width: 1.9 -%}</span>
         {%- endif -%}
         <span class="dpills__txt">
           <span class="dpills__t1">{{ b[k_t1] | escape }}</span>

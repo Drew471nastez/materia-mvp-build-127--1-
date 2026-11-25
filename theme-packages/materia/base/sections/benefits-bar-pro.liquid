@@ -1,4 +1,4 @@
-<script src="{{ 'live-features-a.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-features-a.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%} Runtime, once per page (the CSS and hero-image-one.js from layout/theme.storelib, every other script from the tags at the top of this file): shopify/assets/live-features-a.js. {%- endcomment -%}
 {%- comment -%}
@@ -74,7 +74,7 @@
           {%- assign b = block.settings -%}
           {%- assign aria = b.title | default: '' | strip_html -%}
           <li class="bbp__item" data-fa-block="{{ block.id }}" data-fa-type="benefit"{% if request.design_mode %} data-fa-settings="{{ b | json | escape }}"{% endif %} {{ block.shopify_attributes }}>
-            {%- if b.link != blank -%}<a class="bbp__link" data-fa-nolink="div" href="{{ b.link | url }}"{% if aria != blank %} aria-label="{{ aria | escape }}"{% endif %}>{%- else -%}<div class="bbp__link" data-fa-nolink="div">{%- endif -%}
+            {%- if b.link != blank -%}<a class="bbp__link" data-fa-nolink="div" href="{{ b.link }}"{% if aria != blank %} aria-label="{{ aria | escape }}"{% endif %}>{%- else -%}<div class="bbp__link" data-fa-nolink="div">{%- endif -%}
               <span class="bbp__icon" aria-hidden="true">
                 {%- if b.icon_image != blank -%}
                   {{- b.icon_image | image_url: width: 120 | image_tag: loading: 'lazy', widths: '60,90,120', alt: '', width: 120, height: 120 -}}
@@ -96,7 +96,7 @@
 {
   "name": "Benefits Bar Pro",
   "tag": "section",
-  "class": "section",
+  "class": "section s-tt",
   "settings": [
     {
       "type": "header",
@@ -272,14 +272,14 @@
       "type": "font_picker",
       "id": "heading_font",
       "label": "Title font",
-      "default": "helvetica_n4",
+      "default": "assistant_n4",
       "visible_if": "{{ section.settings.enable_custom_fonts }}"
     },
     {
       "type": "font_picker",
       "id": "body_font",
       "label": "Text font",
-      "default": "helvetica_n4",
+      "default": "assistant_n4",
       "visible_if": "{{ section.settings.enable_custom_fonts }}"
     },
     {
@@ -559,7 +559,6 @@
               "label": "Paragraph"
             }
           ],
-          "hidden": true,
           "info": "Legacy: the heading is an h2.",
           "visible_if": "{{ false }}"
         },
@@ -601,8 +600,8 @@
   "max_blocks": 10,
   "presets": [
     {
-      "name": "Benefits Bar Pro",
-      "category": "Features",
+      "name": "Benefits Bar – With Links",
+      "category": "05 · Benefits & features",
       "blocks": [
         {
           "type": "benefit",

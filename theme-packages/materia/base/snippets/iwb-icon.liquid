@@ -1,11 +1,17 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes — Image With Text Benefits icon renderer.
   Renders an icon based on bb.icon_source: library | image | svg | none
 
   Required input:
     bb — block.settings (or hash) with: icon_source, icon_name, icon_image, icon_svg
     icon — optional: draw this library icon by name (used for the builder's live icon list)
-{%- endcomment -%}
+
+  @param {object} [bb] - Bb
+  @param {string} [icon] - Icon
+
+  @example
+  {% render 'iwb-icon', icon: name %}
+{%- enddoc -%}
 {%- assign src = bb.icon_source | default: 'library' -%}
 {%- if icon != blank -%}{%- assign src = 'library' -%}{%- endif -%}
 

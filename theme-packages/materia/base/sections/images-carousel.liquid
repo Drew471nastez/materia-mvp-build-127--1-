@@ -1,7 +1,7 @@
-<script src="{{ 'media-live-galleries-b.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'media-live-galleries-b.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'media-galleries-b-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' and section.settings.reveal != false -%}
@@ -31,7 +31,10 @@
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Cg fill=%22%23808080%22 fill-opacity=%220.45%22%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22/%3E%3C/g%3E%3C/svg%3E'
+  capture placeholder
+    render 'placeholder-image', type: 'product-1', scheme: color_scheme, ratio: '4/3', format: 'url'
+  endcapture
+  assign placeholder = placeholder | strip
   assign custom = st.enable_custom_style
   if st.make_images_square
     assign w_base = 200
@@ -109,7 +112,7 @@
   #shopify-section-{{ sid }} .mq__group { display: flex; flex: 0 0 auto; align-items: center; gap: var(--mq-gap); padding-inline-end: var(--mq-gap); margin: 0; }
   #shopify-section-{{ sid }} .mq__item { flex: 0 0 auto; width: calc(var(--mq-wb) * var(--mq-scale)); height: calc(var(--mq-hb) * var(--mq-scale)); border-radius: var(--mq-radius); overflow: hidden; margin: 0; }
   #shopify-section-{{ sid }} .mq__item img { display: block; width: 100%; height: 100%; margin: 0; object-fit: var(--mq-fit); border-radius: inherit; }
-  #shopify-section-{{ sid }} .mq__item img[data-mgb-placeholder] { object-fit: contain; background: color-mix(in srgb, var(--color-text) 8%, var(--mq-bg)); }
+  #shopify-section-{{ sid }} .mq__item img[data-mgb-placeholder] { object-fit: cover; }
   #shopify-section-{{ sid }} .mq__pause { position: absolute; right: 8px; bottom: 8px; z-index: 2; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; margin: 0; border: 1px solid var(--color-border); border-radius: 50%; background: var(--mq-bg); color: var(--color-heading); cursor: pointer; }
   #shopify-section-{{ sid }} .mq__pause:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
   #shopify-section-{{ sid }} .mq__pause svg { width: 16px; height: 16px; }
@@ -124,7 +127,7 @@
   }
 </style>
 
-<section id="m-section--{{ sid }}" class="mq m-section m-scrolling-image-section color-{{ color_scheme }} gradient" data-mgb="images-carousel" data-mgb-section="{{ sid }}" data-mgb-reset="{{ st.reset_spacing }}" data-mgb-anim="{{ settings.scroll_animation | default: 'none' }}" data-width="{{ st.section_width | default: 'full_width' }}" data-pause-hover="{{ st.pause_on_hover }}" data-pause-button="{{ st.show_pause_button }}" data-static1="{% if st.speed > 0 %}false{% else %}true{% endif %}" data-static2="{% if st.speed_second_scrolling > 0 %}false{% else %}true{% endif %}" data-mgb-placeholder-src="{{ placeholder }}" data-mgb-settings="{{ st | json | escape }}" data-mgb-defaults="{&quot;color_scheme&quot;:&quot;default-color-scheme&quot;,&quot;section_width&quot;:&quot;full_width&quot;,&quot;reset_spacing&quot;:true,&quot;make_images_square&quot;:false,&quot;image_width&quot;:170,&quot;image_height&quot;:110,&quot;image_fit&quot;:&quot;cover&quot;,&quot;image_border_radius&quot;:10,&quot;slider_scale&quot;:1,&quot;direction&quot;:&quot;right&quot;,&quot;speed&quot;:176,&quot;pause_on_hover&quot;:true,&quot;show_pause_button&quot;:true,&quot;enable_second_scrolling&quot;:false,&quot;second_direction&quot;:&quot;left&quot;,&quot;speed_second_scrolling&quot;:47,&quot;scroll_gap&quot;:20,&quot;enable_custom_style&quot;:false,&quot;enable_custom_font&quot;:false,&quot;reveal&quot;:true,&quot;item_gap&quot;:20,&quot;padding_top&quot;:30,&quot;padding_bottom&quot;:30,&quot;section_margin_top_desktop&quot;:0,&quot;section_margin_bottom_desktop&quot;:0,&quot;overall_size_mobile&quot;:0.9,&quot;speed_mobile&quot;:26,&quot;item_gap_mobile&quot;:16,&quot;section_margin_top_mobile&quot;:0,&quot;section_margin_bottom_mobile&quot;:0}" data-mgb-block-defaults="{&quot;image_block&quot;:{}}" aria-label="Logos">
+<section id="m-section--{{ sid }}" class="mq m-section m-scrolling-image-section color-{{ color_scheme }} gradient" data-mgb="images-carousel" data-mgb-section="{{ sid }}" data-mgb-reset="{{ st.reset_spacing }}" data-mgb-anim="{{ settings.scroll_animation | default: 'none' }}" data-width="{{ st.section_width | default: 'full_width' }}" data-pause-hover="{{ st.pause_on_hover }}" data-pause-button="{{ st.show_pause_button }}" data-static1="{% if st.speed > 0 %}false{% else %}true{% endif %}" data-static2="{% if st.speed_second_scrolling > 0 %}false{% else %}true{% endif %}" data-mgb-placeholder-src="{{ placeholder }}" {% if request.design_mode %}data-mgb-settings="{{ st | json | escape }}"{% endif %} {% if request.design_mode %}data-mgb-defaults="{&quot;color_scheme&quot;:&quot;default&quot;,&quot;section_width&quot;:&quot;full_width&quot;,&quot;reset_spacing&quot;:true,&quot;make_images_square&quot;:false,&quot;image_width&quot;:170,&quot;image_height&quot;:110,&quot;image_fit&quot;:&quot;cover&quot;,&quot;image_border_radius&quot;:10,&quot;slider_scale&quot;:1,&quot;direction&quot;:&quot;right&quot;,&quot;speed&quot;:176,&quot;pause_on_hover&quot;:true,&quot;show_pause_button&quot;:true,&quot;enable_second_scrolling&quot;:false,&quot;second_direction&quot;:&quot;left&quot;,&quot;speed_second_scrolling&quot;:47,&quot;scroll_gap&quot;:20,&quot;enable_custom_style&quot;:false,&quot;enable_custom_font&quot;:false,&quot;reveal&quot;:true,&quot;item_gap&quot;:20,&quot;padding_top&quot;:30,&quot;padding_bottom&quot;:30,&quot;section_margin_top_desktop&quot;:0,&quot;section_margin_bottom_desktop&quot;:0,&quot;overall_size_mobile&quot;:0.9,&quot;speed_mobile&quot;:26,&quot;item_gap_mobile&quot;:16,&quot;section_margin_top_mobile&quot;:0,&quot;section_margin_bottom_mobile&quot;:0}"{% endif %} {% if request.design_mode %}data-mgb-block-defaults="{&quot;image_block&quot;:{}}"{% endif %} aria-label="{{ 'accessibility.ui.logos' | t }}">
   <div class="mq__inner">
     {%- for row in (1..rows) -%}
       {%- liquid
@@ -153,11 +156,11 @@
             <div class="mq__group"{% if copy > 1 %} aria-hidden="true" data-mq-clone{% else %} role="list"{% endif %}>
               {%- for block in section.blocks offset: offset limit: count -%}
                 {%- assign b = block.settings -%}
-                <div class="mq__item" data-mgb-block="{{ block.id }}" data-mgb-type="{{ block.type }}"{% if copy == 1 %} role="listitem" data-mgb-settings="{{ b | json | escape }}" {{ block.shopify_attributes }}{% endif %}>
+                <div class="mq__item" data-mgb-block="{{ block.id }}" data-mgb-type="{{ block.type }}"{% if copy == 1 %} role="listitem" {% if request.design_mode %}data-mgb-settings="{{ b | json | escape }}"{% endif %} {{ block.shopify_attributes }}{% endif %}>
                   {%- if b.image != blank -%}
                     <img src="{{ b.image | image_url: width: 800 }}" width="{{ w_base }}" height="{{ h_base }}" alt="{% if copy == 1 %}{{ b.image_alt | default: b.image.alt | escape }}{% endif %}" loading="lazy" decoding="async" draggable="false">
                   {%- else -%}
-                    <img src="{{ placeholder }}" data-mgb-placeholder width="{{ w_base }}" height="{{ h_base }}" alt="" loading="lazy" decoding="async" draggable="false">
+                    <img src="{%- render 'placeholder-image', type: 'collection', index: forloop.index, scheme: color_scheme, ratio: '4/3', format: 'url' -%}" data-mgb-placeholder width="{{ w_base }}" height="{{ h_base }}" alt="" loading="lazy" decoding="async" draggable="false">
                   {%- endif -%}
                 </div>
               {%- endfor -%}
@@ -167,7 +170,7 @@
       </div>
     {%- endfor -%}
   </div>
-  <button class="mq__pause" type="button" data-mq-pause aria-pressed="false" aria-label="Pause scrolling">
+  <button class="mq__pause" type="button" data-mq-pause aria-pressed="false" aria-label="{{ 'accessibility.ui.pause_scrolling' | t }}">
     <svg data-icon="pause" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false"><rect x="3" y="2" width="3.5" height="12" rx="1"/><rect x="9.5" y="2" width="3.5" height="12" rx="1"/></svg>
     <svg data-icon="play" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false"><path d="M4 2.5v11a.8.8 0 0 0 1.2.7l9-5.5a.8.8 0 0 0 0-1.4l-9-5.5A.8.8 0 0 0 4 2.5z"/></svg>
   </button>
@@ -183,7 +186,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -395,7 +398,6 @@
       "id": "enable_custom_font",
       "label": "Override theme font (legacy)",
       "default": false,
-      "hidden": true,
       "info": "Kept for saved sections. This section shows no text.",
       "visible_if": "{{ false }}"
     },
@@ -403,7 +405,6 @@
       "type": "text",
       "id": "font_family",
       "label": "Google font family (legacy)",
-      "hidden": true,
       "info": "Kept for saved sections. This section shows no text.",
       "visible_if": "{{ false }}"
     },
@@ -548,8 +549,8 @@
   ],
   "presets": [
     {
-      "name": "Gallery Scrolling Logos",
-      "category": "Image and video",
+      "name": "Gallery – Scrolling Strip",
+      "category": "06 · Gallery & video",
       "blocks": [
         {
           "type": "image_block"
@@ -572,6 +573,6 @@
       ]
     }
   ],
-  "class": "section-edge-bleed"
+  "class": "section-edge-bleed s-tt"
 }
 {% endschema %}

@@ -1,9 +1,9 @@
-<script src="{{ 'live-r7-collections.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-r7-collections.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'r7-collections-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
 -%}
 {%- comment -%}
   Materia Themes. Collection Circles: a row of round collection pictures with
@@ -74,8 +74,10 @@
     --size: clamp(2rem, calc(2rem + (24 - 20) * var(--responsive-rate, 0px)), 2.4rem);
     margin: 0 0 1.4rem; padding-inline: var(--cc-edge);
     font-size: calc(var(--heading-font-scale, 1) * var(--size));
-    color: var(--ccb-color, var(--color-heading)); text-align: start; text-wrap: balance; overflow-wrap: anywhere;
+    color: var(--ccb-color, var(--cc-title, var(--color-heading))); text-align: start; text-wrap: balance; overflow-wrap: anywhere;
   }
+  /* Heading block with its own styling: its sizes, weight and case win over the section's Heading size. */
+  #shopify-section-{{ sid }} .cc__heading[data-own-style] { font-size: var(--ccb-fs-m, calc(var(--heading-font-scale, 1) * var(--size))); font-weight: var(--ccb-weight, var(--heading-weight)); text-transform: var(--ccb-case, var(--heading-text-transform)) !important; }
   #shopify-section-{{ sid }} .cc[data-heading-size='small'] .cc__heading { --size: clamp(1.6rem, calc(1.6rem + (18 - 16) * var(--responsive-rate, 0px)), 1.8rem); }
   #shopify-section-{{ sid }} .cc[data-heading-size='large'] .cc__heading { --size: clamp(2.6rem, calc(2.6rem + (36 - 26) * var(--responsive-rate, 0px)), 3.6rem); }
   #shopify-section-{{ sid }} .cc[data-align='center'] .cc__heading { text-align: center; }
@@ -92,28 +94,37 @@
   }
   #shopify-section-{{ sid }} .cc__track::-webkit-scrollbar { display: none; }
   #shopify-section-{{ sid }} .cc__track:focus-visible { outline: 2px solid var(--color-heading); outline-offset: -2px; }
-  #shopify-section-{{ sid }} .cc__item { flex: 0 0 var(--cc-size-m, 72px); width: var(--cc-size-m, 72px); min-width: 0; margin: 0; padding: 0; scroll-snap-align: start; }
+  #shopify-section-{{ sid }} .cc__item { --cc-w: var(--cci-size-m, var(--cc-size-m, 72px)); flex: 0 0 var(--cc-w); width: var(--cc-w); min-width: 0; margin: 0; padding: 0; scroll-snap-align: start; }
   #shopify-section-{{ sid }} .cc[data-align='center'] .cc__item:first-child { margin-inline-start: auto; }
   #shopify-section-{{ sid }} .cc[data-align='center'] .cc__item:last-child { margin-inline-end: auto; }
 
   /* A circle */
   #shopify-section-{{ sid }} .cc__link { display: block; color: inherit; text-decoration: none; outline: none; -webkit-tap-highlight-color: transparent; }
-  #shopify-section-{{ sid }} .cc__media { display: block; width: 100%; aspect-ratio: 1; border-radius: 50%; border: 1px solid transparent; transition: border-color .2s ease, transform .2s ease; }
-  #shopify-section-{{ sid }} .cc[data-ring='true'] .cc__media { padding: 3px; border-color: var(--cc-ring, var(--color-border)); }
+  #shopify-section-{{ sid }} .cc__media { display: block; width: 100%; aspect-ratio: 1; border-radius: 50%; border: 1px solid transparent; transition: border-color .3s ease, box-shadow .3s ease, transform .3s cubic-bezier(.2,.7,.2,1); }
+  #shopify-section-{{ sid }} .cc[data-ring='true'] .cc__media { padding: 3px; border-color: var(--cci-bc, var(--cc-ring, var(--color-border))); }
+  /* A circle with its own border width: it gets a ring of that width, whatever Ring around circles says. */
+  #shopify-section-{{ sid }} .cc .cc__item[data-own-ring] .cc__media { padding: 3px; border-width: var(--cci-bw, 1px); border-color: var(--cci-bc, var(--cc-ring, var(--color-border))); }
   #shopify-section-{{ sid }} .cc__pic { display: block; position: relative; width: 100%; height: 100%; border-radius: 50%; overflow: hidden; background: var(--cc-image-bg, color-mix(in srgb, var(--color-text) 8%, var(--color-background))); }
-  #shopify-section-{{ sid }} .cc__img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .35s ease; }
-  #shopify-section-{{ sid }} .cc__ph { position: absolute; inset: 0; width: 100%; height: 100%; display: block; color: var(--color-text); opacity: .3; }
+  #shopify-section-{{ sid }} .cc__img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .5s cubic-bezier(.2,.7,.2,1), opacity .3s ease; }
+  #shopify-section-{{ sid }} .cc__ph { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   #shopify-section-{{ sid }} .cc__name {
-    margin: 1rem max(calc(-1 * min(12px, var(--cc-edge))), calc(2px - var(--cc-gap-m, 16px) / 2)) 0;
-    font-size: var(--cc-font-m, 13px); text-align: center;
-    color: var(--cc-title, var(--color-heading));
+    margin: var(--cci-space, 1rem) max(calc(-1 * min(12px, var(--cc-edge))), calc(2px - var(--cc-gap-m, 16px) / 2)) 0;
+    font-size: var(--cci-font-m, var(--cc-font-m, 13px)); text-align: center; line-height: 1.3;
+    font-weight: var(--cci-weight, var(--heading-weight));
+    color: var(--cci-color, var(--cc-title, var(--color-heading)));
     overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+    transition: color .3s ease;
   }
-  #shopify-section-{{ sid }} a.cc__link:focus-visible .cc__media { outline: 2px solid var(--cc-title, var(--color-heading)); outline-offset: 2px; }
+  #shopify-section-{{ sid }} .cc__item[data-own-style] .cc__name { text-transform: var(--cci-case, var(--heading-text-transform)) !important; }
+  #shopify-section-{{ sid }} a.cc__link:focus-visible .cc__media { outline: 2px solid var(--cci-color, var(--cc-title, var(--color-heading))); outline-offset: 2px; }
   #shopify-section-{{ sid }} a.cc__link:active .cc__media { transform: scale(.96); }
+  /* Hover effects: the section's Hover effect, or a circle's own (data-hover on each circle). */
   @media (hover: hover) {
-    #shopify-section-{{ sid }} a.cc__link:hover .cc__img { transform: scale(1.06); }
-    #shopify-section-{{ sid }} .cc[data-ring='true'] a.cc__link:hover .cc__media { border-color: var(--cc-title, var(--color-heading)); }
+    #shopify-section-{{ sid }} .cc__item[data-hover='zoom'] a.cc__link:hover .cc__img { transform: scale(1.08); }
+    #shopify-section-{{ sid }} .cc__item[data-hover='lift'] a.cc__link:hover .cc__media { transform: translateY(-4px); box-shadow: 0 10px 22px -10px color-mix(in srgb, var(--color-heading) 45%, transparent); }
+    #shopify-section-{{ sid }} .cc__item[data-hover='ring'] a.cc__link:hover .cc__media { border-color: var(--cci-color, var(--cc-title, var(--color-heading))); box-shadow: 0 0 0 1px var(--cci-color, var(--cc-title, var(--color-heading))); }
+    #shopify-section-{{ sid }} .cc__item[data-hover='fade'] a.cc__link:hover .cc__img { opacity: .72; }
+    #shopify-section-{{ sid }} .cc__item:not([data-hover='none']) a.cc__link:hover .cc__name { color: color-mix(in srgb, var(--cci-color, var(--cc-title, var(--color-heading))) 78%, var(--color-background)); }
   }
 
   /* Arrows: on a desktop pointer, and only while the row is wider than the page (live-r7-collections.js shows them). */
@@ -141,9 +152,17 @@
     #shopify-section-{{ sid }} .cc[data-width='full_width'] { --cc-edge: .6rem; }
     #shopify-section-{{ sid }} .cc__heading { margin-bottom: 2rem; }
     #shopify-section-{{ sid }} .cc__track { gap: var(--cc-gap, 28px); }
-    #shopify-section-{{ sid }} .cc__item { flex-basis: var(--cc-size, 112px); width: var(--cc-size, 112px); }
-    #shopify-section-{{ sid }} .cc[data-ring='true'] .cc__media { padding: 4px; }
-    #shopify-section-{{ sid }} .cc__name { margin: 1.2rem max(calc(-1 * min(12px, var(--cc-edge))), calc(2px - var(--cc-gap, 28px) / 2)) 0; font-size: var(--cc-font, 15px); }
+    #shopify-section-{{ sid }} .cc__item { --cc-w: var(--cci-size, var(--cc-size, 112px)); }
+    #shopify-section-{{ sid }} .cc[data-ring='true'] .cc__media, #shopify-section-{{ sid }} .cc .cc__item[data-own-ring] .cc__media { padding: 4px; }
+    #shopify-section-{{ sid }} .cc__name { margin: var(--cci-space, 1.2rem) max(calc(-1 * min(12px, var(--cc-edge))), calc(2px - var(--cc-gap, 28px) / 2)) 0; font-size: var(--cci-font, var(--cc-font, 15px)); }
+    #shopify-section-{{ sid }} .cc__heading[data-own-style] { font-size: var(--ccb-fs, calc(var(--heading-font-scale, 1) * var(--size))); }
+  }
+  /* Mobile grid: rows of circles instead of a swipe row. */
+  @media (max-width: 767px) {
+    #shopify-section-{{ sid }} .cc[data-mobile='grid'] .cc__track { display: grid; grid-template-columns: repeat(var(--cc-cols-m, 3), minmax(0, 1fr)); row-gap: 20px; overflow: visible; scroll-snap-type: none; }
+    #shopify-section-{{ sid }} .cc[data-mobile='grid'] .cc__item { width: auto; margin: 0 !important; }
+    #shopify-section-{{ sid }} .cc[data-mobile='grid'] .cc__media { width: min(100%, var(--cc-w)); margin-inline: auto; }
+    #shopify-section-{{ sid }} .cc[data-mobile='grid'] .cc__name { margin-inline: 0; }
   }
   @media (min-width: 1025px) {
     #shopify-section-{{ sid }} .cc[data-width='container'] .cc__inner { width: 90%; }
@@ -160,26 +179,26 @@
     #shopify-section-{{ sid }} .cc[data-show-on='desktop'] { display: none; }
   }
   @media (prefers-reduced-motion: reduce) {
-    #shopify-section-{{ sid }} :is(.cc__media, .cc__img, .cc__arrow) { transition: none; }
-    #shopify-section-{{ sid }} a.cc__link:hover .cc__img, #shopify-section-{{ sid }} a.cc__link:active .cc__media, #shopify-section-{{ sid }} .cc__arrow:active { transform: none; }
+    #shopify-section-{{ sid }} :is(.cc__media, .cc__img, .cc__arrow, .cc__name) { transition: none; }
+    #shopify-section-{{ sid }} .cc__item a.cc__link:hover .cc__img, #shopify-section-{{ sid }} .cc__item a.cc__link:hover .cc__media, #shopify-section-{{ sid }} a.cc__link:active .cc__media, #shopify-section-{{ sid }} .cc__arrow:active { transform: none; }
     #shopify-section-{{ sid }} .cc__track { scroll-behavior: auto; }
   }
 </style>
 {%- capture cc_vars -%}
---cc-size: {{ st.circle_size | default: 112 }}px;--cc-gap: {{ st.gap | default: 0 }}px;--cc-font: {{ st.font_size | default: 15 }}px;--cc-size-m: {{ st.circle_size_mobile | default: 72 }}px;--cc-gap-m: {{ st.gap_mobile | default: 0 }}px;--cc-font-m: {{ st.font_size_mobile | default: 13 }}px;--cc-pt: {{ st.padding_top_desktop | default: 0 }}px;--cc-pb: {{ st.padding_bottom_desktop | default: 0 }}px;--cc-pt-m: {{ st.padding_top_mobile | default: 0 }}px;--cc-pb-m: {{ st.padding_bottom_mobile | default: 0 }}px;
+--cc-size: {{ st.circle_size | default: 112 }}px;--cc-gap: {{ st.gap | default: 0 }}px;--cc-font: {{ st.font_size | default: 15 }}px;--cc-size-m: {{ st.circle_size_mobile | default: 72 }}px;--cc-gap-m: {{ st.gap_mobile | default: 0 }}px;--cc-font-m: {{ st.font_size_mobile | default: 13 }}px;--cc-pt: {{ st.padding_top_desktop | default: 0 }}px;--cc-pb: {{ st.padding_bottom_desktop | default: 0 }}px;--cc-pt-m: {{ st.padding_top_mobile | default: 0 }}px;--cc-pb-m: {{ st.padding_bottom_mobile | default: 0 }}px;--cc-cols-m: {{ st.mobile_columns | default: 3 }};
 {%- if has_bg -%}--cc-bg: {{ cc_bg }};{%- endif -%}
 {%- if custom -%}--cc-title: {% render 'scheme-color', color: st.title_color, fallback: 'var(--color-heading)' %};--cc-ring: {% render 'scheme-color', color: st.ring_color, fallback: 'var(--color-border)' %};--cc-image-bg: {% render 'scheme-color', color: st.image_bg, fallback: 'color-mix(in srgb, var(--color-text) 8%, var(--color-background))' %};{%- endif -%}
 {%- if st.enable_custom_fonts and st.heading_font.family != blank -%}--heading-font: {{ st.heading_font.family }}, {{ st.heading_font.fallback_families | default: 'sans-serif' }};{%- endif -%}
 {%- endcapture -%}
 {%- if design -%}
-{%- capture cc_json -%}{"color_scheme":{{ color_scheme | json }},"section_width":{{ st.section_width | append: '' | json }},"show_section_on":{{ st.show_section_on | append: '' | json }},"reset_spacing":{% if st.reset_spacing %}true{% else %}false{% endif %},"alignment":{{ st.alignment | append: '' | json }},"circle_size":{{ st.circle_size | default: 0 | json }},"gap":{{ st.gap | default: 0 | json }},"show_arrows":{% if st.show_arrows %}true{% else %}false{% endif %},"show_ring":{% if st.show_ring %}true{% else %}false{% endif %},"enable_custom_style":{% if st.enable_custom_style %}true{% else %}false{% endif %},"section_bg":{{ st.section_bg | append: '' | json }},"title_color":{{ st.title_color | append: '' | json }},"ring_color":{{ st.ring_color | append: '' | json }},"image_bg":{{ st.image_bg | append: '' | json }},"header_size":{{ st.header_size | append: '' | json }},"font_size":{{ st.font_size | default: 0 | json }},"enable_custom_fonts":{% if st.enable_custom_fonts %}true{% else %}false{% endif %},"heading_font":{"family":{{ st.heading_font.family | append: '' | json }},"fallback_families":{{ st.heading_font.fallback_families | append: '' | json }}},"padding_top_desktop":{{ st.padding_top_desktop | default: 0 | json }},"padding_bottom_desktop":{{ st.padding_bottom_desktop | default: 0 | json }},"section_margin_top_desktop":{{ st.section_margin_top_desktop | default: 0 | json }},"section_margin_bottom_desktop":{{ st.section_margin_bottom_desktop | default: 0 | json }},"circle_size_mobile":{{ st.circle_size_mobile | default: 0 | json }},"gap_mobile":{{ st.gap_mobile | default: 0 | json }},"font_size_mobile":{{ st.font_size_mobile | default: 0 | json }},"padding_top_mobile":{{ st.padding_top_mobile | default: 0 | json }},"padding_bottom_mobile":{{ st.padding_bottom_mobile | default: 0 | json }},"section_margin_top_mobile":{{ st.section_margin_top_mobile | default: 0 | json }},"section_margin_bottom_mobile":{{ st.section_margin_bottom_mobile | default: 0 | json }}}{%- endcapture -%}
+{%- capture cc_json -%}{"color_scheme":{{ color_scheme | json }},"section_width":{{ st.section_width | append: '' | json }},"show_section_on":{{ st.show_section_on | append: '' | json }},"reset_spacing":{% if st.reset_spacing %}true{% else %}false{% endif %},"alignment":{{ st.alignment | append: '' | json }},"circle_size":{{ st.circle_size | default: 0 | json }},"gap":{{ st.gap | default: 0 | json }},"show_arrows":{% if st.show_arrows %}true{% else %}false{% endif %},"show_ring":{% if st.show_ring %}true{% else %}false{% endif %},"enable_custom_style":{% if st.enable_custom_style %}true{% else %}false{% endif %},"section_bg":{{ st.section_bg | append: '' | json }},"title_color":{{ st.title_color | append: '' | json }},"ring_color":{{ st.ring_color | append: '' | json }},"image_bg":{{ st.image_bg | append: '' | json }},"header_size":{{ st.header_size | append: '' | json }},"font_size":{{ st.font_size | default: 0 | json }},"enable_custom_fonts":{% if st.enable_custom_fonts %}true{% else %}false{% endif %},"heading_font":{"family":{{ st.heading_font.family | append: '' | json }},"fallback_families":{{ st.heading_font.fallback_families | append: '' | json }}},"padding_top_desktop":{{ st.padding_top_desktop | default: 0 | json }},"padding_bottom_desktop":{{ st.padding_bottom_desktop | default: 0 | json }},"section_margin_top_desktop":{{ st.section_margin_top_desktop | default: 0 | json }},"section_margin_bottom_desktop":{{ st.section_margin_bottom_desktop | default: 0 | json }},"circle_size_mobile":{{ st.circle_size_mobile | default: 0 | json }},"mobile_layout":{{ st.mobile_layout | append: '' | json }},"mobile_columns":{{ st.mobile_columns | default: 3 | json }},"hover_effect":{{ st.hover_effect | append: '' | json }},"gap_mobile":{{ st.gap_mobile | default: 0 | json }},"font_size_mobile":{{ st.font_size_mobile | default: 0 | json }},"padding_top_mobile":{{ st.padding_top_mobile | default: 0 | json }},"padding_bottom_mobile":{{ st.padding_bottom_mobile | default: 0 | json }},"section_margin_top_mobile":{{ st.section_margin_top_mobile | default: 0 | json }},"section_margin_bottom_mobile":{{ st.section_margin_bottom_mobile | default: 0 | json }}}{%- endcapture -%}
 {%- endif -%}
-<div class="cc color-{{ color_scheme }} gradient{% if st.reset_spacing %} remove_spacing{% endif %}" data-r7c="collection-circles" data-r7c-section="{{ sid }}"{% if design %} data-r7c-settings="{{ cc_json | escape }}"{% endif %} data-width="{{ st.section_width | default: 'fluid_container' }}" data-show-on="{{ st.show_section_on | default: 'all' }}" data-align="{{ st.alignment | default: 'center' }}" data-ring="{% if st.show_ring %}true{% else %}false{% endif %}" data-arrows="{% if st.show_arrows %}true{% else %}false{% endif %}" data-heading-size="{{ st.header_size | default: 'medium' }}"{% if has_bg %} data-bg{% endif %}{% if st.enable_custom_fonts and st.heading_font.family != blank %} data-own-font{% endif %} style="{{ cc_vars | strip }}">
+<div class="cc color-{{ color_scheme }} gradient{% if st.reset_spacing %} remove_spacing{% endif %}" data-r7c="collection-circles" data-r7c-section="{{ sid }}"{% if design %} data-r7c-settings="{{ cc_json | escape }}"{% endif %} data-width="{{ st.section_width | default: 'fluid_container' }}" data-show-on="{{ st.show_section_on | default: 'all' }}" data-align="{{ st.alignment | default: 'center' }}" data-ring="{% if st.show_ring %}true{% else %}false{% endif %}" data-arrows="{% if st.show_arrows %}true{% else %}false{% endif %}" data-heading-size="{{ st.header_size | default: 'medium' }}" data-mobile="{{ st.mobile_layout | default: 'scroll' }}" data-hover="{{ st.hover_effect | default: 'zoom' }}"{% if has_bg %} data-bg{% endif %}{% if st.enable_custom_fonts and st.heading_font.family != blank %} data-own-font{% endif %} style="{{ cc_vars | strip | escape }}">
   <div class="cc__inner">
     {%- for block in section.blocks -%}
       {%- if block.type == 'heading' -%}
         {%- assign bs = block.settings -%}
-        <h2 class="cc__heading" data-r7c-block="{{ block.id }}" data-r7c-type="heading"{% if design %} data-r7c-settings="{% capture ccb_json %}{"text":{{ bs.text | append: '' | json }},"enable_custom_style":{% if bs.enable_custom_style %}true{% else %}false{% endif %},"color":{{ bs.color | append: '' | json }}}{% endcapture %}{{ ccb_json | escape }}"{% endif %} style="{% if bs.enable_custom_style %}--ccb-color: {% render 'scheme-color', color: bs.color, fallback: 'var(--color-heading)' %};{% endif %}"{% if bs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ bs.text }}</h2>
+        <h2 class="cc__heading" data-r7c-block="{{ block.id }}" data-r7c-type="heading"{% if design %} data-r7c-settings="{% capture ccb_json %}{"text":{{ bs.text | append: '' | json }},"enable_custom_style":{% if bs.enable_custom_style %}true{% else %}false{% endif %},"color":{{ bs.color | append: '' | json }}}{% endcapture %}{{ ccb_json | escape }}"{% endif %}{% if bs.enable_custom_style %} data-own-style{% if bs.weight != blank and bs.weight != 'theme' %} data-own-weight{% endif %}{% endif %} style="{% if bs.enable_custom_style %}--ccb-color: {% render 'scheme-color', color: bs.color, fallback: 'var(--color-heading)' %};--ccb-fs: {{ bs.size_desktop | default: 24 }}px;--ccb-fs-m: {{ bs.size_mobile | default: 20 }}px;{% if bs.weight != blank and bs.weight != 'theme' %}--ccb-weight: {{ bs.weight }};{% endif %}{% if bs.text_case != blank and bs.text_case != 'theme' %}--ccb-case: {{ bs.text_case }};{% endif %}{% endif %}"{% if bs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ bs.text }}</h2>
       {%- endif -%}
     {%- endfor -%}
     {%- if item_count > 0 -%}
@@ -194,17 +213,60 @@
             assign coll_img = coll.featured_image | default: coll.image
             assign img = bs.image | default: coll_img
           -%}
+          {%- liquid
+            assign own = bs.enable_custom_style
+            assign cc_hover = st.hover_effect | default: 'zoom'
+            if own and bs.hover_effect != blank and bs.hover_effect != 'section'
+              assign cc_hover = bs.hover_effect
+            endif
+            assign cc_size_d = st.circle_size | default: 112
+            assign cc_size_m = st.circle_size_mobile | default: 72
+            assign cc_bw = 0
+            assign cc_item_vars = ''
+            if own
+              assign cc_size_d = bs.circle_size | default: cc_size_d
+              assign cc_size_m = bs.circle_size_mobile | default: cc_size_m
+              assign cc_bw = bs.border_width | default: 0
+              capture cc_name_c
+                render 'scheme-color', color: bs.name_color, fallback: ''
+              endcapture
+              capture cc_border_c
+                render 'scheme-color', color: bs.border_color, fallback: ''
+              endcapture
+              capture cc_item_vars
+                echo '--cci-size:' | append: cc_size_d | append: 'px;--cci-size-m:' | append: cc_size_m | append: 'px;'
+                echo '--cci-font:' | append: bs.name_size | append: 'px;--cci-font-m:' | append: bs.name_size_mobile | append: 'px;--cci-space:' | append: bs.name_spacing | append: 'px;'
+                if bs.name_weight != blank and bs.name_weight != 'theme'
+                  echo '--cci-weight:' | append: bs.name_weight | append: ';'
+                endif
+                if bs.name_case != blank and bs.name_case != 'theme'
+                  echo '--cci-case:' | append: bs.name_case | append: ';'
+                endif
+                assign cc_name_c = cc_name_c | strip
+                if cc_name_c != blank
+                  echo '--cci-color:' | append: cc_name_c | append: ';'
+                endif
+                assign cc_border_c = cc_border_c | strip
+                if cc_border_c != blank
+                  echo '--cci-bc:' | append: cc_border_c | append: ';'
+                endif
+                if cc_bw > 0
+                  echo '--cci-bw:' | append: cc_bw | append: 'px;'
+                endif
+              endcapture
+            endif
+          -%}
           {%- if design or coll != blank -%}
-          <li class="cc__item" data-r7c-block="{{ block.id }}" data-r7c-type="collection"{% if design %} data-r7c-settings="{% capture ccb_json %}{"collection":{{ coll.handle | append: '' | json }},"image":{% if bs.image != blank %}{{ bs.image | image_url: width: 480 | json }}{% else %}""{% endif %}}{% endcapture %}{{ ccb_json | escape }}" data-r7c-own="{% if coll_img != blank %}{{ coll_img | image_url: width: 480 }}{% endif %}"{% endif %} {{ block.shopify_attributes }}>
+          <li class="cc__item"{% if own %} data-own-style{% endif %}{% if cc_bw > 0 %} data-own-ring{% endif %} data-hover="{{ cc_hover }}"{% if cc_item_vars != blank %} style="{{ cc_item_vars }}"{% endif %} data-r7c-block="{{ block.id }}" data-r7c-type="collection"{% if design %} data-r7c-settings="{% capture ccb_json %}{"collection":{{ coll.handle | append: '' | json }},"enable_custom_style":{% if bs.enable_custom_style %}true{% else %}false{% endif %},"hover_effect":{{ bs.hover_effect | append: '' | json }},"image":{% if bs.image != blank %}{{ bs.image | image_url: width: 480 | json }}{% else %}""{% endif %}}{% endcapture %}{{ ccb_json | escape }}" data-r7c-own="{% if coll_img != blank %}{{ coll_img | image_url: width: 480 }}{% endif %}"{% endif %} {{ block.shopify_attributes }}>
             {%- if coll != blank -%}<a class="cc__link" href="{{ coll.url }}">{%- else -%}<div class="cc__link">{%- endif -%}
               <span class="cc__media"><span class="cc__pic">
                 {%- if img != blank -%}
-                  <img class="cc__img" src="{{ img | image_url: width: 320 }}" srcset="{{ img | image_url: width: 160 }} 160w, {{ img | image_url: width: 320 }} 320w, {{ img | image_url: width: 480 }} 480w" sizes="(min-width: 768px) {{ st.circle_size | default: 112 }}px, {{ st.circle_size_mobile | default: 72 }}px" width="320" height="320" alt="" loading="lazy" decoding="async">
-                {%- elsif design -%}
-                  <svg class="cc__ph" data-r7c-ph viewBox="0 0 120 120" aria-hidden="true" focusable="false"><circle cx="47" cy="48" r="7" fill="currentColor"/><path d="M28 84l22-25 13 14 10-9 19 20z" fill="currentColor"/></svg>
+                  <img class="cc__img" src="{{ img | image_url: width: 320 }}" srcset="{{ img | image_url: width: 160 }} 160w, {{ img | image_url: width: 320 }} 320w, {{ img | image_url: width: 480 }} 480w" sizes="(min-width: 768px) {{ cc_size_d }}px, {{ cc_size_m }}px" width="320" height="320" alt="" loading="lazy" decoding="async">
+                {%- else -%}
+                  {%- render 'placeholder-image', type: 'collection', index: forloop.index, class: 'cc__ph', attrs: 'data-r7c-ph' -%}
                 {%- endif -%}
               </span></span>
-              <h3 class="cc__name">{% if coll != blank %}{{ coll.title | escape }}{% else %}Collection{% endif %}</h3>
+              <h3 class="cc__name"{% if own and bs.name_weight != blank and bs.name_weight != 'theme' %} data-own-weight{% endif %}>{% if coll != blank %}{{ coll.title | escape }}{% else %}Collection{% endif %}</h3>
             {%- if coll != blank -%}</a>{%- else -%}</div>{%- endif -%}
           </li>
           {%- endif -%}
@@ -220,7 +282,8 @@
 </div>
 {%- endif -%}{% schema %}
 {
-  "name": "Collection Circles",
+  "class": "s-tt",
+"name": "Collection Circles",
   "settings": [
     {
       "type": "header",
@@ -230,7 +293,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -341,6 +404,34 @@
       "default": true
     },
     {
+      "type": "select",
+      "id": "hover_effect",
+      "label": "Hover effect",
+      "default": "zoom",
+      "options": [
+        {
+          "value": "zoom",
+          "label": "Zoom picture"
+        },
+        {
+          "value": "lift",
+          "label": "Lift"
+        },
+        {
+          "value": "ring",
+          "label": "Highlight border"
+        },
+        {
+          "value": "fade",
+          "label": "Fade"
+        },
+        {
+          "value": "none",
+          "label": "None"
+        }
+      ]
+    },
+    {
       "type": "header",
       "content": "Appearance"
     },
@@ -360,7 +451,7 @@
     {
       "type": "color",
       "id": "title_color",
-      "label": "Name colour",
+      "label": "Heading and name colour",
       "visible_if": "{{ section.settings.enable_custom_style }}"
     },
     {
@@ -473,6 +564,32 @@
       "content": "Mobile"
     },
     {
+      "type": "select",
+      "id": "mobile_layout",
+      "label": "Mobile layout",
+      "default": "scroll",
+      "options": [
+        {
+          "value": "scroll",
+          "label": "Swipe row"
+        },
+        {
+          "value": "grid",
+          "label": "Grid"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "mobile_columns",
+      "label": "Grid columns (mobile)",
+      "min": 2,
+      "max": 5,
+      "step": 1,
+      "default": 3,
+      "visible_if": "{{ section.settings.mobile_layout == 'grid' }}"
+    },
+    {
       "type": "range",
       "id": "circle_size_mobile",
       "label": "Circle size (mobile)",
@@ -570,6 +687,94 @@
           "id": "color",
           "label": "Colour",
           "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "range",
+          "id": "size_desktop",
+          "label": "Font size (desktop)",
+          "min": 14,
+          "max": 64,
+          "step": 1,
+          "unit": "px",
+          "default": 24,
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "range",
+          "id": "size_mobile",
+          "label": "Font size (mobile)",
+          "min": 12,
+          "max": 48,
+          "step": 1,
+          "unit": "px",
+          "default": 20,
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "select",
+          "id": "weight",
+          "label": "Font weight",
+          "default": "theme",
+          "options": [
+            {
+              "value": "theme",
+              "label": "Theme default"
+            },
+            {
+              "value": "300",
+              "label": "Light"
+            },
+            {
+              "value": "400",
+              "label": "Regular"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semibold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            },
+            {
+              "value": "800",
+              "label": "Extra bold"
+            }
+          ],
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "select",
+          "id": "text_case",
+          "label": "Letter case",
+          "default": "theme",
+          "options": [
+            {
+              "value": "theme",
+              "label": "Theme default"
+            },
+            {
+              "value": "none",
+              "label": "As typed"
+            },
+            {
+              "value": "uppercase",
+              "label": "UPPERCASE"
+            },
+            {
+              "value": "lowercase",
+              "label": "lowercase"
+            },
+            {
+              "value": "capitalize",
+              "label": "Capitalize Each Word"
+            }
+          ],
+          "visible_if": "{{ block.settings.enable_custom_style }}"
         }
       ]
     },
@@ -588,6 +793,195 @@
           "id": "image",
           "label": "Picture",
           "info": "Optional. Replaces the collection's own picture."
+        },
+        {
+          "type": "header",
+          "content": "Style"
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_custom_style",
+          "label": "Enable custom styling",
+          "default": false,
+          "info": "On, these settings win over the section's for this circle."
+        },
+        {
+          "type": "range",
+          "id": "name_size",
+          "label": "Name size (desktop)",
+          "min": 10,
+          "max": 32,
+          "step": 1,
+          "unit": "px",
+          "default": 15,
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "range",
+          "id": "name_size_mobile",
+          "label": "Name size (mobile)",
+          "min": 10,
+          "max": 28,
+          "step": 1,
+          "unit": "px",
+          "default": 13,
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "select",
+          "id": "name_weight",
+          "label": "Name weight",
+          "default": "theme",
+          "options": [
+            {
+              "value": "theme",
+              "label": "Theme default"
+            },
+            {
+              "value": "300",
+              "label": "Light"
+            },
+            {
+              "value": "400",
+              "label": "Regular"
+            },
+            {
+              "value": "500",
+              "label": "Medium"
+            },
+            {
+              "value": "600",
+              "label": "Semibold"
+            },
+            {
+              "value": "700",
+              "label": "Bold"
+            },
+            {
+              "value": "800",
+              "label": "Extra bold"
+            }
+          ],
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "name_color",
+          "label": "Name colour",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "select",
+          "id": "name_case",
+          "label": "Name case",
+          "default": "theme",
+          "options": [
+            {
+              "value": "theme",
+              "label": "Theme default"
+            },
+            {
+              "value": "none",
+              "label": "As typed"
+            },
+            {
+              "value": "uppercase",
+              "label": "UPPERCASE"
+            },
+            {
+              "value": "lowercase",
+              "label": "lowercase"
+            },
+            {
+              "value": "capitalize",
+              "label": "Capitalize Each Word"
+            }
+          ],
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "range",
+          "id": "name_spacing",
+          "label": "Space between picture and name",
+          "min": 0,
+          "max": 40,
+          "step": 1,
+          "unit": "px",
+          "default": 12,
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "range",
+          "id": "circle_size",
+          "label": "Circle size (desktop)",
+          "min": 48,
+          "max": 240,
+          "step": 4,
+          "unit": "px",
+          "default": 112,
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "range",
+          "id": "circle_size_mobile",
+          "label": "Circle size (mobile)",
+          "min": 40,
+          "max": 160,
+          "step": 2,
+          "unit": "px",
+          "default": 72,
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "range",
+          "id": "border_width",
+          "label": "Picture border width",
+          "min": 0,
+          "max": 8,
+          "step": 1,
+          "unit": "px",
+          "default": 0,
+          "info": "0 keeps the section's Ring around circles setting.",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "color",
+          "id": "border_color",
+          "label": "Picture border colour",
+          "visible_if": "{{ block.settings.enable_custom_style }}"
+        },
+        {
+          "type": "select",
+          "id": "hover_effect",
+          "label": "Hover effect",
+          "default": "section",
+          "options": [
+            {
+              "value": "section",
+              "label": "Same as section"
+            },
+            {
+              "value": "zoom",
+              "label": "Zoom picture"
+            },
+            {
+              "value": "lift",
+              "label": "Lift"
+            },
+            {
+              "value": "ring",
+              "label": "Highlight border"
+            },
+            {
+              "value": "fade",
+              "label": "Fade"
+            },
+            {
+              "value": "none",
+              "label": "None"
+            }
+          ],
+          "visible_if": "{{ block.settings.enable_custom_style }}"
         }
       ]
     }
@@ -595,7 +989,7 @@
   "presets": [
     {
       "name": "Collection Circles",
-      "category": "Collections",
+      "category": "02 · Collections",
       "blocks": [
         {
           "type": "heading"

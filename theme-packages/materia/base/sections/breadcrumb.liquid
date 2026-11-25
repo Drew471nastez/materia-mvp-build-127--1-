@@ -1,6 +1,6 @@
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 <style data-rs-bulletproof>
   {%- if section.settings.reset_spacing -%}
@@ -51,7 +51,7 @@
 {%- liquid
   assign section_st = section.settings
   assign section_width = section_st.section_width
-  assign color_scheme = section_st.color_scheme.id | default: section_st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section_st.color_scheme.id | default: section_st.color_scheme | default: 'default'
   assign t = template | split: '.' | first
 -%}
 
@@ -101,52 +101,16 @@
   endif
 -%}
 {%- if section_st.enable_custom_fonts -%}<style>{{ section_st.font | font_face: font_display: 'swap' }}</style>{%- endif -%}
+{{ 'section-breadcrumb.css' | asset_url | stylesheet_tag }}
 <style>
-  {%- comment -%} Every value below is a variable on the nav, printed with the page and changed in place by shopify/assets/live-collection-pages.js. {%- endcomment -%}
-  #shopify-section-{{ section.id }} .bc {
-    --bc-line: var(--color-border);
-    padding-block: var(--bc-pt-m) var(--bc-pb-m);
-    font-family: var(--bc-font, var(--body-font, inherit));
-    font-size: var(--bc-size, 13px);
-    font-weight: var(--body-weight, 400);
-    line-height: 1.4;
-    position: relative;
-    z-index: 3;
-    overflow: visible;
-  }
-  #shopify-section-{{ section.id }} .bc[data-bc-upper] { text-transform: uppercase; letter-spacing: 0.06em; }
-  @media (min-width: 1024px) {
-    #shopify-section-{{ section.id }} .bc { padding-block: var(--bc-pt-d) var(--bc-pb-d); }
-  }
-  #shopify-section-{{ section.id }} .bc__row { position: relative; z-index: 4; display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; min-width: 0; }
-  #shopify-section-{{ section.id }} .bc__trail {
+#shopify-section-{{ section.id }} .bc__trail {
     display: flex; align-items: center; flex-wrap: nowrap; gap: 0; min-width: 0;
     margin: 0; padding: 0; list-style: none;
     justify-content: var(--bc-justify, flex-start);
     {%- unless show_nav %} flex: 1;{% endunless %}
   }
   #shopify-section-{{ section.id }} .bc__item { display: inline-flex; align-items: center; min-width: 0; flex: none; }
-  #shopify-section-{{ section.id }} .bc__item:last-child { flex: 0 1 auto; }
-  #shopify-section-{{ section.id }} .bc__item + .bc__item::before {
-    flex: none;
-    margin-inline: 10px;
-    color: color-mix(in srgb, var(--bc-link) 70%, transparent);
-    content: ""; width: 6px; height: 6px; border: solid currentColor; border-width: 1.5px 1.5px 0 0; transform: scaleX(var(--rtl-flip, 1)) rotate(45deg); margin-inline: 9px 11px;
-  }
-  #shopify-section-{{ section.id }} .bc[data-bc-sep="slash"] .bc__item + .bc__item::before { content: "/"; width: auto; height: auto; border: 0; transform: none; margin-inline: 10px; }
-  #shopify-section-{{ section.id }} .bc[data-bc-sep="dot"] .bc__item + .bc__item::before { content: ""; width: 3px; height: 3px; border: 0; border-radius: 50%; background: currentColor; transform: none; margin-inline: 10px; }
-  #shopify-section-{{ section.id }} .bc__link {
-    position: relative;
-    color: var(--bc-link); text-decoration: none; white-space: nowrap;
-    background: linear-gradient(currentColor, currentColor) no-repeat 0 100% / 0 1px;
-    transition: color .2s ease, background-size .3s cubic-bezier(.2,.7,.2,1);
-  }
-  {%- comment -%} A 44px tall tap area around each link that takes no room. {%- endcomment -%}
-  #shopify-section-{{ section.id }} .bc__link::after { content: ""; position: absolute; inset: calc(50% - 22px) 0; }
-  #shopify-section-{{ section.id }} .bc__link:hover,
-  #shopify-section-{{ section.id }} .bc__link:focus-visible { color: var(--bc-current); background-size: 100% 1px; }
-  #shopify-section-{{ section.id }} .bc__link:focus-visible { outline: 2px solid var(--bc-current); outline-offset: 3px; border-radius: 2px; }
-  #shopify-section-{{ section.id }} .bc__current {
+#shopify-section-{{ section.id }} .bc__current {
     color: var(--bc-current); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
   }
   #shopify-section-{{ section.id }} .bc__nav { position: relative; z-index: 8; display: inline-flex; align-items: center; gap: 6px; flex: none; pointer-events: auto; }
@@ -159,15 +123,7 @@
     pointer-events: auto;
     touch-action: manipulation;
   }
-  #shopify-section-{{ section.id }} .bc__btn:hover,
-  #shopify-section-{{ section.id }} .bc__btn:focus-visible {
-    background: color-mix(in srgb, var(--color-heading) 7%, transparent);
-    border-color: var(--bc-line);
-  }
-  #shopify-section-{{ section.id }} .bc__btn:focus-visible { outline: 2px solid var(--bc-current); outline-offset: 2px; }
-  #shopify-section-{{ section.id }} .bc__btn[aria-disabled="true"] { opacity: .3; pointer-events: none; }
-  #shopify-section-{{ section.id }} .bc__btn svg { width: 18px; height: 18px; display: block; }
-  #shopify-section-{{ section.id }} .bc__peek {
+#shopify-section-{{ section.id }} .bc__peek {
     position: absolute; top: calc(100% + 8px); inset-inline-end: 0; z-index: 5;
     display: flex; gap: 12px; align-items: center; width: min(260px, calc(100vw - 32px)); padding: 10px;
     background: var(--color-background); color: var(--color-text);
@@ -177,14 +133,8 @@
     transition: opacity .2s ease, transform .2s ease, visibility 0s linear .2s;
     text-transform: none; letter-spacing: normal; pointer-events: none;
   }
-  #shopify-section-{{ section.id }} .bc__btn:hover .bc__peek,
-  #shopify-section-{{ section.id }} .bc__btn:focus-visible .bc__peek {
-    opacity: 1; visibility: visible; transform: none; transition-delay: 0s;
-  }
-  #shopify-section-{{ section.id }} .bc__peek img { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; flex: none; }
-  #shopify-section-{{ section.id }} .bc__peek-title { display: block; color: var(--color-heading); font-weight: var(--subheading-weight, 500); line-height: 1.3; }
-  #shopify-section-{{ section.id }} .bc__peek .price { font-size: .95em; }
-  @media (hover: none), (max-width: 749px) {
+#shopify-section-{{ section.id }} .bc__peek-title { display: block; color: var(--color-heading); font-weight: var(--subheading-weight, 500); line-height: 1.3; }
+@media (hover: none), (max-width: 749px) {
     #shopify-section-{{ section.id }} .bc__peek { display: none; }
     #shopify-section-{{ section.id }} .bc__btn { width: 40px; height: 40px; }
     #shopify-section-{{ section.id }} .bc__btn::after { content: ""; position: absolute; inset: -3px; border-radius: 50%; }
@@ -325,7 +275,7 @@
                   {%- endif -%}
                   <span>
                     <span class="bc__peek-title">{{ item.title }}</span>
-                    {%- unless settings.hidden_price -%}{%- render 'price', scope: 'item', product: item, show_badges: false -%}{%- endunless -%}
+                    {%- unless settings.hidden_price -%}{%- render 'price', scope: 'item', product: item -%}{%- endunless -%}
                   </span>
                 </span>
               </a>
@@ -339,7 +289,8 @@
 {%- endunless -%}
 {% schema %}
 {
-  "name": "Breadcrumbs",
+  "class": "s-tt s-breadcrumb",
+"name": "Breadcrumbs",
   "settings": [
     {
       "type": "header",
@@ -349,7 +300,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Colour scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",

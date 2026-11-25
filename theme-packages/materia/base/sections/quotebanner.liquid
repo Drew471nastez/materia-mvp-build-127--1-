@@ -1,4 +1,4 @@
-<script src="{{ 'live-text.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-text.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%}
   Materia Themes. Quote Banner: one quote and its author on a card. Theme
@@ -10,7 +10,7 @@
 {%- endcomment -%}
 {%- liquid
   assign st = section.settings
-  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign quote_block = section.blocks | where: 'type', 'quote' | first
   assign author_block = section.blocks | where: 'type', 'author' | first
   case st.section_width
@@ -168,7 +168,7 @@
   class="quote-banner color-{{ color_scheme }} gradient"
   data-live-text="quotebanner"
   data-lt-section="{{ section.id }}"
-  data-lt-settings="{{ section.settings | json | escape }}"
+  {% if request.design_mode %}data-lt-settings="{{ section.settings | json | escape }}"{% endif %}
   {% if st.enable_custom_fonts %}data-own-font{% endif %}
   style="--qb-section-bg: {{ qb_section_bg | strip }}; --qb-bg: {{ qb_bg | strip }}; --qb-radius: {% if st.enable_custom_style %}{{ st.radius }}px{% else %}var(--rounded-radius, 0px){% endif %}; --qb-shadow: {% if st.enable_custom_style and st.enable_shadow %}0 8px 28px rgba(0,0,0,.18){% else %}none{% endif %}; --qb-max: {% if st.max_width == 'full' %}100%{% else %}{{ st.custom_max_width }}px{% endif %}; --qb-text-max: {{ st.text_max_width }}px; --qb-gap-top: {{ st.gap_top }}px; --qb-align-d: {{ st.text_align_desktop }}; --qb-align-m: {{ st.text_align_mobile }}; --qb-justify-d: {% if st.text_align_desktop == 'center' %}center{% else %}flex-start{% endif %}; --qb-justify-m: {% if st.text_align_mobile == 'center' %}center{% else %}flex-start{% endif %}; --qb-pt-d: {{ st.top_padding_desktop }}px; --qb-pb-d: {{ st.bottom_padding_desktop }}px; --qb-px-d: {{ st.pad_x_desktop }}px; --qb-pt-m: {{ st.top_padding_mobile }}px; --qb-pb-m: {{ st.bottom_padding_mobile }}px; --qb-px-m: {{ st.pad_x_mobile }}px; --qb-heading-font: {{ qb_heading_font | strip }}; --qb-body-font: {{ qb_body_font | strip }};"
 >
@@ -180,7 +180,7 @@
           {%- capture qb_ink -%}{% if qs.enable_custom_style %}{% render 'scheme-color', color: qs.quote_color, fallback: 'var(--color-background)' %}{% else %}var(--color-background){% endif %}{%- endcapture -%}
           <blockquote
             class="qb-quote{% if qs.use_curly_quotes %} qb-quote--curly{% endif %}"
-            data-lt-block="{{ quote_block.id }}" data-lt-type="quote" data-lt-settings="{{ qs | json | escape }}" {{ quote_block.shopify_attributes }}
+            data-lt-block="{{ quote_block.id }}" data-lt-type="quote" {% if request.design_mode %}data-lt-settings="{{ qs | json | escape }}"{% endif %} {{ quote_block.shopify_attributes }}
             {% if qs.enable_custom_fonts or st.enable_custom_fonts %}data-own-font{% endif %}
             style="--qb-quote-ink: {{ qb_ink | strip }}; --qb-quote-size-d: {{ qs.quote_size }}px; --qb-quote-size-m: {{ qs.quote_size_mobile }}px; --qb-quote-weight: {% if qs.quote_weight == 'theme' or qs.quote_weight == blank %}var(--heading-weight, 700){% else %}{{ qs.quote_weight }}{% endif %};{% if qs.enable_custom_fonts and qs.font.family != blank %} --qb-quote-font: {{ qs.font.family }}, {{ qs.font.fallback_families | default: 'sans-serif' }};{% endif %}"
           >{{ qs.quote_text | escape | newline_to_br }}</blockquote>
@@ -193,7 +193,7 @@
           {%- capture qb_author_ink -%}{% if as.enable_custom_style %}{% render 'scheme-color', color: as.author_color, fallback: 'var(--color-background)' %}{% else %}var(--color-background){% endif %}{%- endcapture -%}
           <div
             class="qb-author"
-            data-lt-block="{{ author_block.id }}" data-lt-type="author" data-lt-settings="{{ as | json | escape }}" {{ author_block.shopify_attributes }}
+            data-lt-block="{{ author_block.id }}" data-lt-type="author" {% if request.design_mode %}data-lt-settings="{{ as | json | escape }}"{% endif %} {{ author_block.shopify_attributes }}
             data-signature-position="{{ as.signature_position | default: 'right' }}"
             style="--qb-author-ink: {{ qb_author_ink | strip }}; --qb-author-size-d: {{ as.author_size }}px; --qb-author-size-m: {{ as.author_size_mobile }}px; --qb-avatar: {{ as.avatar_size }}px; --qb-sig-d: {{ as.signature_size_desktop }}px; --qb-sig-m: {{ as.signature_size_mobile }}px;"
           >
@@ -222,7 +222,7 @@
 {
   "name": "Quote Banner",
   "tag": "section",
-  "class": "section-quote-banner",
+  "class": "section-quote-banner s-tt",
   "settings": [
     {
       "type": "header",
@@ -232,7 +232,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -769,7 +769,7 @@
   "presets": [
     {
       "name": "Quote Banner",
-      "category": "Text",
+      "category": "12 · Text",
       "blocks": [
         {
           "type": "quote"

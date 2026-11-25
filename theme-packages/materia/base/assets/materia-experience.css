@@ -312,11 +312,6 @@ localization-form .disclosure__list { max-width: min(94vw, 360px); }
    fields fed the platform's rate service and are not used. */
 [data-address="root"] :is(.address_province_container, .form-group:has(#AddressZip)) { display: none !important; }
 [data-address="root"] select[name="address[country]"] { width: 100%; min-height: var(--input-height, 48px); }
-.materia-ship-result { display: grid; gap: 4px; }
-.materia-ship-result p { margin: 0; }
-.materia-ship-result__line { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; color: var(--color-heading); }
-.materia-ship-result__line strong { font-variant-numeric: tabular-nums; white-space: nowrap; }
-.materia-ship-result__note { font-size: .92em; opacity: .75; }
 /* Shipping estimate country picker: the select stays in the form, hidden,
    and this draws it like the theme's own country and language selector.
    Fields follow Theme settings > Fields; colours follow the section's scheme. */

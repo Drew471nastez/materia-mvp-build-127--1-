@@ -76,7 +76,7 @@
   }
 
   /* ---------- shared pieces ---------- */
-  const schemeOf = s => { const v = s.color_scheme && s.color_scheme.id || s.color_scheme; return typeof v === 'string' && /^[\w-]+$/.test(v) ? v : 'default-color-scheme'; };
+  const schemeOf = s => { const v = s.color_scheme && s.color_scheme.id || s.color_scheme; return typeof v === 'string' && /^[\w-]+$/.test(v) ? v : 'default'; };
   const custom = s => bool(s.enable_custom_style);
   /* the elements of this root (not of a nested root) */
   const own = (c, sel) => [...c.root.querySelectorAll(sel)].filter(el => el.closest(SEL) === c.root);

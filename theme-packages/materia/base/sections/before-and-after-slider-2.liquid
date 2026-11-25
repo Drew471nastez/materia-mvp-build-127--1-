@@ -1,7 +1,7 @@
-<script src="{{ 'media-live-before-after.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'media-live-before-after.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'before-after-media-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- assign fb_accessibility_after = 'accessibility.after' | t -%}
 {%- assign fb_accessibility_before = 'accessibility.before' | t -%}
@@ -41,7 +41,14 @@
   assign st = section.settings
   assign sid = section.id
   assign custom = st.enable_custom_style
-  assign placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Cg fill=%22%23808080%22 fill-opacity=%220.5%22%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22/%3E%3C/g%3E%3C/svg%3E'
+  capture placeholder
+    render 'placeholder-image', type: 'collection-4', scheme: color_scheme, ratio: '1/1', format: 'url'
+  endcapture
+  assign placeholder = placeholder | strip
+  capture placeholder_after
+    render 'placeholder-image', type: 'collection-5', scheme: color_scheme, ratio: '1/1', format: 'url'
+  endcapture
+  assign placeholder_after = placeholder_after | strip
   assign slider_block = section.blocks | where: 'type', 'slider' | first
   assign image_fr = st.image_col_fr | default: 1
   assign content_fr = st.content_col_fr | default: 1
@@ -196,7 +203,7 @@
   {%- endfor %}
 </style>
 {% render 'media-ba-compare-style', sid: sid %}
-<section class="ba2 color-{{ color_scheme }} gradient" data-bam-root="slider-2" data-bam-section="{{ sid }}" data-bam-settings="{{ st | json | escape }}" data-bam-defaults='{"color_scheme":"default-color-scheme","section_width":"full_width","show_section_on":"all","reset_spacing":true,"section_max_width_desktop":1200,"image_position":"left","image_col_fr":1,"content_col_fr":1,"layout_gap_desktop":64,"content_gap":18,"content_align":"left","image_aspect":"1 / 1","image_radius":8,"start_position":50,"handle_icon":"arrows","handle_size":44,"handle_border_width":2,"handle_line_width":3,"show_labels":false,"label_size":12,"label_weight":"700","label_tracking":0.5,"label_transform":"uppercase","label_pad_x":12,"label_pad_y":6,"label_radius":100,"label_offset":16,"enable_custom_style":false,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","padding_top_desktop":96,"padding_bottom_desktop":96,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"layout_gap_mobile":32,"padding_top_mobile":48,"padding_bottom_mobile":48,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}' data-bam-block-defaults='{"slider":{"before_label":"Before","after_label":"After"},"heading":{"text":"See the difference, side by side","tag":"h2","enable_custom_style":false,"weight_enable":false,"weight":"700","size_enable":false,"size_desktop":48,"size_mobile":32,"line_height":1.1,"tracking":0,"enable_custom_fonts":false,"font":"assistant_n4"},"subheading":{"text":"<p>Drag the handle to compare and see what our product can do.</p>","enable_custom_style":false,"size_enable":false,"size":16,"line_height":1.5,"enable_custom_fonts":false,"font":"assistant_n4","max_width":460},"button":{"text":"Shop now","link":"/","enable_custom_style":false,"use_theme_button":true,"border_width":0,"radius":100,"size":15,"weight_enable":false,"weight":"600","enable_custom_fonts":false,"font":"assistant_n4","pad_x":28,"pad_y":14,"gap_top":6}}' data-bam-placeholder="{{ placeholder | escape }}" data-width="{{ st.section_width }}" data-show="{{ st.show_section_on | default: 'all' }}" data-position="{{ st.image_position | default: 'left' }}" data-labels="{% if st.show_labels %}true{% else %}false{% endif %}">
+<section class="ba2 color-{{ color_scheme }} gradient" data-bam-root="slider-2" data-bam-section="{{ sid }}" {% if request.design_mode %}data-bam-settings="{{ st | json | escape }}"{% endif %} {% if request.design_mode %}data-bam-defaults='{"color_scheme":"default","section_width":"full_width","show_section_on":"all","reset_spacing":true,"section_max_width_desktop":1200,"image_position":"left","image_col_fr":1,"content_col_fr":1,"layout_gap_desktop":64,"content_gap":18,"content_align":"left","image_aspect":"1 / 1","image_radius":8,"start_position":50,"handle_icon":"arrows","handle_size":44,"handle_border_width":2,"handle_line_width":3,"show_labels":false,"label_size":12,"label_weight":"700","label_tracking":0.5,"label_transform":"uppercase","label_pad_x":12,"label_pad_y":6,"label_radius":100,"label_offset":16,"enable_custom_style":false,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","padding_top_desktop":96,"padding_bottom_desktop":96,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"layout_gap_mobile":32,"padding_top_mobile":48,"padding_bottom_mobile":48,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}'{% endif %} {% if request.design_mode %}data-bam-block-defaults='{"slider":{"before_label":"Before","after_label":"After"},"heading":{"text":"See the difference, side by side","tag":"h2","enable_custom_style":false,"weight_enable":false,"weight":"700","size_enable":false,"size_desktop":48,"size_mobile":32,"line_height":1.1,"tracking":0,"enable_custom_fonts":false,"font":"assistant_n4"},"subheading":{"text":"<p>Drag the handle to compare and see what our product can do.</p>","enable_custom_style":false,"size_enable":false,"size":16,"line_height":1.5,"enable_custom_fonts":false,"font":"assistant_n4","max_width":460},"button":{"text":"Shop now","link":"/","enable_custom_style":false,"use_theme_button":true,"border_width":0,"radius":100,"size":15,"weight_enable":false,"weight":"600","enable_custom_fonts":false,"font":"assistant_n4","pad_x":28,"pad_y":14,"gap_top":6}}'{% endif %} data-bam-placeholder="{{ placeholder | escape }}" data-width="{{ st.section_width }}" data-show="{{ st.show_section_on | default: 'all' }}" data-position="{{ st.image_position | default: 'left' }}" data-labels="{% if st.show_labels %}true{% else %}false{% endif %}">
   <div class="ba2__inner">
     <div class="ba2__layout">
       <div class="ba2__media">
@@ -208,11 +215,11 @@
           assign before_alt = slider_block.settings.before_alt | default: before_img.alt | default: before_label
           assign after_alt = slider_block.settings.after_alt | default: after_img.alt | default: after_label
         -%}
-        <div class="bam-compare" data-bam-compare data-bar="true" data-circle="true" style="--bam-pos: {{ start }}%;"{% if slider_block %} data-bam-block="{{ slider_block.id }}" data-bam-type="slider" data-bam-settings="{{ slider_block.settings | json | escape }}" {{ slider_block.shopify_attributes }}{% endif %}>
+        <div class="bam-compare" data-bam-compare data-bar="true" data-circle="true" style="--bam-pos: {{ start }}%;"{% if slider_block %} data-bam-block="{{ slider_block.id }}" data-bam-type="slider" {% if request.design_mode %}data-bam-settings="{{ slider_block.settings | json | escape }}"{% endif %} {{ slider_block.shopify_attributes }}{% endif %}>
           {%- if after_img != blank -%}
             <img class="bam-compare__img" data-bam-image="after_image" src="{{ after_img | image_url: width: 1600 }}" srcset="{{ after_img | image_url: width: 800 }} 800w, {{ after_img | image_url: width: 1600 }} 1600w" sizes="(min-width: 992px) 50vw, 100vw" alt="{{ after_alt | escape }}" width="{{ after_img.width | default: 1600 }}" height="{{ after_img.height | default: 1600 }}" loading="lazy" decoding="async" draggable="false">
           {%- else -%}
-            <img class="bam-compare__img" data-bam-image="after_image" src="{{ placeholder }}" alt="" width="1600" height="1600" loading="lazy" decoding="async" draggable="false">
+            <img class="bam-compare__img" data-bam-image="after_image" src="{{ placeholder_after }}" alt="" width="1600" height="1600" loading="lazy" decoding="async" draggable="false">
           {%- endif -%}
           <span class="bam-compare__label bam-compare__label--after" data-bam-text="after_label">{{ after_label | escape }}</span>
           <div class="bam-compare__before">
@@ -247,16 +254,16 @@
           {%- if bs.enable_custom_fonts and bs.font.family -%}{%- assign block_font = true -%}{%- endif -%}
           {%- case block.type -%}
             {%- when 'heading' -%}
-              <h2 class="ba2__heading" data-bam-block="{{ block.id }}" data-bam-type="heading" data-bam-settings="{{ bs | json | escape }}" data-size="{% if bs.size_enable %}true{% else %}false{% endif %}" data-weight="{% if bs.weight_enable %}true{% else %}false{% endif %}"{% if sec_head_font or block_font %} data-own-font{% endif %}{% if bs.weight_enable %} data-own-weight{% endif %}{% if bs.size_enable %} data-own-size{% endif %}{% if bs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ bs.text }}</h2>
+              <h2 class="ba2__heading" data-bam-block="{{ block.id }}" data-bam-type="heading" {% if request.design_mode %}data-bam-settings="{{ bs | json | escape }}"{% endif %} data-size="{% if bs.size_enable %}true{% else %}false{% endif %}" data-weight="{% if bs.weight_enable %}true{% else %}false{% endif %}"{% if sec_head_font or block_font %} data-own-font{% endif %}{% if bs.weight_enable %} data-own-weight{% endif %}{% if bs.size_enable %} data-own-size{% endif %}{% if bs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ bs.text }}</h2>
             {%- when 'subheading' -%}
-              <div class="ba2__sub" data-bam-block="{{ block.id }}" data-bam-type="subheading" data-bam-settings="{{ bs | json | escape }}" data-size="{% if bs.size_enable %}true{% else %}false{% endif %}"{% if sec_body_font or block_font %} data-own-font{% endif %}{% if bs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ bs.text }}</div>
+              <div class="ba2__sub" data-bam-block="{{ block.id }}" data-bam-type="subheading" {% if request.design_mode %}data-bam-settings="{{ bs | json | escape }}"{% endif %} data-size="{% if bs.size_enable %}true{% else %}false{% endif %}"{% if sec_body_font or block_font %} data-own-font{% endif %}{% if bs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ bs.text }}</div>
             {%- when 'button' -%}
               {%- capture btn_style -%}{%- if bs.enable_custom_style -%}{%- render 'button-overrides', bg: bs.bg, text: bs.color, border: bs.border_color, hover_bg: bs.bg_hover, hover_text: bs.color_hover -%}{%- endif -%}{%- if bs.use_theme_button == false -%}{%- if bs.weight_enable -%}{%- assign btn_weight = bs.weight -%}{%- else -%}{%- assign btn_weight = nil -%}{%- endif -%}{%- render 'button-overrides', custom: true, radius: bs.radius, padding_y: bs.pad_y, padding_x: bs.pad_x, font_size: bs.size, weight: btn_weight, border_width: bs.border_width -%}{%- if block_font -%}--mb-font: {{ bs.font.family }}, {{ bs.font.fallback_families | default: 'sans-serif' }};{%- endif -%}{%- endif -%}margin-top: {{ bs.gap_top | default: 0 }}px;{%- endcapture -%}
               {%- capture btn_own -%}{%- if bs.use_theme_button == false %} data-own-shape{%- if bs.weight_enable %} data-own-weight{%- endif -%}{%- if block_font %} data-own-font{%- endif -%}{%- endif -%}{%- endcapture -%}
               {%- if bs.link != blank -%}
-                <a class="ba2__btn" href="{{ bs.link }}" data-bam-block="{{ block.id }}" data-bam-type="button" data-bam-settings="{{ bs | json | escape }}" data-theme-button="primary" data-sl-button data-button-role="primary"{{ btn_own }} style="{{ btn_style | strip }}"{% if bs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ bs.text | escape }}</a>
+                <a class="ba2__btn" href="{{ bs.link }}" data-bam-block="{{ block.id }}" data-bam-type="button" {% if request.design_mode %}data-bam-settings="{{ bs | json | escape }}"{% endif %} data-theme-button="primary" data-sl-button data-button-role="primary"{{ btn_own }} style="{{ btn_style | strip }}"{% if bs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ bs.text | escape }}</a>
               {%- else -%}
-                <button class="ba2__btn" type="button" data-bam-block="{{ block.id }}" data-bam-type="button" data-bam-settings="{{ bs | json | escape }}" data-theme-button="primary" data-sl-button data-button-role="primary"{{ btn_own }} style="{{ btn_style | strip }}"{% if bs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ bs.text | escape }}</button>
+                <button class="ba2__btn" type="button" data-bam-block="{{ block.id }}" data-bam-type="button" {% if request.design_mode %}data-bam-settings="{{ bs | json | escape }}"{% endif %} data-theme-button="primary" data-sl-button data-button-role="primary"{{ btn_own }} style="{{ btn_style | strip }}"{% if bs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ bs.text | escape }}</button>
               {%- endif -%}
           {%- endcase -%}
         {%- endfor -%}
@@ -269,7 +276,8 @@
   {%- endif -%}
 </section>{% schema %}
 {
-  "name": "Before/After Slider 2",
+  "class": "s-tt",
+"name": "Before/After Slider 2",
   "settings": [
     {
       "type": "header",
@@ -279,7 +287,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -888,7 +896,6 @@
               "label": "H4"
             }
           ],
-          "hidden": true,
           "visible_if": "{{ false }}",
           "info": "The section heading is always an h2, under the page h1."
         },
@@ -1265,8 +1272,8 @@
   ],
   "presets": [
     {
-      "name": "Before/After Slider 2",
-      "category": "Features",
+      "name": "Before & After – Slider with Text",
+      "category": "09 · Comparisons",
       "blocks": [
         {
           "type": "slider"

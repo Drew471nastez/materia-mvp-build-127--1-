@@ -1,0 +1,1283 @@
+{% render 'theme-type' %}
+{%- comment -%}
+  Materia Themes. Boutique Rail: garments hang on a clothes rail. Hovering a
+  garment turns it to face the shopper while its neighbours slide aside and
+  its hanger swings; clicking lifts it into a focus view with front and back,
+  sizes and Add to cart (the theme's cart drawer). Phones swipe the rail.
+
+  What hangs: the products of Collection (and Collection 2, as a second tab
+  named after it). A Garment block whose product is on the rail gives that
+  product its own side / front / back pictures; a Garment block whose product
+  is in neither collection hangs after the first collection's products. With
+  no collection the rail is the Garment blocks, as they are ordered.
+
+  Pictures: transparent PNG / WebP of each garment on a hanger. Product photos
+  with a background hang as tidy cards instead (Product pictures setting).
+  Every picture is asked for at the size it is shown. No app, no external script.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
+  assign g_h = st.garment_height | default: 300
+  assign g_hm = st.garment_height_mobile | default: 230
+  # Display sizes: a side view is about 0.42 of the garment height wide, a front
+  # view about 0.86; pictures are asked for at twice that, for sharp screens.
+  assign side_w = g_h | times: 0.84 | ceil
+  assign front_w = g_h | times: 1.72 | ceil
+  # image_tag wants its widths as text ("126,252"): the display size and twice it.
+  assign side_half = side_w | divided_by: 2
+  assign front_half = front_w | divided_by: 2
+  assign side_ws = side_half | append: ',' | append: side_w
+  assign front_ws = front_half | append: ',' | append: front_w
+  assign side_sz = side_half | append: 'px'
+  assign front_sz = front_half | append: 'px'
+  assign focus_w = 1200
+
+  assign garments = section.blocks | where: 'type', 'garment'
+
+  # Tabs: one per chosen collection (Collection first). No collection: one rail of Garment blocks.
+  assign col_1 = ''
+  assign col_2 = ''
+  assign label_1 = ''
+  assign label_2 = ''
+  assign bg_1 = ''
+  assign bg_2 = ''
+  if st.collection != blank
+    assign col_1 = st.collection
+    assign label_1 = st.collection.title
+    assign bg_1 = st.collection_image
+    if st.collection_2 != blank
+      assign col_2 = st.collection_2
+      assign label_2 = st.collection_2.title
+      assign bg_2 = st.collection_2_image
+    endif
+  elsif st.collection_2 != blank
+    assign col_1 = st.collection_2
+    assign label_1 = st.collection_2.title
+    assign bg_1 = st.collection_2_image
+  endif
+  assign tab_count = 0
+  assign list_1 = empty
+  assign list_2 = empty
+  if col_1 != blank
+    assign tab_count = 1
+    assign list_1 = col_1.products | slice: 0, st.products_limit
+  endif
+  if col_2 != blank
+    assign tab_count = 2
+    assign list_2 = col_2.products | slice: 0, st.products_limit
+  endif
+  assign track_count = tab_count | at_least: 1
+
+  assign section_bg = ''
+  if st.style == 'image' and st.background_image != blank
+    assign section_bg = st.background_image
+  endif
+  assign ph_names = st.sample_names | split: ','
+-%}
+<style>
+  #shopify-section-{{ sid }} .brail *, #shopify-section-{{ sid }} .brail *::before, #shopify-section-{{ sid }} .brail *::after { box-sizing: border-box; }
+  #shopify-section-{{ sid }} .brail {
+    --g-h: {{ g_hm }}px;
+    --gap: {{ st.garment_gap_mobile | default: 6 }}px;
+    --side-gap: {{ st.hover_side_gap }}px;
+    --turn: {{ st.turn_speed }}ms;
+    --swing: {{ st.hanger_swing }}deg;
+    --side-box: calc(var(--g-h) * 0.42);
+    --front-box: calc(var(--g-h) * 0.86);
+    --shift: calc((var(--front-box) - var(--side-box)) / 2 + var(--side-gap));
+    --ease: cubic-bezier(.22, 1, .36, 1);
+    --line: var(--color-border, color-mix(in srgb, var(--color-text) 14%, transparent));
+    /* A custom element is inline by default, and an inline box ignores top and
+       bottom padding for its content: block, so the padding settings apply. */
+    display: block;
+    position: relative;
+    overflow: hidden;
+    background: var(--color-background);
+    color: var(--color-text);
+    padding-block: {{ st.padding_top_mobile }}px {{ st.padding_bottom_mobile }}px;
+    {%- if st.full_height %} min-height: calc(100svh - var(--header-offset, 0px)); display: flex; flex-direction: column; justify-content: center;{% endif %}
+  }
+  @media (min-width: 990px) {
+    #shopify-section-{{ sid }} .brail { --g-h: {{ g_h }}px; --gap: {{ st.garment_gap }}px; padding-block: {{ st.padding_top }}px {{ st.padding_bottom }}px; }
+  }
+  {%- case st.section_spacing -%}
+    {%- when 'none' %} #shopify-section-{{ sid }} .brail { margin-block: 0; }
+    {%- when 'top' %} #shopify-section-{{ sid }} .brail { margin-block: var(--section-spacing) 0; }
+    {%- when 'bottom' %} #shopify-section-{{ sid }} .brail { margin-block: 0 var(--section-spacing); }
+    {%- else %} #shopify-section-{{ sid }} .brail { margin-block: var(--section-spacing); }
+  {%- endcase %}
+
+  /* Background pictures: the section's, and one per collection tab (cross-fade on switch) */
+  #shopify-section-{{ sid }} .brail__bg { position: absolute; inset: 0; z-index: 0; opacity: 0; transition: opacity .6s ease; }
+  #shopify-section-{{ sid }} .brail__bg.is-on { opacity: 1; }
+  #shopify-section-{{ sid }} .brail__bg img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  #shopify-section-{{ sid }} .brail__bg::after { content: ''; position: absolute; inset: 0; background: rgb(0 0 0 / {{ st.overlay_opacity }}%); }
+  #shopify-section-{{ sid }} .brail__inner { position: relative; z-index: 1; }
+
+  /* Heading: eyebrow, or the collections as tabs */
+  #shopify-section-{{ sid }} .brail__head { text-align: center; padding-inline: 20px; margin-bottom: clamp(18px, 3vw, 36px); }
+  #shopify-section-{{ sid }} .brail__eyebrow { display: inline-flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 12px; margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: var(--color-heading); }
+  #shopify-section-{{ sid }} .brail__eyebrow > span + span { padding-left: 12px; border-left: 1px solid var(--line); opacity: .55; }
+  #shopify-section-{{ sid }} .brail__tabs { display: inline-flex; flex-wrap: wrap; justify-content: center; align-items: center; margin: 0; padding: 0; }
+  #shopify-section-{{ sid }} .brail__tab {
+    position: relative; padding: 8px 14px; border: 0; background: none; cursor: pointer; color: var(--color-heading);
+    font: inherit; font-size: 11px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; opacity: .5; transition: opacity .25s ease;
+  }
+  #shopify-section-{{ sid }} .brail__tab + .brail__tab::before { content: ''; position: absolute; left: 0; top: 30%; bottom: 30%; width: 1px; background: currentColor; opacity: .35; }
+  #shopify-section-{{ sid }} .brail__tab::after { content: ''; position: absolute; left: 14px; right: 14px; bottom: 2px; height: 1px; background: currentColor; scale: 0 1; transition: scale .4s var(--ease); }
+  #shopify-section-{{ sid }} .brail__tab[aria-pressed='true'] { opacity: 1; }
+  #shopify-section-{{ sid }} .brail__tab[aria-pressed='true']::after { scale: 1 1; }
+  @media (hover: hover) { #shopify-section-{{ sid }} .brail__tab:hover { opacity: .85; } }
+  #shopify-section-{{ sid }} .brail__heading { margin: 14px 0 0; color: var(--color-heading); letter-spacing: -0.02em; text-wrap: balance; }
+
+  /* The rail */
+  #shopify-section-{{ sid }} .brail__stage { position: relative; }
+  #shopify-section-{{ sid }} .brail__bar { position: absolute; left: 0; right: 0; top: 14px; height: 6px; border-radius: 3px; z-index: 0; pointer-events: none;
+    background: linear-gradient(180deg, #e9e9e9 0%, #b9b9b9 45%, #8d8d8d 100%); box-shadow: 0 2px 4px rgb(0 0 0 / .12); }
+  #shopify-section-{{ sid }} .brail__bar::before, #shopify-section-{{ sid }} .brail__bar::after { content: ''; position: absolute; top: -5px; width: 16px; height: 16px; border-radius: 3px; background: linear-gradient(180deg, #ddd, #9a9a9a); }
+  #shopify-section-{{ sid }} .brail__bar::before { left: 0; } #shopify-section-{{ sid }} .brail__bar::after { right: 0; }
+  #shopify-section-{{ sid }} .brail__track {
+    position: relative; z-index: 1;
+    display: flex; align-items: flex-start; gap: var(--gap);
+    list-style: none; margin: 0; padding: 0 max(20px, calc((100% - var(--rail-w, 100%)) / 2)) 24px;
+    overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+  #shopify-section-{{ sid }} .brail__track[hidden] { display: none; }
+  #shopify-section-{{ sid }} .brail__track::-webkit-scrollbar { display: none; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .brail__track { justify-content: safe center; scroll-snap-type: none; padding-inline: 40px; } }
+  #shopify-section-{{ sid }} .brail__item { flex: 0 0 var(--side-box); scroll-snap-align: center; transition: transform var(--turn) var(--ease); }
+
+  #shopify-section-{{ sid }} .brail__g {
+    position: relative; display: block; width: var(--side-box); height: calc(var(--g-h) + 34px);
+    padding: 0; border: 0; background: none; cursor: pointer; color: inherit; font: inherit;
+    transform-origin: 50% 14px; -webkit-tap-highlight-color: transparent; outline: none;
+  }
+  #shopify-section-{{ sid }} .brail__g:focus-visible .brail__pic { outline: 2px solid currentColor; outline-offset: 4px; border-radius: 8px; }
+  #shopify-section-{{ sid }} .brail__hook { position: absolute; top: 4px; left: 50%; width: 22px; height: 30px; translate: -50% 0; color: #8c8c8c; }
+  #shopify-section-{{ sid }} .brail__tag {
+    position: absolute; top: 30px; left: 50%; z-index: 3; translate: calc(-50% + 10px) 0; rotate: -4deg;
+    padding: 3px 6px; border-radius: 3px; background: #fff; color: #111; box-shadow: 0 1px 3px rgb(0 0 0 / .18);
+    font-size: 10px; font-weight: 700; line-height: 1.2; white-space: nowrap; font-variant-numeric: tabular-nums;
+  }
+  #shopify-section-{{ sid }} .brail__pic { position: absolute; left: 50%; top: 26px; width: var(--front-box); height: var(--g-h); translate: -50% 0; pointer-events: none; perspective: 900px; }
+  #shopify-section-{{ sid }} .brail__pic img, #shopify-section-{{ sid }} .brail__pic svg {
+    position: absolute; inset: 0; margin: auto; width: 100%; height: 100%; object-fit: contain; object-position: 50% 0;
+    backface-visibility: hidden; transition: transform var(--turn) var(--ease), opacity var(--turn) var(--ease);
+    filter: drop-shadow(0 10px 12px rgb(0 0 0 / .14));
+  }
+  #shopify-section-{{ sid }} .brail__g--sample { cursor: default; }
+  #shopify-section-{{ sid }} .brail__side { transform: rotateY(0deg); }
+  #shopify-section-{{ sid }} .brail__front { transform: rotateY(-90deg); opacity: 0; }
+  /* Product photos with a background hang as tidy cards: a narrow crop on the rail, the whole picture when it turns. */
+  #shopify-section-{{ sid }} .brail__pic--card img { inset: 4px 0 auto; margin: 0 auto; object-position: 50% 50%; border-radius: 6px; background: #fff; filter: none; box-shadow: 0 14px 26px -14px rgb(0 0 0 / .45), 0 0 0 1px rgb(0 0 0 / .04); }
+  #shopify-section-{{ sid }} .brail__pic--card .brail__side { width: calc(var(--side-box) * .94); height: calc(var(--side-box) * 1.38); object-fit: cover; }
+  #shopify-section-{{ sid }} .brail__pic--card .brail__front { width: calc(var(--front-box) * .9); height: min(var(--g-h), calc(var(--front-box) * 1.12)); object-fit: contain; padding: 6px; }
+
+  /* Hover (and keyboard focus): the garment turns to face you, its neighbours slide aside, the hanger swings. */
+  @media (hover: hover) and (pointer: fine) {
+    #shopify-section-{{ sid }} .brail__item.is-hot .brail__side { transform: rotateY(90deg); opacity: 0; }
+    #shopify-section-{{ sid }} .brail__item.is-hot .brail__front { transform: rotateY(0deg); opacity: 1; }
+    #shopify-section-{{ sid }} .brail__item.is-hot { z-index: 2; position: relative; }
+    #shopify-section-{{ sid }} .brail__track:has(.is-hot) .brail__item:has(~ .is-hot) { transform: translateX(calc(-1 * var(--shift))); }
+    #shopify-section-{{ sid }} .brail__item.is-hot ~ .brail__item { transform: translateX(var(--shift)); }
+    #shopify-section-{{ sid }} .brail__item.is-hot .brail__tag { translate: calc(-50% + var(--front-box) * .28) 0; transition: translate var(--turn) var(--ease); }
+    #shopify-section-{{ sid }} .brail__item.is-hot .brail__pic { translate: -50% -6px; }
+  }
+  #shopify-section-{{ sid }} .brail__tag { transition: translate var(--turn) var(--ease); }
+  /* The swing itself is a small damped pendulum run in script (see push()), so it eases out naturally and follows the pointer's direction. */
+  #shopify-section-{{ sid }} .brail__g { will-change: rotate; }
+  #shopify-section-{{ sid }} .brail__pic { transition: translate var(--turn) cubic-bezier(.22, 1, .36, 1); }
+
+  /* Garments drop onto the rail when it comes into view, and when a collection tab is opened */
+  #shopify-section-{{ sid }} [data-drop] .brail__g { opacity: 0; transform: translateY(-48px); }
+  #shopify-section-{{ sid }} [data-drop].is-in .brail__g { opacity: 1; transform: none; transition: opacity .5s ease, transform .9s cubic-bezier(.34, 1.4, .64, 1); transition-delay: calc(var(--i, 0) * 55ms); }
+  /* ...and lift off it when another tab is opened */
+  #shopify-section-{{ sid }} .brail__track.is-leaving .brail__g { opacity: 0; transform: translateY(-28px); transition: opacity .26s ease, transform .32s var(--ease); transition-delay: calc(min(var(--i, 0), 8) * 18ms); }
+
+  /* Arrows (desktop, when the rail is wider than the screen) */
+  #shopify-section-{{ sid }} .brail__arrow { position: absolute; top: calc(26px + var(--g-h) / 2); z-index: 4; translate: 0 -50%; display: none; place-items: center; width: 46px; height: 46px; border-radius: 50%; border: 0; background: color-mix(in srgb, var(--color-background) 85%, transparent); color: var(--color-heading); box-shadow: 0 4px 18px rgb(0 0 0 / .12); cursor: pointer; transition: opacity .25s ease, transform .25s ease; }
+  #shopify-section-{{ sid }} .brail__arrow--prev { left: 16px; } #shopify-section-{{ sid }} .brail__arrow--next { right: 16px; }
+  #shopify-section-{{ sid }} .brail__arrow[disabled] { opacity: 0; pointer-events: none; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} [data-overflow] .brail__arrow { display: grid; } }
+
+  /* Caption, dots, button */
+  #shopify-section-{{ sid }} .brail__foot { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 8px 20px 0; text-align: center; }
+  #shopify-section-{{ sid }} .brail__caption { margin: 0; min-height: 1.5em; font-size: 15px; font-weight: 500; color: var(--color-heading); transition: opacity .2s ease; max-width: 52ch; }
+  #shopify-section-{{ sid }} .brail__caption:empty { display: none; }
+  #shopify-section-{{ sid }} .brail__caption.is-swap { opacity: 0; }
+  #shopify-section-{{ sid }} .brail__dots { display: inline-flex; gap: 5px; padding: 6px 10px; border-radius: 99px; background: color-mix(in srgb, var(--color-text) 6%, transparent); }
+  #shopify-section-{{ sid }} .brail__dots:empty { display: none; }
+  #shopify-section-{{ sid }} .brail__dot { width: 5px; height: 5px; border-radius: 99px; background: color-mix(in srgb, var(--color-text) 25%, transparent); transition: width .3s var(--ease), background-color .3s ease; }
+  #shopify-section-{{ sid }} .brail__dot.is-on { width: 22px; background: var(--color-heading); }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .brail__dots { display: none; } }
+  @media (max-width: 989px) {
+    #shopify-section-{{ sid }} .brail__head { margin-bottom: 14px; }
+    #shopify-section-{{ sid }} .brail__tab { padding: 8px 10px; letter-spacing: .14em; }
+    #shopify-section-{{ sid }} .brail__tab::after { left: 10px; right: 10px; }
+    #shopify-section-{{ sid }} .brail__caption { font-size: 14px; }
+  }
+
+  /* Focus view */
+  #shopify-section-{{ sid }} .brail__focus { position: fixed; inset: 0; z-index: 60; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: var(--color-background); color: var(--color-text); overflow-y: auto; overscroll-behavior: contain; }
+  #shopify-section-{{ sid }} .brail__focus::backdrop { background: transparent; }
+  #shopify-section-{{ sid }} .brail__focus[open] { animation: brailIn .45s var(--ease); }
+  #shopify-section-{{ sid }} .brail__focus[open] .bf__media { animation: brailRise .7s var(--ease) both; }
+  #shopify-section-{{ sid }} .brail__focus[open] .bf__info > * { animation: brailUp .6s var(--ease) both; }
+  #shopify-section-{{ sid }} .brail__focus[open] .bf__info > :nth-child(2) { animation-delay: 60ms; }
+  #shopify-section-{{ sid }} .brail__focus[open] .bf__info > :nth-child(3) { animation-delay: 100ms; }
+  #shopify-section-{{ sid }} .brail__focus[open] .bf__info > :nth-child(n+4) { animation-delay: 150ms; }
+  #shopify-section-{{ sid }} .brail__focus.is-closing { animation: brailOut .3s ease forwards; }
+  @keyframes brailRise { from { opacity: 0; transform: translateY(28px) scale(.97); } }
+  @keyframes brailUp { from { opacity: 0; transform: translateY(12px); } }
+  @keyframes brailOut { to { opacity: 0; } }
+  @keyframes brailIn { from { opacity: 0; } }
+  #shopify-section-{{ sid }} .bf { min-height: 100%; display: grid; grid-template-columns: 1fr; align-items: center; gap: 24px; padding: 64px 20px calc(28px + env(safe-area-inset-bottom, 0px)); }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .bf { grid-template-columns: minmax(0, 1.25fr) minmax(320px, 420px); gap: clamp(32px, 6vw, 110px); padding: 56px clamp(32px, 7vw, 120px); } }
+  #shopify-section-{{ sid }} .bf__media { position: relative; display: grid; place-items: center; height: min(70svh, 720px); }
+  @media (max-width: 989px) { #shopify-section-{{ sid }} .bf__media { height: 48svh; } }
+  #shopify-section-{{ sid }} .bf__media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: 50% 0; transition: opacity .35s ease, transform .5s var(--ease); filter: drop-shadow(0 18px 22px rgb(0 0 0 / .14)); }
+  #shopify-section-{{ sid }} .bf__media.is-photo img { inset: 0; margin: auto; width: auto; height: auto; max-width: 100%; max-height: 100%; object-position: 50% 50%; border-radius: 10px; filter: none; box-shadow: 0 24px 50px -28px rgb(0 0 0 / .45); }
+  #shopify-section-{{ sid }} .bf__media img[hidden] { display: block; opacity: 0; transform: scale(.98); pointer-events: none; }
+  #shopify-section-{{ sid }} .bf__hook { position: absolute; top: -64px; left: 50%; width: 1.5px; height: 68px; background: #8c8c8c; translate: -50% 0; }
+  #shopify-section-{{ sid }} .bf__media.is-photo .bf__hook { display: none; }
+  #shopify-section-{{ sid }} .bf__info { display: flex; flex-direction: column; gap: 14px; max-width: 420px; width: 100%; justify-self: center; }
+  #shopify-section-{{ sid }} .bf__count { font-size: 11px; letter-spacing: .14em; opacity: .55; font-variant-numeric: tabular-nums; }
+  #shopify-section-{{ sid }} .bf__title { margin: 0; font-size: clamp(22px, 2.4vw, 30px); line-height: 1.15; color: var(--color-heading); }
+  #shopify-section-{{ sid }} .bf__price { display: flex; gap: 10px; align-items: baseline; font-size: 16px; font-weight: 600; color: var(--color-heading); }
+  #shopify-section-{{ sid }} .bf__price s { font-weight: 400; opacity: .55; font-size: 14px; }
+  #shopify-section-{{ sid }} .bf__tabs { display: flex; gap: 18px; font-size: 13px; }
+  #shopify-section-{{ sid }} .bf__tabs[hidden] { display: none; }
+  #shopify-section-{{ sid }} .bf__tab { padding: 0 0 4px; border: 0; background: none; color: inherit; cursor: pointer; opacity: .5; border-bottom: 1px solid transparent; transition: opacity .2s ease, border-color .2s ease; }
+  #shopify-section-{{ sid }} .bf__tab[aria-pressed='true'] { opacity: 1; border-color: currentColor; }
+  #shopify-section-{{ sid }} .bf__opt { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  #shopify-section-{{ sid }} .bf__opt legend { padding: 0; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; opacity: .6; margin-bottom: 8px; }
+  #shopify-section-{{ sid }} .bf__vals { display: flex; flex-wrap: wrap; gap: 8px; }
+  #shopify-section-{{ sid }} .bf__val { min-width: 40px; height: 40px; padding: 0 12px; border-radius: 99px; border: 1px solid var(--line); background: transparent; color: var(--color-heading); font: inherit; font-size: 13px; cursor: pointer; transition: background-color .2s ease, color .2s ease, border-color .2s ease; }
+  #shopify-section-{{ sid }} .bf__val[aria-pressed='true'] { background: var(--color-heading); border-color: var(--color-heading); color: var(--color-background); }
+  #shopify-section-{{ sid }} .bf__val.is-off { opacity: .4; text-decoration: line-through; }
+  #shopify-section-{{ sid }} .bf__atc { width: 100%; min-height: 52px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; }
+  #shopify-section-{{ sid }} .bf__atc[aria-busy='true'] { opacity: .6; pointer-events: none; }
+  #shopify-section-{{ sid }} .bf__atc[aria-busy='true']::before { content: ''; width: 14px; height: 14px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: brailSpin .7s linear infinite; }
+  @keyframes brailSpin { to { rotate: 360deg; } }
+  #shopify-section-{{ sid }} .bf__msg { min-height: 1.2em; margin: 0; font-size: 13px; }
+  #shopify-section-{{ sid }} .bf__more { display: flex; justify-content: space-between; gap: 16px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 13px; }
+  #shopify-section-{{ sid }} .bf__more a { color: var(--color-heading); }
+  #shopify-section-{{ sid }} .bf__more a[hidden] { display: none; }
+  #shopify-section-{{ sid }} .bf__close, #shopify-section-{{ sid }} .bf__nav { position: absolute; z-index: 2; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--color-background); color: var(--color-heading); cursor: pointer; }
+  #shopify-section-{{ sid }} .bf__close { top: 14px; right: 14px; }
+  /* Arrows at the sides (desktop), at the top on phones */
+  #shopify-section-{{ sid }} .bf__nav { top: 14px; border: 0; background: transparent; width: 52px; height: 52px; transition: transform .3s var(--ease), opacity .2s ease; }
+  #shopify-section-{{ sid }} .bf__nav svg { width: 26px; height: 26px; }
+  #shopify-section-{{ sid }} .bf__nav--prev { left: 8px; } #shopify-section-{{ sid }} .bf__nav--next { left: 60px; }
+  #shopify-section-{{ sid }} .bf__nav[hidden] { display: none; }
+  @media (min-width: 990px) {
+    #shopify-section-{{ sid }} .bf__nav { top: 50%; translate: 0 -50%; }
+    #shopify-section-{{ sid }} .bf__nav--prev { left: clamp(12px, 2vw, 32px); }
+    #shopify-section-{{ sid }} .bf__nav--next { left: auto; right: clamp(12px, 2vw, 32px); }
+    #shopify-section-{{ sid }} .bf__nav--prev:hover { transform: translateX(-4px); } #shopify-section-{{ sid }} .bf__nav--next:hover { transform: translateX(4px); }
+  }
+  html.brail-lock { overflow: hidden; }
+  @media (prefers-reduced-motion: reduce) {
+    #shopify-section-{{ sid }} .brail * { transition: none !important; animation: none !important; }
+    #shopify-section-{{ sid }} [data-drop] .brail__g { opacity: 1; transform: none; }
+  }
+</style>
+
+{%- capture hanger -%}<svg class="brail__hook" viewBox="0 0 22 30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M11 30V16c0-1.7 3.5-2.3 3.5-5.5a3.5 3.5 0 1 0-7 0"/></svg>{%- endcapture -%}
+
+<boutique-rail class="brail color-{{ color_scheme }} gradient" data-focus="{{ st.focus_view }}" aria-label="{{ label_1 | default: st.eyebrow | default: section.name | escape }}">
+  {%- comment -%} Backgrounds: 0 is the section's own; 1 and 2 belong to the collection tabs and take over while that tab is open. {%- endcomment -%}
+  {%- if section_bg != blank -%}
+    <div class="brail__bg{% if bg_1 == blank %} is-on{% endif %}" data-bg="0" aria-hidden="true">{{ section_bg | image_url: width: 2400 | image_tag: widths: '750,1100,1500,1900,2400', sizes: '100vw', loading: 'lazy', alt: '' }}</div>
+  {%- endif -%}
+  {%- if bg_1 != blank -%}
+    <div class="brail__bg is-on" data-bg="1" aria-hidden="true">{{ bg_1 | image_url: width: 2400 | image_tag: widths: '750,1100,1500,1900,2400', sizes: '100vw', loading: 'lazy', alt: '' }}</div>
+  {%- endif -%}
+  {%- if bg_2 != blank -%}
+    <div class="brail__bg" data-bg="2" aria-hidden="true">{{ bg_2 | image_url: width: 2400 | image_tag: widths: '750,1100,1500,1900,2400', sizes: '100vw', loading: 'lazy', alt: '' }}</div>
+  {%- endif -%}
+  <div class="brail__inner">
+    {%- liquid
+      assign show_eyebrow = false
+      if tab_count > 0 or st.eyebrow != blank or st.eyebrow_secondary != blank
+        assign show_eyebrow = true
+      endif
+    -%}
+    {%- if show_eyebrow or st.heading != blank -%}
+      <div class="brail__head">
+        {%- if tab_count == 2 -%}
+          <div class="brail__tabs" data-tabs>
+            <button type="button" class="brail__tab" data-tab="1" aria-pressed="true" aria-controls="BrailTrack-{{ sid }}-1" data-url="{{ col_1.url }}">{{ label_1 | escape }}</button>
+            <button type="button" class="brail__tab" data-tab="2" aria-pressed="false" aria-controls="BrailTrack-{{ sid }}-2" data-url="{{ col_2.url }}">{{ label_2 | escape }}</button>
+          </div>
+        {%- elsif tab_count == 1 -%}
+          <p class="brail__eyebrow">{%- if st.eyebrow != blank -%}<span>{{ st.eyebrow | escape }}</span>{%- endif -%}<span>{{ label_1 | escape }}</span></p>
+        {%- elsif st.eyebrow != blank or st.eyebrow_secondary != blank -%}
+          <p class="brail__eyebrow">{%- if st.eyebrow != blank -%}<span>{{ st.eyebrow | escape }}</span>{%- endif -%}{%- if st.eyebrow_secondary != blank -%}<span>{{ st.eyebrow_secondary | escape }}</span>{%- endif -%}</p>
+        {%- endif -%}
+        {%- if st.heading != blank -%}<h2 class="brail__heading {{ st.heading_size }}">{{ st.heading }}</h2>{%- endif -%}
+      </div>
+    {%- endif -%}
+
+    <div class="brail__stage">
+      {%- if st.show_bar -%}<span class="brail__bar" aria-hidden="true"></span>{%- endif -%}
+      <button type="button" class="brail__arrow brail__arrow--prev" data-prev aria-label="{{ 'accessibility.previous' | t }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5"/><path d="m11 6-6 6 6 6"/></svg></button>
+      <button type="button" class="brail__arrow brail__arrow--next" data-next aria-label="{{ 'accessibility.next' | t }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h15"/><path d="m13 6 6 6-6 6"/></svg></button>
+
+      {%- for t in (1..track_count) -%}
+        {%- liquid
+          # What hangs on this tab's rail: its collection's products, then (first tab
+          # only) the Garment blocks whose product is in neither collection. With no
+          # collection: the Garment blocks. Sample garments fill a rail that is empty.
+          if tab_count == 0
+            assign list = garments
+          elsif t == 1
+            assign list = list_1 | concat: garments
+          else
+            assign list = list_2
+          endif
+          assign shown = 0
+          assign sample_i = 0
+        -%}
+        <ul class="brail__track" id="BrailTrack-{{ sid }}-{{ t }}" role="list" data-track="{{ t }}"{% if st.drop_in %} data-drop{% endif %}{% if t > 1 %} hidden{% endif %}>
+          {%- for entry in list -%}
+            {%- liquid
+              assign p = ''
+              assign bs = ''
+              assign side_img = ''
+              assign front_img = ''
+              assign back_img = ''
+              assign link_text = st.link_text
+              assign link_url = ''
+              assign attrs = ''
+              assign show_item = true
+              assign is_sample = false
+
+              if entry.settings
+                # A Garment block
+                assign bs = entry.settings
+                assign p = bs.product
+                assign attrs = entry.shopify_attributes
+                if tab_count > 0
+                  # With collections, a block only hangs here when its product is in neither collection
+                  # (or it has pictures of its own and no product); empty blocks stay out of the way.
+                  if p != blank
+                    for q in list_1
+                      if q.id == p.id
+                        assign show_item = false
+                        break
+                      endif
+                    endfor
+                    for q in list_2
+                      if q.id == p.id
+                        assign show_item = false
+                        break
+                      endif
+                    endfor
+                  elsif bs.side_image == blank and bs.front_image == blank
+                    assign show_item = false
+                  endif
+                endif
+              else
+                # A collection product: a Garment block for it gives its own pictures and link
+                assign p = entry
+                for g in garments
+                  if g.settings.product != blank and g.settings.product.id == p.id
+                    assign bs = g.settings
+                    assign attrs = g.shopify_attributes
+                    break
+                  endif
+                endfor
+              endif
+
+              if bs != blank
+                assign side_img = bs.side_image
+                assign front_img = bs.front_image
+                assign back_img = bs.back_image
+                if bs.link_text != blank
+                  assign link_text = bs.link_text
+                endif
+                assign link_url = bs.link_url
+              endif
+              # Pictures uploaded on a block are cut-outs; the product's own photos follow Product pictures.
+              assign card = false
+              if side_img == blank and front_img == blank and p != blank and st.product_photos == 'card'
+                assign card = true
+              endif
+              if p != blank
+                if front_img == blank
+                  assign front_img = p.featured_image
+                endif
+                if back_img == blank and p.images.size > 1
+                  assign back_img = p.images[1]
+                endif
+                if link_url == blank
+                  assign link_url = p.url
+                endif
+              endif
+              if side_img == blank
+                assign side_img = front_img
+              endif
+              if front_img == blank
+                assign front_img = side_img
+              endif
+              if show_item and side_img == blank
+                if st.show_placeholders
+                  assign is_sample = true
+                else
+                  assign show_item = false
+                endif
+              endif
+            -%}
+            {%- if show_item -%}
+              {%- liquid
+                assign idx = shown
+                assign shown = shown | plus: 1
+                if is_sample
+                  assign pn = sample_i | modulo: ph_names.size
+                  assign sample_name = ph_names[pn] | strip
+                endif
+              -%}
+              <li class="brail__item" style="--i: {{ idx }}" {{ attrs }}{% if is_sample and p == blank %} data-title="{{ sample_name | escape }}"{% endif %}>
+                <button type="button" class="brail__g{% if p == blank %} brail__g--sample{% endif %}" aria-label="{% if p != blank %}{{ p.title | escape }}{% elsif is_sample %}{{ sample_name | escape }}{% else %}{{ 'accessibility.product_label' | t }}{% endif %}">
+                  {{ hanger }}
+                  {%- if st.show_tags -%}
+                    {%- if p != blank -%}<span class="brail__tag">{{ p.price | money_without_trailing_zeros }}</span>
+                    {%- elsif is_sample -%}<span class="brail__tag">{{ 9900 | money_without_trailing_zeros }}</span>{%- endif -%}
+                  {%- endif -%}
+                  <span class="brail__pic{% if card %} brail__pic--card{% endif %}">
+                    {%- if is_sample -%}
+                      {%- render 'boutique-rail-sample', index: sample_i, view: 'side', sizes: side_sz -%}
+                      {%- render 'boutique-rail-sample', index: sample_i, view: 'front', sizes: front_sz -%}
+                      {%- assign sample_i = sample_i | plus: 1 -%}
+                    {%- else -%}
+                      {%- assign img_alt = '' -%}
+                      {{ side_img | image_url: width: side_w | image_tag: class: 'brail__side', widths: side_ws, sizes: side_sz, loading: 'lazy', alt: img_alt }}
+                      {{ front_img | image_url: width: front_w | image_tag: class: 'brail__front', widths: front_ws, sizes: front_sz, loading: 'lazy', alt: img_alt }}
+                    {%- endif -%}
+                  </span>
+                </button>
+                {%- if p != blank -%}
+                  <script type="application/json" data-g-data>
+                    {
+                      "title": {{ p.title | json }},
+                      "url": {{ link_url | json }},
+                      "productUrl": {{ p.url | json }},
+                      "linkText": {{ link_text | json }},
+                      "photo": {{ card | json }},
+                      "front": {% if front_img != blank %}{{ front_img | image_url: width: focus_w | json }}{% else %}null{% endif %},
+                      "back": {% if back_img != blank %}{{ back_img | image_url: width: focus_w | json }}{% else %}null{% endif %},
+                      "options": {{ p.options_with_values | map: 'name' | json }},
+                      "variants": [{%- for v in p.variants -%}{"id": {{ v.id }}, "available": {{ v.available | json }}, "price": {{ v.price | money | json }}, "compare": {% if v.compare_at_price > v.price %}{{ v.compare_at_price | money | json }}{% else %}null{% endif %}, "options": {{ v.options | json }}}{% unless forloop.last %},{% endunless %}{%- endfor -%}]
+                    }
+                  </script>
+                {%- endif -%}
+              </li>
+            {%- endif -%}
+          {%- endfor -%}
+          {%- if shown == 0 and st.show_placeholders -%}
+            {%- comment -%} An empty rail (a collection with no products yet, or a new section) hangs the sample garments. {%- endcomment -%}
+            {%- for i in (0..7) -%}
+              {%- liquid
+                assign pn = i | modulo: ph_names.size
+                assign sample_name = ph_names[pn] | strip
+              -%}
+              <li class="brail__item" style="--i: {{ i }}" data-title="{{ sample_name | escape }}">
+                <button type="button" class="brail__g brail__g--sample" aria-label="{{ sample_name | escape }}">
+                  {{ hanger }}
+                  {%- if st.show_tags -%}<span class="brail__tag">{{ 9900 | money_without_trailing_zeros }}</span>{%- endif -%}
+                  <span class="brail__pic">
+                    {%- render 'boutique-rail-sample', index: i, view: 'side', sizes: side_sz -%}
+                    {%- render 'boutique-rail-sample', index: i, view: 'front', sizes: front_sz -%}
+                  </span>
+                </button>
+              </li>
+            {%- endfor -%}
+          {%- endif -%}
+        </ul>
+      {%- endfor -%}
+    </div>
+
+    <div class="brail__foot">
+      <div class="brail__dots" aria-hidden="true" data-dots></div>
+      <p class="brail__caption" data-caption data-default="{{ st.caption | escape }}">{{ st.caption | escape }}</p>
+      {%- if st.button_label != blank -%}
+        <a class="btn {% if st.button_style == 'primary' %}btn-primary{% else %}btn-outline{% endif %} no-underline" data-button{% if st.button_link == blank and tab_count > 0 %} data-follow-tab{% endif %} href="{{ st.button_link | default: col_1.url | default: routes.all_products_collection_url }}">{{ st.button_label | escape }}</a>
+      {%- endif -%}
+    </div>
+  </div>
+
+  {%- if st.focus_view -%}
+    <dialog class="brail__focus" data-focus-dialog aria-label="{{ label_1 | default: st.eyebrow | default: section.name | escape }}">
+      <div class="bf">
+        <button type="button" class="bf__nav bf__nav--prev" data-f-prev aria-label="{{ 'accessibility.previous' | t }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5"/><path d="m11 6-6 6 6 6"/></svg></button>
+        <button type="button" class="bf__nav bf__nav--next" data-f-next aria-label="{{ 'accessibility.next' | t }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h15"/><path d="m13 6 6 6-6 6"/></svg></button>
+        <button type="button" class="bf__close" data-f-close aria-label="{{ 'accessibility.close' | t }}"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="m1 1 12 12M13 1 1 13"/></svg></button>
+        <div class="bf__media" data-f-media><span class="bf__hook" aria-hidden="true"></span><img data-f-front alt="" width="1200" height="1500"><img data-f-back alt="" width="1200" height="1500" hidden></div>
+        <div class="bf__info">
+          <span class="bf__count" data-f-count></span>
+          <h3 class="bf__title" data-f-title></h3>
+          <p class="bf__price" data-f-price></p>
+          <div class="bf__tabs" data-f-tabs>
+            <button type="button" class="bf__tab" data-f-view="front" aria-pressed="true">{{ st.front_label | escape }}</button>
+            <button type="button" class="bf__tab" data-f-view="back" aria-pressed="false">{{ st.back_label | escape }}</button>
+          </div>
+          <div data-f-options></div>
+          <button type="button" class="btn btn-primary bf__atc" data-f-atc>{{ 'products.product.add_to_cart' | t }}</button>
+          <p class="bf__msg" role="status" aria-live="polite" data-f-msg></p>
+          <div class="bf__more"><span data-f-name></span><a href="#" data-f-link></a></div>
+        </div>
+      </div>
+    </dialog>
+  {%- endif -%}
+</boutique-rail>
+
+<script>
+  window.MateriaAddItems = window.MateriaAddItems || async function (items) {
+    const cart = document.querySelector('cart-drawer') || document.querySelector('cart-notification');
+    const sections = cart && cart.getSectionsToRender ? cart.getSectionsToRender().map(s => s.id) : [];
+    const res = await fetch((window.routes && window.routes.cart_add_url) || '/cart/add', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ items, sections, sections_url: location.pathname })
+    });
+    const data = await res.json();
+    if (data.status || data.errors) throw new Error(data.description || data.message || data.errors);
+    fetch('/cart.json').then(r => r.json()).then(c => document.querySelectorAll('.cart-count').forEach(el => { el.textContent = el.classList.contains('cart-count-drawer') ? '(' + c.item_count + ')' : (c.item_count > 100 ? '~' : c.item_count); })).catch(() => {});
+    if (cart) {
+      if (data.sections) cart.getSectionsToRender().forEach(s => {
+        const el = document.getElementById(s.id); if (!el || !data.sections[s.id]) return;
+        const incoming = new DOMParser().parseFromString(data.sections[s.id], 'text/html').querySelector('#minicart-form');
+        if (incoming && !(window.materiaPatchDrawerCart && window.materiaPatchDrawerCart(el, incoming))) el.innerHTML = incoming.innerHTML;
+      });
+      if (typeof cart.cartAction === 'function') cart.cartAction();
+      if (typeof cart.open === 'function') cart.open();
+    } else { location.href = (window.routes && window.routes.cart_url) || '/cart'; }
+    return data;
+  };
+
+  if (!customElements.get('boutique-rail')) {
+    customElements.define('boutique-rail', class extends HTMLElement {
+      connectedCallback() {
+        if (this._ready) return; this._ready = true;
+        this.tracks = [...this.querySelectorAll('[data-track]')];
+        this.caption = this.querySelector('[data-caption]');
+        this.dots = this.querySelector('[data-dots]');
+        this.button = this.querySelector('[data-button]');
+        const fine = matchMedia('(hover: hover) and (pointer: fine)');
+        // Every garment on every tab is wired once; the rail that is showing is this.track.
+        this.tracks.forEach(track => {
+          const items = [...track.querySelectorAll('.brail__item')];
+          track._items = items;
+          items.forEach((li, i) => {
+            const btn = li.querySelector('.brail__g');
+            const data = li.querySelector('[data-g-data]');
+            li._data = data ? JSON.parse(data.textContent) : null;
+            btn.addEventListener('pointerenter', () => { if (fine.matches) this.hot(li, this._vx || 1); });
+            btn.addEventListener('focus', () => this.hot(li));
+            btn.addEventListener('click', () => this.open(i, btn));
+          });
+          track.addEventListener('pointermove', e => { if (this._lx != null) { const v = e.clientX - this._lx; if (v) this._vx = v; } this._lx = e.clientX; });
+          track.addEventListener('pointerleave', () => { this._lx = null; this.hot(null); });
+          track.addEventListener('focusout', e => { if (!track.contains(e.relatedTarget)) this.hot(null); });
+          track.addEventListener('scroll', () => this.queueSync(), { passive: true });
+          if ('ResizeObserver' in window) new ResizeObserver(() => this.queueSync()).observe(track);
+        });
+        this.setTrack(this.tracks.find(t => !t.hidden) || this.tracks[0]);
+        // Arrows
+        const step = () => this.track.clientWidth * 0.7;
+        this.querySelector('[data-prev]')?.addEventListener('click', () => this.track.scrollBy({ left: -step(), behavior: 'smooth' }));
+        this.querySelector('[data-next]')?.addEventListener('click', () => this.track.scrollBy({ left: step(), behavior: 'smooth' }));
+        // Collection tabs
+        this.tabs = [...this.querySelectorAll('[data-tab]')];
+        this.tabs.forEach(tab => tab.addEventListener('click', () => this.switchTo(tab)));
+        // Drop onto the rail when it comes into view (at once when the editor redraws it, or with reduced motion)
+        if (this.track && this.track.hasAttribute('data-drop')) {
+          const show = () => { this._seen = true; this.track.classList.add('is-in'); };
+          if (this.closest('[data-mt-redrawn]') || this.calm() || !('IntersectionObserver' in window)) show();
+          else { const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { show(); io.disconnect(); } }, { threshold: 0.2 }); io.observe(this); }
+        } else this._seen = true;
+        this.setupFocus();
+        // The editor: selecting a Garment block opens the tab it hangs on and brings it into view.
+        this.addEventListener('shopify:block:select', e => {
+          const li = e.target.closest && e.target.closest('.brail__item'); if (!li) return;
+          const track = li.closest('[data-track]');
+          if (track && track !== this.track) { const tab = this.tabs.find(b => b.dataset.tab === track.dataset.track); if (tab) this.switchTo(tab, true); }
+          li.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+        });
+      }
+      calm() { return matchMedia('(prefers-reduced-motion: reduce)').matches; }
+      setTrack(track) {
+        this.track = track; this.items = track ? track._items : [];
+        if (this.dots) this.dots.innerHTML = this.items.length > 1 ? this.items.map(() => '<span class="brail__dot"></span>').join('') : '';
+        this.queueSync();
+      }
+      queueSync() { if (!this._raf) this._raf = requestAnimationFrame(() => { this._raf = 0; this.sync(); }); }
+      sync() {
+        const t = this.track; if (!t) return;
+        const max = t.scrollWidth - t.clientWidth;
+        this.toggleAttribute('data-overflow', max > 4);
+        const prev = this.querySelector('[data-prev]'), next = this.querySelector('[data-next]');
+        if (prev) prev.disabled = t.scrollLeft < 4; if (next) next.disabled = t.scrollLeft > max - 4;
+        if (this.dots && this.dots.children.length) {
+          const idx = max > 0 ? Math.round((t.scrollLeft / max) * (this.items.length - 1)) : 0;
+          [...this.dots.children].forEach((d, k) => d.classList.toggle('is-on', k === idx));
+        }
+      }
+      // Open another collection: the garments lift off, the new ones drop on, the background cross-fades.
+      switchTo(tab, instant) {
+        const next = this.tracks.find(t => t.dataset.track === tab.dataset.tab);
+        if (!next || next === this.track) return;
+        this.tabs.forEach(b => b.setAttribute('aria-pressed', String(b === tab)));
+        const n = tab.dataset.tab, own = this.querySelector('[data-bg="' + n + '"]');
+        this.querySelectorAll('[data-bg]').forEach(bg => bg.classList.toggle('is-on', own ? bg === own : bg.dataset.bg === '0'));
+        if (this.button && this.button.hasAttribute('data-follow-tab') && tab.dataset.url) this.button.href = tab.dataset.url;
+        this.hot(null);
+        const prev = this.track, token = (this._switch = (this._switch || 0) + 1);
+        const enter = () => {
+          if (token !== this._switch) return;
+          prev.hidden = true; prev.classList.remove('is-leaving');
+          next.hidden = false; next.scrollLeft = 0; this.setTrack(next);
+          if (next.hasAttribute('data-drop') && this._seen && !instant && !this.calm()) { next.classList.remove('is-in'); void next.offsetWidth; next.classList.add('is-in'); }
+          else { next.classList.add('is-in'); if (!instant && !this.calm() && next.animate) next.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 350, easing: 'ease-out' }); }
+        };
+        if (instant || this.calm()) return enter();
+        prev.classList.add('is-leaving');
+        setTimeout(enter, 300);
+      }
+      hot(li, vx = 1) {
+        if (this._hot === li) return;
+        const dir = vx < 0 ? -1 : 1, speed = Math.min(1.25, Math.max(0.6, Math.abs(vx) / 12));
+        if (this._hot) { this._hot.classList.remove('is-hot'); this.push(this._hot, 0.35 * dir); }
+        this._hot = li;
+        if (li) {
+          li.classList.add('is-hot');
+          this.push(li, speed * dir);
+          // Neighbours slide aside, so their garments trail a little behind the hanger.
+          this.push(li.previousElementSibling, -0.3); this.push(li.nextElementSibling, 0.3);
+        }
+        if (!this.caption) return;
+        const text = li ? ((li._data && li._data.title) || li.dataset.title || this.caption.dataset.default) : this.caption.dataset.default;
+        if (this.caption.textContent !== text) {
+          this.caption.classList.add('is-swap');
+          clearTimeout(this._cap);
+          this._cap = setTimeout(() => { this.caption.textContent = text; this.caption.classList.remove('is-swap'); }, 140);
+        }
+      }
+      // Damped pendulum: a gentle push, then smaller and smaller swings until it hangs still (about 2.5 s).
+      push(li, kick) {
+        const g = li && li.querySelector && li.querySelector('.brail__g'); if (!g) return;
+        if (this._swing == null) this._swing = this.calm() ? 0 : parseFloat(getComputedStyle(this).getPropertyValue('--swing')) || 0;
+        if (!this._swing) return;
+        const s = g._sw || (g._sw = { a: 0, v: 0 });
+        s.v -= kick * this._swing * 6.6;
+        (this._sw || (this._sw = new Set())).add(g);
+        if (!this._swRaf) { this._swT = performance.now(); this._swRaf = requestAnimationFrame(t => this.swingTick(t)); }
+      }
+      swingTick(t) {
+        const dt = Math.min(0.033, Math.max(0, (t - this._swT) / 1000)), lim = this._swing * 1.8; this._swT = t;
+        this._sw.forEach(g => {
+          const s = g._sw; s.v += (-44 * s.a - 2.6 * s.v) * dt; s.a = Math.max(-lim, Math.min(lim, s.a + s.v * dt));
+          if (Math.abs(s.a) < 0.02 && Math.abs(s.v) < 0.08) { s.a = s.v = 0; g.style.rotate = ''; this._sw.delete(g); }
+          else g.style.rotate = s.a.toFixed(3) + 'deg';
+        });
+        this._swRaf = this._sw.size ? requestAnimationFrame(n => this.swingTick(n)) : 0;
+      }
+      setupFocus() {
+        const d = this.querySelector('[data-focus-dialog]'); this.dialog = d; if (!d) return;
+        this.f = n => d.querySelector('[data-f-' + n + ']');
+        this.f('close').addEventListener('click', () => this.close());
+        this.f('prev').addEventListener('click', () => this.step(-1));
+        this.f('next').addEventListener('click', () => this.step(1));
+        d.addEventListener('cancel', e => { e.preventDefault(); this.close(); });
+        d.addEventListener('keydown', e => { if (e.key === 'ArrowLeft') this.step(-1); if (e.key === 'ArrowRight') this.step(1); });
+        d.querySelectorAll('[data-f-view]').forEach(b => b.addEventListener('click', () => this.view(b.dataset.fView)));
+        this.f('atc').addEventListener('click', () => this.add());
+        // Swipe between garments on phones
+        let x0 = null;
+        const media = this.f('media');
+        media.addEventListener('pointerdown', e => { x0 = e.clientX; });
+        media.addEventListener('pointerup', e => { if (x0 == null) return; const dx = e.clientX - x0; x0 = null; if (Math.abs(dx) > 50) this.step(dx < 0 ? 1 : -1); });
+        media.addEventListener('pointercancel', () => { x0 = null; });
+      }
+      // Only garments that are products can be shown in focus; samples are skipped.
+      shoppable() { return this.items.map((li, i) => li._data ? i : -1).filter(i => i > -1); }
+      step(dir) {
+        const list = this.shoppable(); if (list.length < 2) return;
+        const at = list.indexOf(this.index);
+        this.show(list[(at + dir + list.length) % list.length], dir);
+      }
+      open(i, from) {
+        const data = this.items[i] && this.items[i]._data;
+        if (!data) return;
+        if (!this.dialog || this.dataset.focus === 'false') { location.href = data.url; return; }
+        this.from = from;
+        this.index = null; this.show(i, 0);
+        this.dialog.showModal(); document.documentElement.classList.add('brail-lock');
+      }
+      close() {
+        const d = this.dialog; if (!d || !d.open || d.classList.contains('is-closing')) return;
+        const done = () => { d.classList.remove('is-closing'); d.close(); document.documentElement.classList.remove('brail-lock'); this.from && this.from.focus({ preventScroll: true }); };
+        if (this.calm()) return done();
+        d.classList.add('is-closing'); setTimeout(done, 300);
+      }
+      show(i, dir) {
+        const li = this.items[i]; if (!li || !li._data) return;
+        const list = this.shoppable();
+        this.index = i; const g = li._data; this.g = g;
+        const pad = x => String(x).padStart(2, '0');
+        this.f('count').textContent = pad(list.indexOf(i) + 1) + ' / ' + pad(list.length);
+        this.f('prev').hidden = this.f('next').hidden = list.length < 2;
+        this.f('title').textContent = g.title; this.f('name').textContent = g.title;
+        const link = this.f('link'); link.href = g.url; link.textContent = g.linkText || ''; link.hidden = !g.linkText;
+        this.f('media').classList.toggle('is-photo', !!g.photo);
+        const front = this.f('front'), back = this.f('back');
+        front.src = g.front || ''; front.alt = g.title;
+        if (dir && this.dialog.open && front.animate && !this.calm()) {
+          front.animate([{ opacity: 0, transform: 'translateX(' + (dir * 48) + 'px)' }, { opacity: 1, transform: 'none' }], { duration: 480, easing: 'cubic-bezier(.22,1,.36,1)' });
+          this.dialog.querySelector('.bf__info').animate([{ opacity: .2 }, { opacity: 1 }], { duration: 360, easing: 'ease-out' });
+        }
+        back.removeAttribute('src'); back.alt = g.title; // the back view loads only when asked for
+        this.f('tabs').hidden = !g.back;
+        this.view('front');
+        // Options as pills; the first available variant is chosen
+        this.variant = g.variants.find(v => v.available) || g.variants[0];
+        const box = this.f('options'); box.innerHTML = '';
+        if (!(g.variants.length === 1 && g.variants[0].options[0] === 'Default Title')) {
+          g.options.forEach((name, k) => {
+            const vals = [...new Set(g.variants.map(v => v.options[k]))];
+            const fs = document.createElement('fieldset'); fs.className = 'bf__opt';
+            fs.innerHTML = '<legend></legend><div class="bf__vals"></div>'; fs.querySelector('legend').textContent = name;
+            vals.forEach(val => {
+              const b = document.createElement('button'); b.type = 'button'; b.className = 'bf__val'; b.textContent = val; b.dataset.k = k; b.dataset.val = val;
+              b.addEventListener('click', () => { const want = this.variant.options.slice(); want[k] = val; this.variant = g.variants.find(v => v.options.every((o, j) => o === want[j])) || this.variant; this.paint(); });
+              fs.querySelector('.bf__vals').appendChild(b);
+            });
+            box.appendChild(fs);
+          });
+        }
+        this.f('msg').textContent = '';
+        this.paint();
+      }
+      paint() {
+        const v = this.variant, g = this.g;
+        const pr = this.f('price'); pr.textContent = '';
+        if (v.compare) { const s = document.createElement('s'); s.textContent = v.compare; pr.appendChild(s); }
+        const now = document.createElement('span'); now.textContent = v.price; pr.appendChild(now);
+        this.dialog.querySelectorAll('.bf__val').forEach(b => {
+          const k = +b.dataset.k; b.setAttribute('aria-pressed', String(v.options[k] === b.dataset.val));
+          const want = v.options.slice(); want[k] = b.dataset.val;
+          const match = g.variants.find(x => x.options.every((o, j) => o === want[j]));
+          b.classList.toggle('is-off', !match || !match.available);
+        });
+        const atc = this.f('atc'); atc.disabled = !v.available;
+        atc.textContent = v.available ? {{ 'products.product.add_to_cart' | t | json }} : {{ 'products.product.sold_out' | t | json }};
+      }
+      view(which) {
+        const front = this.f('front'), back = this.f('back');
+        if (which === 'back' && this.g.back && !back.getAttribute('src')) back.src = this.g.back;
+        front.hidden = which === 'back'; back.hidden = which !== 'back';
+        this.dialog.querySelectorAll('[data-f-view]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.fView === which)));
+      }
+      async add() {
+        const atc = this.f('atc'), msg = this.f('msg');
+        atc.setAttribute('aria-busy', 'true'); msg.textContent = '';
+        try { await window.MateriaAddItems([{ id: this.variant.id, quantity: 1 }]); this.close(); }
+        catch (e) { msg.textContent = e.message || {{ 'sections.cart.cart_error' | t | json }}; }
+        finally { atc.removeAttribute('aria-busy'); }
+      }
+    });
+  }
+</script>
+
+{% schema %}
+{
+  "name": "Boutique Rail",
+  "class": "s-tt",
+  "tag": "section",
+  "max_blocks": 24,
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Set up: choose a Collection (and a second one: each becomes a tab named after it). Its products hang on the rail. For cut-out pictures, add a Garment block for a product and upload its side, front and back views (transparent PNG or WebP: an image editor's Remove background)."
+    },
+    {
+      "type": "paragraph",
+      "content": "A Garment block whose product is in neither collection hangs after the first collection's products. With no collection, the rail is your Garment blocks. Sample garments are public-domain (CC0) photos from rawpixel."
+    },
+    {
+      "type": "header",
+      "content": "Products"
+    },
+    {
+      "type": "collection",
+      "id": "collection",
+      "label": "Collection",
+      "info": "Its products hang on the rail; its name is shown above it."
+    },
+    {
+      "type": "image_picker",
+      "id": "collection_image",
+      "label": "Collection background",
+      "info": "Optional. Behind the rail while this collection is open."
+    },
+    {
+      "type": "collection",
+      "id": "collection_2",
+      "label": "Collection 2",
+      "info": "Optional. Shown as a second tab; tap a tab to switch the rail."
+    },
+    {
+      "type": "image_picker",
+      "id": "collection_2_image",
+      "label": "Collection 2 background",
+      "info": "Optional. Behind the rail while this collection is open."
+    },
+    {
+      "type": "range",
+      "id": "products_limit",
+      "label": "Products to show",
+      "min": 4,
+      "max": 20,
+      "step": 1,
+      "default": 12,
+      "info": "For each collection."
+    },
+    {
+      "type": "select",
+      "id": "product_photos",
+      "label": "Product pictures",
+      "default": "card",
+      "info": "For products without Garment block pictures. Cut-outs hang free; photos with a background hang as neat cards.",
+      "options": [
+        {
+          "value": "card",
+          "label": "Photos with a background"
+        },
+        {
+          "value": "cutout",
+          "label": "Transparent cut-outs"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "show_placeholders",
+      "label": "Show sample garments",
+      "default": true,
+      "info": "Real photo samples fill an empty rail until your products or pictures are added; yours always replace them."
+    },
+    {
+      "type": "text",
+      "id": "sample_names",
+      "label": "Sample garment names",
+      "default": "Denim shirt, Camel wool coat, Olive knit, Black overshirt, Rose wool coat, Oat knit, Sage overshirt, Navy wool coat",
+      "info": "Shown under the rail as a sample is hovered. Separate with commas."
+    },
+    {
+      "type": "header",
+      "content": "Style"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default"
+    },
+    {
+      "type": "select",
+      "id": "style",
+      "label": "Background",
+      "default": "plain",
+      "options": [
+        {
+          "value": "plain",
+          "label": "Colour scheme"
+        },
+        {
+          "value": "image",
+          "label": "Background image"
+        }
+      ]
+    },
+    {
+      "type": "image_picker",
+      "id": "background_image",
+      "label": "Background image",
+      "visible_if": "{{ section.settings.style == 'image' }}"
+    },
+    {
+      "type": "range",
+      "id": "overlay_opacity",
+      "label": "Image overlay",
+      "min": 0,
+      "max": 80,
+      "step": 5,
+      "unit": "%",
+      "default": 15,
+      "visible_if": "{{ section.settings.style == 'image' or section.settings.collection_image != blank or section.settings.collection_2_image != blank }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "full_height",
+      "label": "Fill the screen",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "New collection",
+      "info": "Shown before the collection's name (with two collections, the tabs replace it)."
+    },
+    {
+      "type": "text",
+      "id": "eyebrow_secondary",
+      "label": "Eyebrow, second part",
+      "default": "Premium streetwear",
+      "info": "Shown only when no collection is chosen."
+    },
+    {
+      "type": "inline_richtext",
+      "id": "heading",
+      "label": "Heading",
+      "info": "Optional. A large heading above the rail, as on a hero."
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "label": "Heading size",
+      "default": "h1",
+      "options": [
+        {
+          "value": "h2",
+          "label": "Medium"
+        },
+        {
+          "value": "h1",
+          "label": "Large"
+        },
+        {
+          "value": "h0",
+          "label": "Extra large"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "caption",
+      "label": "Caption",
+      "default": "Crafted in heavyweight fleece. Cut oversized. Made to last.",
+      "info": "Shown under the rail; the garment's name takes its place while it is hovered."
+    },
+    {
+      "type": "text",
+      "id": "button_label",
+      "label": "Button label",
+      "default": "Shop the collection"
+    },
+    {
+      "type": "url",
+      "id": "button_link",
+      "label": "Button link",
+      "info": "Empty: the collection that is open."
+    },
+    {
+      "type": "select",
+      "id": "button_style",
+      "label": "Button style",
+      "default": "primary",
+      "info": "Colours, shape and hover come from Theme settings > Buttons.",
+      "options": [
+        {
+          "value": "outline",
+          "label": "Outline"
+        },
+        {
+          "value": "primary",
+          "label": "Primary"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "Rail"
+    },
+    {
+      "type": "range",
+      "id": "garment_height",
+      "label": "Garment height",
+      "min": 200,
+      "max": 520,
+      "step": 10,
+      "unit": "px",
+      "default": 300
+    },
+    {
+      "type": "range",
+      "id": "garment_height_mobile",
+      "label": "Garment height on mobile",
+      "min": 160,
+      "max": 400,
+      "step": 10,
+      "unit": "px",
+      "default": 230
+    },
+    {
+      "type": "range",
+      "id": "garment_gap",
+      "label": "Gap between garments",
+      "min": -40,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 0,
+      "info": "Below 0 the garments overlap a little, like a full rail."
+    },
+    {
+      "type": "range",
+      "id": "garment_gap_mobile",
+      "label": "Gap between garments on mobile",
+      "min": -20,
+      "max": 30,
+      "step": 2,
+      "unit": "px",
+      "default": 6
+    },
+    {
+      "type": "range",
+      "id": "hover_side_gap",
+      "label": "Hover side gap",
+      "min": 0,
+      "max": 60,
+      "step": 2,
+      "unit": "px",
+      "default": 14,
+      "info": "How far the neighbours slide aside when a garment turns."
+    },
+    {
+      "type": "range",
+      "id": "turn_speed",
+      "label": "Hover turn speed",
+      "min": 200,
+      "max": 1200,
+      "step": 50,
+      "unit": "ms",
+      "default": 550
+    },
+    {
+      "type": "range",
+      "id": "hanger_swing",
+      "label": "Hanger swing",
+      "min": 0,
+      "max": 12,
+      "step": 1,
+      "unit": "deg",
+      "default": 4
+    },
+    {
+      "type": "checkbox",
+      "id": "show_bar",
+      "label": "Show the rail bar",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_tags",
+      "label": "Show price tags",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "drop_in",
+      "label": "Drop garments onto the rail on scroll",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Focus view"
+    },
+    {
+      "type": "checkbox",
+      "id": "focus_view",
+      "label": "Lift a garment into focus view",
+      "default": true,
+      "info": "Off: clicking a garment opens its product page."
+    },
+    {
+      "type": "text",
+      "id": "link_text",
+      "label": "Link text",
+      "default": "View in the shop",
+      "info": "Leave empty to hide the link."
+    },
+    {
+      "type": "text",
+      "id": "front_label",
+      "label": "Front tab",
+      "default": "Front"
+    },
+    {
+      "type": "text",
+      "id": "back_label",
+      "label": "Back tab",
+      "default": "Back"
+    },
+    {
+      "type": "header",
+      "content": "Spacing"
+    },
+    {
+      "type": "select",
+      "id": "section_spacing",
+      "label": "Space around section",
+      "default": "none",
+      "options": [
+        {
+          "value": "both",
+          "label": "Top and bottom"
+        },
+        {
+          "value": "top",
+          "label": "Top only"
+        },
+        {
+          "value": "bottom",
+          "label": "Bottom only"
+        },
+        {
+          "value": "none",
+          "label": "None"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 56
+    },
+    {
+      "type": "range",
+      "id": "padding_top_mobile",
+      "label": "Top padding on mobile",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 36
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom_mobile",
+      "label": "Bottom padding on mobile",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 36
+    }
+  ],
+  "blocks": [
+    {
+      "type": "garment",
+      "name": "Garment",
+      "settings": [
+        {
+          "type": "product",
+          "id": "product",
+          "label": "Product",
+          "info": "On a collection's rail, the block gives that product the pictures below. A product in neither collection hangs after the first collection's."
+        },
+        {
+          "type": "header",
+          "content": "Image overrides"
+        },
+        {
+          "type": "paragraph",
+          "content": "Optional. Transparent PNG or WebP, cropped tight to the hanger. Empty: the product's own pictures are used."
+        },
+        {
+          "type": "image_picker",
+          "id": "side_image",
+          "label": "Side view (shown on the rail)"
+        },
+        {
+          "type": "image_picker",
+          "id": "front_image",
+          "label": "Front view (on hover and in focus view)"
+        },
+        {
+          "type": "image_picker",
+          "id": "back_image",
+          "label": "Back view (in focus view, loads when asked for)"
+        },
+        {
+          "type": "header",
+          "content": "Focus view link"
+        },
+        {
+          "type": "text",
+          "id": "link_text",
+          "label": "Link text",
+          "info": "Empty: the section's link text."
+        },
+        {
+          "type": "url",
+          "id": "link_url",
+          "label": "Link override",
+          "info": "Empty: the product page."
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Boutique Rail",
+      "category": "01 · Hero & slideshows",
+      "blocks": [
+        {
+          "type": "garment"
+        },
+        {
+          "type": "garment"
+        },
+        {
+          "type": "garment"
+        },
+        {
+          "type": "garment"
+        },
+        {
+          "type": "garment"
+        },
+        {
+          "type": "garment"
+        },
+        {
+          "type": "garment"
+        },
+        {
+          "type": "garment"
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

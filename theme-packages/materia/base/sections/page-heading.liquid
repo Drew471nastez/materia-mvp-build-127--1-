@@ -1,6 +1,6 @@
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
@@ -79,7 +79,7 @@
   assign section_st = section.settings
   assign t = template | split: '.' | first
   assign section_width = section_st.section_width
-  assign color_scheme = section_st.color_scheme.id | default: section_st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section_st.color_scheme.id | default: section_st.color_scheme | default: 'default'
   assign background_image = section_st.background_image
   assign height = section_st.height
   assign scroll_animation = settings.scroll_animation
@@ -96,6 +96,11 @@
     assign ph_title = blog.title | default: page_title
   elsif template contains 'cart'
     assign ph_title = 'general.cart.title' | t
+  elsif template.name == 'search' and template.suffix == 'wishlist'
+    comment
+      The theme's own wishlist route (/search?view=wishlist, see snippets/wishlist-url).
+    endcomment
+    assign ph_title = 'templates.wishlist.wishlist' | t
   else
     assign ph_title = page.title | default: page_title
   endif
@@ -257,6 +262,9 @@
                     when 'article'
                       assign bc_current = article.title | default: page_title
                   endcase
+                  if template.name == 'search' and template.suffix == 'wishlist'
+                    assign bc_current = ph_title
+                  endif
                 -%}
                 <nav
                   class="bc page-title-breadcrumb"
@@ -292,7 +300,7 @@
 {
   "name": "Page heading",
   "tag": "section",
-  "class": "page-title",
+  "class": "page-title s-tt",
   "settings": [
     {
       "type": "header",
@@ -302,7 +310,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Colour scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",

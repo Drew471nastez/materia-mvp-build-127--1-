@@ -1,7 +1,7 @@
-<script src="{{ 'media-live-stats-reels.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'media-live-stats-reels.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- assign fb_accessibility_step_title = 'accessibility.step_title' | t -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
@@ -52,7 +52,10 @@
 
   assign step_style = s.step_style | default: 'dot'
   assign custom = s.custom_colors
-  assign placeholder_src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Cg fill=%22%23000000%22 fill-opacity=%220.18%22%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22/%3E%3C/g%3E%3C/svg%3E'
+  capture placeholder_src
+    render 'placeholder-image', type: 'collection-2', scheme: color_scheme, ratio: '4/3', format: 'url'
+  endcapture
+  assign placeholder_src = placeholder_src | strip
 
   case s.section_width
     when 'fluid_container'
@@ -101,122 +104,15 @@
 {%- endif -%}
 {%- endcapture -%}
 
+{{ 'section-image-with-text-steps.css' | asset_url | stylesheet_tag }}
 <style>
   {%- if s.enable_custom_fonts -%}
     {%- if s.heading_font.family != blank -%}{{ s.heading_font | font_face: font_display: 'swap' }}{%- endif -%}
     {%- if s.body_font.family != blank -%}{{ s.body_font | font_face: font_display: 'swap' }}{%- endif -%}
   {%- endif -%}
-  #shopify-section-{{ sid }} { isolation: isolate; position: relative; }
-  #shopify-section-{{ sid }} .iws-steps { background: var(--st-bg, var(--color-background)); }
-  #shopify-section-{{ sid }} .iws {
-    padding: var(--st-pt) var(--st-px-m) var(--st-pb) !important;
-    font-family: var(--st-bfont, var(--body-font));
-  }
-  #shopify-section-{{ sid }} .iws *, #shopify-section-{{ sid }} .iws *::before, #shopify-section-{{ sid }} .iws *::after { box-sizing: border-box; }
-  #shopify-section-{{ sid }} .iws[data-width='full_width'] { padding-inline: 0 !important; }
-  #shopify-section-{{ sid }} .iws[data-width='full_width'] .iws__media { border-radius: 0; }
-  #shopify-section-{{ sid }} .iws[data-width='full_width'] .iws__col { padding-inline: var(--st-px-m); }
-  #shopify-section-{{ sid }} .iws__inner {
-    max-width: var(--st-max); margin-inline: auto;
-    display: flex; flex-direction: column; gap: var(--st-gap-m);
-  }
-
-  /* Image column */
-  #shopify-section-{{ sid }} .iws__media {
-    flex: 0 0 100%; width: 100%; min-width: 0; position: relative; overflow: hidden;
-    border-radius: var(--st-radius); aspect-ratio: var(--st-ratio-m);
-    background: var(--st-img-bg, color-mix(in srgb, var(--color-text) 8%, var(--color-background)));
-  }
-  #shopify-section-{{ sid }} .iws__media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
-
-  /* Text column */
-  #shopify-section-{{ sid }} .iws__col { flex: 1 1 100%; min-width: 0; display: flex; flex-direction: column; gap: var(--st-text-gap); }
-  #shopify-section-{{ sid }} .iws__eyebrow {
-    margin: 0; font-size: var(--b-size, var(--sl-caption-size, 12px)); font-weight: var(--sl-caption-weight, 600);
-    text-transform: uppercase; letter-spacing: 0.18em; color: var(--b-color, var(--color-heading));
-  }
-  #shopify-section-{{ sid }} .iws__heading {
-    margin: 0; color: var(--b-color, var(--color-heading)); font-family: var(--st-hfont, var(--heading-font));
-    font-weight: var(--b-weight, var(--heading-weight, 700));
-  }
-  #shopify-section-{{ sid }} .iws__heading[data-custom] { line-height: 1.15; font-size: var(--b-size-m); }
-  {%- comment -%} The button's own size and shape (Use theme button off) also with Theme settings > Buttons priority off, where theme.css paints buttons without the contract's !important. {%- endcomment %}
-  #shopify-section-{{ sid }} .iws__btn[data-own-shape] { font-size: var(--mb-font-size); padding: var(--mb-padding-y) var(--mb-padding-x); border-radius: var(--mb-radius); font-weight: var(--mb-weight); }
-  #shopify-section-{{ sid }} [hidden] { display: none !important; }
-  #shopify-section-{{ sid }} .iws__sub { margin: 0; line-height: 1.6; color: var(--b-color, var(--color-text)); font-size: var(--b-size, inherit); max-width: var(--b-max, 560px); }
-  #shopify-section-{{ sid }} .iws__heading a, #shopify-section-{{ sid }} .iws__sub a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
-  #shopify-section-{{ sid }} .iws__sub p { margin: 0 0 0.5em; }
-  #shopify-section-{{ sid }} .iws__sub p:last-child { margin: 0; }
-
-  /* Steps */
-  #shopify-section-{{ sid }} .iws__steps { margin: var(--st-steps-mt) 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
-  #shopify-section-{{ sid }} .iws__step {
-    --mk: var(--b-mk, var(--st-mk-color, var(--color-heading, currentColor)));
-    position: relative; display: grid; grid-template-columns: var(--st-mk) 1fr; gap: var(--st-gap-inline);
-    padding: 0 0 var(--st-gap-below) 0; align-items: start;
-  }
-  #shopify-section-{{ sid }} .iws__step:not(:last-child)::before {
-    content: ''; position: absolute; top: var(--st-mk); bottom: 0; width: 0;
-    left: calc(var(--st-mk) / 2 - var(--st-line-w) / 2);
-    border-left: var(--st-line-w) var(--st-line-style) var(--st-line-color, color-mix(in srgb, var(--color-heading, currentColor) 35%, transparent));
-  }
-  #shopify-section-{{ sid }} .iws__step-marker {
-    width: var(--st-mk); height: var(--st-mk); display: inline-flex; align-items: center; justify-content: center;
-    position: relative; z-index: 1; border-radius: 999px; line-height: 1; font-weight: 700; font-size: var(--st-mk-font);
-    color: var(--st-mk-text, var(--color-background)); background: var(--mk); border: var(--st-line-w) solid var(--mk);
-  }
-  #shopify-section-{{ sid }} .iws__step-num, #shopify-section-{{ sid }} .iws__step-prefix { display: none; }
-  #shopify-section-{{ sid }} :is(.iws__step--numbered, .iws__step--numbered_outline) .iws__step-num { display: inline; }
-  #shopify-section-{{ sid }} .iws__step--prefixed .iws__step-prefix { display: inline; }
-  #shopify-section-{{ sid }} :is(.iws__step--dot, .iws__step--dot_outline) .iws__step-marker {
-    width: calc(var(--st-mk) / 2); height: calc(var(--st-mk) / 2); margin: calc(var(--st-mk) / 4) 0 0 calc(var(--st-mk) / 4);
-  }
-  #shopify-section-{{ sid }} .iws__step--dot .iws__step-marker { border: 0; }
-  #shopify-section-{{ sid }} .iws__step--dot_outline .iws__step-marker { background: transparent; }
-  #shopify-section-{{ sid }} .iws__step--numbered_outline .iws__step-marker { background: transparent; color: var(--mk); }
-  #shopify-section-{{ sid }} .iws__step--prefixed { grid-template-columns: 1fr; }
-  #shopify-section-{{ sid }} .iws__step--prefixed .iws__step-marker,
-  #shopify-section-{{ sid }} .iws__step--prefixed:not(:last-child)::before { display: none; }
-  #shopify-section-{{ sid }} .iws__step--icon .iws__step-marker { background: transparent; border: 0; color: var(--mk); }
-  #shopify-section-{{ sid }} .iws__step-marker img { width: 100%; height: 100%; object-fit: contain; }
-  #shopify-section-{{ sid }} .iws__step:not(.iws__step--icon) .iws__step-marker img { display: none; }
-  #shopify-section-{{ sid }} .iws__step-content { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-  #shopify-section-{{ sid }} .iws__step-title {
-    margin: 0; font-family: var(--st-hfont, var(--heading-font)); font-weight: var(--heading-weight, 700);
-    font-size: var(--st-title-size, var(--sl-h4-size, 18px)); line-height: 1.3;
-    color: var(--b-title, var(--st-title-color, var(--color-heading)));
-  }
-  #shopify-section-{{ sid }} .iws__step-prefix { color: var(--mk); margin-right: 6px; font-feature-settings: 'tnum'; }
-  #shopify-section-{{ sid }} .iws__step-desc {
-    margin: 0; font-size: var(--st-desc-size, var(--sl-body-small-size, 14px)); line-height: 1.55;
-    color: var(--b-desc, var(--st-desc-color, var(--color-text)));
-  }
-  #shopify-section-{{ sid }} .iws__step-desc p { margin: 0 0 0.5em; }
-  #shopify-section-{{ sid }} .iws__step-desc p:last-child { margin: 0; }
-  #shopify-section-{{ sid }} .iws__step-desc a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
-
-  /* Button: paint, shape, type, hover effect and timing come from Theme
-     settings > Buttons through the theme button contract
-     (theme-button-contract.css). The section's own colours (Enable custom
-     styling), and its size and shape when "Use theme button style" is off,
-     enter as tokens from snippets/button-overrides. Only placement is set here. */
-  #shopify-section-{{ sid }} .iws__btn { margin-top: var(--st-btn-mt); align-self: flex-start; width: max-content; max-width: 100%; }
-
-  @media (min-width: 768px) {
-    #shopify-section-{{ sid }} .iws { padding-inline: var(--st-px-d) !important; }
-    #shopify-section-{{ sid }} .iws[data-width='full_width'] { padding-inline: 0 !important; }
-    #shopify-section-{{ sid }} .iws[data-width='full_width'] .iws__col { padding-inline: var(--st-px-d); }
-    #shopify-section-{{ sid }} .iws__inner { flex-direction: var(--st-dir); gap: var(--st-gap-d); align-items: var(--st-valign); }
-    #shopify-section-{{ sid }} .iws__media {
-      flex: 0 0 calc(var(--st-img-w) - var(--st-gap-d) / 2); max-width: calc(var(--st-img-w) - var(--st-gap-d) / 2);
-      aspect-ratio: var(--st-ratio-d);
-    }
-    #shopify-section-{{ sid }} .iws__col { flex: 1 1 0; }
-    #shopify-section-{{ sid }} .iws__heading[data-custom] { font-size: var(--b-size-d); }
-  }
 </style>
 
-<div class="section iws-steps{{ reset_spacing }} color-{{ color_scheme }} gradient" data-msr="steps"{% if s.enable_custom_fonts %} data-own-font{% endif %} data-msr-section="{{ sid }}" data-msr-settings="{{ s | json | escape }}" data-msr-defaults='{"color_scheme":"default-color-scheme","section_width":"container","reset_spacing":true,"image_position":"left","column_valign":"center","image_width_pct":50,"gap_desktop":64,"text_gap":18,"image_alt":"","image_aspect_desktop":"4 / 5","image_radius":16,"step_style":"dot","marker_size":32,"marker_font_size":14,"line_style":"solid","line_thickness":2,"step_gap_inline":16,"step_gap_below":22,"steps_margin_top":12,"custom_colors":false,"step_title_size":18,"step_desc_size":14,"use_theme_button":true,"button_size":15,"button_pad_x":26,"button_pad_y":14,"button_radius":100,"button_margin_top":8,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","padding_top":60,"padding_bottom":60,"side_padding_desktop":24,"image_aspect":"4 / 5","gap_mobile":32,"side_padding_mobile":16}' data-msr-block-defaults='{"eyebrow":{"text":"Why us","custom_style":false,"size":12},"heading":{"text":"Built for results.","tag":"h2","custom_style":false,"weight":"700","size_desktop":40,"size_mobile":28},"subheading":{"text":"&lt;p>Quality you can feel, simplicity you can trust.&lt;/p>","max_width":560,"custom_style":false,"size":15},"step":{"title":"Step title","description":"&lt;p>Add a short description that explains this step.&lt;/p>","enable_custom_style":false},"button":{"label":"Shop now"}}' data-msr-placeholder="{{ placeholder_src }}" style="{{ st_style | strip_newlines }}">
+<div class="section iws-steps{{ reset_spacing }} color-{{ color_scheme }} gradient" data-msr="steps"{% if s.enable_custom_fonts %} data-own-font{% endif %} data-msr-section="{{ sid }}" {% if request.design_mode %}data-msr-settings="{{ s | json | escape }}"{% endif %} {% if request.design_mode %}data-msr-defaults='{"color_scheme":"default","section_width":"container","reset_spacing":true,"image_position":"left","column_valign":"center","image_width_pct":50,"gap_desktop":64,"text_gap":18,"image_alt":"","image_aspect_desktop":"4 / 5","image_radius":16,"step_style":"dot","marker_size":32,"marker_font_size":14,"line_style":"solid","line_thickness":2,"step_gap_inline":16,"step_gap_below":22,"steps_margin_top":12,"custom_colors":false,"step_title_size":18,"step_desc_size":14,"use_theme_button":true,"button_size":15,"button_pad_x":26,"button_pad_y":14,"button_radius":100,"button_margin_top":8,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","padding_top":60,"padding_bottom":60,"side_padding_desktop":24,"image_aspect":"4 / 5","gap_mobile":32,"side_padding_mobile":16}'{% endif %} {% if request.design_mode %}data-msr-block-defaults='{"eyebrow":{"text":"Why us","custom_style":false,"size":12},"heading":{"text":"Built for results.","tag":"h2","custom_style":false,"weight":"700","size_desktop":40,"size_mobile":28},"subheading":{"text":"&lt;p>Quality you can feel, simplicity you can trust.&lt;/p>","max_width":560,"custom_style":false,"size":15},"step":{"title":"Step title","description":"&lt;p>Add a short description that explains this step.&lt;/p>","enable_custom_style":false},"button":{"label":"Shop now"}}'{% endif %} data-msr-placeholder="{{ placeholder_src }}" style="{{ st_style | strip_newlines }}">
   <div class="iws" data-section-id="{{ sid }}" data-width="{{ s.section_width | default: 'container' }}">
     <div class="iws__inner">
 
@@ -231,7 +127,8 @@
         {%- elsif s.placeholder_url != blank -%}
           {{ s.placeholder_url | image_url: width: 1200 | image_tag: alt: s.image_alt, loading: 'lazy', decoding: 'async', sizes: '(max-width: 767px) 100vw, 50vw' }}
         {%- elsif demo_iws != blank -%}
-          <img src="{{ demo_iws }}" alt="" width="1200" height="1500" loading="lazy" decoding="async">
+          {%- capture iws_demo_ss -%}{%- render 'demo-srcset', url: demo_iws, widths: '480, 720, 960, 1200' -%}{%- endcapture -%}
+          <img src="{{ demo_iws }}"{% if iws_demo_ss != blank %} srcset="{{ iws_demo_ss }}" sizes="(max-width: 767px) 100vw, 50vw"{% endif %} alt="" width="1200" height="1500" loading="lazy" decoding="async">
         {%- else -%}
           <img src="{{ placeholder_src }}" alt="" width="400" height="300" loading="lazy" decoding="async">
         {%- endif -%}
@@ -242,15 +139,15 @@
           {%- assign bs = block.settings -%}
           {%- case block.type -%}
             {%- when 'eyebrow' -%}
-              <p class="iws__eyebrow" data-msr-block="{{ block.id }}" data-msr-type="eyebrow" data-msr-settings="{{ bs | json | escape }}"{% if bs.text == blank %} hidden{% endif %}
+              <p class="iws__eyebrow" data-msr-block="{{ block.id }}" data-msr-type="eyebrow" {% if request.design_mode %}data-msr-settings="{{ bs | json | escape }}"{% endif %}{% if bs.text == blank %} hidden{% endif %}
                  style="{% if bs.custom_style %}--b-size: {{ bs.size | default: 12 }}px;{% render 'media-msr-var', name: '--b-color', color: bs.color, on: true %}{% endif %}"
                  {{ block.shopify_attributes }}>{{ bs.text }}</p>
             {%- when 'heading' -%}
-              <h2 class="iws__heading" data-msr-block="{{ block.id }}" data-msr-type="heading" data-msr-settings="{{ bs | json | escape }}"{% if bs.custom_style %} data-custom data-own-weight data-own-size{% endif %}{% if bs.text == blank %} hidden{% endif %}
+              <h2 class="iws__heading" data-msr-block="{{ block.id }}" data-msr-type="heading" {% if request.design_mode %}data-msr-settings="{{ bs | json | escape }}"{% endif %}{% if bs.custom_style %} data-custom data-own-weight data-own-size{% endif %}{% if bs.text == blank %} hidden{% endif %}
                  style="{% if bs.custom_style %}--b-size-m: {{ bs.size_mobile | default: 28 }}px; --b-size-d: {{ bs.size_desktop | default: 40 }}px; --b-weight: {{ bs.weight | default: 700 }};{% render 'media-msr-var', name: '--b-color', color: bs.color, on: true %}{% endif %}"
                  {{ block.shopify_attributes }}>{{ bs.text }}</h2>
             {%- when 'subheading' -%}
-              <div class="iws__sub" data-msr-block="{{ block.id }}" data-msr-type="subheading" data-msr-settings="{{ bs | json | escape }}"{% if bs.text == blank %} hidden{% endif %}
+              <div class="iws__sub" data-msr-block="{{ block.id }}" data-msr-type="subheading" {% if request.design_mode %}data-msr-settings="{{ bs | json | escape }}"{% endif %}{% if bs.text == blank %} hidden{% endif %}
                    style="--b-max: {{ bs.max_width | default: 560 }}px;{% if bs.custom_style %} --b-size: {{ bs.size | default: 15 }}px;{% render 'media-msr-var', name: '--b-color', color: bs.color, on: true %}{% endif %}"
                    {{ block.shopify_attributes }}>{{ bs.text }}</div>
           {%- endcase -%}
@@ -266,7 +163,7 @@
               {%- elsif step_style == 'icon' -%}
                 {%- assign step_class = 'numbered_outline' -%}
               {%- endif -%}
-              <li class="iws__step iws__step--{{ step_class }}" data-msr-block="{{ block.id }}" data-msr-type="step" data-msr-settings="{{ sb | json | escape }}" style="{% render 'media-msr-var', name: '--b-mk', color: sb.marker_color, on: sb.enable_custom_style %}{% render 'media-msr-var', name: '--b-title', color: sb.title_color, on: sb.enable_custom_style %}{% render 'media-msr-var', name: '--b-desc', color: sb.description_color, on: sb.enable_custom_style %}" {{ block.shopify_attributes }}>
+              <li class="iws__step iws__step--{{ step_class }}" data-msr-block="{{ block.id }}" data-msr-type="step" {% if request.design_mode %}data-msr-settings="{{ sb | json | escape }}"{% endif %} style="{% render 'media-msr-var', name: '--b-mk', color: sb.marker_color, on: sb.enable_custom_style %}{% render 'media-msr-var', name: '--b-title', color: sb.title_color, on: sb.enable_custom_style %}{% render 'media-msr-var', name: '--b-desc', color: sb.description_color, on: sb.enable_custom_style %}" {{ block.shopify_attributes }}>
                 <div class="iws__step-marker" aria-hidden="true">
                   {%- if sb.icon != blank -%}
                     {{ sb.icon | image_url: width: 80 | image_tag: alt: '', loading: 'lazy', width: 40, height: 40 }}
@@ -284,7 +181,7 @@
 
         {%- for block in button_blocks -%}
           {%- assign bs = block.settings -%}
-          <a class="iws__btn btn-primary inline-flex no-underline" data-sl-button data-theme-button="primary" data-button-role="primary" data-button-appearance="{{ settings.btn_style | default: 'solid' }}" data-msr-block="{{ block.id }}" data-msr-type="button" data-msr-settings="{{ bs | json | escape }}"{% if steps_custom_btn %} data-own-shape data-own-weight{% endif %} style="{%- render 'button-overrides', bg: btn_bg, text: btn_text, border: btn_bg, hover_bg: btn_hover, hover_text: btn_text, hover_border: btn_hover, custom: steps_custom_btn, radius: s.button_radius, padding_y: s.button_pad_y, padding_x: s.button_pad_x, font_size: s.button_size, weight: 600, border_width: 0 -%}" href="{{ bs.url | default: routes.all_products_collection_url }}"{% if bs.label == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ bs.label | escape }}</a>
+          <a class="iws__btn btn-primary inline-flex no-underline" data-sl-button data-theme-button="primary" data-button-role="primary" data-button-appearance="{{ settings.btn_style | default: 'solid' }}" data-msr-block="{{ block.id }}" data-msr-type="button" {% if request.design_mode %}data-msr-settings="{{ bs | json | escape }}"{% endif %}{% if steps_custom_btn %} data-own-shape data-own-weight{% endif %} style="{%- render 'button-overrides', bg: btn_bg, text: btn_text, border: btn_bg, hover_bg: btn_hover, hover_text: btn_text, hover_border: btn_hover, custom: steps_custom_btn, radius: s.button_radius, padding_y: s.button_pad_y, padding_x: s.button_pad_x, font_size: s.button_size, weight: 600, border_width: 0 -%}" href="{{ bs.url | default: routes.all_products_collection_url }}"{% if bs.label == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ bs.label | escape }}</a>
         {%- endfor -%}
       </div>
 
@@ -293,11 +190,12 @@
 </div>
 {%- comment -%} Live edits: shopify/assets/media-live-stats-reels.js (loaded on every page). {%- endcomment -%}
 
+
 {% schema %}
 {
   "name": "Image With Text Steps",
   "tag": "section",
-  "class": "section",
+  "class": "section s-image-with-text-steps s-tt",
   "settings": [
     {
       "type": "header",
@@ -308,7 +206,7 @@
       "id": "color_scheme",
       "label": "Color scheme",
       "info": "Text, headings, markers and the button follow this scheme unless you pick your own colours below.",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -424,8 +322,7 @@
       "type": "text",
       "id": "image_alt",
       "label": "Image description (alt text)",
-      "info": "Describes the picture for screen readers.",
-      "default": ""
+      "info": "Describes the picture for screen readers."
     },
     {
       "type": "image_picker",
@@ -923,7 +820,6 @@
               "label": "H3"
             }
           ],
-          "hidden": true,
           "info": "Kept for saved content. The heading is always an h2.",
           "visible_if": "{{ false }}"
         },
@@ -1125,8 +1021,8 @@
   ],
   "presets": [
     {
-      "name": "Image With Text Steps",
-      "category": "Image and video",
+      "name": "Image with Text – Steps",
+      "category": "04 · Image & text",
       "blocks": [
         {
           "type": "heading",

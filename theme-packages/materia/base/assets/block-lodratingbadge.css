@@ -1,0 +1,24 @@
+/* block-lodratingbadge.css: static styles of snippets/product-info-blocks.liquid, moved out of its inline <style> so they are cached.
+   :is(<selector>,#_): #_ never matches; it only keeps the (1,0,0) specificity of the per-instance id selector it replaces
+   (:is(.s-pib-lodratingbadge,#_) is the section wrapper, schema class "s-pib-lodratingbadge"). Per-instance values stay inline as custom properties. */
+:is([id^="LodRatingBadge-"],#_) .lod-star{
+  position:relative !important;
+  width:var(--lod-tile) !important; height:var(--lod-tile) !important;
+  border-radius:var(--lod-radius) !important;  
+  overflow:hidden !important; flex:0 0 auto !important;
+}
+:is([id^="LodRatingBadge-"],#_) .lod-star__tile{
+  position:absolute !important; inset:0 !important;
+  background: var(--lod-tile-color) !important;
+}
+:is([id^="LodRatingBadge-"],#_) .lod-star__icon svg{
+  width: var(--lod-glyph) !important; height: var(--lod-glyph) !important;
+  display:block !important;
+  fill: var(--lod-icon-color) !important;
+  stroke: none !important;
+}
+:is([id^="LodRatingBadge-"],#_) .lod-star--half::after{
+  content:"" !important; position:absolute !important; top:0 !important; right:0 !important; bottom:0 !important;
+  width:50% !important; background:#E6E6E6 !important;
+}
+:is([id^="LodRatingBadge-"],#_) .lod-star--empty .lod-star__tile{ background:#E6E6E6 !important; }

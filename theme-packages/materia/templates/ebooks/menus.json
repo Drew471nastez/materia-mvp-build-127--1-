@@ -8,23 +8,23 @@
         "links": [
           {
             "title": "The Broth Book",
-            "url": "/search?q=broth"
+            "url": "/products/the-broth-book"
           },
           {
             "title": "Nose to Tail at Home",
-            "url": "/search?q=nose"
+            "url": "/products/nose-to-tail-at-home"
           },
           {
             "title": "Slow Ferments",
-            "url": "/search?q=ferments"
+            "url": "/products/slow-ferments"
           },
           {
             "title": "Sourdough from Scratch",
-            "url": "/search?q=sourdough"
+            "url": "/products/sourdough-from-scratch"
           },
           {
             "title": "The 28 Day Table",
-            "url": "/search?q=table"
+            "url": "/products/the-28-day-table"
           },
           {
             "title": "Every book",
@@ -55,7 +55,7 @@
       },
       {
         "title": "The library",
-        "url": "/search?q=library"
+        "url": "/products/the-library-all-five-books"
       },
       {
         "title": "Recipes",

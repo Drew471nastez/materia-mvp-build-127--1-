@@ -1,4 +1,4 @@
-<script src="{{ 'live-popups-code.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-popups-code.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-popups-code-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%}
   Materia Themes. Promotion popup: a native <dialog> with a picture, the
@@ -21,7 +21,7 @@
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign pp_custom = false
   if st.enable_custom_style
     assign pp_custom = true
@@ -73,160 +73,7 @@
 {%- for block in section.blocks -%}
   {%- if block.settings.enable_custom_fonts and block.settings.font.family != blank -%}<style>{{ block.settings.font | font_face: font_display: 'swap' }}</style>{%- endif -%}
 {%- endfor -%}
-<style>
-  #shopify-section-{{ sid }} .pp {
-    --pp-pad: 30px;
-  }
-  #shopify-section-{{ sid }} .pp__dialog {
-    box-sizing: border-box;
-    width: min(var(--pp-w, 690px), calc(100vw - 32px));
-    max-width: none;
-    max-height: calc(var(--sl-vh, 1vh) * 100 - 32px);
-    padding: 0;
-    border: 0;
-    overflow: visible;
-    background: transparent;
-    color: var(--pp-text, var(--color-text));
-  }
-  #shopify-section-{{ sid }} .pp__dialog::backdrop {
-    background: var(--pp-overlay, #000);
-    opacity: calc(var(--pp-overlay-o, 50) / 100);
-  }
-  #shopify-section-{{ sid }} .pp__dialog[open] { animation: pc-pp-in .25s ease both; }
-  @keyframes pc-pp-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
-  #shopify-section-{{ sid }} .pp__card {
-    position: relative;
-    display: flex;
-    align-items: stretch;
-    max-height: calc(var(--sl-vh, 1vh) * 100 - 32px);
-    overflow: hidden;
-    background: var(--pp-bg, var(--color-background));
-    border-radius: var(--pp-radius, var(--rounded-radius, 0px));
-    font-family: var(--pp-bf, var(--body-font, inherit));
-    box-shadow: 0 20px 60px rgba(0, 0, 0, .25);
-  }
-  #shopify-section-{{ sid }} .pp__media {
-    position: relative;
-    display: none;
-    flex: 0 0 var(--pp-banner, 36.5%);
-    min-height: 100%;
-    background: color-mix(in srgb, var(--color-text) 8%, var(--color-background));
-  }
-  #shopify-section-{{ sid }} .pp__media img,
-  #shopify-section-{{ sid }} .pp__media svg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
-  #shopify-section-{{ sid }} .pp__media svg { color: var(--pp-text, var(--color-text)); opacity: .5; }
-  @media (min-width: 768px) {
-    #shopify-section-{{ sid }} .pp__media:not([hidden]) { display: block; }
-  }
-  #shopify-section-{{ sid }} .pp__body {
-    flex: 1 1 auto;
-    min-width: 0;
-    box-sizing: border-box;
-    padding: var(--pp-pad);
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    text-align: var(--pp-align, center);
-  }
-  @media (min-width: 1025px) {
-    #shopify-section-{{ sid }} .pp__body { padding: 40px; }
-  }
-  #shopify-section-{{ sid }} .pp__close {
-    position: absolute;
-    top: 0;
-    right: 0;
-    z-index: 2;
-    width: 44px;
-    height: 44px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: var(--pp-heading, var(--color-heading));
-    cursor: pointer;
-  }
-  #shopify-section-{{ sid }} .pp__close svg { width: 16px; height: 16px; }
-  #shopify-section-{{ sid }} .pp__close:focus-visible { outline: 2px solid currentColor; outline-offset: -6px; }
-  #shopify-section-{{ sid }} .pp__sub {
-    margin: 0 0 10px;
-    line-height: normal;
-    color: var(--pb-c, var(--pp-text, var(--color-text)));
-    font-family: var(--pb-ff, var(--pp-bf, inherit));
-    font-size: var(--pb-fs, var(--h6-size, 1.6rem));
-  }
-  #shopify-section-{{ sid }} .pp__heading {
-    margin: 0 0 15px;
-    border: 0;
-    color: var(--pb-c, var(--pp-heading, var(--color-heading)));
-    font-family: var(--pb-ff, var(--pp-hf, var(--heading-font, inherit)));
-    font-weight: var(--pb-fw, var(--heading-weight, 700));
-    font-size: var(--pb-fs-m, var(--h3-size, 3rem));
-    line-height: var(--pb-lh, var(--heading-line-height, 1.2));
-    letter-spacing: var(--pb-ls, var(--heading-letter-spacing, normal));
-  }
-  @media (min-width: 768px) {
-    #shopify-section-{{ sid }} .pp__heading { font-size: var(--pb-fs-d, var(--h2-size, 3.6rem)); }
-  }
-  #shopify-section-{{ sid }} .pp__text {
-    color: var(--pb-c, var(--pp-text, var(--color-text)));
-    font-family: var(--pb-ff, var(--pp-bf, inherit));
-    font-size: var(--pb-fs, inherit);
-  }
-  #shopify-section-{{ sid }} .pp__text :is(p, li) { font-family: inherit; font-size: inherit; color: inherit; }
-  #shopify-section-{{ sid }} .pp__text > :first-child { margin-top: 0; }
-  #shopify-section-{{ sid }} .pp__text > :last-child { margin-bottom: 0; }
-  #shopify-section-{{ sid }} .pp__code {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 5px;
-    width: 100%;
-    margin: 25px 0;
-    text-transform: uppercase;
-    text-decoration: none;
-    cursor: pointer;
-  }
-  #shopify-section-{{ sid }} .pp__code-text { position: relative; display: inline-grid; }
-  #shopify-section-{{ sid }} .pp__code-text > * { grid-area: 1 / 1; transition: opacity .2s ease; }
-  #shopify-section-{{ sid }} .pp__code-done { opacity: 0; }
-  #shopify-section-{{ sid }} .pp__code[data-copied] .pp__code-value { opacity: 0; }
-  #shopify-section-{{ sid }} .pp__code[data-copied] .pp__code-done { opacity: 1; }
-  #shopify-section-{{ sid }} .pp__dismiss {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 44px;
-    margin: 0 auto;
-    padding: 0 8px;
-    border: 0;
-    background: transparent;
-    cursor: pointer;
-    font: inherit;
-    font-size: var(--pb-fs, var(--small-font-size, 1.3rem));
-    font-family: var(--pb-ff, var(--pp-bf, inherit));
-    color: var(--pb-c, var(--pp-text, var(--color-text)));
-  }
-  #shopify-section-{{ sid }} .pp__dismiss span { border-bottom: 1px solid currentColor; }
-  #shopify-section-{{ sid }} [data-pp-align='left'] .pp__dismiss { margin-left: 0; }
-  #shopify-section-{{ sid }} [data-pp-align='right'] .pp__dismiss { margin-right: 0; }
-  #shopify-section-{{ sid }} .pp__empty { opacity: .7; font-style: italic; }
-  /* In the builder the card sits in the page (never over it) */
-  #shopify-section-{{ sid }} .pp__dialog[open]:not(:modal) {
-    position: relative;
-    inset: auto;
-    display: block;
-    margin: 24px auto;
-    z-index: auto;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    #shopify-section-{{ sid }} .pp__dialog[open],
-    #shopify-section-{{ sid }} .pp__code-text > * { animation: none !important; transition: none !important; }
-  }
-  html.pc-lock { overflow: hidden; }
-</style>
+{{ 'section-promotion-popup.css' | asset_url | stylesheet_tag }}
 
 <div
   class="pp color-{{ color_scheme }}"
@@ -340,7 +187,8 @@
   </dialog>
 </div>{% schema %}
 {
-  "name": "Promotion popup",
+  "class": "s-promotion-popup s-tt has-overlay",
+"name": "Promotion popup",
   "tag": "section",
   "enabled_on": {
     "groups": [
@@ -357,7 +205,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -382,7 +230,6 @@
           "label": "Full width"
         }
       ],
-      "hidden": true,
       "info": "Not used: the popup sets its own width (Popup width).",
       "visible_if": "{{ false }}"
     },
@@ -391,7 +238,6 @@
       "id": "reset_spacing",
       "label": "Remove section spacing",
       "default": true,
-      "hidden": true,
       "info": "Not used: a popup takes no space in the page.",
       "visible_if": "{{ false }}"
     },
@@ -462,7 +308,6 @@
       "id": "promotion_sub_title",
       "label": "Subheading",
       "default": "Special Offer",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Subheading block.",
       "visible_if": "{{ false }}"
     },
@@ -470,8 +315,6 @@
       "type": "text",
       "id": "promotion_title",
       "label": "Heading",
-      "default": "",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Heading block.",
       "visible_if": "{{ false }}"
     },
@@ -479,8 +322,6 @@
       "type": "textarea",
       "id": "promotion_content",
       "label": "Promotion content",
-      "default": "",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Text block.",
       "visible_if": "{{ false }}"
     },
@@ -488,7 +329,6 @@
       "type": "text",
       "id": "promotion_code",
       "label": "Promotion code",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Code block.",
       "visible_if": "{{ false }}"
     },
@@ -634,7 +474,6 @@
       "id": "reveal",
       "label": "Reveal on scroll",
       "default": true,
-      "hidden": true,
       "info": "Not used: the popup has its own opening animation.",
       "visible_if": "{{ false }}"
     },
@@ -646,7 +485,6 @@
       "max": 300,
       "step": 4,
       "default": 0,
-      "hidden": true,
       "info": "Not used: a popup takes no space in the page.",
       "visible_if": "{{ false }}"
     },
@@ -658,7 +496,6 @@
       "max": 300,
       "step": 4,
       "default": 0,
-      "hidden": true,
       "info": "Not used: a popup takes no space in the page.",
       "visible_if": "{{ false }}"
     },
@@ -670,7 +507,6 @@
       "max": 300,
       "step": 4,
       "default": 0,
-      "hidden": true,
       "info": "Not used: a popup takes no space in the page.",
       "visible_if": "{{ false }}"
     },
@@ -682,15 +518,14 @@
       "max": 300,
       "step": 4,
       "default": 0,
-      "hidden": true,
       "info": "Not used: a popup takes no space in the page.",
       "visible_if": "{{ false }}"
     }
   ],
   "presets": [
     {
-      "name": "Promotion popup",
-      "category": "Promotional Popup",
+      "name": "Popup – Promotion",
+      "category": "17 · Popups & notifications",
       "blocks": [
         {
           "type": "subheading"
@@ -887,8 +722,8 @@
           "label": "Line height",
           "min": 0.9,
           "max": 1.8,
-          "step": 0.05,
-          "default": 1.15,
+          "step": 0.1,
+          "default": 1.1,
           "visible_if": "{{ block.settings.size_enable }}"
         },
         {

@@ -1,7 +1,7 @@
-<script src="{{ 'live-features-b.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-features-b.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-features-b-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
@@ -268,7 +268,8 @@
   </div>
 </section>{% schema %}
 {
-  "name": "Comparison Table",
+  "class": "s-tt",
+"name": "Comparison Table",
   "settings": [
     {
       "type": "header",
@@ -278,7 +279,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "checkbox",
@@ -312,7 +313,6 @@
       "id": "heading",
       "label": "Section Title",
       "default": "Comparison Table",
-      "hidden": true,
       "info": "Legacy: used only when the section has no heading block",
       "visible_if": "{{ false }}"
     },
@@ -321,7 +321,6 @@
       "id": "subheading_text",
       "label": "Subheading Text",
       "default": "Easily Compare Features, Pricing, and Benefits Side by Side to Find the Perfect Option for Your Needs",
-      "hidden": true,
       "info": "Legacy: used only when the section has no subheading block",
       "visible_if": "{{ false }}"
     },
@@ -342,7 +341,6 @@
       "id": "first_heading",
       "label": "Heading for Column One",
       "default": "Our Brand",
-      "hidden": true,
       "info": "Legacy: used only when the section has no column blocks",
       "visible_if": "{{ false }}"
     },
@@ -351,7 +349,6 @@
       "id": "second_heading",
       "label": "Heading for Column Two",
       "default": "Others",
-      "hidden": true,
       "info": "Legacy: used only when the section has no column blocks",
       "visible_if": "{{ false }}"
     },
@@ -359,7 +356,6 @@
       "type": "text",
       "id": "third_heading",
       "label": "Heading for Column Three",
-      "hidden": true,
       "info": "Legacy: used only when the section has no column blocks",
       "visible_if": "{{ false }}"
     },
@@ -368,7 +364,6 @@
       "id": "enable_logo_column_one",
       "label": "Logo in column one",
       "default": false,
-      "hidden": true,
       "info": "Legacy: used only when the section has no column blocks",
       "visible_if": "{{ false }}"
     },
@@ -377,7 +372,6 @@
       "id": "enable_logo_url",
       "label": "Logo from URL",
       "default": false,
-      "hidden": true,
       "info": "Legacy: used only when the section has no column blocks",
       "visible_if": "{{ false }}"
     },
@@ -385,7 +379,6 @@
       "type": "text",
       "id": "logo_image_url",
       "label": "Logo Image URL",
-      "hidden": true,
       "info": "Legacy: used only when the section has no column blocks",
       "visible_if": "{{ false }}"
     },
@@ -393,7 +386,6 @@
       "type": "image_picker",
       "id": "logo_image_column_one",
       "label": "Column one logo",
-      "hidden": true,
       "info": "Legacy: used only when the section has no column blocks",
       "visible_if": "{{ false }}"
     },
@@ -420,7 +412,6 @@
           "value": "bold"
         }
       ],
-      "hidden": true,
       "info": "Legacy: used only when the section has no column blocks",
       "visible_if": "{{ false }}"
     },
@@ -447,7 +438,6 @@
           "value": "bold"
         }
       ],
-      "hidden": true,
       "info": "Legacy: used only when the section has no column blocks",
       "visible_if": "{{ false }}"
     },
@@ -474,7 +464,6 @@
           "value": "bold"
         }
       ],
-      "hidden": true,
       "info": "Legacy: used only when the section has no column blocks",
       "visible_if": "{{ false }}"
     },
@@ -482,7 +471,6 @@
       "type": "color",
       "id": "first_heading_color_custom",
       "label": "Column One Heading Color",
-      "hidden": true,
       "info": "Legacy: used only when the section has no column blocks",
       "visible_if": "{{ false }}"
     },
@@ -490,7 +478,6 @@
       "type": "color",
       "id": "second_heading_color_custom",
       "label": "Column Two Heading Color",
-      "hidden": true,
       "info": "Legacy: used only when the section has no column blocks",
       "visible_if": "{{ false }}"
     },
@@ -498,7 +485,6 @@
       "type": "color",
       "id": "third_heading_color_custom",
       "label": "Column Three Heading Color",
-      "hidden": true,
       "info": "Legacy: used only when the section has no column blocks",
       "visible_if": "{{ false }}"
     },
@@ -811,7 +797,6 @@
       "id": "enable_icon_color_customizers",
       "label": "Custom icon colors",
       "default": true,
-      "hidden": true,
       "info": "Legacy: icon colours follow Enable custom styling",
       "visible_if": "{{ false }}"
     },
@@ -901,7 +886,6 @@
       "unit": "px",
       "label": "Section Title Font Size",
       "default": 34,
-      "hidden": true,
       "info": "Legacy: used only when the section has no heading block",
       "visible_if": "{{ false }}"
     },
@@ -914,7 +898,6 @@
       "unit": "%",
       "label": "Section Title Line Height",
       "default": 100,
-      "hidden": true,
       "info": "Legacy: used only when the section has no heading block",
       "visible_if": "{{ false }}"
     },
@@ -941,7 +924,6 @@
           "value": "bold"
         }
       ],
-      "hidden": true,
       "info": "Legacy: used only when the section has no heading block",
       "visible_if": "{{ false }}"
     },
@@ -954,7 +936,6 @@
       "unit": "px",
       "label": "Subheading Font Size (Desktop)",
       "default": 16,
-      "hidden": true,
       "info": "Legacy: used only when the section has no subheading block",
       "visible_if": "{{ false }}"
     },
@@ -967,7 +948,6 @@
       "unit": "px",
       "label": "Subheading Font Size (Mobile)",
       "default": 15,
-      "hidden": true,
       "info": "Legacy: used only when the section has no subheading block",
       "visible_if": "{{ false }}"
     },
@@ -980,7 +960,6 @@
       "unit": "px",
       "label": "Subheading side padding",
       "default": 0,
-      "hidden": true,
       "info": "Legacy: used only when the section has no subheading block",
       "visible_if": "{{ false }}"
     },
@@ -993,7 +972,6 @@
       "unit": "px",
       "label": "Subheading side padding (mobile)",
       "default": 0,
-      "hidden": true,
       "info": "Legacy: used only when the section has no subheading block",
       "visible_if": "{{ false }}"
     },
@@ -1500,8 +1478,8 @@
   ],
   "presets": [
     {
-      "name": "Comparison Table",
-      "category": "Features",
+      "name": "Comparison Table – Classic",
+      "category": "09 · Comparisons",
       "blocks": [
         {
           "type": "heading",

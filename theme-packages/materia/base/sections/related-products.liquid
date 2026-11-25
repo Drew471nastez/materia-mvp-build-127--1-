@@ -1,7 +1,7 @@
-<script src="{{ 'live-product-extras.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-product-extras.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 <style>
   
@@ -276,7 +276,6 @@
           {% render 'product-item',
             card_product: cp,
             section_id: section.id,
-            is_compare: false,
             template_enable_action: s.show_action,
             template_enable_product_vendor: s.show_vendor,
             template_enable_rate: s.show_rating,
@@ -322,7 +321,6 @@
             {% render 'product-item',
               card_product: recommendation,
               section_id: section.id,
-              is_compare: false,
               template_enable_action: s.show_action,
               template_enable_product_vendor: s.show_vendor,
               template_enable_rate: s.show_rating,
@@ -373,9 +371,11 @@
   </div>
 </div>
 
+
 {% schema %}
 {
-  "name": "People Also Bought",
+  "class": "s-tt",
+"name": "People Also Bought",
   "tag": "section",
   "settings": [
     {
@@ -386,7 +386,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Colour scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -513,7 +513,6 @@
       "id": "custom_products",
       "label": "Products",
       "limit": 12,
-      "visible_if": "{{ section.settings.enable_custom_products }}",
       "info": "The product on the page is skipped."
     },
     {

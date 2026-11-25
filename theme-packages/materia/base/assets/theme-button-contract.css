@@ -71,10 +71,18 @@
   /* Preserve the label/icon footprint but display only the centred loader.
      This also covers cards, featured products and portaled sticky controls. */
   [data-theme-button]:not(.loading) > .icon-load { display:none !important; }
-  [data-theme-button].loading:has(> .icon-load) > :is(.hidden-on-load,.btn-icon,.icon-cart,svg:not(.icon-load)) {
+  /* "A loading button that holds a loader: hide its other children". Written
+     with the loader as a sibling of the hidden child (before it, or after it
+     via :has on the child itself) instead of `.loading:has(> .icon-load) > X`:
+     a :has() on an ancestor of the styled element made Chrome restyle every
+     svg on the page whenever any node was added (each <link> prefetch).
+     Same matches, same specificity (0,4,1). */
+  [data-theme-button].loading > :is(.hidden-on-load,.btn-icon,.icon-cart,svg:not(.icon-load)):has(~ .icon-load),
+  [data-theme-button].loading > .icon-load ~ :is(.hidden-on-load,.btn-icon,.icon-cart,svg:not(.icon-load)) {
     opacity:0 !important;
   }
-  [data-theme-button].loading:has(> .icon-load) > :is(.btn-icon,.icon-cart,svg:not(.icon-load)) { visibility:hidden !important; }
+  [data-theme-button].loading > :is(.btn-icon,.icon-cart,svg:not(.icon-load)):has(~ .icon-load),
+  [data-theme-button].loading > .icon-load ~ :is(.btn-icon,.icon-cart,svg:not(.icon-load)) { visibility:hidden !important; }
   [data-theme-button].loading > .icon-load {
     position:absolute !important; inset:0 !important; margin:auto !important;
     width:16px !important; height:16px !important;

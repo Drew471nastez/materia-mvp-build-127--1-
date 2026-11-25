@@ -1,7 +1,7 @@
-<script src="{{ 'live-features-c.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-features-c.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- assign fb_accessibility_product_benefits_image = 'accessibility.product_benefits_image' | t -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
@@ -55,7 +55,10 @@
   assign style_variant = st.style_variant | default: 'clean'
   assign image_shape = st.image_shape | default: 'soft'
   assign content_align = st.content_alignment | default: 'center'
-  assign placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 400%22%3E%3Ccircle cx=%22172%22 cy=%22174%22 r=%2214%22 fill=%22%23888%22 fill-opacity=%22.35%22/%3E%3Cpath d=%22M140 242l40-46 25 28 20-18 35 36z%22 fill=%22%23888%22 fill-opacity=%22.35%22/%3E%3C/svg%3E'
+  capture placeholder
+    render 'placeholder-image', type: 'product-2', scheme: color_scheme, ratio: '1/1', format: 'url'
+  endcapture
+  assign placeholder = placeholder | strip
   assign tab_blocks = section.blocks | where: 'type', 'tab'
   assign tab_count = tab_blocks.size
   assign half = tab_count | divided_by: 2
@@ -268,13 +271,13 @@
   --pb2-pt-d: {{ st.padding_top_desktop | default: 0 }}px; --pb2-pb-d: {{ st.padding_bottom_desktop | default: 0 }}px; --pb2-pt-m: {{ st.padding_top_mobile | default: 0 }}px; --pb2-pb-m: {{ st.padding_bottom_mobile | default: 0 }}px;
   --pb2-mt-d: {{ st.section_margin_top_desktop | default: 0 }}px; --pb2-mb-d: {{ st.section_margin_bottom_desktop | default: 0 }}px; --pb2-mt-m: {{ st.section_margin_top_mobile | default: 0 }}px; --pb2-mb-m: {{ st.section_margin_bottom_mobile | default: 0 }}px;
 {%- endcapture -%}
-<section class="pb2c-wrap color-{{ color_scheme }} gradient" data-fc-root="product-benefits-2" data-fc-section="{{ sid }}" data-fc-settings="{{ st | json | escape }}" data-width="{{ st.section_width | default: 'container' }}" data-variant="{{ style_variant }}" data-shape="{{ image_shape }}" data-mobile="{{ st.mobile_layout | default: 'image_middle' }}"{% if fonts %} data-own-font{% endif %}{% unless st.reveal %} data-ti-no-reveal{% endunless %} style="{{ root_vars | strip_newlines }}">
+<section class="pb2c-wrap color-{{ color_scheme }} gradient" data-fc-root="product-benefits-2" data-fc-section="{{ sid }}" {% if request.design_mode %}data-fc-settings="{{ st | json | escape }}"{% endif %} data-width="{{ st.section_width | default: 'container' }}" data-variant="{{ style_variant }}" data-shape="{{ image_shape }}" data-mobile="{{ st.mobile_layout | default: 'image_middle' }}"{% if fonts %} data-own-font{% endif %}{% unless st.reveal %} data-ti-no-reveal{% endunless %} style="{{ root_vars | strip_newlines }}">
   <div class="pb2c">
     <div class="pb2c__inner">
       <div class="pb2c__header">
         {%- for block in section.blocks -%}
           {%- assign bs = block.settings -%}
-          {%- capture battrs -%}data-fc-block="{{ block.id }}" data-fc-type="{{ block.type }}" data-fc-settings="{{ bs | json | escape }}" {{ block.shopify_attributes }}{% if bs.text == blank %} hidden{% endif %}{%- endcapture -%}
+          {%- capture battrs -%}data-fc-block="{{ block.id }}" data-fc-type="{{ block.type }}" {% if request.design_mode %}data-fc-settings="{{ bs | json | escape }}"{% endif %} {{ block.shopify_attributes }}{% if bs.text == blank %} hidden{% endif %}{%- endcapture -%}
           {%- case block.type -%}
             {%- when 'top_text' -%}
               <p class="pb2c__top" {{ battrs }} style="--pb2-top-size: {{ bs.size | default: 13 }}px; --pb2-top-color: {% if bs.enable_custom_style %}{% render 'scheme-color', color: bs.color, fallback: 'var(--color-primary)' %}{% else %}var(--color-primary){% endif %};">{{ bs.text | escape }}</p>
@@ -334,7 +337,7 @@
                     assign bs = block.settings
                     assign icon_source = bs.icon_source | default: 'icon'
                   -%}
-                  <div class="pb2c__tab" data-fc-block="{{ block.id }}" data-fc-type="tab" data-fc-settings="{{ bs | json | escape }}" {{ block.shopify_attributes }}>
+                  <div class="pb2c__tab" data-fc-block="{{ block.id }}" data-fc-type="tab" {% if request.design_mode %}data-fc-settings="{{ bs | json | escape }}"{% endif %} {{ block.shopify_attributes }}>
                     <div class="pb2c__tab-row">
                       <span class="pb2c__tab-icon{% if bs.image_cover and icon_source == 'image' and bs.image != blank %} is-cover{% endif %}" aria-hidden="true"{% if icon_source == 'none' %} hidden{% endif %}>
                         {%- case icon_source -%}
@@ -346,7 +349,7 @@
                             {%- if bs.svg_code != blank -%}{{ bs.svg_code }}{%- endif -%}
                           {%- when 'none' -%}
                           {%- else -%}
-                            {%- render 'benefits-icon', icon: bs.icon, size: st.icon_size | default: 22 -%}
+                            {%- assign pb_icon_size = st.icon_size | default: 22 -%}{%- render 'benefits-icon', icon: bs.icon, size: pb_icon_size -%}
                         {%- endcase -%}
                       </span>
                       <div class="pb2c__tab-body">
@@ -366,7 +369,8 @@
   {%- if request.design_mode -%}<template data-fc-icons>{%- assign fc_icons = 'truck,shipping,shield,lock,heart,star,check,headphones,envelope,chat,tag,gift,globe,leaf,award,clock,card,wallet,lightning,recycle,sparkle,box,refresh,user,calendar,handshake,gem,organic,fire,crown' | split: ',' -%}{%- for name in fc_icons -%}<span data-icon="{{ name }}">{% render 'benefits-icon', icon: name, size: 22 %}</span>{%- endfor -%}</template>{%- endif -%}
 </section>{% schema %}
 {
-  "name": "Product Benefits 2",
+  "class": "s-tt",
+"name": "Product Benefits 2",
   "settings": [
     {
       "type": "header",
@@ -376,7 +380,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -959,7 +963,6 @@
               "label": "H3"
             }
           ],
-          "hidden": true,
           "info": "Kept for saved content. The heading is an h2.",
           "visible_if": "{{ false }}"
         },
@@ -1316,8 +1319,8 @@
   ],
   "presets": [
     {
-      "name": "Product Benefits 2",
-      "category": "Features",
+      "name": "Product Benefits – Image & Tabs",
+      "category": "05 · Benefits & features",
       "blocks": [
         {
           "type": "top_text"

@@ -1,3 +1,15 @@
+{% doc %}
+  Sale, sold out, new and custom badges of a product card.
+
+  @param {product} card_product - Card product
+  @param {string} [class] - Extra CSS classes
+  @param {string} [part] - Part ('badges', 'countdown')
+  @param {string} [sticky] - Sticky
+  @param {string} type - Type ('price_badges', 'product_item')
+
+  @example
+  {% render 'product-badges', card_product: card_product, type: 'product_item', class: bage_positon, sticky: type, part: 'badges' %}
+{% enddoc -%}
 {%- comment -%}
   Materia Themes. Developed By Materia Themes.
 {%- endcomment -%}

@@ -64,7 +64,7 @@
         "color_scheme": "default",
         "section_width": "container",
         "layout": "alternate",
-        "text_align": "left",
+        "text_align": "center",
         "image_ratio": "landscape",
         "marker_style": "number",
         "fill_on_scroll": true,
@@ -468,7 +468,7 @@
         "sticky_show_quantity": false,
         "sticky_show_variant_picker": false,
         "mobile_options": "show_thumbnails",
-        "padding_bottom": 72,
+        "padding_bottom": 48,
         "reset_spacing": true
       },
       "blocks": {
@@ -493,7 +493,10 @@
         },
         "product_description_1": {
           "type": "product_description",
-          "settings": {}
+          "settings": {
+            "pb_d": 14,
+            "pb_m": 12
+          }
         },
         "variant_picker_1": {
           "type": "variant_picker",
@@ -507,17 +510,21 @@
           "type": "benefits_stack",
           "settings": {
             "text_1": "Watch on any device, at your own pace",
-            "icon_1": "check_circle",
+            "icon_1": "badge_check",
             "text_2": "Raw footage and project files included",
-            "icon_2": "check_circle",
+            "icon_2": "badge_check",
             "text_3": "Works with any editing app",
-            "icon_3": "check_circle",
+            "icon_3": "badge_check",
             "text_4": "",
             "text_5": "",
             "text_6": "",
             "columns": "1",
             "enable_custom_style": true,
-            "icon_color": "#ff5f1f"
+            "icon_color": "#ff5f1f",
+            "padding_top": 0,
+            "padding_bottom": 4,
+            "icon_size": 20,
+            "gap_y": 10
           }
         },
         "buy_buttons_1": {
@@ -626,6 +633,51 @@
             "row3_strong": "within 30 days if it is not for you.",
             "row3_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M4 12a8 8 0 1 0 2.4-5.7L4 8.5\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M4 4v4.5h4.5\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M12 8v4l2.5 2\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\"/></svg>"
           }
+        },
+        "payment_badges_1": {
+          "type": "payment_badges",
+          "settings": {
+            "h_main": "",
+            "sub_text": "",
+            "sub_url": "",
+            "sec_bg": "rgba(0,0,0,0)",
+            "sec_pt": 6,
+            "sec_pb": 16,
+            "sec_mt": 0,
+            "sec_mb": 0,
+            "sec_pl": 0,
+            "sec_pr": 0,
+            "sec_maxw": 100,
+            "sec_maxw_m": 100,
+            "sec_pl_m": 0,
+            "sec_pr_m": 0,
+            "badge_w": 40,
+            "badge_h": 26,
+            "badge_w_m": 40,
+            "badge_h_m": 26,
+            "h_main_mb": 0,
+            "h_main_mt": 0,
+            "h_main_size": 14,
+            "h_main_color": "#111113",
+            "show_visa": true,
+            "show_mastercard": true,
+            "show_amex": true,
+            "show_paypal": true,
+            "show_apple_pay": true,
+            "show_google_pay": true,
+            "show_unionpay": false,
+            "toggle_icons": true,
+            "text_align": "left",
+            "text_align_m": "left",
+            "badges_align": "auto",
+            "a11y_label": "Payment methods",
+            "sec_radius": 0,
+            "sub_underline": false,
+            "sub_newtab": false,
+            "sub_uline_w": 1,
+            "sub_color": "#333333",
+            "sub_hover": "#111111"
+          }
         }
       },
       "block_order": [
@@ -634,9 +686,10 @@
         "price_1",
         "pp23_sold",
         "product_description_1",
-        "variant_picker_1",
         "benefits_stack_1",
+        "variant_picker_1",
         "buy_buttons_1",
+        "payment_badges_1",
         "pp23_info",
         "collapsible_row_1",
         "collapsible_row_2",
@@ -669,6 +722,30 @@
         "padding_top": 88,
         "padding_bottom": 24
       }
+    },
+    "recently_viewed": {
+      "type": "recently-viewed",
+      "blocks": {
+        "heading_rv": {
+          "type": "heading",
+          "settings": {
+            "text": "Recently viewed"
+          }
+        }
+      },
+      "block_order": [
+        "heading_rv"
+      ],
+      "settings": {
+        "section_width": "container",
+        "products_to_show": 8,
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 20,
+        "padding_top": 40,
+        "padding_bottom": 56
+      },
+      "disabled": true
     }
   },
   "order": [
@@ -679,6 +756,7 @@
     "reviews",
     "faq",
     "related",
+    "recently_viewed",
     "final"
   ]
 }

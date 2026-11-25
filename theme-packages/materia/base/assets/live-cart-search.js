@@ -292,7 +292,7 @@
   function search(c) {
     const {root, s, put} = c, on = bool(s.enable_custom_style), fonts = bool(s.enable_custom_fonts);
     common(c);
-    put(root, 'scheme', schemeOf(s) || 'default-color-scheme');
+    put(root, 'scheme', schemeOf(s) || 'default');
     put(root, '--lcs-head', on ? color(s.heading_color, 'var(--color-heading)') : null);
     put(root, '--lcs-text', on ? color(s.text_color, 'var(--color-text)') : null); put(root, '@data-lcs-custom', on || null);
     const hf = fonts && font(s.heading_font) || null, bf = fonts && font(s.body_font) || null;

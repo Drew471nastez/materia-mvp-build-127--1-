@@ -1,7 +1,7 @@
-<script src="{{ 'live-social-dividers.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-social-dividers.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' and section.settings.reveal != false -%}
@@ -355,6 +355,7 @@
 </script>
 <!-- ti-theme:end -->
 
+
 {% schema %}
 {
   "name": "Waves Divider 2",
@@ -367,7 +368,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -745,10 +746,10 @@
   ],
   "presets": [
     {
-      "name": "Waves Divider 2",
-      "category": "Dividers"
+      "name": "Divider – Waves",
+      "category": "19 · Layout & custom code"
     }
   ],
-  "class": "section-edge-bleed"
+  "class": "section-edge-bleed s-tt"
 }
 {% endschema %}

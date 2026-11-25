@@ -1,6 +1,6 @@
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 <style data-rs-bulletproof>
   {%- if section.settings.reset_spacing -%}
@@ -178,7 +178,7 @@
                     style="--animation-order: {{  forloop.index }};"
                   {%- endif -%}
                 >
-                  {% render 'collection-item',
+                  {% render 'collection-item', index: forloop.index,
                     card_collection: collection,
                     section: section,
                     collection_information_position: collection_information_position,
@@ -209,9 +209,11 @@
     </div>
   {% endif %}
 {% endif %}
+
 {% schema %}
 {
-  "name": "Subcollections",
+  "class": "s-tt",
+"name": "Subcollections",
   "tag": "section",
   "settings": [
     {
@@ -222,7 +224,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Colour scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",

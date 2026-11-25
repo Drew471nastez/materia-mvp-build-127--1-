@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. The header of the FAQ sections: the heading, subheading
   and button blocks in their order. A section with no heading block shows
   its older Heading setting, and one with no subheading block its older
@@ -7,7 +7,14 @@
   data-own-font / data-own-weight / data-own-size / data-own-shape keep a
   custom font, weight, size or button shape ahead of Theme settings >
   Typography and Buttons priority (live-faq.js toggles them on live edits).
-{%- endcomment -%}
+
+  @param {boolean} own_hw - Whether the section sets its own heading weight
+  @param {string} p - P
+  @param {section} section - The section being rendered
+
+  @example
+  {% render 'faq-live-header', section: section, p: 'ffq', own_hw: own_hw %}
+{%- enddoc -%}
 {%- liquid
   assign st = section.settings
   if own_hw == nil
@@ -45,7 +52,7 @@
                 {%- if bs.enable_custom_fonts and bs.font.family != blank -%}--fb-ff:{{ bs.font.family }}, {{ bs.font.fallback_families }};{%- endif -%}
               {%- endcapture -%}
               {%- if bs.enable_custom_fonts and bs.font.family != blank -%}<style>{{ bs.font | font_face: font_display: 'swap' }}</style>{%- endif -%}
-              <h2 class="{{ p }}__heading" id="block-{{ block.id }}" data-faq-block="{{ block.id }}" data-faq-type="heading" data-faq-settings="{{ bs | json | escape }}"{% if sec_font or bs.enable_custom_fonts %} data-own-font{% endif %}{% if bs.weight_enable or own_hw %} data-own-weight{% endif %}{% if bs.size_enable %} data-own-size{% endif %}{% if bs.text == blank %} hidden{% endif %}{% if fb_vars != blank %} style="{{ fb_vars }}"{% endif %} {{ block.shopify_attributes }}>{{ bs.text }}</h2>
+              <h2 class="{{ p }}__heading" id="block-{{ block.id }}" data-faq-block="{{ block.id }}" data-faq-type="heading" {% if request.design_mode %}data-faq-settings="{{ bs | json | escape }}"{% endif %}{% if sec_font or bs.enable_custom_fonts %} data-own-font{% endif %}{% if bs.weight_enable or own_hw %} data-own-weight{% endif %}{% if bs.size_enable %} data-own-size{% endif %}{% if bs.text == blank %} hidden{% endif %}{% if fb_vars != blank %} style="{{ fb_vars }}"{% endif %} {{ block.shopify_attributes }}>{{ bs.text }}</h2>
             {%- when 'subheading' -%}
               {%- capture fb_vars -%}
                 {%- if bs.enable_custom_style -%}--fb-c:{% render 'scheme-color', color: bs.color, fallback: 'var(--color-text)' %};{%- endif -%}
@@ -54,7 +61,7 @@
                 {%- if bs.enable_custom_fonts and bs.font.family != blank -%}--fb-ff:{{ bs.font.family }}, {{ bs.font.fallback_families }};{%- endif -%}
               {%- endcapture -%}
               {%- if bs.enable_custom_fonts and bs.font.family != blank -%}<style>{{ bs.font | font_face: font_display: 'swap' }}</style>{%- endif -%}
-              <div class="{{ p }}__subheading" id="block-{{ block.id }}" data-faq-block="{{ block.id }}" data-faq-type="subheading" data-faq-settings="{{ bs | json | escape }}"{% if sec_font or bs.enable_custom_fonts %} data-own-font{% endif %}{% if bs.weight_enable %} data-own-weight{% endif %}{% if bs.size_enable %} data-own-size{% endif %}{% if bs.text == blank %} hidden{% endif %}{% if fb_vars != blank %} style="{{ fb_vars }}"{% endif %} {{ block.shopify_attributes }}>{{ bs.text }}</div>
+              <div class="{{ p }}__subheading" id="block-{{ block.id }}" data-faq-block="{{ block.id }}" data-faq-type="subheading" {% if request.design_mode %}data-faq-settings="{{ bs | json | escape }}"{% endif %}{% if sec_font or bs.enable_custom_fonts %} data-own-font{% endif %}{% if bs.weight_enable %} data-own-weight{% endif %}{% if bs.size_enable %} data-own-size{% endif %}{% if bs.text == blank %} hidden{% endif %}{% if fb_vars != blank %} style="{{ fb_vars }}"{% endif %} {{ block.shopify_attributes }}>{{ bs.text }}</div>
             {%- when 'button' -%}
               {%- liquid
                 assign btn_label = bs.label | default: fb_learn_more
@@ -80,7 +87,7 @@
                   {%- endcase -%}
                 {%- endif -%}
               {%- endcapture -%}
-              <div class="{{ p }}__cta-row" id="block-{{ block.id }}" data-faq-block="{{ block.id }}" data-faq-type="button" data-faq-settings="{{ bs | json | escape }}" {{ block.shopify_attributes }}>
+              <div class="{{ p }}__cta-row" id="block-{{ block.id }}" data-faq-block="{{ block.id }}" data-faq-type="button" {% if request.design_mode %}data-faq-settings="{{ bs | json | escape }}"{% endif %} {{ block.shopify_attributes }}>
                 {%- if bs.link != blank -%}
                   <a class="{{ p }}__btn {{ p }}__btn--{{ btn_style }} {{ p }}__btn--{{ btn_size }}" data-faq-btn{% if btn_style == 'text' %} data-button-local-appearance="underline"{% else %} data-theme-button="{% if btn_style == 'secondary' %}secondary{% else %}primary{% endif %}" data-sl-button data-button-local-appearance="theme"{% endif %} data-full="{% if bs.full_width %}true{% else %}false{% endif %}"{% if own_shape %} data-own-shape{% endif %} href="{{ bs.link }}"{% if btn_vars != blank %} style="{{ btn_vars | strip_newlines }}"{% endif %}>
                     {{ btn_label | escape }}

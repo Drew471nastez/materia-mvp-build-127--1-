@@ -1,11 +1,18 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. Theme settings > Typography for this section. Printed first
   in the section, so the section's own rules (sizes, a heading size setting)
   still come after it; what it sets is the theme's: fonts, weights, line
   spacing, letter spacing and capitalisation, all as CSS variables, so a
   change in the builder reaches the section without a redraw.
-{%- endcomment -%}
+
+  @param {boolean} [inline] - Inline
+
+  @example
+  {% render 'theme-type', inline: true %}
+{%- enddoc -%}
+{%- comment -%} The two rules below are in base.css (assets/section-type.css, schema class "s-tt"); a section that prints styles before this snippet passes inline: true and keeps them here. {%- endcomment -%}
 <style>
+  {%- if inline %}
   #shopify-section-{{ section.id }} {
     font-family: var(--body-font, inherit);
     font-size: var(--body-font-size, inherit);
@@ -20,6 +27,7 @@
     line-height: var(--heading-line-height, 1.2);
     text-transform: var(--heading-text-transform, none);
   }
+  {%- endif %}
   {%- comment -%} Use in every section, on and off live through data-font-priority on <html>. {%- endcomment -%}
   {%- if settings.theme_font_priority == false -%}
     {%- assign fp = ":where(html[data-font-priority='on'])" -%}

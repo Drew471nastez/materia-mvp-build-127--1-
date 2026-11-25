@@ -1,7 +1,7 @@
-<script src="{{ 'live-r7-connect.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-r7-connect.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if section.settings.reveal == false -%}<span data-ti-no-reveal hidden></span>{%- endif -%}
@@ -84,7 +84,7 @@
         {%- if st.image != blank -%}
           <img class="r7n__img" data-r7n-img src="{{ st.image | image_url: width: 1200 }}" srcset="{{ st.image | image_url: width: 600 }} 600w, {{ st.image | image_url: width: 900 }} 900w, {{ st.image | image_url: width: 1200 }} 1200w, {{ st.image | image_url: width: 1800 }} 1800w" sizes="(min-width: 768px) 50vw, 100vw" width="{{ st.image.width | default: 1200 }}" height="{{ st.image.height | default: 1500 }}" alt="{{ image_alt | escape }}" loading="lazy" decoding="async"{% if st.image.presentation.focal_point != blank %} style="object-position: {{ st.image.presentation.focal_point }}"{% endif %}>
         {%- else -%}
-          {%- render 'placeholder-render', class: 'r7n__img r7n__img--ph' -%}
+          {%- render 'placeholder-render', class: 'r7n__img r7n__img--ph', type: 'lifestyle-2' -%}
         {%- endif -%}
       </div>
       <div class="r7n__body">
@@ -95,11 +95,13 @@
         {%- endif -%}
         <div class="r7n__signup" data-r7n-signup{% if sec_font %} data-own-font{% endif %}>
           {%- comment -%} A Storelib sign-up form (data-storelib-form="subscribe") to the creator's Subscribers, sent once by materia-forms.js; the messages and data-mt-words are the section's own words. {%- endcomment -%}
-          {%- form 'customer', id: 'NewsletterSplitForm-' | append: sid, class: 'r7n__form', data-nl-form: '', data-mt-inline-subscribe: 'true', data-storelib-form: 'subscribe' -%}
+          {%- assign nl_form_id = 'NewsletterSplitForm-' | append: sid -%}
+          {%- form 'customer', id: nl_form_id, class: 'r7n__form', data-nl-form: '', data-mt-inline-subscribe: 'true', data-storelib-form: 'subscribe' -%}
             <input type="hidden" name="contact[tags]" value="newsletter">
+            <input type="hidden" name="contact[accepts_marketing]" value="true">
             <span hidden data-mt-words data-r7n-words data-success-message="{{ st.success_text | default: "Thanks, you're on the list." | escape }}" data-already-message="{{ st.already_text | escape }}" data-invalid-message="{{ st.invalid_text | escape }}" data-error-message="{{ st.error_text | escape }}" data-success-ms="{{ success_ms }}"></span>
             <div class="r7n__hp" aria-hidden="true" data-mt-trap>
-              <label for="NewsletterSplitHp-{{ sid }}">Leave this field empty</label>
+              <label for="NewsletterSplitHp-{{ sid }}">{{ 'accessibility.ui.leave_empty' | t }}</label>
               <input id="NewsletterSplitHp-{{ sid }}" type="text" name="company" tabindex="-1" autocomplete="off" pattern="^$" maxlength="0" value="">
             </div>
             <div class="r7n__fields">
@@ -117,8 +119,15 @@
             <div class="r7n__result" data-nl-result role="status" aria-live="polite">
               <p class="r7n__msg r7n__msg--error" data-nl-msg="error" data-r7n-msg="error">{{ st.error_text | default: 'That did not go through. Check your connection and try again.' | escape }}</p>
               <p class="r7n__msg r7n__msg--done" data-nl-msg="done" data-r7n-msg="done">{{ st.success_text | default: "Thanks, you're on the list." | escape }}</p>
-              {%- if form.posted_successfully? -%}<p class="r7n__msg r7n__msg--posted">{{ st.success_text | default: "Thanks, you're on the list." | escape }}</p>{%- endif -%}
-              {%- if form.errors -%}<p class="r7n__msg r7n__msg--failed">{{ st.invalid_text | default: 'Enter a valid email address.' | escape }}</p>{%- endif -%}
+              {%- if form.posted_successfully? -%}<p class="r7n__msg r7n__msg--posted" data-mt-result>{{ st.success_text | default: "Thanks, you're on the list." | escape }}</p>{%- endif -%}
+              {%- if form.errors -%}
+                {%- capture nl_err -%}{%- for field in form.errors -%}{{ form.errors.translated_fields[field] }} {{ form.errors.messages[field] }} {% endfor -%}{%- endcapture -%}
+                {%- if nl_err contains 'taken' or nl_err contains 'already' -%}
+                  <p class="r7n__msg r7n__msg--posted" data-mt-form-errors="{{ nl_err | strip | escape }}">{{ st.already_text | default: "You're already on the list." | escape }}</p>
+                {%- else -%}
+                  <p class="r7n__msg r7n__msg--failed" role="alert" data-mt-form-errors="{{ nl_err | strip | escape }}">{{ st.invalid_text | default: 'Enter a valid email address.' | escape }}</p>
+                {%- endif -%}
+              {%- endif -%}
             </div>
           {%- endform -%}
           <div class="r7n__note" data-r7n-note{% if st.note == blank %} hidden{% endif %}>{{ st.note }}</div>
@@ -129,11 +138,11 @@
 </div>
 {%- if request.design_mode -%}
 {%- comment -%} The builder runs a redrawn or newly added section's inline scripts: load the controller if this page did not have it yet, or set this section up. {%- endcomment -%}
-<script>(function(){if(window.MateriaR7Connect)return window.MateriaR7Connect.scan();if(document.querySelector('script[data-r7n-boot]'))return;var s=document.createElement('script');s.src="{{ 'live-r7-connect.js' | asset_url }}";s.setAttribute('data-r7n-boot','');document.head.appendChild(s);})();</script>
+{%- if request.design_mode -%}<script>(function(){if(window.MateriaR7Connect)return window.MateriaR7Connect.scan();if(document.querySelector('script[data-r7n-boot]'))return;var s=document.createElement('script');s.src="{{ 'live-r7-connect.js' | asset_url }}";s.setAttribute('data-r7n-boot','');document.head.appendChild(s);})();</script>{%- endif -%}
 {%- endif -%}{% schema %}
 {
   "name": "Newsletter Split",
-  "class": "section-r7n",
+  "class": "section-r7n s-tt",
   "settings": [
     {
       "type": "header",
@@ -143,7 +152,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -254,7 +263,7 @@
       "type": "text",
       "id": "already_text",
       "label": "Already subscribed message",
-      "info": "Shown when this address was signed up from the same browser before.",
+      "info": "Shown when this address is already on the list.",
       "default": "You're already on the list."
     },
     {
@@ -752,8 +761,8 @@
           "label": "Line height",
           "min": 0.8,
           "max": 2,
-          "step": 0.05,
-          "default": 1.15,
+          "step": 0.1,
+          "default": 1.1,
           "visible_if": "{{ block.settings.size_enable }}"
         },
         {
@@ -871,7 +880,7 @@
           "label": "Line height",
           "min": 1,
           "max": 2.2,
-          "step": 0.05,
+          "step": 0.1,
           "default": 1.5,
           "visible_if": "{{ block.settings.size_enable }}"
         }
@@ -880,8 +889,8 @@
   ],
   "presets": [
     {
-      "name": "Newsletter Split",
-      "category": "Contact",
+      "name": "Newsletter – Split",
+      "category": "15 · Newsletter & contact",
       "blocks": [
         {
           "type": "heading"

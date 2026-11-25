@@ -1,7 +1,7 @@
-<script src="{{ 'live-features-b.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-features-b.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-features-b-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
@@ -281,7 +281,7 @@
 {
   "name": "Comparison Table 4",
   "tag": "section",
-  "class": "section sec__comparisons",
+  "class": "section sec__comparisons s-tt",
   "settings": [
     {
       "type": "header",
@@ -291,7 +291,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Colour scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -787,7 +787,6 @@
       "step": 2,
       "unit": "px",
       "default": 48,
-      "hidden": true,
       "info": "Legacy: left and right padding are used",
       "visible_if": "{{ false }}"
     },
@@ -854,7 +853,6 @@
       "step": 2,
       "unit": "px",
       "default": 12,
-      "hidden": true,
       "info": "Legacy: left and right padding are used",
       "visible_if": "{{ false }}"
     }
@@ -947,7 +945,6 @@
               "label": "H3"
             }
           ],
-          "hidden": true,
           "info": "Legacy: the heading is always an h2",
           "visible_if": "{{ false }}"
         },
@@ -1268,8 +1265,8 @@
   ],
   "presets": [
     {
-      "name": "Comparison Table 4",
-      "category": "Features",
+      "name": "Comparison Table – Multi Column",
+      "category": "09 · Comparisons",
       "blocks": [
         {
           "type": "eyebrow",

@@ -1,3 +1,12 @@
+{% doc %}
+  Cart page add-ons: order note, gift wrap and related cart tools.
+
+  @param {object} [form] - The current form object; no current caller passes it
+  @param {string} part - Part ('row', 'sheets')
+
+  @example
+  {% render 'cart-addons', part: 'sheets' %}
+{% enddoc -%}
 {%- comment -%}
   Materia Themes. Developed By Materia Themes.
 {%- endcomment -%}
@@ -17,6 +26,25 @@
   endif
   assign show_estimate_shipping_rates = theme_st.cart_drawer_show_shipping_estimator
   assign show_delivery_day = theme_st.show_delivery_day
+  comment
+    Short button labels for phones (cart-drawer.css swaps them at 749px).
+  endcomment
+  assign short_note = 'general.cart.note.short' | t
+  if short_note contains 'translation missing'
+    assign short_note = 'Add note'
+  endif
+  assign short_gift = 'general.cart.gift.short' | t
+  if short_gift contains 'translation missing'
+    assign short_gift = 'Gift wrap'
+  endif
+  assign short_shipping = 'general.cart.shipping.short' | t
+  if short_shipping contains 'translation missing'
+    assign short_shipping = 'Estimate'
+  endif
+  assign short_coupon = 'general.cart.coupon.short' | t
+  if short_coupon contains 'translation missing'
+    assign short_coupon = 'Coupon'
+  endif
 -%}
 {% liquid
   assign discount_codes = cart.cart_level_discount_applications | where: 'type', 'discount_code' | map: 'title'
@@ -47,13 +75,11 @@
         aria-label=" {{- 'general.cart.note.title' | t -}}"
       >
         {%- render 'cart-tool-icon', name: 'note' -%}
-        <span class="cart-tool-label">
-          {{- 'general.cart.note.title' | t -}}
-        </span>
+        <span class="cart-tool-label"><span class="cart-tool-label__long">{{- 'general.cart.note.title' | t -}}</span><span class="cart-tool-label__short" aria-hidden="true">{{ short_note }}</span></span>
       </button>
     </div>
   {%- endif -%}
-  {%- if enable_gift_wrap and gift_wrap_pr.variants.size == 1 -%}
+  {%- if enable_gift_wrap and gift_wrap_pr != blank and gift_wrap_pr.available -%}
     <div data-id="gift" class="mini_cart_gift{% if gift_wrap != blank %} hidden{% endif %}">
       <button
         type="button"
@@ -64,9 +90,7 @@
         aria-label=" {{- 'general.cart.gift.title' | t -}}"
       >
         {%- render 'cart-tool-icon', name: 'gift' -%}
-        <span class="cart-tool-label">
-          {{- 'general.cart.gift.title' | t -}}
-        </span>
+        <span class="cart-tool-label"><span class="cart-tool-label__long">{{- 'general.cart.gift.title' | t -}}</span><span class="cart-tool-label__short" aria-hidden="true">{{ short_gift }}</span></span>
       </button>
     </div>
   {%- endif -%}
@@ -81,9 +105,7 @@
         aria-label="{{- 'general.cart.shipping.title' | t -}}"
       >
         {%- render 'cart-tool-icon', name: 'shipping' -%}
-        <span class="cart-shipping-label">
-          {{- 'general.cart.shipping.title' | t -}}
-        </span>
+        <span class="cart-shipping-label cart-tool-label"><span class="cart-tool-label__long">{{- 'general.cart.shipping.title' | t -}}</span><span class="cart-tool-label__short" aria-hidden="true">{{ short_shipping }}</span></span>
       </button>
     </div>
   {%- endif -%}
@@ -98,9 +120,7 @@
         class="btn-reset pointer mini_cart_addon_btn show-overlay inline-flex align-center gift relative"
       >
         {%- render 'cart-tool-icon', name: 'coupon' -%}
-        <span class="cart-tool-label">
-          <span>{{ 'general.cart.coupon.enter_discount_code' | t }}</span>
-        </span>
+        <span class="cart-tool-label"><span class="cart-tool-label__long">{{ 'general.cart.coupon.enter_discount_code' | t }}</span><span class="cart-tool-label__short" aria-hidden="true">{{ short_coupon }}</span></span>
       </button>
     </div>
   {% endif %}
@@ -142,7 +162,7 @@
     </div>
   </div>
 {%- endif -%}
-{%- if enable_gift_wrap and gift_wrap_pr.variants.size == 1 -%}
+{%- if enable_gift_wrap and gift_wrap_pr != blank and gift_wrap_pr.available -%}
   <div
     class="cart-footeraddon grey-bg absolute transition w-full z-10 p-30 left-0 bottom-0 border-top shadow pointer-none cart__addon-content{% if gift_wrap != blank %} hidden{% endif %}"
     id="gift"

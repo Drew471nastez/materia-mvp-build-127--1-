@@ -1,8 +1,9 @@
+{{ 'text-section-controls.css' | asset_url | stylesheet_tag }}
 <script src="{{ 'text-section-controls.js' | asset_url }}" defer="defer"></script>
 {%- comment -%} Runtime, once per page (the CSS and hero-image-one.js from layout/theme.storelib, every other script from the tags at the top of this file): shopify/assets/text-section-controls.css, shopify/assets/text-section-controls.js. {%- endcomment -%}
-{% render 'theme-type' %}
+{% render 'theme-type', inline: true %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' and section.settings.reveal != false -%}
@@ -159,12 +160,12 @@
   {% if section.settings.show_left_circles %}
     {% if section.settings.left_big_circle_image %}
       <div class="rt-elements-pro-1-floating-circle rt-elements-pro-1-floating-circle-left-big">
-        <img src="{{ section.settings.left_big_circle_image | img_url: '480x480' }}" alt="{{ 'accessibility.decorative_image' | t }}">
+        <img src="{{ section.settings.left_big_circle_image | image_url: width: 480, height: 480 }}" alt="{{ 'accessibility.decorative_image' | t }}" width="480" height="480">
       </div>
     {% endif %}
     {% if section.settings.left_medium_circle_image %}
       <div class="rt-elements-pro-1-floating-circle rt-elements-pro-1-floating-circle-left-medium">
-        <img src="{{ section.settings.left_medium_circle_image | img_url: '480x480' }}" alt="{{ 'accessibility.decorative_image' | t }}">
+        <img src="{{ section.settings.left_medium_circle_image | image_url: width: 480, height: 480 }}" alt="{{ 'accessibility.decorative_image' | t }}" width="480" height="480">
       </div>
     {% endif %}
   {% endif %}
@@ -173,12 +174,12 @@
   {% if section.settings.show_right_circles %}
     {% if section.settings.right_big_circle_image %}
       <div class="rt-elements-pro-1-floating-circle rt-elements-pro-1-floating-circle-right-big">
-        <img src="{{ section.settings.right_big_circle_image | img_url: '480x480' }}" alt="{{ 'accessibility.decorative_image' | t }}">
+        <img src="{{ section.settings.right_big_circle_image | image_url: width: 480, height: 480 }}" alt="{{ 'accessibility.decorative_image' | t }}" width="480" height="480">
       </div>
     {% endif %}
     {% if section.settings.right_medium_circle_image %}
       <div class="rt-elements-pro-1-floating-circle rt-elements-pro-1-floating-circle-right-medium">
-        <img src="{{ section.settings.right_medium_circle_image | img_url: '480x480' }}" alt="{{ 'accessibility.decorative_image' | t }}">
+        <img src="{{ section.settings.right_medium_circle_image | image_url: width: 480, height: 480 }}" alt="{{ 'accessibility.decorative_image' | t }}" width="480" height="480">
       </div>
     {% endif %}
   {% endif %}
@@ -189,8 +190,10 @@
     {% if section.settings.main_demo_image %}
       <div class="rt-elements-pro-1-main-image-wrapper">
         <img
-          src="{{ section.settings.main_demo_image | img_url: 'master' }}"
+          src="{{ section.settings.main_demo_image | image_url }}"
           alt="{{ 'accessibility.main_image' | t }}"
+          width="{{ section.settings.main_demo_image_width }}"
+          height="{{ section.settings.main_demo_image_height }}"
           class="rt-elements-pro-1-main-image"
           style="
             width: {{ section.settings.main_demo_image_width }}px;
@@ -291,7 +294,7 @@
             "
           >
             {% if block.settings.enable_button_icon and block.settings.button_icon_image %}
-              <img src="{{ block.settings.button_icon_image | img_url: 'master' }}" alt="{{ 'accessibility.button_icon' | t }}" style="width: {{ block.settings.button_icon_size }}px; height: {{ block.settings.button_icon_size }}px; border-radius: 50%; vertical-align: middle; margin-right: 8px; position: relative; top: {{ block.settings.button_icon_vertical_position }}px;">
+              <img src="{{ block.settings.button_icon_image | image_url }}" alt="{{ 'accessibility.button_icon' | t }}" width="{{ block.settings.button_icon_size }}" height="{{ block.settings.button_icon_size }}" style="width: {{ block.settings.button_icon_size }}px; height: {{ block.settings.button_icon_size }}px; border-radius: 50%; vertical-align: middle; margin-right: 8px; position: relative; top: {{ block.settings.button_icon_vertical_position }}px;">
             {% endif %}
             {{ block.settings.button_text }}
           </a>
@@ -1586,8 +1589,8 @@
   ],
   "presets": [
     {
-      "name": "RichText Pro 2",
-      "category": "Text",
+      "name": "Rich Text – Accent Bar",
+      "category": "12 · Text",
       "blocks": [
         {
           "type": "title"

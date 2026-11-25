@@ -1,9 +1,15 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. A colour for the countdown sections (Countdown Timer Flip,
   Inline, Pro 1, Pro 2 and Pro 3). With custom styling on (on: true) it is the
   creator's colour, or the fallback when the colour is empty or transparent;
   with custom styling off it is always the fallback, a theme colour-scheme
   variable. shopify/assets/live-countdown.js prints the same value live.
+
+  @param {string} color - Section background
+  @param {string} fallback - Fallback ('color-mix(in srgb, var(--color-background) 65%, transparent)', 'var(--color-background)', 'var(--color-heading)', 'var(--color-text)')
+  @param {boolean} on - Enable custom styling
+
+  @example
   {% render 'countdown-live-color', on: st.enable_custom_style, color: st.card_bg, fallback: 'var(--color-heading)' %}
-{%- endcomment -%}
+{%- enddoc -%}
 {%- if on -%}{%- render 'scheme-color', color: color, fallback: fallback -%}{%- else -%}{{ fallback }}{%- endif -%}

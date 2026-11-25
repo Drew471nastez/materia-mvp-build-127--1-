@@ -1,7 +1,7 @@
-<script src="{{ 'media-live-image-video.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'media-live-image-video.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'media-image-video-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
@@ -68,7 +68,7 @@
   }
 </style>
 <div id="vid2-{{ sid }}" class="vid2 section sec__video-2 color-{{ color_scheme }} gradient vid2--w-{{ st.section_width | default: 'full_width' }}{% if st.full_bleed %} vid2--bleed{% endif %}" data-section-id="{{ sid }}"
-  data-iv="video-2" data-iv-section="{{ sid }}" data-iv-settings="{{ st | json | escape }}" data-iv-defaults='{"color_scheme":"default-color-scheme","section_width":"full_width","reset_spacing":true,"full_bleed":false,"aspect_w":16,"aspect_h":9,"autoplay":true,"muted":true,"loop":true,"show_controls":false,"show_mute_btn":true,"play_button_style":"circle","enable_custom_style":false,"overlay_opacity":0,"radius":16,"padding_top_desktop":60,"padding_bottom_desktop":60,"side_padding_desktop":32,"padding_top_mobile":40,"padding_bottom_mobile":40,"side_padding_mobile":20}'
+  data-iv="video-2" data-iv-section="{{ sid }}" data-iv-settings="{{ st | json | escape }}" data-iv-defaults='{"color_scheme":"default","section_width":"full_width","reset_spacing":true,"full_bleed":false,"aspect_w":16,"aspect_h":9,"autoplay":true,"muted":true,"loop":true,"show_controls":false,"show_mute_btn":true,"play_button_style":"circle","enable_custom_style":false,"overlay_opacity":0,"radius":16,"padding_top_desktop":60,"padding_bottom_desktop":60,"side_padding_desktop":32,"padding_top_mobile":40,"padding_bottom_mobile":40,"side_padding_mobile":20}'
   style="--iv-bg:{{ iv_bg }};--iv-pt-d:{{ st.padding_top_desktop }}px;--iv-pb-d:{{ st.padding_bottom_desktop }}px;--iv-px-d:{{ st.side_padding_desktop }}px;--iv-pt-m:{{ st.padding_top_mobile }}px;--iv-pb-m:{{ st.padding_bottom_mobile }}px;--iv-px-m:{{ st.side_padding_mobile }}px;--iv-ratio:{{ st.aspect_w | default: 16 }} / {{ st.aspect_h | default: 9 }};--iv-radius:{{ st.radius }}px;--iv-overlay:{{ iv_overlay }};--iv-overlay-o:{{ st.overlay_opacity | default: 0 | divided_by: 100.0 }}">
   <div class="vid2__inner">
     <div class="vid2__media" data-vid2-media>
@@ -79,7 +79,7 @@
 {
   "name": "Video 2",
   "tag": "section",
-  "class": "section sec__video-2",
+  "class": "section sec__video-2 s-tt",
   "settings": [
     {
       "type": "header",
@@ -89,7 +89,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -350,8 +350,8 @@
   ],
   "presets": [
     {
-      "name": "Video 2",
-      "category": "Image and video"
+      "name": "Video",
+      "category": "06 · Gallery & video"
     }
   ]
 }

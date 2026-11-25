@@ -1,4 +1,4 @@
-<script src="{{ 'live-cart-search.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-cart-search.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {% render 'cart-recommend-custom-button', cart_page: true %}
 <style data-rs-bulletproof>
@@ -288,6 +288,8 @@
   {%- if settings.cart_page_cart_freeship_custom_color_enable and settings.cart_page_cart_freeship_fill_color != blank -%}
     .template-cart .main-cart free-ship-progress-bar.cart_shipping {
       --ship-fill: {{ settings.cart_page_cart_freeship_fill_color }};
+      --cart-shipping-fill: {{ settings.cart_page_cart_freeship_fill_color }};
+      --cart-shipping-accent: {{ settings.cart_page_cart_freeship_fill_color }};
     }
     .template-cart .main-cart free-ship-progress-bar.cart_shipping .progress-bar .progress {
       background: {{ settings.cart_page_cart_freeship_fill_color }} !important;
@@ -373,6 +375,9 @@
   assign product_recommendations_type = theme_st.cart_page_product_recommendations_type
   assign select_product_recommendations = theme_st.cart_page_select_product_recommendations
   assign show_on_cart_page = theme_st.cart_page_recommendations
+  if theme_st.minicart_type == 'disable' or theme_st.minicart_type == 'show_inside'
+    assign show_on_cart_page = false
+  endif
   assign enable_cart_note = false
   if theme_st.cart_page_enable_cart_note
     assign enable_cart_note = true
@@ -672,7 +677,7 @@
                                 no_animate: true
                               %}
                             {% else %}
-                              {% render 'placeholder-render', class: 'rounded-5' %}
+                              {% render 'placeholder-render', class: 'rounded-5', type: 'product', index: forloop.index %}
                             {% endif %}
                           </a>
                         </td>
@@ -716,7 +721,7 @@
                                             {{ property.last | split: '/' | last }}
                                           </a>
                                         {%- else -%}
-                                          {{ property.last }}
+                                          {{ property.last | escape }}
                                         {% endif %}
                                       </span>
                                     </div>
@@ -726,7 +731,7 @@
                               </dl>
                               <p class="product-option my-0">{{ item.selling_plan_allocation.selling_plan.name }}</p>
                             {% endif %}
-                            {%- render 'cart-page-variant-editor', item: item, section_id: section.id -%}
+                            {%- render 'cart-page-variant-editor', item: item -%}
                             <ul
                               class="discounts list-unstyled fs-small light-dark-grey"
                               role="list"
@@ -1094,24 +1099,28 @@
                         assign sb_mb = block.settings.margin_bottom | default: 0
                       -%}
                       <div class="cart-block cart-block--shipping-progress" style="margin-top:{{ sb_mt }}px;margin-bottom:{{ sb_mb }}px;" data-lcs-block="{{ block.id }}" data-lcs-type="{{ block.type }}"{% if request.design_mode %} data-lcs-settings="{{ block.settings | json | escape }}"{% endif %} {{ block.shopify_attributes }}>
-                        <free-ship-progress-bar
-                          data-order="{{ cart.total_price }}"
-                          data-fe-amount="{{ shipping_rate }}"
-                          data-fe-unavaiable="{{ 'general.cart.free_shipping' | t }}"
-                          data-fe-avaiable="{{ 'general.cart.free_shipping_avaiable' | t }}"
-                          class="block cart_shipping cart_threshold border-0 border-bottom mt-15 pb-25{% if items_subtotal_price >= shipping_price %} cart_shipping_free{% endif %}"
-                        >
-                          <div class="progress-bar cart_bar_w relative rounded-10">
-                            <span
-                              class="progress percent_shipping_bar transition relative primary-color rounded-10"
-                              style="width: 0%;"
-                            >
-                            </span>
-                          </div>
-                          <div class="free-shipping-message mt-17 cart-thres cart_thres_1 heading-color opacity-0">
-                            {{ 'general.cart.cart_thres1_html' | t: price: shipping_rate_price }}
-                          </div>
-                        </free-ship-progress-bar>
+                        {%- liquid
+                          assign fsb_reached = false
+                          if cart.item_count > 0 and items_subtotal_price >= shipping_price
+                            assign fsb_reached = true
+                          endif
+                          assign fsb_left = shipping_price | minus: items_subtotal_price
+                          if fsb_left < 0
+                            assign fsb_left = 0
+                          endif
+                          assign fsb_percent = items_subtotal_price | times: 100.0 | divided_by: shipping_price | round: 1
+                          if show_currency_code
+                            assign fsb_left_price = fsb_left | money_with_currency
+                            assign fsb_sample = 123456 | money_with_currency
+                          else
+                            assign fsb_left_price = fsb_left | money
+                            assign fsb_sample = 123456 | money
+                          endif
+                          assign fsb_tpl = 'general.cart.free_shipping' | t: amount: '[[amount]]' | replace: '&lt;', '<' | replace: '&gt;', '>' | replace: '&quot;', '"' | replace: '&#34;', '"' | replace: '&#39;', "'" | replace: '&amp;', '&'
+                          assign fsb_done = 'general.cart.free_shipping_avaiable' | t | replace: '&lt;', '<' | replace: '&gt;', '>' | replace: '&quot;', '"' | replace: '&#34;', '"' | replace: '&#39;', "'" | replace: '&amp;', '&'
+                          assign fsb_now = fsb_tpl | replace: '[[amount]]', fsb_left_price
+                        -%}
+                        {%- render 'free-shipping-bar', order: cart.total_price, threshold: shipping_rate, money_sample: fsb_sample, msg_tpl: fsb_tpl, msg_done: fsb_done, msg_now: fsb_now, reached: fsb_reached, percent: fsb_percent, class: 'border-0 border-bottom mt-15 pb-25' -%}
                       </div>
                     {%- endif -%}
                   {%- when 'order_note' -%}
@@ -1437,7 +1446,7 @@
                     </div>
                   {%- when 'simple_rating', 'happy_customers', 'benefits_pills', 'info_box', 'divider', 'social_proof_avatars', 'guarantee_badge' -%}
                     {%- if block.settings.render_in_sidebar -%}
-                      {%- render 'cart-page-block', block: block, section_id: section.id -%}
+                      {%- render 'cart-page-block', block: block -%}
                     {%- endif -%}
                 {%- endcase -%}
               {%- endfor -%}
@@ -1449,33 +1458,28 @@
                     assign items_subtotal_price = cart.total_price
                     assign shipping_price = shipping_rate_cents
                   -%}
-                  <free-ship-progress-bar
-                    data-order="{{ cart.total_price }}"
-                    data-fe-amount="{{ shipping_rate }}"
-                    data-fe-unavaiable="{{ 'general.cart.free_shipping' | t }}"
-                    data-fe-avaiable="{{ 'general.cart.free_shipping_avaiable' | t }}"
-                    class="block cart_shipping cart_threshold border-0 border-bottom mt-15 pb-25{% if items_subtotal_price >= shipping_price %} cart_shipping_free{% endif %}"
-                  >
-                    <div class="progress-bar cart_bar_w relative rounded-10">
-                      <span
-                        class="progress percent_shipping_bar transition relative primary-color rounded-10"
-                        style="width: 0%;"
-                      >
-                        {% if enable_rtl %}
-                          <svg width="30" height="30" fill="none" class="absolute">
-                            <circle class="ship-icon-bg" cx="15" cy="15" r="14.5" stroke="currentColor" stroke-opacity=".35"/><g fill="currentColor" stroke="currentColor" stroke-width=".3"><path d="m6.187 14.611 1.09-1.011a.643.643 0 0 0 .167-.25l.856-2.325a1.722 1.722 0 0 1 1.607-1.12h1.298v-.363a.59.59 0 0 1 .59-.59h7.842a.448.448 0 0 1 .453.43.44.44 0 0 1-.439.447h-7.569v3.805a.59.59 0 0 1-.59.59H7.927l-1.058.953v3.554h.96a1.894 1.894 0 0 1 3.692 0h2.954a1.894 1.894 0 0 1 3.693 0h1.469a.448.448 0 0 1 .453.43.439.439 0 0 1-.439.447h-1.49a1.894 1.894 0 0 1-3.679 0h-2.968a1.895 1.895 0 0 1-3.678 0H6.582a.59.59 0 0 1-.59-.59V15.05a.59.59 0 0 1 .195-.439Zm5.018-1.263v-2.565H9.907a.84.84 0 0 0-.784.546l-.748 2.019h2.83Zm5.116 6.823a1.017 1.017 0 1 0 0-2.035 1.017 1.017 0 0 0 0 2.035Zm-6.646 0a1.017 1.017 0 1 0 0-2.035 1.017 1.017 0 0 0 0 2.035Z"/><path d="M21.518 12.283h-4.973a.438.438 0 1 1 0-.878h4.973a.439.439 0 0 1 0 .878ZM16.113 14.28a.438.438 0 0 1 .438-.439h7.003a.44.44 0 1 1 0 .878H16.55a.439.439 0 0 1-.438-.44ZM18.887 16.716a.437.437 0 0 1 .439-.438h3.048a.439.439 0 0 1 0 .877h-3.048a.438.438 0 0 1-.44-.439Z"/></g>
-                          </svg>
-                        {% else %}
-                          <svg width="30" height="30" fill="none" class="absolute">
-                            <circle class="ship-icon-bg" cx="15" cy="15" r="14.5" stroke="currentColor" stroke-opacity=".35"/><path fill="currentColor" stroke="currentColor" stroke-width=".3" d="M23.802 14.611 22.71 13.6a.643.643 0 0 1-.166-.25l-.857-2.325a1.722 1.722 0 0 0-1.607-1.12h-1.298v-.363a.59.59 0 0 0-.59-.59h-7.841a.448.448 0 0 0-.453.43.439.439 0 0 0 .438.447h7.57v3.805a.59.59 0 0 0 .59.59h3.564l1.059.953v3.554h-.96a1.894 1.894 0 0 0-3.693 0h-2.953a1.894 1.894 0 0 0-3.693 0h-1.47a.448.448 0 0 0-.452.43.438.438 0 0 0 .438.447h1.491a1.895 1.895 0 0 0 3.678 0h2.968a1.894 1.894 0 0 0 3.678 0h1.255a.59.59 0 0 0 .59-.59V15.05a.589.589 0 0 0-.195-.439Zm-5.019-1.263v-2.565h1.298a.84.84 0 0 1 .785.546l.747 2.019h-2.83Zm-5.116 6.823a1.017 1.017 0 1 1 0-2.035 1.017 1.017 0 0 1 0 2.035Zm6.646 0a1.017 1.017 0 1 1 0-2.035 1.017 1.017 0 0 1 0 2.035Z"/><path fill="currentColor" stroke="currentColor" stroke-width=".3" d="M8.47 12.283h4.974a.438.438 0 0 0 0-.878H8.47a.439.439 0 1 0 0 .878ZM13.876 14.28a.438.438 0 0 0-.439-.439H6.435a.44.44 0 1 0 0 .878h7.002a.439.439 0 0 0 .439-.44ZM11.101 16.716a.44.44 0 0 0-.438-.438H7.614a.439.439 0 0 0 0 .877h3.049a.438.438 0 0 0 .438-.439Z"/>
-                          </svg>
-                        {% endif %}
-                      </span>
-                    </div>
-                    <div class="free-shipping-message mt-17 cart-thres cart_thres_1 heading-color opacity-0">
-                      {{ 'general.cart.cart_thres1_html' | t: price: shipping_rate_price }}
-                    </div>
-                  </free-ship-progress-bar>
+                  {%- liquid
+                    assign fsb_reached = false
+                    if cart.item_count > 0 and items_subtotal_price >= shipping_price
+                      assign fsb_reached = true
+                    endif
+                    assign fsb_left = shipping_price | minus: items_subtotal_price
+                    if fsb_left < 0
+                      assign fsb_left = 0
+                    endif
+                    assign fsb_percent = items_subtotal_price | times: 100.0 | divided_by: shipping_price | round: 1
+                    if show_currency_code
+                      assign fsb_left_price = fsb_left | money_with_currency
+                      assign fsb_sample = 123456 | money_with_currency
+                    else
+                      assign fsb_left_price = fsb_left | money
+                      assign fsb_sample = 123456 | money
+                    endif
+                    assign fsb_tpl = 'general.cart.free_shipping' | t: amount: '[[amount]]' | replace: '&lt;', '<' | replace: '&gt;', '>' | replace: '&quot;', '"' | replace: '&#34;', '"' | replace: '&#39;', "'" | replace: '&amp;', '&'
+                    assign fsb_done = 'general.cart.free_shipping_avaiable' | t | replace: '&lt;', '<' | replace: '&gt;', '>' | replace: '&quot;', '"' | replace: '&#34;', '"' | replace: '&#39;', "'" | replace: '&amp;', '&'
+                    assign fsb_now = fsb_tpl | replace: '[[amount]]', fsb_left_price
+                  -%}
+                  {%- render 'free-shipping-bar', order: cart.total_price, threshold: shipping_rate, money_sample: fsb_sample, msg_tpl: fsb_tpl, msg_done: fsb_done, msg_now: fsb_now, reached: fsb_reached, percent: fsb_percent, class: 'border-0 border-bottom mt-15 pb-25' -%}
                 {% endif %}
               {%- endunless -%}
               {%- unless has_order_note_block -%}
@@ -1904,7 +1908,7 @@
               {%- if block.settings.render_in_sidebar -%}{%- continue -%}{%- endif -%}
               {%- case block.type -%}
                 {%- when 'simple_rating', 'happy_customers', 'benefits_pills', 'info_box', 'divider', 'social_proof_avatars', 'guarantee_badge' -%}
-                  {%- render 'cart-page-block', block: block, section_id: section.id -%}
+                  {%- render 'cart-page-block', block: block -%}
               {%- endcase -%}
             {%- endfor -%}
             {%- liquid
@@ -2027,9 +2031,11 @@
     </div>
   </div>
 </div>
+
 {% schema %}
 {
-  "name": "Shopping cart",
+  "class": "s-tt",
+"name": "Shopping cart",
   "enabled_on": {
     "templates": [
       "cart"
@@ -2106,7 +2112,6 @@
       "label": "Cart note",
       "info": "Legacy, not used: this follows Theme settings > Shopping Cart.",
       "default": true,
-      "hidden": true,
       "visible_if": "{{ false }}"
     },
     {
@@ -2115,7 +2120,6 @@
       "label": "Discount code",
       "info": "Legacy, not used: this follows Theme settings > Shopping Cart.",
       "default": false,
-      "hidden": true,
       "visible_if": "{{ false }}"
     },
     {
@@ -2124,7 +2128,6 @@
       "label": "Estimate shipping",
       "info": "Legacy, not used: this follows Theme settings > Shopping Cart.",
       "default": true,
-      "hidden": true,
       "visible_if": "{{ false }}"
     }
   ],
@@ -2422,7 +2425,6 @@
           "type": "text",
           "id": "text",
           "label": "Rating text",
-          "default": "",
           "info": "Your store's real rating, for example from your reviews app."
         },
         {
@@ -2616,7 +2618,6 @@
           "type": "text",
           "id": "heading",
           "label": "Heading",
-          "default": "",
           "info": "For example your real number of customers."
         },
         {
@@ -2709,7 +2710,6 @@
           "type": "text",
           "id": "rating_text",
           "label": "Rating text",
-          "default": "",
           "visible_if": "{{ block.settings.show_stars and block.settings.show_rating_text }}"
         },
         {
@@ -2915,7 +2915,6 @@
           "type": "text",
           "id": "pill1_text",
           "label": "Text",
-          "default": "",
           "visible_if": "{{ block.settings.pill1_enable }}"
         },
         {
@@ -3043,7 +3042,7 @@
           "type": "textarea",
           "id": "pill1_icon_svg",
           "label": "Custom SVG",
-          "info": "Paste raw <svg> markup. Stroke uses currentColor.",
+          "info": "Paste raw SVG markup. Stroke uses currentColor.",
           "visible_if": "{{ block.settings.pill1_enable and block.settings.pill1_icon_source == 'svg' }}"
         },
         {
@@ -3078,7 +3077,6 @@
           "type": "text",
           "id": "pill2_text",
           "label": "Text",
-          "default": "",
           "visible_if": "{{ block.settings.pill2_enable }}"
         },
         {
@@ -3240,7 +3238,6 @@
           "type": "text",
           "id": "pill3_text",
           "label": "Text",
-          "default": "",
           "visible_if": "{{ block.settings.pill3_enable }}"
         },
         {
@@ -4524,15 +4521,13 @@
           "type": "text",
           "id": "referral_text",
           "label": "Message",
-          "default": "",
           "info": "Your real numbers, for example from your reviews app."
         },
         {
           "type": "text",
           "id": "referral_accent_text",
           "label": "Highlighted words",
-          "info": "Part of the message drawn in the accent colour.",
-          "default": ""
+          "info": "Part of the message drawn in the accent colour."
         },
         {
           "type": "checkbox",
@@ -4786,8 +4781,7 @@
         {
           "type": "richtext",
           "id": "top_text",
-          "label": "Message",
-          "default": ""
+          "label": "Message"
         },
         {
           "type": "checkbox",
@@ -4835,14 +4829,12 @@
         {
           "type": "text",
           "id": "collapse_title",
-          "label": "Title",
-          "default": ""
+          "label": "Title"
         },
         {
           "type": "richtext",
           "id": "collapse_body",
-          "label": "Body",
-          "default": ""
+          "label": "Body"
         },
         {
           "type": "checkbox",

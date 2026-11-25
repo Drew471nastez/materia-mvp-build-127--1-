@@ -140,6 +140,8 @@ export interface PlanContext {
   memory: string
   /** The last messages, described, or "". */
   recent: string
+  /** Round 26: on a Materia site, its sections by what they do and the ones it can add (./materia-context.ts), or "". */
+  materia?: string
 }
 
 /** The archetypes this brief is closest to, using what the store sells as a second opinion. */
@@ -185,6 +187,7 @@ export function planTurn(ctx: PlanContext): string {
       : `No category matched. Archetype ids you may name: ${archetypeIds()}.`,
     `PATTERNS YOU CAN COMPOSE (id, what it is, which built-in types draw it, how to write it yourself):\n${describePatterns()}`,
     `BUILT-IN SECTION TYPES ON THIS SITE:\n${types}`,
+    ctx.materia ?? "",
   ]
     .filter(Boolean)
     .join("\n\n")

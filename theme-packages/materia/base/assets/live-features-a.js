@@ -131,7 +131,7 @@
   /* scheme, width, background, spacing and fonts every section prints on its root (snippet features-a-root). */
   function common(c, o = {}) {
     const {root, s, put} = c, own = custom(s), fonts = bool(s.enable_custom_fonts);
-    put(root, 'scheme', scheme(s) || 'default-color-scheme');
+    put(root, 'scheme', scheme(s) || 'default');
     const w = s[o.width || 'section_width'];
     put(root, '@data-width', WIDTHS.includes(w) ? w : (o.widthDefault || 'full_width'));
     if (o.bg !== false) put(root, '--fa-bg', pick(own, s[o.bg || 'section_bg'], 'var(--color-background)'));

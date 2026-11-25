@@ -1,9 +1,14 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. A collection sidebar block that is not a filter: popular
   products, a text panel or an image banner, drawn inside the filter panel
   (snippets/facets-panel) in the order the creator placed them.
   Accepts: block
-{%- endcomment -%}
+
+  @param {block} block - The block being rendered
+
+  @example
+  {% render 'facets-sidebar-block', block: block %}
+{%- enddoc -%}
 {%- assign block_st = block.settings -%}
 {%- case block.type -%}
   {%- when 'popular_product' -%}
@@ -45,11 +50,12 @@
       <div class="facets-extra facets-extra--banner" {{ block.shopify_attributes }}>
         {%- if block_st.url != blank -%}<a class="facets-extra__link" href="{{ block_st.url }}" {% render 'link-target', url: block_st.url, new_tab: block_st.open_link %}>{%- endif -%}
         <span class="image responsive-image" style="--aspect-ratio: {{ block_st.image.aspect_ratio | default: 1 }}">
+          {%- assign fsb_alt = block_st.image.alt | escape -%}
           {% render 'responsive-image',
             type: 'other',
             class: 'rounded',
             image: block_st.image,
-            image_alt: block_st.image.alt | escape,
+            image_alt: fsb_alt,
             sizes: '270px'
           %}
         </span>

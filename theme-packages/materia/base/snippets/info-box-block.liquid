@@ -1,10 +1,15 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes — Info Box Block (snippet)
   In-product Info Box: top message row(s) + smooth collapsible(s) +
   payment badges. Used by the "info_box" block in main product and
   featured product. The rows are native <details> (they open with no
   script); product-page-ui.js animates them.
-{%- endcomment -%}
+
+  @param {block} block - The block being rendered
+
+  @example
+  {% render 'info-box-block', block: block %}
+{%- enddoc -%}
 
 {%- assign ib = block.settings -%}
 {%- comment -%}

@@ -10,7 +10,7 @@ cookie-consent.cookie-consent {
   --cc-line: color-mix(in srgb, var(--cc-text) 14%, transparent);
   --cc-gap: 16px;
   --cc-move: 16px;
-  --cc-speed: 320ms;
+  --cc-speed: 300ms;
   position: fixed;
   inset: 0;
   z-index: 1000;
@@ -19,7 +19,7 @@ cookie-consent.cookie-consent {
   justify-content: center;
   box-sizing: border-box;
   padding: var(--cc-gap);
-  padding-bottom: calc(var(--cc-gap) + var(--cookie-nav-offset, 0px) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(var(--cc-gap) + max(var(--cookie-nav-offset, 0px), env(safe-area-inset-bottom, 0px)));
   pointer-events: none;
   /* The scheme class also paints body-like backgrounds; the layer itself stays clear. */
   background: transparent !important;
@@ -33,19 +33,21 @@ cookie-consent.cookie-consent[hidden] { display: none !important; }
   display: none;
   background: rgb(0 0 0 / 0.45);
   opacity: 0;
-  transition: opacity var(--cc-speed) ease;
+  /* closing: 220ms ease-in; opening: 320ms (below) */
+  transition: opacity 220ms cubic-bezier(0.4, 0, 1, 1);
 }
-cookie-consent[data-position='modal'][data-backdrop='true'] .cookie-consent__backdrop {
+/* Dim the page behind: at every position; the shade takes the clicks (a click on it closes the banner unless visitors must choose). */
+cookie-consent[data-backdrop='true'] .cookie-consent__backdrop {
   display: block;
   pointer-events: auto;
 }
-cookie-consent[data-open] .cookie-consent__backdrop { opacity: 1; }
+cookie-consent[data-open] .cookie-consent__backdrop { opacity: 1; transition: opacity 320ms ease-out; }
 
 .cookie-consent__panel {
   position: relative;
   box-sizing: border-box;
   width: 100%;
-  max-width: 720px;
+  max-width: var(--cookie-width, 720px);
   max-height: calc(100% - 8px);
   overflow: auto;
   overscroll-behavior: contain;
@@ -56,7 +58,7 @@ cookie-consent[data-open] .cookie-consent__backdrop { opacity: 1; }
   background: var(--cc-bg);
   color: var(--cc-text);
   border: 1px solid var(--cc-line);
-  border-radius: 14px;
+  border-radius: var(--cookie-radius, 14px);
   box-shadow: 0 14px 34px -14px rgb(0 0 0 / 0.24);
   font-family: var(--body-font, inherit);
   font-size: var(--body-font-size, 14px);
@@ -65,11 +67,11 @@ cookie-consent[data-open] .cookie-consent__backdrop { opacity: 1; }
   pointer-events: auto;
   opacity: 0;
   transform: translateY(var(--cc-move));
-  transition: opacity var(--cc-speed) ease, transform var(--cc-speed) cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition: opacity 220ms cubic-bezier(0.4, 0, 1, 1), transform 220ms cubic-bezier(0.4, 0, 1, 1);
 }
 .cookie-consent__panel:focus { outline: none; }
 .cookie-consent__panel:has(.cookie-consent__close:not([hidden])) { padding-inline-end: 56px; }
-cookie-consent[data-open] .cookie-consent__panel { opacity: 1; transform: none; }
+cookie-consent[data-open] .cookie-consent__panel { opacity: 1; transform: none; transition: opacity 320ms ease-out, transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1); }
 
 .cookie-consent__copy {
   flex: 1 1 auto;
@@ -107,6 +109,35 @@ cookie-consent[data-text-sizes='custom'] .cookie-consent__btn { --mb-font-size: 
 }
 .cookie-consent__btn { min-height: 44px; white-space: nowrap; }
 .cookie-consent__btn[hidden] { display: none !important; }
+/* Preferences: a plain text button, then the choices under the message */
+.cookie-consent__btn--link {
+  min-height: 44px;
+  padding: 0 6px;
+  border: 0;
+  background: none;
+  color: var(--cc-text);
+  font: inherit;
+  font-size: var(--cookie-btn-size, inherit);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.cookie-consent__btn--link:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 4px; }
+.cookie-consent__prefs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 10px 0 0;
+  padding: 10px 0 0;
+  border: 0;
+  border-top: 1px solid var(--cc-line);
+  min-width: 0;
+}
+.cookie-consent__prefs[hidden] { display: none; }
+.cookie-consent__pref { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; cursor: pointer; }
+.cookie-consent__pref input { width: 18px; height: 18px; margin: 0; accent-color: var(--cookie-btn-bg, var(--color-primary, currentColor)); }
+.cookie-consent__pref input:disabled + span { opacity: 0.7; }
+cookie-consent[data-view='prefs'] .cookie-consent__panel { flex-wrap: wrap; }
 
 .cookie-consent__close {
   position: absolute;
@@ -140,7 +171,7 @@ cookie-consent[data-position='top_bar'] .cookie-consent__panel {
 }
 cookie-consent[data-position='bottom_bar'] .cookie-consent__panel {
   border-bottom: 0;
-  padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(14px + max(0px, env(safe-area-inset-bottom, 0px) - var(--cookie-nav-offset, 0px)));
   box-shadow: 0 -8px 24px -16px rgb(0 0 0 / 0.24);
 }
 cookie-consent[data-position='top_bar'] { align-items: flex-start; padding-top: 0; padding-bottom: 0; }
@@ -225,6 +256,8 @@ cookie-consent[data-animation='none'] .cookie-consent__backdrop { transition: no
   }
   .cookie-consent__actions { justify-content: stretch; }
   .cookie-consent__btn { flex: 1 1 0; }
+  .cookie-consent__btn--link { flex: 1 0 100%; order: 3; min-height: 36px; }
+  .cookie-consent__prefs { flex-direction: column; gap: 2px; }
   /* Bottom sheet: every position but the top bar opens from the bottom edge. */
   cookie-consent[data-mobile='sheet']:not([data-position='top_bar']) {
     align-items: flex-end;
@@ -235,16 +268,16 @@ cookie-consent[data-animation='none'] .cookie-consent__backdrop { transition: no
   cookie-consent[data-mobile='sheet']:not([data-position='top_bar']) .cookie-consent__panel {
     max-width: none;
     max-height: 85%;
-    border-radius: 16px 16px 0 0;
+    border-radius: var(--cookie-radius, 16px) var(--cookie-radius, 16px) 0 0;
     border-inline: 0;
     border-bottom: 0;
-    padding: 18px 16px calc(16px + env(safe-area-inset-bottom, 0px));
-    transform: translateY(calc(var(--cc-move) * 2));
+    padding: 18px 16px calc(16px + max(0px, env(safe-area-inset-bottom, 0px) - var(--cookie-nav-offset, 0px)));
+    transform: translate3d(0, 100%, 0);
   }
   cookie-consent[data-mobile='sheet'][data-animation='fade']:not([data-position='top_bar']) .cookie-consent__panel { transform: none; }
   cookie-consent[data-mobile='sheet']:not([data-position='top_bar'])[data-open] .cookie-consent__panel { transform: none; }
-  cookie-consent[data-mobile='card']:is([data-position='bottom_bar']) { padding: var(--cc-gap); padding-bottom: calc(var(--cc-gap) + var(--cookie-nav-offset, 0px) + env(safe-area-inset-bottom, 0px)); }
-  cookie-consent[data-mobile='card'] .cookie-consent__panel { max-width: none; border-radius: 14px; border: 1px solid var(--cc-line); }
+  cookie-consent[data-mobile='card']:is([data-position='bottom_bar']) { padding: var(--cc-gap); padding-bottom: calc(var(--cc-gap) + max(var(--cookie-nav-offset, 0px), env(safe-area-inset-bottom, 0px))); }
+  cookie-consent[data-mobile='card'] .cookie-consent__panel { max-width: none; border-radius: var(--cookie-radius, 14px); border: 1px solid var(--cc-line); }
   cookie-consent[data-position='top_bar'] .cookie-consent__panel { border-radius: 0; border-inline: 0; border-top: 0; }
 }
 
@@ -253,3 +286,13 @@ cookie-consent[data-animation='none'] .cookie-consent__backdrop { transition: no
   .cookie-consent__backdrop { transition: none !important; }
   .cookie-consent__panel { transform: none !important; }
 }
+
+cookie-consent[data-backdrop='true'][data-require='true'] .cookie-consent__backdrop { cursor: default; }
+
+/* Cards, the modal and phones: Preferences sits on its own row under the buttons */
+cookie-consent:is([data-position='bottom_left'], [data-position='bottom_right'], [data-position='modal']) .cookie-consent__actions .cookie-consent__btn--link { flex: 1 0 100%; order: 3; min-height: 36px; }
+@media (max-width: 639.98px) {
+  cookie-consent .cookie-consent__actions .cookie-consent__btn--link { flex: 1 0 100%; order: 3; min-height: 36px; }
+}
+/* Emphasis in the message follows the banner's own text colour (Dark, Frosted glass, custom colours) */
+.cookie-consent__message :is(strong, b, em, i, span) { color: inherit; }

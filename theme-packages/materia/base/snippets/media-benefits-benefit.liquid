@@ -1,7 +1,13 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. One Benefit block of Image With Text Benefits: icon,
   heading (h3) and text. Colours and sizes come from the section.
-{%- endcomment -%}
+
+  @param {block} block - The block being rendered
+  @param {string} p - P
+
+  @example
+  {% render 'media-benefits-benefit', block: ben, p: 'iwb' %}
+{%- enddoc -%}
 {%- assign bb = block.settings -%}
 {%- assign src = bb.icon_source | default: 'library' -%}
 <div class="{{ p }}__benefit" {% render 'media-benefits-block', block: block %}>

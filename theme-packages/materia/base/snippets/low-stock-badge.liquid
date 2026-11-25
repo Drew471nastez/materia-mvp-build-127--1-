@@ -1,7 +1,12 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes — Low Stock Badge block.
   Pill-shaped low-stock indicator with pulsing dot. Pass `block`.
-{%- endcomment -%}
+
+  @param {block} block - The block being rendered
+
+  @example
+  {% render 'low-stock-badge', block: block %}
+{%- enddoc -%}
 {%- liquid
   assign s = block.settings
   assign block_id = 'low-stock-' | append: block.id

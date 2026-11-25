@@ -1,7 +1,6 @@
 {% render 'theme-type' %}
 {%- comment -%}
-  Materia Themes. Activate account. Storelib signs a visitor in with a code emailed to them, so there is no password to choose: this is the store's activate form with the visitor's email, and Storelib sends the code.
-  Live edits: shopify/assets/live-account-pages.js.
+  Materia Themes. Activate account (classic customer accounts): the customer chooses a password, typed twice, or declines the invitation.
 {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
   <style>
@@ -21,7 +20,7 @@
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign custom = st.enable_custom_style
 -%}
 {% render 'account-pages-base', sid: sid %}
@@ -61,26 +60,25 @@
             </div>
           </div>
         {%- endif -%}
+        {%- comment -%} the platform: a new password, typed twice. {%- endcomment -%}
         <div class="ap__field">
-          <label for="email-{{ sid }}"><span data-ap-text="email_label">{{ st.email_label | escape }}</span><span class="ap__req" aria-hidden="true">*</span></label>
-          <input
-            type="email"
-            name="customer[email]"
-            id="email-{{ sid }}"
-            autocomplete="email"
-            placeholder="{{ st.email_placeholder | escape }}" data-ap-attr-placeholder="email_placeholder"
-            required
-            aria-required="true"
-          >
+          <label for="password-{{ sid }}"><span>{{ 'customer.activate_account.password' | t }}</span><span class="ap__req" aria-hidden="true">*</span></label>
+          <input type="password" name="customer[password]" id="password-{{ sid }}" autocomplete="new-password" required aria-required="true">
         </div>
-        <button type="submit" class="btn-primary ap__btn" data-theme-button="primary" data-sl-button><span data-ap-text="button_label">{{ st.button_label | escape }}</span></button>
+        <div class="ap__field">
+          <label for="password_confirmation-{{ sid }}"><span>{{ 'customer.activate_account.password_confirm' | t }}</span><span class="ap__req" aria-hidden="true">*</span></label>
+          <input type="password" name="customer[password_confirmation]" id="password_confirmation-{{ sid }}" autocomplete="new-password" required aria-required="true">
+        </div>
+        <button type="submit" name="activate" class="btn-primary ap__btn" data-theme-button="primary" data-sl-button><span data-ap-text="button_label">{{ st.button_label | escape }}</span></button>
+        <button type="submit" name="decline" class="btn btn-outline ap__btn" data-theme-button="secondary" data-sl-button formnovalidate>{{ 'customer.activate_account.cancel' | t }}</button>
         <p class="ap-form__alt"><a class="ap__link" href="{{ routes.account_login_url }}" data-ap-text="login_link_label" data-ap-opt{% if st.login_link_label == blank %} hidden{% endif %}>{{ st.login_link_label | escape }}</a></p>
       {%- endform -%}
     </div>
   </div>
 </div>{% schema %}
 {
-  "name": "Activate account",
+  "class": "s-tt",
+"name": "Activate account",
   "tag": "section",
   "settings": [
     {
@@ -91,7 +89,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",

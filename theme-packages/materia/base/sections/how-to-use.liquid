@@ -1,7 +1,7 @@
-<script src="{{ 'live-features-c.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-features-c.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-features-c-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%}
   Materia Themes. How To Use: a heading block and step blocks (picture,
@@ -34,7 +34,10 @@
   assign sid = section.id
   assign custom = st.enable_custom_style
   assign fonts = st.enable_custom_fonts
-  assign placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22 fill=%22%23888%22 fill-opacity=%22.35%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22 fill=%22%23888%22 fill-opacity=%22.35%22/%3E%3C/svg%3E'
+  capture placeholder
+    render 'placeholder-image', type: 'product-1', scheme: color_scheme, ratio: '4/3', format: 'url'
+  endcapture
+  assign placeholder = placeholder | strip
 -%}
 {%- if fonts -%}{% style %}{{ st.heading_font | font_face: font_display: 'swap' }}{{ st.body_font | font_face: font_display: 'swap' }}{% endstyle %}{%- endif -%}
 
@@ -216,7 +219,7 @@
   --htu-mt: {{ st.margin_top | default: 0 }}px; --htu-mb: {{ st.margin_bottom | default: 0 }}px;
 {%- endcapture -%}
 
-<section class="htu-wrap color-{{ color_scheme }} gradient" data-fc-root="how-to-use" data-fc-section="{{ sid }}" data-fc-settings="{{ st | json | escape }}" data-width="{{ st.section_width | default: 'container' }}" data-carousel="{% if st.enable_mobile_carousel %}true{% else %}false{% endif %}"{% if fonts %} data-own-font{% endif %} style="{{ root_vars | strip_newlines }}">
+<section class="htu-wrap color-{{ color_scheme }} gradient" data-fc-root="how-to-use" data-fc-section="{{ sid }}" {% if request.design_mode %}data-fc-settings="{{ st | json | escape }}"{% endif %} data-width="{{ st.section_width | default: 'container' }}" data-carousel="{% if st.enable_mobile_carousel %}true{% else %}false{% endif %}"{% if fonts %} data-own-font{% endif %} style="{{ root_vars | strip_newlines }}">
   <div class="htu">
     <div class="htu__inner">
       {%- for block in section.blocks -%}
@@ -228,7 +231,7 @@
             {%- capture acc_html -%}<span class="htu__accent">{{ acc }}</span>{%- endcapture -%}
             {%- assign h_text = h_text | replace: acc, acc_html -%}
           {%- endif -%}
-          <h2 class="htu__heading" data-fc-block="{{ block.id }}" data-fc-type="heading" data-fc-settings="{{ hs | json | escape }}" {{ block.shopify_attributes }}{% if hs.text == blank %} hidden{% endif %} style="--htu-h-align: {{ hs.align | default: 'center' }}; --htu-h-color: {% if hs.enable_custom_style %}{% render 'scheme-color', color: hs.color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %}; --htu-h-d: {{ hs.size_desktop | default: 40 }}px; --htu-h-m: {{ hs.size_mobile | default: 28 }}px; --htu-h-gap: {{ hs.gap_below | default: 0 }}px; --htu-acc-color: {% if hs.enable_custom_style %}{% render 'scheme-color', color: hs.accent_color, fallback: 'var(--color-primary)' %}{% else %}var(--color-primary){% endif %}; --htu-acc-style: {% if hs.accent_italic %}italic{% else %}normal{% endif %};">{{ h_text }}</h2>
+          <h2 class="htu__heading" data-fc-block="{{ block.id }}" data-fc-type="heading" {% if request.design_mode %}data-fc-settings="{{ hs | json | escape }}"{% endif %} {{ block.shopify_attributes }}{% if hs.text == blank %} hidden{% endif %} style="--htu-h-align: {{ hs.align | default: 'center' }}; --htu-h-color: {% if hs.enable_custom_style %}{% render 'scheme-color', color: hs.color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %}; --htu-h-d: {{ hs.size_desktop | default: 40 }}px; --htu-h-m: {{ hs.size_mobile | default: 28 }}px; --htu-h-gap: {{ hs.gap_below | default: 0 }}px; --htu-acc-color: {% if hs.enable_custom_style %}{% render 'scheme-color', color: hs.accent_color, fallback: 'var(--color-primary)' %}{% else %}var(--color-primary){% endif %}; --htu-acc-style: {% if hs.accent_italic %}italic{% else %}normal{% endif %};">{{ h_text }}</h2>
         {%- endif -%}
       {%- endfor -%}
 
@@ -238,7 +241,7 @@
           {%- if block.type == 'step' -%}
             {%- assign step_n = step_n | plus: 1 -%}
             {%- assign bs = block.settings -%}
-            <li class="htu__step" data-fc-block="{{ block.id }}" data-fc-type="step" data-fc-n="{{ step_n }}" data-fc-settings="{{ bs | json | escape }}" {{ block.shopify_attributes }}>
+            <li class="htu__step" data-fc-block="{{ block.id }}" data-fc-type="step" data-fc-n="{{ step_n }}" {% if request.design_mode %}data-fc-settings="{{ bs | json | escape }}"{% endif %} {{ block.shopify_attributes }}>
               <div class="htu__media">
                 {%- if bs.image != blank -%}
                   <img class="htu__img"
@@ -248,7 +251,7 @@
                        width="{{ bs.image.width }}" height="{{ bs.image.height }}"
                        alt="{{ bs.image.alt | default: bs.title | escape }}" loading="lazy" decoding="async">
                 {%- else -%}
-                  <img class="htu__img" data-fc-ph src="{{ placeholder }}" width="900" height="675" alt="" loading="lazy" decoding="async">
+                  <img class="htu__img" data-fc-ph src="{%- render 'placeholder-image', type: 'product', index: forloop.index, scheme: color_scheme, ratio: '4/3', format: 'url' -%}" width="900" height="675" alt="" loading="lazy" decoding="async">
                 {%- endif -%}
               </div>
               <div class="htu__head">
@@ -266,7 +269,7 @@
 {
   "name": "How To Use",
   "tag": "section",
-  "class": "section section-how-to-use",
+  "class": "section section-how-to-use s-tt",
   "settings": [
     {
       "type": "header",
@@ -276,7 +279,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -828,8 +831,8 @@
   ],
   "presets": [
     {
-      "name": "How To Use",
-      "category": "Features",
+      "name": "How to Use",
+      "category": "04 · Image & text",
       "blocks": [
         {
           "type": "heading",

@@ -1,0 +1,85 @@
+{%- doc -%}
+  Free-shipping progress (cart drawer and cart page). A message line with a
+  small truck icon (a tick once the order ships free) above a slim rounded
+  track. The fill moves with transform, so a cart change never shifts the
+  layout. theme.js (free-ship-progress-bar) keeps the width and message live
+  in the visitor's currency; cart-components.js mirrors it into --fs-progress.
+  Colours come from the colour scheme (or Cart Drawer > bar fill colour).
+  Style (Theme settings > Cart Drawer > Free-shipping bar style):
+  "truck" = striped accent fill with a round truck badge riding the fill end
+  and the message below; "minimal" = message + icon above a slim track.
+
+  Inputs: order (cents), threshold (store currency, as typed in Theme
+  settings), msg_tpl (with [[amount]] / {{ amount }}), msg_done, msg_now
+  (first draw), reached (boolean), percent (0-100), money_sample, class.
+
+  @param {string} class - Extra CSS classes ('border-0 border-bottom mt-15 pb-25', 'grey-bg border-bottom border-top px-30 pt-20 pb-20')
+  @param {string} money_sample - Money sample
+  @param {string} msg_done - Msg done
+  @param {string} msg_now - Msg now
+  @param {string} msg_tpl - Msg tpl
+  @param {number} order - Order
+  @param {number} percent - Percent
+  @param {boolean} reached - Reached
+  @param {string} threshold - Free-shipping order amount
+
+  @example
+  {% render 'free-shipping-bar', order: cart.total_price, threshold: shipping_rate, money_sample: fsb_sample, msg_tpl: fsb_tpl, msg_done: fsb_done, msg_now: fsb_now, reached: fsb_reached, percent: fsb_percent, class: 'border-0 border-bottom mt-15 pb-25' %}
+{%- enddoc -%}
+{%- liquid
+  assign fsb_percent = percent | default: 0
+  if fsb_percent > 100
+    assign fsb_percent = 100
+  endif
+  assign fsb_ratio = fsb_percent | divided_by: 100.0
+  assign fsb_style = settings.free_shipping_bar_style | default: 'truck'
+-%}
+<free-ship-progress-bar
+  data-order="{{ order }}"
+  data-fe-amount="{{ threshold }}"
+  {%- if money_sample != blank %} data-money-sample="{{ money_sample | escape }}"{% endif %}
+  data-fe-unavaiable="{{ msg_tpl | escape }}"
+  data-fe-avaiable="{{ msg_done | escape }}"
+  class="fsb fsb--{{ fsb_style }} block cart_shipping cart_threshold{% if reached %} cart_shipping_free{% endif %} {{ class }}"
+  style="--fs-progress: {{ fsb_ratio }};"
+>
+  {%- if fsb_style == 'truck' -%}
+  <div class="fsb__bar">
+    <div class="fsb__track" role="progressbar" aria-label="{{ 'general.cart.shipping.title' | t | escape }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ fsb_percent | round }}">
+      <span class="fsb__fill progress percent_shipping_bar" style="width: {{ fsb_percent }}%; --fs-progress: {{ fsb_ratio }};"></span>
+    </div>
+    <div class="fsb__badge" aria-hidden="true">
+      <svg class="fsb__glyph fsb__glyph--truck" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M2.5 16.5V7.2c0-.6.5-1.2 1.2-1.2h9.6c.6 0 1.2.5 1.2 1.2v9.3"/>
+        <path d="M14.5 9.5h3.2c.4 0 .8.2 1 .5l2.5 3.3c.2.2.3.5.3.8v2.4h-2"/>
+        <path d="M9 16.5h4.5"/><circle cx="6.5" cy="17" r="1.8"/><circle cx="17" cy="17" r="1.8"/>
+      </svg>
+      <svg class="fsb__glyph fsb__glyph--done" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m5.5 12.5 4.2 4.2 8.8-9.4"/>
+      </svg>
+    </div>
+  </div>
+  <div class="fsb__msg free-shipping-message cart-thres cart_thres_1" aria-live="polite">
+    {%- if reached -%}{{ msg_done }}{%- else -%}{{ msg_now }}{%- endif -%}
+  </div>
+  {%- else -%}
+  <div class="fsb__head">
+    <div class="fsb__icon" aria-hidden="true">
+      <svg class="fsb__glyph fsb__glyph--truck" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M2.5 16.5V7.2c0-.6.5-1.2 1.2-1.2h9.6c.6 0 1.2.5 1.2 1.2v9.3"/>
+        <path d="M14.5 9.5h3.2c.4 0 .8.2 1 .5l2.5 3.3c.2.2.3.5.3.8v2.4h-2"/>
+        <path d="M9 16.5h4.5"/><circle cx="6.5" cy="17" r="1.8"/><circle cx="17" cy="17" r="1.8"/>
+      </svg>
+      <svg class="fsb__glyph fsb__glyph--done" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m5.5 12.5 4.2 4.2 8.8-9.4"/>
+      </svg>
+    </div>
+    <div class="fsb__msg free-shipping-message cart-thres cart_thres_1" aria-live="polite">
+      {%- if reached -%}{{ msg_done }}{%- else -%}{{ msg_now }}{%- endif -%}
+    </div>
+  </div>
+  <div class="fsb__track" role="progressbar" aria-label="{{ 'general.cart.shipping.title' | t | escape }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ fsb_percent | round }}">
+    <span class="fsb__fill progress percent_shipping_bar" style="width: {{ fsb_percent }}%; --fs-progress: {{ fsb_ratio }};"></span>
+  </div>
+  {%- endif -%}
+</free-ship-progress-bar>

@@ -1,7 +1,7 @@
-<script src="{{ 'live-cart-search.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-cart-search.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- assign fb_accessibility_search = 'accessibility.search' | t -%}
 <style data-rs-bulletproof>
@@ -83,6 +83,9 @@
   endif
   if search.filters.size == 0 or show_facets == false
     assign enable_filtering = false
+  endif
+  if search.performed and search_result != blank and search_result != 'all' and search.types.size != 1
+    echo '<script>(function(){var u=new URL(location.href);if(u.searchParams.get("type")!=="' | append: search_result | append: '"){u.searchParams.set("type","' | append: search_result | append: '");location.replace(u.toString());}})();</script>'
   endif
   assign count_text = 'templates.search.results_with_count_and_term' | t: terms: terms, count: search.results_count
   assign clear_url = routes.search_url | append: '?q=' | append: terms_url
@@ -198,7 +201,7 @@
                 <label class="visually-hidden" for="Search-In-Page"> {{ 'general.search.search' | t }}</label>
                 <input type="hidden" name="options[unavailable_products]" value="show">
                 <input type="hidden" name="options[prefix]" value="last">
-                <input type="hidden" name="type" value="all">
+                <input type="hidden" name="type" value="{{ search_result | default: 'all' }}">
                 <input type="hidden" name="options[fields]" value="title,vendor,product_type,variants.title">
                 <div class="search__action-right d-flex gap-10 absolute right-15 top-0 bottom-0 z-1 align-center">
                   <div tabindex="0" class="clear-btn d-none touch-target btn-text-transform pointer"></div>
@@ -255,8 +258,7 @@
             default_filter: default_filter,
             base_url: routes.search_url,
             terms: search.terms,
-            clear_url: clear_url,
-            blocks: nothing
+            clear_url: clear_url
           -%}
         {%- endif -%}
       <div
@@ -306,7 +308,6 @@
                           template_enable_color_swatches: true,
                           type: 'grid',
                           template_enable_product_badges: true,
-                          type_collections: 'true',
                           container: section_width,
                           colunm: products_column,
                           colunm_mobile: items_per_row_mobile,
@@ -372,8 +373,7 @@
                   paginate: paginate,
                   section_st: section_st,
                   pagination: pagination,
-                  number_page: number_products,
-                  paginate: paginate
+                  number_page: number_products
                 %}
               {% endif %}
             {%- else -%}
@@ -398,10 +398,11 @@
   </div>
 </grid-list>
 </section>
+
 {% schema %}
 {
   "name": "Search page",
-  "class": "section",
+  "class": "section s-tt has-overlay",
   "settings": [
     {
       "type": "header",
@@ -411,7 +412,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -451,7 +452,6 @@
       "type": "text",
       "id": "heading",
       "label": "Heading",
-      "default": "",
       "info": "Empty: the theme's word for Search."
     },
     {
@@ -464,6 +464,13 @@
       "type": "checkbox",
       "id": "sorting",
       "label": "Show sort dropdown",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_view_switcher",
+      "label": "Show column switcher",
+      "info": "Lets shoppers pick the number of columns. Their choice is remembered on their device.",
       "default": true
     },
     {

@@ -1,5 +1,10 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. A block's own attributes in the Announcements sections,
   read by live-announcements.js for live edits.
-{%- endcomment -%}
+
+  @param {block} block - The block being rendered
+
+  @example
+  {% render 'announce-block', block: block %}
+{%- enddoc -%}
 data-an-block="{{ block.id }}" data-an-type="{{ block.type }}"{% if request.design_mode %} data-an-settings="{{ block.settings | json | escape }}"{% endif %} {{ block.shopify_attributes }}

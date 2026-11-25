@@ -1,7 +1,15 @@
-{%- comment -%}
+{%- doc -%}
   Testimonial card — used by sections/testimonials.liquid.
   Inputs: b (block.settings), show_rating, show_quote_mark, block_id
-{%- endcomment -%}
+
+  @param {object} b - Block settings object
+  @param {string} block_id - Block id
+  @param {boolean} show_quote_mark - Big quote mark
+  @param {boolean} show_rating - Show star ratings
+
+  @example
+  {% render 'tm-card', b: b, show_rating: show_rating, show_quote_mark: show_quote_mark, block_id: block.id %}
+{%- enddoc -%}
 {%- assign demo_avatar = '' -%}
 {%- if b.avatar == blank and block_id != blank -%}
   {%- capture demo_avatar -%}{%- render 'demo-image', key: block_id -%}{%- endcapture -%}
@@ -12,7 +20,7 @@
     <span class="tm-card__quote-mark" aria-hidden="true">“</span>
   {%- endif -%}
   {%- if show_rating and b.rating > 0 -%}
-    <div class="tm-card__rating" aria-label="Rated {{ b.rating }} out of 5" data-tm-stars>
+    <div class="tm-card__rating" role="img" aria-label="{{ 'accessibility.ui.rating_out_of' | t: rating: b.rating, total: 5 }}" data-tm-stars>
       {%- for i in (1..5) -%}
         {%- assign tm_part = b.rating | minus: i | plus: 1 | at_least: 0 | at_most: 1 | times: 100 | round -%}
         {%- if i <= b.rating -%}

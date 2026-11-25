@@ -1,4 +1,4 @@
-<script src="{{ 'live-products-c.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-products-c.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-products-c-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
@@ -27,7 +27,7 @@
 {%- liquid
   assign s = section.settings
   assign sid = section.id
-  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default'
   assign custom = s.enable_custom_style
   assign fonts = s.enable_custom_fonts
   assign mode = s.interaction_mode | default: 'click'
@@ -48,7 +48,10 @@
     else
       assign items = 'center'
   endcase
-  assign placeholder_src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Crect width=%22400%22 height=%22300%22 fill=%22%23888%22 fill-opacity=%22.16%22/%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22 fill=%22%23888%22 fill-opacity=%22.45%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22 fill=%22%23888%22 fill-opacity=%22.45%22/%3E%3C/svg%3E'
+  capture placeholder_src
+    render 'placeholder-image', type: 'lifestyle-1', scheme: color_scheme, ratio: '4/3', format: 'url'
+  endcapture
+  assign placeholder_src = placeholder_src | strip
   if s.placeholder_url != blank
     assign placeholder_src = s.placeholder_url
   endif
@@ -141,7 +144,7 @@
 </style>
 
 <div class="section{% if s.reset_spacing %} remove_spacing{% endif %}">
-  <div class="hsp2 pch color-{{ color_scheme }} gradient" data-section-id="{{ sid }}" data-pch="hsp2"{% if s.enable_custom_fonts %} data-own-font{% endif %} data-pch-section="{{ sid }}" data-pch-mode="{{ mode }}" data-width="{{ s.section_width | default: 'full_width' }}" data-pulse="{% if s.show_pulse == false %}false{% else %}true{% endif %}" data-pch-editing="{% if request.design_mode %}true{% else %}false{% endif %}" data-pch-placeholder="{{ placeholder_src | escape }}" data-pch-settings="{{ s | json | escape }}" data-pch-defaults="&#123;&quot;color_scheme&quot;:&quot;default-color-scheme&quot;,&quot;section_width&quot;:&quot;full_width&quot;,&quot;reset_spacing&quot;:true,&quot;show_vendor&quot;:false,&quot;show_price&quot;:true,&quot;cta_label&quot;:&quot;Shop now&quot;,&quot;sold_out_label&quot;:&quot;Sold out&quot;,&quot;text_align&quot;:&quot;center&quot;,&quot;head_gap&quot;:24,&quot;image_aspect_desktop&quot;:&quot;16 / 9&quot;,&quot;image_aspect_mobile&quot;:&quot;4 / 5&quot;,&quot;image_radius&quot;:18,&quot;interaction_mode&quot;:&quot;click&quot;,&quot;dot_size&quot;:32,&quot;show_pulse&quot;:true,&quot;pop_width&quot;:260,&quot;pop_radius&quot;:14,&quot;enable_custom_style&quot;:false,&quot;enable_custom_fonts&quot;:false,&quot;heading_font&quot;:&quot;assistant_n4&quot;,&quot;body_font&quot;:&quot;assistant_n4&quot;,&quot;padding_top&quot;:49,&quot;padding_bottom&quot;:49,&quot;side_padding_desktop&quot;:24,&quot;side_padding_mobile&quot;:16&#125;" data-pch-block-defaults="&#123;&quot;eyebrow&quot;:&#123;&quot;text&quot;:&quot;Lookbook&quot;,&quot;enable_custom_style&quot;:false,&quot;size&quot;:12,&quot;letter_spacing&quot;:0.2&#125;,&quot;heading&quot;:&#123;&quot;text&quot;:&quot;Shop the look&quot;,&quot;tag&quot;:&quot;h2&quot;,&quot;enable_custom_style&quot;:false,&quot;size_desktop&quot;:44,&quot;size_mobile&quot;:28&#125;,&quot;subheading&quot;:&#123;&quot;max_width&quot;:560,&quot;enable_custom_style&quot;:false,&quot;size&quot;:15&#125;,&quot;hotspot&quot;:&#123;&quot;position_x&quot;:50,&quot;position_y&quot;:50&#125;&#125;" style="{{ root_vars | strip_newlines }}">
+  <div class="hsp2 pch color-{{ color_scheme }} gradient" data-section-id="{{ sid }}" data-pch="hsp2"{% if s.enable_custom_fonts %} data-own-font{% endif %} data-pch-section="{{ sid }}" data-pch-mode="{{ mode }}" data-width="{{ s.section_width | default: 'full_width' }}" data-pulse="{% if s.show_pulse == false %}false{% else %}true{% endif %}" data-pch-editing="{% if request.design_mode %}true{% else %}false{% endif %}" data-pch-placeholder="{{ placeholder_src | escape }}" {% if request.design_mode %}data-pch-settings="{{ s | json | escape }}"{% endif %} data-pch-defaults="&#123;&quot;color_scheme&quot;:&quot;default&quot;,&quot;section_width&quot;:&quot;full_width&quot;,&quot;reset_spacing&quot;:true,&quot;show_vendor&quot;:false,&quot;show_price&quot;:true,&quot;cta_label&quot;:&quot;Shop now&quot;,&quot;sold_out_label&quot;:&quot;Sold out&quot;,&quot;text_align&quot;:&quot;center&quot;,&quot;head_gap&quot;:24,&quot;image_aspect_desktop&quot;:&quot;16 / 9&quot;,&quot;image_aspect_mobile&quot;:&quot;4 / 5&quot;,&quot;image_radius&quot;:18,&quot;interaction_mode&quot;:&quot;click&quot;,&quot;dot_size&quot;:32,&quot;show_pulse&quot;:true,&quot;pop_width&quot;:260,&quot;pop_radius&quot;:14,&quot;enable_custom_style&quot;:false,&quot;enable_custom_fonts&quot;:false,&quot;heading_font&quot;:&quot;assistant_n4&quot;,&quot;body_font&quot;:&quot;assistant_n4&quot;,&quot;padding_top&quot;:49,&quot;padding_bottom&quot;:49,&quot;side_padding_desktop&quot;:24,&quot;side_padding_mobile&quot;:16&#125;" data-pch-block-defaults="&#123;&quot;eyebrow&quot;:&#123;&quot;text&quot;:&quot;Lookbook&quot;,&quot;enable_custom_style&quot;:false,&quot;size&quot;:12,&quot;letter_spacing&quot;:0.2&#125;,&quot;heading&quot;:&#123;&quot;text&quot;:&quot;Shop the look&quot;,&quot;tag&quot;:&quot;h2&quot;,&quot;enable_custom_style&quot;:false,&quot;size_desktop&quot;:44,&quot;size_mobile&quot;:28&#125;,&quot;subheading&quot;:&#123;&quot;max_width&quot;:560,&quot;enable_custom_style&quot;:false,&quot;size&quot;:15&#125;,&quot;hotspot&quot;:&#123;&quot;position_x&quot;:50,&quot;position_y&quot;:50&#125;&#125;" style="{{ root_vars | strip_newlines }}">
     <div class="hsp2__inner">
       {%- assign head_count = 0 -%}
       {%- for block in section.blocks -%}{%- if block.type != 'hotspot' and block.settings.text != blank -%}{%- assign head_count = head_count | plus: 1 -%}{%- endif -%}{%- endfor -%}
@@ -152,13 +155,13 @@
           {%- case block.type -%}
             {%- when 'eyebrow' -%}
               {%- capture b_c -%}{%- if own -%}{% render 'scheme-color', color: b.color, fallback: 'var(--color-text)' %}{%- else -%}var(--color-text){%- endif -%}{%- endcapture -%}
-              <p class="hsp2__eyebrow" data-pch-block="{{ block.id }}" data-pch-type="eyebrow" data-pch-settings="{{ b | json | escape }}" style="--b-c: {{ b_c | strip }}; --b-fs: {% if own %}{{ b.size | default: 12 }}px{% else %}12px{% endif %}; --b-ls: {% if own %}{{ b.letter_spacing | default: 0.2 }}em{% else %}.2em{% endif %};"{% if b.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ b.text }}</p>
+              <p class="hsp2__eyebrow" data-pch-block="{{ block.id }}" data-pch-type="eyebrow" {% if request.design_mode %}data-pch-settings="{{ b | json | escape }}"{% endif %} style="--b-c: {{ b_c | strip }}; --b-fs: {% if own %}{{ b.size | default: 12 }}px{% else %}12px{% endif %}; --b-ls: {% if own %}{{ b.letter_spacing | default: 0.2 }}em{% else %}.2em{% endif %};"{% if b.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ b.text }}</p>
             {%- when 'heading' -%}
               {%- capture b_c -%}{%- if own -%}{% render 'scheme-color', color: b.color, fallback: 'var(--color-heading)' %}{%- else -%}var(--color-heading){%- endif -%}{%- endcapture -%}
-              <h2 class="hsp2__heading" data-pch-block="{{ block.id }}" data-pch-type="heading" data-pch-settings="{{ b | json | escape }}" style="--b-c: {{ b_c | strip }};{% if own %} --b-fs-d: {{ b.size_desktop | default: 44 }}px; --b-fs-m: {{ b.size_mobile | default: 28 }}px;{% endif %}"{% if b.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ b.text }}</h2>
+              <h2 class="hsp2__heading" data-pch-block="{{ block.id }}" data-pch-type="heading" {% if request.design_mode %}data-pch-settings="{{ b | json | escape }}"{% endif %} style="--b-c: {{ b_c | strip }};{% if own %} --b-fs-d: {{ b.size_desktop | default: 44 }}px; --b-fs-m: {{ b.size_mobile | default: 28 }}px;{% endif %}"{% if b.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ b.text }}</h2>
             {%- when 'subheading' -%}
               {%- capture b_c -%}{%- if own -%}{% render 'scheme-color', color: b.color, fallback: 'var(--color-text)' %}{%- else -%}var(--color-text){%- endif -%}{%- endcapture -%}
-              <div class="hsp2__sub" data-pch-block="{{ block.id }}" data-pch-type="subheading" data-pch-settings="{{ b | json | escape }}" style="--b-c: {{ b_c | strip }}; --b-max: {{ b.max_width | default: 560 }}px;{% if own %} --b-fs: {{ b.size | default: 15 }}px;{% endif %}"{% if b.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ b.text }}</div>
+              <div class="hsp2__sub" data-pch-block="{{ block.id }}" data-pch-type="subheading" {% if request.design_mode %}data-pch-settings="{{ b | json | escape }}"{% endif %} style="--b-c: {{ b_c | strip }}; --b-max: {{ b.max_width | default: 560 }}px;{% if own %} --b-fs: {{ b.size | default: 15 }}px;{% endif %}"{% if b.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ b.text }}</div>
           {%- endcase -%}
         {%- endfor -%}
       </header>
@@ -186,7 +189,7 @@
             endif
           -%}
           {%- capture spot_json -%}{"position_x":{{ hb.position_x | default: 50 | json }},"position_y":{{ hb.position_y | default: 50 | json }},"custom_title":{{ hb.custom_title | json }}}{%- endcapture -%}
-          <div class="pch-spot" data-pch-spot data-pch-block="{{ block.id }}" data-pch-type="hotspot" data-pch-settings="{{ spot_json | escape }}" style="--x: {{ hb.position_x | default: 50 }}%; --y: {{ hb.position_y | default: 50 }}%;"{% if hide_spot %} hidden{% endif %} {{ block.shopify_attributes }}>
+          <div class="pch-spot" data-pch-spot data-pch-block="{{ block.id }}" data-pch-type="hotspot" {% if request.design_mode %}data-pch-settings="{{ spot_json | escape }}"{% endif %} style="--x: {{ hb.position_x | default: 50 }}%; --y: {{ hb.position_y | default: 50 }}%;"{% if hide_spot %} hidden{% endif %} {{ block.shopify_attributes }}>
             <button type="button" class="pch-dot" data-pch-dot aria-expanded="false" aria-controls="pch-pop-{{ sid }}-{{ block.id }}">
               <span class="pch-dot__core" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg></span>
               <span class="visually-hidden" data-pch-dot-label>{{ title | default: 'Choose a product' | escape }}</span>
@@ -197,7 +200,7 @@
                   {%- if p.featured_image != blank -%}
                     {{ p.featured_image | image_url: width: 200 | image_tag: alt: '', width: 64, height: 64, loading: 'lazy', decoding: 'async' }}
                   {%- else -%}
-                    <img src="{{ placeholder_src }}" alt="" width="64" height="64" loading="lazy" decoding="async">
+                    <img src="{%- render 'placeholder-image', type: 'product', index: forloop.index, scheme: color_scheme, ratio: '1/1', format: 'url' -%}" alt="" width="64" height="64" loading="lazy" decoding="async">
                   {%- endif -%}
                 </span>
                 <span class="hsp2__pop-info">
@@ -225,7 +228,7 @@
 {
   "name": "Hotspot Image Product 2",
   "tag": "section",
-  "class": "section",
+  "class": "section s-tt",
   "settings": [
     {
       "type": "header",
@@ -235,7 +238,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -343,7 +346,6 @@
       "type": "url",
       "id": "placeholder_url",
       "label": "Fallback image URL",
-      "hidden": true,
       "info": "Legacy: pick the picture with Image instead.",
       "visible_if": "{{ false }}"
     },
@@ -696,7 +698,6 @@
               "label": "H3"
             }
           ],
-          "hidden": true,
           "info": "Legacy: the heading is always an h2, so the page keeps one h1.",
           "visible_if": "{{ false }}"
         },
@@ -795,7 +796,6 @@
           "type": "text",
           "id": "custom_title",
           "label": "Custom title",
-          "hidden": true,
           "info": "Legacy: the card uses the product title.",
           "visible_if": "{{ false }}"
         },
@@ -803,7 +803,6 @@
           "type": "text",
           "id": "fallback_price",
           "label": "Price without product",
-          "hidden": true,
           "info": "Legacy: the price comes from the product.",
           "visible_if": "{{ false }}"
         },
@@ -833,8 +832,8 @@
   ],
   "presets": [
     {
-      "name": "Hotspot Image Product 2",
-      "category": "Products",
+      "name": "Shop the Look – Hotspots & Heading",
+      "category": "03 · Products",
       "blocks": [
         {
           "type": "eyebrow",

@@ -1,8 +1,8 @@
-<script src="{{ 'live-page-popups.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-page-popups.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-page-popups-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%}
   Materia Themes. Coupon Promo Popup: an eyebrow, a headline, a line of
-  text, a signup form (Storelib Subscribers, data-storelib-form="subscribe"),
+  text, a signup form (the store's customer form, tag newsletter),
   the creator's code (shown at once, or only after signing up) and a
   picture, in a native <dialog> (snippets/page-popup-dialog). Every setting
   reaches the page as a CSS variable, an attribute or a text on its element,
@@ -13,7 +13,7 @@
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign fb_accessibility_promotion_image = 'accessibility.promotion_image' | t
   assign fb_accessibility_subscribe = 'accessibility.subscribe' | t
   assign fb_accessibility_enter_your_email = 'accessibility.enter_your_email' | t
@@ -208,6 +208,8 @@
   .cpnb-form-{{ sid }} button[type="submit"] { width: 100%; cursor: pointer; }
   .cpnb-form-{{ sid }} button[type="submit"][data-own-shape] { --mb-padding-y: 12px; --mb-padding-x: 20px; --mb-font-size: 15px; }
   .cpnb-form-{{ sid }} button[type="submit"].is-loading { pointer-events: none; opacity: .7; }
+  .cpnb-form-{{ sid }} .storelib-form-note[role="alert"] { margin: 0; font-size: 14px; line-height: 1.45; color: color-mix(in srgb, #d92d20 72%, var(--color-text)); }
+  .cpnb-form-{{ sid }} [aria-busy="true"] button[type="submit"], .cpnb-form-{{ sid }} form[aria-busy="true"] button[type="submit"] { opacity: .7; cursor: progress; }
 
   @media (prefers-reduced-motion: reduce) {
     .cpnb-card-{{ sid }}, .cpnb-overlay-{{ sid }}, .cpnb-form-{{ sid }} button[type="submit"], .cpnb-code-{{ sid }}, .cpnb-close-{{ sid }} { transition: none !important; animation: none !important; }
@@ -236,17 +238,18 @@
 {%- if cpnb_custom_style %} --cpnb-overlay: {% render 'scheme-color', color: st.overlay_color, fallback: '#000000' %}; --cpnb-bg: {% render 'scheme-color', color: st.card_bg, fallback: 'var(--color-background)' %}; --cpnb-text: {% render 'scheme-color', color: st.text_color, fallback: 'var(--color-text)' %}; --cpnb-close: {% render 'scheme-color', color: st.close_color, fallback: 'var(--color-heading)' %};{%- endif -%}
 {%- render 'page-popup-fonts', st: st -%}
 {%- endcapture -%}
-{%- capture cpnb_code_rows -%}
+{%- assign cpnb_row_ungated = '' -%}
+{%- assign cpnb_row_gated = '' -%}
   {%- if block_coupon != blank -%}
     {%- for cpnb_row in (1..2) -%}
       {%- if cpnb_row == 1 -%}{%- assign cpnb_row_class = 'cpnb-coupon-ungated' -%}{%- else -%}{%- assign cpnb_row_class = 'cpnb-coupon-gated' -%}{%- endif -%}
-      <div class="cpnb-code-row-{{ sid }} cpnb-coupon-{{ sid }} {{ cpnb_row_class }}" data-pg-block="{{ block_coupon.id }}" data-pg-type="coupon"{% if request.design_mode %} data-pg-settings="{{ block_coupon.settings | json | escape }}"{% endif %}{% if block_coupon.settings.code == blank %} hidden{% endif %} {{ block_coupon.shopify_attributes }}>
+      {%- capture cpnb_row_html -%}<div class="cpnb-code-row-{{ sid }} cpnb-coupon-{{ sid }} {{ cpnb_row_class }}" data-pg-block="{{ block_coupon.id }}" data-pg-type="coupon"{% if request.design_mode %} data-pg-settings="{{ block_coupon.settings | json | escape }}"{% endif %}{% if block_coupon.settings.code == blank %} hidden{% endif %} {{ block_coupon.shopify_attributes }}>
         <span class="cpnb-code-label-{{ sid }}"{% if block_coupon.settings.label == blank %} hidden{% endif %}>{{ block_coupon.settings.label }}</span>
         <button type="button" class="cpnb-code-{{ sid }}" data-code="{{ block_coupon.settings.code | escape }}" aria-label="{{ 'accessibility.copy_coupon_code' | t }}">{{ block_coupon.settings.code | escape }}</button>
-      </div>
+      </div>{%- endcapture -%}
+      {%- if cpnb_row == 1 -%}{%- assign cpnb_row_ungated = cpnb_row_html -%}{%- else -%}{%- assign cpnb_row_gated = cpnb_row_html -%}{%- endif -%}
     {%- endfor -%}
   {%- endif -%}
-{%- endcapture -%}
 {% render 'page-popup-dialog', sid: sid, st: st %}
 <section class="cpnb-{{ sid }} color-{{ color_scheme }}" data-pg-root="coupon-promotion-newsletter-popup" data-pg-section="{{ sid }}"{% if request.design_mode %} data-pg-settings="{{ st | json | escape }}"{% endif %}{% if st.enable_custom_fonts %} data-pg-fonts data-own-font{% endif %}
          data-cpnb-side="{{ st.image_side | default: 'image-right' }}" data-cpnb-mobile-image="{{ st.mobile_image_position | default: 'above' }}" data-cpnb-ratio="{{ st.image_ratio | default: 'auto' }}" data-cpnb-mh="{{ st.mobile_image_height_mode | default: 'auto' }}" data-cpnb-align="{{ st.text_align | default: 'left' }}" data-cpnb-gate="{{ cpnb_gate }}"
@@ -303,8 +306,7 @@
         {%- endif -%}
 
         <div class="cpnb-prepane-{{ sid }}">
-          {%- assign cpnb_rows = cpnb_code_rows | split: '</div>' -%}
-          {%- if block_coupon != blank -%}{{ cpnb_rows[0] }}</div>{%- endif -%}
+          {%- if block_coupon != blank -%}{{ cpnb_row_ungated }}{%- endif -%}
 
           {%- if block_form != blank -%}
             {%- liquid
@@ -336,9 +338,13 @@
               endif
             -%}
             <div class="cpnb-form-{{ sid }}" data-pg-block="{{ block_form.id }}" data-pg-type="form"{% if request.design_mode %} data-pg-settings="{{ fs | json | escape }}"{% endif %} data-pg-i18n='{"placeholder":{{ fb_accessibility_enter_your_email | json | escape }},"submit":{{ fb_accessibility_subscribe | json | escape }}}' {{ block_form.shopify_attributes }}>
-              <form id="{{ cpnb_form_id }}" class="{{ cpnb_form_class }}" data-storelib-form="subscribe">
+              {%- comment -%} The store's customer form (tag newsletter). It is posted the ordinary way, so the platform's spam check (CAPTCHA) can add its token; the page comes back on the form's #id with the result and the popup reopens on it. {%- endcomment -%}
+              {%- form 'customer', id: cpnb_form_id, class: cpnb_form_class, data-storelib-form: 'subscribe' -%}
+                <input type="hidden" name="contact[tags]" value="newsletter">
+                <input type="hidden" name="contact[accepts_marketing]" value="true">
+                <span hidden data-mt-words data-success-message="{{ fs.success_text | default: 'Thanks! Here is your code:' | strip_html | escape }}" data-already-message="{{ fs.success_text | default: 'Thanks! Here is your code:' | strip_html | escape }}" data-invalid-message="{{ 'newsletter.error' | t | escape }}" data-error-message="{{ 'newsletter.error' | t | escape }}"></span>
                 <label class="visually-hidden" for="{{ cpnb_form_id }}-email">{{ cpnb_ph | escape }}</label>
-                <input id="{{ cpnb_form_id }}-email" type="email" name="email" autocomplete="email" placeholder="{{ cpnb_ph | escape }}" required data-popup-autofocus
+                <input id="{{ cpnb_form_id }}-email" type="email" name="contact[email]" autocomplete="email" autocapitalize="off" spellcheck="false" maxlength="254" placeholder="{{ cpnb_ph | escape }}" required data-popup-autofocus
                        {% if fs.use_theme_field == false %}style="border-radius: {{ fs.input_radius | default: 8 }}px; --mt-select-radius: {{ fs.input_radius | default: 8 }}px;"{% endif %}>
                 {%- render 'cpnb-phone-field',
                     scope: sid,
@@ -350,7 +356,13 @@
                         style="{%- render 'button-overrides', bg: b_bg, text: b_tx, hover_bg: b_bgh, hover_text: b_txh, custom: cpnb_custom, radius: fs.button_radius, weight: fs.button_weight -%}">
                   {{ fs.button_text | default: fb_accessibility_subscribe }}
                 </button>
-              </form>
+                {%- if form.errors -%}
+                  {%- capture cpnb_err -%}{%- for field in form.errors -%}{{ form.errors.translated_fields[field] }} {{ form.errors.messages[field] }} {% endfor -%}{%- endcapture -%}
+                  <p class="storelib-form-note cpnb-error-{{ sid }}" role="alert" data-mt-form-errors="{{ cpnb_err | strip | escape }}">{% if cpnb_err contains 'taken' %}{{ fs.success_text | default: 'Thanks! Here is your code:' | strip_html | escape }}{% else %}{{ 'newsletter.error' | t }}{% endif %}</p>
+                {%- elsif form.posted_successfully? -%}
+                  <span hidden data-mt-form-posted></span>
+                {%- endif -%}
+              {%- endform -%}
             </div>
           {%- endif -%}
 
@@ -365,7 +377,7 @@
           {%- if block_form != blank -%}
             <p class="cpnb-success-{{ sid }}" data-pg-block="{{ block_form.id }}" data-pg-type="form">{{ block_form.settings.success_text | default: 'Thanks! Here is your code:' }}</p>
           {%- endif -%}
-          {%- if block_coupon != blank -%}{{ cpnb_rows[1] }}</div>{%- endif -%}
+          {%- if block_coupon != blank -%}{{ cpnb_row_gated }}{%- endif -%}
         </div>
       </div>
 
@@ -373,7 +385,7 @@
         <div class="cpnb-image-{{ sid }}" data-pg-block="{{ block_image.id }}" data-pg-type="image"{% if request.design_mode %} data-pg-settings="{{ block_image.settings | json | escape }}"{% endif %} data-pg-i18n="{{ fb_accessibility_promotion_image | escape }}" {{ block_image.shopify_attributes }}>
           <template data-pg-ph>{{ 'image' | placeholder_svg_tag: 'cpnb-placeholder' }}</template>
           {%- if block_image.settings.image != blank -%}
-            {{ block_image.settings.image | image_url: width: 900 | image_tag: loading: 'lazy', alt: block_image.settings.alt | default: fb_accessibility_promotion_image, sizes: '(min-width: 750px) 50vw, 100vw', widths: '360,540,720,900' }}
+            {%- assign mt_img_alt_1 = block_image.settings.alt | default: fb_accessibility_promotion_image -%}{{ block_image.settings.image | image_url: width: 900 | image_tag: loading: 'lazy', alt: mt_img_alt_1, sizes: '(min-width: 750px) 50vw, 100vw', widths: '360,540,720,900' }}
           {%- else -%}
             {{ 'image' | placeholder_svg_tag: 'cpnb-placeholder' }}
           {%- endif -%}
@@ -443,6 +455,11 @@
         if (form.getAttribute('data-state') === 'done') subscribed();
       }).observe(form, { attributes: true, attributeFilter: ['data-state'] });
       if (CFG.design) form.addEventListener('submit', function(e){ e.preventDefault(); subscribed(); });
+      // The form is posted the ordinary way (the platform's CAPTCHA needs it): the page comes back
+      // on this form's #id with the result, and the popup reopens on it (the code, or the error).
+      var back = CFG.design || !P.posted ? '' : P.posted(form);
+      if (back === 'ok') { if (api) api.show(); subscribed(); }
+      else if (back === 'error' && api) api.show();
     }
 
     window['CPNB_open_' + SID] = function(){ api && api.show(); };
@@ -458,11 +475,12 @@
 })();
 </script>
 
+
 {% schema %}
 {
   "name": "Coupon Promo Popup",
   "tag": "section",
-  "class": "cpnb-section",
+  "class": "cpnb-section s-tt has-overlay",
   "enabled_on": {
     "groups": [
       "custom.overlay"
@@ -477,7 +495,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "header",

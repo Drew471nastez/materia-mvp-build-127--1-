@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. The header of Google map and Newsletter: the older Heading
   and Description settings (shown only when the section has no heading or
   subheading block), then the heading and subheading blocks in their order.
@@ -7,8 +7,15 @@
   on the section. data-own-font / data-own-weight / data-own-size keep a
   custom font, weight or size ahead of Theme settings > Typography priority;
   live-contact.js toggles them and the --ch-* values on live edits.
+
+  @param {string} anim - When a section scrolls into view
+  @param {boolean} sec_font - Font settings object of the section
+  @param {section} section - The section being rendered
+  @param {string} size_class - Size class
+
+  @example
   {% render 'contact-live-header', section: section, anim: anim, size_class: size_class, sec_font: sec_font %}
-{%- endcomment -%}
+{%- enddoc -%}
 {%- liquid
   assign st = section.settings
   assign heading_blocks = section.blocks | where: 'type', 'heading'
@@ -64,7 +71,8 @@
       {%- endcapture -%}
       {%- if bs.enable_custom_fonts and bs.font.family != blank -%}<style>{{ bs.font | font_face: font_display: 'swap' }}</style>{%- endif -%}
       <motion-element data-motion="fade-up-lg" data-motion-delay="50"{% if anim != 'slide_in' %} hold{% endif %} class="block{% if anim != 'none' %} scroll-trigger {{ anim }}{% endif %}"{% if anim != 'none' %} style="--animation-order: {{ order }};"{% endif %} data-ct-block="{{ block.id }}" data-ct-type="heading"{% if request.design_mode %} data-ct-settings="{{ bs | json | escape }}"{% endif %}{% if bs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>
-        <h2 class="section__header-heading heading-letter-spacing {{ size_class }} mt-0 mb-0 ct-h" id="block-{{ block.id }}" data-ct-el{% if sec_font or bs.enable_custom_fonts %} data-own-font{% endif %}{% if bs.weight_enable %} data-own-weight{% endif %}{% if bs.size_enable %} data-own-size{% endif %}{% if ch_vars != blank %} style="{{ ch_vars }}"{% endif %}>{{ bs.text }}</h2>
+        {%- if bs.tag == 'h3' -%}{%- assign ch_tag = 'h3' -%}{%- else -%}{%- assign ch_tag = 'h2' -%}{%- endif -%}
+        <{{ ch_tag }} class="section__header-heading heading-letter-spacing {{ size_class }}{% if ch_tag == 'h3' and size_class == blank %} h2{% endif %} mt-0 mb-0 ct-h" id="block-{{ block.id }}" data-ct-el{% if sec_font or bs.enable_custom_fonts %} data-own-font{% endif %}{% if bs.weight_enable %} data-own-weight{% endif %}{% if bs.size_enable %} data-own-size{% endif %}{% if ch_vars != blank %} style="{{ ch_vars }}"{% endif %}>{{ bs.text }}</{{ ch_tag }}>
       </motion-element>
       {%- assign order = order | plus: 1 -%}
     {%- when 'subheading' -%}

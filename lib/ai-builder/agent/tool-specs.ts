@@ -37,7 +37,7 @@ const SITE_PLAN = {
   items: obj(
     {
       key: str("Page key or template key, e.g. home, product, collection, about."),
-      sections: { type: "array", items: { type: "string" }, description: "One short line per section, in order: the component and its job." },
+      sections: { type: "array", items: { type: "string" }, description: "One short line per section, in order: the component, its Materia model as materia:<type> (or custom) and its job, e.g. \"ai_opening: materia:hero-image1, the promise and the first program\"." },
       reason: str("Why this page has fewer sections than the rule, or why a template keeps the platform's plain layout."),
     },
     ["key", "sections"],

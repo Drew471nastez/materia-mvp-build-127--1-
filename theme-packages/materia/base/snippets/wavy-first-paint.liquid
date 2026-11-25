@@ -1,4 +1,11 @@
-{% comment %}Critical geometry: match the deferred controller before any external assets arrive.{% endcomment %}
+{% doc %}
+  Critical geometry: match the deferred controller before any external assets arrive.
+
+  @param {section} section - The section being rendered
+
+  @example
+  {% render 'wavy-first-paint', section: section %}
+{% enddoc %}
 {% assign s = section.settings %}
 <style>
 #shopify-section-{{ section.id }}#shopify-section-{{ section.id }}{

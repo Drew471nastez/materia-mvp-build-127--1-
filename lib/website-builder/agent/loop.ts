@@ -58,6 +58,7 @@ import {
 import { describeHouseStyle, readHouseStyle } from "./house-style"
 import { blockAt, countAll, resolvePath } from "../block-tree"
 import { addableBlocks } from "../storelib-schemas"
+import { materiaEditContext, repairAddableType } from "./materia-context"
 import { LIMITS, MAX_BLOCK_DEPTH } from "@/lib/storelib-theme/types"
 import { describeFindings, reviewSections } from "./review"
 import { blockCatalogFor, nameOf as typeName, schemaMapFor, schemaOf, type SchemaMap } from "./schemas"
@@ -1454,6 +1455,7 @@ export async function* themeAgent(
       store: store ? `STORE\n${describeStore(store)}` : "",
       memory: memoryText,
       recent: describeRecent(history),
+      materia: materiaEditContext({ sources: sourcesNow, sections: state.sections, addable, broad: true }),
     }
     const planTurns: AgentTurn[] = [{ role: "user", content: planTurn(planContext), images: images.length ? images : undefined }]
     for (let tryNo = 0; tryNo < 2 && !plan; tryNo++) {
@@ -1631,6 +1633,11 @@ export async function* themeAgent(
         input.code && !locked && isImportedTheme(sourcesNow)
           ? `NEW SECTIONS ON THIS IMPORTED THEME: create_section takes a Storelib section file (<template>, <style>, <schema>; no compat attribute), and Storelib draws it inside the theme. Its own sections stay <template compat="shopify"> and are changed in place.\n${importedThemeNote(state.settings)}`
           : "",
+        /*
+          ROUND 26: A MATERIA SITE (one of Storelib's templates) is edited the way it was built: Materia's own sections
+          first, by what they do, in the page's own style (./materia-context.ts). Nothing for a site that is not Materia.
+        */
+        materiaEditContext({ sources: sourcesNow, sections: state.sections, addable, broad: !locked && (bigIntent || !!input.ambitious || !!plan || intent?.kind === "SECTION_REDESIGN" || selectionRead?.aim === "new" || selectionRead?.aim === "replace") }),
         selected && follow
           ? `THIS MESSAGE IS ABOUT YOUR LAST CHANGE, to ${selected.name?.trim() || typeName(schemas, selected.type)} [${selected.id}]. "it", "this" and "the layout" mean this section. Change it in place: its settings, its blocks or its code. Do not add a new section or make it again, and leave every other section as it is; writes to anything else are refused. If the creator plainly meant something else, say so in one sentence.\n\n${describeSection(selected, schemas)}${selectedContext ? `\n\n${describeSelectedCode(selectedContext)}` : ""}`
           : selected && locked
@@ -3719,9 +3726,15 @@ function execute(
     }
 
     case "add_section": {
-      const sectionType = typeof args.sectionType === "string" ? args.sectionType : ""
+      let sectionType = typeof args.sectionType === "string" ? args.sectionType : ""
+      /* Round 26: a type written another way ("hero_image1", "Hero Image 1") is the one the site has; else refused with the closest (./materia-context.ts). */
+      let repairedFrom = ""
       if (!schemaOf(schemas, sectionType)) {
-        return { output: `There is no section type "${sectionType}". Use one of the types listed on this tool.`, failed: true }
+        const fix = repairAddableType(sectionType, Object.keys(schemas ?? {}).filter((t) => t !== "header" && t !== "footer" && !!schemaOf(schemas, t)))
+        if ("type" in fix) {
+          repairedFrom = sectionType
+          sectionType = fix.type
+        } else return { output: `There is no section type "${sectionType}". Use one of the types listed on this tool${fix.closest.length ? `; the closest are ${fix.closest.join(", ")}` : ""}.`, failed: true }
       }
       let settings = parseSettings(args.settingsJson) ?? undefined
       let notes: string[] = []
@@ -3748,7 +3761,7 @@ function execute(
       const created = applyOp(state, op, schemas).sections.find((s) => s.id === fresh)
       return {
         output: [
-          `Added ${sectionType} as [${fresh}].${notes.length > 0 ? ` (${notes.join("; ")})` : ""}`,
+          `Added ${sectionType} as [${fresh}].${repairedFrom ? ` ("${repairedFrom}" read as ${sectionType}.)` : ""}${notes.length > 0 ? ` (${notes.join("; ")})` : ""}`,
           created ? describeSection(created, schemas) : "",
         ]
           .filter(Boolean)

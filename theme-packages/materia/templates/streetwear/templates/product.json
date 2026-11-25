@@ -178,45 +178,87 @@
             "enable_counter_custom": false
           }
         },
-        "pp23_info": {
-          "type": "infotables",
+        "delivery_estimate_1": {
+          "type": "delivery_estimate",
           "settings": {
-            "max_width": 760,
-            "center_card": false,
-            "section_pt_d": 6,
-            "section_pb_d": 22,
-            "section_pt_m": 6,
-            "section_pb_m": 18,
-            "pt_d": 16,
-            "pb_d": 16,
-            "pl_d": 20,
-            "pr_d": 20,
-            "pt_m": 14,
-            "pb_m": 14,
-            "pl_m": 16,
-            "pr_m": 16,
-            "font_size_d": 15,
-            "font_size_m": 14,
-            "line_height": 150,
-            "font_weight": 400,
-            "icon_gap": 16,
-            "icon_size": 22,
-            "border_style": "solid",
-            "divider_style": "solid",
-            "enable_custom_style": false,
-            "row1_enable": true,
-            "row2_enable": false,
-            "row3_enable": true,
-            "row1_highlight_weight": 600,
-            "row2_highlight_weight": 600,
-            "row3_highlight_weight": 600,
-            "row1_custom_icon": false,
-            "row2_custom_icon": false,
-            "row3_custom_icon": false,
-            "row1_lead": "Delivery:",
-            "row1_strong": "sent within two working days.",
-            "row3_lead": "Free returns:",
-            "row3_strong": "within 30 days, unworn."
+            "min_days": 2,
+            "max_days": 5,
+            "skip_weekends": true,
+            "cutoff_hour": 0,
+            "arrive_text": "Arrives [dates]",
+            "between_text": "[start] to [end]",
+            "cutoff_text": "",
+            "note": "",
+            "boxed": false,
+            "hide_digital": true,
+            "spacing_top": 4,
+            "spacing_bottom": 4
+          }
+        },
+        "guarantee_row_1": {
+          "type": "guarantee_row",
+          "settings": {
+            "style": "plain",
+            "columns_mobile": "3",
+            "icon_1": "leaf",
+            "title_1": "Washed linen",
+            "text_1": "Soft from day one",
+            "icon_2": "return",
+            "title_2": "30 day returns",
+            "text_2": "Unworn, tags on",
+            "icon_3": "lock",
+            "title_3": "Secure checkout",
+            "text_3": "Card, Apple Pay, PayPal",
+            "icon_4": "support",
+            "title_4": "",
+            "text_4": "",
+            "spacing_top": 8,
+            "spacing_bottom": 8
+          }
+        },
+        "payment_badges_1": {
+          "type": "payment_badges",
+          "settings": {
+            "h_main": "",
+            "sub_text": "",
+            "sub_url": "",
+            "sec_bg": "rgba(0,0,0,0)",
+            "sec_pt": 8,
+            "sec_pb": 16,
+            "sec_mt": 0,
+            "sec_mb": 0,
+            "sec_pl": 0,
+            "sec_pr": 0,
+            "sec_maxw": 100,
+            "sec_maxw_m": 100,
+            "sec_pl_m": 0,
+            "sec_pr_m": 0,
+            "badge_w": 40,
+            "badge_h": 26,
+            "badge_w_m": 40,
+            "badge_h_m": 26,
+            "h_main_mb": 0,
+            "h_main_mt": 0,
+            "h_main_size": 14,
+            "h_main_color": "#161615",
+            "show_visa": true,
+            "show_mastercard": true,
+            "show_amex": true,
+            "show_paypal": true,
+            "show_apple_pay": true,
+            "show_google_pay": true,
+            "show_unionpay": false,
+            "toggle_icons": true,
+            "text_align": "left",
+            "text_align_m": "left",
+            "badges_align": "auto",
+            "a11y_label": "Payment methods",
+            "sec_radius": 0,
+            "sub_underline": false,
+            "sub_newtab": false,
+            "sub_uline_w": 1,
+            "sub_color": "#333333",
+            "sub_hover": "#111111"
           }
         }
       },
@@ -228,92 +270,14 @@
         "variant_picker_1",
         "size_guide_1",
         "buy_buttons_1",
+        "delivery_estimate_1",
         "pp23_sold",
-        "pp23_info",
+        "guarantee_row_1",
         "collapsible_row_1",
         "collapsible_row_2",
         "collapsible_row_3",
+        "payment_badges_1",
         "product_addons_1"
-      ]
-    },
-    "text_columns_1": {
-      "type": "text-columns",
-      "settings": {
-        "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca",
-        "section_width": "fluid_container",
-        "reset_spacing": true,
-        "content_alignment": "left",
-        "columns_desktop": 3,
-        "columns_tablet": 2,
-        "column_gap": 48,
-        "header_gap": 48,
-        "show_dividers": true,
-        "enable_custom_style": false,
-        "enable_custom_fonts": false,
-        "heading_font": "assistant_n4",
-        "body_font": "assistant_n4",
-        "item_heading_size": 22,
-        "reveal": true,
-        "padding_top": 80,
-        "padding_bottom": 80,
-        "section_margin_top_desktop": 0,
-        "section_margin_bottom_desktop": 0,
-        "show_on_mobile": true,
-        "mobile_layout": "stack",
-        "show_arrows": true,
-        "item_heading_size_mobile": 20,
-        "padding_top_mobile": 56,
-        "padding_bottom_mobile": 56,
-        "section_margin_top_mobile": 0,
-        "section_margin_bottom_mobile": 0
-      },
-      "blocks": {
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "text": "On every shirt",
-            "enable_custom_style": false,
-            "enable_custom_fonts": false,
-            "font": "assistant_n4",
-            "weight_enable": false,
-            "weight": "700",
-            "size_enable": false,
-            "size_desktop": 36,
-            "size_mobile": 28,
-            "line_height": 1.15,
-            "tracking": 0
-          }
-        },
-        "column_1": {
-          "type": "column",
-          "settings": {
-            "label": "01",
-            "heading": "Washed linen",
-            "text": "<p>Washed before it ships, so it is soft from the first day and never shrinks.</p>"
-          }
-        },
-        "column_2": {
-          "type": "column",
-          "settings": {
-            "label": "02",
-            "heading": "Cut loose",
-            "text": "<p>Room through the body and shoulders, so air moves on hot days.</p>"
-          }
-        },
-        "column_3": {
-          "type": "column",
-          "settings": {
-            "label": "03",
-            "heading": "Easy returns",
-            "text": "<p>30 days to send it back if the size is wrong.</p>"
-          }
-        }
-      },
-      "block_order": [
-        "heading_1",
-        "column_1",
-        "column_2",
-        "column_3"
       ]
     },
     "related": {
@@ -344,58 +308,238 @@
       }
     },
     "reviews": {
-      "type": "merch-reviews",
+      "type": "testimonial-product",
       "settings": {
-        "heading": "What people say",
-        "subheading": "Sample reviews. Replace them with your own.",
-        "background": "#f2f1ed",
-        "heading_color": "#161615",
-        "text_color": "#161615",
-        "muted_color": "#5f5d58",
+        "color_scheme": "default",
+        "section_width": "container",
+        "text_align": "left",
+        "cards_desktop": 3,
+        "card_gap": 20,
+        "card_style": "outline",
+        "show_arrows": true,
+        "show_progress": true,
+        "enable_custom_style": true,
+        "section_bg": "#f2f1ed",
+        "card_bg": "#fbfaf8",
+        "card_border_color": "#e2dfd8",
         "star_color": "#161615",
-        "heading_size": 34,
-        "heading_size_mobile": 26,
-        "padding": 80,
-        "padding_mobile": 48
+        "card_radius": 0,
+        "reveal": true,
+        "padding_top": 88,
+        "padding_bottom": 88,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "mobile_peek": true
       },
       "blocks": {
-        "r1": {
-          "type": "review",
+        "eyebrow_1": {
+          "type": "eyebrow",
           "settings": {
-            "rating": 5,
-            "quote": "Light enough for August and it does not cling. The navy is a real navy.",
-            "name": "Sample name"
+            "text": "Reviews"
           }
         },
-        "r2": {
-          "type": "review",
+        "heading_2": {
+          "type": "heading",
           "settings": {
-            "rating": 5,
-            "quote": "Took an M as usual. Loose in the body, sleeves just right.",
-            "name": "Sample name"
+            "text": "Worn all summer"
           }
         },
-        "r3": {
-          "type": "review",
+        "subheading_3": {
+          "type": "subheading",
           "settings": {
-            "rating": 5,
-            "quote": "Softer after the second wash. Wore it straight from the parcel.",
-            "name": "Sample name"
+            "text": "<p>Sample reviews. Replace them with what your customers write.</p>"
+          }
+        },
+        "t1": {
+          "type": "testimonial",
+          "settings": {
+            "product": "linen-popover-navy",
+            "body": "Light enough for August and it does not cling. The navy is a real navy.",
+            "name": "Sample name",
+            "role": "Size M",
+            "rating": 5
+          }
+        },
+        "t2": {
+          "type": "testimonial",
+          "settings": {
+            "product": "band-collar-shirt-sky",
+            "body": "Took an M as usual. Loose in the body, sleeves just right.",
+            "name": "Sample name",
+            "role": "Size M",
+            "rating": 5
+          }
+        },
+        "t3": {
+          "type": "testimonial",
+          "settings": {
+            "product": "linen-tee-stone",
+            "body": "Softer after the second wash. Wore it straight from the parcel.",
+            "name": "Sample name",
+            "role": "Size L",
+            "rating": 5
+          }
+        },
+        "t4": {
+          "type": "testimonial",
+          "settings": {
+            "product": "gathered-hem-top-ecru",
+            "body": "The hem sits right over high waisted trousers. Ordered a second one.",
+            "name": "Sample name",
+            "role": "Size S",
+            "rating": 5
           }
         }
       },
       "block_order": [
-        "r1",
-        "r2",
-        "r3"
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "t1",
+        "t2",
+        "t3",
+        "t4"
       ]
+    },
+    "fabric": {
+      "type": "image-with-text-icons",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "image_position": "left",
+        "content_align": "left",
+        "text_column_width": 46,
+        "gap_desktop": 72,
+        "content_gap": 16,
+        "features_columns_desktop": "2",
+        "features_gap_desktop": 24,
+        "features_margin_top": 12,
+        "icon_size": 44,
+        "icon_radius_style": "round",
+        "icon_glyph_size": 48,
+        "feature_label_size": 15,
+        "feature_label_weight": "500",
+        "enable_custom_style": true,
+        "section_bg": "#ebe8e1",
+        "icon_bg": "#161615",
+        "icon_color": "#fbfaf8",
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 96,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "features_columns_mobile": "2"
+      },
+      "blocks": {
+        "image_1": {
+          "type": "image",
+          "settings": {
+            "image": "shopify://shop_images/streetwear-cream-shirt.webp",
+            "aspect_w": 4,
+            "aspect_h": 5,
+            "fit": "cover",
+            "radius": 0
+          }
+        },
+        "eyebrow_2": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "How we make them"
+          }
+        },
+        "heading_3": {
+          "type": "heading",
+          "settings": {
+            "text": "Linen that is ready for August",
+            "tag": "h2",
+            "size_desktop": 40,
+            "size_mobile": 30
+          }
+        },
+        "subheading_4": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Every shirt is cut from one mid weight linen, washed before it is sewn and finished by hand in small runs. Write here where yours are made.</p>"
+          }
+        },
+        "features_row_5": {
+          "type": "features_row",
+          "settings": {}
+        },
+        "feature_6": {
+          "type": "feature",
+          "settings": {
+            "label": "Washed before sewing, so it never shrinks",
+            "icon_type": "library",
+            "icon_library": "check_circle"
+          }
+        },
+        "feature_7": {
+          "type": "feature",
+          "settings": {
+            "label": "Cut loose through the body and shoulders",
+            "icon_type": "library",
+            "icon_library": "check_circle"
+          }
+        },
+        "feature_8": {
+          "type": "feature",
+          "settings": {
+            "label": "Sent within two working days",
+            "icon_type": "library",
+            "icon_library": "check_circle"
+          }
+        },
+        "feature_9": {
+          "type": "feature",
+          "settings": {
+            "label": "30 days to send it back",
+            "icon_type": "library",
+            "icon_library": "check_circle"
+          }
+        }
+      },
+      "block_order": [
+        "image_1",
+        "eyebrow_2",
+        "heading_3",
+        "subheading_4",
+        "features_row_5",
+        "feature_6",
+        "feature_7",
+        "feature_8",
+        "feature_9"
+      ]
+    },
+    "recently_viewed": {
+      "type": "recently-viewed",
+      "blocks": {
+        "heading_rv": {
+          "type": "heading",
+          "settings": {
+            "text": "Recently viewed"
+          }
+        }
+      },
+      "block_order": [
+        "heading_rv"
+      ],
+      "settings": {
+        "section_width": "fluid_container",
+        "products_to_show": 8,
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 20,
+        "padding_top": 40,
+        "padding_bottom": 56
+      }
     }
   },
   "order": [
     "breadcrumb",
     "main",
-    "text_columns_1",
+    "fabric",
+    "reviews",
     "related",
-    "reviews"
+    "recently_viewed"
   ]
 }

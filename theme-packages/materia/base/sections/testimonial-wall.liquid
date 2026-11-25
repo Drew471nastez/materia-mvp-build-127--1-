@@ -1,9 +1,9 @@
-<script src="{{ 'live-r7-testimonials.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-r7-testimonials.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'r7-testimonials-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign fonts = st.enable_custom_fonts
   assign scroll_anim = settings.scroll_animation | default: 'none'
   assign cards = section.blocks | where: 'type', 'testimonial'
@@ -139,7 +139,7 @@
 {
   "name": "Testimonial Wall",
   "tag": "section",
-  "class": "section-testimonial-wall",
+  "class": "section-testimonial-wall s-tt",
   "disabled_on": {
     "groups": [
       "header",
@@ -155,7 +155,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -643,7 +643,6 @@
           "type": "text",
           "id": "role",
           "label": "Line under the name",
-          "default": "",
           "info": "For example the city, or what they bought."
         },
         {
@@ -745,7 +744,7 @@
   "presets": [
     {
       "name": "Testimonial Wall",
-      "category": "Testimonials",
+      "category": "07 · Reviews & testimonials",
       "blocks": [
         {
           "type": "eyebrow"

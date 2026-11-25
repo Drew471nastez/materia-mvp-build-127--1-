@@ -1,7 +1,23 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes — extracted helper styles + scripts for main-product blocks.
   Pass `mode` to render the desired feature.
-{%- endcomment -%}
+
+  @param {string} [atc_bg] - Add to cart background
+  @param {string} [atc_hover_bg] - Add to cart hover background
+  @param {string} [atc_hover_text] - Add to cart hover text
+  @param {string} [atc_text] - Add to cart text
+  @param {string} [block_id] - Block id
+  @param {string} [buy_bg] - Buy now background
+  @param {string} [buy_hover_bg] - Buy now hover background
+  @param {string} [buy_hover_text] - Buy now hover text
+  @param {string} [buy_text] - Buy now text
+  @param {string} mode - Mode ('badge_inline', 'buy_colors', 'nav_dots')
+  @param {string} section_id - Section id
+  @param {number} [slides_per_view] - Slides per view; no current caller passes it
+
+  @example
+  {% render 'product-extras', mode: 'buy_colors', section_id: section.id, atc_bg: block_st.atc_bg_color, atc_text: block_st.atc_text_color, atc_hover_bg: block_st.atc_hover_bg, atc_hover_text: block_st.atc_hover_text, buy_bg: block_st.buy_bg_color, buy_text: block_st.buy_text_color, buy_hover_bg: block_st.buy_hover_bg, buy_hover_text: block_st.buy_hover_text %}
+{%- enddoc -%}
 
 {%- if mode == 'nav_dots' -%}
 <style>
@@ -119,7 +135,10 @@
        slideChange doesn't fire (e.g. swipes on some swiper versions, or when
        slide transitions are interrupted). Cheap operation, runs every 250ms. */
     var lastIdx = 0;
-    setInterval(function() {
+    /* Stops once the dots are gone (the theme editor redraws the section and
+       runs this script again for the new markup): one poll per gallery. */
+    var syncPoll = setInterval(function() {
+      if (!row.isConnected) { clearInterval(syncPoll); clearInterval(attachPoll); return; }
       var sw = getSwiper(); if (!sw) return;
       var idx = (sw.realIndex !== undefined ? sw.realIndex : sw.activeIndex) || 0;
       if (idx !== lastIdx) { lastIdx = idx; setActive(idx); }
@@ -177,6 +196,7 @@
     });
     if ('IntersectionObserver' in window) {
       var io = new IntersectionObserver(function(entries) {
+        if (!row.isConnected) { io.disconnect(); return; }
         entries.forEach(function(entry) {
           if (!entry.isIntersecting) return;
           var idx = seen.indexOf(entry.target);

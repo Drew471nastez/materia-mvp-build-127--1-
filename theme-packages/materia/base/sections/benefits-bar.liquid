@@ -1,8 +1,8 @@
-<script src="{{ 'live-features-a.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-features-a.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%} Runtime, once per page (the CSS and hero-image-one.js from layout/theme.storelib, every other script from the tags at the top of this file): shopify/assets/live-features-a.js. {%- endcomment -%}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if section.settings.reveal == false -%}<span data-ti-no-reveal hidden></span>{%- endif -%}
@@ -78,7 +78,7 @@ style="{%- render 'features-a-root', section: section, part: 'vars', no_bg: true
 --section-icon-color: {% if __bb_own %}{% render 'scheme-color', color: section.settings.icon_color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %};--section-icon-title-color: {% if __bb_own %}{% render 'scheme-color', color: section.settings.icon_title_color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %};
 --section-icon-title-weight: {% if section.settings.icon_title_style == 'theme' or section.settings.icon_title_style == blank %}var(--subheading-weight, 500){% else %}{{ section.settings.icon_title_style }}{% endif %};--section-icon-size: {{ section.settings.icon_size }}px;--section-icon-title-size: {{ section.settings.icon_title_size }}px;--icon-border-radius: {% if section.settings.enable_circle_icons %}50%{% else %}0{% endif %};--section-icons-per-row-desktop: {{ section.settings.icons_per_row_desktop }};"
 >
-{%- if request.design_mode -%}{%- assign __bb_icons = 'lock,shield_alt,user_shield,check_circle,key,shipping_fast,box,truck,route,headset,envelope,comments,question_circle,map_marker_alt,award,gem,hands,thumbs-up,star,undo_alt,calendar_check,sync_alt,handshake,seedling,recycle,hand-holding-heart,globe,map_marked_alt,wallet,credit_card,receipt,lightbulb,magic,pencil_ruler,store,gift,percent,ruler-combined,palette' | split: ',' -%}{%- for n in __bb_icons -%}<template data-fa-icon="{{ n }}">{% render 'features-a-fa-icon', name: n %}</template>{%- endfor -%}<template data-fa-icon="__placeholder"><img src="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Crect width=%22400%22 height=%22300%22 fill=%22%23efefef%22/%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22 fill=%22%23cfcfcf%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22 fill=%22%23cfcfcf%22/%3E%3C/svg%3E" alt="{{ 'accessibility.abstract_figure_image' | t }}" width="580" height="580" loading="lazy" class="LoudzValueIconsBarBlock__IconDefault"></template>{%- endif -%}
+{%- if request.design_mode -%}{%- assign __bb_icons = 'lock,shield_alt,user_shield,check_circle,key,shipping_fast,box,truck,route,headset,envelope,comments,question_circle,map_marker_alt,award,gem,hands,thumbs-up,star,undo_alt,calendar_check,sync_alt,handshake,seedling,recycle,hand-holding-heart,globe,map_marked_alt,wallet,credit_card,receipt,lightbulb,magic,pencil_ruler,store,gift,percent,ruler-combined,palette' | split: ',' -%}{%- for n in __bb_icons -%}<template data-fa-icon="{{ n }}">{% render 'features-a-fa-icon', name: n %}</template>{%- endfor -%}<template data-fa-icon="__placeholder">{%- render 'placeholder-image', type: 'image', class: 'LoudzValueIconsBarBlock__IconDefault', ratio: '1/1' -%}</template>{%- endif -%}
 {%- liquid
 if section.settings.icons_mobile_layout == "slider"
 assign slider_wrapper = "vtls-values-icons-slider"
@@ -150,16 +150,7 @@ alt: ""
 </div>
 {%- else -%}
 <div class="LoudzValueIconsBarBlock__Icon">
-<img
-src="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Crect width=%22400%22 height=%22300%22 fill=%22%23efefef%22/%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22 fill=%22%23cfcfcf%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22 fill=%22%23cfcfcf%22/%3E%3C/svg%3E"
-alt="{{ 'accessibility.abstract_figure_image' | t }}"
-width="580"
-height="580"
-loading="lazy"
-sizes="100vw"
-fetchpriority="low"
-class="LoudzValueIconsBarBlock__IconDefault"
->
+{%- render 'placeholder-image', type: 'image', class: 'LoudzValueIconsBarBlock__IconDefault', ratio: '1/1' -%}
 </div>
 {%- endif -%}
 </div>
@@ -195,7 +186,7 @@ aria-label="{{ 'accessibility.next' | t }}"
 {
   "name": "Benefits Bar",
   "tag": "section",
-  "class": "section-benefits-bar",
+  "class": "section-benefits-bar s-tt",
   "disabled_on": {
     "groups": [
       "header",
@@ -211,7 +202,7 @@ aria-label="{{ 'accessibility.next' | t }}"
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -360,7 +351,7 @@ aria-label="{{ 'accessibility.next' | t }}"
       "type": "font_picker",
       "id": "body_font",
       "label": "Title font",
-      "default": "helvetica_n4",
+      "default": "assistant_n4",
       "visible_if": "{{ section.settings.enable_custom_fonts }}"
     },
     {
@@ -851,8 +842,8 @@ aria-label="{{ 'accessibility.next' | t }}"
   ],
   "presets": [
     {
-      "name": "Benefits Bar",
-      "category": "Features",
+      "name": "Benefits Bar – Icons",
+      "category": "05 · Benefits & features",
       "blocks": [
         {
           "type": "icon",

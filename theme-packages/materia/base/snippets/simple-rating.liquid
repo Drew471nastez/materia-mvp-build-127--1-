@@ -1,7 +1,12 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes — Simple Rating block.
   Stars + text rating, supports half stars (4.5). Pass `block`.
-{%- endcomment -%}
+
+  @param {block} block - The block being rendered
+
+  @example
+  {% render 'simple-rating', block: block %}
+{%- enddoc -%}
 {%- liquid
   assign s = block.settings
   assign block_id = 'simple-rating-' | append: block.id
@@ -81,7 +86,7 @@
 
 <div id="{{ block_id }}" class="simple-rating-block"{% if s.text == blank %}{% unless filled > 0 or request.design_mode or page.in_editor %} hidden{% endunless %}{% endif %} {{ block.shopify_attributes }}>
   <div class="sr-row">
-    <span class="sr-stars"{% unless filled > 0 %} hidden{% endunless %} aria-label="{{ filled }} out of {{ total }} stars">
+    <span class="sr-stars" role="img"{% unless filled > 0 %} hidden{% endunless %} aria-label="{{ 'accessibility.ui.rating_out_of' | t: rating: filled, total: total }}">
       {%- assign half_idx = full_count | plus: 1 -%}
       {%- for n in (1..total) -%}
         {%- assign idx = forloop.index -%}

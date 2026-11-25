@@ -1,8 +1,8 @@
-<script src="{{ 'live-products-b.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-products-b.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
   assign s = section.settings
-  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default'
 -%}
 {%- assign fb_accessibility_view_all = 'accessibility.view_all' | t -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
@@ -52,6 +52,9 @@
   assign sid = section.id
   assign section_width = s.section_width | default: 'container'
   assign collection_obj = s.collection
+  if collection_obj == blank
+    assign collection_obj = collections.all
+  endif
   assign items_to_show = s.items_to_show | default: 8
   assign items_per_row = s.items_per_row | default: 4
   assign items_per_row_mobile = s.items_per_row_mobile | default: 2
@@ -176,7 +179,7 @@
 </style>
 <div
   class="section pl{% if s.padding_top < 30 %} pt-min{% endif %}{% if s.padding_bottom < 30 %} pb-min{% endif %} color-{{ color_scheme }} gradient{% if s.reset_spacing %} remove_spacing{% endif %}"
-  data-pb-root="products-listing" data-pb-section="{{ sid }}" data-pb-settings="{{ pb_json | escape }}" data-pb-fallback-href="{{ fallback_href }}" data-pb-defaults='{"color_scheme":"default-color-scheme","section_width":"fluid_container","reset_spacing":true,"items_to_show":8,"heading":"Featured products","show_view_all":true,"view_all_label":"View all products","view_all_position":"bottom","heading_font_size":32,"show_badges":true,"show_vendor":false,"show_rating":true,"show_short_description":false,"show_swatches":true,"show_price":true,"show_add_to_cart":true,"show_action":true,"header_alignment":"left","heading_subtext_gap":8,"items_per_row":4,"column_gap":24,"row_gap":30,"enable_custom_style":false,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","reveal":true,"padding_top":49,"padding_bottom":49,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"items_per_row_mobile":2,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}' data-pb-block-defaults='{"eyebrow":{"text":"Shop the collection","enable_custom_style":false,"size":13},"heading":{"text":"Featured products","enable_custom_style":false,"size_desktop":32,"size_mobile":26},"subheading":{"text":"&lt;p>Browse the pieces from this collection.&lt;/p>","enable_custom_style":false,"size":16},"button":{"text":"View all products","position":"bottom","button_style":"primary","enable_custom_style":false,"use_theme_button":true,"radius":8,"pad_x":26,"pad_y":14,"size":15,"border_width":1}}'
+  data-pb-root="products-listing" data-pb-section="{{ sid }}" data-pb-settings="{{ pb_json | escape }}" data-pb-fallback-href="{{ fallback_href }}" data-pb-defaults='{"color_scheme":"default","section_width":"fluid_container","reset_spacing":true,"items_to_show":8,"heading":"Featured products","show_view_all":true,"view_all_label":"View all products","view_all_position":"bottom","heading_font_size":32,"show_badges":true,"show_vendor":false,"show_rating":true,"show_short_description":false,"show_swatches":true,"show_price":true,"show_add_to_cart":true,"show_action":true,"header_alignment":"left","heading_subtext_gap":8,"items_per_row":4,"column_gap":24,"row_gap":30,"enable_custom_style":false,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","reveal":true,"padding_top":49,"padding_bottom":49,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"items_per_row_mobile":2,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}' data-pb-block-defaults='{"eyebrow":{"text":"Shop the collection","enable_custom_style":false,"size":13},"heading":{"text":"Featured products","enable_custom_style":false,"size_desktop":32,"size_mobile":26},"subheading":{"text":"&lt;p>Browse the pieces from this collection.&lt;/p>","enable_custom_style":false,"size":16},"button":{"text":"View all products","position":"bottom","button_style":"primary","enable_custom_style":false,"use_theme_button":true,"radius":8,"pad_x":26,"pad_y":14,"size":15,"border_width":1}}'
   data-align="{{ s.header_alignment | default: 'left' }}"
   style="--section-pt: {{ s.padding_top }};--section-pb: {{ s.padding_bottom }};--pl-cols: {{ items_per_row }};--pl-cols-mb: {{ items_per_row_mobile }};--pl-col-gap: {{ column_gap }}px;--pl-row-gap: {{ s.row_gap | default: 30 }}px;--pl-hgap: {{ s.heading_subtext_gap | default: 8 }}px;{% if s.enable_custom_style %}--pb-bg: {% render 'scheme-color', color: s.section_bg, fallback: 'var(--color-background)' %};{% endif %}{% if s.enable_custom_fonts and s.heading_font.family != blank %}--heading-font: {{ s.heading_font.family }}, {{ s.heading_font.fallback_families | default: 'sans-serif' }};{% endif %}{% if s.enable_custom_fonts and s.body_font.family != blank %}--body-font: {{ s.body_font.family }}, {{ s.body_font.fallback_families | default: 'sans-serif' }};{% endif %}"
 >
@@ -268,7 +271,7 @@
 {
   "name": "Products Listing",
   "tag": "section",
-  "class": "section-products-listing",
+  "class": "section-products-listing s-tt",
   "disabled_on": {
     "groups": [
       "header",
@@ -284,7 +287,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -338,7 +341,6 @@
       "type": "text",
       "id": "subheading",
       "label": "Eyebrow text",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Eyebrow block.",
       "visible_if": "{{ false }}"
     },
@@ -347,7 +349,6 @@
       "id": "heading",
       "label": "Title",
       "default": "Featured products",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Heading block.",
       "visible_if": "{{ false }}"
     },
@@ -355,7 +356,6 @@
       "type": "richtext",
       "id": "description",
       "label": "Subtext",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Subheading block.",
       "visible_if": "{{ false }}"
     },
@@ -364,7 +364,6 @@
       "id": "show_view_all",
       "label": "Show View all link",
       "default": true,
-      "hidden": true,
       "info": "Legacy: used only when the section has no Button block.",
       "visible_if": "{{ false }}"
     },
@@ -373,7 +372,6 @@
       "id": "view_all_label",
       "label": "Link label",
       "default": "View all products",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Button block.",
       "visible_if": "{{ false }}"
     },
@@ -392,7 +390,6 @@
           "label": "Below grid"
         }
       ],
-      "hidden": true,
       "info": "Legacy: used only when the section has no Button block.",
       "visible_if": "{{ false }}"
     },
@@ -405,7 +402,6 @@
       "step": 2,
       "unit": "px",
       "default": 32,
-      "hidden": true,
       "info": "Legacy: used only when the section has no Heading block.",
       "visible_if": "{{ false }}"
     },
@@ -655,8 +651,8 @@
   ],
   "presets": [
     {
-      "name": "Products Listing",
-      "category": "Products",
+      "name": "Products Grid",
+      "category": "03 · Products",
       "settings": {
         "items_to_show": 8,
         "items_per_row": 4

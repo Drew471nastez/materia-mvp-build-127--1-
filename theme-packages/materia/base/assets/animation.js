@@ -4,6 +4,9 @@ const SCROLL_ANIMATION_TRIGGER_CLASSNAME = '.scroll-trigger';
 const SCROLL_ANIMATION_OFFSCREEN_CLASSNAME = 'scroll-trigger--offscreen';
 const SCROLL_ANIMATION_DONE_ATTR = 'data-animation-done';
 const REVEAL_MAX_STAGGER = 6;
+// Sections whose own settings pick a reveal style play it themselves
+// (collection tabs, FAQ 4, countdown, scrolling text, marquee, logos).
+const OWN_REVEAL = '[data-ct-reveal], [data-faq7-reveal], [data-cd-reveal], .stm[data-lt-reveal], [data-own-reveal="true"], .lg[data-reveal="true"]';
 const revealInitialized = new WeakSet();
 const zoomInitialized = new WeakSet();
 const visibleZoom = new Set();
@@ -18,7 +21,7 @@ function reducedMotion() {
 }
 
 function initializeScrollZoomAnimationTrigger(root = document) {
-  if (reducedMotion() || window.Shopify?.designMode || !zoomObserver) return;
+  if (reducedMotion() || !zoomObserver) return;
   const elements = [...root.querySelectorAll('.animate--zoom-in')];
   if (root.matches?.('.animate--zoom-in')) elements.unshift(root);
   elements.forEach(el => {
@@ -59,6 +62,14 @@ const msOf = value => value.trim().endsWith('ms') ? parseFloat(value) : parseFlo
 // Content in the first screen (or above it) shows at once; only what is below
 // the fold is armed and waits to reveal on scroll (its next report).
 const revealArming = new WeakSet();
+// The observer's root ends 6% above the bottom edge (so reveals start a little
+// into the screen); at load, a top edge already showing in that strip counts
+// as on screen, so it is never hidden after it was seen.
+const REVEAL_ROOT_SHRINK = 0.94;
+function inFirstScreen(entry) {
+  const root = entry.rootBounds;
+  return !!root && entry.boundingClientRect.top < root.top + (root.bottom - root.top) / REVEAL_ROOT_SHRINK;
+}
 function armReveal(entries) {
   const fold = window.innerHeight;
   return entries.filter(entry => {
@@ -66,7 +77,9 @@ function armReveal(entries) {
     if (!revealArming.has(el)) return true;
     revealArming.delete(el);
     if (!el.isConnected || el.hasAttribute(SCROLL_ANIMATION_DONE_ATTR)) { revealObserver.unobserve(el); return false; }
-    if (entry.boundingClientRect.top < fold) { revealObserver.unobserve(el); markDone(el); return false; }
+    // In view now (the browser's report, right inside the editor's frame too), or
+    // already scrolled past: shown at once. Further down: armed for its reveal.
+    if (entry.isIntersecting || entry.boundingClientRect.bottom <= 0 || inFirstScreen(entry)) { revealObserver.unobserve(el); markDone(el); return false; }
     // A motion element that gave way to this reveal pinned itself visible.
     if (el.tagName === 'MOTION-ELEMENT') el.style.removeProperty('opacity');
     el.classList.add('scroll-trigger--offscreen', 'scroll-trigger--armed');
@@ -100,17 +113,19 @@ function reveal(targets) {
   targets.forEach(target => target.classList.remove('scroll-trigger--offscreen'));
   targets.forEach(follow);
 }
-function follow(target) {
+// Finished on animationend; a timer is the safety net for an animation that
+// never ran. Its length comes from the theme's timing, read once, never from
+// the element itself: reading an element's styles right after its class
+// changed made the browser work out the page's styles there and then.
+function follow(target, index = 0) {
   const end = event => {
     if (event.target !== target) return;
     target.removeEventListener('animationend', end);
     markDone(target);
   };
   target.addEventListener('animationend', end);
-  const css = getComputedStyle(target);
-  const duration = Math.max(...css.animationDuration.split(',').map(msOf), 0);
-  const delay = Math.max(...css.animationDelay.split(',').map(msOf), 0);
-  setTimeout(() => { target.removeEventListener('animationend', end); markDone(target); }, duration + delay + 100);
+  const t = revealTiming();
+  setTimeout(() => { target.removeEventListener('animationend', end); markDone(target); }, t.duration + t.delay + Math.min(index, REVEAL_MAX_STAGGER) * t.stagger + 150);
 }
 
 const revealObserver = 'IntersectionObserver' in window ? new IntersectionObserver((entries) => {
@@ -132,11 +147,32 @@ const revealObserver = 'IntersectionObserver' in window ? new IntersectionObserv
 // what scrolls in is already on its way, never waiting in view.
 }, {threshold: 0, rootMargin: '0px 0px 5% 0px'}) : null;
 
+// The theme's reveal timing (Animations > duration and delay), read once from
+// the root; the slowest type (cinematic) plays 1.25x the duration.
+let revealTimingCache = null;
+function revealTiming() {
+  if (revealTimingCache) return revealTimingCache;
+  const css = getComputedStyle(document.documentElement);
+  const num = (name, fallback) => { const v = css.getPropertyValue(name); return v ? msOf(v) || fallback : fallback; };
+  return revealTimingCache = {
+    duration: num('--animation-duration', 700) * 1.25,
+    delay: num('--animation-delay-base', 0),
+    stagger: num('--reveal-stagger', 70)
+  };
+}
+
 function initializeScrollAnimationTrigger(root = document, editorEvent = false) {
   initializeScrollZoomAnimationTrigger(root);
   const elements = [...root.querySelectorAll(SCROLL_ANIMATION_TRIGGER_CLASSNAME)];
   if (root.matches?.(SCROLL_ANIMATION_TRIGGER_CLASSNAME)) elements.unshift(root);
-  const editor = editorEvent || document.documentElement.classList.contains('shopify-design-mode') || window.Shopify?.designMode;
+  // In the theme editor, a page load plays its reveals like the storefront;
+  // a section the editor redraws in place shows at once (editorEvent).
+  // A section the editor drew again shows at once only while it is on screen;
+  // below the fold it keeps its reveal for when it is scrolled to.
+  // A redrawn section goes through the same first report: on screen it shows
+  // at once, further down it keeps its reveal. Selecting or reordering in the
+  // editor shows the section at once.
+  const editor = !!editorEvent && editorEvent !== 'load';
   const productInformation = '.product-detail__information, .product-single__information';
   const fresh = [];
   elements.forEach(el => {
@@ -144,7 +180,10 @@ function initializeScrollAnimationTrigger(root = document, editorEvent = false) 
     // A wrapper whose cards reveal themselves does not animate as well: one
     // movement per element, never a fade inside a fade.
     const container = !!el.querySelector(SCROLL_ANIMATION_TRIGGER_CLASSNAME);
-    if (essentialProductContent || container || editor || reducedMotion() || !revealObserver || el.hasAttribute(SCROLL_ANIMATION_DONE_ATTR)) {
+    // A section that plays a reveal style of its own (picked in the section)
+    // keeps that one: its wrapper and the cards inside it do not move as well.
+    const ownReveal = !!(el.closest(OWN_REVEAL) || el.querySelector(OWN_REVEAL));
+    if (essentialProductContent || container || ownReveal || editor || reducedMotion() || !revealObserver || el.hasAttribute(SCROLL_ANIMATION_DONE_ATTR)) {
       revealObserver?.unobserve(el);
       revealArming.delete(el);
       markDone(el);
@@ -166,11 +205,37 @@ else initializeScrollAnimationTrigger();
 
 // storelib:section-load is the builder redrawing a section in place: it shows
 // at once, never replays its entrance.
-['shopify:section:load', 'storelib:section-load', 'shopify:section:select', 'shopify:section:reorder'].forEach(name => {
-  document.addEventListener(name, event => initializeScrollAnimationTrigger(event.target, true));
+// Selecting or reordering a section in the editor's sidebar does not change
+// it: the editor scrolls there and the section reveals as it comes into view,
+// exactly like scrolling on the storefront (forcing it visible here was why
+// reveals never seemed to play in the editor).
+['shopify:section:load', 'storelib:section-load'].forEach(name => {
+  document.addEventListener(name, event => initializeScrollAnimationTrigger(event.target, 'load'));
 });
 document.addEventListener('shopify:section:unload', event => {
   [event.target, ...event.target.querySelectorAll(SCROLL_ANIMATION_TRIGGER_CLASSNAME)].forEach(el => { revealObserver?.unobserve(el); revealArming.delete(el); });
   [event.target, ...event.target.querySelectorAll('.animate--zoom-in')].forEach(el => { zoomObserver?.unobserve(el); visibleZoom.delete(el); });
 });
 window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', () => initializeScrollAnimationTrigger());
+
+// Cards a section adds later (filters, load more, infinite scroll, a grid
+// drawn again) join the same reveal: below the screen they reveal as they are
+// scrolled to, in view they simply show. Only added nodes are looked at, once
+// a frame.
+if ('MutationObserver' in window) {
+  let added = [], addedFrame = 0;
+  const flushAdded = () => {
+    addedFrame = 0;
+    const list = added; added = [];
+    list.forEach(node => { if (node.isConnected) initializeScrollAnimationTrigger(node); });
+  };
+  new MutationObserver(records => {
+    for (const record of records) {
+      for (const node of record.addedNodes) {
+        if (node.nodeType !== 1) continue;
+        if (node.classList.contains('scroll-trigger') || node.getElementsByClassName('scroll-trigger').length) added.push(node);
+      }
+    }
+    if (added.length && !addedFrame) addedFrame = requestAnimationFrame(flushAdded);
+  }).observe(document.documentElement, {childList: true, subtree: true});
+}

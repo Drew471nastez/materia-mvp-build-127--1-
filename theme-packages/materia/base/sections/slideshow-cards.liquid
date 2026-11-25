@@ -1,10 +1,10 @@
-<script src="{{ 'live-r7-stories.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-r7-stories.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'r7-stories-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
   assign st = section.settings
   assign sid = section.id
   assign design = request.design_mode
-  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
 -%}
 {%- comment -%}
   Materia Themes. Card Slideshow: a row of large picture cards, each with a
@@ -108,7 +108,8 @@
   #shopify-section-{{ sid }} .sc[data-ratio='square'] .sc__media { aspect-ratio: 1; }
   #shopify-section-{{ sid }} .sc[data-ratio='landscape'] .sc__media { aspect-ratio: 4 / 3; }
   #shopify-section-{{ sid }} .sc__img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
-  #shopify-section-{{ sid }} .sc__ph { position: absolute; inset: 0; width: 100%; height: 100%; display: block; color: var(--color-text); opacity: .28; }
+  #shopify-section-{{ sid }} .sc__ph { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #shopify-section-{{ sid }} .sc[data-style='overlay'] .sc__ph { background: none; fill: rgb(255 255 255 / .3); }
   #shopify-section-{{ sid }} .sc__shade { display: none; }
   #shopify-section-{{ sid }} .sc__body { display: flex; flex-direction: column; align-items: flex-start; gap: .8rem; padding: 1.6rem 0 0; min-width: 0; }
   #shopify-section-{{ sid }} .sc__title {
@@ -237,7 +238,7 @@
             {%- if bs.image != blank -%}
               <img class="sc__img" src="{{ bs.image | image_url: width: 1200 }}" srcset="{{ bs.image | image_url: width: 480 }} 480w, {{ bs.image | image_url: width: 800 }} 800w, {{ bs.image | image_url: width: 1200 }} 1200w" sizes="(min-width: 768px) {{ st.card_width | default: 40 }}vw, {{ st.card_width_mobile | default: 85 }}vw" width="{{ bs.image.width | default: 1200 }}" height="{{ bs.image.height | default: 1500 }}" alt="{{ bs.image.alt | escape }}" loading="lazy" decoding="async">
             {%- else -%}
-              <svg class="sc__ph" data-r7s-ph viewBox="0 0 120 150" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><circle cx="50" cy="62" r="6" fill="currentColor"/><path d="M34 92l18-21 11 12 8-7 17 16z" fill="currentColor"/></svg>
+              {%- render 'placeholder-image', type: 'collection', index: forloop.index, class: 'sc__ph', attrs: 'data-r7s-ph' -%}
             {%- endif -%}
           </div>
           <div class="sc__shade" aria-hidden="true"></div>
@@ -268,7 +269,8 @@
 </div>
 {%- endif -%}{% schema %}
 {
-  "name": "Card Slideshow",
+  "class": "s-tt",
+"name": "Card Slideshow",
   "settings": [
     {
       "type": "header",
@@ -278,7 +280,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Colour scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -672,8 +674,8 @@
   ],
   "presets": [
     {
-      "name": "Card Slideshow",
-      "category": "Slideshows",
+      "name": "Slideshow – Cards",
+      "category": "01 · Hero & slideshows",
       "settings": {
         "padding_top": 64,
         "padding_bottom": 64,

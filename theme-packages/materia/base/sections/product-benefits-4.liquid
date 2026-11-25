@@ -1,7 +1,7 @@
-<script src="{{ 'live-features-d.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-features-d.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-features-d-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- assign fb_accessibility_product_label = 'accessibility.product_label' | t -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
@@ -40,7 +40,10 @@
   if st.heading_custom_font_enable and st.heading_font_weight != blank and st.heading_font_weight != 'inherit'
     assign own_weight = true
   endif
-  assign placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Crect width=%22400%22 height=%22300%22 fill=%22%23efefef%22/%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22 fill=%22%23cfcfcf%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22 fill=%22%23cfcfcf%22/%3E%3C/svg%3E'
+  capture placeholder
+    render 'placeholder-image', type: 'product-6', scheme: color_scheme, ratio: '1/1', format: 'url'
+  endcapture
+  assign placeholder = placeholder | strip
 -%}
 {%- capture accent -%}{% if custom %}{% render 'scheme-color', color: st.line_color, fallback: 'var(--color-primary)' %}{% else %}var(--color-primary){% endif %}{%- endcapture -%}
 
@@ -107,7 +110,7 @@
 {%- if pb4_anim_value != '' -%}--pb4h-anim:{{ pb4_anim_value }};{%- endif -%}
 {%- endcapture -%}
 
-<section class="pb4h-wrap color-{{ color_scheme }} gradient"{% unless st.reveal %} data-ti-no-reveal{% endunless %} data-fd="pb4" data-fd-section="{{ sid }}" data-fd-settings="{{ st | json | escape }}" data-pb4h-root data-pb4h-width="{{ st.section_width }}"{% if pb4_anim_value != '' %} data-pb4h-anim="{{ pb4_anim }}"{% endif %} style="{{ pb4_vars | strip_newlines }}">
+<section class="pb4h-wrap color-{{ color_scheme }} gradient"{% unless st.reveal %} data-ti-no-reveal{% endunless %} data-fd="pb4" data-fd-section="{{ sid }}" {% if request.design_mode %}data-fd-settings="{{ st | json | escape }}"{% endif %} data-pb4h-root data-pb4h-width="{{ st.section_width }}"{% if pb4_anim_value != '' %} data-pb4h-anim="{{ pb4_anim }}"{% endif %} style="{{ pb4_vars | strip_newlines }}">
   <div class="pb4h">
     <div class="pb4h__inner">
       {%- liquid
@@ -154,29 +157,29 @@
           assign h_fallback = 'var(--color-heading)'
         -%}
         <div class="pb4h__header"{% if heading_block %} {{ heading_block.shopify_attributes }}{% endif %}>
-          <h2 class="pb4h__heading"{% if heading_block %} data-fd-block="{{ heading_block.id }}" data-fd-type="heading" data-fd-settings="{{ heading_block.settings | json | escape }}"{% else %} data-fd-legacy="heading"{% endif %}{% if own_font %} data-own-font{% endif %}{% if own_weight %} data-own-weight{% endif %}{% if pb4_heading_html == blank %} hidden{% endif %}
+          <h2 class="pb4h__heading"{% if heading_block %} data-fd-block="{{ heading_block.id }}" data-fd-type="heading" {% if request.design_mode %}data-fd-settings="{{ heading_block.settings | json | escape }}"{% endif %}{% else %} data-fd-legacy="heading"{% endif %}{% if own_font %} data-own-font{% endif %}{% if own_weight %} data-own-weight{% endif %}{% if pb4_heading_html == blank %} hidden{% endif %}
              style="color: {% if h_custom %}{% render 'scheme-color', color: h_color, fallback: h_fallback %}{% else %}{{ h_fallback }}{% endif %} !important;{% if own_font %}font-family: {{ st.heading_font.family }}, {{ st.heading_font.fallback_families }};font-style: {{ st.heading_font.style }};{% endif %}{% if own_weight %}font-weight: {{ st.heading_font_weight }};{% elsif own_font %}font-weight: {{ st.heading_font.weight }};{% endif %}">{{ pb4_heading_html }}</h2>
         </div>
       {%- endif -%}
 
       {%- comment -%}========== Desktop hotspot stage ==========={%- endcomment -%}
-      <div class="pb4h__stage{% if request.design_mode %} pb4h--revealed{% endif %}" data-pb4h-stage>
+      <div class="pb4h__stage" data-pb4h-stage>
         <div class="pb4h__col pb4h__col--left">
           {%- assign idx = 0 -%}
           {%- for block in section.blocks -%}
             {%- if block.type == 'spot' and idx < 2 -%}
               {%- assign bs = block.settings -%}
-              <div class="pb4h__tab" data-fd-block="{{ block.id }}" data-fd-type="spot" data-fd-settings="{{ bs | json | escape }}" {{ block.shopify_attributes }}>
+              <div class="pb4h__tab" data-fd-block="{{ block.id }}" data-fd-type="spot" {% if request.design_mode %}data-fd-settings="{{ bs | json | escape }}"{% endif %} {{ block.shopify_attributes }}>
                 <div class="pb4h__thumb">
                   {%- if bs.thumb -%}
                     <img src="{{ bs.thumb | image_url: width: 200 }}" alt="{{ bs.thumb.alt | default: bs.title | escape }}" loading="lazy" width="200" height="200">
                   {%- else -%}
                     {%- capture demo_thumb -%}{%- render 'demo-image', key: block.id -%}{%- endcapture -%}
-                    {%- assign demo_thumb = demo_thumb | strip -%}
+                    {%- assign demo_thumb = demo_thumb | strip -%}{%- capture demo_thumb_wh -%}{%- render 'demo-image', key: block.id, dims: true -%}{%- endcapture -%}{%- assign demo_thumb_wh = demo_thumb_wh | strip | split: 'x' -%}
                     {%- if demo_thumb != blank -%}
-                      <img src="{{ demo_thumb }}" alt="{{ bs.title | default: 'thumb' | escape }}" loading="lazy">
+                      <img src="{{ demo_thumb }}" alt="{{ bs.title | default: 'thumb' | escape }}" width="{{ demo_thumb_wh[0] | default: 200 }}" height="{{ demo_thumb_wh[1] | default: 200 }}" loading="lazy">
                     {%- else -%}
-                      <img src="{{ placeholder }}" alt="thumb" loading="lazy">
+                      <img src="{%- render 'placeholder-image', type: 'product', index: forloop.index, scheme: color_scheme, ratio: '4/3', format: 'url' -%}" alt="" width="400" height="300" loading="lazy">
                     {%- endif -%}
                   {%- endif -%}
                 </div>
@@ -190,14 +193,15 @@
 
         <div class="pb4h__product">
           {%- if st.product_image -%}
-            <img src="{{ st.product_image | image_url: width: 900 }}" alt="{{ st.product_image.alt | default: fb_accessibility_product_label | escape }}" loading="lazy" width="{{ st.product_image.width }}" height="{{ st.product_image.height }}">
+            <img src="{{ st.product_image | image_url: width: 900 }}" srcset="{{ st.product_image | image_url: width: 360 }} 360w, {{ st.product_image | image_url: width: 540 }} 540w, {{ st.product_image | image_url: width: 720 }} 720w, {{ st.product_image | image_url: width: 900 }} 900w" sizes="(min-width: 990px) 500px, 80vw" alt="{{ st.product_image.alt | default: fb_accessibility_product_label | escape }}" loading="lazy" decoding="async" width="{{ st.product_image.width }}" height="{{ st.product_image.height }}">
           {%- else -%}
             {%- capture demo_product -%}{%- render 'demo-image', key: section.id -%}{%- endcapture -%}
-            {%- assign demo_product = demo_product | strip -%}
+            {%- assign demo_product = demo_product | strip -%}{%- capture demo_product_wh -%}{%- render 'demo-image', key: section.id, dims: true -%}{%- endcapture -%}{%- assign demo_product_wh = demo_product_wh | strip | split: 'x' -%}
             {%- if demo_product != blank -%}
-              <img src="{{ demo_product }}" alt="{{ fb_accessibility_product_label | escape }}" loading="lazy">
+              {%- capture pb4_demo_ss -%}{%- render 'demo-srcset', url: demo_product, widths: '360, 540, 720, 900' -%}{%- endcapture -%}
+              <img src="{{ demo_product }}"{% if pb4_demo_ss != blank %} srcset="{{ pb4_demo_ss }}" sizes="(min-width: 990px) 500px, 80vw"{% endif %} alt="{{ fb_accessibility_product_label | escape }}" width="{{ demo_product_wh[0] | default: 900 }}" height="{{ demo_product_wh[1] | default: 900 }}" loading="lazy" decoding="async">
             {%- else -%}
-              <img src="{{ placeholder }}" alt="{{ 'accessibility.product_placeholder' | t }}" loading="lazy" width="900" height="900">
+              <img src="{{ placeholder }}" alt="" loading="lazy" width="900" height="900">
             {%- endif -%}
           {%- endif -%}
         </div>
@@ -208,17 +212,17 @@
             {%- if block.type == 'spot' -%}
               {%- if idx >= 2 -%}
                 {%- assign bs = block.settings -%}
-                <div class="pb4h__tab" data-fd-block="{{ block.id }}" data-fd-type="spot" data-fd-settings="{{ bs | json | escape }}" {{ block.shopify_attributes }}>
+                <div class="pb4h__tab" data-fd-block="{{ block.id }}" data-fd-type="spot" {% if request.design_mode %}data-fd-settings="{{ bs | json | escape }}"{% endif %} {{ block.shopify_attributes }}>
                   <div class="pb4h__thumb">
                     {%- if bs.thumb -%}
                       <img src="{{ bs.thumb | image_url: width: 200 }}" alt="{{ bs.thumb.alt | default: bs.title | escape }}" loading="lazy" width="200" height="200">
                     {%- else -%}
                       {%- capture demo_thumb -%}{%- render 'demo-image', key: block.id -%}{%- endcapture -%}
-                      {%- assign demo_thumb = demo_thumb | strip -%}
+                      {%- assign demo_thumb = demo_thumb | strip -%}{%- capture demo_thumb_wh -%}{%- render 'demo-image', key: block.id, dims: true -%}{%- endcapture -%}{%- assign demo_thumb_wh = demo_thumb_wh | strip | split: 'x' -%}
                       {%- if demo_thumb != blank -%}
-                        <img src="{{ demo_thumb }}" alt="{{ bs.title | default: 'thumb' | escape }}" loading="lazy">
+                        <img src="{{ demo_thumb }}" alt="{{ bs.title | default: 'thumb' | escape }}" width="{{ demo_thumb_wh[0] | default: 200 }}" height="{{ demo_thumb_wh[1] | default: 200 }}" loading="lazy">
                       {%- else -%}
-                        <img src="{{ placeholder }}" alt="thumb" loading="lazy">
+                        <img src="{%- render 'placeholder-image', type: 'product', index: forloop.index, scheme: color_scheme, ratio: '4/3', format: 'url' -%}" alt="" width="400" height="300" loading="lazy">
                       {%- endif -%}
                     {%- endif -%}
                   </div>
@@ -267,20 +271,20 @@
           {%- for block in section.blocks -%}
             {%- if block.type == 'spot' -%}
               {%- assign bs = block.settings -%}
-              <div class="pb4h__slide" data-fd-block="{{ block.id }}" data-fd-type="spot" data-fd-settings="{{ bs | json | escape }}" {{ block.shopify_attributes }}>
+              <div class="pb4h__slide" data-fd-block="{{ block.id }}" data-fd-type="spot" {% if request.design_mode %}data-fd-settings="{{ bs | json | escape }}"{% endif %} {{ block.shopify_attributes }}>
                 <div class="pb4h__slide-top">
                   {%- if bs.thumb -%}
                     <div class="pb4h__slide-thumb">
-                      <img src="{{ bs.thumb | image_url: width: 200 }}" alt="" loading="lazy">
+                      <img src="{{ bs.thumb | image_url: width: 200 }}" alt="" width="200" height="200" loading="lazy">
                     </div>
                   {%- else -%}
                     {%- capture demo_thumb -%}{%- render 'demo-image', key: block.id -%}{%- endcapture -%}
-                    {%- assign demo_thumb = demo_thumb | strip -%}
+                    {%- assign demo_thumb = demo_thumb | strip -%}{%- capture demo_thumb_wh -%}{%- render 'demo-image', key: block.id, dims: true -%}{%- endcapture -%}{%- assign demo_thumb_wh = demo_thumb_wh | strip | split: 'x' -%}
                     <div class="pb4h__slide-thumb">
                       {%- if demo_thumb != blank -%}
-                        <img src="{{ demo_thumb }}" alt="" loading="lazy">
+                        <img src="{{ demo_thumb }}" alt="" width="{{ demo_thumb_wh[0] | default: 200 }}" height="{{ demo_thumb_wh[1] | default: 200 }}" loading="lazy">
                       {%- else -%}
-                        <img src="{{ placeholder }}" alt="" loading="lazy">
+                        <img src="{%- render 'placeholder-image', type: 'product', index: forloop.index, scheme: color_scheme, ratio: '4/3', format: 'url' -%}" alt="" width="400" height="300" loading="lazy">
                       {%- endif -%}
                     </div>
                   {%- endif -%}
@@ -295,14 +299,15 @@
                   </span>
                   <div class="pb4h__slide-product">
                     {%- if st.product_image -%}
-                      <img src="{{ st.product_image | image_url: width: 600 }}" alt="" loading="lazy">
+                      <img src="{{ st.product_image | image_url: width: 600 }}" srcset="{{ st.product_image | image_url: width: 300 }} 300w, {{ st.product_image | image_url: width: 450 }} 450w, {{ st.product_image | image_url: width: 600 }} 600w" sizes="(min-width: 990px) 300px, 75vw" alt="" loading="lazy" decoding="async" width="{{ st.product_image.width }}" height="{{ st.product_image.height }}">
                     {%- else -%}
                       {%- capture demo_product -%}{%- render 'demo-image', key: section.id -%}{%- endcapture -%}
-                      {%- assign demo_product = demo_product | strip -%}
+                      {%- assign demo_product = demo_product | strip -%}{%- capture demo_product_wh -%}{%- render 'demo-image', key: section.id, dims: true -%}{%- endcapture -%}{%- assign demo_product_wh = demo_product_wh | strip | split: 'x' -%}
                       {%- if demo_product != blank -%}
-                        <img src="{{ demo_product }}" alt="" loading="lazy">
+                        {%- capture pb4_slide_ss -%}{%- render 'demo-srcset', url: demo_product, widths: '300, 450, 600, 900' -%}{%- endcapture -%}
+                        <img src="{{ demo_product }}"{% if pb4_slide_ss != blank %} srcset="{{ pb4_slide_ss }}" sizes="(min-width: 990px) 300px, 75vw"{% endif %} alt="" width="{{ demo_product_wh[0] | default: 900 }}" height="{{ demo_product_wh[1] | default: 900 }}" loading="lazy" decoding="async">
                       {%- else -%}
-                        <img src="{{ placeholder }}" alt="" loading="lazy">
+                        <img src="{%- render 'placeholder-image', type: 'product', index: forloop.index, scheme: color_scheme, ratio: '4/3', format: 'url' -%}" alt="" width="400" height="300" loading="lazy">
                       {%- endif -%}
                     {%- endif -%}
                   </div>
@@ -343,7 +348,7 @@
                 endif
               -%}
               {%- comment -%} Theme settings > Buttons draw it (style, shape, type, hover effect and timing); a colour set here, or the shape when the theme style is off, is passed as a token. {%- endcomment -%}
-              <a id="pb4h-cta-{{ block.id }}" class="pb4h__cta btn btn-primary" data-fd-block="{{ block.id }}" data-fd-type="button" data-fd-settings="{{ cs | json | escape }}"{% if cta_custom %} data-own-shape data-own-weight{% endif %} data-sl-button data-theme-button="primary" data-button-role="primary" data-button-local-appearance="theme" data-button-appearance="{{ settings.btn_style | default: 'solid' }}" data-button-hover="{{ cta_hover }}" style="{%- if cta_colors -%}{%- render 'button-overrides', bg: cs.cta_bg, text: cs.cta_text, hover_bg: cs.cta_bg_hover -%}{%- endif -%}{%- render 'button-overrides', custom: cta_custom, radius: cs.cta_radius, padding_y: cs.cta_pad_y, padding_x: cs.cta_pad_x, font_size: cs.cta_size, weight: 700 -%}" href="{{ cs.cta_link | default: routes.all_products_collection_url | default: '/collections/all' }}" {{ block.shopify_attributes }}>{{ cs.cta_label | escape }}</a>
+              <a id="pb4h-cta-{{ block.id }}" class="pb4h__cta btn btn-primary" data-fd-block="{{ block.id }}" data-fd-type="button" {% if request.design_mode %}data-fd-settings="{{ cs | json | escape }}"{% endif %}{% if cta_custom %} data-own-shape data-own-weight{% endif %} data-sl-button data-theme-button="primary" data-button-role="primary" data-button-local-appearance="theme" data-button-appearance="{{ settings.btn_style | default: 'solid' }}" data-button-hover="{{ cta_hover }}" style="{%- if cta_colors -%}{%- render 'button-overrides', bg: cs.cta_bg, text: cs.cta_text, hover_bg: cs.cta_bg_hover -%}{%- endif -%}{%- render 'button-overrides', custom: cta_custom, radius: cs.cta_radius, padding_y: cs.cta_pad_y, padding_x: cs.cta_pad_x, font_size: cs.cta_size, weight: 700 -%}" href="{{ cs.cta_link | default: routes.all_products_collection_url | default: '/collections/all' }}" {{ block.shopify_attributes }}>{{ cs.cta_label | escape }}</a>
             {%- endif -%}
           {%- endfor -%}
         </div>
@@ -358,9 +363,11 @@
 <script>(function(){if(window.MateriaPb4)return window.MateriaPb4.init();if(document.querySelector('script[data-pb4h-boot]'))return;var s=document.createElement('script');s.src="{{ 'product-benefits-4.js' | asset_url }}";s.setAttribute('data-pb4h-boot','');document.head.appendChild(s);})();</script>
 {%- endif -%}
 
+
 {% schema %}
 {
-  "name": "Product Benefits 4",
+  "class": "s-tt",
+"name": "Product Benefits 4",
   "settings": [
     {
       "type": "header",
@@ -370,7 +377,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -406,7 +413,6 @@
       "type": "text",
       "id": "heading",
       "label": "Heading",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Heading block.",
       "visible_if": "{{ false }}"
     },
@@ -414,7 +420,6 @@
       "type": "text",
       "id": "heading_accent",
       "label": "Accent word",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Heading block.",
       "visible_if": "{{ false }}"
     },
@@ -437,7 +442,6 @@
           "label": "H3"
         }
       ],
-      "hidden": true,
       "info": "Legacy: the heading is always an h2.",
       "visible_if": "{{ false }}"
     },
@@ -1052,8 +1056,8 @@
   ],
   "presets": [
     {
-      "name": "Product Benefits 4",
-      "category": "Features",
+      "name": "Product Benefits – Callouts",
+      "category": "05 · Benefits & features",
       "blocks": [
         {
           "type": "heading",

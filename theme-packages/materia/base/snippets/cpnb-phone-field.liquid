@@ -1,11 +1,10 @@
-{%- comment -%}
+{%- doc -%}
   Reusable phone-number field with country-code dropdown.
   -------------------------------------------------------
   Renders a country <select> + phone <input>, plus a hidden combined input
   named `contact[phone]` that the platform captures into the customer profile.
   A small inline script keeps the hidden field in sync as the visitor types.
 
-  Accepts:
     scope                  : unique CSS scope for this instance (e.g. section.id)
     default_country        : ISO-style default key, e.g. 'US' / 'CA' / 'GB'
     phone_placeholder      : placeholder text for the local phone input
@@ -17,7 +16,17 @@
 
   The hidden combined field name is always `contact[phone]` so the platform's
   newsletter customer form picks it up.
-{%- endcomment -%}
+
+  @param {object} default_country - Default country
+  @param {string} [label] - Label; no current caller passes it
+  @param {boolean} off - Off
+  @param {string} phone_placeholder - Phone placeholder
+  @param {string} required - Required
+  @param {string} scope - Scope
+
+  @example
+  {% render 'cpnb-phone-field', scope: sid, default_country: fs.phone_default_country, phone_placeholder: fs.phone_placeholder, required: cpnb_phone_req, off: cpnb_phone_off %}
+{%- enddoc -%}
 {%- assign cc_scope = scope | default: 'phone' -%}
 {%- assign cc_default = default_country | default: 'US' -%}
 {%- assign cc_placeholder = phone_placeholder | default: 'Phone number' -%}
@@ -28,7 +37,7 @@
     <label class="cpnb-phone__label" for="cpnb-phone-local-{{ cc_scope }}">{{ label }}</label>
   {%- endif -%}
   <div class="cpnb-phone__row">
-    <select class="cpnb-phone__cc" data-cpnb-phone-cc aria-label="Country code" id="cpnb-phone-cc-{{ cc_scope }}"{% if off %} disabled{% endif %}>
+    <select class="cpnb-phone__cc" data-cpnb-phone-cc aria-label="{{ 'accessibility.country_code' | t }}" id="cpnb-phone-cc-{{ cc_scope }}"{% if off %} disabled{% endif %}>
       {%- assign countries = 'US|🇺🇸|+1,CA|🇨🇦|+1,GB|🇬🇧|+44,AU|🇦🇺|+61,NZ|🇳🇿|+64,IE|🇮🇪|+353,IN|🇮🇳|+91,SG|🇸🇬|+65,HK|🇭🇰|+852,JP|🇯🇵|+81,KR|🇰🇷|+82,CN|🇨🇳|+86,DE|🇩🇪|+49,FR|🇫🇷|+33,ES|🇪🇸|+34,IT|🇮🇹|+39,PT|🇵🇹|+351,NL|🇳🇱|+31,BE|🇧🇪|+32,LU|🇱🇺|+352,CH|🇨🇭|+41,AT|🇦🇹|+43,DK|🇩🇰|+45,SE|🇸🇪|+46,NO|🇳🇴|+47,FI|🇫🇮|+358,IS|🇮🇸|+354,PL|🇵🇱|+48,CZ|🇨🇿|+420,SK|🇸🇰|+421,HU|🇭🇺|+36,RO|🇷🇴|+40,GR|🇬🇷|+30,TR|🇹🇷|+90,RU|🇷🇺|+7,UA|🇺🇦|+380,IL|🇮🇱|+972,AE|🇦🇪|+971,SA|🇸🇦|+966,EG|🇪🇬|+20,ZA|🇿🇦|+27,NG|🇳🇬|+234,KE|🇰🇪|+254,BR|🇧🇷|+55,AR|🇦🇷|+54,MX|🇲🇽|+52,CL|🇨🇱|+56,CO|🇨🇴|+57,PE|🇵🇪|+51,VE|🇻🇪|+58,TH|🇹🇭|+66,VN|🇻🇳|+84,PH|🇵🇭|+63,MY|🇲🇾|+60,ID|🇮🇩|+62,TW|🇹🇼|+886' | split: ',' -%}
       {%- comment -%}
         The country list is intentionally compact (top markets, ~50 entries).

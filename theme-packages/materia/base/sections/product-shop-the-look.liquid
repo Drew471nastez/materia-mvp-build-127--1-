@@ -1,7 +1,7 @@
-<script src="{{ 'live-products-d.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-products-d.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
@@ -32,7 +32,7 @@
   custom fonts are on. Desktop layout starts at a 760px wide section.
   Live edits: assets/live-products-d.js.
 {%- endcomment -%}
-{%- comment -%}pd-gen:settings{%- endcomment -%}{%- capture pd_settings -%}{"color_scheme":{{ section.settings.color_scheme.id | default: section.settings.color_scheme | append: '' | json }},"section_width":{{ section.settings.section_width | json }},"reset_spacing":{{ section.settings.reset_spacing | json }},"image_position":{{ section.settings.image_position | json }},"column_valign":{{ section.settings.column_valign | json }},"image_width_pct":{{ section.settings.image_width_pct | json }},"gap_desktop":{{ section.settings.gap_desktop | json }},"text_gap":{{ section.settings.text_gap | json }},"image":{% if section.settings.image != blank %}{"src":{{ section.settings.image | image_url: width: 1600 | json }},"alt":{{ section.settings.image.alt | json }}}{% else %}null{% endif %},"placeholder_url":{{ section.settings.placeholder_url | append: '' | json }},"image_aspect_desktop":{{ section.settings.image_aspect_desktop | json }},"image_min_height":{{ section.settings.image_min_height | json }},"image_radius":{{ section.settings.image_radius | json }},"card_style":{{ section.settings.card_style | json }},"show_vendor":{{ section.settings.show_vendor | json }},"show_price":{{ section.settings.show_price | json }},"card_image_size":{{ section.settings.card_image_size | json }},"card_image_radius":{{ section.settings.card_image_radius | json }},"card_radius":{{ section.settings.card_radius | json }},"card_padding":{{ section.settings.card_padding | json }},"card_gap":{{ section.settings.card_gap | json }},"card_title_size":{{ section.settings.card_title_size | json }},"vendor_size":{{ section.settings.vendor_size | json }},"price_size":{{ section.settings.price_size | json }},"product_gap":{{ section.settings.product_gap | json }},"products_margin_top":{{ section.settings.products_margin_top | json }},"enable_custom_style":{{ section.settings.enable_custom_style | json }},"section_bg":{{ section.settings.section_bg | append: '' | json }},"image_bg":{{ section.settings.image_bg | append: '' | json }},"card_bg":{{ section.settings.card_bg | append: '' | json }},"card_border":{{ section.settings.card_border | append: '' | json }},"card_border_hover":{{ section.settings.card_border_hover | append: '' | json }},"card_image_bg":{{ section.settings.card_image_bg | append: '' | json }},"card_title_color":{{ section.settings.card_title_color | append: '' | json }},"vendor_color":{{ section.settings.vendor_color | append: '' | json }},"price_color":{{ section.settings.price_color | append: '' | json }},"price_compare_color":{{ section.settings.price_compare_color | append: '' | json }},"cta_bg":{{ section.settings.cta_bg | append: '' | json }},"cta_color":{{ section.settings.cta_color | append: '' | json }},"cta_bg_hover":{{ section.settings.cta_bg_hover | append: '' | json }},"enable_custom_fonts":{{ section.settings.enable_custom_fonts | json }},"heading_font":{"family":{{ section.settings.heading_font.family | json }},"fallback_families":{{ section.settings.heading_font.fallback_families | json }}},"body_font":{"family":{{ section.settings.body_font.family | json }},"fallback_families":{{ section.settings.body_font.fallback_families | json }}},"padding_top":{{ section.settings.padding_top | json }},"padding_bottom":{{ section.settings.padding_bottom | json }},"side_padding_desktop":{{ section.settings.side_padding_desktop | json }},"image_aspect":{{ section.settings.image_aspect | json }},"gap_mobile":{{ section.settings.gap_mobile | json }},"side_padding_mobile":{{ section.settings.side_padding_mobile | json }}}{%- endcapture -%}{%- capture pd_defaults -%}{"color_scheme":"default-color-scheme","section_width":"full_width","reset_spacing":true,"image_position":"left","column_valign":"flex-start","image_width_pct":50,"gap_desktop":48,"text_gap":18,"image_aspect_desktop":"auto","image_min_height":520,"image_radius":16,"card_style":"compact","show_vendor":false,"show_price":true,"card_image_size":96,"card_image_radius":10,"card_radius":14,"card_padding":12,"card_gap":16,"card_title_size":15,"vendor_size":11,"price_size":14,"product_gap":16,"products_margin_top":8,"enable_custom_style":false,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","padding_top":49,"padding_bottom":49,"side_padding_desktop":24,"image_aspect":"4 / 5","gap_mobile":28,"side_padding_mobile":16}{%- endcapture -%}{%- capture pd_block_defaults -%}{"eyebrow":{"text":"Shop the look","enable_custom_style":false,"size":12,"letter_spacing":0.2},"heading":{"text":"Get the look","tag":"h2","enable_custom_style":false,"size_desktop":40,"size_mobile":28},"subheading":{"text":"<p>Everything you need, hand-picked into one easy-to-shop edit.</p>","enable_custom_style":false,"size":15,"max_width":560},"product":{}}{%- endcapture -%}{%- comment -%}/pd-gen{%- endcomment -%}
+{%- comment -%}pd-gen:settings{%- endcomment -%}{%- capture pd_settings -%}{"color_scheme":{{ section.settings.color_scheme.id | default: section.settings.color_scheme | append: '' | json }},"section_width":{{ section.settings.section_width | json }},"reset_spacing":{{ section.settings.reset_spacing | json }},"image_position":{{ section.settings.image_position | json }},"column_valign":{{ section.settings.column_valign | json }},"image_width_pct":{{ section.settings.image_width_pct | json }},"gap_desktop":{{ section.settings.gap_desktop | json }},"text_gap":{{ section.settings.text_gap | json }},"image":{% if section.settings.image != blank %}{"src":{{ section.settings.image | image_url: width: 1600 | json }},"alt":{{ section.settings.image.alt | json }}}{% else %}null{% endif %},"placeholder_url":{{ section.settings.placeholder_url | append: '' | json }},"image_aspect_desktop":{{ section.settings.image_aspect_desktop | json }},"image_min_height":{{ section.settings.image_min_height | json }},"image_radius":{{ section.settings.image_radius | json }},"card_style":{{ section.settings.card_style | json }},"show_vendor":{{ section.settings.show_vendor | json }},"show_price":{{ section.settings.show_price | json }},"card_image_size":{{ section.settings.card_image_size | json }},"card_image_radius":{{ section.settings.card_image_radius | json }},"card_radius":{{ section.settings.card_radius | json }},"card_padding":{{ section.settings.card_padding | json }},"card_gap":{{ section.settings.card_gap | json }},"card_title_size":{{ section.settings.card_title_size | json }},"vendor_size":{{ section.settings.vendor_size | json }},"price_size":{{ section.settings.price_size | json }},"product_gap":{{ section.settings.product_gap | json }},"products_margin_top":{{ section.settings.products_margin_top | json }},"enable_custom_style":{{ section.settings.enable_custom_style | json }},"section_bg":{{ section.settings.section_bg | append: '' | json }},"image_bg":{{ section.settings.image_bg | append: '' | json }},"card_bg":{{ section.settings.card_bg | append: '' | json }},"card_border":{{ section.settings.card_border | append: '' | json }},"card_border_hover":{{ section.settings.card_border_hover | append: '' | json }},"card_image_bg":{{ section.settings.card_image_bg | append: '' | json }},"card_title_color":{{ section.settings.card_title_color | append: '' | json }},"vendor_color":{{ section.settings.vendor_color | append: '' | json }},"price_color":{{ section.settings.price_color | append: '' | json }},"price_compare_color":{{ section.settings.price_compare_color | append: '' | json }},"cta_bg":{{ section.settings.cta_bg | append: '' | json }},"cta_color":{{ section.settings.cta_color | append: '' | json }},"cta_bg_hover":{{ section.settings.cta_bg_hover | append: '' | json }},"enable_custom_fonts":{{ section.settings.enable_custom_fonts | json }},"heading_font":{"family":{{ section.settings.heading_font.family | json }},"fallback_families":{{ section.settings.heading_font.fallback_families | json }}},"body_font":{"family":{{ section.settings.body_font.family | json }},"fallback_families":{{ section.settings.body_font.fallback_families | json }}},"padding_top":{{ section.settings.padding_top | json }},"padding_bottom":{{ section.settings.padding_bottom | json }},"side_padding_desktop":{{ section.settings.side_padding_desktop | json }},"image_aspect":{{ section.settings.image_aspect | json }},"gap_mobile":{{ section.settings.gap_mobile | json }},"side_padding_mobile":{{ section.settings.side_padding_mobile | json }}}{%- endcapture -%}{%- capture pd_defaults -%}{"color_scheme":"default","section_width":"full_width","reset_spacing":true,"image_position":"left","column_valign":"flex-start","image_width_pct":50,"gap_desktop":48,"text_gap":18,"image_aspect_desktop":"auto","image_min_height":520,"image_radius":16,"card_style":"compact","show_vendor":false,"show_price":true,"card_image_size":96,"card_image_radius":10,"card_radius":14,"card_padding":12,"card_gap":16,"card_title_size":15,"vendor_size":11,"price_size":14,"product_gap":16,"products_margin_top":8,"enable_custom_style":false,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","padding_top":49,"padding_bottom":49,"side_padding_desktop":24,"image_aspect":"4 / 5","gap_mobile":28,"side_padding_mobile":16}{%- endcapture -%}{%- capture pd_block_defaults -%}{"eyebrow":{"text":"Shop the look","enable_custom_style":false,"size":12,"letter_spacing":0.2},"heading":{"text":"Get the look","tag":"h2","enable_custom_style":false,"size_desktop":40,"size_mobile":28},"subheading":{"text":"<p>Everything you need, hand-picked into one easy-to-shop edit.</p>","enable_custom_style":false,"size":15,"max_width":560},"product":{}}{%- endcapture -%}{%- comment -%}/pd-gen{%- endcomment -%}
 {%- liquid
   assign s = section.settings
   assign sid = section.id
@@ -75,7 +75,8 @@
   --pd-cis: {{ s.card_image_size }}px; --pd-cir: {{ s.card_image_radius }}px; --pd-cr: {{ s.card_radius }}px; --pd-cp: {{ s.card_padding }}px; --pd-cg: {{ s.card_gap }}px; --pd-cts: {{ s.card_title_size }}px; --pd-vs: {{ s.vendor_size }}px; --pd-ps: {{ s.price_size }}px; --pd-pg: {{ s.product_gap }}px; --pd-pmt: {{ s.products_margin_top }}px;
   --pd-hf: {{ hf }}; --pd-bf: {{ bf }};
   {%- if custom -%}
-    {%- for pair in 'section_bg:--pd-bg,image_bg:--pd-img-bg,card_bg:--pd-cbg,card_border:--pd-cb,card_border_hover:--pd-cbh,card_image_bg:--pd-cibg,card_title_color:--pd-ctc,vendor_color:--pd-vc,price_color:--pd-pc,price_compare_color:--pd-pcc,cta_bg:--pd-ctabg,cta_color:--pd-ctac,cta_bg_hover:--pd-ctabgh' | split: ',' -%}
+    {%- assign pd_pairs = 'section_bg:--pd-bg,image_bg:--pd-img-bg,card_bg:--pd-cbg,card_border:--pd-cb,card_border_hover:--pd-cbh,card_image_bg:--pd-cibg,card_title_color:--pd-ctc,vendor_color:--pd-vc,price_color:--pd-pc,price_compare_color:--pd-pcc,cta_bg:--pd-ctabg,cta_color:--pd-ctac,cta_bg_hover:--pd-ctabgh' | split: ',' -%}
+    {%- for pair in pd_pairs -%}
       {%- assign kv = pair | split: ':' -%}
       {%- capture c -%}{% render 'scheme-color', color: s[kv[0]], fallback: 'none' %}{%- endcapture -%}
       {%- if c != 'none' -%}{{ kv[1] }}: {{ c }};{%- endif -%}
@@ -142,7 +143,7 @@
       {%- elsif s.placeholder_url != blank -%}
         <img src="{{ s.placeholder_url | escape }}" alt="" loading="lazy" decoding="async" width="1200" height="1500">
       {%- else -%}
-        {{ 'lifestyle-1' | placeholder_svg_tag: 'placeholder-svg' }}
+        {%- render 'placeholder-image', type: 'lifestyle-1', class: 'placeholder-svg' -%}
       {%- endif -%}
     </div>
     <div class="pstl__col">
@@ -173,9 +174,9 @@
               <a href="{{ p.url }}" class="pstl__card" data-pd-block="{{ block.id }}" data-pd-type="product" {{ block.shopify_attributes }}>
                 <div class="pstl__card-image">
                   {%- if p.featured_image -%}
-                    {{ p.featured_image | image_url: width: 320 | image_tag: loading: 'lazy', decoding: 'async', alt: p.featured_image.alt | default: p.title, widths: '120, 240, 320' }}
+                    {%- assign mt_img_alt_1 = p.featured_image.alt | default: p.title -%}{{ p.featured_image | image_url: width: 320 | image_tag: loading: 'lazy', decoding: 'async', alt: mt_img_alt_1, widths: '120, 240, 320' }}
                   {%- else -%}
-                    {{ 'product-1' | placeholder_svg_tag: 'placeholder-svg' }}
+                    {%- render 'placeholder-image', type: 'product-1', class: 'placeholder-svg' -%}
                   {%- endif -%}
                 </div>
                 <div class="pstl__card-info">
@@ -191,7 +192,7 @@
               </a>
             {%- else -%}
               <div class="pstl__card pstl__card--empty" data-pd-block="{{ block.id }}" data-pd-type="product" {{ block.shopify_attributes }}>
-                <div class="pstl__card-image">{{ 'product-1' | placeholder_svg_tag: 'placeholder-svg' }}</div>
+                <div class="pstl__card-image">{%- render 'placeholder-image', type: 'product-1', class: 'placeholder-svg' -%}</div>
                 <div class="pstl__card-info">
                   <p class="pstl__card-vendor" hidden></p>
                   <h3 class="pstl__card-title">{{ 'accessibility.product_title' | t }}</h3>
@@ -209,7 +210,7 @@
 {
   "name": "Product Shop The Look",
   "tag": "section",
-  "class": "section",
+  "class": "section s-tt",
   "settings": [
     {
       "type": "header",
@@ -219,7 +220,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -334,7 +335,6 @@
       "type": "url",
       "id": "placeholder_url",
       "label": "Fallback image URL",
-      "hidden": true,
       "info": "Legacy: an image address used only when no image is chosen. Choose the image above instead.",
       "visible_if": "{{ false }}"
     },
@@ -821,7 +821,6 @@
               "label": "H3"
             }
           ],
-          "hidden": true,
           "info": "Legacy: the heading is always an h2; the hero holds the page's h1.",
           "visible_if": "{{ false }}"
         },
@@ -917,7 +916,6 @@
           "type": "text",
           "id": "custom_title",
           "label": "Custom title",
-          "hidden": true,
           "info": "Legacy: the card shows the product title.",
           "visible_if": "{{ false }}"
         },
@@ -925,7 +923,6 @@
           "type": "text",
           "id": "fallback_price",
           "label": "Fallback price",
-          "hidden": true,
           "info": "Legacy: prices come from the product and are never typed in.",
           "visible_if": "{{ false }}"
         }
@@ -934,8 +931,8 @@
   ],
   "presets": [
     {
-      "name": "Product Shop The Look",
-      "category": "Products",
+      "name": "Shop the Look – Product Cards",
+      "category": "03 · Products",
       "blocks": [
         {
           "type": "eyebrow",

@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. The root attributes (part: 'attrs') and shared CSS
   variables (part: 'vars') of the Logos and trust sections; live-logos.js
   derives the same values in the builder.
@@ -6,7 +6,28 @@
   live-logos.js in the builder only, except Brand info, whose runtime reads it.
   vars: custom (custom styling on), bg, text, heading (colour settings),
   fonts, hfont, bfont (font pickers), pt_d, pb_d, pt_m, pb_m, px_d, px_m (px).
-{%- endcomment -%}
+
+  @param {font} [bfont] - Body font
+  @param {string} [bg] - Background
+  @param {boolean} [custom] - Enable custom styling
+  @param {boolean} fonts - Font settings object
+  @param {string} [heading] - Heading
+  @param {font} [hfont] - Heading font
+  @param {string} [part] - Part
+  @param {number} [pb_d] - Bottom padding
+  @param {number} [pb_m] - Bottom padding
+  @param {number} [pt_d] - Top padding
+  @param {number} [pt_m] - Top padding
+  @param {number} [px_d] - Horizontal padding
+  @param {number} [px_m] - Horizontal padding (mobile)
+  @param {section} section - The section being rendered
+  @param {string} [text] - Text
+  @param {string} [type] - Type
+  @param {string} [width] - Section width
+
+  @example
+  {% render 'logos-root', section: section, custom: own, bg: st.custom_background_color, text: st.custom_text_color, heading: st.custom_heading_color, fonts: fonts, hfont: st.heading_font, bfont: st.body_font, pt_d: st.padding_top, pb_d: st.padding_bottom, pt_m: st.padding_top_mobile, pb_m: st.padding_bottom_mobile, px_d: st.padding_horizontal, px_m: st.padding_horizontal_mobile %}
+{%- enddoc -%}
 {%- if part == 'attrs' -%}
 data-lg-root="{{ type }}" data-lg-section="{{ section.id }}"{% if request.design_mode or type == 'brand-info' %} data-lg-settings="{{ section.settings | json | escape }}"{% endif %} data-width="{{ width }}"{% if section.settings.reset_spacing != nil %} data-reset="{% if section.settings.reset_spacing %}true{% else %}false{% endif %}"{% endif %}{% if fonts %} data-own-font data-own-weight{% endif %}
 {%- else -%}

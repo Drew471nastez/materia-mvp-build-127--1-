@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes — Benefits Tab block.
   Horizontal grid of icon-on-top + label-below tabs (default: 4 across).
   Each tab: enable toggle, text, icon (preset / SVG / image / none),
@@ -6,7 +6,12 @@
   (background, border, radius, padding, shadow) for the cream-pill look.
   Inherits the theme color scheme via `var(--color-text)`.
   Pass `block`.
-{%- endcomment -%}
+
+  @param {block} block - The block being rendered
+
+  @example
+  {% render 'benefits-tab', block: block %}
+{%- enddoc -%}
 {%- liquid
   assign s = block.settings
   assign block_id = 'benefits-tab-' | append: block.id

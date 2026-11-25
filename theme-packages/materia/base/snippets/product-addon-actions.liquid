@@ -1,3 +1,13 @@
+{% doc %}
+  Product page add-on actions (ask a question, share, size chart ...) of a block.
+
+  @param {block} block - The block being rendered
+  @param {product} product - The product to render
+  @param {section} section - The section being rendered
+
+  @example
+  {% render 'product-addon-actions', product: product, block: block, section: section %}
+{% enddoc -%}
 {%- assign s = block.settings -%}
 {%- assign aid = section.id | append: '-' | append: block.id -%}
 {%- assign qid = 'QuestionForm-' | append: aid -%}

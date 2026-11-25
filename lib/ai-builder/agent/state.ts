@@ -70,6 +70,11 @@ export interface LoopCheckpoint extends AgentCheckpoint {
    * phase. Finish refuses while untouchedTemplateParts still finds its copy or imagery as shipped.
    */
   template?: { id: string; name: string; files: string[]; pages: string[] }
+  /**
+   * Round 26: the Materia template this job follows as its pattern (lib/storelib-ai/materia/reference.ts), chosen
+   * in the brief phase from the creator's words, with the words it matched. Null on an edit.
+   */
+  materia?: { template: string; score: number; matched: string[]; install: boolean }
   /** Round P (P1): pictures this job made or found (`made`), tries that failed or were refused, and their cost. */
   images?: { made: number; failed: number; usd: number; urls: string[] }
   /** Set once the job ended: what to tell the creator. */

@@ -140,14 +140,14 @@ html.nav-open :is(#materia-header, .shopify-section.section-header) header-inner
    so the section has a real height and can stick under the announcement.
    A negative margin lays a transparent header over the first section.
    Show on scroll up is handled only by the sticky controller. */
-:is(#materia-header, .shopify-section.section-header:has(> header.header:not(.is-pill):not([data-sticky="none"]))) > header.header {
+:is(#materia-header, .shopify-section.section-header) > header.header:where(header.header:not(.is-pill):not([data-sticky="none"]), header.header:not(.is-pill):not([data-sticky="none"]) ~ *, :has(~ header.header:not(.is-pill):not([data-sticky="none"]))) {
   animation: none !important;
 }
 /* Transparent only while the page is still at the top (.transparent is only
    printed on the home page). The scrolled class paints the scheme
    background. Desktop only, unless phones are transparent too. */
 @media (min-width: 1025px) {
-  :is(#materia-header, .shopify-section.section-header:has(> header.header:not(.is-pill):not([data-sticky="none"]))):not(.shopify-section-header-sticky) > header.header.transparent {
+  :is(#materia-header, .shopify-section.section-header):not(.shopify-section-header-sticky) > header.header.transparent:where(header.header:not(.is-pill):not([data-sticky="none"]), header.header:not(.is-pill):not([data-sticky="none"]) ~ *, :has(~ header.header:not(.is-pill):not([data-sticky="none"]))) {
     background: transparent !important;
     background-color: transparent !important;
     background-image: none !important;
@@ -156,13 +156,13 @@ html.nav-open :is(#materia-header, .shopify-section.section-header) header-inner
     --gradient-background: transparent !important;
     --header-background-opacity: 0 !important;
   }
-  :is(#materia-header, .shopify-section.section-header:has(> header.header:not(.is-pill):not([data-sticky="none"]))):not(.shopify-section-header-sticky) > header.header.transparent::before {
+  :is(#materia-header, .shopify-section.section-header):not(.shopify-section-header-sticky) > header.header.transparent:where(header.header:not(.is-pill):not([data-sticky="none"]), header.header:not(.is-pill):not([data-sticky="none"]) ~ *, :has(~ header.header:not(.is-pill):not([data-sticky="none"])))::before {
     opacity: 0 !important;
     background: transparent !important;
   }
 }
 @media (max-width: 1024.98px) {
-  :is(#materia-header, .shopify-section.section-header:has(> header.header:not(.is-pill):not([data-sticky="none"]))):not(.shopify-section-header-sticky) > header.header.transparent-mobile {
+  :is(#materia-header, .shopify-section.section-header):not(.shopify-section-header-sticky) > header.header.transparent-mobile:where(header.header:not(.is-pill):not([data-sticky="none"]), header.header:not(.is-pill):not([data-sticky="none"]) ~ *, :has(~ header.header:not(.is-pill):not([data-sticky="none"]))) {
     background: transparent !important;
     background-color: transparent !important;
     background-image: none !important;
@@ -171,36 +171,36 @@ html.nav-open :is(#materia-header, .shopify-section.section-header) header-inner
     --gradient-background: transparent !important;
     --header-background-opacity: 0 !important;
   }
-  :is(#materia-header, .shopify-section.section-header:has(> header.header:not(.is-pill):not([data-sticky="none"]))):not(.shopify-section-header-sticky) > header.header.transparent-mobile::before {
+  :is(#materia-header, .shopify-section.section-header):not(.shopify-section-header-sticky) > header.header.transparent-mobile:where(header.header:not(.is-pill):not([data-sticky="none"]), header.header:not(.is-pill):not([data-sticky="none"]) ~ *, :has(~ header.header:not(.is-pill):not([data-sticky="none"])))::before {
     opacity: 0 !important;
     background: transparent !important;
   }
 }
-:is(#materia-header, .shopify-section.section-header:has(> header.header:not(.is-pill):not([data-sticky="none"]))).shopify-section-header-sticky > header.header {
+:is(#materia-header, .shopify-section.section-header).shopify-section-header-sticky > header.header:where(header.header:not(.is-pill):not([data-sticky="none"]), header.header:not(.is-pill):not([data-sticky="none"]) ~ *, :has(~ header.header:not(.is-pill):not([data-sticky="none"]))) {
   --header-background-opacity: 1 !important;
   background: var(--gradient-background, var(--color-background)) !important;
   background-color: var(--color-background) !important;
   background-attachment: scroll !important;
 }
-:is(#materia-header, .shopify-section.section-header:has(> header.header:not(.is-pill):not([data-sticky="none"]))).shopify-section-header-sticky > header.header::before {
+:is(#materia-header, .shopify-section.section-header).shopify-section-header-sticky > header.header:where(header.header:not(.is-pill):not([data-sticky="none"]), header.header:not(.is-pill):not([data-sticky="none"]) ~ *, :has(~ header.header:not(.is-pill):not([data-sticky="none"])))::before {
   opacity: 1 !important;
   background-color: var(--color-background) !important;
 }
 @media (hover: hover) and (pointer: fine) and (min-width: 1025px) {
-  :is(#materia-header, .shopify-section.section-header:has(> header.header:not(.is-pill):not([data-sticky="none"]))):not(.shopify-section-header-sticky) > header.header.transparent:not(.no-hover-fill):hover {
+  :is(#materia-header, .shopify-section.section-header):not(.shopify-section-header-sticky) > header.header.transparent:not(.no-hover-fill):hover:where(header.header:not(.is-pill):not([data-sticky="none"]), header.header:not(.is-pill):not([data-sticky="none"]) ~ *, :has(~ header.header:not(.is-pill):not([data-sticky="none"]))) {
     --color-background: var(--hs-hover-fill) !important;
     --gradient-background: var(--hs-hover-fill) !important;
     --header-background-opacity: 1 !important;
     background: var(--hs-hover-fill) !important;
     background-color: var(--hs-hover-fill) !important;
   }
-  :is(#materia-header, .shopify-section.section-header:has(> header.header:not(.is-pill):not([data-sticky="none"]))):not(.shopify-section-header-sticky) > header.header.transparent:not(.no-hover-fill):hover::before {
+  :is(#materia-header, .shopify-section.section-header):not(.shopify-section-header-sticky) > header.header.transparent:not(.no-hover-fill):hover:where(header.header:not(.is-pill):not([data-sticky="none"]), header.header:not(.is-pill):not([data-sticky="none"]) ~ *, :has(~ header.header:not(.is-pill):not([data-sticky="none"])))::before {
     opacity: 1 !important;
     background: var(--hs-hover-fill) !important;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  :is(#materia-header, .shopify-section.section-header:has(> header.header:not(.is-pill):not([data-sticky="none"]))) > header.header { transition: none !important; }
+  :is(#materia-header, .shopify-section.section-header) > header.header:where(header.header:not(.is-pill):not([data-sticky="none"]), header.header:not(.is-pill):not([data-sticky="none"]) ~ *, :has(~ header.header:not(.is-pill):not([data-sticky="none"]))) { transition: none !important; }
 }
 
 /* Header heights and the bar (snippets/header-dimensions). */
@@ -290,7 +290,7 @@ html.nav-open :is(#materia-header, .shopify-section.section-header) header-inner
     padding-block: 0 !important;
     box-sizing: border-box;
   }
-  :is(#materia-header, .shopify-section.section-header) .header__menu .horizontal-list:has(.menu_label) > .level0 > menu-item > a { padding-top: 16px !important; }
+  :is(#materia-header, .shopify-section.section-header) .header__menu .horizontal-list.has-menu-label > .level0 > menu-item > a { padding-top: 16px !important; }
   :is(#materia-header, .shopify-section.section-header) .header__menu .horizontal-list > .level0 > menu-item .menu_label { top: max(0px, calc(50% - 24px)) !important; }
   /* The hover line sits under the words, not at a fixed spot in the link box,
      so a badge's extra top padding or a larger menu font never lets it cross the text. */
@@ -499,7 +499,7 @@ html.nav-open :is(#materia-header, .shopify-section.section-header) header-inner
     transform: none !important;
     opacity: 1 !important;
   }
-  :is(#materia-header, .shopify-section.section-header) .header[data-actions-text] .header__action :is([class*="bubble"], [class*="count"], [class*="number"], [class*="qty"], [class*="badge"]) :is([class*="bubble"], [class*="count"], [class*="number"], [class*="qty"], [class*="badge"]) {
+  :is(#materia-header, .shopify-section.section-header) .header[data-actions-text] .header__action :is(.h-count, .cart-count, .wishlist-count, .count-bubble, .cart-count-bubble) :is([class*="bubble"], [class*="count"], [class*="number"], [class*="qty"], [class*="badge"]) {
     margin: 0 !important;
   }
   :is(#materia-header, .shopify-section.section-header) .header[data-actions-text] .header__action .header__wishlist :is([class*="bubble"], [class*="count"], [class*="number"], [class*="qty"], [class*="badge"]):not(:has(:is([class*="bubble"], [class*="count"], [class*="number"], [class*="qty"], [class*="badge"])))::before,
@@ -524,11 +524,17 @@ html.nav-open :is(#materia-header, .shopify-section.section-header) header-inner
   :is(#materia-header, .shopify-section.section-header) .header[data-actions-text] .header__action .header__wishlist :is([class*="bubble"], [class*="count"], [class*="number"], [class*="qty"], [class*="badge"]):empty {
     display: none !important;
   }
+  /* The count bubbles are named by their classes where they sit above the
+     matched element: a class-substring test there ([class*="count"] *)
+     made every class change anywhere on the page (a class on <body> at the
+     first pointer move, a drawer opening) restyle the whole page, about
+     70-100ms. A substring test on the element itself costs nothing.
+     ("count" also matched "header__icon-account".) */
   /* One hover underline for every text action: search, account, wishlist and cart draw the same line, under the label only (the count sits beside it and is never underlined). The theme's own span lines are cleared so no action shows two. */
   :is(#materia-header, .shopify-section.section-header) .header[data-actions-text] .header__action > :not(.lang__currency-desktop):not(.hs-cta):not(svg) :is(a, button, summary),
   :is(#materia-header, .shopify-section.section-header) .header[data-actions-text] .header__action > a.header__wishlist,
   :is(#materia-header, .shopify-section.section-header) .header[data-actions-text] .header__action > .header__wishlist:not(a):not(:has(> a, > button)),
-  :is(#materia-header, .shopify-section.section-header) .header[data-actions-text] .header__action > :not(.lang__currency-desktop):not(.hs-cta):not(svg) :is(a, button, summary) span:not([class*="bubble"]):not([class*="count"]):not([class*="bubble"] *):not([class*="count"] *) {
+  :is(#materia-header, .shopify-section.section-header) .header[data-actions-text] .header__action > :not(.lang__currency-desktop):not(.hs-cta):not(svg) :is(a, button, summary) span:not([class*="bubble"]):not([class*="count"]):not(:is(.h-count, .cart-count, .wishlist-count, .count-bubble, .cart-count-bubble) *) {
     text-decoration-line: underline !important;
     text-decoration-style: solid !important;
     text-decoration-thickness: 1px !important;
@@ -542,7 +548,7 @@ html.nav-open :is(#materia-header, .shopify-section.section-header) header-inner
   :is(#materia-header, .shopify-section.section-header) .header[data-actions-text] .header__action > :not(.lang__currency-desktop):not(.hs-cta):not(svg) :is(a, button, summary):is(:hover, :focus-visible),
   :is(#materia-header, .shopify-section.section-header) .header[data-actions-text] .header__action > a.header__wishlist:is(:hover, :focus-visible),
   :is(#materia-header, .shopify-section.section-header) .header[data-actions-text] .header__action > .header__wishlist:not(a):not(:has(> a, > button)):hover,
-  :is(#materia-header, .shopify-section.section-header) .header[data-actions-text] .header__action > :not(.lang__currency-desktop):not(.hs-cta):not(svg) :is(a, button, summary):is(:hover, :focus-visible) span:not([class*="bubble"]):not([class*="count"]):not([class*="bubble"] *):not([class*="count"] *) {
+  :is(#materia-header, .shopify-section.section-header) .header[data-actions-text] .header__action > :not(.lang__currency-desktop):not(.hs-cta):not(svg) :is(a, button, summary):is(:hover, :focus-visible) span:not([class*="bubble"]):not([class*="count"]):not(:is(.h-count, .cart-count, .wishlist-count, .count-bubble, .cart-count-bubble) *) {
     text-decoration-color: currentColor !important;
   }
   /* Wishlist: its label is drawn as a ::before, which the theme may lay out as a box, and a box never inherits the parent's underline. The label itself carries the line, in the same weight, offset and timing as search, account and cart. */
@@ -589,11 +595,11 @@ html.nav-open :is(#materia-header, .shopify-section.section-header) header-inner
 @media (min-width: 1025px) {
   /* Uppercase: the top-level links carry .uppercase. Menu font: the header's data-own-size, data-own-font and data-own-weight. */
   :is(#materia-header, .shopify-section.section-header) .horizontal-list > .level0 > menu-item > a:where(.uppercase) { text-transform: uppercase !important; }
-  :is(#materia-header, .shopify-section.section-header:has(> header.header[data-own-size])) .horizontal-list > .level0 > menu-item > a { font-size: var(--hs-menu-size) !important; }
-  :is(#materia-header, .shopify-section.section-header:has(> header.header[data-own-font])) .horizontal-list > .level0 > menu-item > a { font-family: var(--menu-font) !important; }
-  :is(#materia-header, .shopify-section.section-header:has(> header.header[data-own-weight])) .horizontal-list > .level0 > menu-item > a { font-weight: var(--hs-menu-weight) !important; }
-  :is(#materia-header, .shopify-section.section-header:has(> header.header[data-own-font])) .submenu a,
-  :is(#materia-header, .shopify-section.section-header:has(> header.header[data-own-font])) .sub-children-menu a { font-family: var(--menu-font) !important; }
+  :is(#materia-header, .shopify-section.section-header) > :where(header.header[data-own-size], header.header[data-own-size] ~ *) .horizontal-list > .level0 > menu-item > a { font-size: var(--hs-menu-size) !important; }
+  :is(#materia-header, .shopify-section.section-header) > :where(header.header[data-own-font], header.header[data-own-font] ~ *) .horizontal-list > .level0 > menu-item > a { font-family: var(--menu-font) !important; }
+  :is(#materia-header, .shopify-section.section-header) > :where(header.header[data-own-weight], header.header[data-own-weight] ~ *) .horizontal-list > .level0 > menu-item > a { font-weight: var(--hs-menu-weight) !important; }
+  :is(#materia-header, .shopify-section.section-header) > :where(header.header[data-own-font], header.header[data-own-font] ~ *) .submenu a,
+  :is(#materia-header, .shopify-section.section-header) > :where(header.header[data-own-font], header.header[data-own-font] ~ *) .sub-children-menu a { font-family: var(--menu-font) !important; }
   /* Dropdown corners and shadow, mega menu lines and image card corners. */
   :is(#materia-header, .shopify-section.section-header) .submenu,
   :is(#materia-header, .shopify-section.section-header) .sub-children-menu {
@@ -727,7 +733,7 @@ html.nav-open :is(#materia-header, .shopify-section.section-header) header-inner
     box-sizing: border-box;
   }
   /* Logo position on phones > Left (data-logo-m="left" on the header): the logo beside the menu icon, at Space between menu icon and logo (--hs-logo-gap-m). */
-  :is(#materia-header, .shopify-section.section-header:has(> header.header[data-logo-m="left"])) header-inner.logo-position {
+  :is(#materia-header, .shopify-section.section-header) > :where(header.header[data-logo-m="left"], header.header[data-logo-m="left"] ~ *) header-inner.logo-position {
     grid-template-columns: auto minmax(0, 1fr) max-content !important;
     column-gap: var(--hs-logo-gap-m, 12px) !important;
   }
@@ -752,7 +758,7 @@ html.nav-open :is(#materia-header, .shopify-section.section-header) header-inner
     justify-content: center !important;
     text-align: center !important;
   }
-  :is(#materia-header, .shopify-section.section-header:has(> header.header[data-logo-m="left"])) header-inner.logo-position > .header__logo {
+  :is(#materia-header, .shopify-section.section-header) > :where(header.header[data-logo-m="left"], header.header[data-logo-m="left"] ~ *) header-inner.logo-position > .header__logo {
     justify-self: start !important;
     justify-content: flex-start !important;
     text-align: left !important;
@@ -804,9 +810,9 @@ html.nav-open :is(#materia-header, .shopify-section.section-header) header-inner
   :is(#materia-header, .shopify-section.section-header) :is(.header__action, .hs-cta-bar__in) > a.hs-cta--theme:where(.hs-cta--ms-compact) { --mb-padding-y: 8px; --mb-padding-x: 14px; --mb-font-size: 13px; }
   :is(#materia-header, .shopify-section.section-header) :is(.header__action, .hs-cta-bar__in) > a.hs-cta--theme:where(.hs-cta--ms-small) { --mb-padding-y: 6px; --mb-padding-x: 12px; --mb-font-size: 12px; }
   /* Make room in the phone row while the button is there: the chosen icons step aside. The cart and the menu always stay. The header's data-cta-hide names them while the button shows in the phone row. */
-  :is(#materia-header, .shopify-section.section-header:has(> header.header[data-cta-hide])) .header__action .header_account { display: none !important; }
-  :is(#materia-header, .shopify-section.section-header:has(> header.header[data-cta-hide^="account_wishlist"])) .header__action .header__wishlist { display: none !important; }
-  :is(#materia-header, .shopify-section.section-header:has(> header.header[data-cta-hide="account_wishlist_search"])) .header__action > :is(.header__search, .header_search, .top-search) { display: none !important; }
+  :is(#materia-header, .shopify-section.section-header) > :where(header.header[data-cta-hide], header.header[data-cta-hide] ~ *) .header__action .header_account { display: none !important; }
+  :is(#materia-header, .shopify-section.section-header) > :where(header.header[data-cta-hide^="account_wishlist"], header.header[data-cta-hide^="account_wishlist"] ~ *) .header__action .header__wishlist { display: none !important; }
+  :is(#materia-header, .shopify-section.section-header) > :where(header.header[data-cta-hide="account_wishlist_search"], header.header[data-cta-hide="account_wishlist_search"] ~ *) .header__action > :is(.header__search, .header_search, .top-search) { display: none !important; }
   /* The button's own bar under the header: drawn only while the button shows there; --hs-cta-bar-pad on the bar is Space above and below. */
   :is(#materia-header, .shopify-section.section-header) .hs-cta-bar {
     display: block;
@@ -864,8 +870,7 @@ html.nav-open :is(#materia-header, .shopify-section.section-header) header-inner
 }
 /* Sticky header (show on scroll up and always sticky): while the bar is stuck to the top it is exactly as tall as the bar. The section, the header and the theme's background layer carry no extra height, padding, margin or reserved space, so no empty white band shows under it as it slides back in. Not for the pill, which floats. */
 :is(#materia-header, .shopify-section.section-header:has(> header.header:not(.is-pill))).shopify-section-header-sticky,
-:is(#materia-header, .shopify-section.section-header:has(> header.header:not(.is-pill))).shopify-section-header-hidden,
-:is(#materia-header, .shopify-section.section-header:has(> header.header:not(.is-pill))).animate {
+:is(#materia-header, .shopify-section.section-header:has(> header.header:not(.is-pill))).shopify-section-header-hidden {
   height: auto !important;
   min-height: 0 !important;
   max-height: none !important;
@@ -882,8 +887,7 @@ html.nav-open :is(#materia-header, .shopify-section.section-header) header-inner
   content: none !important;
   display: none !important;
 }
-:is(#materia-header, .shopify-section.section-header:has(> header.header:not(.is-pill))).shopify-section-header-sticky > header.header,
-:is(#materia-header, .shopify-section.section-header:has(> header.header:not(.is-pill))).animate > header.header {
+:is(#materia-header, .shopify-section.section-header).shopify-section-header-sticky > header.header:where(header.header:not(.is-pill), header.header:not(.is-pill) ~ *, :has(~ header.header:not(.is-pill))) {
   /* The Header height setting, the same as before the page scrolled: a bar
      that dropped to its content's height when it stuck moved everything
      under it up (and back down at the top), a jump on every scroll. */
@@ -895,18 +899,15 @@ html.nav-open :is(#materia-header, .shopify-section.section-header) header-inner
   --section-pt: 0 !important;
   --section-pb: 0 !important;
 }
-:is(#materia-header, .shopify-section.section-header:has(> header.header:not(.is-pill))).shopify-section-header-sticky > header.header::before,
-:is(#materia-header, .shopify-section.section-header:has(> header.header:not(.is-pill))).animate > header.header::before {
+:is(#materia-header, .shopify-section.section-header).shopify-section-header-sticky > header.header:where(header.header:not(.is-pill), header.header:not(.is-pill) ~ *, :has(~ header.header:not(.is-pill)))::before {
   top: 0 !important;
   bottom: 0 !important;
   height: auto !important;
   min-height: 0 !important;
   transform: none !important;
 }
-:is(#materia-header, .shopify-section.section-header:has(> header.header:not(.is-pill))).shopify-section-header-sticky .header__inner,
-:is(#materia-header, .shopify-section.section-header:has(> header.header:not(.is-pill))).shopify-section-header-sticky .header__inner > div,
-:is(#materia-header, .shopify-section.section-header:has(> header.header:not(.is-pill))).animate .header__inner,
-:is(#materia-header, .shopify-section.section-header:has(> header.header:not(.is-pill))).animate .header__inner > div {
+:is(#materia-header, .shopify-section.section-header).shopify-section-header-sticky > :where(header.header:not(.is-pill), header.header:not(.is-pill) ~ *) .header__inner,
+:is(#materia-header, .shopify-section.section-header).shopify-section-header-sticky > :where(header.header:not(.is-pill), header.header:not(.is-pill) ~ *) .header__inner > div {
   height: 100% !important;
   margin-top: 0 !important;
   margin-bottom: 0 !important;

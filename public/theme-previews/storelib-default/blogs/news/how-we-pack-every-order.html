@@ -1,7 +1,7 @@
 
 <!doctype html>
 <html class="no-js" lang="en" dir="ltr">
-<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/storelib-default/a/cart.e6e7f130652d.json",WISH_DATA="";
+<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/storelib-default/a/cart.a532a1fff1d3.json",WISH_DATA="";
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
@@ -151,28 +151,26 @@ if(wait)return setTimeout(look,50);
 Promise.all(seen.slice(0,24).map(function(g){return g.decode?g.decode().catch(function(){}):0})).then(fin,fin)}
 look();setTimeout(fin,1500)}
 D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn)});
-})();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><style data-page-background>html{background-color:#ffffff}</style><script src="/theme-previews/storelib-default/a/i.8f16b849b94d.js"></script>
-<meta charset="utf-8">
+})();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><style data-page-background>html{background-color:#ffffff}</style><script>
+      (function () {
+        function show(img) {
+          if (!img || img.tagName !== 'IMG' || !img.classList.contains('bls-loading-image')) return;
+          img.classList.remove('bls-loading-image');
+          var wrap = img.closest && img.closest('motion-element.bls-loading-image');
+          if (wrap) wrap.classList.remove('bls-loading-image');
+        }
+        document.addEventListener('load', function (e) { show(e.target); }, true);
+        document.addEventListener('error', function (e) { show(e.target); }, true);
+        document.addEventListener('DOMContentLoaded', function () {
+          var list = document.querySelectorAll('img.bls-loading-image');
+          for (var k = 0; k < list.length; k++) if (list[k].complete) show(list[k]);
+        }, { once: true });
+      })();
+    </script>
+<script src="/theme-previews/storelib-default/a/i.59a2755e14fa.js"></script><meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="">
-<script>
-/* Register before editor/page scripts, without blocking the parser on an asset.
-   Deferred handlers only claim recognized storefront controls or resolved
-   same-page section links. Other editor selection events are left alone. */
-(() => {
-  if (window.__materiaSectionLinkCapture) return;
-  window.__materiaSectionLinkCapture = true;
-  ['click','pointerdown','pointerup','pointercancel','submit'].forEach(type => {
-    window.addEventListener(type, event => {
-      if(type==='submit'){window.materiaForms?.handleSubmit?.(event);return;}
-      if(window.MateriaProductDialogs?.handle(event))return;
-      if(window.MateriaHeaderActions?.handle(event))return;
-      window.MateriaSectionLinks?.[type]?.(event);
-    }, true);
-  });
-})();
-</script><title>How we pack every order | Sundry</title>
+<meta name="theme-color" content=""><script src="/theme-previews/storelib-default/a/i.5802c928e030.js"></script><title>How we pack every order | Sundry</title>
 <meta name="description" content="A short note from the shop about how things are made, packed and sent.">
 <meta property="og:site_name" content="Sundry">
 <meta property="og:title" content="How we pack every order | Sundry">
@@ -199,25 +197,23 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
   .shopify-section[data-perf-offscreen] *,
   .shopify-section[data-perf-offscreen] *::before,
   .shopify-section[data-perf-offscreen] *::after { animation-play-state: paused !important; }
-</style><link rel="stylesheet" href="/theme-previews/storelib-default/a/i.012d2c72efea.css" id="speed-page-landing"><script src="/theme-previews/storelib-default/a/i.0bd6d5139503.js"></script><script id="speed-optimization-js" src="/theme-previews/storelib-default/a/i.be4f88e0dbf9.js"></script>
+</style><link rel="stylesheet" href="/theme-previews/storelib-default/a/i.91e49e396991.css" id="speed-page-landing"><script src="/theme-previews/storelib-default/a/i.0bd6d5139503.js"></script><script id="speed-optimization-js" src="/theme-previews/storelib-default/a/i.fe3bbcd3c347.js"></script>
 <script>
       (function () {
         try {
           var l = document.createElement('link');
           l.rel = 'modulepreload';
-          l.href = new URL('/theme-previews/_base/a/cart-components.ca7c1c36e6df.js', new URL("/theme-previews/_base/a/theme.7a7dd8f80f89.js", location.href)).href;
+          l.href = new URL('/theme-previews/_base/a/cart-components.b6711c3796ec.js', new URL("/theme-previews/_base/a/theme.bbc3b899a286.js", location.href)).href;
           l.fetchPriority = 'low';
           document.head.appendChild(l);
         } catch (e) {}
       })();
-    </script>
-<link href="/theme-previews/_base/a/critical.4539b38450ad.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/animation.ea82f84e3656.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/product-card.9aebaa4e75d1.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"primary","product_size":17,"price_size":16,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
+    </script><link href="/theme-previews/_base/a/base.a7bb01c1b397.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"primary","product_size":17,"price_size":16,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
 <style>html:not([data-card-custom='true']) .product-item .product-item__name { font-size:var(--body-font-size, 16px); text-transform:var(--heading-text-transform, none) !important; } html:not([data-card-custom='true']) .product-item .product-item__price { font-size:var(--body-font-size, 16px); }</style>
 <script>document.documentElement.dataset.cardCustom = false === true ? 'true' : 'false';</script>
 <script type="application/json" data-badge-style-settings>false</script>
-<script>document.documentElement.dataset.badgeCustom = 'false';</script><script src="/theme-previews/storelib-default/a/i.1ce91c58da38.js"></script><link href="/theme-previews/_base/a/swiper-bundle-min.8599ecaab05b.css" rel="stylesheet" type="text/css" media="all"><script>(function(u){var done=false;function go(){if(done)return;done=true;for(var i=0;i<u.length;i++){if(document.querySelector('link[href="'+u[i]+'"]'))continue;var l=document.createElement('link');l.rel='stylesheet';l.href=u[i];document.head.appendChild(l)}}
+<script>document.documentElement.dataset.badgeCustom = 'false';</script><script src="/theme-previews/storelib-default/a/i.1ce91c58da38.js"></script><style>:root { --pc-act-size: 44px; }</style>
+<script>(function(u){var done=false;function go(){if(done)return;done=true;for(var i=0;u.length>i;i++){if(document.querySelector('link[href="'+u[i]+'"]'))continue;var l=document.createElement('link');l.rel='stylesheet';l.href=u[i];document.head.appendChild(l)}}
     window.MateriaLateCss={now:go};if(document.readyState==='complete')setTimeout(go,0);else{addEventListener('load',function(){setTimeout(go,0)},{once:true});
     document.addEventListener('DOMContentLoaded',function(){setTimeout(go,4000)},{once:true})}
     ['pointerdown','click','keydown','scroll','touchstart'].forEach(function(n){addEventListener(n,go,{once:true,passive:true,capture:true})})})(["/theme-previews/_base/a/popup.18cdf2513c31.css","/theme-previews/_base/a/tingle-min.ed947d9dd1c7.css"]);</script><link rel="stylesheet" href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" media="print" onload="this.media='all'">
@@ -228,36 +224,27 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
     --heading-font: "Helvetica Neue", Helvetica, Arial, sans-serif;
     --menu-font: var(--body-font);
     --btn-font: var(--body-font);
+    --heading-font-style: normal;
+    --font-body-family: var(--body-font);
+    --font-heading-family: var(--heading-font);
   }
 </style>
-<link rel="stylesheet" href="/theme-previews/storelib-default/a/i.3a920aa2edc1.css" data-shopify>
-<link href="/theme-previews/_base/a/theme.d71f5b96fec8.css" rel="stylesheet" type="text/css" media="all"><noscript><link href="/theme-previews/_base/a/popup.18cdf2513c31.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.9c20c549e3cf.css">
-<link rel="preload" as="style" href="/theme-previews/_base/a/minicart.ac0014483417.css" fetchpriority="low">
-<link rel="preload" as="style" href="/theme-previews/_base/a/materia-experience.b68d6d8152a8.css" fetchpriority="low">
-<link rel="stylesheet" href="/theme-previews/storelib-default/a/i.68a502d796bb.css"><link rel="stylesheet" href="/theme-previews/storelib-default/a/i.0f64d724d341.css"><link href="/theme-previews/_base/a/theme-button-contract.7d286d7eee9b.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/localization-controls.9494a0c83131.css" rel="stylesheet" type="text/css" media="all"><link rel="modulepreload" href="/theme-previews/_base/a/theme.7a7dd8f80f89.js" fetchpriority="low"><script data-storelib-head src="/theme-previews/storelib-default/a/i.585ec254f5fd.js"></script>
+<link rel="stylesheet" href="/theme-previews/storelib-default/a/i.e02d9213bb63.css" data-shopify><noscript><link href="/theme-previews/_base/a/popup.18cdf2513c31.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.9c20c549e3cf.css">
+<link rel="preload" as="style" href="/theme-previews/_base/a/minicart.679b4fb18845.css" fetchpriority="low">
+<link rel="preload" as="style" href="/theme-previews/_base/a/materia-experience.6a68b7e13653.css" fetchpriority="low">
+<link rel="stylesheet" href="/theme-previews/storelib-default/a/i.68a502d796bb.css"><link rel="stylesheet" href="/theme-previews/storelib-default/a/i.0f64d724d341.css"><link rel="modulepreload" href="/theme-previews/_base/a/theme.bbc3b899a286.js" fetchpriority="low"><script data-storelib-head src="/theme-previews/storelib-default/a/i.585ec254f5fd.js"></script>
 <script src="/theme-previews/_base/a/swiper-bundle-min.31d164f7367d.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/motion-min.d1f8eb312b47.js" type="module" defer="defer" fetchpriority="low"></script>
-<script src="/theme-previews/_base/a/utils.90eeb774e439.js" defer="defer" data-cart-count="0"></script>
-<script src="/theme-previews/_base/a/global.81b2db9b06dc.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/utils.26985d2d39f0.js" defer="defer" data-cart-count="0"></script>
+<script src="/theme-previews/_base/a/global.7e439d21bc2d.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/cart-drawer-safety.b8d627a0381e.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/section-links.0b22549c79d2.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/section-links.83dcb60cec8e.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/product-counters.9b2dc07295e6.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/product-block-runtime.93fadbdef136.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/product-dialogs.f42edf25d068.js" defer="defer"></script><link href="/theme-previews/_base/a/hero-pro-scrolling.2f3038157711.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/marketing-sections.89572ff66c1d.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/hero-product-three.8649fa31ecc2.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/hero-product-two.b3341fcb0b09.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/hero-image-one.7347eaeaff3f.css" rel="stylesheet" type="text/css" media="all">
-<script src="/theme-previews/_base/a/hero-image-one.3135c3043e4f.js" defer="defer"></script>
-<link href="/theme-previews/_base/a/before-after-controls.0119d231c0b0.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/text-section-controls.f1a83e444db3.css" rel="stylesheet" type="text/css" media="all"><script src="/theme-previews/storelib-default/a/i.b6aa80ad4fa9.js"></script>
-<link href="/theme-previews/_base/a/testimonial-quote.d74462f50435.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/announcement-pro-4.98b829b630a8.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/product-block-runtime.0c74f3d394a4.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" rel="stylesheet" type="text/css" media="all">
+<script src="/theme-previews/_base/a/product-block-runtime.6868605d527a.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/product-dialogs.f42edf25d068.js" defer="defer"></script><script src="/theme-previews/_base/a/hero-image-one.9accbabb78ac.js" defer="defer"></script><script src="/theme-previews/storelib-default/a/i.8914d0afedfd.js"></script><link rel="stylesheet" href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" rel="stylesheet" type="text/css" media="all"></noscript>
 <script src="/theme-previews/_base/a/drift.eaae124afa1e.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/photoswipe-init.7c544f9d83a1.js" type="module"></script>
-<script src="/theme-previews/storelib-default/a/i.90af8640dd2d.js"></script><link rel="stylesheet" href="/theme-previews/storelib-default/a/i.935454524e32.css">
-<script>(function(){try{var d=document.createElement('div');d.style.cssText='position:absolute;top:-99px;width:60px;height:60px;overflow:scroll;visibility:hidden';document.documentElement.appendChild(d);if(d.offsetWidth-d.clientWidth>0)document.documentElement.classList.add('sl-sb-room');d.remove()}catch(e){}})();</script><style>
+<script src="/theme-previews/_base/a/photoswipe-init.7fe034915110.js" type="module"></script>
+<script src="/theme-previews/storelib-default/a/i.69f67d6283fa.js"></script><script>(function(){try{var d=document.createElement('div');d.style.cssText='position:absolute;top:-99px;width:60px;height:60px;overflow:scroll;visibility:hidden';document.documentElement.appendChild(d);if(d.offsetWidth-d.clientWidth>0)document.documentElement.classList.add('sl-sb-room');d.remove()}catch(e){}})();</script><style>
         html, body { min-height: 100%; }
         body {
           display: flex;
@@ -274,7 +261,7 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
         body > #shopify-section-footer-group,
         body > #shopify-section-sections--footer-group,
         body > .shopify-section-group-footer-group { flex: 0 0 auto; }
-      </style><style data-sl-focus>[tabindex="-1"]:focus,dialog:focus,[role="dialog"]:focus,[aria-modal="true"]:focus,details-modal:focus,modal-dialog:focus{outline:none!important}</style><link rel="stylesheet" href="/theme-previews/storelib-default/a/i.baba7fb2aa0e.css" data-sl-busy-buttons><style data-sl-missing-image>img[data-sl-missing]{background-color:#f3f4f6!important;background-image:none!important;object-fit:contain!important;object-position:50% 50%!important;color:transparent!important}html[data-sl-dark] img[data-sl-missing],[data-community-theme="dark"] img[data-sl-missing]{background-color:#26282c!important}</style><script data-sl-missing-image src="/theme-previews/storelib-default/a/i.d77d88883af7.js"></script><script data-sl-cover-trim src="/theme-previews/storelib-default/a/i.fc4335148114.js"></script><link rel="stylesheet" href="/theme-previews/_base/a/fonts.bd14396acf32.css" data-storelib-font><link rel="stylesheet" href="/theme-previews/_base/a/fonts.fb2ab27c2a4b.css" data-storelib-font><link rel="stylesheet" href="/theme-previews/storelib-default/a/i.6815f399169b.css" data-storelib-bundle><style data-storelib-overrides>.button:not(.button--tertiary):not(.button-unstyled):not(.link):hover,.btn:hover,button[type=submit]:not(.button-unstyled):not(.link):hover,input[type=submit]:hover,.shopify-payment-button__button--unbranded:hover{transform:none!important;box-shadow:none!important;filter:none!important}.button:not(.button--tertiary):not(.button-unstyled):not(.link),.btn,button[type=submit]:not(.button-unstyled):not(.link),input[type=submit],.shopify-payment-button__button--unbranded{transition:none!important}input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=hidden]):not([type=submit]),select,textarea,.field__input,.select__select{border-color:#bababa!important}input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=hidden]):not([type=submit]):focus,select:focus,textarea:focus,.field__input:focus,.select__select:focus{outline:2px solid #adadad!important;outline-offset:1px;border-color:#adadad!important;box-shadow:none!important}</style><link rel="icon" href="data:,"></head>
+      </style><style data-sl-focus>[tabindex="-1"]:focus,dialog:focus,[role="dialog"]:focus,[aria-modal="true"]:focus,details-modal:focus,modal-dialog:focus{outline:none!important}</style><link rel="stylesheet" href="/theme-previews/storelib-default/a/i.baba7fb2aa0e.css" data-sl-busy-buttons><style data-sl-missing-image>img[data-sl-missing]{background-color:#f3f4f6!important;background-image:none!important;object-fit:contain!important;object-position:50% 50%!important;color:transparent!important}html[data-sl-dark] img[data-sl-missing],[data-community-theme="dark"] img[data-sl-missing]{background-color:#26282c!important}</style><script data-sl-missing-image src="/theme-previews/storelib-default/a/i.d77d88883af7.js"></script><script data-sl-cover-trim src="/theme-previews/storelib-default/a/i.fc4335148114.js"></script><link rel="stylesheet" href="/theme-previews/_base/a/fonts.bd14396acf32.css" data-storelib-font><link rel="stylesheet" href="/theme-previews/_base/a/fonts.fb2ab27c2a4b.css" data-storelib-font><link rel="stylesheet" href="/theme-previews/storelib-default/a/i.17f73b1756bd.css" data-storelib-bundle><link rel="stylesheet" href="/theme-previews/storelib-default/a/i.0016b90be953.css" data-storelib-overrides><link rel="icon" href="data:,"></head>
 <body
 class="gradient rounded-style  article"
 data-btn-style="solid"
@@ -304,8 +291,7 @@ data-menu-hover="none"
           later = setTimeout(release, 120);
         });
       })();
-    </script><div id="shopify-section-top_bar" class="shopify-section shopify-section-group-header-group section-top-bar section-edge-bleed" data-section-id="top_bar" data-section-type="top-bar"><script src="/theme-previews/_base/a/live-header.21a4112e6a5c.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/announcement-three-colors.dc351a0da9b4.js" defer="defer"></script><style>[data-announcement-three][data-color-live="true"] a{transition:none!important}</style><style>
+    </script><div id="shopify-section-top_bar" class="shopify-section shopify-section-group-header-group section-top-bar section-edge-bleed" data-section-id="top_bar" data-section-type="top-bar"><script src="/theme-previews/_base/a/live-header-runtime.f500b4b039b8.js" defer="defer"></script><script src="/theme-previews/_base/a/announcement-three-colors.dc351a0da9b4.js" defer="defer"></script><style>[data-announcement-three][data-color-live="true"] a{transition:none!important}</style><style>
   #shopify-section-top_bar.scroll-trigger {
     --animation-duration: 950ms;
     --animation-delay: 80ms;
@@ -331,8 +317,8 @@ data-menu-hover="none"
     .shopify-section + #shopify-section-top_bar {
       margin-top: 0 !important;
     }</style><link rel="stylesheet" href="/theme-previews/storelib-default/a/i.8ca5eca54d18.css">
-<!-- ti-theme:start --><link rel="stylesheet" href="/theme-previews/storelib-default/a/i.fcb0dfd8408d.css" data-shopify><div
-id="topbar-top_bar" data-tb-width="fluid_container" data-announcement-three="top_bar" data-pro-three-settings="{&quot;color_scheme&quot;:{&quot;id&quot;:&quot;scheme-6da511c0-ea26-4213-b3d3-e09320840636&quot;,&quot;settings&quot;:{&quot;page_colors&quot;:null,&quot;background&quot;:{&quot;red&quot;:43,&quot;green&quot;:68,&quot;blue&quot;:168,&quot;alpha&quot;:1,&quot;hue&quot;:228,&quot;saturation&quot;:59,&quot;lightness&quot;:41,&quot;rgb&quot;:&quot;43 68 168&quot;,&quot;rgba&quot;:&quot;43 68 168 / 1&quot;,&quot;hex&quot;:&quot;#2b44a8&quot;},&quot;text_color&quot;:{&quot;red&quot;:223,&quot;green&quot;:228,&quot;blue&quot;:247,&quot;alpha&quot;:1,&quot;hue&quot;:227,&quot;saturation&quot;:60,&quot;lightness&quot;:92,&quot;rgb&quot;:&quot;223 228 247&quot;,&quot;rgba&quot;:&quot;223 228 247 / 1&quot;,&quot;hex&quot;:&quot;#dfe4f7&quot;},&quot;heading_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;primary_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;border_color&quot;:{&quot;red&quot;:74,&quot;green&quot;:95,&quot;blue&quot;:186,&quot;alpha&quot;:1,&quot;hue&quot;:229,&quot;saturation&quot;:45,&quot;lightness&quot;:51,&quot;rgb&quot;:&quot;74 95 186&quot;,&quot;rgba&quot;:&quot;74 95 186 / 1&quot;,&quot;hex&quot;:&quot;#4a5fba&quot;},&quot;badge_background&quot;:null,&quot;badge_text&quot;:null,&quot;primary_button_colors&quot;:null,&quot;btn_primary_background&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_primary_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:17,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 17&quot;,&quot;rgba&quot;:&quot;17 17 17 / 1&quot;,&quot;hex&quot;:&quot;#111111&quot;},&quot;btn_primary_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_primary_hover_background&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:17,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 17&quot;,&quot;rgba&quot;:&quot;17 17 17 / 1&quot;,&quot;hex&quot;:&quot;#111111&quot;},&quot;btn_primary_hover_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_primary_hover_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;secondary_button_colors&quot;:null,&quot;btn_secondary_background&quot;:{&quot;red&quot;:43,&quot;green&quot;:68,&quot;blue&quot;:168,&quot;alpha&quot;:1,&quot;hue&quot;:228,&quot;saturation&quot;:59,&quot;lightness&quot;:41,&quot;rgb&quot;:&quot;43 68 168&quot;,&quot;rgba&quot;:&quot;43 68 168 / 1&quot;,&quot;hex&quot;:&quot;#2b44a8&quot;},&quot;btn_secondary_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_border&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_hover_background&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_hover_color&quot;:{&quot;red&quot;:43,&quot;green&quot;:68,&quot;blue&quot;:168,&quot;alpha&quot;:1,&quot;hue&quot;:228,&quot;saturation&quot;:59,&quot;lightness&quot;:41,&quot;rgb&quot;:&quot;43 68 168&quot;,&quot;rgba&quot;:&quot;43 68 168 / 1&quot;,&quot;hex&quot;:&quot;#2b44a8&quot;},&quot;btn_secondary_hover_border_color&quot;:null,&quot;background_gradient&quot;:&quot;&quot;,&quot;btn_primary_gradient&quot;:&quot;&quot;,&quot;btn_primary_hover_background_gradient&quot;:&quot;&quot;,&quot;btn_secondary_hover_border&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_outline_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_outline_border_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;button_link_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;button_link_hover_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;}}},&quot;section_width&quot;:&quot;fluid_container&quot;,&quot;sticky_top&quot;:false,&quot;show_mobile&quot;:true,&quot;text_align&quot;:&quot;center&quot;,&quot;uppercase&quot;:false,&quot;font_size&quot;:13,&quot;font_weight&quot;:&quot;body_weight&quot;,&quot;letter_spacing&quot;:0,&quot;enable_custom_fonts&quot;:false,&quot;font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;enable_custom_colors&quot;:false,&quot;custom_bg_color&quot;:null,&quot;custom_text_color&quot;:null,&quot;custom_link_color&quot;:null,&quot;custom_arrow_color&quot;:null,&quot;border_position&quot;:&quot;bottom&quot;,&quot;border_width&quot;:0,&quot;border_color&quot;:{&quot;red&quot;:229,&quot;green&quot;:229,&quot;blue&quot;:229,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:90,&quot;rgb&quot;:&quot;229 229 229&quot;,&quot;rgba&quot;:&quot;229 229 229 / 1&quot;,&quot;hex&quot;:&quot;#e5e5e5&quot;},&quot;reveal&quot;:true,&quot;show_arrows&quot;:false,&quot;show_arrows_mobile&quot;:false,&quot;transition_speed&quot;:700,&quot;change_every&quot;:5,&quot;padding_top&quot;:9,&quot;padding_bottom&quot;:9,&quot;enable_custom_position&quot;:false,&quot;desktop_horizontal_offset&quot;:0,&quot;section_margin_top_desktop&quot;:0,&quot;section_margin_bottom_desktop&quot;:0,&quot;section_margin_top_mobile&quot;:0,&quot;section_margin_bottom_mobile&quot;:0,&quot;reset_spacing&quot;:true}"
+<!-- ti-theme:start --><link rel="stylesheet" href="/theme-previews/storelib-default/a/i.6f0d4277a153.css" data-shopify><div
+id="topbar-top_bar" data-tb-width="fluid_container" data-announcement-three="top_bar" data-pro-three-settings="{&quot;color_scheme&quot;:{&quot;id&quot;:&quot;scheme-6da511c0-ea26-4213-b3d3-e09320840636&quot;,&quot;settings&quot;:{&quot;background&quot;:{&quot;red&quot;:43,&quot;green&quot;:68,&quot;blue&quot;:168,&quot;alpha&quot;:1,&quot;hue&quot;:228,&quot;saturation&quot;:59,&quot;lightness&quot;:41,&quot;rgb&quot;:&quot;43 68 168&quot;,&quot;rgba&quot;:&quot;43 68 168 / 1&quot;,&quot;hex&quot;:&quot;#2b44a8&quot;},&quot;background_gradient&quot;:&quot;&quot;,&quot;text_color&quot;:{&quot;red&quot;:223,&quot;green&quot;:228,&quot;blue&quot;:247,&quot;alpha&quot;:1,&quot;hue&quot;:227,&quot;saturation&quot;:60,&quot;lightness&quot;:92,&quot;rgb&quot;:&quot;223 228 247&quot;,&quot;rgba&quot;:&quot;223 228 247 / 1&quot;,&quot;hex&quot;:&quot;#dfe4f7&quot;},&quot;heading_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;primary_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;border_color&quot;:{&quot;red&quot;:74,&quot;green&quot;:95,&quot;blue&quot;:186,&quot;alpha&quot;:1,&quot;hue&quot;:229,&quot;saturation&quot;:45,&quot;lightness&quot;:51,&quot;rgb&quot;:&quot;74 95 186&quot;,&quot;rgba&quot;:&quot;74 95 186 / 1&quot;,&quot;hex&quot;:&quot;#4a5fba&quot;},&quot;badge_background&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;badge_text&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_primary_background&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_primary_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:17,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 17&quot;,&quot;rgba&quot;:&quot;17 17 17 / 1&quot;,&quot;hex&quot;:&quot;#111111&quot;},&quot;btn_primary_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_primary_hover_background&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:17,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 17&quot;,&quot;rgba&quot;:&quot;17 17 17 / 1&quot;,&quot;hex&quot;:&quot;#111111&quot;},&quot;btn_primary_hover_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_primary_hover_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_secondary_background&quot;:{&quot;red&quot;:43,&quot;green&quot;:68,&quot;blue&quot;:168,&quot;alpha&quot;:1,&quot;hue&quot;:228,&quot;saturation&quot;:59,&quot;lightness&quot;:41,&quot;rgb&quot;:&quot;43 68 168&quot;,&quot;rgba&quot;:&quot;43 68 168 / 1&quot;,&quot;hex&quot;:&quot;#2b44a8&quot;},&quot;btn_secondary_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_border&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_hover_background&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_hover_color&quot;:{&quot;red&quot;:43,&quot;green&quot;:68,&quot;blue&quot;:168,&quot;alpha&quot;:1,&quot;hue&quot;:228,&quot;saturation&quot;:59,&quot;lightness&quot;:41,&quot;rgb&quot;:&quot;43 68 168&quot;,&quot;rgba&quot;:&quot;43 68 168 / 1&quot;,&quot;hex&quot;:&quot;#2b44a8&quot;},&quot;btn_secondary_hover_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_primary_gradient&quot;:&quot;&quot;,&quot;btn_primary_hover_background_gradient&quot;:&quot;&quot;,&quot;btn_secondary_hover_border&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_outline_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_outline_border_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;button_link_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;button_link_hover_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;}}},&quot;section_width&quot;:&quot;fluid_container&quot;,&quot;sticky_top&quot;:false,&quot;show_mobile&quot;:true,&quot;text_align&quot;:&quot;center&quot;,&quot;uppercase&quot;:false,&quot;font_size&quot;:13,&quot;font_weight&quot;:&quot;body_weight&quot;,&quot;letter_spacing&quot;:0,&quot;enable_custom_fonts&quot;:false,&quot;font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;enable_custom_colors&quot;:false,&quot;custom_bg_color&quot;:null,&quot;custom_text_color&quot;:null,&quot;custom_link_color&quot;:null,&quot;custom_arrow_color&quot;:null,&quot;border_position&quot;:&quot;bottom&quot;,&quot;border_width&quot;:0,&quot;border_color&quot;:{&quot;red&quot;:229,&quot;green&quot;:229,&quot;blue&quot;:229,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:90,&quot;rgb&quot;:&quot;229 229 229&quot;,&quot;rgba&quot;:&quot;229 229 229 / 1&quot;,&quot;hex&quot;:&quot;#e5e5e5&quot;},&quot;reveal&quot;:true,&quot;show_arrows&quot;:false,&quot;show_arrows_mobile&quot;:false,&quot;transition_type&quot;:&quot;slide&quot;,&quot;slide_speed&quot;:380,&quot;transition_speed&quot;:700,&quot;change_every&quot;:5,&quot;padding_top&quot;:9,&quot;padding_bottom&quot;:9,&quot;enable_custom_position&quot;:false,&quot;desktop_horizontal_offset&quot;:0,&quot;section_margin_top_desktop&quot;:0,&quot;section_margin_bottom_desktop&quot;:0,&quot;section_margin_top_mobile&quot;:0,&quot;section_margin_bottom_mobile&quot;:0,&quot;reset_spacing&quot;:true}"
 data-sticky-announcement="false"
 data-tb-blocks="socials_1:socials text_slider_1:text_slider cur_lang_1:cur_lang " data-tb-border="bottom:0" data-tb-pos="false:0"
 class="topbar gradient pt-min pb-min section remove_spacing color-scheme-6da511c0-ea26-4213-b3d3-e09320840636"
@@ -383,7 +369,8 @@ id="topbar-messages-top_bar-text_slider_1"
 class="topbar-slider"
 data-section-id="top_bar"
 data-delay="5"
-data-duration="700"
+data-duration="380"
+data-transition="slide"
 >
 <div class="topbar-track"><div class="topbar-message is-active lh-normal" data-tb-slide="1">
 <div class="px-10 topbar-text-cell"><span class="topbar-text topbar-text--lg" data-tb-text>Orders leave the studio within two working days</span><span class="topbar-text topbar-text--sm" data-tb-text-mobile>Orders leave the studio within two working days</span></div>
@@ -430,50 +417,54 @@ USD $
 <li class="disclosure__item py-4" tabindex="-1">
 <a
 href="#"
-class="no-underline text-color hover-heading-color"
+class="loc-option no-underline text-color hover-heading-color"
 aria-current="true"
 hreflang="en"
 lang="en"
 data-value="en"
 aria-label="English"
 >
-English
+<span class="loc-option__label">English</span>
+<svg class="loc-option__check" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
 </a>
 </li>
 <li class="disclosure__item py-4" tabindex="-1">
 <a
 href="#"
-class="no-underline text-color hover-heading-color"
+class="loc-option no-underline text-color hover-heading-color"
 hreflang="fr"
 lang="fr"
 data-value="fr"
 aria-label="Français"
 >
-Français
+<span class="loc-option__label">Français</span>
+<svg class="loc-option__check" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
 </a>
 </li>
 <li class="disclosure__item py-4" tabindex="-1">
 <a
 href="#"
-class="no-underline text-color hover-heading-color"
+class="loc-option no-underline text-color hover-heading-color"
 hreflang="de"
 lang="de"
 data-value="de"
 aria-label="Deutsch"
 >
-Deutsch
+<span class="loc-option__label">Deutsch</span>
+<svg class="loc-option__check" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
 </a>
 </li>
 <li class="disclosure__item py-4" tabindex="-1">
 <a
 href="#"
-class="no-underline text-color hover-heading-color"
+class="loc-option no-underline text-color hover-heading-color"
 hreflang="es"
 lang="es"
 data-value="es"
 aria-label="Español"
 >
-Español
+<span class="loc-option__label">Español</span>
+<svg class="loc-option__check" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
 </a>
 </li>
 </ul>
@@ -485,8 +476,8 @@ Español
 </div>
 </div>
 </div>
-</div><div id="shopify-section-header" class="shopify-section shopify-section-group-header-group section-header" data-section-id="header" data-section-type="theme-header"><link href="/theme-previews/_base/a/header-section.1c94351c418a.css" rel="stylesheet" type="text/css" media="all">
-<script src="/theme-previews/_base/a/header-section.87538c6edb5d.js" defer="defer"></script><style>
+</div><div id="shopify-section-header" class="shopify-section shopify-section-group-header-group section-header has-popup" data-section-id="header" data-section-type="theme-header"><link href="/theme-previews/_base/a/header-section.d609d0b23c83.css" rel="stylesheet" type="text/css" media="all">
+<script src="/theme-previews/_base/a/header-section.529bac1525b9.js" defer="defer"></script><style>
   #shopify-section-header {
     --hs-margin-top: 0px;
     --hs-margin-bottom: 0px;
@@ -517,7 +508,7 @@ Español
       --hs-logo-max-height: 44px;
       --hs-logo-box-height: 60px;
     }
-  }:root { --hs-mnav-title-bg: #242424; --hs-mnav-title-color: #ffffff; }</style><link href="/theme-previews/_base/a/header-layout.ed2de67e6e9c.css" rel="stylesheet" type="text/css" media="all">
+  }:root { --hs-mnav-title-bg: #242424; --hs-mnav-title-color: #ffffff; }</style><link href="/theme-previews/_base/a/header-layout.784e491443d1.css" rel="stylesheet" type="text/css" media="all">
 <style>
   #shopify-section-header {
     --header-height-desktop: 72px;
@@ -773,10 +764,10 @@ aria-label="Log In"
 Log In
 </a></div><div class="lang__currency-on-nav flex flex-wrap hidden-1025 border-top">
 <localization-form>
-<form id="localization-language-header" accept-charset="UTF-8" class="shopify-localization-form" data-preview-form><input type="hidden" name="form_type" value="localization"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="storelib_country" value="US">
+<form id="localization-language-header-drawer" accept-charset="UTF-8" class="shopify-localization-form" data-preview-form><input type="hidden" name="form_type" value="localization"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="storelib_country" value="US">
 <input type="hidden" name="language_code" value="en">
 <div class="disclosure relative flex align-center">
-<button type="button" aria-expanded="false" aria-controls="localization-language-header-options" aria-label="English" class="button-localization pointer disclosure__button show-overlay flex align-center gap-10">
+<button type="button" aria-expanded="false" aria-controls="localization-language-header-drawer-options" aria-label="English" class="button-localization pointer disclosure__button show-overlay flex align-center gap-10">
 <span class="">
 <span >English</span>
 </span>
@@ -784,55 +775,59 @@ Log In
 <use href="#icon-arrow-down" />
 </svg>
 </button>
-<div id="localization-language-header-options" data-search-label="Search" data-empty-label="No matches" class="disclosure__list custom-scrollbar transition shadow invisible z-10 absolute left-0 right-0 color-default">
+<div id="localization-language-header-drawer-options" data-search-label="Search" data-empty-label="No matches" class="disclosure__list custom-scrollbar transition shadow invisible z-10 absolute left-0 right-0 color-default">
 <ul class="h-full list-unstyled">
 <li class="disclosure__item py-4" tabindex="-1">
 <a
 href="#"
-class="no-underline text-color hover-heading-color"
+class="loc-option no-underline text-color hover-heading-color"
 aria-current="true"
 hreflang="en"
 lang="en"
 data-value="en"
 aria-label="English"
 >
-English
+<span class="loc-option__label">English</span>
+<svg class="loc-option__check" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
 </a>
 </li>
 <li class="disclosure__item py-4" tabindex="-1">
 <a
 href="#"
-class="no-underline text-color hover-heading-color"
+class="loc-option no-underline text-color hover-heading-color"
 hreflang="fr"
 lang="fr"
 data-value="fr"
 aria-label="Français"
 >
-Français
+<span class="loc-option__label">Français</span>
+<svg class="loc-option__check" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
 </a>
 </li>
 <li class="disclosure__item py-4" tabindex="-1">
 <a
 href="#"
-class="no-underline text-color hover-heading-color"
+class="loc-option no-underline text-color hover-heading-color"
 hreflang="de"
 lang="de"
 data-value="de"
 aria-label="Deutsch"
 >
-Deutsch
+<span class="loc-option__label">Deutsch</span>
+<svg class="loc-option__check" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
 </a>
 </li>
 <li class="disclosure__item py-4" tabindex="-1">
 <a
 href="#"
-class="no-underline text-color hover-heading-color"
+class="loc-option no-underline text-color hover-heading-color"
 hreflang="es"
 lang="es"
 data-value="es"
 aria-label="Español"
 >
-Español
+<span class="loc-option__label">Español</span>
+<svg class="loc-option__check" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
 </a>
 </li>
 </ul>
@@ -841,10 +836,10 @@ Español
 </form>
 </localization-form>
 <localization-form>
-<form id="localization-country-header" accept-charset="UTF-8" class="shopify-localization-form" data-preview-form><input type="hidden" name="form_type" value="localization"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="storelib_country" value="US">
+<form id="localization-country-header-drawer" accept-charset="UTF-8" class="shopify-localization-form" data-preview-form><input type="hidden" name="form_type" value="localization"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="storelib_country" value="US">
 <input type="hidden" name="country_code" value="US">
 <div class="disclosure relative flex align-center">
-<button type="button" aria-expanded="false" aria-controls="localization-country-header-options" aria-label="United States (USD)" class="button-localization pointer disclosure__button show-overlay flex align-center gap-10 ">
+<button type="button" aria-expanded="false" aria-controls="localization-country-header-drawer-options" aria-label="United States (USD)" class="button-localization pointer disclosure__button show-overlay flex align-center gap-10 ">
 <span class="flex align-center gap-10">
 <span class="rounded-50 border localization-flags "><img src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2024%22%3E%3Ctext%20x%3D%2216%22%20y%3D%2219%22%20font-size%3D%2220%22%20text-anchor%3D%22middle%22%3E%F0%9F%87%BA%F0%9F%87%B8%3C%2Ftext%3E%3C%2Fsvg%3E" alt="United States"></span>
 <span>
@@ -856,13 +851,12 @@ United States
 <use href="#icon-arrow-down" />
 </svg>
 </button>
-<div id="localization-country-header-options" data-search-label="Search" data-empty-label="No matches" class="disclosure__list custom-scrollbar shadow transition invisible z-10 absolute left-0 right-0 color-default overflow-y-auto"><ul class="h-full list-unstyled" data-country-options></ul>
+<div id="localization-country-header-drawer-options" data-search-label="Search" data-empty-label="No matches" class="disclosure__list custom-scrollbar shadow transition invisible z-10 absolute left-0 right-0 color-default overflow-y-auto"><ul class="h-full list-unstyled" data-country-options></ul>
 </div>
 </div>
 </form>
 </localization-form>
-</div>
-</nav></div>
+</div></nav></div>
 <div class="header__action flex flex-end align-center">
 <svg class="hs-sprite" hidden aria-hidden="true" focusable="false" width="0" height="0" style="position:absolute;width:0;height:0;overflow:hidden;display:none">
 <symbol id="icon-wishlist-header">
@@ -894,7 +888,7 @@ aria-label="Search"
 <div class="header_account hidden block-1025">
 <a
 href="#" data-preview-inert
-aria-label="account"
+aria-label="Account"
 class="btn-reset pointer header-icon transition header-color w-44 h-44 inline-flex content-center header__icon-account header-color lh-1"
 ><svg width="16" height="16" fill="none">
 <use href="#icon-account" />
@@ -916,7 +910,7 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
 <path d="M8.5 11V7.5a3.5 3.5 0 1 1 7 0V11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
 </svg>
 <span class="absolute lh-1 cart-count h-count inline-flex align-center justify-content-center rounded-50 overflow-hidden fs-10">0
-<span class="visually-hidden">Cart count</span>
+<span class="visually-hidden">0 items</span>
 </span>
 </h-count>
 </a>
@@ -927,23 +921,9 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
 </header-inner>
 </div>
 </div></header><script src="/theme-previews/storelib-default/a/i.b8ec2f2ea707.js"></script>
-<link href="/theme-previews/_base/a/header-sticky.6c34c873cb06.css" rel="stylesheet" type="text/css" media="all">
-<script src="/theme-previews/storelib-default/a/i.9790def5bd53.js"></script><script src="/theme-previews/_base/a/header-sticky-extras.78e1fb4f310f.js" defer="defer"></script></div><script src="/theme-previews/storelib-default/a/i.0d9f91566ff2.js"></script>
-<main id="MainContent" class="content-for-layout focus-none" role="main" tabindex="-1"><section id="shopify-section-main" class="shopify-section section" data-section-id="main" data-section-type="main-article"><style>
-  #shopify-section-main {
-    font-family: var(--body-font, inherit);
-    font-size: var(--body-font-size, inherit);
-    font-weight: var(--body-weight, inherit);
-    line-height: var(--body-line-height, inherit);
-    color: var(--color-text);
-  }
-  #shopify-section-main :is(h1, h2, h3, h4, h5, h6) {
-    font-family: var(--heading-font, inherit);
-    font-weight: var(--heading-weight, inherit);
-    letter-spacing: var(--heading-letter-spacing, normal);
-    line-height: var(--heading-line-height, 1.2);
-    text-transform: var(--heading-text-transform, none);
-  }
+<link href="/theme-previews/_base/a/header-sticky.3e10a26b0bdf.css" rel="stylesheet" type="text/css" media="all">
+<script src="/theme-previews/storelib-default/a/i.9790def5bd53.js"></script><script src="/theme-previews/_base/a/header-sticky-extras.78e1fb4f310f.js" defer="defer"></script></div><script>(function(){var l=document.querySelectorAll('.shopify-section-group-header-group');for(var i=0;i < l.length && i < 6;i++)l[i].setAttribute('data-mt-hold',String(i))})();</script><script src="/theme-previews/storelib-default/a/i.0235c8b1fe44.js"></script>
+<main id="MainContent" class="content-for-layout focus-none" role="main" tabindex="-1"><section id="shopify-section-main" class="shopify-section section s-tt" data-section-id="main" data-section-type="main-article"><style>
   :where(html:not([data-font-priority='off'])) #shopify-section-main :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
@@ -1035,9 +1015,7 @@ itemprop="articleBody"
 data-lcp-block="content_article_nGLPt4" data-lcp-block-type="content_article"
 data-block-id="content_article_nGLPt4"
 ><p>Every order is checked by hand before it leaves. This is what happens between your payment and the parcel at your door.</p><h2 id="first">First, the check</h2><p>We look at each item, then pack it so it arrives the way it left.</p><ul><li>Checked</li><li>Packed</li><li>Sent with tracking</li></ul><blockquote>If something is wrong, write to us and we will put it right.</blockquote><h2 id="then">Then, the post</h2><p>Parcels leave on weekdays. You get an email with the tracking number the moment yours is collected.</p></div><div class="single__post-content-inner container-min" data-lcp-block="author_highlight_n4CqbT" data-lcp-block-type="author_highlight" data-block-id="author_highlight_n4CqbT" style="--ma-author-size: 65px;">
-<div class="author-highlight" style="display: flex; align-items: center; gap: 10px; margin-top: 40px;"><span class="author-highlight__image inline-flex" aria-hidden="true">
-<svg class="w-full h-full" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 525.5 525.5" preserveAspectRatio="xMidYMid slice" role="img" aria-label="image"><rect width="525.5" height="525.5" fill="currentColor" opacity=".06"/><path d="M175 200h175v125H175z M200 300l35-45 30 35 25-25 35 35z" fill="none" stroke="currentColor" stroke-width="6" opacity=".35"/><circle cx="305" cy="235" r="14" fill="currentColor" opacity=".25"/></svg>
-</span><div>
+<div class="author-highlight" style="display: flex; align-items: center; gap: 10px; margin-top: 40px;"><span class="author-highlight__image inline-flex" aria-hidden="true"><svg data-ph aria-hidden="true" focusable="false" preserveAspectRatio="xMidYMid slice" class="placeholder-image placeholder-svg w-full h-full" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 525.5 525.5" preserveAspectRatio="xMidYMid slice" role="img" aria-label="lifestyle"><rect width="525.5" height="525.5" fill="currentColor" opacity=".06"/><path d="M175 200h175v125H175z M200 300l35-45 30 35 25-25 35 35z" fill="none" stroke="currentColor" stroke-width="6" opacity=".35"/><circle cx="305" cy="235" r="14" fill="currentColor" opacity=".25"/></svg></span><div>
 <p style="margin: 0 0 5px;" data-ma-author-text>Thanks for reading. New posts go out with the newsletter.</p><p style="margin: 0;">
 Written by <strong>Sam Rivera</strong>
 </p></div>
@@ -1045,21 +1023,8 @@ Written by <strong>Sam Rivera</strong>
 </div></article>
 <!-- END: Main Article Content (No Sidebar) --></div>
 </div>
-<script src="/theme-previews/_base/a/blog.f2a9ad94acc5.js" defer="defer"></script></section><section id="shopify-section-blog_posts_bRcpan" class="shopify-section section" data-section-id="blog_posts_bRcpan" data-section-type="blog-posts"><script src="/theme-previews/_base/a/live-blog-slideshow.3b4030457a2e.js" defer="defer"></script><style>
-  #shopify-section-blog_posts_bRcpan {
-    font-family: var(--body-font, inherit);
-    font-size: var(--body-font-size, inherit);
-    font-weight: var(--body-weight, inherit);
-    line-height: var(--body-line-height, inherit);
-    color: var(--color-text);
-  }
-  #shopify-section-blog_posts_bRcpan :is(h1, h2, h3, h4, h5, h6) {
-    font-family: var(--heading-font, inherit);
-    font-weight: var(--heading-weight, inherit);
-    letter-spacing: var(--heading-letter-spacing, normal);
-    line-height: var(--heading-line-height, 1.2);
-    text-transform: var(--heading-text-transform, none);
-  }
+<script src="/theme-previews/_base/a/blog.f2a9ad94acc5.js" defer="defer"></script><link rel="stylesheet" href="/theme-previews/storelib-default/a/i.0faf9ae4ec5e.css">
+</section><section id="shopify-section-blog_posts_bRcpan" class="shopify-section section s-tt" data-section-id="blog_posts_bRcpan" data-section-type="blog-posts"><script src="/theme-previews/_base/a/live-blog-slideshow-runtime.0a9f10864e1c.js" defer="defer"></script><style>
   :where(html:not([data-font-priority='off'])) #shopify-section-blog_posts_bRcpan :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
@@ -1086,7 +1051,6 @@ data-bp-root
 data-bp-section="blog_posts_bRcpan"
 data-bp-align="left"
 data-bp-blog-url="/blogs/news"
-data-bp-settings="{&quot;color_scheme&quot;:{&quot;id&quot;:&quot;default&quot;,&quot;settings&quot;:{&quot;page_colors&quot;:null,&quot;background&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;text_color&quot;:{&quot;red&quot;:74,&quot;green&quot;:74,&quot;blue&quot;:74,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:29,&quot;rgb&quot;:&quot;74 74 74&quot;,&quot;rgba&quot;:&quot;74 74 74 / 1&quot;,&quot;hex&quot;:&quot;#4a4a4a&quot;},&quot;heading_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:17,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 17&quot;,&quot;rgba&quot;:&quot;17 17 17 / 1&quot;,&quot;hex&quot;:&quot;#111111&quot;},&quot;primary_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:17,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 17&quot;,&quot;rgba&quot;:&quot;17 17 17 / 1&quot;,&quot;hex&quot;:&quot;#111111&quot;},&quot;border_color&quot;:{&quot;red&quot;:230,&quot;green&quot;:230,&quot;blue&quot;:227,&quot;alpha&quot;:1,&quot;hue&quot;:60,&quot;saturation&quot;:6,&quot;lightness&quot;:90,&quot;rgb&quot;:&quot;230 230 227&quot;,&quot;rgba&quot;:&quot;230 230 227 / 1&quot;,&quot;hex&quot;:&quot;#e6e6e3&quot;},&quot;badge_background&quot;:null,&quot;badge_text&quot;:null,&quot;primary_button_colors&quot;:null,&quot;btn_primary_background&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:17,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 17&quot;,&quot;rgba&quot;:&quot;17 17 17 / 1&quot;,&quot;hex&quot;:&quot;#111111&quot;},&quot;btn_primary_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_primary_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_primary_hover_background&quot;:{&quot;red&quot;:43,&quot;green&quot;:68,&quot;blue&quot;:168,&quot;alpha&quot;:1,&quot;hue&quot;:228,&quot;saturation&quot;:59,&quot;lightness&quot;:41,&quot;rgb&quot;:&quot;43 68 168&quot;,&quot;rgba&quot;:&quot;43 68 168 / 1&quot;,&quot;hex&quot;:&quot;#2b44a8&quot;},&quot;btn_primary_hover_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_primary_hover_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;secondary_button_colors&quot;:null,&quot;btn_secondary_background&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:17,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 17&quot;,&quot;rgba&quot;:&quot;17 17 17 / 1&quot;,&quot;hex&quot;:&quot;#111111&quot;},&quot;btn_secondary_border&quot;:{&quot;red&quot;:207,&quot;green&quot;:207,&quot;blue&quot;:203,&quot;alpha&quot;:1,&quot;hue&quot;:60,&quot;saturation&quot;:4,&quot;lightness&quot;:80,&quot;rgb&quot;:&quot;207 207 203&quot;,&quot;rgba&quot;:&quot;207 207 203 / 1&quot;,&quot;hex&quot;:&quot;#cfcfcb&quot;},&quot;btn_secondary_hover_background&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_hover_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:17,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 17&quot;,&quot;rgba&quot;:&quot;17 17 17 / 1&quot;,&quot;hex&quot;:&quot;#111111&quot;},&quot;btn_secondary_hover_border_color&quot;:null,&quot;background_gradient&quot;:&quot;&quot;,&quot;btn_primary_gradient&quot;:&quot;&quot;,&quot;btn_primary_hover_background_gradient&quot;:&quot;&quot;,&quot;btn_secondary_hover_border&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:17,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 17&quot;,&quot;rgba&quot;:&quot;17 17 17 / 1&quot;,&quot;hex&quot;:&quot;#111111&quot;},&quot;btn_outline_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:17,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 17&quot;,&quot;rgba&quot;:&quot;17 17 17 / 1&quot;,&quot;hex&quot;:&quot;#111111&quot;},&quot;btn_outline_border_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:17,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 17&quot;,&quot;rgba&quot;:&quot;17 17 17 / 1&quot;,&quot;hex&quot;:&quot;#111111&quot;},&quot;button_link_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:17,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 17&quot;,&quot;rgba&quot;:&quot;17 17 17 / 1&quot;,&quot;hex&quot;:&quot;#111111&quot;},&quot;button_link_hover_color&quot;:{&quot;red&quot;:43,&quot;green&quot;:68,&quot;blue&quot;:168,&quot;alpha&quot;:1,&quot;hue&quot;:228,&quot;saturation&quot;:59,&quot;lightness&quot;:41,&quot;rgb&quot;:&quot;43 68 168&quot;,&quot;rgba&quot;:&quot;43 68 168 / 1&quot;,&quot;hex&quot;:&quot;#2b44a8&quot;}}},&quot;section_width&quot;:&quot;container&quot;,&quot;reset_spacing&quot;:true,&quot;blog&quot;:{&quot;id&quot;:&quot;news&quot;,&quot;handle&quot;:&quot;news&quot;,&quot;title&quot;:&quot;Journal&quot;,&quot;description&quot;:&quot;Notes from the shop&quot;,&quot;url&quot;:&quot;/theme-previews/storelib-default/blogs/news.html&quot;,&quot;articles&quot;:[{&quot;id&quot;:&quot;post-1&quot;,&quot;handle&quot;:&quot;how-we-pack-every-order&quot;,&quot;title&quot;:&quot;How we pack every order&quot;,&quot;url&quot;:&quot;/theme-previews/storelib-default/blogs/news/how-we-pack-every-order.html&quot;,&quot;content&quot;:&quot;&lt;p&gt;A short note from the shop about how things are made, packed and sent.&lt;\/p&gt;&quot;,&quot;excerpt&quot;:&quot;&lt;p&gt;A short note from the shop about how things are made, packed and sent.&lt;\/p&gt;&quot;,&quot;excerpt_or_content&quot;:&quot;&lt;p&gt;A short note from the shop about how things are made, packed and sent.&lt;\/p&gt;&quot;,&quot;image&quot;:{&quot;id&quot;:973522269,&quot;src&quot;:&quot;/theme-previews/storelib-default/a/default-mug.f5190a4f77ff.webp&quot;,&quot;url&quot;:&quot;/theme-previews/storelib-default/a/default-mug.f5190a4f77ff.webp&quot;,&quot;alt&quot;:&quot;How we pack every order&quot;,&quot;width&quot;:1600,&quot;height&quot;:900,&quot;aspect_ratio&quot;:{&quot;v&quot;:1.778},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:973522269,&quot;src&quot;:&quot;/theme-previews/storelib-default/a/default-mug.f5190a4f77ff.webp&quot;,&quot;url&quot;:&quot;/theme-previews/storelib-default/a/default-mug.f5190a4f77ff.webp&quot;,&quot;alt&quot;:&quot;How we pack every order&quot;,&quot;width&quot;:1600,&quot;height&quot;:900,&quot;aspect_ratio&quot;:{&quot;v&quot;:1.778},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:973522269,&quot;src&quot;:&quot;/theme-previews/storelib-default/a/default-mug.f5190a4f77ff.webp&quot;,&quot;url&quot;:&quot;/theme-previews/storelib-default/a/default-mug.f5190a4f77ff.webp&quot;,&quot;alt&quot;:&quot;How we pack every order&quot;,&quot;width&quot;:1600,&quot;height&quot;:900,&quot;aspect_ratio&quot;:{&quot;v&quot;:1.778},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:null,&quot;y&quot;:null}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:973522269,&quot;src&quot;:&quot;/theme-previews/storelib-default/a/default-mug.f5190a4f77ff.webp&quot;,&quot;url&quot;:&quot;/theme-previews/storelib-default/a/default-mug.f5190a4f77ff.webp&quot;,&quot;alt&quot;:&quot;How we pack every order&quot;,&quot;width&quot;:1600,&quot;height&quot;:900,&quot;aspect_ratio&quot;:{&quot;v&quot;:null},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:null},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:null,&quot;src&quot;:null,&quot;url&quot;:null,&quot;alt&quot;:null,&quot;width&quot;:null,&quot;height&quot;:null,&quot;aspect_ratio&quot;:null,&quot;media_type&quot;:null,&quot;position&quot;:null,&quot;presentation&quot;:null,&quot;attached_to_variant&quot;:null,&quot;variants&quot;:null,&quot;preview_image&quot;:null}}}}},&quot;published_at&quot;:&quot;2026-11-20T12:00:00.000Z&quot;,&quot;created_at&quot;:&quot;2026-11-20T12:00:00.000Z&quot;,&quot;updated_at&quot;:&quot;2026-11-20T12:00:00.000Z&quot;,&quot;author&quot;:&quot;Sam Rivera&quot;,&quot;user&quot;:{&quot;name&quot;:&quot;Sam Rivera&quot;,&quot;first_name&quot;:&quot;Sam&quot;,&quot;last_name&quot;:&quot;Rivera&quot;,&quot;bio&quot;:&quot;Runs the shop.&quot;,&quot;image&quot;:null,&quot;homepage&quot;:null,&quot;account_owner&quot;:false,&quot;email&quot;:&quot;&quot;},&quot;tags&quot;:[&quot;Notes&quot;],&quot;comments&quot;:[],&quot;comments_count&quot;:0,&quot;comments_enabled&quot;:false,&quot;comment_post_url&quot;:&quot;&quot;,&quot;moderated&quot;:false,&quot;template_suffix&quot;:null,&quot;metafields&quot;:{},&quot;storelib&quot;:{&quot;reading_minutes&quot;:3,&quot;featured&quot;:true,&quot;category&quot;:{&quot;title&quot;:&quot;Notes&quot;,&quot;handle&quot;:&quot;notes&quot;,&quot;url&quot;:&quot;/blogs/news/category/notes&quot;}}},{&quot;id&quot;:&quot;post-2&quot;,&quot;handle&quot;:&quot;three-questions-we-get-every-week&quot;,&quot;title&quot;:&quot;Three questions we get every week&quot;,&quot;url&quot;:&quot;/theme-previews/storelib-default/blogs/news/three-questions-we-get-every-week.html&quot;,&quot;content&quot;:&quot;&lt;p&gt;A short note from the shop about how things are made, packed and sent.&lt;\/p&gt;&quot;,&quot;excerpt&quot;:&quot;&lt;p&gt;A short note from the shop about how things are made, packed and sent.&lt;\/p&gt;&quot;,&quot;excerpt_or_content&quot;:&quot;&lt;p&gt;A short note from the shop about how things are made, packed and sent.&lt;\/p&gt;&quot;,&quot;image&quot;:{&quot;id&quot;:973522269,&quot;src&quot;:&quot;/theme-previews/storelib-default/a/default-mug.f5190a4f77ff.webp&quot;,&quot;url&quot;:&quot;/theme-previews/storelib-default/a/default-mug.f5190a4f77ff.webp&quot;,&quot;alt&quot;:&quot;Three questions we get every week&quot;,&quot;width&quot;:1600,&quot;height&quot;:900,&quot;aspect_ratio&quot;:{&quot;v&quot;:1.778},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:973522269,&quot;src&quot;:&quot;/theme-previews/storelib-default/a/default-mug.f5190a4f77ff.webp&quot;,&quot;url&quot;:&quot;/theme-previews/storelib-default/a/default-mug.f5190a4f77ff.webp&quot;,&quot;alt&quot;:&quot;Three questions we get every week&quot;,&quot;width&quot;:1600,&quot;height&quot;:900,&quot;aspect_ratio&quot;:{&quot;v&quot;:1.778},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:973522269,&quot;src&quot;:&quot;/theme-previews/storelib-default/a/default-mug.f5190a4f77ff.webp&quot;,&quot;url&quot;:&quot;/theme-previews/storelib-default/a/default-mug.f5190a4f77ff.webp&quot;,&quot;alt&quot;:&quot;Three questions we get every week&quot;,&quot;width&quot;:1600,&quot;height&quot;:900,&quot;aspect_ratio&quot;:{&quot;v&quot;:1.778},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:null,&quot;y&quot;:null}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:973522269,&quot;src&quot;:&quot;/theme-previews/storelib-default/a/default-mug.f5190a4f77ff.webp&quot;,&quot;url&quot;:&quot;/theme-previews/storelib-default/a/default-mug.f5190a4f77ff.webp&quot;,&quot;alt&quot;:&quot;Three questions we get every week&quot;,&quot;width&quot;:1600,&quot;height&quot;:900,&quot;aspect_ratio&quot;:{&quot;v&quot;:null},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:null},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:null,&quot;src&quot;:null,&quot;url&quot;:null,&quot;alt&quot;:null,&quot;width&quot;:null,&quot;height&quot;:null,&quot;aspect_ratio&quot;:null,&quot;media_type&quot;:null,&quot;position&quot;:null,&quot;presentation&quot;:null,&quot;attached_to_variant&quot;:null,&quot;variants&quot;:null,&quot;preview_image&quot;:null}}}}},&quot;published_at&quot;:&quot;2026-11-19T12:00:00.000Z&quot;,&quot;created_at&quot;:&quot;2026-11-19T12:00:00.000Z&quot;,&quot;updated_at&quot;:&quot;2026-11-19T12:00:00.000Z&quot;,&quot;author&quot;:&quot;Sam Rivera&quot;,&quot;user&quot;:{&quot;name&quot;:&quot;Sam Rivera&quot;,&quot;first_name&quot;:&quot;Sam&quot;,&quot;last_name&quot;:&quot;Rivera&quot;,&quot;bio&quot;:&quot;Runs the shop.&quot;,&quot;image&quot;:null,&quot;homepage&quot;:null,&quot;account_owner&quot;:false,&quot;email&quot;:&quot;&quot;},&quot;tags&quot;:[&quot;Questions&quot;],&quot;comments&quot;:[],&quot;comments_count&quot;:0,&quot;comments_enabled&quot;:false,&quot;comment_post_url&quot;:&quot;&quot;,&quot;moderated&quot;:false,&quot;template_suffix&quot;:null,&quot;metafields&quot;:{},&quot;storelib&quot;:{&quot;reading_minutes&quot;:3,&quot;featured&quot;:false,&quot;category&quot;:null}},{&quot;id&quot;:&quot;post-3&quot;,&quot;handle&quot;:&quot;what-changed-this-season&quot;,&quot;title&quot;:&quot;What changed this season&quot;,&quot;url&quot;:&quot;/theme-previews/storelib-default/blogs/news/what-changed-this-season.html&quot;,&quot;content&quot;:&quot;&lt;p&gt;A short note from the shop about how things are made, packed and sent.&lt;\/p&gt;&quot;,&quot;excerpt&quot;:&quot;&lt;p&gt;A short note from the shop about how things are made, packed and sent.&lt;\/p&gt;&quot;,&quot;excerpt_or_content&quot;:&quot;&lt;p&gt;A short note from the shop about how things are made, packed and sent.&lt;\/p&gt;&quot;,&quot;image&quot;:{&quot;id&quot;:973522269,&quot;src&quot;:&quot;/theme-previews/storelib-default/a/default-mug.f5190a4f77ff.webp&quot;,&quot;url&quot;:&quot;/theme-previews/storelib-default/a/default-mug.f5190a4f77ff.webp&quot;,&quot;alt&quot;:&quot;What changed this season&quot;,&quot;width&quot;:1600,&quot;height&quot;:900,&quot;aspect_ratio&quot;:{&quot;v&quot;:1.778},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:973522269,&quot;src&quot;:&quot;/theme-previews/storelib-default/a/default-mug.f5190a4f77ff.webp&quot;,&quot;url&quot;:&quot;/theme-previews/storelib-default/a/default-mug.f5190a4f77ff.webp&quot;,&quot;alt&quot;:&quot;What changed this season&quot;,&quot;width&quot;:1600,&quot;height&quot;:900,&quot;aspect_ratio&quot;:{&quot;v&quot;:1.778},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:973522269,&quot;src&quot;:&quot;/theme-previews/storelib-default/a/default-mug.f5190a4f77ff.webp&quot;,&quot;url&quot;:&quot;/theme-previews/storelib-default/a/default-mug.f5190a4f77ff.webp&quot;,&quot;alt&quot;:&quot;What changed this season&quot;,&quot;width&quot;:1600,&quot;height&quot;:900,&quot;aspect_ratio&quot;:{&quot;v&quot;:1.778},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:null,&quot;y&quot;:null}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:973522269,&quot;src&quot;:&quot;/theme-previews/storelib-default/a/default-mug.f5190a4f77ff.webp&quot;,&quot;url&quot;:&quot;/theme-previews/storelib-default/a/default-mug.f5190a4f77ff.webp&quot;,&quot;alt&quot;:&quot;What changed this season&quot;,&quot;width&quot;:1600,&quot;height&quot;:900,&quot;aspect_ratio&quot;:{&quot;v&quot;:null},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:null},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:null,&quot;src&quot;:null,&quot;url&quot;:null,&quot;alt&quot;:null,&quot;width&quot;:null,&quot;height&quot;:null,&quot;aspect_ratio&quot;:null,&quot;media_type&quot;:null,&quot;position&quot;:null,&quot;presentation&quot;:null,&quot;attached_to_variant&quot;:null,&quot;variants&quot;:null,&quot;preview_image&quot;:null}}}}},&quot;published_at&quot;:&quot;2026-11-18T12:00:00.000Z&quot;,&quot;created_at&quot;:&quot;2026-11-18T12:00:00.000Z&quot;,&quot;updated_at&quot;:&quot;2026-11-18T12:00:00.000Z&quot;,&quot;author&quot;:&quot;Sam Rivera&quot;,&quot;user&quot;:{&quot;name&quot;:&quot;Sam Rivera&quot;,&quot;first_name&quot;:&quot;Sam&quot;,&quot;last_name&quot;:&quot;Rivera&quot;,&quot;bio&quot;:&quot;Runs the shop.&quot;,&quot;image&quot;:null,&quot;homepage&quot;:null,&quot;account_owner&quot;:false,&quot;email&quot;:&quot;&quot;},&quot;tags&quot;:[&quot;Notes&quot;],&quot;comments&quot;:[],&quot;comments_count&quot;:0,&quot;comments_enabled&quot;:false,&quot;comment_post_url&quot;:&quot;&quot;,&quot;moderated&quot;:false,&quot;template_suffix&quot;:null,&quot;metafields&quot;:{},&quot;storelib&quot;:{&quot;reading_minutes&quot;:3,&quot;featured&quot;:false,&quot;category&quot;:null}}],&quot;articles_count&quot;:3,&quot;tags&quot;:[&quot;Notes&quot;,&quot;Questions&quot;],&quot;all_tags&quot;:[&quot;Notes&quot;,&quot;Questions&quot;],&quot;comments_enabled&quot;:false,&quot;moderated&quot;:false,&quot;template_suffix&quot;:null,&quot;metafields&quot;:{}},&quot;items_to_show&quot;:3,&quot;heading&quot;:&quot;More from the journal&quot;,&quot;description&quot;:&quot;&quot;,&quot;show_view_all&quot;:true,&quot;view_all_label&quot;:&quot;&quot;,&quot;view_all_link&quot;:&quot;&quot;,&quot;show_author&quot;:true,&quot;show_date&quot;:true,&quot;header_alignment&quot;:&quot;left&quot;,&quot;content_alignment&quot;:&quot;left&quot;,&quot;items_per_row&quot;:3,&quot;column_gap&quot;:30,&quot;vertical_gap&quot;:30,&quot;heading_subtext_gap&quot;:12,&quot;carousel_pagination&quot;:&quot;disable&quot;,&quot;pagination_style&quot;:&quot;pill&quot;,&quot;pagination_position&quot;:&quot;center&quot;,&quot;infinite&quot;:false,&quot;autoplay&quot;:false,&quot;autorotate_speed&quot;:5,&quot;image_ratio&quot;:&quot;custom&quot;,&quot;custom_ratio&quot;:&quot;16:9&quot;,&quot;enable_custom_style&quot;:false,&quot;view_all_bg_color&quot;:null,&quot;view_all_text_color&quot;:null,&quot;view_all_hover_bg_color&quot;:null,&quot;view_all_hover_text_color&quot;:null,&quot;heading_color&quot;:null,&quot;text_color&quot;:null,&quot;title_color&quot;:null,&quot;meta_color&quot;:null,&quot;enable_custom_heading_size&quot;:true,&quot;heading_font_size&quot;:24,&quot;enable_custom_fonts&quot;:false,&quot;heading_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;body_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;enable_custom_weight&quot;:false,&quot;heading_weight&quot;:&quot;600&quot;,&quot;enable_custom_size&quot;:false,&quot;heading_line_height&quot;:1.2,&quot;heading_letter_spacing&quot;:0,&quot;reveal&quot;:false,&quot;padding_top&quot;:24,&quot;padding_bottom&quot;:56,&quot;items_per_row_mobile&quot;:1}"
 >
 <div class="container"><div
 class="section__header text-left"
@@ -1139,7 +1103,7 @@ href="/theme-previews/storelib-default/blogs/news/three-questions-we-get-every-w
 aria-label="Three questions we get every week"
 style="--aspect-ratio: 16/9;"
 >
-<img src="/theme-previews/storelib-default/a/default-mug.f5190a4f77ff.webp" srcset="/theme-previews/storelib-default/a/default-mug-800.136f125526bb.webp 720w, /theme-previews/storelib-default/a/default-mug-800.136f125526bb.webp 660w, /theme-previews/storelib-default/a/default-mug-800.136f125526bb.webp 550w, /theme-previews/storelib-default/a/default-mug-800.136f125526bb.webp 480w, /theme-previews/storelib-default/a/default-mug-400.488cd8e98b37.webp 360w" alt="Three questions we get every week" width="1600" height="900" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1310px -  30px * 2) * 0.33), (min-width: 768px) calc( (100vw - 30px - 30px * 2 ) * 0.33), calc( (100vw - 30px - 15px * 0 ) * 1)" class="rounded">
+<img src="/theme-previews/storelib-default/a/default-mug.f5190a4f77ff.webp" srcset="/theme-previews/storelib-default/a/default-mug-800.136f125526bb.webp 720w, /theme-previews/storelib-default/a/default-mug-800.136f125526bb.webp 660w, /theme-previews/storelib-default/a/default-mug-800.136f125526bb.webp 550w, /theme-previews/storelib-default/a/default-mug-800.136f125526bb.webp 480w, /theme-previews/storelib-default/a/default-mug-400.488cd8e98b37.webp 360w" alt="Three questions we get every week" width="1600" height="900" loading="lazy" fetchpriority="auto" decoding="async" sizes="auto, (min-width: 1200px) calc((1310px -  30px * 2) * 0.33), (min-width: 768px) calc( (100vw - 30px - 30px * 2 ) * 0.33), calc( (100vw - 30px - 15px * 0 ) * 1)" class="rounded">
 </a>
 </div>
 <div class="blog-posts-info text-left mt-30"><h3 class="blog-posts-title fs-20 mt-0 mb-10 heading-letter-spacing">
@@ -1172,7 +1136,7 @@ href="/theme-previews/storelib-default/blogs/news/what-changed-this-season.html"
 aria-label="What changed this season"
 style="--aspect-ratio: 16/9;"
 >
-<img src="/theme-previews/storelib-default/a/default-mug.f5190a4f77ff.webp" srcset="/theme-previews/storelib-default/a/default-mug-800.136f125526bb.webp 720w, /theme-previews/storelib-default/a/default-mug-800.136f125526bb.webp 660w, /theme-previews/storelib-default/a/default-mug-800.136f125526bb.webp 550w, /theme-previews/storelib-default/a/default-mug-800.136f125526bb.webp 480w, /theme-previews/storelib-default/a/default-mug-400.488cd8e98b37.webp 360w" alt="What changed this season" width="1600" height="900" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((1310px -  30px * 2) * 0.33), (min-width: 768px) calc( (100vw - 30px - 30px * 2 ) * 0.33), calc( (100vw - 30px - 15px * 0 ) * 1)" class="rounded">
+<img src="/theme-previews/storelib-default/a/default-mug.f5190a4f77ff.webp" srcset="/theme-previews/storelib-default/a/default-mug-800.136f125526bb.webp 720w, /theme-previews/storelib-default/a/default-mug-800.136f125526bb.webp 660w, /theme-previews/storelib-default/a/default-mug-800.136f125526bb.webp 550w, /theme-previews/storelib-default/a/default-mug-800.136f125526bb.webp 480w, /theme-previews/storelib-default/a/default-mug-400.488cd8e98b37.webp 360w" alt="What changed this season" width="1600" height="900" loading="lazy" fetchpriority="auto" decoding="async" sizes="auto, (min-width: 1200px) calc((1310px -  30px * 2) * 0.33), (min-width: 768px) calc( (100vw - 30px - 30px * 2 ) * 0.33), calc( (100vw - 30px - 15px * 0 ) * 1)" class="rounded">
 </a>
 </div>
 <div class="blog-posts-info text-left mt-30"><h3 class="blog-posts-title fs-20 mt-0 mb-10 heading-letter-spacing">
@@ -1194,22 +1158,8 @@ Nov 18 2026
 </div>
 </div>
 </div></section>
-</main><script src="/theme-previews/storelib-default/a/i.3221b11617b1.js"></script>
-<div id="shopify-section-footer" class="shopify-section shopify-section-group-footer-group" data-section-id="footer" data-section-type="theme-footer"><style>
-  #shopify-section-footer {
-    font-family: var(--body-font, inherit);
-    font-size: var(--body-font-size, inherit);
-    font-weight: var(--body-weight, inherit);
-    line-height: var(--body-line-height, inherit);
-    color: var(--color-text);
-  }
-  #shopify-section-footer :is(h1, h2, h3, h4, h5, h6) {
-    font-family: var(--heading-font, inherit);
-    font-weight: var(--heading-weight, inherit);
-    letter-spacing: var(--heading-letter-spacing, normal);
-    line-height: var(--heading-line-height, 1.2);
-    text-transform: var(--heading-text-transform, none);
-  }
+</main><script src="/theme-previews/storelib-default/a/i.4b7055612832.js"></script>
+<div id="shopify-section-footer" class="shopify-section shopify-section-group-footer-group s-tt" data-section-id="footer" data-section-type="theme-footer"><style>
   :where(html:not([data-font-priority='off'])) #shopify-section-footer :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
@@ -1456,50 +1406,54 @@ United States
 <li class="disclosure__item py-4" tabindex="-1">
 <a
 href="#"
-class="no-underline text-color hover-heading-color"
+class="loc-option no-underline text-color hover-heading-color"
 aria-current="true"
 hreflang="en"
 lang="en"
 data-value="en"
 aria-label="English"
 >
-English
+<span class="loc-option__label">English</span>
+<svg class="loc-option__check" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
 </a>
 </li>
 <li class="disclosure__item py-4" tabindex="-1">
 <a
 href="#"
-class="no-underline text-color hover-heading-color"
+class="loc-option no-underline text-color hover-heading-color"
 hreflang="fr"
 lang="fr"
 data-value="fr"
 aria-label="Français"
 >
-Français
+<span class="loc-option__label">Français</span>
+<svg class="loc-option__check" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
 </a>
 </li>
 <li class="disclosure__item py-4" tabindex="-1">
 <a
 href="#"
-class="no-underline text-color hover-heading-color"
+class="loc-option no-underline text-color hover-heading-color"
 hreflang="de"
 lang="de"
 data-value="de"
 aria-label="Deutsch"
 >
-Deutsch
+<span class="loc-option__label">Deutsch</span>
+<svg class="loc-option__check" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
 </a>
 </li>
 <li class="disclosure__item py-4" tabindex="-1">
 <a
 href="#"
-class="no-underline text-color hover-heading-color"
+class="loc-option no-underline text-color hover-heading-color"
 hreflang="es"
 lang="es"
 data-value="es"
 aria-label="Español"
 >
-Español
+<span class="loc-option__label">Español</span>
+<svg class="loc-option__check" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
 </a>
 </li>
 </ul>
@@ -1576,26 +1530,11 @@ viewBox="0 0 165.521 105.965">
 </div>
 </div>
 </footer>
-<script src="/theme-previews/_base/a/footer-section.9a4c5ff9f6cb.js" defer></script></div><section id="shopify-section-coupon_promotion_newsletter_popup" class="shopify-section shopify-section-group-overlay-group cpnb-section" data-section-id="coupon_promotion_newsletter_popup" data-section-type="coupon-promotion-newsletter-popup"><script src="/theme-previews/_base/a/live-page-popups.b4de4283a50f.js" defer="defer"></script>
-<style>
-  #shopify-section-coupon_promotion_newsletter_popup {
-    font-family: var(--body-font, inherit);
-    font-size: var(--body-font-size, inherit);
-    font-weight: var(--body-weight, inherit);
-    line-height: var(--body-line-height, inherit);
-    color: var(--color-text);
-  }
-  #shopify-section-coupon_promotion_newsletter_popup :is(h1, h2, h3, h4, h5, h6) {
-    font-family: var(--heading-font, inherit);
-    font-weight: var(--heading-weight, inherit);
-    letter-spacing: var(--heading-letter-spacing, normal);
-    line-height: var(--heading-line-height, 1.2);
-    text-transform: var(--heading-text-transform, none);
-  }
+<script src="/theme-previews/_base/a/footer-section.250ebdc9bef8.js" defer></script></div><section id="shopify-section-coupon_promotion_newsletter_popup" class="shopify-section shopify-section-group-overlay-group cpnb-section s-tt has-overlay" data-section-id="coupon_promotion_newsletter_popup" data-section-type="coupon-promotion-newsletter-popup"><script src="/theme-previews/_base/a/live-page-popups-runtime.8ade52702ae7.js" defer="defer"></script><style>
   :where(html:not([data-font-priority='off'])) #shopify-section-coupon_promotion_newsletter_popup :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
-</style><link rel="stylesheet" href="/theme-previews/storelib-default/a/i.b52c225058ec.css"><link rel="stylesheet" href="/theme-previews/storelib-default/a/i.0fb356914815.css">
+</style><link rel="stylesheet" href="/theme-previews/storelib-default/a/i.81ecb019cba2.css"><link rel="stylesheet" href="/theme-previews/storelib-default/a/i.d86a72bda699.css">
 <section class="cpnb-coupon_promotion_newsletter_popup color-default" data-pg-root="coupon-promotion-newsletter-popup" data-pg-section="coupon_promotion_newsletter_popup"
 data-cpnb-side="image-left" data-cpnb-mobile-image="above" data-cpnb-ratio="auto" data-cpnb-mh="fixed" data-cpnb-align="left" data-cpnb-gate="true"
 data-cpnb-section="coupon_promotion_newsletter_popup"
@@ -1617,10 +1556,11 @@ style="--cpnb-size: 15px; font-size: var(--cpnb-size); color: var(--color-text);
 data-block-id="subheading">Join the list for new things from the studio, about twice a month. Your code shows as soon as you sign up.</p><div class="cpnb-prepane-coupon_promotion_newsletter_popup"><div class="cpnb-code-row-coupon_promotion_newsletter_popup cpnb-coupon-coupon_promotion_newsletter_popup cpnb-coupon-ungated" data-pg-block="coupon" data-pg-type="coupon" data-block-id="coupon">
 <span class="cpnb-code-label-coupon_promotion_newsletter_popup">Your code</span>
 <button type="button" class="cpnb-code-coupon_promotion_newsletter_popup" data-code="WELCOME10" aria-label="Copy coupon code">WELCOME10</button>
-</div><div class="cpnb-form-coupon_promotion_newsletter_popup" data-pg-block="form" data-pg-type="form" data-pg-i18n='{"placeholder":&quot;Enter your email&quot;,"submit":&quot;Subscribe&quot;}' data-block-id="form">
-<form id="cpnb-form-coupon_promotion_newsletter_popup" class="cpnb-formel-coupon_promotion_newsletter_popup" data-storelib-form="subscribe" data-preview-form>
+</div><div class="cpnb-form-coupon_promotion_newsletter_popup" data-pg-block="form" data-pg-type="form" data-pg-i18n='{"placeholder":&quot;Enter your email&quot;,"submit":&quot;Subscribe&quot;}' data-block-id="form"><form id="cpnb-form-coupon_promotion_newsletter_popup" accept-charset="UTF-8" class="cpnb-formel-coupon_promotion_newsletter_popup" data-storelib-form="subscribe" data-storelib-form="subscribe" data-preview-form><input type="hidden" name="form_type" value="customer"><input type="hidden" name="utf8" value="✓"><input type="hidden" name="storelib_placement" value="newsletter"><input type="hidden" name="contact[tags]" value="newsletter">
+<input type="hidden" name="contact[accepts_marketing]" value="true">
+<span hidden data-mt-words data-success-message="Thanks. Your code:" data-already-message="Thanks. Your code:" data-invalid-message="Invalid email or already subscribed" data-error-message="Invalid email or already subscribed"></span>
 <label class="visually-hidden" for="cpnb-form-coupon_promotion_newsletter_popup-email">Email address</label>
-<input id="cpnb-form-coupon_promotion_newsletter_popup-email" type="email" name="email" autocomplete="email" placeholder="Email address" required data-popup-autofocus
+<input id="cpnb-form-coupon_promotion_newsletter_popup-email" type="email" name="contact[email]" autocomplete="email" autocapitalize="off" spellcheck="false" maxlength="254" placeholder="Email address" required data-popup-autofocus
 ><div class="cpnb-phone cpnb-phone--coupon_promotion_newsletter_popup" data-cpnb-phone hidden><div class="cpnb-phone__row">
 <select class="cpnb-phone__cc" data-cpnb-phone-cc aria-label="Country code" id="cpnb-phone-cc-coupon_promotion_newsletter_popup" disabled><option value="+1" data-iso="US" selected>🇺🇸 US +1</option><option value="+1" data-iso="CA">🇨🇦 CA +1</option><option value="+44" data-iso="GB">🇬🇧 GB +44</option><option value="+61" data-iso="AU">🇦🇺 AU +61</option><option value="+64" data-iso="NZ">🇳🇿 NZ +64</option><option value="+353" data-iso="IE">🇮🇪 IE +353</option><option value="+91" data-iso="IN">🇮🇳 IN +91</option><option value="+65" data-iso="SG">🇸🇬 SG +65</option><option value="+852" data-iso="HK">🇭🇰 HK +852</option><option value="+81" data-iso="JP">🇯🇵 JP +81</option><option value="+82" data-iso="KR">🇰🇷 KR +82</option><option value="+86" data-iso="CN">🇨🇳 CN +86</option><option value="+49" data-iso="DE">🇩🇪 DE +49</option><option value="+33" data-iso="FR">🇫🇷 FR +33</option><option value="+34" data-iso="ES">🇪🇸 ES +34</option><option value="+39" data-iso="IT">🇮🇹 IT +39</option><option value="+351" data-iso="PT">🇵🇹 PT +351</option><option value="+31" data-iso="NL">🇳🇱 NL +31</option><option value="+32" data-iso="BE">🇧🇪 BE +32</option><option value="+352" data-iso="LU">🇱🇺 LU +352</option><option value="+41" data-iso="CH">🇨🇭 CH +41</option><option value="+43" data-iso="AT">🇦🇹 AT +43</option><option value="+45" data-iso="DK">🇩🇰 DK +45</option><option value="+46" data-iso="SE">🇸🇪 SE +46</option><option value="+47" data-iso="NO">🇳🇴 NO +47</option><option value="+358" data-iso="FI">🇫🇮 FI +358</option><option value="+354" data-iso="IS">🇮🇸 IS +354</option><option value="+48" data-iso="PL">🇵🇱 PL +48</option><option value="+420" data-iso="CZ">🇨🇿 CZ +420</option><option value="+421" data-iso="SK">🇸🇰 SK +421</option><option value="+36" data-iso="HU">🇭🇺 HU +36</option><option value="+40" data-iso="RO">🇷🇴 RO +40</option><option value="+30" data-iso="GR">🇬🇷 GR +30</option><option value="+90" data-iso="TR">🇹🇷 TR +90</option><option value="+7" data-iso="RU">🇷🇺 RU +7</option><option value="+380" data-iso="UA">🇺🇦 UA +380</option><option value="+972" data-iso="IL">🇮🇱 IL +972</option><option value="+971" data-iso="AE">🇦🇪 AE +971</option><option value="+966" data-iso="SA">🇸🇦 SA +966</option><option value="+20" data-iso="EG">🇪🇬 EG +20</option><option value="+27" data-iso="ZA">🇿🇦 ZA +27</option><option value="+234" data-iso="NG">🇳🇬 NG +234</option><option value="+254" data-iso="KE">🇰🇪 KE +254</option><option value="+55" data-iso="BR">🇧🇷 BR +55</option><option value="+54" data-iso="AR">🇦🇷 AR +54</option><option value="+52" data-iso="MX">🇲🇽 MX +52</option><option value="+56" data-iso="CL">🇨🇱 CL +56</option><option value="+57" data-iso="CO">🇨🇴 CO +57</option><option value="+51" data-iso="PE">🇵🇪 PE +51</option><option value="+58" data-iso="VE">🇻🇪 VE +58</option><option value="+66" data-iso="TH">🇹🇭 TH +66</option><option value="+84" data-iso="VN">🇻🇳 VN +84</option><option value="+63" data-iso="PH">🇵🇭 PH +63</option><option value="+60" data-iso="MY">🇲🇾 MY +60</option><option value="+62" data-iso="ID">🇮🇩 ID +62</option><option value="+886" data-iso="TW">🇹🇼 TW +886</option></select>
 <input
@@ -1641,9 +1581,7 @@ disabled
 <button type="submit" class="btn-primary" data-theme-button="primary" data-sl-button
 style="">
 Sign up
-</button>
-</form>
-</div><div class="cpnb-dismiss-wrap-coupon_promotion_newsletter_popup" data-pg-block="dismiss" data-pg-type="dismiss" data-block-id="dismiss">
+</button></form></div><div class="cpnb-dismiss-wrap-coupon_promotion_newsletter_popup" data-pg-block="dismiss" data-pg-type="dismiss" data-block-id="dismiss">
 <button type="button" class="cpnb-dismiss-coupon_promotion_newsletter_popup" data-popup-close>No thanks</button>
 </div></div>
 <div class="cpnb-postpane-coupon_promotion_newsletter_popup" aria-live="polite"><p class="cpnb-success-coupon_promotion_newsletter_popup" data-pg-block="form" data-pg-type="form">Thanks. Your code:</p><div class="cpnb-code-row-coupon_promotion_newsletter_popup cpnb-coupon-coupon_promotion_newsletter_popup cpnb-coupon-gated" data-pg-block="coupon" data-pg-type="coupon" data-block-id="coupon">
@@ -1651,13 +1589,13 @@ Sign up
 <button type="button" class="cpnb-code-coupon_promotion_newsletter_popup" data-code="WELCOME10" aria-label="Copy coupon code">WELCOME10</button>
 </div></div>
 </div><div class="cpnb-image-coupon_promotion_newsletter_popup" data-pg-block="image" data-pg-type="image" data-pg-i18n="Promotion image" data-block-id="image">
-<template data-pg-ph><svg class="cpnb-placeholder" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 525.5 525.5" preserveAspectRatio="xMidYMid slice" role="img" aria-label="image"><rect width="525.5" height="525.5" fill="currentColor" opacity=".06"/><path d="M175 200h175v125H175z M200 300l35-45 30 35 25-25 35 35z" fill="none" stroke="currentColor" stroke-width="6" opacity=".35"/><circle cx="305" cy="235" r="14" fill="currentColor" opacity=".25"/></svg></template><img src="/theme-previews/storelib-default/a/default-packing.83040754add3.webp" srcset="/theme-previews/storelib-default/a/default-packing-400.9779baaf2d13.webp 352w, /theme-previews/storelib-default/a/default-packing.83040754add3.webp 832w, /theme-previews/storelib-default/a/default-packing.83040754add3.webp 1200w, /theme-previews/storelib-default/a/default-packing.83040754add3.webp 1600w, /theme-previews/storelib-default/a/default-packing.83040754add3.webp 2400w" alt="Person taping a parcel shut on a table" loading="lazy"></div></div>
+<template data-pg-ph><svg class="cpnb-placeholder" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 525.5 525.5" preserveAspectRatio="xMidYMid slice" role="img" aria-label="image"><rect width="525.5" height="525.5" fill="currentColor" opacity=".06"/><path d="M175 200h175v125H175z M200 300l35-45 30 35 25-25 35 35z" fill="none" stroke="currentColor" stroke-width="6" opacity=".35"/><circle cx="305" cy="235" r="14" fill="currentColor" opacity=".25"/></svg></template><img src="/theme-previews/storelib-default/a/default-popup-mug.ab96b5c5c6ae.webp" srcset="/theme-previews/storelib-default/a/default-popup-mug-400.8ddf46b91191.webp 360w, /theme-previews/storelib-default/a/default-popup-mug.ab96b5c5c6ae.webp 540w, /theme-previews/storelib-default/a/default-popup-mug.ab96b5c5c6ae.webp 720w, /theme-previews/storelib-default/a/default-popup-mug.ab96b5c5c6ae.webp 900w" alt="Hands around a white mug, a cream jumper sleeve" loading="lazy" sizes="(min-width: 750px) 50vw, 100vw"></div></div>
 </div>
 </dialog>
 </section>
-<script src="/theme-previews/_base/a/materia-popups.f56a33a9d6a5.js" defer="defer"></script>
-<script src="/theme-previews/storelib-default/a/i.cdd49a773773.js"></script>
-</section><script>window.__mtFillCounts&&window.__mtFillCounts(true)</script><link href="/theme-previews/_base/a/search-type-default.fb1515a9c0d2.css" rel="stylesheet" type="text/css" media="all">
+<script src="/theme-previews/_base/a/materia-popups.b25a8780e75d.js" defer="defer"></script>
+<script src="/theme-previews/storelib-default/a/i.c5bec8068a88.js"></script>
+</section><script>window.__mtFillCounts&&window.__mtFillCounts(true)</script><link rel="stylesheet" href="/theme-previews/_base/a/search-type-default.fb1515a9c0d2.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/search-type-default.fb1515a9c0d2.css" rel="stylesheet" type="text/css" media="all"></noscript>
 <header-search class="header_search search_type_popup">
 <div class="block block-quick-search block-search predictive_search_suggest search_popup"><div
 id="search-form"
@@ -1795,20 +1733,20 @@ style=" ;--col-number: 1;--col-tablet: 1;--col-desktop-small:3;--col-desktop: 5;
 </div>
 </div>
 </header-search>
-<div class="overlay_search" popover="manual" aria-hidden="true"></div><script type="application/json" id="materia-country-options" data-current="US">[["US","United States","USD","$",""],["GB","United Kingdom","GBP","£",""],["CA","Canada","CAD","$",""],["AU","Australia","AUD","$",""],["DE","Germany","EUR","€",""],["FR","France","EUR","€",""]]</script><link rel="stylesheet" href="/theme-previews/_base/a/minicart.ac0014483417.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/minicart.ac0014483417.css" rel="stylesheet" type="text/css" media="all"></noscript><link href="/theme-previews/_base/a/materia-experience.b68d6d8152a8.css" rel="stylesheet" type="text/css" media="all"><style data-cart-drawer-style="size">
+<div class="overlay_search" popover="manual" aria-hidden="true"></div><script type="application/json" id="materia-country-options" data-current="US">[["US","United States","USD","$",""],["GB","United Kingdom","GBP","£",""],["CA","Canada","CAD","$",""],["AU","Australia","AUD","$",""],["DE","Germany","EUR","€",""],["FR","France","EUR","€",""]]</script><link rel="stylesheet" href="/theme-previews/_base/a/minicart.679b4fb18845.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/minicart.679b4fb18845.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="stylesheet" href="/theme-previews/_base/a/materia-experience.6a68b7e13653.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/materia-experience.6a68b7e13653.css" rel="stylesheet" type="text/css" media="all"></noscript><style data-cart-drawer-style="size">
   #minicart_wrapper.open_drawer .minicart__wrapper {
     --materia-cart-width: 500px;
     --materia-cart-gap: 12px;
     --materia-cart-control: 40px;
     --materia-cart-recommend-gap: 12px;
   }
-</style><link href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" rel="stylesheet" type="text/css" media="all"><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/storelib-default/a/i.168f7798e201.css" data-cart-drawer-style="paint">
+</style><link rel="stylesheet" href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" rel="stylesheet" type="text/css" media="all"></noscript><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/storelib-default/a/i.168f7798e201.css" data-cart-drawer-style="paint">
 <cart-notification data-cart-drawer-version="20261021-2"
 data-show-quantity="true"
 data-show-shipping-estimator="true"
 data-show-free-shipping="false"
-id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #4a4a4a;    --color-heading: #111111;    --color-primary: #111111;    --color-border: #e6e6e3;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #111111;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #2b44a8;    --btn-secondary-color: #111111;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfcfcb;    --btn-secondary-hover-color: #111111;    --btn-secondary-hover-bg-color: #ffffff;    --btn-outline-color: #111111;    --btn-outline-border-color: #111111;    background-color: #ffffff !important;    color: #4a4a4a !important;">
-<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #4a4a4a;    --color-heading: #111111;    --color-primary: #111111;    --color-border: #e6e6e3;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #111111;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #2b44a8;    --btn-secondary-color: #111111;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfcfcb;    --btn-secondary-hover-color: #111111;    --btn-secondary-hover-bg-color: #ffffff;    --btn-outline-color: #111111;    --btn-outline-border-color: #111111;    background-color: #ffffff !important;    color: #4a4a4a !important;">
+id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #ffffff;    --color-text: #4a4a4a;    --color-heading: #111111;    --color-primary: #111111;    --color-border: #e6e6e3;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #111111;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #2b44a8;    --btn-secondary-color: #111111;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfcfcb;    --btn-secondary-hover-color: #111111;    --btn-secondary-hover-bg-color: #ffffff;    --btn-outline-color: #111111;    --btn-outline-border-color: #111111;    background-color: #ffffff !important;    color: #4a4a4a !important;">
+<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #ffffff;    --color-text: #4a4a4a;    --color-heading: #111111;    --color-primary: #111111;    --color-border: #e6e6e3;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #111111;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #2b44a8;    --btn-secondary-color: #111111;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfcfcb;    --btn-secondary-hover-color: #111111;    --btn-secondary-hover-bg-color: #ffffff;    --btn-outline-color: #111111;    --btn-outline-border-color: #111111;    background-color: #ffffff !important;    color: #4a4a4a !important;">
 <button type="button" class="cart-drawer-sheet-scrim" aria-label="Cancel"></button>
 <div class="minicart__header flex gap-10 align-center justify-between px-30 py-18 color-default">
 <div class="h5 minicart-heading my-0">
@@ -1826,8 +1764,7 @@ aria-label="Close"
 </div><div
 id="minicart-form"
 class="minicart-form flex-1 flex flex-column grow relative overflow-hidden color-default"
->
-<div class="minicart-scroll flex-1 overflow-y-scroll custom-scrollbar">
+><div class="minicart-scroll flex-1 overflow-y-scroll custom-scrollbar">
 <form
 id="minicart"
 class="minicart-form flex-1 flex flex-column grow relative overflow-hidden color-default"
@@ -1845,20 +1782,28 @@ Continue Shopping
 </button>
 </div></div></form>
 </div>
-</div></div><link href="/theme-previews/_base/a/cart-drawer.47458f3359f5.css" rel="stylesheet" type="text/css" media="all">
-<script src="/theme-previews/_base/a/cart-drawer.312c83e49d19.js" defer="defer"></script></cart-notification>
+</div></div><link rel="stylesheet" href="/theme-previews/_base/a/cart-drawer.be428451fb9a.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/cart-drawer.be428451fb9a.css" rel="stylesheet" type="text/css" media="all"></noscript>
+<script src="/theme-previews/_base/a/cart-drawer.579386a6ba85.js" defer="defer"></script></cart-notification>
 <div class="overlayminicart">
 </div>
-<script src="/theme-previews/storelib-default/a/i.f50d71910c82.js"></script>
-<script src="/theme-previews/_base/a/animation.f51a19fde607.js" defer="defer"></script>
+<div id="shopify-section-custom-colors" class="shopify-section" data-section-id="custom-colors" data-section-type="custom-colors"><style>
+  #shopify-section-custom-colors {
+    font-weight: var(--body-weight, inherit);
+  }
+  :where(#shopify-section-custom-colors) :is(h1, h2, h3, h4, h5, h6) {
+    font-weight: var(--heading-weight, inherit);
+  }
+  #shopify-section-custom-colors { isolation: isolate; position: relative; }
+</style>
+</div><script src="/theme-previews/storelib-default/a/i.7878e9c8a781.js"></script>
+<script src="/theme-previews/_base/a/animation.6a9fe03fa6b5.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/tingle-min.9664ca3641cf.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/cart-discount.6748c8dd9657.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/theme.7a7dd8f80f89.js"  defer="defer" type="module"></script>
-<script src="/theme-previews/_base/a/materia-experience.f80ef0e4ccda.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/product-card-settings.ab815c3ef72d.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/size-chart.cbff3f8443f7.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/theme-navigation.7093e0784816.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/cart-variant-edit.8299a1d91738.js" defer="defer"></script><svg aria-hidden="true" focusable="false" role="presentation" xmlns="http://www.w3.org/2000/svg" class="hidden" hidden>
+<script src="/theme-previews/_base/a/cart-discount.31276c74b980.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/theme.bbc3b899a286.js"  defer="defer" type="module"></script>
+<script src="/theme-previews/_base/a/materia-experience.95a8a8fb6473.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/product-card-settings.6a080b7abf94.js" defer="defer"></script><script>(window.mtLazy||function(u){var s=document.createElement('script');s.src=u;document.head.appendChild(s)})("/theme-previews/_base/a/size-chart.cbff3f8443f7.js")</script>
+<script src="/theme-previews/_base/a/theme-navigation.56a40d956dde.js" defer="defer"></script>
+<script>(window.mtLazy||function(u){var s=document.createElement('script');s.src=u;document.head.appendChild(s)})("/theme-previews/_base/a/cart-variant-edit.8299a1d91738.js")</script><svg aria-hidden="true" focusable="false" role="presentation" xmlns="http://www.w3.org/2000/svg" class="hidden" hidden>
 <symbol id="icon-close" viewBox="0 0 13 14" fill="none">
 <path d="M0.282609 2.06784C0.0942029 1.89363 0 1.68314 0 1.43635C0 1.17504 0.0942029 0.950028 0.282609 0.761307C0.456522 0.587102 0.673913 0.5 0.934783 0.5C1.19565 0.5 1.41304 0.587102 1.58696 0.761307L6.5 5.68258L11.413 0.761307C11.587 0.587102 11.8043 0.5 12.0652 0.5C12.3261 0.5 12.5435 0.587102 12.7174 0.761307C12.9058 0.950028 13 1.17504 13 1.43635C13 1.68314 12.9058 1.89363 12.7174 2.06784L7.80435 6.98911L12.7174 11.9104C12.9058 12.0991 13 12.3241 13 12.5854C13 12.8322 12.9058 13.0427 12.7174 13.2169C12.5435 13.4056 12.3261 13.5 12.0652 13.5C11.8043 13.5 11.587 13.4056 11.413 13.2169L6.5 8.31742L1.58696 13.2169C1.41304 13.4056 1.19565 13.5 0.934783 13.5C0.673913 13.5 0.456522 13.4056 0.282609 13.2169C0.0942029 13.0427 0 12.8322 0 12.5854C0 12.3241 0.0942029 12.0991 0.282609 11.9104L5.19565 6.98911L0.282609 2.06784Z" fill="currentColor"/>
 </symbol>
@@ -1911,13 +1856,13 @@ Skip to content
 <ul hidden>
 <li id="a11y-refresh-page-message">Choosing a selection results in a full page refresh.</li>
 <li id="a11y-new-window-message">Opens in a new window.</li>
-</ul><link href="/theme-previews/_base/a/materia-forms.2772768a5535.css" rel="stylesheet" type="text/css" media="all">
-<script src="/theme-previews/_base/a/materia-forms.7082d7d84838.js" defer="defer"></script>
-<script src="/theme-previews/storelib-default/a/i.7e0b24218544.js"></script><script src="/theme-previews/storelib-default/a/i.ba16972b7db0.js"></script><style>
-  @keyframes materiaMediaFade { from { opacity: 0; } to { opacity: 1; } }
-  html.js-media-fade .media-fade-run { animation: materiaMediaFade .4s ease; }
+</ul><link rel="stylesheet" href="/theme-previews/_base/a/materia-forms.2772768a5535.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/materia-forms.2772768a5535.css" rel="stylesheet" type="text/css" media="all"></noscript><script>(function(u){var load=window.mtLazy||function(x){var s=document.createElement('script');s.src=x;document.head.appendChild(s)};
+window.__mtFormsUrl=u;if(/[?&](customer_posted|contact_posted|form_type)=/.test(location.search+' '+(window.__mtPostedUrl||'')))(load.now||load)(u);else load(u)})("/theme-previews/_base/a/materia-forms.1ff8018ff069.js")</script><script src="/theme-previews/storelib-default/a/i.46ae589d856d.js"></script><script src="/theme-previews/storelib-default/a/i.ba16972b7db0.js"></script><style>
+  html.mt-img-reveal img.media-fade-wait {
+    background-color: rgb(var(--text-color, 0 0 0) / 0.05);
+  }
 </style>
-<script src="/theme-previews/storelib-default/a/i.5d22d5570310.js"></script>
+<script src="/theme-previews/storelib-default/a/i.d93814c7a9ed.js"></script>
 <style>
         :root {
           /* Wire the user's Animations & motion settings to the keyframe vars used by animation.css */
@@ -1931,25 +1876,14 @@ Skip to content
            reduced motion are drawn by animation.css for every .scroll-trigger
            (theme-wide sections below and cards inside sections alike). */
       </style>
-<script src="/theme-previews/storelib-default/a/i.e621815690c9.js"></script><link rel="stylesheet" href="/theme-previews/storelib-default/a/i.7c52d5318a5a.css">
-<script src="/theme-previews/storelib-default/a/i.a459fa2d52ff.js"></script><script id="materia-shipping-data" type="application/json">
+<script src="/theme-previews/storelib-default/a/i.f0d2a214843c.js"></script><link rel="stylesheet" href="/theme-previews/storelib-default/a/i.7c52d5318a5a.css">
+<script src="/theme-previews/storelib-default/a/i.e5cb30aabe6c.js"></script><script id="materia-shipping-data" type="application/json">
   {
-    "rates": "",
-    "delivery": "",
-    "freePage": "150",
-    "freeDrawer": "150",
-    "subtotal": 0,
-    "currency": "USD",
     "country": "US",
-    "text": {
-      "choose": "Choose your country",
-      "rateTo": "Shipping to {{ country }}",
-      "free": "Free",
-      "freeOver": "Free shipping on orders over {{ amount }}",
-      "atCheckout": "Shipping to {{ country }} is calculated at checkout."
-    }
+    "available": ["US","GB","CA","AU","DE","FR"],
+    "text": { "choose": "Choose your country" }
   }
-</script><script src="/theme-previews/storelib-default/a/i.a060c6e3df4c.js"></script><div id="shopify-section-cart-drawer-live" class="shopify-section shopify-section-group-overlay-group" data-section-id="cart-drawer-live" data-section-type="cart-drawer-live"><style>
+</script><script src="/theme-previews/storelib-default/a/i.f5316e84d1bf.js"></script><div id="shopify-section-cart-drawer-live" class="shopify-section shopify-section-group-overlay-group" data-section-id="cart-drawer-live" data-section-type="cart-drawer-live"><style>
   #shopify-section-cart-drawer-live { display: none !important; }
 </style><div data-ti-no-reveal data-no-image-carry hidden><template data-cart-drawer-source><style data-cart-drawer-style="size">
   #minicart_wrapper.open_drawer .minicart__wrapper {
@@ -1963,8 +1897,8 @@ Skip to content
 data-show-quantity="true"
 data-show-shipping-estimator="true"
 data-show-free-shipping="false"
-id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #4a4a4a;    --color-heading: #111111;    --color-primary: #111111;    --color-border: #e6e6e3;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #111111;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #2b44a8;    --btn-secondary-color: #111111;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfcfcb;    --btn-secondary-hover-color: #111111;    --btn-secondary-hover-bg-color: #ffffff;    --btn-outline-color: #111111;    --btn-outline-border-color: #111111;    background-color: #ffffff !important;    color: #4a4a4a !important;">
-<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #ffffff;    --color-text: #4a4a4a;    --color-heading: #111111;    --color-primary: #111111;    --color-border: #e6e6e3;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #111111;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #2b44a8;    --btn-secondary-color: #111111;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfcfcb;    --btn-secondary-hover-color: #111111;    --btn-secondary-hover-bg-color: #ffffff;    --btn-outline-color: #111111;    --btn-outline-border-color: #111111;    background-color: #ffffff !important;    color: #4a4a4a !important;">
+id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #ffffff;    --color-text: #4a4a4a;    --color-heading: #111111;    --color-primary: #111111;    --color-border: #e6e6e3;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #111111;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #2b44a8;    --btn-secondary-color: #111111;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfcfcb;    --btn-secondary-hover-color: #111111;    --btn-secondary-hover-bg-color: #ffffff;    --btn-outline-color: #111111;    --btn-outline-border-color: #111111;    background-color: #ffffff !important;    color: #4a4a4a !important;">
+<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #ffffff;    --color-text: #4a4a4a;    --color-heading: #111111;    --color-primary: #111111;    --color-border: #e6e6e3;    --gradient-background: #ffffff;    --btn-primary-color: #ffffff;    --btn-primary-bg-color: #111111;    --btn-primary-hover-color: #ffffff;    --btn-primary-hover-bg-color: #2b44a8;    --btn-secondary-color: #111111;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #cfcfcb;    --btn-secondary-hover-color: #111111;    --btn-secondary-hover-bg-color: #ffffff;    --btn-outline-color: #111111;    --btn-outline-border-color: #111111;    background-color: #ffffff !important;    color: #4a4a4a !important;">
 <button type="button" class="cart-drawer-sheet-scrim" aria-label="Cancel"></button>
 <div class="minicart__header flex gap-10 align-center justify-between px-30 py-18 color-default">
 <div class="h5 minicart-heading my-0">
@@ -1982,14 +1916,13 @@ aria-label="Close"
 </div><div
 id="minicart-form"
 class="minicart-form flex-1 flex flex-column grow relative overflow-hidden color-default"
->
-<div class="minicart-scroll flex-1 overflow-y-scroll custom-scrollbar">
+><div class="minicart-scroll flex-1 overflow-y-scroll custom-scrollbar">
 <form
 id="minicart"
 class="minicart-form flex-1 flex flex-column grow relative overflow-hidden color-default"
 novalidate
-data-preview-form><div class="minicart-body flex-1 grow pt-30 px-30 overflow-x-hidden pb-30"><div class="items">
-</div></div></form>
+data-preview-form><div class="minicart-body flex-1 grow pt-30 px-30 overflow-x-hidden pb-30"><div class="cda-slot" data-cda-slot="top_of_drawer"></div><div class="items">
+</div><div class="cda-slot" data-cda-slot="below_items"></div></div></form>
 <div
 class="cart-footeraddon grey-bg absolute transition w-full z-10 p-30 left-0 bottom-0 border-top shadow pointer-none cart__addon-content"
 id="note"
@@ -2133,34 +2066,19 @@ Cancel
 <minicart-recommendations
 data-added-text="Added"
 data-url="#"
-class="bls-image-js block cart-recommend pt-30 pb-30 px-30 border-top block no-js-hidden"
-><h4 class="minicart-heading mt-0 mb-15 fs-18 heading-letter-spacing">
-You may also like...
-</h4><slide-section
-class="swiper swiper-cart-upsell"
-id="swiper-cart-upsell"
-data-section-id="cart-upsell"
-data-autoplay="false"
-data-loop="false"
-data-mobile="1"
-data-tablet="1"
-data-desktop="1"
-data-item-mobile="1"
-data-pagination-progressbar="false"
-data-recommend-pagination="dots"
-data-spacing="12"
->
-<div class="swiper-wrapper"></div>
-<div class="cart-recommend__nav">
-<button type="button" class="cart-recommend__arrow swiper-button-prev" aria-label="Previous">
-<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg>
+data-source=".cart-rec__track"
+class="block cart-recommend cart-recommend--cards pt-30 pb-30 px-30 border-top block no-js-hidden"
+><cart-rec-carousel class="cart-rec block">
+<div class="cart-rec__head"><h4 class="minicart-heading cart-rec__heading heading-letter-spacing">You may also like...</h4><div class="cart-rec__arrows">
+<button type="button" class="cart-rec__arrow" data-cart-rec-prev aria-label="Previous" disabled>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg>
 </button>
-<div class="swiper-pagination"></div>
-<button type="button" class="cart-recommend__arrow swiper-button-next" aria-label="Next">
-<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg>
+<button type="button" class="cart-rec__arrow" data-cart-rec-next aria-label="Next">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9.5 6 6 6-6 6"/></svg>
 </button>
-</div>
-</slide-section></minicart-recommendations>
+</div></div>
+<div class="cart-rec__track" data-cart-rec-track role="region" aria-label="You may also like..." tabindex="0"></div>
+</cart-rec-carousel></minicart-recommendations>
 <div class="cart-addons flex justify-center border-top"><div data-id="not" class="mini_cart_note">
 <button
 type="button"
@@ -2169,7 +2087,7 @@ aria-expanded="false"
 aria-controls="note"
 class="btn-reset pointer mini_cart_addon_btn show-overlay inline-flex align-center note relative"
 aria-label="Add Order Note"
-><svg class="cart-tool-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9l-6-6Z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg><span class="cart-tool-label">Add Order Note</span>
+><svg class="cart-tool-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9l-6-6Z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg><span class="cart-tool-label"><span class="cart-tool-label__long">Add Order Note</span><span class="cart-tool-label__short" aria-hidden="true">Add note</span></span>
 </button>
 </div><div data-id="shipping" class="mini_cart_shipping lh-1">
 <button
@@ -2179,7 +2097,7 @@ aria-expanded="false"
 aria-controls="shipping"
 class="btn-reset pointer mini_cart_addon_btn show-overlay inline-flex align-center shipping relative"
 aria-label="Estimate"
-><svg class="cart-tool-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m12 3 9 4.5v9L12 21l-9-4.5v-9L12 3Z"/><path d="m3 7.5 9 4.5 9-4.5M12 12v9M7.5 5.2l9 4.5"/></svg><span class="cart-shipping-label">Estimate</span>
+><svg class="cart-tool-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m12 3 9 4.5v9L12 21l-9-4.5v-9L12 3Z"/><path d="m3 7.5 9 4.5 9-4.5M12 12v9M7.5 5.2l9 4.5"/></svg><span class="cart-shipping-label cart-tool-label"><span class="cart-tool-label__long">Estimate</span><span class="cart-tool-label__short" aria-hidden="true">Estimate</span></span>
 </button>
 </div>
 <div data-id="coupon" class="mini_cart_coupon lh-1">
@@ -2190,13 +2108,11 @@ data-open="coupon"
 aria-expanded="false"
 aria-controls="coupon"
 class="btn-reset pointer mini_cart_addon_btn show-overlay inline-flex align-center gift relative"
-><svg class="cart-tool-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 4h16v5a3 3 0 0 0 0 6v5H4v-5a3 3 0 0 0 0-6V4Z"/><path d="m9 15 6-6M9 9h.01M15 15h.01"/></svg><span class="cart-tool-label">
-<span>Coupon code</span>
-</span>
+><svg class="cart-tool-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 4h16v5a3 3 0 0 0 0 6v5H4v-5a3 3 0 0 0 0-6V4Z"/><path d="m9 15 6-6M9 9h.01M15 15h.01"/></svg><span class="cart-tool-label"><span class="cart-tool-label__long">Coupon code</span><span class="cart-tool-label__short" aria-hidden="true">Coupon</span></span>
 </button>
 </div>
 </div></div>
-<div class="cart-footer"><p class="cart-editor-preview">Editor preview: shoppers see this once the cart has items.</p><div class="cart-drawer-addons-row px-30"></div>
+<div class="cart-footer"><div class="cart-drawer-addons-row px-30"><div class="cda-slot" data-cda-slot="above_subtotal"></div></div>
 <div class="drawer-bottom cart__ctas px-30 pt-20 pb-30 grey-bg border-top">
 <div class="cart-summary text-right" data-cart-summary>
 <div data-discounts>
@@ -2209,7 +2125,7 @@ class="btn-reset pointer mini_cart_addon_btn show-overlay inline-flex align-cent
 <span class="subtotal-price h5 my-5" data-cart-subtotal-price>
 $0.00
 </span>
-</div><a
+</div><div class="cda-slot" data-cda-slot="above_checkout"></div><a
 class="action block mb-10 mt-17 btn-outline w-full text-center no-underline viewcart"
 href="/theme-previews/storelib-default/cart.html"
 >
@@ -2219,9 +2135,7 @@ type="submit"
 class="btn-primary w-full btn-checkout"
 name="checkout"
 form="minicart"
->
-<span>Checkout</span>
-</button><div class="cda-payments"
+><span>Checkout</span></button><div class="cda-slot" data-cda-slot="below_checkout"><div class="cda-payments"
 style="--cda-payments-color: var(--color-text, #6B7280);
 --cda-payments-text-size: 12px;
 --cda-payments-badge-h: 32px;
@@ -2282,7 +2196,7 @@ viewBox="0 0 165.521 105.965">
 <path d="M7.079 12.05a2.709 2.709 0 0 1 0-1.735v-1.17H5.577a4.505 4.505 0 0 0 0 4.075l1.502-1.17z" fill="#FBBC04"></path>
 <path d="M9.629 8.44a2.452 2.452 0 0 1 1.74.68l1.3-1.293a4.37 4.37 0 0 0-3.065-1.183 4.53 4.53 0 0 0-4.027 2.5l1.502 1.171a2.715 2.715 0 0 1 2.55-1.875z" fill="#EA4335"></path>
 </svg></li></ul>
-</div></div>
+</div></div></div>
 </div>
 </div></div></cart-notification>
 <div class="overlayminicart">

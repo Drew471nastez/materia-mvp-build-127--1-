@@ -1,9 +1,9 @@
-<script src="{{ 'live-r7-products.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-r7-products.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'r7-products-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
   assign s = section.settings
   assign sid = section.id
-  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
@@ -237,7 +237,8 @@
   </div>
 </div>{% schema %}
 {
-  "name": "Recently Viewed",
+  "class": "s-tt",
+"name": "Recently Viewed",
   "tag": "section",
   "disabled_on": {
     "groups": [
@@ -255,7 +256,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -614,7 +615,7 @@
   "presets": [
     {
       "name": "Recently Viewed",
-      "category": "Products",
+      "category": "03 · Products",
       "blocks": [
         {
           "type": "heading"

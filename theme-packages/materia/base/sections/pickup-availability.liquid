@@ -99,7 +99,7 @@
               {% render 'responsive-image', type: 'product', image: image, image_alt: image_alt, class: 'rounded-5' %}
             </div>
           {% else %}
-            {% render 'placeholder-render', class: 'rounded-5' %}
+            {% render 'placeholder-render', class: 'rounded-5', type: 'product', index: forloop.index %}
           {% endif %}
           <div class="product-pickup__infos">
             <h3 class="my-0 text-size" id="PickupAvailabilityHeading">
@@ -204,4 +204,4 @@
   </div>
 {% endif %}
 
-{% render 'theme-type' %}
+{% render 'theme-type', inline: true %}

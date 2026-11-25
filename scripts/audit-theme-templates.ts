@@ -146,7 +146,8 @@ async function main() {
             if (SHOTS) await wholePage(p, vp.width, vp.height).then((png) => writeFileSync(join(OUT, `${template}-${state}-${name}-${vpName}.png`), png)).catch(() => undefined)
             const row = { template, state, page: name, path, viewport: vpName, status: res?.status() ?? 0, ...(facts ?? {}), links: undefined, errors: [...new Set(errors)], failedRequests: [...new Set(failedRequests)] }
             report.push(row)
-            const emptySections = (facts?.sections ?? []).filter((s) => s.h < 2 && !/mobile_navigation|back_to_top|cart-drawer|popup|cookie/.test(s.id) && !(name === "cart" && s.id === "heading")).map((s) => s.id)
+            /* custom-colors (layout/theme.liquid) only writes the swatch colours' style: it draws nothing on purpose. */
+            const emptySections = (facts?.sections ?? []).filter((s) => s.h < 2 && !/mobile_navigation|back_to_top|cart-drawer|popup|cookie|custom-colors/.test(s.id) && !(name === "cart" && s.id === "heading")).map((s) => s.id)
             const bad = [
               row.status >= 400 && name !== "404" ? `status ${row.status}` : "",
               facts && facts.overflow > 1 ? `overflow ${facts.overflow}px ${facts.wide.join(" ")}` : "",

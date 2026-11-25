@@ -1,14 +1,18 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. Developed By Materia Themes.
-  Renders a placeholder image. Accepts optional `class`.
+  Renders a placeholder image. Accepts optional `class`, `type`, `index`,
+  `ratio`, `radius` (see snippets/placeholder-image.liquid).
   The picture is inline, so an empty image setting asks nothing of a
   third-party server.
-{%- endcomment -%}
-<img
-  src="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Crect width=%22400%22 height=%22300%22 fill=%22%23efefef%22/%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22 fill=%22%23cfcfcf%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22 fill=%22%23cfcfcf%22/%3E%3C/svg%3E"
-  alt=""
-  loading="lazy"
-  class="placeholder-image {{ class }}"
-  width="1024"
-  height="768"
-/>
+
+  @param {string} [class] - Extra CSS classes ('absolute inset-0 w-full h-full object-fit-cover', 'rounded', 'rounded-5')
+  @param {number} [index] - Index
+  @param {number} [radius] - Radius; no current caller passes it
+  @param {string} [ratio] - Ratio; no current caller passes it
+  @param {string} type - Type ('lifestyle', 'lifestyle-1', 'lifestyle-2', 'product')
+
+  @example
+  {% render 'placeholder-render', class: 'rounded', type: 'product', index: forloop.index %}
+{%- enddoc -%}
+{%- assign pr_ratio = ratio | default: '4/3' -%}
+{%- render 'placeholder-image', type: type, index: index, class: class, ratio: pr_ratio, radius: radius -%}

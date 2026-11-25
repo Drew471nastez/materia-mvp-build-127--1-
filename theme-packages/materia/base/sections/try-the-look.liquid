@@ -1,0 +1,1163 @@
+{% render 'theme-type' %}
+{%- comment -%}
+  Materia Themes. Try the Look: a runway of full-length looks. The look in
+  focus stands in the middle with numbered pins on its pieces; the next looks
+  wait beside it, softly out of focus, and the whole lineup follows a drag or
+  a swipe. A panel lists the pieces with a quick add each and adds the whole
+  look to the bag. A click on the look in focus opens it in a card: the model
+  with its pins on one side, the pieces and "Add full look" on the other.
+  One file: no app, no external script.
+
+  Sample looks: real CC0 photos (see snippets/try-the-look-sample for the
+  credits), shown until a Look has its own model picture and products.
+{%- endcomment -%}
+{%- liquid
+  assign st = section.settings
+  assign sid = section.id
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
+  assign looks = section.blocks | where: 'type', 'look'
+  assign slots = looks.size
+  if slots == 0 and st.show_placeholders
+    assign slots = 4
+  endif
+  assign s_names = st.sample_pieces | split: '|'
+  assign s_px = '45,40,28|66,45,78|62,55,64|50,40,30' | split: '|'
+  assign s_py = '30,68,94|30,52,93|34,75,93|30,62,94' | split: '|'
+  assign s_price = '8900,9900,12900|14900,7900,15900|11900,13900,9900|5900,9900,12900' | split: '|'
+  assign s_ar = '0.307,0.407,0.253,0.503' | split: ','
+  assign pct = st.bundle_discount | default: 0
+  assign keep = 100 | minus: pct
+  assign ttl_mw = st.model_width | default: 42 | divided_by: 100.0
+-%}
+<style>
+  #shopify-section-{{ sid }} .ttl *, #shopify-section-{{ sid }} .ttl *::before, #shopify-section-{{ sid }} .ttl *::after { box-sizing: border-box; }
+  #shopify-section-{{ sid }} .ttl {
+    --stage-h: {{ st.stage_height_mobile }}px;
+    --blur: {{ st.blur }}px;
+    --ease: cubic-bezier(.22, 1, .36, 1);
+    --line: color-mix(in srgb, var(--color-text) 12%, transparent);
+    --tint: color-mix(in srgb, var(--color-text) 4%, var(--color-background));
+    background: var(--color-background); color: var(--color-text); overflow: hidden;
+    padding-block: {{ st.padding_top_mobile }}px {{ st.padding_bottom_mobile }}px;
+  }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .ttl { --stage-h: {{ st.stage_height }}px; padding-block: {{ st.padding_top }}px {{ st.padding_bottom }}px; } }
+  {%- case st.section_spacing -%}
+    {%- when 'none' %} #shopify-section-{{ sid }} .ttl { margin-block: 0; }
+    {%- when 'top' %} #shopify-section-{{ sid }} .ttl { margin-block: var(--section-spacing, 0) 0; }
+    {%- when 'bottom' %} #shopify-section-{{ sid }} .ttl { margin-block: 0 var(--section-spacing, 0); }
+    {%- else %} #shopify-section-{{ sid }} .ttl { margin-block: var(--section-spacing, 0); }
+  {%- endcase %}
+  #shopify-section-{{ sid }} .ttl__grid { display: grid; grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .ttl__grid { grid-template-columns: minmax(0, 1fr) minmax(340px, 420px); } }
+  #shopify-section-{{ sid }} .ttl__main { min-width: 0; display: flex; flex-direction: column; }
+  #shopify-section-{{ sid }} .ttl__head { padding: 0 20px; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .ttl__head { padding: 0 clamp(32px, 5vw, 80px); } }
+  #shopify-section-{{ sid }} .ttl__heading { margin: 0; color: var(--color-heading); letter-spacing: -0.02em; line-height: 1.05; }
+  #shopify-section-{{ sid }} .ttl__heading[data-size='h2'] { --size: clamp(2.6rem, 2rem + 1.6vw, 3.6rem); }
+  #shopify-section-{{ sid }} .ttl__heading[data-size='h1'] { --size: clamp(3rem, 2.2rem + 2.6vw, 5.2rem); }
+  #shopify-section-{{ sid }} .ttl__heading[data-size='h0'] { --size: clamp(3.4rem, 2.2rem + 4.2vw, 7.6rem); }
+  #shopify-section-{{ sid }} .ttl__sub { margin: 10px 0 0; opacity: .7; font-size: 15px; max-width: 46ch; }
+  @media (max-width: 749px) { #shopify-section-{{ sid }} .ttl__sub { font-size: 14px; margin-top: 6px; } }
+
+  /* Stage: every look stands in a row; the one in focus is in the middle. */
+  #shopify-section-{{ sid }} .ttl__stage { position: relative; height: var(--stage-h); margin-top: 16px; touch-action: pan-y; user-select: none; -webkit-user-select: none; cursor: grab; }
+  #shopify-section-{{ sid }} .ttl__stage[data-single] { cursor: default; }
+  #shopify-section-{{ sid }} .ttl__model {
+    --d: 0; --a: 0; position: absolute; left: 50%; bottom: 0; height: 100%; width: calc(var(--stage-h) * var(--mw, .42)); margin: 0;
+    display: flex; justify-content: center; align-items: center;
+    translate: -50% 0; transform: translateX(calc(var(--d) * var(--stage-h) * var(--mw, .42) * .55)) scale(calc(1 - min(1, var(--a)) * .14 - min(2, var(--a)) * .04));
+    transform-origin: 50% 100%; opacity: calc(1 - min(3, var(--a)) * .22); filter: blur(calc(min(2, var(--a)) * var(--blur)));
+    transition: transform .8s var(--ease), opacity .6s ease, filter .6s ease; z-index: calc(10 - var(--a)); will-change: transform;
+    outline: none;
+  }
+  #shopify-section-{{ sid }} [data-align='bottom'] .ttl__model { align-items: flex-end; }
+  #shopify-section-{{ sid }} .ttl__model.is-on { cursor: none; }
+  #shopify-section-{{ sid }} .ttl__model.is-on:focus-visible .ttl__fit { outline: 2px solid var(--color-heading); outline-offset: 6px; border-radius: 6px; }
+  @media (hover: none) { #shopify-section-{{ sid }} .ttl__model.is-on { cursor: pointer; } }
+  #shopify-section-{{ sid }} .ttl__model[data-far] { opacity: 0; pointer-events: none; }
+  #shopify-section-{{ sid }} .ttl__model[data-jump] { transition: none; opacity: 0; }
+  /* The picture's own box, so pins sit on the garment whatever the model width */
+  #shopify-section-{{ sid }} .ttl__fit { position: relative; display: block; height: 100%; max-width: 100%; aspect-ratio: var(--ar, .42); flex: none; }
+  #shopify-section-{{ sid }} .ttl__fit img { width: 100%; height: 100%; object-fit: contain; object-position: 50% 100%; display: block; -webkit-user-drag: none; }
+  #shopify-section-{{ sid }} .ttl__fit--empty { background: var(--tint); border-radius: var(--card-radius, 12px); }
+  #shopify-section-{{ sid }} .ttl__model .ttl__fit::after { content: ''; position: absolute; left: 12%; right: 12%; bottom: -8px; height: 20px; border-radius: 50%; background: radial-gradient(closest-side, rgb(0 0 0 / .2), transparent); z-index: -1; {% unless st.shadows %}display: none;{% endunless %} }
+  /* While dragging, the lineup follows the pointer with no lag; blur steps aside so every frame stays light. */
+  #shopify-section-{{ sid }} .ttl__stage.is-drag, #shopify-section-{{ sid }} .ttl__stage.is-drag .ttl__model { cursor: grabbing; }
+  #shopify-section-{{ sid }} .ttl__stage.is-drag .ttl__model { transition: opacity .3s ease, filter .25s ease; filter: none; }
+  #shopify-section-{{ sid }} .ttl__stage.is-drag .ttl__pin { opacity: 0; transition-delay: 0s; }
+
+  /* Glass circle that trails the pointer: "View" over the look in focus, "Drag" beside it */
+  #shopify-section-{{ sid }} .ttl__view {
+    position: absolute; left: 0; top: 0; z-index: 30; width: 104px; height: 104px; margin: -52px 0 0 -52px; border-radius: 50%;
+    display: grid; place-items: center; pointer-events: none; opacity: 0; scale: .5;
+    font-size: 11px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; color: var(--color-heading);
+    background: color-mix(in srgb, var(--color-background) 40%, transparent);
+    border: 1px solid color-mix(in srgb, #fff 70%, transparent);
+    box-shadow: 0 10px 30px -12px rgb(0 0 0 / .25), inset 0 1px 0 rgb(255 255 255 / .6);
+    -webkit-backdrop-filter: blur(10px) saturate(1.3); backdrop-filter: blur(10px) saturate(1.3);
+    transition: opacity .3s ease, scale .5s var(--ease); will-change: transform;
+  }
+  #shopify-section-{{ sid }} .ttl__view > span { grid-area: 1 / 1; transition: opacity .2s ease; }
+  #shopify-section-{{ sid }} .ttl__view[data-mode='view'] { opacity: 1; scale: 1; }
+  #shopify-section-{{ sid }} .ttl__view[data-mode='drag'] { opacity: 1; scale: .7; }
+  #shopify-section-{{ sid }} .ttl__view:not([data-mode='drag']) [data-v-drag], #shopify-section-{{ sid }} .ttl__view[data-mode='drag'] [data-v-view] { opacity: 0; }
+  #shopify-section-{{ sid }} .ttl__view[data-mode='drag'] [data-v-drag] { font-size: 13px; }
+  @media (hover: none) { #shopify-section-{{ sid }} .ttl__view { display: none; } }
+
+  /* Pins */
+  #shopify-section-{{ sid }} .ttl__pin { position: absolute; left: var(--x); top: var(--y); z-index: 2; translate: -15px -50%; display: inline-flex; align-items: center; gap: 8px; padding: 0; border: 0; background: none; cursor: pointer; color: var(--color-heading); opacity: 0; pointer-events: none; transition: opacity .4s ease .3s; font: inherit; }
+  #shopify-section-{{ sid }} .ttl__pin.is-flip { flex-direction: row-reverse; translate: calc(-100% + 15px) -50%; }
+  #shopify-section-{{ sid }} .ttl__model.is-on .ttl__pin { opacity: 1; pointer-events: auto; }
+  #shopify-section-{{ sid }} .ttl__num { position: relative; display: grid; place-items: center; width: 30px; height: 30px; flex: none; border-radius: 50%; background: color-mix(in srgb, var(--color-background) 90%, transparent); box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-background) 45%, transparent), 0 4px 14px rgb(0 0 0 / .14); font-size: 12px; font-weight: 600; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); transition: background-color .25s ease, color .25s ease, scale .35s var(--ease); }
+  #shopify-section-{{ sid }} .ttl__label { padding: 6px 12px; border-radius: 99px; background: color-mix(in srgb, var(--color-background) 92%, transparent); box-shadow: 0 4px 14px rgb(0 0 0 / .1); font-size: 13px; white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+  #shopify-section-{{ sid }} .ttl__stage .ttl__label { opacity: 0; translate: -6px 0; transition: opacity .25s ease, translate .35s var(--ease); }
+  #shopify-section-{{ sid }} .ttl__stage .ttl__pin.is-flip .ttl__label { translate: 6px 0; }
+  #shopify-section-{{ sid }} .ttl__stage .ttl__pin:is(:hover, .is-hot, :focus-visible) .ttl__label { opacity: 1; translate: 0 0; }
+  @media (max-width: 989px) { #shopify-section-{{ sid }} .ttl__stage .ttl__label { display: none; } }
+  #shopify-section-{{ sid }} .ttl__pin.is-hot .ttl__num, #shopify-section-{{ sid }} .ttl__pin:hover .ttl__num { background: var(--color-heading); color: var(--color-background); scale: 1.08; }
+
+  /* Progress */
+  #shopify-section-{{ sid }} .ttl__bar { display: flex; align-items: center; gap: 18px; padding: 18px 20px 0; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .ttl__bar { padding: 22px clamp(32px, 5vw, 80px) 0; } }
+  #shopify-section-{{ sid }} .ttl__steps { flex: 1; display: flex; gap: 8px; list-style: none; margin: 0; padding: 0; }
+  #shopify-section-{{ sid }} .ttl__step { flex: 1 1 0; min-width: 0; padding: 10px 0 0; border: 0; background: none; color: inherit; font: inherit; text-align: start; cursor: pointer; position: relative; transition: flex-grow .6s var(--ease); }
+  #shopify-section-{{ sid }} .ttl__step::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--line); }
+  #shopify-section-{{ sid }} .ttl__step::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--color-heading); transform: scaleX(0); transform-origin: 0 50%; transition: transform .5s var(--ease); }
+  #shopify-section-{{ sid }} .ttl__step.is-done::after, #shopify-section-{{ sid }} .ttl__step.is-on::after { transform: scaleX(1); }
+  #shopify-section-{{ sid }} [data-playing] .ttl__step.is-on::after { transform: scaleX(0); transition: none; animation: ttlFill var(--dur) linear forwards; }
+  @keyframes ttlFill { to { transform: scaleX(1); } }
+  #shopify-section-{{ sid }} .ttl__step-t { font-size: 12px; letter-spacing: .08em; opacity: .55; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+  #shopify-section-{{ sid }} .ttl__step.is-on { flex-grow: 3; }
+  #shopify-section-{{ sid }} .ttl__step.is-on .ttl__step-t { opacity: 1; color: var(--color-heading); }
+  @media (max-width: 989px) { #shopify-section-{{ sid }} .ttl__step-t { display: none; } #shopify-section-{{ sid }} .ttl__step.is-on { flex-grow: 2; } #shopify-section-{{ sid }} .ttl__step { padding-top: 8px; } }
+  #shopify-section-{{ sid }} .ttl__ctl { display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid transparent; border-radius: 50%; background: none; color: var(--color-heading); cursor: pointer; flex: none; transition: border-color .25s ease; }
+  @media (hover: hover) { #shopify-section-{{ sid }} .ttl__ctl:hover { border-color: var(--line); } }
+  @media (max-width: 989px) { #shopify-section-{{ sid }} .ttl__ctl--arrow { display: none; } }
+
+  /* Panel */
+  #shopify-section-{{ sid }} .ttl__panel { display: flex; flex-direction: column; min-width: 0; padding: 22px 20px 0; }
+  @media (min-width: 990px) { #shopify-section-{{ sid }} .ttl__panel { border-left: 1px solid var(--line); padding: 8px clamp(24px, 3vw, 44px) 0; max-height: calc(var(--stage-h) + 220px); } }
+  #shopify-section-{{ sid }} .ttl__ph { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+  #shopify-section-{{ sid }} .ttl__ph h3 { margin: 0; font-size: 18px; color: var(--color-heading); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #shopify-section-{{ sid }} .ttl__pieces { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; opacity: .6; white-space: nowrap; }
+  #shopify-section-{{ sid }} .ttl__look { display: flex; flex-direction: column; min-height: 0; height: 100%; }
+  #shopify-section-{{ sid }} .ttl__look[hidden] { display: none; }
+  #shopify-section-{{ sid }} .ttl__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; overflow-y: auto; scrollbar-width: thin; flex: 1; min-height: 0; }
+  #shopify-section-{{ sid }} .ttl__item { display: grid; grid-template-columns: 88px minmax(0, 1fr) auto; align-items: center; column-gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--line); transition: background-color .3s ease; }
+  #shopify-section-{{ sid }} .ttl__item.is-hot { background: color-mix(in srgb, var(--color-text) 4%, transparent); }
+  #shopify-section-{{ sid }} .ttl__img { position: relative; aspect-ratio: 1; border-radius: var(--card-radius, 8px); overflow: hidden; background: var(--tint); display: block; }
+  #shopify-section-{{ sid }} .ttl__img img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  #shopify-section-{{ sid }} .ttl__img b { position: absolute; top: 5px; right: 5px; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--color-background); font-size: 11px; color: var(--color-heading); }
+  #shopify-section-{{ sid }} .ttl__info { min-width: 0; }
+  #shopify-section-{{ sid }} .ttl__vendor { display: block; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; opacity: .55; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #shopify-section-{{ sid }} .ttl__name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; margin-top: 3px; color: var(--color-heading); font-size: 15px; line-height: 1.3; text-decoration: none; }
+  #shopify-section-{{ sid }} .ttl__price { display: block; margin-top: 4px; font-size: 14px; color: var(--color-heading); white-space: nowrap; }
+  #shopify-section-{{ sid }} .ttl__add { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: none; color: var(--color-heading); cursor: pointer; transition: border-color .25s ease, background-color .25s ease, color .25s ease; }
+  @media (hover: hover) { #shopify-section-{{ sid }} .ttl__add:hover { border-color: var(--color-heading); } }
+  #shopify-section-{{ sid }} .ttl__add:disabled { opacity: .35; cursor: not-allowed; }
+  #shopify-section-{{ sid }} .ttl__add[aria-busy='true'] { opacity: .5; pointer-events: none; }
+  #shopify-section-{{ sid }} .ttl__add.is-done { background: var(--color-heading); color: var(--color-background); border-color: var(--color-heading); }
+  #shopify-section-{{ sid }} .ttl__add svg { transition: transform .3s var(--ease); }
+  #shopify-section-{{ sid }} .ttl__item.is-open .ttl__add svg { transform: rotate(45deg); }
+  /* Size picker that opens under a piece */
+  #shopify-section-{{ sid }} .ttl__opts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; overflow: hidden; max-height: 0; opacity: 0; transition: max-height .45s var(--ease), opacity .3s ease, margin .3s ease; }
+  #shopify-section-{{ sid }} .ttl__item.is-open .ttl__opts { max-height: 220px; opacity: 1; margin-top: 12px; }
+  #shopify-section-{{ sid }} .ttl__opt { min-width: 40px; height: 36px; padding: 0 12px; border-radius: 99px; border: 1px solid var(--line); background: none; color: var(--color-heading); font: inherit; font-size: 13px; cursor: pointer; transition: background-color .2s ease, color .2s ease, border-color .2s ease; }
+  #shopify-section-{{ sid }} .ttl__opt[aria-pressed='true'] { background: var(--color-heading); color: var(--color-background); border-color: var(--color-heading); }
+  #shopify-section-{{ sid }} .ttl__opt:disabled { opacity: .35; text-decoration: line-through; cursor: not-allowed; }
+  #shopify-section-{{ sid }} .ttl__opt-add { flex: 1 0 100%; min-height: 44px; }
+  #shopify-section-{{ sid }} .ttl__bundle { padding: 18px 0 4px; border-top: 1px solid var(--line); margin-top: auto; }
+  #shopify-section-{{ sid }} .ttl__bundle-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-bottom: 14px; }
+  #shopify-section-{{ sid }} .ttl__bundle-row p { margin: 0; color: var(--color-heading); }
+  #shopify-section-{{ sid }} .ttl__bundle-row small { display: block; opacity: .6; font-size: 13px; margin-top: 4px; }
+  #shopify-section-{{ sid }} .ttl__total { display: flex; gap: 10px; align-items: baseline; color: var(--color-heading); font-size: 20px; white-space: nowrap; }
+  #shopify-section-{{ sid }} .ttl__total s { font-size: 13px; opacity: .5; }
+  #shopify-section-{{ sid }} .ttl__all { width: 100%; min-height: 52px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; }
+  #shopify-section-{{ sid }} .ttl__all[aria-busy='true'] { opacity: .6; pointer-events: none; }
+  #shopify-section-{{ sid }} .ttl__all:disabled { opacity: .45; cursor: not-allowed; }
+  #shopify-section-{{ sid }} .ttl__all svg { transition: transform .3s var(--ease); }
+  @media (hover: hover) { #shopify-section-{{ sid }} .ttl__all:hover svg { transform: translateX(4px); } }
+  #shopify-section-{{ sid }} .ttl__msg { margin: 8px 0 0; min-height: 1.2em; font-size: 13px; }
+  #shopify-section-{{ sid }} .ttl__msg:empty { min-height: 0; margin: 0; }
+  #shopify-section-{{ sid }} .ttl__m-only { display: none; }
+  /* Phones and tablets: the pieces become a row of compact cards under the runway */
+  @media (max-width: 989px) {
+    #shopify-section-{{ sid }} .ttl__m-only { display: inline; }
+    #shopify-section-{{ sid }} .ttl__d-only { display: none; }
+    #shopify-section-{{ sid }} .ttl__ph h3 { font-size: 16px; }
+    #shopify-section-{{ sid }} .ttl__panel .ttl__list { flex-direction: row; align-items: flex-start; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; gap: 10px; padding: 14px 20px 2px; margin-inline: -20px; scroll-padding-inline: 20px; scrollbar-width: none; overscroll-behavior-x: contain; }
+    #shopify-section-{{ sid }} .ttl__panel .ttl__list::-webkit-scrollbar { display: none; }
+    #shopify-section-{{ sid }} .ttl__panel .ttl__item { flex: 0 0 min(78%, 320px); scroll-snap-align: start; grid-template-columns: 64px minmax(0, 1fr) 36px; column-gap: 12px; padding: 10px; border: 1px solid var(--line); border-radius: var(--card-radius, 12px); }
+    #shopify-section-{{ sid }} .ttl__panel .ttl__add { width: 36px; height: 36px; }
+    #shopify-section-{{ sid }} .ttl__panel .ttl__name { font-size: 14px; }
+    #shopify-section-{{ sid }} .ttl__panel .ttl__price { font-size: 13px; }
+    #shopify-section-{{ sid }} .ttl__panel .ttl__bundle { border-top: 0; padding-top: 14px; }
+    #shopify-section-{{ sid }} .ttl__panel .ttl__bundle-row { display: none; }
+  }
+  @media (max-width: 749px) { #shopify-section-{{ sid }} .ttl__panel .ttl__vendor { display: none; } }
+
+  /* The look, opened: a card with the model and its pins beside the pieces */
+  #shopify-section-{{ sid }} .ttl__lb { position: fixed; inset: 0; z-index: 70; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 24px; border: 0; background: transparent; color: var(--color-text); overflow: hidden; }
+  #shopify-section-{{ sid }} .ttl__lb[open] { display: grid; place-items: center; }
+  #shopify-section-{{ sid }} .ttl__lb::backdrop { background: rgb(0 0 0 / .42); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); animation: ttlFade .35s ease; }
+  #shopify-section-{{ sid }} .ttl__lb.is-closing::backdrop { animation: ttlOut .3s ease forwards; }
+  #shopify-section-{{ sid }} .ttl__card {
+    position: relative; width: min(1120px, 100%); height: min(760px, 100%); display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(320px, .85fr);
+    background: var(--color-background); border-radius: clamp(10px, var(--card-radius, 16px), 24px); overflow: hidden;
+    box-shadow: 0 40px 100px -30px rgb(0 0 0 / .45); animation: ttlCardIn .55s var(--ease) both;
+  }
+  #shopify-section-{{ sid }} .ttl__lb.is-closing .ttl__card { animation: ttlCardOut .3s ease forwards; }
+  @keyframes ttlFade { from { opacity: 0; } }
+  @keyframes ttlOut { to { opacity: 0; } }
+  @keyframes ttlCardIn { from { opacity: 0; transform: translateY(24px) scale(.97); } }
+  @keyframes ttlCardOut { to { opacity: 0; transform: translateY(14px) scale(.98); } }
+  #shopify-section-{{ sid }} .ttl__card-m { position: relative; display: flex; flex-direction: column; min-height: 0; padding: 26px 28px 18px; background: var(--tint); }
+  #shopify-section-{{ sid }} .ttl__card-top { display: flex; flex-direction: column; gap: 4px; padding-right: 56px; }
+  #shopify-section-{{ sid }} .ttl__eyebrow:empty { display: none; }
+  #shopify-section-{{ sid }} .ttl__eyebrow { font-size: 11px; letter-spacing: .18em; text-transform: uppercase; opacity: .6; }
+  #shopify-section-{{ sid }} .ttl__card-t { margin: 0; font-size: 20px; color: var(--color-heading); }
+  #shopify-section-{{ sid }} .ttl__card-fig { flex: 1; min-height: 0; display: flex; justify-content: center; align-items: flex-end; padding-top: 14px; }
+  #shopify-section-{{ sid }} .ttl__card-fig .ttl__fit { max-height: 100%; }
+  #shopify-section-{{ sid }} .ttl__card .ttl__pin { opacity: 1; pointer-events: auto; transition: none; animation: ttlPin .5s var(--ease) both; animation-delay: calc(.2s + var(--n, 0) * .08s); }
+  @keyframes ttlPin { from { opacity: 0; scale: .6; } }
+  #shopify-section-{{ sid }} .ttl__card-hint { margin: 10px 0 0; text-align: center; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; opacity: .55; }
+  #shopify-section-{{ sid }} .ttl__card-p { display: flex; flex-direction: column; min-height: 0; padding: 26px 30px 22px; }
+  #shopify-section-{{ sid }} .ttl__card-p .ttl__look { height: 100%; }
+  #shopify-section-{{ sid }} .ttl__card .ttl__ph { padding-right: 56px; }
+  #shopify-section-{{ sid }} .ttl__card .ttl__ph h3 { font-size: 16px; }
+  #shopify-section-{{ sid }} .ttl__card .ttl__ph .ttl__m-only { display: none; }
+  #shopify-section-{{ sid }} .ttl__card .ttl__ph .ttl__d-only { display: inline; }
+  #shopify-section-{{ sid }} .ttl__card .ttl__item { grid-template-columns: 72px minmax(0, 1fr) auto; padding: 14px 0; }
+  #shopify-section-{{ sid }} .ttl__card .ttl__bundle-row { display: flex; }
+  #shopify-section-{{ sid }} .ttl__lb-close { position: absolute; top: 16px; right: 16px; z-index: 3; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--line); background: var(--color-background); color: var(--color-heading); cursor: pointer; transition: transform .35s var(--ease); }
+  @media (hover: hover) { #shopify-section-{{ sid }} .ttl__lb-close:hover { transform: rotate(90deg); } }
+  @media (max-width: 749px) {
+    #shopify-section-{{ sid }} .ttl__lb { padding: 0; }
+    #shopify-section-{{ sid }} .ttl__lb[open] { place-items: end stretch; }
+    #shopify-section-{{ sid }} .ttl__card { width: 100%; height: auto; max-height: 94dvh; grid-template-columns: minmax(0, 1fr); overflow-y: auto; overscroll-behavior: contain; border-radius: 20px 20px 0 0; animation-name: ttlSheetIn; }
+    #shopify-section-{{ sid }} .ttl__lb.is-closing .ttl__card { animation-name: ttlSheetOut; }
+    @keyframes ttlSheetIn { from { transform: translateY(100%); } }
+    @keyframes ttlSheetOut { to { transform: translateY(100%); } }
+    #shopify-section-{{ sid }} .ttl__card-m { padding: 20px 20px 12px; }
+    #shopify-section-{{ sid }} .ttl__card-fig { flex: none; height: 54dvh; }
+    #shopify-section-{{ sid }} .ttl__card .ttl__label { display: none; }
+    #shopify-section-{{ sid }} .ttl__card-p { padding: 18px 20px calc(18px + env(safe-area-inset-bottom)); }
+    #shopify-section-{{ sid }} .ttl__card .ttl__list { overflow: visible; }
+    #shopify-section-{{ sid }} .ttl__card .ttl__vendor { display: none; }
+    #shopify-section-{{ sid }} .ttl__card .ttl__ph { padding-right: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) { #shopify-section-{{ sid }} .ttl *, #shopify-section-{{ sid }} .ttl__lb::backdrop { transition: none !important; animation: none !important; } }
+</style>
+
+<try-the-look class="ttl color-{{ color_scheme }} gradient" data-autoplay="{{ st.autoplay }}" data-align="{{ st.model_align | default: 'bottom' }}" style="--dur: {{ st.autoplay | at_least: 1 }}s; --mw: {{ ttl_mw }}">
+  <div class="ttl__grid">
+    <div class="ttl__main">
+      {%- if st.heading != blank or st.subheading != blank -%}
+        <div class="ttl__head">
+          {%- if st.heading != blank -%}<h2 class="ttl__heading {{ st.heading_size }}" data-size="{{ st.heading_size }}">{{ st.heading }}</h2>{%- endif -%}
+          {%- if st.subheading != blank -%}<p class="ttl__sub">{{ st.subheading | escape }}</p>{%- endif -%}
+        </div>
+      {%- endif -%}
+      <div class="ttl__stage" data-stage{% if slots < 2 %} data-single{% endif %}>
+        <span class="ttl__view" aria-hidden="true" data-view><span data-v-view>{{ st.view_label | escape }}</span><span data-v-drag>{{ st.drag_label | escape }}</span></span>
+        {%- for slot in (1..slots) -%}
+          {%- liquid
+            assign i0 = forloop.index0
+            assign block = looks[i0]
+            assign bs = block.settings
+            assign k = i0 | modulo: 4
+            assign num = forloop.index | prepend: '0' | slice: -2, 2
+            assign look_title = bs.title
+            if look_title == blank
+              assign look_title = st.look_label | append: ' ' | append: num
+            endif
+            assign count = 0
+            for q in (1..4)
+              assign pk = 'product_' | append: q
+              if bs[pk] != blank
+                assign count = count | plus: 1
+              endif
+            endfor
+            assign ar = 0.42
+            if bs.model_image != blank
+              assign ar = bs.model_image.aspect_ratio
+            elsif st.show_placeholders
+              assign ar = s_ar[k]
+            endif
+          -%}
+          <figure class="ttl__model{% if forloop.first %} is-on{% endif %}" data-model="{{ i0 }}" data-num="{{ st.look_label | escape }} {{ num }}" data-title="{{ look_title | escape }}" role="button" aria-label="{{ st.view_label | escape }}: {{ look_title | escape }}" {{ block.shopify_attributes }}>
+            <span class="ttl__fit{% if bs.model_image == blank and st.show_placeholders == false %} ttl__fit--empty{% endif %}" style="--ar: {{ ar }}">
+              {%- if bs.model_image != blank -%}
+                {{ bs.model_image | image_url: width: 1200 | image_tag: widths: '400, 600, 800, 1000, 1200', sizes: '(min-width: 990px) 360px, 60vw', loading: 'lazy', alt: look_title, draggable: 'false' }}
+              {%- elsif st.show_placeholders -%}
+                {%- render 'try-the-look-sample', index: k -%}
+              {%- endif -%}
+              {%- if st.show_pins -%}
+                {%- if count > 0 -%}
+                  {%- assign n = 0 -%}
+                  {%- for q in (1..4) -%}
+                    {%- assign pk = 'product_' | append: q -%}{%- assign p = bs[pk] -%}
+                    {%- if p != blank -%}
+                      {%- assign n = n | plus: 1 -%}
+                      {%- assign xk = 'pin_x_' | append: q -%}{%- assign yk = 'pin_y_' | append: q -%}
+                      <button type="button" class="ttl__pin{% if bs[xk] > 58 %} is-flip{% endif %}" style="--x: {{ bs[xk] }}%; --y: {{ bs[yk] }}%; --n: {{ n }}" data-pin="{{ n }}" aria-label="{{ p.title | escape }}"><span class="ttl__num">{{ n }}</span><span class="ttl__label">{{ p.title | escape }}</span></button>
+                    {%- endif -%}
+                  {%- endfor -%}
+                {%- elsif st.show_placeholders -%}
+                  {%- assign px = s_px[k] | split: ',' -%}{%- assign py = s_py[k] | split: ',' -%}{%- assign names = s_names[k] | split: ',' -%}
+                  {%- for x in px -%}
+                    {%- assign pname = names[forloop.index0] | strip -%}
+                    {%- assign xv = x | plus: 0 -%}
+                    <button type="button" class="ttl__pin{% if xv > 58 %} is-flip{% endif %}" style="--x: {{ x }}%; --y: {{ py[forloop.index0] }}%; --n: {{ forloop.index }}" data-pin="{{ forloop.index }}" aria-label="{{ pname | escape }}"><span class="ttl__num">{{ forloop.index }}</span><span class="ttl__label">{{ pname | escape }}</span></button>
+                  {%- endfor -%}
+                {%- endif -%}
+              {%- endif -%}
+            </span>
+          </figure>
+        {%- endfor -%}
+      </div>
+      <div class="ttl__bar">
+        <button type="button" class="ttl__ctl ttl__ctl--arrow" data-prev aria-label="{{ 'accessibility.previous' | t }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5"/><path d="m11 6-6 6 6 6"/></svg></button>
+        <ol class="ttl__steps" role="list">
+          {%- for slot in (1..slots) -%}
+            {%- liquid
+              assign block = looks[forloop.index0]
+              assign num = forloop.index | prepend: '0' | slice: -2, 2
+              assign look_title = block.settings.title
+              if look_title == blank
+                assign look_title = st.look_label | append: ' ' | append: num
+              endif
+            -%}
+            <li style="display:contents"><button type="button" class="ttl__step{% if forloop.first %} is-on{% endif %}" data-step="{{ forloop.index0 }}" aria-label="{{ look_title | escape }}"><span class="ttl__step-t">{{ num }}&nbsp;&nbsp;{{ look_title | escape }}</span></button></li>
+          {%- endfor -%}
+        </ol>
+        {%- if st.autoplay > 0 -%}
+          <button type="button" class="ttl__ctl" data-play aria-label="{{ 'accessibility.ui.pause_scrolling' | t }}"><svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" data-i-pause><rect x="2" y="1" width="3.2" height="12" rx="1"/><rect x="8.8" y="1" width="3.2" height="12" rx="1"/></svg><svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" data-i-play hidden><path d="M3 1.5v11l9.5-5.5z"/></svg></button>
+        {%- endif -%}
+        <button type="button" class="ttl__ctl ttl__ctl--arrow" data-next aria-label="{{ 'accessibility.next' | t }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h15"/><path d="m13 6 6 6-6 6"/></svg></button>
+      </div>
+    </div>
+
+    <aside class="ttl__panel">
+      {%- for slot in (1..slots) -%}
+        {%- liquid
+          assign i0 = forloop.index0
+          assign block = looks[i0]
+          assign bs = block.settings
+          assign k = i0 | modulo: 4
+          assign num = forloop.index | prepend: '0' | slice: -2, 2
+          assign look_title = bs.title
+          if look_title == blank
+            assign look_title = st.look_label | append: ' ' | append: num
+          endif
+          assign total = 0
+          assign count = 0
+          assign ids = ''
+          for q in (1..4)
+            assign pk = 'product_' | append: q
+            assign p = bs[pk]
+            if p != blank
+              assign v = p.selected_or_first_available_variant
+              assign total = total | plus: v.price
+              assign count = count | plus: 1
+            endif
+          endfor
+          assign sample = false
+          if count == 0 and st.show_placeholders
+            assign sample = true
+            assign names = s_names[k] | split: ','
+            assign prices = s_price[k] | split: ','
+            for pr in prices
+              assign total = total | plus: pr
+            endfor
+            assign count = names.size
+          endif
+          assign bundle_total = total | times: keep | divided_by: 100
+        -%}
+        <div class="ttl__look" data-look="{{ i0 }}"{% unless forloop.first %} hidden{% endunless %}>
+          <div class="ttl__ph">
+            <h3><span class="ttl__d-only">{{ st.panel_heading | escape }}</span><span class="ttl__m-only">{{ look_title | escape }}</span></h3>
+            <span class="ttl__pieces">{{ count }} {{ st.pieces_label | escape }}</span>
+          </div>
+          <ul class="ttl__list" role="list">
+            {%- if sample -%}
+              {%- for name in names -%}
+                <li class="ttl__item is-sample" data-item="{{ forloop.index }}">
+                  <span class="ttl__img" aria-hidden="true">{%- render 'try-the-look-sample', index: k, part: 'piece', piece: forloop.index -%}<b>{{ forloop.index }}</b></span>
+                  <div class="ttl__info">{%- if st.show_vendor -%}<span class="ttl__vendor">{{ shop.name | escape }}</span>{%- endif -%}<span class="ttl__name">{{ name | strip | escape }}</span><span class="ttl__price">{{ prices[forloop.index0] | plus: 0 | money }}</span></div>
+                  <button type="button" class="ttl__add" disabled aria-hidden="true" tabindex="-1"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+                </li>
+              {%- endfor -%}
+            {%- else -%}
+              {%- assign n = 0 -%}
+              {%- for q in (1..4) -%}
+                {%- assign pk = 'product_' | append: q -%}{%- assign p = bs[pk] -%}
+                {%- if p != blank -%}
+                  {%- assign n = n | plus: 1 -%}{%- assign v = p.selected_or_first_available_variant -%}
+                  <li class="ttl__item" data-item="{{ n }}">
+                    <a class="ttl__img" href="{{ p.url }}" tabindex="-1" aria-hidden="true">
+                      {%- if p.featured_image -%}{{ p.featured_image | image_url: width: 240 | image_tag: widths: '120, 240', sizes: '88px', loading: 'lazy', alt: '' }}{%- endif -%}
+                      <b>{{ n }}</b>
+                    </a>
+                    <div class="ttl__info">
+                      {%- if st.show_vendor -%}<span class="ttl__vendor">{{ p.vendor | escape }}</span>{%- endif -%}
+                      <a class="ttl__name" href="{{ p.url }}">{{ p.title | escape }}</a>
+                      <span class="ttl__price">{{ v.price | money }}</span>
+                    </div>
+                    <button type="button" class="ttl__add" data-add="{{ v.id }}"{% if p.has_only_default_variant == false %} data-pick aria-expanded="false"{% endif %}{% unless p.available %} disabled{% endunless %} aria-label="{% if p.available %}{{ 'products.product.add_to_cart' | t }}{% else %}{{ 'products.product.sold_out' | t }}{% endif %}: {{ p.title | escape }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+                    {%- unless p.has_only_default_variant -%}
+                      <div class="ttl__opts" data-opts>
+                        {%- for vv in p.variants -%}
+                          <button type="button" class="ttl__opt" data-v="{{ vv.id }}" aria-pressed="{% if vv.id == v.id %}true{% else %}false{% endif %}"{% unless vv.available %} disabled{% endunless %}>{{ vv.title | escape }}</button>
+                        {%- endfor -%}
+                        <button type="button" class="btn btn-primary ttl__opt-add" data-opt-add>{{ st.piece_button_label | escape }}</button>
+                      </div>
+                    {%- endunless -%}
+                  </li>
+                  {%- if v.available -%}{%- assign ids = ids | append: v.id | append: ',' -%}{%- endif -%}
+                {%- endif -%}
+              {%- endfor -%}
+            {%- endif -%}
+          </ul>
+          {%- if count > 0 -%}
+            <div class="ttl__bundle">
+              <div class="ttl__bundle-row">
+                <p>{{ st.bundle_heading | escape }}{%- if pct > 0 and st.bundle_note != blank -%}<small>{{ st.bundle_note | replace: '[count]', count | replace: '[percent]', pct | escape }}</small>{%- endif -%}</p>
+                <span class="ttl__total">{%- if pct > 0 -%}<s>{{ total | money }}</s>{%- endif -%}<span>{{ bundle_total | money }}</span></span>
+              </div>
+              <button type="button" class="btn btn-primary ttl__all"{% if sample %} disabled{% else %} data-all="{{ ids }}"{% endif %}>
+                <span class="ttl__d-only">{{ st.button_label | escape }}</span><span class="ttl__m-only">{{ st.button_label | escape }} · {{ bundle_total | money }}</span>
+                <svg class="ttl__d-only" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h15"/><path d="m13 6 6 6-6 6"/></svg>
+              </button>
+              <p class="ttl__msg" role="status" aria-live="polite" data-msg></p>
+            </div>
+          {%- endif -%}
+        </div>
+      {%- endfor -%}
+    </aside>
+  </div>
+  <dialog class="ttl__lb" data-lb aria-labelledby="TtlLbTitle-{{ sid }}">
+    <div class="ttl__card">
+      <div class="ttl__card-m">
+        <div class="ttl__card-top"><span class="ttl__eyebrow" data-lb-num></span><h3 class="ttl__card-t" id="TtlLbTitle-{{ sid }}" data-lb-title></h3></div>
+        <div class="ttl__card-fig" data-lb-fig></div>
+        {%- if st.view_hint != blank and st.show_pins -%}<p class="ttl__card-hint">{{ st.view_hint | escape }}</p>{%- endif -%}
+      </div>
+      <div class="ttl__card-p" data-lb-panel></div>
+      <button type="button" class="ttl__lb-close" data-lb-close autofocus aria-label="{{ 'accessibility.close' | t }}"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="m1 1 12 12M13 1 1 13"/></svg></button>
+    </div>
+  </dialog>
+</try-the-look>
+
+<script>
+  window.MateriaAddItems = window.MateriaAddItems || async function (items) {
+    const cart = document.querySelector('cart-drawer') || document.querySelector('cart-notification');
+    const sections = cart && cart.getSectionsToRender ? cart.getSectionsToRender().map(s => s.id) : [];
+    const res = await fetch((window.routes && window.routes.cart_add_url) || '/cart/add', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ items, sections, sections_url: location.pathname })
+    });
+    const data = await res.json();
+    if (data.status || data.errors) throw new Error(data.description || data.message || data.errors);
+    fetch('/cart.json').then(r => r.json()).then(c => document.querySelectorAll('.cart-count').forEach(el => { el.textContent = el.classList.contains('cart-count-drawer') ? '(' + c.item_count + ')' : (c.item_count > 100 ? '~' : c.item_count); })).catch(() => {});
+    if (cart) {
+      if (data.sections) cart.getSectionsToRender().forEach(s => {
+        const el = document.getElementById(s.id); if (!el || !data.sections[s.id]) return;
+        const incoming = new DOMParser().parseFromString(data.sections[s.id], 'text/html').querySelector('#minicart-form');
+        if (incoming && !(window.materiaPatchDrawerCart && window.materiaPatchDrawerCart(el, incoming))) el.innerHTML = incoming.innerHTML;
+      });
+      if (typeof cart.cartAction === 'function') cart.cartAction();
+      if (typeof cart.open === 'function') cart.open();
+    } else { location.href = (window.routes && window.routes.cart_url) || '/cart'; }
+    return data;
+  };
+
+  if (!customElements.get('try-the-look')) {
+    customElements.define('try-the-look', class extends HTMLElement {
+      connectedCallback() {
+        if (this._ready) return; this._ready = true;
+        this.stage = this.querySelector('[data-stage]');
+        this.models = [...this.stage.querySelectorAll('[data-model]')];
+        this.steps = [...this.querySelectorAll('[data-step]')];
+        this.looks = [...this.querySelectorAll('.ttl__panel > [data-look]')];
+        this.view = this.querySelector('[data-view]'); this.lb = this.querySelector('[data-lb]');
+        this.i = 0;
+        this.querySelector('[data-prev]')?.addEventListener('click', () => this.go(this.i - 1, true));
+        this.querySelector('[data-next]')?.addEventListener('click', () => this.go(this.i + 1, true));
+        this.steps.forEach((s, k) => s.addEventListener('click', () => this.go(k, true)));
+        // One listener serves the panel and the opened look alike (the card holds copies of the same buttons).
+        this.addEventListener('click', e => this.onClick(e));
+        this.addEventListener('pointerover', e => this.pinHover(e, true));
+        this.addEventListener('pointerout', e => this.pinHover(e, false));
+        this.stage.addEventListener('keydown', e => {
+          const m = e.target.closest && e.target.closest('[data-model]');
+          if (m && m.classList.contains('is-on') && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); this.openView(m); }
+          if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); this.go(this.i + (e.key === 'ArrowRight' ? 1 : -1), true); this.models[this.i].focus({ preventScroll: true }); }
+        });
+        this.lb?.addEventListener('click', e => { if (e.target === this.lb) this.closeView(); });
+        this.lb?.addEventListener('cancel', e => { e.preventDefault(); this.closeView(); });
+        this.initCursor(); this.initDrag();
+        // Autoplay: only while on screen, never in the editor or with reduced motion
+        this.sec = +this.dataset.autoplay || 0;
+        this.playBtn = this.querySelector('[data-play]');
+        this.playBtn?.addEventListener('click', () => this.setPlaying(!this.hasAttribute('data-playing'), true));
+        const calm = (window.Shopify && Shopify.designMode) || matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (this.sec > 0 && !calm && 'IntersectionObserver' in window && this.models.length > 1) {
+          new IntersectionObserver(es => es.forEach(e => this.setPlaying(e.isIntersecting && !this._paused))).observe(this);
+        } else if (this.playBtn) { this.playBtn.querySelector('[data-i-pause]').hidden = true; this.playBtn.querySelector('[data-i-play]').hidden = false; }
+        this.addEventListener('shopify:block:select', e => { const k = this.models.findIndex(m => m.contains(e.target) || m === e.target); if (k > -1) this.go(k, true); });
+        this.layout();
+      }
+      onClick(e) {
+        const t = e.target; if (!t.closest) return;
+        if (t.closest('[data-lb-close]')) return this.closeView();
+        const pin = t.closest('[data-pin]'); if (pin) return this.pinGo(pin);
+        const model = t.closest('[data-model]');
+        if (model && this.stage.contains(model)) {
+          if (this._swiped) return;
+          const k = this.models.indexOf(model);
+          return k === this.i ? this.openView(model) : this.go(k, true);
+        }
+        const opt = t.closest('.ttl__opt');
+        if (opt) { opt.parentNode.querySelectorAll('.ttl__opt').forEach(x => x.setAttribute('aria-pressed', String(x === opt))); return; }
+        const optAdd = t.closest('[data-opt-add]');
+        if (optAdd) {
+          const it = optAdd.closest('.ttl__item'); const on = it.querySelector('.ttl__opt[aria-pressed="true"]:not(:disabled)'); if (!on) return;
+          return this.add(optAdd, [{ id: +on.dataset.v, quantity: 1 }], () => { it.classList.remove('is-open'); it.querySelector('[data-pick]')?.setAttribute('aria-expanded', 'false'); });
+        }
+        const add = t.closest('[data-add]');
+        if (add) {
+          if (add.hasAttribute('data-pick')) {
+            const it = add.closest('.ttl__item'); const open = !it.classList.contains('is-open');
+            it.parentNode.querySelectorAll('.ttl__item.is-open').forEach(x => { x.classList.remove('is-open'); x.querySelector('[data-pick]')?.setAttribute('aria-expanded', 'false'); });
+            it.classList.toggle('is-open', open); add.setAttribute('aria-expanded', String(open));
+            if (open) setTimeout(() => it.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' }), 120);
+            return;
+          }
+          return this.add(add, [{ id: +add.dataset.add, quantity: 1 }], () => { add.classList.add('is-done'); setTimeout(() => add.classList.remove('is-done'), 1600); });
+        }
+        const all = t.closest('[data-all]');
+        if (all) { const items = all.dataset.all.split(',').filter(Boolean).map(id => ({ id: +id, quantity: 1 })); if (items.length) this.add(all, items); }
+      }
+      async add(btn, items, done) {
+        const m = btn.closest('[data-look]')?.querySelector('[data-msg]'); if (m) m.textContent = '';
+        btn.setAttribute('aria-busy', 'true');
+        try { await window.MateriaAddItems(items); if (done) done(); if (this.lb?.open) this.closeView(); }
+        catch (err) { if (m) m.textContent = err.message; }
+        finally { btn.removeAttribute('aria-busy'); }
+      }
+      // The pieces list that belongs to a pin: the card's copy when the look is open, the panel's otherwise.
+      listFor(pin) { return pin.closest('[data-lb]') ? this.lb.querySelector('[data-lb-panel]') : this.looks[this.i]; }
+      pinHover(e, on) {
+        const pin = e.target.closest && e.target.closest('[data-pin]'); if (!pin || (e.relatedTarget && pin.contains(e.relatedTarget))) return;
+        pin.classList.toggle('is-hot', on); this.listFor(pin)?.querySelector('[data-item="' + pin.dataset.pin + '"]')?.classList.toggle('is-hot', on);
+      }
+      pinGo(pin) {
+        const it = this.listFor(pin)?.querySelector('[data-item="' + pin.dataset.pin + '"]'); if (!it) return;
+        const list = it.parentElement;
+        if (list.scrollWidth > list.clientWidth + 2) list.scrollTo({ left: it.offsetLeft - list.offsetLeft - 20, behavior: 'smooth' });
+        else if (list.scrollHeight > list.clientHeight + 2) list.scrollTo({ top: it.offsetTop - list.offsetTop, behavior: 'smooth' });
+        else it.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        [pin, it].forEach(x => x.classList.add('is-hot')); clearTimeout(pin._t);
+        pin._t = setTimeout(() => [pin, it].forEach(x => x.classList.remove('is-hot')), 1500);
+      }
+      // Glass circle: trails the pointer (eased every frame, stops once it has caught up).
+      initCursor() {
+        const st = this.stage, v = this.view; if (!v) return;
+        let tx = 0, ty = 0, cx = 0, cy = 0, raf = 0;
+        const follow = () => {
+          cx += (tx - cx) * 0.22; cy += (ty - cy) * 0.22;
+          v.style.transform = 'translate3d(' + cx.toFixed(1) + 'px,' + cy.toFixed(1) + 'px,0)';
+          raf = Math.abs(tx - cx) + Math.abs(ty - cy) > 0.3 ? requestAnimationFrame(follow) : 0;
+        };
+        st.addEventListener('pointermove', e => {
+          if (e.pointerType !== 'mouse' || this._drag) return;
+          const r = st.getBoundingClientRect(); tx = e.clientX - r.left; ty = e.clientY - r.top;
+          let mode = '';
+          if (!this._drag && !e.target.closest('[data-pin], button')) {
+            const m = e.target.closest('[data-model]');
+            mode = m && m.classList.contains('is-on') && e.target.closest('.ttl__fit') ? 'view' : (this.models.length > 1 ? 'drag' : '');
+          }
+          if (mode && !v.dataset.mode) { cx = tx; cy = ty; }
+          if (v.dataset.mode !== mode) { if (mode) v.dataset.mode = mode; else delete v.dataset.mode; }
+          if (!raf) raf = requestAnimationFrame(follow);
+        });
+        st.addEventListener('pointerleave', () => { delete v.dataset.mode; });
+      }
+      // Drag / swipe: the whole lineup follows 1:1, then a flick or a past-a-third drag settles on the next look.
+      initDrag() {
+        const st = this.stage; let x0 = null, y0 = 0, lastX = 0, lastT = 0, vel = 0, frame = 0, pending = 0, step = 1;
+        st.addEventListener('dragstart', e => e.preventDefault());
+        st.addEventListener('pointerdown', e => {
+          if (e.button > 0 || this.models.length < 2 || e.target.closest('[data-pin], button, a')) return;
+          x0 = lastX = e.clientX; y0 = e.clientY; lastT = e.timeStamp; vel = 0; this._drag = 0;
+          const m = this.models[this.i]; step = Math.max(60, (m ? m.offsetWidth : 260) * 0.55);
+        });
+        st.addEventListener('pointermove', e => {
+          if (x0 == null) return; const dx = e.clientX - x0;
+          if (!this._drag) {
+            if (Math.abs(dx) < 6) return;
+            if (Math.abs(e.clientY - y0) > Math.abs(dx)) { x0 = null; return; }
+            st.classList.add('is-drag'); if (this.view) delete this.view.dataset.mode; clearTimeout(this._t);
+            try { st.setPointerCapture(e.pointerId); } catch (_) {}
+          }
+          const dt = e.timeStamp - lastT; if (dt > 0) vel = 0.75 * ((e.clientX - lastX) / dt) + 0.25 * vel;
+          lastX = e.clientX; lastT = e.timeStamp; this._drag = dx || 0.01; pending = dx;
+          if (!frame) frame = requestAnimationFrame(() => { frame = 0; if (this._drag) this.layout(pending / step); });
+        });
+        const end = e => {
+          if (x0 == null) return; x0 = null;
+          const dx = this._drag; if (!dx) return;
+          cancelAnimationFrame(frame); frame = 0; this._drag = 0; st.classList.remove('is-drag');
+          if (e.timeStamp - lastT > 90) vel = 0;
+          const proj = -dx / step; let n = Math.round(proj);
+          if (Math.abs(vel) > 0.35 && (vel < 0) === (dx < 0)) n = vel < 0 ? Math.max(1, Math.ceil(proj - 0.25)) : Math.min(-1, Math.floor(proj + 0.25));
+          else if (!n && Math.abs(proj) > 0.3) n = proj > 0 ? 1 : -1;
+          if (e.type === 'pointercancel') n = 0;
+          n = Math.max(-2, Math.min(2, n));
+          this._swiped = true; setTimeout(() => { this._swiped = false; }, 80);
+          this.go(this.i + n, true);
+        };
+        st.addEventListener('pointerup', end); st.addEventListener('pointercancel', end); st.addEventListener('lostpointercapture', end);
+        // Trackpad: a sideways two-finger swipe moves one look at a time
+        let acc = 0, lock = 0;
+        st.addEventListener('wheel', e => {
+          if (Math.abs(e.deltaX) <= Math.abs(e.deltaY) || this.models.length < 2) return;
+          e.preventDefault(); if (e.timeStamp < lock) return;
+          acc += e.deltaX; clearTimeout(this._wt); this._wt = setTimeout(() => { acc = 0; }, 160);
+          if (Math.abs(acc) > 40) { this.go(this.i + (acc > 0 ? 1 : -1), true); acc = 0; lock = e.timeStamp + 650; }
+        }, { passive: false });
+      }
+      openView(m) {
+        const lb = this.lb; if (!lb || lb.open) return;
+        const k = this.models.indexOf(m), look = this.looks[k];
+        lb.querySelector('[data-lb-num]').textContent = m.dataset.num && m.dataset.num !== m.dataset.title ? m.dataset.num : '';
+        lb.querySelector('[data-lb-title]').textContent = m.dataset.title || '';
+        const fig = lb.querySelector('[data-lb-fig]'), fit = m.querySelector('.ttl__fit');
+        fig.replaceChildren(); if (fit) {
+          const c = fit.cloneNode(true);
+          c.querySelectorAll('img').forEach(img => { img.loading = 'eager'; if (img.sizes) img.sizes = '(min-width: 750px) 44vw, 80vw'; });
+          fig.append(c);
+        }
+        const panel = lb.querySelector('[data-lb-panel]'); panel.replaceChildren();
+        if (look) { const c = look.cloneNode(true); c.hidden = false; c.querySelectorAll('.is-open, .is-hot').forEach(x => x.classList.remove('is-open', 'is-hot')); panel.append(c); }
+        clearTimeout(this._t); this._modal = true;
+        lb.classList.remove('is-closing'); lb.showModal();
+        document.documentElement.style.overflow = 'hidden';
+      }
+      closeView() {
+        const lb = this.lb; if (!lb || !lb.open || lb.classList.contains('is-closing')) return;
+        const finish = () => { lb.classList.remove('is-closing'); lb.close(); document.documentElement.style.removeProperty('overflow'); this._modal = false; if (this.hasAttribute('data-playing')) this.setPlaying(true); };
+        if (matchMedia('(prefers-reduced-motion: reduce)').matches) return finish();
+        lb.classList.add('is-closing'); setTimeout(finish, 300);
+      }
+      setPlaying(on, byUser) {
+        if (byUser) this._paused = !on;
+        clearTimeout(this._t);
+        this.toggleAttribute('data-playing', !!on && this.sec > 0);
+        if (this.playBtn) { this.playBtn.querySelector('[data-i-pause]').hidden = !on; this.playBtn.querySelector('[data-i-play]').hidden = !!on; }
+        if (on && this.sec > 0) this._t = setTimeout(() => { if (this._modal || this._drag) return this.setPlaying(true); this.go(this.i + 1); }, this.sec * 1000);
+      }
+      go(k, byUser) {
+        const n = this.models.length; if (!n) return;
+        this.i = (k + n) % n; this.layout();
+        if (this.hasAttribute('data-playing')) { const s = this.steps[this.i]; if (s) { s.classList.remove('is-on'); void s.offsetWidth; s.classList.add('is-on'); } this.setPlaying(true); }
+      }
+      layout(off = 0) {
+        const n = this.models.length, edge = Math.min(2, (n - 1) / 2) + 0.01;
+        this.models.forEach((m, k) => {
+          let d = k - this.i + off; while (d > n / 2) d -= n; while (d <= -n / 2) d += n;
+          const prev = m._d; m._d = d;
+          // A look that wraps round from one end to the other jumps there unseen and fades in, instead of sliding across the stage.
+          if (prev != null && Math.abs(d - prev) > n / 2) { m.setAttribute('data-jump', ''); m.style.setProperty('--d', d); m.style.setProperty('--a', Math.abs(d)); void m.offsetWidth; requestAnimationFrame(() => m.removeAttribute('data-jump')); }
+          else { m.style.setProperty('--d', d); m.style.setProperty('--a', Math.abs(d)); }
+          m.toggleAttribute('data-far', Math.abs(d) > edge);
+          if (!off) { m.classList.toggle('is-on', d === 0); m.tabIndex = d === 0 ? 0 : -1; m.setAttribute('aria-hidden', String(d !== 0)); }
+        });
+        if (off) { this.models[this.i]?.classList.remove('is-on'); return; }
+        this.steps.forEach((s, k) => { s.classList.toggle('is-on', k === this.i); s.classList.toggle('is-done', k < this.i); s.setAttribute('aria-current', String(k === this.i)); });
+        this.looks.forEach((l, k) => { l.hidden = k !== this.i; });
+      }
+    });
+  }
+</script>
+
+{% schema %}
+{
+  "name": "Try the Look",
+  "class": "s-tt",
+  "tag": "section",
+  "max_blocks": 8,
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Set up: add a Look block per outfit. Upload the model as a transparent PNG or WebP (an image editor's Remove background), full length and cropped at the feet. Pick up to 4 products and move each pin onto its piece with the two sliders (0-100% across and down the picture). Sample photos are CC0 (credits in snippets/try-the-look-sample)."
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "default"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Try the look."
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "label": "Heading size",
+      "default": "h1",
+      "options": [
+        {
+          "value": "h2",
+          "label": "Medium"
+        },
+        {
+          "value": "h1",
+          "label": "Large"
+        },
+        {
+          "value": "h0",
+          "label": "Extra large"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "subheading",
+      "label": "Subheading",
+      "default": "Styled head to toe. Tap a pin to see the piece."
+    },
+    {
+      "type": "header",
+      "content": "Runway"
+    },
+    {
+      "type": "range",
+      "id": "stage_height",
+      "label": "Model height",
+      "min": 400,
+      "max": 900,
+      "step": 20,
+      "unit": "px",
+      "default": 640
+    },
+    {
+      "type": "range",
+      "id": "stage_height_mobile",
+      "label": "Model height on mobile",
+      "min": 300,
+      "max": 700,
+      "step": 20,
+      "unit": "px",
+      "default": 460
+    },
+    {
+      "type": "range",
+      "id": "model_width",
+      "label": "Model width",
+      "min": 30,
+      "max": 80,
+      "step": 2,
+      "unit": "%",
+      "default": 42,
+      "info": "Width of each picture's box, as a share of its height. Raise it for wide pictures."
+    },
+    {
+      "type": "select",
+      "id": "model_align",
+      "label": "Model alignment",
+      "default": "bottom",
+      "options": [
+        {
+          "value": "center",
+          "label": "Centred"
+        },
+        {
+          "value": "bottom",
+          "label": "Standing on the floor (cut-outs)"
+        }
+      ],
+      "info": "Cut-outs stand on the floor; pictures with their own background sit in the middle."
+    },
+    {
+      "type": "range",
+      "id": "blur",
+      "label": "Blur on the looks beside",
+      "min": 0,
+      "max": 8,
+      "step": 1,
+      "unit": "px",
+      "default": 3
+    },
+    {
+      "type": "checkbox",
+      "id": "shadows",
+      "label": "Show model shadows",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_pins",
+      "label": "Show pins on the model",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_placeholders",
+      "label": "Show sample looks",
+      "default": true,
+      "info": "Real sample models and pieces show in each Look until you add your own picture and products; yours always replace them."
+    },
+    {
+      "type": "text",
+      "id": "sample_pieces",
+      "label": "Sample piece names",
+      "default": "Denim overshirt, Slim black jeans, Leather derbies | Tailored blazer, Wool mini skirt, Suede ankle boots | Floral playsuit, Leather tote, Strappy sandals | Bandeau top, Skinny jeans, Block heels",
+      "info": "Three names per sample look, looks separated by |."
+    },
+    {
+      "type": "text",
+      "id": "view_label",
+      "label": "Hover label",
+      "default": "View",
+      "info": "Shown in the glass circle over the look in focus. A click opens the look with its pieces."
+    },
+    {
+      "type": "text",
+      "id": "drag_label",
+      "label": "Drag label",
+      "default": "Drag",
+      "info": "Shown in the glass circle beside the look in focus."
+    },
+    {
+      "type": "text",
+      "id": "view_hint",
+      "label": "Opened look hint",
+      "default": "Tap a dot to shop the piece"
+    },
+    {
+      "type": "text",
+      "id": "look_label",
+      "label": "Look label",
+      "default": "Look",
+      "info": "Numbers each look in the opened card (Look 01) and names looks without a name."
+    },
+    {
+      "type": "range",
+      "id": "autoplay",
+      "label": "Change look every",
+      "min": 0,
+      "max": 12,
+      "step": 1,
+      "unit": "s",
+      "default": 6,
+      "info": "0 turns autoplay off. It pauses off screen and in the editor."
+    },
+    {
+      "type": "header",
+      "content": "Panel"
+    },
+    {
+      "type": "text",
+      "id": "panel_heading",
+      "label": "Panel heading",
+      "default": "In this look"
+    },
+    {
+      "type": "text",
+      "id": "pieces_label",
+      "label": "Pieces label",
+      "default": "pieces"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_vendor",
+      "label": "Show vendor",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "bundle_heading",
+      "label": "Bundle heading",
+      "default": "Complete the look"
+    },
+    {
+      "type": "range",
+      "id": "bundle_discount",
+      "label": "Bundle discount shown",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "unit": "%",
+      "default": 0,
+      "info": "Only shows the saving. Create the matching automatic discount in Storelib under Discounts so the cart applies it."
+    },
+    {
+      "type": "text",
+      "id": "bundle_note",
+      "label": "Bundle note",
+      "default": "Bundle all [count] and save [percent]%",
+      "info": "[count] and [percent] are filled in."
+    },
+    {
+      "type": "text",
+      "id": "button_label",
+      "label": "Button label",
+      "default": "Add full look to bag"
+    },
+    {
+      "type": "text",
+      "id": "piece_button_label",
+      "label": "Size picker button",
+      "default": "Add to bag"
+    },
+    {
+      "type": "header",
+      "content": "Spacing"
+    },
+    {
+      "type": "select",
+      "id": "section_spacing",
+      "label": "Space around section",
+      "default": "both",
+      "options": [
+        {
+          "value": "both",
+          "label": "Top and bottom"
+        },
+        {
+          "value": "top",
+          "label": "Top only"
+        },
+        {
+          "value": "bottom",
+          "label": "Bottom only"
+        },
+        {
+          "value": "none",
+          "label": "None"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    },
+    {
+      "type": "range",
+      "id": "padding_top_mobile",
+      "label": "Top padding on mobile",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom_mobile",
+      "label": "Bottom padding on mobile",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 32
+    }
+  ],
+  "blocks": [
+    {
+      "type": "look",
+      "name": "Look",
+      "settings": [
+        {
+          "type": "text",
+          "id": "title",
+          "label": "Look name",
+          "default": "The city edit"
+        },
+        {
+          "type": "image_picker",
+          "id": "model_image",
+          "label": "Model cut-out",
+          "info": "Transparent PNG or WebP, full length, cropped at the feet."
+        },
+        {
+          "type": "header",
+          "content": "Piece 1"
+        },
+        {
+          "type": "product",
+          "id": "product_1",
+          "label": "Product"
+        },
+        {
+          "type": "range",
+          "id": "pin_x_1",
+          "label": "Pin across",
+          "min": 0,
+          "max": 100,
+          "step": 1,
+          "unit": "%",
+          "default": 50,
+          "info": "0 = left / top of the model, 100 = right / bottom."
+        },
+        {
+          "type": "range",
+          "id": "pin_y_1",
+          "label": "Pin down",
+          "min": 0,
+          "max": 100,
+          "step": 1,
+          "unit": "%",
+          "default": 30
+        },
+        {
+          "type": "header",
+          "content": "Piece 2"
+        },
+        {
+          "type": "product",
+          "id": "product_2",
+          "label": "Product"
+        },
+        {
+          "type": "range",
+          "id": "pin_x_2",
+          "label": "Pin across",
+          "min": 0,
+          "max": 100,
+          "step": 1,
+          "unit": "%",
+          "default": 50
+        },
+        {
+          "type": "range",
+          "id": "pin_y_2",
+          "label": "Pin down",
+          "min": 0,
+          "max": 100,
+          "step": 1,
+          "unit": "%",
+          "default": 58
+        },
+        {
+          "type": "header",
+          "content": "Piece 3"
+        },
+        {
+          "type": "product",
+          "id": "product_3",
+          "label": "Product"
+        },
+        {
+          "type": "range",
+          "id": "pin_x_3",
+          "label": "Pin across",
+          "min": 0,
+          "max": 100,
+          "step": 1,
+          "unit": "%",
+          "default": 46
+        },
+        {
+          "type": "range",
+          "id": "pin_y_3",
+          "label": "Pin down",
+          "min": 0,
+          "max": 100,
+          "step": 1,
+          "unit": "%",
+          "default": 92
+        },
+        {
+          "type": "header",
+          "content": "Piece 4"
+        },
+        {
+          "type": "product",
+          "id": "product_4",
+          "label": "Product"
+        },
+        {
+          "type": "range",
+          "id": "pin_x_4",
+          "label": "Pin across",
+          "min": 0,
+          "max": 100,
+          "step": 1,
+          "unit": "%",
+          "default": 60
+        },
+        {
+          "type": "range",
+          "id": "pin_y_4",
+          "label": "Pin down",
+          "min": 0,
+          "max": 100,
+          "step": 1,
+          "unit": "%",
+          "default": 12
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Try the Look",
+      "category": "03 · Products",
+      "blocks": [
+        {
+          "type": "look",
+          "settings": {
+            "title": "The city edit"
+          }
+        },
+        {
+          "type": "look",
+          "settings": {
+            "title": "Gallery opening"
+          }
+        },
+        {
+          "type": "look",
+          "settings": {
+            "title": "Studio day"
+          }
+        },
+        {
+          "type": "look",
+          "settings": {
+            "title": "Weekend"
+          }
+        },
+        {
+          "type": "look",
+          "settings": {
+            "title": "Late summer"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

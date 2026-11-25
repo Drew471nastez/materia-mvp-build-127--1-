@@ -1,7 +1,12 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes — Divider Pro block.
   10 divider styles + color + weight + spacing. Pass `block`.
-{%- endcomment -%}
+
+  @param {block} block - The block being rendered
+
+  @example
+  {% render 'divider-pro', block: block %}
+{%- enddoc -%}
 {%- liquid
   assign s = block.settings
   assign block_id = 'divider-pro-' | append: block.id

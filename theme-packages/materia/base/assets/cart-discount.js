@@ -97,6 +97,9 @@ class MinicartDiscount extends HTMLElement {
       }
     });
 
+    // The code labels sit outside the redrawn section: draw them from the cart.
+    window.materiaSyncDiscountPills?.(data.discount_codes);
+
     // Update header total price
     this.#updateHeaderTotalPrice(data);
 
@@ -216,8 +219,10 @@ class MinicartDiscount extends HTMLElement {
           String(discount.code || "").toLowerCase() === wanted
       );
       if (!applied || applied.applicable === false) {
-        // The server retained the code. Show its inapplicable state too, so it
-        // can be removed and doesn't silently disappear from the cart UI.
+        // The platform keeps a code it cannot apply to this cart yet (a free
+        // shipping code, a minimum not reached yet): it is shown on the cart,
+        // can be removed, and the platform applies it at checkout if it qualifies.
+        discountCode.value = "";
         this.#updateCartUI(data);
         this.#handleDiscountError();
         return;
@@ -355,7 +360,7 @@ class MinicartDiscount extends HTMLElement {
 
   toastError(message) {
     const toast = this.#createToast(message, "error");
-    showToast(toast, 2000, "modal-error");
+    showToast(toast, 4500, "modal-error"); // long enough to read why a code was refused
   }
 
   /**
@@ -387,6 +392,45 @@ class MinicartDiscount extends HTMLElement {
     `;
   }
 }
+
+/* Code labels (drawer and cart page) drawn from the cart's own list of codes,
+   so they always match what the platform holds: applied, or kept for checkout. */
+window.materiaSyncDiscountPills = function (codes) {
+  if (!Array.isArray(codes)) return;
+  const strings = window.cartStrings || {};
+  document.querySelectorAll(".cart-discount__codes").forEach((list) => {
+    const sample = list.querySelector(".cart-discount__item");
+    const items = codes.map(({ code, applicable }) => {
+      let li;
+      if (sample) {
+        li = sample.cloneNode(true);
+        const p = li.querySelector(".cart-discount-code");
+        if (p) {
+          [...p.childNodes].forEach((n) => { if (n.nodeType === 3) n.remove(); });
+          p.querySelector(".cart-code-status")?.remove();
+          p.append(document.createTextNode(" " + code + " "));
+        }
+        li.querySelector(".cart-discount-remove")?.setAttribute("aria-label", ((window.cartStrings && window.cartStrings.remove) || "Remove") + ": " + code);
+      } else {
+        li = document.createElement("li");
+        li.className = "cart-discount__item inline-flex align-center gap-5";
+        li.innerHTML = '<p class="cart-discount-code m-0 inline-flex align-center gap-5"></p><button type="button" class="cart-discount-remove btn-reset p-0 inline-flex align-center relative"><svg width="16" height="16" class="heading-color remove-icon"><use href="#icon-trash"/></svg></button>';
+        li.querySelector("p").textContent = code + " ";
+        li.querySelector("button").setAttribute("aria-label", ((window.cartStrings && window.cartStrings.remove) || "Remove") + ": " + code);
+      }
+      li.dataset.discountCode = code;
+      const status = document.createElement("small");
+      status.className = "cart-code-status";
+      status.dataset.applicable = String(!!applicable);
+      status.textContent = applicable ? (strings.discount_applied_short || "") : (strings.discount_pending || "");
+      li.querySelector(".cart-discount-code")?.append(status);
+      return li;
+    });
+    list.replaceChildren(...items);
+    list.classList.toggle("mt-10", items.length > 0);
+    list.classList.toggle("mb-10", items.length > 0);
+  });
+};
 
 if (!customElements.get("minicart-discount")) {
   customElements.define("minicart-discount", MinicartDiscount);

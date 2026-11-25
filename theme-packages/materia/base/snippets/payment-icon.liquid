@@ -1,4 +1,12 @@
-{%- comment -%}Shared payment artwork for product, cart and footer.{%- endcomment -%}
+{%- doc -%}
+  Shared payment artwork for product, cart and footer.
+
+  @param {string} icon_class - Icon class
+  @param {string} method - Method
+
+  @example
+  {% render 'payment-icon', method: 'visa', icon_class: 'icon icon--full-color' %}
+{%- enddoc -%}
 {%- case method -%}
 {%- when 'american_express' -%}
 <svg class="{{ icon_class | escape }}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="American Express" viewBox="0 0 38 24">

@@ -1,8 +1,9 @@
+{{ 'text-section-controls.css' | asset_url | stylesheet_tag }}
 <script src="{{ 'text-section-controls.js' | asset_url }}" defer="defer"></script>
 {%- comment -%} Runtime, once per page (the CSS and hero-image-one.js from layout/theme.storelib, every other script from the tags at the top of this file): shopify/assets/text-section-controls.css, shopify/assets/text-section-controls.js. {%- endcomment -%}
-{% render 'theme-type' %}
+{% render 'theme-type', inline: true %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' and section.settings.reveal != false -%}
@@ -177,7 +178,7 @@
 {% endif %}
 
 <div
-  id="rt-elements-pro-1-wrapper-{{ section.id }}" data-text-controls="text-heading" data-tx-section="{{ section.id }}" data-tx-settings="{{ section.settings | json | escape }}" data-tx-defaults='{"color_scheme":"default-color-scheme","section_width":"fluid_container","reset_spacing":true,"reveal":true,"show_on_mobile":true,"enable_second_text":false,"elements_alignment":"center","section_height_desktop":170,"enable_custom_font":false,"custom_font_title":"assistant_n4","title_text_size":40,"title_font_weight":"theme","title_line_height":"1.2","second_text_size_desktop":20,"second_text_font_weight":"theme","second_text_font":"assistant_n4","title_contrast":100,"title_opacity":100,"enable_title_gradient":false,"gradient_start_color":"#ff7e5f","gradient_middle_color":"#ffffff","gradient_end_color":"#feb47b","gradient_direction":"to right","enable_custom_style":false,"title_text_animation":"none","second_text_margin_left":0,"second_text_margin_right":0,"second_text_horizontal_position_desktop":0,"title_horizontal_position_desktop":0,"title_vertical_position_desktop":0,"padding_top":40,"padding_bottom":40,"padding_left_desktop":0,"padding_right_desktop":0,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"title_mobile_size":30,"second_text_size_mobile":20,"second_text_horizontal_position_mobile":0,"title_horizontal_position_mobile":0,"title_vertical_position_mobile":0,"padding_left_mobile":0,"padding_right_mobile":0,"section_height_mobile":170,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0,"enable_second_text_custom_font_url":false,"enable_custom_font_url":false}' data-tx-block-defaults='{"title":{"title_text":"Talk about your brand","enable_custom_fonts":false,"font":"assistant_n4","enable_custom_style":false}}' data-tx-editor="{% if request.design_mode or page.in_editor %}true{% else %}false{% endif %}"
+  id="rt-elements-pro-1-wrapper-{{ section.id }}" data-text-controls="text-heading" data-tx-section="{{ section.id }}" data-tx-settings="{{ section.settings | json | escape }}" data-tx-defaults='{"color_scheme":"default","section_width":"fluid_container","reset_spacing":true,"reveal":true,"show_on_mobile":true,"enable_second_text":false,"elements_alignment":"center","section_height_desktop":170,"enable_custom_font":false,"custom_font_title":"assistant_n4","title_text_size":40,"title_font_weight":"theme","title_line_height":"1.2","second_text_size_desktop":20,"second_text_font_weight":"theme","second_text_font":"assistant_n4","title_contrast":100,"title_opacity":100,"enable_title_gradient":false,"gradient_start_color":"#ff7e5f","gradient_middle_color":"#ffffff","gradient_end_color":"#feb47b","gradient_direction":"to right","enable_custom_style":false,"title_text_animation":"none","second_text_margin_left":0,"second_text_margin_right":0,"second_text_horizontal_position_desktop":0,"title_horizontal_position_desktop":0,"title_vertical_position_desktop":0,"padding_top":40,"padding_bottom":40,"padding_left_desktop":0,"padding_right_desktop":0,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"title_mobile_size":30,"second_text_size_mobile":20,"second_text_horizontal_position_mobile":0,"title_horizontal_position_mobile":0,"title_vertical_position_mobile":0,"padding_left_mobile":0,"padding_right_mobile":0,"section_height_mobile":170,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0,"enable_second_text_custom_font_url":false,"enable_custom_font_url":false}' data-tx-block-defaults='{"title":{"title_text":"Talk about your brand","enable_custom_fonts":false,"font":"assistant_n4","enable_custom_style":false}}' data-tx-editor="{% if request.design_mode or page.in_editor %}true{% else %}false{% endif %}"
   class="
     rt-elements-pro-1-wrapper color-{{ color_scheme }} gradient
     {% if section.settings.enable_custom_font %}custom-font{% endif %}
@@ -565,7 +566,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -1287,8 +1288,8 @@
   ],
   "presets": [
     {
-      "name": "Text Heading ",
-      "category": "Text",
+      "name": "Heading",
+      "category": "12 · Text",
       "blocks": [
         {
           "type": "title"

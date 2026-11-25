@@ -92,47 +92,47 @@
 
     /* ===== Wishlist heart — inactive (default) state ===== */
     {%- if s.card_wish_bg != blank and s.card_wish_bg != 'transparent' and s.card_wish_bg.alpha != 0 -%}
-      .product-item .product-item__button-wishlist {
+      :is(.product-item .product-item__button-wishlist, .qv .qv__wish) {
         background: {{ s.card_wish_bg }} !important;
       }
     {%- endif -%}
     {%- if s.card_wish_color != blank and s.card_wish_color != 'transparent' and s.card_wish_color.alpha != 0 -%}
-      .product-item .product-item__button-wishlist {
+      :is(.product-item .product-item__button-wishlist, .qv .qv__wish) {
         color: {{ s.card_wish_color }} !important;
       }
-      .product-item .product-item__button-wishlist svg,
-      .product-item .product-item__button-wishlist svg path,
-      .product-item .product-item__button-wishlist svg use {
+      :is(.product-item .product-item__button-wishlist, .qv .qv__wish) svg,
+      :is(.product-item .product-item__button-wishlist, .qv .qv__wish) svg path,
+      :is(.product-item .product-item__button-wishlist, .qv .qv__wish) svg use {
         stroke: {{ s.card_wish_color }} !important;
       }
     {%- endif -%}
     {%- if s.card_wish_border != blank and s.card_wish_border != 'transparent' and s.card_wish_border.alpha != 0 -%}
-      .product-item .product-item__button-wishlist {
+      :is(.product-item .product-item__button-wishlist, .qv .qv__wish) {
         border-color: {{ s.card_wish_border }} !important;
       }
     {%- endif -%}
 
     /* ===== Wishlist heart — active state (in-wishlist) ===== */
     {%- if s.card_wish_active_bg != blank and s.card_wish_active_bg != 'transparent' and s.card_wish_active_bg.alpha != 0 -%}
-      .product-item .product-item__button-wishlist.active {
+      :is(.product-item .product-item__button-wishlist, .qv .qv__wish).active {
         background: {{ s.card_wish_active_bg }} !important;
         border-color: {{ s.card_wish_active_bg }} !important;
       }
     {%- endif -%}
     {%- if s.card_wish_active_color != blank and s.card_wish_active_color != 'transparent' and s.card_wish_active_color.alpha != 0 -%}
-      .product-item .product-item__button-wishlist.active {
+      :is(.product-item .product-item__button-wishlist, .qv .qv__wish).active {
         color: {{ s.card_wish_active_color }} !important;
       }
-      .product-item .product-item__button-wishlist.active svg,
-      .product-item .product-item__button-wishlist.active svg path,
-      .product-item .product-item__button-wishlist.active svg use {
+      :is(.product-item .product-item__button-wishlist, .qv .qv__wish).active svg,
+      :is(.product-item .product-item__button-wishlist, .qv .qv__wish).active svg path,
+      :is(.product-item .product-item__button-wishlist, .qv .qv__wish).active svg use {
         color: {{ s.card_wish_active_color }} !important;
         fill: {{ s.card_wish_active_color }} !important;
         stroke: {{ s.card_wish_active_color }} !important;
       }
     {%- endif -%}
     {%- if s.card_wish_active_border != blank and s.card_wish_active_border != 'transparent' and s.card_wish_active_border.alpha != 0 -%}
-      .product-item .product-item__button-wishlist.active {
+      :is(.product-item .product-item__button-wishlist, .qv .qv__wish).active {
         border-color: {{ s.card_wish_active_border }} !important;
       }
     {%- endif -%}
@@ -140,17 +140,17 @@
     /* ===== Wishlist heart — hover state ===== */
     @media (hover: hover) and (pointer: fine) {
       {%- if s.card_wish_hover_bg != blank and s.card_wish_hover_bg != 'transparent' and s.card_wish_hover_bg.alpha != 0 -%}
-        .product-item .product-item__button-wishlist:hover {
+        :is(.product-item .product-item__button-wishlist, .qv .qv__wish):hover {
           background: {{ s.card_wish_hover_bg }} !important;
         }
       {%- endif -%}
       {%- if s.card_wish_hover_color != blank and s.card_wish_hover_color != 'transparent' and s.card_wish_hover_color.alpha != 0 -%}
-        .product-item .product-item__button-wishlist:hover {
+        :is(.product-item .product-item__button-wishlist, .qv .qv__wish):hover {
           color: {{ s.card_wish_hover_color }} !important;
         }
-        .product-item .product-item__button-wishlist:hover svg,
-        .product-item .product-item__button-wishlist:hover svg path,
-        .product-item .product-item__button-wishlist:hover svg use {
+        :is(.product-item .product-item__button-wishlist, .qv .qv__wish):hover svg,
+        :is(.product-item .product-item__button-wishlist, .qv .qv__wish):hover svg path,
+        :is(.product-item .product-item__button-wishlist, .qv .qv__wish):hover svg use {
           stroke: {{ s.card_wish_hover_color }} !important;
         }
       {%- endif -%}
@@ -158,16 +158,16 @@
 
     /* ===== Remove (X) button — variant 1 on the wishlist page only ===== */
     {%- if s.card_close_bg != blank and s.card_close_bg != 'transparent' and s.card_close_bg.alpha != 0 -%}
-      .product-item .product-item__button-wishlist.absolute[data-wishlist-remove][data-product-id] {
+      :is(.product-item .product-item__button-wishlist, .qv .qv__wish).absolute[data-wishlist-remove][data-product-id] {
         background: {{ s.card_close_bg }} !important;
         border-color: {{ s.card_close_bg }} !important;
       }
     {%- endif -%}
     {%- if s.card_close_color != blank and s.card_close_color != 'transparent' and s.card_close_color.alpha != 0 -%}
-      .product-item .product-item__button-wishlist.absolute[data-wishlist-remove][data-product-id],
-      .product-item .product-item__button-wishlist.absolute[data-wishlist-remove][data-product-id] svg,
-      .product-item .product-item__button-wishlist.absolute[data-wishlist-remove][data-product-id] svg path,
-      .product-item .product-item__button-wishlist.absolute[data-wishlist-remove][data-product-id] svg use {
+      :is(.product-item .product-item__button-wishlist, .qv .qv__wish).absolute[data-wishlist-remove][data-product-id],
+      :is(.product-item .product-item__button-wishlist, .qv .qv__wish).absolute[data-wishlist-remove][data-product-id] svg,
+      :is(.product-item .product-item__button-wishlist, .qv .qv__wish).absolute[data-wishlist-remove][data-product-id] svg path,
+      :is(.product-item .product-item__button-wishlist, .qv .qv__wish).absolute[data-wishlist-remove][data-product-id] svg use {
         color: {{ s.card_close_color }} !important;
         fill: {{ s.card_close_color }} !important;
         stroke: {{ s.card_close_color }} !important;
@@ -175,16 +175,16 @@
     {%- endif -%}
     @media (hover: hover) and (pointer: fine) {
       {%- if s.card_close_hover_bg != blank and s.card_close_hover_bg != 'transparent' and s.card_close_hover_bg.alpha != 0 -%}
-        .product-item .product-item__button-wishlist.absolute[data-wishlist-remove][data-product-id]:hover {
+        :is(.product-item .product-item__button-wishlist, .qv .qv__wish).absolute[data-wishlist-remove][data-product-id]:hover {
           background: {{ s.card_close_hover_bg }} !important;
           border-color: {{ s.card_close_hover_bg }} !important;
         }
       {%- endif -%}
       {%- if s.card_close_hover_color != blank and s.card_close_hover_color != 'transparent' and s.card_close_hover_color.alpha != 0 -%}
-        .product-item .product-item__button-wishlist.absolute[data-wishlist-remove][data-product-id]:hover,
-        .product-item .product-item__button-wishlist.absolute[data-wishlist-remove][data-product-id]:hover svg,
-        .product-item .product-item__button-wishlist.absolute[data-wishlist-remove][data-product-id]:hover svg path,
-        .product-item .product-item__button-wishlist.absolute[data-wishlist-remove][data-product-id]:hover svg use {
+        :is(.product-item .product-item__button-wishlist, .qv .qv__wish).absolute[data-wishlist-remove][data-product-id]:hover,
+        :is(.product-item .product-item__button-wishlist, .qv .qv__wish).absolute[data-wishlist-remove][data-product-id]:hover svg,
+        :is(.product-item .product-item__button-wishlist, .qv .qv__wish).absolute[data-wishlist-remove][data-product-id]:hover svg path,
+        :is(.product-item .product-item__button-wishlist, .qv .qv__wish).absolute[data-wishlist-remove][data-product-id]:hover svg use {
           color: {{ s.card_close_hover_color }} !important;
           fill: {{ s.card_close_hover_color }} !important;
           stroke: {{ s.card_close_hover_color }} !important;
@@ -193,3 +193,6 @@
     }
   </style>
 {%- endif -%}
+
+{%- comment -%} Card buttons (Theme settings > Product cards > Card buttons): size and hover colours. {%- endcomment -%}
+<style>:root { --pc-act-size: {{ settings.card_actions_size | default: 44 }}px;{% if settings.card_actions_hover_bg != blank and settings.card_actions_hover_bg.alpha != 0 %} --pc-act-hover-bg: {{ settings.card_actions_hover_bg }};{% endif %}{% if settings.card_actions_hover_icon != blank and settings.card_actions_hover_icon.alpha != 0 %} --pc-act-hover-icon: {{ settings.card_actions_hover_icon }};{% endif %} }</style>

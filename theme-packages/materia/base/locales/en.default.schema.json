@@ -90,7 +90,7 @@
         "font_google": {
           "heading": "Google font",
           "label": "Google font name",
-          "info": "[Get google fonts](https:\/\/fonts.google.com\/)",
+          "info": "[Get google fonts](https://fonts.google.com/)",
           "embed_font": "Embed code a font"
         },
         "font_size": {
@@ -448,12 +448,12 @@
           "label": "Enable color swatches for quickview and product page"
         },
         "limit_color": {
-           "label": "Color limit",
-           "default": "No limit",
-           "3": "3 Colors",
-           "4": "4 Colors",
-           "5": "5 Colors",
-           "6": "6 Colors"
+          "label": "Color limit",
+          "default": "No limit",
+          "3": "3 Colors",
+          "4": "4 Colors",
+          "5": "5 Colors",
+          "6": "6 Colors"
         },
         "swatch_item_type": {
           "label": "Swatch item type",
@@ -628,8 +628,8 @@
           "info": "Paste your Instagram URL."
         },
         "twitter": {
-          "label": "Twitter \/ X",
-          "info": "Paste your Twitter \/ X URL."
+          "label": "Twitter / X",
+          "info": "Paste your Twitter / X URL."
         },
         "youtube": {
           "label": "YouTube",
@@ -778,7 +778,7 @@
   "sections": {
     "product-bundle": {
       "name": "Product bundle",
-      "settings":{
+      "settings": {
         "discount": {
           "name": "Discount",
           "info": "Enter a discount code you have created for your store.",
@@ -1414,10 +1414,10 @@
           "info": "Content max width is automatically optimized for mobile."
         },
         "content_padding_inline": {
-          "label": "Content padding left\/right"
+          "label": "Content padding left/right"
         },
         "content_padding_block": {
-          "label": "Content padding top\/bottom"
+          "label": "Content padding top/bottom"
         },
         "max_height": {
           "label": "Content max height"
@@ -1536,12 +1536,12 @@
         "show-next-back": {
           "label": "Show next back"
         },
-        "slide_effect":{
+        "slide_effect": {
           "label": "Slide effect",
-           "fadein": "Fade in",
-           "slide": "Slide",
-           "coverflow": "Coverflow",
-           "creative": "Creative"
+          "fadein": "Fade in",
+          "slide": "Slide",
+          "coverflow": "Coverflow",
+          "creative": "Creative"
         },
         "pagination": {
           "label": "Dot",
@@ -1750,7 +1750,7 @@
         "support": {
           "label": "Support"
         },
-        "tree":{
+        "tree": {
           "label": "Tree"
         }
       },
@@ -1765,8 +1765,8 @@
       },
       "section_padding": {
         "label": "Section padding",
-        "horizontal" :"Horizontal padding",
-        "vertical" :"Vertical padding",
+        "horizontal": "Horizontal padding",
+        "vertical": "Vertical padding",
         "top": {
           "label": "Top"
         },
@@ -1847,13 +1847,13 @@
       },
       "blocks": {
         "store_info": {
-          "info": "This block will display your store information. [Edit Store information](\/editor?context=theme&category=store%20information)"
+          "info": "This block will display your store information. [Edit Store information](/editor?context=theme&category=store%20information)"
         },
         "socials": {
-          "info": "Configure in [Social media setting](\/editor?context=theme&category=social%20media)"
+          "info": "Configure in [Social media setting](/editor?context=theme&category=social%20media)"
         },
         "store": {
-          "info": "Our store page configured in store information. [Edit Store information](\/editor?context=theme&category=store%20information)"
+          "info": "Our store page configured in store information. [Edit Store information](/editor?context=theme&category=store%20information)"
         }
       }
     },
@@ -1876,7 +1876,7 @@
               "info": "Latitude coordinates at geographic coordinate system. Example: 21.0075"
             },
             "paragraph": {
-              "label": "How to get coordinates or search by latitude & longitude[https:\/\/support.google.com\/maps\/answer\/18539](https:\/\/support.google.com\/maps\/answer\/18539)"
+              "label": "How to get coordinates or search by latitude & longitude[https://support.google.com/maps/answer/18539](https://support.google.com/maps/answer/18539)"
             },
             "store_name": {
               "label": "Store name"
@@ -2216,11 +2216,11 @@
           "label": "Show social media icons"
         },
         "country_language": {
-          "content": "Country\/language selector",
+          "content": "Country/language selector",
           "info": "Shows the countries and languages the store sells in."
         },
         "enable_country_selector": {
-          "label": "Enable country\/region selector"
+          "label": "Enable country/region selector"
         },
         "enable_language_selector": {
           "label": "Enable language selector"
@@ -2659,7 +2659,7 @@
       "name": "Product testimonials",
       "settings": {
         "design": {
-             "info": "Desgin Modern will always hide the images"
+          "info": "Desgin Modern will always hide the images"
         },
         "select_product": "Select product",
         "show_image": "Show image",
@@ -2687,12 +2687,12 @@
           }
         },
         "show_after_before_text": {
-          "label": "Show before\/after text"
+          "label": "Show before/after text"
         }
       },
       "blocks": {
         "product": {
-           "name": "Product"
+          "name": "Product"
         },
         "image_banner": {
           "name": "Banner item",
@@ -3485,7 +3485,7 @@
             "label": "Hight light"
           },
           "image": {
-             "label": "Image"
+            "label": "Image"
           }
         },
         "speed": {
@@ -3588,7 +3588,7 @@
       },
       "map_iframe": {
         "label": "Google map iframe",
-        "info": "Please follow this link to know how to [embedding a map](https:\/\/developers.google.com\/maps\/documentation\/embed\/embedding-map)"
+        "info": "Please follow this link to know how to [embedding a map](https://developers.google.com/maps/documentation/embed/embedding-map)"
       }
     },
     "html_custom": {
@@ -3603,59 +3603,57 @@
       "label": "HTML code",
       "info": "Paste HTML to embed a widget or other markup. Template code in it is shown as text, not run."
     },
-      "collection_overview": {
-        "name": "Collection overview",
-        "settings" : {
-          "show_image_with_heading": {
-            "label": "Show image with heading"
-          },
-          "image_width_heading": {
-            "label": "Image width on heading"
-          }
+    "collection_overview": {
+      "name": "Collection overview",
+      "settings": {
+        "show_image_with_heading": {
+          "label": "Show image with heading"
         },
-        "block_settings": {
-          "label": "Block setting",
-          "vertical_align": {
-            "label": "Vertical alignment",
-            "top": {
-              "label": "Top"
-            },
-            "middle": {
-              "label": "Middle"
-            },
-            "bottom": {
-              "label": "Bottom"
-            }
-          },
-
-          "setting_image": {
-            "label": "Setting ratio"
-          },
-          "content_item": {
-            "label": "Content item"
-          },
-          "position": {
-            "label": "Position image",
-            "right": "right",
-            "left": "left"
-          },
-          "width_img": {
-            "label": "Width image"
-          },
-          "width_heading": {
-            "label": "Width heading"
-          }
-          
+        "image_width_heading": {
+          "label": "Image width on heading"
         }
       },
+      "block_settings": {
+        "label": "Block setting",
+        "vertical_align": {
+          "label": "Vertical alignment",
+          "top": {
+            "label": "Top"
+          },
+          "middle": {
+            "label": "Middle"
+          },
+          "bottom": {
+            "label": "Bottom"
+          }
+        },
+        "setting_image": {
+          "label": "Setting ratio"
+        },
+        "content_item": {
+          "label": "Content item"
+        },
+        "position": {
+          "label": "Position image",
+          "right": "right",
+          "left": "left"
+        },
+        "width_img": {
+          "label": "Width image"
+        },
+        "width_heading": {
+          "label": "Width heading"
+        }
+      }
+    },
     "multi_content": {
       "name": "Multi content",
       "content_background_color": {
-          "label": "Content background color"
-        },
+        "label": "Content background color"
+      },
       "block_settings": {
         "show_below_content_video": {
-             "label": "Show content below video"
+          "label": "Show content below video"
         },
         "header": {
           "Content_1": "Content 1",
@@ -4032,7 +4030,7 @@
       "settings": {
         "lookbook_image": {
           "header": "Lookbook image",
-          "content" : "Lookbook content",
+          "content": "Lookbook content",
           "image": "Image",
           "position": {
             "label": "Position",
@@ -4134,9 +4132,9 @@
         }
       }
     },
-    "shopable-video-sticky":{
+    "shopable-video-sticky": {
       "name": "Shopable video sticky",
-      "action_close" : {
+      "action_close": {
         "name": "Action close",
         "info": "When clicking the close button, the popup will not be displayed again for 24 hours"
       },
@@ -4146,8 +4144,7 @@
           "offset_left": "Offset left"
         }
       }
-    }
-    ,
+    },
     "instagram": {
       "name": "Instagram",
       "settings": {
@@ -4357,7 +4354,7 @@
             "content": "Content",
             "use_product_description": "Use product description",
             "open": {
-                "label": "Open content"
+              "label": "Open content"
             }
           }
         },

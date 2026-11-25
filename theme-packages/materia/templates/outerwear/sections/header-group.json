@@ -58,9 +58,9 @@
         "reset_spacing": true,
         "section_width": "stretch_width",
         "show_currency": true,
-        "show_language": true,
+        "show_language": false,
         "separator_line": "unset",
-        "actions_as_text": true,
+        "actions_as_text": false,
         "collection_list": [],
         "logo_gap_mobile": 0,
         "mega_column_gap": 32,
@@ -110,7 +110,7 @@
         "count_bubble_color": "#ffffff",
         "menu_mobile_background": "#ffffff",
         "dropdown_radius": 0,
-        "dropdown_shadow": "soft"
+        "dropdown_shadow": "none"
       },
       "blocks": {
         "pill_glass_1": {
@@ -181,11 +181,34 @@
             "show_on_mobile": false,
             "button_style": "secondary"
           }
+        },
+        "mega_outerwear": {
+          "type": "menu_promotion",
+          "settings": {
+            "text": "Outerwear",
+            "item_label": "unset",
+            "promotion_image_width": 46,
+            "promotion_image_1": "shopify://shop_images/outerwear-col-puffers.webp",
+            "promotion_link_1": "/collections/puffers",
+            "promotion_link_newtab_1": false,
+            "promotion_label_1": "Puffers",
+            "promotion_image_2": "shopify://shop_images/outerwear-col-knitwear.webp",
+            "promotion_link_2": "/collections/knit-and-tees",
+            "promotion_link_newtab_2": false,
+            "promotion_label_2": "Knit and tees",
+            "promotion_menu_column": 2,
+            "mega_custom_width": 1120,
+            "full_width": false,
+            "promotion_position": "right",
+            "open_link_newtab": false,
+            "center_submenu": true
+          }
         }
       },
       "block_order": [
         "pill_glass_1",
         "menu_badges_1",
+        "mega_outerwear",
         "contact_button"
       ]
     }

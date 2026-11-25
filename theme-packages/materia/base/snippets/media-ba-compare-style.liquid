@@ -1,11 +1,15 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. Shared styles of the before/after comparison slider in
   Before and After Slider and Before/After Slider 2. The section root sets
   the --bam-* variables; media-live-before-after.js moves --bam-pos.
   Both images fill the same box and the before layer is clipped with
   clip-path, so the two pictures stay aligned at every position.
+
+  @param {string} sid - Section id, used to scope CSS and element ids
+
+  @example
   {% render 'media-ba-compare-style', sid: section.id %}
-{%- endcomment -%}
+{%- enddoc -%}
 <style>
   #shopify-section-{{ sid }} .bam-compare {
     position: relative;

@@ -1,3 +1,12 @@
+{% doc %}
+  Initial inline styles (custom fonts) of text sections.
+
+  @param {string} kind - Kind
+  @param {section} section - The section being rendered
+
+  @example
+  {% render 'text-controls-initial', section: section, kind: 'wavyrichtextbanner' %}
+{% enddoc -%}
 {%- assign s = section.settings -%}
 {% if s.enable_custom_font or s.enable_custom_fonts %}<style>{% if s.heading_font.family %}{{ s.heading_font | font_face: font_display:'swap' }}{% endif %}{% if s.body_font.family %}{{ s.body_font | font_face: font_display:'swap' }}{% endif %}</style>{% endif %}
 <style>

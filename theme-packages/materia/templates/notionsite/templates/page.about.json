@@ -66,7 +66,7 @@
             "caption": "Nora Lind, Copenhagen",
             "heading": "Hi, I'm Nora",
             "heading_tag": "h2",
-            "body": "<p>I'm Nora. I spent eight years as a project manager, which mostly meant turning messy lists into systems people actually use. Now I do the same for the rest of life, in Notion.</p><p>Every template here started as something I built for myself or a friend and used for months before selling it. If a page does not earn its place, it goes. Questions come straight to me, and I answer them.</p>",
+            "body": "<p>I'm Nora. I spent eight years as a project manager in agencies, then started a two person design studio in Copenhagen. Every client, invoice and process we have lives in Notion.</p><p>Every template here started as something we built for the studio and used for months before selling it. If a page does not earn its place, it goes. Questions come straight to me, and I answer them.</p>",
             "btn_label": "Browse templates",
             "btn_link": "/collections/all",
             "image_position": "left",
@@ -114,7 +114,7 @@
           "settings": {
             "label": "01",
             "heading": "Used before sold",
-            "text": "<p>Every template runs my own week for at least three months before it goes on sale.</p>"
+            "text": "<p>Every template runs my own studio for at least three months before it goes on sale.</p>"
           }
         },
         "column_3": {
@@ -187,9 +187,9 @@
         "testimonial_3": {
           "type": "testimonial",
           "settings": {
-            "body": "Set it up in one evening. For the first time I know on the 20th how much is left for the month, without opening my bank app.",
+            "body": "Set it up in one evening. For the first time I know which leads are waiting on me without searching my inbox.",
             "name": "Hanna K.",
-            "role": "Money Planner",
+            "role": "Client CRM",
             "rating": 5,
             "avatar": "shopify://shop_images/notionsite-buyer-1.webp"
           }
@@ -197,7 +197,7 @@
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "body": "Simple and quick to fill in. Exactly what I wanted from a free planner.",
+            "body": "Simple and quick to fill in. Exactly what I wanted from a free planner for the business.",
             "name": "Daniel O.",
             "role": "Weekly Planner",
             "rating": 5,
@@ -207,9 +207,9 @@
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "body": "The interview prep page is the part I did not know I needed. I practised every answer on it before my second round.",
+            "body": "The task list on each project page is the part I did not know I needed. Clients stopped asking me where things are.",
             "name": "Amara B.",
-            "role": "Job Search Tracker",
+            "role": "Project Tracker",
             "rating": 5,
             "avatar": "shopify://shop_images/notionsite-buyer-3.webp"
           }
@@ -217,9 +217,9 @@
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "body": "I use the trip pages for every weekend away now, not only the big holidays.",
+            "body": "The tax set aside bar is the reason I opened it every week. No surprise bill in January this year.",
             "name": "Rosa M.",
-            "role": "Travel Planner",
+            "role": "Finance Dashboard",
             "rating": 5,
             "avatar": "shopify://shop_images/notionsite-buyer-4.webp"
           }
@@ -229,7 +229,7 @@
           "settings": {
             "body": "Clean, no clutter. It looks like Notion, not like a poster.",
             "name": "Sami T.",
-            "role": "Daily Journal",
+            "role": "Meeting Notes",
             "rating": 5,
             "avatar": "shopify://shop_images/notionsite-buyer-5.webp"
           }
@@ -237,9 +237,9 @@
         "testimonial_8": {
           "type": "testimonial",
           "settings": {
-            "body": "Meal plan on Sunday, one shop, done. My partner adds recipes from his phone.",
+            "body": "Action items at the bottom of every meeting page. My team ticks them off before the next call.",
             "name": "Julia W.",
-            "role": "Recipe Box",
+            "role": "Meeting Notes",
             "rating": 5,
             "avatar": "shopify://shop_images/notionsite-buyer-6.webp"
           }
@@ -247,9 +247,9 @@
         "testimonial_9": {
           "type": "testimonial",
           "settings": {
-            "body": "Bought the bundle for the budget and ended up using all four. The Home page with what is due this week is great.",
+            "body": "Bought the bundle for the CRM and ended up using all four. The Home page with what is due this week is great.",
             "name": "Marcus L.",
-            "role": "Life OS Bundle",
+            "role": "Business OS Bundle",
             "rating": 5,
             "avatar": "shopify://shop_images/notionsite-buyer-7.webp"
           }
@@ -259,7 +259,7 @@
           "settings": {
             "body": "Good walkthrough video. I had never used a linked database before and it made sense straight away.",
             "name": "Ellie P.",
-            "role": "Money Planner",
+            "role": "Client CRM",
             "rating": 5,
             "avatar": "shopify://shop_images/notionsite-buyer-8.webp"
           }

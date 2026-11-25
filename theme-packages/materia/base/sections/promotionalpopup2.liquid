@@ -1,8 +1,8 @@
-<script src="{{ 'live-page-popups.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-page-popups.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-page-popups-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%}
   Materia Themes. Promotional Popup 2: a picture over a heading, a line of
-  text and a signup form (Storelib Subscribers, data-storelib-form="subscribe"),
+  text and a signup form (the store's customer form, tag newsletter),
   in the middle of the screen or in a bottom corner, in a native <dialog>
   (snippets/page-popup-dialog). Every setting reaches the page as a CSS
   variable (a phone and a desktop value each where it has both), an
@@ -12,7 +12,7 @@
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign block_heading = section.blocks | where: 'type', 'heading' | first
   assign block_description = section.blocks | where: 'type', 'description' | first
   assign block_image = section.blocks | where: 'type', 'image' | first
@@ -108,6 +108,7 @@
     assign pp2_ad = 'center'
   endif
 -%}
+{{ 'section-promotionalpopup2.css' | asset_url | stylesheet_tag }}
 <style>
   #shopify-section-{{ sid }} {
     position: relative !important;
@@ -130,13 +131,7 @@
       margin-bottom: {{ st.section_margin_bottom_desktop | default: 0 }}px;
     }
   }
-  #shopify-section-{{ sid }}:has(> [data-pp2-reset]) { margin-top: 0 !important; margin-bottom: 0 !important; }
-  #shopify-section-{{ sid }}:has(> [data-pp2-reset]) + .shopify-section,
-  .shopify-section + #shopify-section-{{ sid }}:has(> [data-pp2-reset]) { margin-top: 0 !important; }
-  :where(#shopify-section-{{ sid }}) :where(button, input, textarea, select, optgroup) { font-family: inherit; }
-  :where(#shopify-section-{{ sid }}) :is(h1, h2, h3, h4, h5, h6) { font-weight: var(--heading-weight, inherit); font-family: var(--heading-font, inherit); }
-  /* phone first, then the desktop value of each pair (the root holds both) */
-  #loudz-{{ sid }} {
+/* phone first, then the desktop value of each pair (the root holds both) */#loudz-{{ sid }} {
     --loudz-heading-size: var(--pp2-h-m); --loudz-description-size: var(--pp2-d-m); --loudz-input-font-size: var(--pp2-in-m); --loudz-button-font-size: var(--pp2-b-m);
     --loudz-popup-align: center; --loudz-popup-justify: center; --loudz-popup-inset: 0; --loudz-popup-height: calc(var(--sl-vh, 1vh) * 100); --loudz-popup-width: 100vw;
   }
@@ -147,269 +142,7 @@
     }
   }
 </style>
-<style>
-  .loudz-newsletter-4 * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-  }
 
-  .loudz__content-inner {
-    padding: 0 32px;
-  }
-
-  .loudz-newsletter-4 .loudz__popup {
-    align-items: var(--loudz-popup-align);
-    justify-content: var(--loudz-popup-justify);
-    inset: var(--loudz-popup-inset);
-    height: var(--loudz-popup-height);
-    width: var(--loudz-popup-width);
-    transition: opacity 0.3s ease, visibility 0s linear 0.3s;
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-    position: fixed;
-    display: flex;
-    max-height: calc(var(--sl-vh, 1vh) * 100);
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    z-index: 2147483647;
-  }
-  .loudz-newsletter-4 .loudz__content-box {
-    transform: translateY(16px) scale(.98);
-    transition: transform .35s cubic-bezier(.2,.8,.2,1);
-  }
-  .loudz-newsletter-4 .loudz__popup.active .loudz__content-box { transform: none; }
-
-  .loudz-newsletter-4 .loudz__popup.loudz__popup--center {
-    align-items: center;
-    justify-content: center;
-    inset: 0;
-    height: calc(var(--sl-vh, 1vh) * 100);
-    padding: 20px;
-  }
-
-  .loudz-newsletter-4 .loudz__popup.loudz__popup--left {
-    left: 40px;
-    bottom: 40px;
-    right: auto;
-    top: auto;
-    align-items: flex-end;
-    justify-content: flex-start;
-  }
-
-  .loudz-newsletter-4 .loudz__popup.loudz__popup--right {
-    right: 40px;
-    bottom: 40px;
-    left: auto;
-    top: auto;
-    align-items: flex-end;
-    justify-content: flex-end;
-  }
-
-  .loudz-newsletter-4 .loudz__content-inner { padding-block: var(--pp2-pad-b, 32px); padding-inline: var(--pp2-pad-i, 32px); }
-  .loudz-newsletter-4 .loudz__content-inner [hidden] { display: none !important; }
-  .loudz-newsletter-4 .loudz__popup.active {
-    visibility: visible;
-    opacity: 1;
-    pointer-events: auto;
-    transition-delay: 0s;
-  }
-  .loudz-newsletter-4 .loudz__popup:after {
-    z-index: -1;
-  }
-
-  .loudz-newsletter-4 .loudz__popup:after {
-  content: "";
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: var(--loudz-overlay-color, #000000);
-  opacity: var(--loudz-overlay-opacity, 0.5);
-  z-index: -1;
-  }
-
-  .loudz-newsletter-4 .loudz__content-box {
-    border-radius: var(--loudz-border-radius);
-    max-width: var(--loudz-section-width);
-    background: var(--loudz-background-color);
-    width: 100%;
-    box-shadow: 0 6px 32px 0 rgba(16, 24, 40, 0.18);
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    position: relative;
-    overflow: hidden;
-    margin: auto;
-    max-height: calc(var(--sl-vh, 1vh) * 100 - 40px);
-    overflow-y: auto;
-  }
-  /* Mobile: always center the popup with a safe gutter, regardless of the
-     desktop `popup_position` setting. This guarantees the popup never sticks
-     to the right/left edge on phones. */
-  @media (max-width: 767px) {
-    .loudz-newsletter-4 .loudz__popup {
-      align-items: center !important;
-      justify-content: center !important;
-      inset: 0 !important;
-      top: 0 !important;
-      right: 0 !important;
-      bottom: 0 !important;
-      left: 0 !important;
-      width: 100vw !important;
-      height: calc(var(--sl-vh, 1vh) * 100) !important;
-      padding: 16px;
-    }
-    .loudz-newsletter-4 .loudz__content-box {
-      width: calc(100vw - var(--loudz-mobile-gutter, 32px)) !important;
-      max-width: calc(100vw - var(--loudz-mobile-gutter, 32px)) !important;
-      margin: auto !important;
-    }
-  }
-
-  .loudz-newsletter-4 .loudz__description {
-    font-size: var(--loudz-description-size);
-    padding-top: var(--loudz-description-padding-top);
-    font-weight: var(--loudz-description-font-weight);
-    color: var(--loudz-description-color);
-    text-align: var(--loudz-content-alignment);
-    line-height: 1.5;
-  }
-
-  .loudz-newsletter-4 .loudz__image-wrapper {
-    border-top-left-radius: var(--loudz-border-radius);
-    border-top-right-radius: var(--loudz-border-radius);
-    width: 100%;
-    overflow: hidden;
-    height: 220px;
-    flex-shrink: 0;
-    background: color-mix(in srgb, var(--color-heading) 8%, var(--color-background));
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .loudz-newsletter-4 .loudz__image-wrapper img {
-    width: 100%;
-    height: 220px;
-    object-fit: cover;
-    object-position: center;
-    display: block;
-  }
-  .loudz-newsletter-4 .loudz__filter--grayscale { filter: grayscale(100%); }
-  .loudz-newsletter-4 .loudz__filter--sepia { filter: sepia(100%) contrast(1.2); }
-  .loudz-newsletter-4 .loudz__filter--invert { filter: invert(100%); }
-
-  .loudz-newsletter-4 .loudz__heading {
-    font-size: var(--loudz-heading-size);
-    font-weight: var(--loudz-heading-weight);
-    padding-top: var(--loudz-heading-padding-top);
-    color: var(--loudz-heading-color);
-    text-align: var(--loudz-content-alignment);
-    line-height: 1.2;
-  }
-
-  .loudz-newsletter-4 input[type="email"] {
-    font-size: var(--loudz-input-font-size);
-    font-weight: var(--loudz-input-font-weight);
-    margin-top: var(--loudz-input-padding-top);
-    border-radius: var(--loudz-input-border-radius);
-    background-color: var(--loudz-input-background-color);
-    color: var(--loudz-input-color);
-    border: var(--loudz-input-border-width, 1px) solid var(--loudz-input-border-color);
-    width: 100%;
-    min-height: var(--loudz-input-height, 0px);
-    padding: var(--loudz-input-padding, 16px 18px);
-    outline: none;
-    transition: border-color var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease), box-shadow var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease);
-  }
-  .loudz-newsletter-4 input[type="email"]:focus-visible {
-    border-color: var(--color-heading);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-heading) 25%, transparent);
-  }
-
-  .loudz-newsletter-4 input[type="email"]::placeholder {
-    color: var(--loudz-input-placeholder-color);
-    opacity: 1;
-  }
-
-  /* The submit is a theme button (theme-button-contract.css): Theme settings >
-     Buttons draw it; the form's colours, and its shape when the theme style is
-     off, reach it as --mb-* tokens. */
-  .loudz-newsletter-4 .loudz__button {
-    margin-top: var(--loudz-button-padding-top);
-    width: 100%;
-    cursor: pointer;
-    --mb-bg: var(--loudz-button-background-color);
-    --mb-text: var(--loudz-button-text-color);
-    --mb-border: var(--loudz-button-border-color);
-    --mb-hover-bg: var(--loudz-button-background-color-hover);
-    --mb-hover-text: var(--loudz-button-text-color-hover);
-    --mb-hover-border: var(--loudz-button-border-color-hover);
-    --mb-radius: var(--loudz-button-border-radius);
-    --mb-font-size: var(--loudz-button-font-size);
-    --mb-weight: var(--loudz-button-font-weight);
-  }
-
-  .loudz-newsletter-4 .loudz__success { margin-top: 12px; color: var(--loudz-description-color); text-align: var(--loudz-content-alignment); }
-  .loudz-newsletter-4 .loudz__placeholder-image { width: 100%; height: 100%; fill: color-mix(in srgb, var(--color-text) 30%, transparent); }
-  .loudz-newsletter-4 .loudz__button:focus-visible,
-  .loudz-newsletter-4 .loudz__close:focus-visible { outline: 2px solid var(--color-heading); outline-offset: 2px; }
-  @media (prefers-reduced-motion: reduce) {
-    .loudz-newsletter-4 .loudz__popup,
-    .loudz-newsletter-4 .loudz__close,
-    .loudz-newsletter-4 input[type="email"],
-    .loudz-newsletter-4 .loudz__content-box { transition: none; transform: none; }
-  }
-
-  .loudz-newsletter-4 .loudz__close {
-    position: absolute;
-    top: 20px;
-    width: 44px;
-    height: 44px;
-    background: var(--color-background);
-    border-radius: 50%;
-    border: none;
-    box-shadow: 0 2px 8px 0 rgba(16, 24, 40, 0.10);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 2rem;
-    color: var(--color-heading);
-    cursor: pointer;
-    z-index: 2;
-    transition: box-shadow var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease);
-  }
-  
-  .loudz-newsletter-4 .loudz__close--right {
-    right: 20px;
-    left: auto;
-  }
-
-  .loudz-newsletter-4 .loudz__close--left {
-    left: 20px;
-    right: auto;
-  }
-
-  .loudz-newsletter-4 .loudz__popup::-webkit-scrollbar {
-    width: 8px;
-}
-
-.loudz-newsletter-4 .loudz__popup::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.loudz-newsletter-4 .loudz__popup::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 4px;
-}
-
-.loudz-newsletter-4 .loudz__popup::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 0, 0, 0.3);
-}
-</style>
 {%- capture pp2_config -%}
   {"design": {{ request.design_mode | json }}, "preview": {{ st.enable_customization_mode | json }},
    "trigger": {"mode": {{ st.open_mode | default: 'delay' | json }}, "delay": {{ st.popup_delay | default: 0 | json }}, "scroll": {{ st.scroll_pct | default: 50 | json }}, "views": {{ st.page_views | default: 2 | json }} },
@@ -458,11 +191,30 @@
         {%- if block_description != blank %}
           <p class="loudz__description" data-pg-block="{{ block_description.id }}" data-pg-type="description"{% if request.design_mode %} data-pg-settings="{{ db | json | escape }}"{% endif %}{% if db.text == blank %} hidden{% endif %} {{ block_description.shopify_attributes }}>{{ db.text }}</p>
         {%- endif %}
-        <form class="loudz__form" data-storelib-form="subscribe"{% if block_form != blank %} data-pg-block="{{ block_form.id }}" data-pg-type="form"{% if request.design_mode %} data-pg-settings="{{ fb | json | escape }}"{% endif %}{% endif %}>
-          <input type="email" name="email" autocomplete="email" placeholder="{{ fb.email_placeholder | escape }}" aria-label="{{ fb.email_placeholder | default: 'Email' | escape }}" required data-popup-autofocus>
+        {%- comment -%} The store's customer form (tag newsletter), posted the ordinary way so the platform's spam check (CAPTCHA) can add its token; the page comes back on the form's #id and the popup reopens on the result. {%- endcomment -%}
+        {%- liquid
+          assign pp2_form_id = 'PromoPopupForm-' | append: sid
+          assign pp2_success = fb.success_text | strip
+          if pp2_success == blank
+            assign pp2_success = 'Thanks, you are on the list.'
+          endif
+        -%}
+        <div class="loudz__signup-wrap"{% if block_form != blank %} data-pg-block="{{ block_form.id }}" data-pg-type="form"{% if request.design_mode %} data-pg-settings="{{ fb | json | escape }}"{% endif %}{% endif %}>
+        {%- form 'customer', id: pp2_form_id, class: 'loudz__form', data-storelib-form: 'subscribe' -%}
+          <input type="hidden" name="contact[tags]" value="newsletter">
+          <input type="hidden" name="contact[accepts_marketing]" value="true">
+          <span hidden data-mt-words data-success-message="{{ pp2_success | strip_html | escape }}" data-already-message="{{ pp2_success | strip_html | escape }}" data-invalid-message="{{ 'newsletter.error' | t | escape }}" data-error-message="{{ 'newsletter.error' | t | escape }}"></span>
+          <input type="email" name="contact[email]" autocomplete="email" autocapitalize="off" spellcheck="false" maxlength="254" placeholder="{{ fb.email_placeholder | escape }}" aria-label="{{ fb.email_placeholder | default: 'Email' | escape }}" required data-popup-autofocus>
           <button type="submit" class="loudz__button btn-primary" data-theme-button="primary" data-sl-button{% unless pp2_use_theme_button %} data-own-shape{% endunless %}{% if block_form != blank %} {{ block_form.shopify_attributes }}{% endif %}>{{ fb.button_text }}</button>
-          <p class="loudz__success" data-storelib-success hidden>{{ fb.success_text | default: 'Thanks, you are on the list.' }}</p>
-        </form>
+          <p class="loudz__success" role="status" data-storelib-success hidden>{{ pp2_success }}</p>
+          {%- if form.errors -%}
+            {%- capture pp2_err -%}{%- for field in form.errors -%}{{ form.errors.translated_fields[field] }} {{ form.errors.messages[field] }} {% endfor -%}{%- endcapture -%}
+            <p class="loudz__error" role="alert" data-mt-form-errors="{{ pp2_err | strip | escape }}">{{ 'newsletter.error' | t }}</p>
+          {%- elsif form.posted_successfully? -%}
+            <span hidden data-mt-form-posted></span>
+          {%- endif -%}
+        {%- endform -%}
+        </div>
       </div>
     </div>
   </div>
@@ -492,6 +244,16 @@
     if (form) new MutationObserver(function(){
       if (form.getAttribute('data-state') === 'done' && api) api.done(20);
     }).observe(form, { attributes: true, attributeFilter: ['data-state'] });
+    // Back from the post (the page comes back on this form's #id): reopen on the result.
+    var back = form && !CFG.design && P.posted ? P.posted(form) : '';
+    if (back && api) {
+      if (back === 'ok') {
+        var msg = form.querySelector('[data-storelib-success]'); if (msg) msg.hidden = false;
+        var err = form.querySelector('[data-mt-form-errors]'); if (err) err.hidden = true;
+        form.setAttribute('data-state', 'done');
+      }
+      api.show();
+    }
   }
   function boot(){ (window.MateriaPopupsQueue = window.MateriaPopupsQueue || []).push(setup); }
   boot();
@@ -500,10 +262,11 @@
   document.addEventListener('shopify:section:load', reload);
 })();
 </script>
+
 {% schema %}
 {
   "name": "Promotional Popup 2",
-  "class": "loudz-section loudz-newsletter-4",
+  "class": "loudz-section loudz-newsletter-4 s-tt s-promotionalpopup2 has-popup",
   "tag": "section",
   "enabled_on": {
     "groups": [
@@ -519,7 +282,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "header",
@@ -794,7 +557,6 @@
       "id": "reveal",
       "label": "Reveal on scroll",
       "default": true,
-      "hidden": true,
       "info": "Not used: the popup has its own opening animation.",
       "visible_if": "{{ false }}"
     },
@@ -821,7 +583,6 @@
           "label": "Full width"
         }
       ],
-      "hidden": true,
       "info": "Not used: the popup sits over the page.",
       "visible_if": "{{ false }}"
     },

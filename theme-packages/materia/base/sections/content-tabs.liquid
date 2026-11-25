@@ -1,4 +1,4 @@
-<script src="{{ 'live-features-c.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-features-c.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-features-c-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%} Connect to the theme's global Animations & motion settings (Theme settings > Animations). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
@@ -29,7 +29,7 @@
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign custom = st.enable_custom_style
   assign fonts = st.enable_custom_fonts
 
@@ -98,291 +98,13 @@
   {% style %}{{ heading_block.settings.heading_font | font_face: font_display: 'swap' }}{% endstyle %}
 {%- endif -%}
 
+{{ 'section-content-tabs.css' | asset_url | stylesheet_tag }}
 <style>
-  /* ---- Isolation: nothing in here touches the rest of the page ---- */
-  #shopify-section-{{ sid }} {
-    isolation: isolate;
-    position: relative;
-  }
-  #shopify-section-{{ sid }} *,
-  #shopify-section-{{ sid }} *::before,
-  #shopify-section-{{ sid }} *::after {
-    box-sizing: border-box;
-  }
-
-  /* ---- Outer spacing ---- */
-  #shopify-section-{{ sid }} .ctabs {
-    background: var(--ct-bg);
-    padding-top: var(--ct-pt-m);
-    padding-bottom: var(--ct-pb-m);
-    margin-top: var(--ct-mt-m);
-    margin-bottom: var(--ct-mb-m);
-    font-family: var(--ct-bf);
-  }
-  @media (min-width: 768px) {
-    #shopify-section-{{ sid }} .ctabs {
-      padding-top: var(--ct-pt-d);
-      padding-bottom: var(--ct-pb-d);
-      margin-top: var(--ct-mt-d);
-      margin-bottom: var(--ct-mb-d);
-    }
-  }
-
-  /* ---- Inner container width ---- */
-  #shopify-section-{{ sid }} .ctabs__inner { padding-inline: 1.5rem; }
-  #shopify-section-{{ sid }} .ctabs[data-width='container'] .ctabs__inner { max-width: calc(var(--page-width, 1300px) + 3rem); margin-inline: auto; }
-  #shopify-section-{{ sid }} .ctabs[data-width='fluid'] .ctabs__inner { max-width: 1600px; margin-inline: auto; }
-
-  /* ---- Heading + highlights ---- */
-  #shopify-section-{{ sid }} .ctabs__head {
-    text-align: var(--ct-ta-m);
-    margin-bottom: var(--ct-g1);
-  }
-  @media (min-width: 768px) {
-    #shopify-section-{{ sid }} .ctabs__head { text-align: var(--ct-ta-d); }
-  }
-  #shopify-section-{{ sid }} .ctabs__heading {
-    font-family: var(--ct-h-font, var(--ct-hf));
-    font-weight: var(--ct-h-weight, var(--heading-weight, 600));
-    color: var(--ct-h-color);
-    margin: 0;
-    line-height: 1.15;
-    font-size: var(--ct-h-size-m);
-  }
-  @media (min-width: 768px) {
-    #shopify-section-{{ sid }} .ctabs__heading { font-size: var(--ct-h-size-d); }
-  }
-
-  /* Mobile: highlights stack one under the other. Desktop: single row. */
-  #shopify-section-{{ sid }} .ctabs__highlights {
-    display: flex;
-    flex-direction: column;
-    align-items: var(--ct-ai-m);
-    gap: 12px;
-    margin-bottom: var(--ct-g2);
-  }
-  @media (min-width: 768px) {
-    #shopify-section-{{ sid }} .ctabs__highlights {
-      flex-direction: row;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: var(--ct-jc-d);
-      gap: 10px var(--ct-hl-gap);
-    }
-  }
-  #shopify-section-{{ sid }} .ctabs__highlight {
-    display: inline-flex;
-    align-items: center;
-    gap: 9px;
-    font-family: var(--ct-bf);
-    color: var(--ct-hl-color);
-    font-size: var(--ct-hl-size);
-    line-height: 1.3;
-  }
-  #shopify-section-{{ sid }} .ctabs__icon { display: inline-flex; flex: 0 0 auto; }
-  #shopify-section-{{ sid }} .ctabs__highlight svg {
-    width: calc(var(--ct-hl-size) + 6px);
-    height: calc(var(--ct-hl-size) + 6px);
-    flex: 0 0 auto;
-    stroke: currentColor;
-  }
-
-  /* ---- Carousel track (native scroll-snap, contained) ---- */
-  #shopify-section-{{ sid }} .ctabs__track {
-    --ctabs-per: var(--ct-per-m);
-    --ctabs-gap: var(--ct-gap);
-    display: flex;
-    gap: var(--ctabs-gap);
-    overflow-x: auto;
-    overflow-y: hidden;
-    scroll-snap-type: x mandatory;
-    scroll-behavior: smooth;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior-inline: contain;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-    padding-bottom: 6px;
-    cursor: grab;
-    border-radius: var(--ct-radius);
-  }
-  #shopify-section-{{ sid }} .ctabs__track:focus-visible { outline: 2px solid var(--color-heading); outline-offset: 4px; }
-  #shopify-section-{{ sid }} .ctabs__track.is-dragging {
-    cursor: grabbing;
-    scroll-snap-type: none;
-    scroll-behavior: auto;
-    user-select: none;
-  }
-  #shopify-section-{{ sid }} .ctabs__track.is-dragging a { pointer-events: none; }
-  #shopify-section-{{ sid }} .ctabs__media img {
-    -webkit-user-drag: none;
-    user-select: none;
-  }
-  @media (min-width: 768px) {
-    #shopify-section-{{ sid }} .ctabs__track {
-      --ctabs-per: var(--ct-per-d);
-      --ctabs-gap: calc(var(--ct-gap) + 8px);
-    }
-  }
-  /* Tablet: the desktop count squeezes titles into broken words ("Electrolyt es")
-     and clips the text, so show at most two and a half cards until 1024px. */
-  @media (min-width: 768px) and (max-width: 1023px) {
+/* Tablet: the desktop count squeezes titles into broken words ("Electrolyt es")
+     and clips the text, so show at most two and a half cards until 1024px. */@media (min-width: 768px) and (max-width: 1023px) {
     #shopify-section-{{ sid }} .ctabs__track {
       --ctabs-per: min({{ st.cards_desktop | default: '3.5' }}, 2.5);
     }
-  }
-  #shopify-section-{{ sid }} .ctabs__track::-webkit-scrollbar { display: none; }
-
-  #shopify-section-{{ sid }} .ctabs__card {
-    flex: 0 0 calc((100% - (var(--ctabs-per) - 1) * var(--ctabs-gap)) / var(--ctabs-per));
-    scroll-snap-align: start;
-    position: relative;
-    display: block;
-    height: var(--ct-h-m);
-    border-radius: var(--ct-radius);
-    overflow: hidden;
-    isolation: isolate;
-    text-decoration: none;
-    color: inherit;
-    background: color-mix(in srgb, var(--color-heading) 82%, var(--color-background));
-  }
-  @media (min-width: 768px) {
-    #shopify-section-{{ sid }} .ctabs__card { height: var(--ct-h-d); }
-  }
-  #shopify-section-{{ sid }} a.ctabs__card[href] { cursor: pointer; }
-  #shopify-section-{{ sid }} a.ctabs__card[href]:focus-visible { outline: 2px solid var(--color-heading); outline-offset: 3px; }
-
-  #shopify-section-{{ sid }} .ctabs__media { position: absolute; inset: 0; z-index: 0; }
-  #shopify-section-{{ sid }} .ctabs__media img,
-  #shopify-section-{{ sid }} .ctabs__media svg {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-    filter: brightness(var(--ctabs-bri, 100%));
-  }
-  #shopify-section-{{ sid }} .ctabs__media svg { fill: color-mix(in srgb, var(--color-background) 22%, transparent); }
-  #shopify-section-{{ sid }} .ctabs__media [hidden] { display: none; }
-  #shopify-section-{{ sid }} .ctabs__tint {
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    background: var(--ctabs-ovl);
-    opacity: calc(var(--ctabs-ovl-op, 45) / 100);
-  }
-  #shopify-section-{{ sid }} .ctabs__grad {
-    position: absolute;
-    inset: 0;
-    z-index: 2;
-    background: linear-gradient(180deg, rgba(0,0,0,.28) 0%, rgba(0,0,0,0) 38%, rgba(0,0,0,0) 60%, rgba(0,0,0,.30) 100%);
-  }
-  #shopify-section-{{ sid }} .ctabs__body {
-    position: relative;
-    z-index: 3;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    padding: var(--ct-pad);
-    color: var(--ctabs-text);
-  }
-  #shopify-section-{{ sid }} .ctabs__title {
-    font-family: var(--ct-hf);
-    color: var(--ctabs-title);
-    margin: 0 0 10px;
-    line-height: 1.15;
-    font-size: var(--ct-title-size);
-    font-weight: var(--heading-weight, 500);
-  }
-  #shopify-section-{{ sid }} .ctabs__desc {
-    font-family: var(--ct-bf);
-    color: var(--ctabs-text);
-    margin: 0;
-    flex: 1 1 auto;
-    line-height: 1.5;
-    font-size: var(--ct-text-size);
-    opacity: .94;
-  }
-  #shopify-section-{{ sid }} .ctabs__badges {
-    margin-top: auto;
-    padding-top: 14px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-  #shopify-section-{{ sid }} .ctabs__badges:not(:has(.ctabs__badge:not([hidden]))) { display: none; }
-  #shopify-section-{{ sid }} .ctabs__badge {
-    display: inline-flex;
-    align-items: center;
-    background: var(--ctabs-badge-bg);
-    color: var(--ctabs-badge-c);
-    padding: 5px 12px;
-    border-radius: 999px;
-    font-family: var(--ct-bf);
-    font-size: 12px;
-    font-weight: var(--badges-font-weight, 600);
-    letter-spacing: .04em;
-    text-transform: uppercase;
-    line-height: 1;
-  }
-  #shopify-section-{{ sid }} :is(.ctabs__badge, .ctabs__title, .ctabs__desc, .ctabs__head, .ctabs__footer, .ctabs__btn)[hidden] { display: none; }
-
-  /* ---- Arrows ---- */
-  #shopify-section-{{ sid }} .ctabs__nav {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 14px;
-    margin-top: var(--ct-g3);
-  }
-  #shopify-section-{{ sid }} .ctabs__nav[hidden] { display: none; }
-  #shopify-section-{{ sid }} .ctabs__arrow {
-    width: 46px;
-    height: 46px;
-    border-radius: 999px;
-    border: 1px solid var(--ct-arrow-line);
-    background: transparent;
-    color: var(--ct-arrow-ink);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    padding: 0;
-    transition: opacity .2s ease, transform .15s ease, background .2s ease;
-  }
-  #shopify-section-{{ sid }} .ctabs__arrow:hover { transform: translateY(-1px); }
-  #shopify-section-{{ sid }} .ctabs__arrow:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
-  #shopify-section-{{ sid }} .ctabs__arrow svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; }
-  #shopify-section-{{ sid }} .ctabs__arrow[disabled] { opacity: .35; cursor: default; transform: none; }
-
-  /* ---- Button(s) ---- */
-  #shopify-section-{{ sid }} .ctabs__buttons {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 14px;
-    margin-top: var(--ct-g4);
-  }
-  #shopify-section-{{ sid }} .ctabs__buttons:not(:has(.ctabs__btn:not([hidden]))) { display: none; }
-  #shopify-section-{{ sid }} .ctabs__btn { text-align: center; text-decoration: none !important; }
-  @media (max-width: 767px) {
-    #shopify-section-{{ sid }} .ctabs__btn[data-full='true'] { width: 100%; }
-  }
-
-  /* ---- Footer line ---- */
-  #shopify-section-{{ sid }} .ctabs__footer {
-    text-align: center;
-    max-width: 760px;
-    margin: var(--ct-g5) auto 0;
-    font-family: var(--ct-bf);
-    color: var(--ct-f-color);
-    font-size: var(--ct-f-size);
-    line-height: 1.6;
-    opacity: .85;
-  }
-  #shopify-section-{{ sid }} .ctabs__footer p { font-size: inherit; color: inherit; font-family: inherit; }
-
-  @media (prefers-reduced-motion: reduce) {
-    #shopify-section-{{ sid }} .ctabs__track { scroll-behavior: auto; }
-    #shopify-section-{{ sid }} .ctabs__arrow { transition: none; }
   }
 </style>
 
@@ -404,13 +126,13 @@
   --ct-ta-d: {{ ta_d }}; --ct-ta-m: {{ ta_m }}; --ct-jc-d: {{ jc_d }}; --ct-ai-m: {{ ai_m }};
 {%- endcapture -%}
 
-<div class="ctabs color-{{ color_scheme }} gradient" data-fc-root="content-tabs" data-fc-section="{{ sid }}" data-fc-settings="{{ st | json | escape }}" data-width="{{ st.section_width | default: 'container' }}"{% if fonts %} data-own-font{% endif %} style="{{ root_vars | strip_newlines }}">
+<div class="ctabs color-{{ color_scheme }} gradient" data-fc-root="content-tabs" data-fc-section="{{ sid }}" {% if request.design_mode %}data-fc-settings="{{ st | json | escape }}"{% endif %} data-width="{{ st.section_width | default: 'container' }}"{% if fonts %} data-own-font{% endif %} style="{{ root_vars | strip_newlines }}">
   <div class="ctabs__inner">
 
     {%- if heading_found -%}
       {%- assign hb = heading_block.settings -%}
       {%- assign h_font = hb.heading_custom_font_enable -%}
-      <div class="ctabs__head" data-fc-block="{{ heading_block.id }}" data-fc-type="heading" data-fc-settings="{{ hb | json | escape }}" {{ heading_block.shopify_attributes }}{% if hb.heading == blank %} hidden{% endif %} style="--ct-h-color: {% if hb.enable_custom_style %}{% render 'scheme-color', color: hb.heading_color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %}; --ct-h-size-d: {{ hb.heading_size_desktop | default: 44 }}px; --ct-h-size-m: {{ hb.heading_size_mobile | default: 30 }}px;{% if h_font and hb.heading_font.family != blank %} --ct-h-font: {{ hb.heading_font.family }}, {{ hb.heading_font.fallback_families | default: 'sans-serif' }};{% endif %}{% if h_font and hb.heading_font_weight != blank and hb.heading_font_weight != 'inherit' %} --ct-h-weight: {{ hb.heading_font_weight }};{% endif %}">
+      <div class="ctabs__head" data-fc-block="{{ heading_block.id }}" data-fc-type="heading" {% if request.design_mode %}data-fc-settings="{{ hb | json | escape }}"{% endif %} {{ heading_block.shopify_attributes }}{% if hb.heading == blank %} hidden{% endif %} style="--ct-h-color: {% if hb.enable_custom_style %}{% render 'scheme-color', color: hb.heading_color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %}; --ct-h-size-d: {{ hb.heading_size_desktop | default: 44 }}px; --ct-h-size-m: {{ hb.heading_size_mobile | default: 30 }}px;{% if h_font and hb.heading_font.family != blank %} --ct-h-font: {{ hb.heading_font.family }}, {{ hb.heading_font.fallback_families | default: 'sans-serif' }};{% endif %}{% if h_font and hb.heading_font_weight != blank and hb.heading_font_weight != 'inherit' %} --ct-h-weight: {{ hb.heading_font_weight }};{% endif %}">
         <h2 class="ctabs__heading"{% if h_font %} data-own-font{% endif %}{% if h_font and hb.heading_font_weight != blank and hb.heading_font_weight != 'inherit' %} data-own-weight{% endif %}>{{ hb.heading }}</h2>
       </div>
     {%- endif -%}
@@ -419,7 +141,7 @@
       <div class="ctabs__highlights">
         {%- for block in section.blocks -%}
           {%- if block.type == 'highlight' -%}
-            <span class="ctabs__highlight" data-fc-block="{{ block.id }}" data-fc-type="highlight" data-fc-settings="{{ block.settings | json | escape }}" {{ block.shopify_attributes }}>
+            <span class="ctabs__highlight" data-fc-block="{{ block.id }}" data-fc-type="highlight" {% if request.design_mode %}data-fc-settings="{{ block.settings | json | escape }}"{% endif %} {{ block.shopify_attributes }}>
               <span class="ctabs__icon" data-fc-icon="{{ block.settings.icon }}">{% render 'features-c-tabs-icon', icon: block.settings.icon %}</span>
               <span data-fc-text>{{ block.settings.text | escape }}</span>
             </span>
@@ -429,7 +151,6 @@
     {%- endif -%}
 
     {%- if tab_count > 0 -%}
-      {%- capture placeholder -%}{{ 'image' | placeholder_svg_tag: 'placeholder-svg' }}{%- endcapture -%}
       <div class="ctabs__track" data-ctabs-track tabindex="0" role="region" aria-roledescription="carousel" aria-label="{{ heading_block.settings.heading | strip_html | default: 'Cards' | escape }}">
         {%- assign tab_i = 0 -%}
         {%- for block in section.blocks -%}
@@ -449,9 +170,13 @@
                   render 'demo-image', key: block.id
                 endcapture
                 assign demo_src = demo_src | strip
+                capture demo_wh
+                  render 'demo-image', key: block.id, dims: true
+                endcapture
+                assign demo_wh = demo_wh | strip | split: 'x'
               endif
             -%}
-            <a class="ctabs__card"{% if tb.link != blank %} href="{{ tb.link }}"{% endif %} role="group" aria-roledescription="slide" aria-label="{{ tab_i }} / {{ tab_count }}" data-fc-block="{{ block.id }}" data-fc-type="tab" data-fc-settings="{{ tb | json | escape }}" {{ block.shopify_attributes }} style="--ctabs-ovl: {% if tb.enable_custom_style %}{% render 'scheme-color', color: tb.overlay_color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %}; --ctabs-ovl-op: {{ tb.overlay_opacity | default: 0 }}; --ctabs-bri: {{ tb.image_brightness | default: 100 }}%; --ctabs-title: {% if tb.enable_custom_style %}{% render 'scheme-color', color: tb.title_color, fallback: 'var(--color-background)' %}{% else %}var(--color-background){% endif %}; --ctabs-text: {% if tb.enable_custom_style %}{% render 'scheme-color', color: tb.text_color, fallback: 'var(--color-background)' %}{% else %}var(--color-background){% endif %}; --ctabs-badge-bg: {% if tb.enable_custom_style %}{% render 'scheme-color', color: tb.badge_bg, fallback: 'var(--color-background)' %}{% else %}var(--color-background){% endif %}; --ctabs-badge-c: {% if tb.enable_custom_style %}{% render 'scheme-color', color: tb.badge_text_color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %};">
+            <a class="ctabs__card"{% if tb.link != blank %} href="{{ tb.link }}"{% endif %} role="group" aria-roledescription="slide" aria-label="{{ tab_i }} / {{ tab_count }}" data-fc-block="{{ block.id }}" data-fc-type="tab" {% if request.design_mode %}data-fc-settings="{{ tb | json | escape }}"{% endif %} {{ block.shopify_attributes }} style="--ctabs-ovl: {% if tb.enable_custom_style %}{% render 'scheme-color', color: tb.overlay_color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %}; --ctabs-ovl-op: {{ tb.overlay_opacity | default: 0 }}; --ctabs-bri: {{ tb.image_brightness | default: 100 }}%; --ctabs-title: {% if tb.enable_custom_style %}{% render 'scheme-color', color: tb.title_color, fallback: 'var(--color-background)' %}{% else %}var(--color-background){% endif %}; --ctabs-text: {% if tb.enable_custom_style %}{% render 'scheme-color', color: tb.text_color, fallback: 'var(--color-background)' %}{% else %}var(--color-background){% endif %}; --ctabs-badge-bg: {% if tb.enable_custom_style %}{% render 'scheme-color', color: tb.badge_bg, fallback: 'var(--color-background)' %}{% else %}var(--color-background){% endif %}; --ctabs-badge-c: {% if tb.enable_custom_style %}{% render 'scheme-color', color: tb.badge_text_color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %};">
               <div class="ctabs__media">
                 {%- if tb.image != blank -%}
                   <img
@@ -468,9 +193,10 @@
                     {% if tab_i == 1 and sp_preload %}fetchpriority="high"{% endif %}
                     {% if sp_decode %}decoding="async"{% endif %}>
                 {%- elsif demo_src != blank -%}
-                  <img src="{{ demo_src }}" sizes="(max-width: 767px) 70vw, 28vw" alt="{{ tb.title | escape }}" loading="{{ ct_loading }}">
+                  {%- capture ct_demo_ss -%}{%- render 'demo-srcset', url: demo_src, widths: '400, 540, 720, 900' -%}{%- endcapture -%}
+                  <img src="{{ demo_src }}"{% if ct_demo_ss != blank %} srcset="{{ ct_demo_ss }}"{% endif %} sizes="(max-width: 767px) 70vw, 28vw" alt="{{ tb.title | escape }}" width="{{ demo_wh[0] | default: 1448 }}" height="{{ demo_wh[1] | default: 1086 }}" loading="{{ ct_loading }}" decoding="async">
                 {%- endif -%}
-                {%- if tb.image != blank or demo_src != blank -%}{{ placeholder | replace: '<svg ', '<svg hidden aria-hidden="true" ' }}{%- else -%}{{ placeholder | replace: '<svg ', '<svg aria-hidden="true" ' }}{%- endif -%}
+                {%- if tb.image != blank or demo_src != blank -%}{%- render 'placeholder-image', type: 'collection', index: tab_i, class: 'placeholder-svg', attrs: 'hidden' -%}{%- else -%}{%- render 'placeholder-image', type: 'collection', index: tab_i, class: 'placeholder-svg' -%}{%- endif -%}
               </div>
               <span class="ctabs__tint" aria-hidden="true"></span>
               <span class="ctabs__grad" aria-hidden="true"></span>
@@ -501,7 +227,7 @@
       {%- for block in section.blocks -%}
         {%- if block.type == 'button' -%}
           {%- assign cb = block.settings -%}
-          {%- capture btn_attrs -%}class="ctabs__btn btn {% if cb.style == 'outline' %}btn-outline{% else %}btn-primary{% endif %}" data-theme-button="{% if cb.style == 'outline' %}secondary{% else %}primary{% endif %}" data-sl-button data-full="{% if cb.full_width %}true{% else %}false{% endif %}" data-fc-block="{{ block.id }}" data-fc-type="button" data-fc-settings="{{ cb | json | escape }}" {{ block.shopify_attributes }}{% if cb.label == blank %} hidden{% endif %} style="{% if cb.custom_colors %}{% render 'button-overrides', bg: cb.bg, text: cb.text_color, hover_bg: cb.bg_hover, hover_text: cb.text_color %}{% endif %}"{%- endcapture -%}
+          {%- capture btn_attrs -%}class="ctabs__btn btn {% if cb.style == 'outline' %}btn-outline{% else %}btn-primary{% endif %}" data-theme-button="{% if cb.style == 'outline' %}secondary{% else %}primary{% endif %}" data-sl-button data-full="{% if cb.full_width %}true{% else %}false{% endif %}" data-fc-block="{{ block.id }}" data-fc-type="button" {% if request.design_mode %}data-fc-settings="{{ cb | json | escape }}"{% endif %} {{ block.shopify_attributes }}{% if cb.label == blank %} hidden{% endif %} style="{% if cb.custom_colors %}{% render 'button-overrides', bg: cb.bg, text: cb.text_color, hover_bg: cb.bg_hover, hover_text: cb.text_color %}{% endif %}"{%- endcapture -%}
           {%- if cb.link != blank -%}
             <a href="{{ cb.link }}" {{ btn_attrs }}>{{ cb.label | escape }}</a>
           {%- else -%}
@@ -514,7 +240,7 @@
     {%- for block in section.blocks -%}
       {%- if block.type == 'footer' -%}
         {%- assign fb = block.settings -%}
-        <div class="ctabs__footer" data-fc-block="{{ block.id }}" data-fc-type="footer" data-fc-settings="{{ fb | json | escape }}" {{ block.shopify_attributes }}{% if fb.footer_text == blank %} hidden{% endif %} style="--ct-f-color: {% if fb.enable_custom_style %}{% render 'scheme-color', color: fb.footer_color, fallback: 'var(--color-text)' %}{% else %}var(--color-text){% endif %}; --ct-f-size: {{ fb.footer_size | default: 15 }}px;">{{ fb.footer_text }}</div>
+        <div class="ctabs__footer" data-fc-block="{{ block.id }}" data-fc-type="footer" {% if request.design_mode %}data-fc-settings="{{ fb | json | escape }}"{% endif %} {{ block.shopify_attributes }}{% if fb.footer_text == blank %} hidden{% endif %} style="--ct-f-color: {% if fb.enable_custom_style %}{% render 'scheme-color', color: fb.footer_color, fallback: 'var(--color-text)' %}{% else %}var(--color-text){% endif %}; --ct-f-size: {{ fb.footer_size | default: 15 }}px;">{{ fb.footer_text }}</div>
         {%- break -%}
       {%- endif -%}
     {%- endfor -%}
@@ -563,7 +289,7 @@
 {
   "name": "Content Tabs",
   "tag": "section",
-  "class": "section-content-tabs",
+  "class": "section-content-tabs s-content-tabs s-tt",
   "settings": [
     {
       "type": "header",
@@ -573,7 +299,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -1409,7 +1135,7 @@
   "presets": [
     {
       "name": "Content Tabs",
-      "category": "Features",
+      "category": "12 · Text",
       "blocks": [
         {
           "type": "heading",

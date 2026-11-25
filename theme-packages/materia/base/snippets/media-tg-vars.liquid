@@ -1,8 +1,14 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. The --tg-* variables shared by the text-grid sections,
   printed inside the root's style attribute. Mirrors media-live-text-grid.js.
   Use: style="{% render 'media-tg-vars', st: section.settings %}"
-{%- endcomment -%}
+
+  @param {object} st - Section settings object
+  @param {boolean} [text_color] - Text color
+
+  @example
+  {% render 'media-tg-vars', st: section.settings %}
+{%- enddoc -%}
 {%- liquid
   case st.section_width
     when 'container'

@@ -1,11 +1,15 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. Shared first-paint rules for Gallery Simple 1, Gallery Grid 1,
   Gallery Interactive 2 and Gallery Simple 3. Every value a setting controls is
   a CSS variable or data attribute on the section root (.mga), so the builder
   can change it live (shopify/assets/media-live-galleries-a.js) and the first
   paint already shows the final look.
+
+  @param {section} section - The section being rendered
+
+  @example
   {% render 'media-galleries-a-base', section: section %}
-{%- endcomment -%}
+{%- enddoc -%}
 {%- assign sid = '#shopify-section-' | append: section.id -%}
 <style>
   {{ sid }} { isolation: isolate; position: relative; }
@@ -42,7 +46,7 @@
     background: color-mix(in srgb, var(--color-heading) 8%, var(--color-background));
   }
   {{ sid }} .mga-fill { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; margin: 0; object-fit: cover; object-position: center; display: block; }
-  {{ sid }} .mga-ph { position: absolute; inset: 0; width: 100%; height: 100%; display: block; color: var(--color-heading); opacity: 0.3; pointer-events: none; }
+  {{ sid }} .mga-ph { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
   {{ sid }} [data-media]:not([data-media="none"]) > .mga-ph { display: none; }
   {{ sid }} .mga :focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
   @media (prefers-reduced-motion: reduce) {

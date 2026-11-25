@@ -1,11 +1,17 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. Developed By Materia Themes.
 
-  Params:
     type     - 'header_mega' for the mega-menu header variant
     as_text  - when true, render a "Search" text label instead of the icon.
                The .top-search-toggle hook + search behavior are unchanged.
-{%- endcomment -%}
+
+  @param {boolean} as_text - Show actions as text
+  @param {string} text_class - Text class
+  @param {string} [type] - Type; no current caller passes it
+
+  @example
+  {% render 'top-search-header', as_text: actions_as_text, text_class: header_text_class %}
+{%- enddoc -%}
 {% # theme-check-disable ContentForHeaderModification %}
 {%- liquid
   assign theme_st = settings

@@ -1,10 +1,15 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes — Benefits Pills block.
   Optional heading + horizontal stack of pill-shaped benefit tags.
   Each pill: toggle, text, icon (preset / inline SVG / image / none),
   per-pill color overrides for icon, text, and background.
   Pass `block`.
-{%- endcomment -%}
+
+  @param {block} block - The block being rendered
+
+  @example
+  {% render 'benefits-pills', block: block %}
+{%- enddoc -%}
 {%- liquid
   assign s = block.settings
   assign block_id = 'benefits-pills-' | append: block.id

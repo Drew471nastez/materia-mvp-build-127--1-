@@ -422,7 +422,7 @@
       const t = pad(parts[el.dataset.cdUnit]);
       if (el.textContent !== t) {
         el.textContent = t;
-        if (el.dataset.cdUnit === 's' && el.hasAttribute('data-cd-pulse') && !reduced.matches) { el.classList.remove('is-tick'); void el.offsetWidth; el.classList.add('is-tick'); }
+        if (el.dataset.cdUnit === 's' && el.hasAttribute('data-cd-pulse') && !reduced.matches) { el.classList.remove('is-tick'); requestAnimationFrame(() => el.classList.add('is-tick')); }
       }
     }
     if (root.dataset.cdState !== state) root.dataset.cdState = state;
@@ -435,8 +435,16 @@
   function reveal(st) {
     const el = st.root.matches('[data-cd-reveal]') ? st.root : st.root.querySelector('[data-cd-reveal]');
     if (!el || el.classList.contains('is-revealed')) return;
-    if (reduced.matches || design() || st.root.hasAttribute('data-cd-editor')) { el.classList.add('is-revealed'); return; }
-    if (st.visible) el.classList.add('is-revealed');
+    if (st.redraw === undefined) st.redraw = !!window.mtIsRedraw?.(st.root);
+    if (reduced.matches || st.redraw) { el.classList.add('is-revealed'); return; }
+    // First report: on screen (or above) it simply shows; further down it is
+    // armed (hidden, CSS) and reveals once when scrolled to.
+    if (st.armed === undefined) {
+      if (st.firstTop === undefined && !st.visible) return; // before the observer's first report
+      if (st.visible || (st.firstTop != null && st.firstTop < innerHeight)) { el.classList.add('is-revealed'); return; }
+      st.armed = true; el.setAttribute('data-cd-armed', ''); return;
+    }
+    if (st.visible) { el.classList.add('is-revealed'); setTimeout(() => el.removeAttribute('data-cd-armed'), 1100); }
   }
 
   /* ---------- derive and paint ---------- */
@@ -486,7 +494,7 @@
     /* the Liquid marks the builder (request.design_mode); the theme editor's own flag counts too */
     if (design()) root.setAttribute('data-cd-editor', '');
     if ('IntersectionObserver' in window) {
-      st.io = new IntersectionObserver(es => { for (const e of es) st.visible = e.isIntersecting; root.toggleAttribute('data-cd-paused', !st.visible); reveal(st); running(st); });
+      st.io = new IntersectionObserver(es => { for (const e of es) { st.visible = e.isIntersecting; if (st.firstTop === undefined) st.firstTop = e.boundingClientRect.bottom <= 0 ? -1 : e.boundingClientRect.top; } root.toggleAttribute('data-cd-paused', !st.visible); reveal(st); running(st); });
       st.io.observe(root);
     } else { st.visible = true; }
     tick(st);

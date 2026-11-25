@@ -392,12 +392,37 @@
         "tile_2",
         "tile_3"
       ]
+    },
+    "recently_viewed": {
+      "type": "recently-viewed",
+      "blocks": {
+        "heading_rv": {
+          "type": "heading",
+          "settings": {
+            "text": "Recently viewed"
+          }
+        }
+      },
+      "block_order": [
+        "heading_rv"
+      ],
+      "settings": {
+        "section_width": "container",
+        "products_to_show": 8,
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 20,
+        "padding_top": 40,
+        "padding_bottom": 56
+      },
+      "disabled": true
     }
   },
   "order": [
     "main",
     "facts",
     "more",
-    "faq"
+    "faq",
+    "recently_viewed"
   ]
 }

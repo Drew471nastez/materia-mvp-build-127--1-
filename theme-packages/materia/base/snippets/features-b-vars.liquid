@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. Settings as CSS variables for the features-b sections
   (Comparison Cards, Text Comparisons and the comparison tables). The same
   lists are printed on the root as data-fb-spec, so
@@ -11,7 +11,17 @@
     f       "gate:picker" pairs, printed when s[gate] is on and the picker has a family
     gate    custom styling switch for the colours
   Variables are named --fb-<id>.
-{%- endcomment -%}
+
+  @param {string} c - C ('cap_bg,cap_text', 'color', 'color,swoosh_color')
+  @param {string} [f] - F
+  @param {boolean} gate - Enable custom styling
+  @param {string} [px] - Px
+  @param {object} s - Settings object (section or block settings)
+  @param {string} [w] - W
+
+  @example
+  {% render 'features-b-vars', s: st, px: spx, c: sc, w: sw, f: sf, gate: st.enable_custom_style %}
+{%- enddoc -%}
 {%- assign fb_l = px | split: ',' -%}
 {%- for fb_k in fb_l -%}
   {%- assign fb_p = fb_k | strip | split: ':' -%}

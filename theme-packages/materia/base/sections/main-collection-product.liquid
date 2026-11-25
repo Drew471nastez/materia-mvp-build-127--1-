@@ -108,19 +108,21 @@
     - Hovers / AJAX / loading state: never touched
 {%- endcomment -%}
 <style>
-  /* Outer wrapper chain — force visible. Uses > AND descendant for safety. */
-  #shopify-section-{{ section.id }} #product-grid .grid__item,
-  #shopify-section-{{ section.id }} #product-grid .grid__item > motion-element,
-  #shopify-section-{{ section.id }} #product-grid .grid__item motion-element:not(.product-item__action *):not(.product-item__hover *),
-  #shopify-section-{{ section.id }} #product-grid .grid__item > .product-item,
-  #shopify-section-{{ section.id }} #product-grid .grid__item > .product-card,
-  #shopify-section-{{ section.id }} #product-grid .grid__item > .card-wrapper,
-  #shopify-section-{{ section.id }} #product-grid .grid__item > .scroll-trigger,
-  #shopify-section-{{ section.id }} #product-grid .grid__item.scroll-trigger,
-  #shopify-section-{{ section.id }} #product-grid .grid__item > motion-element > .product-item,
-  #shopify-section-{{ section.id }} #product-grid .grid__item > motion-element > .product-card,
-  #shopify-section-{{ section.id }} #product-grid .grid__item > .product-item > motion-element:first-child,
-  #shopify-section-{{ section.id }} #product-grid .grid__item > .product-card > motion-element:first-child {
+  /* Outer wrapper chain — force visible. Uses > AND descendant for safety.
+     A card playing the theme's scroll reveal (animation.js arms it only
+     below the first screen, for one run) is left to it. */
+  #shopify-section-{{ section.id }} #product-grid .grid__item:not(.scroll-trigger--armed),
+  #shopify-section-{{ section.id }} #product-grid .grid__item > motion-element:not(.scroll-trigger--armed),
+  #shopify-section-{{ section.id }} #product-grid .grid__item motion-element:not(.product-item__action *):not(.product-item__hover *):not(.scroll-trigger--armed),
+  #shopify-section-{{ section.id }} #product-grid .grid__item > .product-item:not(.scroll-trigger--armed),
+  #shopify-section-{{ section.id }} #product-grid .grid__item > .product-card:not(.scroll-trigger--armed),
+  #shopify-section-{{ section.id }} #product-grid .grid__item > .card-wrapper:not(.scroll-trigger--armed),
+  #shopify-section-{{ section.id }} #product-grid .grid__item > .scroll-trigger:not(.scroll-trigger--armed),
+  #shopify-section-{{ section.id }} #product-grid .grid__item.scroll-trigger:not(.scroll-trigger--armed),
+  #shopify-section-{{ section.id }} #product-grid .grid__item > motion-element > .product-item:not(.scroll-trigger--armed),
+  #shopify-section-{{ section.id }} #product-grid .grid__item > motion-element > .product-card:not(.scroll-trigger--armed),
+  #shopify-section-{{ section.id }} #product-grid .grid__item > .product-item > motion-element:first-child:not(.scroll-trigger--armed),
+  #shopify-section-{{ section.id }} #product-grid .grid__item > .product-card > motion-element:first-child:not(.scroll-trigger--armed) {
     opacity: 1 !important;
     visibility: visible !important;
     transform: none !important;
@@ -356,6 +358,7 @@
           base_url: collection_url,
           terms_url: '',
           clear_url: clear_url,
+          view: view,
           part: 'toolbar'
         -%}
         <div class="facets__layout">
@@ -394,11 +397,16 @@
             {%- paginate collection.products by number_products -%}
               {%- if collection.products.size == 0 -%}
                 <div class="facets-empty" data-facets-empty>
-                  {%- comment -%} Filters that match nothing, or a collection (or a whole shop) with no products in it yet: two different things to say. {%- endcomment -%}
-                  <h2 class="facets-empty__title h4">{%- if active_filters > 0 -%}{{ 'sections.collection_template.empty' | t }}{%- else -%}{{ 'sections.collection_template.empty_collection' | t }}{%- endif -%}</h2>
-                  {%- if active_filters > 0 -%}
+                  {%- comment -%} Filters that match nothing, a page past the last one, or a collection (or a whole shop) with no products in it yet: different things to say. {%- endcomment -%}
+                  {%- if paginate.current_page > paginate.pages and paginate.items > 0 -%}
+                    {%- comment -%} A page past the last one (an old link): back to the first, filters kept. {%- endcomment -%}
+                    <h2 class="facets-empty__title h4">{{ count_text }}</h2>
+                    <a class="facets-empty__page" href="{{ collection_url }}" data-facets-first-page data-theme-button="secondary">{{ 'general.pagination.page' | t: number: 1 }}</a>
+                  {%- elsif active_filters > 0 -%}
+                    <h2 class="facets-empty__title h4">{{ 'sections.collection_template.empty' | t }}</h2>
                     <a class="facets-empty__action" href="{{ clear_url }}" data-facets-link data-theme-button="secondary">{{ 'collections.sidebar.clear_all' | t }}</a>
                   {%- else -%}
+                    <h2 class="facets-empty__title h4">{{ 'sections.collection_template.empty_collection' | t }}</h2>
                     {%- if section_st.empty_link_label != blank and collection.handle != 'all' -%}
                       <a class="facets-empty__action" href="{{ section_st.empty_link_url | default: '/collections/all' }}" data-theme-button="secondary">{{ section_st.empty_link_label | escape }}</a>
                     {%- endif -%}
@@ -437,7 +445,6 @@
                           template_enable_product_badges: true,
                           type: 'list',
                           indexFor: forloop.index,
-                          type_collections: 'true',
                           container: section_width,
                           colunm: column,
                           colunm_mobile: section_st.items_per_row_mobile,
@@ -458,7 +465,6 @@
                           template_enable_product_badges: true,
                           template_enable_product_short_description: true,
                           type: 'grid',
-                          type_collections: 'true',
                           indexFor: forloop.index,
                           container: section_width,
                           colunm: column,
@@ -475,8 +481,7 @@
                     paginate: paginate,
                     section_st: section_st,
                     pagination: pagination,
-                    number_page: number_products,
-                    paginate: paginate
+                    number_page: number_products
                   %}
                 {% endif %}
               {% endif %}
@@ -489,10 +494,11 @@
   </grid-list>
 </section>
 
+
 {% schema %}
 {
   "name": "Collection products",
-  "class": "section",
+  "class": "section s-tt has-overlay",
   "settings": [
     {
       "type": "header",
@@ -724,6 +730,13 @@
       "type": "checkbox",
       "id": "sorting",
       "label": "Show Sort by",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_view_switcher",
+      "label": "Show grid and list switcher",
+      "info": "Lets shoppers pick the number of columns or a list. Their choice of columns is remembered on their device.",
       "default": true
     },
     {

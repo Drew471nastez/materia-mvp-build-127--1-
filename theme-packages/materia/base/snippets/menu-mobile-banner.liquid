@@ -1,9 +1,14 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. Header > Mobile menu banner: a card in the phone menu, under
   the links of the submenu it names (or at the end of the main menu). Picture,
   small label, heading, text, a divider and a pill button, every one a setting
   of the block. Never drawn on desktop.
-{%- endcomment -%}
+
+  @param {block} block - The block being rendered
+
+  @example
+  {% render 'menu-mobile-banner', block: banner_block %}
+{%- enddoc -%}
 {%- liquid
   assign mb = block.settings
   assign mb_style = ''
@@ -30,11 +35,12 @@
   <div class="menu-mobile-banner hidden-1025" data-lh-block="{{ block.id }}" {{ block.shopify_attributes }} style="{{ mb_style }}">
     {%- if mb.image != blank -%}
       <div class="menu-mobile-banner__media" style="--aspect-ratio: {{ mb_ratio }}">
+        {%- assign mmb_alt = mb.image.alt | default: mb.heading | escape -%}
         {% render 'responsive-image',
           hidden_at_load: true,
           type: 'other',
           image: mb.image,
-          image_alt: mb.image.alt | default: mb.heading | escape,
+          image_alt: mmb_alt,
           custom_widths: '900, 720, 540, 360',
           sizes: '(max-width: 1024px) calc(100vw - 60px), 400px'
         %}

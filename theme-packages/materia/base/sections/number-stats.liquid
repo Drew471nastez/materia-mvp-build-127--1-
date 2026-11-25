@@ -1,7 +1,7 @@
-<script src="{{ 'live-features-c.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-features-c.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-features-c-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' and section.settings.reveal != false -%}
@@ -206,7 +206,7 @@
   --ns-count-align: {{ count_align }}; --ns-count-justify: {% if count_align == 'left' %}flex-start{% elsif count_align == 'right' %}flex-end{% else %}center{% endif %};
   --ns-desc-d: {{ st.description_size | default: 15 }}px; --ns-desc-m: {{ st.mobile_description_size | default: 15 }}px; --ns-plus-size: {{ st.plus_size | default: 37 }}px;
 {%- endcapture -%}
-<div class="ns color-{{ color_scheme }}" data-fc-root="number-stats" data-fc-section="{{ sid }}" data-fc-settings="{{ st | json | escape }}" data-width="{{ st.section_width | default: 'full_width' }}"{% if fonts %} data-own-font{% endif %} style="{{ root_vars | strip_newlines }}">
+<div class="ns color-{{ color_scheme }}" data-fc-root="number-stats" data-ns-sep="{{ sep }}" data-fc-section="{{ sid }}" {% if request.design_mode %}data-fc-settings="{{ st | json | escape }}"{% endif %} data-width="{{ st.section_width | default: 'full_width' }}"{% if fonts %} data-own-font{% endif %} style="{{ root_vars | strip_newlines }}">
 <div id="loudecoms-{{ sid }}" class="loudecoms-section gradient" data-image="{% if st.section_background_image != blank %}true{% else %}false{% endif %}" loudecoms-section>
   <div class="loudecoms-container" loudecoms-container>
     <div class="loudecoms-headline">
@@ -223,9 +223,9 @@
               assign own_lh = true
             endif
           -%}
-          <h2 class="ns__headline headline-{{ block.id }}" data-fc-block="{{ block.id }}" data-fc-type="headline" data-fc-settings="{{ bs | json | escape }}"{% if own_w %} data-own-weight{% endif %}{% if own_lh %} data-own-size{% endif %} {{ block.shopify_attributes }}{% if bs.content == blank %} hidden{% endif %} style="--ns-h-size-d: {{ bs.size | default: 32 }}px; --ns-h-size-m: {{ bs.mobile_size | default: 31 }}px; --ns-h-color: {% if bs.enable_custom_style %}{% render 'scheme-color', color: bs.color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %};{% if own_w %} --ns-h-weight: {{ bs.font_weight }};{% endif %}{% if own_lh %} --ns-h-lh: {{ bs.line_height }};{% endif %}">{{ bs.content }}</h2>
+          <h2 class="ns__headline headline-{{ block.id }}" data-fc-block="{{ block.id }}" data-fc-type="headline" {% if request.design_mode %}data-fc-settings="{{ bs | json | escape }}"{% endif %}{% if own_w %} data-own-weight{% endif %}{% if own_lh %} data-own-size{% endif %} {{ block.shopify_attributes }}{% if bs.content == blank %} hidden{% endif %} style="--ns-h-size-d: {{ bs.size | default: 32 }}px; --ns-h-size-m: {{ bs.mobile_size | default: 31 }}px; --ns-h-color: {% if bs.enable_custom_style %}{% render 'scheme-color', color: bs.color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %};{% if own_w %} --ns-h-weight: {{ bs.font_weight }};{% endif %}{% if own_lh %} --ns-h-lh: {{ bs.line_height }};{% endif %}">{{ bs.content }}</h2>
         {%- elsif block.type == 'subheadline' -%}
-          <p class="ns__sub subheadline-{{ block.id }}" data-fc-block="{{ block.id }}" data-fc-type="subheadline" data-fc-settings="{{ bs | json | escape }}" {{ block.shopify_attributes }}{% if bs.content == blank %} hidden{% endif %} style="--ns-s-size-d: {{ bs.size | default: 15 }}px; --ns-s-size-m: {{ bs.mobile_size | default: 15 }}px; --ns-s-color: {% if bs.enable_custom_style %}{% render 'scheme-color', color: bs.color, fallback: 'var(--color-text)' %}{% else %}var(--color-text){% endif %};{% if bs.line_height != blank and bs.line_height != 'inherit' %} --ns-s-lh: {{ bs.line_height }};{% endif %}">{{ bs.content }}</p>
+          <p class="ns__sub subheadline-{{ block.id }}" data-fc-block="{{ block.id }}" data-fc-type="subheadline" {% if request.design_mode %}data-fc-settings="{{ bs | json | escape }}"{% endif %} {{ block.shopify_attributes }}{% if bs.content == blank %} hidden{% endif %} style="--ns-s-size-d: {{ bs.size | default: 15 }}px; --ns-s-size-m: {{ bs.mobile_size | default: 15 }}px; --ns-s-color: {% if bs.enable_custom_style %}{% render 'scheme-color', color: bs.color, fallback: 'var(--color-text)' %}{% else %}var(--color-text){% endif %};{% if bs.line_height != blank and bs.line_height != 'inherit' %} --ns-s-lh: {{ bs.line_height }};{% endif %}">{{ bs.content }}</p>
         {%- endif -%}
       {%- endfor -%}
     </div>
@@ -252,7 +252,7 @@
               endif
             endfor
           -%}
-          <div class="loudecoms-col"{% if block.settings.number == blank %}{% unless request.design_mode or page.in_editor %} hidden{% endunless %}{% endif %} data-fc-block="{{ block.id }}" data-fc-type="count_box" data-fc-settings="{{ block.settings | json | escape }}" {{ block.shopify_attributes }}>
+          <div class="loudecoms-col"{% if block.settings.number == blank %}{% unless request.design_mode or page.in_editor %} hidden{% endunless %}{% endif %} data-fc-block="{{ block.id }}" data-fc-type="count_box" {% if request.design_mode %}data-fc-settings="{{ block.settings | json | escape }}"{% endif %} {{ block.shopify_attributes }}>
             <h3{% if count_w != '' %} data-own-weight{% endif %}>
               <span class="loudecoms-count-up" data-value="{{ block.settings.number | default: 0 | round }}">{{ formatted }}</span>
               <span class="loudecoms-plus" aria-hidden="true"{% unless st.enable_plus_sign %} hidden{% endunless %}>+</span>
@@ -266,7 +266,8 @@
 </div>
 </div>{% schema %}
 {
-  "name": "Count Up Banner",
+  "class": "s-tt",
+"name": "Count Up Banner",
   "settings": [
     {
       "type": "header",
@@ -276,7 +277,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -418,7 +419,6 @@
       "unit": "px",
       "default": 15,
       "info": "Legacy: kept for saved content. Spacing is set by the controls above.",
-      "hidden": true,
       "visible_if": "{{ false }}"
     },
     {
@@ -1083,7 +1083,7 @@
   "presets": [
     {
       "name": "Count Up Banner",
-      "category": "Features",
+      "category": "11 · Stats & counters",
       "blocks": [
         {
           "type": "headline",

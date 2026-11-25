@@ -1,0 +1,45 @@
+{%- doc -%}
+  Quick view rating (sections/product-quickview): stars with a partial fill
+  and "4.7 (128)", linking to the product page's reviews. Nothing without a
+  rating and a count. Styles: product-card.css (.qv__rating).
+  rating: number, scale_max: number (5 when blank), count: number, url: product url
+
+  @param {number} count - Count
+  @param {number} rating - Rating
+  @param {number} scale_max - Scale max
+  @param {string} url - URL
+
+  @example
+  {% render 'quickview-rating', rating: qv_rating, scale_max: qv_rating_max, count: qv_rating_count, url: product.url %}
+{%- enddoc -%}
+{%- liquid
+  assign rating = rating | default: 0 | plus: 0
+  assign count = count | default: 0 | plus: 0
+  assign scale_max = scale_max | default: 5 | plus: 0
+  if scale_max <= 0
+    assign scale_max = 5
+  endif
+-%}
+{%- if rating > 0 and count > 0 -%}
+{%- liquid
+  comment
+    Five stars of 15px, 2px apart (17px pitch). The fill covers the
+    whole stars and the right share of the partial one, e.g. 4.7/5:
+    4 x 17 + 0.7 x 15 = 78.5px. Any scale is brought to five stars.
+  endcomment
+  assign qv_stars = rating | times: 5.0 | divided_by: scale_max | at_most: 5 | at_least: 0
+  assign qv_whole = qv_stars | floor
+  assign qv_part = qv_stars | minus: qv_whole
+  assign qv_fill = qv_whole | times: 17 | plus: 0.0
+  assign qv_fill = qv_part | times: 15 | plus: qv_fill | round: 1
+  assign rating_shown = rating | times: 1.0 | round: 1
+  assign scale_max_shown = scale_max | times: 1.0 | round: 1 | remove: '.0'
+-%}
+<a class="qv__rating" href="{{ url }}#reviews" style="--qv-fill: {{ qv_fill }}px;">
+  <span class="qv__stars" aria-hidden="true">
+    {%- for i in (1..5) -%}<svg viewBox="0 0 24 24"><path d="m12 2.6 2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.5l-5.9 3.1 1.2-6.5L2.5 9.5l6.6-.9z"/></svg>{%- endfor -%}
+  </span>
+  <span class="qv__rating-value">{{ rating_shown }}<span class="visually-hidden"> / {{ scale_max_shown }}</span></span>
+  <span class="qv__rating-count">({{ count }})</span>
+</a>
+{%- endif -%}

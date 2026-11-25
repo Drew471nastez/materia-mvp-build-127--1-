@@ -1,6 +1,6 @@
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' and section.settings.reveal != false -%}
@@ -381,7 +381,7 @@
           {%- assign cp_form_id = 'contact-form-' | append: section.id -%}
           {% form 'contact', id: cp_form_id %}
             {% if form.posted_successfully? %}
-              <div class="cp-alert cp-alert--ok" role="status">{{ st.success_text }}</div>
+              <div class="cp-alert cp-alert--ok" role="status" data-mt-result>{{ st.success_text }}</div>
             {% endif %}
 
             {% if form.errors %}
@@ -422,11 +422,12 @@
 
 </div>
 <!-- ti-theme:end -->
+
 {% schema %}
 {
   "name": "Contact Form Simple 2 ",
   "tag": "section",
-  "class": "section-contact-pro",
+  "class": "section-contact-pro s-tt",
   "settings": [
     {
       "type": "header",
@@ -436,7 +437,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -1277,8 +1278,8 @@
   ],
   "presets": [
     {
-      "name": "Contact Form Simple 2",
-      "category": "Contact",
+      "name": "Contact Form – Info Cards",
+      "category": "15 · Newsletter & contact",
       "blocks": [
         {
           "type": "heading",

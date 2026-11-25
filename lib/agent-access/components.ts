@@ -41,17 +41,19 @@ const stem = (w: string) => w.replace(/(ies)$/, "y").replace(/(es|s)$/, "")
 export function searchComponents(
   schemas: SchemaMap,
   query: string,
-  opts: { categories?: Record<string, string>; custom?: Set<string>; addable?: Set<string>; limit?: number } = {},
+  opts: { categories?: Record<string, string>; custom?: Set<string>; addable?: Set<string>; limit?: number; purpose?: (type: string) => string | null } = {},
 ): ComponentHit[] {
   const wanted = [...new Set(words(query.slice(0, 300)).map(stem))]
   const limit = Math.max(1, Math.min(opts.limit ?? 12, 40))
   const hits: ComponentHit[] = []
 
   for (const [type, schema] of Object.entries(schemas)) {
-    const category = schema.category ?? opts.categories?.[type] ?? (opts.custom?.has(type) ? "yours" : "other")
+    /* Round 26: a Materia section (a site made from a template) is found by what it does (lib/storelib-ai/materia). */
+    const purpose = opts.purpose?.(type) ?? null
+    const category = schema.category ?? opts.categories?.[type] ?? purpose ?? (opts.custom?.has(type) ? "yours" : "other")
     const blocks = (schema.blocks ?? []).map((b) => b.type)
     const settings = (schema.fields ?? []).map((f) => f.id)
-    const strong = new Set([...words(type), ...words(schema.name ?? ""), ...words(category)].map(stem))
+    const strong = new Set([...words(type), ...words(schema.name ?? ""), ...words(category), ...words(purpose ?? "")].map(stem))
     const weak = new Set(
       [
         ...words(schema.description ?? ""),

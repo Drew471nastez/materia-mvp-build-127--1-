@@ -27,14 +27,15 @@
         const slides = [...this.querySelectorAll('.topbar-message')];
         const controls = this.parentElement;
         if (!slides.length) return;
-        let index = 0, target = 0, timer, visible = true, animating = false, animation, disposed = false;
+        let index = Math.max(0, slides.findIndex(s => s.classList.contains('is-active'))), target = index, dir = 1, timer, visible = true, hovered = false, running = null, disposed = false;
         const motion = matchMedia('(prefers-reduced-motion: reduce)');
+        const EASE = 'cubic-bezier(.22,.61,.36,1)';
         const stop = () => clearTimeout(timer);
+        const focused = () => !!controls.querySelector(':focus-visible');
         const schedule = () => {
           stop();
-          if (disposed || animating || slides.length < 2 || motion.matches || !visible || document.hidden ||
-              controls.matches(':hover') || controls.contains(document.activeElement)) return;
-          timer = setTimeout(() => show(index + 1), Math.max(1, Number(this.dataset.delay) || 5) * 1000);
+          if (disposed || running || slides.length < 2 || motion.matches || !visible || document.hidden || hovered || focused()) return;
+          timer = setTimeout(() => show(target + 1, 1), Math.max(1, Number(this.dataset.delay) || 5) * 1000);
         };
         const apply = next => {
           index = next;
@@ -44,66 +45,154 @@
             slide.inert = i !== index;
           });
         };
-        /* Fade out fully before fading in; rapid clicks move the destination
-           without restarting a fade. */
-        const transition = async () => {
-          animating = true;
+        const finishNow = () => { if (running) running.forEach(a => { try { a.finish(); } catch (_) {} }); };
+        /* Slide (default): the outgoing message leaves and the next one enters
+           together, next to the left and previous to the right. Fade: a quick
+           cross-fade. Both messages share one grid cell, so the height never
+           changes. Clicks during a change queue: the change in flight ends,
+           then the bar goes straight to the last message asked for. */
+        const run = async () => {
+          if (running || disposed) return;
+          if (target === index) { schedule(); return; }
+          const from = slides[index], to = slides[target];
+          const fade = this.dataset.transition === 'fade';
+          const rtl = getComputedStyle(this).direction === 'rtl' ? -1 : 1, d = dir * rtl;
+          const options = {duration: fade ? 200 : Math.min(1500, Math.max(150, Number(this.dataset.duration) || 380)), easing: fade ? 'ease' : EASE};
+          stop();
+          from.classList.add('is-leaving');
+          apply(target);
           this.dataset.transitioning = 'true';
-          const duration = Math.max(120, Number(this.dataset.duration) || 700) / 2;
-          try {
-            animation = slides[index].animate([{opacity: 1}, {opacity: 0}], {duration, easing: 'ease-in-out', fill: 'forwards'});
-            await animation.finished;
-            if (disposed) return;
-            const outgoing = animation;
-            apply(target);
-            animation = slides[index].animate([{opacity: 0}, {opacity: 1}], {duration, easing: 'ease-in-out', fill: 'forwards'});
-            outgoing.cancel();
-            await animation.finished;
-          } catch (error) {
-            if (error.name !== 'AbortError') throw error;
-          } finally {
-            animation?.cancel();
-            animation = null;
-            animating = false;
-            this.dataset.transitioning = 'false';
-            if (!disposed) {
-              if (target !== index) show(target);
-              else schedule();
-            }
-          }
+          running = [
+            from.animate(fade ? [{opacity: 1}, {opacity: 0}] : [{transform: 'translate3d(0,0,0)'}, {transform: 'translate3d(' + (-100 * d) + '%,0,0)'}], options),
+            to.animate(fade ? [{opacity: 0}, {opacity: 1}] : [{transform: 'translate3d(' + (100 * d) + '%,0,0)'}, {transform: 'translate3d(0,0,0)'}], options),
+          ];
+          try { await Promise.all(running.map(a => a.finished)); } catch (_) {}
+          from.classList.remove('is-leaving');
+          running.forEach(a => a.cancel());
+          running = null;
+          this.dataset.transitioning = 'false';
+          if (!disposed) run();
         };
-        const show = next => {
+        const show = (next, direction) => {
           target = (next + slides.length) % slides.length;
+          dir = direction < 0 ? -1 : 1;
           this.dataset.activeIndex = target;
           stop();
-          if (motion.matches || typeof this.animate !== 'function') { apply(target); schedule(); return; }
-          if (!animating && target !== index) transition();
-          else if (!animating) schedule();
+          if (motion.matches || typeof this.animate !== 'function') { finishNow(); apply(target); schedule(); return; }
+          run();
         };
-        const motionChange = () => {
-          if (motion.matches) { animation?.cancel(); apply(target); }
-          schedule();
-        };
+        const motionChange = () => { if (motion.matches) { finishNow(); apply(target); } schedule(); };
+        let swiped = false;
         const click = event => {
+          if (swiped) { swiped = false; if (this.contains(event.target)) { event.preventDefault(); event.stopPropagation(); return; } }
           const button = event.target.closest('.topbar-slider-arrow');
           if (!button || !controls.contains(button)) return;
           event.preventDefault();
-          show(target + (button.classList.contains('topbar-slider-arrow--prev') ? -1 : 1));
+          const back = button.classList.contains('topbar-slider-arrow--prev');
+          show(target + (back ? -1 : 1), back ? -1 : 1);
         };
+        const enter = event => { if (event.pointerType === 'mouse') { hovered = true; stop(); } };
+        const leave = event => { if (event.pointerType === 'mouse') { hovered = false; schedule(); } };
+        const focusIn = () => { if (focused()) stop(); };
         const focusOut = () => queueMicrotask(schedule);
-        let startX;
-        const down = event => { startX = event.clientX; };
-        const up = event => {
-          if (startX != null && Math.abs(event.clientX - startX) > 40) show(target + (event.clientX < startX ? 1 : -1));
-          startX = null;
+        /* Swipe: the messages follow the finger (transform in rAF, no
+           transition while dragging); the neighbour on the side being pulled
+           in is drawn next to it, so both ends wrap with no gap. Release goes
+           on when dragged past 20% of the width or flicked faster than
+           0.3px/ms, else springs back; both settle in 300ms. A vertical move
+           is left to the page (touch-action: pan-y). A tap still follows a link. */
+        const SETTLE = 300, EASE_SETTLE = 'cubic-bezier(.22,.61,.36,1)';
+        let drag = null, frame = 0;
+        const rtlSign = () => getComputedStyle(this).direction === 'rtl' ? -1 : 1;
+        const peekOf = dx => {
+          if (!dx) return null;
+          const step = (dx < 0 ? 1 : -1) * rtlSign();
+          return slides[(index + step + slides.length) % slides.length];
         };
-        controls.addEventListener('click', click);
-        controls.addEventListener('pointerenter', stop);
-        controls.addEventListener('pointerleave', schedule);
-        controls.addEventListener('focusin', stop);
+        const paint = () => {
+          frame = 0;
+          if (!drag) return;
+          const {dx, w} = drag, cur = slides[index], peek = peekOf(dx);
+          if (drag.peek && drag.peek !== peek) { drag.peek.classList.remove('is-leaving'); drag.peek.style.transform = ''; }
+          drag.peek = peek && peek !== cur ? peek : null;
+          cur.style.transform = 'translate3d(' + dx + 'px,0,0)';
+          if (drag.peek) { drag.peek.classList.add('is-leaving'); drag.peek.style.transform = 'translate3d(' + (dx + (dx < 0 ? w : -w)) + 'px,0,0)'; }
+        };
+        const down = event => {
+          if (!event.isPrimary || (event.pointerType === 'mouse' && event.button !== 0) || slides.length < 2 || event.target.closest('.topbar-slider-arrow')) return;
+          swiped = false;
+          drag = {id: event.pointerId, x0: event.clientX, y0: event.clientY, dx: 0, w: this.clientWidth || 1, active: false, peek: null, samples: [[event.timeStamp, event.clientX]]};
+        };
+        const move = event => {
+          if (!drag || event.pointerId !== drag.id) return;
+          const dx = event.clientX - drag.x0, dy = event.clientY - drag.y0;
+          if (!drag.active) {
+            if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+            if (Math.abs(dy) >= Math.abs(dx)) { drag = null; return; } /* vertical: the page scrolls */
+            finishNow();
+            if (running) return; /* a change still ending: try again on the next move */
+            drag.active = true;
+            drag.x0 = event.clientX; /* no jump from the 6px slop */
+            stop();
+            this.dataset.dragging = 'true';
+            this.dataset.transitioning = 'true';
+            try { this.setPointerCapture(event.pointerId); } catch (_) {}
+          }
+          drag.dx = event.clientX - drag.x0;
+          drag.samples.push([event.timeStamp, event.clientX]);
+          while (drag.samples.length > 2 && event.timeStamp - drag.samples[0][0] > 100) drag.samples.shift();
+          if (event.cancelable) event.preventDefault();
+          if (!frame) frame = requestAnimationFrame(paint);
+        };
+        const release = (event, cancelled) => {
+          if (!drag || (event && event.pointerId !== drag.id)) return;
+          const d = drag;
+          drag = null;
+          if (!d.active) return;
+          cancelAnimationFrame(frame); frame = 0;
+          try { this.releasePointerCapture(d.id); } catch (_) {}
+          swiped = true; setTimeout(() => { swiped = false; }, 400);
+          const first = d.samples[0], last = d.samples[d.samples.length - 1];
+          const v = last[0] > first[0] ? (last[1] - first[1]) / (last[0] - first[0]) : 0;
+          const dx = d.dx, cur = slides[index], peek = peekOf(dx) !== cur ? peekOf(dx) : null;
+          if (d.peek && d.peek !== peek) { d.peek.classList.remove('is-leaving'); d.peek.style.transform = ''; }
+          const go = !cancelled && peek && dx !== 0 && (Math.abs(dx) > d.w * 0.2 || (Math.abs(v) > 0.3 && Math.sign(v) === Math.sign(dx)));
+          const sgn = dx < 0 ? -1 : 1, w = d.w;
+          const curEnd = go ? sgn * w : 0, peekStart = dx - sgn * w, peekEnd = go ? 0 : -sgn * w;
+          const options = {duration: motion.matches ? 0 : SETTLE, easing: EASE_SETTLE, fill: 'forwards'};
+          const t = x => 'translate3d(' + x + 'px,0,0)';
+          if (peek) peek.classList.add('is-leaving');
+          running = [cur.animate([{transform: t(dx)}, {transform: t(curEnd)}], options)];
+          if (peek) running.push(peek.animate([{transform: t(peekStart)}, {transform: t(peekEnd)}], options));
+          cur.style.transform = ''; if (peek) peek.style.transform = '';
+          delete this.dataset.dragging;
+          const anims = running;
+          Promise.all(anims.map(a => a.finished)).catch(() => {}).then(() => {
+            if (go) { cur.classList.add('is-leaving'); apply(slides.indexOf(peek)); target = index; this.dataset.activeIndex = String(index); }
+            cur.classList.remove('is-leaving'); if (peek) peek.classList.remove('is-leaving');
+            anims.forEach(a => a.cancel());
+            if (running === anims) running = null;
+            this.dataset.transitioning = 'false';
+            if (!disposed) { if (target !== index) run(); else schedule(); }
+          });
+        };
+        const up = event => release(event, false);
+        const cancel = event => release(event, true);
+        /* only our own capture ending counts: a touch's implicit capture on the
+           text moving to the rotator also fires (and bubbles) lostpointercapture */
+        const lost = event => { if (event.target === this) release(event, true); };
+        const noDrag = event => { if (this.contains(event.target)) event.preventDefault(); };
+        controls.addEventListener('click', click, true);
+        controls.addEventListener('pointerenter', enter);
+        controls.addEventListener('pointerleave', leave);
+        controls.addEventListener('focusin', focusIn);
         controls.addEventListener('focusout', focusOut);
         this.addEventListener('pointerdown', down);
+        this.addEventListener('pointermove', move);
         this.addEventListener('pointerup', up);
+        this.addEventListener('pointercancel', cancel);
+        this.addEventListener('lostpointercapture', lost);
+        this.addEventListener('dragstart', noDrag);
         document.addEventListener('visibilitychange', schedule);
         motion.addEventListener('change', motionChange);
         const observer = new IntersectionObserver(entries => {
@@ -117,19 +206,24 @@
         delayWatch.observe(this, {attributes: true, attributeFilter: ['data-delay']});
         this.cleanup = () => {
           disposed = true;
-          stop(); animation?.cancel(); observer.disconnect(); delayWatch.disconnect();
-          controls.removeEventListener('click', click);
-          controls.removeEventListener('pointerenter', stop);
-          controls.removeEventListener('pointerleave', schedule);
-          controls.removeEventListener('focusin', stop);
+          stop(); finishNow(); observer.disconnect(); delayWatch.disconnect();
+          controls.removeEventListener('click', click, true);
+          controls.removeEventListener('pointerenter', enter);
+          controls.removeEventListener('pointerleave', leave);
+          controls.removeEventListener('focusin', focusIn);
           controls.removeEventListener('focusout', focusOut);
           this.removeEventListener('pointerdown', down);
+          this.removeEventListener('pointermove', move);
           this.removeEventListener('pointerup', up);
+          this.removeEventListener('pointercancel', cancel);
+          this.removeEventListener('lostpointercapture', lost);
+          this.removeEventListener('dragstart', noDrag);
+          cancelAnimationFrame(frame);
           document.removeEventListener('visibilitychange', schedule);
           motion.removeEventListener('change', motionChange);
         };
-        apply(0);
-        this.dataset.activeIndex = '0';
+        apply(index);
+        this.dataset.activeIndex = String(index);
         this.dataset.transitioning = 'false';
         schedule();
       });
@@ -273,8 +367,9 @@
         case 'show_account_icon': show(action && action.querySelector('.header_account'), bool(v)); break;
         case 'show_wishlist_icon': show(action && action.querySelector('.header__wishlist'), bool(v)); break;
         case 'show_shopping_cart': show(action && action.querySelector('.minicart'), bool(v)); break;
-        case 'show_currency': for (const el of all(action, '.lang__currency-desktop ' + COUNTRY)) show(el, bool(v)); break;
-        case 'show_language': for (const el of all(action, '.lang__currency-desktop ' + LANGUAGE)) show(el, bool(v)); break;
+        /* the selectors, or the quiet labels drawn when the store has one market or one language, on the bar and in the phone menu */
+        case 'show_currency': for (const el of all(H, ':is(.lang__currency-desktop, .lang__currency-on-nav) :is(' + COUNTRY + ', [data-loc-static="country"])')) show(el, bool(v)); break;
+        case 'show_language': for (const el of all(H, ':is(.lang__currency-desktop, .lang__currency-on-nav) :is(' + LANGUAGE + ', [data-loc-static="language"])')) show(el, bool(v)); break;
         case 'actions_as_text': attr(H, 'data-actions-text', bool(v)); break;
         case 'sticky_header_type': if (['none', 'always', 'on-scroll-up'].includes(v)) attr(H, 'data-sticky', v); break;
         case 'sticky_header_mobile': attr(H, 'data-sticky-mobile', String(bool(v))); break;
@@ -459,7 +554,8 @@
         case 'border_width': st.borderWidth = num(v, 1); barBorder(T, st); break;
         case 'show_arrows': for (const el of slides) { cls(el, 'topbar-has-arrows', bool(v) && !!el.querySelector('.topbar-slider-arrow')); for (const b of el.querySelectorAll('.topbar-slider-arrow')) show(b, bool(v)); } break;
         case 'show_arrows_mobile': for (const el of slides) cls(el, 'topbar-mobile-arrows', bool(v)); break;
-        case 'transition_speed': for (const r of all(T, 'announcement-rotator-v2')) attr(r, 'data-duration', String(num(v, 700))); break;
+        case 'slide_speed': for (const r of all(T, 'announcement-rotator-v2')) attr(r, 'data-duration', String(num(v, 380))); break;
+        case 'transition_type': for (const r of all(T, 'announcement-rotator-v2')) attr(r, 'data-transition', v === 'fade' ? 'fade' : 'slide'); break;
         case 'change_every': for (const r of all(T, '[data-tb-messages] announcement-rotator-v2')) attr(r, 'data-delay', String(num(v, 5))); break;
         case 'padding_top': prop(T, '--section-pt', String(num(v))); cls(T, 'pt-min', num(v) < 30); break;
         case 'padding_bottom': prop(T, '--section-pb', String(num(v))); cls(T, 'pb-min', num(v) < 30); break;

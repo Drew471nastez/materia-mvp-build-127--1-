@@ -1,3 +1,22 @@
+{% doc %}
+  Product media gallery layout (main slider and thumbnails) of the product page.
+
+  @param {string} [custom_class] - Custom class (' swiper-slide media-item', 'swiper-slide')
+  @param {object} images - Images
+  @param {boolean} [is_thumbnail] - Is thumbnail
+  @param {string} [layout] - Layout
+  @param {object} [lightbox] - Lightbox
+  @param {object} [media_priority] - Media priority; no current caller passes it
+  @param {product} product - The product to render
+  @param {section} section - The section being rendered
+  @param {object} section_st - Section settings object
+  @param {object} theme_st - Theme settings object
+  @param {string} type - Type
+  @param {string} zoom_type - Zoom type
+
+  @example
+  {% render 'product-media-layout', product: product, images: images, section_st: section_st, theme_st: theme_st, section: section, custom_class: ' swiper-slide media-item', is_thumbnail: is_shopable_video, zoom_type: image_zoom, lightbox: lightbox, type: type %}
+{% enddoc -%}
 {%- liquid
   comment
     Thumbnails are small and on screen when the page opens: they ask for a picture their own size
@@ -5,6 +24,13 @@
   endcomment
   assign thumb_sizes = ''
   assign thumb_eager = false
+  comment
+    Main gallery pictures: the gallery column is at most ~40% of a computer
+    screen (never the whole window), so the browser no longer fetches a
+    720px+ file for a ~450px slide. Lazy slides also get sizes="auto" (their
+    real laid-out width) from responsive-image.
+  endcomment
+  assign main_sizes = '(min-width: 1200px) min(40vw, 660px), (min-width: 768px) 50vw, calc(100vw - 30px)'
   if is_thumbnail == true
     assign thumb_sizes = '(min-width: 768px) 120px, 80px'
     assign thumb_eager = true
@@ -76,7 +102,7 @@
     {% if image.alt == 'image-360' and image.media_type == 'image' %}
       <div class="{{ custom_class }}" style="--aspect-ratio: {{ media_ratio | default: ratio }}">
         {%- assign image_alt = image.alt | default: 'product' | escape -%}
-        {% render 'responsive-image', type: 'product', image: image.preview_image, priority_image: media_priority, image_alt: image_alt %}
+        {% render 'responsive-image', type: 'product', image: image.preview_image, priority_image: media_priority, image_alt: image_alt, sizes: main_sizes %}
       </div>
       {% break %}
     {% endif %}
@@ -350,7 +376,8 @@
             type: 'product',
             image: featured_media.preview_image, priority_image: media_priority,
             image_alt: image_alt,
-            class: 'drift-trigger'
+            class: 'drift-trigger',
+            sizes: main_sizes
           %}
           {%- comment -%} Lightbox expand button — removed; tapping/clicking the image still triggers the lightbox. {%- endcomment -%}
         {% else %}
@@ -572,7 +599,7 @@
                     {%- render 'icon-3d-model' -%}
                   </span>
                   {%- assign image_alt = image.alt | default: 'product' | escape -%}
-                  {% render 'responsive-image', type: 'product', image: image.preview_image, priority_image: media_priority, image_alt: image_alt %}
+                  {% render 'responsive-image', type: 'product', image: image.preview_image, priority_image: media_priority, image_alt: image_alt, sizes: main_sizes %}
                 </button>
                 <template>
                   {%- liquid
@@ -633,7 +660,8 @@
               type: 'product',
               image: image.preview_image, priority_image: media_priority,
               image_alt: image_alt,
-              class: 'drift-trigger'
+              class: 'drift-trigger',
+              sizes: main_sizes
             %}
             {% if zoom_type == 'open_lightbox' %}
               {% liquid
@@ -656,7 +684,7 @@
               lazy_load: thumb_eager
               %}
             {% else %}
-              {% render 'responsive-image', type: 'product', image: image.preview_image, priority_image: media_priority, image_alt: image_alt %}
+              {% render 'responsive-image', type: 'product', image: image.preview_image, priority_image: media_priority, image_alt: image_alt, sizes: main_sizes %}
             {% endif %}
           {% endif %}
           {% if zoom_type != 'no_zoom' %}

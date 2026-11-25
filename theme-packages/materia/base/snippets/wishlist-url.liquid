@@ -1,0 +1,21 @@
+{%- comment -%}
+  Materia Themes. The one address of the wishlist, printed with no spaces:
+    {%- render 'wishlist-url' -%}
+  - a store page with the handle "wishlist" on the Wishlist page template
+    (templates/page.wishlist.json) when the merchant has made one;
+  - otherwise the theme's own Wishlist template on the search route,
+    /search?view=wishlist (templates/search.wishlist.json), which every store
+    has, so the wishlist works with nothing to set up.
+  A theme cannot create pages, so the second one is the default.
+  Storelib: the wishlist is Storelib's own page at /pages/wishlist (kept in
+  step with the website's wishlist), so that is the address when the store
+  has no page of its own.
+{%- endcomment -%}
+{%- liquid
+  assign wishlist_page = pages['wishlist']
+  if wishlist_page != empty and wishlist_page.url != blank and wishlist_page.template_suffix == 'wishlist'
+    echo wishlist_page.url
+  else
+    echo '/pages/wishlist'
+  endif
+-%}

@@ -1,7 +1,7 @@
-<script src="{{ 'live-r7-faq.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-r7-faq.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if section.settings.reveal == false -%}<span data-ti-no-reveal hidden></span>{%- endif -%}
@@ -94,12 +94,12 @@
 </div>
 {%- if request.design_mode -%}
 {%- comment -%} The builder runs a redrawn or newly added section's inline scripts: load the controller if this page did not have it yet, or set this section up. {%- endcomment -%}
-<script>(function(){if(window.MateriaR7Faq)return window.MateriaR7Faq.scan();if(document.querySelector('script[data-r7f-boot]'))return;var s=document.createElement('script');s.src="{{ 'live-r7-faq.js' | asset_url }}";s.setAttribute('data-r7f-boot','');document.head.appendChild(s);})();</script>
+{%- if request.design_mode -%}<script>(function(){if(window.MateriaR7Faq)return window.MateriaR7Faq.scan();if(document.querySelector('script[data-r7f-boot]'))return;var s=document.createElement('script');s.src="{{ 'live-r7-faq.js' | asset_url }}";s.setAttribute('data-r7f-boot','');document.head.appendChild(s);})();</script>{%- endif -%}
 {%- endif -%}
 {%- if st.structured_data -%}{% render 'faq-live-jsonld', items: faq_items %}{%- endif -%}{% schema %}
 {
   "name": "FAQ With Contact Card",
-  "class": "section-r7f",
+  "class": "section-r7f s-tt",
   "settings": [
     {
       "type": "header",
@@ -109,7 +109,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -658,8 +658,8 @@
           "label": "Line height",
           "min": 0.8,
           "max": 2,
-          "step": 0.05,
-          "default": 1.15,
+          "step": 0.1,
+          "default": 1.1,
           "visible_if": "{{ block.settings.size_enable }}"
         },
         {
@@ -777,7 +777,7 @@
           "label": "Line height",
           "min": 1,
           "max": 2.2,
-          "step": 0.05,
+          "step": 0.1,
           "default": 1.5,
           "visible_if": "{{ block.settings.size_enable }}"
         }
@@ -981,8 +981,8 @@
   ],
   "presets": [
     {
-      "name": "FAQ With Contact Card",
-      "category": "FAQ",
+      "name": "FAQ – Contact Card",
+      "category": "13 · FAQ",
       "blocks": [
         {
           "type": "heading"

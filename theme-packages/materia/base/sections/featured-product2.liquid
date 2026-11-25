@@ -1,7 +1,7 @@
-<script src="{{ 'live-products-b.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-products-b.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- assign fb_accessibility_save = 'accessibility.save' | t -%}
 {%- assign fb_accessibility_product_title = 'accessibility.product_title' | t -%}
@@ -54,6 +54,9 @@
   assign sid = section.id
   assign own = s.enable_custom_style
   assign feat = s.product
+  if feat == blank
+    assign feat = collections.all.products.first
+  endif
   assign featured_img = feat.featured_media.preview_image | default: feat.featured_image
   if s.image != blank
     assign featured_img = s.image
@@ -114,7 +117,7 @@
     background: var(--psh-img-bg, color-mix(in srgb, var(--color-heading) 6%, var(--color-background)));
   }
   #shopify-section-{{ sid }} .psh__media img, #shopify-section-{{ sid }} .psh__media svg { width: 100%; height: 100%; object-fit: cover; display: block; }
-  #shopify-section-{{ sid }} .psh__media svg.psh__ph { padding: 22%; box-sizing: border-box; color: color-mix(in srgb, var(--color-text) 30%, var(--color-background)); }
+  #shopify-section-{{ sid }} .psh__media svg.psh__ph { box-sizing: border-box; }
   #shopify-section-{{ sid }} .psh__info {
     flex: 1 1 100%; min-width: 0; display: flex; flex-direction: column;
     gap: var(--psh-tgap); align-items: var(--psh-align); text-align: var(--psh-talign);
@@ -158,7 +161,7 @@
   #shopify-section-{{ sid }} .psh__desc { margin: 0; line-height: 1.55; max-width: var(--psh-desc-max); color: var(--pb-c, var(--color-text)); font-size: var(--pb-fs, 15px); }
   #shopify-section-{{ sid }} .psh__desc p { margin: 0 0 .6em; }
   #shopify-section-{{ sid }} .psh__desc p:last-child { margin: 0; }
-  #shopify-section-{{ sid }} .psh__note { margin: 0 0 .6em; padding: 8px 12px; border: 1px dashed currentColor; border-radius: 6px; font-size: 13px; opacity: .7; }
+  #shopify-section-{{ sid }} .psh__note { margin: 0 0 .6em; padding: 6px 10px; border: 1px dashed color-mix(in srgb, currentColor 22%, transparent); border-radius: 4px; font-size: 12px; font-weight: 400; line-height: 1.4; color: color-mix(in srgb, currentColor 62%, transparent); }
   #shopify-section-{{ sid }} .psh__cta-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: var(--psh-cta-mt); justify-content: var(--psh-align); }
   #shopify-section-{{ sid }} .psh__cta-row form, #shopify-section-{{ sid }} .psh__cta-row product-form { display: contents; }
   /* Buttons are theme buttons (theme-button-contract.css). The section's
@@ -177,7 +180,7 @@
 {%- if sticky -%}
 <script src="{{ 'product-page-ui.js' | asset_url }}" defer="defer"></script>
 {%- endif -%}
-<div class="section psh-root color-{{ color_scheme }} gradient{% if s.reset_spacing %} remove_spacing{% endif %}" data-pb-root="featured-product2" data-pb-section="{{ sid }}" data-pb-settings="{{ pb_json | escape }}" data-pb-defaults='{"color_scheme":"default-color-scheme","section_width":"full_width","reset_spacing":true,"image_position":"left","image_width_pct":50,"column_valign":"center","text_align":"left","enable_sticky_content_on_desktop":true,"gap_desktop":56,"text_gap":14,"sub_max_width":560,"desc_max_width":560,"cta_margin_top":12,"image_aspect_desktop":"4 / 5","image_radius":20,"enable_custom_style":false,"rating_star_color":"#E2A938","use_theme_button":true,"cta_size":15,"cta_pad_x":24,"cta_pad_y":14,"cta_radius":100,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","rating_size":13,"padding_top":49,"padding_bottom":49,"side_padding_desktop":24,"image_aspect_mobile":"4 / 5","gap_mobile":24,"side_padding_mobile":16}' data-pb-block-defaults='{"eyebrow":{"text":"Spotlight","enable_custom_style":false,"size":12},"heading":{"tag":"h2","enable_custom_style":false,"size_desktop":52,"size_mobile":32},"subheading":{"text":"&lt;p>Add a short introduction here.&lt;/p>","enable_custom_style":false,"size":16},"rating":{"show":true,"reviews_label":"reviews"},"price":{"enable_custom_style":false,"size":22,"show_sale_badge":true,"sale_badge_text":"Save","offer_unit_price_label":"Product price (per item)","selected_offer_total_label":"Selected total"},"description":{"use_product_description":true,"truncate_chars":220,"enable_custom_style":false,"size":15},"buttons":{"primary_action":"link","primary_label":"Shop now"}}' data-pb-title="{{ title_fallback | escape }}" data-pb-name="{{ feat.title | escape }}" data-pb-product-url="{{ feat.url | default: routes.all_products_collection_url | default: '/collections/all' }}" data-width="{{ s.section_width | default: 'full_width' }}" style="{{ psh_vars | strip_newlines | strip }}">
+<div class="section psh-root color-{{ color_scheme }} gradient{% if s.reset_spacing %} remove_spacing{% endif %}" data-pb-root="featured-product2" data-pb-section="{{ sid }}" data-pb-settings="{{ pb_json | escape }}" data-pb-defaults='{"color_scheme":"default","section_width":"full_width","reset_spacing":true,"image_position":"left","image_width_pct":50,"column_valign":"center","text_align":"left","enable_sticky_content_on_desktop":true,"gap_desktop":56,"text_gap":14,"sub_max_width":560,"desc_max_width":560,"cta_margin_top":12,"image_aspect_desktop":"4 / 5","image_radius":20,"enable_custom_style":false,"rating_star_color":"#E2A938","use_theme_button":true,"cta_size":15,"cta_pad_x":24,"cta_pad_y":14,"cta_radius":100,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","rating_size":13,"padding_top":49,"padding_bottom":49,"side_padding_desktop":24,"image_aspect_mobile":"4 / 5","gap_mobile":24,"side_padding_mobile":16}' data-pb-block-defaults='{"eyebrow":{"text":"Spotlight","enable_custom_style":false,"size":12},"heading":{"tag":"h2","enable_custom_style":false,"size_desktop":52,"size_mobile":32},"subheading":{"text":"&lt;p>Add a short introduction here.&lt;/p>","enable_custom_style":false,"size":16},"rating":{"show":true,"reviews_label":"reviews"},"price":{"enable_custom_style":false,"size":22,"show_sale_badge":true,"sale_badge_text":"Save","offer_unit_price_label":"Product price (per item)","selected_offer_total_label":"Selected total"},"description":{"use_product_description":true,"truncate_chars":220,"enable_custom_style":false,"size":15},"buttons":{"primary_action":"link","primary_label":"Shop now"}}' data-pb-title="{{ title_fallback | escape }}" data-pb-name="{{ feat.title | escape }}" data-pb-product-url="{{ feat.url | default: routes.all_products_collection_url | default: '/collections/all' }}" data-width="{{ s.section_width | default: 'full_width' }}" style="{{ psh_vars | strip_newlines | strip }}">
   <div class="psh" data-section-id="{{ sid }}">
     <div class="psh__inner">
       {%- liquid
@@ -196,7 +199,7 @@
         {%- elsif s.placeholder_url != blank -%}
           <img src="{{ s.placeholder_url }}" alt="" width="1200" height="1500" loading="{{ fp2_loading }}">
         {%- else -%}
-          <svg class="psh__ph" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false"><g fill="currentColor"><circle cx="172" cy="124" r="14"/><path d="M140 192l40-46 25 28 20-18 35 36z"/></g></svg>
+          {%- render 'placeholder-image', type: 'product-2', class: 'psh__ph' -%}
         {%- endif -%}
       </div>
 
@@ -291,7 +294,7 @@
               endif
             -%}<p>{{ fp2_desc }}</p>
                 {%- elsif request.design_mode -%}
-                  <p class="psh__note">Write a description here, or pick a product that has one and turn on Use the product description.</p>
+                  <p class="psh__note">Write a description, or pick a product that has one.</p>
                 {%- endif -%}
               </div>
 
@@ -308,9 +311,9 @@
                     {%- endform -%}
                   </product-form>
                 {%- else -%}
-                  <a class="psh__cta" data-theme-button="primary" data-sl-button{% if s.use_theme_button == false %} data-own-shape{% endif %} data-pb-primary href="{% if bs.primary_url != blank %}{{ bs.primary_url | url }}{% else %}{{ feat.url | default: routes.all_products_collection_url | default: '/collections/all' }}{% endif %}"{% if bs.primary_label == blank %} hidden{% endif %}><span data-pb-label>{{ bs.primary_label | escape }}</span></a>
+                  <a class="psh__cta" data-theme-button="primary" data-sl-button{% if s.use_theme_button == false %} data-own-shape{% endif %} data-pb-primary href="{% if bs.primary_url != blank %}{{ bs.primary_url }}{% else %}{{ feat.url | default: routes.all_products_collection_url | default: '/collections/all' }}{% endif %}"{% if bs.primary_label == blank %} hidden{% endif %}><span data-pb-label>{{ bs.primary_label | escape }}</span></a>
                 {%- endif -%}
-                <a class="psh__cta psh__cta--secondary" data-theme-button="secondary" data-sl-button{% if s.use_theme_button == false %} data-own-shape{% endif %} data-pb-secondary href="{% if bs.secondary_url != blank %}{{ bs.secondary_url | url }}{% else %}{{ feat.url | default: routes.all_products_collection_url | default: '/collections/all' }}{% endif %}"{% if bs.secondary_label == blank %} hidden{% endif %}>{{ bs.secondary_label | escape }}</a>
+                <a class="psh__cta psh__cta--secondary" data-theme-button="secondary" data-sl-button{% if s.use_theme_button == false %} data-own-shape{% endif %} data-pb-secondary href="{% if bs.secondary_url != blank %}{{ bs.secondary_url }}{% else %}{{ feat.url | default: routes.all_products_collection_url | default: '/collections/all' }}{% endif %}"{% if bs.secondary_label == blank %} hidden{% endif %}>{{ bs.secondary_label | escape }}</a>
               </div>
 
           {%- endcase -%}
@@ -323,7 +326,7 @@
 {
   "name": "Product Spotlight Hero",
   "tag": "section",
-  "class": "section",
+  "class": "section s-tt",
   "settings": [
     {
       "type": "header",
@@ -333,7 +336,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -384,7 +387,6 @@
       "type": "url",
       "id": "placeholder_url",
       "label": "Fallback image URL",
-      "hidden": true,
       "info": "Legacy: a picture address saved before the Image setting. Used only when no image or product picture is set.",
       "visible_if": "{{ false }}"
     },
@@ -871,7 +873,6 @@
               "label": "H3"
             }
           ],
-          "hidden": true,
           "info": "The heading is an h2; the page title is the h1.",
           "visible_if": "{{ false }}"
         },
@@ -1018,7 +1019,6 @@
           "type": "text",
           "id": "fallback_price",
           "label": "Fallback price",
-          "hidden": true,
           "info": "Legacy: prices come from the product.",
           "visible_if": "{{ false }}"
         },
@@ -1140,8 +1140,8 @@
   ],
   "presets": [
     {
-      "name": "Product Spotlight Hero",
-      "category": "Products",
+      "name": "Featured Product – Spotlight",
+      "category": "03 · Products",
       "blocks": [
         {
           "type": "eyebrow",

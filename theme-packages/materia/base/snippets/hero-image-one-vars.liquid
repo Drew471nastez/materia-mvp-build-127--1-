@@ -1,3 +1,12 @@
+{% doc %}
+  CSS custom properties of the Hero Image One section or one of its blocks.
+
+  @param {object} controls - Settings object that holds the style controls
+  @param {string} kind - Kind
+
+  @example
+  {% render 'hero-image-one-vars', controls: c, kind: 'section' %}
+{% enddoc -%}
 {%- assign c = controls -%}
 {%- if kind == 'section' -%}
 --hi1-bg:{% if c.enable_custom_style %}{% render 'scheme-color', color: c.section_bg, fallback: 'var(--color-background)' %}{% else %}var(--color-background){% endif %};

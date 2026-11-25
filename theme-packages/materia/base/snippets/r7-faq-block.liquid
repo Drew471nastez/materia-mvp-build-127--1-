@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. One block of FAQ Search (sections/faq-search) or FAQ With
   Contact Card (sections/faq-contact-card), by its type: heading, subheading,
   faq_item, card_text, button, contact_line.
@@ -14,7 +14,15 @@
   custom font, weight, size or button shape ahead of Theme settings >
   Typography and Buttons priority, here in the first paint and from the
   script on live edits.
-{%- endcomment -%}
+
+  @param {block} block - The block being rendered
+  @param {string} [group] - Group
+  @param {boolean} [open] - Open
+  @param {section} section - The section being rendered
+
+  @example
+  {% render 'r7-faq-block', block: block, section: section, group: group, open: open %}
+{%- enddoc -%}
 {%- liquid
   assign bs = block.settings
   assign st = section.settings

@@ -71,7 +71,7 @@ try {
 (() => {
   if (window.__materiaDrawerPresentationV6) return;
   window.__materiaDrawerPresentationV6 = true;
-  const editor = () => window.self !== window.top || !!window.Shopify?.designMode || document.documentElement.classList.contains('shopify-design-mode');
+  const editor = () => !!window.Shopify?.designMode || document.documentElement.classList.contains('shopify-design-mode');
   // Editor state survives a live re-render or a reload of the preview frame.
   // A sandboxed frame can refuse sessionStorage, so window.name is the fallback.
   const key = 'materia.drawer.preview.v3';
@@ -370,13 +370,16 @@ try {
       if (!entries?.length) entries = (PROVINCES[selected?.dataset.code || country.value] || '').split('|').filter(Boolean).map(item => [item.slice(0, item.indexOf(' ')), item.slice(item.indexOf(' ') + 1)]);
       if (entries.length) province.replaceChildren(...entries.map(([value, name]) => new Option(name || value, value)));
       else province.replaceChildren();
-      if (box) box.hidden = !entries.length;
+      if (box) { box.hidden = !entries.length; box.style.display = entries.length ? '' : 'none'; }
     };
     if (!country.dataset.bound) {
       country.dataset.bound = 'true';
       country.addEventListener('change', syncProvinces);
     }
     if (!province?.options.length) syncProvinces();
+    // Another script (the platform's country/province helper) can hide the state
+    // row; the platform needs the state for countries that have them.
+    else if (box) { box.hidden = false; box.style.display = ''; }
   }
   document.addEventListener('click', async event => {
     const button = event.target.closest?.('#minicart_wrapper [data-action="shipping"]');
@@ -407,7 +410,13 @@ try {
       let data = null;
       try { data = await response.json(); } catch (_) {}
       if (!data || response.status === 404 || response.status === 405 || (response.ok && !Array.isArray(data.shipping_rates))) { showFallback(); return; }
-      if (!response.ok) throw new Error(Object.values(data).flat().join(' '));
+      if (!response.ok) {
+        // The platform says what is wrong with the address, field by field
+        // ({"zip":["is not valid for United States"]}): show that, readably.
+        const field = key => ({zip: panel.querySelector('label[for="AddressZip"]')?.textContent.trim() || 'Zip', country: panel.querySelector('label[for="address_country"]')?.textContent.trim() || 'Country', province: panel.querySelector('label[for="address_province"]')?.textContent.trim() || 'Province'}[key] || '');
+        const text = Object.entries(data).map(([key, value]) => [field(key), [].concat(value).join(', ')].filter(Boolean).join(' ')).join('. ');
+        const error = new Error(text); error.fromShopify = true; throw error;
+      }
       message.classList.remove('error');
       if (!data.shipping_rates.length) { showFallback(); return; }
       const list = document.createElement('ul'); list.className = 'shipping-rates';
@@ -426,7 +435,7 @@ try {
       }
       message.append(list);
     } catch (error) {
-      message.classList.add('error'); message.textContent = window.cartStrings?.error || error.message;
+      message.classList.add('error'); message.textContent = (error.fromShopify && error.message) || window.cartStrings?.error || error.message;
     } finally { button.disabled = false; message.removeAttribute('aria-busy'); }
   }, true);
 
@@ -517,3 +526,119 @@ html body #minicart_wrapper.minicart :is(.quantity-input, .minicart__actions, .m
 })();
 } catch (error) { setTimeout(() => { throw error; }); }
 /* == end snippets/cart-drawer-sheets == */
+/* == checkout button price (Cart Drawer > Checkout button text) ==
+   "Checkout · price" mirrors the drawer subtotal, whichever path updated it
+   (patched totals, optimistic quantity paint, a full redraw). */
+try {
+  (function(){
+    if (window.__materiaCheckoutPrice) return;
+    window.__materiaCheckoutPrice = true;
+    let frame = 0;
+    const sync = () => {
+      frame = 0;
+      document.querySelectorAll('#minicart_wrapper [data-checkout-price]').forEach(slot => {
+        const scope = slot.closest('#minicart-form') || document.getElementById('minicart_wrapper');
+        const total = scope && scope.querySelector('[data-cart-subtotal-price]');
+        const text = total && total.textContent.replace(/\s+/g, ' ').trim();
+        if (text && slot.textContent !== text) slot.textContent = text;
+      });
+    };
+    const queue = () => { if (!frame) frame = requestAnimationFrame(sync); };
+    const watch = () => {
+      const drawer = document.getElementById('minicart_wrapper');
+      if (!drawer || drawer.__materiaCheckoutWatch) return;
+      drawer.__materiaCheckoutWatch = true;
+      new MutationObserver(queue).observe(drawer, {subtree: true, childList: true, characterData: true});
+      queue();
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watch, {once: true}); else watch();
+    document.addEventListener('materia:cart-drawer-updated', () => { watch(); queue(); });
+    document.addEventListener('shopify:section:load', () => setTimeout(watch));
+  })();
+} catch (error) { setTimeout(() => { throw error; }); }
+/* == "You might also like" carousel (snippets/minicart-form-body, cart-recommend-card) ==
+   Native scroll-snap: touch swipes scroll it, the arrows move one card and
+   turn off at either end, and each card's select sets the variant, price and
+   Add button. The form itself is added by CartNotification. */
+try {
+  (function(){
+    if (customElements.get('cart-rec-carousel')) return;
+    const reduced = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    class CartRecCarousel extends HTMLElement {
+      connectedCallback() {
+        if (this._ready) return;
+        this._ready = true;
+        this.track = this.querySelector('[data-cart-rec-track]');
+        this.prev = this.querySelector('[data-cart-rec-prev]');
+        this.next = this.querySelector('[data-cart-rec-next]');
+        if (!this.track) return;
+        this._update = () => { this._frame = 0; this.update(); };
+        this._queue = () => { if (!this._frame) this._frame = requestAnimationFrame(this._update); };
+        this.track.addEventListener('scroll', this._queue, {passive: true});
+        this.prev?.addEventListener('click', () => this.go(-1));
+        this.next?.addEventListener('click', () => this.go(1));
+        this.addEventListener('change', event => {
+          if (event.target.matches?.('.cart-rec__select')) this.pick(event.target);
+        });
+        if (window.ResizeObserver) { this._ro = new ResizeObserver(this._queue); this._ro.observe(this.track); }
+        this._mo = new MutationObserver(this._queue);
+        this._mo.observe(this.track, {childList: true});
+        this._queue();
+      }
+      disconnectedCallback() {
+        this._ro?.disconnect(); this._mo?.disconnect(); this._ready = false;
+        cancelAnimationFrame(this._frame); this._frame = 0;
+      }
+      get rtl() { return getComputedStyle(this.track).direction === 'rtl'; }
+      step() {
+        const slide = this.track.querySelector('.cart-rec__slide');
+        if (!slide) return this.track.clientWidth;
+        const gap = parseFloat(getComputedStyle(this.track).columnGap) || 0;
+        return slide.getBoundingClientRect().width + gap;
+      }
+      go(dir) {
+        const left = this.step() * dir * (this.rtl ? -1 : 1);
+        this.track.scrollBy({left, behavior: reduced() ? 'auto' : 'smooth'});
+      }
+      update() {
+        const t = this.track;
+        if (!t) return;
+        const pos = Math.abs(t.scrollLeft), max = t.scrollWidth - t.clientWidth;
+        const scrollable = max > 2;
+        this.classList.toggle('is-static', !scrollable);
+        if (this.prev) this.prev.disabled = !scrollable || pos <= 2;
+        if (this.next) this.next.disabled = !scrollable || pos >= max - 2;
+      }
+      pick(select) {
+        const card = select.closest('[data-cart-rec-card]');
+        const option = select.selectedOptions[0];
+        if (!card || !option) return;
+        const now = card.querySelector('.cart-rec__price-now');
+        if (now && option.dataset.price) now.textContent = option.dataset.price;
+        let was = card.querySelector('.cart-rec__price-was');
+        if (option.dataset.compare) {
+          if (!was) { was = document.createElement('s'); was.className = 'cart-rec__price-was'; now?.after(was); }
+          was.textContent = option.dataset.compare;
+        } else was?.remove();
+        const img = card.querySelector('.cart-rec__img');
+        if (img && option.dataset.image && img.tagName === 'IMG') { img.removeAttribute('srcset'); img.src = option.dataset.image; }
+        const button = card.querySelector('.cart-rec__add');
+        if (button) {
+          const off = option.disabled;
+          button.disabled = off;
+          button.toggleAttribute('aria-disabled', off);
+          if (off) button.setAttribute('aria-disabled', 'true');
+          // "Added" follows the chosen variant: shown only when that one is in the cart.
+          const label = button.querySelector('.pc-atc__label');
+          const added = !!this.closest('cart-notification')?._recommendationAdded?.has(String(option.value));
+          if (label) {
+            label.dataset.addLabel ??= label.textContent;
+            label.textContent = added ? (this.closest('[data-added-text]')?.dataset.addedText || label.dataset.addLabel) : label.dataset.addLabel;
+          }
+          button.dataset.added = String(added);
+        }
+      }
+    }
+    customElements.define('cart-rec-carousel', CartRecCarousel);
+  })();
+} catch (error) { setTimeout(() => { throw error; }); }

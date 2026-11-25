@@ -1,9 +1,9 @@
-<script src="{{ 'live-products-b.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-products-b.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-products-b-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
   assign s = section.settings
   assign sid = section.id
-  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default'
 -%}
 {%- comment -%}
   Materia Themes. Product Showcase: one slide per product (Slide blocks),
@@ -125,7 +125,7 @@
     max-width: 100%; max-height: var(--ps-img-h); height: auto; width: auto;
     object-fit: contain; display: block; border-radius: var(--ps-img-r);
   }
-  #shopify-section-{{ sid }} .ps-ph { display: block; width: 100%; max-width: 460px; aspect-ratio: 4 / 3; border-radius: var(--ps-img-r); background: color-mix(in srgb, var(--color-text) 10%, var(--color-background)); color: color-mix(in srgb, var(--color-text) 35%, transparent); }
+  #shopify-section-{{ sid }} .ps-ph { display: block; width: 100%; max-width: 460px; aspect-ratio: 4 / 3; border-radius: var(--ps-img-r); }
   #shopify-section-{{ sid }} .ps-rating { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; }
   #shopify-section-{{ sid }} .ps-stars { position: relative; display: inline-block; line-height: 1; font-size: var(--ps-star-s); white-space: nowrap; }
   #shopify-section-{{ sid }} .ps-stars-base, #shopify-section-{{ sid }} .ps-stars-fill { letter-spacing: 2px; }
@@ -164,10 +164,10 @@
   }
 </style>
 
-<div class="ps-section color-{{ color_scheme }} gradient" data-pb-root="product-showcase" data-pb-section="{{ sid }}" data-pb-settings="{{ pb_json | escape }}" data-pb-defaults='{"color_scheme":"default-color-scheme","section_width":"fluid_container","content_max_width":1300,"left_vertical_align":"center","image_max_height":560,"image_border_radius":12,"show_arrows":true,"arrow_size":48,"autoplay":false,"autoplay_speed":6,"enable_custom_style":false,"enable_gradient":false,"gradient_degrees":"135deg","check_icon_style":"check","use_theme_button":true,"button_radius":8,"button_padding_v":18,"button_padding_h":44,"button_font_size":17,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","heading_size_desktop":56,"heading_use_custom_weight":false,"heading_weight":"800","heading_letter_spacing":0,"heading_uppercase":"none","description_size_desktop":19,"star_size":26,"reviews_size":17,"benefit_size":18,"padding_top":80,"padding_bottom":80,"heading_size_mobile":34,"description_size_mobile":16,"padding_top_mobile":48,"padding_bottom_mobile":48}' data-pb-block-defaults='{"slide":{"heading":"Your Product Name","description":"Describe your product in a sentence or two. Highlight what makes it different and why customers keep coming back for it.","button_text":"Shop Now","benefit_1":"Benefit number one","benefit_2":"Benefit number two","benefit_3":"Benefit number three","benefit_4":"Benefit number four","star_rating":0}}' data-pb-fallback-href="{{ routes.all_products_collection_url | default: '/collections/all' }}" data-width="{{ s.section_width | default: 'fluid_container' }}" data-autoplay="{% if s.autoplay %}true{% else %}false{% endif %}" data-autoplay-speed="{{ s.autoplay_speed | default: 6 }}" style="{{ ps_vars | strip_newlines | strip }}">
+<div class="ps-section color-{{ color_scheme }} gradient" data-pb-root="product-showcase" data-pb-section="{{ sid }}" data-pb-settings="{{ pb_json | escape }}" data-pb-defaults='{"color_scheme":"default","section_width":"fluid_container","content_max_width":1300,"left_vertical_align":"center","image_max_height":560,"image_border_radius":12,"show_arrows":true,"arrow_size":48,"autoplay":false,"autoplay_speed":6,"enable_custom_style":false,"enable_gradient":false,"gradient_degrees":"135deg","check_icon_style":"check","use_theme_button":true,"button_radius":8,"button_padding_v":18,"button_padding_h":44,"button_font_size":17,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","heading_size_desktop":56,"heading_use_custom_weight":false,"heading_weight":"800","heading_letter_spacing":0,"heading_uppercase":"none","description_size_desktop":19,"star_size":26,"reviews_size":17,"benefit_size":18,"padding_top":80,"padding_bottom":80,"heading_size_mobile":34,"description_size_mobile":16,"padding_top_mobile":48,"padding_bottom_mobile":48}' data-pb-block-defaults='{"slide":{"heading":"Your Product Name","description":"Describe your product in a sentence or two. Highlight what makes it different and why customers keep coming back for it.","button_text":"Shop Now","benefit_1":"Benefit number one","benefit_2":"Benefit number two","benefit_3":"Benefit number three","benefit_4":"Benefit number four","star_rating":0}}' data-pb-fallback-href="{{ routes.all_products_collection_url | default: '/collections/all' }}" data-width="{{ s.section_width | default: 'fluid_container' }}" data-autoplay="{% if s.autoplay %}true{% else %}false{% endif %}" data-autoplay-speed="{{ s.autoplay_speed | default: 6 }}" style="{{ ps_vars | strip_newlines | strip }}">
   <template data-pb-icon="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="20 6 9 17 4 12"/></svg></template><template data-pb-icon="check_circle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><polyline points="16.5 8.8 10.5 15.2 7.5 12.2"/></svg></template><template data-pb-icon="check_circle_filled"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="11"/><path class="ps-check-cut" d="M17 8.5 L10.4 15.4 L7 12.1" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></template><template data-pb-icon="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="4" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></template><template data-pb-icon="star"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><polygon points="12 2 14.7 8.6 21.8 9.2 16.4 13.9 18.1 20.8 12 17.1 5.9 20.8 7.6 13.9 2.2 9.2 9.3 8.6"/></svg></template><template data-pb-icon="plus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true" focusable="false"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></template>
   <div class="ps-inner">
-    <div class="ps-viewport" role="region" aria-roledescription="carousel" aria-label="{{ 'general.slider' | t | default: 'Products' }}" data-ps-viewport>
+    <div class="ps-viewport" role="region" aria-roledescription="carousel" aria-label="{{ 'general.carousel_products' | t }}" data-ps-viewport>
       <div class="ps-track" data-ps-track>
         {%- for block in section.blocks -%}
           {%- liquid
@@ -211,10 +211,10 @@
               <p class="ps-desc" data-ps-desc{% if desc == blank %} hidden{% endif %}>{{ desc }}</p>
               {%- if slide_count > 1 -%}
                 <div class="ps-arrows" data-ps-arrows{% unless s.show_arrows %} hidden{% endunless %}>
-                  <button type="button" class="ps-arrow" data-ps-prev aria-label="{{ 'general.previous' | t | default: 'Previous' }}">
+                  <button type="button" class="ps-arrow" data-ps-prev aria-label="{{ 'accessibility.previous' | t | default: 'Previous' }}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
                   </button>
-                  <button type="button" class="ps-arrow" data-ps-next aria-label="{{ 'general.next' | t | default: 'Next' }}">
+                  <button type="button" class="ps-arrow" data-ps-next aria-label="{{ 'accessibility.next' | t | default: 'Next' }}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
                   </button>
                 </div>
@@ -239,7 +239,7 @@
                     {% if forloop.first and sp_preload %}fetchpriority="high"{% endif %}
                     decoding="async">
                 {%- else -%}
-                  <svg class="ps-ph" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false"><g fill="currentColor"><circle cx="172" cy="124" r="14"/><path d="M140 192l40-46 25 28 20-18 35 36z"/></g></svg>
+                  {%- render 'placeholder-image', type: 'product', index: forloop.index, class: 'ps-ph' -%}
                 {%- endif -%}
               </div>
             </div>
@@ -250,7 +250,7 @@
                   <span class="ps-stars-fill" aria-hidden="true" style="width: {{ b.star_rating | times: 20 }}%;">★★★★★</span>
                 </span>
                 {%- if b.reviews_link != blank -%}
-                  <a class="ps-reviews" data-ps-reviews href="{{ b.reviews_link | url }}"{% if b.reviews_text == blank %} hidden{% endif %}>{{ b.reviews_text | escape }}</a>
+                  <a class="ps-reviews" data-ps-reviews href="{{ b.reviews_link }}"{% if b.reviews_text == blank %} hidden{% endif %}>{{ b.reviews_text | escape }}</a>
                 {%- else -%}
                   <span class="ps-reviews" data-ps-reviews{% if b.reviews_text == blank %} hidden{% endif %}>{{ b.reviews_text | escape }}</span>
                 {%- endif -%}
@@ -272,7 +272,7 @@
 {
   "name": "Product Showcase",
   "tag": "section",
-  "class": "product-showcase-section",
+  "class": "product-showcase-section s-tt",
   "settings": [
     {
       "type": "header",
@@ -282,7 +282,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -929,7 +929,7 @@
   "presets": [
     {
       "name": "Product Showcase",
-      "category": "Products",
+      "category": "03 · Products",
       "blocks": [
         {
           "type": "slide",

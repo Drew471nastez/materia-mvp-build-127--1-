@@ -1,4 +1,4 @@
-<script src="{{ 'live-features-a.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-features-a.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-features-a-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%} Runtime, once per page (the CSS and hero-image-one.js from layout/theme.storelib, every other script from the tags at the top of this file): shopify/assets/live-features-a.js. {%- endcomment -%}
 {%- comment -%}
@@ -12,7 +12,7 @@
 {%- endcomment -%}
 {%- liquid
   assign st = section.settings
-  assign scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign own = st.enable_custom_style
   assign icon_names = 'truck,shipping,shield,lock,heart,star,check,headphones,envelope,chat,tag,gift,globe,leaf,award,clock,card,wallet,lightning,recycle,sparkle,box,refresh,user,calendar,handshake,gem,organic,fire,crown' | split: ','
   assign first_tab = true
@@ -128,14 +128,15 @@
         {%- assign shape = false -%}{%- if bs.use_theme_button == false -%}{%- assign shape = true -%}{%- endif -%}
         <div class="btab__cta-wrap" data-fa-block="{{ block.id }}" data-fa-type="cta"{% if request.design_mode %} data-fa-settings="{{ bs | json | escape }}"{% endif %}{% if bs.label == blank %} hidden{% endif %} {{ block.shopify_attributes }}>
           {%- capture attrs -%} class="btab__cta" data-fa-nolink="button" data-theme-button="{% if bs.button_style == 'secondary' %}secondary{% else %}primary{% endif %}" data-sl-button{% if shape %} data-own-shape{% endif %} style="{% if bs.enable_custom_style %}{% render 'button-overrides', bg: bs.bg, text: bs.text_color, hover_bg: bs.bg_hover, hover_text: bs.text_color_hover %}{% endif %}{% if shape %}--mb-radius: {{ bs.radius }}px;--mb-padding-y: {{ bs.pad_y }}px;--mb-padding-x: {{ bs.pad_x }}px;--mb-font-size: {{ bs.size }}px;{% endif %}"{%- endcapture -%}
-          {%- if bs.link != blank -%}<a href="{{ bs.link | url }}"{{ attrs }}>{{ bs.label | escape }}</a>{%- else -%}<button type="button"{{ attrs }}>{{ bs.label | escape }}</button>{%- endif -%}
+          {%- if bs.link != blank -%}<a href="{{ bs.link }}"{{ attrs }}>{{ bs.label | escape }}</a>{%- else -%}<button type="button"{{ attrs }}>{{ bs.label | escape }}</button>{%- endif -%}
         </div>
       {%- endif -%}
     {%- endfor -%}
   </div>
 </section>{% schema %}
 {
-  "name": "Benefits Tabs",
+  "class": "s-tt",
+"name": "Benefits Tabs",
   "settings": [
     {
       "type": "header",
@@ -145,7 +146,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -342,14 +343,14 @@
       "type": "font_picker",
       "id": "heading_font",
       "label": "Heading and title font",
-      "default": "helvetica_n4",
+      "default": "assistant_n4",
       "visible_if": "{{ section.settings.enable_custom_fonts }}"
     },
     {
       "type": "font_picker",
       "id": "body_font",
       "label": "Text font",
-      "default": "helvetica_n4",
+      "default": "assistant_n4",
       "visible_if": "{{ section.settings.enable_custom_fonts }}"
     },
     {
@@ -550,7 +551,6 @@
               "label": "H3"
             }
           ],
-          "hidden": true,
           "info": "Legacy: the heading is an h2.",
           "visible_if": "{{ false }}"
         },
@@ -1003,7 +1003,7 @@
   "presets": [
     {
       "name": "Benefits Tabs",
-      "category": "Features",
+      "category": "05 · Benefits & features",
       "blocks": [
         {
           "type": "heading"

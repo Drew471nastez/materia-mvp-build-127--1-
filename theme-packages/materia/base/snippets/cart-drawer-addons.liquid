@@ -1,3 +1,11 @@
+{% doc %}
+  Cart drawer add-ons (free shipping, estimated shipping, note, discount and gift wrap rows).
+
+  @param {string} slot - Slot ('above_checkout', 'above_subtotal', 'below_items', 'top_of_drawer')
+
+  @example
+  {% render 'cart-drawer-addons', slot: 'top_of_drawer' %}
+{% enddoc -%}
 {%- assign fb_accessibility_free = 'accessibility.free' | t -%}
 {%- assign fb_accessibility_estimated_shipping = 'accessibility.estimated_shipping' | t -%}
 {%- comment -%}
@@ -40,6 +48,7 @@
 {%- endcapture -%}
 
 {%- if s.cd_trust_enable or s.cd_urgency_enable or s.cd_announce_enable or s.cd_stock_enable or s.cd_savings_enable or s.cd_loyalty_enable or s.cd_eta_enable or s.cd_payments_enable -%}
+<div class="cda-slot" data-cda-slot="{{ current_slot }}">
 
   {%- comment -%} ───────── ANNOUNCEMENT BAR ───────── {%- endcomment -%}
   {%- if s.cd_announce_enable and announce_slot == current_slot and s.cd_announce_text != blank -%}
@@ -320,6 +329,11 @@
         <span class="cda-payments__label">{{ s.cd_payments_text }}</span>
       {%- endif -%}
       <ul class="cda-payments__list" role="list">
+        {%- if s.cd_payments_source == 'store' and shop.enabled_payment_types.size > 0 -%}
+          {%- for type in shop.enabled_payment_types -%}
+            <li>{{ type | payment_type_svg_tag: class: 'cda-payments__svg' }}</li>
+          {%- endfor -%}
+        {%- else -%}
         {%- if s.cd_payments_show_visa -%}
           <li>{% render 'payment-icon', method: 'visa', icon_class: 'cda-payments__svg' %}</li>
         {%- endif -%}
@@ -343,6 +357,7 @@
         {%- endif -%}
         {%- if s.cd_payments_show_afterpay -%}
           <li>{% render 'payment-icon', method: 'afterpay', icon_class: 'cda-payments__svg' %}</li>
+        {%- endif -%}
         {%- endif -%}
       </ul>
     </div>
@@ -373,6 +388,7 @@
     {%- endif -%}
   {%- endif -%}
 
+</div>
 {%- endif -%}
 
 {%- comment -%} The addons' styles and the cutoff timer are in shopify/assets/cart-drawer.css and cart-drawer.js, loaded once per page with the drawer (cart-drawer-presentation, cart-drawer-sheets). {%- endcomment -%}

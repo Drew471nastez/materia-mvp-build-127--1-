@@ -93,7 +93,7 @@
   };
   // A builder may cancel clicks to select a block. A genuine tap still
   // follows its section link; dragging a block must never scroll the canvas.
-  let editor=false;try{editor=self!==top||!!window.Shopify?.designMode;}catch{editor=true;}
+  let editor=false;try{editor=!!window.Shopify?.designMode||document.documentElement.classList.contains('shopify-design-mode');}catch{editor=true;}
     const pointerdown=event=>{if(!isEditor()||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;const link=event.target.closest?.('a[href]');if(!resolve(link))return;press={x:event.clientX,y:event.clientY,link,id:event.pointerId};event.stopImmediatePropagation();};
     const pointercancel=()=>{press=null;};
     const pointerup=event=>{

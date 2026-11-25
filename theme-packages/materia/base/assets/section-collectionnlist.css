@@ -1,0 +1,61 @@
+/* section-collectionnlist.css: static styles of sections/collectionnlist.liquid, moved out of its inline <style> so they are cached.
+   :is(.s-collectionnlist,#_) is the section wrapper (schema class "s-collectionnlist"); #_ never matches and only keeps the
+   specificity of the former #shopify-section-<id> selector. Per-section values stay inline as custom properties. */
+:is(.s-collectionnlist,#_) .cnl { font-family: var(--body-font, inherit); background: var(--cl-background_color); background-image: var(--cl-background_gradient); color: var(--color-text); }
+:is(.s-collectionnlist,#_) .cnl, :is(.s-collectionnlist,#_) .cnl *, :is(.s-collectionnlist,#_) .cnl *::before, :is(.s-collectionnlist,#_) .cnl *::after { box-sizing: border-box; }
+:is(.s-collectionnlist,#_) .cnl__inner {
+    display: flex; flex-direction: var(--cl-mobile_image_position); gap: var(--cl-mobile_container_gap);
+    max-width: calc(var(--cl-inner_width_px) + 40px); margin-inline: auto; padding: var(--cl-mobile_top_padding) 20px var(--cl-mobile_bottom_padding);
+  }
+:is(.s-collectionnlist,#_) .cnl[data-width='container'] .cnl__inner { max-width: calc(var(--page-width, 1300px) + 3rem); }
+:is(.s-collectionnlist,#_) .cnl[data-width='fluid_container'] .cnl__inner { max-width: calc(var(--fluid-container-width, 1500px) + 3rem); }
+:is(.s-collectionnlist,#_) .cnl[data-width='stretch_width'] .cnl__inner { max-width: none; }
+:is(.s-collectionnlist,#_) .cnl__list { display: flex; flex-direction: column; justify-content: center; gap: 18px; width: 100%; margin: 0; padding: 0; list-style: none; }
+:is(.s-collectionnlist,#_) .cnl__list > li { margin: 0; padding: 0; }
+:is(.s-collectionnlist,#_) .cnl__link {
+    position: relative; display: inline-flex; align-items: baseline; gap: .4em; max-width: 100%; min-height: 44px;
+    font-family: var(--heading-font, inherit); font-size: var(--cl-mobile_text_size); font-weight: var(--cl-font_weight); line-height: 1.15;
+    color: var(--cl-title_color); text-decoration: none; overflow-wrap: anywhere;
+    transition: color .3s ease;
+  }
+:is(.s-collectionnlist,#_) .cnl__link:is(:hover, :focus-visible, [aria-current='true']) { color: var(--cl-hover_color); }
+:is(.s-collectionnlist,#_) .cnl__link:focus-visible { outline: 2px solid var(--cl-hover_color); outline-offset: 4px; }
+:is(.s-collectionnlist,#_) .cnl__count { font-family: var(--body-font, inherit); font-size: .45em; font-weight: 400; opacity: .75; }
+:is(.s-collectionnlist,#_) .cnl[data-underline='true'] .cnl__label { position: relative; }
+:is(.s-collectionnlist,#_) .cnl[data-underline='true'] .cnl__label::after {
+    content: ''; position: absolute; left: 0; right: 0; bottom: -4px; height: var(--cl-underline_thickness);
+    background: var(--cl-underline_color); transform: scaleX(0); transform-origin: left center; transition: transform .3s ease;
+  }
+:is(.s-collectionnlist,#_) .cnl[data-underline='true'] .cnl__link:is(:hover, :focus-visible) .cnl__label::after { transform: scaleX(1); }
+:is(.s-collectionnlist,#_) .cnl__media {
+    position: relative; width: 100%; overflow: hidden; border-radius: var(--cl-image_border_radius);
+    aspect-ratio: var(--cl-mobile_ratio); background: color-mix(in srgb, var(--color-text) 8%, var(--color-background));
+  }
+:is(.s-collectionnlist,#_) .cnl[data-ratio-m='auto'] .cnl__media { min-height: 240px; }
+:is(.s-collectionnlist,#_) .cnl__img, :is(.s-collectionnlist,#_) .cnl__ph {
+    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: var(--cl-object_fit); object-position: center; display: block;
+    opacity: 0; transition: opacity .35s ease, transform .5s ease;
+  }
+:is(.s-collectionnlist,#_) .cnl__ph { display: block; }
+:is(.s-collectionnlist,#_) :is(.cnl__img, .cnl__ph).is-active { opacity: 1; }
+:is(.s-collectionnlist,#_) .cnl[data-ratio-m='auto'] .cnl__img.is-active { position: relative; height: auto; }
+:is(.s-collectionnlist,#_) .cnl__media:hover .cnl__img.is-active { transform: scale(1.04); }
+:is(.s-collectionnlist,#_) [hidden]:is(.cnl__count, .cnl__img) { display: none !important; }
+:is(.s-collectionnlist,#_) .cnl__empty { margin: 0; padding: 24px 16px; text-align: center; font-size: 14px; }
+@media (min-width: 768px) {
+    :is(.s-collectionnlist,#_) .cnl[data-width='stretch_width'] .cnl__inner { padding-inline: 3rem; }
+    :is(.s-collectionnlist,#_) .cnl__inner { flex-direction: var(--cl-desktop_image_position); gap: var(--cl-desktop_container_gap); padding-top: var(--cl-desktop_top_padding); padding-bottom: var(--cl-desktop_bottom_padding); }
+    :is(.s-collectionnlist,#_) .cnl__list { width: 50%; transform: translateX(var(--cl-desktop_menu_offset)); gap: 28px; }
+    :is(.s-collectionnlist,#_) .cnl[data-image-left] .cnl__list { align-items: flex-end; text-align: right; }
+    :is(.s-collectionnlist,#_) .cnl__link { font-size: var(--cl-desktop_text_size); }
+    :is(.s-collectionnlist,#_) .cnl__media { width: 50%; aspect-ratio: var(--cl-desktop_ratio); min-height: 0; }
+    :is(.s-collectionnlist,#_) .cnl[data-ratio-d='coverfit'] .cnl__media { min-height: 400px; align-self: stretch; }
+    :is(.s-collectionnlist,#_) .cnl[data-ratio-d='auto'] .cnl__media { min-height: 320px; align-self: center; }
+    :is(.s-collectionnlist,#_) .cnl[data-ratio-d='auto'] .cnl__img.is-active { position: relative; height: auto; }
+    :is(.s-collectionnlist,#_) .cnl[data-ratio-d]:not([data-ratio-d='auto']) .cnl__img.is-active { position: absolute; height: 100%; }
+  }
+@media (prefers-reduced-motion: reduce) {
+    :is(.s-collectionnlist,#_) :is(.cnl__img, .cnl__ph, .cnl__link, .cnl__label::after) { transition: none; }
+    :is(.s-collectionnlist,#_) .cnl[data-underline='true'] .cnl__label::after { transition: none; }
+    :is(.s-collectionnlist,#_) .cnl__media:hover .cnl__img.is-active { transform: none; }
+  }

@@ -1,7 +1,18 @@
+{% doc %}
+  Country selector (localization form) when the shop sells to more than one country.
+
+  @param {boolean} [compact] - Compact
+  @param {string} [id_suffix] - Id suffix
+  @param {boolean} [static_single] - Static single
+  @param {string} [type] - Type
+
+  @example
+  {% render 'country-switcher', compact: true, static_single: true %}
+{% enddoc -%}
 {% if localization.available_countries.size > 1 %}
   <localization-form>
     {% render 'localization-controls' %}
-    {%- assign form_id = 'localization-country-' | append: section.id -%}
+    {%- assign form_id = 'localization-country-' | append: section.id | append: id_suffix -%}
     {% form 'localization', id: form_id %}
       <input type="hidden" name="country_code" value="{{ localization.country.iso_code }}">
       <div class="disclosure relative flex align-center">
@@ -50,4 +61,18 @@
       </div>
     {% endform %}
   </localization-form>
+{%- elsif static_single and localization.country -%}
+  {%- comment -%} One market only (the header passes static_single): the current country and currency as a quiet label, so "Show country / currency" visibly works. Markets in Storelib turn it into the selector above. {%- endcomment -%}
+  <div class="hs-loc-static flex align-center gap-8{% if type == 'mobile-navigation' %} hs-loc-static--nav{% endif %}" data-loc-static="country" title="{{ localization.country.name | escape }} ({{ localization.country.currency.iso_code }} {{ localization.country.currency.symbol | escape }})">
+    <span class="rounded-50 border localization-flags" aria-hidden="true">
+      {{- localization.country | image_url: width: localization.country.width | image_tag: width: localization.country.width, height: localization.country.height, alt: '' -}}
+    </span>
+    <span>
+      {%- if compact -%}
+        <span class="visually-hidden">{{ localization.country.name }}</span> {{ localization.country.currency.iso_code }} {{ localization.country.currency.symbol }}
+      {%- else -%}
+        {{ localization.country.name }} ({{ localization.country.currency.iso_code }} {{ localization.country.currency.symbol }})
+      {%- endif -%}
+    </span>
+  </div>
 {% endif %}

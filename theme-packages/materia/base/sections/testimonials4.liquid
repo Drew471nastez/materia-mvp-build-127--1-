@@ -1,9 +1,9 @@
-<script src="{{ 'live-testimonials.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-testimonials.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-testimonials-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign custom = st.enable_custom_style
   assign fonts = st.enable_custom_fonts
   assign scroll_anim = settings.scroll_animation | default: 'none'
@@ -72,11 +72,11 @@
 </style>
 {%- assign cards = section.blocks | where: 'type', 'testimonial' -%}
 <div class="lt-frame" data-width="{{ st.section_width | default: 'full_width' }}">
-<div class="tsp color-{{ color_scheme }} gradient" data-lt-root="testimonials4" data-section-id="{{ sid }}" data-lt-settings="{{ st | json | escape }}" data-align="{{ st.text_align | default: 'center' }}" data-count="{{ cards.size }}"{% if fonts %} data-own-font{% endif %} style="--tsp-bg: {% render 'live-testimonials-color', on: custom, color: st.section_bg, fallback: 'var(--color-background)' %};--tsp-text: {% render 'live-testimonials-color', on: custom, color: st.text_color, fallback: 'var(--color-text)' %};--tsp-quote-c: {% render 'live-testimonials-color', on: custom, color: st.quote_color, fallback: 'var(--color-heading)' %};--tsp-name-c: {% render 'live-testimonials-color', on: custom, color: st.name_color, fallback: 'var(--color-heading)' %};--tsp-role-c: {% render 'live-testimonials-color', on: custom, color: st.role_color, fallback: 'color-mix(in srgb, var(--color-text) 75%, transparent)' %};--lt-star-on: {% render 'live-testimonials-color', on: custom, color: st.star_color, fallback: 'var(--color-primary)' %};--lt-star-off: {% render 'live-testimonials-color', on: custom, color: st.star_empty_color, fallback: 'color-mix(in srgb, var(--color-text) 20%, transparent)' %};--lt-arrow-bg: {% render 'live-testimonials-color', on: custom, color: st.arrow_bg, fallback: 'var(--color-background)' %};--lt-arrow-c: {% render 'live-testimonials-color', on: custom, color: st.arrow_color, fallback: 'var(--color-heading)' %};--lt-arrow-border: {% render 'live-testimonials-color', on: custom, color: st.arrow_border, fallback: 'var(--color-border)' %};--lt-arrow-bg-h: {% render 'live-testimonials-color', on: custom, color: st.arrow_bg_hover, fallback: 'var(--color-heading)' %};--lt-arrow-c-h: {% render 'live-testimonials-color', on: custom, color: st.arrow_color_hover, fallback: 'var(--color-background)' %};--lt-dot: {% render 'live-testimonials-color', on: custom, color: st.dot_color, fallback: 'color-mix(in srgb, var(--color-text) 30%, transparent)' %};--lt-dot-active: {% render 'live-testimonials-color', on: custom, color: st.dot_active_color, fallback: 'var(--color-heading)' %};--tsp-hf: {% if fonts and st.heading_font.family != blank %}{{ st.heading_font.family }}, {{ st.heading_font.fallback_families | default: 'sans-serif' }}{% else %}var(--heading-font){% endif %};--tsp-bf: {% if fonts and st.body_font.family != blank %}{{ st.body_font.family }}, {{ st.body_font.fallback_families | default: 'sans-serif' }}{% else %}var(--body-font){% endif %};--tsp-pt: {{ st.padding_top | default: 0 }}px;--tsp-pb: {{ st.padding_bottom | default: 0 }}px;--tsp-max: {{ st.max_width | default: 880 }}px;--tsp-align: {{ st.text_align | default: 'center' }};--tsp-q-d: {{ st.quote_size | default: 28 }}px;--tsp-q-m: {{ st.quote_size_mobile | default: 20 }}px;--lt-star-size: {{ st.star_size | default: 22 }}px;--lt-star-gap: 4px;">
+<div class="tsp color-{{ color_scheme }} gradient" data-lt-root="testimonials4" data-lt-autoplay-s="{{ st.autoplay_s }}" data-section-id="{{ sid }}" {% if request.design_mode %}data-lt-settings="{{ st | json | escape }}"{% endif %} data-align="{{ st.text_align | default: 'center' }}" data-count="{{ cards.size }}"{% if fonts %} data-own-font{% endif %} style="--tsp-bg: {% render 'live-testimonials-color', on: custom, color: st.section_bg, fallback: 'var(--color-background)' %};--tsp-text: {% render 'live-testimonials-color', on: custom, color: st.text_color, fallback: 'var(--color-text)' %};--tsp-quote-c: {% render 'live-testimonials-color', on: custom, color: st.quote_color, fallback: 'var(--color-heading)' %};--tsp-name-c: {% render 'live-testimonials-color', on: custom, color: st.name_color, fallback: 'var(--color-heading)' %};--tsp-role-c: {% render 'live-testimonials-color', on: custom, color: st.role_color, fallback: 'color-mix(in srgb, var(--color-text) 75%, transparent)' %};--lt-star-on: {% render 'live-testimonials-color', on: custom, color: st.star_color, fallback: 'var(--color-primary)' %};--lt-star-off: {% render 'live-testimonials-color', on: custom, color: st.star_empty_color, fallback: 'color-mix(in srgb, var(--color-text) 20%, transparent)' %};--lt-arrow-bg: {% render 'live-testimonials-color', on: custom, color: st.arrow_bg, fallback: 'var(--color-background)' %};--lt-arrow-c: {% render 'live-testimonials-color', on: custom, color: st.arrow_color, fallback: 'var(--color-heading)' %};--lt-arrow-border: {% render 'live-testimonials-color', on: custom, color: st.arrow_border, fallback: 'var(--color-border)' %};--lt-arrow-bg-h: {% render 'live-testimonials-color', on: custom, color: st.arrow_bg_hover, fallback: 'var(--color-heading)' %};--lt-arrow-c-h: {% render 'live-testimonials-color', on: custom, color: st.arrow_color_hover, fallback: 'var(--color-background)' %};--lt-dot: {% render 'live-testimonials-color', on: custom, color: st.dot_color, fallback: 'color-mix(in srgb, var(--color-text) 30%, transparent)' %};--lt-dot-active: {% render 'live-testimonials-color', on: custom, color: st.dot_active_color, fallback: 'var(--color-heading)' %};--tsp-hf: {% if fonts and st.heading_font.family != blank %}{{ st.heading_font.family }}, {{ st.heading_font.fallback_families | default: 'sans-serif' }}{% else %}var(--heading-font){% endif %};--tsp-bf: {% if fonts and st.body_font.family != blank %}{{ st.body_font.family }}, {{ st.body_font.fallback_families | default: 'sans-serif' }}{% else %}var(--body-font){% endif %};--tsp-pt: {{ st.padding_top | default: 0 }}px;--tsp-pb: {{ st.padding_bottom | default: 0 }}px;--tsp-max: {{ st.max_width | default: 880 }}px;--tsp-align: {{ st.text_align | default: 'center' }};--tsp-q-d: {{ st.quote_size | default: 28 }}px;--tsp-q-m: {{ st.quote_size_mobile | default: 20 }}px;--lt-star-size: {{ st.star_size | default: 22 }}px;--lt-star-gap: 4px;">
   <div class="tsp__wrap">
     {%- for b in section.blocks -%}
       {%- assign bs = b.settings -%}
-      {%- capture b_attrs -%}data-lt-block="{{ b.id }}" data-lt-type="{{ b.type }}" data-lt-settings="{{ bs | json | escape }}" {{ b.shopify_attributes }}{%- endcapture -%}
+      {%- capture b_attrs -%}data-lt-block="{{ b.id }}" data-lt-type="{{ b.type }}" {% if request.design_mode %}data-lt-settings="{{ bs | json | escape }}"{% endif %} {{ b.shopify_attributes }}{%- endcapture -%}
       {%- case b.type -%}
         {%- when 'eyebrow' -%}
           <p class="tsp__eyebrow" {{ b_attrs }}{% if bs.text == blank %} hidden{% endif %} style="--b-c: {% render 'live-testimonials-color', on: bs.enable_custom_style, color: bs.color, fallback: 'var(--color-text)' %};">{{ bs.text | escape }}</p>
@@ -88,16 +88,16 @@
     {%- endfor -%}
 
     {%- if cards.size > 0 -%}
-      <div class="tsp__track" data-lt-track data-tsp-track data-testimonial-row tabindex="0" role="region" aria-roledescription="carousel" aria-label="Reviews">
+      <div class="tsp__track" data-lt-track data-tsp-track data-testimonial-row tabindex="0" role="region" aria-roledescription="carousel" aria-label="{{ 'accessibility.ui.reviews' | t }}">
         {%- for b in cards -%}
           {%- assign bs = b.settings -%}
-          <div class="tsp__card" data-lt-block="{{ b.id }}" data-lt-type="testimonial" data-lt-settings="{{ bs | json | escape }}" {{ b.shopify_attributes }}>
+          <div class="tsp__card" data-lt-block="{{ b.id }}" data-lt-type="testimonial" {% if request.design_mode %}data-lt-settings="{{ bs | json | escape }}"{% endif %} {{ b.shopify_attributes }}>
             {% render 'live-testimonials-stars', rating: bs.rating %}
             <p class="tsp__quote" data-lt-text>{{ bs.body | escape }}</p>
             <div class="tsp__meta">
               <div class="tsp__avatar" data-lt-media>
                 {%- if bs.avatar != blank -%}
-                  {{ bs.avatar | image_url: width: 120 | image_tag: loading: 'lazy', decoding: 'async', widths: '52,104,120', sizes: '52px', width: 52, height: 52, alt: bs.name | default: fb_customer }}
+                  {%- assign mt_img_alt_1 = bs.name | default: fb_customer -%}{{ bs.avatar | image_url: width: 120 | image_tag: loading: 'lazy', decoding: 'async', widths: '52,104,120', sizes: '52px', width: 52, height: 52, alt: mt_img_alt_1}}
                 {%- else -%}
                   <svg viewBox="0 0 52 52" aria-hidden="true" focusable="false" data-lt-ph><circle cx="26" cy="21" r="9" fill="currentColor"/><path d="M6 48c0-10 9-15 20-15s20 5 20 15" fill="currentColor"/></svg>
                 {%- endif -%}
@@ -124,7 +124,7 @@
 {
   "name": "Testimonial Spotlight",
   "tag": "section",
-  "class": "section-testimonial-spotlight",
+  "class": "section-testimonial-spotlight s-tt s-lt",
   "disabled_on": {
     "groups": [
       "header",
@@ -140,7 +140,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -532,8 +532,7 @@
         {
           "type": "text",
           "id": "role",
-          "label": "Role / title",
-          "default": ""
+          "label": "Role / title"
         },
         {
           "type": "image_picker",
@@ -546,7 +545,7 @@
   "presets": [
     {
       "name": "Testimonial Spotlight",
-      "category": "Testimonials",
+      "category": "07 · Reviews & testimonials",
       "blocks": [
         {
           "type": "eyebrow"

@@ -1,12 +1,17 @@
 {%- comment -%}
   Materia Themes. Developed By Materia Themes.
 {%- endcomment -%}
-{%- comment -%}
+{%- doc -%}
   Where the drawer is drawn, cart-drawer.css (linked further down, with the
   drawer) repeats every rule of minicart.css but the cart-refresh fade, so
   minicart.css no longer holds the page there. The cart page has no drawer
   and keeps it as a plain stylesheet.
-{%- endcomment -%}
+
+  @param {boolean} [carrier] - Carrier
+
+  @example
+  {% render 'minicart', carrier: true %}
+{%- enddoc -%}
 {%- unless carrier -%}
   {%- if template != 'cart' and settings.action_after_add_cart != 'go_to_cart_page' -%}
     <link rel="stylesheet" href="{{ 'minicart.css' | asset_url }}" media="print" onload="this.media='all'"><noscript>{{ 'minicart.css' | asset_url | stylesheet_tag }}</noscript>
@@ -15,7 +20,8 @@
   {%- endif -%}
 {%- endunless -%}
 {% render 'cart-recommend-custom-button' %}
-{%- unless carrier -%}{{ 'materia-experience.css' | asset_url | stylesheet_tag }}{%- endunless -%}
+{%- comment -%} Off the cart page these drawer styles load without holding the page; base.css (late-css-guard.css) repeats the few rules the first screen needs. {%- endcomment -%}
+{%- unless carrier -%}{%- if template != 'cart' -%}<link rel="stylesheet" href="{{ 'materia-experience.css' | asset_url }}" media="print" onload="this.media='all'"><noscript>{{ 'materia-experience.css' | asset_url | stylesheet_tag }}</noscript>{%- else -%}{{ 'materia-experience.css' | asset_url | stylesheet_tag }}{%- endif -%}{%- endunless -%}
 <style data-cart-drawer-style="size">
   #minicart_wrapper.open_drawer .minicart__wrapper {
     --materia-cart-width: {{ settings.cart_drawer_width | default: 460 }}px;
@@ -52,7 +58,7 @@
     3. Drive secondary button colours from the new scheme variables
        (added to the color scheme definition in settings_schema.json).
 {%- endcomment -%}
-{%- unless carrier -%}{{ 'cart-drawer-scheme.css' | asset_url | stylesheet_tag }}{%- endunless -%}
+{%- unless carrier -%}{%- if template != 'cart' -%}<link rel="stylesheet" href="{{ 'cart-drawer-scheme.css' | asset_url }}" media="print" onload="this.media='all'"><noscript>{{ 'cart-drawer-scheme.css' | asset_url | stylesheet_tag }}</noscript>{%- else -%}{{ 'cart-drawer-scheme.css' | asset_url | stylesheet_tag }}{%- endif -%}{%- endunless -%}
 <style data-cart-drawer-style="scheme">
   {%- if settings.cart_freeship_custom_color_enable and settings.cart_freeship_fill_color != blank -%}
     cart-notification.minicart .cart_shipping__fill,
@@ -68,12 +74,13 @@
   assign free_shipping = theme_st.show_on_minicart_cart_page
   assign show_currency_code = theme_st.show_currency_code
   assign action_after_add_cart = theme_st.action_after_add_cart
+  comment
+    Product recommendations > Placement: the drawer shows them for "Cart
+    drawer" and "Both"; the cart page reads the same setting.
+  endcomment
   assign minicart_type = 'disable'
-  if theme_st.cart_drawer_recommendations
+  if theme_st.minicart_type == 'show_inside' or theme_st.minicart_type == 'show_both'
     assign minicart_type = 'show_inside'
-    if theme_st.minicart_type == 'show_beside'
-      assign minicart_type = 'show_beside'
-    endif
   endif
   assign shipping_rate = theme_st.free_shipping_minimum | times: 1 | default: 0
   assign shipping_rate_cents = shipping_rate | times: 100
@@ -144,7 +151,8 @@
   --materia-cart-gap: {{ settings.cart_drawer_item_gap | default: 12 }}px;
   --materia-cart-control: {{ settings.cart_drawer_control_size | default: 36 }}px;
   --materia-cart-recommend-gap: {{ settings.cart_drawer_recommend_gap | default: 12 }}px;
-  --cart-shipping-fill: {% if settings.cart_freeship_custom_color_enable and settings.cart_freeship_fill_color != blank %}{{ settings.cart_freeship_fill_color }}{% else %}var(--color-primary){% endif %};
+  --cart-shipping-fill: {% if settings.cart_freeship_custom_color_enable and settings.cart_freeship_fill_color != blank %}{{ settings.cart_freeship_fill_color }}{% else %}var(--color-heading, var(--color-text)){% endif %};
+  {%- if settings.cart_freeship_custom_color_enable and settings.cart_freeship_fill_color != blank %} --cart-shipping-accent: {{ settings.cart_freeship_fill_color }};{% endif %}
   {%- if cart_scheme.settings -%}
     --color-background: {{ cart_scheme.settings.background }};
     --color-text: {{ cart_scheme.settings.text_color }};
@@ -414,45 +422,7 @@
             assign fs_reached = true
           endif
         -%}
-        <free-ship-progress-bar
-          data-order="{{ items_subtotal_price }}"
-          data-fe-amount="{{ shipping_rate }}"
-          data-money-sample="{{ fs_money_sample | escape }}"
-          data-fe-unavaiable="{{ fs_msg_tpl | escape }}"
-          data-fe-avaiable="{{ fs_msg_done | escape }}"
-          class="block cart_shipping cart_threshold cart_shipping--modern{% if action_after_add_cart == 'open_drawer' %} grey-bg{% endif %} border-bottom{% if action_after_add_cart != 'show_popup' %} border-top{% endif %} px-30 pt-20 pb-20{% if fs_reached %} cart_shipping_free{% endif %}"
-        >
-          <div class="cart_shipping__row">
-            <span class="cart_shipping__icon" aria-hidden="true">
-              <svg class="cart_shipping__glyph cart_shipping__glyph--parcel" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 3.2 4.2 7v10L12 20.8 19.8 17V7L12 3.2Z" vector-effect="non-scaling-stroke"/>
-                <path d="M4.2 7 12 10.9 19.8 7M12 10.9v9.9M8.1 5.1l7.8 3.9" vector-effect="non-scaling-stroke"/>
-              </svg>
-              <svg class="cart_shipping__glyph cart_shipping__glyph--done" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="8.8" vector-effect="non-scaling-stroke"/>
-                <path d="m8.4 12.3 2.5 2.5 4.8-5.2" vector-effect="non-scaling-stroke"/>
-              </svg>
-            </span>
-            <div class="cart_shipping__message free-shipping-message cart-thres cart_thres_1" aria-live="polite">
-              {%- if fs_reached -%}{{ fs_msg_done }}{%- else -%}{{ fs_msg_now }}{%- endif -%}
-            </div>
-          </div>
-          <div class="cart_shipping__track" role="progressbar" aria-label="{{ 'general.cart.cart_thres1_html' | t: price: shipping_rate_price | strip_html | strip | escape }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ fs_percent | round }}">
-            <span class="cart_shipping__fill percent_shipping_bar progress" style="width: {{ fs_percent }}%; --fs-progress: {{ fs_percent | divided_by: 100.0 }};"></span>
-          </div>
-        </free-ship-progress-bar>
-      {%- endif -%}
-      {%- if cart_duration_show and cart.items.size > 0 -%}
-        <div class="cart-countdown-time px-30 heading-style color-default">
-          <countdown-timer
-            data-minutes-left="{{ cart_duration }}"
-            data-timeout-message="{{ 'general.cart.timeout_message' | t }}"
-            class="flex flex-wrap align-center pt-17 pb-15 border-bottom-dashed  w-full"
-          >
-            <span class="me-5">{{- 'general.cart.countdown_message_html' | t -}}</span>
-            <div class="countdown-inner inline-flex align-center"></div>
-          </countdown-timer>
-        </div>
+          {%- render 'free-shipping-bar', order: items_subtotal_price, threshold: shipping_rate, money_sample: fs_money_sample, msg_tpl: fs_msg_tpl, msg_done: fs_msg_done, msg_now: fs_msg_now, reached: fs_reached, percent: fs_percent, class: 'grey-bg border-bottom border-top px-30 pt-20 pb-20' -%}
       {%- endif -%}
       {%- render 'minicart-form-body', carrier: carrier -%}
     </div>

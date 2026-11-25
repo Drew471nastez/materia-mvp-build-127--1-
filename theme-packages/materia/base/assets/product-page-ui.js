@@ -24,7 +24,7 @@
   // The builder canvas (an iframe, or standard design mode).
   var editor = (function () {
     try {
-      return window.self !== window.top || !!(window.Shopify && window.Shopify.designMode) ||
+      return !!(window.Shopify && window.Shopify.designMode) ||
         document.documentElement.classList.contains("shopify-design-mode");
     } catch (e) {
       return true;
@@ -1344,10 +1344,15 @@
         }else{
           next.className='vsp__chip vsp__chip--dot';var color=cell.dataset.vspColorValue;
           if(color && CSS.supports('color',color))next.style.setProperty('--vsp-dot',color);
-          else{next.classList.add('vsp__chip--text');next.textContent=cell.title;}
+          else{
+            if(cell.dataset.vspCustom)next.classList.add(cell.dataset.vspCustom);
+            next.setAttribute('data-vsp-color',color||'');
+            var t=document.createElement('span');t.className='vsp__chip-text';t.textContent=cell.title;next.appendChild(t);
+          }
         }
         chip.replaceWith(next);
       });
+      if(typeof root.markNamedColours==='function')root.markNamedColours();
     });
   }
   // A setting drawn in place (no redraw): its section's galleries are checked.

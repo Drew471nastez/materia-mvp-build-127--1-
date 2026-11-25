@@ -86,21 +86,50 @@
     if (!stickyOn) root.classList.add('mp-sticky-off');
     var desk = window.matchMedia('(min-width: 1025px)');
     var HEADERS = '.section-header, .shopify-section-header-sticky, [id^="shopify-section-announcement"], [id^="shopify-section-top_bar"], [id^="shopify-section-top-bar"]';
-    var raf = 0, until = 0, last = -1, lastVh = -1, stuck = [];
-    var ro = window.ResizeObserver ? new ResizeObserver(function () { follow(200); }) : null;
+    {%- comment %}
+      Reads are cached and batched so a frame never forces the page's style:
+      - whether a header is pinned (its computed position) is read once, and
+        again only after a header's class, style or data-sticky changes;
+      - the sticky columns' heights come from the ResizeObserver entries;
+      - the gap is read once per refresh;
+      - the only per-frame read is the pinned headers' rectangles, and the
+        frame loop stops as soon as the header line has not moved for a few
+        frames (it ran 200-700ms after every scroll event and size change,
+        reading getComputedStyle() and offsetHeight each frame, which after a
+        variant change forced a full style recalc in every frame).
+    {%- endcomment %}
+    var raf = 0, last = -1, lastVh = -1, stuck = [], still = 0, gap = 0;
+    var heights = new WeakMap(), pinnedCache = null;
+    var ro = window.ResizeObserver ? new ResizeObserver(function (entries) {
+      for (var i = 0; i < entries.length; i++) {
+        var e = entries[i], box = e.borderBoxSize && (e.borderBoxSize[0] || e.borderBoxSize);
+        if (box && box.blockSize != null) heights.set(e.target, Math.round(box.blockSize));
+        else heights.delete(e.target);
+      }
+      follow();
+    }) : null;
+    var headerAttrs = window.MutationObserver ? new MutationObserver(function () { pinnedCache = null; follow(); }) : null;
     function pinned(el) {
       var p = getComputedStyle(el).position;
       return p === 'fixed' || p === 'sticky';
     }
-    function headerLine() {
-      var line = 0;
+    function pinnedTargets() {
+      if (pinnedCache) return pinnedCache;
+      pinnedCache = [];
       var nodes = document.querySelectorAll(HEADERS);
       for (var i = 0; i < nodes.length; i++) {
         var el = nodes[i];
         if (root.contains(el)) continue;
         var target = pinned(el) ? el : (el.firstElementChild && pinned(el.firstElementChild) ? el.firstElementChild : null);
-        if (!target) continue;
-        var r = target.getBoundingClientRect();
+        if (target) pinnedCache.push(target);
+      }
+      return pinnedCache;
+    }
+    function headerLine() {
+      var line = 0, targets = pinnedTargets();
+      for (var i = 0; i < targets.length; i++) {
+        if (!targets[i].isConnected) { pinnedCache = null; return headerLine(); }
+        var r = targets[i].getBoundingClientRect();
         if (r.height === 0 || r.top > 80) continue;
         if (r.bottom > line) line = r.bottom;
       }
@@ -113,62 +142,85 @@
         var el = nodes[i];
         var cls = el.className && el.className.baseVal === undefined ? el.className : '';
         if (/atc|add-to-cart|cart|button|btn/.test(cls)) continue;
-        if (el.classList.contains('mp-is-sticky') || getComputedStyle(el).position === 'sticky') {
-          el.classList.add('mp-is-sticky');
-          stuck.push(el);
-        }
+        if (el.classList.contains('mp-is-sticky') || getComputedStyle(el).position === 'sticky') stuck.push(el);
       }
+      // Marked after the loop: a class added inside it made the next
+      // getComputedStyle() recompute the page's style each time.
+      for (var k = 0; k < stuck.length; k++) if (!stuck[k].classList.contains('mp-is-sticky')) stuck[k].classList.add('mp-is-sticky');
     }
+    // Returns true when anything was written.
     function write(force) {
-      if (!desk.matches) return;
+      if (!desk.matches) return false;
+      // Every read first, then every write.
       var v = headerLine();
       var vh = window.innerHeight;
+      var hs = [];
+      for (var j = 0; j < stuck.length; j++) {
+        var h = heights.get(stuck[j]);
+        if (h == null) { h = stuck[j].offsetHeight; heights.set(stuck[j], h); }
+        hs.push(h);
+      }
+      var changed = false;
       if (force || v !== last || vh !== lastVh) {
         last = v;
         lastVh = vh;
         root.style.setProperty('--mp-header-live', v + 'px');
+        changed = true;
       }
-      var gap = parseFloat(getComputedStyle(root).getPropertyValue('--mp-sticky-gap')) || 0;
       for (var i = 0; i < stuck.length; i++) {
         var el = stuck[i];
-        var h = el.offsetHeight;
         var top = v + gap;
-        if (h + top + gap > vh) top = Math.min(top, vh - h - gap);
+        if (hs[i] + top + gap > vh) top = Math.min(top, vh - hs[i] - gap);
         var t = Math.round(top) + 'px';
         if (el.__mpTop !== t) {
           el.__mpTop = t;
           el.style.setProperty('--mp-el-top', t);
+          changed = true;
+        }
+      }
+      return changed;
+    }
+    function observe() {
+      if (ro) {
+        ro.disconnect();
+        for (var i = 0; i < stuck.length; i++) ro.observe(stuck[i]);
+      }
+      if (headerAttrs) {
+        headerAttrs.disconnect();
+        var hs = document.querySelectorAll(HEADERS);
+        for (var j = 0; j < hs.length; j++) {
+          if (root.contains(hs[j])) continue;
+          headerAttrs.observe(hs[j], {attributes: true, attributeFilter: ['class', 'style', 'data-sticky']});
+          if (hs[j].firstElementChild) headerAttrs.observe(hs[j].firstElementChild, {attributes: true, attributeFilter: ['class', 'style', 'data-sticky']});
         }
       }
     }
-    function observe() {
-      if (!ro) return;
-      ro.disconnect();
-      for (var i = 0; i < stuck.length; i++) ro.observe(stuck[i]);
-      var hs = document.querySelectorAll(HEADERS);
-      for (var j = 0; j < hs.length; j++) { if (!root.contains(hs[j])) ro.observe(hs[j]); }
-    }
+    // One read/write per frame while the header line or a column moves; the
+    // loop ends after 4 frames with nothing to change (a header sliding in or
+    // out keeps it running for as long as it moves).
     function loop() {
-      write();
-      if (performance.now() < until) raf = requestAnimationFrame(loop);
-      else raf = 0;
+      raf = 0;
+      if (write()) still = 0; else still++;
+      if (still < 4) raf = requestAnimationFrame(loop);
     }
-    function follow(ms) {
-      until = Math.max(until, performance.now() + (ms || 700));
-      if (!raf) raf = requestAnimationFrame(loop);
+    function follow() {
+      still = 0;
+      if (!raf && stickyOn) raf = requestAnimationFrame(loop);
     }
     function refresh() {
       if (!stickyOn) return;
       tag();
+      pinnedCache = null;
+      gap = parseFloat(getComputedStyle(root).getPropertyValue('--mp-sticky-gap')) || 0;
       last = -1;
       write(true);
       observe();
-      follow(700);
+      follow();
       if (!root.classList.contains('mp-sticky-ready')) {
         requestAnimationFrame(function () { requestAnimationFrame(function () { root.classList.add('mp-sticky-ready'); }); });
       }
     }
-    window.addEventListener('scroll', function () { follow(700); }, { passive: true });
+    window.addEventListener('scroll', function () { follow(); }, { passive: true });
     window.addEventListener('resize', refresh, { passive: true });
     window.addEventListener('load', refresh, { once: true });
     document.addEventListener('shopify:section:load', refresh);
@@ -184,7 +236,7 @@
 {
   "name": "Product information",
   "tag": "section",
-  "class": "section main-product-section",
+  "class": "section main-product-section s-tt",
   "settings": [
     {
       "type": "header",
@@ -364,6 +416,13 @@
       "label": "Show video controls",
       "default": true,
       "info": "Play, timeline, sound and full screen on each product video."
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_frequently_bought_together",
+      "label": "Show frequently bought together",
+      "default": false,
+      "info": "Shows the products in the product metafield custom.bought_together (type: list of products) under the product. Create it in Settings > Custom data > Products."
     },
     {
       "type": "header",
@@ -669,6 +728,484 @@
   ],
   "blocks": [
     {
+      "type": "media_side_tiles",
+      "name": "Image side tiles",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "Tiles beside the main product image. Each tile shows its image, else its SVG code, else its icon."
+        },
+        {
+          "type": "select",
+          "id": "position",
+          "label": "Position",
+          "default": "right",
+          "options": [
+            {
+              "value": "right",
+              "label": "Right of image"
+            },
+            {
+              "value": "left",
+              "label": "Left of image"
+            }
+          ]
+        },
+        {
+          "type": "select",
+          "id": "mobile",
+          "label": "On mobile",
+          "default": "beside",
+          "options": [
+            {
+              "value": "beside",
+              "label": "Beside image"
+            },
+            {
+              "value": "below",
+              "label": "Row below image"
+            },
+            {
+              "value": "hidden",
+              "label": "Hidden"
+            }
+          ]
+        },
+        {
+          "type": "range",
+          "id": "tile_width",
+          "label": "Tile width",
+          "min": 80,
+          "max": 220,
+          "step": 5,
+          "unit": "px",
+          "default": 130
+        },
+        {
+          "type": "range",
+          "id": "tile_width_mobile",
+          "label": "Tile width on mobile",
+          "min": 60,
+          "max": 160,
+          "step": 4,
+          "unit": "px",
+          "default": 96
+        },
+        {
+          "type": "range",
+          "id": "gap",
+          "label": "Gap",
+          "min": 0,
+          "max": 24,
+          "step": 1,
+          "unit": "px",
+          "default": 8
+        },
+        {
+          "type": "range",
+          "id": "radius",
+          "label": "Corner radius",
+          "min": 0,
+          "max": 32,
+          "step": 1,
+          "unit": "px",
+          "default": 14
+        },
+        {
+          "type": "range",
+          "id": "icon_size",
+          "label": "Icon size",
+          "min": 16,
+          "max": 72,
+          "step": 2,
+          "unit": "px",
+          "default": 34
+        },
+        {
+          "type": "range",
+          "id": "text_size",
+          "label": "Text size",
+          "min": 11,
+          "max": 22,
+          "step": 1,
+          "unit": "px",
+          "default": 15
+        },
+        {
+          "type": "color",
+          "id": "tile_bg",
+          "label": "Tile background",
+          "default": "#0f1d6b"
+        },
+        {
+          "type": "color",
+          "id": "tile_text",
+          "label": "Text and icon",
+          "default": "#ffffff"
+        },
+        {
+          "type": "header",
+          "content": "Tile 1"
+        },
+        {
+          "type": "text",
+          "id": "tile_1_text",
+          "label": "Text",
+          "default": "Healthy Digestion"
+        },
+        {
+          "type": "select",
+          "id": "tile_1_icon",
+          "label": "Icon",
+          "default": "heart",
+          "options": [
+            {
+              "value": "none",
+              "label": "None"
+            },
+            {
+              "value": "heart",
+              "label": "Heart"
+            },
+            {
+              "value": "shield_plus",
+              "label": "Shield"
+            },
+            {
+              "value": "stethoscope",
+              "label": "Stethoscope"
+            },
+            {
+              "value": "leaf",
+              "label": "Leaf"
+            },
+            {
+              "value": "star",
+              "label": "Star"
+            },
+            {
+              "value": "check",
+              "label": "Check"
+            },
+            {
+              "value": "truck",
+              "label": "Truck"
+            },
+            {
+              "value": "sparkles",
+              "label": "Sparkles"
+            },
+            {
+              "value": "lock",
+              "label": "Lock"
+            },
+            {
+              "value": "award",
+              "label": "Award"
+            },
+            {
+              "value": "recycle",
+              "label": "Recycle"
+            },
+            {
+              "value": "drop",
+              "label": "Drop"
+            },
+            {
+              "value": "bolt",
+              "label": "Bolt"
+            }
+          ]
+        },
+        {
+          "type": "image_picker",
+          "id": "tile_1_image",
+          "label": "Custom image"
+        },
+        {
+          "type": "html",
+          "id": "tile_1_svg",
+          "label": "Custom SVG code",
+          "info": "Paste an <svg> to replace the icon."
+        },
+        {
+          "type": "url",
+          "id": "tile_1_link",
+          "label": "Link"
+        },
+        {
+          "type": "header",
+          "content": "Tile 2"
+        },
+        {
+          "type": "text",
+          "id": "tile_2_text",
+          "label": "Text",
+          "default": "Immune Support"
+        },
+        {
+          "type": "select",
+          "id": "tile_2_icon",
+          "label": "Icon",
+          "default": "shield_plus",
+          "options": [
+            {
+              "value": "none",
+              "label": "None"
+            },
+            {
+              "value": "heart",
+              "label": "Heart"
+            },
+            {
+              "value": "shield_plus",
+              "label": "Shield"
+            },
+            {
+              "value": "stethoscope",
+              "label": "Stethoscope"
+            },
+            {
+              "value": "leaf",
+              "label": "Leaf"
+            },
+            {
+              "value": "star",
+              "label": "Star"
+            },
+            {
+              "value": "check",
+              "label": "Check"
+            },
+            {
+              "value": "truck",
+              "label": "Truck"
+            },
+            {
+              "value": "sparkles",
+              "label": "Sparkles"
+            },
+            {
+              "value": "lock",
+              "label": "Lock"
+            },
+            {
+              "value": "award",
+              "label": "Award"
+            },
+            {
+              "value": "recycle",
+              "label": "Recycle"
+            },
+            {
+              "value": "drop",
+              "label": "Drop"
+            },
+            {
+              "value": "bolt",
+              "label": "Bolt"
+            }
+          ]
+        },
+        {
+          "type": "image_picker",
+          "id": "tile_2_image",
+          "label": "Custom image"
+        },
+        {
+          "type": "html",
+          "id": "tile_2_svg",
+          "label": "Custom SVG code",
+          "info": "Paste an <svg> to replace the icon."
+        },
+        {
+          "type": "url",
+          "id": "tile_2_link",
+          "label": "Link"
+        },
+        {
+          "type": "header",
+          "content": "Tile 3"
+        },
+        {
+          "type": "text",
+          "id": "tile_3_text",
+          "label": "Text",
+          "default": "Vet Approved"
+        },
+        {
+          "type": "select",
+          "id": "tile_3_icon",
+          "label": "Icon",
+          "default": "stethoscope",
+          "options": [
+            {
+              "value": "none",
+              "label": "None"
+            },
+            {
+              "value": "heart",
+              "label": "Heart"
+            },
+            {
+              "value": "shield_plus",
+              "label": "Shield"
+            },
+            {
+              "value": "stethoscope",
+              "label": "Stethoscope"
+            },
+            {
+              "value": "leaf",
+              "label": "Leaf"
+            },
+            {
+              "value": "star",
+              "label": "Star"
+            },
+            {
+              "value": "check",
+              "label": "Check"
+            },
+            {
+              "value": "truck",
+              "label": "Truck"
+            },
+            {
+              "value": "sparkles",
+              "label": "Sparkles"
+            },
+            {
+              "value": "lock",
+              "label": "Lock"
+            },
+            {
+              "value": "award",
+              "label": "Award"
+            },
+            {
+              "value": "recycle",
+              "label": "Recycle"
+            },
+            {
+              "value": "drop",
+              "label": "Drop"
+            },
+            {
+              "value": "bolt",
+              "label": "Bolt"
+            }
+          ]
+        },
+        {
+          "type": "image_picker",
+          "id": "tile_3_image",
+          "label": "Custom image"
+        },
+        {
+          "type": "html",
+          "id": "tile_3_svg",
+          "label": "Custom SVG code",
+          "info": "Paste an <svg> to replace the icon."
+        },
+        {
+          "type": "url",
+          "id": "tile_3_link",
+          "label": "Link"
+        },
+        {
+          "type": "header",
+          "content": "Tile 4"
+        },
+        {
+          "type": "text",
+          "id": "tile_4_text",
+          "label": "Text"
+        },
+        {
+          "type": "select",
+          "id": "tile_4_icon",
+          "label": "Icon",
+          "default": "none",
+          "options": [
+            {
+              "value": "none",
+              "label": "None"
+            },
+            {
+              "value": "heart",
+              "label": "Heart"
+            },
+            {
+              "value": "shield_plus",
+              "label": "Shield"
+            },
+            {
+              "value": "stethoscope",
+              "label": "Stethoscope"
+            },
+            {
+              "value": "leaf",
+              "label": "Leaf"
+            },
+            {
+              "value": "star",
+              "label": "Star"
+            },
+            {
+              "value": "check",
+              "label": "Check"
+            },
+            {
+              "value": "truck",
+              "label": "Truck"
+            },
+            {
+              "value": "sparkles",
+              "label": "Sparkles"
+            },
+            {
+              "value": "lock",
+              "label": "Lock"
+            },
+            {
+              "value": "award",
+              "label": "Award"
+            },
+            {
+              "value": "recycle",
+              "label": "Recycle"
+            },
+            {
+              "value": "drop",
+              "label": "Drop"
+            },
+            {
+              "value": "bolt",
+              "label": "Bolt"
+            }
+          ]
+        },
+        {
+          "type": "image_picker",
+          "id": "tile_4_image",
+          "label": "Custom image"
+        },
+        {
+          "type": "html",
+          "id": "tile_4_svg",
+          "label": "Custom SVG code",
+          "info": "Paste an <svg> to replace the icon."
+        },
+        {
+          "type": "url",
+          "id": "tile_4_link",
+          "label": "Link"
+        }
+      ]
+    },
+    {
       "type": "delivery_pills",
       "name": "Delivery & warranty pills",
       "limit": 3,
@@ -960,7 +1497,6 @@
           "type": "text",
           "id": "pill_1_title",
           "label": "Title",
-          "default": "",
           "visible_if": "{{ block.settings.pill_1_enable }}"
         },
         {
@@ -1072,7 +1608,6 @@
           "type": "text",
           "id": "pill_2_title",
           "label": "Title",
-          "default": "",
           "visible_if": "{{ block.settings.pill_2_enable }}"
         },
         {
@@ -1184,7 +1719,6 @@
           "type": "text",
           "id": "pill_3_title",
           "label": "Title",
-          "default": "",
           "visible_if": "{{ block.settings.pill_3_enable }}"
         },
         {
@@ -1490,7 +2024,7 @@
       "settings": [
         {
           "type": "paragraph",
-          "content": "Shows other products to add with this one. Prices come from each product and the option chosen. Items are added at their own price: Storelib checkout takes a saving off only for a bundle or checkout offer set up under Products › Upsells and bundles, or a discount code."
+          "content": "Pick products to sell with this one. They're added at their own price."
         },
         {
           "type": "header",
@@ -1500,7 +2034,7 @@
           "type": "select",
           "id": "source",
           "label": "Product source",
-          "info": "Auto shows any manual products first, then fills up to Max products with products recommended for this one (its collection, else the whole shop), never the product itself.",
+          "info": "Recommended fills the remaining slots from this product's collection.",
           "default": "manual",
           "options": [
             {
@@ -1808,7 +2342,7 @@
               "label": "Both"
             }
           ],
-          "info": "Main buttons include this selection in the product Add to cart and Buy now. Buy now uses cart checkout, including existing cart items and required cart terms."
+          "info": "Main buttons: the product's Add to cart and Buy now also add the selection."
         },
         {
           "type": "checkbox",
@@ -1897,7 +2431,7 @@
           "id": "custom_style",
           "label": "Use the custom style below",
           "default": false,
-          "info": "On: the colours, corners, borders and spacing below are used (an empty colour follows the colour scheme). Off: everything follows the colour scheme and Theme settings > Buttons."
+          "info": "Off: follows the colour scheme and theme buttons."
         },
         {
           "type": "color",
@@ -2870,8 +3404,7 @@
         {
           "type": "text",
           "id": "text",
-          "label": "Badge text",
-          "default": ""
+          "label": "Badge text"
         },
         {
           "type": "header",
@@ -3109,8 +3642,7 @@
         {
           "type": "text",
           "id": "heading",
-          "label": "Heading text",
-          "default": ""
+          "label": "Heading text"
         },
         {
           "type": "image_picker",
@@ -3152,7 +3684,6 @@
           "type": "text",
           "id": "rating_text",
           "label": "Rating text",
-          "default": "",
           "visible_if": "{{ block.settings.show_rating_text }}"
         },
         {
@@ -3383,8 +3914,7 @@
         {
           "type": "text",
           "id": "text",
-          "label": "Rating text",
-          "default": ""
+          "label": "Rating text"
         },
         {
           "type": "header",
@@ -4048,14 +4578,12 @@
         {
           "type": "text",
           "id": "label_text",
-          "label": "Label text",
-          "default": ""
+          "label": "Label text"
         },
         {
           "type": "text",
           "id": "middle_text",
-          "label": "Middle text",
-          "default": ""
+          "label": "Middle text"
         },
         {
           "type": "header",
@@ -7155,8 +7683,7 @@
         {
           "type": "text",
           "id": "primary_text",
-          "label": "Primary text",
-          "default": ""
+          "label": "Primary text"
         },
         {
           "type": "text",
@@ -7763,6 +8290,17 @@
           "label": "Buy now"
         },
         {
+          "type": "select",
+          "id": "buy_now_style",
+          "label": "Buy now style",
+          "default": "theme",
+          "options": [
+            { "value": "theme", "label": "Theme button" },
+            { "value": "express", "label": "Checkout button" }
+          ],
+          "info": "Theme button follows Theme settings > Buttons. Checkout button is the plain Buy it now of the checkout."
+        },
+        {
           "type": "checkbox",
           "id": "show_quantity",
           "default": true,
@@ -8196,7 +8734,6 @@
           "type": "richtext",
           "id": "estimated_delivery_text",
           "label": "Note",
-          "default": "",
           "visible_if": "{{ block.settings.enable_estimated_delivery }}"
         },
         {
@@ -8262,32 +8799,6 @@
             }
           ],
           "default": "swatches"
-        },
-        {
-          "type": "checkbox",
-          "id": "show_size_guide",
-          "label": "Show size guide",
-          "default": false
-        },
-        {
-          "type": "text",
-          "id": "size_guide_label",
-          "label": "Link text",
-          "default": "Size guide",
-          "visible_if": "{{ block.settings.show_size_guide }}"
-        },
-        {
-          "type": "page",
-          "id": "size_guide_page",
-          "label": "Size chart page",
-          "visible_if": "{{ false }}"
-        },
-        {
-          "type": "richtext",
-          "id": "size_guide_content",
-          "label": "Size guide",
-          "info": "Table, text or image",
-          "visible_if": "{{ block.settings.show_size_guide }}"
         },
         {
           "type": "header",
@@ -8791,8 +9302,7 @@
         {
           "type": "page",
           "id": "ask_question_page",
-          "label": "Page to redirect to",
-          "visible_if": "{{ block.settings.ask_question_mode == 'page' }}"
+          "label": "Page to redirect to"
         },
         {
           "type": "text",
@@ -8964,6 +9474,16 @@
       "name": "Model size",
       "limit": 1,
       "settings": [
+        {
+          "type": "paragraph",
+          "content": "Shows the product metafield custom.model_size: plain text, or a metaobject with model_height, model_weight, model_is_wearing and similar fields."
+        },
+        {
+          "type": "text",
+          "id": "fallback_text",
+          "label": "Fallback text",
+          "info": "Shown on products without a model size. Empty hides the block."
+        },
         {
           "type": "header",
           "content": "Custom colours"
@@ -9260,7 +9780,7 @@
       "settings": [
         {
           "type": "paragraph",
-          "content": "Shows the products grouped with this one."
+          "content": "Sells this product with the products in its metafield custom.product_grouped (list of products), each with its own quantity, under one Add to cart."
         },
         {
           "type": "header",
@@ -9328,7 +9848,7 @@
       "settings": [
         {
           "type": "paragraph",
-          "content": "Shows this product in its other colours."
+          "content": "Links to the same item in other colours: fill the product metafield custom.more_colors (list of products)."
         },
         {
           "type": "header",
@@ -9980,8 +10500,7 @@
         {
           "type": "inline_richtext",
           "id": "label_text",
-          "label": "Label Text",
-          "default": ""
+          "label": "Label Text"
         },
         {
           "type": "url",
@@ -10273,14 +10792,12 @@
         {
           "type": "inline_richtext",
           "id": "badge_text_d",
-          "label": "Badge text (desktop)",
-          "default": ""
+          "label": "Badge text (desktop)"
         },
         {
           "type": "inline_richtext",
           "id": "badge_text_m",
-          "label": "Badge text (mobile)",
-          "default": ""
+          "label": "Badge text (mobile)"
         },
         {
           "type": "header",
@@ -10956,7 +11473,7 @@
               "label": "Both"
             }
           ],
-          "info": "Main buttons add the checked items with this product. Buy now uses your current cart checkout and required cart terms."
+          "info": "Main buttons: the product's Add to cart and Buy now also add the checked items."
         },
         {
           "type": "checkbox",
@@ -11997,14 +12514,12 @@
         {
           "type": "text",
           "id": "text_template",
-          "label": "Text",
-          "default": ""
+          "label": "Text"
         },
         {
           "type": "product",
           "id": "ref_product",
-          "label": "Specific product (used only if selected above)",
-          "visible_if": "{{ block.settings.auto_source == 'specific' }}"
+          "label": "Specific product (used only if selected above)"
         },
         {
           "type": "header",
@@ -12277,8 +12792,7 @@
         {
           "type": "inline_richtext",
           "id": "label_text",
-          "label": "Text",
-          "default": ""
+          "label": "Text"
         },
         {
           "type": "header",
@@ -13105,39 +13619,56 @@
     },
     {
       "type": "size_guide",
-      "name": "Size guide",
+      "name": "Size chart",
       "limit": 1,
       "settings": [
         {
           "type": "header",
-          "content": "Sizes"
+          "content": "Chart"
         },
         {
-          "type": "paragraph",
-          "content": "Shows the size chart you gave this product in Storelib (Products > Size charts), so each product gets its own. A product without one shows your Size rows, then the text or page below."
+          "type": "select",
+          "id": "chart_source",
+          "label": "Source",
+          "options": [
+            {
+              "value": "page",
+              "label": "Page"
+            },
+            {
+              "value": "table",
+              "label": "Custom table"
+            },
+            {
+              "value": "metafield",
+              "label": "Product metafield"
+            }
+          ],
+          "default": "page",
+          "info": "Product metafield: custom.size_chart (page, rich text or text)."
         },
         {
-          "type": "checkbox",
-          "id": "use_storelib_chart",
-          "label": "Use the product's Storelib size chart",
-          "default": true
+          "type": "page",
+          "id": "size_guide_page",
+          "label": "Page",
+          "info": "Used when Chart source is Page."
         },
         {
           "type": "textarea",
           "id": "table_data",
-          "label": "Size rows",
-          "placeholder": "Size | Chest | Waist\nS | 86-91 | 71-76\nM | 92-97 | 77-82",
-          "info": "First line: the column names. Then one size per line, cells split by |, for example Size | Chest | Waist, then S | 86-91 | 71-76."
+          "label": "Rows",
+          "placeholder": "Size | Chest | Waist\nS | 86-91 | 71-76\nM | 96-101 | 81-86",
+          "info": "One row per line. First line is the header. Separate cells with | or commas.",
+          "visible_if": "{{ block.settings.chart_source == 'table' }}"
         },
         {
           "type": "select",
           "id": "table_unit",
-          "label": "Size rows are in",
-          "default": "none",
+          "label": "Unit",
           "options": [
             {
               "value": "none",
-              "label": "No switch"
+              "label": "None"
             },
             {
               "value": "cm",
@@ -13148,7 +13679,22 @@
               "label": "in"
             }
           ],
-          "info": "Pick the unit you typed to give visitors a cm / in switch."
+          "default": "none",
+          "info": "cm or in adds a cm / in switch.",
+          "visible_if": "{{ block.settings.chart_source == 'table' }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "use_storelib_chart",
+          "label": "Product metafield first",
+          "default": true,
+          "info": "A product's own chart replaces the source above.",
+          "visible_if": "{{ block.settings.chart_source != 'metafield' }}"
+        },
+        {
+          "type": "richtext",
+          "id": "size_guide_content",
+          "label": "Note"
         },
         {
           "type": "header",
@@ -13157,56 +13703,24 @@
         {
           "type": "text",
           "id": "size_guide_label",
-          "label": "Link or button label",
-          "default": "Size guide"
-        },
-        {
-          "type": "select",
-          "id": "size_guide_display",
-          "label": "Opens as",
-          "default": "modal",
-          "options": [
-            {
-              "value": "modal",
-              "label": "Pop-up"
-            },
-            {
-              "value": "collapsible",
-              "label": "Row"
-            }
-          ]
+          "label": "Text",
+          "default": "Size chart"
         },
         {
           "type": "select",
           "id": "size_guide_appearance",
           "label": "Style",
-          "default": "link",
           "options": [
             {
               "value": "link",
-              "label": "Text link"
+              "label": "Link"
             },
             {
               "value": "button",
               "label": "Button"
             }
-          ]
-        },
-        {
-          "type": "header",
-          "content": "More"
-        },
-        {
-          "type": "richtext",
-          "id": "size_guide_content",
-          "label": "Text under the sizes",
-          "info": "Shown under your Size rows, or on its own when there are none."
-        },
-        {
-          "type": "page",
-          "id": "size_guide_page",
-          "label": "Page",
-          "info": "Shown when there is nothing above."
+          ],
+          "default": "link"
         },
         {
           "type": "header",
@@ -13347,8 +13861,7 @@
         {
           "type": "richtext",
           "id": "top_text",
-          "label": "Message",
-          "default": ""
+          "label": "Message"
         },
         {
           "type": "checkbox",
@@ -13409,8 +13922,7 @@
         {
           "type": "richtext",
           "id": "collapse_body",
-          "label": "Body",
-          "default": ""
+          "label": "Body"
         },
         {
           "type": "checkbox",
@@ -13699,7 +14211,6 @@
           "type": "text",
           "id": "row3_lead",
           "label": "Lead text",
-          "default": "",
           "visible_if": "{{ block.settings.row3_enable }}"
         },
         {
@@ -15211,7 +15722,7 @@
         },
         {
           "type": "paragraph",
-          "content": "Sells this product with one to three others you pick, added to the cart in one step. Prices come from your products. Storelib checkout takes the saving off when the store has the same bundle under Products › Upsells and bundles; the block then shows that bundle's saving by itself. Otherwise set a discount code below."
+          "content": "Sell this product with up to 3 others in one click. For a saving, add a discount code below."
         },
         {
           "type": "header",
@@ -15352,14 +15863,14 @@
           "step": 1,
           "unit": "%",
           "default": 0,
-          "info": "Not used: the block shows only the saving Storelib checkout takes off, from a matching bundle under Products > Upsells and bundles. Use a discount code below for a saving of your own.",
-          "visible_if": "{{ false }}"
+          "info": "Shown only when a discount code is set.",
+          "visible_if": "{{ block.settings.discount_code != blank }}"
         },
         {
           "type": "text",
           "id": "discount_code",
           "label": "Discount code",
-          "info": "Optional. Applied to the cart when the whole set is added. Create the code in Storelib first."
+          "info": "Create it in Storelib under Discounts. Applied when the whole set is added."
         },
         {
           "type": "text",
@@ -15376,7 +15887,7 @@
         {
           "type": "text",
           "id": "checkout_note",
-          "label": "Note when Storelib takes the saving off",
+          "label": "Note shown with the saving",
           "default": "The saving comes off at checkout."
         },
         {
@@ -15402,7 +15913,7 @@
               "label": "Both"
             }
           ],
-          "info": "Main buttons include this selection in the product Add to cart and Buy now. Buy now uses cart checkout, including existing cart items and required cart terms."
+          "info": "Main buttons: the product's Add to cart and Buy now also add the selection."
         },
         {
           "type": "checkbox",
@@ -15451,7 +15962,7 @@
           "id": "custom_style",
           "label": "Use the custom style below",
           "default": false,
-          "info": "On: the colours, corners, borders and spacing below are used (an empty colour follows the colour scheme). Off: everything follows the colour scheme and Theme settings > Buttons."
+          "info": "Off: follows the colour scheme and theme buttons."
         },
         {
           "type": "color",
@@ -15635,7 +16146,7 @@
       "settings": [
         {
           "type": "paragraph",
-          "content": "Quantity breaks and Buy X Get Y offers. For Buy 1 get 2 free: paid quantity 1, free items 2. For Buy 2 get 3 free: paid quantity 2, free items 3. Eligible Storelib offers supply the saving; otherwise configure a valid discount code. Without a matching offer or valid code, all units are charged at their regular price."
+          "content": "Let shoppers pick 1, 2, 3\u2026 items. To discount a tier, create a code in Storelib under Discounts and enter it on that tier."
         },
         {
           "type": "header",
@@ -15645,18 +16156,18 @@
           "type": "select",
           "id": "tier_source",
           "label": "Tier quantities and discounts",
-          "default": "store",
+          "default": "custom",
           "options": [
-            {
-              "value": "store",
-              "label": "StoreLib offers"
-            },
             {
               "value": "custom",
               "label": "Theme tiers"
+            },
+            {
+              "value": "store",
+              "label": "Product offers metafield"
             }
           ],
-          "info": "StoreLib offers use backend quantities, labels and discounts; theme tier images, captions, badges and styles still apply. Theme tiers use the quantities below and show savings only when StoreLib confirms an eligible offer."
+          "info": "Theme tiers: use the tiers below (recommended)."
         },
         {
           "type": "header",
@@ -15908,7 +16419,6 @@
           "max": 10,
           "step": 1,
           "default": 1,
-          "visible_if": "{{ block.settings.tier_source == 'custom' }}",
           "info": "Paid items in this tier. Example: Buy 1 get 2 free uses paid quantity 1 and free items 2."
         },
         {
@@ -15919,27 +16429,25 @@
           "max": 5,
           "step": 1,
           "default": 0,
-          "info": "Extra units added with this tier. Free pricing requires an eligible Storelib offer or discount code; theme settings alone do not authorize a discount.",
-          "visible_if": "{{ block.settings.tier_source == 'custom' }}"
+          "info": "Free only with a Buy X get Y discount code on this tier."
         },
         {
           "type": "text",
           "id": "tier_1_label",
           "label": "Label",
           "default": "1 item",
-          "visible_if": "{{ block.settings.tier_source == 'custom' }}",
           "info": "Such as Buy 2 get 1 free."
         },
         {
           "type": "range",
           "id": "tier_1_discount",
           "label": "Saving shown",
+          "info": "Shown only when this tier has a discount code.",
           "min": 0,
           "max": 50,
           "step": 1,
           "unit": "%",
-          "default": 0,
-          "visible_if": "{{ block.settings.tier_source == 'custom' }}"
+          "default": 0
         },
         {
           "type": "text",
@@ -15983,7 +16491,6 @@
           "max": 10,
           "step": 1,
           "default": 2,
-          "visible_if": "{{ block.settings.tier_source == 'custom' }}",
           "info": "Paid items in this tier. Example: Buy 1 get 2 free uses paid quantity 1 and free items 2."
         },
         {
@@ -15994,27 +16501,25 @@
           "max": 5,
           "step": 1,
           "default": 0,
-          "info": "Extra units added with this tier. Free pricing requires an eligible Storelib offer or discount code; theme settings alone do not authorize a discount.",
-          "visible_if": "{{ block.settings.tier_source == 'custom' }}"
+          "info": "Free only with a Buy X get Y discount code on this tier."
         },
         {
           "type": "text",
           "id": "tier_2_label",
           "label": "Label",
           "default": "2 items",
-          "visible_if": "{{ block.settings.tier_source == 'custom' }}",
           "info": "Such as Buy 2 get 1 free."
         },
         {
           "type": "range",
           "id": "tier_2_discount",
           "label": "Saving shown",
+          "info": "Shown only when this tier has a discount code.",
           "min": 0,
           "max": 50,
           "step": 1,
           "unit": "%",
-          "default": 0,
-          "visible_if": "{{ block.settings.tier_source == 'custom' }}"
+          "default": 0
         },
         {
           "type": "text",
@@ -16058,7 +16563,6 @@
           "max": 10,
           "step": 1,
           "default": 3,
-          "visible_if": "{{ block.settings.tier_source == 'custom' }}",
           "info": "Paid items in this tier. Example: Buy 1 get 2 free uses paid quantity 1 and free items 2."
         },
         {
@@ -16069,27 +16573,25 @@
           "max": 5,
           "step": 1,
           "default": 0,
-          "info": "Extra units added with this tier. Free pricing requires an eligible Storelib offer or discount code; theme settings alone do not authorize a discount.",
-          "visible_if": "{{ block.settings.tier_source == 'custom' }}"
+          "info": "Free only with a Buy X get Y discount code on this tier."
         },
         {
           "type": "text",
           "id": "tier_3_label",
           "label": "Label",
           "default": "3 items",
-          "visible_if": "{{ block.settings.tier_source == 'custom' }}",
           "info": "Such as Buy 2 get 1 free."
         },
         {
           "type": "range",
           "id": "tier_3_discount",
           "label": "Saving shown",
+          "info": "Shown only when this tier has a discount code.",
           "min": 0,
           "max": 50,
           "step": 1,
           "unit": "%",
-          "default": 0,
-          "visible_if": "{{ block.settings.tier_source == 'custom' }}"
+          "default": 0
         },
         {
           "type": "text",
@@ -16133,8 +16635,7 @@
           "max": 10,
           "step": 1,
           "default": 4,
-          "info": "Paid items in this tier. Example: Buy 1 get 2 free uses paid quantity 1 and free items 2.",
-          "visible_if": "{{ block.settings.tier_source == 'custom' }}"
+          "info": "Paid items in this tier. Example: Buy 1 get 2 free uses paid quantity 1 and free items 2."
         },
         {
           "type": "range",
@@ -16144,27 +16645,25 @@
           "max": 5,
           "step": 1,
           "default": 0,
-          "info": "Extra units added with this tier. Free pricing requires an eligible Storelib offer or discount code; theme settings alone do not authorize a discount.",
-          "visible_if": "{{ block.settings.tier_source == 'custom' }}"
+          "info": "Free only with a Buy X get Y discount code on this tier."
         },
         {
           "type": "text",
           "id": "tier_4_label",
           "label": "Label",
           "default": "4 items",
-          "info": "Such as Buy 2 get 1 free.",
-          "visible_if": "{{ block.settings.tier_source == 'custom' }}"
+          "info": "Such as Buy 2 get 1 free."
         },
         {
           "type": "range",
           "id": "tier_4_discount",
           "label": "Saving shown",
+          "info": "Shown only when this tier has a discount code.",
           "min": 0,
           "max": 50,
           "step": 1,
           "unit": "%",
-          "default": 0,
-          "visible_if": "{{ block.settings.tier_source == 'custom' }}"
+          "default": 0
         },
         {
           "type": "text",
@@ -16216,7 +16715,7 @@
               "label": "Both"
             }
           ],
-          "info": "Main buttons include this selection in the product Add to cart and Buy now. Buy now uses cart checkout, including existing cart items and required cart terms."
+          "info": "Main buttons: the product's Add to cart and Buy now also add the selection."
         },
         {
           "type": "checkbox",
@@ -16243,12 +16742,12 @@
           "id": "sync_form_quantity",
           "label": "Sync visible product quantity",
           "default": true,
-          "info": "Controls the displayed quantity field. Main buttons mode still purchases the selected tier."
+          "info": "Sets the page's quantity field to the chosen tier."
         },
         {
           "type": "text",
           "id": "checkout_note",
-          "label": "Note when Storelib takes the saving off",
+          "label": "Note shown with the saving",
           "default": "The saving comes off at checkout."
         },
         {
@@ -16260,7 +16759,7 @@
           "id": "custom_style",
           "label": "Use the custom style below",
           "default": false,
-          "info": "On: the colours, corners, borders and spacing below are used (an empty colour follows the colour scheme). Off: everything follows the colour scheme and Theme settings > Buttons."
+          "info": "Off: follows the colour scheme and theme buttons."
         },
         {
           "type": "color",
@@ -17362,14 +17861,12 @@
         {
           "type": "text",
           "id": "item1_title",
-          "label": "Title",
-          "default": ""
+          "label": "Title"
         },
         {
           "type": "text",
           "id": "item1_subtitle",
-          "label": "Subtitle",
-          "default": ""
+          "label": "Subtitle"
         },
         {
           "type": "checkbox",
@@ -17401,14 +17898,12 @@
         {
           "type": "text",
           "id": "item2_title",
-          "label": "Title",
-          "default": ""
+          "label": "Title"
         },
         {
           "type": "text",
           "id": "item2_subtitle",
-          "label": "Subtitle",
-          "default": ""
+          "label": "Subtitle"
         },
         {
           "type": "checkbox",
@@ -17447,7 +17942,7 @@
           "type": "text",
           "id": "item3_subtitle",
           "label": "Subtitle",
-          "default": "Checkout by Storelib"
+          "default": "Secure checkout"
         },
         {
           "type": "checkbox",
@@ -17842,8 +18337,7 @@
         {
           "type": "text",
           "id": "item1_title",
-          "label": "Title",
-          "default": ""
+          "label": "Title"
         },
         {
           "type": "checkbox",
@@ -17957,8 +18451,7 @@
         {
           "type": "text",
           "id": "item2_title",
-          "label": "Title",
-          "default": ""
+          "label": "Title"
         },
         {
           "type": "checkbox",
@@ -18072,8 +18565,7 @@
         {
           "type": "text",
           "id": "item3_title",
-          "label": "Title",
-          "default": ""
+          "label": "Title"
         },
         {
           "type": "checkbox",
@@ -18562,43 +19054,56 @@
     },
     {
       "type": "size_table",
-      "name": "Size chart",
+      "name": "Size guide table",
       "limit": 3,
       "settings": [
         {
-          "type": "checkbox",
-          "id": "use_storelib_chart",
-          "label": "Use the product's Storelib size chart",
-          "default": true,
-          "info": "Each product shows the chart you gave it in Storelib (Products > Size charts). Turn off to always show the rows below."
-        },
-        {
           "type": "header",
-          "content": "Sizes"
+          "content": "Chart"
         },
         {
-          "type": "text",
-          "id": "title",
-          "label": "Title",
-          "default": "Size Guide"
+          "type": "select",
+          "id": "chart_source",
+          "label": "Source",
+          "options": [
+            {
+              "value": "page",
+              "label": "Page"
+            },
+            {
+              "value": "table",
+              "label": "Custom table"
+            },
+            {
+              "value": "metafield",
+              "label": "Product metafield"
+            }
+          ],
+          "default": "page",
+          "info": "Product metafield: custom.size_chart (page, rich text or text)."
+        },
+        {
+          "type": "page",
+          "id": "size_guide_page",
+          "label": "Page",
+          "info": "Used when Chart source is Page."
         },
         {
           "type": "textarea",
           "id": "table_data",
-          "label": "Size rows",
-          "info": "First line: the column names. Then one size per line, cells split by |, for example Size | Chest | Waist, then S | 86-91 | 71-76.",
-          "placeholder": "Size | Chest | Waist\nS | 86-91 | 71-76\nM | 92-97 | 77-82",
-          "visible_if": "{{ block.settings.use_metafield == false }}"
+          "label": "Rows",
+          "placeholder": "Size | Chest | Waist\nS | 86-91 | 71-76\nM | 96-101 | 81-86",
+          "info": "One row per line. First line is the header. Separate cells with | or commas.",
+          "visible_if": "{{ block.settings.chart_source == 'table' }}"
         },
         {
           "type": "select",
           "id": "table_unit",
-          "label": "Size rows are in",
-          "default": "none",
+          "label": "Unit",
           "options": [
             {
               "value": "none",
-              "label": "No switch"
+              "label": "None"
             },
             {
               "value": "cm",
@@ -18609,34 +19114,32 @@
               "label": "in"
             }
           ],
-          "info": "Pick the unit you typed to give visitors a cm / in switch.",
-          "visible_if": "{{ block.settings.use_metafield == false }}"
-        },
-        {
-          "type": "header",
-          "content": "Rows from the product"
+          "default": "none",
+          "info": "cm or in adds a cm / in switch.",
+          "visible_if": "{{ block.settings.chart_source == 'table' }}"
         },
         {
           "type": "checkbox",
-          "id": "use_metafield",
-          "label": "Read the rows from a custom field",
-          "default": false,
-          "info": "Type the rows in the product's Custom fields card, in the same format."
+          "id": "use_storelib_chart",
+          "label": "Product metafield first",
+          "default": true,
+          "info": "A product's own chart replaces the source above.",
+          "visible_if": "{{ block.settings.chart_source != 'metafield' }}"
+        },
+        {
+          "type": "richtext",
+          "id": "size_guide_content",
+          "label": "Note"
+        },
+        {
+          "type": "header",
+          "content": "Table"
         },
         {
           "type": "text",
-          "id": "metafield_namespace",
-          "label": "Custom field namespace",
-          "default": "custom",
-          "visible_if": "{{ block.settings.use_metafield }}"
-        },
-        {
-          "type": "text",
-          "id": "metafield_key",
-          "label": "Custom field name",
-          "default": "size_table",
-          "visible_if": "{{ block.settings.use_metafield }}",
-          "info": "Lower case with _ for spaces: Size table is size_table."
+          "id": "title",
+          "label": "Title",
+          "default": "Size guide"
         },
         {
           "type": "header",

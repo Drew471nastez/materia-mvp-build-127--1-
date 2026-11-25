@@ -1,8 +1,8 @@
-<script src="{{ 'live-page-popups.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-page-popups.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-page-popups-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%}
   Materia Themes. Promotional Newsletter 2: an icon, a line above the
-  heading, a heading, a line of text, a signup form (Storelib Subscribers)
+  heading, a heading, a line of text, a signup form (the store's customer form, tag newsletter)
   and a "no thanks" link beside a picture, as a popup in a native <dialog>
   (snippets/page-popup-dialog) or drawn in the page ("Show as a popup" off).
   Every setting reaches the page as a CSS variable (a phone and a desktop
@@ -14,7 +14,7 @@
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign pn_is_popup = true
   if st.render_as_popup == false
     assign pn_is_popup = false
@@ -263,6 +263,13 @@
 	/* The phone-field snippet renders inside a wrapper div; tighten its own
 	   internal spacing so it sits as a single visual row in the form column. */
 	.loudz-newsletter-3 .loudz__form form .cpnb-phone { margin: 0; }
+	/* Sign-up result: the form's own success line replaces the fields; errors sit under the button. */
+	.loudz-newsletter-3 .loudz__signup-wrap { display: contents; }
+	.loudz-newsletter-3 .loudz__success { margin: 0; font-weight: 600; color: var(--loudz-heading-color, var(--color-heading)); text-align: center; }
+	.loudz-newsletter-3 .loudz__success[hidden] { display: none; }
+	.loudz-newsletter-3 form[data-state="done"] > :not(.loudz__success) { display: none !important; }
+	.loudz-newsletter-3 .loudz__error, .loudz-newsletter-3 form + .storelib-form-note[role="alert"] { margin: 8px 0 0; font-size: 14px; line-height: 1.45; color: color-mix(in srgb, #d92d20 72%, var(--color-text)); }
+	.loudz-newsletter-3 form[aria-busy="true"] .loudz__submit-button { opacity: .7; cursor: progress; }
 	.loudz-newsletter-3 .loudz__form form input[type="email"] { margin-top: 0; margin-bottom: 0; }
 	.loudz-newsletter-3 .loudz__form form .loudz__submit-button { margin-top: calc(var(--loudz-button-top-space, 12px) - 12px); }
 	
@@ -555,7 +562,7 @@
 			<div class="loudz__image-wrapper" data-pn-image>
 				<template data-pg-ph>{{ 'lifestyle-1' | placeholder_svg_tag: 'loudz__img loudz__placeholder' }}</template>
 				{%- if st.image != blank -%}
-					{{ st.image | image_url: width: 900 | image_tag: loading: 'lazy', class: 'loudz__img', alt: st.image.alt | default: shop.name, sizes: '(min-width: 768px) 50vw, 100vw', widths: '360,540,720,900' }}
+					{%- assign mt_img_alt_1 = st.image.alt | default: shop.name -%}{{ st.image | image_url: width: 900 | image_tag: loading: 'lazy', class: 'loudz__img', alt: mt_img_alt_1, sizes: '(min-width: 768px) 50vw, 100vw', widths: '360,540,720,900' }}
 				{%- else -%}
 					{{ 'lifestyle-1' | placeholder_svg_tag: 'loudz__img loudz__placeholder' }}
 				{%- endif -%}
@@ -590,8 +597,16 @@
 				{%- endif -%}
 				<h2 class="loudz__heading" id="loudz-title-{{ sid }}"{% unless hb.weight == 'theme' %} data-own-weight{% endunless %}{% if block_heading != blank %} data-pg-block="{{ block_heading.id }}" data-pg-type="heading"{% if request.design_mode %} data-pg-settings="{{ hb | json | escape }}"{% endif %} {{ block_heading.shopify_attributes }}{% endif %}>{{ hb.text }}</h2>
 				<p{% if block_description != blank %} data-pg-block="{{ block_description.id }}" data-pg-type="description"{% if request.design_mode %} data-pg-settings="{{ db | json | escape }}"{% endif %} {{ block_description.shopify_attributes }}{% endif %}>{{ db.text }}</p>
-				<form class="loudz__signup" data-storelib-form="subscribe"{% if block_form != blank %} data-pg-block="{{ block_form.id }}" data-pg-type="form"{% if request.design_mode %} data-pg-settings="{{ fb | json | escape }}"{% endif %}{% endif %}>
-					<input type="email" name="email" autocomplete="email" required placeholder="{{ pn_placeholder_text | escape }}" aria-label="{{ pn_placeholder_text | default: 'Email' | escape }}" data-popup-autofocus>
+				{%- comment -%} The store's customer form (tag newsletter), posted the ordinary way so the platform's spam check (CAPTCHA) can add its token; the page comes back on the form's #id and the popup reopens on the result. {%- endcomment -%}
+				{%- assign pn_form_id = 'PromoNewsletterForm-' | append: sid -%}
+				{%- assign pn_success = fb.success_text | strip -%}
+				{%- if pn_success == blank -%}{%- assign pn_success = 'newsletter.success' | t -%}{%- endif -%}
+				<div class="loudz__signup-wrap"{% if block_form != blank %} data-pg-block="{{ block_form.id }}" data-pg-type="form"{% if request.design_mode %} data-pg-settings="{{ fb | json | escape }}"{% endif %}{% endif %}>
+				{%- form 'customer', id: pn_form_id, class: 'loudz__signup', data-storelib-form: 'subscribe' -%}
+					<input type="hidden" name="contact[tags]" value="newsletter">
+					<input type="hidden" name="contact[accepts_marketing]" value="true">
+					<span hidden data-mt-words data-success-message="{{ pn_success | escape }}" data-already-message="{{ pn_success | escape }}" data-invalid-message="{{ 'newsletter.error' | t | escape }}" data-error-message="{{ 'newsletter.error' | t | escape }}"></span>
+					<input type="email" name="contact[email]" autocomplete="email" autocapitalize="off" spellcheck="false" maxlength="254" required placeholder="{{ pn_placeholder_text | escape }}" aria-label="{{ pn_placeholder_text | default: 'Email' | escape }}" data-popup-autofocus>
 					{%- liquid
 					  assign pn_phone_req = 'false'
 					  if fb.phone_required
@@ -604,7 +619,15 @@
 					-%}
 					{%- render 'cpnb-phone-field', scope: sid, default_country: fb.phone_default_country, phone_placeholder: fb.phone_placeholder, required: pn_phone_req, off: pn_phone_off -%}
 					<button class="loudz__submit-button btn-primary" type="submit" data-theme-button="primary" data-sl-button{% unless pn_use_theme_button %} data-own-shape{% endunless %}{% if block_button != blank %} data-pg-block="{{ block_button.id }}" data-pg-type="button"{% if request.design_mode %} data-pg-settings="{{ bb | json | escape }}"{% endif %} {{ block_button.shopify_attributes }}{% endif %}>{{ bb.button_text | default: 'Subscribe Now!' }}</button>
-				</form>
+					<p class="loudz__success" role="status" data-storelib-success hidden>{{ pn_success | escape }}</p>
+					{%- if form.errors -%}
+						{%- capture pn_err -%}{%- for field in form.errors -%}{{ form.errors.translated_fields[field] }} {{ form.errors.messages[field] }} {% endfor -%}{%- endcapture -%}
+						<p class="loudz__error" role="alert" data-mt-form-errors="{{ pn_err | strip | escape }}">{{ 'newsletter.error' | t }}</p>
+					{%- elsif form.posted_successfully? -%}
+						<span hidden data-mt-form-posted></span>
+					{%- endif -%}
+				{%- endform -%}
+				</div>
 				{%- if block_dismiss != blank -%}
 					<button type="button" class="loudz__popup-link" data-popup-close data-pg-block="{{ block_dismiss.id }}" data-pg-type="dismiss"{% if request.design_mode %} data-pg-settings="{{ block_dismiss.settings | json | escape }}"{% endif %}{% if block_dismiss.settings.text == blank %} hidden{% endif %} {{ block_dismiss.shopify_attributes }}>{{ block_dismiss.settings.text }}</button>
 				{%- endif -%}
@@ -632,10 +655,20 @@
       open: function(){ popup.classList.add('active'); box.classList.add('active'); },
       close: function(){ popup.classList.remove('active'); box.classList.remove('active'); }
     });
-    // Signed up (Storelib marks the form done): not offered again for 30 days.
+    // Signed up (materia-forms.js marks the form done): not offered again for 30 days.
     if (form) new MutationObserver(function(){
       if (form.getAttribute('data-state') === 'done' && api) api.done(30);
     }).observe(form, { attributes: true, attributeFilter: ['data-state'] });
+    // Back from the post (the page comes back on this form's #id): reopen on the result.
+    var back = form && !CFG.design && P.posted ? P.posted(form) : '';
+    if (back && api) {
+      if (back === 'ok') {
+        var msg = form.querySelector('[data-storelib-success]'); if (msg) msg.hidden = false;
+        var err = form.querySelector('[data-mt-form-errors]'); if (err) err.hidden = true;
+        form.setAttribute('data-state', 'done');
+      }
+      api.show();
+    }
     window['openPromoNewsletter_' + SID] = function(){ api.show(); };
     window['closePromoNewsletter_' + SID] = function(){ api.hide(); };
   }
@@ -649,7 +682,7 @@
 {% schema %}
 {
   "name": "Promotional Newsletter 2",
-  "class": "loudz-section loudz-newsletter-3",
+  "class": "loudz-section loudz-newsletter-3 s-tt has-popup",
   "tag": "section",
   "enabled_on": {
     "groups": [
@@ -665,7 +698,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "header",
@@ -788,7 +821,6 @@
       "id": "enable_customization_mode",
       "label": "Keep open in the builder",
       "default": true,
-      "hidden": true,
       "info": "Legacy: the same as Show in the builder.",
       "visible_if": "{{ false }}"
     },
@@ -1584,6 +1616,13 @@
           "id": "placeholder_text",
           "label": "Email placeholder",
           "default": "Email address"
+        },
+        {
+          "type": "text",
+          "id": "success_text",
+          "label": "Success message",
+          "default": "Thanks for subscribing!",
+          "info": "Replaces the form once the address is signed up."
         },
         {
           "type": "header",

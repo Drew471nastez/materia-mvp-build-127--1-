@@ -1,10 +1,11 @@
+{{ 'testimonial-quote.css' | asset_url | stylesheet_tag }}
 <script src="{{ 'testimonial-quote.js' | asset_url }}" defer="defer"></script>
 {%- comment -%} Runtime, once per page (the CSS and hero-image-one.js from layout/theme.storelib, every other script from the tags at the top of this file): shopify/assets/testimonial-quote.css, shopify/assets/testimonial-quote.js. {%- endcomment -%}
-{% render 'theme-type' %}
+{% render 'theme-type', inline: true %}
 {%- comment -%} testimonial-quote.css and testimonial-quote.js are linked once per page: the CSS and hero-image-one.js from layout/theme.storelib's <head>, every other script by the tags at the top of this file. {%- endcomment -%}
 {%- liquid
   assign s = section.settings
-  assign scheme = s.color_scheme.id | default: s.color_scheme | default: 'default-color-scheme'
+  assign scheme = s.color_scheme.id | default: s.color_scheme | default: 'default'
   assign per_row = s.testimonial_per_row | default: 2 | plus: 0
   assign count = 0
   for block in section.blocks
@@ -27,7 +28,7 @@
         {%- endunless -%}
       {%- endfor -%}
       {%- if s.button_label != blank and s.button_link != blank -%}
-        <a style="{% render 'testimonial-quote-vars', controls: s, kind: 'button' %}" class="tq-button{% if s.button_style == 'link' %} tq-button--link{% endif %}"{% unless s.button_style == 'link' %} data-theme-button="primary" data-button-appearance="{% if s.button_style == 'outline' %}outline{% else %}solid{% endif %}" data-sl-button{% endunless %} href="{{ s.button_link | url | escape }}"{% if s.new_tab %} target="_blank" rel="noopener noreferrer"{% endif %}>{{ s.button_label | escape }}</a>
+        <a style="{% render 'testimonial-quote-vars', controls: s, kind: 'button' %}" class="tq-button{% if s.button_style == 'link' %} tq-button--link{% endif %}"{% unless s.button_style == 'link' %} data-theme-button="primary" data-button-appearance="{% if s.button_style == 'outline' %}outline{% else %}solid{% endif %}" data-sl-button{% endunless %} href="{{ s.button_link | escape }}"{% if s.new_tab %} target="_blank" rel="noopener noreferrer"{% endif %}>{{ s.button_label | escape }}</a>
       {%- endif -%}
     {%- endcapture -%}
     {%- assign intro = intro | strip -%}
@@ -47,7 +48,7 @@
               endif
             -%}
             <li class="tq-card" style="{% render 'testimonial-quote-vars', controls: b, kind: 'testimonial' %}" data-quote-block="{{ block.id }}" data-kind="testimonial" data-block-settings="{{ b | json | escape }}" {{ block.shopify_attributes }}>
-                <div class="tq-rating" aria-label="{{ rating }} / 5"{% if rating == 0 %} hidden{% endif %}>
+                <div class="tq-rating" role="img" aria-label="{{ rating }} / 5"{% if rating == 0 %} hidden{% endif %}>
                   {%- for index in (1..5) -%}
                     {%- assign fill = rating | minus: index | plus: 1 | times: 100 -%}
                     {%- if fill > 100 -%}{%- assign fill = 100 -%}{%- elsif fill < 0 -%}{%- assign fill = 0 -%}{%- endif -%}
@@ -84,7 +85,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "range",
@@ -802,8 +803,7 @@
         {
           "type": "text",
           "id": "author_additional_text",
-          "label": "Details",
-          "default": ""
+          "label": "Details"
         },
         {
           "type": "image_picker",
@@ -848,8 +848,8 @@
   ],
   "presets": [
     {
-      "name": "Testimonial Quote Block",
-      "category": "Testimonials",
+      "name": "Testimonial Carousel – Quotes",
+      "category": "07 · Reviews & testimonials",
       "blocks": [
         {
           "type": "heading"

@@ -1,7 +1,14 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. A colour for the testimonials sections: the creator's colour
   only while their custom styling switch is on (on: true) and the colour is
   set and not transparent, otherwise the theme fallback (a colour scheme
   variable). live-testimonials.js works out the same value in the builder.
-{%- endcomment -%}
+
+  @param {string} color - Text
+  @param {string} fallback - Fallback
+  @param {boolean} on - Enable custom styling
+
+  @example
+  {% render 'live-testimonials-color', on: custom, color: st.section_bg, fallback: 'var(--color-background)' %}
+{%- enddoc -%}
 {%- if on -%}{%- render 'scheme-color', color: color, fallback: fallback -%}{%- else -%}{{ fallback }}{%- endif -%}

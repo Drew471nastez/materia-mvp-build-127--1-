@@ -59,7 +59,8 @@
   endif
 %}
 {%- if search_type != 'none' -%}
-  {{ 'search-type-default.css' | asset_url | stylesheet_tag }}
+  {%- comment -%} The search panel is closed at first paint: its styles load without holding the page. {%- endcomment -%}
+  <link rel="stylesheet" href="{{ 'search-type-default.css' | asset_url }}" media="print" onload="this.media='all'"><noscript>{{ 'search-type-default.css' | asset_url | stylesheet_tag }}</noscript>
   <header-search class="header_search search_type_{{ search_type }}">
     <div class="block block-quick-search block-search predictive_search_suggest search_{{ search_type }}">
       {%- assign popup_anim = theme_st.search_popup_animation | default: 'fade' -%}
@@ -91,6 +92,8 @@
         assign overlay_mode = 'popup'
         if search_type == 'drawer'
           assign overlay_mode = 'drawer'
+        elsif search_type == 'centered'
+          assign overlay_mode = 'centered'
         endif
       -%}
       <div
@@ -106,10 +109,12 @@
         {%- case search_type -%}
           {%- when 'drawer' -%}
             {%- render 'search-drawer' -%}
+          {%- when 'centered' -%}
+            {%- render 'search-centered' -%}
           {%- when 'basic' -%}
-            {%- render 'search-popup', mobile: true, basic_mode: true -%}
+            {%- render 'search-popup', basic_mode: true -%}
           {%- else -%}
-            {%- render 'search-popup', mobile: true -%}
+            {%- render 'search-popup' -%}
         {%- endcase -%}
       </div>
     </div>

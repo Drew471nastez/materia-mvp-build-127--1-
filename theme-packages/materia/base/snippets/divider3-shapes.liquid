@@ -1,9 +1,14 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. The shapes of Divider 3 (sections/divider3.storelib), one
   per Choose divider design option. Inputs: style. The section draws the
   chosen one; in the builder it also keeps every shape in a <template>, so
   live-social-dividers.js can swap the shape live.
-{%- endcomment -%}
+
+  @param {string} style - Divider design
+
+  @example
+  {% render 'divider3-shapes', style: d3_style %}
+{%- enddoc -%}
 		{%- case style -%}
 			{%- when "line" -%}
 				<div class="LoudzDividersWrapper__Line"></div>

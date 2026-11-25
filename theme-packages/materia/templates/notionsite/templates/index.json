@@ -1,17 +1,17 @@
-/* Templates round 25: Margin, a Notion template creator's website by Nora Lind, after the owner's reference: her photo over a large heading with buyer avatars, popular templates as cards, the template most people start with, how buying works in three drawn steps, the free templates, the creator, a wall of buyer notes, the blog, a monthly email and questions. Built from the theme's own sections around one hero (notionsite-hero); every Notion page in the pictures is drawn for the template. */
+/* Templates round 25: Margin, a Notion template creator's website by Nora Lind, after the owner's reference: a drawn avatar of her over a large heading with buyer avatars, popular templates as cards, the template most people start with, how buying works in three drawn steps, the free templates, the creator, a wall of buyer notes, the blog, a monthly email and questions. Built from the theme's own sections around one hero (notionsite-hero); every Notion page in the pictures is drawn for the template. Round 26: the topic is running a small business (clients, projects, money, the week), the avatar is a line drawing, a larger logo without the byline. */
 {
   "sections": {
     "hero": {
       "type": "notionsite-hero",
       "settings": {
-        "image": "shopify://shop_images/notionsite-creator.webp",
-        "image_alt": "Nora Lind",
+        "image": "shopify://shop_images/notionsite-avatar.webp",
+        "image_alt": "A line drawing of Nora",
         "avatar_shape": "circle",
-        "avatar_size": 132,
+        "avatar_size": 128,
         "avatar_size_mobile": 96,
         "intro": "Notion templates by Nora",
-        "heading": "Calm systems for a busy life",
-        "text": "<p>Planners and trackers for money, work, travel and the week ahead. I build them, use them for months, then share them here.</p>",
+        "heading": "Run your business from one workspace",
+        "text": "<p>Notion templates for clients, projects, money and the week ahead. I build them for my own studio, run it on them for months, then share them here.</p>",
         "button_label": "Browse templates",
         "button_link": "/collections/all",
         "button_2_label": "Free templates",
@@ -82,7 +82,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Planners and trackers I use every week. Each one comes with a short walkthrough.</p>"
+            "text": "<p>The templates my studio runs on. Each one comes with a short walkthrough.</p>"
           }
         },
         "button_3": {
@@ -108,7 +108,7 @@
         "color_scheme": "scheme-6c1d2a40-91b7-4c55-9a0e-5d3f0b8e7a11",
         "section_width": "container",
         "reset_spacing": true,
-        "product": "money-planner",
+        "product": "client-crm",
         "show_view_link": true,
         "view_link_label": "See every page inside",
         "desktop_layout": "hidden_thumbnail",
@@ -141,7 +141,7 @@
           "type": "text",
           "settings": {
             "heading": "",
-            "content": "<p>The template most people start with: a budget that adds itself up, every payment in one table, a calendar of bills and savings goals you can watch fill.</p>"
+            "content": "<p>The template most people start with: every lead on one board from the first email to a signed project, a page per client with every call and email, and the follow ups due this week.</p>"
           }
         },
         "price_4": {
@@ -348,7 +348,7 @@
             "caption": "Nora Lind, Copenhagen",
             "heading": "Meet the creator",
             "heading_tag": "h2",
-            "body": "<p>I'm Nora. I spent eight years as a project manager, which mostly meant turning messy lists into systems people actually use. Now I do the same for the rest of life, in Notion.</p><p>Every template here started as something I built for myself or a friend and used for months before selling it. If a page does not earn its place, it goes. Questions come straight to me, and I answer them.</p>",
+            "body": "<p>I'm Nora. I spent eight years as a project manager in agencies, then started a two person design studio in Copenhagen. Every client, invoice and process we have lives in Notion.</p><p>Every template here started as something we built for the studio and used for months before selling it. If a page does not earn its place, it goes. Questions come straight to me, and I answer them.</p>",
             "btn_label": "Read my story",
             "btn_link": "/pages/about",
             "image_position": "left",
@@ -410,9 +410,9 @@
         "testimonial_3": {
           "type": "testimonial",
           "settings": {
-            "body": "Set it up in one evening. For the first time I know on the 20th how much is left for the month, without opening my bank app.",
+            "body": "Set it up in one evening. For the first time I know which leads are waiting on me without searching my inbox.",
             "name": "Hanna K.",
-            "role": "Money Planner",
+            "role": "Client CRM",
             "rating": 5,
             "avatar": "shopify://shop_images/notionsite-buyer-1.webp"
           }
@@ -420,7 +420,7 @@
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "body": "Simple and quick to fill in. Exactly what I wanted from a free planner.",
+            "body": "Simple and quick to fill in. Exactly what I wanted from a free planner for the business.",
             "name": "Daniel O.",
             "role": "Weekly Planner",
             "rating": 5,
@@ -430,9 +430,9 @@
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "body": "The interview prep page is the part I did not know I needed. I practised every answer on it before my second round.",
+            "body": "The task list on each project page is the part I did not know I needed. Clients stopped asking me where things are.",
             "name": "Amara B.",
-            "role": "Job Search Tracker",
+            "role": "Project Tracker",
             "rating": 5,
             "avatar": "shopify://shop_images/notionsite-buyer-3.webp"
           }
@@ -440,9 +440,9 @@
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "body": "I use the trip pages for every weekend away now, not only the big holidays.",
+            "body": "The tax set aside bar is the reason I opened it every week. No surprise bill in January this year.",
             "name": "Rosa M.",
-            "role": "Travel Planner",
+            "role": "Finance Dashboard",
             "rating": 5,
             "avatar": "shopify://shop_images/notionsite-buyer-4.webp"
           }
@@ -452,7 +452,7 @@
           "settings": {
             "body": "Clean, no clutter. It looks like Notion, not like a poster.",
             "name": "Sami T.",
-            "role": "Daily Journal",
+            "role": "Meeting Notes",
             "rating": 5,
             "avatar": "shopify://shop_images/notionsite-buyer-5.webp"
           }
@@ -460,9 +460,9 @@
         "testimonial_8": {
           "type": "testimonial",
           "settings": {
-            "body": "Meal plan on Sunday, one shop, done. My partner adds recipes from his phone.",
+            "body": "Action items at the bottom of every meeting page. My team ticks them off before the next call.",
             "name": "Julia W.",
-            "role": "Recipe Box",
+            "role": "Meeting Notes",
             "rating": 5,
             "avatar": "shopify://shop_images/notionsite-buyer-6.webp"
           }
@@ -470,9 +470,9 @@
         "testimonial_9": {
           "type": "testimonial",
           "settings": {
-            "body": "Bought the bundle for the budget and ended up using all four. The Home page with what is due this week is great.",
+            "body": "Bought the bundle for the CRM and ended up using all four. The Home page with what is due this week is great.",
             "name": "Marcus L.",
-            "role": "Life OS Bundle",
+            "role": "Business OS Bundle",
             "rating": 5,
             "avatar": "shopify://shop_images/notionsite-buyer-7.webp"
           }
@@ -482,7 +482,7 @@
           "settings": {
             "body": "Good walkthrough video. I had never used a linked database before and it made sense straight away.",
             "name": "Ellie P.",
-            "role": "Money Planner",
+            "role": "Client CRM",
             "rating": 5,
             "avatar": "shopify://shop_images/notionsite-buyer-8.webp"
           }
@@ -490,9 +490,9 @@
         "testimonial_11": {
           "type": "testimonial",
           "settings": {
-            "body": "The squat chart going up every week keeps me going to the gym.",
+            "body": "Our onboarding used to live in my head. Now my freelancer follows the SOP and I check it once.",
             "name": "Arif S.",
-            "role": "Workout Log",
+            "role": "SOP Library",
             "rating": 5,
             "avatar": "shopify://shop_images/notionsite-buyer-9.webp"
           }
@@ -500,9 +500,9 @@
         "testimonial_12": {
           "type": "testimonial",
           "settings": {
-            "body": "Moods on the calendar show me patterns I would never have noticed.",
+            "body": "Seeing a month of posts on one calendar finally got me posting every week.",
             "name": "Noor H.",
-            "role": "Daily Journal",
+            "role": "Meeting Notes",
             "rating": 5,
             "avatar": "shopify://shop_images/notionsite-buyer-10.webp"
           }
@@ -510,9 +510,9 @@
         "testimonial_13": {
           "type": "testimonial",
           "settings": {
-            "body": "I asked a question about the bills calendar and got a clear answer the same day.",
+            "body": "I asked a question about the proposal stage and got a clear answer the same day.",
             "name": "Peter G.",
-            "role": "Money Planner",
+            "role": "Client CRM",
             "rating": 5,
             "avatar": "shopify://shop_images/notionsite-buyer-11.webp"
           }
@@ -681,7 +681,7 @@
           "type": "faq_item",
           "settings": {
             "question": "Who are these templates for?",
-            "answer": "<p>People who want their money, work, trips and week in one tidy place without building it from scratch. If you can type in a table, you can use them.</p>"
+            "answer": "<p>Freelancers, studios and small teams who want their clients, projects and money in one tidy place without building it from scratch. If you can type in a table, you can use them.</p>"
           }
         },
         "faq_item_2": {

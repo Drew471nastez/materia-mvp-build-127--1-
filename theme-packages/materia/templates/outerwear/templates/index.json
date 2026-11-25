@@ -1,4 +1,5 @@
 /* Templates round 25: back to the round 23 order the owner preferred (trending, category banners, finishing details beside a picture, wet weeks, collections, night layers beside a picture, about, a single big review), all on Materia's own sections; the scrolling picture hero stays. */
+/* Templates round 26: a scrolling strip of materials under the hero for a little more character, and room between the trending cards so their Add to cart buttons never touch. */
 {
   "sections": {
     "hero": {
@@ -118,7 +119,7 @@
         "header_spacing": 24,
         "items_per_row": 4,
         "items_per_row_mobile": 2,
-        "column_gap": 2,
+        "column_gap": 12,
         "show_arrow": true,
         "carousel_pagination": "show_progress_bar",
         "pagination_style": "dot",
@@ -829,10 +830,73 @@
         "s",
         "v"
       ]
+    },
+    "materials": {
+      "type": "scrolling-text",
+      "settings": {
+        "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636",
+        "section_width": "full_width",
+        "reset_spacing": true,
+        "separator": "slash",
+        "item_gap": 56,
+        "repeat_count": 4,
+        "base_font": "heading",
+        "text_size": 54,
+        "line_height": 100,
+        "letter_spacing": 1,
+        "text_transform": "uppercase",
+        "duration": 40,
+        "padding_top": 14,
+        "padding_bottom": 14,
+        "text_size_mobile": 34,
+        "item_gap_mobile": 28,
+        "padding_top_mobile": 10,
+        "padding_bottom_mobile": 10
+      },
+      "blocks": {
+        "w1": {
+          "type": "word",
+          "settings": {
+            "text": "Down"
+          }
+        },
+        "w2": {
+          "type": "word",
+          "settings": {
+            "text": "Canvas"
+          }
+        },
+        "w3": {
+          "type": "word",
+          "settings": {
+            "text": "Quilting"
+          }
+        },
+        "w4": {
+          "type": "word",
+          "settings": {
+            "text": "Merino"
+          }
+        },
+        "w5": {
+          "type": "word",
+          "settings": {
+            "text": "Made in small runs"
+          }
+        }
+      },
+      "block_order": [
+        "w1",
+        "w2",
+        "w3",
+        "w4",
+        "w5"
+      ]
     }
   },
   "order": [
     "hero",
+    "materials",
     "trending",
     "categories",
     "details",

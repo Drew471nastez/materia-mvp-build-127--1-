@@ -1,7 +1,7 @@
-<script src="{{ 'live-r7-features.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-r7-features.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
@@ -163,7 +163,7 @@
             </div>
             {%- if bs.image != blank or request.design_mode -%}
               <div class="ftl__media" data-r7e-media{% if bs.image == blank %} hidden{% endif %}>
-                <img class="ftl__img" data-r7e-bi="{{ block.id }}:image"{% if bs.image != blank %} src="{{ bs.image | image_url: width: 900 }}" srcset="{{ bs.image | image_url: width: 480 }} 480w, {{ bs.image | image_url: width: 900 }} 900w, {{ bs.image | image_url: width: 1320 }} 1320w" sizes="(min-width: 768px) 440px, 84vw" width="{{ bs.image.width | default: 900 }}" height="{{ bs.image.height | default: 600 }}"{% endif %} alt="{{ bs.image_alt | default: bs.image.alt | escape }}" loading="lazy" decoding="async">
+                <img class="ftl__img" data-r7e-bi="{{ block.id }}:image"{% if bs.image != blank %} src="{{ bs.image | image_url: width: 900 }}" srcset="{{ bs.image | image_url: width: 480 }} 480w, {{ bs.image | image_url: width: 900 }} 900w, {{ bs.image | image_url: width: 1320 }} 1320w" sizes="(min-width: 768px) 440px, 84vw"{% endif %} width="{{ bs.image.width | default: 900 }}" height="{{ bs.image.height | default: 600 }}" alt="{{ bs.image_alt | default: bs.image.alt | escape }}" loading="lazy" decoding="async">
               </div>
             {%- endif -%}
           </li>
@@ -182,7 +182,8 @@
   </div>
 </div>{% schema %}
 {
-  "name": "Feature Timeline",
+  "class": "s-tt",
+"name": "Feature Timeline",
   "settings": [
     {
       "type": "header",
@@ -192,7 +193,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Colour scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -942,8 +943,8 @@
   ],
   "presets": [
     {
-      "name": "Feature Timeline",
-      "category": "Features",
+      "name": "Timeline",
+      "category": "12 · Text",
       "blocks": [
         {
           "type": "heading",

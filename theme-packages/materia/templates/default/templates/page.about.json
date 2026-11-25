@@ -6,8 +6,8 @@
         "color_scheme": "default",
         "section_width": "container",
         "image_position": "right",
-        "image": "shopify://shop_images/default-studio.webp",
-        "image_alt": "Three handmade clay vessels on a plaster plinth",
+        "image": "shopify://shop_images/default-about-studio.webp",
+        "image_alt": "Folding a shipping box at the studio table by a tall window",
         "aspect_w": 4,
         "aspect_h": 5,
         "image_radius": 6,
@@ -102,11 +102,11 @@
       "settings": {
         "color_scheme": "default",
         "section_width": "container",
-        "image_position": "left",
-        "image": "shopify://shop_images/default-mug-still.webp",
-        "image_alt": "A white mug on a white table",
+        "image_position": "right",
+        "image": "shopify://shop_images/default-about-workroom.webp",
+        "image_alt": "A maker at her workbench with paper bags hanging on the wall behind her",
         "aspect_w": 4,
-        "aspect_h": 3,
+        "aspect_h": 5,
         "image_radius": 6,
         "padding_top_desktop": 72,
         "padding_bottom_desktop": 96,
@@ -145,11 +145,61 @@
         "subheading_3",
         "button_4"
       ]
+    },
+    "image_and_video_text_packing": {
+      "type": "Image-and-video-text",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "image_position": "left",
+        "image": "shopify://shop_images/default-about-wrapping.webp",
+        "image_alt": "Hands taping a parcel wrapped in brown paper",
+        "aspect_w": 4,
+        "aspect_h": 5,
+        "image_radius": 6,
+        "padding_top_desktop": 72,
+        "padding_bottom_desktop": 72,
+        "side_padding_desktop": 80
+      },
+      "blocks": {
+        "eyebrow_1": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Packed here"
+          }
+        },
+        "heading_2": {
+          "type": "heading",
+          "settings": {
+            "text": "Paper, card and tape"
+          }
+        },
+        "subheading_3": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Every order leaves the studio wrapped in paper and card, with no plastic inside. We pack on the same table we design on, usually the morning after you order.</p><p>Downloads arrive by email straight away.</p>"
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "label": "Shipping and returns",
+            "link": "/pages/shipping"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow_1",
+        "heading_2",
+        "subheading_3",
+        "button_4"
+      ]
     }
   },
   "order": [
     "image_and_video_text_1",
     "text_columns_2",
+    "image_and_video_text_packing",
     "image_and_video_text_3"
   ]
 }

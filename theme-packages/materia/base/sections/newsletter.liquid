@@ -1,6 +1,6 @@
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 <style data-rs-bulletproof>
   {%- if section.settings.reset_spacing -%}
@@ -24,32 +24,9 @@
   assign __ti_scroll_animation = settings.scroll_animation | default: 'none'
   assign __ti_reveal = section.settings.reveal
 -%}
+{{ 'section-newsletter.css' | asset_url | stylesheet_tag }}
 <style>
-  /* Section isolation — prevent CSS/JS bleed between sections */
-  #shopify-section-{{ section.id }} {
-    isolation: isolate;
-    position: relative;
-  }
-  /* Aggressive theme typography */
-  :where(#shopify-section-{{ section.id }}) {
-    font-family: var(--body-font, inherit);
-  }
-  :where(#shopify-section-{{ section.id }}) :where(button, input, textarea, select, optgroup) {
-    font-family: inherit;
-  }
-  /* Theme font-weight inheritance — sections inherit theme weights by default.
-     Specific font-weight rules in section CSS still override these. */
-  #shopify-section-{{ section.id }} {
-    font-weight: var(--body-weight, inherit);
-  }
-  :where(#shopify-section-{{ section.id }}) :is(h1, h2, h3, h4, h5, h6) {
-    font-weight: var(--heading-weight, inherit);
-  }
-  :where(#shopify-section-{{ section.id }}) :is(h1, h2, h3, h4, h5, h6) {
-    font-family: var(--heading-font, inherit);
-  }
-  /* Section margin sliders (mobile-first) */
-  #shopify-section-{{ section.id }} {
+/* Section margin sliders (mobile-first) */#shopify-section-{{ section.id }} {
     margin-top: {{ section.settings.section_margin_top_mobile | default: 0 }}px;
     margin-bottom: {{ section.settings.section_margin_bottom_mobile | default: 0 }}px;
   }
@@ -59,44 +36,19 @@
       margin-bottom: {{ section.settings.section_margin_bottom_desktop | default: 0 }}px;
     }
   }
-  /* Section wrapper spans its parent's full width without breaking out of
-     the editor preview. The section + first child span 100% so backgrounds
-     reach edge-to-edge but the editor inspector outline stays inside the
-     iframe viewport. */
-  #shopify-section-{{ section.id }} {
-    max-width: none !important;
-    width: 100% !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-    padding-left: 0 !important;
-    padding-right: 0 !important;
-    position: relative !important;
-    box-sizing: border-box !important;
-  }
-  #shopify-section-{{ section.id }} > :where(div, section, header, footer, aside, main, article):first-child {
-    max-width: none !important;
-    width: 100% !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-    box-sizing: border-box !important;
-  }
-
-  /* Section width — universal selector that works regardless of inner
+/* Section width — universal selector that works regardless of inner
      markup. Targets both:
        1) Theme container classes (.container/.fluid_container/etc.) — for
           sections that have an inner wrapper with that class
        2) The section's first-child div — for sections that don't have a
           named inner wrapper. The padding-inline sets the max content
           area while the wrapper itself stays 100% wide so any background
-          stays edge-to-edge. */
-  {%- render 'contact-live-width', sid: section.id -%}
-  /* Reset spacing */
-  {%- if section.settings.reset_spacing -%}
+          stays edge-to-edge. */{%- render 'contact-live-width', sid: section.id -%}
+/* Reset spacing */{%- if section.settings.reset_spacing -%}
     #shopify-section-{{ section.id }} { margin-bottom: 0 !important; margin-top: 0 !important; }
     #shopify-section-{{ section.id }} + .shopify-section { margin-top: 0 !important; }
   {%- endif -%}
-  /* A margin slider above 0 wins over Remove default space (which is on by default). */
-  {%- liquid
+/* A margin slider above 0 wins over Remove default space (which is on by default). */{%- liquid
     assign nl_mt_m = section.settings.section_margin_top_mobile | default: 0
     assign nl_mb_m = section.settings.section_margin_bottom_mobile | default: 0
     assign nl_mt_d = section.settings.section_margin_top_desktop | default: 0
@@ -160,50 +112,11 @@
   }
   #shopify-section-{{ section.id }} .nl-spinner { width:18px; height:18px; border-radius:50%; border:2px solid currentColor; border-right-color:transparent; visibility:hidden; animation: nl-spin-{{ section.id }} .7s linear infinite; }
   @keyframes nl-spin-{{ section.id }} { to { transform: rotate(360deg); } }
-  #shopify-section-{{ section.id }} .newsletter-button-stack { display:inline-grid; place-items:center; }
-  #shopify-section-{{ section.id }} .newsletter-button-state { grid-area:1/1; }
-  #shopify-section-{{ section.id }} .newsletter-button-measure { visibility:hidden; pointer-events:none; }
+#shopify-section-{{ section.id }} .newsletter-button-measure { visibility:hidden; pointer-events:none; }
   #shopify-section-{{ section.id }} [data-nl-result] { min-height:1.5em; margin:6px 0 0; width:100%; }
-  #shopify-section-{{ section.id }} [data-nl-result][hidden] { display:block!important; visibility:hidden; }
-  @media (prefers-reduced-motion: reduce) {
-    #shopify-section-{{ section.id }} .nl-form .nl-input { transition: none; }
-    #shopify-section-{{ section.id }} .nl-spinner { animation-duration: 1.6s; }
-  }
-  /* Newsletter icon */
-  #shopify-section-{{ section.id }} .newsletter-icon { line-height: 0; }
-  #shopify-section-{{ section.id }} .newsletter-icon svg { display: block; }
-  #shopify-section-{{ section.id }} .newsletter-icon img { display: block; height: auto; }
 </style>
 <!-- ti-theme:start -->
-<style>
-  /* Theme editor: force popup-style sections (fixed/centered) to render inline so a preview shows */
-  .shopify-design-mode #shopify-section-{{ section.id }} *[class*="-popup"],
-  .shopify-design-mode #shopify-section-{{ section.id }} .popup,
-  .shopify-design-mode #shopify-section-{{ section.id }} .modal,
-  .shopify-design-mode #shopify-section-{{ section.id }} [data-popup],
-  .shopify-design-mode #shopify-section-{{ section.id }} > .promotional,
-  .shopify-design-mode #shopify-section-{{ section.id }} .age-verifier-popup,
-  .shopify-design-mode #shopify-section-{{ section.id }} .promotion-popup,
-  .shopify-design-mode #shopify-section-{{ section.id }} .promobanner,
-  .shopify-design-mode #shopify-section-{{ section.id }} .newsletter-popup,
-  .shopify-design-mode #shopify-section-{{ section.id }} .promo-newsletter-popup,
-  .shopify-design-mode #shopify-section-{{ section.id }} .promotional-image-popup,
-  .shopify-design-mode #shopify-section-{{ section.id }} .promotional-popup {
-    position: static !important;
-    inset: auto !important;
-    transform: none !important;
-    opacity: 1 !important;
-    visibility: visible !important;
-    display: block !important;
-    margin: 20px auto !important;
-    z-index: auto !important;
-    pointer-events: auto !important;
-  }
-  .shopify-design-mode #shopify-section-{{ section.id }} *[class*="overlay"],
-  .shopify-design-mode #shopify-section-{{ section.id }} *[class*="backdrop"] {
-    display: none !important;
-  }
-</style>
+
 
 {%- comment -%}
   Materia Themes. Developed By Materia Themes.
@@ -220,7 +133,7 @@
 {%- liquid
   assign section_st = section.settings
   assign section_width = section_st.section_width
-  assign color_scheme = section_st.color_scheme.id | default: section_st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section_st.color_scheme.id | default: section_st.color_scheme | default: 'default'
   if section_st.reset_spacing
     assign reset_spacing = ' remove_spacing'
   endif
@@ -290,7 +203,7 @@
 <style>
   @media screen and (min-width: 768px) {
     #shopify-section-{{ section.id }} [data-nl-layout="horizontal"] .sec__newsletter .section__header { flex: 0 0 30%; }
-    #shopify-section-{{ section.id }} [data-nl-layout="horizontal"] .sec_newsletter_note { width: 83%; }
+    #shopify-section-{{ section.id }} [data-nl-layout="horizontal"] .sec_newsletter_note { width: auto; margin-inline: 0; }
   }
   #shopify-section-{{ section.id }} .newsletter-icon { color: var(--nl-icon-c, var(--color-heading)); }
   #shopify-section-{{ section.id }} .newsletter-icon[hidden] { display: none !important; }
@@ -304,7 +217,7 @@
   /* Sign-up states, driven by the data-state materia-forms.js puts on the form (sending, done, error) */
   #shopify-section-{{ section.id }} [data-nl-form] .nl-msg { margin: 0; font-size: 14px; line-height: 1.5; }
   #shopify-section-{{ section.id }} [data-nl-form] [data-nl-result] .nl-msg { display: none; }
-  #shopify-section-{{ section.id }} [data-nl-form][data-state="error"] [data-nl-msg="error"] { display: block; color: #b91c1c; }
+  #shopify-section-{{ section.id }} [data-nl-form][data-state="error"] [data-nl-msg="error"] { display: block; color: var(--nl-error, color-mix(in srgb, #d92d20 72%, var(--color-text))); }
   #shopify-section-{{ section.id }} [data-nl-form][data-state="done"] [data-nl-msg="done"] { display: block; color: var(--color-heading, currentColor); animation: nl-done-out-{{ section.id }} 400ms ease {{ section_st.success_duration | default: 5 }}s forwards; }
   @keyframes nl-done-out-{{ section.id }} { to { opacity: 0; visibility: hidden; } }
   @media (prefers-reduced-motion: reduce) { #shopify-section-{{ section.id }} [data-nl-form][data-state="done"] [data-nl-msg="done"] { animation-duration: 1ms; } }
@@ -316,8 +229,8 @@
   #shopify-section-{{ section.id }} [data-nl-form][data-state="sending"] .nl-button { opacity: .85; cursor: progress; pointer-events: none; }
   /* Honeypot: off screen, never focusable, bots that fill it fail validation and the form never sends */
   #shopify-section-{{ section.id }} .nl-hp { position: absolute !important; left: -10000px !important; top: auto !important; width: 1px !important; height: 1px !important; overflow: hidden !important; clip-path: inset(50%) !important; pointer-events: none !important; }
-  #shopify-section-{{ section.id }} .nl-form .nl-input:user-invalid { border-color: #b91c1c; }
-  #shopify-section-{{ section.id }} [data-nl-hint] { display: none; margin: 6px 0 0; font-size: 14px; line-height: 1.5; color: #b91c1c; width: 100%; }
+  #shopify-section-{{ section.id }} .nl-form .nl-input:user-invalid { border-color: var(--nl-error, color-mix(in srgb, #d92d20 72%, var(--color-text))); }
+  #shopify-section-{{ section.id }} [data-nl-hint] { display: none; margin: 6px 0 0; font-size: 14px; line-height: 1.5; color: var(--nl-error, color-mix(in srgb, #d92d20 72%, var(--color-text))); width: 100%; }
   #shopify-section-{{ section.id }} [data-nl-form]:has(.nl-input:user-invalid) [data-nl-hint], #shopify-section-{{ section.id }} [data-nl-form]:has(.nl-input[aria-invalid="true"]) [data-nl-hint] { display: block; }
   #shopify-section-{{ section.id }} [data-nl-form][data-state="sending"] [data-nl-label] { visibility: hidden; }
   #shopify-section-{{ section.id }} .nl-spinner { animation-play-state: paused; }
@@ -412,8 +325,10 @@
             assign nl_success_ms = section_st.success_duration | default: 5 | times: 1000
           -%}
           {%- comment -%} A Storelib sign-up form (data-storelib-form="subscribe") to the creator's Subscribers. materia-forms.js sends it, once, and sets data-state on it (sending, done, error); the messages below and in data-mt-words are the section's own words. {%- endcomment -%}
-          {%- form 'customer', id: 'NewsletterForm-' | append: section.id, class: 'nl-form justify-content-inherit', data-nl-form: '', data-mt-inline-subscribe: 'true', data-storelib-form: 'subscribe' -%}
+          {%- assign nl_form_id = 'NewsletterForm-' | append: section.id -%}
+          {%- form 'customer', id: nl_form_id, class: 'nl-form justify-content-inherit', data-nl-form: '', data-mt-inline-subscribe: 'true', data-storelib-form: 'subscribe' -%}
             <input type="hidden" name="contact[tags]" value="newsletter">
+            <input type="hidden" name="contact[accepts_marketing]" value="true">
             {%- comment -%} The words materia-forms.js shows (live-contact.js keeps them live). Hidden, so they are not part of the form's text. {%- endcomment -%}
             <span
               hidden
@@ -425,7 +340,7 @@
               data-success-ms="{{ nl_success_ms }}"
             ></span>
             <div class="nl-hp" aria-hidden="true" data-mt-trap>
-              <label for="NewsletterHp-{{ section.id }}">Leave this field empty</label>
+              <label for="NewsletterHp-{{ section.id }}">{{ 'accessibility.ui.leave_empty' | t }}</label>
               <input id="NewsletterHp-{{ section.id }}" type="text" name="company" tabindex="-1" autocomplete="off" pattern="^$" maxlength="0" value="">
             </div>
             <div class="newsletter-inner flex flex-wrap gap-10 w-full justify-content-{{ header_alignment }}" data-nl-fields style="{{ nl_field_vars | strip | strip_newlines }}">
@@ -466,8 +381,15 @@
             <div data-nl-result role="status" aria-live="polite">
               <p class="nl-msg nl-msg--error" data-nl-msg="error">{{ section_st.error_text | default: 'That did not go through. Check your connection and try again.' | escape }}</p>
               <p class="nl-msg nl-msg--done" data-nl-msg="done">{{ section_st.success_text | default: "Thanks, you're on the list." | escape }}</p>
-              {%- if form.posted_successfully? -%}<p class="nl-msg nl-success" style="display:block">{{ section_st.success_text | default: "Thanks, you're on the list." | escape }}</p>{%- endif -%}
-              {%- if form.errors -%}<p class="nl-msg" style="display:block;color:#b91c1c">{{ section_st.invalid_text | default: 'Enter a valid email address.' | escape }}</p>{%- endif -%}
+              {%- if form.posted_successfully? -%}<p class="nl-msg nl-success" style="display:block" data-mt-result>{{ section_st.success_text | default: "Thanks, you're on the list." | escape }}</p>{%- endif -%}
+              {%- if form.errors -%}
+                {%- capture nl_err -%}{%- for field in form.errors -%}{{ form.errors.translated_fields[field] }} {{ form.errors.messages[field] }} {% endfor -%}{%- endcapture -%}
+                {%- if nl_err contains 'taken' or nl_err contains 'already' -%}
+                  <p class="nl-msg nl-success" style="display:block" data-mt-form-errors="{{ nl_err | strip | escape }}">{{ section_st.already_text | default: "You're already on the list." | escape }}</p>
+                {%- else -%}
+                  <p class="nl-msg" style="display:block;color:var(--nl-error, color-mix(in srgb, #d92d20 72%, var(--color-text)))" role="alert" data-mt-form-errors="{{ nl_err | strip | escape }}">{{ section_st.invalid_text | default: 'Enter a valid email address.' | escape }}</p>
+                {%- endif -%}
+              {%- endif -%}
             </div>
           {%- endform -%}
           <div class="sec_newsletter_note newsletter-note mt-12 mx-auto fs-12" data-nl-note{% if sec_font %} data-own-font{% endif %}{% if section_st.note == blank %} hidden{% endif %}>{{ section_st.note }}</div>
@@ -476,11 +398,12 @@
     </div>
   </div>
 </div>
+
 {% schema %}
 {
   "name": "Newsletter",
   "tag": "section",
-  "class": "section",
+  "class": "section s-newsletter s-tt",
   "disabled_on": {
     "groups": [
       "header",
@@ -497,7 +420,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -538,7 +461,6 @@
       "id": "heading",
       "default": "Newsletters",
       "label": "Heading",
-      "hidden": true,
       "info": "Legacy: used only when the section has no heading block",
       "visible_if": "{{ false }}"
     },
@@ -546,7 +468,6 @@
       "type": "richtext",
       "id": "description",
       "label": "Description",
-      "hidden": true,
       "info": "Legacy: used only when the section has no subheading block",
       "visible_if": "{{ false }}"
     },
@@ -605,7 +526,7 @@
       "type": "text",
       "id": "already_text",
       "label": "Already subscribed message",
-      "info": "Shown when this address was signed up from the same browser before.",
+      "info": "Shown when this address is already on the list.",
       "default": "You're already on the list."
     },
     {
@@ -1071,7 +992,7 @@
   "presets": [
     {
       "name": "Newsletter",
-      "category": "Contact",
+      "category": "15 · Newsletter & contact",
       "blocks": [
         {
           "type": "heading"
@@ -1099,8 +1020,7 @@
           "id": "tag",
           "label": "HTML tag",
           "default": "h2",
-          "hidden": true,
-          "info": "Legacy: the heading is always an h2 (the hero holds the page's h1).",
+          "info": "For search engines only; the size stays the same.",
           "options": [
             {
               "value": "h2",
@@ -1219,8 +1139,8 @@
           "label": "Line height",
           "min": 0.9,
           "max": 2,
-          "step": 0.05,
-          "default": 1.15,
+          "step": 0.1,
+          "default": 1.1,
           "visible_if": "{{ block.settings.size_enable }}"
         },
         {
@@ -1338,7 +1258,7 @@
           "label": "Line height",
           "min": 1,
           "max": 2,
-          "step": 0.05,
+          "step": 0.1,
           "default": 1.5,
           "visible_if": "{{ block.settings.size_enable }}"
         }

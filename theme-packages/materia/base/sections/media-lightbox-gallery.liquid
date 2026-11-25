@@ -1,7 +1,7 @@
-<script src="{{ 'live-r7-media.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-r7-media.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'r7-media-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
@@ -68,7 +68,7 @@
   #shopify-section-{{ sid }} .mlg__tile { position: relative; display: block; overflow: hidden; aspect-ratio: var(--mlg-ar); border-radius: var(--mlg-r); background: color-mix(in srgb, var(--color-text) 8%, var(--color-background)); color: var(--color-text); cursor: zoom-in; -webkit-tap-highlight-color: transparent; transition: transform .15s ease; }
   #shopify-section-{{ sid }} .mlg__tile > :is(img, svg) { display: block; width: 100%; height: 100%; }
   #shopify-section-{{ sid }} .mlg__tile > img { object-fit: cover; transition: transform .35s ease; }
-  #shopify-section-{{ sid }} .mlg__tile > svg { padding: 22%; opacity: .35; }
+  #shopify-section-{{ sid }} .mlg__tile > svg[hidden] { display: none; }
   #shopify-section-{{ sid }} .mlg__tile:active { transform: scale(.98); }
   #shopify-section-{{ sid }} .mlg__tile:focus-visible { outline: 2px solid var(--color-heading); outline-offset: 3px; }
   #shopify-section-{{ sid }} .mlg__caption { margin: 8px 0 0; color: var(--r7-text); font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
@@ -94,7 +94,7 @@
   dialog.mt-lb .r7-lb-cap:empty { display: none; }
 </style>
 
-<div id="mlg-{{ sid }}" class="r7m mlg color-{{ color_scheme }} gradient" data-r7m="lightbox-gallery" {% render 'r7-media-root', section: section, part: 'attrs' %} data-ratio="{{ ratio }}" data-r7m-viewer-js="{{ 'product-page-ui.js' | asset_url }}" data-r7m-viewer-css="{{ 'product-page-ui.css' | asset_url }}" data-r7m-label="{{ fb_label | escape }}"{% if request.design_mode %} data-r7m-defaults="&#123;&quot;color_scheme&quot;:&quot;default-color-scheme&quot;,&quot;section_width&quot;:&quot;container&quot;,&quot;reset_spacing&quot;:true,&quot;content_align&quot;:&quot;left&quot;,&quot;content_gap&quot;:12,&quot;columns_desktop&quot;:4,&quot;gap_desktop&quot;:12,&quot;image_ratio&quot;:&quot;square&quot;,&quot;image_radius&quot;:8,&quot;enable_custom_style&quot;:false,&quot;enable_custom_fonts&quot;:false,&quot;heading_font&quot;:&quot;assistant_n4&quot;,&quot;body_font&quot;:&quot;assistant_n4&quot;,&quot;padding_top_desktop&quot;:100,&quot;padding_bottom_desktop&quot;:100,&quot;side_padding_desktop&quot;:32,&quot;section_margin_top_desktop&quot;:0,&quot;section_margin_bottom_desktop&quot;:0,&quot;content_align_mobile&quot;:&quot;left&quot;,&quot;columns_mobile&quot;:2,&quot;gap_mobile&quot;:8,&quot;padding_top_mobile&quot;:60,&quot;padding_bottom_mobile&quot;:60,&quot;side_padding_mobile&quot;:20,&quot;section_margin_top_mobile&quot;:0,&quot;section_margin_bottom_mobile&quot;:0&#125;" data-r7m-block-defaults="&#123;&quot;heading&quot;:&#123;&quot;text&quot;:&quot;A closer look&quot;,&quot;enable_custom_style&quot;:false,&quot;size_desktop&quot;:40,&quot;size_mobile&quot;:28&#125;,&quot;subheading&quot;:&#123;&quot;text&quot;:&quot;&lt;p&gt;Tap a picture to open it large, then swipe to see the rest.&lt;/p&gt;&quot;,&quot;enable_custom_style&quot;:false,&quot;size_desktop&quot;:17,&quot;size_mobile&quot;:15&#125;,&quot;image&quot;:&#123;&#125;&#125;"{% endif %} style="{% render 'r7-media-root', section: section, part: 'vars' %}--mlg-cols-d: {{ cols_d }};--mlg-cols-m: {{ cols_m }};--mlg-gap-d: {{ st.gap_desktop | default: 0 }}px;--mlg-gap-m: {{ st.gap_mobile | default: 0 }}px;--mlg-ar: {{ ar }};--mlg-r: {{ st.image_radius | default: 0 }}px;">
+<div id="mlg-{{ sid }}" class="r7m mlg color-{{ color_scheme }} gradient" data-r7m="lightbox-gallery" {% render 'r7-media-root', section: section, part: 'attrs' %} data-ratio="{{ ratio }}" data-r7m-viewer-js="{{ 'product-page-ui.js' | asset_url }}" data-r7m-viewer-css="{{ 'product-page-ui.css' | asset_url }}" data-r7m-label="{{ fb_label | escape }}"{% if request.design_mode %} data-r7m-defaults="&#123;&quot;color_scheme&quot;:&quot;default&quot;,&quot;section_width&quot;:&quot;container&quot;,&quot;reset_spacing&quot;:true,&quot;content_align&quot;:&quot;left&quot;,&quot;content_gap&quot;:12,&quot;columns_desktop&quot;:4,&quot;gap_desktop&quot;:12,&quot;image_ratio&quot;:&quot;square&quot;,&quot;image_radius&quot;:8,&quot;enable_custom_style&quot;:false,&quot;enable_custom_fonts&quot;:false,&quot;heading_font&quot;:&quot;assistant_n4&quot;,&quot;body_font&quot;:&quot;assistant_n4&quot;,&quot;padding_top_desktop&quot;:100,&quot;padding_bottom_desktop&quot;:100,&quot;side_padding_desktop&quot;:32,&quot;section_margin_top_desktop&quot;:0,&quot;section_margin_bottom_desktop&quot;:0,&quot;content_align_mobile&quot;:&quot;left&quot;,&quot;columns_mobile&quot;:2,&quot;gap_mobile&quot;:8,&quot;padding_top_mobile&quot;:60,&quot;padding_bottom_mobile&quot;:60,&quot;side_padding_mobile&quot;:20,&quot;section_margin_top_mobile&quot;:0,&quot;section_margin_bottom_mobile&quot;:0&#125;" data-r7m-block-defaults="&#123;&quot;heading&quot;:&#123;&quot;text&quot;:&quot;A closer look&quot;,&quot;enable_custom_style&quot;:false,&quot;size_desktop&quot;:40,&quot;size_mobile&quot;:28&#125;,&quot;subheading&quot;:&#123;&quot;text&quot;:&quot;&lt;p&gt;Tap a picture to open it large, then swipe to see the rest.&lt;/p&gt;&quot;,&quot;enable_custom_style&quot;:false,&quot;size_desktop&quot;:17,&quot;size_mobile&quot;:15&#125;,&quot;image&quot;:&#123;&#125;&#125;"{% endif %} style="{% render 'r7-media-root', section: section, part: 'vars' %}--mlg-cols-d: {{ cols_d }};--mlg-cols-m: {{ cols_m }};--mlg-gap-d: {{ st.gap_desktop | default: 0 }}px;--mlg-gap-m: {{ st.gap_mobile | default: 0 }}px;--mlg-ar: {{ ar }};--mlg-r: {{ st.image_radius | default: 0 }}px;">
   <div class="r7m__inner">
     {%- if has_head -%}
       <div class="r7m__header">
@@ -125,10 +125,10 @@
             <figure class="mlg__figure">
               <a class="mlg__tile" role="button" tabindex="0" aria-haspopup="dialog" aria-label="{{ name | escape }}" data-r7m-tile data-empty="{% if img != blank %}false{% else %}true{% endif %}"
                 {%- if img != blank %} href="{{ img | image_url: width: 2400 }}" data-mt-src="{{ img | image_url: width: 2400 }}" data-pswp-width="{{ img.width | default: 1600 }}" data-pswp-height="{{ img.height | default: 1600 }}"
-                {%- else %} data-mt-src="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 400%22 data-n=%22{{ forloop.index }}%22%3E%3Crect width=%22400%22 height=%22400%22 fill=%22%23808080%22 fill-opacity=%22.14%22/%3E%3Ccircle cx=%22172%22 cy=%22174%22 r=%2214%22 fill=%22%23808080%22 fill-opacity=%22.5%22/%3E%3Cpath d=%22M140 242l40-46 25 28 20-18 35 36z%22 fill=%22%23808080%22 fill-opacity=%22.5%22/%3E%3C/svg%3E" data-pswp-width="400" data-pswp-height="400"
+                {%- else %} data-mt-src="{%- render 'placeholder-image', type: 'collection', index: forloop.index, scheme: color_scheme, ratio: '1/1', format: 'url' -%}" data-pswp-width="400" data-pswp-height="400"
                 {%- endif -%}>
-                <svg viewBox="0 0 400 400" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false"{% if img != blank %} hidden{% endif %}><g fill="currentColor"><circle cx="172" cy="174" r="14"/><path d="M140 242l40-46 25 28 20-18 35 36z"/></g></svg>
-                <img{% if img != blank %} src="{{ img | image_url: width: 720 }}" srcset="{{ img | image_url: width: 360 }} 360w, {{ img | image_url: width: 540 }} 540w, {{ img | image_url: width: 720 }} 720w, {{ img | image_url: width: 1080 }} 1080w" sizes="(min-width: 750px) calc(100vw / {{ cols_d }}), calc(100vw / {{ cols_m }})" width="{{ img.width | default: 1600 }}" height="{{ img.height | default: 1600 }}"{% else %} hidden{% endif %} alt="{{ alt | escape }}" loading="lazy" decoding="async">
+                {%- if img != blank -%}{%- assign mlg_ph_attrs = 'hidden' -%}{%- else -%}{%- assign mlg_ph_attrs = '' -%}{%- endif -%}{%- render 'placeholder-image', type: 'collection', index: forloop.index, attrs: mlg_ph_attrs -%}
+                <img{% if img != blank %} src="{{ img | image_url: width: 720 }}" srcset="{{ img | image_url: width: 360 }} 360w, {{ img | image_url: width: 540 }} 540w, {{ img | image_url: width: 720 }} 720w, {{ img | image_url: width: 1080 }} 1080w" sizes="(min-width: 750px) calc(100vw / {{ cols_d }}), calc(100vw / {{ cols_m }})" {% else %} hidden{% endif %} width="{{ img.width | default: 1600 }}" height="{{ img.height | default: 1600 }}" alt="{{ alt | escape }}" loading="lazy" decoding="async">
               </a>
               <figcaption class="mlg__caption" data-r7m-caption{% if caption == blank %} hidden{% endif %}>{{ caption | escape }}</figcaption>
             </figure>
@@ -141,7 +141,7 @@
 {
   "name": "Lightbox Gallery",
   "tag": "section",
-  "class": "section-lightbox-gallery",
+  "class": "section-lightbox-gallery s-tt has-overlay",
   "disabled_on": {
     "groups": [
       "header",
@@ -157,7 +157,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -617,8 +617,8 @@
   ],
   "presets": [
     {
-      "name": "Lightbox Gallery",
-      "category": "Image and video",
+      "name": "Gallery – Lightbox",
+      "category": "06 · Gallery & video",
       "blocks": [
         {
           "type": "heading"

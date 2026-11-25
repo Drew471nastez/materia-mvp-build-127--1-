@@ -196,6 +196,10 @@
     "cart_page_show_estimate_shipping_rates": false,
     "cart_page_show_delivery_day": false,
     "cart_page_enable_cart_note": false,
-    "enable_cart_note": false
+    "enable_cart_note": false,
+    "logo": "shopify://shop_images/fitness-logo.webp",
+    "instagram": "https://www.instagram.com",
+    "youtube": "https://www.youtube.com",
+    "tiktok": "https://www.tiktok.com"
   }
 }

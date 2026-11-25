@@ -1,7 +1,7 @@
-<script src="{{ 'live-r7-hero.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-r7-hero.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'r7-hero-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
@@ -47,7 +47,10 @@
     assign r7_eager = false
   endif
 
-  assign r7_ph = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22300%22 viewBox=%220 0 400 300%22%3E%3Cg fill=%22%23808080%22 fill-opacity=%220.4%22%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22/%3E%3C/g%3E%3C/svg%3E'
+  capture r7_ph
+    render 'placeholder-image', type: 'collection-1', scheme: color_scheme, ratio: '4/3', format: 'url'
+  endcapture
+  assign r7_ph = r7_ph | strip
 
   assign r7_count = 0
   for block in section.blocks
@@ -100,7 +103,7 @@
   #shopify-section-{{ sid }} .hcl__track{display:flex;gap:var(--hcl-gap,16px);margin:0;padding:0;list-style:none}
   #shopify-section-{{ sid }} .hcl__tile{position:relative;display:block;min-width:0;aspect-ratio:var(--hcl-ratio,1 / 1);overflow:hidden;border-radius:var(--hcl-radius,var(--rounded-radius,0px));background:color-mix(in srgb,var(--color-heading) 7%,var(--color-background));color:inherit;text-decoration:none;-webkit-tap-highlight-color:transparent}
   #shopify-section-{{ sid }} .hcl__img{position:absolute;inset:0;width:100%;height:100%;max-width:none;object-fit:cover;display:block;transition:transform .35s ease}
-  #shopify-section-{{ sid }} .hcl__img[data-r7h-empty]{object-fit:contain}
+  #shopify-section-{{ sid }} .hcl__img[data-r7h-empty]{object-fit:cover}
   #shopify-section-{{ sid }} a.hcl__tile:active{opacity:.85}
   #shopify-section-{{ sid }} a.hcl__tile:focus-visible{outline:2px solid var(--color-heading);outline-offset:-2px}
   @media (hover:hover){
@@ -157,11 +160,11 @@
             {%- if block.type != 'image' or block.hidden or r7_n >= 4 -%}{%- continue -%}{%- endif -%}
             {%- assign r7_n = r7_n | plus: 1 -%}
             {%- assign b = block.settings -%}
-            {%- capture r7_tile %} class="hcl__tile" data-r7h-block="{{ block.id }}" data-r7h-type="image"{% if request.design_mode %} data-r7h-block-settings="{{ b | json | escape }}"{% endif %} {{ block.shopify_attributes }}{% endcapture -%}
+            {%- capture r7_tile -%}class="hcl__tile" data-r7h-block="{{ block.id }}" data-r7h-type="image"{% if request.design_mode %} data-r7h-block-settings="{{ b | json | escape }}"{% endif %} {{ block.shopify_attributes }}{% endcapture -%}
             {%- capture r7_img -%}
-              <img class="hcl__img" data-r7h-image{% if b.image != blank %} src="{{ b.image | image_url: width: 900 }}" srcset="{{ b.image | image_url: width: 450 }} 450w, {{ b.image | image_url: width: 900 }} 900w, {{ b.image | image_url: width: 1400 }} 1400w" sizes="(min-width: 768px) 30vw, 75vw" width="{{ b.image.width | default: 900 }}" height="{{ b.image.height | default: 1125 }}"{% else %} src="{{ r7_ph | escape }}" data-r7h-empty width="400" height="300"{% endif %} alt="{{ b.alt | default: b.image.alt | escape }}"{% if r7_eager and r7_n == 1 %} loading="eager"{% else %} loading="lazy"{% endif %} decoding="async">
+              <img class="hcl__img" data-r7h-image{% if b.image != blank %} src="{{ b.image | image_url: width: 900 }}" srcset="{{ b.image | image_url: width: 450 }} 450w, {{ b.image | image_url: width: 900 }} 900w, {{ b.image | image_url: width: 1400 }} 1400w" sizes="(min-width: 768px) 30vw, 75vw"{% else %} src="{%- render 'placeholder-image', type: 'collection', index: forloop.index, scheme: color_scheme, ratio: '4/3', format: 'url' -%}" data-r7h-empty{% endif %} width="{% if b.image != blank %}{{ b.image.width | default: 900 }}{% else %}400{% endif %}" height="{% if b.image != blank %}{{ b.image.height | default: 1125 }}{% else %}300{% endif %}" alt="{{ b.alt | default: b.image.alt | escape }}"{% if r7_eager and r7_n == 1 %} loading="eager"{% else %} loading="lazy"{% endif %} decoding="async">
             {%- endcapture -%}
-            {%- if b.link != blank and b.link != '#' -%}<a href="{{ b.link | url | escape }}"{{ r7_tile }}>{{ r7_img }}</a>{%- else -%}<div{{ r7_tile }}>{{ r7_img }}</div>{%- endif -%}
+            {%- if b.link != blank and b.link != '#' -%}<a href="{{ b.link | escape }}" {{ r7_tile }}>{{ r7_img }}</a>{%- else -%}<div {{ r7_tile }}>{{ r7_img }}</div>{%- endif -%}
           {%- endfor -%}
         </div>
         <div class="hcl__nav" data-r7h-nav{% if st.show_arrows == false or r7_count < 2 %} hidden{% endif %}>
@@ -173,7 +176,8 @@
   </div>
 </div>{% schema %}
 {
-  "name": "Hero Collage",
+  "class": "s-tt",
+"name": "Hero Collage",
   "settings": [
     {
       "type": "header",
@@ -183,7 +187,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -855,8 +859,8 @@
   ],
   "presets": [
     {
-      "name": "Hero Collage",
-      "category": "Hero and banners",
+      "name": "Hero – Collage",
+      "category": "01 · Hero & slideshows",
       "blocks": [
         {
           "type": "eyebrow"

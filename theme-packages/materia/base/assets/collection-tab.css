@@ -36,7 +36,7 @@
 .ti-tabs.ct-armed:is(.sec__collection-tab[data-ct-reveal="mask_reveal"],#__ct) { opacity: 1; clip-path: inset(0 0 35% 0); transform: translateY(10px); transition: clip-path .8s ease, transform .8s ease; }
 .ti-tabs.ct-armed.is-revealed:is(.sec__collection-tab[data-ct-reveal="mask_reveal"],#__ct) { clip-path: inset(0 0 0 0); transform: none; }
 @media (prefers-reduced-motion: reduce) {
-  .ti-tabs:is(.sec__collection-tab[data-ct-reveal],#__ct) { transition: none !important; transform: none !important; opacity: 1 !important; filter: none !important; clip-path: none !important; }
+  .ti-tabs:is(.sec__collection-tab[data-ct-reveal],#__ct) { transition: none !important; transform: none !important; opacity: 1 !important; }
 }
 
 /* ===== Header: Theme settings > Typography by default ===== */
@@ -191,7 +191,7 @@
   font-weight: var(--ct-tab-fw);
 }
 :is(.sec__collection-tab:not([data-ct-custom]),#__ct) .ti-tabs__btn {
-  font-family: var(--type-button-font, inherit);
+  font-family: var(--type-button-font, var(--btn-font, inherit));
   font-size: var(--type-button-size, 15px);
   font-weight: var(--type-button-weight, 500);
   letter-spacing: var(--type-button-letter-spacing, normal);

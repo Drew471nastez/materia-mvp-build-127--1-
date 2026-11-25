@@ -7,7 +7,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta http-equiv="Permissions-Policy" content="clipboard-write=(self)">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <meta name="theme-color" content="{{ settings.color_background }}">
+    <meta name="theme-color" content="{{ settings.color_schemes.first.settings.background }}">
     <link rel="canonical" href="{{ canonical_url }}">
 
     {%- if settings.favicon != blank -%}
@@ -31,10 +31,10 @@
   <body class="gradient gift-card">
     <header>
       <h2>{{ shop.name }}</h2>
-      <p class="text">Your gift card</p>
+      <p class="text">{{ 'gift_cards.issued.subtext' | t }}</p>
       <div class="gift-card__price">
         <h1>
-          {% if settings.currency_code_enabled %}
+          {% if settings.show_currency_code %}
             {{ gift_card.balance | money_with_currency }}
           {% else %}
             {{ gift_card.balance | money }}
@@ -45,7 +45,7 @@
         {%- endif -%}
       </div>
       {% if gift_card.expires_on %}
-        {%- assign gift_card_expiration_date = gift_card.expires_on | date: '%B %e, %Y' -%}
+        {%- assign gift_card_expiration_date = gift_card.expires_on | date: format: 'date' -%}
         <p class="gift-card__text">
           {{ 'gift_cards.issued.expiration_date' | t: expires_on: gift_card_expiration_date }}
         </p>
@@ -83,10 +83,9 @@
           </a>
         {%- endif -%}
         <p class="gift-card__copy-success form__message" role="status"></p>
-        <a class="gift-card__copy-button button--secondary button">{{ 'gift_cards.issued.copy_code' | t }}</a>
+        <button type="button" class="gift-card__copy-button button--secondary button">{{ 'gift_cards.issued.copy_code' | t }}</button>
         <template class="">
           {{ 'gift_cards.issued.copy_code_success' | t }}
-          {{ gift_card.pass_url }}
         </template>
         <a
           href="{{ shop.url }}"
@@ -109,6 +108,7 @@
 <script>
   var string = { qrImageAlt: {{ 'gift_cards.issued.qr_image_alt' | t | json }} };
   document.addEventListener('DOMContentLoaded', function() {
+   if (typeof QRCode !== 'function') return;
    new QRCode( document.querySelector('.gift-card__qr-code'), {
     text: document.querySelector('.gift-card__qr-code').dataset.identifier,
     width: 120,
@@ -122,12 +122,25 @@
   document
   .querySelector('.gift-card__copy-button')
   .addEventListener('click', () => {
-    navigator.clipboard.writeText(document.getElementById('gift-card-code').innerHTML).then(function () {
+    // The code as printed, without the template's line breaks around it.
+    var codeElement = document.getElementById('gift-card-code');
+    var code = codeElement.textContent.trim();
+    var selectCode = function () {
+      // No clipboard (an insecure page, or permission refused): the code is
+      // selected, so the shopper can copy it themselves.
+      var range = document.createRange();
+      range.selectNodeContents(codeElement);
+      var selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+    };
+    if (!navigator.clipboard || !navigator.clipboard.writeText) return selectCode();
+    navigator.clipboard.writeText(code).then(function () {
       if (!isMessageDisplayed) {
         document.querySelector('.gift-card__copy-success').appendChild(clonedTemplate);
         document.querySelector('.gift-card__copy-success').classList.add("success")
         isMessageDisplayed = true
       }
-    });
+    }, selectCode);
   });
 </script>

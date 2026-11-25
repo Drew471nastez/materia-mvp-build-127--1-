@@ -1,11 +1,17 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. Eyebrow, heading, subheading and button blocks of the Logos
   and trust sections. Colours follow the colour scheme until the block's
   custom styling is on; the button follows Theme settings > Buttons until its
   theme shape is off. live-logos.js derives the same values in the builder.
-  {% render 'logos-text', block: block, fallback_href: '' %}
   own_size: true marks a heading whose line height the section sets (data-own-size).
-{%- endcomment -%}
+
+  @param {block} block - The block being rendered
+  @param {string} [fallback_href] - Fallback href; no current caller passes it
+  @param {boolean} [own_size] - Own size
+
+  @example
+  {% render 'logos-text', block: block, fallback_href: '' %}
+{%- enddoc -%}
 {%- assign bs = block.settings -%}
 {%- assign own = bs.enable_custom_style -%}
 {%- case block.type -%}
@@ -24,7 +30,7 @@
     {%- capture btn_attrs -%}class="lg__btn" data-theme-button="{% if bs.button_style == 'secondary' %}secondary{% else %}primary{% endif %}" data-sl-button data-full="{% if bs.full_width %}true{% else %}false{% endif %}"{% if bs.use_theme_button == false %} data-own-shape data-own-weight{% endif %} {% render 'logos-block', block: block %}{% if bs.label == blank %} hidden{% endif %} style="{{ btn_style }}"{%- endcapture -%}
     {%- assign href = bs.link | default: fallback_href -%}
     {%- if href != blank -%}
-      <a href="{{ href | url }}" {{ btn_attrs }}>{{ bs.label | escape }}</a>
+      <a href="{{ href }}" {{ btn_attrs }}>{{ bs.label | escape }}</a>
     {%- else -%}
       <button type="button" {{ btn_attrs }}>{{ bs.label | escape }}</button>
     {%- endif -%}

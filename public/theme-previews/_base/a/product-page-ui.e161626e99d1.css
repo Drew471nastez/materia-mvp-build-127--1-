@@ -1,0 +1,782 @@
+/* Materia Themes. Product page UI shared by Main product and Featured product:
+   accordions, size guide sheet, variant dropdown, media lightbox and gallery
+   video. Colours, type and fields come from the theme settings. */
+
+html.mt-lock { overflow: hidden; scrollbar-gutter: stable; }
+
+/* ---------- Accordions (details.mt-acc) ---------- */
+.mt-acc { border-bottom: 1px solid var(--mt-acc-border, var(--color-border)); interpolate-size: allow-keywords; }
+.mt-acc > summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 14px 0;
+  cursor: pointer;
+  color: var(--mt-acc-title, var(--color-heading));
+  font-family: var(--heading-font, inherit);
+  font-weight: var(--subheading-weight, 500);
+  font-size: calc(var(--body-font-size, 15px) + 1px);
+  line-height: 1.35;
+  letter-spacing: var(--heading-letter-spacing, normal);
+  -webkit-tap-highlight-color: transparent;
+}
+.mt-acc > summary::-webkit-details-marker { display: none; }
+.mt-acc > summary::marker { content: ""; }
+.mt-acc > summary:focus-visible { outline: 2px solid var(--color-heading); outline-offset: 2px; }
+.mt-acc__title { flex: 1 1 auto; min-width: 0; }
+.mt-acc > summary .mt-acc__title {
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  text-transform: none;
+  line-height: inherit;
+}
+.mt-acc__title p { margin: 0; display: inline; }
+.mt-acc__icon { flex: 0 0 auto; display: inline-flex; color: var(--mt-acc-icon, var(--color-heading)); }
+.mt-acc__icon svg { width: var(--mt-acc-icon-size, 20px); height: var(--mt-acc-icon-size, 20px); }
+.mt-acc__chev {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin-inline-start: auto;
+  color: var(--mt-acc-title, var(--color-heading));
+  transition: transform .32s cubic-bezier(.4, 0, .2, 1);
+}
+.mt-acc[open]:not(.is-closing) > summary .mt-acc__chev { transform: rotate(180deg); }
+.mt-acc__body {
+  color: var(--mt-acc-text, var(--color-text));
+  font-family: var(--body-font, inherit);
+  font-size: var(--body-font-size, 15px);
+  font-weight: var(--body-weight, 400);
+  line-height: var(--body-line-height, 1.6);
+}
+.mt-acc__inner { padding: 0 0 16px; }
+.mt-acc__inner > :first-child { margin-top: 0; }
+.mt-acc__inner > :last-child { margin-bottom: 0; }
+.mt-acc__inner p { margin: 0 0 .75em; font-size: inherit; line-height: inherit; }
+.mt-acc__inner :is(h1, h2, h3, h4, h5, h6) { font-size: calc(var(--body-font-size, 15px) + 1px); margin: 0 0 .5em; }
+.mt-acc__inner :is(ul, ol) { margin: 0 0 .75em; padding-inline-start: 1.2em; }
+@supports selector(::details-content) {
+  .mt-acc::details-content {
+    block-size: 0;
+    overflow: hidden;
+    transition: block-size .32s cubic-bezier(.4, 0, .2, 1), content-visibility .32s allow-discrete;
+  }
+  .mt-acc[open]::details-content { block-size: auto; }
+}
+/* A row given back its state after the builder redraws: no animation. */
+.mt-acc.mt-acc--instant::details-content,
+.mt-acc.mt-acc--instant .mt-acc__chev { transition: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .mt-acc::details-content, .mt-acc__chev { transition: none !important; }
+}
+
+/* ---------- Sheet dialog (size guide) ---------- */
+dialog.mt-sheet {
+  position: fixed;
+  inset: 0;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  overflow: hidden;
+}
+dialog.mt-sheet[open] { display: flex; align-items: flex-end; justify-content: center; }
+dialog.mt-sheet::backdrop { background: rgba(0, 0, 0, .45); opacity: 0; transition: opacity .3s ease; }
+dialog.mt-sheet.is-open::backdrop { opacity: 1; }
+.mt-sheet__panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-height: min(88vh, calc(var(--sl-vh, 1vh) * 88));
+  background: var(--color-background, #fff);
+  color: var(--color-text);
+  border-radius: 16px 16px 0 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  box-shadow: 0 -8px 40px rgba(0, 0, 0, .14);
+  transform: translateY(100%);
+  transition: transform .34s cubic-bezier(.32, .72, 0, 1);
+  will-change: transform;
+}
+dialog.mt-sheet.is-open .mt-sheet__panel { transform: none; }
+/* Closing is quicker than opening and speeds up as it leaves. */
+dialog.mt-sheet.is-closing .mt-sheet__panel { transition: transform .26s cubic-bezier(.4, 0, 1, 1), opacity .2s ease; }
+dialog.mt-sheet.is-closing::backdrop { transition-duration: .24s; }
+@media (max-width: 767px) {
+  .mt-sheet__head { touch-action: none; padding-top: 14px; }
+  .mt-sheet__head::before { top: 7px; }
+}
+.mt-sheet__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px 10px 20px;
+  border-bottom: 1px solid var(--color-border);
+}
+.mt-sheet__head::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  width: 36px;
+  height: 4px;
+  margin-left: -18px;
+  border-radius: 4px;
+  background: var(--color-border);
+}
+.mt-sheet__title {
+  flex: 1 1 auto;
+  margin: 8px 0 0;
+  color: var(--color-heading);
+  font-family: var(--heading-font, inherit);
+  font-weight: var(--heading-weight, 600);
+  font-size: var(--h6-size, 16px);
+  line-height: 1.3;
+}
+.mt-sheet__close {
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-top: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-heading);
+  cursor: pointer;
+}
+.mt-sheet__close:hover { background: color-mix(in srgb, var(--color-heading) 8%, transparent); }
+.mt-sheet__close:focus-visible { outline: 2px solid var(--color-heading); outline-offset: 2px; }
+.mt-sheet__close svg { width: 20px; height: 20px; }
+.mt-sheet__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px 20px 24px;
+  font-family: var(--body-font, inherit);
+  font-size: var(--body-font-size, 15px);
+  line-height: var(--body-line-height, 1.6);
+}
+.mt-sheet__body img { max-width: 100%; height: auto; }
+.mt-sheet__body table { width: 100%; border-collapse: collapse; font-size: inherit; }
+.mt-sheet__body th, .mt-sheet__body td { padding: 10px 8px; border-bottom: 1px solid var(--color-border); text-align: start; }
+.mt-sheet__body th { color: var(--color-heading); font-weight: var(--subheading-weight, 600); }
+.mt-sheet__table-wrap { overflow-x: auto; }
+@media (min-width: 768px) {
+  dialog.mt-sheet[open] { align-items: center; padding: 24px; }
+  .mt-sheet__panel {
+    max-width: 720px;
+    max-height: min(84vh, calc(var(--sl-vh, 1vh) * 84));
+    border-radius: 12px;
+    padding-bottom: 0;
+    opacity: 0;
+    transform: translateY(12px) scale(.98);
+    transition: transform .28s cubic-bezier(.2, .8, .2, 1), opacity .22s ease;
+  }
+  dialog.mt-sheet.is-open .mt-sheet__panel { opacity: 1; transform: none; }
+  .mt-sheet__head::before { display: none; }
+  .mt-sheet__title { margin-top: 0; }
+  .mt-sheet__close { margin-top: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mt-sheet__panel, dialog.mt-sheet::backdrop { transition: none !important; }
+}
+
+/* Size guide link */
+.mt-size-guide {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0;
+  margin: -12px 0;
+  border: 0;
+  background: none;
+  color: var(--color-heading);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.mt-size-guide:hover { text-decoration-thickness: 2px; }
+.mt-size-guide:focus-visible { outline: 2px solid var(--color-heading); outline-offset: 2px; }
+.mt-size-guide svg { width: 18px; height: 18px; flex: 0 0 auto; }
+.mt-size-guide.btn { margin: 0; text-decoration: none; justify-content: center; }
+/* The Size guide block on its own line (not beside an option name). */
+.mt-size-guide-root--block { margin: 4px 0 12px; }
+.mt-size-guide-root--block > .mt-size-guide:not(.btn) { margin: 0; }
+.mt-size-guide-root[hidden] { display: none !important; }
+
+/* ---------- Variant picker as a dropdown ---------- */
+.mt-select-wrap { position: relative; width: 100%; margin-top: 10px; }
+.mt-select {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: max(44px, var(--input-height, 48px));
+  margin: 0;
+  padding: 0 44px 0 16px;
+  border: var(--inputs-border-width, 1px) solid var(--mt-select-border, var(--color-border));
+  border-radius: var(--mt-select-radius, var(--input-border-radius, 4px));
+  background: var(--mt-select-bg, var(--input-bg, var(--color-background)));
+  color: var(--mt-select-text, var(--input-color, var(--color-text)));
+  font-family: var(--body-font, inherit);
+  font-size: max(16px, var(--input-font-size, var(--body-font-size, 15px)));
+  font-weight: var(--body-weight, 400);
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: border-color .2s ease, color .2s ease, background-color .2s ease, box-shadow .2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.mt-select:hover { border-color: var(--mt-select-hover, var(--color-heading)); color: var(--mt-select-text-hover, var(--mt-select-text, var(--input-color, var(--color-text)))); }
+.mt-select:focus { outline: none; }
+.mt-select:focus-visible {
+  border-color: var(--mt-select-border-active, var(--color-heading));
+  box-shadow: 0 0 0 2px var(--color-background), 0 0 0 4px var(--mt-select-border-active, var(--color-heading));
+}
+.mt-select option { color: var(--color-text); background: var(--color-background); }
+.mt-select option:checked { color: var(--mt-select-opt-active-text, var(--color-heading)); background: var(--mt-select-opt-active-bg, var(--color-background)); }
+.mt-select-wrap__chev {
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  width: 12px;
+  height: 12px;
+  margin-top: -6px;
+  pointer-events: none;
+  color: var(--mt-select-text, var(--input-color, var(--color-heading)));
+}
+/* One ink source for the native field and its separate SVG. A button's white
+   icon colour must never leak into a light variant selector. */
+.mt-select-wrap { color: var(--mt-select-text, var(--input-color, var(--color-text))); }
+.mt-select-wrap > .mt-select-wrap__chev,
+.mt-select-wrap > .mt-select-wrap__chev path {
+  color: inherit !important;
+  stroke: currentColor !important;
+  fill: none !important;
+}
+sticky-add-cart .mt-sticky-select { --mt-select-text: var(--input-color, var(--color-text, var(--color-heading))); }
+.sticky-cart-rating { display:flex; justify-content:center; align-items:center; margin:0 0 6px; font-size:12px; line-height:1.3; color:var(--color-text); }
+@media(min-width:768px) { .sticky-cart-rating { display:none; } }
+.product-detail__variant-picker:not([data-picker-custom]) .product-form__input input + .product__item-option:not(.product__color-swatch) {
+  min-height:44px; box-sizing:border-box; margin:0;
+  padding:8px 14px; font-family:var(--body-font,inherit); font-weight:var(--body-weight,400);
+  color:var(--field-text,var(--color-text))!important; background:var(--input-bg,var(--color-background))!important;
+  border:var(--inputs-border-width,1px) solid var(--input-border-color,var(--color-border)); border-radius:var(--input-border-radius,4px);
+  transition:color var(--btn-anim-duration,180ms) ease,background-color var(--btn-anim-duration,180ms) ease,border-color var(--btn-anim-duration,180ms) ease;
+}
+.product-detail__variant-picker:not([data-picker-custom]) .product-form__input input:checked + .product__item-option:not(.product__color-swatch) {
+  color:var(--color-background)!important; background:var(--color-heading)!important; border-color:var(--color-heading)!important;
+}
+.product-detail__variant-picker .product-form__input input:focus-visible + label { outline:2px solid var(--color-heading); outline-offset:3px; }
+@media (min-width: 1024px) {
+  .mt-select { font-size: var(--input-font-size, var(--body-font-size, 15px)); }
+}
+
+/* ---------- Lightbox ---------- */
+/* Sizes and positions carry !important and the dialog's own selector so no
+   page, builder or reset stylesheet can shrink the viewer or its pictures. */
+html body dialog.mt-lb {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  width: 100dvw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  transform: none !important;
+  zoom: 1;
+  background: var(--mt-lb-bg, #fff);
+  color: var(--mt-lb-fg, #111);
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity .26s ease;
+}
+html body dialog.mt-lb:not([open]) { display: none !important; }
+html body dialog.mt-lb[open] { display: block !important; }
+dialog.mt-lb.is-open { opacity: 1; }
+dialog.mt-lb::backdrop { background: transparent; }
+.mt-lb__track {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  outline: none;
+  -webkit-overflow-scrolling: touch;
+}
+.mt-lb__track::-webkit-scrollbar { display: none; }
+.mt-lb__slide {
+  flex: 0 0 100%;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+}
+dialog.mt-lb .mt-lb__slide :is(video,iframe) { display:block; width:100%; height:100%; object-fit:contain; border:0; }
+.media-gallery__local-video,.media-gallery__external-video { position:relative; }
+.mt-media-expand { position:absolute; inset-block-start:12px; inset-inline-end:12px; width:44px; height:44px; padding:10px; border:1px solid var(--color-border); border-radius:var(--btn-radius,8px); color:var(--color-heading); background:var(--color-background); z-index:3; cursor:pointer; }
+.mt-media-expand:focus-visible { outline:2px solid currentColor; outline-offset:3px; }
+dialog.mt-lb .mt-lb__slide img {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  object-fit: contain !important;
+  border-radius: 0;
+  user-select: none;
+  -webkit-user-drag: none;
+  transform: scale(.97);
+  transition: transform .3s cubic-bezier(.2, .8, .2, 1);
+}
+dialog.mt-lb.is-open .mt-lb__slide img { transform: none; }
+dialog.mt-lb .mt-lb__slide { padding: 0 !important; min-width: 0; overflow: hidden; }
+dialog.mt-lb .mt-lb__btn {
+  position: absolute;
+  z-index: 2;
+  display: inline-grid !important;
+  visibility: visible;
+  min-width: 44px;
+  min-height: 44px;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--mt-lb-fg, #111) 14%, transparent);
+  border-radius: 50%;
+  background: var(--mt-lb-bg, #fff);
+  color: var(--mt-lb-fg, #111);
+  cursor: pointer;
+  transition: opacity .2s ease, transform .2s ease;
+}
+.mt-lb__btn:hover { transform: scale(1.05); }
+.mt-lb__btn:focus-visible { outline: 2px solid var(--mt-lb-fg, #111); outline-offset: 2px; }
+.mt-lb__close { top: max(12px, env(safe-area-inset-top, 0px)); right: 12px; }
+.mt-lb__prev, .mt-lb__next { top: 50%; margin-top: -22px; }
+.mt-lb__prev { left: 12px; }
+.mt-lb__next { right: 12px; }
+dialog.mt-lb.is-first .mt-lb__prev, dialog.mt-lb.is-last .mt-lb__next { opacity: .3; pointer-events: none; }
+dialog.mt-lb.is-single .mt-lb__prev, dialog.mt-lb.is-single .mt-lb__next, dialog.mt-lb.is-single .mt-lb__count { display: none !important; }
+.mt-lb__count {
+  position: absolute;
+  left: 50%;
+  bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  z-index: 2;
+  margin: 0;
+  padding: 4px 12px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: var(--mt-lb-bg, #fff);
+  color: var(--mt-lb-fg, #111);
+  font-family: var(--body-font, inherit);
+  font-size: var(--body-font-size, 14px);
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 767px) {
+  .mt-lb__prev, .mt-lb__next { top: auto; bottom: max(12px, env(safe-area-inset-bottom, 0px)); margin-top: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  dialog.mt-lb, .mt-lb__slide img, .mt-lb__btn { transition: none !important; }
+}
+[data-mt-lightbox] [data-mt-src] { cursor: zoom-in; }
+
+/* ---------- Gallery video ---------- */
+[data-mt-video] .media-gallery__external-video iframe,
+[data-mt-video] .media-gallery__local-video video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+[data-mt-video] .media-gallery__local-video video { object-fit: cover; background: var(--color-background); }
+[data-mt-video] .media-gallery__local-video > div { position: absolute; inset: 0; }
+
+/* ---------- Sticky media and info columns ----------
+   They sit just under whatever sticky announcement or header is showing:
+   --sticky-top on <html> is its bottom edge, updated as the header hides
+   and returns, so the columns glide with it. */
+@media (min-width: 768px) {
+  html body .product-detail__media > .sticky.top-30 media-gallery.sticky.top-30 { position:static!important; top:auto!important; }
+  html body media-gallery.sticky.top-30,
+  html body .product-detail__information .sticky.top-30,
+  html body .product-detail__media > .sticky.top-30 {
+    /* Follow the actual visible chrome, not the hidden header's reserved
+       height. Match its easing so the gallery does not snap or leave a gap. */
+    top: calc(var(--product-sticky-top, var(--sticky-top, 0px)) + 20px);
+    transition: top 420ms cubic-bezier(.22, .61, .36, 1);
+  }
+  /* Taller than the screen: scrolls with the page until its end shows,
+     then stays (product-page-ui.js sets --mt-sticky-tall). */
+  html body media-gallery.sticky.top-30.mt-sticky-tall,
+  html body .product-detail__information .sticky.top-30.mt-sticky-tall,
+  html body .product-detail__media > .sticky.top-30.mt-sticky-tall {
+    top: var(--mt-sticky-tall);
+  }
+}
+
+/* A settings change must not drag the viewport to keep a photo anchored,
+   and must not hide a picture that is already on screen while the section
+   is drawn again. */
+media-gallery,
+.thumbnail-slide,
+.media-main-swiper,
+.product-detail__media,
+.product-detail__information {
+  overflow-anchor: none;
+}
+html.mt-editor media-gallery :is(img, motion-element).bls-loading-image,
+html.mt-editor media-gallery .bls-loading-image {
+  opacity: 1 !important;
+}
+
+/* ---------- A picture still on its way ----------
+   product-page-ui.js marks its slide until it has loaded (slow networks, a
+   new product picked in the builder): a soft moving tint, never a blank
+   white box. */
+media-gallery .mt-media-loading {
+  background-color: rgba(127, 127, 127, 0.1);
+  background-color: color-mix(in srgb, currentColor 6%, transparent);
+  /* A soft breathing tint while the picture loads. Opacity runs on the compositor, so a gallery
+     waiting off screen (its slider starts only near the screen) costs no style or paint work per
+     frame; the earlier moving background re-styled and repainted every frame, forever. */
+  animation: mt-media-wait 1.6s ease-in-out infinite alternate;
+}
+@keyframes mt-media-wait {
+  from { opacity: 1; }
+  to { opacity: 0.55; }
+}
+@media (prefers-reduced-motion: reduce) {
+  media-gallery .mt-media-loading { animation: none; background-image: none; }
+}
+
+/* ---------- No pictures ----------
+   snippets/product-media-placeholder: the media column of a product with
+   no pictures (or no product picked) keeps the gallery's shape. */
+.mt-media-placeholder {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background: rgba(127, 127, 127, 0.1);
+  background: color-mix(in srgb, currentColor 5%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mt-media-placeholder__svg {
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
+  opacity: 0.3;
+}
+.mt-media-placeholder__note {
+  position: absolute;
+  inset: auto 12px 12px;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--color-background, #fff);
+  color: var(--color-text, #222);
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: center;
+}
+/* A phone stacks the columns: nothing to stay beside. */
+@media (max-width: 767.98px) {
+  html body media-gallery.sticky.top-30 { position: static; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html body media-gallery.sticky.top-30,
+  html body .product-detail__information .sticky.top-30,
+  html body .product-detail__media > .sticky.top-30 { transition: none; }
+}
+
+/* ---------- Thumbnail strip before it is built ----------
+   The strip is built a moment after the gallery (theme.js connectThumbs).
+   Until then it is drawn at the size Swiper will give it: 5 thumbnails a row
+   on a phone, 6 from 768px (a vertical strip on the left keeps its own
+   column), 10px apart. It used to have no height on a computer and grew
+   90px when built, so the page moved and the strip was laid out twice. */
+slide-with-thumbs .thumbnail-slide.swiper:not(.swiper-initialized) > .swiper-wrapper {
+  display: flex;
+  overflow: hidden;
+}
+slide-with-thumbs .thumbnail-slide.swiper:not(.swiper-initialized) > .swiper-wrapper > .swiper-slide {
+  flex: 0 0 auto;
+  width: calc((100% - 4 * 10px) / 5);
+  margin-right: 10px;
+}
+@media (min-width: 768px) {
+  slide-with-thumbs:not(.thumbnail_left) .thumbnail-slide.swiper:not(.swiper-initialized) > .swiper-wrapper > .swiper-slide {
+    width: calc((100% - 5 * 10px) / 6);
+  }
+}
+
+/* ---------- Square product images ----------
+   snippets/product-media-layout draws every slide and thumbnail 1:1 when
+   the section asks (media-gallery[data-square]); the picture, video or
+   player fills the square. */
+media-gallery[data-square] [style*="--aspect-ratio"] > :is(img, picture, picture img, video, iframe, .mt-video-frame),
+media-gallery[data-square] [style*="--aspect-ratio"] picture img,
+media-gallery[data-square] [style*="--aspect-ratio"] motion-element img,
+media-gallery[data-square] .mt-video-frame > video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  object-fit: cover;
+  object-position: center;
+}
+
+/* ---------- Buy buttons ----------
+   Icons are sized with the label and drawn in its colour. */
+.product-detail__buy-buttons [data-theme-button] .btn-icon {
+  flex: 0 0 auto;
+  width: 1.15em;
+  height: 1.15em;
+  margin: 0;
+}
+.product-detail__buy-buttons .btn-label { min-width: 0; }
+.product-detail__buy-buttons .shopify-payment-button__button {
+  display: inline-flex;
+  width: 100%;
+}
+/* Full width off: the buttons take their own width, side by side. */
+.product-detail__buy-buttons[data-bb-width='auto'] .product-form__buttons { align-items: center; }
+.product-detail__buy-buttons[data-bb-width='auto'] .product__submit-form-cart { flex: 0 1 auto; }
+.product-detail__buy-buttons[data-bb-width='auto'] .button_buy-now { flex: 0 0 auto; }
+.product-detail__buy-buttons[data-bb-width='auto'] :is(.btn-checkout-dynamic, .shopify-payment-button) { width: auto; flex: 0 0 auto; }
+.product-detail__buy-buttons[data-bb-width='auto'] :is(button[name='add'], .shopify-payment-button__button) { width: auto !important; }
+/* Quantity on the right of Add to cart. */
+.product-detail__buy-buttons[data-bb-quantity='right'] .product__submit-form-cart > .product-form__quantity { order: 2; }
+.product-detail__buy-buttons[data-bb-quantity='right'] .product__submit-form-cart > .pdp-wishlist { order: 3; }
+
+/* ---------- Add to wishlist ---------- */
+.pdp-wishlist {
+  --pdp-wl-ink: var(--color-heading, currentColor);
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-sizing: border-box;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: var(--btn-border-width, 1px) solid color-mix(in srgb, var(--pdp-wl-ink) 22%, transparent);
+  border-radius: var(--btn-radius, 8px);
+  background: transparent;
+  color: var(--pdp-wl-ink);
+  font: inherit;
+  font-family: var(--btn-font, inherit);
+  font-size: var(--btn-font-size, 14px);
+  line-height: 1.4;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color .25s ease, background-color .25s ease, color .25s ease;
+}
+.pdp-wishlist--icon { flex: 0 0 auto; align-self: stretch; aspect-ratio: 1; padding: 0; }
+/* The heart stays on the Add to cart row, as tall as the button. */
+/* --wl-icon is set by snippets/buy-buttons.liquid when the heart is in the row (was :has(> .pdp-wishlist--icon); same specificity, no page-wide restyle on DOM changes). */
+.product__submit-form-cart.product__submit-form-cart--wl-icon { flex-wrap: nowrap; align-items: stretch; }
+.product__submit-form-cart.product__submit-form-cart--wl-icon > .button_buy-now { flex: 1 1 auto; min-width: 0; }
+.product__submit-form-cart.product__submit-form-cart--wl-icon > .product-form__quantity { display: flex; align-items: center; }
+.product__submit-form-cart.product__submit-form-cart--wl-icon > .button_buy-now > button { white-space: nowrap; }
+.product__submit-form-cart.product__submit-form-cart--wl-icon > .button_buy-now .btn-label { overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 480px) {
+  .product__submit-form-cart.product__submit-form-cart--wl-icon > .button_buy-now > button { --btn-padding-x: 12px !important; --mb-padding-x: 12px; }
+}
+.pdp-wishlist--text { width: 100%; flex: 1 1 100%; min-height: 48px; }
+.pdp-wishlist:hover { border-color: var(--pdp-wl-ink); }
+.pdp-wishlist:focus-visible { outline: 2px solid var(--pdp-wl-ink); outline-offset: 3px; }
+.pdp-wishlist__icon {
+  flex: 0 0 auto;
+  width: 1.35em;
+  height: 1.35em;
+  fill: transparent;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+  transition: fill .25s ease, transform .3s cubic-bezier(.2, .8, .2, 1);
+}
+.pdp-wishlist.active .pdp-wishlist__icon,
+.pdp-wishlist[aria-pressed='true'] .pdp-wishlist__icon { fill: currentColor; }
+.pdp-wishlist.is-toggled .pdp-wishlist__icon { animation: pdp-wishlist-pop .42s cubic-bezier(.2, .8, .2, 1); }
+.pdp-wishlist__label { transition: opacity .2s ease; }
+@keyframes pdp-wishlist-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.28); }
+  100% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pdp-wishlist, .pdp-wishlist__icon, .pdp-wishlist__label { transition: none; }
+  .pdp-wishlist.is-toggled .pdp-wishlist__icon { animation: none; }
+}
+
+/* Builder-only note for a block that would repeat an earlier one. */
+.pib-note { margin: 0 0 10px; padding: 6px 10px; border: 1px dashed color-mix(in srgb, currentColor 22%, transparent); border-radius: 4px; font-size: 12px; font-weight: 400; line-height: 1.4; letter-spacing: 0; text-transform: none; color: color-mix(in srgb, var(--color-text, currentColor) 62%, transparent); background: none; }
+html:not(.shopify-design-mode) .pib-note:not([data-editor-preview]) { display: none; }
+/* ---------- Size charts ----------
+   Storelib's chart for the product and rows typed in a block share this
+   look. Each table scrolls sideways inside its own box (never the page) and
+   holds the size column in place. A block sets the --sz-* colours. */
+.mt-size-chart {
+  --sz-bg: var(--color-background, #fff);
+  --sz-border: var(--color-border, rgba(0, 0, 0, .12));
+  --sz-head-bg: color-mix(in srgb, var(--color-heading, #111) 6%, var(--sz-bg));
+  --sz-head-text: var(--color-heading, inherit);
+  --sz-text: var(--color-text, inherit);
+  --sz-stripe: color-mix(in srgb, var(--color-text, #111) 4%, var(--sz-bg));
+  --sz-current: color-mix(in srgb, var(--color-primary, var(--color-heading, #111)) 10%, var(--sz-bg));
+  --sz-radius: 8px;
+  --sz-fs: inherit;
+  min-width: 0;
+  max-width: 100%;
+  color: var(--sz-text);
+}
+.mt-size-chart__name { margin: 0 0 10px; color: var(--sz-head-text); }
+.mt-size-chart__scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--sz-border);
+  border-radius: var(--sz-radius);
+  background: var(--sz-bg);
+}
+.mt-size-chart__scroll + .mt-size-chart__scroll { margin-top: 12px; }
+.mt-size-chart__tables { display:grid; grid-template-columns:minmax(0,1fr); min-width:0; align-items:start; }
+.mt-size-chart__tables > .mt-size-chart__scroll { grid-area:1/1; margin:0; min-width:0; max-width:100%; }
+.mt-size-chart__tables > .mt-size-chart__scroll[hidden] { display:block!important; visibility:hidden; pointer-events:none; }
+.mt-size-chart__tables .mt-size-chart__table[hidden] { display:table!important; visibility:inherit; }
+.mt-size-chart__tables .mt-size-chart__table { min-width:var(--chart-min-width,280px); table-layout:fixed; }
+.mt-size-chart__tables td,.mt-size-chart__tables tbody th { white-space:nowrap; }
+.mt-size-chart__scroll:focus-visible { outline: 2px solid var(--color-heading); outline-offset: 2px; }
+.mt-size-chart .mt-size-chart__table {
+  width: 100%;
+  margin: 0;
+  border: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--sz-fs);
+  color: var(--sz-text);
+}
+.mt-size-chart .mt-size-chart__table :is(th, td) {
+  padding: 10px 14px;
+  border: 0;
+  border-bottom: 1px solid var(--sz-border);
+  background: var(--sz-bg);
+  color: inherit;
+  text-align: center;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  transition: background-color .2s ease;
+}
+.mt-size-chart .mt-size-chart__table tbody tr:last-child > * { border-bottom: 0; }
+.mt-size-chart .mt-size-chart__table thead th {
+  background: var(--sz-head-bg);
+  color: var(--sz-head-text);
+  font-weight: var(--subheading-weight, 600);
+}
+.mt-size-chart .mt-size-chart__table tbody th { color: inherit; font-weight: 600; }
+.mt-size-chart .mt-size-chart__table tbody tr:nth-child(even) > * { background: var(--sz-stripe); }
+.mt-size-chart .mt-size-chart__table tr > :first-child {
+  position: sticky;
+  inset-inline-start: 0;
+  z-index: 1;
+  text-align: start;
+  border-inline-end: 1px solid var(--sz-border);
+}
+.mt-size-chart .mt-size-chart__table tr[aria-current='true'] > * { background: var(--sz-current); }
+.mt-size-chart__notes { margin: 10px 0 0; font-size: .92em; }
+.mt-size-chart__image { display: block; max-width: 100%; height: auto; margin-top: 14px; border-radius: var(--sz-radius); }
+.mt-size-chart__units { display:inline-flex; box-sizing:border-box; align-items:center; gap:2px; margin:0 0 14px; padding:3px; border:1px solid var(--color-border); border-radius:999px; background:color-mix(in srgb,var(--color-text) 4%,var(--color-background)); box-shadow:inset 0 1px 2px color-mix(in srgb,var(--color-text) 5%,transparent); }
+.mt-size-chart__units label { box-sizing:border-box; position:relative; display:inline-flex; justify-content:center; align-items:center; min-width:56px; min-height:44px; margin:0; padding:0 12px; border:0; border-radius:999px; color:var(--color-text); font:inherit; line-height:1; cursor:pointer; transition: background-color .24s ease, color .24s ease, box-shadow .24s ease; }
+.mt-size-chart__units input { position:absolute; opacity:0; inset:0; margin:0; cursor:pointer; }
+.mt-size-chart__units input[type="radio"] { width:100%; height:100%; max-width:none; padding:0; border:0; opacity:0 !important; }
+:is(.mt-sheet__body,.mt-size-chart__scroll,.sg__body,.sg__table-wrap,.materia-localization-sheet ul) {
+  scrollbar-width:thin;
+  scrollbar-color:color-mix(in srgb,var(--color-text) 28%,transparent) transparent;
+  scrollbar-gutter:stable;
+}
+:is(.mt-sheet__body,.mt-size-chart__scroll,.sg__body,.sg__table-wrap)::-webkit-scrollbar { width:6px; height:6px; }
+:is(.mt-sheet__body,.mt-size-chart__scroll,.sg__body,.sg__table-wrap)::-webkit-scrollbar-thumb { background:color-mix(in srgb,var(--color-text) 28%,transparent); border-radius:999px; }
+.mt-size-chart__units label:has(input:checked) { background:var(--color-heading); color:var(--color-background); box-shadow:0 1px 3px color-mix(in srgb,var(--color-text) 20%,transparent); }
+.mt-size-chart__units label:has(input:focus-visible) { outline:2px solid var(--color-heading); outline-offset:2px; }
+.mt-size-chart [data-unit][hidden],
+.mt-size-chart--units:has(input[value='cm']:checked) [data-unit='in'],.mt-size-chart--units:has(input[value='in']:checked) [data-unit='cm'] { display:none; }
+@media (prefers-reduced-motion: reduce) {
+  .mt-size-chart .mt-size-chart__table :is(th, td), .mt-size-chart__units label { transition: none; }
+}
+/* Builder only: what the size guide will look like, and where sizes come from. */
+.materia-chart-preview { margin: 4px 0 12px; padding: 8px 12px; border: 1px dashed var(--color-border); border-radius: 8px; color: var(--color-text); background: var(--color-background); max-width: 100%; font-size: .88em; line-height: 1.4; }
+.materia-chart-preview strong { color: var(--color-heading); }
+/* Page, rich text or HTML charts: wide tables scroll sideways in their box. */
+.mt-size-chart__html { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+.mt-size-chart__html table { width: 100%; border-collapse: collapse; }
+.mt-size-chart__html :is(th, td) { white-space: nowrap; padding: 10px 12px; border: 1px solid var(--color-border); text-align: start; }
+.mt-size-chart__html img { max-width: 100%; height: auto; }
+.mt-size-chart__html > :first-child { margin-top: 0; }
+.mt-size-chart__note { margin-top: 12px; font-size: .92em; }
+.mt-size-chart__note > :first-child { margin-top: 0; }
+.mt-size-chart__note > :last-child { margin-bottom: 0; }
+
+/* Express checkout (Buy buttons > Buy now style: Express). The platform draws the
+   wallet buttons; they follow the theme's button corners and height. */
+.btn-checkout-express { margin-top: 10px; }
+.btn-checkout-express shopify-accelerated-checkout,
+.btn-checkout-express shopify-accelerated-checkout-cart {
+  --shopify-accelerated-checkout-button-block-size: 50px;
+  --shopify-accelerated-checkout-button-border-radius: var(--btn-radius, 8px);
+  --shopify-accelerated-checkout-inline-alignment: center;
+  --shopify-accelerated-checkout-row-gap: 8px;
+}
+.btn-checkout-express .shopify-payment-button__button {
+  min-height: 50px;
+  border-radius: var(--btn-radius, 8px);
+  overflow: hidden;
+}
+.btn-checkout-express .shopify-payment-button__button--unbranded {
+  font-weight: 600;
+}
+.btn-checkout-express .shopify-payment-button__more-options {
+  margin-top: 8px;
+  font-size: 13px;
+  text-decoration: underline;
+}
+

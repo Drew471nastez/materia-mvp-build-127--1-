@@ -1,10 +1,15 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. The items of the Marquee Bar, one wrapper per Marquee
   block (display: contents, so the items stay the strip's own flex items).
   copy: true prints a silent copy for the seamless loop (data-an-copy), which
   live-announcements.js keeps in step with the block.
+
+  @param {boolean} copy - Copy
+  @param {section} section - The section being rendered
+
+  @example
   {% render 'announce-marquee-items', section: section, copy: false %}
-{%- endcomment -%}
+{%- enddoc -%}
 {%- for block in section.blocks -%}
   {%- liquid
     assign bs = block.settings

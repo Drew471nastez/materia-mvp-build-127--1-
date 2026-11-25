@@ -1,8 +1,13 @@
-{%- comment -%}
+{%- doc -%}
   Inline SVG presets for the popup icon picker.
   Accepts: name (envelope | gift | star | heart | percent | sparkle | fire | bell | lock | tag)
   All paths use `currentColor` so they inherit the icon color setting.
-{%- endcomment -%}
+
+  @param {string} name - Name
+
+  @example
+  {% render 'cpnb-preset-icon', name: pn_name %}
+{%- enddoc -%}
 {%- case name -%}
   {%- when 'gift' -%}
     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">

@@ -1,4 +1,4 @@
-<script src="{{ 'live-logos.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-logos.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-logos-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%}
   Materia Themes. Brand info: a two-column brand statement.
@@ -110,7 +110,7 @@
               {%- when 'link' -%}
                 {%- capture bh -%}{% if b.use_custom_color %}{% render 'scheme-color', color: b.custom_color_hover, fallback: bc %}{% else %}var(--lg-link-h){% endif %}{%- endcapture -%}
                 <div class="bi-b bi-link ed-block ed-link-wrap{{ anim_class }}" {{ common }}{% if b.text == blank %} hidden{% endif %} style="{{ spacing }}--b-c: {{ bc }};--b-ch: {{ bh }};--b-fs-m: {{ b.size | default: 14 }}px;--b-fs-d: {{ b.size | default: 14 }}px;--b-ls: {{ b.letter_spacing | default: 0 }}px;--b-tt: {{ b.text_transform | default: 'none' }};{% if fw != '' %}--b-fw: {{ fw }};{% endif %}">
-                  {%- if b.url != blank -%}<a href="{{ b.url | url }}">{{ b.text | escape }}</a>{%- else -%}<a role="link" aria-disabled="true">{{ b.text | escape }}</a>{%- endif -%}
+                  {%- if b.url != blank -%}<a href="{{ b.url }}">{{ b.text | escape }}</a>{%- else -%}<a role="link" aria-disabled="true">{{ b.text | escape }}</a>{%- endif -%}
                 </div>
               {%- when 'divider' -%}
                 <hr class="bi-b bi-divider ed-block ed-divider{{ anim_class }}" {{ common }} style="{{ spacing }}--b-th: {{ b.thickness | default: 1 }}px;--b-w: {{ b.width | default: 100 }}%;">
@@ -127,7 +127,7 @@
 {
   "name": "Brand info",
   "tag": "section",
-  "class": "editorial-statement-section",
+  "class": "editorial-statement-section s-tt",
   "settings": [
     {
       "type": "header",
@@ -1263,8 +1263,8 @@
   ],
   "presets": [
     {
-      "name": "Brand info",
-      "category": "Logos and trust",
+      "name": "Brand Statement",
+      "category": "12 · Text",
       "blocks": [
         {
           "type": "heading",

@@ -1,10 +1,15 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. The account pages' side menu (main-account,
   main-addresses). Its words are the section's settings (st): nav_dashboard,
-  nav_addresses, nav_wishlist and nav_logout. Log out posts to Storelib's
-  logout address, which signs the visitor out and goes back to the store.
+  nav_addresses, nav_wishlist and nav_logout. Log out is the platform's logout
+  address, which signs the customer out and goes back to the store.
   Params: st (section.settings)
-{%- endcomment -%}
+
+  @param {object} st - Section settings object
+
+  @example
+  {% render 'customer-nav', st: st %}
+{%- enddoc -%}
 <nav class="ap-nav" aria-label="{{ st.nav_dashboard | default: 'Account' | escape }}" data-ap-aria="nav_dashboard">
   <a
     href="{{ routes.account_url }}"
@@ -19,11 +24,9 @@
     data-ap-text="nav_addresses"
   >{{ st.nav_addresses | escape }}</a>
   <a
-    href="{{ routes.wishlist_url | default: '/wishlist' }}"
+    href="{%- render 'wishlist-url' -%}"
     class="ap-nav__link no-underline"
     data-ap-text="nav_wishlist"
   >{{ st.nav_wishlist | escape }}</a>
-  <form method="post" action="{{ routes.account_logout_url }}" data-storelib-form="native" class="ap-nav__form">
-    <button type="submit" class="ap-nav__link ap-nav__logout" data-ap-text="nav_logout">{{ st.nav_logout | escape }}</button>
-  </form>
+  <a href="{{ routes.account_logout_url }}" class="ap-nav__link ap-nav__logout no-underline" data-ap-text="nav_logout">{{ st.nav_logout | escape }}</a>
 </nav>

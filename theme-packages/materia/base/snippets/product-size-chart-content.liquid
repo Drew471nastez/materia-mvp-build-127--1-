@@ -1,16 +1,34 @@
-{%- comment -%} Product-specific size chart, shared by the Size guide, the
-  Size chart table, the variant picker guide and the Size Chart Popup. First
-  found: the size chart given to the product in Storelib (Products > Size
-  charts, read as product.metafields.storelib.size_chart: name, unit,
-  columns of { name, measure }, rows, rows_cm, rows_in, notes, image),
-  drawn as a table with a cm / in switch when both are given; then HTML or a
-  page named in custom.size_chart. Missing data produces no fake chart.
-  Each table scrolls sideways inside its own box with the size column held.
-  Inputs: product, chart_id (optional, keeps the unit switch's name unique). {%- endcomment -%}
+{%- doc -%}
+  Materia Themes. A product's own size chart, read from its metafields:
+   1. storelib.size_chart (JSON from Storelib: name, unit, columns, rows,
+      rows_cm, rows_in, notes, image), drawn as a table with a cm / in switch
+      when both are given; custom.size_chart of type JSON in the same shape;
+   2. custom.size_chart as a page reference, rich text, HTML, a page handle,
+      or multi-line text (rows split by | or commas, first line = header).
+   Prints nothing when the product has none.
+   Inputs: product, chart_id (optional, keeps the unit switch unique),
+   storelib_only (optional: only the Storelib chart, for the background copy).
+
+  @param {string} chart_id - Chart id
+  @param {product} product - The product to render
+  @param {boolean} [storelib_only] - Storelib only
+
+  @example
+  {% render 'product-size-chart-content', product: chart_product, chart_id: 'background', storelib_only: true %}
+{%- enddoc -%}
 {%- liquid
   assign slc = product.metafields.storelib.size_chart.value | default: product.metafields.storelib.size_chart
   if slc == blank and page.product.id == product.id
     assign slc = page.product.metafields.storelib.size_chart.value | default: page.product.metafields.storelib.size_chart
+  endif
+  assign mf = product.metafields.custom.size_chart
+  assign mf_on = true
+  if storelib_only or mf == blank
+    assign mf_on = false
+  endif
+  if mf_on and slc == blank and mf.type == 'json'
+    assign slc = mf.value
+    assign mf_on = false
   endif
   assign slc_cols = slc.columns
   assign slc_rows = slc.rows
@@ -23,8 +41,6 @@
   if slc_cm != blank and slc_in != blank
     assign slc_both = true
   endif
-  assign chart = product.metafields.custom.size_chart.value | default: product.metafields.custom.size_chart
-  assign chart_page = pages[chart]
 -%}
 {%- if slc != blank -%}
 <div data-assigned-chart-host data-chart-product="{{ product.id }}">
@@ -33,7 +49,7 @@
     {%- if slc.name != blank -%}<p class="mt-size-chart__name"><strong>{{ slc.name | escape }}</strong></p>{%- endif -%}
     {%- if slc_both -%}
       {%- assign slc_uid = chart_id | default: product.id | append: '-' | append: slc_cols.size -%}
-      <div class="mt-size-chart__units" role="radiogroup" aria-label="Units">
+      <div class="mt-size-chart__units" role="radiogroup" aria-label="{{ 'accessibility.ui.units' | t }}">
         <label><input type="radio" name="mt-size-unit-{{ slc_uid }}" value="cm"{% unless slc.unit == 'in' %} checked{% endunless %}> cm</label>
         <label><input type="radio" name="mt-size-unit-{{ slc_uid }}" value="in"{% if slc.unit == 'in' %} checked{% endif %}> in</label>
       </div>
@@ -79,14 +95,37 @@
     {%- endfor -%}
     {%- if slc.notes != blank -%}<p class="mt-size-chart__notes">{{ slc.notes | escape | newline_to_br }}</p>{%- endif -%}
     {%- if slc.image != blank -%}
-      <img class="mt-size-chart__image" src="{{ slc.image | image_url: width: 1200 }}" alt="{{ slc.name | default: 'Size chart' | escape }}" loading="lazy" decoding="async"{% if slc.image.width %} width="{{ slc.image.width }}" height="{{ slc.image.height }}"{% endif %}>
+      <img class="mt-size-chart__image" src="{{ slc.image | image_url: width: 1200 }}" alt="{{ slc.name | default: 'Size chart' | escape }}" loading="lazy" decoding="async" width="{{ slc.image.width | default: 1200 }}" height="{{ slc.image.height | default: 1200 }}">
     {%- endif -%}
   </div>
   </div>
-{%- elsif chart.content != blank -%}
-  {{- chart.content -}}
-{%- elsif chart_page.content != blank -%}
-  {{- chart_page.content -}}
-{%- elsif chart contains '<' -%}
-  {{- chart -}}
+{%- elsif mf_on -%}
+  {%- liquid
+    assign mf_html = ''
+    assign mf_rows = ''
+    if mf.type == 'page_reference'
+      assign mf_html = mf.value.content
+    elsif mf.type == 'rich_text_field'
+      assign mf_html = mf | metafield_tag
+    else
+      assign mf_val = mf.value | default: mf
+      if mf_val.content != blank
+        assign mf_html = mf_val.content
+      elsif mf_val contains '<'
+        assign mf_html = mf_val
+      elsif pages[mf_val].content != blank
+        assign mf_html = pages[mf_val].content
+      elsif mf_val contains '|' or mf_val contains ','
+        assign mf_rows = mf_val
+      else
+        assign mf_html = mf_val | escape | newline_to_br | prepend: '<p>' | append: '</p>'
+      endif
+    endif
+  -%}
+  {%- if mf_rows != blank -%}
+    {%- capture mf_table -%}{%- render 'size-rows-table', data: mf_rows, unit: '', uid: chart_id -%}{%- endcapture -%}
+    {%- if mf_table != blank -%}{{ mf_table }}{%- else -%}<div class="mt-size-chart__html rte"><p>{{ mf_rows | escape | newline_to_br }}</p></div>{%- endif -%}
+  {%- elsif mf_html != blank -%}
+    <div class="mt-size-chart__html rte">{{ mf_html }}</div>
+  {%- endif -%}
 {%- endif -%}

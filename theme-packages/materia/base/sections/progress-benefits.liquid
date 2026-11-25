@@ -1,7 +1,7 @@
-<script src="{{ 'live-features-d.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-features-d.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-features-d-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
@@ -89,6 +89,7 @@
   {%- if st.body_font.family != blank -%}--pgc-bfont: {{ st.body_font.family }}, {{ st.body_font.fallback_families | default: 'sans-serif' }};{%- endif -%}
 {%- endif -%}
 {%- endcapture -%}
+{{ 'section-progress-benefits.css' | asset_url | stylesheet_tag }}
 <style>
   {%- if st.enable_custom_fonts -%}
     {%- if st.heading_font.family != blank -%}{{ st.heading_font | font_face: font_display: 'swap' }}{%- endif -%}
@@ -101,60 +102,7 @@
     {% render 'media-msr-var', name: '--fd-wrap-bg', color: st.section_bg, on: custom %}
     background: var(--fd-wrap-bg, none);
   }
-  #shopify-section-{{ sid }} .pgc {
-    background: var(--pgc-bg, var(--color-background)); color: var(--pgc-text, var(--color-text));
-    font-family: var(--pgc-bfont, var(--body-font)); padding: var(--pgc-pt-m) var(--pgc-px-m) var(--pgc-pb-m); box-sizing: border-box;
-  }
-  #shopify-section-{{ sid }} .pgc *, #shopify-section-{{ sid }} .pgc *::before, #shopify-section-{{ sid }} .pgc *::after { box-sizing: border-box; }
-  #shopify-section-{{ sid }} [hidden] { display: none !important; }
-  #shopify-section-{{ sid }} .pgc__inner { width: 100%; }
-  #shopify-section-{{ sid }} .pgc__grid { display: flex; flex-direction: column; gap: var(--pgc-gap-m); }
-  #shopify-section-{{ sid }} .pgc__col-text, #shopify-section-{{ sid }} .pgc__col-stats { width: 100%; min-width: 0; }
-  #shopify-section-{{ sid }} .pgc__col-text { display: flex; flex-direction: column; gap: var(--pgc-text-gap); align-items: var(--pgc-ai-m); text-align: var(--pgc-ta-m); }
-  #shopify-section-{{ sid }} .pgc__col-text:not(:has(> :not([hidden]))) { display: none; }
-  #shopify-section-{{ sid }} .pgc__col-text > * { margin: 0; max-width: 100%; }
-  #shopify-section-{{ sid }} .pgc__heading + .pgc__subheading,
-  #shopify-section-{{ sid }} .pgc__subheading + .pgc__subheading,
-  #shopify-section-{{ sid }} .pgc__heading + .pgc__heading { margin-top: calc(var(--pgc-head-gap) - var(--pgc-text-gap)); }
-  #shopify-section-{{ sid }} .pgc__heading {
-    font-family: var(--pgc-hfont, var(--heading-font)); font-weight: var(--heading-weight, 700);
-    font-size: var(--b-size-m); line-height: var(--heading-line-height, 1.1); letter-spacing: var(--heading-letter-spacing, normal);
-    color: var(--b-color, var(--color-heading)); text-transform: var(--b-case, var(--heading-text-transform, none));
-  }
-  #shopify-section-{{ sid }} .pgc__heading em { font-style: normal; color: var(--b-accent, var(--color-primary)); }
-  #shopify-section-{{ sid }} .pgc__subheading { font-size: var(--b-size-m); line-height: 1.6; max-width: 480px; color: var(--b-color, var(--pgc-text, var(--color-text))); }
-  #shopify-section-{{ sid }} .pgc__subheading p, #shopify-section-{{ sid }} .pgc__stat-label p, #shopify-section-{{ sid }} .pgc__footnote p { margin: 0 0 0.5em; }
-  #shopify-section-{{ sid }} .pgc__subheading p:last-child, #shopify-section-{{ sid }} .pgc__stat-label p:last-child, #shopify-section-{{ sid }} .pgc__footnote p:last-child { margin: 0; }
-  #shopify-section-{{ sid }} .pgc__footnote { font-size: var(--b-size); margin-top: var(--b-mt); color: var(--b-color, var(--pgc-text, var(--color-text))); }
-  #shopify-section-{{ sid }} .pgc__stats {
-    display: grid; width: 100%; grid-template-columns: repeat(var(--pgc-cols-m), minmax(0, 1fr)); gap: var(--pgc-row-m) var(--pgc-col-m);
-  }
-  #shopify-section-{{ sid }} .pgc__stat { display: flex; flex-direction: column; gap: var(--pgc-inner-gap); color: var(--pgc-label-color, var(--pgc-text, var(--color-text))); min-width: 0; }
-  #shopify-section-{{ sid }} .pgc__stat-row { display: flex; align-items: center; gap: var(--pgc-ring-gap); }
-  #shopify-section-{{ sid }} .pgc__stat-percent {
-    font-family: var(--pgc-hfont, var(--heading-font)); font-weight: var(--heading-weight, 700); font-size: var(--pgc-pct-m);
-    line-height: 1; letter-spacing: -0.02em; color: var(--pgc-pct-color, var(--color-heading)); font-variant-numeric: tabular-nums;
-    transition: opacity 0.4s ease;
-  }
-  #shopify-section-{{ sid }} .pgc__stat-ring { width: var(--pgc-ring); height: var(--pgc-ring); flex-shrink: 0; }
-  #shopify-section-{{ sid }} .pgc__stat-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); display: block; overflow: visible; }
-  #shopify-section-{{ sid }} .pgc__ring-bg { stroke: var(--pgc-track, var(--color-border)); }
-  #shopify-section-{{ sid }} .pgc__ring-fill {
-    stroke: var(--b-ring, var(--pgc-ring-color, var(--color-primary))); stroke-linecap: round;
-    stroke-dasharray: 175.93; stroke-dashoffset: var(--fd-off, 0); transition: stroke-dashoffset var(--fd-dur) cubic-bezier(0.22, 0.61, 0.36, 1);
-  }
-  #shopify-section-{{ sid }} .pgc__stat-label { font-size: var(--pgc-label); line-height: 1.45; }
-  #shopify-section-{{ sid }} .pgc[data-fd-reveal='pending'] .pgc__ring-fill { stroke-dashoffset: 175.93; }
-  #shopify-section-{{ sid }} .pgc[data-fd-reveal='pending'] .pgc__stat-percent { opacity: 0; }
-  #shopify-section-{{ sid }} .pgc:not([data-fd-reveal]) .pgc__ring-fill { transition: none; }
-  @media (prefers-reduced-motion: reduce) {
-    #shopify-section-{{ sid }} .pgc .pgc__ring-fill { stroke-dashoffset: var(--fd-off, 0); transition: none; }
-    #shopify-section-{{ sid }} .pgc .pgc__stat-percent { opacity: 1; transition: none; }
-  }
-  @media (min-width: 1200px) {
-    #shopify-section-{{ sid }} .pgc.stretch_width .pgc__inner { padding-inline: 3rem; }
-  }
-  @media (min-width: 768px) {
+@media (min-width: 768px) {
     #shopify-section-{{ sid }}#shopify-section-{{ sid }} { margin-top: var(--fd-mt-d) !important; margin-bottom: var(--fd-mb-d) !important; }
     #shopify-section-{{ sid }} .pgc { padding: var(--pgc-pt-d) var(--pgc-px-d) var(--pgc-pb-d); }
     #shopify-section-{{ sid }} .pgc__grid { flex-direction: var(--pgc-dir); gap: var(--pgc-gap-d); align-items: flex-start; }
@@ -168,7 +116,7 @@
 </style>
 <noscript><style>#shopify-section-{{ sid }} .pgc[data-fd-reveal='pending'] .pgc__ring-fill { stroke-dashoffset: var(--fd-off, 0); } #shopify-section-{{ sid }} .pgc[data-fd-reveal='pending'] .pgc__stat-percent { opacity: 1; }</style></noscript>
 
-<div id="pgc-{{ sid }}" class="pgc section sec__progress-circles color-{{ color_scheme }} gradient {{ st.section_width | default: 'container' }}" data-width="{{ st.section_width | default: 'container' }}" data-fd="pgc" data-fd-section="{{ sid }}" data-fd-settings="{{ st | json | escape }}"{% if st.enable_custom_fonts %} data-own-font{% endif %}{% if pending %} data-fd-reveal="pending"{% endif %} style="{{ pgc_style | strip_newlines }}">
+<div id="pgc-{{ sid }}" class="pgc section sec__progress-circles color-{{ color_scheme }} gradient {{ st.section_width | default: 'container' }}" data-width="{{ st.section_width | default: 'container' }}" data-fd="pgc" data-fd-section="{{ sid }}" {% if request.design_mode %}data-fd-settings="{{ st | json | escape }}"{% endif %}{% if st.enable_custom_fonts %} data-own-font{% endif %}{% if pending %} data-fd-reveal="pending"{% endif %} style="{{ pgc_style | strip_newlines }}">
   <div class="pgc__inner">
     <div class="pgc__grid">
       <div class="pgc__col-text">
@@ -177,9 +125,9 @@
           {%- case block.type -%}
             {%- when 'heading' -%}
               {%- assign htext = bs.text | remove: '<p>' | remove: '</p>' -%}
-              <h2 class="pgc__heading" data-fd-block="{{ block.id }}" data-fd-type="heading" data-fd-settings="{{ bs | json | escape }}" style="--b-size-m: {{ bs.size_mobile | default: 32 }}px; --b-size-d: {{ bs.size_desktop | default: 44 }}px;{% if bs.uppercase %} --b-case: uppercase; --heading-text-transform: uppercase;{% endif %}{% render 'media-msr-var', name: '--b-color', color: bs.color, on: bs.enable_custom_style %}{% render 'media-msr-var', name: '--b-accent', color: bs.accent_color, on: bs.enable_custom_style %}"{% if htext == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ htext }}</h2>
+              <h2 class="pgc__heading" data-fd-block="{{ block.id }}" data-fd-type="heading" {% if request.design_mode %}data-fd-settings="{{ bs | json | escape }}"{% endif %} style="--b-size-m: {{ bs.size_mobile | default: 32 }}px; --b-size-d: {{ bs.size_desktop | default: 44 }}px;{% if bs.uppercase %} --b-case: uppercase; --heading-text-transform: uppercase;{% endif %}{% render 'media-msr-var', name: '--b-color', color: bs.color, on: bs.enable_custom_style %}{% render 'media-msr-var', name: '--b-accent', color: bs.accent_color, on: bs.enable_custom_style %}"{% if htext == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ htext }}</h2>
             {%- when 'subheading' -%}
-              <div class="pgc__subheading" data-fd-block="{{ block.id }}" data-fd-type="subheading" data-fd-settings="{{ bs | json | escape }}" style="--b-size-m: {{ bs.size_mobile | default: 14 }}px; --b-size-d: {{ bs.size_desktop | default: 16 }}px;{% render 'media-msr-var', name: '--b-color', color: bs.color, on: bs.enable_custom_style %}"{% if bs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ bs.text }}</div>
+              <div class="pgc__subheading" data-fd-block="{{ block.id }}" data-fd-type="subheading" {% if request.design_mode %}data-fd-settings="{{ bs | json | escape }}"{% endif %} style="--b-size-m: {{ bs.size_mobile | default: 14 }}px; --b-size-d: {{ bs.size_desktop | default: 16 }}px;{% render 'media-msr-var', name: '--b-color', color: bs.color, on: bs.enable_custom_style %}"{% if bs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ bs.text }}</div>
           {%- endcase -%}
         {%- endfor -%}
       </div>
@@ -198,7 +146,7 @@
               endif
               assign off = 100 | minus: pct | times: 1.7593 | round: 2
             -%}
-            <div class="pgc__stat"{% unless pct > 0 %}{% unless request.design_mode or page.in_editor %} hidden{% endunless %}{% endunless %} data-fd-block="{{ stat.id }}" data-fd-type="stat" data-fd-settings="{{ sb | json | escape }}" style="--fd-off: {{ off }};{% render 'media-msr-var', name: '--b-ring', color: sb.color, on: sb.enable_custom_style %}" {{ stat.shopify_attributes }}>
+            <div class="pgc__stat"{% unless pct > 0 %}{% unless request.design_mode or page.in_editor %} hidden{% endunless %}{% endunless %} data-fd-block="{{ stat.id }}" data-fd-type="stat" {% if request.design_mode %}data-fd-settings="{{ sb | json | escape }}"{% endif %} style="--fd-off: {{ off }};{% render 'media-msr-var', name: '--b-ring', color: sb.color, on: sb.enable_custom_style %}" {{ stat.shopify_attributes }}>
               <div class="pgc__stat-row">
                 <span class="pgc__stat-percent" data-fd-count data-to="{{ pct }}" data-suffix="%">{{ pct }}%</span>
                 <span class="pgc__stat-ring">
@@ -217,7 +165,7 @@
         {%- for block in section.blocks -%}
           {%- if block.type == 'footnote' -%}
             {%- assign fbs = block.settings -%}
-            <div class="pgc__footnote" data-fd-block="{{ block.id }}" data-fd-type="footnote" data-fd-settings="{{ fbs | json | escape }}" style="--b-size: {{ fbs.size | default: 12 }}px; --b-mt: {{ fbs.margin_top | default: 0 }}px;{% render 'media-msr-var', name: '--b-color', color: fbs.color, on: fbs.enable_custom_style %}"{% if fbs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ fbs.text }}</div>
+            <div class="pgc__footnote" data-fd-block="{{ block.id }}" data-fd-type="footnote" {% if request.design_mode %}data-fd-settings="{{ fbs | json | escape }}"{% endif %} style="--b-size: {{ fbs.size | default: 12 }}px; --b-mt: {{ fbs.margin_top | default: 0 }}px;{% render 'media-msr-var', name: '--b-color', color: fbs.color, on: fbs.enable_custom_style %}"{% if fbs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ fbs.text }}</div>
           {%- endif -%}
         {%- endfor -%}
       </div>
@@ -226,11 +174,12 @@
 </div>
 {%- comment -%} Ring fill, count up and live edits: shopify/assets/live-features-d.js (loaded on every page). {%- endcomment -%}
 
+
 {% schema %}
 {
   "name": "Progress Benefits",
   "tag": "section",
-  "class": "section sec__progress-benefits",
+  "class": "section sec__progress-benefits s-progress-benefits s-tt",
   "settings": [
     {
       "type": "header",
@@ -240,7 +189,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -744,7 +693,6 @@
               "label": "H3"
             }
           ],
-          "hidden": true,
           "info": "Legacy: the heading is always an h2.",
           "visible_if": "{{ false }}"
         },
@@ -921,8 +869,8 @@
   ],
   "presets": [
     {
-      "name": "Progress Benefits",
-      "category": "Features",
+      "name": "Progress Rings – With Text",
+      "category": "11 · Stats & counters",
       "blocks": [
         {
           "type": "heading",

@@ -1,4 +1,4 @@
-<script src="{{ 'live-r7-text.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-r7-text.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'r7-text-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%}
   Materia Themes. Text Columns: a heading and a row of short texts side by
@@ -16,7 +16,7 @@
 {%- endcomment -%}
 {%- liquid
   assign st = section.settings
-  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign align = st.content_alignment | default: 'left'
   assign items = 'flex-start'
   if align == 'center'
@@ -255,7 +255,7 @@
 {
   "name": "Text Columns",
   "tag": "section",
-  "class": "section-text-columns",
+  "class": "section-text-columns s-tt",
   "max_blocks": 14,
   "settings": [
     {
@@ -266,7 +266,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -706,8 +706,8 @@
           "label": "Line height",
           "min": 0.8,
           "max": 2,
-          "step": 0.05,
-          "default": 1.15,
+          "step": 0.1,
+          "default": 1.1,
           "visible_if": "{{ block.settings.size_enable }}"
         },
         {
@@ -826,7 +826,7 @@
           "label": "Line height",
           "min": 1,
           "max": 2.2,
-          "step": 0.05,
+          "step": 0.1,
           "default": 1.5,
           "visible_if": "{{ block.settings.size_enable }}"
         }
@@ -870,7 +870,7 @@
   "presets": [
     {
       "name": "Text Columns",
-      "category": "Text",
+      "category": "12 · Text",
       "blocks": [
         {
           "type": "heading"

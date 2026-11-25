@@ -1,0 +1,78 @@
+
+  #hero {
+    --fx-kb: calc(1.04 + var(--fxi, 5) * 0.016);
+    --fx-zoom: calc(1.03 + var(--fxi, 5) * 0.015);
+    --fx-pan-s: calc(1.06 + var(--fxi, 5) * 0.014);
+    --fx-pan-x: calc((var(--fx-pan-s) - 1) * 45%);
+    --fx-zp: calc(1.06 + var(--fxi, 5) * 0.016);
+    --fx-zp-o: calc((var(--fx-zp) - 1) * 35%);
+    --fx-mt-s: calc(1.06 + var(--fxi, 5) * 0.012);
+    --fx-mt-o: calc((var(--fx-mt-s) - 1) * 30%);
+    --fx-blur: calc(var(--fxi, 5) * 1.6px);
+    --fx-vig: calc(0.2 + var(--fxi, 5) * 0.06);
+    --fx-dur-in: calc(0.7s + var(--fxi, 5) * 0.09s);
+    --fx-dur-loop: calc(24s - var(--fxi, 5) * 1.2s);
+    --fx-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  #hero[data-ss-fx]:not([data-ss-fx="none"]) .banner__media { overflow: hidden; }
+  #hero[data-ss-fx]:not([data-ss-fx="none"]) .banner__media > :not(iframe):not(.ss-fx-vig) { transform-origin: 50% 50%; backface-visibility: hidden; }
+  #hero .ss-fx-vig { display: none; position: absolute; inset: 0; z-index: 1; pointer-events: none; background: radial-gradient(ellipse at center, rgba(0,0,0,0) 42%, rgba(0,0,0,var(--fx-vig)) 100%); }
+
+  /* Parallax: the picture moves slower than the page as it scrolls (script sets --fx-py). */
+  #hero[data-ss-fx="parallax"] .banner__media > :not(iframe):not(.ss-fx-vig) { transform: translate3d(0, var(--fx-py, 0px), 0) scale(calc(1 + var(--fxi, 5) * 0.03)); will-change: transform; }
+
+  /* Ken Burns: slow zoom and drift, always running. */
+  #hero[data-ss-fx="ken_burns"] .banner__media > :not(iframe):not(.ss-fx-vig) { animation: ssfx-kb calc(26s - var(--fxi, 5) * 1.4s) ease-in-out infinite alternate both; will-change: transform; }
+  @keyframes ssfx-kb { from { transform: translate3d(0, 0, 0) scale(1.02); } to { transform: translate3d(-1.5%, -1%, 0) scale(var(--fx-kb)); } }
+
+  /* Mouse track: follows the pointer on desktop (script sets --fx-mx / --fx-my); a gentle drift on touch screens. */
+  #hero[data-ss-fx="mouse_track"] .banner__media { perspective: 1400px; }
+  #hero[data-ss-fx="mouse_track"] .banner__media > :not(iframe):not(.ss-fx-vig) { transform: translate3d(calc(var(--fx-mx, 0) * var(--fx-mt-o) * -1), calc(var(--fx-my, 0) * var(--fx-mt-o) * -1), 0) rotateY(calc(var(--fx-mx, 0) * var(--fxi, 5) * 0.22deg)) rotateX(calc(var(--fx-my, 0) * var(--fxi, 5) * -0.22deg)) scale(var(--fx-mt-s)); will-change: transform; }
+  @media (hover: none) {
+    #hero[data-ss-fx="mouse_track"] .banner__media > :not(iframe):not(.ss-fx-vig) { animation: ssfx-drift calc(20s - var(--fxi, 5) * 0.8s) ease-in-out infinite alternate both; }
+  }
+  @keyframes ssfx-drift { from { transform: translate3d(calc(var(--fx-mt-o) * -1), 0, 0) scale(var(--fx-mt-s)); } to { transform: translate3d(var(--fx-mt-o), calc(var(--fx-mt-o) * -0.5), 0) scale(var(--fx-mt-s)); } }
+
+  /* Zoom in / out: on hover with a mouse; on touch screens the slide on show zooms by itself. */
+  #hero[data-ss-fx="zoom_in"] .banner__media > :not(iframe):not(.ss-fx-vig) { transform: scale(1); transition: transform 1.4s var(--fx-ease); will-change: transform; }
+  #hero[data-ss-fx="zoom_out"] .banner__media > :not(iframe):not(.ss-fx-vig) { transform: scale(var(--fx-zoom)); transition: transform 1.4s var(--fx-ease); will-change: transform; }
+  @media (hover: hover) {
+    #hero[data-ss-fx="zoom_in"]:hover .banner__media > :not(iframe):not(.ss-fx-vig) { transform: scale(var(--fx-zoom)); }
+    #hero[data-ss-fx="zoom_out"]:hover .banner__media > :not(iframe):not(.ss-fx-vig) { transform: scale(1); }
+  }
+  @media (hover: none) {
+    #hero[data-ss-fx="zoom_in"] .ss-fx-on .banner__media > :not(iframe):not(.ss-fx-vig) { animation: ssfx-zin 7s var(--fx-ease) both; }
+    #hero[data-ss-fx="zoom_out"] .ss-fx-on .banner__media > :not(iframe):not(.ss-fx-vig) { animation: ssfx-zout 7s var(--fx-ease) both; }
+  }
+  @keyframes ssfx-zin { from { transform: scale(1); } to { transform: scale(var(--fx-zoom)); } }
+  @keyframes ssfx-zout { from { transform: scale(var(--fx-zoom)); } to { transform: scale(1); } }
+
+  /* Slow pans, edge to edge without showing a border. */
+  #hero[data-ss-fx="pan_right"] .banner__media > :not(iframe):not(.ss-fx-vig) { animation: ssfx-pan var(--fx-dur-loop) ease-in-out infinite alternate both; will-change: transform; }
+  #hero[data-ss-fx="pan_left"] .banner__media > :not(iframe):not(.ss-fx-vig) { animation: ssfx-pan var(--fx-dur-loop) ease-in-out infinite alternate-reverse both; will-change: transform; }
+  @keyframes ssfx-pan { from { transform: translate3d(calc(var(--fx-pan-x) * -1), 0, 0) scale(var(--fx-pan-s)); } to { transform: translate3d(var(--fx-pan-x), 0, 0) scale(var(--fx-pan-s)); } }
+
+  /* Zoom + pan, cinematic. */
+  #hero[data-ss-fx="zoom_pan"] .banner__media > :not(iframe):not(.ss-fx-vig) { animation: ssfx-zp calc(var(--fx-dur-loop) + 4s) ease-in-out infinite alternate both; will-change: transform; }
+  @keyframes ssfx-zp { from { transform: translate3d(0, 0, 0) scale(1.02); } to { transform: translate3d(calc(var(--fx-zp-o) * -1), calc(var(--fx-zp-o) * -0.6), 0) scale(var(--fx-zp)); } }
+
+  /* Entrances: play each time a slide comes on. */
+  #hero[data-ss-fx="blur_in"] .ss-fx-on .banner__media > :not(iframe):not(.ss-fx-vig) { animation: ssfx-blur var(--fx-dur-in) var(--fx-ease) both; }
+  @keyframes ssfx-blur { from { filter: blur(var(--fx-blur)); transform: scale(1.06); } to { filter: blur(0); transform: scale(1); } }
+  #hero[data-ss-fx="fade_in"] .ss-fx-on .banner__media > :not(iframe):not(.ss-fx-vig) { animation: ssfx-fade var(--fx-dur-in) ease-out both; }
+  @keyframes ssfx-fade { from { opacity: 0; transform: scale(1.04); } to { opacity: 1; transform: scale(1); } }
+  #hero[data-ss-fx="reveal_up"] .ss-fx-on .banner__media > :not(iframe):not(.ss-fx-vig) { animation: ssfx-reveal calc(var(--fx-dur-in) + 0.2s) cubic-bezier(0.65, 0, 0.35, 1) both; }
+  @keyframes ssfx-reveal { from { clip-path: inset(100% 0 0 0); transform: translate3d(0, calc(var(--fxi, 5) * 0.8%), 0) scale(1.06); } to { clip-path: inset(0 0 0 0); transform: translate3d(0, 0, 0) scale(1); } }
+
+  /* Vignette pulse, with a slow breath on the picture. */
+  #hero[data-ss-fx="vignette"] .ss-fx-vig { display: block; animation: ssfx-vig calc(9s - var(--fxi, 5) * 0.4s) ease-in-out infinite alternate both; }
+  #hero[data-ss-fx="vignette"] .banner__media > :not(iframe):not(.ss-fx-vig) { animation: ssfx-breathe calc(12s - var(--fxi, 5) * 0.4s) ease-in-out infinite alternate both; }
+  @keyframes ssfx-vig { from { opacity: 0.35; } to { opacity: 1; } }
+  @keyframes ssfx-breathe { from { transform: scale(1); } to { transform: scale(1.03); } }
+
+  /* Off screen: nothing runs. */
+  #hero[data-ss-fx-off] .banner__media > :not(iframe):not(.ss-fx-vig), #hero[data-ss-fx-off] .ss-fx-vig { animation-play-state: paused; }
+
+  @media (prefers-reduced-motion: reduce) {
+    #hero .banner__media > :not(iframe):not(.ss-fx-vig), #hero .ss-fx-vig { animation: none !important; transition: none !important; transform: none !important; filter: none !important; clip-path: none !important; opacity: 1 !important; }
+  }

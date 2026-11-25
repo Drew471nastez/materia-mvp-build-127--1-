@@ -1,3 +1,17 @@
+{% doc %}
+  Storelib product offers (bundles / quantity breaks) of a product.
+
+  @param {block} block - The block being rendered
+  @param {boolean} [compact] - Compact
+  @param {object} [current_product] - Current product; no current caller passes it
+  @param {string} kind - Kind ('quantity_offer', 'upsell_pro')
+  @param {product} product - The product to render
+  @param {string} product_form_id - Product form id
+  @param {section} [section] - The section being rendered
+
+  @example
+  {% render 'storelib-product-offers', product: product, block: block, section: section, kind: 'quantity_offer', product_form_id: product_form_id, compact: true %}
+{% enddoc -%}
 {%- liquid
   assign offer_product = product | default: current_product | default: page.product
   assign offer_data = offer_product.metafields.storelib.offers.value | default: offer_product.metafields.storelib.offers
@@ -204,10 +218,10 @@
         {%- for offer in offer_data.checkoutOffers -%}<p>{{ offer.product.title | escape }} · {{ offer.label | escape }}</p>{%- endfor -%}
     {%- endcase -%}
     {%- if selected_offers == blank and request.design_mode -%}
-      {%- render 'editor-block-preview', block: block, title: 'Storelib product offers', message: 'Active offers for this product appear here. Configure quantity breaks, bundles or upsells in Storelib Products.', commerce: true -%}
+      {%- render 'editor-block-preview', block: block, title: 'Product offers', message: 'Active offers for this product appear here. They are read from the product metafield storelib.offers (JSON).', commerce: true -%}
     {%- endif -%}
   </div>
 </storelib-product-offers>
 {%- else -%}
-  {%- render 'editor-block-preview', block: block, title: 'Product offers', message: 'Choose a product to preview its active Storelib offers.', commerce: true -%}
+  {%- render 'editor-block-preview', block: block, title: 'Product offers', message: 'Choose a product to preview its active offers.', commerce: true -%}
 {%- endif -%}

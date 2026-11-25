@@ -1,4 +1,4 @@
-<script src="{{ 'live-features-a.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-features-a.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-features-a-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%} Runtime, once per page (the CSS and hero-image-one.js from layout/theme.storelib, every other script from the tags at the top of this file): shopify/assets/live-features-a.js. {%- endcomment -%}
 {%- comment -%}
@@ -12,7 +12,7 @@
 {%- endcomment -%}
 {%- liquid
   assign st = section.settings
-  assign scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign own = st.enable_custom_style
   assign icon_names = 'truck,shipping,shield,lock,heart,star,check,headphones,envelope,chat,tag,gift,globe,leaf,award,clock,card,wallet,lightning,recycle,sparkle,box,refresh,user,calendar,handshake,gem,organic,fire,crown' | split: ','
 -%}
@@ -102,7 +102,8 @@
   </div>
 </section>{% schema %}
 {
-  "name": "Benefits Bar 2",
+  "class": "s-tt",
+"name": "Benefits Bar 2",
   "settings": [
     {
       "type": "header",
@@ -112,7 +113,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -329,14 +330,14 @@
       "type": "font_picker",
       "id": "heading_font",
       "label": "Title font",
-      "default": "helvetica_n4",
+      "default": "assistant_n4",
       "visible_if": "{{ section.settings.enable_custom_fonts }}"
     },
     {
       "type": "font_picker",
       "id": "body_font",
       "label": "Text font",
-      "default": "helvetica_n4",
+      "default": "assistant_n4",
       "visible_if": "{{ section.settings.enable_custom_fonts }}"
     },
     {
@@ -770,8 +771,8 @@
   ],
   "presets": [
     {
-      "name": "Benefits Bar 2",
-      "category": "Features",
+      "name": "Benefits Bar – Carousel",
+      "category": "05 · Benefits & features",
       "blocks": [
         {
           "type": "item",

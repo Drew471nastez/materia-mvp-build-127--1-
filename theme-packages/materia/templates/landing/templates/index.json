@@ -46,9 +46,16 @@
           "type": "bullet_checklist",
           "settings": {
             "items": "Six courses, from your first cut to the final export\nRaw footage with every lesson, so you cut along\nA monthly feedback call on your own edit\nNew lessons added at no extra cost",
-            "icon_style": "check_circle",
+            "icon_style": "check",
             "font_size_desktop": 16,
-            "margin_bottom": 24
+            "margin_bottom": 24,
+            "enable_custom_style": true,
+            "icon_bg": "#0e0e10",
+            "icon_color": "#ff6a2b",
+            "icon_box_size": 28,
+            "icon_radius_style": "round",
+            "icon_gap": 8,
+            "row_gap": 8
           }
         },
         "primary_button_4": {

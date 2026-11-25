@@ -1,7 +1,13 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. Developed By Materia Themes.
   Renders a mobile-navigation-bar icon. Accepts `icon` (key) and `fallback` (key used when icon == 'auto').
-{%- endcomment -%}
+
+  @param {string} fallback - Fallback
+  @param {string} icon - Icon
+
+  @example
+  {% render 'mnb-icon', icon: icon_key, fallback: 'home' %}
+{%- enddoc -%}
 {%- liquid
   assign key = icon
   if key == blank or key == 'auto'

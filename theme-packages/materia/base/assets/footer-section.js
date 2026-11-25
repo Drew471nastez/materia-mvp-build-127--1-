@@ -25,6 +25,6 @@
     b.setAttribute('aria-expanded', String(open));
   });
   if (mq.addEventListener) mq.addEventListener('change', function () { sync(); });
-  document.addEventListener('storelib:section-load', function (event) { sync(event.target); });
+  ['storelib:section-load', 'shopify:section:load'].forEach(function (name) { document.addEventListener(name, function (event) { sync(event.target); }); });
   sync(document);
 })();

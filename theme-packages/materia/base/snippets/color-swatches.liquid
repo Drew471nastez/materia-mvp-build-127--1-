@@ -1,3 +1,18 @@
+{% doc %}
+  Colour swatches of a product card, following the theme swatch settings.
+
+  @param {block} [block] - The block being rendered
+  @param {string} [class] - Extra CSS classes; no current caller passes it
+  @param {boolean} [enable_color_swatches] - Enable color swatches; no current caller passes it
+  @param {boolean} [is_compare] - Is compare; no current caller passes it
+  @param {product} product - The product to render
+  @param {section} [section] - The section being rendered
+  @param {string} type - Type
+  @param {boolean} [update_url] - Update URL; no current caller passes it
+
+  @example
+  {% render 'color-swatches', product: product, type: 'group', block: block, section: section %}
+{% enddoc -%}
 {%- comment -%}
   Materia Themes. Developed By Materia Themes.
 {%- endcomment -%}
@@ -24,6 +39,10 @@
   assign limit_color = theme_st.limit_color
   assign has_color = false
   for opt in product.options_with_values
+    assign _nv_first = opt.values | first
+    if _nv_first.swatch != blank
+      assign has_color = true
+    endif
     for color_trigger_name in option_name
       assign cs_name = opt.name | strip | downcase
       assign cs_trigger = color_trigger_name | strip | downcase
@@ -33,13 +52,6 @@
     endfor
   endfor
   assign variant_type = block.settings.variant_type
-  assign cs_has_size = false
-  for opt in product.options_with_values
-    assign opt_ns = opt.name | replace: ' ', ''
-    if option_size contains opt_ns
-      assign cs_has_size = true
-    endif
-  endfor
 %}
 {%- if type == 'item' -%}
   {% comment %} Case color swatches for product item {% endcomment %}
@@ -58,6 +70,10 @@
     {%- for option in product.options_with_values -%}
       {%- liquid
         assign is_color_option = false
+        assign _nv_first = option.values | first
+        if _nv_first.swatch != blank
+          assign is_color_option = true
+        endif
         for cl in option_name
           assign cs_name = option.name | strip | downcase
             assign cs_trigger = cl | strip | downcase
@@ -89,7 +105,7 @@
             endfor
 
             if value.swatch.image
-              assign image_url = value.swatch.image | image_url
+              assign image_url = value.swatch.image | image_url: width: 120
               assign swatch_value = 'url(' | append: image_url | append: ')'
             elsif value.swatch.color
               assign swatch_value = 'rgb(' | append: value.swatch.color.rgb | append: ')'
@@ -167,6 +183,10 @@
       {%- for option in product.options_with_values -%}
         {%- liquid
           assign is_color_option = false
+          assign _nv_first = option.values | first
+          if _nv_first.swatch != blank
+            assign is_color_option = true
+          endif
           for cl in option_name
             assign cs_name = option.name | strip | downcase
             assign cs_trigger = cl | strip | downcase
@@ -179,14 +199,6 @@
           assign selected_option_index = opt_pos | minus: 1
           assign op_value = product.selected_or_first_available_variant[op] | default: product.selected_or_first_available_variant.options[selected_option_index].value | default: product.selected_or_first_available_variant.options[selected_option_index].name | default: product.selected_or_first_available_variant.options[selected_option_index]
           assign option_name_nospace = option.name | replace: ' ' , ''
-          assign cs_guide_here = false
-          if block.settings.show_size_guide
-            if option_size contains option_name_nospace
-              assign cs_guide_here = true
-            elsif cs_has_size == false and forloop.first
-              assign cs_guide_here = true
-            endif
-          endif
         -%}
         <fieldset class="product-form__input product-form__input--dropdown flex flex-wrap gap-15 row-gap-0 mb-22 relative p-0 border-0 m-0">
           <div class="flex align-center gap-15 flex-wrap w-full justify-between row-gap-0">
@@ -200,7 +212,6 @@
               </span>
             </label>
 
-            {%- if cs_guide_here -%}{%- render 'size-guide-sheet', block: block, product: product, section: section -%}{%- endif -%}
           </div>
           <div class="mt-select-wrap">
             <select
@@ -215,7 +226,6 @@
                 option_index: forloop.index,
                 option: option,
                 isColorOption: is_color_option,
-                option_name: option_name,
                 swatch_item_type: swatch_item_type, enable_option_swatches: use_option_swatches,
                 variant_type: 'dropdown', input_scope: type
               -%}
@@ -232,6 +242,10 @@
       {%- for option in product.options_with_values -%}
         {%- liquid
           assign is_color_option = false
+          assign _nv_first = option.values | first
+          if _nv_first.swatch != blank
+            assign is_color_option = true
+          endif
           for cl in option_name
             assign cs_name = option.name | strip | downcase
             assign cs_trigger = cl | strip | downcase
@@ -244,14 +258,6 @@
           assign selected_option_index = opt_pos | minus: 1
           assign op_value = product.selected_or_first_available_variant[op] | default: product.selected_or_first_available_variant.options[selected_option_index].value | default: product.selected_or_first_available_variant.options[selected_option_index].name | default: product.selected_or_first_available_variant.options[selected_option_index]
           assign option_name_nospace = option.name | replace: ' ' , ''
-          assign cs_guide_here = false
-          if block.settings.show_size_guide
-            if option_size contains option_name_nospace
-              assign cs_guide_here = true
-            elsif cs_has_size == false and forloop.first
-              assign cs_guide_here = true
-            endif
-          endif
         -%}
         <fieldset class="js product-form__input flex flex-wrap mb-25 mx-0 p-0 border-0{% if is_color_option == true %} product-form__input_color{% if settings.enable_color_swatches %} gap-20{% else %} gap-10{% endif %}{% else %} gap-10{% endif %}{% if option_size contains option_name_nospace %} product-form__input_size{% endif %}">
           <div class="form__label gap-10 w-full lh-normal flex gap-15 justify-between">
@@ -259,7 +265,6 @@
               {{- option.name }}: <span class="option_value heading-style capitalize">{{ op_value }}</span></span
             >
 
-            {%- if cs_guide_here -%}{%- render 'size-guide-sheet', block: block, product: product, section: section -%}{%- endif -%}
           </div>
           {% render 'product-variant-options',
             product: product,
@@ -267,7 +272,6 @@
             option_index: forloop.index,
             option: option,
             isColorOption: is_color_option,
-            option_name: option_name,
             swatch_item_type: swatch_item_type, enable_option_swatches: use_option_swatches,
             variant_type: 'swatches', input_scope: type
           %}
@@ -301,6 +305,10 @@
       {%- for option in product.options_with_values -%}
         {%- liquid
           assign is_color_option = false
+          assign _nv_first = option.values | first
+          if _nv_first.swatch != blank
+            assign is_color_option = true
+          endif
           for cl in option_name
             assign cs_name = option.name | strip | downcase
             assign cs_trigger = cl | strip | downcase
@@ -313,21 +321,12 @@
           assign selected_option_index = opt_pos | minus: 1
           assign op_value = product.selected_or_first_available_variant[op] | default: product.selected_or_first_available_variant.options[selected_option_index].value | default: product.selected_or_first_available_variant.options[selected_option_index].name | default: product.selected_or_first_available_variant.options[selected_option_index]
           assign option_name_nospace = option.name | replace: ' ' , ''
-          assign cs_guide_here = false
-          if block.settings.show_size_guide
-            if option_size contains option_name_nospace
-              assign cs_guide_here = true
-            elsif cs_has_size == false and forloop.first
-              assign cs_guide_here = true
-            endif
-          endif
         -%}
         <fieldset class="js product-form__input flex flex-wrap mb-20 mx-0 p-0 border-0{% if is_color_option == true %} product-form__input_color gap-20{% else %} gap-10{% endif %}{% if option_size contains option_name_nospace %} product-form__input_size{% endif %}">
           <div class="form__label gap-10 w-full lh-normal flex gap-15 justify-between">
             <span>
               {{- option.name }}: <span class="option_value heading-style capitalize">{{ op_value }}</span></span
             >
-            {%- if cs_guide_here -%}{%- render 'size-guide-sheet', block: block, product: product, section: section -%}{%- endif -%}
           </div>
           {% render 'product-variant-options',
             product: product,
@@ -335,7 +334,6 @@
             option_index: forloop.index,
             option: option,
             isColorOption: is_color_option,
-            option_name: option_name,
             swatch_item_type: swatch_item_type, enable_option_swatches: use_option_swatches,
             variant_type: 'swatches', input_scope: type
           %}
@@ -371,10 +369,18 @@
   <select class="mt-select select__sticky" aria-label="{{ product.options | join: ' / ' | escape }}">
     {% liquid
       assign color_option = ''
-      for option in product.options
-        if option contains 'Color' or option contains 'Colour'
-          assign color_option = option
+      for opt_cv in product.options_with_values
+        assign _cv_name = opt_cv.name | strip | downcase
+        assign _cv_first = opt_cv.values | first
+        if _cv_first.swatch != blank
+          assign color_option = opt_cv.name
         endif
+        for _cv_trigger in option_name
+          assign _cv_trigger_cmp = _cv_trigger | strip | downcase
+          if _cv_name == _cv_trigger_cmp and color_option == ''
+            assign color_option = opt_cv.name
+          endif
+        endfor
       endfor
     %}
     {% for variant in product.variants %}
@@ -388,10 +394,6 @@
           assign color_value = variant.option3
         endif
       %}
-      {% assign color_option = '' %}
-      {% for option in product.options_with_values %}
-        {% assign color_option = option.name %}
-      {% endfor %}
       <option
         class="color product-sticky-js"
         data-variant-id="{{ variant.id }}"
@@ -412,7 +414,7 @@
         {% if show_title %}
           {{ variant.title }} -
         {% endif %}
-        {% if settings.currency_code_enabled %}
+        {% if settings.show_currency_code %}
           {{ variant.price | money_with_currency }}
         {% else %}
           {{ variant.price | money }}
@@ -448,8 +450,14 @@
       {%- for option in product.options_with_values -%}
         {%- liquid
           assign is_color_option = false
+          assign _nv_first = option.values | first
+          if _nv_first.swatch != blank
+            assign is_color_option = true
+          endif
+          assign _opt_name_cmp = option.name | strip | downcase
           for colorItem in option_name
-            if option.name == colorItem
+            assign _color_item_cmp = colorItem | strip | downcase
+            if _opt_name_cmp == _color_item_cmp
               assign is_color_option = true
             endif
           endfor
@@ -490,7 +498,7 @@
                 endif
               endfor
               if value.swatch.image
-                assign image_url = value.swatch.image | image_url
+                assign image_url = value.swatch.image | image_url: width: 120
                 assign swatch_value = 'url(' | append: image_url | append: ')'
               elsif value.swatch.color
                 assign swatch_value = 'rgb(' | append: value.swatch.color.rgb | append: ')'

@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Hard-paint snippet for the product info section. Resolves the section's
   active scheme to actual hex values and pins the lightbox + sticky add-to-cart
   bar to those colours. Lives in a snippet (not inline in main-product.liquid)
@@ -8,7 +8,19 @@
     pinfo_bg, pinfo_text, pinfo_heading, pinfo_btn_primary_color,
     pinfo_btn_primary_bg, pinfo_btn_outline_color, pinfo_btn_outline_border,
     section_id (passed via section.id from caller).
-{%- endcomment -%}
+
+  @param {string} pinfo_bg - Pinfo background
+  @param {string} pinfo_btn_outline_border - Pinfo button outline border
+  @param {string} pinfo_btn_outline_color - Pinfo button outline color
+  @param {string} pinfo_btn_primary_bg - Pinfo button primary background
+  @param {string} pinfo_btn_primary_color - Pinfo button primary color
+  @param {string} pinfo_heading - Pinfo heading
+  @param {string} pinfo_text - Pinfo text
+  @param {string} section_id - Section id
+
+  @example
+  {% render 'main-product-scheme-paint', pinfo_bg: pinfo_bg, pinfo_text: pinfo_text, pinfo_heading: pinfo_heading, pinfo_btn_primary_color: pinfo_btn_primary_color, pinfo_btn_primary_bg: pinfo_btn_primary_bg, pinfo_btn_outline_color: pinfo_btn_outline_color, pinfo_btn_outline_border: pinfo_btn_outline_border, section_id: section.id %}
+{%- enddoc -%}
 {%- if pinfo_bg != blank -%}
 <style>
   /* HARD PAINT — PhotoSwipe lightbox + sticky add-to-cart bar.

@@ -1,8 +1,8 @@
-<script src="{{ 'media-live-galleries-a.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'media-live-galleries-a.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'media-galleries-a-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
   assign s = section.settings
-  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default'
   assign custom = s.enable_custom_style
   case s.gallery_wrap_shadow
     when 'low'
@@ -88,7 +88,7 @@
   #shopify-section-{{ section.id }} .mga-gi__wrap:hover .mga-gi__item.is-active:not(:hover) { flex-grow: 1; }
   #shopify-section-{{ section.id }} .mga-gi__item:focus-visible { outline-offset: -4px; }
   #shopify-section-{{ section.id }} .mga-gi__item .mga-fill { pointer-events: none; }
-  #shopify-section-{{ section.id }} .mga-gi__item .mga-ph { inset: auto; top: 50%; left: 50%; width: 160px; height: 120px; transform: translate(-50%, -50%); }
+  #shopify-section-{{ section.id }} .mga-gi__item .mga-ph { inset: 0; width: 100%; height: 100%; }
   #shopify-section-{{ section.id }} .mga-gi__item:nth-child(even)[data-media="none"] { background: color-mix(in srgb, var(--color-heading) 13%, var(--color-background)); }
   @media (min-width: 750px) {
     #shopify-section-{{ section.id }} .mga-gi__text { font-size: var(--mga-size-d); padding-inline: var(--mga-pl-d, 0px) var(--mga-pr-d, 0px); }
@@ -99,9 +99,9 @@
   class="mga mga-gi color-{{ color_scheme }} gradient"
   data-mga-section="{{ section.id }}"
   data-mga-type="gallery-interactive"
-  data-mga-settings="{{ section.settings | json | escape }}"
-  data-mga-defaults='{"color_scheme":"default-color-scheme","section_width":"full_width","display_section_on":"all_devices","reset_spacing":true,"gallery_height_desktop":70,"expand_ratio":7,"image_gap":0,"vertical_space_title_subheading":20,"vertical_space_subheading_gallery":30,"gallery_wrap_border_radius":3,"gallery_wrap_shadow":"low","enable_custom_style":false,"reveal":true,"section_padding_top_desktop":75,"section_padding_bottom_desktop":65,"section_padding_left_desktop":150,"section_padding_right_desktop":150,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"gallery_height_mobile":80,"section_padding_top_mobile":40,"section_padding_bottom_mobile":40,"section_padding_left_mobile":25,"section_padding_right_mobile":25,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}'
-  data-mga-block-defaults='{"heading":{"title":"<strong>Discover Our Gallery</strong>","enable_custom_style":false,"enable_custom_fonts":false,"font":"assistant_n4","font_family":"Oswald","font_weight":"inherit","size_desktop":32,"size_mobile":30},"subheading":{"text":"Explore the latest trends and styles in our collection","enable_custom_style":false,"enable_custom_fonts":false,"font":"assistant_n4","font_family":"Roboto","font_weight":"inherit","size_desktop":16,"size_mobile":15,"padding_left_desktop":20,"padding_right_desktop":20,"padding_left_mobile":10,"padding_right_mobile":10},"gallery_image":{}}'
+  {% if request.design_mode %}data-mga-settings="{{ section.settings | json | escape }}"{% endif %}
+  {% if request.design_mode %}data-mga-defaults='{"color_scheme":"default","section_width":"full_width","display_section_on":"all_devices","reset_spacing":true,"gallery_height_desktop":70,"expand_ratio":7,"image_gap":0,"vertical_space_title_subheading":20,"vertical_space_subheading_gallery":30,"gallery_wrap_border_radius":3,"gallery_wrap_shadow":"low","enable_custom_style":false,"reveal":true,"section_padding_top_desktop":75,"section_padding_bottom_desktop":65,"section_padding_left_desktop":150,"section_padding_right_desktop":150,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"gallery_height_mobile":80,"section_padding_top_mobile":40,"section_padding_bottom_mobile":40,"section_padding_left_mobile":25,"section_padding_right_mobile":25,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}'{% endif %}
+  {% if request.design_mode %}data-mga-block-defaults='{"heading":{"title":"<strong>Discover Our Gallery</strong>","enable_custom_style":false,"enable_custom_fonts":false,"font":"assistant_n4","font_family":"Oswald","font_weight":"inherit","size_desktop":32,"size_mobile":30},"subheading":{"text":"Explore the latest trends and styles in our collection","enable_custom_style":false,"enable_custom_fonts":false,"font":"assistant_n4","font_family":"Roboto","font_weight":"inherit","size_desktop":16,"size_mobile":15,"padding_left_desktop":20,"padding_right_desktop":20,"padding_left_mobile":10,"padding_right_mobile":10},"gallery_image":{}}'{% endif %}
   data-mga-width="{{ s.section_width | default: 'full_width' }}"
   data-mga-reset="{% if s.reset_spacing %}true{% else %}false{% endif %}"
   data-mga-show="{{ show }}"
@@ -136,9 +136,9 @@
           {%- capture block_style -%}--mga-color: {% if b.enable_custom_style %}{% render 'scheme-color', color: b.color, fallback: fallback_color %}{% else %}{{ fallback_color }}{% endif %}; --mga-font: {{ font }}; --mga-weight: {{ weight }}; --mga-size-d: {{ b.size_desktop }}px; --mga-size-m: {{ b.size_mobile }}px;{% if block.type == 'subheading' %} --mga-pl-d: {{ b.padding_left_desktop }}px; --mga-pr-d: {{ b.padding_right_desktop }}px; --mga-pl-m: {{ b.padding_left_mobile }}px; --mga-pr-m: {{ b.padding_right_mobile }}px;{% endif %}{%- endcapture -%}
           {%- if b.enable_custom_fonts and b.font.family -%}<style>{{ b.font | font_face: font_display: 'swap' }}</style>{%- endif -%}
           {%- if block.type == 'heading' -%}
-            <h2 class="mga-gi__text mga-gi__heading" data-mga-block="{{ block.id }}" data-mga-type="heading" data-mga-settings="{{ b | json | escape }}" style="{{ block_style }}"{% if b.enable_custom_fonts %} data-own-font{% endif %}{% if weight != fallback_weight %} data-own-weight{% endif %}{% if text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ text }}</h2>
+            <h2 class="mga-gi__text mga-gi__heading" data-mga-block="{{ block.id }}" data-mga-type="heading" {% if request.design_mode %}data-mga-settings="{{ b | json | escape }}"{% endif %} style="{{ block_style }}"{% if b.enable_custom_fonts %} data-own-font{% endif %}{% if weight != fallback_weight %} data-own-weight{% endif %}{% if text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ text }}</h2>
           {%- else -%}
-            <p class="mga-gi__text mga-gi__sub" data-mga-block="{{ block.id }}" data-mga-type="subheading" data-mga-settings="{{ b | json | escape }}" style="{{ block_style }}"{% if b.enable_custom_fonts %} data-own-font{% endif %}{% if weight != fallback_weight %} data-own-weight{% endif %}{% if text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ text }}</p>
+            <p class="mga-gi__text mga-gi__sub" data-mga-block="{{ block.id }}" data-mga-type="subheading" {% if request.design_mode %}data-mga-settings="{{ b | json | escape }}"{% endif %} style="{{ block_style }}"{% if b.enable_custom_fonts %} data-own-font{% endif %}{% if weight != fallback_weight %} data-own-weight{% endif %}{% if text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ text }}</p>
           {%- endif -%}
         {%- endif -%}
       {%- endfor -%}
@@ -160,9 +160,9 @@
               assign label = 'Gallery image ' | append: n
             endif
           -%}
-          <button type="button" class="mga-media mga-gi__item" data-mga-item data-mga-block="{{ block.id }}" data-mga-type="gallery_image" data-mga-settings="{{ b | json | escape }}" data-media="{% if img != blank %}image{% else %}none{% endif %}" aria-expanded="false" aria-label="{{ label | escape }}" {{ block.shopify_attributes }}>
-            {% render 'media-galleries-a-ph' %}
-            <img data-mga-img class="mga-fill"{% if img != blank %} src="{{ img | image_url: width: 1600 }}" srcset="{{ img | image_url: width: 600 }} 600w, {{ img | image_url: width: 1000 }} 1000w, {{ img | image_url: width: 1600 }} 1600w" sizes="(min-width: 750px) 60vw, 70vw" width="{{ img.width | default: 1600 }}" height="{{ img.height | default: 1100 }}"{% else %} hidden{% endif %} alt="{{ alt | escape }}" loading="lazy" decoding="async">
+          <button type="button" class="mga-media mga-gi__item" data-mga-item data-mga-block="{{ block.id }}" data-mga-type="gallery_image" {% if request.design_mode %}data-mga-settings="{{ b | json | escape }}"{% endif %} data-media="{% if img != blank %}image{% else %}none{% endif %}" aria-expanded="false" aria-label="{{ label | escape }}" {{ block.shopify_attributes }}>
+            {% render 'media-galleries-a-ph', index: forloop.index %}
+            <img data-mga-img class="mga-fill"{% if img != blank %} src="{{ img | image_url: width: 1600 }}" srcset="{{ img | image_url: width: 600 }} 600w, {{ img | image_url: width: 1000 }} 1000w, {{ img | image_url: width: 1600 }} 1600w" sizes="(min-width: 750px) 60vw, 70vw"{% else %} hidden{% endif %} width="{{ img.width | default: 1600 }}" height="{{ img.height | default: 1100 }}" alt="{{ alt | escape }}" loading="lazy" decoding="async">
           </button>
         {%- endif -%}
       {%- endfor -%}
@@ -170,7 +170,8 @@
   </div>
 </div>{% schema %}
 {
-  "name": "Gallery Interactive 2",
+  "class": "s-tt",
+"name": "Gallery Interactive 2",
   "settings": [
     {
       "type": "header",
@@ -180,7 +181,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -895,7 +896,6 @@
             }
           ],
           "default": "Oswald",
-          "hidden": true,
           "info": "Older font list, kept for saved content. Use Font above.",
           "visible_if": "{{ false }}"
         },
@@ -1375,7 +1375,6 @@
             }
           ],
           "default": "Roboto",
-          "hidden": true,
           "info": "Older font list, kept for saved content. Use Font above.",
           "visible_if": "{{ false }}"
         },
@@ -1513,7 +1512,7 @@
   ],
   "presets": [
     {
-      "name": "Gallery Interactive 2",
+      "name": "Gallery – Interactive",
       "blocks": [
         {
           "type": "heading"
@@ -1537,7 +1536,7 @@
           "type": "gallery_image"
         }
       ],
-      "category": "Image and video"
+      "category": "06 · Gallery & video"
     }
   ]
 }

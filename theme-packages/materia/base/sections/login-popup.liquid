@@ -7,7 +7,7 @@
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign custom = st.enable_custom_style
 -%}
 {% render 'account-pages-font-face', st: st %}
@@ -15,9 +15,9 @@
 {%- comment -%}
   The header's account icon opens this in a modal when the header asks for
   it (assets/theme.js asks for ?section_id=login-popup and shows #login-popup).
-  Storelib signs a visitor in with a code emailed to them, so both tabs are
-  the store's own forms with an email and no password: customer_login, and
-  create_customer for a new account. theme.js switches the tabs with
+  Three the platform forms (classic customer accounts): customer_login (email and
+  password), create_customer for a new account and recover_customer_password
+  behind "Forgot your password?". theme.js switches the tabs with
   data-login-show / data-login-hidden and puts the tab's name in the heading.
 {%- endcomment -%}
 <div id="login-popup" class="ap ap-popup color-{{ scheme }}" data-ap-root="login-popup" data-ap-section="{{ sid }}"{% if request.design_mode %} data-ap-settings="{{ st | json | escape }}"{% endif %} style="--ap-pt: 24px; --ap-pb: 24px; --ap-pt-m: 20px; --ap-pb-m: 20px; --ap-align: center;{% if custom and st.heading_color != blank %} --ap-h-c: {{ st.heading_color }};{% endif %}{% if custom and st.text_color != blank %} --ap-t-c: {{ st.text_color }};{% endif %}{{ fonts }}">
@@ -31,6 +31,7 @@
     #login-popup .ap__field { display: flex; flex-direction: column; gap: 6px; text-align: start; }
     #login-popup .ap__field input, #login-popup .ap__btn { width: 100%; }
     #login-popup .ap__msg { margin: 0; text-align: start; }
+    #login-popup .ap-popup__forgot { align-self: flex-start; min-height: 0; padding: 0; background: none; border: 0; font: inherit; font-size: 14px; cursor: pointer; }
   </style>
   <div class="ap-popup__inner">
     <h2 class="ap__h login-heading" data-ap-text="login_title">{{ st.login_title | escape }}</h2>
@@ -42,6 +43,12 @@
           <label for="PopupEmail-{{ sid }}" data-ap-text="email_label">{{ st.email_label | escape }}</label>
           <input id="PopupEmail-{{ sid }}" type="email" name="customer[email]" autocomplete="email" autocapitalize="off" spellcheck="false" required aria-required="true" placeholder="{{ st.email_placeholder | escape }}" data-ap-attr-placeholder="email_placeholder">
         </div>
+        {%- comment -%} classic customer accounts sign in with a password. {%- endcomment -%}
+        <div class="ap__field">
+          <label for="PopupPassword-{{ sid }}">{{ 'customer.login_page.password' | t }}</label>
+          <input id="PopupPassword-{{ sid }}" type="password" name="customer[password]" autocomplete="current-password" required aria-required="true">
+        </div>
+        <button type="button" class="ap__link ap-popup__forgot" data-login-show="{{ 'customer.recover_password.title' | t | escape }}">{{ 'customer.login_page.forgot_password' | t }}</button>
         <button type="submit" class="btn btn-primary ap__btn" data-theme-button="primary" data-sl-button><span data-ap-text="login_button_label">{{ st.login_button_label | escape }}</span></button>
         <button type="button" class="btn btn-outline ap__btn" data-theme-button="secondary" data-sl-button data-login-show="{{ st.register_title | escape }}"><span data-ap-text="register_link_label">{{ st.register_link_label | escape }}</span></button>
       {%- endform -%}
@@ -62,14 +69,32 @@
           <label for="PopupRegisterEmail-{{ sid }}" data-ap-text="email_label">{{ st.email_label | escape }}</label>
           <input id="PopupRegisterEmail-{{ sid }}" type="email" name="customer[email]" autocomplete="email" autocapitalize="off" spellcheck="false" required aria-required="true" placeholder="{{ st.email_placeholder | escape }}" data-ap-attr-placeholder="email_placeholder">
         </div>
+        <div class="ap__field">
+          <label for="PopupRegisterPassword-{{ sid }}">{{ 'customer.register.password' | t }}</label>
+          <input id="PopupRegisterPassword-{{ sid }}" type="password" name="customer[password]" autocomplete="new-password" required aria-required="true">
+        </div>
         <button type="submit" class="btn btn-primary ap__btn" data-theme-button="primary" data-sl-button><span data-ap-text="register_button_label">{{ st.register_button_label | escape }}</span></button>
         <button type="button" class="btn btn-outline ap__btn" data-theme-button="secondary" data-sl-button data-login-show="{{ st.login_title | escape }}"><span data-ap-text="login_link_label">{{ st.login_link_label | escape }}</span></button>
+      {%- endform -%}
+    </div>
+    <div id="tab_recover-{{ sid }}" class="bls-recover bls-login-popup" data-login-hidden="{{ 'customer.recover_password.title' | t | escape }}" aria-hidden="true">
+      <p class="ap__t">{{ 'customer.recover_password.subtext' | t }}</p>
+      {%- form 'recover_customer_password', class: 'ap__form' -%}
+        {%- if form.posted_successfully? -%}<p class="ap__msg" role="status">{{ 'customer.recover_password.success' | t }}</p>{%- endif -%}
+        {%- if form.errors -%}<p class="ap__msg error" role="alert">{{ form.errors | default_errors }}</p>{%- endif -%}
+        <div class="ap__field">
+          <label for="PopupRecoverEmail-{{ sid }}">{{ 'customer.recover_password.email' | t }}</label>
+          <input id="PopupRecoverEmail-{{ sid }}" type="email" name="email" autocomplete="email" autocapitalize="off" spellcheck="false" required aria-required="true">
+        </div>
+        <button type="submit" class="btn btn-primary ap__btn" data-theme-button="primary" data-sl-button>{{ 'customer.recover_password.submit' | t }}</button>
+        <button type="button" class="btn btn-outline ap__btn" data-theme-button="secondary" data-sl-button data-login-show="{{ st.login_title | escape }}">{{ 'customer.login_page.cancel' | t }}</button>
       {%- endform -%}
     </div>
   </div>
 </div>{% schema %}
 {
-  "name": "Sign in popup",
+  "class": "s-tt has-popup",
+"name": "Sign in popup",
   "settings": [
     {
       "type": "header",
@@ -79,7 +104,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "header",

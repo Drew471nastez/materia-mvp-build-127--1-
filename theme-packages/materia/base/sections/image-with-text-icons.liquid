@@ -1,6 +1,6 @@
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
@@ -46,7 +46,10 @@
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Cg fill=%22%23808080%22 fill-opacity=%220.5%22%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22/%3E%3C/g%3E%3C/svg%3E'
+  capture placeholder
+    render 'placeholder-image', type: 'collection-2', scheme: color_scheme, ratio: '4/3', format: 'url'
+  endcapture
+  assign placeholder = placeholder | strip
   assign image_block = section.blocks | where: 'type', 'image' | first
   assign row_block = section.blocks | where: 'type', 'features_row' | first
   assign ib = image_block.settings
@@ -137,7 +140,7 @@
     {%- endfor -%}
   </div>
 {%- endcapture -%}
-<div id="iwi-{{ sid }}" class="tg iwi section sec__image-with-icons color-{{ color_scheme }} gradient" data-tg-root="icons"{% render 'media-tg-own', st: st %} data-tg-section="{{ sid }}" data-tg-placeholder="{{ placeholder }}"{% if request.design_mode %} data-tg-settings="{{ st | json | escape }}"{% endif %}{% if request.design_mode %} data-tg-defaults='{"color_scheme":"default-color-scheme","section_width":"container","reset_spacing":true,"image_position":"left","content_align":"left","text_column_width":50,"gap_desktop":64,"content_gap":16,"features_columns_desktop":"4","features_gap_desktop":22,"features_margin_top":8,"icon_size":44,"icon_radius_style":"round","icon_glyph_size":50,"feature_label_size":13,"feature_label_weight":"500","enable_custom_style":false,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","padding_top_desktop":100,"padding_bottom_desktop":100,"side_padding_desktop":8,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"content_align_mobile":"left","gap_mobile":32,"features_columns_mobile":"2","features_gap":18,"padding_top_mobile":60,"padding_bottom_mobile":60,"side_padding_mobile":20,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}'{% endif %}{% if request.design_mode %} data-tg-block-defaults='{"image":{"aspect_w":4,"aspect_h":3,"fit":"cover","radius":12},"eyebrow":{"text":"Why we are different","enable_custom_style":false,"size":12},"heading":{"text":"Why shop with us","tag":"h2","enable_custom_style":false,"size_desktop":44,"size_mobile":32},"subheading":{"text":"\u003cp>Name the reasons customers pick your store, one short label under each icon.\u003c/p>","enable_custom_style":false,"size_desktop":17,"size_mobile":15},"features_row":{},"feature":{"label":"Feature","icon_type":"library","icon_library":"check_circle","enable_custom_style":false},"button":{"label":"Shop now","full_width":false,"uppercase":false,"enable_custom_style":false,"use_theme_button":true,"padding_x":26,"padding_y":14,"radius":8,"border_width":1,"font_size":14,"font_weight":"600"}}'{% endif %}
+<div id="iwi-{{ sid }}" class="tg iwi section sec__image-with-icons color-{{ color_scheme }} gradient" data-tg-root="icons"{% render 'media-tg-own', st: st %} data-tg-section="{{ sid }}" data-tg-placeholder="{{ placeholder }}"{% if request.design_mode %} data-tg-settings="{{ st | json | escape }}"{% endif %}{% if request.design_mode %} data-tg-defaults='{"color_scheme":"default","section_width":"container","reset_spacing":true,"image_position":"left","content_align":"left","text_column_width":50,"gap_desktop":64,"content_gap":16,"features_columns_desktop":"4","features_gap_desktop":22,"features_margin_top":8,"icon_size":44,"icon_radius_style":"round","icon_glyph_size":50,"feature_label_size":13,"feature_label_weight":"500","enable_custom_style":false,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","padding_top_desktop":100,"padding_bottom_desktop":100,"side_padding_desktop":8,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"content_align_mobile":"left","gap_mobile":32,"features_columns_mobile":"2","features_gap":18,"padding_top_mobile":60,"padding_bottom_mobile":60,"side_padding_mobile":20,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}'{% endif %}{% if request.design_mode %} data-tg-block-defaults='{"image":{"aspect_w":4,"aspect_h":3,"fit":"cover","radius":12},"eyebrow":{"text":"Why we are different","enable_custom_style":false,"size":12},"heading":{"text":"Why shop with us","tag":"h2","enable_custom_style":false,"size_desktop":44,"size_mobile":32},"subheading":{"text":"\u003cp>Name the reasons customers pick your store, one short label under each icon.\u003c/p>","enable_custom_style":false,"size_desktop":17,"size_mobile":15},"features_row":{},"feature":{"label":"Feature","icon_type":"library","icon_library":"check_circle","enable_custom_style":false},"button":{"label":"Shop now","full_width":false,"uppercase":false,"enable_custom_style":false,"use_theme_button":true,"padding_x":26,"padding_y":14,"radius":8,"border_width":1,"font_size":14,"font_weight":"600"}}'{% endif %}
   style="{% render 'media-tg-vars', st: st, text_color: true %}--iwi-dir:{% if st.image_position == 'right' %}row-reverse{% else %}row{% endif %};--iwi-ai-d:{{ ai }};--iwi-ta-d:{{ ta }};--iwi-ai-m:{{ ai_m }};--iwi-ta-m:{{ ta_m }};--iwi-tw:{{ st.text_column_width | default: 50 }}%;--iwi-gap-d:{{ st.gap_desktop | default: 64 }}px;--iwi-gap-m:{{ st.gap_mobile | default: 32 }}px;--iwi-cgap:{{ st.content_gap | default: 16 }}px;--iwi-fc-d:{{ st.features_columns_desktop | default: 4 }};--iwi-fc-m:{{ st.features_columns_mobile | default: 2 }};--iwi-fg-d:{{ st.features_gap_desktop | default: 22 }}px;--iwi-fg-m:{{ st.features_gap | default: 18 }}px;--iwi-fmt:{{ st.features_margin_top | default: 8 }}px;--iwi-icon:{{ st.icon_size | default: 44 }}px;--iwi-icon-r:{{ icon_r }};--iwi-glyph:{{ st.icon_glyph_size | default: 50 }}%;--iwi-lsize:{{ st.feature_label_size | default: 13 }}px;--iwi-lw:{{ st.feature_label_weight | default: '500' }};{% if st.enable_custom_style %}--iwi-icon-bg:{% render 'scheme-color', color: st.icon_bg, fallback: 'initial' %};--iwi-icon-fg:{% render 'scheme-color', color: st.icon_color, fallback: 'initial' %};--iwi-label:{% render 'scheme-color', color: st.feature_label_color, fallback: 'initial' %};{% endif %}">
   <div class="tg__inner iwi__inner">
     <div class="iwi__grid">
@@ -175,7 +178,7 @@
                   assign btn_case = 'none'
                 endif
               -%}
-              {%- if bs.link != blank -%}<a href="{{ bs.link | url }}"{% else %}<button type="button"{% endif %} class="iwi__btn" data-theme-button="primary" data-sl-button{% if custom_btn %} data-own-shape{% if bs.font_weight != blank %} data-own-weight{% endif %}{% endif %} {{ data }}{% if bs.label == blank %} hidden{% endif %} style="{% if bs.enable_custom_style %}{% render 'button-overrides', bg: bs.bg, text: bs.color, border: bs.border_color, hover_bg: bs.bg_hover, hover_text: bs.color_hover, hover_border: bs.border_color_hover %}{% endif %}{% render 'button-overrides', custom: custom_btn, radius: bs.radius, padding_y: bs.padding_y, padding_x: bs.padding_x, font_size: bs.font_size, weight: bs.font_weight, border_width: bs.border_width, transform: btn_case %}{% if bs.full_width %}--tg-btn-w:100%;{% endif %}">{{ bs.label | escape }}{% if bs.link != blank %}</a>{% else %}</button>{% endif %}
+              {%- capture btn_attrs -%}class="iwi__btn" data-theme-button="primary" data-sl-button{% if custom_btn %} data-own-shape{% if bs.font_weight != blank %} data-own-weight{% endif %}{% endif %} {{ data }}{% if bs.label == blank %} hidden{% endif %} style="{% if bs.enable_custom_style %}{% render 'button-overrides', bg: bs.bg, text: bs.color, border: bs.border_color, hover_bg: bs.bg_hover, hover_text: bs.color_hover, hover_border: bs.border_color_hover %}{% endif %}{% render 'button-overrides', custom: custom_btn, radius: bs.radius, padding_y: bs.padding_y, padding_x: bs.padding_x, font_size: bs.font_size, weight: bs.font_weight, border_width: bs.border_width, transform: btn_case %}{% if bs.full_width %}--tg-btn-w:100%;{% endif %}"{%- endcapture -%}{%- if bs.link != blank -%}<a href="{{ bs.link }}" {{ btn_attrs }}>{{ bs.label | escape }}</a>{% else %}<button type="button" {{ btn_attrs }}>{{ bs.label | escape }}</button>{% endif %}
           {%- endcase -%}
         {%- endfor -%}
         {%- unless row_block -%}{{ features }}{%- endunless -%}
@@ -190,7 +193,7 @@
 {
   "name": "Image With Icons",
   "tag": "section",
-  "class": "section sec__image-with-icons",
+  "class": "section sec__image-with-icons s-tt",
   "settings": [
     {
       "type": "header",
@@ -200,7 +203,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -795,7 +798,6 @@
               "label": "H3"
             }
           ],
-          "hidden": true,
           "info": "Kept for saved content. The heading renders as h2.",
           "visible_if": "{{ false }}"
         },
@@ -1266,8 +1268,8 @@
   ],
   "presets": [
     {
-      "name": "Image With Icons",
-      "category": "Image and video",
+      "name": "Image with Text – Icons",
+      "category": "04 · Image & text",
       "blocks": [
         {
           "type": "image"

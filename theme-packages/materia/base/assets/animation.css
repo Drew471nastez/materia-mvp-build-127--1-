@@ -6,10 +6,11 @@
    The theme-level scroll animation (`settings.scroll_animation`) was
    being applied to every section that opted in, including persistent
    chrome layouts (header, footer, announcement bars, breadcrumbs).
-   That made the header fade/slide on every page load, the footer
-   briefly invisible until the user scrolled to it, and announcement
+   That made the header fade/slide on every page load and announcement
    bars stutter into view. None of these are content sections —
-   they're always visible by definition and shouldn't animate.
+   they're always visible by definition and shouldn't animate. The footer
+   is not in this list: like any section it is shown at once when it is in
+   the first screen and reveals once when scrolled to (animation.js).
 
    Strategy: hard-disable the `.scroll-trigger` animation on these
    specific section wrappers using two complementary selectors:
@@ -35,7 +36,6 @@
    announcement-bar variants ends up with `announcement` somewhere in
    its wrapper ID. */
 [id*="header"].scroll-trigger,
-[id*="footer"].scroll-trigger,
 [id*="announcement"].scroll-trigger,
 [id*="announcement_bar"].scroll-trigger,
 [id*="announcement-bar"].scroll-trigger,
@@ -51,9 +51,6 @@
 .scroll-trigger:has(> .header),
 .scroll-trigger:has(> .site-header),
 .scroll-trigger:has(> header),
-.scroll-trigger:has(> .footer),
-.scroll-trigger:has(> .site-footer),
-.scroll-trigger:has(> footer),
 .scroll-trigger:has(> .announcement-bar),
 .scroll-trigger:has(> .announcement),
 .scroll-trigger:has(> .unique-announcement-bar),
@@ -80,7 +77,6 @@
    override the chrome sections flash invisible for the first frame on
    every page load. */
 [id*="header"].scroll-trigger.scroll-trigger--offscreen,
-[id*="footer"].scroll-trigger.scroll-trigger--offscreen,
 [id*="announcement"].scroll-trigger.scroll-trigger--offscreen,
 [id*="breadcrumb"].scroll-trigger.scroll-trigger--offscreen,
 [id*="top-bar"].scroll-trigger.scroll-trigger--offscreen,
@@ -127,9 +123,9 @@
      before it has started shows its content, never a white band. Every
      keyframe starts from that same state, so nothing jumps when it starts.
    - Plays once: animation.js marks it done and the animation is removed.
-   - Compositor-friendly keyframes: opacity and transform. Blur up uses a
-     4px blur on cards only (never a whole section); Mask reveal uses
-     clip-path, which repaints but never lays out.
+   - Compositor-only keyframes: opacity and transform, nothing else (no
+     filter, clip-path or layout property), so no frame is laid out or
+     painted again while a reveal plays.
    - Duration = Animation duration, delay = Animation delay before start,
      plus a short stagger for things that come into view together.
    ────────────────────────────────────────────────────────────────────── */
@@ -144,12 +140,12 @@
   --animation-slide-in: slideIn var(--duration-extra-long) var(--ease-soft) both;
   --animation-fade-in: fadeIn var(--duration-extra-long) var(--ease-soft) both;
   --animation-zoom-in: revealZoom var(--duration-extra-longer) var(--ease-soft) both;
-  --reveal-stagger: 70ms;
+  --reveal-stagger: 75ms;
   --reveal-shift: 28px;
   --reveal-from-opacity: 0.4;
 }
 
-.scroll-trigger { --reveal-name: revealFade; --reveal-ease: cubic-bezier(0.22, 0.61, 0.36, 1); --reveal-time: 1; --reveal-dir: 1; }
+.scroll-trigger { --reveal-name: revealFade; --reveal-ease: ease; --reveal-time: 1; --reveal-dir: 1; }
 .scroll-trigger.fade_in { --reveal-name: revealFade; }
 .scroll-trigger.slide_in { --reveal-name: revealSlideUp; }
 .scroll-trigger.zoom_in { --reveal-name: revealZoom; }
@@ -178,6 +174,8 @@
     animation-delay: calc(var(--animation-delay-base, 0ms) + var(--reveal-order, 0) * var(--reveal-stagger));
     animation-fill-mode: both;
     animation-iteration-count: 1;
+    /* A layer only while it plays: markDone removes --armed, and with it this. */
+    will-change: opacity, transform;
   }
 }
 
@@ -185,8 +183,7 @@
 .scroll-trigger[animation-end],
 .scroll-trigger[data-animation-done],
 .scroll-trigger.scroll-trigger--design-mode,
-.scroll-trigger:not(.scroll-trigger--offscreen).scroll-trigger--cancel,
-html.shopify-design-mode .scroll-trigger {
+.scroll-trigger:not(.scroll-trigger--offscreen).scroll-trigger--cancel {
   opacity: 1 !important;
   animation: none !important;
 }
@@ -196,11 +193,11 @@ html.shopify-design-mode .scroll-trigger {
 
 @keyframes revealFade { from { opacity: var(--reveal-from-opacity, 0.4); } to { opacity: 1; } }
 @keyframes revealSlideUp {
-  from { opacity: var(--reveal-from-opacity, 0.4); transform: translate3d(0, 14px, 0); }
+  from { opacity: var(--reveal-from-opacity, 0.4); transform: translate3d(0, 1rem, 0); }
   to { opacity: 1; transform: none; }
 }
 @keyframes revealZoom {
-  from { opacity: var(--reveal-from-opacity, 0.4); transform: scale(0.985); }
+  from { opacity: var(--reveal-from-opacity, 0.4); transform: scale(1.02); }
   to { opacity: 1; transform: none; }
 }
 @keyframes revealRise {
@@ -211,9 +208,14 @@ html.shopify-design-mode .scroll-trigger {
   from { opacity: var(--reveal-from-opacity, 0.4); transform: scale(0.992); }
   to { opacity: 1; transform: none; }
 }
+/* Blur up and Mask reveal are drawn with opacity and transform only, so the
+   compositor plays them: a blur or a clip-path redrew the whole element on
+   every frame (a blur cannot run on the compositor; a clip-path reveal of a
+   section re-rasterised it ~60 times a second). Blur up keeps its soft
+   focus-in as a slight scale; Mask reveal grows out of its top edge. */
 @keyframes revealBlurUp {
-  from { opacity: var(--reveal-from-opacity, 0.4); transform: translate3d(0, 12px, 0); filter: blur(4px); }
-  to { opacity: 1; transform: none; filter: none; }
+  from { opacity: var(--reveal-from-opacity, 0.4); transform: translate3d(0, 12px, 0) scale(0.985); }
+  to { opacity: 1; transform: none; }
 }
 @keyframes revealSlideSide {
   from { opacity: var(--reveal-from-opacity, 0.4); transform: translate3d(calc(var(--reveal-shift, 28px) * -1 * var(--reveal-dir, 1)), 0, 0); }
@@ -221,9 +223,11 @@ html.shopify-design-mode .scroll-trigger {
 }
 /* The mask opens from a band already showing, never from nothing. */
 @keyframes revealMask {
-  from { opacity: var(--reveal-from-opacity, 0.4); clip-path: inset(0 0 35% 0); transform: translate3d(0, 10px, 0); }
-  to { opacity: 1; clip-path: inset(0 0 0 0); transform: none; }
+  from { opacity: var(--reveal-from-opacity, 0.4); transform: translate3d(0, 18px, 0) scaleY(0.96); }
+  60% { opacity: 1; }
+  to { opacity: 1; transform: none; }
 }
+.scroll-trigger.mask_reveal.scroll-trigger--armed { transform-origin: 50% 0; }
 
 /* Older names other theme files may still call. */
 @keyframes slideIn {
@@ -262,3 +266,15 @@ html.shopify-design-mode .scroll-trigger {
 
 /* Image hover effects (Animations > Image hover effect) are drawn in theme.css
    on `.hover-effect`, for fine pointers only, so they never stick on touch. */
+
+/* The theme editor's section previews (Add section library, request.visual_preview_mode)
+   are a still, scaled frame where nothing scrolls into view and animations may never
+   advance: content shows as it is, with no reveal, hidden state or entrance. */
+html.mt-preview .scroll-trigger,
+html.mt-preview motion-element,
+html.mt-preview [data-animate],
+html.mt-preview .scroll-trigger * {
+  opacity: 1 !important;
+  animation: none !important;
+  transform: none;
+}

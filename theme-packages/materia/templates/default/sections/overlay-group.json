@@ -839,8 +839,8 @@
         "image": {
           "type": "image",
           "settings": {
-            "image": "shopify://shop_images/default-packing.webp",
-            "alt": "Person taping a parcel shut on a table"
+            "image": "shopify://shop_images/default-popup-mug.webp",
+            "alt": "Hands around a white mug, a cream jumper sleeve"
           }
         },
         "dismiss": {

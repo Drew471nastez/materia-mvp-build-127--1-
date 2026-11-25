@@ -83,7 +83,7 @@
         "menu_hover_style": "underline",
         "redirect_to_link": true,
         "logo_width_mobile": 78,
-        "menu_link_spacing": 26,
+        "menu_link_spacing": 18,
         "menu_mobile_color": "#111111",
         "show_account_icon": true,
         "action_text_weight": "400",

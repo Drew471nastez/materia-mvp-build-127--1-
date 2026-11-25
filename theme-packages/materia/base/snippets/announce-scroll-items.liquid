@@ -1,11 +1,17 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. One copy of the scrolling messages of Announcement Bar
   Pro 1: the Message blocks (or, with none, the section's legacy
   message_1..4) repeated reps times. Only the first message of the first copy
   carries the block's attributes; the rest are data-an-copy, kept in step by
   shopify/assets/live-announcements.js.
+
+  @param {boolean} copy - Copy
+  @param {number} reps - Reps
+  @param {section} section - The section being rendered
+
+  @example
   {% render 'announce-scroll-items', section: section, copy: false, reps: 30 %}
-{%- endcomment -%}
+{%- enddoc -%}
 {%- liquid
   assign st = section.settings
   assign msgs = section.blocks | where: 'type', 'message'
@@ -25,5 +31,6 @@
       {%- unless forloop.last -%}<span class="separator-icon" aria-hidden="true"{% if st.separator_icon == 'none' %} hidden{% endif %}>{% render 'announce-icon', icon: st.separator_icon %}</span>{%- endunless -%}
     {%- endfor -%}
   {%- endif -%}
-  {%- unless forloop.last -%}<span class="repetition-spacing"></span>{%- endunless -%}
+  {%- comment -%} After every repeat, the last too, so the seam between the two copies is spaced like the rest. {%- endcomment -%}
+  <span class="repetition-spacing"></span>
 {%- endfor -%}

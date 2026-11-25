@@ -530,7 +530,8 @@
   /* Reveal on scroll: only a section that starts below the fold waits, never in the editor or under reduced motion. */
   function reveal(root, st, seen) {
     if (root.dataset.reveal !== 'true') { root.removeAttribute('data-lg-reveal'); return; }
-    if (seen || design() || reduced.matches) { root.dataset.lgReveal = 'done'; return; }
+    if (st && st.redraw === undefined) st.redraw = !!window.mtIsRedraw?.(root);
+    if (seen || (st ? st.redraw : !!window.mtIsRedraw?.(root)) || reduced.matches) { root.dataset.lgReveal = 'done'; return; }
     if (!root.dataset.lgReveal) { const r = root.getBoundingClientRect(); root.dataset.lgReveal = r.top > innerHeight ? 'wait' : 'done'; }
   }
   function scan() {

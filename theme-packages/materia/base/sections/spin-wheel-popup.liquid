@@ -1,4 +1,4 @@
-<script src="{{ 'live-page-popups.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-page-popups.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-page-popups-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%}
   Materia Themes. Spin Wheel Popup: a heading, a line of text and a signup
@@ -14,7 +14,7 @@
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign fb_accessibility_spin_again = 'accessibility.spin_again' | t
   assign fb_accessibility_you_won = 'accessibility.you_won' | t
   assign fb_accessibility_spin_to_win = 'accessibility.spin_to_win' | t
@@ -210,6 +210,8 @@
   .sw-form-{{ sid }} { display: flex; flex-direction: column; gap: 12px; max-width: 420px; }
   .sw-{{ sid }}[data-sw-align="center"] .sw-form-{{ sid }} { margin-inline: auto; }
   .sw-form-{{ sid }} > form { display: flex; flex-direction: column; gap: 12px; }
+  .sw-error-{{ sid }} { margin: 0; font-size: 14px; line-height: 1.45; color: color-mix(in srgb, #d92d20 72%, var(--color-text)); }
+  .sw-error-{{ sid }}[hidden] { display: none; }
   .sw-form-{{ sid }} input[type="email"] {
     width: 100%; min-height: var(--input-height, 46px); padding: var(--input-padding, 12px 14px);
     border-radius: var(--input-border-radius, 8px); border: max(1px, var(--inputs-border-width, 1px)) solid var(--color-border, #cccccc);
@@ -327,12 +329,19 @@
               endif
             -%}
             <div class="sw-form-{{ sid }}" data-pg-block="{{ block_form.id }}" data-pg-type="form"{% if request.design_mode %} data-pg-settings="{{ fs | json | escape }}"{% endif %} data-pg-i18n="{{ fb_accessibility_spin_to_win | escape }}" {{ block_form.shopify_attributes }}>
-              <form id="{{ sw_form_id }}" class="{{ sw_form_class }}" data-storelib-form="subscribe">
-                <input type="email" name="email" required autocomplete="email" placeholder="{{ sw_email_ph | escape }}" aria-label="{{ sw_email_ph | escape }}" data-popup-autofocus>
+              {%- form 'customer', id: sw_form_id, class: sw_form_class, data-storelib-form: 'subscribe', data-sw-hold: '' -%}
+                <input type="hidden" name="contact[tags]" value="newsletter"><input type="hidden" name="contact[accepts_marketing]" value="true">
+                <input type="email" name="contact[email]" required autocomplete="email" placeholder="{{ sw_email_ph | escape }}" aria-label="{{ sw_email_ph | escape }}" data-popup-autofocus>
                 {%- render 'cpnb-phone-field', scope: sid, default_country: fs.phone_default_country, phone_placeholder: fs.phone_placeholder, required: sw_phone_req, off: sw_phone_off -%}
                 <button type="submit" class="sw-spin-btn-{{ sid }} btn-primary" data-theme-button="primary" data-sl-button
                         style="{%- render 'button-overrides', bg: c_bbg, text: c_btx, hover_bg: c_bbgh, hover_text: c_btxh -%}">{{ fs.spin_label | default: fb_accessibility_spin_to_win }}</button>
-              </form>
+                {%- if form.errors -%}
+                  {%- capture sw_err -%}{%- for field in form.errors -%}{{ form.errors.translated_fields[field] }} {{ form.errors.messages[field] }} {% endfor -%}{%- endcapture -%}
+                  <p class="sw-error-{{ sid }}" role="alert" data-mt-form-errors="{{ sw_err | strip | escape }}">{{ 'newsletter.error' | t }}</p>
+                {%- elsif form.posted_successfully? -%}
+                  <span hidden data-mt-form-posted></span>
+                {%- endif -%}
+              {%- endform -%}
             </div>
           {%- endif -%}
 
@@ -425,6 +434,7 @@
   var SID = {{ section.id | json }};
   var WON_KEY = 'sw_won_' + SID;
   var RESPIN_KEY = 'sw_respins_' + SID;
+  var LAST_KEY = 'sw_last_' + SID;   // the slice the wheel stopped on, kept (session) across the form's post
 
   function setup(P){
     var root = document.querySelector('[data-popup-root="' + SID + '"]');
@@ -522,7 +532,7 @@
       if (design) { clearTimeout(resetTimer); resetTimer = setTimeout(function(){ root.classList.remove('sw-spun', 'sw-can-respin'); }, 8000); }
     }
 
-    function run(){
+    function run(done){
       if (running) return;
       running = true;
       var label = spinBtn ? spinBtn.textContent : '';
@@ -533,16 +543,54 @@
         root.classList.remove('sw-spinning');
         if (spinBtn) { spinBtn.disabled = false; spinBtn.textContent = label; }
         reveal(seg);
+        if (typeof done === 'function') done();
       });
     }
 
     // The email goes to Storelib's Subscribers through the form itself
     // (data-storelib-form="subscribe"); the spin starts on that same submit.
+    // The wheel spins first and shows the prize; then the form is sent to the platform the
+    // ordinary way (requestSubmit), so the platform's spam check (CAPTCHA) can add its token.
+    // While data-sw-hold is on the form, the theme's form script leaves this submit alone.
+    // The page comes back (on the form's #id) with the result: the popup reopens on the prize
+    // the wheel stopped on, or on the form with its error (sending it again keeps that prize).
+    var back = form && !design && P.posted ? P.posted(form) : '';
+    var last = parseInt(P.store.get(LAST_KEY, true) || '', 10);
+    if (!(last >= 0 && last < segments.length)) last = -1;
+    function settle(i){
+      var step = 360 / segments.length;
+      rotation = (360 - (i + 0.5) * step) % 360;
+      if (wheel) { wheel.style.transition = 'none'; wheel.style.transform = 'rotate(' + rotation + 'deg)'; void wheel.getBoundingClientRect(); wheel.style.transition = ''; }
+    }
+    if (back === 'ok') {
+      P.store.rm(LAST_KEY, true);
+      var err0 = form.querySelector('[data-mt-form-errors]'); if (err0) err0.hidden = true;
+      api.show();
+      if (last >= 0) { settle(last); reveal(segments[last]); }
+    } else if (back === 'error') {
+      api.show();
+    } else if (form) {
+      // The platform marks every customer form on the page; the error belongs to another form.
+      var errX = form.querySelector('[data-mt-form-errors]'); if (errX && !design) errX.hidden = true;
+    }
     if (form) form.addEventListener('submit', function(e){
+      if (form.dataset.swReady === '1') return;
       var email = form.querySelector('input[type="email"]');
       if (email && email.checkValidity && !email.checkValidity()) return;
-      if (design) e.preventDefault();
-      run();
+      e.preventDefault();
+      // The theme's form script and the platform's CAPTCHA see only the submit that sends the form.
+      e.stopImmediatePropagation();
+      if (running) return;
+      if (design) { run(); return; }
+      var after = function(){
+        form.dataset.swReady = '1';
+        form.removeAttribute('data-sw-hold');
+        P.store.set(LAST_KEY, String(landed()), true);
+        setTimeout(function(){ try { form.requestSubmit ? form.requestSubmit() : form.submit(); } catch (err) {} }, 1600);
+      };
+      // Sent again after an error: the prize it already won, without another spin.
+      if (back === 'error' && last >= 0) { settle(last); reveal(segments[last]); after(); return; }
+      run(after);
     });
     if (respinBtn) respinBtn.addEventListener('click', function(){
       if (running || respinsLeft <= 0) return;
@@ -575,11 +623,12 @@
 })();
 </script>
 
+
 {% schema %}
 {
   "name": "Spin Wheel Popup",
   "tag": "section",
-  "class": "sw-section",
+  "class": "sw-section s-tt has-overlay",
   "enabled_on": {
     "groups": [
       "custom.overlay"
@@ -594,7 +643,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "header",
@@ -1020,7 +1069,6 @@
       "id": "segment_divider",
       "label": "Divider",
       "visible_if": "{{ false }}",
-      "hidden": true,
       "info": "Not used: the slices meet without lines."
     }
   ],

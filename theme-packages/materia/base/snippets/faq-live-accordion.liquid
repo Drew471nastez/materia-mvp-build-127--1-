@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. The header and question list of FAQ 1, FAQ 2, FAQ 3, FAQ 4
   and FAQ 6 (sections faq1, faq5, faq, faq-pro, faq-side-image). p is the
   section's class prefix (faq1, faq5, faq6, faq7, fsi). own_hw: the legacy
@@ -13,7 +13,14 @@
   carries data-own-font / data-own-weight / data-own-size, and a button with
   its own shape data-own-shape, here in the first paint and from live-faq.js
   on live edits.
-{%- endcomment -%}
+
+  @param {boolean} [own_hw] - Whether the section sets its own heading weight
+  @param {string} p - P
+  @param {section} section - The section being rendered
+
+  @example
+  {% render 'faq-live-accordion', section: section, p: 'fsi', own_hw: own_hw %}
+{%- enddoc -%}
 {%- liquid
   assign st = section.settings
   assign sid = section.id
@@ -41,7 +48,7 @@
               assign open_first = true
             endif
           -%}
-          <div class="{{ p }}__item" {% if open_first %}open{% endif %} data-{{ p }}-item data-faq-item id="block-{{ block.id }}" data-faq-block="{{ block.id }}" data-faq-type="faq_item" data-faq-settings="{{ bs | json | escape }}" {{ block.shopify_attributes }}>
+          <div class="{{ p }}__item" {% if open_first %}open{% endif %} data-{{ p }}-item data-faq-item id="block-{{ block.id }}" data-faq-block="{{ block.id }}" data-faq-type="faq_item" {% if request.design_mode %}data-faq-settings="{{ bs | json | escape }}"{% endif %} {{ block.shopify_attributes }}>
             <button
               type="button"
               class="{{ p }}__q"

@@ -108,13 +108,13 @@ function eventFlashingBrowseTab() {
     first_notification = window.flashingBrowseTab?.firstNotification,
     secondary_notification = window.flashingBrowseTab?.secondaryNotification;
   if (enable && titleTag) {
-    var originalTitle = titleTag.innerText;
+    var originalTitle = titleTag.textContent; // textContent: innerText forces a layout
     var isActive = true;
     document.addEventListener("visibilitychange", () => {
       document.visibilityState === "visible"
         ? (function () {
             if (isActive) return;
-            clearInterval(myTimer), (titleTag.innerText = originalTitle);
+            clearInterval(myTimer), (titleTag.textContent = originalTitle);
           })()
         : (function () {
             var i = 1;
@@ -131,7 +131,7 @@ function eventFlashingBrowseTab() {
                 message = secondary_notification;
                 i = 1;
               }
-              titleTag.innerText = message;
+              titleTag.textContent = message;
             }, 2000);
           })();
     });
@@ -853,7 +853,7 @@ function HoverIntent(exitTime, elements, userConfig) {
   let note = null;
   const isDesign = () => {
     try {
-      return window.self !== window.top || !!window.Shopify?.designMode || html.classList.contains("shopify-design-mode");
+      return !!window.Shopify?.designMode || html.classList.contains("shopify-design-mode");
     } catch (e) {
       return true;
     }
@@ -939,6 +939,202 @@ function HoverIntent(exitTime, elements, userConfig) {
   else upgrade();
 })();
 /* materia-menu:end */
+
+/* materia-drawer-a11y:start
+   The cart drawer and the phone menu cover the page, so they behave as modal
+   dialogs for the keyboard and for screen readers:
+   - closed, they are inert: their off-screen links and buttons are not in the
+     Tab order and not read out (before, Tab walked through the hidden cart and
+     a screen reader read it after the footer);
+   - open, they are role="dialog" aria-modal="true", focus moves into them
+     (it used to stay on the cart icon, so Tab went on through the covered
+     page and the drawer's checkout was only reachable after the whole page),
+     Tab and Shift+Tab stay inside, and on close focus goes back to what
+     opened them.
+   State is read from the classes the drawers already use (.minicart__wrapper
+   .open, html.nav-open), so every way of opening or closing them is covered. */
+(() => {
+  if (window.MateriaDrawerA11y) return;
+  const html = document.documentElement;
+  const phone = matchMedia("(max-width: 1024.98px)");
+  const FOCUSABLE = 'a[href], area[href], button, input:not([type="hidden"]), select, textarea, iframe, summary, [contenteditable="true"], [tabindex]';
+  const state = new WeakMap();
+
+  function drawers() {
+    const list = [];
+    const root = document.getElementById("minicart_wrapper");
+    const cart = root?.querySelector(".minicart__wrapper");
+    if (cart) list.push({
+      el: cart,
+      open: cart.classList.contains("open"),
+      // The "under the header" cart style is a dropdown, not a cover.
+      modal: !root.classList.contains("show_popup"),
+      canInert: true,
+      label: () => cart.querySelector(".minicart-heading")?.textContent,
+      first: () => cart.querySelector(".close-cart-button"),
+      fallback: () => [...document.querySelectorAll(".minicart__action, .overlayminicart")].find(visible),
+    });
+    const nav = document.querySelector(".navigation.mobile");
+    if (nav) list.push({
+      el: nav,
+      open: html.classList.contains("nav-open") && !!nav.getClientRects().length,
+      modal: true,
+      // Only the phone drawer is hidden off screen; never touch a desktop menu.
+      canInert: phone.matches,
+      label: () => nav.querySelector('[data-menu="horizontal-list"]')?.textContent || "Menu",
+      first: () => nav.querySelector("close-menu"),
+      fallback: () => [...document.querySelectorAll('.nav-toggle, [data-action="toggle-nav"]')].find(visible),
+    });
+    return list;
+  }
+  function visible(el) {
+    if (!el || !el.getClientRects().length) return false;
+    // Not opacity: custom checkboxes (the cart's terms box) are see-through inputs.
+    return el.checkVisibility ? el.checkVisibility({ visibilityProperty: true }) : getComputedStyle(el).visibility !== "hidden";
+  }
+  function focusables(container) {
+    return [...container.querySelectorAll(FOCUSABLE)].filter((el) =>
+      el.tabIndex >= 0 && !el.disabled && !el.closest("[inert]") && visible(el));
+  }
+  function focusInto(d) {
+    if (d.el.contains(document.activeElement)) return;
+    const target = visible(d.first()) ? d.first() : focusables(d.el)[0];
+    try { target?.focus({ preventScroll: true }); } catch (e) {}
+  }
+
+  function sync() {
+    for (const d of drawers()) {
+      const s = state.get(d.el) || {};
+      const label = (d.label() || "").replace(/\s+/g, " ").trim();
+      if (d.open) {
+        if (d.el.inert) d.el.inert = false;
+        if (d.modal) {
+          if (d.el.getAttribute("role") !== "dialog") d.el.setAttribute("role", "dialog");
+          if (d.el.getAttribute("aria-modal") !== "true") d.el.setAttribute("aria-modal", "true");
+          if (label && d.el.getAttribute("aria-label") !== label) d.el.setAttribute("aria-label", label);
+        }
+        if (!s.open) {
+          const active = document.activeElement;
+          s.opener = active && active !== document.body && !d.el.contains(active) ? active : null;
+          // After the opening frame, so the drawer is shown before it takes focus.
+          if (d.modal) requestAnimationFrame(() => requestAnimationFrame(() => { if (state.get(d.el)?.open) focusInto(d); }));
+        }
+      } else {
+        const shouldInert = d.canInert;
+        if (d.el.inert !== shouldInert) d.el.inert = shouldInert;
+        if (d.el.getAttribute("aria-modal") === "true") { d.el.removeAttribute("aria-modal"); d.el.removeAttribute("role"); }
+        if (s.open) {
+          const active = document.activeElement;
+          if (!active || active === document.body || d.el.contains(active)) {
+            const back = s.opener && s.opener.isConnected && visible(s.opener) ? s.opener : d.fallback();
+            try { back?.focus({ preventScroll: true }); } catch (e) {}
+          }
+          s.opener = null;
+        }
+      }
+      s.open = d.open;
+      state.set(d.el, s);
+    }
+  }
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Tab" || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
+    const d = drawers().find((x) => x.open && x.modal);
+    if (!d) return;
+    const items = focusables(d.el);
+    if (!items.length) return;
+    const first = items[0], last = items[items.length - 1];
+    const active = document.activeElement;
+    if (!d.el.contains(active)) {
+      event.preventDefault();
+      (event.shiftKey ? last : first).focus({ preventScroll: true });
+    } else if (event.shiftKey && active === first) {
+      event.preventDefault();
+      last.focus({ preventScroll: true });
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first.focus({ preventScroll: true });
+    }
+  });
+
+  let queued = false;
+  const schedule = () => { if (queued) return; queued = true; queueMicrotask(() => { queued = false; sync(); }); };
+  const watched = new WeakSet();
+  const observer = new MutationObserver(schedule);
+  function watch() {
+    if (!watched.has(html)) { observer.observe(html, { attributes: true, attributeFilter: ["class"] }); watched.add(html); }
+    const root = document.getElementById("minicart_wrapper");
+    if (root && !watched.has(root)) { observer.observe(root, { attributes: true, attributeFilter: ["class"], subtree: true }); watched.add(root); }
+    sync();
+  }
+  phone.addEventListener?.("change", sync);
+  ["shopify:section:load", "storelib:section-load"].forEach((type) => document.addEventListener(type, () => requestAnimationFrame(watch)));
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", watch);
+  else watch();
+  window.MateriaDrawerA11y = { sync };
+})();
+/* materia-drawer-a11y:end */
+
+/* materia-hover-state:start
+   Classes that stand in for :has() on an ancestor (see navigation.css and
+   theme.css): Chrome restyles every element a :has() rule could reach whenever
+   any node is added anywhere (each <link> prefetch the platform inserts), so these
+   hover states are kept on the ancestor by the pointer instead.
+   - .horizontal-list.is-level0-hover: the pointer is over one of its top-level items;
+   - .submenu-horizontal.is-link-hover: the pointer is over one of its links;
+   - .hover-effect.hover-effect--plain: the card has no second picture (read as
+     the pointer enters, so a picture added later is seen). */
+(() => {
+  if (window.__mtHoverState) return;
+  window.__mtHoverState = true;
+  const set = (el, cls, on) => { if (el && el.classList.contains(cls) !== on) el.classList.toggle(cls, on); };
+  const levelOf = (node, list) => { const item = node && node.closest ? node.closest(".level0") : null; return item && item.parentElement === list ? item : null; };
+  document.addEventListener("pointerover", (e) => {
+    const t = e.target;
+    if (!t || !t.closest) return;
+    const list = t.closest(".horizontal-list");
+    if (list) set(list, "is-level0-hover", !!levelOf(t, list));
+    const sub = t.closest(".submenu-horizontal");
+    if (sub) set(sub, "is-link-hover", !!t.closest(".menu_item-link"));
+    const card = t.closest(".hover-effect");
+    if (card && !card.contains(e.relatedTarget)) set(card, "hover-effect--plain", !card.querySelector(".secondary-image, .hover-effect__alt"));
+    warmCard(t.closest(".product-item, .collection-item"), true);
+  }, { passive: true });
+  // The picture a hover shows (the second image, the card slider's next
+  // pictures) is hidden until then, so the browser had not decoded it and the
+  // first hover could stall on it. It is decoded off the main thread as the
+  // pointer reaches the card (and, for cards on screen, when the page is idle).
+  const warmed = new WeakSet();
+  const warmCard = (item, pointer) => {
+    if (!item || warmed.has(item)) return;
+    if (pointer) warmed.add(item);
+    item.querySelectorAll(".secondary-image, .hover-effect__alt, .pc-slide img").forEach((img) => {
+      if (img.tagName !== "IMG" || !img.decode) return;
+      // Idle: only what has arrived. The pointer on the card: fetch it now too.
+      if (!img.complete) { if (!pointer) return; if (img.loading === "lazy") img.loading = "eager"; }
+      img.decode().catch(() => {});
+    });
+  };
+  if (matchMedia("(hover: hover) and (pointer: fine)").matches && "IntersectionObserver" in window) {
+    const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 400));
+    const start = () => idle(() => {
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach((en) => { if (en.isIntersecting) { io.unobserve(en.target); idle(() => warmCard(en.target), { timeout: 2000 }); } });
+      });
+      document.querySelectorAll(".product-item").forEach((el) => { if (el.querySelector(".secondary-image, .pc-slide + .pc-slide")) io.observe(el); });
+    }, { timeout: 3000 });
+    if (document.readyState === "complete") start(); else addEventListener("load", start, { once: true });
+  }
+  document.addEventListener("pointerout", (e) => {
+    const t = e.target, to = e.relatedTarget;
+    if (!t || !t.closest) return;
+    const list = t.closest(".horizontal-list");
+    if (list && !(to && list.contains(to) && levelOf(to, list))) set(list, "is-level0-hover", false);
+    const sub = t.closest(".submenu-horizontal");
+    if (sub && !(to && sub.contains(to) && to.closest && to.closest(".menu_item-link"))) set(sub, "is-link-hover", false);
+  }, { passive: true });
+})();
+/* materia-hover-state:end */
 
 let BlsMainMenuShopify = (function () {
   return {
@@ -1394,10 +1590,13 @@ let BlsMainMenuShopify = (function () {
       // Set the three values only: replacing the whole style attribute wiped
       // the scroll lock's padding and anything else set on <body> each time
       // the header was redrawn.
+      // Written only when a value changed: a custom property set on <body>
+      // restyles the whole page, even when it is set to the same value.
       const bodyStyle = document.body.style;
-      bodyStyle.setProperty("--height-bar", `${announcement_bar}px`);
-      bodyStyle.setProperty("--height-header", `${headerpage}px`);
-      bodyStyle.setProperty("--height-topbar", `${top_bar}px`);
+      const put = (name, value) => { if (bodyStyle.getPropertyValue(name) !== value) bodyStyle.setProperty(name, value); };
+      put("--height-bar", `${announcement_bar}px`);
+      put("--height-header", `${headerpage}px`);
+      put("--height-topbar", `${top_bar}px`);
     },
 
     initStickyHeader: function (header) {
@@ -2059,6 +2258,8 @@ class ProgressBar extends HTMLElement {
     const p = this.querySelector(".progress");
     const track = this.querySelector('[role="progressbar"]');
     if (p) p.style.width = progress + "%";
+    // The truck badge (sibling of the track) rides the same 0..1 value.
+    this.style.setProperty('--fs-progress', String(progress / 100));
     track?.setAttribute('aria-valuenow', String(Math.round(progress)));
     this.classList.toggle("cart_shipping_free", progress >= 100);
   }
@@ -2263,7 +2464,35 @@ class BackToTop extends HTMLElement {
   }
 
   connectedCallback() {
-    window.addEventListener("scroll", this.updateScrollPercentage.bind(this));
+    // At most once a frame, passive, and the page's height comes from a
+    // ResizeObserver instead of being read (a forced layout) on every scroll event.
+    if (this._onScroll) return;
+    this._frame = 0;
+    this._max = 1;
+    const measure = () => {
+      const root = document.documentElement;
+      this._max = Math.max(1, (root.scrollHeight || document.body.scrollHeight) - (root.clientHeight || window.innerHeight));
+    };
+    measure();
+    if ("ResizeObserver" in window) {
+      this._ro = new ResizeObserver(() => { measure(); this.schedule(); });
+      this._ro.observe(document.body);
+    }
+    this._onScroll = () => this.schedule();
+    window.addEventListener("scroll", this._onScroll, { passive: true });
+    this.schedule();
+  }
+
+  disconnectedCallback() {
+    if (this._onScroll) window.removeEventListener("scroll", this._onScroll);
+    this._onScroll = null;
+    this._ro?.disconnect();
+    if (this._frame) cancelAnimationFrame(this._frame);
+  }
+
+  schedule() {
+    if (this._frame) return;
+    this._frame = requestAnimationFrame(() => { this._frame = 0; this.updateScrollPercentage(); });
   }
 
   backToTop() {
@@ -2276,20 +2505,12 @@ class BackToTop extends HTMLElement {
   }
 
   updateScrollPercentage() {
-    const scrollHeight =
-      document.documentElement.scrollHeight || document.body.scrollHeight;
-    const scrollTop =
-      document.documentElement.scrollTop || document.body.scrollTop;
-    const clientHeight =
-      document.documentElement.clientHeight || document.body.clientHeight;
-    const scrollPercentage = (scrollTop / (scrollHeight - clientHeight)) * 100;
-    this.style.setProperty("--height", scrollPercentage.toFixed(2) + "%");
+    const scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
+    const pct = Math.min(100, Math.max(0, (scrollTop / (this._max || 1)) * 100)).toFixed(2) + "%";
+    if (pct !== this._pct) { this._pct = pct; this.style.setProperty("--height", pct); }
     const threshold = parseInt(this.dataset.showAfter, 10) || 200;
-    if (scrollTop > threshold) {
-      this.classList.add("show");
-    } else {
-      this.classList.remove("show");
-    }
+    const show = scrollTop > threshold;
+    if (show !== this.classList.contains("show")) this.classList.toggle("show", show);
   }
 }
 customElements.define("back-to-top", BackToTop);
@@ -2328,7 +2549,7 @@ class LocalizationForm extends HTMLElement {
     if (!this.elements.button || !this.elements.list || !this.elements.input) return;
     this.elements.button.addEventListener(
       "click",
-      this.openSelector.bind(this)
+      (event) => { this._openedByKey = event.detail === 0; this.openSelector(); }
     );
     // Closing on focusout before the customer selects an option can cancel taps,
     // especially when touch keyboards or mobile editor controls steal focus.
@@ -2345,6 +2566,16 @@ class LocalizationForm extends HTMLElement {
     // the sheet's first animation frame. Hidden selectors stay lazy.
     this.elements.button.addEventListener('pointerdown', () => this.ensureOptions(), {passive:true});
     this.elements.button.addEventListener('focus', () => this.ensureOptions());
+    // Keyboard: arrows open the list on the current option and move through it,
+    // Home / End, typing searches (or jumps to the first match), Escape and Tab close.
+    this.elements.button.addEventListener('keydown', (event) => {
+      if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+      event.preventDefault();
+      this._openedByKey = event.key === 'ArrowUp' ? 'last' : 'current';
+      if (!this.elements.button.classList.contains('open')) this.openSelector();
+      else this.focusOption(this._openedByKey);
+    });
+    this.elements.list.addEventListener('keydown', (event) => this.onListKeydown(event));
     if (this.ensureOptions(false)) this.setupMobileSheet();
     this._onResize = () => {
       if (!window.matchMedia('(max-width: 1024.98px)').matches && this._sheetPortaled) this.hidePanel();
@@ -2365,30 +2596,37 @@ class LocalizationForm extends HTMLElement {
     const flag = (code) => "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 24"><text x="16" y="19" font-size="20" text-anchor="middle">' +
       String(code).toUpperCase().replace(/[A-Z]/g, (c) => String.fromCodePoint(0x1f1a5 + c.charCodeAt(0))) + "</text></svg>");
     const fragment = document.createDocumentFragment();
+    const check = '<svg class="loc-option__check" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     for (const [code, name, currency, symbol, image] of rows) {
       const li = document.createElement("li");
       li.className = "disclosure__item py-4";
       li.tabIndex = -1;
       const a = document.createElement("a");
       a.href = "#";
-      a.className = "no-underline reversed-links text-color hover-heading-color";
+      a.className = "loc-option no-underline reversed-links text-color hover-heading-color";
       if (code === current) a.setAttribute("aria-current", "true");
       a.dataset.value = code;
-      a.setAttribute("aria-label", name);
-      const row = document.createElement("span");
-      row.className = "flex align-center gap-10";
+      a.setAttribute("aria-label", `${name} (${currency} ${symbol})`);
+      // Flag, country, its currency (code and symbol), and a check on the current one.
       const holder = document.createElement("span");
       holder.className = "rounded-50 border localization-flags";
+      holder.setAttribute("aria-hidden", "true");
       const img = document.createElement("img");
       img.src = image || flag(code);
-      img.alt = name;
+      img.alt = "";
+      img.width = 18;
+      img.height = 18;
       img.loading = "lazy";
       img.decoding = "async";
       holder.appendChild(img);
       const label = document.createElement("span");
-      label.textContent = `${name} (${currency} ${symbol})`;
-      row.append(holder, label);
-      a.appendChild(row);
+      label.className = "loc-option__label";
+      label.textContent = name;
+      const meta = document.createElement("span");
+      meta.className = "loc-option__meta";
+      meta.textContent = `${currency} ${symbol}`;
+      a.append(holder, label, meta);
+      a.insertAdjacentHTML("beforeend", check);
       li.appendChild(a);
       fragment.appendChild(li);
     }
@@ -2412,7 +2650,8 @@ class LocalizationForm extends HTMLElement {
     grab.setAttribute("aria-hidden", "true");
     head.appendChild(grab);
     const items = [...list.querySelectorAll(".disclosure__item")];
-    if (items.length > 6) {
+    // A search field for long lists (more than 10 countries or languages).
+    if (items.length > 10) {
       const label = list.dataset.searchLabel || "Search";
       const field = document.createElement("label");
       field.className = "loc-sheet-search";
@@ -2456,6 +2695,16 @@ class LocalizationForm extends HTMLElement {
       if (e.key !== "Escape" || !this._sheetPortaled) return;
       this.hidePanel();
       this.elements.button?.focus({ preventScroll: true });
+    });
+    // The sheet lives at the end of <body>: keep Tab inside it while it is open.
+    list.addEventListener("keydown", (e) => {
+      if (e.key !== "Tab" || !this._sheetPortaled) return;
+      const f = [...list.querySelectorAll('input, a[data-value]')].filter((el) => el.getClientRects().length && !el.closest('[hidden]'));
+      if (!f.length) return;
+      const i = f.indexOf(document.activeElement);
+      const next = e.shiftKey ? (i <= 0 ? f[f.length - 1] : f[i - 1]) : (i < 0 || i === f.length - 1 ? f[0] : f[i + 1]);
+      e.preventDefault();
+      next.focus({ preventScroll: false });
     });
 
     // Shared backdrop, shown in the top layer just before the sheet so it
@@ -2551,6 +2800,66 @@ class LocalizationForm extends HTMLElement {
     head.addEventListener("pointercancel", (e) => { if (e.pointerType !== "touch") finish(); });
   }
 
+  options() {
+    return [...(this.elements.list?.querySelectorAll('a[data-value]') || [])].filter((a) => !a.closest('[hidden]'));
+  }
+
+  focusOption(which) {
+    const all = this.options();
+    if (!all.length) return;
+    const target = which === 'last' ? all[all.length - 1]
+      : which === 'first' ? all[0]
+      : (all.find((a) => a.getAttribute('aria-current') === 'true') || all[0]);
+    try { target.focus({ preventScroll: true }); } catch (e) { target.focus(); }
+    this.revealOption(target);
+  }
+
+  // Scrolls the list (not the page) so the option is in view.
+  revealOption(option) {
+    const scroller = this.elements.panel;
+    if (!option || !scroller || scroller.scrollHeight <= scroller.clientHeight) return;
+    const box = scroller.getBoundingClientRect(), r = option.getBoundingClientRect();
+    if (r.top < box.top) scroller.scrollTop -= box.top - r.top + 4;
+    else if (r.bottom > box.bottom) scroller.scrollTop += r.bottom - box.bottom + 4;
+  }
+
+  onListKeydown(event) {
+    if (!this.elements.button?.classList.contains('open')) return;
+    const key = event.key;
+    const search = this._sheetSearch;
+    if (key === 'Escape' || key === 'Esc') {
+      event.preventDefault();
+      event.stopPropagation();
+      this.hidePanel();
+      this.elements.button.focus({ preventScroll: true });
+      return;
+    }
+    if (key === 'Tab' && !this._sheetPortaled) { this.hidePanel(); return; }
+    const all = this.options();
+    if (event.target === search) {
+      if (key === 'ArrowDown' && all.length) { event.preventDefault(); this.focusOption('first'); }
+      return;
+    }
+    const i = all.indexOf(event.target.closest?.('a[data-value]'));
+    if (i < 0) return;
+    let next = null;
+    if (key === 'ArrowDown') next = all[Math.min(all.length - 1, i + 1)];
+    else if (key === 'ArrowUp') next = i === 0 && search ? search : all[Math.max(0, i - 1)];
+    else if (key === 'Home') next = all[0];
+    else if (key === 'End') next = all[all.length - 1];
+    else if (key === ' ' || key === 'Spacebar') { event.preventDefault(); all[i].click(); return; }
+    else if (key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      if (search) { search.focus({ preventScroll: true }); return; } // the key lands in the field
+      const ch = key.toLowerCase();
+      const label = (a) => (a.textContent || '').trim().toLowerCase();
+      next = all.slice(i + 1).concat(all.slice(0, i + 1)).find((a) => label(a).startsWith(ch)) || null;
+    }
+    if (!next) return;
+    event.preventDefault();
+    next.focus({ preventScroll: true });
+    if (next !== search) this.revealOption(next);
+  }
+
   handleBodyClick(evt) {
     const target = evt.target;
     if (target != this && !target.closest("localization-form") && !target.closest('.materia-localization-sheet')) {
@@ -2635,6 +2944,8 @@ class LocalizationForm extends HTMLElement {
         if (!this._sheetPortaled || !this.elements.button?.classList.contains('open')) return;
         this._backdrop?.classList.add('open');
         list.classList.add('is-open');
+        // Keyboard users land in the sheet (it is portaled out of tab order).
+        if (this._openedByKey) (current || list.querySelector('a[data-value]'))?.focus({ preventScroll: true });
       });
     });
   }
@@ -2687,7 +2998,8 @@ class LocalizationForm extends HTMLElement {
   }
 
   onContainerKeyUp(event) {
-    if (event.code.toUpperCase() !== "ESCAPE") return;
+    if (event.key !== "Escape" && event.key !== "Esc") return;
+    if (!this.elements.button.classList.contains("open")) return;
     this.hidePanel();
     this.elements.button.focus();
   }
@@ -2696,25 +3008,7 @@ class LocalizationForm extends HTMLElement {
     event.preventDefault();
     const form = this.querySelector("form");
     this.elements.input.value = item.dataset.value;
-    if (!form) return;
-    /* A language change keeps the page: Storelib answers the form with a
-       redirect to the language's home (/ro, or / for the main language), so
-       its address is read and the current page opened under it. Anything
-       unexpected falls back to the plain form, which lands on that home. */
-    if (this.elements.input.name !== "language_code" || !window.fetch || !window.AbortController) { form.submit(); return; }
-    const stop = new AbortController();
-    fetch(form.action, {method: "POST", body: new FormData(form), credentials: "same-origin", redirect: "follow", signal: stop.signal})
-      .then((response) => {
-        const landed = new URL(response.url, location.href);
-        stop.abort();
-        if (!response.ok || landed.origin !== location.origin) throw new Error("localization");
-        const root = landed.pathname.replace(/\/+$/, "");
-        const current = (document.documentElement.lang || "").toLowerCase();
-        let path = location.pathname;
-        if (current && new RegExp("^/" + current.replace(/[^a-z-]/g, "") + "(?=/|$)", "i").test(path)) path = path.slice(current.length + 1) || "/";
-        location.assign(root + (path === "/" && root ? "" : path) + location.search + location.hash);
-      })
-      .catch(() => form.submit());
+    if (form) form.submit();
   }
 
   openSelector() {
@@ -2733,8 +3027,20 @@ class LocalizationForm extends HTMLElement {
       // ABOVE the page backdrop regardless of header/footer z-index.
       if (window.matchMedia("(max-width: 1024.98px)").matches) {
         this.portalMobileSheet();
-      } else if (this._sheetSearch) {
-        setTimeout(() => this._sheetSearch?.focus({ preventScroll: true }), 60);
+      } else {
+        // The current option is in view; the keyboard lands on it (arrows) or on the search field.
+        const how = this._openedByKey;
+        requestAnimationFrame(() => {
+          if (!this.elements.button.classList.contains('open')) return;
+          const panel = this.elements.panel;
+          const current = this.options().find((a) => a.getAttribute('aria-current') === 'true');
+          if (current && panel && panel.scrollHeight > panel.clientHeight) {
+            panel.scrollTop += current.getBoundingClientRect().top - panel.getBoundingClientRect().top - (panel.clientHeight - current.offsetHeight) / 2;
+          }
+          if (how === 'current' || how === 'last') this.focusOption(how);
+          else if (this._sheetSearch) this._sheetSearch.focus({ preventScroll: true });
+          else if (how) this.focusOption('current');
+        });
       }
     }
   }
@@ -3244,22 +3550,30 @@ var returnMessageWhenSubmit = (function () {
     },
     checkUrlReturn: function () {
       const getUrl = window.location.href;
+      // A popup or a form with its own result view shows it there (reopened on its #id); no toast then.
+      let target = null;
+      try { target = location.hash ? document.getElementById(decodeURIComponent(location.hash.slice(1))) : null; } catch (_) {}
+      const ownView = !!(target && target.matches("form") && (target.closest("[data-popup-config]") || target.querySelector("[data-storelib-success]")));
+      // The address is tidied (the query goes, the form's #id stays); popups read what it was.
+      const tidy = () => {
+        window.__mtPostedUrl = getUrl;
+        window.history.replaceState(window.history.state, document.title, location.pathname + location.hash);
+      };
       if (
         getUrl.indexOf("customer_posted=true#newsletter-form") >= 1 ||
         getUrl.indexOf("customer_posted=true") >= 1
       ) {
-        this.handleMessageSuccessPopup();
+        if (!ownView) this.handleMessageSuccessPopup();
         setCookie("newsletter_popup", 30, 1);
-        const newURL = location.href.split("?")[0];
-        window.history.pushState("object", document.title, newURL);
+        tidy();
       }
 
       if (
-        getUrl.indexOf("contact%5Btags%5D=newsletter&form_type=customer") >= 1
+        getUrl.indexOf("contact%5Btags%5D=newsletter&form_type=customer") >= 1 ||
+        (/[?&]form_type=customer(&|$)/.test(location.search) && !/[?&]customer_posted=true/.test(location.search))
       ) {
-        this.handleMessageErrorPopup();
-        const newURL = location.href.split("?")[0];
-        window.history.pushState("object", document.title, newURL);
+        if (!ownView) this.handleMessageErrorPopup();
+        tidy();
       }
     },
 
@@ -3442,6 +3756,8 @@ class PaginateLoadmore extends HTMLElement {
   loadMoreItem(target) {
     const loadMore_url = target.getAttribute("href");
     const _this = this;
+    // One page at a time: infinite scroll can fire again while one loads.
+    if (!loadMore_url || target.classList.contains("loading")) return;
     let sectionContainer = document.querySelector(`#product-grid`);
     sectionContainer?.classList.add("bls-image-js");
     _this.toggleLoading(target, true);
@@ -3470,6 +3786,14 @@ class PaginateLoadmore extends HTMLElement {
           target.remove();
         }
         _this.toggleLoading(target, false);
+        // Infinite scroll: a short page leaves the trigger in view, where
+        // the observer will not fire again; load the next page now.
+        if (load_more && target.isConnected && target.classList.contains("infinit-scrolling")) {
+          const box = target.getBoundingClientRect();
+          if (box.top < window.innerHeight && box.bottom > 0) {
+            requestAnimationFrame(() => _this.loadMoreItem(target));
+          }
+        }
       })
       .catch((error) => {
         throw error;
@@ -5521,44 +5845,418 @@ class QuickView extends PopupBase {
   constructor() {
     super();
     this.html = null;
+    // Card quick view: the section is asked for as the pointer comes near
+    // (Section Rendering API), so the click opens without a wait.
+    const warm = () => QuickView.fetchSection(this.url || this.dataset.url).then(QuickView.preloadImage).catch(() => {});
+    this.addEventListener("pointerenter", warm, { passive: true });
+    this.addEventListener("focusin", warm);
   }
 
-  onThisClick() {
+  // The first picture is fetched with the content, so it is there on open.
+  static preloadImage(text) {
+    QuickView.preloaded = QuickView.preloaded || new Set();
+    const tag = /<div class="qv__slide"[^>]*>\s*(<img[^>]*>)/.exec(text || "");
+    if (!tag || QuickView.preloaded.has(tag[1])) return;
+    QuickView.preloaded.add(tag[1]);
+    const attr = (name) => { const m = new RegExp("\\s" + name + "=\"([^\"]*)\"").exec(tag[1]); return m ? m[1].replace(/&amp;/g, "&") : ""; };
+    const img = new Image();
+    if (attr("sizes")) img.sizes = attr("sizes");
+    if (attr("srcset")) img.srcset = attr("srcset");
+    img.src = attr("src");
+  }
+
+  static fetchSection(url) {
+    if (!url) return Promise.reject(new Error("no url"));
+    QuickView.cache = QuickView.cache || new Map();
+    QuickView.done = QuickView.done || new Set();
+    if (!QuickView.cache.has(url)) {
+      const request = fetch(url)
+        .then((response) => {
+          if (!response.ok) throw new Error(response.status);
+          return response.text();
+        })
+        .then((text) => { QuickView.done.add(url); return text; })
+        .catch((e) => { QuickView.cache.delete(url); throw e; });
+      QuickView.cache.set(url, request);
+      // Stock and prices change: keep a prefetched answer for a minute.
+      setTimeout(() => { if (QuickView.cache) QuickView.cache.delete(url); QuickView.done.delete(url); }, 60000);
+    }
+    return QuickView.cache.get(url);
+  }
+
+  onThisClick(event) {
+    if (event) event.preventDefault();
+    if (this.classList.contains("loading")) return;
+    const url = this.url || this.dataset.url;
     this.classList.add("loading");
-    fetch(this.url)
-      .then((response) => response.text())
+    this.returnFocus = document.activeElement;
+    const token = (this.openToken = {});
+    let shown = false;
+    // Prefetched (pointer came near): open with the content, no flash.
+    // Otherwise open a skeleton if the answer takes longer than 120ms.
+    const skeletonTimer = QuickView.done && QuickView.done.has(url) ? 0 : setTimeout(() => {
+      if (this.openToken !== token || shown) return;
+      shown = true;
+      this.openDialog(QuickView.skeleton());
+    }, 120);
+    QuickView.fetchSection(url)
       .then((text) => {
+        clearTimeout(skeletonTimer);
+        if (this.openToken !== token) return;
         this.html = parser
           .parseFromString(text, "text/html")
           .querySelector(
             "#shopify-section-product-quickview .product-quickview__content"
           );
-        if (!this.html) return;
+        if (!this.html) { if (shown && this.modal) this.modal.close(); return; }
+        if (shown) {
+          // Closed while loading: leave it closed.
+          const wrap = this.modal && this.modal.modal;
+          if (!wrap || !wrap.isConnected || wrap.classList.contains("remove-loading")) return;
+        }
         // Load scripts in the HTML content
         this.loadScripts(this.html);
         this.html.classList.remove("hidden");
-        this.initPopup(this.html);
+        if (shown) {
+          this.modal.setContent(this.html);
+          this.applyScheme();
+        } else {
+          shown = true;
+          this.openDialog(this.html);
+        }
+        this.trapFocus();
       })
       .finally(() => {
-        Shopify.PaymentButton.init();
-        if (!document.querySelector('div[data-animation="slide_in"')) {
+        try { Shopify.PaymentButton.init(); } catch (e) {}
+        if (!document.querySelector('div[data-animation="slide_in"') && typeof BlsLazyloadImg !== "undefined") {
           BlsLazyloadImg.init();
         }
         this.classList.remove("loading");
       })
       .catch((e) => {
+        clearTimeout(skeletonTimer);
         this.classList.remove("loading");
+        if (shown && this.modal && this.openToken === token) this.modal.close();
         console.error(e);
       });
+  }
+
+  openDialog(content) {
+    this.initPopup(content);
+    this.applyScheme();
+    this.initSheet();
+  }
+
+  // The dialog takes the quick view's colour scheme (Theme settings >
+  // Quick view), so the box, the X and the sheet's handle match.
+  applyScheme() {
+    const box = this.modal && this.modal.modalBox;
+    if (!box) return;
+    const qv = box.querySelector(".qv[data-scheme]");
+    const scheme = (qv && qv.dataset.scheme) || QuickView.lastScheme;
+    if (!scheme) return;
+    QuickView.lastScheme = scheme;
+    [...box.classList].forEach((c) => { if (/^color-/.test(c) && c !== scheme) box.classList.remove(c); });
+    box.classList.add(scheme);
+  }
+
+  static skeleton() {
+    const el = document.createElement("div");
+    el.className = "product-quickview__content";
+    el.innerHTML =
+      '<div class="qv qv--skeleton" aria-busy="true"><div class="qv__media"></div><div class="qv__info">' +
+      '<span class="qv-sk qv-sk--title"></span><span class="qv-sk qv-sk--price"></span>' +
+      '<span class="qv-sk qv-sk--line"></span><span class="qv-sk qv-sk--line"></span><span class="qv-sk qv-sk--short"></span>' +
+      '<span class="qv-sk qv-sk--short"></span><span class="qv-sk qv-sk--btn"></span><span class="qv-sk qv-sk--btn"></span></div></div>';
+    return el;
+  }
+
+  // Phones (< 768px): the dialog is an iOS-style bottom sheet. It slides up,
+  // follows the finger from the grab handle (or from the content when that is
+  // scrolled to the top and the drag goes down), and on release either closes
+  // (past 25% of its height or a quick flick) or springs back. Dragging up
+  // expands it to nearly full height. Every close path (backdrop, Esc, code
+  // that clicks the close button) slides it down first. CSS: product-card.css.
+  initSheet() {
+    const m = this.modal;
+    const wrap = m && m.modal;
+    const box = m && m.modalBox;
+    if (!wrap || !box || !window.matchMedia("(max-width: 767.98px)").matches) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // Open: a soft spring (a hair of overshoot); settle back: the iOS sheet
+    // curve; close: accelerate away, or carry on a flick's speed.
+    const OPEN_EASE = "cubic-bezier(.2, .9, .25, 1.03)";
+    const EASE = "cubic-bezier(.32, .72, 0, 1)";
+    const CLOSE_EASE = "cubic-bezier(.4, 0, .9, .45)";
+    const FLICK_EASE = "cubic-bezier(.2, .6, .35, 1)";
+    // The content is swapped in when it arrives (skeleton first): always
+    // look the scroller up, listen on the box's content wrapper.
+    const content = box.querySelector(".tingle-modal-box__content") || box;
+    const scrollerEl = () => box.querySelector(".qv") || content;
+    // The handle floats on the picture; once the content scrolls under it,
+    // it takes the sheet's background (product-card.css .is-scrolled).
+    content.addEventListener("scroll", () => { wrap.classList.toggle("is-scrolled", scrollerEl().scrollTop > 8); }, { capture: true, passive: true });
+    const handle = document.createElement("div");
+    handle.className = "qv-sheet__handle";
+    handle.setAttribute("aria-hidden", "true");
+    box.prepend(handle);
+    // A real element for the backdrop: its opacity is written directly, so
+    // a drag frame restyles one node (a custom property on the dialog would
+    // restyle the whole sheet).
+    const backdrop = document.createElement("div");
+    backdrop.className = "qv-sheet__backdrop";
+    wrap.prepend(backdrop);
+    wrap.classList.add("qv-sheet");
+    // The layout keeps html { scrollbar-gutter: stable }, so with a classic
+    // scrollbar (desktop Chrome's responsive mode) a blank strip stays at
+    // the right of the sheet. Hand that strip to the page as padding while
+    // the sheet is open: the sheet spans the full width, nothing reflows.
+    const html = document.documentElement;
+    const gutter = Math.max(0, Math.round(window.innerWidth - wrap.getBoundingClientRect().width));
+    const prevGutter = html.style.scrollbarGutter, prevPad = html.style.paddingRight;
+    let gutterOff = false;
+    if (gutter > 0 && gutter < 40) {
+      html.style.scrollbarGutter = "auto";
+      html.style.paddingRight = gutter + "px";
+      gutterOff = true;
+    }
+    const restoreGutter = () => {
+      if (!gutterOff) return;
+      gutterOff = false;
+      html.style.scrollbarGutter = prevGutter;
+      html.style.paddingRight = prevPad;
+    };
+
+    let ty = 0, closing = false, drag = null, frame = 0, timer = 0, dragEndedAt = 0;
+    const height = () => (drag && drag.h) || box.offsetHeight || 1;
+    const settle = (ms, done) => {
+      clearTimeout(timer);
+      const end = () => { clearTimeout(timer); box.removeEventListener("transitionend", onEnd); box.style.willChange = ""; if (done) done(); };
+      const onEnd = (e) => { if (e.target === box && e.propertyName === "transform") end(); };
+      if (!ms) { end(); return; }
+      box.addEventListener("transitionend", onEnd);
+      timer = setTimeout(end, ms + 80);
+    };
+    const set = (y, ms, ease, done) => {
+      ty = y;
+      const t = reduce ? 0 : ms || 0;
+      const curve = ease || EASE;
+      box.style.willChange = "transform";
+      box.style.transition = t ? "transform " + t + "ms " + curve : "none";
+      box.style.transform = "translate3d(0," + y + "px,0)";
+      backdrop.style.transition = t ? "opacity " + t + "ms " + (curve === OPEN_EASE ? "ease-out" : curve) : "none";
+      backdrop.style.opacity = String(Math.max(0, Math.min(1, 1 - Math.max(0, y) / height())));
+      if (!drag || ms) settle(t, () => { if (!ty && !drag) box.style.transform = "none"; if (done) done(); });
+    };
+
+    // Open: off-screen first (no paint in between), then rise.
+    set(height(), 0);
+    box.getBoundingClientRect();
+    requestAnimationFrame(() => set(0, 320, OPEN_EASE));
+
+    const origClose = m.close.bind(m);
+    const slideOut = (v) => {
+      if (closing) return;
+      closing = true;
+      cancelAnimationFrame(frame);
+      drag = null;
+      wrap.classList.remove("is-dragging");
+      const h = height() + 24;
+      const left = h - Math.max(0, ty);
+      // A flick keeps its speed (faster than 240ms when quick); otherwise 240ms.
+      const flick = (v || 0) > 0.5;
+      const ms = flick ? Math.round(Math.max(140, Math.min(240, left / v))) : 240;
+      set(h, ms, flick ? FLICK_EASE : CLOSE_EASE, () => { restoreGutter(); origClose(); });
+    };
+    m.close = (force) => {
+      if (closing || !wrap.isConnected || !wrap.classList.contains("tingle-modal--visible")) { if (!wrap.isConnected) restoreGutter(); return; }
+      if (force === true) { closing = true; restoreGutter(); origClose(true); return; }
+      slideOut(0);
+    };
+    // The close button (hidden on phones) may still be clicked by code.
+    wrap.addEventListener("click", (e) => {
+      if (e.target.closest && e.target.closest(".tingle-modal__close")) { e.stopPropagation(); e.preventDefault(); m.close(); return; }
+      if ((e.target === wrap || e.target === backdrop) && performance.now() - dragEndedAt > 350) m.close();
+    }, true);
+
+    // Expand / collapse keeps the sheet's top where it is (FLIP), then eases.
+    const setExpanded = (on) => {
+      const before = box.getBoundingClientRect().top;
+      wrap.classList.toggle("is-expanded", on);
+      const after = box.getBoundingClientRect().top - ty;
+      set(before - after, 0);
+      box.getBoundingClientRect();
+      set(0, 380);
+    };
+    const canExpand = () => box.offsetHeight < window.innerHeight - 48;
+
+    const begin = (y, x, active, source) => {
+      if (closing) return;
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+      // Caught mid-animation: hold the sheet where it is on screen.
+      const cur = getComputedStyle(box).transform;
+      if (cur && cur !== "none") { const now = new DOMMatrixReadOnly(cur).m42; if (Math.abs(now - ty) > 1) { drag = null; set(now, 0); } }
+      // Measured once per drag: no layout reads in the frames that follow.
+      drag = { y0: y - ty, x0: x, yStart: y, last: y, t: performance.now(), v: 0, active, source, h: box.offsetHeight || 1, limit: canExpand() ? 140 : 36 };
+      if (active) activate();
+    };
+    const activate = () => {
+      drag.active = true;
+      wrap.classList.add("is-dragging");
+      box.style.willChange = "transform";
+      box.style.transition = "none";
+      backdrop.style.transition = "none";
+      const sel = window.getSelection && window.getSelection();
+      if (sel && sel.removeAllRanges) sel.removeAllRanges();
+    };
+    // Pointer events can arrive several times a frame: keep the latest and
+    // write the transform once, in the next animation frame.
+    let pending = 0;
+    const move = (y) => {
+      const now = performance.now();
+      const dt = now - drag.t;
+      if (dt > 0) drag.v = 0.7 * ((y - drag.last) / dt) + 0.3 * drag.v;
+      drag.last = y;
+      drag.t = now;
+      let next = y - drag.y0;
+      if (next < 0) {
+        // Up: a little give (rubber band); more when the sheet can expand.
+        next = -drag.limit * (1 - Math.exp(next / (drag.limit * 2.2)));
+      }
+      pending = next;
+      if (!frame) frame = requestAnimationFrame(() => { frame = 0; if (drag) set(pending, 0); });
+    };
+    const release = () => {
+      const d = drag;
+      drag = null;
+      cancelAnimationFrame(frame);
+      frame = 0;
+      if (!d || !d.active) return;
+      dragEndedAt = performance.now();
+      wrap.classList.remove("is-dragging");
+      const y = d.last - d.y0;
+      const v = performance.now() - d.t > 90 ? 0 : d.v; // a pause before lifting is no flick
+      const h = d.h;
+      const expanded = wrap.classList.contains("is-expanded");
+      if (y > 0 && (y > h * 0.25 || (v > 0.5 && y > 12))) {
+        if (expanded && y < h * 0.5 && v < 1.1) setExpanded(false);
+        else slideOut(v);
+      } else if (!expanded && canExpand() && (y < -48 || (v < -0.5 && y < -12))) {
+        setExpanded(true);
+      } else {
+        set(0, 380);
+      }
+    };
+
+    // Handle: a drag starts at once (touch-action: none there).
+    handle.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      try { handle.setPointerCapture(e.pointerId); } catch (err) {}
+      begin(e.clientY, e.clientX, true, "pointer");
+      e.preventDefault();
+    });
+    handle.addEventListener("pointermove", (e) => { if (drag && drag.source === "pointer") move(e.clientY); });
+    handle.addEventListener("pointerup", release);
+    handle.addEventListener("pointercancel", release);
+
+    // Content, finger: only when scrolled to the top and the drag goes down.
+    // A drag that starts sideways on the pictures belongs to the gallery.
+    const atTop = () => scrollerEl().scrollTop <= 0;
+    const decide = (y, x) => {
+      const dy = y - drag.yStart, dx = x - drag.x0;
+      if (Math.abs(dy) < 6 && Math.abs(dx) < 6) return false;
+      if (dy > 0 && Math.abs(dy) > Math.abs(dx) && atTop()) { drag.y0 = y - ty; activate(); return true; }
+      drag = null;
+      return false;
+    };
+    content.addEventListener("touchstart", (e) => {
+      if (e.touches.length !== 1 || !atTop()) { drag = null; return; }
+      begin(e.touches[0].clientY, e.touches[0].clientX, false, "touch");
+    }, { passive: true });
+    content.addEventListener("touchmove", (e) => {
+      if (!drag || drag.source !== "touch" || e.touches.length !== 1) return;
+      const t = e.touches[0];
+      if (!drag.active && !decide(t.clientY, t.clientX)) return;
+      if (e.cancelable) e.preventDefault();
+      move(t.clientY);
+    }, { passive: false });
+    content.addEventListener("touchend", release);
+    content.addEventListener("touchcancel", release);
+
+    // Content, mouse (Chrome's responsive mode): the same rule.
+    content.addEventListener("pointerdown", (e) => {
+      if (e.pointerType !== "mouse" || e.button !== 0 || !atTop()) return;
+      if (e.target.closest("a, button, input, select, textarea, label, [role='button'], button-wishlist, .shopify-payment-button")) return;
+      begin(e.clientY, e.clientX, false, "mouse");
+      const onMove = (ev) => {
+        if (!drag || drag.source !== "mouse") return;
+        if (!drag.active && !decide(ev.clientY, ev.clientX)) { if (!drag) stop(); return; }
+        ev.preventDefault();
+        move(ev.clientY);
+      };
+      const stop = () => {
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        window.removeEventListener("pointercancel", onUp);
+      };
+      const onUp = () => { stop(); if (drag && drag.source === "mouse") release(); };
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+      window.addEventListener("pointercancel", onUp);
+    });
+    content.addEventListener("dragstart", (e) => { if (e.target.tagName === "IMG" || wrap.classList.contains("is-dragging")) e.preventDefault(); });
+    // A mouse drag that ends with a click must not press what is under it.
+    content.addEventListener("click", (e) => { if (performance.now() - dragEndedAt < 350) { e.preventDefault(); e.stopPropagation(); } }, true);
+  }
+
+  // Keyboard: focus moves into the dialog, Tab stays in it, Esc closes it
+  // (tingle), and focus goes back to the button that opened it.
+  trapFocus() {
+    const dialog = this.modal && this.modal.modal;
+    if (!dialog) return;
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("aria-modal", "true");
+    const title = dialog.querySelector(".qv__title");
+    if (title) {
+      title.id = title.id || "qv-title-" + Date.now();
+      dialog.setAttribute("aria-labelledby", title.id);
+    }
+    const focusables = () =>
+      [...dialog.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select, textarea, [tabindex]:not([tabindex="-1"])')]
+        .filter((el) => el.offsetParent !== null || el === document.activeElement);
+    this.onTrapKey = (e) => {
+      if (e.key !== "Tab") return;
+      const list = focusables();
+      if (!list.length) return;
+      const first = list[0], last = list[list.length - 1];
+      if (e.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) { e.preventDefault(); first.focus(); }
+    };
+    document.addEventListener("keydown", this.onTrapKey, true);
+    requestAnimationFrame(() => {
+      const start = dialog.querySelector('.qv__value[aria-pressed="true"]') || dialog.querySelector(".qv__atc:not([disabled])") || dialog.querySelector(".tingle-modal__close") || focusables()[0];
+      if (start) start.focus({ preventScroll: true });
+    });
+  }
+
+  onCloseEvent() {
+    if (this.onTrapKey) document.removeEventListener("keydown", this.onTrapKey, true);
+    this.onTrapKey = null;
+    const back = this.returnFocus && this.returnFocus.isConnected ? this.returnFocus : this;
+    if (back && back.focus) setTimeout(() => back.focus({ preventScroll: true }), 0);
   }
 
   loadScripts(html) {
     const scripts = html.querySelectorAll("script");
     scripts.forEach((script) => {
+      if (script.type && script.type !== "text/javascript" && script.type !== "module") return;
       const newScript = document.createElement("script");
-      newScript.src = script.src;
-      newScript.textContent = script.textContent;
-      document.body.appendChild(newScript).parentNode.removeChild(newScript);
+      // An empty src would stop the browser from running an inline script.
+      if (script.src) newScript.src = script.src;
+      else newScript.textContent = script.textContent;
+      document.body.appendChild(newScript);
+      if (!script.src) newScript.remove();
     });
   }
 }
@@ -5607,7 +6305,7 @@ class ButtonWishlist extends HTMLElement {
     this.addTooltip = this.dataset.tooltipAdd || "Add to wishlist";
     this.removeTooltip = this.dataset.tooltipRemove || "Remove from wishlist";
     this.redirectTooltip = this.dataset.tooltipRedirect || "Browse wishlist";
-    this.tooltipDiv = this.querySelector(".tooltip-content");
+    this.tooltipDiv = this.querySelector(".pc-tip, .tooltip-content");
     this.init();
   }
 
@@ -5640,7 +6338,8 @@ class ButtonWishlist extends HTMLElement {
     const routes = window.routes || {};
     if (routes.wishlist_url) return routes.wishlist_url;
     const root = (window.Shopify && window.Shopify.routes && window.Shopify.routes.root) || "/";
-    return `${root}wishlist`;
+    // routes.wishlist_url (snippets/wishlist-url) is printed on every page; this is its default.
+    return `${root.replace(/\/?$/, '/')}search?view=wishlist`;
   }
 
   onThisClick(event) {
@@ -5840,7 +6539,19 @@ class SwatchFunctions extends SwatchInit {
     if (!window.CSS || typeof CSS.supports !== "function") return;
     this.querySelectorAll("[data-vsp-color]").forEach((chip) => {
       const name = chip.getAttribute("data-vsp-color");
-      chip.classList.toggle("vsp__chip--text", !name || !CSS.supports("color", name));
+      let known = !!name && CSS.supports("color", name);
+      // Theme settings > Custom colors paints the chip through its
+      // custom__color-swatches--<name> class: that counts as a colour too.
+      if (!known && /custom__color-swatches--/.test(chip.className)) {
+        chip.classList.remove("vsp__chip--text");
+        const prev = chip.style.getPropertyValue("--vsp-dot");
+        chip.style.setProperty("--vsp-dot", "transparent");
+        const cs = getComputedStyle(chip);
+        known = cs.backgroundImage !== "none" || !/^(transparent|rgba\(0, 0, 0, 0\))$/.test(cs.backgroundColor);
+        if (prev) chip.style.setProperty("--vsp-dot", prev);
+        else chip.style.removeProperty("--vsp-dot");
+      }
+      chip.classList.toggle("vsp__chip--text", !known);
     });
   }
   // Another picker of the same section chose a variant: show it here too,
@@ -6785,6 +7496,10 @@ class SwatchFunctions extends SwatchInit {
       if (element.tagName === "SELECT") {
         // A select inside a fieldset is read with that fieldset.
         if (element.closest("fieldset")) return;
+        // Use the variant's own options so values containing " / " still match.
+        const chosenId = element.selectedOptions && element.selectedOptions[0]?.dataset.variantId;
+        const chosenVariant = chosenId && this.getVariantData().find((x) => String(x.id) === String(chosenId));
+        if (chosenVariant) { chosenVariant.options.forEach((item) => this.options.push(item)); return; }
         let array = element.value.split(" / ");
         array.forEach((item) => this.options.push(item));
       }
@@ -7071,7 +7786,11 @@ class VariantRadios extends SwatchFunctions {
     if (!target.classList.contains("active")) {
       const activeSwatches = target
         .closest(".product__color-swatches")
-        .querySelectorAll(".product__color-swatches--js");
+        .querySelectorAll(
+          target.dataset.position
+            ? `.product__color-swatches--js[data-position="${target.dataset.position}"]`
+            : ".product__color-swatches--js"
+        );
       activeSwatches.forEach((el) => {
         el.classList.remove("active");
       });
@@ -7090,6 +7809,36 @@ class VariantRadios extends SwatchFunctions {
     this.updatePrice();
     this.updateMedia();
     this.renderProductInfor(variantQtyData);
+    this.syncCardVariant();
+  }
+  // Quick add and the card's links follow the swatch the shopper picked.
+  syncCardVariant() {
+    const v = this.currentVariant;
+    if (!v || !this.productTarget) return;
+    this.productTarget
+      .querySelectorAll('form[data-type="add-to-cart-form"] [name="id"]')
+      .forEach((input) => { input.value = v.id; });
+    this.productTarget
+      .querySelectorAll(".product-item__button-submit")
+      .forEach((button) => {
+        button.disabled = !v.available;
+        if (v.available) button.removeAttribute("aria-disabled");
+        else button.setAttribute("aria-disabled", "true");
+      });
+    this.productTarget.querySelectorAll('button-quickview').forEach((button) => {
+      try {
+        const url = new URL(button.dataset.url, window.location.origin);
+        url.searchParams.set("variant", v.id);
+        button.dataset.url = button.url = url.pathname + url.search;
+      } catch (e) {}
+    });
+    this.productTarget.querySelectorAll('a[href*="/products/"]').forEach((a) => {
+      try {
+        const url = new URL(a.href, window.location.origin);
+        url.searchParams.set("variant", v.id);
+        a.href = url.pathname + url.search + url.hash;
+      } catch (e) {}
+    });
   }
   updatePrice() {
     if (!this.currentVariant) return;
@@ -7259,18 +8008,16 @@ class VariantRadios extends SwatchFunctions {
       (select) => select.getAttribute("data-value")
     );
 
-    this.variantData.find((variant) => {
-      if (this.options.length == 1) {
-        const variantOptions = {
-          1: variant.option1,
-          2: variant.option2,
-          3: variant.option3,
-        };
-        if (variantOptions[this.position_swatch] === this.options[0]) {
-          this.options = variant.options;
-        }
-      }
-    });
+    if (this.options.length == 1) {
+      const key = "option" + this.position_swatch;
+      const matches = this.variantData.filter((variant) => variant[key] === this.options[0]);
+      const pick =
+        matches.find((v) => v.available && v.featured_media) ||
+        matches.find((v) => v.available) ||
+        matches.find((v) => v.featured_media) ||
+        matches[0];
+      if (pick) this.options = pick.options;
+    }
   }
   async updateMedia() {
     if (!this.currentVariant) return;
@@ -7295,7 +8042,24 @@ class VariantRadios extends SwatchFunctions {
         productItem.querySelector("iframe")?.classList.remove("hidden");
       }
     }
-    if (!this.currentVariant.featured_media) return;
+    const cardImg = this.productTarget.querySelector(".product__media img");
+    const optKey = "option" + this.position_swatch;
+    const variantMedia =
+      this.currentVariant.featured_media ||
+      (this.variantData || []).find(
+        (v) => v[optKey] === this.currentVariant[optKey] && v.featured_media
+      )?.featured_media;
+    if (cardImg && !cardImg.dataset.origSrc) {
+      cardImg.dataset.origSrc = cardImg.currentSrc || cardImg.src;
+    }
+    if (!variantMedia) {
+      // This colour has no picture of its own: go back to the card's own image.
+      if (cardImg && cardImg.dataset.origSrc && (cardImg.currentSrc || cardImg.src) !== cardImg.dataset.origSrc) {
+        cardImg.removeAttribute("srcset");
+        await materiaSwapCardImage(cardImg, cardImg.dataset.origSrc);
+      }
+      return;
+    }
     if (this.productTarget.querySelector(".product__media img")) {
       this.productTarget
         .querySelector(".product__media img")
@@ -7321,7 +8085,7 @@ class VariantRadios extends SwatchFunctions {
       }
     }
     const img = this.productTarget.querySelector(".product__media img");
-    const preview = this.currentVariant.featured_media.preview_image;
+    const preview = variantMedia.preview_image;
     if (img && preview && preview.src) await materiaSwapCardImage(img, preview.src);
   }
 }
@@ -7434,14 +8198,14 @@ class VariantGroupDetail extends VariantRadiosDetail {
   checkColorGroup(e) {
     const colorString = this.productTarget.dataset.colorTrigger;
     if (colorString) {
-      const colorArray = colorString.split(",");
+      const colorArray = colorString.split(",").map((s) => s.trim().toLowerCase());
       const colorSelector = this.productTarget.querySelector(
         `[data-value="${CSS.escape(e.target.value)}"]`
       );
       const dataName = colorSelector?.dataset.name;
       const isColorInput = colorArray.includes(
-        dataName ? dataName : e.target.name
-      );
+        String(dataName ? dataName : e.target.name).trim().toLowerCase()
+      ) || !!colorSelector?.closest('fieldset.color');
       if (isColorInput) {
         const dataValue = colorSelector?.dataset.colorValue;
         this.updateMediaGroup(dataValue ? dataValue : e.target.value);
@@ -8054,6 +8818,20 @@ if (!customElements.get("product-form")) {
         delete config.headers["Content-Type"];
 
         const formData = new FormData(this.form);
+        // Sticky bar: carry over gift-card recipient fields and offer
+        // properties that live in the main product form, so nothing the
+        // shopper chose there is lost when adding from the sticky bar.
+        if (stickySource) {
+          const mainForm = document.getElementById('product-form-' + stickySource.dataset.sectionId);
+          if (mainForm && mainForm !== this.form) {
+            for (const [key, value] of new FormData(mainForm)) {
+              if (!key.startsWith('properties[')) continue;
+              if (typeof File !== 'undefined' && value instanceof File && !value.size) continue;
+              if (value === '') continue;
+              formData.set(key, value);
+            }
+          }
+        }
         const productInfo = personalizationScope;
         if (productInfo) {
           productInfo
@@ -9632,8 +10410,8 @@ class GridList extends HTMLElement {
   }
 
   get motionDisabled() {
-    return document.body.dataset.scrollAnimation === 'none' || window.Shopify?.designMode ||
-      document.documentElement.classList.contains('shopify-design-mode') ||
+    if (this._editorRedraw === undefined) { const r = this.getBoundingClientRect(); this._editorRedraw = !!window.__mtEditorSettled && r.top < innerHeight && r.bottom > 0; }
+    return document.body.dataset.scrollAnimation === 'none' || this._editorRedraw ||
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   }
 

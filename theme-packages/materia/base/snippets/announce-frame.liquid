@@ -1,12 +1,17 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. The section wrapper of the Announcements sections (Marquee
   Bar, Announcement Bar Basic, Pro 1 and Pro 2): its own margins (desktop and
   mobile), "Remove default space between sections" keyed on the root's
   data-reset, the section width keyed on the root's data-width, and the
   stacking under the header. shopify/assets/live-announcements.js writes the
   same values in the builder.
+
+  @param {section} section - The section being rendered
+  @param {number} [z] - Z
+
+  @example
   {% render 'announce-frame', section: section, z: 5 %}
-{%- endcomment -%}
+{%- enddoc -%}
 {%- liquid
   assign st = section.settings
   assign sid = section.id

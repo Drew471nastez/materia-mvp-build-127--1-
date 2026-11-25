@@ -1,8 +1,14 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. Eyebrow, heading, subheading and button blocks of the
   benefits Image and video sections. p: the section's class prefix.
+
+  @param {block} block - The block being rendered
+  @param {string} [fallback_href] - Fallback href; no current caller passes it
+  @param {string} p - P ('itd', 'ivb', 'ivt', 'iwb')
+
+  @example
   {% render 'media-benefits-text', block: block, p: 'ivt' %}
-{%- endcomment -%}
+{%- enddoc -%}
 {%- assign bs = block.settings -%}
 {%- assign own = bs.enable_custom_style -%}
 {%- case block.type -%}

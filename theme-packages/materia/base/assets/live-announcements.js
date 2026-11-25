@@ -141,7 +141,8 @@
   function syncClock(track) {
     const anims = [...track.children].map(g => g.getAnimations ? g.getAnimations().find(a => a.effect && a.effect.getTiming().iterations === Infinity) : null);
     const lead = anims[0]; if (!lead || lead.currentTime == null) return;
-    for (const a of anims.slice(1)) if (a && a.currentTime !== lead.currentTime) a.currentTime = lead.currentTime;
+    /* one start time for every copy (a copy still pending would otherwise start a frame late) */
+    for (const a of anims.slice(1)) { if (!a) continue; if (lead.startTime != null && a.playState !== 'paused') { if (a.startTime !== lead.startTime) a.startTime = lead.startTime; } else if (a.currentTime !== lead.currentTime) a.currentTime = lead.currentTime; }
   }
   const copiesOf = (root, id) => [...root.querySelectorAll('[data-an-copy="' + CSS.escape(id) + '"]')];
 
@@ -176,7 +177,7 @@
       for (const k in v) put(root, k, v[k]);
       put(root, '@data-own-font', fonts || null); put(root, '@data-own-weight', fonts || null);
       put(root, '@data-pause-hover', bool(s.pause_on_hover) ? 'true' : 'false');
-      put(root, '@data-own-reveal', String(bool(s.reveal) && root.dataset.anThemeAnim === 'none' && !design()));
+      put(root, '@data-own-reveal', String(bool(s.reveal) && root.dataset.anThemeAnim === 'none' && !window.mtIsRedraw?.(root)));
       const track = c.q('[data-an-track]');
       if (track) {
         put(track, '@id', handleize(s.html_id) || null);
@@ -230,9 +231,9 @@
   function themeButton(c, el, b, o) {
     const {put} = c, own = bool(b.enable_custom_style), shape = off(b.use_theme_button), outline = b.style === 'outline';
     const cv = v => own ? color(v, '') || null : null;
-    put(el, '@data-theme-button', outline ? 'secondary' : 'primary');
+    put(el, '@data-theme-button', outline ? 'secondary' : 'primary'); put(el, '@data-button-local-appearance', outline ? 'outline' : null); if (outline) put(el, '@data-button-appearance', 'outline');
     const bgv = outline ? 'transparent' : cv(b.bg_color), tx = cv(b.text_color), hb = cv(b.bg_hover);
-    put(el, '--mb-bg', bgv); put(el, '--mb-text', tx); put(el, '--mb-border', outline ? tx : bgv);
+    put(el, '--mb-bg', bgv); put(el, '--mb-text', outline ? tx || 'var(--ab-text)' : tx); put(el, '--mb-border', outline ? tx || 'var(--ab-text)' : bgv);
     put(el, '--mb-hover-bg', hb); put(el, '--mb-hover-text', cv(b.color_hover)); put(el, '--mb-hover-border', hb);
     put(el, '--mb-radius', shape ? px(b.radius) : null); put(el, '--mb-padding-y', shape ? px(b.padding_y) : null); put(el, '--mb-padding-x', shape ? px(b.padding_x) : null); put(el, '--mb-font-size', shape ? px(b.font_size) : null);
     put(el, '@data-own-shape', shape || null);
@@ -390,7 +391,9 @@
     const list = () => all().filter(x => !x.hidden);
     let hold = false;
     const multi = () => root.dataset.multi === 'true';
-    const paint = active => { for (const x of all()) { const on = x === active; if (x.hasAttribute('data-active') !== on) x.toggleAttribute('data-active', on); const hide = multi() && !on; if ((x.getAttribute('aria-hidden') === 'true') !== hide) { if (hide) x.setAttribute('aria-hidden', 'true'); else x.removeAttribute('aria-hidden'); } } };
+    /* the message going out moves up and away while the next one rises in */
+    const leave = x => { x.setAttribute('data-leaving', ''); clearTimeout(x.anLeave); x.anLeave = setTimeout(() => x.removeAttribute('data-leaving'), 420); };
+    const paint = active => { for (const x of all()) { if (x !== active && x.hasAttribute('data-active')) leave(x); if (x === active && x.hasAttribute('data-leaving')) { clearTimeout(x.anLeave); x.removeAttribute('data-leaving'); } const on = x === active; if (x.hasAttribute('data-active') !== on) x.toggleAttribute('data-active', on); const hide = multi() && !on; if ((x.getAttribute('aria-hidden') === 'true') !== hide) { if (hide) x.setAttribute('aria-hidden', 'true'); else x.removeAttribute('aria-hidden'); } } };
     const show = i => { const l = list(); if (!l.length) return; i = ((i % l.length) + l.length) % l.length; st.slide = l[i]; paint(l[i]); };
     const index = () => Math.max(0, list().indexOf(st.slide));
     st.slide = all().find(x => x.hasAttribute('data-active')) || list()[0];
@@ -407,6 +410,15 @@
     };
     st.rotator = {show, restart, sync: () => { const l = list(); if (!l.includes(st.slide)) st.slide = l[0]; paint(st.slide); }};
     restart();
+  }
+  /* Marquee mode: enough copies of the group to cover the bar plus one, so short messages on a wide screen never leave a gap. */
+  function fillMarquee(root, st) {
+    const track = root.querySelector('[data-an-track]'), group = track && track.querySelector('[data-an-group]');
+    if (!group || root.dataset.mode !== 'marquee' || root.dataset.multi !== 'true') return;
+    const w = group.getBoundingClientRect().width; if (!w) return;
+    const need = Math.min(24, Math.max(4, Math.ceil(track.clientWidth / w) + 2));
+    const have = track.querySelectorAll(':scope > .ab2__group').length;
+    if (have < need) { copies(track, need, st); requestAnimationFrame(() => syncClock(track)); }
   }
   TYPES['announcement-bar'] = {
     bp: 768,
@@ -449,8 +461,10 @@
       rotator(root, st);
       closer(root, st, {local: 'announcement_bar_until:' + root.dataset.anSection, session: 'announcement_bar:' + root.dataset.anSection, days: () => 0});
       tick(root, st);
+      fillMarquee(root, st);
+      if (window.ResizeObserver) { const ro = new ResizeObserver(() => fillMarquee(root, st)); ro.observe(root); st.abort.signal.addEventListener('abort', () => ro.disconnect()); }
     },
-    after(root, st) { rotator(root, st); if (st.rotator) { st.rotator.sync(); st.rotator.restart(); } tick(root, st); },
+    after(root, st) { rotator(root, st); if (st.rotator) { st.rotator.sync(); st.rotator.restart(); } tick(root, st); fillMarquee(root, st); },
     visibility(root, st) { pauseWhenAway(root, st); if (st.rotator) st.rotator.restart(); tick(root, st); },
     drop(root, st) { clearTimeout(st.tickTimer); if (st.slideTimer) clearInterval(st.slideTimer); if (st.slideAbort) st.slideAbort.abort(); },
   };

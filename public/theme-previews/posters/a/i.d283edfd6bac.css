@@ -1,0 +1,41 @@
+
+  /* Outer wrapper chain — force visible. Uses > AND descendant for safety.
+     A card playing the theme's scroll reveal (animation.js arms it only
+     below the first screen, for one run) is left to it. */
+  #shopify-section-main-collection-product #product-grid .grid__item:not(.scroll-trigger--armed),
+  #shopify-section-main-collection-product #product-grid .grid__item > motion-element:not(.scroll-trigger--armed),
+  #shopify-section-main-collection-product #product-grid .grid__item motion-element:not(.product-item__action *):not(.product-item__hover *):not(.scroll-trigger--armed),
+  #shopify-section-main-collection-product #product-grid .grid__item > .product-item:not(.scroll-trigger--armed),
+  #shopify-section-main-collection-product #product-grid .grid__item > .product-card:not(.scroll-trigger--armed),
+  #shopify-section-main-collection-product #product-grid .grid__item > .card-wrapper:not(.scroll-trigger--armed),
+  #shopify-section-main-collection-product #product-grid .grid__item > .scroll-trigger:not(.scroll-trigger--armed),
+  #shopify-section-main-collection-product #product-grid .grid__item.scroll-trigger:not(.scroll-trigger--armed),
+  #shopify-section-main-collection-product #product-grid .grid__item > motion-element > .product-item:not(.scroll-trigger--armed),
+  #shopify-section-main-collection-product #product-grid .grid__item > motion-element > .product-card:not(.scroll-trigger--armed),
+  #shopify-section-main-collection-product #product-grid .grid__item > .product-item > motion-element:first-child:not(.scroll-trigger--armed),
+  #shopify-section-main-collection-product #product-grid .grid__item > .product-card > motion-element:first-child:not(.scroll-trigger--armed) {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: none !important;
+  }
+  /* Theme's specific pre-reveal classes — neutralize on outer wrappers only */
+  #shopify-section-main-collection-product #product-grid .grid__item.scroll-trigger,
+  #shopify-section-main-collection-product #product-grid .grid__item.fade-in-up,
+  #shopify-section-main-collection-product #product-grid .grid__item.fade-in,
+  #shopify-section-main-collection-product #product-grid .grid__item.slide-in,
+  #shopify-section-main-collection-product #product-grid .grid__item[data-reveal],
+  #shopify-section-main-collection-product #product-grid .grid__item[data-cascade] {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: none !important;
+  }
+  /* Theme's "before-reveal" wrapper that holds opacity-0 — but ONLY at the
+     outer wrapper level. Inner .invisible (used by Add-to-Cart hover toggle)
+     stays untouched. */
+  #shopify-section-main-collection-product #product-grid .grid__item > .invisible,
+  #shopify-section-main-collection-product #product-grid .grid__item > .opacity-0,
+  #shopify-section-main-collection-product #product-grid .grid__item > [class*="opacity-0"]:not(.product-item__action):not(.product-item__hover) {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: none !important;
+  }

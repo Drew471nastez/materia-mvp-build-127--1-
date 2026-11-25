@@ -1,12 +1,17 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. Shared frame of the two round 7 Image and video sections
   (Lightbox Gallery, Video Playlist): section margins, the theme's space
   between sections, padding, width and the heading and text blocks. Every
   value is a CSS variable the section prints on its root (.r7m) and
   live-r7-media.js writes again in the builder, so the first paint and a live
   edit use the same rules.
+
+  @param {number} bp - Bp
+  @param {section} section - The section being rendered
+
+  @example
   {% render 'r7-media-style', section: section, bp: 750 %}
-{%- endcomment -%}
+{%- enddoc -%}
 {%- liquid
   assign st = section.settings
   assign sid = section.id

@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. Shared root of the Features sections that live-features-a.js
   paints in the builder (Benefits Bar 2, Benefits Bar Pro, Benefits Circles,
   Benefits Icons, Benefits Tabs, Product Benefits Pro).
@@ -9,7 +9,22 @@
   background colour setting's value (custom style only).
   pt_m, pb_m, pt_d, pb_d: padding values in px.
   The same values are derived by live-features-a.js (common()).
-{%- endcomment -%}
+
+  @param {string} [bg] - Background
+  @param {boolean} [no_bg] - No background
+  @param {string} part - Part ('attrs', 'css', 'fonts', 'vars')
+  @param {number} [pb_d] - Bottom padding
+  @param {number} [pb_m] - Bottom padding (mobile)
+  @param {number} [pt_d] - Top padding
+  @param {number} [pt_m] - Top padding (mobile)
+  @param {section} section - The section being rendered
+  @param {string} [type] - Type
+  @param {string} [width] - Width
+  @param {string} [width_default] - Width default ('container', 'fluid_container')
+
+  @example
+  {% render 'features-a-root', section: section, part: 'vars', bg: st.section_bg, pt_m: st.padding_top_mobile, pb_m: st.padding_bottom_mobile, pt_d: st.padding_top_desktop, pb_d: st.padding_bottom_desktop %}
+{%- enddoc -%}
 {%- assign st = section.settings -%}
 {%- if part == 'attrs' -%}
 data-fa="{{ type }}" data-fa-section="{{ section.id }}"{% if request.design_mode %} data-fa-settings="{{ st | json | escape }}"{% endif %} data-width="{% if width == 'container' or width == 'fluid_container' or width == 'stretch_width' or width == 'full_width' %}{{ width }}{% else %}{{ width_default | default: 'full_width' }}{% endif %}"{% if st.enable_custom_fonts %} data-own-font{% endif %}

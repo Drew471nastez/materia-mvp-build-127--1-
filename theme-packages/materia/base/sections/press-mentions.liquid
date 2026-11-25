@@ -1,9 +1,9 @@
-<script src="{{ 'live-r7-trust.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-r7-trust.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'r7-trust-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
 -%}
 {%- comment -%}
   Materia Themes. Press Mentions: where the shop has been written about,
@@ -192,7 +192,7 @@
         {%- assign bs = block.settings -%}
         {%- if design or bs.title != blank or bs.logo != blank or bs.publication != blank -%}
         <li class="pm__item" data-r7g-block="{{ block.id }}" data-r7g-type="mention"{% if design %} data-r7g-settings="{% capture pmb_json %}{"logo":{% if bs.logo != blank %}{{ bs.logo | image_url: width: 480 | json }}{% else %}""{% endif %},"publication":{{ bs.publication | append: '' | json }},"title":{{ bs.title | append: '' | json }},"date":{{ bs.date | append: '' | json }},"url":{{ bs.url | append: '' | json }}}{% endcapture %}{{ pmb_json | escape }}"{% endif %} {{ block.shopify_attributes }}>
-          <a class="pm__link"{% if bs.url != blank %} href="{{ bs.url | url }}"{% endif %}>
+          <a class="pm__link"{% if bs.url != blank %} href="{{ bs.url }}"{% endif %}>
             <div class="pm__logo"{% if design == false and bs.logo == blank and bs.publication == blank %} hidden{% endif %}>
               {%- if bs.logo != blank -%}
                 <img class="pm__img" src="{{ bs.logo | image_url: width: 480 }}" srcset="{{ bs.logo | image_url: width: 240 }} 240w, {{ bs.logo | image_url: width: 480 }} 480w" sizes="180px" width="{{ bs.logo.width | default: 240 }}" height="{{ bs.logo.height | default: 80 }}" alt="{{ bs.publication | default: bs.logo.alt | escape }}" loading="lazy" decoding="async">
@@ -220,7 +220,8 @@
 </div>
 {%- endif -%}{% schema %}
 {
-  "name": "Press Mentions",
+  "class": "s-tt",
+"name": "Press Mentions",
   "settings": [
     {
       "type": "header",
@@ -230,7 +231,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -704,7 +705,7 @@
   "presets": [
     {
       "name": "Press Mentions",
-      "category": "Logos and trust",
+      "category": "10 · Logos & press",
       "blocks": [
         {
           "type": "heading"

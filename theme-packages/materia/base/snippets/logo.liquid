@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes — site logo.
 
   Renders both logo images side-by-side wrapped in `.header__logo`:
@@ -20,7 +20,14 @@
   which image is visible based on the header's runtime class — no JS,
   no layout-shift, no Liquid re-render. The visibility CSS lives in
   `sections/header.liquid` so this snippet stays state-free.
-{%- endcomment -%}
+
+  @param {number} drawn_desktop - Logo size
+  @param {number} drawn_mobile - Logo size mobile
+  @param {boolean} isTransparent - Transparent on homepage
+
+  @example
+  {% render 'logo', isTransparent: transparent, isTransparentMobile: transparent_mobile, drawn_desktop: section_st.logo_width_desktop, drawn_mobile: section_st.logo_width_mobile %}
+{%- enddoc -%}
 {%- liquid
   assign shop_name = shop.name
   assign theme_st = settings
@@ -75,6 +82,13 @@
       render 'demo-image', key: 'theme_logo'
     endcapture
     assign demo_logo = demo_logo | strip
+    capture demo_logo_wh
+      render 'demo-image', key: 'theme_logo', dims: true
+    endcapture
+    assign demo_logo_wh = demo_logo_wh | strip | split: 'x'
+    assign demo_logo_w = demo_logo_wh[0] | default: 165 | times: 1.0
+    assign demo_logo_h = demo_logo_wh[1] | default: 83
+    assign demo_logo_height = logo_width | times: demo_logo_h | divided_by: demo_logo_w | round
   endif
 -%}
 
@@ -133,6 +147,7 @@
         fetchpriority="high"
         class="header__normal-logo"
         width="{{ logo_width }}"
+        height="{{ demo_logo_height }}"
         alt="{{ shop_name | escape }}"
       >
     {%- else -%}

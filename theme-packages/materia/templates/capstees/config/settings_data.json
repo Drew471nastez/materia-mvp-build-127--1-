@@ -206,7 +206,7 @@
     "field_text": "#111111",
     "storelib_input_border": "#cfcfcf",
     "storelib_input_focus": "#111111",
-    "product_style": "morden",
+    "product_style": "standard",
     "product_alignment": "start",
     "product_image_ratio": "square",
     "show_secondary_image": true,
@@ -247,6 +247,7 @@
     "instagram": "https://www.instagram.com",
     "tiktok": "https://www.tiktok.com",
     "pinterest": "https://www.pinterest.com",
-    "cart_drawer_buttons": "both"
+    "cart_drawer_buttons": "both",
+    "card_actions_reveal": "hover"
   }
 }

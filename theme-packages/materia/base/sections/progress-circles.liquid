@@ -1,7 +1,7 @@
-<script src="{{ 'live-features-d.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-features-d.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-features-d-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
@@ -157,16 +157,16 @@
 </style>
 <noscript><style>#shopify-section-{{ sid }} .pgr[data-fd-reveal='pending'] .pgr__ring-fill { stroke-dashoffset: var(--fd-off, 0); } #shopify-section-{{ sid }} .pgr[data-fd-reveal='pending'] .pgr__percent { opacity: 1; }</style></noscript>
 
-<div id="pgr-{{ sid }}" class="pgr section sec__progress-circles color-{{ color_scheme }} gradient {{ st.section_width | default: 'container' }}" data-fd="pgr" data-fd-section="{{ sid }}" data-fd-settings="{{ st | json | escape }}"{% if st.enable_custom_fonts %} data-own-font{% endif %}{% if pending %} data-fd-reveal="pending"{% endif %} style="{{ pgr_style | strip_newlines }}">
+<div id="pgr-{{ sid }}" class="pgr section sec__progress-circles color-{{ color_scheme }} gradient {{ st.section_width | default: 'container' }}" data-fd="pgr" data-fd-section="{{ sid }}" {% if request.design_mode %}data-fd-settings="{{ st | json | escape }}"{% endif %}{% if st.enable_custom_fonts %} data-own-font{% endif %}{% if pending %} data-fd-reveal="pending"{% endif %} style="{{ pgr_style | strip_newlines }}">
   <div class="pgr__inner">
     {%- for block in section.blocks -%}
       {%- assign bs = block.settings -%}
       {%- case block.type -%}
         {%- when 'heading' -%}
           {%- assign htext = bs.text | remove: '<p>' | remove: '</p>' -%}
-          <h2 class="pgr__heading" data-fd-block="{{ block.id }}" data-fd-type="heading" data-fd-settings="{{ bs | json | escape }}" style="--b-size-m: {{ bs.size_mobile | default: 30 }}px; --b-size-d: {{ bs.size_desktop | default: 42 }}px;{% if bs.uppercase %} --b-case: uppercase; --heading-text-transform: uppercase;{% endif %}{% render 'media-msr-var', name: '--b-color', color: bs.color, on: bs.enable_custom_style %}{% render 'media-msr-var', name: '--b-accent', color: bs.accent_color, on: bs.enable_custom_style %}"{% if htext == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ htext }}</h2>
+          <h2 class="pgr__heading" data-fd-block="{{ block.id }}" data-fd-type="heading" {% if request.design_mode %}data-fd-settings="{{ bs | json | escape }}"{% endif %} style="--b-size-m: {{ bs.size_mobile | default: 30 }}px; --b-size-d: {{ bs.size_desktop | default: 42 }}px;{% if bs.uppercase %} --b-case: uppercase; --heading-text-transform: uppercase;{% endif %}{% render 'media-msr-var', name: '--b-color', color: bs.color, on: bs.enable_custom_style %}{% render 'media-msr-var', name: '--b-accent', color: bs.accent_color, on: bs.enable_custom_style %}"{% if htext == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ htext }}</h2>
         {%- when 'subheading' -%}
-          <div class="pgr__subheading" data-fd-block="{{ block.id }}" data-fd-type="subheading" data-fd-settings="{{ bs | json | escape }}" style="--b-size-m: {{ bs.size_mobile | default: 14 }}px; --b-size-d: {{ bs.size_desktop | default: 16 }}px;{% render 'media-msr-var', name: '--b-color', color: bs.color, on: bs.enable_custom_style %}"{% if bs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ bs.text }}</div>
+          <div class="pgr__subheading" data-fd-block="{{ block.id }}" data-fd-type="subheading" {% if request.design_mode %}data-fd-settings="{{ bs | json | escape }}"{% endif %} style="--b-size-m: {{ bs.size_mobile | default: 14 }}px; --b-size-d: {{ bs.size_desktop | default: 16 }}px;{% render 'media-msr-var', name: '--b-color', color: bs.color, on: bs.enable_custom_style %}"{% if bs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ bs.text }}</div>
       {%- endcase -%}
     {%- endfor -%}
 
@@ -183,7 +183,7 @@
           endif
           assign off = 100 | minus: pct | times: 1.7593 | round: 2
         -%}
-        <div class="pgr__item"{% unless pct > 0 %}{% unless request.design_mode or page.in_editor %} hidden{% endunless %}{% endunless %} data-fd-block="{{ stat.id }}" data-fd-type="stat" data-fd-settings="{{ sb | json | escape }}" style="--fd-off: {{ off }};{% render 'media-msr-var', name: '--b-ring', color: sb.color, on: sb.enable_custom_style %}" {{ stat.shopify_attributes }}>
+        <div class="pgr__item"{% unless pct > 0 %}{% unless request.design_mode or page.in_editor %} hidden{% endunless %}{% endunless %} data-fd-block="{{ stat.id }}" data-fd-type="stat" {% if request.design_mode %}data-fd-settings="{{ sb | json | escape }}"{% endif %} style="--fd-off: {{ off }};{% render 'media-msr-var', name: '--b-ring', color: sb.color, on: sb.enable_custom_style %}" {{ stat.shopify_attributes }}>
           <div class="pgr__ring">
             <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">
               <circle class="pgr__ring-bg" cx="32" cy="32" r="28" fill="none"/>
@@ -201,18 +201,19 @@
     {%- for block in section.blocks -%}
       {%- if block.type == 'footnote' -%}
         {%- assign fbs = block.settings -%}
-        <div class="pgr__footnote" data-fd-block="{{ block.id }}" data-fd-type="footnote" data-fd-settings="{{ fbs | json | escape }}" style="--b-size: {{ fbs.size | default: 12 }}px; --b-mt: {{ fbs.margin_top | default: 0 }}px;{% render 'media-msr-var', name: '--b-color', color: fbs.color, on: fbs.enable_custom_style %}"{% if fbs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ fbs.text }}</div>
+        <div class="pgr__footnote" data-fd-block="{{ block.id }}" data-fd-type="footnote" {% if request.design_mode %}data-fd-settings="{{ fbs | json | escape }}"{% endif %} style="--b-size: {{ fbs.size | default: 12 }}px; --b-mt: {{ fbs.margin_top | default: 0 }}px;{% render 'media-msr-var', name: '--b-color', color: fbs.color, on: fbs.enable_custom_style %}"{% if fbs.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ fbs.text }}</div>
       {%- endif -%}
     {%- endfor -%}
   </div>
 </div>
 {%- comment -%} Ring fill, count up and live edits: shopify/assets/live-features-d.js (loaded on every page). {%- endcomment -%}
 
+
 {% schema %}
 {
   "name": "Progress Circles",
   "tag": "section",
-  "class": "section sec__progress-circles",
+  "class": "section sec__progress-circles s-tt",
   "settings": [
     {
       "type": "header",
@@ -222,7 +223,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -718,7 +719,6 @@
               "label": "H3"
             }
           ],
-          "hidden": true,
           "info": "Legacy: the heading is always an h2.",
           "visible_if": "{{ false }}"
         },
@@ -896,7 +896,7 @@
   "presets": [
     {
       "name": "Progress Circles",
-      "category": "Features",
+      "category": "11 · Stats & counters",
       "blocks": [
         {
           "type": "heading",

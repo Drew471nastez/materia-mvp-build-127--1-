@@ -1,12 +1,11 @@
-<script src="{{ 'live-testimonials.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-testimonials.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-testimonials-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign custom = st.enable_custom_styling
   assign fonts = st.enable_custom_fonts
-  assign placeholder = 'image' | placeholder_svg_tag: 'placeholder-svg'
   case st.video_overlay_color_selector
     when 'none'
       assign overlay_rgb = '0,0,0'
@@ -73,94 +72,13 @@
 </style>
 {%- endif -%}
 {% render 'live-testimonials-style', sid: sid %}
+{{ 'section-testimonial-video.css' | asset_url | stylesheet_tag }}
 <style>
   {%- if fonts -%}{{ st.heading_font | font_face: font_display: 'swap' }}{{ st.body_font | font_face: font_display: 'swap' }}{%- endif %}
-  #shopify-section-{{ sid }} { position: static; z-index: 0; }
-  :where(#shopify-section-{{ sid }}) { font-family: var(--body-font, inherit); }
-  :where(#shopify-section-{{ sid }}) :where(button, input, textarea, select, optgroup) { font-family: inherit; }
-  #shopify-section-{{ sid }} .ctv { position: relative; z-index: 0; overflow: hidden; text-align: center; background-color: var(--ctv-bg); padding-top: var(--ctv-pt); padding-bottom: var(--ctv-pb); font-family: var(--ctv-bf); }
-  #shopify-section-{{ sid }} .ctv *, #shopify-section-{{ sid }} .ctv *::before, #shopify-section-{{ sid }} .ctv *::after { box-sizing: border-box; }
-  #shopify-section-{{ sid }} .ctv__inner { padding-left: var(--ctv-pl-d); padding-right: var(--ctv-pr-d); }
-  #shopify-section-{{ sid }} .ctv__heading { max-width: 52rem; margin: 0 auto var(--h-mb-m); font-family: var(--h-ff); font-size: var(--h-fs-m); font-weight: var(--h-w); line-height: var(--h-lh); letter-spacing: var(--h-ls); text-transform: var(--h-tt); color: var(--h-c); text-wrap: balance; }
-  #shopify-section-{{ sid }} .ctv__subheading { max-width: 40rem; margin: 0 auto var(--s-mb-m); font-family: var(--s-ff); font-size: var(--s-fs-m); font-weight: var(--s-w); line-height: var(--s-lh); color: var(--s-c); text-wrap: pretty; }
-  @media (max-width: 768px) {
-    #shopify-section-{{ sid }} .ctv__inner { padding-left: var(--ctv-pl-m); padding-right: var(--ctv-pr-m); }
-  }
-  @media (min-width: 769px) {
-    #shopify-section-{{ sid }} .ctv__heading { margin-bottom: var(--h-mb-d); font-size: var(--h-fs-d); }
-    #shopify-section-{{ sid }} .ctv__subheading { margin-bottom: var(--s-mb-d); font-size: var(--s-fs-d); }
-  }
-  #shopify-section-{{ sid }} .ctv__subheading > :first-child { margin-top: 0; }
-  #shopify-section-{{ sid }} .ctv__subheading > :last-child { margin-bottom: 0; }
-  #shopify-section-{{ sid }} .ctv__subheading p { margin: 0; font: inherit; color: inherit; }
-  #shopify-section-{{ sid }} .ctv__subheading p + p, #shopify-section-{{ sid }} .ctv__subheading p + ul, #shopify-section-{{ sid }} .ctv__subheading p + ol { margin-top: 0.6em; }
-  #shopify-section-{{ sid }} .ctv__subheading ul, #shopify-section-{{ sid }} .ctv__subheading ol { display: inline-block; margin: 0; padding-left: 1.2em; text-align: left; }
-  #shopify-section-{{ sid }} .ctv__rt strong, #shopify-section-{{ sid }} .ctv__rt b { font-weight: 700; }
-  #shopify-section-{{ sid }} .ctv__rt em { font-style: italic; }
-  #shopify-section-{{ sid }} .ctv__rt a { color: inherit; text-decoration: underline; text-underline-offset: 0.15em; }
-  #shopify-section-{{ sid }} .ctv__rt a:hover { opacity: 0.75; }
-  #shopify-section-{{ sid }} .ctv__rt a:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
-  #shopify-section-{{ sid }} .ctv__viewport { width: 100%; position: relative; touch-action: pan-x pan-y; cursor: grab; }
-  #shopify-section-{{ sid }} .ctv__viewport.is-dragging { cursor: grabbing; }
-  #shopify-section-{{ sid }} .ctv__rail { --ctv-gap: var(--ctv-gap-m); display: flex; flex-direction: row; justify-content: safe center; gap: var(--ctv-gap); overflow-x: auto; overflow-y: hidden; scroll-snap-type: x proximity; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; overscroll-behavior-inline: contain; scrollbar-width: none; -ms-overflow-style: none; padding: 16px 12px 24px; margin: -6px -10px -12px; scroll-padding-inline: 12px; }
-  /* Cards that fit are centred from the first paint (safe: a row that scrolls starts at its first card); the script's is-centered class agrees. */
-  #shopify-section-{{ sid }} .ctv__rail.is-centered { justify-content: center; }
-  #shopify-section-{{ sid }} .ctv__rail::-webkit-scrollbar { display: none; }
-  #shopify-section-{{ sid }} .ctv__viewport.is-dragging .ctv__rail { scroll-behavior: auto !important; scroll-snap-type: none !important; }
-  @media (min-width: 769px) {
-    #shopify-section-{{ sid }} .ctv__rail { --ctv-gap: var(--ctv-gap-d); }
-  }
-  #shopify-section-{{ sid }} .ctv__slide { flex: 0 0 calc((100% - (var(--ctv-cols) - 1) * var(--ctv-gap)) / var(--ctv-cols)); scroll-snap-align: start; display: flex; justify-content: center; }
-  @media (min-width: 769px) {
-    #shopify-section-{{ sid }} .ctv__slide { flex: 0 0 var(--ctv-card-w); }
-  }
-  #shopify-section-{{ sid }} .ctv__card-link { position: absolute; inset: 0; z-index: 2; text-decoration: none; color: inherit; }
-  #shopify-section-{{ sid }} .ctv__slide img, #shopify-section-{{ sid }} .ctv__slide video { -webkit-user-drag: none; pointer-events: none; }
-  #shopify-section-{{ sid }} .video-overlay { z-index: 3; pointer-events: none; }
-  #shopify-section-{{ sid }} .custom-button { position: relative; z-index: 4; pointer-events: auto; }
-  #shopify-section-{{ sid }} .ctv__viewport.is-dragging * { pointer-events: none; }
-  #shopify-section-{{ sid }} .video-card { position: relative; width: 100%; aspect-ratio: 10 / 16; border-radius: var(--ctv-radius); overflow: hidden; transition: transform var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease), box-shadow var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease); cursor: pointer; background-color: color-mix(in srgb, var(--color-text) 6%, var(--color-background)); }
-  #shopify-section-{{ sid }} .media-content, #shopify-section-{{ sid }} .media-content video, #shopify-section-{{ sid }} video.media-content { width: 100%; height: 100%; object-fit: cover; display: block; }
-  #shopify-section-{{ sid }} .video-card .media-content { transition: transform .5s cubic-bezier(.2,.7,.2,1); }
-  #shopify-section-{{ sid }} .video-card .placeholder-svg { width: 100%; height: 100%; display: block; }
-  #shopify-section-{{ sid }} .ctv[data-hover="smooth-zoom"] .video-card:hover .media-content { transform: scale(1.05); }
-  #shopify-section-{{ sid }} .ctv[data-hover="scale-in"] .video-card:hover .media-content { transform: scale(1.1); }
-  #shopify-section-{{ sid }} .ctv[data-hover="scale-in-up"] .video-card:hover { transform: translateY(-6px); }
-  #shopify-section-{{ sid }} .ctv[data-hover="scale-in-up"] .video-card:hover .media-content { transform: scale(1.08); }
-  #shopify-section-{{ sid }} .ctv[data-hover="subtle-shadow"] .video-card:hover { box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
-  #shopify-section-{{ sid }} .ctv[data-hover="subtle-white-glow-pulse"] .video-card:hover { box-shadow: 0 0 10px rgba(255,255,255,0.7); animation: ctvWhiteGlow-{{ sid }} 1.5s infinite; }
+#shopify-section-{{ sid }} .ctv[data-hover="subtle-white-glow-pulse"] .video-card:hover { box-shadow: 0 0 10px rgba(255,255,255,0.7); animation: ctvWhiteGlow-{{ sid }} 1.5s infinite; }
   #shopify-section-{{ sid }} .ctv[data-hover="subtle-gray-glow-pulse"] .video-card:hover { box-shadow: 0 0 10px rgba(128,128,128,0.7); animation: ctvGrayGlow-{{ sid }} 1.5s infinite; }
   @keyframes ctvWhiteGlow-{{ sid }} { 0%,100%{ box-shadow:0 0 10px rgba(255,255,255,.7);} 50%{ box-shadow:0 0 20px rgba(255,255,255,.9);} }
   @keyframes ctvGrayGlow-{{ sid }} { 0%,100%{ box-shadow:0 0 10px rgba(128,128,128,.7);} 50%{ box-shadow:0 0 20px rgba(128,128,128,.9);} }
-  #shopify-section-{{ sid }} .video-overlay { position: absolute; left: 0; bottom: 0; width: 100%; display: flex; flex-direction: column; align-items: stretch; gap: 10px; padding: 14px; background-color: var(--ctv-overlay); }
-  #shopify-section-{{ sid }} .ctv[data-addons="false"] .video-overlay { background: none; }
-  #shopify-section-{{ sid }} .ctv[data-addons="false"] .product-info, #shopify-section-{{ sid }} .ctv[data-button="false"] .custom-button { display: none; }
-  #shopify-section-{{ sid }} .ctv[data-addons="false"][data-button="false"] .video-overlay { display: none; }
-  #shopify-section-{{ sid }} .product-info { color: var(--ctv-card-text); text-shadow: 0 1px 2px rgba(0,0,0,.25); min-width: 0; display: flex; flex-direction: column; align-items: flex-start; width: 100%; text-align: left; }
-  #shopify-section-{{ sid }} .product-info .username, #shopify-section-{{ sid }} .product-info .product-name { color: inherit; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #shopify-section-{{ sid }} .product-info [hidden] { display: none; }
-  #shopify-section-{{ sid }} .username { font-size: 12px; font-weight: 700; font-family: inherit; margin-bottom: 2px; }
-  #shopify-section-{{ sid }} .product-name { font-size: 14px; font-weight: 700; font-family: inherit; margin-bottom: 2px; }
-  #shopify-section-{{ sid }} .stars { display: flex; font-size: 14px; font-family: inherit; }
-  #shopify-section-{{ sid }} .star { color: var(--star-off); }
-  #shopify-section-{{ sid }} .star.filled { color: var(--star-on); }
-  #shopify-section-{{ sid }} .star.is-part { color: transparent; background: linear-gradient(90deg, var(--star-on) var(--lt-fill), var(--star-off) var(--lt-fill)); -webkit-background-clip: text; background-clip: text; }
-  #shopify-section-{{ sid }} .custom-button { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 44px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  @media (prefers-reduced-motion: reduce) {
-    #shopify-section-{{ sid }} .video-card, #shopify-section-{{ sid }} .video-card .media-content { transition: none; animation: none !important; }
-    #shopify-section-{{ sid }} .video-card:hover, #shopify-section-{{ sid }} .video-card:hover .media-content { transform: none; }
-  }
-  #shopify-section-{{ sid }} .ctv__progress { position: relative; display: block; margin: 22px auto 0; width: var(--ctv-pbar-w); height: var(--ctv-pbar-h); background: var(--ctv-track); border-radius: 999px; overflow: hidden; cursor: pointer; }
-  #shopify-section-{{ sid }} .ctv[data-progress="false"] .ctv__progress { display: none !important; }
-  @media (min-width: 769px) { #shopify-section-{{ sid }} .ctv[data-progress-d="false"] .ctv__progress { display: none !important; } }
-  #shopify-section-{{ sid }} .ctv__progress-fill { position: absolute; inset: 0 auto 0 0; width: 0%; background: var(--ctv-fill); border-radius: 999px; transition: width .15s linear; }
-  #shopify-section-{{ sid }} .ctv__viewport.is-static .ctv__progress { visibility: hidden; }
-  #shopify-section-{{ sid }} .ctv__viewport:focus { outline: none; }
-  #shopify-section-{{ sid }} .ctv__viewport:focus-visible { outline: 2px solid var(--color-heading, currentColor); outline-offset: 4px; border-radius: 4px; }
-  #shopify-section-{{ sid }} .ctv__card-link:focus-visible, #shopify-section-{{ sid }} .custom-button:focus-visible { outline: 2px solid var(--color-heading, currentColor); outline-offset: 2px; }
-  @media (prefers-reduced-motion: reduce) {
-    #shopify-section-{{ sid }} .ctv__rail { scroll-behavior: auto; }
-  }
 </style>
 {%- liquid
   assign heading_block = section.blocks | where: 'type', 'heading' | first
@@ -204,6 +122,19 @@
       <div class="ctv__subheading ctv__rt" data-lt-block="{{ sub_block.id }}" data-lt-type="subheading"{% if request.design_mode %} data-lt-settings="{{ sb | json | escape }}"{% endif %}{% if sb.custom_style %} data-own-weight data-own-size{% endif %}{% if sb.subheading == blank %} hidden{% endif %} style="--s-ff: {% if fonts and st.body_font.family != blank %}{{ st.body_font.family }}, {{ st.body_font.fallback_families | default: 'sans-serif' }}{% else %}var(--type-{{ s_style }}-font, var(--body-font, inherit)){% endif %};--s-mb-m: {{ sb.space_below_mobile | default: 30 }}px;--s-mb-d: {{ sb.space_below_desktop | default: 40 }}px;--s-c: {% render 'live-testimonials-color', on: sb.custom_style, color: sb.subheading_color, fallback: 'var(--color-text)' %};{% if sb.custom_style %}--s-w: {{ sb.subheading_font_weight | default: '400' }};--s-lh: 1.5;--s-fs-m: {{ sb.subheading_font_size_mobile | default: 14 }}px;--s-fs-d: {{ sb.subheading_font_size_desktop | default: 16 }}px;{% else %}--s-w: var(--type-{{ s_style }}-weight, 400);--s-lh: var(--type-{{ s_style }}-line-height, 1.6);--s-fs-m: var(--type-{{ s_style }}-size, {{ s_fb }}px);--s-fs-d: var(--type-{{ s_style }}-size, {{ s_fb }}px);{% endif %}" {{ sub_block.shopify_attributes }}>{{ sb.subheading }}</div>
     {%- endif -%}
     {%- if card_count > 0 -%}
+      {%- liquid
+        comment
+          The size each card is drawn at, so the browser picks a sharp file:
+          from 769px the card is the "Video card size" setting wide; below
+          that it is the row width divided by the cards per view on phones
+          (483px on a 768px tablet, not the 260px the old sizes said, so the
+          300px file was blown up). Files up to 1200px for 2x and 3x screens.
+        endcomment
+        assign ctv_card_w = st.video_card_size | default: 220
+        assign ctv_cols = st.mobile_column_count | default: 1.5
+        assign ctv_sizes = '(min-width: 769px) ' | append: ctv_card_w | append: 'px, calc((100vw - 20px) / ' | append: ctv_cols | append: ')'
+        assign ctv_widths = '300, 450, 600, 800, 1000, 1200'
+      -%}
       <div class="ctv__viewport" data-ctv-viewport>
         <div class="ctv__rail" data-ctv-rail data-testimonial-row>
           {%- for block in section.blocks -%}
@@ -237,7 +168,7 @@
               <div class="ctv__slide">
                 <div class="video-card" data-lt-block="{{ block.id }}" data-lt-type="video_card"{% if request.design_mode %} data-lt-settings="{{ card | json | escape }}"{% endif %} {{ block.shopify_attributes }}>
                     {%- if card.image != blank -%}
-                      <img src="{{ card.image | image_url: width: 600 }}" alt="{{ pname | escape }}" class="media-content" loading="lazy" width="{{ card.image.width }}" height="{{ card.image.height }}">
+                      {{ card.image | image_url: width: 1200 | image_tag: widths: ctv_widths, sizes: ctv_sizes, alt: pname, class: 'media-content', loading: 'lazy', decoding: 'async' }}
                     {%- elsif card.video != blank -%}
                       {{ card.video | video_tag: autoplay: true, muted: true, loop: true, playsinline: true, controls: false, preload: 'auto', class: 'media-content' }}
                     {%- elsif card.video_url != blank -%}
@@ -245,13 +176,13 @@
                         <source src="{{ card.video_url }}" type="video/mp4">
                       </video>
                     {%- elsif prod != blank and prod.featured_image != blank -%}
-                      <img src="{{ prod.featured_image | image_url: width: 600 }}" alt="{{ pname | escape }}" class="media-content" loading="lazy">
+                      {{ prod.featured_image | image_url: width: 1200 | image_tag: widths: ctv_widths, sizes: ctv_sizes, alt: pname, class: 'media-content', loading: 'lazy', decoding: 'async' }}
                     {%- elsif demo_src != blank -%}
                       <video class="media-content" autoplay muted loop playsinline preload="auto">
                         <source src="{{ demo_src }}" type="video/mp4">
                       </video>
                     {%- else -%}
-                      {{ placeholder }}
+                      {%- render 'placeholder-image', type: 'lifestyle', index: forloop.index, class: 'placeholder-svg' -%}
                     {%- endif -%}
                     <a class="ctv__card-link" href="{{ plink | default: '/' }}" aria-label="{{ pname | default: 'View' | escape }}" data-lt-card-link></a>
                     <div class="video-overlay">
@@ -401,7 +332,8 @@
   })();
 </script>{% schema %}
 {
-  "name": "Video Testimonials 5",
+  "class": "s-testimonial-video s-tt s-lt",
+"name": "Video Testimonials 5",
   "tag": "section",
   "settings": [
     {
@@ -412,7 +344,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -781,7 +713,6 @@
           "label": "Bebas Neue"
         }
       ],
-      "hidden": true,
       "info": "Legacy: replaced by the font pickers; kept so saved pages keep their value.",
       "visible_if": "{{ false }}"
     },
@@ -790,15 +721,12 @@
       "id": "custom_font_url",
       "label": "Custom font @import URL",
       "info": "Legacy: replaced by the font pickers; kept so saved pages keep their value.",
-      "hidden": true,
       "visible_if": "{{ false }}"
     },
     {
       "type": "text",
       "id": "custom_font_family",
       "label": "Custom font family name",
-      "default": "",
-      "hidden": true,
       "info": "Legacy: replaced by the font pickers; kept so saved pages keep their value.",
       "visible_if": "{{ false }}"
     },
@@ -913,7 +841,6 @@
               "label": "Heading 3"
             }
           ],
-          "hidden": true,
           "visible_if": "{{ false }}"
         },
         {
@@ -1173,8 +1100,7 @@
         {
           "type": "text",
           "id": "username",
-          "label": "Username",
-          "default": ""
+          "label": "Username"
         },
         {
           "type": "text",
@@ -1207,8 +1133,8 @@
   ],
   "presets": [
     {
-      "name": "Video Testimonials 5",
-      "category": "Testimonials",
+      "name": "Video Testimonials",
+      "category": "07 · Reviews & testimonials",
       "blocks": [
         {
           "type": "heading",

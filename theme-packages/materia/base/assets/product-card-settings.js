@@ -98,3 +98,44 @@
     if (!frame) frame = requestAnimationFrame(apply);
   });
 })();
+
+/* Card buttons that are custom elements (quick view, compare): Enter and Space press them. */
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+  const button = event.target.closest?.('button-quickview[role="button"], button-compare[role="button"]');
+  if (!button || event.target !== button) return;
+  event.preventDefault();
+  button.click();
+});
+
+/* Card image slider: arrows move one picture and hide at either end. */
+(() => {
+  const slidesOf = (el) => el.closest('.product-item')?.querySelector('[data-pc-slides]');
+  const paint = (track) => {
+    const card = track.closest('.product-item'); if (!card) return;
+    const n = track.children.length, w = Math.max(1, track.clientWidth);
+    const rtl = getComputedStyle(track).direction === 'rtl';
+    const i = Math.max(0, Math.min(n - 1, Math.round(Math.abs(track.scrollLeft) / w)));
+    const prev = card.querySelector('.pc-arrow--prev'), next = card.querySelector('.pc-arrow--next');
+    if (prev) prev.disabled = i <= 0;
+    if (next) next.disabled = i >= n - 1;
+    track.dataset.index = String(i); track.dataset.rtl = rtl ? '1' : '';
+  };
+  document.addEventListener('click', (event) => {
+    const arrow = event.target.closest?.('[data-pc-arrow]'); if (!arrow) return;
+    event.preventDefault(); event.stopPropagation();
+    const track = slidesOf(arrow); if (!track) return;
+    const dir = Number(arrow.dataset.pcArrow) * (getComputedStyle(track).direction === 'rtl' ? -1 : 1);
+    track.scrollBy({ left: dir * track.clientWidth, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  });
+  let frame = 0; const pending = new Set();
+  document.addEventListener('scroll', (event) => {
+    const track = event.target; if (!(track instanceof Element) || !track.matches('[data-pc-slides]')) return;
+    pending.add(track);
+    if (!frame) frame = requestAnimationFrame(() => { frame = 0; pending.forEach(paint); pending.clear(); });
+  }, { capture: true, passive: true });
+  // A swipe that moved the pictures must not open the product.
+  let downX = null;
+  document.addEventListener('pointerdown', (e) => { downX = e.target.closest?.('[data-pc-slides]') ? e.clientX : null; }, true);
+  document.addEventListener('click', (e) => { if (downX != null && e.target.closest?.('[data-pc-slides]') && Math.abs(e.clientX - downX) > 8) { e.preventDefault(); } downX = null; }, true);
+})();

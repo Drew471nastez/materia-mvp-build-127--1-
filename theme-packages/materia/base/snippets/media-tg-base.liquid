@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. Shared paint for the text-grid Image and video sections
   (Image With Text Bento, Image With Icons, Image With Text Multirow, Image
   With Text Grid). Prints, inside the section's own <style>: the section
@@ -9,7 +9,15 @@
   switch them off live:
   <style data-tg-margins>{% render 'media-tg-base', st: st, sid: sid, bp: 768, part: 'margins' %}</style>
   <style>{% render 'media-tg-base', st: st, sid: sid, bp: 768 %} ...section rules... </style>
-{%- endcomment -%}
+
+  @param {number} bp - Bp
+  @param {string} [part] - Part
+  @param {string} sid - Section id, used to scope CSS and element ids
+  @param {object} st - Section settings object
+
+  @example
+  {% render 'media-tg-base', st: st, sid: sid, bp: 768, part: 'margins' %}
+{%- enddoc -%}
 {%- liquid
   assign mt_m = st.section_margin_top_mobile | default: 0
   assign mb_m = st.section_margin_bottom_mobile | default: 0
@@ -53,6 +61,6 @@
 #shopify-section-{{ sid }} .tg [data-theme-button][data-own-shape] { font-size: var(--mb-font-size); padding: var(--mb-padding-y) var(--mb-padding-x); border-radius: var(--mb-radius); }
 #shopify-section-{{ sid }} .tg [data-theme-button][data-own-weight] { font-weight: var(--mb-weight); }
 #shopify-section-{{ sid }} .tg [hidden] { display: none !important; }
-#shopify-section-{{ sid }} .tg img.tg__ph { object-fit: contain !important; padding: 18%; }
+#shopify-section-{{ sid }} .tg img.tg__ph { object-fit: cover !important; }
 #shopify-section-{{ sid }} .tg :focus-visible { outline: 2px solid var(--color-heading); outline-offset: 3px; }
 {%- endif -%}

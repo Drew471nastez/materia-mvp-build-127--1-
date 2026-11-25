@@ -1,3 +1,11 @@
+{% doc %}
+  Initial CSS custom properties of the Hero Pro section.
+
+  @param {section} section - The section being rendered
+
+  @example
+  {% render 'hero-pro-initial-style', section: section %}
+{% enddoc -%}
 {%- assign s = section.settings -%}{%- assign bg = section.blocks | where: 'type', 'background' | first -%}
 --mk-brightness:{{ bg.settings.background_brightness | default: 0.5 }};
 --mk-align-d:{{ s.elements_alignment_desktop | default: 'center' }};--mk-align-m:{{ s.elements_alignment_mobile | default: 'center' }};

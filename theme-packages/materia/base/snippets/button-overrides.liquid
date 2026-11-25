@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. A section's own button values for the theme button contract
   (data-theme-button). Prints only what the creator set, so everything else
   follows Theme settings > Buttons and the colour scheme.
@@ -7,7 +7,25 @@
   padding_y, padding_x, font_size, weight, border_width (numbers, px).
   transform: a text-transform value, any time.
   Use: style="render 'button-overrides', bg: bs.bg, text: bs.color, custom: true, radius: 8"
-{%- endcomment -%}
+
+  @param {string} [bg] - Background
+  @param {string} [border] - Button border
+  @param {number} [border_width] - Border width
+  @param {boolean} [custom] - Custom
+  @param {number} [font_size] - Font size
+  @param {string} [hover_bg] - Background on hover
+  @param {string} [hover_border] - Border on hover
+  @param {string} [hover_text] - Text on hover
+  @param {number} [padding_x] - Horizontal padding
+  @param {number} [padding_y] - Vertical padding
+  @param {number} [radius] - Corner radius
+  @param {string} [text] - Button text
+  @param {object} [transform] - Transform
+  @param {number} [weight] - Font weight
+
+  @example
+  {% render 'button-overrides', bg: btn_bg, text: btn_text, border: btn_bg, hover_bg: btn_hover, hover_text: btn_text, hover_border: btn_hover, custom: steps_custom_btn, radius: s.button_radius, padding_y: s.button_pad_y, padding_x: s.button_pad_x, font_size: s.button_size, weight: 600, border_width: 0 %}
+{%- enddoc -%}
 {%- if bg != blank and bg.alpha != 0 -%}--mb-bg: {{ bg }};{%- endif -%}
 {%- if text != blank and text.alpha != 0 -%}--mb-text: {{ text }};{%- endif -%}
 {%- if border != blank and border.alpha != 0 -%}--mb-border: {{ border }};{%- elsif bg != blank and bg.alpha != 0 -%}--mb-border: {{ bg }};{%- endif -%}

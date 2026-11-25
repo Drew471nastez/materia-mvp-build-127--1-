@@ -57,7 +57,7 @@ import { templateDirs } from "../lib/themes/template-packages"
 import { answer, themeAsset } from "../lib/storelib-theme/compat/site"
 import { importTemplate, MEDIA_PREFIX, type BuiltSite } from "./theme-templates/site"
 import { auditSite } from "./theme-templates/fixtures"
-import { PREVIEW_CART_SHIM, previewCartData } from "./theme-templates/preview-cart"
+import { PREVIEW_CART_SHIM, diffMarkup, patchMarkup, previewCartData } from "./theme-templates/preview-cart"
 
 const OUT = join("public", TEMPLATE_PREVIEW_ROOT.replace(/^\//, ""))
 const FONT_CACHE = join("node_modules", ".cache", "template-previews-fonts")
@@ -425,6 +425,51 @@ async function buildTemplate(t: (typeof CODE_TEMPLATES)[number]) {
     } else console.log(`  ${slug}: the wishlist's cards were not drawn (${res.status})`)
   }
 
+  /*
+    Round 26 (Materia 1.3.2): a product card's Quick view and Select options
+    ask for /products/<handle>?section_id=product-quickview, and the Recently
+    viewed row for /search?q=id:..&section_id=recently-viewed. A folder of
+    static files answers neither, so both are drawn here through the engine
+    and the shim answers them: the quick view of each product (written as its
+    difference from the first product's, so a shop's worth costs about one),
+    and every product's recently viewed card, of which the theme keeps the
+    visitor's.
+  */
+  let qvData = ""
+  if (built.site.products.length) {
+    const keys: string[] = []
+    const drawnQv: string[] = []
+    for (const p of built.site.products as unknown as { settings: { slug: string } }[]) {
+      const res = await answer(built.site, { method: "GET", path: `/products/${p.settings.slug}`, query: new URLSearchParams({ section_id: "product-quickview" }), body: null, cart: [] })
+      if (res.status !== 200 || typeof res.body !== "string" || !/product-quickview__content/.test(res.body)) continue
+      keys.push(p.settings.slug)
+      drawnQv.push(await finish(res.body))
+    }
+    if (drawnQv.length) {
+      const told = drawnQv.map((h, i) => {
+        if (!i) return h
+        const ops = diffMarkup(drawnQv[0], h)
+        if (patchMarkup(drawnQv[0], ops) !== h) throw new Error(`${slug}: the quick view of ${keys[i]} does not come back from its difference`)
+        return JSON.stringify(ops).length < h.length ? ops : h
+      })
+      const body = JSON.stringify({ k: keys, d: told })
+      const rel = own(`quickview.${sha(body)}.json`)
+      write(rel, body)
+      qvData = url(rel)
+    }
+  }
+  let rvData = ""
+  if (built.site.products.length) {
+    const q = (built.site.products as unknown as { id: string }[]).map((p) => `id:${p.id}`).join(" OR ")
+    const res = await answer(built.site, { method: "GET", path: "/search", query: new URLSearchParams({ q, type: "product", section_id: "recently-viewed" }), body: null, cart: [] })
+    if (res.status === 200 && typeof res.body === "string" && /data-rv-card/.test(res.body)) {
+      const body = JSON.stringify({ html: await finish(res.body) })
+      const rel = own(`recent.${sha(body)}.json`)
+      write(rel, body)
+      rvData = url(rel)
+    } else console.log(`  ${slug}: the recently viewed cards were not drawn (${res.status})`)
+  }
+
   const html = new Map<string, string>()
   for (const [path, raw] of pages) {
     let page = raw
@@ -434,7 +479,7 @@ async function buildTemplate(t: (typeof CODE_TEMPLATES)[number]) {
     /* Prefetching, and the structured data search engines read (a preview is never indexed, and it names the build's host). */
     page = page.replace(/<script\b[^>]*type=["'](?:speculationrules|application\/ld\+json)["'][^>]*>[\s\S]*?<\/script>/gi, "")
     page = await finish(page)
-    page = page.replace(/<head\b[^>]*>/i, (h) => `${h}<script data-template-preview>${shim(cartData, wishData)}</script>`)
+    page = page.replace(/<head\b[^>]*>/i, (h) => `${h}<script data-template-preview>${shim(cartData, wishData, qvData, rvData)}</script>`)
     html.set(path, page)
   }
 
@@ -514,7 +559,9 @@ function linksAndForms(page: string, pageOf: (href: string) => string | null): s
           if (v === "" || v.startsWith("#") || v.startsWith("/theme-previews/") || /^data:/i.test(v)) return m
           if (lower === "link" && attr.toLowerCase() === "href") return m
           const to = pageOf(v)
-          if (to) return `${sp}${attr}=${q}${to}${q}`
+          /* Round 26: a card's quick view address keeps the section it asks for (the shim answers it). */
+          const asks = attr.toLowerCase() === "data-url" && /[?&]section_id=/.test(v) ? v.slice(v.indexOf("?")).replace(/#.*$/, "") : ""
+          if (to) return `${sp}${attr}=${q}${to}${asks}${q}`
           if (attr.toLowerCase() !== "href") return `${sp}${attr}=${q}#${q}`
           return `${sp}href=${q}#${q} data-preview-inert`
         })
@@ -539,7 +586,7 @@ function linksAndForms(page: string, pageOf: (href: string) => string | null): s
  * says it is a preview. When the page is drawn, the marketplace is told, so
  * it can take its screenshot away.
  */
-const shim = (cartData: string, wishData = "") => `(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA=${JSON.stringify(cartData)},WISH_DATA=${JSON.stringify(wishData)};
+const shim = (cartData: string, wishData = "", qvData = "", rvData = "") => `(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA=${JSON.stringify(cartData)},WISH_DATA=${JSON.stringify(wishData)},QV_DATA=${JSON.stringify(qvData)},RV_DATA=${JSON.stringify(rvData)};
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
@@ -558,7 +605,12 @@ if(/\\/cart(\\.js|\\.json|\\/(change|update|clear)(\\.js)?)$/.test(p))return[200
 if(/\\.(js|json)$/.test(p)||/\\/search\\/suggest/.test(p))return[200,"application/json","{}"];
 return[200,"text/html","<!doctype html><html><body></body></html>"]}
 var F=W.fetch;${PREVIEW_CART_SHIM}
-if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);if(mine(u))return F.apply(this,arguments);
+if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);
+/* Round 26: a card's Quick view (each product's, from QV_DATA) and the Recently viewed row (every product's card, from RV_DATA; the theme keeps the visitor's). */
+var sid=/[?&]section_id=([^&#]+)/.exec(u);sid=sid&&sid[1];
+if(sid==="product-quickview"&&QV_DATA){var hm=/\/products\/([^\/?#]+?)(?:\.html)?$/.exec(path(u));return F(QV_DATA).then(function(r){return r.json()}).then(function(d){var n=hm?d.k.indexOf(decodeURIComponent(hm[1])):-1;if(n<0)return new Response("",{status:404});var x=d.d[n];return new Response(typeof x==="string"?x:patch(d.d[0],x),{status:200,headers:{"Content-Type":"text/html"}})})}
+if(sid==="recently-viewed"&&RV_DATA)return F(RV_DATA).then(function(r){return r.json()}).then(function(d){return new Response(d.html,{status:200,headers:{"Content-Type":"text/html"}})});
+if(mine(u))return F.apply(this,arguments);
 /* Cards round 24: the cart answers from the template's drawn cart (./theme-templates/preview-cart.ts), as a store would. */
 /* Round 25: the wishlist page asks for its saved products' cards; every product's card is in WISH_DATA and the theme keeps the saved ones. */
 if(WISH_DATA&&/\\/search$/.test(path(u))&&/[?&]section_id=/.test(u))return F(WISH_DATA).then(function(r){return r.json()}).then(function(d){return new Response(d.html,{status:200,headers:{"Content-Type":"text/html"}})});

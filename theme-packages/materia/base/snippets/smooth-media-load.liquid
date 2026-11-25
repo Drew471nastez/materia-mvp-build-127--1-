@@ -1,120 +1,167 @@
 {%- comment -%}
-  Smooth media load (bulletproof)
-  -------------------------------
-  Fades images & videos in once they finish loading, without the abrupt
-  gray-box -> hard pop. Rewritten to be impossible to leave media invisible:
+  Smooth media load — one reveal for every picture
+  ------------------------------------------------
+  The single place that decides how a picture arrives, for every image and
+  video that is not a product picture inside a .bls-image-js area (those keep
+  their own skeleton: critical.css .loading_image + the reveal script at the
+  top of layout/theme.liquid, which uses the same 500ms ease and fades its
+  skeleton out under the picture).
 
-    * It NEVER sets opacity:0 as a resting state. Media is visible by default.
-      On load it plays a ONE-SHOT fade-in animation (no fill-mode), so after the
-      animation the element returns to its natural CSS opacity. If JS never runs,
-      or a node is cloned (e.g. Swiper carousel loop slides), the media is simply
-      visible — never stuck hidden.
-    * Hover / secondary product-card images (.secondary-image, .opacity-0) are
-      skipped entirely so card hover swaps are never disturbed.
-    * Clone-safe: processed elements are tracked in a WeakSet (not a copyable
-      attribute), so carousel clones are handled correctly.
-    * Skipped in the theme editor (design mode) and for reduced-motion users.
-    * Never on what the visitor sees first: pictures in the first screen when
-      the page is read, and the priority (fetchpriority=high) picture, show the
-      moment they arrive. A fade there read as the hero flashing or popping.
-    * Never twice (round 20): not on a picture whose section reveal will show
-      it (animation.js waits for it), and not on one that lands off screen.
+    * While a picture is on its way its box shows a calm, colour-scheme tint
+      (the text colour at 5%) with a very soft shimmer. The tint only appears
+      if the picture has not arrived within ~90ms, so cached pictures never
+      flash it.
+    * When it arrives AFTER the page has painted and it is on screen, it fades
+      in (opacity 0 -> its own opacity, 500ms ease). Pictures that are ready
+      before the first paint, cached pictures (arrive in under ~90ms), the
+      priority picture (fetchpriority=high) and pictures off screen simply
+      show — nothing to fade.
+    * It never sets opacity as a resting state: the fade is a one-shot Web
+      Animation with no fill, so if JS stops, an animation is cancelled or a
+      node is cloned (carousel loop slides), the picture is just visible.
+    * Hover / secondary card pictures (.secondary-image, .opacity-0,
+      .invisible) are never touched.
+    * Reduced motion, or Theme settings > Animations = none: the tint stays
+      (it is static), the fade is skipped.
+    * Theme editor: works the same; a section the editor redraws in place
+      ([data-mt-redrawn]) shows its pictures at once.
+    * Never twice: not on a picture whose section reveal will show it.
+
+  Earlier loading (lookahead): once the page has loaded, lazy pictures within
+  ~800px of the screen are switched to loading=eager with fetchpriority=low,
+  so they are usually there before they scroll in, without competing with
+  the first paint or with the pictures on screen.
 {%- endcomment -%}
 <style>
-  @keyframes materiaMediaFade { from { opacity: 0; } to { opacity: 1; } }
-  html.js-media-fade .media-fade-run { animation: materiaMediaFade .4s ease; }
+  html.mt-img-reveal img.media-fade-wait {
+    background-color: rgb(var(--text-color, 0 0 0) / 0.05);
+  }
 </style>
 <script>
 (function () {
-  if ({{ settings.scroll_animation | default: 'none' | json }} === 'none' || {{ request.design_mode | json }}) return;
-  if (window.Shopify && window.Shopify.designMode) { return; }
-  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) { return; }
-
   var root = document.documentElement;
-  root.classList.add('js-media-fade');
+  if (!root.classList.contains('mt-img-reveal')) root.classList.add('mt-img-reveal');
+  var rm = false;
+  try { rm = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+  // Pictures are shown the moment they arrive, never faded in: fades on every
+  // picture made landing on a page look slow and flickery.
+  var canFade = false;
+  var FADE_MS = 500, CACHED_MS = 90;
+
+  // Has the page painted yet? (This runs at the end of <body>, so it may have.)
+  var painted = false;
+  try { painted = performance.getEntriesByType('paint').length > 0; } catch (e) {}
+  if (!painted) {
+    var raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
+    raf(function () { raf(function () { painted = true; }); });
+  }
 
   var seen = ('WeakSet' in window) ? new WeakSet() : null;
-  var SKIP = /(?:^|\s)(secondary-image|opacity-0|product-image|first-image|bls-loading-image|bls-loaded-image)(?:\s|$)/;
+  var SKIP = /(?:^|\s)(secondary-image|opacity-0|invisible)(?:\s|$)/;
 
   function eligible(el) {
     if (el.tagName !== 'IMG' && el.tagName !== 'VIDEO') { return false; }
     if (el.getAttribute('fetchpriority') === 'high') { return false; }
     var cn = (typeof el.className === 'string') ? el.className : '';
-    if (cn && SKIP.test(cn)) { return false; }     // never touch hover/secondary media
+    if (cn && SKIP.test(cn)) { return false; }
+    // Product pictures inside a .bls-image-js area have the skeleton reveal.
+    if (cn.indexOf('bls-loaded-image') !== -1 && el.closest && el.closest('.bls-image-js')) { return false; }
     return true;
   }
 
-  // One fade per picture. A picture inside a section that is still to
-  // reveal, or revealing now, is shown by that reveal: fading it as well
-  // made it appear twice (the section came in, then the picture again). One
-  // that arrives off screen is simply there when it is scrolled to.
-  function shows(el) {
-    if (el.closest && el.closest('.scroll-trigger--armed')) { return false; }
+  function onScreen(el) {
     var r = el.getBoundingClientRect();
-    return r.width > 0 && r.bottom > 0 && r.top < window.innerHeight;
+    return r.width > 0 && r.height > 0 && r.bottom > 0 && r.right > 0 &&
+      r.top < (window.innerHeight || root.clientHeight) && r.left < (window.innerWidth || root.clientWidth);
+  }
+
+  function reveal(el, t0) {
+    if (!canFade || !painted || (Date.now() - t0) < CACHED_MS) { return; }
+    if (el.style.opacity !== '' || (el.closest && el.closest('[data-mt-redrawn]'))) { return; }
+    // Never twice (round 20): a picture whose section reveal will show it
+    // (animation.js waits for it) is not faded as well.
+    if (el.closest && el.closest('.scroll-trigger--armed')) { return; }
+    if (!onScreen(el)) { return; }
+    var to = parseFloat(getComputedStyle(el).opacity);
+    if (!(to > 0.05)) { return; }                     // hidden by design: leave it
+    try { el.animate([{ opacity: 0 }, { opacity: to }], { duration: FADE_MS, easing: 'ease' }); } catch (e) {}
   }
 
   function prep(el) {
     if (!eligible(el)) { return; }
     if (seen) { if (seen.has(el)) { return; } seen.add(el); }
-    var ready = el.tagName === 'IMG' ? (el.complete && el.naturalWidth > 0) : (el.readyState >= 2);
-    if (ready) { return; }                          // already painted — leave it, no flash
-    var ev = el.tagName === 'IMG' ? 'load' : 'loadeddata';
-    // The fade starts once the picture is decoded, in the frame it is first drawn.
-    var run = function () { if (shows(el)) { el.classList.add('media-fade-run'); } };
-    el.addEventListener(ev, function () { if (el.decode) { el.decode().then(run, run); } else { run(); } }, { once: true });
+    var isImg = el.tagName === 'IMG';
+    // Already shown, already failed, or no picture asked for yet: nothing to wait for.
+    if (isImg ? el.complete : (el.readyState >= 2 || el.hasAttribute('poster'))) { return; }
+    var t0 = Date.now();
+    var tint = setTimeout(function () { el.classList.add('media-fade-wait'); }, CACHED_MS);
+    function done(ok) {
+      clearTimeout(tint);
+      el.classList.remove('media-fade-wait');
+      if (ok) { reveal(el, t0); }
+    }
+    el.addEventListener(isImg ? 'load' : 'loadeddata', function () { done(true); }, { once: true });
+    el.addEventListener('error', function () { done(false); }, { once: true });
   }
 
   function scan(ctx) {
-    var nodes = (ctx || document).querySelectorAll('img, video');
+    if (ctx.tagName === 'IMG' || ctx.tagName === 'VIDEO') { prep(ctx); return; }
+    if (!ctx.querySelectorAll) { return; }
+    var nodes = ctx.querySelectorAll('img, video');
     for (var i = 0; i < nodes.length; i++) { prep(nodes[i]); }
   }
 
-  // First read: everything already in the first screen (or above it) is left
-  // alone. An IntersectionObserver says which those are from the browser's
-  // own first layout; measuring every picture here at DOMContentLoaded
-  // forced that layout inside this script (50-100ms) before the page could
-  // show.
-  function sort(el, inView) {
-    if (inView) { if (seen) { seen.add(el); } return; }
-    prep(el);
+  /* ---- Lookahead: lazy pictures near the screen load before they arrive ---- */
+  var ahead = null;
+  function watchAhead(ctx) {
+    if (!ahead) { return; }
+    var list = (ctx.tagName === 'IMG') ? [ctx] : (ctx.querySelectorAll ? ctx.querySelectorAll('img[loading="lazy"]') : []);
+    for (var i = 0; i < list.length; i++) {
+      var img = list[i];
+      if (img.getAttribute('loading') === 'lazy' && !img.complete) { ahead.observe(img); }
+    }
   }
-  function firstScan() {
-    var nodes = document.querySelectorAll('img, video');
-    if (!('IntersectionObserver' in window)) {
-      for (var k = 0; k < nodes.length; k++) { sort(nodes[k], false); }
-      return;
-    }
-    var io = new IntersectionObserver(function (entries) {
+  function startAhead() {
+    if (!('IntersectionObserver' in window)) { return; }
+    var conn = navigator.connection;
+    if (conn && (conn.saveData || /(^|-)2g$/.test(conn.effectiveType || ''))) { return; }
+    ahead = new IntersectionObserver(function (entries) {
       for (var i = 0; i < entries.length; i++) {
-        io.unobserve(entries[i].target);
-        sort(entries[i].target, entries[i].isIntersecting);
+        var e = entries[i];
+        if (!e.isIntersecting) { continue; }
+        var img = e.target;
+        ahead.unobserve(img);
+        if (img.complete || img.getAttribute('loading') !== 'lazy') { continue; }
+        // Not shown (a closed menu panel, a hidden slide or tab): leave it to the browser.
+        // (Opacity is not a test: sections waiting for their scroll animation are at 0.)
+        if (img.checkVisibility && !img.checkVisibility({ visibilityProperty: true })) { continue; }
+        // Still below/beside the screen: fetch now, but behind what is on screen.
+        var fp = img.getAttribute('fetchpriority');
+        if (!onScreen(img) && (!fp || fp === 'auto')) { img.setAttribute('fetchpriority', 'low'); }
+        img.setAttribute('loading', 'eager');
       }
-    });
-    for (var j = 0; j < nodes.length; j++) {
-      if (eligible(nodes[j])) { io.observe(nodes[j]); }
-    }
+    }, { rootMargin: '800px 400px' });
+    watchAhead(document);
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', firstScan);
-  } else {
-    firstScan();
-  }
+  scan(document);
 
   if ('MutationObserver' in window) {
-    var mo = new MutationObserver(function (muts) {
+    new MutationObserver(function (muts) {
       for (var i = 0; i < muts.length; i++) {
         var added = muts[i].addedNodes;
         for (var j = 0; j < added.length; j++) {
-          var node = added[j];
-          if (node.nodeType !== 1) { continue; }
-          if (node.tagName === 'IMG' || node.tagName === 'VIDEO') { prep(node); }
-          else if (node.querySelectorAll) { scan(node); }
+          if (added[j].nodeType !== 1) { continue; }
+          scan(added[j]);
+          watchAhead(added[j]);
         }
       }
-    });
-    mo.observe(document.documentElement, { childList: true, subtree: true });
+    }).observe(root, { childList: true, subtree: true });
   }
+
+  // Only after the page has loaded (and the browser is idle), so the first
+  // paint and the first pictures never share the network with it.
+  function later() { (window.requestIdleCallback || function (f) { setTimeout(f, 200); })(startAhead, { timeout: 1500 }); }
+  if (document.readyState === 'complete') { later(); } else { window.addEventListener('load', later, { once: true }); }
 })();
 </script>

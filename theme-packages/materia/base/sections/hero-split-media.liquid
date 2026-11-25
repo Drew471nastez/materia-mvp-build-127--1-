@@ -1,7 +1,7 @@
-<script src="{{ 'live-r7-hero.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-r7-hero.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'r7-hero-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
@@ -48,7 +48,10 @@
     assign r7_eager = false
   endif
 
-  assign r7_ph = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22300%22 viewBox=%220 0 400 300%22%3E%3Cg fill=%22%23808080%22 fill-opacity=%220.4%22%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22/%3E%3C/g%3E%3C/svg%3E'
+  capture r7_ph
+    render 'placeholder-image', type: 'lifestyle-1', scheme: color_scheme, ratio: '4/3', format: 'url'
+  endcapture
+  assign r7_ph = r7_ph | strip
 
   assign r7_video = st.video.sources | first
   for source in st.video.sources
@@ -102,7 +105,7 @@
   #shopify-section-{{ sid }} .hsm__media{position:relative;min-width:0;min-height:0;overflow:hidden;border-radius:var(--hsm-radius,0px);background:color-mix(in srgb,var(--color-heading) 7%,var(--color-background))}
   #shopify-section-{{ sid }} .hsm__frame:is(.container,.fluid_container) .hsm__media{border-radius:var(--hsm-radius,var(--rounded-radius,0px))}
   #shopify-section-{{ sid }} .hsm__media :is(.hsm__img,.hsm__video){position:absolute;inset:0;width:100%;height:100%;max-width:none;object-fit:cover;object-position:var(--hsm-fx,50%) var(--hsm-fy,50%);display:block}
-  #shopify-section-{{ sid }} .hsm__media .hsm__img[data-r7h-empty]{object-fit:none;object-position:50% 50%}
+  #shopify-section-{{ sid }} .hsm__media .hsm__img[data-r7h-empty]{object-fit:cover;object-position:50% 50%}
   #shopify-section-{{ sid }} .hsm__media [hidden]{display:none}
   #shopify-section-{{ sid }} .hsm__toggle{position:absolute;inset-block-end:12px;inset-inline-end:12px;z-index:1;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;margin:0;padding:0;border:1px solid var(--color-border);border-radius:var(--btn-radius,0px);background:var(--color-background);color:var(--color-heading);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:opacity .2s ease}
   #shopify-section-{{ sid }} .hsm__toggle:active{opacity:.7}
@@ -135,8 +138,8 @@
   <div class="hsm__frame {{ st.section_width | default: 'full_width' }}" data-r7h-frame>
     <div class="hsm__grid">
       <div class="hsm__media">
-        <img class="hsm__img" data-r7h-image{% if st.image != blank %} src="{{ st.image | image_url: width: 1600 }}" srcset="{{ st.image | image_url: width: 750 }} 750w, {{ st.image | image_url: width: 1100 }} 1100w, {{ st.image | image_url: width: 1600 }} 1600w, {{ st.image | image_url: width: 2200 }} 2200w" sizes="(min-width: 768px) {{ st.media_width_desktop | default: 50 }}vw, 100vw" width="{{ st.image.width | default: 1600 }}" height="{{ st.image.height | default: 1200 }}"{% else %} src="{{ r7_ph | escape }}" data-r7h-empty width="400" height="300"{% endif %} alt="{{ st.image_alt | default: st.image.alt | escape }}"{% if r7_eager %} loading="eager" fetchpriority="high"{% else %} loading="lazy"{% endif %} decoding="async">
-        <video class="hsm__video" data-r7h-video{% if r7_video_src != blank %} src="{{ r7_video_src | url | escape }}"{% else %} hidden{% endif %}{% if st.video_poster != blank %} poster="{{ st.video_poster | image_url: width: 1600 }}"{% endif %} muted loop playsinline preload="metadata" tabindex="-1" aria-hidden="true"></video>
+        <img class="hsm__img" data-r7h-image{% if st.image != blank %} src="{{ st.image | image_url: width: 1600 }}" srcset="{{ st.image | image_url: width: 750 }} 750w, {{ st.image | image_url: width: 1100 }} 1100w, {{ st.image | image_url: width: 1600 }} 1600w, {{ st.image | image_url: width: 2200 }} 2200w" sizes="(min-width: 768px) {{ st.media_width_desktop | default: 50 }}vw, 100vw"{% else %} src="{{ r7_ph | escape }}" data-r7h-empty{% endif %} width="{% if st.image != blank %}{{ st.image.width | default: 1600 }}{% else %}400{% endif %}" height="{% if st.image != blank %}{{ st.image.height | default: 1200 }}{% else %}300{% endif %}" alt="{{ st.image_alt | default: st.image.alt | escape }}"{% if r7_eager %} loading="eager" fetchpriority="high"{% else %} loading="lazy"{% endif %} decoding="async">
+        <video class="hsm__video" data-r7h-video{% if r7_video_src != blank %} src="{{ r7_video_src | escape }}"{% else %} hidden{% endif %}{% if st.video_poster != blank %} poster="{{ st.video_poster | image_url: width: 1600 }}"{% endif %} muted loop playsinline preload="metadata" tabindex="-1" aria-hidden="true"></video>
         <button type="button" class="hsm__toggle" data-r7h-video-toggle aria-pressed="false" aria-label="{{ 'accessibility.play_pause' | t }}" hidden><svg class="hsm__icon-pause" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 2h4v12H3zM9 2h4v12H9z"/></svg><svg class="hsm__icon-play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4 2l10 6-10 6z"/></svg></button>
       </div>
       <div class="hsm__content">
@@ -146,7 +149,8 @@
   </div>
 </div>{% schema %}
 {
-  "name": "Hero Split",
+  "class": "s-tt",
+"name": "Hero Split",
   "settings": [
     {
       "type": "header",
@@ -156,7 +160,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -866,8 +870,8 @@
   ],
   "presets": [
     {
-      "name": "Hero Split",
-      "category": "Hero and banners",
+      "name": "Hero – Split Media",
+      "category": "01 · Hero & slideshows",
       "blocks": [
         {
           "type": "eyebrow"

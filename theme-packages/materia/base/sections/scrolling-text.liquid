@@ -1,4 +1,4 @@
-<script src="{{ 'live-text.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-text.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-text-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%}
   Materia Themes. Scrolling Text: a row of large words that moves sideways.
@@ -10,7 +10,7 @@
 {%- endcomment -%}
 {%- liquid
   assign st = section.settings
-  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign custom = st.use_custom_text_color
   assign use_cf = st.use_custom_font
   assign cf = st.custom_font
@@ -216,7 +216,7 @@
   class="stm section color-{{ color_scheme }} gradient"
   data-live-text="scrolling-text"
   data-lt-section="{{ section.id }}"
-  data-lt-settings="{{ section.settings | json | escape }}"
+  {% if request.design_mode %}data-lt-settings="{{ section.settings | json | escape }}"{% endif %}
   {% if st.reveal %}data-lt-reveal{% endif %}
   {% if use_cf %}data-own-font{% endif %}
   style="--stm-font: {{ stm_font }}; --stm-weight: {{ stm_weight }}; --stm-lh: {{ lh }}; --stm-ls: {{ st.letter_spacing | default: 0 }}px; --stm-tt: {{ st.text_transform | default: 'none' }}; --stm-color: {{ stm_color | strip }}; --stm-sep-color: {{ stm_sep_color | strip }}; --stm-sep-scale: {{ sep_scale }}; --stm-border: {% if st.show_borders %}1px solid {{ stm_border_color | strip }}{% else %}0 solid transparent{% endif %}; --stm-fade: {{ st.edge_fade | default: 0 }}px; --stm-size-d: {{ st.text_size | default: 80 }}px; --stm-size-m: {{ st.text_size_mobile | default: 40 }}px; --stm-gap-d: {{ st.item_gap | default: 64 }}px; --stm-gap-m: {{ st.item_gap_mobile | default: 32 }}px; --stm-pt-d: {{ st.padding_top }}px; --stm-pb-d: {{ st.padding_bottom }}px; --stm-pt-m: {{ st.padding_top_mobile }}px; --stm-pb-m: {{ st.padding_bottom_mobile }}px; --stm-duration: {{ st.duration | default: 40 }}s; --stm-direction: {{ st.direction | default: 'normal' }}; --stm-pause: {% if st.pause_on_hover %}paused{% else %}running{% endif %}; --stm-max: {{ stm_max }}; --stm-pad: {{ stm_pad }}; --stm-pad-wide: {{ stm_pad_wide }};"
@@ -228,7 +228,7 @@
           {%- assign b = block.settings -%}
           {%- if b.text != blank -%}
             {%- capture word_ink -%}{% if b.enable_custom_style %}{% render 'scheme-color', color: b.color, fallback: '' %}{% endif %}{%- endcapture -%}
-            <span class="stm__item" data-lt-block="{{ block.id }}" data-lt-type="word"{% if i == 1 %} data-lt-settings="{{ b | json | escape }}" {{ block.shopify_attributes }}{% endif %}{% if b.use_outline_text %} data-outline{% endif %} style="--stm-outline: {{ b.outline_width | default: 2 }}px;{% if word_ink != blank %} --stm-word-ink: {{ word_ink | strip }};{% endif %}">{{ b.text | escape }}</span>
+            <span class="stm__item" data-lt-block="{{ block.id }}" data-lt-type="word"{% if i == 1 %} {% if request.design_mode %}data-lt-settings="{{ b | json | escape }}"{% endif %} {{ block.shopify_attributes }}{% endif %}{% if b.use_outline_text %} data-outline{% endif %} style="--stm-outline: {{ b.outline_width | default: 2 }}px;{% if word_ink != blank %} --stm-word-ink: {{ word_ink | strip }};{% endif %}">{{ b.text | escape }}</span>
             {%- if sep != blank -%}<span class="stm__sep" aria-hidden="true">{{ sep | escape }}</span>{%- endif -%}
           {%- endif -%}
         {%- endfor -%}
@@ -240,7 +240,7 @@
 {
   "name": "Scrolling Text",
   "tag": "section",
-  "class": "section-scrolling-text",
+  "class": "section-scrolling-text s-tt",
   "max_blocks": 50,
   "settings": [
     {
@@ -251,7 +251,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -431,7 +431,6 @@
       "type": "text",
       "id": "custom_font_url",
       "label": "Custom font URL",
-      "hidden": true,
       "info": "Legacy: used with the font family name when both are set.",
       "visible_if": "{{ false }}"
     },
@@ -439,7 +438,6 @@
       "type": "text",
       "id": "custom_font_family",
       "label": "Font family name",
-      "hidden": true,
       "info": "Legacy: used with the font URL when both are set.",
       "visible_if": "{{ false }}"
     },
@@ -751,7 +749,7 @@
   "presets": [
     {
       "name": "Scrolling Text",
-      "category": "Text",
+      "category": "12 · Text",
       "settings": {
         "text_size": 80,
         "text_size_mobile": 40,

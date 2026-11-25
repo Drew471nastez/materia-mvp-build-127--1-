@@ -1,7 +1,7 @@
-<script src="{{ 'media-live-stats-reels.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'media-live-stats-reels.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'media-stats-reels-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay), when "Reveal on scroll" is on. {%- endcomment -%}
 {%- if section.settings.reveal and settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
@@ -130,8 +130,8 @@
     position: relative; aspect-ratio: 9 / 16; overflow: hidden; isolation: isolate; display: block;
     border-radius: var(--rw-radius); background: var(--rw-tile-bg, #111); color: var(--rw-tile-text, #fff);
   }
-  #shopify-section-{{ sid }} .rw-tile > :is(video, img, iframe) { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border: 0; }
-  #shopify-section-{{ sid }} .rw-tile > img.rw-tile__placeholder { opacity: .16; }
+  #shopify-section-{{ sid }} .rw-tile > :is(video, img, iframe, svg.placeholder-image) { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border: 0; }
+  #shopify-section-{{ sid }} .rw-tile > .rw-tile__placeholder { opacity: 1; }
   #shopify-section-{{ sid }} .rw-tile__overlay {
     position: absolute; inset: 0; z-index: 1; pointer-events: none;
     background: linear-gradient(to top, rgb(0 0 0 / calc(var(--rw-overlay) * 1.6)) 0%, rgb(0 0 0 / calc(var(--rw-overlay) * 0.5)) 35%, transparent 65%);
@@ -193,7 +193,7 @@
   }
 </style>
 
-<div class="section rw color-{{ color_scheme }} gradient{% if s.padding_top < 30 %} pt-min{% endif %}{% if s.padding_bottom < 30 %} pb-min{% endif %}" data-msr="reels"{% if s.enable_custom_fonts %} data-own-font{% endif %} data-msr-autoplay="{% if s.autoplay_videos %}on{% else %}off{% endif %}" data-msr-section="{{ sid }}" data-msr-settings="{{ s | json | escape }}" data-msr-defaults='{"color_scheme":"default-color-scheme","section_width":"fluid_container","reset_spacing":true,"header_alignment":"left","show_handle":true,"show_actions":true,"display_mode":"carousel","columns":4,"column_gap":14,"show_arrow":false,"carousel_pagination":"show_dots","pagination_style":"pill","pagination_position":"center","autoplay_videos":true,"loop_videos":true,"show_unmute":true,"card_shape":"rounded","overlay_strength":25,"enable_custom_style":false,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","custom_heading_size":15,"custom_caption_size":12,"reveal":true,"padding_top":40,"padding_bottom":40,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"columns_mobile":1,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}' data-msr-block-defaults='{"top_text":{"text":"New","font_size_desktop":15,"font_size_mobile":14,"enable_custom_weight":false,"font_weight":"600","space_above":0,"space_below":6},"heading":{"text":"Trending reels","size_enable":false,"font_size_desktop":40,"font_size_mobile":28,"enable_custom_weight":false,"font_weight":"700","space_above":0,"space_below":10},"subheading":{"font_size_desktop":17,"font_size_mobile":15,"enable_custom_weight":false,"font_weight":"400","space_above":0,"space_below":0},"reel":{"heading":"New drop just landed","cta_label":"Shop now","username":"@yourstore","show_block_actions":true,"likes":"12.4K","shares":"320","saves":"1.2K"}}' data-handle="{{ s.show_handle }}" data-actions="{{ s.show_actions }}" data-unmute="{{ s.show_unmute }}" style="{{ rw_style | strip_newlines }}">
+<div class="section rw color-{{ color_scheme }} gradient{% if s.padding_top < 30 %} pt-min{% endif %}{% if s.padding_bottom < 30 %} pb-min{% endif %}" data-msr="reels"{% if s.enable_custom_fonts %} data-own-font{% endif %} data-msr-autoplay="{% if s.autoplay_videos %}on{% else %}off{% endif %}" data-msr-section="{{ sid }}" data-msr-settings="{{ s | json | escape }}" data-msr-defaults='{"color_scheme":"default","section_width":"fluid_container","reset_spacing":true,"header_alignment":"left","show_handle":true,"show_actions":true,"display_mode":"carousel","columns":4,"column_gap":14,"show_arrow":false,"carousel_pagination":"show_dots","pagination_style":"pill","pagination_position":"center","autoplay_videos":true,"loop_videos":true,"show_unmute":true,"card_shape":"rounded","overlay_strength":25,"enable_custom_style":false,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","custom_heading_size":15,"custom_caption_size":12,"reveal":true,"padding_top":40,"padding_bottom":40,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"columns_mobile":1,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}' data-msr-block-defaults='{"top_text":{"text":"New","font_size_desktop":15,"font_size_mobile":14,"enable_custom_weight":false,"font_weight":"600","space_above":0,"space_below":6},"heading":{"text":"Trending reels","size_enable":false,"font_size_desktop":40,"font_size_mobile":28,"enable_custom_weight":false,"font_weight":"700","space_above":0,"space_below":10},"subheading":{"font_size_desktop":17,"font_size_mobile":15,"enable_custom_weight":false,"font_weight":"400","space_above":0,"space_below":0},"reel":{"heading":"New drop just landed","cta_label":"Shop now","username":"@yourstore","show_block_actions":true,"likes":"12.4K","shares":"320","saves":"1.2K"}}' data-handle="{{ s.show_handle }}" data-actions="{{ s.show_actions }}" data-unmute="{{ s.show_unmute }}" style="{{ rw_style | strip_newlines }}">
   <div class="rw__inner {{ section_width }}">
     {%- liquid
       assign has_header_blocks = false
@@ -226,7 +226,7 @@
         <div class="msr-car__track" data-msr-track tabindex="0" role="region" aria-roledescription="carousel" aria-label="{{ 'accessibility.media' | t | escape }}">
           {%- for block in reels -%}
             <div class="msr-car__slide" data-msr-slide data-msr-block="{{ block.id }}" data-msr-type="reel" data-msr-settings="{{ block.settings | json | escape }}" role="group" aria-roledescription="slide" aria-label="{{ forloop.index }} / {{ reels.size }}" {{ block.shopify_attributes }}>
-              {%- render 'reel-tile', b: block.settings, s: s -%}
+              {%- render 'reel-tile', b: block.settings, s: s, index: forloop.index -%}
             </div>
           {%- endfor -%}
         </div>
@@ -237,11 +237,12 @@
 </div>
 {%- comment -%} Carousel, video playback and live edits: shopify/assets/media-live-stats-reels.js (loaded on every page). {%- endcomment -%}
 
+
 {% schema %}
 {
   "name": "Reels Wall",
   "tag": "section",
-  "class": "section-reels-wall",
+  "class": "section-reels-wall s-tt",
   "disabled_on": {
     "groups": [
       "header",
@@ -257,7 +258,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -527,7 +528,6 @@
       "type": "color",
       "id": "section_bg",
       "label": "Background (legacy)",
-      "hidden": true,
       "info": "Kept for saved content; used when Background is empty and custom styling is on.",
       "visible_if": "{{ false }}"
     },
@@ -1125,7 +1125,7 @@
   "presets": [
     {
       "name": "Reels Wall",
-      "category": "Image and video",
+      "category": "06 · Gallery & video",
       "blocks": [
         {
           "type": "top_text"

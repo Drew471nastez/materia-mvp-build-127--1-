@@ -1,9 +1,16 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. An Eyebrow, Heading or Subheading block of the products-b
   sections (Products Listing, Products carousel). live-products-b.js derives
   the same --pb-* values in the builder.
   block: the block. json: its settings as JSON (pb_bjson). cls: extra class.
-{%- endcomment -%}
+
+  @param {block} block - The block being rendered
+  @param {object} [cls] - Extra CSS classes; no current caller passes it
+  @param {string} json - Json
+
+  @example
+  {% render 'products-b-text', block: block, json: pb_bjson %}
+{%- enddoc -%}
 {%- assign bs = block.settings -%}
 {%- capture pb_style -%}
   {%- if block.type == 'heading' -%}

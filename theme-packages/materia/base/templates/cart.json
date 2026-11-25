@@ -6,12 +6,12 @@
         "height": "adapt",
         "alignment": "center",
         "padding_top": 80,
-        "color_scheme": "",
         "reset_spacing": true,
         "section_width": "stretch_width",
         "padding_bottom": 0,
         "overlay_opacity": 0
       },
+      "name": "Page heading",
       "blocks": {
         "breadcrumb_fkLpBa": {
           "type": "breadcrumb",
@@ -45,6 +45,7 @@
         "enable_discount_code": true,
         "show_estimate_shipping": false
       },
+      "name": "Shopping cart",
       "blocks": {
         "faq_section_1": {
           "type": "faq_section",

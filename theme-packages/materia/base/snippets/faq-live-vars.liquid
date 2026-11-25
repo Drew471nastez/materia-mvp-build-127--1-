@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. The values the FAQ 1 to FAQ 4 styles read, as --<p>-*
   variables for the section root's style attribute (p: faq1, faq5, faq6,
   faq7). live-faq.js derives the same list from the settings and writes the
@@ -6,7 +6,15 @@
   styling" is on; fonts follow the theme until "Enable custom fonts" is on.
   card_bg_fb and card_border_fb: the section's own item background and
   border when no custom colour is set.
-{%- endcomment -%}
+
+  @param {string} card_bg_fb - Card background fb ('rgba(var(--color-heading-rgb), 0.04)', 'transparent', 'var(--color-background)')
+  @param {string} card_border_fb - Card border fb ('transparent', 'var(--color-border)')
+  @param {string} p - P ('faq1', 'faq5', 'faq6', 'faq7')
+  @param {section} section - The section being rendered
+
+  @example
+  {% render 'faq-live-vars', section: section, p: 'faq7', card_bg_fb: 'rgba(var(--color-heading-rgb), 0.04)', card_border_fb: 'transparent' %}
+{%- enddoc -%}
 {%- liquid
   assign st = section.settings
   assign own = st.enable_custom_style

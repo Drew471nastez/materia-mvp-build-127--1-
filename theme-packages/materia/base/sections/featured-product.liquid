@@ -1,4 +1,4 @@
-<script src="{{ 'live-products-a.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-products-a.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if section.settings.reveal == false -%}<span data-ti-no-reveal hidden></span>{%- endif -%}
@@ -154,6 +154,9 @@
     assign reset_spacing = ' remove_spacing'
   endif
   assign product = section_st.product
+  if product == blank
+    assign product = collections.all.products.first
+  endif
   assign first_3_d_model = product.media | where: 'media_type', 'model' | first
   assign desktop_layout = section_st.desktop_layout
   assign image_list = ''
@@ -176,16 +179,15 @@
 {%- endcapture -%}
 {%- comment -%} Square product images: snippets/product-media-layout draws every slide and thumbnail 1:1. {%- endcomment -%}
 <style>
-  /* Show thumbnails, Show size chart link, Show dynamic checkout buttons and
+  /* Show thumbnails, Show dynamic checkout buttons and
      Link to the product page: switched by the root's data attributes, so a
      live edit in the builder needs no redraw. */
   #shopify-section-{{ section.id }} [data-fp-thumbs="false"] :is(.media-thumb-swiper, .thumbnail-slide, [class*="thumb-"]) { display: none !important; }
-  #shopify-section-{{ section.id }} [data-fp-size-chart="false"] :is(.scp, .mt-size-guide-root, .materia-chart-preview) { display: none !important; }
   #shopify-section-{{ section.id }} [data-fp-checkout="false"] .btn-checkout-dynamic { display: none !important; }
   #shopify-section-{{ section.id }} .pdp-view-link[hidden] { display: none !important; }
   #shopify-section-{{ section.id }} .sec__featured-product { color: var(--color-text); }
 </style>
-{{ 'component-deferred-media.css' | asset_url | stylesheet_tag }}
+<link rel="stylesheet" href="{{ 'component-deferred-media.css' | asset_url }}" media="print" onload="this.media='all'"><noscript>{{ 'component-deferred-media.css' | asset_url | stylesheet_tag }}</noscript>
 {%- if first_3_d_model -%}
   {{ 'component-product-model.css' | asset_url | stylesheet_tag }}
   <link
@@ -200,12 +202,12 @@
 {%- comment -%} The same media options as Main product: hover zoom, dots on a phone. {%- endcomment -%}
 {%- assign fp_zoom = section_st.image_zoom | default: 'no_zoom' -%}
 {%- if fp_zoom == 'external_zoom' or fp_zoom == 'inner_zoom_circle' or fp_zoom == 'inner_zoom_square' -%}
-  {{ 'photoswipe.css' | asset_url | stylesheet_tag }}
+  <link rel="stylesheet" href="{{ 'photoswipe.css' | asset_url }}" media="print" onload="this.media='all'"><noscript>{{ 'photoswipe.css' | asset_url | stylesheet_tag }}</noscript>
 {%- endif -%}
 {%- if section_st.enable_nav_dots_mobile -%}
   {%- render 'product-extras', mode: 'nav_dots', section_id: section.id -%}
 {%- endif -%}
-{%- capture fp_live -%}{"color_scheme":{{ color_scheme | json }},"section_width":{{ section_width | json }},"padding_top":{{ section_st.padding_top | json }},"padding_bottom":{{ section_st.padding_bottom | json }},"center":{% if center %}true{% else %}false{% endif %},"show_thumbnails":{% if section_st.show_thumbnails == false %}false{% else %}true{% endif %},"enable_size_chart":{% if section_st.enable_size_chart == false %}false{% else %}true{% endif %},"enable_dynamic_checkout":{% if section_st.enable_dynamic_checkout == false %}false{% else %}true{% endif %},"desktop_media_width":{{ section_st.desktop_media_width | json }},"desktop_main_image_position":{{ section_st.desktop_main_image_position | json }},"enable_sticky_content_on_desktop":{% if section_st.enable_sticky_content_on_desktop == false %}false{% else %}true{% endif %},"show_view_link":{% if section_st.show_view_link %}true{% else %}false{% endif %},"view_link_label":{{ section_st.view_link_label | json }},"reset_spacing":{% if section_st.reset_spacing %}true{% else %}false{% endif %},"section_margin_top_desktop":{{ section_st.section_margin_top_desktop | json }},"section_margin_bottom_desktop":{{ section_st.section_margin_bottom_desktop | json }},"section_margin_top_mobile":{{ section_st.section_margin_top_mobile | json }},"section_margin_bottom_mobile":{{ section_st.section_margin_bottom_mobile | json }}}{%- endcapture -%}
+{%- capture fp_live -%}{"color_scheme":{{ color_scheme | json }},"section_width":{{ section_width | json }},"padding_top":{{ section_st.padding_top | json }},"padding_bottom":{{ section_st.padding_bottom | json }},"center":{% if center %}true{% else %}false{% endif %},"show_thumbnails":{% if section_st.show_thumbnails == false %}false{% else %}true{% endif %},"enable_dynamic_checkout":{% if section_st.enable_dynamic_checkout == false %}false{% else %}true{% endif %},"desktop_media_width":{{ section_st.desktop_media_width | json }},"desktop_main_image_position":{{ section_st.desktop_main_image_position | json }},"enable_sticky_content_on_desktop":{% if section_st.enable_sticky_content_on_desktop == false %}false{% else %}true{% endif %},"show_view_link":{% if section_st.show_view_link %}true{% else %}false{% endif %},"view_link_label":{{ section_st.view_link_label | json }},"reset_spacing":{% if section_st.reset_spacing %}true{% else %}false{% endif %},"section_margin_top_desktop":{{ section_st.section_margin_top_desktop | json }},"section_margin_bottom_desktop":{{ section_st.section_margin_bottom_desktop | json }},"section_margin_top_mobile":{{ section_st.section_margin_top_mobile | json }},"section_margin_bottom_mobile":{{ section_st.section_margin_bottom_mobile | json }}}{%- endcapture -%}
 <div
   class="product__item-js section{% if section_st.padding_top < 30 %} pt-min{% endif %}{% if section_st.padding_bottom < 30 %} pb-min{% endif %} sec__featured-product color-{{ color_scheme }} gradient{{ reset_spacing }} {% if center == true %} feature_product-center {% endif %}"
   style="{{ style | strip | strip_newlines }}"
@@ -219,14 +221,13 @@
   data-pa-section="{{ section.id }}"{% if request.design_mode %}
   data-pa-settings="{{ fp_live | escape }}"{% endif %}
   data-fp-thumbs="{% if section_st.show_thumbnails == false %}false{% else %}true{% endif %}"
-  data-fp-size-chart="{% if section_st.enable_size_chart == false %}false{% else %}true{% endif %}"
   data-fp-checkout="{% if section_st.enable_dynamic_checkout == false %}false{% else %}true{% endif %}"
 >
   <div
     class="featured-product__content {{ section_width }} "
 
   >
-    {% render 'product-single-layout', product: section_st.product, section: section, type: 'single' %}
+    {% render 'product-single-layout', section: section, product: product, type: 'single' %}
   </div>
   {%- render 'product-variant-media-json', product: product -%}
   {%- unless product.has_only_default_variant -%}
@@ -283,6 +284,15 @@
     var root = document.getElementById('shopify-section-{{ section.id }}');
     if (!root || root.__fpBundleFx) return;
     root.__fpBundleFx = true;
+    // The theme editor redraws this section and runs this script again for
+    // the new markup: the listeners on document go with the old markup.
+    var ac = window.AbortController ? new AbortController() : null;
+    var on = function(ev, fn, capture){ var o = { capture: !!capture }; if (ac) o.signal = ac.signal; document.addEventListener(ev, fn, o); };
+    on('shopify:section:unload', function(e){
+      if (e.target !== root && !(e.detail && String(e.detail.sectionId) === {{ section.id | json }})) return;
+      if (ac) ac.abort();
+      if (mo) mo.disconnect();
+    });
     var confs = [
 {%- for fp_b in section.blocks -%}
 {%- if fp_b.type == 'bundle' -%}
@@ -434,7 +444,7 @@
       }, 20);
     }
 
-    document.addEventListener('click', function(e){
+    on('click', function(e){
       var hit = findBtn(e.target);
       if (!hit || pending) return;
       var b = hit.btn, conf = hit.conf;
@@ -465,30 +475,32 @@
       }, 4000);
     }, true);
 
-    document.addEventListener('fp:cart-start', function(){
+    on('fp:cart-start', function(){
       if (!pending) return;
       pending.started = true; pending.inflight++; clearTimeout(pending.settle);
       if (pending.conf.open && !pending.opened) { pending.opened = true; requestAnimationFrame(openCart); }
     });
-    document.addEventListener('fp:cart-end', function(e){
+    on('fp:cart-end', function(e){
       if (!pending) return;
       pending.inflight = Math.max(0, pending.inflight - 1);
       if (!e.detail || !e.detail.ok) pending.failed = true;
       if (pending.inflight === 0) settleSoon();
     });
     ['cart:updated', 'cart:refresh', 'cart:change', 'storelib:cart:updated', 'storelib:cart:change', 'theme:cart:change'].forEach(function(ev){
-      document.addEventListener(ev, function(){ if (pending && pending.inflight === 0) { pending.started = true; settleSoon(); } });
+      on(ev, function(){ if (pending && pending.inflight === 0) { pending.started = true; settleSoon(); } });
     });
     var counts = document.querySelectorAll('[data-storelib-cart-count], .cart-count-bubble, [data-cart-count]');
+    var mo = null;
     if (counts.length && window.MutationObserver) {
-      var mo = new MutationObserver(function(){ if (pending && pending.inflight === 0) { pending.started = true; settleSoon(); } });
+      mo = new MutationObserver(function(){ if (pending && pending.inflight === 0) { pending.started = true; settleSoon(); } });
       for (var i = 0; i < counts.length; i++) mo.observe(counts[i], { childList: true, characterData: true, subtree: true });
     }
   })();
 </script>
 {%- endif -%}{% schema %}
 {
-  "name": "Featured product",
+  "class": "s-tt has-overlay",
+"name": "Featured product",
   "tag": "section",
   "disabled_on": {
     "groups": [
@@ -552,7 +564,6 @@
       "id": "enable_color_swatches",
       "label": "Show color swatches in product info",
       "default": true,
-      "hidden": true,
       "visible_if": "{{ false }}",
       "info": "Legacy: colour swatches follow Theme settings, so this is not used."
     },
@@ -641,12 +652,6 @@
       "type": "checkbox",
       "id": "show_thumbnails",
       "label": "Show thumbnails",
-      "default": true
-    },
-    {
-      "type": "checkbox",
-      "id": "enable_size_chart",
-      "label": "Show size chart link",
       "default": true
     },
     {
@@ -860,6 +865,484 @@
     }
   ],
   "blocks": [
+    {
+      "type": "media_side_tiles",
+      "name": "Image side tiles",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "Tiles beside the main product image. Each tile shows its image, else its SVG code, else its icon."
+        },
+        {
+          "type": "select",
+          "id": "position",
+          "label": "Position",
+          "default": "right",
+          "options": [
+            {
+              "value": "right",
+              "label": "Right of image"
+            },
+            {
+              "value": "left",
+              "label": "Left of image"
+            }
+          ]
+        },
+        {
+          "type": "select",
+          "id": "mobile",
+          "label": "On mobile",
+          "default": "beside",
+          "options": [
+            {
+              "value": "beside",
+              "label": "Beside image"
+            },
+            {
+              "value": "below",
+              "label": "Row below image"
+            },
+            {
+              "value": "hidden",
+              "label": "Hidden"
+            }
+          ]
+        },
+        {
+          "type": "range",
+          "id": "tile_width",
+          "label": "Tile width",
+          "min": 80,
+          "max": 220,
+          "step": 5,
+          "unit": "px",
+          "default": 130
+        },
+        {
+          "type": "range",
+          "id": "tile_width_mobile",
+          "label": "Tile width on mobile",
+          "min": 60,
+          "max": 160,
+          "step": 4,
+          "unit": "px",
+          "default": 96
+        },
+        {
+          "type": "range",
+          "id": "gap",
+          "label": "Gap",
+          "min": 0,
+          "max": 24,
+          "step": 1,
+          "unit": "px",
+          "default": 8
+        },
+        {
+          "type": "range",
+          "id": "radius",
+          "label": "Corner radius",
+          "min": 0,
+          "max": 32,
+          "step": 1,
+          "unit": "px",
+          "default": 14
+        },
+        {
+          "type": "range",
+          "id": "icon_size",
+          "label": "Icon size",
+          "min": 16,
+          "max": 72,
+          "step": 2,
+          "unit": "px",
+          "default": 34
+        },
+        {
+          "type": "range",
+          "id": "text_size",
+          "label": "Text size",
+          "min": 11,
+          "max": 22,
+          "step": 1,
+          "unit": "px",
+          "default": 15
+        },
+        {
+          "type": "color",
+          "id": "tile_bg",
+          "label": "Tile background",
+          "default": "#0f1d6b"
+        },
+        {
+          "type": "color",
+          "id": "tile_text",
+          "label": "Text and icon",
+          "default": "#ffffff"
+        },
+        {
+          "type": "header",
+          "content": "Tile 1"
+        },
+        {
+          "type": "text",
+          "id": "tile_1_text",
+          "label": "Text",
+          "default": "Healthy Digestion"
+        },
+        {
+          "type": "select",
+          "id": "tile_1_icon",
+          "label": "Icon",
+          "default": "heart",
+          "options": [
+            {
+              "value": "none",
+              "label": "None"
+            },
+            {
+              "value": "heart",
+              "label": "Heart"
+            },
+            {
+              "value": "shield_plus",
+              "label": "Shield"
+            },
+            {
+              "value": "stethoscope",
+              "label": "Stethoscope"
+            },
+            {
+              "value": "leaf",
+              "label": "Leaf"
+            },
+            {
+              "value": "star",
+              "label": "Star"
+            },
+            {
+              "value": "check",
+              "label": "Check"
+            },
+            {
+              "value": "truck",
+              "label": "Truck"
+            },
+            {
+              "value": "sparkles",
+              "label": "Sparkles"
+            },
+            {
+              "value": "lock",
+              "label": "Lock"
+            },
+            {
+              "value": "award",
+              "label": "Award"
+            },
+            {
+              "value": "recycle",
+              "label": "Recycle"
+            },
+            {
+              "value": "drop",
+              "label": "Drop"
+            },
+            {
+              "value": "bolt",
+              "label": "Bolt"
+            }
+          ]
+        },
+        {
+          "type": "image_picker",
+          "id": "tile_1_image",
+          "label": "Custom image"
+        },
+        {
+          "type": "html",
+          "id": "tile_1_svg",
+          "label": "Custom SVG code",
+          "info": "Paste an <svg> to replace the icon."
+        },
+        {
+          "type": "url",
+          "id": "tile_1_link",
+          "label": "Link"
+        },
+        {
+          "type": "header",
+          "content": "Tile 2"
+        },
+        {
+          "type": "text",
+          "id": "tile_2_text",
+          "label": "Text",
+          "default": "Immune Support"
+        },
+        {
+          "type": "select",
+          "id": "tile_2_icon",
+          "label": "Icon",
+          "default": "shield_plus",
+          "options": [
+            {
+              "value": "none",
+              "label": "None"
+            },
+            {
+              "value": "heart",
+              "label": "Heart"
+            },
+            {
+              "value": "shield_plus",
+              "label": "Shield"
+            },
+            {
+              "value": "stethoscope",
+              "label": "Stethoscope"
+            },
+            {
+              "value": "leaf",
+              "label": "Leaf"
+            },
+            {
+              "value": "star",
+              "label": "Star"
+            },
+            {
+              "value": "check",
+              "label": "Check"
+            },
+            {
+              "value": "truck",
+              "label": "Truck"
+            },
+            {
+              "value": "sparkles",
+              "label": "Sparkles"
+            },
+            {
+              "value": "lock",
+              "label": "Lock"
+            },
+            {
+              "value": "award",
+              "label": "Award"
+            },
+            {
+              "value": "recycle",
+              "label": "Recycle"
+            },
+            {
+              "value": "drop",
+              "label": "Drop"
+            },
+            {
+              "value": "bolt",
+              "label": "Bolt"
+            }
+          ]
+        },
+        {
+          "type": "image_picker",
+          "id": "tile_2_image",
+          "label": "Custom image"
+        },
+        {
+          "type": "html",
+          "id": "tile_2_svg",
+          "label": "Custom SVG code",
+          "info": "Paste an <svg> to replace the icon."
+        },
+        {
+          "type": "url",
+          "id": "tile_2_link",
+          "label": "Link"
+        },
+        {
+          "type": "header",
+          "content": "Tile 3"
+        },
+        {
+          "type": "text",
+          "id": "tile_3_text",
+          "label": "Text",
+          "default": "Vet Approved"
+        },
+        {
+          "type": "select",
+          "id": "tile_3_icon",
+          "label": "Icon",
+          "default": "stethoscope",
+          "options": [
+            {
+              "value": "none",
+              "label": "None"
+            },
+            {
+              "value": "heart",
+              "label": "Heart"
+            },
+            {
+              "value": "shield_plus",
+              "label": "Shield"
+            },
+            {
+              "value": "stethoscope",
+              "label": "Stethoscope"
+            },
+            {
+              "value": "leaf",
+              "label": "Leaf"
+            },
+            {
+              "value": "star",
+              "label": "Star"
+            },
+            {
+              "value": "check",
+              "label": "Check"
+            },
+            {
+              "value": "truck",
+              "label": "Truck"
+            },
+            {
+              "value": "sparkles",
+              "label": "Sparkles"
+            },
+            {
+              "value": "lock",
+              "label": "Lock"
+            },
+            {
+              "value": "award",
+              "label": "Award"
+            },
+            {
+              "value": "recycle",
+              "label": "Recycle"
+            },
+            {
+              "value": "drop",
+              "label": "Drop"
+            },
+            {
+              "value": "bolt",
+              "label": "Bolt"
+            }
+          ]
+        },
+        {
+          "type": "image_picker",
+          "id": "tile_3_image",
+          "label": "Custom image"
+        },
+        {
+          "type": "html",
+          "id": "tile_3_svg",
+          "label": "Custom SVG code",
+          "info": "Paste an <svg> to replace the icon."
+        },
+        {
+          "type": "url",
+          "id": "tile_3_link",
+          "label": "Link"
+        },
+        {
+          "type": "header",
+          "content": "Tile 4"
+        },
+        {
+          "type": "text",
+          "id": "tile_4_text",
+          "label": "Text"
+        },
+        {
+          "type": "select",
+          "id": "tile_4_icon",
+          "label": "Icon",
+          "default": "none",
+          "options": [
+            {
+              "value": "none",
+              "label": "None"
+            },
+            {
+              "value": "heart",
+              "label": "Heart"
+            },
+            {
+              "value": "shield_plus",
+              "label": "Shield"
+            },
+            {
+              "value": "stethoscope",
+              "label": "Stethoscope"
+            },
+            {
+              "value": "leaf",
+              "label": "Leaf"
+            },
+            {
+              "value": "star",
+              "label": "Star"
+            },
+            {
+              "value": "check",
+              "label": "Check"
+            },
+            {
+              "value": "truck",
+              "label": "Truck"
+            },
+            {
+              "value": "sparkles",
+              "label": "Sparkles"
+            },
+            {
+              "value": "lock",
+              "label": "Lock"
+            },
+            {
+              "value": "award",
+              "label": "Award"
+            },
+            {
+              "value": "recycle",
+              "label": "Recycle"
+            },
+            {
+              "value": "drop",
+              "label": "Drop"
+            },
+            {
+              "value": "bolt",
+              "label": "Bolt"
+            }
+          ]
+        },
+        {
+          "type": "image_picker",
+          "id": "tile_4_image",
+          "label": "Custom image"
+        },
+        {
+          "type": "html",
+          "id": "tile_4_svg",
+          "label": "Custom SVG code",
+          "info": "Paste an <svg> to replace the icon."
+        },
+        {
+          "type": "url",
+          "id": "tile_4_link",
+          "label": "Link"
+        }
+      ]
+    },
     {
       "type": "delivery_pills",
       "name": "Delivery & warranty pills",
@@ -1152,7 +1635,6 @@
           "type": "text",
           "id": "pill_1_title",
           "label": "Title",
-          "default": "",
           "visible_if": "{{ block.settings.pill_1_enable }}"
         },
         {
@@ -1264,7 +1746,6 @@
           "type": "text",
           "id": "pill_2_title",
           "label": "Title",
-          "default": "",
           "visible_if": "{{ block.settings.pill_2_enable }}"
         },
         {
@@ -1376,7 +1857,6 @@
           "type": "text",
           "id": "pill_3_title",
           "label": "Title",
-          "default": "",
           "visible_if": "{{ block.settings.pill_3_enable }}"
         },
         {
@@ -1682,7 +2162,7 @@
       "settings": [
         {
           "type": "paragraph",
-          "content": "Shows other products to add with this one. Prices come from each product and the option chosen. Items are added at their own price: Storelib checkout takes a saving off only for a bundle or checkout offer set up under Products › Upsells and bundles, or a discount code."
+          "content": "Pick products to sell with this one. They're added at their own price."
         },
         {
           "type": "header",
@@ -1692,7 +2172,7 @@
           "type": "select",
           "id": "source",
           "label": "Product source",
-          "info": "Auto shows any manual products first, then fills up to Max products with products recommended for this one (its collection, else the whole shop), never the product itself.",
+          "info": "Recommended fills the remaining slots from this product's collection.",
           "default": "manual",
           "options": [
             {
@@ -2000,7 +2480,7 @@
               "label": "Both"
             }
           ],
-          "info": "Main buttons include this selection in the product Add to cart and Buy now. Buy now uses cart checkout, including existing cart items and required cart terms."
+          "info": "Main buttons: the product's Add to cart and Buy now also add the selection."
         },
         {
           "type": "checkbox",
@@ -2089,7 +2569,7 @@
           "id": "custom_style",
           "label": "Use the custom style below",
           "default": false,
-          "info": "On: the colours, corners, borders and spacing below are used (an empty colour follows the colour scheme). Off: everything follows the colour scheme and Theme settings > Buttons."
+          "info": "Off: follows the colour scheme and theme buttons."
         },
         {
           "type": "color",
@@ -3062,8 +3542,7 @@
         {
           "type": "text",
           "id": "text",
-          "label": "Badge text",
-          "default": ""
+          "label": "Badge text"
         },
         {
           "type": "header",
@@ -3301,8 +3780,7 @@
         {
           "type": "text",
           "id": "heading",
-          "label": "Heading text",
-          "default": ""
+          "label": "Heading text"
         },
         {
           "type": "image_picker",
@@ -3344,7 +3822,6 @@
           "type": "text",
           "id": "rating_text",
           "label": "Rating text",
-          "default": "",
           "visible_if": "{{ block.settings.show_rating_text }}"
         },
         {
@@ -3575,8 +4052,7 @@
         {
           "type": "text",
           "id": "text",
-          "label": "Rating text",
-          "default": ""
+          "label": "Rating text"
         },
         {
           "type": "header",
@@ -4240,14 +4716,12 @@
         {
           "type": "text",
           "id": "label_text",
-          "label": "Label text",
-          "default": ""
+          "label": "Label text"
         },
         {
           "type": "text",
           "id": "middle_text",
-          "label": "Middle text",
-          "default": ""
+          "label": "Middle text"
         },
         {
           "type": "header",
@@ -7347,8 +7821,7 @@
         {
           "type": "text",
           "id": "primary_text",
-          "label": "Primary text",
-          "default": ""
+          "label": "Primary text"
         },
         {
           "type": "text",
@@ -7955,6 +8428,17 @@
           "label": "Buy now"
         },
         {
+          "type": "select",
+          "id": "buy_now_style",
+          "label": "Buy now style",
+          "default": "theme",
+          "options": [
+            { "value": "theme", "label": "Theme button" },
+            { "value": "express", "label": "Checkout button" }
+          ],
+          "info": "Theme button follows Theme settings > Buttons. Checkout button is the plain Buy it now of the checkout."
+        },
+        {
           "type": "checkbox",
           "id": "show_quantity",
           "default": true,
@@ -8388,7 +8872,6 @@
           "type": "richtext",
           "id": "estimated_delivery_text",
           "label": "Note",
-          "default": "",
           "visible_if": "{{ block.settings.enable_estimated_delivery }}"
         },
         {
@@ -8454,32 +8937,6 @@
             }
           ],
           "default": "swatches"
-        },
-        {
-          "type": "checkbox",
-          "id": "show_size_guide",
-          "label": "Show size guide",
-          "default": false
-        },
-        {
-          "type": "text",
-          "id": "size_guide_label",
-          "label": "Link text",
-          "default": "Size guide",
-          "visible_if": "{{ block.settings.show_size_guide }}"
-        },
-        {
-          "type": "page",
-          "id": "size_guide_page",
-          "label": "Size chart page",
-          "visible_if": "{{ false }}"
-        },
-        {
-          "type": "richtext",
-          "id": "size_guide_content",
-          "label": "Size guide",
-          "info": "Table, text or image",
-          "visible_if": "{{ block.settings.show_size_guide }}"
         },
         {
           "type": "header",
@@ -8983,8 +9440,7 @@
         {
           "type": "page",
           "id": "ask_question_page",
-          "label": "Page to redirect to",
-          "visible_if": "{{ block.settings.ask_question_mode == 'page' }}"
+          "label": "Page to redirect to"
         },
         {
           "type": "text",
@@ -9156,6 +9612,16 @@
       "name": "Model size",
       "limit": 1,
       "settings": [
+        {
+          "type": "paragraph",
+          "content": "Shows the product metafield custom.model_size: plain text, or a metaobject with model_height, model_weight, model_is_wearing and similar fields."
+        },
+        {
+          "type": "text",
+          "id": "fallback_text",
+          "label": "Fallback text",
+          "info": "Shown on products without a model size. Empty hides the block."
+        },
         {
           "type": "header",
           "content": "Custom colours"
@@ -9452,7 +9918,7 @@
       "settings": [
         {
           "type": "paragraph",
-          "content": "Shows the products grouped with this one."
+          "content": "Sells this product with the products in its metafield custom.product_grouped (list of products), each with its own quantity, under one Add to cart."
         },
         {
           "type": "header",
@@ -9520,7 +9986,7 @@
       "settings": [
         {
           "type": "paragraph",
-          "content": "Shows this product in its other colours."
+          "content": "Links to the same item in other colours: fill the product metafield custom.more_colors (list of products)."
         },
         {
           "type": "header",
@@ -10172,8 +10638,7 @@
         {
           "type": "inline_richtext",
           "id": "label_text",
-          "label": "Label Text",
-          "default": ""
+          "label": "Label Text"
         },
         {
           "type": "url",
@@ -10465,14 +10930,12 @@
         {
           "type": "inline_richtext",
           "id": "badge_text_d",
-          "label": "Badge text (desktop)",
-          "default": ""
+          "label": "Badge text (desktop)"
         },
         {
           "type": "inline_richtext",
           "id": "badge_text_m",
-          "label": "Badge text (mobile)",
-          "default": ""
+          "label": "Badge text (mobile)"
         },
         {
           "type": "header",
@@ -11148,7 +11611,7 @@
               "label": "Both"
             }
           ],
-          "info": "Main buttons add the checked items with this product. Buy now uses your current cart checkout and required cart terms."
+          "info": "Main buttons: the product's Add to cart and Buy now also add the checked items."
         },
         {
           "type": "checkbox",
@@ -12189,14 +12652,12 @@
         {
           "type": "text",
           "id": "text_template",
-          "label": "Text",
-          "default": ""
+          "label": "Text"
         },
         {
           "type": "product",
           "id": "ref_product",
-          "label": "Specific product (used only if selected above)",
-          "visible_if": "{{ block.settings.auto_source == 'specific' }}"
+          "label": "Specific product (used only if selected above)"
         },
         {
           "type": "header",
@@ -12469,8 +12930,7 @@
         {
           "type": "inline_richtext",
           "id": "label_text",
-          "label": "Text",
-          "default": ""
+          "label": "Text"
         },
         {
           "type": "header",
@@ -13297,39 +13757,56 @@
     },
     {
       "type": "size_guide",
-      "name": "Size guide",
+      "name": "Size chart",
       "limit": 1,
       "settings": [
         {
           "type": "header",
-          "content": "Sizes"
+          "content": "Chart"
         },
         {
-          "type": "paragraph",
-          "content": "Shows the size chart you gave this product in Storelib (Products > Size charts), so each product gets its own. A product without one shows your Size rows, then the text or page below."
+          "type": "select",
+          "id": "chart_source",
+          "label": "Source",
+          "options": [
+            {
+              "value": "page",
+              "label": "Page"
+            },
+            {
+              "value": "table",
+              "label": "Custom table"
+            },
+            {
+              "value": "metafield",
+              "label": "Product metafield"
+            }
+          ],
+          "default": "page",
+          "info": "Product metafield: custom.size_chart (page, rich text or text)."
         },
         {
-          "type": "checkbox",
-          "id": "use_storelib_chart",
-          "label": "Use the product's Storelib size chart",
-          "default": true
+          "type": "page",
+          "id": "size_guide_page",
+          "label": "Page",
+          "info": "Used when Chart source is Page."
         },
         {
           "type": "textarea",
           "id": "table_data",
-          "label": "Size rows",
-          "placeholder": "Size | Chest | Waist\nS | 86-91 | 71-76\nM | 92-97 | 77-82",
-          "info": "First line: the column names. Then one size per line, cells split by |, for example Size | Chest | Waist, then S | 86-91 | 71-76."
+          "label": "Rows",
+          "placeholder": "Size | Chest | Waist\nS | 86-91 | 71-76\nM | 96-101 | 81-86",
+          "info": "One row per line. First line is the header. Separate cells with | or commas.",
+          "visible_if": "{{ block.settings.chart_source == 'table' }}"
         },
         {
           "type": "select",
           "id": "table_unit",
-          "label": "Size rows are in",
-          "default": "none",
+          "label": "Unit",
           "options": [
             {
               "value": "none",
-              "label": "No switch"
+              "label": "None"
             },
             {
               "value": "cm",
@@ -13340,7 +13817,22 @@
               "label": "in"
             }
           ],
-          "info": "Pick the unit you typed to give visitors a cm / in switch."
+          "default": "none",
+          "info": "cm or in adds a cm / in switch.",
+          "visible_if": "{{ block.settings.chart_source == 'table' }}"
+        },
+        {
+          "type": "checkbox",
+          "id": "use_storelib_chart",
+          "label": "Product metafield first",
+          "default": true,
+          "info": "A product's own chart replaces the source above.",
+          "visible_if": "{{ block.settings.chart_source != 'metafield' }}"
+        },
+        {
+          "type": "richtext",
+          "id": "size_guide_content",
+          "label": "Note"
         },
         {
           "type": "header",
@@ -13349,56 +13841,24 @@
         {
           "type": "text",
           "id": "size_guide_label",
-          "label": "Link or button label",
-          "default": "Size guide"
-        },
-        {
-          "type": "select",
-          "id": "size_guide_display",
-          "label": "Opens as",
-          "default": "modal",
-          "options": [
-            {
-              "value": "modal",
-              "label": "Pop-up"
-            },
-            {
-              "value": "collapsible",
-              "label": "Row"
-            }
-          ]
+          "label": "Text",
+          "default": "Size chart"
         },
         {
           "type": "select",
           "id": "size_guide_appearance",
           "label": "Style",
-          "default": "link",
           "options": [
             {
               "value": "link",
-              "label": "Text link"
+              "label": "Link"
             },
             {
               "value": "button",
               "label": "Button"
             }
-          ]
-        },
-        {
-          "type": "header",
-          "content": "More"
-        },
-        {
-          "type": "richtext",
-          "id": "size_guide_content",
-          "label": "Text under the sizes",
-          "info": "Shown under your Size rows, or on its own when there are none."
-        },
-        {
-          "type": "page",
-          "id": "size_guide_page",
-          "label": "Page",
-          "info": "Shown when there is nothing above."
+          ],
+          "default": "link"
         },
         {
           "type": "header",
@@ -13539,8 +13999,7 @@
         {
           "type": "richtext",
           "id": "top_text",
-          "label": "Message",
-          "default": ""
+          "label": "Message"
         },
         {
           "type": "checkbox",
@@ -13601,8 +14060,7 @@
         {
           "type": "richtext",
           "id": "collapse_body",
-          "label": "Body",
-          "default": ""
+          "label": "Body"
         },
         {
           "type": "checkbox",
@@ -13891,7 +14349,6 @@
           "type": "text",
           "id": "row3_lead",
           "label": "Lead text",
-          "default": "",
           "visible_if": "{{ block.settings.row3_enable }}"
         },
         {
@@ -15403,7 +15860,7 @@
         },
         {
           "type": "paragraph",
-          "content": "Sells this product with one to three others you pick, added to the cart in one step. Prices come from your products. Storelib checkout takes the saving off when the store has the same bundle under Products › Upsells and bundles; the block then shows that bundle's saving by itself. Otherwise set a discount code below."
+          "content": "Sell this product with up to 3 others in one click. For a saving, add a discount code below."
         },
         {
           "type": "header",
@@ -15544,14 +16001,14 @@
           "step": 1,
           "unit": "%",
           "default": 0,
-          "info": "Not used: the block shows only the saving Storelib checkout takes off, from a matching bundle under Products > Upsells and bundles. Use a discount code below for a saving of your own.",
-          "visible_if": "{{ false }}"
+          "info": "Shown only when a discount code is set.",
+          "visible_if": "{{ block.settings.discount_code != blank }}"
         },
         {
           "type": "text",
           "id": "discount_code",
           "label": "Discount code",
-          "info": "Optional. Applied to the cart when the whole set is added. Create the code in Storelib first."
+          "info": "Create it in Storelib under Discounts. Applied when the whole set is added."
         },
         {
           "type": "text",
@@ -15568,7 +16025,7 @@
         {
           "type": "text",
           "id": "checkout_note",
-          "label": "Note when Storelib takes the saving off",
+          "label": "Note shown with the saving",
           "default": "The saving comes off at checkout."
         },
         {
@@ -15594,7 +16051,7 @@
               "label": "Both"
             }
           ],
-          "info": "Main buttons include this selection in the product Add to cart and Buy now. Buy now uses cart checkout, including existing cart items and required cart terms."
+          "info": "Main buttons: the product's Add to cart and Buy now also add the selection."
         },
         {
           "type": "checkbox",
@@ -15643,7 +16100,7 @@
           "id": "custom_style",
           "label": "Use the custom style below",
           "default": false,
-          "info": "On: the colours, corners, borders and spacing below are used (an empty colour follows the colour scheme). Off: everything follows the colour scheme and Theme settings > Buttons."
+          "info": "Off: follows the colour scheme and theme buttons."
         },
         {
           "type": "color",
@@ -15827,7 +16284,7 @@
       "settings": [
         {
           "type": "paragraph",
-          "content": "Quantity breaks and Buy X Get Y offers. For Buy 1 get 2 free: paid quantity 1, free items 2. For Buy 2 get 3 free: paid quantity 2, free items 3. Eligible Storelib offers supply the saving; otherwise configure a valid discount code. Without a matching offer or valid code, all units are charged at their regular price."
+          "content": "Let shoppers pick 1, 2, 3\u2026 items. To discount a tier, create a code in Storelib under Discounts and enter it on that tier."
         },
         {
           "type": "header",
@@ -15837,18 +16294,18 @@
           "type": "select",
           "id": "tier_source",
           "label": "Tier quantities and discounts",
-          "default": "store",
+          "default": "custom",
           "options": [
-            {
-              "value": "store",
-              "label": "StoreLib offers"
-            },
             {
               "value": "custom",
               "label": "Theme tiers"
+            },
+            {
+              "value": "store",
+              "label": "Product offers metafield"
             }
           ],
-          "info": "StoreLib offers use backend quantities, labels and discounts; theme tier images, captions, badges and styles still apply. Theme tiers use the quantities below and show savings only when StoreLib confirms an eligible offer."
+          "info": "Theme tiers: use the tiers below (recommended)."
         },
         {
           "type": "header",
@@ -16100,7 +16557,6 @@
           "max": 10,
           "step": 1,
           "default": 1,
-          "visible_if": "{{ block.settings.tier_source == 'custom' }}",
           "info": "Paid items in this tier. Example: Buy 1 get 2 free uses paid quantity 1 and free items 2."
         },
         {
@@ -16111,27 +16567,25 @@
           "max": 5,
           "step": 1,
           "default": 0,
-          "info": "Extra units added with this tier. Free pricing requires an eligible Storelib offer or discount code; theme settings alone do not authorize a discount.",
-          "visible_if": "{{ block.settings.tier_source == 'custom' }}"
+          "info": "Free only with a Buy X get Y discount code on this tier."
         },
         {
           "type": "text",
           "id": "tier_1_label",
           "label": "Label",
           "default": "1 item",
-          "visible_if": "{{ block.settings.tier_source == 'custom' }}",
           "info": "Such as Buy 2 get 1 free."
         },
         {
           "type": "range",
           "id": "tier_1_discount",
           "label": "Saving shown",
+          "info": "Shown only when this tier has a discount code.",
           "min": 0,
           "max": 50,
           "step": 1,
           "unit": "%",
-          "default": 0,
-          "visible_if": "{{ block.settings.tier_source == 'custom' }}"
+          "default": 0
         },
         {
           "type": "text",
@@ -16175,7 +16629,6 @@
           "max": 10,
           "step": 1,
           "default": 2,
-          "visible_if": "{{ block.settings.tier_source == 'custom' }}",
           "info": "Paid items in this tier. Example: Buy 1 get 2 free uses paid quantity 1 and free items 2."
         },
         {
@@ -16186,27 +16639,25 @@
           "max": 5,
           "step": 1,
           "default": 0,
-          "info": "Extra units added with this tier. Free pricing requires an eligible Storelib offer or discount code; theme settings alone do not authorize a discount.",
-          "visible_if": "{{ block.settings.tier_source == 'custom' }}"
+          "info": "Free only with a Buy X get Y discount code on this tier."
         },
         {
           "type": "text",
           "id": "tier_2_label",
           "label": "Label",
           "default": "2 items",
-          "visible_if": "{{ block.settings.tier_source == 'custom' }}",
           "info": "Such as Buy 2 get 1 free."
         },
         {
           "type": "range",
           "id": "tier_2_discount",
           "label": "Saving shown",
+          "info": "Shown only when this tier has a discount code.",
           "min": 0,
           "max": 50,
           "step": 1,
           "unit": "%",
-          "default": 0,
-          "visible_if": "{{ block.settings.tier_source == 'custom' }}"
+          "default": 0
         },
         {
           "type": "text",
@@ -16250,7 +16701,6 @@
           "max": 10,
           "step": 1,
           "default": 3,
-          "visible_if": "{{ block.settings.tier_source == 'custom' }}",
           "info": "Paid items in this tier. Example: Buy 1 get 2 free uses paid quantity 1 and free items 2."
         },
         {
@@ -16261,27 +16711,25 @@
           "max": 5,
           "step": 1,
           "default": 0,
-          "info": "Extra units added with this tier. Free pricing requires an eligible Storelib offer or discount code; theme settings alone do not authorize a discount.",
-          "visible_if": "{{ block.settings.tier_source == 'custom' }}"
+          "info": "Free only with a Buy X get Y discount code on this tier."
         },
         {
           "type": "text",
           "id": "tier_3_label",
           "label": "Label",
           "default": "3 items",
-          "visible_if": "{{ block.settings.tier_source == 'custom' }}",
           "info": "Such as Buy 2 get 1 free."
         },
         {
           "type": "range",
           "id": "tier_3_discount",
           "label": "Saving shown",
+          "info": "Shown only when this tier has a discount code.",
           "min": 0,
           "max": 50,
           "step": 1,
           "unit": "%",
-          "default": 0,
-          "visible_if": "{{ block.settings.tier_source == 'custom' }}"
+          "default": 0
         },
         {
           "type": "text",
@@ -16325,8 +16773,7 @@
           "max": 10,
           "step": 1,
           "default": 4,
-          "info": "Paid items in this tier. Example: Buy 1 get 2 free uses paid quantity 1 and free items 2.",
-          "visible_if": "{{ block.settings.tier_source == 'custom' }}"
+          "info": "Paid items in this tier. Example: Buy 1 get 2 free uses paid quantity 1 and free items 2."
         },
         {
           "type": "range",
@@ -16336,27 +16783,25 @@
           "max": 5,
           "step": 1,
           "default": 0,
-          "info": "Extra units added with this tier. Free pricing requires an eligible Storelib offer or discount code; theme settings alone do not authorize a discount.",
-          "visible_if": "{{ block.settings.tier_source == 'custom' }}"
+          "info": "Free only with a Buy X get Y discount code on this tier."
         },
         {
           "type": "text",
           "id": "tier_4_label",
           "label": "Label",
           "default": "4 items",
-          "info": "Such as Buy 2 get 1 free.",
-          "visible_if": "{{ block.settings.tier_source == 'custom' }}"
+          "info": "Such as Buy 2 get 1 free."
         },
         {
           "type": "range",
           "id": "tier_4_discount",
           "label": "Saving shown",
+          "info": "Shown only when this tier has a discount code.",
           "min": 0,
           "max": 50,
           "step": 1,
           "unit": "%",
-          "default": 0,
-          "visible_if": "{{ block.settings.tier_source == 'custom' }}"
+          "default": 0
         },
         {
           "type": "text",
@@ -16408,7 +16853,7 @@
               "label": "Both"
             }
           ],
-          "info": "Main buttons include this selection in the product Add to cart and Buy now. Buy now uses cart checkout, including existing cart items and required cart terms."
+          "info": "Main buttons: the product's Add to cart and Buy now also add the selection."
         },
         {
           "type": "checkbox",
@@ -16435,12 +16880,12 @@
           "id": "sync_form_quantity",
           "label": "Sync visible product quantity",
           "default": true,
-          "info": "Controls the displayed quantity field. Main buttons mode still purchases the selected tier."
+          "info": "Sets the page's quantity field to the chosen tier."
         },
         {
           "type": "text",
           "id": "checkout_note",
-          "label": "Note when Storelib takes the saving off",
+          "label": "Note shown with the saving",
           "default": "The saving comes off at checkout."
         },
         {
@@ -16452,7 +16897,7 @@
           "id": "custom_style",
           "label": "Use the custom style below",
           "default": false,
-          "info": "On: the colours, corners, borders and spacing below are used (an empty colour follows the colour scheme). Off: everything follows the colour scheme and Theme settings > Buttons."
+          "info": "Off: follows the colour scheme and theme buttons."
         },
         {
           "type": "color",
@@ -17554,14 +17999,12 @@
         {
           "type": "text",
           "id": "item1_title",
-          "label": "Title",
-          "default": ""
+          "label": "Title"
         },
         {
           "type": "text",
           "id": "item1_subtitle",
-          "label": "Subtitle",
-          "default": ""
+          "label": "Subtitle"
         },
         {
           "type": "checkbox",
@@ -17593,14 +18036,12 @@
         {
           "type": "text",
           "id": "item2_title",
-          "label": "Title",
-          "default": ""
+          "label": "Title"
         },
         {
           "type": "text",
           "id": "item2_subtitle",
-          "label": "Subtitle",
-          "default": ""
+          "label": "Subtitle"
         },
         {
           "type": "checkbox",
@@ -17639,7 +18080,7 @@
           "type": "text",
           "id": "item3_subtitle",
           "label": "Subtitle",
-          "default": "Checkout by Storelib"
+          "default": "Secure checkout"
         },
         {
           "type": "checkbox",
@@ -18034,8 +18475,7 @@
         {
           "type": "text",
           "id": "item1_title",
-          "label": "Title",
-          "default": ""
+          "label": "Title"
         },
         {
           "type": "checkbox",
@@ -18149,8 +18589,7 @@
         {
           "type": "text",
           "id": "item2_title",
-          "label": "Title",
-          "default": ""
+          "label": "Title"
         },
         {
           "type": "checkbox",
@@ -18264,8 +18703,7 @@
         {
           "type": "text",
           "id": "item3_title",
-          "label": "Title",
-          "default": ""
+          "label": "Title"
         },
         {
           "type": "checkbox",
@@ -18754,43 +19192,56 @@
     },
     {
       "type": "size_table",
-      "name": "Size chart",
+      "name": "Size guide table",
       "limit": 3,
       "settings": [
         {
-          "type": "checkbox",
-          "id": "use_storelib_chart",
-          "label": "Use the product's Storelib size chart",
-          "default": true,
-          "info": "Each product shows the chart you gave it in Storelib (Products > Size charts). Turn off to always show the rows below."
-        },
-        {
           "type": "header",
-          "content": "Sizes"
+          "content": "Chart"
         },
         {
-          "type": "text",
-          "id": "title",
-          "label": "Title",
-          "default": "Size Guide"
+          "type": "select",
+          "id": "chart_source",
+          "label": "Source",
+          "options": [
+            {
+              "value": "page",
+              "label": "Page"
+            },
+            {
+              "value": "table",
+              "label": "Custom table"
+            },
+            {
+              "value": "metafield",
+              "label": "Product metafield"
+            }
+          ],
+          "default": "page",
+          "info": "Product metafield: custom.size_chart (page, rich text or text)."
+        },
+        {
+          "type": "page",
+          "id": "size_guide_page",
+          "label": "Page",
+          "info": "Used when Chart source is Page."
         },
         {
           "type": "textarea",
           "id": "table_data",
-          "label": "Size rows",
-          "info": "First line: the column names. Then one size per line, cells split by |, for example Size | Chest | Waist, then S | 86-91 | 71-76.",
-          "placeholder": "Size | Chest | Waist\nS | 86-91 | 71-76\nM | 92-97 | 77-82",
-          "visible_if": "{{ block.settings.use_metafield == false }}"
+          "label": "Rows",
+          "placeholder": "Size | Chest | Waist\nS | 86-91 | 71-76\nM | 96-101 | 81-86",
+          "info": "One row per line. First line is the header. Separate cells with | or commas.",
+          "visible_if": "{{ block.settings.chart_source == 'table' }}"
         },
         {
           "type": "select",
           "id": "table_unit",
-          "label": "Size rows are in",
-          "default": "none",
+          "label": "Unit",
           "options": [
             {
               "value": "none",
-              "label": "No switch"
+              "label": "None"
             },
             {
               "value": "cm",
@@ -18801,34 +19252,32 @@
               "label": "in"
             }
           ],
-          "info": "Pick the unit you typed to give visitors a cm / in switch.",
-          "visible_if": "{{ block.settings.use_metafield == false }}"
-        },
-        {
-          "type": "header",
-          "content": "Rows from the product"
+          "default": "none",
+          "info": "cm or in adds a cm / in switch.",
+          "visible_if": "{{ block.settings.chart_source == 'table' }}"
         },
         {
           "type": "checkbox",
-          "id": "use_metafield",
-          "label": "Read the rows from a custom field",
-          "default": false,
-          "info": "Type the rows in the product's Custom fields card, in the same format."
+          "id": "use_storelib_chart",
+          "label": "Product metafield first",
+          "default": true,
+          "info": "A product's own chart replaces the source above.",
+          "visible_if": "{{ block.settings.chart_source != 'metafield' }}"
+        },
+        {
+          "type": "richtext",
+          "id": "size_guide_content",
+          "label": "Note"
+        },
+        {
+          "type": "header",
+          "content": "Table"
         },
         {
           "type": "text",
-          "id": "metafield_namespace",
-          "label": "Custom field namespace",
-          "default": "custom",
-          "visible_if": "{{ block.settings.use_metafield }}"
-        },
-        {
-          "type": "text",
-          "id": "metafield_key",
-          "label": "Custom field name",
-          "default": "size_table",
-          "visible_if": "{{ block.settings.use_metafield }}",
-          "info": "Lower case with _ for spaces: Size table is size_table."
+          "id": "title",
+          "label": "Title",
+          "default": "Size guide"
         },
         {
           "type": "header",
@@ -19279,7 +19728,7 @@
   ],
   "presets": [
     {
-      "name": "Product: Featured Product",
+      "name": "Featured Product",
       "blocks": [
         {
           "type": "badges"
@@ -19303,7 +19752,7 @@
           }
         }
       ],
-      "category": "Products"
+      "category": "03 · Products"
     }
   ]
 }

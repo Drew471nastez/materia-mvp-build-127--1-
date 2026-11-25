@@ -130,6 +130,8 @@
    will not take; the error and the thanks follow the form's data-state. */
 :is(#_, .r7n) .r7n__msg { margin: 10px 0 0; font-size: 14px; line-height: 1.5; color: var(--r7n-text); overflow-wrap: anywhere; }
 :is(#_, .r7n) :is(.r7n__hint, .r7n__msg--error, .r7n__msg--failed) { padding-inline-start: 10px; border-inline-start: 2px solid #d92d20; }
+/* Centred content: the error reads as centred text, with no side rule at the far edge. */
+:is(#_, .r7n[data-r7n-align="center"]) :is(.r7n__hint, .r7n__msg--error, .r7n__msg--failed) { padding-inline-start: 0; border-inline-start: 0; color: color-mix(in srgb, #d92d20 72%, var(--r7n-text, var(--color-text))); }
 :is(#_, .r7n) .r7n__hint,
 :is(#_, .r7n) .r7n__result .r7n__msg--error,
 :is(#_, .r7n) .r7n__result .r7n__msg--done { display: none; }

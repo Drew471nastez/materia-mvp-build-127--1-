@@ -1,8 +1,13 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes — Specs Badge block.
   Pill-shaped badge with customizable bg, border, text. Theme-connected by default.
   Pass `block`.
-{%- endcomment -%}
+
+  @param {block} block - The block being rendered
+
+  @example
+  {% render 'specs-badge', block: block %}
+{%- enddoc -%}
 {%- liquid
   assign s = block.settings
   assign block_id = 'specs-badge-' | append: block.id

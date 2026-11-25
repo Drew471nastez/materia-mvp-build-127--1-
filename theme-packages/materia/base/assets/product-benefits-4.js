@@ -9,6 +9,10 @@
     var stage = root.querySelector('[data-pb4h-stage]');
     if (stage && !stage.__pb4hInit) {
       stage.__pb4hInit = true;
+      // A section the theme editor draws again after a setting change shows its lines at once;
+      // on a page load (storefront and editor alike) they draw as the stage scrolls into view.
+      if (stage.closest('[data-mt-redrawn]') || !('IntersectionObserver' in window)) { stage.classList.add('pb4h--revealed'); }
+      else {
       var io = new IntersectionObserver(function (entries) {
         entries.forEach(function (e) {
           if (e.isIntersecting) {
@@ -18,6 +22,7 @@
         });
       }, { threshold: 0.25, rootMargin: '0px 0px -80px 0px' });
       io.observe(stage);
+      }
     }
 
     var slider = root.querySelector('[data-pb4h-slider]');
@@ -44,5 +49,5 @@
 
   window.MateriaPb4 = { init: init };
   init(document);
-  document.addEventListener('storelib:section-load', function (e) { init(e.target); });
+  ['storelib:section-load', 'shopify:section:load'].forEach(function (name) { document.addEventListener(name, function (e) { init(e.target); }); });
 })();

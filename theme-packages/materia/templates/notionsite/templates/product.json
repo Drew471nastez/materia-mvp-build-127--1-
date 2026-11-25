@@ -409,9 +409,9 @@
         "testimonial_3": {
           "type": "testimonial",
           "settings": {
-            "body": "Set it up in one evening. For the first time I know on the 20th how much is left for the month, without opening my bank app.",
+            "body": "Set it up in one evening. For the first time I know which leads are waiting on me without searching my inbox.",
             "name": "Hanna K.",
-            "role": "Money Planner",
+            "role": "Client CRM",
             "rating": 5,
             "avatar": "shopify://shop_images/notionsite-buyer-1.webp"
           }
@@ -419,7 +419,7 @@
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "body": "Simple and quick to fill in. Exactly what I wanted from a free planner.",
+            "body": "Simple and quick to fill in. Exactly what I wanted from a free planner for the business.",
             "name": "Daniel O.",
             "role": "Weekly Planner",
             "rating": 5,
@@ -429,9 +429,9 @@
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "body": "The interview prep page is the part I did not know I needed. I practised every answer on it before my second round.",
+            "body": "The task list on each project page is the part I did not know I needed. Clients stopped asking me where things are.",
             "name": "Amara B.",
-            "role": "Job Search Tracker",
+            "role": "Project Tracker",
             "rating": 5,
             "avatar": "shopify://shop_images/notionsite-buyer-3.webp"
           }
@@ -439,9 +439,9 @@
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "body": "I use the trip pages for every weekend away now, not only the big holidays.",
+            "body": "The tax set aside bar is the reason I opened it every week. No surprise bill in January this year.",
             "name": "Rosa M.",
-            "role": "Travel Planner",
+            "role": "Finance Dashboard",
             "rating": 5,
             "avatar": "shopify://shop_images/notionsite-buyer-4.webp"
           }
@@ -451,7 +451,7 @@
           "settings": {
             "body": "Clean, no clutter. It looks like Notion, not like a poster.",
             "name": "Sami T.",
-            "role": "Daily Journal",
+            "role": "Meeting Notes",
             "rating": 5,
             "avatar": "shopify://shop_images/notionsite-buyer-5.webp"
           }
@@ -459,9 +459,9 @@
         "testimonial_8": {
           "type": "testimonial",
           "settings": {
-            "body": "Meal plan on Sunday, one shop, done. My partner adds recipes from his phone.",
+            "body": "Action items at the bottom of every meeting page. My team ticks them off before the next call.",
             "name": "Julia W.",
-            "role": "Recipe Box",
+            "role": "Meeting Notes",
             "rating": 5,
             "avatar": "shopify://shop_images/notionsite-buyer-6.webp"
           }
@@ -469,9 +469,9 @@
         "testimonial_9": {
           "type": "testimonial",
           "settings": {
-            "body": "Bought the bundle for the budget and ended up using all four. The Home page with what is due this week is great.",
+            "body": "Bought the bundle for the CRM and ended up using all four. The Home page with what is due this week is great.",
             "name": "Marcus L.",
-            "role": "Life OS Bundle",
+            "role": "Business OS Bundle",
             "rating": 5,
             "avatar": "shopify://shop_images/notionsite-buyer-7.webp"
           }
@@ -481,7 +481,7 @@
           "settings": {
             "body": "Good walkthrough video. I had never used a linked database before and it made sense straight away.",
             "name": "Ellie P.",
-            "role": "Money Planner",
+            "role": "Client CRM",
             "rating": 5,
             "avatar": "shopify://shop_images/notionsite-buyer-8.webp"
           }
@@ -526,6 +526,29 @@
         "padding_top": 56,
         "padding_bottom": 88
       }
+    },
+    "recently_viewed": {
+      "type": "recently-viewed",
+      "blocks": {
+        "heading_rv": {
+          "type": "heading",
+          "settings": {
+            "text": "Recently viewed"
+          }
+        }
+      },
+      "block_order": [
+        "heading_rv"
+      ],
+      "settings": {
+        "section_width": "container",
+        "products_to_show": 8,
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 20,
+        "padding_top": 40,
+        "padding_bottom": 56
+      }
     }
   },
   "order": [
@@ -533,6 +556,7 @@
     "main",
     "how",
     "reviews",
-    "related"
+    "related",
+    "recently_viewed"
   ]
 }

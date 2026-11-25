@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. Scroll-snap carousel styles shared by Reels Wall and
   Shoppable Video, scoped to one section. Columns, gap and the active page
   are CSS variables on [data-msr-carousel]: --msr-cols-m, --msr-cols-d,
@@ -6,7 +6,12 @@
   shopify/assets/media-live-stats-reels.js). data-mode="grid" lays the same
   slides out as a grid with no controls.
   Input: sid (section id).
-{%- endcomment -%}
+
+  @param {string} sid - Section id, used to scope CSS and element ids
+
+  @example
+  {% render 'media-msr-carousel-css', sid: sid %}
+{%- enddoc -%}
 <style>
   #shopify-section-{{ sid }} [hidden] { display: none !important; }
   #shopify-section-{{ sid }} .msr-car { --msr-cols: var(--msr-cols-m, 1); --msr-p: var(--msr-p-m, 1); position: relative; min-width: 0; }

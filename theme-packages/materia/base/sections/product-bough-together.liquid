@@ -1,6 +1,6 @@
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 <style>
   /* Section width */
@@ -186,7 +186,7 @@
                           class="product-item__media--ratio rounded"
                           style="--aspect-ratio: {{ ratio }};"
                         >
-                          {% render 'placeholder-render', class: 'rounded' %}
+                          {% render 'placeholder-render', class: 'rounded', type: 'product', index: forloop.index %}
                         </div>
                       {% endif %}
                     </a>
@@ -218,7 +218,7 @@
                 <p class="h5 fs-16 mt-0 mb-2">{{ 'products.product.bought_together.total' | t }}:</p>
                 <span class="price__sale">
                   <s class="price-item compare-price fs-16 light-dark-grey subheading_weight">
-                    {% if settings.currency_code_enabled %}
+                    {% if settings.show_currency_code %}
                       {{ compare_at_price | money_with_currency }}
                     {% else %}
                       {{ compare_at_price | money }}
@@ -226,7 +226,7 @@
                   </s>
                 </span>
                 <span class="heading_weight h4 price{%- if compare_at_price > price %} special-price primary-color{% endif -%}">
-                  {% if settings.currency_code_enabled %}
+                  {% if settings.show_currency_code %}
                     {{ price | money_with_currency }}
                   {% else %}
                     {{ price | money }}
@@ -250,7 +250,7 @@
                 <span class="lable">{{ 'products.product.bought_together.save' | t }}:</span>
                 <span class="price heading_weight primary-color">
                   {% if compare_at_price > price %}
-                    {% if settings.currency_code_enabled %}
+                    {% if settings.show_currency_code %}
                       {{ compare_at_price | minus: price | money_with_currency }}
                     {% else %}
                       {{ compare_at_price | minus: price | money }}
@@ -268,7 +268,7 @@
           <div class="w-full sf-prod__block info-bought-together">
             <form
               method="post"
-              action="/cart/add"
+              action="{{ routes.cart_add_url }}"
               accept-charset="UTF-8"
               id="bought-together-form"
               enctype="multipart/form-data"
@@ -320,8 +320,8 @@
                               product-variant-option text-size
                               capitalize
                             "
-                            data-compare-price="{{ product.compare_at_price | default: product.price }}"
-                            data-price="{{ product.price }}"
+                            data-compare-price="{{ product.selected_or_first_available_variant.compare_at_price | default: product.selected_or_first_available_variant.price }}"
+                            data-price="{{ product.selected_or_first_available_variant.price }}"
                             data-handle="{{ product.handle }}"
                           >
                             {% for variant in product_available %}
@@ -358,8 +358,8 @@
                             "
                             name="items[][id]"
                             value="{{ product.selected_or_first_available_variant.id }}"
-                            data-compare-price="{{ product.compare_at_price | default: product.price }}"
-                            data-price="{{ product.price }}"
+                            data-compare-price="{{ product.selected_or_first_available_variant.compare_at_price | default: product.selected_or_first_available_variant.price }}"
+                            data-price="{{ product.selected_or_first_available_variant.price }}"
                           >
                         {% endif %}
                         <input type="hidden" name="items[][quantity]" class="quantity" value="1">
@@ -369,7 +369,7 @@
                           class="product-item__price justify-content-{{ settings.product_alignment }} flex gap-custom lh-normal fs-custom"
                           style="--font-size: {{ settings.price_size }}; --gap: 3px;--product-item__price-top: 0;"
                         >
-                          {%- render 'price', scope: 'item', product: product, show_badges: false -%}
+                          {%- render 'price', scope: 'item', product: product -%}
                         </div>
                       {% endif %}
                     </div>
@@ -385,7 +385,8 @@
 </div>
 {% schema %}
 {
-  "name": "Bought together",
+  "class": "s-tt",
+"name": "Bought together",
   "settings": [
     {
       "type": "header",
@@ -395,7 +396,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Colour scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",

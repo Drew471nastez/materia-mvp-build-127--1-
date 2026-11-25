@@ -9,7 +9,7 @@
   assign section_st = section.settings
   assign st = section_st
   assign sid = section.id
-  assign color_scheme = section_st.color_scheme.id | default: section_st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section_st.color_scheme.id | default: section_st.color_scheme | default: 'default'
   assign section_width = section_st.section_width
   assign show_icon = section_st.show_404_icon
   assign custom_image = section_st.custom_404_image
@@ -127,7 +127,7 @@
               {%- assign image_alt = image.alt | escape -%}
               {% render 'responsive-image', image: image, image_alt: image_alt, no_animate: true %}
             {%- else -%}
-              {{ 'image' | placeholder_svg_tag: 'placeholder-svg w-full h-auto' }}
+              {%- render 'placeholder-image', type: 'lifestyle-2', class: 'placeholder-svg w-full h-auto' -%}
             {%- endif -%}
           </div>
         {%- when 'heading' -%}
@@ -167,7 +167,7 @@
             {{ block.shopify_attributes }}
           >
             <a
-              {% if block_st.first_button_link == blank %}role="link" aria-disabled="true"{% else %}href="{{ block_st.first_button_link | url }}"{% endif %}
+              {% if block_st.first_button_link == blank %}role="link" aria-disabled="true"{% else %}href="{{ block_st.first_button_link }}"{% endif %}
               {% if open_link %}target="_blank" rel="noopener"{% endif %}
               class="inline-flex no-underline btn-{{ block_st.first_button_type }}"
               data-theme-button="primary" data-sl-button
@@ -179,7 +179,8 @@
   </div>
 </div>{% schema %}
 {
-  "name": "404 page",
+  "class": "s-tt",
+"name": "404 page",
   "tag": "section",
   "limit": 1,
   "settings": [
@@ -191,7 +192,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",

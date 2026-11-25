@@ -1,7 +1,7 @@
-<script src="{{ 'live-faq.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-faq.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-faq-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
@@ -206,7 +206,7 @@
 </style>
 {%- if st.enable_custom_fonts -%}<style>{{ st.heading_font | font_face: font_display: 'swap' }}{{ st.body_font | font_face: font_display: 'swap' }}</style>{%- endif -%}
 
-<section class="fqt color-{{ color_scheme }} gradient" id="fqt-{{ sid }}" data-faq-root="faq-tabs" data-faq-section="{{ section.id }}" data-faq-settings="{{ section.settings | json | escape }}" data-fqt-width="{{ st.section_width | default: 'full_width' }}" data-fqt-show="{{ st.show_section_on | default: 'all' }}" style="{{ fqt_vars | strip_newlines }}">
+<section class="fqt color-{{ color_scheme }} gradient" id="fqt-{{ sid }}" data-faq-root="faq-tabs" data-faq-section="{{ section.id }}" {% if request.design_mode %}data-faq-settings="{{ section.settings | json | escape }}"{% endif %} data-fqt-width="{{ st.section_width | default: 'full_width' }}" data-fqt-show="{{ st.show_section_on | default: 'all' }}" style="{{ fqt_vars | strip_newlines }}">
   <div class="fqt__inner" data-faq-list data-multiple="{% if st.allow_multiple_open %}true{% else %}false{% endif %}">
     <div class="fqt__header">
       {%- comment -%} data-own-font / data-own-weight / data-own-size keep a block's own font, weight and line height ahead of Theme settings > Typography priority. {%- endcomment -%}
@@ -223,7 +223,7 @@
               {%- if bs.enable_custom_fonts and bs.font.family != blank -%}--fb-ff:{{ bs.font.family }}, {{ bs.font.fallback_families }};{%- endif -%}
             {%- endcapture -%}
             {%- if bs.enable_custom_fonts and bs.font.family != blank -%}<style>{{ bs.font | font_face: font_display: 'swap' }}</style>{%- endif -%}
-            <h2 id="block-{{ block.id }}" class="fqt__heading" data-faq-block="{{ block.id }}" data-faq-type="heading" data-faq-settings="{{ bs | json | escape }}"{% if sec_font or bs.enable_custom_fonts %} data-own-font{% endif %}{% if w != 'theme' %} data-own-weight{% endif %}{% if bs.size_enable %} data-own-size{% endif %}{% if bs.text == blank %} hidden{% endif %} style="{{ fb_vars | strip_newlines }}" {{ block.shopify_attributes }}>{{ bs.text }}</h2>
+            <h2 id="block-{{ block.id }}" class="fqt__heading" data-faq-block="{{ block.id }}" data-faq-type="heading" {% if request.design_mode %}data-faq-settings="{{ bs | json | escape }}"{% endif %}{% if sec_font or bs.enable_custom_fonts %} data-own-font{% endif %}{% if w != 'theme' %} data-own-weight{% endif %}{% if bs.size_enable %} data-own-size{% endif %}{% if bs.text == blank %} hidden{% endif %} style="{{ fb_vars | strip_newlines }}" {{ block.shopify_attributes }}>{{ bs.text }}</h2>
           {%- when 'subheading' -%}
             {%- capture fb_vars -%}
               {%- if bs.enable_custom_style -%}--fb-c:{% render 'scheme-color', color: bs.color, fallback: 'var(--color-text)' %};{%- endif -%}
@@ -231,7 +231,7 @@
               {%- if bs.enable_custom_fonts and bs.font.family != blank -%}--fb-ff:{{ bs.font.family }}, {{ bs.font.fallback_families }};{%- endif -%}
             {%- endcapture -%}
             {%- if bs.enable_custom_fonts and bs.font.family != blank -%}<style>{{ bs.font | font_face: font_display: 'swap' }}</style>{%- endif -%}
-            <div id="block-{{ block.id }}" class="fqt__sub" data-faq-block="{{ block.id }}" data-faq-type="subheading" data-faq-settings="{{ bs | json | escape }}"{% if sec_font or bs.enable_custom_fonts %} data-own-font{% endif %}{% if bs.text == blank %} hidden{% endif %} style="{{ fb_vars | strip_newlines }}" {{ block.shopify_attributes }}>{{ bs.text }}</div>
+            <div id="block-{{ block.id }}" class="fqt__sub" data-faq-block="{{ block.id }}" data-faq-type="subheading" {% if request.design_mode %}data-faq-settings="{{ bs | json | escape }}"{% endif %}{% if sec_font or bs.enable_custom_fonts %} data-own-font{% endif %}{% if bs.text == blank %} hidden{% endif %} style="{{ fb_vars | strip_newlines }}" {{ block.shopify_attributes }}>{{ bs.text }}</div>
         {%- endcase -%}
       {%- endfor -%}
     </div>
@@ -290,7 +290,8 @@
   {%- if st.structured_data -%}{% render 'faq-live-jsonld', items: items %}{%- endif -%}
 </section>{% schema %}
 {
-  "name": "FAQ Tabs",
+  "class": "s-tt",
+"name": "FAQ Tabs",
   "settings": [
     {
       "type": "header",
@@ -300,7 +301,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -794,7 +795,6 @@
               "label": "H4"
             }
           ],
-          "hidden": true,
           "info": "The section heading is always an h2.",
           "visible_if": "{{ false }}"
         },
@@ -1027,8 +1027,8 @@
   ],
   "presets": [
     {
-      "name": "FAQ Tabs",
-      "category": "FAQ",
+      "name": "FAQ – Tabs",
+      "category": "13 · FAQ",
       "blocks": [
         {
           "type": "heading"

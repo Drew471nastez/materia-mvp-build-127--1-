@@ -61,7 +61,7 @@
   function derive(st) {
     const out = [], r = st.el, s = st.s;
     const cid = s.color_scheme && typeof s.color_scheme === 'object' ? s.color_scheme.id : s.color_scheme;
-    out.push([r, 'scheme', cid || 'default-color-scheme']);
+    out.push([r, 'scheme', cid || 'default']);
     const own = (attr, id) => { const q = '[data-fb-' + attr + '~="' + id + '"]'; return (r.matches(q) ? [r] : []).concat([...r.querySelectorAll(q)]); };
     scopeOut(out, [r], s, st.spec, null, own);
     for (const [id, b] of st.blocks) {

@@ -1,3 +1,19 @@
+{% doc %}
+  Values of one product option (buttons, swatches or dropdown) of the variant picker.
+
+  @param {boolean} enable_option_swatches - Show colour options as swatches
+  @param {string} input_scope - Input scope
+  @param {boolean} isColorOption - Is Color Option
+  @param {string} option - Product option (with values)
+  @param {number} option_index - Option index
+  @param {product} product - The product to render
+  @param {section} section - The section being rendered
+  @param {string} swatch_item_type - Swatch fill
+  @param {string} variant_type - Variant type ('dropdown', 'swatches')
+
+  @example
+  {% render 'product-variant-options', product: product, section: section, option_index: forloop.index, option: option, isColorOption: is_color_option, option_name: option_name, swatch_item_type: swatch_item_type, enable_option_swatches: use_option_swatches, variant_type: 'dropdown', input_scope: type %}
+{% enddoc -%}
 {%- comment -%}
   Materia Themes. Developed By Materia Themes.
 {%- endcomment -%}
@@ -105,7 +121,7 @@
         endfor
 
         if value.swatch.image
-          assign image_url = value.swatch.image | image_url
+          assign image_url = value.swatch.image | image_url: width: 120
           assign swatch_value = 'url(' | append: image_url | append: ')'
         elsif value.swatch.color
           assign swatch_value = 'rgb(' | append: value.swatch.color.rgb | append: ')'

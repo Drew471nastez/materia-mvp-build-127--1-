@@ -1,7 +1,7 @@
-<script src="{{ 'media-live-image-video.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'media-live-image-video.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'media-image-video-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' and section.settings.reveal != false -%}
@@ -101,7 +101,7 @@
   {%- endif -%}
 {%- endfor -%}
 <!-- ti-theme:start -->
-<div class="ti-section-wrap color-{{ color_scheme }} gradient {{ st.section_width | default: 'container' }}" data-iv="video" data-iv-section="{{ sid }}" data-iv-settings="{{ st | json | escape }}" data-iv-defaults='{"color_scheme":"default-color-scheme","section_width":"fluid_container","show_on_device":"all","reset_spacing":true,"text_alignment":"center","container_max_width":1200,"element_spacing":12,"desktop_spacing_gap":-30,"video_aspect_ratio":"none","desktop_video_width":1400,"desktop_video_height":500,"video_fit":"cover","enable_custom_url_video":false,"video_autoplay":true,"video_muted":true,"video_loop":true,"video_controls":false,"big_play_pause_button":true,"play_button_style":"circle","video_inline":true,"enable_lazy_loading":false,"enable_custom_style":false,"section_background_size":"cover","container_radius":0,"container_border_size":0,"container_shadow":false,"media_radius":13,"video_shadow":"none","overlay_opacity":0,"reveal":true,"section_padding_top_bottom":42,"section_padding_left_right":180,"container_padding_top_bottom":0,"container_padding_left_right":0,"desktop_video_margin_top":60,"desktop_video_margin_bottom":0,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"mobile_text_alignment":"center","mobile_spacing_gap":6,"mobile_video_width":800,"mobile_video_height":190,"mobile_section_padding_top_bottom":44,"mobile_section_padding_left_right":19,"mobile_container_padding_top_bottom":0,"mobile_container_padding_left_right":0,"mobile_video_margin_top":0,"mobile_video_margin_bottom":0,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}' data-iv-block-defaults='{"headline":{"headline":"<b>Video Heading</b>","enable_custom_style":false,"override_font":false,"headline_font":"helvetica_n4","font_weight":"400","enable_custom_size":false,"headline_size":37,"mobile_headline_size":37,"headline_line_height":"inherit"},"subtext":{"text":"Add subheading text, info about the video.","enable_custom_style":false,"override_font":false,"text_font":"helvetica_n4","enable_custom_size":false,"text_size":16,"mobile_text_size":16,"text_line_height":"inherit"}}' data-iv-show="{{ st.show_on_device | default: 'all' }}"
+<div class="ti-section-wrap color-{{ color_scheme }} gradient {{ st.section_width | default: 'container' }}" data-iv="video" data-iv-section="{{ sid }}" data-iv-settings="{{ st | json | escape }}" data-iv-defaults='{"color_scheme":"default","section_width":"fluid_container","show_on_device":"all","reset_spacing":true,"text_alignment":"center","container_max_width":1200,"element_spacing":12,"desktop_spacing_gap":-30,"video_aspect_ratio":"none","desktop_video_width":1400,"desktop_video_height":500,"video_fit":"cover","enable_custom_url_video":false,"video_autoplay":true,"video_muted":true,"video_loop":true,"video_controls":false,"big_play_pause_button":true,"play_button_style":"circle","video_inline":true,"enable_lazy_loading":false,"enable_custom_style":false,"section_background_size":"cover","container_radius":0,"container_border_size":0,"container_shadow":false,"media_radius":13,"video_shadow":"none","overlay_opacity":0,"reveal":true,"section_padding_top_bottom":42,"section_padding_left_right":180,"container_padding_top_bottom":0,"container_padding_left_right":0,"desktop_video_margin_top":60,"desktop_video_margin_bottom":0,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"mobile_text_alignment":"center","mobile_spacing_gap":6,"mobile_video_width":800,"mobile_video_height":190,"mobile_section_padding_top_bottom":44,"mobile_section_padding_left_right":19,"mobile_container_padding_top_bottom":0,"mobile_container_padding_left_right":0,"mobile_video_margin_top":0,"mobile_video_margin_bottom":0,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}' {% if request.design_mode %}data-iv-block-defaults='{"headline":{"headline":"<b>Video Heading</b>","enable_custom_style":false,"override_font":false,"headline_font":"helvetica_n4","font_weight":"400","enable_custom_size":false,"headline_size":37,"mobile_headline_size":37,"headline_line_height":"inherit"},"subtext":{"text":"Add subheading text, info about the video.","enable_custom_style":false,"override_font":false,"text_font":"helvetica_n4","enable_custom_size":false,"text_size":16,"mobile_text_size":16,"text_line_height":"inherit"}}'{% endif %} data-iv-show="{{ st.show_on_device | default: 'all' }}"
   style="--iv-bg:{{ iv_bg }};--iv-backdrop:{{ iv_backdrop }};--iv-bg-image:{{ iv_bg_image }};--iv-bg-size:{{ st.section_background_size | default: 'cover' }};--iv-pv-d:{{ st.section_padding_top_bottom }}px;--iv-ph-d:{{ st.section_padding_left_right }}px;--iv-pv-m:{{ st.mobile_section_padding_top_bottom }}px;--iv-ph-m:{{ st.mobile_section_padding_left_right }}px;--iv-box-max:{{ st.container_max_width }}px;--iv-box-pv-d:{{ st.container_padding_top_bottom }}px;--iv-box-ph-d:{{ st.container_padding_left_right }}px;--iv-box-pv-m:{{ st.mobile_container_padding_top_bottom }}px;--iv-box-ph-m:{{ st.mobile_container_padding_left_right }}px;--iv-box-bg:{{ iv_box_bg }};--iv-box-bw:{{ st.container_border_size }}px;--iv-box-bc:{{ iv_border }};--iv-box-radius:{{ st.container_radius }}px;--iv-link:{{ iv_link }};--iv-spacing:{{ st.element_spacing }}px;--iv-gap-d:{{ st.desktop_spacing_gap | default: 0 }}px;--iv-gap-m:{{ st.mobile_spacing_gap | default: 0 }}px;--iv-align-d:{{ st.text_alignment | default: 'center' }};--iv-align-m:{{ st.mobile_text_alignment | default: 'center' }};--iv-v-mt-d:{{ st.desktop_video_margin_top }}px;--iv-v-mb-d:{{ st.desktop_video_margin_bottom }}px;--iv-v-mt-m:{{ st.mobile_video_margin_top }}px;--iv-v-mb-m:{{ st.mobile_video_margin_bottom }}px;--iv-vw-d:{{ st.desktop_video_width }}px;--iv-vh-d:{{ st.desktop_video_height }}px;--iv-vw-m:{{ st.mobile_video_width }}px;--iv-vh-m:{{ st.mobile_video_height }}px;--iv-ratio:{{ ratio }};--iv-media-radius:{{ st.media_radius }}px;--iv-media-shadow:{{ iv_shadow }};--iv-overlay:{{ iv_overlay }};--iv-overlay-o:{{ st.overlay_opacity | default: 0 | divided_by: 100.0 }}">
 <div id="loud-{{ sid }}" class="loud-section" loud-section>
   <div class="loud-container{% if st.container_shadow %} loud-container--shadow{% endif %}" loud-container>
@@ -144,9 +144,9 @@
           endif
         -%}
         {%- if heading -%}
-          <h2 class="loud-block loud-title{% if b.enable_custom_size %} loud-block--sized{% endif %}" data-iv-block="{{ block.id }}" data-iv-type="headline" data-iv-settings="{{ b | json | escape }}" style="{{ block_style }}"{{ own }}{% if b.headline == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ b.headline }}</h2>
+          <h2 class="loud-block loud-title{% if b.enable_custom_size %} loud-block--sized{% endif %}" data-iv-block="{{ block.id }}" data-iv-type="headline" {% if request.design_mode %}data-iv-settings="{{ b | json | escape }}"{% endif %} style="{{ block_style }}"{{ own }}{% if b.headline == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ b.headline }}</h2>
         {%- else -%}
-          <div class="loud-block loud-text{% if b.enable_custom_size %} loud-block--sized{% endif %}" data-iv-block="{{ block.id }}" data-iv-type="subtext" data-iv-settings="{{ b | json | escape }}" style="{{ block_style }}"{{ own }}{% if b.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ b.text }}</div>
+          <div class="loud-block loud-text{% if b.enable_custom_size %} loud-block--sized{% endif %}" data-iv-block="{{ block.id }}" data-iv-type="subtext" {% if request.design_mode %}data-iv-settings="{{ b | json | escape }}"{% endif %} style="{{ block_style }}"{{ own }}{% if b.text == blank %} hidden{% endif %} {{ block.shopify_attributes }}>{{ b.text }}</div>
         {%- endif -%}
       {%- endfor -%}
     </div>
@@ -160,7 +160,8 @@
 </div>
 <!-- ti-theme:end -->{% schema %}
 {
-  "name": "Video ",
+  "class": "s-tt",
+"name": "Video ",
   "settings": [
     {
       "type": "header",
@@ -170,7 +171,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -421,7 +422,6 @@
       "id": "video_inline",
       "label": "Play inline",
       "default": true,
-      "hidden": true,
       "visible_if": "{{ false }}",
       "info": "Not used: videos always play inline so autoplay works on phones."
     },
@@ -464,7 +464,6 @@
       "type": "color",
       "id": "section_background_color",
       "label": "Background (legacy)",
-      "hidden": true,
       "info": "Older setting kept for saved content. Section background replaces it.",
       "visible_if": "{{ false }}"
     },
@@ -852,7 +851,7 @@
           "type": "font_picker",
           "id": "headline_font",
           "label": "Font",
-          "default": "helvetica_n4",
+          "default": "assistant_n4",
           "visible_if": "{{ block.settings.override_font }}"
         },
         {
@@ -1012,7 +1011,7 @@
           "type": "font_picker",
           "id": "text_font",
           "label": "Font",
-          "default": "helvetica_n4",
+          "default": "assistant_n4",
           "visible_if": "{{ block.settings.override_font }}"
         },
         {
@@ -1109,8 +1108,8 @@
   ],
   "presets": [
     {
-      "name": "Video",
-      "category": "Image and video",
+      "name": "Video with Heading",
+      "category": "06 · Gallery & video",
       "blocks": [
         {
           "type": "headline",

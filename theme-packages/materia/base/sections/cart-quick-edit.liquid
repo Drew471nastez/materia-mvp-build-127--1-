@@ -1,6 +1,6 @@
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 <style>
   /* Theme font-weight inheritance — inherit theme weights by default; explicit rules still override */
@@ -116,7 +116,7 @@
                 {% endif %}
               {% endfor %}
               {% if first_image_found == false %}
-                {% render 'placeholder-render', class: 'rounded-5' %}
+                {% render 'placeholder-render', class: 'rounded-5', type: 'product', index: forloop.index %}
               {% endif %}
             {% endif %}
           </div>
@@ -155,8 +155,14 @@
               {%- for option in product.options_with_values -%}
                 {%- liquid
                   assign is_color_option = false
+                  assign _nv_first = option.values | first
+                  if _nv_first.swatch != blank
+                    assign is_color_option = true
+                  endif
+                  assign _opt_name_cmp = option.name | strip | downcase
                   for colorItem in option_name
-                    if option.name == colorItem
+                    assign _color_item_cmp = colorItem | strip | downcase
+                    if _opt_name_cmp == _color_item_cmp
                       assign is_color_option = true
                     endif
                   endfor
@@ -197,7 +203,7 @@
                         endif
                       endfor
                       if value.swatch.image
-                        assign image_url = value.swatch.image | image_url
+                        assign image_url = value.swatch.image | image_url: width: 120
                         assign swatch_value = 'url(' | append: image_url | append: ')'
                       elsif value.swatch.color
                         assign swatch_value = 'rgb(' | append: value.swatch.color.rgb | append: ')'
@@ -252,7 +258,7 @@
                 name="minus"
                 type="button"
                 data-id="{{- product.key -}}"
-                aria-label="minus"
+                aria-label="{{ 'accessibility.ui.decrease_quantity' | t }}"
               >
                 <svg width="10" height="2" viewBox="0 0 10 2" fill="none" aria-hidden="true">
                   <path fill="currentColor" d="M0 0h10v2H0z"/>
@@ -274,7 +280,7 @@
                 name="plus"
                 type="button"
                 data-id="{{- product.key -}}"
-                aria-label="plus"
+                aria-label="{{ 'accessibility.ui.increase_quantity' | t }}"
               >
                 <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
                   <path fill="currentColor" fill-rule="evenodd" d="M4 10h2V6h4V4H6V0H4v4H0v2h4v4Z" clip-rule="evenodd"/>
@@ -309,7 +315,8 @@
 </div>
 {% schema %}
 {
-  "name": "Cart quick edit",
+  "class": "s-tt",
+"name": "Cart quick edit",
   "settings": [
     {
       "type": "header",
@@ -319,7 +326,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",

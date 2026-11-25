@@ -63,6 +63,9 @@
   flex-direction: column;
   align-items: inherit;
   text-align: inherit;
+  /* Every hotspot in a column is the same width, so short and long texts share
+     one centre line and the top and bottom hotspots line up. */
+  width: 100%;
   max-width: 320px;
 }
 :is(#_, .pb4h-wrap) .pb4h__col--left  .pb4h__tab { text-align: center; align-items: center; }

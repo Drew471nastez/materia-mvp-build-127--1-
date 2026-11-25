@@ -1,11 +1,17 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. Mega menu + categories (header block menu_categories).
   The chosen collections as categories, each a link with its picture, title
   and product count, beside the menu link's own sub links and an optional
   banner. A list or tiles on desktop; one tappable list in the phone drawer.
   Inputs: block_st (the block's settings), link (the top-level menu link).
   Styles: navigation.css (.mm-cats).
-{%- endcomment -%}
+
+  @param {object} block_st - Block settings object
+  @param {object} link - Menu link
+
+  @example
+  {% render 'menu-categories', block_st: block_st, link: link %}
+{%- enddoc -%}
 {%- liquid
   assign mc_layout = block_st.layout | default: 'list'
   assign mc_img = block_st.image_style | default: 'circle'

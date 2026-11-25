@@ -283,11 +283,18 @@ input[type='checkbox']:checked + .checkmark:before {
   .smooth-padding-hover:hover {
     padding-inline-start: 1rem;
   }
-  .hover-effect {
-    will-change: transform;
-  }
+  /* A layer for the hover only while the pointer is on the card (it is set as
+     the pointer reaches the card, a moment before the picture itself): a
+     standing will-change kept a layer for every card picture on the page and
+     rastered them at their resting size, so a zoomed picture stayed soft. */
   .hover-effect :is(img, .placeholder-image, picture) {
     transition: var(--transition);
+  }
+  :is(.product-item, .collection-item):hover .hover-effect :is(img, .placeholder-image, picture),
+  .hover-effect:hover :is(img, .placeholder-image, picture) {
+    will-change: transform;
+  }
+  .hover_lift .hover-effect:hover {
     will-change: transform;
   }
   .hover_zoom .hover-effect:hover :is(img, .placeholder-image, picture) {
@@ -348,7 +355,9 @@ input[type='checkbox']:checked + .checkmark:before {
     opacity: 1;
   }
   /* A card with no second picture still answers the pointer: a gentle zoom. */
-  .hover_reveal .hover-effect:not(:has(.secondary-image, .hover-effect__alt)):hover :is(img, .placeholder-image, picture) {
+  /* .hover-effect--plain (no second picture) is set by theme.js (materia-hover-state) as the pointer enters;
+     it replaces :not(:has(.secondary-image, .hover-effect__alt)), same specificity. */
+  .hover_reveal .hover-effect.hover-effect--plain:hover :is(img, .placeholder-image, picture) {
     transform: scale(1.04);
   }
   .hover_blur .hover-effect:hover :is(img, .placeholder-image, picture) {
@@ -373,7 +382,7 @@ input[type='checkbox']:checked + .checkmark:before {
     text-align: center;
     font-size: 1.2rem;
     white-space: nowrap;
-    transition: all 0.3s;
+    transition: opacity 0.3s, transform 0.3s, visibility 0.3s;
     will-change: transform;
     padding: 7px 15px;
     transform: var(--tooltip-transform, translateY(-100%) translateX(-50%));
@@ -898,11 +907,7 @@ footer .localization-flags{
   opacity: var(--header-background-opacity);
   transition: opacity var(--animation-nav) var(--animation-nav-delay);
 }
-.shopify-section-header-sticky {
-  position: sticky;
-  z-index: 11;
-  top: var(--storelib-header-top, 0px);
-}
+/* Pinned header: position, slide and offsets are in header-sticky.css. */
 .shopify-section-header-sticky header.header {
   box-shadow: var(--shadow);
 }
@@ -913,38 +918,15 @@ footer .localization-flags{
   display: none;
 }
 
-.shopify-section-header-hidden {
-  top: var(--storelib-header-top, 0px);
-}
-.section-header.animate {
-  transition: top 0.35s ease-in-out;
-}
 .header-sticky .gradient {
   background-attachment: unset;
 }
 .shopify-section-header-sticky.gradient {
   background-attachment: unset;
 }
-/* ── Always-sticky (Horizon-style) ─────────────────────────────────
-   Pin the header from the very top so "Always sticky" never scrolls
-   away and never pops back in. Gated on data-sticky-always (set by JS
-   only for sticky_header_type === 'always'), so on-scroll-up / none are
-   unaffected. Pinning is kept SEPARATE from the
-   .shopify-section-header-sticky "scrolled" flag, so the transparent
-   overlay gating keeps working untouched: at the very top the flag is
-   absent (transparent / clean), once scrolled it is present (solid +
-   shadow), and the change is a smooth CSS transition, not a snap. */
-.section-header[data-sticky-always] {
-  position: sticky;
-  top: 0;
-  z-index: 11;
-}
 @media screen and (max-width: 1024.98px) {
   .redirect-to-link{
     pointer-events: none;
-  }
-  [data-sticky-mobile='false'].shopify-section-header-sticky {
-    position: unset;
   }
   header-search #search-form .search__button {
     color: var(--color-heading);
@@ -977,19 +959,6 @@ footer .localization-flags{
   }
   to {
     opacity: 1;
-  }
-}
-.shopify-section-header-sticky.animate:not(.scroll-up) {
-  animation: none;
-}
-@keyframes fadeInSticky {
-  0% {
-    opacity: 0;
-    top: calc(var(--height-header, 100%) * -1);
-  }
-  100% {
-    opacity: 1;
-    top: 0;
   }
 }
 .fadeOut {
@@ -1168,23 +1137,15 @@ footer .localization-flags{
   width: 1.8rem;
   flex: 0 0 1.8rem;
 }
+/* Loading bars grow with scaleX from the start edge (compositor only); they
+   used to animate width, which laid the page out again on every frame. */
 @keyframes al-loading {
-  0% {
-    width: 0;
-  }
-
-  to {
-    width: 80%;
-  }
+  0% { transform: scaleX(0); }
+  to { transform: scaleX(0.8); }
 }
 @keyframes al-loading-finish {
-  0% {
-    width: 80%;
-  }
-
-  to {
-    width: 100%;
-  }
+  0% { transform: scaleX(0.8); }
+  to { transform: scaleX(1); }
 }
 .sec__collection-tab tab-items .section__header{
   position: relative;
@@ -1256,13 +1217,14 @@ body.loading::after {
   opacity: 1;
   position: absolute;
   top: 0;
-  width: 0;
+  width: 100%;
+  transform: scaleX(0);
+  transform-origin: 0 50%;
   z-index: 13;
   animation: al-loading 1s cubic-bezier(0.43, 0.27, 0.36, 0.83) forwards;
-  transition: width 1s linear, opacity 0.35s linear 0.35s;
+  transition: opacity 0.35s linear 0.35s;
 }
 body.loading.finish::after {
-  width: 100%;
   animation: al-loading-finish 0.3s cubic-bezier(0.43, 0.27, 0.36, 0.83)
     forwards;
 }

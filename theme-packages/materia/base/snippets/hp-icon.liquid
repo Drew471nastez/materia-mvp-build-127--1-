@@ -1,6 +1,5 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes — Hero / feature icon library.
-  Usage:  {% render 'hp-icon', icon: 'truck' %}
 
   All glyphs are 24×24, single-stroke (currentColor), stroke-width 2,
   round caps + joins. Geometry adapted from the Lucide / Feather icon
@@ -11,7 +10,12 @@
     star, heart, gift, leaf, recycle, sparkles, lightning, badge_check,
     chat, headset, clock, refresh, package, credit_card, globe, award,
     fire, percent, tag, calendar, plane
-{%- endcomment -%}
+
+  @param {string} icon - Icon
+
+  @example
+  {% render 'hp-icon', icon: 'truck' %}
+{%- enddoc -%}
 {%- case icon -%}
 
   {%- when 'truck' -%}

@@ -14,7 +14,7 @@
    a gap and each button flexes to fit its label. Typography is not set here:
    the label inherits the menu-link font through the heading-style /
    uppercase classes, so it matches the header nav. */
-:is(#materia-header, .shopify-section.section-header:has(> header.header[data-actions-text])) .header__action {
+:is(#materia-header, .shopify-section.section-header) > :where(header.header[data-actions-text], header.header[data-actions-text] ~ *) .header__action {
   column-gap: 1.8rem;
 }
 :is(#materia-header, .shopify-section.section-header) .header-action-text-btn {

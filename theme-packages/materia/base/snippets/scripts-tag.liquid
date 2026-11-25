@@ -12,11 +12,22 @@
 <script src="{{ 'theme.js' | asset_url }}"  defer="defer" type="module"></script>
 <script src="{{ 'materia-experience.js' | asset_url }}" defer="defer"></script>
 <script src="{{ 'product-card-settings.js' | asset_url }}" defer="defer"></script>
+{%- comment -%} Size charts and cart line variant editing are drawn by the server and only
+  need their script once the shopper reaches for them: queued for the first tap or idle
+  (layout/theme mtLazy). The cart page edits its lines at once; the builder loads them as before. {%- endcomment -%}
+{%- if request.design_mode -%}
 <script src="{{ 'size-chart.js' | asset_url }}" defer="defer"></script>
+{%- else -%}
+<script>(window.mtLazy||function(u){var s=document.createElement('script');s.src=u;document.head.appendChild(s)})({{ 'size-chart.js' | asset_url | json }})</script>
+{%- endif -%}
 {% if settings.perf_nav != false and request.design_mode != true %}
   <script src="{{ 'theme-navigation.js' | asset_url }}" defer="defer"></script>
 {% endif %}
+{%- if request.design_mode or t == 'cart' -%}
 <script src="{{ 'cart-variant-edit.js' | asset_url }}" defer="defer"></script>
+{%- else -%}
+<script>(window.mtLazy||function(u){var s=document.createElement('script');s.src=u;document.head.appendChild(s)})({{ 'cart-variant-edit.js' | asset_url | json }})</script>
+{%- endif -%}
 {%- case t -%}
   {%- when 'collection' -%}
     {%- comment -%} Sort, filters and load more. ('when' takes no 'and': it is a plain case.) {%- endcomment -%}

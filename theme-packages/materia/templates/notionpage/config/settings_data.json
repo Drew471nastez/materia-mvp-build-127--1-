@@ -168,6 +168,34 @@
           "button_link_color": "#ffffff",
           "button_link_hover_color": "#bdbcb7"
         }
+      },
+      "scheme-np-bar": {
+        "settings": {
+          "background": "#f7f7f5",
+          "background_gradient": "",
+          "text_color": "#55534e",
+          "heading_color": "#191918",
+          "primary_color": "#191918",
+          "border_color": "#e6e5e1",
+          "btn_primary_background": "#191918",
+          "btn_primary_color": "#ffffff",
+          "btn_primary_border_color": "rgba(0,0,0,0)",
+          "btn_primary_gradient": "",
+          "btn_primary_hover_background": "#3b3a37",
+          "btn_primary_hover_color": "#ffffff",
+          "btn_primary_hover_border_color": "rgba(0,0,0,0)",
+          "btn_primary_hover_background_gradient": "",
+          "btn_secondary_background": "#ffffff",
+          "btn_secondary_color": "#191918",
+          "btn_secondary_border": "#dddcd7",
+          "btn_secondary_hover_background": "#191918",
+          "btn_secondary_hover_color": "#ffffff",
+          "btn_secondary_hover_border": "rgba(0,0,0,0)",
+          "btn_outline_color": "#191918",
+          "btn_outline_border_color": "#e4e3df",
+          "button_link_color": "#191918",
+          "button_link_hover_color": "#55534e"
+        }
       }
     },
     "typography_preset": "none",

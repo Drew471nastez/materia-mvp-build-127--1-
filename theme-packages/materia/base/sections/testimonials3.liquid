@@ -1,9 +1,9 @@
-<script src="{{ 'live-testimonials.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-testimonials.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-testimonials-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign custom = st.enable_custom_style
   assign fonts = st.enable_custom_fonts
   assign scroll_anim = settings.scroll_animation | default: 'none'
@@ -59,7 +59,7 @@
   #shopify-section-{{ sid }} .tsh__media.is-video { background: #000; }
   #shopify-section-{{ sid }} .tsh__media img, #shopify-section-{{ sid }} .tsh__media video { display: block; width: 100%; height: 100%; object-fit: cover; -webkit-user-drag: none; pointer-events: none; }
   #shopify-section-{{ sid }} .tsh__ph { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; color: color-mix(in srgb, var(--color-text) 35%, transparent); }
-  #shopify-section-{{ sid }} .tsh__ph svg { width: 48px; height: 48px; }
+  #shopify-section-{{ sid }} .tsh__ph svg { width: 100%; height: 100%; }
   #shopify-section-{{ sid }} .lt-vbtn { position: absolute; bottom: 8px; z-index: 2; display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: rgba(0, 0, 0, .55); color: #fff; cursor: pointer; pointer-events: auto; }
   #shopify-section-{{ sid }} .lt-vbtn:hover { background: rgba(0, 0, 0, .75); }
   #shopify-section-{{ sid }} .lt-vbtn svg { width: 16px; height: 16px; display: block; }
@@ -104,7 +104,7 @@
     </div>
 
     {%- if cards.size > 0 -%}
-      <div class="tsh__track" data-lt-track data-testimonial-row tabindex="0" role="region" aria-roledescription="carousel" aria-label="Reviews">
+      <div class="tsh__track" data-lt-track data-testimonial-row tabindex="0" role="region" aria-roledescription="carousel" aria-label="{{ 'accessibility.ui.reviews' | t }}">
         {%- for b in cards -%}
           {%- assign bs = b.settings -%}
           {%- assign has_video = false -%}
@@ -130,9 +130,9 @@
                   <svg class="lt-i-off" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 9v6h4l5 5V4L7 9H3zm13.6 3l2.7-2.7-1.4-1.4-2.7 2.7-2.7-2.7-1.4 1.4 2.7 2.7-2.7 2.7 1.4 1.4 2.7-2.7 2.7 2.7 1.4-1.4z"/></svg>
                 </button>
               {%- elsif bs.image != blank -%}
-                {{ bs.image | image_url: width: 800 | image_tag: loading: 'lazy', decoding: 'async', widths: '300,450,600,800', sizes: '(min-width: 1024px) 33vw, (min-width: 641px) 50vw, 100vw', alt: bs.name | default: fb_photo }}
+                {%- assign mt_img_alt_1 = bs.name | default: fb_photo -%}{{ bs.image | image_url: width: 800 | image_tag: loading: 'lazy', decoding: 'async', widths: '300,450,600,800', sizes: '(min-width: 1024px) 33vw, (min-width: 641px) 50vw, 100vw', alt: mt_img_alt_1}}
               {%- else -%}
-                <div class="tsh__ph" data-lt-ph><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>
+                <div class="tsh__ph" data-lt-ph>{%- render 'placeholder-image', type: 'lifestyle', index: forloop.index -%}</div>
               {%- endif -%}
             </div>
             <div class="tsh__body">
@@ -156,7 +156,7 @@
 {
   "name": "Testimonials Showcase",
   "tag": "section",
-  "class": "section-testimonials-showcase",
+  "class": "section-testimonials-showcase s-tt s-lt",
   "disabled_on": {
     "groups": [
       "header",
@@ -172,7 +172,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -833,7 +833,7 @@
   "presets": [
     {
       "name": "Testimonials Showcase",
-      "category": "Testimonials",
+      "category": "07 · Reviews & testimonials",
       "blocks": [
         {
           "type": "heading",

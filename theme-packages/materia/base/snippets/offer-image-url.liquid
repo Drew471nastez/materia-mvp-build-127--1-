@@ -1,3 +1,12 @@
+{% doc %}
+  Prints a sized URL for an offer image from any image-like value.
+
+  @param {boolean} [escaped] - Escaped
+  @param {image} image - Image (desktop)
+
+  @example
+  {% render 'offer-image-url', image: b.icon_image, escaped: true %}
+{% enddoc -%}
 {%- liquid
   assign src = image.src | default: image.url | default: image.preview_image.src | default: image.preview_image.url
   if src == blank and image != blank

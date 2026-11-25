@@ -7,7 +7,7 @@ No picture came with the Materia theme's own starter content. The Sample packs s
 
 Rows marked "Drawn for this template" were drawn for Storelib and are Storelib's own (round 20 adds the Night shop's moon logo and every poster design in the Poster shop, framed or cropped; the Poster shop's hero and room photographs are Unsplash photographs with those poster designs set into their frames): the Notion templates' Notion
 screens, Storelib Default's planner pictures, the screens on the Digital products shop's devices, and the Creator Landing's book, course, club, letter and prompt covers and its shelf banners. The Course template's course covers and three lesson thumbnails are its Unsplash photographs with a title set on them; their rows say so.
-Storelib Default's product pictures are Unsplash photographs set on one even grey background; their rows say so. Its Downloads picture has a planner page drawn onto the tablet's blank screen.
+Storelib Default's product pictures are Unsplash photographs set on one even grey background; their rows say so. Round 26: Storelib Default's About and sign up pictures have a tablet's maker mark and a mug's printed words painted out; the Notion shop's photographs of its maker (one session, one person) have the laptop's maker mark painted out; OKTAV's About pictures are turned black and white and the sewing machine's name is painted out. Its Downloads picture has a planner page drawn onto the tablet's blank screen.
 The Merch template's product pictures are Unsplash photographs cropped and set on one even grey, and its hero's foggy sky is extended upward and to the sides from its photograph. The Course template's hero has the badges on its two speakers painted out. The Art books hero's left picture is Paul Cézanne's Still Life with a Ginger Jar and Eggplants, which The Metropolitan Museum of Art shares as public domain.
 The Art books template's book covers, open book spreads and tablet are drawn around public domain paintings, prints and photographs that The Metropolitan Museum of Art shares on Unsplash; their rows name each source.
 
@@ -21,9 +21,11 @@ They are not part of a template and are never added to a creator's website.
 | Template | File | Source | License |
 | --- | --- | --- | --- |
 | default | assets/default-hero-harbour-tall.webp | https://images.unsplash.com/photo-1789654495610-811404dbdc26 | Unsplash License |
-| default | assets/default-studio.webp | https://images.unsplash.com/photo-1631125915973-e0d155a14e4e | Unsplash License |
+| default | assets/default-about-studio.webp | https://images.unsplash.com/photo-1648747067192-790595bc6d5e | Unsplash License |
+| default | assets/default-about-wrapping.webp | https://images.unsplash.com/photo-1680034976850-129b4a07be56 | Unsplash License |
+| default | assets/default-about-workroom.webp | https://images.unsplash.com/photo-1773146916231-e6aeae932080 | Unsplash License |
 | default | assets/default-packing.webp | https://images.unsplash.com/photo-1449247666642-264389f5f5b1 | Unsplash License |
-| default | assets/default-mug-still.webp | https://images.unsplash.com/photo-1514228742587-6b1558fcca3d | Unsplash License |
+| default | assets/default-popup-mug.webp | https://images.unsplash.com/photo-1642360670148-dc848a1da8bb | Unsplash License |
 | default | assets/default-cat-drinkware.webp | https://images.unsplash.com/photo-1517430536-ef20313aea20 | Unsplash License |
 | default | assets/default-cat-bags.webp | https://images.unsplash.com/photo-1630381260512-e3fe55c11973 | Unsplash License |
 | default | assets/default-cat-downloads.webp | https://images.unsplash.com/photo-1589739900869-082b93d8f224 | Unsplash License |
@@ -80,6 +82,13 @@ They are not part of a template and are never added to a creator's website.
 | merch | assets/merch-gram-2.webp | https://images.unsplash.com/photo-1789110854262-ec66f0648ec7 | Unsplash License |
 | merch | assets/merch-gram-3.webp | https://images.unsplash.com/photo-1583195763986-0231686dcd43 | Unsplash License |
 | merch | assets/merch-gram-4.webp | https://images.unsplash.com/photo-1590750093844-bc3ae9e48f9c | Unsplash License |
+| merch | assets/merch-about-workshop.webp | https://images.unsplash.com/photo-1640875129780-8bf56b672594 | Unsplash License |
+| merch | assets/merch-about-cut.webp | https://images.unsplash.com/photo-1718184021018-d2158af6b321 | Unsplash License |
+| merch | assets/merch-about-sew.webp | https://images.unsplash.com/photo-1497997092403-f091fcf5b6c4 | Unsplash License |
+| merch | assets/merch-about-stack.webp | https://images.unsplash.com/photo-1548768041-2fceab4c0b85 | Unsplash License |
+| merch (blog posts) | scripts/theme-templates/products/merch/merch-post-cones.webp | https://images.unsplash.com/photo-1746737198845-e1e74bea786e, turned black and white | Unsplash License |
+| merch (blog posts) | scripts/theme-templates/products/merch/merch-post-sewing.webp | https://images.unsplash.com/photo-1745095034955-1019067b7ce4 | Unsplash License |
+| merch (blog posts) | scripts/theme-templates/products/merch/merch-post-rail.webp | https://images.unsplash.com/photo-1567695753993-196ad109ae8b | Unsplash License |
 | merch (cover only) | scripts/theme-templates/products/merch/merch-hoodie-black.webp | https://images.unsplash.com/photo-1590759483822-b2fee5aa6bd3 (cropped, background evened to one grey) | Unsplash License |
 | merch (cover only) | scripts/theme-templates/products/merch/merch-trackpant-grey.webp | https://images.unsplash.com/photo-1789110854262-ec66f0648ec7 (cropped, background evened to one grey) | Unsplash License |
 | merch (cover only) | scripts/theme-templates/products/merch/merch-tee-oversized-white.webp | https://images.unsplash.com/photo-1789110854086-fd55cb767e94 (cropped, background evened to one grey) | Unsplash License |
@@ -151,6 +160,7 @@ They are not part of a template and are never added to a creator's website.
 | ebooks | assets/ebooks-pasture-fog.webp | https://images.unsplash.com/photo-1527928407206-c0a98085a5ec | Unsplash License |
 | ebooks | assets/ebooks-eggs.webp | https://images.unsplash.com/photo-1498654077810-12c21d4d6dc3 | Unsplash License |
 | ebooks | assets/ebooks-stockpot.webp | https://images.unsplash.com/photo-1572171579626-e79450374587 | Unsplash License |
+| ebooks | assets/ebooks-kitchen.webp, assets/ebooks-kitchen-phone.webp | https://images.unsplash.com/photo-1580929753603-10519c6e480a (Janko Ferlič), pots on a gas stove; the About page hero | Unsplash License |
 | ebooks | assets/ebooks-sourdough.webp | https://images.unsplash.com/photo-1767065888377-e5ffb4e39645 | Unsplash License |
 | ebooks | assets/ebooks-library.webp | Drawn for this template | Storelib |
 | ebooks (drawn around) | assets/ebooks-library.webp | the four cover photographs below | Unsplash License |
@@ -302,9 +312,9 @@ They are not part of a template and are never added to a creator's website.
 | workspace | assets/workspace-tour-home-budget.webp | Drawn for this template | Storelib |
 | workspace | assets/workspace-tour-habit-tracker.webp | Drawn for this template | Storelib |
 | workspace | assets/workspace-tour-study-planner.webp | Drawn for this template | Storelib |
-| workspace | assets/workspace-adda-avatar.webp | https://images.unsplash.com/photo-1758874384556-cc2b9dcbb6e0 | Unsplash License |
-| workspace | assets/workspace-adda-hello.webp | https://images.unsplash.com/photo-1758874384556-cc2b9dcbb6e0 | Unsplash License |
-| workspace | assets/workspace-adda-desk.webp | https://images.unsplash.com/photo-1758874384232-cfa79a5babf1 | Unsplash License |
+| workspace | assets/workspace-adda-avatar.webp | https://images.unsplash.com/photo-1783094269325-4ba186e8e01b | Unsplash License |
+| workspace | assets/workspace-adda-hello.webp | https://images.unsplash.com/photo-1768875848964-63e9073adc53 | Unsplash License |
+| workspace | assets/workspace-adda-desk.webp | https://images.unsplash.com/photo-1783094269325-4ba186e8e01b | Unsplash License |
 | workspace | assets/workspace-buyer-1.webp | https://images.unsplash.com/photo-1580489944761-15a19d654956 | Unsplash License |
 | workspace | assets/workspace-buyer-2.webp | https://images.unsplash.com/photo-1662850886700-4ec19bd30d11 | Unsplash License |
 | workspace | assets/workspace-buyer-3.webp | https://images.unsplash.com/photo-1611695434369-a8f5d76ceb7b | Unsplash License |
@@ -340,6 +350,7 @@ They are not part of a template and are never added to a creator's website.
 | posters | assets/posters-room-bed.webp | https://images.unsplash.com/photo-1714399518678-0d244ea921cb | Unsplash License |
 | posters | assets/posters-room-shelf.webp | https://images.unsplash.com/photo-1610566725828-5e945c71393d | Unsplash License |
 | posters | assets/posters-room-sofa.webp | https://images.unsplash.com/photo-1543487945-139a97f387d5 | Unsplash License |
+| posters | assets/posters-logo.webp | Drawn for this template | Storelib |
 | posters | assets/posters-band-pair.webp | Drawn for this template | Storelib |
 | posters | assets/posters-collage.webp | Drawn for this template | Storelib |
 | posters | assets/posters-cat-flowers.webp | Drawn for this template | Storelib |
@@ -563,7 +574,9 @@ Templates round 22. Lifestyle photographs are Unsplash photographs, cropped. The
 | podshop | assets/podshop-newsletter.webp | https://images.unsplash.com/photo-1758523672869-73fe82e25585 | Unsplash License |
 | podshop | assets/podshop-about-hands.webp | https://images.unsplash.com/photo-1456456496250-d5e7c0a9b44d | Unsplash License |
 | podshop | assets/podshop-about-press.webp | https://images.unsplash.com/photo-1773525912476-213bff96b8a4 | Unsplash License |
+| podshop | assets/podshop-about-hero.webp, assets/podshop-about-hero-phone.webp | https://images.unsplash.com/photo-1663433567177-9f94be0bff4c (Anthony Roberts), a printer pulling ink across a screen; the Our story hero | Unsplash License |
 | podshop | assets/podshop-logo.webp | Drawn for this template | Storelib |
+| podshop | assets/podshop-logo-white.webp | Drawn for this template (the logo in white, for the footer) | Storelib |
 | podshop | assets/podshop-mark.webp | Drawn for this template | Storelib |
 | podshop | assets/podshop-panel.webp | Drawn for this template | Storelib |
 | podshop (sample products) | scripts/theme-templates/products/podshop/podshop-rivercity-tee-black.webp | https://images.unsplash.com/photo-1651761179569-4ba2aa054997 (cut out, recoloured black, print drawn on) | Unsplash License |

@@ -1,4 +1,4 @@
-<script src="{{ 'live-page-popups.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-page-popups.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-page-popups-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%}
   Materia Themes. Promotion Popup Discount: an eyebrow, a headline, a line
@@ -14,7 +14,7 @@
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign fb_accessibility_code_emailed_success = 'accessibility.code_emailed_success' | t
   assign fb_accessibility_get_my_code = 'accessibility.get_my_code' | t
   assign fb_accessibility_enter_your_email = 'accessibility.enter_your_email' | t
@@ -245,8 +245,9 @@
           <div class="pbp-newsletter" data-pg-block="{{ block_newsletter.id }}" data-pg-type="newsletter"{% if request.design_mode %} data-pg-settings="{{ nb | json | escape }}"{% endif %} data-pg-i18n='{"placeholder":{{ fb_accessibility_enter_your_email | json | escape }},"submit":{{ fb_accessibility_get_my_code | json | escape }},"success":{{ fb_accessibility_code_emailed_success | json | escape }}}'
                style="--pbp-nl-input-bg: {% render 'scheme-color', color: n_ib, fallback: 'var(--input-bg)' %}; --pbp-nl-input-text: {% render 'scheme-color', color: n_it, fallback: 'var(--input-color)' %}; --pbp-nl-input-border: {% render 'scheme-color', color: n_ibd, fallback: 'var(--color-border)' %};{% if nb.enable_custom_style == true %} --mt-select-bg: {% render 'scheme-color', color: n_ib, fallback: 'var(--input-bg)' %}; --mt-select-text: {% render 'scheme-color', color: n_it, fallback: 'var(--input-color)' %}; --mt-select-border: {% render 'scheme-color', color: n_ibd, fallback: 'var(--color-border)' %};{% endif %}"
                {{ block_newsletter.shopify_attributes }}>
-            <form id="{{ pbp_nl_form_id }}" class="{{ pbp_nl_form_class }}" data-storelib-form="subscribe">
-              <input class="pbp-nl-email" type="email" name="email" autocomplete="email" required aria-label="{{ pbp_ph | escape }}" placeholder="{{ pbp_ph | escape }}">
+            {%- form 'customer', id: pbp_nl_form_id, class: pbp_nl_form_class, data-storelib-form: 'subscribe' -%}
+              <input type="hidden" name="contact[tags]" value="newsletter"><input type="hidden" name="contact[accepts_marketing]" value="true">
+              <input class="pbp-nl-email" type="email" name="contact[email]" autocomplete="email" required aria-label="{{ pbp_ph | escape }}" placeholder="{{ pbp_ph | escape }}">
               {%- render 'cpnb-phone-field',
                   scope: sid,
                   default_country: nb.phone_default_country,
@@ -254,8 +255,14 @@
                   required: pbp_phone_req,
                   off: pbp_phone_off -%}
               <button class="pbp-nl-submit btn-primary" type="submit" data-theme-button="primary" data-sl-button style="{%- render 'button-overrides', bg: n_sb, text: n_st, hover_bg: n_sbh, hover_text: n_sth -%}">{{ nb.button_label | default: fb_accessibility_get_my_code }}</button>
-              <p class="pbp-nl-success" data-storelib-success hidden>{{ nb.success_text | default: fb_accessibility_code_emailed_success }}</p>
-            </form>
+              <p class="pbp-nl-success" role="status" data-storelib-success{% unless form.posted_successfully? %} hidden{% endunless %}>{{ nb.success_text | default: fb_accessibility_code_emailed_success }}</p>
+              {%- if form.errors -%}
+                {%- capture pbp_err -%}{%- for field in form.errors -%}{{ form.errors.translated_fields[field] }} {{ form.errors.messages[field] }} {% endfor -%}{%- endcapture -%}
+                <p class="pbp-nl-error" role="alert" data-mt-form-errors="{{ pbp_err | strip | escape }}">{{ 'newsletter.error' | t }}</p>
+              {%- elsif form.posted_successfully? -%}
+                <span hidden data-mt-form-posted></span>
+              {%- endif -%}
+            {%- endform -%}
           </div>
         {%- endif -%}
       </div>
@@ -375,6 +382,8 @@
     #shopify-section-{{ sid }} .pbp-newsletter .pbp-nl-email:focus-visible { border-color: var(--color-heading); box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-heading) 25%, transparent); }
     #shopify-section-{{ sid }} .pbp-newsletter .pbp-nl-submit { width: 100%; }
     #shopify-section-{{ sid }} .pbp-newsletter .pbp-nl-success { margin: 0; color: #1c8d3a; font-size: 14px; }
+    #shopify-section-{{ sid }} .pbp-newsletter .pbp-nl-error { margin: 0; font-size: 14px; line-height: 1.45; color: color-mix(in srgb, #d92d20 72%, var(--color-text)); }
+    #shopify-section-{{ sid }} .pbp-newsletter .pbp-nl-error[hidden] { display: none; }
 
     /* The button and the signup button are theme buttons
        (theme-button-contract.css); a block's own colours, and its shape with
@@ -451,6 +460,18 @@
         if (codeBtn) codeBtn.addEventListener('click', copyCode);
         if (copyBtn) copyBtn.addEventListener('click', copyCode);
 
+        // The form is posted the ordinary way (the platform's CAPTCHA needs it). The platform marks every
+        // customer form on the page as posted, so the result shows only when the page came back
+        // on this form's #id; a popup reopens on it.
+        var back = form && !P.design && P.posted ? P.posted(form) : '';
+        if (form && !P.design) {
+          var okEl = form.querySelector('[data-storelib-success]');
+          var errEl = form.querySelector('[data-mt-form-errors]');
+          if (okEl) okEl.hidden = back !== 'ok';
+          if (errEl) errEl.hidden = back !== 'error';
+          if (back === 'ok') form.setAttribute('data-state', 'done');
+        }
+
         if (!root.classList.contains('promo-banner-pro--as-popup')) return;   // drawn inline, not as a popup
         var CFG = JSON.parse(root.getAttribute('data-popup-config') || '{}');
         api = P.register({
@@ -462,6 +483,8 @@
         if (form) new MutationObserver(function(){
           if (form.getAttribute('data-state') === 'done' && api) api.done(365);
         }).observe(form, { attributes: true, attributeFilter: ['data-state'] });
+        if (back) api.show();
+        if (back === 'ok') api.done(365);
         window['PBP_open_' + SID] = function(){ api.show(); };
         window['PBP_close_' + SID] = function(){ api.hide(); };
       }
@@ -476,7 +499,7 @@
 {
   "name": "Promotion Popup Discount",
   "tag": "section",
-  "class": "promo-banner-pro-wrapper",
+  "class": "promo-banner-pro-wrapper s-tt has-popup",
   "enabled_on": {
     "groups": [
       "custom.overlay"
@@ -491,7 +514,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "header",

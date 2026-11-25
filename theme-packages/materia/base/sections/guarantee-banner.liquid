@@ -1,7 +1,7 @@
-<script src="{{ 'live-r7-features.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-r7-features.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
@@ -103,7 +103,7 @@
       {%- unless seal_empty and request.design_mode != true -%}
         <div class="gbn__seal" data-r7e-seal{% if seal_empty %} hidden{% endif %}>
           {%- if st.image != blank or request.design_mode -%}
-            <img class="gbn__seal-img" data-r7e-i="image"{% if st.image != blank %} src="{{ st.image | image_url: width: 240 }}" width="{{ st.image.width | default: 240 }}" height="{{ st.image.height | default: 240 }}"{% else %} hidden{% endif %} alt="{{ st.image_alt | default: st.image.alt | escape }}" loading="lazy" decoding="async">
+            <img class="gbn__seal-img" data-r7e-i="image"{% if st.image != blank %} src="{{ st.image | image_url: width: 240 }}"{% else %} hidden{% endif %} width="{{ st.image.width | default: 240 }}" height="{{ st.image.height | default: 240 }}" alt="{{ st.image_alt | default: st.image.alt | escape }}" loading="lazy" decoding="async">
           {%- endif -%}
           {%- if st.image == blank or request.design_mode -%}
             <span class="gbn__icon" data-r7e-icon="{{ icon }}" aria-hidden="true"{% if st.image != blank or icon == 'none' %} hidden{% endif %}>{%- if icon != 'none' -%}{%- render 'guarantee-icon', icon: icon, stroke: 1.5 -%}{%- endif -%}</span>
@@ -134,7 +134,8 @@
   </div>
 </div>{% schema %}
 {
-  "name": "Guarantee Banner",
+  "class": "s-tt",
+"name": "Guarantee Banner",
   "settings": [
     {
       "type": "header",
@@ -144,7 +145,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Colour scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -820,7 +821,7 @@
   "presets": [
     {
       "name": "Guarantee Banner",
-      "category": "Features",
+      "category": "05 · Benefits & features",
       "blocks": [
         {
           "type": "heading",

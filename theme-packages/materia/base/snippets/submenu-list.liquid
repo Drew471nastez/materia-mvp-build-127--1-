@@ -1,10 +1,16 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. Developed By Materia Themes.
   A dropdown's links (menu_type: 'dropdown') or a mega menu's columns: each
   child link with links of its own is a column title over its list. Titles
   and badges go through snippets/menu-link-title, so a [hot] or [new] tag in
   Navigation shows the header's Menu badges pill and never the tag itself.
-{%- endcomment -%}
+
+  @param {object} link - Menu link
+  @param {string} [menu_type] - Menu type
+
+  @example
+  {% render 'submenu-list', link: link, only_for_domain: only_for_domain_match %}
+{%- enddoc -%}
 {%- liquid
   assign section_st = section.settings
   assign menu_type = menu_type

@@ -1,6 +1,6 @@
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 <style data-rs-bulletproof>
   {%- if section.settings.reset_spacing -%}
@@ -108,7 +108,7 @@
 {%- liquid
   assign section_st = section.settings
   assign section_width = section_st.section_width
-  assign color_scheme = section_st.color_scheme.id | default: section_st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section_st.color_scheme.id | default: section_st.color_scheme | default: 'default'
   assign header_size = ''
   if section_st.header_size == 'small'
     assign header_size = 'h3'
@@ -201,9 +201,11 @@
     </div>
   </div>
 </div>
+
 {% schema %}
 {
-  "name": "Google map",
+  "class": "s-tt",
+"name": "Google map",
   "tag": "section",
   "disabled_on": {
     "groups": [
@@ -221,7 +223,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -262,7 +264,6 @@
       "id": "heading",
       "default": "Google map",
       "label": "Heading",
-      "hidden": true,
       "info": "Legacy: used only when the section has no heading block",
       "visible_if": "{{ false }}"
     },
@@ -270,7 +271,6 @@
       "type": "richtext",
       "id": "description",
       "label": "Description",
-      "hidden": true,
       "info": "Legacy: used only when the section has no subheading block",
       "visible_if": "{{ false }}"
     },
@@ -464,8 +464,8 @@
   ],
   "presets": [
     {
-      "name": "Google map",
-      "category": "Contact",
+      "name": "Map",
+      "category": "15 · Newsletter & contact",
       "blocks": [
         {
           "type": "heading"
@@ -493,7 +493,6 @@
           "id": "tag",
           "label": "HTML tag",
           "default": "h2",
-          "hidden": true,
           "info": "Legacy: the heading is always an h2 (the hero holds the page's h1).",
           "options": [
             {
@@ -613,8 +612,8 @@
           "label": "Line height",
           "min": 0.9,
           "max": 2,
-          "step": 0.05,
-          "default": 1.15,
+          "step": 0.1,
+          "default": 1.1,
           "visible_if": "{{ block.settings.size_enable }}"
         },
         {
@@ -732,7 +731,7 @@
           "label": "Line height",
           "min": 1,
           "max": 2,
-          "step": 0.05,
+          "step": 0.1,
           "default": 1.5,
           "visible_if": "{{ block.settings.size_enable }}"
         }

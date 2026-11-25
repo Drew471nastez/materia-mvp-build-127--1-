@@ -1,3 +1,11 @@
+{% doc %}
+  CSS custom properties of an offer picker from its style controls.
+
+  @param {object} controls - Settings object that holds the style controls
+
+  @example
+  {% render 'offer-control-vars', controls: bs %}
+{% enddoc -%}
 {%- if controls.custom_style -%}
 --offer-picker-height: {{ controls.custom_picker_height | default: 40 }}px;
 --offer-picker-radius: {{ controls.custom_picker_radius | default: 6 }}px;

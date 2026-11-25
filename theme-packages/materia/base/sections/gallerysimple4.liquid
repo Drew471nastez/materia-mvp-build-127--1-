@@ -1,7 +1,7 @@
-<script src="{{ 'media-live-galleries-b.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'media-live-galleries-b.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
@@ -28,7 +28,10 @@
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Cg fill=%22%23808080%22 fill-opacity=%220.45%22%3E%3Ccircle cx=%22172%22 cy=%22124%22 r=%2214%22/%3E%3Cpath d=%22M140 192l40-46 25 28 20-18 35 36z%22/%3E%3C/g%3E%3C/svg%3E'
+  capture placeholder
+    render 'placeholder-image', type: 'collection-1', scheme: color_scheme, ratio: '4/3', format: 'url'
+  endcapture
+  assign placeholder = placeholder | strip
   assign heading_block = section.blocks | where: 'type', 'heading' | first
   assign subheading_block = section.blocks | where: 'type', 'subheading' | first
   assign hb = heading_block.settings
@@ -93,7 +96,7 @@
   #shopify-section-{{ sid }} .gs4__item { position: relative; height: var(--gs4-h); overflow: hidden; background: color-mix(in srgb, var(--color-text) 8%, var(--gs4-bg)); }
   #shopify-section-{{ sid }} .gs4__item :is(a, img) { display: block; width: 100%; height: 100%; }
   #shopify-section-{{ sid }} .gs4__item img { object-fit: cover; margin: 0; }
-  #shopify-section-{{ sid }} .gs4__item img[data-mgb-placeholder] { object-fit: contain; }
+  #shopify-section-{{ sid }} .gs4__item img[data-mgb-placeholder] { object-fit: cover; }
   #shopify-section-{{ sid }} .gs4__item a:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -4px; }
   {%- for block in section.blocks %}
     {%- if block.type == 'heading' or block.type == 'subheading' %}
@@ -108,14 +111,14 @@
     {%- endif %}
   {%- endfor %}
 </style>
-<div class="gs4 body-parent-{{ sid }} color-{{ color_scheme }} gradient" data-mgb="gallerysimple4" data-mgb-section="{{ sid }}" data-mgb-reset="{{ st.reset_spacing }}" data-mgb-placeholder-src="{{ placeholder }}" data-mgb-settings="{{ st | json | escape }}" data-mgb-defaults="{&quot;color_scheme&quot;:&quot;default-color-scheme&quot;,&quot;reset_spacing&quot;:true,&quot;section_width_desktop&quot;:1200,&quot;grid_desktop&quot;:4,&quot;image_height&quot;:300,&quot;image_gap&quot;:7,&quot;heading_sub_gap&quot;:40,&quot;sub_section_gap&quot;:19,&quot;enable_custom_style&quot;:false,&quot;enable_custom_fonts&quot;:false,&quot;heading_font&quot;:&quot;assistant_n4&quot;,&quot;body_font&quot;:&quot;assistant_n4&quot;,&quot;padding_top_desktop&quot;:30,&quot;padding_bottom_desktop&quot;:30,&quot;padding_left_desktop&quot;:0,&quot;padding_right_desktop&quot;:0,&quot;header_padding_top_desktop&quot;:20,&quot;header_padding_bottom_desktop&quot;:20,&quot;header_padding_left_desktop&quot;:20,&quot;header_padding_right_desktop&quot;:20,&quot;section_width_mobile&quot;:360,&quot;grid_mobile&quot;:2,&quot;image_height_mobile&quot;:200,&quot;padding_top_mobile&quot;:30,&quot;padding_bottom_mobile&quot;:30,&quot;padding_left_mobile&quot;:21,&quot;padding_right_mobile&quot;:21,&quot;header_padding_top_mobile&quot;:20,&quot;header_padding_bottom_mobile&quot;:20,&quot;header_padding_left_mobile&quot;:20,&quot;header_padding_right_mobile&quot;:20}" data-mgb-block-defaults="{&quot;heading&quot;:{&quot;text&quot;:&quot;Gallery&quot;,&quot;enable_custom_style&quot;:false,&quot;font_size_desktop&quot;:36,&quot;font_size_mobile&quot;:28,&quot;font_weight&quot;:&quot;inherit&quot;},&quot;subheading&quot;:{&quot;text&quot;:&quot;&lt;p&gt;Discover our collection&lt;/p&gt;&quot;,&quot;enable_custom_style&quot;:false,&quot;font_size_desktop&quot;:18,&quot;font_size_mobile&quot;:16,&quot;font_weight&quot;:&quot;inherit&quot;},&quot;gallery_item&quot;:{&quot;enable_link&quot;:false}}">
+<div class="gs4 body-parent-{{ sid }} color-{{ color_scheme }} gradient" data-mgb="gallerysimple4" data-mgb-section="{{ sid }}" data-mgb-reset="{{ st.reset_spacing }}" data-mgb-placeholder-src="{{ placeholder }}" {% if request.design_mode %}data-mgb-settings="{{ st | json | escape }}"{% endif %} {% if request.design_mode %}data-mgb-defaults="{&quot;color_scheme&quot;:&quot;default&quot;,&quot;reset_spacing&quot;:true,&quot;section_width_desktop&quot;:1200,&quot;grid_desktop&quot;:4,&quot;image_height&quot;:300,&quot;image_gap&quot;:7,&quot;heading_sub_gap&quot;:40,&quot;sub_section_gap&quot;:19,&quot;enable_custom_style&quot;:false,&quot;enable_custom_fonts&quot;:false,&quot;heading_font&quot;:&quot;assistant_n4&quot;,&quot;body_font&quot;:&quot;assistant_n4&quot;,&quot;padding_top_desktop&quot;:30,&quot;padding_bottom_desktop&quot;:30,&quot;padding_left_desktop&quot;:0,&quot;padding_right_desktop&quot;:0,&quot;header_padding_top_desktop&quot;:20,&quot;header_padding_bottom_desktop&quot;:20,&quot;header_padding_left_desktop&quot;:20,&quot;header_padding_right_desktop&quot;:20,&quot;section_width_mobile&quot;:360,&quot;grid_mobile&quot;:2,&quot;image_height_mobile&quot;:200,&quot;padding_top_mobile&quot;:30,&quot;padding_bottom_mobile&quot;:30,&quot;padding_left_mobile&quot;:21,&quot;padding_right_mobile&quot;:21,&quot;header_padding_top_mobile&quot;:20,&quot;header_padding_bottom_mobile&quot;:20,&quot;header_padding_left_mobile&quot;:20,&quot;header_padding_right_mobile&quot;:20}"{% endif %} {% if request.design_mode %}data-mgb-block-defaults="{&quot;heading&quot;:{&quot;text&quot;:&quot;Gallery&quot;,&quot;enable_custom_style&quot;:false,&quot;font_size_desktop&quot;:36,&quot;font_size_mobile&quot;:28,&quot;font_weight&quot;:&quot;inherit&quot;},&quot;subheading&quot;:{&quot;text&quot;:&quot;&lt;p&gt;Discover our collection&lt;/p&gt;&quot;,&quot;enable_custom_style&quot;:false,&quot;font_size_desktop&quot;:18,&quot;font_size_mobile&quot;:16,&quot;font_weight&quot;:&quot;inherit&quot;},&quot;gallery_item&quot;:{&quot;enable_link&quot;:false}}"{% endif %}>
   <section class="gs4__inner gallery-{{ sid }}">
     <div class="gs4__header gallery-header-{{ sid }}">
       {%- if heading_block -%}
-        <h2 class="gs4__heading gallery-heading-{{ sid }}" data-mgb-block="{{ heading_block.id }}" data-mgb-type="heading" data-mgb-settings="{{ hb | json | escape }}"{% if st.enable_custom_fonts %} data-own-font{% endif %}{% unless hb.font_weight == blank or hb.font_weight == 'inherit' %} data-own-weight{% endunless %} {{ heading_block.shopify_attributes }}{% if hb.text == blank %} hidden{% endif %}>{{ hb.text }}</h2>
+        <h2 class="gs4__heading gallery-heading-{{ sid }}" data-mgb-block="{{ heading_block.id }}" data-mgb-type="heading" {% if request.design_mode %}data-mgb-settings="{{ hb | json | escape }}"{% endif %}{% if st.enable_custom_fonts %} data-own-font{% endif %}{% unless hb.font_weight == blank or hb.font_weight == 'inherit' %} data-own-weight{% endunless %} {{ heading_block.shopify_attributes }}{% if hb.text == blank %} hidden{% endif %}>{{ hb.text }}</h2>
       {%- endif -%}
       {%- if subheading_block -%}
-        <div class="gs4__sub gallery-subheading-{{ sid }}" data-mgb-block="{{ subheading_block.id }}" data-mgb-type="subheading" data-mgb-settings="{{ sb | json | escape }}"{% if st.enable_custom_fonts %} data-own-font{% endif %}{% unless sb.font_weight == blank or sb.font_weight == 'inherit' %} data-own-weight{% endunless %} {{ subheading_block.shopify_attributes }}{% if sb.text == blank %} hidden{% endif %}>{{ sb.text }}</div>
+        <div class="gs4__sub gallery-subheading-{{ sid }}" data-mgb-block="{{ subheading_block.id }}" data-mgb-type="subheading" {% if request.design_mode %}data-mgb-settings="{{ sb | json | escape }}"{% endif %}{% if st.enable_custom_fonts %} data-own-font{% endif %}{% unless sb.font_weight == blank or sb.font_weight == 'inherit' %} data-own-weight{% endunless %} {{ subheading_block.shopify_attributes }}{% if sb.text == blank %} hidden{% endif %}>{{ sb.text }}</div>
       {%- endif -%}
     </div>
     <div class="gs4__grid gallery-row-{{ sid }}">
@@ -123,17 +126,17 @@
         {%- if block.type == 'gallery_item' -%}
           {%- liquid
             assign b = block.settings
-            assign item_link = b.link_url | url
+            assign item_link = b.link_url
             assign item_alt = b.image_alt | default: b.image.alt
           -%}
-          <div class="gs4__item gallery-item-{{ sid }}" data-mgb-block="{{ block.id }}" data-mgb-type="gallery_item" data-mgb-settings="{{ b | json | escape }}" {{ block.shopify_attributes }}>
+          <div class="gs4__item gallery-item-{{ sid }}" data-mgb-block="{{ block.id }}" data-mgb-type="gallery_item" {% if request.design_mode %}data-mgb-settings="{{ b | json | escape }}"{% endif %} {{ block.shopify_attributes }}>
             {%- if b.enable_link and item_link != blank -%}<a class="gs4__link gallery-link-{{ sid }}" href="{{ item_link }}" aria-label="{{ item_alt | default: 'Open image link' | escape }}">{%- endif -%}
             {%- if b.image != blank -%}
               <img src="{{ b.image | image_url: width: 1200 }}" srcset="{{ b.image | image_url: width: 600 }} 600w, {{ b.image | image_url: width: 1200 }} 1200w" sizes="(min-width: 768px) 25vw, 50vw" width="{{ b.image.width | default: 1200 }}" height="{{ b.image.height | default: 900 }}" alt="{{ item_alt | escape }}" loading="lazy" decoding="async">
             {%- elsif b.image_url != blank -%}
               <img src="{{ b.image_url }}" width="1200" height="900" alt="{{ item_alt | escape }}" loading="lazy" decoding="async">
             {%- else -%}
-              <img src="{{ placeholder }}" data-mgb-placeholder width="400" height="300" alt="{{ item_alt | escape }}" loading="lazy" decoding="async">
+              <img src="{%- render 'placeholder-image', type: 'collection', index: forloop.index, scheme: color_scheme, ratio: '4/3', format: 'url' -%}" data-mgb-placeholder width="400" height="300" alt="{{ item_alt | escape }}" loading="lazy" decoding="async">
             {%- endif -%}
             {%- if b.enable_link and item_link != blank -%}</a>{%- endif -%}
           </div>
@@ -143,7 +146,8 @@
   </section>
 </div>{% schema %}
 {
-  "name": "Gallery Simple 4",
+  "class": "s-tt",
+"name": "Gallery Simple 4",
   "settings": [
     {
       "type": "header",
@@ -153,7 +157,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "checkbox",
@@ -692,7 +696,6 @@
           "type": "url",
           "id": "image_url",
           "label": "Image address (legacy)",
-          "hidden": true,
           "info": "Kept for saved sections. Choose an image above instead.",
           "visible_if": "{{ false }}"
         },
@@ -713,8 +716,8 @@
   ],
   "presets": [
     {
-      "name": "Gallery Simple 4",
-      "category": "Image and video",
+      "name": "Gallery – Image Row",
+      "category": "06 · Gallery & video",
       "blocks": [
         {
           "type": "heading",

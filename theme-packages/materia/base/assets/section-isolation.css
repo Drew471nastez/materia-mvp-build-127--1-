@@ -25,37 +25,13 @@
 }
 
 /* Fixed-position widgets (announcement bars, popups, cookie banners,
-   back-to-top buttons) need to escape containment, so they're auto-excluded
-   from `contain` via :has(), by class or role only. The old
-   `:has([style*="position: fixed"])` tests were re-matched on every inline
-   style write in a section (each Swiper frame, every animated transform) and
-   never matched anything lasting: the pinned announcement bar sets position
-   on the section itself, which :has() cannot see. A section that pins a child
-   with an inline style opts out with data-no-contain or .has-overlay. */
-@supports selector(:has(*)) {
-  .shopify-section:has(.LoudzCookieBanner),
-  .shopify-section:has(.LoudzBackToTop),
-  .shopify-section:has(.LoudzPromotionalPopup),
-  .shopify-section:has(.LoudzAnnouncementBar),
-  .shopify-section:has([class*="popup"]),
-  .shopify-section:has([class*="Popup"]),
-  .shopify-section:has([class*="back-to-top"]),
-  .shopify-section:has([class*="announcement"]),
-  .shopify-section:has(.cookie-bar),
-  .shopify-section:has(.scrolling-marquee-1),
-  .shopify-section:has([class*="promobanner-"]),
-  .shopify-section:has(.loudz__popup),
-  .shopify-section:has(.loudz__overlay),
-  .shopify-section:has([class*="modal"]),
-  .shopify-section:has([role="dialog"]),
-  .shopify-section:has(dialog) {
-    contain: none !important;
-    isolation: auto !important;
-    overflow: visible !important;
-  }
-}
-
-/* Fallback for browsers without :has() — scope by section ID class hooks */
+   back-to-top buttons, marquees, sections holding a dialog) escape
+   containment through a class in their own schema ("class": "... has-overlay",
+   or has-popup for popups, which also stay visible below). They used to be
+   found with :has() substring tests ([class*="popup"], [class*="modal"], ...)
+   on every section: Chrome re-checked them on every class change anywhere in
+   a section (each reveal finishing, each slider step), restyling the page. */
+/* Sections that opt out of containment (schema class, see above) */
 .shopify-section[data-section-type="popup"],
 .shopify-section.has-popup,
 .shopify-section.has-overlay {
@@ -65,9 +41,7 @@
 }
 
 /* Popups must always be visible — counteract the reveal-on-scroll utility */
-.shopify-section:has(.loudz__popup),
-.shopify-section:has([class*="promobanner-"]),
-.shopify-section:has([class*="popup"]) {
+.shopify-section.has-popup {
   opacity: 1 !important;
   transform: none !important;
 }

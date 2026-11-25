@@ -1,4 +1,4 @@
-<script src="{{ 'live-features-a.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-features-a.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-features-a-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%} Runtime, once per page (the CSS and hero-image-one.js from layout/theme.storelib, every other script from the tags at the top of this file): shopify/assets/live-features-a.js. {%- endcomment -%}
 {%- comment -%}
@@ -14,7 +14,7 @@
 {%- endcomment -%}
 {%- liquid
   assign st = section.settings
-  assign scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign own = st.enable_custom_style
   assign icon_names = 'truck,shipping,shield,lock,heart,star,check,headphones,envelope,chat,tag,gift,globe,leaf,award,clock,card,wallet,lightning,recycle,sparkle,box,refresh,user,calendar,handshake,gem,organic,fire,crown' | split: ','
   case st.image_shadow
@@ -73,7 +73,7 @@
   :is(#_, .pbp) .pbp__desc { margin: 0; font-size: var(--pbp-desc-size); line-height: 1.55; color: var(--pbp-desc); max-width: 36ch; }
   :is(#_, .pbp) .pbp__media { position: relative; width: 100%; max-width: 340px; margin-inline: auto; aspect-ratio: 5 / 6; border-radius: var(--pbp-radius); box-shadow: var(--pbp-shadow); overflow: hidden; transition: transform .3s ease, opacity .3s ease; }
   :is(#_, .pbp) .pbp__media :is(img, video, svg) { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .3s ease; }
-  :is(#_, .pbp) .pbp__media .pbp__ph { background: color-mix(in srgb, var(--color-heading) 6%, transparent); color: color-mix(in srgb, var(--color-heading) 35%, transparent); }
+  :is(#_, .pbp) .pbp__media .pbp__ph { display: block; }
   :is(#_, .pbp[data-hover="fade-in"]) .pbp__media:hover { opacity: .8; }
   :is(#_, .pbp[data-hover="zoom-in"]) .pbp__media:hover :is(img, video, svg) { transform: scale(1.1); }
   :is(#_, .pbp[data-hover="scale-in"]) .pbp__media:hover { transform: scale(1.04); }
@@ -94,7 +94,7 @@
   {% render 'features-a-root', section: section, part: 'attrs', type: 'benefits2', width: st.section_width %}
   data-hover="{{ st.image_hover_animation | default: 'none' }}"
   style="{% render 'features-a-root', section: section, part: 'vars', bg: st.section_bg, pt_m: st.padding_top_mobile, pb_m: st.padding_bottom_mobile, pt_d: st.padding_top_desktop, pb_d: st.padding_bottom_desktop %}--pbp-radius: {{ st.image_border_radius | default: 0 }}px;--pbp-shadow: {{ shadow }};--pbp-title-size: {{ st.feature_title_font_size | default: 20 }}px;--pbp-desc-size: {{ st.feature_description_font_size | default: 14 }}px;--pbp-title-w: {{ tw }};--pbp-title: {% if own %}{% render 'scheme-color', color: st.feature_title_color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %};--pbp-desc: {% if own %}{% render 'scheme-color', color: st.feature_description_color, fallback: 'var(--color-text)' %}{% else %}var(--color-text){% endif %};">
-  {%- if request.design_mode -%}{%- for n in icon_names -%}<template data-fa-icon="{{ n }}">{% render 'benefits-icon', icon: n, size: 24 %}</template>{%- endfor -%}<template data-fa-icon="__media"><svg class="pbp__ph" viewBox="0 0 500 600" aria-hidden="true" focusable="false"><g fill="currentColor"><circle cx="215" cy="260" r="22"/><path d="M160 360l60-70 38 42 30-27 52 55z"/></g></svg></template>{%- endif -%}
+  {%- if request.design_mode -%}{%- for n in icon_names -%}<template data-fa-icon="{{ n }}">{% render 'benefits-icon', icon: n, size: 24 %}</template>{%- endfor -%}<template data-fa-icon="__media">{%- render 'placeholder-image', type: 'product-5', class: 'pbp__ph' -%}</template>{%- endif -%}
   <div class="pbp__inner fa-inner">
     <div class="pbp__grid">
       {%- for side in (1..2) -%}
@@ -121,7 +121,7 @@
             {%- elsif st.center_image != blank -%}
               <img src="{{ st.center_image | image_url: width: 1000 }}" alt="{{ st.center_image.alt | escape }}" width="500" height="600" loading="lazy" decoding="async">
             {%- else -%}
-              <svg class="pbp__ph" viewBox="0 0 500 600" aria-hidden="true" focusable="false"><g fill="currentColor"><circle cx="215" cy="260" r="22"/><path d="M160 360l60-70 38 42 30-27 52 55z"/></g></svg>
+              {%- render 'placeholder-image', type: 'product-5', class: 'pbp__ph' -%}
             {%- endif -%}
           </div>
         {%- endif -%}
@@ -130,7 +130,8 @@
   </div>
 </section>{% schema %}
 {
-  "name": "Product Benefits Pro",
+  "class": "s-tt",
+"name": "Product Benefits Pro",
   "settings": [
     {
       "type": "header",
@@ -140,7 +141,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -311,14 +312,14 @@
       "type": "font_picker",
       "id": "heading_font",
       "label": "Title font",
-      "default": "helvetica_n4",
+      "default": "assistant_n4",
       "visible_if": "{{ section.settings.enable_custom_fonts }}"
     },
     {
       "type": "font_picker",
       "id": "body_font",
       "label": "Text font",
-      "default": "helvetica_n4",
+      "default": "assistant_n4",
       "visible_if": "{{ section.settings.enable_custom_fonts }}"
     },
     {
@@ -684,8 +685,8 @@
   "max_blocks": 6,
   "presets": [
     {
-      "name": "Product Benefits Pro",
-      "category": "Features",
+      "name": "Product Benefits – Around Image",
+      "category": "05 · Benefits & features",
       "blocks": [
         {
           "type": "feature",

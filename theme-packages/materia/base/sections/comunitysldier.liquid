@@ -1,9 +1,9 @@
-<script src="{{ 'live-testimonials.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-testimonials.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign custom = st.enable_custom_style
   assign fonts = st.enable_custom_fonts
   assign scroll_anim = settings.scroll_animation | default: 'none'
@@ -140,7 +140,7 @@
 {
   "name": "Community Feedback Slider",
   "tag": "section",
-  "class": "section-community-feedback-slider",
+  "class": "section-community-feedback-slider s-tt s-lt",
   "disabled_on": {
     "groups": [
       "header",
@@ -156,7 +156,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -187,7 +187,6 @@
       "id": "show_header",
       "label": "Show rating header",
       "default": true,
-      "hidden": true,
       "info": "Legacy: used only when the section has no Rating summary block. ",
       "visible_if": "{{ false }}"
     },
@@ -195,8 +194,6 @@
       "type": "text",
       "id": "overall_score",
       "label": "Score (display)",
-      "default": "",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Rating summary block. ",
       "visible_if": "{{ false }}"
     },
@@ -208,7 +205,6 @@
       "step": 1,
       "label": "Filled stars",
       "default": 0,
-      "hidden": true,
       "info": "Legacy: used only when the section has no Rating summary block. ",
       "visible_if": "{{ false }}"
     },
@@ -216,8 +212,6 @@
       "type": "text",
       "id": "review_count",
       "label": "Review count text",
-      "default": "",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Rating summary block. ",
       "visible_if": "{{ false }}"
     },
@@ -225,8 +219,6 @@
       "type": "text",
       "id": "source_note",
       "label": "Source note",
-      "default": "",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Rating summary block. ",
       "visible_if": "{{ false }}"
     },
@@ -466,21 +458,18 @@
           "id": "score",
           "type": "text",
           "label": "Score",
-          "default": "",
           "info": "A number from 0 to 5, from your own reviews. The stars fill to it. Empty: no score and no stars."
         },
         {
           "id": "count",
           "type": "text",
           "label": "Review count",
-          "default": "",
           "info": "For example how many reviews the score is based on."
         },
         {
           "id": "note",
           "type": "text",
-          "label": "Note",
-          "default": ""
+          "label": "Note"
         }
       ],
       "limit": 1
@@ -532,7 +521,7 @@
   "presets": [
     {
       "name": "Community Feedback Slider",
-      "category": "Testimonials",
+      "category": "07 · Reviews & testimonials",
       "blocks": [
         {
           "type": "heading"

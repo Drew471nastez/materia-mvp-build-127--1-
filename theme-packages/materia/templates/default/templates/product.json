@@ -204,13 +204,13 @@
             "sub_newtab": false,
             "text_align": "left",
             "h_main_size": 16,
-            "show_paypal": false,
+            "show_paypal": true,
             "sub_uline_w": 1,
             "badges_align": "auto",
             "h_main_color": "#2c2c2c",
             "text_align_m": "center",
             "toggle_icons": true,
-            "show_unionpay": true,
+            "show_unionpay": false,
             "sub_underline": false,
             "show_apple_pay": true,
             "show_google_pay": true,
@@ -435,12 +435,36 @@
         "testimonial_2",
         "testimonial_3"
       ]
+    },
+    "recently_viewed": {
+      "type": "recently-viewed",
+      "blocks": {
+        "heading_rv": {
+          "type": "heading",
+          "settings": {
+            "text": "Recently viewed"
+          }
+        }
+      },
+      "block_order": [
+        "heading_rv"
+      ],
+      "settings": {
+        "section_width": "container",
+        "products_to_show": 8,
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 20,
+        "padding_top": 40,
+        "padding_bottom": 56
+      }
     }
   },
   "order": [
     "breadcrumb",
     "main",
     "related",
+    "recently_viewed",
     "how",
     "reviews"
   ]

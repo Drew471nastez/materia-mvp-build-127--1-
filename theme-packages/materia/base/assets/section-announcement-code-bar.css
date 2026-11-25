@@ -1,0 +1,112 @@
+/* section-announcement-code-bar.css: static styles of sections/announcement-code-bar.liquid, moved out of its inline <style> so they are cached.
+   :is(.s-announcement-code-bar,#_) is the section wrapper (schema class "s-announcement-code-bar"); #_ never matches and only keeps the
+   specificity of the former #shopify-section-<id> selector. Per-section values stay inline as custom properties. */
+:is(.s-announcement-code-bar,#_) { position: relative; isolation: isolate; z-index: 5; }
+:is(.s-announcement-code-bar,#_):has(> .acb[data-reset='true']) { padding-top: 0 !important; padding-bottom: 0 !important; --section-spacing: 0px; }
+:is(.s-announcement-code-bar,#_):has(> .acb[data-reset='true']) + .shopify-section { margin-top: 0 !important; padding-top: 0 !important; }
+:is(.s-announcement-code-bar,#_) .acb, :is(.s-announcement-code-bar,#_) .acb *, :is(.s-announcement-code-bar,#_) .acb *::before, :is(.s-announcement-code-bar,#_) .acb *::after { box-sizing: border-box; }
+:is(.s-announcement-code-bar,#_) .acb [hidden] { display: none !important; }
+:is(.s-announcement-code-bar,#_) .acb {
+    display: block;
+    width: 100%;
+    margin-inline: auto;
+    background: var(--acb-bg);
+    color: var(--acb-text);
+    font-family: var(--acb-ff);
+    font-size: var(--acb-fs-m);
+    line-height: 1.4;
+    border-bottom: var(--acb-lw) solid var(--acb-line);
+    padding: var(--acb-pt-m) 0 var(--acb-pb-m);
+  }
+:is(.s-announcement-code-bar,#_) .acb[data-width='container'] { max-width: calc(var(--page-width, 1300px) + 3rem); }
+:is(.s-announcement-code-bar,#_) .acb[data-width='fluid_container'] { max-width: calc(var(--fluid-container-width, 1500px) + 3rem); }
+:is(.s-announcement-code-bar,#_) .acb[data-width='stretch_width'] { max-width: calc(100% - 3rem); }
+:is(.s-announcement-code-bar,#_) .acb__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    column-gap: 14px;
+    row-gap: 0;
+    min-height: 30px;
+    padding-inline: 16px;
+    text-align: center;
+  }
+:is(.s-announcement-code-bar,#_) .acb[data-align='left'] .acb__row { justify-content: flex-start; text-align: start; }
+:is(.s-announcement-code-bar,#_) .acb__msg { min-width: 0; color: var(--b-c, inherit); font-family: var(--b-f, inherit); overflow-wrap: anywhere; }
+:is(.s-announcement-code-bar,#_) .acb__msg :is(strong, em, a, span) { font-family: inherit; color: inherit; }
+:is(.s-announcement-code-bar,#_) .acb__msg a { text-decoration: underline; text-underline-offset: 3px; }
+/* The button is the 44px target; the chip inside is what shows. Negative block margins keep the bar slim. */
+:is(.s-announcement-code-bar,#_) .acb__code {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    margin: -7px 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+:is(.s-announcement-code-bar,#_) .acb__chip {
+    display: inline-grid;
+    grid-template-columns: auto auto;
+    align-items: center;
+    column-gap: 8px;
+    min-height: 30px;
+    padding: 3px 10px;
+    border: 1px dashed var(--acb-chip-line);
+    border-radius: var(--rounded-radius, 4px);
+    background: var(--acb-chip-bg);
+    color: var(--acb-chip-text);
+    font-weight: var(--heading-weight, 700);
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    transition: background-color 0.2s ease, transform 0.15s ease;
+  }
+:is(.s-announcement-code-bar,#_) .acb__swap { display: grid; justify-items: center; }
+:is(.s-announcement-code-bar,#_) .acb__swap > * { grid-area: 1 / 1; transition: opacity 0.2s ease; }
+:is(.s-announcement-code-bar,#_) .acb__done { opacity: 0; }
+:is(.s-announcement-code-bar,#_) .acb__icon { display: inline-flex; opacity: 0.75; }
+:is(.s-announcement-code-bar,#_) .acb__icon svg { display: block; }
+:is(.s-announcement-code-bar,#_) .acb__icon .acb__icon-done { display: none; }
+:is(.s-announcement-code-bar,#_) .acb__code[data-copied] .acb__value { opacity: 0; }
+:is(.s-announcement-code-bar,#_) .acb__code[data-copied] .acb__done { opacity: 1; }
+:is(.s-announcement-code-bar,#_) .acb__code[data-copied] .acb__icon .acb__icon-copy { display: none; }
+:is(.s-announcement-code-bar,#_) .acb__code[data-copied] .acb__icon .acb__icon-done { display: block; }
+:is(.s-announcement-code-bar,#_) .acb__code:hover .acb__chip { background: var(--acb-chip-hover); }
+:is(.s-announcement-code-bar,#_) .acb__code:active .acb__chip { transform: scale(0.97); }
+:is(.s-announcement-code-bar,#_) .acb__code:focus-visible { outline: none; }
+:is(.s-announcement-code-bar,#_) .acb__code:focus-visible .acb__chip { outline: 2px solid currentColor; outline-offset: 2px; }
+/* Builder only: the place the code goes, while none is set. */
+:is(.s-announcement-code-bar,#_) .acb__code[data-empty] { cursor: default; }
+:is(.s-announcement-code-bar,#_) .acb__code[data-empty] .acb__chip { font-weight: inherit; letter-spacing: 0; font-style: italic; opacity: 0.7; }
+:is(.s-announcement-code-bar,#_) .acb__code[data-empty] .acb__icon { display: none; }
+:is(.s-announcement-code-bar,#_) .acb__link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    margin: -7px 0;
+    color: var(--b-c, inherit);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1px;
+    white-space: nowrap;
+  }
+:is(.s-announcement-code-bar,#_) .acb__link:hover { text-decoration-thickness: 2px; }
+:is(.s-announcement-code-bar,#_) .acb__link:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+:is(.s-announcement-code-bar,#_) .acb__status { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+@media (max-width: 767px) { :is(.s-announcement-code-bar,#_) .acb[data-show='desktop'] { display: none; } }
+@media (min-width: 768px) {
+    :is(.s-announcement-code-bar,#_) .acb { font-size: var(--acb-fs-d); padding: var(--acb-pt-d) 0 var(--acb-pb-d); }
+    :is(.s-announcement-code-bar,#_) .acb[data-show='mobile'] { display: none; }
+    :is(.s-announcement-code-bar,#_) .acb__row { padding-inline: 24px; column-gap: 18px; }
+  }
+@media (prefers-reduced-motion: reduce) {
+    :is(.s-announcement-code-bar,#_) .acb__chip, :is(.s-announcement-code-bar,#_) .acb__swap > * { transition: none; }
+    :is(.s-announcement-code-bar,#_) .acb__code:active .acb__chip { transform: none; }
+  }

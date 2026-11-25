@@ -1,18 +1,23 @@
 {%- comment -%}
   Materia Themes. Developed By Materia Themes.
 {%- endcomment -%}
-{% comment %}
+{% doc %}
   Renders a collection card
 
-  Accepts:
-  - card_collection: {Object} collection Liquid object (optional)
-  - section: {String} Section (required)
-  - block: {String} block (required)
-  - class: {String} custom class (optional)
+  @param {block} [block] - block
+  @param {collection} card_collection - collection Liquid object
+  @param {string} collection_information_position - Name position
+  @param {number} [colunm] - Collections per row
+  @param {number} [colunm_mobile] - Collections per row (mobile)
+  @param {string} [container] - Section width
+  @param {string} design - Card style
+  @param {number} index - Index
+  @param {number} [padding] - Gap between collections
+  @param {section} section - Section
 
-  Usage:
-  {% render 'card-collection', section: section, block: block %}
-{% endcomment %}
+  @example
+  {% render 'collection-item', index: forloop.index, card_collection: block.settings.collection, custom_image: block.settings.collection_image, custom_title: block.settings.collection_title, section: section, block: block, collection_information_position: collection_information_position, design: design, container: section_width, colunm: items_per_row, colunm_mobile: items_per_row_mobile, padding: column_gap %}
+{% enddoc %}
 {% liquid
   assign section_st = section.settings
   assign block_st = block.settings
@@ -116,7 +121,8 @@
           %}
         {%- else -%}
           {% comment %} No picker image and no collection image — show placeholder {% endcomment %}
-          {% render 'placeholder-render', class: 'rounded' %}
+          {%- assign ci_ph_index = index | default: card_collection.id | default: 1 -%}
+          {% render 'placeholder-render', class: 'rounded', type: 'collection', index: ci_ph_index %}
         {%- endif -%}
       </a>
     </div>
@@ -134,7 +140,7 @@
       {% endif %}
       <a
         aria-label="{{ card_collection.title }}"
-        class="collection-item__name no-underline word-break heading-color {{ section_st.font_weight }}{% if font_size > 14 %} fs-medium-list{% else %} fs-custom{% endif %}{% if collection_information_position == 'below_image' %} mb-10{% else %} inline-flex gap-5 align-center justify-content-{{ section_st.text_alignment }}{% endif %}{% if collection_information_position == 'overlay_image' and  design == 'default' %} btn btn-white{% endif %}"
+        class="collection-item__name no-underline word-break{% unless collection_information_position == 'overlay_image' and design == 'default' %} heading-color{% endunless %} {{ section_st.font_weight }}{% if font_size > 14 %} fs-medium-list{% else %} fs-custom{% endif %}{% if collection_information_position == 'below_image' %} mb-10{% else %} inline-flex gap-5 align-center justify-content-{{ section_st.text_alignment }}{% endif %}{% if collection_information_position == 'overlay_image' and  design == 'default' %} btn {{ title_button | default: 'btn-white' }}{% endif %}"
         style="--font-size: {{ font_size }};--space-bottom: {{ section_st.spacing }}"
         href="{{ card_collection.url }}"
       >
@@ -262,7 +268,8 @@
             image_alt: alt_text
           %}
         {% else %}
-          {%- render 'placeholder-render', class: 'rounded transition' -%}
+          {%- assign ci_ph_index = index | default: card_collection.id | default: 1 -%}
+          {%- render 'placeholder-render', class: 'rounded transition', type: 'collection', index: ci_ph_index -%}
         {% endif %}
       </a>
     </div>
@@ -279,7 +286,7 @@
 
       {%- comment -%} No collection chosen: the name is not a link anywhere (aria-disabled, no href); in the builder a click still selects the block. {%- endcomment %}
       <a
-        class="collection-item__name no-underline word-break heading-color {{ section_st.font_weight }}{% if font_size > 14 %} fs-medium-list{% else %} fs-custom{% endif %}{% if collection_information_position == 'below_image' %} mb-10{% else %} inline-flex gap-5 align-center justify-content-{{ section_st.text_alignment }}{% endif %}{% if collection_information_position == 'overlay_image' and  design == 'default' %} btn btn-white{% endif %}"
+        class="collection-item__name no-underline word-break{% unless collection_information_position == 'overlay_image' and design == 'default' %} heading-color{% endunless %} {{ section_st.font_weight }}{% if font_size > 14 %} fs-medium-list{% else %} fs-custom{% endif %}{% if collection_information_position == 'below_image' %} mb-10{% else %} inline-flex gap-5 align-center justify-content-{{ section_st.text_alignment }}{% endif %}{% if collection_information_position == 'overlay_image' and  design == 'default' %} btn {{ title_button | default: 'btn-white' }}{% endif %}"
         style="--font-size: {{ font_size }};--space-bottom: {{ section_st.spacing }}"
         role="link"
         aria-disabled="true"

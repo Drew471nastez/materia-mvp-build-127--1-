@@ -1,4 +1,4 @@
-<script src="{{ 'live-r7-promo.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-r7-promo.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'r7-promo-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%}
   Materia Themes. Product Drop Countdown: the time left until a product goes
@@ -23,10 +23,13 @@
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign custom = st.enable_custom_style
   assign fonts = st.enable_custom_fonts
   assign product = st.product
+  if product == blank
+    assign product = collections.all.products.first
+  endif
   assign tz = st.time_zone | default: 'visitor'
   assign mt_d = st.section_margin_top_desktop | default: 0
   assign mb_d = st.section_margin_bottom_desktop | default: 0
@@ -269,7 +272,7 @@
               decoding="async"
             >
           {%- else -%}
-            {%- render 'placeholder-render' -%}
+            {%- render 'placeholder-render', type: 'product', index: forloop.index -%}
           {%- endif -%}
         </div>
         <figcaption class="pdc__caption">
@@ -360,7 +363,7 @@
 {
   "name": "Product Drop Countdown",
   "tag": "section",
-  "class": "section-countdown-product-drop",
+  "class": "section-countdown-product-drop s-tt",
   "max_blocks": 4,
   "settings": [
     {
@@ -371,7 +374,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -437,7 +440,6 @@
       "type": "text",
       "id": "end_iso",
       "label": "Goes on sale",
-      "default": "",
       "placeholder": "2026-12-31T18:00",
       "info": "Year-month-day, then the 24-hour time, for example 2026-12-31T18:00. Empty: visitors see nothing until you add it."
     },
@@ -1071,8 +1073,8 @@
   ],
   "presets": [
     {
-      "name": "Product Drop Countdown",
-      "category": "Countdowns",
+      "name": "Countdown – Product Drop",
+      "category": "08 · Promotions & countdowns",
       "blocks": [
         {
           "type": "heading"

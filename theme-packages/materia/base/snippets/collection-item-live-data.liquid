@@ -1,9 +1,14 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. The store data of one Collections Display card as JSON
   (printed escaped in data-cl-card), so live-collections.js can draw the card
   again (snippets/collection-item) when a card setting changes in the builder.
   Accepts: block (a collection block).
-{%- endcomment -%}
+
+  @param {block} block - The block being rendered
+
+  @example
+  {% render 'collection-item-live-data', block: block %}
+{%- enddoc -%}
 {%- liquid
   assign cc = block.settings.collection
   assign ci = block.settings.collection_image

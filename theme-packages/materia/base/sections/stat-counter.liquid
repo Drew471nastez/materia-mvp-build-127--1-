@@ -1,7 +1,7 @@
-<script src="{{ 'live-features-d.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-features-d.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-features-d-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
@@ -146,7 +146,7 @@
 </style>
 <noscript><style>#shopify-section-{{ sid }} .stat-counter-section[data-fd-reveal='pending'] .stat-counter__number { opacity: 1; }</style></noscript>
 
-<div class="stat-counter-section section{% if s.padding_top < 30 %} pt-min{% endif %}{% if s.padding_bottom < 30 %} pb-min{% endif %} color-{{ color_scheme }} gradient{% if s.reset_spacing %} remove_spacing{% endif %}" data-fd="counter" data-fd-section="{{ sid }}" data-fd-settings="{{ s | json | escape }}" data-layout="{{ layout }}" data-divider="{{ s.divider }}"{% if s.enable_custom_fonts %} data-own-font{% endif %}{% if pending %} data-fd-reveal="pending"{% endif %}{% unless s.reveal %} data-ti-no-reveal{% endunless %} style="{{ sc_style | strip_newlines }}">
+<div class="stat-counter-section section{% if s.padding_top < 30 %} pt-min{% endif %}{% if s.padding_bottom < 30 %} pb-min{% endif %} color-{{ color_scheme }} gradient{% if s.reset_spacing %} remove_spacing{% endif %}" data-fd="counter" data-fd-duration="{{ s.duration | default: 1800 }}" data-fd-section="{{ sid }}" {% if request.design_mode %}data-fd-settings="{{ s | json | escape }}"{% endif %} data-layout="{{ layout }}" data-divider="{{ s.divider }}"{% if s.enable_custom_fonts %} data-own-font{% endif %}{% if pending %} data-fd-reveal="pending"{% endif %}{% unless s.reveal %} data-ti-no-reveal{% endunless %} style="{{ sc_style | strip_newlines }}">
   <div class="{{ s.section_width | default: 'full_width' }}">
     <div class="stat-counter__body">
       {%- render 'features-d-header', section: section -%}
@@ -157,7 +157,7 @@
             assign raw = b.value | default: '0' | strip
             assign target = raw | replace: ',', '' | replace: ' ', ''
           -%}
-          <motion-element data-motion="fade-up-sm" data-motion-delay="{{ forloop.index0 | times: 80 }}"{% if b.value == blank %}{% unless request.design_mode or page.in_editor %} hidden{% endunless %}{% endif %}{% if settings.scroll_animation != 'slide_in' %} hold{% endif %} class="stat-counter__item{% if settings.scroll_animation != blank and settings.scroll_animation != 'none' and s.reveal %} scroll-trigger {{ settings.scroll_animation }}{% endif %}" data-fd-block="{{ block.id }}" data-fd-type="stat" data-fd-settings="{{ b | json | escape }}" style="--animation-order: {{ forloop.index }};" {{ block.shopify_attributes }}>
+          <motion-element data-motion="fade-up-sm" data-motion-delay="{{ forloop.index0 | times: 80 }}"{% if b.value == blank %}{% unless request.design_mode or page.in_editor %} hidden{% endunless %}{% endif %}{% if settings.scroll_animation != 'slide_in' %} hold{% endif %} class="stat-counter__item{% if settings.scroll_animation != blank and settings.scroll_animation != 'none' and s.reveal %} scroll-trigger {{ settings.scroll_animation }}{% endif %}" data-fd-block="{{ block.id }}" data-fd-type="stat" {% if request.design_mode %}data-fd-settings="{{ b | json | escape }}"{% endif %} style="--animation-order: {{ forloop.index }};" {{ block.shopify_attributes }}>
             <div class="stat-counter__icon"{% if b.icon == blank %} hidden{% endif %}>{{ b.icon }}</div>
             <div class="stat-counter__value">
               <span class="stat-counter__prefix"{% if b.prefix == blank %} hidden{% endif %}>{{ b.prefix | escape }}</span>
@@ -173,11 +173,12 @@
 </div>
 {%- comment -%} Count up and live edits: shopify/assets/live-features-d.js (loaded on every page). {%- endcomment -%}
 
+
 {% schema %}
 {
   "name": "Stat Counter",
   "tag": "section",
-  "class": "section-stat-counter",
+  "class": "section-stat-counter s-tt",
   "disabled_on": {
     "groups": [
       "header",
@@ -193,7 +194,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -229,7 +230,6 @@
       "type": "text",
       "id": "subheading",
       "label": "Eyebrow text",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Eyebrow block.",
       "visible_if": "{{ false }}"
     },
@@ -237,7 +237,6 @@
       "type": "text",
       "id": "heading",
       "label": "Title",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Heading block.",
       "visible_if": "{{ false }}"
     },
@@ -245,7 +244,6 @@
       "type": "richtext",
       "id": "description",
       "label": "Subtext",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Subheading block.",
       "visible_if": "{{ false }}"
     },
@@ -823,8 +821,7 @@
         {
           "type": "text",
           "id": "value",
-          "label": "Number",
-          "default": ""
+          "label": "Number"
         },
         {
           "type": "text",
@@ -862,7 +859,7 @@
   "presets": [
     {
       "name": "Stat Counter",
-      "category": "Features",
+      "category": "11 · Stats & counters",
       "blocks": [
         {
           "type": "eyebrow",

@@ -1,11 +1,17 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. The values r7-connect.css reads, as --r7n-* variables for
   the root's style attribute of Newsletter Split (kind: 'split') and Follow
   Us (kind: 'follow'). live-r7-connect.js derives the same list from the
   settings and writes the ones a live edit changes. Colours follow the colour
   scheme until "Enable custom styling" is on; fonts follow the theme until
   "Enable custom fonts" is on.
-{%- endcomment -%}
+
+  @param {string} kind - Kind ('follow', 'split')
+  @param {section} section - The section being rendered
+
+  @example
+  {% render 'r7-connect-vars', section: section, kind: 'follow' %}
+{%- enddoc -%}
 {%- liquid
   assign st = section.settings
   assign own = st.enable_custom_style

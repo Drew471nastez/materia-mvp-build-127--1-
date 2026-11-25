@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Reel tile, used by sections/reels-wall only.
   Inputs: b (block.settings), s (section.settings).
   The tile is a box, not a link: a stretched link covers it when the reel has
@@ -8,7 +8,14 @@
   plays them muted while in view and never under reduced motion. Elements a
   setting can switch on are always printed and hidden, so builder edits apply
   in place.
-{%- endcomment -%}
+
+  @param {object} b - Block settings object
+  @param {number} index - Index
+  @param {object} s - Settings object (section or block settings)
+
+  @example
+  {% render 'reel-tile', b: block.settings, s: s, index: forloop.index %}
+{%- enddoc -%}
 {%- liquid
   assign tile_href = b.cta_link
   if tile_href == blank and b.product != blank
@@ -49,7 +56,7 @@
   {%- elsif b.poster_image != blank -%}
     <img data-rw-poster src="{{ b.poster_image | image_url: width: 720 }}" alt="{{ b.poster_image.alt | escape }}" width="{{ b.poster_image.width | default: 720 }}" height="{{ b.poster_image.height | default: 1280 }}" loading="lazy" decoding="async">
   {%- else -%}
-    {%- render 'placeholder-render', class: 'rw-tile__placeholder' -%}
+    {%- render 'placeholder-render', class: 'rw-tile__placeholder', type: 'lifestyle', index: index -%}
   {%- endif -%}
 
   <div class="rw-tile__overlay" aria-hidden="true"></div>

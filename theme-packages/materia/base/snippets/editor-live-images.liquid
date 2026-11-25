@@ -8,7 +8,7 @@
 <script>
 (() => {
   if (window.__materiaLiveImages) return;
-  const editor = window.self !== window.top || !!window.Shopify?.designMode || document.documentElement.classList.contains('shopify-design-mode');
+  const editor = !!window.Shopify?.designMode || document.documentElement.classList.contains('shopify-design-mode');
   if (!editor) return;
   window.__materiaLiveImages = true;
   document.documentElement.classList.add('shopify-design-mode', 'mt-editor');

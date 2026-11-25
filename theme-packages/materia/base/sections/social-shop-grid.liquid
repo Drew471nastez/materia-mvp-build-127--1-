@@ -1,7 +1,7 @@
-<script src="{{ 'live-social-dividers.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-social-dividers.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-social-dividers-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 <style data-rs-bulletproof>
   {%- if section.settings.reset_spacing -%}
@@ -184,9 +184,9 @@
   #shopify-section-{{ section.id }} [data-ssg-mode="masonry"] .ssg-tile-wrap:nth-child(3n+1) .ssg-tile { grid-row: span 2; aspect-ratio: 9/16; }
   #shopify-section-{{ section.id }} .ssg-tile { position: relative; aspect-ratio: var(--ssg-ratio); border-radius: var(--ssg-radius); overflow: hidden; display: block; background: color-mix(in srgb, var(--color-text) 6%, var(--color-background)); text-decoration: none; color: #fff; isolation: isolate; }
   #shopify-section-{{ section.id }} a.ssg-tile:focus-visible { outline: 2px solid var(--color-heading); outline-offset: 2px; }
-  #shopify-section-{{ section.id }} .ssg-tile > :is(img, video, .ssg-ph), #shopify-section-{{ section.id }} .ssg-ph > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform .5s cubic-bezier(.2,.7,.2,1), filter .3s ease; }
+  #shopify-section-{{ section.id }} .ssg-tile > :is(img, video, .ssg-ph), #shopify-section-{{ section.id }} .ssg-ph > :is(img, svg) { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform .5s cubic-bezier(.2,.7,.2,1), filter .3s ease; }
   #shopify-section-{{ section.id }} .ssg-ph { background: color-mix(in srgb, var(--color-text) 6%, var(--color-background)); }
-  #shopify-section-{{ section.id }} .ssg-ph > img { opacity: .15; }
+  #shopify-section-{{ section.id }} .ssg-ph > :is(img, svg) { opacity: 1; }
   #shopify-section-{{ section.id }} [data-ssg-hover="zoom"] .ssg-tile:hover > :is(img, video) { transform: scale(1.06); }
   #shopify-section-{{ section.id }} [data-ssg-hover="darken"] .ssg-tile:hover > :is(img, video) { filter: brightness(0.7); }
   #shopify-section-{{ section.id }} .ssg-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,calc(var(--ssg-overlay) / 100 * 1.6)) 0%, rgba(0,0,0,calc(var(--ssg-overlay) / 100 * 0.4)) 50%, transparent 100%); pointer-events: none; z-index: 2; }
@@ -226,7 +226,7 @@
   }
 </style>
 {%- if request.design_mode -%}
-  <template data-sd-ph><span class="ssg-ph" data-sd-ph>{%- render 'placeholder-render', class: 'ssg-tile__placeholder' -%}</span></template>
+  <template data-sd-ph><span class="ssg-ph" data-sd-ph>{%- render 'placeholder-render', class: 'ssg-tile__placeholder', type: 'collection' -%}</span></template>
   {%- assign ssg_platforms = 'instagram,tiktok,youtube,pinterest' | split: ',' -%}
   <template data-ssg-badges>{%- for p in ssg_platforms -%}{%- render 'social-shop-tile', badge_only: p -%}{%- endfor -%}</template>
 {%- endif -%}
@@ -284,7 +284,7 @@
           <div class="swiper-wrapper">
             {%- for block in tiles -%}
               <div class="swiper-slide ssg-tile-wrap" data-sd-block="{{ block.id }}" data-sd-type="tile"{% if request.design_mode %} data-sd-settings="{{ block.settings | json | escape }}"{% endif %} {{ block.shopify_attributes }}>
-                {%- render 'social-shop-tile', b: block.settings, s: s, ssg_hf: ssg_hf, ssg_bf: ssg_bf -%}
+                {%- render 'social-shop-tile', b: block.settings, s: s, ssg_hf: ssg_hf, ssg_bf: ssg_bf, index: forloop.index -%}
               </div>
             {%- endfor -%}
           </div>
@@ -303,7 +303,7 @@
               class="ssg-tile-wrap{% if scroll_animation != 'none' and reveal %} scroll-trigger {{ scroll_animation }}{% endif %}"
               style="--animation-order: {{ forloop.index }}; display: contents;"
             >
-              {%- render 'social-shop-tile', b: block.settings, s: s, ssg_hf: ssg_hf, ssg_bf: ssg_bf -%}
+              {%- render 'social-shop-tile', b: block.settings, s: s, ssg_hf: ssg_hf, ssg_bf: ssg_bf, index: forloop.index -%}
             </motion-element>
           {%- endfor -%}
         </div>
@@ -314,7 +314,7 @@
 {
   "name": "Social Shop Grid",
   "tag": "section",
-  "class": "section-social-shop-grid",
+  "class": "section-social-shop-grid s-tt",
   "disabled_on": {
     "groups": [
       "header",
@@ -330,7 +330,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -377,7 +377,6 @@
       "id": "subheading",
       "label": "Eyebrow",
       "default": "Follow us",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Eyebrow block.",
       "visible_if": "{{ false }}"
     },
@@ -386,7 +385,6 @@
       "id": "heading",
       "label": "Heading",
       "default": "Shop our Instagram",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Heading block.",
       "visible_if": "{{ false }}"
     },
@@ -395,7 +393,6 @@
       "id": "description",
       "label": "Text",
       "default": "<p>Tap a post to shop the look.</p>",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Text block.",
       "visible_if": "{{ false }}"
     },
@@ -404,7 +401,6 @@
       "id": "handle_label",
       "label": "Follow link label",
       "default": "Follow us",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Follow link block.",
       "visible_if": "{{ false }}"
     },
@@ -412,7 +408,6 @@
       "type": "url",
       "id": "handle_url",
       "label": "Follow link",
-      "hidden": true,
       "info": "Legacy: used only when the section has no Follow link block.",
       "visible_if": "{{ false }}"
     },
@@ -983,7 +978,6 @@
           "type": "text",
           "id": "username",
           "label": "Creator handle",
-          "default": "",
           "info": "Shown when Show creator handle is on."
         },
         {
@@ -1025,7 +1019,7 @@
   "presets": [
     {
       "name": "Social Shop Grid",
-      "category": "Social",
+      "category": "16 · Social media",
       "blocks": [
         {
           "type": "eyebrow"

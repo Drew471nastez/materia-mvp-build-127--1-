@@ -1,4 +1,4 @@
-<script src="{{ 'live-countdown.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-countdown.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-countdown-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%}
   Materia Themes. Countdown Timer Pro 2: the time left in circles beside a
@@ -21,7 +21,7 @@
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign own = st.enable_custom_style
   assign fonts = st.enable_custom_fonts
   assign reveal = st.reveal
@@ -126,39 +126,37 @@
   }
   @media (min-width: 1200px) { #shopify-section-{{ sid }} .ti-cd[data-cd2-width='stretch_width'] .ti-cd__inner { padding-inline: 3rem; } }
   {%- comment -%} Reveal on scroll: only on a visitor's page, played once by live-countdown.js. {%- endcomment -%}
-  {%- if reveal and scroll_animation != 'none' and request.design_mode != true -%}
-    #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal]:not(.is-revealed) { opacity: 0; }
-    #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal] { transition: opacity .8s ease; }
+  {%- if reveal and scroll_animation != 'none' -%}
+    {%- comment -%} Nothing is hidden from the server: live-countdown(-runtime).js arms (data-cd-armed) only
+       content that starts below the first screen, so one in view simply shows. Opacity and transform
+       only (the compositor plays it); will-change only while armed. {%- endcomment -%}
+    #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal][data-cd-armed] { transition: opacity .8s ease, transform .8s ease; will-change: opacity, transform; }
+    #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal][data-cd-armed]:not(.is-revealed) { opacity: 0; }
     {%- case scroll_animation -%}
       {%- when 'fade' -%}
-        #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal] { transition: opacity .45s ease; }
+        #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal][data-cd-armed] { transition: opacity .45s ease; }
       {%- when 'fade-in' -%}
-        #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal] { transition: opacity 1s ease; }
+        #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal][data-cd-armed] { transition: opacity 1s ease; }
       {%- when 'slide-in' -%}
-        #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal]:not(.is-revealed) { transform: translateX(-20px); }
-        #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal] { transition: opacity .8s ease, transform .8s ease; }
+        #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal][data-cd-armed]:not(.is-revealed) { transform: translateX(-20px); }
       {%- when 'smooth-fade-up' -%}
-        #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal]:not(.is-revealed) { transform: translateY(20px); }
-        #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal] { transition: opacity .8s ease, transform .8s ease; }
+        #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal][data-cd-armed]:not(.is-revealed) { transform: translateY(20px); }
       {%- when 'blur_up' -%}
-        #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal]:not(.is-revealed) { transform: translateY(12px); filter: blur(4px); }
-        #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal] { transition: opacity .8s ease, transform .8s ease, filter .8s ease; }
+        #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal][data-cd-armed]:not(.is-revealed) { transform: translateY(12px) scale(.985); }
       {%- when 'slide_side' -%}
-        #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal]:not(.is-revealed) { transform: translateX(-28px); }
-        #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal] { transition: opacity .8s ease, transform .8s ease; }
+        #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal][data-cd-armed]:not(.is-revealed) { transform: translateX(-28px); }
       {%- when 'mask_reveal' -%}
-        #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal]:not(.is-revealed) { opacity: 1; clip-path: inset(0 0 100% 0); transform: translateY(10px); }
-        #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal] { transition: clip-path .8s ease, transform .8s ease; }
+        #shopify-section-{{ sid }} .ti-cd__inner-content[data-cd-reveal][data-cd-armed]:not(.is-revealed) { transform: translateY(18px) scaleY(.96); transform-origin: 50% 0; }
     {%- endcase -%}
     @media (prefers-reduced-motion: reduce) {
-      #shopify-section-{{ sid }} .ti-cd__inner-content { opacity: 1 !important; transform: none !important; transition: none !important; filter: none !important; clip-path: none !important; }
+      #shopify-section-{{ sid }} .ti-cd__inner-content { opacity: 1 !important; transform: none !important; transition: none !important; }
     }
   {%- endif -%}
 </style>
 
 <div class="section ti-cd color-{{ color_scheme }} gradient" data-cd-root="countdown-timer2" data-cd-section="{{ sid }}" data-cd-settings="{{ st | json | escape }}" data-cd-state="{{ state }}"{% if request.design_mode %} data-cd-editor{% endif %} data-cd2-width="{{ st.section_width }}" style="{{ cd2_vars | strip_newlines }}">
   <div class="ti-cd__inner">
-    <div class="ti-cd__inner-content"{% if reveal and scroll_animation != 'none' and request.design_mode != true %} data-cd-reveal="{{ scroll_animation }}"{% endif %}>
+    <div class="ti-cd__inner-content"{% if reveal and scroll_animation != 'none' %} data-cd-reveal="{{ scroll_animation }}"{% endif %}>
       <div class="ti-cd__grid">
         <div class="ti-cd__timer-col">
           <div class="ti-cd__timer" role="timer" data-cd-clock>
@@ -209,11 +207,14 @@
       </div>
     </div>
   </div>
-</div>{% schema %}
+</div>
+{%- comment -%} The time left is written into the circles as the page is read, before the first paint, so they never
+   show 00 and then jump when the deferred timer script starts (the same date rule as live-countdown-runtime.js). {%- endcomment -%}
+<script>(function(){var r=document.querySelector('[data-cd-section="{{ sid }}"][data-cd-root="countdown-timer2"]');if(!r)return;try{var s=JSON.parse(r.getAttribute('data-cd-settings')||'{}'),d=String(s.end_date||'').trim(),t=String(s.end_time||'00:00').trim()||'00:00';if(!d)return;var e=Date.parse(d+'T'+t),n=Date.now();if(!isFinite(e))return;var p=String(s.restart_period||'none');if(e<=n&&p!=='none'){var k=p==='daily'?864e5:p==='weekly'?6048e5:0;if(k)e+=Math.floor((n-e)/k+1)*k;else for(var g=0;e<=n&&g<1200;g++){var x=new Date(e);x.setMonth(x.getMonth()+1);e=x.getTime()}}var l=Math.max(0,Math.floor((e-n)/1e3)),v={d:Math.floor(l/86400),h:Math.floor(l%86400/3600),m:Math.floor(l%3600/60),s:l%60},u=r.querySelectorAll('[data-cd-unit]');for(var i=0;i < u.length;i++){var q=v[u[i].getAttribute('data-cd-unit')];if(q!=null)u[i].textContent=(q<10?'0':'')+q}}catch(_){}})();</script>{% schema %}
 {
   "name": "Countdown Timer Pro 2",
   "tag": "section",
-  "class": "section-countdown-timer-pro-2",
+  "class": "section-countdown-timer-pro-2 s-tt",
   "disabled_on": {
     "groups": [
       "header",
@@ -230,7 +231,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -271,7 +272,6 @@
       "id": "end_date",
       "label": "End date",
       "info": "Format: YYYY-MM-DD, for example 2026-12-31. Counts to the visitor's own clock. An impossible date such as 2026-02-30 hides the timer.",
-      "default": "",
       "placeholder": "2026-12-31"
     },
     {
@@ -1135,8 +1135,8 @@
   ],
   "presets": [
     {
-      "name": "Countdown Timer Pro 2",
-      "category": "Countdowns",
+      "name": "Countdown – Circles",
+      "category": "08 · Promotions & countdowns",
       "blocks": [
         {
           "type": "heading"

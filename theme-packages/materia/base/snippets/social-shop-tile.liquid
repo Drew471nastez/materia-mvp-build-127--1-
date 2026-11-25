@@ -1,11 +1,21 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. A tile of Social Shop Grid (sections/social-shop-grid).
   Inputs: b (block.settings), s (section.settings), ssg_hf / ssg_bf (the
   section's custom heading / body font is on). badge_only: draw only that
   platform badge (the builder keeps them in a template for live edits).
   In the builder the handle, headline and product chip are drawn hidden
   when off or empty, so live-social-dividers.js can show them live.
-{%- endcomment -%}
+
+  @param {object} [b] - Block settings object
+  @param {object} [badge_only] - Badge only
+  @param {number} [index] - Index
+  @param {object} [s] - Settings object (section or block settings)
+  @param {boolean} [ssg_bf] - Ssg bf
+  @param {boolean} [ssg_hf] - Ssg hf
+
+  @example
+  {% render 'social-shop-tile', b: block.settings, s: s, ssg_hf: ssg_hf, ssg_bf: ssg_bf, index: forloop.index %}
+{%- enddoc -%}
 {%- if badge_only -%}
   {%- case badge_only -%}
     {%- when 'instagram' -%}<span class="ssg-platform-badge" data-ssg-badge="instagram" role="img" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/></svg></span>
@@ -53,7 +63,7 @@
          sizes="(min-width: 768px) calc(100vw / {{ s.columns }}), calc(100vw / {{ s.columns_mobile }})"
          alt="{{ b.headline | default: b.image.alt | escape }}" width="{{ b.image.width }}" height="{{ b.image.height }}" loading="lazy" decoding="async">
   {%- else -%}
-    <span class="ssg-ph" data-sd-ph>{%- render 'placeholder-render', class: 'ssg-tile__placeholder' -%}</span>
+    <span class="ssg-ph" data-sd-ph>{%- render 'placeholder-render', class: 'ssg-tile__placeholder', type: 'collection', index: index -%}</span>
   {%- endif -%}
 
   <div class="ssg-overlay" aria-hidden="true"></div>

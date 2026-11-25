@@ -1,10 +1,10 @@
-<script src="{{ 'live-r7-stories.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-r7-stories.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
   assign st = section.settings
   assign sid = section.id
   assign design = request.design_mode
-  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
 -%}
 {%- comment -%}
   Materia Themes. Blog Spotlight: one post drawn large (picture, date,
@@ -339,7 +339,8 @@
 </div>
 {%- endif -%}{% schema %}
 {
-  "name": "Blog Spotlight",
+  "class": "s-tt",
+"name": "Blog Spotlight",
   "settings": [
     {
       "type": "header",
@@ -349,7 +350,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Colour scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -734,7 +735,7 @@
   "presets": [
     {
       "name": "Blog Spotlight",
-      "category": "Blog",
+      "category": "14 · Blog",
       "settings": {
         "padding_top": 64,
         "padding_bottom": 64,

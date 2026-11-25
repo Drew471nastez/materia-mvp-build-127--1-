@@ -1,10 +1,17 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. A font picker value as a CSS font-family list when on is
   true and a font is chosen; the theme variable (fallback) otherwise. Used by
   the Announcements sections; live-announcements.js derives the same value.
-  {% render 'announce-font', font: st.body_font, on: st.enable_custom_fonts, fallback: 'var(--body-font)' %}
   weight: true prints the font's weight instead (fallback is then the theme weight).
-{%- endcomment -%}
+
+  @param {string} fallback - Fallback ('inherit', 'var(--body-font)', 'var(--body-weight, 400)', 'var(--body-weight, 500)')
+  @param {font} font - Font
+  @param {boolean} on - Enable custom fonts
+  @param {boolean} [weight] - Weight
+
+  @example
+  {% render 'announce-font', font: st.body_font, on: st.enable_custom_fonts, fallback: 'var(--body-font)' %}
+{%- enddoc -%}
 {%- if on and font.family != blank -%}
-  {%- if weight -%}{{ font.weight | default: fallback }}{%- else -%}{{ font.family }}, {{ font.fallback_families | default: 'sans-serif' }}{%- endif -%}
+  {%- if weight -%}{{ font.weight | default: fallback }}{%- else -%}{{ font.family | escape }}, {{ font.fallback_families | default: 'sans-serif' | escape }}{%- endif -%}
 {%- else -%}{{ fallback }}{%- endif -%}

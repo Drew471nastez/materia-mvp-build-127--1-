@@ -482,11 +482,83 @@
         "card_3",
         "card_4"
       ]
+    },
+    "how": {
+      "type": "feature-timeline",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "layout": "alternate",
+        "text_align": "center",
+        "content_max_width": 920,
+        "image_ratio": "landscape",
+        "marker_style": "number",
+        "fill_on_scroll": true,
+        "enable_custom_style": true,
+        "line_color": "#e7e0d4",
+        "marker_color": "#f08a5d",
+        "label_color": "#d06a3c",
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 96
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "How a morning works"
+          }
+        },
+        "item_2": {
+          "type": "item",
+          "settings": {
+            "label": "Step 1",
+            "title": "Pick one prompt",
+            "text": "Open the lesson for today. It takes a minute to read and names exactly what to draw.",
+            "image": "shopify://shop_images/creator-ines-shoulder.webp",
+            "image_alt": "Drawing a flower on dark paper with coloured pencils"
+          }
+        },
+        "item_3": {
+          "type": "item",
+          "settings": {
+            "label": "Step 2",
+            "title": "Draw for ten minutes",
+            "text": "Set a timer and stop when it rings, finished or not. The habit matters more than the page.",
+            "image": "shopify://shop_images/creator-lesson-grip.webp",
+            "image_alt": "A hand drawing with a coloured pencil"
+          }
+        },
+        "item_4": {
+          "type": "item",
+          "settings": {
+            "label": "Step 3",
+            "title": "Show it on Sunday",
+            "text": "Hold your pages up at the Drawing Table, or keep them to yourself. Both count.",
+            "image": "shopify://shop_images/creator-ines-table.webp",
+            "image_alt": "Ines at her drawing table in the attic"
+          }
+        },
+        "button_5": {
+          "type": "button",
+          "settings": {
+            "label": "Start with the free lessons",
+            "link": "/blogs/news"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "item_2",
+        "item_3",
+        "item_4",
+        "button_5"
+      ]
     }
   },
   "order": [
     "hello",
     "help",
+    "how",
     "club",
     "story",
     "lessons",

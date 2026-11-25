@@ -1,11 +1,17 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. Shared rules of the Logos and trust sections. Every value
   is a CSS variable the section prints on its root (.lg) and live-logos.js
   updates in the builder, so the first paint and a live edit use the same
   rules. bp: the desktop breakpoint in px. margins: true when the section has
   section_margin_* settings.
+
+  @param {number} bp - Bp
+  @param {boolean} [margins] - Margins
+  @param {section} section - The section being rendered
+
+  @example
   {% render 'logos-style', section: section, bp: 768, margins: true %}
-{%- endcomment -%}
+{%- enddoc -%}
 {%- liquid
   assign st = section.settings
   assign sid = section.id

@@ -1,4 +1,4 @@
-<script src="{{ 'live-blog-slideshow.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-blog-slideshow.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-blog-slideshow-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {%- comment -%}
   Materia Themes. Featured blog posts: the newest posts of a real blog, as a
   carousel. Runtime: shopify/assets/live-blog-slideshow.js (linked at the top
@@ -280,7 +280,7 @@
   data-bp-section="{{ section.id }}"
   data-bp-align="{{ content_alignment }}"
   data-bp-blog-url="{{ selected_blog.url }}"
-  data-bp-settings="{{ section.settings | json | escape }}"
+  {% if request.design_mode %}data-bp-settings="{{ section.settings | json | escape }}"{% endif %}
   {% if section_st.enable_custom_style %} data-bp-custom{% endif %}
   {% if section_st.enable_custom_fonts %} data-bp-fonts data-own-font{% endif %}
   {% if section_st.enable_custom_weight %} data-bp-weight{% endif %}
@@ -419,7 +419,7 @@
               <div class="swiper-slide">
                 <div class="blog-posts-item blog-posts-placeholder">
                   <div class="blog-posts-image rounded hover-effect" style="{{ style_ratio | strip | strip_newlines }}">
-                    {% render 'placeholder-render', class: 'rounded transition' %}
+                    {% render 'placeholder-render', class: 'rounded transition', type: 'lifestyle', index: i %}
                   </div>
                   <div class="blog-posts-info text-{{ content_alignment }} mt-30">
                     <h3 class="blog-posts-title fs-20 mt-0 mb-10 heading-letter-spacing">
@@ -463,7 +463,7 @@
 {
   "name": "Featured Blog Posts",
   "tag": "section",
-  "class": "section",
+  "class": "section s-tt",
   "disabled_on": {
     "groups": [
       "header",
@@ -480,7 +480,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Colour scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -1082,7 +1082,6 @@
           "type": "select",
           "id": "tag",
           "label": "Heading level",
-          "hidden": true,
           "default": "h2",
           "info": "H2 for the section's main heading.",
           "options": [
@@ -1098,7 +1097,8 @@
               "value": "p",
               "label": "Paragraph"
             }
-          ]
+          ],
+          "visible_if": "{{ false }}"
         },
         {
           "type": "select",
@@ -1210,8 +1210,8 @@
   "max_blocks": 6,
   "presets": [
     {
-      "name": "Featured Blog Posts",
-      "category": "Blog",
+      "name": "Blog Posts",
+      "category": "14 · Blog",
       "blocks": [
         {
           "type": "heading"

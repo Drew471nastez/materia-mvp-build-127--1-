@@ -1,6 +1,6 @@
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 <style>
   /* Theme font-weight inheritance — inherit theme weights by default; explicit rules still override */
@@ -47,7 +47,7 @@
 {%- comment -%}
   Materia Themes. Developed By Materia Themes.
 {%- endcomment -%}
-{%- if recommendations.products_count > 0 -%}
+{%- if recommendations.products_count > 0 or cart.item_count > 0 -%}
 <div data-cart-upsell-results class="cart-upsell color-{{ color_scheme }} gradient">
   <div class="swiper-wrapper">
     {%- for product in recommendations.products -%}
@@ -85,11 +85,35 @@
       </div>
     {%- endfor -%}
   </div>
+  {%- comment -%} Compact cards for the cart drawer (minicart-recommendations data-source=".cart-rec__track"). {%- endcomment -%}
+  {%- comment -%}
+    Variants already in the cart are skipped by the card itself, so a cart
+    product with other variants (30 Days in the cart, 60 Days not) is offered
+    too, after the store's recommendations.
+  {%- endcomment -%}
+  <div class="cart-rec__track" hidden>
+    {%- assign rec_seen = ',' -%}
+    {%- for product in recommendations.products -%}
+      {%- assign rec_key = ',' | append: product.id | append: ',' -%}
+      {%- unless product.available == false or rec_seen contains rec_key -%}
+        {%- assign rec_seen = rec_seen | append: product.id | append: ',' -%}
+        {%- render 'cart-recommend-card', product: product -%}
+      {%- endunless -%}
+    {%- endfor -%}
+    {%- for line in cart.items -%}
+      {%- assign rec_key = ',' | append: line.product_id | append: ',' -%}
+      {%- unless line.product.available == false or rec_seen contains rec_key or line.product.has_only_default_variant -%}
+        {%- assign rec_seen = rec_seen | append: line.product_id | append: ',' -%}
+        {%- render 'cart-recommend-card', product: line.product -%}
+      {%- endunless -%}
+    {%- endfor -%}
+  </div>
 </div>
 {% endif %}
 {% schema %}
 {
-  "name": "Cart upsell",
+  "class": "s-tt",
+"name": "Cart upsell",
   "settings": [
     {
       "type": "header",
@@ -99,7 +123,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",

@@ -1,3 +1,12 @@
+{% doc %}
+  CSS custom properties of an Announcement Bar 4 element (button or bar) from its style controls.
+
+  @param {object} controls - Settings object that holds the style controls
+  @param {string} [kind] - Kind
+
+  @example
+  {% render 'announcement-four-vars', controls: s, kind: 'button' %}
+{% enddoc -%}
 {%- assign c = controls -%}
 {%- if kind == 'button' -%}
 {%- unless c.use_theme_button -%}
@@ -6,7 +15,7 @@
 {% render 'button-overrides', bg: c.btn_bg, text: c.btn_text, hover_bg: c.btn_bg_hover, hover_text: c.btn_text_hover %}
 {%- endunless -%}
 {%- else -%}
---ab-align:{% case c.content_alignment %}{% when 'left' %}flex-start{% when 'right' %}flex-end{% else %}center{% endcase %};--ab-text-align:{{ c.content_alignment | default: 'center' }};
+--ab-width:{% case c.section_width %}{% when 'container' %}var(--page-width,1300px){% when 'fluid_container' %}var(--fluid-container-width,1500px){% when 'stretch_width' %}calc(100% - 32px){% else %}none{% endcase %};--ab-align:{% case c.content_alignment %}{% when 'left' %}flex-start{% when 'right' %}flex-end{% else %}center{% endcase %};--ab-text-align:{{ c.content_alignment | default: 'center' }};
 --ab-close-space:{% if c.show_close %}44px{% else %}0px{% endif %};--ab-row-gap:{{ c.row_gap | default: 8 }}px;
 --ab-message-m:{{ c.message_size_mobile | default: 13 }}px;--ab-message-d:{{ c.message_size_desktop | default: 16 }}px;--ab-digit-m:{{ c.digit_size_mobile | default: 16 }}px;--ab-digit-d:{{ c.digit_size_desktop | default: 22 }}px;
 --ab-gap-m:{{ c.group_gap_mobile | default: 10 }}px;--ab-gap-d:{{ c.group_gap_desktop | default: 16 }}px;

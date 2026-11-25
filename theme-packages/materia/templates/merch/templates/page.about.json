@@ -51,27 +51,101 @@
       ]
     },
     "story": {
-      "type": "merch-image-text",
+      "type": "dual-image-with-text",
       "settings": {
-        "image": "shopify://shop_images/merch-cat-tees.webp",
-        "image_alt": "A man in a black fitted tee and black jeans",
-        "focal_x": 50,
-        "focal_y": 40,
-        "image_position": "right",
-        "eyebrow": "Our story",
-        "heading": "Fewer pieces, made heavier",
-        "text": "<p>Say who you are and why you started. Then say what you make: hoodies, trackpants and tees in three colours, cut from heavy cotton so they keep their shape for years.</p><p>Say where they are sewn and who sews them.</p>",
-        "button_label": "Shop the collection",
-        "button_link": "/collections/all",
-        "background": "#ffffff",
-        "panel_color": "#f6f6f6",
-        "heading_color": "#111111",
-        "text_color": "#3d3d3d",
-        "heading_size": 44,
-        "heading_size_mobile": 30,
-        "padding": 56,
-        "padding_mobile": 32
-      }
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "image_position": "left",
+        "text_column_width": 42,
+        "content_align": "left",
+        "content_gap": 18,
+        "aspect_ratio_w": 4,
+        "aspect_ratio_h": 5,
+        "show_dots": false,
+        "enable_custom_style": false,
+        "gap_desktop": 88,
+        "padding_top_desktop": 110,
+        "padding_bottom_desktop": 110,
+        "side_padding_desktop": 32,
+        "content_align_mobile": "left",
+        "mobile_order": "media_first",
+        "gap_mobile": 36,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "side_padding_mobile": 16
+      },
+      "blocks": {
+        "main": {
+          "type": "main_image",
+          "settings": {
+            "image": "shopify://shop_images/merch-about-cut.webp",
+            "alt": "Black cotton being cut by hand along a wooden rule",
+            "anchor": "top_left",
+            "size": 78,
+            "fit": "cover",
+            "radius": 0,
+            "shadow": false
+          }
+        },
+        "accent": {
+          "type": "accent_image",
+          "settings": {
+            "image": "shopify://shop_images/merch-about-sew.webp",
+            "alt": "A sewing machine foot stitching black cloth",
+            "anchor": "bottom_right",
+            "size": 44,
+            "offset_x": 0,
+            "offset_y": 0,
+            "scale": 100,
+            "above_main": true,
+            "fit": "cover",
+            "radius": 0,
+            "shadow": false
+          }
+        },
+        "eyebrow": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "Our story"
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "ONE HOODIE WE COULD NOT BUY",
+            "tag": "h2",
+            "size_desktop": 44,
+            "size_mobile": 30
+          }
+        },
+        "subheading": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>OKTAV started with a plain black hoodie that was heavy enough to hang straight and still looked right after a year of washing. We could not find one, so we had it made.</p><p>We still make that hoodie, and around it trackpants, tees, tanks and shorts. Black, grey and white, nothing printed on the front.</p>",
+            "size_desktop": 16,
+            "size_mobile": 15
+          }
+        },
+        "button": {
+          "type": "button",
+          "settings": {
+            "label": "Shop the collection",
+            "link": "/collections/all",
+            "button_style": "primary",
+            "full_width": false,
+            "use_theme_button": true
+          }
+        }
+      },
+      "block_order": [
+        "main",
+        "accent",
+        "eyebrow",
+        "heading",
+        "subheading",
+        "button"
+      ]
     },
     "features": {
       "type": "merch-features",
@@ -126,8 +200,8 @@
     "gallery": {
       "type": "merch-gallery",
       "settings": {
-        "heading": "In the studio",
-        "subheading": "Pictures from the last drop. Replace them with your own.",
+        "heading": "From the last drop",
+        "subheading": "Pictures from the shop. Replace them with your own.",
         "heading_size": 32,
         "heading_size_mobile": 24,
         "padding": 24,
@@ -173,12 +247,207 @@
         "g3",
         "g4"
       ]
+    },
+    "workshop": {
+      "type": "hero-image1",
+      "settings": {
+        "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636",
+        "section_width": "full_width",
+        "reset_spacing": true,
+        "content_align": "left",
+        "vertical_align": "bottom",
+        "content_max_width": 640,
+        "content_gap": 16,
+        "image": "shopify://shop_images/merch-about-workshop.webp",
+        "image_alt": "A row of old black sewing machines in a workshop",
+        "image_fit": "cover",
+        "image_position_x": 55,
+        "image_position_y": 50,
+        "enable_overlay": true,
+        "overlay_color": "#000000",
+        "overlay_opacity": 48,
+        "animation": "fade",
+        "min_height_desktop": 620,
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 80,
+        "side_padding_desktop": 56,
+        "buttons_margin_top": 8,
+        "min_height_mobile": 520,
+        "padding_top_mobile": 64,
+        "padding_bottom_mobile": 48,
+        "side_padding_mobile": 20
+      },
+      "blocks": {
+        "eyebrow": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "The workshop"
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "CUT AND SEWN IN SMALL RUNS",
+            "size_desktop": 60,
+            "size_mobile": 34,
+            "tag": "h2"
+          }
+        },
+        "subheading": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Every piece is made in one workshop, a few hundred at a time, and only remade when it sells out.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow",
+        "heading",
+        "subheading"
+      ]
+    },
+    "making": {
+      "type": "image-with-text-steps",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "image_position": "right",
+        "column_valign": "center",
+        "image_width_pct": 48,
+        "gap_desktop": 80,
+        "text_gap": 18,
+        "image": "shopify://shop_images/merch-about-stack.webp",
+        "image_alt": "Three folded jumpers stacked on a dark table",
+        "image_aspect_desktop": "1 / 1",
+        "image_radius": 0,
+        "step_style": "numbered_outline",
+        "marker_size": 34,
+        "marker_font_size": 14,
+        "line_style": "solid",
+        "line_thickness": 1,
+        "step_gap_inline": 18,
+        "step_gap_below": 24,
+        "steps_margin_top": 16,
+        "custom_colors": false,
+        "step_title_size": 18,
+        "step_desc_size": 15,
+        "use_theme_button": true,
+        "button_margin_top": 8,
+        "padding_top": 100,
+        "padding_bottom": 100,
+        "side_padding_desktop": 24,
+        "image_aspect": "1 / 1",
+        "gap_mobile": 32,
+        "side_padding_mobile": 16
+      },
+      "blocks": {
+        "eyebrow": {
+          "type": "eyebrow",
+          "settings": {
+            "text": "How a hoodie is made"
+          }
+        },
+        "heading": {
+          "type": "heading",
+          "settings": {
+            "text": "FOUR STEPS, ONE WORKSHOP",
+            "tag": "h2",
+            "size_desktop": 40,
+            "size_mobile": 28
+          }
+        },
+        "s1": {
+          "type": "step",
+          "settings": {
+            "title": "Knit and wash",
+            "description": "<p>450 gsm cotton fleece, washed before it is cut so it keeps its size in your machine.</p>"
+          }
+        },
+        "s2": {
+          "type": "step",
+          "settings": {
+            "title": "Cut by hand",
+            "description": "<p>Twenty layers at a time, along paper patterns we have barely changed since the first run.</p>"
+          }
+        },
+        "s3": {
+          "type": "step",
+          "settings": {
+            "title": "Sew twice",
+            "description": "<p>Double stitched at the shoulders, cuffs and pocket, where a hoodie usually gives first.</p>"
+          }
+        },
+        "s4": {
+          "type": "step",
+          "settings": {
+            "title": "Check and fold",
+            "description": "<p>Every piece is checked, folded and sent in a paper mailer within two working days.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "eyebrow",
+        "heading",
+        "s1",
+        "s2",
+        "s3",
+        "s4"
+      ]
+    },
+    "quote": {
+      "type": "quotebanner",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "text_align_desktop": "center",
+        "max_width": "full",
+        "custom_max_width": 1080,
+        "text_max_width": 900,
+        "gap_top": 28,
+        "enable_custom_style": false,
+        "radius": 0,
+        "enable_shadow": false,
+        "reveal": true,
+        "top_padding_desktop": 110,
+        "bottom_padding_desktop": 110,
+        "pad_x_desktop": 72,
+        "text_align_mobile": "left",
+        "top_padding_mobile": 64,
+        "bottom_padding_mobile": 64,
+        "pad_x_mobile": 20
+      },
+      "blocks": {
+        "q": {
+          "type": "quote",
+          "settings": {
+            "quote_text": "We would rather make one hoodie that lasts ten winters than ten that last one.",
+            "use_curly_quotes": true
+          }
+        },
+        "a": {
+          "type": "author",
+          "settings": {
+            "author_name": "OKTAV",
+            "author_role": "From the studio",
+            "enable_signature": false
+          }
+        }
+      },
+      "block_order": [
+        "q",
+        "a"
+      ]
     }
   },
   "order": [
     "heading",
+    "workshop",
     "story",
     "features",
+    "making",
+    "quote",
     "gallery"
   ]
 }

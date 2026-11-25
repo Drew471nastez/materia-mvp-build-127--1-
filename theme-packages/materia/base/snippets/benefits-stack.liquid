@@ -1,8 +1,13 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes — Benefits Stack block.
   Pass `block`. Renders a 2x2 grid of benefit items with check icons.
   Each item: icon (selectable), text. Connected to theme typography + colors.
-{%- endcomment -%}
+
+  @param {block} block - The block being rendered
+
+  @example
+  {% render 'benefits-stack', block: block %}
+{%- enddoc -%}
 {%- liquid
   assign s = block.settings
   assign block_id = 'benefits-stack-' | append: block.id

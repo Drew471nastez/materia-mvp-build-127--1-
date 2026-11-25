@@ -247,6 +247,11 @@
     "show_rate": false,
     "popular_key_word": "tee, crew, cap, beanie",
     "logo": "shopify://shop_images/podshop-logo.webp",
-    "cart_drawer_buttons": "both"
+    "cart_drawer_buttons": "both",
+    "instagram": "https://www.instagram.com/",
+    "tiktok": "https://www.tiktok.com/",
+    "facebook": "https://www.facebook.com/",
+    "pinterest": "https://www.pinterest.com/",
+    "search_type": "drawer"
   }
 }

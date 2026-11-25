@@ -48,7 +48,7 @@
         this.row = this.querySelector('[data-testimonial-row]');
         grab(this.row);
         this.row?.addEventListener('scroll', this._update, {passive:true});
-        this._resize?.observe(this); this._update(); return;
+        this._resize?.observe(this); if (!this._resize) this._update(); return;
       }
       this._bound = true;
       this.row = this.querySelector('[data-testimonial-row]');
@@ -70,7 +70,9 @@
       this.row?.addEventListener('scroll', this._update, {passive:true});
       this._resize = 'ResizeObserver' in window ? new ResizeObserver(this._update) : null;
       this._resize?.observe(this);
-      this._update();
+      // The observer reports once after the browser's own layout; reading the
+      // row's size here forced a layout of the whole page while it loaded.
+      if (!this._resize) this._update();
     }
     disconnectedCallback() { this._resize?.disconnect(); }
   }

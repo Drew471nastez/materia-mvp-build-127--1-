@@ -4,7 +4,7 @@
 {%- liquid
   assign theme_st = settings
   assign money_format = shop.money_format
-  if theme_st.currency_code_enabled
+  if theme_st.show_currency_code
     assign money_format = shop.money_with_currency_format | strip_html
   endif
 -%}
@@ -60,32 +60,25 @@
 {%- if ck_render -%}
   {%- liquid
     assign ck_position = theme_st.cookie_position | default: 'bottom_center'
-    assign ck_look = theme_st.cookie_style | default: 'bar-center'
     comment
-      Earlier looks also set a position; read them as Standard at that position.
+      Look is the style only (Standard, Minimal, Frosted glass, Dark); Position
+      places it. An earlier saved look (cookie_style, now hidden) that also
+      placed the banner still places it while Position is Bottom centre bar.
     endcomment
-    case ck_look
-      when 'full'
-        if ck_position == 'bottom_center'
+    assign ck_look = theme_st.cookie_look | default: 'standard'
+    assign ck_legacy = theme_st.cookie_style | default: 'bar-center'
+    if ck_position == 'bottom_center'
+      case ck_legacy
+        when 'full'
           assign ck_position = 'bottom_bar'
-        endif
-        assign ck_look = 'bar-center'
-      when 'card-left'
-        if ck_position == 'bottom_center'
+        when 'card-left'
           assign ck_position = 'bottom_left'
-        endif
-        assign ck_look = 'bar-center'
-      when 'card-right'
-        if ck_position == 'bottom_center'
+        when 'card-right'
           assign ck_position = 'bottom_right'
-        endif
-        assign ck_look = 'bar-center'
-      when 'top'
-        if ck_position == 'bottom_center'
+        when 'top'
           assign ck_position = 'top_bar'
-        endif
-        assign ck_look = 'bar-center'
-    endcase
+      endcase
+    endif
     assign ck_scheme = theme_st.cookie_color_scheme
     assign ck_scheme_id = ck_scheme.id | default: ck_scheme
     assign ck_modal = false
@@ -110,7 +103,8 @@
       --cookie-heading-size:{{ theme_st.cookie_heading_size | default: 16 }}px;--cookie-text-size:{{ theme_st.cookie_text_size | default: 14 }}px;--cookie-btn-size:{{ theme_st.cookie_button_text_size | default: 14 }}px;
     {%- endif -%}
   {%- endcapture -%}
-  {{ 'cookie-consent.css' | asset_url | stylesheet_tag }}
+  {%- comment -%} Loads without holding the page; base.css keeps the banner unseen until it has. {%- endcomment -%}
+  <link rel="stylesheet" href="{{ 'cookie-consent.css' | asset_url }}" media="print" onload="this.media='all'"><noscript>{{ 'cookie-consent.css' | asset_url | stylesheet_tag }}</noscript>
   <cookie-consent
     class="cookie-consent{% if ck_scheme_id != blank %} color-{{ ck_scheme_id }}{% endif %}"
     hidden
@@ -130,7 +124,8 @@
     data-delay="{{ theme_st.cookie_delay | default: 0 }}"
     data-expiry="{{ theme_st.cookie_expiry_days | default: 180 }}"
     data-frequency="{{ theme_st.cookie_frequency | default: 'every_page' }}"
-    style="{{ cookie_vars }}"
+    data-region="{% if theme_st.cookie_only_where_required == false %}false{% else %}true{% endif %}"
+    style="--cookie-radius:{{ theme_st.cookie_radius | default: 14 }}px;--cookie-width:{{ theme_st.cookie_max_width | default: 720 }}px;{{ cookie_vars }}"
   >
     <div class="cookie-consent__backdrop" data-consent-backdrop></div>
     <div
@@ -152,8 +147,31 @@
             {% if theme_st.cookie_link_url == blank or theme_st.cookie_link_label == blank %}hidden{% endif %}
           >{{ theme_st.cookie_link_label }}</a>
         </div>
+        <fieldset class="cookie-consent__prefs" data-consent-prefs hidden>
+          <legend class="visually-hidden">{{ theme_st.label_preferences | default: 'Preferences' | escape }}</legend>
+          <label class="cookie-consent__pref"><input type="checkbox" checked disabled> <span data-consent-label="cookie_pref_necessary">{{ theme_st.cookie_pref_necessary | default: 'Necessary (always on)' | escape }}</span></label>
+          <label class="cookie-consent__pref"><input type="checkbox" name="analytics" data-consent-pref="analytics"> <span data-consent-label="cookie_pref_analytics">{{ theme_st.cookie_pref_analytics | default: 'Analytics' | escape }}</span></label>
+          <label class="cookie-consent__pref"><input type="checkbox" name="marketing" data-consent-pref="marketing"> <span data-consent-label="cookie_pref_marketing">{{ theme_st.cookie_pref_marketing | default: 'Marketing' | escape }}</span></label>
+          <label class="cookie-consent__pref"><input type="checkbox" name="preferences" data-consent-pref="preferences"> <span data-consent-label="cookie_pref_preferences">{{ theme_st.cookie_pref_preferences | default: 'Personalisation' | escape }}</span></label>
+        </fieldset>
       </div>
       <div class="cookie-consent__actions">
+        <button
+          type="button"
+          class="cookie-consent__btn cookie-consent__btn--link"
+          data-consent="prefs"
+          aria-expanded="false"
+          {% if theme_st.cookie_show_preferences == false %}hidden{% endif %}
+        ><span data-consent-label="label_preferences">{{ theme_st.label_preferences | default: 'Preferences' | escape }}</span></button>
+        <button
+          type="button"
+          class="cookie-consent__btn btn-outline"
+          data-theme-button="secondary"
+          data-sl-button
+          data-consent="save"
+          hidden
+          {% if ck_custom %}style="{%- render 'button-overrides', text: theme_st.cookie_btn2_text, custom: true, radius: theme_st.cookie_btn_radius -%}"{% endif %}
+        ><span data-consent-label="label_save">{{ theme_st.label_save | default: 'Save choices' | escape }}</span></button>
         <button
           type="button"
           class="cookie-consent__btn btn-outline"
@@ -177,7 +195,7 @@
         class="cookie-consent__close"
         data-consent="close"
         aria-label="{{ 'accessibility.close' | t }}"
-        {% if theme_st.cookie_show_close != true or ck_modal and theme_st.cookie_require_choice %}hidden{% endif %}
+        {% if theme_st.cookie_show_close != true or theme_st.cookie_require_choice %}hidden{% endif %}
       >
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><path d="M1 1l12 12M13 1L1 13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
       </button>
@@ -189,6 +207,11 @@
       "enable_cookies": {{ theme_st.enable_cookies | json }},
       "cookie_show_in_builder": {{ theme_st.cookie_show_in_builder | json }},
       "cookie_style": {{ theme_st.cookie_style | default: 'bar-center' | json }},
+      "cookie_look": {{ theme_st.cookie_look | default: 'standard' | json }},
+      "cookie_radius": {{ theme_st.cookie_radius | default: 14 | json }},
+      "cookie_max_width": {{ theme_st.cookie_max_width | default: 720 | json }},
+      "cookie_require_choice": {{ theme_st.cookie_require_choice | json }},
+      "cookie_modal_backdrop": {{ theme_st.cookie_modal_backdrop | json }},
       "cookie_position": {{ theme_st.cookie_position | default: 'bottom_center' | json }},
       "cookie_show_close": {{ theme_st.cookie_show_close | json }},
       "cookie_custom_styling": {{ ck_custom | json }},
@@ -203,10 +226,19 @@
       "cookie_custom_text_sizes": {{ theme_st.cookie_custom_text_sizes | json }},
       "cookie_heading_size": {{ theme_st.cookie_heading_size | default: 16 | json }},
       "cookie_text_size": {{ theme_st.cookie_text_size | default: 14 | json }},
-      "cookie_button_text_size": {{ theme_st.cookie_button_text_size | default: 14 | json }}
+      "cookie_button_text_size": {{ theme_st.cookie_button_text_size | default: 14 | json }},
+      "cookie_show_preferences": {{ theme_st.cookie_show_preferences | json }}
     }</script>
   {%- endif -%}
+  {%- comment -%} With a choice already stored the banner stays shut, so its script waits for the
+    first tap or idle (layout/theme mtLazy); without one it loads at once. {%- endcomment -%}
+  {%- if request.design_mode -%}
   <script src="{{ 'cookie-consent.js' | asset_url }}" defer="defer"></script>
+  {%- else -%}
+  <script>(function(u){var v=null;try{v=JSON.parse(localStorage.getItem('materia:consent')||'null')}catch(e){}
+var load=window.mtLazy||function(x){var s=document.createElement('script');s.src=x;document.head.appendChild(s)};
+if(v&&typeof v.accepted==='boolean'&&+v.expires>Date.now())load(u);else(load.now||load)(u)})({{ 'cookie-consent.js' | asset_url | json }})</script>
+  {%- endif -%}
 {%- endif -%}
 {%- comment -%}
   Sign-up and contact forms everywhere: a pending button, one submit at a
@@ -223,8 +255,17 @@
     "storelib_input_radius": {{ theme_st.storelib_input_radius | default: -1 | json }}
   }</script>
 {%- endif -%}
-{{ 'materia-forms.css' | asset_url | stylesheet_tag }}
+<link rel="stylesheet" href="{{ 'materia-forms.css' | asset_url }}" media="print" onload="this.media='all'"><noscript>{{ 'materia-forms.css' | asset_url | stylesheet_tag }}</noscript>
+{%- comment -%} Sending forms needs this only once the shopper reaches a form: queued for the
+  first tap, key or focus, or idle (layout/theme mtLazy). A submit before it has run is held
+  by snippets/section-link-capture and given again once it has. A page the platform drew after a
+  post (its toast) and the builder load it at once. {%- endcomment -%}
+{%- if request.design_mode -%}
 <script src="{{ 'materia-forms.js' | asset_url }}" defer="defer"></script>
+{%- else -%}
+<script>(function(u){var load=window.mtLazy||function(x){var s=document.createElement('script');s.src=x;document.head.appendChild(s)};
+window.__mtFormsUrl=u;if(/[?&](customer_posted|contact_posted|form_type)=/.test(location.search+' '+(window.__mtPostedUrl||'')))(load.now||load)(u);else load(u)})({{ 'materia-forms.js' | asset_url | json }})</script>
+{%- endif -%}
 <script>
   
   
@@ -236,6 +277,11 @@
     cart_url: '{{ routes.cart_url }}',
     search_url: '{{ routes.search_url }}',
     predictive_search_url: '{{ routes.predictive_search_url }}',
+    root_url: '{{ routes.root_url }}',
+    wishlist_url: {% capture wishlist_url %}{% render 'wishlist-url' %}{% endcapture %}{{ wishlist_url | strip | json }},
+    account_url: '{{ routes.account_url }}',
+    account_login_url: '{{ routes.account_login_url }}',
+    product_recommendations_url: '{{ routes.product_recommendations_url }}',
   };
   window.cartStrings = {
     error: `{{ 'sections.cart.cart_error' | t }}`,
@@ -248,7 +294,10 @@
     discount_removed: `{{ 'general.content.discount_code_remove' | t }}`,
     discount_applied: `{{ 'general.content.discount_code_applied' | t }}`,
     discount_already: `{{ 'general.content.discount_code_already' | t }}`,
-    discount_error: `{{ 'general.content.discount_code_error' | t }}`
+    discount_error: `{{ 'general.content.discount_code_error' | t }}`,
+    discount_pending: `{{ 'general.content.discount_code_pending' | t }}`,
+    discount_applied_short: `{{ 'general.content.discount_code_applied' | t }}`,
+    remove: `{{ 'general.cart.remove_title' | t }}`
   }
       
   window.themeGlobalVariables = {

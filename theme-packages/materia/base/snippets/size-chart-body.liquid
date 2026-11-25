@@ -1,0 +1,70 @@
+{%- doc -%}
+  Materia Themes. The chart shown by the Size chart block (popup) and the
+  Size guide table block (inline). First found:
+    1. the product's own chart (custom.size_chart, or storelib.size_chart),
+       when Source is "Product metafield" or "Product metafield first" is on;
+    2. the block's Source: the chosen page, or its Custom table rows.
+  The block's Note follows. Storelib's chart only reaches the product's own
+  page, so elsewhere (Featured product, the editor) an empty slot asks that
+  page for it (size-chart.js) and replaces the block's own chart.
+  Prints nothing when there is nothing to show.
+  Inputs: block, product
+
+  @param {block} block - The block being rendered
+  @param {product} product - The product to render
+
+  @example
+  {% render 'size-chart-body', block: block, product: product %}
+{%- enddoc -%}
+{%- liquid
+  assign scb = block.settings
+  assign scb_src = scb.chart_source | default: 'page'
+  assign scb_mf = true
+  if scb_src != 'metafield' and scb.use_storelib_chart == false
+    assign scb_mf = false
+  endif
+-%}
+{%- capture scb_product -%}{%- if scb_mf -%}{%- render 'product-size-chart-content', product: product, chart_id: block.id -%}{%- endif -%}{%- endcapture -%}
+{%- capture scb_own -%}
+  {%- if scb_src == 'page' and scb.size_guide_page != blank -%}
+    {%- assign scb_page = scb.size_guide_page -%}
+    {%- assign scb_page_html = scb_page.content | default: pages[scb_page].content -%}
+    {%- if scb_page_html != blank -%}<div class="mt-size-chart__html rte">{{ scb_page_html }}</div>{%- endif -%}
+  {%- elsif scb_src == 'table' -%}
+    {%- render 'size-rows-table', data: scb.table_data, unit: scb.table_unit, uid: block.id -%}
+  {%- endif -%}
+{%- endcapture -%}
+{%- liquid
+  assign scb_has_product = false
+  assign scb_t = scb_product | strip_html | strip
+  if scb_t != blank or scb_product contains '<img' or scb_product contains '<table'
+    assign scb_has_product = true
+  endif
+  assign scb_has_own = false
+  assign scb_t = scb_own | strip_html | strip
+  if scb_t != blank or scb_own contains '<img' or scb_own contains '<table'
+    assign scb_has_own = true
+  endif
+  assign scb_note = scb.size_guide_content
+  assign scb_t = scb_note | strip_html | strip
+  if scb_t == blank
+    unless scb_note contains '<img'
+      assign scb_note = ''
+    endunless
+  endif
+  assign scb_remote = false
+  if scb_mf and scb_has_product == false and product.url != blank
+    if request.design_mode or request.path != product.url
+      assign scb_remote = true
+    endif
+  endif
+-%}
+{%- if scb_has_product -%}
+  {{- scb_product -}}
+{%- else -%}
+  {%- if scb_remote -%}<div data-size-chart-remote="{{ product.url }}" hidden></div>{%- endif -%}
+  {%- if scb_has_own -%}{%- if scb_remote -%}<div data-size-chart-fallback>{{ scb_own }}</div>{%- else -%}{{ scb_own }}{%- endif -%}{%- endif -%}
+{%- endif -%}
+{%- if scb_note != blank -%}
+  <div class="mt-size-chart__note rte">{{ scb_note }}</div>
+{%- endif -%}

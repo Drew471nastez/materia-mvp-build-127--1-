@@ -1,4 +1,4 @@
-<script src="{{ 'live-countdown.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-countdown.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-countdown-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- comment -%}
   Materia Themes. Countdown Timer Flip: flip-clock cards (days, hours,
@@ -19,7 +19,7 @@
 {%- liquid
   assign st = section.settings
   assign sid = section.id
-  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = st.color_scheme.id | default: st.color_scheme | default: 'default'
   assign own = st.enable_custom_style
   assign fonts = st.enable_custom_fonts
   assign shape = false
@@ -259,7 +259,8 @@
   </div>
 </section>{% schema %}
 {
-  "name": "Countdown Timer Flip",
+  "class": "s-tt",
+"name": "Countdown Timer Flip",
   "settings": [
     {
       "type": "header",
@@ -269,7 +270,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -329,7 +330,6 @@
       "type": "text",
       "id": "end_iso",
       "label": "End date and time",
-      "default": "",
       "info": "Format: 2026-12-31T23:59:00, or 2026-12-31T23:59:00+02:00 for one moment everywhere. An impossible date such as 2026-02-30 hides the timer. Daylight saving: a date with an offset (+02:00) stays fixed; one without counts to the visitor's own clock. Bucharest is +03:00 in summer and +02:00 in winter, so use the offset in force on the end date.",
       "placeholder": "2026-12-31T23:59:00"
     },
@@ -997,7 +997,6 @@
               "label": "H4"
             }
           ],
-          "hidden": true,
           "info": "Legacy: the heading is always an h2.",
           "visible_if": "{{ false }}"
         },
@@ -1195,8 +1194,8 @@
   ],
   "presets": [
     {
-      "name": "Countdown Timer Flip",
-      "category": "Countdowns",
+      "name": "Countdown – Flip Clock",
+      "category": "08 · Promotions & countdowns",
       "blocks": [
         {
           "type": "heading"

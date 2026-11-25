@@ -1,7 +1,7 @@
-<script src="{{ 'live-products-a.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-products-a.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-products-a-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
@@ -153,7 +153,7 @@
                   {%- if block.type == '@app' -%}
                     {{ 'products.product.review_app' | t }}
                   {%- elsif block.type == 'description' and bk_st.title == blank -%}
-                    Description
+                    {{ 'accessibility.ui.description' | t }}
                   {%- else -%}
                     {{- bk_st.title | escape -}}
                   {%- endif -%}
@@ -259,7 +259,7 @@
 {
   "name": "Product information tabs",
   "tag": "section",
-  "class": "section",
+  "class": "section s-tt",
   "settings": [
     {
       "type": "header",
@@ -269,7 +269,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -488,16 +488,15 @@
         {
           "type": "page",
           "id": "page",
-          "label": "Page",
-          "visible_if": "{{ block.settings.tab_content == 'content_page' }}"
+          "label": "Page"
         }
       ]
     }
   ],
   "presets": [
     {
-      "name": "Product information tabs",
-      "category": "Products",
+      "name": "Product Information Tabs",
+      "category": "03 · Products",
       "blocks": [
         {
           "type": "description",

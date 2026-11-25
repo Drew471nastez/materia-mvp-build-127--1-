@@ -1,0 +1,85 @@
+/* section-testimonial-video.css: static styles of sections/testimonial-video.liquid, moved out of its inline <style> so they are cached.
+   :is(.s-testimonial-video,#_) is the section wrapper (schema class "s-testimonial-video"); #_ never matches and only keeps the
+   specificity of the former #shopify-section-<id> selector. Per-section values stay inline as custom properties. */
+:is(.s-testimonial-video,#_) { position: static; z-index: 0; }
+:where(.s-testimonial-video) { font-family: var(--body-font, inherit); }
+:where(.s-testimonial-video) :where(button, input, textarea, select, optgroup) { font-family: inherit; }
+:is(.s-testimonial-video,#_) .ctv { position: relative; z-index: 0; overflow: hidden; text-align: center; background-color: var(--ctv-bg); padding-top: var(--ctv-pt); padding-bottom: var(--ctv-pb); font-family: var(--ctv-bf); }
+:is(.s-testimonial-video,#_) .ctv *, :is(.s-testimonial-video,#_) .ctv *::before, :is(.s-testimonial-video,#_) .ctv *::after { box-sizing: border-box; }
+:is(.s-testimonial-video,#_) .ctv__inner { padding-left: var(--ctv-pl-d); padding-right: var(--ctv-pr-d); }
+:is(.s-testimonial-video,#_) .ctv__heading { max-width: 52rem; margin: 0 auto var(--h-mb-m); font-family: var(--h-ff); font-size: var(--h-fs-m); font-weight: var(--h-w); line-height: var(--h-lh); letter-spacing: var(--h-ls); text-transform: var(--h-tt); color: var(--h-c); text-wrap: balance; }
+:is(.s-testimonial-video,#_) .ctv__subheading { max-width: 40rem; margin: 0 auto var(--s-mb-m); font-family: var(--s-ff); font-size: var(--s-fs-m); font-weight: var(--s-w); line-height: var(--s-lh); color: var(--s-c); text-wrap: pretty; }
+@media (max-width: 768px) {
+    :is(.s-testimonial-video,#_) .ctv__inner { padding-left: var(--ctv-pl-m); padding-right: var(--ctv-pr-m); }
+  }
+@media (min-width: 769px) {
+    :is(.s-testimonial-video,#_) .ctv__heading { margin-bottom: var(--h-mb-d); font-size: var(--h-fs-d); }
+    :is(.s-testimonial-video,#_) .ctv__subheading { margin-bottom: var(--s-mb-d); font-size: var(--s-fs-d); }
+  }
+:is(.s-testimonial-video,#_) .ctv__subheading > :first-child { margin-top: 0; }
+:is(.s-testimonial-video,#_) .ctv__subheading > :last-child { margin-bottom: 0; }
+:is(.s-testimonial-video,#_) .ctv__subheading p { margin: 0; font: inherit; color: inherit; }
+:is(.s-testimonial-video,#_) .ctv__subheading p + p, :is(.s-testimonial-video,#_) .ctv__subheading p + ul, :is(.s-testimonial-video,#_) .ctv__subheading p + ol { margin-top: 0.6em; }
+:is(.s-testimonial-video,#_) .ctv__subheading ul, :is(.s-testimonial-video,#_) .ctv__subheading ol { display: inline-block; margin: 0; padding-left: 1.2em; text-align: left; }
+:is(.s-testimonial-video,#_) .ctv__rt strong, :is(.s-testimonial-video,#_) .ctv__rt b { font-weight: 700; }
+:is(.s-testimonial-video,#_) .ctv__rt em { font-style: italic; }
+:is(.s-testimonial-video,#_) .ctv__rt a { color: inherit; text-decoration: underline; text-underline-offset: 0.15em; }
+:is(.s-testimonial-video,#_) .ctv__rt a:hover { opacity: 0.75; }
+:is(.s-testimonial-video,#_) .ctv__rt a:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+:is(.s-testimonial-video,#_) .ctv__viewport { width: 100%; position: relative; touch-action: pan-x pan-y; cursor: grab; }
+:is(.s-testimonial-video,#_) .ctv__viewport.is-dragging { cursor: grabbing; }
+:is(.s-testimonial-video,#_) .ctv__rail { --ctv-gap: var(--ctv-gap-m); display: flex; flex-direction: row; justify-content: safe center; gap: var(--ctv-gap); overflow-x: auto; overflow-y: hidden; scroll-snap-type: x proximity; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; overscroll-behavior-inline: contain; scrollbar-width: none; -ms-overflow-style: none; padding: 16px 12px 24px; margin: -6px -10px -12px; scroll-padding-inline: 12px; }
+/* Cards that fit are centred from the first paint (safe: a row that scrolls starts at its first card); the script's is-centered class agrees. */
+:is(.s-testimonial-video,#_) .ctv__rail.is-centered { justify-content: center; }
+:is(.s-testimonial-video,#_) .ctv__rail::-webkit-scrollbar { display: none; }
+:is(.s-testimonial-video,#_) .ctv__viewport.is-dragging .ctv__rail { scroll-behavior: auto !important; scroll-snap-type: none !important; }
+@media (min-width: 769px) {
+    :is(.s-testimonial-video,#_) .ctv__rail { --ctv-gap: var(--ctv-gap-d); }
+  }
+:is(.s-testimonial-video,#_) .ctv__slide { flex: 0 0 calc((100% - (var(--ctv-cols) - 1) * var(--ctv-gap)) / var(--ctv-cols)); scroll-snap-align: start; display: flex; justify-content: center; }
+@media (min-width: 769px) {
+    :is(.s-testimonial-video,#_) .ctv__slide { flex: 0 0 var(--ctv-card-w); }
+  }
+:is(.s-testimonial-video,#_) .ctv__card-link { position: absolute; inset: 0; z-index: 2; text-decoration: none; color: inherit; }
+:is(.s-testimonial-video,#_) .ctv__slide img, :is(.s-testimonial-video,#_) .ctv__slide video { -webkit-user-drag: none; pointer-events: none; }
+:is(.s-testimonial-video,#_) .video-overlay { z-index: 3; pointer-events: none; }
+:is(.s-testimonial-video,#_) .custom-button { position: relative; z-index: 4; pointer-events: auto; }
+:is(.s-testimonial-video,#_) .ctv__viewport.is-dragging * { pointer-events: none; }
+:is(.s-testimonial-video,#_) .video-card { position: relative; width: 100%; aspect-ratio: 10 / 16; border-radius: var(--ctv-radius); overflow: hidden; transition: transform var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease), box-shadow var(--btn-anim-duration, .3s) var(--btn-anim-ease, ease); cursor: pointer; background-color: color-mix(in srgb, var(--color-text) 6%, var(--color-background)); }
+:is(.s-testimonial-video,#_) .media-content, :is(.s-testimonial-video,#_) .media-content video, :is(.s-testimonial-video,#_) video.media-content { width: 100%; height: 100%; object-fit: cover; display: block; }
+:is(.s-testimonial-video,#_) .video-card .media-content { transition: transform .5s cubic-bezier(.2,.7,.2,1); }
+:is(.s-testimonial-video,#_) .video-card .placeholder-svg { width: 100%; height: 100%; display: block; }
+:is(.s-testimonial-video,#_) .ctv[data-hover="smooth-zoom"] .video-card:hover .media-content { transform: scale(1.05); }
+:is(.s-testimonial-video,#_) .ctv[data-hover="scale-in"] .video-card:hover .media-content { transform: scale(1.1); }
+:is(.s-testimonial-video,#_) .ctv[data-hover="scale-in-up"] .video-card:hover { transform: translateY(-6px); }
+:is(.s-testimonial-video,#_) .ctv[data-hover="scale-in-up"] .video-card:hover .media-content { transform: scale(1.08); }
+:is(.s-testimonial-video,#_) .ctv[data-hover="subtle-shadow"] .video-card:hover { box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
+:is(.s-testimonial-video,#_) .video-overlay { position: absolute; left: 0; bottom: 0; width: 100%; display: flex; flex-direction: column; align-items: stretch; gap: 10px; padding: 14px; background-color: var(--ctv-overlay); }
+:is(.s-testimonial-video,#_) .ctv[data-addons="false"] .video-overlay { background: none; }
+:is(.s-testimonial-video,#_) .ctv[data-addons="false"] .product-info, :is(.s-testimonial-video,#_) .ctv[data-button="false"] .custom-button { display: none; }
+:is(.s-testimonial-video,#_) .ctv[data-addons="false"][data-button="false"] .video-overlay { display: none; }
+:is(.s-testimonial-video,#_) .product-info { color: var(--ctv-card-text); text-shadow: 0 1px 2px rgba(0,0,0,.25); min-width: 0; display: flex; flex-direction: column; align-items: flex-start; width: 100%; text-align: left; }
+:is(.s-testimonial-video,#_) .product-info .username, :is(.s-testimonial-video,#_) .product-info .product-name { color: inherit; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:is(.s-testimonial-video,#_) .product-info [hidden] { display: none; }
+:is(.s-testimonial-video,#_) .username { font-size: 12px; font-weight: 700; font-family: inherit; margin-bottom: 2px; }
+:is(.s-testimonial-video,#_) .product-name { font-size: 14px; font-weight: 700; font-family: inherit; margin-bottom: 2px; }
+:is(.s-testimonial-video,#_) .stars { display: flex; font-size: 14px; font-family: inherit; }
+:is(.s-testimonial-video,#_) .star { color: var(--star-off); }
+:is(.s-testimonial-video,#_) .star.filled { color: var(--star-on); }
+:is(.s-testimonial-video,#_) .star.is-part { color: transparent; background: linear-gradient(90deg, var(--star-on) var(--lt-fill), var(--star-off) var(--lt-fill)); -webkit-background-clip: text; background-clip: text; }
+:is(.s-testimonial-video,#_) .custom-button { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 44px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (prefers-reduced-motion: reduce) {
+    :is(.s-testimonial-video,#_) .video-card, :is(.s-testimonial-video,#_) .video-card .media-content { transition: none; animation: none !important; }
+    :is(.s-testimonial-video,#_) .video-card:hover, :is(.s-testimonial-video,#_) .video-card:hover .media-content { transform: none; }
+  }
+:is(.s-testimonial-video,#_) .ctv__progress { position: relative; display: block; margin: 22px auto 0; width: var(--ctv-pbar-w); height: var(--ctv-pbar-h); background: var(--ctv-track); border-radius: 999px; overflow: hidden; cursor: pointer; }
+:is(.s-testimonial-video,#_) .ctv[data-progress="false"] .ctv__progress { display: none !important; }
+@media (min-width: 769px) { :is(.s-testimonial-video,#_) .ctv[data-progress-d="false"] .ctv__progress { display: none !important; } }
+:is(.s-testimonial-video,#_) .ctv__progress-fill { position: absolute; inset: 0 auto 0 0; width: 0%; background: var(--ctv-fill); border-radius: 999px; transition: width .15s linear; }
+:is(.s-testimonial-video,#_) .ctv__viewport.is-static .ctv__progress { visibility: hidden; }
+:is(.s-testimonial-video,#_) .ctv__viewport:focus { outline: none; }
+:is(.s-testimonial-video,#_) .ctv__viewport:focus-visible { outline: 2px solid var(--color-heading, currentColor); outline-offset: 4px; border-radius: 4px; }
+:is(.s-testimonial-video,#_) .ctv__card-link:focus-visible, :is(.s-testimonial-video,#_) .custom-button:focus-visible { outline: 2px solid var(--color-heading, currentColor); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+    :is(.s-testimonial-video,#_) .ctv__rail { scroll-behavior: auto; }
+  }

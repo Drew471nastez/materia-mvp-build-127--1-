@@ -1,8 +1,16 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. Developed By Materia Themes.
   The block loop below includes snippets/product-info-blocks, the same
   block markup Main product draws.
-{%- endcomment -%}
+
+  @param {boolean} [enable_skeleton_loading] - Enable skeleton loading; no current caller passes it
+  @param {product} product - The product to render
+  @param {section} section - The section being rendered
+  @param {string} type - Type
+
+  @example
+  {% render 'product-single-layout', section: section, product: product, type: 'single' %}
+{%- enddoc -%}
 {%- assign fb_accessibility_payment_badges = 'accessibility.payment_badges' | t -%}
 {%- assign fb_accessibility_use_code = 'accessibility.use_code' | t -%}
 {%- assign fb_accessibility_product_label = 'accessibility.product_label' | t -%}
@@ -43,6 +51,20 @@
   assign theme_st = settings
   assign desktop_layout = section.settings.desktop_layout
   assign user_variants_image_group = false
+  comment
+    A product sold as a group (custom.product_grouped) swaps the options and
+    buy buttons for the group list, but only when a Product grouped block is
+    there to show that list.
+  endcomment
+  assign products_group = nil
+  if product.metafields.custom.product_grouped != blank
+    for pg_b in section.blocks
+      if pg_b.type == 'product_grouped'
+        assign products_group = product.metafields.custom.product_grouped
+        break
+      endif
+    endfor
+  endif
   assign desktop_media_width = section.settings.desktop_media_width
   assign desktop_main_image_position = section.settings.desktop_main_image_position
   assign media = product.media
@@ -145,12 +167,6 @@
       <div {%  if scroll_animation == 'slide_in' and settings.zoom_image == true %} data-animation="slide_in" {% endif %}  class="{% if type != 'single' %}product-single__media{% else %}product-detail__media col-md-w-custom w-full{% endif %}">
         {% comment %} logic check ratio of image{% endcomment %}
         {%- liquid
-          assign default_position = 0
-          unless product.has_only_default_variant
-            assign default_position = product.selected_or_first_available_variant.featured_image.position | minus: 1
-          endunless
-        -%}
-        {%- liquid
           assign psl_lightbox = true
           if section.settings.enable_lightbox == false
             assign psl_lightbox = false
@@ -162,7 +178,6 @@
           theme_st: theme_st,
           product: product,
           section: section,
-          position_index: default_position,
           desktop_layout: desktop_layout,
           type: type,
           lightbox: psl_lightbox
@@ -193,12 +208,8 @@
           <div class="zoom-external-area"></div>
         {%- endif -%}
         {%- assign product_form_id = 'product-form-' | append: section.id -%}
-        {%- assign pib_drawn = '' -%}
-        {%- for block in section.blocks -%}
-          {% assign block_st = block.settings %}
-          {%- include 'product-info-blocks' -%}
-        {%- endfor -%}
-        {%- assign psl_view_label = section.settings.view_link_label | default: 'View product' -%}
+        {%- render 'product-info-blocks', section: section, product: product, type: type, product_form_id: product_form_id, enable_skeleton_loading: enable_skeleton_loading, products_group: products_group, user_variants_image_group: user_variants_image_group, fb_accessibility_default: fb_accessibility_default, fb_accessibility_product_label: fb_accessibility_product_label, fb_accessibility_use_code: fb_accessibility_use_code, fb_accessibility_payment_badges: fb_accessibility_payment_badges -%}
+        {%- assign psl_view_label = section.settings.view_link_label -%}{%- if psl_view_label == blank -%}{%- assign psl_view_label = 'products.product.general.view_full_details' | t -%}{%- endif -%}
         {%- comment -%} Always drawn, hidden when off, so the builder's Link to the product page shows it live. {%- endcomment -%}
         <a
           {% unless section.settings.show_view_link %}hidden{% endunless %}
@@ -207,13 +218,10 @@
           {% else %}
             href="{{ product.url }}"
           {% endif %}
-          class="mt-25 product-singe__view-all-button heading_weight heading-color inline-flex align-center gap-8 no-underline lh-normal pdp-view-link"
+          class="mt-25 product-singe__view-all-button pdp-view-link mt-more-link"
         >
-          <span data-fp-view-label>{{ psl_view_label | escape }}</span>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M7 17L17 7"/>
-            <polyline points="7 7 17 7 17 17"/>
-          </svg>
+          <span class="mt-more-link__label" data-fp-view-label>{{ psl_view_label | escape }}</span>
+          <svg class="mt-more-link__arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 12h15"/><path d="m13 6 6 6-6 6"/></svg>
         </a>
       </div>
   </motion-element>

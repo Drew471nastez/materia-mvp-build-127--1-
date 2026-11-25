@@ -1,7 +1,7 @@
-<script src="{{ 'live-faq.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-faq.js' | asset_url }}" defer="defer"></script>{%- else -%}<script src="{{ 'live-faq-runtime.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if settings.scroll_animation != blank and settings.scroll_animation != 'none' -%}
@@ -169,7 +169,7 @@
 </style>
 {%- if st.enable_custom_fonts -%}<style>{{ st.heading_font | font_face: font_display: 'swap' }}{{ st.body_font | font_face: font_display: 'swap' }}</style>{%- endif -%}
 
-<section class="ffq color-{{ color_scheme }} gradient" id="ffq-{{ sid }}" data-faq-root="faq-floating" data-faq-section="{{ section.id }}" data-faq-settings="{{ section.settings | json | escape }}" data-ffq-mobile="{{ st.mobile_layout | default: 'zigzag' }}" style="{{ ffq_vars | strip_newlines }}">
+<section class="ffq color-{{ color_scheme }} gradient" id="ffq-{{ sid }}" data-faq-root="faq-floating" data-faq-section="{{ section.id }}" {% if request.design_mode %}data-faq-settings="{{ section.settings | json | escape }}"{% endif %} data-ffq-mobile="{{ st.mobile_layout | default: 'zigzag' }}" style="{{ ffq_vars | strip_newlines }}">
   <div class="ffq__inner">
     {%- render 'faq-live-header', section: section, p: 'ffq', own_hw: own_hw -%}
     <div class="ffq__stage">
@@ -178,16 +178,16 @@
         {%- capture card_vars -%}
           {%- if cs.enable_custom_style -%}--ffq-card-bg:{% render 'scheme-color', color: cs.bg_color, fallback: 'color-mix(in srgb, var(--color-heading) 6%, var(--color-background))' %};--ffq-card-fg:{% render 'scheme-color', color: cs.text_color, fallback: 'var(--color-text)' %};--ffq-card-q:{% render 'scheme-color', color: cs.q_color, fallback: 'var(--color-heading)' %};{%- endif -%}
         {%- endcapture -%}
-        <div class="ffq__card" id="block-{{ card.id }}" data-pos="{{ cs.position | default: 'top-left' }}" data-faq-block="{{ card.id }}" data-faq-type="faq_card" data-faq-settings="{{ cs | json | escape }}"{% if card_vars != blank %} style="{{ card_vars }}"{% endif %} {{ card.shopify_attributes }}>
+        <div class="ffq__card" id="block-{{ card.id }}" data-pos="{{ cs.position | default: 'top-left' }}" data-faq-block="{{ card.id }}" data-faq-type="faq_card" {% if request.design_mode %}data-faq-settings="{{ cs | json | escape }}"{% endif %}{% if card_vars != blank %} style="{{ card_vars }}"{% endif %} {{ card.shopify_attributes }}>
           <h3 class="ffq__card-q" data-faq-question{% if sec_font %} data-own-font{% endif %}{% if qw != 'theme' %} data-own-weight{% endif %}>{{ cs.question }}</h3>
           <div class="ffq__card-a" data-faq-answer{% if sec_font %} data-own-font{% endif %}>{{ cs.answer }}</div>
         </div>
       {%- endfor -%}
-      <div class="ffq__image-wrap" data-faq-media{% if image_block %} id="block-{{ image_block.id }}" data-faq-block="{{ image_block.id }}" data-faq-type="product_image" data-faq-settings="{{ image_block.settings | json | escape }}" {{ image_block.shopify_attributes }}{% endif %}>
+      <div class="ffq__image-wrap" data-faq-media{% if image_block %} id="block-{{ image_block.id }}" data-faq-block="{{ image_block.id }}" data-faq-type="product_image" {% if request.design_mode %}data-faq-settings="{{ image_block.settings | json | escape }}"{% endif %} {{ image_block.shopify_attributes }}{% endif %}>
         {%- if image_block and image_block.settings.image != blank -%}
           {{ image_block.settings.image | image_url: width: 1000 | image_tag: alt: image_block.settings.image.alt, width: image_block.settings.image.width, height: image_block.settings.image.height, loading: 'lazy', sizes: '(min-width: 900px) 360px, 100vw', widths: '320,480,640,800,1000' }}
         {%- else -%}
-          <svg class="ffq__ph" viewBox="0 0 400 400" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="400" height="400" fill="currentColor" opacity=".08"/><g fill="currentColor" opacity=".35"><circle cx="176" cy="172" r="16"/><path d="M136 248l46-54 29 32 23-21 40 43z"/></g></svg>
+          {%- render 'placeholder-image', type: 'product-4', class: 'ffq__ph' -%}
         {%- endif -%}
       </div>
     </div>
@@ -196,7 +196,7 @@
 </section>{% schema %}
 {
   "name": "FAQ 5",
-  "class": "section-faq5-floating",
+  "class": "section-faq5-floating s-tt",
   "tag": "section",
   "settings": [
     {
@@ -207,7 +207,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "checkbox",
@@ -231,7 +231,6 @@
       "id": "heading",
       "label": "Heading",
       "default": "FAQ",
-      "hidden": true,
       "info": "Legacy: used only when the section has no heading block.",
       "visible_if": "{{ false }}"
     },
@@ -239,7 +238,6 @@
       "type": "richtext",
       "id": "subheading",
       "label": "Subheading",
-      "hidden": true,
       "info": "Legacy: used only when the section has no subheading block.",
       "visible_if": "{{ false }}"
     },
@@ -625,7 +623,6 @@
           "id": "tag",
           "label": "HTML tag",
           "default": "h2",
-          "hidden": true,
           "info": "The section heading is always an h2.",
           "options": [
             {
@@ -745,8 +742,8 @@
           "label": "Line height",
           "min": 0.8,
           "max": 2,
-          "step": 0.05,
-          "default": 1.15,
+          "step": 0.1,
+          "default": 1.1,
           "visible_if": "{{ block.settings.size_enable }}"
         },
         {
@@ -864,7 +861,7 @@
           "label": "Line height",
           "min": 1,
           "max": 2.2,
-          "step": 0.05,
+          "step": 0.1,
           "default": 1.5,
           "visible_if": "{{ block.settings.size_enable }}"
         }
@@ -972,8 +969,8 @@
   ],
   "presets": [
     {
-      "name": "FAQ 5",
-      "category": "FAQ",
+      "name": "FAQ – Floating Cards",
+      "category": "13 · FAQ",
       "blocks": [
         {
           "type": "heading"

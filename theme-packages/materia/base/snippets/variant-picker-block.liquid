@@ -1,8 +1,16 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. The Variant picker block of Main product and Featured
   product: buttons and swatches, or one dropdown per option. "Custom style"
   paints both. Inputs: block, product, section, group (variant image groups)
-{%- endcomment -%}
+
+  @param {block} block - The block being rendered
+  @param {object} group - Group
+  @param {product} product - The product to render
+  @param {section} section - The section being rendered
+
+  @example
+  {% render 'variant-picker-block', block: block, product: product, section: section, group: user_variants_image_group %}
+{%- enddoc -%}
 {%- assign vp = block.settings -%}
 {%- if vp.enable_picker_custom -%}
   <style>

@@ -535,13 +535,14 @@ html:has(.header__minicart.show_popup).open-minicart .tingle-enabled {
   opacity: 1;
   position: absolute;
   top: 0;
-  width: 0;
+  width: 100%;
+  transform: scaleX(0);
+  transform-origin: 0 50%;
   z-index: 3;
   animation: al-loading 1s cubic-bezier(0.43, 0.27, 0.36, 0.83) forwards;
-  transition: width 1s linear, opacity 0.35s linear 0.35s;
+  transition: opacity 0.35s linear 0.35s;
 }
  .minicart__wrapper.finish.loading ::after {
-  width: 100%;
   animation: al-loading-finish 0.3s cubic-bezier(0.43, 0.27, 0.36, 0.83)
     forwards;
 }
@@ -764,8 +765,7 @@ html:has(.header__minicart.show_popup).open-minicart .tingle-enabled {
     position: fixed;
     width: 23rem;
     transform: translateX(0);
-    transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.4, 1), all 0.5s,
-      opacity 0.5s 0.2s;
+    transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.4, 1), opacity 0.5s 0.2s, visibility 0.5s;
     display: flex;
     flex-direction: column;
     border-right: 1px solid var(--color-border);
@@ -1176,7 +1176,7 @@ cart-items.cart-refreshing::after {
    Title bar (from JS), compact product row, framed variants,
    sticky footer bar with QTY + submit, circular close.
    ========================================================= */
-.tingle-modal-box:has(#product-form-quick-edit) {
+.tingle-modal-box:is(.mt-quick-edit, #_) {
   border-radius: 18px !important;
   overflow: hidden;
   box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.3);
@@ -1186,13 +1186,13 @@ cart-items.cart-refreshing::after {
   flex-direction: column;
 }
 @media (max-width: 540px) {
-  .tingle-modal-box:has(#product-form-quick-edit) {
+  .tingle-modal-box:is(.mt-quick-edit, #_) {
     width: 100% !important;
     max-width: 100%;
     border-radius: 18px 18px 0 0 !important;
   }
 }
-.tingle-modal-box:has(#product-form-quick-edit) .tingle-modal-box__content {
+.tingle-modal-box:is(.mt-quick-edit, #_) .tingle-modal-box__content {
   padding: 0 !important;
   max-height: 85vh;
   overflow: hidden;
@@ -1202,7 +1202,7 @@ cart-items.cart-refreshing::after {
 }
 
 /* Clean title header (injected <h3.title-popup> above the form) */
-.tingle-modal-box:has(#product-form-quick-edit) .title-popup {
+.tingle-modal-box:is(.mt-quick-edit, #_) .title-popup {
   padding: 18px 54px 18px 24px !important;
   margin: 0 !important;
   font-size: 15px !important;
@@ -1506,7 +1506,7 @@ cart-items.cart-refreshing::after {
 }
 
 /* --- Floating circular close button (fade-only, no rotation) --- */
-.tingle-modal-box:has(#product-form-quick-edit) .tingle-modal__close {
+.tingle-modal-box:is(.mt-quick-edit, #_) .tingle-modal__close {
   position: absolute !important;
   top: 12px !important;
   right: 12px !important;
@@ -1523,16 +1523,16 @@ cart-items.cart-refreshing::after {
   transition: background 0.22s ease, opacity 0.22s ease !important;
   z-index: 10;
 }
-.tingle-modal-box:has(#product-form-quick-edit) .tingle-modal__close:hover {
+.tingle-modal-box:is(.mt-quick-edit, #_) .tingle-modal__close:hover {
   background: color-mix(in srgb, var(--color-heading) 6%, var(--color-background)) !important;
 }
-.tingle-modal-box:has(#product-form-quick-edit) .tingle-modal__close svg {
+.tingle-modal-box:is(.mt-quick-edit, #_) .tingle-modal__close svg {
   width: 12px;
   height: 12px;
   transform: none !important;
   transition: opacity 0.22s ease !important;
 }
-.tingle-modal-box:has(#product-form-quick-edit) .tingle-modal__close:hover svg {
+.tingle-modal-box:is(.mt-quick-edit, #_) .tingle-modal__close:hover svg {
   transform: none !important;
   opacity: 1;
 }

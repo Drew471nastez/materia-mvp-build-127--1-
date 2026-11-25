@@ -479,98 +479,100 @@
       }
     },
     "reviews": {
-      "type": "testimonials",
+      "type": "testimonial-product",
       "settings": {
         "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
         "section_width": "container",
-        "display_mode": "carousel",
-        "show_quote_mark": true,
-        "show_rating": true,
-        "columns": 3,
-        "column_gap": 24,
-        "header_alignment": "center",
-        "card_style": "outline",
-        "card_align": "center",
-        "card_padding": 32,
-        "card_radius": 6,
-        "show_arrow": false,
-        "carousel_pagination": "show",
-        "pagination_style": "dot",
-        "infinite": false,
-        "columns_mobile": 1,
-        "enable_custom_colors": true,
+        "text_align": "left",
+        "cards_desktop": 3,
+        "card_gap": 20,
+        "card_style": "filled",
+        "show_arrows": true,
+        "show_progress": true,
+        "enable_custom_style": true,
         "card_bg": "#26211c",
         "card_border_color": "#3a332c",
-        "quote_color": "#d9774c",
+        "star_color": "#d9774c",
+        "star_empty_color": "#4a4038",
+        "card_radius": 6,
+        "quote_size": 18,
+        "quote_size_mobile": 16,
+        "reveal": true,
         "padding_top": 88,
         "padding_bottom": 88,
-        "header_spacing_desktop": 44
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "mobile_peek": true
       },
       "blocks": {
         "eyebrow": {
           "type": "eyebrow",
           "settings": {
-            "enabled": false,
-            "text": ""
+            "text": "Sample reviews"
           }
         },
         "heading": {
           "type": "heading",
           "settings": {
-            "enabled": true,
-            "text": "From readers’ kitchens"
+            "text": "Cooked from the books",
+            "size": 44,
+            "size_mobile": 30
           }
         },
         "sub": {
           "type": "subheading",
           "settings": {
-            "enabled": true,
-            "text": "<p>Sample reviews. Replace them with what your own readers write to you.</p>"
+            "text": "<p>What a reader tells you after the first pot, loaf or jar, next to the book it came from.</p>"
           }
         },
         "t0": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>The broth chapter alone was worth it. I make a pot every Sunday now and it carries us to Thursday.</p>",
-            "rating": 5,
+            "product": "the-broth-book",
+            "body": "The broth chapter alone was worth it. I make a pot every Sunday now and it carries us to Thursday.",
             "name": "Reader name",
-            "role": "The Broth Book"
-          }
-        },
-        "t1": {
-          "type": "testimonial",
-          "settings": {
-            "quote": "<p>I had never cooked liver that anyone in the house would eat. The pan fried one with onions changed that.</p>",
-            "rating": 5,
-            "name": "Reader name",
-            "role": "Nose to Tail at Home"
-          }
-        },
-        "t2": {
-          "type": "testimonial",
-          "settings": {
-            "quote": "<p>Clear steps, real quantities and no fuss. My first kraut worked, and so did the second.</p>",
-            "rating": 5,
-            "name": "Reader name",
-            "role": "Slow Ferments"
-          }
-        },
-        "t3": {
-          "type": "testimonial",
-          "settings": {
-            "quote": "<p>The shopping lists saved me an hour a week. We actually ate everything on the plan.</p>",
-            "rating": 5,
-            "name": "Reader name",
-            "role": "The 28 Day Table"
+            "role": "Replace with a real review",
+            "rating": 5
           }
         },
         "t4": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>My starter is three months old and the loaves keep getting better. The timings chapter is the one to read twice.</p>",
-            "rating": 5,
+            "product": "sourdough-from-scratch",
+            "body": "My starter is three months old and the loaves keep getting better. The timings chapter is the one to read twice.",
             "name": "Reader name",
-            "role": "Sourdough from Scratch"
+            "role": "Replace with a real review",
+            "rating": 5
+          }
+        },
+        "t1": {
+          "type": "testimonial",
+          "settings": {
+            "product": "nose-to-tail-at-home",
+            "body": "I had never cooked liver that anyone in the house would eat. The pan fried one with onions changed that.",
+            "name": "Reader name",
+            "role": "Replace with a real review",
+            "rating": 5
+          }
+        },
+        "t2": {
+          "type": "testimonial",
+          "settings": {
+            "product": "slow-ferments",
+            "body": "Clear steps, real quantities and no fuss. My first kraut worked, and so did the second.",
+            "name": "Reader name",
+            "role": "Replace with a real review",
+            "rating": 5
+          }
+        },
+        "t3": {
+          "type": "testimonial",
+          "settings": {
+            "product": "the-28-day-table",
+            "body": "The shopping lists saved me an hour a week. We actually ate everything on the plan.",
+            "name": "Reader name",
+            "role": "Replace with a real review",
+            "rating": 5
           }
         }
       },
@@ -579,10 +581,10 @@
         "heading",
         "sub",
         "t0",
+        "t4",
         "t1",
         "t2",
-        "t3",
-        "t4"
+        "t3"
       ]
     },
     "faq": {

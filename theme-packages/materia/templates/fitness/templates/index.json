@@ -60,7 +60,8 @@
     "marquee_bar_2": {
       "type": "marquee-bar",
       "settings": {
-        "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636"
+        "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636",
+        "repeat_count": 5
       },
       "blocks": {
         "marquee_1": {

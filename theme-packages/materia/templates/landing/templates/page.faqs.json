@@ -1,35 +1,43 @@
 {
   "sections": {
     "faq": {
-      "type": "faq-pro",
+      "type": "faq-tabs",
       "settings": {
         "color_scheme": "default",
         "section_width": "container",
         "structured_data": true,
-        "first_item_open": true,
+        "tab_1_label": "Courses",
+        "tab_2_label": "Access",
+        "tab_3_label": "Payment and refunds",
+        "tab_4_label": "Feedback calls",
+        "tab_5_label": "",
+        "open_first": true,
         "allow_multiple_open": false,
-        "open_icon": "plus",
-        "content_alignment": "left",
-        "max_content_width": 760,
-        "reveal": true
+        "header_align": "center",
+        "section_max_width_desktop": 860,
+        "padding_top_desktop": 88,
+        "padding_bottom_desktop": 56,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 32
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Questions",
+            "text": "Questions about Cutroom",
             "tag": "h1"
           }
         },
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "About the courses, access and refunds. Anything else, write to us."
+            "text": "<p>The courses, access, payment and the monthly feedback call. Pick a topic.</p>"
           }
         },
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
+            "tab": "1",
             "question": "Which editing app do I need?",
             "answer": "<p>Any of the common ones. Lessons show the idea first and the clicks second, and each lesson has notes for the three most used apps.</p>"
           }
@@ -37,65 +45,89 @@
         "faq_item_4": {
           "type": "faq_item",
           "settings": {
-            "question": "I have never edited before. Where do I start?",
-            "answer": "<p>The 7 Day Starter. It assumes nothing and ends with a finished one minute video.</p>"
+            "tab": "1",
+            "question": "Do I need a fast computer?",
+            "answer": "<p>No. The project files are light, and every lesson notes a lower resolution proxy if your computer struggles.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "How long do I have access?",
-            "answer": "<p>For as long as the school is open. Watch at your own pace and come back to any lesson.</p>"
+            "tab": "1",
+            "question": "Do I get the footage?",
+            "answer": "<p>Yes. Every lesson comes with the raw clips, music and project files you see on screen.</p>"
           }
         },
         "faq_item_6": {
           "type": "faq_item",
           "settings": {
-            "question": "Do I get the footage?",
-            "answer": "<p>Yes. Every lesson comes with the raw clips, music and project files you see on screen.</p>"
+            "tab": "1",
+            "question": "Can I use the footage in my own work?",
+            "answer": "<p>The clips are for practice. Your edits are yours to share as course work. Write your own licence terms here.</p>"
           }
         },
         "faq_item_7": {
           "type": "faq_item",
           "settings": {
-            "question": "How do the feedback calls work?",
-            "answer": "<p>Once a month you send a cut of up to three minutes. On the call I go through a few of them on screen, with notes you can rewatch.</p>"
+            "tab": "2",
+            "question": "How long do I have access?",
+            "answer": "<p>For as long as the school is open. Watch at your own pace and come back to any lesson.</p>"
           }
         },
         "faq_item_8": {
           "type": "faq_item",
           "settings": {
-            "question": "What if it is not for me?",
-            "answer": "<p>Write within 30 days and you get your money back. Replace this with your own refund terms.</p>"
+            "tab": "2",
+            "question": "Where do I watch the lessons?",
+            "answer": "<p>In your browser, on a computer, tablet or phone. You get a login by email straight after payment.</p>"
           }
         },
         "faq_item_9": {
           "type": "faq_item",
           "settings": {
-            "question": "Can I buy one course and upgrade later?",
-            "answer": "<p>Yes. Write to us and what you paid for single courses comes off the price of The Whole Edit.</p>"
+            "tab": "2",
+            "question": "Can I download the lessons?",
+            "answer": "<p>The footage and project files download. The lessons stream, so they stay up to date when a lesson is improved.</p>"
           }
         },
         "faq_item_10": {
           "type": "faq_item",
           "settings": {
-            "question": "Do I need a fast computer?",
-            "answer": "<p>No. The project files are light, and every lesson notes a lower resolution proxy if your computer struggles.</p>"
+            "tab": "3",
+            "question": "What if it is not for me?",
+            "answer": "<p>Write within 30 days and you get your money back. Replace this with your own refund terms.</p>"
           }
         },
         "faq_item_11": {
           "type": "faq_item",
           "settings": {
-            "question": "Can I use the footage in my own work?",
-            "answer": "<p>The clips are for practice. Your edits are yours to share as course work. Write your own licence terms here.</p>"
+            "tab": "3",
+            "question": "Can I buy one course and upgrade later?",
+            "answer": "<p>Yes. Write to us and what you paid for single courses comes off the price of The Whole Edit.</p>"
           }
         },
-        "button_12": {
-          "type": "button",
+        "faq_item_12": {
+          "type": "faq_item",
           "settings": {
-            "label": "Contact us",
-            "link": "/pages/contact",
-            "style": "secondary"
+            "tab": "3",
+            "question": "How do I pay?",
+            "answer": "<p>By card, Apple Pay or Google Pay at checkout. One payment, no subscription. Replace this with the methods your store takes.</p>"
+          }
+        },
+        "faq_item_13": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "4",
+            "question": "How do the feedback calls work?",
+            "answer": "<p>Once a month you send a cut of up to three minutes. On the call I go through a few of them on screen, with notes you can rewatch.</p>"
+          }
+        },
+        "faq_item_14": {
+          "type": "faq_item",
+          "settings": {
+            "tab": "4",
+            "question": "What if I miss a call?",
+            "answer": "<p>Every call is recorded. Send your cut anyway and watch the notes on it when the recording goes up the next day.</p>"
           }
         }
       },
@@ -111,7 +143,98 @@
         "faq_item_9",
         "faq_item_10",
         "faq_item_11",
-        "button_12"
+        "faq_item_12",
+        "faq_item_13",
+        "faq_item_14"
+      ]
+    },
+    "choose": {
+      "type": "faq-contact-card",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "structured_data": false,
+        "first_item_open": false,
+        "allow_multiple_open": false,
+        "open_icon": "plus",
+        "content_alignment": "left",
+        "card_position": "right",
+        "card_sticky": true,
+        "max_content_width": 1080,
+        "reveal": true,
+        "padding_top": 40,
+        "padding_bottom": 96,
+        "padding_top_mobile": 24,
+        "padding_bottom_mobile": 64
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Choosing a course"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Where to start depends on what you film and how much you have cut before.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "I have never edited before. Where do I start?",
+            "answer": "<p>The 7 Day Starter. It assumes nothing and ends with a finished one minute video.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "I film talking head videos. Which course?",
+            "answer": "<p>Cutting 101 for pacing, then Sound for Video. Clean dialogue does more for a talking head video than any effect.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "I edit already. Is The Whole Edit too basic?",
+            "answer": "<p>Skip what you know. Colour Grading, Motion Titles and the feedback calls are where working editors spend their time.</p>"
+          }
+        },
+        "card_text_6": {
+          "type": "card_text",
+          "settings": {
+            "heading": "Still not sure?",
+            "text": "<p>Tell us what you film and what you have cut so far. You get a reply from the teacher within a day.</p>"
+          }
+        },
+        "button_7": {
+          "type": "button",
+          "settings": {
+            "label": "Write to us",
+            "link": "/pages/contact",
+            "style": "primary",
+            "full_width": true
+          }
+        },
+        "contact_line_8": {
+          "type": "contact_line",
+          "settings": {
+            "label": "Email",
+            "text": "hello@example.com",
+            "link": "mailto:hello@example.com"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "card_text_6",
+        "button_7",
+        "contact_line_8"
       ]
     },
     "starter": {
@@ -167,6 +290,7 @@
   },
   "order": [
     "faq",
+    "choose",
     "starter"
   ]
 }

@@ -1,4 +1,4 @@
-{%- comment -%}
+{%- doc -%}
   Materia Themes. The filters of the search and collection pages, from the
   platform's own filter data (results.filters): a sidebar or a row of
   dropdowns on a computer, as the section's Filter layout says, and a drawer
@@ -6,15 +6,22 @@
   popover, so it opens, closes on Escape or a tap outside and keeps focus
   without any script; collection.js only applies each choice in place.
 
-  Accepts:
-  - results: search or collection
-  - kind: 'search' or 'collection'
   - section_st, section_id, filter_layout, default_filter
-  - base_url: where the price form goes without script
-  - terms: the search words as typed (search only)
-  - clear_url: the address with every filter off
-  - blocks: the section's sidebar blocks (collection), or nothing
-{%- endcomment -%}
+
+  @param {string} base_url - where the price form goes without script
+  @param {object} [blocks] - the section's sidebar blocks (collection), or nothing
+  @param {string} clear_url - the address with every filter off
+  @param {string} default_filter - Filter groups start
+  @param {string} filter_layout - Filter layout (desktop)
+  @param {string} kind - 'search' or 'collection' ('collection', 'search')
+  @param {collection} results - search or collection
+  @param {string} section_id - Section id
+  @param {object} section_st - Section settings object
+  @param {string} terms - the search words as typed (search only)
+
+  @example
+  {% render 'facets-panel', results: collection, kind: 'collection', section_st: section_st, section_id: section.id, filter_layout: filter_layout, default_filter: default_filter, base_url: collection_url, terms: '', clear_url: clear_url, blocks: section.blocks %}
+{%- enddoc -%}
 {%- liquid
   assign show_counts = section_st.show_filter_counts
   assign color_options = 'Color,Colour'
@@ -221,7 +228,7 @@
             </summary>
             <div class="facets-group__content">
               {%- if pv_group == 'price' -%}
-                <form class="facets-price" action="{{ base_url }}" method="get" data-facets-price>
+                <form class="facets-price" action="{{ base_url }}" method="get" novalidate data-facets-price>
                   <div class="facets-price__fields">
                     <label class="facets-price__field">
                       <span class="facets-price__name">{{ section_st.price_min_label | default: 'From' }}</span>
@@ -399,7 +406,7 @@
                   endif
                 endif
               -%}
-              <form class="facets-price" action="{{ base_url }}" method="get" data-facets-price>
+              <form class="facets-price" action="{{ base_url }}" method="get" novalidate data-facets-price>
                 {%- if kind == 'search' -%}<input type="hidden" name="q" value="{{ terms | escape }}">{%- endif -%}
                 <div class="facets-price__fields">
                   <label class="facets-price__field">

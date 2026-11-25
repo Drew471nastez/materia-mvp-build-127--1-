@@ -1,7 +1,7 @@
 
 <!doctype html>
 <html class="no-js" lang="en" dir="ltr">
-<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/landing-page/a/cart.97376bee6591.json",WISH_DATA="";
+<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/landing-page/a/cart.176f58a615e6.json",WISH_DATA="",QV_DATA="/theme-previews/landing-page/a/quickview.b6fff74f5a45.json",RV_DATA="/theme-previews/landing-page/a/recent.d670ab9a687d.json";
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
@@ -84,7 +84,12 @@ var pg=D.getElementById("main-cart-items");if(pg){var s=pg.closest(".shopify-sec
 paintCount();if(hold)requestAnimationFrame(function(){hold.remove()})}).catch(function(){if(hold)hold.remove()})}
 if(D.readyState==="loading")D.addEventListener("DOMContentLoaded",arrive);else arrive();
 
-if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);if(mine(u))return F.apply(this,arguments);
+if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);
+/* Round 26: a card's Quick view (each product's, from QV_DATA) and the Recently viewed row (every product's card, from RV_DATA; the theme keeps the visitor's). */
+var sid=/[?&]section_id=([^&#]+)/.exec(u);sid=sid&&sid[1];
+if(sid==="product-quickview"&&QV_DATA){var hm=//products/([^/?#]+?)(?:.html)?$/.exec(path(u));return F(QV_DATA).then(function(r){return r.json()}).then(function(d){var n=hm?d.k.indexOf(decodeURIComponent(hm[1])):-1;if(n<0)return new Response("",{status:404});var x=d.d[n];return new Response(typeof x==="string"?x:patch(d.d[0],x),{status:200,headers:{"Content-Type":"text/html"}})})}
+if(sid==="recently-viewed"&&RV_DATA)return F(RV_DATA).then(function(r){return r.json()}).then(function(d){return new Response(d.html,{status:200,headers:{"Content-Type":"text/html"}})});
+if(mine(u))return F.apply(this,arguments);
 /* Cards round 24: the cart answers from the template's drawn cart (./theme-templates/preview-cart.ts), as a store would. */
 /* Round 25: the wishlist page asks for its saved products' cards; every product's card is in WISH_DATA and the theme keeps the saved ones. */
 if(WISH_DATA&&/\/search$/.test(path(u))&&/[?&]section_id=/.test(u))return F(WISH_DATA).then(function(r){return r.json()}).then(function(d){return new Response(d.html,{status:200,headers:{"Content-Type":"text/html"}})});
@@ -151,28 +156,26 @@ if(wait)return setTimeout(look,50);
 Promise.all(seen.slice(0,24).map(function(g){return g.decode?g.decode().catch(function(){}):0})).then(fin,fin)}
 look();setTimeout(fin,1500)}
 D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn)});
-})();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><style data-page-background>html{background-color:#f4f3f0}</style><script src="/theme-previews/landing-page/a/i.8f16b849b94d.js"></script>
-<meta charset="utf-8">
+})();</script><script type="importmap">{"imports":{"@shopify/events":"data:text/javascript;charset=utf-8,const%20StandardEvents%20%3D%20Object.freeze(%7B%0A%20%20pageView%3A%20%22shopify%3Apage%3Aview%22%2C%0A%20%20productView%3A%20%22shopify%3Aproduct%3Aview%22%2C%0A%20%20productSelect%3A%20%22shopify%3Aproduct%3Aselect%22%2C%0A%20%20cartView%3A%20%22shopify%3Acart%3Aview%22%2C%0A%20%20cartError%3A%20%22shopify%3Acart%3Aerror%22%2C%0A%20%20cartLinesUpdate%3A%20%22shopify%3Acart%3Alines-update%22%2C%0A%20%20cartNoteUpdate%3A%20%22shopify%3Acart%3Anote-update%22%2C%0A%20%20cartDiscountUpdate%3A%20%22shopify%3Acart%3Adiscount-update%22%2C%0A%20%20searchUpdate%3A%20%22shopify%3Asearch%3Aupdate%22%2C%0A%20%20collectionView%3A%20%22shopify%3Acollection%3Aview%22%2C%0A%20%20collectionUpdate%3A%20%22shopify%3Acollection%3Aupdate%22%2C%0A%7D)%3B%0Afunction%20createGid(type%2C%20id)%20%7B%0A%20%20const%20s%20%3D%20String(id)%3B%0A%20%20return%20s.startsWith(%22gid%3A%2F%2F%22)%20%3F%20s%20%3A%20%22gid%3A%2F%2Fshopify%2F%22%20%2B%20type%20%2B%20%22%2F%22%20%2B%20s%3B%0A%7D%0Afunction%20money(cents%2C%20code)%20%7B%20return%20%7B%20amount%3A%20((Number(cents)%20%7C%7C%200)%20%2F%20100).toFixed(2)%2C%20currencyCode%3A%20code%20%7C%7C%20%22USD%22%20%7D%3B%20%7D%0Afunction%20fromAjaxCart(cart)%20%7B%0A%20%20const%20c%20%3D%20cart%20%7C%7C%20%7B%7D%3B%0A%20%20const%20code%20%3D%20c.currency%20%7C%7C%20%22USD%22%3B%0A%20%20return%20%7B%0A%20%20%20%20id%3A%20createGid(%22Cart%22%2C%20c.token%20%7C%7C%20%22storelib%22)%2C%0A%20%20%20%20totalQuantity%3A%20Number(c.item_count)%20%7C%7C%200%2C%0A%20%20%20%20cost%3A%20%7B%20totalAmount%3A%20money(c.total_price%2C%20code)%20%7D%2C%0A%20%20%20%20lines%3A%20(c.items%20%7C%7C%20%5B%5D).map((l)%20%3D%3E%20(%7B%20id%3A%20createGid(%22CartLine%22%2C%20l.key)%2C%20quantity%3A%20Number(l.quantity)%20%7C%7C%200%2C%20cost%3A%20%7B%20totalAmount%3A%20money(l.final_line_price%2C%20code)%20%7D%20%7D))%2C%0A%20%20%20%20discountCodes%3A%20%5B%5D%2C%0A%20%20%7D%3B%0A%7D%0Afunction%20parseProductFilters(searchParams)%20%7B%0A%20%20const%20p%20%3D%20searchParams%20%7C%7C%20new%20URLSearchParams(location.search)%3B%0A%20%20const%20out%20%3D%20%5B%5D%3B%0A%20%20for%20(const%20%5Bk%2C%20v%5D%20of%20p.entries())%20%7B%0A%20%20%20%20if%20(!k.startsWith(%22filter.%22))%20continue%3B%0A%20%20%20%20if%20(k%20%3D%3D%3D%20%22filter.v.availability%22)%20out.push(%7B%20available%3A%20v%20%3D%3D%3D%20%221%22%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.gte%22)%20out.push(%7B%20price%3A%20%7B%20min%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.v.price.lte%22)%20out.push(%7B%20price%3A%20%7B%20max%3A%20Number(v)%20%7D%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.product_type%22)%20out.push(%7B%20productType%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.vendor%22)%20out.push(%7B%20productVendor%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k%20%3D%3D%3D%20%22filter.p.tag%22)%20out.push(%7B%20tag%3A%20v%20%7D)%3B%0A%20%20%20%20else%20if%20(k.startsWith(%22filter.v.option.%22))%20out.push(%7B%20variantOption%3A%20%7B%20name%3A%20k.slice(16)%2C%20value%3A%20v%20%7D%20%7D)%3B%0A%20%20%7D%0A%20%20return%20out.length%20%3F%20out%20%3A%20undefined%3B%0A%7D%0Afunction%20sortKey(searchParams%2C%20search)%20%7B%0A%20%20const%20v%20%3D%20(searchParams%20%7C%7C%20new%20URLSearchParams(location.search)).get(%22sort_by%22)%20%7C%7C%20%22%22%3B%0A%20%20if%20(v.startsWith(%22price%22))%20return%20%22PRICE%22%3B%0A%20%20if%20(search)%20return%20%22RELEVANCE%22%3B%0A%20%20if%20(v.startsWith(%22title%22))%20return%20%22TITLE%22%3B%0A%20%20if%20(v.startsWith(%22created%22))%20return%20%22CREATED%22%3B%0A%20%20if%20(v%20%3D%3D%3D%20%22best-selling%22)%20return%20%22BEST_SELLING%22%3B%0A%20%20return%20v%20%3F%20%22MANUAL%22%20%3A%20%22COLLECTION_DEFAULT%22%3B%0A%7D%0Afunction%20deferred()%20%7B%0A%20%20let%20resolve%2C%20reject%3B%0A%20%20const%20promise%20%3D%20new%20Promise((a%2C%20b)%20%3D%3E%20%7B%20resolve%20%3D%20a%3B%20reject%20%3D%20b%3B%20%7D)%3B%0A%20%20promise.catch(()%20%3D%3E%20%7B%7D)%3B%0A%20%20return%20%7B%20promise%2C%20resolve%2C%20reject%20%7D%3B%0A%7D%0Aclass%20SlThemeStandardEvent%20extends%20Event%20%7B%0A%20%20constructor(type%2C%20payload%2C%20options)%20%7B%0A%20%20%20%20super(type%2C%20Object.assign(%7B%20bubbles%3A%20true%2C%20composed%3A%20true%20%7D%2C%20options%20%7C%7C%20%7B%7D))%3B%0A%20%20%20%20const%20p%20%3D%20payload%20%7C%7C%20%7B%7D%3B%0A%20%20%20%20for%20(const%20k%20of%20Object.keys(p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20k%2C%20%7B%20value%3A%20p%5Bk%5D%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%2C%20writable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%20%20if%20(!(%22promise%22%20in%20p))%20%7B%0A%20%20%20%20%20%20try%20%7B%20Object.defineProperty(this%2C%20%22promise%22%2C%20%7B%20value%3A%20Promise.resolve(%7B%20detail%3A%20p.detail%20%7D)%2C%20enumerable%3A%20true%2C%20configurable%3A%20true%20%7D)%3B%20%7D%20catch%20(e)%20%7B%7D%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D%0ASlThemeStandardEvent.createGid%20%3D%20createGid%3B%0Aconst%20make%20%3D%20(name%2C%20extra)%20%3D%3E%20%7B%0A%20%20const%20C%20%3D%20class%20extends%20SlThemeStandardEvent%20%7B%20constructor(payload)%20%7B%20super(StandardEvents%5Bname%5D%2C%20payload)%3B%20%7D%20%7D%3B%0A%20%20C.eventName%20%3D%20StandardEvents%5Bname%5D%3B%0A%20%20C.createPromise%20%3D%20deferred%3B%0A%20%20Object.assign(C%2C%20extra%20%7C%7C%20%7B%7D)%3B%0A%20%20return%20C%3B%0A%7D%3B%0Aexport%20const%20PageViewEvent%20%3D%20make(%22pageView%22)%3B%0Aexport%20const%20ProductViewEvent%20%3D%20make(%22productView%22)%3B%0Aexport%20const%20ProductSelectEvent%20%3D%20make(%22productSelect%22)%3B%0Aexport%20const%20CartViewEvent%20%3D%20make(%22cartView%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartErrorEvent%20%3D%20make(%22cartError%22)%3B%0Aexport%20const%20CartLinesUpdateEvent%20%3D%20make(%22cartLinesUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartNoteUpdateEvent%20%3D%20make(%22cartNoteUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20CartDiscountUpdateEvent%20%3D%20make(%22cartDiscountUpdate%22%2C%20%7B%20createCartFromAjaxResponse%3A%20fromAjaxCart%20%7D)%3B%0Aexport%20const%20SearchUpdateEvent%20%3D%20make(%22searchUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20true)%20%7D)%3B%0Aexport%20const%20CollectionViewEvent%20%3D%20make(%22collectionView%22)%3B%0Aexport%20const%20CollectionUpdateEvent%20%3D%20make(%22collectionUpdate%22%2C%20%7B%20parseProductFilters%2C%20getSortKey%3A%20(p)%20%3D%3E%20sortKey(p%2C%20false)%20%7D)%3B%0Aconst%20VIEW_EVENTS%20%3D%20%7B%20%22product-component%22%3A%20ProductViewEvent%2C%20%22collection-component%22%3A%20CollectionViewEvent%20%7D%3B%0Aexport%20function%20createViewEventElement(Base%2C%20options)%20%7B%0A%20%20const%20B%20%3D%20Base%20%7C%7C%20HTMLElement%3B%0A%20%20const%20opts%20%3D%20options%20%7C%7C%20%7B%7D%3B%0A%20%20return%20class%20extends%20B%20%7B%0A%20%20%20%20connectedCallback()%20%7B%0A%20%20%20%20%20%20if%20(super.connectedCallback)%20super.connectedCallback()%3B%0A%20%20%20%20%20%20const%20trigger%20%3D%20this.getAttribute(%22view-event-trigger%22)%20%7C%7C%20opts.defaultTrigger%20%7C%7C%20%22connect%22%3B%0A%20%20%20%20%20%20if%20(trigger%20%3D%3D%3D%20%22connect%22)%20this.dispatchViewEvent()%3B%0A%20%20%20%20%20%20else%20if%20(trigger%20%3D%3D%3D%20%22intersect%22%20%26%26%20%22IntersectionObserver%22%20in%20window)%20%7B%0A%20%20%20%20%20%20%20%20const%20io%20%3D%20new%20IntersectionObserver((entries)%20%3D%3E%20%7B%20if%20(entries.some((e)%20%3D%3E%20e.isIntersecting))%20%7B%20io.disconnect()%3B%20this.dispatchViewEvent()%3B%20%7D%20%7D)%3B%0A%20%20%20%20%20%20%20%20io.observe(this)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20dispatchViewEvent()%20%7B%0A%20%20%20%20%20%20let%20payload%20%3D%20null%3B%0A%20%20%20%20%20%20const%20raw%20%3D%20this.getAttribute(%22view-event-payload%22)%20%7C%7C%20this.querySelector(%22script%5Bdata-view-event-payload%5D%22)%3F.textContent%3B%0A%20%20%20%20%20%20try%20%7B%20payload%20%3D%20raw%20%3F%20JSON.parse(raw)%20%3A%20null%3B%20%7D%20catch%20(e)%20%7B%20payload%20%3D%20null%3B%20%7D%0A%20%20%20%20%20%20if%20(!payload)%20return%3B%0A%20%20%20%20%20%20const%20Kind%20%3D%20payload.cart%20%3F%20CartViewEvent%20%3A%20payload.collection%20%3F%20CollectionViewEvent%20%3A%20payload.product%20%3F%20ProductViewEvent%20%3A%20VIEW_EVENTS%5Bthis.localName%5D%3B%0A%20%20%20%20%20%20if%20(Kind)%20this.dispatchEvent(new%20Kind(payload))%3B%0A%20%20%20%20%7D%0A%20%20%7D%3B%0A%7D%0Aexport%20const%20ViewEventElement%20%3D%20createViewEventElement(HTMLElement)%3B%0Aexport%20%7B%20StandardEvents%2C%20SlThemeStandardEvent%20%7D%3B","@shopify/partial-rendering":"data:text/javascript;charset=utf-8,async%20function%20refresh(name)%20%7B%0A%20%20const%20res%20%3D%20await%20fetch(location.href%2C%20%7B%20headers%3A%20%7B%20Accept%3A%20%22text%2Fhtml%22%20%7D%2C%20credentials%3A%20%22same-origin%22%20%7D)%3B%0A%20%20if%20(!res.ok)%20throw%20new%20Error(%22The%20page%20could%20not%20be%20drawn%20again%22)%3B%0A%20%20const%20doc%20%3D%20new%20DOMParser().parseFromString(await%20res.text()%2C%20%22text%2Fhtml%22)%3B%0A%20%20const%20sel%20%3D%20'%5Bdata-shopify-partial%3D%22'%20%2B%20CSS.escape(String(name))%20%2B%20'%22%5D'%3B%0A%20%20const%20fresh%20%3D%20doc.querySelector(sel)%3B%0A%20%20const%20here%20%3D%20document.querySelector(sel)%3B%0A%20%20if%20(fresh%20%26%26%20here)%20here.replaceWith(document.importNode(fresh%2C%20true))%3B%0A%7D%0Aexport%20const%20partials%20%3D%20%7B%20refresh%20%7D%3B%0Aexport%20default%20partials%3B"}}</script><style data-page-background>html{background-color:#f4f3f0}</style><script>
+      (function () {
+        function show(img) {
+          if (!img || img.tagName !== 'IMG' || !img.classList.contains('bls-loading-image')) return;
+          img.classList.remove('bls-loading-image');
+          var wrap = img.closest && img.closest('motion-element.bls-loading-image');
+          if (wrap) wrap.classList.remove('bls-loading-image');
+        }
+        document.addEventListener('load', function (e) { show(e.target); }, true);
+        document.addEventListener('error', function (e) { show(e.target); }, true);
+        document.addEventListener('DOMContentLoaded', function () {
+          var list = document.querySelectorAll('img.bls-loading-image');
+          for (var k = 0; k < list.length; k++) if (list[k].complete) show(list[k]);
+        }, { once: true });
+      })();
+    </script>
+<script src="/theme-previews/landing-page/a/i.59a2755e14fa.js"></script><meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="">
-<script>
-/* Register before editor/page scripts, without blocking the parser on an asset.
-   Deferred handlers only claim recognized storefront controls or resolved
-   same-page section links. Other editor selection events are left alone. */
-(() => {
-  if (window.__materiaSectionLinkCapture) return;
-  window.__materiaSectionLinkCapture = true;
-  ['click','pointerdown','pointerup','pointercancel','submit'].forEach(type => {
-    window.addEventListener(type, event => {
-      if(type==='submit'){window.materiaForms?.handleSubmit?.(event);return;}
-      if(window.MateriaProductDialogs?.handle(event))return;
-      if(window.MateriaHeaderActions?.handle(event))return;
-      window.MateriaSectionLinks?.[type]?.(event);
-    }, true);
-  });
-})();
-</script><title>Colour Grading | Cutroom</title>
+<meta name="theme-color" content=""><script src="/theme-previews/landing-page/a/i.5802c928e030.js"></script><title>Colour Grading | Cutroom</title>
 <meta name="description" content="Intermediate. 30 lessons. Balance, match and build a look that lasts a whole video.">
 <meta property="og:site_name" content="Cutroom">
 <meta property="og:title" content="Colour Grading | Cutroom">
@@ -198,67 +201,56 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
   .shopify-section[data-perf-offscreen] *,
   .shopify-section[data-perf-offscreen] *::before,
   .shopify-section[data-perf-offscreen] *::after { animation-play-state: paused !important; }
-</style><link rel="stylesheet" href="/theme-previews/landing-page/a/i.012d2c72efea.css" id="speed-page-landing"><script src="/theme-previews/landing-page/a/i.0bd6d5139503.js"></script><script id="speed-optimization-js" src="/theme-previews/landing-page/a/i.be4f88e0dbf9.js"></script>
+</style><link rel="stylesheet" href="/theme-previews/landing-page/a/i.91e49e396991.css" id="speed-page-landing"><script src="/theme-previews/landing-page/a/i.0bd6d5139503.js"></script><script id="speed-optimization-js" src="/theme-previews/landing-page/a/i.fe3bbcd3c347.js"></script>
 <script>
       (function () {
         try {
           var l = document.createElement('link');
           l.rel = 'modulepreload';
-          l.href = new URL('/theme-previews/_base/a/cart-components.ca7c1c36e6df.js', new URL("/theme-previews/_base/a/theme.7a7dd8f80f89.js", location.href)).href;
+          l.href = new URL('/theme-previews/_base/a/cart-components.b6711c3796ec.js', new URL("/theme-previews/_base/a/theme.bbc3b899a286.js", location.href)).href;
           l.fetchPriority = 'low';
           document.head.appendChild(l);
         } catch (e) {}
       })();
-    </script>
-<link href="/theme-previews/_base/a/critical.4539b38450ad.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/section-isolation.3ce7c0f14547.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/animation.ea82f84e3656.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/product-card.a0a3949c11b6.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"primary","product_size":17,"price_size":16,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
+    </script><link href="/theme-previews/_base/a/base.a7bb01c1b397.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"primary","product_size":17,"price_size":16,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
 <style>html:not([data-card-custom='true']) .product-item .product-item__name { font-size:var(--body-font-size, 16px); text-transform:var(--heading-text-transform, none) !important; } html:not([data-card-custom='true']) .product-item .product-item__price { font-size:var(--body-font-size, 16px); }</style>
 <script>document.documentElement.dataset.cardCustom = false === true ? 'true' : 'false';</script>
 <script type="application/json" data-badge-style-settings>false</script>
-<script>document.documentElement.dataset.badgeCustom = 'false';</script><script src="/theme-previews/landing-page/a/i.1ce91c58da38.js"></script><link href="/theme-previews/_base/a/swiper-bundle-min.8599ecaab05b.css" rel="stylesheet" type="text/css" media="all"><script>(function(u){var done=false;function go(){if(done)return;done=true;for(var i=0;i<u.length;i++){if(document.querySelector('link[href="'+u[i]+'"]'))continue;var l=document.createElement('link');l.rel='stylesheet';l.href=u[i];document.head.appendChild(l)}}
+<script>document.documentElement.dataset.badgeCustom = 'false';</script><script src="/theme-previews/landing-page/a/i.1ce91c58da38.js"></script><style>:root { --pc-act-size: 44px; }</style>
+<script>(function(u){var done=false;function go(){if(done)return;done=true;for(var i=0;u.length>i;i++){if(document.querySelector('link[href="'+u[i]+'"]'))continue;var l=document.createElement('link');l.rel='stylesheet';l.href=u[i];document.head.appendChild(l)}}
     window.MateriaLateCss={now:go};if(document.readyState==='complete')setTimeout(go,0);else{addEventListener('load',function(){setTimeout(go,0)},{once:true});
     document.addEventListener('DOMContentLoaded',function(){setTimeout(go,4000)},{once:true})}
     ['pointerdown','click','keydown','scroll','touchstart'].forEach(function(n){addEventListener(n,go,{once:true,passive:true,capture:true})})})(["/theme-previews/_base/a/popup.18cdf2513c31.css","/theme-previews/_base/a/tingle-min.ed947d9dd1c7.css"]);</script><link rel="stylesheet" href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" media="print" onload="this.media='all'">
 <noscript><link href="/theme-previews/_base/a/judgeme-reviews.05736c345115.css" rel="stylesheet" type="text/css" media="all"></noscript>
-<link rel="stylesheet" href="/theme-previews/_base/a/fonts.ae6d5d308c29.css" data-materia-fonts>
-<style data-materia-font-fallbacks>@font-face{font-family:"Plus Jakarta Sans Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:103.9%;ascent-override:99.9%;descent-override:21.4%;line-gap-override:0%}@font-face{font-family:"Plus Jakarta Sans Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:103.9%;ascent-override:99.9%;descent-override:21.4%;line-gap-override:0%}</style><style data-shopify>
+<link rel="stylesheet" href="/theme-previews/_base/a/fonts.1c4617097cf3.css" data-materia-fonts>
+<style data-materia-font-fallbacks>@font-face{font-family:"IBM Plex Sans Fallback";src:local("Arial"), local("ArialMT"), local("Liberation Sans");font-weight:100 549;size-adjust:101%;ascent-override:101.5%;descent-override:27.2%;line-gap-override:0%}@font-face{font-family:"IBM Plex Sans Fallback";src:local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");font-weight:550 1000;size-adjust:101%;ascent-override:101.5%;descent-override:27.2%;line-gap-override:0%}</style><style data-shopify>
   :root {
-    --body-font: "Plus Jakarta Sans", "Plus Jakarta Sans Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    --heading-font: "Plus Jakarta Sans", "Plus Jakarta Sans Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --body-font: "IBM Plex Sans", "IBM Plex Sans Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --heading-font: "IBM Plex Sans", "IBM Plex Sans Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     --menu-font: var(--body-font);
     --btn-font: var(--body-font);
+    --heading-font-style: normal;
+    --font-body-family: var(--body-font);
+    --font-heading-family: var(--heading-font);
   }
 </style>
-<link rel="stylesheet" href="/theme-previews/landing-page/a/i.a9e116815527.css" data-shopify>
-<link href="/theme-previews/_base/a/theme.d71f5b96fec8.css" rel="stylesheet" type="text/css" media="all"><noscript><link href="/theme-previews/_base/a/popup.18cdf2513c31.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.9c20c549e3cf.css">
-<link rel="preload" as="style" href="/theme-previews/_base/a/minicart.ac0014483417.css" fetchpriority="low">
-<link rel="preload" as="style" href="/theme-previews/_base/a/materia-experience.b68d6d8152a8.css" fetchpriority="low">
-<link rel="stylesheet" href="/theme-previews/landing-page/a/i.483628a26d8f.css"><link rel="stylesheet" href="/theme-previews/landing-page/a/i.0f64d724d341.css"><link href="/theme-previews/_base/a/theme-button-contract.7d286d7eee9b.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/localization-controls.9494a0c83131.css" rel="stylesheet" type="text/css" media="all"><link rel="modulepreload" href="/theme-previews/_base/a/theme.7a7dd8f80f89.js" fetchpriority="low"><link rel="preload" as="style" href="/theme-previews/_base/a/main-product.c8eac1cfd035.css">
-<link rel="preload" as="style" href="/theme-previews/_base/a/product-page-ui.b247d1d435f0.css"><script data-storelib-head src="/theme-previews/landing-page/a/i.585ec254f5fd.js"></script>
+<link rel="stylesheet" href="/theme-previews/landing-page/a/i.1d9cf9013875.css" data-shopify><noscript><link href="/theme-previews/_base/a/popup.18cdf2513c31.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="preload" as="style" href="/theme-previews/_base/a/navigation.9c20c549e3cf.css">
+<link rel="preload" as="style" href="/theme-previews/_base/a/minicart.679b4fb18845.css" fetchpriority="low">
+<link rel="preload" as="style" href="/theme-previews/_base/a/materia-experience.6a68b7e13653.css" fetchpriority="low">
+<link rel="stylesheet" href="/theme-previews/landing-page/a/i.483628a26d8f.css"><link rel="stylesheet" href="/theme-previews/landing-page/a/i.0f64d724d341.css"><link rel="modulepreload" href="/theme-previews/_base/a/theme.bbc3b899a286.js" fetchpriority="low"><link rel="preload" as="style" href="/theme-previews/_base/a/main-product.5f4af5a4145f.css">
+<link rel="preload" as="style" href="/theme-previews/_base/a/product-page-ui.e161626e99d1.css"><script data-storelib-head src="/theme-previews/landing-page/a/i.585ec254f5fd.js"></script>
 <script src="/theme-previews/_base/a/swiper-bundle-min.31d164f7367d.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/motion-min.d1f8eb312b47.js" type="module" defer="defer" fetchpriority="low"></script>
-<script src="/theme-previews/_base/a/utils.90eeb774e439.js" defer="defer" data-cart-count="0"></script>
-<script src="/theme-previews/_base/a/global.81b2db9b06dc.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/utils.26985d2d39f0.js" defer="defer" data-cart-count="0"></script>
+<script src="/theme-previews/_base/a/global.7e439d21bc2d.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/cart-drawer-safety.b8d627a0381e.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/section-links.0b22549c79d2.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/section-links.83dcb60cec8e.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/product-counters.9b2dc07295e6.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/product-block-runtime.93fadbdef136.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/product-dialogs.f42edf25d068.js" defer="defer"></script><link href="/theme-previews/_base/a/hero-pro-scrolling.2f3038157711.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/marketing-sections.89572ff66c1d.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/hero-product-three.8649fa31ecc2.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/hero-product-two.b3341fcb0b09.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/hero-image-one.7347eaeaff3f.css" rel="stylesheet" type="text/css" media="all">
-<script src="/theme-previews/_base/a/hero-image-one.3135c3043e4f.js" defer="defer"></script>
-<link href="/theme-previews/_base/a/before-after-controls.0119d231c0b0.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/text-section-controls.f1a83e444db3.css" rel="stylesheet" type="text/css" media="all"><script src="/theme-previews/landing-page/a/i.b6aa80ad4fa9.js"></script>
-<link href="/theme-previews/_base/a/testimonial-quote.d74462f50435.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/announcement-pro-4.98b829b630a8.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/product-block-runtime.0c74f3d394a4.css" rel="stylesheet" type="text/css" media="all"><link href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" rel="stylesheet" type="text/css" media="all">
+<script src="/theme-previews/_base/a/product-block-runtime.6868605d527a.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/product-dialogs.f42edf25d068.js" defer="defer"></script><script src="/theme-previews/_base/a/hero-image-one.9accbabb78ac.js" defer="defer"></script><script src="/theme-previews/landing-page/a/i.8914d0afedfd.js"></script><link rel="stylesheet" href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" rel="stylesheet" type="text/css" media="all"></noscript>
 <script src="/theme-previews/_base/a/drift.eaae124afa1e.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/photoswipe-init.7c544f9d83a1.js" type="module"></script>
-<script src="/theme-previews/landing-page/a/i.90af8640dd2d.js"></script><link rel="stylesheet" href="/theme-previews/landing-page/a/i.935454524e32.css">
-<script>(function(){try{var d=document.createElement('div');d.style.cssText='position:absolute;top:-99px;width:60px;height:60px;overflow:scroll;visibility:hidden';document.documentElement.appendChild(d);if(d.offsetWidth-d.clientWidth>0)document.documentElement.classList.add('sl-sb-room');d.remove()}catch(e){}})();</script><style>
+<script src="/theme-previews/_base/a/photoswipe-init.7fe034915110.js" type="module"></script>
+<script src="/theme-previews/landing-page/a/i.69f67d6283fa.js"></script><script>(function(){try{var d=document.createElement('div');d.style.cssText='position:absolute;top:-99px;width:60px;height:60px;overflow:scroll;visibility:hidden';document.documentElement.appendChild(d);if(d.offsetWidth-d.clientWidth>0)document.documentElement.classList.add('sl-sb-room');d.remove()}catch(e){}})();</script><style>
         html, body { min-height: 100%; }
         body {
           display: flex;
@@ -275,7 +267,7 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
         body > #shopify-section-footer-group,
         body > #shopify-section-sections--footer-group,
         body > .shopify-section-group-footer-group { flex: 0 0 auto; }
-      </style><style data-sl-focus>[tabindex="-1"]:focus,dialog:focus,[role="dialog"]:focus,[aria-modal="true"]:focus,details-modal:focus,modal-dialog:focus{outline:none!important}</style><link rel="stylesheet" href="/theme-previews/landing-page/a/i.baba7fb2aa0e.css" data-sl-busy-buttons><style data-sl-missing-image>img[data-sl-missing]{background-color:#f3f4f6!important;background-image:none!important;object-fit:contain!important;object-position:50% 50%!important;color:transparent!important}html[data-sl-dark] img[data-sl-missing],[data-community-theme="dark"] img[data-sl-missing]{background-color:#26282c!important}</style><script data-sl-missing-image src="/theme-previews/landing-page/a/i.d77d88883af7.js"></script><script data-sl-cover-trim src="/theme-previews/landing-page/a/i.fc4335148114.js"></script><link rel="stylesheet" href="/theme-previews/_base/a/fonts.bd14396acf32.css" data-storelib-font><link rel="stylesheet" href="/theme-previews/_base/a/fonts.fb2ab27c2a4b.css" data-storelib-font><link rel="stylesheet" href="/theme-previews/landing-page/a/i.6815f399169b.css" data-storelib-bundle><style data-storelib-overrides>.button:not(.button--tertiary):not(.button-unstyled):not(.link):hover,.btn:hover,button[type=submit]:not(.button-unstyled):not(.link):hover,input[type=submit]:hover,.shopify-payment-button__button--unbranded:hover{transform:none!important;box-shadow:none!important;filter:none!important}.button:not(.button--tertiary):not(.button-unstyled):not(.link),.btn,button[type=submit]:not(.button-unstyled):not(.link),input[type=submit],.shopify-payment-button__button--unbranded{transition:none!important}input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=hidden]):not([type=submit]),select,textarea,.field__input,.select__select{border-color:#bababa!important}input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=hidden]):not([type=submit]):focus,select:focus,textarea:focus,.field__input:focus,.select__select:focus{outline:2px solid #adadad!important;outline-offset:1px;border-color:#adadad!important;box-shadow:none!important}</style><link rel="icon" href="data:,"></head>
+      </style><style data-sl-focus>[tabindex="-1"]:focus,dialog:focus,[role="dialog"]:focus,[aria-modal="true"]:focus,details-modal:focus,modal-dialog:focus{outline:none!important}</style><link rel="stylesheet" href="/theme-previews/landing-page/a/i.baba7fb2aa0e.css" data-sl-busy-buttons><style data-sl-missing-image>img[data-sl-missing]{background-color:#f3f4f6!important;background-image:none!important;object-fit:contain!important;object-position:50% 50%!important;color:transparent!important}html[data-sl-dark] img[data-sl-missing],[data-community-theme="dark"] img[data-sl-missing]{background-color:#26282c!important}</style><script data-sl-missing-image src="/theme-previews/landing-page/a/i.d77d88883af7.js"></script><script data-sl-cover-trim src="/theme-previews/landing-page/a/i.fc4335148114.js"></script><link rel="stylesheet" href="/theme-previews/_base/a/fonts.bd14396acf32.css" data-storelib-font><link rel="stylesheet" href="/theme-previews/_base/a/fonts.fb2ab27c2a4b.css" data-storelib-font><link rel="stylesheet" href="/theme-previews/landing-page/a/i.17f73b1756bd.css" data-storelib-bundle><link rel="stylesheet" href="/theme-previews/landing-page/a/i.0016b90be953.css" data-storelib-overrides><link rel="icon" href="data:,"></head>
 <body
 class="gradient rounded-style  product"
 data-btn-style="solid"
@@ -305,21 +297,7 @@ data-menu-hover="none"
           later = setTimeout(release, 120);
         });
       })();
-    </script><div id="shopify-section-offer_bar" class="shopify-section shopify-section-group-header-group section-announcement-bar section-edge-bleed" data-section-id="offer_bar" data-section-type="announcement-bar"><script src="/theme-previews/_base/a/live-announcements.a913d191e812.js" defer="defer"></script><style>
-  #shopify-section-offer_bar {
-    font-family: var(--body-font, inherit);
-    font-size: var(--body-font-size, inherit);
-    font-weight: var(--body-weight, inherit);
-    line-height: var(--body-line-height, inherit);
-    color: var(--color-text);
-  }
-  #shopify-section-offer_bar :is(h1, h2, h3, h4, h5, h6) {
-    font-family: var(--heading-font, inherit);
-    font-weight: var(--heading-weight, inherit);
-    letter-spacing: var(--heading-letter-spacing, normal);
-    line-height: var(--heading-line-height, 1.2);
-    text-transform: var(--heading-text-transform, none);
-  }
+    </script><div id="shopify-section-offer_bar" class="shopify-section shopify-section-group-header-group section-announcement-bar section-edge-bleed s-tt has-overlay" data-section-id="offer_bar" data-section-type="announcement-bar"><script src="/theme-previews/_base/a/live-announcements-runtime.0a55b4e3dee0.js" defer="defer"></script><style>
   :where(html:not([data-font-priority='off'])) #shopify-section-offer_bar :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
@@ -335,7 +313,7 @@ data-menu-hover="none"
     if (!el || el.classList.contains('scroll-trigger')) return;
     el.classList.add('scroll-trigger', "subtle_rise");
   })();
-</script><link rel="stylesheet" href="/theme-previews/landing-page/a/i.19de36c766d9.css"><link rel="stylesheet" href="/theme-previews/landing-page/a/i.938c271772dc.css"><div id="announcement-bar-pro-2-offer_bar" class="ab2 announcement-bar-pro-2 color-scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9 gradient" role="region" aria-label="Announcements" data-an-root="announcement-bar" data-an-section="offer_bar" data-width="full_width" data-reset="true" data-mode="slide" data-multi="true" data-page="product" data-home-only="false" data-show-mobile="true" data-close="false" data-icon="none" data-interval="5" data-sticky-announcement="false" style="--ab2-fs: 13px;--ab2-pt: 12px;--ab2-pb: 12px;--ab2-speed: 15s;--ab2-gap: 50px;--ab2-fw: var(--subheading-weight, 600);--ab2-tt: none;--ab2-ff: var(--body-font);--ab2-text: #d4d4d8;--ab2-bg: #000000;--ab2-accent: #ff5f1f;--ab2-line: var(--color-border);--ab2-lw: 0px;">
+</script><link rel="stylesheet" href="/theme-previews/landing-page/a/i.19de36c766d9.css"><link rel="stylesheet" href="/theme-previews/landing-page/a/i.1d7580018322.css"><div id="announcement-bar-pro-2-offer_bar" class="ab2 announcement-bar-pro-2 color-scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9 gradient" role="region" aria-label="Announcements" data-an-root="announcement-bar" data-an-section="offer_bar" data-width="full_width" data-reset="true" data-mode="slide" data-multi="true" data-page="product" data-home-only="false" data-show-mobile="true" data-close="false" data-icon="none" data-interval="5" data-sticky-announcement="false" style="--ab2-fs: 13px;--ab2-pt: 12px;--ab2-pb: 12px;--ab2-speed: 15s;--ab2-gap: 50px;--ab2-fw: var(--subheading-weight, 600);--ab2-tt: none;--ab2-ff: var(--body-font);--ab2-text: #d4d4d8;--ab2-bg: #000000;--ab2-accent: #ff5f1f;--ab2-line: var(--color-border);--ab2-lw: 0px;">
 <div class="ab2__inner">
 <div class="ab2__slides" data-an-slides>
 <button type="button" class="ab2__arrow" data-an-prev aria-label="Previous announcement"><svg width="8" height="14" viewBox="0 0 8 14" aria-hidden="true" focusable="false"><path d="M7 1 1 7l6 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
@@ -420,8 +398,8 @@ data-menu-hover="none"
 </div>
 <button type="button" class="ab2__close announcement-bar-close" data-an-close aria-label="Close announcement"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="m1 1 10 10M11 1 1 11" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
 </div>
-</div><div id="shopify-section-header" class="shopify-section shopify-section-group-header-group section-header" data-section-id="header" data-section-type="theme-header"><link href="/theme-previews/_base/a/header-section.1c94351c418a.css" rel="stylesheet" type="text/css" media="all">
-<script src="/theme-previews/_base/a/header-section.87538c6edb5d.js" defer="defer"></script><style>
+</div><div id="shopify-section-header" class="shopify-section shopify-section-group-header-group section-header has-popup" data-section-id="header" data-section-type="theme-header"><link href="/theme-previews/_base/a/header-section.d609d0b23c83.css" rel="stylesheet" type="text/css" media="all">
+<script src="/theme-previews/_base/a/header-section.529bac1525b9.js" defer="defer"></script><style>
   #shopify-section-header {
     --hs-margin-top: 0px;
     --hs-margin-bottom: 0px;
@@ -452,7 +430,7 @@ data-menu-hover="none"
       --hs-logo-max-height: 48px;
       --hs-logo-box-height: 64px;
     }
-  }:root { --hs-mnav-title-bg: #18181b; --hs-mnav-title-color: #ffffff; }</style><link href="/theme-previews/_base/a/header-layout.ed2de67e6e9c.css" rel="stylesheet" type="text/css" media="all">
+  }:root { --hs-mnav-title-bg: #18181b; --hs-mnav-title-color: #ffffff; }</style><link href="/theme-previews/_base/a/header-layout.784e491443d1.css" rel="stylesheet" type="text/css" media="all">
 <style>
   #shopify-section-header {
     --header-height-desktop: 76px;
@@ -685,8 +663,7 @@ class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 
 href="/theme-previews/landing-page/pages/faqs.html"
 ><span>FAQ</span></a></menu-item></li>
 </ul>
-</div><div class="lang__currency-on-nav flex flex-wrap hidden-1025 border-top"></div>
-</nav></div>
+</div></nav></div>
 <div class="header__action flex flex-end align-center">
 <svg class="hs-sprite" hidden aria-hidden="true" focusable="false" width="0" height="0" style="position:absolute;width:0;height:0;overflow:hidden;display:none">
 <symbol id="icon-wishlist-header">
@@ -708,32 +685,18 @@ href="/theme-previews/landing-page/pages/faqs.html"
 </header-inner>
 </div>
 </div></header><script src="/theme-previews/landing-page/a/i.b8ec2f2ea707.js"></script>
-<link href="/theme-previews/_base/a/header-sticky.6c34c873cb06.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/header-sticky.3e10a26b0bdf.css" rel="stylesheet" type="text/css" media="all">
 <style>
   #shopify-section-header:is([data-storelib-sticky="always"], [data-storelib-sticky="on-scroll-up"]):has(header.is-pill) { position: sticky !important; }
 </style>
-<script src="/theme-previews/landing-page/a/i.9790def5bd53.js"></script><script src="/theme-previews/_base/a/header-sticky-extras.78e1fb4f310f.js" defer="defer"></script></div><script src="/theme-previews/landing-page/a/i.0d9f91566ff2.js"></script>
-<main id="MainContent" class="content-for-layout focus-none" role="main" tabindex="-1"><div data-size-chart-data data-product="00000000-0000-4000-8000-000000000012" hidden></div><section id="shopify-section-main" class="shopify-section section main-product-section" data-section-id="main" data-section-type="main-product"><style>
-  #shopify-section-main {
-    font-family: var(--body-font, inherit);
-    font-size: var(--body-font-size, inherit);
-    font-weight: var(--body-weight, inherit);
-    line-height: var(--body-line-height, inherit);
-    color: var(--color-text);
-  }
-  #shopify-section-main :is(h1, h2, h3, h4, h5, h6) {
-    font-family: var(--heading-font, inherit);
-    font-weight: var(--heading-weight, inherit);
-    letter-spacing: var(--heading-letter-spacing, normal);
-    line-height: var(--heading-line-height, 1.2);
-    text-transform: var(--heading-text-transform, none);
-  }
+<script src="/theme-previews/landing-page/a/i.9790def5bd53.js"></script><script src="/theme-previews/_base/a/header-sticky-extras.78e1fb4f310f.js" defer="defer"></script></div><script>(function(){var l=document.querySelectorAll('.shopify-section-group-header-group');for(var i=0;i < l.length && i < 6;i++)l[i].setAttribute('data-mt-hold',String(i))})();</script><script src="/theme-previews/landing-page/a/i.0235c8b1fe44.js"></script>
+<main id="MainContent" class="content-for-layout focus-none" role="main" tabindex="-1"><div data-size-chart-data data-product="00000000-0000-4000-8000-000000000012" hidden></div><section id="shopify-section-main" class="shopify-section section main-product-section s-tt" data-section-id="main" data-section-type="main-product"><style>
   :where(html:not([data-font-priority='off'])) #shopify-section-main :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
 </style>
 <link rel="stylesheet" href="/theme-previews/landing-page/a/i.52c1725a5810.css" data-mp-sticky>
-<script src="/theme-previews/landing-page/a/i.365b7b725aa1.js"></script><style data-rs-bulletproof>/* reset_spacing: bulletproof override of ALL section spacing mechanisms */
+<script src="/theme-previews/landing-page/a/i.7f6e076724d8.js"></script><style data-rs-bulletproof>/* reset_spacing: bulletproof override of ALL section spacing mechanisms */
     #shopify-section-main,
     #shopify-section-main > .section,
     #shopify-section-main > section,
@@ -761,9 +724,9 @@ href="/theme-previews/landing-page/pages/faqs.html"
         #shopify-section-main .full_width {
           max-width: var(--fluid-container-width, 1500px) !important;
           padding-inline: 1.5rem !important;
-        }}</style><link href="/theme-previews/_base/a/main-product.c8eac1cfd035.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/product-page-ui.b247d1d435f0.css" rel="stylesheet" type="text/css" media="all">
-<script src="/theme-previews/_base/a/product-page-ui.25d8015e67fc.js" defer="defer"></script><link rel="stylesheet" href="/theme-previews/landing-page/a/i.a0900c75248a.css"><style data-mp-own="main">
+        }}</style><link href="/theme-previews/_base/a/main-product.5f4af5a4145f.css" rel="stylesheet" type="text/css" media="all">
+<link href="/theme-previews/_base/a/product-page-ui.e161626e99d1.css" rel="stylesheet" type="text/css" media="all">
+<script src="/theme-previews/_base/a/product-page-ui.e34430f60fd0.js" defer="defer"></script><link rel="stylesheet" href="/theme-previews/landing-page/a/i.a0900c75248a.css"><style data-mp-own="main">
     @media (min-width: 1024px) {
       #MainProduct-main > :is(.container, .fluid_container, .full_width, .stretch_width, skeleton-page) {
         padding-left: 0px !important;
@@ -786,7 +749,7 @@ href="/theme-previews/landing-page/pages/faqs.html"
   {
     "color_scheme": "default",
     "padding_top": 40,
-    "padding_bottom": 72,
+    "padding_bottom": 48,
     "desktop_media_width": 52,
     "sticky_top_gap": 24,
     "media_square": false,
@@ -824,10 +787,10 @@ data-desktop-layout="thumbnail_bottom"
 data-mobile-layout="show_thumbnails"
 data-zoom="none"
 data-mp-root="main"
-style="--section-pt: 40; --section-pb: 72;--speed: s; --font-size: ;"
+style="--section-pt: 40; --section-pb: 48;--speed: s; --font-size: ;"
 >
-<link href="/theme-previews/_base/a/component-deferred-media.a73c6f7db00e.css" rel="stylesheet" type="text/css" media="all">
-<link href="/theme-previews/_base/a/photoswipe.141714848d20.css" rel="stylesheet" type="text/css" media="all">
+<link rel="stylesheet" href="/theme-previews/_base/a/component-deferred-media.a73c6f7db00e.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/component-deferred-media.a73c6f7db00e.css" rel="stylesheet" type="text/css" media="all"></noscript>
+<link rel="stylesheet" href="/theme-previews/_base/a/photoswipe.141714848d20.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/photoswipe.141714848d20.css" rel="stylesheet" type="text/css" media="all"></noscript>
 <div class="container">
 <div
 class="flex flex-cols gap flex-wrap main-product"
@@ -839,7 +802,7 @@ data-layout="thumbnail"
 data-mt-video="autoplay"
 data-mt-media-viewer
 data-mt-product-id="00000000-0000-4000-8000-000000000012"
-data-mt-gallery-config="thumbnail|thumbnail_bottom|show_thumbnails|1|none|inner-1|true|true|false||true||true|true"
+data-mt-gallery-config="thumbnail|thumbnail_bottom|show_thumbnails|1|none|inner-1|true|true|false||true||true|true|811c9dc5811c9dc4811c9dc7811c9dc6"
 data-mt-gallery-media="[{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/landing-page/a/landing-cover-colour.9fd52a7266e3.webp&quot;,&quot;url&quot;:&quot;/theme-previews/landing-page/a/landing-cover-colour.9fd52a7266e3.webp&quot;,&quot;alt&quot;:&quot;Colour Grading&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/landing-page/a/landing-cover-colour.9fd52a7266e3.webp&quot;,&quot;url&quot;:&quot;/theme-previews/landing-page/a/landing-cover-colour.9fd52a7266e3.webp&quot;,&quot;alt&quot;:&quot;Colour Grading&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/landing-page/a/landing-cover-colour.9fd52a7266e3.webp&quot;,&quot;url&quot;:&quot;/theme-previews/landing-page/a/landing-cover-colour.9fd52a7266e3.webp&quot;,&quot;alt&quot;:&quot;Colour Grading&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/landing-page/a/landing-cover-colour.9fd52a7266e3.webp&quot;,&quot;url&quot;:&quot;/theme-previews/landing-page/a/landing-cover-colour.9fd52a7266e3.webp&quot;,&quot;alt&quot;:&quot;Colour Grading&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/landing-page/a/landing-cover-colour.9fd52a7266e3.webp&quot;,&quot;url&quot;:&quot;/theme-previews/landing-page/a/landing-cover-colour.9fd52a7266e3.webp&quot;,&quot;alt&quot;:&quot;Colour Grading&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:50,&quot;y&quot;:50}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/landing-page/a/landing-cover-colour.9fd52a7266e3.webp&quot;,&quot;url&quot;:&quot;/theme-previews/landing-page/a/landing-cover-colour.9fd52a7266e3.webp&quot;,&quot;alt&quot;:&quot;Colour Grading&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:1},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:{&quot;x&quot;:null,&quot;y&quot;:null}},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:1000,&quot;src&quot;:&quot;/theme-previews/landing-page/a/landing-cover-colour.9fd52a7266e3.webp&quot;,&quot;url&quot;:&quot;/theme-previews/landing-page/a/landing-cover-colour.9fd52a7266e3.webp&quot;,&quot;alt&quot;:&quot;Colour Grading&quot;,&quot;width&quot;:1600,&quot;height&quot;:1600,&quot;aspect_ratio&quot;:{&quot;v&quot;:null},&quot;media_type&quot;:&quot;image&quot;,&quot;position&quot;:1,&quot;presentation&quot;:{&quot;focal_point&quot;:null},&quot;attached_to_variant&quot;:false,&quot;variants&quot;:[],&quot;preview_image&quot;:{&quot;id&quot;:null,&quot;src&quot;:null,&quot;url&quot;:null,&quot;alt&quot;:null,&quot;width&quot;:null,&quot;height&quot;:null,&quot;aspect_ratio&quot;:null,&quot;media_type&quot;:null,&quot;position&quot;:null,&quot;presentation&quot;:null,&quot;attached_to_variant&quot;:null,&quot;variants&quot;:null,&quot;preview_image&quot;:null}}}}}}}}]"
 data-mt-lightbox
 >
@@ -859,8 +822,7 @@ data-desktop="1"
 data-thumb-direction="horizontal"
 data-thumb-slides-per-view="4"data-nothumb="true"
 data-auto-play-video="true"
->
-<div class="media-main-swiper skeleton-loading">
+><div class="media-main-swiper skeleton-loading">
 <div class="swiper-wrapper-preview swiper">
 <div class="swiper-wrapper">
 <a
@@ -875,7 +837,7 @@ data-cropped="true"
 style="--aspect-ratio: 16/10"
 data-pane-container
 >
-<img src="/theme-previews/landing-page/a/landing-cover-colour.9fd52a7266e3.webp" srcset="/theme-previews/landing-page/a/landing-cover-colour-800.4b506e77c238.webp 720w, /theme-previews/landing-page/a/landing-cover-colour-800.4b506e77c238.webp 660w, /theme-previews/landing-page/a/landing-cover-colour-800.4b506e77c238.webp 550w, /theme-previews/landing-page/a/landing-cover-colour-800.4b506e77c238.webp 480w, /theme-previews/landing-page/a/landing-cover-colour-400.8210b1056eaa.webp 330w, /theme-previews/landing-page/a/landing-cover-colour-400.8210b1056eaa.webp 240w, /theme-previews/landing-page/a/landing-cover-colour-400.8210b1056eaa.webp 185w" alt="Colour Grading" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="drift-trigger bls-loaded-image">
+<img src="/theme-previews/landing-page/a/landing-cover-colour.9fd52a7266e3.webp" srcset="/theme-previews/landing-page/a/landing-cover-colour-800.4b506e77c238.webp 720w, /theme-previews/landing-page/a/landing-cover-colour-800.4b506e77c238.webp 660w, /theme-previews/landing-page/a/landing-cover-colour-800.4b506e77c238.webp 550w, /theme-previews/landing-page/a/landing-cover-colour-800.4b506e77c238.webp 480w, /theme-previews/landing-page/a/landing-cover-colour-400.8210b1056eaa.webp 330w, /theme-previews/landing-page/a/landing-cover-colour-400.8210b1056eaa.webp 240w, /theme-previews/landing-page/a/landing-cover-colour-400.8210b1056eaa.webp 185w" alt="Colour Grading" width="1600" height="1600" loading="eager" fetchpriority="high" decoding="auto" sizes="(min-width: 1200px) min(40vw, 660px), (min-width: 768px) 50vw, calc(100vw - 30px)" class="drift-trigger bls-loaded-image">
 <div class="loading_image skeleton">
 </div>
 </a>
@@ -895,7 +857,7 @@ style="--rs-size-m:calc(var(--body-font-size,16px) * .875); --rs-size-d:calc(var
 <span class="rs__value" aria-hidden="true">4.7</span>
 <span class="rs__sep" aria-hidden="true"></span>
 <span class="rs__count">60 reviews</span>
-</span></div><link rel="stylesheet" href="/theme-previews/landing-page/a/i.4c3c79b57518.css"></div><div class="pib-own" data-pib-block="title_1" data-pib-type="title" style="display: contents">
+</span></div><link rel="stylesheet" href="/theme-previews/landing-page/a/i.b4f34e9faa6e.css"></div><div class="pib-own" data-pib-block="title_1" data-pib-type="title" style="display: contents">
 <motion-element
 data-motion="fade-up"
 data-motion-delay="50"
@@ -939,7 +901,7 @@ data-block-id="pp23_sold"
 data-live-sold-source="product" data-product-counter-id="00000000-0000-4000-8000-000000000012" data-product-counter-url="/products/colour-grading"
 style="--rs-size-m:calc(var(--body-font-size,16px) * .875); --rs-size-d:calc(var(--body-font-size,16px) * .875); --rs-pt: 2px; --rs-pb: 16px;"
 ><span class="product-sold rs__sold"><span class="product-sold__dot rs__dot" aria-hidden="true"></span><span data-verified-sold-count>28 joined</span>
-</span></div><link rel="stylesheet" href="/theme-previews/landing-page/a/i.4c3c79b57518.css"></div><div class="pib-own" data-pib-block="product_description_1" data-pib-type="product_description" style="display: contents"><div id="ProductDescription-product_description_1"
+</span></div><link rel="stylesheet" href="/theme-previews/landing-page/a/i.b4f34e9faa6e.css"></div><div class="pib-own" data-pib-block="product_description_1" data-pib-type="product_description" style="display: contents"><div id="ProductDescription-product_description_1"
 class="pd-block"
 data-block-id="product_description_1"
 style="
@@ -950,54 +912,22 @@ style="
 --pd-pl-d: 0px;
 --pd-pr-d: 0px;
 --pd-pt-d: 0px;
---pd-pb-d: 20px;
+--pd-pb-d: 14px;
 --pd-pl-m: 0px;
 --pd-pr-m: 0px;
 --pd-pt-m: 0px;
---pd-pb-m: 16px;
+--pd-pb-m: 12px;
 ">
 <div class="pd-inner">
 <div class="pd-content rte">
 <p>Intermediate. 30 lessons. Balance, match and build a look that lasts a whole video.</p>
 </div>
 </div>
-<style>
-      /* scoped to this block only */
-      #ProductDescription-product_description_1 .pd-inner{
-        padding-left: var(--pd-pl-d);
-        padding-right: var(--pd-pr-d);
-        padding-top: var(--pd-pt-d);
-        padding-bottom: var(--pd-pb-d);
-      }
-      #ProductDescription-product_description_1 .pd-content{
-        color: var(--pd-color);
-        text-align: start;                           /* left aligned */
-        font-size: var(--pd-fs-d);
-        line-height: var(--pd-lh-v);
-        margin: 0;
-      }
-      @media (max-width: 768px){
-        #ProductDescription-product_description_1 .pd-inner{
-          padding-left: var(--pd-pl-m);
-          padding-right: var(--pd-pr-m);
-          padding-top: var(--pd-pt-m);
-          padding-bottom: var(--pd-pb-m);
-        }
-        #ProductDescription-product_description_1 .pd-content{
-          font-size: var(--pd-fs-m);
-        }
-      }
-    </style>
-</div></div><div class="pib-own" data-pib-block="variant_picker_1" data-pib-type="variant_picker" style="display: contents"><div
-id="variant-picker-variant_picker_1"
-class="product-detail__variant-picker mb-25"
-data-block-id="variant_picker_1"
-data-type="swatches"
->
+<link href="/theme-previews/_base/a/block-productdescription.b886ec0d18c2.css" rel="stylesheet" type="text/css" media="all">
 </div></div><div class="pib-own" data-pib-block="benefits_stack_1" data-pib-type="benefits_stack" style="display: contents"><style>
   #benefits-stack-benefits_stack_1 {
-    padding-top: 8px;
-    padding-bottom: 8px;
+    padding-top: 0px;
+    padding-bottom: 4px;
     
   }
   #benefits-stack-benefits_stack_1 .benefits-stack {
@@ -1037,12 +967,18 @@ data-type="swatches"
   }
 </style>
 <div id="benefits-stack-benefits_stack_1" class="benefits-stack-block" data-block-id="benefits_stack_1">
-<div class="benefits-stack"><div class="benefits-stack__item"><span class="benefits-stack__icon" aria-hidden="true"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></span><span class="benefits-stack__text">Watch on any device, at your own pace</span>
-</div><div class="benefits-stack__item"><span class="benefits-stack__icon" aria-hidden="true"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></span><span class="benefits-stack__text">Raw footage and project files included</span>
-</div><div class="benefits-stack__item"><span class="benefits-stack__icon" aria-hidden="true"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></span><span class="benefits-stack__text">Works with any editing app</span>
+<div class="benefits-stack"><div class="benefits-stack__item"><span class="benefits-stack__icon" aria-hidden="true"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path fill="currentColor" d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span><span class="benefits-stack__text">Watch on any device, at your own pace</span>
+</div><div class="benefits-stack__item"><span class="benefits-stack__icon" aria-hidden="true"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path fill="currentColor" d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span><span class="benefits-stack__text">Raw footage and project files included</span>
+</div><div class="benefits-stack__item"><span class="benefits-stack__icon" aria-hidden="true"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path fill="currentColor" d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span><span class="benefits-stack__text">Works with any editing app</span>
 </div></div>
 </div>
-</div><div class="pib-own" data-pib-block="buy_buttons_1" data-pib-type="buy_buttons" style="display: contents"><style>
+</div><div class="pib-own" data-pib-block="variant_picker_1" data-pib-type="variant_picker" style="display: contents"><div
+id="variant-picker-variant_picker_1"
+class="product-detail__variant-picker mb-25"
+data-block-id="variant_picker_1"
+data-type="swatches"
+>
+</div></div><div class="pib-own" data-pib-block="buy_buttons_1" data-pib-type="buy_buttons" style="display: contents"><style>
 :is(#MainProduct-main, #shopify-section-main, sticky-add-cart[data-section-id="main"]) .product-detail__buy-buttons :is(button[name="add"], .product-form__submit) {
 }
 :is(#MainProduct-main, #shopify-section-main, sticky-add-cart[data-section-id="main"]) .product-detail__buy-buttons .shopify-payment-button__button:not(.shopify-payment-button__button--branded) {--mb-bg: #ff5f1f; --mb-border: #ff5f1f;--mb-text: #111113;--mb-hover-bg: #ff7a42; --mb-hover-border: #ff7a42;--mb-hover-text: #111113;
@@ -1074,9 +1010,9 @@ name="id"
 value="00000000-0000-4000-8000-000000000012"
 disabled
 class="product-variant-id"
-><div class="product-form__buttons btn-large flex flex-wrap gap-10">
-<div class="product__submit-form-cart flex flex-wrap gap-10 gap-lg-20 align-center grow-1">
-</div><div class="btn-checkout-dynamic w-full">
+><div class="product-form__buttons btn-large flex flex-wrap gap-10"><div class="product__submit-form-cart flex flex-wrap gap-10 gap-lg-20 align-center grow-1">
+</div><script src="/theme-previews/_base/a/product-offers.8f6bb4c06f35.js" defer="defer"></script>
+<div class="btn-checkout-dynamic w-full">
 <div class="shopify-payment-button" data-shopify="payment-button">
 <button
 type="submit"
@@ -1093,7 +1029,129 @@ data-button-local-appearance="solid" data-button-appearance="solid"
 </div></div></form></product-form>
 </div>
 </div>
-</div><div class="pib-own" data-pib-block="pp23_info" data-pib-type="infotables" style="display: contents"><div id="InfoTables-pp23_info" class="it-card" data-block-id="pp23_info"
+</div><div class="pib-own" data-pib-block="payment_badges_1" data-pib-type="payment_badges" style="display: contents"><div id="PaymentBadges-payment_badges_1"
+class="pb-wrap"
+role="region"
+aria-label="Payment methods"
+data-block-id="payment_badges_1"
+style="
+--pb-maxw: 100rem;
+--pb-pl:   0px;
+--pb-pr:   0px;
+--pb-pt:   6px;
+--pb-pb:   16px;
+--pb-mt:   0px;
+--pb-mb:   0px;
+--pb-bg:   rgba(0, 0, 0, 0);
+--pb-radius: 0px;
+--pb-maxw-m: 100rem;
+--pb-pl-m:   0px;
+--pb-pr-m:   0px;
+--pb-justify-d: flex-start;
+--pb-justify-m: flex-start;
+/* text */
+--pb-label-color: #333333 !important;
+--pb-label-size: 13px;
+--pb-title-size: 14px;
+--pb-title-color: #111113 !important;
+--pb-title-mb: 0px;
+--pb-title-mt: 0px;
+--pb-label-hover: #111111;
+--pb-uline-w: 1px;
+--pb-icon-w: 40px;
+--pb-icon-w-m: 40px;
+/* badge sizing + gaps */
+--pb-gap-x: 10px;
+--pb-icon-h: 26px;
+--pb-icon-h-m: 26px;
+">
+<div class="pb-inner">
+<div class="pb-head"></div>
+<div class="ecomz-paymentbadges-main">
+<ul class="pb-list list-unstyled">
+<li class="pb-item">
+<svg class="pb-svg" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="pi-american_express" viewBox="0 0 38 24">
+<title id="pi-american_express">American Express</title>
+<path fill="#000" d="M35 0H3C1.3 0 0 1.3 0 3v18c0 1.7 1.4 3 3 3h32c1.7 0 3-1.3 3-3V3c0-1.7-1.4-3-3-3Z" opacity=".07"></path>
+<path fill="#006FCF" d="M35 1c1.1 0 2 .9 2 2v18c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V3c0-1.1.9-2 2-2h32Z"></path>
+<path fill="#FFF" d="M22.012 19.936v-8.421L37 11.528v2.326l-1.732 1.852L37 17.573v2.375h-2.766l-1.47-1.622-1.46 1.628-9.292-.02Z"></path>
+<path fill="#006FCF" d="M23.013 19.012v-6.57h5.572v1.513h-3.768v1.028h3.678v1.488h-3.678v1.01h3.768v1.531h-5.572Z"></path>
+<path fill="#006FCF" d="m28.557 19.012 3.083-3.289-3.083-3.282h2.386l1.884 2.083 1.89-2.082H37v.051l-3.017 3.23L37 18.92v.093h-2.307l-1.917-2.103-1.898 2.104h-2.321Z"></path>
+<path fill="#FFF" d="M22.71 4.04h3.614l1.269 2.881V4.04h4.46l.77 2.159.771-2.159H37v8.421H19l3.71-8.421Z"></path>
+<path fill="#006FCF" d="m23.395 4.955-2.916 6.566h2l.55-1.315h2.98l.55 1.315h2.05l-2.904-6.566h-2.31Zm.25 3.777.875-2.09.873 2.09h-1.748Z"></path>
+<path fill="#006FCF" d="M28.581 11.52V4.953l2.811.01L32.84 9l1.456-4.046H37v6.565l-1.74.016v-4.51l-1.644 4.494h-1.59L30.35 7.01v4.51h-1.768Z"></path>
+</svg>
+</li>
+<li class="pb-item">
+<svg
+class="pb-svg"
+version="1.1"
+xmlns="http://www.w3.org/2000/svg"
+role="img"
+x="0" y="0"
+viewBox="0 0 165.521 105.965">
+<title>Apple Pay</title>
+<path fill="#D3D3D3" d="M150.698 0H14.823c-.566 0-1.133 0-1.698.003-.477.004-.953.009-1.43.022-1.039.028-2.087.09-3.113.274a10.51 10.51 0 0 0-2.958.975 9.932 9.932 0 0 0-4.35 4.35 10.463 10.463 0 0 0-.975 2.96C.113 9.611.052 10.658.024 11.696a70.22 70.22 0 0 0-.022 1.43C0 13.69 0 14.256 0 14.823v76.318c0 .567 0 1.132.002 1.699.003.476.009.953.022 1.43.028 1.036.09 2.084.275 3.11a10.46 10.46 0 0 0 .974 2.96 9.897 9.897 0 0 0 1.83 2.52 9.874 9.874 0 0 0 2.52 1.83c.947.483 1.917.79 2.96.977 1.025.183 2.073.245 3.112.273.477.011.953.017 1.43.02.565.004 1.132.004 1.698.004h135.875c.565 0 1.132 0 1.697-.004.476-.002.952-.009 1.431-.02 1.037-.028 2.085-.09 3.113-.273a10.478 10.478 0 0 0 2.958-.977 9.955 9.955 0 0 0 4.35-4.35c.483-.947.789-1.917.974-2.96.186-1.026.246-2.074.274-3.11.013-.477.02-.954.022-1.43.004-.567.004-1.132.004-1.699V14.824c0-.567 0-1.133-.004-1.699a63.067 63.067 0 0 0-.022-1.429c-.028-1.038-.088-2.085-.274-3.112a10.4 10.4 0 0 0-.974-2.96 9.94 9.94 0 0 0-4.35-4.35A10.52 10.52 0 0 0 156.939.3c-1.028-.185-2.076-.246-3.113-.274a71.417 71.417 0 0 0-1.431-.022C151.83 0 151.263 0 150.698 0z"></path>
+<path fill="#FFF" d="M150.698 3.532l1.672.003c.452.003.905.008 1.36.02.793.022 1.719.065 2.583.22.75.135 1.38.34 1.984.648a6.392 6.392 0 0 1 2.804 2.807c.306.6.51 1.226.645 1.983.154.854.197 1.783.218 2.58.013.45.019.9.02 1.36.005.557.005 1.113.005 1.671v76.318c0 .558 0 1.114-.004 1.682-.002.45-.008.9-.02 1.35-.022.796-.065 1.725-.221 2.589a6.855 6.855 0 0 1-.645 1.975 6.397 6.397 0 0 1-2.808 2.807c-.6.306-1.228.511-1.971.645-.881.157-1.847.2-2.574.22-.457.01-.912.017-1.379.019-.555.004-1.113.004-1.669.004H14.801c-.55 0-1.1 0-1.66-.004a74.993 74.993 0 0 1-1.35-.018c-.744-.02-1.71-.064-2.584-.22a6.938 6.938 0 0 1-1.986-.65 6.337 6.337 0 0 1-1.622-1.18 6.355 6.355 0 0 1-1.178-1.623 6.935 6.935 0 0 1-.646-1.985c-.156-.863-.2-1.788-.22-2.578a66.088 66.088 0 0 1-.02-1.355l-.003-1.327V14.474l.002-1.325a66.7 66.7 0 0 1 .02-1.357c.022-.792.065-1.717.222-2.587a6.924 6.924 0 0 1 .646-1.981c.304-.598.7-1.144 1.18-1.623a6.386 6.386 0 0 1 1.624-1.18 6.96 6.96 0 0 1 1.98-.646c.865-.155 1.792-.198 2.586-.22.452-.012.905-.017 1.354-.02l1.677-.003h135.875"></path>
+<g>
+<g>
+<path fill="#000" d="M43.508 35.77c1.404-1.755 2.356-4.112 2.105-6.52-2.054.102-4.56 1.355-6.012 3.112-1.303 1.504-2.456 3.959-2.156 6.266 2.306.2 4.61-1.152 6.063-2.858"></path>
+<path fill="#000" d="M45.587 39.079c-3.35-.2-6.196 1.9-7.795 1.9-1.6 0-4.049-1.8-6.698-1.751-3.447.05-6.645 2-8.395 5.1-3.598 6.2-.95 15.4 2.55 20.45 1.699 2.5 3.747 5.25 6.445 5.151 2.55-.1 3.549-1.65 6.647-1.65 3.097 0 3.997 1.65 6.696 1.6 2.798-.05 4.548-2.5 6.247-5 1.95-2.85 2.747-5.6 2.797-5.75-.05-.05-5.396-2.101-5.446-8.251-.05-5.15 4.198-7.6 4.398-7.751-2.399-3.548-6.147-3.948-7.447-4.048"></path>
+</g>
+<g>
+<path fill="#000" d="M78.973 32.11c7.278 0 12.347 5.017 12.347 12.321 0 7.33-5.173 12.373-12.529 12.373h-8.058V69.62h-5.822V32.11h14.062zm-8.24 19.807h6.68c5.07 0 7.954-2.729 7.954-7.46 0-4.73-2.885-7.434-7.928-7.434h-6.706v14.894z"></path>
+<path fill="#000" d="M92.764 61.847c0-4.809 3.665-7.564 10.423-7.98l7.252-.442v-2.08c0-3.04-2.001-4.704-5.562-4.704-2.938 0-5.07 1.507-5.51 3.82h-5.252c.157-4.86 4.731-8.395 10.918-8.395 6.654 0 10.995 3.483 10.995 8.89v18.663h-5.38v-4.497h-.13c-1.534 2.937-4.914 4.782-8.579 4.782-5.406 0-9.175-3.222-9.175-8.057zm17.675-2.417v-2.106l-6.472.416c-3.64.234-5.536 1.585-5.536 3.95 0 2.288 1.975 3.77 5.068 3.77 3.95 0 6.94-2.522 6.94-6.03z"></path>
+<path fill="#000" d="M120.975 79.652v-4.496c.364.051 1.247.103 1.715.103 2.573 0 4.029-1.09 4.913-3.899l.52-1.663-9.852-27.293h6.082l6.863 22.146h.13l6.862-22.146h5.927l-10.216 28.67c-2.34 6.577-5.017 8.735-10.683 8.735-.442 0-1.872-.052-2.261-.157z"></path>
+</g>
+</g>
+</svg>
+</li>
+<li class="pb-item">
+<svg class="pb-svg" xmlns="http://www.w3.org/2000/svg" role="img" viewBox="0 0 38 24">
+<title>Google Pay</title>
+<path d="M35 0H3C1.3 0 0 1.3 0 3v18c0 1.7 1.4 3 3 3h32c1.7 0 3-1.3 3-3V3c0-1.7-1.4-3-3-3z" fill="#000" opacity=".07"></path>
+<path d="M35 1c1.1 0 2 .9 2 2v18c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V3c0-1.1.9-2 2-2h32" fill="#FFF"></path>
+<path d="M18.093 11.976v3.2h-1.018v-7.9h2.691a2.447 2.447 0 0 1 1.747.692 2.28 2.28 0 0 1 .11 3.224l-.11.116c-.47.447-1.098.69-1.747.674l-1.673-.006zm0-3.732v2.788h1.698c.377.012.741-.135 1.005-.404a1.391 1.391 0 0 0-1.005-2.354l-1.698-.03zm6.484 1.348c.65-.03 1.286.188 1.778.613.445.43.682 1.03.65 1.649v3.334h-.969v-.766h-.049a1.93 1.93 0 0 1-1.673.931 2.17 2.17 0 0 1-1.496-.533 1.667 1.667 0 0 1-.613-1.324 1.606 1.606 0 0 1 .613-1.336 2.746 2.746 0 0 1 1.698-.515c.517-.02 1.03.093 1.49.331v-.208a1.134 1.134 0 0 0-.417-.901 1.416 1.416 0 0 0-.98-.368 1.545 1.545 0 0 0-1.319.717l-.895-.564a2.488 2.488 0 0 1 2.182-1.06zM23.29 13.52a.79.79 0 0 0 .337.662c.223.176.5.269.785.263.429-.001.84-.17 1.146-.472.305-.286.478-.685.478-1.103a2.047 2.047 0 0 0-1.324-.374 1.716 1.716 0 0 0-1.03.294.883.883 0 0 0-.392.73zm9.286-3.75l-3.39 7.79h-1.048l1.281-2.728-2.224-5.062h1.103l1.612 3.885 1.569-3.885h1.097z"></path>
+<path d="M13.986 11.284c0-.308-.024-.616-.073-.92h-4.29v1.747h2.451a2.096 2.096 0 0 1-.9 1.373v1.134h1.464a4.433 4.433 0 0 0 1.348-3.334z" fill="#4285F4"></path>
+<path d="M9.629 15.721a4.352 4.352 0 0 0 3.01-1.097l-1.466-1.14a2.752 2.752 0 0 1-4.094-1.44H5.577v1.17a4.53 4.53 0 0 0 4.052 2.507z" fill="#34A853"></path>
+<path d="M7.079 12.05a2.709 2.709 0 0 1 0-1.735v-1.17H5.577a4.505 4.505 0 0 0 0 4.075l1.502-1.17z" fill="#FBBC04"></path>
+<path d="M9.629 8.44a2.452 2.452 0 0 1 1.74.68l1.3-1.293a4.37 4.37 0 0 0-3.065-1.183 4.53 4.53 0 0 0-4.027 2.5l1.502 1.171a2.715 2.715 0 0 1 2.55-1.875z" fill="#EA4335"></path>
+</svg>
+</li>
+<li class="pb-item">
+<svg class="pb-svg" viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>Mastercard</title>
+<path opacity=".07" d="M35 0H3C1.3 0 0 1.3 0 3v18c0 1.7 1.4 3 3 3h32c1.7 0 3-1.3 3-3V3c0-1.7-1.4-3-3-3z"></path>
+<path fill="#fff" d="M35 1c1.1 0 2 .9 2 2v18c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V3c0-1.1.9-2 2-2h32"></path>
+<circle fill="#EB001B" cx="15" cy="12" r="7"></circle>
+<circle fill="#F79E1B" cx="23" cy="12" r="7"></circle>
+<path fill="#FF5F00" d="M22 12c0-2.4-1.2-4.5-3-5.7-1.8 1.3-3 3.4-3 5.7s1.2 4.5 3 5.7c1.8-1.2 3-3.3 3-5.7z"></path>
+</svg>
+</li>
+<li class="pb-item">
+<svg class="pb-svg" viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>PayPal</title>
+<path opacity=".07" d="M35 0H3C1.3 0 0 1.3 0 3v18c0 1.7 1.4 3 3 3h32c1.7 0 3-1.3 3-3V3c0-1.7-1.4-3-3-3z"></path>
+<path fill="#fff" d="M35 1c1.1 0 2 .9 2 2v18c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V3c0-1.1.9-2 2-2h32"></path>
+<path fill="#003087" d="M23.9 8.3c.2-1 0-1.7-.6-2.3-.6-.7-1.7-1-3.1-1h-4.1c-.3 0-.5.2-.6.5L14 15.6c0 .2.1.4.3.4H17l.4-3.4 1.8-2.2 4.7-2.1z"></path>
+<path fill="#3086C8" d="M23.9 8.3l-.2.2c-.5 2.8-2.2 3.8-4.6 3.8H18c-.3 0-.5.2-.6.5l-.6 3.9-.2 1c0 .2.1.4.3.4H19c.3 0 .5-.2.5-.4v-.1l.4-2.4v-.1c0-.2.3-.4.5-.4h.3c2.1 0 3.7-.8 4.1-3.2.2-1 .1-1.8-.4-2.4-.1-.5-.3-.7-.5-.8z"></path>
+<path fill="#012169" d="M23.3 8.1c-.1-.1-.2-.1-.3-.1-.1 0-.2 0-.3-.1-.3-.1-.7-.1-1.1-.1h-3c-.1 0-.2 0-.2.1-.2.1-.3.2-.3.4l-.7 4.4v.1c0-.3.3-.5.6-.5h1.3c2.5 0 4.1-1 4.6-3.8v-.2c-.1-.1-.3-.2-.5-.2h-.1z"></path>
+</svg>
+</li>
+<li class="pb-item">
+<svg class="pb-svg" viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>Visa</title>
+<path opacity=".07" d="M35 0H3C1.3 0 0 1.3 0 3v18c0 1.7 1.4 3 3 3h32c1.7 0 3-1.3 3-3V3c0-1.7-1.4-3-3-3z"></path>
+<path fill="#fff" d="M35 1c1.1 0 2 .9 2 2v18c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V3c0-1.1.9-2 2-2h32"></path>
+<path d="M28.3 10.1H28c-.4 1-.7 1.5-1 3h1.9c-.3-1.5-.3-2.2-.6-3zm2.9 5.9h-1.7c-.1 0-.1 0-.2-.1l-.2-.9-.1-.2h-2.4c-.1 0-.2 0-.2.2l-.3.9c0 .1-.1.1-.1.1h-2.1l.2-.5L27 8.7c0-.5.3-.7.8-.7h1.5c.1 0 .2 0 .2.2l1.4 6.5c.1.4.2.7.2 1.1.1.1.1.1.1.2zm-13.4-.3l.4-1.8c.1 0 .2.1.2.1.7.3 1.4.5 2.1.4.2 0 .5-.1.7-.2.5-.2.5-.7.1-1.1-.2-.2-.5-.3-.8-.5-.4-.2-.8-.4-1.1-.7-1.2-1-.8-2.4-.1-3.1.6-.4.9-.8 1.7-.8 1.2 0 2.5 0 3.1.2h.1c-.1.6-.2 1.1-.4 1.7-.5-.2-1-.4-1.5-.4-.3 0-.6 0-.9.1-.2 0-.3.1-.4.2-.2.2-.2.5 0 .7l.5.4c.4.2.8.4 1.1.6.5.3 1 .8 1.1 1.4.2.9-.1 1.7-.9 2.3-.5.4-.7.6-1.4.6-1.4 0-2.5.1-3.4-.2-.1.2-.1.2-.2.1zm-3.5.3c.1-.7.1-.7.2-1 .5-2.2 1-4.5 1.4-6.7.1-.2.1-.3.3-.3H18c-.2 1.2-.4 2.1-.7 3.2-.3 1.5-.6 3-1 4.5 0 .2-.1.2-.3.2M5 8.2c0-.1.2-.2.3-.2h3.4c.5 0 .9.3 1 .8l.9 4.4c0 .1 0 .1.1.2 0-.1.1-.1.1-.1l2.1-5.1c-.1-.1 0-.2.1-.2h2.1c0 .1 0 .1-.1.2l-3.1 7.3c-.1.2-.1.3-.2.4-.1.1-.3 0-.5 0H9.7c-.1 0-.2 0-.2-.2L7.9 9.5c-.2-.2-.5-.5-.9-.6-.6-.3-1.7-.5-1.9-.5L5 8.2z" fill="#142688"></path>
+</svg>
+</li>
+</ul>
+</div>
+</div>
+<link href="/theme-previews/_base/a/block-paymentbadges.fcda15087502.css" rel="stylesheet" type="text/css" media="all">
+<link rel="stylesheet" href="/theme-previews/landing-page/a/i.c57eb2b290ec.css">
+</div></div><div class="pib-own" data-pib-block="pp23_info" data-pib-type="infotables" style="display: contents"><div id="InfoTables-pp23_info" class="it-card" data-block-id="pp23_info"
 style="
 --it-bg: #ffffff;
 --it-text: #222222;
@@ -1141,7 +1199,10 @@ style="
 </div>
 </div></div>
 </div>
-<link rel="stylesheet" href="/theme-previews/landing-page/a/i.2a6bb7a555f4.css">
+<link href="/theme-previews/_base/a/block-infotables.21e660882e2b.css" rel="stylesheet" type="text/css" media="all">
+<style>
+#InfoTables-pp23_info{--it-bg:var(--color-background)!important;--it-text:var(--color-text)!important;--it-icon:var(--color-heading)!important;--it-border:var(--color-border)!important;--it-divider:var(--color-border)!important;font-family:var(--body-font,inherit);}
+</style>
 </div></div><div class="pib-own" data-pib-block="collapsible_row_1" data-pib-type="collapsible_row" style="display: contents"><details class="mt-acc product-detail__collapsible" data-mt-acc-key="collapsible_row_1" data-block-id="collapsible_row_1">
 <summary>
 <h3 class="mt-acc__title">What is inside</h3>
@@ -1172,7 +1233,7 @@ style="
 <sticky-add-cart id="StickyCart-main" data-section-id="main" class="fixed z-10 inset-x-0 bottom-0 shadow color-default  hidden-md sticky_mobile--show no-picker no-picker" role="region" aria-label="Colour Grading">
 <div class="container"><div class="flex gap-15 justify-between align-center">
 <div
-class="product-item product__item-js hidden block-md style-as-standard"
+class="product-item product__item-js hidden block-md style-as-standard pc-reveal--hover pc-layout--side"
 data-section="main"
 data-color-trigger="Color,Colour,Cor"
 data-desktop-layout="thumbnail_bottom"
@@ -1194,7 +1255,7 @@ aria-label="Colour Grading"
 class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 16/10;"
 >
-<img src="/theme-previews/landing-page/a/landing-cover-colour.9fd52a7266e3.webp" srcset="/theme-previews/landing-page/a/landing-cover-colour-800.4b506e77c238.webp 720w, /theme-previews/landing-page/a/landing-cover-colour-800.4b506e77c238.webp 660w, /theme-previews/landing-page/a/landing-cover-colour-800.4b506e77c238.webp 550w, /theme-previews/landing-page/a/landing-cover-colour-800.4b506e77c238.webp 480w, /theme-previews/landing-page/a/landing-cover-colour-400.8210b1056eaa.webp 330w, /theme-previews/landing-page/a/landing-cover-colour-400.8210b1056eaa.webp 240w, /theme-previews/landing-page/a/landing-cover-colour-400.8210b1056eaa.webp 185w" alt="Colour Grading" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/landing-page/a/landing-cover-colour.9fd52a7266e3.webp" srcset="/theme-previews/landing-page/a/landing-cover-colour-800.4b506e77c238.webp 720w, /theme-previews/landing-page/a/landing-cover-colour-800.4b506e77c238.webp 660w, /theme-previews/landing-page/a/landing-cover-colour-800.4b506e77c238.webp 550w, /theme-previews/landing-page/a/landing-cover-colour-800.4b506e77c238.webp 480w, /theme-previews/landing-page/a/landing-cover-colour-400.8210b1056eaa.webp 330w, /theme-previews/landing-page/a/landing-cover-colour-400.8210b1056eaa.webp 240w, /theme-previews/landing-page/a/landing-cover-colour-400.8210b1056eaa.webp 185w" alt="Colour Grading" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="auto, (min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -1225,7 +1286,7 @@ data-url="/theme-previews/landing-page/products/colour-grading.html"
 <option
 class="color product-sticky-js"
 data-variant-id="00000000-0000-4000-8000-000000000012"
-data-name="Title"
+data-name=""
 data-color-value=""
 data-value="Default Title"
 value="Default Title"
@@ -1254,8 +1315,7 @@ name="id"
 value="00000000-0000-4000-8000-000000000012"
 disabled
 class="product-variant-id"
-><div class="product-form__buttons btn-large flex flex-wrap gap-10">
-<div class="product__submit-form-cart flex flex-wrap gap-10 gap-lg-20 align-center grow-1">
+><div class="product-form__buttons btn-large flex flex-wrap gap-10"><div class="product__submit-form-cart flex flex-wrap gap-10 gap-lg-20 align-center grow-1">
 <div class="product-form__input product-form__quantity">
 <quantity-input class="quantity btn-rounded overflow-hidden border inline-flex text-center grey-bg">
 <button
@@ -1351,22 +1411,7 @@ style="--btn-padding-x: 2.5rem;"
   </script>
 </div>
 </div>
-</section><section id="shopify-section-story" class="shopify-section section sec__image-video-text" data-section-id="story" data-section-type="image-and-video-text"><script src="/theme-previews/_base/a/media-live-benefits.fca52bd1fd57.js" defer="defer"></script>
-<style>
-  #shopify-section-story {
-    font-family: var(--body-font, inherit);
-    font-size: var(--body-font-size, inherit);
-    font-weight: var(--body-weight, inherit);
-    line-height: var(--body-line-height, inherit);
-    color: var(--color-text);
-  }
-  #shopify-section-story :is(h1, h2, h3, h4, h5, h6) {
-    font-family: var(--heading-font, inherit);
-    font-weight: var(--heading-weight, inherit);
-    letter-spacing: var(--heading-letter-spacing, normal);
-    line-height: var(--heading-line-height, 1.2);
-    text-transform: var(--heading-text-transform, none);
-  }
+</section><section id="shopify-section-story" class="shopify-section section sec__image-video-text s-tt" data-section-id="story" data-section-type="image-and-video-text"><script src="/theme-previews/_base/a/media-benefits-runtime.536397946d66.js" defer="defer"></script><style>
   :where(html:not([data-font-priority='off'])) #shopify-section-story :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
@@ -1395,7 +1440,7 @@ style="--btn-padding-x: 2.5rem;"
     #shopify-section-story + section,
     .shopify-section + #shopify-section-story {
       margin-top: 0 !important;
-    }</style><link rel="stylesheet" href="/theme-previews/landing-page/a/i.0320ed2176ad.css">
+    }</style><link rel="stylesheet" href="/theme-previews/landing-page/a/i.469a7aaf4d01.css">
 <style>
   #shopify-section-story .ivt[data-overlay='true'] .ivt__media::after { content: ''; position: absolute; inset: 0; background: var(--ivt-ov); opacity: calc(var(--ivt-ov-op) / 100); pointer-events: none; }
 </style>
@@ -1417,22 +1462,7 @@ decoding="async"
 <div class="ivt__text mlb__text"><h2 class="ivt__heading mlb__heading" data-block-id="heading_1" data-mlb-block="heading_1" data-mlb-type="heading" data-block-id="heading_1" style="--b-c: var(--color-heading);--b-fs-m: 32px;--b-fs-d: 40px;">Wait, why pay for this?</h2><h2 class="ivt__heading mlb__heading" data-block-id="heading_2" data-mlb-block="heading_2" data-mlb-type="heading" data-block-id="heading_2" style="--b-c: #ff5f1f;--b-fs-m: 32px;--b-fs-d: 40px;">There are free videos everywhere.</h2><div class="ivt__subheading mlb__sub" data-block-id="subheading_3" data-mlb-block="subheading_3" data-mlb-type="subheading" data-block-id="subheading_3" style="--b-c: var(--color-text);--b-fs-m: 15px;--b-fs-d: 17px;"><p>There are, and I learned from them too. The trouble is they teach one trick at a time, on footage you do not have.</p><p>Here every lesson comes with the clips, in an order that builds. You cut along, then bring your edit to a call where I tell you what to change. That is the part a free video cannot do.</p></div><p class="ivt__eyebrow mlb__eyebrow" data-block-id="eyebrow_4" data-mlb-block="eyebrow_4" data-mlb-type="eyebrow" data-block-id="eyebrow_4" style="--b-c: var(--color-text);--b-fs: 12px;">Your name, editor and teacher</p></div>
 </div>
 </div>
-</div></section><div id="shopify-section-how-it-works" class="shopify-section" data-section-id="how-it-works" data-section-type="feature-timeline"><script src="/theme-previews/_base/a/live-r7-features.9e491bb00160.js" defer="defer"></script>
-<style>
-  #shopify-section-how-it-works {
-    font-family: var(--body-font, inherit);
-    font-size: var(--body-font-size, inherit);
-    font-weight: var(--body-weight, inherit);
-    line-height: var(--body-line-height, inherit);
-    color: var(--color-text);
-  }
-  #shopify-section-how-it-works :is(h1, h2, h3, h4, h5, h6) {
-    font-family: var(--heading-font, inherit);
-    font-weight: var(--heading-weight, inherit);
-    letter-spacing: var(--heading-letter-spacing, normal);
-    line-height: var(--heading-line-height, 1.2);
-    text-transform: var(--heading-text-transform, none);
-  }
+</div></section><div id="shopify-section-how-it-works" class="shopify-section s-tt" data-section-id="how-it-works" data-section-type="feature-timeline"><style>
   :where(html:not([data-font-priority='off'])) #shopify-section-how-it-works :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
@@ -1454,7 +1484,7 @@ decoding="async"
   #shopify-section-how-it-works:has(> .r7s[data-reset_spacing='true']) + .shopify-section { margin-top: 0 !important; }
 </style>
 <link rel="stylesheet" href="/theme-previews/landing-page/a/i.cfe4579dc43c.css">
-<link rel="stylesheet" href="/theme-previews/landing-page/a/i.daeb7b4e4ce7.css"><div class="r7s ftl color-default gradient" data-r7e="feature-timeline" data-r7e-section="how-it-works" data-section_width="container" data-show_section_on="all" data-reset_spacing="true" data-layout="alternate" data-text_align="left" data-marker_style="number" data-image_ratio="landscape" data-fill_on_scroll="true" style="--r7-content_max_width:920px;--r7-head_gap:48px;--r7-item_gap_desktop:56px;--r7-item_gap_mobile:36px;--r7-marker_size:14px;--r7-line_thickness:2px;--r7-padding_top_desktop:96px;--r7-padding_bottom_desktop:96px;--r7-section_margin_top_desktop:0px;--r7-section_margin_bottom_desktop:0px;--r7-padding_top_mobile:56px;--r7-padding_bottom_mobile:56px;--r7-section_margin_top_mobile:0px;--r7-section_margin_bottom_mobile:0px;--r7-line_color:#dcd9d2;--r7-marker_color:#ff5f1f;--r7-label_color:#c2410c;">
+<link rel="stylesheet" href="/theme-previews/landing-page/a/i.daeb7b4e4ce7.css"><div class="r7s ftl color-default gradient" data-r7e="feature-timeline" data-r7e-section="how-it-works" data-section_width="container" data-show_section_on="all" data-reset_spacing="true" data-layout="alternate" data-text_align="center" data-marker_style="number" data-image_ratio="landscape" data-fill_on_scroll="true" style="--r7-content_max_width:920px;--r7-head_gap:48px;--r7-item_gap_desktop:56px;--r7-item_gap_mobile:36px;--r7-marker_size:14px;--r7-line_thickness:2px;--r7-padding_top_desktop:96px;--r7-padding_bottom_desktop:96px;--r7-section_margin_top_desktop:0px;--r7-section_margin_bottom_desktop:0px;--r7-padding_top_mobile:56px;--r7-padding_bottom_mobile:56px;--r7-section_margin_top_mobile:0px;--r7-section_margin_bottom_mobile:0px;--r7-line_color:#dcd9d2;--r7-marker_color:#ff5f1f;--r7-label_color:#c2410c;">
 <div class="r7s__inner"><header class="r7h ftl__head"><h2 class="r7h__heading" data-r7e-block="heading_1" data-r7e-type="heading" data-r7e-bt="heading_1:text" style="" data-block-id="heading_1">How it works</h2></header><ol class="ftl__list"><li class="ftl__item" data-r7e-block="item_2" data-r7e-type="item" style="" data-block-id="item_2">
 <span class="ftl__rail" aria-hidden="true"><span class="ftl__seg"><span class="ftl__fill"></span></span><span class="ftl__mk"><span class="ftl__dot"><span class="ftl__num">1</span></span></span></span>
 <span class="ftl__label" data-r7e-bt="item_2:label">Step 1</span>
@@ -1480,22 +1510,7 @@ decoding="async"
 </div><div class="ftl__media" data-r7e-media>
 <img class="ftl__img" data-r7e-bi="item_4:image" src="/theme-previews/landing-page/a/landing-step-feedback.bbf2d99cd255.webp" srcset="/theme-previews/landing-page/a/landing-step-feedback-800.6803562863f9.webp 480w, /theme-previews/landing-page/a/landing-step-feedback.bbf2d99cd255.webp 900w, /theme-previews/landing-page/a/landing-step-feedback.bbf2d99cd255.webp 1320w" sizes="(min-width: 768px) 440px, 84vw" width="1600" height="1600" alt="A feedback call with other students on a laptop" loading="lazy" decoding="async">
 </div></li></ol><div class="ftl__foot"><a href="#MainContent" class="r7b" data-r7e-block="button_5" data-r7e-type="button" data-r7e-hide data-style="primary" data-theme-button="primary" data-sl-button style="" data-block-id="button_5"><span class="r7b__label" data-r7e-bt="button_5:label">Get The Whole Edit</span><svg class="r7b__arrow" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 8h10M9 4l4 4-4 4"/></svg></a></div></div>
-</div></div><div id="shopify-section-value" class="shopify-section" data-section-id="value" data-section-type="comparison-table-3"><script src="/theme-previews/_base/a/live-features-b.33a5739bc77d.js" defer="defer"></script>
-<style>
-  #shopify-section-value {
-    font-family: var(--body-font, inherit);
-    font-size: var(--body-font-size, inherit);
-    font-weight: var(--body-weight, inherit);
-    line-height: var(--body-line-height, inherit);
-    color: var(--color-text);
-  }
-  #shopify-section-value :is(h1, h2, h3, h4, h5, h6) {
-    font-family: var(--heading-font, inherit);
-    font-weight: var(--heading-weight, inherit);
-    letter-spacing: var(--heading-letter-spacing, normal);
-    line-height: var(--heading-line-height, 1.2);
-    text-transform: var(--heading-text-transform, none);
-  }
+</div></div><div id="shopify-section-value" class="shopify-section s-tt" data-section-id="value" data-section-type="comparison-table-3"><script src="/theme-previews/_base/a/live-features-b-runtime.964cf4c12d95.js" defer="defer"></script><style>
   :where(html:not([data-font-priority='off'])) #shopify-section-value :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
@@ -1672,22 +1687,7 @@ decoding="async"
 </div>
 </div>
 </div>
-</section></div><section id="shopify-section-reviews" class="shopify-section section-testimonial-wall" data-section-id="reviews" data-section-type="testimonial-wall"><script src="/theme-previews/_base/a/live-r7-testimonials.d281fc630732.js" defer="defer"></script>
-<style>
-  #shopify-section-reviews {
-    font-family: var(--body-font, inherit);
-    font-size: var(--body-font-size, inherit);
-    font-weight: var(--body-weight, inherit);
-    line-height: var(--body-line-height, inherit);
-    color: var(--color-text);
-  }
-  #shopify-section-reviews :is(h1, h2, h3, h4, h5, h6) {
-    font-family: var(--heading-font, inherit);
-    font-weight: var(--heading-weight, inherit);
-    letter-spacing: var(--heading-letter-spacing, normal);
-    line-height: var(--heading-line-height, 1.2);
-    text-transform: var(--heading-text-transform, none);
-  }
+</section></div><section id="shopify-section-reviews" class="shopify-section section-testimonial-wall s-tt" data-section-id="reviews" data-section-type="testimonial-wall"><script src="/theme-previews/_base/a/r7-testimonials-runtime.70d39791c83f.js" defer="defer"></script><style>
   :where(html:not([data-font-priority='off'])) #shopify-section-reviews :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
@@ -1752,22 +1752,7 @@ decoding="async"
 </div>
 </div><div class="r7t__actions"><button type="button" class="r7t__more" data-theme-button="secondary" data-sl-button data-r7t-more data-more="Show more" data-less="Show less" aria-expanded="false" aria-controls="r7w-wall-reviews">Show more</button></div>
 </div>
-</div></section><div id="shopify-section-faq" class="shopify-section section-faq7" data-section-id="faq" data-section-type="faq-pro"><script src="/theme-previews/_base/a/live-faq.15551f08943f.js" defer="defer"></script>
-<style>
-  #shopify-section-faq {
-    font-family: var(--body-font, inherit);
-    font-size: var(--body-font-size, inherit);
-    font-weight: var(--body-weight, inherit);
-    line-height: var(--body-line-height, inherit);
-    color: var(--color-text);
-  }
-  #shopify-section-faq :is(h1, h2, h3, h4, h5, h6) {
-    font-family: var(--heading-font, inherit);
-    font-weight: var(--heading-weight, inherit);
-    letter-spacing: var(--heading-letter-spacing, normal);
-    line-height: var(--heading-line-height, 1.2);
-    text-transform: var(--heading-text-transform, none);
-  }
+</div></section><div id="shopify-section-faq" class="shopify-section section-faq7 s-tt" data-section-id="faq" data-section-type="faq-pro"><script src="/theme-previews/_base/a/live-faq-runtime.ec45eaa59bf1.js" defer="defer"></script><style>
   :where(html:not([data-font-priority='off'])) #shopify-section-faq :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
@@ -1793,12 +1778,12 @@ decoding="async"
   :where(#shopify-section-faq) :is(h1,h2,h3,h4,h5,h6){font-family:var(--heading-font,inherit);font-weight:var(--heading-weight,inherit)}
   @media (min-width:768px){#shopify-section-faq{margin-top:0px;margin-bottom:0px}}
 </style>
-<link href="/theme-previews/_base/a/faq-pro.b7e810b1d391.css" rel="stylesheet" type="text/css" media="all"><div class="faq7 color-scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976 gradient" data-faq7-root data-faq-root="faq-pro" data-faq-section="faq" data-faq-settings="{&quot;color_scheme&quot;:{&quot;id&quot;:&quot;scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976&quot;,&quot;settings&quot;:{&quot;page_colors&quot;:null,&quot;background&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;text_color&quot;:{&quot;red&quot;:87,&quot;green&quot;:87,&quot;blue&quot;:94,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:4,&quot;lightness&quot;:35,&quot;rgb&quot;:&quot;87 87 94&quot;,&quot;rgba&quot;:&quot;87 87 94 / 1&quot;,&quot;hex&quot;:&quot;#57575e&quot;},&quot;heading_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;primary_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;border_color&quot;:{&quot;red&quot;:233,&quot;green&quot;:231,&quot;blue&quot;:226,&quot;alpha&quot;:1,&quot;hue&quot;:43,&quot;saturation&quot;:14,&quot;lightness&quot;:90,&quot;rgb&quot;:&quot;233 231 226&quot;,&quot;rgba&quot;:&quot;233 231 226 / 1&quot;,&quot;hex&quot;:&quot;#e9e7e2&quot;},&quot;badge_background&quot;:null,&quot;badge_text&quot;:null,&quot;primary_button_colors&quot;:null,&quot;btn_primary_background&quot;:{&quot;red&quot;:255,&quot;green&quot;:95,&quot;blue&quot;:31,&quot;alpha&quot;:1,&quot;hue&quot;:17,&quot;saturation&quot;:100,&quot;lightness&quot;:56,&quot;rgb&quot;:&quot;255 95 31&quot;,&quot;rgba&quot;:&quot;255 95 31 / 1&quot;,&quot;hex&quot;:&quot;#ff5f1f&quot;},&quot;btn_primary_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;btn_primary_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_primary_hover_background&quot;:{&quot;red&quot;:255,&quot;green&quot;:122,&quot;blue&quot;:66,&quot;alpha&quot;:1,&quot;hue&quot;:18,&quot;saturation&quot;:100,&quot;lightness&quot;:63,&quot;rgb&quot;:&quot;255 122 66&quot;,&quot;rgba&quot;:&quot;255 122 66 / 1&quot;,&quot;hex&quot;:&quot;#ff7a42&quot;},&quot;btn_primary_hover_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;btn_primary_hover_border_color&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;secondary_button_colors&quot;:null,&quot;btn_secondary_background&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;btn_secondary_border&quot;:{&quot;red&quot;:216,&quot;green&quot;:214,&quot;blue&quot;:208,&quot;alpha&quot;:1,&quot;hue&quot;:45,&quot;saturation&quot;:9,&quot;lightness&quot;:83,&quot;rgb&quot;:&quot;216 214 208&quot;,&quot;rgba&quot;:&quot;216 214 208 / 1&quot;,&quot;hex&quot;:&quot;#d8d6d0&quot;},&quot;btn_secondary_hover_background&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;btn_secondary_hover_color&quot;:{&quot;red&quot;:255,&quot;green&quot;:255,&quot;blue&quot;:255,&quot;alpha&quot;:1,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:100,&quot;rgb&quot;:&quot;255 255 255&quot;,&quot;rgba&quot;:&quot;255 255 255 / 1&quot;,&quot;hex&quot;:&quot;#ffffff&quot;},&quot;btn_secondary_hover_border_color&quot;:null,&quot;background_gradient&quot;:&quot;&quot;,&quot;btn_primary_gradient&quot;:&quot;&quot;,&quot;btn_primary_hover_background_gradient&quot;:&quot;&quot;,&quot;btn_secondary_hover_border&quot;:{&quot;red&quot;:0,&quot;green&quot;:0,&quot;blue&quot;:0,&quot;alpha&quot;:0,&quot;hue&quot;:0,&quot;saturation&quot;:0,&quot;lightness&quot;:0,&quot;rgb&quot;:&quot;0 0 0&quot;,&quot;rgba&quot;:&quot;0 0 0 / 0&quot;,&quot;hex&quot;:&quot;#000000&quot;},&quot;btn_outline_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;btn_outline_border_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;button_link_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;},&quot;button_link_hover_color&quot;:{&quot;red&quot;:17,&quot;green&quot;:17,&quot;blue&quot;:19,&quot;alpha&quot;:1,&quot;hue&quot;:240,&quot;saturation&quot;:6,&quot;lightness&quot;:7,&quot;rgb&quot;:&quot;17 17 19&quot;,&quot;rgba&quot;:&quot;17 17 19 / 1&quot;,&quot;hex&quot;:&quot;#111113&quot;}}},&quot;section_width&quot;:&quot;container&quot;,&quot;reset_spacing&quot;:true,&quot;structured_data&quot;:true,&quot;heading&quot;:&quot;Frequently asked questions&quot;,&quot;subheading&quot;:&quot;&lt;p&gt;Have a question? We&#39;re here to help.&lt;\/p&gt;&quot;,&quot;first_item_open&quot;:false,&quot;allow_multiple_open&quot;:false,&quot;open_icon&quot;:&quot;plus&quot;,&quot;content_alignment&quot;:&quot;left&quot;,&quot;max_content_width&quot;:760,&quot;col_gap&quot;:60,&quot;gap_header_to_items&quot;:32,&quot;gap_heading_to_subheading&quot;:12,&quot;gap_between_items&quot;:19,&quot;item_padding_y&quot;:20,&quot;item_padding_x&quot;:14,&quot;item_radius&quot;:11,&quot;show_dividers&quot;:true,&quot;enable_custom_style&quot;:false,&quot;section_bg&quot;:null,&quot;card_bg&quot;:null,&quot;card_border_color&quot;:null,&quot;divider_color&quot;:null,&quot;question_color&quot;:null,&quot;hover_color&quot;:null,&quot;icon_color&quot;:null,&quot;answer_color&quot;:null,&quot;heading_color&quot;:null,&quot;subheading_color&quot;:null,&quot;enable_custom_fonts&quot;:false,&quot;heading_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;body_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;heading_size_desktop&quot;:36,&quot;heading_size_mobile&quot;:26,&quot;enable_custom_heading_weight&quot;:false,&quot;heading_weight&quot;:&quot;600&quot;,&quot;subheading_size_desktop&quot;:16,&quot;subheading_size_mobile&quot;:14,&quot;question_size_desktop&quot;:18,&quot;question_size_mobile&quot;:15,&quot;enable_custom_question_weight&quot;:false,&quot;question_weight&quot;:&quot;600&quot;,&quot;answer_size_desktop&quot;:15,&quot;answer_size_mobile&quot;:14,&quot;reveal&quot;:true,&quot;scroll_animation&quot;:&quot;inherit&quot;,&quot;padding_top&quot;:60,&quot;padding_bottom&quot;:60,&quot;section_margin_top_desktop&quot;:0,&quot;section_margin_bottom_desktop&quot;:0,&quot;section_margin_top_mobile&quot;:0,&quot;section_margin_bottom_mobile&quot;:0}" data-faq7-anim="subtle_rise" data-faq7-width="container" data-faq7-reveal="subtle_rise" style="--faq7-bg:var(--color-background);--faq7-pt:60px;--faq7-pb:60px;--faq7-col-gap:60px;--faq7-align:left;--faq7-mi:0;--faq7-cta-justify:flex-start;--faq7-gap-header:32px;--faq7-maxw:760px;--faq7-h-m:26px;--faq7-h-d:36px;--faq7-heading-color:var(--color-heading);--faq7-gap-sub:12px;--faq7-sub-m:14px;--faq7-sub-d:16px;--faq7-sub-color:var(--color-text);--faq7-gap-items:19px;--faq7-card-bg:rgba(var(--color-heading-rgb), 0.04);--faq7-card-border:transparent;--faq7-radius:11px;--faq7-divider:var(--color-border);--faq7-py:20px;--faq7-px:14px;--faq7-q-color:var(--color-heading);--faq7-q-m:15px;--faq7-q-d:18px;--faq7-hover:var(--color-primary);--faq7-icon-color:var(--color-heading);--faq7-a-color:var(--color-text);--faq7-a-m:14px;--faq7-a-d:15px;">
+<link href="/theme-previews/_base/a/faq-pro.71b76507a3e6.css" rel="stylesheet" type="text/css" media="all"><div class="faq7 color-scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976 gradient" data-faq7-root data-faq-root="faq-pro" data-faq-section="faq"  data-faq7-anim="subtle_rise" data-faq7-width="container" style="--faq7-bg:var(--color-background);--faq7-pt:60px;--faq7-pb:60px;--faq7-col-gap:60px;--faq7-align:left;--faq7-mi:0;--faq7-cta-justify:flex-start;--faq7-gap-header:32px;--faq7-maxw:760px;--faq7-h-m:26px;--faq7-h-d:36px;--faq7-heading-color:var(--color-heading);--faq7-gap-sub:12px;--faq7-sub-m:14px;--faq7-sub-d:16px;--faq7-sub-color:var(--color-text);--faq7-gap-items:19px;--faq7-card-bg:rgba(var(--color-heading-rgb), 0.04);--faq7-card-border:transparent;--faq7-radius:11px;--faq7-divider:var(--color-border);--faq7-py:20px;--faq7-px:14px;--faq7-q-color:var(--color-heading);--faq7-q-m:15px;--faq7-q-d:18px;--faq7-hover:var(--color-primary);--faq7-icon-color:var(--color-heading);--faq7-a-color:var(--color-text);--faq7-a-m:14px;--faq7-a-d:15px;">
 <div class="faq7__inner">
-<div class="faq7__layout"><div class="faq7__header"><h2 class="faq7__heading" id="block-heading_1" data-faq-block="heading_1" data-faq-type="heading" data-faq-settings="{&quot;text&quot;:&quot;Questions before you start&quot;,&quot;tag&quot;:&quot;h2&quot;,&quot;enable_custom_style&quot;:false,&quot;color&quot;:null,&quot;enable_custom_fonts&quot;:false,&quot;font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;weight_enable&quot;:false,&quot;weight&quot;:&quot;700&quot;,&quot;size_enable&quot;:false,&quot;size_desktop&quot;:36,&quot;size_mobile&quot;:26,&quot;line_height&quot;:1.15,&quot;tracking&quot;:0}" data-block-id="heading_1">Questions before you start</h2><div class="faq7__subheading" id="block-subheading_2" data-faq-block="subheading_2" data-faq-type="subheading" data-faq-settings="{&quot;text&quot;:&quot;If yours is not here, write to us and you will hear back within a day.&quot;,&quot;enable_custom_style&quot;:false,&quot;color&quot;:null,&quot;enable_custom_fonts&quot;:false,&quot;font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;,&quot;weight&quot;:&quot;400&quot;,&quot;style&quot;:&quot;normal&quot;,&quot;system&quot;:false,&quot;baseline_ratio&quot;:0.8,&quot;variants&quot;:[],&quot;handle&quot;:&quot;assistant_n4&quot;},&quot;weight_enable&quot;:false,&quot;weight&quot;:&quot;400&quot;,&quot;size_enable&quot;:false,&quot;size&quot;:16,&quot;line_height&quot;:1.5}" data-block-id="subheading_2">If yours is not here, write to us and you will hear back within a day.</div></div><template data-faq-icons>
+<div class="faq7__layout"><div class="faq7__header"><h2 class="faq7__heading" id="block-heading_1" data-faq-block="heading_1" data-faq-type="heading"  data-block-id="heading_1">Questions before you start</h2><div class="faq7__subheading" id="block-subheading_2" data-faq-block="subheading_2" data-faq-type="subheading"  data-block-id="subheading_2">If yours is not here, write to us and you will hear back within a day.</div></div><template data-faq-icons>
 <svg data-icon="chevron" class="faq7__icon-chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
 <svg data-icon="arrow" class="faq7__icon-chevron" viewBox="0 0 24 24"><path d="M12 4v16M4 12h16" stroke-linecap="round"/></svg>
-<span data-icon="plus" class="faq7__icon-plus"><span class="v"></span><span class="h"></span></span></template><div class="faq7__list" data-faq7-list data-faq-list data-multiple="false"><div class="faq7__item"  data-faq7-item data-faq-item id="block-faq_item_3" data-faq-block="faq_item_3" data-faq-type="faq_item" data-faq-settings="{&quot;question&quot;:&quot;Which editing app do I need?&quot;,&quot;answer&quot;:&quot;&lt;p&gt;Any of the common ones. Lessons show the idea first and the clicks second, and each lesson has notes for the three most used apps.&lt;\/p&gt;&quot;}" data-block-id="faq_item_3">
+<span data-icon="plus" class="faq7__icon-plus"><span class="v"></span><span class="h"></span></span></template><div class="faq7__list" data-faq7-list data-faq-list data-multiple="false"><div class="faq7__item"  data-faq7-item data-faq-item id="block-faq_item_3" data-faq-block="faq_item_3" data-faq-type="faq_item"  data-block-id="faq_item_3">
 <button
 type="button"
 class="faq7__q"
@@ -1814,7 +1799,7 @@ data-faq7-trigger data-faq-trigger
 <div class="faq7__a" data-faq-answer><p>Any of the common ones. Lessons show the idea first and the clicks second, and each lesson has notes for the three most used apps.</p></div>
 </div>
 </div>
-</div><div class="faq7__item"  data-faq7-item data-faq-item id="block-faq_item_4" data-faq-block="faq_item_4" data-faq-type="faq_item" data-faq-settings="{&quot;question&quot;:&quot;I have never edited before. Where do I start?&quot;,&quot;answer&quot;:&quot;&lt;p&gt;The 7 Day Starter. It assumes nothing and ends with a finished one minute video.&lt;\/p&gt;&quot;}" data-block-id="faq_item_4">
+</div><div class="faq7__item"  data-faq7-item data-faq-item id="block-faq_item_4" data-faq-block="faq_item_4" data-faq-type="faq_item"  data-block-id="faq_item_4">
 <button
 type="button"
 class="faq7__q"
@@ -1830,7 +1815,7 @@ data-faq7-trigger data-faq-trigger
 <div class="faq7__a" data-faq-answer><p>The 7 Day Starter. It assumes nothing and ends with a finished one minute video.</p></div>
 </div>
 </div>
-</div><div class="faq7__item"  data-faq7-item data-faq-item id="block-faq_item_5" data-faq-block="faq_item_5" data-faq-type="faq_item" data-faq-settings="{&quot;question&quot;:&quot;How long do I have access?&quot;,&quot;answer&quot;:&quot;&lt;p&gt;For as long as the school is open. Watch at your own pace and come back to any lesson.&lt;\/p&gt;&quot;}" data-block-id="faq_item_5">
+</div><div class="faq7__item"  data-faq7-item data-faq-item id="block-faq_item_5" data-faq-block="faq_item_5" data-faq-type="faq_item"  data-block-id="faq_item_5">
 <button
 type="button"
 class="faq7__q"
@@ -1846,7 +1831,7 @@ data-faq7-trigger data-faq-trigger
 <div class="faq7__a" data-faq-answer><p>For as long as the school is open. Watch at your own pace and come back to any lesson.</p></div>
 </div>
 </div>
-</div><div class="faq7__item"  data-faq7-item data-faq-item id="block-faq_item_6" data-faq-block="faq_item_6" data-faq-type="faq_item" data-faq-settings="{&quot;question&quot;:&quot;Do I get the footage?&quot;,&quot;answer&quot;:&quot;&lt;p&gt;Yes. Every lesson comes with the raw clips, music and project files you see on screen.&lt;\/p&gt;&quot;}" data-block-id="faq_item_6">
+</div><div class="faq7__item"  data-faq7-item data-faq-item id="block-faq_item_6" data-faq-block="faq_item_6" data-faq-type="faq_item"  data-block-id="faq_item_6">
 <button
 type="button"
 class="faq7__q"
@@ -1862,7 +1847,7 @@ data-faq7-trigger data-faq-trigger
 <div class="faq7__a" data-faq-answer><p>Yes. Every lesson comes with the raw clips, music and project files you see on screen.</p></div>
 </div>
 </div>
-</div><div class="faq7__item"  data-faq7-item data-faq-item id="block-faq_item_7" data-faq-block="faq_item_7" data-faq-type="faq_item" data-faq-settings="{&quot;question&quot;:&quot;How do the feedback calls work?&quot;,&quot;answer&quot;:&quot;&lt;p&gt;Once a month you send a cut of up to three minutes. On the call I go through a few of them on screen, with notes you can rewatch.&lt;\/p&gt;&quot;}" data-block-id="faq_item_7">
+</div><div class="faq7__item"  data-faq7-item data-faq-item id="block-faq_item_7" data-faq-block="faq_item_7" data-faq-type="faq_item"  data-block-id="faq_item_7">
 <button
 type="button"
 class="faq7__q"
@@ -1878,7 +1863,7 @@ data-faq7-trigger data-faq-trigger
 <div class="faq7__a" data-faq-answer><p>Once a month you send a cut of up to three minutes. On the call I go through a few of them on screen, with notes you can rewatch.</p></div>
 </div>
 </div>
-</div><div class="faq7__item"  data-faq7-item data-faq-item id="block-faq_item_8" data-faq-block="faq_item_8" data-faq-type="faq_item" data-faq-settings="{&quot;question&quot;:&quot;What if it is not for me?&quot;,&quot;answer&quot;:&quot;&lt;p&gt;Write within 30 days and you get your money back. Replace this with your own refund terms.&lt;\/p&gt;&quot;}" data-block-id="faq_item_8">
+</div><div class="faq7__item"  data-faq7-item data-faq-item id="block-faq_item_8" data-faq-block="faq_item_8" data-faq-type="faq_item"  data-block-id="faq_item_8">
 <button
 type="button"
 class="faq7__q"
@@ -1897,22 +1882,7 @@ data-faq7-trigger data-faq-trigger
 </div></div></div>
 </div>
 </div>
-<script src="/theme-previews/_base/a/faq-pro.aa0329bc0bd7.js" defer></script></div><section id="shopify-section-related" class="shopify-section" data-section-id="related" data-section-type="related-products"><script src="/theme-previews/_base/a/live-product-extras.d9413cbad72b.js" defer="defer"></script>
-<style>
-  #shopify-section-related {
-    font-family: var(--body-font, inherit);
-    font-size: var(--body-font-size, inherit);
-    font-weight: var(--body-weight, inherit);
-    line-height: var(--body-line-height, inherit);
-    color: var(--color-text);
-  }
-  #shopify-section-related :is(h1, h2, h3, h4, h5, h6) {
-    font-family: var(--heading-font, inherit);
-    font-weight: var(--heading-weight, inherit);
-    letter-spacing: var(--heading-letter-spacing, normal);
-    line-height: var(--heading-line-height, 1.2);
-    text-transform: var(--heading-text-transform, none);
-  }
+<script src="/theme-previews/_base/a/faq-pro.e1614f4a02a3.js" defer></script></div><section id="shopify-section-related" class="shopify-section s-tt" data-section-id="related" data-section-type="related-products"><style>
   :where(html:not([data-font-priority='off'])) #shopify-section-related :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
@@ -1967,7 +1937,7 @@ style="--col-desktop: 4;--col-number: 2;--col-tablet: 3;  --col-gap: 15px;--col-
 class="products-grid__items flex flex-cols row-gap-20 row-gap-md-30 flex-wrap "
 >
 <div
-class="product-item product__item-js  style-as-standard"
+class="product-item product__item-js  style-as-standard pc-reveal--hover pc-layout--side"
 >
 <motion-element
 class="product-item__wrapper block  hover_zoom product-grid  scroll-trigger subtle_rise "
@@ -1985,7 +1955,7 @@ aria-label="Cutting 101"
 class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 16/10;"
 >
-<img src="/theme-previews/landing-page/a/landing-cover-cutting.631aba30fba1.webp" srcset="/theme-previews/landing-page/a/landing-cover-cutting-800.4e3a7d065c3b.webp 720w, /theme-previews/landing-page/a/landing-cover-cutting-800.4e3a7d065c3b.webp 660w, /theme-previews/landing-page/a/landing-cover-cutting-800.4e3a7d065c3b.webp 550w, /theme-previews/landing-page/a/landing-cover-cutting-800.4e3a7d065c3b.webp 480w, /theme-previews/landing-page/a/landing-cover-cutting-400.04452ed1330d.webp 330w, /theme-previews/landing-page/a/landing-cover-cutting-400.04452ed1330d.webp 240w, /theme-previews/landing-page/a/landing-cover-cutting-400.04452ed1330d.webp 185w" alt="Cutting 101" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/landing-page/a/landing-cover-cutting.631aba30fba1.webp" srcset="/theme-previews/landing-page/a/landing-cover-cutting-800.4e3a7d065c3b.webp 720w, /theme-previews/landing-page/a/landing-cover-cutting-800.4e3a7d065c3b.webp 660w, /theme-previews/landing-page/a/landing-cover-cutting-800.4e3a7d065c3b.webp 550w, /theme-previews/landing-page/a/landing-cover-cutting-800.4e3a7d065c3b.webp 480w, /theme-previews/landing-page/a/landing-cover-cutting-400.04452ed1330d.webp 330w, /theme-previews/landing-page/a/landing-cover-cutting-400.04452ed1330d.webp 240w, /theme-previews/landing-page/a/landing-cover-cutting-400.04452ed1330d.webp 185w" alt="Cutting 101" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="auto, (min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -2007,8 +1977,6 @@ class="product__badges-sale product__badges-type-percent product__badges-inner a
 >-52%
 </div>
 </div>
-</div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
 </div>
 </div>
 <div class="product-item__information word-break text-start mt-15">
@@ -2039,7 +2007,7 @@ $47.00
           </script>
 </motion-element></div>
 <div
-class="product-item product__item-js  style-as-standard"
+class="product-item product__item-js  style-as-standard pc-reveal--hover pc-layout--side"
 >
 <motion-element
 class="product-item__wrapper block  hover_zoom product-grid  scroll-trigger subtle_rise "
@@ -2057,7 +2025,7 @@ aria-label="Sound for Video"
 class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 16/10;"
 >
-<img src="/theme-previews/landing-page/a/landing-cover-sound.a4a52b627945.webp" srcset="/theme-previews/landing-page/a/landing-cover-sound-800.1eaf13f30a51.webp 720w, /theme-previews/landing-page/a/landing-cover-sound-800.1eaf13f30a51.webp 660w, /theme-previews/landing-page/a/landing-cover-sound-800.1eaf13f30a51.webp 550w, /theme-previews/landing-page/a/landing-cover-sound-800.1eaf13f30a51.webp 480w, /theme-previews/landing-page/a/landing-cover-sound-400.051172be945a.webp 330w, /theme-previews/landing-page/a/landing-cover-sound-400.051172be945a.webp 240w, /theme-previews/landing-page/a/landing-cover-sound-400.051172be945a.webp 185w" alt="Sound for Video" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/landing-page/a/landing-cover-sound.a4a52b627945.webp" srcset="/theme-previews/landing-page/a/landing-cover-sound-800.1eaf13f30a51.webp 720w, /theme-previews/landing-page/a/landing-cover-sound-800.1eaf13f30a51.webp 660w, /theme-previews/landing-page/a/landing-cover-sound-800.1eaf13f30a51.webp 550w, /theme-previews/landing-page/a/landing-cover-sound-800.1eaf13f30a51.webp 480w, /theme-previews/landing-page/a/landing-cover-sound-400.051172be945a.webp 330w, /theme-previews/landing-page/a/landing-cover-sound-400.051172be945a.webp 240w, /theme-previews/landing-page/a/landing-cover-sound-400.051172be945a.webp 185w" alt="Sound for Video" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="auto, (min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -2079,8 +2047,6 @@ class="product__badges-sale product__badges-type-percent product__badges-inner a
 >-31%
 </div>
 </div>
-</div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
 </div>
 </div>
 <div class="product-item__information word-break text-start mt-15">
@@ -2111,7 +2077,7 @@ $67.00
           </script>
 </motion-element></div>
 <div
-class="product-item product__item-js  style-as-standard"
+class="product-item product__item-js  style-as-standard pc-reveal--hover pc-layout--side"
 >
 <motion-element
 class="product-item__wrapper block  hover_zoom product-grid  scroll-trigger subtle_rise "
@@ -2129,7 +2095,7 @@ aria-label="Motion Titles"
 class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 16/10;"
 >
-<img src="/theme-previews/landing-page/a/landing-cover-titles.c10ae3d05603.webp" srcset="/theme-previews/landing-page/a/landing-cover-titles-800.f1ca1567dc1e.webp 720w, /theme-previews/landing-page/a/landing-cover-titles-800.f1ca1567dc1e.webp 660w, /theme-previews/landing-page/a/landing-cover-titles-800.f1ca1567dc1e.webp 550w, /theme-previews/landing-page/a/landing-cover-titles-800.f1ca1567dc1e.webp 480w, /theme-previews/landing-page/a/landing-cover-titles-400.96f93c2a8576.webp 330w, /theme-previews/landing-page/a/landing-cover-titles-400.96f93c2a8576.webp 240w, /theme-previews/landing-page/a/landing-cover-titles-400.96f93c2a8576.webp 185w" alt="Motion Titles" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/landing-page/a/landing-cover-titles.c10ae3d05603.webp" srcset="/theme-previews/landing-page/a/landing-cover-titles-800.f1ca1567dc1e.webp 720w, /theme-previews/landing-page/a/landing-cover-titles-800.f1ca1567dc1e.webp 660w, /theme-previews/landing-page/a/landing-cover-titles-800.f1ca1567dc1e.webp 550w, /theme-previews/landing-page/a/landing-cover-titles-800.f1ca1567dc1e.webp 480w, /theme-previews/landing-page/a/landing-cover-titles-400.96f93c2a8576.webp 330w, /theme-previews/landing-page/a/landing-cover-titles-400.96f93c2a8576.webp 240w, /theme-previews/landing-page/a/landing-cover-titles-400.96f93c2a8576.webp 185w" alt="Motion Titles" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="auto, (min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -2151,8 +2117,6 @@ class="product__badges-sale product__badges-type-percent product__badges-inner a
 >-31%
 </div>
 </div>
-</div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
 </div>
 </div>
 <div class="product-item__information word-break text-start mt-15">
@@ -2183,7 +2147,7 @@ $67.00
           </script>
 </motion-element></div>
 <div
-class="product-item product__item-js  style-as-standard"
+class="product-item product__item-js  style-as-standard pc-reveal--hover pc-layout--side"
 >
 <motion-element
 class="product-item__wrapper block  hover_zoom product-grid  scroll-trigger subtle_rise "
@@ -2201,7 +2165,7 @@ aria-label="Short Form"
 class="product__media product-item__media--ratio rounded block"
 style="--aspect-ratio: 16/10;"
 >
-<img src="/theme-previews/landing-page/a/landing-cover-short-form.eadb90a7b60a.webp" srcset="/theme-previews/landing-page/a/landing-cover-short-form-800.11e3aebdd274.webp 720w, /theme-previews/landing-page/a/landing-cover-short-form-800.11e3aebdd274.webp 660w, /theme-previews/landing-page/a/landing-cover-short-form-800.11e3aebdd274.webp 550w, /theme-previews/landing-page/a/landing-cover-short-form-800.11e3aebdd274.webp 480w, /theme-previews/landing-page/a/landing-cover-short-form-400.04fda7c3d77a.webp 330w, /theme-previews/landing-page/a/landing-cover-short-form-400.04fda7c3d77a.webp 240w, /theme-previews/landing-page/a/landing-cover-short-form-400.04fda7c3d77a.webp 185w" alt="Short Form" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="(min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
+<img src="/theme-previews/landing-page/a/landing-cover-short-form.eadb90a7b60a.webp" srcset="/theme-previews/landing-page/a/landing-cover-short-form-800.11e3aebdd274.webp 720w, /theme-previews/landing-page/a/landing-cover-short-form-800.11e3aebdd274.webp 660w, /theme-previews/landing-page/a/landing-cover-short-form-800.11e3aebdd274.webp 550w, /theme-previews/landing-page/a/landing-cover-short-form-800.11e3aebdd274.webp 480w, /theme-previews/landing-page/a/landing-cover-short-form-400.04fda7c3d77a.webp 330w, /theme-previews/landing-page/a/landing-cover-short-form-400.04fda7c3d77a.webp 240w, /theme-previews/landing-page/a/landing-cover-short-form-400.04fda7c3d77a.webp 185w" alt="Short Form" width="1600" height="1600" loading="lazy" fetchpriority="auto" decoding="async" sizes="auto, (min-width: 1200px) calc((100vw -  0px * 0) * 1), (min-width: 768px) calc( (100vw - 0px * -1 ) * 1), calc( (100vw - 0px * 0 ) * 1)" class="product-image first-image bls-loaded-image bls-loading-image">
 <div class="loading_image skeleton">
 </div>
 </a><div class="pc-corner" data-pc-corner>
@@ -2223,8 +2187,6 @@ class="product__badges-sale product__badges-type-percent product__badges-inner a
 >-46%
 </div>
 </div>
-</div>
-<div class="product-item__action transition flex flex-column gap-5 absolute static-1025 bottom-10 right-10 invisible-1025">
 </div>
 </div>
 <div class="product-item__information word-break text-start mt-15">
@@ -2256,21 +2218,7 @@ $47.00
 </motion-element></div>
 </div></div>
 </div>
-</section><section id="shopify-section-final" class="shopify-section section section-edge-bleed" data-section-id="final" data-section-type="banner3"><style>
-  #shopify-section-final {
-    font-family: var(--body-font, inherit);
-    font-size: var(--body-font-size, inherit);
-    font-weight: var(--body-weight, inherit);
-    line-height: var(--body-line-height, inherit);
-    color: var(--color-text);
-  }
-  #shopify-section-final :is(h1, h2, h3, h4, h5, h6) {
-    font-family: var(--heading-font, inherit);
-    font-weight: var(--heading-weight, inherit);
-    letter-spacing: var(--heading-letter-spacing, normal);
-    line-height: var(--heading-line-height, 1.2);
-    text-transform: var(--heading-text-transform, none);
-  }
+</section><section id="shopify-section-final" class="shopify-section section section-edge-bleed s-tt" data-section-id="final" data-section-type="banner3"><style>
   :where(html:not([data-font-priority='off'])) #shopify-section-final :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
@@ -2286,7 +2234,30 @@ $47.00
     if (!el || el.classList.contains('scroll-trigger')) return;
     el.classList.add('scroll-trigger', "subtle_rise");
   })();
-</script><link rel="stylesheet" href="/theme-previews/landing-page/a/i.f6ccd47aa79f.css">
+</script><style>
+  #shopify-section-final {
+    --rm3-mt-m: 0px;
+    --rm3-mb-m: 0px;
+    --rm3-mt-d: 0px;
+    --rm3-mb-d: 0px;
+    isolation: isolate;
+    position: relative;
+    font-weight: var(--body-weight, inherit);
+    font-family: var(--body-font, var(--theme-font-body, inherit));
+    margin-top: var(--rm3-mt-m) !important;
+    margin-bottom: var(--rm3-mb-m) !important;
+  }
+  @media (min-width: 750px) {
+    #shopify-section-final {
+      margin-top: var(--rm3-mt-d) !important;
+      margin-bottom: var(--rm3-mb-d) !important;
+    }
+  }
+  #shopify-section-final:is(*, #_[_]) > :is(.section, section, div) { margin-top: 0 !important; margin-bottom: 0 !important; }
+  @media (max-width: 749px) { #shopify-section-final:has(#rm3-final[data-hide-mobile]) { display: none !important; } }
+  @media (min-width: 750px) { #shopify-section-final:has(#rm3-final[data-hide-desktop]) { display: none !important; } }
+  :where(#shopify-section-final) :where(button, input, textarea, select, optgroup) { font-family: inherit; }
+</style>
 <!-- ti-theme:start -->
 <section
 class="rm3 color-default gradient"
@@ -2298,7 +2269,20 @@ data-theme-anim
 data-reset-spacing
 style="--rm-heading-c: #ffffff; --rm-text-c: #b4b4bb; --rm3-bg: var(--color-background, transparent); --rm3-pt-m: 40px; --rm3-pb-m: 40px; --rm3-pt-d: 40px; --rm3-pb-d: 96px;"
 >
-<link rel="stylesheet" href="/theme-previews/landing-page/a/i.597f9ec4bea1.css">
+<link href="/theme-previews/_base/a/section-banner3.053b977da284.css" rel="stylesheet" type="text/css" media="all">
+<style>
+/* Reveal on scroll (CSS only), used when the theme's own scroll animation is off */@keyframes rm3-in-final {
+      from { opacity: 0; translate: var(--rm-reveal-from-y, none); scale: var(--rm-reveal-from-scale, none); }
+      to { opacity: 1; translate: none; scale: none; }
+    }
+@supports (animation-timeline: view()) {
+      #rm-hero-final[data-reveal] {
+        animation: rm3-in-final linear both;
+        animation-timeline: view();
+        animation-range: entry 0% entry var(--rm-reveal-range, 60%);
+      }
+    }
+</style>
 <div class="rm3__container rm3__container--container">
 <div
 class="rm-hero"
@@ -2315,22 +2299,8 @@ style="--rm-bg: #0e0e10; --rm-gradient: radial-gradient(70% 90% at 50% 120%, rgb
 </div>
 </section>
 </section>
-</main><script src="/theme-previews/landing-page/a/i.3221b11617b1.js"></script>
-<div id="shopify-section-footer" class="shopify-section shopify-section-group-footer-group" data-section-id="footer" data-section-type="theme-footer"><style>
-  #shopify-section-footer {
-    font-family: var(--body-font, inherit);
-    font-size: var(--body-font-size, inherit);
-    font-weight: var(--body-weight, inherit);
-    line-height: var(--body-line-height, inherit);
-    color: var(--color-text);
-  }
-  #shopify-section-footer :is(h1, h2, h3, h4, h5, h6) {
-    font-family: var(--heading-font, inherit);
-    font-weight: var(--heading-weight, inherit);
-    letter-spacing: var(--heading-letter-spacing, normal);
-    line-height: var(--heading-line-height, 1.2);
-    text-transform: var(--heading-text-transform, none);
-  }
+</main><script src="/theme-previews/landing-page/a/i.4b7055612832.js"></script>
+<div id="shopify-section-footer" class="shopify-section shopify-section-group-footer-group s-tt" data-section-id="footer" data-section-type="theme-footer"><style>
   :where(html:not([data-font-priority='off'])) #shopify-section-footer :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
@@ -2573,50 +2543,54 @@ United States
 <li class="disclosure__item py-4" tabindex="-1">
 <a
 href="#"
-class="no-underline text-color hover-heading-color"
+class="loc-option no-underline text-color hover-heading-color"
 aria-current="true"
 hreflang="en"
 lang="en"
 data-value="en"
 aria-label="English"
 >
-English
+<span class="loc-option__label">English</span>
+<svg class="loc-option__check" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
 </a>
 </li>
 <li class="disclosure__item py-4" tabindex="-1">
 <a
 href="#"
-class="no-underline text-color hover-heading-color"
+class="loc-option no-underline text-color hover-heading-color"
 hreflang="fr"
 lang="fr"
 data-value="fr"
 aria-label="Français"
 >
-Français
+<span class="loc-option__label">Français</span>
+<svg class="loc-option__check" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
 </a>
 </li>
 <li class="disclosure__item py-4" tabindex="-1">
 <a
 href="#"
-class="no-underline text-color hover-heading-color"
+class="loc-option no-underline text-color hover-heading-color"
 hreflang="de"
 lang="de"
 data-value="de"
 aria-label="Deutsch"
 >
-Deutsch
+<span class="loc-option__label">Deutsch</span>
+<svg class="loc-option__check" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
 </a>
 </li>
 <li class="disclosure__item py-4" tabindex="-1">
 <a
 href="#"
-class="no-underline text-color hover-heading-color"
+class="loc-option no-underline text-color hover-heading-color"
 hreflang="es"
 lang="es"
 data-value="es"
 aria-label="Español"
 >
-Español
+<span class="loc-option__label">Español</span>
+<svg class="loc-option__check" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
 </a>
 </li>
 </ul>
@@ -2693,22 +2667,7 @@ viewBox="0 0 165.521 105.965">
 </div>
 </div>
 </footer>
-<script src="/theme-previews/_base/a/footer-section.9a4c5ff9f6cb.js" defer></script></div><div id="shopify-section-back_to_top_pro" class="shopify-section shopify-section-group-overlay-group" data-section-id="back_to_top_pro" data-section-type="back-to-top-pro"><script src="/theme-previews/_base/a/live-page-popups.b4de4283a50f.js" defer="defer"></script>
-<style>
-  #shopify-section-back_to_top_pro {
-    font-family: var(--body-font, inherit);
-    font-size: var(--body-font-size, inherit);
-    font-weight: var(--body-weight, inherit);
-    line-height: var(--body-line-height, inherit);
-    color: var(--color-text);
-  }
-  #shopify-section-back_to_top_pro :is(h1, h2, h3, h4, h5, h6) {
-    font-family: var(--heading-font, inherit);
-    font-weight: var(--heading-weight, inherit);
-    letter-spacing: var(--heading-letter-spacing, normal);
-    line-height: var(--heading-line-height, 1.2);
-    text-transform: var(--heading-text-transform, none);
-  }
+<script src="/theme-previews/_base/a/footer-section.250ebdc9bef8.js" defer></script></div><div id="shopify-section-back_to_top_pro" class="shopify-section shopify-section-group-overlay-group s-tt" data-section-id="back_to_top_pro" data-section-type="back-to-top-pro"><script src="/theme-previews/_base/a/live-page-popups-runtime.8ade52702ae7.js" defer="defer"></script><style>
   :where(html:not([data-font-priority='off'])) #shopify-section-back_to_top_pro :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
@@ -2724,9 +2683,9 @@ viewBox="0 0 165.521 105.965">
 </span>
 </button>
 </div>
-<script src="/theme-previews/_base/a/materia-popups.f56a33a9d6a5.js" defer="defer"></script>
-<script src="/theme-previews/landing-page/a/i.c985487c9a26.js"></script>
-</div><script>window.__mtFillCounts&&window.__mtFillCounts(true)</script><link href="/theme-previews/_base/a/search-type-default.fb1515a9c0d2.css" rel="stylesheet" type="text/css" media="all">
+<script src="/theme-previews/_base/a/materia-popups.b25a8780e75d.js" defer="defer"></script>
+<script src="/theme-previews/landing-page/a/i.f4b585a5b120.js"></script>
+</div><script>window.__mtFillCounts&&window.__mtFillCounts(true)</script><link rel="stylesheet" href="/theme-previews/_base/a/search-type-default.fb1515a9c0d2.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/search-type-default.fb1515a9c0d2.css" rel="stylesheet" type="text/css" media="all"></noscript>
 <header-search class="header_search search_type_popup">
 <div class="block block-quick-search block-search predictive_search_suggest search_popup"><div
 id="search-form"
@@ -2864,20 +2823,20 @@ style=" ;--col-number: 1;--col-tablet: 1;--col-desktop-small:3;--col-desktop: 5;
 </div>
 </div>
 </header-search>
-<div class="overlay_search" popover="manual" aria-hidden="true"></div><script type="application/json" id="materia-country-options" data-current="US">[["US","United States","USD","$",""],["GB","United Kingdom","GBP","£",""],["CA","Canada","CAD","$",""],["AU","Australia","AUD","$",""],["DE","Germany","EUR","€",""],["FR","France","EUR","€",""]]</script><link rel="stylesheet" href="/theme-previews/_base/a/minicart.ac0014483417.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/minicart.ac0014483417.css" rel="stylesheet" type="text/css" media="all"></noscript><link href="/theme-previews/_base/a/materia-experience.b68d6d8152a8.css" rel="stylesheet" type="text/css" media="all"><style data-cart-drawer-style="size">
+<div class="overlay_search" popover="manual" aria-hidden="true"></div><script type="application/json" id="materia-country-options" data-current="US">[["US","United States","USD","$",""],["GB","United Kingdom","GBP","£",""],["CA","Canada","CAD","$",""],["AU","Australia","AUD","$",""],["DE","Germany","EUR","€",""],["FR","France","EUR","€",""]]</script><link rel="stylesheet" href="/theme-previews/_base/a/minicart.679b4fb18845.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/minicart.679b4fb18845.css" rel="stylesheet" type="text/css" media="all"></noscript><link rel="stylesheet" href="/theme-previews/_base/a/materia-experience.6a68b7e13653.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/materia-experience.6a68b7e13653.css" rel="stylesheet" type="text/css" media="all"></noscript><style data-cart-drawer-style="size">
   #minicart_wrapper.open_drawer .minicart__wrapper {
     --materia-cart-width: 500px;
     --materia-cart-gap: 12px;
     --materia-cart-control: 40px;
     --materia-cart-recommend-gap: 12px;
   }
-</style><link href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" rel="stylesheet" type="text/css" media="all"><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/landing-page/a/i.9f72a07cd1b3.css" data-cart-drawer-style="paint">
+</style><link rel="stylesheet" href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/cart-drawer-scheme.6d6ce63ac976.css" rel="stylesheet" type="text/css" media="all"></noscript><style data-cart-drawer-style="scheme"></style><link rel="stylesheet" href="/theme-previews/landing-page/a/i.9f72a07cd1b3.css" data-cart-drawer-style="paint">
 <cart-notification data-cart-drawer-version="20261021-2"
 data-show-quantity="true"
 data-show-shipping-estimator="false"
 data-show-free-shipping="false"
-id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #f4f3f0;    --color-text: #57575e;    --color-heading: #111113;    --color-primary: #111113;    --color-border: #e4e2dd;    --gradient-background: #f4f3f0;    --btn-primary-color: #111113;    --btn-primary-bg-color: #ff5f1f;    --btn-primary-hover-color: #111113;    --btn-primary-hover-bg-color: #ff7a42;    --btn-secondary-color: #111113;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #d8d6d0;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #111113;    --btn-outline-color: #111113;    --btn-outline-border-color: #111113;    background-color: #f4f3f0 !important;    color: #57575e !important;">
-<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #f4f3f0;    --color-text: #57575e;    --color-heading: #111113;    --color-primary: #111113;    --color-border: #e4e2dd;    --gradient-background: #f4f3f0;    --btn-primary-color: #111113;    --btn-primary-bg-color: #ff5f1f;    --btn-primary-hover-color: #111113;    --btn-primary-hover-bg-color: #ff7a42;    --btn-secondary-color: #111113;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #d8d6d0;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #111113;    --btn-outline-color: #111113;    --btn-outline-border-color: #111113;    background-color: #f4f3f0 !important;    color: #57575e !important;">
+id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #f4f3f0;    --color-text: #57575e;    --color-heading: #111113;    --color-primary: #111113;    --color-border: #e4e2dd;    --gradient-background: #f4f3f0;    --btn-primary-color: #111113;    --btn-primary-bg-color: #ff5f1f;    --btn-primary-hover-color: #111113;    --btn-primary-hover-bg-color: #ff7a42;    --btn-secondary-color: #111113;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #d8d6d0;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #111113;    --btn-outline-color: #111113;    --btn-outline-border-color: #111113;    background-color: #f4f3f0 !important;    color: #57575e !important;">
+<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #f4f3f0;    --color-text: #57575e;    --color-heading: #111113;    --color-primary: #111113;    --color-border: #e4e2dd;    --gradient-background: #f4f3f0;    --btn-primary-color: #111113;    --btn-primary-bg-color: #ff5f1f;    --btn-primary-hover-color: #111113;    --btn-primary-hover-bg-color: #ff7a42;    --btn-secondary-color: #111113;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #d8d6d0;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #111113;    --btn-outline-color: #111113;    --btn-outline-border-color: #111113;    background-color: #f4f3f0 !important;    color: #57575e !important;">
 <button type="button" class="cart-drawer-sheet-scrim" aria-label="Cancel"></button>
 <div class="minicart__header flex gap-10 align-center justify-between px-30 py-18 color-default">
 <div class="h5 minicart-heading my-0">
@@ -2895,8 +2854,7 @@ aria-label="Close"
 </div><div
 id="minicart-form"
 class="minicart-form flex-1 flex flex-column grow relative overflow-hidden color-default"
->
-<div class="minicart-scroll flex-1 overflow-y-scroll custom-scrollbar">
+><div class="minicart-scroll flex-1 overflow-y-scroll custom-scrollbar">
 <form
 id="minicart"
 class="minicart-form flex-1 flex flex-column grow relative overflow-hidden color-default"
@@ -2914,20 +2872,28 @@ Continue Shopping
 </button>
 </div></div></form>
 </div>
-</div></div><link href="/theme-previews/_base/a/cart-drawer.47458f3359f5.css" rel="stylesheet" type="text/css" media="all">
-<script src="/theme-previews/_base/a/cart-drawer.312c83e49d19.js" defer="defer"></script></cart-notification>
+</div></div><link rel="stylesheet" href="/theme-previews/_base/a/cart-drawer.be428451fb9a.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/cart-drawer.be428451fb9a.css" rel="stylesheet" type="text/css" media="all"></noscript>
+<script src="/theme-previews/_base/a/cart-drawer.579386a6ba85.js" defer="defer"></script></cart-notification>
 <div class="overlayminicart">
 </div>
-<script src="/theme-previews/landing-page/a/i.f50d71910c82.js"></script>
-<script src="/theme-previews/_base/a/animation.f51a19fde607.js" defer="defer"></script>
+<div id="shopify-section-custom-colors" class="shopify-section" data-section-id="custom-colors" data-section-type="custom-colors"><style>
+  #shopify-section-custom-colors {
+    font-weight: var(--body-weight, inherit);
+  }
+  :where(#shopify-section-custom-colors) :is(h1, h2, h3, h4, h5, h6) {
+    font-weight: var(--heading-weight, inherit);
+  }
+  #shopify-section-custom-colors { isolation: isolate; position: relative; }
+</style>
+</div><script src="/theme-previews/landing-page/a/i.7878e9c8a781.js"></script>
+<script src="/theme-previews/_base/a/animation.6a9fe03fa6b5.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/tingle-min.9664ca3641cf.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/cart-discount.6748c8dd9657.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/theme.7a7dd8f80f89.js"  defer="defer" type="module"></script>
-<script src="/theme-previews/_base/a/materia-experience.f80ef0e4ccda.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/product-card-settings.ab815c3ef72d.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/size-chart.cbff3f8443f7.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/theme-navigation.7093e0784816.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/cart-variant-edit.8299a1d91738.js" defer="defer"></script><script src="/theme-previews/_base/a/main-product.1c2cb134235c.js" defer="defer"></script><svg aria-hidden="true" focusable="false" role="presentation" xmlns="http://www.w3.org/2000/svg" class="hidden" hidden>
+<script src="/theme-previews/_base/a/cart-discount.31276c74b980.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/theme.bbc3b899a286.js"  defer="defer" type="module"></script>
+<script src="/theme-previews/_base/a/materia-experience.95a8a8fb6473.js" defer="defer"></script>
+<script src="/theme-previews/_base/a/product-card-settings.6a080b7abf94.js" defer="defer"></script><script>(window.mtLazy||function(u){var s=document.createElement('script');s.src=u;document.head.appendChild(s)})("/theme-previews/_base/a/size-chart.cbff3f8443f7.js")</script>
+<script src="/theme-previews/_base/a/theme-navigation.56a40d956dde.js" defer="defer"></script>
+<script>(window.mtLazy||function(u){var s=document.createElement('script');s.src=u;document.head.appendChild(s)})("/theme-previews/_base/a/cart-variant-edit.8299a1d91738.js")</script><script src="/theme-previews/_base/a/main-product.dcc6c85ddfb4.js" defer="defer"></script><svg aria-hidden="true" focusable="false" role="presentation" xmlns="http://www.w3.org/2000/svg" class="hidden" hidden>
 <symbol id="icon-close" viewBox="0 0 13 14" fill="none">
 <path d="M0.282609 2.06784C0.0942029 1.89363 0 1.68314 0 1.43635C0 1.17504 0.0942029 0.950028 0.282609 0.761307C0.456522 0.587102 0.673913 0.5 0.934783 0.5C1.19565 0.5 1.41304 0.587102 1.58696 0.761307L6.5 5.68258L11.413 0.761307C11.587 0.587102 11.8043 0.5 12.0652 0.5C12.3261 0.5 12.5435 0.587102 12.7174 0.761307C12.9058 0.950028 13 1.17504 13 1.43635C13 1.68314 12.9058 1.89363 12.7174 2.06784L7.80435 6.98911L12.7174 11.9104C12.9058 12.0991 13 12.3241 13 12.5854C13 12.8322 12.9058 13.0427 12.7174 13.2169C12.5435 13.4056 12.3261 13.5 12.0652 13.5C11.8043 13.5 11.587 13.4056 11.413 13.2169L6.5 8.31742L1.58696 13.2169C1.41304 13.4056 1.19565 13.5 0.934783 13.5C0.673913 13.5 0.456522 13.4056 0.282609 13.2169C0.0942029 13.0427 0 12.8322 0 12.5854C0 12.3241 0.0942029 12.0991 0.282609 11.9104L5.19565 6.98911L0.282609 2.06784Z" fill="currentColor"/>
 </symbol>
@@ -2980,13 +2946,13 @@ Skip to content
 <ul hidden>
 <li id="a11y-refresh-page-message">Choosing a selection results in a full page refresh.</li>
 <li id="a11y-new-window-message">Opens in a new window.</li>
-</ul><link href="/theme-previews/_base/a/materia-forms.2772768a5535.css" rel="stylesheet" type="text/css" media="all">
-<script src="/theme-previews/_base/a/materia-forms.7082d7d84838.js" defer="defer"></script>
-<script src="/theme-previews/landing-page/a/i.7e0b24218544.js"></script><script src="/theme-previews/landing-page/a/i.ba16972b7db0.js"></script><style>
-  @keyframes materiaMediaFade { from { opacity: 0; } to { opacity: 1; } }
-  html.js-media-fade .media-fade-run { animation: materiaMediaFade .4s ease; }
+</ul><link rel="stylesheet" href="/theme-previews/_base/a/materia-forms.2772768a5535.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/materia-forms.2772768a5535.css" rel="stylesheet" type="text/css" media="all"></noscript><script>(function(u){var load=window.mtLazy||function(x){var s=document.createElement('script');s.src=x;document.head.appendChild(s)};
+window.__mtFormsUrl=u;if(/[?&](customer_posted|contact_posted|form_type)=/.test(location.search+' '+(window.__mtPostedUrl||'')))(load.now||load)(u);else load(u)})("/theme-previews/_base/a/materia-forms.1ff8018ff069.js")</script><script src="/theme-previews/landing-page/a/i.46ae589d856d.js"></script><script src="/theme-previews/landing-page/a/i.ba16972b7db0.js"></script><style>
+  html.mt-img-reveal img.media-fade-wait {
+    background-color: rgb(var(--text-color, 0 0 0) / 0.05);
+  }
 </style>
-<script src="/theme-previews/landing-page/a/i.5d22d5570310.js"></script>
+<script src="/theme-previews/landing-page/a/i.d93814c7a9ed.js"></script>
 <style>
         :root {
           /* Wire the user's Animations & motion settings to the keyframe vars used by animation.css */
@@ -3000,25 +2966,14 @@ Skip to content
            reduced motion are drawn by animation.css for every .scroll-trigger
            (theme-wide sections below and cards inside sections alike). */
       </style>
-<script src="/theme-previews/landing-page/a/i.e621815690c9.js"></script><link rel="stylesheet" href="/theme-previews/landing-page/a/i.7c52d5318a5a.css">
-<script src="/theme-previews/landing-page/a/i.a459fa2d52ff.js"></script><script id="materia-shipping-data" type="application/json">
+<script src="/theme-previews/landing-page/a/i.f0d2a214843c.js"></script><link rel="stylesheet" href="/theme-previews/landing-page/a/i.7c52d5318a5a.css">
+<script src="/theme-previews/landing-page/a/i.e5cb30aabe6c.js"></script><script id="materia-shipping-data" type="application/json">
   {
-    "rates": "",
-    "delivery": "",
-    "freePage": "150",
-    "freeDrawer": "150",
-    "subtotal": 0,
-    "currency": "USD",
     "country": "US",
-    "text": {
-      "choose": "Choose your country",
-      "rateTo": "Shipping to {{ country }}",
-      "free": "Free",
-      "freeOver": "Free shipping on orders over {{ amount }}",
-      "atCheckout": "Shipping to {{ country }} is calculated at checkout."
-    }
+    "available": ["US","GB","CA","AU","DE","FR"],
+    "text": { "choose": "Choose your country" }
   }
-</script><script src="/theme-previews/landing-page/a/i.a060c6e3df4c.js"></script><template data-product-counter-source="00000000-0000-4000-8000-000000000012" data-sold="28"></template><div id="shopify-section-cart-drawer-live" class="shopify-section shopify-section-group-overlay-group" data-section-id="cart-drawer-live" data-section-type="cart-drawer-live"><style>
+</script><script src="/theme-previews/landing-page/a/i.f5316e84d1bf.js"></script><template data-product-counter-source="00000000-0000-4000-8000-000000000012" data-sold="28"></template><div id="shopify-section-cart-drawer-live" class="shopify-section shopify-section-group-overlay-group" data-section-id="cart-drawer-live" data-section-type="cart-drawer-live"><style>
   #shopify-section-cart-drawer-live { display: none !important; }
 </style><div data-ti-no-reveal data-no-image-carry hidden><template data-cart-drawer-source><style data-cart-drawer-style="size">
   #minicart_wrapper.open_drawer .minicart__wrapper {
@@ -3032,8 +2987,8 @@ Skip to content
 data-show-quantity="true"
 data-show-shipping-estimator="false"
 data-show-free-shipping="false"
-id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #f4f3f0;    --color-text: #57575e;    --color-heading: #111113;    --color-primary: #111113;    --color-border: #e4e2dd;    --gradient-background: #f4f3f0;    --btn-primary-color: #111113;    --btn-primary-bg-color: #ff5f1f;    --btn-primary-hover-color: #111113;    --btn-primary-hover-bg-color: #ff7a42;    --btn-secondary-color: #111113;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #d8d6d0;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #111113;    --btn-outline-color: #111113;    --btn-outline-border-color: #111113;    background-color: #f4f3f0 !important;    color: #57575e !important;">
-<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-primary);--color-background: #f4f3f0;    --color-text: #57575e;    --color-heading: #111113;    --color-primary: #111113;    --color-border: #e4e2dd;    --gradient-background: #f4f3f0;    --btn-primary-color: #111113;    --btn-primary-bg-color: #ff5f1f;    --btn-primary-hover-color: #111113;    --btn-primary-hover-bg-color: #ff7a42;    --btn-secondary-color: #111113;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #d8d6d0;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #111113;    --btn-outline-color: #111113;    --btn-outline-border-color: #111113;    background-color: #f4f3f0 !important;    color: #57575e !important;">
+id="minicart_wrapper" class="minicart open_drawer bls-image-js color-default" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #f4f3f0;    --color-text: #57575e;    --color-heading: #111113;    --color-primary: #111113;    --color-border: #e4e2dd;    --gradient-background: #f4f3f0;    --btn-primary-color: #111113;    --btn-primary-bg-color: #ff5f1f;    --btn-primary-hover-color: #111113;    --btn-primary-hover-bg-color: #ff7a42;    --btn-secondary-color: #111113;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #d8d6d0;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #111113;    --btn-outline-color: #111113;    --btn-outline-border-color: #111113;    background-color: #f4f3f0 !important;    color: #57575e !important;">
+<div class="minicart__wrapper flex flex-column color-default color-default  bls__drawer fixed z-15 inset-y-0 h-full transition-popup left right-0" style="--materia-cart-width: 500px;  --materia-cart-gap: 12px;  --materia-cart-control: 40px;  --materia-cart-recommend-gap: 12px;  --cart-shipping-fill: var(--color-heading, var(--color-text));--color-background: #f4f3f0;    --color-text: #57575e;    --color-heading: #111113;    --color-primary: #111113;    --color-border: #e4e2dd;    --gradient-background: #f4f3f0;    --btn-primary-color: #111113;    --btn-primary-bg-color: #ff5f1f;    --btn-primary-hover-color: #111113;    --btn-primary-hover-bg-color: #ff7a42;    --btn-secondary-color: #111113;    --btn-secondary-bg-color: #ffffff;    --btn-secondary-border-color: #d8d6d0;    --btn-secondary-hover-color: #ffffff;    --btn-secondary-hover-bg-color: #111113;    --btn-outline-color: #111113;    --btn-outline-border-color: #111113;    background-color: #f4f3f0 !important;    color: #57575e !important;">
 <button type="button" class="cart-drawer-sheet-scrim" aria-label="Cancel"></button>
 <div class="minicart__header flex gap-10 align-center justify-between px-30 py-18 color-default">
 <div class="h5 minicart-heading my-0">
@@ -3051,14 +3006,13 @@ aria-label="Close"
 </div><div
 id="minicart-form"
 class="minicart-form flex-1 flex flex-column grow relative overflow-hidden color-default"
->
-<div class="minicart-scroll flex-1 overflow-y-scroll custom-scrollbar">
+><div class="minicart-scroll flex-1 overflow-y-scroll custom-scrollbar">
 <form
 id="minicart"
 class="minicart-form flex-1 flex flex-column grow relative overflow-hidden color-default"
 novalidate
-data-preview-form><div class="minicart-body flex-1 grow pt-30 px-30 overflow-x-hidden pb-30"><div class="items">
-</div></div></form>
+data-preview-form><div class="minicart-body flex-1 grow pt-30 px-30 overflow-x-hidden pb-30"><div class="cda-slot" data-cda-slot="top_of_drawer"></div><div class="items">
+</div><div class="cda-slot" data-cda-slot="below_items"></div></div></form>
 <minicart-discount
 class="cart-footeraddon grey-bg absolute transition w-full z-10 p-30 left-0 bottom-0 border-top shadow pointer-none cart__addon-content"
 id="coupon"
@@ -3104,34 +3058,19 @@ Cancel
 <minicart-recommendations
 data-added-text="Added"
 data-url="#"
-class="bls-image-js block cart-recommend pt-30 pb-30 px-30 border-top block no-js-hidden"
-><h4 class="minicart-heading mt-0 mb-15 fs-18 heading-letter-spacing">
-You may also like...
-</h4><slide-section
-class="swiper swiper-cart-upsell"
-id="swiper-cart-upsell"
-data-section-id="cart-upsell"
-data-autoplay="false"
-data-loop="false"
-data-mobile="1"
-data-tablet="1"
-data-desktop="1"
-data-item-mobile="1"
-data-pagination-progressbar="false"
-data-recommend-pagination="dots"
-data-spacing="12"
->
-<div class="swiper-wrapper"></div>
-<div class="cart-recommend__nav">
-<button type="button" class="cart-recommend__arrow swiper-button-prev" aria-label="Previous">
-<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg>
+data-source=".cart-rec__track"
+class="block cart-recommend cart-recommend--cards pt-30 pb-30 px-30 border-top block no-js-hidden"
+><cart-rec-carousel class="cart-rec block">
+<div class="cart-rec__head"><h4 class="minicart-heading cart-rec__heading heading-letter-spacing">You may also like...</h4><div class="cart-rec__arrows">
+<button type="button" class="cart-rec__arrow" data-cart-rec-prev aria-label="Previous" disabled>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg>
 </button>
-<div class="swiper-pagination"></div>
-<button type="button" class="cart-recommend__arrow swiper-button-next" aria-label="Next">
-<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg>
+<button type="button" class="cart-rec__arrow" data-cart-rec-next aria-label="Next">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9.5 6 6 6-6 6"/></svg>
 </button>
-</div>
-</slide-section></minicart-recommendations>
+</div></div>
+<div class="cart-rec__track" data-cart-rec-track role="region" aria-label="You may also like..." tabindex="0"></div>
+</cart-rec-carousel></minicart-recommendations>
 <div class="cart-addons flex justify-center border-top">
 <div data-id="coupon" class="mini_cart_coupon lh-1">
 <button
@@ -3141,13 +3080,11 @@ data-open="coupon"
 aria-expanded="false"
 aria-controls="coupon"
 class="btn-reset pointer mini_cart_addon_btn show-overlay inline-flex align-center gift relative"
-><svg class="cart-tool-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 4h16v5a3 3 0 0 0 0 6v5H4v-5a3 3 0 0 0 0-6V4Z"/><path d="m9 15 6-6M9 9h.01M15 15h.01"/></svg><span class="cart-tool-label">
-<span>Coupon code</span>
-</span>
+><svg class="cart-tool-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 4h16v5a3 3 0 0 0 0 6v5H4v-5a3 3 0 0 0 0-6V4Z"/><path d="m9 15 6-6M9 9h.01M15 15h.01"/></svg><span class="cart-tool-label"><span class="cart-tool-label__long">Coupon code</span><span class="cart-tool-label__short" aria-hidden="true">Coupon</span></span>
 </button>
 </div>
 </div></div>
-<div class="cart-footer"><p class="cart-editor-preview">Editor preview: shoppers see this once the cart has items.</p><div class="cart-drawer-addons-row px-30"></div>
+<div class="cart-footer"><div class="cart-drawer-addons-row px-30"><div class="cda-slot" data-cda-slot="above_subtotal"></div></div>
 <div class="drawer-bottom cart__ctas px-30 pt-20 pb-30 grey-bg border-top">
 <div class="cart-summary text-right" data-cart-summary>
 <div data-discounts>
@@ -3160,14 +3097,12 @@ class="btn-reset pointer mini_cart_addon_btn show-overlay inline-flex align-cent
 <span class="subtotal-price h5 my-5" data-cart-subtotal-price>
 $0.00
 </span>
-</div><button
+</div><div class="cda-slot" data-cda-slot="above_checkout"></div><button
 type="submit"
 class="btn-primary w-full btn-checkout"
 name="checkout"
 form="minicart"
->
-<span>Checkout</span>
-</button><div class="cda-payments"
+><span>Checkout</span></button><div class="cda-slot" data-cda-slot="below_checkout"><div class="cda-payments"
 style="--cda-payments-color: var(--color-text, #6B7280);
 --cda-payments-text-size: 12px;
 --cda-payments-badge-h: 32px;
@@ -3228,7 +3163,7 @@ viewBox="0 0 165.521 105.965">
 <path d="M7.079 12.05a2.709 2.709 0 0 1 0-1.735v-1.17H5.577a4.505 4.505 0 0 0 0 4.075l1.502-1.17z" fill="#FBBC04"></path>
 <path d="M9.629 8.44a2.452 2.452 0 0 1 1.74.68l1.3-1.293a4.37 4.37 0 0 0-3.065-1.183 4.53 4.53 0 0 0-4.027 2.5l1.502 1.171a2.715 2.715 0 0 1 2.55-1.875z" fill="#EA4335"></path>
 </svg></li></ul>
-</div></div>
+</div></div></div>
 </div>
 </div></div></cart-notification>
 <div class="overlayminicart">

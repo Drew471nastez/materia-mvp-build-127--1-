@@ -1,3 +1,13 @@
+{% doc %}
+  Sample offer card shown in the theme editor when no offer is set up.
+
+  @param {block} block - The block being rendered
+  @param {product} product - The product to render
+  @param {string} title - Title
+
+  @example
+  {% render 'offer-empty-preview', block: block, product: product, title: title %}
+{% enddoc -%}
 {%- assign preview_button_label = 'products.product.add_to_cart' | t -%}
 {%- assign sample = product | default: page.product | default: collection.products.first | default: collections.all.products.first -%}
 {%- if sample.title == blank -%}{%- assign sample = collections.all.products.first -%}{%- endif -%}
@@ -35,7 +45,7 @@
           <span class="po-line__label">
           <span class="po-line__tick" style="width:20px;height:20px;border:1px solid var(--color-heading);border-radius:4px;flex:none;display:grid;place-items:center;background:var(--color-heading);color:var(--color-background)">✓</span>
           {%- if preview_item.featured_image != blank -%}<img class="po-line__image" src="{{ preview_item.featured_image | image_url: width: 160 }}" width="64" height="64" alt="">
-          {%- else -%}<span class="materia-block-preview__image">{{ 'product-1' | placeholder_svg_tag }}</span>{%- endif -%}
+          {%- else -%}<span class="materia-block-preview__image">{%- render 'placeholder-image', type: 'product-1' -%}</span>{%- endif -%}
           <span class="po-line__info"><span class="po-line__title">{{ preview_item.title | default: block.settings.heading | default: title | escape }}</span>{% if preview_item.selected_or_first_available_variant.title != blank and preview_item.has_only_default_variant == false %}<span class="materia-preview-variant">{{ preview_item.selected_or_first_available_variant.title | escape }} <span>⌄</span></span>{% endif %}</span>
           </span>
           {% if preview_item.price != blank %}<span class="po-line__price">{{ preview_item.price | money }}</span>{% endif %}

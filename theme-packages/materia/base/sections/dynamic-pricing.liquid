@@ -1,7 +1,7 @@
-<script src="{{ 'live-products-d.js' | asset_url }}" defer="defer"></script>
+{%- if request.design_mode -%}<script src="{{ 'live-products-d.js' | asset_url }}" defer="defer"></script>{%- endif -%}
 {% render 'theme-type' %}
 {%- liquid
-  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default-color-scheme'
+  assign color_scheme = section.settings.color_scheme.id | default: section.settings.color_scheme | default: 'default'
 -%}
 {%- comment -%} Materia: connect this section to the theme-level animation settings (settings.scroll_animation / animation_duration / animation_delay). {%- endcomment -%}
 {%- if section.settings.reveal == false -%}<span data-ti-no-reveal hidden></span>{%- endif -%}
@@ -30,13 +30,16 @@
   for a section saved with them and no product. Colours follow the colour
   scheme until custom styling is on. Live edits: assets/live-products-d.js.
 {%- endcomment -%}
-{%- comment -%}pd-gen:settings{%- endcomment -%}{%- capture pd_settings -%}{"color_scheme":{{ section.settings.color_scheme.id | default: section.settings.color_scheme | append: '' | json }},"section_width":{{ section.settings.section_width | json }},"display_on_devices":{{ section.settings.display_on_devices | json }},"reset_spacing":{{ section.settings.reset_spacing | json }},"show_currency_symbol":{{ section.settings.show_currency_symbol | json }},"currency":{{ section.settings.currency | json }},"original_price":{{ section.settings.original_price | json }},"discounted_price":{{ section.settings.discounted_price | json }},"section_height":{{ section.settings.section_height | json }},"overall_size_desktop":{{ section.settings.overall_size_desktop | json }},"discounted_price_vertical_position":{{ section.settings.discounted_price_vertical_position | json }},"enable_custom_style":{{ section.settings.enable_custom_style | json }},"background_color":{{ section.settings.background_color | append: '' | json }},"original_price_color":{{ section.settings.original_price_color | append: '' | json }},"original_price_line_color":{{ section.settings.original_price_line_color | append: '' | json }},"discounted_price_color":{{ section.settings.discounted_price_color | append: '' | json }},"currency_color":{{ section.settings.currency_color | append: '' | json }},"original_price_line_weight":{{ section.settings.original_price_line_weight | json }},"original_price_line_length":{{ section.settings.original_price_line_length | json }},"original_price_line_vertical_offset":{{ section.settings.original_price_line_vertical_offset | json }},"enable_custom_fonts":{{ section.settings.enable_custom_fonts | json }},"price_font":{"family":{{ section.settings.price_font.family | json }},"fallback_families":{{ section.settings.price_font.fallback_families | json }}},"custom_font":{{ section.settings.custom_font | json }},"original_price_font_weight":{{ section.settings.original_price_font_weight | json }},"discounted_price_font_weight":{{ section.settings.discounted_price_font_weight | json }},"original_price_size_desktop":{{ section.settings.original_price_size_desktop | json }},"discounted_price_size_desktop":{{ section.settings.discounted_price_size_desktop | json }},"reveal":{{ section.settings.reveal | json }},"desktop_padding":{{ section.settings.desktop_padding | json }},"left_padding_desktop":{{ section.settings.left_padding_desktop | json }},"right_padding_desktop":{{ section.settings.right_padding_desktop | json }},"section_margin_top_desktop":{{ section.settings.section_margin_top_desktop | json }},"section_margin_bottom_desktop":{{ section.settings.section_margin_bottom_desktop | json }},"section_height_mobile":{{ section.settings.section_height_mobile | json }},"overall_size_mobile":{{ section.settings.overall_size_mobile | json }},"original_price_size_mobile":{{ section.settings.original_price_size_mobile | json }},"discounted_price_size_mobile":{{ section.settings.discounted_price_size_mobile | json }},"mobile_padding":{{ section.settings.mobile_padding | json }},"left_padding_mobile":{{ section.settings.left_padding_mobile | json }},"right_padding_mobile":{{ section.settings.right_padding_mobile | json }},"section_margin_top_mobile":{{ section.settings.section_margin_top_mobile | json }},"section_margin_bottom_mobile":{{ section.settings.section_margin_bottom_mobile | json }}}{%- endcapture -%}{%- capture pd_defaults -%}{"color_scheme":"default-color-scheme","section_width":"fluid_container","display_on_devices":"all_devices","reset_spacing":true,"show_currency_symbol":false,"original_price":"","discounted_price":"","section_height":100,"overall_size_desktop":140,"discounted_price_vertical_position":0,"enable_custom_style":false,"original_price_line_weight":6,"original_price_line_length":100,"original_price_line_vertical_offset":0,"enable_custom_fonts":false,"price_font":"assistant_n4","custom_font":"Roboto","original_price_font_weight":"500","discounted_price_font_weight":"500","original_price_size_desktop":5,"discounted_price_size_desktop":6,"reveal":true,"desktop_padding":0,"left_padding_desktop":20,"right_padding_desktop":20,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"section_height_mobile":70,"overall_size_mobile":100,"original_price_size_mobile":4.5,"discounted_price_size_mobile":3,"mobile_padding":0,"left_padding_mobile":0,"right_padding_mobile":0,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}{%- endcapture -%}{%- capture pd_block_defaults -%}{}{%- endcapture -%}{%- comment -%}/pd-gen{%- endcomment -%}
+{%- comment -%}pd-gen:settings{%- endcomment -%}{%- capture pd_settings -%}{"color_scheme":{{ section.settings.color_scheme.id | default: section.settings.color_scheme | append: '' | json }},"section_width":{{ section.settings.section_width | json }},"display_on_devices":{{ section.settings.display_on_devices | json }},"reset_spacing":{{ section.settings.reset_spacing | json }},"show_currency_symbol":{{ section.settings.show_currency_symbol | json }},"currency":{{ section.settings.currency | json }},"original_price":{{ section.settings.original_price | json }},"discounted_price":{{ section.settings.discounted_price | json }},"section_height":{{ section.settings.section_height | json }},"overall_size_desktop":{{ section.settings.overall_size_desktop | json }},"discounted_price_vertical_position":{{ section.settings.discounted_price_vertical_position | json }},"enable_custom_style":{{ section.settings.enable_custom_style | json }},"background_color":{{ section.settings.background_color | append: '' | json }},"original_price_color":{{ section.settings.original_price_color | append: '' | json }},"original_price_line_color":{{ section.settings.original_price_line_color | append: '' | json }},"discounted_price_color":{{ section.settings.discounted_price_color | append: '' | json }},"currency_color":{{ section.settings.currency_color | append: '' | json }},"original_price_line_weight":{{ section.settings.original_price_line_weight | json }},"original_price_line_length":{{ section.settings.original_price_line_length | json }},"original_price_line_vertical_offset":{{ section.settings.original_price_line_vertical_offset | json }},"enable_custom_fonts":{{ section.settings.enable_custom_fonts | json }},"price_font":{"family":{{ section.settings.price_font.family | json }},"fallback_families":{{ section.settings.price_font.fallback_families | json }}},"custom_font":{{ section.settings.custom_font | json }},"original_price_font_weight":{{ section.settings.original_price_font_weight | json }},"discounted_price_font_weight":{{ section.settings.discounted_price_font_weight | json }},"original_price_size_desktop":{{ section.settings.original_price_size_desktop | json }},"discounted_price_size_desktop":{{ section.settings.discounted_price_size_desktop | json }},"reveal":{{ section.settings.reveal | json }},"desktop_padding":{{ section.settings.desktop_padding | json }},"left_padding_desktop":{{ section.settings.left_padding_desktop | json }},"right_padding_desktop":{{ section.settings.right_padding_desktop | json }},"section_margin_top_desktop":{{ section.settings.section_margin_top_desktop | json }},"section_margin_bottom_desktop":{{ section.settings.section_margin_bottom_desktop | json }},"section_height_mobile":{{ section.settings.section_height_mobile | json }},"overall_size_mobile":{{ section.settings.overall_size_mobile | json }},"original_price_size_mobile":{{ section.settings.original_price_size_mobile | json }},"discounted_price_size_mobile":{{ section.settings.discounted_price_size_mobile | json }},"mobile_padding":{{ section.settings.mobile_padding | json }},"left_padding_mobile":{{ section.settings.left_padding_mobile | json }},"right_padding_mobile":{{ section.settings.right_padding_mobile | json }},"section_margin_top_mobile":{{ section.settings.section_margin_top_mobile | json }},"section_margin_bottom_mobile":{{ section.settings.section_margin_bottom_mobile | json }}}{%- endcapture -%}{%- capture pd_defaults -%}{"color_scheme":"default","section_width":"fluid_container","display_on_devices":"all_devices","reset_spacing":true,"show_currency_symbol":false,"original_price":"","discounted_price":"","section_height":100,"overall_size_desktop":140,"discounted_price_vertical_position":0,"enable_custom_style":false,"original_price_line_weight":6,"original_price_line_length":100,"original_price_line_vertical_offset":0,"enable_custom_fonts":false,"price_font":"assistant_n4","custom_font":"Roboto","original_price_font_weight":"500","discounted_price_font_weight":"500","original_price_size_desktop":5,"discounted_price_size_desktop":6,"reveal":true,"desktop_padding":0,"left_padding_desktop":20,"right_padding_desktop":20,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"section_height_mobile":70,"overall_size_mobile":100,"original_price_size_mobile":4.5,"discounted_price_size_mobile":3,"mobile_padding":0,"left_padding_mobile":0,"right_padding_mobile":0,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}{%- endcapture -%}{%- capture pd_block_defaults -%}{}{%- endcapture -%}{%- comment -%}/pd-gen{%- endcomment -%}
 {%- liquid
   assign s = section.settings
   assign sid = section.id
   assign p = s.product
   if p == blank and product != blank and product.id != blank
     assign p = product
+  endif
+  if p == blank
+    assign p = collections.all.products.first
   endif
   assign mode = 'none'
   if p != blank
@@ -133,9 +136,9 @@
     <div class="pd-price__row">
       <div class="pd-price__original"{% unless show_compare %} hidden{% endunless %}>
         <span class="visually-hidden">{{ 'products.product.price.regular_price' | t }}</span>
-        <span data-pd-original>{%- case mode -%}{%- when 'product' -%}{{ compare | money }}{%- when 'legacy' -%}{{ s.original_price }}{%- else -%}Was{%- endcase -%}</span>
+        <span data-pd-original>{%- case mode -%}{%- when 'product' -%}{{ compare | money }}{%- when 'legacy' -%}{{ s.original_price }}{%- else -%}{{ 'accessibility.ui.was' | t }}{%- endcase -%}</span>
       </div>
-      <div class="pd-price__sale"><span class="visually-hidden">{{ 'products.product.price.sale_price' | t }}</span><span data-pd-sale>{%- case mode -%}{%- when 'product' -%}{{ price | money }}{%- when 'legacy' -%}{{ s.discounted_price }}{%- else -%}Now{%- endcase -%}</span></div>
+      <div class="pd-price__sale"><span class="visually-hidden">{{ 'products.product.price.sale_price' | t }}</span><span data-pd-sale>{%- case mode -%}{%- when 'product' -%}{{ price | money }}{%- when 'legacy' -%}{{ s.discounted_price }}{%- else -%}{{ 'accessibility.ui.now' | t }}{%- endcase -%}</span></div>
       <div class="pd-price__currency"{% unless s.show_currency_symbol %} hidden{% endunless %}>{{ currency_code | escape }}</div>
     </div>
     {%- unless available -%}<span class="pd-price__badge">{{ 'products.product.sold_out' | t }}</span>{%- endunless -%}
@@ -144,7 +147,8 @@
 </div>
 {%- endif -%}{% schema %}
 {
-  "name": "Discount Price",
+  "class": "s-tt",
+"name": "Discount Price",
   "settings": [
     {
       "type": "header",
@@ -154,7 +158,7 @@
       "type": "color_scheme",
       "id": "color_scheme",
       "label": "Color scheme",
-      "default": "default-color-scheme"
+      "default": "default"
     },
     {
       "type": "select",
@@ -230,7 +234,6 @@
       "type": "text",
       "id": "currency",
       "label": "Currency",
-      "hidden": true,
       "info": "Legacy: used only with the legacy typed prices. Prices from a product show the store currency.",
       "visible_if": "{{ false }}"
     },
@@ -238,8 +241,6 @@
       "type": "inline_richtext",
       "id": "original_price",
       "label": "Original price",
-      "default": "",
-      "hidden": true,
       "info": "Legacy: shown only when no product is chosen. Prices now come from the product.",
       "visible_if": "{{ false }}"
     },
@@ -247,8 +248,6 @@
       "type": "inline_richtext",
       "id": "discounted_price",
       "label": "Discounted price",
-      "default": "",
-      "hidden": true,
       "info": "Legacy: shown only when no product is chosen. Prices now come from the product.",
       "visible_if": "{{ false }}"
     },
@@ -692,7 +691,6 @@
         }
       ],
       "default": "Roboto",
-      "hidden": true,
       "info": "Legacy font list, replaced by Price font.",
       "visible_if": "{{ false }}"
     },
@@ -954,7 +952,7 @@
   "presets": [
     {
       "name": "Discount Price",
-      "category": "Products"
+      "category": "03 · Products"
     }
   ]
 }

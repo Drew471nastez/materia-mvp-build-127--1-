@@ -10,14 +10,14 @@
         "vertical_align": "center",
         "content_max_width": 820,
         "content_gap": 18,
-        "image": "shopify://shop_images/samples-hero-studio.webp",
-        "image_alt": "A producer at his desk between two studio monitors",
+        "image": "shopify://shop_images/samples-hero-console.webp",
+        "image_alt": "A mixing desk in a dark studio, its faders and screen lit",
         "image_fit": "cover",
         "image_position_x": 50,
-        "image_position_y": 45,
+        "image_position_y": 55,
         "enable_overlay": true,
         "overlay_color": "#000000",
-        "overlay_opacity": 58,
+        "overlay_opacity": 52,
         "animation": "fade_up",
         "min_height_desktop": 720,
         "padding_top_desktop": 120,
@@ -228,6 +228,13 @@
         "c_tech_house_unitech",
         "c_drums_collection",
         "c_bass_collection"
+      ],
+      "custom_css": [
+        ".spc__pills {gap: 4px; padding: 4px; width: max-content; max-width: 100%; border-radius: 999px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08);}",
+        ".spc__pills .spc__pill {height: 34px; padding: 0 18px; border-color: transparent; color: #a1a1aa; font-weight: 600; letter-spacing: .01em;}",
+        ".spc__pills .spc__pill:hover {color: #f4f4f5; background: rgba(139,92,246,.16); border-color: transparent;}",
+        ".spc__pills .spc__pill[aria-pressed=\"true\"] {background: #7c3aed; color: #ffffff; border-color: transparent; box-shadow: 0 6px 18px -8px rgba(124,58,237,.9);}",
+        ".spc__pills .spc__pill:focus-visible {outline: 2px solid #8b5cf6; outline-offset: 2px;}"
       ]
     },
     "bundle": {
@@ -631,16 +638,150 @@
         "padding_top": 96,
         "padding_bottom": 96
       }
+    },
+    "how": {
+      "type": "feature-timeline",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "layout": "side",
+        "text_align": "center",
+        "content_max_width": 860,
+        "head_gap": 40,
+        "item_gap_desktop": 40,
+        "marker_style": "number",
+        "marker_size": 16,
+        "fill_on_scroll": true,
+        "enable_custom_style": true,
+        "line_color": "#2a2a33",
+        "marker_color": "#8b5cf6",
+        "label_color": "#a78bfa",
+        "padding_top_desktop": 88,
+        "padding_bottom_desktop": 88,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "How it works"
+          }
+        },
+        "item_2": {
+          "type": "item",
+          "settings": {
+            "label": "Listen",
+            "title": "Press play on any pack",
+            "text": "Every card has a preview. Drag along the wave to hear the drop before you pay."
+          }
+        },
+        "item_3": {
+          "type": "item",
+          "settings": {
+            "label": "Download",
+            "title": "Get the ZIP straight away",
+            "text": "The download link opens on the order page and arrives by email. WAV files in one ZIP."
+          }
+        },
+        "item_4": {
+          "type": "item",
+          "settings": {
+            "label": "Release",
+            "title": "Drag it into your track",
+            "text": "Works in any DAW. Release what you make anywhere: every pack is royalty free."
+          }
+        },
+        "button_5": {
+          "type": "button",
+          "settings": {
+            "label": "Browse packs",
+            "link": "/collections/all"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "item_2",
+        "item_3",
+        "item_4",
+        "button_5"
+      ]
+    },
+    "perks": {
+      "type": "benefits-bar-pro",
+      "settings": {
+        "color_scheme": "default",
+        "width": "container",
+        "columns_desktop": 4,
+        "align": "left",
+        "item_gap": 24,
+        "custom_text_colors": true,
+        "title_color": "#f4f4f5",
+        "subtitle_color": "#a1a1aa",
+        "icon_color": "#a78bfa",
+        "icon_bg_color": "#1b0b3a",
+        "divider_color": "#26262e",
+        "show_dividers": true,
+        "icon_style": "rounded_square",
+        "icon_size": 30,
+        "icon_stroke": 2,
+        "padding_top": 40,
+        "padding_bottom": 40,
+        "mobile_layout": "two_column"
+      },
+      "blocks": {
+        "b1": {
+          "type": "benefit",
+          "settings": {
+            "icon": "check_circle",
+            "title": "WAV files",
+            "subtitle": "Drop into any DAW"
+          }
+        },
+        "b2": {
+          "type": "benefit",
+          "settings": {
+            "icon": "headset",
+            "title": "A preview on every pack",
+            "subtitle": "Hear it before you buy"
+          }
+        },
+        "b3": {
+          "type": "benefit",
+          "settings": {
+            "icon": "shield_alt",
+            "title": "Royalty free",
+            "subtitle": "Release anywhere"
+          }
+        },
+        "b4": {
+          "type": "benefit",
+          "settings": {
+            "icon": "clock",
+            "title": "Instant download",
+            "subtitle": "Yours to keep"
+          }
+        }
+      },
+      "block_order": [
+        "b1",
+        "b2",
+        "b3",
+        "b4"
+      ]
     }
   },
   "order": [
     "hero",
     "ticker",
     "packs",
+    "how",
     "bundle",
     "creator",
     "reviews",
     "journal",
+    "perks",
     "free",
     "faq"
   ]
