@@ -1,9 +1,13 @@
-/* Storelib theme reveals: initialize once and keep editor updates visible.
-   One shared IntersectionObserver; nothing is measured on scroll. */
+/* Storelib theme reveals (round 27): initialize once and keep editor updates visible.
+   One shared IntersectionObserver; nothing is measured on scroll. The styles of
+   every type are in animation.css (SCROLL REVEAL). */
 const SCROLL_ANIMATION_TRIGGER_CLASSNAME = '.scroll-trigger';
 const SCROLL_ANIMATION_OFFSCREEN_CLASSNAME = 'scroll-trigger--offscreen';
 const SCROLL_ANIMATION_DONE_ATTR = 'data-animation-done';
 const REVEAL_MAX_STAGGER = 6;
+// Types whose section stays put while its parts arrive one after another.
+const PART_TYPES = ['stagger_up', 'mask_reveal', 'split_text'];
+const MAX_PARTS = 14;
 // Sections whose own settings pick a reveal style play it themselves
 // (collection tabs, FAQ 4, countdown, scrolling text, marquee, logos).
 const OWN_REVEAL = '[data-ct-reveal], [data-faq7-reveal], [data-cd-reveal], .stm[data-lt-reveal], [data-own-reveal="true"], .lg[data-reveal="true"]';
@@ -49,11 +53,139 @@ if (zoomObserver) window.addEventListener('scroll', () => {
   });
 }, {passive: true});
 
+/* ── Parts: what of a section arrives one after another ─────────────────── */
+const PART_SELECTOR = [
+  'h1', 'h2', 'h3', 'h4', 'h5', 'h6', '.h0', '.h1', '.h2', '.h3', '.h4', '.h5', '.h6', 'p', '.rte', 'blockquote',
+  '.btn', '.button', '[data-sl-button]', 'form', 'picture', 'video', 'img', 'svg.placeholder-svg', '.placeholder-image',
+  '.product-item', '.collection-item', '.card', '.grid-custom-item', 'figure', '.list-social',
+  '[class*="__heading"]', '[class*="__title"]', '[class*="__subheading"]', '[class*="__subtitle"]', '[class*="__text"]',
+  '[class*="__button"]', '[class*="__media"]', '[class*="__image"]', '[class*="__item"]'
+].join(',');
+const MEDIA_PART = 'picture, video, img, svg.placeholder-svg, .placeholder-image, [class*="__media"], [class*="__image"]';
+const HEADING_PART = 'h1, h2, h3, .h0, .h1, .h2, .h3, [class*="__heading"], [class*="__title"]';
+const INLINE_TAGS = /^(BR|EM|STRONG|B|I|A|SPAN|U|SMALL|MARK|SUP|SUB|S)$/;
+
+function typeOf(el) {
+  const list = el.classList;
+  for (const t of PART_TYPES) if (list.contains(t)) return t;
+  return '';
+}
+
+// A heading whose words can be wrapped for the reveal: short, plain text and
+// inline marks only, and not painted through its text (a gradient title).
+function splittable(el) {
+  const text = el.textContent || '';
+  if (!text.trim() || text.length > 220) return false;
+  for (const child of el.querySelectorAll('*')) if (!INLINE_TAGS.test(child.tagName)) return false;
+  const css = getComputedStyle(el);
+  return css.webkitBackgroundClip !== 'text' && css.backgroundClip !== 'text' && css.webkitTextFillColor !== 'transparent';
+}
+function splitWords(el) {
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while (walker.nextNode()) if (walker.currentNode.nodeValue.trim()) nodes.push(walker.currentNode);
+  const words = [];
+  nodes.forEach(node => {
+    const frag = document.createDocumentFragment();
+    node.nodeValue.split(/(\s+)/).forEach(piece => {
+      if (!piece) return;
+      if (/^\s+$/.test(piece)) { frag.appendChild(document.createTextNode(piece)); return; }
+      const span = document.createElement('span');
+      span.className = 'mt-word';
+      span.textContent = piece;
+      span.style.setProperty('--word', String(Math.min(words.length, 24)));
+      words.push(span);
+      frag.appendChild(span);
+    });
+    node.parentNode.replaceChild(frag, node);
+  });
+  el.__mtWords = words;
+}
+// The words go back to the plain text they were, so nothing of the reveal stays in the page.
+function unsplitWords(el) {
+  const words = el.__mtWords;
+  if (!words) return;
+  el.__mtWords = null;
+  words.forEach(span => { if (span.parentNode) span.parentNode.replaceChild(document.createTextNode(span.textContent), span); });
+  el.normalize();
+}
+
+// A picture zooms only inside a frame that clips it, so it never spills over its card.
+function clipped(el) {
+  for (let p = el.parentElement, i = 0; p && i < 3; p = p.parentElement, i++) {
+    const o = getComputedStyle(p);
+    if (o.overflow !== 'visible' || o.overflowX !== 'visible' || o.clipPath !== 'none') return true;
+  }
+  return false;
+}
+function markZoom(el, skip) {
+  if (document.body?.dataset.zoomImage !== 'true') return;
+  const list = el.tagName === 'IMG' ? [el] : [...el.querySelectorAll('img')].slice(0, 8);
+  list.forEach(img => {
+    if (skip && skip(img)) return;
+    if (img.classList.contains('secondary-image') || img.style.transform) return;
+    const r = img.getBoundingClientRect();
+    if (r.width < 120 || r.height < 90 || !clipped(img)) return;
+    img.setAttribute('data-reveal-zoom', '');
+  });
+}
+
+// The parts of a section, in reading order: headings, text, buttons, cards and
+// pictures, the outermost of each, at most MAX_PARTS. Layout is clean here (the
+// observer reports after layout), so reading boxes costs nothing extra.
+function markParts(section, type) {
+  const picked = [];
+  const width = window.innerWidth;
+  const candidates = section.querySelectorAll(PART_SELECTOR);
+  for (let i = 0; i < candidates.length && i < 400 && picked.length < MAX_PARTS; i++) {
+    const el = candidates[i];
+    if (el.closest(SCROLL_ANIMATION_TRIGGER_CLASSNAME) !== section) continue;
+    if (picked.some(p => p.contains(el))) continue;
+    if (el.style.transform || el.style.opacity || el.classList.contains('swiper-slide') || el.closest('.secondary-image, [aria-hidden="true"], [hidden]')) continue;
+    const r = el.getBoundingClientRect();
+    if (r.width < 1 || r.height < 1 || r.right <= 0 || r.left >= width) continue;
+    picked.push(el);
+  }
+  if (picked.length < 2) return false;
+  picked.forEach((el, i) => {
+    let kind = 'text';
+    if (type === 'mask_reveal' && el.matches(MEDIA_PART)) kind = 'media';
+    else if (type === 'split_text' && el.matches(HEADING_PART) && splittable(el)) { kind = 'words'; splitWords(el); }
+    el.setAttribute('data-reveal-part', kind);
+    el.style.setProperty('--part', String(i));
+  });
+  section.classList.add('reveal-parts');
+  section.__mtParts = picked;
+  markZoom(section, img => type === 'mask_reveal' && !!img.closest('[data-reveal-part="media"]'));
+  return true;
+}
+function clearParts(el) {
+  const parts = el.__mtParts;
+  if (parts) {
+    el.__mtParts = null;
+    parts.forEach(part => { part.removeAttribute('data-reveal-part'); part.style.removeProperty('--part'); unsplitWords(part); });
+  }
+  el.classList.remove('reveal-parts');
+  if (el.querySelector('[data-reveal-zoom]')) el.querySelectorAll('[data-reveal-zoom]').forEach(img => img.removeAttribute('data-reveal-zoom'));
+  else if (el.hasAttribute('data-reveal-zoom')) el.removeAttribute('data-reveal-zoom');
+}
+
+// Armed: waits at its first frame. Its parts (a parts type on a section) and
+// the pictures that zoom are marked now, once.
+function arm(el) {
+  // A motion element that gave way to this reveal pinned itself visible.
+  if (el.tagName === 'MOTION-ELEMENT') el.style.removeProperty('opacity');
+  const type = typeOf(el);
+  if (!(type && el.classList.contains('shopify-section') && markParts(el, type))) markZoom(el);
+  el.classList.add('scroll-trigger--offscreen', 'scroll-trigger--armed');
+}
+
 function markDone(el) {
   el.setAttribute(SCROLL_ANIMATION_DONE_ATTR, '');
   el.setAttribute('animation-end', '');
   el.classList.remove('scroll-trigger--offscreen', 'scroll-trigger--armed');
   el.style.removeProperty('--reveal-order');
+  clearParts(el);
 }
 
 const msOf = value => value.trim().endsWith('ms') ? parseFloat(value) : parseFloat(value) * 1000;
@@ -62,40 +194,28 @@ const msOf = value => value.trim().endsWith('ms') ? parseFloat(value) : parseFlo
 // Content in the first screen (or above it) shows at once; only what is below
 // the fold is armed and waits to reveal on scroll (its next report).
 const revealArming = new WeakSet();
-// The observer's root ends 6% above the bottom edge (so reveals start a little
-// into the screen); at load, a top edge already showing in that strip counts
-// as on screen, so it is never hidden after it was seen.
-const REVEAL_ROOT_SHRINK = 0.94;
 function inFirstScreen(entry) {
-  const root = entry.rootBounds;
-  return !!root && entry.boundingClientRect.top < root.top + (root.bottom - root.top) / REVEAL_ROOT_SHRINK;
+  return entry.boundingClientRect.top < window.innerHeight;
 }
 function armReveal(entries) {
-  const fold = window.innerHeight;
   return entries.filter(entry => {
     const el = entry.target;
     if (!revealArming.has(el)) return true;
     revealArming.delete(el);
     if (!el.isConnected || el.hasAttribute(SCROLL_ANIMATION_DONE_ATTR)) { revealObserver.unobserve(el); return false; }
-    // In view now (the browser's report, right inside the editor's frame too), or
-    // already scrolled past: shown at once. Further down: armed for its reveal.
-    if (entry.isIntersecting || entry.boundingClientRect.bottom <= 0 || inFirstScreen(entry)) { revealObserver.unobserve(el); markDone(el); return false; }
-    // A motion element that gave way to this reveal pinned itself visible.
-    if (el.tagName === 'MOTION-ELEMENT') el.style.removeProperty('opacity');
-    el.classList.add('scroll-trigger--offscreen', 'scroll-trigger--armed');
-    // Just under the fold but inside the observer's margin: no later report
-    // would come for it, so it plays now, from its armed state.
+    // In view now, or already scrolled past: shown at once. Further down: armed for its reveal.
+    // Nothing to see (a section of styles only, an empty one): never waits.
+    if (entry.isIntersecting || entry.boundingClientRect.bottom <= 0 || entry.boundingClientRect.height < 2 || inFirstScreen(entry)) { revealObserver.unobserve(el); markDone(el); return false; }
+    arm(el);
     return entry.isIntersecting;
   });
 }
 
-// A section comes in with its pictures. On a slow connection it faded in
-// empty and each picture then faded in again on its own as it arrived: the
-// pictures seemed to load twice. The pictures in view that are still on their
-// way are waited for, PICTURE_WAIT_MS at most, so the section fades in once,
-// pictures included; one later than that simply appears (smooth-media-load).
-// It waits in its armed state (never blank, see animation.css), and briefly.
-const PICTURE_WAIT_MS = 250;
+// A section comes in with its pictures: the pictures in view still on their
+// way are waited for, PICTURE_WAIT_MS at most (they are usually there already:
+// smooth-media-load fetches pictures well before they are scrolled to). It
+// waits at its first frame, never blank.
+const PICTURE_WAIT_MS = 160;
 function picturesReady(el) {
   const loading = [...el.querySelectorAll('img')].filter(img => !(img.complete && img.naturalWidth > 0));
   if (!loading.length) return null;
@@ -111,60 +231,78 @@ function picturesReady(el) {
 // Every class change first, then the styles read in one pass.
 function reveal(targets) {
   targets.forEach(target => target.classList.remove('scroll-trigger--offscreen'));
-  targets.forEach(follow);
+  targets.forEach((target, i) => follow(target, Number(target.style.getPropertyValue('--reveal-order')) || i));
 }
-// Finished on animationend; a timer is the safety net for an animation that
-// never ran. Its length comes from the theme's timing, read once, never from
-// the element itself: reading an element's styles right after its class
-// changed made the browser work out the page's styles there and then.
+// Finished on its own animationend; a timer is the safety net for an
+// animation that never ran. Its length comes from the theme's timing, read
+// once, never from the element itself. Only the reveal's own end counts:
+// going from the armed state (paused, no delay) to playing with a delay
+// reports an animationend with elapsedTime 0, which is not the end.
 function follow(target, index = 0) {
-  // Only the reveal's own end counts. Going from the armed state (paused at
-  // its first frame, no delay) to playing with a delay or stagger moves the
-  // animation back into its "before" phase, and the browser reports that as
-  // an animationend with elapsedTime 0. Taken as the end, it marked the
-  // reveal done in its first frame: in the editor's canvas and the template
-  // previews (frames) nothing was ever seen to move. Another animation on
-  // the same element (an image fade, a hover) does not count either.
+  const t = revealTiming();
+  const parts = target.__mtParts ? target.__mtParts.length : 0;
+  const words = parts ? target.__mtParts.reduce((n, p) => Math.max(n, p.__mtWords ? Math.min(p.__mtWords.length, 25) : 0), 0) : 0;
   const end = event => {
-    if (event.target !== target || !(event.elapsedTime > 0) || !/^reveal/i.test(event.animationName || '')) return;
+    if (parts || event.target !== target || !(event.elapsedTime > 0) || !/^reveal/i.test(event.animationName || '')) return;
     target.removeEventListener('animationend', end);
     markDone(target);
   };
-  target.addEventListener('animationend', end);
-  const t = revealTiming();
-  setTimeout(() => { target.removeEventListener('animationend', end); markDone(target); }, t.duration + t.delay + Math.min(index, REVEAL_MAX_STAGGER) * t.stagger + 150);
+  if (!parts) target.addEventListener('animationend', end);
+  // Parts end with the last of them; pictures that settle from a zoom take 1.8x the duration.
+  const settles = !!target.querySelector('[data-reveal-zoom], [data-reveal-part="media"]') || target.hasAttribute('data-reveal-zoom');
+  const longest = settles ? Math.max(t.duration, t.base * 1.8) : t.duration;
+  const total = longest + t.delay + Math.min(index, REVEAL_MAX_STAGGER) * t.stagger + parts * t.stagger + words * 45 + 150;
+  target.__mtDone = setTimeout(() => { target.removeEventListener('animationend', end); markDone(target); }, total);
 }
 
-const revealObserver = 'IntersectionObserver' in window ? new IntersectionObserver((entries) => {
+function makeObserver(callback, margin) {
+  if (!('IntersectionObserver' in window)) return null;
+  // Inside a frame (the builder's canvas, a preview) the frame's own screen is
+  // the one that counts: with no root the browser measures against the top
+  // window there and drops the margin.
+  if (window.top !== window) {
+    try { return new IntersectionObserver(callback, {root: document, threshold: 0, rootMargin: margin}); } catch (e) {}
+  }
+  return new IntersectionObserver(callback, {threshold: 0, rootMargin: margin});
+}
+
+const revealObserver = makeObserver((entries) => {
   entries = armReveal(entries);
-  // Things that come into view together play in reading order, a short
-  // stagger apart; the order comes from the observer's own boxes.
+  // Things of one section that come into view together (a row of cards) play
+  // in reading order, a short stagger apart; the order comes from the
+  // observer's own boxes. Another section never waits for them.
   const entering = entries.filter(entry => entry.isIntersecting)
     .sort((a, b) => (a.boundingClientRect.top - b.boundingClientRect.top) || (a.boundingClientRect.left - b.boundingClientRect.left));
   const now = [];
-  entering.forEach(({target}, index) => {
+  const groups = new Map();
+  entering.forEach(({target}) => {
     revealObserver.unobserve(target);
+    const group = target.closest('.shopify-section') || document.body;
+    const index = groups.get(group) || 0;
+    groups.set(group, index + 1);
     if (index) target.style.setProperty('--reveal-order', String(Math.min(index, REVEAL_MAX_STAGGER)));
     const waiting = picturesReady(target);
     if (waiting) waiting.then(() => requestAnimationFrame(() => reveal([target])));
     else now.push(target);
   });
   if (now.length) reveal(now);
-// It starts just before it comes into view (5% of the screen below it), so
-// what scrolls in is already on its way, never waiting in view.
-}, {threshold: 0, rootMargin: '0px 0px 5% 0px'}) : null;
+// It starts once its top edge is 6% into the screen, so the movement is seen
+// rather than spent below the edge.
+}, '0px 0px -6% 0px');
 
-// The theme's reveal timing (Animations > duration and delay), read once from
-// the root; the slowest type (cinematic) plays 1.25x the duration.
+// The theme's reveal timing (Animations > duration, delay and stagger), read
+// once from the root; the slowest type (cinematic) plays 1.4x the duration.
 let revealTimingCache = null;
 function revealTiming() {
   if (revealTimingCache) return revealTimingCache;
   const css = getComputedStyle(document.documentElement);
   const num = (name, fallback) => { const v = css.getPropertyValue(name); return v ? msOf(v) || fallback : fallback; };
+  const base = num('--animation-duration', 700);
   return revealTimingCache = {
-    duration: num('--animation-duration', 700) * 1.25,
+    base,
+    duration: base * 1.4,
     delay: num('--animation-delay-base', 0),
-    stagger: num('--reveal-stagger', 70)
+    stagger: num('--reveal-stagger', 75)
   };
 }
 
@@ -172,13 +310,8 @@ function initializeScrollAnimationTrigger(root = document, editorEvent = false) 
   initializeScrollZoomAnimationTrigger(root);
   const elements = [...root.querySelectorAll(SCROLL_ANIMATION_TRIGGER_CLASSNAME)];
   if (root.matches?.(SCROLL_ANIMATION_TRIGGER_CLASSNAME)) elements.unshift(root);
-  // In the theme editor, a page load plays its reveals like the storefront;
-  // a section the editor redraws in place shows at once (editorEvent).
-  // A section the editor drew again shows at once only while it is on screen;
-  // below the fold it keeps its reveal for when it is scrolled to.
-  // A redrawn section goes through the same first report: on screen it shows
-  // at once, further down it keeps its reveal. Selecting or reordering in the
-  // editor shows the section at once.
+  // A section drawn again in place goes through the same first report: on
+  // screen it shows at once, further down it keeps its reveal.
   const editor = !!editorEvent && editorEvent !== 'load';
   const productInformation = '.product-detail__information, .product-single__information';
   const fresh = [];
@@ -201,28 +334,75 @@ function initializeScrollAnimationTrigger(root = document, editorEvent = false) 
     fresh.push(el);
   });
   // Where each element sits comes from the observer's first report, made
-  // after the page's own layout (see armReveal): reading boxes here forced a
-  // layout of the whole page while its scripts still ran. Nothing is hidden
-  // until then.
+  // after the page's own layout (see armReveal). Nothing is hidden until then.
   fresh.forEach(el => { revealArming.add(el); revealObserver.observe(el); });
 }
+
+/*
+  PLAYED AGAIN WHERE IT CAN BE SEEN (the builder). When the Animations
+  settings change, the builder draws the page again where it was scrolled to
+  and tells it which settings changed (storelib:theme-change): what is on
+  screen then plays its reveal once, with the new settings, so the change can
+  be seen without scrolling away and back. The storefront never sends it.
+*/
+const REVEAL_SETTINGS = ['scroll_animation', 'animation_duration', 'animation_delay', 'reveal_stagger', 'zoom_image'];
+function replayInView() {
+  if (reducedMotion() || !revealObserver) return;
+  revealTimingCache = null;
+  const height = window.innerHeight;
+  const list = [...document.querySelectorAll(SCROLL_ANIMATION_TRIGGER_CLASSNAME)].filter(el => {
+    if (el.querySelector(SCROLL_ANIMATION_TRIGGER_CLASSNAME) || el.closest(OWN_REVEAL) || el.querySelector(OWN_REVEAL)) return false;
+    if (el.closest('.product-detail__information, .product-single__information')) return false;
+    if (el.matches('[id*="header"], [id*="announcement"], [id*="footer"]')) return false;
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < height;
+  }).sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+  if (!list.length) return;
+  list.forEach((el, i) => {
+    clearTimeout(el.__mtDone);
+    el.removeAttribute(SCROLL_ANIMATION_DONE_ATTR);
+    el.removeAttribute('animation-end');
+    clearParts(el);
+    if (i) el.style.setProperty('--reveal-order', String(Math.min(i, REVEAL_MAX_STAGGER)));
+    arm(el);
+  });
+  // The first frame is drawn before anything moves.
+  requestAnimationFrame(() => requestAnimationFrame(() => reveal(list)));
+}
+document.addEventListener('storelib:theme-change', event => {
+  const changed = event.detail && event.detail.settings;
+  if (!changed || !REVEAL_SETTINGS.some(key => key in changed)) return;
+  replayInView();
+});
+// The theme's safety net (layout/theme.liquid) plays a reveal that sits in
+// view without having started, rather than snapping it to its end.
+window.MateriaReveal = {
+  replay: replayInView,
+  play(el) {
+    if (!el.classList.contains('scroll-trigger--armed')) return false;
+    revealObserver?.unobserve(el);
+    reveal([el]);
+    return true;
+  }
+};
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => initializeScrollAnimationTrigger(), {once: true});
 else initializeScrollAnimationTrigger();
 
-// storelib:section-load is the builder redrawing a section in place: it shows
-// at once, never replays its entrance.
-// Selecting or reordering a section in the editor's sidebar does not change
-// it: the editor scrolls there and the section reveals as it comes into view,
-// exactly like scrolling on the storefront (forcing it visible here was why
-// reveals never seemed to play in the editor).
+// storelib:section-load is the builder redrawing a section in place: on
+// screen it shows at once, further down it keeps its reveal. Selecting or
+// reordering a section in the editor's sidebar does not change it: the editor
+// scrolls there and the section reveals as it comes into view, exactly like
+// scrolling on the storefront.
 ['shopify:section:load', 'storelib:section-load'].forEach(name => {
   document.addEventListener(name, event => initializeScrollAnimationTrigger(event.target, 'load'));
 });
 document.addEventListener('shopify:section:unload', event => {
-  [event.target, ...event.target.querySelectorAll(SCROLL_ANIMATION_TRIGGER_CLASSNAME)].forEach(el => { revealObserver?.unobserve(el); revealArming.delete(el); });
+  [event.target, ...event.target.querySelectorAll(SCROLL_ANIMATION_TRIGGER_CLASSNAME)].forEach(el => { revealObserver?.unobserve(el); revealArming.delete(el); clearTimeout(el.__mtDone); });
   [event.target, ...event.target.querySelectorAll('.animate--zoom-in')].forEach(el => { zoomObserver?.unobserve(el); visibleZoom.delete(el); });
 });
+// A timing changed under a finger in the builder is read again.
+document.addEventListener('storelib:settings-change', () => { revealTimingCache = null; });
 window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', () => initializeScrollAnimationTrigger());
 
 // Cards a section adds later (filters, load more, infinite scroll, a grid
@@ -240,6 +420,7 @@ if ('MutationObserver' in window) {
     for (const record of records) {
       for (const node of record.addedNodes) {
         if (node.nodeType !== 1) continue;
+        if (node.classList.contains('mt-word')) continue;
         if (node.classList.contains('scroll-trigger') || node.getElementsByClassName('scroll-trigger').length) added.push(node);
       }
     }

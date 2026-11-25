@@ -32,6 +32,7 @@
  * it against an in-memory database, five hundred files included.
  */
 import { editorContent } from "@/lib/website-builder/theme-file-drafts"
+import { fileCols, ownRowsOnly, resolveRefs } from "@/lib/website-builder/theme-file-refs"
 
 type Db = {
   from: (table: string) => any // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -109,13 +110,14 @@ export async function restoreSnapshot(
   let drafts = true
   const filesBefore = new Map<string, FileBefore>()
   if (wanted.length) {
-    let read = await db.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId)
+    let read = await db.from("store_theme_custom_files").select(await fileCols("path, content, draft_content")).eq("install_id", installId)
     if (read.error && missing(read.error.message)) {
       drafts = false
       read = await db.from("store_theme_custom_files").select("path, content").eq("install_id", installId)
     }
     if (read.error) return { ok: false, error: "Could not read your code files. Nothing was changed. Try again.", rolledBack: true }
-    for (const r of (read.data ?? []) as FileBefore[]) {
+    /* Round 27: a reference's text, so a rollback writes back what the file said (theme-file-refs.ts). */
+    for (const r of await resolveRefs((read.data ?? []) as FileBefore[])) {
       filesBefore.set(String(r.path), { path: String(r.path), content: r.content ?? "", draft_content: drafts ? (r.draft_content ?? null) : null })
     }
   }
@@ -153,7 +155,7 @@ export async function restoreSnapshot(
     }
     for (const group of batches(made, () => 1)) {
       let q = db.from("store_theme_custom_files").delete().eq("install_id", installId).in("path", group)
-      if (drafts) q = q.eq("content", "")
+      if (drafts) q = await ownRowsOnly(q.eq("content", ""))
       const { error } = await q
       if (error) clean = false
     }

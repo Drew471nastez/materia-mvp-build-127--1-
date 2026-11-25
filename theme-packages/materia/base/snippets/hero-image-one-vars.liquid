@@ -3,11 +3,43 @@
 
   @param {object} controls - Settings object that holds the style controls
   @param {string} kind - Kind
+  @param {boolean} [scrolling] - The block sits in Hero Pro Scrolling, whose
+    blocks save line height in percent and letter spacing in tenths of a
+    pixel. assets/hero-image-one.js converts them in the browser; they are
+    converted here too, so the first paint already has the final size. Before,
+    a heading with its own style drew at a line height of 105 (not 1.05) until
+    that script ran: the hero grew thousands of pixels tall on a slow phone
+    and everything under it jumped (CLS 0.22 on Outerwear).
 
   @example
   {% render 'hero-image-one-vars', controls: c, kind: 'section' %}
 {% enddoc -%}
 {%- assign c = controls -%}
+{%- liquid
+  assign v_line = c.line_height
+  assign v_letter = c.letter_spacing
+  assign v_weight = c.font_weight
+  assign v_text = c.text_color
+  assign v_text_hover = c.text_color_hover
+  if scrolling
+    if v_weight == 'inherit'
+      assign v_weight = 'theme'
+    endif
+    if kind == 'heading' or kind == 'subheading'
+      assign v_line = c.line_height | default: 150 | divided_by: 100.0
+    endif
+    if kind == 'subheading' and c.enable_custom_weight != true
+      assign v_weight = 'theme'
+    endif
+    if kind == 'eyebrow' or kind == 'primary_button' or kind == 'secondary_button'
+      assign v_letter = c.letter_spacing | default: 0 | divided_by: 10.0
+    endif
+    if kind == 'primary_button' or kind == 'secondary_button'
+      assign v_text = c.color
+      assign v_text_hover = c.color_hover
+    endif
+  endif
+-%}
 {%- if kind == 'section' -%}
 --hi1-bg:{% if c.enable_custom_style %}{% render 'scheme-color', color: c.section_bg, fallback: 'var(--color-background)' %}{% else %}var(--color-background){% endif %};
 --hi1-radius:{% if c.enable_custom_style %}{{ c.card_radius | default: 0 }}px{% else %}var(--rounded-radius,0px){% endif %};
@@ -22,13 +54,13 @@
 {%- else -%}
 --hi1-font:{% if c.enable_custom_style and c.font_source == 'heading' %}var(--hi1-heading-font,var(--heading-font)){% elsif c.enable_custom_style and c.font_source == 'body' %}var(--hi1-body-font,var(--body-font)){% elsif kind == 'heading' %}var(--hi1-heading-font,var(--heading-font)){% else %}var(--hi1-body-font,var(--body-font)){% endif %};
 --hi1-ink:{% if c.enable_custom_style %}{% if kind == 'heading' or kind == 'eyebrow' or kind == 'badge' or kind == 'subheading' %}{% if kind == 'heading' %}{% render 'scheme-color', color: c.color, fallback: 'var(--color-heading)' %}{% else %}{% render 'scheme-color', color: c.color, fallback: 'var(--color-text)' %}{% endif %}{% else %}{% render 'scheme-color', color: c.text_color, fallback: 'var(--color-text)' %}{% endif %}{% elsif kind == 'heading' %}var(--color-heading){% else %}var(--color-text){% endif %};
---hi1-weight:{% if c.enable_custom_style and c.font_weight != blank and c.font_weight != 'theme' %}{{ c.font_weight }}{% elsif kind == 'heading' %}var(--heading-weight,600){% else %}var(--body-weight,400){% endif %};
---hi1-letter:{% if c.enable_custom_style and c.letter_spacing != blank %}{{ c.letter_spacing }}px{% elsif kind == 'heading' %}var(--heading-letter-spacing,normal){% else %}normal{% endif %};
+--hi1-weight:{% if c.enable_custom_style and v_weight != blank and v_weight != 'theme' %}{{ v_weight }}{% elsif kind == 'heading' %}var(--heading-weight,600){% else %}var(--body-weight,400){% endif %};
+--hi1-letter:{% if c.enable_custom_style and v_letter != blank %}{{ v_letter }}px{% elsif kind == 'heading' %}var(--heading-letter-spacing,normal){% else %}normal{% endif %};
 --hi1-case:{% if c.enable_custom_style and c.text_case != blank and c.text_case != 'theme' %}{{ c.text_case }}{% elsif kind == 'heading' %}var(--heading-text-transform,none){% else %}none{% endif %};
---hi1-line:{% if c.enable_custom_style and c.line_height != blank %}{{ c.line_height }}{% elsif kind == 'heading' %}var(--heading-line-height,1.2){% else %}var(--body-line-height,1.5){% endif %};
+--hi1-line:{% if c.enable_custom_style and v_line != blank %}{{ v_line }}{% elsif kind == 'heading' %}var(--heading-line-height,1.2){% else %}var(--body-line-height,1.5){% endif %};
 --hi1-size-m:{% if c.enable_custom_style and c.size_mobile != blank %}{{ c.size_mobile }}px{% elsif c.enable_custom_style and c.font_size_mobile != blank %}{{ c.font_size_mobile }}px{% elsif c.enable_custom_style and c.size != blank %}{{ c.size }}px{% elsif c.enable_custom_style and c.text_size != blank %}{{ c.text_size }}px{% elsif kind == 'heading' %}var(--h1-size,48px){% else %}var(--body-font-size,16px){% endif %};
 --hi1-size-d:{% if c.enable_custom_style and c.size_desktop != blank %}{{ c.size_desktop }}px{% elsif c.enable_custom_style and c.font_size_desktop != blank %}{{ c.font_size_desktop }}px{% elsif c.enable_custom_style and c.size != blank %}{{ c.size }}px{% elsif c.enable_custom_style and c.text_size != blank %}{{ c.text_size }}px{% elsif kind == 'heading' %}var(--h1-size,48px){% else %}var(--body-font-size,16px){% endif %};
 --hi1-filled:{% if c.enable_custom_style %}{% render 'scheme-color', color: c.filled_color, fallback: 'var(--color-heading)' %}{% else %}var(--color-heading){% endif %};--hi1-empty:{% if c.enable_custom_style %}{% render 'scheme-color', color: c.unfilled_color, fallback: 'var(--color-border)' %}{% else %}var(--color-border){% endif %};
 {%- if kind == 'badge' -%}--hi1-badge-bg:{% if c.enable_custom_style %}{% render 'scheme-color', color: c.bg, fallback: 'var(--color-background)' %}{% else %}color-mix(in srgb,var(--color-heading) 8%,var(--color-background)){% endif %};--hi1-badge-radius:{% if c.enable_custom_style %}{{ c.radius | default: 8 }}px{% else %}var(--rounded-radius,4px){% endif %};{%- endif -%}
-{%- if kind == 'primary_button' or kind == 'secondary_button' -%}{% if c.enable_custom_style %}{% render 'button-overrides', bg: c.bg, text: c.text_color, border: c.border_color, hover_bg: c.bg_hover, hover_text: c.text_color_hover, hover_border: c.border_color_hover, custom: true, radius: c.radius, padding_x: c.padding_x, padding_y: c.padding_y, font_size: c.font_size %}border-radius:{{ c.radius | default: 8 }}px!important;font-size:{{ c.font_size | default: 16 }}px!important;padding:{{ c.padding_y | default: 14 }}px {{ c.padding_x | default: 26 }}px!important;{% if c.font_weight != blank and c.font_weight != 'theme' %}font-weight:{{ c.font_weight }}!important;{% endif %}{% endif %}{%- endif -%}
+{%- if kind == 'primary_button' or kind == 'secondary_button' -%}{% if c.enable_custom_style %}{% render 'button-overrides', bg: c.bg, text: v_text, border: c.border_color, hover_bg: c.bg_hover, hover_text: v_text_hover, hover_border: c.border_color_hover, custom: true, radius: c.radius, padding_x: c.padding_x, padding_y: c.padding_y, font_size: c.font_size %}border-radius:{{ c.radius | default: 8 }}px!important;font-size:{{ c.font_size | default: 16 }}px!important;padding:{{ c.padding_y | default: 14 }}px {{ c.padding_x | default: 26 }}px!important;{% if v_weight != blank and v_weight != 'theme' %}font-weight:{{ v_weight }}!important;{% endif %}{% endif %}{%- endif -%}
 {%- endif -%}

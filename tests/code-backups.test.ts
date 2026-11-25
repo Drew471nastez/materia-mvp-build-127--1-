@@ -21,7 +21,7 @@ const backups = read("lib/website-builder/backups.ts")
 console.log("\nWhat a backup holds\n")
 {
   check("the code files are part of the snapshot", /files\?: \{ path: string; content: string \}\[\]/.test(backups))
-  check("  read as the editor shows them: the draft where there is one", /from\("store_theme_custom_files"\)\.select\("path, content, draft_content"\)/.test(backups) && /content: editorContent\(f\)/.test(backups))
+  check("  read as the editor shows them: the draft where there is one", /* Changed on purpose (round 27): through fileCols, references resolved (theme-file-refs.ts). */ /from\("store_theme_custom_files"\)\.select\(await fileCols\("path, content, draft_content"\)\)/.test(backups) && /content: editorContent\(f\)/.test(backups))
   check("  in a fixed order, so the same code hashes the same and is not stored twice", /\.sort\(\(a, b\) => a\.path\.localeCompare\(b\.path\)\)/.test(backups) && /fingerprintOf\(snapshot\)/.test(backups))
   check("  and a database without that table still takes backups as before", /let files[\s\S]{0,700}catch \{\s*files = undefined/.test(backups))
 }

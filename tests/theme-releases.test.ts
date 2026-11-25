@@ -394,7 +394,7 @@ async function main() {
   const all21 = read("supabase/sql/RUN_ROUND_21_ALL.sql")
   check("RUN_ROUND_21_ALL.sql carries the releases table, the seven-website limit and profiles.email_verified", all21.includes(migration.slice(migration.indexOf("create table if not exists public.theme_releases"), migration.indexOf("notify pgrst")).trim()) && /if kept >= 7 then/.test(all21) && /add column email_verified boolean/.test(all21) && /create trigger profiles_keep_email_verified/.test(all21))
   const add = code("app/api/themes/marketplace/add/route.ts")
-  check("Add uses the newest release and records its version", /releasedFiles\(listing\.slug/.test(add) && /withInstalledRelease\(marked, released\.version\)/.test(add))
+  check("Add uses the newest release and records its version", /releasedFiles\(listing\.slug/.test(add) && /* Changed on purpose (round 27): the listing note with the press's key (lib/themes/add-attempt.ts), then the version. */ /withInstalledRelease\(keyed, released\.version\)/.test(add))
   const page = code("app/(storelib)/app/website-builder/website-builder-client.tsx")
   check("the library shows the version, Update available and the dialog", /<ThemeVersionFact/.test(page) && /<ThemeVersionDialog/.test(page) && /\/update`/.test(page) && /<UpdateAvailableLine \/>/.test(page))
   check("a full library on Update opens the full library sheet", /data\?\.code === LIBRARY_FULL_CODE\) setVersionOf\(null\)/.test(page) && /setFull\("duplicate"\)/.test(page))

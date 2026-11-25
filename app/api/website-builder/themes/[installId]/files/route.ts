@@ -13,6 +13,8 @@ import { withStorelibReviewsSection } from "@/lib/storelib-theme/compat/storelib
 import { THEME_DATA_FILE, THEME_SCHEMA_FILE } from "@/lib/storelib-theme/theme-config"
 import { settingsDataFor } from "@/lib/website-builder/theme-config-store"
 import { dbFailure } from "@/lib/website-builder/write-retry"
+import { REVALIDATED_CACHE, revalidatedJson } from "@/lib/website-builder/revalidated-json"
+import { fileCols, isRefRow, refsOn, resolveRef, resolveRefs, withRefColumn, type MaybeRef } from "@/lib/website-builder/theme-file-refs"
 
 type Params = { params: Promise<{ installId: string }> }
 
@@ -87,6 +89,23 @@ async function handleGET(req: Request, { params }: Params) {
 
   const { searchParams } = new URL(req.url)
   const path = searchParams.get("path")
+  /*
+    ROUND 27: A WEBSITE'S UNCHANGED FILES MAY BE KEPT ONCE (lib/website-builder/
+    theme-file-refs.ts). Reads ask for the reference column only when that is
+    on and the column is there; a reference's text comes from the blobs
+    (service role: the blobs are nobody's to read directly), after this
+    caller was found to own the install above. Null when a blob could not be read.
+  */
+  const refsHere = (): Promise<boolean> => refsOn()
+  const resolveHere = async <R extends { path: string; content?: string | null }>(rows: R[]): Promise<R[] | null> => {
+    if (!rows.some((r) => isRefRow(r as MaybeRef))) return rows
+    try {
+      return await resolveRefs(rows)
+    } catch (e) {
+      console.error("[theme-files] the shared files could not be read:", e instanceof Error ? e.message : e)
+      return null
+    }
+  }
 
   /**
    * THE SAVED SECTIONS, FOR THE CANVAS. The editor and the published page
@@ -113,12 +132,14 @@ async function handleGET(req: Request, { params }: Params) {
     const names = new Set([`shopify/locales/${lang}.json`, `shopify/locales/${lang.split("-")[0]}.json`])
     const { data, error: wordsError } = await supabase!
       .from("store_theme_custom_files")
-      .select("path, content, draft_content")
+      .select(withRefColumn("path, content, draft_content", await refsHere()))
       .eq("install_id", installId)
       .like("path", "shopify/locales/%")
     if (wordsError) return NextResponse.json({ error: "Could not read theme translations. Try again." }, { status: 503 })
     const files: Record<string, string> = {}
-    for (const r of (data ?? []) as { path: string; content: string | null; draft_content?: string | null }[]) {
+    const wordRows = await resolveHere((data ?? []) as unknown as { path: string; content: string | null; draft_content?: string | null }[])
+    if (!wordRows) return NextResponse.json({ error: "Could not read theme translations. Try again." }, { status: 503 })
+    for (const r of wordRows) {
       if (!names.has(r.path.toLowerCase())) continue
       const text = r.draft_content ?? r.content
       if (typeof text === "string" && text !== "") files[r.path] = text
@@ -128,10 +149,11 @@ async function handleGET(req: Request, { params }: Params) {
 
   if (searchParams.get("compat") === "1") {
     const files: Record<string, string> = {}
+    const refCols = withRefColumn("path, content, draft_content", await refsHere())
     for (let from = 0; from < 10_000; from += 1000) {
       const { data, error: readErr } = await supabase!
         .from("store_theme_custom_files")
-        .select("path, content, draft_content")
+        .select(refCols)
         .eq("install_id", installId)
         .like("path", "shopify/%")
         /*
@@ -144,16 +166,19 @@ async function handleGET(req: Request, { params }: Params) {
         .order("path")
         .range(from, from + 999)
       if (readErr) return NextResponse.json({ error: "Could not read theme files. Try again." }, { status: 503 })
-      const rows = (data ?? []) as { path: string; content: string | null; draft_content?: string | null }[]
+      const read = (data ?? []) as unknown as { path: string; content: string | null; draft_content?: string | null }[]
+      const rows = await resolveHere(read)
+      if (!rows) return NextResponse.json({ error: "Could not read theme files. Try again." }, { status: 503 })
       for (const r of rows) {
         if (/^shopify\/locales\/(?!.*\.default(\.schema)?\.json$)/.test(r.path)) continue
         const text = r.draft_content ?? r.content
         if (typeof text === "string" && text !== "" && !text.startsWith("base64:")) files[r.path] = text
       }
-      if (rows.length < 1000) break
+      if (read.length < 1000) break
     }
     /* The pass the canvas's draft asset addresses carry (lib/storelib-theme/compat/draft-version.ts): only for whoever may read these files. */
-    return NextResponse.json({ files, asset_pass: draftAssetPass(installId) })
+    /* Round 27: megabytes on a Materia theme; asked again with what the browser has, unchanged files are a 304 and nothing is sent (revalidated-json.ts). */
+    return revalidatedJson(req, { files, asset_pass: draftAssetPass(installId) })
   }
 
   if (searchParams.get("sources") === "1") {
@@ -163,26 +188,33 @@ async function handleGET(req: Request, { params }: Params) {
      * editing a section would be shown the version they have not saved over
      * yet. The storefront reads `content` and only `content`.
      */
+    /* Round 27: the theme's own settings file is asked beside the sources, not after them. */
+    const sourceCols = withRefColumn("path, content, draft_content", await refsHere())
+    const schemaAsked = Promise.resolve(supabase!.from("store_theme_custom_files").select(sourceCols).eq("install_id", installId).eq("path", THEME_SCHEMA_FILE).maybeSingle())
+    schemaAsked.catch(() => {})
     const { data, error: readErr } = await supabase!
       .from("store_theme_custom_files")
-      .select("path, content, draft_content")
+      .select(sourceCols)
       .eq("install_id", installId)
       .like("path", "%.storelib")
     const fallback = readErr
       ? await supabase!.from("store_theme_custom_files").select("path, content").eq("install_id", installId).like("path", "%.storelib")
       : null
     if (readErr && fallback?.error) return NextResponse.json({ error: "Could not read theme sources. Try again." }, { status: 503 })
-    const rows = readErr ? (fallback?.data ?? []) : (data ?? [])
-    const files = sourceMap(rows as { path: string; content: string; draft_content?: string | null }[])
+    const rows = await resolveHere((readErr ? (fallback?.data ?? []) : (data ?? [])) as unknown as { path: string; content: string; draft_content?: string | null }[])
+    if (!rows) return NextResponse.json({ error: "Could not read theme sources. Try again." }, { status: 503 })
+    const files = sourceMap(rows)
     /* The theme's own Theme settings, when it has a config/settings_schema.json: the sidebar draws its groups from it (lib/storelib-theme/theme-config.ts). */
-    const schemaRead = await supabase!.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId).eq("path", THEME_SCHEMA_FILE).maybeSingle()
+    const schemaRead = await schemaAsked
     const schemaRow = schemaRead.error
       ? await supabase!.from("store_theme_custom_files").select("path, content").eq("install_id", installId).eq("path", THEME_SCHEMA_FILE).maybeSingle()
       : schemaRead
     if (schemaRow.error) return NextResponse.json({ error: "Could not read theme settings. Try again." }, { status: 503 })
-    const settingsSchema = schemaRow.error || !schemaRow.data ? null : (sourceMap([schemaRow.data as { path: string; content: string; draft_content?: string | null }])[THEME_SCHEMA_FILE] ?? null)
+    const schemaRows = schemaRow.error || !schemaRow.data ? [] : await resolveHere([schemaRow.data as unknown as { path: string; content: string; draft_content?: string | null }])
+    if (!schemaRows) return NextResponse.json({ error: "Could not read theme settings. Try again." }, { status: 503 })
+    const settingsSchema = schemaRows.length ? (sourceMap(schemaRows)[THEME_SCHEMA_FILE] ?? null) : null
     /* An imported theme offers Storelib Reviews' section in Add section like one of its own (lib/storelib-theme/compat/storelib-reviews.ts). */
-    return NextResponse.json({ files: withStorelibReviewsSection(files), settings_schema: settingsSchema })
+    return revalidatedJson(req, { files: withStorelibReviewsSection(files), settings_schema: settingsSchema })
   }
 
   // List all custom files if no path
@@ -241,7 +273,7 @@ async function handleGET(req: Request, { params }: Params) {
   {
     const withDraft = await supabase
       .from("store_theme_custom_files")
-      .select("content, updated_at, draft_content")
+      .select(withRefColumn("path, content, updated_at, draft_content", await refsHere()))
       .eq("install_id", installId)
       .eq("path", path)
       .maybeSingle()
@@ -255,7 +287,9 @@ async function handleGET(req: Request, { params }: Params) {
       if (plain.error) return NextResponse.json({ error: "Could not read that theme file. Try again." }, { status: 503 })
       customFile = plain.data
     } else {
-      customFile = withDraft.data
+      const one = withDraft.data ? await resolveHere([withDraft.data as unknown as { path: string; content: string; updated_at?: string | null; draft_content?: string | null }]) : []
+      if (!one) return NextResponse.json({ error: "Could not read that theme file. Try again." }, { status: 503 })
+      customFile = one[0] ?? null
     }
   }
 
@@ -408,16 +442,17 @@ export async function PATCH(req: Request, { params }: Params) {
    */
   const withDraft = await supabase
     .from("store_theme_custom_files")
-    .select("content, draft_content")
+    .select(await fileCols("path, content, draft_content"))
     .eq("install_id", installId)
     .eq("path", from)
     .maybeSingle()
   const hasDraftColumn = !withDraft.error
-  const existing = (hasDraftColumn
+  /* Round 27: a reference's text goes to the new name (lib/website-builder/theme-file-refs.ts). */
+  const existing = (await resolveRef((hasDraftColumn
     ? withDraft.data
-    : (await supabase.from("store_theme_custom_files").select("content").eq("install_id", installId).eq("path", from).maybeSingle()).data) as
-    | { content: string; draft_content?: string | null }
-    | null
+    : (await supabase.from("store_theme_custom_files").select("path, content").eq("install_id", installId).eq("path", from).maybeSingle()).data) as unknown as
+    | { path: string; content: string; draft_content?: string | null }
+    | null))
   if (!existing) return NextResponse.json({ error: `${shownPath(from)} is not a saved file` }, { status: 404 })
   const source = editorContent({ content: existing.content, draft_content: existing.draft_content ?? null })
 
@@ -469,6 +504,7 @@ export async function PATCH(req: Request, { params }: Params) {
 export const GET = timed("builder", "/api/website-builder/themes/:id/files", async (req: Request, params: Params) => {
   const res = await handleGET(req, params)
   /* A push just wrote these. A cached copy is the editor showing the old theme until a hard refresh. */
-  res.headers.set("Cache-Control", "no-store")
+  /* Round 27: the two large reads may be kept by the browser only as "ask me first" (no-cache with their ETag, ./revalidated-json.ts), so it is never shown without the server saying it is still the theme. */
+  if (res.headers.get("Cache-Control") !== REVALIDATED_CACHE) res.headers.set("Cache-Control", "no-store")
   return res
 })

@@ -45,6 +45,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { keyedAs } from "./last-good"
 import { blobGroups, buildManifest, filesOf, readManifest, releaseList, RELEASES_KEPT, rollbackFailure, sha256Hex, type ReleaseListItem, type ReleaseManifest, type ReleasePage, type RollbackFailure } from "./site-releases"
 import { logEvent } from "@/lib/net/log"
+import { refsOn, resolveRefs, withRefColumn } from "./theme-file-refs"
 
 type DbError = { code?: string; message?: string } | null
 type Result<T = unknown> = { data: T; error: DbError }
@@ -256,10 +257,12 @@ export async function liveRelease(creatorId: string, installId: string | null, t
 async function liveFiles(db: Db, installId: string): Promise<Record<string, string>> {
   const out: Record<string, string> = {}
   const page = 1000
+  /* Round 27: a website's unchanged files may be references to the blobs (./theme-file-refs.ts), resolved before they are hashed. */
+  const cols = withRefColumn("path, content", await refsOn())
   for (let from = 0; from < 20_000; from += page) {
-    const r: Result = await db.from("store_theme_custom_files").select("path, content").eq("install_id", installId).order("path").range(from, from + page - 1)
+    const r: Result = await db.from("store_theme_custom_files").select(cols).eq("install_id", installId).order("path").range(from, from + page - 1)
     if (r.error) throw new Error(`theme files: ${r.error.message ?? r.error.code ?? "the read failed"}`)
-    const rows = (r.data ?? []) as { path: string; content: string | null }[]
+    const rows = await resolveRefs((r.data ?? []) as { path: string; content: string | null; blob_sha256?: string | null }[])
     for (const row of rows) if (typeof row.content === "string" && row.content !== "") out[row.path] = row.content
     if (rows.length < page) break
   }

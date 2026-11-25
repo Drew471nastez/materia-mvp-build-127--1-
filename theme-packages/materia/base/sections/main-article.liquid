@@ -75,6 +75,18 @@
   endif
   assign ma_blog_url = blog.url | default: routes.root_url | default: '/'
   assign ma_back_url = section_st.empty_button_url | default: ma_blog_url
+
+  comment
+    Post style Editorial (round 61): the post's category as an outlined
+    pill, a plain "Post by <author> . <date>" line, a quote as a soft box,
+    and the Breadcrumbs, Tags and share, Related posts and Comment form
+    blocks laid out to match. Classic, the default, is the post page every
+    install drew before.
+  endcomment
+  assign ma_v2 = false
+  if section_st.article_style == 'editorial'
+    assign ma_v2 = true
+  endif
 -%}
 {%- for block in section.blocks -%}
   {%- if block.settings.enable_custom_fonts -%}<style>{{ block.settings.font | font_face: font_display: 'swap' }}</style>{%- endif -%}
@@ -147,7 +159,7 @@
 
 <div
   id="singleBlogPost"
-  class="section{% if section_st.padding_top < 30 %} pt-min{% endif %}{% if section_st.padding_bottom < 30 %} pb-min{% endif %} sec__article color-{{ color_scheme }} gradient"
+  class="section{% if section_st.padding_top < 30 %} pt-min{% endif %}{% if section_st.padding_bottom < 30 %} pb-min{% endif %} sec__article color-{{ color_scheme }} gradient{% if ma_v2 %} ma-v2{% endif %}"
   style="{{ style | strip | strip_newlines }}"
   data-lcp="main-article"
   data-lcp-id="{{ section.id }}"
@@ -205,12 +217,17 @@
               if ma_category == blank
                 assign ma_category = blog.title
               endif
+              assign ma_category_url = blog.url
+              if ma_v2 and article.storelib.category.title != blank
+                assign ma_category = article.storelib.category.title
+                assign ma_category_url = article.storelib.category.url | default: blog.url
+              endif
             -%}
             {%- if ma_category != blank or ma_has_article == false -%}
             <div class="lh-normal flex flex-wrap gap-10 justify-content-center mt-30 container-min" data-lcp-block="{{ block.id }}" data-lcp-block-type="category"{% if request.design_mode %} data-lcp-block-settings="{{ block.settings | json | escape }}"{% endif %} {{ block.shopify_attributes }} style="--ma-pill-bg: {% if block_st.enable_custom_style %}{% render 'scheme-color', color: block_st.category_background_color, fallback: 'rgba(var(--color-text-rgb), 0.06)' %}{% else %}rgba(var(--color-text-rgb), 0.06){% endif %}; --ma-pill-radius: {{ block_st.category_border_radius }}px;">
               {% if ma_category != blank %}
                 <a
-                  href="{{ blog.url }}"
+                  href="{{ ma_category_url }}"
                   class="article-category-pill inline-flex fs-13 btn-rounded py-8 px-20 lh-normal no-underline heading-color"
                 >
                   <span>{{ ma_category | escape }}</span>
@@ -228,7 +245,15 @@
               {{ block.shopify_attributes }}
               style="--ma-meta-bg: {% if block_st.enable_custom_style %}{% render 'scheme-color', color: block_st.blog_meta_background_color, fallback: 'rgba(var(--color-text-rgb), 0.06)' %}{% else %}rgba(var(--color-text-rgb), 0.06){% endif %}; --ma-meta-radius: {{ block_st.blog_meta_border_radius }}px; --ma-date-bg: {% if block_st.enable_custom_style %}{% render 'scheme-color', color: block_st.date_pill_background_color, fallback: 'rgba(var(--color-text-rgb), 0.1)' %}{% else %}rgba(var(--color-text-rgb), 0.1){% endif %};"
             >
-              {%- if ma_has_article -%}
+              {%- if ma_has_article and ma_v2 -%}
+                {%- if article.author != blank -%}
+                  <span class="ma-meta__item">{{ 'blog_post.post_by' | t }} <span class="ma-meta__author">{{ article.author | escape }}</span></span>
+                {%- endif -%}
+                <time class="ma-meta__item" datetime="{{ article.published_at | date: '%Y-%m-%d' }}" itemprop="datePublished">{{ article.published_at | date: '%b %-d, %Y' }}</time>
+                {%- if blog.comments_enabled -%}
+                  <span class="ma-meta__item">{{ 'blogs.article.comments' | t: count: article.comments_count }}</span>
+                {%- endif -%}
+              {%- elsif ma_has_article -%}
                 <div class="article-card-author inline-flex align-center">
                   {{- 'blog_post.post_by' | t }}
                   <span class="primary-color heading_weight ms-5">{{ article.author }}</span>
@@ -339,12 +364,24 @@
               assign ma_next = blog.next_article
               assign ma_prev_url = ma_prev.url | default: ma_prev
               assign ma_next_url = ma_next.url | default: ma_next
+              assign ma_prev_title = ma_prev.title
+              assign ma_next_title = ma_next.title
+              if ma_prev_title == blank or ma_next_title == blank
+                for ma_a in blog.articles
+                  if ma_prev_title == blank and ma_prev_url != blank and ma_a.url == ma_prev_url
+                    assign ma_prev_title = ma_a.title
+                  endif
+                  if ma_next_title == blank and ma_next_url != blank and ma_a.url == ma_next_url
+                    assign ma_next_title = ma_a.title
+                  endif
+                endfor
+              endif
             -%}
             <nav class="single__post-content-inner container-min ma-pn" aria-label="{{ 'blogs.article.blog' | t }}" {{ block.shopify_attributes }}>
               {%- if ma_prev_url != blank -%}
                 <a class="ma-pn__link ma-pn__link--prev" href="{{ ma_prev_url }}" rel="prev">
                   <span class="ma-pn__dir"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H5"/><path d="m11 6-6 6 6 6"/></svg>{{ 'blogs.article.previous_post' | t }}</span>
-                  {%- if ma_prev.title != blank -%}<span class="ma-pn__title">{{ ma_prev.title | escape }}</span>{%- endif -%}
+                  {%- if ma_prev_title != blank -%}<span class="ma-pn__title">{{ ma_prev_title | escape }}</span>{%- endif -%}
                 </a>
               {%- else -%}<span></span>{%- endif -%}
               {%- if block_st.show_back -%}
@@ -353,10 +390,131 @@
               {%- if ma_next_url != blank -%}
                 <a class="ma-pn__link ma-pn__link--next" href="{{ ma_next_url }}" rel="next">
                   <span class="ma-pn__dir">{{ 'blogs.article.next_post' | t }}<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h15"/><path d="m13 6 6 6-6 6"/></svg></span>
-                  {%- if ma_next.title != blank -%}<span class="ma-pn__title">{{ ma_next.title | escape }}</span>{%- endif -%}
+                  {%- if ma_next_title != blank -%}<span class="ma-pn__title">{{ ma_next_title | escape }}</span>{%- endif -%}
                 </a>
               {%- else -%}<span></span>{%- endif -%}
             </nav>
+
+          {%- when 'breadcrumb' -%}
+            <nav class="ma-bc" aria-label="{{ 'general.breadcrumb.home' | t | escape }}" {{ block.shopify_attributes }}>
+              <ol class="ma-bc__trail">
+                <li><a href="{{ routes.root_url }}">{{ 'general.breadcrumb.home' | t }}</a></li>
+                {%- if blog.url != blank -%}<li><a href="{{ blog.url }}">{{ blog.title | escape }}</a></li>{%- endif -%}
+                {%- if ma_has_article -%}<li><span aria-current="page">{{ article.title | escape }}</span></li>{%- endif -%}
+              </ol>
+            </nav>
+
+          {%- when 'tags_share' -%}
+            {%- assign ma_tags_on = false -%}
+            {%- if block_st.show_tags and article.tags.size > 0 -%}{%- assign ma_tags_on = true -%}{%- endif -%}
+            {%- if ma_tags_on or block_st.show_share -%}
+              <div class="container-min content-desktop-width ma-ts" {{ block.shopify_attributes }}>
+                {%- if ma_tags_on -%}
+                  <div class="ma-ts__tags">
+                    <span class="ma-ts__label">{{ block_st.tags_label | escape }}</span>
+                    <ul class="ma-ts__list" role="list">
+                      {%- for tag in article.tags -%}
+                        <li><a class="ma-tag" href="{{ blog.url }}/tagged/{{ tag | handle }}">{{ tag | escape }}</a></li>
+                      {%- endfor -%}
+                    </ul>
+                  </div>
+                {%- endif -%}
+                {%- if block_st.show_share and ma_has_article -%}
+                  <div class="ma-ts__share">
+                    {%- render 'materia-product-sharing', url: article.url, title: article.title, image: article.image, section: section -%}
+                  </div>
+                {%- endif -%}
+              </div>
+            {%- endif -%}
+
+          {%- when 'related' -%}
+            {%- liquid
+              assign ma_limit = block_st.count | default: 6
+              assign ma_rel = '|'
+              assign ma_rel_n = 0
+              assign ma_cat_h = article.storelib.category.handle
+              assign ma_tag1 = article.tags | first
+              for ma_a in blog.articles
+                if ma_a.id != article.id and ma_rel_n < ma_limit
+                  assign ma_same = false
+                  if ma_cat_h != blank and ma_a.storelib.category.handle == ma_cat_h
+                    assign ma_same = true
+                  elsif ma_tag1 != blank and ma_a.tags contains ma_tag1
+                    assign ma_same = true
+                  endif
+                  if ma_same
+                    assign ma_rel = ma_rel | append: ma_a.id | append: '|'
+                    assign ma_rel_n = ma_rel_n | plus: 1
+                  endif
+                endif
+              endfor
+              for ma_a in blog.articles
+                assign ma_key = '|' | append: ma_a.id | append: '|'
+                if ma_a.id != article.id and ma_rel_n < ma_limit
+                  unless ma_rel contains ma_key
+                    assign ma_rel = ma_rel | append: ma_a.id | append: '|'
+                    assign ma_rel_n = ma_rel_n | plus: 1
+                  endunless
+                endif
+              endfor
+            -%}
+            {%- if ma_rel_n > 0 -%}
+              <div class="container-min content-desktop-width ma-rel" {{ block.shopify_attributes }} data-ma-rel>
+                {%- if block_st.heading != blank -%}<h2 class="ma-rel__heading h3">{{ block_st.heading | escape }}</h2>{%- endif -%}
+                <div class="ma-rel__track" data-ma-rel-track tabindex="0" aria-label="{{ block_st.heading | default: 'Related posts' | escape }}">
+                  {%- for ma_a in blog.articles -%}
+                    {%- assign ma_key = '|' | append: ma_a.id | append: '|' -%}
+                    {%- if ma_rel contains ma_key -%}
+                      <article class="ma-rel__card">
+                        <a class="ma-rel__media" href="{{ ma_a.url }}" tabindex="-1" aria-hidden="true">
+                          {%- if ma_a.image -%}
+                            {{ ma_a.image | image_url: width: 700 | image_tag: loading: 'lazy', widths: '350, 500, 700', sizes: '(min-width: 990px) 280px, 80vw', alt: '' }}
+                          {%- else -%}
+                            {%- render 'placeholder-image', type: 'lifestyle', index: forloop.index, class: 'ma-rel__ph' -%}
+                          {%- endif -%}
+                        </a>
+                        <h3 class="ma-rel__title"><a href="{{ ma_a.url }}">{{ ma_a.title | escape }}</a></h3>
+                        {%- if block_st.show_excerpt -%}
+                          {%- assign ma_ex = ma_a.excerpt | default: ma_a.content | strip_html | strip | truncatewords: 24 -%}
+                          {%- if ma_ex != blank -%}<p class="ma-rel__excerpt">{{ ma_ex }}</p>{%- endif -%}
+                        {%- endif -%}
+                        <p class="ma-rel__byline">
+                          {%- if block_st.show_author and ma_a.author != blank -%}<span>{{ 'blog_post.post_by' | t }} <span class="ma-meta__author">{{ ma_a.author | escape }}</span></span>{%- endif -%}
+                          {%- if block_st.show_date -%}<time datetime="{{ ma_a.published_at | date: '%Y-%m-%d' }}">{{ ma_a.published_at | date: '%b %-d, %Y' }}</time>{%- endif -%}
+                        </p>
+                      </article>
+                    {%- endif -%}
+                  {%- endfor -%}
+                </div>
+                {%- if ma_rel_n > 1 -%}<div class="ma-rel__dots" data-ma-rel-dots hidden></div>{%- endif -%}
+              </div>
+            {%- endif -%}
+
+          {%- when 'comments' -%}
+            {%- if blog.comments_enabled and ma_has_article -%}
+              <div class="container-min content-desktop-width ma-cm" {{ block.shopify_attributes }} id="comments">
+                {%- if block_st.heading != blank -%}<h2 class="ma-cm__heading h3">{{ block_st.heading | escape }}</h2>{%- endif -%}
+                {%- if block_st.text != blank -%}<p class="ma-cm__text">{{ block_st.text | escape }}</p>{%- endif -%}
+                {%- form 'new_comment', article, class: 'ma-cm__form' -%}
+                  {%- if form.posted_successfully? -%}
+                    <p class="ma-cm__done" role="status">{% if blog.moderated %}{{ 'blogs.article.success_moderated' | t }}{% else %}{{ 'blogs.article.success' | t }}{% endif %}</p>
+                  {%- endif -%}
+                  {%- if form.errors -%}<p class="ma-cm__error" role="alert">{{ form.errors | default_errors }}</p>{%- endif -%}
+                  <div class="ma-cm__row">
+                    <label class="visually-hidden" for="ma-cm-name-{{ section.id }}">{{ 'blogs.article.name' | t }}</label>
+                    <input class="ma-cm__input" id="ma-cm-name-{{ section.id }}" type="text" name="comment[author]" value="{{ form.author }}" autocomplete="name" placeholder="{{ 'blogs.article.name' | t }}" required>
+                    <label class="visually-hidden" for="ma-cm-email-{{ section.id }}">{{ 'blogs.article.email' | t }}</label>
+                    <input class="ma-cm__input" id="ma-cm-email-{{ section.id }}" type="email" name="comment[email]" value="{{ form.email }}" autocomplete="email" spellcheck="false" placeholder="{{ 'blogs.article.email' | t }}" required>
+                  </div>
+                  <label class="visually-hidden" for="ma-cm-body-{{ section.id }}">{{ 'blogs.article.message' | t }}</label>
+                  <textarea class="ma-cm__input ma-cm__area" id="ma-cm-body-{{ section.id }}" name="comment[body]" rows="5" placeholder="{{ 'blogs.article.message' | t }}" required>{{ form.body }}</textarea>
+                  {%- if blog.moderated -%}<p class="ma-cm__note">{{ 'blogs.article.moderated' | t }}</p>{%- endif -%}
+                  <div class="ma-cm__actions"><button class="btn btn-primary ma-cm__submit" type="submit" data-theme-button="primary" data-sl-button>{{ block_st.button_label | default: 'Post comment' | escape }}</button></div>
+                {%- endform -%}
+              </div>
+            {%- elsif request.design_mode -%}
+              <p class="container-min ma-builder-note ma-cm__off" {{ block.shopify_attributes }}>Comment form: hidden, because this blog does not take comments.</p>
+            {%- endif -%}
         {%- endcase -%}
       {%- endfor -%}
     </article>
@@ -418,7 +576,133 @@
   }
   @media (max-width: 600px) { #shopify-section-{{ section.id }} .ma-pn__title { font-size: 14px; } }
   @media (prefers-reduced-motion: reduce) { #shopify-section-{{ section.id }} :is(.ma-pn__dir svg, .ma-pn__title, .ma-pn__back) { transition: none; } }
+
+  /* Breadcrumbs, Tags and share, Related posts, Comment form (round 61), and
+     the Editorial post style. Colours from the colour scheme, radius and
+     buttons from Theme settings. */
+  #shopify-section-{{ section.id }} .ma-bc { margin: 0 0 20px; font-size: 13px; }
+  #shopify-section-{{ section.id }} .ma-bc__trail { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 0; }
+  #shopify-section-{{ section.id }} .ma-bc__trail li { display: inline-flex; align-items: center; min-width: 0; }
+  #shopify-section-{{ section.id }} .ma-bc__trail li + li::before { content: ""; width: 3px; height: 3px; margin-inline: 10px; border-radius: 50%; background: currentColor; opacity: .5; }
+  #shopify-section-{{ section.id }} .ma-bc a { color: color-mix(in srgb, var(--color-text) 75%, transparent); text-decoration: none; }
+  #shopify-section-{{ section.id }} .ma-bc a:hover { color: var(--color-heading); }
+  #shopify-section-{{ section.id }} .ma-bc [aria-current] { color: var(--color-heading); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60vw; }
+
+  #shopify-section-{{ section.id }} .ma-ts { margin-top: 44px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 32px; }
+  #shopify-section-{{ section.id }} .ma-ts__tags { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  #shopify-section-{{ section.id }} .ma-ts__label { font-size: 14px; font-weight: 600; color: var(--color-heading); }
+  #shopify-section-{{ section.id }} .ma-ts__list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+  #shopify-section-{{ section.id }} .ma-tag { display: inline-flex; align-items: center; min-height: 36px; padding: 0 16px; border-radius: var(--btn-radius, 999px); background: color-mix(in srgb, var(--color-text) 6%, var(--color-background)); color: var(--color-heading); font-size: 13px; text-decoration: none; transition: background-color .25s ease, color .25s ease; }
+  #shopify-section-{{ section.id }} .ma-tag::first-letter { text-transform: uppercase; }
+  @media (hover: hover) { #shopify-section-{{ section.id }} .ma-tag:hover { background: var(--color-heading); color: var(--color-background); } }
+  #shopify-section-{{ section.id }} .ma-ts__share .mt-share { margin: 0; }
+
+  #shopify-section-{{ section.id }} .ma-rel { margin-top: 56px; padding-top: 48px; border-top: 1px solid var(--color-border, color-mix(in srgb, var(--color-text) 12%, transparent)); }
+  #shopify-section-{{ section.id }} .ma-rel__heading { margin: 0 0 28px; text-align: center; color: var(--color-heading); }
+  #shopify-section-{{ section.id }} .ma-rel__track { display: grid; grid-auto-flow: column; grid-auto-columns: calc((100% - 2 * 24px) / 3); gap: 24px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; outline: none; }
+  #shopify-section-{{ section.id }} .ma-rel__track::-webkit-scrollbar { display: none; }
+  #shopify-section-{{ section.id }} .ma-rel__card { scroll-snap-align: start; position: relative; display: flex; flex-direction: column; min-width: 0; }
+  #shopify-section-{{ section.id }} .ma-rel__media { display: block; aspect-ratio: 16 / 10; overflow: hidden; border-radius: var(--card-radius, 8px); background: color-mix(in srgb, var(--color-text) 6%, var(--color-background)); margin-bottom: 16px; }
+  #shopify-section-{{ section.id }} .ma-rel__media :is(img, svg) { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .7s cubic-bezier(.2, .7, .2, 1); }
+  #shopify-section-{{ section.id }} .ma-rel__title { margin: 0 0 8px; font-size: 16px; line-height: 1.35; }
+  #shopify-section-{{ section.id }} .ma-rel__title a { color: var(--color-heading); text-decoration: none; }
+  #shopify-section-{{ section.id }} .ma-rel__title a::after { content: ""; position: absolute; inset: 0; }
+  #shopify-section-{{ section.id }} .ma-rel__excerpt { margin: 0 0 10px; font-size: 14px; line-height: 1.65; color: color-mix(in srgb, var(--color-text) 85%, transparent); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  #shopify-section-{{ section.id }} .ma-rel__byline { margin: auto 0 0; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; color: color-mix(in srgb, var(--color-text) 80%, transparent); }
+  #shopify-section-{{ section.id }} .ma-rel__byline:empty { display: none; }
+  @media (hover: hover) { #shopify-section-{{ section.id }} .ma-rel__card:hover .ma-rel__media :is(img, svg) { transform: scale(1.04); } }
+  #shopify-section-{{ section.id }} .ma-rel__dots { display: flex; justify-content: center; gap: 4px; margin-top: 24px; }
+  #shopify-section-{{ section.id }} .ma-rel__dots[hidden] { display: none; }
+  #shopify-section-{{ section.id }} .ma-rel__dot { width: 24px; height: 24px; padding: 0; border: 0; background: none; cursor: pointer; display: grid; place-items: center; border-radius: 50%; }
+  #shopify-section-{{ section.id }} .ma-rel__dot::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--color-heading); opacity: .3; transition: opacity .25s ease, box-shadow .25s ease; }
+  #shopify-section-{{ section.id }} .ma-rel__dot[aria-current="true"]::before { opacity: 1; box-shadow: 0 0 0 5px var(--color-background), 0 0 0 6px var(--color-heading); }
+  @media (max-width: 989px) { #shopify-section-{{ section.id }} .ma-rel__track { grid-auto-columns: calc((100% - 24px) / 2); } }
+  @media (max-width: 600px) { #shopify-section-{{ section.id }} .ma-rel__track { grid-auto-columns: 82%; gap: 16px; } }
+
+  #shopify-section-{{ section.id }} .ma-cm { margin-top: 64px; text-align: center; }
+  #shopify-section-{{ section.id }} .ma-cm__heading { margin: 0 0 10px; color: var(--color-heading); }
+  #shopify-section-{{ section.id }} .ma-cm__text { margin: 0 0 28px; font-size: 14px; }
+  #shopify-section-{{ section.id }} .ma-cm__form { display: flex; flex-direction: column; gap: 16px; text-align: start; }
+  #shopify-section-{{ section.id }} .ma-cm__row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  #shopify-section-{{ section.id }} .ma-cm__input { width: 100%; min-height: 48px; padding: 12px 18px; border: 1px solid var(--color-border, color-mix(in srgb, var(--color-text) 16%, transparent)); border-radius: var(--input-border-radius, 8px); background: var(--color-background); color: var(--color-heading); font: inherit; font-size: 14px; }
+  #shopify-section-{{ section.id }} .ma-cm__area { min-height: 140px; resize: vertical; }
+  #shopify-section-{{ section.id }} .ma-cm__input:focus-visible { outline: none; border-color: var(--color-heading); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-heading) 14%, transparent); }
+  #shopify-section-{{ section.id }} .ma-cm__note { margin: 0; font-size: 13px; }
+  #shopify-section-{{ section.id }} .ma-cm__actions { display: flex; justify-content: center; margin-top: 8px; }
+  #shopify-section-{{ section.id }} .ma-cm__submit { min-width: 200px; min-height: 48px; }
+  @media (max-width: 600px) { #shopify-section-{{ section.id }} .ma-cm__row { grid-template-columns: 1fr; } }
+
+  #shopify-section-{{ section.id }} .ma-v2 .article-category-pill { background: transparent !important; border: 1px solid var(--color-border, color-mix(in srgb, var(--color-text) 16%, transparent)); border-radius: var(--pill-radius, 999px) !important; padding: 7px 14px; font-size: 12px; }
+  #shopify-section-{{ section.id }} .ma-v2 .lh-normal.flex.flex-wrap.gap-10.justify-content-center.mt-30.container-min { margin-top: 0; }
+  #shopify-section-{{ section.id }} .ma-v2 .article-template__title { margin-block: 16px 12px; text-wrap: balance; }
+  #shopify-section-{{ section.id }} .ma-v2 .blog-meta-pill { background: transparent !important; padding: 0 !important; margin-top: 0; gap: 0; font-size: 14px; color: color-mix(in srgb, var(--color-text) 85%, transparent); }
+  #shopify-section-{{ section.id }} .ma-v2 .ma-meta__item + .ma-meta__item::before { content: ""; display: inline-block; vertical-align: middle; width: 3px; height: 3px; margin-inline: 10px; border-radius: 50%; background: currentColor; opacity: .6; }
+  #shopify-section-{{ section.id }} .ma-meta__author { color: var(--color-primary, var(--color-heading)); font-weight: 500; }
+  #shopify-section-{{ section.id }} .ma-v2 [data-ma-hero] { border-radius: var(--ma-hero-radius, var(--card-radius, 8px)) !important; }
+  #shopify-section-{{ section.id }} .ma-v2 .article-template__content { margin-top: 36px; font-size: 15px; line-height: 1.8; }
+  #shopify-section-{{ section.id }} .ma-v2 .article-template__content :is(h2, h3) { margin-top: 1.6em; }
+  #shopify-section-{{ section.id }} .ma-v2 .article-template__content img { border-radius: var(--card-radius, 8px); }
+  #shopify-section-{{ section.id }} .ma-v2 .article-template__content blockquote { max-width: 560px; margin: 40px auto; padding: 32px 36px; border: 0; border-radius: var(--card-radius, 12px); background: color-mix(in srgb, var(--color-text) 5%, var(--color-background)); text-align: center; font-family: var(--heading-font); font-weight: var(--heading-weight, 600); font-size: 18px; line-height: 1.45; color: var(--color-heading); }
+  #shopify-section-{{ section.id }} .ma-v2 .article-template__content blockquote::before { content: "\201C"; }
+  #shopify-section-{{ section.id }} .ma-v2 .article-template__content blockquote::after { content: "\201D"; }
+  #shopify-section-{{ section.id }} .ma-v2 .article-template__content blockquote :is(p, cite, footer) { margin: 0; }
+  #shopify-section-{{ section.id }} .ma-v2 .article-template__content blockquote :is(cite, footer) { display: block; margin-top: 14px; font-family: var(--body-font); font-weight: 400; font-style: normal; font-size: 13px; color: color-mix(in srgb, var(--color-text) 80%, transparent); }
+  #shopify-section-{{ section.id }} .ma-v2 .ma-pn { border-top: 0; margin-top: 32px; grid-template-columns: 1fr auto 1fr; }
+  #shopify-section-{{ section.id }} .ma-v2 .ma-pn__dir { font-size: 11px; font-weight: 600; letter-spacing: .06em; opacity: 1; color: var(--color-heading); }
+  #shopify-section-{{ section.id }} .ma-v2 .ma-pn__title { font-size: 15px; }
+  #shopify-section-{{ section.id }} .ma-v2 .ma-share { border-top: 0; padding-top: 0; }
+  #shopify-section-{{ section.id }} .ma-v2 .ma-pn + .ma-rel { border-top: 0; padding-top: 0; }
+  @media (max-width: 600px) {
+    #shopify-section-{{ section.id }} .ma-v2 .ma-pn { grid-template-columns: 1fr 1fr; }
+    #shopify-section-{{ section.id }} .ma-v2 .ma-pn__back { display: none; }
+    #shopify-section-{{ section.id }} .ma-v2 .ma-pn__link--next { grid-column: 2; }
+  }
+  @media (min-width: 992px) {
+    #shopify-section-{{ section.id }} .ma-v2 .ma-pn,
+    #shopify-section-{{ section.id }} .ma-v2 .ma-share { max-width: var(--ma-content-width); margin-inline: auto; }
+  }
+  @media (prefers-reduced-motion: reduce) { #shopify-section-{{ section.id }} :is(.ma-tag, .ma-rel__media img, .ma-rel__media svg, .ma-rel__dot::before) { transition: none !important; } }
 </style>
+{%- comment -%} Related posts: dots that follow the scroll and move it, only when there is somewhere to scroll. {%- endcomment -%}
+<script>
+  (function () {
+    var root = document.getElementById('shopify-section-{{ section.id }}');
+    if (!root) return;
+    root.querySelectorAll('[data-ma-rel]').forEach(function (rel) {
+      var track = rel.querySelector('[data-ma-rel-track]');
+      var dots = rel.querySelector('[data-ma-rel-dots]');
+      if (!track || !dots || rel.dataset.maRelOn) return;
+      rel.dataset.maRelOn = '1';
+      var cards = track.children;
+      function pages() {
+        var per = Math.max(1, Math.round(track.clientWidth / (cards[0] ? cards[0].getBoundingClientRect().width : track.clientWidth)));
+        return Math.max(1, cards.length - per + 1);
+      }
+      function draw() {
+        var n = pages();
+        dots.hidden = n < 2;
+        if (dots.children.length !== n) {
+          dots.innerHTML = '';
+          for (var i = 0; i < n; i++) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'ma-rel__dot';
+            b.setAttribute('aria-label', String(i + 1));
+            b.addEventListener('click', (function (k) { return function () { var c = cards[k]; if (c) track.scrollTo({ left: c.offsetLeft - track.offsetLeft, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); }; })(i));
+            dots.appendChild(b);
+          }
+        }
+        var step = cards[1] ? cards[1].offsetLeft - cards[0].offsetLeft : track.clientWidth;
+        var at = Math.min(n - 1, Math.round(track.scrollLeft / Math.max(1, step)));
+        for (var j = 0; j < dots.children.length; j++) dots.children[j].setAttribute('aria-current', j === at ? 'true' : 'false');
+      }
+      var raf = 0;
+      track.addEventListener('scroll', function () { cancelAnimationFrame(raf); raf = requestAnimationFrame(draw); }, { passive: true });
+      if (window.ResizeObserver) new ResizeObserver(draw).observe(track); else window.addEventListener('resize', draw);
+      draw();
+    });
+  })();
+</script>
 {% schema %}
 {
   "name": "Blog post",
@@ -464,6 +748,23 @@
       "id": "reset_spacing",
       "label": "Remove default space between sections",
       "default": true
+    },
+    {
+      "type": "select",
+      "id": "article_style",
+      "label": "Post style",
+      "default": "classic",
+      "options": [
+        {
+          "value": "classic",
+          "label": "Classic"
+        },
+        {
+          "value": "editorial",
+          "label": "Editorial"
+        }
+      ],
+      "info": "Editorial shows the category as an outlined pill, a plain author and date line and quotes in a soft box."
     },
     {
       "type": "header",
@@ -814,6 +1115,115 @@
           "id": "show_back",
           "label": "Show back to blog button",
           "default": true
+        }
+      ]
+    },
+    {
+      "type": "breadcrumb",
+      "name": "Breadcrumbs",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "Home, the blog and the post's title."
+        }
+      ]
+    },
+    {
+      "type": "tags_share",
+      "name": "Tags and share",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "checkbox",
+          "id": "show_tags",
+          "label": "Show tags",
+          "default": true
+        },
+        {
+          "type": "text",
+          "id": "tags_label",
+          "label": "Tags label",
+          "default": "Tags:"
+        },
+        {
+          "type": "checkbox",
+          "id": "show_share",
+          "label": "Show share buttons",
+          "default": true
+        }
+      ]
+    },
+    {
+      "type": "related",
+      "name": "Related posts",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "text",
+          "id": "heading",
+          "label": "Heading",
+          "default": "Related posts"
+        },
+        {
+          "type": "range",
+          "id": "count",
+          "label": "Posts",
+          "min": 2,
+          "max": 9,
+          "step": 1,
+          "default": 6
+        },
+        {
+          "type": "checkbox",
+          "id": "show_excerpt",
+          "label": "Show the start of each post",
+          "default": true
+        },
+        {
+          "type": "checkbox",
+          "id": "show_author",
+          "label": "Show author",
+          "default": true
+        },
+        {
+          "type": "checkbox",
+          "id": "show_date",
+          "label": "Show date",
+          "default": true
+        },
+        {
+          "type": "paragraph",
+          "content": "Posts in the same category or with the same first tag come first, then the newest."
+        }
+      ]
+    },
+    {
+      "type": "comments",
+      "name": "Comment form",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "Shows only on a blog that takes comments. Storelib blogs do not take comments yet, so visitors see nothing here."
+        },
+        {
+          "type": "text",
+          "id": "heading",
+          "label": "Heading",
+          "default": "Leave a comment"
+        },
+        {
+          "type": "text",
+          "id": "text",
+          "label": "Text",
+          "default": "Your email address will not be published."
+        },
+        {
+          "type": "text",
+          "id": "button_label",
+          "label": "Button label",
+          "default": "Post comment"
         }
       ]
     }

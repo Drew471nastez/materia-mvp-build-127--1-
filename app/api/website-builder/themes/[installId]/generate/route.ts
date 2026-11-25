@@ -16,6 +16,7 @@ import { sourceMap } from "@/lib/website-builder/theme-file-drafts"
 import { JOBS_TABLE } from "@/lib/website-builder/ai-site/server"
 import { inlineBuildGate } from "@/lib/website-builder/ai-site/start"
 import { AI_LIMIT_UNREADABLE } from "@/lib/sites/rate-limit"
+import { fileCols, resolveRefs } from "@/lib/website-builder/theme-file-refs"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -132,8 +133,8 @@ export async function POST(req: Request, { params }: Params) {
 async function withStoredCode(job: Job, installId: string): Promise<Job> {
   const coded = job.state.coded ?? []
   if (!coded.length) return job
-  const { data } = await createAdminClient().from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId).in("path", coded.map((c) => c.path))
-  const schemas = schemasFromSources(sourceMap((data ?? []) as { path: string; content: string; draft_content?: string | null }[]))
+  const { data } = await createAdminClient().from("store_theme_custom_files").select(await fileCols("path, content, draft_content")).eq("install_id", installId).in("path", coded.map((c) => c.path))
+  const schemas = schemasFromSources(sourceMap(await resolveRefs((data ?? []) as unknown as { path: string; content: string; draft_content?: string | null }[])))
   const kept = coded.filter((c) => schemas[c.type]).map((c) => ({ ...c, schema: schemas[c.type] }))
   return { ...job, state: { ...job.state, coded: kept, files: kept.map((c) => c.path) } }
 }

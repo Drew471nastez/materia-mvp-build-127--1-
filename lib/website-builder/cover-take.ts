@@ -39,6 +39,8 @@ import { getMainDomain } from "@/lib/url-helpers"
 import { mintCoverPass } from "./cover-pass"
 import { isCompatInstall } from "./compat-site"
 import { takeCoverShots } from "./cover-shot"
+import { CoverUnavailable, browserKnownMissing, isBrowserMissing, noteBrowserMissing, templateCoverFallback } from "./template-cover"
+import { MAX_BYTES as SNAPSHOT_MAX_BYTES } from "./snapshot"
 import {
   SNAPSHOT_BUCKET,
   mobilePartner,
@@ -151,7 +153,15 @@ export async function takeCover(owner: CoverOwner, origin: string, opts: { force
   /* An imported Shopify theme is drawn by its own engine (lib/website-builder/compat-site.ts). */
   const compat = await isCompatInstall(owner.installId)
   const page = compat ? `${origin}/api/site-theme/cover/${encodeURIComponent(pass)}` : `${origin}/cover-render/${encodeURIComponent(pass)}`
-  const shots = await takeCoverShots(page)
+  /* Round 27: a server that found no browser does not try to start one again for a while (./template-cover.ts). */
+  if (browserKnownMissing()) throw new CoverUnavailable()
+  let shots: Awaited<ReturnType<typeof takeCoverShots>>
+  try {
+    shots = await takeCoverShots(page)
+  } catch (e) {
+    if (isBrowserMissing(e)) noteBrowserMissing()
+    throw e
+  }
   const result = await storeCover(owner, shots.desktop, shots.mobile)
   return { ...result, ms: shots.ms }
 }
@@ -277,7 +287,23 @@ export async function coverAfterCreate(owner: CoverOwner, origin: string, label:
     await takeCover(owner, origin, { force: true })
   } catch (e) {
     console.error(`[cover] ${label}: could not take the cover:`, e instanceof Error ? e.message : e)
+    /* Round 27: no photograph, and a website from one of Storelib's templates with no picture yet: the template's own. */
+    if (isBrowserMissing(e)) await templateCoverOf(owner, origin)
   }
+}
+
+/** The template's picture as the website's cover when it was added from one and has none yet (./template-cover.ts). Null otherwise. */
+export async function templateCoverOf(owner: CoverOwner, origin: string): Promise<CoverResult | null> {
+  return templateCoverFallback<CoverResult>({
+    settings: async () => {
+      const { data } = await createAdminClient().from("store_theme_settings").select("settings").eq("install_id", owner.installId).maybeSingle()
+      return (data as { settings?: unknown } | null)?.settings ?? null
+    },
+    newest: () => newestCover(owner),
+    store: (desktop, phone) => storeCover(owner, desktop, phone),
+    origin,
+    maxBytes: SNAPSHOT_MAX_BYTES,
+  })
 }
 
 /** A picture from a package: WebP by its magic bytes and no larger than a cover can be. */

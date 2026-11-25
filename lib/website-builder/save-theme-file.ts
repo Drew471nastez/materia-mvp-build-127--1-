@@ -37,6 +37,7 @@ import { THEME_DATA_FILE, THEME_SCHEMA_FILE, readThemeSettingsSchema } from "@/l
 import { fillSchemaDefaults, saveSettingsData } from "./theme-config-store"
 import { DESIGN_MD_PATH, applyDesignMdToSettings } from "./design-md-sync"
 import { parseDesignMd } from "@/lib/storelib-ai/direction/design-md"
+import { fileCols, resolveRef, resolveRefs } from "@/lib/website-builder/theme-file-refs"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -45,8 +46,8 @@ const textOf = (r: TextRow | null | undefined) => (r ? (r.draft_content ?? r.con
 
 /** The file as the builder has it now (its draft first), or null. */
 async function currentText(db: Db, installId: string, path: string): Promise<string | null> {
-  const r = await db.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId).eq("path", path).maybeSingle()
-  return r.error ? null : textOf(r.data as TextRow | null)
+  const r = await db.from("store_theme_custom_files").select(await fileCols("path, content, draft_content")).eq("install_id", installId).eq("path", path).maybeSingle()
+  return r.error ? null : textOf(await resolveRef(r.data as TextRow | null))
 }
 
 /**
@@ -55,9 +56,9 @@ async function currentText(db: Db, installId: string, path: string): Promise<str
  * when one of its schemas is saved.
  */
 async function compatWords(db: Db, installId: string, saving?: { path: string; text: string }): Promise<SchemaWords> {
-  const r = await db.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId).like("path", "shopify/locales/%default%")
+  const r = await db.from("store_theme_custom_files").select(await fileCols("path, content, draft_content")).eq("install_id", installId).like("path", "shopify/locales/%default%")
   const files: Record<string, string> = {}
-  for (const row of ((r.error ? [] : r.data) ?? []) as TextRow[]) {
+  for (const row of await resolveRefs(((r.error ? [] : r.data) ?? []) as TextRow[])) {
     const text = textOf(row)
     if (typeof text === "string") files[row.path] = text
   }
@@ -149,12 +150,12 @@ export type SaveResult =
 export async function sectionNamesInUse(db: Db, installId: string, except: string): Promise<Map<string, string>> {
   const withDraft = await db
     .from("store_theme_custom_files")
-    .select("path, content, draft_content")
+    .select(await fileCols("path, content, draft_content"))
     .eq("install_id", installId)
     .like("path", "%.storelib")
-  const rows = withDraft.error
+  const rows = await resolveRefs(withDraft.error
     ? ((await db.from("store_theme_custom_files").select("path, content").eq("install_id", installId).like("path", "%.storelib")).data ?? [])
-    : (withDraft.data ?? [])
+    : (withDraft.data ?? []))
   const sources: Record<string, string> = {}
   for (const [p, c] of Object.entries(DEFAULT_THEME_SOURCES)) {
     if (/^sections\/[a-z0-9_-]+\.storelib$/.test(p)) sources[p] = c
@@ -308,13 +309,15 @@ export async function saveThemeFile(
 
   const withDraftRead = await db
     .from("store_theme_custom_files")
-    .select("path, content, draft_content, updated_at")
+    .select(await fileCols("path, content, draft_content, updated_at"))
     .eq("install_id", installId)
     .eq("path", path)
     .maybeSingle()
-  const { data: current } = withDraftRead.error
+  const { data: currentRead } = withDraftRead.error
     ? await db.from("store_theme_custom_files").select("path, content, updated_at").eq("install_id", installId).eq("path", path).maybeSingle()
     : withDraftRead
+  /* Round 27: a reference's text, so a save compares and records what the file said (theme-file-refs.ts). */
+  const current = await resolveRef(currentRead as { path: string; content: string; draft_content?: string | null; updated_at?: string | null } | null)
   /* The text a writer would have read: the draft where there is one (theme-file-drafts.ts editorContent). */
   const draftText: string | null = current ? ((current as { draft_content?: string | null }).draft_content ?? current.content ?? "") : null
 

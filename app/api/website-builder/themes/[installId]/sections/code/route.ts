@@ -39,6 +39,7 @@ import { LIMITS as RATE_LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { loopDeadlineMs } from "@/lib/website-builder/agent/limits"
 import { limitStatus, themeAgentLimit } from "@/lib/sites/rate-limit"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
+import { fileCols, resolveRefs } from "@/lib/website-builder/theme-file-refs"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -152,13 +153,13 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
   {
     const withDraft = await supabase
       .from("store_theme_custom_files")
-      .select("path, content, draft_content")
+      .select(await fileCols("path, content, draft_content"))
       .eq("install_id", installId)
       .like("path", "%.storelib")
     const rows = withDraft.error
       ? ((await supabase.from("store_theme_custom_files").select("path, content").eq("install_id", installId).like("path", "%.storelib")).data ?? [])
       : (withDraft.data ?? [])
-    Object.assign(sources, sourceMap(rows as { path: string; content: string; draft_content?: string | null }[]))
+    Object.assign(sources, sourceMap(await resolveRefs(rows as unknown as { path: string; content: string; draft_content?: string | null }[])))
   }
   /* Round O: the install's DESIGN.md, which the .storelib read above leaves out. */
   const designContract = await readDesignContract(supabase, installId)

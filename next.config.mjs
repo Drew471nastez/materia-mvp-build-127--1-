@@ -48,6 +48,8 @@ const RESERVED_FIRST_SEGMENTS = (() => {
     return null
   }
 })()
+/** The packed browser's own folder, by its real path under .pnpm (one copy, see outputFileTracingIncludes). */
+const CHROMIUM_BIN = './node_modules/.pnpm/@sparticuz+chromium@*/node_modules/@sparticuz/chromium/bin/**'
 const reEscape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 /* (?:/|$), not $: inside the address's pattern a $ is the end of the whole path, and /p/<slug> would have passed as a handle "p". */
 const HANDLE_SEGMENT = RESERVED_FIRST_SEGMENTS ? `(?!(?:${RESERVED_FIRST_SEGMENTS.map(reEscape).join("|")})(?:/|$))[^/.]+` : null
@@ -199,7 +201,7 @@ const nextConfig = {
       build folds the area into if it ever has two routes
       (/api/themes/[...__fold], scripts/fold-api-routes.mjs).
     */
-    '/api/themes/**': ['./theme-packages/**/*'],
+    '/api/themes/**': ['./theme-packages/**/*', CHROMIUM_BIN],
     /*
       THEME RELEASES read the same files: /admin/themes publishes a release
       from the code (app/api/admin/themes/releases), and Update composes a
@@ -209,7 +211,18 @@ const nextConfig = {
       an area glob matches.
     */
     '/api/admin/**': ['./theme-packages/**/*'],
-    '/api/website-builder/**': ['./theme-packages/**/*'],
+    /*
+      THE BROWSER FOR THE FOLDED AREAS TOO (round 27). On Vercel every plain
+      route of /api/website-builder is one entry, /api/website-builder/
+      [...__fold] (scripts/fold-api-routes.mjs), which none of the per-route
+      keys above match: production logged "[cover] could not take the
+      screenshots: The input directory .../@sparticuz/chromium/bin does not
+      exist" from that entry and from /api/themes/marketplace/add every day
+      (2026-11-21 to 11-25), and no cover was ever photographed. The area
+      globs carry the binary whichever way the routes are built
+      (tests/cover-trace-r27.test.ts matches them with Next's own picomatch).
+    */
+    '/api/website-builder/**': ['./theme-packages/**/*', CHROMIUM_BIN],
     /*
       THE FIRST VISIT (r63). The Website page installs Storelib Default into an
       empty library while it renders (lib/website-builder/starter-website.ts),

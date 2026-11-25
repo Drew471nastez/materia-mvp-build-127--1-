@@ -60,6 +60,9 @@
   #shopify-section-{{ section.id }} .sec__page-heading .overlay-bg { position: absolute; inset: 0; z-index: -1; overflow: hidden; }
   /* Overlay opacity: a dark layer over the background image. */
   #shopify-section-{{ section.id }} .sec__page-heading .overlay-bg::after { content: ""; position: absolute; inset: 0; background: #000000; opacity: var(--overlay-opacity, 0%); pointer-events: none; }
+  /* Text on the picture: White (round 61) turns the heading, text and breadcrumbs white while a picture is behind them, and only then: with no picture (or Show demo pictures off) the colour scheme's colours come back. */
+  #shopify-section-{{ section.id }} .sec__page-heading.ph-on-image--light { --color-heading: #ffffff; --color-text: rgba(255, 255, 255, 0.88); --color-link: #ffffff; }
+  #shopify-section-{{ section.id }} .sec__page-heading.ph-on-image--light :is(h1, .heading-title) { color: #ffffff; }
   /* Top and bottom padding: applied here too, at zero specificity so the theme's own spacing rule still wins where it exists. */
   :where(#shopify-section-{{ section.id }} .sec__page-heading) { padding-top: calc(var(--section-pt, 0) * 1px); padding-bottom: calc(var(--section-pb, 0) * 1px); }
   /* Custom heading size, a little smaller on phones. */
@@ -148,7 +151,7 @@
     {%- if block.settings.enable_custom_fonts -%}<style>{{ block.settings.font | font_face: font_display: 'swap' }}</style>{%- endif -%}
   {%- endfor -%}
   <div
-    class="section{% if section_st.reset_spacing %} remove_spacing{% endif %} sec__page-heading color-{{ color_scheme }} gradient{% if background_image != blank %} bg-transparent relative{% if section_st.reset_spacing == false %} mb-60{% endif %}{% else %}{% if section_st.reset_spacing == false %} mb-60{% endif %}{% endif %} align-center justify-content-{{ section_st.alignment }}{% if t == 'cart' and cart == empty %} hidden{% else %} flex{% endif %}"
+    class="section{% if section_st.reset_spacing %} remove_spacing{% endif %} sec__page-heading color-{{ color_scheme }} gradient{% if background_image != blank %} bg-transparent relative{% if section_st.text_on_image == 'light' %} ph-on-image--light{% endif %}{% if section_st.reset_spacing == false %} mb-60{% endif %}{% else %}{% if section_st.reset_spacing == false %} mb-60{% endif %}{% endif %} align-center justify-content-{{ section_st.alignment }}{% if t == 'cart' and cart == empty %} hidden{% else %} flex{% endif %}"
     style="{{ style | strip | strip_newlines }}"
     data-lcp="page-heading"
     data-lcp-id="{{ section.id }}"{% if request.design_mode %}
@@ -401,6 +404,23 @@
       "unit": "%",
       "label": "Overlay opacity",
       "default": 0,
+      "visible_if": "{{ section.settings.background_image != blank }}"
+    },
+    {
+      "type": "select",
+      "id": "text_on_image",
+      "label": "Text on the picture",
+      "default": "scheme",
+      "options": [
+        {
+          "value": "scheme",
+          "label": "Colour scheme"
+        },
+        {
+          "value": "light",
+          "label": "White"
+        }
+      ],
       "visible_if": "{{ section.settings.background_image != blank }}"
     },
     {

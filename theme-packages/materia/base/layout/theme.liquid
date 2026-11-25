@@ -195,19 +195,28 @@
       One render-blocking stylesheet: base.css is critical, section-isolation,
       animation, product-card, swiper-bundle.min, theme, theme-button-contract,
       localization-controls, product-block-runtime and layout-guard, in that
-      cascade order (built by tools/build-base-css.js; edit the sources, then
-      rebuild), then late-css-guard and section-type. The theme editor (no section isolation there), stores without
-      scroll animation and right-to-left stores (rtl.css sits in the middle of
-      that order) link the source files one by one, as before.
+      cascade order (built by scripts/build-materia-base-css.mjs; edit the
+      sources, then rebuild), then late-css-guard and section-type. The theme
+      editor (no section isolation there) and right-to-left stores (rtl.css
+      sits in the middle of that order) link the source files one by one.
+    {%- endcomment -%}
+    {%- comment -%}
+      Without scroll animation the same bundle less animation.css,
+      base-static.css (it never linked animation.css): one request instead of
+      the eleven files it linked one by one before.
     {%- endcomment -%}
     {%- liquid
       assign use_base_css = true
-      if request.design_mode or settings.scroll_animation == 'none' or enable_rtl
+      assign base_css_file = 'base.css'
+      if settings.scroll_animation == 'none'
+        assign base_css_file = 'base-static.css'
+      endif
+      if request.design_mode or enable_rtl
         assign use_base_css = false
       endif
     -%}
     {%- if use_base_css -%}
-      {{ 'base.css' | asset_url | stylesheet_tag }}
+      {{ base_css_file | asset_url | stylesheet_tag }}
     {%- else -%}
     {{ 'critical.css' | asset_url | stylesheet_tag }}
 
@@ -833,6 +842,7 @@
     data-btn-style="{{ settings.btn_style | default: 'solid' }}"
     data-btn-secondary-style="{{ settings.btn_secondary_style | default: 'outline' }}"
     data-scroll-animation="{{ settings.scroll_animation | default: 'none' }}"
+    data-zoom-image="{% if settings.zoom_image and settings.scroll_animation != 'none' %}true{% else %}false{% endif %}"
     data-btn-shape="{{ settings.btn_shape | default: 'rounded' }}"
     data-btn-hover="{{ settings.btn_hover_effect | default: 'fade' }}"
     data-sl-btn-hover="{{ settings.storelib_button_hover_effect | default: 'theme' }}"
@@ -990,6 +1000,7 @@ document.addEventListener('animationstart',function(e){var s=e.target&&e.target.
           --duration-extra-longer: {{ _anim_dur }}ms;
           --animation-duration: {{ _anim_dur }}ms;
           --animation-delay-base: {{ _anim_delay }}ms;
+          --reveal-stagger: {{ settings.reveal_stagger | default: 75 }}ms;
         }
         /* Every reveal type, its timing, the first screen, the builder and
            reduced motion are drawn by animation.css for every .scroll-trigger
@@ -1121,6 +1132,8 @@ document.addEventListener('animationstart',function(e){var s=e.target&&e.target.
         /* (1) and (2) */
         var pending = typeof WeakMap === 'function' ? new WeakMap() : null;
         function revealNow(el) {
+          {%- comment -%} An armed reveal that sits in view plays (assets/animation.js), rather than snapping to its end. {%- endcomment %}
+          if (window.MateriaReveal && el.classList.contains('scroll-trigger--offscreen') && window.MateriaReveal.play(el)) return;
           if (el.classList.contains('scroll-trigger--offscreen') || el.classList.contains('scroll-trigger--armed')) {
             el.classList.remove('scroll-trigger--offscreen', 'scroll-trigger--armed');
             el.setAttribute('data-animation-done', '');
@@ -1136,7 +1149,7 @@ document.addEventListener('animationstart',function(e){var s=e.target&&e.target.
           var hidden = document.querySelectorAll('.scroll-trigger--offscreen, motion-element:not([hold])[style*="opacity"]');
           for (var i = 0; i < hidden.length; i++) {
             var el = hidden[i];
-            if (el.tagName === 'MOTION-ELEMENT' && parseFloat(el.style.opacity) !== 0) continue;
+            if (el.tagName === 'MOTION-ELEMENT' && !(parseFloat(el.style.opacity) < 0.5)) continue;
             if (!inView(el)) { if (pending) pending.delete(el); continue; }
             if (!pending) { revealNow(el); continue; }
             var since = pending.get(el);

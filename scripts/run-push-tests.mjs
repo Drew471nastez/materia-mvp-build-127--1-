@@ -1314,6 +1314,12 @@ const SUITES = [
   "tests/live-speed-x.test.ts",
   /* Oct 21: an imported theme's page held for a returning visitor (only Storelib's own page cookies keep it private), routed after one round trip (SQL part 257 site_route_facts), its draw's reads started together (scripts/check-live-speed.mjs asks a live site the same questions) */
   "tests/live-speed-imported.test.ts",
+  /* Round 27 (the owner: adding a theme and opening the editor take too long): a template converted once per server and stored by the import's own writes in this request (pictures six at a time and only new ones, rows in 3 MB parts three at a time, the listing's note in the first write, the template's own cover), only its own and the base's release rows, and the editor's two large reads a 304 when unchanged (lib/website-builder/revalidated-json.ts). Measured over a fake database with a fixed delay per query. */
+  "tests/theme-add-speed-r27.test.ts",
+  /* Round 27: the cover's browser traced into the folded /api/website-builder entry and Add (matched with Next's own picomatch), no browser remembered with the template's picture instead and the page backing off, and one press of Add one website (a press key: replayed, waited for, the older kept) */
+  "tests/cover-and-add-r27.test.ts",
+  /* Round 27: a website's unchanged theme files kept once in theme_file_blobs behind STORELIB_THEME_FILE_REFS and RUN_PENDING_ROUND_27.sql: an old full-copy website and a new referencing one read the same through the storefront, the builder and the asset reads, copy on write, and the list of readers still to convert before new websites use it */
+  "tests/theme-file-refs-r27.test.ts",
   /* Round 26 (W6): community SEO by state, the sitemap and canonicals, the member links inside a community and their presses (SQL part 221) */
   "tests/seo26.test.ts",
   /* Round 44: Storelib's own public pages: each page's whole metadata, the auth steps noindex, Explore's canonicals, the blog's pages, feed and dates, the Help Center's og:url, legal pages in the sitemap, llms.txt. */

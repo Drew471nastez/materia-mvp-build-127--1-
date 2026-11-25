@@ -431,7 +431,7 @@ XP shop: the desktop the whole website sits on. Placed in the header group,
     {%- endfor -%}
   </ul>
 {%- endif -%}
-<nav data-own-font class="xp xp-task" aria-label="{{ st.taskbar_label | default: 'Taskbar' | escape }}" data-xp-task>
+<nav data-own-font class="xp xp-task" aria-label="{{ st.taskbar_label | default: 'Taskbar' | escape }}" data-xp-task data-mt-bottom-bar>
   <div class="xp-menu" id="XpMenu-{{ sid }}" hidden data-xp-menu>
     <div class="xp-menu__head"><span class="xp-menu__tile">{%- if st.menu_picture != blank -%}{{ st.menu_picture | image_url: width: 120 | image_tag: alt: '', loading: 'lazy' }}{%- else -%}{{ mark }}{%- endif -%}</span><span>{{ st.menu_title | default: shop.name | escape }}</span></div>
     <div class="xp-menu__cols">

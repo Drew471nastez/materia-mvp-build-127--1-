@@ -3036,7 +3036,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   /** Also hands back what it loaded, for a caller that needs it this tick: see handleWriteDone. */
   const loadStorelibSources = useCallback(async (opts?: { hold?: boolean }): Promise<Record<string, string> | null> => {
     try {
-      const res = await fetch(`/api/website-builder/themes/${installId}/files?sources=1`, { cache: "no-store", signal: AbortSignal.timeout(PUSH_READ_MS) })
+      /* Round 27: asked every time, but what the browser already has comes back as a 304 with no body (the route's ETag, lib/website-builder/revalidated-json.ts): 21 MB on a Materia theme. */
+      const res = await fetch(`/api/website-builder/themes/${installId}/files?sources=1`, { cache: "no-cache", signal: AbortSignal.timeout(PUSH_READ_MS) })
       if (!res.ok) return null
       const d = (await res.json()) as { files?: Record<string, string>; settings_schema?: string | null }
       const files = d.files ?? {}

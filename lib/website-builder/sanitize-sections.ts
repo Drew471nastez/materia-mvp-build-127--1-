@@ -18,6 +18,7 @@ import { MAX_BLOCK_DEPTH } from "@/lib/storelib-theme/types"
 import { compatHtmlFieldsOf, htmlFieldsOf, sanitizeSettings, type HtmlFieldMap } from "./sanitize"
 import { cleanMenus } from "@/lib/storelib-theme/values"
 import type { SectionInstance, SectionSchema } from "./types"
+import { fileCols, resolveRefs } from "@/lib/website-builder/theme-file-refs"
 
 const cache = new Map<string, HtmlFieldMap>()
 
@@ -109,8 +110,8 @@ export async function readOwnSectionFields(db: Db, installId: string, types: Ite
   const paths = [...new Set([...types].filter((t) => typeof t === "string" && /^[a-z0-9_-]{1,64}$/.test(t)))].map((t) => `sections/${t}.storelib`)
   if (paths.length === 0) return {}
   try {
-    const both = await db.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId).in("path", paths)
-    if (!both.error) return ownSectionFields(both.data)
+    const both = await db.from("store_theme_custom_files").select(await fileCols("path, content, draft_content")).eq("install_id", installId).in("path", paths)
+    if (!both.error) return ownSectionFields(await resolveRefs(both.data as { path: string; content: string | null; draft_content?: string | null }[] | null))
     /* An install from before file drafts existed has no draft column. */
     const live = await db.from("store_theme_custom_files").select("path, content").eq("install_id", installId).in("path", paths)
     if (!live.error) return ownSectionFields(live.data)

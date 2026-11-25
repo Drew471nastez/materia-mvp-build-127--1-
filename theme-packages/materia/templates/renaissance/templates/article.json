@@ -3,15 +3,29 @@
     "main": {
       "type": "main-article",
       "settings": {
-        "padding_top": 48,
+        "padding_top": 24,
         "section_width": "container",
-        "padding_bottom": 30,
-        "author_margin_left": -140,
+        "padding_bottom": 72,
+        "author_margin_left": 0,
         "author_margin_right": 0,
-        "content_width_desktop": 1100
+        "content_width_desktop": 900,
+        "article_style": "editorial"
       },
       "name": "Main Blog Article",
       "blocks": {
+        "breadcrumb_r61": {
+          "type": "breadcrumb",
+          "settings": {}
+        },
+        "featured_image_ne7Ufj": {
+          "type": "featured_image",
+          "settings": {
+            "image_height": "small",
+            "featured_image_top_padding": 0,
+            "featured_image_border_radius": 12,
+            "featured_image_bottom_padding": 0
+          }
+        },
         "category_8bHVa7": {
           "type": "category",
           "settings": {
@@ -25,15 +39,6 @@
             "blog_title_font_size": 38
           }
         },
-        "featured_image_ne7Ufj": {
-          "type": "featured_image",
-          "settings": {
-            "image_height": "medium",
-            "featured_image_top_padding": 12,
-            "featured_image_border_radius": 7,
-            "featured_image_bottom_padding": 10
-          }
-        },
         "blog_meta_Gdcegm": {
           "type": "blog_meta",
           "settings": {
@@ -45,51 +50,51 @@
           "type": "content_article",
           "settings": {}
         },
-        "author_highlight_n4CqbT": {
-          "type": "author_highlight",
+        "tags_share_r61": {
+          "type": "tags_share",
           "settings": {
-            "author_text": "Want the whole method? Digital Renaissance has it in 40 short lessons.",
-            "author_image_size": 65
+            "show_tags": true,
+            "tags_label": "Tags:",
+            "show_share": true
+          }
+        },
+        "prev_next_r61": {
+          "type": "prev_next",
+          "settings": {
+            "show_back": false
+          }
+        },
+        "related_r61": {
+          "type": "related",
+          "settings": {
+            "heading": "Related posts",
+            "count": 6,
+            "show_excerpt": true,
+            "show_author": true,
+            "show_date": true
+          }
+        },
+        "comments_r61": {
+          "type": "comments",
+          "settings": {
+            "heading": "Leave a comment",
+            "text": "Your email address will not be published.",
+            "button_label": "Post comment"
           }
         }
       },
       "block_order": [
+        "breadcrumb_r61",
+        "featured_image_ne7Ufj",
         "category_8bHVa7",
         "title_8UcLB3",
-        "featured_image_ne7Ufj",
         "blog_meta_Gdcegm",
         "content_article_nGLPt4",
-        "author_highlight_n4CqbT"
+        "tags_share_r61",
+        "prev_next_r61",
+        "related_r61",
+        "comments_r61"
       ]
-    },
-    "posts": {
-      "type": "blog-posts",
-      "settings": {
-        "reveal": false,
-        "heading": "More money notes",
-        "autoplay": false,
-        "infinite": false,
-        "show_date": true,
-        "column_gap": 30,
-        "description": "",
-        "image_ratio": "custom",
-        "padding_top": 24,
-        "show_author": true,
-        "color_scheme": "",
-        "custom_ratio": "16:9",
-        "vertical_gap": 30,
-        "items_per_row": 3,
-        "items_to_show": 3,
-        "section_width": "fluid_container",
-        "show_view_all": true,
-        "padding_bottom": 56,
-        "autorotate_speed": 5,
-        "content_alignment": "left",
-        "heading_font_size": 24,
-        "carousel_pagination": "disable",
-        "enable_custom_style": false,
-        "items_per_row_mobile": 1
-      }
     },
     "cta": {
       "type": "banner3",
@@ -229,7 +234,6 @@
   },
   "order": [
     "main",
-    "posts",
     "cta",
     "access_popup"
   ]

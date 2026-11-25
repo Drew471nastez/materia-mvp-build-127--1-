@@ -23,6 +23,7 @@ import { sourceMap } from "@/lib/website-builder/theme-file-drafts"
 import { LIMITS } from "@/lib/storelib-theme/types"
 import { LIMITS as RATE_LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
+import { fileCols, resolveRefs } from "@/lib/website-builder/theme-file-refs"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -87,10 +88,10 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
    */
   const { data: rows } = await supabase
     .from("store_theme_custom_files")
-    .select("path, content")
+    .select(await fileCols("path, content"))
     .eq("install_id", installId)
     .like("path", "%.storelib")
-  const sources = sourceMap((rows ?? []) as { path: string; content: string }[])
+  const sources = sourceMap(await resolveRefs((rows ?? []) as unknown as { path: string; content: string }[]))
   delete sources[path]
   const takenTypes = [...new Set([...Object.keys(SECTION_SCHEMAS), ...Object.keys(schemasFromSources(sources))])]
 

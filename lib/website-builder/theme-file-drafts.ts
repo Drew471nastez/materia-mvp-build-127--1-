@@ -22,6 +22,7 @@
  * on somebody having opened the SQL editor first. `MISSING` is how each
  * function tells its caller which world it is in.
  */
+import { fileCols, isRefRow, resolveRef } from "@/lib/website-builder/theme-file-refs"
 
 /** Postgres says "column does not exist" / "relation does not exist" like this. */
 function isMissing(message: string | undefined): boolean {
@@ -287,18 +288,25 @@ export async function promoteFileDrafts(db: Db, installId: string): Promise<numb
   try {
     const { data, error } = await db
       .from("store_theme_custom_files")
-      .select("path, content, draft_content")
+      .select(await fileCols("path, content, draft_content"))
       .eq("install_id", installId)
       .not("draft_content", "is", null)
     if (error) return 0
-    const rows = (data ?? []) as FileRow[]
+    const rows = (data ?? []) as (FileRow & { blob_sha256?: string | null })[]
     let moved = 0
     for (const row of rows) {
       const next = row.draft_content
       if (typeof next !== "string") continue
+      /*
+        Round 27: a reference whose draft says exactly what it shares stays a
+        reference (only the draft goes); any other text becomes the creator's
+        own copy, the database clearing the reference as content is written
+        (RUN_PENDING_ROUND_27.sql store_theme_file_own_copy).
+      */
+      const shared = isRefRow(row) ? (await resolveRef(row))?.content : undefined
       const { error: upErr } = await db
         .from("store_theme_custom_files")
-        .update({ content: next, draft_content: null })
+        .update(shared !== undefined && shared === next ? { draft_content: null } : { content: next, draft_content: null })
         .eq("install_id", installId)
         .eq("path", row.path)
       if (upErr) continue

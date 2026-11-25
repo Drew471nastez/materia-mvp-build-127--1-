@@ -36,6 +36,7 @@ import { unstable_cache } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 import { MARKETPLACE_TAG } from "./marketplace-shared"
+import { BASE_TARGET } from "./releases-shared"
 import { PACKAGE_BUCKET, isMissingRelation } from "./marketplace-server"
 import { releasedFiles as releasedFilesWith, rowToRelease, unzipLayer, wholeThemeFor as wholeThemeWith, type ReleaseRow } from "./releases-compose"
 import type { ThemeRelease } from "./releases-shared"
@@ -61,6 +62,23 @@ export async function readReleaseRows(opts: { includeUnpublished?: boolean; with
   }
 }
 
+/**
+ * The published releases one listing is made of (round 27): its own and the
+ * base's, with where their files are, and nothing else. Add to library read
+ * every release row there is with its manifest (a path to hash map of every
+ * file, a thousand entries a release) to pick two of them.
+ */
+export const RELEASE_LAYER_COLUMNS = `${RELEASE_PUBLIC_COLUMNS}, layer, package_path`
+export async function readReleaseRowsFor(slug: string): Promise<{ rows: ReleaseRow[]; missing: boolean; failed: boolean }> {
+  try {
+    const { data, error } = await createAdminClient().from(RELEASES_TABLE).select(RELEASE_LAYER_COLUMNS).in("target", [...new Set([slug, BASE_TARGET])]).eq("published", true).order("created_at", { ascending: false }).limit(200)
+    if (error) return { rows: [], missing: isMissingRelation(error), failed: !isMissingRelation(error) }
+    return { rows: (data ?? []) as unknown as ReleaseRow[], missing: false, failed: false }
+  } catch {
+    return { rows: [], missing: false, failed: true }
+  }
+}
+
 /** Every published release, for the library's version line. Cached with the listings and dropped on any admin change. */
 export const publishedReleases = unstable_cache(
   async (): Promise<ThemeRelease[]> => (await readReleaseRows()).rows.map(rowToRelease),
@@ -70,8 +88,33 @@ export const publishedReleases = unstable_cache(
 
 export const releaseUploadPath = (target: string) => `theme-releases/${target}/${randomUUID()}.zip`
 
+/*
+  A RELEASE'S FILES NEVER CHANGE (it is pinned: a new version is a new row
+  and a new zip), so the newest RELEASE_FILES_KEPT read are kept by this
+  server, by their path in storage (round 27). Every template is laid over
+  the same base release: its 23 MB were downloaded and unzipped on every Add.
+  A read that failed is not kept.
+*/
+const RELEASE_FILES_KEPT = 3
+const releaseFilesHeld = new Map<string, Promise<Map<string, Buffer>>>()
 export async function loadReleaseFiles(row: Pick<ReleaseRow, "package_path">): Promise<Map<string, Buffer>> {
   if (!row.package_path) throw new Error("This release has no files")
+  const key = row.package_path
+  let held = releaseFilesHeld.get(key)
+  if (held) {
+    releaseFilesHeld.delete(key)
+  } else {
+    held = readReleaseFiles(key)
+    held.catch(() => releaseFilesHeld.delete(key))
+  }
+  releaseFilesHeld.set(key, held)
+  while (releaseFilesHeld.size > RELEASE_FILES_KEPT) releaseFilesHeld.delete(releaseFilesHeld.keys().next().value as string)
+  /* A copy of the map: a caller may lay another layer over it. */
+  return new Map(await held)
+}
+
+async function readReleaseFiles(packagePath: string): Promise<Map<string, Buffer>> {
+  const row = { package_path: packagePath }
   const { data, error } = await createAdminClient().storage.from(PACKAGE_BUCKET).download(row.package_path)
   if (error || !data) throw new Error("This release's files could not be read")
   return unzipLayer(Buffer.from(await data.arrayBuffer()))

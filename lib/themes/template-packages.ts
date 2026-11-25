@@ -104,9 +104,19 @@ export function composeTemplateFiles(id: string, root = TEMPLATE_PACKAGES_ROOT):
 
 /** The zip the import takes. Stored, not deflated: it is read again in the same request and never sent anywhere. */
 export async function composeTemplateZip(id: string, root = TEMPLATE_PACKAGES_ROOT): Promise<Buffer> {
+  return templateZipOf(composeTemplateFiles(id, root)).generateAsync({ type: "nodebuffer", compression: "STORE" })
+}
+
+/**
+ * The files as the archive object the conversion reads, never written out as
+ * bytes (round 27): Storelib's own template was zipped (23 MB), handed to the
+ * import as an upload, checked as a stranger's upload and unzipped again in
+ * the same request, to be read file by file exactly as this object is.
+ */
+export function templateZipOf(files: ReadonlyMap<string, Buffer>): JSZip {
   const zip = new JSZip()
-  for (const [rel, bytes] of composeTemplateFiles(id, root)) zip.file(rel, bytes)
-  return zip.generateAsync({ type: "nodebuffer", compression: "STORE" })
+  for (const [rel, bytes] of files) zip.file(rel, bytes)
+  return zip
 }
 
 /** The navigation a template gives a store that has none yet, or null. The store's own menus always win (store-menus-server.ts). */

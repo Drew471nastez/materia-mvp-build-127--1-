@@ -195,7 +195,8 @@ section("1. The open section is what changes, worked out by the server")
   )
   check(
     "the files the assistant sees are read through the creator's own client, under row level security",
-    /await supabase\s*\n\s*\.from\("store_theme_custom_files"\)\s*\n\s*\.select\("path, content, draft_content"\)\s*\n\s*\.eq\("install_id", installId\)/.test(route),
+    /* Changed on purpose (round 27): the same columns through fileCols (plus the reference column when shared theme files are on, lib/website-builder/theme-file-refs.ts), still on the creator's own client. */
+    /await supabase\s*\n\s*\.from\("store_theme_custom_files"\)\s*\n\s*\.select\(await fileCols\("path, content, draft_content"\)\)\s*\n\s*\.eq\("install_id", installId\)/.test(route),
   )
 
   /* A built in section is copied, not rewritten, and the open section moves onto the copy with everything it had. */

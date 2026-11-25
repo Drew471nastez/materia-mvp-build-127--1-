@@ -25,6 +25,7 @@ import "server-only"
 import { mediaUrl } from "@/lib/storage/media-url"
 import { getMainDomain } from "@/lib/url-helpers"
 import { ASSET_MAP_PATH, compatOf, compatValues } from "@/lib/storelib-theme/compat/install"
+import { fileCols, resolveRef } from "@/lib/website-builder/theme-file-refs"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -55,9 +56,10 @@ export async function compatPicture(db: Db, installId: string, value: string): P
   const name = value.match(/^shopify:\/\/shop_images\/([^?#]+)/)?.[1]
   if (!name) return null
   try {
-    const { data, error } = await db.from("store_theme_custom_files").select("content").eq("install_id", installId).eq("path", ASSET_MAP_PATH).maybeSingle()
+    const { data: read, error } = await db.from("store_theme_custom_files").select(await fileCols("path, content")).eq("install_id", installId).eq("path", ASSET_MAP_PATH).maybeSingle()
     if (error) return null
-    const map = JSON.parse((data as { content?: string | null } | null)?.content ?? "{}") as Record<string, string>
+    const data = await resolveRef(read as { path: string; content?: string | null } | null)
+    const map = JSON.parse(data?.content ?? "{}") as Record<string, string>
     const hit = map[decodeURIComponent(name)]
     return typeof hit === "string" ? pictureUrl(hit) : null
   } catch {

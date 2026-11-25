@@ -29,6 +29,8 @@
  * pass and read the draft column.
  */
 
+import { resolveFileRows } from "@/lib/website-builder/theme-file-refs"
+
 export type AssetRow = { path: string; content: string | null; draft_content?: string | null }
 
 /** The part of the Supabase client the reads use. */
@@ -65,7 +67,8 @@ export function readAssetRows(admin: AssetAdmin, installId: string, cols: string
     const done = go.then(async () => {
       const { data, error } = await admin.from("store_theme_custom_files").select(cols).eq("install_id", installId).in("path", [...paths0])
       if (error) throw error
-      return (data ?? []) as AssetRow[]
+      /* Round 27: a reference row's text from the blobs (lib/website-builder/theme-file-refs.ts); rows with text as they are. */
+      return resolveFileRows(admin as unknown as Parameters<typeof resolveFileRows>[0], (data ?? []) as AssetRow[])
     })
     const nb: Batch = { paths: paths0, done, fired: false }
     batches.set(key, nb)

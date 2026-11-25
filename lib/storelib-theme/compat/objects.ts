@@ -988,6 +988,16 @@ export interface Resources {
   ratings?: Record<string, { count: number; average: number; stars?: Record<string, number> }>
   /** The website's blog as Shopify's blog object (blogObject), when it has one: what a `blog` setting (a featured blog section) and an `article` setting read. */
   blog?: O | null
+  /**
+   * SHOW DEMO PICTURES, OFF (round 61). A theme that declares the setting
+   * `show_demo_pictures` and has it stored as false: a section's or block's
+   * picture that is one the theme brought with it (`shopify://shop_images/
+   * <name>`, a template's own photo) reads as not chosen, so the section
+   * draws its own placeholder. A picture the creator picked is an address
+   * and always draws. Absent (every theme without the setting, every install
+   * that never turned it off): every picture as stored, today's output.
+   */
+  hideThemePictures?: boolean
 }
 
 /**
@@ -1105,6 +1115,7 @@ export function typedValue(type: string, value: unknown, r: Resources, exact = f
     case "font_picker":
       return fontObject(value)
     case "image_picker": {
+      if (r.hideThemePictures && typeof value === "string" && /^shopify:\/\/shop_images\//i.test(value)) return null
       const src = typeof value === "string" ? r.imageUrl(value) : ""
       if (!src) return null
       /* Its real width and height where they can be read, so a theme that sizes it from them keeps its shape. */
@@ -1824,7 +1835,21 @@ export function blogObject(settings: SiteBlogSettings, cards: readonly PublicPos
     for (const t of c.tags) tags.add(t)
   })
   const byName = (a: string, b: string) => a.localeCompare(b)
+  /*
+    THE BLOG'S CATEGORIES (round 61), Storelib's own beside Shopify's blog:
+    each with its address, how many live posts it holds and whether this
+    page is it, for a theme's Categories list (Materia's main-blog). Under
+    `storelib`, a key no Shopify theme reads, so nothing drawn before moves.
+  */
+  const cats = new Map<string, { title: string; handle: string; url: string; count: number; current: boolean }>()
+  for (const c of cards) {
+    if (!c.category?.slug) continue
+    const had = cats.get(c.category.slug)
+    if (had) had.count++
+    else cats.set(c.category.slug, { title: c.category.name, handle: c.category.slug, url: c.category.path, count: 1, current: opts.categorySlug === c.category.slug })
+  }
   return {
+    storelib: { categories: [...cats.values()].sort((a, b) => byName(a.title, b.title)) },
     [OUTPUT]: settings.title,
     id: settings.handle,
     handle: settings.handle,

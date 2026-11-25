@@ -42,7 +42,8 @@ console.log("\nAn imported theme's canvas")
 const canvas = readCode("components/website-builder/compat/compat-canvas.tsx")
 check("its page's canonical is the website's address, not the builder's", (canvas.match(/\.\.\.canonicalOf\(props\.siteUrl\)/g) ?? []).length === 3 && /return \{ canonicalHost: new URL\(siteUrl\)\.host \}/.test(canvas))
 const bridge = readCode("lib/storelib-theme/compat/canvas-bridge.ts")
-check("a link's own address is back before the theme's first listener sees a press", /window\.__slGiveBack = giveBack/.test(bridge) && /export const CANVAS_HEAD = `<script>addEventListener\("pointerdown",function\(\)\{var g=window\.__slGiveBack;if\(g\)g\(\)\},true\)/.test(bridge))
+/* Changed on purpose (round 27): the canvas design-mode guard (a MutationObserver, no press or key listeners) may sit before it; the give-back listener is still the first press listener. */
+check("a link's own address is back before the theme's first listener sees a press", /window\.__slGiveBack = giveBack/.test(bridge) && /export const CANVAS_HEAD = `(?:\$\{CANVAS_DESIGN_GUARD\})?<script>addEventListener\("pointerdown",function\(\)\{var g=window\.__slGiveBack;if\(g\)g\(\)\},true\)/.test(bridge))
 check("a section whose margin leaves it never rests, so nothing moves mid scroll", /if \(marginEscapes\(s\)\) return false/.test(bridge))
 
 check("this suite runs with the others", readCode("scripts/run-push-tests.mjs").includes('"tests/section-links25.test.ts"'))

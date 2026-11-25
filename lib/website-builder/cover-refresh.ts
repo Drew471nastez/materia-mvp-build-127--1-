@@ -113,20 +113,71 @@ export function flushCoverRefresh() {
   if (id) void requestCover(id)
 }
 
+/*
+  ═══════════════════════════════════════════════════════════════════════
+   NOT ASKED AGAIN AND AGAIN WHEN NO PHOTOGRAPH CAN BE TAKEN (round 27)
+  ═══════════════════════════════════════════════════════════════════════
+  Production: the browser was missing from the function, every photograph
+  failed, and the page asked 15 to 17 times per new website. Now:
+
+    the route says "cover_unavailable" with how long to wait (a 503 with
+    retry_after_s), or a look (GET) says `unavailable`: this tab asks no
+    site's cover again until then, and keeps the picture it has;
+    any other failure: a site is asked at most MAX_FAILED_ASKS times in a
+    row, then left for FAILED_PAUSE_MS. A cover that arrives starts again.
+*/
+export const MAX_FAILED_ASKS = 2
+export const FAILED_PAUSE_MS = 10 * 60_000
+const DEFAULT_UNAVAILABLE_S = 600
+let unavailableUntil = 0
+const failedAsks = new Map<string, { count: number; until: number }>()
+
+/** Whether a photograph may be asked for this site now (no wait said by the server, not failed too often). */
+export function mayAskCover(installId: string, now = Date.now()): boolean {
+  if (now < unavailableUntil) return false
+  const f = failedAsks.get(installId)
+  return !f || f.count < MAX_FAILED_ASKS || now >= f.until
+}
+function noteUnavailable(seconds: unknown, now = Date.now()) {
+  const s = typeof seconds === "number" && seconds > 0 && seconds <= 3600 ? seconds : DEFAULT_UNAVAILABLE_S
+  unavailableUntil = Math.max(unavailableUntil, now + s * 1000)
+}
+function noteFailed(installId: string, now = Date.now()) {
+  const f = failedAsks.get(installId)
+  const count = f && now < f.until ? f.count + 1 : 1
+  failedAsks.set(installId, { count, until: now + FAILED_PAUSE_MS })
+}
+/** For the tests: forget every wait. */
+export function resetCoverAsks() {
+  unavailableUntil = 0
+  failedAsks.clear()
+  inflight.clear()
+  watching.clear()
+  covers.clear()
+}
+
 export function requestCover(installId: string): Promise<Cover | null> {
   const running = inflight.get(installId)
   if (running) return running
+  if (!mayAskCover(installId)) return Promise.resolve(latestCover(installId))
   const ask = (async () => {
     try {
       const res = await fetchWithin(`/api/website-builder/themes/${encodeURIComponent(installId)}/cover`, {
         method: "POST",
         keepalive: true,
       }, REQUEST_WAIT_MS)
-      if (!res.ok) return null
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { code?: unknown; retry_after_s?: unknown } | null
+        if (body?.code === "cover_unavailable") noteUnavailable(body.retry_after_s)
+        else noteFailed(installId)
+        return null
+      }
       const cover = (await res.json()) as Cover
       remember(installId, cover)
+      failedAsks.delete(installId)
       return cover
     } catch {
+      noteFailed(installId)
       return null
     } finally {
       inflight.delete(installId)
@@ -184,10 +235,15 @@ export function watchCover(installId: string, steps: readonly number[] = WATCH_S
         try {
           const res = await fetchWithin(`/api/website-builder/themes/${encodeURIComponent(installId)}/cover`, { cache: "no-store" }, LOOK_WAIT_MS)
           if (!res.ok) continue
-          const cover = (await res.json()) as Cover | { url: null }
+          const cover = (await res.json()) as Cover | { url: null; unavailable?: boolean }
           if (cover?.url) {
             remember(installId, cover as Cover)
             return cover as Cover
+          }
+          /* Round 27: no photograph is being taken (the server has no browser): stop looking, and do not ask for one either. */
+          if ((cover as { unavailable?: boolean })?.unavailable === true) {
+            noteUnavailable(undefined)
+            return null
           }
         } catch {
           /* a dropped look is followed by the next one */

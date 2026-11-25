@@ -23,7 +23,7 @@ const FILLER: SampleProduct[] = [
 ]
 
 /* Templates round 21: a shop with its own posts (SAMPLE_SHOPS[template].posts) gets them, each with its own picture; the rest keep the shared ones. */
-function posts(image: string, own?: SamplePost[]): { cards: PublicPostCard[]; full: Record<string, PublicPost> } {
+function posts(image: string, own?: SamplePost[], covers: string[] = []): { cards: PublicPostCard[]; full: Record<string, PublicPost> } {
   const now = Date.now()
   const author = { id: "a1", slug: "sam", name: "Sam Rivera", role: "Owner", bio: "Runs the shop.", avatarUrl: "", links: [] }
   const titles = own?.length ? own.map((p) => p.title) : ["How we pack every order", "Three questions we get every week", "What changed this season"]
@@ -35,7 +35,8 @@ function posts(image: string, own?: SamplePost[]): { cards: PublicPostCard[]; fu
       id: `post-${i + 1}`, slug, path: `/blogs/news/${slug}`, title,
       excerpt,
       summaryHtml: `<p>${excerpt}</p>`,
-      coverImageUrl: mine ? `/__product/${encodeURIComponent(mine.image)}` : image, coverAlt: title,
+      /* Round 61: the shared posts each take a different product picture, so a blog grid is not one photo three times. */
+      coverImageUrl: mine ? `/__product/${encodeURIComponent(mine.image)}` : covers[i] || image, coverAlt: title,
       category: mine ? { slug: mine.tag.toLowerCase().replace(/[^a-z0-9]+/g, "-"), name: mine.tag, path: `/blogs/news/category/${mine.tag.toLowerCase().replace(/[^a-z0-9]+/g, "-")}` } : i === 0 ? { slug: "notes", name: "Notes", path: "/blogs/news/category/notes" } : null,
       tags: mine ? [mine.tag] : i === 1 ? ["Questions"] : ["Notes"],
       author: author as never,
@@ -90,7 +91,7 @@ export function auditSite(imported: ImportedTemplate, template: string, empty: b
     /* Templates round 24: the shop's own collections (./shops.ts), the ones its menus link to. */
     ...(SAMPLE_SHOPS[template]?.collections ?? []).map((c) => col(c.handle, c.title, products.filter((p) => c.products.includes(String(p.settings.title))), c.description)),
   ] as SiteData["collections"]
-  const { cards, full } = posts(cover, SAMPLE_SHOPS[template]?.posts)
+  const { cards, full } = posts(cover, SAMPLE_SHOPS[template]?.posts, [...new Set(products.map((p) => String(p.settings.image ?? "")).filter(Boolean))].slice(0, 3))
   const blog: CompatBlogSource = {
     settings: { handle: "news", previousHandles: [], title: "Blog", description: "Notes from the shop", postsPerPage: 6, seoTitle: "", seoDescription: "", ogImageUrl: "" },
     cards,

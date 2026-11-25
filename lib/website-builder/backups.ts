@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 
 import { editorContent, type FileRow } from "@/lib/website-builder/theme-file-drafts"
 import { restoreSnapshot, type RestoreOutcome } from "@/lib/website-builder/restore-snapshot"
+import { fileCols, resolveRefs } from "@/lib/website-builder/theme-file-refs"
 
 /**
  * ===========================================================================
@@ -86,9 +87,9 @@ export async function readSnapshot(db: SupabaseClient, installId: string): Promi
   /* Before the code files' table exists, a backup is what it always was. */
   let files: { path: string; content: string }[] | undefined
   try {
-    const { data, error } = await db.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId)
+    const { data, error } = await db.from("store_theme_custom_files").select(await fileCols("path, content, draft_content")).eq("install_id", installId)
     if (!error) {
-      files = ((data ?? []) as FileRow[])
+      files = (await resolveRefs((data ?? []) as unknown as FileRow[]))
         .map((f) => ({ path: String(f.path), content: editorContent(f) }))
         .filter((f) => f.content !== "")
         .sort((a, b) => a.path.localeCompare(b.path))

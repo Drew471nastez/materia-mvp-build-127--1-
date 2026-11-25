@@ -43,6 +43,7 @@ import { exportShopifyTheme } from "@/lib/storelib-theme/compat/export"
 import type { StoredSection } from "@/lib/storelib-theme/compat/page"
 import { installFiles } from "@/lib/website-builder/compat-site"
 import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
+import { fileCols, resolveRefs } from "@/lib/website-builder/theme-file-refs"
 
 type Params = { params: Promise<{ installId: string }> }
 
@@ -337,10 +338,12 @@ export async function GET(_req: Request, { params }: Params) {
    * their file; one they never touched is the theme's, and it travels so the
    * package stands on its own in an account whose bundled theme has moved on.
    */
-  const { data: savedFiles } = await supabase
+  const { data: savedRead } = await supabase
     .from("store_theme_custom_files")
-    .select("path, content")
+    .select(await fileCols("path, content"))
     .eq("install_id", installId)
+  /* Round 27: a reference's text, as the site draws it (lib/website-builder/theme-file-refs.ts). */
+  const savedFiles = await resolveRefs(savedRead as unknown as { path: string; content: string | null }[] | null)
   /**
    * Published content only, and only where there IS any. An export is what
    * the site is, so it takes `content`; a file created in the code editor

@@ -2165,7 +2165,7 @@ margin-top: {{ bs.section_mt_d }}px !important;
       --it-sec-pb-m: {{ bs.section_pb_m | default: 0 }}px;
      ">
   <div class="it-width" style="max-width: {{ bs.max_width | default: 760 }}px; {% if bs.center_card %}margin-left:auto;margin-right:auto;{% endif %}">
-    <div class="it-inner">
+    <div class="it-inner" role="list">
 
       {%- if bs.row1_enable != false -%}
       <div class="it-row it-row-1" role="listitem">
@@ -3052,9 +3052,8 @@ Pick the source:
   </svg>
 
   {%- when 'returns' -%}
-  <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"
-       fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d="M16 12L8 20l8 8M8 20h16c8.837 0 16 7.163 16 16"/>
+  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path d="M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
   </svg>
 
   {%- when 'heart' -%}

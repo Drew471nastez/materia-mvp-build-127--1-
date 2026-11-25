@@ -342,7 +342,7 @@ function main() {
   const files = read("app/api/website-builder/themes/[installId]/files/route.ts")
   check("deleting a shipped section in the builder puts the theme's text back on GitHub, not a hole",
     /typeof shipped === "string" \? \{ kind: "save", path, content: shipped \} : \{ kind: "delete", path \}/.test(files))
-  check("a rename carries the unpublished draft, not only what was published", /select\("content, draft_content"\)/.test(files) && /draft_content: existing\.draft_content \?\? null/.test(files))
+  check("a rename carries the unpublished draft, not only what was published", /* Changed on purpose (round 27): with the path, through fileCols, a reference resolved (theme-file-refs.ts). */ /select\(await fileCols\("path, content, draft_content"\)\)/.test(files) && /draft_content: existing\.draft_content \?\? null/.test(files))
 
   console.log("\nSwitches, pull and activity")
   const sync2 = read("lib/github-sync/sync.ts")

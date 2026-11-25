@@ -40,6 +40,7 @@ import { DEFAULT_THEME_SOURCES } from "../../../../../../themes/default/sources.
 import { linksNotSetUp, ownInstall } from "@/lib/github-sync/own-install"
 import { storeUnavailableResponse } from "@/lib/team/server"
 import { rateLimit } from "@/lib/api/rate-limit"
+import { fileCols, resolveRefs } from "@/lib/website-builder/theme-file-refs"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -73,9 +74,9 @@ async function editedBuiltIns(db: Db, installId: string, fromGitHub: Set<string>
   if (compatOf(settings)) return []
   const refs = referenceSchemas()
   const paths = [...Object.keys(DEFAULT_THEME_SOURCES).filter((p) => /^(sections|blocks)\//.test(p)), ...Object.keys(refs).map((t) => `sections/${t}.storelib`)]
-  const { data } = await db.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId).in("path", paths)
+  const { data } = await db.from("store_theme_custom_files").select(await fileCols("path, content, draft_content")).eq("install_id", installId).in("path", paths)
   const files: Record<string, string> = {}
-  for (const r of (data ?? []) as { path: string; content: string | null; draft_content?: string | null }[]) {
+  for (const r of await resolveRefs((data ?? []) as unknown as { path: string; content: string | null; draft_content?: string | null }[])) {
     const text = r.draft_content ?? r.content
     if (typeof text === "string" && text.trim() !== "") files[r.path] = text
   }

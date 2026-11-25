@@ -943,6 +943,37 @@ export function CompatCanvas(props: CompatCanvasProps) {
   }
   const front = () => slotsRef.current[0] ?? null
   const frontWindow = () => { const f = front(); return f ? frames.current.get(f.n)?.contentWindow ?? null : null }
+  /*
+    A THEME SETTING THAT CHANGED, SAID TO THE PAGE ONCE IT IS IN FRONT AND
+    STILL (round 27). Drawn again for a theme setting, the page shows what is
+    on screen at once (canvas-network.ts, instant), so a change to how its
+    sections arrive (Materia's Animations) was never seen in the canvas.
+    Once the page in front is the one drawn with the change, nothing is
+    loading behind it, no finger is down and the canvas rests, it is told
+    which settings changed ("theme-changed", canvas-bridge.ts), and a theme
+    that listens (storelib:theme-change) can show it. Changes that come
+    together are said together; one that never settles is dropped after 8s.
+  */
+  const themeNews = useRef<{ settings: Record<string, unknown>; timer: number } | null>(null)
+  const noteThemeChange = (before: Record<string, unknown> | undefined, after: Record<string, unknown> | undefined) => {
+    if (!before || !after) return
+    const changed = changedCompatSettings(before, after)
+    if (!Object.keys(changed).length) return
+    const held = themeNews.current
+    if (held) window.clearTimeout(held.timer)
+    const settings = { ...(held?.settings ?? {}), ...changed }
+    const started = performance.now()
+    const tick = () => {
+      const slot = front()
+      const win = slot ? frames.current.get(slot.n)?.contentWindow ?? null : null
+      const waiting = !slot || !win || !slot.ready || !slot.loaded || !!slotsRef.current[1] || isLive()
+      if (waiting && performance.now() - started < 8000) { themeNews.current = { settings, timer: window.setTimeout(tick, 120) }; return }
+      themeNews.current = null
+      if (!waiting) void whenCanvasRests().then(() => { if (front() === slot) sendTo(win, { storelib: 1, type: "theme-changed", settings }) })
+    }
+    themeNews.current = { settings, timer: window.setTimeout(tick, 160) }
+  }
+  useEffect(() => () => { if (themeNews.current) window.clearTimeout(themeNews.current.timer) }, [])
 
   /* A page loaded behind the one on screen. */
   /*
@@ -1309,7 +1340,10 @@ export function CompatCanvas(props: CompatCanvasProps) {
       if (commitShown(list)) {
         /* Released: the value the finger left, said once more as committed. */
         const w = frontWindow()
-        if (w && before && drawnWith.current) tellSettings(w, before, drawnWith.current.settings, false)
+        if (w && before && drawnWith.current) {
+          tellSettings(w, before, drawnWith.current.settings, false)
+          noteThemeChange(before, drawnWith.current.settings)
+        }
         return
       }
     }
@@ -1329,6 +1363,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
     /* What the page on screen is now drawn with: a theme value under a finger is written from here (applyLiveTheme). */
     const settingsBefore = drawnWith.current?.settings
     drawnWith.current = { settings: settingsOfTheme.get(compatTheme) ?? drawSettingsRef.current, theme: compatTheme, page, list }
+    if (!isLive() && front()?.key === docKey) noteThemeChange(settingsBefore, drawnWith.current.settings)
     drawnRows.current = rowsRef.current
     /* Said to the theme's code once the page has it (storelib:settings-change), on the same page only: another page is loaded with its settings. */
     const shownNow = front()

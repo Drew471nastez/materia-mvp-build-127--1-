@@ -15,6 +15,7 @@ import { builtInSettingsSchema } from "@/lib/storelib-theme/theme-config"
 import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
 import { storeMenusOrNull, withStoreMenus } from "@/lib/website-builder/store-menus-server"
 import type { ThemeSnapshot } from "./layout"
+import { fileCols, resolveRefs } from "@/lib/website-builder/theme-file-refs"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -30,10 +31,10 @@ async function allFiles(db: Db, installId: string): Promise<Record<string, strin
   const out: Record<string, string> = {}
   const page = 1000
   for (let from = 0; from < 20_000; from += page) {
-    let res = await db.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId).order("path").range(from, from + page - 1)
+    let res = await db.from("store_theme_custom_files").select(await fileCols("path, content, draft_content")).eq("install_id", installId).order("path").range(from, from + page - 1)
     if (res.error) res = await db.from("store_theme_custom_files").select("path, content").eq("install_id", installId).order("path").range(from, from + page - 1)
     if (res.error) throw new SnapshotError("Could not read this website's files. Try again.")
-    const rows = (res.data ?? []) as { path: string; content: string | null; draft_content?: string | null }[]
+    const rows = await resolveRefs((res.data ?? []) as { path: string; content: string | null; draft_content?: string | null }[])
     for (const r of rows) {
       const text = r.draft_content ?? r.content
       if (typeof text === "string" && text.trim() !== "") out[r.path] = text

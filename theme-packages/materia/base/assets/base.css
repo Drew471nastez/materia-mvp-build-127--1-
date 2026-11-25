@@ -4007,34 +4007,39 @@ nav.mobile {
   --duration-extra-longer: 850ms;
   --duration-extended: 3s;
   --ease-soft: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
   --animation-slide-in: slideIn var(--duration-extra-long) var(--ease-soft) both;
   --animation-fade-in: fadeIn var(--duration-extra-long) var(--ease-soft) both;
   --animation-zoom-in: revealZoom var(--duration-extra-longer) var(--ease-soft) both;
   --reveal-stagger: 75ms;
-  --reveal-shift: 28px;
-  --reveal-from-opacity: 0.4;
+  --reveal-shift: 56px;
+  --reveal-from-opacity: 0.2;
 }
-.scroll-trigger { --reveal-name: revealFade; --reveal-ease: ease; --reveal-time: 1; --reveal-dir: 1; }
-.scroll-trigger.fade_in { --reveal-name: revealFade; }
-.scroll-trigger.slide_in { --reveal-name: revealSlideUp; }
-.scroll-trigger.zoom_in { --reveal-name: revealZoom; }
-.scroll-trigger.subtle_rise { --reveal-name: revealRise; --reveal-ease: cubic-bezier(0.16, 1, 0.3, 1); }
-.scroll-trigger.cinematic { --reveal-name: revealCinematic; --reveal-ease: cubic-bezier(0.16, 1, 0.3, 1); --reveal-time: 1.25; }
-.scroll-trigger.blur_up { --reveal-name: revealBlurUp; --reveal-ease: cubic-bezier(0.16, 1, 0.3, 1); }
-.scroll-trigger.blur_up.shopify-section { --reveal-name: revealRise; }
-.scroll-trigger.slide_side { --reveal-name: revealSlideSide; --reveal-ease: cubic-bezier(0.16, 1, 0.3, 1); }
+.scroll-trigger { --reveal-name: revealFade; --reveal-ease: var(--ease-out-quint); --reveal-time: 1; --reveal-dir: 1; --reveal-part: revealPartUp; }
+.scroll-trigger.fade_in { --reveal-name: revealFade; --reveal-ease: cubic-bezier(0.33, 0, 0.2, 1); }
+.scroll-trigger.fade_up { --reveal-name: revealFadeUp; --reveal-ease: var(--ease-out-expo); }
+.scroll-trigger.slide_in { --reveal-name: revealSlideUp; --reveal-ease: var(--ease-out-quint); }
+.scroll-trigger.zoom_in { --reveal-name: revealZoom; --reveal-ease: var(--ease-out-expo); }
+.scroll-trigger.subtle_rise { --reveal-name: revealRise; --reveal-ease: var(--ease-out-expo); }
+.scroll-trigger.cinematic { --reveal-name: revealCinematic; --reveal-ease: cubic-bezier(0.19, 1, 0.22, 1); --reveal-time: 1.4; }
+.scroll-trigger.blur_up { --reveal-name: revealBlurUp; --reveal-ease: var(--ease-out-expo); --reveal-time: 1.1; }
+.scroll-trigger.blur_in { --reveal-name: revealBlurIn; --reveal-ease: cubic-bezier(0.25, 0.8, 0.25, 1); --reveal-time: 1.1; }
+.scroll-trigger.slide_side { --reveal-name: revealSlideSide; --reveal-ease: var(--ease-out-quint); }
 :is([dir='rtl'], .rtl) .scroll-trigger.slide_side,
 .scroll-trigger.slide_side:is([dir='rtl'], .rtl) { --reveal-dir: -1; }
-.scroll-trigger.mask_reveal { --reveal-name: revealMask; --reveal-ease: cubic-bezier(0.65, 0, 0.35, 1); }
+.scroll-trigger.stagger_up { --reveal-name: revealFadeUp; --reveal-ease: var(--ease-out-expo); --reveal-part: revealPartUp; }
+.scroll-trigger.mask_reveal { --reveal-name: revealUnmaskCard; --reveal-ease: cubic-bezier(0.65, 0, 0.35, 1); --reveal-part: revealPartUp; --reveal-time: 1.15; }
+.scroll-trigger.split_text { --reveal-name: revealFadeUp; --reveal-ease: var(--ease-out-expo); --reveal-part: revealPartUp; }
 @media (prefers-reduced-motion: no-preference) {
-  .scroll-trigger.scroll-trigger--armed.scroll-trigger--offscreen:is(.fade_in, .slide_in, .zoom_in, .subtle_rise, .cinematic, .blur_up, .slide_side, .mask_reveal) {
+  .scroll-trigger.scroll-trigger--armed.scroll-trigger--offscreen:is(.fade_in, .fade_up, .slide_in, .zoom_in, .subtle_rise, .cinematic, .blur_up, .blur_in, .slide_side, .mask_reveal, .stagger_up, .split_text):not(.reveal-parts) {
     animation-name: var(--reveal-name);
     animation-duration: 1s;
     animation-fill-mode: both;
     animation-play-state: paused;
     animation-delay: 0s;
   }
-  .scroll-trigger.scroll-trigger--armed:not(.scroll-trigger--offscreen):is(.fade_in, .slide_in, .zoom_in, .subtle_rise, .cinematic, .blur_up, .slide_side, .mask_reveal) {
+  .scroll-trigger.scroll-trigger--armed:not(.scroll-trigger--offscreen):is(.fade_in, .fade_up, .slide_in, .zoom_in, .subtle_rise, .cinematic, .blur_up, .blur_in, .slide_side, .mask_reveal, .stagger_up, .split_text):not(.reveal-parts) {
     animation-name: var(--reveal-name);
     animation-duration: calc(var(--animation-duration, 700ms) * var(--reveal-time));
     animation-timing-function: var(--reveal-ease);
@@ -4042,6 +4047,49 @@ nav.mobile {
     animation-fill-mode: both;
     animation-iteration-count: 1;
     will-change: opacity, transform;
+  }
+  .scroll-trigger.scroll-trigger--armed:is(.blur_up, .blur_in, .cinematic):not(.reveal-parts) { will-change: opacity, transform, filter; }
+  .scroll-trigger--armed.scroll-trigger--offscreen.reveal-parts [data-reveal-part] {
+    animation-name: var(--reveal-part);
+    animation-duration: 1s;
+    animation-fill-mode: both;
+    animation-play-state: paused;
+    animation-delay: 0s;
+  }
+  .scroll-trigger--armed:not(.scroll-trigger--offscreen).reveal-parts [data-reveal-part] {
+    animation-name: var(--reveal-part);
+    animation-duration: calc(var(--animation-duration, 700ms) * 0.95);
+    animation-timing-function: var(--ease-out-expo);
+    animation-delay: calc(var(--animation-delay-base, 0ms) + var(--part, 0) * var(--reveal-stagger));
+    animation-fill-mode: both;
+    will-change: opacity, transform;
+  }
+  .reveal-parts.mask_reveal [data-reveal-part='media'] { --reveal-part: revealUnmask; }
+  .scroll-trigger--armed.reveal-parts.mask_reveal [data-reveal-part='media'] { overflow: hidden; }
+  .scroll-trigger--armed.scroll-trigger--offscreen.reveal-parts.mask_reveal [data-reveal-part='media'] :is(img, video) {
+    animation: revealSettle 1s both paused;
+  }
+  .scroll-trigger--armed:not(.scroll-trigger--offscreen).reveal-parts.mask_reveal [data-reveal-part='media'] {
+    animation-duration: calc(var(--animation-duration, 700ms) * 1.35);
+    animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+    will-change: clip-path, opacity;
+  }
+  .scroll-trigger--armed:not(.scroll-trigger--offscreen).reveal-parts.mask_reveal [data-reveal-part='media'] :is(img, video) {
+    animation: revealSettle calc(var(--animation-duration, 700ms) * 1.8) var(--ease-out-expo) calc(var(--animation-delay-base, 0ms) + var(--part, 0) * var(--reveal-stagger)) both;
+    will-change: transform;
+  }
+  .reveal-parts.split_text [data-reveal-part='words'] { --reveal-part: none; }
+  .scroll-trigger--armed.reveal-parts.split_text .mt-word { display: inline-block; }
+  .scroll-trigger--armed.scroll-trigger--offscreen.reveal-parts.split_text .mt-word {
+    animation: revealWord 1s both paused;
+  }
+  .scroll-trigger--armed:not(.scroll-trigger--offscreen).reveal-parts.split_text .mt-word {
+    animation: revealWord calc(var(--animation-duration, 700ms) * 0.9) var(--ease-out-expo) calc(var(--animation-delay-base, 0ms) + var(--part, 0) * var(--reveal-stagger) + var(--word, 0) * 45ms) both;
+  }
+  .scroll-trigger--armed.scroll-trigger--offscreen [data-reveal-zoom] { animation: revealSettle 1s both paused; }
+  .scroll-trigger--armed:not(.scroll-trigger--offscreen) [data-reveal-zoom] {
+    animation: revealSettle calc(var(--animation-duration, 700ms) * 1.8) var(--ease-out-expo) calc(var(--animation-delay-base, 0ms) + var(--reveal-order, 0) * var(--reveal-stagger) + var(--part, 0) * var(--reveal-stagger)) both;
+    will-change: transform;
   }
 }
 .scroll-trigger[animation-end],
@@ -4051,40 +4099,62 @@ nav.mobile {
   opacity: 1 !important;
   animation: none !important;
 }
+.scroll-trigger[data-animation-done] :is([data-reveal-part], [data-reveal-zoom], .mt-word) { animation: none !important; }
 @media (prefers-reduced-motion: reduce) {
-  .scroll-trigger, .scroll-trigger.scroll-trigger--offscreen { opacity: 1 !important; animation: none !important; }
+  .scroll-trigger, .scroll-trigger.scroll-trigger--offscreen,
+  .scroll-trigger :is([data-reveal-part], [data-reveal-zoom], .mt-word) { opacity: 1 !important; animation: none !important; }
 }
-@keyframes revealFade { from { opacity: var(--reveal-from-opacity, 0.4); } to { opacity: 1; } }
+@keyframes revealFade { from { opacity: var(--reveal-from-opacity, 0.2); } to { opacity: 1; } }
+@keyframes revealFadeUp {
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 32px, 0); }
+  to { opacity: 1; transform: none; }
+}
 @keyframes revealSlideUp {
-  from { opacity: var(--reveal-from-opacity, 0.4); transform: translate3d(0, 1rem, 0); }
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, var(--reveal-shift, 56px), 0); }
   to { opacity: 1; transform: none; }
 }
 @keyframes revealZoom {
-  from { opacity: var(--reveal-from-opacity, 0.4); transform: scale(1.02); }
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: scale(0.94); }
   to { opacity: 1; transform: none; }
 }
 @keyframes revealRise {
-  from { opacity: var(--reveal-from-opacity, 0.4); transform: translate3d(0, 8px, 0); }
+  from { opacity: 0.4; transform: translate3d(0, 14px, 0); }
   to { opacity: 1; transform: none; }
 }
 @keyframes revealCinematic {
-  from { opacity: var(--reveal-from-opacity, 0.4); transform: scale(0.992); }
-  to { opacity: 1; transform: none; }
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 24px, 0) scale(0.97); filter: blur(4px); }
+  to { opacity: 1; transform: none; filter: none; }
 }
 @keyframes revealBlurUp {
-  from { opacity: var(--reveal-from-opacity, 0.4); transform: translate3d(0, 12px, 0) scale(0.985); }
-  to { opacity: 1; transform: none; }
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 24px, 0); filter: blur(10px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+@keyframes revealBlurIn {
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: scale(1.02); filter: blur(14px); }
+  to { opacity: 1; transform: none; filter: none; }
 }
 @keyframes revealSlideSide {
-  from { opacity: var(--reveal-from-opacity, 0.4); transform: translate3d(calc(var(--reveal-shift, 28px) * -1 * var(--reveal-dir, 1)), 0, 0); }
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(calc(var(--reveal-shift, 56px) * -1 * var(--reveal-dir, 1)), 0, 0); }
   to { opacity: 1; transform: none; }
 }
-@keyframes revealMask {
-  from { opacity: var(--reveal-from-opacity, 0.4); transform: translate3d(0, 18px, 0) scaleY(0.96); }
-  60% { opacity: 1; }
+@keyframes revealPartUp {
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 28px, 0); }
   to { opacity: 1; transform: none; }
 }
-.scroll-trigger.mask_reveal.scroll-trigger--armed { transform-origin: 50% 0; }
+@keyframes revealUnmask {
+  from { opacity: 0.6; clip-path: inset(9% 7% 9% 7%); }
+  to { opacity: 1; clip-path: inset(0); }
+}
+@keyframes revealUnmaskCard {
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 24px, 0); clip-path: inset(0 0 22% 0); }
+  to { opacity: 1; transform: none; clip-path: inset(0); }
+}
+@keyframes revealSettle { from { transform: scale(1.12); } to { transform: none; } }
+@keyframes revealWord {
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 0.55em, 0); }
+  to { opacity: 1; transform: none; }
+}
+.scroll-trigger.mask_reveal.scroll-trigger--armed:not(.reveal-parts) { transform-origin: 50% 0; }
 @keyframes slideIn {
   from { transform: translate3d(0, 12px, 0); opacity: 0; }
   to { transform: translate3d(0, 0, 0); opacity: 1; }
@@ -6103,7 +6173,7 @@ input[type='checkbox']:checked + .checkmark:before {
     padding-inline-start: 1rem;
   }
   .hover-effect :is(img, .placeholder-image, picture) {
-    transition: var(--transition);
+    transition: transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.4s ease, filter 0.5s ease;
   }
   :is(.product-item, .collection-item):hover .hover-effect :is(img, .placeholder-image, picture),
   .hover-effect:hover :is(img, .placeholder-image, picture) {
@@ -6116,7 +6186,7 @@ input[type='checkbox']:checked + .checkmark:before {
     transform: var(--zoom-transform, scale(1.05));
   }
   .hover_fade .hover-effect:hover :is(img, .placeholder-image, picture) {
-    opacity: 0.8;
+    opacity: 0.86;
   }
   .hover_fade .hover-effect:hover .secondary-image {
     opacity: 1;
@@ -6138,14 +6208,14 @@ input[type='checkbox']:checked + .checkmark:before {
     perspective: 800px;
   }
   .hover_tilt .hover-effect:hover :is(img, .placeholder-image, picture) {
-    transform: rotateX(2deg) rotateY(-3deg) scale(1.03);
+    transform: rotateX(2deg) rotateY(-3deg) scale(1.04);
   }
   .hover_lift .hover-effect {
-    transition: transform .35s cubic-bezier(.2,.7,.2,1), box-shadow .35s ease;
+    transition: transform .45s cubic-bezier(.2,.7,.2,1), box-shadow .45s cubic-bezier(.2,.7,.2,1);
   }
   .hover_lift .hover-effect:hover {
     transform: translateY(-6px);
-    box-shadow: 0 12px 28px -10px rgba(0,0,0,.18);
+    box-shadow: 0 14px 30px -12px rgba(0,0,0,.2);
   }
   .hover_slide .hover-effect {
     overflow: hidden;
@@ -6162,7 +6232,7 @@ input[type='checkbox']:checked + .checkmark:before {
   .hover_reveal .hover-effect .secondary-image,
   .hover_reveal .hover-effect .hover-effect__alt {
     opacity: 0;
-    transition: opacity .35s ease;
+    transition: opacity .45s cubic-bezier(.33, 0, .2, 1), transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
   }
   .hover_reveal .hover-effect:hover .secondary-image,
   .hover_reveal .hover-effect:hover .hover-effect__alt {
@@ -6173,6 +6243,7 @@ input[type='checkbox']:checked + .checkmark:before {
   }
   .hover_blur .hover-effect:hover :is(img, .placeholder-image, picture) {
     filter: blur(2px) brightness(0.96);
+    transform: scale(1.02);
   }
   .hover_grayscale .hover-effect :is(img, .placeholder-image, picture) {
     filter: grayscale(1);

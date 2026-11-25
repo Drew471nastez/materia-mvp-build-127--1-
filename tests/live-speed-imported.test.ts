@@ -217,7 +217,8 @@ async function roundTrips() {
   check("the first stranger's page is drawn: 200, marked for the hold, sent private", first.value?.status === 200 && first.value.cache === "private, no-cache" && first.value.marked, first.value && { status: first.value.status, cache: first.value.cache, marked: first.value.marked })
   /* Changed on purpose (creator blogs, P3): +5, the blog's reads (lib/site-blog/public-read.ts blogData), all at once beside the install and held five minutes under the blog's tag, "no blog" included; none of them in a row. */
   /* Changed on purpose (round AL): +2, the covers as uploaded beside each list of cards (lib/products/cover originalCoversOf in cardsFromRows), asked with the card's other reads, none of them in a row. */
-  check("  within 67 round trips on a cold server", first.foreground <= 67, first.foreground)
+  /* Changed on purpose (round 27): +1, once per server, the shared theme files' column checked (lib/website-builder/theme-file-refs.ts refColumnPresent) so a reference is always resolved; never again on that server once found. */
+  check("  within 68 round trips on a cold server", first.foreground <= 68, first.foreground)
   check("  at most 16 of them in a row (it was 20)", inARow(first.trips) <= 16, { inARow: inARow(first.trips), tables: first.trips.map((t) => t.table) })
   console.log(`        measured: ${first.foreground} round trips, ${inARow(first.trips)} in a row, for a cold first page`)
 

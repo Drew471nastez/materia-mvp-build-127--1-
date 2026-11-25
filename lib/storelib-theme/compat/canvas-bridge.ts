@@ -2991,6 +2991,24 @@ export const CANVAS_BRIDGE = `
     var m = e.data;
     if (!m || m.storelib !== 1) return;
     if (m.type === "hold-view") { holdView(!!m.on); return; }
+    /*
+      THE THEME'S SETTINGS THAT CHANGED, SAID ONCE THE PAGE IS SEEN (round
+      27). A theme setting draws the page again behind itself, where it was
+      scrolled to, and what is on screen there is shown at once (canvas-
+      network.ts, instant). So a change to how sections arrive (Animations)
+      could never be seen without scrolling away and back. The canvas tells
+      the page in front which settings changed once it is in front and
+      still, as storelib:theme-change, after the page's own settling is over;
+      a theme that wants to show such a change (Materia plays the reveals on
+      screen again) does, and a theme that does not listen is untouched.
+    */
+    if (m.type === "theme-changed") {
+      var changedSettings = m.settings && typeof m.settings === "object" ? m.settings : {};
+      requestAnimationFrame(function () { requestAnimationFrame(function () { setTimeout(function () {
+        try { document.dispatchEvent(new CustomEvent("storelib:theme-change", { detail: { settings: changedSettings } })); } catch (err) {}
+      }, 120); }); });
+      return;
+    }
     /* After whatever was asked before it is on the page: a listener reads the page as it now is. */
     if (m.type === "settings") {
       /* A value under a finger, which the theme's script may write itself: the outlines follow it as they follow the builder's own (streaming). */
@@ -3833,7 +3851,27 @@ export const CANVAS_SWITCH = `
   chosen M stayed with S's price, id and label. pushState and replaceState
   keep the state and leave the address as it is when the browser refuses it.
 */
-export const CANVAS_HEAD = `<script>addEventListener("pointerdown",function(){var g=window.__slGiveBack;if(g)g()},true);addEventListener("keydown",function(){var g=window.__slGiveBack;if(g)g()},true);</script><style data-sl-canvas>preload-page,.preload-page,website-intro,.website-intro,#preloader,.site-preloader,.page-loader,.page-loading-overlay{position:fixed!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important;animation-duration:1ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:1ms!important;transition-delay:0s!important}preload-page *,.preload-page *,website-intro *,.website-intro *,#preloader *,.site-preloader *,.page-loader *,.page-loading-overlay *{visibility:hidden!important;animation-duration:1ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:1ms!important;transition-delay:0s!important}</style><script>(function(){var seed=window.__slSeed||{};function S(n){var m=new Map();var held=seed[n];if(held&&typeof held==="object")Object.keys(held).forEach(function(k){if(typeof held[k]==="string")m.set(k,held[k])});var t=0;var tell=function(){if(t)return;t=setTimeout(function(){t=0;var o={};m.forEach(function(v,k){o[k]=v});try{parent.postMessage({storelib:1,type:"storage",area:n,items:o},window.__slTo||"*")}catch(e){}},0)};return{get length(){return m.size},key:function(i){return Array.from(m.keys())[i]??null},getItem:function(k){return m.has(String(k))?m.get(String(k)):null},setItem:function(k,v){m.set(String(k),String(v));tell()},removeItem:function(k){m.delete(String(k));tell()},clear:function(){m.clear();tell()}}}
+/*
+  THE THEME IS NOT TOLD IT IS IN AN EDITOR BY ITS OWN GUESS (round 27). The
+  canvas tells the theme it is on the website (theme.ts, themeDesignMode),
+  yet a theme can still decide for itself that it is in an editor because it
+  sits in a frame: Materia's editor-live-images before round 26 put
+  shopify-design-mode on <html> whenever window.self !== window.top, and its
+  animation.js then marked every reveal done at load, and its animation.css
+  turned every reveal off under html.shopify-design-mode. Installed themes
+  are the creators' own copies, so those sites kept that code: in the canvas
+  nothing rose or faded in as it was scrolled to, while the website played
+  all of it (scripts/check-canvas-reveal-r27.ts, an install from round 21).
+  So, in the canvas only and only while the page has not been edited, the
+  class a script puts on <html> by itself is taken off again (a page the
+  server drew in design mode, a section preview, has it from the start and
+  keeps it). From the first edit (storelib:settings-change or
+  storelib:section-load, which a theme may answer by marking itself in an
+  editor on purpose) the class stays as the theme puts it, exactly as before.
+*/
+export const CANVAS_DESIGN_GUARD = `<script>(function(){var de=document.documentElement;if(!de||de.classList.contains("shopify-design-mode")||typeof MutationObserver!=="function")return;var edited=false;var keep=function(){if(!edited&&de.classList.contains("shopify-design-mode"))de.classList.remove("shopify-design-mode")};new MutationObserver(keep).observe(de,{attributes:true,attributeFilter:["class"]});["storelib:settings-change","storelib:section-load"].forEach(function(n){document.addEventListener(n,function(){edited=true},true)})})();</script>`
+
+export const CANVAS_HEAD = `${CANVAS_DESIGN_GUARD}<script>addEventListener("pointerdown",function(){var g=window.__slGiveBack;if(g)g()},true);addEventListener("keydown",function(){var g=window.__slGiveBack;if(g)g()},true);</script><style data-sl-canvas>preload-page,.preload-page,website-intro,.website-intro,#preloader,.site-preloader,.page-loader,.page-loading-overlay{position:fixed!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important;animation-duration:1ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:1ms!important;transition-delay:0s!important}preload-page *,.preload-page *,website-intro *,.website-intro *,#preloader *,.site-preloader *,.page-loader *,.page-loading-overlay *{visibility:hidden!important;animation-duration:1ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:1ms!important;transition-delay:0s!important}</style><script>(function(){var seed=window.__slSeed||{};function S(n){var m=new Map();var held=seed[n];if(held&&typeof held==="object")Object.keys(held).forEach(function(k){if(typeof held[k]==="string")m.set(k,held[k])});var t=0;var tell=function(){if(t)return;t=setTimeout(function(){t=0;var o={};m.forEach(function(v,k){o[k]=v});try{parent.postMessage({storelib:1,type:"storage",area:n,items:o},window.__slTo||"*")}catch(e){}},0)};return{get length(){return m.size},key:function(i){return Array.from(m.keys())[i]??null},getItem:function(k){return m.has(String(k))?m.get(String(k)):null},setItem:function(k,v){m.set(String(k),String(v));tell()},removeItem:function(k){m.delete(String(k));tell()},clear:function(){m.clear();tell()}}}
 ["localStorage","sessionStorage"].forEach(function(n){var ok=false;try{ok=!!window[n]}catch(e){ok=false}if(!ok){try{Object.defineProperty(window,n,{value:S(n),configurable:true})}catch(e){}}});
 try{document.cookie}catch(e){var jar=S("cookie");try{Object.defineProperty(document,"cookie",{get:function(){var o=[];for(var i=0;i<jar.length;i++){var k=jar.key(i);o.push(k+"="+jar.getItem(k))}return o.join("; ")},set:function(v){var parts=String(v).split(";"),first=parts.shift()||"",at=first.indexOf("=");if(at<1)return;var k=first.slice(0,at).trim(),val=first.slice(at+1).trim(),gone=false;parts.forEach(function(p){var q=p.split("="),n=(q[0]||"").trim().toLowerCase(),x=q.slice(1).join("=").trim();if(n==="max-age"&&Number(x)<=0)gone=true;if(n==="expires"){var t=Date.parse(x);if(!isNaN(t)&&t<=Date.now())gone=true}});if(gone)jar.removeItem(k);else jar.setItem(k,val)},configurable:true})}catch(e2){}}
 if(typeof IntersectionObserver==="function"){var IO=IntersectionObserver,watching=new WeakMap(),bySig=new Map(),gone=new WeakSet();var sig=function(el){return el.tagName+"."+String(el.getAttribute("class")||"").split(/\\s+/).filter(Boolean).sort().join(".")};var W=class extends IO{observe(t){try{gone.delete(this);if(t&&t.nodeType===1&&t.closest&&t.closest(".shopify-section")){var by=watching.get(t);if(!by)watching.set(t,by=new Set());by.add(this);if(String(t.getAttribute("class")||"").trim()){var k=sig(t),set=bySig.get(k);if(!set)bySig.set(k,set=new Set());set.add(this)}}}catch(e){}return super.observe(t)}unobserve(t){try{var by=watching.get(t);if(by)by.delete(this)}catch(e){}return super.unobserve(t)}disconnect(){gone.add(this);var me=this;bySig.forEach(function(set){set.delete(me)});return super.disconnect()}};window.IntersectionObserver=W;window.__slIO=IO;window.__slWatch={watching:watching,bySig:bySig,usable:function(io){var r=io.root;return !gone.has(io)&&(!r||r.nodeType===9)}}}

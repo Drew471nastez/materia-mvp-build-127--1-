@@ -110,24 +110,31 @@
   @keyframes zoomInOnScroll { from { scale: 1; } to { scale: 1.2; } }
 }
 /* ──────────────────────────────────────────────────────────────────────
-   SCROLL REVEAL: Theme settings > Animations > "When a section scrolls into
-   view". One system for every type and every element that carries
-   `.scroll-trigger <type>` (a section wrapper or the cards inside it).
+   SCROLL REVEAL (round 27): Theme settings > Animations > "When a section
+   scrolls into view". One system for every type and every element that
+   carries `.scroll-trigger <type>` (a section wrapper or a card inside it).
 
    - Visible by default. Only animation.js arms an element, and only one that
      starts below the first screen (`--armed` + `--offscreen`), so the first
-     screen and the LCP image are never delayed, and previews, no-JS, the
-     builder and reduced motion always show content.
-   - Never blank (r25): an armed element waits at --reveal-from-opacity
-     (0.4) and its type's small offset, never at 0, so a section scrolled to
-     before it has started shows its content, never a white band. Every
-     keyframe starts from that same state, so nothing jumps when it starts.
-   - Plays once: animation.js marks it done and the animation is removed.
-   - Compositor-only keyframes: opacity and transform, nothing else (no
-     filter, clip-path or layout property), so no frame is laid out or
-     painted again while a reveal plays.
+     screen and the LCP image are never delayed, and previews, no-JS and
+     reduced motion always show content.
+   - Never blank: an armed element waits at its type's first frame, which is
+     always partly visible (--reveal-from-opacity, 0.2 at the least), never at
+     0, so a section scrolled to before it has started shows its content.
+   - Plays once, then animation.js marks it done and every rule here lets go
+     of it (no fill, no will-change, no layer left behind).
+   - GPU friendly: opacity, transform and filter, which the compositor plays;
+     clip-path only on pictures (Mask reveal).
+   - Two kinds of type:
+       whole   the element moves as one (Fade in, Fade up, Slide in, Subtle
+               rise, Zoom in, Cinematic, Blur up, Blur in, Slide from side);
+       parts   the section stays put and its parts arrive one after another
+               (Rise in one by one, Mask reveal, Headings word by word).
+               animation.js marks the parts ([data-reveal-part]) as the
+               section is armed and takes the marks off when it is done.
+               A card (not a section) with a parts type moves as one.
    - Duration = Animation duration, delay = Animation delay before start,
-     plus a short stagger for things that come into view together.
+     stagger = Delay between items.
    ────────────────────────────────────────────────────────────────────── */
 :root {
   --duration-announcement-bar: 250ms;
@@ -137,37 +144,43 @@
   --duration-extra-longer: 850ms;
   --duration-extended: 3s;
   --ease-soft: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
   --animation-slide-in: slideIn var(--duration-extra-long) var(--ease-soft) both;
   --animation-fade-in: fadeIn var(--duration-extra-long) var(--ease-soft) both;
   --animation-zoom-in: revealZoom var(--duration-extra-longer) var(--ease-soft) both;
   --reveal-stagger: 75ms;
-  --reveal-shift: 28px;
-  --reveal-from-opacity: 0.4;
+  --reveal-shift: 56px;
+  --reveal-from-opacity: 0.2;
 }
 
-.scroll-trigger { --reveal-name: revealFade; --reveal-ease: ease; --reveal-time: 1; --reveal-dir: 1; }
-.scroll-trigger.fade_in { --reveal-name: revealFade; }
-.scroll-trigger.slide_in { --reveal-name: revealSlideUp; }
-.scroll-trigger.zoom_in { --reveal-name: revealZoom; }
-.scroll-trigger.subtle_rise { --reveal-name: revealRise; --reveal-ease: cubic-bezier(0.16, 1, 0.3, 1); }
-.scroll-trigger.cinematic { --reveal-name: revealCinematic; --reveal-ease: cubic-bezier(0.16, 1, 0.3, 1); --reveal-time: 1.25; }
-.scroll-trigger.blur_up { --reveal-name: revealBlurUp; --reveal-ease: cubic-bezier(0.16, 1, 0.3, 1); }
-.scroll-trigger.blur_up.shopify-section { --reveal-name: revealRise; }
-.scroll-trigger.slide_side { --reveal-name: revealSlideSide; --reveal-ease: cubic-bezier(0.16, 1, 0.3, 1); }
+.scroll-trigger { --reveal-name: revealFade; --reveal-ease: var(--ease-out-quint); --reveal-time: 1; --reveal-dir: 1; --reveal-part: revealPartUp; }
+.scroll-trigger.fade_in { --reveal-name: revealFade; --reveal-ease: cubic-bezier(0.33, 0, 0.2, 1); }
+.scroll-trigger.fade_up { --reveal-name: revealFadeUp; --reveal-ease: var(--ease-out-expo); }
+.scroll-trigger.slide_in { --reveal-name: revealSlideUp; --reveal-ease: var(--ease-out-quint); }
+.scroll-trigger.zoom_in { --reveal-name: revealZoom; --reveal-ease: var(--ease-out-expo); }
+.scroll-trigger.subtle_rise { --reveal-name: revealRise; --reveal-ease: var(--ease-out-expo); }
+.scroll-trigger.cinematic { --reveal-name: revealCinematic; --reveal-ease: cubic-bezier(0.19, 1, 0.22, 1); --reveal-time: 1.4; }
+.scroll-trigger.blur_up { --reveal-name: revealBlurUp; --reveal-ease: var(--ease-out-expo); --reveal-time: 1.1; }
+.scroll-trigger.blur_in { --reveal-name: revealBlurIn; --reveal-ease: cubic-bezier(0.25, 0.8, 0.25, 1); --reveal-time: 1.1; }
+.scroll-trigger.slide_side { --reveal-name: revealSlideSide; --reveal-ease: var(--ease-out-quint); }
 :is([dir='rtl'], .rtl) .scroll-trigger.slide_side,
 .scroll-trigger.slide_side:is([dir='rtl'], .rtl) { --reveal-dir: -1; }
-.scroll-trigger.mask_reveal { --reveal-name: revealMask; --reveal-ease: cubic-bezier(0.65, 0, 0.35, 1); }
+/* Parts types: a card (not a section) with one of these moves as one. */
+.scroll-trigger.stagger_up { --reveal-name: revealFadeUp; --reveal-ease: var(--ease-out-expo); --reveal-part: revealPartUp; }
+.scroll-trigger.mask_reveal { --reveal-name: revealUnmaskCard; --reveal-ease: cubic-bezier(0.65, 0, 0.35, 1); --reveal-part: revealPartUp; --reveal-time: 1.15; }
+.scroll-trigger.split_text { --reveal-name: revealFadeUp; --reveal-ease: var(--ease-out-expo); --reveal-part: revealPartUp; }
 
 @media (prefers-reduced-motion: no-preference) {
   /* Waiting below the screen: the first frame of its own animation, so the start is seamless. */
-  .scroll-trigger.scroll-trigger--armed.scroll-trigger--offscreen:is(.fade_in, .slide_in, .zoom_in, .subtle_rise, .cinematic, .blur_up, .slide_side, .mask_reveal) {
+  .scroll-trigger.scroll-trigger--armed.scroll-trigger--offscreen:is(.fade_in, .fade_up, .slide_in, .zoom_in, .subtle_rise, .cinematic, .blur_up, .blur_in, .slide_side, .mask_reveal, .stagger_up, .split_text):not(.reveal-parts) {
     animation-name: var(--reveal-name);
     animation-duration: 1s;
     animation-fill-mode: both;
     animation-play-state: paused;
     animation-delay: 0s;
   }
-  .scroll-trigger.scroll-trigger--armed:not(.scroll-trigger--offscreen):is(.fade_in, .slide_in, .zoom_in, .subtle_rise, .cinematic, .blur_up, .slide_side, .mask_reveal) {
+  .scroll-trigger.scroll-trigger--armed:not(.scroll-trigger--offscreen):is(.fade_in, .fade_up, .slide_in, .zoom_in, .subtle_rise, .cinematic, .blur_up, .blur_in, .slide_side, .mask_reveal, .stagger_up, .split_text):not(.reveal-parts) {
     animation-name: var(--reveal-name);
     animation-duration: calc(var(--animation-duration, 700ms) * var(--reveal-time));
     animation-timing-function: var(--reveal-ease);
@@ -176,6 +189,55 @@
     animation-iteration-count: 1;
     /* A layer only while it plays: markDone removes --armed, and with it this. */
     will-change: opacity, transform;
+  }
+  .scroll-trigger.scroll-trigger--armed:is(.blur_up, .blur_in, .cinematic):not(.reveal-parts) { will-change: opacity, transform, filter; }
+
+  /* Parts: each marked part waits at its first frame, then plays a stagger after the one before. */
+  .scroll-trigger--armed.scroll-trigger--offscreen.reveal-parts [data-reveal-part] {
+    animation-name: var(--reveal-part);
+    animation-duration: 1s;
+    animation-fill-mode: both;
+    animation-play-state: paused;
+    animation-delay: 0s;
+  }
+  .scroll-trigger--armed:not(.scroll-trigger--offscreen).reveal-parts [data-reveal-part] {
+    animation-name: var(--reveal-part);
+    animation-duration: calc(var(--animation-duration, 700ms) * 0.95);
+    animation-timing-function: var(--ease-out-expo);
+    animation-delay: calc(var(--animation-delay-base, 0ms) + var(--part, 0) * var(--reveal-stagger));
+    animation-fill-mode: both;
+    will-change: opacity, transform;
+  }
+  /* Mask reveal: a picture opens out of a window already showing most of it, and settles from a slight zoom. */
+  .reveal-parts.mask_reveal [data-reveal-part='media'] { --reveal-part: revealUnmask; }
+  .scroll-trigger--armed.reveal-parts.mask_reveal [data-reveal-part='media'] { overflow: hidden; }
+  .scroll-trigger--armed.scroll-trigger--offscreen.reveal-parts.mask_reveal [data-reveal-part='media'] :is(img, video) {
+    animation: revealSettle 1s both paused;
+  }
+  .scroll-trigger--armed:not(.scroll-trigger--offscreen).reveal-parts.mask_reveal [data-reveal-part='media'] {
+    animation-duration: calc(var(--animation-duration, 700ms) * 1.35);
+    animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+    will-change: clip-path, opacity;
+  }
+  .scroll-trigger--armed:not(.scroll-trigger--offscreen).reveal-parts.mask_reveal [data-reveal-part='media'] :is(img, video) {
+    animation: revealSettle calc(var(--animation-duration, 700ms) * 1.8) var(--ease-out-expo) calc(var(--animation-delay-base, 0ms) + var(--part, 0) * var(--reveal-stagger)) both;
+    will-change: transform;
+  }
+  /* Headings word by word: the words (animation.js wraps them for the reveal only, then unwraps them). */
+  .reveal-parts.split_text [data-reveal-part='words'] { --reveal-part: none; }
+  .scroll-trigger--armed.reveal-parts.split_text .mt-word { display: inline-block; }
+  .scroll-trigger--armed.scroll-trigger--offscreen.reveal-parts.split_text .mt-word {
+    animation: revealWord 1s both paused;
+  }
+  .scroll-trigger--armed:not(.scroll-trigger--offscreen).reveal-parts.split_text .mt-word {
+    animation: revealWord calc(var(--animation-duration, 700ms) * 0.9) var(--ease-out-expo) calc(var(--animation-delay-base, 0ms) + var(--part, 0) * var(--reveal-stagger) + var(--word, 0) * 45ms) both;
+  }
+
+  /* Zoom pictures as they scroll in: a picture in a revealing card or section settles from a slight zoom inside its own frame. */
+  .scroll-trigger--armed.scroll-trigger--offscreen [data-reveal-zoom] { animation: revealSettle 1s both paused; }
+  .scroll-trigger--armed:not(.scroll-trigger--offscreen) [data-reveal-zoom] {
+    animation: revealSettle calc(var(--animation-duration, 700ms) * 1.8) var(--ease-out-expo) calc(var(--animation-delay-base, 0ms) + var(--reveal-order, 0) * var(--reveal-stagger) + var(--part, 0) * var(--reveal-stagger)) both;
+    will-change: transform;
   }
 }
 
@@ -187,47 +249,66 @@
   opacity: 1 !important;
   animation: none !important;
 }
+.scroll-trigger[data-animation-done] :is([data-reveal-part], [data-reveal-zoom], .mt-word) { animation: none !important; }
 @media (prefers-reduced-motion: reduce) {
-  .scroll-trigger, .scroll-trigger.scroll-trigger--offscreen { opacity: 1 !important; animation: none !important; }
+  .scroll-trigger, .scroll-trigger.scroll-trigger--offscreen,
+  .scroll-trigger :is([data-reveal-part], [data-reveal-zoom], .mt-word) { opacity: 1 !important; animation: none !important; }
 }
 
-@keyframes revealFade { from { opacity: var(--reveal-from-opacity, 0.4); } to { opacity: 1; } }
+/* Every keyframe starts partly visible (never a blank band) and ends at rest. */
+@keyframes revealFade { from { opacity: var(--reveal-from-opacity, 0.2); } to { opacity: 1; } }
+@keyframes revealFadeUp {
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 32px, 0); }
+  to { opacity: 1; transform: none; }
+}
 @keyframes revealSlideUp {
-  from { opacity: var(--reveal-from-opacity, 0.4); transform: translate3d(0, 1rem, 0); }
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, var(--reveal-shift, 56px), 0); }
   to { opacity: 1; transform: none; }
 }
 @keyframes revealZoom {
-  from { opacity: var(--reveal-from-opacity, 0.4); transform: scale(1.02); }
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: scale(0.94); }
   to { opacity: 1; transform: none; }
 }
 @keyframes revealRise {
-  from { opacity: var(--reveal-from-opacity, 0.4); transform: translate3d(0, 8px, 0); }
+  from { opacity: 0.4; transform: translate3d(0, 14px, 0); }
   to { opacity: 1; transform: none; }
 }
 @keyframes revealCinematic {
-  from { opacity: var(--reveal-from-opacity, 0.4); transform: scale(0.992); }
-  to { opacity: 1; transform: none; }
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 24px, 0) scale(0.97); filter: blur(4px); }
+  to { opacity: 1; transform: none; filter: none; }
 }
-/* Blur up and Mask reveal are drawn with opacity and transform only, so the
-   compositor plays them: a blur or a clip-path redrew the whole element on
-   every frame (a blur cannot run on the compositor; a clip-path reveal of a
-   section re-rasterised it ~60 times a second). Blur up keeps its soft
-   focus-in as a slight scale; Mask reveal grows out of its top edge. */
 @keyframes revealBlurUp {
-  from { opacity: var(--reveal-from-opacity, 0.4); transform: translate3d(0, 12px, 0) scale(0.985); }
-  to { opacity: 1; transform: none; }
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 24px, 0); filter: blur(10px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+@keyframes revealBlurIn {
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: scale(1.02); filter: blur(14px); }
+  to { opacity: 1; transform: none; filter: none; }
 }
 @keyframes revealSlideSide {
-  from { opacity: var(--reveal-from-opacity, 0.4); transform: translate3d(calc(var(--reveal-shift, 28px) * -1 * var(--reveal-dir, 1)), 0, 0); }
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(calc(var(--reveal-shift, 56px) * -1 * var(--reveal-dir, 1)), 0, 0); }
   to { opacity: 1; transform: none; }
 }
-/* The mask opens from a band already showing, never from nothing. */
-@keyframes revealMask {
-  from { opacity: var(--reveal-from-opacity, 0.4); transform: translate3d(0, 18px, 0) scaleY(0.96); }
-  60% { opacity: 1; }
+@keyframes revealPartUp {
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 28px, 0); }
   to { opacity: 1; transform: none; }
 }
-.scroll-trigger.mask_reveal.scroll-trigger--armed { transform-origin: 50% 0; }
+/* A picture opens from a window that already shows most of it. */
+@keyframes revealUnmask {
+  from { opacity: 0.6; clip-path: inset(9% 7% 9% 7%); }
+  to { opacity: 1; clip-path: inset(0); }
+}
+@keyframes revealUnmaskCard {
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 24px, 0); clip-path: inset(0 0 22% 0); }
+  to { opacity: 1; transform: none; clip-path: inset(0); }
+}
+@keyframes revealSettle { from { transform: scale(1.12); } to { transform: none; } }
+@keyframes revealWord {
+  from { opacity: var(--reveal-from-opacity, 0.2); transform: translate3d(0, 0.55em, 0); }
+  to { opacity: 1; transform: none; }
+}
+/* Mask reveal on a card opens from its top edge. */
+.scroll-trigger.mask_reveal.scroll-trigger--armed:not(.reveal-parts) { transform-origin: 50% 0; }
 
 /* Older names other theme files may still call. */
 @keyframes slideIn {

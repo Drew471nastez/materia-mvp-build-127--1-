@@ -12,6 +12,7 @@ import { kickJob } from "@/lib/website-builder/ai-site/runner"
 import { agentEnabledFor } from "@/lib/website-builder/ai-site/agent-access"
 import { MAX_RUNNING_JOBS } from "@/lib/website-builder/ai-site/start"
 import { editJobOptions, editJobPrompt, parseEditRequest } from "@/lib/website-builder/ai-site/edit-job"
+import { fileCols, resolveRef } from "@/lib/website-builder/theme-file-refs"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -53,7 +54,8 @@ export async function POST(req: Request, { params }: Params) {
 
   const { data: install } = await site.supabase.from("store_theme_installs").select("id").eq("id", installId).eq("creator_id", site.creatorId).maybeSingle()
   if (!install) return NextResponse.json({ error: "Not found" }, { status: 404 })
-  const { data: file, error: fileError } = await admin.from("store_theme_custom_files").select("content, draft_content").eq("install_id", installId).eq("path", edit.path).maybeSingle()
+  const { data: fileRead, error: fileError } = await admin.from("store_theme_custom_files").select(await fileCols("path, content, draft_content")).eq("install_id", installId).eq("path", edit.path).maybeSingle()
+  const file = fileError ? null : await resolveRef(fileRead as unknown as { path: string; content: string; draft_content: string | null } | null)
   if (fileError) return NextResponse.json({ error: "Could not read the file. Try again." }, { status: 500 })
   if (!file) return NextResponse.json({ error: "That file is not part of this website.", code: "no_file" }, { status: 409 })
   const current = versionOf(editorContent(file as { content: string; draft_content: string | null }))
