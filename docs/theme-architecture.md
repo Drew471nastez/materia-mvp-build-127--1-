@@ -164,6 +164,21 @@ Retro desktop and XP shop are identical; Online course and Night shop
 differ only where two renders of the old build also differ from each other
 (a moving starfield and a marquee).
 
+Hero Pro Scrolling (Outerwear's hero) drew its heading and subheading at a
+line height of 105 and 150 (saved in percent) until `hero-image-one.js`
+converted them: the hero stood 13,882 px tall on a phone for about two
+seconds on a slow connection. The server now writes the converted values
+(`snippets/hero-image-one-vars.liquid`, `scrolling: true`); the look after
+the script is unchanged, measured on the computed styles of every hero block.
+
+| Outerwear home, slow phone (4x CPU, 1.6 Mbps) | Before | After |
+| --- | --- | --- |
+| Cumulative layout shift, 390 wide | 0.225 | 0.020 |
+| Cumulative layout shift, 1440 wide | not measured | 0.026 |
+| Hero height before scripts, 390 wide | 13,882 px | 600 px |
+
+What is left of it is the web font arriving (`display=swap`).
+
 What is still slow, and why it was left:
 
 - **LCP render delay.** On every template measured the first picture has

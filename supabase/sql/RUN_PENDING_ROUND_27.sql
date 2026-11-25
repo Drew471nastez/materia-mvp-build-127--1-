@@ -24,10 +24,13 @@
 --        is drawn from its rows until the next Publish. Part 180's own
 --        trigger ignores rows with no text, which a reference is.
 --
---  NOTHING USES IT UNTIL STORELIB_THEME_FILE_REFS=1 is set on Vercel, and
---  new websites are written as references only once every reader of the
---  table resolves them (REFS_READERS_DONE in theme-file-refs.ts). Until
---  then Storelib reads and writes exactly as before.
+--  ONCE THIS HAS RUN every read of theme files also asks for blob_sha256
+--  (each server checks once that the column is there) and resolves a
+--  reference wherever there is one. Existing rows are all null, so every
+--  website draws exactly as before. New websites are WRITTEN as references
+--  only when STORELIB_THEME_FILE_REFS=1 is set on Vercel; turning that off
+--  later stops new references and never hides a file of a website that has
+--  them.
 -- ===========================================================================
 
 DO $do$
