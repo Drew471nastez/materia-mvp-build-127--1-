@@ -197,7 +197,8 @@ export function schemaInfo(type: string, sources: Record<string, string>): Schem
       not the agent's to check here. Its groups come from the theme's own schema.
     */
     const own = shopifySchemaOf(splitCompatFile(text).schema) as { enabled_on?: { groups?: string[] } }
-    return { settings: [], blocks: {}, groups: Array.isArray(own.enabled_on?.groups) ? own.enabled_on.groups : undefined }
+    const groups = own.enabled_on?.groups
+    return { settings: [], blocks: {}, groups: Array.isArray(groups) ? groups : undefined }
   }
   if (text) {
     const compiled = compileSection(text, { file: path })
