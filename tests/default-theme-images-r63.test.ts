@@ -8,11 +8,15 @@
  *      Start from blank import theme-packages/materia/templates/default
  *      through the real compose, conversion and storage code, against an
  *      in-memory database and storage.
- *   2. Product pictures fill their frame: Materia's product pictures are
- *      offered wide enough to be sharp at twice the density; the native
- *      theme's cards and gallery cover their frame (see the section below for
- *      what the measurement found). scripts/check-product-images-r63.mjs
- *      measures both in Chromium at 360, 390, 768 and 1280.
+ *   2. Product pictures fill their frame. Materia: a gallery picture in its
+ *      fixed-shape frame drew at its own height (Storelib's weightless
+ *      height:auto guard beat the theme's weightless cover rule), and product
+ *      pictures stopped at 720 wide, soft at 2x. The native theme: with the
+ *      default "picture's own shape", a row of pictures took the tallest's
+ *      height and drew the others whole inside it, half the frame blank.
+ *      scripts/check-product-images-r63.mjs measures the native theme in
+ *      Chromium at 360, 390, 768 and 1280.
+ *   3. A free product says Free in Materia, as the native theme does.
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
