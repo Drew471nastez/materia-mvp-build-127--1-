@@ -6,6 +6,7 @@
  */
 import { isCompatSource } from "@/lib/storelib-theme/compat/theme"
 import { sectionSources } from "./storefront-render"
+import { fileCols, resolveRefs } from "@/lib/website-builder/theme-file-refs"
 
 /**
  * The section files as last SAVED, for one person looking at their own
@@ -22,12 +23,12 @@ export async function draftSectionSources(
   try {
     const { data, error } = await db
       .from("store_theme_custom_files")
-      .select("path, content, draft_content")
+      .select(await fileCols("path, content, draft_content"))
       .eq("install_id", installId)
       .like("path", "%.storelib")
     if (error) return sectionSources(db as never, installId)
     const sources: Record<string, string> = {}
-    for (const row of (data ?? []) as { path: string; content: string | null; draft_content?: string | null }[]) {
+    for (const row of await resolveRefs((data ?? []) as { path: string; content: string | null; draft_content?: string | null }[])) {
       const text = typeof row.draft_content === "string" && row.draft_content.trim() !== "" ? row.draft_content : row.content
       if (typeof text !== "string" || text.trim() === "") continue
       if (isCompatSource(text)) continue

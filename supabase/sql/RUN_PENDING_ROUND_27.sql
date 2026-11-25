@@ -15,9 +15,14 @@
 --        is the blob's (lib/website-builder/theme-file-refs.ts). A row with
 --        text is its own copy, whatever it names.
 --    a foreign key to theme_file_blobs, so a referenced text cannot go.
---    a trigger: any write that changes a row's content clears blob_sha256,
---        so editing a referenced file makes it the creator's own copy
---        (copy on write), for every writer, old or new.
+--    a trigger: any write that puts text in a row clears blob_sha256, so
+--        editing a referenced file makes it the creator's own copy (copy on
+--        write), for every writer, old or new.
+--    a second trigger: a reference added, removed or pointed at other text
+--        lets go of the live release pointer (site_live_releases), as part
+--        180's site_live_release_forget does for text, so the live website
+--        is drawn from its rows until the next Publish. Part 180's own
+--        trigger ignores rows with no text, which a reference is.
 --
 --  NOTHING USES IT UNTIL STORELIB_THEME_FILE_REFS=1 is set on Vercel, and
 --  new websites are written as references only once every reader of the
@@ -48,7 +53,8 @@ END $do$;
 CREATE OR REPLACE FUNCTION public.store_theme_file_own_copy() RETURNS trigger
 LANGUAGE plpgsql SET search_path = public, pg_temp AS $f$
 BEGIN
-  IF NEW.blob_sha256 IS NOT NULL AND NEW.content IS DISTINCT FROM OLD.content THEN
+  /* Text written into a row: it is the creator's own copy now. A write of '' (a reference written as one) keeps what it names. */
+  IF NEW.blob_sha256 IS NOT NULL AND NEW.content IS DISTINCT FROM OLD.content AND coalesce(NEW.content, '') <> '' THEN
     NEW.blob_sha256 := NULL;
   END IF;
   RETURN NEW;
@@ -62,6 +68,37 @@ BEGIN
   DROP TRIGGER IF EXISTS store_theme_file_own_copy ON public.store_theme_custom_files;
   CREATE TRIGGER store_theme_file_own_copy BEFORE UPDATE OF content ON public.store_theme_custom_files
     FOR EACH ROW EXECUTE FUNCTION public.store_theme_file_own_copy();
+END $do$;
+
+CREATE OR REPLACE FUNCTION public.store_theme_file_ref_forget() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $f$
+DECLARE v_install uuid;
+BEGIN
+  IF to_regclass('public.site_live_releases') IS NULL THEN RETURN NULL; END IF;
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.blob_sha256 IS NULL THEN RETURN NULL; END IF;
+    v_install := NEW.install_id;
+  ELSIF TG_OP = 'DELETE' THEN
+    IF OLD.blob_sha256 IS NULL OR coalesce(OLD.content, '') <> '' THEN RETURN NULL; END IF;
+    v_install := OLD.install_id;
+  ELSE
+    IF NEW.blob_sha256 IS NOT DISTINCT FROM OLD.blob_sha256 THEN RETURN NULL; END IF;
+    /* Text written in place of a reference: part 180's own trigger already counted that change. */
+    IF coalesce(NEW.content, '') <> '' AND NEW.content IS DISTINCT FROM OLD.content THEN RETURN NULL; END IF;
+    v_install := NEW.install_id;
+  END IF;
+  UPDATE public.site_live_releases SET release_id = NULL, rev = rev + 1, updated_at = now() WHERE install_id = v_install;
+  RETURN NULL;
+END $f$;
+REVOKE ALL ON FUNCTION public.store_theme_file_ref_forget() FROM PUBLIC, anon, authenticated;
+
+DO $do$
+BEGIN
+  IF to_regclass('public.store_theme_custom_files') IS NULL THEN RETURN; END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'store_theme_custom_files' AND column_name = 'blob_sha256') THEN RETURN; END IF;
+  DROP TRIGGER IF EXISTS store_theme_file_ref_forget ON public.store_theme_custom_files;
+  CREATE TRIGGER store_theme_file_ref_forget AFTER INSERT OR DELETE OR UPDATE OF blob_sha256 ON public.store_theme_custom_files
+    FOR EACH ROW EXECUTE FUNCTION public.store_theme_file_ref_forget();
 END $do$;
 
 notify pgrst, 'reload schema';

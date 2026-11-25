@@ -31,6 +31,9 @@ import { convertTemplateFiles } from "@/lib/themes/template-install"
 import { storeImportedTheme } from "@/lib/themes/imported-theme-store"
 import {
   REFS_READERS_DONE,
+  copyRows,
+  ownRowsOnly,
+  setRefsAdmin,
   REF_MIN_CHARS,
   asReferenceRows,
   forgetHeldBlobs,
@@ -104,7 +107,7 @@ function memoryDb(opts: { column: boolean }) {
           for (const r of t.filter((x) => filters.every((f) => f(x)))) {
             const next = { ...r, ...(payload as Row) }
             /* The trigger store_theme_file_own_copy: content changed, the reference goes. */
-            if (opts.column && table === "store_theme_custom_files" && next.content !== r.content) next.blob_sha256 = null
+            if (opts.column && table === "store_theme_custom_files" && next.blob_sha256 && next.content !== r.content && (next.content ?? "") !== "") next.blob_sha256 = null
             Object.assign(r, next)
           }
           return { data: null, error: null }
@@ -129,6 +132,9 @@ function memoryDb(opts: { column: boolean }) {
         in(k: string, vs: unknown[]) { filters.push((r) => vs.includes(r[k])); return q },
         like(k: string, pat: string) { const re = new RegExp(`^${pat.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/%/g, ".*")}$`); filters.push((r) => re.test(String(r[k]))); return q },
         or() { return q },
+        not(k: string, op: string, v: unknown) { if (op === "is" && v === null) filters.push((r) => r[k] !== null && r[k] !== undefined); return q },
+        is(k: string, v: unknown) { filters.push((r) => (v === null ? r[k] === null || r[k] === undefined : r[k] === v)); return q },
+        ilike(k: string, pat: string) { const re = new RegExp(`^${pat.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/%/g, ".*")}$`, "i"); filters.push((r) => re.test(String(r[k]))); return q },
         order(k: string) { orderBy = k; return q },
         range(a: number, b: number) { range = [a, b]; return q },
         limit(n: number) { limit = n; return q },
@@ -168,6 +174,20 @@ async function main() {
     check("  a new website is full copies, with no reference column in any write", made.ok && rows.length > 900 && rows.every((r) => !("blob_sha256" in r) && typeof r.content === "string") && db.tables.theme_file_blobs.length === 0)
     const files = await installFiles(db.client as never, (made as { installId: string }).installId, false)
     check("  the storefront's read is the same query and the same files", Object.keys(files).length === Object.keys(converted.theme.files).length + 2 && !db.asked.some((a) => /blob_sha256/.test(a)))
+    /* The converted readers with the switch off: today's queries, and the service role never even made. */
+    let adminMade = 0
+    setRefsAdmin(() => { adminMade++; throw new Error("no client should be made") })
+    const oid0 = (made as { installId: string }).installId
+    const offReads = [
+      (await import("@/lib/agent-access/operations")).listFiles(db.client as never, oid0),
+      (await import("@/lib/website-builder/storefront-render")).sectionSources(db.client as never, oid0),
+      (await import("@/lib/website-builder/draft-section-sources")).draftSectionSources(db.client, oid0),
+      (await import("@/lib/website-builder/backups")).readSnapshot(db.client as never, oid0),
+      (await import("@/lib/website-builder/theme-file-drafts")).promoteFileDrafts(db.client, oid0),
+    ]
+    await Promise.all(offReads)
+    check("  the converted readers and writers ask exactly today's queries, and make no service-role client", adminMade === 0 && !db.asked.some((a) => /blob_sha256|theme_file_blobs/.test(a)))
+    setRefsAdmin(null)
     process.env.STORELIB_THEME_FILE_REFS = "1"
     forgetRefColumn()
     check("the switch on before the SQL ran: the column is looked for, not found, and not asked for", !(await refReads(db.client)) && !(await refWrites(db.client, undefined, true)))
@@ -180,7 +200,7 @@ async function main() {
   forgetHeldBlobs()
   const db = memoryDb({ column: true })
   check("the switch on and the SQL run: reads ask for the reference column", await refReads(db.client))
-  check("  but new websites are not references while a reader does not resolve them", REFS_READERS_DONE === false && !(await refWrites(db.client)) && (await refWrites(db.client, undefined, true)))
+  check("  and new websites may be references: every reader resolves them (REFS_READERS_DONE)", REFS_READERS_DONE === true && (await refWrites(db.client)) && !(await refWrites(db.client, undefined, false)))
   const old = await storeImportedTheme(db.client, who, (await fresh()).theme, (await fresh()).report, { name: "Old", menus: noMenus, refs: false })
   const oldId = (old as { installId: string }).installId
   const oldChars = chars(db.tables.store_theme_custom_files.filter((r) => r.install_id === oldId))
@@ -230,65 +250,138 @@ async function main() {
   check("a reference whose blob is not there is an error, never a file with no text", /not there/.test(missing), missing)
   const small = await asReferenceRows(db.client, [{ install_id: "i", path: "tiny.json", content: "{}" }])
   check("a file under REF_MIN_CHARS keeps its own text", small[0].content === "{}" && !("blob_sha256" in small[0]))
+
+  section("Every reader and writer, an old full copy and a new reference website side by side")
+  setRefsAdmin(() => db.client)
+  {
+    /* Files every reader below looks for, given to both websites: the old one as text, the new one as references. */
+    const big = (s: string) => `${s}\n${"<!-- filler -->".repeat(120)}`
+    const extra: Record<string, string> = {
+      "config/settings_schema.json": JSON.stringify([{ name: "theme_info", theme_name: "Clothing" }, { name: "Colours", settings: [{ type: "color", id: "accent", label: "Accent", default: "#112233" }] }], null, 2) + " ".repeat(1200),
+      "DESIGN.md": big("# Design\n\nAccent: #112233"),
+      "sections/own-hero.storelib": big('<template><section class="own-hero">{{ section.settings.heading }}</section></template>\n<schema>{"name":"Own hero","settings":[{"type":"text","id":"heading","label":"Heading"}]}</schema>'),
+    }
+    const oid = oldId
+    const nid = (third as { installId: string }).installId
+    for (const [path, content] of Object.entries(extra)) {
+      db.tables.store_theme_custom_files.push({ install_id: oid, path, content, draft_content: null })
+      const [ref] = await asReferenceRows(db.client, [{ install_id: nid, path, content }])
+      db.tables.store_theme_custom_files.push({ ...ref, draft_content: null })
+    }
+    check("the new website's extra files are references", Object.keys(extra).every((p) => isRefRow(db.tables.store_theme_custom_files.find((r) => r.install_id === nid && r.path === p) as never)))
+    const both = async <T,>(name: string, f: (id: string) => Promise<T>, norm: (v: T) => unknown = (v) => v) => {
+      forgetHeldBlobs()
+      const [a, b] = [await f(oid), await f(nid)]
+      const ja = JSON.stringify(norm(a))
+      const jb = JSON.stringify(norm(b))
+      check(`  ${name}: the same answer for both`, ja === jb && ja !== undefined && ja !== "null" && ja !== "{}" && ja !== "[]", { old: ja?.slice(0, 160), now: jb?.slice(0, 160) })
+    }
+    const ops = await import("@/lib/agent-access/operations")
+    await both("agent access: listFiles", async (id) => ops.listFiles(db.client as never, id), (r) => (r.ok ? (r as { value: { files: { path: string; unpublished: boolean }[] } }).value.files.map((f) => [f.path, f.unpublished]) : r))
+    await both("agent access: readFile", async (id) => ops.readFile(db.client as never, id, "sections/own-hero.storelib"), (r) => (r.ok ? (r as { value: { source: string } }).value.source : r))
+    await both("agent access: sectionSources", async (id) => ops.sectionSources(db.client as never, id), (m) => [...m.entries()].sort())
+    const ai = await import("@/lib/ai-builder/agent/server")
+    await both("the website agent's project: listFiles", async (id) => (await ai.supabaseProjectStore(db.client as never, id).listFiles()).map((f) => [f.path, f.text.length]).sort())
+    await both("the website agent's project: readFile", async (id) => (await ai.supabaseProjectStore(db.client as never, id).readFile("DESIGN.md"))?.text)
+    const logo = await import("@/lib/store/logo-server")
+    const pic = Object.keys(JSON.parse(converted.theme.files["shopify/config/settings_data.json"] ? "{}" : "{}"))
+    void pic
+    await both("the store logo's picture lookup (the asset map)", async (id) => {
+      const map = db.tables.store_theme_custom_files.find((r) => r.install_id === id && r.path === "shopify/config/assets.json")
+      const resolved = (await resolveFileRows(db.client, [map as never]))[0] as { content: string }
+      const first = Object.keys(JSON.parse(resolved.content))[0]
+      return first ? logo.compatPicture(db.client as never, id, `shopify://shop_images/${first}`) : "no pictures"
+    })
+    const bank = await import("@/lib/storelib-ai/bank/store")
+    await both("Storelib AI's bank: readSiteForBank (its files)", async (id) => {
+      db.tables.store_theme_installs.find((r) => r.id === id)!.name = "Same"
+      return bank.readSiteForBank(db.client as never, id)
+    }, (v) => (v ? Object.keys((v as { files: Record<string, string> }).files).sort().map((k) => [k, (v as { files: Record<string, string> }).files[k].length]) : v))
+    const design = await import("@/lib/storelib-ai/design-contract-server")
+    await both("the design contract (DESIGN.md)", async (id) => (await design.readDesignContract(db.client, id))?.text)
+    const backups = await import("@/lib/website-builder/backups")
+    await both("a backup's snapshot", async (id) => backups.readSnapshot(db.client as never, id), (v) => (v.files ?? []).map((f) => [f.path, f.content.length]))
+    const added = await import("@/lib/website-builder/added-since")
+    await both("added since a backup", async (id) => added.addedSince(db.client as never, id, { created_at: "2000-01-01T00:00:00Z", snapshot: { files: [] } }), (v) => v.remove.length + v.keep.length)
+    const schemas = await import("@/lib/website-builder/custom-schemas")
+    const richType = Object.keys(converted.theme.files).map((p) => /^sections\/([a-z0-9_-]+)\.storelib$/.exec(p)?.[1]).find((t) => t && /"type":\s*"richtext"/.test(converted.theme.files[`sections/${t}.storelib`]))!
+    await both(`the custom section schemas (${richType})`, async (id) => (await schemas.customSchemaLookup(db.client as never, id, [{ type: richType }], { draft: true }))?.(richType))
+    const drafts = await import("@/lib/website-builder/draft-section-sources")
+    await both("the builder's section sources", async (id) => drafts.draftSectionSources(db.client, id), (v) => Object.keys(v).sort().map((k) => [k, v[k].length]))
+    const sanitize = await import("@/lib/website-builder/sanitize-sections")
+    await both(`a section's own fields (cleaning, ${richType})`, async (id) => sanitize.readOwnSectionFields(db.client as never, id, [richType]))
+    const render = await import("@/lib/website-builder/storefront-render")
+    await both("the storefront's section sources", async (id) => render.sectionSources(db.client as never, id), (v) => Object.keys(v).sort().map((k) => [k, v[k].length]))
+    const config = await import("@/lib/website-builder/theme-config-store")
+    await both("the theme's own settings schema", async (id) => config.readThemeSchemaText(db.client as never, id))
+    const save = await import("@/lib/website-builder/save-theme-file")
+    await both("the section names in use (a save's check)", async (id) => save.sectionNamesInUse(db.client as never, id, "sections/x.storelib"), (m) => [...m.entries()].sort())
+    const snap = await import("@/lib/github-sync/snapshot")
+    check("  GitHub's snapshot, the agent's project, theme updates and restore read through the same helpers", /resolveRefs\(/.test(code("lib/github-sync/snapshot.ts")) && /resolveRefs\(/.test(code("lib/agent-access/project.ts")) && /resolveRefs\(/.test(code("lib/themes/theme-update.ts")) && /copyRows\(/.test(code("lib/themes/theme-update.ts")) && /resolveRefs\(/.test(code("lib/website-builder/restore-snapshot.ts")) && /resolveRefs\(/.test(code("lib/website-builder/compat-overlay-repair.ts")) && /resolveRef\(/.test(code("lib/website-builder/design-md-sync.ts")) && typeof snap.readSnapshot === "function")
+
+    /* Routes: each reads through fileCols and resolves (they need a signed-in request; their helpers are the ones run above). */
+    const routeFiles = [
+      "app/api/website-builder/themes/[installId]/agent/route.ts",
+      "app/api/website-builder/themes/[installId]/ai-edit/route.ts",
+      "app/api/website-builder/themes/[installId]/duplicate/route.ts",
+      "app/api/website-builder/themes/[installId]/export/route.ts",
+      "app/api/website-builder/themes/[installId]/generate/route.ts",
+      "app/api/website-builder/themes/[installId]/github/route.ts",
+      "app/api/website-builder/themes/[installId]/sections/code/fix/route.ts",
+      "app/api/website-builder/themes/[installId]/sections/code/route.ts",
+      "app/api/website-builder/themes/[installId]/files/route.ts",
+      "app/api/site-theme/assets/[installId]/[version]/[...name]/route.ts",
+    ]
+    check("  every route that reads the text asks for references and resolves them", routeFiles.every((f) => /fileCols\(|refsHere\(|withRefColumn\(/.test(code(f)) && /resolveRefs?\(|resolveHere\(|copyRows\(|readAssetRows\(/.test(code(f))), routeFiles.filter((f) => !(/fileCols\(|refsHere\(|withRefColumn\(/.test(code(f)) && /resolveRefs?\(|resolveHere\(|copyRows\(|readAssetRows\(/.test(code(f)))))
+
+    section("Writers: copy on write, and a delete never takes a reference")
+    /* A duplicate: a reference stays a reference, a row with text stays text. */
+    const srcRows = db.tables.store_theme_custom_files.filter((r) => r.install_id === nid).slice(0, 50).map((r) => ({ install_id: "copy", path: String(r.path), content: String(r.content ?? ""), blob_sha256: (r.blob_sha256 as string | null) ?? null }))
+    const copied = await copyRows(srcRows)
+    check("a copy keeps every reference (no text written) and every own text as it is", copied.length === srcRows.length && copied.every((c, i) => (isRefRow(srcRows[i]) ? c.blob_sha256 === srcRows[i].blob_sha256 && c.content === "" : c.content === srcRows[i].content && !c.blob_sha256)))
+    /* Publish: a draft equal to the shared text keeps the reference; another text makes the creator's own copy. */
+    const designNew = db.tables.store_theme_custom_files.find((r) => r.install_id === nid && r.path === "DESIGN.md")!
+    const schemaNew = db.tables.store_theme_custom_files.find((r) => r.install_id === nid && r.path === "config/settings_schema.json")!
+    designNew.draft_content = extra["DESIGN.md"]
+    schemaNew.draft_content = "[]"
+    const tdrafts = await import("@/lib/website-builder/theme-file-drafts")
+    const moved = await tdrafts.promoteFileDrafts(db.client, nid)
+    check("Publish: a draft that says what is shared keeps the reference; another text is the creator's own", moved === 2 && isRefRow(designNew as never) && designNew.draft_content === null && schemaNew.content === "[]" && schemaNew.blob_sha256 === null)
+    /* A delete meant for files with no text of their own (a draft never published) never takes a reference. */
+    const before = db.tables.store_theme_custom_files.filter((r) => r.install_id === nid).length
+    const gone = await added.removeAdded(db.client as never, nid, [{ kind: "file", key: "DESIGN.md" } as never])
+    check("Undo added since: a reference row is not removed as an empty file", db.tables.store_theme_custom_files.filter((r) => r.install_id === nid).length === before && db.tables.store_theme_custom_files.some((r) => r.install_id === nid && r.path === "DESIGN.md"), gone)
+    const refsOff = await (async () => { delete process.env.STORELIB_THEME_FILE_REFS; const q = { is: () => { throw new Error("asked") } }; const r = await ownRowsOnly(q as never); process.env.STORELIB_THEME_FILE_REFS = "1"; return r === q })()
+    check("  with the switch off the delete is today's query, untouched", refsOff)
+  }
+  setRefsAdmin(null)
   delete process.env.STORELIB_THEME_FILE_REFS
   forgetRefColumn()
 
-  section("The gate: every reader of the table resolves before new websites are references")
-  /* Files that read or write store_theme_custom_files rows. CONVERTED resolve references (or only write own copies). */
-  const CONVERTED = new Set([
-    "lib/website-builder/compat-site.ts",
-    "app/api/website-builder/themes/[installId]/files/route.ts",
-    "lib/storelib-theme/compat/asset-serve.ts",
-    "app/api/site-theme/assets/[installId]/[version]/[...name]/route.ts",
-    "lib/website-builder/site-releases-server.ts",
-    "lib/themes/imported-theme-store.ts",
-    "lib/website-builder/theme-file-refs.ts",
-  ])
-  /* Still reading `content` without resolving: each must resolve (resolveFileRows, with withRefColumn) before REFS_READERS_DONE may be true. */
-  const REMAINING_READERS = [
+  section("The gate: every reader of the table resolves references")
+  /* Files that read store_theme_custom_files rows' text resolve references; these only read paths, counts, or delete by path. */
+  const PATH_ONLY = new Set([
     "app/api/website-builder/themes/[installId]/agent/decide/route.ts",
-    "app/api/website-builder/themes/[installId]/agent/route.ts",
-    "app/api/website-builder/themes/[installId]/ai-edit/route.ts",
-    "app/api/website-builder/themes/[installId]/duplicate/route.ts",
-    "app/api/website-builder/themes/[installId]/export/route.ts",
-    "app/api/website-builder/themes/[installId]/generate/route.ts",
-    "app/api/website-builder/themes/[installId]/github/route.ts",
-    "app/api/website-builder/themes/[installId]/sections/code/fix/route.ts",
-    "app/api/website-builder/themes/[installId]/sections/code/route.ts",
-    "lib/agent-access/operations.ts",
-    "lib/agent-access/project.ts",
-    "lib/ai-builder/agent/server.ts",
     "lib/github-sync/editor-status.ts",
-    "lib/github-sync/snapshot.ts",
-    "lib/store/logo-server.ts",
-    "lib/storelib-ai/bank/store.ts",
-    "lib/storelib-ai/design-contract-server.ts",
-    "lib/themes/theme-update.ts",
-    "lib/website-builder/added-since.ts",
-    "lib/website-builder/backups.ts",
-    "lib/website-builder/compat-overlay-repair.ts",
-    "lib/website-builder/custom-schemas.ts",
-    "lib/website-builder/design-md-sync.ts",
-    "lib/website-builder/draft-section-sources.ts",
-    "lib/website-builder/restore-snapshot.ts",
-    "lib/website-builder/sanitize-sections.ts",
-    "lib/website-builder/save-theme-file.ts",
-    "lib/website-builder/storefront-render.ts",
-    "lib/website-builder/theme-config-store.ts",
-    "lib/website-builder/theme-file-drafts.ts",
-  ]
+  ])
+  const MODULE = "lib/website-builder/theme-file-refs.ts"
+  /* Resolves the rows its caller asked for with the reference column (the asset route's withRefColumn). */
+  const GIVEN_COLUMNS = new Set(["lib/storelib-theme/compat/asset-serve.ts"])
   const walk = (dir: string): string[] => readdirSync(dir).flatMap((n) => { const p = join(dir, n); return statSync(p).isDirectory() ? walk(p) : /\.(ts|tsx)$/.test(n) ? [p] : [] })
-  const touching = [...walk("app"), ...walk("lib")].filter((f) => !/\.generated\.|\/types\.ts$/.test(f) && /from\("store_theme_custom_files"\)|from\(FILES_TABLE\)|"store_theme_custom_files"/.test(code(f))).sort()
-  const unknown = touching.filter((f) => !CONVERTED.has(f) && !REMAINING_READERS.includes(f))
-  check("every file that touches the table is either converted or on the remaining list", unknown.length === 0, unknown)
-  const gone = REMAINING_READERS.filter((f) => !touching.includes(f))
-  check("  the remaining list names only files that still touch it", gone.length === 0, gone)
-  const converted2 = [...CONVERTED].filter((f) => !["lib/themes/imported-theme-store.ts", "app/api/site-theme/assets/[installId]/[version]/[...name]/route.ts", "lib/website-builder/theme-file-refs.ts"].includes(f))
-  check("  each converted reader resolves references", converted2.every((f) => /resolveFileRows\(/.test(code(f))) && /withRefColumn\(/.test(code("app/api/site-theme/assets/[installId]/[version]/[...name]/route.ts")))
-  check(`  REFS_READERS_DONE is true only when the remaining list is empty (${REMAINING_READERS.length} left)`, REFS_READERS_DONE === (REMAINING_READERS.length === 0))
+  const touching = [...walk("app"), ...walk("lib")].filter((f) => !/\.generated\.|\/types\.ts$/.test(f) && /from\("store_theme_custom_files"\)|from\(FILES\)|"store_theme_custom_files"/.test(code(f))).sort()
+  const resolves = (f: string) => /resolveRefs?\(|resolveFileRows\(|copyRows\(|readAssetRows\(|asReferenceRows\(/.test(code(f)) && /fileCols\(|withRefColumn\(|refWrites\(/.test(code(f))
+  const notResolving = touching.filter((f) => f !== MODULE && !PATH_ONLY.has(f) && !(GIVEN_COLUMNS.has(f) ? /resolveFileRows\(/.test(code(f)) : resolves(f)))
+  check(`every file that reads the table's text resolves references (${touching.length} files)`, notResolving.length === 0, notResolving)
+  const pathOnlyReadsText = [...PATH_ONLY].filter((f) => /\.select\("[^"]*content/.test(code(f)))
+  check("  the path-only ones read no text", pathOnlyReadsText.length === 0, pathOnlyReadsText)
+  check("  so REFS_READERS_DONE is true", REFS_READERS_DONE === true)
+  const sideBySide = read("tests/theme-file-refs-r27.test.ts")
+  const routes = touching.filter((f) => f.startsWith("app/") && !PATH_ONLY.has(f))
+  check("  each route that reads the text is named in this test (source checked, its helpers run side by side above)", routes.every((f) => sideBySide.includes(f)), routes.filter((f) => !sideBySide.includes(f)))
   const sql = read("supabase/sql/RUN_PENDING_ROUND_27.sql")
   check("the SQL adds and never removes: a nullable column, its key, a partial index, the copy-on-write trigger",
-    /ADD COLUMN IF NOT EXISTS blob_sha256 text;/.test(sql) && /REFERENCES public\.theme_file_blobs \(sha256\) ON DELETE RESTRICT NOT VALID/.test(sql) && /WHERE blob_sha256 IS NOT NULL/.test(sql) && /NEW\.content IS DISTINCT FROM OLD\.content THEN\s*NEW\.blob_sha256 := NULL/.test(sql) && !/\b(DROP TABLE|DROP COLUMN|DELETE FROM|TRUNCATE|UPDATE public\.)/i.test(sql))
+    /ADD COLUMN IF NOT EXISTS blob_sha256 text;/.test(sql) && /REFERENCES public\.theme_file_blobs \(sha256\) ON DELETE RESTRICT NOT VALID/.test(sql) && /WHERE blob_sha256 IS NOT NULL/.test(sql) && /NEW\.content IS DISTINCT FROM OLD\.content AND coalesce\(NEW\.content, ''\) <> '' THEN\s*NEW\.blob_sha256 := NULL/.test(sql) && !/\b(DROP TABLE|DROP COLUMN|DELETE FROM|TRUNCATE)/i.test(sql) && (sql.match(/UPDATE public\./g) ?? []).length === 1 && /UPDATE public\.site_live_releases SET release_id = NULL, rev = rev \+ 1/.test(sql))
+  check("  a reference added, removed or pointed elsewhere lets go of the live release pointer", /CREATE TRIGGER store_theme_file_ref_forget AFTER INSERT OR DELETE OR UPDATE OF blob_sha256/.test(sql) && /IF NEW\.blob_sha256 IS NULL THEN RETURN NULL; END IF;/.test(sql) && /coalesce\(NEW\.content, ''\) <> ''/.test(sql))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) {

@@ -7,6 +7,7 @@
  */
 import { editorContent } from "@/lib/website-builder/theme-file-drafts"
 import { findDesignContract } from "./surfaces"
+import { fileCols, resolveRefs } from "@/lib/website-builder/theme-file-refs"
 
 type Row = { path: string; content: string | null; draft_content?: string | null }
 
@@ -23,9 +24,9 @@ type FilesDb = {
 
 export async function readDesignContract(db: unknown, installId: string): Promise<{ path: string; text: string } | null> {
   try {
-    const { data, error } = await (db as FilesDb).from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId).ilike("path", "%design.md").limit(4)
+    const { data, error } = await (db as FilesDb).from("store_theme_custom_files").select(await fileCols("path, content, draft_content")).eq("install_id", installId).ilike("path", "%design.md").limit(4)
     if (error || !Array.isArray(data)) return null
-    return findDesignContract((data as Row[]).map((r) => ({ path: r.path, text: editorContent({ content: r.content ?? "", draft_content: r.draft_content ?? null }) })))
+    return findDesignContract((await resolveRefs(data as Row[])).map((r) => ({ path: r.path, text: editorContent({ content: r.content ?? "", draft_content: r.draft_content ?? null }) })))
   } catch {
     return null
   }

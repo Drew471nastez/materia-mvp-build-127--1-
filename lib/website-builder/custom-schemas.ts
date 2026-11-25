@@ -19,6 +19,7 @@ import { SECTION_SCHEMAS } from "./section-schemas"
 import { schemaFor, themeBlockCatalog } from "./storelib-schemas"
 import type { BlockSchema, SchemaField } from "./types"
 import type { SchemaLookup } from "./sanitize-sections"
+import { fileCols, resolveRefs } from "@/lib/website-builder/theme-file-refs"
 
 type FileRow = { path: string; content?: string | null; draft_content?: string | null }
 type Db = {
@@ -50,13 +51,13 @@ export async function customSchemaLookup(
   const paths = types.map((t) => `sections/${t}.storelib`)
   let rows: FileRow[] = []
   try {
-    const first = await db.from("store_theme_custom_files").select(opts.draft ? "path, content, draft_content" : "path, content").eq("install_id", installId).in("path", paths)
+    const first = await db.from("store_theme_custom_files").select(await fileCols(opts.draft ? "path, content, draft_content" : "path, content")).eq("install_id", installId).in("path", paths)
     if (first.error && opts.draft) {
       /* Before the file drafts SQL, there is no draft column: read the live half. */
       const second = await db.from("store_theme_custom_files").select("path, content").eq("install_id", installId).in("path", paths)
       rows = second.data ?? []
     } else {
-      rows = first.data ?? []
+      rows = await resolveRefs((first.data ?? []) as FileRow[])
     }
   } catch {
     return undefined

@@ -15,6 +15,7 @@
 import { compatOf } from "@/lib/storelib-theme/compat/install"
 import { overlayFromFiles } from "@/lib/storelib-theme/shopify/convert"
 import type { SectionInstance } from "./types"
+import { fileCols, resolveRefs } from "@/lib/website-builder/theme-file-refs"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -25,13 +26,14 @@ export async function withOverlayFilledIn(db: Db, installId: string, sections: S
     const row = settingsRow as { settings?: unknown; draft_settings?: unknown } | null
     const compat = compatOf(row?.draft_settings ?? row?.settings)
     if (!compat) return sections
+    const cols = await fileCols("path, content, draft_content")
     const [{ data: layout }, { data: groups }, { data: names }] = await Promise.all([
-      db.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId).eq("path", "layout/theme.storelib"),
-      db.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId).like("path", "shopify/sections/%.json"),
+      db.from("store_theme_custom_files").select(cols).eq("install_id", installId).eq("path", "layout/theme.storelib"),
+      db.from("store_theme_custom_files").select(cols).eq("install_id", installId).like("path", "shopify/sections/%.json"),
       db.from("store_theme_custom_files").select("path").eq("install_id", installId).like("path", "sections/%.storelib"),
     ])
     const rows: Record<string, string> = {}
-    for (const f of [...(layout ?? []), ...(groups ?? [])] as { path: string; content: string | null; draft_content?: string | null }[]) {
+    for (const f of await resolveRefs([...(layout ?? []), ...(groups ?? [])] as { path: string; content: string | null; draft_content?: string | null }[])) {
       const text = f.draft_content ?? f.content
       if (typeof text === "string") rows[f.path] = text
     }

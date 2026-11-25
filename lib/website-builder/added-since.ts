@@ -33,6 +33,7 @@
  *
  * Pure apart from the client it is handed (tests use the journey database).
  */
+import { fileCols, ownRowsOnly, resolveRefs } from "@/lib/website-builder/theme-file-refs"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -77,7 +78,7 @@ export async function addedSince(db: Db, installId: string, backup: BackupForAdd
 
   const [pagesRead, filesRead] = await Promise.all([
     db.from("store_theme_pages").select("page_key, sections, created_at").eq("install_id", installId),
-    db.from("store_theme_custom_files").select("path, content, created_at").eq("install_id", installId),
+    db.from("store_theme_custom_files").select(await fileCols("path, content, created_at")).eq("install_id", installId).then(async (r: { data: unknown; error: unknown }) => ({ ...r, data: r.error ? r.data : await resolveRefs(r.data as { path: string; content: string | null }[] | null) })),
   ])
   const newPages = ((pagesRead.error ? [] : pagesRead.data ?? []) as { page_key: string; sections: unknown; created_at: string }[]).filter((p) => !knownPages.has(String(p.page_key)) && ms(p.created_at) >= at)
   const newFiles = ((filesRead.error ? [] : filesRead.data ?? []) as { path: string; content: string | null; created_at: string }[]).filter((f) => !knownFiles.has(String(f.path)) && ms(f.created_at) >= at)
@@ -160,7 +161,8 @@ export async function removeAdded(db: Db, installId: string, items: AddedItem[])
     }
     try {
       if (it.kind === "file") {
-        const { error } = await db.from("store_theme_custom_files").delete().eq("install_id", installId).eq("path", it.key).eq("content", "")
+        /* Only a file with no text of its own; a reference (content '' too) is never one (theme-file-refs.ts ownRowsOnly). */
+        const { error } = await ownRowsOnly(db.from("store_theme_custom_files").delete().eq("install_id", installId).eq("path", it.key).eq("content", ""))
         ;(error ? failed : removed).push(it)
       } else {
         const { data: row } = await db.from("store_theme_pages").select("id, sections").eq("install_id", installId).eq("page_key", it.key).maybeSingle()

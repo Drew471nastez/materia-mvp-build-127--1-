@@ -8,6 +8,7 @@ import type { ProductCard } from "@/lib/website-builder/shop-products"
 import type { StorefrontData } from "@/lib/storelib-theme/types"
 import type { StorefrontGlobals } from "@/lib/storelib-theme/globals"
 import { eagerMedia, heroMedia } from "./media-pass"
+import { fileCols, resolveRefs } from "@/lib/website-builder/theme-file-refs"
 
 /** How many sections at the top of a page are drawn with their pictures at once, as Shopify's image_tag does for a theme's first sections. */
 export const TOP_SECTIONS = 3
@@ -96,13 +97,14 @@ export async function sectionSources(
   db: Parameters<typeof prerenderStorelibSections>[0],
   installId: string,
 ): Promise<Record<string, string>> {
-  const { data: savedFiles } = await db
+  const { data: savedRead } = await db
     .from("store_theme_custom_files")
-    .select("path, content")
+    .select(await fileCols("path, content"))
     .eq("install_id", installId)
     .like("path", "%.storelib")
+  const savedFiles = await resolveRefs((savedRead ?? []) as { path: string; content: string | null }[])
   const sources: Record<string, string> = {}
-  for (const row of savedFiles ?? []) {
+  for (const row of savedFiles) {
     /**
      * AN EMPTY `content` IS "NOTHING PUBLISHED FOR THIS PATH", not "an empty
      * file". A file created in the code editor and not yet published has a

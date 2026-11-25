@@ -47,6 +47,7 @@ import { findReferencesIn, referenceImagesFrom } from "@/lib/storelib-ai/referen
 import { findPhoto, generateImage, imageCostCeiling, imageServices, type ImageDeps } from "@/lib/storelib-ai/images/generate"
 import { readKeys } from "@/lib/ai-keys/store"
 import type { ImageService } from "./ports"
+import { fileCols, resolveRef, resolveRefs } from "@/lib/website-builder/theme-file-refs"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -55,9 +56,9 @@ const FILES = "store_theme_custom_files"
 export function supabaseProjectStore(db: Db, installId: string, creatorId?: string): ProjectStore {
   const toFile = (r: { path: string; content: string | null; draft_content?: string | null; updated_at?: string | null }): StoredFile => ({ path: r.path, text: editorContent({ content: r.content ?? "", draft_content: r.draft_content ?? null }), updatedAt: r.updated_at ?? null })
   async function row(path: string) {
-    const { data, error } = await db.from(FILES).select("path, content, draft_content, updated_at").eq("install_id", installId).eq("path", path).maybeSingle()
+    const { data, error } = await db.from(FILES).select(await fileCols("path, content, draft_content, updated_at")).eq("install_id", installId).eq("path", path).maybeSingle()
     if (error) throw new Error("the file could not be read")
-    return (data ?? null) as { path: string; content: string | null; draft_content: string | null; updated_at: string | null } | null
+    return resolveRef((data ?? null) as { path: string; content: string | null; draft_content: string | null; updated_at: string | null } | null)
   }
   /* Round 26: the store's menus, which a Materia site's header and footer draw (lib/website-builder/store-menus-server.ts). */
   const storeMenus: Pick<ProjectStore, "readStoreMenus" | "writeStoreMenus"> = creatorId
@@ -75,9 +76,9 @@ export function supabaseProjectStore(db: Db, installId: string, creatorId?: stri
   return {
     ...storeMenus,
     async listFiles() {
-      const { data, error } = await db.from(FILES).select("path, content, draft_content, updated_at").eq("install_id", installId).order("path").limit(2_000)
+      const { data, error } = await db.from(FILES).select(await fileCols("path, content, draft_content, updated_at")).eq("install_id", installId).order("path").limit(2_000)
       if (error) throw new Error("the files could not be read")
-      return ((data ?? []) as Parameters<typeof toFile>[0][]).map(toFile)
+      return (await resolveRefs((data ?? []) as Parameters<typeof toFile>[0][])).map(toFile)
     },
     async readFile(path) {
       const r = await row(path)

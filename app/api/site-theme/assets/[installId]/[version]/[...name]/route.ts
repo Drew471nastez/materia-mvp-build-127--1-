@@ -32,7 +32,7 @@ import { assetVersion, isContentVersion, plainAssetVersion } from "@/lib/storeli
 import { splitAssetVersion } from "@/lib/storelib-theme/compat/draft-version"
 import { isDraftAssetPass } from "@/lib/website-builder/draft-asset-pass"
 import { keepAnswer, keptAnswer, readAssetRows, type AssetAdmin, type AssetRow } from "@/lib/storelib-theme/compat/asset-serve"
-import { refReads, withRefColumn } from "@/lib/website-builder/theme-file-refs"
+import { fileCols, refReads, resolveRef, withRefColumn } from "@/lib/website-builder/theme-file-refs"
 
 /*
   LIGHT TO START (round AQ). Right after a deploy every file of a page is a
@@ -85,7 +85,8 @@ export async function GET(_req: Request, { params }: Params) {
       here; the picture lives in the media library. Sent on to it, and only
       to an address of Storelib's own storage, never anywhere the map says.
     */
-    const { data } = await createAdminClient().from("store_theme_custom_files").select("content").eq("install_id", installId).eq("path", ASSET_MAP_PATH).maybeSingle()
+    const { data: mapRead } = await createAdminClient().from("store_theme_custom_files").select(await fileCols("path, content")).eq("install_id", installId).eq("path", ASSET_MAP_PATH).maybeSingle()
+    const data = await resolveRef(mapRead as { path: string; content?: string } | null)
     let to: unknown = null
     try {
       to = (JSON.parse(String((data as { content?: string } | null)?.content ?? "{}")) as Record<string, unknown>)[name]

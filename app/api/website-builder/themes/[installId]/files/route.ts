@@ -14,7 +14,7 @@ import { THEME_DATA_FILE, THEME_SCHEMA_FILE } from "@/lib/storelib-theme/theme-c
 import { settingsDataFor } from "@/lib/website-builder/theme-config-store"
 import { dbFailure } from "@/lib/website-builder/write-retry"
 import { REVALIDATED_CACHE, revalidatedJson } from "@/lib/website-builder/revalidated-json"
-import { isRefRow, refReads, refsSwitchedOn, resolveFileRows, withRefColumn, type MaybeRef } from "@/lib/website-builder/theme-file-refs"
+import { fileCols, isRefRow, refReads, refsSwitchedOn, resolveFileRows, resolveRef, withRefColumn, type MaybeRef } from "@/lib/website-builder/theme-file-refs"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 type Params = { params: Promise<{ installId: string }> }
@@ -443,16 +443,17 @@ export async function PATCH(req: Request, { params }: Params) {
    */
   const withDraft = await supabase
     .from("store_theme_custom_files")
-    .select("content, draft_content")
+    .select(await fileCols("path, content, draft_content"))
     .eq("install_id", installId)
     .eq("path", from)
     .maybeSingle()
   const hasDraftColumn = !withDraft.error
-  const existing = (hasDraftColumn
+  /* Round 27: a reference's text goes to the new name (lib/website-builder/theme-file-refs.ts). */
+  const existing = (await resolveRef((hasDraftColumn
     ? withDraft.data
-    : (await supabase.from("store_theme_custom_files").select("content").eq("install_id", installId).eq("path", from).maybeSingle()).data) as
-    | { content: string; draft_content?: string | null }
-    | null
+    : (await supabase.from("store_theme_custom_files").select("path, content").eq("install_id", installId).eq("path", from).maybeSingle()).data) as unknown as
+    | { path: string; content: string; draft_content?: string | null }
+    | null))
   if (!existing) return NextResponse.json({ error: `${shownPath(from)} is not a saved file` }, { status: 404 })
   const source = editorContent({ content: existing.content, draft_content: existing.draft_content ?? null })
 

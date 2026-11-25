@@ -302,7 +302,7 @@ async function main() {
   console.log("\nNot public\n")
   check("the theme's files are outside public/", !existsSync(join("public", "theme-packages")) && !walk(join("public", "themes")).some((f) => /\.(liquid|json|js|css|zip)$/.test(f)))
   const config = read("next.config.mjs")
-  check("the build carries theme-packages/ with the route that reads it, folded or not", /'\/api\/themes\/\*\*': \['\.\/theme-packages\/\*\*\/\*'\]/.test(config))
+  check("the build carries theme-packages/ with the route that reads it, folded or not", /* Changed on purpose (round 27): the area also carries the cover's browser (CHROMIUM_BIN, tests/cover-and-add-r27.test.ts). */ /'\/api\/themes\/\*\*': \['\.\/theme-packages\/\*\*\/\*'(, CHROMIUM_BIN)?\]/.test(config))
   const add = read("app/api/themes/marketplace/add/route.ts")
   /* Changed on purpose (round 27): a code template's files (or its newest release's) are converted and stored in this request by the import's own functions, with no zip and no second request; an uploaded theme's release still goes to the import as an upload. */
   check("Add composes a code template on the server and stores it with the import's own conversion and writes", /composeTemplateFiles\(listing\.codePackage\)/.test(add) /* Changed on purpose (templates round 20): a published release's zip is used first (lib/themes/releases-server.ts), the code template otherwise. */ && /convertTemplateFiles\(/.test(add) && /storeImportedTheme\(/.test(add) && /form\.set\("file"/.test(add) && /importThemePackage\(new Request\(/.test(add))

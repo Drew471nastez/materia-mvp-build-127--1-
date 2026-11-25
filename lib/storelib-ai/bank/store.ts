@@ -23,6 +23,7 @@ import { listingOf, type BankListing } from "./fit"
 import { uploadSnapshot, type UploadedFile } from "./upload"
 import type { SiteTemplate } from "@/lib/storelib-ai/templates/types"
 import type { SectionInstance } from "@/lib/website-builder/types"
+import { fileCols, resolveRefs } from "@/lib/website-builder/theme-file-refs"
 
 export const BANK_TABLE = "ai_template_bank"
 /** A bank this large is a library nobody curates: the admin removes one first. */
@@ -79,8 +80,8 @@ export async function accountSites(db: Db, email: string): Promise<{ sites: Libr
   /* Which of them are imported themes: a compat layout file. */
   const imported = new Set<string>()
   if (ids.length) {
-    const { data: layouts } = await db.from("store_theme_custom_files").select("install_id, content, draft_content").in("install_id", ids).eq("path", "layout/theme.storelib")
-    for (const l of (layouts ?? []) as { install_id: string; content: string | null; draft_content: string | null }[]) {
+    const { data: layouts } = await db.from("store_theme_custom_files").select(await fileCols("path, install_id, content, draft_content")).in("install_id", ids).eq("path", "layout/theme.storelib")
+    for (const l of await resolveRefs((layouts ?? []) as { path: string; install_id: string; content: string | null; draft_content: string | null }[])) {
       if (/<template[^>]*\bcompat\b/i.test(`${l.content ?? ""}${l.draft_content ?? ""}`)) imported.add(l.install_id)
     }
   }
@@ -109,7 +110,7 @@ export async function readSiteForBank(db: Db, installId: string): Promise<Snapsh
   if (!install) return null
   const [{ data: pageRows }, { data: fileRows }, { data: settingsRow }] = await Promise.all([
     db.from("store_theme_pages").select("page_key, sections, draft_sections").eq("install_id", installId),
-    db.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId),
+    db.from("store_theme_custom_files").select(await fileCols("path, content, draft_content")).eq("install_id", installId).then(async (r: { data: unknown; error: unknown }) => ({ ...r, data: r.error ? r.data : await resolveRefs(r.data as { path: string; content: string | null }[] | null) })),
     db.from("store_theme_settings").select("settings, draft_settings").eq("install_id", installId).maybeSingle(),
   ])
   const pages = ((pageRows ?? []) as { page_key: string; sections: unknown; draft_sections: unknown }[]).map((p) => ({

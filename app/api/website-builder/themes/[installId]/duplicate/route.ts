@@ -3,6 +3,7 @@ import { websiteCaller } from "@/lib/team/website"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { LIBRARY_FULL_CODE, LIBRARY_FULL_MESSAGE, isLibraryFullError, keptWithinLimit, librarySlotsLeft, nextSortOrder } from "@/lib/website-builder/library-limit"
 import { copyCover, coverForNewWebsite, renderOrigin } from "@/lib/website-builder/cover-take"
+import { copyRows, fileCols } from "@/lib/website-builder/theme-file-refs"
 
 export const runtime = "nodejs"
 /** The copy answers with its source's picture; its own photograph is taken after, a browser launch and two page loads. */
@@ -106,17 +107,18 @@ export async function POST(req: Request, { params }: Params) {
   }
 
   /* The creator's own section files, with their drafts where the database keeps drafts. */
-  const withDrafts = await admin.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId)
+  /* Round 27: a reference stays a reference in the copy (lib/website-builder/theme-file-refs.ts copyRows): a copy of a template website costs no text. */
+  const withDrafts = await admin.from("store_theme_custom_files").select(await fileCols("path, content, draft_content")).eq("install_id", installId)
   const files = withDrafts.error
     ? ((await admin.from("store_theme_custom_files").select("path, content").eq("install_id", installId)).data ?? [])
     : (withDrafts.data ?? [])
   if (files.length) {
     const { error: filesErr } = await admin.from("store_theme_custom_files").insert(
-      (files as { path: string; content: string; draft_content?: string | null }[]).map((f) =>
+      await copyRows((files as unknown as { path: string; content: string; draft_content?: string | null; blob_sha256?: string | null }[]).map((f) =>
         withDrafts.error
           ? { install_id: newInstall.id, path: f.path, content: f.content }
-          : { install_id: newInstall.id, path: f.path, content: f.content, draft_content: f.draft_content ?? null },
-      ),
+          : { install_id: newInstall.id, path: f.path, content: f.content, draft_content: f.draft_content ?? null, ...(f.blob_sha256 ? { blob_sha256: f.blob_sha256 } : {}) },
+      )),
     )
     if (filesErr) return undo()
   }

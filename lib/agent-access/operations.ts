@@ -35,6 +35,7 @@ import type { AgentIdentity } from "./tokens"
 import { AGENT_WRITABLE, agentMayWrite, isThemeConfigFile } from "./protected"
 import { THEME_DATA_FILE, THEME_SCHEMA_FILE, builtInSettingsSchemaText } from "@/lib/storelib-theme/theme-config"
 import { settingsDataFor } from "@/lib/website-builder/theme-config-store"
+import { fileCols, resolveRef, resolveRefs } from "@/lib/website-builder/theme-file-refs"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -66,11 +67,12 @@ export async function listFiles(db: Db, installId: string): Promise<OpResult<{
   writable: string
   files: FileEntry[]
 }>> {
-  const { data, error } = await db
+  const { data: dataRead, error } = await db
     .from("store_theme_custom_files")
-    .select("path, content, draft_content")
+    .select(await fileCols("path, content, draft_content"))
     .eq("install_id", installId)
   if (error) return { ok: false, status: 500, error: "Could not read the theme's files" }
+  const data = await resolveRefs(dataRead as unknown as { path: string; content: string; draft_content?: string | null }[])
 
   const files = new Map<string, FileEntry>()
   for (const path of Object.keys(DEFAULT_THEME_SOURCES)) files.set(path, { path, origin: "theme", writable: false, unpublished: false })
@@ -113,13 +115,14 @@ export async function readFile(db: Db, installId: string, path: string): Promise
     if (!data) return { ok: false, status: 500, error: "Could not read the theme settings" }
     return { ok: true, value: { path, source: data.text, origin: "yours", updated_at: null } }
   }
-  const { data, error } = await db
+  const { data: dataRead, error } = await db
     .from("store_theme_custom_files")
-    .select("path, content, draft_content, updated_at")
+    .select(await fileCols("path, content, draft_content, updated_at"))
     .eq("install_id", installId)
     .eq("path", path)
     .maybeSingle()
   if (error) return { ok: false, status: 500, error: "Could not read the file" }
+  const data = await resolveRef(dataRead as unknown as { path: string; content: string; draft_content?: string | null; updated_at?: string | null } | null)
   if (data) {
     const source = editorContent(data)
     if (typeof source === "string" && source.trim() !== "") {
@@ -153,11 +156,11 @@ export async function sectionSources(db: Db, installId: string, paths?: string[]
     if (WRITABLE.test(path) && (!wanted || wanted.includes(path))) out.set(path, source)
   }
   if (wanted && wanted.length === 0) return out
-  let q = db.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId)
+  let q = db.from("store_theme_custom_files").select(await fileCols("path, content, draft_content")).eq("install_id", installId)
   q = wanted ? q.in("path", wanted) : q.like("path", "sections/%")
   const { data, error } = await q
   if (error) throw new Error("Could not read the theme's files")
-  for (const row of (data ?? []) as { path: string; content: string; draft_content?: string | null }[]) {
+  for (const row of await resolveRefs((data ?? []) as unknown as { path: string; content: string; draft_content?: string | null }[])) {
     if (!WRITABLE.test(row.path)) continue
     const source = editorContent(row)
     if (typeof source === "string" && source.trim() !== "") out.set(row.path, source)

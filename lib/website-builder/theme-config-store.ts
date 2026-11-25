@@ -34,15 +34,17 @@ import {
 } from "@/lib/storelib-theme/theme-config"
 import type { ThemeError } from "@/lib/storelib-theme/types"
 import { sanitizeThemeSettings } from "./sanitize-sections"
+import { fileCols, resolveRef } from "@/lib/website-builder/theme-file-refs"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
 /** The theme's config/settings_schema.json as the builder has it (its draft first), or null when the theme has none. */
 export async function readThemeSchemaText(db: Db, installId: string): Promise<string | null> {
   try {
-    const r = await db.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId).eq("path", THEME_SCHEMA_FILE).maybeSingle()
+    const r = await db.from("store_theme_custom_files").select(await fileCols("path, content, draft_content")).eq("install_id", installId).eq("path", THEME_SCHEMA_FILE).maybeSingle()
     if (r.error || !r.data) return null
-    const text = (r.data as { draft_content?: string | null; content?: string | null }).draft_content ?? (r.data as { content?: string | null }).content
+    const row = await resolveRef(r.data as { path: string; draft_content?: string | null; content?: string | null })
+    const text = row?.draft_content ?? row?.content
     return typeof text === "string" && text.trim() !== "" ? text : null
   } catch {
     return null

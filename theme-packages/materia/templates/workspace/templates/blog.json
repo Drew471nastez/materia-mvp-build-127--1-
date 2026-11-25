@@ -115,26 +115,12 @@
             "heading": "Tags",
             "all_label": ""
           }
-        },
-        "promo_r61": {
-          "type": "promo",
-          "settings": {
-            "ratio": "portrait",
-            "overlay": 30,
-            "subheading": "From the shop",
-            "heading": "See what is new",
-            "button_label": "Shop now",
-            "link": "/collections/all",
-            "button_style": "light",
-            "image": "shopify://shop_images/workspace-hero.webp"
-          }
         }
       },
       "block_order": [
         "categories_r61",
         "recent_r61",
-        "topics_r61",
-        "promo_r61"
+        "topics_r61"
       ]
     }
   },

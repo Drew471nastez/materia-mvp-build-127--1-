@@ -24,6 +24,7 @@ import { LIBRARY_FULL_CODE, LIBRARY_FULL_MESSAGE, isLibraryFullError, keptWithin
 
 import { mergeThemeUpdate, type FileRow, type MergeResult, type NextTheme, type PageRow } from "./release-merge"
 import { updatedCopyName, versionState, type ThemeRelease } from "./releases-shared"
+import { copyRows, fileCols, resolveRefs } from "@/lib/website-builder/theme-file-refs"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -72,8 +73,9 @@ export async function runThemeUpdate(deps: UpdateDeps): Promise<UpdateOutcome> {
   const ready = next as Extract<NextThemeResult, { ok: true }>
 
   const { data: pageRows } = await db.from("store_theme_pages").select("page_key, sections, draft_sections").eq("install_id", installId)
-  const withDrafts = await db.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId)
-  const files: FileRow[] = withDrafts.error ? ((await db.from("store_theme_custom_files").select("path, content").eq("install_id", installId)).data ?? []) : (withDrafts.data ?? [])
+  const withDrafts = await db.from("store_theme_custom_files").select(await fileCols("path, content, draft_content")).eq("install_id", installId)
+  /* Round 27: a reference's text, so an unedited file is compared as what it is (lib/website-builder/theme-file-refs.ts). */
+  const files: FileRow[] = await resolveRefs(withDrafts.error ? ((await db.from("store_theme_custom_files").select("path, content").eq("install_id", installId)).data ?? []) : (withDrafts.data ?? []))
   const history = await db.from("store_theme_file_versions").select("path").eq("install_id", installId).limit(20000)
   const savedPaths = history.error ? null : new Set<string>(((history.data ?? []) as { path: string }[]).map((r) => r.path))
 
@@ -109,7 +111,8 @@ export async function runThemeUpdate(deps: UpdateDeps): Promise<UpdateOutcome> {
     const { error } = await db.from("store_theme_pages").insert(merged.pages.map((p) => ({ install_id: copyId, page_key: p.page_key, sections: p.sections, draft_sections: p.draft_sections ?? null })))
     if (error) return undo()
   }
-  const rows = merged.files.map((f) => (withDrafts.error ? { install_id: copyId, path: f.path, content: f.content } : { install_id: copyId, path: f.path, content: f.content, draft_content: f.draft_content ?? null }))
+  /* Round 27: the copy's long texts kept once when new rows may be references (copyRows); full copies otherwise, as before. */
+  const rows = await copyRows(merged.files.map((f) => (withDrafts.error ? { install_id: copyId, path: f.path, content: f.content } : { install_id: copyId, path: f.path, content: f.content, draft_content: f.draft_content ?? null })))
   for (let i = 0; i < rows.length; i += CHUNK) {
     const { error } = await db.from("store_theme_custom_files").insert(rows.slice(i, i + CHUNK))
     if (error) return undo()

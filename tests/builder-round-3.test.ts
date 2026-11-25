@@ -126,7 +126,7 @@ async function main() {
 
     const storefront = read("lib/website-builder/storefront-render.ts")
     check("the published site skips an empty one too", /if \(typeof row\.content !== "string" \|\| row\.content\.trim\(\) === ""\) continue/.test(storefront))
-    check("and it reads `content`, never a draft", /\.select\("path, content"\)/.test(storefront) && !/draft_content/.test(storefront))
+    /* Changed on purpose (round 27): the same columns through fileCols (theme-file-refs.ts), references resolved. */ check("and it reads `content`, never a draft", /\.select\(await fileCols\("path, content"\)\)/.test(storefront) && !/draft_content/.test(storefront))
     check("the export skips one as well", /\.filter\(r => typeof r\.content === "string" && \(r\.content as string\)\.trim\(\) !== ""\)/.test(read("app/api/website-builder/themes/[installId]/export/route.ts")))
   }
 

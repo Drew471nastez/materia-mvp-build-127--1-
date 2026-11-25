@@ -282,10 +282,10 @@ async function main() {
      * half-written section would be live again and none of the above would
      * matter.
      */
-    check("a visitor is never shown a draft", /\.select\("path, content"\)/.test(storefront) && !/draft_content/.test(storefront))
+    /* Changed on purpose (round 27): through fileCols, references resolved (theme-file-refs.ts). */ check("a visitor is never shown a draft", /\.select\(await fileCols\("path, content"\)\)/.test(storefront) && !/draft_content/.test(storefront))
     // The loop became `sourceMap`, which is the same rule in one place plus
     // one more: a row with nothing in either half is not a source at all.
-    check("but the editor's canvas is", /select\("path, content, draft_content"\)/.test(files) && /const files = sourceMap\(/.test(files))
+    /* Changed on purpose (round 27): the same columns through withRefColumn (theme-file-refs.ts). */ check("but the editor's canvas is", /withRefColumn\("path, content, draft_content", await refsHere\(\)\)/.test(files) && /const files = sourceMap\(/.test(files))
     check("the editor says when a file is saved and not yet live", /Not published yet/.test(codePage) && /setUnpublished\(saved\?\.drafted !== false\)/.test(codePage))
     check("and says the other thing when there is no draft column yet", /saved\?\.drafted === false \? "Saved and live"/.test(codePage))
     check("restoring an old version goes back out through the editor, not around it", /handleContentChange\(v\.content\)/.test(codePage) && /toast\.success\("Loaded\. Save to keep it\."\)/.test(codePage))

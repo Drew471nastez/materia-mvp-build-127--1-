@@ -82,6 +82,7 @@ import { authUnavailableResponse, routeUser } from "@/lib/auth/route-user"
 import { SLOW_SAVE_MESSAGE, saveWithRetry } from "@/lib/website-builder/agent/commit-retry"
 import { dataUnavailableResponse, transientReadError } from "@/lib/website-builder/agent/route-guard"
 import { ledgerStatus } from "@/lib/website-builder/agent/run-ledger-status"
+import { fileCols, resolveRefs } from "@/lib/website-builder/theme-file-refs"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -490,13 +491,13 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
         try {
           const { data: fileRows, error: fileErr } = await supabase
             .from("store_theme_custom_files")
-            .select("path, content, draft_content")
+            .select(await fileCols("path, content, draft_content"))
             .eq("install_id", installId)
             .like("path", "%.storelib")
           const rows = fileErr
             ? ((await supabase.from("store_theme_custom_files").select("path, content").eq("install_id", installId).like("path", "%.storelib")).data ?? [])
             : (fileRows ?? [])
-          Object.assign(agentSources, sourceMap(rows as { path: string; content: string; draft_content?: string | null }[]))
+          Object.assign(agentSources, sourceMap(await resolveRefs(rows as unknown as { path: string; content: string; draft_content?: string | null }[])))
         } catch {
           /* the assistant works without them, as it always did */
         }
@@ -551,11 +552,12 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
         let compatRead: Promise<{ tr: SchemaWords; settingsSchema: string | null }> | null = null
         const loadCompat = async (): Promise<{ tr: SchemaWords; settingsSchema: string | null }> => {
           try {
+            const cols = await fileCols("path, content, draft_content")
             const [words, schema] = await Promise.all([
-              supabase.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId).like("path", "shopify/locales/%default%"),
-              supabase.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId).eq("path", SETTINGS_SCHEMA_FILE),
+              supabase.from("store_theme_custom_files").select(cols).eq("install_id", installId).like("path", "shopify/locales/%default%"),
+              supabase.from("store_theme_custom_files").select(cols).eq("install_id", installId).eq("path", SETTINGS_SCHEMA_FILE),
             ])
-            const files = sourceMap([...(words.data ?? []), ...(schema.data ?? [])] as { path: string; content: string; draft_content?: string | null }[])
+            const files = sourceMap(await resolveRefs([...(words.data ?? []), ...(schema.data ?? [])] as unknown as { path: string; content: string; draft_content?: string | null }[]))
             return { tr: compatSchemaWords(files), settingsSchema: files[SETTINGS_SCHEMA_FILE] ?? null }
           } catch {
             return { tr: compatSchemaWords({}), settingsSchema: null }

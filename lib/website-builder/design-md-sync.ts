@@ -24,6 +24,7 @@ import type { ThemeError } from "@/lib/storelib-theme/types"
 import { DESIGN_CONTRACT_SETTING, DESIGN_MD_PATH, designMdFromSettings, readContractMeta, recordAiTokens, settingsPatchFromDesignMd } from "@/lib/ai-builder/design-contract"
 import { recordVersion, saveDraft, type VersionMeta } from "./theme-file-drafts"
 import { sanitizeThemeSettings } from "./sanitize-sections"
+import { fileCols, resolveRef } from "@/lib/website-builder/theme-file-refs"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -64,9 +65,9 @@ export async function applyDesignMdToSettings(db: Db, installId: string, text: s
  */
 export async function syncDesignMdFromSettings(db: Db, installId: string, settings: Record<string, unknown>): Promise<boolean> {
   try {
-    const { data, error } = await db.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId).eq("path", DESIGN_MD_PATH).maybeSingle()
+    const { data, error } = await db.from("store_theme_custom_files").select(await fileCols("path, content, draft_content")).eq("install_id", installId).eq("path", DESIGN_MD_PATH).maybeSingle()
     if (error || !data) return false
-    const row = data as { content: string | null; draft_content: string | null }
+    const row = (await resolveRef(data as { path: string; content: string | null; draft_content: string | null }))!
     const text = row.draft_content ?? row.content ?? ""
     const next = designMdFromSettings(text, settings)
     if (next === null || next === text) return false

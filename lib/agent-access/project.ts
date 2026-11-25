@@ -63,6 +63,7 @@ import { siteOrigin } from "@/lib/website-builder/site-seo-data"
 import { toPageSlug } from "@/lib/sites/slug"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import { storeMenusOrNull, withStoreMenus, writeStoreMenus } from "@/lib/website-builder/store-menus-server"
+import { fileCols, resolveRefs } from "@/lib/website-builder/theme-file-refs"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -85,9 +86,10 @@ export interface Focus {
  */
 const CONTEXT_FILES = ["layout/theme.storelib", "config/settings_schema.json", "shopify/config/settings_panel.json"]
 async function customSources(db: Db, installId: string): Promise<Record<string, string>> {
-  const files = () => db.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId)
+  const cols = await fileCols("path, content, draft_content")
+  const files = () => db.from("store_theme_custom_files").select(cols).eq("install_id", installId)
   const reads = await Promise.all([files().like("path", "sections/%"), files().like("path", "blocks/%"), files().in("path", CONTEXT_FILES)])
-  const data = reads.flatMap((r: { data?: unknown[] | null }) => r.data ?? [])
+  const data = await resolveRefs(reads.flatMap((r: { data?: unknown[] | null }) => r.data ?? []) as { path: string; content: string; draft_content?: string | null }[])
   const out: Record<string, string> = {}
   for (const row of (data ?? []) as { path: string; content: string; draft_content?: string | null }[]) {
     const src = editorContent(row)

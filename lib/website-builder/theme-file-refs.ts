@@ -29,8 +29,7 @@
  *   new websites        written as references only when references are on,
  *                       the column and the blobs table exist, and
  *                       REFS_READERS_DONE (every reader of the table
- *                       resolves; tests/theme-file-refs-r27.test.ts keeps the
- *                       list of those that do not yet)
+ *                       resolves; tests/theme-file-refs-r27.test.ts checks it)
  *
  * Turned on by STORELIB_THEME_FILE_REFS=1 (an environment variable), after
  * RUN_PENDING_ROUND_27.sql. Server only.
@@ -51,12 +50,15 @@ const BLOB_WRITE_ROWS = 200
 const BLOB_WRITE_CHARS = 3_000_000
 
 /*
-  EVERY READER OF store_theme_custom_files RESOLVES REFERENCES. False until
-  the list in tests/theme-file-refs-r27.test.ts (REMAINING_READERS) is empty:
-  a reader that does not resolve would see '' where a file is. While false,
-  no new website is written as references, whatever the flag says.
+  EVERY READER OF store_theme_custom_files RESOLVES REFERENCES (round 27,
+  part 3): the storefront, the builder and code editor, the agents, Storelib
+  AI, GitHub sync, backups and restore, export, duplicate and theme updates.
+  tests/theme-file-refs-r27.test.ts fails when a file reads the table's text
+  without fileCols and resolveRefs, and runs each reader over an old
+  full-copy website and a new referencing one side by side. Set back to
+  false and no new website is written as references, whatever the flag says.
 */
-export const REFS_READERS_DONE = false
+export const REFS_READERS_DONE = true
 
 export const sha256Text = (text: string): string => createHash("sha256").update(text, "utf8").digest("hex")
 const SHA = /^[0-9a-f]{64}$/
@@ -230,4 +232,86 @@ export async function asReferenceRows(db: Db, rows: readonly FileRow[]): Promise
   await flush()
   for (const sha of shas) hold(sha, texts.get(sha)!)
   return out
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ONE WAY IN FOR EVERY READER AND WRITER (round 27, part 3)
+   ═══════════════════════════════════════════════════════════════════════
+   A reader may hold the signed-in person's client (row level security) or
+   the service role. Whether references are on, and the blobs themselves,
+   are always asked with the service role: the blobs are nobody's to read
+   directly, and every caller here has already been allowed the install.
+   With STORELIB_THEME_FILE_REFS unset none of these asks anything:
+   fileCols answers today's columns, resolveRefs answers the rows it was
+   given, ownRowsOnly the query it was given. */
+
+let adminFactory: (() => Db | Promise<Db>) | null = null
+/** For the tests: the client the blobs are read and written with. */
+export function setRefsAdmin(factory: (() => Db | Promise<Db>) | null): void {
+  adminFactory = factory
+}
+export async function refsAdmin(): Promise<Db> {
+  if (adminFactory) return adminFactory()
+  const { createAdminClient } = await import("@/lib/supabase/admin")
+  return createAdminClient() as unknown as Db
+}
+
+/** References are read: the switch on and the column there. Off: no query. */
+export async function refsOn(): Promise<boolean> {
+  if (!refsSwitchedOn()) return false
+  return refColumnPresent(await refsAdmin())
+}
+
+/** New rows may be written as references (the switch, the column, every reader done). */
+export async function refsWritable(): Promise<boolean> {
+  if (!REFS_READERS_DONE || !refsSwitchedOn()) return false
+  return refColumnPresent(await refsAdmin())
+}
+
+/** The columns to select: today's, plus the reference column when references are read. */
+export async function fileCols(columns: string): Promise<string> {
+  return withRefColumn(columns, await refsOn())
+}
+
+/** Rows with every reference's text in `content`; rows without references as given (no client made). */
+export async function resolveRefs<R extends MaybeRef>(rows: readonly R[] | null | undefined): Promise<R[]> {
+  const list = (rows ?? []) as R[]
+  if (!list.some(isRefRow)) return list
+  return resolveFileRows(await refsAdmin(), list)
+}
+
+/** One row (or null) resolved. */
+export async function resolveRef<R extends MaybeRef>(row: R | null | undefined): Promise<R | null> {
+  if (!row) return null
+  return (await resolveRefs([row]))[0]
+}
+
+/**
+ * A delete meant for rows with no text of their own (a file created as a
+ * draft and never published has content ''): with references on, a
+ * reference row (content '' too) is never one of them.
+ */
+export async function ownRowsOnly<Q extends { is(column: string, value: null): Q }>(q: Q): Promise<Q> {
+  return (await refsOn()) ? q.is(REF_COLUMN, null) : q
+}
+
+/**
+ * Rows copied from one install to another (a duplicate, a theme update's
+ * copy): a reference stays a reference (the copy costs no text), a row with
+ * text is copied as it is, and, when new rows may be references, a long text
+ * is written as one. Without references, the rows as given.
+ */
+export async function copyRows<R extends { install_id: string; path: string; content: string; blob_sha256?: string | null }>(rows: readonly R[]): Promise<R[]> {
+  /* A row with text names no blob in its copy (a stale name is never carried). */
+  const kept = rows.map((r) => {
+    if (isRefRow(r) || !("blob_sha256" in r)) return r
+    const { blob_sha256: _gone, ...rest } = r
+    void _gone
+    return rest as unknown as R
+  })
+  if (!(await refsWritable())) return kept
+  const own = kept.filter((r) => !isRefRow(r))
+  const made = await asReferenceRows(await refsAdmin(), own as unknown as FileRow[])
+  const byPath = new Map(made.map((m) => [m.path, m]))
+  return kept.map((r) => (isRefRow(r) ? r : ({ ...r, ...byPath.get(r.path) } as R)))
 }
