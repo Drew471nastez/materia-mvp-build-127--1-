@@ -44,8 +44,8 @@
         "first_item_open": true,
         "allow_multiple_open": true,
         "open_icon": "plus",
-        "content_alignment": "left",
-        "max_content_width": 820,
+        "content_alignment": "center",
+        "max_content_width": 860,
         "gap_header_to_items": 32,
         "gap_heading_to_subheading": 10,
         "gap_between_items": 0,
@@ -127,7 +127,7 @@
     "bundles": {
       "type": "products-listing",
       "settings": {
-        "color_scheme": "scheme-5f1c0a2e-7b44-4d0e-9a51-0ffc0c7d2a01",
+        "color_scheme": "default",
         "section_width": "container",
         "collection": "bundles",
         "items_to_show": 2,
@@ -148,8 +148,8 @@
         "show_add_to_cart": true,
         "show_action": true,
         "reveal": false,
-        "padding_top": 72,
-        "padding_bottom": 88
+        "padding_top": 56,
+        "padding_bottom": 96
       },
       "blocks": {
         "heading_1": {

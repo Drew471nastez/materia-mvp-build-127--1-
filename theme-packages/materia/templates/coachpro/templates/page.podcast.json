@@ -82,7 +82,7 @@
           "settings": {
             "label": "With a furniture maker, 44 min",
             "heading": "Raising prices without losing the clients you love",
-            "text": "<p>What to send, when to send it and what happened to her client list.</p>",
+            "text": "<p>What to send, when to send it and what happened to the client list.</p>",
             "link_label": "Watch",
             "link": "https://www.youtube.com"
           }
@@ -102,7 +102,7 @@
           "settings": {
             "label": "With a brand designer, 33 min",
             "heading": "Saying no to the wrong project, kindly",
-            "text": "<p>Three emails she uses, word for word.</p>",
+            "text": "<p>Three emails that work, word for word.</p>",
             "link_label": "Watch",
             "link": "https://www.youtube.com"
           }
@@ -144,7 +144,7 @@
       "settings": {
         "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
         "image": "shopify://shop_images/coachpro-guide.webp",
-        "image_alt": "Camila reading a large plan on the floor of her studio",
+        "image_alt": "Marcus working through a pricing sheet on his laptop",
         "image_position": "left",
         "image_ratio": "portrait",
         "image_width": 45,

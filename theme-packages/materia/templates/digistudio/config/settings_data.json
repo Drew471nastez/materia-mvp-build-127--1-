@@ -138,7 +138,7 @@
     "show_vendor": false,
     "show_rate": true,
     "show_variant": false,
-    "show_add_cart": true,
+    "show_add_cart": false,
     "show_quantity_input": false,
     "product_size": 17,
     "price_size": 16,

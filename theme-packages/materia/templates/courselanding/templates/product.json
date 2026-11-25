@@ -19,8 +19,8 @@
         "enable_on_desktop": true,
         "sticky_show_image": true,
         "sticky_show_title": true,
-        "content_gap_desktop": 56,
-        "desktop_media_width": 54,
+        "content_gap_desktop": 64,
+        "desktop_media_width": 56,
         "padding_left_mobile": 16,
         "sticky_border_color": "",
         "enable_video_looping": true,
@@ -34,7 +34,7 @@
         "padding_right_desktop": 0,
         "enable_nav_dots_mobile": false,
         "mobile_slides_per_view": "1",
-        "enable_custom_media_gap": false,
+        "enable_custom_media_gap": true,
         "sticky_show_variant_picker": true,
         "enable_sticky_content_on_desktop": true
       },
@@ -62,7 +62,15 @@
           "type": "variant_picker",
           "settings": {
             "variant_type": "swatches",
-            "picker_swatch_style": "theme"
+            "picker_swatch_style": "theme",
+            "enable_picker_custom": true,
+            "picker_border_radius": 999,
+            "picker_text_selected": "#ffffff",
+            "picker_text_unselected": "#261d18",
+            "picker_text_hover": "#9b4a2c",
+            "picker_bg_selected": "#261d18",
+            "picker_bg_unselected": "#ffffff",
+            "picker_border_color": "#d6ccc3"
           }
         },
         "buy_buttons_1": {

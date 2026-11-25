@@ -33,28 +33,28 @@
           "type": "faq_item",
           "settings": {
             "question": "What is the difference between the editions?",
-            "answer": "<p>The ebook is the book. Ebook and audiobook adds the full audio, read by Maren. The complete set adds sixty printable care cards as well.</p>"
+            "answer": "<p>The ebook is the book. Ebook and audiobook adds the full audio, read by Tess. The complete set adds thirty printable training cards as well.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "A plant is dying right now. Where do I start?",
-            "answer": "<p>Start with chapter twelve, what the leaves are telling you, then look up your plant in the care notes. Most rescues start with moving the pot or watering less.</p>"
+            "question": "My puppy is driving me mad right now. Where do I start?",
+            "answer": "<p>Start with chapter twelve, biting, chewing and jumping up, then look up your problem in the index. Most fixes start with more sleep and shorter sessions.</p>"
           }
         },
         "faq_item_6": {
           "type": "faq_item",
           "settings": {
-            "question": "Are these plants safe for pets?",
-            "answer": "<p>Every plant in the care notes is marked safe or not safe for cats and dogs. For a full list, the short pet safe guide covers forty plants. If a pet has eaten a plant, call your vet.</p>"
+            "question": "What age is it for?",
+            "answer": "<p>Puppies from eight weeks, and young or rescue dogs up to about two years. If your dog shows aggression or serious fear, see a qualified behaviourist in person.</p>"
           }
         },
         "faq_item_7": {
           "type": "faq_item",
           "settings": {
             "question": "Can I give it as a gift?",
-            "answer": "<p>Yes. Add the recipient’s email at checkout and the files go to them with your note. For a plant shop or a group, <a href=\"/pages/contact\">write to us</a>.</p>"
+            "answer": "<p>Yes. Add the recipient’s email at checkout and the files go to them with your note. For a breeder or a rescue, <a href=\"/pages/contact\">write to us</a>.</p>"
           }
         },
         "faq_item_8": {
@@ -81,7 +81,7 @@
       "settings": {
         "color_scheme": "scheme-7dae8b89-7a81-4c2c-b8e2-92533766f8ca",
         "heading": "Get the book",
-        "text": "<p>The ebook, the audiobook, the care cards and the pet safe guide.</p>",
+        "text": "<p>The ebook, the audiobook, the training cards and the crate training guide.</p>",
         "items_to_show": 4,
         "items_per_row": 4,
         "show_add_to_cart": true,
@@ -103,14 +103,14 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "Keep Them Alive",
+            "text": "Sit, Stay, Settle",
             "transform": "uppercase"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Your plants can do better than this",
+            "text": "Your puppy can learn this",
             "transform": "none",
             "lineheight": "1.25"
           }
@@ -118,7 +118,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "Fourteen short chapters and sixty plants, PDF and EPUB, in your inbox in a minute."
+            "text": "Fourteen short chapters and forty problems solved, PDF and EPUB, in your inbox in a minute."
           }
         },
         "button_4": {

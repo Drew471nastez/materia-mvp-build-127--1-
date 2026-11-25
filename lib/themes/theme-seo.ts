@@ -120,10 +120,10 @@ export const THEME_SEO_CATEGORIES: readonly ThemeSeoCategory[] = [
     title: "Templates for Selling Digital Downloads | Storelib",
     description: "Website templates for selling digital downloads on Storelib: ebooks, sample packs, Notion templates, art books and other files, delivered after payment.",
     h1: "Templates for selling digital downloads",
-    intro: "Nine templates for selling files: a general digital product store, a Notion template shop, a sales page for one Notion template, a Notion creator's website, two music sample pack stores, a cookbook shop, an ebook sales page and an art book store. Buyers get their download as soon as they pay.",
+    intro: "Ten templates for selling files: a general digital product store, a design studio selling fonts, presets and templates, a Notion template shop, a sales page for one Notion template, a Notion creator's website, two music sample pack stores, a cookbook shop, an ebook sales page and an art book store. Buyers get their download as soon as they pay.",
     primaryKeyword: "digital download store template",
     secondaryKeywords: ["sell digital products website", "digital product website template", "website to sell downloads"],
-    members: ["digital-products", "templates-shop", "notion-sales-page", "notion-creator", "sample-packs", "sound-packs", "ebooks", "author-book", "art-books"],
+    members: ["digital-products", "digital-studio", "templates-shop", "notion-sales-page", "notion-creator", "sample-packs", "sound-packs", "ebooks", "author-book", "art-books"],
     faqs: [
       { q: "How are files delivered to buyers?", a: "Storelib delivers the file after payment, on the receipt page and by email. The template only shows the product; delivery works the same on every template." },
       { q: "Can I add a licence for my files?", a: "Yes. Digital products and Sample packs include a licence page you can edit, and any template can have one added in the editor." },
@@ -546,6 +546,24 @@ export const THEME_SEO: readonly ThemeSeo[] = [
     faqs: [
       { q: "How is it different from Notion templates and Notion sales page?", a: "Notion templates is a shop for a catalogue, with a guided tour of one workspace and a how it works page. Notion sales page sells one template on one long page. Notion creator is the creator's own website: your avatar first, every template as a card with free ones beside paid ones, a templates page with premium, free, on sale and bundles, and a blog and email list." },
       { q: "Can I give templates away for free?", a: "Yes. Price a template at $0 and buyers check out without paying and get the same duplicate link by email. The free templates section lists them on their own." },
+    ],
+  },
+  /* Templates round 26: Digital studio, a small design studio selling several kinds of downloads. */
+  {
+    slug: "digital-studio",
+    title: "Design Studio Download Shop Template | Storelib",
+    description: "A shop template for a small studio selling fonts, presets, brushes, templates, guides and courses: a featured product, tabs by kind, bundles and a licence page.",
+    h1: "Website template for a design studio selling downloads",
+    intro: "Digital studio is a shop for a small studio that sells several kinds of files, shown here as Offcut, a design studio in Porto. It opens on its products laid out on a table, then a featured font, the whole shop under tabs by kind, bundles, how buying works, the maker, buyer notes and questions, with a plain words licence page.",
+    primaryCategory: "digital-products",
+    primaryKeyword: "design studio download shop template",
+    secondaryKeywords: ["sell fonts and presets website", "design asset store template", "creative studio digital shop"],
+    bestFor: ["Designers selling fonts, presets, brushes and templates side by side", "Small studios with bundles and a free download", "Creators who sell a guide or course beside their files"],
+    features: ["reviews", "faq", "signup", "licence"],
+    extraPages: [{ handle: "licence", label: "Licence" }],
+    faqs: [
+      { q: "How is it different from Digital products?", a: "Digital products is a general download store in white and yellow with a collage hero, a video and a starter bundle. Digital studio is for one maker with several kinds of files: a featured product with its own gallery, the shop under tabs (fonts, presets, brushes and textures, templates, guides and courses), bundles shown large, a four step how buying works and a licence page in plain words." },
+      { q: "Can I sell a licence option, such as desktop or web?", a: "Yes. Add an option to the product, for example Desktop and Desktop and web, with its own price. The product page shows it as a picker beside instant download and free updates." },
     ],
   },
   {

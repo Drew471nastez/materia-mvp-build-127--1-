@@ -32,21 +32,21 @@
       "settings": {
         "color_scheme": "default",
         "btn_text": "Send message",
-        "ph_website": "A plant question, a workshop or a podcast",
+        "ph_website": "A training question, a class or a podcast",
         "label_website": "Subject",
-        "success_text": "Thank you. Maren reads every message and replies within a week."
+        "success_text": "Thank you. Tess reads every message and replies within a week."
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Write to Maren"
+            "text": "Write to Tess"
           }
         },
         "description_2": {
           "type": "description",
           "settings": {
-            "text": "<p>Reader questions with a photo of the plant, workshops, podcasts and interviews. Every message is read by a person.</p>"
+            "text": "<p>Reader questions about your dog, classes, podcasts and interviews. Every message is read by a person.</p>"
           }
         },
         "info_3": {
@@ -61,8 +61,8 @@
           "type": "info",
           "settings": {
             "icon": "map",
-            "line1": "Workshops in person and online",
-            "line2": "For shops, offices and groups"
+            "line1": "Puppy classes in person and online",
+            "line2": "For rescues, breeders and groups"
           }
         }
       },
@@ -105,21 +105,21 @@
           "type": "faq_item",
           "settings": {
             "question": "What is the difference between the editions?",
-            "answer": "<p>The ebook is the book. Ebook and audiobook adds the full audio, read by Maren. The complete set adds sixty printable care cards as well.</p>"
+            "answer": "<p>The ebook is the book. Ebook and audiobook adds the full audio, read by Tess. The complete set adds thirty printable training cards as well.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "A plant is dying right now. Where do I start?",
-            "answer": "<p>Start with chapter twelve, what the leaves are telling you, then look up your plant in the care notes. Most rescues start with moving the pot or watering less.</p>"
+            "question": "My puppy is driving me mad right now. Where do I start?",
+            "answer": "<p>Start with chapter twelve, biting, chewing and jumping up, then look up your problem in the index. Most fixes start with more sleep and shorter sessions.</p>"
           }
         },
         "faq_item_6": {
           "type": "faq_item",
           "settings": {
-            "question": "Are these plants safe for pets?",
-            "answer": "<p>Every plant in the care notes is marked safe or not safe for cats and dogs. For a full list, the short pet safe guide covers forty plants. If a pet has eaten a plant, call your vet.</p>"
+            "question": "What age is it for?",
+            "answer": "<p>Puppies from eight weeks, and young or rescue dogs up to about two years. If your dog shows aggression or serious fear, see a qualified behaviourist in person.</p>"
           }
         }
       },

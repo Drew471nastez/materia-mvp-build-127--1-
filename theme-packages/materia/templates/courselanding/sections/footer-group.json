@@ -7,8 +7,8 @@
       "settings": {
         "color_scheme": "default",
         "section_width": "container",
-        "padding_top": 40,
-        "padding_bottom": 28,
+        "padding_top": 48,
+        "padding_bottom": 24,
         "reset_spacing": true,
         "copyright_text": "© {{ 'now' | date: '%Y' }} {{ shop.name }}",
         "show_social": false,
@@ -21,22 +21,23 @@
         "store_info_1": {
           "type": "store_info",
           "settings": {
-            "show_logo": false,
-            "store_heading": "Arch Pilates",
-            "image_width": 110,
+            "show_logo": true,
+            "store_heading": "",
+            "image_width": 170,
             "store_email": true,
             "store_phone": false,
             "store_address": false,
-            "content_width": "50%",
-            "store_description": "<p>A six week online reformer Pilates course: short lessons filmed in the studio, a live class every week and feedback on your own clips.</p>"
+            "content_width": "40%",
+            "store_description": "<p>Reformer Pilates online, with a live class every Wednesday.</p>",
+            "image": "shopify://shop_images/courselanding-logo.webp"
           }
         },
         "link_list_2": {
           "type": "link_list",
           "settings": {
             "menu": "footer",
-            "heading": "Pages",
-            "content_width": "25%"
+            "heading": "Help",
+            "content_width": "20%"
           }
         },
         "payment_badges_1": {
@@ -52,10 +53,19 @@
             "enable_google_pay": true,
             "enable_mastercard": true
           }
+        },
+        "link_list_1": {
+          "type": "link_list",
+          "settings": {
+            "menu": "main-menu",
+            "heading": "The course",
+            "content_width": "20%"
+          }
         }
       },
       "block_order": [
         "store_info_1",
+        "link_list_1",
         "link_list_2",
         "payment_badges_1"
       ]

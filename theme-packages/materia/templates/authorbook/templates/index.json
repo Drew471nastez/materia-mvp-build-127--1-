@@ -1,4 +1,4 @@
-/* Templates round 25: Keep Them Alive, a houseplant care ebook by Maren Holt (a sample author) on the Windowsill site, in deep green, cream and terracotta: the book on a dark green hero, the promise, open spreads for who it is for and when to read it, reader quotes, what the book covers beside a room of plants, a fit check, the author, the numbers, questions and a free chapter. The cover, the book, the spreads and the logo are drawn for the template around Unsplash photographs. */
+/* Templates round 25: an ebook site (Windowsill) with the book on its own dark hero. Round 26: Sit, Stay, Settle, a puppy training ebook by Tess Moran (a sample author) on the Good Dog Press site, in navy, cream and ochre: the book on a dark hero, a promise, who it is for, why now and who it is not for beside three open spreads, early reader quotes, what is inside, who it is for, the author, the numbers and questions. The cover is a real Unsplash photograph with type set for the template. */
 {
   "sections": {
     "hero": {
@@ -13,7 +13,7 @@
         "media_radius": 0,
         "media_radius_mobile": 0,
         "body_bg_image": "shopify://shop_images/authorbook-book.webp",
-        "image_alt": "Keep Them Alive by Maren Holt, the book, with a monstera leaf on the cover",
+        "image_alt": "Sit, Stay, Settle by Tess Moran, the book, with a Labrador puppy on the cover",
         "content_align_desktop": "left",
         "content_align_mobile": "left",
         "content_gap": 26,
@@ -33,7 +33,7 @@
         "section_heading_1": {
           "type": "section_heading",
           "settings": {
-            "heading_text": "Stop killing your houseplants",
+            "heading_text": "A calm, happy puppy in twelve weeks",
             "enable_custom_style": true,
             "heading_font_size": 58,
             "heading_font_size_mobile": 38,
@@ -46,7 +46,7 @@
         "section_para_2": {
           "type": "section_para",
           "settings": {
-            "p_text": "A plain guide to light, water, soil and repotting, with care notes for sixty common plants. Find yours, read two pages, fix it today.",
+            "p_text": "A plain guide to house training, sit, recall, the loose lead and settling at home, in ten minutes a day. Find your problem, read two pages, start tonight.",
             "enable_custom_style": true,
             "p_font_size": 19,
             "p_font_size_mobile": 17,
@@ -79,7 +79,7 @@
         "wave_height": 90,
         "wave_height_mobile": 40,
         "enable_custom_style": true,
-        "wave_color": "#15302a",
+        "wave_color": "#18212f",
         "background_color": "#ffffff",
         "full_width": true
       }
@@ -91,7 +91,7 @@
         "section_width": "container",
         "content_alignment": "center",
         "text_max_width": 860,
-        "subheading_text": "<p>People with thriving plants are not lucky. They put each plant in the right light, water when it is dry and repot at the right time. This book is those habits, in the order to learn them.</p>",
+        "subheading_text": "<p>People with easy dogs are not lucky. They set a routine in week one, reward the right thing the moment it happens and keep sessions short. This book is those habits, in the order to learn them.</p>",
         "title_font_size_desktop": 46,
         "subtitle_font_size_desktop": 46,
         "subheading_font_size_desktop": 18,
@@ -112,13 +112,13 @@
         "title_1": {
           "type": "title",
           "settings": {
-            "text": "A green thumb is not a gift."
+            "text": "A well behaved dog is not luck."
           }
         },
         "subtitle_2": {
           "type": "subtitle",
           "settings": {
-            "text": "It is a handful of habits, and you can learn them."
+            "text": "It is ten minutes a day, and you can learn it."
           }
         }
       },
@@ -136,8 +136,8 @@
         "text_column_width": 46,
         "content_align": "left",
         "content_gap": 18,
-        "image": "shopify://shop_images/authorbook-spread-light.webp",
-        "image_alt": "Two open pages from chapter two, Read the light in your rooms",
+        "image": "shopify://shop_images/authorbook-spread-week.webp",
+        "image_alt": "Two open pages from chapter two, Your first week at home",
         "aspect_w": 16,
         "aspect_h": 11,
         "image_fit": "cover",
@@ -163,7 +163,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Anyone with a windowsill of drooping leaves, a fern that went crispy or a monstera that will not split. First flats, busy households, people who bought one plant and now have twelve. The care is the same whether you have three plants or thirty.</p>",
+            "text": "<p>Anyone bringing home a puppy, or living with a young dog that pulls, jumps up or will not come back. First dogs, busy households, families with children. The steps are the same for a spaniel or a shepherd.</p>",
             "enable_custom_style": true,
             "size_desktop": 18,
             "size_mobile": 16
@@ -184,8 +184,8 @@
         "text_column_width": 46,
         "content_align": "left",
         "content_gap": 18,
-        "image": "shopify://shop_images/authorbook-spread-water.webp",
-        "image_alt": "Two open pages from chapter five, Water when it is dry",
+        "image": "shopify://shop_images/authorbook-spread-sit.webp",
+        "image_alt": "Two open pages from chapter five, Teach sit in five minutes",
         "aspect_w": 16,
         "aspect_h": 11,
         "image_fit": "cover",
@@ -211,7 +211,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Spring is when plants grow fastest and when most of them want a bigger pot. <strong>Keep Them Alive</strong> shows you how to read the light in each room, water by touch instead of by calendar, choose a soil mix and repot without losing leaves.</p>",
+            "text": "<p>The first twelve weeks shape the dog you live with for years. <strong>Sit, Stay, Settle</strong> shows you how to set a routine, house train without accidents piling up, teach the first cues and stop biting and jumping before they become habits.</p>",
             "enable_custom_style": true,
             "size_desktop": 18,
             "size_mobile": 16
@@ -232,8 +232,8 @@
         "text_column_width": 46,
         "content_align": "left",
         "content_gap": 18,
-        "image": "shopify://shop_images/authorbook-spread-repot.webp",
-        "image_alt": "Two open pages from chapter nine, Repotting without the mess",
+        "image": "shopify://shop_images/authorbook-spread-lead.webp",
+        "image_alt": "Two open pages from chapter nine, Walking on a loose lead",
         "aspect_w": 16,
         "aspect_h": 11,
         "image_fit": "cover",
@@ -259,7 +259,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Collectors after rare aroids, growers with a greenhouse and anyone who wants a gadget to do the watering. This book is for ordinary plants in ordinary homes, kept well.</p>",
+            "text": "<p>Owners of a dog with serious aggression or fear, who need a qualified behaviourist in person, and anyone looking for competition obedience. This book is for ordinary dogs in ordinary homes.</p>",
             "enable_custom_style": true,
             "size_desktop": 18,
             "size_mobile": 16
@@ -281,7 +281,7 @@
         "wave_height": 80,
         "wave_height_mobile": 36,
         "enable_custom_style": true,
-        "wave_color": "#e5ece6",
+        "wave_color": "#e8ebf0",
         "background_color": "#ffffff",
         "full_width": true
       }
@@ -349,37 +349,37 @@
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I moved my fiddle leaf fig one metre closer to the window, as chapter two said. Three new leaves in a month.</p>",
+            "quote": "<p>We followed the week one routine to the letter. By day ten there were no more accidents in the kitchen.</p>",
             "rating": 0,
             "name": "Maya A.",
-            "role": "Twelve plants, one flat",
+            "role": "First puppy, a Labrador",
             "avatar": "shopify://shop_images/authorbook-reader-1.webp"
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Short, practical and honest. The watering chapter alone was worth it. I stopped watering on Sundays and stopped losing plants.</p>",
+            "quote": "<p>Short, practical and honest. The loose lead chapter alone was worth it. Walks are a pleasure again.</p>",
             "rating": 0,
             "name": "Daniel A.",
-            "role": "First flat, first plants",
+            "role": "Rescue dog, two years old",
             "avatar": "shopify://shop_images/authorbook-reader-2.webp"
           }
         },
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>My flat faces north. Chapter two told me which plants would actually be happy there, and they are.</p>",
+            "quote": "<p>I live in a flat with no garden. Chapter three had a plan for that, and it worked.</p>",
             "rating": 0,
             "name": "Lena M.",
-            "role": "North facing flat",
+            "role": "Flat, no garden",
             "avatar": "shopify://shop_images/authorbook-reader-3.webp"
           }
         },
         "testimonial_7": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I repotted my monstera with the steps in chapter nine. No dropped leaves, and it put out a split leaf in June.</p>",
+            "quote": "<p>Our spaniel comes back from the far end of the park now. Chapter seven, practised in the hallway first.</p>",
             "rating": 0,
             "name": "Sam K.",
             "role": "Teacher",
@@ -389,10 +389,10 @@
         "testimonial_8": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Finally a plant book that does not hand me forty rules. Light, water, soil, pot, in that order.</p>",
+            "quote": "<p>Finally a dog book that does not hand me forty rules. Routine, reward, short sessions, in that order.</p>",
             "rating": 0,
             "name": "Jo R.",
-            "role": "Thirty plants and a cat",
+            "role": "Two dogs and a cat",
             "avatar": "shopify://shop_images/authorbook-reader-5.webp"
           }
         }
@@ -452,14 +452,14 @@
           "type": "media",
           "settings": {
             "media_type": "image",
-            "image": "shopify://shop_images/authorbook-room.webp",
-            "alt": "A sunny corner full of houseplants: a monstera on a stool, ferns and pothos on a shelf"
+            "image": "shopify://shop_images/authorbook-home.webp",
+            "alt": "A young dog resting on its bed in a bright living room"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "In Keep Them Alive, Maren Holt shares the care that keeps sixty plants growing",
+            "text": "In Sit, Stay, Settle, Tess Moran shares the training she gives every puppy class",
             "tag": "h2",
             "enable_custom_style": true,
             "uppercase": false,
@@ -470,7 +470,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p><strong>Plain answers for the six things every plant needs:</strong></p>",
+            "text": "<p><strong>Plain answers for the six things every puppy needs:</strong></p>",
             "enable_custom_style": true,
             "size_desktop": 17,
             "size_mobile": 15
@@ -483,55 +483,55 @@
         "benefit_5": {
           "type": "benefit",
           "settings": {
-            "heading": "Light",
-            "text": "<p>Which window suits which plant, and the hand test.</p>",
+            "heading": "Routine",
+            "text": "<p>A daily routine your puppy can predict, from day one.</p>",
             "icon_source": "svg",
-            "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"4\"/><path d=\"M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8\"/></svg>"
+            "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"8.5\"/><path d=\"M12 7.5V12l3 2\"/></svg>"
           }
         },
         "benefit_6": {
           "type": "benefit",
           "settings": {
-            "heading": "Water",
-            "text": "<p>The finger test, and why a schedule drowns plants.</p>",
+            "heading": "House training",
+            "text": "<p>House training with the five minute rule, and a plan for flats.</p>",
             "icon_source": "svg",
-            "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 3.5c3 3.6 5.5 6.9 5.5 10a5.5 5.5 0 0 1-11 0c0-3.1 2.5-6.4 5.5-10z\"/><path d=\"M9.5 14.5a2.5 2.5 0 0 0 2.5 2.5\"/></svg>"
+            "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 11 12 4l8 7\"/><path d=\"M6 10v9.5h12V10\"/><path d=\"M10 19.5v-5h4v5\"/></svg>"
           }
         },
         "benefit_7": {
           "type": "benefit",
           "settings": {
-            "heading": "Soil",
-            "text": "<p>Three mixes that cover almost every houseplant.</p>",
+            "heading": "First cues",
+            "text": "<p>Sit, down and the name game, in five minute sessions.</p>",
             "icon_source": "svg",
-            "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 9h16\"/><path d=\"M5 9l1.4 10.2a1 1 0 0 0 1 .8h9.2a1 1 0 0 0 1-.8L19 9\"/><path d=\"M7.5 13h9M8 16.5h8\"/></svg>"
+            "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 13V6.5a1.5 1.5 0 0 1 3 0V12\"/><path d=\"M11 11.5V5a1.5 1.5 0 0 1 3 0v6.5\"/><path d=\"M14 11.5V7a1.5 1.5 0 0 1 3 0v6c0 4-2.5 7-6.5 7S5 17 4.5 14l-.3-1.5a1.4 1.4 0 0 1 2.6-.9L8 14\"/></svg>"
           }
         },
         "benefit_8": {
           "type": "benefit",
           "settings": {
-            "heading": "Repotting",
-            "text": "<p>When, how big a pot, and how to do it cleanly.</p>",
+            "heading": "Recall",
+            "text": "<p>Coming back when called, practised indoors first.</p>",
             "icon_source": "svg",
-            "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 13h14l-1.3 7H6.3z\"/><path d=\"M12 13V5\"/><path d=\"M8.5 8.5 12 5l3.5 3.5\"/></svg>"
+            "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M9 7 4 12l5 5\"/><path d=\"M4 12h10a5 5 0 0 1 5 5\"/></svg>"
           }
         },
         "benefit_9": {
           "type": "benefit",
           "settings": {
             "heading": "Problems",
-            "text": "<p>Yellow leaves, brown tips and gnats, and what each means.</p>",
+            "text": "<p>Biting, chewing and jumping up, and what each one means.</p>",
             "icon_source": "svg",
-            "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 19c0-8 5-13.5 14-14-.5 9-6 14-14 14z\"/><path d=\"M5 19 13 11\"/><circle cx=\"14.5\" cy=\"13.5\" r=\"1.2\" fill=\"currentColor\" stroke=\"none\"/></svg>"
+            "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"8.5\"/><path d=\"M9.6 9.5a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.4\"/><circle cx=\"12\" cy=\"16.8\" r=\".9\" fill=\"currentColor\" stroke=\"none\"/></svg>"
           }
         },
         "benefit_10": {
           "type": "benefit",
           "settings": {
-            "heading": "Feeding",
-            "text": "<p>Food only in spring and summer, and how much.</p>",
+            "heading": "Settling",
+            "text": "<p>Settling on a bed and being left alone for an hour.</p>",
             "icon_source": "svg",
-            "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 21v-8\"/><path d=\"M12 13c0-4 2.6-6.6 7-7 0 4.3-2.7 7-7 7z\"/><path d=\"M12 15c0-3-2.1-5.2-6-5.5 0 3.4 2.4 5.5 6 5.5z\"/><path d=\"M7 21h10\"/></svg>"
+            "icon_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 18v-6.5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2V18\"/><path d=\"M3 15h18M5 18v2M19 18v2\"/><path d=\"M7 9.5V7a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2.5\"/></svg>"
           }
         },
         "footnote_11": {
@@ -582,7 +582,7 @@
         "space_between_icons": 40,
         "enable_custom_style": true,
         "icon_color": "#b8643c",
-        "icon_description_color": "#17201b",
+        "icon_description_color": "#171b22",
         "make_icons_circle": false,
         "icon_size": 44,
         "icon_title_size": 18,
@@ -613,7 +613,7 @@
             "icon_type": "icon",
             "icon": "check_circle",
             "icon_title": "",
-            "icon_description": "Your plants droop, yellow or drop leaves and you do not know why."
+            "icon_description": "Your puppy bites, jumps up or has accidents and you do not know why."
           }
         },
         "icon_3": {
@@ -622,7 +622,7 @@
             "icon_type": "icon",
             "icon": "check_circle",
             "icon_title": "",
-            "icon_description": "You water on a schedule and still lose plants."
+            "icon_description": "You practise every day and it still will not come back."
           }
         },
         "icon_4": {
@@ -631,7 +631,7 @@
             "icon_type": "icon",
             "icon": "check_circle",
             "icon_title": "",
-            "icon_description": "You have a pot you have been meaning to repot for a year."
+            "icon_description": "Your walks are a tug of war from the front door."
           }
         }
       },
@@ -696,8 +696,8 @@
         "text_column_width": 44,
         "content_align": "left",
         "content_gap": 18,
-        "image": "shopify://shop_images/authorbook-maren.webp",
-        "image_alt": "Maren Holt",
+        "image": "shopify://shop_images/authorbook-author.webp",
+        "image_alt": "Tess Moran",
         "aspect_w": 4,
         "aspect_h": 5,
         "image_fit": "cover",
@@ -716,14 +716,14 @@
           "settings": {
             "text": "About the author",
             "enable_custom_style": true,
-            "color": "#e08a5c",
+            "color": "#e09a4c",
             "size": 13
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Maren Holt killed her first twenty plants. Now she teaches people to keep theirs.",
+            "text": "Tess Moran got her first dog wrong. Now she teaches puppy classes.",
             "tag": "h2",
             "enable_custom_style": true,
             "size_desktop": 34,
@@ -733,7 +733,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>She ran a small plant shop for eight years, answering the same questions at the counter every day, and writes a short letter about plant care every other week. <strong>Keep Them Alive</strong> is those answers, written down.</p><p>This is sample text. Replace it with your own story.</p>",
+            "text": "<p>She has run weekly puppy classes for nine years, answering the same questions on the same village hall floor, and writes a short letter about training every other week. <strong>Sit, Stay, Settle</strong> is those answers, written down.</p><p>This is sample text. Replace it with your own story.</p>",
             "enable_custom_style": true,
             "size_desktop": 17,
             "size_mobile": 16
@@ -742,7 +742,7 @@
         "button_4": {
           "type": "button",
           "settings": {
-            "label": "More about Maren",
+            "label": "More about Tess",
             "link": "/pages/about",
             "button_style": "secondary"
           }
@@ -764,7 +764,7 @@
         "container_max_width": 1000,
         "headline_spacing": 30,
         "enable_custom_style": true,
-        "count_color": "#e08a5c",
+        "count_color": "#e09a4c",
         "description_text_color": "#c8c8cc",
         "count_size": 56,
         "count_font_weight": "bold",
@@ -797,15 +797,15 @@
         "count_box_3": {
           "type": "count_box",
           "settings": {
-            "number": 212,
+            "number": 196,
             "text": "pages, PDF and EPUB"
           }
         },
         "count_box_4": {
           "type": "count_box",
           "settings": {
-            "number": 60,
-            "text": "plants with their own care notes"
+            "number": 40,
+            "text": "common problems, each with a fix"
           }
         }
       },
@@ -848,14 +848,14 @@
           "type": "faq_item",
           "settings": {
             "question": "What is the difference between the editions?",
-            "answer": "<p>The ebook is the book. Ebook and audiobook adds the full audio, read by Maren. The complete set adds sixty printable care cards as well.</p>"
+            "answer": "<p>The ebook is the book. Ebook and audiobook adds the full audio, read by Tess. The complete set adds thirty printable training cards as well.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "A plant is dying right now. Where do I start?",
-            "answer": "<p>Start with chapter twelve, what the leaves are telling you, then look up your plant in the care notes. Most rescues start with moving the pot or watering less.</p>"
+            "question": "My puppy is driving me mad right now. Where do I start?",
+            "answer": "<p>Start with chapter twelve, biting, chewing and jumping up, then look up your problem in the index. Most fixes start with more sleep and shorter sessions.</p>"
           }
         },
         "faq_item_6": {

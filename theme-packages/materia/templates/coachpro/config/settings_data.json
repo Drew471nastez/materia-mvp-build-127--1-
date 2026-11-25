@@ -173,11 +173,11 @@
     "typography_preset": "none",
     "font_type_body": "google",
     "font_type_heading": "google",
-    "font_body_google_family": "Open Sans",
-    "font_heading_google_family": "Lora",
-    "heading_font_weight": 500,
+    "font_body_google_family": "Lato",
+    "font_heading_google_family": "Hanken Grotesk",
+    "heading_font_weight": 600,
     "heading_font_scale": 100,
-    "heading_letter_spacing": "unset",
+    "heading_letter_spacing": "negative",
     "heading_text_transform": "unset",
     "body_font_size": 16,
     "body_font_weight": 400,
@@ -200,6 +200,8 @@
     "instagram": "https://www.instagram.com",
     "show_wishlist": false,
     "linkedin": "https://www.linkedin.com",
-    "youtube": "https://www.youtube.com"
+    "youtube": "https://www.youtube.com",
+    "logo": "shopify://shop_images/coachpro-logo.webp",
+    "desktop_logo_width": 170
   }
 }

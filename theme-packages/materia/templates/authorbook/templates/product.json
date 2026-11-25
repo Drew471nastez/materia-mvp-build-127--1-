@@ -81,7 +81,7 @@
           "type": "text",
           "settings": {
             "heading": "",
-            "content": "<p>A plain guide to light, water, soil and repotting, with care notes for sixty houseplants, by Maren Holt.</p>"
+            "content": "<p>A plain guide to the first twelve weeks with a puppy: routine, house training, the first cues and settling at home, by Tess Moran.</p>"
           }
         },
         "price_4": {
@@ -180,7 +180,7 @@
           "type": "whats_included",
           "settings": {
             "heading": "What you get",
-            "items": "Fourteen chapters, 212 pages, PDF and EPUB\nCare notes for sixty common plants\nA leaf problem finder with photos\nEvery plant marked pet safe or not",
+            "items": "Fourteen chapters, 196 pages, PDF and EPUB\nA plan for each of the first twelve weeks\nForty common problems, each with a fix\nTen minute sessions you can do indoors",
             "two_columns": false,
             "boxed": true
           }
@@ -198,7 +198,7 @@
           "type": "collapsible_row",
           "settings": {
             "heading": "Editions",
-            "content": "<p><strong>Ebook:</strong> PDF and EPUB. <strong>Ebook and audiobook:</strong> adds five hours of MP3 files read by Maren. <strong>Complete set:</strong> adds sixty printable care cards.</p>",
+            "content": "<p><strong>Ebook:</strong> PDF and EPUB. <strong>Ebook and audiobook:</strong> adds five hours of MP3 files read by Tess. <strong>Complete set:</strong> adds thirty printable training cards.</p>",
             "use_product_description": false,
             "open": false
           }
@@ -211,10 +211,10 @@
             "first_open": false,
             "q_1": "Is this an ebook or a printed book?",
             "a_1": "<p>An ebook. You get a PDF and an EPUB file by email straight after you pay, and you can read them on any phone, tablet, computer or e-reader.</p>",
-            "q_2": "A plant is dying right now. Where do I start?",
-            "a_2": "<p>Start with chapter twelve, what the leaves are telling you, then look up your plant in the care notes. Most rescues start with moving the pot or watering less.</p>",
-            "q_3": "Are these plants safe for pets?",
-            "a_3": "<p>Every plant in the care notes is marked safe or not safe for cats and dogs. For a full list, the short pet safe guide covers forty plants. If a pet has eaten a plant, call your vet.</p>",
+            "q_2": "My puppy is driving me mad right now. Where do I start?",
+            "a_2": "<p>Start with chapter twelve, biting, chewing and jumping up, then look up your problem in the index. Most fixes start with more sleep and shorter sessions.</p>",
+            "q_3": "What age is it for?",
+            "a_3": "<p>Puppies from eight weeks, and young or rescue dogs up to about two years. If your dog shows aggression or serious fear, see a qualified behaviourist in person.</p>",
             "q_4": "What if it is not for me?",
             "a_4": "<p>Email within 30 days and you get your money back. No questions asked.</p>",
             "spacing_top": 12,
@@ -290,8 +290,8 @@
         "section_width": "container",
         "image_position": "left",
         "text_column_width": 46,
-        "image": "shopify://shop_images/authorbook-spread-water.webp",
-        "image_alt": "Two open pages from chapter five, Water when it is dry",
+        "image": "shopify://shop_images/authorbook-spread-sit.webp",
+        "image_alt": "Two open pages from chapter five, Teach sit in five minutes",
         "aspect_w": 16,
         "aspect_h": 11,
         "image_fit": "cover",
@@ -316,7 +316,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Every chapter is one habit you can start this week, with a short check at the end. Read it in a weekend, then keep the care notes open on your phone.</p>"
+            "text": "<p>Every chapter is one thing to practise this week, with a short check at the end. Read it in a weekend, then keep the problem index open on your phone.</p>"
           }
         },
         "button_4": {
@@ -387,30 +387,30 @@
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I moved my fiddle leaf fig one metre closer to the window, as chapter two said. Three new leaves in a month.</p>",
+            "quote": "<p>We followed the week one routine to the letter. By day ten there were no more accidents in the kitchen.</p>",
             "rating": 5,
             "name": "Maya A.",
-            "role": "Twelve plants, one flat",
+            "role": "First puppy, a Labrador",
             "avatar": "shopify://shop_images/authorbook-reader-1.webp"
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Short, practical and honest. The watering chapter alone was worth it. I stopped watering on Sundays and stopped losing plants.</p>",
+            "quote": "<p>Short, practical and honest. The loose lead chapter alone was worth it. Walks are a pleasure again.</p>",
             "rating": 5,
             "name": "Daniel A.",
-            "role": "First flat, first plants",
+            "role": "Rescue dog, two years old",
             "avatar": "shopify://shop_images/authorbook-reader-2.webp"
           }
         },
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>My flat faces north. Chapter two told me which plants would actually be happy there, and they are.</p>",
+            "quote": "<p>I live in a flat with no garden. Chapter three had a plan for that, and it worked.</p>",
             "rating": 5,
             "name": "Lena M.",
-            "role": "North facing flat",
+            "role": "Flat, no garden",
             "avatar": "shopify://shop_images/authorbook-reader-3.webp"
           }
         }
@@ -430,7 +430,7 @@
         "color_scheme": "default",
         "section_width": "container",
         "reset_spacing": true,
-        "heading": "Also from Maren",
+        "heading": "Also from Tess",
         "description": "",
         "header_size": "small",
         "header_alignment": "left",

@@ -39,4 +39,5 @@ export const TEMPLATE_PREVIEW_GROUNDS: Readonly<Record<string, { desktop: string
   "streetwear-drop": { desktop: "#f9f9f8", phone: "#f9f9f7" },
   "notion-creator": { desktop: "#ffffff", phone: "#fefefe" },
   "sound-packs": { desktop: "#0c0c16", phone: "#0b0b0b" },
+  "digital-studio": { desktop: "#ffffff", phone: "#ffffff" },
 }

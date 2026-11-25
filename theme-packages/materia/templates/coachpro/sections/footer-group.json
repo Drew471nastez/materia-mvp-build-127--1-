@@ -43,7 +43,7 @@
             "store_phone": false,
             "store_address": false,
             "content_width": "30%",
-            "store_heading": "Camila Duarte",
+            "store_heading": "Marcus Hale",
             "store_description": "<p>Business coaching for designers, makers and studio owners. Better prices, better clients, calmer weeks.</p>"
           }
         },
@@ -57,7 +57,7 @@
             "note": "<p>No spam. Unsubscribe in one click.</p>",
             "success_text": "You are in. The next letter arrives on Sunday.",
             "error_text": "Enter a valid email address.",
-            "content_width": "30%"
+            "content_width": "34%"
           }
         },
         "link_list_1": {
@@ -93,9 +93,9 @@
       },
       "block_order": [
         "store_info_1",
-        "newsletter_1",
         "link_list_1",
         "link_list_2",
+        "newsletter_1",
         "payment_badges_1"
       ]
     }

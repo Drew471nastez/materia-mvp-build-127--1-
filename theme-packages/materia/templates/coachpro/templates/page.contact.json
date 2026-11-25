@@ -61,8 +61,8 @@
           "type": "info",
           "settings": {
             "icon": "map",
-            "line1": "Lisbon and online",
-            "line2": "Calls on weekdays, Lisbon time"
+            "line1": "Philadelphia and online",
+            "line2": "Calls on weekdays, Eastern time"
           }
         }
       },

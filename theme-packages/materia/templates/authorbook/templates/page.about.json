@@ -5,8 +5,8 @@
       "type": "Image-and-video-text",
       "settings": {
         "color_scheme": "default",
-        "image": "shopify://shop_images/authorbook-maren.webp",
-        "image_alt": "Maren Holt",
+        "image": "shopify://shop_images/authorbook-author.webp",
+        "image_alt": "Tess Moran",
         "image_position": "left",
         "aspect_w": 4,
         "aspect_h": 5,
@@ -23,14 +23,14 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Maren Holt",
+            "text": "Tess Moran",
             "tag": "h1"
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Maren killed her first twenty plants in a dark rented flat. Then she worked weekends in a plant shop, opened her own and spent eight years answering the same questions at the counter.</p><p>She now writes a short letter about plant care every other week. This is sample text. Replace it with your own story.</p>"
+            "text": "<p>Tess got her first dog, a collie, at twenty two and made every mistake in this book. Then she helped at a local puppy class, started her own and spent nine years answering the same questions every Saturday.</p><p>She now writes a short letter about training every other week. This is sample text. Replace it with your own story.</p>"
           }
         },
         "button_4": {
@@ -52,8 +52,8 @@
       "type": "Image-and-video-text",
       "settings": {
         "color_scheme": "default",
-        "image": "shopify://shop_images/authorbook-room.webp",
-        "image_alt": "A sunny corner full of houseplants: a monstera on a stool, ferns and pothos on a shelf",
+        "image": "shopify://shop_images/authorbook-home.webp",
+        "image_alt": "A young dog resting on its bed in a bright living room",
         "image_position": "right",
         "aspect_w": 1,
         "aspect_h": 1,
@@ -69,13 +69,13 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "The book she wanted when her first plants died"
+            "text": "The book she wanted with her first puppy"
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Most plant advice is a list of forty rules and a different answer on every forum. Keep Them Alive picks the handful that matter, in the order to learn them, with what to do when a plant still struggles.</p>"
+            "text": "<p>Most puppy advice is a list of forty rules and a different answer on every forum. Sit, Stay, Settle picks the handful that matter, in the order to learn them, with what to do when a dog still struggles.</p>"
           }
         }
       },
@@ -103,24 +103,24 @@
           "type": "column",
           "settings": {
             "label": "01",
-            "heading": "Light comes first",
-            "text": "<p>The right window fixes more than any fertiliser or spray.</p>"
+            "heading": "Routine comes first",
+            "text": "<p>A puppy that knows what comes next settles faster than any trick can teach.</p>"
           }
         },
         "column_3": {
           "type": "column",
           "settings": {
             "label": "02",
-            "heading": "Water by touch",
-            "text": "<p>Plants drink with the weather, not with the calendar.</p>"
+            "heading": "Reward the moment",
+            "text": "<p>A treat two seconds late teaches the wrong thing.</p>"
           }
         },
         "column_4": {
           "type": "column",
           "settings": {
             "label": "03",
-            "heading": "Small and steady wins",
-            "text": "<p>One change at a time, then two weeks of watching, tells you what worked.</p>"
+            "heading": "Five minutes wins",
+            "text": "<p>Two short sessions a day beat one long one, every time.</p>"
           }
         }
       },
@@ -162,27 +162,27 @@
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "body": "I moved my fiddle leaf fig one metre closer to the window. Three new leaves in a month.",
+            "body": "We followed the week one routine to the letter. By day ten there were no more accidents.",
             "name": "Maya A.",
-            "role": "Twelve plants, one flat",
+            "role": "First puppy, a Labrador",
             "rating": 5
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "body": "The watering chapter alone was worth it. I stopped watering on Sundays and stopped losing plants.",
+            "body": "The loose lead chapter alone was worth it. Walks are a pleasure again.",
             "name": "Daniel A.",
-            "role": "First flat, first plants",
+            "role": "Rescue dog, two years old",
             "rating": 5
           }
         },
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "body": "My flat faces north. Chapter two told me which plants would be happy there.",
+            "body": "I live in a flat with no garden. Chapter three had a plan for that.",
             "name": "Lena M.",
-            "role": "North facing flat",
+            "role": "Flat, no garden",
             "rating": 5
           }
         }
@@ -200,15 +200,15 @@
       "type": "newsletter-split",
       "settings": {
         "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
-        "image": "shopify://shop_images/authorbook-spread-light.webp",
-        "image_alt": "Two open pages from chapter two of Keep Them Alive",
+        "image": "shopify://shop_images/authorbook-spread-week.webp",
+        "image_alt": "Two open pages from chapter two of Sit, Stay, Settle",
         "image_position": "left",
         "image_ratio": "landscape",
         "image_width": 50,
         "form_layout": "horizontal",
         "btn_text": "Send it to me",
         "email_placeholder": "Your email",
-        "note": "You also get the plant letter every other week. Leave whenever you like.",
+        "note": "You also get the puppy letter every other week. Leave whenever you like.",
         "success_text": "Done. Chapter two is in your inbox."
       },
       "blocks": {
@@ -221,7 +221,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Read the light in your rooms, as a PDF: which window suits which plant, and the hand test that tells you in ten seconds.</p>"
+            "text": "<p>Your first week at home, as a PDF: the daily routine, where your puppy sleeps and the five minute rule for house training.</p>"
           }
         }
       },

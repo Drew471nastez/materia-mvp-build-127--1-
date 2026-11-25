@@ -1,90 +1,106 @@
-/* Templates round 25: Arch Pilates, a sales page for one six week online reformer Pilates course taught by a sample teacher, in clay on white: a split hero with the teacher on the reformer, who it is for, a normal week, the four blocks, the teacher, free videos compared, student quotes, the offer as the course product itself (the theme's featured product: picture, price, options, buy buttons, what you get and a 14 day refund), questions with a contact card and a last call. Built from the theme's own sections; photographs from one Unsplash studio session. */
+/* Templates round 20: one course sold on a one offer page. Round 26: Arch Pilates gets a drawn arch mark and wordmark, Bodoni Moda headings, a 50/50 hero (Hero Product 3) that opens with overlapping student avatars and a short sample review, a marquee of the moves in espresso, the free videos comparison on espresso, pill selectors in the offer and a compact footer. */
 {
   "sections": {
     "hero": {
-      "type": "hero-split-media",
+      "type": "hero-product3",
       "settings": {
         "color_scheme": "default",
         "section_width": "full_width",
         "image_position": "right",
-        "media_width_desktop": 50,
-        "content_align": "left",
-        "vertical_align": "center",
-        "content_max_width": 560,
-        "content_gap": 20,
-        "min_height_desktop": 720,
-        "image": "shopify://shop_images/courselanding-hero.webp",
+        "text_column_width": 50,
+        "gap_columns": 72,
+        "content_align_desktop": "left",
+        "featured_image": "shopify://shop_images/courselanding-hero.webp",
         "image_alt": "A teacher holding a side plank on a reformer in a cream studio with lit arches",
-        "image_position_x": 45,
-        "image_position_y": 40,
+        "image_fit": "cover",
+        "image_height_desktop": 720,
+        "image_height_mobile": 420,
         "image_radius": 0,
-        "padding_top_desktop": 64,
-        "padding_bottom_desktop": 64,
-        "side_padding_desktop": 128,
-        "mobile_image_first": true,
-        "media_height_mobile": 440,
-        "padding_top_mobile": 32,
-        "padding_bottom_mobile": 44,
-        "side_padding_mobile": 20
+        "padding_top_desktop": 0,
+        "padding_bottom_desktop": 0,
+        "section_padding_left_desktop": 72,
+        "section_padding_right_desktop": 0,
+        "padding_top_mobile": 0,
+        "padding_bottom_mobile": 40,
+        "section_padding_left_mobile": 20,
+        "section_padding_right_mobile": 20,
+        "gap_columns_mobile": 28,
+        "image_position_mobile": "top",
+        "reveal": false
       },
       "blocks": {
-        "eyebrow_1": {
-          "type": "eyebrow",
+        "proof_1": {
+          "type": "social_proof_avatars",
           "settings": {
-            "text": "Online reformer Pilates course",
+            "referral_text": "“Week three got me into the straps.”",
+            "referral_accent_text": "Sample review",
+            "show_stars": true,
+            "ref_avatar_1": "shopify://shop_images/courselanding-student-1.webp",
+            "ref_avatar_2": "shopify://shop_images/courselanding-student-2.webp",
+            "ref_avatar_3": "shopify://shop_images/courselanding-student-3.webp",
+            "ref_avatar_4": "shopify://shop_images/courselanding-student-4.webp",
             "enable_custom_style": true,
-            "color": "#9b4a2c",
-            "size_enable": true,
-            "size": 14
+            "referral_text_color": "#261d18",
+            "referral_accent_color": "#9b4a2c",
+            "star_color": "#9b4a2c",
+            "ref_avatar_border_thickness": 2,
+            "ref_avatar_border_color": "#ffffff",
+            "ref_avatar_size_desktop": 40,
+            "ref_avatar_size_mobile": 34,
+            "ref_avatar_overlap_desktop": 12,
+            "ref_avatar_overlap_mobile": 10,
+            "referral_to_title_gap_desktop": 28,
+            "referral_to_title_gap_mobile": 16
           }
         },
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Learn the reformer properly in six weeks",
-            "weight_enable": true,
-            "weight": "500",
-            "size_enable": true,
-            "size_desktop": 64,
-            "size_mobile": 40,
-            "line_height": 1.05,
-            "tracking": -1
+            "heading_text": "Learn the reformer properly in six weeks",
+            "font_size_desktop": 68,
+            "font_size_mobile": 42,
+            "line_height_desktop": 1.02,
+            "line_height_mobile": 1.05,
+            "max_width": 560,
+            "margin_bottom": 20,
+            "letter_spacing": -1,
+            "enable_custom_style": true,
+            "font_weight": "500"
           }
         },
         "subheading_1": {
           "type": "subheading",
           "settings": {
             "text": "<p>Short lessons filmed in the studio, a live class every Wednesday and form checks on your own clips. For a reformer at home or the one at your gym.</p>",
-            "size_enable": true,
-            "size": 18,
-            "line_height": 1.6
+            "font_size_desktop": 18,
+            "max_width": 500,
+            "margin_bottom": 24,
+            "enable_custom_style": true,
+            "color": "#5a514b"
           }
         },
         "button_1": {
-          "type": "button",
+          "type": "primary_button",
           "settings": {
-            "text": "Start the course",
+            "label": "Start the course",
             "link": "/#shopify-section-offer",
-            "button_style": "primary",
-            "size": 16,
-            "pad_x": 30,
-            "pad_y": 16
+            "full_width": false,
+            "uppercase": false,
+            "margin_bottom": 0
           }
         },
         "button_2": {
-          "type": "button",
+          "type": "secondary_button",
           "settings": {
-            "text": "See the six weeks",
+            "label": "See the six weeks",
             "link": "/#shopify-section-weeks",
-            "button_style": "secondary",
-            "size": 16,
-            "pad_x": 30,
-            "pad_y": 16
+            "uppercase": false,
+            "margin_bottom": 0
           }
         }
       },
       "block_order": [
-        "eyebrow_1",
+        "proof_1",
         "heading_1",
         "subheading_1",
         "button_1",
@@ -434,21 +450,21 @@
     "compare": {
       "type": "comparison-cards",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
         "section_width": "full_width",
         "header_align": "center",
         "card_radius": 8,
         "enable_custom_style": true,
-        "us_card_bg": "#261d18",
+        "us_card_bg": "#9b4a2c",
         "us_card_text": "#ffffff",
         "us_card_shadow": "none",
-        "them_card_bg": "#ffffff",
-        "them_card_text": "#261d18",
-        "them_card_border": "#ece6e0",
-        "check_color": "#9b4a2c",
-        "cross_color": "#aaa098",
-        "cross_color_them": "#aaa098",
-        "minus_color": "#aaa098",
+        "them_card_bg": "#3b302a",
+        "them_card_text": "#f7e8df",
+        "them_card_border": "#3b302a",
+        "check_color": "#ffffff",
+        "cross_color": "#a89b92",
+        "cross_color_them": "#a89b92",
+        "minus_color": "#a89b92",
         "card_title_weight": "700",
         "padding_top_desktop": 104,
         "padding_bottom_desktop": 104
@@ -665,7 +681,7 @@
         "show_view_link": true,
         "view_link_label": "Full course details",
         "desktop_layout": "hidden_thumbnail",
-        "desktop_media_width": 48,
+        "desktop_media_width": 50,
         "desktop_main_image_position": "left",
         "show_thumbnails": false,
         "enable_dynamic_checkout": true,
@@ -703,7 +719,16 @@
           "type": "variant_picker",
           "settings": {
             "variant_type": "swatches",
-            "picker_swatch_style": "theme"
+            "picker_swatch_style": "theme",
+            "picker_button_shape": "theme",
+            "enable_picker_custom": true,
+            "picker_border_radius": 999,
+            "picker_text_selected": "#ffffff",
+            "picker_text_unselected": "#261d18",
+            "picker_text_hover": "#9b4a2c",
+            "picker_bg_selected": "#261d18",
+            "picker_bg_unselected": "#ffffff",
+            "picker_border_color": "#d6ccc3"
           }
         },
         "buy_1": {
@@ -945,10 +970,89 @@
         "subheading_1",
         "button_1"
       ]
+    },
+    "moves": {
+      "type": "scrolling-text",
+      "settings": {
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
+        "section_width": "full_width",
+        "separator": "dot",
+        "item_gap": 48,
+        "repeat_count": 3,
+        "base_font": "heading",
+        "text_size": 32,
+        "font_weight": "500",
+        "letter_spacing": 0,
+        "separator_size": 40,
+        "duration": 60,
+        "padding_top": 20,
+        "padding_bottom": 20,
+        "text_size_mobile": 22,
+        "item_gap_mobile": 24,
+        "padding_top_mobile": 12,
+        "padding_bottom_mobile": 12,
+        "use_custom_text_color": true,
+        "text_color": "#f7e8df",
+        "separator_color": "#e2b6a1"
+      },
+      "blocks": {
+        "word_1": {
+          "type": "word",
+          "settings": {
+            "text": "Footwork"
+          }
+        },
+        "word_2": {
+          "type": "word",
+          "settings": {
+            "text": "The hundred"
+          }
+        },
+        "word_3": {
+          "type": "word",
+          "settings": {
+            "text": "Bridging"
+          }
+        },
+        "word_4": {
+          "type": "word",
+          "settings": {
+            "text": "Leg circles"
+          }
+        },
+        "word_5": {
+          "type": "word",
+          "settings": {
+            "text": "Kneeling arm series"
+          }
+        },
+        "word_6": {
+          "type": "word",
+          "settings": {
+            "text": "Side splits"
+          }
+        },
+        "word_7": {
+          "type": "word",
+          "settings": {
+            "text": "Your own forty minutes"
+          }
+        }
+      },
+      "block_order": [
+        "word_1",
+        "word_2",
+        "word_3",
+        "word_4",
+        "word_5",
+        "word_6",
+        "word_7"
+      ]
     }
   },
   "order": [
     "hero",
+    "moves",
     "start",
     "week",
     "weeks",

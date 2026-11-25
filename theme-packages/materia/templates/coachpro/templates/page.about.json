@@ -6,7 +6,7 @@
       "settings": {
         "color_scheme": "default",
         "image": "shopify://shop_images/coachpro-about.webp",
-        "image_alt": "Camila Duarte in her studio",
+        "image_alt": "Marcus Hale at his desk",
         "image_position": "right",
         "aspect_w": 4,
         "aspect_h": 5,
@@ -22,14 +22,14 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Camila Duarte",
+            "text": "Marcus Hale",
             "tag": "h1"
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>I opened my interior studio at twenty eight with one client and no idea what to charge. For years I said yes to everything, priced by feel and worked most evenings.</p><p>What changed it was boring: knowing my real costs, writing a one page plan each January and saying no kindly. I have taught that to more than two hundred studio owners since.</p>"
+            "text": "<p>I opened my branding studio at twenty eight with one client and no idea what to charge. For years I said yes to everything, priced by feel and worked most evenings.</p><p>What changed it was boring: knowing my real costs, writing a one page plan each January and saying no kindly. That is what I teach now. This is sample text; replace it with your own story.</p>"
           }
         }
       },
@@ -90,7 +90,7 @@
       "settings": {
         "color_scheme": "default",
         "image": "shopify://shop_images/coachpro-hello.webp",
-        "image_alt": "Camila at her desk",
+        "image_alt": "Marcus at his desk, side on",
         "image_position": "left",
         "aspect_w": 4,
         "aspect_h": 5,
@@ -100,7 +100,7 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "Lisbon studio, clients everywhere"
+            "text": "One desk, clients everywhere"
           }
         },
         "heading_2": {
@@ -112,7 +112,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>I record the show and run the calls from my old design studio in Lisbon. Clients join from all over Europe and the Americas, on video, at times that work for both of us.</p>"
+            "text": "<p>I record the show and run the calls from a small office above my old studio in Philadelphia. Clients join from all over the Americas and Europe, on video, at times that work for both of us.</p>"
           }
         },
         "button_4": {
@@ -129,21 +129,6 @@
         "subheading_3",
         "button_4"
       ]
-    },
-    "moments": {
-      "type": "gallery-grid1",
-      "settings": {
-        "color_scheme": "default",
-        "gutter": 10,
-        "background_image_1": "shopify://shop_images/coachpro-moment-sofa.webp",
-        "alt_1": "Camila on a white sofa in the studio",
-        "background_image_2": "shopify://shop_images/coachpro-moment-plans.webp",
-        "alt_2": "Camila holding rolled plans",
-        "background_image_3": "shopify://shop_images/coachpro-moment-desk.webp",
-        "alt_3": "Camila writing at her desk",
-        "background_image_4": "shopify://shop_images/coachpro-moment-reading.webp",
-        "alt_4": "Camila reading on the sofa"
-      }
     },
     "stories": {
       "type": "testimonials",
@@ -270,7 +255,6 @@
     "story",
     "rules",
     "hello",
-    "moments",
     "stories",
     "cta"
   ]

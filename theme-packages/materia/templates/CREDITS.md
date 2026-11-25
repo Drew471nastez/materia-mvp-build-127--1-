@@ -934,3 +934,27 @@ Sound packs (round 25, redrawn in round 26): Lowmoth, a sample label made up for
 | soundpacks (sample products) | scripts/theme-templates/products/soundpacks/soundpacks-post-monitors.webp | https://images.unsplash.com/photo-1632582204758-5ac65783517a | Unsplash License |
 | soundpacks (sample products) | scripts/theme-templates/products/soundpacks/soundpacks-post-desk.webp | https://images.unsplash.com/photo-1477233534935-f5e6fe7c1159, two small maker names blurred | Unsplash License |
 | soundpacks (sample products) | scripts/theme-templates/products/soundpacks/soundpacks-post-mixer.webp | https://images.unsplash.com/photo-1518972559570-7cc1309f3229 | Unsplash License |
+
+## Digital studio (digistudio, Offcut)
+
+<!-- digistudio (templates round 26): the studio, its maker and every product are made up. Each product picture is a mockup drawn as HTML for this template and rendered to an image, two different views per product (fonts set in open fonts standing in for the shop's own, riso brushes and paper textures drawn with SVG noise, a sample bakery brand for the brand kit and social posts). The Film Stock picture grades an Unsplash photograph, as do two social post tiles. The logo, mark and the hero still life (made from the same mockups) were drawn for it. The buyer portraits are Unsplash photographs, cropped; the notes beside them are marked as samples to replace. -->
+
+| Template | File | Source | Licence |
+| --- | --- | --- | --- |
+| digistudio | assets/digistudio-logo.webp, assets/digistudio-mark.webp | Drawn for this template | Storelib |
+| digistudio | assets/digistudio-hero.webp | Drawn for this template (the product mockups on a table) | Storelib |
+| digistudio | assets/digistudio-studio.webp | https://images.unsplash.com/photo-1768471126011-2e2002832826 | Unsplash License |
+| digistudio | assets/digistudio-studio-wide.webp | https://images.unsplash.com/photo-1768471125958-78556538fadc | Unsplash License |
+| digistudio | assets/digistudio-tablet.webp | https://images.unsplash.com/photo-1586717791821-3f44a563fa4c | Unsplash License |
+| digistudio | assets/digistudio-buyer-1.webp | https://images.unsplash.com/photo-1520813792240-56fc4a3765a7 | Unsplash License |
+| digistudio | assets/digistudio-buyer-2.webp | https://images.unsplash.com/photo-1535713875002-d1d0cf377fde | Unsplash License |
+| digistudio | assets/digistudio-buyer-3.webp | https://images.unsplash.com/photo-1566492031773-4f4e44671857 | Unsplash License |
+| digistudio | assets/digistudio-buyer-4.webp | https://images.unsplash.com/photo-1554151228-14d9def656e4 | Unsplash License |
+| digistudio | assets/digistudio-buyer-5.webp | https://images.unsplash.com/photo-1570295999919-56ceb5ecca61 | Unsplash License |
+| digistudio | assets/digistudio-buyer-6.webp | https://images.unsplash.com/photo-1619895862022-09114b41f16f | Unsplash License |
+| digistudio | assets/digistudio-buyer-7.webp | https://images.unsplash.com/photo-1547425260-76bcadfb4f2c | Unsplash License |
+| digistudio | assets/digistudio-buyer-8.webp | https://images.unsplash.com/photo-1492562080023-ab3db95bfbce | Unsplash License |
+| digistudio (sample products) | scripts/theme-templates/products/digistudio/digistudio-*.webp (fonts, presets, brushes, paper scans, brand kit, social posts, guide, course, palettes, bundles) | Drawn for this template | Storelib |
+| digistudio (sample products) | photographs inside the Film Stock, social post and brand kit mockups | https://images.unsplash.com/photo-1470770841072-f978cf4d019e, https://images.unsplash.com/photo-1507525428034-b723cf961d3e, https://images.unsplash.com/photo-1501785888041-af3ef285b470, https://images.unsplash.com/photo-1500530855697-b586d89ba3ee | Unsplash License |
+| digistudio (sample products) | scripts/theme-templates/products/digistudio/digistudio-post-pricing.webp | https://images.unsplash.com/photo-1432888498266-38ffec3eaf0a | Unsplash License |
+| digistudio (sample products) | scripts/theme-templates/products/digistudio/digistudio-post-type.webp | https://images.unsplash.com/photo-1581291518857-4e27b48ff24e | Unsplash License |

@@ -27,7 +27,7 @@
         "description_YRWpkt": {
           "type": "description",
           "settings": {
-            "description": "<p>Short articles on looking after houseplants, one problem at a time.</p>",
+            "description": "<p>Short articles on training a puppy, one problem at a time.</p>",
             "enable_custom_style": false,
             "description_font_size": 16
           }
@@ -81,15 +81,15 @@
       "type": "newsletter-split",
       "settings": {
         "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
-        "image": "shopify://shop_images/authorbook-spread-light.webp",
-        "image_alt": "Two open pages from chapter two of Keep Them Alive",
+        "image": "shopify://shop_images/authorbook-spread-week.webp",
+        "image_alt": "Two open pages from chapter two of Sit, Stay, Settle",
         "image_position": "left",
         "image_ratio": "landscape",
         "image_width": 50,
         "form_layout": "horizontal",
         "btn_text": "Send it to me",
         "email_placeholder": "Your email",
-        "note": "You also get the plant letter every other week. Leave whenever you like.",
+        "note": "You also get the puppy letter every other week. Leave whenever you like.",
         "success_text": "Done. Chapter two is in your inbox."
       },
       "blocks": {
@@ -102,7 +102,7 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Read the light in your rooms, as a PDF: which window suits which plant, and the hand test that tells you in ten seconds.</p>"
+            "text": "<p>Your first week at home, as a PDF: the daily routine, where your puppy sleeps and the five minute rule for house training.</p>"
           }
         }
       },

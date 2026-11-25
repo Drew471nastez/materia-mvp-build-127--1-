@@ -154,7 +154,7 @@
         "testimonial_7": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Camila asks the question you were hoping nobody would ask, then helps you answer it. Every single Tuesday.</p>",
+            "quote": "<p>Marcus asks the question you were hoping nobody would ask, then helps you answer it. Every single Tuesday.</p>",
             "rating": 0,
             "name": "Joan P.",
             "role": "Architect, Studio Foundations",
@@ -178,7 +178,7 @@
             "rating": 0,
             "name": "Ines C.",
             "role": "Illustrator, one to one",
-            "avatar": "shopify://shop_images/coachpro-client-1.webp"
+            "avatar": "shopify://shop_images/coachpro-client-6.webp"
           }
         }
       },
@@ -305,11 +305,78 @@
         "subheading_3",
         "button_4"
       ]
+    },
+    "prices": {
+      "type": "pricing-cards",
+      "settings": {
+        "color_scheme": "default",
+        "eyebrow": "Prices",
+        "heading": "Pick a way in",
+        "intro": "<p>Start with the course tonight, join the next group round, or apply to work one to one.</p>",
+        "heading_size": "h2",
+        "heading_align": "center",
+        "card_style": "outline",
+        "card_radius": 6,
+        "card_gap": 20,
+        "price_size": 40,
+        "section_width": "container",
+        "padding_top": 96,
+        "padding_bottom": 96,
+        "footnote": "<p>Studio Foundations can be paid in three monthly parts at checkout.</p>"
+      },
+      "blocks": {
+        "plan_1": {
+          "type": "plan",
+          "settings": {
+            "name": "Price It Right",
+            "description": "<p>The self paced course and the calculator. Start tonight.</p>",
+            "plan_product": "price-it-right",
+            "price": "$149",
+            "compare_price": "$199",
+            "note": "One payment, 14 day refund",
+            "features": "About three hours of short lessons\nThe studio pricing calculator\nScripts for sending a quote\n- Live calls\n- Private mentoring",
+            "button_label": "Buy the course"
+          }
+        },
+        "plan_2": {
+          "type": "plan",
+          "settings": {
+            "name": "Studio Foundations",
+            "description": "<p>Twelve weeks in a group of twelve, with a live call every Tuesday.</p>",
+            "badge": "Next round in March",
+            "featured": true,
+            "plan_product": "studio-foundations",
+            "price": "$1,450",
+            "compare_price": "$1,750",
+            "note": "In full or in three parts",
+            "features": "Everything in Price It Right\n12 live group calls\nA one page plan for your year\nA private group of twelve\n- Private mentoring",
+            "button_label": "Join the next round"
+          }
+        },
+        "plan_3": {
+          "type": "plan",
+          "settings": {
+            "name": "One to one mentoring",
+            "description": "<p>Three months of private calls for a bigger move.</p>",
+            "plan_product": "one-to-one-mentoring",
+            "price": "$2,400",
+            "note": "Two places a quarter",
+            "features": "Fortnightly calls\nAnswers between calls\nA first hire, a price change or a new direction",
+            "button_label": "Apply for a place"
+          }
+        }
+      },
+      "block_order": [
+        "plan_1",
+        "plan_2",
+        "plan_3"
+      ]
     }
   },
   "order": [
     "heading",
     "programmes",
+    "prices",
     "stories",
     "faq",
     "cta"

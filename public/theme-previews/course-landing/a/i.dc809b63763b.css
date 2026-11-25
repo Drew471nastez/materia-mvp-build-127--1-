@@ -1,0 +1,24 @@
+
+    #variant-picker-variant_picker_1 {
+      --mt-select-radius: 999px; --mt-select-bg: #ffffff; --mt-select-text: #261d18; --mt-select-text-hover: #9b4a2c; --mt-select-hover: #9b4a2c; --mt-select-border: #d6ccc3; --mt-select-border-active: #d6ccc3; --mt-select-opt-active-bg: #261d18; --mt-select-opt-active-text: #ffffff;
+    }
+    #variant-picker-variant_picker_1 .product__item-option:not(.product__color-swatch),
+    #variant-picker-variant_picker_1 input + label:not(.product__color-swatch) {
+      border-radius: 999px !important;
+      transition: background-color .2s ease, color .2s ease, border-color .2s ease !important;
+      background: #ffffff !important;
+      border-color: #d6ccc3 !important;
+      color: #261d18 !important;
+    }
+    #variant-picker-variant_picker_1 .product__item-option:not(.product__color-swatch):hover,
+    #variant-picker-variant_picker_1 input + label:not(.product__color-swatch):hover {
+      color: #9b4a2c !important;
+    }
+    #variant-picker-variant_picker_1 input:checked + label:not(.product__color-swatch),
+    #variant-picker-variant_picker_1 .product__item-option:not(.product__color-swatch).active,
+    #variant-picker-variant_picker_1 .product__item-option:not(.product__color-swatch)[aria-checked="true"] {
+      background: #261d18 !important;
+      color: #ffffff !important;
+      border-color: #d6ccc3 !important;
+    }
+  

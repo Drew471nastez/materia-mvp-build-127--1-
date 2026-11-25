@@ -1,6 +1,0 @@
-(window.__mtFillCounts=function(late){try{var w=JSON.parse(localStorage.getItem('materia__wishlist-items')||'[]'),wn=Array.isArray(w)?w.length:null,c=localStorage.getItem('materia__cart-count'),cn=c!==null&&/^[0-9]+$/.test(c)?+c:null;
-function put(sel,f){var ns=document.querySelectorAll(sel);for(var i=0;i < ns.length;i++){var t=f(ns[i]);if(t!=null&&ns[i].textContent.trim()!==t)ns[i].textContent=t}}
-if(wn!=null)put('.wishlist-count',function(){return String(wn)});
-var drawn=document.querySelector('.cart-count.h-count'),dn=drawn?drawn.textContent.trim():null;
-if(cn!=null){put('.cart-count',function(n){return n.classList.contains('cart-count-drawer')?'('+cn+')':(cn>100?'~':String(cn))});put('[data-storelib-cart-count]',function(){return String(cn)})}
-if(!late&&(cn==null||(dn!==null&&dn!==String(cn))))addEventListener('load',function(){fetch('/cart.js',{credentials:'same-origin',headers:{Accept:'application/json'}}).then(function(r){return r.ok?r.json():null}).then(function(c){if(!c||typeof c.item_count!=='number')return;var n=c.item_count;try{localStorage.setItem('materia__cart-count',String(n))}catch(e){}put('.cart-count',function(x){return x.classList.contains('cart-count-drawer')?'('+n+')':(n>100?'~':String(n))});put('[data-storelib-cart-count]',function(){return String(n)})}).catch(function(){})},{once:true})}catch(e){}})(false);
