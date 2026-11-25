@@ -1,0 +1,67 @@
+
+  #shopify-section-bundles { margin-top: 0 !important; margin-bottom: 0 !important; }
+  .pcards-bundles {
+    --pc-cols: 3;
+    --pc-gap: 16px;
+    --pc-radius: var(--card-radius, 6px);
+    --pc-line: rgba(var(--color-heading-rgb), .14);
+    --pc-soft: rgba(var(--color-heading-rgb), .04);
+    background: var(--color-background);
+    color: var(--color-text);
+    padding-block: 56px 56px;
+  }
+  @media (min-width: 768px) {
+    .pcards-bundles { padding-block: 80px 80px; }
+  }
+  .pcards-bundles .pcards__inner { margin-inline: auto; padding-inline: var(--container-gutter, 20px); max-width: calc(var(--page-width, 1200px) + var(--container-gutter, 20px) * 2); }
+  .pcards-bundles .pcards__head { max-width: 640px; margin: 0 0 clamp(28px, 4vw, 48px); text-align: left;  }
+  .pcards-bundles .pcards__eyebrow { margin: 0 0 10px; font-size: 1.3rem; letter-spacing: .08em; text-transform: uppercase; color: rgba(var(--color-text-rgb), .72); }
+  .pcards-bundles .pcards__title { margin: 0; }
+  .pcards-bundles .pcards__intro { margin-top: 12px; font-size: 1.5rem; line-height: 1.6; }
+  .pcards-bundles .pcards__intro p { margin: 0; }
+  .pcards-bundles .pcards__grid { display: grid; gap: var(--pc-gap); grid-template-columns: 1fr; margin: 0; padding: 0; list-style: none; }
+  @media (min-width: 750px) { .pcards-bundles .pcards__grid { grid-template-columns: repeat(min(2, var(--pc-cols)), minmax(0, 1fr)); } }
+  @media (min-width: 1025px) { .pcards-bundles .pcards__grid { grid-template-columns: repeat(var(--pc-cols), minmax(0, 1fr)); } }
+  .pcards-bundles .pcards__grid:has(.pcard__badge) { padding-top: 14px; }
+  .pcards-bundles .pcard { position: relative; display: grid; grid-template-rows: subgrid; grid-row: span 5; row-gap: 0; padding: clamp(24px, 2.6vw, 36px); border-radius: var(--pc-radius); min-width: 0; --pc-check-bg: rgba(var(--color-heading-rgb), .08); --pc-check-ink: var(--color-heading); transition: border-color .3s ease, box-shadow .3s ease, transform .3s cubic-bezier(.2,.7,.2,1), background-color .3s ease; }
+  .pcards-bundles .pcard[data-featured] { --pc-check-bg: var(--btn-primary-bg-color, var(--color-heading)); --pc-check-ink: var(--btn-primary-color, var(--color-background)); }
+  .pcards-bundles[data-style='outline'] .pcard { border: 1px solid var(--pc-line); }
+  .pcards-bundles[data-style='filled'] .pcard { background: var(--pc-soft); }
+  .pcards-bundles[data-style='lines'] .pcards__grid { gap: 0; }
+  .pcards-bundles[data-style='lines'] .pcard { border-radius: 0; border-top: 1px solid var(--pc-line); padding-inline: 0; }
+  @media (min-width: 750px) {
+    .pcards-bundles[data-style='lines'] .pcard { padding-inline: clamp(20px, 2.4vw, 36px); border-top: 0; border-left: 1px solid var(--pc-line); }
+    .pcards-bundles[data-style='lines'] .pcard:first-child { border-left: 0; padding-left: 0; }
+  }
+  /* The plan that stands out: a firmer edge (a ring, so the card keeps its size and its rows stay level with the others), a faint wash and a soft shadow under it. */
+  .pcards-bundles[data-style='outline'] .pcard[data-featured] { border-color: var(--color-heading); box-shadow: 0 0 0 1px var(--color-heading), 0 24px 48px -30px rgba(0, 0, 0, .35); background: rgba(var(--color-heading-rgb), .025); }
+  .pcards-bundles[data-style='filled'] .pcard[data-featured] { background: var(--color-background); box-shadow: inset 0 0 0 1.5px var(--color-heading), 0 24px 48px -30px rgba(0, 0, 0, .35); }
+  @media (hover: hover) and (pointer: fine) {
+    .pcards-bundles[data-style='outline'] .pcard:not([data-featured]):hover { border-color: rgba(var(--color-heading-rgb), .34); box-shadow: 0 18px 40px -30px rgba(0, 0, 0, .3); transform: translateY(-2px); }
+    .pcards-bundles[data-style='filled'] .pcard:not([data-featured]):hover { background: rgba(var(--color-heading-rgb), .065); transform: translateY(-2px); }
+  }
+  @media (prefers-reduced-motion: reduce) { .pcards-bundles .pcard { transition: none; transform: none !important; } }
+  .pcards-bundles .pcard__top { display: flex; flex-direction: column; gap: 8px; padding-bottom: 24px; }
+  /* The badge sits on the card's top edge, out of the flow, so every plan's name starts on the same line. */
+  .pcards-bundles .pcard__badge { position: absolute; top: 0; left: clamp(24px, 2.6vw, 36px); transform: translateY(-50%); padding: 5px 11px; border-radius: var(--bages-radius, 4px); background: var(--badge-background, var(--color-heading)); color: var(--badge-text, var(--color-background)); font-size: 1.1rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; line-height: 1.3; white-space: nowrap; }
+  .pcards-bundles[data-style='lines'] .pcard__badge { position: static; transform: none; align-self: flex-start; order: -1; margin-bottom: 4px; }
+  .pcards-bundles .pcard__name { margin: 0; --size: 2rem; }
+  .pcards-bundles .pcard__desc { margin: 0; font-size: 1.4rem; line-height: 1.55; color: rgba(var(--color-text-rgb), .74); }
+  .pcards-bundles .pcard__desc p { margin: 0; }
+  .pcards-bundles .pcard__price { display: flex; flex-wrap: wrap; align-items: baseline; align-content: end; gap: 6px 10px; padding-bottom: 22px; }
+  .pcards-bundles .pcard__amount { font-family: var(--heading-font); font-weight: var(--heading-weight); letter-spacing: var(--heading-letter-spacing, -0.01em); color: var(--color-heading); font-size: clamp(3rem, 3vw, 4.0rem); line-height: 1; font-variant-numeric: tabular-nums; }
+  .pcards-bundles .pcard__compare { font-size: 1.5rem; color: rgba(var(--color-text-rgb), .55); text-decoration-thickness: 1px; }
+  .pcards-bundles .pcard__note { flex-basis: 100%; font-size: 1.3rem; color: rgba(var(--color-text-rgb), .66); }
+  .pcards-bundles .pcard__cta { padding-bottom: 26px; }
+  .pcards-bundles .pcard__cta [data-theme-button] { width: 100%; }
+  .pcards-bundles .pcard__features { margin: 0; padding: 22px 0 0; list-style: none; border-top: 1px solid var(--pc-line); display: flex; flex-direction: column; gap: 12px; font-size: 1.4rem; line-height: 1.45; }
+  .pcards-bundles .pcard__features li { display: grid; grid-template-columns: 18px 1fr; gap: 12px; align-items: start; }
+  /* Included: a small filled dot with a check in it (the button colour on the plan that stands out). Not included: a short dash, quieter text. */
+  .pcards-bundles .pcard__features svg { width: 18px; height: 18px; margin-top: 1px; overflow: visible; }
+  .pcards-bundles .pcard__features svg circle { fill: var(--pc-check-bg); }
+  .pcards-bundles .pcard__features svg path { stroke: var(--pc-check-ink); }
+  .pcards-bundles .pcard__features li[data-off] { color: rgba(var(--color-text-rgb), .48); }
+  .pcards-bundles .pcard__features li[data-off] svg path { stroke: currentColor; }
+  .pcards-bundles .pcards__foot { margin-top: 24px; font-size: 1.3rem; color: rgba(var(--color-text-rgb), .72); text-align: left; }
+  .pcards-bundles .pcards__foot p { margin: 0; }
+  .pcards-bundles .pcards__empty { padding: 32px; border: 1px dashed var(--pc-line); border-radius: var(--pc-radius); text-align: center; font-size: 1.4rem; }

@@ -1,0 +1,44 @@
+
+  @media screen and (min-width: 768px) {
+    #shopify-section-signup [data-nl-layout="horizontal"] .sec__newsletter .section__header { flex: 0 0 30%; }
+    #shopify-section-signup [data-nl-layout="horizontal"] .sec_newsletter_note { width: auto; margin-inline: 0; }
+  }
+  #shopify-section-signup .newsletter-icon { color: var(--nl-icon-c, var(--color-heading)); }
+  #shopify-section-signup .newsletter-icon[hidden] { display: none !important; }
+  #shopify-section-signup .newsletter-icon :is(svg, img) { width: var(--nl-icon, 40px); height: var(--nl-icon, 40px); }
+  #shopify-section-signup .newsletter-icon img { height: auto; }
+  #shopify-section-signup .nl-overlay { background: var(--nl-ov-c, #000000); opacity: var(--nl-ov, 0); }
+  #shopify-section-signup .ct-header[hidden] { display: none !important; }
+  #shopify-section-signup .newsletter-note[hidden] { display: none !important; }
+  #shopify-section-signup .subcribe-input[data-own-font] { --body-font: var(--ct-bf); }
+  #shopify-section-signup .newsletter-note[data-own-font] { font-family: var(--ct-bf, var(--body-font)); }
+  /* Sign-up states, driven by the data-state materia-forms.js puts on the form (sending, done, error) */
+  #shopify-section-signup [data-nl-form] .nl-msg { margin: 0; font-size: 14px; line-height: 1.5; }
+  #shopify-section-signup [data-nl-form] [data-nl-result] .nl-msg { display: none; }
+  #shopify-section-signup [data-nl-form][data-state="error"] [data-nl-msg="error"] { display: block; color: var(--nl-error, color-mix(in srgb, #d92d20 72%, var(--color-text))); }
+  #shopify-section-signup [data-nl-form][data-state="done"] [data-nl-msg="done"] { display: block; color: var(--color-heading, currentColor); animation: nl-done-out-signup 400ms ease 5s forwards; }
+  @keyframes nl-done-out-signup { to { opacity: 0; visibility: hidden; } }
+  @media (prefers-reduced-motion: reduce) { #shopify-section-signup [data-nl-form][data-state="done"] [data-nl-msg="done"] { animation-duration: 1ms; } }
+  #shopify-section-signup .nl-success { margin: 12px 0 0; font-size: 15px; line-height: 1.5; font-weight: 600; }
+  #shopify-section-signup .nl-success:not([hidden]) { display: block; width: 100%; color: var(--color-heading, currentColor); }
+  #shopify-section-signup .nl-success[hidden] { display: none !important; }
+  #shopify-section-signup [data-nl-submit], #shopify-section-signup [data-nl-form], #shopify-section-signup [data-nl-form] .nl-button, #shopify-section-signup [data-nl-form] .nl-input { position: relative; z-index: 2; pointer-events: auto; }
+  #shopify-section-signup [data-nl-form] .nl-button { cursor: pointer; }
+  #shopify-section-signup [data-nl-form][data-state="sending"] .nl-button { opacity: .85; cursor: progress; pointer-events: none; }
+  /* Honeypot: off screen, never focusable, bots that fill it fail validation and the form never sends */
+  #shopify-section-signup .nl-hp { position: absolute !important; left: -10000px !important; top: auto !important; width: 1px !important; height: 1px !important; overflow: hidden !important; clip-path: inset(50%) !important; pointer-events: none !important; }
+  #shopify-section-signup .nl-form .nl-input:user-invalid { border-color: var(--nl-error, color-mix(in srgb, #d92d20 72%, var(--color-text))); }
+  #shopify-section-signup [data-nl-hint] { display: none; margin: 6px 0 0; font-size: 14px; line-height: 1.5; color: var(--nl-error, color-mix(in srgb, #d92d20 72%, var(--color-text))); width: 100%; }
+  #shopify-section-signup [data-nl-form]:has(.nl-input:user-invalid) [data-nl-hint], #shopify-section-signup [data-nl-form]:has(.nl-input[aria-invalid="true"]) [data-nl-hint] { display: block; }
+  #shopify-section-signup [data-nl-form][data-state="sending"] [data-nl-label] { visibility: hidden; }
+  #shopify-section-signup .nl-spinner { animation-play-state: paused; }
+  #shopify-section-signup [data-nl-form][data-state="sending"] .nl-spinner { visibility: visible; animation-play-state: running; }
+  /* After a sign-up the button reads Subscribed, then returns to Subscribe so another address can be sent */
+  #shopify-section-signup [data-nl-form][data-state="done"] [data-nl-label] { visibility: hidden; animation: nl-show-signup 1ms linear 5s forwards; }
+  #shopify-section-signup [data-nl-form][data-state="done"] [data-nl-subscribed] { visibility: visible; animation: nl-hide-signup 1ms linear 5s forwards; }
+  #shopify-section-signup [data-nl-form][data-state="done"]:has(.nl-input:focus) [data-nl-label] { visibility: visible; animation: none; }
+  #shopify-section-signup [data-nl-form][data-state="done"]:has(.nl-input:focus) [data-nl-subscribed] { visibility: hidden; animation: none; }
+  #shopify-section-signup [data-nl-form][data-state="done"]:has(.nl-input:focus) [data-nl-msg="done"] { display: none; }
+  @keyframes nl-show-signup { to { visibility: visible; } }
+  @keyframes nl-hide-signup { to { visibility: hidden; } }
+  #shopify-section-signup .nl-button:focus-visible { outline: 2px solid var(--color-heading); outline-offset: 2px; }

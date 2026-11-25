@@ -450,6 +450,8 @@
 </try-the-look>
 
 <script>
+    /* A variant id: a number on some platforms, a UUID on Storelib; kept as it is when it is not a number. */
+    const ttlId = v => (/^\d+$/.test(String(v)) ? Number(v) : String(v));
   window.MateriaAddItems = window.MateriaAddItems || async function (items) {
     const cart = document.querySelector('cart-drawer') || document.querySelector('cart-notification');
     const sections = cart && cart.getSectionsToRender ? cart.getSectionsToRender().map(s => s.id) : [];
@@ -523,7 +525,7 @@
         const optAdd = t.closest('[data-opt-add]');
         if (optAdd) {
           const it = optAdd.closest('.ttl__item'); const on = it.querySelector('.ttl__opt[aria-pressed="true"]:not(:disabled)'); if (!on) return;
-          return this.add(optAdd, [{ id: +on.dataset.v, quantity: 1 }], () => { it.classList.remove('is-open'); it.querySelector('[data-pick]')?.setAttribute('aria-expanded', 'false'); });
+          return this.add(optAdd, [{ id: ttlId(on.dataset.v), quantity: 1 }], () => { it.classList.remove('is-open'); it.querySelector('[data-pick]')?.setAttribute('aria-expanded', 'false'); });
         }
         const add = t.closest('[data-add]');
         if (add) {
@@ -534,10 +536,10 @@
             if (open) setTimeout(() => it.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' }), 120);
             return;
           }
-          return this.add(add, [{ id: +add.dataset.add, quantity: 1 }], () => { add.classList.add('is-done'); setTimeout(() => add.classList.remove('is-done'), 1600); });
+          return this.add(add, [{ id: ttlId(add.dataset.add), quantity: 1 }], () => { add.classList.add('is-done'); setTimeout(() => add.classList.remove('is-done'), 1600); });
         }
         const all = t.closest('[data-all]');
-        if (all) { const items = all.dataset.all.split(',').filter(Boolean).map(id => ({ id: +id, quantity: 1 })); if (items.length) this.add(all, items); }
+        if (all) { const items = all.dataset.all.split(',').filter(Boolean).map(id => ({ id: ttlId(id), quantity: 1 })); if (items.length) this.add(all, items); }
       }
       async add(btn, items, done) {
         const m = btn.closest('[data-look]')?.querySelector('[data-msg]'); if (m) m.textContent = '';

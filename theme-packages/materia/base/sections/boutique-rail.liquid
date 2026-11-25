@@ -471,7 +471,7 @@
                       "front": {% if front_img != blank %}{{ front_img | image_url: width: focus_w | json }}{% else %}null{% endif %},
                       "back": {% if back_img != blank %}{{ back_img | image_url: width: focus_w | json }}{% else %}null{% endif %},
                       "options": {{ p.options_with_values | map: 'name' | json }},
-                      "variants": [{%- for v in p.variants -%}{"id": {{ v.id }}, "available": {{ v.available | json }}, "price": {{ v.price | money | json }}, "compare": {% if v.compare_at_price > v.price %}{{ v.compare_at_price | money | json }}{% else %}null{% endif %}, "options": {{ v.options | json }}}{% unless forloop.last %},{% endunless %}{%- endfor -%}]
+                      "variants": [{%- for v in p.variants -%}{"id": {{ v.id | json }}, "available": {{ v.available | json }}, "price": {{ v.price | money | json }}, "compare": {% if v.compare_at_price > v.price %}{{ v.compare_at_price | money | json }}{% else %}null{% endif %}, "options": {{ v.options | json }}}{% unless forloop.last %},{% endunless %}{%- endfor -%}]
                     }
                   </script>
                 {%- endif -%}
