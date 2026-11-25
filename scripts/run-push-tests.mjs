@@ -1967,6 +1967,8 @@ const STRICT_SUITES = [
   "tests/live-platform-r62.test.ts",
   /* Round 60 (h3): a login's business limit set per account by Storelib (SQL part 446, business_limits: NULL the rule of three, -1 no limit, or a number). The real /api/businesses route with the admin client stood in: three and no more without a row, a sixth with -1 and never told three, four at 4, a failed read is the rule; a claim link at -1 is not "limit"; the part's table is server only and nothing in the app writes it. scripts/check-business-limit-sql.sh runs the part on Postgres 16 (who can write it, the trigger and the handoff). */
   "tests/business-limit-r60.test.ts",
+  /* Round 63 (j1): every new website starts on the current Storelib Default (the Materia template Browse themes shows, template-materia-default), imported for real on a first visit and on Start from blank; the native theme is offered nowhere. Product pictures: Materia's offered up to 1440 wide for 2x, the native gallery's row of natural-shape pictures has no blank half. scripts/check-product-images-r63.mjs measures it in Chromium at 360, 390, 768 and 1280. */
+  "tests/default-theme-images-r63.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))
