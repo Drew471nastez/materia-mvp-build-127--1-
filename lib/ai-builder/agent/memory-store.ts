@@ -7,7 +7,7 @@
  */
 import type { FileAuthor } from "../types"
 import { versionOf } from "./version"
-import type { ProjectStore, StoredFile, StoredPage, StoreWriteResult } from "./ports"
+import type { ProjectStore, StoredFile, StoredPage, StoreMenu, StoreWriteResult } from "./ports"
 
 export interface MemoryVersion {
   path: string
@@ -20,6 +20,8 @@ export interface MemoryProject {
   files: Record<string, string>
   pages: Record<string, StoredPage["sections"]>
   settings: Record<string, unknown>
+  /** Round 26: the store's menus (store_menus); null while the store has none. */
+  storeMenus?: Record<string, StoreMenu> | null
 }
 
 export function memoryStore(initial: Partial<MemoryProject> = {}): ProjectStore & { project: MemoryProject; versions: MemoryVersion[]; clock: number } {
@@ -27,6 +29,7 @@ export function memoryStore(initial: Partial<MemoryProject> = {}): ProjectStore 
     files: { ...(initial.files ?? {}) },
     pages: JSON.parse(JSON.stringify(initial.pages ?? { home: [] })) as MemoryProject["pages"],
     settings: JSON.parse(JSON.stringify(initial.settings ?? {})) as Record<string, unknown>,
+    storeMenus: initial.storeMenus === undefined ? null : (JSON.parse(JSON.stringify(initial.storeMenus)) as MemoryProject["storeMenus"]),
   }
   const stamps: Record<string, string> = {}
   const self = {
@@ -67,6 +70,13 @@ export function memoryStore(initial: Partial<MemoryProject> = {}): ProjectStore 
     },
     async writeSettings(patch: Record<string, unknown>) {
       Object.assign(project.settings, JSON.parse(JSON.stringify(patch)))
+    },
+    async readStoreMenus() {
+      return project.storeMenus ? (JSON.parse(JSON.stringify(project.storeMenus)) as Record<string, StoreMenu>) : null
+    },
+    async writeStoreMenus(menus: Record<string, StoreMenu>) {
+      project.storeMenus = JSON.parse(JSON.stringify(menus)) as Record<string, StoreMenu>
+      return true
     },
   }
   return self

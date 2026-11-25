@@ -67,6 +67,19 @@ export interface ProjectStore {
   readSettings(): Promise<Record<string, unknown>>
   /** Merges these keys into the draft Theme settings. Other keys are not touched. */
   writeSettings(patch: Record<string, unknown>): Promise<void>
+  /**
+   * Round 26: the STORE's menus (store_menus, one set for every website), which a Materia site's header and footer
+   * draw (lib/storelib-theme/compat/menus.ts). Null when the store has none yet; absent where there is no such store.
+   */
+  readStoreMenus?(): Promise<Record<string, StoreMenu> | null>
+  /** Writes the store's menus whole. False when they could not be written. */
+  writeStoreMenus?(menus: Record<string, StoreMenu>): Promise<boolean>
+}
+
+/** A menu as the store keeps it (lib/storelib-theme/values.ts Menu). */
+export interface StoreMenu {
+  title: string
+  links: { title: string; url: string; links?: StoreMenu["links"] }[]
 }
 
 /* ── models ───────────────────────────────────────────────────────────── */
