@@ -37,6 +37,9 @@ import { tailorTemplate, homePage } from "../lib/admin/creator-site/tailor"
 import { buildCreatorSite, BUILT_SITE_NAME } from "../lib/admin/creator-site/build"
 import { THEME_INSTALL_LIMIT } from "../lib/website-builder/theme-registry"
 import { GET, POST } from "../app/api/admin/creators/site/route"
+import { POST as PUBLISH } from "../app/api/admin/creators/site/publish/route"
+import { ADMIN_BUILT_KEY, publishBuiltSite, undoBuiltSite, type PublishDeps } from "../lib/admin/creator-site/publish"
+import { builtSites } from "../lib/admin/creator-site/build"
 
 let passed = 0
 let failed = 0
@@ -101,14 +104,20 @@ function world(installs = 1) {
   })
 }
 
-/** The fake client with the storage calls storeImportedTheme makes. */
-function client(db: ReturnType<typeof fakeDb>) {
+/** The fake client with the storage calls storeImportedTheme makes. `rpc` answers as a database without SQL part 130 (the publish's step by step path) unless told otherwise. */
+function client(db: ReturnType<typeof fakeDb>, rpc: "missing" | "ok" = "missing") {
   const uploads: string[] = []
+  const rpcs: { name: string; args: Record<string, unknown> }[] = []
   return {
     db,
     uploads,
+    rpcs,
     admin: {
       ...db,
+      rpc: async (name: string, args: Record<string, unknown>) => {
+        rpcs.push({ name, args })
+        return rpc === "missing" ? { data: null, error: { code: "PGRST202", message: "Could not find the function" } } : { data: { files: [] }, error: null }
+      },
       storage: {
         from: () => ({
           upload: async (path: string) => (uploads.push(path), { data: { path }, error: null }),
@@ -260,6 +269,61 @@ async function main() {
     const zip = seen ? await JSZip.loadAsync(seen) : null
     const index = zip ? await zip.file("templates/index.json")!.async("string") : ""
     check("the import is handed his home page, not the template's", index.includes("TRANSFORM YOUR BODY TODAY") && !index.includes("Good everyday things"))
+  }
+
+  console.log("\nadmin Publish and Undo")
+  {
+    const p = await PUBLISH(new Request("https://storelib.com/api/admin/creators/site/publish", { method: "POST", body: JSON.stringify({ creatorId: LIAM, installId: LIVE, action: "publish" }) }) as never)
+    check("Publish without the admin cookie is 401", p.status === 401)
+    const src = stripComments(readSource("app/api/admin/creators/site/publish/route.ts"))
+    check("Publish asks requireAdmin before any database client", src.indexOf("await requireAdmin()") > 0 && src.indexOf("await requireAdmin()") < src.indexOf("createAdminClient()"))
+
+    const { db, admin, rpcs } = client(world())
+    const revalidated: string[] = []
+    const later: string[] = []
+    const deps: PublishDeps = { revalidate: async (id) => void revalidated.push(id), later: (work) => void later.push(String(work).slice(0, 60)), menus: async () => null as never }
+    const built = await buildCreatorSite(admin, LIAM, { files })
+    if (!built.ok) throw new Error("build failed")
+    const marked = db.tables.store_theme_settings.find((r) => r.install_id === built.installId)
+    check("the build marks its website as made here", !!marked?.settings?.[ADMIN_BUILT_KEY] && marked.settings[ADMIN_BUILT_KEY].by === "admin")
+    check("the panel lists it as a draft to publish", (await builtSites(admin, LIAM)).some((b) => b.id === built.installId && b.status === "draft"))
+
+    const notBuilt = await publishBuiltSite(admin, LIAM, LIVE, deps)
+    check("a website the builder did not make is refused (403 not_admin_built)", notBuilt.ok === false && (notBuilt as { code?: string }).code === "not_admin_built")
+    const otherCreators = await publishBuiltSite(admin, OTHER, built.installId, deps)
+    check("another creator's id cannot publish it (404)", otherCreators.ok === false && (otherCreators as { status: number }).status === 404)
+    check("refusals change nothing and invalidate nothing", revalidated.length === 0 && db.tables.store_theme_installs.find((r) => r.id === LIVE)?.status === "published")
+
+    const live = await publishBuiltSite(admin, LIAM, built.installId, deps)
+    check("publish succeeds", live.ok === true, JSON.stringify(live))
+    const installs = db.tables.store_theme_installs
+    check("the built website is live, with published_at", installs.find((r) => r.id === built.installId)?.status === "published" && !!installs.find((r) => r.id === built.installId)?.published_at)
+    check("the old one stays in his library, unpublished", installs.find((r) => r.id === LIVE)?.status === "unpublished")
+    check("one live website at a time", installs.filter((r) => r.creator_id === LIAM && r.status === "published").length === 1)
+    check("the other creator's live website is untouched", installs.find((r) => r.id === "88888888-0000-4000-8000-000000000001")?.status === "published")
+    check("the publish function is asked first, as the creator's publish does", rpcs.some((r) => r.name === "publish_theme_install" && r.args.p_install === built.installId && r.args.p_creator === LIAM))
+    check("the published site's cache is invalidated for him, as the normal publish does", revalidated.join() === LIAM)
+    check("the after work is the normal publish's: history and backup, warm, release, search engines", later.length === 4, JSON.stringify(later))
+    const remembered = db.tables.store_theme_settings.find((r) => r.install_id === built.installId)?.settings?.[ADMIN_BUILT_KEY]
+    check("the website it replaced is remembered for Undo", remembered?.previous_install === LIVE)
+    check("publishing it again is refused", (await publishBuiltSite(admin, LIAM, built.installId, deps)).ok === false)
+
+    /* Something he left unpublished on the old site stays unpublished when it comes back. */
+    const oldPage = db.tables.store_theme_pages.find((r) => r.install_id === LIVE && r.page_key === "home")!
+    oldPage.draft_sections = [{ id: "x", type: "hero", settings: { heading: "Unfinished draft" } }]
+    const undone = await undoBuiltSite(admin, LIAM, built.installId, deps)
+    check("Undo succeeds", undone.ok === true && (undone as { restored?: string }).restored === LIVE, JSON.stringify(undone))
+    check("Undo puts the old website back live", installs.find((r) => r.id === LIVE)?.status === "published")
+    check("and keeps the built one in the library, unpublished", installs.find((r) => r.id === built.installId)?.status === "unpublished")
+    check("Undo invalidates the cache again", revalidated.length === 2)
+    check("Undo does not push his unpublished drafts live", JSON.stringify(oldPage.sections).includes("TRANSFORM YOUR BODY TODAY") && !!oldPage.draft_sections)
+    check("Undo twice is refused (the built one is not live)", (await undoBuiltSite(admin, LIAM, built.installId, deps)).ok === false)
+  }
+
+  console.log("\nthe creator's own publish route is not changed")
+  {
+    const src = readSource("app/api/website-builder/themes/[installId]/publish/route.ts")
+    check("it does not import the admin publish", !src.includes("creator-site"))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

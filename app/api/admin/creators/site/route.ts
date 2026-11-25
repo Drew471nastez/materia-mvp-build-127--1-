@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
   try {
     const seen = await previewCreatorSite(createAdminClient(), id)
     if (seen.ok === false) return NextResponse.json({ error: seen.error }, { status: seen.status, headers: NO_STORE })
-    return NextResponse.json({ content: summary(seen.content), slotsLeft: seen.slotsLeft, hasLive: seen.hasLive }, { headers: NO_STORE })
+    return NextResponse.json({ content: summary(seen.content), slotsLeft: seen.slotsLeft, hasLive: seen.hasLive, built: seen.built }, { headers: NO_STORE })
   } catch (e) {
     return adminFailure("creator site preview", e, "The creator's content could not be read.")
   }

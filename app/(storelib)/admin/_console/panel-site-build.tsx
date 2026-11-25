@@ -2,7 +2,7 @@
 
 import * as React from "react"
 
-import { Banner, Button, Facts, Panel } from "./ui"
+import { Banner, Button, ConfirmDialog, Facts, Panel } from "./ui"
 
 /**
  * ===========================================================================
@@ -28,7 +28,11 @@ type Summary = {
   leftOut: string[]
 }
 
-type State = { content: Summary; slotsLeft: number; hasLive: boolean }
+type Built = { id: string; name: string; status: string; previous: string | null }
+
+type State = { content: Summary; slotsLeft: number; hasLive: boolean; built: Built[] }
+
+const STATUS_WORD: Record<string, string> = { published: "Live", draft: "Draft", unpublished: "Not live" }
 
 const none = <span className="text-[#9b9ba6]">None</span>
 
@@ -36,6 +40,8 @@ export function SiteBuildPanel({ creatorId }: { creatorId: string }) {
   const [state, setState] = React.useState<State | null>(null)
   const [busy, setBusy] = React.useState(false)
   const [note, setNote] = React.useState<{ tone: "good" | "bad"; text: string } | null>(null)
+  const [confirm, setConfirm] = React.useState<{ action: "publish" | "undo"; site: Built } | null>(null)
+  const [confirmError, setConfirmError] = React.useState<string | null>(null)
 
   const load = React.useCallback(async () => {
     try {
@@ -70,6 +76,27 @@ export function SiteBuildPanel({ creatorId }: { creatorId: string }) {
     }
   }
 
+  /* Publish a built website, or Undo: put the one it replaced back (/api/admin/creators/site/publish). */
+  const switchSite = async () => {
+    if (!confirm) return
+    setBusy(true)
+    setConfirmError(null)
+    try {
+      const res = await fetch("/api/admin/creators/site/publish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ creatorId, installId: confirm.site.id, action: confirm.action }) })
+      if (res.status === 401) return window.location.reload()
+      const body = await res.json().catch(() => null)
+      if (!res.ok) return setConfirmError(body?.error || "Nothing changed. Try again.")
+      setConfirm(null)
+      setNote({ tone: "good", text: body?.recorded === false ? `${body.message} Not written to the audit log.` : body?.message || "Done." })
+      await load()
+    } catch {
+      setConfirmError("Could not reach the server.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const who = state?.content.name || "Their"
   const c = state?.content
   const full = state ? state.slotsLeft === 0 : false
 
@@ -107,6 +134,28 @@ export function SiteBuildPanel({ creatorId }: { creatorId: string }) {
             {busy ? "Building" : "Build website"}
           </Button>
         </div>
+        {state?.built.length ? (
+          <ul className="divide-y divide-white/[0.06] border-t border-white/[0.06]" aria-label="Websites made here">
+            {state.built.map((b) => (
+              <li key={b.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
+                <span className="min-w-0 text-[13px] text-[#ededf0]">
+                  {b.name} <span className="text-[#9b9ba6]">· {STATUS_WORD[b.status] ?? b.status}</span>
+                </span>
+                {b.status === "published" ? (
+                  b.previous ? (
+                    <Button variant="quiet" className="h-7" disabled={busy} onClick={() => setConfirm({ action: "undo", site: b })}>
+                      Undo
+                    </Button>
+                  ) : null
+                ) : (
+                  <Button variant="primary" className="h-7" disabled={busy} onClick={() => setConfirm({ action: "publish", site: b })}>
+                    Publish this site
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : null}
         {note ? (
           <div className="border-t border-white/[0.06] p-3">
             <Banner tone={note.tone} onClose={() => setNote(null)}>
@@ -115,6 +164,26 @@ export function SiteBuildPanel({ creatorId }: { creatorId: string }) {
           </div>
         ) : null}
       </div>
+      <ConfirmDialog
+        open={!!confirm}
+        title={confirm?.action === "undo" ? "Put the earlier website back?" : "Publish this site?"}
+        confirmLabel={confirm?.action === "undo" ? "Put it back" : "Publish"}
+        busy={busy}
+        error={confirmError}
+        onConfirm={() => void switchSite()}
+        onClose={() => {
+          if (!busy) {
+            setConfirm(null)
+            setConfirmError(null)
+          }
+        }}
+      >
+        {confirm?.action === "undo" ? (
+          <p>{who}&apos;s live site switches back to the one before. The built one stays in the library.</p>
+        ) : (
+          <p>{who}&apos;s live site switches to this one; the old one stays in the library.</p>
+        )}
+      </ConfirmDialog>
     </Panel>
   )
 }

@@ -39,6 +39,7 @@ import { readStoreMenus } from "@/lib/website-builder/store-menus-server"
 import { creatorSiteContent, type CreatorRows, type CreatorSiteContent } from "./content"
 import { templateSampleText } from "./samples"
 import { tailorTemplate } from "./tailor"
+import { ADMIN_BUILT_KEY, adminBuiltMark, type AdminBuiltMark } from "./publish"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Admin = SupabaseClient<any, any, any>
@@ -127,11 +128,29 @@ async function currentDefaultFiles(): Promise<{ files: Map<string, Buffer>; vers
 }
 
 /** What the admin is shown before building: the content, and whether there is room. */
-export async function previewCreatorSite(admin: Admin, creatorId: string, deps: BuildDeps = {}): Promise<({ ok: true; content: CreatorSiteContent; slotsLeft: number; hasLive: boolean }) | ReadFailure> {
+export async function previewCreatorSite(admin: Admin, creatorId: string, deps: BuildDeps = {}): Promise<({ ok: true; content: CreatorSiteContent; slotsLeft: number; hasLive: boolean; built: BuiltSite[] }) | ReadFailure> {
   const read = await readCreatorRows(admin, creatorId)
   if (read.ok === false) return read
   const content = creatorSiteContent(read.rows, (deps.samples ?? templateSampleText)())
-  return { ok: true, content, slotsLeft: await librarySlotsLeft(admin, creatorId), hasLive: !!read.rows.live }
+  return { ok: true, content, slotsLeft: await librarySlotsLeft(admin, creatorId), hasLive: !!read.rows.live, built: await builtSites(admin, creatorId) }
+}
+
+export type BuiltSite = { id: string; name: string; status: string; previous: string | null }
+
+/** The websites in their library that Build website made, newest first, for Publish and Undo. A read that fails lists none. */
+export async function builtSites(admin: Admin, creatorId: string): Promise<BuiltSite[]> {
+  const { data: installs, error } = await admin.from("store_theme_installs").select("id, name, status").eq("creator_id", creatorId)
+  if (error || !installs?.length) return []
+  const rows = installs as { id: string; name: string | null; status: string | null }[]
+  const { data: settings, error: sErr } = await admin.from("store_theme_settings").select("install_id, settings, draft_settings").in("install_id", rows.map((r) => r.id))
+  if (sErr) return []
+  const out: (BuiltSite & { at: string })[] = []
+  for (const s of (settings ?? []) as { install_id: string; settings: unknown; draft_settings: unknown }[]) {
+    const mark = adminBuiltMark(s.settings) ?? adminBuiltMark(s.draft_settings)
+    const install = rows.find((r) => r.id === s.install_id)
+    if (mark && install) out.push({ id: install.id, name: install.name ?? BUILT_SITE_NAME, status: install.status ?? "draft", previous: mark.previous_install ?? null, at: mark.at })
+  }
+  return out.sort((a, b) => b.at.localeCompare(a.at)).map(({ at: _at, ...rest }) => (void _at, rest))
 }
 
 export type Built = { ok: true; installId: string; name: string; content: CreatorSiteContent; release: string | null }
@@ -163,13 +182,21 @@ export async function buildCreatorSite(admin: Admin, creatorId: string, deps: Bu
   })
   if (made.ok === false) return made
 
-  /* Marked as Add marks it: the listing it came from and its release. Never fails the website. */
+  /*
+    Marked as Add marks it: the listing it came from and its release. And
+    marked as made here (ADMIN_BUILT_KEY), which is what lets the admin
+    console publish it (./publish.ts): no other website can be put live
+    from there. Never fails the website; unmarked, it is still a draft the
+    creator can publish themselves.
+  */
+  const builtMark: AdminBuiltMark = { by: "admin", at: new Date().toISOString() }
   try {
     const { data } = await admin.from("store_theme_settings").select("settings, draft_settings").eq("install_id", made.installId).maybeSingle()
     if (data) {
       const mark = (s: unknown) => {
         const o = s && typeof s === "object" ? (s as Record<string, unknown>) : {}
-        const marked = o.compat && typeof o.compat === "object" ? { ...o, compat: { ...(o.compat as Record<string, unknown>), listing: DEFAULT_LISTING_SLUG } } : { ...o, [LISTING_SETTINGS_KEY]: DEFAULT_LISTING_SLUG }
+        const listed = o.compat && typeof o.compat === "object" ? { ...o, compat: { ...(o.compat as Record<string, unknown>), listing: DEFAULT_LISTING_SLUG } } : { ...o, [LISTING_SETTINGS_KEY]: DEFAULT_LISTING_SLUG }
+        const marked = { ...listed, [ADMIN_BUILT_KEY]: builtMark }
         return version ? withInstalledRelease(marked, version) : marked
       }
       const row = data as { settings: unknown; draft_settings: unknown }
