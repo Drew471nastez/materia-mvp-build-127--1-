@@ -4,25 +4,25 @@
       "type": "course2-teacher",
       "settings": {
         "background": "#ffffff",
-        "accent": "#e5372a",
-        "ink": "#0d0d0f",
-        "muted": "#4a4d55",
-        "line_color": "#e3e4e8",
+        "accent": "#b5471c",
+        "ink": "#1b1712",
+        "muted": "#4f4943",
+        "line_color": "#e5e0d8",
         "anchor": "",
-        "image": "shopify://shop_images/course2-jonas-sofa.webp",
-        "image_alt": "Jonas Wilde playing on a grey sofa by the window",
-        "name": "Jonas Wilde",
-        "role": "Guitar teacher",
+        "image": "shopify://shop_images/course2-teacher.webp",
+        "image_alt": "Tom Ashby at the bench in his workshop",
+        "name": "Tom Ashby",
+        "role": "Furniture maker and teacher",
         "main_heading": true,
         "eyebrow": "Your teacher",
-        "heading": "Hi, I'm Jonas. I teach the way I wish I had been <em>taught</em>",
-        "text": "<p>I gave up guitar twice as a teenager: too much theory, too little music. The third time I learned songs first and the rest followed.</p><p>I have taught beginners for twelve years, in a music school and then one to one. This course is the order I teach in, filmed so you can see every finger.</p>",
+        "heading": "Hi, I'm Tom. I teach the way I wish I had been taught",
+        "text": "<p>I learned in a cabinet shop full of machines and spent years thinking you needed all of them. You do not. Most of what I make now starts with a saw, a plane and a chisel.</p><p>I have taught evening classes for twelve years. This course is the order I teach in, filmed over the bench so you see every cut.</p>",
         "fact_1_value": "12 years",
-        "fact_1_label": "Teaching beginners",
+        "fact_1_label": "Teaching evening classes",
         "fact_2_value": "1:1",
-        "fact_2_label": "Feedback on your videos",
-        "fact_3_value": "Every week",
-        "fact_3_label": "New play along tracks",
+        "fact_2_label": "Feedback on your joints",
+        "fact_3_value": "Every month",
+        "fact_3_label": "New workshop notes",
         "button_label": "Start learning",
         "button_link": "/#buy",
         "youtube": "https://www.youtube.com",
@@ -55,55 +55,55 @@
         "padding_bottom_mobile": 14,
         "use_custom_text_color": true,
         "text_color": "#ffffff",
-        "separator_color": "#ff6a5c"
+        "separator_color": "#e07a45"
       },
       "blocks": {
         "word_1": {
           "type": "word",
           "settings": {
-            "text": "First chords"
+            "text": "Sawing to a line"
           }
         },
         "word_2": {
           "type": "word",
           "settings": {
-            "text": "Strumming"
+            "text": "Planing"
           }
         },
         "word_3": {
           "type": "word",
           "settings": {
-            "text": "Riffs"
+            "text": "Sharpening"
           }
         },
         "word_4": {
           "type": "word",
           "settings": {
-            "text": "Power chords"
+            "text": "Housing joints"
           }
         },
         "word_5": {
           "type": "word",
           "settings": {
-            "text": "Barre chords"
+            "text": "Mortise and tenon"
           }
         },
         "word_6": {
           "type": "word",
           "settings": {
-            "text": "Fingerpicking"
+            "text": "Dovetails"
           }
         },
         "word_7": {
           "type": "word",
           "settings": {
-            "text": "Rhythm"
+            "text": "Glue ups"
           }
         },
         "word_8": {
           "type": "word",
           "settings": {
-            "text": "Whole songs"
+            "text": "Oil finishes"
           }
         }
       },
@@ -126,19 +126,19 @@
         "image_position": "left",
         "image_width_pct": 48,
         "gap_desktop": 72,
-        "image": "shopify://shop_images/course2-student-laptop.webp",
-        "image_alt": "A student learning a chord from a lesson on her laptop, sitting on the floor with an acoustic guitar",
+        "image": "shopify://shop_images/course2-planing.webp",
+        "image_alt": "Tom planing a board flat, shavings curling off the bench",
         "image_aspect_desktop": "4 / 5",
         "image_aspect": "4 / 5",
         "image_radius": 16,
         "step_style": "numbered",
         "marker_size": 36,
         "custom_colors": true,
-        "marker_color": "#e5372a",
+        "marker_color": "#b5471c",
         "marker_text_color": "#ffffff",
-        "line_color": "#d7d9de",
-        "step_title_color": "#0d0d0f",
-        "step_desc_color": "#4a4d55",
+        "line_color": "#dad3c9",
+        "step_title_color": "#1b1712",
+        "step_desc_color": "#4f4943",
         "step_title_size": 19,
         "step_desc_size": 15,
         "button_radius": 8,
@@ -151,14 +151,14 @@
           "settings": {
             "text": "How it works",
             "custom_style": true,
-            "color": "#e5372a",
+            "color": "#b5471c",
             "size": 13
           }
         },
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Twenty minutes a day, in the right order",
+            "text": "One evening a week, in the right order",
             "tag": "h2",
             "size_desktop": 46,
             "size_mobile": 32
@@ -167,7 +167,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Most beginners stop because they do not know what to practise next. Each day in the course tells you.</p>",
+            "text": "<p>Most beginners stall because they buy tools before they know what to make. The course gives you one project at a time and the few tools it needs.</p>",
             "size": 16
           }
         },
@@ -175,28 +175,28 @@
           "type": "step",
           "settings": {
             "title": "Watch a short lesson",
-            "description": "<p>Five to eight minutes, filmed close up so you can see both hands. Slow it down or loop a part.</p>"
+            "description": "<p>Five to ten minutes, filmed over the bench so you see the tool, both hands and the line.</p>"
           }
         },
         "step_2": {
           "type": "step",
           "settings": {
-            "title": "Play along",
-            "description": "<p>A track at three speeds for every lesson. Start slow, move up when it feels easy.</p>"
+            "title": "Practise on offcuts",
+            "description": "<p>Every lesson ends with a drill on scrap wood. Ten saw cuts before you touch the real board.</p>"
           }
         },
         "step_3": {
           "type": "step",
           "settings": {
-            "title": "Tick it off",
-            "description": "<p>Your plan moves on by itself. Miss a day and it picks up where you left off.</p>"
+            "title": "Build the project",
+            "description": "<p>Each module ends with a piece you keep: a cutting board, a shelf, a stool, a box, a side table.</p>"
           }
         },
         "step_4": {
           "type": "step",
           "settings": {
-            "title": "Send a video, get feedback",
-            "description": "<p>With feedback, record yourself and Jonas replies with a short video on what to change.</p>"
+            "title": "Send a photo, get feedback",
+            "description": "<p>With feedback, send photos of your joint and Tom replies with a short video on what to change.</p>"
           }
         },
         "button_1": {
@@ -242,9 +242,9 @@
         "pagination_position": "left",
         "pagination_spacing": 28,
         "enable_custom_colors": true,
-        "card_bg": "#f2f3f5",
+        "card_bg": "#f4f1ec",
         "card_border_color": "rgba(0,0,0,0)",
-        "quote_color": "#0d0d0f",
+        "quote_color": "#1b1712",
         "enable_custom_typography": true,
         "quote_size": 17,
         "infinite": false,
@@ -267,7 +267,7 @@
           "type": "heading",
           "settings": {
             "enabled": true,
-            "text": "What students play after a month"
+            "text": "What students build in the first month"
           }
         },
         "subheading_1": {
@@ -280,7 +280,7 @@
         "testimonial_1": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I bought a guitar at forty and it sat in the corner for a year. Two months in, I played a whole song for my kids.</p>",
+            "quote": "<p>I bought a saw at forty and it sat in a drawer for a year. Two months in, the shelf is on the kitchen wall.</p>",
             "rating": 5,
             "name": "Sample name",
             "role": "Started at 40",
@@ -290,17 +290,17 @@
         "testimonial_2": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>The play along tracks are the trick. Slow, medium, real speed. I never felt stuck.</p>",
+            "quote": "<p>The offcut drills are the trick. Ten cuts on scrap and the real one goes straight.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "Electric, beginner",
+            "role": "Complete beginner",
             "avatar": "shopify://shop_images/course2-student-2.webp"
           }
         },
         "testimonial_3": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I finally got the F chord to ring. The barre module explains it like nobody else did.</p>",
+            "quote": "<p>My first mortise was a mess. The fix in module six worked and the stool does not wobble.</p>",
             "rating": 5,
             "name": "Sample name",
             "role": "Self taught, came back",
@@ -310,17 +310,17 @@
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Twenty minutes before work. The plan tells me what to do, so I just do it.</p>",
+            "quote": "<p>One evening a week in the spare room. The projects tell me what to do next, so I just do it.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "Acoustic, 3 months in",
+            "role": "Three months in",
             "avatar": "shopify://shop_images/course2-student-4.webp"
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>The video feedback was worth it. Jonas spotted my thumb in the first reply.</p>",
+            "quote": "<p>The feedback was worth it. Tom spotted why my saw drifts from one photo.</p>",
             "rating": 5,
             "name": "Sample name",
             "role": "With feedback",
@@ -330,7 +330,7 @@
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I play at our Sunday barbecues now. Badly, but happily.</p>",
+            "quote": "<p>The side table is in the living room. Nobody believes I made it.</p>",
             "rating": 5,
             "name": "Sample name",
             "role": "Finished the course",
@@ -367,12 +367,12 @@
         "item_radius": 12,
         "show_dividers": false,
         "enable_custom_style": true,
-        "card_bg": "#f2f3f5",
+        "card_bg": "#f4f1ec",
         "card_border_color": "rgba(0,0,0,0)",
-        "question_color": "#0d0d0f",
-        "icon_color": "#e5372a",
-        "answer_color": "#4a4d55",
-        "heading_color": "#0d0d0f",
+        "question_color": "#1b1712",
+        "icon_color": "#b5471c",
+        "answer_color": "#4f4943",
+        "heading_color": "#1b1712",
         "question_size_desktop": 17,
         "answer_size_desktop": 16,
         "reveal": false,
@@ -401,29 +401,29 @@
         "faq_item_1": {
           "type": "faq_item",
           "settings": {
-            "question": "Do I need to read music?",
-            "answer": "<p>No. Everything is shown on video and in chord boxes and simple tab. You will pick up what you need as you go.</p>"
+            "question": "Do I need a workshop?",
+            "answer": "<p>No. A sturdy table in a spare room or a shed is enough for every project. Hand tools are quiet, so flats work too.</p>"
           }
         },
         "faq_item_2": {
           "type": "faq_item",
           "settings": {
-            "question": "Acoustic or electric?",
-            "answer": "<p>Either. Every lesson works on both. The riffs module has a short part on electric sounds you can skip on acoustic.</p>"
+            "question": "Which tools do I need?",
+            "answer": "<p>Eleven hand tools, listed with prices in the first lesson. Second hand is fine for most of them, and we show you what to look for.</p>"
           }
         },
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
-            "question": "How long until I can play a song?",
-            "answer": "<p>Most students play their first two chord song in the second week, and a full song by the end of the first month with twenty minutes a day.</p>"
+            "question": "How long until I build something?",
+            "answer": "<p>The cutting board is the end of module two. With one evening a week, most people get there in the second or third week.</p>"
           }
         },
         "faq_item_4": {
           "type": "faq_item",
           "settings": {
             "question": "I am left handed. Will it work?",
-            "answer": "<p>Yes. Every chord sheet comes in a left handed version, and the videos show which hand does what.</p>"
+            "answer": "<p>Yes. The lessons show which hand does what, and the drawings note where a left hander works from the other side.</p>"
           }
         }
       },
@@ -439,18 +439,18 @@
     "cta": {
       "type": "course2-cta",
       "settings": {
-        "heading": "Pick up the guitar tonight",
-        "text": "<p>The first lesson takes eight minutes. Sixty four lessons, twenty songs and a 30 day refund, for one payment.</p>",
+        "heading": "Make your first cut tonight",
+        "text": "<p>The first lesson takes eight minutes. Fifty six lessons, five projects and a 30 day refund, for one payment.</p>",
         "button_label": "Start learning",
         "to_checkout": true,
         "button_link": "/collections/all",
         "note": "30 day refund. Lifetime access.",
         "heading_size": 52,
         "background": "#ffffff",
-        "panel_color": "#0d0d0f",
+        "panel_color": "#1b1712",
         "heading_color": "#ffffff",
         "text_color": "#c9cbd1",
-        "button_color": "#e5372a",
+        "button_color": "#b5471c",
         "button_text_color": "#ffffff",
         "padding_top": 24,
         "padding_bottom": 96

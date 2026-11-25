@@ -95,7 +95,7 @@
           "type": "collapsible_row",
           "settings": {
             "heading": "Editions",
-            "content": "<p>Self paced is the whole course. With feedback adds six video replies where Jonas watches you play and says what to change. Two seats gives two logins on one bill, for partners or a parent and child.</p>",
+            "content": "<p>Self paced is the whole course. With feedback adds six video replies where Tom looks at photos of your joints and says what to change. Two seats gives two logins on one bill, for partners or a parent and child.</p>",
             "use_product_description": false,
             "open": false
           }
@@ -158,7 +158,7 @@
           "type": "collapsible_row",
           "settings": {
             "heading": "Questions",
-            "content": "<p>You need a guitar, acoustic or electric, and a phone or laptop. No music reading. Left handed chord sheets are included.</p>",
+            "content": "<p>You need eleven hand tools, listed with prices, and a sturdy table. No machines. Left handed notes are on every drawing.</p>",
             "use_product_description": false,
             "open": false
           }
@@ -173,7 +173,7 @@
           "type": "whats_included",
           "settings": {
             "heading": "In the course",
-            "items": "64 video lessons in 8 modules\n20 play along songs at three speeds\nPrintable chord sheets, left handed too\nA daily practice plan",
+            "items": "56 video lessons in 8 modules\n5 projects, from a cutting board to a side table\nPrintable drawings and cut lists\nThe tool list, with prices",
             "two_columns": false,
             "boxed": true,
             "spacing_top": 8,
@@ -183,12 +183,12 @@
         "quote_card_1": {
           "type": "quote_card",
           "settings": {
-            "quote": "<p>Sample quote. The play along tracks are the trick. Slow, medium, real speed. I never felt stuck.</p>",
+            "quote": "<p>Sample quote. The offcut drills are the trick. Ten cuts on scrap and the real one goes straight.</p>",
             "author": "Sample name",
-            "detail": "Electric, beginner",
+            "detail": "Complete beginner",
             "avatar": "shopify://shop_images/course2-student-2.webp",
             "stars": 5,
-            "star_color": "#e5372a",
+            "star_color": "#b5471c",
             "spacing_top": 12,
             "spacing_bottom": 12
           }
@@ -282,15 +282,15 @@
       "settings": {
         "tag": "Curriculum",
         "heading": "Eight modules,",
-        "heading_accent": "from first chord to whole songs",
-        "text": "<p>Each module is a handful of short lessons and ends with a practice week. Do them in order; every lesson uses what the last one taught.</p>",
-        "totals": "8 modules, 64 lessons, about 8 hours",
+        "heading_accent": "from a straight cut to a side table",
+        "text": "<p>Each module is a handful of short lessons and ends with something you build. Do them in order; every joint uses what the last one taught.</p>",
+        "totals": "8 modules, 56 lessons, about 7 hours",
         "first_open": true,
         "anchor": "lessons",
-        "accent": "#e5372a",
-        "heading_color": "#0d0d0f",
-        "text_color": "#4a4d55",
-        "line_color": "#e3e4e8",
+        "accent": "#b5471c",
+        "heading_color": "#1b1712",
+        "text_color": "#4f4943",
+        "line_color": "#e5e0d8",
         "background": "#ffffff",
         "heading_size": 46
       },
@@ -298,65 +298,65 @@
         "module_1": {
           "type": "module",
           "settings": {
-            "title": "Your guitar and your hands",
-            "meta": "6 lessons, 38 min",
-            "lessons": "Holding the guitar\nTuning by ear and with an app\nYour picking hand\nYour fretting hand\nReading a chord box\nA practice routine that sticks"
+            "title": "Your bench and your tools",
+            "meta": "6 lessons, 40 min",
+            "lessons": "A bench you can build or borrow\nThe eleven tools you need\nBuying second hand\nSetting up a block plane\nClamps, and how many\nWorking safely without fuss"
           }
         },
         "module_2": {
           "type": "module",
           "settings": {
-            "title": "First chords",
-            "meta": "9 lessons, 62 min",
-            "lessons": "E minor and A minor\nC, G and D\nChanging chords in time\nThe one minute change\nYour first two chord song\nCommon buzzing fixes\nA four chord loop\nPlaying with a metronome\nPractice week"
+            "title": "Measuring and marking",
+            "meta": "7 lessons, 48 min",
+            "lessons": "Rules, tapes and squares\nChecking a square is square\nThe knife line\nThe marking gauge\nFace side and face edge\nWriting a cut list\nProject: a cutting board"
           }
         },
         "module_3": {
           "type": "module",
           "settings": {
-            "title": "Strumming and rhythm",
-            "meta": "8 lessons, 54 min",
-            "lessons": "Down strums in time\nAdding ups\nThe pattern in most pop songs\nMuting and accents\nStrumming in 3/4\nPlaying with a drum track\nKeeping going through mistakes\nPractice week"
+            "title": "Sawing straight",
+            "meta": "8 lessons, 56 min",
+            "lessons": "Holding the saw\nStarting a cut\nCrosscuts\nRip cuts\nSawing to the line, not near it\nFixing a cut that wanders\nSawing a tenon cheek\nPractice on offcuts"
           }
         },
         "module_4": {
           "type": "module",
           "settings": {
-            "title": "Your first five songs",
-            "meta": "10 lessons, 76 min",
-            "lessons": "Song one, slow then full speed\nSong two: a new chord shape\nSong three: a new strum\nSong four: a capo\nSong five: putting it together\nIntros and endings\nPlaying from a chord sheet\nSinging and playing\nRecording yourself\nPractice week"
+            "title": "Sharpening and planing",
+            "meta": "8 lessons, 62 min",
+            "lessons": "Sharpening a chisel on stones\nSharpening a plane iron\nPlaning a face flat\nPlaning an edge square\nEnd grain without tear out\nReading the grain\nThicknessing by hand\nPractice on offcuts"
           }
         },
         "module_5": {
           "type": "module",
           "settings": {
-            "title": "Riffs and power chords",
-            "meta": "8 lessons, 58 min",
-            "lessons": "Single note riffs\nPalm muting\nPower chords on two strings\nMoving shapes up the neck\nThree famous style riffs\nA little distortion, electric only\nPlaying tight with a track\nPractice week"
+            "title": "Chisels and simple joints",
+            "meta": "7 lessons, 54 min",
+            "lessons": "Paring to a line\nChopping across the grain\nThe housing joint\nThe half lap\nThe rebate\nFixing a gappy joint\nProject: a wall shelf"
           }
         },
         "module_6": {
           "type": "module",
           "settings": {
-            "title": "Barre chords without tears",
-            "meta": "8 lessons, 60 min",
-            "lessons": "Why barre chords are hard\nThe F that finally rings\nE shape barre chords\nA shape barre chords\nSwitching to and from barres\nStrength without strain\nSongs with barre chords\nPractice week"
+            "title": "Mortise and tenon",
+            "meta": "8 lessons, 64 min",
+            "lessons": "Laying out the joint\nChopping a mortise\nSawing the tenon\nFitting it snug\nDrawboring with a peg\nA square glue up\nProject: a step stool, part one\nProject: a step stool, part two"
           }
         },
         "module_7": {
           "type": "module",
           "settings": {
-            "title": "Fingerpicking",
-            "meta": "7 lessons, 50 min",
-            "lessons": "Thumb and fingers\nA first pattern\nTravis picking, slowly\nPicking through a chord change\nA fingerpicked song\nMixing picking and strumming\nPractice week"
+            "title": "Dovetails",
+            "meta": "6 lessons, 44 min",
+            "lessons": "Through dovetails, tails first\nSawing the tails\nMarking and cutting pins\nGlue, clamps and a dry fit\nScraping, sanding and oil\nProject: a dovetailed box"
           }
         },
         "module_8": {
           "type": "module",
           "settings": {
-            "title": "Playing songs by yourself",
-            "meta": "8 lessons, 66 min",
-            "lessons": "Finding chords for a song\nChoosing a key that suits you\nSimplifying hard chords\nBuilding a set of ten songs\nPlaying for friends\nWhere to go next\nYour own practice plan\nGraduation song"
+            "title": "Your first side table",
+            "meta": "6 lessons, 58 min",
+            "lessons": "Drawing the table\nThe cut list and the timber\nLegs and aprons\nGluing up the top\nAssembly in one evening\nThe finish, and what to build next"
           }
         }
       },
@@ -397,7 +397,7 @@
         "enable_custom_colors": true,
         "card_bg": "#ffffff",
         "card_border_color": "rgba(0,0,0,0)",
-        "quote_color": "#0d0d0f",
+        "quote_color": "#1b1712",
         "enable_custom_typography": true,
         "quote_size": 17,
         "infinite": false,
@@ -420,7 +420,7 @@
           "type": "heading",
           "settings": {
             "enabled": true,
-            "text": "What students play after a month"
+            "text": "What students build in the first month"
           }
         },
         "subheading_1": {
@@ -433,7 +433,7 @@
         "testimonial_1": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I bought a guitar at forty and it sat in the corner for a year. Two months in, I played a whole song for my kids.</p>",
+            "quote": "<p>I bought a saw at forty and it sat in a drawer for a year. Two months in, the shelf is on the kitchen wall.</p>",
             "rating": 5,
             "name": "Sample name",
             "role": "Started at 40",
@@ -443,17 +443,17 @@
         "testimonial_2": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>The play along tracks are the trick. Slow, medium, real speed. I never felt stuck.</p>",
+            "quote": "<p>The offcut drills are the trick. Ten cuts on scrap and the real one goes straight.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "Electric, beginner",
+            "role": "Complete beginner",
             "avatar": "shopify://shop_images/course2-student-2.webp"
           }
         },
         "testimonial_3": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I finally got the F chord to ring. The barre module explains it like nobody else did.</p>",
+            "quote": "<p>My first mortise was a mess. The fix in module six worked and the stool does not wobble.</p>",
             "rating": 5,
             "name": "Sample name",
             "role": "Self taught, came back",
@@ -463,17 +463,17 @@
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Twenty minutes before work. The plan tells me what to do, so I just do it.</p>",
+            "quote": "<p>One evening a week in the spare room. The projects tell me what to do next, so I just do it.</p>",
             "rating": 5,
             "name": "Sample name",
-            "role": "Acoustic, 3 months in",
+            "role": "Three months in",
             "avatar": "shopify://shop_images/course2-student-4.webp"
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>The video feedback was worth it. Jonas spotted my thumb in the first reply.</p>",
+            "quote": "<p>The feedback was worth it. Tom spotted why my saw drifts from one photo.</p>",
             "rating": 5,
             "name": "Sample name",
             "role": "With feedback",
@@ -483,7 +483,7 @@
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I play at our Sunday barbecues now. Badly, but happily.</p>",
+            "quote": "<p>The side table is in the living room. Nobody believes I made it.</p>",
             "rating": 5,
             "name": "Sample name",
             "role": "Finished the course",
@@ -520,12 +520,12 @@
         "item_radius": 12,
         "show_dividers": false,
         "enable_custom_style": true,
-        "card_bg": "#f2f3f5",
+        "card_bg": "#f4f1ec",
         "card_border_color": "rgba(0,0,0,0)",
-        "question_color": "#0d0d0f",
-        "icon_color": "#e5372a",
-        "answer_color": "#4a4d55",
-        "heading_color": "#0d0d0f",
+        "question_color": "#1b1712",
+        "icon_color": "#b5471c",
+        "answer_color": "#4f4943",
+        "heading_color": "#1b1712",
         "question_size_desktop": 17,
         "answer_size_desktop": 16,
         "reveal": false,
@@ -554,43 +554,43 @@
         "faq_item_1": {
           "type": "faq_item",
           "settings": {
-            "question": "Do I need to read music?",
-            "answer": "<p>No. Everything is shown on video and in chord boxes and simple tab. You will pick up what you need as you go.</p>"
+            "question": "Do I need a workshop?",
+            "answer": "<p>No. A sturdy table in a spare room or a shed is enough for every project. Hand tools are quiet, so flats work too.</p>"
           }
         },
         "faq_item_2": {
           "type": "faq_item",
           "settings": {
-            "question": "Acoustic or electric?",
-            "answer": "<p>Either. Every lesson works on both. The riffs module has a short part on electric sounds you can skip on acoustic.</p>"
+            "question": "Which tools do I need?",
+            "answer": "<p>Eleven hand tools, listed with prices in the first lesson. Second hand is fine for most of them, and we show you what to look for.</p>"
           }
         },
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
-            "question": "How long until I can play a song?",
-            "answer": "<p>Most students play their first two chord song in the second week, and a full song by the end of the first month with twenty minutes a day.</p>"
+            "question": "How long until I build something?",
+            "answer": "<p>The cutting board is the end of module two. With one evening a week, most people get there in the second or third week.</p>"
           }
         },
         "faq_item_4": {
           "type": "faq_item",
           "settings": {
             "question": "I am left handed. Will it work?",
-            "answer": "<p>Yes. Every chord sheet comes in a left handed version, and the videos show which hand does what.</p>"
+            "answer": "<p>Yes. The lessons show which hand does what, and the drawings note where a left hander works from the other side.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "What do I need?",
-            "answer": "<p>A guitar, a phone or laptop, and a tuner app, which is free. A capo helps from module four.</p>"
+            "question": "What wood should I buy?",
+            "answer": "<p>Planed pine or poplar from any timber yard for the first projects, and oak or ash for the table. Every project has a cut list.</p>"
           }
         },
         "faq_item_6": {
           "type": "faq_item",
           "settings": {
             "question": "How long do I have access?",
-            "answer": "<p>For good. You also get the new songs added each month.</p>"
+            "answer": "<p>For good. You also get the new workshop notes added each month.</p>"
           }
         }
       },
@@ -644,10 +644,10 @@
         "icon_size": 56,
         "point_style": "check",
         "enable_custom_style": true,
-        "icon_color": "#e5372a",
-        "border_color": "#e3e4e8",
-        "point_color": "#0d0d0f",
-        "marker_color": "#e5372a",
+        "icon_color": "#b5471c",
+        "border_color": "#e5e0d8",
+        "point_color": "#1b1712",
+        "marker_color": "#b5471c",
         "padding_top_desktop": 24,
         "padding_bottom_desktop": 96,
         "padding_top_mobile": 16,
@@ -668,7 +668,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Work through the first two modules. If guitar is not for you, write one line and get every cent back.</p>"
+            "text": "<p>Work through the first two modules. If woodwork is not for you, write one line and get every cent back.</p>"
           }
         },
         "point_1": {
@@ -686,7 +686,7 @@
         "point_3": {
           "type": "point",
           "settings": {
-            "text": "Keep the chord sheets"
+            "text": "Keep the drawings"
           }
         }
       },

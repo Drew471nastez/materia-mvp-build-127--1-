@@ -1,0 +1,337 @@
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "alignment": "center",
+        "height": "based_on_content",
+        "padding_top": 64,
+        "padding_bottom": 8
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "About",
+            "header_size": "large",
+            "vertical_gap": 10
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "description": "<p>Who makes these templates, and why.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_2"
+      ]
+    },
+    "story": {
+      "type": "image-with-text-multirow",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "alternate_rows": false,
+        "content_align": "left",
+        "text_column_width": 55,
+        "row_gap_desktop": 40,
+        "col_gap_desktop": 56,
+        "content_gap": 16,
+        "image_aspect_w": 4,
+        "image_aspect_h": 5,
+        "image_fit": "cover",
+        "image_radius": 16,
+        "heading_size_desktop": 40,
+        "heading_weight": "theme",
+        "body_size_desktop": 17,
+        "padding_top_desktop": 24,
+        "padding_bottom_desktop": 48,
+        "heading_size_mobile": 30,
+        "body_size_mobile": 15,
+        "padding_top_mobile": 32,
+        "padding_bottom_mobile": 32,
+        "side_padding_mobile": 16
+      },
+      "blocks": {
+        "row_1": {
+          "type": "row",
+          "settings": {
+            "image": "shopify://shop_images/notionsite-creator-portrait.webp",
+            "caption": "Nora Lind, Copenhagen",
+            "heading": "Hi, I'm Nora",
+            "heading_tag": "h2",
+            "body": "<p>I'm Nora. I spent eight years as a project manager in agencies, then started a two person design studio in Copenhagen. Every client, invoice and process we have lives in Notion.</p><p>Every template here started as something we built for the studio and used for months before selling it. If a page does not earn its place, it goes. Questions come straight to me, and I answer them.</p>",
+            "btn_label": "Browse templates",
+            "btn_link": "/collections/all",
+            "image_position": "left",
+            "row_padding": 40,
+            "row_radius": 24,
+            "enable_custom_style": true,
+            "row_bg": "#f5f5f4",
+            "use_theme_button": true
+          }
+        }
+      },
+      "block_order": [
+        "row_1"
+      ]
+    },
+    "values": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "content_alignment": "left",
+        "columns_desktop": 3,
+        "columns_tablet": 3,
+        "column_gap": 40,
+        "header_gap": 32,
+        "show_dividers": true,
+        "reveal": false,
+        "padding_top": 56,
+        "padding_bottom": 40,
+        "padding_top_mobile": 40,
+        "padding_bottom_mobile": 24
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "How I make them",
+            "size_enable": true,
+            "size_desktop": 36,
+            "size_mobile": 28
+          }
+        },
+        "column_2": {
+          "type": "column",
+          "settings": {
+            "label": "01",
+            "heading": "Used before sold",
+            "text": "<p>Every template runs my own studio for at least three months before it goes on sale.</p>"
+          }
+        },
+        "column_3": {
+          "type": "column",
+          "settings": {
+            "label": "02",
+            "heading": "Nothing extra",
+            "text": "<p>A page that nobody opens gets deleted. Fewer pages, used more often.</p>"
+          }
+        },
+        "column_4": {
+          "type": "column",
+          "settings": {
+            "label": "03",
+            "heading": "Plain Notion",
+            "text": "<p>No add-ons or paid integrations. Everything works on Notion's free plan.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "column_2",
+        "column_3",
+        "column_4"
+      ]
+    },
+    "reviews": {
+      "type": "testimonial-wall",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "text_align": "center",
+        "columns": 4,
+        "card_gap": 16,
+        "card_style": "filled",
+        "collapse": "always",
+        "collapsed_part": 60,
+        "more_label": "Load more",
+        "less_label": "Show fewer",
+        "enable_custom_style": true,
+        "card_bg": "#f5f5f4",
+        "quote_color": "#2e2e30",
+        "name_color": "#111111",
+        "star_color": "#f5b301",
+        "star_empty_color": "#e3e3e1",
+        "card_radius": 16,
+        "quote_size": 15,
+        "quote_size_mobile": 15,
+        "reveal": false,
+        "padding_top": 48,
+        "padding_bottom": 48,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 32
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Testimonials",
+            "size": 40,
+            "size_mobile": 30
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Sample notes in the layout this wall shows. Replace them with what your own buyers say.</p>"
+          }
+        },
+        "testimonial_3": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Set it up in one evening. For the first time I know which leads are waiting on me without searching my inbox.",
+            "name": "Hanna K.",
+            "role": "Client CRM",
+            "rating": 5,
+            "avatar": "shopify://shop_images/notionsite-buyer-1.webp"
+          }
+        },
+        "testimonial_4": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Simple and quick to fill in. Exactly what I wanted from a free planner for the business.",
+            "name": "Daniel O.",
+            "role": "Weekly Planner",
+            "rating": 5,
+            "avatar": "shopify://shop_images/notionsite-buyer-2.webp"
+          }
+        },
+        "testimonial_5": {
+          "type": "testimonial",
+          "settings": {
+            "body": "The task list on each project page is the part I did not know I needed. Clients stopped asking me where things are.",
+            "name": "Amara B.",
+            "role": "Project Tracker",
+            "rating": 5,
+            "avatar": "shopify://shop_images/notionsite-buyer-3.webp"
+          }
+        },
+        "testimonial_6": {
+          "type": "testimonial",
+          "settings": {
+            "body": "The tax set aside bar is the reason I opened it every week. No surprise bill in January this year.",
+            "name": "Rosa M.",
+            "role": "Finance Dashboard",
+            "rating": 5,
+            "avatar": "shopify://shop_images/notionsite-buyer-4.webp"
+          }
+        },
+        "testimonial_7": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Clean, no clutter. It looks like Notion, not like a poster.",
+            "name": "Sami T.",
+            "role": "Meeting Notes",
+            "rating": 5,
+            "avatar": "shopify://shop_images/notionsite-buyer-5.webp"
+          }
+        },
+        "testimonial_8": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Action items at the bottom of every meeting page. My team ticks them off before the next call.",
+            "name": "Julia W.",
+            "role": "Meeting Notes",
+            "rating": 5,
+            "avatar": "shopify://shop_images/notionsite-buyer-6.webp"
+          }
+        },
+        "testimonial_9": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Bought the bundle for the CRM and ended up using all four. The Home page with what is due this week is great.",
+            "name": "Marcus L.",
+            "role": "Business OS Bundle",
+            "rating": 5,
+            "avatar": "shopify://shop_images/notionsite-buyer-7.webp"
+          }
+        },
+        "testimonial_10": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Good walkthrough video. I had never used a linked database before and it made sense straight away.",
+            "name": "Ellie P.",
+            "role": "Client CRM",
+            "rating": 5,
+            "avatar": "shopify://shop_images/notionsite-buyer-8.webp"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "testimonial_3",
+        "testimonial_4",
+        "testimonial_5",
+        "testimonial_6",
+        "testimonial_7",
+        "testimonial_8",
+        "testimonial_9",
+        "testimonial_10"
+      ]
+    },
+    "newsletter": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "scheme-6c1d2a40-91b7-4c55-9a0e-5d3f0b8e7a11",
+        "section_width": "container",
+        "show_section_on": "all",
+        "email_label": "Email address",
+        "email_placeholder": "name@email.com",
+        "btn_text": "Subscribe",
+        "note": "One email a month. Unsubscribe any time.",
+        "subscribed_button_text": "Subscribed",
+        "success_text": "Thanks, you are on the list.",
+        "image_position": "right",
+        "content_alignment": "left",
+        "form_layout": "horizontal",
+        "image_width": 44,
+        "column_gap": 56,
+        "image": "shopify://shop_images/notionsite-newsletter.webp",
+        "image_alt": "A drawing of an envelope with a checklist coming out of it",
+        "image_ratio": "landscape",
+        "button_style": "primary",
+        "use_theme_button": true,
+        "reveal": false,
+        "padding_top": 24,
+        "padding_bottom": 96,
+        "padding_top_mobile": 40,
+        "padding_bottom_mobile": 56,
+        "show_image_mobile": false
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "A new template, once a month"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>What I made, what I changed and one free template for subscribers. Nothing else.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    }
+  },
+  "order": [
+    "heading",
+    "story",
+    "values",
+    "reviews",
+    "newsletter"
+  ]
+}

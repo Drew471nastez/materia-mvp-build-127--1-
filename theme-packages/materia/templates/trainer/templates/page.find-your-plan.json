@@ -149,8 +149,7 @@
           "type": "button",
           "settings": {
             "label": "Book a free call",
-            "url": "/collections/all",
-            "link": "/pages/book-a-call"
+            "url": "/pages/book-a-call"
           }
         }
       },

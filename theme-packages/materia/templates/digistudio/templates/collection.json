@@ -1,0 +1,116 @@
+{
+  "sections": {
+    "main-collection-heading": {
+      "type": "main-collection-heading",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "alignment": "center",
+        "padding_top": 56,
+        "padding_bottom": 8
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {}
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {}
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_2"
+      ]
+    },
+    "main-collection-product": {
+      "type": "main-collection-product",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "items_per_row": 3,
+        "items_to_show": 12,
+        "column_gap": 24,
+        "pagination": "default",
+        "enable_filtering": true,
+        "filter_layout": "horizontal",
+        "default_filter": "close_all",
+        "show_filter_counts": false,
+        "number_products_per_page": false,
+        "sorting": true,
+        "toolbar_button_style": "pill",
+        "padding_top": 16,
+        "padding_bottom": 88,
+        "items_per_row_mobile": "1"
+      },
+      "blocks": {
+        "categories_1": {
+          "type": "categories",
+          "settings": {
+            "title": "Templates",
+            "menu": "templates-filter"
+          }
+        }
+      },
+      "block_order": [
+        "categories_1"
+      ]
+    },
+    "newsletter": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "scheme-6c1d2a40-91b7-4c55-9a0e-5d3f0b8e7a11",
+        "section_width": "container",
+        "show_section_on": "all",
+        "email_label": "Email address",
+        "email_placeholder": "name@email.com",
+        "btn_text": "Subscribe",
+        "note": "One email a month. Unsubscribe any time.",
+        "subscribed_button_text": "Subscribed",
+        "success_text": "Thanks, you are on the list.",
+        "image_position": "right",
+        "content_alignment": "left",
+        "form_layout": "horizontal",
+        "image_width": 44,
+        "column_gap": 56,
+        "image": "shopify://shop_images/notionsite-newsletter.webp",
+        "image_alt": "A drawing of an envelope with a checklist coming out of it",
+        "image_ratio": "landscape",
+        "button_style": "primary",
+        "use_theme_button": true,
+        "reveal": false,
+        "padding_top": 48,
+        "padding_bottom": 96,
+        "padding_top_mobile": 40,
+        "padding_bottom_mobile": 56,
+        "show_image_mobile": false
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "A new template, once a month"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>What I made, what I changed and one free template for subscribers. Nothing else.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    }
+  },
+  "order": [
+    "main-collection-heading",
+    "main-collection-product",
+    "newsletter"
+  ]
+}

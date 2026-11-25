@@ -22,13 +22,13 @@
           "type": "store_info",
           "settings": {
             "show_logo": false,
-            "store_heading": "Fretline",
+            "store_heading": "Offcut",
             "image_width": 110,
             "store_email": true,
             "store_phone": false,
             "store_address": false,
             "content_width": "40%",
-            "store_description": "<p>Guitar lessons online, from your first chord to whole songs. Short videos, play along tracks and feedback on your own playing, taught by Jonas Wilde.</p>"
+            "store_description": "<p>Woodworking lessons online, from your first straight cut to a side table. Hand tools, short videos and feedback on your own joints, taught by Tom Ashby.</p>"
           }
         },
         "link_list_2": {

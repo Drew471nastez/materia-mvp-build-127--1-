@@ -17,12 +17,12 @@
         "item_radius": 12,
         "show_dividers": false,
         "enable_custom_style": true,
-        "card_bg": "#f2f3f5",
+        "card_bg": "#f4f1ec",
         "card_border_color": "rgba(0,0,0,0)",
-        "question_color": "#0d0d0f",
-        "icon_color": "#e5372a",
-        "answer_color": "#4a4d55",
-        "heading_color": "#0d0d0f",
+        "question_color": "#1b1712",
+        "icon_color": "#b5471c",
+        "answer_color": "#4f4943",
+        "heading_color": "#1b1712",
         "question_size_desktop": 17,
         "answer_size_desktop": 16,
         "reveal": false,
@@ -51,43 +51,43 @@
         "faq_item_1": {
           "type": "faq_item",
           "settings": {
-            "question": "Do I need to read music?",
-            "answer": "<p>No. Everything is shown on video and in chord boxes and simple tab. You will pick up what you need as you go.</p>"
+            "question": "Do I need a workshop?",
+            "answer": "<p>No. A sturdy table in a spare room or a shed is enough for every project. Hand tools are quiet, so flats work too.</p>"
           }
         },
         "faq_item_2": {
           "type": "faq_item",
           "settings": {
-            "question": "Acoustic or electric?",
-            "answer": "<p>Either. Every lesson works on both. The riffs module has a short part on electric sounds you can skip on acoustic.</p>"
+            "question": "Which tools do I need?",
+            "answer": "<p>Eleven hand tools, listed with prices in the first lesson. Second hand is fine for most of them, and we show you what to look for.</p>"
           }
         },
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
-            "question": "How long until I can play a song?",
-            "answer": "<p>Most students play their first two chord song in the second week, and a full song by the end of the first month with twenty minutes a day.</p>"
+            "question": "How long until I build something?",
+            "answer": "<p>The cutting board is the end of module two. With one evening a week, most people get there in the second or third week.</p>"
           }
         },
         "faq_item_4": {
           "type": "faq_item",
           "settings": {
             "question": "I am left handed. Will it work?",
-            "answer": "<p>Yes. Every chord sheet comes in a left handed version, and the videos show which hand does what.</p>"
+            "answer": "<p>Yes. The lessons show which hand does what, and the drawings note where a left hander works from the other side.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "What do I need?",
-            "answer": "<p>A guitar, a phone or laptop, and a tuner app, which is free. A capo helps from module four.</p>"
+            "question": "What wood should I buy?",
+            "answer": "<p>Planed pine or poplar from any timber yard for the first projects, and oak or ash for the table. Every project has a cut list.</p>"
           }
         },
         "faq_item_6": {
           "type": "faq_item",
           "settings": {
             "question": "How long do I have access?",
-            "answer": "<p>For good. You also get the new songs added each month.</p>"
+            "answer": "<p>For good. You also get the new workshop notes added each month.</p>"
           }
         },
         "faq_item_7": {
@@ -122,10 +122,10 @@
         "icon_size": 56,
         "point_style": "check",
         "enable_custom_style": true,
-        "icon_color": "#e5372a",
-        "border_color": "#e3e4e8",
-        "point_color": "#0d0d0f",
-        "marker_color": "#e5372a",
+        "icon_color": "#b5471c",
+        "border_color": "#e5e0d8",
+        "point_color": "#1b1712",
+        "marker_color": "#b5471c",
         "padding_top_desktop": 24,
         "padding_bottom_desktop": 96,
         "padding_top_mobile": 16,
@@ -146,7 +146,7 @@
         "subheading_1": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Work through the first two modules. If guitar is not for you, write one line and get every cent back.</p>"
+            "text": "<p>Work through the first two modules. If woodwork is not for you, write one line and get every cent back.</p>"
           }
         },
         "point_1": {
@@ -164,7 +164,7 @@
         "point_3": {
           "type": "point",
           "settings": {
-            "text": "Keep the chord sheets"
+            "text": "Keep the drawings"
           }
         }
       },
@@ -179,18 +179,18 @@
     "cta": {
       "type": "course2-cta",
       "settings": {
-        "heading": "Pick up the guitar tonight",
-        "text": "<p>The first lesson takes eight minutes. Sixty four lessons, twenty songs and a 30 day refund, for one payment.</p>",
+        "heading": "Make your first cut tonight",
+        "text": "<p>The first lesson takes eight minutes. Fifty six lessons, five projects and a 30 day refund, for one payment.</p>",
         "button_label": "Start learning",
         "to_checkout": true,
         "button_link": "/collections/all",
         "note": "30 day refund. Lifetime access.",
         "heading_size": 52,
         "background": "#ffffff",
-        "panel_color": "#0d0d0f",
+        "panel_color": "#1b1712",
         "heading_color": "#ffffff",
         "text_color": "#c9cbd1",
-        "button_color": "#e5372a",
+        "button_color": "#b5471c",
         "button_text_color": "#ffffff",
         "padding_top": 0,
         "padding_bottom": 96

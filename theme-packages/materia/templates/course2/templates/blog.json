@@ -26,7 +26,7 @@
         "description_YRWpkt": {
           "type": "description",
           "settings": {
-            "description": "<p>Short practice notes: one chord, one strum or one song idea each, to try tonight.</p>",
+            "description": "<p>Short workshop notes: one tool, one joint or one fix each, to try at the bench this week.</p>",
             "enable_custom_style": false,
             "description_font_size": 16
           }
@@ -79,18 +79,18 @@
     "cta": {
       "type": "course2-cta",
       "settings": {
-        "heading": "Pick up the guitar tonight",
-        "text": "<p>The first lesson takes eight minutes. Sixty four lessons, twenty songs and a 30 day refund, for one payment.</p>",
+        "heading": "Make your first cut tonight",
+        "text": "<p>The first lesson takes eight minutes. Fifty six lessons, five projects and a 30 day refund, for one payment.</p>",
         "button_label": "Start learning",
         "to_checkout": true,
         "button_link": "/collections/all",
         "note": "30 day refund. Lifetime access.",
         "heading_size": 52,
         "background": "#ffffff",
-        "panel_color": "#0d0d0f",
+        "panel_color": "#1b1712",
         "heading_color": "#ffffff",
         "text_color": "#c9cbd1",
-        "button_color": "#e5372a",
+        "button_color": "#b5471c",
         "button_text_color": "#ffffff",
         "padding_top": 24,
         "padding_bottom": 96

@@ -5,25 +5,25 @@
       "settings": {
         "tag": "Contact",
         "heading": "Write to us",
-        "text": "<p>Questions about the course, your guitar or which plan fits. We answer within a working day.</p>",
+        "text": "<p>Questions about the course, your tools or which plan fits. We answer within a working day.</p>",
         "email_label": "Or write to",
         "email": "hello@example.com",
         "card_tag": "Get in touch",
         "card_heading": "Ask before you start",
-        "card_text": "Tell us what you play and what you want to learn, and we will point you to the right place.",
+        "card_text": "Tell us what tools you have and what you want to make, and we will point you to the right place.",
         "ph_first": "First name",
         "ph_last": "Last name",
         "ph_email": "Email",
-        "ph_message": "Your guitar, your level, your question",
+        "ph_message": "Your tools, your space, your question",
         "agree_text": "",
         "button_label": "Send message",
         "thanks": "Thank you. We will write back within two working days.",
         "error": "Please check the form.",
-        "accent": "#e5372a",
+        "accent": "#b5471c",
         "padding_top": 56,
-        "panel_color": "#f2f3f5",
-        "heading_color": "#0d0d0f",
-        "text_color": "#4a4d55"
+        "panel_color": "#f4f1ec",
+        "heading_color": "#1b1712",
+        "text_color": "#4f4943"
       }
     },
     "faq": {
@@ -45,10 +45,10 @@
         "enable_custom_style": true,
         "card_bg": "#ffffff",
         "card_border_color": "rgba(0,0,0,0)",
-        "question_color": "#0d0d0f",
-        "icon_color": "#e5372a",
-        "answer_color": "#4a4d55",
-        "heading_color": "#0d0d0f",
+        "question_color": "#1b1712",
+        "icon_color": "#b5471c",
+        "answer_color": "#4f4943",
+        "heading_color": "#1b1712",
         "question_size_desktop": 17,
         "answer_size_desktop": 16,
         "reveal": false,
@@ -77,36 +77,36 @@
         "faq_item_1": {
           "type": "faq_item",
           "settings": {
-            "question": "Do I need to read music?",
-            "answer": "<p>No. Everything is shown on video and in chord boxes and simple tab. You will pick up what you need as you go.</p>"
+            "question": "Do I need a workshop?",
+            "answer": "<p>No. A sturdy table in a spare room or a shed is enough for every project. Hand tools are quiet, so flats work too.</p>"
           }
         },
         "faq_item_2": {
           "type": "faq_item",
           "settings": {
-            "question": "Acoustic or electric?",
-            "answer": "<p>Either. Every lesson works on both. The riffs module has a short part on electric sounds you can skip on acoustic.</p>"
+            "question": "Which tools do I need?",
+            "answer": "<p>Eleven hand tools, listed with prices in the first lesson. Second hand is fine for most of them, and we show you what to look for.</p>"
           }
         },
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
-            "question": "How long until I can play a song?",
-            "answer": "<p>Most students play their first two chord song in the second week, and a full song by the end of the first month with twenty minutes a day.</p>"
+            "question": "How long until I build something?",
+            "answer": "<p>The cutting board is the end of module two. With one evening a week, most people get there in the second or third week.</p>"
           }
         },
         "faq_item_4": {
           "type": "faq_item",
           "settings": {
             "question": "I am left handed. Will it work?",
-            "answer": "<p>Yes. Every chord sheet comes in a left handed version, and the videos show which hand does what.</p>"
+            "answer": "<p>Yes. The lessons show which hand does what, and the drawings note where a left hander works from the other side.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "What do I need?",
-            "answer": "<p>A guitar, a phone or laptop, and a tuner app, which is free. A capo helps from module four.</p>"
+            "question": "What wood should I buy?",
+            "answer": "<p>Planed pine or poplar from any timber yard for the first projects, and oak or ash for the table. Every project has a cut list.</p>"
           }
         }
       },
@@ -123,18 +123,18 @@
     "cta": {
       "type": "course2-cta",
       "settings": {
-        "heading": "Pick up the guitar tonight",
-        "text": "<p>The first lesson takes eight minutes. Sixty four lessons, twenty songs and a 30 day refund, for one payment.</p>",
+        "heading": "Make your first cut tonight",
+        "text": "<p>The first lesson takes eight minutes. Fifty six lessons, five projects and a 30 day refund, for one payment.</p>",
         "button_label": "Start learning",
         "to_checkout": true,
         "button_link": "/collections/all",
         "note": "30 day refund. Lifetime access.",
         "heading_size": 52,
         "background": "#ffffff",
-        "panel_color": "#0d0d0f",
+        "panel_color": "#1b1712",
         "heading_color": "#ffffff",
         "text_color": "#c9cbd1",
-        "button_color": "#e5372a",
+        "button_color": "#b5471c",
         "button_text_color": "#ffffff",
         "padding_top": 96,
         "padding_bottom": 96

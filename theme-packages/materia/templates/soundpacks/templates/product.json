@@ -1484,6 +1484,20 @@
         }
       },
       "block_order": [
+        "s_drums_and_low_end_0",
+        "s_drums_and_low_end_1",
+        "s_drums_and_low_end_2",
+        "p_drums_and_low_end_0",
+        "p_drums_and_low_end_1",
+        "p_drums_and_low_end_2",
+        "s_full_shelf_0",
+        "s_full_shelf_1",
+        "s_full_shelf_2",
+        "p_full_shelf_0",
+        "p_full_shelf_1",
+        "p_full_shelf_2",
+        "p_full_shelf_3",
+        "p_full_shelf_4",
         "s_night_bus_0",
         "s_night_bus_1",
         "s_night_bus_2",
@@ -1535,21 +1549,7 @@
         "s_small_hours_1",
         "s_small_hours_2",
         "p_small_hours_0",
-        "p_small_hours_1",
-        "s_drums_and_low_end_0",
-        "s_drums_and_low_end_1",
-        "s_drums_and_low_end_2",
-        "p_drums_and_low_end_0",
-        "p_drums_and_low_end_1",
-        "p_drums_and_low_end_2",
-        "s_full_shelf_0",
-        "s_full_shelf_1",
-        "s_full_shelf_2",
-        "p_full_shelf_0",
-        "p_full_shelf_1",
-        "p_full_shelf_2",
-        "p_full_shelf_3",
-        "p_full_shelf_4"
+        "p_small_hours_1"
       ]
     },
     "daws": {

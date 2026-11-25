@@ -1,0 +1,171 @@
+{
+  "sections": {
+    "faq": {
+      "type": "faq",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "structured_data": true,
+        "heading": "Frequently asked questions",
+        "subheading": "<p>Everything worth knowing before you duplicate a template.</p>",
+        "first_item_open": false,
+        "allow_multiple_open": false,
+        "open_icon": "plus",
+        "content_alignment": "center",
+        "max_content_width": 760,
+        "gap_header_to_items": 36,
+        "gap_heading_to_subheading": 10,
+        "gap_between_items": 12,
+        "item_padding_y": 18,
+        "item_padding_x": 22,
+        "item_radius": 14,
+        "show_dividers": false,
+        "enable_custom_style": true,
+        "card_bg": "#f5f5f4",
+        "card_border_color": "#ececea",
+        "question_color": "#111111",
+        "icon_color": "#111111",
+        "answer_color": "#55555a",
+        "heading_size_desktop": 40,
+        "heading_size_mobile": 30,
+        "question_size_desktop": 16,
+        "question_size_mobile": 15,
+        "enable_custom_question_weight": true,
+        "question_weight": "500",
+        "answer_size_desktop": 15,
+        "answer_size_mobile": 14,
+        "reveal": false,
+        "padding_top": 72,
+        "padding_bottom": 56
+      },
+      "blocks": {
+        "faq_item_1": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Who are these templates for?",
+            "answer": "<p>Freelancers, studios and small teams who want their clients, projects and money in one tidy place without building it from scratch. If you can type in a table, you can use them.</p>"
+          }
+        },
+        "faq_item_2": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do I need a paid Notion plan?",
+            "answer": "<p>No. Every template works on Notion's free plan, on the web, the desktop app and the phone app.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How do I get a template after I pay?",
+            "answer": "<p>The receipt page and the email both have a link. Open it while you are signed in to Notion, press Duplicate and the template is copied into your workspace.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Are the free templates really free?",
+            "answer": "<p>Yes. Check out at $0, get the same link by email and keep the template. You can unsubscribe from emails at any time.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I change a template?",
+            "answer": "<p>Every page, property and view is yours to edit. Rename things, add columns, delete pages you do not need.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What does the commercial licence cover?",
+            "answer": "<p>The personal licence is for your own use. The commercial licence lets you use the template inside your business or set it up for one client. Reselling it is not allowed with either.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Will I get updates?",
+            "answer": "<p>Yes. When a template changes, everyone who bought it gets an email with the new link, at no cost.</p>"
+          }
+        },
+        "faq_item_8": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if it is not for me?",
+            "answer": "<p>Email within 14 days of buying and you get your money back. No form to fill in.</p>"
+          }
+        },
+        "faq_item_9": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How can I ask a question?",
+            "answer": "<p>Write from the contact page. I read every message and reply within two working days.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "faq_item_1",
+        "faq_item_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7",
+        "faq_item_8",
+        "faq_item_9"
+      ]
+    },
+    "newsletter": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "scheme-6c1d2a40-91b7-4c55-9a0e-5d3f0b8e7a11",
+        "section_width": "container",
+        "show_section_on": "all",
+        "email_label": "Email address",
+        "email_placeholder": "name@email.com",
+        "btn_text": "Subscribe",
+        "note": "One email a month. Unsubscribe any time.",
+        "subscribed_button_text": "Subscribed",
+        "success_text": "Thanks, you are on the list.",
+        "image_position": "right",
+        "content_alignment": "left",
+        "form_layout": "horizontal",
+        "image_width": 44,
+        "column_gap": 56,
+        "image": "shopify://shop_images/notionsite-newsletter.webp",
+        "image_alt": "A drawing of an envelope with a checklist coming out of it",
+        "image_ratio": "landscape",
+        "button_style": "primary",
+        "use_theme_button": true,
+        "reveal": false,
+        "padding_top": 24,
+        "padding_bottom": 96,
+        "padding_top_mobile": 40,
+        "padding_bottom_mobile": 56,
+        "show_image_mobile": false
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "A new template, once a month"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>What I made, what I changed and one free template for subscribers. Nothing else.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    }
+  },
+  "order": [
+    "faq",
+    "newsletter"
+  ]
+}

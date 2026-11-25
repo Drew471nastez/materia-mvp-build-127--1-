@@ -48,7 +48,7 @@
         "author_highlight_n4CqbT": {
           "type": "author_highlight",
           "settings": {
-            "author_text": "Want the whole method? The course has every step on video.",
+            "author_text": "Want the whole method? The course shows every step on video.",
             "author_image_size": 65
           }
         }
@@ -66,7 +66,7 @@
       "type": "blog-posts",
       "settings": {
         "reveal": false,
-        "heading": "More practice notes",
+        "heading": "More workshop notes",
         "autoplay": false,
         "infinite": false,
         "show_date": true,
@@ -94,18 +94,18 @@
     "cta": {
       "type": "course2-cta",
       "settings": {
-        "heading": "Pick up the guitar tonight",
-        "text": "<p>The first lesson takes eight minutes. Sixty four lessons, twenty songs and a 30 day refund, for one payment.</p>",
+        "heading": "Make your first cut tonight",
+        "text": "<p>The first lesson takes eight minutes. Fifty six lessons, five projects and a 30 day refund, for one payment.</p>",
         "button_label": "Start learning",
         "to_checkout": true,
         "button_link": "/collections/all",
         "note": "30 day refund. Lifetime access.",
         "heading_size": 52,
         "background": "#ffffff",
-        "panel_color": "#0d0d0f",
+        "panel_color": "#1b1712",
         "heading_color": "#ffffff",
         "text_color": "#c9cbd1",
-        "button_color": "#e5372a",
+        "button_color": "#b5471c",
         "button_text_color": "#ffffff",
         "padding_top": 24,
         "padding_bottom": 96

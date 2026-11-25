@@ -1,0 +1,561 @@
+/* Templates round 25: a Notion template on the theme's own product page: the drawn Notion pages as a gallery, title, rating, price with its sale badge, the licence, how duplicating works, what you get, what is inside (the product description), questions, then how buying works, buyer notes and more templates. */
+{
+  "sections": {
+    "breadcrumb": {
+      "type": "breadcrumb",
+      "settings": {
+        "alignment": "left",
+        "font_size": 14,
+        "next_prev": true,
+        "separator": "dot",
+        "uppercase": false,
+        "color_scheme": "default",
+        "reset_spacing": true,
+        "section_width": "container",
+        "next_prev_icon": "chevron",
+        "padding_top_mobile": 9,
+        "padding_top_desktop": 26,
+        "enable_custom_padding": true,
+        "padding_bottom_mobile": 9,
+        "padding_bottom_desktop": 20
+      }
+    },
+    "main": {
+      "type": "main-product",
+      "settings": {
+        "image_zoom": "open_lightbox",
+        "padding_top": 32,
+        "color_scheme": "default",
+        "media_square": false,
+        "reset_spacing": true,
+        "section_width": "container",
+        "sticky_bar_bg": "",
+        "desktop_layout": "thumbnail_bottom",
+        "mobile_options": "show_thumbnails",
+        "padding_bottom": 72,
+        "sticky_top_gap": 24,
+        "enable_on_mobile": true,
+        "sticky_padding_y": 12,
+        "enable_on_desktop": true,
+        "sticky_show_image": true,
+        "sticky_show_title": true,
+        "content_gap_desktop": 56,
+        "desktop_media_width": 58,
+        "padding_left_mobile": 16,
+        "sticky_border_color": "",
+        "enable_video_looping": true,
+        "padding_left_desktop": 0,
+        "padding_right_mobile": 16,
+        "section_width_mobile": "fluid_container",
+        "sticky_button_radius": 8,
+        "sticky_show_quantity": true,
+        "enable_custom_padding": false,
+        "enable_video_autoplay": true,
+        "padding_right_desktop": 0,
+        "enable_nav_dots_mobile": false,
+        "mobile_slides_per_view": "1",
+        "enable_custom_media_gap": false,
+        "sticky_show_variant_picker": true,
+        "enable_sticky_content_on_desktop": true
+      },
+      "blocks": {
+        "title_2": {
+          "type": "title",
+          "settings": {
+            "show_vendor": false,
+            "title_font_size_desktop": 40,
+            "title_font_size_mobile": 30
+          }
+        },
+        "text_3": {
+          "type": "text",
+          "settings": {
+            "heading": "",
+            "content": "<p>A Notion template you duplicate into your own workspace. Works on Notion's free plan.</p>"
+          }
+        },
+        "price_4": {
+          "type": "price",
+          "settings": {
+            "price_font_size_desktop": 28,
+            "price_font_size_mobile": 24,
+            "price_font_weight": "700",
+            "compare_font_size_desktop": 18,
+            "compare_font_size_mobile": 15,
+            "compare_font_weight": "400"
+          }
+        },
+        "variant_picker_5": {
+          "type": "variant_picker",
+          "settings": {
+            "variant_type": "swatches",
+            "picker_swatch_style": "theme"
+          }
+        },
+        "infotables_6": {
+          "type": "infotables",
+          "settings": {
+            "max_width": 760,
+            "center_card": false,
+            "section_pt_d": 6,
+            "section_pb_d": 18,
+            "section_pt_m": 6,
+            "section_pb_m": 16,
+            "pt_d": 14,
+            "pb_d": 14,
+            "pl_d": 18,
+            "pr_d": 18,
+            "pt_m": 12,
+            "pb_m": 12,
+            "pl_m": 14,
+            "pr_m": 14,
+            "font_size_d": 15,
+            "font_size_m": 14,
+            "line_height": 150,
+            "font_weight": 400,
+            "icon_gap": 14,
+            "icon_size": 20,
+            "border_style": "solid",
+            "divider_style": "solid",
+            "enable_custom_style": false,
+            "row1_enable": true,
+            "row2_enable": false,
+            "row3_enable": true,
+            "row1_highlight_weight": 600,
+            "row3_highlight_weight": 600,
+            "row1_custom_icon": true,
+            "row1_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 4v11m0 0-4-4m4 4 4-4M5 19h14\"/></svg>",
+            "row2_custom_icon": false,
+            "row3_custom_icon": true,
+            "row3_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 12a8 8 0 1 0 2.4-5.7L4 8.5M4 4v4.5h4.5\"/></svg>",
+            "row1_lead": "Duplicate to Notion:",
+            "row1_strong": "the link is on your receipt and in your email.",
+            "row2_lead": "",
+            "row2_code": "",
+            "row2_tail": "",
+            "row3_lead": "14 day refund:",
+            "row3_strong": "email me and get your money back."
+          }
+        },
+        "buy_buttons_7": {
+          "type": "buy_buttons",
+          "settings": {
+            "show_add_to_cart": true,
+            "show_dynamic_checkout": true,
+            "show_quantity": false,
+            "buttons_full_width": true,
+            "quantity_right_of_atc": false,
+            "show_wishlist_button": false,
+            "atc_appearance": "theme",
+            "buy_appearance": "theme",
+            "atc_icon_enable": false,
+            "atc_icon": "bag",
+            "buy_icon_enable": false,
+            "show_gift_card_recipient": false
+          }
+        },
+        "link_button_8": {
+          "type": "link_button",
+          "settings": {
+            "label": "How duplicating works",
+            "link": "/blogs/news/duplicating-a-notion-template-step-by-step",
+            "style": "text",
+            "icon": "none",
+            "full_width": false,
+            "spacing_top": 4,
+            "spacing_bottom": 12
+          }
+        },
+        "whats_included_9": {
+          "type": "whats_included",
+          "settings": {
+            "heading": "What you get",
+            "items": "The template, every page and database linked\nA Start here page with what to fill in first\nA short video walkthrough\nEvery future update, free",
+            "two_columns": false,
+            "boxed": true
+          }
+        },
+        "collapsible_row_10": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "What is inside",
+            "content": "",
+            "use_product_description": true,
+            "open": true
+          }
+        },
+        "collapsible_row_11": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "How you get it",
+            "content": "<p>After you pay, or check out at $0 for a free template, open the link on the receipt page or in the email while you are signed in to Notion. Press <strong>Duplicate</strong> at the top right and the template is copied into your own workspace, ready to fill in.</p>",
+            "use_product_description": false,
+            "open": false
+          }
+        },
+        "faq_accordion_12": {
+          "type": "faq_accordion",
+          "settings": {
+            "heading": "Questions",
+            "use_product_faqs": false,
+            "first_open": false,
+            "spacing_top": 12,
+            "spacing_bottom": 12,
+            "q_1": "Do I need a paid Notion plan?",
+            "a_1": "<p>No. Every template works on Notion's free plan, on the web, the desktop app and the phone app.</p>",
+            "q_2": "Can I change a template?",
+            "a_2": "<p>Every page, property and view is yours to edit. Rename things, add columns, delete pages you do not need.</p>",
+            "q_3": "What does the commercial licence cover?",
+            "a_3": "<p>The personal licence is for your own use. The commercial licence lets you use the template inside your business or set it up for one client. Reselling it is not allowed with either.</p>",
+            "q_4": "What if it is not for me?",
+            "a_4": "<p>Email within 14 days of buying and you get your money back. No form to fill in.</p>"
+          }
+        },
+        "payment_badges_13": {
+          "type": "payment_badges",
+          "settings": {
+            "h_main": "",
+            "sec_bg": "rgba(0,0,0,0)",
+            "sec_mb": 0,
+            "sec_mt": 0,
+            "sec_pb": 22,
+            "sec_pl": 0,
+            "sec_pr": 0,
+            "sec_pt": 22,
+            "badge_h": 31,
+            "badge_w": 47,
+            "sub_url": "",
+            "sec_maxw": 116,
+            "sec_pl_m": 0,
+            "sec_pr_m": 0,
+            "sub_text": "",
+            "badge_h_m": 22,
+            "badge_w_m": 68,
+            "h_main_mb": 16,
+            "h_main_mt": 0,
+            "show_amex": true,
+            "show_visa": true,
+            "sub_color": "#333333",
+            "sub_hover": "#111111",
+            "a11y_label": "Payment badges",
+            "sec_maxw_m": 150,
+            "sec_radius": 0,
+            "sub_newtab": false,
+            "text_align": "left",
+            "h_main_size": 16,
+            "show_paypal": true,
+            "sub_uline_w": 1,
+            "badges_align": "auto",
+            "h_main_color": "#2c2c2c",
+            "text_align_m": "center",
+            "toggle_icons": true,
+            "show_unionpay": false,
+            "sub_underline": false,
+            "show_apple_pay": true,
+            "show_google_pay": true,
+            "show_mastercard": true
+          }
+        },
+        "badges_1": {
+          "type": "badges",
+          "settings": {
+            "position_next_to_price": true
+          }
+        },
+        "reviews_1": {
+          "type": "product_reviews",
+          "settings": {
+            "review_source": "product",
+            "review_label": "reviews",
+            "padding_top": 0,
+            "padding_bottom": 6,
+            "enable_counter_custom": false
+          }
+        }
+      },
+      "block_order": [
+        "title_2",
+        "reviews_1",
+        "text_3",
+        "price_4",
+        "badges_1",
+        "variant_picker_5",
+        "infotables_6",
+        "buy_buttons_7",
+        "link_button_8",
+        "whats_included_9",
+        "collapsible_row_10",
+        "collapsible_row_11",
+        "faq_accordion_12",
+        "payment_badges_13"
+      ]
+    },
+    "how": {
+      "type": "how-to-use",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "cols_desktop": 3,
+        "content_align": "left",
+        "image_ratio": "4/3",
+        "image_fit": "cover",
+        "image_radius": 16,
+        "image_border": false,
+        "number_size": 15,
+        "title_size_desktop": 20,
+        "desc_size_desktop": 15,
+        "reveal": false,
+        "col_gap_desktop": 24,
+        "gap_desktop": 24,
+        "padding_top_desktop": 72,
+        "padding_bottom_desktop": 48,
+        "enable_mobile_carousel": false,
+        "title_size_mobile": 18,
+        "desc_size_mobile": 15,
+        "gap_mobile": 32,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 24
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "From checkout to your workspace",
+            "align": "center",
+            "gap_below": 40,
+            "size_desktop": 40,
+            "size_mobile": 30
+          }
+        },
+        "step_2": {
+          "type": "step",
+          "settings": {
+            "image": "shopify://shop_images/notionsite-step-email.webp",
+            "number": "1",
+            "title": "Pick a template",
+            "description": "<p>Pay, or check out at $0 for a free one. The link arrives on the receipt page and by email.</p>"
+          }
+        },
+        "step_3": {
+          "type": "step",
+          "settings": {
+            "image": "shopify://shop_images/notionsite-step-duplicate.webp",
+            "number": "2",
+            "title": "Press Duplicate",
+            "description": "<p>Open the link while signed in to Notion and copy the template into your own workspace.</p>"
+          }
+        },
+        "step_4": {
+          "type": "step",
+          "settings": {
+            "image": "shopify://shop_images/notionsite-step-yours.webp",
+            "number": "3",
+            "title": "Make it yours",
+            "description": "<p>Delete the sample rows, rename what you like and add your own. It works on Notion's free plan.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "step_2",
+        "step_3",
+        "step_4"
+      ]
+    },
+    "reviews": {
+      "type": "testimonial-wall",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "text_align": "center",
+        "columns": 4,
+        "card_gap": 16,
+        "card_style": "filled",
+        "collapse": "always",
+        "collapsed_part": 60,
+        "more_label": "Load more",
+        "less_label": "Show fewer",
+        "enable_custom_style": true,
+        "card_bg": "#f5f5f4",
+        "quote_color": "#2e2e30",
+        "name_color": "#111111",
+        "star_color": "#f5b301",
+        "star_empty_color": "#e3e3e1",
+        "card_radius": 16,
+        "quote_size": 15,
+        "quote_size_mobile": 15,
+        "reveal": false,
+        "padding_top": 72,
+        "padding_bottom": 40,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 32
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "What buyers say",
+            "size": 40,
+            "size_mobile": 30
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>Sample notes to show the layout. Replace them with your own reviews.</p>"
+          }
+        },
+        "testimonial_3": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Set it up in one evening. For the first time I know which leads are waiting on me without searching my inbox.",
+            "name": "Hanna K.",
+            "role": "Client CRM",
+            "rating": 5,
+            "avatar": "shopify://shop_images/notionsite-buyer-1.webp"
+          }
+        },
+        "testimonial_4": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Simple and quick to fill in. Exactly what I wanted from a free planner for the business.",
+            "name": "Daniel O.",
+            "role": "Weekly Planner",
+            "rating": 5,
+            "avatar": "shopify://shop_images/notionsite-buyer-2.webp"
+          }
+        },
+        "testimonial_5": {
+          "type": "testimonial",
+          "settings": {
+            "body": "The task list on each project page is the part I did not know I needed. Clients stopped asking me where things are.",
+            "name": "Amara B.",
+            "role": "Project Tracker",
+            "rating": 5,
+            "avatar": "shopify://shop_images/notionsite-buyer-3.webp"
+          }
+        },
+        "testimonial_6": {
+          "type": "testimonial",
+          "settings": {
+            "body": "The tax set aside bar is the reason I opened it every week. No surprise bill in January this year.",
+            "name": "Rosa M.",
+            "role": "Finance Dashboard",
+            "rating": 5,
+            "avatar": "shopify://shop_images/notionsite-buyer-4.webp"
+          }
+        },
+        "testimonial_7": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Clean, no clutter. It looks like Notion, not like a poster.",
+            "name": "Sami T.",
+            "role": "Meeting Notes",
+            "rating": 5,
+            "avatar": "shopify://shop_images/notionsite-buyer-5.webp"
+          }
+        },
+        "testimonial_8": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Action items at the bottom of every meeting page. My team ticks them off before the next call.",
+            "name": "Julia W.",
+            "role": "Meeting Notes",
+            "rating": 5,
+            "avatar": "shopify://shop_images/notionsite-buyer-6.webp"
+          }
+        },
+        "testimonial_9": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Bought the bundle for the CRM and ended up using all four. The Home page with what is due this week is great.",
+            "name": "Marcus L.",
+            "role": "Business OS Bundle",
+            "rating": 5,
+            "avatar": "shopify://shop_images/notionsite-buyer-7.webp"
+          }
+        },
+        "testimonial_10": {
+          "type": "testimonial",
+          "settings": {
+            "body": "Good walkthrough video. I had never used a linked database before and it made sense straight away.",
+            "name": "Ellie P.",
+            "role": "Client CRM",
+            "rating": 5,
+            "avatar": "shopify://shop_images/notionsite-buyer-8.webp"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "testimonial_3",
+        "testimonial_4",
+        "testimonial_5",
+        "testimonial_6",
+        "testimonial_7",
+        "testimonial_8",
+        "testimonial_9",
+        "testimonial_10"
+      ]
+    },
+    "related": {
+      "type": "related-products",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "heading": "More templates",
+        "description": "",
+        "header_size": "small",
+        "header_alignment": "left",
+        "items_per_row": 3,
+        "items_per_row_mobile": 1,
+        "column_gap": 20,
+        "intent": "related",
+        "items_to_show": 3,
+        "show_badges": true,
+        "show_vendor": false,
+        "show_rating": false,
+        "show_swatches": false,
+        "show_price": true,
+        "show_add_to_cart": false,
+        "show_action": false,
+        "reveal": true,
+        "padding_top": 56,
+        "padding_bottom": 88
+      }
+    },
+    "recently_viewed": {
+      "type": "recently-viewed",
+      "blocks": {
+        "heading_rv": {
+          "type": "heading",
+          "settings": {
+            "text": "Recently viewed"
+          }
+        }
+      },
+      "block_order": [
+        "heading_rv"
+      ],
+      "settings": {
+        "section_width": "container",
+        "products_to_show": 8,
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
+        "column_gap": 20,
+        "padding_top": 40,
+        "padding_bottom": 56
+      }
+    }
+  },
+  "order": [
+    "breadcrumb",
+    "main",
+    "how",
+    "reviews",
+    "related",
+    "recently_viewed"
+  ]
+}
