@@ -1,3 +1,4 @@
+/* Templates round 26: the cart with three short answers about downloads. */
 {
   "sections": {
     "heading": {
@@ -56,22 +57,22 @@
         "faq_1": {
           "type": "faq",
           "settings": {
-            "question": "When do I get the template?",
-            "answer": "<p>Straight after you pay. The duplicate link is on the receipt page and in your email.</p>"
+            "question": "When do I get the files?",
+            "answer": "<p>Straight after you pay. The links are on the confirmation page and in your email.</p>"
           }
         },
         "faq_2": {
           "type": "faq",
           "settings": {
-            "question": "Can I get a refund?",
-            "answer": "<p>Yes, within 14 days. Email me and you get your money back.</p>"
+            "question": "Can I use them for client work?",
+            "answer": "<p>Yes. The standard licence covers one person and unlimited projects.</p>"
           }
         },
         "faq_3": {
           "type": "faq",
           "settings": {
-            "question": "Do I need Notion Plus?",
-            "answer": "<p>No. Every template works on Notion's free plan.</p>"
+            "question": "Can I get a refund?",
+            "answer": "<p>If a file is broken or not what the page describes, write within 14 days.</p>"
           }
         },
         "payment_badges_67Mgyc": {

@@ -1,3 +1,4 @@
+/* Templates round 26: every question, then the monthly email. */
 {
   "sections": {
     "faq": {
@@ -6,100 +7,93 @@
         "color_scheme": "default",
         "section_width": "container",
         "structured_data": true,
-        "heading": "Frequently asked questions",
-        "subheading": "<p>Everything worth knowing before you duplicate a template.</p>",
+        "heading": "Questions",
+        "subheading": "<p>About downloads, the licence, updates and refunds.</p>",
         "first_item_open": false,
         "allow_multiple_open": false,
         "open_icon": "plus",
-        "content_alignment": "center",
-        "max_content_width": 760,
-        "gap_header_to_items": 36,
+        "content_alignment": "left",
+        "max_content_width": 820,
+        "gap_header_to_items": 32,
         "gap_heading_to_subheading": 10,
-        "gap_between_items": 12,
-        "item_padding_y": 18,
-        "item_padding_x": 22,
-        "item_radius": 14,
-        "show_dividers": false,
+        "gap_between_items": 0,
+        "item_padding_y": 20,
+        "item_padding_x": 0,
+        "item_radius": 0,
+        "show_dividers": true,
         "enable_custom_style": true,
-        "card_bg": "#f5f5f4",
-        "card_border_color": "#ececea",
-        "question_color": "#111111",
-        "icon_color": "#111111",
-        "answer_color": "#55555a",
+        "card_bg": "rgba(0,0,0,0)",
+        "card_border_color": "#e4e3df",
+        "question_color": "#17181a",
+        "icon_color": "#17181a",
+        "answer_color": "#4a4c50",
         "heading_size_desktop": 40,
         "heading_size_mobile": 30,
-        "question_size_desktop": 16,
-        "question_size_mobile": 15,
+        "question_size_desktop": 18,
+        "question_size_mobile": 16,
         "enable_custom_question_weight": true,
         "question_weight": "500",
-        "answer_size_desktop": 15,
-        "answer_size_mobile": 14,
+        "answer_size_desktop": 16,
+        "answer_size_mobile": 15,
         "reveal": false,
         "padding_top": 72,
-        "padding_bottom": 56
+        "padding_bottom": 88
       },
       "blocks": {
         "faq_item_1": {
           "type": "faq_item",
           "settings": {
-            "question": "Who are these templates for?",
-            "answer": "<p>Freelancers, studios and small teams who want their clients, projects and money in one tidy place without building it from scratch. If you can type in a table, you can use them.</p>"
+            "question": "How do I get my files?",
+            "answer": "<p>Straight after you pay. The download links are on the order confirmation page and in the email that arrives a minute later. Courses open in your account on this site.</p>"
           }
         },
         "faq_item_2": {
           "type": "faq_item",
           "settings": {
-            "question": "Do I need a paid Notion plan?",
-            "answer": "<p>No. Every template works on Notion's free plan, on the web, the desktop app and the phone app.</p>"
+            "question": "Can I download them again later?",
+            "answer": "<p>Yes. Sign in to your account, or use the link in your email, and download as many times as you need. Keep a copy on your own drive as well.</p>"
           }
         },
         "faq_item_3": {
           "type": "faq_item",
           "settings": {
-            "question": "How do I get a template after I pay?",
-            "answer": "<p>The receipt page and the email both have a link. Open it while you are signed in to Notion, press Duplicate and the template is copied into your workspace.</p>"
+            "question": "What can I make with them?",
+            "answer": "<p>Client work, products you sell, social posts, print and packaging. The standard licence covers one person and unlimited projects. Read the licence page for the few things it does not allow.</p>"
           }
         },
         "faq_item_4": {
           "type": "faq_item",
           "settings": {
-            "question": "Are the free templates really free?",
-            "answer": "<p>Yes. Check out at $0, get the same link by email and keep the template. You can unsubscribe from emails at any time.</p>"
+            "question": "Can my team use them?",
+            "answer": "<p>The standard licence is for one person. Pick the team option on the product page and up to five people can install and use the files.</p>"
           }
         },
         "faq_item_5": {
           "type": "faq_item",
           "settings": {
-            "question": "Can I change a template?",
-            "answer": "<p>Every page, property and view is yours to edit. Rename things, add columns, delete pages you do not need.</p>"
+            "question": "Do I get updates?",
+            "answer": "<p>Yes, for free. When a product changes, a new version or extra files, you get an email and the new download replaces the old one in your account.</p>"
           }
         },
         "faq_item_6": {
           "type": "faq_item",
           "settings": {
-            "question": "What does the commercial licence cover?",
-            "answer": "<p>The personal licence is for your own use. The commercial licence lets you use the template inside your business or set it up for one client. Reselling it is not allowed with either.</p>"
+            "question": "Which apps do I need?",
+            "answer": "<p>Each product page lists its files. Fonts install on Mac and Windows, presets work in Lightroom desktop and mobile, brushes need Procreate 5 or later, and the templates open in Figma, Canva or Google Docs.</p>"
           }
         },
         "faq_item_7": {
           "type": "faq_item",
           "settings": {
-            "question": "Will I get updates?",
-            "answer": "<p>Yes. When a template changes, everyone who bought it gets an email with the new link, at no cost.</p>"
+            "question": "Can I get a refund?",
+            "answer": "<p>Digital files cannot be returned, so look at the previews first. If a file is broken or not what the page describes, write within 14 days and you get your money back.</p>"
           }
         },
         "faq_item_8": {
           "type": "faq_item",
           "settings": {
-            "question": "What if it is not for me?",
-            "answer": "<p>Email within 14 days of buying and you get your money back. No form to fill in.</p>"
-          }
-        },
-        "faq_item_9": {
-          "type": "faq_item",
-          "settings": {
-            "question": "How can I ask a question?",
-            "answer": "<p>Write from the contact page. I read every message and reply within two working days.</p>"
+            "question": "Do you do custom work?",
+            "answer": "<p>Not at the moment. If you need a font licence for an app or a large team, write and we will quote it.</p>"
           }
         }
       },
@@ -111,50 +105,49 @@
         "faq_item_5",
         "faq_item_6",
         "faq_item_7",
-        "faq_item_8",
-        "faq_item_9"
+        "faq_item_8"
       ]
     },
     "newsletter": {
-      "type": "newsletter-split",
+      "type": "newsletter",
       "settings": {
-        "color_scheme": "scheme-6c1d2a40-91b7-4c55-9a0e-5d3f0b8e7a11",
+        "color_scheme": "scheme-9d3e6b10-2a7c-4f55-8e19-6c0b1d4e3f02",
         "section_width": "container",
-        "show_section_on": "all",
+        "reset_spacing": true,
+        "heading": "New files, once a month",
         "email_label": "Email address",
         "email_placeholder": "name@email.com",
         "btn_text": "Subscribe",
-        "note": "One email a month. Unsubscribe any time.",
+        "note": "One email a month with what is new and one free file. Unsubscribe any time.",
         "subscribed_button_text": "Subscribed",
         "success_text": "Thanks, you are on the list.",
-        "image_position": "right",
-        "content_alignment": "left",
+        "header_alignment": "center",
         "form_layout": "horizontal",
-        "image_width": 44,
-        "column_gap": 56,
-        "image": "shopify://shop_images/notionsite-newsletter.webp",
-        "image_alt": "A drawing of an envelope with a checklist coming out of it",
-        "image_ratio": "landscape",
+        "show_icon": false,
+        "show_content_background": false,
         "button_style": "primary",
         "use_theme_button": true,
+        "use_theme_fields": true,
+        "header_size": "medium",
         "reveal": false,
-        "padding_top": 24,
-        "padding_bottom": 96,
-        "padding_top_mobile": 40,
-        "padding_bottom_mobile": 56,
-        "show_image_mobile": false
+        "padding_top": 88,
+        "padding_bottom": 88
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "A new template, once a month"
+            "text": "New files, once a month",
+            "tag": "h2",
+            "size_enable": true,
+            "size_desktop": 40,
+            "size_mobile": 30
           }
         },
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>What I made, what I changed and one free template for subscribers. Nothing else.</p>"
+            "text": "<p>What we made, what we updated and a free file for subscribers. Nothing else.</p>"
           }
         }
       },

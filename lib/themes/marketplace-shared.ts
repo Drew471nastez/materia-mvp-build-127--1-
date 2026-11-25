@@ -168,6 +168,8 @@ export const CODE_TEMPLATES: readonly CodeTemplate[] = [
   { slug: "notion-creator", template: "notionsite", name: "Notion creator", category: "digital" },
   /* Templates round 25: Lowmoth, a sample label's dark store after the owner's sample pack reference: a centred hero with short previews floating round the heading, pack cards in rows with a play button on each cover and the preview's own waveform (soundpacks-pack-row), a table of demos with type, file name, BPM and key (soundpacks-track-table), bundles, why buy here, sample reviews with photos and a journal. Each pack page has a demo player, its sounds in the table, what is inside, the DAWs it works in and the licence. Pack art drawn for the template, demo loops synthesised for it. */
   { slug: "sound-packs", template: "soundpacks", name: "Sound packs", category: "digital" },
+  /* Templates round 26: Offcut, a small design studio selling downloads of several kinds (fonts, Lightroom presets, Procreate brushes, paper textures, Figma and Canva templates, a pricing guide and a video course): a split hero with the products on a table, the featured font, the shop under tabs by kind, bundles, how buying works (pay, download, licence, updates), the maker, buyer notes, questions and a licence page, built from the theme's own sections. Product pictures are mockups drawn for it. */
+  { slug: "digital-studio", template: "digistudio", name: "Digital studio", category: "digital" },
 ]
 
 /** Where a template's pictures live: its home page whole at 1440 wide, and at a phone's width (scripts/build-theme-template-covers.ts takes both). */

@@ -499,6 +499,8 @@ export interface CompatThemeOptions {
   assetText?: (name: string) => string | null
   /** A picture setting's stored value as an address: "shopify://shop_images/x.jpg" is not one Storelib can reach. */
   imageUrl?: (value: string) => string
+  /** A picture setting's own width and height, where the engine can read its file (./image-size.ts); else the image object says 1600 by 1600. */
+  imageSize?: (value: string) => { width: number; height: number } | null
   /** Section names the theme used that Storelib keeps for its own: header → theme-header. */
   renamed?: Record<string, string>
   /** The theme's name, for window.Shopify.theme. */
@@ -823,6 +825,7 @@ export class CompatTheme {
       menus: page.menus,
       schemes,
       imageUrl: (v) => (this.opts.imageUrl ? this.opts.imageUrl(v) : /^https?:\/\//.test(v) || v.startsWith("/") ? v : ""),
+      ...(this.opts.imageSize ? { imageSize: this.opts.imageSize } : {}),
       currentPath: page.path,
       current: page.product ?? null,
       link: pageLinks(page),

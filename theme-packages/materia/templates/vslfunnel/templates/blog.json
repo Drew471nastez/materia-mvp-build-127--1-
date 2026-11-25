@@ -1,4 +1,4 @@
-/* Templates round 24: the Paper Garden journal, then the free colour charts. */
+/* Templates round 24: the Tempo journal, then the free puzzle sheets. */
 {
   "sections": {
     "heading": {
@@ -27,7 +27,7 @@
         "description_YRWpkt": {
           "type": "description",
           "settings": {
-            "description": "<p>Short notes on water, colour and loose flowers in watercolour.</p>",
+            "description": "<p>Short notes on blunders, plans and endgames for club players.</p>",
             "enable_custom_style": false,
             "description_font_size": 16
           }
@@ -82,27 +82,27 @@
       "settings": {
         "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
         "image": "shopify://shop_images/vslfunnel-tin.webp",
-        "image_alt": "A loose watercolour of coral flowers and leaves on a desk beside a paint tin and brushes",
+        "image_alt": "A wooden chess set mid game on a dark table",
         "image_position": "left",
         "image_ratio": "landscape",
         "image_width": 50,
         "form_layout": "horizontal",
-        "btn_text": "Send me the charts",
+        "btn_text": "Send me the sheets",
         "email_placeholder": "Your email",
         "note": "One email a month at most. Leave whenever you like.",
-        "success_text": "Done. The colour charts are on their way to your inbox."
+        "success_text": "Done. The puzzle sheets are on their way to your inbox."
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Get the colour charts free"
+            "text": "Get the puzzle sheets free"
           }
         },
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Four mixing charts from module four as a PDF: greens, pinks, warm reds and soft neutrals from a palette of six colours.</p>"
+            "text": "<p>Forty puzzles from module three as a PDF: forks, pins, skewers and discovered attacks, with the answers on the back page.</p>"
           }
         }
       },

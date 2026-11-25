@@ -1,4 +1,4 @@
-/* Templates round 24: Paper Garden missing page, with the way back and a last call to join. */
+/* Templates round 24: Tempo missing page, with the way back and a last call to join. */
 {
   "sections": {
     "main": {
@@ -17,7 +17,7 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "heading": "This page is missing",
+            "heading": "This page resigned",
             "font_size": 36,
             "uppercase": false,
             "font_weight": "heading_weight",
@@ -66,14 +66,14 @@
         "eyebrow_1": {
           "type": "eyebrow",
           "settings": {
-            "text": "Paper Garden",
+            "text": "Tempo",
             "transform": "uppercase"
           }
         },
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Paint your first loose bouquet by March",
+            "text": "Stop giving games away by March",
             "transform": "none",
             "lineheight": "1.25"
           }
@@ -81,7 +81,7 @@
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "Eight modules, six live painting reviews and a 30 day refund."
+            "text": "Eight modules, six live game reviews and a 30 day refund."
           }
         },
         "button_4": {

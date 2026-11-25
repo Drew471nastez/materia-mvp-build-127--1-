@@ -1,12 +1,12 @@
-/* Templates round 24: about Clara Voss, the sample teacher: her story, why the course exists, three ideas it is built on, student quotes and the free colour charts. */
+/* Templates round 24: about Lena Marsh, the sample teacher: her story, why the course exists, three ideas it is built on, student quotes and the free puzzle sheets. */
 {
   "sections": {
     "story": {
       "type": "Image-and-video-text",
       "settings": {
         "color_scheme": "default",
-        "image": "shopify://shop_images/vslfunnel-clara-portrait.webp",
-        "image_alt": "Clara Voss painting a loose floral at her table",
+        "image": "shopify://shop_images/vslfunnel-teacher-portrait.webp",
+        "image_alt": "Lena Marsh at a chessboard, smiling",
         "image_position": "left",
         "aspect_w": 4,
         "aspect_h": 5,
@@ -23,14 +23,14 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Clara Voss",
+            "text": "Lena Marsh",
             "tag": "h1"
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Clara bought her first watercolour set at nineteen and painted brown puddles for a year. When someone finally showed her how much water to use, it took an afternoon.</p><p>She has painted wedding stationery and botanical prints for ten years and taught an evening class for six. Paper Garden is that class, filmed. This is sample text. Replace it with your own story.</p>"
+            "text": "<p>Lena learned chess at twenty six and lost most of her first hundred games to one careless move. When a club coach taught her the three checks, her results changed within a month.</p><p>She has coached adult club players for eight years and run an evening class for five. Tempo is that class, filmed. This is sample text; replace it with your own story.</p>"
           }
         },
         "button_4": {
@@ -53,7 +53,7 @@
       "settings": {
         "color_scheme": "default",
         "image": "shopify://shop_images/vslfunnel-table-wide.webp",
-        "image_alt": "A watercolour palette in a tin beside swatches and a loose floral study",
+        "image_alt": "A black knight and a white knight facing each other",
         "image_position": "right",
         "aspect_w": 1,
         "aspect_h": 1,
@@ -69,13 +69,13 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Most tutorials show the painting, not the water"
+            "text": "Most videos show brilliant moves, not your mistakes"
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Speed paintings look easy and teach very little. People in Clara's class kept asking the same things: why the colours turn to mud, why the edges go hard, why the greens look flat. The course answers those first.</p>"
+            "text": "<p>Grandmaster games are fun to watch and teach very little at club level. People in Lena's class kept losing the same way: a loose piece, a missed check, a fork two moves deep. The course fixes those first.</p>"
           }
         }
       },
@@ -103,24 +103,24 @@
           "type": "column",
           "settings": {
             "label": "01",
-            "heading": "Learn with a short paint list",
-            "text": "<p>New paints fix very little. Knowing how much water to use fixes most things.</p>"
+            "heading": "Play slow games",
+            "text": "<p>Blitz trains your hands. Thirty minute games train the habits that win.</p>"
           }
         },
         "column_3": {
           "type": "column",
           "settings": {
             "label": "02",
-            "heading": "One skill a week",
-            "text": "<p>Learning everything at once is why paint sets end up in drawers. The course adds one thing at a time.</p>"
+            "heading": "One habit a week",
+            "text": "<p>Learning openings, tactics and endgames at once is why people stall. The course adds one thing at a time.</p>"
           }
         },
         "column_4": {
           "type": "column",
           "settings": {
             "label": "03",
-            "heading": "Paint, then talk",
-            "text": "<p>Every module ends with a painting, and every other week someone looks at the result with you.</p>"
+            "heading": "Play, then review",
+            "text": "<p>Every module ends with games, and every other week someone goes through one with you.</p>"
           }
         }
       },
@@ -162,27 +162,27 @@
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "body": "I had a paint set for three years and used it twice. By week three I was painting leaves without thinking about it.",
+            "body": "I played a thousand blitz games and stayed stuck. By week three I stopped hanging pieces.",
             "name": "Naomi B.",
-            "role": "Complete beginner",
+            "role": "Learned the rules at 35",
             "rating": 0
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "body": "The water lesson changed every painting. I stopped going back into wet paint and the mud disappeared.",
+            "body": "The free lesson changed every game. One question after their move and half my blunders were gone.",
             "name": "Rafael O.",
-            "role": "Paints after work",
+            "role": "Plays after work",
             "rating": 0
           }
         },
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "body": "Each week has one painting, so I never felt behind. In the live reviews Clara told me exactly what to change.",
+            "body": "Each week has one habit, so I never felt behind. In the live review Lena found the move where my game turned.",
             "name": "Chloe L.",
-            "role": "First paint set",
+            "role": "Club player",
             "rating": 0
           }
         }
@@ -201,27 +201,27 @@
       "settings": {
         "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
         "image": "shopify://shop_images/vslfunnel-tin.webp",
-        "image_alt": "A loose watercolour of coral flowers and leaves on a desk beside a paint tin and brushes",
+        "image_alt": "A wooden chess set mid game on a dark table",
         "image_position": "left",
         "image_ratio": "landscape",
         "image_width": 50,
         "form_layout": "horizontal",
-        "btn_text": "Send me the charts",
+        "btn_text": "Send me the sheets",
         "email_placeholder": "Your email",
         "note": "One email a month at most. Leave whenever you like.",
-        "success_text": "Done. The colour charts are on their way to your inbox."
+        "success_text": "Done. The puzzle sheets are on their way to your inbox."
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Get the colour charts free"
+            "text": "Get the puzzle sheets free"
           }
         },
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Four mixing charts from module four as a PDF: greens, pinks, warm reds and soft neutrals from a palette of six colours.</p>"
+            "text": "<p>Forty puzzles from module three as a PDF: forks, pins, skewers and discovered attacks, with the answers on the back page.</p>"
           }
         }
       },

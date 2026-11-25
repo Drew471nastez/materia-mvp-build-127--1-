@@ -1,3 +1,4 @@
+/* Templates round 26: the journal and the monthly email. */
 {
   "sections": {
     "heading": {
@@ -23,7 +24,7 @@
         "description_2": {
           "type": "description",
           "settings": {
-            "description": "<p>How I use the templates, and what I learned building them.</p>"
+            "description": "<p>How we use the files, and how we price and plan the work.</p>"
           }
         }
       },
@@ -42,45 +43,45 @@
       }
     },
     "newsletter": {
-      "type": "newsletter-split",
+      "type": "newsletter",
       "settings": {
-        "color_scheme": "scheme-6c1d2a40-91b7-4c55-9a0e-5d3f0b8e7a11",
+        "color_scheme": "scheme-9d3e6b10-2a7c-4f55-8e19-6c0b1d4e3f02",
         "section_width": "container",
-        "show_section_on": "all",
+        "reset_spacing": true,
+        "heading": "New files, once a month",
         "email_label": "Email address",
         "email_placeholder": "name@email.com",
         "btn_text": "Subscribe",
-        "note": "One email a month. Unsubscribe any time.",
+        "note": "One email a month with what is new and one free file. Unsubscribe any time.",
         "subscribed_button_text": "Subscribed",
         "success_text": "Thanks, you are on the list.",
-        "image_position": "right",
-        "content_alignment": "left",
+        "header_alignment": "center",
         "form_layout": "horizontal",
-        "image_width": 44,
-        "column_gap": 56,
-        "image": "shopify://shop_images/notionsite-newsletter.webp",
-        "image_alt": "A drawing of an envelope with a checklist coming out of it",
-        "image_ratio": "landscape",
+        "show_icon": false,
+        "show_content_background": false,
         "button_style": "primary",
         "use_theme_button": true,
+        "use_theme_fields": true,
+        "header_size": "medium",
         "reveal": false,
-        "padding_top": 0,
-        "padding_bottom": 96,
-        "padding_top_mobile": 40,
-        "padding_bottom_mobile": 56,
-        "show_image_mobile": false
+        "padding_top": 88,
+        "padding_bottom": 88
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "A new template, once a month"
+            "text": "New files, once a month",
+            "tag": "h2",
+            "size_enable": true,
+            "size_desktop": 40,
+            "size_mobile": 30
           }
         },
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>What I made, what I changed and one free template for subscribers. Nothing else.</p>"
+            "text": "<p>What we made, what we updated and a free file for subscribers. Nothing else.</p>"
           }
         }
       },

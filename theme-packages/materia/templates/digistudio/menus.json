@@ -3,58 +3,142 @@
     "title": "Main menu",
     "links": [
       {
-        "title": "Templates",
+        "title": "Shop",
         "url": "/collections/all",
         "links": [
-          { "title": "All templates", "url": "/collections/all" },
-          { "title": "Premium templates", "url": "/collections/premium" },
-          { "title": "Free templates", "url": "/collections/free" },
-          { "title": "On sale", "url": "/collections/on-sale" },
-          { "title": "Bundles", "url": "/collections/bundles" }
+          {
+            "title": "Everything",
+            "url": "/collections/all"
+          },
+          {
+            "title": "Fonts",
+            "url": "/collections/fonts"
+          },
+          {
+            "title": "Presets",
+            "url": "/collections/presets"
+          },
+          {
+            "title": "Brushes and textures",
+            "url": "/collections/brushes-textures"
+          },
+          {
+            "title": "Templates",
+            "url": "/collections/templates"
+          },
+          {
+            "title": "Guides and courses",
+            "url": "/collections/guides-courses"
+          },
+          {
+            "title": "Bundles",
+            "url": "/collections/bundles"
+          },
+          {
+            "title": "Free downloads",
+            "url": "/collections/free"
+          }
         ]
       },
-      { "title": "Blog", "url": "/blogs/news" },
-      { "title": "FAQ", "url": "/pages/faqs" },
-      { "title": "About", "url": "/pages/about" },
-      { "title": "Contact", "url": "/pages/contact" }
+      {
+        "title": "Fonts",
+        "url": "/collections/fonts"
+      },
+      {
+        "title": "Bundles",
+        "url": "/collections/bundles"
+      },
+      {
+        "title": "Licence",
+        "url": "/pages/licence"
+      },
+      {
+        "title": "Journal",
+        "url": "/blogs/news"
+      },
+      {
+        "title": "About",
+        "url": "/pages/about"
+      }
     ]
   },
   "footer": {
-    "title": "Templates",
+    "title": "Shop",
     "links": [
-      { "title": "All templates", "url": "/collections/all" },
-      { "title": "Premium templates", "url": "/collections/premium" },
-      { "title": "Free templates", "url": "/collections/free" },
-      { "title": "On sale", "url": "/collections/on-sale" },
-      { "title": "Bundles", "url": "/collections/bundles" }
+      {
+        "title": "Everything",
+        "url": "/collections/all"
+      },
+      {
+        "title": "Fonts",
+        "url": "/collections/fonts"
+      },
+      {
+        "title": "Presets",
+        "url": "/collections/presets"
+      },
+      {
+        "title": "Brushes and textures",
+        "url": "/collections/brushes-textures"
+      },
+      {
+        "title": "Templates",
+        "url": "/collections/templates"
+      },
+      {
+        "title": "Guides and courses",
+        "url": "/collections/guides-courses"
+      },
+      {
+        "title": "Bundles",
+        "url": "/collections/bundles"
+      },
+      {
+        "title": "Free downloads",
+        "url": "/collections/free"
+      }
     ]
   },
-  "footer-social": {
-    "title": "Social",
+  "footer-help": {
+    "title": "Help",
     "links": [
-      { "title": "YouTube", "url": "https://www.youtube.com" },
-      { "title": "Instagram", "url": "https://www.instagram.com" },
-      { "title": "Pinterest", "url": "https://www.pinterest.com" },
-      { "title": "Newsletter", "url": "/#newsletter" }
+      {
+        "title": "Questions",
+        "url": "/pages/faqs"
+      },
+      {
+        "title": "Licence",
+        "url": "/pages/licence"
+      },
+      {
+        "title": "Contact",
+        "url": "/pages/contact"
+      },
+      {
+        "title": "Refund policy",
+        "url": "/policies/refund-policy"
+      }
     ]
   },
   "footer-more": {
-    "title": "More",
+    "title": "Studio",
     "links": [
-      { "title": "Blog", "url": "/blogs/news" },
-      { "title": "FAQ", "url": "/pages/faqs" },
-      { "title": "About", "url": "/pages/about" },
-      { "title": "Contact", "url": "/pages/contact" }
-    ]
-  },
-  "templates-filter": {
-    "title": "Browse",
-    "links": [
-      { "title": "All templates", "url": "/collections/all" },
-      { "title": "Premium", "url": "/collections/premium" },
-      { "title": "Free", "url": "/collections/free" },
-      { "title": "On sale", "url": "/collections/on-sale" },
-      { "title": "Bundles", "url": "/collections/bundles" }
+      {
+        "title": "About",
+        "url": "/pages/about"
+      },
+      {
+        "title": "Journal",
+        "url": "/blogs/news"
+      },
+      {
+        "title": "Instagram",
+        "url": "https://www.instagram.com"
+      },
+      {
+        "title": "Pinterest",
+        "url": "https://www.pinterest.com"
+      }
     ]
   }
 }

@@ -1,4 +1,4 @@
-/* Templates round 24: Paper Garden search, the course and extras, then the free colour charts. */
+/* Templates round 24: Tempo search, the course and extras, then the free puzzle sheets. */
 {
   "sections": {
     "main": {
@@ -9,7 +9,7 @@
         "reset_spacing": true,
         "heading": "Search",
         "sorting": true,
-        "empty_text": "Nothing matched. Try course, tracing or review.",
+        "empty_text": "Nothing matched. Try course, puzzles or review.",
         "empty_link_label": "See everything",
         "empty_link_url": "/collections/all",
         "enable_filtering": false,
@@ -31,7 +31,7 @@
       "settings": {
         "color_scheme": "default",
         "heading": "The course and the extras",
-        "text": "<p>The full course, the tracing sheets on their own, and a painting review call.</p>",
+        "text": "<p>The full course, the puzzle sheets on their own, and a game review call.</p>",
         "items_to_show": 4,
         "items_per_row": 4,
         "show_add_to_cart": true,
@@ -45,27 +45,27 @@
       "settings": {
         "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
         "image": "shopify://shop_images/vslfunnel-tin.webp",
-        "image_alt": "A loose watercolour of coral flowers and leaves on a desk beside a paint tin and brushes",
+        "image_alt": "A wooden chess set mid game on a dark table",
         "image_position": "left",
         "image_ratio": "landscape",
         "image_width": 50,
         "form_layout": "horizontal",
-        "btn_text": "Send me the charts",
+        "btn_text": "Send me the sheets",
         "email_placeholder": "Your email",
         "note": "One email a month at most. Leave whenever you like.",
-        "success_text": "Done. The colour charts are on their way to your inbox."
+        "success_text": "Done. The puzzle sheets are on their way to your inbox."
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Get the colour charts free"
+            "text": "Get the puzzle sheets free"
           }
         },
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Four mixing charts from module four as a PDF: greens, pinks, warm reds and soft neutrals from a palette of six colours.</p>"
+            "text": "<p>Forty puzzles from module three as a PDF: forks, pins, skewers and discovered attacks, with the answers on the back page.</p>"
           }
         }
       },

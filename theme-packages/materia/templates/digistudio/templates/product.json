@@ -1,4 +1,4 @@
-/* Templates round 25: a Notion template on the theme's own product page: the drawn Notion pages as a gallery, title, rating, price with its sale badge, the licence, how duplicating works, what you get, what is inside (the product description), questions, then how buying works, buyer notes and more templates. */
+/* Templates round 26: a download on the theme's own product page: the previews as a gallery, title, rating, price, the licence option, instant download and free updates, what's included, what is inside (the product description), file formats, the licence, questions, then how buying works, buyer notes, related products and recently viewed. */
 {
   "sections": {
     "breadcrumb": {
@@ -26,13 +26,13 @@
         "image_zoom": "open_lightbox",
         "padding_top": 32,
         "color_scheme": "default",
-        "media_square": false,
+        "media_square": true,
         "reset_spacing": true,
         "section_width": "container",
         "sticky_bar_bg": "",
-        "desktop_layout": "thumbnail_bottom",
+        "desktop_layout": "thumbnail_left",
         "mobile_options": "show_thumbnails",
-        "padding_bottom": 72,
+        "padding_bottom": 88,
         "sticky_top_gap": 24,
         "enable_on_mobile": true,
         "sticky_padding_y": 12,
@@ -40,7 +40,7 @@
         "sticky_show_image": true,
         "sticky_show_title": true,
         "content_gap_desktop": 56,
-        "desktop_media_width": 58,
+        "desktop_media_width": 56,
         "padding_left_mobile": 16,
         "sticky_border_color": "",
         "enable_video_looping": true,
@@ -71,7 +71,7 @@
           "type": "text",
           "settings": {
             "heading": "",
-            "content": "<p>A Notion template you duplicate into your own workspace. Works on Notion's free plan.</p>"
+            "content": "<p>A download. The links show the moment you pay and arrive by email.</p>"
           }
         },
         "price_4": {
@@ -128,13 +128,13 @@
             "row2_custom_icon": false,
             "row3_custom_icon": true,
             "row3_svg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 12a8 8 0 1 0 2.4-5.7L4 8.5M4 4v4.5h4.5\"/></svg>",
-            "row1_lead": "Duplicate to Notion:",
-            "row1_strong": "the link is on your receipt and in your email.",
+            "row1_lead": "Instant download:",
+            "row1_strong": "on the confirmation page and in your email.",
             "row2_lead": "",
             "row2_code": "",
             "row2_tail": "",
-            "row3_lead": "14 day refund:",
-            "row3_strong": "email me and get your money back."
+            "row3_lead": "Free updates:",
+            "row3_strong": "new versions wait in your account."
           }
         },
         "buy_buttons_7": {
@@ -157,8 +157,8 @@
         "link_button_8": {
           "type": "link_button",
           "settings": {
-            "label": "How duplicating works",
-            "link": "/blogs/news/duplicating-a-notion-template-step-by-step",
+            "label": "Read the licence",
+            "link": "/pages/licence",
             "style": "text",
             "icon": "none",
             "full_width": false,
@@ -169,8 +169,8 @@
         "whats_included_9": {
           "type": "whats_included",
           "settings": {
-            "heading": "What you get",
-            "items": "The template, every page and database linked\nA Start here page with what to fill in first\nA short video walkthrough\nEvery future update, free",
+            "heading": "What's included",
+            "items": "The files, in one zip named for the product\nA read me with install steps\nThe standard licence: one person, client work\nEvery future update, free",
             "two_columns": false,
             "boxed": true
           }
@@ -187,8 +187,8 @@
         "collapsible_row_11": {
           "type": "collapsible_row",
           "settings": {
-            "heading": "How you get it",
-            "content": "<p>After you pay, or check out at $0 for a free template, open the link on the receipt page or in the email while you are signed in to Notion. Press <strong>Duplicate</strong> at the top right and the template is copied into your own workspace, ready to fill in.</p>",
+            "heading": "File formats",
+            "content": "<p>Each product lists its files above. In general:</p><ul><li>Fonts: OTF and TTF for desktop, WOFF2 for the web</li><li>Presets: XMP for Lightroom Classic and desktop, DNG for Lightroom mobile</li><li>Brushes: a .brushset for Procreate 5 and later</li><li>Textures: JPG at 6000 px and PNG</li><li>Templates: Figma, Canva and Google Docs links, plus PDF</li><li>Guides: PDF. Courses: stream here, or download the MP4s</li></ul>",
             "use_product_description": false,
             "open": false
           }
@@ -201,14 +201,14 @@
             "first_open": false,
             "spacing_top": 12,
             "spacing_bottom": 12,
-            "q_1": "Do I need a paid Notion plan?",
-            "a_1": "<p>No. Every template works on Notion's free plan, on the web, the desktop app and the phone app.</p>",
-            "q_2": "Can I change a template?",
-            "a_2": "<p>Every page, property and view is yours to edit. Rename things, add columns, delete pages you do not need.</p>",
-            "q_3": "What does the commercial licence cover?",
-            "a_3": "<p>The personal licence is for your own use. The commercial licence lets you use the template inside your business or set it up for one client. Reselling it is not allowed with either.</p>",
-            "q_4": "What if it is not for me?",
-            "a_4": "<p>Email within 14 days of buying and you get your money back. No form to fill in.</p>"
+            "q_1": "When do I get the files?",
+            "a_1": "<p>Straight away. The links are on the confirmation page and in your email a minute later.</p>",
+            "q_2": "Can I use them for client work?",
+            "a_2": "<p>Yes. That is what the standard licence is for. Your client does not need a licence of their own to use what you make.</p>",
+            "q_3": "Do I get updates?",
+            "a_3": "<p>Yes, free. You get an email and the new version waits in your account.</p>",
+            "q_4": "What if a file does not work?",
+            "a_4": "<p>Write within 14 days. We fix it, or you get your money back.</p>"
           }
         },
         "payment_badges_13": {
@@ -271,6 +271,15 @@
             "padding_bottom": 6,
             "enable_counter_custom": false
           }
+        },
+        "collapsible_row_licence": {
+          "type": "collapsible_row",
+          "settings": {
+            "heading": "Licence",
+            "content": "<p>The standard licence covers one person and unlimited projects: client work, products you sell, print, packaging and social. The team licence covers up to five people. You may not resell or share the files themselves, or use the fonts in an app or a logo you register as a trademark without asking first.</p>",
+            "use_product_description": false,
+            "open": false
+          }
         }
       },
       "block_order": [
@@ -286,203 +295,226 @@
         "whats_included_9",
         "collapsible_row_10",
         "collapsible_row_11",
+        "collapsible_row_licence",
         "faq_accordion_12",
         "payment_badges_13"
       ]
     },
     "how": {
-      "type": "how-to-use",
+      "type": "feature-timeline",
       "settings": {
-        "color_scheme": "default",
+        "color_scheme": "scheme-5f1c0a2e-7b44-4d0e-9a51-0ffc0c7d2a01",
         "section_width": "container",
-        "cols_desktop": 3,
-        "content_align": "left",
-        "image_ratio": "4/3",
-        "image_fit": "cover",
-        "image_radius": 16,
-        "image_border": false,
-        "number_size": 15,
-        "title_size_desktop": 20,
-        "desc_size_desktop": 15,
-        "reveal": false,
-        "col_gap_desktop": 24,
-        "gap_desktop": 24,
-        "padding_top_desktop": 72,
-        "padding_bottom_desktop": 48,
-        "enable_mobile_carousel": false,
-        "title_size_mobile": 18,
-        "desc_size_mobile": 15,
-        "gap_mobile": 32,
-        "padding_top_mobile": 56,
-        "padding_bottom_mobile": 24
-      },
-      "blocks": {
-        "heading_1": {
-          "type": "heading",
-          "settings": {
-            "text": "From checkout to your workspace",
-            "align": "center",
-            "gap_below": 40,
-            "size_desktop": 40,
-            "size_mobile": 30
-          }
-        },
-        "step_2": {
-          "type": "step",
-          "settings": {
-            "image": "shopify://shop_images/notionsite-step-email.webp",
-            "number": "1",
-            "title": "Pick a template",
-            "description": "<p>Pay, or check out at $0 for a free one. The link arrives on the receipt page and by email.</p>"
-          }
-        },
-        "step_3": {
-          "type": "step",
-          "settings": {
-            "image": "shopify://shop_images/notionsite-step-duplicate.webp",
-            "number": "2",
-            "title": "Press Duplicate",
-            "description": "<p>Open the link while signed in to Notion and copy the template into your own workspace.</p>"
-          }
-        },
-        "step_4": {
-          "type": "step",
-          "settings": {
-            "image": "shopify://shop_images/notionsite-step-yours.webp",
-            "number": "3",
-            "title": "Make it yours",
-            "description": "<p>Delete the sample rows, rename what you like and add your own. It works on Notion's free plan.</p>"
-          }
-        }
-      },
-      "block_order": [
-        "heading_1",
-        "step_2",
-        "step_3",
-        "step_4"
-      ]
-    },
-    "reviews": {
-      "type": "testimonial-wall",
-      "settings": {
-        "color_scheme": "default",
-        "section_width": "container",
-        "text_align": "center",
-        "columns": 4,
-        "card_gap": 16,
-        "card_style": "filled",
-        "collapse": "always",
-        "collapsed_part": 60,
-        "more_label": "Load more",
-        "less_label": "Show fewer",
+        "show_section_on": "all",
+        "reset_spacing": true,
+        "layout": "side",
+        "text_align": "left",
+        "content_max_width": 820,
+        "head_gap": 40,
+        "item_gap_desktop": 36,
+        "image_ratio": "landscape",
+        "marker_style": "number",
+        "marker_size": 34,
+        "line_thickness": 1,
         "enable_custom_style": true,
-        "card_bg": "#f5f5f4",
-        "quote_color": "#2e2e30",
-        "name_color": "#111111",
-        "star_color": "#f5b301",
-        "star_empty_color": "#e3e3e1",
-        "card_radius": 16,
-        "quote_size": 15,
-        "quote_size_mobile": 15,
-        "reveal": false,
-        "padding_top": 72,
-        "padding_bottom": 40,
+        "line_color": "#d6d4ce",
+        "marker_color": "#17181a",
+        "label_color": "#e2552b",
+        "title_color": "#17181a",
+        "text_color": "#4a4c50",
+        "fill_on_scroll": false,
+        "padding_top_desktop": 88,
+        "padding_bottom_desktop": 88,
+        "item_gap_mobile": 28,
         "padding_top_mobile": 56,
-        "padding_bottom_mobile": 32
+        "padding_bottom_mobile": 56
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "What buyers say",
-            "size": 40,
-            "size_mobile": 30
+            "text": "How buying here works",
+            "enable_custom_style": false,
+            "size_enable": true,
+            "size_desktop": 40,
+            "size_mobile": 30,
+            "line_height": 1.15
           }
         },
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Sample notes to show the layout. Replace them with your own reviews.</p>"
+            "text": "<p>No account to make first, no waiting for an email with a key.</p>"
+          }
+        },
+        "item_3": {
+          "type": "item",
+          "settings": {
+            "label": "01",
+            "title": "Buy",
+            "text": "<p>Pay by card, Apple Pay, Google Pay or PayPal. Prices include the standard licence.</p>"
+          }
+        },
+        "item_4": {
+          "type": "item",
+          "settings": {
+            "label": "02",
+            "title": "Download",
+            "text": "<p>The links are on the confirmation page straight away and in your email a minute later. Zip files, named so you can find them.</p>"
+          }
+        },
+        "item_5": {
+          "type": "item",
+          "settings": {
+            "label": "03",
+            "title": "Use it",
+            "text": "<p>Client work, products you sell, print and social. One person, unlimited projects. The licence fits on one page.</p>"
+          }
+        },
+        "item_6": {
+          "type": "item",
+          "settings": {
+            "label": "04",
+            "title": "Get updates",
+            "text": "<p>When a file changes you get an email and the new version waits in your account, free.</p>"
+          }
+        },
+        "button_7": {
+          "type": "button",
+          "settings": {
+            "label": "Read the licence",
+            "link": "/pages/licence",
+            "style": "secondary",
+            "use_theme_button": true
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2",
+        "item_3",
+        "item_4",
+        "item_5",
+        "item_6",
+        "button_7"
+      ]
+    },
+    "reviews": {
+      "type": "testimonials",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "display_mode": "carousel",
+        "show_quote_mark": false,
+        "show_rating": true,
+        "columns": 3,
+        "column_gap": 20,
+        "header_alignment": "left",
+        "card_style": "outline",
+        "card_align": "left",
+        "card_padding": 28,
+        "card_content_gap": 16,
+        "card_radius": 6,
+        "avatar_shape": "circle",
+        "avatar_size": 48,
+        "show_arrow": true,
+        "carousel_pagination": "show_dots_on_mobile",
+        "pagination_style": "line",
+        "pagination_position": "center",
+        "pagination_spacing": 24,
+        "enable_custom_colors": true,
+        "card_bg": "#ffffff",
+        "card_border_color": "#e4e3df",
+        "quote_color": "#17181a",
+        "enable_custom_typography": true,
+        "quote_size": 17,
+        "autoplay": false,
+        "infinite": false,
+        "reveal": false,
+        "padding_top": 88,
+        "padding_bottom": 56,
+        "header_spacing_desktop": 36,
+        "columns_mobile": 1,
+        "header_spacing_mobile": 24
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "enabled": true,
+            "text": "What buyers made with them",
+            "enable_custom_typography": true,
+            "font_size_desktop": 40,
+            "font_size_mobile": 30,
+            "font_weight": "default"
+          }
+        },
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "enabled": true,
+            "text": "<p>Sample reviews in the layout this section shows. Replace them with what your own buyers say.</p>"
           }
         },
         "testimonial_3": {
           "type": "testimonial",
           "settings": {
-            "body": "Set it up in one evening. For the first time I know which leads are waiting on me without searching my inbox.",
-            "name": "Hanna K.",
-            "role": "Client CRM",
+            "quote": "<p>Field Grotesk is the first paid font I have bought. It works for everything at my studio, from the website to the menu boards.</p>",
             "rating": 5,
-            "avatar": "shopify://shop_images/notionsite-buyer-1.webp"
+            "name": "Lena Hartmann",
+            "role": "Field Grotesk",
+            "avatar": "shopify://shop_images/digistudio-buyer-1.webp"
           }
         },
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "body": "Simple and quick to fill in. Exactly what I wanted from a free planner for the business.",
-            "name": "Daniel O.",
-            "role": "Weekly Planner",
+            "quote": "<p>Twelve presets and I use eight of them all the time. They are subtle, which is what I wanted.</p>",
             "rating": 5,
-            "avatar": "shopify://shop_images/notionsite-buyer-2.webp"
+            "name": "Tom Becker",
+            "role": "Film Stock Presets",
+            "avatar": "shopify://shop_images/digistudio-buyer-2.webp"
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "body": "The task list on each project page is the part I did not know I needed. Clients stopped asking me where things are.",
-            "name": "Amara B.",
-            "role": "Project Tracker",
+            "quote": "<p>The brand kit saved me two days on the first client I used it for. The colour page alone is worth it.</p>",
             "rating": 5,
-            "avatar": "shopify://shop_images/notionsite-buyer-3.webp"
+            "name": "Marcus Owusu",
+            "role": "Brand Kit for Figma",
+            "avatar": "shopify://shop_images/digistudio-buyer-3.webp"
           }
         },
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "body": "The tax set aside bar is the reason I opened it every week. No surprise bill in January this year.",
-            "name": "Rosa M.",
-            "role": "Finance Dashboard",
+            "quote": "<p>The riso brushes have a real grain to them, not a filter on top. Prints look like prints.</p>",
             "rating": 5,
-            "avatar": "shopify://shop_images/notionsite-buyer-4.webp"
+            "name": "Clara Novak",
+            "role": "Riso Grain Brushes",
+            "avatar": "shopify://shop_images/digistudio-buyer-4.webp"
           }
         },
         "testimonial_7": {
           "type": "testimonial",
           "settings": {
-            "body": "Clean, no clutter. It looks like Notion, not like a poster.",
-            "name": "Sami T.",
-            "role": "Meeting Notes",
+            "quote": "<p>I raised my prices after chapter three. Two clients said yes without a question.</p>",
             "rating": 5,
-            "avatar": "shopify://shop_images/notionsite-buyer-5.webp"
+            "name": "Jonas Lind",
+            "role": "Pricing Your Design Work",
+            "avatar": "shopify://shop_images/digistudio-buyer-5.webp"
           }
         },
         "testimonial_8": {
           "type": "testimonial",
           "settings": {
-            "body": "Action items at the bottom of every meeting page. My team ticks them off before the next call.",
-            "name": "Julia W.",
-            "role": "Meeting Notes",
+            "quote": "<p>Downloaded in a minute, installed in two. The licence page answered my question before I had to ask.</p>",
             "rating": 5,
-            "avatar": "shopify://shop_images/notionsite-buyer-6.webp"
-          }
-        },
-        "testimonial_9": {
-          "type": "testimonial",
-          "settings": {
-            "body": "Bought the bundle for the CRM and ended up using all four. The Home page with what is due this week is great.",
-            "name": "Marcus L.",
-            "role": "Business OS Bundle",
-            "rating": 5,
-            "avatar": "shopify://shop_images/notionsite-buyer-7.webp"
-          }
-        },
-        "testimonial_10": {
-          "type": "testimonial",
-          "settings": {
-            "body": "Good walkthrough video. I had never used a linked database before and it made sense straight away.",
-            "name": "Ellie P.",
-            "role": "Client CRM",
-            "rating": 5,
-            "avatar": "shopify://shop_images/notionsite-buyer-8.webp"
+            "name": "Ruth Abrams",
+            "role": "Harbour Serif",
+            "avatar": "shopify://shop_images/digistudio-buyer-6.webp"
           }
         }
       },
@@ -494,9 +526,7 @@
         "testimonial_5",
         "testimonial_6",
         "testimonial_7",
-        "testimonial_8",
-        "testimonial_9",
-        "testimonial_10"
+        "testimonial_8"
       ]
     },
     "related": {
@@ -505,25 +535,25 @@
         "color_scheme": "default",
         "section_width": "container",
         "reset_spacing": true,
-        "heading": "More templates",
+        "heading": "You may also like",
         "description": "",
-        "header_size": "small",
+        "header_size": "medium",
         "header_alignment": "left",
-        "items_per_row": 3,
-        "items_per_row_mobile": 1,
+        "items_per_row": 4,
+        "items_per_row_mobile": 2,
         "column_gap": 20,
         "intent": "related",
-        "items_to_show": 3,
+        "items_to_show": 4,
         "show_badges": true,
         "show_vendor": false,
-        "show_rating": false,
+        "show_rating": true,
         "show_swatches": false,
         "show_price": true,
-        "show_add_to_cart": false,
+        "show_add_to_cart": true,
         "show_action": false,
         "reveal": true,
         "padding_top": 56,
-        "padding_bottom": 88
+        "padding_bottom": 56
       }
     },
     "recently_viewed": {
@@ -545,8 +575,8 @@
         "items_per_row": 4,
         "items_per_row_mobile": 2,
         "column_gap": 20,
-        "padding_top": 40,
-        "padding_bottom": 56
+        "padding_top": 24,
+        "padding_bottom": 88
       }
     }
   },

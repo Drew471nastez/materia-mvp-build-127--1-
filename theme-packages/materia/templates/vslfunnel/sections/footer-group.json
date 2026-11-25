@@ -5,7 +5,7 @@
     "footer": {
       "type": "footer",
       "settings": {
-        "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
+        "color_scheme": "scheme-4faf0e4d-27f4-4d02-bc51-617383bab1a9",
         "section_width": "container",
         "padding_top": 64,
         "padding_bottom": 32,
@@ -22,13 +22,13 @@
           "type": "store_info",
           "settings": {
             "show_logo": false,
-            "store_heading": "Paper Garden",
+            "store_heading": "Tempo",
             "image_width": 110,
             "store_email": true,
             "store_phone": false,
             "store_address": false,
             "content_width": "33%",
-            "store_description": "<p>An online course in loose watercolour florals for beginners, taught by Clara Voss. A new class starts every January and September.</p>"
+            "store_description": "<p>An online chess course for adult improvers, taught by Lena Marsh. A new class starts every January and September.</p>"
           }
         },
         "link_list_2": {
@@ -51,7 +51,7 @@
           "type": "newsletter",
           "settings": {
             "note": "",
-            "heading": "The colour charts",
+            "heading": "The puzzle sheets",
             "description": "Free by email, with a short note when the next class opens.",
             "button_label": "Send it",
             "content_width": "33%",

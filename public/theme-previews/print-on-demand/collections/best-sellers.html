@@ -1,7 +1,7 @@
 
 <!doctype html>
 <html class="no-js" lang="en" dir="ltr">
-<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/print-on-demand/a/cart.8b6e07a95673.json",WISH_DATA="/theme-previews/print-on-demand/a/wishlist.29ed7a2832de.json";
+<head><script data-template-preview>(function(){var W=window,D=document;W.__slTemplatePreview=true;var CART_DATA="/theme-previews/print-on-demand/a/cart.13607bb655db.json",WISH_DATA="/theme-previews/print-on-demand/a/wishlist.31d76b254383.json",QV_DATA="/theme-previews/print-on-demand/a/quickview.11ef8a30f1b8.json",RV_DATA="/theme-previews/print-on-demand/a/recent.1b639ff61975.json";
 /* What this script's own build (tsx) leaves in the functions the engine writes into a page. */
 W.__name=W.__name||function(f){return f};
 /* A phone's scrollbar floats over the page; in the 390px frame a computer's would take 15px of it. */
@@ -84,7 +84,12 @@ var pg=D.getElementById("main-cart-items");if(pg){var s=pg.closest(".shopify-sec
 paintCount();if(hold)requestAnimationFrame(function(){hold.remove()})}).catch(function(){if(hold)hold.remove()})}
 if(D.readyState==="loading")D.addEventListener("DOMContentLoaded",arrive);else arrive();
 
-if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);if(mine(u))return F.apply(this,arguments);
+if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);
+/* Round 26: a card's Quick view (each product's, from QV_DATA) and the Recently viewed row (every product's card, from RV_DATA; the theme keeps the visitor's). */
+var sid=/[?&]section_id=([^&#]+)/.exec(u);sid=sid&&sid[1];
+if(sid==="product-quickview"&&QV_DATA){var hm=/\/products\/([^\/?#]+?)(?:\.html)?$/.exec(path(u));return F(QV_DATA).then(function(r){return r.json()}).then(function(d){var n=hm?d.k.indexOf(decodeURIComponent(hm[1])):-1;if(n<0)return new Response("",{status:404});var x=d.d[n];return new Response(typeof x==="string"?x:patch(d.d[0],x),{status:200,headers:{"Content-Type":"text/html"}})})}
+if(sid==="recently-viewed"&&RV_DATA)return F(RV_DATA).then(function(r){return r.json()}).then(function(d){return new Response(d.html,{status:200,headers:{"Content-Type":"text/html"}})});
+if(mine(u))return F.apply(this,arguments);
 /* Cards round 24: the cart answers from the template's drawn cart (./theme-templates/preview-cart.ts), as a store would. */
 /* Round 25: the wishlist page asks for its saved products' cards; every product's card is in WISH_DATA and the theme keeps the saved ones. */
 if(WISH_DATA&&/\/search$/.test(path(u))&&/[?&]section_id=/.test(u))return F(WISH_DATA).then(function(r){return r.json()}).then(function(d){return new Response(d.html,{status:200,headers:{"Content-Type":"text/html"}})});
@@ -208,7 +213,7 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
           document.head.appendChild(l);
         } catch (e) {}
       })();
-    </script><link href="/theme-previews/_base/a/base.a7bb01c1b397.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"outline","product_size":13,"price_size":13,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
+    </script><link href="/theme-previews/_base/a/base.762c23aa796e.css" rel="stylesheet" type="text/css" media="all"><script type="application/json" data-card-style-settings>{ "enable_custom_card_actions":"","card_atc_button":"outline","product_size":13,"price_size":13,"product_name_text_transform":"unset","card_atc_bg":"","card_atc_color":"","card_atc_hover_bg":"","card_atc_hover_color":"#343434","card_wish_bg":"#f1f1f1","card_wish_color":"#1f1f1f","card_wish_border":"","card_wish_active_bg":"#ff2d2d","card_wish_active_color":"#ffffff","card_wish_active_border":"","card_wish_hover_bg":"#fae4e4","card_wish_hover_color":"","card_close_bg":"#ffffff","card_close_color":"#f56464","card_close_hover_bg":"#efdcdc","card_close_hover_color":"#e9e9e9" }</script>
 <style>html:not([data-card-custom='true']) .product-item .product-item__name { font-size:var(--body-font-size, 16px); text-transform:var(--heading-text-transform, none) !important; } html:not([data-card-custom='true']) .product-item .product-item__price { font-size:var(--body-font-size, 16px); }</style>
 <script>document.documentElement.dataset.cardCustom = false === true ? 'true' : 'false';</script>
 <script type="application/json" data-badge-style-settings>false</script>
@@ -242,7 +247,7 @@ D.addEventListener("DOMContentLoaded",function(){requestAnimationFrame(whenDrawn
 <script src="/theme-previews/_base/a/section-links.83dcb60cec8e.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/product-counters.9b2dc07295e6.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/product-block-runtime.6868605d527a.js" defer="defer"></script>
-<script src="/theme-previews/_base/a/product-dialogs.f42edf25d068.js" defer="defer"></script><script src="/theme-previews/_base/a/hero-image-one.9accbabb78ac.js" defer="defer"></script><script src="/theme-previews/print-on-demand/a/i.8914d0afedfd.js"></script><link rel="stylesheet" href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" rel="stylesheet" type="text/css" media="all"></noscript>
+<script src="/theme-previews/_base/a/product-dialogs.f42edf25d068.js" defer="defer"></script><script src="/theme-previews/_base/a/hero-image-one.9accbabb78ac.js" defer="defer"></script><script src="/theme-previews/print-on-demand/a/i.012ad81368e2.js"></script><link rel="stylesheet" href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" media="print" onload="this.media='all'"><noscript><link href="/theme-previews/_base/a/drift-basic-min.ae15d5c0ab03.css" rel="stylesheet" type="text/css" media="all"></noscript>
 <script src="/theme-previews/_base/a/drift.eaae124afa1e.js" defer="defer"></script>
 <script src="/theme-previews/_base/a/photoswipe-init.7fe034915110.js" type="module"></script>
 <script src="/theme-previews/print-on-demand/a/i.69f67d6283fa.js"></script><script>(function(){try{var d=document.createElement('div');d.style.cssText='position:absolute;top:-99px;width:60px;height:60px;overflow:scroll;visibility:hidden';document.documentElement.appendChild(d);if(d.offsetWidth-d.clientWidth>0)document.documentElement.classList.add('sl-sb-room');d.remove()}catch(e){}})();</script><style>
@@ -538,7 +543,7 @@ data-sticky-mobile="true" data-reset-spacing
 data-menu-hover="underline" data-theme-hover="none"
 data-header-blocks="pill_glass_1:pill_glass menu_badges_1:menu_badges menu_promotion_shop:menu_promotion " data-menu-type='{"on":false,"font":&quot;Assistant, sans-serif&quot;,"size":12,"weight":&quot;700&quot;}'
 data-mega-label="button" data-act-heading data-hs-flush data-logo-x="0 0"
-style="--section-pt: 0;--section-pb: 0;--transparent-color: #111111;--menu-hover-color: var(--color-link-hover, currentColor);--dd-duration: 400ms;--dd-ease: cubic-bezier(0.187, 0.775, 0.435, 0.925);--dd-shadow: none;--dd-width: 260px;--dd-pad-y: 20px;--dd-pad-x: 30px;--dd-link-space: 3px;--dd-radius: 0px;--mega-gap: 32px;--mega-card-radius: 0px;--hs-act-size: 16px;--hs-act-weight: 400;--hs-act-case: none;--hs-logo-gap-m: 0px;"
+style="--section-pt: 0;--section-pb: 0;--transparent-color: #111111;--menu-hover-color: var(--color-link-hover, currentColor);--dd-duration: 400ms;--dd-ease: cubic-bezier(0.187, 0.775, 0.435, 0.925);--dd-shadow: none;--dd-width: 260px;--dd-pad-y: 20px;--dd-pad-x: 30px;--dd-link-space: 3px;--dd-radius: 0px;--mega-gap: 32px;--mega-card-radius: 0px;--hs-menu-weight: 700;--hs-act-size: 16px;--hs-act-weight: 400;--hs-act-case: none;--hs-logo-gap-m: 0px;"
 ><div class="header__inner header__layout-1" id="header-sticky">
 <div class="fluid_container">
 <header-inner class="logo-position grid logo-left gap-10 gap-xl-50 header-middle align-center">
@@ -551,7 +556,7 @@ aria-label="Fieldhouse"
 class="header__logo inline-flex align-center"
 style="--header-logo-width: 208px; --header-logo-width-mobile: 78px;"
 ><img
-srcset="/theme-previews/print-on-demand/a/podshop-logo-400.c87331f561b4.webp 165w,/theme-previews/print-on-demand/a/podshop-logo-400.c87331f561b4.webp 330w,/theme-previews/print-on-demand/a/podshop-logo.7d016517eca2.webp 535w,/theme-previews/print-on-demand/a/podshop-logo.7d016517eca2.webp 750w,/theme-previews/print-on-demand/a/podshop-logo.7d016517eca2.webp 1600w
+srcset="/theme-previews/print-on-demand/a/podshop-logo-400.c87331f561b4.webp 165w,/theme-previews/print-on-demand/a/podshop-logo-400.c87331f561b4.webp 330w,/theme-previews/print-on-demand/a/podshop-logo.7d016517eca2.webp 535w,/theme-previews/print-on-demand/a/podshop-logo.7d016517eca2.webp 682w
 "
 src="/theme-previews/print-on-demand/a/podshop-logo-400.c87331f561b4.webp"
 sizes="(max-width: 1024.98px) 112px, 150px"
@@ -560,7 +565,7 @@ decoding="sync"
 fetchpriority="high"
 class="header__normal-logo"
 width="208"
-height="208"
+height="52"
 alt="Fieldhouse"
 ></span>
 </a>
@@ -814,7 +819,7 @@ aria-label="Winter crewnecks"
 class="banner__media collection-media p-0 hover-effect block rounded"
 style="--aspect-ratio: 1.0"
 >
-<img src="/theme-previews/print-on-demand/a/podshop-fav-crew.aebe72e0b250.webp" srcset="/theme-previews/print-on-demand/a/podshop-fav-crew.aebe72e0b250.webp 1200w, /theme-previews/print-on-demand/a/podshop-fav-crew.aebe72e0b250.webp 900w, /theme-previews/print-on-demand/a/podshop-fav-crew.aebe72e0b250.webp 720w, /theme-previews/print-on-demand/a/podshop-fav-crew.aebe72e0b250.webp 540w, /theme-previews/print-on-demand/a/podshop-fav-crew-400.0a628ad372ed.webp 360w" alt="Winter crewnecks" width="1600" height="1600" loading="lazy" fetchpriority="low" decoding="async" sizes="auto, (min-width: 1025px) 420px, 50vw" class="rounded">
+<img src="/theme-previews/print-on-demand/a/podshop-fav-crew.aebe72e0b250.webp" srcset="/theme-previews/print-on-demand/a/podshop-fav-crew.aebe72e0b250.webp 1200w, /theme-previews/print-on-demand/a/podshop-fav-crew.aebe72e0b250.webp 900w, /theme-previews/print-on-demand/a/podshop-fav-crew.aebe72e0b250.webp 720w, /theme-previews/print-on-demand/a/podshop-fav-crew.aebe72e0b250.webp 540w, /theme-previews/print-on-demand/a/podshop-fav-crew-400.0a628ad372ed.webp 360w" alt="Winter crewnecks" width="640" height="640" loading="lazy" fetchpriority="low" decoding="async" sizes="auto, (min-width: 1025px) 420px, 50vw" class="rounded">
 </a><div class="collection-info absolute bottom-25 inset-x-0 text-center" aria-hidden="true">
 <span
 class="btn inline-block bg-white heading-color py-15 px-30 text-center" data-mega-card-label
@@ -827,7 +832,7 @@ aria-label="Everyday tees"
 class="banner__media collection-media p-0 hover-effect block rounded"
 style="--aspect-ratio: 1.0"
 >
-<img src="/theme-previews/print-on-demand/a/podshop-gift-him.87820bd7f3fa.webp" srcset="/theme-previews/print-on-demand/a/podshop-gift-him.87820bd7f3fa.webp 1200w, /theme-previews/print-on-demand/a/podshop-gift-him.87820bd7f3fa.webp 900w, /theme-previews/print-on-demand/a/podshop-gift-him.87820bd7f3fa.webp 720w, /theme-previews/print-on-demand/a/podshop-gift-him.87820bd7f3fa.webp 540w, /theme-previews/print-on-demand/a/podshop-gift-him-400.ca080aae5a1d.webp 360w" alt="Everyday tees" width="1600" height="1600" loading="lazy" fetchpriority="low" decoding="async" sizes="auto, (min-width: 1025px) 420px, 50vw" class="rounded">
+<img src="/theme-previews/print-on-demand/a/podshop-gift-him.87820bd7f3fa.webp" srcset="/theme-previews/print-on-demand/a/podshop-gift-him.87820bd7f3fa.webp 1200w, /theme-previews/print-on-demand/a/podshop-gift-him.87820bd7f3fa.webp 900w, /theme-previews/print-on-demand/a/podshop-gift-him.87820bd7f3fa.webp 720w, /theme-previews/print-on-demand/a/podshop-gift-him.87820bd7f3fa.webp 540w, /theme-previews/print-on-demand/a/podshop-gift-him-400.ca080aae5a1d.webp 360w" alt="Everyday tees" width="640" height="640" loading="lazy" fetchpriority="low" decoding="async" sizes="auto, (min-width: 1025px) 420px, 50vw" class="rounded">
 </a><div class="collection-info absolute bottom-25 inset-x-0 text-center" aria-hidden="true">
 <span
 class="btn inline-block bg-white heading-color py-15 px-30 text-center" data-mega-card-label
@@ -962,7 +967,7 @@ Wishlist
 </li>
 <li class="level0 hidden-1025">
 <a
-href="#" data-preview-inert
+href="/theme-previews/print-on-demand/account/login.html"
 class="no-underline py-10 lh-normal flex border-bottom border-bottom-1025-0 min-h-55 min-h-1025-50 align-center account-login"
 aria-label=" Login / Register"
 >
@@ -1239,7 +1244,7 @@ aria-label="Winter crewnecks"
 class="banner__media collection-media p-0 hover-effect block rounded"
 style="--aspect-ratio: 1.0"
 >
-<img src="/theme-previews/print-on-demand/a/podshop-fav-crew.aebe72e0b250.webp" srcset="/theme-previews/print-on-demand/a/podshop-fav-crew.aebe72e0b250.webp 1200w, /theme-previews/print-on-demand/a/podshop-fav-crew.aebe72e0b250.webp 900w, /theme-previews/print-on-demand/a/podshop-fav-crew.aebe72e0b250.webp 720w, /theme-previews/print-on-demand/a/podshop-fav-crew.aebe72e0b250.webp 540w, /theme-previews/print-on-demand/a/podshop-fav-crew-400.0a628ad372ed.webp 360w" alt="Winter crewnecks" width="1600" height="1600" loading="lazy" fetchpriority="low" decoding="async" sizes="auto, (min-width: 1025px) 420px, 50vw" class="rounded">
+<img src="/theme-previews/print-on-demand/a/podshop-fav-crew.aebe72e0b250.webp" srcset="/theme-previews/print-on-demand/a/podshop-fav-crew.aebe72e0b250.webp 1200w, /theme-previews/print-on-demand/a/podshop-fav-crew.aebe72e0b250.webp 900w, /theme-previews/print-on-demand/a/podshop-fav-crew.aebe72e0b250.webp 720w, /theme-previews/print-on-demand/a/podshop-fav-crew.aebe72e0b250.webp 540w, /theme-previews/print-on-demand/a/podshop-fav-crew-400.0a628ad372ed.webp 360w" alt="Winter crewnecks" width="640" height="640" loading="lazy" fetchpriority="low" decoding="async" sizes="auto, (min-width: 1025px) 420px, 50vw" class="rounded">
 </a><div class="collection-info absolute bottom-25 inset-x-0 text-center" aria-hidden="true">
 <span
 class="btn inline-block bg-white heading-color py-15 px-30 text-center" data-mega-card-label
@@ -1252,7 +1257,7 @@ aria-label="Everyday tees"
 class="banner__media collection-media p-0 hover-effect block rounded"
 style="--aspect-ratio: 1.0"
 >
-<img src="/theme-previews/print-on-demand/a/podshop-gift-him.87820bd7f3fa.webp" srcset="/theme-previews/print-on-demand/a/podshop-gift-him.87820bd7f3fa.webp 1200w, /theme-previews/print-on-demand/a/podshop-gift-him.87820bd7f3fa.webp 900w, /theme-previews/print-on-demand/a/podshop-gift-him.87820bd7f3fa.webp 720w, /theme-previews/print-on-demand/a/podshop-gift-him.87820bd7f3fa.webp 540w, /theme-previews/print-on-demand/a/podshop-gift-him-400.ca080aae5a1d.webp 360w" alt="Everyday tees" width="1600" height="1600" loading="lazy" fetchpriority="low" decoding="async" sizes="auto, (min-width: 1025px) 420px, 50vw" class="rounded">
+<img src="/theme-previews/print-on-demand/a/podshop-gift-him.87820bd7f3fa.webp" srcset="/theme-previews/print-on-demand/a/podshop-gift-him.87820bd7f3fa.webp 1200w, /theme-previews/print-on-demand/a/podshop-gift-him.87820bd7f3fa.webp 900w, /theme-previews/print-on-demand/a/podshop-gift-him.87820bd7f3fa.webp 720w, /theme-previews/print-on-demand/a/podshop-gift-him.87820bd7f3fa.webp 540w, /theme-previews/print-on-demand/a/podshop-gift-him-400.ca080aae5a1d.webp 360w" alt="Everyday tees" width="640" height="640" loading="lazy" fetchpriority="low" decoding="async" sizes="auto, (min-width: 1025px) 420px, 50vw" class="rounded">
 </a><div class="collection-info absolute bottom-25 inset-x-0 text-center" aria-hidden="true">
 <span
 class="btn inline-block bg-white heading-color py-15 px-30 text-center" data-mega-card-label
@@ -1310,7 +1315,7 @@ href="/theme-previews/print-on-demand/pages/about.html"
 ><span>Our story</span></a></menu-item></li>
 </ul>
 </div><div class="mobile-nav-actions flex align-center gap-15 hidden-1025"><a
-href="#" data-preview-inert
+href="/theme-previews/print-on-demand/account/login.html"
 class="mobile-nav-actions__login inline-flex align-center justify-content-center no-underline"
 aria-label="Log In"
 >
@@ -1456,7 +1461,7 @@ aria-label="Search"
 </div>
 <div class="header_account hidden block-1025">
 <a
-href="#" data-preview-inert
+href="/theme-previews/print-on-demand/account/login.html"
 aria-label="Account"
 class="btn-reset pointer header-icon transition header-color w-44 h-44 inline-flex content-center header__icon-account header-color lh-1"
 ><svg width="16" height="16" fill="none">
@@ -2002,7 +2007,7 @@ tabindex="0"
 role="button"
 aria-label="Quick view: Front Porch Social Club tee"
 class="pc-action pointer"
-data-url="/theme-previews/print-on-demand/products/front-porch-social-club-tee.html"
+data-url="/theme-previews/print-on-demand/products/front-porch-social-club-tee.html?section_id=product-quickview"
 data-custom-class="quickview"
 aria-haspopup="dialog"
 >
@@ -2015,7 +2020,7 @@ aria-haspopup="dialog"
 role="button"
 tabindex="0"
 class="product__add-cart product-item__button-submit pc-atc btn text-center pointer"
-data-url="/theme-previews/print-on-demand/products/front-porch-social-club-tee.html"
+data-url="/theme-previews/print-on-demand/products/front-porch-social-club-tee.html?section_id=product-quickview"
 data-custom-class="quickview"
 aria-haspopup="dialog"
 aria-label="Select Options: Front Porch Social Club tee"
@@ -2122,7 +2127,7 @@ tabindex="0"
 role="button"
 aria-label="Quick view: Good Days tee"
 class="pc-action pointer"
-data-url="/theme-previews/print-on-demand/products/good-days-tee.html"
+data-url="/theme-previews/print-on-demand/products/good-days-tee.html?section_id=product-quickview"
 data-custom-class="quickview"
 aria-haspopup="dialog"
 >
@@ -2135,7 +2140,7 @@ aria-haspopup="dialog"
 role="button"
 tabindex="0"
 class="product__add-cart product-item__button-submit pc-atc btn text-center pointer"
-data-url="/theme-previews/print-on-demand/products/good-days-tee.html"
+data-url="/theme-previews/print-on-demand/products/good-days-tee.html?section_id=product-quickview"
 data-custom-class="quickview"
 aria-haspopup="dialog"
 aria-label="Select Options: Good Days tee"
@@ -2242,7 +2247,7 @@ tabindex="0"
 role="button"
 aria-label="Quick view: RC cap"
 class="pc-action pointer"
-data-url="/theme-previews/print-on-demand/products/rc-cap.html"
+data-url="/theme-previews/print-on-demand/products/rc-cap.html?section_id=product-quickview"
 data-custom-class="quickview"
 aria-haspopup="dialog"
 >
@@ -2357,7 +2362,7 @@ tabindex="0"
 role="button"
 aria-label="Quick view: Pom beanie"
 class="pc-action pointer"
-data-url="/theme-previews/print-on-demand/products/pom-beanie.html"
+data-url="/theme-previews/print-on-demand/products/pom-beanie.html?section_id=product-quickview"
 data-custom-class="quickview"
 aria-haspopup="dialog"
 >

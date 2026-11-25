@@ -1,4 +1,4 @@
-/* Templates round 24: the Paper Garden course page: title, price, options, start today and refund rows, buy buttons, a link back to the free lesson, what you get, questions and payment marks, then a look inside, student quotes and the other products. */
+/* Templates round 24: the Tempo course page: title, price, options, start today and refund rows, buy buttons, a link back to the free lesson, what you get, questions and payment marks, then a look inside, student quotes and the other products. */
 {
   "sections": {
     "breadcrumb": {
@@ -71,7 +71,7 @@
           "type": "text",
           "settings": {
             "heading": "",
-            "content": "<p>An eight week online course in loose watercolour florals for beginners, taught by Clara Voss.</p>"
+            "content": "<p>An eight week online chess course for adult improvers, taught by Lena Marsh.</p>"
           }
         },
         "price_4": {
@@ -170,7 +170,7 @@
           "type": "whats_included",
           "settings": {
             "heading": "What you get",
-            "items": "44 video lessons in eight modules\nSix live painting reviews with Clara\nColour charts and tracing sheets\nLessons yours to keep",
+            "items": "44 video lessons in eight modules\nSix live game reviews with Lena\nThree hundred puzzles to print\nLessons yours to keep",
             "two_columns": false,
             "boxed": true
           }
@@ -188,7 +188,7 @@
           "type": "collapsible_row",
           "settings": {
             "heading": "Options",
-            "content": "<p><strong>Course:</strong> the full class with the live reviews. <strong>Course and a painting review:</strong> adds a 45 minute video call with Clara on ten of your paintings, with written notes after. Either can be paid in full or in three monthly parts.</p>",
+            "content": "<p><strong>Course:</strong> the full class with the live reviews. <strong>Course and a game review:</strong> adds a 45 minute video call with Lena on ten of your games, with written notes after. Either can be paid in full or in three monthly parts.</p>",
             "use_product_description": false,
             "open": false
           }
@@ -200,11 +200,11 @@
             "use_product_faqs": false,
             "first_open": false,
             "q_1": "When does the class start?",
-            "a_1": "<p>12 January. Module one opens the day you join, so you can set up your table and paint swatches before the first live review.</p>",
-            "q_2": "Which paints do I need?",
-            "a_2": "<p>Six tubes of watercolour, two round brushes and 300 gsm cotton paper. The full list is in module one.</p>",
+            "a_1": "<p>12 January. Module one opens the day you join, so you can play your first logged games before the first live review.</p>",
+            "q_2": "What level is it for?",
+            "a_2": "<p>Adults who know the rules, from first rated games up to about 1500 online.</p>",
             "q_3": "What if I miss a live review?",
-            "a_3": "<p>Every call is recorded and added to the course the same day. Send a photo of your painting beforehand and Clara reviews it on the recording.</p>",
+            "a_3": "<p>Every call is recorded and added to the course the same day. Send your game link beforehand and Lena reviews it on the recording.</p>",
             "q_4": "What if it is not for me?",
             "a_4": "<p>Email us within 30 days of joining and you get a full refund.</p>",
             "spacing_top": 12,
@@ -280,7 +280,7 @@
         "image_position": "left",
         "text_column_width": 46,
         "image": "shopify://shop_images/vslfunnel-table-wide.webp",
-        "image_alt": "A watercolour of orange fruit and leaves being painted on a wooden table",
+        "image_alt": "A player moving a white piece across a wooden board",
         "aspect_w": 3,
         "aspect_h": 2,
         "image_fit": "cover",
@@ -299,13 +299,13 @@
         "heading_2": {
           "type": "heading",
           "settings": {
-            "text": "Short lessons, one painting a week"
+            "text": "Short lessons, three slow games a week"
           }
         },
         "subheading_3": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Each module is five or six lessons of ten to twenty minutes and one painting to make. About two hours a week.</p>"
+            "text": "<p>Each module is five or six lessons of ten to twenty minutes and three slow games to play. About two hours a week.</p>"
           }
         },
         "button_4": {
@@ -349,7 +349,7 @@
         "pagination_spacing": 32,
         "enable_custom_colors": true,
         "card_bg": "#ffffff",
-        "card_border_color": "#e1e8e6",
+        "card_border_color": "#e2e1dc",
         "enable_custom_typography": true,
         "quote_size": 17,
         "autoplay": false,
@@ -389,47 +389,47 @@
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>I had a paint set for three years and used it twice. By week three I was painting leaves without thinking about it, and my roses finally look like roses.</p>",
+            "quote": "<p>I played a thousand blitz games and stayed stuck. By week three I was doing the check without thinking, and I stopped hanging pieces.</p>",
             "rating": 0,
             "name": "Naomi B.",
-            "role": "Complete beginner",
+            "role": "Learned the rules at 35",
             "avatar": "shopify://shop_images/vslfunnel-student-1.webp"
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>The water lesson changed every painting. I stopped going back into wet paint and the mud disappeared.</p>",
+            "quote": "<p>The free lesson changed every game. One question after their move and half my blunders were gone.</p>",
             "rating": 0,
             "name": "Rafael O.",
-            "role": "Paints after work",
+            "role": "Plays after work",
             "avatar": "shopify://shop_images/vslfunnel-student-2.webp"
           }
         },
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Each week has one painting, so I never felt behind. In the live reviews Clara looked at my work and told me exactly what to change.</p>",
+            "quote": "<p>Each week has one habit, so I never felt behind. In the live review Lena found the move where my game turned.</p>",
             "rating": 0,
             "name": "Chloe L.",
-            "role": "First paint set",
+            "role": "Club player",
             "avatar": "shopify://shop_images/vslfunnel-student-3.webp"
           }
         },
         "testimonial_7": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>My greens were always flat and dull. Module four fixed that in an afternoon.</p>",
+            "quote": "<p>I used to memorise openings and still lose by move fifteen. Module four fixed that in an afternoon.</p>",
             "rating": 0,
             "name": "Tomas K.",
-            "role": "Sketchbook painter",
+            "role": "Online player",
             "avatar": "shopify://shop_images/vslfunnel-student-4.webp"
           }
         },
         "testimonial_8": {
           "type": "testimonial",
           "settings": {
-            "quote": "<p>Short, clear lessons. I watched them on the train and painted the flower that evening.</p>",
+            "quote": "<p>Short, clear lessons. I watched them on the train and played the game that evening.</p>",
             "rating": 0,
             "name": "Elif M.",
             "role": "Learns on the commute",
@@ -454,7 +454,7 @@
         "color_scheme": "default",
         "section_width": "container",
         "reset_spacing": true,
-        "heading": "Also from Paper Garden",
+        "heading": "Also from Tempo",
         "description": "",
         "header_size": "small",
         "header_alignment": "left",

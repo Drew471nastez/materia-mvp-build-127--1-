@@ -955,6 +955,8 @@ export interface Resources {
   schemes: Record<string, O>
   /** A picture setting's value as an address: an asset of the theme, a library file, a URL. */
   imageUrl: (value: string) => string
+  /** A picture setting's own width and height when they can be known (a file the engine holds); null or absent: 1600 by 1600. */
+  imageSize?: (value: string) => { width: number; height: number } | null
   currentPath: string
   /** Where a link of the theme goes on this website (./links.ts siteLink). Absent: as written, Shopify's own addresses made this site's. */
   link?: LinkResolver
@@ -1096,7 +1098,10 @@ export function typedValue(type: string, value: unknown, r: Resources, exact = f
       return fontObject(value)
     case "image_picker": {
       const src = typeof value === "string" ? r.imageUrl(value) : ""
-      return src ? imageObject(src) : null
+      if (!src) return null
+      /* Its real width and height where they can be read, so a theme that sizes it from them keeps its shape. */
+      const size = typeof value === "string" ? (r.imageSize?.(value) ?? null) : null
+      return imageObject(src, "", size ? { width: size.width, height: size.height } : {})
     }
     /*
       A HANDLE FROM THE STORE THE THEME CAME FROM ("the-linen-shirt" in its

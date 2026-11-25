@@ -1,97 +1,71 @@
-/* Templates round 25: Margin, a Notion template creator's website by Nora Lind, after the owner's reference: a drawn avatar of her over a large heading with buyer avatars, popular templates as cards, the template most people start with, how buying works in three drawn steps, the free templates, the creator, a wall of buyer notes, the blog, a monthly email and questions. Built from the theme's own sections around one hero (notionsite-hero); every Notion page in the pictures is drawn for the template. Round 26: the topic is running a small business (clients, projects, money, the week), the avatar is a line drawing, a larger logo without the byline. */
+/* Templates round 26: Offcut, a small design studio selling downloads (fonts, presets, brushes, textures, templates, a guide and a course): a split hero with the products on a table, the featured font, the shop under tabs by kind, bundles, how buying works, the maker, buyer notes, questions, the journal and a monthly email, built from the theme's own sections. */
 {
   "sections": {
     "hero": {
-      "type": "notionsite-hero",
-      "settings": {
-        "image": "shopify://shop_images/notionsite-avatar.webp",
-        "image_alt": "A line drawing of Nora",
-        "avatar_shape": "circle",
-        "avatar_size": 128,
-        "avatar_size_mobile": 96,
-        "intro": "Notion templates by Nora",
-        "heading": "Run your business from one workspace",
-        "text": "<p>Notion templates for clients, projects, money and the week ahead. I build them for my own studio, run it on them for months, then share them here.</p>",
-        "button_label": "Browse templates",
-        "button_link": "/collections/all",
-        "button_2_label": "Free templates",
-        "button_2_link": "/collections/free",
-        "proof_avatar_1": "shopify://shop_images/notionsite-buyer-1.webp",
-        "proof_avatar_2": "shopify://shop_images/notionsite-buyer-2.webp",
-        "proof_avatar_3": "shopify://shop_images/notionsite-buyer-3.webp",
-        "proof_avatar_4": "shopify://shop_images/notionsite-buyer-4.webp",
-        "proof_avatar_5": "shopify://shop_images/notionsite-buyer-5.webp",
-        "show_stars": true,
-        "stars": 5,
-        "star_color": "#f5b301",
-        "proof_text": "Read what buyers say",
-        "proof_link": "/#reviews",
-        "align": "left",
-        "content_width": 1100,
-        "intro_size": 40,
-        "intro_size_mobile": 26,
-        "intro_weight": "500",
-        "heading_size": 76,
-        "heading_size_mobile": 40,
-        "text_size": 18,
-        "text_size_mobile": 16,
-        "color_scheme": "default",
-        "section_width": "container",
-        "padding_top": 156,
-        "padding_bottom": 72,
-        "padding_top_mobile": 40,
-        "padding_bottom_mobile": 40
-      }
-    },
-    "popular": {
-      "type": "products-listing",
+      "type": "hero-split-media",
       "settings": {
         "color_scheme": "default",
-        "section_width": "container",
-        "collection": "premium",
-        "items_to_show": 6,
-        "heading": "Popular Notion templates",
-        "show_view_all": false,
-        "header_alignment": "center",
-        "heading_subtext_gap": 10,
-        "items_per_row": 3,
-        "items_per_row_mobile": 1,
-        "column_gap": 24,
-        "row_gap": 28,
-        "show_badges": true,
-        "show_vendor": false,
-        "show_rating": false,
-        "show_short_description": true,
-        "show_swatches": false,
-        "show_price": true,
-        "show_add_to_cart": false,
-        "show_action": false,
-        "reveal": false,
-        "padding_top": 56,
-        "padding_bottom": 88
+        "section_width": "full_width",
+        "reset_spacing": true,
+        "image_position": "right",
+        "media_width_desktop": 56,
+        "content_align": "left",
+        "vertical_align": "center",
+        "content_max_width": 520,
+        "content_gap": 22,
+        "full_height": false,
+        "min_height_desktop": 640,
+        "image": "shopify://shop_images/digistudio-hero.webp",
+        "image_alt": "Prints and files from the shop on a grey table: the Harbour Serif poster, social post templates, the Field Grotesk specimen, the pricing guide and palette cards",
+        "image_position_x": 50,
+        "image_position_y": 50,
+        "enable_custom_style": false,
+        "image_radius": 0,
+        "padding_top_desktop": 72,
+        "padding_bottom_desktop": 72,
+        "side_padding_desktop": 64,
+        "mobile_image_first": false,
+        "media_height_mobile": 340,
+        "padding_top_mobile": 36,
+        "padding_bottom_mobile": 0,
+        "side_padding_mobile": 16
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Popular Notion templates",
-            "size_desktop": 40,
-            "size_mobile": 30
+            "text": "Fonts, presets and templates from a small design studio",
+            "size_enable": true,
+            "size_desktop": 56,
+            "size_mobile": 36,
+            "line_height": 1.08,
+            "tracking": -1
           }
         },
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>The templates my studio runs on. Each one comes with a short walkthrough.</p>"
+            "text": "<p>Files we made for our own client work and now sell as downloads. Pay once, download straight away, use them in client work.</p>",
+            "size_enable": true,
+            "size": 18,
+            "line_height": 1.55
           }
         },
         "button_3": {
           "type": "button",
           "settings": {
-            "text": "More Notion templates",
+            "text": "Browse the shop",
             "link": "/collections/all",
-            "position": "bottom",
             "button_style": "primary",
+            "use_theme_button": true
+          }
+        },
+        "button_4": {
+          "type": "button",
+          "settings": {
+            "text": "See the bundles",
+            "link": "/collections/bundles",
+            "button_style": "secondary",
             "use_theme_button": true
           }
         }
@@ -99,29 +73,30 @@
       "block_order": [
         "heading_1",
         "subheading_2",
-        "button_3"
+        "button_3",
+        "button_4"
       ]
     },
     "featured": {
       "type": "featured-product",
       "settings": {
-        "color_scheme": "scheme-6c1d2a40-91b7-4c55-9a0e-5d3f0b8e7a11",
+        "color_scheme": "scheme-5f1c0a2e-7b44-4d0e-9a51-0ffc0c7d2a01",
         "section_width": "container",
         "reset_spacing": true,
-        "product": "client-crm",
+        "product": "field-grotesk",
         "show_view_link": true,
-        "view_link_label": "See every page inside",
-        "desktop_layout": "hidden_thumbnail",
-        "desktop_media_width": 54,
+        "view_link_label": "See the whole specimen",
+        "desktop_layout": "thumbnail_bottom",
+        "desktop_media_width": 55,
         "desktop_main_image_position": "left",
-        "show_thumbnails": false,
+        "show_thumbnails": true,
         "enable_dynamic_checkout": true,
         "enable_image_square": false,
         "enable_lightbox": false,
         "enable_sticky_content_on_desktop": false,
         "reveal": false,
-        "padding_top": 72,
-        "padding_bottom": 72
+        "padding_top": 88,
+        "padding_bottom": 88
       },
       "blocks": {
         "badges_1": {
@@ -132,15 +107,15 @@
           "type": "title",
           "settings": {
             "show_vendor": false,
-            "title_font_size_desktop": 40,
-            "title_font_size_mobile": 30
+            "title_font_size_desktop": 44,
+            "title_font_size_mobile": 32
           }
         },
         "text_3": {
           "type": "text",
           "settings": {
             "heading": "",
-            "content": "<p>The template most people start with: every lead on one board from the first email to a signed project, a page per client with every call and email, and the follow ups due this week.</p>"
+            "content": "<p>Our own grotesk, drawn for small text that has to work hard: price lists, menus, labels and websites. Four weights, Latin Extended, and a web licence when you need it.</p>"
           }
         },
         "price_4": {
@@ -181,110 +156,184 @@
         "buy_buttons_6"
       ]
     },
-    "how": {
-      "type": "how-to-use",
+    "shop": {
+      "type": "collection-tab",
       "settings": {
         "color_scheme": "default",
         "section_width": "container",
-        "cols_desktop": 3,
-        "content_align": "left",
-        "image_ratio": "4/3",
-        "image_fit": "cover",
-        "image_radius": 16,
-        "image_border": false,
-        "number_size": 15,
-        "title_size_desktop": 20,
-        "desc_size_desktop": 15,
+        "reset_spacing": true,
+        "items_to_show": 8,
+        "items_per_row": 4,
+        "rows": 2,
+        "column_gap": 20,
+        "content_alignment": "left",
+        "vertical_gap_heading_subheading": 10,
+        "tab_style": "underline",
+        "tabs_alignment": "left",
+        "tab_border_radius": 0,
+        "tab_padding_x": 2,
+        "tab_padding_y": 10,
+        "tab_gap": 26,
+        "tab_unchecked_border_thickness": 0,
+        "tab_checked_border_thickness": 2,
+        "show_tab_icon": false,
+        "show_product_count": false,
+        "show_nav_bottom_border": true,
+        "nav_bottom_border_thickness": 1,
+        "gap_tabs_to_products": 32,
+        "show_load_more_button": true,
+        "button_label": "See everything",
+        "use_outline_button_style": true,
+        "gap_loadmore": 36,
+        "empty_state_message": "Nothing in this kind yet.",
+        "enable_custom_styling": true,
+        "tab_font_size": 16,
+        "tab_font_weight": "500",
+        "tab_unchecked_bg_color": "rgba(0,0,0,0)",
+        "tab_checked_bg_color": "rgba(0,0,0,0)",
+        "tab_unchecked_text_color": "#7a7b7f",
+        "tab_checked_text_color": "#17181a",
+        "tab_hover_bg_color": "rgba(0,0,0,0)",
+        "tab_hover_text_color": "#17181a",
+        "tab_unchecked_border_color": "rgba(0,0,0,0)",
+        "tab_checked_border_color": "#17181a",
+        "nav_bottom_border_color": "#e4e3df",
+        "tab_switch_animation": "fade",
         "reveal": false,
-        "col_gap_desktop": 24,
-        "gap_desktop": 24,
-        "padding_top_desktop": 96,
-        "padding_bottom_desktop": 48,
-        "enable_mobile_carousel": false,
-        "title_size_mobile": 18,
-        "desc_size_mobile": 15,
-        "gap_mobile": 32,
-        "padding_top_mobile": 56,
-        "padding_bottom_mobile": 24
+        "scroll_animation": "none",
+        "padding_top": 88,
+        "padding_bottom": 88,
+        "vertical_gap_subheading_section_desktop": 28,
+        "items_per_row_mobile": 2,
+        "rows_mobile": 2,
+        "tabs_full_width": false,
+        "vertical_gap_subheading_section_mobile": 20
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "From checkout to your workspace",
-            "align": "center",
-            "gap_below": 40,
-            "size_desktop": 40,
-            "size_mobile": 30
+            "heading": "The shop",
+            "text_style": "medium",
+            "heading_size": "h2",
+            "custom_style": true,
+            "heading_font_weight": "400",
+            "heading_font_size_desktop": 40,
+            "heading_font_size_mobile": 30
           }
         },
-        "step_2": {
-          "type": "step",
+        "subheading_2": {
+          "type": "subheading",
           "settings": {
-            "image": "shopify://shop_images/notionsite-step-email.webp",
-            "number": "1",
-            "title": "Pick a template",
-            "description": "<p>Pay, or check out at $0 for a free one. The link arrives on the receipt page and by email.</p>"
+            "subheading": "<p>Every product is a download. Pick a kind to narrow it down.</p>",
+            "text_size": "body",
+            "max_width": 560
           }
         },
-        "step_3": {
-          "type": "step",
+        "collection_3": {
+          "type": "collection",
           "settings": {
-            "image": "shopify://shop_images/notionsite-step-duplicate.webp",
-            "number": "2",
-            "title": "Press Duplicate",
-            "description": "<p>Open the link while signed in to Notion and copy the template into your own workspace.</p>"
+            "collection": "all",
+            "collection_title": "All"
           }
         },
-        "step_4": {
-          "type": "step",
+        "collection_4": {
+          "type": "collection",
           "settings": {
-            "image": "shopify://shop_images/notionsite-step-yours.webp",
-            "number": "3",
-            "title": "Make it yours",
-            "description": "<p>Delete the sample rows, rename what you like and add your own. It works on Notion's free plan.</p>"
+            "collection": "fonts",
+            "collection_title": "Fonts"
+          }
+        },
+        "collection_5": {
+          "type": "collection",
+          "settings": {
+            "collection": "presets",
+            "collection_title": "Presets"
+          }
+        },
+        "collection_6": {
+          "type": "collection",
+          "settings": {
+            "collection": "brushes-textures",
+            "collection_title": "Brushes and textures"
+          }
+        },
+        "collection_7": {
+          "type": "collection",
+          "settings": {
+            "collection": "templates",
+            "collection_title": "Templates"
+          }
+        },
+        "collection_8": {
+          "type": "collection",
+          "settings": {
+            "collection": "guides-courses",
+            "collection_title": "Guides and courses"
+          }
+        },
+        "collection_9": {
+          "type": "collection",
+          "settings": {
+            "collection": "free",
+            "collection_title": "Free"
+          }
+        },
+        "view_more_10": {
+          "type": "view_more",
+          "settings": {
+            "enabled": true,
+            "label": "See everything",
+            "button_role": "secondary",
+            "appearance": "theme"
           }
         }
       },
       "block_order": [
         "heading_1",
-        "step_2",
-        "step_3",
-        "step_4"
+        "subheading_2",
+        "collection_3",
+        "collection_4",
+        "collection_5",
+        "collection_6",
+        "collection_7",
+        "collection_8",
+        "collection_9",
+        "view_more_10"
       ]
     },
-    "free": {
+    "bundles": {
       "type": "products-listing",
       "settings": {
         "color_scheme": "default",
         "section_width": "container",
-        "collection": "free",
-        "items_to_show": 3,
-        "heading": "Start with a free one",
+        "collection": "bundles",
+        "items_to_show": 2,
+        "heading": "Bundles",
         "show_view_all": false,
-        "header_alignment": "center",
+        "header_alignment": "left",
         "heading_subtext_gap": 10,
-        "items_per_row": 3,
+        "items_per_row": 2,
         "items_per_row_mobile": 1,
-        "column_gap": 24,
-        "row_gap": 28,
+        "column_gap": 20,
+        "row_gap": 32,
         "show_badges": true,
         "show_vendor": false,
-        "show_rating": false,
-        "show_short_description": true,
+        "show_rating": true,
+        "show_short_description": false,
         "show_swatches": false,
         "show_price": true,
-        "show_add_to_cart": false,
-        "show_action": false,
+        "show_add_to_cart": true,
+        "show_action": true,
         "reveal": false,
-        "padding_top": 72,
+        "padding_top": 88,
         "padding_bottom": 88
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Start with a free one",
+            "text": "Bundles",
             "size_desktop": 40,
             "size_mobile": 30
           }
@@ -292,16 +341,100 @@
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Three templates you can duplicate for nothing and keep.</p>"
+            "text": "<p>Several products in one download, for less than buying them one by one. Bundles get every update too.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "subheading_2"
+      ]
+    },
+    "how": {
+      "type": "feature-timeline",
+      "settings": {
+        "color_scheme": "scheme-5f1c0a2e-7b44-4d0e-9a51-0ffc0c7d2a01",
+        "section_width": "container",
+        "show_section_on": "all",
+        "reset_spacing": true,
+        "layout": "side",
+        "text_align": "left",
+        "content_max_width": 820,
+        "head_gap": 40,
+        "item_gap_desktop": 36,
+        "image_ratio": "landscape",
+        "marker_style": "number",
+        "marker_size": 34,
+        "line_thickness": 1,
+        "enable_custom_style": true,
+        "line_color": "#d6d4ce",
+        "marker_color": "#17181a",
+        "label_color": "#e2552b",
+        "title_color": "#17181a",
+        "text_color": "#4a4c50",
+        "fill_on_scroll": false,
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 96,
+        "item_gap_mobile": 28,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "How buying here works",
+            "enable_custom_style": false,
+            "size_enable": true,
+            "size_desktop": 40,
+            "size_mobile": 30,
+            "line_height": 1.15
           }
         },
-        "button_3": {
+        "subheading_2": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>No account to make first, no waiting for an email with a key.</p>"
+          }
+        },
+        "item_3": {
+          "type": "item",
+          "settings": {
+            "label": "01",
+            "title": "Buy",
+            "text": "<p>Pay by card, Apple Pay, Google Pay or PayPal. Prices include the standard licence.</p>"
+          }
+        },
+        "item_4": {
+          "type": "item",
+          "settings": {
+            "label": "02",
+            "title": "Download",
+            "text": "<p>The links are on the confirmation page straight away and in your email a minute later. Zip files, named so you can find them.</p>"
+          }
+        },
+        "item_5": {
+          "type": "item",
+          "settings": {
+            "label": "03",
+            "title": "Use it",
+            "text": "<p>Client work, products you sell, print and social. One person, unlimited projects. The licence fits on one page.</p>"
+          }
+        },
+        "item_6": {
+          "type": "item",
+          "settings": {
+            "label": "04",
+            "title": "Get updates",
+            "text": "<p>When a file changes you get an email and the new version waits in your account, free.</p>"
+          }
+        },
+        "button_7": {
           "type": "button",
           "settings": {
-            "text": "All free templates",
-            "link": "/collections/free",
-            "position": "bottom",
-            "button_style": "primary",
+            "label": "Read the licence",
+            "link": "/pages/licence",
+            "style": "secondary",
             "use_theme_button": true
           }
         }
@@ -309,220 +442,236 @@
       "block_order": [
         "heading_1",
         "subheading_2",
-        "button_3"
+        "item_3",
+        "item_4",
+        "item_5",
+        "item_6",
+        "button_7"
       ]
     },
     "creator": {
-      "type": "image-with-text-multirow",
+      "type": "dual-image-with-text",
       "settings": {
         "color_scheme": "default",
         "section_width": "container",
-        "alternate_rows": false,
+        "reset_spacing": true,
+        "image_position": "left",
+        "text_column_width": 44,
         "content_align": "left",
-        "text_column_width": 55,
-        "row_gap_desktop": 40,
-        "col_gap_desktop": 56,
-        "content_gap": 16,
-        "image_aspect_w": 4,
-        "image_aspect_h": 5,
-        "image_fit": "cover",
-        "image_radius": 16,
-        "heading_size_desktop": 40,
-        "heading_weight": "theme",
-        "body_size_desktop": 17,
-        "padding_top_desktop": 48,
-        "padding_bottom_desktop": 48,
-        "heading_size_mobile": 30,
-        "body_size_mobile": 15,
-        "padding_top_mobile": 32,
-        "padding_bottom_mobile": 32,
+        "content_gap": 18,
+        "aspect_ratio_w": 5,
+        "aspect_ratio_h": 5,
+        "show_dots": false,
+        "gap_desktop": 80,
+        "padding_top_desktop": 96,
+        "padding_bottom_desktop": 96,
+        "side_padding_desktop": 0,
+        "content_align_mobile": "left",
+        "mobile_order": "media_first",
+        "gap_mobile": 32,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
         "side_padding_mobile": 16
       },
       "blocks": {
-        "row_1": {
-          "type": "row",
+        "main_image_1": {
+          "type": "main_image",
           "settings": {
-            "image": "shopify://shop_images/notionsite-creator-portrait.webp",
-            "caption": "Nora Lind, Copenhagen",
-            "heading": "Meet the creator",
-            "heading_tag": "h2",
-            "body": "<p>I'm Nora. I spent eight years as a project manager in agencies, then started a two person design studio in Copenhagen. Every client, invoice and process we have lives in Notion.</p><p>Every template here started as something we built for the studio and used for months before selling it. If a page does not earn its place, it goes. Questions come straight to me, and I answer them.</p>",
-            "btn_label": "Read my story",
-            "btn_link": "/pages/about",
-            "image_position": "left",
-            "row_padding": 40,
-            "row_radius": 24,
+            "image": "shopify://shop_images/digistudio-studio.webp",
+            "alt": "Ines drawing at her desk in the studio, between an easel and a pinboard of prints",
+            "anchor": "top_left",
+            "size": 82,
+            "fit": "cover",
+            "position_x": 62,
+            "radius": 4,
+            "shadow": false
+          }
+        },
+        "accent_image_2": {
+          "type": "accent_image",
+          "settings": {
+            "image": "shopify://shop_images/digistudio-tablet.webp",
+            "alt": "Sketching page layouts on a tablet with a pencil",
+            "anchor": "bottom_right",
+            "size": 44,
+            "fit": "cover",
+            "radius": 4,
+            "shadow": true,
+            "border_width": 8,
             "enable_custom_style": true,
-            "row_bg": "#f5f5f4",
+            "border_color": "#ffffff",
+            "size_mobile": 46
+          }
+        },
+        "heading_3": {
+          "type": "heading",
+          "settings": {
+            "text": "Made by Ines, in a small studio in Porto",
+            "tag": "h2",
+            "size_desktop": 40,
+            "size_mobile": 30
+          }
+        },
+        "subheading_4": {
+          "type": "subheading",
+          "settings": {
+            "text": "<p>I spent ten years designing for clients: identities, packaging, a lot of menus. Offcut started with the leftovers, the fonts, brushes and files I kept making for that work and wanted to use again.</p><p>Everything here is something I use myself. When a file changes, I update it for everyone who bought it.</p>"
+          }
+        },
+        "button_5": {
+          "type": "button",
+          "settings": {
+            "label": "About the studio",
+            "link": "/pages/about",
+            "button_style": "secondary",
             "use_theme_button": true
           }
         }
       },
       "block_order": [
-        "row_1"
+        "main_image_1",
+        "accent_image_2",
+        "heading_3",
+        "subheading_4",
+        "button_5"
       ]
     },
     "reviews": {
-      "type": "testimonial-wall",
+      "type": "testimonials",
       "settings": {
-        "color_scheme": "default",
+        "color_scheme": "scheme-5f1c0a2e-7b44-4d0e-9a51-0ffc0c7d2a01",
         "section_width": "container",
-        "text_align": "center",
-        "columns": 4,
-        "card_gap": 16,
-        "card_style": "filled",
-        "collapse": "always",
-        "collapsed_part": 60,
-        "more_label": "Load more",
-        "less_label": "Show fewer",
-        "enable_custom_style": true,
-        "card_bg": "#f5f5f4",
-        "quote_color": "#2e2e30",
-        "name_color": "#111111",
-        "star_color": "#f5b301",
-        "star_empty_color": "#e3e3e1",
-        "card_radius": 16,
-        "quote_size": 15,
-        "quote_size_mobile": 15,
+        "reset_spacing": true,
+        "display_mode": "carousel",
+        "show_quote_mark": false,
+        "show_rating": true,
+        "columns": 3,
+        "column_gap": 20,
+        "header_alignment": "left",
+        "card_style": "outline",
+        "card_align": "left",
+        "card_padding": 28,
+        "card_content_gap": 16,
+        "card_radius": 6,
+        "avatar_shape": "circle",
+        "avatar_size": 48,
+        "show_arrow": true,
+        "carousel_pagination": "show_dots_on_mobile",
+        "pagination_style": "line",
+        "pagination_position": "center",
+        "pagination_spacing": 24,
+        "enable_custom_colors": true,
+        "card_bg": "#ffffff",
+        "card_border_color": "#e4e3df",
+        "quote_color": "#17181a",
+        "enable_custom_typography": true,
+        "quote_size": 17,
+        "autoplay": false,
+        "infinite": false,
         "reveal": false,
-        "padding_top": 96,
-        "padding_bottom": 48,
-        "padding_top_mobile": 56,
-        "padding_bottom_mobile": 32
+        "padding_top": 88,
+        "padding_bottom": 88,
+        "header_spacing_desktop": 36,
+        "columns_mobile": 1,
+        "header_spacing_mobile": 24
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Testimonials",
-            "size": 40,
-            "size_mobile": 30
+            "enabled": true,
+            "text": "What people made with them",
+            "enable_custom_typography": true,
+            "font_size_desktop": 40,
+            "font_size_mobile": 30,
+            "font_weight": "default"
           }
         },
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Sample notes in the layout this wall shows. Replace them with what your own buyers say.</p>"
+            "enabled": true,
+            "text": "<p>Sample reviews in the layout this section shows. Replace them with what your own buyers say.</p>"
           }
         },
         "testimonial_3": {
           "type": "testimonial",
           "settings": {
-            "body": "Set it up in one evening. For the first time I know which leads are waiting on me without searching my inbox.",
-            "name": "Hanna K.",
-            "role": "Client CRM",
+            "quote": "<p>Field Grotesk is the first paid font I have bought. It works for everything at my studio, from the website to the menu boards.</p>",
             "rating": 5,
-            "avatar": "shopify://shop_images/notionsite-buyer-1.webp"
+            "name": "Lena Hartmann",
+            "role": "Field Grotesk",
+            "avatar": "shopify://shop_images/digistudio-buyer-1.webp"
           }
         },
         "testimonial_4": {
           "type": "testimonial",
           "settings": {
-            "body": "Simple and quick to fill in. Exactly what I wanted from a free planner for the business.",
-            "name": "Daniel O.",
-            "role": "Weekly Planner",
+            "quote": "<p>Twelve presets and I use eight of them all the time. They are subtle, which is what I wanted.</p>",
             "rating": 5,
-            "avatar": "shopify://shop_images/notionsite-buyer-2.webp"
+            "name": "Tom Becker",
+            "role": "Film Stock Presets",
+            "avatar": "shopify://shop_images/digistudio-buyer-2.webp"
           }
         },
         "testimonial_5": {
           "type": "testimonial",
           "settings": {
-            "body": "The task list on each project page is the part I did not know I needed. Clients stopped asking me where things are.",
-            "name": "Amara B.",
-            "role": "Project Tracker",
+            "quote": "<p>The brand kit saved me two days on the first client I used it for. The colour page alone is worth it.</p>",
             "rating": 5,
-            "avatar": "shopify://shop_images/notionsite-buyer-3.webp"
+            "name": "Marcus Owusu",
+            "role": "Brand Kit for Figma",
+            "avatar": "shopify://shop_images/digistudio-buyer-3.webp"
           }
         },
         "testimonial_6": {
           "type": "testimonial",
           "settings": {
-            "body": "The tax set aside bar is the reason I opened it every week. No surprise bill in January this year.",
-            "name": "Rosa M.",
-            "role": "Finance Dashboard",
+            "quote": "<p>The riso brushes have a real grain to them, not a filter on top. Prints look like prints.</p>",
             "rating": 5,
-            "avatar": "shopify://shop_images/notionsite-buyer-4.webp"
+            "name": "Clara Novak",
+            "role": "Riso Grain Brushes",
+            "avatar": "shopify://shop_images/digistudio-buyer-4.webp"
           }
         },
         "testimonial_7": {
           "type": "testimonial",
           "settings": {
-            "body": "Clean, no clutter. It looks like Notion, not like a poster.",
-            "name": "Sami T.",
-            "role": "Meeting Notes",
+            "quote": "<p>I raised my prices after chapter three. Two clients said yes without a question.</p>",
             "rating": 5,
-            "avatar": "shopify://shop_images/notionsite-buyer-5.webp"
+            "name": "Jonas Lind",
+            "role": "Pricing Your Design Work",
+            "avatar": "shopify://shop_images/digistudio-buyer-5.webp"
           }
         },
         "testimonial_8": {
           "type": "testimonial",
           "settings": {
-            "body": "Action items at the bottom of every meeting page. My team ticks them off before the next call.",
-            "name": "Julia W.",
-            "role": "Meeting Notes",
+            "quote": "<p>Downloaded in a minute, installed in two. The licence page answered my question before I had to ask.</p>",
             "rating": 5,
-            "avatar": "shopify://shop_images/notionsite-buyer-6.webp"
+            "name": "Ruth Abrams",
+            "role": "Harbour Serif",
+            "avatar": "shopify://shop_images/digistudio-buyer-6.webp"
           }
         },
         "testimonial_9": {
           "type": "testimonial",
           "settings": {
-            "body": "Bought the bundle for the CRM and ended up using all four. The Home page with what is due this week is great.",
-            "name": "Marcus L.",
-            "role": "Business OS Bundle",
+            "quote": "<p>Lesson three on pairing fonts made our newsletter look like it was made by a designer. It was made by me.</p>",
             "rating": 5,
-            "avatar": "shopify://shop_images/notionsite-buyer-7.webp"
+            "name": "Diego Ferreira",
+            "role": "Type for Non-Designers",
+            "avatar": "shopify://shop_images/digistudio-buyer-7.webp"
           }
         },
         "testimonial_10": {
           "type": "testimonial",
           "settings": {
-            "body": "Good walkthrough video. I had never used a linked database before and it made sense straight away.",
-            "name": "Ellie P.",
-            "role": "Client CRM",
+            "quote": "<p>The bundle had everything for a new client: the font, the guide and the posts. One download.</p>",
             "rating": 5,
-            "avatar": "shopify://shop_images/notionsite-buyer-8.webp"
-          }
-        },
-        "testimonial_11": {
-          "type": "testimonial",
-          "settings": {
-            "body": "Our onboarding used to live in my head. Now my freelancer follows the SOP and I check it once.",
-            "name": "Arif S.",
-            "role": "SOP Library",
-            "rating": 5,
-            "avatar": "shopify://shop_images/notionsite-buyer-9.webp"
-          }
-        },
-        "testimonial_12": {
-          "type": "testimonial",
-          "settings": {
-            "body": "Seeing a month of posts on one calendar finally got me posting every week.",
-            "name": "Noor H.",
-            "role": "Meeting Notes",
-            "rating": 5,
-            "avatar": "shopify://shop_images/notionsite-buyer-10.webp"
-          }
-        },
-        "testimonial_13": {
-          "type": "testimonial",
-          "settings": {
-            "body": "I asked a question about the proposal stage and got a clear answer the same day.",
-            "name": "Peter G.",
-            "role": "Client CRM",
-            "rating": 5,
-            "avatar": "shopify://shop_images/notionsite-buyer-11.webp"
-          }
-        },
-        "testimonial_14": {
-          "type": "testimonial",
-          "settings": {
-            "body": "Light enough that I actually keep it up. Six weeks and counting.",
-            "name": "Mei C.",
-            "role": "Weekly Planner",
-            "rating": 5,
-            "avatar": "shopify://shop_images/notionsite-buyer-12.webp"
+            "name": "Sam Rahman",
+            "role": "Brand Starter Bundle",
+            "avatar": "shopify://shop_images/digistudio-buyer-8.webp"
           }
         }
       },
@@ -536,14 +685,117 @@
         "testimonial_7",
         "testimonial_8",
         "testimonial_9",
-        "testimonial_10",
-        "testimonial_11",
-        "testimonial_12",
-        "testimonial_13",
-        "testimonial_14"
+        "testimonial_10"
       ]
     },
-    "blog": {
+    "faq": {
+      "type": "faq",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "structured_data": true,
+        "heading": "Questions",
+        "subheading": "<p>About downloads, the licence and updates.</p>",
+        "first_item_open": true,
+        "allow_multiple_open": false,
+        "open_icon": "plus",
+        "content_alignment": "left",
+        "max_content_width": 820,
+        "gap_header_to_items": 32,
+        "gap_heading_to_subheading": 10,
+        "gap_between_items": 0,
+        "item_padding_y": 20,
+        "item_padding_x": 0,
+        "item_radius": 0,
+        "show_dividers": true,
+        "enable_custom_style": true,
+        "card_bg": "rgba(0,0,0,0)",
+        "card_border_color": "#e4e3df",
+        "question_color": "#17181a",
+        "icon_color": "#17181a",
+        "answer_color": "#4a4c50",
+        "heading_size_desktop": 40,
+        "heading_size_mobile": 30,
+        "question_size_desktop": 18,
+        "question_size_mobile": 16,
+        "enable_custom_question_weight": true,
+        "question_weight": "500",
+        "answer_size_desktop": 16,
+        "answer_size_mobile": 15,
+        "reveal": false,
+        "padding_top": 88,
+        "padding_bottom": 96
+      },
+      "blocks": {
+        "faq_item_1": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How do I get my files?",
+            "answer": "<p>Straight after you pay. The download links are on the order confirmation page and in the email that arrives a minute later. Courses open in your account on this site.</p>"
+          }
+        },
+        "faq_item_2": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I download them again later?",
+            "answer": "<p>Yes. Sign in to your account, or use the link in your email, and download as many times as you need. Keep a copy on your own drive as well.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What can I make with them?",
+            "answer": "<p>Client work, products you sell, social posts, print and packaging. The standard licence covers one person and unlimited projects. Read the licence page for the few things it does not allow.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can my team use them?",
+            "answer": "<p>The standard licence is for one person. Pick the team option on the product page and up to five people can install and use the files.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do I get updates?",
+            "answer": "<p>Yes, for free. When a product changes, a new version or extra files, you get an email and the new download replaces the old one in your account.</p>"
+          }
+        },
+        "faq_item_6": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Which apps do I need?",
+            "answer": "<p>Each product page lists its files. Fonts install on Mac and Windows, presets work in Lightroom desktop and mobile, brushes need Procreate 5 or later, and the templates open in Figma, Canva or Google Docs.</p>"
+          }
+        },
+        "faq_item_7": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Can I get a refund?",
+            "answer": "<p>Digital files cannot be returned, so look at the previews first. If a file is broken or not what the page describes, write within 14 days and you get your money back.</p>"
+          }
+        },
+        "faq_item_8": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do you do custom work?",
+            "answer": "<p>Not at the moment. If you need a font licence for an app or a large team, write and we will quote it.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "faq_item_1",
+        "faq_item_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5",
+        "faq_item_6",
+        "faq_item_7",
+        "faq_item_8"
+      ]
+    },
+    "journal": {
       "type": "blog-posts",
       "settings": {
         "color_scheme": "default",
@@ -556,19 +808,19 @@
         "show_view_all": true,
         "view_all_label": "All posts",
         "view_all_link": "/blogs/news",
-        "header_alignment": "center",
+        "header_alignment": "left",
         "content_alignment": "left",
         "column_gap": 24,
         "vertical_gap": 24,
         "image_ratio": "landscape",
-        "padding_top": 72,
-        "padding_bottom": 72
+        "padding_top": 88,
+        "padding_bottom": 88
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "heading": "From the blog",
+            "heading": "From the journal",
             "tag": "h2",
             "size": "custom",
             "custom_size": 40
@@ -577,7 +829,7 @@
         "text_2": {
           "type": "text",
           "settings": {
-            "text": "<p>How I use the templates, and what I learned building them.</p>",
+            "text": "<p>How we use the files, and how we price and plan the work.</p>",
             "size": "base",
             "max_width": "medium"
           }
@@ -589,45 +841,45 @@
       ]
     },
     "newsletter": {
-      "type": "newsletter-split",
+      "type": "newsletter",
       "settings": {
-        "color_scheme": "scheme-6c1d2a40-91b7-4c55-9a0e-5d3f0b8e7a11",
+        "color_scheme": "scheme-9d3e6b10-2a7c-4f55-8e19-6c0b1d4e3f02",
         "section_width": "container",
-        "show_section_on": "all",
+        "reset_spacing": true,
+        "heading": "New files, once a month",
         "email_label": "Email address",
         "email_placeholder": "name@email.com",
         "btn_text": "Subscribe",
-        "note": "One email a month. Unsubscribe any time.",
+        "note": "One email a month with what is new and one free file. Unsubscribe any time.",
         "subscribed_button_text": "Subscribed",
         "success_text": "Thanks, you are on the list.",
-        "image_position": "right",
-        "content_alignment": "left",
+        "header_alignment": "center",
         "form_layout": "horizontal",
-        "image_width": 44,
-        "column_gap": 56,
-        "image": "shopify://shop_images/notionsite-newsletter.webp",
-        "image_alt": "A drawing of an envelope with a checklist coming out of it",
-        "image_ratio": "landscape",
+        "show_icon": false,
+        "show_content_background": false,
         "button_style": "primary",
         "use_theme_button": true,
+        "use_theme_fields": true,
+        "header_size": "medium",
         "reveal": false,
-        "padding_top": 48,
-        "padding_bottom": 96,
-        "padding_top_mobile": 40,
-        "padding_bottom_mobile": 56,
-        "show_image_mobile": false
+        "padding_top": 88,
+        "padding_bottom": 88
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "A new template, once a month"
+            "text": "New files, once a month",
+            "tag": "h2",
+            "size_enable": true,
+            "size_desktop": 40,
+            "size_mobile": 30
           }
         },
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>What I made, what I changed and one free template for subscribers. Nothing else.</p>"
+            "text": "<p>What we made, what we updated and a free file for subscribers. Nothing else.</p>"
           }
         }
       },
@@ -635,133 +887,18 @@
         "heading_1",
         "subheading_2"
       ]
-    },
-    "faq": {
-      "type": "faq",
-      "settings": {
-        "color_scheme": "default",
-        "section_width": "container",
-        "structured_data": true,
-        "heading": "Frequently asked questions",
-        "subheading": "<p>Everything worth knowing before you duplicate a template.</p>",
-        "first_item_open": false,
-        "allow_multiple_open": false,
-        "open_icon": "plus",
-        "content_alignment": "center",
-        "max_content_width": 760,
-        "gap_header_to_items": 36,
-        "gap_heading_to_subheading": 10,
-        "gap_between_items": 12,
-        "item_padding_y": 18,
-        "item_padding_x": 22,
-        "item_radius": 14,
-        "show_dividers": false,
-        "enable_custom_style": true,
-        "card_bg": "#f5f5f4",
-        "card_border_color": "#ececea",
-        "question_color": "#111111",
-        "icon_color": "#111111",
-        "answer_color": "#55555a",
-        "heading_size_desktop": 40,
-        "heading_size_mobile": 30,
-        "question_size_desktop": 16,
-        "question_size_mobile": 15,
-        "enable_custom_question_weight": true,
-        "question_weight": "500",
-        "answer_size_desktop": 15,
-        "answer_size_mobile": 14,
-        "reveal": false,
-        "padding_top": 72,
-        "padding_bottom": 96
-      },
-      "blocks": {
-        "faq_item_1": {
-          "type": "faq_item",
-          "settings": {
-            "question": "Who are these templates for?",
-            "answer": "<p>Freelancers, studios and small teams who want their clients, projects and money in one tidy place without building it from scratch. If you can type in a table, you can use them.</p>"
-          }
-        },
-        "faq_item_2": {
-          "type": "faq_item",
-          "settings": {
-            "question": "Do I need a paid Notion plan?",
-            "answer": "<p>No. Every template works on Notion's free plan, on the web, the desktop app and the phone app.</p>"
-          }
-        },
-        "faq_item_3": {
-          "type": "faq_item",
-          "settings": {
-            "question": "How do I get a template after I pay?",
-            "answer": "<p>The receipt page and the email both have a link. Open it while you are signed in to Notion, press Duplicate and the template is copied into your workspace.</p>"
-          }
-        },
-        "faq_item_4": {
-          "type": "faq_item",
-          "settings": {
-            "question": "Are the free templates really free?",
-            "answer": "<p>Yes. Check out at $0, get the same link by email and keep the template. You can unsubscribe from emails at any time.</p>"
-          }
-        },
-        "faq_item_5": {
-          "type": "faq_item",
-          "settings": {
-            "question": "Can I change a template?",
-            "answer": "<p>Every page, property and view is yours to edit. Rename things, add columns, delete pages you do not need.</p>"
-          }
-        },
-        "faq_item_6": {
-          "type": "faq_item",
-          "settings": {
-            "question": "What does the commercial licence cover?",
-            "answer": "<p>The personal licence is for your own use. The commercial licence lets you use the template inside your business or set it up for one client. Reselling it is not allowed with either.</p>"
-          }
-        },
-        "faq_item_7": {
-          "type": "faq_item",
-          "settings": {
-            "question": "Will I get updates?",
-            "answer": "<p>Yes. When a template changes, everyone who bought it gets an email with the new link, at no cost.</p>"
-          }
-        },
-        "faq_item_8": {
-          "type": "faq_item",
-          "settings": {
-            "question": "What if it is not for me?",
-            "answer": "<p>Email within 14 days of buying and you get your money back. No form to fill in.</p>"
-          }
-        },
-        "faq_item_9": {
-          "type": "faq_item",
-          "settings": {
-            "question": "How can I ask a question?",
-            "answer": "<p>Write from the contact page. I read every message and reply within two working days.</p>"
-          }
-        }
-      },
-      "block_order": [
-        "faq_item_1",
-        "faq_item_2",
-        "faq_item_3",
-        "faq_item_4",
-        "faq_item_5",
-        "faq_item_6",
-        "faq_item_7",
-        "faq_item_8",
-        "faq_item_9"
-      ]
     }
   },
   "order": [
     "hero",
-    "popular",
     "featured",
+    "shop",
+    "bundles",
     "how",
-    "free",
     "creator",
     "reviews",
-    "blog",
-    "newsletter",
-    "faq"
+    "faq",
+    "journal",
+    "newsletter"
   ]
 }

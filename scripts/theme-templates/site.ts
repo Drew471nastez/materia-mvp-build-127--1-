@@ -8,6 +8,7 @@
  * Used by scripts/build-theme-template-covers.ts (the listing covers) and by
  * tests/theme-templates.test.ts (which only imports and draws, no browser).
  */
+import { imageSizeOf } from "../../lib/storelib-theme/compat/image-size"
 import { createServer, type Server } from "node:http"
 import { existsSync, readFileSync } from "node:fs"
 import { extname, join } from "node:path"
@@ -141,6 +142,8 @@ export function siteFor(imported: ImportedTemplate, shop: { name: string; produc
     assetUrl: (n) => media[n] ?? `/__asset/${encodeURIComponent(n)}`,
     assetText: (n) => files[`shopify/assets/${n}`] ?? null,
     imageUrl: (v) => (/^https?:\/\//.test(v) || v.startsWith("/") ? v : media[decodeURIComponent(v.match(/^shopify:\/\/shop_images\/([^?#]+)/)?.[1] ?? "")] ?? ""),
+    /* The picture's own size, read from its file, so a logo keeps its shape (round 26). */
+    imageSize: (v) => imageSizeOf(imported.media.get(decodeURIComponent(v.match(/^shopify:\/\/shop_images\/([^?#]+)/)?.[1] ?? v.match(/\/__media\/([^?#]+)/)?.[1] ?? ""))),
   })
   const pages = Object.fromEntries(imported.theme.pages.map((p) => [p.page_key, p.sections])) as unknown as SiteData["pages"]
   /* A sample shop that sells in its own currency (SAMPLE_SHOPS[template].currency) draws its prices with that symbol. */

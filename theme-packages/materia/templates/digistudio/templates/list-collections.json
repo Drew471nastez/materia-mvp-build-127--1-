@@ -1,3 +1,4 @@
+/* Templates round 26: every kind of product. */
 {
   "sections": {
     "heading": {
@@ -23,7 +24,7 @@
         "description_2": {
           "type": "description",
           "settings": {
-            "description": "<p>Premium, free, on sale and bundles.</p>"
+            "description": "<p>Fonts, presets, brushes and textures, templates, guides and courses, bundles and free downloads.</p>"
           }
         }
       },
