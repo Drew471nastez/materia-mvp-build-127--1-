@@ -451,16 +451,16 @@ section("Start with AI makes the website from the closest Materia template")
   for (const what of ["pages.insert", "settings.insert", "files.insert"] as const) {
     const broken = fakeDb({ installs: [install()], themes: catalogue }, { fail: { [what]: { message: "boom" } } })
     const r = await installCodeTemplate(broken.client, who, "trainer", { name: "AI website", deps: { compose: async () => zip, menus: async () => undefined, store: (a, w, t, rep, o) => storeImportedTheme(a, w, t, rep, { ...o, menus: noMenus as never }) } })
-    check(`  a failed ${what.replace(".insert", "")} write takes the new website back (one install left: the old one)`, !r.ok && r.status === 500 && broken.tables.installs.length === 1 && broken.log.some((l) => l.startsWith("delete installs")), { r, log: broken.log })
+    check(`  a failed ${what.replace(".insert", "")} write takes the new website back (one install left: the old one)`, !r.ok && (r as { status?: number }).status === 500 && broken.tables.installs.length === 1 && broken.log.some((l) => l.startsWith("delete installs")), { r, log: broken.log })
   }
   const raced = fakeDb({ installs: [install()], themes: catalogue }, { fail: { "installs.insert": { message: "library_full" } } })
   const racedR = await installCodeTemplate(raced.client, who, "trainer", { name: "AI website", deps: { compose: async () => zip, menus: async () => undefined, store: (a, w, t, rep, o) => storeImportedTheme(a, w, t, rep, { ...o, menus: noMenus as never }) } })
-  check("  two at once past the limit: refused as a full library", !racedR.ok && racedR.code === LIBRARY_FULL_CODE)
+  check("  two at once past the limit: refused as a full library", !racedR.ok && (racedR as { code?: string }).code === LIBRARY_FULL_CODE)
   const unknownTemplate = await installCodeTemplate(db.client, who, "../etc", { name: "x" })
-  check("  only a template the code lists", !unknownTemplate.ok && unknownTemplate.status === 400)
+  check("  only a template the code lists", !unknownTemplate.ok && (unknownTemplate as { status?: number }).status === 400)
   const badZip = await installCodeTemplate(db.client, who, "trainer", { name: "x", deps: { compose: async () => { throw new Error("no files") } } })
   const noConvert = await installCodeTemplate(db.client, who, "trainer", { name: "x", deps: { compose: async () => zip, convert: (async () => ({ ok: false, error: "nope" })) as never } })
-  check("  a template that cannot be composed or converted is a plain failure, nothing stored", !badZip.ok && badZip.status === 500 && !noConvert.ok && noConvert.status === 500 && !/no files|nope/.test(String((badZip as { error?: string }).error)))
+  check("  a template that cannot be composed or converted is a plain failure, nothing stored", !badZip.ok && (badZip as { status?: number }).status === 500 && !noConvert.ok && (noConvert as { status?: number }).status === 500 && !/no files|nope/.test(String((badZip as { error?: string }).error)))
 
   /* The route: chosen and imported before the job, the job told which template, From scratch and the older paths kept. */
   const route = code("app/api/website-builder/themes/create/route.ts")

@@ -40,7 +40,6 @@ import { cleanMenus } from "../lib/storelib-theme/values"
 import { LIMITS } from "../lib/storelib-theme/types"
 import { SAMPLE_SHOPS } from "../scripts/theme-templates/shops"
 import { STORELIB_DEFAULT_ID } from "../lib/website-builder/theme-registry"
-// @ts-expect-error a plain ES module script, without types
 import { buildBaseCss } from "../scripts/build-materia-base-css.mjs"
 
 /* Changed on purpose (templates round 22): a template file may open with a comment, as the theme's own generated files do (the import reads past it). */
