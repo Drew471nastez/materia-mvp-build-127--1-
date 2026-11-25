@@ -14,10 +14,10 @@
 <style>
   #shopify-section-{{ sid }} .c2c {
     --c2-accent: {{ s.accent | default: '#12704f' }};
-    --c2-ink: {{ s.heading_color | default: '#15171a' }};
-    --c2-text: {{ s.text_color | default: '#4a4f57' }};
-    --c2-line: {{ s.line_color | default: '#e3e5e8' }};
-    background: {{ s.background | default: '#ffffff' }};
+    --c2-ink: {% if s.use_color_scheme and s.heading_color == blank %}var(--color-heading){% else %}{{ s.heading_color | default: '#15171a' }}{% endif %};
+    --c2-text: {% if s.use_color_scheme and s.text_color == blank %}var(--color-text){% else %}{{ s.text_color | default: '#4a4f57' }}{% endif %};
+    --c2-line: {% if s.use_color_scheme and s.line_color == blank %}var(--color-border){% else %}{{ s.line_color | default: '#e3e5e8' }}{% endif %};
+    background: {% if s.use_color_scheme and s.background == blank %}var(--color-background){% else %}{{ s.background | default: '#ffffff' }}{% endif %};
     color: var(--c2-text);
     padding: {{ s.padding_top_mobile | default: 48 }}px 0 {{ s.padding_bottom_mobile | default: 48 }}px;
     scroll-margin-top: 80px;
@@ -60,7 +60,7 @@
     #shopify-section-{{ sid }} .c2c__chev, #shopify-section-{{ sid }} .c2c__name { transition: none; }
   }
 </style>
-<section class="c2c"{% if s.anchor != blank %} id="{{ s.anchor | handleize }}"{% endif %}>
+<section class="c2c{% if s.use_color_scheme %} color-{{ s.color_scheme.id | default: s.color_scheme | default: 'default' }}{% endif %}"{% if s.anchor != blank %} id="{{ s.anchor | handleize }}"{% endif %}>{% render 'bg-picture', image: s.background_image, overlay: s.overlay_color, opacity: s.overlay_opacity %}
   <div class="c2c__in">
     <div class="c2c__head">
       {%- if s.tag != blank -%}<p class="c2-tag" data-c2r>{{ s.tag | escape }}</p>{%- endif -%}
@@ -112,6 +112,12 @@
   "class": "course2-curriculum-section",
   "disabled_on": { "groups": ["header", "footer"] },
   "settings": [
+    { "type": "checkbox", "id": "use_color_scheme", "label": "Use a colour scheme", "default": false, "info": "Background, heading, text and line colours left empty below follow the scheme." },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default", "visible_if": "{{ section.settings.use_color_scheme }}" },
+    { "type": "header", "content": "Background picture" },
+    { "type": "image_picker", "id": "background_image", "label": "Background picture" },
+    { "type": "color", "id": "overlay_color", "label": "Overlay on the picture", "default": "#000000", "visible_if": "{{ section.settings.background_image != blank }}" },
+    { "type": "range", "id": "overlay_opacity", "label": "Overlay strength", "min": 0, "max": 90, "step": 5, "unit": "%", "default": 50, "visible_if": "{{ section.settings.background_image != blank }}" },
     { "type": "text", "id": "tag", "label": "Label above", "default": "Curriculum" },
     { "type": "text", "id": "heading", "label": "Heading", "default": "What you will learn," },
     { "type": "text", "id": "heading_accent", "label": "Heading words in the accent colour", "default": "in order" },

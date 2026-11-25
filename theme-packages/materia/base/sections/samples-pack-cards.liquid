@@ -85,9 +85,20 @@
   #shopify-section-{{ sid }} .spc__more:hover { text-decoration-color: currentColor; }
   #shopify-section-{{ sid }} .spc__pills { display: flex; gap: 8px; margin: 0 0 24px; padding: 0 0 2px; overflow-x: auto; scrollbar-width: none; }
   #shopify-section-{{ sid }} .spc__pills::-webkit-scrollbar { display: none; }
-  #shopify-section-{{ sid }} .spc__pill { flex: none; height: 36px; padding: 0 16px; border-radius: 999px; border: 1px solid rgba(var(--color-heading-rgb), .16); background: transparent; color: var(--color-text); font: inherit; font-size: 14px; cursor: pointer; transition: background-color .2s ease, color .2s ease, border-color .2s ease; }
-  #shopify-section-{{ sid }} .spc__pill:hover { border-color: rgba(var(--color-heading-rgb), .4); color: var(--color-heading); }
-  #shopify-section-{{ sid }} .spc__pill[aria-pressed="true"] { background: rgb(var(--color-heading-rgb)); border-color: transparent; color: var(--color-background); }
+  {%- comment -%} Round 26: pill colours (Filter pills > colours); empty follows the colour scheme as before. {%- endcomment -%}
+  #shopify-section-{{ sid }} .spc__pills {
+    {%- if s.pill_track_bg != blank and s.pill_track_bg.alpha != 0 %} --spc-track: {{ s.pill_track_bg }}; background: var(--spc-track); padding: 4px; border-radius: 999px; width: max-content; max-width: 100%;{% endif -%}
+    {%- if s.pill_bg != blank and s.pill_bg.alpha != 0 %} --spc-pill-bg: {{ s.pill_bg }};{% endif -%}
+    {%- if s.pill_text != blank %} --spc-pill-text: {{ s.pill_text }};{% endif -%}
+    {%- if s.pill_border != blank %} --spc-pill-border: {{ s.pill_border }};{% endif -%}
+    {%- if s.pill_hover_bg != blank and s.pill_hover_bg.alpha != 0 %} --spc-pill-hover-bg: {{ s.pill_hover_bg }};{% endif -%}
+    {%- if s.pill_hover_text != blank %} --spc-pill-hover-text: {{ s.pill_hover_text }};{% endif -%}
+    {%- if s.pill_active_bg != blank and s.pill_active_bg.alpha != 0 %} --spc-pill-active-bg: {{ s.pill_active_bg }};{% endif -%}
+    {%- if s.pill_active_text != blank %} --spc-pill-active-text: {{ s.pill_active_text }};{% endif -%}
+  }
+  #shopify-section-{{ sid }} .spc__pill { flex: none; height: 36px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--spc-pill-border, rgba(var(--color-heading-rgb), .16)); background: var(--spc-pill-bg, transparent); color: var(--spc-pill-text, var(--color-text)); font: inherit; font-size: 14px; cursor: pointer; transition: background-color .2s ease, color .2s ease, border-color .2s ease; }
+  #shopify-section-{{ sid }} .spc__pill:hover { border-color: var(--spc-pill-border, rgba(var(--color-heading-rgb), .4)); background: var(--spc-pill-hover-bg, var(--spc-pill-bg, transparent)); color: var(--spc-pill-hover-text, var(--color-heading)); }
+  #shopify-section-{{ sid }} .spc__pill[aria-pressed="true"] { background: var(--spc-pill-active-bg, rgb(var(--color-heading-rgb))); border-color: transparent; color: var(--spc-pill-active-text, var(--color-background)); }
   #shopify-section-{{ sid }} .spc__pill:focus-visible { outline: 2px solid rgb(var(--color-heading-rgb)); outline-offset: 2px; }
   #shopify-section-{{ sid }} .spc__grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat({{ s.columns_mobile | default: 2 }}, minmax(0, 1fr)); gap: 10px; }
   #shopify-section-{{ sid }} .spc__card { display: flex; flex-direction: column; min-width: 0; border-radius: 14px; padding: 10px 10px 12px; background: rgba(var(--color-heading-rgb), .035); border: 1px solid rgba(var(--color-heading-rgb), .07); transition: opacity .25s ease, transform .25s ease, border-color .2s ease; }
@@ -476,6 +487,14 @@
     { "type": "header", "content": "Cards" },
     { "type": "checkbox", "id": "show_filters", "label": "Show filter pills", "default": true },
     { "type": "text", "id": "all_label", "label": "First pill", "default": "All" },
+    { "type": "color", "id": "pill_active_bg", "label": "Selected pill", "info": "Empty follows the colour scheme.", "visible_if": "{{ section.settings.show_filters }}" },
+    { "type": "color", "id": "pill_active_text", "label": "Selected pill text", "visible_if": "{{ section.settings.show_filters }}" },
+    { "type": "color", "id": "pill_bg", "label": "Pill", "visible_if": "{{ section.settings.show_filters }}" },
+    { "type": "color", "id": "pill_text", "label": "Pill text", "visible_if": "{{ section.settings.show_filters }}" },
+    { "type": "color", "id": "pill_border", "label": "Pill border", "visible_if": "{{ section.settings.show_filters }}" },
+    { "type": "color", "id": "pill_hover_bg", "label": "Pill on hover", "visible_if": "{{ section.settings.show_filters }}" },
+    { "type": "color", "id": "pill_hover_text", "label": "Pill text on hover", "visible_if": "{{ section.settings.show_filters }}" },
+    { "type": "color", "id": "pill_track_bg", "label": "Behind the pills", "info": "Draws the row of pills as one track.", "visible_if": "{{ section.settings.show_filters }}" },
     { "type": "checkbox", "id": "show_add_to_cart", "label": "Show add to cart", "default": true },
     { "type": "text", "id": "free_label", "label": "Price shown for a free pack", "default": "Free" },
     { "type": "text", "id": "free_button", "label": "Button for a free pack", "default": "Get it free" },

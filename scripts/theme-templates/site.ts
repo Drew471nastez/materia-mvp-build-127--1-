@@ -89,8 +89,8 @@ export interface SampleProduct {
 function sampleProof(p: SampleProduct, i: number): { rating: { value: number; count: number }; sold: number; h24: number; d7: number; d30: number } {
   const [value, count] = p.rating ?? [[4.9, 4.8, 4.7, 4.9, 4.8, 4.6][i % 6], 14 + ((i * 23) % 71)]
   const all = p.sold ?? 6 + ((i * 11) % 37)
-  const d30 = Math.min(all, 3 + ((i * 7) % 9))
-  const d7 = Math.min(d30, 2 + ((i * 5) % 5))
+  const d30 = Math.min(all, 6 + ((i * 7) % 11))
+  const d7 = Math.min(d30, 3 + ((i * 3) % 6))
   const h24 = Math.min(d7, [3, 2, 0, 4, 1, 2, 0, 3][i % 8])
   return { rating: { value, count }, sold: all, h24, d7, d30 }
 }

@@ -1,4 +1,4 @@
-{{ 'hero-product-three.css' | asset_url | stylesheet_tag }}
+{{ 'hero-product-three.css' | asset_url | stylesheet_tag }}{{ 'hero-image-one.css' | asset_url | stylesheet_tag }}
 <script src="{{ 'hero-product-two.js' | asset_url }}" defer="defer"></script>
 <script src="{{ 'hero-product-three.js' | asset_url }}" defer="defer"></script>
 {%- comment -%} Runtime, once per page (the CSS and hero-image-one.js from layout/theme.storelib, every other script from the tags at the top of this file): shopify/assets/hero-product-three.css, shopify/assets/hero-image-one.js, shopify/assets/hero-product-two.js, shopify/assets/hero-product-three.js. {%- endcomment -%}
@@ -15,6 +15,7 @@
  <div class="hp3__divider" data-hp3-shape aria-hidden="true"><svg viewBox="0 0 1200 120" preserveAspectRatio="none"><path/></svg></div>
  <template data-hp3-icon="shield"><svg viewBox="0 0 24 24" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-4 7.5-8 9-4-1.5-8-4-8-9V6l8-3Z"/><path d="M9 12l2 2 4-4"/></svg></template>
 <template data-hp3-icon="shield_check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg></template>
+<template data-hp3-icon="tick"><svg viewBox="0 0 24 24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></template>
 <template data-hp3-icon="check"><svg viewBox="0 0 24 24" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg></template>
 <template data-hp3-icon="lock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></template>
 <template data-hp3-icon="truck"><svg viewBox="0 0 24 24" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="13" height="9"/><path d="M15 10h4l3 4v2h-7"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg></template>
@@ -7730,6 +7731,10 @@
           "default": "check",
           "options": [
             {
+              "value": "tick",
+              "label": "Plain tick"
+            },
+            {
               "value": "check",
               "label": "Check"
             },
@@ -7886,6 +7891,26 @@
           "step": 1,
           "unit": "px",
           "default": 22
+        },
+        {
+          "type": "select",
+          "id": "icon_background",
+          "label": "Bullet background",
+          "default": "filled",
+          "options": [
+            { "value": "filled", "label": "Filled" },
+            { "value": "none", "label": "None, icon only" }
+          ]
+        },
+        {
+          "type": "range",
+          "id": "icon_glyph_size",
+          "label": "Icon size in the bullet",
+          "min": 40,
+          "max": 100,
+          "step": 5,
+          "unit": "%",
+          "default": 65
         },
         {
           "type": "select",

@@ -812,6 +812,8 @@
         const li = this.items[i], data = li && li._data;
         if (!data) return;
         if (!this.dialog || this.dataset.focus === 'false') { location.href = data.url; return; }
+        // Pressed again while the view is closing: the close finishes at once and this garment opens.
+        if (this.dialog.classList.contains('is-closing') && this._endClose) this._endClose();
         if (this.dialog.open || this._opening) return;
         this._opening = true;
         this.from = from;
@@ -835,7 +837,8 @@
           if (r.left < t.left || r.right > t.right) this.track.scrollLeft += (r.left + r.width / 2) - (t.left + t.width / 2);
           li.classList.add('is-facing');
         }
-        this.motion(false).then(() => {
+        const end = this._endClose = () => {
+          if (this._endClose !== end) return; this._endClose = null;
           d.close(); d.classList.remove('is-closing');
           this.clearMotion();
           this.items.forEach(x => x.classList.remove('is-lifted'));
@@ -843,7 +846,15 @@
           // Landed facing you; it turns back to its side unless the pointer is on it.
           if (li) requestAnimationFrame(() => requestAnimationFrame(() => li.classList.remove('is-facing')));
           this.from && this.from.focus({ preventScroll: true });
-        });
+        };
+        // Closed while it is still opening: the same animations turn round where they are.
+        if (this._runOpening && this._anims && this._anims.length) {
+          this._runOpening = false; const run = this._run = {};
+          this._anims.forEach(a => a.reverse());
+          Promise.all(this._anims.map(a => a.finished.catch(() => {}))).then(() => { if (this._run === run) end(); });
+          return;
+        }
+        this.motion(false).then(end);
       }
       clearMotion() {
         (this._anims || []).forEach(a => a.cancel()); this._anims = [];
@@ -856,7 +867,7 @@
         its hanger and the focus view; the background fades; the words rise in one after another.
       */
       motion(opening) {
-        this.clearMotion();
+        this.clearMotion(); this._run = null;
         const d = this.dialog, li = this.items[this.index];
         if (this.calm() || !d.animate) { if (li) li.classList.toggle('is-lifted', opening); return Promise.resolve(); }
         const E = 'cubic-bezier(.22, 1, .36, 1)';
@@ -871,7 +882,9 @@
         this._anims = plan.map(p => p.el.animate(p.kf, { duration: p.duration, easing: p.easing, fill: 'both', direction: opening ? 'normal' : 'reverse', delay: opening ? p.delay : total - p.delay - p.duration }));
         // The hanger is empty while its garment is in the focus view.
         if (li) li.classList.add('is-lifted');
-        return Promise.all(this._anims.map(a => a.finished.catch(() => {}))).then(() => { if (opening) this.clearMotion(); });
+        // Only this run tidies up after itself: a close that starts mid-open owns the animations from then on.
+        const run = this._run = {}; this._runOpening = opening;
+        return Promise.all(this._anims.map(a => a.finished.catch(() => {}))).then(() => { if (this._run === run) this._runOpening = false; if (opening && this._run === run) this.clearMotion(); });
       }
       // Where the garment's picture is drawn: its box, the picture's own size and how it is placed (object-fit: contain).
       drawn(box, img) {

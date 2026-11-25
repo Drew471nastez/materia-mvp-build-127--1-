@@ -15,7 +15,8 @@ can be scrolled and clicked at once. On a phone the row swipes and a tap opens
 the same view as a sheet from the bottom.
 
 Every template has it. In the website builder, choose Add section and look for
-**Hanging rail of products**. The Streetwear drop template opens on one.
+**Hanging rail of products**. The Redline template's Lookbook page has one;
+its home page opens on the Boutique Rail (below).
 
 ## 1. Photograph each garment on a hanger
 
@@ -118,3 +119,38 @@ Drag the blocks to change the order of the rail.
 - Open the focus view on a phone and add a size to the cart.
 - If a hanger shows a grey or white halo on a dark background, the cut-out
   kept some of the wall: clean the edge in the background remover.
+
+## The Boutique Rail (Materia 1.3.2)
+
+A second rail section, from Materia 1.3.2, ported to Storelib in round 26
+(`theme-packages/materia/base/sections/boutique-rail.liquid`). The Redline
+template opens on it; the Hanging rail above stays for the sites that use it.
+
+- Garments come from **Collection** (and **Collection 2**). A Garment block
+  gives a product its own side, front and back cut-outs, a size on the rail, a
+  price tag text and the pieces it is worn with. On Storelib an empty
+  collection setting is filled with every product, so the rail always shows
+  the shop's products.
+- The eyebrow switches the rail between the two collections (tabs named after
+  the collections or after the eyebrow texts), or is plain text, or links.
+- The caption and the hovered garment's name share one cell, two lines at
+  most for the caption and one for the name, so hovering never moves the
+  section. Measured in `tests/hanging-rail.test.ts`: 0 px in every frame.
+- Clicking a garment flies it off its hanger into the focus view; closing
+  plays the same animations backwards. The view's background is set under
+  Focus view (solid or frosted, its colours). It scrolls with no scroll bar.
+- **Draw a hook above each garment**: turn it off when the pictures show
+  their own hanger and hook.
+
+## Try the look
+
+`try-the-look.liquid`, also from Materia 1.3.2. A Look block has a model
+cut-out and up to four products, one per pin (settings `piece_1` to
+`piece_4`; Storelib's engine fills settings named `product_N` with the first
+product when they are empty, so these are named differently), or a
+collection whose first four products take the pins. Dragging moves the looks
+exactly with the pointer; the View and Drag circle sits on the pointer and
+cross-fades between its two words. A dot opens its piece (on a phone the look
+opens as a sheet first), and Add full look to bag adds every piece in one
+request to the store's cart.
+

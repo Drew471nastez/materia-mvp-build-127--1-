@@ -40,7 +40,7 @@
         "color_scheme": "default",
         "filter_layout": "drawer",
         "items_per_row": 4,
-        "items_to_show": 12,
+        "items_to_show": 24,
         "reset_spacing": true,
         "section_width": "container",
         "default_filter": "open_all",

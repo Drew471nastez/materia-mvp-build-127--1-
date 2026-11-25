@@ -119,6 +119,13 @@
                 assign was = p.compare_at_price | money_without_trailing_zeros
               endif
               assign href = p.url
+              comment
+                Round 26: a plan can go straight to checkout with its product (as Online course's offer does).
+              endcomment
+              assign pv = p.selected_or_first_available_variant
+              if b.to_checkout and pv.id != blank
+                assign href = '/cart/' | append: pv.id | append: ':1'
+              endif
             else
               assign amount = b.price
               assign was = b.compare_price
@@ -232,6 +239,7 @@
         { "type": "checkbox", "id": "featured", "label": "Stand out from the others", "default": false },
         { "type": "header", "content": "Price" },
         { "type": "product", "id": "plan_product", "label": "Product", "info": "Takes the price, compare at price and link from the product. Leave empty to type them." },
+        { "type": "checkbox", "id": "to_checkout", "label": "Button goes straight to checkout", "default": false, "info": "With a product: skips the product page and opens checkout with one of it." },
         { "type": "text", "id": "price", "label": "Price", "default": "$29" },
         { "type": "text", "id": "compare_price", "label": "Compare at price" },
         { "type": "text", "id": "note", "label": "Note under the price", "default": "One payment" },

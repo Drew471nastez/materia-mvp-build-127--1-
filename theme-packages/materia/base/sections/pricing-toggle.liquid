@@ -103,7 +103,28 @@
           if b.featured
             assign style = 'primary'
           endif
+          assign link_a = b.link_a
           assign link_b = b.link_b | default: b.link_a
+          comment
+            Round 26: each way can sell a product, and go straight to checkout with it.
+          endcomment
+          if b.product_a != blank and b.product_a.title != blank
+            assign pv = b.product_a.selected_or_first_available_variant
+            assign link_a = b.product_a.url
+            if b.to_checkout and pv.id != blank
+              assign link_a = '/cart/' | append: pv.id | append: ':1'
+            endif
+            if b.link_b == blank and b.product_b == blank
+              assign link_b = link_a
+            endif
+          endif
+          if b.product_b != blank and b.product_b.title != blank
+            assign pv = b.product_b.selected_or_first_available_variant
+            assign link_b = b.product_b.url
+            if b.to_checkout and pv.id != blank
+              assign link_b = '/cart/' | append: pv.id | append: ':1'
+            endif
+          endif
           assign lines = b.features | newline_to_br | split: '<br />'
         -%}
         <li class="ptcard"{% if b.featured %} data-featured{% endif %} {{ block.shopify_attributes }}>
@@ -138,7 +159,7 @@
           </ul>
           <div class="ptcard__cta">
             {%- if b.button_label != blank -%}
-              <a {% if b.link_a != blank %}href="{{ b.link_a }}"{% else %}role="link" aria-disabled="true"{% endif %} data-way="a" data-theme-button="{{ style }}" data-sl-button{% if start == 'b' %} tabindex="-1" aria-hidden="true"{% endif %}>{{ b.button_label | escape }}</a>
+              <a {% if link_a != blank %}href="{{ link_a }}"{% else %}role="link" aria-disabled="true"{% endif %} data-way="a" data-theme-button="{{ style }}" data-sl-button{% if start == 'b' %} tabindex="-1" aria-hidden="true"{% endif %}>{{ b.button_label | escape }}</a>
               <a {% if link_b != blank %}href="{{ link_b }}"{% else %}role="link" aria-disabled="true"{% endif %} data-way="b" data-theme-button="{{ style }}" data-sl-button{% if start == 'a' %} tabindex="-1" aria-hidden="true"{% endif %}>{{ b.button_label | escape }}</a>
             {%- endif -%}
           </div>
@@ -251,6 +272,9 @@
         { "type": "text", "id": "compare_b", "label": "Compare at price" },
         { "type": "text", "id": "note_b", "label": "Note", "default": "a year" },
         { "type": "url", "id": "link_b", "label": "Button link", "info": "Leave empty to use the first link." },
+        { "type": "product", "id": "product_a", "label": "Product for the first price", "info": "Its link replaces the first button link." },
+        { "type": "product", "id": "product_b", "label": "Product for the second price" },
+        { "type": "checkbox", "id": "to_checkout", "label": "Buttons go straight to checkout", "default": false, "info": "With a product: skips the product page and opens checkout with one of it." },
         { "type": "header", "content": "Features and button" },
         { "type": "textarea", "id": "features", "label": "Features", "info": "One per line. Start a line with a minus sign to show it as not included.", "default": "Every lesson\nNew lessons each month\n- Feedback on your work" },
         { "type": "text", "id": "button_label", "label": "Button label", "default": "Join" }

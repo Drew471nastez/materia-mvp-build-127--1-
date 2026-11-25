@@ -1,5 +1,11 @@
 {
   "current": {
+    "card_image_slider": false,
+    "card_options_label": "select_options",
+    "card_multi_variant_action": "quick_view",
+    "card_show_quickview": true,
+    "card_actions_tooltips": true,
+    "card_actions_layout": "side",
     "color_schemes": {
       "default": {
         "settings": {

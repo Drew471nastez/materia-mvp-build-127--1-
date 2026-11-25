@@ -43,7 +43,7 @@
   @media (max-width: 749px) { #shopify-section-{{ sid }} .c2t__facts b { font-size: 18px; } }
 </style>
 
-<div class="c2t color-{{ color_scheme }}{% if st.image_position == 'right' %} c2t--right{% endif %}"{% if st.anchor != blank %} id="{{ st.anchor | handleize }}"{% endif %}>
+<div class="c2t color-{{ color_scheme }}{% if st.image_position == 'right' %} c2t--right{% endif %}"{% if st.anchor != blank %} id="{{ st.anchor | handleize }}"{% endif %}>{% render 'bg-picture', image: st.background_image, overlay: st.overlay_color, opacity: st.overlay_opacity %}
   <div class="c2t__inner">
     <figure class="c2t__media">
       {%- if st.image != blank -%}
@@ -82,6 +82,10 @@
   "tag": "section",
   "class": "section sec__course2-teacher",
   "settings": [
+    { "type": "header", "content": "Background picture" },
+    { "type": "image_picker", "id": "background_image", "label": "Background picture" },
+    { "type": "color", "id": "overlay_color", "label": "Overlay on the picture", "default": "#000000", "visible_if": "{{ section.settings.background_image != blank }}" },
+    { "type": "range", "id": "overlay_opacity", "label": "Overlay strength", "min": 0, "max": 90, "step": 5, "unit": "%", "default": 50, "visible_if": "{{ section.settings.background_image != blank }}" },
     { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default-color-scheme" },
     { "type": "color", "id": "background", "label": "Background", "default": "#ffffff" },
     { "type": "color", "id": "ink", "label": "Heading colour", "default": "#0d0d0f" },

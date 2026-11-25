@@ -207,7 +207,8 @@
   /* Storelib: the dim layer is the dialog's own element (not ::backdrop), so it fades with the card, and closing
      plays the same animations backwards (see lbMotion()). */
   #shopify-section-{{ sid }} .ttl__lb::backdrop { background: transparent; }
-  #shopify-section-{{ sid }} .ttl__lb-bg { position: fixed; inset: 0; background: rgb(0 0 0 / .42); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+  /* A plain dim, no blur: blurring the whole page behind costs frames while the card moves. */
+  #shopify-section-{{ sid }} .ttl__lb-bg { position: fixed; inset: 0; background: rgb(0 0 0 / .46); }
   #shopify-section-{{ sid }} .ttl__lb.is-closing { pointer-events: none; }
   html.ttl-lock { overflow: hidden; }
   #shopify-section-{{ sid }} .ttl__card {
@@ -243,8 +244,6 @@
     #shopify-section-{{ sid }} .ttl__lb[open] { place-items: end stretch; }
     #shopify-section-{{ sid }} .ttl__card { width: 100%; height: auto; max-height: 94dvh; grid-template-columns: minmax(0, 1fr); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; border-radius: 20px 20px 0 0; }
     #shopify-section-{{ sid }} .ttl__card::-webkit-scrollbar { display: none; }
-    /* A phone draws no blur behind the sheet: the dim alone keeps every frame light. */
-    #shopify-section-{{ sid }} .ttl__lb-bg { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgb(0 0 0 / .48); }
     #shopify-section-{{ sid }} .ttl__sheet-grip { display: block; width: 40px; height: 4px; margin: 10px auto -8px; border-radius: 4px; background: color-mix(in srgb, var(--color-text) 20%, transparent); }
     #shopify-section-{{ sid }} .ttl__card-m { padding: 20px 20px 12px; }
     #shopify-section-{{ sid }} .ttl__card-fig { flex: none; height: 54dvh; }
@@ -677,7 +676,10 @@
           this._swiped = true; setTimeout(() => { this._swiped = false; }, 80);
           this.go(this.i + n, true);
         };
-        st.addEventListener('pointerup', end); st.addEventListener('pointercancel', end); st.addEventListener('lostpointercapture', end);
+        st.addEventListener('pointerup', end); st.addEventListener('pointercancel', end);
+        // Only the stage's own capture ending counts: on a touch screen the look under the finger holds the pointer
+        // first, and handing it to the stage fires lostpointercapture on that look, which bubbles here mid-drag.
+        st.addEventListener('lostpointercapture', e => { if (e.target === st) end(e); });
         // Trackpad: a sideways two-finger swipe moves one look at a time
         let acc = 0, lock = 0;
         st.addEventListener('wheel', e => {

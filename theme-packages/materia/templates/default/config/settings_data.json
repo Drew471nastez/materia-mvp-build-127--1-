@@ -1,5 +1,12 @@
 {
   "current": {
+    "card_image_slider": false,
+    "card_options_label": "select_options",
+    "card_multi_variant_action": "quick_view",
+    "card_show_quickview": true,
+    "card_actions_tooltips": true,
+    "card_actions_reveal": "hover",
+    "card_actions_layout": "side",
     "color_schemes": {
       "default": {
         "settings": {
@@ -190,7 +197,7 @@
     "scroll_animation": "subtle_rise",
     "hover_effect": "hover_zoom",
     "btn_hover_effect": "fade",
-    "show_wishlist": false,
+    "show_wishlist": true,
     "show_add_cart": true,
     "show_secondary_image": true,
     "product_hover_effect": "hover_fade",

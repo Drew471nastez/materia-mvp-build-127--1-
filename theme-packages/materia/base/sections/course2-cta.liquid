@@ -17,14 +17,14 @@
   endif
 -%}
 <style>
-  #shopify-section-{{ sid }} .c2x { background: {{ s.background | default: '#ffffff' }}; padding: {{ s.padding_top_mobile | default: 24 }}px 0 {{ s.padding_bottom_mobile | default: 24 }}px; }
+  #shopify-section-{{ sid }} .c2x { background: {% if s.use_color_scheme and s.background == blank %}var(--color-background){% else %}{{ s.background | default: '#ffffff' }}{% endif %}; padding: {{ s.padding_top_mobile | default: 24 }}px 0 {{ s.padding_bottom_mobile | default: 24 }}px; }
   @media (min-width: 990px) { #shopify-section-{{ sid }} .c2x { padding: {{ s.padding_top | default: 48 }}px 0 {{ s.padding_bottom | default: 48 }}px; } }
   #shopify-section-{{ sid }} .c2x__in { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
   @media (min-width: 990px) { #shopify-section-{{ sid }} .c2x__in { padding: 0 40px; } }
-  #shopify-section-{{ sid }} .c2x__panel { position: relative; overflow: hidden; padding: 48px 22px; border-radius: 22px; background: {{ s.panel_color | default: '#12704f' }}; color: {{ s.text_color | default: '#d8ebe2' }}; text-align: center; }
+  #shopify-section-{{ sid }} .c2x__panel { position: relative; overflow: hidden; padding: 48px 22px; border-radius: 22px; background: {{ s.panel_color | default: '#12704f' }}; color: {% if s.use_color_scheme and s.text_color == blank %}var(--color-text){% else %}{{ s.text_color | default: '#d8ebe2' }}{% endif %}; text-align: center; }
   @media (min-width: 990px) { #shopify-section-{{ sid }} .c2x__panel { padding: 88px 40px; } }
   #shopify-section-{{ sid }} .c2x__panel::before { content: ""; position: absolute; left: 50%; bottom: -60%; width: 120%; height: 100%; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(closest-side, rgba(255,255,255,.16), transparent); pointer-events: none; }
-  #shopify-section-{{ sid }} .c2x__title { position: relative; margin: 0 auto 16px; max-width: 18em; color: {{ s.heading_color | default: '#ffffff' }}; font-family: var(--heading-font, inherit); font-weight: 700; font-size: 32px; line-height: 1.06; letter-spacing: -.035em; text-wrap: balance; }
+  #shopify-section-{{ sid }} .c2x__title { position: relative; margin: 0 auto 16px; max-width: 18em; color: {% if s.use_color_scheme and s.heading_color == blank %}var(--color-heading){% else %}{{ s.heading_color | default: '#ffffff' }}{% endif %}; font-family: var(--heading-font, inherit); font-weight: 700; font-size: 32px; line-height: 1.06; letter-spacing: -.035em; text-wrap: balance; }
   @media (min-width: 990px) { #shopify-section-{{ sid }} .c2x__title { font-size: {{ s.heading_size | default: 52 }}px; } }
   #shopify-section-{{ sid }} .c2x__text { position: relative; max-width: 36em; margin: 0 auto; font-size: 17px; line-height: 1.6; }
   #shopify-section-{{ sid }} .c2x__text p { margin: 0; }
@@ -35,7 +35,7 @@
   #shopify-section-{{ sid }} [data-c2r].c2r-in { opacity: 1; transform: none; transition: opacity .8s cubic-bezier(.2,.65,.25,1) var(--d, 0ms), transform .8s cubic-bezier(.2,.65,.25,1) var(--d, 0ms); }
   @media (prefers-reduced-motion: reduce) { #shopify-section-{{ sid }} .c2x__btn { transition: none; } }
 </style>
-<section class="c2x">
+<section class="c2x{% if s.use_color_scheme %} color-{{ s.color_scheme.id | default: s.color_scheme | default: 'default' }}{% endif %}">{% render 'bg-picture', image: s.background_image, overlay: s.overlay_color, opacity: s.overlay_opacity %}
   <div class="c2x__in">
     <div class="c2x__panel" data-c2r>
       <h2 class="c2x__title">{{ s.heading | escape }}</h2>
@@ -56,6 +56,12 @@
   "class": "course2-cta-section",
   "disabled_on": { "groups": ["header", "footer"] },
   "settings": [
+    { "type": "checkbox", "id": "use_color_scheme", "label": "Use a colour scheme", "default": false, "info": "Background, heading, text and line colours left empty below follow the scheme." },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default", "visible_if": "{{ section.settings.use_color_scheme }}" },
+    { "type": "header", "content": "Background picture" },
+    { "type": "image_picker", "id": "background_image", "label": "Background picture" },
+    { "type": "color", "id": "overlay_color", "label": "Overlay on the picture", "default": "#000000", "visible_if": "{{ section.settings.background_image != blank }}" },
+    { "type": "range", "id": "overlay_opacity", "label": "Overlay strength", "min": 0, "max": 90, "step": 5, "unit": "%", "default": 50, "visible_if": "{{ section.settings.background_image != blank }}" },
     { "type": "text", "id": "heading", "label": "Heading", "default": "Start with the first lesson tonight" },
     { "type": "richtext", "id": "text", "label": "Text", "default": "<p>Say what someone gets and what it costs, in one line.</p>" },
     { "type": "text", "id": "button_label", "label": "Button label", "default": "Buy the course" },

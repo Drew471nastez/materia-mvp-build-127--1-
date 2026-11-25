@@ -1,7 +1,11 @@
 /**
- * The Hanging rail section (theme-packages/materia/base/sections/hanging-rail.liquid)
- * and the Streetwear drop template built around it (templates/rail, Sixth Ward;
- * Boutique rail by Hanger Lane until round 25).
+ * The Hanging rail section (theme-packages/materia/base/sections/hanging-rail.liquid),
+ * Materia 1.3.2's Boutique Rail and Try the look (boutique-rail.liquid,
+ * try-the-look.liquid) and the Redline template built around them
+ * (templates/rail, Kurb Club; Sixth Ward in round 25, Boutique rail by Hanger
+ * Lane before). Changed on purpose (templates round 26): the template's home
+ * opens on the Boutique Rail now, so the Hanging rail checks run on the rail
+ * of its Lookbook page, put on the home page for them.
  *
  *   schema       the settings the owner asked for, each with a label, and
  *                the info that says pictures must be transparent PNG or
@@ -93,10 +97,14 @@ async function main() {
   /* ── Drawn by the engine, with the sample shop ────────────────────── */
   const built = auditSite(imported, TEMPLATE, false)
   const get = async (path = "/") => String((await answer(built.site, { method: "GET", path, query: new URLSearchParams(), body: null, cart: [] })).body)
-  const home = (built.site.pages.home ?? []) as unknown as Stored[]
-  const rail = home.find((s) => s.type === "hanging-rail")
-  check("the template's home page opens on the rail", !!rail && home.filter((s) => !(s as { group?: string }).group)[0]?.type === "hanging-rail")
+  const realHome = (built.site.pages.home ?? []) as unknown as Stored[]
+  /* Changed on purpose (templates round 26): the home page opens on the Boutique Rail; the Hanging rail is the Lookbook page's, drawn here on a home page of its own. */
+  check("the template's home page opens on the Boutique Rail", realHome.filter((s) => !(s as { group?: string }).group)[0]?.type === "boutique-rail")
+  const rail = ((built.site.pages as unknown as Record<string, Stored[]>).lookbook ?? []).find((s) => s.type === "hanging-rail")
+  check("the Lookbook page keeps the Hanging rail (existing sites keep theirs)", !!rail)
   if (!rail) return
+  const home = realHome.map((s) => (s.type === "boutique-rail" ? rail : s))
+  built.site.pages.home = home as never
   const html = sectionMarkup(await get(), rail.id) ?? ""
   const products = built.site.products as unknown as { settings: { title: string; url: string; price: string; slug: string; variants: { id: string }[] } }[]
   const linked = (rail.blocks ?? []).map((b) => products.find((p) => p.settings.slug === b.settings.product))
@@ -140,8 +148,8 @@ async function main() {
   }
 
   /* ── The template is listed ───────────────────────────────────────── */
-  /* Changed on purpose (templates round 25): Boutique rail is now Streetwear drop, by Sixth Ward. */
-  check("Streetwear drop is a fashion template in the marketplace", CODE_TEMPLATES.some((t) => t.template === TEMPLATE && t.slug === "streetwear-drop" && t.name === "Streetwear drop" && t.category === "fashion"))
+  /* Changed on purpose (templates round 26): Streetwear drop by Sixth Ward is now Redline, by Kurb Club (same slug). */
+  check("Redline is a fashion template in the marketplace", CODE_TEMPLATES.some((t) => t.template === TEMPLATE && t.slug === "streetwear-drop" && t.name === "Redline" && t.category === "fashion"))
 
   /* ── In Chromium ──────────────────────────────────────────────────── */
   const chrome = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium"
@@ -222,8 +230,9 @@ async function main() {
   } finally {
     await browser.close()
     served.server.close()
-    built.site.pages.home = home as never
+    built.site.pages.home = realHome as never
   }
+  await boutiqueAndLook()
 }
 
 main()
@@ -232,3 +241,201 @@ main()
     console.log(`\n${passed} passed, ${failed} failed`)
     process.exit(failed ? 1 : 0)
   })
+
+/*
+ * Templates round 26: Materia 1.3.2's Boutique Rail and Try the look, as the
+ * Redline template uses them (its home page opens on the rail, Try the look
+ * follows), with what the owner asked for on top of the port:
+ *
+ *   boutique rail   the eyebrow (Fleece | Jersey) switches between two
+ *                   collections and can be plain text or links instead; the
+ *                   line under the rail and the hovered garment's name share
+ *                   one cell, so hovering never moves the section (measured
+ *                   every frame); the focus view's background is set in the
+ *                   section, it scrolls with no scroll bar, opens with the
+ *                   garment flying off its hanger and closes as the exact
+ *                   reverse; arrows slide between garments; Add to cart and
+ *                   the pieces it is worn with go to the store's cart
+ *   try the look    a product per pin (piece_1..4, never product_N, which the
+ *                   engine fills with the first product when empty) or a
+ *                   collection; drag moves the looks 1:1 with the pointer and
+ *                   the View / Drag circle sits on the pointer; a dot opens
+ *                   its piece; Add full look to bag puts every piece in the
+ *                   Storelib cart
+ */
+async function boutiqueAndLook() {
+  const BR = readFileSync("theme-packages/materia/base/sections/boutique-rail.liquid", "utf8")
+  const TL = readFileSync("theme-packages/materia/base/sections/try-the-look.liquid", "utf8")
+  for (const [name, src, el] of [["Boutique Rail", BR, "boutique-rail"], ["Try the look", TL, "try-the-look"]] as const) {
+    const scripts = [...src.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)]
+    check(`${name}: one file, no outside script, its element defined once`, scripts.every((m) => !/\bsrc=/.test(m[1])) && new RegExp(`customElements\\.get\\('${el}'\\)`).test(src))
+    check(`  ${name} adds at /cart/add.js, which the Storelib store answers, and can keep the drawer shut`, /\+ '\.js'/.test(src) && /opts\.open !== false/.test(src))
+  }
+  check("Boutique Rail: the caption and the hovered name share one cell, the name on one line", /\.brail__lines > \* \{ grid-area: 1 \/ 1;/.test(BR) && /\.brail__name \{[^}]*white-space: nowrap/.test(BR) && /-webkit-line-clamp: 2/.test(BR))
+  check("  its focus view scrolls with no scroll bar showing", /\.brail__focus \{[^}]*overflow-y: auto[^}]*scrollbar-width: none/.test(BR) && /\.brail__focus::-webkit-scrollbar \{ display: none/.test(BR))
+  check("  open and close are one set of animations, played backwards to close", /direction: opening \? 'normal' : 'reverse'/.test(BR) && /total - p\.delay - p\.duration/.test(BR))
+  check("Try the look: no pin setting is named product_N (the engine fills those with the first product)", !/"id": "product_\d"/.test(TL) && /"id": "piece_1"/.test(TL) && /"id": "look_collection"/.test(TL))
+  check("  the View / Drag circle is drawn at the pointer, its words cross-fade", /translate3d\(' \+ x \+ 'px,' \+ y \+ 'px,0\)/.test(TL) && /\[data-mode='drag'\] \[data-v-view\] \{ opacity: 0;/.test(TL))
+  check("  a touch drag is not ended by the look handing its pointer to the stage", /lostpointercapture', e => \{ if \(e\.target === st\) end\(e\); \}/.test(TL))
+
+  const imported = await importTemplate(`${CODE_THEME_PACKAGE}/${TEMPLATE}`)
+  const brSchema = editorSchemaOf(imported, "boutique-rail").schema
+  const brIds = new Set((brSchema?.fields ?? []).map((f) => f.id))
+  const want = ["collection", "collection_2", "eyebrow", "eyebrow_secondary", "eyebrow_clickable", "tab_names", "eyebrow_link", "eyebrow_secondary_link", "caption", "show_hooks", "focus_background", "focus_color", "focus_text", "focus_glass_opacity", "after_add", "with_heading", "garment_height", "turn_speed", "hover_side_gap"]
+  check("Boutique Rail: every 1.3.2 setting and the new ones (eyebrow links and tabs, focus view background, after add, hooks)", want.every((w) => brIds.has(w)), want.filter((w) => !brIds.has(w)))
+  const gb = new Map((brSchema?.blocks?.find((b) => b.type === "garment")?.fields ?? []).map((f) => [f.id, String(f.type)]))
+  check("  a Garment block: product, side, front and back pictures, size on the rail, price tag, worn with", gb.get("product") === "product" && gb.get("side_image") === "image_picker" && gb.get("front_image") === "image_picker" && gb.get("back_image") === "image_picker" && gb.get("rail_size") === "range" && gb.get("tag_text") === "text" && gb.get("wear_with") === "product_list", Object.fromEntries(gb))
+  const tlSchema = editorSchemaOf(imported, "try-the-look").schema
+  const lb = new Map((tlSchema?.blocks?.find((b) => b.type === "look")?.fields ?? []).map((f) => [f.id, String(f.type)]))
+  check("Try the look: a Look block with a model picture, a collection and a product per pin", lb.get("model_image") === "image_picker" && lb.get("look_collection") === "collection" && [1, 2, 3, 4].every((q) => lb.get(`piece_${q}`) === "product" && lb.get(`pin_x_${q}`) === "range"), Object.fromEntries(lb))
+
+  const built = auditSite(imported, TEMPLATE, false)
+  const home = (built.site.pages.home ?? []) as unknown as Stored[]
+  const get = async () => String((await answer(built.site, { method: "GET", path: "/", query: new URLSearchParams(), body: null, cart: [] })).body)
+  const br = home.find((s) => s.type === "boutique-rail")!
+  const tl = home.find((s) => s.type === "try-the-look")!
+  const products = built.site.products as unknown as { id: string; settings: { title: string; slug: string; variants: { id: string }[] } }[]
+  let html = await get()
+  let m = sectionMarkup(html, br.id) ?? ""
+  const tabs = [...m.matchAll(/<button type="button" class="brail__tab"[^>]*>([^<]*)<\/button>/g)].map((x) => x[1])
+  check("Redline's rail: Fleece and Jersey are two tabs, each its collection's garments", tabs.join("|") === "Fleece|Jersey" && (m.match(/<ul class="brail__track"/g) ?? []).length === 2, tabs)
+  const tracks = m.split('<ul class="brail__track"').slice(1).map((t) => (t.match(/<li class="brail__item"/g) ?? []).length)
+  check("  six fleece pieces and four jersey pieces hang", tracks[0] === 6 && tracks[1] === 4, tracks)
+  const gd = [...m.matchAll(/<script type="application\/json" data-g-data>([\s\S]*?)<\/script>/g)].map((x) => JSON.parse(x[1]) as { title: string; url: string; variants: { id: string }[]; with: { variant: string; title: string }[]; price: string })
+  check("  every garment carries its product (title, address, variants with ids, price) and what it is worn with", gd.length === 10 && gd.every((d) => products.some((p) => p.settings.title === d.title) && d.variants.length > 0 && d.variants.every((v) => !!v.id) && !!d.price && d.with.length === 2 && d.with.every((w) => !!w.variant)), gd[0])
+  check("  no template code is left", !RAW.test(m.replace(/<script[\s\S]*?<\/script>/g, "")))
+  /* The eyebrow as plain text: one rail; as links with no second collection. */
+  const variant = (patch: Record<string, unknown>) => { const h = JSON.parse(JSON.stringify(home)) as Stored[]; const s = h.find((x) => x.id === br.id)!; s.settings = { ...s.settings, ...patch }; built.site.pages.home = h as never }
+  variant({ eyebrow_clickable: false })
+  m = sectionMarkup(await get(), br.id) ?? ""
+  check("  eyebrow not clickable: plain text, no tabs, one rail", !/class="brail__tab"/.test(m) && (m.match(/<ul class="brail__track"/g) ?? []).length === 1 && /<p class="brail__eyebrow">/.test(m) && !/<p class="brail__eyebrow">[\s\S]*?<a /.test(m.split("</p>")[0] + "</p>"))
+  /* One collection (an empty collection setting is filled with every product by the engine, so the rail always has a collection on Storelib). */
+  variant({ collection: "new-arrivals", collection_2: "", eyebrow: "New collection", eyebrow_link: "/pages/lookbook" })
+  m = sectionMarkup(await get(), br.id) ?? ""
+  check("  with one collection, the eyebrow's parts are links: its own link and the collection's page", /<a href="\/pages\/lookbook">New collection<\/a>/.test(m) && /<a href="\/collections\/new-arrivals">New arrivals<\/a>/.test(m), m.match(/<p class="brail__eyebrow">[\s\S]*?<\/p>/)?.[0])
+  built.site.pages.home = home as never
+
+  /* Try the look */
+  m = sectionMarkup(html, tl.id) ?? ""
+  const looks = (tl.blocks ?? []).map((b) => [1, 2, 3, 4].map((q) => b.settings[`piece_${q}`]).filter(Boolean) as string[])
+  const panels = m.split('class="ttl__look"').slice(1)
+  check("Try the look: four looks, each with a pin and a listed piece per product picked, and no other", panels.length === 4 && panels.every((pn, i) => (pn.match(/class="ttl__item"/g) ?? []).length === looks[i].length), panels.map((pn) => (pn.match(/class="ttl__item"/g) ?? []).length))
+  const all = [...m.matchAll(/data-all="([^"]*)"/g)].map((x) => x[1].split(",").filter(Boolean))
+  check("  Add full look to bag carries every piece's variant", all.length === 4 && all.every((ids, i) => ids.length === looks[i].length))
+  const look1 = tl.blocks![0]
+  const variantTl = (patch: Record<string, unknown>) => { const h = JSON.parse(JSON.stringify(home)) as Stored[]; const s = h.find((x) => x.id === tl.id)!; s.blocks![0].settings = { ...s.blocks![0].settings, ...patch }; built.site.pages.home = h as never }
+  variantTl({ piece_1: "", piece_2: "", look_collection: "bottoms" })
+  m = sectionMarkup(await get(), tl.id) ?? ""
+  const p1 = m.split('class="ttl__look"')[1] ?? ""
+  check("  a look with no product picked takes its collection's products, on the same pins", (p1.match(/class="ttl__item"/g) ?? []).length === 4 && /Wide denim, black/.test(p1), (p1.match(/class="ttl__name"[^>]*>([^<]*)</g) ?? []).slice(0, 4))
+  built.site.pages.home = home as never
+  void look1
+  /* The whole look, in the Storelib cart: the store's own answer to the add the button sends. */
+  const ids = all[0]
+  const added = await answer(built.site, { method: "POST", path: "/cart/add.js", query: new URLSearchParams(), body: { items: ids.map((id) => ({ id, quantity: 1 })) }, cart: [], ajax: true } as never)
+  const cart = ((added as { cart?: { v: string | null; q: number }[] }).cart ?? [])
+  check("  Add full look to bag: the Storelib cart takes every piece of the look", added.status === 200 && ids.every((id) => cart.some((l) => l.v === id && l.q === 1)), { status: added.status, cart, body: String(added.body).slice(0, 200) })
+
+  /* In Chromium */
+  const chrome = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium"
+  if (!existsSync(chrome)) return
+  const served = await serve(built, join("scripts", "theme-templates", "products", TEMPLATE))
+  const fine = ["--blink-settings=primaryPointerType=4,availablePointerTypes=4,primaryHoverType=2,availableHoverTypes=2"]
+  const browser = await puppeteer.launch({ executablePath: chrome, args: ["--no-sandbox", "--disable-dev-shm-usage", ...fine] })
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+  try {
+    const p = await browser.newPage()
+    await p.setViewport({ width: 1440, height: 900 })
+    const errs: string[] = []
+    p.on("pageerror", (e) => errs.push(String(e)))
+    const posts: string[] = []
+    await p.setRequestInterception(true)
+    p.on("request", (r) => {
+      const u = new URL(r.url())
+      if (r.method() === "POST" && /\/cart\/add\.js$/.test(u.pathname)) { posts.push(r.postData() ?? ""); void r.respond({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [] }) }); return }
+      if (u.pathname === "/cart.json") { void r.respond({ status: 200, contentType: "application/json", body: JSON.stringify({ item_count: 1, items: [] }) }); return }
+      void r.continue()
+    })
+    await p.goto(`${served.base}/`, { waitUntil: "networkidle2", timeout: 60000 })
+    await sleep(1500)
+    /* Hover every garment while every frame measures what is under the rail and the page height. */
+    await p.evaluate(() => { const w = window as unknown as { mv: number; on: boolean }; w.mv = 0; w.on = true; const r = document.querySelector("boutique-rail")!; const els = [r.querySelector(".brail__foot")!, r.querySelector("[data-button]")!, r.closest(".shopify-section")!.nextElementSibling!]; const at = () => [...els.map((e) => e.getBoundingClientRect().top), r.getBoundingClientRect().height, document.documentElement.scrollHeight]; const b = at(); const tick = () => { at().forEach((v, i) => { w.mv = Math.max(w.mv, Math.abs(v - b[i])) }); if (w.on) requestAnimationFrame(tick) }; requestAnimationFrame(tick) })
+    const gs = await p.$$("boutique-rail .brail__track:not([hidden]) .brail__g")
+    for (const g of gs) { const bb = (await g.boundingBox())!; await p.mouse.move(bb.x + bb.width / 2, bb.y + bb.height * 0.45, { steps: 5 }); await sleep(320) }
+    const named = await p.evaluate(() => ({ on: document.querySelector("boutique-rail")!.classList.contains("is-naming"), name: document.querySelector("boutique-rail [data-name]")!.textContent }))
+    await p.mouse.move(4, 4); await sleep(700)
+    const moved = await p.evaluate(() => { const w = window as unknown as { mv: number; on: boolean }; w.on = false; return w.mv })
+    check("in Chromium: hovering every garment names it under the rail and moves nothing (0 px, every frame)", moved === 0 && named.on && !!named.name, { moved, named })
+    const g2 = (await gs[2].boundingBox())!
+    await p.mouse.move(g2.x + g2.width / 2, g2.y + g2.height * 0.45, { steps: 4 }); await sleep(500)
+    await p.mouse.click(g2.x + g2.width / 2, g2.y + g2.height * 0.45)
+    await sleep(1400)
+    const open = await p.evaluate(() => { const d = document.querySelector<HTMLDialogElement>("boutique-rail [data-focus-dialog]")!; return { open: d.open, title: d.querySelector(".bf__title")!.textContent, sizes: d.querySelectorAll(".bf__val").length, pairs: d.querySelectorAll(".bf__pair").length, scrollbar: d.offsetWidth - d.clientWidth, lifted: document.querySelectorAll(".brail__item.is-lifted").length, flies: d.querySelectorAll(".bf__fly").length, bg: getComputedStyle(d.querySelector("[data-f-bg]")!).backgroundColor } })
+    check("  clicking lifts it into the focus view: its product, sizes, the pieces it is worn with, an empty hanger, no scroll bar, the background chosen", open.open && open.title === gd[2].title && open.sizes >= 3 && open.pairs === 2 && open.lifted === 1 && open.flies === 0 && open.scrollbar === 0 && open.bg === "rgb(255, 255, 255)", open)
+    await p.click("boutique-rail [data-f-next]"); await sleep(700)
+    check("  the arrow slides to the next garment, its hanger empty instead", (await p.$eval("boutique-rail .bf__title", (e) => e.textContent)) === gd[3].title && (await p.evaluate(() => document.querySelectorAll(".brail__item.is-lifted").length)) === 1)
+    posts.length = 0
+    await p.click("boutique-rail [data-f-atc]"); await sleep(800)
+    const atc = await p.evaluate(() => ({ cls: document.querySelector("boutique-rail [data-f-atc]")!.className, cart: !(document.querySelector("boutique-rail [data-f-cart]") as HTMLElement).hidden, open: document.querySelector<HTMLDialogElement>("boutique-rail [data-focus-dialog]")!.open }))
+    const sentItems = posts.map((x) => (JSON.parse(x) as { items: { id: string }[] }).items)
+    check("  Add to cart sends the chosen variant to /cart/add.js and the view stays open saying so", sentItems.length === 1 && gd[3].variants.some((v) => v.id === sentItems[0][0].id) && /is-added/.test(atc.cls) && atc.cart && atc.open, { sentItems, atc })
+    posts.length = 0
+    await p.click("boutique-rail .bf__plus"); await sleep(600)
+    check("  a piece it is worn with goes to the cart from its own button", posts.length === 1 && (JSON.parse(posts[0]) as { items: { id: string }[] }).items[0].id === gd[3].with[0].variant)
+    await p.keyboard.press("Escape"); await sleep(1200)
+    const closed = await p.evaluate(() => ({ open: document.querySelector<HTMLDialogElement>("boutique-rail [data-focus-dialog]")!.open, lifted: document.querySelectorAll(".brail__item.is-lifted").length, flies: document.querySelectorAll(".bf__fly").length, lock: document.documentElement.classList.contains("brail-lock") }))
+    check("  Escape plays it back: closed, the garment on its hanger, nothing left over", !closed.open && closed.lifted === 0 && closed.flies === 0 && !closed.lock, closed)
+    /* Closed while it is still opening: the opening turns round where it is, and it opens cleanly again after. */
+    await p.mouse.click(g2.x + g2.width / 2, g2.y + g2.height * 0.45); await sleep(250)
+    await p.keyboard.press("Escape"); await sleep(1100)
+    const back = await p.evaluate(() => ({ open: document.querySelector<HTMLDialogElement>("boutique-rail [data-focus-dialog]")!.open, lifted: document.querySelectorAll(".brail__item.is-lifted").length, flies: document.querySelectorAll(".bf__fly").length }))
+    await p.mouse.click(g2.x + g2.width / 2, g2.y + g2.height * 0.45); await sleep(1400)
+    const again = await p.evaluate(() => ({ open: document.querySelector<HTMLDialogElement>("boutique-rail [data-focus-dialog]")!.open, closing: document.querySelector("boutique-rail [data-focus-dialog]")!.classList.contains("is-closing"), lifted: document.querySelectorAll(".brail__item.is-lifted").length, flies: document.querySelectorAll(".bf__fly").length }))
+    check("  closed while opening, it turns back with nothing left over, and opens cleanly again", !back.open && back.lifted === 0 && back.flies === 0 && again.open && !again.closing && again.lifted === 1 && again.flies === 0, { back, again })
+    await p.keyboard.press("Escape"); await sleep(1200)
+    const tab2 = (await p.$$("boutique-rail [data-tab]"))[1]
+    await tab2.click(); await sleep(1500)
+    check("  Jersey switches the rail to the jersey pieces", (await p.evaluate(() => document.querySelectorAll("boutique-rail .brail__track:not([hidden]) .brail__item").length)) === 4)
+
+    /* Try the look: drag 1:1, the circle at the pointer, a dot, the whole look */
+    await p.evaluate(() => document.querySelector("try-the-look")!.scrollIntoView({ block: "start" })); await sleep(900)
+    const stg = (await (await p.$("try-the-look [data-stage]"))!.boundingBox())!
+    const i0 = await p.evaluate(() => [...document.querySelectorAll("try-the-look [data-model]")].findIndex((x) => x.classList.contains("is-on")))
+    const cx = () => p.evaluate((i) => { const r = document.querySelectorAll("try-the-look [data-model]")[i].getBoundingClientRect(); return r.x + r.width / 2 }, i0)
+    const x0 = stg.x + stg.width * 0.82, y0 = stg.y + stg.height / 2, c0 = await cx()
+    await p.mouse.move(x0, y0); await p.mouse.down()
+    let worst = 0
+    for (let dx = -12; dx >= -144; dx -= 12) { await p.mouse.move(x0 + dx, y0); await p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))); worst = Math.max(worst, Math.abs((await cx()) - c0 - dx)) }
+    const circle = await p.evaluate(() => { const v = document.querySelector<HTMLElement>("try-the-look [data-view]")!; const st = v.parentElement!.getBoundingClientRect(); const mm = new DOMMatrix(getComputedStyle(v).transform); return { x: mm.m41 + st.x, y: mm.m42 + st.y, mode: v.dataset.mode } })
+    await p.mouse.up(); await sleep(1200)
+    check("  Try the look: dragging moves the looks exactly with the pointer (within 1 px) and the Drag circle sits on it", worst <= 1 && Math.abs(circle.x - (x0 - 144)) <= 1 && Math.abs(circle.y - y0) <= 1 && circle.mode === "drag", { worst, circle, at: [x0 - 144, y0] })
+    const fit = (await (await p.$("try-the-look .ttl__model.is-on .ttl__fit"))!.boundingBox())!
+    await p.mouse.click(fit.x + fit.width / 2, fit.y + fit.height * 0.4); await sleep(900)
+    const pin = await p.$("try-the-look [data-lb] [data-pin='1']")
+    const pb = (await pin!.boundingBox())!
+    await p.mouse.click(pb.x + pb.width / 2, pb.y + pb.height / 2); await sleep(700)
+    const shown = await p.evaluate(() => { const it = document.querySelector("try-the-look [data-lb] [data-item='1']")!; return { hot: it.classList.contains("is-hot"), sizes: it.classList.contains("is-open") } })
+    check("  a dot in the opened look marks its piece and opens its sizes", shown.hot && shown.sizes, shown)
+    posts.length = 0
+    await p.click("try-the-look [data-lb] [data-all]"); await sleep(1200)
+    const sentAll = posts.map((x) => (JSON.parse(x) as { items: { id: string }[] }).items.map((i) => i.id))
+    const want = await p.evaluate(() => (document.querySelector<HTMLElement>("try-the-look .ttl__look:not([hidden]) [data-all]")!.dataset.all ?? "").split(",").filter(Boolean))
+    check("  Add full look to bag sends every piece in one add", sentAll.length === 1 && sentAll[0].length === want.length && want.every((id) => sentAll[0].includes(id)), { sentAll, want })
+    check("  no script errors", errs.length === 0, errs)
+    await p.close()
+
+    /* A phone: tapping a dot opens the look as a sheet with the piece shown. */
+    const q = await browser.newPage()
+    await q.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true })
+    await q.goto(`${served.base}/`, { waitUntil: "networkidle2", timeout: 60000 })
+    await q.evaluate(() => document.querySelector("try-the-look")!.scrollIntoView({ block: "start" })); await sleep(1200)
+    const dot = (await (await q.$("try-the-look .ttl__stage .ttl__model.is-on [data-pin='2']"))!.boundingBox())!
+    await q.touchscreen.tap(dot.x + dot.width / 2, dot.y + dot.height / 2); await sleep(1300)
+    const sheet = await q.evaluate(() => { const lb = document.querySelector<HTMLDialogElement>("try-the-look [data-lb]")!; const it = lb.querySelector("[data-item='2']")!; const r = it.getBoundingClientRect(); const c = lb.querySelector(".ttl__card")!.getBoundingClientRect(); return { open: lb.open, bottom: Math.round(innerHeight - c.bottom), sizes: it.classList.contains("is-open"), inView: r.top >= 0 && r.top < innerHeight } })
+    check("  on a phone, a dot opens the look as a sheet from the bottom, its piece in view with its sizes", sheet.open && sheet.bottom === 0 && sheet.sizes && sheet.inView, sheet)
+    await q.close()
+  } finally {
+    await browser.close()
+    served.server.close()
+  }
+}

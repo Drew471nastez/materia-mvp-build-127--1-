@@ -944,9 +944,9 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: "hanging-rail",
     category: "website-builder",
     title: "Set up a Hanging rail of your clothes",
-    summary: "Show your garments on hangers on a rail: cut out a side and a front photo of each, add them to a Garment block and choose its product.",
-    keywords: ["hanging rail", "clothing rail", "clothes rail", "garments", "hangers", "transparent png", "remove background", "cut out", "cutout", "side view", "wear it with", "shop the look", "boutique rail", "streetwear drop"],
-    updated: "2026-11-24",
+    summary: "Show your garments on hangers on a rail, with the Hanging rail or the Boutique Rail, and put a pin on every piece of an outfit with Try the look.",
+    keywords: ["hanging rail", "clothing rail", "clothes rail", "garments", "hangers", "transparent png", "remove background", "cut out", "cutout", "side view", "wear it with", "shop the look", "boutique rail", "streetwear drop", "redline", "try the look", "shop the look pins", "complete the look"],
+    updated: "2026-11-25",
     related: ["files-library", "build-your-website"],
     body: [
       { type: "p", text: "The Hanging rail section shows your clothes as they hang in a shop, side on. Point at a garment and it turns to face you; click it and it comes off the rail into a window with its sizes, Add to cart and the pieces it is worn with. Close it and it goes back onto its hanger. Every template has it: in the website builder, press Add section and choose Hanging rail of products." },
@@ -986,6 +986,20 @@ export const HELP_ARTICLES: HelpArticle[] = [
         ["Background", "The scheme's colour, or a picture such as a landscape. Soften the picture, lay a wash of the scheme's background over it and put the words on frosted glass so they always read."],
       ] },
       { type: "note", text: "A garment that floats below the rail has empty space above its hook. Crop the picture again." },
+      { type: "h", text: "5. The Boutique Rail" },
+      { type: "p", text: "Boutique Rail is a second rail section, from Materia 1.3.2. Its garments come from a collection: choose a Collection, and a Collection 2 if you have one. The eyebrow above the rail then works as two tabs that switch the rail between them; set Tab names to Eyebrow texts to call them, say, Fleece and Jersey. Turn off Make the eyebrow clickable for plain words, or give each part its own link when there is one collection. The line under the rail keeps its height while visitors point at garments, so nothing below it moves." },
+      { type: "steps", items: [
+        "Add a Garment block for each product that has cut-out pictures, and upload its side and front views (and a back view if you have one). Products without a block hang as tidy cards of their own photos.",
+        "If your pictures show the hanger and its hook, turn off Draw a hook above each garment.",
+        "Under Focus view, choose the window's background (solid, or frosted glass over the page) and its colours, what happens after Add to cart, and the pieces each garment is worn with.",
+      ] },
+      { type: "h", text: "6. Try the look" },
+      { type: "p", text: "Try the look shows full outfits side by side. Visitors drag the row, open a look, tap a dot to see its piece and add the whole look to the bag at once." },
+      { type: "steps", items: [
+        "Add a Look block per outfit and upload the model as a transparent PNG or WebP, full length and cropped at the feet.",
+        "Choose a product for each pin, up to four, or a Collection whose first four products take the pins.",
+        "Move each pin onto its piece with the two sliders: across and down the picture, from 0 to 100%.",
+      ] },
     ],
   },
 

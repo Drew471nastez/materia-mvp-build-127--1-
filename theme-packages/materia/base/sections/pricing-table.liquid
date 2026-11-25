@@ -127,6 +127,17 @@
                   assign k_badge = pre | append: '_badge'
                   assign k_label = pre | append: '_button_label'
                   assign k_link = pre | append: '_button_link'
+                  assign k_product = pre | append: '_product'
+                  assign k_checkout = pre | append: '_to_checkout'
+                  assign plan_link = s[k_link]
+                  assign plan_product = s[k_product]
+                  if plan_product != blank and plan_product.title != blank
+                    assign plan_link = plan_product.url
+                    assign pv = plan_product.selected_or_first_available_variant
+                    if s[k_checkout] and pv.id != blank
+                      assign plan_link = '/cart/' | append: pv.id | append: ':1'
+                    endif
+                  endif
                 -%}
                 <th scope="col" data-col="{{ n }}"{% if n == hl %} data-hl{% endif %}>
                   <div class="ptab__plan">
@@ -135,7 +146,7 @@
                     {%- if s[k_price] != blank -%}<span class="ptab__price">{{ s[k_price] | escape }}</span>{%- endif -%}
                     {%- if s[k_note] != blank -%}<span class="ptab__note">{{ s[k_note] | escape }}</span>{%- endif -%}
                     {%- if s[k_label] != blank -%}
-                      <a {% if s[k_link] != blank %}href="{{ s[k_link] }}"{% else %}role="link" aria-disabled="true"{% endif %} data-theme-button="{% if n == hl %}primary{% else %}secondary{% endif %}" data-sl-button>{{ s[k_label] | escape }}</a>
+                      <a {% if plan_link != blank %}href="{{ plan_link }}"{% else %}role="link" aria-disabled="true"{% endif %} data-theme-button="{% if n == hl %}primary{% else %}secondary{% endif %}" data-sl-button>{{ s[k_label] | escape }}</a>
                     {%- endif -%}
                   </div>
                 </th>
@@ -228,6 +239,8 @@
     { "type": "text", "id": "plan_1_badge", "label": "Badge" },
     { "type": "text", "id": "plan_1_button_label", "label": "Button label", "default": "Choose" },
     { "type": "url", "id": "plan_1_button_link", "label": "Button link" },
+    { "type": "product", "id": "plan_1_product", "label": "Product", "info": "Its link replaces the button link." },
+    { "type": "checkbox", "id": "plan_1_to_checkout", "label": "Button goes straight to checkout", "default": false },
     { "type": "header", "content": "Plan 2" },
     { "type": "text", "id": "plan_2_name", "label": "Name", "default": "Team" },
     { "type": "text", "id": "plan_2_price", "label": "Price", "default": "$59" },
@@ -235,6 +248,8 @@
     { "type": "text", "id": "plan_2_badge", "label": "Badge", "default": "Most chosen" },
     { "type": "text", "id": "plan_2_button_label", "label": "Button label", "default": "Choose" },
     { "type": "url", "id": "plan_2_button_link", "label": "Button link" },
+    { "type": "product", "id": "plan_2_product", "label": "Product", "info": "Its link replaces the button link." },
+    { "type": "checkbox", "id": "plan_2_to_checkout", "label": "Button goes straight to checkout", "default": false },
     { "type": "header", "content": "Plan 3" },
     { "type": "text", "id": "plan_3_name", "label": "Name", "default": "Studio" },
     { "type": "text", "id": "plan_3_price", "label": "Price", "default": "$99" },
@@ -242,6 +257,8 @@
     { "type": "text", "id": "plan_3_badge", "label": "Badge" },
     { "type": "text", "id": "plan_3_button_label", "label": "Button label", "default": "Choose" },
     { "type": "url", "id": "plan_3_button_link", "label": "Button link" },
+    { "type": "product", "id": "plan_3_product", "label": "Product", "info": "Its link replaces the button link." },
+    { "type": "checkbox", "id": "plan_3_to_checkout", "label": "Button goes straight to checkout", "default": false },
     { "type": "header", "content": "Plan 4" },
     { "type": "text", "id": "plan_4_name", "label": "Name" },
     { "type": "text", "id": "plan_4_price", "label": "Price" },
@@ -249,6 +266,8 @@
     { "type": "text", "id": "plan_4_badge", "label": "Badge" },
     { "type": "text", "id": "plan_4_button_label", "label": "Button label" },
     { "type": "url", "id": "plan_4_button_link", "label": "Button link" },
+    { "type": "product", "id": "plan_4_product", "label": "Product", "info": "Its link replaces the button link." },
+    { "type": "checkbox", "id": "plan_4_to_checkout", "label": "Button goes straight to checkout", "default": false },
     { "type": "header", "content": "Layout" },
     {
       "type": "select", "id": "section_width", "label": "Width", "default": "container",

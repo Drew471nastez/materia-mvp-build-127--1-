@@ -1,5 +1,10 @@
 {
   "current": {
+    "card_image_slider": false,
+    "show_action_on_mobile": true,
+    "card_options_label": "select_options",
+    "card_actions_tooltips": true,
+    "card_actions_reveal": "hover",
     "color_schemes": {
       "default": {
         "settings": {
@@ -138,7 +143,7 @@
     "show_vendor": false,
     "show_rate": true,
     "show_variant": false,
-    "show_add_cart": false,
+    "show_add_cart": true,
     "show_quantity_input": false,
     "product_size": 17,
     "price_size": 16,

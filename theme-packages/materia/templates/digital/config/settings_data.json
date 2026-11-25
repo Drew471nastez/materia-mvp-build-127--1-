@@ -1,5 +1,15 @@
 {
   "current": {
+    "show_secondary_image": false,
+    "product_hover_effect": "hover_zoom",
+    "card_image_slider": false,
+    "show_action_on_mobile": true,
+    "card_options_label": "select_options",
+    "card_multi_variant_action": "quick_view",
+    "card_show_quickview": true,
+    "card_actions_tooltips": true,
+    "card_actions_reveal": "hover",
+    "card_actions_layout": "side",
     "color_schemes": {
       "default": {
         "settings": {
@@ -198,7 +208,7 @@
     "cart_page_enable_cart_note": false,
     "enable_cart_note": false,
     "show_wishlist": false,
-    "show_add_cart": false,
+    "show_add_cart": true,
     "product_size": 17,
     "price_size": 15,
     "page_width": 1200

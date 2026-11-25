@@ -1,0 +1,46 @@
+{%- doc -%}
+  The colours and background of a Video sales letter section (vsl-*).
+  "As designed" keeps the section's own white-on-dark look; "Colour scheme"
+  draws it in a scheme's colours (text, headings, lines and cards follow
+  it). A background colour and a background picture with an overlay work
+  with either.
+
+  @param {section} section - The vsl section
+  @param {string} part - 'class' (extra classes), 'style' (inline variables) or 'bg' (the picture layer)
+
+  @example
+  <div class="vsl{% render 'vsl-frame', section: section, part: 'class' %}" style="{% render 'vsl-frame', section: section, part: 'style' %}">{% render 'vsl-frame', section: section, part: 'bg' %}
+{%- enddoc -%}
+{%- liquid
+  assign vf = section.settings
+  assign vf_scheme = vf.color_scheme.id | default: vf.color_scheme | default: 'default'
+  assign vf_on = false
+  if vf.vsl_colors == 'scheme'
+    assign vf_on = true
+  endif
+-%}
+{%- case part -%}
+  {%- when 'class' -%}
+    {%- if vf_on %} color-{{ vf_scheme }} vsl--scheme{% endif -%}
+    {%- if vf.background_image != blank %} vsl--picture{% endif -%}
+  {%- when 'style' -%}
+    {%- if vf_on -%}
+      {%- assign vf_bg = vf.color_scheme.settings.background -%}
+      --vsl-ink-rgb: var(--color-heading-rgb); --vsl-text: var(--color-text); --vsl-head: var(--color-heading);
+      {%- if vf_bg.red != blank %} --vsl-surface-rgb: {{ vf_bg.red }}, {{ vf_bg.green }}, {{ vf_bg.blue }};{% endif %} background-color: var(--color-background);
+    {%- endif -%}
+    {%- if vf.background_color != blank and vf.background_color.alpha != 0 %} background-color: {{ vf.background_color }};{% endif -%}
+  {%- when 'bg' -%}
+    {%- if vf.background_image != blank -%}
+      <div class="vsl-bg" aria-hidden="true">
+        {{ vf.background_image | image_url: width: 2400 | image_tag: loading: 'lazy', sizes: '100vw', widths: '800, 1200, 1600, 2400', alt: '', class: 'vsl-bg__img' }}
+        <span class="vsl-bg__veil" style="background: {{ vf.overlay_color | default: '#000000' }}; opacity: {{ vf.overlay_opacity | default: 50 | divided_by: 100.0 }};"></span>
+      </div>
+      <style>
+        .vsl-bg { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+        .vsl-bg__img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .vsl-bg__veil { position: absolute; inset: 0; }
+        .vsl--picture > :not(.vsl-bg) { position: relative; z-index: 1; }
+      </style>
+    {%- endif -%}
+{%- endcase -%}

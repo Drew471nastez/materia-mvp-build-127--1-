@@ -4,7 +4,7 @@
           "/theme-previews/_base/a/hero-pro-scrolling.bf6b55deae4e.js",
           "/theme-previews/_base/a/hero-product-two.d82cfec7455c.js",
           "/theme-previews/_base/a/hero-product-one.eeb25630e984.js",
-          "/theme-previews/_base/a/hero-product-three.e62ee1211c55.js",
+          "/theme-previews/_base/a/hero-product-three.e7469efe4dee.js",
           "/theme-previews/_base/a/marketing-sections.0416198a8db7.js",
           "/theme-previews/_base/a/before-after-controls.b458ad057d9d.js",
           "/theme-previews/_base/a/media-live-before-after.fc489c4ebeaf.js",

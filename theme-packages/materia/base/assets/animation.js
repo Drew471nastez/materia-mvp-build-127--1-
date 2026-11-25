@@ -118,8 +118,15 @@ function reveal(targets) {
 // the element itself: reading an element's styles right after its class
 // changed made the browser work out the page's styles there and then.
 function follow(target, index = 0) {
+  // Only the reveal's own end counts. Going from the armed state (paused at
+  // its first frame, no delay) to playing with a delay or stagger moves the
+  // animation back into its "before" phase, and the browser reports that as
+  // an animationend with elapsedTime 0. Taken as the end, it marked the
+  // reveal done in its first frame: in the editor's canvas and the template
+  // previews (frames) nothing was ever seen to move. Another animation on
+  // the same element (an image fade, a hover) does not count either.
   const end = event => {
-    if (event.target !== target) return;
+    if (event.target !== target || !(event.elapsedTime > 0) || !/^reveal/i.test(event.animationName || '')) return;
     target.removeEventListener('animationend', end);
     markDone(target);
   };

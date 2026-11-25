@@ -1,5 +1,8 @@
 {
   "current": {
+    "card_actions_tooltips": true,
+    "card_show_quickview": false,
+    "card_image_slider": false,
     "color_schemes": {
       "default": {
         "settings": {

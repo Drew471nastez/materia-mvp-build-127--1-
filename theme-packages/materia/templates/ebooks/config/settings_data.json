@@ -1,5 +1,12 @@
 {
   "current": {
+    "card_image_slider": false,
+    "card_options_label": "select_options",
+    "card_multi_variant_action": "quick_view",
+    "card_show_quickview": true,
+    "card_actions_tooltips": true,
+    "card_actions_reveal": "hover",
+    "card_actions_layout": "side",
     "color_schemes": {
       "default": {
         "settings": {
@@ -210,7 +217,7 @@
     "product_alignment": "start",
     "product_image_ratio": "square",
     "show_secondary_image": true,
-    "product_hover_effect": "hover_fade",
+    "product_hover_effect": "hover_lift",
     "product_size": 17,
     "price_size": 15,
     "show_variant": false,
@@ -218,7 +225,7 @@
     "card_atc_button": "outline",
     "show_wishlist": false,
     "show_quantity_input": false,
-    "show_action_on_mobile": false,
+    "show_action_on_mobile": true,
     "badges_position": "top_start",
     "badges_shape": "rounded",
     "badges_drop_shadow": false,

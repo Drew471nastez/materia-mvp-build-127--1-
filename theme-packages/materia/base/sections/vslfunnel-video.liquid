@@ -89,7 +89,7 @@
   }
 </style>
 
-<div class="vfh color-{{ st.color_scheme }} gradient" data-vfh data-kind="{{ kind }}" data-src="{{ src | escape }}" data-id="{{ vid | escape }}" data-title="{{ st.video_title | default: st.heading | escape }}">
+<div class="vfh color-{{ st.color_scheme }} gradient" data-vfh data-kind="{{ kind }}" data-src="{{ src | escape }}" data-id="{{ vid | escape }}" data-title="{{ st.video_title | default: st.heading | escape }}">{% render 'bg-picture', image: st.background_image, overlay: st.overlay_color, opacity: st.overlay_opacity %}
   <div class="vfh__in">
     <div class="vfh__head">
       {%- if st.eyebrow != blank -%}<p class="vfh__eyebrow">{{ st.eyebrow | escape }}</p>{%- endif -%}
@@ -172,6 +172,10 @@
   "tag": "section",
   "class": "vslfunnel-video-section",
   "settings": [
+    { "type": "header", "content": "Background picture" },
+    { "type": "image_picker", "id": "background_image", "label": "Background picture" },
+    { "type": "color", "id": "overlay_color", "label": "Overlay on the picture", "default": "#000000", "visible_if": "{{ section.settings.background_image != blank }}" },
+    { "type": "range", "id": "overlay_opacity", "label": "Overlay strength", "min": 0, "max": 90, "step": 5, "unit": "%", "default": 50, "visible_if": "{{ section.settings.background_image != blank }}" },
     { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "default" },
     { "type": "text", "id": "eyebrow", "label": "Small line above", "default": "Free lesson, 14 minutes" },
     { "type": "text", "id": "heading", "label": "Heading", "default": "Say what the course does for someone in one sentence" },

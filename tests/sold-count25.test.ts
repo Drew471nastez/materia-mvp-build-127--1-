@@ -99,9 +99,35 @@ async function main() {
   check("a custom field typed in by that name gives way to the verified count", typed.metafields.custom.sold_count?.value === 3)
   check("nothing that is not a whole number above -1 is given", product({ sold_count: -1 }).metafields.custom.sold_count === undefined && product({ sold_count: 2.5 }).metafields.custom.sold_count === undefined)
 
+  console.log("\nRecent sales (round 26): the same paid orders, by when they were placed")
+  {
+    const { soldCountsWithWindows } = await import("../lib/products/sold-counts-server")
+    const NOW = Date.parse("2026-11-25T12:00:00Z")
+    const ago = (h: number) => new Date(NOW - h * 3600_000).toISOString()
+    const recent: Row[] = [
+      { id: "r1", product_id: MUG, quantity: 2, status: "completed", created_at: ago(3) },
+      { id: "r2", product_id: MUG, quantity: 1, status: "completed", created_at: ago(30) },
+      { id: "r3", product_id: MUG, quantity: 4, status: "completed", created_at: ago(24 * 10) },
+      { id: "r4", product_id: MUG, quantity: 5, status: "completed", created_at: ago(24 * 40) },
+      { id: "r5", product_id: MUG, quantity: 9, status: "refunded", created_at: ago(1) },
+      { id: "r6", product_id: TEE, quantity: 1, status: "completed", created_at: ago(2) },
+    ]
+    const back: Row[] = [{ order_id: "r1", quantity: 1, commerce_returns: { status: "completed" } }]
+    const w = await soldCountsWithWindows(stubDb({ orders: recent, commerce_return_items: back }), [MUG, TEE, NEW], NOW)
+    check("the last 24 hours count only lines placed then, less what came back", w?.get(MUG)?.h24 === 1, w && Object.fromEntries(w))
+    check("7 days and 30 days take in the older lines, all time every paid one", w?.get(MUG)?.d7 === 2 && w?.get(MUG)?.d30 === 6 && w?.get(MUG)?.all === 11)
+    check("a refunded line is in no window", w?.get(MUG)?.h24 === 1)
+    check("a product with nothing recent is 0 in every window", JSON.stringify(w?.get(NEW)) === JSON.stringify({ all: 0, h24: 0, d7: 0, d30: 0 }))
+    const recentProduct = product({ sold_count: 11, sold_count_24h: 1, sold_count_7d: 2, sold_count_30d: 6 })
+    check("a theme reads them as custom.sold_count_24h, _7d and _30d", recentProduct.metafields.custom.sold_count_24h?.value === 1 && recentProduct.metafields.custom.sold_count_7d?.value === 2 && recentProduct.metafields.custom.sold_count_30d?.value === 6)
+    const block = readCode("theme-packages/materia/base/snippets/review-sold-block.liquid")
+    check("the Sold counter picks its window (24 hours by default) and hides a 0", /sold_window = st\.sold_window \| default: '24h'/.test(block) && /sold_count_24h/.test(block) && !/sold_count == 0 and sold_nondigits == blank/.test(block))
+  }
+
   console.log("\nWhere it is read")
   const site = readCode("lib/website-builder/compat-site.ts")
-  check("the live site reads it with its own client, held a minute under the shop's tag", /m\.soldCounts\(admin as never, soldIds\)/.test(site) && /heldUnless\(\["compat-sold", creator\.creatorId\], \[creatorShopTag\(creator\.creatorId\)\], SHOP_HOLD_S, readSold/.test(site))
+  /* Changed on purpose (base round 26): the live site reads the count with its windows (last 24 hours, 7 and 30 days). */
+  check("the live site reads it with its own client, held a minute under the shop's tag", /m\.soldCountsWithWindows\(admin as never, soldIds\)/.test(site) && /heldUnless\(\["compat-sold", creator\.creatorId\], \[creatorShopTag\(creator\.creatorId\)\], SHOP_HOLD_S, readSold/.test(site))
   check("and lays it on every card and every pickable product", /products: withSoldCounts\(products, sold\)/.test(site) && /pickable: withSoldCounts\(catalog, sold\)/.test(site))
   check("the count is server only", /^import "server-only"/.test(readCode("lib/products/sold-counts-server.ts").trimStart()))
   check("this suite runs with the others", readCode("scripts/run-push-tests.mjs").includes('"tests/sold-count25.test.ts"'))

@@ -289,9 +289,9 @@
   --input-color: var(--field-text);
   --input-placeholder-color: var(--field-placeholder);
 }:root, body, [class*="color-"] { --input-focus-color: #adadad; }
-        input:focus, textarea:focus, select:focus {
-          outline: 2px solid #adadad;
-          outline-offset: 2px;
+        input:focus-visible, textarea:focus-visible, select:focus-visible {
+          outline: 2px solid color-mix(in srgb, #adadad 70%, transparent);
+          outline-offset: 1px;
         }/* GLOBAL BUTTON TEXT GUARANTEE
          The scheme's "Text color" customiser MUST NOT control button
          label colour anywhere in the theme. Button labels are owned

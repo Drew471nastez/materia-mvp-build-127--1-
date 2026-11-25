@@ -605,15 +605,15 @@
           "type": "heading",
           "settings": {
             "text": "Made heavy. Worn every day.",
-            "size_desktop": 112,
-            "size_mobile": 48,
+            "size_desktop": 120,
+            "size_mobile": 56,
             "tag": "h2",
             "enable_custom_style": true,
             "color": "#e3221b",
-            "font_source": "body",
-            "font_weight": "700",
-            "text_case": "uppercase",
-            "line_height": 0.9,
+            "font_source": "heading",
+            "font_weight": "theme",
+            "text_case": "theme",
+            "line_height": 0.92,
             "letter_spacing": -3
           }
         },
