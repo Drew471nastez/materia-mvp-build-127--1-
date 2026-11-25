@@ -5528,38 +5528,55 @@
             "label": "None"
           },
           {
+            "value": "subtle_rise",
+            "label": "Subtle rise (recommended)"
+          },
+          {
             "value": "fade_in",
             "label": "Fade in"
           },
           {
+            "value": "fade_up",
+            "label": "Fade up"
+          },
+          {
             "value": "slide_in",
-            "label": "Slide in (from below)"
+            "label": "Slide in from below"
           },
           {
             "value": "zoom_in",
             "label": "Zoom in"
           },
           {
-            "value": "subtle_rise",
-            "label": "Subtle rise (recommended)"
-          },
-          {
-            "value": "cinematic",
-            "label": "Cinematic (slow + soft scale)"
-          },
-          {
             "value": "blur_up",
             "label": "Blur up"
           },
           {
+            "value": "blur_in",
+            "label": "Blur in"
+          },
+          {
+            "value": "cinematic",
+            "label": "Cinematic (slow, soft scale)"
+          },
+          {
             "value": "slide_side",
-            "label": "Slide from side"
+            "label": "Slide in from the side"
+          },
+          {
+            "value": "stagger_up",
+            "label": "Rise in one by one"
           },
           {
             "value": "mask_reveal",
-            "label": "Mask reveal"
+            "label": "Mask reveal (pictures open, text rises)"
+          },
+          {
+            "value": "split_text",
+            "label": "Headings word by word"
           }
-        ]
+        ],
+        "info": "Plays once, as each section reaches the screen. The first screen shows at once."
       },
       {
         "type": "range",
@@ -5582,6 +5599,17 @@
         "default": 0
       },
       {
+        "type": "range",
+        "id": "reveal_stagger",
+        "label": "Delay between items",
+        "min": 0,
+        "max": 200,
+        "step": 5,
+        "unit": "ms",
+        "default": 75,
+        "info": "Cards, and the parts of a section with Rise in one by one, Mask reveal or Headings word by word"
+      },
+      {
         "type": "header",
         "content": "Image hover effect"
       },
@@ -5596,12 +5624,24 @@
             "label": "None"
           },
           {
-            "value": "hover_fade",
-            "label": "Fade in"
-          },
-          {
             "value": "hover_zoom",
             "label": "Zoom in"
+          },
+          {
+            "value": "hover_zoom_out",
+            "label": "Zoom out"
+          },
+          {
+            "value": "hover_pan",
+            "label": "Slow pan"
+          },
+          {
+            "value": "hover_fade",
+            "label": "Fade"
+          },
+          {
+            "value": "hover_reveal",
+            "label": "Show second picture"
           },
           {
             "value": "hover_tilt",
@@ -5609,7 +5649,7 @@
           },
           {
             "value": "hover_lift",
-            "label": "Lift + shadow"
+            "label": "Lift and shadow"
           },
           {
             "value": "hover_slide",
@@ -5620,8 +5660,16 @@
             "label": "Subtle glow"
           },
           {
-            "value": "hover_reveal",
-            "label": "Reveal alt image"
+            "value": "hover_brighten",
+            "label": "Brighten"
+          },
+          {
+            "value": "hover_grayscale",
+            "label": "Black and white to colour"
+          },
+          {
+            "value": "hover_blur",
+            "label": "Soft blur"
           }
         ]
       },
@@ -5633,7 +5681,7 @@
         "type": "checkbox",
         "id": "zoom_image",
         "label": "Zoom pictures as they scroll in",
-        "info": "Product and image cards, with Slide in",
+        "info": "Pictures in cards and sections settle from a slight zoom as they reveal. Needs a scroll reveal.",
         "default": false
       }
     ]
