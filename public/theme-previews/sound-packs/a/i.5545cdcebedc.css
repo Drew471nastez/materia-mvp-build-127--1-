@@ -1,0 +1,67 @@
+
+    /* ===== Add to Cart button =====
+       The card's add to cart buttons are theme buttons (data-theme-button):
+       theme-button-contract.css paints them from --mb-* tokens, so these
+       colours go in as tokens. A plain background/color rule, even with
+       !important, loses to the contract's layered rules. */
+    .product-item :is(button[name="add"], .product__add-cart, .product-item__button-submit) { --mb-bg: #f3f3f4; --mb-border: #f3f3f4; --mb-text: #0b0b0c; --mb-hover-bg: #c6f432; --mb-hover-border: #c6f432; --mb-hover-text: #10120a;
+    }
+    /* Off the picture (the Modern card's button under the details, a list
+       card) the button sits on the page colour, so its outline takes the
+       text colour: a light background with a matching border vanished. */
+    .product-item button.pc-atc:is(.pc-atc--below, .pc-atc--list) { --mb-border: #0b0b0c; }
+    /* The cart drawer's and cart page's "You may also like" cards have their
+       own colours (Cart drawer > Recommendations): these never reach them. */
+    .cart-recommend .product-item :is(button[name="add"], .product__add-cart, .product-item__button-submit) {
+      --mb-bg: initial; --mb-border: initial; --mb-text: initial;
+      --mb-hover-bg: initial; --mb-hover-border: initial; --mb-hover-text: initial;
+    }
+
+    /* ===== Wishlist heart — inactive (default) state ===== */:is(.product-item .product-item__button-wishlist, .qv .qv__wish) {
+        background: #f1f1f1 !important;
+      }:is(.product-item .product-item__button-wishlist, .qv .qv__wish) {
+        color: #1f1f1f !important;
+      }
+      :is(.product-item .product-item__button-wishlist, .qv .qv__wish) svg,
+      :is(.product-item .product-item__button-wishlist, .qv .qv__wish) svg path,
+      :is(.product-item .product-item__button-wishlist, .qv .qv__wish) svg use {
+        stroke: #1f1f1f !important;
+      }/* ===== Wishlist heart — active state (in-wishlist) ===== */:is(.product-item .product-item__button-wishlist, .qv .qv__wish).active {
+        background: #ff2d2d !important;
+        border-color: #ff2d2d !important;
+      }:is(.product-item .product-item__button-wishlist, .qv .qv__wish).active {
+        color: #ffffff !important;
+      }
+      :is(.product-item .product-item__button-wishlist, .qv .qv__wish).active svg,
+      :is(.product-item .product-item__button-wishlist, .qv .qv__wish).active svg path,
+      :is(.product-item .product-item__button-wishlist, .qv .qv__wish).active svg use {
+        color: #ffffff !important;
+        fill: #ffffff !important;
+        stroke: #ffffff !important;
+      }/* ===== Wishlist heart — hover state ===== */
+    @media (hover: hover) and (pointer: fine) {:is(.product-item .product-item__button-wishlist, .qv .qv__wish):hover {
+          background: #fae4e4 !important;
+        }}
+
+    /* ===== Remove (X) button — variant 1 on the wishlist page only ===== */:is(.product-item .product-item__button-wishlist, .qv .qv__wish).absolute[data-wishlist-remove][data-product-id] {
+        background: #ffffff !important;
+        border-color: #ffffff !important;
+      }:is(.product-item .product-item__button-wishlist, .qv .qv__wish).absolute[data-wishlist-remove][data-product-id],
+      :is(.product-item .product-item__button-wishlist, .qv .qv__wish).absolute[data-wishlist-remove][data-product-id] svg,
+      :is(.product-item .product-item__button-wishlist, .qv .qv__wish).absolute[data-wishlist-remove][data-product-id] svg path,
+      :is(.product-item .product-item__button-wishlist, .qv .qv__wish).absolute[data-wishlist-remove][data-product-id] svg use {
+        color: #f56464 !important;
+        fill: #f56464 !important;
+        stroke: #f56464 !important;
+      }@media (hover: hover) and (pointer: fine) {:is(.product-item .product-item__button-wishlist, .qv .qv__wish).absolute[data-wishlist-remove][data-product-id]:hover {
+          background: #efdcdc !important;
+          border-color: #efdcdc !important;
+        }:is(.product-item .product-item__button-wishlist, .qv .qv__wish).absolute[data-wishlist-remove][data-product-id]:hover,
+        :is(.product-item .product-item__button-wishlist, .qv .qv__wish).absolute[data-wishlist-remove][data-product-id]:hover svg,
+        :is(.product-item .product-item__button-wishlist, .qv .qv__wish).absolute[data-wishlist-remove][data-product-id]:hover svg path,
+        :is(.product-item .product-item__button-wishlist, .qv .qv__wish).absolute[data-wishlist-remove][data-product-id]:hover svg use {
+          color: #e9e9e9 !important;
+          fill: #e9e9e9 !important;
+          stroke: #e9e9e9 !important;
+        }}
+  

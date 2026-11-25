@@ -85,7 +85,7 @@ const decodeAmp = (s: string) => s.replace(/&amp;/g, "&").replace(/\\u0026/g, "&
 /* ── Where a page is written ───────────────────────────────────────────── */
 
 /** The addresses a visitor browses; everything else (account, checkout, a product's .js) is not a page here. */
-const PAGE_PATH = /^\/(?:|products\/[^/.?#]+|collections|collections\/[^/.?#]+|pages\/[^/.?#]+|blogs\/[^/.?#]+|blogs\/[^/.?#]+\/[^/.?#]+|policies\/[^/.?#]+|cart|search)$/
+const PAGE_PATH = /^\/(?:|products\/[^/.?#]+|collections|collections\/[^/.?#]+|pages\/[^/.?#]+|blogs\/[^/.?#]+|blogs\/[^/.?#]+\/[^/.?#]+|policies\/[^/.?#]+|cart|search|account\/login|account\/register)$/
 /** "/collections/x/products/y" is the product's page. */
 const canonical = (path: string) => path.replace(/^\/collections\/[^/]+(?=\/products\/)/, "").replace(/\/+$/, "") || "/"
 const fileOf = (path: string) => (path === "/" ? "index.html" : `${path.slice(1)}.html`)
@@ -332,7 +332,8 @@ async function buildTemplate(t: (typeof CODE_TEMPLATES)[number]) {
     const file = [join(overlay, "templates", "page.wishlist.json"), join(base, "templates", "page.wishlist.json")].find((f) => existsSync(f))
     const frame = (built.site.pages as unknown as Record<string, { group?: string }[]>).page
     if (!file || !frame || built.site.pages.wishlist) return null
-    const tree = JSON.parse(readFileSync(file, "utf8")) as { order?: string[]; sections: Record<string, { type: string; disabled?: boolean; settings?: Record<string, unknown>; blocks?: Record<string, { type: string; settings?: Record<string, unknown>; disabled?: boolean }>; block_order?: string[] }> }
+    /* A template file may open with comments, as the theme's generated ones do. */
+    const tree = JSON.parse(readFileSync(file, "utf8").replace(/^\s*(?:\/\*[\s\S]*?\*\/\s*)+/, "")) as { order?: string[]; sections: Record<string, { type: string; disabled?: boolean; settings?: Record<string, unknown>; blocks?: Record<string, { type: string; settings?: Record<string, unknown>; disabled?: boolean }>; block_order?: string[] }> }
     const main = (tree.order ?? Object.keys(tree.sections)).map((key) => tree.sections[key] && { key, s: tree.sections[key] }).filter((x): x is { key: string; s: (typeof tree.sections)[string] } => !!x && !x.s.disabled).map(({ key, s: sec }) => ({
       id: key, type: sec.type, settings: sec.settings ?? {},
       blocks: (sec.block_order ?? Object.keys(sec.blocks ?? {})).map((b) => sec.blocks?.[b] && { id: b, type: sec.blocks[b].type, settings: sec.blocks[b].settings ?? {}, ...(sec.blocks[b].disabled ? { hidden: true } : {}) }).filter(Boolean),
@@ -344,7 +345,8 @@ async function buildTemplate(t: (typeof CODE_TEMPLATES)[number]) {
   /* ── The pages, as the site answers them ── */
   const missing = new Set<string>()
   const pages = new Map<string, string>()
-  const seeds = ["/", "/collections", "/collections/all", "/cart", "/search", "/blogs/news", "/pages/about", "/pages/contact", "/pages/faqs"]
+  /* Round 26: the customer account pages (sign in, create an account) are pages of the preview too. */
+  const seeds = ["/", "/collections", "/collections/all", "/cart", "/search", "/blogs/news", "/pages/about", "/pages/contact", "/pages/faqs", "/account/login", "/account/register"]
   for (const p of built.site.products) seeds.push(`/products/${p.settings.slug}`)
   for (const c of built.site.collections) seeds.push(`/collections/${c.handle}`)
   for (const c of built.site.blog?.cards ?? []) seeds.push(c.path)
