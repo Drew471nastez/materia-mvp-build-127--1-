@@ -32,9 +32,9 @@
         "proof_1": {
           "type": "social_proof_avatars",
           "settings": {
-            "referral_text": "“Week three got me into the straps.”",
-            "referral_accent_text": "Sample review",
-            "show_stars": true,
+            "referral_text": "“Week three got me into the straps.” A sample review",
+            "referral_accent_text": "",
+            "show_stars": false,
             "ref_avatar_1": "shopify://shop_images/courselanding-student-1.webp",
             "ref_avatar_2": "shopify://shop_images/courselanding-student-2.webp",
             "ref_avatar_3": "shopify://shop_images/courselanding-student-3.webp",
@@ -47,7 +47,7 @@
             "ref_avatar_border_color": "#ffffff",
             "ref_avatar_size_desktop": 40,
             "ref_avatar_size_mobile": 34,
-            "ref_avatar_overlap_desktop": 12,
+            "ref_avatar_overlap_desktop": 14,
             "ref_avatar_overlap_mobile": 10,
             "referral_to_title_gap_desktop": 28,
             "referral_to_title_gap_mobile": 16
