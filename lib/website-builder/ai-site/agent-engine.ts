@@ -116,6 +116,9 @@ export function scopedStore(store: ProjectStore, path: string): ProjectStore {
     async writeSettings() {
       throw new Error(elsewhere)
     },
+    /* Round 26: nor the store's menus, nor a page taken off. */
+    writeStoreMenus: async () => false,
+    deletePage: async () => ({ ok: false, error: elsewhere }),
     async writePages(pages) {
       const now = new Map((await store.listPages()).map((p) => [p.key, p.sections]))
       for (const p of pages) {

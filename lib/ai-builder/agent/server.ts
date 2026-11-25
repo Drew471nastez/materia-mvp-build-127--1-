@@ -114,6 +114,10 @@ export function supabaseProjectStore(db: Db, installId: string, creatorId?: stri
         if (write?.error) throw new Error(`the page ${p.key} could not be saved`)
       }
     },
+    async deletePage(key) {
+      const { error } = await db.from("store_theme_pages").delete().eq("install_id", installId).eq("page_key", key)
+      return error ? { ok: false, error: "the page could not be removed" } : { ok: true }
+    },
     async readSettings() {
       const { data } = await db.from("store_theme_settings").select("settings, draft_settings").eq("install_id", installId).maybeSingle()
       const s = (data ?? {}) as { settings?: unknown; draft_settings?: unknown }

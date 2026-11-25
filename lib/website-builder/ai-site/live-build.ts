@@ -110,6 +110,8 @@ export function toolStep(e: { tool: AgentToolName | string; summary: string; ok:
       return `Writing ${where ?? "a page"}`
     case "add_page":
       return `Adding ${where ?? "a page"}`
+    case "remove_page":
+      return `Removing ${where ?? "a page"}`
     case "set_tokens":
       return "Choosing colors and fonts"
     case "bind_data":

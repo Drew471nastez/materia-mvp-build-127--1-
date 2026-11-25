@@ -61,6 +61,8 @@ export function toolSummary(tool: AgentToolName, input: Record<string, unknown> 
       return "Looking at the pages"
     case "add_page":
       return `Adding ${str(input.title) ? `the ${str(input.title)} page` : pageWords}`
+    case "remove_page":
+      return `Removing ${pageWords}`
     case "set_page_sections":
       return `Laying out ${pageWords}`
     case "set_section_settings":

@@ -87,7 +87,7 @@ if(D.readyState==="loading")D.addEventListener("DOMContentLoaded",arrive);else a
 if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);
 /* Round 26: a card's Quick view (each product's, from QV_DATA) and the Recently viewed row (every product's card, from RV_DATA; the theme keeps the visitor's). */
 var sid=/[?&]section_id=([^&#]+)/.exec(u);sid=sid&&sid[1];
-if(sid==="product-quickview"&&QV_DATA){var hm=//products/([^/?#]+?)(?:.html)?$/.exec(path(u));return F(QV_DATA).then(function(r){return r.json()}).then(function(d){var n=hm?d.k.indexOf(decodeURIComponent(hm[1])):-1;if(n<0)return new Response("",{status:404});var x=d.d[n];return new Response(typeof x==="string"?x:patch(d.d[0],x),{status:200,headers:{"Content-Type":"text/html"}})})}
+if(sid==="product-quickview"&&QV_DATA){var hm=/\/products\/([^\/?#]+?)(?:\.html)?$/.exec(path(u));return F(QV_DATA).then(function(r){return r.json()}).then(function(d){var n=hm?d.k.indexOf(decodeURIComponent(hm[1])):-1;if(n<0)return new Response("",{status:404});var x=d.d[n];return new Response(typeof x==="string"?x:patch(d.d[0],x),{status:200,headers:{"Content-Type":"text/html"}})})}
 if(sid==="recently-viewed"&&RV_DATA)return F(RV_DATA).then(function(r){return r.json()}).then(function(d){return new Response(d.html,{status:200,headers:{"Content-Type":"text/html"}})});
 if(mine(u))return F.apply(this,arguments);
 /* Cards round 24: the cart answers from the template's drawn cart (./theme-templates/preview-cart.ts), as a store would. */
@@ -534,8 +534,8 @@ class="level0 single"
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
 <a
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
-href="/theme-previews/personal-trainer/products/the-strength-club.html"
-><span>Club</span></a></menu-item></li>
+href="/theme-previews/personal-trainer/pages/find-your-plan.html"
+><span>Find your plan</span></a></menu-item></li>
 <li data-hs-i="3"
 class="level0 single"
 >
@@ -590,8 +590,8 @@ href="/theme-previews/personal-trainer/collections/programs.html"
 ><span class="menu-link-text">Programs</span></a></li><li class="menu-link level-1" data-hs-more-i="2" hidden>
 <a
 class="menu_item-link no-underline py-1025-5 inline-flex align-center"
-href="/theme-previews/personal-trainer/products/the-strength-club.html"
-><span class="menu-link-text">Club</span></a></li><li class="menu-link level-1" data-hs-more-i="3" hidden>
+href="/theme-previews/personal-trainer/pages/find-your-plan.html"
+><span class="menu-link-text">Find your plan</span></a></li><li class="menu-link level-1" data-hs-more-i="3" hidden>
 <a
 class="menu_item-link no-underline py-1025-5 inline-flex align-center"
 href="/theme-previews/personal-trainer/pages/about.html"
@@ -687,8 +687,8 @@ class="level0 single"
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
 <a
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
-href="/theme-previews/personal-trainer/products/the-strength-club.html"
-><span>Club</span></a></menu-item></li>
+href="/theme-previews/personal-trainer/pages/find-your-plan.html"
+><span>Find your plan</span></a></menu-item></li>
 <li data-hs-i="3"
 class="level0 single"
 >
@@ -1256,7 +1256,7 @@ Programs
 </a>
 </li><li class="pb-8">
 <a
-href="/theme-previews/personal-trainer/products/the-strength-club.html"
+href="/theme-previews/personal-trainer/collections/programs.html"
 aria-label="The Strength Club"
 class="no-underline word-break reversed-links relative"
 >

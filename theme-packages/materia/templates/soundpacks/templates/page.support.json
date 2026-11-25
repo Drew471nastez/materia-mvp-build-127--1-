@@ -100,10 +100,10 @@
           "type": "column",
           "settings": {
             "label": "Account",
-            "heading": "Find an old order",
-            "text": "<p>Sign in with the email you bought with to see every pack and download it again.</p>",
-            "link_label": "Sign in",
-            "link": "/account"
+            "heading": "Lost a download link",
+            "text": "<p>Write with the email you bought with and we send every pack you own again, usually the same day.</p>",
+            "link_label": "Ask for your links",
+            "link": "/pages/contact"
           }
         }
       },

@@ -43,7 +43,8 @@ import { designSettingsWrite } from "../site-settings"
 import { isSlopDisplayFont } from "@/lib/storelib-ai/library/type-systems"
 import { schemaInfo, siteRoutes, typeOfPath, unknownBindingIds, validateFile, validateSite, errorsOf } from "./validate"
 import { describeSitePlan, isTemplateKey, readSitePlan, templatesFor } from "./site-plan"
-import { repairPlanCitations } from "./materia"
+import { isMateriaInstall, repairPlanCitations } from "./materia"
+import { materiaMenusToStart, materiaPagePath, pageAddresses, withPageLink, withoutPageLinks, type Menus } from "./site-menus"
 import { closestTypes, resolveSectionType } from "@/lib/storelib-ai/materia/validate"
 import { versionOf } from "./version"
 import { conceptDirectionIssues, contractMetaAfter, refineBrief, syncContractFile, writeContract } from "./direction"
@@ -141,6 +142,11 @@ export function createToolSet(ctx: ToolContext): ToolSet {
     const out: Record<string, string> = {}
     for (const f of await store.listFiles()) if (f.text.trim()) out[f.path] = f.text
     return out
+  }
+
+  /** A Materia site whose store's menus this job can reach: page links go there (./site-menus.ts). */
+  async function onMateria(): Promise<boolean> {
+    return !!store.readStoreMenus && !!store.writeStoreMenus && isMateriaInstall(await sources())
   }
 
   async function caps(): Promise<RuntimeCapabilities> {
@@ -614,14 +620,67 @@ export function createToolSet(ctx: ToolContext): ToolSet {
       const settings = await store.readSettings()
       const pageSeo = { ...((settings.page_seo as Record<string, unknown>) ?? {}) }
       pageSeo[k] = { title: (seo?.title ?? name).slice(0, 70), ...(seo?.description ? { description: String(seo.description).slice(0, 160) } : {}) }
-      const menus = { ...((settings.menus as Record<string, { title: string; links: { title: string; url: string }[] }>) ?? {}) }
-      const main = menus["main-menu"] ?? { title: "Main menu", links: [] }
-      const url = pagePath(k)
-      if (!main.links.some((l) => l.url === url)) menus["main-menu"] = { ...main, links: [...main.links, { title: name, url }] }
+      /*
+        ROUND 26: THE LINK GOES IN THE MENU THE HEADER DRAWS (./site-menus.ts). A Materia site's header and footer
+        draw the STORE's menus, at /pages/<key>; anything else draws the theme's own settings.menus, at /<key>.
+      */
+      if (await onMateria()) {
+        await store.writeSettings({ page_seo: pageSeo })
+        const url = materiaPagePath(k)
+        let menu: "store" | "none" = "none"
+        try {
+          const start = materiaMenusToStart(await store.readStoreMenus!(), [...all.keys(), k])
+          if (await store.writeStoreMenus!(withPageLink(start, "main-menu", name, url))) menu = "store"
+        } catch {
+          /* The page is made whatever happens to its link; the answer says so. */
+        }
+        cp.pagesTouched = addUnique(cp.pagesTouched, k)
+        ctx.emit({ kind: "page", page: k, title: name, action: "created", sections: 0 })
+        return { ok: true, key: k, menu, url, ...(menu === "none" ? { error: "The page was made, but its link could not be added to the store's Main menu. Link it from a section, or try again." } : {}) }
+      }
+      const menus = withPageLink(((settings.menus as Menus) ?? {}) as Menus, "main-menu", name, pagePath(k))
       await store.writeSettings({ page_seo: pageSeo, menus })
       cp.pagesTouched = addUnique(cp.pagesTouched, k)
       ctx.emit({ kind: "page", page: k, title: name, action: "created", sections: 0 })
-      return { ok: true, key: k }
+      return { ok: true, key: k, menu: "theme", url: pagePath(k) }
+    },
+
+    /*
+      ROUND 26: A PAGE TAKEN OFF, AND EVERY LINK TO IT (./site-menus.ts): from the store's menus on a Materia site,
+      from the theme's otherwise. Never home or a template; never in a one-component edit.
+    */
+    async remove_page({ key }) {
+      const wait = blocked()
+      if (wait) return { ok: false, key: String(key ?? ""), error: wait.message }
+      const k = String(key ?? "").toLowerCase()
+      if (job.edit) return { ok: false, key: k, error: "An edit of one component does not remove pages." }
+      if (k === "home" || isTemplateKey(k)) return { ok: false, key: k, error: `"${k}" cannot be removed: it is ${k === "home" ? "the home page" : "a template the site needs"}.` }
+      const all = await pageMap()
+      if (!all.has(k)) return { ok: false, key: k, error: `There is no page "${k}" (list_pages).` }
+      if (!store.deletePage) return { ok: false, key: k, error: "Pages cannot be removed here." }
+      const gone = await store.deletePage(k)
+      if (!gone.ok) return { ok: false, key: k, error: gone.error ?? "The page could not be removed." }
+      let unlinked = 0
+      const settings = await store.readSettings()
+      const theme = withoutPageLinks(((settings.menus as Menus) ?? {}) as Menus, pageAddresses(k))
+      const seo = { ...((settings.page_seo as Record<string, unknown>) ?? {}) }
+      delete seo[k]
+      await store.writeSettings({ page_seo: seo, ...(theme.removed ? { menus: theme.menus } : {}) })
+      unlinked += theme.removed
+      if (await onMateria()) {
+        try {
+          const stored = await store.readStoreMenus!()
+          if (stored) {
+            const out = withoutPageLinks(stored, pageAddresses(k))
+            if (out.removed && (await store.writeStoreMenus!(out.menus))) unlinked += out.removed
+          }
+        } catch {
+          /* The page is gone whatever happens to the menu; the count says what was unlinked. */
+        }
+      }
+      cp.pagesTouched = cp.pagesTouched.filter((p) => p !== k)
+      ctx.emit({ kind: "page", page: k, title: pageTitleFromKey(k), action: "removed", sections: 0 })
+      return { ok: true, key: k, unlinked }
     },
 
     set_page_sections: placeSections,

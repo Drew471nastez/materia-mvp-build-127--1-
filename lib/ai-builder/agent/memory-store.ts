@@ -71,6 +71,11 @@ export function memoryStore(initial: Partial<MemoryProject> = {}): ProjectStore 
     async writeSettings(patch: Record<string, unknown>) {
       Object.assign(project.settings, JSON.parse(JSON.stringify(patch)))
     },
+    async deletePage(key: string) {
+      if (!(key in project.pages)) return { ok: false, error: "No such page." }
+      delete project.pages[key]
+      return { ok: true }
+    },
     async readStoreMenus() {
       return project.storeMenus ? (JSON.parse(JSON.stringify(project.storeMenus)) as Record<string, StoreMenu>) : null
     },

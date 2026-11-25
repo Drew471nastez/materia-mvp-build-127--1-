@@ -735,10 +735,9 @@ Templates round 23, after the owner's streetwear reference. The lifestyle photog
 | outerwear (sample products, second picture) | scripts/theme-templates/products/outerwear/outerwear-merino-crew-black-close.webp | https://images.unsplash.com/photo-1770909792243-5aaa0ecb279c, the same knit on the same model, closer | Unsplash License |
 | outerwear (sample products, second picture) | scripts/theme-templates/products/outerwear/outerwear-washed-tee-clay-pose.webp | https://images.unsplash.com/photo-1780566759997-6a4eabceaa10, the same tee in the same session | Unsplash License |
 | outerwear (sample products) | scripts/theme-templates/products/outerwear/*.webp | Round 25: redrawn at 1600 px from the full size photographs, background flattened to one grey. The cocoon puffer, quilted vest, work parka, rib beanie, backpack and tote have one picture each; no honest second shot was found | as above |
-<!-- notionpage (templates round 23, remade in round 24): every screen is a Notion page drawn as HTML for this template (Creator OS, its sample data and names invented) and photographed in a tablet, phone or window frame. The buyer pictures are Unsplash portraits, cropped round; the notes beside them are marked as samples to replace. Round 26: the maker's note and his portrait are gone; the Notion logo in the hero label and the Northpaper logo are drawn. -->
+<!-- notionpage (templates round 23, remade in round 24): every screen is a Notion page drawn as HTML for this template (Creator OS, its sample data and names invented) and photographed in a tablet, phone or window frame. The buyer pictures are Unsplash portraits, cropped round; the notes beside them are marked as samples to replace. Round 26: the maker's note and his portrait are gone; the Northpaper logo is drawn for it, and the small Notion logo in the hero label (notionpage-notion.webp) is the Notion mark redrawn as a vector to say what the product is made for; Notion is a trademark of Notion Labs, used only to name the platform. -->
 | notionpage | assets/notionpage-avatar-1.webp | https://images.unsplash.com/photo-1488426862026-3ee34a7d66df | Unsplash License |
-| notionpage | assets/notionpage-notion.webp | The Notion logo, redrawn as a vector for the label that says the product is a Notion template (nominative use; Notion is a trademark of Notion Labs) | Notion Labs trademark |
-| notionpage | assets/notionpage-logo.webp | Drawn for this template (round 26): a page with a folded corner and an N, and the Northpaper wordmark | Storelib |
+| notionpage | assets/notionpage-notion.webp | Drawn for this template | Storelib |
 | notionpage | assets/notionpage-avatar-2.webp | https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d | Unsplash License |
 | notionpage | assets/notionpage-avatar-3.webp | https://images.unsplash.com/photo-1531123897727-8f129e1688ce | Unsplash License |
 | notionpage | assets/notionpage-avatar-4.webp | https://images.unsplash.com/photo-1539571696357-5a69c17a67c6 | Unsplash License |
@@ -823,7 +822,7 @@ Templates round 24, renamed and remade in round 25 as Streetwear drop by Sixth W
 
 ## Personal trainer (trainer, Mateo Ruiz)
 
-Personal trainer (round 25): Mateo Ruiz, a sample strength coach in Valencia and online. The coach is one photographer's session of the same man coaching a client in a gym (Sergio Kian): the hero (mirrored), the portraits and every coaching picture. The small logo on his polo shirt and a maker name on a weight plate are painted out, and every picture is given the same warm film grade with grain. The progress pair is one session of one woman training (Sven Mieke), marked on the page as a sample from one shoot; the brand name on her waistband is cropped out. The client faces on the sample quotes are other Unsplash portraits (Asso Myron, Vitaly Gariev), cropped round and marked as samples on the page. The plan in the app is drawn for this template onto the blank screen of an Unsplash photograph of a hand holding a phone.
+Personal trainer (round 25): Mateo Ruiz, a sample strength coach in Valencia and online. The coach is one photographer's session of the same man coaching a client in a gym (Sergio Kian): the hero (mirrored), the portraits and every coaching picture. The small logo on his polo shirt and a maker name on a weight plate are painted out, and every picture is given the same warm film grade with grain. The progress pair is one session of one woman training (Sven Mieke), marked on the page as a sample from one shoot; the brand name on her waistband is cropped out. The client faces on the sample quotes are other Unsplash portraits (Asso Myron, Vitaly Gariev), cropped round and marked as samples on the page. The plan in the app is drawn for this template onto the blank screen of an Unsplash photograph of a hand holding a phone. Round 26: the MR logo is drawn for the template; The Strength Club, the community product, reuses two pictures of the same session.
 
 | Template | File | Source | License |
 | --- | --- | --- | --- |
@@ -852,7 +851,7 @@ Personal trainer (round 25): Mateo Ruiz, a sample strength coach in Valencia and
 | trainer (cover only) | scripts/theme-templates/products/trainer/trainer-formcheck-cue.webp | https://images.unsplash.com/photo-1738523686527-d68bd5eaeaae | Unsplash License |
 | trainer (cover only) | scripts/theme-templates/products/trainer/trainer-club.webp | https://images.unsplash.com/photo-1738523686619-1b3b5d2405ee | Unsplash License |
 | trainer (cover only) | scripts/theme-templates/products/trainer/trainer-club-session.webp | https://images.unsplash.com/photo-1738523686534-7055df5858d6 | Unsplash License |
-| trainer | assets/trainer-logo.webp | Drawn for this template (round 26): an MR block and the name in Anton | Storelib |
+| trainer | assets/trainer-logo.webp | Drawn for this template | Storelib |
 | trainer (cover only) | scripts/theme-templates/products/trainer/trainer-post-own.webp | https://images.unsplash.com/photo-1738524108435-1047a1d4c194 | Unsplash License |
 | trainer (cover only) | scripts/theme-templates/products/trainer/trainer-post-talk.webp | https://images.unsplash.com/photo-1738523686619-1b3b5d2405ee | Unsplash License |
 | trainer (cover only) | scripts/theme-templates/products/trainer/trainer-post-squat.webp | https://images.unsplash.com/photo-1574680178050-55c6a6a96e0a | Unsplash License |
@@ -877,7 +876,7 @@ Personal trainer (round 25): Mateo Ruiz, a sample strength coach in Valencia and
 | notionsite | assets/notionsite-buyer-11.webp | https://images.unsplash.com/photo-1472099645785-5658abf4ff4e | Unsplash License |
 | notionsite | assets/notionsite-buyer-12.webp | https://images.unsplash.com/photo-1548142813-c348350df52b | Unsplash License |
 | notionsite | assets/notionsite-logo.webp | Drawn for this template | Storelib |
-| notionsite | assets/notionsite-avatar.webp | Drawn for this template (round 26): a line drawn avatar of Nora, as SVG, to replace with your own | Storelib |
+| notionsite | assets/notionsite-avatar.webp | Drawn for this template | Storelib |
 | notionsite | assets/notionsite-mark.webp | Drawn for this template | Storelib |
 | notionsite | assets/notionsite-step-email.webp | Drawn for this template | Storelib |
 | notionsite | assets/notionsite-step-duplicate.webp | Drawn for this template | Storelib |

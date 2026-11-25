@@ -32,7 +32,8 @@
             "image": "shopify://shop_images/soundpacks-box-night-bus.webp",
             "title": "Night Bus",
             "note": "$29",
-            "link": "/products/night-bus"
+            "link": "/collections/packs",
+            "product": "Night Bus"
           }
         },
         "cv_chrome_drums": {
@@ -41,7 +42,8 @@
             "image": "shopify://shop_images/soundpacks-box-chrome-drums.webp",
             "title": "Chrome Drums",
             "note": "$24",
-            "link": "/products/chrome-drums"
+            "link": "/collections/packs",
+            "product": "Chrome Drums"
           }
         },
         "cv_soft_focus": {
@@ -50,7 +52,8 @@
             "image": "shopify://shop_images/soundpacks-box-soft-focus.webp",
             "title": "Soft Focus",
             "note": "$19",
-            "link": "/products/soft-focus"
+            "link": "/collections/packs",
+            "product": "Soft Focus"
           }
         },
         "cv_heavy_water": {
@@ -59,7 +62,8 @@
             "image": "shopify://shop_images/soundpacks-box-heavy-water.webp",
             "title": "Heavy Water",
             "note": "$27",
-            "link": "/products/heavy-water"
+            "link": "/collections/packs",
+            "product": "Heavy Water"
           }
         },
         "cv_afterglow": {
@@ -68,7 +72,8 @@
             "image": "shopify://shop_images/soundpacks-box-afterglow.webp",
             "title": "Afterglow",
             "note": "$25",
-            "link": "/products/afterglow"
+            "link": "/collections/packs",
+            "product": "Afterglow"
           }
         },
         "cv_small_hours": {
@@ -77,7 +82,8 @@
             "image": "shopify://shop_images/soundpacks-box-small-hours.webp",
             "title": "Small Hours",
             "note": "Free",
-            "link": "/products/small-hours"
+            "link": "/collections/free",
+            "product": "Small Hours"
           }
         },
         "fact_1": {

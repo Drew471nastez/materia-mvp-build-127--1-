@@ -87,7 +87,7 @@ if(D.readyState==="loading")D.addEventListener("DOMContentLoaded",arrive);else a
 if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);
 /* Round 26: a card's Quick view (each product's, from QV_DATA) and the Recently viewed row (every product's card, from RV_DATA; the theme keeps the visitor's). */
 var sid=/[?&]section_id=([^&#]+)/.exec(u);sid=sid&&sid[1];
-if(sid==="product-quickview"&&QV_DATA){var hm=//products/([^/?#]+?)(?:.html)?$/.exec(path(u));return F(QV_DATA).then(function(r){return r.json()}).then(function(d){var n=hm?d.k.indexOf(decodeURIComponent(hm[1])):-1;if(n<0)return new Response("",{status:404});var x=d.d[n];return new Response(typeof x==="string"?x:patch(d.d[0],x),{status:200,headers:{"Content-Type":"text/html"}})})}
+if(sid==="product-quickview"&&QV_DATA){var hm=/\/products\/([^\/?#]+?)(?:\.html)?$/.exec(path(u));return F(QV_DATA).then(function(r){return r.json()}).then(function(d){var n=hm?d.k.indexOf(decodeURIComponent(hm[1])):-1;if(n<0)return new Response("",{status:404});var x=d.d[n];return new Response(typeof x==="string"?x:patch(d.d[0],x),{status:200,headers:{"Content-Type":"text/html"}})})}
 if(sid==="recently-viewed"&&RV_DATA)return F(RV_DATA).then(function(r){return r.json()}).then(function(d){return new Response(d.html,{status:200,headers:{"Content-Type":"text/html"}})});
 if(mine(u))return F.apply(this,arguments);
 /* Cards round 24: the cart answers from the template's drawn cart (./theme-templates/preview-cart.ts), as a store would. */
@@ -535,8 +535,8 @@ class="level0 single"
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
 <a
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
-href="/theme-previews/personal-trainer/products/the-strength-club.html"
-><span>Club</span></a></menu-item></li>
+href="/theme-previews/personal-trainer/pages/find-your-plan.html"
+><span>Find your plan</span></a></menu-item></li>
 <li data-hs-i="3"
 class="level0 single"
 >
@@ -591,8 +591,8 @@ href="/theme-previews/personal-trainer/collections/programs.html"
 ><span class="menu-link-text">Programs</span></a></li><li class="menu-link level-1" data-hs-more-i="2" hidden>
 <a
 class="menu_item-link no-underline py-1025-5 inline-flex align-center"
-href="/theme-previews/personal-trainer/products/the-strength-club.html"
-><span class="menu-link-text">Club</span></a></li><li class="menu-link level-1" data-hs-more-i="3" hidden>
+href="/theme-previews/personal-trainer/pages/find-your-plan.html"
+><span class="menu-link-text">Find your plan</span></a></li><li class="menu-link level-1" data-hs-more-i="3" hidden>
 <a
 class="menu_item-link no-underline py-1025-5 inline-flex align-center"
 href="/theme-previews/personal-trainer/pages/about.html"
@@ -688,8 +688,8 @@ class="level0 single"
 <menu-item class="relative static-1025 flex justify-between align-center border-bottom border-bottom-1025-0 header-color  px-15">
 <a
 class="no-underline py-10 relative lh-normal inline-flex min-h-55 min-h-1025-50 z-1 align-center"
-href="/theme-previews/personal-trainer/products/the-strength-club.html"
-><span>Club</span></a></menu-item></li>
+href="/theme-previews/personal-trainer/pages/find-your-plan.html"
+><span>Find your plan</span></a></menu-item></li>
 <li data-hs-i="3"
 class="level0 single"
 >
@@ -850,7 +850,149 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
 <div class="hsm__content"><div class="r7h__stack"><p class="r7h__eyebrow" data-r7h-block="eyebrow_1" data-r7h-type="eyebrow" data-block-id="eyebrow_1" style="">Strength coaching / Valencia and online</p><h1 class="r7h__heading" data-r7h-block="heading_2" data-r7h-type="heading" data-block-id="heading_2" data-own-size style="--r7h-color:var(--color-heading);--r7h-size-d:88px;--r7h-size-m:50px;--r7h-lh:0.96;--r7h-ls:0px;">Lift well. Train around your week. Keep it for years.</h1><div class="r7h__text" data-r7h-block="subheading_3" data-r7h-type="subheading" data-block-id="subheading_3" style=""><p>I write strength training around the hours you actually have and read every session you log. Book a free 20 minute call and we work out if coaching makes sense for you.</p></div><div class="r7h__buttons"><a href="/theme-previews/personal-trainer/pages/book-a-call.html" class="r7h__cta" data-theme-button="primary" data-sl-button data-r7h-block="button_4" data-r7h-type="button" data-block-id="button_4" style="">Book a free call</a><a href="/theme-previews/personal-trainer/pages/find-your-plan.html" class="r7h__cta" data-theme-button="secondary" data-sl-button data-r7h-block="button_5" data-r7h-type="button" data-block-id="button_5" style="">Find your plan</a></div></div></div>
 </div>
 </div>
-</div></div><section id="shopify-section-strip" class="shopify-section scrollingbar section-edge-bleed s-tt has-overlay" data-section-id="strip" data-section-type="marquee-bar"><script src="/theme-previews/_base/a/live-announcements-runtime.0a55b4e3dee0.js" defer="defer"></script><style>
+</div></div><section id="shopify-section-coach" class="shopify-section section sec__image-text-dual s-tt" data-section-id="coach" data-section-type="dual-image-with-text"><style>
+  :where(html:not([data-font-priority='off'])) #shopify-section-coach :where(.subheading, .sub-heading, [class*='__subheading']) {
+    font-weight: var(--subheading-weight, 500);
+  }
+</style><style>
+  #shopify-section-coach.scroll-trigger {
+    --animation-duration: 950ms;
+    --animation-delay: 80ms;
+  }
+</style>
+<script>
+  (function(){
+    var el = document.getElementById('shopify-section-coach');
+    if (!el || el.classList.contains('scroll-trigger')) return;
+    el.classList.add('scroll-trigger', "fade_up");
+  })();
+</script><style data-rs-bulletproof>/* reset_spacing: bulletproof override of ALL section spacing mechanisms */
+    #shopify-section-coach,
+    #shopify-section-coach > .section,
+    #shopify-section-coach > section,
+    #shopify-section-coach > div,
+    #shopify-section-coach > div > .section {
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
+    }
+    #shopify-section-coach + .shopify-section,
+    #shopify-section-coach + section,
+    .shopify-section + #shopify-section-coach {
+      margin-top: 0 !important;
+    }</style><style>
+  #shopify-section-coach#shopify-section-coach { margin-top: 0px !important; margin-bottom: 0px !important; }
+  @media (min-width: 900px) {
+    #shopify-section-coach#shopify-section-coach { margin-top: 0px !important; margin-bottom: 0px !important; }
+  }
+  #shopify-section-coach { padding-top: 0 !important; padding-bottom: 0 !important; --section-spacing: 0px; }
+  #shopify-section-coach + .shopify-section { margin-top: 0 !important; padding-top: 0 !important; }
+  .shopify-section:has(+ #shopify-section-coach) { margin-bottom: 0 !important; padding-bottom: 0 !important; }
+  #shopify-section-coach .mlb { background: var(--m-bg); color: var(--m-text); font-family: var(--m-bf); padding: var(--m-pt-m) var(--m-px-m) var(--m-pb-m); box-sizing: border-box; }
+  #shopify-section-coach .mlb *, #shopify-section-coach .mlb *::before, #shopify-section-coach .mlb *::after { box-sizing: border-box; }
+  #shopify-section-coach .mlb [hidden] { display: none !important; }
+  #shopify-section-coach .mlb :is(h1, h2, h3, h4, h5, h6) { font-family: var(--m-hf); }
+  #shopify-section-coach .mlb__inner { width: 100%; margin-inline: auto; }
+  #shopify-section-coach .mlb[data-width='container'] .mlb__inner { max-width: calc(var(--page-width, 1300px) + 3rem); }
+  #shopify-section-coach .mlb[data-width='fluid_container'] .mlb__inner { max-width: calc(var(--fluid-container-width, 1500px) + 3rem); }
+  @media (min-width: 1200px) { #shopify-section-coach .mlb[data-width='stretch_width'] .mlb__inner { padding-inline: 3rem; } }
+
+  #shopify-section-coach .mlb__grid { display: flex; flex-direction: column; gap: var(--m-gap-m); }
+  #shopify-section-coach .mlb__media, #shopify-section-coach .mlb__text { width: 100%; min-width: 0; }
+  #shopify-section-coach .mlb[data-order-m='text_first'] .mlb__media { order: 2; }
+  #shopify-section-coach .mlb__text { display: flex; flex-direction: column; gap: var(--m-cgap); align-items: flex-start; text-align: left; }
+  #shopify-section-coach .mlb[data-align-m='center'] .mlb__text { align-items: center; text-align: center; }
+  #shopify-section-coach .mlb[data-align-m='right'] .mlb__text { align-items: flex-end; text-align: right; }
+  @media (min-width: 900px) {
+    #shopify-section-coach .mlb { padding: var(--m-pt-d) var(--m-px-d) var(--m-pb-d); }
+    #shopify-section-coach .mlb__grid { flex-direction: row; align-items: center; gap: var(--m-gap-d); }
+    #shopify-section-coach .mlb[data-side='right'] .mlb__grid { flex-direction: row-reverse; }
+    #shopify-section-coach .mlb[data-order-m] .mlb__media { order: 0; flex: 1 1 0; }
+    #shopify-section-coach .mlb__text { flex: 0 0 calc(var(--m-tw) - var(--m-gap-d) / 2); width: auto; }
+    #shopify-section-coach .mlb[data-align='left'] .mlb__text { align-items: flex-start; text-align: left; }
+    #shopify-section-coach .mlb[data-align='center'] .mlb__text { align-items: center; text-align: center; }
+    #shopify-section-coach .mlb[data-align='right'] .mlb__text { align-items: flex-end; text-align: right; }
+  }
+
+  #shopify-section-coach .mlb__frame { position: relative; overflow: hidden; border-radius: var(--m-r, 0px); aspect-ratio: var(--m-ar, 4 / 5); background: var(--m-ph-bg, color-mix(in srgb, var(--color-text) 8%, var(--color-background))); color: var(--color-text); }
+  #shopify-section-coach .mlb__frame > :is(img, video, .video-wrapper, svg), #shopify-section-coach .mlb__frame .video-wrapper > * { width: 100%; height: 100%; display: block; }
+  #shopify-section-coach .mlb__frame > :is(img, video), #shopify-section-coach .mlb__frame .video-wrapper video { object-fit: var(--m-fit, cover); }
+  #shopify-section-coach .mlb__frame > svg.mlb__ph { background: none; }
+
+  #shopify-section-coach .mlb__text > * { margin: 0; max-width: 100%; }
+  #shopify-section-coach .mlb__eyebrow { color: var(--b-c); font-size: var(--b-fs); font-weight: var(--subheading-weight, 700); letter-spacing: 2px; text-transform: uppercase; line-height: 1.2; }
+  #shopify-section-coach .mlb__heading { color: var(--b-c); font-size: var(--b-fs-m); line-height: var(--heading-line-height, 1.15); text-transform: var(--b-tt, var(--heading-text-transform, none)); overflow-wrap: break-word; }
+  #shopify-section-coach .mlb__sub { color: var(--b-c); font-size: var(--b-fs-m); line-height: 1.6; max-width: 560px; }
+  #shopify-section-coach .mlb__sub p { margin: 0 0 .5em; }
+  #shopify-section-coach .mlb__sub p:last-child { margin: 0; }
+  @media (min-width: 900px) {
+    #shopify-section-coach .mlb__heading, #shopify-section-coach .mlb__sub { font-size: var(--b-fs-d); }
+  }
+  #shopify-section-coach .mlb__btn[data-full='true'] { width: 100%; }
+  #shopify-section-coach .mlb__btn:focus-visible { outline: 2px solid var(--color-heading); outline-offset: 3px; }
+</style>
+<style>
+  #shopify-section-coach .itd__stage { position: relative; width: 100%; aspect-ratio: var(--m-ar); isolation: isolate; }
+  #shopify-section-coach .itd__img { position: absolute; width: var(--b-size); height: var(--b-size); border-radius: var(--b-r); overflow: hidden; background: color-mix(in srgb, var(--color-text) 8%, var(--color-background)); color: var(--color-text); transform: rotate(var(--b-rot)); }
+  #shopify-section-coach .itd__img > img, #shopify-section-coach .itd__img > svg { width: 100%; height: 100%; display: block; }
+  #shopify-section-coach .itd__img > svg.mlb__ph { background: none; }
+  #shopify-section-coach .itd__img > img { object-fit: var(--b-fit); object-position: var(--b-px) var(--b-py); }
+  #shopify-section-coach .itd__img[data-shadow='true'] { box-shadow: 0 24px 60px -20px rgb(0 0 0 / .25); }
+  #shopify-section-coach .itd__main { top: 0; left: 0; z-index: 2; }
+  #shopify-section-coach .itd__main[data-anchor='top_right'] { left: auto; right: 0; }
+  #shopify-section-coach .itd__main[data-anchor='bottom_left'] { top: auto; bottom: 0; }
+  #shopify-section-coach .itd__main[data-anchor='bottom_right'] { top: auto; left: auto; bottom: 0; right: 0; }
+  #shopify-section-coach .itd__accent { z-index: 1; bottom: var(--b-oy); right: var(--b-ox); transform: rotate(var(--b-rot)) scale(calc(var(--b-scale) / 100)); border: var(--b-bw) solid var(--b-bc); box-sizing: content-box; }
+  #shopify-section-coach .itd[data-accent-front='true'] .itd__main { z-index: 1; }
+  #shopify-section-coach .itd[data-accent-front='true'] .itd__accent { z-index: 2; }
+  #shopify-section-coach .itd__accent[data-anchor='top_left'] { bottom: auto; right: auto; top: var(--b-oy); left: var(--b-ox); }
+  #shopify-section-coach .itd__accent[data-anchor='top_right'] { bottom: auto; top: var(--b-oy); }
+  #shopify-section-coach .itd__accent[data-anchor='bottom_left'] { right: auto; left: var(--b-ox); }
+  #shopify-section-coach .itd__accent[data-anchor='center'] { bottom: auto; right: auto; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(var(--b-rot)) scale(calc(var(--b-scale) / 100)); }
+  #shopify-section-coach .itd__accent[data-shadow='true'] { box-shadow: 0 18px 44px -16px rgb(0 0 0 / .3); }
+  @media (max-width: 899px) {
+    #shopify-section-coach .itd__accent { width: var(--b-size-m); height: var(--b-size-m); }
+    #shopify-section-coach .itd__accent[data-hide-m='true'] { display: none; }
+  }
+  #shopify-section-coach .itd__dot { position: absolute; border-radius: 50%; pointer-events: none; z-index: 0; opacity: calc(var(--itd-do) / 100); display: none; }
+  #shopify-section-coach .itd[data-dots='true'] .itd__dot { display: block; }
+  #shopify-section-coach .itd[data-dots-front='true'] .itd__dot { z-index: 3; }
+  #shopify-section-coach .itd__dot--a { width: var(--itd-ds); height: var(--itd-ds); background: var(--itd-dca); top: var(--itd-ay); left: var(--itd-ax); }
+  #shopify-section-coach .itd__dot--b { width: var(--itd-ds-b); height: var(--itd-ds-b); background: var(--itd-dcb); top: var(--itd-by); left: var(--itd-bx); }
+</style>
+<div id="itd-coach" class="itd mlb section sec__image-text-dual color-default gradient" data-section-id="coach" data-mlb-root="dual-image-with-text" data-mlb-section="coach" data-width="container" data-side="left" data-align="left" data-align-m="left" data-order-m="media_first" data-dots="false" data-dots-front="false" data-accent-front="true" style="--m-bg: var(--color-background);--m-text: var(--color-text);--m-hf: var(--heading-font);--m-bf: var(--body-font);--m-pt-m: 64px;--m-pb-m: 64px;--m-pt-d: 120px;--m-pb-d: 120px;--m-px-m: 16px;--m-px-d: 32px;--m-gap-m: 32px;--m-gap-d: 96px;--m-cgap: 18px;--m-tw: 44%;--m-ar: 4 / 5;--itd-ds: 60px;--itd-ds-b: 36px;--itd-do: 60;--itd-ax: 28%;--itd-ay: 30%;--itd-bx: 60%;--itd-by: 70%;--itd-dca: var(--color-border);--itd-dcb: var(--color-border);">
+<div class="itd__inner mlb__inner">
+<div class="itd__grid mlb__grid">
+<div class="itd__media mlb__media">
+<div class="itd__stage">
+<span class="itd__dot itd__dot--a" aria-hidden="true"></span>
+<span class="itd__dot itd__dot--b" aria-hidden="true"></span><div class="itd__img itd__main" data-mlb-media data-block-id="main_image_1" data-mlb-block="main_image_1" data-mlb-type="main_image" data-block-id="main_image_1" data-anchor="top_left" data-shadow="false" style="--b-size: 72%;--b-r: 4px;--b-rot: 0deg;--b-px: 50%;--b-py: 30%;--b-fit: cover;"><img
+src="/theme-previews/personal-trainer/a/trainer-mateo.2bdc45dfae0f.webp"
+srcset="/theme-previews/personal-trainer/a/trainer-mateo.2bdc45dfae0f.webp 600w,
+/theme-previews/personal-trainer/a/trainer-mateo.2bdc45dfae0f.webp 900w,
+/theme-previews/personal-trainer/a/trainer-mateo.2bdc45dfae0f.webp 1400w"
+sizes="(min-width: 900px) 40vw, 80vw"
+alt="Mateo laughing with a client between sets on the bench press"
+width="1600"
+height="1600"
+loading="lazy"
+decoding="async"
+></div><div class="itd__img itd__accent" data-mlb-media data-block-id="accent_image_2" data-mlb-block="accent_image_2" data-mlb-type="accent_image" data-block-id="accent_image_2" data-anchor="bottom_right" data-shadow="false" data-hide-m="false" style="--b-size: 44%;--b-r: 4px;--b-rot: 0deg;--b-px: 50%;--b-py: 50%;--b-fit: cover;--b-size-m: 46%;--b-ox: 0%;--b-oy: 0%;--b-scale: 100;--b-bw: 6px;--b-bc: #fbfaf7;"><img
+src="/theme-previews/personal-trainer/a/trainer-cue.15950804da4b.webp"
+srcset="/theme-previews/personal-trainer/a/trainer-cue.15950804da4b.webp 600w,
+/theme-previews/personal-trainer/a/trainer-cue.15950804da4b.webp 900w,
+/theme-previews/personal-trainer/a/trainer-cue.15950804da4b.webp 1400w"
+sizes="(min-width: 900px) 40vw, 80vw"
+alt="Mateo counting out the next set with his hands"
+width="1600"
+height="1600"
+loading="lazy"
+decoding="async"
+></div></div>
+</div>
+<div class="itd__text mlb__text"><p class="itd__eyebrow mlb__eyebrow" data-block-id="eyebrow_3" data-mlb-block="eyebrow_3" data-mlb-type="eyebrow" data-block-id="eyebrow_3" style="--b-c: var(--color-text);--b-fs: 12px;">01 / About</p><h2 class="itd__heading mlb__heading" data-block-id="heading_4" data-mlb-block="heading_4" data-mlb-type="heading" data-block-id="heading_4" style="--b-c: var(--color-heading);--b-fs-m: 30px;--b-fs-d: 42px;">Eight years of coaching people with full weeks</h2><div class="itd__subheading mlb__sub" data-block-id="subheading_5" data-mlb-block="subheading_5" data-mlb-type="subheading" data-block-id="subheading_5" style="--b-c: var(--color-text);--b-fs-m: 15px;--b-fs-d: 17px;"><p>I have coached for eight years. Most of the people I train have a desk job, a family and three or four hours a week, so that is what I write for.</p><p>We learn the lifts properly, add weight when you are ready and change the plan when life gets in the way. No shouting, no before and after promises.</p></div><a href="/theme-previews/personal-trainer/pages/about.html" class="itd__btn mlb__btn" data-theme-button="secondary" data-sl-button data-full="false" data-block-id="button_6" data-mlb-block="button_6" data-mlb-type="button" data-block-id="button_6" style="">More about me</a></div>
+</div>
+</div>
+</div></section><section id="shopify-section-strip" class="shopify-section scrollingbar section-edge-bleed s-tt has-overlay" data-section-id="strip" data-section-type="marquee-bar"><script src="/theme-previews/_base/a/live-announcements-runtime.0a55b4e3dee0.js" defer="defer"></script><style>
   :where(html:not([data-font-priority='off'])) #shopify-section-strip :where(.subheading, .sub-heading, [class*='__subheading']) {
     font-weight: var(--subheading-weight, 500);
   }
@@ -1100,149 +1242,7 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
 <div class="scrolling__marquee-item" data-an-pic hidden></div>
 </div></div></div>
 </div>
-</section><section id="shopify-section-coach" class="shopify-section section sec__image-text-dual s-tt" data-section-id="coach" data-section-type="dual-image-with-text"><style>
-  :where(html:not([data-font-priority='off'])) #shopify-section-coach :where(.subheading, .sub-heading, [class*='__subheading']) {
-    font-weight: var(--subheading-weight, 500);
-  }
-</style><style>
-  #shopify-section-coach.scroll-trigger {
-    --animation-duration: 950ms;
-    --animation-delay: 80ms;
-  }
-</style>
-<script>
-  (function(){
-    var el = document.getElementById('shopify-section-coach');
-    if (!el || el.classList.contains('scroll-trigger')) return;
-    el.classList.add('scroll-trigger', "fade_up");
-  })();
-</script><style data-rs-bulletproof>/* reset_spacing: bulletproof override of ALL section spacing mechanisms */
-    #shopify-section-coach,
-    #shopify-section-coach > .section,
-    #shopify-section-coach > section,
-    #shopify-section-coach > div,
-    #shopify-section-coach > div > .section {
-      margin-top: 0 !important;
-      margin-bottom: 0 !important;
-    }
-    #shopify-section-coach + .shopify-section,
-    #shopify-section-coach + section,
-    .shopify-section + #shopify-section-coach {
-      margin-top: 0 !important;
-    }</style><style>
-  #shopify-section-coach#shopify-section-coach { margin-top: 0px !important; margin-bottom: 0px !important; }
-  @media (min-width: 900px) {
-    #shopify-section-coach#shopify-section-coach { margin-top: 0px !important; margin-bottom: 0px !important; }
-  }
-  #shopify-section-coach { padding-top: 0 !important; padding-bottom: 0 !important; --section-spacing: 0px; }
-  #shopify-section-coach + .shopify-section { margin-top: 0 !important; padding-top: 0 !important; }
-  .shopify-section:has(+ #shopify-section-coach) { margin-bottom: 0 !important; padding-bottom: 0 !important; }
-  #shopify-section-coach .mlb { background: var(--m-bg); color: var(--m-text); font-family: var(--m-bf); padding: var(--m-pt-m) var(--m-px-m) var(--m-pb-m); box-sizing: border-box; }
-  #shopify-section-coach .mlb *, #shopify-section-coach .mlb *::before, #shopify-section-coach .mlb *::after { box-sizing: border-box; }
-  #shopify-section-coach .mlb [hidden] { display: none !important; }
-  #shopify-section-coach .mlb :is(h1, h2, h3, h4, h5, h6) { font-family: var(--m-hf); }
-  #shopify-section-coach .mlb__inner { width: 100%; margin-inline: auto; }
-  #shopify-section-coach .mlb[data-width='container'] .mlb__inner { max-width: calc(var(--page-width, 1300px) + 3rem); }
-  #shopify-section-coach .mlb[data-width='fluid_container'] .mlb__inner { max-width: calc(var(--fluid-container-width, 1500px) + 3rem); }
-  @media (min-width: 1200px) { #shopify-section-coach .mlb[data-width='stretch_width'] .mlb__inner { padding-inline: 3rem; } }
-
-  #shopify-section-coach .mlb__grid { display: flex; flex-direction: column; gap: var(--m-gap-m); }
-  #shopify-section-coach .mlb__media, #shopify-section-coach .mlb__text { width: 100%; min-width: 0; }
-  #shopify-section-coach .mlb[data-order-m='text_first'] .mlb__media { order: 2; }
-  #shopify-section-coach .mlb__text { display: flex; flex-direction: column; gap: var(--m-cgap); align-items: flex-start; text-align: left; }
-  #shopify-section-coach .mlb[data-align-m='center'] .mlb__text { align-items: center; text-align: center; }
-  #shopify-section-coach .mlb[data-align-m='right'] .mlb__text { align-items: flex-end; text-align: right; }
-  @media (min-width: 900px) {
-    #shopify-section-coach .mlb { padding: var(--m-pt-d) var(--m-px-d) var(--m-pb-d); }
-    #shopify-section-coach .mlb__grid { flex-direction: row; align-items: center; gap: var(--m-gap-d); }
-    #shopify-section-coach .mlb[data-side='right'] .mlb__grid { flex-direction: row-reverse; }
-    #shopify-section-coach .mlb[data-order-m] .mlb__media { order: 0; flex: 1 1 0; }
-    #shopify-section-coach .mlb__text { flex: 0 0 calc(var(--m-tw) - var(--m-gap-d) / 2); width: auto; }
-    #shopify-section-coach .mlb[data-align='left'] .mlb__text { align-items: flex-start; text-align: left; }
-    #shopify-section-coach .mlb[data-align='center'] .mlb__text { align-items: center; text-align: center; }
-    #shopify-section-coach .mlb[data-align='right'] .mlb__text { align-items: flex-end; text-align: right; }
-  }
-
-  #shopify-section-coach .mlb__frame { position: relative; overflow: hidden; border-radius: var(--m-r, 0px); aspect-ratio: var(--m-ar, 4 / 5); background: var(--m-ph-bg, color-mix(in srgb, var(--color-text) 8%, var(--color-background))); color: var(--color-text); }
-  #shopify-section-coach .mlb__frame > :is(img, video, .video-wrapper, svg), #shopify-section-coach .mlb__frame .video-wrapper > * { width: 100%; height: 100%; display: block; }
-  #shopify-section-coach .mlb__frame > :is(img, video), #shopify-section-coach .mlb__frame .video-wrapper video { object-fit: var(--m-fit, cover); }
-  #shopify-section-coach .mlb__frame > svg.mlb__ph { background: none; }
-
-  #shopify-section-coach .mlb__text > * { margin: 0; max-width: 100%; }
-  #shopify-section-coach .mlb__eyebrow { color: var(--b-c); font-size: var(--b-fs); font-weight: var(--subheading-weight, 700); letter-spacing: 2px; text-transform: uppercase; line-height: 1.2; }
-  #shopify-section-coach .mlb__heading { color: var(--b-c); font-size: var(--b-fs-m); line-height: var(--heading-line-height, 1.15); text-transform: var(--b-tt, var(--heading-text-transform, none)); overflow-wrap: break-word; }
-  #shopify-section-coach .mlb__sub { color: var(--b-c); font-size: var(--b-fs-m); line-height: 1.6; max-width: 560px; }
-  #shopify-section-coach .mlb__sub p { margin: 0 0 .5em; }
-  #shopify-section-coach .mlb__sub p:last-child { margin: 0; }
-  @media (min-width: 900px) {
-    #shopify-section-coach .mlb__heading, #shopify-section-coach .mlb__sub { font-size: var(--b-fs-d); }
-  }
-  #shopify-section-coach .mlb__btn[data-full='true'] { width: 100%; }
-  #shopify-section-coach .mlb__btn:focus-visible { outline: 2px solid var(--color-heading); outline-offset: 3px; }
-</style>
-<style>
-  #shopify-section-coach .itd__stage { position: relative; width: 100%; aspect-ratio: var(--m-ar); isolation: isolate; }
-  #shopify-section-coach .itd__img { position: absolute; width: var(--b-size); height: var(--b-size); border-radius: var(--b-r); overflow: hidden; background: color-mix(in srgb, var(--color-text) 8%, var(--color-background)); color: var(--color-text); transform: rotate(var(--b-rot)); }
-  #shopify-section-coach .itd__img > img, #shopify-section-coach .itd__img > svg { width: 100%; height: 100%; display: block; }
-  #shopify-section-coach .itd__img > svg.mlb__ph { background: none; }
-  #shopify-section-coach .itd__img > img { object-fit: var(--b-fit); object-position: var(--b-px) var(--b-py); }
-  #shopify-section-coach .itd__img[data-shadow='true'] { box-shadow: 0 24px 60px -20px rgb(0 0 0 / .25); }
-  #shopify-section-coach .itd__main { top: 0; left: 0; z-index: 2; }
-  #shopify-section-coach .itd__main[data-anchor='top_right'] { left: auto; right: 0; }
-  #shopify-section-coach .itd__main[data-anchor='bottom_left'] { top: auto; bottom: 0; }
-  #shopify-section-coach .itd__main[data-anchor='bottom_right'] { top: auto; left: auto; bottom: 0; right: 0; }
-  #shopify-section-coach .itd__accent { z-index: 1; bottom: var(--b-oy); right: var(--b-ox); transform: rotate(var(--b-rot)) scale(calc(var(--b-scale) / 100)); border: var(--b-bw) solid var(--b-bc); box-sizing: content-box; }
-  #shopify-section-coach .itd[data-accent-front='true'] .itd__main { z-index: 1; }
-  #shopify-section-coach .itd[data-accent-front='true'] .itd__accent { z-index: 2; }
-  #shopify-section-coach .itd__accent[data-anchor='top_left'] { bottom: auto; right: auto; top: var(--b-oy); left: var(--b-ox); }
-  #shopify-section-coach .itd__accent[data-anchor='top_right'] { bottom: auto; top: var(--b-oy); }
-  #shopify-section-coach .itd__accent[data-anchor='bottom_left'] { right: auto; left: var(--b-ox); }
-  #shopify-section-coach .itd__accent[data-anchor='center'] { bottom: auto; right: auto; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(var(--b-rot)) scale(calc(var(--b-scale) / 100)); }
-  #shopify-section-coach .itd__accent[data-shadow='true'] { box-shadow: 0 18px 44px -16px rgb(0 0 0 / .3); }
-  @media (max-width: 899px) {
-    #shopify-section-coach .itd__accent { width: var(--b-size-m); height: var(--b-size-m); }
-    #shopify-section-coach .itd__accent[data-hide-m='true'] { display: none; }
-  }
-  #shopify-section-coach .itd__dot { position: absolute; border-radius: 50%; pointer-events: none; z-index: 0; opacity: calc(var(--itd-do) / 100); display: none; }
-  #shopify-section-coach .itd[data-dots='true'] .itd__dot { display: block; }
-  #shopify-section-coach .itd[data-dots-front='true'] .itd__dot { z-index: 3; }
-  #shopify-section-coach .itd__dot--a { width: var(--itd-ds); height: var(--itd-ds); background: var(--itd-dca); top: var(--itd-ay); left: var(--itd-ax); }
-  #shopify-section-coach .itd__dot--b { width: var(--itd-ds-b); height: var(--itd-ds-b); background: var(--itd-dcb); top: var(--itd-by); left: var(--itd-bx); }
-</style>
-<div id="itd-coach" class="itd mlb section sec__image-text-dual color-default gradient" data-section-id="coach" data-mlb-root="dual-image-with-text" data-mlb-section="coach" data-width="container" data-side="left" data-align="left" data-align-m="left" data-order-m="media_first" data-dots="false" data-dots-front="false" data-accent-front="true" style="--m-bg: var(--color-background);--m-text: var(--color-text);--m-hf: var(--heading-font);--m-bf: var(--body-font);--m-pt-m: 64px;--m-pb-m: 64px;--m-pt-d: 120px;--m-pb-d: 120px;--m-px-m: 16px;--m-px-d: 32px;--m-gap-m: 32px;--m-gap-d: 96px;--m-cgap: 18px;--m-tw: 44%;--m-ar: 4 / 5;--itd-ds: 60px;--itd-ds-b: 36px;--itd-do: 60;--itd-ax: 28%;--itd-ay: 30%;--itd-bx: 60%;--itd-by: 70%;--itd-dca: var(--color-border);--itd-dcb: var(--color-border);">
-<div class="itd__inner mlb__inner">
-<div class="itd__grid mlb__grid">
-<div class="itd__media mlb__media">
-<div class="itd__stage">
-<span class="itd__dot itd__dot--a" aria-hidden="true"></span>
-<span class="itd__dot itd__dot--b" aria-hidden="true"></span><div class="itd__img itd__main" data-mlb-media data-block-id="main_image_1" data-mlb-block="main_image_1" data-mlb-type="main_image" data-block-id="main_image_1" data-anchor="top_left" data-shadow="false" style="--b-size: 72%;--b-r: 4px;--b-rot: 0deg;--b-px: 50%;--b-py: 30%;--b-fit: cover;"><img
-src="/theme-previews/personal-trainer/a/trainer-mateo.2bdc45dfae0f.webp"
-srcset="/theme-previews/personal-trainer/a/trainer-mateo.2bdc45dfae0f.webp 600w,
-/theme-previews/personal-trainer/a/trainer-mateo.2bdc45dfae0f.webp 900w,
-/theme-previews/personal-trainer/a/trainer-mateo.2bdc45dfae0f.webp 1400w"
-sizes="(min-width: 900px) 40vw, 80vw"
-alt="Mateo laughing with a client between sets on the bench press"
-width="1600"
-height="1600"
-loading="lazy"
-decoding="async"
-></div><div class="itd__img itd__accent" data-mlb-media data-block-id="accent_image_2" data-mlb-block="accent_image_2" data-mlb-type="accent_image" data-block-id="accent_image_2" data-anchor="bottom_right" data-shadow="false" data-hide-m="false" style="--b-size: 44%;--b-r: 4px;--b-rot: 0deg;--b-px: 50%;--b-py: 50%;--b-fit: cover;--b-size-m: 46%;--b-ox: 0%;--b-oy: 0%;--b-scale: 100;--b-bw: 6px;--b-bc: #fbfaf7;"><img
-src="/theme-previews/personal-trainer/a/trainer-cue.15950804da4b.webp"
-srcset="/theme-previews/personal-trainer/a/trainer-cue.15950804da4b.webp 600w,
-/theme-previews/personal-trainer/a/trainer-cue.15950804da4b.webp 900w,
-/theme-previews/personal-trainer/a/trainer-cue.15950804da4b.webp 1400w"
-sizes="(min-width: 900px) 40vw, 80vw"
-alt="Mateo counting out the next set with his hands"
-width="1600"
-height="1600"
-loading="lazy"
-decoding="async"
-></div></div>
-</div>
-<div class="itd__text mlb__text"><p class="itd__eyebrow mlb__eyebrow" data-block-id="eyebrow_3" data-mlb-block="eyebrow_3" data-mlb-type="eyebrow" data-block-id="eyebrow_3" style="--b-c: var(--color-text);--b-fs: 12px;">01 / About</p><h2 class="itd__heading mlb__heading" data-block-id="heading_4" data-mlb-block="heading_4" data-mlb-type="heading" data-block-id="heading_4" style="--b-c: var(--color-heading);--b-fs-m: 30px;--b-fs-d: 42px;">Eight years of coaching people with full weeks</h2><div class="itd__subheading mlb__sub" data-block-id="subheading_5" data-mlb-block="subheading_5" data-mlb-type="subheading" data-block-id="subheading_5" style="--b-c: var(--color-text);--b-fs-m: 15px;--b-fs-d: 17px;"><p>I have coached for eight years. Most of the people I train have a desk job, a family and three or four hours a week, so that is what I write for.</p><p>We learn the lifts properly, add weight when you are ready and change the plan when life gets in the way. No shouting, no before and after promises.</p></div><a href="/theme-previews/personal-trainer/pages/about.html" class="itd__btn mlb__btn" data-theme-button="secondary" data-sl-button data-full="false" data-block-id="button_6" data-mlb-block="button_6" data-mlb-type="button" data-block-id="button_6" style="">More about me</a></div>
-</div>
-</div>
-</div></section><div id="shopify-section-ways" class="shopify-section pricing-cards-section" data-section-id="ways" data-section-type="pricing-cards"><style>
+</section><div id="shopify-section-ways" class="shopify-section pricing-cards-section" data-section-id="ways" data-section-type="pricing-cards"><style>
   #shopify-section-ways { margin-top: 0 !important; margin-bottom: 0 !important; }
   .pcards-ways {
     --pc-cols: 3;
@@ -1324,7 +1324,7 @@ decoding="async"
 </li><li class="pcard" data-block-id="plan_3">
 <div class="pcard__top"><h3 class="pcard__name h5">The Strength Club</h3><div class="pcard__desc"><p>A members community with a new block of training every month.</p></div></div>
 <div class="pcard__price"><span class="pcard__amount">$19</span><span class="pcard__note">A month, separate from coaching</span></div>
-<div class="pcard__cta"><a href="/theme-previews/personal-trainer/products/the-strength-club.html" data-theme-button="secondary" data-sl-button>Join the club</a></div>
+<div class="pcard__cta"><a href="/theme-previews/personal-trainer/collections/programs.html" data-theme-button="secondary" data-sl-button>Join the club</a></div>
 <ul class="pcard__features" role="list"><li><svg viewBox="0 0 18 18" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="9" r="9"/><path d="M5.6 9.3l2.2 2.1 4.6-4.8"/></svg><span>A four week block every month</span></li><li><svg viewBox="0 0 18 18" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="9" r="9"/><path d="M5.6 9.3l2.2 2.1 4.6-4.8"/></svg><span>Post your lifts and get replies</span></li><li><svg viewBox="0 0 18 18" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="9" r="9"/><path d="M5.6 9.3l2.2 2.1 4.6-4.8"/></svg><span>A live Q&amp;A on the first Monday</span></li><li><svg viewBox="0 0 18 18" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="9" r="9"/><path d="M5.6 9.3l2.2 2.1 4.6-4.8"/></svg><span>Train on your own schedule</span></li></ul>
 </li></ul><div class="pcards__foot">Not sure which suits you? Take the two minute quiz, or book the free call. There is no sales pitch at the end.</div></div>
 </section><style>#shopify-section-ways.scroll-trigger { --animation-duration: 950ms; --animation-delay: 80ms; }</style>
@@ -2490,7 +2490,7 @@ style="--r7t-bg: var(--color-background); --r7t-link-ink: var(--color-link, var(
 <p class="txc__label" data-r7t-label>Community</p>
 <h3 class="txc__title" data-r7t-title>The Strength Club</h3>
 <div class="txc__text" data-r7t-text><p>A members space for the monthly block, your lifts and the Monday Q&A.</p></div>
-<a class="txc__link" data-r7t-link href="/theme-previews/personal-trainer/products/the-strength-club.html">Join the club</a>
+<a class="txc__link" data-r7t-link href="/theme-previews/personal-trainer/collections/programs.html">Join the club</a>
 </div><div class="txc__col" data-r7t-block="c6" data-r7t-type="column" data-block-id="c6">
 <p class="txc__label" data-r7t-label>Works with</p>
 <h3 class="txc__title" data-r7t-title>Your calendar and inbox</h3>
@@ -2741,7 +2741,7 @@ Programs
 </a>
 </li><li class="pb-8">
 <a
-href="/theme-previews/personal-trainer/products/the-strength-club.html"
+href="/theme-previews/personal-trainer/collections/programs.html"
 aria-label="The Strength Club"
 class="no-underline word-break reversed-links relative"
 >

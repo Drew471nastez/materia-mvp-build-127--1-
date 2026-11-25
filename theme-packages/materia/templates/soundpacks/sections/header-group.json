@@ -171,7 +171,7 @@
         "section_width": "full_width",
         "display_section_on": "display_all",
         "reset_spacing": true,
-        "link": "/products/night-bus",
+        "link": "/collections/packs",
         "open_in_new_tab": false,
         "content_alignment": "center",
         "content_gap": 12,
@@ -198,7 +198,7 @@
           "settings": {
             "text": "Night Bus is out: 412 UK garage sounds with a demo to play first",
             "text_mobile": "Night Bus is out: 412 UK garage sounds",
-            "link": "/products/night-bus",
+            "link": "/collections/packs",
             "open_in_new_tab": false,
             "visibility": "all",
             "enable_custom_style": false

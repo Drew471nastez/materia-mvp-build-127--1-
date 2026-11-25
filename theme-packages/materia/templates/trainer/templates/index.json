@@ -1,4 +1,4 @@
-/* Templates round 26: Mateo Ruiz, a strength coach, rebuilt after the owner's coach reference (not a copy): a split hero, a strip of what he offers, about, three coaching offers (a program in the library, 1:1 coaching, a Storelib community), how starting works, why it works, before and after, testimonials, a free call, how the site's bookings, forms, quiz, programs and community fit together, questions and a weekly email. Black, white and greys, Anton headings in capitals, Barlow text. */
+/* Templates round 26: Mateo Ruiz, a strength coach, rebuilt after the owner's coach reference (not a copy): a split hero, about, a strip of what he offers, three coaching offers (a program in the library, 1:1 coaching, a Storelib community), how starting works, why it works, before and after, testimonials, a free call, how the site's bookings, forms, quiz, programs and community fit together, questions and a weekly email. Black, white and greys, Anton headings in capitals, Barlow text. */
 {
   "sections": {
     "hero": {
@@ -204,7 +204,8 @@
         "side_padding_desktop": 32,
         "mobile_order": "media_first",
         "padding_top_mobile": 64,
-        "padding_bottom_mobile": 64
+        "padding_bottom_mobile": 64,
+        "padding_top": 96
       },
       "blocks": {
         "main_image_1": {
@@ -347,7 +348,7 @@
             "note": "A month, separate from coaching",
             "features": "A four week block every month\nPost your lifts and get replies\nA live Q&A on the first Monday\nTrain on your own schedule",
             "button_label": "Join the club",
-            "button_link": "/products/the-strength-club",
+            "button_link": "/collections/programs",
             "button_style": "secondary"
           }
         }
@@ -840,7 +841,7 @@
             "heading": "The Strength Club",
             "text": "<p>A members space for the monthly block, your lifts and the Monday Q&A.</p>",
             "link_label": "Join the club",
-            "link": "/products/the-strength-club"
+            "link": "/collections/programs"
           }
         },
         "c6": {
@@ -1038,8 +1039,8 @@
   },
   "order": [
     "hero",
-    "strip",
     "coach",
+    "strip",
     "ways",
     "steps",
     "why",

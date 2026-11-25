@@ -453,6 +453,7 @@ export const AGENT_TOOL_NAMES = [
   "delete_file",
   "list_pages",
   "add_page",
+  "remove_page",
   "set_page_sections",
   "set_section_settings",
   "set_tokens",

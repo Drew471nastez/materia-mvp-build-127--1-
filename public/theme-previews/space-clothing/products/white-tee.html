@@ -87,7 +87,7 @@ if(D.readyState==="loading")D.addEventListener("DOMContentLoaded",arrive);else a
 if(F)W.fetch=function(i,o){var u=typeof i==="string"?i:(i&&i.url)||String(i);
 /* Round 26: a card's Quick view (each product's, from QV_DATA) and the Recently viewed row (every product's card, from RV_DATA; the theme keeps the visitor's). */
 var sid=/[?&]section_id=([^&#]+)/.exec(u);sid=sid&&sid[1];
-if(sid==="product-quickview"&&QV_DATA){var hm=//products/([^/?#]+?)(?:.html)?$/.exec(path(u));return F(QV_DATA).then(function(r){return r.json()}).then(function(d){var n=hm?d.k.indexOf(decodeURIComponent(hm[1])):-1;if(n<0)return new Response("",{status:404});var x=d.d[n];return new Response(typeof x==="string"?x:patch(d.d[0],x),{status:200,headers:{"Content-Type":"text/html"}})})}
+if(sid==="product-quickview"&&QV_DATA){var hm=/\/products\/([^\/?#]+?)(?:\.html)?$/.exec(path(u));return F(QV_DATA).then(function(r){return r.json()}).then(function(d){var n=hm?d.k.indexOf(decodeURIComponent(hm[1])):-1;if(n<0)return new Response("",{status:404});var x=d.d[n];return new Response(typeof x==="string"?x:patch(d.d[0],x),{status:200,headers:{"Content-Type":"text/html"}})})}
 if(sid==="recently-viewed"&&RV_DATA)return F(RV_DATA).then(function(r){return r.json()}).then(function(d){return new Response(d.html,{status:200,headers:{"Content-Type":"text/html"}})});
 if(mine(u))return F.apply(this,arguments);
 /* Cards round 24: the cart answers from the template's drawn cart (./theme-templates/preview-cart.ts), as a store would. */
@@ -876,7 +876,7 @@ class="no-underline minicart__action header-icon header-color w-44 h-44 inline-f
     .space-clock-clock { font-size: 10px; padding-bottom: 14px; }
   }
 </style>
-<div class="space-clock space-clock-clock" data-space-clock="date_time" data-hours="12"><time datetime="2026-11-25T09:45">25/11/2026 09:45</time></div>
+<div class="space-clock space-clock-clock" data-space-clock="date_time" data-hours="12"><time datetime="2026-11-25T09:56">25/11/2026 09:56</time></div>
 <script>
   (function () {
     var root = document.querySelector('.space-clock-clock');

@@ -74,6 +74,8 @@ export interface ProjectStore {
   readStoreMenus?(): Promise<Record<string, StoreMenu> | null>
   /** Writes the store's menus whole. False when they could not be written. */
   writeStoreMenus?(menus: Record<string, StoreMenu>): Promise<boolean>
+  /** Round 26: removes one page (its row), as the editor's page delete does. */
+  deletePage?(key: string): Promise<{ ok: boolean; error?: string }>
 }
 
 /** A menu as the store keeps it (lib/storelib-theme/values.ts Menu). */

@@ -48,6 +48,8 @@ export interface AgentToolInputs {
   list_pages: Record<string, never>
   /** `key` is a page key: lowercase letters, digits and dashes; served at pagePath(key). */
   add_page: { key: string; title: string; seo?: { title?: string; description?: string } }
+  /* Round 26: a page taken off the site, with every menu link to it. */
+  remove_page: { key: string }
   /** Replaces the page's body sections in order. Header/footer only with `group`. */
   set_page_sections: { page: string; sections: PlacedSectionInput[] }
   /** `blockId` (round P): one item of the section (a template's picture slot or row lives on a block). */
@@ -102,7 +104,9 @@ export interface AgentToolOutputs {
   delete_file: { ok: boolean; reason?: string }
   /** Round N (N3): templates are listed too, stored or not (`template`, `stored`, `url`, `reads`). */
   list_pages: { pages: { key: string; title: string; sections: { id: string; type: string; group?: string }[]; template?: boolean; stored?: boolean; url?: string; reads?: string }[] }
-  add_page: { ok: boolean; key: string; error?: string }
+  /** `menu`: where its link went: the store's menus (a Materia site, at /pages/<key>), the theme's, or none. */
+  add_page: { ok: boolean; key: string; error?: string; menu?: "store" | "theme" | "none"; url?: string }
+  remove_page: { ok: boolean; key: string; error?: string; unlinked?: number }
   set_page_sections: { ok: boolean; ids: string[]; issues?: ValidationIssue[] }
   set_section_settings: { ok: boolean; issues?: ValidationIssue[] }
   set_tokens: { ok: boolean; changed: string[]; issues?: ValidationIssue[] }
@@ -130,7 +134,7 @@ export type ToolsCovered = [AgentToolName] extends [keyof AgentToolInputs & keyo
 export const TOOLS_COVERED: ToolsCovered = true
 
 /** Tools that change the website (counted against the write budget and logged as events). */
-export const WRITE_TOOLS: readonly AgentToolName[] = ["write_file", "edit_file", "delete_file", "add_page", "set_page_sections", "set_section_settings", "set_tokens", "bind_data"]
+export const WRITE_TOOLS: readonly AgentToolName[] = ["write_file", "edit_file", "delete_file", "add_page", "remove_page", "set_page_sections", "set_section_settings", "set_tokens", "bind_data"]
 
 /** Paths the agent may write: section and block files, its own snippets and assets text. Nothing else in the install. */
 export const WRITABLE_PATH = /^(sections|blocks|snippets)\/ai_[a-z0-9_]{1,60}\.storelib$/
