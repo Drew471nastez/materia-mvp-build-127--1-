@@ -10,6 +10,7 @@ import { ago, date, money, num, short, statusWord } from "./format"
 import type { Route } from "./nav-state"
 import { ActivityFeed, ActivityLine, CreatorActivityPanel, OnlineList, useOnlineActivity } from "./panel-activity"
 import { PlanPanel } from "./panel-plan"
+import { SiteBuildPanel } from "./panel-site-build"
 import { ViewHeader } from "./shell"
 import { Button, DataList, Facts, Figures, Filters, LinkText, Pager, Panel, ReadNotes, SearchField, Status, Toolbar, reasonFor, type Column } from "./ui"
 
@@ -179,6 +180,8 @@ export function CreatorView({ data, go, act }: Common & { data: CreatorDetailPay
       <CreatorActivityPanel creatorId={c.id} />
 
       <PlanPanel creatorId={c.id} />
+
+      <SiteBuildPanel creatorId={c.id} />
 
       <Panel title="Products" meta={data.products ? `${num(data.products.length)}${data.products.length === 50 ? " newest" : ""}` : undefined}>
         {data.products ? (
