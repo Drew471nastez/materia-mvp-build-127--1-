@@ -618,7 +618,7 @@
 
 <script>
   /* Adds lines to the cart the way the theme's own forms do (the drawer's sections, the count), at /cart/add.js,
-     which Shopify and Storelib both answer. opts.open === false keeps the drawer shut (the caller says it is added). */
+     which the Storelib store answers. opts.open === false keeps the drawer shut (the caller says it is added). */
   window.MateriaAddItems = window.MateriaAddItems || async function (items, opts) {
     opts = opts || {};
     const cart = document.querySelector('cart-drawer') || document.querySelector('cart-notification');
