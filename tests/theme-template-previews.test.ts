@@ -22,6 +22,7 @@
  */
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
+import vm from "node:vm"
 
 import { builtinListings, CODE_TEMPLATES, TEMPLATE_PREVIEW_ROOT, templatePreviewPath } from "../lib/themes/marketplace-shared"
 
@@ -93,6 +94,19 @@ function main() {
   check("no form posts, or names an address to go to", forms.length === 0, forms.slice(0, 6))
   const unshimmed = html.filter((f) => !/<head\b[^>]*><script data-template-preview>/.test(body.get(f)!))
   check("each page's first script is the preview shim", unshimmed.length === 0, unshimmed.slice(0, 6))
+  /* Round 26: an inline script that does not parse stops every script after it on the page (a regex in the shim lost its backslashes once and the whole preview runtime died). Each distinct classic inline script is parsed once. */
+  const parsed = new Set<string>()
+  const broken: string[] = []
+  for (const f of html) {
+    for (const m of body.get(f)!.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) {
+      const type = /\stype=["']?([^"'\s>]+)/i.exec(m[1])?.[1]?.toLowerCase()
+      if (/\ssrc=/i.test(m[1]) || (type && type !== "text/javascript" && type !== "application/javascript")) continue
+      if (parsed.has(m[2])) continue
+      parsed.add(m[2])
+      try { new vm.Script(m[2]) } catch (e) { broken.push(`${f}: ${String(e).slice(0, 100)}`) }
+    }
+  }
+  check("every inline script on every page parses", broken.length === 0, broken.slice(0, 6))
   const shim = /<script data-template-preview>([\s\S]*?)<\/script>/.exec(body.get(html[0]) ?? "")?.[1] ?? ""
   /* Changed on purpose (cards round 24): Add to cart goes into the preview's own cart (scripts/theme-templates/preview-cart.ts); a product the cart cannot hold still says it is a preview. */
   check("  it answers the store's requests itself, from the template's drawn cart", /W\.fetch=function/.test(shim) && /X\.open=function/.test(shim) && /cart\\\/add/.test(shim) && /This is a preview/.test(shim) && /cartReply\(p,o\)/.test(shim) && /var CART_DATA="\/theme-previews\/[^"]+\/a\/cart\.[0-9a-f]{12}\.json"/.test(shim))
