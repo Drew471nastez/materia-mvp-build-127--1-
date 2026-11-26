@@ -47,6 +47,8 @@
  * so it may not reach anything outside itself.
  */
 
+import { PIC_FIT_SCRIPT } from "./pic-fit"
+
 /** The address of a padded copy, as the product editor names it. */
 export const PADDED_COPY = /_processed\.jpe?g/i
 
@@ -168,6 +170,9 @@ export function installCoverTrim(doc: Document, win: Window): void {
     if (!url) {
       img.setAttribute("data-cover-trim", "none")
       img.setAttribute("data-cover-from", key)
+      /* Round 65: nothing to cut, so the frame's fit (lib/images/pic-fit.ts) paints it as it is. */
+      var fit = (w as Window & { __slPicFitPaint?: (i: HTMLImageElement) => void }).__slPicFitPaint
+      if (fit) fit(img)
       return
     }
     var parent = img.parentNode as Element | null
@@ -301,8 +306,12 @@ export function installCoverTrim(doc: Document, win: Window): void {
   else early()
 }
 
-/** The script for a page's <head>: Storelib's own pages and its themes' websites (app/(storelib)/layout.tsx, app/(site)/layout.tsx). */
-export const COVER_TRIM_SCRIPT = `try{(${installCoverTrim.toString()})(document,window)}catch(e){}`
+/**
+ * The script for a page's <head>: Storelib's own pages and its themes' websites (app/(storelib)/layout.tsx, app/(site)/layout.tsx).
+ * Round 65: the frame's fit runs with it (lib/images/pic-fit.ts), so every page that trims a padded copy also fits
+ * every product picture whole in its frame.
+ */
+export const COVER_TRIM_SCRIPT = `try{(${installCoverTrim.toString()})(document,window)}catch(e){}${PIC_FIT_SCRIPT}`
 
 /** The same, for a page that is a document of its own (an imported theme's, live and on the canvas; lib/storelib-theme/compat/theme.ts). */
 export const COVER_TRIM_HEAD = `<script data-sl-cover-trim>${COVER_TRIM_SCRIPT}</script>`
