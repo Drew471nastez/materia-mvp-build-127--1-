@@ -19,7 +19,7 @@
  * chosen. Nothing else on the page changes; a page with no such picture is
  * returned as it came.
  */
-import { attr, readTag } from "./first-load"
+import { attr, isFlagSrc, readTag } from "./first-load"
 
 /** How far into the body a first picture is looked for: past that it is not what is seen first. */
 const LOOK_CHARS = 120_000
@@ -63,6 +63,8 @@ export function withLcpHint(html: string): LcpHint {
     const srcset = attr(tag.raw, "srcset")
     if (!src && !srcset) continue
     if ((src ?? "").startsWith("data:")) continue
+    /* A country's flag is a file since round 64, and never the largest thing drawn. */
+    if (isFlagSrc(src)) continue
     if ((attr(tag.raw, "loading") ?? "").toLowerCase() === "lazy") continue
     const priority = attr(tag.raw, "fetchpriority")
     if (priority !== null && priority.toLowerCase() === "low") continue

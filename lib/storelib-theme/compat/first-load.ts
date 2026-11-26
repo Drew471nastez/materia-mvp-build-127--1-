@@ -33,7 +33,8 @@
  *
  * 2. A COUNTRY'S FLAG LOADS WHEN IT IS SEEN. The theme's country selector
  *    draws every country Storelib knows, about 250, each flag a small SVG
- *    picture (objects.ts flagImage), in a list that is closed. Each picture
+ *    picture (objects.ts flagImage; a file in public/flags since round 64,
+ *    so a lazy flag is also a request not made), in a list that is closed. Each picture
  *    is a document of its own to the browser: 753 of them on one page. They
  *    are marked `loading="lazy"` here, so the closed list costs nothing and
  *    an opened one draws its flags as it scrolls. Measured on that page:
@@ -63,10 +64,29 @@
  * it came.
  */
 
-/** How every flag picture begins (objects.ts flagImage writes it). */
+/** How a flag picture began before round 64: the emoji drawn as text in an SVG. Pages kept from then still carry it, so it is still a flag here. */
 export const FLAG_SVG_OPEN = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 24"><text`
 /** The same, as the start of the picture's address in the page. */
 export const FLAG_SRC_PREFIX = `data:image/svg+xml,${encodeURIComponent(FLAG_SVG_OPEN)}`
+
+/**
+ * WHERE A COUNTRY'S FLAG IS (round 64). The emoji in an SVG sat off centre
+ * in its circle, cut differently per flag and per system, and Chrome on
+ * Windows and Linux drew it as two letters. A flag is now its own artwork,
+ * public/flags/<CODE>.svg (country-flag-icons, MIT, 3:2, 158 bytes to 5KB, most under 1KB):
+ * the same pixels everywhere, same origin as the website, cached by the CDN
+ * (next.config.mjs /flags), outside the proxy (its matcher skips .svg), so
+ * asking for one never draws a page. objects.ts flagImage writes it.
+ */
+export const FLAG_PATH = "/flags/"
+/** A code with no flag file: a plain tile drawn in the page, never a request for a file that is not there. */
+export const FLAG_BLANK = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3 2"><rect width="3" height="2" fill="#e5e7eb"/></svg>`)}`
+const FLAG_FILE = /^\/flags\/[A-Z]{2}\.svg$/
+/** Whether a picture's address is a country's flag (flagImage's, or the emoji one a kept page may still have). */
+export function isFlagSrc(src: string | null | undefined): boolean {
+  if (!src) return false
+  return FLAG_FILE.test(src) || src === FLAG_BLANK || src.startsWith(FLAG_SRC_PREFIX)
+}
 
 /** Elements whose contents are not the page's own markup: skipped whole. */
 export const RAW_TEXT = new Set(["script", "style", "textarea", "title", "xmp", "iframe", "noembed", "noframes", "plaintext"])
@@ -144,7 +164,7 @@ const isStylesheetLink = (raw: string): boolean => /(?:^|\s)stylesheet(?:\s|$)/i
 /** A flag picture's tag with `loading="lazy"`, when it says nothing of its own about loading. */
 function lazyFlag(raw: string): string {
   const src = attr(raw, "src")
-  if (src === null || !src.startsWith(FLAG_SRC_PREFIX) || attr(raw, "loading") !== null) return raw
+  if (!isFlagSrc(src) || attr(raw, "loading") !== null) return raw
   return raw.replace(/^<img\b/i, '<img loading="lazy"')
 }
 
@@ -272,7 +292,7 @@ export function readierFirstLoad(html: string): FirstLoadResult {
       continue
     }
     if (tag.name === "img") {
-      const isFlag = (attr(tag.raw, "src") ?? "").startsWith(FLAG_SRC_PREFIX)
+      const isFlag = isFlagSrc(attr(tag.raw, "src"))
       /* The list it is in, marked once, when nothing has been cut since it opened (cuts only move forwards). */
       const list = isFlag ? lists[lists.length - 1] : undefined
       if (list && !list.marked && copied <= list.start && attr(list.raw, COUNTRY_LIST_ATTR) === null) {

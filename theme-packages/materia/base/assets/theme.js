@@ -2593,8 +2593,20 @@ class LocalizationForm extends HTMLElement {
     let rows = [];
     try { rows = JSON.parse(source?.textContent || "[]"); } catch (e) {}
     const current = source?.dataset.current || this.elements.input?.value;
-    const flag = (code) => "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 24"><text x="16" y="19" font-size="20" text-anchor="middle">' +
-      String(code).toUpperCase().replace(/[A-Z]/g, (c) => String.fromCodePoint(0x1f1a5 + c.charCodeAt(0))) + "</text></svg>");
+    // A flag is its own artwork (public/flags, the same picture on every system);
+    // a code with no file is a plain tile.
+    const blank = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3 2"><rect width="3" height="2" fill="#e5e7eb"/></svg>');
+    const flag = (code) => /^[A-Za-z]{2}$/.test(String(code)) ? "/flags/" + String(code).toUpperCase() + ".svg" : blank;
+    // Each flag is a small file, asked for only when its row is in the list's
+    // view (or a few rows from it): the browser's own lazy loading reaches
+    // over a thousand pixels down a scrolling list, about 90 flags at once.
+    const seen = "IntersectionObserver" in window ? new IntersectionObserver((entries, observer) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        observer.unobserve(entry.target);
+        entry.target.src = entry.target.dataset.src;
+      }
+    }, {scrollMargin: "160px"}) : null;
     const fragment = document.createDocumentFragment();
     const check = '<svg class="loc-option__check" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     for (const [code, name, currency, symbol, image] of rows) {
@@ -2612,7 +2624,9 @@ class LocalizationForm extends HTMLElement {
       holder.className = "rounded-50 border localization-flags";
       holder.setAttribute("aria-hidden", "true");
       const img = document.createElement("img");
-      img.src = image || flag(code);
+      img.addEventListener("error", () => { img.src = blank; }, {once: true});
+      if (seen) { img.dataset.src = image || flag(code); seen.observe(img); }
+      else img.src = image || flag(code);
       img.alt = "";
       img.width = 18;
       img.height = 18;

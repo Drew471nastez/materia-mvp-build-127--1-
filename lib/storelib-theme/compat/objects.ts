@@ -17,7 +17,8 @@ import { readPersonalization, themeFieldObjects } from "@/lib/products/personali
 import { OUTPUT, LFloat } from "./runtime"
 import { handleize, parseColor, toHex } from "./filters"
 import { shopifyAddress } from "./links"
-import { FLAG_SVG_OPEN } from "./first-load"
+import { FLAG_BLANK, FLAG_PATH } from "./first-load"
+import { FLAG_CODES } from "@/lib/account/flag-sprite"
 import { sanitizeRichText } from "@/lib/website-builder/sanitize"
 import { withoutNewTab } from "@/lib/website-builder/new-tab"
 import { isColorOption, swatchColor } from "@/lib/products/product-page-model"
@@ -1491,10 +1492,14 @@ export function currencySymbol(iso: string): string {
 }
 
 /**
- * A country's flag as a picture that asks for nothing: an SVG written into
- * the page with the flag's emoji. It used to be the bare code ("DJ"), which
+ * A country's flag as a picture. It used to be the bare code ("DJ"), which
  * a browser asked the website for as /DJ, a whole page, once per country:
- * 250 renders at once on every page view, and the database fell over.
+ * 250 renders at once on every page view, and the database fell over. Then
+ * it was the flag's emoji drawn as text in an SVG, which sat off centre in
+ * the theme's circle and was two letters on Windows and Linux. Since round
+ * 64 it is the flag's own artwork, public/flags/<CODE>.svg, a static file
+ * the proxy never sees (./first-load.ts FLAG_PATH); a code with no file is
+ * a plain tile drawn in the page.
  */
 const flags = new Map<string, string>()
 export function flagImage(code: string): string {
@@ -1506,10 +1511,7 @@ export function flagImage(code: string): string {
 }
 function drawFlag(code: string): string {
   const cc = /^[A-Za-z]{2}$/.test(code) ? code.toUpperCase() : ""
-  const emoji = cc ? String.fromCodePoint(...[...cc].map((ch) => 0x1f1e6 + ch.charCodeAt(0) - 65)) : ""
-  /* FLAG_SVG_OPEN is how a live page finds its flags to load them when seen (./first-load.ts). */
-  const svg = `${FLAG_SVG_OPEN} x="16" y="19" font-size="20" text-anchor="middle">${emoji}</text></svg>`
-  return `data:image/svg+xml,${encodeURIComponent(svg)}`
+  return cc && FLAG_CODES.has(cc) ? `${FLAG_PATH}${cc}.svg` : FLAG_BLANK
 }
 
 export function localizationObject(currency: string, i18n?: SiteI18n, lang = "en"): O {
@@ -1517,7 +1519,7 @@ export function localizationObject(currency: string, i18n?: SiteI18n, lang = "en
   const language = languages.find((l) => String(l.iso_code).toLowerCase() === (i18n?.locale ?? lang).toLowerCase()) ?? languages[0]
   const countryOf = (c: { code: string; name: string; currency: string }) => ({
     [OUTPUT]: c.code,
-    /* `country | image_url` is its flag (Shopify's CDN there): drawn in the page itself, never an address on the website. */
+    /* `country | image_url` is its flag (Shopify's CDN there): a static file in public/flags, never a page of the website. */
     src: flagImage(c.code),
     iso_code: c.code,
     name: c.name,
