@@ -1996,6 +1996,8 @@ const STRICT_SUITES = [
   "tests/flags-r64.test.ts",
   /* Round 65 (m3): a live website's pages without the downloads they did not need: Storelib's own uploads a theme prints as they are (a 1.9MB hero PNG) sent through /_next/image at the sizes they are drawn, before the first picture is preloaded; Materia's hero no longer gives its hidden video the original photo as a poster, and a product page no longer fetches itself for its sold count, fixed in theme-packages and where an older install's script is served (lib/storelib-theme/compat/js-fixes.ts). */
   "tests/live-speed-r65.test.ts",
+  /* Round 29: a published website is the one visitors get while the database is slow: a server's last good copy from before a Publish is never served as the site or held for strangers, the site is read again with time to answer, and the Publish keeps a new template's files for every server (the Notion sales page on andrewrullz.storelib.com, 2026-11-26). */
+  "tests/publish-live-r29.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

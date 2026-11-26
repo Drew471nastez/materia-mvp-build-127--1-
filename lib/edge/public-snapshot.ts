@@ -111,6 +111,13 @@ export function capturable(r: { status: number; headers: Headers }, askedWithCoo
   if (!/^text\/html\b/i.test(r.headers.get("content-type") ?? "")) return false
   if (r.headers.has("set-cookie") || r.headers.has(SNAPSHOT_HEADER)) return false
   /*
+    A PAGE DRAWN WITHOUT SOMETHING (X-Storelib-Partial, app/api/site-theme/
+    site): a part that did not answer in time, or the copy of the website
+    from before the latest Publish (round 29). It is one visitor's page; kept
+    as the stored copy it would be served in the site's place later.
+  */
+  if (r.headers.has("x-storelib-partial")) return false
+  /*
     Not judged by Cache-Control: every page Next draws per request says
     "private, no-cache, no-store" (a OnePage, a community page), and what
     makes a page somebody's here is a cookie, which this request did not

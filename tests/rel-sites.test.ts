@@ -566,7 +566,8 @@ async function lastGoodCopies() {
   const published = read("lib/website-builder/published-site.ts")
   const compat = read("lib/website-builder/compat-site.ts")
   check("the name lookup and the published install are held under fixed names", /unstable_cache\(keyedAs\("site-name:v1", \(\) => lookUpName\(lower\)\), \["site-name", lower\]/.test(published) && /\(v\) => v === null, "compat-install:v1"\)/.test(compat))
-  check("both last good maps keep by use", /new LastGood<ShopLookup>\(500\)/.test(published) && /new LastGood<SiteData>\(200\)/.test(compat) && !/lastGood(Site)?\.keys\(\)\.next\(\)/.test(published + compat))
+  /* Changed on purpose (round 29): each copy carries the publish it was read under (lib/website-builder/site-epoch.ts, tests/publish-live-r29.test.ts). */
+  check("both last good maps keep by use", /new LastGood<\{ found: ShopLookup; epoch: string \| null \}>\(500\)/.test(published) && /new LastGood<\{ site: SiteData; epoch: string \| null \}>\(200\)/.test(compat) && !/lastGood(Site)?\.keys\(\)\.next\(\)/.test(published + compat))
 }
 
 async function literalNames() {

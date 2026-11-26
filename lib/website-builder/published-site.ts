@@ -38,6 +38,7 @@
  * such site" for an hour because somebody guessed their address early.
  */
 import { LastGood, keyedAs } from "./last-good"
+import { sameEpoch, siteEpoch } from "./site-epoch"
 import { keepShared, sharedCopy } from "./shared-copy"
 import { sanitizeSections, sanitizeThemeSettings } from "@/lib/website-builder/sanitize-sections"
 import { forVisitors } from "@/lib/website-builder/visitor-sections"
@@ -763,7 +764,8 @@ export async function publishedShopByName(name: string): Promise<ShopLookup> {
  * (site-read.ts) and the cache has nothing to fall back on (a cold start, a
  * new server), the site is served as it last was rather than not at all.
  */
-const lastGood = new LastGood<ShopLookup>(500)
+/* With the publish it was read under (./site-epoch.ts): served only until the next Publish (round 29). */
+const lastGood = new LastGood<{ found: ShopLookup; epoch: string | null }>(500)
 
 /*
   AND THE COPY EVERY SERVER CAN READ (EVD-1, ./shared-copy.ts): a server that
@@ -777,26 +779,45 @@ const sharedTags = (creatorId: string) => [creatorSiteTag(creatorId), creatorSho
 
 const resolveSite = cache(async function resolveSite(name: string): Promise<ShopLookup> {
   const lower = name.toLowerCase()
+  /*
+    THE PUBLISH THIS READ IS UNDER (round 29, ./site-epoch.ts), asked beside
+    it from the name's held lookup (the same answer the read starts with,
+    shared in this request), so the copy kept from it is never newer than
+    what was live when it began.
+  */
+  const epochAsked = creatorByName(lower)
+    .then((m) => (m ? siteEpoch(m.creatorId, creatorSiteTag(m.creatorId)) : null))
+    .catch(() => null)
   try {
     const found = await resolveSiteFresh(lower)
     if (found.kind === "site") {
-      lastGood.remember(lower, found)
+      lastGood.remember(lower, { found, epoch: await epochAsked })
       await keepShared(SHARED_SITE, [found.site.creatorId, lower], sharedTags(found.site.creatorId), found)
     }
     return found
   } catch (e) {
-    const held = lastGood.get(lower)
+    const kept = lastGood.get(lower)
+    /*
+      ONLY A COPY FROM THIS SAME PUBLISH. One from before it is the website
+      the owner replaced: served here, it was drawn into the page every
+      visitor is handed for the page's hour. The shared copy below is under
+      the site's tag, which the Publish expired, so it is never one from
+      before either.
+    */
+    const held = kept && kept.found.kind === "site" && sameEpoch(kept.epoch, await siteEpoch(kept.found.site.creatorId, creatorSiteTag(kept.found.site.creatorId))) ? kept.found : undefined
+    if (kept && !held) logEvent("warn", "site_superseded_copy_refused", { msg: "[published-site] the copy kept on this server is from before the last Publish: not served", site: lower, reason: e instanceof Error ? e.message : String(e) })
     if (held) {
       logEvent("warn", "site_last_good_served", { msg: "[published-site] served the last good copy", site: lower, reason: e instanceof Error ? e.message : String(e) })
       return held
     }
     /* Whose site it is, from the held name (served stale when its read fails); no name, no copy. */
     const match = await creatorByName(lower).catch(() => null)
-    const kept = match ? await sharedCopy<ShopLookup>(SHARED_SITE, [match.creatorId, lower], sharedTags(match.creatorId)) : undefined
-    if (kept && kept.kind === "site" && kept.site.creatorId === match?.creatorId) {
-      lastGood.remember(lower, kept)
+    const shared = match ? await sharedCopy<ShopLookup>(SHARED_SITE, [match.creatorId, lower], sharedTags(match.creatorId)) : undefined
+    if (shared && shared.kind === "site" && shared.site.creatorId === match?.creatorId) {
+      /* Under the site's tag, so of the publish live now: kept under the epoch now. */
+      lastGood.remember(lower, { found: shared, epoch: await siteEpoch(shared.site.creatorId, creatorSiteTag(shared.site.creatorId)) })
       console.error(`[published-site] served the copy every server kept of ${lower}:`, e instanceof Error ? e.message : e)
-      return kept
+      return shared
     }
     if (e instanceof SiteWithoutShop) {
       logEvent("warn", "site_shop_unread", { msg: "[published-site] the shop could not be read and no copy was kept: drawn without products, held nowhere", site: lower })
