@@ -159,7 +159,8 @@ function main() {
   const total = size("")
   check(`the whole folder is within ${BUDGET_TOTAL / MB} MB`, total <= BUDGET_TOTAL, `${(total / MB).toFixed(1)} MB`)
   /* Changed on purpose (templates round 26): Print on demand's menu opens four collections of its own now (Winter, Hometown, Game day, Essentials), four more pages of about 0.25 MB each, so it keeps 11.5 MB. */
-  const budgetOf = (slug: string) => BUDGET_TEMPLATE /* round 26 integration: the general 13 MB covers Print on demand too */
+  /* Changed on purpose (templates round 28): Redline's rails hold eleven pieces each, so its shop has 18 products (about 0.29 MB a product page) and seven collections of its own; its product photos are 1000 px and compressed, and it keeps 17 MB. */
+  const budgetOf = (slug: string) => (slug === "streetwear-drop" ? 17 * MB : BUDGET_TEMPLATE) /* round 26 integration: the general 13 MB covers Print on demand too */
   const big = CODE_TEMPLATES.map((t) => [t.slug, size(`${t.slug}/`)] as const).filter(([s, n]) => n > budgetOf(s))
   check(`each template within ${BUDGET_TEMPLATE / MB} MB`, big.length === 0, big.map(([s, n]) => `${s} ${(n / MB).toFixed(1)} MB`))
   const stale = readdirSync(OUT).filter((d) => d !== "_base" && !CODE_TEMPLATES.some((t) => t.slug === d))

@@ -1155,7 +1155,65 @@ data-faq6-trigger data-faq-trigger
     #shopify-section-bundles + section,
     .shopify-section + #shopify-section-bundles {
       margin-top: 0 !important;
-    }</style><link rel="stylesheet" href="/theme-previews/digital-studio/a/i.b8b88067bc87.css">
+    }</style><style>
+  #shopify-section-bundles { isolation: isolate; position: relative; }
+  #shopify-section-bundles, .shopify-section + #shopify-section-bundles {
+    margin-top: 0px !important;
+    margin-bottom: 0px !important;
+  }
+  @media (min-width: 768px) {
+    #shopify-section-bundles, .shopify-section + #shopify-section-bundles {
+      margin-top: 0px !important;
+      margin-bottom: 0px !important;
+    }
+  }#shopify-section-bundles .pl {
+    background: var(--pb-bg, var(--gradient-background, var(--color-background)));
+    color: var(--color-text);
+    font-family: var(--body-font);
+  }
+  #shopify-section-bundles .pl-grid {
+    display: grid;
+    grid-template-columns: repeat(var(--pl-cols-mb), minmax(0, 1fr));
+    column-gap: var(--pl-col-gap);
+    row-gap: var(--pl-row-gap);
+  }
+  #shopify-section-bundles .pl-grid > [hidden] { display: none !important; }
+  #shopify-section-bundles .pl-header { margin-bottom: 30px; }
+  #shopify-section-bundles .pl-header[hidden] { display: none; }
+  #shopify-section-bundles .pl-header__row {
+    display: flex; flex-wrap: wrap; gap: 16px 24px;
+    align-items: flex-end; justify-content: space-between;
+  }
+  #shopify-section-bundles .pl-header__text {
+    display: flex; flex-direction: column; gap: var(--pl-hgap, 8px);
+    min-width: 0; max-width: 720px;
+  }
+  #shopify-section-bundles .pl[data-align='center'] .pl-header__row { flex-direction: column; align-items: center; text-align: center; }
+  #shopify-section-bundles .pl[data-align='center'] .pl-header__text { align-items: center; }
+  #shopify-section-bundles .pl[data-align='right'] .pl-header__row { flex-direction: row-reverse; text-align: right; }
+  #shopify-section-bundles .pl[data-align='right'] .pl-header__text { align-items: flex-end; }
+  #shopify-section-bundles .pl-header__actions:not(:has(> :not([hidden]))),
+  #shopify-section-bundles .pl-bottom:not(:has(> :not([hidden]))) { display: none; }
+  #shopify-section-bundles .pl-header__actions,
+  #shopify-section-bundles .pl-bottom { display: flex; flex-wrap: wrap; gap: 12px; }
+  #shopify-section-bundles .pl-bottom { justify-content: center; margin-top: 30px; }
+  #shopify-section-bundles .pb-eyebrow { margin: 0; font-size: var(--pb-fs, 13px); color: var(--pb-c, var(--color-text)); text-transform: uppercase; letter-spacing: .12em; font-weight: var(--subheading-weight, 500); }
+  #shopify-section-bundles .pb-heading { margin: 0; font-size: var(--pb-fs-m, 26px); color: var(--pb-c, var(--color-heading)); line-height: var(--heading-line-height, 1.2); }
+  #shopify-section-bundles .pb-sub { margin: 0; font-size: var(--pb-fs, 16px); color: var(--pb-c, var(--color-text)); }
+  #shopify-section-bundles .pb-sub p { margin: 0 0 .5em; }
+  #shopify-section-bundles .pb-sub p:last-child { margin: 0; }
+  #shopify-section-bundles [hidden].pb-eyebrow,
+  #shopify-section-bundles [hidden].pb-heading,
+  #shopify-section-bundles [hidden].pb-sub,
+  #shopify-section-bundles [hidden].pl-btn { display: none !important; }
+  /* Its own size and shape also with Theme settings > Buttons > Use shared button size and shape off (the contract's rule is then layered and loses to critical.css). */
+  #shopify-section-bundles .pl-btn[data-own-shape] { font-size: var(--mb-font-size); padding: var(--mb-padding-y) var(--mb-padding-x); border-radius: var(--mb-radius); }
+  @media (min-width: 768px) {
+    #shopify-section-bundles .pl-grid { grid-template-columns: repeat(var(--pl-cols), minmax(0, 1fr)); }
+    #shopify-section-bundles .pl-header { margin-bottom: 40px; }
+    #shopify-section-bundles .pb-heading { font-size: var(--pb-fs-d, 32px); }
+  }
+</style>
 <div
 class="section pl color-default gradient remove_spacing"
 data-pb-root="products-listing" data-pb-section="bundles" data-pb-settings="{&quot;color_scheme&quot;:&quot;default&quot;,&quot;section_width&quot;:&quot;container&quot;,&quot;reset_spacing&quot;:true,&quot;items_to_show&quot;:2,&quot;subheading&quot;:&quot;&quot;,&quot;heading&quot;:&quot;Bundles&quot;,&quot;description&quot;:&quot;&quot;,&quot;show_view_all&quot;:false,&quot;view_all_label&quot;:&quot;View all products&quot;,&quot;view_all_position&quot;:&quot;bottom&quot;,&quot;heading_font_size&quot;:32,&quot;show_badges&quot;:true,&quot;show_vendor&quot;:false,&quot;show_rating&quot;:true,&quot;show_short_description&quot;:false,&quot;show_swatches&quot;:false,&quot;show_price&quot;:true,&quot;show_add_to_cart&quot;:true,&quot;show_action&quot;:true,&quot;header_alignment&quot;:&quot;left&quot;,&quot;heading_subtext_gap&quot;:10,&quot;items_per_row&quot;:2,&quot;column_gap&quot;:20,&quot;row_gap&quot;:32,&quot;enable_custom_style&quot;:false,&quot;section_bg&quot;:&quot;&quot;,&quot;enable_custom_fonts&quot;:false,&quot;heading_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;},&quot;body_font&quot;:{&quot;family&quot;:&quot;Assistant&quot;,&quot;fallback_families&quot;:&quot;sans-serif&quot;},&quot;reveal&quot;:false,&quot;padding_top&quot;:56,&quot;padding_bottom&quot;:96,&quot;section_margin_top_desktop&quot;:0,&quot;section_margin_bottom_desktop&quot;:0,&quot;items_per_row_mobile&quot;:1,&quot;section_margin_top_mobile&quot;:0,&quot;section_margin_bottom_mobile&quot;:0}" data-pb-fallback-href="/collections/bundles" data-pb-defaults='{"color_scheme":"default","section_width":"fluid_container","reset_spacing":true,"items_to_show":8,"heading":"Featured products","show_view_all":true,"view_all_label":"View all products","view_all_position":"bottom","heading_font_size":32,"show_badges":true,"show_vendor":false,"show_rating":true,"show_short_description":false,"show_swatches":true,"show_price":true,"show_add_to_cart":true,"show_action":true,"header_alignment":"left","heading_subtext_gap":8,"items_per_row":4,"column_gap":24,"row_gap":30,"enable_custom_style":false,"enable_custom_fonts":false,"heading_font":"assistant_n4","body_font":"assistant_n4","reveal":true,"padding_top":49,"padding_bottom":49,"section_margin_top_desktop":0,"section_margin_bottom_desktop":0,"items_per_row_mobile":2,"section_margin_top_mobile":0,"section_margin_bottom_mobile":0}' data-pb-block-defaults='{"eyebrow":{"text":"Shop the collection","enable_custom_style":false,"size":13},"heading":{"text":"Featured products","enable_custom_style":false,"size_desktop":32,"size_mobile":26},"subheading":{"text":"&lt;p>Browse the pieces from this collection.&lt;/p>","enable_custom_style":false,"size":16},"button":{"text":"View all products","position":"bottom","button_style":"primary","enable_custom_style":false,"use_theme_button":true,"radius":8,"pad_x":26,"pad_y":14,"size":15,"border_width":1}}'

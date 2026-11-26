@@ -746,7 +746,7 @@ export const THEME_SEO: readonly ThemeSeo[] = [
     title: "Redline Streetwear Store Website Template | Storelib",
     description: "A red streetwear store template that opens on a clothing rail of hoodies, tees and jackets, with a drop countdown, try the look pins and a shop by category grid.",
     h1: "Redline streetwear store website template",
-    intro: "Redline is a streetwear store that opens on a rail of hoodies, tees, long sleeves and jackets: point at one and it turns, click it and it lifts into a window with its photos, sizes, quantity and Add to cart. A new drop row, shop by category tiles, a drop countdown, Try the look, a campaign banner, a lookbook split, a customer photo grid, questions and a journal follow.",
+    intro: "Redline is a streetwear store that opens on a rail of hoodies, tees and jackets: click one and it lifts into a window with its photos, sizes and Add to cart. Shop by category tiles, a weekly drop countdown, Try the look, a lookbook and a customer photo grid follow.",
     primaryCategory: "fashion",
     primaryKeyword: "streetwear brand website template",
     secondaryKeywords: ["streetwear brand website", "hoodie brand website", "clothing rail website"],

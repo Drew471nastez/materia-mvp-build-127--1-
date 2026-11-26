@@ -905,76 +905,53 @@
       ]
     },
     "lookbook": {
-      "type": "Image-and-video-text",
+      "type": "image-with-text-multirow",
       "settings": {
         "color_scheme": "scheme-2b5c6c91-201d-4fb1-aba3-e6d562656976",
         "section_width": "container",
         "reset_spacing": true,
-        "image_position": "right",
-        "text_column_width": 42,
+        "alternate_rows": false,
         "content_align": "left",
-        "content_gap": 18,
-        "media_type": "image",
-        "image": "shopify://shop_images/rail-lookbook-mural.webp",
-        "image_alt": "Three friends in the autumn drop in front of a painted wall",
-        "aspect_w": 4,
-        "aspect_h": 5,
+        "text_column_width": 42,
+        "row_gap_desktop": 48,
+        "col_gap_desktop": 72,
+        "content_gap": 14,
+        "image_aspect_w": 4,
+        "image_aspect_h": 5,
         "image_fit": "cover",
         "image_radius": 0,
-        "enable_overlay": false,
-        "gap_desktop": 72,
+        "caption_size": 12,
+        "heading_size_desktop": 52,
+        "heading_weight": "theme",
+        "body_size_desktop": 14,
         "padding_top_desktop": 96,
-        "padding_bottom_desktop": 0,
-        "side_padding_desktop": 40,
-        "section_margin_top_desktop": 0,
-        "section_margin_bottom_desktop": 0,
-        "content_align_mobile": "left",
-        "mobile_order": "media_first",
-        "gap_mobile": 28,
+        "padding_bottom_desktop": 96,
+        "side_padding_desktop": 32,
+        "row_gap_mobile": 32,
+        "col_gap_mobile": 16,
+        "heading_size_mobile": 34,
+        "body_size_mobile": 14,
         "padding_top_mobile": 48,
         "padding_bottom_mobile": 48,
-        "side_padding_mobile": 20
+        "side_padding_mobile": 16
       },
       "blocks": {
-        "e": {
-          "type": "eyebrow",
+        "r1": {
+          "type": "row",
           "settings": {
-            "text": "Lookbook, autumn",
-            "enable_custom_style": true,
-            "color": "#f01a10"
-          }
-        },
-        "h": {
-          "type": "heading",
-          "settings": {
-            "text": "Shot on the street, worn the same week",
-            "tag": "h2",
-            "enable_custom_style": true,
-            "size_desktop": 52,
-            "size_mobile": 34
-          }
-        },
-        "s": {
-          "type": "subheading",
-          "settings": {
-            "text": "<p>Three friends, one painted wall and the whole drop: bombers over hoodies, wide denim and cargo. Every piece in the pictures is in the shop.</p>"
-          }
-        },
-        "b": {
-          "type": "button",
-          "settings": {
-            "label": "See the lookbook",
-            "link": "/pages/lookbook",
-            "button_style": "primary",
+            "image": "shopify://shop_images/rail-lookbook-mural.webp",
+            "caption": "Lookbook, autumn",
+            "heading": "Shot on the street, worn the same week",
+            "body": "<p>Three friends, one painted wall and the whole drop: bombers over hoodies, wide denim and cargo. Every piece in the pictures is in the shop.</p>",
+            "btn_label": "See the lookbook",
+            "btn_link": "/pages/lookbook",
+            "image_position": "right",
             "use_theme_button": true
           }
         }
       },
       "block_order": [
-        "e",
-        "h",
-        "s",
-        "b"
+        "r1"
       ]
     },
     "ugc": {
