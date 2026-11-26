@@ -264,8 +264,8 @@ async function sweepTemplate(browser: Browser, name: string, bridge: string, hea
           const offFrom = (m: typeof baseline) => Object.entries(baseline.secs).filter(([id, b]) => { const a = m.secs[id]; return !a || Math.abs(a.h - b.h) > 4 || (b.hit === "inside" && a.hit !== "inside" && (a.hit.endsWith(` in shopify-section-${s.id}`) || !/ in shopify-section-/.test(a.hit))) })
           let back = await measure(frame)
           let off = offFrom(back)
-          /* A moment more to settle (a slider, a picture), then judged. */
-          if (off.length) { await sleep(1200); back = await measure(frame); off = offFrom(back) }
+          /* A moment more to settle (a slider, a picture; a swapped section is held at its height up to 3s for its pictures), then judged. */
+          if (off.length) { await sleep(3300); back = await measure(frame); off = offFrom(back) }
           if (off.length) {
             const why = await within(frame.evaluate((id) => {
               const el = document.getElementById(`shopify-section-${id}`)
