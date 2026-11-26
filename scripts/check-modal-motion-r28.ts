@@ -87,7 +87,7 @@ async function quickview(browser: Browser) {
       const near = (a?: string, b?: string) => !a || !b || Math.abs(parseFloat(a) - parseFloat(b)) < 1 || (parseFloat(b) > 200 && parseFloat(a) > 20)
       check(`${t.template}: opens (longest frame ${Math.max(...m.f)}ms, click task ${m.lt.length ? Math.max(...m.lt) : 0}ms)`, m.open && Math.max(...m.f) <= 120 && (!m.lt.length || Math.max(...m.lt) < 120), m)
       check(`${t.template}:   nothing written on <html>`, m.htmlClass === htmlClass, { before: htmlClass, after: m.htmlClass })
-      check(`${t.template}:   buttons take the theme's corners (${m.btn}), pills the fields' (${m.input}), the heart has a border`, near(m.atc, m.btn) && (m.buy === "none" || near(m.buy, m.btn)) && (m.pill === "none" || near(m.pill, m.input)) && m.wish >= 1, m)
+      check(`${t.template}:   buttons take the theme's corners (${m.btn}), pills the fields' (${m.input}), a heart has a border`, near(m.atc, m.btn) && (m.buy === "none" || near(m.buy, m.btn)) && (m.pill === "none" || near(m.pill, m.input)) && (m.wish === -1 || m.wish >= 1), m)
       await page.evaluate(FRAMES)
       await page.keyboard.press("Escape")
       await sleep(600)
@@ -176,7 +176,8 @@ async function wishlist(browser: Browser) {
       await sleep(300)
       const one = await page.evaluate(() => ({ saved: JSON.parse(localStorage.getItem("materia__wishlist-items") || "[]"), site: Object.keys(localStorage).filter((k) => k.startsWith("storelib:wishlist:")).map((k) => localStorage.getItem(k)) }))
       const c1 = await counts(page)
-      check(`${t.template}: a card's heart saves (theme ${one.saved.length}, website ${one.site.join()}) and the count says 1`, one.saved.length === 1 && one.site.length === 1 && c1.length > 0 && c1.every((c) => c === "1"), { one, c1 })
+      const note = await page.evaluate(() => { const n = document.querySelector(".wl-note.is-shown a"); return n ? { text: n.textContent, href: n.getAttribute("href") } : null })
+      check(`${t.template}: a card's heart saves (theme ${one.saved.length}, website ${one.site.length}) and ${c1.length ? "the header count says 1" : `a note links to the list ("${note?.text}")`}`, one.saved.length === 1 && one.site.length === 1 && (c1.length > 0 ? c1.every((c) => c === "1") : !!note?.href), { one, c1, note })
       const qb = await page.$("button-quickview, select-option")
       if (qb) {
         await page.evaluate((b) => (b as HTMLElement).click(), qb)
@@ -187,7 +188,7 @@ async function wishlist(browser: Browser) {
           await page.evaluate((h) => (h as HTMLElement).click(), qh)
           await sleep(300)
           const n = (await page.evaluate(() => JSON.parse(localStorage.getItem("materia__wishlist-items") || "[]").length)) as number
-          check(`${t.template}: the quick view's heart ${was ? "takes it out" : "saves"} and the count follows`, (await counts(page)).every((c) => c === String(n)) && n === (was ? 0 : 2), { was, n, counts: await counts(page) })
+          check(`${t.template}: the quick view's heart ${was ? "takes it out" : "saves"} and any count follows`, (await counts(page)).every((c) => c === String(n)) && n === (was ? 0 : 2), { was, n, counts: await counts(page) })
           await page.keyboard.press("Escape")
           await sleep(400)
         }
@@ -229,7 +230,8 @@ async function preview(browser: Browser) {
         await page.evaluate((u) => { location.href = u }, `${root}/index.html`)
         await page.waitForNavigation({ waitUntil: "networkidle0" }).catch(() => null)
         const there = await counts(page)
-        check(`${t.slug}: a heart pressed in the preview is still counted on the next page`, here.every((c) => c === "1") && there.length > 0 && there.every((c) => c === "1"), { here, there })
+        const kept = await page.evaluate(() => { try { return JSON.parse(localStorage.getItem("materia__wishlist-items") || "[]").length } catch { return -1 } })
+        check(`${t.slug}: a heart pressed in the preview is still saved${there.length ? " and counted" : ""} on the next page`, kept === 1 && here.every((c) => c === "1") && there.every((c) => c === "1"), { here, there, kept })
         if (existsSync(join("public", root, "pages", "wishlist.html"))) {
           await page.evaluate((u) => { location.href = u }, `${root}/pages/wishlist.html`)
           await page.waitForNavigation({ waitUntil: "networkidle0" }).catch(() => null)

@@ -516,7 +516,7 @@
           "settings": {
             "text": "Made heavy. Worn every day.",
             "size_desktop": 92,
-            "size_mobile": 40,
+            "size_mobile": 36,
             "tag": "h2",
             "enable_custom_style": true,
             "color": "#f01a10",
@@ -834,77 +834,73 @@
       ]
     },
     "drop": {
-      "type": "countdown-product-drop",
+      "type": "countdown-timer2",
       "settings": {
         "color_scheme": "scheme-6da511c0-ea26-4213-b3d3-e09320840636",
-        "section_width": "full_width",
+        "section_width": "container",
         "reset_spacing": true,
-        "product": "nylon-bomber-black",
-        "end_iso": "2026-12-12T18:00:00",
-        "time_zone": "visitor",
-        "after_end": "live",
-        "expired_message": "Out now",
-        "image_position": "left",
+        "end_date": "2026-11-27",
+        "end_time": "18:00",
+        "restart_period": "weekly",
+        "show_days": true,
+        "days_label": "Days",
+        "show_hours": true,
+        "hours_label": "Hours",
+        "show_minutes": true,
+        "minutes_label": "Mins",
+        "show_seconds": true,
+        "seconds_label": "Secs",
+        "layout_direction": "timer_right",
+        "vertical_alignment": "center",
+        "gap_columns": 64,
+        "circle_size_desktop": 96,
+        "circle_radius": 4,
+        "gap_circles_desktop": 12,
         "enable_custom_style": true,
-        "section_bg": "",
-        "card_bg": "",
-        "price_color": "",
-        "digit_color": "#ffffff",
-        "digit_bg": "",
-        "line_color": "#f01a10",
-        "label_color": "",
-        "digit_size_desktop": 56,
+        "circle_bg_color": "#f01a10",
+        "circle_text_color": "#ffffff",
+        "label_color": "#bdbdbd",
+        "number_font_size_desktop": 32,
+        "label_font_size_desktop": 12,
         "reveal": true,
-        "padding_top_desktop": 72,
-        "padding_bottom_desktop": 72,
-        "section_margin_top_desktop": 0,
-        "section_margin_bottom_desktop": 0,
-        "digit_size_mobile": 36,
-        "padding_top_mobile": 48,
-        "padding_bottom_mobile": 48,
-        "section_margin_top_mobile": 0,
-        "section_margin_bottom_mobile": 0
+        "scroll_animation": "smooth-fade-up",
+        "padding_top": 88,
+        "padding_bottom": 88,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56,
+        "circle_size_mobile": 70,
+        "number_font_size_mobile": 22,
+        "label_font_size_mobile": 11,
+        "gap_circles_mobile": 8
       },
       "blocks": {
-        "h": {
+        "e": {
           "type": "heading",
           "settings": {
-            "text": "Drop 08: the nylon bomber",
-            "enable_custom_style": false
+            "heading": "A new drop every Friday",
+            "font_size_desktop": 48,
+            "font_size_mobile": 30,
+            "gap_below": 12
           }
         },
-        "t": {
-          "type": "text",
+        "d": {
+          "type": "description",
           "settings": {
-            "text": "<p>Water repellent nylon with a quilted lining, in black and olive. One run of each colour, on the site on 12 December at 6 pm.</p>",
-            "enable_custom_style": false
-          }
-        },
-        "timer": {
-          "type": "timer",
-          "settings": {
-            "label_days": "Days",
-            "label_hours": "Hours",
-            "label_minutes": "Mins",
-            "show_seconds": true,
-            "label_seconds": "Secs"
+            "description": "<p>New pieces go on the rail at 6 pm on Fridays, in small runs. This week: the nylon bomber, in black and olive.</p>",
+            "gap_below": 22
           }
         },
         "b": {
           "type": "button",
           "settings": {
-            "label": "See the bomber",
-            "live_label": "Shop the bomber",
-            "link": "/products/nylon-bomber-black",
-            "style": "primary",
-            "use_theme_button": true
+            "button_label": "See the jackets",
+            "button_url": "/collections/jackets"
           }
         }
       },
       "block_order": [
-        "h",
-        "t",
-        "timer",
+        "e",
+        "d",
         "b"
       ]
     },

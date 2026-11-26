@@ -611,8 +611,6 @@ export const SAMPLE_SHOPS: Record<string, { name: string; products: SampleProduc
       { handle: "planners-printables", title: "Planners and printables", description: "A digital planner for tablets and pages to print at home.", products: ["2027 Digital Planner", "Printable Weekly Planner", "Habit Tracker, Printable"] },
       { handle: "courses", title: "Courses", description: "Short video courses with practice files.", products: ["Canva Design Basics", "The Everything Bundle"] },
       { handle: "bundles", title: "Bundles", description: "Several products in one download, for less.", products: ["Creator Starter Bundle", "The Everything Bundle"] },
-      { handle: "free", title: "Free downloads", description: "Free files with the same licence as the paid ones.", products: ["Habit Tracker, Printable"] },
-      { handle: "popular", title: "Most popular", description: "What people buy most.", products: ["Instagram Post Templates for Canva", "Life Planner for Notion", "Golden Hour Lightroom Presets", "Grow on Instagram, a Practical Guide", "Content Planner for Notion", "2027 Digital Planner", "The AI Prompt Playbook", "Brand Kit for Canva"] },
     ],
   },
 }

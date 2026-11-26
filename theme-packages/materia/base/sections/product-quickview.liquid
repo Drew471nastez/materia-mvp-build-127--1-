@@ -334,21 +334,22 @@
       var info = root.querySelector('.qv__info'), bar = root.querySelector('[data-qv-bar]'), thumb = root.querySelector('[data-qv-thumb]');
       if (info && bar && thumb && window.ResizeObserver) {
         var view = 0, full = 0, len = 0, room = 0, hideT = 0, frame = 0;
-        var place = function () { frame = 0; if (!room) return; var y = full > view ? (info.scrollTop / (full - view)) * room : 0; thumb.style.transform = 'translate3d(0,' + Math.round(y * 10) / 10 + 'px,0)'; };
+        var place = function (top) { frame = 0; if (!room) return; var st = typeof top === 'number' ? top : info.scrollTop; var y = full > view ? (st / (full - view)) * room : 0; thumb.style.transform = 'translate3d(0,' + Math.round(y * 10) / 10 + 'px,0)'; };
         var size = function () {
-          view = info.clientHeight; full = info.scrollHeight;
+          {%- comment -%} Every read first, then the writes: nothing is measured again after a change. {%- endcomment %}
+          view = info.clientHeight; full = info.scrollHeight; var top = info.scrollTop;
           var rail = Math.max(0, view - 72); {%- comment -%} .qv__bar: top 56px, bottom 16px (product-card.css) {%- endcomment -%}
           var on = full > view + 1;
           if (bar.classList.contains('is-on') !== on) bar.classList.toggle('is-on', on);
           if (!on) { room = 0; return; }
           len = Math.max(32, Math.round(rail * view / full)); room = rail - len;
           thumb.style.height = len + 'px';
-          place();
+          place(top);
         };
         var ro = new ResizeObserver(function () { size(); });
         ro.observe(info); if (info.firstElementChild) [].forEach.call(info.children, function (c) { ro.observe(c); });
         info.addEventListener('scroll', function () {
-          if (!frame) frame = requestAnimationFrame(place);
+          if (!frame) frame = requestAnimationFrame(function () { place(); });
           bar.classList.add('is-moving'); clearTimeout(hideT); hideT = setTimeout(function () { bar.classList.remove('is-moving'); }, 700);
         }, { passive: true });
         {%- comment -%} Pressing and dragging the thumb scrolls the column. {%- endcomment %}

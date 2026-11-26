@@ -100,7 +100,7 @@ else {
   const shim = /<script data-template-preview>([\s\S]*?)<\/script>/.exec(html)?.[1] ?? ""
   check(`the preview's shim keeps storage in window.name (${slug})`, /slls/.test(shim))
   const start = shim.indexOf("function wn(")
-  const end = shim.indexOf("try{D.cookie}")
+  const end = [shim.indexOf("try{D.cookie}"), shim.indexOf('var jar=""')].filter((i) => i > 0).sort((a, b) => a - b)[0] ?? -1
   const piece = start > 0 && end > start ? shim.slice(start, end) : ""
   const run = (name: string) => {
     const W: Record<string, unknown> = { name }

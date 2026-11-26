@@ -34,37 +34,51 @@
       ]
     },
     "story": {
-      "type": "Image-and-video-text",
+      "type": "dual-image-with-text",
       "settings": {
         "color_scheme": "default",
         "section_width": "container",
+        "reset_spacing": true,
         "image_position": "left",
-        "image": "shopify://shop_images/digistudio-creator.webp",
-        "image_alt": "Hana at her desk by the window, typing on a laptop beside a plant and a notebook",
-        "aspect_w": 4,
-        "aspect_h": 3,
-        "image_fit": "cover",
-        "image_radius": 10,
         "text_column_width": 42,
         "content_align": "left",
         "content_gap": 18,
+        "aspect_ratio_w": 4,
+        "aspect_ratio_h": 3,
+        "show_dots": false,
         "gap_desktop": 72,
         "padding_top_desktop": 56,
         "padding_bottom_desktop": 72,
         "side_padding_desktop": 0,
+        "content_align_mobile": "left",
+        "mobile_order": "media_first",
+        "gap_mobile": 28,
         "padding_top_mobile": 56,
         "padding_bottom_mobile": 56,
-        "side_padding_mobile": 16,
-        "mobile_order": "media_first"
+        "side_padding_mobile": 16
       },
       "blocks": {
-        "eyebrow_1": {
+        "main_image_1": {
+          "type": "main_image",
+          "settings": {
+            "image": "shopify://shop_images/digistudio-creator.webp",
+            "alt": "Hana at her desk by the window, typing on a laptop beside a plant and a notebook",
+            "anchor": "top_left",
+            "size": 100,
+            "fit": "cover",
+            "position_x": 60,
+            "position_y": 50,
+            "radius": 10,
+            "shadow": false
+          }
+        },
+        "eyebrow_2": {
           "type": "eyebrow",
           "settings": {
             "text": "Made by Hana Lee"
           }
         },
-        "heading_2": {
+        "heading_3": {
           "type": "heading",
           "settings": {
             "text": "How Wren Studio started",
@@ -73,7 +87,7 @@
             "size_mobile": 30
           }
         },
-        "subheading_3": {
+        "subheading_4": {
           "type": "subheading",
           "settings": {
             "text": "<p>I spent eight years designing for small businesses: cafés, studios, a few shops. Every client asked for the same things, a content plan, social posts that looked like them, a way to keep track of it all.</p><p>Wren Studio sells those files, cleaned up and tested on the free plan of every app they are for. New products come out a few times a year and every update is free for everyone who bought.</p>",
@@ -83,9 +97,10 @@
         }
       },
       "block_order": [
-        "eyebrow_1",
-        "heading_2",
-        "subheading_3"
+        "main_image_1",
+        "eyebrow_2",
+        "heading_3",
+        "subheading_4"
       ]
     },
     "how": {

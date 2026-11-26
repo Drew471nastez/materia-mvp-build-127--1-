@@ -196,7 +196,9 @@ window.__m = (() => {
       const fr = R(f), img = f.querySelector('img'), cs = getComputedStyle(f);
       const ir = img && R(img);
       const holder = f.closest('header, footer, [id*=announcement], [id*=top_bar], [id*=top-bar], .drawer, nav, .mobile-navigation-bar');
-      return { where: holder ? (holder.id || holder.tagName + '.' + String(holder.className).slice(0, 20)) : '?', w: round(fr.width), h: round(fr.height), radius: cs.borderRadius, imgW: ir && round(ir.width), imgH: ir && round(ir.height), dx: ir && round(ir.left + ir.width / 2 - (fr.left + fr.width / 2)), dy: ir && round(ir.top + ir.height / 2 - (fr.top + fr.height / 2)) };
+      return { where: holder ? (holder.id || holder.tagName + '.' + String(holder.className).slice(0, 20)) : '?', w: round(fr.width), h: round(fr.height), radius: cs.borderRadius, imgW: ir && round(ir.width), imgH: ir && round(ir.height), dx: ir && round(ir.left + ir.width / 2 - (fr.left + fr.width / 2)), dy: ir && round(ir.top + ir.height / 2 - (fr.top + fr.height / 2)),
+        /* the emoji flag picture (32 by 24, the flag's own area 13.3 units tall without its wavy edge): how much of the circle's height that area covers */
+        emojiCover: img && /^data:image\\/svg/.test(img.getAttribute('src') || '') ? round((ir.height * 13.3 / 24) / fr.height) : null };
     });
   }
   return { product, rows, sticky, faq, blog, flags };
@@ -295,6 +297,7 @@ for (const slug of slugs) {
       for (const f of await m(page, "flags")) {
         expect(`${at} flag in ${f.where}: a circle`, Math.abs(f.w - f.h) < 0.5 && f.radius === "50%", f)
         if (f.dx != null) expect(`${at} flag in ${f.where}: the picture is centred on it`, Math.abs(f.dx) <= 0.5 && Math.abs(f.dy) <= 1.6, f)
+        if (f.emojiCover != null) expect(`${at} flag in ${f.where}: the flag itself fills the circle (no slivers of background)`, f.emojiCover >= 0.98, f)
       }
       await page.close()
     }
@@ -309,7 +312,7 @@ for (const slug of slugs) {
       if (!box?.width) continue
       await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
       await new Promise((r) => setTimeout(r, 700))
-      await page.mouse.move(box.x + box.width / 2, 3)
+      await page.mouse.move(box.x + box.width / 2, 890)
       const trace = await page.evaluate(() => new Promise((done) => {
         const sub = [...document.querySelectorAll(".navigation.horizontal .menu-parent > .submenu")].find((s) => getComputedStyle(s).visibility === "visible")
         if (!sub) return done(null)

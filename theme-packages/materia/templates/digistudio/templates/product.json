@@ -496,36 +496,6 @@
             "role": "Creator Starter Bundle",
             "avatar": "shopify://shop_images/digistudio-buyer-5.webp"
           }
-        },
-        "testimonial_8": {
-          "type": "testimonial",
-          "settings": {
-            "quote": "<p>The tabs link properly in GoodNotes, which is rarer than it should be. Clean pages, nothing cute.</p>",
-            "rating": 5,
-            "name": "Tom Becker",
-            "role": "2027 Digital Planner",
-            "avatar": "shopify://shop_images/digistudio-buyer-6.webp"
-          }
-        },
-        "testimonial_9": {
-          "type": "testimonial",
-          "settings": {
-            "quote": "<p>Chapter three changed how I plan. One afternoon a month instead of panicking every morning.</p>",
-            "rating": 5,
-            "name": "Nina Kowalski",
-            "role": "Grow on Instagram",
-            "avatar": "shopify://shop_images/digistudio-buyer-7.webp"
-          }
-        },
-        "testimonial_10": {
-          "type": "testimonial",
-          "settings": {
-            "quote": "<p>Short lessons that get to the point. The practice files make you actually do it instead of just watching.</p>",
-            "rating": 5,
-            "name": "Leo Martin",
-            "role": "Canva Design Basics",
-            "avatar": "shopify://shop_images/digistudio-buyer-8.webp"
-          }
         }
       },
       "block_order": [
@@ -535,10 +505,7 @@
         "testimonial_4",
         "testimonial_5",
         "testimonial_6",
-        "testimonial_7",
-        "testimonial_8",
-        "testimonial_9",
-        "testimonial_10"
+        "testimonial_7"
       ]
     },
     "related": {

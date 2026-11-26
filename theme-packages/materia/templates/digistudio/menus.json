@@ -37,24 +37,24 @@
           {
             "title": "Bundles",
             "url": "/collections/bundles"
-          },
-          {
-            "title": "Free downloads",
-            "url": "/collections/free"
           }
         ]
       },
       {
-        "title": "Best sellers",
-        "url": "/collections/popular"
+        "title": "Notion",
+        "url": "/collections/notion-templates"
+      },
+      {
+        "title": "Canva",
+        "url": "/collections/canva-templates"
+      },
+      {
+        "title": "Presets",
+        "url": "/collections/lightroom-presets"
       },
       {
         "title": "Bundles",
         "url": "/collections/bundles"
-      },
-      {
-        "title": "Free",
-        "url": "/collections/free"
       },
       {
         "title": "Blog",
@@ -100,10 +100,6 @@
       {
         "title": "Bundles",
         "url": "/collections/bundles"
-      },
-      {
-        "title": "Free downloads",
-        "url": "/collections/free"
       }
     ]
   },
@@ -141,10 +137,6 @@
       {
         "title": "Bundles",
         "url": "/collections/bundles"
-      },
-      {
-        "title": "Free downloads",
-        "url": "/collections/free"
       }
     ]
   },

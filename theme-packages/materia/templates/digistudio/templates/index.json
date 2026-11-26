@@ -54,8 +54,8 @@
         "button_3": {
           "type": "button",
           "settings": {
-            "text": "Shop best sellers",
-            "link": "/collections/popular",
+            "text": "Shop all products",
+            "link": "/collections/all",
             "button_style": "primary",
             "use_theme_button": true
           }
@@ -176,7 +176,7 @@
       "settings": {
         "color_scheme": "default",
         "section_width": "container",
-        "collection": "popular",
+        "collection": "all",
         "items_to_show": 8,
         "heading": "Best sellers",
         "show_view_all": true,
@@ -221,52 +221,106 @@
       ]
     },
     "bundles": {
-      "type": "products-listing",
+      "type": "product-duo",
       "settings": {
         "color_scheme": "default",
         "section_width": "container",
-        "collection": "bundles",
-        "items_to_show": 2,
-        "heading": "Bundles",
-        "show_view_all": false,
-        "view_all_label": "View all",
+        "reset_spacing": true,
+        "divider_text": "or",
         "header_alignment": "left",
-        "heading_subtext_gap": 10,
-        "items_per_row": 2,
-        "items_per_row_mobile": 1,
-        "column_gap": 20,
-        "row_gap": 36,
-        "show_badges": true,
-        "show_vendor": false,
-        "show_rating": true,
-        "show_short_description": false,
-        "show_swatches": false,
-        "show_price": true,
-        "show_add_to_cart": true,
-        "show_action": true,
-        "reveal": false,
+        "header_spacing": 32,
+        "content_alignment": "left",
+        "card_style": "plain",
+        "column_gap": 40,
+        "image_ratio": "square",
+        "use_theme_button": true,
+        "title_size": 22,
+        "text_size": 15,
         "padding_top": 40,
-        "padding_bottom": 88
+        "padding_bottom": 96,
+        "mobile_layout": "stack"
       },
       "blocks": {
         "heading_1": {
           "type": "heading",
           "settings": {
-            "text": "Bundles",
-            "size_desktop": 40,
-            "size_mobile": 30
+            "text": "Bundles"
           }
         },
         "subheading_2": {
           "type": "subheading",
           "settings": {
-            "text": "<p>Several products in one download, for less than buying them one by one.</p>"
+            "text": "Several products in one download, for less than buying them one by one."
+          }
+        },
+        "product_3": {
+          "type": "product",
+          "settings": {
+            "product": "creator-starter-bundle",
+            "label": "Save $21",
+            "button_action": "page",
+            "button_label": "See the bundle",
+            "button_style": "secondary"
+          }
+        },
+        "point_4": {
+          "type": "point",
+          "settings": {
+            "text": "Content Planner for Notion"
+          }
+        },
+        "point_5": {
+          "type": "point",
+          "settings": {
+            "text": "Instagram Post Templates for Canva"
+          }
+        },
+        "point_6": {
+          "type": "point",
+          "settings": {
+            "text": "Brand Kit for Canva"
+          }
+        },
+        "product_7": {
+          "type": "product",
+          "settings": {
+            "product": "the-everything-bundle",
+            "label": "Everything in the shop",
+            "button_action": "page",
+            "button_label": "See the bundle",
+            "button_style": "primary"
+          }
+        },
+        "point_8": {
+          "type": "point",
+          "settings": {
+            "text": "Every template, preset pack, ebook and planner"
+          }
+        },
+        "point_9": {
+          "type": "point",
+          "settings": {
+            "text": "The Canva Design Basics course"
+          }
+        },
+        "point_10": {
+          "type": "point",
+          "settings": {
+            "text": "New products this year, free"
           }
         }
       },
       "block_order": [
         "heading_1",
-        "subheading_2"
+        "subheading_2",
+        "product_3",
+        "point_4",
+        "point_5",
+        "point_6",
+        "product_7",
+        "point_8",
+        "point_9",
+        "point_10"
       ]
     },
     "how": {
@@ -359,37 +413,51 @@
       ]
     },
     "creator": {
-      "type": "Image-and-video-text",
+      "type": "dual-image-with-text",
       "settings": {
         "color_scheme": "default",
         "section_width": "container",
+        "reset_spacing": true,
         "image_position": "left",
-        "image": "shopify://shop_images/digistudio-creator.webp",
-        "image_alt": "Hana at her desk by the window, typing on a laptop beside a plant and a notebook",
-        "aspect_w": 4,
-        "aspect_h": 3,
-        "image_fit": "cover",
-        "image_radius": 10,
         "text_column_width": 42,
         "content_align": "left",
         "content_gap": 18,
+        "aspect_ratio_w": 4,
+        "aspect_ratio_h": 3,
+        "show_dots": false,
         "gap_desktop": 72,
         "padding_top_desktop": 96,
         "padding_bottom_desktop": 96,
         "side_padding_desktop": 0,
+        "content_align_mobile": "left",
+        "mobile_order": "media_first",
+        "gap_mobile": 28,
         "padding_top_mobile": 56,
         "padding_bottom_mobile": 56,
-        "side_padding_mobile": 16,
-        "mobile_order": "media_first"
+        "side_padding_mobile": 16
       },
       "blocks": {
-        "eyebrow_1": {
+        "main_image_1": {
+          "type": "main_image",
+          "settings": {
+            "image": "shopify://shop_images/digistudio-creator.webp",
+            "alt": "Hana at her desk by the window, typing on a laptop beside a plant and a notebook",
+            "anchor": "top_left",
+            "size": 100,
+            "fit": "cover",
+            "position_x": 60,
+            "position_y": 50,
+            "radius": 10,
+            "shadow": false
+          }
+        },
+        "eyebrow_2": {
           "type": "eyebrow",
           "settings": {
             "text": "Made by Hana Lee"
           }
         },
-        "heading_2": {
+        "heading_3": {
           "type": "heading",
           "settings": {
             "text": "I made these for my own work first",
@@ -398,7 +466,7 @@
             "size_mobile": 30
           }
         },
-        "subheading_3": {
+        "subheading_4": {
           "type": "subheading",
           "settings": {
             "text": "<p>I run a small design business and post about it most days. The planners, posts and presets in this shop are the ones I built for that, cleaned up so they work for you too.</p><p>Every product is tested on the free plan of the app it is for, and I answer every email myself.</p>",
@@ -406,7 +474,7 @@
             "size_mobile": 15
           }
         },
-        "button_4": {
+        "button_5": {
           "type": "button",
           "settings": {
             "label": "About Wren Studio",
@@ -416,10 +484,11 @@
         }
       },
       "block_order": [
-        "eyebrow_1",
-        "heading_2",
-        "subheading_3",
-        "button_4"
+        "main_image_1",
+        "eyebrow_2",
+        "heading_3",
+        "subheading_4",
+        "button_5"
       ]
     },
     "reviews": {

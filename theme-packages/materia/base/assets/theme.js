@@ -6383,7 +6383,32 @@ class ButtonWishlist extends HTMLElement {
       this.classList.remove("is-toggled");
       void this.offsetWidth;
       this.classList.add("is-toggled");
+      if (!onPage) ButtonWishlist.confirm(this.redirectTooltip, this.wishlistUrl());
     }
+  }
+
+  // Round 28: a store whose header has no wishlist icon (and no tab bar) gave
+  // no sign a heart had done anything beyond the heart itself, and no way to
+  // the list. Then a short note at the foot of the screen links to it. In the
+  // theme's colours, font and button corners; transform and opacity only.
+  static confirm(label, url) {
+    const visible = (el) => !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden";
+    const shown = [...document.querySelectorAll(".wishlist-count, :is(header, .section-header, .shopify-section-group-header-group, .mobile-navigation-bar, mobile-navigation-bar) a[href*='wishlist']")].some((el) => !el.closest(".wl-note") && visible(el));
+    if (shown || !label || !url) return;
+    let note = document.querySelector(".wl-note");
+    if (!note) {
+      note = document.createElement("div");
+      note.className = "wl-note";
+      note.setAttribute("role", "status");
+      note.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 20.3s-7.6-4.6-9.2-9.3C1.7 7.6 3.9 4.2 7.4 4.2c2 0 3.4 1.1 4.6 2.7 1.2-1.6 2.6-2.7 4.6-2.7 3.5 0 5.7 3.4 4.6 6.8-1.6 4.7-9.2 9.3-9.2 9.3z"/></svg><a class="wl-note__link"></a>';
+      document.body.appendChild(note);
+    }
+    const link = note.querySelector("a");
+    link.textContent = label;
+    link.href = url;
+    clearTimeout(ButtonWishlist.noteTimer);
+    requestAnimationFrame(() => note.classList.add("is-shown"));
+    ButtonWishlist.noteTimer = setTimeout(() => note.classList.remove("is-shown"), 3200);
   }
 }
 customElements.define("button-wishlist", ButtonWishlist);
