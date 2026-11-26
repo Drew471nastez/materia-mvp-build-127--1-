@@ -1324,6 +1324,8 @@ const SUITES = [
   "tests/theme-add-speed-r27.test.ts",
   /* Round 65: "Still opening your website". The editor's install read names its pages instead of reading every page and 5 MB of section files; an imported theme's 30 MB of sources and files wait for the editor's first read; the marketplace add tells the editor the site is imported. Real routes over an in-memory Supabase, on the Materia clothing template. */
   "tests/builder-canvas-open-r65.test.ts",
+  /* Round 66: the builder's canvas stays the page being edited. A section drawn again runs its own inline scripts again (Night shop's sky covered the page), a frame going elsewhere is hidden and drawn again so "refused to connect" is never seen, window.open and detached link clicks open as links, own-host links stay in the canvas, the code pane recovers from a refused page, and no framing header was loosened. Browser halves: scripts/probe-sky-r66.ts, scripts/probe-nav-r66.ts, scripts/check-template-settings-r66.ts. */
+  "tests/builder-canvas-stable-r66.test.ts",
   /* Round 27: the cover's browser traced into the folded /api/website-builder entry and Add (matched with Next's own picomatch), no browser remembered with the template's picture instead and the page backing off, and one press of Add one website (a press key: replayed, waited for, the older kept) */
   "tests/cover-and-add-r27.test.ts",
   /* Round 27: a website's unchanged theme files kept once in theme_file_blobs behind STORELIB_THEME_FILE_REFS and RUN_PENDING_ROUND_27.sql: an old full-copy website and a new referencing one read the same through the storefront, the builder and the asset reads, copy on write, and the list of readers still to convert before new websites use it */

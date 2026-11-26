@@ -43,3 +43,23 @@ export function externalHref(href: string, siteUrl: string | null | undefined): 
     return null
   }
 }
+
+/**
+ * Whether the code pane's frame holds the code editor: a page of this origin
+ * at its address. A page that refused to be framed is the browser's error
+ * page, which this origin cannot read (null), and a sign-in or error page
+ * of ours is at another address.
+ */
+export function frameIsOurs(frame: { contentDocument: { location?: { pathname?: string; href?: string } | null } | null } | null): boolean {
+  if (!frame) return true
+  try {
+    const doc = frame.contentDocument
+    if (!doc) return false
+    const path = doc.location?.pathname ?? ""
+    /* Still loading its first document (about:blank): not a refusal. */
+    if (doc.location?.href === "about:blank") return true
+    return path.startsWith("/website-builder/code/")
+  } catch {
+    return false
+  }
+}
