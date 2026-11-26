@@ -46,7 +46,7 @@ import { OUTPUT, LFloat } from "./runtime"
 import type { CompatPage, CompatTheme } from "./theme"
 import { drawPage, drawSection, pageContextFor, pageParts, type StoredSection } from "./page"
 import { PERSONAL_LAYOUT_PARAM, PERSONAL_PARAM, SLOT_MARK, personalIds } from "./personal-fill"
-import { canonicalPath, defaultPageTitle, groupSections, pagedCanonical } from "./theme"
+import { canonicalPath, defaultPageTitle, groupSections, pagedCanonical, productsBeside, RECOMMEND_MAX } from "./theme"
 import { templateOfPage } from "./install"
 import { assetType, binaryOf } from "./install"
 import { renderString } from "./runtime"
@@ -465,10 +465,13 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   /* ── recommendations ── */
   if (/^\/recommendations\/products(\.json)?$/.test(path)) {
     const id = req.query.get("product_id") ?? ""
-    const limit = Math.min(10, Math.max(1, Number(req.query.get("limit") ?? 4) || 4))
+    const limit = Math.min(RECOMMEND_MAX, Math.max(1, Number(req.query.get("limit") ?? 4) || 4))
     const intent = req.query.get("intent") ?? "related"
-    const products = site.products.filter((p) => p.id !== id && String(p.settings.slug ?? "") !== id && p.settings.available !== false).slice(0, limit)
     const about = site.products.find((p) => p.id === id || String(p.settings.slug ?? "") === id) ?? null
+    /* Round 64: the same products, in the same order, as the product page draws with itself (productsBeside), so the row does not change when a theme asks again after load. */
+    const products = about
+      ? productsBeside(about, site.products, site.collections, limit)
+      : site.products.filter((p) => p.id !== id && String(p.settings.slug ?? "") !== id && p.settings.available !== false).slice(0, limit)
     const page = basePage(site, req, { template: "product", path: "/recommendations/products", product: about, recommendations: { products, intent } })
     const sectionId = req.query.get("section_id")
     if (sectionId) return sectionsAnswer(site, page, site.pages.product ?? [], [sectionId], false)

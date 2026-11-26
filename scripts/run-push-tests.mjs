@@ -344,6 +344,8 @@ const SUITES = [
   "tests/section-categories.test.ts",
   "tests/canvas-loading.test.ts",
   "tests/compat-recently-viewed.test.ts",
+  /* Round 64 (k2): You may also like and Recently viewed on a Materia website. */
+  "tests/related-recent-r64.test.ts",
   "tests/compat-header-cards.test.ts",
   "tests/shopify-overlay-import.test.ts",
   "tests/editor-save-errors.test.ts",

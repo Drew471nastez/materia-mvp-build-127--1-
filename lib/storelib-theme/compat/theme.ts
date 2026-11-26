@@ -986,7 +986,12 @@ export class CompatTheme {
       content_for_additional_checkout_buttons: "",
       recommendations: page.recommendations
         ? { performed: true, products: page.recommendations.products.map((p) => productObject(p)), products_count: page.recommendations.products.length, intent: page.recommendations.intent ?? "related" }
-        : { performed: false, products: [], products_count: 0, intent: "related", prerendered_products: page.template === "product" && page.product ? productsBeside(page.product, page.products, page.collections).map((p) => productObject(p)) : [] },
+        : {
+            performed: false, products: [], products_count: 0, intent: "related",
+            prerendered_products: page.template === "product" && page.product ? productsBeside(page.product, page.products, page.collections).map((p) => productObject(p)) : [],
+            /* Round 64: true where the list above is the shop's whole answer (a product page), so an empty one means nothing else to show: the section draws nothing, not a heading over grey cards. */
+            prerendered: page.template === "product" && !!page.product,
+          },
       predictive_search: page.predictive
         ? {
             performed: true,
@@ -2218,7 +2223,10 @@ function formAppBlock(ctx: Ctx, b: { id: string; settings?: unknown }): string {
   Products sharing a collection with this one come first, then the rest of
   the shop from just after this product, so neighbouring pages differ.
 */
-export function productsBeside(current: CardLike, products: CardLike[] | undefined, collections: CollectionLike[] | undefined, limit = 10): CardLike[] {
+/** The most a "You may also like" row draws: the section's Products to show goes up to 12. Changed on purpose (r64): was 10. */
+export const RECOMMEND_MAX = 12
+
+export function productsBeside(current: CardLike, products: CardLike[] | undefined, collections: CollectionLike[] | undefined, limit = RECOMMEND_MAX): CardLike[] {
   const all = products ?? []
   const ok = (p: CardLike) => p.id !== current.id && p.settings?.available !== false
   const out: CardLike[] = []
