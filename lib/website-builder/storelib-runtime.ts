@@ -210,6 +210,14 @@ export function renderStorelibSection(
   const c = compiledSection(section.type, overrides)
   if (c.ok === false) return c
   /*
+    NO HEART ON A STORE WITHOUT A WISHLIST (round 66). With the header's wishlist icon off (./chrome-logo.ts sets
+    `wishlist_off`) a visitor has no way to the hearts' list, so a card draws none. The account page keeps its own
+    list of what was saved.
+  */
+  if ((theme as unknown as { wishlist_off?: unknown }).wishlist_off === true && section.type !== "main_account" && section.settings?.show_wishlist !== false) {
+    section = { ...section, settings: { ...section.settings, show_wishlist: false } }
+  }
+  /*
     THE COLLECTION A COLLECTION TEMPLATE IS ABOUT, IN THE BUILDER TOO. The
     live route hands the page's collection as `collection`; the builder has
     no handle in its address, so while it draws the Collection page template

@@ -29,12 +29,13 @@
  * click to zoom when the section asks for zoom.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { createPortal } from "react-dom"
 import { ChevronLeft, ChevronRight, Package, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { isVideoUrl, videoPosterUrl } from "@/lib/media/video"
 import { siteImageProps } from "@/lib/website-builder/site-image"
+import { SHOP_GALLERY_MAX_H } from "@/lib/storelib-theme/compat/shop-calm"
 
 export type MediaLayout = "stacked" | "stacked_2col" | "slideshow" | "carousel"
 
@@ -58,6 +59,15 @@ const ITEM: Record<MediaLayout, string> = {
   carousel: "@[768px]:w-[78%] @[768px]:shrink-0 @[768px]:snap-start",
 }
 
+/*
+  NEVER TALLER THAN THE WINDOW (round 66). A poster at its own shape in a 600px column was 860px tall, more than a
+  laptop's whole window under the header (liam-bailey.storelib.com). From 768px of section width a picture is at
+  most SHOP_GALLERY_MAX_H tall: at its own shape it is drawn narrower and centred, and a frame of a set shape
+  makes the whole gallery as wide as that height allows. The same height every installed theme's product page
+  keeps (lib/storelib-theme/compat/shop-calm.ts).
+*/
+const FIT_WINDOW = "@[768px]:max-h-[var(--pm-h)] @[768px]:w-auto @[768px]:max-w-full @[768px]:mx-auto"
+
 export function ProductMedia({
   images,
   title,
@@ -65,7 +75,6 @@ export function ProductMedia({
   mobile,
   ratio,
   clickAction,
-  hoverZoom,
   featured,
   surface,
   border,
@@ -80,7 +89,8 @@ export function ProductMedia({
   mobile: string
   ratio: string
   clickAction: string
-  hoverZoom: boolean
+  /** Round 66: read no more. A picture never moves under the pointer (lib/storelib-theme/compat/shop-calm.ts); a click still opens it larger. */
+  hoverZoom?: boolean
   /** The picture to show: the chosen variant's, or -1 for none in particular. */
   featured: number
   surface: string
@@ -175,11 +185,13 @@ export function ProductMedia({
   /** The classes a natural-shape picture is drawn with at `pos`: the first sets the height, the rest cover it. */
   const naturalFit = (pos: number) => {
     const setsHeight = layout === "stacked_2col" ? pos % 2 === 0 : pos === 0
-    return cn(pos === 0 ? "static h-auto object-contain" : NATURAL_PHONE, NATURAL_DESK[layout][setsHeight ? 0 : 1])
+    return cn(pos === 0 ? "static h-auto object-contain" : NATURAL_PHONE, NATURAL_DESK[layout][setsHeight ? 0 : 1], (setsHeight || layout === "stacked") && FIT_WINDOW)
   }
 
+  const fitStyle = { "--pm-h": SHOP_GALLERY_MAX_H, ...(aspect ? { "--pm-max": `calc(${SHOP_GALLERY_MAX_H} * (${aspect}))` } : {}) } as CSSProperties
+
   return (
-    <div data-product-media="" data-media-layout={layout}>
+    <div data-product-media="" data-media-layout={layout} style={fitStyle} className={cn(aspect && "@[768px]:mx-auto @[768px]:max-w-[var(--pm-max)]")}>
       <div
         ref={trackRef}
         onScroll={onScroll}
@@ -199,7 +211,6 @@ export function ProductMedia({
               "relative overflow-hidden",
               sliderOnPhone ? "w-full shrink-0 snap-start" : "w-full",
               ITEM[layout],
-              hoverZoom && "group/media",
             )}
             style={{ background: surface, borderRadius: radius, ...(aspect ? { aspectRatio: aspect } : {}) }}
             aria-label={`${pos + 1} of ${images.length}`}
@@ -223,9 +234,8 @@ export function ProductMedia({
               {...siteImageProps(src, "(min-width: 768px) 50vw, 100vw")}
               alt={pos === 0 ? title : `${title}, picture ${pos + 1}`}
               className={cn(
-                "block w-full transition-transform duration-500",
+                "block w-full",
                 aspect ? "h-full object-contain" : naturalFit(pos),
-                hoverZoom && "@[768px]:group-hover/media:scale-[1.06]",
                 open && "cursor-zoom-in",
               )}
               loading={pos === 0 ? "eager" : "lazy"}

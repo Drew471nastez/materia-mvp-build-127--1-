@@ -21,9 +21,11 @@ export interface SiteSpec {
   wishlistIcon?: boolean
   /** The footer's logo as a picture Storelib cannot read the size of (an uploaded logo's address), as on a live store. */
   footerLogo?: string
+  /** Theme settings as the store saved them (liam-bailey.storelib.com: show_wishlist on, product_image_ratio portrait). */
+  settings?: Record<string, unknown>
 }
 
-type Section = { id: string; type: string; settings: Record<string, unknown>; blocks?: unknown; block_order?: string[]; group?: string }
+type Section = { id: string; type: string; settings: Record<string, unknown>; blocks?: unknown; group?: string }
 
 export async function startSite(spec: SiteSpec): Promise<{ base: string; close: () => void; missing: string[] }> {
   const imported = await importTemplate(`materia/${spec.template}`)
@@ -35,13 +37,16 @@ export async function startSite(spec: SiteSpec): Promise<{ base: string; close: 
     kind: "digital",
     description: "A twelve week plan with every session written out.",
   }))
+  if (spec.settings) {
+    imported.theme.settings.shopify = { ...imported.theme.settings.shopify, ...spec.settings }
+  }
   const built = siteFor(imported, { name: "Shop", products })
   const pages = built.site.pages as unknown as Record<string, Section[]>
   for (const list of Object.values(pages)) {
     for (const s of list) {
       if (spec.wishlistIcon !== undefined && /header/.test(s.type) && s.settings && "show_wishlist_icon" in s.settings) s.settings.show_wishlist_icon = spec.wishlistIcon
-      if (spec.footerLogo && /footer/.test(s.type) && s.blocks && typeof s.blocks === "object") {
-        for (const b of Object.values(s.blocks as Record<string, { type: string; settings: Record<string, unknown> }>)) if (b.type === "store_info") b.settings = { ...b.settings, image: spec.footerLogo, show_logo: true }
+      if (spec.footerLogo && /footer/.test(s.type) && Array.isArray(s.blocks)) {
+        for (const b of s.blocks as { type: string; settings: Record<string, unknown> }[]) if (b.type === "store_info") b.settings = { ...b.settings, image: spec.footerLogo, show_logo: true }
       }
     }
   }
@@ -69,8 +74,7 @@ export async function startSite(spec: SiteSpec): Promise<{ base: string; close: 
         padding_top: 88,
         padding_bottom: 96,
       },
-      blocks: {},
-      block_order: [],
+      blocks: [],
     }
     pages.home = [...header, listing, ...rest]
   }

@@ -61,6 +61,8 @@ await picture("wide.jpg", 1920, 1080, "#f2a65a", "#5b3f8c")
 
 const browser = await chromium.launch()
 const result = { cards: [], gallery: [], hover: [], wishlist: [], logo: [] }
+/* liam-bailey.storelib.com's saved Theme settings: the heart on, cards and pictures 3:4. */
+const LIAM = { show_wishlist: true, product_image_ratio: "portrait", show_secondary_image: true }
 const r1 = (n) => Math.round(n * 10) / 10
 
 async function open(base, pathname, vw, vh, shot) {
@@ -75,7 +77,7 @@ async function open(base, pathname, vw, vh, shot) {
 /* ---- cards ---- */
 for (const count of [1, 2, 3, 8]) {
   for (const perRow of [2, 3]) {
-    const site = await startSite({ template: "creator", products: count, images: ["poster.jpg", "poster2.jpg"], productsDir: pics, perRow, wishlistIcon: false })
+    const site = await startSite({ template: "creator", products: count, images: ["poster.jpg", "poster2.jpg"], productsDir: pics, perRow, wishlistIcon: false, settings: LIAM })
     for (const [vw, vh] of [[1280, 720], [1920, 969]]) {
       const shot = (count === 2 && perRow === 2) || (count === 8 && perRow === 3)
       const { ctx, page } = await open(site.base, "/", vw, vh, shot)
@@ -99,7 +101,7 @@ for (const count of [1, 2, 3, 8]) {
 
 /* ---- gallery ---- */
 for (const [template, img] of [["creator", "poster.jpg"], ["default", "square.jpg"], ["notionpage", "wide.jpg"], ["posters", "poster.jpg"], ["clothing", "poster.jpg"], ["outerwear", "poster.jpg"]]) {
-  const site = await startSite({ template, products: 3, images: [img, img === "wide.jpg" ? "square.jpg" : "poster2.jpg"], productsDir: pics })
+  const site = await startSite({ template, products: 3, images: [img, img === "wide.jpg" ? "square.jpg" : "poster2.jpg"], productsDir: pics, settings: template === "creator" ? LIAM : undefined })
   for (const [vw, vh] of [[390, 844], [1280, 720], [1920, 969]]) {
     const { ctx, page } = await open(site.base, "/products/programme-1", vw, vh, vw !== 1280)
     const m = await page.evaluate(() => {
@@ -119,7 +121,7 @@ for (const [template, img] of [["creator", "poster.jpg"], ["default", "square.jp
 /* ---- hover ---- */
 const EFFECTS = ["hover_zoom", "hover_zoom_out", "hover_pan", "hover_tilt", "hover_lift", "hover_slide", "hover_reveal", "hover_fade", "hover_blur"]
 {
-  const site = await startSite({ template: "creator", products: 3, images: ["poster.jpg", "square.jpg"], productsDir: pics, perRow: 3, wishlistIcon: true })
+  const site = await startSite({ template: "creator", products: 3, images: ["poster.jpg", "square.jpg"], productsDir: pics, perRow: 3, wishlistIcon: true, settings: LIAM })
   for (const effect of EFFECTS) {
     const { ctx, page } = await open(site.base, "/", 1280, 900, false)
     await page.evaluate((effect) => {
@@ -183,7 +185,7 @@ const EFFECTS = ["hover_zoom", "hover_zoom_out", "hover_pan", "hover_tilt", "hov
 
 /* ---- wishlist ---- */
 for (const icon of [false, true]) {
-  const site = await startSite({ template: "creator", products: 3, images: ["poster.jpg"], productsDir: pics, perRow: 3, wishlistIcon: icon })
+  const site = await startSite({ template: "creator", products: 3, images: ["poster.jpg"], productsDir: pics, perRow: 3, wishlistIcon: icon, settings: LIAM })
   for (const pathname of ["/", "/products/programme-1"]) {
     const { ctx, page } = await open(site.base, pathname, 1280, 900, false)
     const m = await page.evaluate(() => {

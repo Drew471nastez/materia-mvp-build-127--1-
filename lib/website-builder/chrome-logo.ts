@@ -19,6 +19,7 @@
  * settings readable here.
  */
 import type { SectionInstance, ThemeSettingsValues } from "./types"
+import { headerIconOn } from "./header-icons"
 
 export interface HeaderLogo {
   logo_url: string
@@ -27,6 +28,11 @@ export interface HeaderLogo {
   logo_height: number | null
   mobile_logo_height: number | null
   logo_text: string
+  /**
+   * Round 66: the header's wishlist icon. Off, the store has no wishlist a visitor can reach, so no section draws
+   * a heart (themeWithHeaderLogo sets `wishlist_off`, lib/website-builder/storelib-runtime.ts reads it).
+   */
+  wishlist_icon?: boolean
 }
 
 const str = (v: unknown) => (typeof v === "string" ? v.trim() : "")
@@ -48,7 +54,8 @@ export function headerLogoOf(sections: readonly SectionInstance[] | null | undef
     mobile_logo_height: num(s.mobile_logo_height),
     logo_text: str(s.logo_text),
   }
-  return out.logo_url || out.logo_text || out.mobile_logo_url ? out : null
+  if (!headerIconOn(s.show_wishlist_icon)) out.wishlist_icon = false
+  return out.logo_url || out.logo_text || out.mobile_logo_url || out.wishlist_icon === false ? out : null
 }
 
 /**
@@ -70,5 +77,6 @@ export function themeWithHeaderLogo(theme: ThemeSettingsValues, logo: HeaderLogo
   if (num(t.logo_height) === null && logo.logo_height !== null) patch.logo_height = logo.logo_height
   if (num(t.mobile_logo_height) === null && logo.mobile_logo_height !== null) patch.mobile_logo_height = logo.mobile_logo_height
   if (!str(t.brand_name) && logo.logo_text) patch.brand_name = logo.logo_text
+  if (logo.wishlist_icon === false && t.wishlist_off !== true) patch.wishlist_off = true
   return Object.keys(patch).length ? ({ ...t, ...patch } as unknown as ThemeSettingsValues) : theme
 }
