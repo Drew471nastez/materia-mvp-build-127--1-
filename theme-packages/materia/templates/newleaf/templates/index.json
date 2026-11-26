@@ -1,0 +1,509 @@
+/* Templates round 29: New Leaf, a Notion template shop by Maya after the owner's cleanslatetemplates.com reference: an opening chalkboard that an eraser wipes away, a ruled paper hero with a fan of template pages, three counts, the study templates playing in a dark player, the templates on shelves by category (Study, Planning, Home and life), how buying works in three small working scenes, the maker, a newsletter and a huge wordmark in the footer. Custom sections only where the theme has nothing like it (newleaf-*); the counts, the maker and the newsletter are the theme's own. */
+{
+  "sections": {
+    "chalkboard_popup": {
+      "type": "newleaf-intro",
+      "settings": {
+        "enabled": true,
+        "board_color": "#262b30",
+        "word_todo": "To do",
+        "word_note": "quiz on Fri",
+        "word_days": "Mon Tue Wed Thu",
+        "word_formula": "a² + b² = c²",
+        "skip_label": "Skip",
+        "draw_ms": 1150,
+        "erase_ms": 1100
+      }
+    },
+    "hero": {
+      "type": "newleaf-hero",
+      "settings": {
+        "heading": "Notion templates\nfor study, planning\nand the week ahead.",
+        "show_rule": true,
+        "text": "<p>Made by Maya, who built her first one for lecture notes at university. Every template opens in your own Notion with example pages that show how it works, so you can clear them and start fresh.</p>",
+        "button_label": "See the templates",
+        "button_link": "#study",
+        "link_label": "or watch them in action",
+        "link_url": "#in-action",
+        "accent": "",
+        "ruled": true,
+        "line_gap": 32,
+        "rule_width": 220,
+        "page_radius": 10,
+        "animate": true,
+        "heading_size": 60,
+        "heading_size_mobile": 36,
+        "stage_height": 440,
+        "stage_height_mobile": 240,
+        "color_scheme": "default",
+        "section_width": "container",
+        "padding_top": 72,
+        "padding_bottom": 64,
+        "padding_top_mobile": 40,
+        "padding_bottom_mobile": 28
+      },
+      "blocks": {
+        "page_1": {
+          "type": "page",
+          "settings": {
+            "image": "shopify://shop_images/newleaf-card-time-blocking.webp",
+            "title": "Time Blocking",
+            "product": "Time Blocking"
+          }
+        },
+        "page_2": {
+          "type": "page",
+          "settings": {
+            "image": "shopify://shop_images/newleaf-card-second-brain.webp",
+            "title": "Second Brain",
+            "product": "Second Brain"
+          }
+        },
+        "page_3": {
+          "type": "page",
+          "settings": {
+            "image": "shopify://shop_images/newleaf-card-exam-planner.webp",
+            "title": "Exam Planner",
+            "product": "Exam Planner"
+          }
+        },
+        "page_4": {
+          "type": "page",
+          "settings": {
+            "image": "shopify://shop_images/newleaf-card-recall-cards.webp",
+            "title": "Recall Cards",
+            "product": "Recall Cards"
+          }
+        },
+        "page_5": {
+          "type": "page",
+          "settings": {
+            "image": "shopify://shop_images/newleaf-card-lecture-notes.webp",
+            "title": "Lecture Notes",
+            "product": "Lecture Notes"
+          }
+        }
+      },
+      "block_order": [
+        "page_1",
+        "page_2",
+        "page_3",
+        "page_4",
+        "page_5"
+      ]
+    },
+    "stats": {
+      "type": "stat-counter",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "layout": "inline",
+        "alignment": "left",
+        "header_alignment": "left",
+        "columns": 3,
+        "columns_mobile": 1,
+        "divider": true,
+        "value_size": 46,
+        "label_size": 14,
+        "value_weight": 400,
+        "animate": true,
+        "duration": 1600,
+        "reveal": false,
+        "padding_top": 0,
+        "padding_bottom": 0
+      },
+      "blocks": {
+        "s1": {
+          "type": "stat",
+          "settings": {
+            "value": "1,640",
+            "suffix": "+",
+            "label": "downloads since March 2025",
+            "decimals": 0
+          }
+        },
+        "s2": {
+          "type": "stat",
+          "settings": {
+            "value": "4.8",
+            "label": "out of 5 for Lecture Notes, from 31 ratings",
+            "decimals": 1
+          }
+        },
+        "s3": {
+          "type": "stat",
+          "settings": {
+            "value": "12",
+            "label": "templates live, and a thesis planner on the way",
+            "decimals": 0
+          }
+        }
+      },
+      "block_order": [
+        "s1",
+        "s2",
+        "s3"
+      ]
+    },
+    "action": {
+      "type": "newleaf-action",
+      "settings": {
+        "heading": "See them in action",
+        "subheading": "Each study template in a few seconds.",
+        "button_label": "See the template",
+        "anchor": "in-action",
+        "sound_label": "Sound on",
+        "sound_off_label": "Sound off",
+        "autoplay": true,
+        "seconds": 8,
+        "accent": "#d9b44a",
+        "radius": 14,
+        "heading_size": 46,
+        "heading_size_mobile": 32,
+        "color_scheme": "scheme-nl-chalk",
+        "section_width": "container",
+        "padding_top": 88,
+        "padding_bottom": 88,
+        "padding_top_mobile": 56,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "t1": {
+          "type": "template",
+          "settings": {
+            "title": "Lecture Notes",
+            "line": "Cues, notes and a summary on every page.",
+            "caption": "One page per lecture, filed by module and week.",
+            "icon": "shopify://shop_images/newleaf-icon-lecture-notes.webp",
+            "backdrop": "shopify://shop_images/newleaf-scene-lecture-notes.webp",
+            "page": "shopify://shop_images/newleaf-card-lecture-notes.webp",
+            "product": "Lecture Notes",
+            "has_sound": false
+          }
+        },
+        "t2": {
+          "type": "template",
+          "settings": {
+            "title": "Recall Cards",
+            "line": "Flashcards that come back when they should.",
+            "caption": "Rate each answer and it comes back at the right time.",
+            "icon": "shopify://shop_images/newleaf-icon-recall-cards.webp",
+            "backdrop": "shopify://shop_images/newleaf-scene-recall-cards.webp",
+            "page": "shopify://shop_images/newleaf-card-recall-cards.webp",
+            "product": "Recall Cards",
+            "has_sound": false
+          }
+        },
+        "t3": {
+          "type": "template",
+          "settings": {
+            "title": "Exam Planner",
+            "line": "Every exam, every topic, how ready you are.",
+            "caption": "A countdown per exam with the weakest topics first.",
+            "icon": "shopify://shop_images/newleaf-icon-exam-planner.webp",
+            "backdrop": "shopify://shop_images/newleaf-scene-exam-planner.webp",
+            "page": "shopify://shop_images/newleaf-card-exam-planner.webp",
+            "product": "Exam Planner",
+            "has_sound": false
+          }
+        },
+        "t4": {
+          "type": "template",
+          "settings": {
+            "title": "Thesis Planner",
+            "line": "Chapters, sources and deadlines. Coming soon.",
+            "caption": "Word counts that add up, with every source linked to its chapter.",
+            "icon": "shopify://shop_images/newleaf-icon-thesis-planner.webp",
+            "backdrop": "shopify://shop_images/newleaf-scene-thesis-planner.webp",
+            "page": "shopify://shop_images/newleaf-card-thesis-planner.webp",
+            "product": "Thesis Planner",
+            "has_sound": false
+          }
+        }
+      },
+      "block_order": [
+        "t1",
+        "t2",
+        "t3",
+        "t4"
+      ]
+    },
+    "study": {
+      "type": "newleaf-shelf",
+      "settings": {
+        "heading": "Study",
+        "heading_fallback": "More templates",
+        "text": "Ways of studying that help things stick.",
+        "source": "collection",
+        "collection": "study",
+        "category": "Study",
+        "limit": 8,
+        "note": "",
+        "anchor": "study",
+        "empty_text": "New templates are on the way.",
+        "columns": "4",
+        "one_column_mobile": false,
+        "ratio": "3 / 2",
+        "show_description": true,
+        "words": 20,
+        "free_label": "Free",
+        "soon_label": "Coming soon",
+        "radius": 8,
+        "reveal": true,
+        "accent": "",
+        "heading_size": 36,
+        "heading_size_mobile": 28,
+        "color_scheme": "default",
+        "section_width": "container",
+        "padding_top": 64,
+        "padding_bottom": 40,
+        "padding_top_mobile": 44,
+        "padding_bottom_mobile": 28
+      }
+    },
+    "planning": {
+      "type": "newleaf-shelf",
+      "settings": {
+        "heading": "Planning",
+        "heading_fallback": "More templates",
+        "text": "Priorities, projects and a weekly reset.",
+        "source": "collection",
+        "collection": "planning",
+        "category": "Planning",
+        "limit": 8,
+        "note": "",
+        "anchor": "",
+        "empty_text": "New templates are on the way.",
+        "columns": "3",
+        "one_column_mobile": false,
+        "ratio": "3 / 2",
+        "show_description": true,
+        "words": 20,
+        "free_label": "Free",
+        "soon_label": "Coming soon",
+        "radius": 8,
+        "reveal": true,
+        "accent": "",
+        "heading_size": 36,
+        "heading_size_mobile": 28,
+        "color_scheme": "default",
+        "section_width": "container",
+        "padding_top": 40,
+        "padding_bottom": 40,
+        "padding_top_mobile": 28,
+        "padding_bottom_mobile": 28
+      }
+    },
+    "home": {
+      "type": "newleaf-shelf",
+      "settings": {
+        "heading": "Home and life",
+        "heading_fallback": "More templates",
+        "text": "The everyday things, kept in one place.",
+        "source": "collection",
+        "collection": "home-and-life",
+        "category": "Home and life",
+        "limit": 8,
+        "note": "Templates are paid for here, in US dollars, and arrive by email as a link you duplicate into your Notion.",
+        "anchor": "",
+        "empty_text": "New templates are on the way.",
+        "columns": "3",
+        "one_column_mobile": false,
+        "ratio": "3 / 2",
+        "show_description": true,
+        "words": 20,
+        "free_label": "Free",
+        "soon_label": "Coming soon",
+        "radius": 8,
+        "reveal": true,
+        "accent": "",
+        "heading_size": 36,
+        "heading_size_mobile": 28,
+        "color_scheme": "default",
+        "section_width": "container",
+        "padding_top": 40,
+        "padding_bottom": 40,
+        "padding_top_mobile": 28,
+        "padding_bottom_mobile": 28
+      }
+    },
+    "how": {
+      "type": "newleaf-steps",
+      "settings": {
+        "heading": "How it works",
+        "text": "New to Notion templates? It takes about a minute.",
+        "accent": "",
+        "card_color": "#ffffff",
+        "panel_color": "#eef0ec",
+        "radius": 14,
+        "heading_size": 36,
+        "heading_size_mobile": 28,
+        "color_scheme": "default",
+        "section_width": "container",
+        "padding_top": 48,
+        "padding_bottom": 88,
+        "padding_top_mobile": 32,
+        "padding_bottom_mobile": 56
+      },
+      "blocks": {
+        "st1": {
+          "type": "step",
+          "settings": {
+            "heading": "Buy it here",
+            "text": "Pick a template and check out. Free ones cost nothing and arrive the same way.",
+            "scene": "card",
+            "image": "shopify://shop_images/newleaf-card-lecture-notes.webp",
+            "card_title": "Lecture Notes",
+            "card_price": "$2.99",
+            "button_label": "Get template",
+            "typed_text": ""
+          }
+        },
+        "st2": {
+          "type": "step",
+          "settings": {
+            "heading": "Duplicate it into your Notion",
+            "text": "Open the link in your email and press Duplicate. Every template works on Notion's free plan.",
+            "scene": "duplicate",
+            "card_title": "",
+            "card_price": "",
+            "button_label": "Duplicate",
+            "typed_text": ""
+          }
+        },
+        "st3": {
+          "type": "step",
+          "settings": {
+            "heading": "Clear the examples and start fresh",
+            "text": "Each one comes with sample pages, so you can see how it all fits together. Delete them when you are ready and it is yours.",
+            "scene": "typing",
+            "card_title": "",
+            "card_price": "",
+            "button_label": "",
+            "typed_text": "Your first page"
+          }
+        }
+      },
+      "block_order": [
+        "st1",
+        "st2",
+        "st3"
+      ]
+    },
+    "about": {
+      "type": "sticky-heading-text",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "heading_position": "left",
+        "heading_width": 28,
+        "column_gap": 64,
+        "sticky": false,
+        "item_gap": 18,
+        "show_dividers": false,
+        "show_numbers": false,
+        "reveal": true,
+        "padding_top": 72,
+        "padding_bottom": 56,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 40,
+        "item_heading_size": 20,
+        "item_heading_size_mobile": 18
+      },
+      "blocks": {
+        "h": {
+          "type": "heading",
+          "settings": {
+            "text": "Made by Maya"
+          }
+        },
+        "p1": {
+          "type": "text",
+          "settings": {
+            "heading": "",
+            "text": "<p>Hi, I'm Maya. I built my first Notion template in my second year at university: a page for lecture notes that asked me questions back. I still use a version of it, and so do a few of my old classmates.</p>"
+          }
+        },
+        "p2": {
+          "type": "text",
+          "settings": {
+            "heading": "",
+            "text": "<p>These days I coordinate projects for a small design studio, and the planning templates come from that job. The weekly reset, the time blocks and the project board are the ones I open every day. The home ones started when I moved into a shared flat and someone had to keep track of the bills.</p>"
+          }
+        },
+        "p3": {
+          "type": "text",
+          "settings": {
+            "heading": "",
+            "text": "<p>If a template does not work the way you expected, email me at <a href=\"mailto:hello@newleaf.example\">hello@newleaf.example</a> and I will help you sort it out.</p><p><strong>Maya</strong></p>"
+          }
+        }
+      },
+      "block_order": [
+        "h",
+        "p1",
+        "p2",
+        "p3"
+      ]
+    },
+    "newsletter": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "show_section_on": "all",
+        "email_label": "Email address",
+        "email_placeholder": "you@example.com",
+        "btn_text": "Sign up",
+        "note": "By signing up you agree to get these emails. The privacy notice, linked at the foot of every page, explains how your address is used.",
+        "subscribed_button_text": "Signed up",
+        "success_text": "Thanks. The next email comes when a new template is out.",
+        "already_text": "You are already on the list.",
+        "invalid_text": "Enter a valid email address.",
+        "error_text": "That did not go through. Try again in a moment.",
+        "image_position": "left",
+        "content_alignment": "left",
+        "form_layout": "horizontal",
+        "image_width": 50,
+        "column_gap": 48,
+        "use_theme_button": true,
+        "reveal": true,
+        "padding_top": 8,
+        "padding_bottom": 72,
+        "padding_top_mobile": 8,
+        "padding_bottom_mobile": 48,
+        "show_image_mobile": false
+      },
+      "blocks": {
+        "h": {
+          "type": "heading",
+          "settings": {
+            "text": "Hear about new templates"
+          }
+        },
+        "s": {
+          "type": "subheading",
+          "settings": {
+            "text": "One short email when a new template comes out. Nothing else, and you can unsubscribe at any time."
+          }
+        }
+      },
+      "block_order": [
+        "h",
+        "s"
+      ]
+    }
+  },
+  "order": [
+    "chalkboard_popup",
+    "hero",
+    "stats",
+    "action",
+    "study",
+    "planning",
+    "home",
+    "how",
+    "about",
+    "newsletter"
+  ]
+}

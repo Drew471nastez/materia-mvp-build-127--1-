@@ -1,0 +1,116 @@
+/* Templates round 29: New Leaf. A collection of templates, filtered and sorted, then the newsletter. */
+{
+  "sections": {
+    "main-collection-heading": {
+      "type": "main-collection-heading",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "alignment": "center",
+        "padding_top": 56,
+        "padding_bottom": 8
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {}
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {}
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_2"
+      ]
+    },
+    "main-collection-product": {
+      "type": "main-collection-product",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "items_per_row": 3,
+        "items_to_show": 18,
+        "column_gap": 24,
+        "pagination": "default",
+        "enable_filtering": true,
+        "filter_layout": "horizontal",
+        "default_filter": "close_all",
+        "show_filter_counts": false,
+        "number_products_per_page": false,
+        "sorting": true,
+        "toolbar_button_style": "pill",
+        "padding_top": 16,
+        "padding_bottom": 88,
+        "items_per_row_mobile": "1"
+      },
+      "blocks": {
+        "categories_1": {
+          "type": "categories",
+          "settings": {
+            "title": "Templates",
+            "menu": "templates-filter"
+          }
+        }
+      },
+      "block_order": [
+        "categories_1"
+      ]
+    },
+    "newsletter": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "show_section_on": "all",
+        "email_label": "Email address",
+        "email_placeholder": "you@example.com",
+        "btn_text": "Sign up",
+        "note": "By signing up you agree to get these emails. The privacy notice, linked at the foot of every page, explains how your address is used.",
+        "subscribed_button_text": "Signed up",
+        "success_text": "Thanks. The next email comes when a new template is out.",
+        "already_text": "You are already on the list.",
+        "invalid_text": "Enter a valid email address.",
+        "error_text": "That did not go through. Try again in a moment.",
+        "image_position": "left",
+        "content_alignment": "left",
+        "form_layout": "horizontal",
+        "image_width": 50,
+        "column_gap": 48,
+        "use_theme_button": true,
+        "reveal": true,
+        "padding_top": 24,
+        "padding_bottom": 80,
+        "padding_top_mobile": 8,
+        "padding_bottom_mobile": 48,
+        "show_image_mobile": false
+      },
+      "blocks": {
+        "h": {
+          "type": "heading",
+          "settings": {
+            "text": "Hear about new templates"
+          }
+        },
+        "s": {
+          "type": "subheading",
+          "settings": {
+            "text": "One short email when a new template comes out. Nothing else, and you can unsubscribe at any time."
+          }
+        }
+      },
+      "block_order": [
+        "h",
+        "s"
+      ]
+    }
+  },
+  "order": [
+    "main-collection-heading",
+    "main-collection-product",
+    "newsletter"
+  ]
+}

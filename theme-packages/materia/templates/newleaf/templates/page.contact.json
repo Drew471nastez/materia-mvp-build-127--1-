@@ -1,0 +1,175 @@
+/* Templates round 29: New Leaf. A message form with the address and reply time, and the questions people ask most. */
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "alignment": "center",
+        "height": "based_on_content",
+        "padding_top": 64,
+        "padding_bottom": 8
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "Contact",
+            "header_size": "large",
+            "vertical_gap": 10
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "description": "<p>Questions about a template or an order. Maya replies within two working days.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_2"
+      ]
+    },
+    "form": {
+      "type": "contactformsimple2",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "show_website": false,
+        "btn_text": "Send message",
+        "max_width": 1100,
+        "enable_shadow": false,
+        "reveal": false,
+        "pad_top": 24,
+        "pad_bottom": 56
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "Send a message"
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "text": "<p>Include your order number if it is about something you bought.</p>"
+          }
+        },
+        "info_3": {
+          "type": "info",
+          "settings": {
+            "icon": "mail",
+            "line1": "hello@newleaf.example",
+            "line2": "Write any time"
+          }
+        },
+        "info_4": {
+          "type": "info",
+          "settings": {
+            "icon": "clock",
+            "line1": "Within two working days",
+            "line2": "Monday to Friday"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_2",
+        "info_3",
+        "info_4"
+      ]
+    },
+    "faq": {
+      "type": "faq",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "structured_data": false,
+        "heading": "Before you write",
+        "subheading": "<p>The answers people ask for most.</p>",
+        "first_item_open": false,
+        "allow_multiple_open": false,
+        "open_icon": "plus",
+        "content_alignment": "center",
+        "max_content_width": 760,
+        "gap_header_to_items": 36,
+        "gap_heading_to_subheading": 10,
+        "gap_between_items": 12,
+        "item_padding_y": 18,
+        "item_padding_x": 22,
+        "item_radius": 14,
+        "show_dividers": false,
+        "enable_custom_style": true,
+        "card_bg": "#f5f5f4",
+        "card_border_color": "#ececea",
+        "question_color": "#111111",
+        "icon_color": "#111111",
+        "answer_color": "#55555a",
+        "heading_size_desktop": 40,
+        "heading_size_mobile": 30,
+        "question_size_desktop": 16,
+        "question_size_mobile": 15,
+        "enable_custom_question_weight": true,
+        "question_weight": "500",
+        "answer_size_desktop": 15,
+        "answer_size_mobile": 14,
+        "reveal": false,
+        "padding_top": 48,
+        "padding_bottom": 96
+      },
+      "blocks": {
+        "faq_item_1": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Do I need a paid Notion plan?",
+            "answer": "<p>No. Every template works on Notion's free plan, on the web, the desktop app and the phone app.</p>"
+          }
+        },
+        "faq_item_2": {
+          "type": "faq_item",
+          "settings": {
+            "question": "How do I get a template after I pay?",
+            "answer": "<p>The receipt page and the email both have a link. Open it while you are signed in to Notion, press Duplicate and the template is copied into your workspace.</p>"
+          }
+        },
+        "faq_item_3": {
+          "type": "faq_item",
+          "settings": {
+            "question": "Is the free template really free?",
+            "answer": "<p>Yes. Home Admin checks out at $0, arrives by email the same way and is yours to keep.</p>"
+          }
+        },
+        "faq_item_4": {
+          "type": "faq_item",
+          "settings": {
+            "question": "I have never used Notion. Will I manage?",
+            "answer": "<p>Each template opens on a Start here page with example entries. If you can type in a table, you can use it.</p>"
+          }
+        },
+        "faq_item_5": {
+          "type": "faq_item",
+          "settings": {
+            "question": "What if it is not for me?",
+            "answer": "<p>Email within 14 days of buying and you get your money back.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "faq_item_1",
+        "faq_item_2",
+        "faq_item_3",
+        "faq_item_4",
+        "faq_item_5"
+      ]
+    }
+  },
+  "order": [
+    "heading",
+    "form",
+    "faq"
+  ]
+}

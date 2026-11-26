@@ -1,0 +1,213 @@
+/* Templates round 29: New Leaf. About: Maya in her own words, how she makes the templates, then the newsletter. */
+{
+  "sections": {
+    "heading": {
+      "type": "page-heading",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "reset_spacing": true,
+        "alignment": "center",
+        "height": "based_on_content",
+        "padding_top": 64,
+        "padding_bottom": 8
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "page_title": "About",
+            "header_size": "large",
+            "vertical_gap": 10
+          }
+        },
+        "description_2": {
+          "type": "description",
+          "settings": {
+            "description": "<p>Who makes these templates, and how.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "description_2"
+      ]
+    },
+    "about": {
+      "type": "sticky-heading-text",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "heading_position": "left",
+        "heading_width": 28,
+        "column_gap": 64,
+        "sticky": false,
+        "item_gap": 18,
+        "show_dividers": false,
+        "show_numbers": false,
+        "reveal": true,
+        "padding_top": 56,
+        "padding_bottom": 56,
+        "padding_top_mobile": 48,
+        "padding_bottom_mobile": 40,
+        "item_heading_size": 20,
+        "item_heading_size_mobile": 18
+      },
+      "blocks": {
+        "h": {
+          "type": "heading",
+          "settings": {
+            "text": "Hi, I'm Maya"
+          }
+        },
+        "p1": {
+          "type": "text",
+          "settings": {
+            "heading": "",
+            "text": "<p>The first one was a page for lecture notes that asked me questions back, built in my second year at university. I still use a version of it, and so do a few of my old classmates.</p>"
+          }
+        },
+        "p2": {
+          "type": "text",
+          "settings": {
+            "heading": "",
+            "text": "<p>These days I coordinate projects for a small design studio, and the planning templates come from that job. The weekly reset, the time blocks and the project board are the ones I open every day. The home ones started when I moved into a shared flat and someone had to keep track of the bills.</p>"
+          }
+        },
+        "p3": {
+          "type": "text",
+          "settings": {
+            "heading": "",
+            "text": "<p>If a template does not work the way you expected, email me at <a href=\"mailto:hello@newleaf.example\">hello@newleaf.example</a> and I will help you sort it out.</p><p><strong>Maya</strong></p>"
+          }
+        },
+        "p0": {
+          "type": "text",
+          "settings": {
+            "heading": "",
+            "text": "<p>I make Notion templates for studying, planning the week and running a home. Each one started as a page I built for myself and kept using.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "h",
+        "p0",
+        "p1",
+        "p2",
+        "p3"
+      ]
+    },
+    "values": {
+      "type": "text-columns",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "content_alignment": "left",
+        "columns_desktop": 3,
+        "columns_tablet": 3,
+        "column_gap": 40,
+        "header_gap": 32,
+        "show_dividers": true,
+        "reveal": false,
+        "padding_top": 56,
+        "padding_bottom": 40,
+        "padding_top_mobile": 40,
+        "padding_bottom_mobile": 24
+      },
+      "blocks": {
+        "heading_1": {
+          "type": "heading",
+          "settings": {
+            "text": "How I make them",
+            "size_enable": true,
+            "size_desktop": 36,
+            "size_mobile": 28
+          }
+        },
+        "column_2": {
+          "type": "column",
+          "settings": {
+            "label": "01",
+            "heading": "Used before sold",
+            "text": "<p>Every template is one I use myself for at least a month before it goes on sale.</p>"
+          }
+        },
+        "column_3": {
+          "type": "column",
+          "settings": {
+            "label": "02",
+            "heading": "Example pages in each",
+            "text": "<p>You see how it works with real looking entries, then clear them and start your own.</p>"
+          }
+        },
+        "column_4": {
+          "type": "column",
+          "settings": {
+            "label": "03",
+            "heading": "Plain Notion",
+            "text": "<p>No add-ons or paid integrations. Everything works on Notion's free plan.</p>"
+          }
+        }
+      },
+      "block_order": [
+        "heading_1",
+        "column_2",
+        "column_3",
+        "column_4"
+      ]
+    },
+    "newsletter": {
+      "type": "newsletter-split",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "show_section_on": "all",
+        "email_label": "Email address",
+        "email_placeholder": "you@example.com",
+        "btn_text": "Sign up",
+        "note": "By signing up you agree to get these emails. The privacy notice, linked at the foot of every page, explains how your address is used.",
+        "subscribed_button_text": "Signed up",
+        "success_text": "Thanks. The next email comes when a new template is out.",
+        "already_text": "You are already on the list.",
+        "invalid_text": "Enter a valid email address.",
+        "error_text": "That did not go through. Try again in a moment.",
+        "image_position": "left",
+        "content_alignment": "left",
+        "form_layout": "horizontal",
+        "image_width": 50,
+        "column_gap": 48,
+        "use_theme_button": true,
+        "reveal": true,
+        "padding_top": 24,
+        "padding_bottom": 80,
+        "padding_top_mobile": 8,
+        "padding_bottom_mobile": 48,
+        "show_image_mobile": false
+      },
+      "blocks": {
+        "h": {
+          "type": "heading",
+          "settings": {
+            "text": "Hear about new templates"
+          }
+        },
+        "s": {
+          "type": "subheading",
+          "settings": {
+            "text": "One short email when a new template comes out. Nothing else, and you can unsubscribe at any time."
+          }
+        }
+      },
+      "block_order": [
+        "h",
+        "s"
+      ]
+    }
+  },
+  "order": [
+    "heading",
+    "about",
+    "values",
+    "newsletter"
+  ]
+}

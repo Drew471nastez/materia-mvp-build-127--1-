@@ -1,0 +1,183 @@
+{%- comment -%}
+  New Leaf (templates round 29): an opening for the home page. A dark
+  chalkboard covers the page, chalk notes draw themselves in (a to do list,
+  a circled note, an arrow, days of the week, a formula, lines of writing),
+  then a board eraser wipes it away in zigzag passes and the page is there.
+
+  It is only ever added by the script, over a page that is already drawn:
+  a visitor without scripts, a search engine, the editor and anyone who
+  prefers less motion never see it. It plays once per visit (the browser's
+  session), takes about two and a half seconds, and Skip or Escape ends it.
+  Add ?intro=1 to the address to see it again.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+-%}
+{%- if s.enabled and request.design_mode != true -%}
+<style>
+  .nlx { position: fixed; inset: 0; z-index: 2147483000; pointer-events: auto; contain: strict; }
+  .nlx svg.nlx__svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .nlx__chalk { fill: none; stroke: rgba(246, 244, 236, .9); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+  .nlx__dust { fill: none; stroke: {{ s.board_color }}; stroke-width: 1.4; stroke-dasharray: 1 3.5; stroke-linecap: round; }
+  .nlx__word { fill: rgba(246, 244, 236, .92); font-family: var(--font-heading-family, Georgia, serif); }
+  .nlx .d { stroke-dasharray: var(--l) var(--l); stroke-dashoffset: var(--l); animation: nlx-draw var(--t, .45s) cubic-bezier(.45, .1, .3, 1) var(--w, 0s) forwards; }
+  .nlx .w { transform: scaleX(0); transform-box: fill-box; transform-origin: left center; animation: nlx-wipe var(--t, .4s) ease-out var(--w, 0s) forwards; }
+  .nlx__eraser { position: absolute; left: 0; top: 0; width: 64px; border-radius: 9px; background: linear-gradient(90deg, #b98a4e, #d9b27a 45%, #c79a5d); box-shadow: 0 10px 24px rgba(0, 0, 0, .35), inset 0 0 0 1px rgba(0, 0, 0, .18); will-change: transform; visibility: hidden; }
+  .nlx__eraser::after { content: ""; position: absolute; left: 6px; right: 6px; top: 8px; bottom: 8px; border-radius: 5px; border: 2px solid rgba(80, 52, 22, .35); }
+  .nlx__skip { position: absolute; right: 20px; bottom: 20px; z-index: 2; padding: 8px 16px; border: 1px solid rgba(255, 255, 255, .28); border-radius: 999px; background: rgba(255, 255, 255, .06); color: rgba(255, 255, 255, .86); font: 500 13px/1 var(--font-body-family, sans-serif); cursor: pointer; transition: background-color .2s ease; }
+  .nlx__skip:hover { background: rgba(255, 255, 255, .16); }
+  .nlx__skip:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+  .nlx--out { opacity: 0; transition: opacity .28s ease; pointer-events: none; }
+  html.nl-intro-on { overflow: hidden; }
+  @keyframes nlx-draw { to { stroke-dashoffset: 0; } }
+  @keyframes nlx-wipe { to { transform: none; } }
+</style>
+<script>
+  (function () {
+    var KEY = 'nl-intro-seen';
+    var force = /[?&]intro=1\b/.test(location.search);
+    try {
+      if (!force && (sessionStorage.getItem(KEY) || navigator.webdriver)) return;
+      sessionStorage.setItem(KEY, '1');
+    } catch (e) { if (!force) return; }
+    if (!force && window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (window.Shopify && Shopify.designMode) return;
+    var html = document.documentElement;
+    var NS = 'http://www.w3.org/2000/svg';
+    var board = '{{ s.board_color }}';
+    var portrait = innerHeight > innerWidth * 1.1;
+    {%- comment -%} The notes, in a 1600 by 900 board (or 900 by 1600 on a tall phone): each a path or a word, when it starts and how long it takes. {%- endcomment -%}
+    var V = portrait ? [900, 1600] : [1600, 900];
+    var P = portrait
+      ? { todo: [90, 170], note: [470, 520], arrow: [300, 760], days: [520, 980], eq: [120, 1180], para: [90, 1330] }
+      : { todo: [150, 150], note: [960, 170], arrow: [600, 470], days: [1250, 380], eq: [980, 680], para: [150, 640] };
+    function wave(x, y, w, amp) { var d = 'M' + x + ' ' + y, n = Math.max(2, Math.round(w / 22)), st = w / n; for (var i = 0; i < n; i++) d += ' q' + (st / 2) + ' ' + (i % 2 ? amp : -amp) + ' ' + st + ' 0'; return d; }
+    var items = [];
+    function path(d, at, t) { items.push({ k: 'p', d: d, at: at, t: t }); }
+    function word(txt, x, y, size, at, t) { items.push({ k: 'w', txt: txt, x: x, y: y, size: size, at: at, t: t }); }
+    var a = P.todo;
+    word({{ s.word_todo | json }}, a[0], a[1], 44, 0, .3);
+    path(wave(a[0], a[1] + 14, 92, 3), .22, .22);
+    for (var i = 0; i < 4; i++) {
+      var y = a[1] + 56 + i * 46;
+      path('M' + a[0] + ' ' + (y - 13) + ' h24 v24 h-24 Z', .12 + i * .1, .2);
+      if (i < 2) path('M' + (a[0] + 4) + ' ' + (y) + ' l7 8 l14 -20', .3 + i * .1, .16);
+      path(wave(a[0] + 40, y, [170, 160, 150, 132][i], 4), .2 + i * .1, .32);
+    }
+    var n = P.note;
+    word({{ s.word_note | json }}, n[0] + 18, n[1] + 10, 30, .38, .35);
+    path('M' + (n[0] + 216) + ' ' + (n[1] - 6) + ' c0 -32 -110 -40 -186 -32 c-60 7 -62 36 -38 54 c30 22 160 20 210 0 c24 -10 26 -24 14 -36', .66, .38);
+    var r = P.arrow;
+    path('M' + r[0] + ' ' + r[1] + ' c70 -40 170 -36 230 50', .5, .4);
+    path('M' + (r[0] + 214) + ' ' + (r[1] + 22) + ' l17 28 l-32 -3', .86, .14);
+    var dy = P.days, names = {{ s.word_days | json }}.split(/\s+/).slice(0, 4);
+    for (var j = 0; j < names.length; j++) { word(names[j], dy[0], dy[1] + j * 46, 28, .3 + j * .1, .25); path(wave(dy[0] + 74, dy[1] - 8 + j * 46, [96, 104, 86, 98][j], 3), .42 + j * .1, .26); }
+    var e = P.eq;
+    word({{ s.word_formula | json }}, e[0], e[1], 36, .62, .4);
+    var pa = P.para;
+    for (var k = 0; k < 4; k++) path(wave(pa[0], pa[1] + k * 42, [300, 360, 330, 420][k] * (portrait ? .9 : 1), 5), .5 + k * .1, .42);
+
+    var root = document.createElement('div');
+    root.className = 'nlx';
+    root.setAttribute('aria-hidden', 'true');
+    var w = innerWidth, h = innerHeight;
+    var svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('class', 'nlx__svg');
+    svg.setAttribute('width', w); svg.setAttribute('height', h);
+    var bw = Math.ceil(h / 3.4) + 8, passes = Math.ceil(h / (bw * .82));
+    var dpath = 'M' + (-bw) + ' ' + (bw * .45);
+    for (var q = 0; q < passes; q++) { var yy = bw * .45 + q * bw * .82; dpath += (q ? ' L' + (q % 2 ? w + bw : -bw) + ' ' + yy : '') + ' L' + (q % 2 ? -bw : w + bw) + ' ' + yy; }
+    svg.innerHTML =
+      '<defs><radialGradient id="nlx-g" cx="40%" cy="30%" r="85%"><stop offset="0" stop-color="' + board + '" stop-opacity=".82"/><stop offset="1" stop-color="' + board + '"/></radialGradient>' +
+      '<mask id="nlx-m" maskUnits="userSpaceOnUse" x="0" y="0" width="' + w + '" height="' + h + '"><rect width="' + w + '" height="' + h + '" fill="#fff"/><path id="nlx-wipe" d="' + dpath + '" fill="none" stroke="#000" stroke-width="' + bw + '" stroke-linecap="round" stroke-linejoin="round"/></mask></defs>' +
+      '<g mask="url(#nlx-m)"><rect width="' + w + '" height="' + h + '" fill="' + board + '"/><rect width="' + w + '" height="' + h + '" fill="url(#nlx-g)" opacity=".9"/>' +
+      '<svg class="nlx__notes" x="0" y="0" width="' + w + '" height="' + h + '" viewBox="0 0 ' + V[0] + ' ' + V[1] + '" preserveAspectRatio="xMidYMid ' + (portrait ? 'meet' : 'slice') + '"></svg></g>';
+    var notes = svg.querySelector('.nlx__notes');
+    root.appendChild(svg);
+    html.classList.add('nl-intro-on');
+    (document.body || html).appendChild(root);
+    items.forEach(function (it) {
+      var el;
+      if (it.k === 'p') {
+        el = document.createElementNS(NS, 'path');
+        el.setAttribute('d', it.d); el.setAttribute('class', 'nlx__chalk d');
+        notes.appendChild(el);
+        var len = Math.ceil(el.getTotalLength ? el.getTotalLength() : 400) + 2;
+        el.style.setProperty('--l', len); el.style.setProperty('--w', it.at + 's'); el.style.setProperty('--t', it.t + 's');
+        var dust = el.cloneNode(); dust.setAttribute('class', 'nlx__dust'); dust.removeAttribute('style'); notes.appendChild(dust);
+      } else {
+        el = document.createElementNS(NS, 'text');
+        el.textContent = it.txt; el.setAttribute('x', it.x); el.setAttribute('y', it.y); el.setAttribute('font-size', it.size);
+        el.setAttribute('class', 'nlx__word w'); el.style.setProperty('--w', it.at + 's'); el.style.setProperty('--t', it.t + 's');
+        notes.appendChild(el);
+      }
+    });
+    var eraser = document.createElement('div');
+    eraser.className = 'nlx__eraser';
+    eraser.style.height = Math.round(bw * .92) + 'px';
+    root.appendChild(eraser);
+    var skip = document.createElement('button');
+    skip.type = 'button'; skip.className = 'nlx__skip'; skip.textContent = {{ s.skip_label | default: 'Skip' | json }};
+    root.appendChild(skip);
+    root.removeAttribute('aria-hidden');
+    root.setAttribute('role', 'presentation');
+
+    var done = false, raf = 0, told = false;
+    {%- comment -%} The page's own opening (the hero's lines) starts while the eraser is on its last passes, so the two overlap as one movement. {%- endcomment -%}
+    function tell() { if (told) return; told = true; html.classList.remove('nl-intro-on'); document.dispatchEvent(new CustomEvent('nl:intro-done')); }
+    function finish(fast) {
+      if (done) return; done = true;
+      cancelAnimationFrame(raf);
+      tell();
+      root.classList.add('nlx--out');
+      setTimeout(function () { root.remove(); }, fast ? 200 : 300);
+      document.removeEventListener('keydown', onKey);
+    }
+    function onKey(ev) { if (ev.key === 'Escape') finish(true); }
+    skip.addEventListener('click', function () { finish(true); });
+    document.addEventListener('keydown', onKey);
+    var wipe = svg.querySelector('#nlx-wipe');
+    var L = wipe.getTotalLength();
+    wipe.style.strokeDasharray = L + ' ' + L;
+    wipe.style.strokeDashoffset = L;
+    var DRAW = {{ s.draw_ms | default: 1150 }}, ERASE = {{ s.erase_ms | default: 1100 }};
+    var t0 = 0;
+    function step(now) {
+      if (!t0) t0 = now;
+      var t = Math.min(1, (now - t0) / ERASE);
+      var e2 = t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      var at = L * (.03 + e2 * .97);
+      wipe.style.strokeDashoffset = L - at;
+      var pt = wipe.getPointAtLength(at), pt2 = wipe.getPointAtLength(Math.min(L, at + 4));
+      var dir = pt2.x >= pt.x ? 1 : -1;
+      eraser.style.transform = 'translate(' + (pt.x - 32) + 'px,' + (pt.y - bw * .46) + 'px) rotate(' + (dir * 7) + 'deg)';
+      if (t > .55) tell();
+      if (t < 1) raf = requestAnimationFrame(step); else finish(false);
+    }
+    setTimeout(function () { if (done) return; eraser.style.visibility = 'visible'; raf = requestAnimationFrame(step); }, DRAW);
+  })();
+</script>
+{%- endif -%}
+{%- if request.design_mode -%}
+  <div style="padding: 10px 16px; font: 13px/1.4 sans-serif; color: #666; text-align: center;">The opening chalkboard plays here for visitors, once per visit. It never plays in the editor.</div>
+{%- endif -%}
+{% schema %}
+{
+  "name": "Opening chalkboard",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    { "type": "checkbox", "id": "enabled", "label": "Play the opening chalkboard", "default": true, "info": "Once per visit, on this page only. Visitors who prefer less motion never see it." },
+    { "type": "color", "id": "board_color", "label": "Board colour", "default": "#262b30" },
+    { "type": "text", "id": "word_todo", "label": "List heading", "default": "To do" },
+    { "type": "text", "id": "word_note", "label": "Circled note", "default": "quiz on Fri" },
+    { "type": "text", "id": "word_days", "label": "Days", "default": "Mon Tue Wed Thu" },
+    { "type": "text", "id": "word_formula", "label": "Formula", "default": "a² + b² = c²" },
+    { "type": "text", "id": "skip_label", "label": "Skip button", "default": "Skip" },
+    { "type": "range", "id": "draw_ms", "label": "Drawing time", "min": 600, "max": 1500, "step": 50, "unit": "ms", "default": 1150 },
+    { "type": "range", "id": "erase_ms", "label": "Erasing time", "min": 600, "max": 1400, "step": 50, "unit": "ms", "default": 1100 }
+  ],
+  "presets": [{ "name": "Opening chalkboard" }]
+}
+{% endschema %}

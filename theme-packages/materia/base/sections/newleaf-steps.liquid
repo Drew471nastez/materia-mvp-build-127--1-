@@ -1,0 +1,172 @@
+{%- comment -%}
+  New Leaf (templates round 29): how buying a template works, in large
+  cards. Each step has a big serif number, a heading and a line, and on the
+  right a small working picture of that step:
+    Product card   a template's picture, name, price and its button
+    Duplicate      a page with a Duplicate button; a pointer moves in and presses it
+    Typing         a page title being typed, then cleared and typed again
+  The little scenes play while the card is on screen, and stay still in the
+  editor and for visitors who prefer less motion.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default'
+  assign steps = section.blocks | where: 'type', 'step'
+-%}
+<style>
+  #shopify-section-{{ sid }} .nlw { --nlw-accent: {% if s.accent != blank %}{{ s.accent }}{% else %}var(--btn-primary-bg-color){% endif %}; --nlw-panel: {% if s.panel_color != blank %}{{ s.panel_color }}{% else %}rgba(var(--color-heading-rgb), .06){% endif %}; padding-block: {{ s.padding_top_mobile }}px {{ s.padding_bottom_mobile }}px; }
+  #shopify-section-{{ sid }} .nlw__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 32px; padding-bottom: 16px; margin-bottom: 20px; border-bottom: 1px solid rgba(var(--color-heading-rgb), .12); }
+  #shopify-section-{{ sid }} .nlw__head h2 { margin: 0; font-size: {{ s.heading_size_mobile }}px; line-height: 1.1; }
+  #shopify-section-{{ sid }} .nlw__head p { margin: 0; font-size: 14.5px; color: var(--color-text); }
+  #shopify-section-{{ sid }} .nlw__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
+  #shopify-section-{{ sid }} .nlw__step { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; padding: 24px 20px; border-radius: {{ s.radius }}px; background: {% if s.card_color != blank %}{{ s.card_color }}{% else %}#fff{% endif %}; box-shadow: 0 0 0 1px rgba(var(--color-heading-rgb), .09); }
+  #shopify-section-{{ sid }} .nlw__words { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 16px; align-items: center; }
+  #shopify-section-{{ sid }} .nlw__num { font-family: var(--font-heading-family); font-size: 46px; line-height: 1; color: var(--nlw-accent); text-align: center; }
+  #shopify-section-{{ sid }} .nlw__words h3 { margin: 0 0 8px; font-size: 22px; line-height: 1.2; }
+  #shopify-section-{{ sid }} .nlw__words p { margin: 0; font-size: 15px; line-height: 1.65; color: var(--color-text); }
+  #shopify-section-{{ sid }} .nlw__panel { position: relative; border-radius: {{ s.radius | times: 0.7 | round }}px; background: var(--nlw-panel); padding: 18px; min-height: 160px; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
+  #shopify-section-{{ sid }} .nlw__sheet { position: relative; background: #fff; border-radius: 8px; box-shadow: 0 1px 2px rgba(0, 0, 0, .06), 0 0 0 1px rgba(0, 0, 0, .05); padding: 16px; }
+  #shopify-section-{{ sid }} .nlw__pic { border-radius: 6px; overflow: hidden; aspect-ratio: 3 / 2; max-height: 170px; width: 100%; }
+  #shopify-section-{{ sid }} .nlw__pic img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+  #shopify-section-{{ sid }} .nlw__meta { display: flex; justify-content: space-between; align-items: baseline; margin: 12px 0 10px; font-size: 14px; font-weight: 700; color: var(--color-heading); }
+  #shopify-section-{{ sid }} .nlw__meta span { font-family: var(--font-heading-family); font-weight: 400; color: var(--nlw-accent); font-size: 16px; }
+  #shopify-section-{{ sid }} .nlw__btn { display: inline-flex; align-items: center; justify-content: center; padding: 8px 14px; border-radius: var(--btn-radius, 6px); background: var(--btn-primary-bg-color); color: var(--btn-primary-color); font-size: 12.5px; font-weight: 600; line-height: 1; transform-origin: center; }
+  #shopify-section-{{ sid }} .nlw__bars { display: grid; gap: 8px; width: 62%; }
+  #shopify-section-{{ sid }} .nlw__bars i { display: block; height: 9px; border-radius: 5px; background: rgba(0, 0, 0, .08); }
+  #shopify-section-{{ sid }} .nlw__bars i:nth-child(2) { width: 70%; }
+  #shopify-section-{{ sid }} .nlw__dup { position: absolute; right: 16px; top: 14px; }
+  #shopify-section-{{ sid }} .nlw__cursor { position: absolute; right: 22px; top: 32px; width: 18px; height: 22px; pointer-events: none; }
+  #shopify-section-{{ sid }} .nlw__sheet--dup { min-height: 104px; }
+  #shopify-section-{{ sid }} .nlw__field { font-size: 15px; font-weight: 600; color: var(--nlw-accent); min-height: 1.4em; white-space: nowrap; overflow: hidden; }
+  #shopify-section-{{ sid }} .nlw__caret { display: inline-block; width: 2px; height: 1.05em; margin-left: 1px; vertical-align: -2px; background: currentColor; }
+  @media (min-width: 990px) {
+    #shopify-section-{{ sid }} .nlw { padding-block: {{ s.padding_top }}px {{ s.padding_bottom }}px; }
+    #shopify-section-{{ sid }} .nlw__head h2 { font-size: {{ s.heading_size }}px; }
+    #shopify-section-{{ sid }} .nlw__step { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 40px; align-items: center; padding: 28px 28px 28px 24px; }
+    #shopify-section-{{ sid }} .nlw__words { grid-template-columns: 92px minmax(0, 1fr); gap: 26px; }
+    #shopify-section-{{ sid }} .nlw__num { font-size: 64px; }
+    #shopify-section-{{ sid }} .nlw__words h3 { font-size: 26px; }
+    #shopify-section-{{ sid }} .nlw__panel { min-height: 190px; padding: 22px; }
+  }
+  {%- comment -%} The small scenes play only while on screen (is-play) and once the script runs them. {%- endcomment -%}
+  #shopify-section-{{ sid }} .nlw--live .is-play .nlw__btn--card { animation: nlw-press-{{ sid | handleize }} 3.2s ease-in-out infinite 1s; }
+  #shopify-section-{{ sid }} .nlw--live .nlw__cursor { transform: translate(60px, 70px); opacity: 0; }
+  #shopify-section-{{ sid }} .nlw--live .is-play .nlw__cursor { animation: nlw-point-{{ sid | handleize }} 3.2s cubic-bezier(.4, 0, .2, 1) infinite; }
+  #shopify-section-{{ sid }} .nlw--live .is-play .nlw__dup { animation: nlw-press-{{ sid | handleize }} 3.2s ease-in-out infinite; }
+  #shopify-section-{{ sid }} .nlw--live .is-play .nlw__caret { animation: nlw-blink-{{ sid | handleize }} 1s steps(1) infinite; }
+  @keyframes nlw-point-{{ sid | handleize }} { 0% { transform: translate(60px, 70px); opacity: 0; } 15% { opacity: 1; } 45%, 62% { transform: translate(-12px, -2px); opacity: 1; } 85%, 100% { transform: translate(-12px, -2px); opacity: 0; } }
+  @keyframes nlw-press-{{ sid | handleize }} { 0%, 47% { transform: none; } 52% { transform: scale(.92); } 58%, 100% { transform: none; } }
+  @keyframes nlw-blink-{{ sid | handleize }} { 50% { opacity: 0; } }
+</style>
+<div class="nlw color-{{ color_scheme }} gradient" data-nlw>
+  <div class="{{ s.section_width | default: 'container' }}">
+    {%- if s.heading != blank or s.text != blank -%}
+      <div class="nlw__head">
+        {%- if s.heading != blank -%}<h2 class="h2">{{ s.heading | escape }}</h2>{%- endif -%}
+        {%- if s.text != blank -%}<p>{{ s.text | escape }}</p>{%- endif -%}
+      </div>
+    {%- endif -%}
+    <ol class="nlw__list" role="list">
+      {%- for block in steps -%}
+        {%- assign b = block.settings -%}
+        <li class="nlw__step" {{ block.shopify_attributes }}>
+          <div class="nlw__words">
+            <span class="nlw__num" aria-hidden="true">{{ forloop.index }}</span>
+            <div>
+              {%- if b.heading != blank -%}<h3 class="h3">{{ b.heading | escape }}</h3>{%- endif -%}
+              {%- if b.text != blank -%}<p>{{ b.text | escape }}</p>{%- endif -%}
+            </div>
+          </div>
+          <div class="nlw__panel" aria-hidden="true">
+            {%- case b.scene -%}
+              {%- when 'card' -%}
+                <div class="nlw__card">
+                  <div class="nlw__pic">{%- if b.image != blank -%}{{ b.image | image_url: width: 700 | image_tag: loading: 'lazy', widths: '350, 700', sizes: '(min-width: 990px) 28vw, 80vw', alt: '' }}{%- endif -%}</div>
+                  <div class="nlw__meta">{{ b.card_title | escape }}<span>{{ b.card_price | escape }}</span></div>
+                  <span class="nlw__btn nlw__btn--card">{{ b.button_label | escape }}</span>
+                </div>
+              {%- when 'duplicate' -%}
+                <div class="nlw__sheet nlw__sheet--dup">
+                  <div class="nlw__bars"><i></i><i></i></div>
+                  <span class="nlw__btn nlw__dup">{{ b.button_label | escape }}</span>
+                  <svg class="nlw__cursor" viewBox="0 0 18 22" aria-hidden="true"><path d="M1.5 1.5v16.2l4.3-4 2.8 6.6 3-1.3-2.8-6.4h6z" fill="#111" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/></svg>
+                </div>
+              {%- else -%}
+                <div class="nlw__sheet"><div class="nlw__field" data-type="{{ b.typed_text | escape }}">{{ b.typed_text | escape }}<span class="nlw__caret"></span></div></div>
+            {%- endcase -%}
+          </div>
+        </li>
+      {%- endfor -%}
+    </ol>
+  </div>
+</div>
+{%- unless request.design_mode -%}
+<script>
+  (function () {
+    var root = document.querySelector('#shopify-section-{{ sid }} [data-nlw]');
+    if (!root || root.dataset.nlwInit || !('IntersectionObserver' in window)) return;
+    root.dataset.nlwInit = '1';
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    root.classList.add('nlw--live');
+    function typer(field) {
+      var text = field.dataset.type || '', caret = field.querySelector('.nlw__caret'), node = document.createTextNode(''), i = 0, t = 0, on = false;
+      field.textContent = ''; field.appendChild(node); field.appendChild(caret);
+      function tick() { if (!on) return; if (i <= text.length) { node.data = text.slice(0, i++); t = setTimeout(tick, 85); } else { t = setTimeout(function () { i = 0; tick(); }, 2200); } }
+      return { start: function () { if (on) return; on = true; i = 0; tick(); }, stop: function () { on = false; clearTimeout(t); node.data = text; } };
+    }
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) {
+        var p = e.target;
+        p.classList.toggle('is-play', e.isIntersecting);
+        if (p._typer) { if (e.isIntersecting) p._typer.start(); else p._typer.stop(); }
+      });
+    }, { threshold: .4 });
+    root.querySelectorAll('.nlw__panel').forEach(function (p) { var f = p.querySelector('.nlw__field'); if (f) p._typer = typer(f); io.observe(p); });
+  })();
+</script>
+{%- endunless -%}
+{% schema %}
+{
+  "name": "How it works, with scenes",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    { "type": "header", "content": "Content" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "How it works" },
+    { "type": "text", "id": "text", "label": "Line on the right", "default": "New to Notion templates? It takes about a minute." },
+    { "type": "header", "content": "Look" },
+    { "type": "color", "id": "accent", "label": "Number colour", "info": "Left empty, the scheme's button colour." },
+    { "type": "color", "id": "card_color", "label": "Card colour", "info": "Left empty, white." },
+    { "type": "color", "id": "panel_color", "label": "Scene panel colour", "info": "Left empty, a light tint of the heading colour." },
+    { "type": "range", "id": "radius", "label": "Corners", "min": 0, "max": 28, "step": 1, "unit": "px", "default": 14 },
+    { "type": "range", "id": "heading_size", "label": "Heading size", "min": 24, "max": 64, "step": 2, "unit": "px", "default": 36 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size on phones", "min": 22, "max": 44, "step": 2, "unit": "px", "default": 28 },
+    { "type": "header", "content": "General" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default" },
+    { "type": "select", "id": "section_width", "label": "Section width", "default": "container", "options": [{ "value": "container", "label": "Default" }, { "value": "fluid_container", "label": "Fluid container" }, { "value": "stretch_width", "label": "Stretched" }] },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 200, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 200, "step": 4, "unit": "px", "default": 80 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Top padding on phones", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 40 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Bottom padding on phones", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 56 }
+  ],
+  "blocks": [
+    {
+      "type": "step",
+      "name": "Step",
+      "limit": 5,
+      "settings": [
+        { "type": "text", "id": "heading", "label": "Heading", "default": "Pick a template" },
+        { "type": "textarea", "id": "text", "label": "Text", "default": "Choose one and check out." },
+        { "type": "select", "id": "scene", "label": "Scene", "default": "card", "options": [{ "value": "card", "label": "Product card" }, { "value": "duplicate", "label": "Duplicate button" }, { "value": "typing", "label": "Typing a page title" }] },
+        { "type": "image_picker", "id": "image", "label": "Card picture", "info": "For the product card scene." },
+        { "type": "text", "id": "card_title", "label": "Card name", "default": "Template name" },
+        { "type": "text", "id": "card_price", "label": "Card price", "default": "$2.99" },
+        { "type": "text", "id": "button_label", "label": "Button in the scene", "default": "Get template" },
+        { "type": "text", "id": "typed_text", "label": "Typed words", "default": "Your first page", "info": "For the typing scene." }
+      ]
+    }
+  ],
+  "presets": [{ "name": "How it works, with scenes", "blocks": [{ "type": "step" }, { "type": "step", "settings": { "scene": "duplicate", "button_label": "Duplicate" } }, { "type": "step", "settings": { "scene": "typing" } }] }]
+}
+{% endschema %}

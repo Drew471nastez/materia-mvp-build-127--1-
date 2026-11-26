@@ -72,6 +72,9 @@ export interface SampleProduct {
   rating?: [number, number]
   /** Units the sample has sold, as a store's paid orders count them; left out, made like the rating. */
   sold?: number
+  /* Templates round 29 (New Leaf): the category a creator files the product under (Products › Category; the theme reads it as product.type), a product that cannot be bought yet (Coming soon), and a description written as rich text (its own <p>, <h3> and <h4>, as the editor saves it). All optional: a sample without them is drawn as before. */
+  category?: string
+  available?: boolean
 }
 
 /*
@@ -131,8 +134,8 @@ function card(p: SampleProduct, i: number, imageUrl: (name: string) => string, c
     rating: proof.rating,
     settings: {
       title: p.title, slug, url: `/products/${slug}`, price: p.price, compare_price: p.compare ?? "", currency, free: false, pay_what_you_want: false,
-      image, images, kind: p.kind ?? "physical", available: true, tag: "", checkout_url: `/checkout/${slug}`,
-      description: p.description ?? "", description_html: p.description ? `<p>${p.description}</p>` : "", variants, options: (p.options ?? []).slice(0, 3), category: "",
+      image, images, kind: p.kind ?? "physical", available: p.available ?? true, tag: "", checkout_url: `/checkout/${slug}`,
+      description: p.description ?? "", description_html: p.description ? (/^\s*<(p|h[1-6]|ul|ol)\b/i.test(p.description) ? p.description : `<p>${p.description}</p>`) : "", variants, options: (p.options ?? []).slice(0, 3), category: p.category ?? "",
       sold_count: proof.sold, sold_count_24h: proof.h24, sold_count_7d: proof.d7, sold_count_30d: proof.d30,
     },
   }

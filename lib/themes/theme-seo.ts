@@ -123,7 +123,7 @@ export const THEME_SEO_CATEGORIES: readonly ThemeSeoCategory[] = [
     intro: "Ten templates for selling files: a general digital product store, a creator shop of Notion and Canva templates, presets and ebooks, a Notion template shop, a sales page for one Notion template, a Notion creator's website, two music sample pack stores, a cookbook shop, an ebook sales page and an art book store. Buyers get their download as soon as they pay.",
     primaryKeyword: "digital download store template",
     secondaryKeywords: ["sell digital products website", "digital product website template", "website to sell downloads"],
-    members: ["digital-products", "digital-studio", "templates-shop", "notion-sales-page", "notion-creator", "sample-packs", "sound-packs", "ebooks", "author-book", "art-books"],
+    members: ["digital-products", "digital-studio", "templates-shop", "notion-sales-page", "notion-creator", "notion-template-shop", "sample-packs", "sound-packs", "ebooks", "author-book", "art-books"],
     faqs: [
       { q: "How are files delivered to buyers?", a: "Storelib delivers the file after payment, on the receipt page and by email. The template only shows the product; delivery works the same on every template." },
       { q: "Can I add a licence for my files?", a: "Yes. Digital products and Sample packs include a licence page you can edit, and any template can have one added in the editor." },
@@ -564,6 +564,24 @@ export const THEME_SEO: readonly ThemeSeo[] = [
     faqs: [
       { q: "How is it different from Digital products?", a: "Digital products is a general download store in white and yellow with a collage hero, a video and a starter bundle. Digital studio is one creator's shop of the products people buy most: a hero of device mockups, six categories (Notion, Canva, presets, ebooks, planners, courses), best sellers, bundles, how instant download works and the maker." },
       { q: "Can I sell an option, such as a bigger pack or a setup video?", a: "Yes. Add an option to the product, for example 60 posts and 60 posts and 30 stories, with its own price. The product page shows it as a picker above Add to cart and Buy now." },
+    ],
+  },
+  /* Templates round 29: New Leaf, a Notion template shop by one maker after the owner's cleanslatetemplates.com reference. */
+  {
+    slug: "notion-template-shop",
+    title: "Notion Template Shop Website Template | Storelib",
+    description: "A shop template for a Notion template maker: an opening chalkboard, templates by category with prices, a player that shows them in use, and a page per template.",
+    h1: "Notion template shop website template",
+    intro: "New Leaf is a shop for a Notion template maker, shown with study, planning and home templates. A chalkboard wipes away on the first visit, then template pages, a player of them in use, shelves by category and the maker. Each template's page is built from the product.",
+    primaryCategory: "digital-products",
+    primaryKeyword: "notion template shop website",
+    secondaryKeywords: ["sell notion templates by category", "notion template store with product pages", "study and planner template shop"],
+    bestFor: ["Makers with a dozen or so Notion templates in a few categories", "Template shops that want a page per template with what is inside", "Study, planning and productivity creators with low priced templates and a free one"],
+    features: ["signup"],
+    extraPages: [],
+    faqs: [
+      { q: "How is it different from Notion creator and Notion templates?", a: "Notion creator is a personal site led by the creator's photo. Notion templates is a catalogue with a guided tour of one workspace. New Leaf is a shop of many small templates filed by category, with an opening animation, a player that shows each one in use, and a product page written from each template's own description and pictures." },
+      { q: "How does the product page know what to show?", a: "It reads the product. The strip and icon come from its first picture, the category from where it is filed, and What's inside makes a row for every Heading 3 in its description, with the product's next pictures beside them." },
     ],
   },
   {

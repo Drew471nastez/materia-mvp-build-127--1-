@@ -1008,3 +1008,25 @@ Sound packs (round 25, redrawn in rounds 26 and 28): Lowmoth, a sample label mad
 | digistudio (sample products) | scripts/theme-templates/products/digistudio/digistudio-post-plan.webp | https://images.unsplash.com/photo-1587614382346-4ec70e388b28 | Unsplash License |
 | digistudio (sample products) | scripts/theme-templates/products/digistudio/digistudio-post-notion.webp | https://images.unsplash.com/photo-1499951360447-b19be8fe80f5 | Unsplash License |
 | digistudio (sample products) | scripts/theme-templates/products/digistudio/digistudio-post-presets.webp | https://images.unsplash.com/photo-1470770841072-f978cf4d019e, colour graded | Unsplash License |
+
+## New Leaf (newleaf, New Leaf)
+
+<!-- newleaf (templates round 29): New Leaf, its maker Maya and every template are made up. Every picture is drawn for this template by a script: flat geometric cover art in a palette per template (shapes, dots, waves and small icons), the four quarter app icons, and Notion style pages rendered from HTML at 2x (a cover band, an icon, properties, a callout, a table, a board and a chart, a desktop window and a phone). The pages are drawn to look like Notion and carry no logo. The player scenes are collages of the same shapes on a dark ground. No photographs. -->
+
+| Template | File | Source | Licence |
+| --- | --- | --- | --- |
+| newleaf | assets/newleaf-card-exam-planner.webp | Drawn for this template | Storelib |
+| newleaf | assets/newleaf-card-lecture-notes.webp | Drawn for this template | Storelib |
+| newleaf | assets/newleaf-card-recall-cards.webp | Drawn for this template | Storelib |
+| newleaf | assets/newleaf-card-second-brain.webp | Drawn for this template | Storelib |
+| newleaf | assets/newleaf-card-thesis-planner.webp | Drawn for this template | Storelib |
+| newleaf | assets/newleaf-card-time-blocking.webp | Drawn for this template | Storelib |
+| newleaf | assets/newleaf-icon-exam-planner.webp | Drawn for this template | Storelib |
+| newleaf | assets/newleaf-icon-lecture-notes.webp | Drawn for this template | Storelib |
+| newleaf | assets/newleaf-icon-recall-cards.webp | Drawn for this template | Storelib |
+| newleaf | assets/newleaf-icon-thesis-planner.webp | Drawn for this template | Storelib |
+| newleaf | assets/newleaf-scene-exam-planner.webp | Drawn for this template | Storelib |
+| newleaf | assets/newleaf-scene-lecture-notes.webp | Drawn for this template | Storelib |
+| newleaf | assets/newleaf-scene-recall-cards.webp | Drawn for this template | Storelib |
+| newleaf | assets/newleaf-scene-thesis-planner.webp | Drawn for this template | Storelib |
+| newleaf (sample products) | scripts/theme-templates/products/newleaf/newleaf-*.webp (each template's card picture, desktop and phone, page, table and board views) | Drawn for this template | Storelib |

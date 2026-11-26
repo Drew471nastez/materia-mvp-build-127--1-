@@ -1,0 +1,17 @@
+/* Templates round 29: New Leaf. A plain page. */
+{
+  "sections": {
+    "main": {
+      "type": "page-default",
+      "settings": {
+        "color_scheme": "default",
+        "section_width": "container",
+        "padding_top": 56,
+        "padding_bottom": 88
+      }
+    }
+  },
+  "order": [
+    "main"
+  ]
+}

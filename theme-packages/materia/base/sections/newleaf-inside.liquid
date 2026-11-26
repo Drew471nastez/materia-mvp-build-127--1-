@@ -1,0 +1,145 @@
+{%- comment -%}
+  New Leaf (templates round 29): "What's inside" on a template's page,
+  written from the product itself. A heading and a line, then one row per
+  feature: a small label, a heading and its text beside a large tinted
+  panel with a picture of that part of the template, the sides swapping
+  from row to row. Rows rise in as they scroll into view.
+
+  The rows come from the product's description: every Heading 3 starts a
+  feature, the paragraphs under it are its text, and a Heading 4 just
+  before it is its small label. The pictures are the product's own, from
+  the one "First picture" names onward, one per feature. A product whose
+  description has no Heading 3 shows nothing here.
+{%- endcomment -%}
+{%- liquid
+  assign s = section.settings
+  assign sid = section.id
+  assign color_scheme = s.color_scheme.id | default: s.color_scheme | default: 'default'
+  assign desc = product.description | default: ''
+  assign chunks = desc | split: '<h3'
+  assign first_pic = s.first_picture | default: 2 | minus: 1
+-%}
+{%- if chunks.size > 1 -%}
+<style>
+  #shopify-section-{{ sid }} .nli { --nli-accent: {% if s.accent != blank %}{{ s.accent }}{% else %}var(--btn-primary-bg-color){% endif %}; --nli-panel: {% if s.panel_color != blank %}{{ s.panel_color }}{% else %}rgba(var(--color-heading-rgb), .06){% endif %}; padding-block: {{ s.padding_top_mobile }}px {{ s.padding_bottom_mobile }}px; }
+  #shopify-section-{{ sid }} .nli__head { max-width: 640px; margin-bottom: 40px; }
+  #shopify-section-{{ sid }} .nli__head h2 { margin: 0 0 12px; font-size: {{ s.heading_size_mobile }}px; line-height: 1.08; }
+  #shopify-section-{{ sid }} .nli__head p { margin: 0; font-size: 16px; line-height: 1.7; color: var(--color-text); }
+  #shopify-section-{{ sid }} .nli__rows { display: grid; gap: 64px; }
+  #shopify-section-{{ sid }} .nli__row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; align-items: center; }
+  #shopify-section-{{ sid }} .nli__kicker { margin: 0 0 8px; font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--nli-accent); }
+  #shopify-section-{{ sid }} .nli__words h3 { margin: 0 0 12px; font-size: {{ s.row_heading_size_mobile }}px; line-height: 1.1; }
+  #shopify-section-{{ sid }} .nli__words .rte { font-size: 16px; line-height: 1.75; color: var(--color-text); max-width: 46ch; }
+  #shopify-section-{{ sid }} .nli__words .rte > * { margin: 0 0 10px; }
+  #shopify-section-{{ sid }} .nli__panel { position: relative; border-radius: {{ s.radius }}px; background: var(--nli-panel); padding: 7% 6% 0; aspect-ratio: 4 / 3; overflow: visible; }
+  #shopify-section-{{ sid }} .nli__panel img { position: relative; display: block; width: 104%; max-width: none; height: auto; margin: 0 -2% -9%; }
+  @media (min-width: 990px) {
+    #shopify-section-{{ sid }} .nli { padding-block: {{ s.padding_top }}px {{ s.padding_bottom }}px; }
+    #shopify-section-{{ sid }} .nli__head { margin-bottom: 56px; }
+    #shopify-section-{{ sid }} .nli__head h2 { font-size: {{ s.heading_size }}px; }
+    #shopify-section-{{ sid }} .nli__rows { gap: 110px; }
+    #shopify-section-{{ sid }} .nli__row { grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 72px; }
+    #shopify-section-{{ sid }} .nli__row:nth-child(even) .nli__words { order: 2; }
+    #shopify-section-{{ sid }} .nli__words h3 { font-size: {{ s.row_heading_size }}px; }
+  }
+  #shopify-section-{{ sid }} .nli--go .nli__row > * { opacity: 0; transform: translateY(26px); }
+  #shopify-section-{{ sid }} .nli--go .nli__row.is-in > * { opacity: 1; transform: none; transition: opacity .7s ease, transform .9s cubic-bezier(.2, .8, .2, 1); }
+  #shopify-section-{{ sid }} .nli--go .nli__row.is-in > :last-child { transition-delay: .12s; }
+</style>
+<div class="nli color-{{ color_scheme }} gradient" data-nli>
+  <div class="{{ s.section_width | default: 'container' }}">
+    {%- if s.heading != blank or s.text != blank -%}
+      <div class="nli__head">
+        {%- if s.heading != blank -%}<h2 class="h2">{{ s.heading | escape }}</h2>{%- endif -%}
+        {%- if s.text != blank -%}<p>{{ s.text | escape }}</p>{%- endif -%}
+      </div>
+    {%- endif -%}
+    <div class="nli__rows">
+      {%- assign kicker = '' -%}
+      {%- assign n = 0 -%}
+      {%- for chunk in chunks -%}
+        {%- liquid
+          assign tail = chunk | split: '<h4'
+          assign next_kicker = ''
+          if tail.size > 1
+            assign next_kicker = tail.last | split: '</h4>' | first
+            assign cut = next_kicker | split: '>' | first | append: '>'
+            assign next_kicker = next_kicker | remove_first: cut | strip_html | strip
+          endif
+        -%}
+        {%- unless forloop.first -%}
+          {%- liquid
+            assign parts = tail.first | split: '</h3>'
+            assign head = parts.first
+            assign cut = head | split: '>' | first | append: '>'
+            assign head = head | remove_first: cut | strip_html | strip
+            assign body = tail.first | remove_first: parts.first | remove_first: '</h3>'
+            assign idx = first_pic | plus: n
+            assign img = product.images[idx]
+            assign n = n | plus: 1
+          -%}
+          <div class="nli__row">
+            <div class="nli__words">
+              {%- if kicker != blank -%}<p class="nli__kicker">{{ kicker }}</p>{%- endif -%}
+              {%- if head != blank -%}<h3 class="h3">{{ head }}</h3>{%- endif -%}
+              <div class="rte">{{ body }}</div>
+            </div>
+            <div class="nli__panel">
+              {%- if img != blank -%}{{ img | image_url: width: 1400 | image_tag: loading: 'lazy', widths: '600, 900, 1200, 1400', sizes: '(min-width: 990px) 55vw, 100vw', alt: head }}{%- endif -%}
+            </div>
+          </div>
+        {%- endunless -%}
+        {%- assign kicker = next_kicker -%}
+      {%- endfor -%}
+    </div>
+  </div>
+</div>
+{%- if s.reveal and request.design_mode != true -%}
+<script>
+  (function () {
+    var root = document.querySelector('#shopify-section-{{ sid }} [data-nli]');
+    if (!root || root.dataset.nliInit || !('IntersectionObserver' in window)) return;
+    root.dataset.nliInit = '1';
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var rows = [].filter.call(root.querySelectorAll('.nli__row'), function (r) { return r.getBoundingClientRect().top > innerHeight; });
+    if (!rows.length) return;
+    root.classList.add('nli--go');
+    [].forEach.call(root.querySelectorAll('.nli__row'), function (r) { if (rows.indexOf(r) < 0) r.classList.add('is-in'); });
+    var io = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('is-in'); io.unobserve(e.target); } }); }, { rootMargin: '0px 0px -10% 0px' });
+    rows.forEach(function (r) { io.observe(r); });
+  })();
+</script>
+{%- endif -%}
+{%- elsif request.design_mode -%}
+  <div style="padding: 24px 16px; font: 14px/1.5 sans-serif; color: #666; text-align: center;">What's inside: this product's description has no Heading 3 yet. Each Heading 3 in a description becomes a row here, with the product's pictures beside them.</div>
+{%- endif -%}
+{% schema %}
+{
+  "name": "What's inside",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    { "type": "paragraph", "content": "Rows come from the product's description: each Heading 3 starts one, the text under it is its text and a Heading 4 just before it is its small label." },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "What's inside" },
+    { "type": "text", "id": "text", "label": "Text", "default": "Every template comes with example pages, so you can see how it works before you clear them and start your own." },
+    { "type": "range", "id": "first_picture", "label": "First picture", "min": 1, "max": 10, "step": 1, "default": 3, "info": "Which of the product's pictures goes beside the first row; the next rows take the ones after it." },
+    { "type": "checkbox", "id": "reveal", "label": "Rows rise in as they scroll into view", "default": true },
+    { "type": "header", "content": "Look" },
+    { "type": "color", "id": "accent", "label": "Label colour", "info": "Left empty, the scheme's button colour." },
+    { "type": "color", "id": "panel_color", "label": "Panel colour", "info": "Left empty, a light tint of the heading colour." },
+    { "type": "range", "id": "radius", "label": "Panel corners", "min": 0, "max": 32, "step": 1, "unit": "px", "default": 18 },
+    { "type": "range", "id": "heading_size", "label": "Heading size", "min": 28, "max": 72, "step": 2, "unit": "px", "default": 44 },
+    { "type": "range", "id": "heading_size_mobile", "label": "Heading size on phones", "min": 24, "max": 48, "step": 2, "unit": "px", "default": 32 },
+    { "type": "range", "id": "row_heading_size", "label": "Row heading size", "min": 20, "max": 56, "step": 2, "unit": "px", "default": 36 },
+    { "type": "range", "id": "row_heading_size_mobile", "label": "Row heading size on phones", "min": 18, "max": 40, "step": 2, "unit": "px", "default": 28 },
+    { "type": "header", "content": "General" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "default" },
+    { "type": "select", "id": "section_width", "label": "Section width", "default": "container", "options": [{ "value": "container", "label": "Default" }, { "value": "fluid_container", "label": "Fluid container" }, { "value": "stretch_width", "label": "Stretched" }] },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 200, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 200, "step": 4, "unit": "px", "default": 96 },
+    { "type": "range", "id": "padding_top_mobile", "label": "Top padding on phones", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 56 },
+    { "type": "range", "id": "padding_bottom_mobile", "label": "Bottom padding on phones", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 64 }
+  ],
+  "presets": [{ "name": "What's inside" }]
+}
+{% endschema %}
