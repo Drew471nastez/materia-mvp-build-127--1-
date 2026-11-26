@@ -13816,7 +13816,22 @@ const words: Record<string, string> = {
  "Noted. We'll email you when payouts open in {country}.": "Zapisane. Napiszemy, gdy wypłaty ruszą w kraju {country}.",
  "That could not be saved just now. Try again, or write to support@storelib.com.": "Nie udało się teraz zapisać. Spróbuj ponownie albo napisz na support@storelib.com.",
  "We'll let you know": "Damy Ci znać",
- "Tell me when it opens": "Daj mi znać, gdy ruszy"
+ "Tell me when it opens": "Daj mi znać, gdy ruszy",
+ "theme::Northpaper": "Northpaper",
+ "Free Notion template": "Darmowy szablon Notion",
+ "A weekly planner for Notion. Leave your email and the link comes to you.": "Tygodniowy planer do Notion. Zostaw e-mail, a link przyjdzie do ciebie.",
+ "Send it": "Wyślij",
+ "Sent. The link is in your inbox.": "Wysłane. Link jest w twojej skrzynce.",
+ "My Notion Marketplace profile": "Mój profil w Notion Marketplace",
+ "Video walkthroughs": "Filmy krok po kroku",
+ "How do I get the template?": "Jak dostanę szablon?",
+ "A link comes by email right after you pay. Open it and press Duplicate to copy the template into your own Notion.": "Zaraz po zapłacie dostajesz link e-mailem. Otwórz go i naciśnij Duplikuj, aby skopiować szablon do swojego Notion.",
+ "Does it work on Notion's free plan?": "Czy działa w darmowym planie Notion?",
+ "Yes. Every template works on the free plan, on a computer and on a phone.": "Tak. Każdy szablon działa w darmowym planie, na komputerze i na telefonie.",
+ "Can I change it once it is mine?": "Czy mogę go zmieniać, gdy już jest mój?",
+ "Yes. It is your own copy, so rename, move or delete anything in it.": "Tak. To twoja kopia, więc zmieniaj nazwy, przenoś i usuwaj, co chcesz.",
+ "{name} comes with blocks for selling Notion templates: your templates, a free template for an email, links and questions. Add them under your blocks?": "{name} ma bloki do sprzedaży szablonów Notion: twoje szablony, darmowy szablon za e-mail, linki i pytania. Dodać je pod twoimi blokami?",
+ "Add blocks": "Dodaj bloki"
 }
 
 export default words

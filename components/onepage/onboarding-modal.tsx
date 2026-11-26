@@ -23,6 +23,8 @@ import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { SocialIcon } from "@/components/onepage/brand-icons"
 import { isNativeApp } from "@/lib/native-bridge"
 import { THEME_TEMPLATES, preloadThemeThumbs, themeSwatchFontsHref, themeThumbSrc } from "./tabs/design-tab"
+import { themeStarterBlocks } from "./themes/northpaper-theme"
+import { blocksAfterPick } from "@/lib/onepage/theme-blocks"
 import { ThemeSwatch, themeIsHero } from "./themes/theme-swatch"
 import { scaleThemePreviews } from "./themes/preview-scale"
 import { themeLabel } from "./themes/theme-names"
@@ -947,13 +949,15 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         Classic, and Share and Subscribe kept the default theme's style.
       */
       const template = THEME_TEMPLATES.find((t) => t.id === selectedTemplate)
+      /* Round 65 (lib/onepage/theme-blocks): a template that comes with its own blocks (Northpaper) is the page; the goal's blocks are not added under it. */
+      const starter = template ? themeStarterBlocks(template.id) : null
       if (template) {
         const hero = (template as { profile_layout?: string }).profile_layout === "hero" || (template.theme_config as { header_layout?: string }).header_layout === "hero"
-        applyThemeLook(template as never, hero ? "hero" : "classic", (THEME_TEMPLATES.find((t) => t.id === onepage?.theme?.template_id) ?? null) as never)
+        applyThemeLook(template as never, hero ? "hero" : "classic", (THEME_TEMPLATES.find((t) => t.id === onepage?.theme?.template_id) ?? null) as never, starter ? blocksAfterPick(onepage?.draft_blocks, starter, true) : null)
       }
 
       // Create blocks based on goal
-      await createBlocksForGoal(selectedGoal || "general")
+      if (!starter) await createBlocksForGoal(selectedGoal || "general")
 
       // IMPORTANT: Save everything directly to database (not just context)
       // This ensures the data is persisted immediately after onboarding

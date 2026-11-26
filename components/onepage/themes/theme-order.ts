@@ -19,12 +19,13 @@
  *                    stickers, a zine
  * The kind pills (Light, Dark, Gradient, Image) keep their own filter, in
  * this same order. The nineteen painted wallpapers (./mood-themes) sit near
- * the top of the group each belongs to. A theme added without a line here joins the end of All,
+ * the top of the group each belongs to. Northpaper (round 65, ./northpaper-theme), a Notion
+ * page, sits in Clean after Notebook. A theme added without a line here joins the end of All,
  * under the last group, until it is given a place.
  */
 
 export const THEME_GROUPS = [
-  { id: "clean", ids: ["default", "air", "gallery", "studio", "linen", "clay", "mono", "atrium", "graph", "paper", "swiss", "cream", "notebook", "velvet", "basalt"] },
+  { id: "clean", ids: ["default", "air", "gallery", "studio", "linen", "clay", "mono", "atrium", "graph", "paper", "swiss", "cream", "notebook", "northpaper", "velvet", "basalt"] },
   { id: "dark", ids: ["graphite", "night", "nova", "fjord", "backstage", "umber", "onair", "pop", "doric", "ember", "ledger", "olive", "astrid", "space", "blueprint"] },
   { id: "colour", ids: ["malachite", "petal", "sorbet", "dawn", "dusk", "pulse", "citrus", "swirl", "ripple", "solstice", "ribbon", "sunset", "peach", "sage", "lagoon", "ocean", "aurora", "cobalt", "halo", "dune", "terrazzo", "riso", "blocks", "neon", "acid"] },
   { id: "photo", ids: ["mesa", "cosmos", "shore", "nature", "atlas", "haze", "darkroom", "fusion"] },

@@ -13816,7 +13816,22 @@ const words: Record<string, string> = {
  "Noted. We'll email you when payouts open in {country}.": "Anotado. Vamos te avisar por e-mail quando os repasses abrirem em {country}.",
  "That could not be saved just now. Try again, or write to support@storelib.com.": "Não foi possível salvar agora. Tente de novo ou escreva para support@storelib.com.",
  "We'll let you know": "Vamos te avisar",
- "Tell me when it opens": "Me avise quando abrir"
+ "Tell me when it opens": "Me avise quando abrir",
+ "theme::Northpaper": "Northpaper",
+ "Free Notion template": "Template de Notion grátis",
+ "A weekly planner for Notion. Leave your email and the link comes to you.": "Um planner semanal para o Notion. Deixe seu e-mail e o link chega até você.",
+ "Send it": "Quero receber",
+ "Sent. The link is in your inbox.": "Enviado. O link está na sua caixa de entrada.",
+ "My Notion Marketplace profile": "Meu perfil no Notion Marketplace",
+ "Video walkthroughs": "Vídeos passo a passo",
+ "How do I get the template?": "Como recebo o template?",
+ "A link comes by email right after you pay. Open it and press Duplicate to copy the template into your own Notion.": "Logo depois do pagamento chega um link por e-mail. Abra e toque em Duplicar para copiar o template para o seu Notion.",
+ "Does it work on Notion's free plan?": "Funciona no plano gratuito do Notion?",
+ "Yes. Every template works on the free plan, on a computer and on a phone.": "Sim. Todo template funciona no plano gratuito, no computador e no celular.",
+ "Can I change it once it is mine?": "Posso mudar o template depois que ele for meu?",
+ "Yes. It is your own copy, so rename, move or delete anything in it.": "Sim. É a sua cópia, então renomeie, mova ou apague o que quiser.",
+ "{name} comes with blocks for selling Notion templates: your templates, a free template for an email, links and questions. Add them under your blocks?": "{name} vem com blocos para vender templates de Notion: seus templates, um template grátis em troca do e-mail, links e perguntas. Adicionar abaixo dos seus blocos?",
+ "Add blocks": "Adicionar blocos"
 }
 
 export default words

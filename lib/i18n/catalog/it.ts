@@ -13816,7 +13816,22 @@ const words: Record<string, string> = {
  "Noted. We'll email you when payouts open in {country}.": "Annotato. Ti scriveremo quando i pagamenti apriranno in {country}.",
  "That could not be saved just now. Try again, or write to support@storelib.com.": "Non è stato possibile salvare adesso. Riprova o scrivi a support@storelib.com.",
  "We'll let you know": "Ti avviseremo",
- "Tell me when it opens": "Avvisami quando apre"
+ "Tell me when it opens": "Avvisami quando apre",
+ "theme::Northpaper": "Northpaper",
+ "Free Notion template": "Template Notion gratuito",
+ "A weekly planner for Notion. Leave your email and the link comes to you.": "Un planner settimanale per Notion. Lascia la tua email e ti arriva il link.",
+ "Send it": "Mandamelo",
+ "Sent. The link is in your inbox.": "Inviato. Il link è nella tua casella di posta.",
+ "My Notion Marketplace profile": "Il mio profilo su Notion Marketplace",
+ "Video walkthroughs": "Video passo passo",
+ "How do I get the template?": "Come ricevo il template?",
+ "A link comes by email right after you pay. Open it and press Duplicate to copy the template into your own Notion.": "Subito dopo il pagamento arriva un link per email. Aprilo e premi Duplica per copiare il template nel tuo Notion.",
+ "Does it work on Notion's free plan?": "Funziona con il piano gratuito di Notion?",
+ "Yes. Every template works on the free plan, on a computer and on a phone.": "Sì. Ogni template funziona con il piano gratuito, sul computer e sul telefono.",
+ "Can I change it once it is mine?": "Posso modificarlo quando è mio?",
+ "Yes. It is your own copy, so rename, move or delete anything in it.": "Sì. È la tua copia, quindi rinomina, sposta o elimina quello che vuoi.",
+ "{name} comes with blocks for selling Notion templates: your templates, a free template for an email, links and questions. Add them under your blocks?": "{name} include blocchi per vendere template Notion: i tuoi template, un template gratuito in cambio di un'email, link e domande. Aggiungerli sotto i tuoi blocchi?",
+ "Add blocks": "Aggiungi blocchi"
 }
 
 export default words

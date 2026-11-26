@@ -13816,7 +13816,22 @@ const words: Record<string, string> = {
  "Noted. We'll email you when payouts open in {country}.": "C'est noté. Nous vous écrirons quand les virements ouvriront en {country}.",
  "That could not be saved just now. Try again, or write to support@storelib.com.": "Impossible d'enregistrer pour l'instant. Réessayez ou écrivez à support@storelib.com.",
  "We'll let you know": "Nous vous préviendrons",
- "Tell me when it opens": "Prévenez-moi à l'ouverture"
+ "Tell me when it opens": "Prévenez-moi à l'ouverture",
+ "theme::Northpaper": "Northpaper",
+ "Free Notion template": "Modèle Notion gratuit",
+ "A weekly planner for Notion. Leave your email and the link comes to you.": "Un planning de la semaine pour Notion. Laissez votre e-mail et le lien vous arrive.",
+ "Send it": "Envoyez-le",
+ "Sent. The link is in your inbox.": "Envoyé. Le lien est dans votre boîte de réception.",
+ "My Notion Marketplace profile": "Mon profil sur Notion Marketplace",
+ "Video walkthroughs": "Visites en vidéo",
+ "How do I get the template?": "Comment je reçois le modèle ?",
+ "A link comes by email right after you pay. Open it and press Duplicate to copy the template into your own Notion.": "Un lien arrive par e-mail juste après le paiement. Ouvrez-le et appuyez sur Dupliquer pour copier le modèle dans votre Notion.",
+ "Does it work on Notion's free plan?": "Est-ce que ça marche avec l'offre gratuite de Notion ?",
+ "Yes. Every template works on the free plan, on a computer and on a phone.": "Oui. Chaque modèle marche avec l'offre gratuite, sur ordinateur et sur téléphone.",
+ "Can I change it once it is mine?": "Je peux le modifier une fois qu'il est à moi ?",
+ "Yes. It is your own copy, so rename, move or delete anything in it.": "Oui. C'est votre copie, vous pouvez tout renommer, déplacer ou supprimer.",
+ "{name} comes with blocks for selling Notion templates: your templates, a free template for an email, links and questions. Add them under your blocks?": "{name} est livré avec des blocs pour vendre des modèles Notion : vos modèles, un modèle gratuit contre un e-mail, des liens et des questions. Les ajouter sous vos blocs ?",
+ "Add blocks": "Ajouter les blocs"
 }
 
 export default words
