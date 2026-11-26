@@ -249,11 +249,11 @@ async function main() {
   out("\n7. Where it is decided")
   {
     const route = read("app/api/website-builder/themes/[installId]/publish/route.ts")
-    check("the answer is sent once the live site is switched and the caches cleared; the release, warm and backup run after it", route.indexOf("return NextResponse.json({ ok: true, status: \"published\" })") > route.indexOf("await revalidatePublishedSite(creator.id)\n") && !/await (warmAfterPublish|takeBackup|recordRelease)\(/.test(route.slice(0, route.indexOf("after(async () => {"))))
-    check("one follow-up per publish shares the read", /const follow = publishFollowUp\(admin, installId\)/.test(route) && /read: follow\.liveRows/.test(route))
+    check("the answer is sent once the live site is switched and the caches cleared; the release, warm and backup run after it", route.indexOf("return NextResponse.json({ ok: true, status: \"published\" })") > route.indexOf("await revalidatePublishedSite(creator.id)\n") && !/await (warmAfterPublish|takeBackup|recordRelease)\(/.test(route.slice(0, route.indexOf("const follow = publishFollowUp"))))
+    check("one follow-up per publish shares the read", /const follow = publishFollowUp\(admin, installId\)/.test(route) && /recordRelease\(admin, \{ installId, creatorId \}, follow\.liveRows\)/.test(route))
     check("the warm waits for the release, for at most WARM_WAITS_FOR_RELEASE_MS", /await follow\.waitForRelease\(WARM_WAITS_FOR_RELEASE_MS\)/.test(route))
     const backups = read("lib/website-builder/backups.ts")
-    check("a backup's fingerprint is of the whole state, so light and full backups of one state are one", /const fingerprint = fingerprintOf\(snapshot\)/.test(backups) && /lightSnapshot\(snapshot, opts\.knownBlobs\)/.test(backups))
+    check("a backup's fingerprint is of the whole state, so light and full backups of one state are one", /const fingerprint = fingerprintOf\(snapshot\)/.test(backups) && /lightSnapshot\(snapshot, given\.knownBlobs\)/.test(backups))
     const restore = read("lib/website-builder/restore-backup.ts")
     check("restore resolves a light backup before anything reads it", restore.indexOf("fullSnapshot(") > 0 && restore.indexOf("fullSnapshot(") < restore.indexOf("addedSince("))
   }

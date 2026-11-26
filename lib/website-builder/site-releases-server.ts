@@ -319,17 +319,14 @@ export type RecordResult =
  */
 export async function recordRelease(
   db: Db,
-  input: {
-    installId: string
-    creatorId: string
-    /**
-     * The live rows, read by the caller's follow-up so the backup after it
-     * reads none of them again (round 66, ./after-publish.ts). Asked here,
-     * after the count is read, exactly where this would read them itself;
-     * null or a failure: read here as before.
-     */
-    read?: () => Promise<{ settings: unknown; pages: ReleasePage[]; files: Record<string, string> } | null>
-  },
+  input: { installId: string; creatorId: string },
+  /**
+   * The live rows, read by the caller's follow-up so the backup after it
+   * reads none of them again (round 66, ./after-publish.ts). Asked here,
+   * after the count is read, exactly where this would read them itself;
+   * null or a failure: read here as before.
+   */
+  read?: () => Promise<{ settings: unknown; pages: ReleasePage[]; files: Record<string, string> } | null>,
 ): Promise<RecordResult> {
   const { installId, creatorId } = input
   const fail = (error: DbError | Error | unknown, what: string): RecordResult => {
@@ -348,7 +345,7 @@ export async function recordRelease(
     if (at.error || !at.data) return fail(at.error ?? { message: "no pointer row" }, "pointer")
     const rev = at.data.rev ?? 0
 
-    const given = input.read ? await input.read().catch(() => null) : null
+    const given = read ? await read().catch(() => null) : null
     const [settingsRead, pagesRead, files] = given
       ? [{ data: { settings: given.settings }, error: null } as Result<{ settings?: unknown } | null>, { data: given.pages, error: null } as Result<ReleasePage[] | null>, given.files]
       : await Promise.all([

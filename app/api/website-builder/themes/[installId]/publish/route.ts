@@ -310,6 +310,38 @@ async function handlePost(req: Request, { params }: Params, holder: JobHolder): 
     const creatorId = creator.id
     const follow = publishFollowUp(admin, installId)
 
+    /*
+      THE RECORD OF IT: each section file's version, the publish history row
+      and the backup to go back to (RUN_THEME_BACKUPS.sql), from the same
+      read, once the release is done. Light: the files Storelib already
+      holds (the release just made sure it holds every live one) are kept
+      by name (lib/website-builder/backups.ts lightSnapshot).
+    */
+    after(async () => {
+      for (const file of movedFiles) await recordVersion(admin, installId, file.path, file.content, "publish").catch(() => false)
+      const release = await follow.waitForRelease(BACKUP_WAITS_FOR_RELEASE_MS)
+      const rows = await follow.rowsOrNull()
+      const liveSettings = rows
+        ? rows.settings?.settings
+        : (await admin.from("store_theme_settings").select("settings").eq("install_id", installId).maybeSingle()).data?.settings
+      const { error: historyErr } = await admin.from("theme_publish_history").insert({
+        install_id: installId,
+        creator_id: creatorId,
+        action: "published",
+        snapshot: liveSettings ?? {},
+      })
+      if (historyErr) console.error("[publish] the publish history row was not written:", historyErr.message)
+      /* A publish is a moment worth being able to go back to. */
+      try {
+        await takeBackup(admin, installId, { label: "Published", source: "publish" }, {
+          snapshot: rows?.files ? snapshotOf(rows.settings, rows.pages, rows.files) : undefined,
+          knownBlobs: release.blobs,
+        })
+      } catch {
+        /* logged nowhere on purpose: nothing sensitive, nothing actionable */
+      }
+    })
+
     /**
      * THE LAST THING, AND NOT OPTIONAL. The published site is held in a
      * cache until this says otherwise, so a publish that does not reach
@@ -335,7 +367,7 @@ async function handlePost(req: Request, { params }: Params, holder: JobHolder): 
     after(async () => {
       let seen: { pointed: boolean; blobs: string[] } | null = null
       try {
-        const kept = await recordRelease(admin, { installId, creatorId, read: follow.liveRows })
+        const kept = await recordRelease(admin, { installId, creatorId }, follow.liveRows)
         if (kept.ok === false) {
           if (kept.reason === "failed") console.error("[publish] the release was not written:", kept.detail)
         } else {
@@ -365,40 +397,6 @@ async function handlePost(req: Request, { params }: Params, holder: JobHolder): 
     after(async () => {
       await follow.waitForRelease(WARM_WAITS_FOR_RELEASE_MS)
       await warmAfterPublish(creatorId, { countries: [publisherCountry] })
-    })
-
-    /*
-      THE RECORD OF IT: each section file's version, the publish history row
-      and the backup to go back to (RUN_THEME_BACKUPS.sql), from the same
-      read, once the release is done. Light: the files Storelib already
-      holds (the release just made sure it holds every live one) are kept
-      by name (lib/website-builder/backups.ts lightSnapshot).
-    */
-    after(async () => {
-      for (const file of movedFiles) await recordVersion(admin, installId, file.path, file.content, "publish").catch(() => false)
-      const release = await follow.waitForRelease(BACKUP_WAITS_FOR_RELEASE_MS)
-      const rows = await follow.rowsOrNull()
-      const liveSettings = rows
-        ? rows.settings?.settings
-        : (await admin.from("store_theme_settings").select("settings").eq("install_id", installId).maybeSingle()).data?.settings
-      const { error: historyErr } = await admin.from("theme_publish_history").insert({
-        install_id: installId,
-        creator_id: creatorId,
-        action: "published",
-        snapshot: liveSettings ?? {},
-      })
-      if (historyErr) console.error("[publish] the publish history row was not written:", historyErr.message)
-      /* A publish is a moment worth being able to go back to. */
-      try {
-        await takeBackup(admin, installId, {
-          label: "Published",
-          source: "publish",
-          snapshot: rows?.files ? snapshotOf(rows.settings, rows.pages, rows.files) : undefined,
-          knownBlobs: release.blobs,
-        })
-      } catch {
-        /* logged nowhere on purpose: nothing sensitive, nothing actionable */
-      }
     })
 
     /* After the answer: every page of the site, to the search engines that

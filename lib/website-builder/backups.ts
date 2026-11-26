@@ -202,18 +202,15 @@ export function fingerprintOf(snapshot: BackupSnapshot): string {
 export async function takeBackup(
   db: SupabaseClient,
   installId: string,
-  opts: {
-    label: string
-    source: BackupSource
-    verify?: boolean
-    keep?: string
+  opts: { label: string; source: BackupSource; verify?: boolean; keep?: string },
+  given: {
     /** The state, already read (a publish's shared read, lib/website-builder/after-publish.ts); else read here. */
     snapshot?: BackupSnapshot
     /** Shas known to be in theme_file_blobs (a release just found or wrote them): not asked again. */
     knownBlobs?: Iterable<string>
-  },
+  } = {},
 ): Promise<{ backup: BackupRow | null; skipped: boolean; error: string | null }> {
-  const snapshot = opts.snapshot ?? (await readSnapshot(db, installId))
+  const snapshot = given.snapshot ?? (await readSnapshot(db, installId))
   /* Of the whole state, so a light backup and a full one of the same state are the same backup. */
   const fingerprint = fingerprintOf(snapshot)
 
@@ -240,7 +237,7 @@ export async function takeBackup(
       label: backupLabel(opts.label),
       source: opts.source,
       /* Light (round 66): the files Storelib already holds, by name. */
-      snapshot: await lightSnapshot(snapshot, opts.knownBlobs).catch(() => snapshot),
+      snapshot: await lightSnapshot(snapshot, given.knownBlobs).catch(() => snapshot),
       fingerprint,
     })
     .select("id, install_id, label, source, created_at")
