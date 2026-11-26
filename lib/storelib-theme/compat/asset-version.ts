@@ -30,6 +30,7 @@
  * run it directly (tests/publishing-cache.test.ts).
  */
 import { createHash } from "node:crypto"
+import { themeJsFixMark } from "./js-fixes"
 
 /**
  * Raised when what the route does to a file changes (css-fixes.ts, the SCSS
@@ -105,7 +106,8 @@ export function assetSource(rows: Record<string, string>, name: string): { text:
 
 /** The version of a plain file's address: its text alone. */
 export function plainAssetVersion(text: string): string {
-  return PREFIX + textHash(`${ASSET_RENDER_SALT}\0plain\0${textHash(text)}`).slice(0, 16)
+  /* A script js-fixes.ts mends is a different file from the one first served at its old address, which browsers keep for a year: a new address for it alone (round 65). */
+  return PREFIX + textHash(`${ASSET_RENDER_SALT}\0plain\0${textHash(text)}${themeJsFixMark(text)}`).slice(0, 16)
 }
 
 /**

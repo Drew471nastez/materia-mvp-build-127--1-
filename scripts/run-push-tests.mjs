@@ -1985,6 +1985,8 @@ const STRICT_SUITES = [
   "tests/default-theme-images-r63.test.ts",
   /* Round 64 (k1): country flags are real artwork, public/flags/<CODE>.svg (country-flag-icons, MIT), not the emoji written as text in a data: SVG: `country | image_url` is the file for every theme, Materia asks for a row's flag only when it is in the list's view, and Storelib's own order and admin pages draw the same files. scripts/check-flags-r64.mjs measures centre offset and coverage in Chromium at 390 and 1280. */
   "tests/flags-r64.test.ts",
+  /* Round 65 (m3): a live website's pages without the downloads they did not need: Storelib's own uploads a theme prints as they are (a 1.9MB hero PNG) sent through /_next/image at the sizes they are drawn, before the first picture is preloaded; Materia's hero no longer gives its hidden video the original photo as a poster, and a product page no longer fetches itself for its sold count, fixed in theme-packages and where an older install's script is served (lib/storelib-theme/compat/js-fixes.ts). */
+  "tests/live-speed-r65.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))
