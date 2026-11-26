@@ -95,6 +95,8 @@ import { orderThemes, themeGroupOf, type ThemeGroupId } from "@/components/onepa
 import { SWATCH_LETTERS, ThemeSwatch, themeIsHero } from "@/components/onepage/themes/theme-swatch"
 import { MOOD_THEMES } from "@/components/onepage/themes/mood-themes"
 import { DARK_CLEAN_THEMES } from "@/components/onepage/themes/dark-clean-themes"
+import { NORTHPAPER_THEMES, themeStarterBlocks } from "@/components/onepage/themes/northpaper-theme"
+import { appendThemeBlocks, blocksAfterPick, hasThemeBlocks } from "@/lib/onepage/theme-blocks"
 import { useThemePreviewScale } from "@/components/onepage/themes/preview-scale"
 import { themeLabel } from "@/components/onepage/themes/theme-names"
 import { LayoutSection } from "@/components/onepage/themes/layout-section"
@@ -1195,9 +1197,10 @@ const BASE_THEME_TEMPLATES = [
 ]
 
 /* Round 40: Gallery, Swiss, Ember, Lagoon and Atlas (components/onepage/themes/r40-themes), each laid into its kind. */
+/* Round 65: Northpaper, a Notion template seller's page with its own blocks (components/onepage/themes/northpaper-theme). */
 /* Renaissance (components/onepage/themes/renaissance-theme), and the picker's order: the best and most chosen first, in groups (components/onepage/themes/theme-order). */
 /* The painted wallpapers (components/onepage/themes/mood-themes) join after the kinds are laid out; the picker's order places each (theme-order). */
-export const THEME_TEMPLATES = orderThemes([...withR40Themes([...BASE_THEME_TEMPLATES, ...(RENAISSANCE_THEMES as unknown as typeof BASE_THEME_TEMPLATES)]), ...(MOOD_THEMES as unknown as typeof BASE_THEME_TEMPLATES), ...(DARK_CLEAN_THEMES as unknown as typeof BASE_THEME_TEMPLATES)])
+export const THEME_TEMPLATES = orderThemes([...withR40Themes([...BASE_THEME_TEMPLATES, ...(RENAISSANCE_THEMES as unknown as typeof BASE_THEME_TEMPLATES)]), ...(MOOD_THEMES as unknown as typeof BASE_THEME_TEMPLATES), ...(DARK_CLEAN_THEMES as unknown as typeof BASE_THEME_TEMPLATES), ...(NORTHPAPER_THEMES as unknown as typeof BASE_THEME_TEMPLATES)])
 
 /** The gradient a page starts from when it has none of its own: warm, and nothing like the old violet default. */
 const DEFAULT_GRADIENT = "linear-gradient(160deg, #f0a8b8 0%, #b2846c 100%)"
@@ -2520,6 +2523,23 @@ export const keptThemeThumbCount = () => keptThemeThumbs.length
 */
 const HIDDEN_GRID: React.CSSProperties = { position: "absolute", top: 0, left: 0, right: 0, zIndex: -1, opacity: 0, contentVisibility: "hidden" }
 
+/**
+ * Round 65: a theme that comes with blocks, picked on a page that has blocks
+ * of its own (lib/onepage/theme-blocks). The look is on already; this adds
+ * the theme's blocks under the creator's, or goes away.
+ */
+function ThemeBlocksOffer({ name, onAdd, onSkip }: { name: string; onAdd: () => void; onSkip: () => void }) {
+  return (
+    <div data-theme-blocks-offer="" role="status" className="col-span-full flex flex-col gap-3 rounded-2xl border border-[#e5e7eb] bg-white p-4 sm:flex-row sm:items-center">
+      <p className="flex-1 text-[13px] leading-5 text-[#4b5563]">{tt("{name} comes with blocks for selling Notion templates. Add them under yours?", { name })}</p>
+      <div className="flex shrink-0 gap-2">
+        <button type="button" onClick={onSkip} className="h-11 rounded-xl px-4 text-[13px] font-medium text-[#4b5563] hover:bg-[#f3f4f6]">{tt("Not now")}</button>
+        <button type="button" onClick={onAdd} className="h-11 rounded-xl bg-[#1a1a2e] px-4 text-[13px] font-semibold text-white hover:bg-[#2a2a40]">{tt("Add blocks")}</button>
+      </div>
+    </div>
+  )
+}
+
 const ThemeCard = memo(function ThemeCard({ template, selected, shown, copy, onPick }: { template: typeof THEME_TEMPLATES[number]; selected: boolean; shown: boolean; copy: boolean; onPick: (template: typeof THEME_TEMPLATES[number]) => void }) {
   const c = template.theme_config as typeof THEME_TEMPLATES[number]["theme_config"] & Record<string, any>
   const name = themeLabel(template)
@@ -2733,8 +2753,10 @@ function useSteadyFilter(filter: ThemeFilter, setFilter: (f: ThemeFilter) => voi
 }
 
 function ThemeSection() {
-  const { onepage, updateBlock, applyThemeLook } = useOnePage()
+  const { onepage, updateBlock, applyThemeLook, reorderBlocks } = useOnePage()
   const [filter, setFilter] = useState<ThemeFilter>("all")
+  /* Round 65: the theme just picked comes with blocks, and the page has its own already (lib/onepage/theme-blocks): offered under its group, never laid on unasked. */
+  const [offer, setOffer] = useState<string | null>(null)
   const { gridRef, pickFilter } = useSteadyFilter(filter, setFilter)
   /* The cards' faces: one small request (themeSwatchFontsHref). */
   const nameFontsHref = themeSwatchFontsHref()
@@ -2751,6 +2773,14 @@ function ThemeSection() {
   if (!onepage) return null
   const { theme, draft_blocks } = onepage
   const currentHeaderLayout = (theme as any).header_layout || "classic"
+  /* The offer holds while its theme is the page's and its blocks are not on it yet. */
+  const offeredBlocks = offer ? themeStarterBlocks(offer) : null
+  const offerShown = !!offeredBlocks && theme.template_id === offer && !hasThemeBlocks(draft_blocks, offeredBlocks)
+  const addOffered = () => {
+    const blocks = offer ? themeStarterBlocks(offer) : null
+    if (blocks) reorderBlocks(appendThemeBlocks(draft_blocks, blocks))
+    setOffer(null)
+  }
 
   const handleApplyTemplate = (template: typeof THEME_TEMPLATES[0]) => {
     const config = template.theme_config
@@ -2776,7 +2806,11 @@ function ThemeSection() {
 
     /* The whole look in one step: nothing of the old theme left behind, Share
        and Subscribe matched, every block's own colours cleared (lib/onepage/theme-apply). */
-    applyThemeLook(template as never, wantsHeroLayout ? "hero" : needsClassicLayout ? "classic" : undefined, (THEME_TEMPLATES.find((t) => t.id === theme.template_id) ?? null) as never)
+    /* Round 65 (lib/onepage/theme-blocks): a theme with blocks of its own lays them on a page that has none of the creator's yet, in the same step. */
+    const starter = themeStarterBlocks(template.id)
+    const blocksNow = starter ? blocksAfterPick(draft_blocks, starter) : null
+    applyThemeLook(template as never, wantsHeroLayout ? "hero" : needsClassicLayout ? "classic" : undefined, (THEME_TEMPLATES.find((t) => t.id === theme.template_id) ?? null) as never, blocksNow)
+    setOffer(starter && !blocksNow && !hasThemeBlocks(draft_blocks, starter) ? template.id : null)
 
     // AIR theme: Set swipe animation on the first link_button block if no blocks have animations
     if (template.id === "air" && draft_blocks) {
@@ -2849,10 +2883,13 @@ function ThemeSection() {
               /* All is in groups, each named once where it starts (components/onepage/themes/theme-order); a kind is one group already. */
               const group = kind.id === "all" ? themeGroupOf(template.id) : null
               const starts = group && (i === 0 || themeGroupOf(list[i - 1].id) !== group)
+              /* The offer sits after the last card of the picked theme's group, so no card beside it moves. */
+              const offerHere = offer !== null && offerShown && themeGroupOf(offer) === themeGroupOf(template.id) && (i === list.length - 1 || themeGroupOf(list[i + 1].id) !== themeGroupOf(template.id)) && list.some((t) => t.id === offer)
               return (
                 <ReactModule.Fragment key={template.id}>
                   {starts ? <h3 data-theme-group={group} className="col-span-full pt-4 text-[13px] font-semibold text-[#1a1a2e] first:pt-0">{THEME_GROUP_LABELS[group]()}</h3> : null}
                   <ThemeCard template={template} selected={theme.template_id === template.id} shown={kind.id === filter} copy={kind.id !== "all"} onPick={onPick} />
+                  {offerHere ? <ThemeBlocksOffer name={themeLabel(THEME_TEMPLATES.find((t) => t.id === offer)!)} onAdd={addOffered} onSkip={() => setOffer(null)} /> : null}
                 </ReactModule.Fragment>
               )
             })}

@@ -1016,6 +1016,8 @@ const SUITES = [
   "tests/onepage-at1.test.ts",
   /* The two dark Clean themes, Velvet and Basalt (components/onepage/themes/dark-clean-themes): their place at the end of Clean, every colour pair at 4.5:1 in every button style and under the pointer, a structure of their own, faces the page loads, names in six languages; scripts/check-onepage-dark-themes.mjs measures a whole page of each on pixels at 390 and 1280. */
   "tests/onepage-dark-themes.test.ts",
+  /* Round 65: Northpaper, a Notion template seller's one page after the Northpaper website template (components/onepage/themes/northpaper-theme): its colours from the website's settings at AA, the blocks it comes with and when they are laid on (lib/onepage/theme-blocks), the Design tab's offer, the onboarding, six languages; scripts/check-onepage-northpaper.mjs measures it at 360, 390, 768 and 1280. */
+  "tests/onepage-notion-r65.test.ts",
   /* The theme swatch round: a theme card is a swatch (its wallpaper, "Aa" in its title face, its button), with no account and no hover that moves it, and nineteen themes whose wallpapers are painted in CSS (components/onepage/themes/theme-swatch, mood-themes). */
   "tests/onepage-swatch-themes.test.ts",
   "tests/onepage-themes-w8.test.ts",

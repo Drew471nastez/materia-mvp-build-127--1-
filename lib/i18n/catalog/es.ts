@@ -13816,7 +13816,22 @@ const words: Record<string, string> = {
  "Noted. We'll email you when payouts open in {country}.": "Anotado. Te escribiremos cuando los pagos se abran en {country}.",
  "That could not be saved just now. Try again, or write to support@storelib.com.": "No se pudo guardar ahora mismo. Inténtalo de nuevo o escribe a support@storelib.com.",
  "We'll let you know": "Te avisaremos",
- "Tell me when it opens": "Avísame cuando se abra"
+ "Tell me when it opens": "Avísame cuando se abra",
+ "theme::Northpaper": "Northpaper",
+ "Free Notion template": "Plantilla de Notion gratis",
+ "A weekly planner for Notion. Leave your email and the link comes to you.": "Un planificador semanal para Notion. Deja tu email y te llega el enlace.",
+ "Send it": "Envíamela",
+ "Sent. The link is in your inbox.": "Enviado. El enlace está en tu bandeja de entrada.",
+ "My Notion Marketplace profile": "Mi perfil en Notion Marketplace",
+ "Video walkthroughs": "Vídeos paso a paso",
+ "How do I get the template?": "¿Cómo recibo la plantilla?",
+ "A link comes by email right after you pay. Open it and press Duplicate to copy the template into your own Notion.": "Justo después de pagar te llega un enlace por email. Ábrelo y pulsa Duplicar para copiar la plantilla en tu propio Notion.",
+ "Does it work on Notion's free plan?": "¿Funciona con el plan gratuito de Notion?",
+ "Yes. Every template works on the free plan, on a computer and on a phone.": "Sí. Todas las plantillas funcionan con el plan gratuito, en el ordenador y en el móvil.",
+ "Can I change it once it is mine?": "¿Puedo cambiarla cuando ya sea mía?",
+ "Yes. It is your own copy, so rename, move or delete anything in it.": "Sí. Es tu propia copia, así que cambia el nombre, mueve o borra lo que quieras.",
+ "{name} comes with blocks for selling Notion templates. Add them under yours?": "{name} trae bloques para vender plantillas de Notion. ¿Añadirlos debajo de los tuyos?",
+ "Add blocks": "Añadir bloques"
 }
 
 export default words

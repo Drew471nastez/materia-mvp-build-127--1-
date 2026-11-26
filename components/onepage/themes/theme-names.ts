@@ -94,6 +94,8 @@ const NAMES: Record<string, () => string> = {
   shore: () => ttx("theme", "Shore"),
   /* The two dark Clean themes (components/onepage/themes/dark-clean-themes). */
   velvet: () => ttx("theme", "Velvet"),
+  /* Round 65: a Notion template seller's page (components/onepage/themes/northpaper-theme), a proper name. */
+  northpaper: () => ttx("theme", "Northpaper"),
   basalt: () => ttx("theme", "Basalt"),
 }
 
