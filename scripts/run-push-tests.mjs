@@ -488,6 +488,11 @@ const SUITES = [
   "tests/site-checkout-physical.test.ts",
   /* Round cart-1023: an imported theme's discount box, Estimate shipping and order note, priced by the website checkout; scripts/check-compat-cart-drawer.ts presses them in a browser. */
   "tests/compat-cart-discount.test.ts",
+  /* Round 28: the cart drawer inside the builder canvas, motion tokens, quick view and wishlist, and previews framed from the site's own origin. */
+  "tests/compat-cart-canvas.test.ts",
+  "tests/theme-motion-r27.test.ts",
+  "tests/theme-quickview-wishlist-r28.test.ts",
+  "tests/theme-preview-framing-r28.test.ts",
   "tests/owned-checkout.test.ts",
   "tests/membership-duplicates.test.ts",
   "tests/checkout-safety.test.ts",
