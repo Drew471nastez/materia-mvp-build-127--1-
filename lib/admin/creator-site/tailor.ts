@@ -227,7 +227,7 @@ export function socialHandle(url: string): string {
  */
 export function aboutPage(c: CreatorSiteContent): Json {
   const sections: [string, Json][] = []
-  const name = c.name || "About"
+  const name = escapeHtml(c.name || "About")
   const bio = c.bio ? paragraphs(c.bio) : ""
 
   if (c.avatar) {
@@ -295,7 +295,7 @@ export function aboutPage(c: CreatorSiteContent): Json {
           padding_top: 40,
           padding_bottom: 72,
         },
-        ...blocks(c.productsHeading ? [["heading", "heading", { text: c.productsHeading }]] : []),
+        ...blocks(c.productsHeading ? [["heading", "heading", { text: escapeHtml(c.productsHeading) }]] : []),
       },
     ])
   }

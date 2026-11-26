@@ -557,6 +557,7 @@ const SUITES = [
   /* Round 63: Build website for a creator from Storelib Default (app/api/admin/creators/site): admin only, a new draft beside their live site, the library limit, only their own content, none of the template's sample words. */
   "tests/creator-site-builder-r63.test.ts",
   "tests/cover-trim-hosts-r64.test.ts",
+  "tests/creator-about-r66.test.ts",
   "tests/product-ratio-r65.test.ts",
   /* Round 66: product cards and product pages, universal (lib/storelib-theme/compat/shop-calm.ts): cards capped at 400px, the product picture fits the window, nothing moves on hover, hearts only with the header's wishlist icon, a logo at its own shape. */
   "tests/cards-universal-r66.test.ts",
