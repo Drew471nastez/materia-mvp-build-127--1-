@@ -79,6 +79,12 @@ check("content is read on hover and copied on click", /static parsed\(url, text\
 check("its script runs once the content is in the dialog", /this\.openDialog\(this\.html\);\s*\}\s*\/\/ The content's script runs once the content is in the dialog\.\s*this\.loadScripts\(this\.html\);/.test(theme))
 check("focus goes to the dialog box at once (no ring on a pill nobody chose, no extra frame)", /box\.focus\(\{ preventScroll: true \}\)/.test(theme) && !/requestAnimationFrame\(\(\) => \{\s*const start = dialog\.querySelector\('\.qv__value/.test(theme))
 check("the phone sheet rises in 280ms", /set\(0, 280, OPEN_EASE\)/.test(theme))
+const nav = read("assets/navigation.css")
+check("the phone menu slides on the shared timing (--mt-panel-in / --mt-panel-out)", /\.nav-open \.navigation\.mobile \{\s*transition: transform var\(--mt-panel-in/.test(nav) && /transition: transform var\(--mt-panel-out/.test(nav))
+const stickyCtl = read("snippets/header-sticky-controller.liquid")
+check("a scroll lock class on <html> no longer makes the header measure itself in the frame the panel starts", /attributeOldValue: true/.test(stickyCtl) && /lockTimer = setTimeout\(schedule, SHOW_MS \+ 60\)/.test(stickyCtl))
+check("the phone menu does not ask for a computed style in its click", !/getComputedStyle\(root\)\.direction === 'rtl' \? 'translateX/.test(read("assets/header-sticky-extras.js")))
+check("the filter drawer's lock is set in beforetoggle, with the drawer", /newState === 'open'[^\n]*data-facets-panel[\s\S]{0,200}classList\.add\('facets-locked'\)/.test(read("assets/collection.js")))
 check("the scrollbar width is measured once, not in every opening frame", /var known = null;/.test(utils) && /if \(known === null\) known = measure\(\);/.test(utils))
 /* A `*` under a [class*=…] test: Chrome then restyles everything below any element whose class changes, so a class on <html> (every drawer's scroll lock) restyled the whole page in the frame its panel was to move. */
 const UNIVERSAL_UNDER_CLASS_TEST = /\[class[*^$|~]?=[^\]]*\]\)?[^\s,{()]*\s+\*/
@@ -87,6 +93,14 @@ const offenders = readdirSync(join(BASE, "assets")).filter((f) => f.endsWith(".c
   return [...css.matchAll(/([^{}]+)\{/g)].map((m) => m[1].trim()).filter((sel) => UNIVERSAL_UNDER_CLASS_TEST.test(sel)).map((sel) => `${f}: ${sel.slice(0, 120)}`)
 })
 check("no theme stylesheet puts a * under a [class*=] test", offenders.length === 0, offenders)
+/* The same in the <style> of sections, snippets and blocks (xpshop-desktop's `:not([class*="xpshop-"]) > *` cost every class change 15ms). */
+const UNDER_NOT = /:not\([^()]*\[class[*^$|~]?=[^\]]*\][^()]*\)[^{,]*\s>?\s*\*/
+const liquidOffenders = ["sections", "snippets", "blocks", "layout"].flatMap((d) => readdirSync(join(BASE, d)).filter((f) => f.endsWith(".liquid")).flatMap((f) => {
+  const text = readFileSync(join(BASE, d, f), "utf8").replace(/\/\*[\s\S]*?\*\//g, "")
+  return [...text.matchAll(/([^{}<>]{3,400})\{/g)].map((m) => m[1].trim()).filter((sel) => UNIVERSAL_UNDER_CLASS_TEST.test(sel) || UNDER_NOT.test(sel)).map((sel) => `${d}/${f}: ${sel.slice(0, 120)}`)
+}))
+check("  nor the <style> of any section, snippet or block", liquidOffenders.length === 0, liquidOffenders)
+check("  and the old xpshop rule would have been caught", UNDER_NOT.test('main#MainContent > .shopify-section:not([class*="xpshop-"]):not(.form-modal-section) > *'))
 const busy = readFileSync(join(ROOT, "lib", "storelib-theme", "compat", "busy-buttons.ts"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "")
 check("  nor the engine's busy Add to cart rule, which every live page carries (same icons matched)", !/:is\(\$\{SPINNER\}\) \*/.test(busy) && /:is\(\$\{SPINNER\}\) :is\(\$\{ICON\}\)/.test(busy))
 check("  each busy button is written out button by mark (Chrome then watches the mark, not every class change)", ADD_TO_CART_BUTTONS.every((b) => BUSY_MARKS.every((m) => BUSY_BUTTON_CSS.includes(`${b}${m} :is(svg,img,i,.icon)`))) && !/:is\([^)]*add-to-cart[^)]*\):is\(/.test(BUSY_BUTTON_CSS))
