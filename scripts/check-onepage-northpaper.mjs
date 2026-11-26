@@ -27,7 +27,7 @@ const root = process.cwd()
 /* Playwright is installed for the machine, not the repository: require finds it on NODE_PATH, an import does not. */
 const { chromium } = createRequire(import.meta.url)("playwright")
 const WIDTHS = (process.env.WIDTHS || "360,390,768,1280").split(",").map(Number)
-const MODES = (process.env.MODES || "default,creator").split(",")
+const MODES = (process.env.MODES || "default,creator").split(",").filter(Boolean)
 const SHOTS = process.env.SHOTS || join(root, ".northpaper-shots")
 mkdirSync(SHOTS, { recursive: true })
 
@@ -178,6 +178,65 @@ try {
       await ctx.close()
     }
     statics.close()
+  }
+
+  /*
+    The editor (scripts/render-onepage-editor.tsx): Design › Themes, Northpaper picked
+    on a page with blocks of the creator's own (the offer shows, and Add blocks puts
+    them under), and on a new page (its blocks laid on with the look, no offer).
+  */
+  const fresh = [
+    { id: "hdr", type: "header", enabled: true, sort_order: 0, data: { show_avatar: true, show_name: true, show_bio: true } },
+    { id: "soc", type: "social_row", enabled: true, sort_order: 1, data: { platforms: [], style: "icons" } },
+    { id: "l1", type: "link_button", enabled: true, sort_order: 2, data: { label: "My Link", url: "https://", icon: null, thumbnail_url: null } },
+    { id: "l2", type: "link_button", enabled: true, sort_order: 3, data: { label: "My Link", url: "https://", icon: null, thumbnail_url: null } },
+  ]
+  for (const [label, blocks] of [["own blocks", null], ["new page", fresh]]) {
+    console.log(`\nThe editor, ${label}`)
+    const editor = await serveEditorProbe({ blocks })
+    for (const w of [390, 1280]) {
+      const ctx = await browser.newContext({ viewport: { width: w, height: 900 }, deviceScaleFactor: 2, hasTouch: w < 640, isMobile: w < 640 })
+      const page = await ctx.newPage()
+      const errors = []
+      page.on("pageerror", (e) => errors.push(String(e)))
+      await page.goto(`${editor.base}/app/onepage#design`)
+      await page.waitForSelector('[data-nav-row="theme"]', { timeout: 20000 })
+      await page.locator('[data-nav-row="theme"]').first().click()
+      await page.waitForSelector("[data-theme-card=northpaper]", { state: "visible", timeout: 20000 })
+      await page.waitForTimeout(600)
+      const card = page.locator("[data-theme-card=northpaper]")
+      await card.scrollIntoViewIfNeeded()
+      await card.click()
+      await page.waitForTimeout(500)
+      const offer = page.locator("[data-theme-blocks-offer]:visible")
+      const shown = await offer.count()
+      const previewText = async () => {
+        let text = await page.evaluate(() => document.body.innerText)
+        for (const f of page.frames()) text += await f.evaluate(() => document.body?.innerText || "").catch(() => "")
+        return text
+      }
+      if (blocks === null) {
+        check(`${w}: the offer shows under Clean once Northpaper is picked`, shown === 1)
+        if (shown) {
+          await offer.scrollIntoViewIfNeeded()
+          const box = await offer.boundingBox()
+          await page.screenshot({ path: join(SHOTS, `northpaper-editor-offer-${w}.png`), clip: { x: 0, y: Math.max(0, box.y - 360), width: w, height: Math.min(900, box.height + 420) } })
+          const btns = await offer.locator("button").evaluateAll((bs) => bs.map((b) => Math.round(b.getBoundingClientRect().height)))
+          check(`${w}: its two buttons are 44px tall or more`, btns.length === 2 && btns.every((h) => h >= 44), btns)
+          await offer.getByRole("button", { name: "Add blocks" }).click()
+          await page.waitForTimeout(800)
+          check(`${w}: Add blocks puts them on the page and the offer goes`, (await page.locator("[data-theme-blocks-offer]:visible").count()) === 0 && /Free Notion template/.test(await previewText()))
+        }
+      } else {
+        check(`${w}: on a new page there is no offer`, shown === 0)
+        await page.waitForTimeout(600)
+        check(`${w}: the blocks came with the look`, /Free Notion template/.test(await previewText()) && /Questions/.test(await previewText()))
+        await page.screenshot({ path: join(SHOTS, `northpaper-editor-new-page-${w}.png`) })
+      }
+      check(`${w}: no script errors in the editor`, errors.length === 0, errors[0])
+      await ctx.close()
+    }
+    editor.server.close()
   }
 } finally {
   await browser.close()
