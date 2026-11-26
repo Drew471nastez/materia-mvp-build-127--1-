@@ -273,6 +273,11 @@ async function sweepTemplate(browser: Browser, name: string, bridge: string, hea
               const styled = Array.from(el.querySelectorAll<HTMLElement>("[style]")).slice(0, 3).map((x) => `${x.tagName.toLowerCase()}.${String(x.className).split(" ")[0]}{${x.getAttribute("style")!.slice(0, 80)}}`)
               return `minHeight=${el.style.minHeight || "-"} styled=${styled.join(",")}`
             }, s.id), 3000).catch(() => "?")
+            if (process.env.DUMP) {
+              const live = await within(frame.evaluate((id) => document.getElementById(`shopify-section-${id}`)?.outerHTML ?? "", s.id), 3000).catch(() => "")
+              writeFileSync(join(OUT, `stuck-${name}-${s.id}-${set.id}.live.html`), live)
+              writeFileSync(join(OUT, `stuck-${name}-${s.id}-${set.id}.drawn.html`), own)
+            }
             add("stuck", off.slice(0, 3).map(([id, b]) => `${id} ${b.h}/${b.hit} -> ${back.secs[id]?.h}/${back.secs[id]?.hit}`).join("; ") + `  [${why}]`)
             await tab.screenshot({ path: join(OUT, `stuck-${name}-${set.id}.png`) }).catch(() => {})
             frame = await open(); baseline = await measure(frame); own = sectionHtml(s)
