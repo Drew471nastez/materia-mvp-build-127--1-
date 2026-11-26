@@ -3,8 +3,7 @@ import { NextResponse } from "next/server"
 import { OWNER_KEEPS_SITE } from "@/lib/team/website-words"
 import { websiteInstallCaller } from "@/lib/team/website"
 import { ensurePolicyPages, type PagesTable } from "@/lib/website-builder/ensure-policy-pages"
-import { sanitizeInstallRow, sectionsOfInstallRow } from "@/lib/website-builder/sanitize-sections"
-import { customSchemaLookup } from "@/lib/website-builder/custom-schemas"
+import { sanitizeInstallRow } from "@/lib/website-builder/sanitize-sections"
 import { creatorFacts } from "@/lib/website-builder/storefront-data-server"
 import { dbFailure } from "@/lib/website-builder/write-retry"
 
@@ -131,6 +130,15 @@ export async function GET(_req: Request, { params }: Params) {
    * appearing on the next reload. A failure is logged and swallowed: not
    * having a refund policy is not a reason to refuse somebody their editor.
    */
+  /*
+    THE PAGES BY NAME, NOT BY CONTENT (round 65). This read every page's
+    sections and drafts (16 pages on a Materia template) and then every
+    section file those pages use, 4.6 MB of theme code on each open, only to
+    clean sections the editor never reads from this answer: it takes the
+    page keys here and each page's sections from the sections route, which
+    cleans them itself. On a busy database that read was what kept the
+    editor on "Still opening your website".
+  */
   const readInstall = () =>
     supabase!
       .from("store_theme_installs")
@@ -138,7 +146,7 @@ export async function GET(_req: Request, { params }: Params) {
       *,
       theme:themes(*),
       settings:store_theme_settings(*),
-      pages:store_theme_pages(*)
+      pages:store_theme_pages(id, page_key)
     `)
       .eq("id", installId)
       .single()
@@ -167,16 +175,8 @@ export async function GET(_req: Request, { params }: Params) {
     return dbFailure(fetchError, "Could not load this website. Try again.")
   }
 
-  /*
-    A section the creator wrote is cleaned by the schema its own file
-    declares (lib/website-builder/custom-schemas.ts), and the creator's
-    public profile comes along for the canvas to fill `{{ creator.name }}`
-    the way the live site will: the same four public facts, nothing else.
-  */
-  const [lookup, [{ data: profile }, { data: creatorData }, siteHandle, facts, communities, collections, forms, storeMenus]] = await Promise.all([
-    customSchemaLookup(supabase! as never, installId, sectionsOfInstallRow(data), { draft: true }),
-    besides,
-  ])
+  /* The creator's public profile comes along for the canvas to fill `{{ creator.name }}` the way the live site will: the same four public facts, nothing else. */
+  const [{ data: profile }, { data: creatorData }, siteHandle, facts, communities, collections, forms, storeMenus] = await besides
 
   // Username for URL display
   const username = profile?.username || creatorData?.slug || ""
@@ -185,10 +185,11 @@ export async function GET(_req: Request, { params }: Params) {
     Cleaned on the way out, like the sections endpoint beside it. The editor
     renders these settings with `dangerouslySetInnerHTML`, in a session that
     is signed in, so a row written by an import or by hand must not reach it
-    as written. See lib/website-builder/sanitize-sections.ts.
+    as written. See lib/website-builder/sanitize-sections.ts. The pages carry
+    no sections here (round 65), so only the settings have anything to clean.
   */
   /* storeOwner: for a team member, the account whose folder the editor's pictures go into (lib/website-builder/team-upload-owner); null for the owner. */
-  return NextResponse.json({ install: sanitizeInstallRow(data, lookup), username, siteHandle, creatorFacts: facts, communities, collections, forms, storeMenus, storeOwner: isOwner ? null : ownerUserId })
+  return NextResponse.json({ install: sanitizeInstallRow(data), username, siteHandle, creatorFacts: facts, communities, collections, forms, storeMenus, storeOwner: isOwner ? null : ownerUserId })
 }
 
 // PATCH /api/website-builder/themes/[installId]

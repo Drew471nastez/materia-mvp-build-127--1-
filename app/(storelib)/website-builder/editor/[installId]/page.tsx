@@ -228,6 +228,7 @@ import { cleanMenus } from "@/lib/storelib-theme/values"
 import { deadline, fetchWithin, hedged, reportLoadProblem, retrying, within } from "@/lib/website-builder/load-guard"
 import { PUBLISH_TIMES, runPublish } from "@/lib/website-builder/publish-run"
 import { LOAD_AUTO_RETRY_MS, explainLoadProblem, type LoadFailure } from "@/lib/website-builder/load-problem"
+import { compatHintKey, knownCompatInstall, rememberCompatInstall } from "@/lib/website-builder/compat-hint"
 import { CanvasProblem, CompatCanvasWaiting } from "@/components/website-builder/canvas-problem"
 import { usePreviewLanguage } from "@/components/website-builder/use-preview-language"
 import { usePreviewMarket } from "@/components/website-builder/use-preview-market"
@@ -2822,6 +2823,20 @@ function warmCompat(installId: string) {
   void loadCompatFiles(installId)
   void loadCompatCanvas().catch(() => {})
 }
+/*
+  THE EDITOR'S OWN READ FIRST, THE THEME'S FILES RIGHT AFTER (round 65). The
+  install and its page are a few hundred kilobytes; an imported theme's files
+  and sources are about 30 MB read from the same database (a Materia
+  template's 989 files). Asked for together, the small read waited behind the
+  large ones whenever the database was busy (a theme just added, a publish's
+  release and backup), and the editor sat on "Still opening your website".
+  Only the canvas's code, a script from the CDN, is asked for at once; the
+  files go out the moment the first read has answered, which is when the
+  canvas mounts and would ask anyway.
+*/
+function warmCompatCode() {
+  void loadCompatCanvas().catch(() => {})
+}
 
 /** The text of these theme files, for a push that changed a few of them. Null when none of them could be read. */
 /** The longest one read of the theme's files is waited on while a push lands. */
@@ -2949,6 +2964,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   const [canvasInspecting, setCanvasInspecting] = useState<boolean>(true)
   const [loading, setLoading] = useState(true)
+  /* The editor's first read has answered, either way: the theme's files are asked for from here (warmCompatCode). */
+  const [openSettled, setOpenSettled] = useState(false)
   /* The editor's first load ended without the website (a request that failed or never answered): said over the canvas, with Try again. */
   const [loadFailed, setLoadFailed] = useState(false)
   /* Round 50: how it failed (lib/website-builder/load-problem.ts), so the words are true and a passing failure is tried again by itself. */
@@ -3056,21 +3073,32 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       setStorelibSourcesRead(true)
     }
   }, [installId])
-  useEffect(() => { void loadStorelibSources() }, [loadStorelibSources])
   /*
-    AN IMPORTED THEME'S FILES, FROM THE FIRST FRAME, the second time. Which
-    installs are imported is remembered in this browser (a convenience only:
-    a wrong or missing answer just means the files are asked for when the
-    install says so, in loadData), so reopening one asks for its files beside
-    everything else instead of a round trip later.
+    AN IMPORTED THEME, KNOWN FROM THE FIRST FRAME. Which installs are imported
+    is remembered in this browser, from the marketplace's add as well as from
+    an earlier open (lib/website-builder/compat-hint.ts; a convenience only:
+    a wrong or missing answer just means the install says so, in loadData).
+    Its canvas code is asked for at once; its sources and files, about 30 MB
+    of the database's reading, the moment the editor's first read has
+    answered (round 65, warmCompatCode above). Any other theme's sources are
+    a few small files and are asked for at once, as before.
   */
+  const sourcesAsked = useRef(false)
   useEffect(() => {
-    try {
-      if (window.localStorage.getItem(`wb-compat:${installId}`) === "1") warmCompat(installId)
-    } catch {
-      /* no storage: the files are asked for once the install is in */
+    if (knownCompatInstall(installId)) {
+      warmCompatCode()
+      return
     }
-  }, [installId])
+    sourcesAsked.current = true
+    void loadStorelibSources()
+  }, [installId, loadStorelibSources])
+  useEffect(() => {
+    if (!openSettled) return
+    if (importedTheme.current || knownCompatInstall(installId)) warmCompat(installId)
+    if (sourcesAsked.current) return
+    sourcesAsked.current = true
+    void loadStorelibSources()
+  }, [openSettled, installId, loadStorelibSources])
 
   /**
    * THE LIBRARY THIS INSTALL CAN ADD FROM: the theme's ten categories, plus
@@ -4842,11 +4870,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const loadedSettings = settings?.draft_settings ?? settings?.settings ?? {}
     if (compatOf(loadedSettings)) {
       importedTheme.current = true
-      /* An imported theme's own files and its canvas's code are the next wait: asked for now, beside the sections, not once the canvas mounts. */
-      warmCompat(installId)
-      try { window.localStorage.setItem(`wb-compat:${installId}`, "1") } catch { /* see the prefetch above */ }
+      /* An imported theme's canvas code is asked for now; its files once this read has answered (round 65, warmCompatCode). */
+      warmCompatCode()
+      rememberCompatInstall(installId)
     } else {
-      try { window.localStorage.removeItem(`wb-compat:${installId}`) } catch { /* see the prefetch above */ }
+      try { window.localStorage.removeItem(compatHintKey(installId)) } catch { /* see the prefetch above */ }
     }
     /* Every theme shows the store's menus. Until the store has any, the live theme's are offered, or this theme's own when nothing is live yet. */
     const offered = data.storeMenus as { available?: boolean; stored?: boolean; menus?: unknown } | undefined
@@ -4971,7 +4999,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       if (alongside) startTransition(alongside)
       return false
     } finally {
-      if (!stale()) setLoading(false)
+      if (!stale()) {
+        setLoading(false)
+        if (!quiet) setOpenSettled(true)
+      }
     }
   }, [installId, currentPage, fetchPageSections, fetchHomeHeaderFooter])
 
