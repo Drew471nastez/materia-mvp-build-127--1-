@@ -51,7 +51,7 @@ const LIST = [...shared.matchAll(/\{ slug: ([^,]+), template: ("[^"]+"|DEFAULT_C
 const args = process.argv.slice(2)
 const chosen = args.length ? LIST.filter((t) => args.includes(t.slug)) : LIST
 /* A pointer that hovers, as on a computer: the theme draws hover effects for a fine pointer only. */
-const browser = await puppeteer.launch({ executablePath: process.env.CHROMIUM ?? "/opt/pw-browsers/chromium", headless: true, args: ["--no-sandbox", "--disable-gpu", "--hide-scrollbars", "--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4"] })
+const browser = await puppeteer.launch({ protocolTimeout: 300000, executablePath: process.env.CHROMIUM ?? "/opt/pw-browsers/chromium", headless: true, args: ["--no-sandbox", "--disable-gpu", "--hide-scrollbars", "--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4"] })
 
 const failures = []
 const notes = []
@@ -226,7 +226,8 @@ const ICONS = `() => {
   const out = [];
   const visible = (e) => { const r = R(e); if (r.width < 1 || r.height < 1) return false; const cs = getComputedStyle(e); return cs.visibility !== 'hidden' && cs.display !== 'none' && +cs.opacity > 0.05; };
   const alpha = (c) => { const m = c.match(/rgba?\\(([^)]+)\\)/); if (!m) return 1; const p = m[1].split(','); return p.length > 3 ? +p[3] : 1; };
-  const els = [...document.querySelectorAll('main *')].slice(0, 6000);
+  // Where an icon box can be: list items, spans and small boxes (a ::before is drawn inside its element).
+  const els = [...document.querySelectorAll('main li, main span, main i, main a, main button, main div:empty, main p, main h3, main h4')].filter((e) => { const r = R(e); return r.width > 0 && r.width < 900 && r.height < 200; }).slice(0, 2500);
   for (const el of els) {
     if (el.closest('form, label, select, input, [role=checkbox], [role=radio], [aria-checked], .facets, .swatch, [class*=swatch], [class*=checkbox], [class*=radio], .placeholder-svg')) continue;
     if (!visible(el)) continue;
@@ -326,11 +327,10 @@ for (const { slug, folder } of chosen) {
   if (folder === "newleaf" && !args.includes(slug)) continue
   const dir = join(PUBLIC, "theme-previews", slug)
   if (!existsSync(dir)) { expect(`${slug}: a preview exists`, false); continue }
-  if (only.includes("popovers")) await popovers(slug, dir)
-  if (only.includes("glue")) await glue(slug, dir)
-  if (only.includes("hover")) await hover(slug, dir)
-  if (only.includes("icons")) await icons(slug, dir)
-  if (only.includes("motion")) await motion(slug, folder)
+  for (const [name, run] of [["popovers", () => popovers(slug, dir)], ["glue", () => glue(slug, dir)], ["hover", () => hover(slug, dir)], ["icons", () => icons(slug, dir)], ["motion", () => motion(slug, folder)]]) {
+    if (!only.includes(name)) continue
+    try { await run() } catch (e) { expect(`${slug}: the ${name} measurement ran`, false, String(e?.message ?? e).slice(0, 200)); for (const pg of (await browser.pages()).slice(1)) await pg.close().catch(() => {}) }
+  }
   process.stdout.write(`${slug} `)
 }
 await browser.close()

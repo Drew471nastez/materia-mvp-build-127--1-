@@ -25,7 +25,7 @@ export const TEMPLATE_PREVIEW_GROUNDS: Readonly<Record<string, { desktop: string
   "online-course": { desktop: "#fefefe", phone: "#fefefe" },
   "course-landing": { desktop: "#fefefe", phone: "#fefefe" },
   "retro-merch": { desktop: "#c3c2c2", phone: "#c2c2c2" },
-  "author-book": { desktop: "#18212e", phone: "#141d2b" },
+  "author-book": { desktop: "#1a1816", phone: "#1a1816" },
   "content-creator": { desktop: "#fefefe", phone: "#fefefe" },
   "coach-creator": { desktop: "#fefefe", phone: "#fefefe" },
   "personal-trainer": { desktop: "#0b0b0b", phone: "#0c0c0c" },
