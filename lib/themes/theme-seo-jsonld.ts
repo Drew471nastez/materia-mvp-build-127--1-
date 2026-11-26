@@ -49,13 +49,22 @@ function offer(listing: ThemeListing, url: string) {
 export function themeJsonLd(listing: ThemeListing, copy: ThemePageCopy) {
   const url = absoluteUrl(listingPath(listing.slug))
   const img = themeImages(listing)
-  const images = [img.og, img.hero, img.phone].filter((x): x is NonNullable<typeof x> => !!x).map((x, i) => ({
-    "@type": "ImageObject",
-    url: absoluteUrl(x.src),
-    width: x.width,
-    height: x.height,
-    caption: themeAlt(listing, i === 2 ? "phone" : i === 0 ? "og" : "hero", copy.h1),
-  }))
+  /* Round 30: each picture says what it shows (the alt text the page gives it) and who made it; the file is the same address. */
+  const views = [["og", img.og], ["hero", img.hero], ["phone", img.phone]] as const
+  const images = views.flatMap(([view, x]) =>
+    x
+      ? [{
+          "@type": "ImageObject",
+          url: absoluteUrl(x.src),
+          contentUrl: absoluteUrl(x.src),
+          width: x.width,
+          height: x.height,
+          caption: themeAlt(listing, view, copy.h1),
+          creditText: "Storelib",
+          creator: ORG,
+        }]
+      : [],
+  )
   const o = offer(listing, url)
   const trail = [{ name: "Themes", path: MARKETPLACE_PATH }, ...(copy.primaryCategory ? [{ name: copy.primaryCategory.name, path: themeCategoryPath(copy.primaryCategory.slug) }] : []), { name: listing.name, path: listingPath(listing.slug) }]
   return {

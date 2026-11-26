@@ -20,6 +20,9 @@ import { ReleasesPanel, type AdminRelease } from "./releases-admin"
  * checks it before the theme points at it (app/api/admin/themes/package).
  * Every save shows on the library and the marketplace at once.
  *
+ * DOWNLOAD COVERS (round 30): every template's covers and SEO pictures as
+ * PNG in one zip, for Pinterest (app/api/admin/themes/covers).
+ *
  * RELEASES (./releases-admin.tsx). Under a theme, its versions and a new
  * one; the Shared base row at the top is the theme every template is made
  * from. Publishing one tells each creator with that theme that an update is
@@ -256,6 +259,16 @@ export function ThemesAdmin() {
           <div className="flex items-center gap-2">
             <a href="/themes" target="_blank" rel="noreferrer" className="inline-flex h-8 items-center rounded-[7px] px-3 text-[13px] text-[#9b9ba6] hover:bg-white/[0.05] hover:text-[#ededf0]">
               Open marketplace
+            </a>
+            {/* Round 30: every template's desktop and phone covers and SEO pictures as PNG, one zip made as it downloads (app/api/admin/themes/covers, admin cookie only). */}
+            <a
+              href="/api/admin/themes/covers"
+              download
+              data-admin-covers-download=""
+              title={`Desktop and phone covers and the SEO pictures of all ${CODE_TEMPLATES.length} templates, as PNG`}
+              className="inline-flex h-8 shrink-0 items-center rounded-[7px] border border-white/[0.1] bg-[#17171d] px-3 text-[13px] font-medium text-[#ededf0] outline-none transition-colors hover:bg-[#1d1d24] focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/70"
+            >
+              Download covers
             </a>
             <Button
               variant="primary"

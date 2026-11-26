@@ -43,9 +43,9 @@
  *   • its bar: Back, the name, the desktop and phone switch, Add, close;
  *     the desktop picture drawn at the width it was taken at, crisp
  *   • the switch crossfades to the phone picture at 390px
- *   • Escape and Back land on the grid with the focus on the cover; close
- *     closes the popup too, the address is the page's own and the focus is
- *     on what opened the marketplace
+ *   • Escape, Back and close land on the grid with the focus on the cover,
+ *     at the same scroll, from a card deep in the list too (round 30: close
+ *     no longer closes the marketplace under it)
  *   • on a phone: the whole screen, inside the safe areas, fading in and
  *     growing out of the card that was pressed (no slide from the side),
  *     and back into it; the system's back lands on the grid
@@ -902,14 +902,43 @@ try {
     expect(addingTop === "adding:Adding" && addedTop === "in-library:In library" && cardNow === "in-library", "Add in the preview: Adding, then In library, and the card under it agrees", `${addingTop} -> ${addedTop}, card ${cardNow}`)
     await shot(p, "preview-1440-added")
 
-    /* Close: the preview and the popup, the focus on what opened the marketplace. */
+    /*
+      Close (round 30, the owner: "pressing X must close only the preview and
+      return the visitor exactly where they were"): the preview alone, the
+      marketplace still open on the same scroll, the focus on the cover.
+    */
     await p.click("[data-preview-close]")
     await sleep(1100)
     const gone = { preview: await preview(p), popup: await popup(p), search: await p.evaluate(() => location.search), len: await p.evaluate(() => history.length) }
-    expect(gone.preview === null && gone.popup === null && gone.search === "", "close closes the preview and the popup, and the address is the page's own", JSON.stringify({ ...gone, preview: !!gone.preview, popup: !!gone.popup }))
-    expect(await p.evaluate((s) => document.activeElement === document.querySelector(s), openButton), "the focus is on Theme marketplace, which opened the popup")
+    expect(gone.preview === null && gone.popup?.state === "open" && gone.search === "?themes=1", "close closes the preview only: the marketplace is still open and the address is its own", JSON.stringify({ ...gone, preview: !!gone.preview, popup: gone.popup?.state ?? null }))
+    expect(await p.evaluate((s) => document.activeElement === document.querySelector(s), cover), "the focus is back on the cover that opened it")
+    expect(same(grid0, await gridRect(p)), "the grid is where it was")
     const after = await pageRects(p)
-    expect(after.scrollerWidth === page0.scrollerWidth && after.bodyPadding === page0.bodyPadding && after.docWidth === page0.docWidth, "the page's width never changed under it", `${page0.scrollerWidth} -> ${after.scrollerWidth}`)
+    expect(after.scrollerWidth === page0.scrollerWidth && after.bodyPadding === page0.bodyPadding && after.docWidth === page0.docWidth && after.scrollTop === page0.scrollTop, "the page under it never moved or changed width", `${page0.scrollerWidth} -> ${after.scrollerWidth}, scroll ${page0.scrollTop} -> ${after.scrollTop}`)
+
+    /* Deep in the list: a card far down, the preview browsed inside, then close lands on the same card at the same scroll. */
+    const deep = await p.evaluate(() => {
+      const cards = [...document.querySelectorAll("[data-themes-grid] > [data-template-card]:not([hidden])")]
+      const c = cards[cards.length - 2]
+      c.querySelector("[data-template-preview]").scrollIntoView({ block: "center" })
+      return c.getAttribute("data-template-card")
+    })
+    await sleep(150)
+    const deepCover = `[data-themes-grid] [data-template-card='${deep}'] [data-template-preview]`
+    const deep0 = await gridRect(p)
+    await p.click(deepCover)
+    await sleep(500)
+    await p.click("[data-preview-close]")
+    await sleep(700)
+    const deepGone = { preview: await preview(p), popup: (await popup(p))?.state ?? null, search: await p.evaluate(() => location.search) }
+    const deep1 = await gridRect(p)
+    expect(deep0[4] > 400 && same(deep0, deep1) && deepGone.preview === null && deepGone.popup === "open" && deepGone.search === "?themes=1", "from a card deep in the list, close lands on the same scroll", `${deep}: scroll ${deep0[4]} -> ${deep1[4]}, ${JSON.stringify(deepGone)}`)
+    expect(await p.evaluate((s) => document.activeElement === document.querySelector(s), deepCover), "with the focus on that card")
+    await shot(p, "preview-1440-closed-deep")
+    /* And the marketplace's own close is still the way out. */
+    await p.click("[data-themes-close]")
+    await sleep(700)
+    expect((await popup(p)) === null && (await p.evaluate(() => location.search)) === "", "then the marketplace's close closes it, on the page's own address")
 
     /* From the page's own grid: the preview over the page, Back to the page. */
     await p.$eval("[data-theme-grid] [data-template-preview]", (b) => b.scrollIntoView({ block: "center" }))
@@ -921,6 +950,11 @@ try {
     await p.keyboard.press("Escape")
     await sleep(450)
     expect(!!overPage && (await popup(p)) === null && (await preview(p)) === null && same(pageOwn, await pageRects(p)) && (await p.evaluate(() => document.activeElement?.hasAttribute("data-template-preview"))), "a cover on the page previews over the page, and Escape gives the cover the focus back")
+    await p.click("[data-theme-grid] [data-template-preview]")
+    await sleep(450)
+    await p.click("[data-preview-close]")
+    await sleep(700)
+    expect((await popup(p)) === null && (await preview(p)) === null && same(pageOwn, await pageRects(p)) && (await p.evaluate(() => location.search)) === "", "and its close lands on the page where it was", JSON.stringify((await pageRects(p)).scrollTop))
     await p.close()
   }
 
@@ -959,6 +993,13 @@ try {
     await p.evaluate(() => document.querySelector("[data-preview-layer='phone']").scrollTo(0, 1600))
     await sleep(120)
     await shot(p, "preview-390-scrolled")
+
+    /* Close on a phone (round 30): the preview alone, the sheet still up on the same scroll. */
+    await p.tap("[data-preview-close]")
+    await sleep(600)
+    expect((await preview(p)) === null && (await popup(p))?.state === "open" && (await p.evaluate(() => location.search)) === "?themes=1" && same(grid0, await gridRect(p)), "close on a phone closes the preview only, the marketplace on the same scroll", JSON.stringify(await gridRect(p)))
+    await p.tap(cover)
+    await sleep(450)
 
     await p.goBack({ waitUntil: "domcontentloaded" }).catch(() => null)
     await sleep(60)

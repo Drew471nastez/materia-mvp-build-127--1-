@@ -57,8 +57,10 @@
  * back into it the same way. (It used to slide in from the right, which on
  * a phone reads as going somewhere, and it was a preview of where you are.)
  * The Website page pushes a history entry when it opens (website-builder-
- * client.tsx), so the system's back and Back both land on the grid under
- * it; the close button goes back over the marketplace's entry too.
+ * client.tsx), so the system's back, Back and the close button all land on
+ * the grid under it, at the scroll it was left at (round 30, the owner: "X
+ * must close only the preview and return the visitor exactly where they
+ * were"; it used to close the marketplace too).
  *
  * MOTION IS TRANSFORM AND OPACITY ONLY, 200 to 280ms, on the compositor;
  * with reduced motion there is none. The focus goes into the window, stays
@@ -74,6 +76,7 @@ import { tt } from "@/lib/i18n/text"
 import { TemplateAction, type TemplateCardState } from "@/components/website-builder/theme-template-card"
 import { CODE_TEMPLATES, CODE_THEME_PACKAGE, templatePreviewFrame, templatePreviewPath, type ThemeListing } from "@/lib/themes/marketplace-shared"
 import { TEMPLATE_PREVIEW_GROUNDS } from "@/lib/themes/template-preview-grounds"
+import { themeImagePathOf } from "@/lib/themes/theme-image-names"
 
 /** In the address while a preview is open: &preview=slug, one history entry over the grid or the page. */
 export const PREVIEW_PARAM = "preview"
@@ -140,7 +143,7 @@ export function previewShots(l: Pick<ThemeListing, "cover" | "screenshots">): { 
  */
 export function blurPictureOf(l: Pick<ThemeListing, "codePackage" | "cover" | "screenshots">, device: PreviewDevice): string | null {
   const t = l.codePackage ? CODE_TEMPLATES.find((c) => `${CODE_THEME_PACKAGE}/${c.template}` === l.codePackage) : null
-  if (t) return `/themes/${CODE_THEME_PACKAGE}/seo/${t.template}-${device === "phone" ? "phone" : "card-480"}.webp`
+  if (t) return themeImagePathOf(t.slug, device === "phone" ? "phone" : "card-480")
   const shots = previewShots(l)
   return device === "phone" ? (shots.phone ?? shots.desktop) : shots.desktop
 }
@@ -182,7 +185,7 @@ export interface ThemePreviewProps {
   onAdd: (listing: ThemeListing) => void
   /** Back, Escape, the system's back and a press on the dim: to the grid under it. */
   onBack: () => void
-  /** The close button: the preview and the marketplace under it. */
+  /** The close button: the preview only, back to where it was opened from (round 30; it used to close the marketplace under it too). */
   onClose: () => void
   /** What takes the focus back when it closes: the cover that opened it. */
   returnFocus?: () => HTMLElement | null

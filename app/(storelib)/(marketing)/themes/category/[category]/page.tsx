@@ -5,9 +5,9 @@ import { pageMetadata } from "@/lib/seo/page-metadata"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import { publishedListings } from "@/lib/themes/marketplace-server"
 import { MARKETPLACE_PATH, builtinListings } from "@/lib/themes/marketplace-shared"
-import { THEME_SEO_CATEGORIES, listingsInCategory, marketplaceCard, marketplaceCategoryCopy, seoCategory, themeCategoryPath, themeImages, themeAlt } from "@/lib/themes/theme-seo"
+import { NEIGHBOUR_CATEGORIES, THEME_SEO_CATEGORIES, listingsInCategory, marketplaceCard, marketplaceCategoryCopy, seoCategory, themeCategoryPath, themeImages, themeAlt } from "@/lib/themes/theme-seo"
 import { categoryJsonLd } from "@/lib/themes/theme-seo-jsonld"
-import { CategorySummary, FaqList, MARKET_CONTAINER, MarketplaceHeading } from "@/components/themes/marketplace-shell"
+import { CategoryLinks, CategorySummary, FaqList, MARKET_CONTAINER, MarketplaceHeading } from "@/components/themes/marketplace-shell"
 import { ThemesMarketplace } from "../../themes-marketplace"
 
 /**
@@ -58,6 +58,8 @@ export default async function CategoryPage({ params }: { params: Promise<{ categ
         <div className="mt-20 space-y-10 border-t border-[#eceef1] pt-12">
           <CategorySummary text={cat.intro} />
           <FaqList faqs={cat.faqs} />
+          {/* Round 30: every other kind of template, its neighbours first (NEIGHBOUR_CATEGORIES), each by the words it is searched for. */}
+          <CategoryLinks categories={[...(NEIGHBOUR_CATEGORIES[cat.slug] ?? []), ...THEME_SEO_CATEGORIES.map((c) => c.slug)].filter((s, i, a) => a.indexOf(s) === i && s !== cat.slug).map((s) => marketplaceCategoryCopy(seoCategory(s)!))} current={cat.slug} />
         </div>
       </div>
     </div>

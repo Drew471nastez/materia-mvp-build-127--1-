@@ -37,6 +37,7 @@ import sharp from "sharp"
 
 import { CODE_TEMPLATES, CODE_THEME_PACKAGE } from "../lib/themes/marketplace-shared"
 import { importTemplate, serve, siteFor } from "./theme-templates/site"
+import { BACKDROP_SHARE, COVER_CSS, releaseForPhotograph } from "./theme-templates/cover-prep"
 import { SAMPLE_SHOPS } from "./theme-templates/shops"
 
 const CHROMIUM = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium"
@@ -56,17 +57,12 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
  * of, or it would be in every one.
  */
 async function wholePage(p: import("puppeteer-core").Page, width: number, height: number, scale: number): Promise<Buffer> {
-  /* Let go of before the first screen: what sticks while scrolling keeps its place in the page, and what floats over it (back to top, the phone tab bar) is left out. The header stays for the first screen. */
-  const release = (headerToo: boolean) =>
-    p.evaluate((all) => {
-      for (const el of document.querySelectorAll<HTMLElement>("body *")) {
-        const pos = getComputedStyle(el).position
-        const inHeader = !!el.closest(".shopify-section-group-header-group, header")
-        if (pos === "sticky") el.style.setProperty("position", "static", "important")
-        else if (pos === "fixed" && el.offsetHeight > 0 && el.offsetHeight < innerHeight * 0.5 && (all || !inHeader)) el.style.setProperty("display", "none", "important")
-      }
-    }, headerToo)
-  await release(false)
+  /*
+    Let go of before the first screen: what sticks while scrolling keeps its place in the page, and what floats over it (back to top, the phone tab bar) is left out. The header stays for the first screen.
+    A backdrop fixed to the screen (a wallpaper) is in the first screen only, or it is painted again in every one (round 30, XP shop): ./theme-templates/cover-prep.ts.
+  */
+  const release = (first: boolean) => p.evaluate(releaseForPhotograph, first, BACKDROP_SHARE)
+  await release(true)
   await sleep(300)
   const total = await p.evaluate(() => document.documentElement.scrollHeight)
   const tiles: { input: Buffer; top: number; left: number }[] = []
@@ -77,7 +73,7 @@ async function wholePage(p: import("puppeteer-core").Page, width: number, height
       return scrollY
     }, y)
     /* A header that pins itself only once the page has scrolled is let go of here, past the first screen. */
-    if (y > 0) { await release(true); await sleep(120) }
+    if (y > 0) { await release(false); await sleep(120) }
     const shot = Buffer.from((await p.screenshot({ type: "png" })) as Uint8Array)
     /* The last screen stops short of where it was asked to go: only its new part is kept. */
     const skip = Math.round((y - at) * scale)
@@ -121,7 +117,8 @@ async function main() {
             otherwise, and the cards then drew their add to cart bar and
             their second picture on every card.
           */
-          await p.addStyleTag({ content: ".product-item .product-grid .product-item__inner .pc-form--media { opacity: 0 !important; } .product-item .product__media.show_secondary.peek-secondary > .secondary-image { opacity: 0 !important; }" }).catch(() => undefined)
+          /* And at rest, without the card buttons a mouse only sees under the pointer (round 30, Fairweather), every background painted once (./theme-templates/cover-prep.ts). */
+          await p.addStyleTag({ content: COVER_CSS }).catch(() => undefined)
           /* Scrolled top to bottom once, so pictures loaded lazily and sections revealed on scroll are in the photograph. */
           await p.evaluate(async () => {
             const step = Math.round(innerHeight * 0.8)

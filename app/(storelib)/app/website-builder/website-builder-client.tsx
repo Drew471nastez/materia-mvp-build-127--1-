@@ -763,14 +763,6 @@ export function browseThemes<T extends { slug: string }>(listings: readonly T[],
   return [...first, ...listings.filter((l) => !first.includes(l))].slice(0, count)
 }
 
-/** The marketplace's and the preview's words out of the address, without a history entry. */
-function clearThemesAddress() {
-  const url = new URL(window.location.href)
-  if (![PREVIEW_PARAM, THEMES_PARAM, THEME_PARAM].some((k) => url.searchParams.has(k))) return
-  for (const k of [PREVIEW_PARAM, THEMES_PARAM, THEME_PARAM]) url.searchParams.delete(k)
-  window.history.replaceState({}, "", `${url.pathname}${url.search}`)
-}
-
 export function coverIsStale(i: Pick<WebsiteSummary, "snapshot_url" | "snapshot_updated_at" | "saved_at">): boolean {
   if (!i.snapshot_url || !i.snapshot_updated_at) return true
   return Date.parse(i.saved_at) > Date.parse(i.snapshot_updated_at) + 5000
@@ -994,10 +986,11 @@ export function WebsiteBuilderClient({
     A TEMPLATE'S PREVIEW IS ONE MORE ENTRY (./themes/theme-preview.tsx).
     Preview on a card pushes &preview=slug over whatever the address says,
     so the system's back, a phone's edge swipe included, lands on the grid
-    under it (or the page, from a card on the page). Back in its bar goes
-    back over that entry through the same watched back as the popup; its
-    close button goes back over the marketplace's entry as well, in one
-    traversal.
+    under it (or the page, from a card on the page). Back in its bar and
+    its close button both go back over that entry through the same watched
+    back as the popup (round 30: close used to go back over the
+    marketplace's entry as well, and the owner wants to land exactly where
+    they were).
   */
   /*
     Which template is previewed is kept outside this page's own state
@@ -1010,8 +1003,6 @@ export function WebsiteBuilderClient({
   const setPreviewSlug = previewStore.set
   const previewPushed = React.useRef(false)
   const previewOpener = React.useRef<HTMLElement | null>(null)
-  /** The close button's back over two entries is on its way: the entry it lands on is not read as Forward. */
-  const closingAll = React.useRef(false)
 
   const readThemesAddress = React.useCallback(() => {
     const p = new URLSearchParams(window.location.search)
@@ -1029,12 +1020,6 @@ export function WebsiteBuilderClient({
   /* Back and Forward. Going forward onto the popup's entry leaves this page's entry behind it, so closing goes back over it. */
   React.useEffect(() => {
     const onPop = () => {
-      if (closingAll.current) {
-        /* The close button went back over both; whatever is left of them in the address goes too, and nothing opens again. */
-        closingAll.current = false
-        clearThemesAddress()
-        return
-      }
       themesPushed.current = readThemesAddress()
       previewPushed.current = new URLSearchParams(window.location.search).has(PREVIEW_PARAM)
     }
@@ -1107,24 +1092,6 @@ export function WebsiteBuilderClient({
       return
     }
     clearPreviewAddress()
-  }
-  /** The preview's close button: the preview and the marketplace under it, back over both entries in one traversal. */
-  const closePreviewAndThemes = () => {
-    if (!themesOpen) return closePreview()
-    const browsed = framedSteps()
-    setPreviewSlug(null)
-    setThemesOpen(false)
-    const steps = browsed + (previewPushed.current ? 1 : 0) + (themesPushed.current ? 1 : 0)
-    previewPushed.current = false
-    themesPushed.current = false
-    /* The focus goes to what opened the marketplace, not to a card that is leaving with it. */
-    previewOpener.current = null
-    if (steps === 0) return clearThemesAddress()
-    closingAll.current = true
-    backThen(() => {
-      closingAll.current = false
-      clearThemesAddress()
-    }, undefined, steps)
   }
   /** The website being imported, added or copied: its row is drawn before it exists. See ./incoming. */
   const [incoming, setIncoming] = React.useState<Incoming | null>(null)
@@ -2570,7 +2537,8 @@ export function WebsiteBuilderClient({
         waiting={making}
         onAdd={(l) => void addListing(l)}
         onBack={closePreview}
-        onClose={closePreviewAndThemes}
+        /* Round 30, the owner: X closes the preview only, back onto the grid at the scroll it was left at (scripts/check-theme-preview-close.mjs). */
+        onClose={closePreview}
         returnFocus={() => (previewOpener.current?.isConnected ? previewOpener.current : null)}
       />
 

@@ -9,16 +9,22 @@
  * are whole home pages, up to fourteen thousand pixels tall and 330 KB. A
  * card on /themes shows the top of one at about 300 by 375, so each card
  * downloaded a whole page to show its first screen. This cuts, for each
- * template in CODE_TEMPLATES, into public/themes/materia/seo/:
+ * template in CODE_TEMPLATES, into public/themes/materia/seo/<slug>/, each
+ * file named <n>-<kind> where <n> is what the template is and what it is
+ * called (theme-seo.ts themeImageStem, round 30: a file name is a hint of
+ * what a picture shows):
  *
- *   <t>-card-480.webp, <t>-card-800.webp   the top of the page at 4:5
- *   <t>-scroll.webp                        the whole page at 640 wide (6400 tall at
+ *   <n>-card-480.webp, <n>-card-800.webp   the top of the page at 4:5
+ *   <n>-scroll.webp                        the whole page at 640 wide (6400 tall at
  *                                          most), the card's hover slides through it
- *   <t>-hero.webp                          the top at 1200 by 750, the gallery's first picture
- *   <t>-phone.webp                         the phone page's first screen, 390 by 844
- *   <t>-og.jpg                             the 1200 by 630 share card: the
+ *   <n>-hero.webp                          the top at 1200 by 750, the gallery's first picture
+ *   <n>-phone.webp                         the phone page's first screen, 390 by 844
+ *   <n>-og.jpg                             the 1200 by 630 share card: the
  *                                          template's H1 in Inter beside its
  *                                          home page, drawn in Chromium
+ *
+ * A template's folder is emptied first, so a new name leaves no old file;
+ * the flat <template>-<kind> files of before round 30 are removed too.
  *
  * The sizes are lib/themes/theme-seo.ts's, read from it, so the page's
  * width and height attributes and the files cannot disagree.
@@ -26,7 +32,7 @@
  * RUN IT AGAIN AFTER THE COVERS ARE REBUILT. A template whose cover changed
  * keeps its old card until this has run.
  */
-import { mkdirSync, readFileSync, writeFileSync, mkdtempSync, rmSync, statSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, writeFileSync, mkdtempSync, rmSync, statSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { pathToFileURL } from "node:url"
@@ -41,7 +47,7 @@ const CHROMIUM = process.env.CHROMIUM_PATH || "/opt/pw-browsers/chromium"
 /* lib/themes/theme-seo.ts and the template list, compiled, for the sizes and the words. */
 const bundle = join(tmp, "theme-seo.mjs")
 await build({
-  stdin: { contents: `export * from "./lib/themes/theme-seo"; export { CODE_TEMPLATES, CODE_THEME_PACKAGE } from "./lib/themes/marketplace-shared"`, resolveDir: root, loader: "ts" },
+  stdin: { contents: `export * from "./lib/themes/theme-seo"; export { themeImagePathOf } from "./lib/themes/theme-image-names"; export { CODE_TEMPLATES, CODE_THEME_PACKAGE } from "./lib/themes/marketplace-shared"`, resolveDir: root, loader: "ts" },
   bundle: true,
   format: "esm",
   platform: "node",
@@ -71,13 +77,26 @@ const page = await browser.newPage()
 await page.setViewport({ width: seo.OG_SIZE.w, height: seo.OG_SIZE.h, deviceScaleFactor: 1 })
 
 const report = []
+/* The stem each template's files are written under (lib/themes/theme-image-names.ts reads it), kept for the templates not named this run. */
+const stemsFile = join(root, "lib/themes/theme-image-stems.json")
+const written = {}
 for (const t of CODE_TEMPLATES) {
   if (only.length && !only.includes(t.template) && !only.includes(t.slug)) continue
   const desktop = join(coverDir, `${t.template}.webp`)
   const phone = join(coverDir, `${t.template}-phone.webp`)
   const meta = await sharp(desktop).metadata()
   const W = meta.width
-  const out = (name) => join(outDir, `${t.template}-${name}`)
+  /* The template's own folder, emptied, and the names of before round 30 gone. */
+  const dir = join(root, "public", seo.themeImageDir(t.slug))
+  rmSync(dir, { recursive: true, force: true })
+  mkdirSync(dir, { recursive: true })
+  for (const legacy of ["card-480.webp", "card-800.webp", "scroll.webp", "hero.webp", "phone.webp", "og.jpg"]) {
+    const old = join(outDir, `${t.template}-${legacy}`)
+    if (existsSync(old)) rmSync(old)
+  }
+  const stem = seo.themeImageStem(t.slug)
+  const out = (name) => join(root, "public", seo.themeImagePathOf(t.slug, name.replace(/\.(webp|jpg)$/, ""), stem))
+  written[t.slug] = stem
 
   /* The card: the top of the page at 4:5. */
   const cardH = Math.round((W * seo.CARD_RATIO.h) / seo.CARD_RATIO.w)
@@ -129,5 +148,10 @@ for (const t of CODE_TEMPLATES) {
 }
 await browser.close()
 rmSync(tmp, { recursive: true, force: true })
+/* Read again just before writing: another run may have written its templates meanwhile. */
+const before = existsSync(stemsFile) ? JSON.parse(readFileSync(stemsFile, "utf8")) : {}
+const merged = { ...before, ...written }
+const known = new Set(CODE_TEMPLATES.map((t) => t.slug))
+writeFileSync(stemsFile, `${JSON.stringify(Object.fromEntries(Object.entries(merged).filter(([k]) => known.has(k)).sort(([a], [b]) => a.localeCompare(b))), null, 2)}\n`)
 console.log(report.join("\n"))
-writeFileSync(join(outDir, "README.txt"), "Cut from ../<template>.webp by scripts/build-theme-seo-images.mjs. Run it again after the covers change.\n")
+writeFileSync(join(outDir, "README.txt"), "Cut from ../<template>.webp by scripts/build-theme-seo-images.mjs into a folder per template address, each file named for what the template is. Run it again after the covers change.\n")
