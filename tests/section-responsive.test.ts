@@ -2119,7 +2119,8 @@ check(
 
 check(
   "publishing takes a backup, and a backup that fails cannot fail the publish",
-  /await takeBackup\(admin, installId, \{ label: "Published", source: "publish" \}\)/.test(publishRoute) &&
+  /* Changed on purpose (r66): handed the publish's one read and the release's blobs as a fourth argument. */
+  /await takeBackup\(admin, installId, \{ label: "Published", source: "publish" \}/.test(publishRoute) &&
     /try \{\s*await takeBackup\(admin/.test(publishRoute),
 )
 

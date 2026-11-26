@@ -7,13 +7,15 @@ import { goneAddresses } from "@/lib/website-builder/site-changes"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { BODY_LIMITS, readEditorBody } from "@/lib/website-builder/request-body"
-import { takeBackup } from "@/lib/website-builder/backups"
+import { snapshotOf, takeBackup } from "@/lib/website-builder/backups"
 import { promoteFileDrafts, recordVersion } from "@/lib/website-builder/theme-file-drafts"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
 import { translationsChanged } from "@/lib/markets/translate-queue"
 import { pruneReleases, recordRelease, releasePointed } from "@/lib/website-builder/site-releases-server"
 import { mirrorWholeTheme } from "@/lib/github-sync/mirror"
 import { warmAfterPublish } from "@/lib/website-builder/warm-sites"
+import { refreshAfter } from "@/lib/edge/snapshot-capture"
+import { BACKUP_WAITS_FOR_RELEASE_MS, publishFollowUp, WARM_WAITS_FOR_RELEASE_MS } from "@/lib/website-builder/after-publish"
 import { seenCountry } from "@/lib/markets/visitor-country"
 import { readOwnSectionFields, sanitizeSections, sanitizeThemeSettings } from "@/lib/website-builder/sanitize-sections"
 import { ensureStoreMenus } from "@/lib/website-builder/store-menus-server"
@@ -292,30 +294,49 @@ async function handlePost(req: Request, { params }: Params, holder: JobHolder): 
     }
 
     /*
-      THE RECORD OF IT, AFTER THE ANSWER. The site is live by now: the
-      publish history row, the backup to go back to and each section file's
-      version are housekeeping, and none of them may make the person wait or
-      fail the publish. They run once the answer has gone (`after`), with
-      the same failures logged and nothing else.
+      ======================================================================
+       AFTER THE ANSWER, IN ORDER, FROM ONE READ (round 66)
+      ======================================================================
+      The site is live by now. Everything below is housekeeping that runs
+      once the answer has gone (`after`), and none of it may make the person
+      wait or fail the publish. It used to start all at once: the release,
+      the backup, the warm and the sitemap each read the whole theme from
+      the database at the same moment (174 MB on a Materia template's first
+      publish, lib/website-builder/after-publish.ts). Now one read of the
+      rows is shared (`follow`), the release goes first, and the warm and
+      the backup start when the website is pointed at it, each waiting a
+      stated time at most.
     */
     const creatorId = creator.id
+    const follow = publishFollowUp(admin, installId)
+
+    /*
+      THE RECORD OF IT: each section file's version, the publish history row
+      and the backup to go back to (RUN_THEME_BACKUPS.sql), from the same
+      read, once the release is done. Light: the files Storelib already
+      holds (the release just made sure it holds every live one) are kept
+      by name (lib/website-builder/backups.ts lightSnapshot).
+    */
     after(async () => {
       for (const file of movedFiles) await recordVersion(admin, installId, file.path, file.content, "publish").catch(() => false)
-      const { data: settings } = await admin
-        .from("store_theme_settings")
-        .select("settings")
-        .eq("install_id", installId)
-        .maybeSingle()
+      const release = await follow.waitForRelease(BACKUP_WAITS_FOR_RELEASE_MS)
+      const rows = await follow.rowsOrNull()
+      const liveSettings = rows
+        ? rows.settings?.settings
+        : (await admin.from("store_theme_settings").select("settings").eq("install_id", installId).maybeSingle()).data?.settings
       const { error: historyErr } = await admin.from("theme_publish_history").insert({
         install_id: installId,
         creator_id: creatorId,
         action: "published",
-        snapshot: settings?.settings ?? {},
+        snapshot: liveSettings ?? {},
       })
       if (historyErr) console.error("[publish] the publish history row was not written:", historyErr.message)
-      /* A publish is a moment worth being able to go back to (RUN_THEME_BACKUPS.sql). */
+      /* A publish is a moment worth being able to go back to. */
       try {
-        await takeBackup(admin, installId, { label: "Published", source: "publish" })
+        await takeBackup(admin, installId, { label: "Published", source: "publish" }, {
+          snapshot: rows?.files ? snapshotOf(rows.settings, rows.pages, rows.files) : undefined,
+          knownBlobs: release.blobs,
+        })
       } catch {
         /* logged nowhere on purpose: nothing sensitive, nothing actionable */
       }
@@ -326,43 +347,56 @@ async function handlePost(req: Request, { params }: Params, holder: JobHolder): 
      * cache until this says otherwise, so a publish that does not reach
      * here is a publish that changed the database and not the website.
      * Last, so it can only ever throw away a cache of something already
-     * written.
+     * written. The site's stored copies it asks for again wait for the
+     * release below (round 66, lib/edge/snapshot-capture.ts refreshAfter).
      */
+    refreshAfter(creatorId, follow.waitForRelease(WARM_WAITS_FOR_RELEASE_MS))
     await revalidatePublishedSite(creator.id)
 
     /*
-      ITS PAGES DRAWN AT ONCE, BEFORE A VISITOR ASKS (round AM,
-      lib/website-builder/warm-sites.ts warmAfterPublish): for the country of
-      the person who pressed Publish first, who is the one about to open it,
-      then as the warm's own connection is seen. It used to wait for the
-      release below, a few seconds of reading and writing every theme file,
-      while the visitors arriving drew the pages themselves. The pages are
-      the same either way: the release is written from these very rows, and
-      the page's marker names the rows' count, not which of the two it was
-      drawn from (lib/website-builder/live-release.ts).
-    */
-    const publisherCountry = seenCountry(req.headers)
-    after(() => warmAfterPublish(creatorId, { countries: [publisherCountry] }))
-
-    /*
-      AND KEPT AS A RELEASE, after the answer (lib/website-builder/
-      site-releases-server.ts, SQL part 180): the live rows as they are now,
-      written once and never changed, and the website pointed at it. Best
-      effort: the publish has already happened, and until the pointer is set
-      (or when this fails, or part 180 has not run) the website is drawn from
-      its rows exactly as before. The pointer is held for a minute
-      (POINTER_HOLD_S), so the website moves onto the release within one,
-      drawing the same thing either way. Then the newest twenty are kept.
+      KEPT AS A RELEASE, FIRST (lib/website-builder/site-releases-server.ts,
+      SQL part 180): the live rows as they are now, written once and never
+      changed, and the website pointed at it. Best effort: the publish has
+      already happened, and until the pointer is set (or when this fails, or
+      part 180 has not run) the website is drawn from its rows exactly as
+      before. The pointer is held for a minute (POINTER_HOLD_S), so the
+      website moves onto the release within one, drawing the same thing
+      either way. Then the newest twenty are kept. Its rows are the
+      follow-up's one read (`read`), asked after the release's own count.
     */
     after(async () => {
-      const kept = await recordRelease(admin, { installId, creatorId })
-      if (kept.ok === false) {
-        if (kept.reason === "failed") console.error("[publish] the release was not written:", kept.detail)
-      } else {
-        await pruneReleases(admin, installId)
-        /* Pointed at: every server draws from it now, not from the rows (lib/website-builder/site-releases-server.ts releasePointed). */
-        if ((kept as { live?: boolean }).live) releasePointed(creatorId)
+      let seen: { pointed: boolean; blobs: string[] } | null = null
+      try {
+        const kept = await recordRelease(admin, { installId, creatorId }, follow.liveRows)
+        if (kept.ok === false) {
+          if (kept.reason === "failed") console.error("[publish] the release was not written:", kept.detail)
+        } else {
+          await pruneReleases(admin, installId)
+          /* Pointed at: every server draws from it now, not from the rows (lib/website-builder/site-releases-server.ts releasePointed). */
+          if ((kept as { live?: boolean }).live) releasePointed(creatorId)
+          seen = { pointed: !!(kept as { live?: boolean }).live, blobs: (kept as { blobs?: string[] }).blobs ?? [] }
+        }
+      } finally {
+        follow.releaseDone(seen)
       }
+    })
+
+    /*
+      ITS PAGES DRAWN BEFORE A VISITOR ASKS (round AM, lib/website-builder/
+      warm-sites.ts warmAfterPublish): for the country of the person who
+      pressed Publish first, who is the one about to open it, then as the
+      warm's own connection is seen. Changed on purpose (r66): once the
+      website is pointed at its release, for WARM_WAITS_FOR_RELEASE_MS at
+      most. Drawn before it, every page read the whole theme from its rows
+      on every server it reached, beside the release reading it too; drawn
+      after, they read the release's files, which every server keeps by
+      what they hold, so a publish that changed one file reads one group.
+      The pages are the same either way (lib/website-builder/live-release.ts).
+    */
+    const publisherCountry = seenCountry(req.headers)
+    after(async () => {
+      await follow.waitForRelease(WARM_WAITS_FOR_RELEASE_MS)
+      await warmAfterPublish(creatorId, { countries: [publisherCountry] })
     })
 
     /* After the answer: every page of the site, to the search engines that

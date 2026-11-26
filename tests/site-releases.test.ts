@@ -308,10 +308,11 @@ async function main() {
     check("the pointer is the one read under the site's tag, for a minute", /\["site-live-release", creatorId\], \{ tags: \[\.\.\.tags, releasePointerTag\(creatorId\)\], revalidate: POINTER_HOLD_S \}/.test(server) && /POINTER_HOLD_S = PUBLISHED_HOLD_S\b/.test(server)) /* Changed on purpose (r54): an hour, Publish expires it at once. */
     check("  a manifest and a group of blobs are held for good, by id and by sha256", /* Changed on purpose (round AP): kept gzipped under v2 names. */ /\["site-release", "v2", releaseId\], \{ revalidate: false \}/.test(server) && /\["theme-blobs", "v2", g\.key\], \{ revalidate: false \}/.test(server))
     const route = read("app/api/website-builder/themes/[installId]/publish/route.ts")
-    const at = route.indexOf("await recordRelease(admin, { installId, creatorId })")
+    /* Changed on purpose (r66): handed the publish's one read as a third argument (lib/website-builder/after-publish.ts). */
+    const at = route.indexOf("await recordRelease(admin, { installId, creatorId }")
     check("Publish writes the release after the answer, after the live site is purged", at > route.indexOf("await revalidatePublishedSite(creator.id)") && route.lastIndexOf("after(async () => {", at) > route.indexOf("await revalidatePublishedSite(creator.id)"))
     check("  a release that was not written never fails the Publish", !route.slice(at - 200, at + 400).includes("return NextResponse") && route.slice(at, at + 400).includes("await pruneReleases(admin, installId)"))
-    check("  Undo, restore, history and backups are as they were", route.includes('action: "published",') && route.includes('await takeBackup(admin, installId, { label: "Published", source: "publish" })'))
+    check("  Undo, restore, history and backups are as they were", route.includes('action: "published",') && /* Changed on purpose (r66): the backup is handed the publish's one read as a fourth argument. */ route.includes('await takeBackup(admin, installId, { label: "Published", source: "publish" }'))
   }
 
   console.log("\nWhich imported theme pages the CDN may hold")

@@ -300,6 +300,22 @@ export function keepPageFresh(scope: string, host: string | null | undefined, pa
 
 const siteRuns = new Map<string, { again: boolean }>()
 
+/*
+  A PUBLISH'S RELEASE FIRST (round 66, lib/website-builder/after-publish.ts).
+  Publish clears the site's caches and asks for this refresh before its
+  release is written; drawn then, every page read the whole theme from its
+  rows, beside the release reading it too. A publish names what to wait for
+  (its release, for a stated time at most) and the refresh starts after it.
+*/
+const refreshGates = new Map<string, Promise<unknown>>()
+export function refreshAfter(creatorId: string, gate: Promise<unknown>): void {
+  if (!creatorId) return
+  refreshGates.set(creatorId, gate)
+  void gate.catch(() => undefined).then(() => {
+    if (refreshGates.get(creatorId) === gate) refreshGates.delete(creatorId)
+  })
+}
+
 /**
  * refreshSiteSnapshot after the answer, coalesced: a publish revalidates
  * the site from several writers in a row (sections, settings, menus), and
@@ -317,6 +333,7 @@ export function refreshSiteSoon(creatorId: string): void {
   siteRuns.set(creatorId, state)
   later(async () => {
     try {
+      await refreshGates.get(creatorId)?.catch(() => undefined)
       do {
         state.again = false
         await refreshSiteSnapshot(creatorId)
