@@ -46,7 +46,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${label}${!ok && detail !== undefined ? `\n        ${JSON.stringify(detail).slice(0, 500)}` : ""}`)
 }
 
-const FRAMES = `window.__f=[];(function(){var last=performance.now();var tick=function(t){window.__f.push(t-last);last=t;if(window.__f.length<40)requestAnimationFrame(tick)};requestAnimationFrame(tick)})();window.__lt=[];try{new PerformanceObserver(function(l){l.getEntries().forEach(function(e){window.__lt.push(Math.round(e.duration))})}).observe({type:"longtask"})}catch(e){}`
+const FRAMES = `window.__f=[];window.__ft=[];window.__t0=performance.now();(function(){var last=performance.now();var tick=function(t){window.__f.push(t-last);window.__ft.push(t);last=t;if(window.__f.length<40)requestAnimationFrame(tick)};requestAnimationFrame(tick)})();window.__lt=[];try{new PerformanceObserver(function(l){l.getEntries().forEach(function(e){window.__lt.push(Math.round(e.duration))})}).observe({type:"longtask"})}catch(e){}`
 
 async function site(template: string) {
   const imported = await importTemplate(`materia/${template}`)
@@ -113,6 +113,8 @@ function motion(f: number[]) {
   for (const d of frames.slice(1)) { at += d; if (at > 320) break; moving.push(d) }
   return { first, moving: moving.length ? Math.max(...moving) : 0 }
 }
+/** The click to the first frame that shows the panel moving: two frames at most (Chromium here, a desktop CPU; LATE_MS to change). */
+const LATE_MS = Number(process.env.LATE_MS ?? 40)
 const PANEL = /minicart__wrapper|search-overlay|facets-panel|navigation|nav\.|overlay::after|overlay_search|overlayminicart|::backdrop/
 async function drawers(browser: Browser) {
   console.log("\nDRAWERS")
@@ -142,6 +144,14 @@ async function drawers(browser: Browser) {
           await page.evaluate((e, f) => { new Function(f)(); (e as HTMLElement).click() }, el, FRAMES)
           await sleep(60)
           const opening = (await read()).filter((a) => PANEL.test(a.el) && /transform|translate|opacity/.test(a.prop))
+          /* First movement: the click to the first frame after the panel's transition started (its start time is that of the frame that made it, which may still be busy restyling). */
+          const late = await page.evaluate((sel) => {
+            const w = window as unknown as { __ft: number[]; __t0: number }
+            const starts = document.getAnimations().filter((a) => a.constructor.name === "CSSTransition" && a.startTime !== null).map((a) => Number(a.startTime))
+            const s0 = starts.length ? Math.min(...starts) : NaN
+            const next = w.__ft.find((t) => t > s0 + 1)
+            return Math.round((next ?? NaN) - w.__t0)
+          }, sel)
           await sleep(800)
           const of = motion(await page.evaluate(() => (window as unknown as { __f: number[] }).__f.map(Math.round)))
           await page.evaluate((f) => { new Function(f)(); document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); (document.activeElement as HTMLElement | null)?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })) }, FRAMES)
@@ -150,7 +160,7 @@ async function drawers(browser: Browser) {
           await sleep(700)
           const cf = motion(await page.evaluate(() => (window as unknown as { __f: number[] }).__f.map(Math.round)))
           const inRange = (l: typeof opening) => l.length > 0 && l.every((a) => a.dur >= 180 && a.dur <= 320)
-          check(`${t.template} ${name}: opens in ${[...new Set(opening.map((a) => a.dur))].join("/")}ms (first frame ${of.first}ms, longest while it moves ${of.moving}ms)`, inRange(opening) && of.moving <= 70, { opening, of })
+          check(`${t.template} ${name}: opens in ${[...new Set(opening.map((a) => a.dur))].join("/")}ms, moving ${late}ms after the click (longest frame while it moves ${of.moving}ms)`, inRange(opening) && of.moving <= 70 && late <= LATE_MS, { opening, of, late })
           check(`${t.template} ${name}: closes in ${[...new Set(closing.map((a) => a.dur))].join("/")}ms, nothing inside starts late (first frame ${cf.first}ms, longest while it moves ${cf.moving}ms)`, inRange(closing) && closing.every((a) => a.delay === 0) && cf.moving <= 70, { closing, cf })
           if (of.first > 120 || cf.first > 120) console.log(`        note: a ${Math.max(of.first, cf.first)}ms first frame (the page restyled for its scroll lock) before it starts to move`)
         } finally { await page.close() }

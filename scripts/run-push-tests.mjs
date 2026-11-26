@@ -1707,6 +1707,8 @@ const SUITES = [
   "tests/explore-resilience-au.test.ts",
   /* Buyer journey audit: a membership or a community's tier on an imported theme's product form goes to joining it (a plain post and Buy it now by redirect, a theme's fetch by X-Storelib-Go, followed only to a path of the site and never in the builder), never into a cart the website's checkout then refused; a course still goes in the cart, and a course already bought says so on its page with Open course to its player on Storelib. */
   "tests/journey-theme-plans.test.ts",
+  /* Round 28, layout on every template: one picture fills a two column gallery and a sticky column starts level with the details; the price at least half the title and the rating 14px; product rows keep the page padding and the theme's card gap; the sticky add to cart bar keeps its side padding; bordered FAQ items have room inside; a picture fills its ratio frame (blog cards); emoji flags fill their circle; dropdowns and the phone menu close as one piece in 220 and 300ms. Measured by scripts/check-theme-layout-r28.mjs. */
+  "tests/theme-layout-r28.test.ts",
 ]
 
 /**
