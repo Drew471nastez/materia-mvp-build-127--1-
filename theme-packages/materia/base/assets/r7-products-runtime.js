@@ -131,22 +131,23 @@
   function load(root, st) {
     const track = trackOf(root); if (!track) return;
     const current = root.dataset.rvCurrent || '', limit = Math.max(1, num(root.dataset.rvLimit, 8));
-    const ids = readIds().filter(id => id !== current).slice(0, limit), key = ids.join(',');
+    /* Every id the visitor has (at most MAX), not only the first `limit`: a product since taken down or never this shop's is not answered, and the next one viewed takes its place. */
+    const ids = readIds().filter(id => id !== current), key = ids.join(',') + '|' + limit;
     if (st.listKey === key) return;
     st.listKey = key;
     if (!ids.length) { hide(root, st); return; }
     /* Hold the row's place while the cards are on their way. */
     if (!track.querySelector('[data-rv-card]')) {
-      const ghosts = ids.map(() => { const li = document.createElement('li'); li.className = 'r7rv__item r7rv__ghost'; li.setAttribute('aria-hidden', 'true'); return li; });
+      const ghosts = ids.slice(0, limit).map(() => { const li = document.createElement('li'); li.className = 'r7rv__item r7rv__ghost'; li.setAttribute('aria-hidden', 'true'); return li; });
       track.replaceChildren(...ghosts);
     }
     track.setAttribute('aria-busy', 'true');
-    setCount(root, st, ids.length);
+    setCount(root, st, Math.min(limit, ids.length));
     root.hidden = false;
     cards(root.dataset.rvUrl || '/search', ids).then(({found, sid}) => {
       if (st.listKey !== key || !root.isConnected) return;
       const mine = root.dataset.r7kSection || '', list = [];
-      for (const id of ids) if (found.has(id)) list.push(adopt(found.get(id), sid, mine));
+      for (const id of ids) if (found.has(id) && list.length < limit) list.push(adopt(found.get(id), sid, mine));
       if (!list.length) { hide(root, st); return; }
       track.replaceChildren(...list);
       track.removeAttribute('aria-busy');
@@ -204,7 +205,8 @@
   if (desktop.addEventListener) desktop.addEventListener('change', onWidth); else if (desktop.addListener) desktop.addListener(onWidth);
   /* The list changed in another tab, or the page came back from the back/forward cache. */
   window.addEventListener('storage', e => { if (e.key === KEY || e.key === null) reload(); });
-  window.addEventListener('pageshow', e => { if (e.persisted) reload(); });
+  /* Back to a product page from the back/forward cache: it is the newest viewed again. */
+  window.addEventListener('pageshow', e => { if (!e.persisted) return; for (const [root] of roots) if (waiting(root)) record(root.dataset.rvCurrent); reload(); });
   for (const name of ['DOMContentLoaded', 'shopify:section:load']) document.addEventListener(name, scan);
   const watched = n => n.nodeType === 1 && (n.matches(SEL) || n.querySelector(SEL));
   new MutationObserver(records => {

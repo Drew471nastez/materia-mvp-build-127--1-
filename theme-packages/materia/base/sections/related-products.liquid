@@ -300,6 +300,16 @@
           {%- endif -%}
         {%- endif -%}
       </div>
+    {%- elsif recommendations.prerendered and recommendations.performed != true and request.design_mode != true -%}
+      {%- comment -%}
+        Storelib drew the shop's whole answer with the page and it is empty:
+        the store has no other product to suggest. Collapse the section, as
+        the custom list does, so no heading stands over grey cards and
+        nothing is fetched.
+      {%- endcomment -%}
+      <style>
+        #shopify-section-{{ section.id }} { display: none; }
+      </style>
     {%- else -%}
       <product-recommendations
         data-section-id="{{ section.id }}"
