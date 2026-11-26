@@ -1,5 +1,3 @@
-import { readFile } from "node:fs/promises"
-import { join } from "node:path"
 import { NextResponse, type NextRequest } from "next/server"
 
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -31,14 +29,11 @@ export async function GET(req: NextRequest) {
   const origin = req.nextUrl.origin
   /* Loaded here, not at the top: on Vercel every admin route is one function (scripts/fold-api-routes.mjs), and the others never need it. */
   const { default: sharp } = await import("sharp")
-  /* The deployment's own public files when the function has them (a developer's machine), the same site over HTTP when it does not (Vercel serves public/ from its CDN). */
+  /* Always over HTTP from the same site (Vercel serves public/ from its CDN). Never read from the disk: a file read under public/ makes the build trace the whole folder into the admin function (487 MB, over Vercel's 250 MB). */
   const load = async (e: CoverExportEntry): Promise<Uint8Array> => {
-    let bytes: Buffer | null = await readFile(join(process.cwd(), "public", e.source)).catch(() => null)
-    if (!bytes) {
-      const res = await fetch(new URL(e.source, origin), { cache: "no-store" })
-      if (!res.ok) throw new Error(`${e.source}: ${res.status}`)
-      bytes = Buffer.from(await res.arrayBuffer())
-    }
+    const res = await fetch(new URL(e.source, origin), { cache: "no-store" })
+    if (!res.ok) throw new Error(`${e.source}: ${res.status}`)
+    const bytes = Buffer.from(await res.arrayBuffer())
     return new Uint8Array(await sharp(bytes).png({ compressionLevel: 6 }).toBuffer())
   }
 

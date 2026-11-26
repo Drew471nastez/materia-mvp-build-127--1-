@@ -79,7 +79,9 @@ async function main() {
   console.log("\nAdmin only, nothing public\n")
   const route = read("app/api/admin/themes/covers/route.ts")
   const gate = route.indexOf("await requireAdmin()")
-  check("the route asks for the admin cookie first, before it reads anything", gate > 0 && gate < route.indexOf("coverExportEntries()") && gate < route.indexOf("createAdminClient()") && gate < route.indexOf("readFile(") && /if \(denied\) return denied/.test(route))
+  check("the route asks for the admin cookie first, before it reads anything", gate > 0 && gate < route.indexOf("coverExportEntries()") && gate < route.indexOf("createAdminClient()") && gate < route.indexOf("fetch(") && /if \(denied\) return denied/.test(route))
+  /* Round 30 integration: a file read under public/ traced the whole folder into the admin function (487 MB, over Vercel's 250 MB); the pictures come over HTTP only. */
+  check("the route never reads the disk (the build would bundle all of public/ into the admin function)", !/node:fs|readFile|process\.cwd\(\)/.test(route))
   check("  the only handler is GET, and it says no-store and noindex", /export async function GET\(/.test(route) && !/export async function (POST|PUT|DELETE|PATCH)/.test(route) && /"Cache-Control": "private, no-store"/.test(route) && /"X-Robots-Tag": "noindex, nofollow"/.test(route))
   check("  streamed as it is made, nothing stored or uploaded", /new NextResponse\(zipStream\(entries, load\)/.test(route) && !/storage|upload|createSignedUrl|writeFile/.test(route))
   check("  a download, named, of a zip", /"Content-Type": "application\/zip"/.test(route) && /attachment; filename=/.test(route))
