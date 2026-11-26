@@ -13830,7 +13830,7 @@ const words: Record<string, string> = {
  "Yes. Every template works on the free plan, on a computer and on a phone.": "Oui. Chaque modèle marche avec l'offre gratuite, sur ordinateur et sur téléphone.",
  "Can I change it once it is mine?": "Je peux le modifier une fois qu'il est à moi ?",
  "Yes. It is your own copy, so rename, move or delete anything in it.": "Oui. C'est votre copie, vous pouvez tout renommer, déplacer ou supprimer.",
- "{name} comes with blocks for selling Notion templates: your templates, a free template for an email, links and questions. Add them under your blocks?": "{name} est livré avec des blocs pour vendre des modèles Notion : vos modèles, un modèle gratuit contre un e-mail, des liens et des questions. Les ajouter sous vos blocs ?",
+ "{name} comes with blocks for selling Notion templates. Add them under yours?": "{name} est livré avec des blocs pour vendre des modèles Notion. Les ajouter sous les vôtres ?",
  "Add blocks": "Ajouter les blocs"
 }
 

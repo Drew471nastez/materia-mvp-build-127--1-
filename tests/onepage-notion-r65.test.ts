@@ -133,7 +133,7 @@ const onboarding = read("components/onepage/onboarding-modal.tsx")
 check("the onboarding: picking it as the template makes the page, and no goal blocks go under it", /blocksAfterPick\(onepage\?\.draft_blocks, starter, true\)/.test(onboarding) && /if \(!starter\) await createBlocksForGoal/.test(onboarding))
 
 console.log("\nIn six languages")
-const keys = ["theme::Northpaper", "Free Notion template", "A weekly planner for Notion. Leave your email and the link comes to you.", "Send it", "Sent. The link is in your inbox.", "My Notion Marketplace profile", "Video walkthroughs", "How do I get the template?", "Does it work on Notion's free plan?", "Can I change it once it is mine?", "Add blocks", "{name} comes with blocks for selling Notion templates: your templates, a free template for an email, links and questions. Add them under your blocks?"]
+const keys = ["theme::Northpaper", "Free Notion template", "A weekly planner for Notion. Leave your email and the link comes to you.", "Send it", "Sent. The link is in your inbox.", "My Notion Marketplace profile", "Video walkthroughs", "How do I get the template?", "Does it work on Notion's free plan?", "Can I change it once it is mine?", "Add blocks", "{name} comes with blocks for selling Notion templates. Add them under yours?"]
 const missing: string[] = []
 for (const l of ["es", "fr", "de", "pt-BR", "it", "pl"]) {
   /* The catalog's lines are `"key": "words",` (JSON strings), read as they are written. */

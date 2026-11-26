@@ -218,9 +218,9 @@ try {
       if (blocks === null) {
         check(`${w}: the offer shows under Clean once Northpaper is picked`, shown === 1)
         if (shown) {
-          await offer.scrollIntoViewIfNeeded()
-          const box = await offer.boundingBox()
-          await page.screenshot({ path: join(SHOTS, `northpaper-editor-offer-${w}.png`), clip: { x: 0, y: Math.max(0, box.y - 360), width: w, height: Math.min(900, box.height + 420) } })
+          await offer.evaluate((el) => el.scrollIntoView({ block: "center" }))
+          await page.waitForTimeout(300)
+          await page.screenshot({ path: join(SHOTS, `northpaper-editor-offer-${w}.png`) })
           const btns = await offer.locator("button").evaluateAll((bs) => bs.map((b) => Math.round(b.getBoundingClientRect().height)))
           check(`${w}: its two buttons are 44px tall or more`, btns.length === 2 && btns.every((h) => h >= 44), btns)
           await offer.getByRole("button", { name: "Add blocks" }).click()

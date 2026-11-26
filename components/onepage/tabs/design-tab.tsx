@@ -2531,7 +2531,7 @@ const HIDDEN_GRID: React.CSSProperties = { position: "absolute", top: 0, left: 0
 function ThemeBlocksOffer({ name, onAdd, onSkip }: { name: string; onAdd: () => void; onSkip: () => void }) {
   return (
     <div data-theme-blocks-offer="" role="status" className="col-span-full flex flex-col gap-3 rounded-2xl border border-[#e5e7eb] bg-white p-4 sm:flex-row sm:items-center">
-      <p className="flex-1 text-[13px] leading-5 text-[#4b5563]">{tt("{name} comes with blocks for selling Notion templates: your templates, a free template for an email, links and questions. Add them under your blocks?", { name })}</p>
+      <p className="flex-1 text-[13px] leading-5 text-[#4b5563]">{tt("{name} comes with blocks for selling Notion templates. Add them under yours?", { name })}</p>
       <div className="flex shrink-0 gap-2">
         <button type="button" onClick={onSkip} className="h-11 rounded-xl px-4 text-[13px] font-medium text-[#4b5563] hover:bg-[#f3f4f6]">{tt("Not now")}</button>
         <button type="button" onClick={onAdd} className="h-11 rounded-xl bg-[#1a1a2e] px-4 text-[13px] font-semibold text-white hover:bg-[#2a2a40]">{tt("Add blocks")}</button>
